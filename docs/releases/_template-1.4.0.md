@@ -8,9 +8,9 @@ Items that land later are listed in comments under their section ("add when …"
 -->
 # OXESpace 1.4.0
 
-A workspace that feels like one product: Portuguese and English throughout, agents whose state you can read at a
-glance, approvals that never wait forever, nothing lost when you close, and two new modes, OxePod for containers and
-OxePost for APIs. Installs of 1.3.x on Windows update automatically; on Linux, install the new package (the AppImage
+A workspace that feels like one product: Portuguese and English throughout, approvals that never wait forever,
+nothing lost when you close, your agents on your phone, and two new modes, OxePod for containers and OxePost for
+APIs. Installs of 1.3.x on Windows update automatically; on Linux, install the new package (the AppImage
 updates itself).
 
 ## Approving what agents ask for
@@ -19,7 +19,8 @@ updates itself).
 - **Requests never wait forever.** A request from an agent or from the app that nobody answers is denied when it
   expires, and a critical one can't be allowed in its first seconds.
 - **Commands that rewrite Git or touch protected files always ask.** `checkout`, `reset`, `clean`, `rebase` and the
-  like, and any command that mentions OXESpace's protected files, are never approved by a saved rule.
+  like, any command that mentions OXESpace's protected files, and any command that changes Git's configuration
+  (yours, the system's or the repository's) are never approved by a saved rule.
 - **Rules you can trust.** An allow rule approves only when it covers every command of a line; read-only commands
   inside the project can be approved automatically (**Permissions** in a conversation). A denied MCP tool is removed
   from the agent's tools at its next session.
@@ -65,7 +66,10 @@ decision history." -->
   it across restarts.
 - **Usage per turn**: context and steps in the usage panel; a running step says when it is slower than usual.
 - **OxeCode and OxeChat**: the two agent modes have one family of names, and conversations are called conversations.
-<!-- add when F15b/F15c (#287/#290), F14 (#227), F30 screen merge. -->
+- **Conversation details**, from the conversation's header: its environment (project, worktree, branch, agent,
+  model), context in detail with **Compact**, the MCP servers and tools it used, the files it changed, and its
+  background work. Reorder the sections by dragging or from each section's menu.
+<!-- add when F15b/F15c (#287/#290) merge. -->
 
 ## Your phone
 
@@ -79,8 +83,9 @@ decision history." -->
 <!-- add at the cut: where to get the Android app (M8). -->
 - **Notifications when an agent needs you, finishes or fails**, with the phone in your pocket; it reconnects on its
   own when the Wi-Fi comes back.
-<!-- add when M9 (#236) merges: "Requests and terminals are kept out of Recents and screenshots; the app follows its
-own language." -->
+- **What's secret stays on the screen.** Requests, terminals and the pairing code are kept out of Recents,
+  screenshots and screen recordings. On Android 13 and later, the app can have its own language
+  (Android Settings › Apps › OXESpace › Language).
 <!-- add when M10/M11 (#384/#386) merge: "The phone's conversation in the Mandacaru design: a turn bar with its time,
 grouped steps with inline diffs, a visible queue, the pending request docked above the message box, and a key row
 with Esc, Tab, Ctrl+C and arrows for the terminal." -->
@@ -95,10 +100,10 @@ with Esc, Tab, Ctrl+C and arrows for the terminal." -->
   full text kept in a file.
 - **A group that is off stays off.** OXESpace refuses its tools on every call, even if an agent edits its own MCP
   configuration, and records it in **Settings › Diagnostics**.
-<!-- add when F10 (#210) merges: "Settings › Tools shows each group, its mode and its token cost." -->
-- **Fewer tokens at the start of a Code agent.** An agent OXESpace starts in a terminal begins with about 9,000
-  characters of tool definitions instead of 64,600, and is told when OXESpace's code search beats grep.
-  <!-- pending #336: keep this bullet only if #336 merges; the measured numbers are 64,574 → 8,965 chars. -->
+- **Settings › Tools** shows each group, its mode in this project and its token cost, and changes the mode.
+<!-- add when #336 merges: "**Fewer tokens at the start of a Code agent.** An agent OXESpace starts in a terminal
+begins with about 9,000 characters of tool definitions instead of 64,600, and is told when OXESpace's code search
+beats grep." Measured numbers: 64,574 → 8,965 chars. -->
 - **Code search you can turn on per project**: semantic search per OxeChat project, with one switch.
 
 ## OxePod and OxePost
@@ -122,8 +127,11 @@ with Esc, Tab, Ctrl+C and arrows for the terminal." -->
 - **A new look**: the Mandacaru design (lighter shell, settings inside the window, one set of states for empty,
   loading, error and offline), and the new brand from the boot splash to the icons.
 - **Updates your way**: automatic, notify me, or off; stay on a version; or opt in to beta versions.
-- **Help › Report a problem** builds a redacted report to review; diagnostics measure only while open.
-- **Faster and lighter**: a smaller first load, startup marks, and about a quarter less memory in a long conversation.
+- **Report a problem…** (the menu button beside the logo › **Help**, or the command palette) builds a redacted
+  report for you to review; diagnostics measure only while open.
+- **A lighter start**: what the first screen doesn't need now loads only when you open it.
+<!-- no memory claim: no measurement on main backs "a quarter less memory in a long conversation"; add one only with
+its run or test. -->
 
 ## What moved or was removed
 
@@ -132,7 +140,7 @@ with Esc, Tab, Ctrl+C and arrows for the terminal." -->
 <!-- add when F34/F35 merge: "OXEVoice was removed. OXESpace no longer records speech; your operating system's
 dictation still types into any field, and the downloaded voice model is deleted on the first start." and "Team moved
 off the title bar: Tools › Project team…, the command palette or Ctrl+Shift+T." -->
-<!-- add when #387/#388 merge: "**Git actions started from OXESpace skip the repository's hooks.** Push, switching
+<!-- add when #387 merges: "**Git actions started from OXESpace skip the repository's hooks.** Push, switching
 branches and creating worktrees run without them; use the terminal when a flow depends on hooks. Agents can't reach
 the network through Git: when a task needs the latest remote branch, you fetch it in the Git panel or the terminal." -->
 - **Closing a pane ends what it started.** Jobs sent to the background with `nohup` or `disown`, and apps launched
@@ -148,7 +156,7 @@ the network through Git: when a task needs the latest remote branch, you fetch i
 - **The main window opens no link by itself**, and every inter-process call checks that it comes from the app's own
   window.
 - **The installed app carries less to read.** The main process's source maps are no longer packaged.
-<!-- add when #387/#388 merge: "**Git runs through one guard.** OXESpace won't run network Git in a repository whose
+<!-- add when #387 merges: "**Git runs through one guard.** OXESpace won't run network Git in a repository whose
 own settings change how Git connects or authenticates (`core.sshCommand`, `credential.helper` and the like); run those
 commands in the terminal. Your global Git settings never trigger this." -->
 - **The packaged app can't be borrowed as a plain Node.js runtime**, so other programs can't use it to run their own
