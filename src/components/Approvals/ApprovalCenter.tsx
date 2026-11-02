@@ -10,19 +10,17 @@ import { ApprovalDialog } from './ApprovalDialog'
 import { ApprovalHistory } from './ApprovalHistory'
 import { approvalT } from './approvalText'
 import { registerCommands } from '../../utils/commandRegistry'
+import { commandText } from '../../commands/commandText'
 import { i18n } from '../../i18n'
 
 // What was approved or denied in this session, and who asked. Registered with this chunk, which loads at idle right
 // after boot, so the boot bundle does not carry it; registered again when the language changes. Worded like the
 // palette's catalog (F17): "<Category>: <Action>" from `commands.category.help` and `commands.action.help.approvals`.
-// TODO(F17): use commandText('Help', 'help.approvals', …) once src/commands/commandText.ts is on main.
 const registerHistoryCommand = (): void => {
-  const category = approvalT('commands.category.help')
-  const action = approvalT('commands.action.help.approvals')
   registerCommands('approvals', [{
-    id: 'help.approvals', label: `${category}: ${action}`, icon: ShieldCheck, category: 'Help',
+    id: 'help.approvals', icon: ShieldCheck,
     // The former label, in the language on screen, still finds it.
-    keywords: [...approvalT('approvals.keywords').split(' '), approvalT('approvals.history.command')],
+    ...commandText('Help', 'help.approvals', { keywords: [...approvalT('approvals.keywords').split(' '), approvalT('approvals.history.command')] }),
     run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_APPROVAL_HISTORY_EVENT))) }
   }])
 }

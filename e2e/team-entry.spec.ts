@@ -7,13 +7,13 @@ import { join } from 'node:path'
 const VIEWS = ['OxeCode', 'OxeChat', 'OxeQuery', 'OxePod', 'OxePost'] as const
 const showView = (page: Page, name: typeof VIEWS[number]) => page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name, exact: true }).click()
 
-/** Opens Tools in the application menu and returns its "Project team…" item. */
+/** Opens Tools in the application menu and returns its "Open the project team…" item (F17 wording). */
 async function toolsTeamItem(page: Page) {
   await page.getByRole('button', { name: 'Application menu' }).click()
   const tools = page.locator('[role="menu"]').first().getByRole('menuitem', { name: 'Tools', exact: true })
   await tools.hover()
   await tools.press('ArrowRight').catch(() => undefined)
-  return page.getByRole('menuitem', { name: /^Project team…/ })
+  return page.getByRole('menuitem', { name: /^Open the project team…/ })
 }
 
 test('Team is off the title bar and opens from the palette, the Tools menu, Mod+Shift+T and the OxeChat project menu, saying why when it cannot (F35)', async () => {
@@ -55,7 +55,7 @@ test('Team is off the title bar and opens from the palette, the Tools menu, Mod+
     await page.keyboard.press('Escape')
     await expect(dialog).toBeHidden()
 
-    // Tools › Project team…
+    // Tools › Open the project team…
     await (await toolsTeamItem(page)).click()
     await expect(dialog).toBeVisible()
     await page.keyboard.press('Escape')

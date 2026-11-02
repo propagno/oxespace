@@ -41,10 +41,10 @@ describe('palette bridge', () => {
 
 describe('palette commands', () => {
   it('are labelled in the language on screen', async () => {
-    expect(oxeQueryCommands().find(command => command.id === 'oxequery.runAll')?.label).toBe('Run all statements')
+    expect(oxeQueryCommands().find(command => command.id === 'oxequery.runAll')?.label).toBe('OxeQuery: Run all statements')
     await changeLanguage('pt-BR')
     const commands = oxeQueryCommands()
-    expect(commands.find(command => command.id === 'oxequery.runAll')?.label).toBe('Executar todas as instruções')
+    expect(commands.find(command => command.id === 'oxequery.runAll')?.label).toBe('OxeQuery: Executar todas as instruções')
     expect(commands.find(command => command.id === 'oxequery.exportConnections')?.detail).toBe('Sem senhas')
   })
 })

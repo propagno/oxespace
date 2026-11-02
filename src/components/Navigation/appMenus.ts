@@ -2,6 +2,7 @@ import { i18n } from '../../i18n'
 import { toast } from '../../ui/Toast'
 import type { CommandPaletteAction } from '../../utils/commandRegistry'
 import { shortcutLabel, type AppView } from '../../keyboard/keybindings'
+import { tCommand } from '../../commands/commandText'
 
 export type AppMenuNode =
   /**
@@ -23,7 +24,6 @@ export interface AppMenuContext {
   openSettings(): void
   addThreadProject(): void
   openCommandMenu(): void
-  version: string
 }
 
 const sep = (id: string): AppMenuNode => ({ kind: 'separator', id })
@@ -44,37 +44,40 @@ const edit = (command: 'undo' | 'redo' | 'cut' | 'copy' | 'paste' | 'selectAll')
 export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
   const t = i18n.t.bind(i18n)
   const byId = new Map(ctx.actions.map(action => [action.id, action]))
-  const fromAction = (id: MenuActionId, label?: string, shortcut?: string): AppMenuNode | null => {
+  // An item says what its palette command says, from the same catalog key, without the category its menu already gives.
+  const menuLabel = (action: CommandPaletteAction): string => action.action ?? action.title
+  const fromAction = (id: MenuActionId, shortcut?: string): AppMenuNode | null => {
     const action = byId.get(id)
     if (!action) return null
-    return { kind: 'item', id, label: label ?? action.title, shortcut, disabled: action.disabled, onSelect: action.run }
+    return { kind: 'item', id, label: menuLabel(action), shortcut, disabled: action.disabled, onSelect: action.run }
   }
   /** An action whose palette description says why it can't run: reachable, with that reason (Team). */
-  const explained = (id: MenuActionId, label: string, shortcut?: string): AppMenuNode | null => {
+  const explained = (id: MenuActionId, shortcut?: string): AppMenuNode | null => {
     const action = byId.get(id)
     if (!action) return null
+    const label = menuLabel(action)
     if (!action.disabled || !action.subtitle) return { kind: 'item', id, label, shortcut, disabled: action.disabled, onSelect: action.run }
     const reason = action.subtitle
     return { kind: 'item', id, label, shortcut, unavailable: reason, onSelect: () => { toast({ title: label.replace(/…$/, ''), description: reason, intent: 'info' }) } }
   }
-  const group = (prefix: string, strip: RegExp): AppMenuNode[] => ctx.actions
+  const group = (prefix: string): AppMenuNode[] => ctx.actions
     .filter(action => action.id.startsWith(prefix))
-    .map(action => ({ kind: 'item', id: action.id, label: action.title.replace(strip, ''), disabled: action.disabled, onSelect: action.run }) as AppMenuNode)
+    .map(action => ({ kind: 'item', id: action.id, label: menuLabel(action), disabled: action.disabled, onSelect: action.run }) as AppMenuNode)
   const compact = (nodes: Array<AppMenuNode | null>): AppMenuNode[] => nodes.filter((node): node is AppMenuNode => node !== null)
-  const appearances = group('appearance-', /^Appearance:\s*/)
-  const densities = group('density-', /^Density:\s*/)
-  const layouts = group('layout-', /^Layout:\s*/)
+  const appearances = group('appearance-')
+  const densities = group('density-')
+  const layouts = group('layout-')
   const noWorkspace = !byId.get('workspace-settings') || byId.get('workspace-settings')!.disabled === true
 
   return [
     {
       id: 'file', label: t('menu.file'), items: compact([
         ctx.applicationView === 'thread'
-          ? { kind: 'item', id: 'add-project', label: t('menu.addProject'), onSelect: ctx.addThreadProject }
-          : fromAction('new-workspace', t('menu.newWorkspace')),
+          ? { kind: 'item', id: 'add-project', label: tCommand('action.thread.add-project'), onSelect: ctx.addThreadProject }
+          : fromAction('new-workspace'),
         sep('file-1'),
         { kind: 'item', id: 'settings', label: t('menu.settings'), shortcut: shortcutLabel('settings.open'), onSelect: ctx.openSettings },
-        fromAction('workspace-settings', t('menu.workspaceSettings')),
+        fromAction('workspace-settings'),
         sep('file-2'),
         { kind: 'item', id: 'quit', label: t('menu.exit'), onSelect: () => window.close() }
       ])
@@ -96,40 +99,41 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
         sep('view-0'),
         ...VIEWS.map(([view, label]): AppMenuNode => ({ kind: 'radio', id: `view-${view}`, label, shortcut: shortcutLabel(`view.${view}`), checked: ctx.applicationView === view, onSelect: () => ctx.setApplicationView(view) })),
         sep('view-1'),
-        fromAction('toggle-sidebar', t('menu.toggleSidebar'), shortcutLabel('sidebar.toggle')),
-        fromAction('tool-editor', t('menu.files'), shortcutLabel('code.files')),
-        fromAction('tool-github', t('menu.sourceControl')),
-        fromAction('tool-background', t('menu.backgroundActivity')),
-        fromAction('toggle-split-layout', t('menu.splitLayout'), shortcutLabel('code.splitLayout')),
-        fromAction('balance-pane-layout', t('menu.balancePanes')),
+        fromAction('toggle-sidebar', shortcutLabel('sidebar.toggle')),
+        fromAction('tool-editor', shortcutLabel('code.files')),
+        fromAction('tool-github'),
+        fromAction('tool-background'),
+        fromAction('toggle-split-layout', shortcutLabel('code.splitLayout')),
+        fromAction('balance-pane-layout'),
         sep('view-2'),
         // Appearance applies to the whole app, so it works without a workspace.
         appearances.length ? { kind: 'submenu', id: 'appearance', label: t('menu.appearance'), children: appearances } : null,
         densities.length ? { kind: 'submenu', id: 'densities', label: t('menu.density'), disabled: noWorkspace, children: densities } : null,
         layouts.length ? { kind: 'submenu', id: 'layouts', label: t('menu.layout'), disabled: noWorkspace, children: layouts } : null,
         sep('view-3'),
-        fromAction('split-vertical', t('menu.splitRight'), shortcutLabel('pane.splitRight')),
-        fromAction('split-horizontal', t('menu.splitDown'), shortcutLabel('pane.splitDown')),
-        fromAction('maximize-pane', t('menu.maximizePane'), shortcutLabel('pane.maximize'))
+        fromAction('split-vertical', shortcutLabel('pane.splitRight')),
+        fromAction('split-horizontal', shortcutLabel('pane.splitDown')),
+        fromAction('maximize-pane', shortcutLabel('pane.maximize'))
       ])
     },
     {
       id: 'tools', label: t('menu.tools'), items: compact([
-        fromAction('tool-mcp', t('menu.mcpServers')),
-        fromAction('tool-skills', t('menu.skills')),
-        explained('tool-team', `${t('tools.team.label', { ns: 'code' })}…`, shortcutLabel('team.open')),
-        fromAction('open-usage', t('menu.usage')),
-        fromAction('open-linear', t('menu.linear'))
+        fromAction('tool-mcp'),
+        fromAction('tool-skills'),
+        // F35: Team stays reachable with its reason where it can't open.
+        explained('tool-team', shortcutLabel('team.open')),
+        fromAction('open-usage'),
+        fromAction('open-linear')
       ])
     },
     {
       id: 'help', label: t('menu.help'), items: compact([
-        fromAction('help.shortcuts', t('menu.keyboardShortcuts'), shortcutLabel('help.shortcuts')),
-        fromAction('settings.diagnostics', t('menu.diagnostics')),
-        fromAction('help.report-problem', t('menu.reportProblem')),
+        fromAction('help.shortcuts', shortcutLabel('help.shortcuts')),
+        fromAction('settings.diagnostics'),
+        fromAction('help.report-problem'),
         sep('help-1'),
-        fromAction('settings.updates', t('menu.checkUpdates')),
-        fromAction('help.about', t('menu.about', { version: ctx.version }))
+        fromAction('settings.updates'),
+        fromAction('help.about')
       ])
     }
   ]
