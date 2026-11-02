@@ -6,7 +6,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const incidents: Array<[string, string | undefined]> = []
 vi.mock('../../electron/main/services/diagnostics/incident-sink', () => ({ recordIncident: (code: string, subject?: string) => { incidents.push([code, subject]) } }))
-vi.mock('../../electron/main/services/policy', () => ({ policyStore: () => null }))
+vi.mock('../../electron/main/services/policy', () => ({ policyStore: () => null, acceptedConfig: () => null }))
 vi.mock('electron', () => ({ app: { getPath: () => tmpdir(), isPackaged: false } }))
 
 const { offGroupBlocking, toolCallBlocked } = await import('../../electron/main/mcp-internal/tool-policy')
@@ -51,6 +51,14 @@ describe('a tool group the project turned off is refused at tools/call, whatever
     expect(refused).toContain('"data" tools are turned off')
     expect(refused).toContain('incident.mcp.toolGroupOff')
     expect(incidents).toEqual([['incident.mcp.toolGroupOff', `data:${DATA_TOOL}`]])
+  })
+
+  it('fails closed when a root\'s modes cannot be read: the tool is refused and the refusal recorded', () => {
+    const broken = () => { throw new Error('SQLITE_BUSY') }
+    expect(toolCallBlocked(DATA_TOOL, ctx({ execution: { cwd: '/mine', workspaceId: 'w1' } }), null, broken)).toContain('turned off')
+    expect(incidents).toEqual([['incident.mcp.toolGroupOff', `data:${DATA_TOOL}`]])
+    // A core tool never depends on the modes, so a fault does not take it away.
+    expect(toolCallBlocked(CORE_TOOL, ctx({ execution: { cwd: '/mine', workspaceId: 'w1' } }), null, broken)).toBeUndefined()
   })
 
   it('holds the strictest project for a caller that proves no execution', () => {

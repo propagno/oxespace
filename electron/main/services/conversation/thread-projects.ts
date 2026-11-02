@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../../db'
 import type { ThreadProjectCatalog, ThreadProjectSummary } from '../../../../shared/types/thread'
 import { projectIdentity } from '../memory/memory-project.service'
+import { firstPolicyRead } from '../policy/first-read'
 
 interface ProjectRow { id: string; identity: string; root_path: string; display_name: string; hidden: number }
 interface ContextRow { project_id: string; root_path: string }
@@ -36,6 +37,8 @@ export class ThreadProjectService {
         .run(projectId, identity, canonical, basename(canonical), now, now)
       this.db.prepare('INSERT OR IGNORE INTO thread_project_contexts (project_id, root_path) VALUES (?, ?)').run(projectId, canonical)
     })()
+    // B7.4: the project's policy is read before any conversation of it starts.
+    firstPolicyRead(canonical)
     return this.catalog().projects.find(project => project.projectId === projectId)!
   }
 
@@ -81,6 +84,7 @@ export class ThreadProjectService {
       this.db.prepare(`UPDATE conversation_threads SET data_json = json_set(data_json, '$.rootPath', ?) WHERE thread_project_id = ? AND json_extract(data_json, '$.rootPath') = ?`)
         .run(canonical, projectId, current.root_path)
     })()
+    firstPolicyRead(canonical)
     return this.catalog().projects.find(project => project.projectId === projectId)!
   }
 }
