@@ -50,6 +50,27 @@ export function normalizeSharedDirectories(value: unknown): string[] {
   return [...seen]
 }
 
+export const MAX_INCLUDE_PATTERNS = 100
+const MAX_INCLUDE_CHARS = 1024
+
+/**
+ * `worktree.include` (B19). Only the shape is checked here: strings, trimmed, `\` read as `/`, deduplicated. Patterns
+ * that would leave the repository are kept on purpose, so the copy step can refuse each one by name (C3) instead of
+ * dropping it where nobody sees.
+ */
+export function normalizeIncludePatterns(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  const seen = new Set<string>()
+  for (const raw of value.slice(0, MAX_ENTRIES)) {
+    if (typeof raw !== 'string') continue
+    const entry = raw.trim().replace(/\\/g, '/')
+    if (!entry || entry.length > MAX_INCLUDE_CHARS) continue
+    seen.add(entry)
+    if (seen.size >= MAX_INCLUDE_PATTERNS) break
+  }
+  return [...seen]
+}
+
 export function normalizeDefaultTabs(value: unknown): RepoConfigTab[] {
   if (!Array.isArray(value)) return []
   const tabs: RepoConfigTab[] = []
@@ -84,6 +105,8 @@ export function parseOxeYaml(content: string): RepoConfig | null {
     worktree: { sharedDirectories: normalizeSharedDirectories(worktree.sharedDirectories) },
     defaultTabs: normalizeDefaultTabs(root.defaultTabs)
   }
+  const include = normalizeIncludePatterns(worktree.include)
+  if (include.length) config.worktree.include = include
   const thread = asRecord(root.thread)
   if (thread && typeof thread.brief === 'boolean') config.thread = { brief: thread.brief }
   if (thread && Array.isArray(thread.tools)) {
@@ -103,6 +126,7 @@ export function parseOxeYaml(content: string): RepoConfig | null {
     !config.scripts.setup &&
     !config.scripts.archive &&
     config.worktree.sharedDirectories.length === 0 &&
+    !config.worktree.include &&
     config.defaultTabs.length === 0 &&
     !config.thread
   return empty ? null : config

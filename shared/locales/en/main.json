@@ -177,10 +177,29 @@
       }
     },
     "worktree": {
+      "created": "Worktree created at {{path}} (branch {{branch}}).",
+      "createdFrom": "Worktree created at {{path}} (branch {{branch}} from {{base}}).",
+      "setup": {
+        "notApproved": "The oxe.yaml setup hook was not approved and did not run.",
+        "complete": "Setup hook complete.",
+        "failed": "The setup hook exited with code {{exitCode}}.",
+        "unverified": "The setup hook did not end in a way that can be checked."
+      },
       "cleanup": {
         "notRemovable": "This is not a removable worktree of this repository.",
         "blocked": "Blocked: {{reasons}}.",
         "needsConfirmation": "Needs confirmation: {{reasons}}."
+      },
+      "include": {
+        "copied": "Copied {{count}} files listed in worktree.include.",
+        "outsideRepo": "worktree.include pattern “{{pattern}}” was refused: patterns must be relative to the repository and cannot use .. or .git.",
+        "overLimit": "worktree.include matched {{files}} files ({{megabytes}} MB), over the limit of {{maxFiles}} files or {{maxMegabytes}} MB. Nothing was copied; the worktree was created.",
+        "tooComplex": "worktree.include pattern “{{pattern}}” was refused: it has too many folders or ** to match safely.",
+        "notIgnored": "Not copied, because Git does not ignore them in the new worktree and they could be committed: {{paths}}.",
+        "searchTooLarge": "worktree.include looked through more than {{limit}} entries without finishing. Nothing was copied; the worktree was created. Use narrower patterns.",
+        "notOverwritten": "Already in the new worktree, kept as they are: {{paths}}.",
+        "notFollowed": "Not copied, because they are links or lead outside the repository or the worktree: {{paths}}.",
+        "failed": "Could not be copied: {{paths}}."
       }
     },
     "github": {

@@ -32,6 +32,8 @@ import type { GhExec } from './gh-exec'
 import { loadRepoConfig } from '../repo-config/loader'
 import { runHook } from '../repo-config/hook-runner'
 import { createSharedLinks } from '../repo-config/shared-dirs'
+import { copyIncludedFiles } from '../repo-config/worktree-include'
+import { englishText } from '../../agent-text'
 import type { RepoHookTrust } from '../repo-config/trust'
 import { removeWorktreeSafely } from './worktree-removal'
 
@@ -304,16 +306,14 @@ export class GitHubRepositoryService {
     // until you fetch, so a base the user believes is the remote tip may not be.
     // Fetch failures are reported, not thrown: being offline should degrade the
     // guarantee, not block the worktree.
-    let warning = ''
-    const notices: MainMessage[] = person ? [HOOKS_SKIPPED] : []
+    const earlier: MainMessage[] = person ? [HOOKS_SKIPPED] : []
     if (baseRef && input.fetchBase) {
       const remoteName = baseRef.includes('/') ? baseRef.slice(0, baseRef.indexOf('/')) : null
       if (remoteName) {
         try {
           await this.network(['fetch', remoteName, '--prune'], input.rootPath, person)
         } catch {
-          warning = ` Warning: fetching ${remoteName} failed — the base may be out of date.`
-          notices.push(mainMessage('git.base.maybeStale', { branch: baseRef }))
+          earlier.push(mainMessage('git.base.maybeStale', { branch: baseRef }))
         }
       }
     }
@@ -327,28 +327,42 @@ export class GitHubRepositoryService {
     }
     await this.network(args, input.rootPath, person)
 
-    warning += await this.prepareNewWorktree(input.rootPath, absolutePath)
-
-    const from = baseRef ? ` a partir de ${baseRef}` : ''
-    return withNotices(ok(`Worktree criado em ${absolutePath} (branch ${input.branch}${from}).${warning}`), notices)
+    const created = baseRef
+      ? mainMessage('worktree.createdFrom', { path: absolutePath, branch: input.branch, base: baseRef })
+      : mainMessage('worktree.created', { path: absolutePath, branch: input.branch })
+    const notices = [created, ...earlier, ...(await this.prepareNewWorktree(input.rootPath, absolutePath))]
+    // C3 (FINDING L): the window words `notices` in the person's language; `message` is the English text, for agents
+    // (the MCP tool) and logs.
+    return withNotices(ok(notices.map(englishText).join(' ')), notices)
   }
 
   /**
    * Applies the repo's oxe.yaml to a worktree that now exists: shared links
-   * first (so setup sees them), then the setup hook. Nothing here may fail the
-   * creation — the worktree is real by now — so problems become a warning.
+   * first, then the `worktree.include` copies (so setup sees both), then the
+   * setup hook. Nothing here may fail the creation — the worktree is real by
+   * now — so every outcome becomes a C3 notice.
    */
-  private async prepareNewWorktree(rootPath: string, worktreePath: string): Promise<string> {
+  private async prepareNewWorktree(rootPath: string, worktreePath: string): Promise<MainMessage[]> {
     const config = (await loadRepoConfig(worktreePath)) ?? (await loadRepoConfig(rootPath))
-    if (!config) return ''
-    let notes = ''
+    if (!config) return []
+    const notes: MainMessage[] = []
     if (config.worktree.sharedDirectories.length > 0) {
       await createSharedLinks(rootPath, worktreePath, config.worktree.sharedDirectories)
+    }
+    // B19: the list comes from the main checkout's oxe.yaml only, which the person controls. A branch being checked
+    // out must not choose which of the person's files are copied next to it (SECURITY review of #451).
+    const include = (await loadRepoConfig(rootPath))?.worktree.include ?? []
+    if (include.length) {
+      const ignored = async (paths: string[]): Promise<Set<string>> => {
+        const result = await this.gh.git(['check-ignore', '-z', '--stdin'], worktreePath, paths.join('\0') + '\0')
+        return new Set(result.status === 0 ? (result.stdout ?? '').split('\0').filter(Boolean) : [])
+      }
+      notes.push(...(await copyIncludedFiles(rootPath, worktreePath, include, ignored)).notices)
     }
     const setup = config.scripts.setup
     if (!setup) return notes
     if (!this.lifecycle?.trust.isTrusted(rootPath, 'setup', setup)) {
-      return ' Warning: the oxe.yaml setup hook was not approved and did not run.'
+      return [...notes, mainMessage('worktree.setup.notApproved', {})]
     }
     const outcome = await runHook(setup, {
       cwd: worktreePath,
@@ -358,9 +372,9 @@ export class GitHubRepositoryService {
         OXE_WORKSPACE_NAME: worktreePath.replace(/\\/g, '/').split('/').pop() ?? ''
       }
     })
-    if (outcome.status === 'passed') notes += ' Setup hook complete.'
-    else if (outcome.status === 'failed') notes += ` Warning: the setup hook exited with code ${outcome.exitCode}.`
-    else notes += ' Warning: the setup hook did not end in a verifiable way.'
+    if (outcome.status === 'passed') notes.push(mainMessage('worktree.setup.complete', {}))
+    else if (outcome.status === 'failed') notes.push(mainMessage('worktree.setup.failed', { exitCode: outcome.exitCode }))
+    else notes.push(mainMessage('worktree.setup.unverified', {}))
     return notes
   }
 

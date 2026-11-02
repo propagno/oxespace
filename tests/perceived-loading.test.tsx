@@ -50,7 +50,8 @@ describe('Settings opening', () => {
     const dialog = screen.getByRole('dialog', { name: /Settings/ })
     expect(screen.getAllByRole('dialog')).toHaveLength(1)
     expect(dialog).toHaveClass('settings-center')
-    expect(screen.getByRole('status')).toHaveTextContent('Loading…')
+    // The content area shows the shape of a page, not a spinner (docs/design/motion.md, F7.2).
+    expect(screen.getByRole('status', { name: 'Settings' })).toHaveAttribute('data-skeleton')
     expect(screen.getByRole('button', { name: 'Close settings' })).toBeInTheDocument()
 
     await act(async () => { gate.open(); await gate.ready; await new Promise(resolve => setTimeout(resolve, 0)) })

@@ -314,7 +314,8 @@ export interface GitHubMessageResult {
   message: string
   /**
    * What the window shows with the result, translated (C3): `git.hooks.skipped` once per person (FRONTEND keeps the
-   * dismissal), `git.base.maybeStale` when a worktree's base was not fetched first.
+   * dismissal), `git.base.maybeStale` when a worktree's base was not fetched first; for createWorktree, the creation
+   * itself first (`worktree.created` / `createdFrom`, FINDING L), then B19's `worktree.include.*` and `worktree.setup.*`.
    */
   notices?: import('../messages').MainMessage[]
 }
