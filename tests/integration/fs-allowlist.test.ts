@@ -238,10 +238,6 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/policy/tool-config.ts',
   // B7.4: reads the first characters of a gated policy file (fixed places only) for the request's untrusted text; never writes.
   'electron/main/ipc/policy-runtime.ts',
-  // OXEVoice engine: downloads the Whisper model to <userData>/models and
-  // writes a temp WAV for the CLI — outside the workspace tree, so raw fs is
-  // appropriate here rather than the workspace-scoped FileSystemService.
-  'electron/main/services/voice.service.ts',
   // OXE integration: existsSync(`<root>/.oxe`) to decide onboarding vs status —
   // a read-only project probe, not a workspace file operation.
   'electron/main/services/oxe.service.ts',
@@ -250,7 +246,7 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Semantic Service: indexes the workspace tree for local embeddings (reads
   // arbitrary files to embed) and creates the transformers.js model cache under
   // <userData>/models. Background indexing outside the workspace-scoped
-  // FileSystemService, like rtk/voice above.
+  // FileSystemService, like rtk above.
   'electron/main/services/semantic.service.ts',
   // Search Service: Find in Files delegates the actual file reads to the
   // ripgrep child process; its only raw fs use is existsSync to locate the

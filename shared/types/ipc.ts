@@ -199,12 +199,6 @@ export const IPC_CHANNELS = {
     readText: 'clipboard:read-text',
     writeText: 'clipboard:write-text'
   },
-  voice: {
-    transcribe: 'voice:transcribe',
-    getModelStatus: 'voice:get-model-status',
-    ensureModel: 'voice:ensure-model',
-    onModelProgress: 'voice:on-model-progress'
-  },
   oxeQuery: {
     call: 'oxeQuery:call',
     onEvent: 'oxeQuery:event'
@@ -586,22 +580,6 @@ export interface ClipboardApi {
   writeText(text: string): Promise<boolean>
 }
 
-export interface VoiceApi {
-  transcribe(
-    wav: Uint8Array,
-    options?: import('./voice').VoiceTranscribeOptions
-  ): Promise<import('./voice').VoiceTranscribeResult>
-  getModelStatus(
-    size?: import('./voice').VoiceModelSize
-  ): Promise<import('./voice').VoiceModelStatus>
-  ensureModel(
-    size?: import('./voice').VoiceModelSize
-  ): Promise<import('./voice').VoiceModelStatus>
-  onModelProgress(
-    listener: (event: import('./voice').VoiceModelProgressEvent) => void
-  ): () => void
-}
-
 export interface AgentNotificationPayload {
   title: string
   body: string
@@ -716,7 +694,6 @@ export interface OxeApi {
   github: GitHubApi
   integration: IntegrationApi
   clipboard: ClipboardApi
-  voice: VoiceApi
   notifications: NotificationsApi
   approvals?: import('./approvals').ApprovalsApi
   activity?: import('./activity').ActivityApi
