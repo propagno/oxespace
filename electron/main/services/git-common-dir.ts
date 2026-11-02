@@ -14,10 +14,16 @@ export function gitCommonDir(root: string): string | null {
     if (stat.isDirectory()) return normalize(realpathSync.native(dotGit))
     if (!stat.isFile()) return null
     const match = /^gitdir:\s*(.+)$/m.exec(readFileSync(dotGit, 'utf8'))
-    if (!match) return null
+    // A pointer to a network share or a device is never followed: reading it would reach the network (and on
+    // Windows hand the share the person's credentials) because of a file anyone can write.
+    if (!match || !localPointer(match[1].trim())) return null
     const gitDir = resolve(root, match[1].trim())
     let common = gitDir
-    try { common = resolve(gitDir, readFileSync(join(gitDir, 'commondir'), 'utf8').trim()) } catch { /* not a linked worktree */ }
+    try {
+      const named = readFileSync(join(gitDir, 'commondir'), 'utf8').trim()
+      if (!localPointer(named)) return null
+      common = resolve(gitDir, named)
+    } catch { /* not a linked worktree */ }
     return normalize(realpathSync.native(common))
   } catch {
     return null
@@ -33,10 +39,50 @@ export function canonicalPath(path: string): string {
   try { return normalize(realpathSync.native(path)) } catch { return normalize(resolve(path)).replace(/\/+$/, '') }
 }
 
-/** True when both directories are checkouts (main or linked worktrees) of the same repository. */
+/** A path a `.git` pointer may name: never a UNC share or a device path (`\\server\…`, `//server/…`, `\\?\…`). */
+const localPointer = (pointer: string): boolean => !/^[\\/]{2}/.test(pointer)
+
+/** The real path of `path` in compare form, or null when it does not exist. */
+function realOf(path: string): string | null {
+  try { return normalize(realpathSync.native(path)) } catch { return null }
+}
+
+/**
+ * Whether `root` is a checkout of the repository whose shared git directory is `common`, checked both ways, so that
+ * a `.git` file anyone can write in any folder does not make that folder part of the repository (SECURITY, #507 review):
+ * - the main checkout: its `.git` is a directory, and is `common` itself;
+ * - a linked worktree: its `.git` file points into `common/worktrees/<name>`, and that folder's `gitdir` points back at
+ *   this `.git`. Only the repository's own `git worktree add` writes both.
+ * A main checkout made with `--separate-git-dir` (a `.git` file naming `common` itself) looks exactly like a forgery,
+ * so it is accepted only as the same folder (see `sameRepository`), never as another checkout.
+ */
+function checkoutOf(root: string, common: string): boolean {
+  try {
+    const dotGit = join(root, '.git')
+    const info = statSync(dotGit)
+    if (info.isDirectory()) return realOf(dotGit) === common
+    if (!info.isFile()) return false
+    const pointer = /^gitdir:\s*(.+)$/m.exec(readFileSync(dotGit, 'utf8'))?.[1].trim()
+    if (!pointer || !localPointer(pointer)) return false
+    const admin = realOf(resolve(root, pointer))
+    if (!admin || normalize(dirname(admin)) !== `${common}/worktrees`) return false
+    const back = readFileSync(join(admin, 'gitdir'), 'utf8').trim()
+    if (!back || !localPointer(back)) return false
+    return realOf(resolve(admin, back)) === realOf(dotGit)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * True when both directories are checkouts (main or linked worktrees) of the same repository, each verified against
+ * that repository's own records (`checkoutOf`). The same folder in two spellings is always the same repository.
+ */
 export function sameRepository(a: string, b: string): boolean {
   const left = gitCommonDir(a)
-  return left !== null && left === gitCommonDir(b)
+  if (left === null) return false
+  if (canonicalPath(a) === canonicalPath(b)) return true
+  return left === gitCommonDir(b) && checkoutOf(a, left) && checkoutOf(b, left)
 }
 
 /** Top of the checkout containing `dir`: the nearest ancestor with a `.git` entry, or null. */
