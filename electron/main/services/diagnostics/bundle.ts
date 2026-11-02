@@ -1,7 +1,7 @@
 import type { MainMessage } from '../../../../shared/messages'
 import { open } from 'node:fs/promises'
 import type { DiagnosticsBundlePreview, DiagnosticsIncident, DiagnosticsMetrics, DiagnosticsSnapshot } from '../../../../shared/types/diagnostics'
-import { createRedactor, redactLogTail } from './bundle-redaction'
+import { createRedactor, redactLogTail, type Redactor } from './bundle-redaction'
 import type { ZipEntry } from './zip-writer'
 
 /**
@@ -44,7 +44,7 @@ export async function buildBundle(sources: BundleSources): Promise<Bundle> {
     { name: 'incidents.json', summary: { code: 'bundle.file.incidents', params: {} }, text: json(incidents) },
     { name: 'runtime-events.jsonl', summary: { code: 'bundle.file.runtime', params: {} }, text: redactor.text(safe(() => sources.runtimeEvents(), '')) },
     { name: 'main-log-tail.txt', summary: { code: 'bundle.file.logTail', params: {} }, text: redactLogTail(logText, redactor) },
-    { name: 'versions.json', summary: { code: 'bundle.file.versions', params: {} }, text: json(safe(() => sources.about(), {})) },
+    { name: 'versions.json', summary: { code: 'bundle.file.versions', params: {} }, text: versionsText(safe(() => sources.about(), {}), redactor) },
     { name: 'configuration.json', summary: { code: 'bundle.file.configuration', params: {} }, text: json(safe(() => sources.configuration(), {})) }
   ]
   const entries = files.map(file => ({ name: file.name, data: Buffer.from(file.text, 'utf8') }))
@@ -52,6 +52,24 @@ export async function buildBundle(sources: BundleSources): Promise<Bundle> {
     entries,
     preview: { files: files.map((file, index) => ({ name: file.name, bytes: entries[index].data.length, summary: file.summary })), redactions: redactor.count }
   }
+}
+
+/** A version as a release prints it: `1.3.3`, `44.9.3`, `14.4.258.26-electron.0`. Never a host, path or name. */
+const VERSION = /^\d+(?:\.\d+){1,3}(?:[-+][0-9A-Za-z.-]+)?$/
+
+/**
+ * versions.json through the redactor, except its version fields (`version` and each of `versions`): a four-part V8
+ * version looks like an IPv4 address and was shown as `[ip]`. The exception is the field, not a looser pattern: a
+ * value there that is not shaped like a version is redacted like any other text.
+ */
+function versionsText(about: Record<string, unknown>, redactor: Redactor): string {
+  const field = (value: unknown) => typeof value !== 'string' || VERSION.test(value) ? value : redactor.text(value)
+  const { version, versions, ...rest } = about
+  const redacted = JSON.parse(redactor.text(JSON.stringify(rest))) as Record<string, unknown>
+  const named = versions && typeof versions === 'object' && !Array.isArray(versions)
+    ? Object.fromEntries(Object.entries(versions as Record<string, unknown>).map(([name, value]) => [name, field(value)]))
+    : field(versions)
+  return JSON.stringify({ ...redacted, version: field(version), versions: named }, null, 2)
 }
 
 function safe<T>(read: () => T, fallback: T): T {
