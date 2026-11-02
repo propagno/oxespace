@@ -1,4 +1,5 @@
-import { ipcMain } from 'electron'
+import { app, ipcMain } from 'electron'
+import { e2eMocksEnabled } from '../e2e/e2e-mode'
 import type { AppDatabase } from '../db/index'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { AgentService } from '../services/agent.service'
@@ -33,6 +34,6 @@ export function registerAgentIpc(db: AppDatabase, agentService = new AgentServic
 
   // E2E runs offline and must not depend on the network.
   ipcMain.handle(IPC_CHANNELS.agent.compatibility, () =>
-    process.env.OXESPACE_E2E_MOCK_NATIVE === '1' ? null : providerCompatibility()
+    e2eMocksEnabled(process.env, app.isPackaged) ? null : providerCompatibility()
   )
 }

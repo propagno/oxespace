@@ -17,13 +17,14 @@ import { app, ipcMain, powerMonitor, type BrowserWindow, type IpcMainInvokeEvent
 import { IPC_CHANNELS } from '../../shared/types/ipc'
 import { CloseGuard, parseCloseAnswerInput } from './services/close-guard'
 import { recordIncident } from './services/diagnostics/incident-sink'
+import { e2eMocksEnabled } from './e2e/e2e-mode'
 
 let guard: CloseGuard | null = null
 let target: BrowserWindow | null = null
 
 /** Asks `window` before it closes and before the app quits. Called for each main window; the last one is asked. */
 export function installCloseGuard(window: BrowserWindow): void {
-  if (process.env.OXESPACE_E2E_MOCK_NATIVE === '1') return
+  if (e2eMocksEnabled(process.env, app.isPackaged)) return
   target = window
   if (guard) guard.rearm()
   else guard = createGuard()
