@@ -1766,7 +1766,9 @@
   "prArchive": {
     "merged": "O pull request #{{number}} foi mesclado",
     "closed": "O pull request #{{number}} foi fechado",
-    "description": "Arquivar esta conversa? Ainda não é possível restaurar conversas arquivadas.",
-    "archive": "Arquivar"
+    "description": "Esta conversa será arquivada. Você pode restaurá-la em Arquivadas, na barra lateral.",
+    "keep": "Manter",
+    "archived": "Conversa arquivada",
+    "restore": "Restaurar"
   }
 }
