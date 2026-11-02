@@ -156,7 +156,8 @@ function mainProcessCount(executablePath: string): number {
 
 async function launch(root: string, extraEnv: Record<string, string> = {}): Promise<{ app: ElectronApplication; page: Page }> {
   const executablePath = process.env.OXESPACE_PACKAGED_EXECUTABLE!
-  const app = await electron.launch({ executablePath, env: { ...process.env, OXESPACE_DB_PATH: join(root, 'db.sqlite3'), ...extraEnv } })
+  // A packaged build ignores OXESPACE_DB_PATH (T50): the data lives in this launch's own --user-data-dir.
+  const app = await electron.launch({ executablePath, args: [`--user-data-dir=${join(root, 'user-data')}`], env: { ...process.env, ...extraEnv } })
   const page = await app.firstWindow()
   await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible', timeout: 30_000 })
   return { app, page }
@@ -246,8 +247,9 @@ export function registerPackagedFuses({ platform, label }: PackagedFusesOptions)
       const root = scratch('run-as-node')
       const marker = 'RAN_AS_NODE_B13'
       // With the fuse off this starts the app itself (a GUI), so it gets its own database and is ended by tree.
-      const child = spawn(process.env.OXESPACE_PACKAGED_EXECUTABLE!, ['-e', `process.stdout.write('${marker}')`], {
-        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: join(root, 'db.sqlite3') },
+      // --user-data-dir goes after the script: Node would take it as an option and fail, not print the marker.
+      const child = spawn(process.env.OXESPACE_PACKAGED_EXECUTABLE!, ['-e', `process.stdout.write('${marker}')`, `--user-data-dir=${join(root, 'user-data')}`], {
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', OXESPACE_DISABLE_SINGLE_INSTANCE: '1' },
         stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, detached: process.platform !== 'win32'
       })
       let output = ''
