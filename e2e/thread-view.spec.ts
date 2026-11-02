@@ -306,8 +306,32 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
 
     const codeSidebar = page.locator('.sidebar')
     const resize = codeSidebar.getByRole('separator', { name: 'Sidebar width', exact: true })
+    // DIAG FL-09 (diag branch only, never merged): record every press in the real spec.
+    await page.evaluate(() => {
+      const w = window as unknown as { __fl09: string[] }
+      w.__fl09 = []
+      document.addEventListener('keydown', event => {
+        if (!event.key.startsWith('Arrow')) return
+        const t = event.target as HTMLElement
+        const sep = document.querySelector('.sidebar [role="separator"][aria-label="Sidebar width"]')
+        w.__fl09.push(`kd ${event.key} target=${t === sep ? 'separator' : `${t?.tagName}.${String(t?.className ?? '').slice(0, 40)}`} value=${sep?.getAttribute('aria-valuenow')} t=${Math.round(performance.now())}`)
+      }, true)
+      new MutationObserver(() => {
+        const sep = document.querySelector('.sidebar [role="separator"][aria-label="Sidebar width"]')
+        const last = w.__fl09[w.__fl09.length - 1] ?? ''
+        const v = `val ${sep?.getAttribute('aria-valuenow')}`
+        if (!last.startsWith(v)) w.__fl09.push(`${v} t=${Math.round(performance.now())}`)
+      }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-valuenow'] })
+    })
     for (const [key, presses, width] of [['ArrowLeft', 20, 240], ['ArrowRight', 15, 360], ['ArrowLeft', 10, 280]] as const) {
+      await page.evaluate(group => (window as unknown as { __fl09: string[] }).__fl09.push(`--- group ${group}`), `${key}x${presses}->${width}`)
       for (let index = 0; index < presses; index++) await resize.press(key)
+      const now = Number(await resize.getAttribute('aria-valuenow'))
+      if (now !== width) {
+        await expect.poll(() => resize.getAttribute('aria-valuenow'), { timeout: 2000 }).toBe(String(width)).catch(() => {})
+        console.log(`[FL09] group ${key}x${presses} expected ${width} got ${await resize.getAttribute('aria-valuenow')}\n` +
+          (await page.evaluate(() => (window as unknown as { __fl09: string[] }).__fl09.slice(-80).join('\n'))))
+      }
       await expect(resize).toHaveAttribute('aria-valuenow', String(width))
       await expect.poll(() => page.evaluate(() => Math.round(document.querySelector('.workspace-surface')!.getBoundingClientRect().left - document.querySelector('.sidebar')!.getBoundingClientRect().right))).toBe(8) // --frame-gap
       await expect(codeSidebar.getByRole('button', { name: 'Open settings', exact: true })).toBeVisible()
