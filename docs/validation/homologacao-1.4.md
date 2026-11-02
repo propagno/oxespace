@@ -21,36 +21,59 @@ Registro da sessão de homologação (product manager + QA). Cada item do roadma
   segurados) pelos aceites de `e2e/acceptance/` (#314, #315, #340, #349, #350, #357), e no CI pelo
   `acceptance.yml` (#373) quando a máquina está cheia. **Pré-homologado** = conferido no PR antes do merge.
 
-## Portão de lançamento 1.4.0 (G1, G4, G5)
+## Portão de lançamento 1.4.0 (G1, G4, G5, G9)
 
-Estado em 01/11, contra `.claude/roadmap-1.4/team/release-gate.md`. Cada linha cita a evidência; o que não foi
-conferido diz **falta**. Escopo do usuário em modo de economia: S1, S2, S4 e o RC; S7.2, S7.3 e S7.5 vão para a 1.4.1.
+Estado em 02/11, na `main` até 983422d2 (lotes 1a a 7 do trem), contra `.claude/roadmap-1.4/team/release-gate.md`.
 
-### G1: fatias homologadas (aberto)
+- Cada linha cita a evidência; o que não foi conferido diz **falta**.
+- As execuções são do `acceptance.yml`, sob demanda, no app real com perfil descartável, em windows-2022 e, onde indicado, em ubuntu-24.04.
+- As specs estão nos PRs #314, #315, #340, #350 e #440.
+- Escopo do usuário em modo de economia: S1, S2, S4 e o RC. S7.1, S7.2, S7.3 e S7.5 vão para a 1.4.1.
+
+### G1: fatias homologadas
 
 | Fatia | Item | Estado | Evidência / o que falta |
 |---|---|---|---|
-| S1 | B10 central de aprovações | Na main | fila cheia (50 + 1 recusado `queueFull`) conferida na main com o fallback nativo segurado; **falta** homologar o #238 inteiro com o modal (F18) |
-| S1 | F18 modal Mandacaru (#243) | Em revisão | aceite vermelho #350 (fila "1 de 50", crítico 2 s, texto cortado só nega, histórico); **falta** o PR |
-| S1 | B23 pedidos acabam com a execução (#352) | Pré-homologado | fechar o pane retira os 25 pedidos dele, `by: cancelled`; na fila do trem |
-| S1 | B24 grupo desligado recusado no `tools/call` (#358) | **Homologado** | caso 9 do #357: `isError` + `incident.mcp.toolGroupOff`, sem dados; mergeado pelo trem (b914e1fd) |
-| S1 | B7.4 política alterada fora do app (#372) | Pré-homologado | #357 casos 1–8, 10–13 no app real em 72f3bb33 (primeira vista, boot, expiração); falta só o toast do caso 4 (FE) |
-| S1 | B16 comandos em arquivo protegido (#269) | Homologado | ver seção do #208/#269 abaixo |
-| S1 | F26 fechar com trabalho não salvo (#278/#280) | Homologado com ressalvas | ressalva BACKEND: renderer travado não fecha a janela |
-| S1 | B12 guarda do IPC (#261) | **Falta** | aceite vermelho no #314 (B12-ipc-sender-guard) ainda não rodado contra o PR |
-| S1 | B13 árvore de processos (#374) | Pré-homologado | CI `acceptance.yml` em 98dc7222: PowerShell/cmd/Git Bash, split, `claude.exe`/`codex.exe` substitutos, fechar encerra a árvore; prompt de pane oculto igual à main (2,7–3,2 s) |
-| S1 | B6 | **Falta** | não conferido nesta sessão |
-| S2 | B17 retomada da sessão (#309) | Pré-homologado | S2 (#340): 6 panes (3 do assistente, 3 digitados), 5 voltam na própria sessão, 1 diz `sessionMissing`; 3º início sem deriva de id |
-| S2 | F32 marca de retomada (#311) | Pré-homologado com ressalva | marcas por pane e motivo no nome acessível; ressalva: "Detalhes" sem a linha "Sessão do agente" (FRONTEND) |
-| S2 | F19 split além dos presets (#240) | Homologado | ver seção do #240; fechar depois do split depende do #307 (na fila do trem) |
-| S2 | B2 | **Falta** | não conferido nesta sessão |
-| S4 | B9 gateway e pareamento (#180) | Na main | **falta** o passe do celular (M1–M6), bloqueado pela decisão 10 do usuário (memória para o AVD + desktop) |
-| S4 | B9.2 pareamento órfão expira | **Falta** | aceite vermelho no #314; precisa do gateway ligado no app real |
-| S4 | M1, M5–M11 | **Falta** | passe do celular (decisão 10) |
-| S5 | T8 texto das ferramentas (#316 → #336) | Homologado | 17 ferramentas, 7.672 caracteres; aceite T8 verde |
-| S0 | S0.2 trem de merge | **Homologado** | atualiza, dispara CI na cabeça exata, espera, sai com comentário `merge-train:` ao falhar, faz o merge (#358 em b914e1fd) e toma o próximo carro |
-| S0 | S0.4 aceite antes do código | **Homologado** | `acceptance.yml` (#373) usado de verdade em 3 execuções para o #374 |
-| S3, S6 | (fora do foco do modo de economia) | **Falta** | itens já homologados estão nas seções abaixo; o relatório por item vem quando o coordenador pedir |
+| S1 | F18 modal de aprovações (#243) | **Homologado** | Main 56c38cd7, Windows 41375641888 e Linux 41375645383, 2/2. Detalhes abaixo da tabela. |
+| S1 | B23 pedidos acabam com a execução | **Homologado** | Na main: fechar o pane retira os 25 pedidos dele (`by: cancelled`), com e sem o modal (41367857468, 41375641888). |
+| S1 | B24 grupo desligado recusado no `tools/call` (#358) | **Homologado** | Caso 9 do #357. Via Settings › Tools, o agente recebe `incident.mcp.toolGroupOff` (41368191901). |
+| S1 | B7.4 política alterada fora do app (#372) | Pré-homologado | #357, casos 1–8 e 10–13, no PR. O #372 ainda está aberto e a spec entra junto com ele. |
+| S1 | B10 nomes reservados (#247) | **Homologado** | Main a2f2f269, 41351336504. Detalhes abaixo da tabela. |
+| S1 | F26 fechar forçado (#306) | **Homologado** | Main, 41351339630: sem nada a salvar, fecha em 153 ms; renderer ocupado por 20 s fecha em 3,1 s e registra `incident.app.closeUnanswered`. |
+| S1 | B12 guarda do IPC (#261) | **Homologado** | Main, 41350609076: canais sensíveis recusam frame que não é o do app; a varredura só acha canais internos do Electron. |
+| S1 | B13 árvore de processos (#374) | **Homologado** | Main, 41349646904: PowerShell, cmd e Git Bash; split, agentes, fechar encerra a árvore. |
+| S1 | T43 acesso do agente ao preview (#418) | **Homologado** | Main 84c95c9e, 41371218156. Detalhes abaixo da tabela. |
+| S1 | B6 | **Falta** | Não conferido nesta sessão. |
+| S2 | B17 retomada da sessão (#403) | **Homologado** | Main, 41349650297: 5 de 5 voltam na própria sessão (3 Claude, 2 Codex); a transcrição apagada diz `sessionMissing`. |
+| S2 | F32 marca de retomada (#311) | **Falta** | PR aberto; a spec S2 segue vermelha só nas marcas. |
+| S2 | F19 split além dos presets | **Homologado** | Main c9824e12, 41361290559: fechar os panes de baixo pelo menu passa depois do #413. |
+| S2 | B2 | **Falta** | Não conferido nesta sessão. |
+| S4 | B9 gateway, M1–M11 | **Falta** | Passe do celular bloqueado pela decisão 10 do usuário. Notas abaixo da tabela. |
+| S5 | B7.3 regras por ferramenta (#208) e F10 Settings › Ferramentas (#210, #426) | **Homologado** | 41356824766, 41368191901, 41375649311. Detalhes abaixo da tabela. |
+| S5 | #286 instantâneo do que foi confiado | **Homologado** | 41356824766: só nomes das variáveis; nenhum dos 6 segredos plantados aparece no registro. |
+| S0 | trem de merge, aceite antes do código | **Homologado** | Ver a seção do lote anterior. |
+
+Detalhes por item:
+
+- **F18 (#243):**
+  - Sem o agente, com o duplo de e2e: crítico segura o Permitir 2 s; Enter não responde em Negar nem em Permitir; o padrão tem o foco; fila em ordem; texto cortado só nega; histórico pela paleta.
+  - No app real, dois panes pelo MCP interno: 50 esperam, 1 é recusado (`queueFull` no histórico), "Request 1 of 50", 0 diálogos nativos.
+  - Fechar o pane: pendentes de 50 para 25, `cancelled:25`.
+- **B10 (#247):** 23 nomes de SO, fornecedor, admin e do app são recusados com `reserved-name` (também no corpo); títulos comuns saem.
+- **T43 (#418):**
+  - Recusado antes da concessão; depois dela, lê a página com o campo mascarado.
+  - Depois de desligar, `inspect`, `tabs` e `newTab` são recusados, também depois de abrir e trocar abas, e o botão fica desligado.
+  - Conceder de novo libera.
+  - Não exercitado: a janela sozinha pedir acesso sem concessão. Fica com o teste unitário do PR.
+- **B9, M1–M11:**
+  - No CI: M7 verde (Android 41356413568). O lado desktop do #422 foi conferido por leitura do gateway e o CI verde 41374547689.
+  - M8 só roda com release e segredos de assinatura (do usuário).
+- **B7.3 e F10 (#208, #210, #426):**
+  - Regra escrita no `policy.json` mantendo o que havia (CRLF, `organization`, outra regra), aplicada ao agente e retirada com "ask".
+  - "Allow" é recusado em ferramenta de confirmação; `policy.json` inválido é recusado sem escrita.
+  - Desligar Data pela página grava o `oxe.yaml` e o agente é recusado.
+  - Com `oxe.yaml` quebrado aparece o alerta com o arquivo.
+  - **Achado L aberto:** o controle desabilitado ainda mostra "On demand" enquanto vale Off.
 
 ### G4: instalação limpa e atualização a partir da 1.3.3 (verde: Windows, deb e AppImage)
 
@@ -79,14 +102,39 @@ conferido diz **falta**. Escopo do usuário em modo de economia: S1, S2, S4 e o 
   runbook e nas notas de release.
 - **Linux (`.deb` e AppImage): verde** no CI, run 41319224178 (#402 do SRE, os três jobs no mesmo run, sob `xvfb-run`): mesmas etapas; no `.deb`, `chrome-sandbox` do root com modo 4755 (o bug da v0.7.0), entrada `.desktop` instalada e removida com `/opt/OXESpace` pelo `apt-get remove`, dados mantidos; AppImage extraído (`--no-sandbox`, sem desinstalação). A volta para a 1.3.3 (G8) passa nos três, e a 1.3.3 também abre vazia e calada no Linux. No Linux o userData é `~/.config/oxespace` (minúsculo).
 
-### G5: fluxos críticos ponta a ponta (aberto)
+### G5: fluxos críticos ponta a ponta (desktop verde; celular bloqueado)
 
-- **Desktop:** aprovações (fila, cancelamento pela origem, fallback nativo segurado), política alterada fora do app,
-  terminais e árvore de processos, retomada de sessões: conferidos no app real (linhas do G1).
-- **Celular pareado por Wi-Fi:** bloqueado pela decisão 10 do usuário. Com o AVD aberto (qemu ~3 GB mesmo com
-  `-memory 1536`) sobram 1,2–1,7 GB, abaixo dos 2 GB da regra do usuário para execuções pesadas. Opções: (a) liberar
-  1,5 GB só para esse passe, (b) fechar sessões ociosas na janela, (c) celular físico. O roteiro está pronto (QR por
-  arquivo, código conferido entre celular e desktop, troca por arquivos com MOBILE).
+- **Desktop, na `main` (Windows; Linux onde indicado):**
+  - **Aprovações no modal:** F18 em Windows e Linux.
+  - **Política e regras por ferramenta:** alcançam o agente.
+  - **Terminais:** a árvore de processos fecha com o pane.
+  - **Retomada:** 5 de 5 sessões voltam.
+  - **Fechar forçado.**
+  - **Preview:** concessão e revogação (T43).
+  - **Boot, atualizações e automação agendada (T44, #425):** em Windows e Linux (41378701453, 41378707884).
+    - Boot frio em 1,3–1,5 s, 0,85–0,95 s no mesmo perfil.
+    - "Check for updates" responde; beta continua ligado depois de reiniciar.
+    - Uma automação diária vencida com o app fechado roda ao abrir (para no precheck, sem agente).
+  - **Troca fria para o OxeChat (#414):** 108 ms, uma revelação. O perceived-perf da main voltou a bloquear.
+  - **Painel de detalhes da conversa (#227 + #420):** estreito, largo e com zoom. O foco volta ao botão; "260k of 200k · 130%, past the window"; o medidor fica no limite.
+- **Celular pareado por Wi-Fi:** bloqueado pela decisão 10 do usuário.
+  - Com o AVD aberto (qemu ~3 GB mesmo com `-memory 1536`) sobram 1,2–1,7 GB, abaixo dos 2 GB da regra do usuário para execuções pesadas.
+  - Opções: (a) liberar 1,5 GB só para esse passe, (b) fechar sessões ociosas na janela, (c) celular físico.
+  - O roteiro está pronto: QR por arquivo, código conferido entre celular e desktop, troca por arquivos com MOBILE.
+
+### G9: notas da 1.4.0 contra a `main`
+
+- **O que as notas (#427) prometem foi conferido na main:**
+  - Ctrl+4 e Ctrl+5; Ctrl+Shift+A.
+  - Settings › Keyboard; Devices desligado por padrão; canal beta; Movimento Sistema/Reduzido/Completo.
+  - Link confirmado antes de abrir; pedido termina com quem pediu; nomes reservados; fechar forçado; retomada; split.
+- **"Relatar um problema":** o caminho "botão de menu ao lado do logo › Ajuda" funciona com mouse e teclado, em en e pt-BR, no Windows (41371830137) e no Linux (41371833674).
+- **Achados do lote 3b, corrigidos no #427:**
+  - o pt-BR era quase todo `…`;
+  - o bullet dos 9.000 caracteres dependia do #336, ainda aberto;
+  - a afirmação de memória não tinha medida;
+  - F10, F14 e M9 já mesclados estavam comentados.
+- **Ainda não conferido na main por falta de CI concluída:** o `documentation-preview` do F18. A CI da 56c38cd7 foi cancelada pelo push seguinte.
 
 ## Onda 1
 
