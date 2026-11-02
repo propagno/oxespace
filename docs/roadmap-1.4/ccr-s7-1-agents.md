@@ -154,19 +154,38 @@ export const REMOTE_AGENT_KINDS = AGENT_KINDS            // pane, thread, delega
 
 export interface RemoteAgentRow {
   kind: RemoteAgentKind; id: string
+  /** Revision of this row: higher on every change (MOBILE review, #513 §6 ask 1). See "Revisions" below. */
+  rev: number
   state: RemoteAgentState
   provider: 'claude' | 'codex' | 'other'
   title: string                       // redacted like other remote text, ≤ REMOTE_TEXT_LIMITS.title
   since: number
   /** The oldest pending request, if any; the phone shows one per row. */
-  request?: { requestId: string; title: string; risk: ApprovalRisk | null; answerable: boolean }
+  request?: {
+    requestId: string
+    /** Main's words, in the desktop's language: the fallback. */
+    title: string
+    /** The same title as a C3 code and parameters, for the phone to word in its own language (DESIGN H1, as #354). */
+    titleCode: MessageCode
+    titleParams: Record<string, string | number>
+    risk: ApprovalRisk | null
+    answerable: boolean
+  }
   /** Set while state is needs-you: when the phone may nudge (§5.10 timer, the same setting as the desktop). */
   nudgeAfterMs?: number
 }
 /** Snapshot: every row; events: upserts and removals, like `threads`. */
 export interface RemoteAgentsSnapshot { rows: RemoteAgentRow[]; unavailable: RemoteAgentSource[] }
-export interface RemoteAgentsEvent { upsert: RemoteAgentRow[]; removed: { kind: RemoteAgentKind; id: string }[]; unavailable: RemoteAgentSource[] }
+export interface RemoteAgentsEvent { upsert: RemoteAgentRow[]; removed: { kind: RemoteAgentKind; id: string; rev: number }[]; unavailable: RemoteAgentSource[] }
 ```
+
+- **Revisions (`rev`):** one counter in main for all agent rows, strictly increasing, and seeded from the clock at start
+  (milliseconds × 1000), so it never goes back across a restart. A row carries the value of its last change; a
+  removal carries the value at which it left. The phone keeps the highest `rev` it has seen per key, removed keys
+  included (a tombstone), and applies an upsert or a removal only when its `rev` is higher. A snapshot replaces
+  everything held, tombstones too. So a late or repeated upsert never brings back a removed row (SECURITY's #347 rule).
+- **Conversation rows:** `id` is the conversation id. The phone opens a request at (threadId = `id`, requestId); no
+  other thread id travels.
 
 - **Never on the phone:** paths, worktrees, session ids, per-row cost, `meta` detail beyond counts. The phone does not
   re-implement the mapping; rows arrive already mapped (rule 4).
@@ -180,8 +199,8 @@ export interface RemoteAgentsEvent { upsert: RemoteAgentRow[]; removed: { kind: 
 
 ## 7. MCP coverage
 
-`shared/mcp-coverage.ts` gains `'agents.overview'` as a **forbidden** capability, with
-`ipc: ['agents.overview', 'agents.markSeen', 'agents.changed']`: "the person's view of every agent; an agent reads
+`shared/mcp-coverage.ts` gains `'code.agents_overview'` as a **forbidden** capability, with `ipc: ['agents.*']`
+(`agents.overview`, `agents.markSeen`, `agents.onChanged`): "the person's view of every agent; an agent reads
 its own state through its own tools". `tests/mcp-coverage.test.ts` and #441's check (`forbidden|excluded`) enforce it.
 
 ## 8. Testable timers (#333, §14)
