@@ -1,16 +1,17 @@
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NativeSessionReader } from '../electron/main/services/conversation/native-session-history'
 import type { ConversationThread } from '../shared/types/thread'
 import type { ConversationTransport } from '../electron/main/services/conversation/codex-conversation'
+import { removeTempDir } from './helpers/removeTempDir'
 
 const id = '11111111-1111-4111-8111-111111111111', roots: string[] = []
 afterEach(async () => { for (const root of roots.splice(0)) {
   const target = resolve(root)
   if (dirname(target) !== resolve(tmpdir()) || !basename(target).startsWith('oxe-native-history-')) throw Error('Invalid cleanup target')
-  await rm(target, { recursive: true, force: true })
+  removeTempDir(target)
 } })
 
 describe('native session history import', () => {

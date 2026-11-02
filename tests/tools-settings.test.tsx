@@ -76,6 +76,8 @@ describe('Settings › Tools', () => {
     expect(within(data).queryByText('On demand', { selector: 'span' })).toBeNull()
     for (const radio of within(data).getAllByRole('radio')) expect(radio).toBeDisabled()
     expect(within(data).getByText('Fix oxe.yaml to change this mode.')).toBeVisible()
+    // HML FINDING L on #426: nothing reads as chosen while the mode in force is not known.
+    for (const radio of within(data).getAllByRole('radio')) expect(radio).toHaveAttribute('aria-checked', 'false')
     expect(api.setToolGroupMode).not.toHaveBeenCalled()
   })
 
@@ -85,6 +87,8 @@ describe('Settings › Tools', () => {
     const data = await panel('Data')
     expect(within(data).getByText('Off', { selector: 'span' })).toBeVisible()
     for (const radio of within(data).getAllByRole('radio')) expect(radio).toBeDisabled()
+    // With effectiveFrom the control shows the mode in force.
+    expect(within(data).getByRole('radio', { name: 'Off' })).toHaveAttribute('aria-checked', 'true')
   })
 
   it('once the file is fixed, Reload reads it, the warning goes and that is announced politely (DESIGN on #426)', async () => {

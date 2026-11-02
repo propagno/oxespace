@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 // State for the mocked spawn + fs, kept in vi.hoisted so the (hoisted) vi.mock
-// factories can read it. Same approach as voice.service.test.ts.
+// factories can read it.
 const h = vi.hoisted(() => ({
   spawnMock: vi.fn(),
   runs: [] as Array<{ stdout?: string; stderr?: string; code?: number }>,

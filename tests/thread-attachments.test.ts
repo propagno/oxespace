@@ -1,13 +1,14 @@
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve, dirname, basename } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { ThreadAttachmentStore } from '../electron/main/services/conversation/thread-attachments'
+import { removeTempDir } from './helpers/removeTempDir'
 
 const roots: string[] = []
 afterEach(async () => { for (const root of roots.splice(0)) {
   if (dirname(resolve(root)) !== resolve(tmpdir()) || !basename(root).startsWith('oxe-thread-attachments-')) throw Error('Unsafe fixture path')
-  await rm(root, { recursive: true, force: true })
+  removeTempDir(root)
 } })
 
 describe('ThreadAttachmentStore', () => {

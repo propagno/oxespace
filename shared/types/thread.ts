@@ -370,6 +370,11 @@ export interface OwnedThreadWorktree {
   /** Commit the branch started at, to tell new work from the starting point. */
   baseSha: string
   createdAt: number
+  /**
+   * What creating it reported (C3, as `GitHubMessageResult.notices`: worktree.createdFrom, git.hooks.skipped,
+   * worktree.copyFiles.*, worktree.setup.*). Kept with the conversation, since the dialog closes as it opens.
+   */
+  notices?: import('../messages').MainMessage[]
 }
 
 /** What the new-conversation dialog may ask for when the conversation gets its own worktree. */
@@ -402,6 +407,11 @@ export interface ConversationThread {
   nativeSessionId: string | null
   title: string
   pinned: boolean
+  /**
+   * T40: pull requests (by number) whose close or merge the person chose to keep this conversation through. Only the
+   * window writes it (keepAfterPr); while a number is here, closing that PR never offers to archive the conversation.
+   */
+  keptAfterPr?: number[]
   status: ThreadStatus
   /** Last finished turn, used to distinguish a new idle thread from completed work in navigation. */
   lastTurnStatus?: ThreadTurn['status']
@@ -704,6 +714,8 @@ export interface ThreadApi {
   approve(id: string, requestId: string, decision: 'accept' | 'decline'): Promise<void>
   respond?(id: string, requestId: string, response: ThreadRequestResponse): Promise<void>
   pin(id: string, pinned: boolean): Promise<void>
+  /** T40: the person keeps this conversation although its pull request `prNumber` closed or merged (see keptAfterPr). */
+  keepAfterPr?(id: string, prNumber: number): Promise<void>
   /** What Git says about the worktree this conversation was started in; null when it has none. */
   worktreeInspect?(id: string): Promise<import('../threadWorktree').ThreadWorktreeInspection | null>
   /** Archives or deletes the conversation, then cleans up its worktree as the choice allows. */

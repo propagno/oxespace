@@ -116,8 +116,6 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
         { name: 'compact', description: 'Summarize conversation context', source: 'claude' },
         ...Array.from({ length: 45 }, (_, index) => ({ name: `skill-${index}`, description: `Project skill ${index}`, source: 'claude' }))
       ] } })
-      ipcMain.removeHandler('voice:get-model-status')
-      ipcMain.handle('voice:get-model-status', (_event, size) => ({ size, ready: true, path: '/fixture/voice', engineReady: true }))
       ipcMain.handle('thread:projects', () => ({ projects: [], unavailable: [] }))
       const accounts = new Map<string, Record<string, unknown>>()
       let copiedText = ''
@@ -285,30 +283,12 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(grid).toBeVisible()
     const codeInput = page.locator('.terminal-pane .xterm-helper-textarea').first()
     await expect(page.getByTestId('terminal-status-label').first()).toHaveText('running')
-    await page.evaluate(() => {
-      const media = navigator.mediaDevices
-      ;(globalThis as Record<string, unknown>).originalGetUserMedia = media.getUserMedia
-      media.getUserMedia = async () => { throw new DOMException('The user aborted a request.', 'AbortError') }
-    })
+    // F34: the former voice shortcut does nothing in the app any more; no voice overlay or button appears.
     await codeInput.focus()
     await page.keyboard.press('Control+Shift+v')
-    await expect(page.getByText('Microphone request was canceled. Try again.')).toBeVisible()
-    await page.screenshot({ path: 'test-results/voice-error-dismissible.png' })
-    await page.getByRole('button', { name: 'Close voice input' }).click()
     await expect(page.locator('.oxe-voice-hud')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /voice|dictation|microphone/i })).toHaveCount(0)
     await expect(codeInput).toBeFocused()
-    await page.keyboard.press('Control+Shift+v')
-    await expect(page.locator('.oxe-voice-hud.error')).toBeVisible()
-    await page.getByRole('button', { name: 'Close voice input' }).click()
-    await expect(page.locator('.oxe-voice-hud')).toHaveCount(0)
-    await page.keyboard.press('Control+Shift+v')
-    await expect(page.locator('.oxe-voice-hud.error')).toBeVisible()
-    await page.getByRole('button', { name: 'Close voice input' }).click()
-    await expect(page.locator('.oxe-voice-hud')).toHaveCount(0)
-    await page.evaluate(() => {
-      navigator.mediaDevices.getUserMedia = (globalThis as Record<string, unknown>).originalGetUserMedia as typeof navigator.mediaDevices.getUserMedia
-      delete (globalThis as Record<string, unknown>).originalGetUserMedia
-    })
     const terminalCount = await page.locator('.xterm').count()
     const nav = page.getByRole('navigation', { name: 'Application view' })
     await expect(page.locator('.workbench-titlebar').getByRole('navigation', { name: 'Application view' })).toBeVisible()

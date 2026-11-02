@@ -1,10 +1,11 @@
-import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { evaluatePolicy, matchesResource, parsePolicy, policyBlockedMessage, type LoadedPolicy } from '../shared/policy'
 import { managedPolicyPath, PolicyStore } from '../electron/main/services/policy/policy-store'
 import { mcpServerAllowed, policyDeniedMcpNames } from '../electron/main/services/policy'
+import { removeTempDir } from './helpers/removeTempDir'
 
 const policy = (...sources: LoadedPolicy['sources']): LoadedPolicy => ({ sources, problems: [] })
 
@@ -51,7 +52,7 @@ describe('policy rules', () => {
 describe('policy files', () => {
   const dirs: string[] = []
   const dir = () => { const value = mkdtempSync(join(tmpdir(), 'oxe-policy-')); dirs.push(value); return value }
-  afterEach(() => { for (const value of dirs.splice(0)) rmSync(value, { recursive: true, force: true }) })
+  afterEach(() => { for (const value of dirs.splice(0)) removeTempDir(value) })
 
   it('read the project, user and managed layers, and an edit applies without a restart', () => {
     const userData = dir(), project = dir(), managedDir = dir()
@@ -90,7 +91,7 @@ describe('policy at the decision points', () => {
   afterEach(async () => {
     const { setPolicyStore } = await import('../electron/main/services/policy')
     setPolicyStore(null)
-    for (const value of dirs.splice(0)) rmSync(value, { recursive: true, force: true })
+    for (const value of dirs.splice(0)) removeTempDir(value)
   })
   const withPolicy = async (rules: unknown[]) => {
     const userData = mkdtempSync(join(tmpdir(), 'oxe-policy-points-')); dirs.push(userData)

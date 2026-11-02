@@ -9,8 +9,16 @@ import styles from './Display.module.css'
 export type Intent = 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'accent'
 
 /** A short label of state or count. Color only reinforces the text; it never carries the meaning alone. */
-export function Badge({ children, intent = 'neutral', className, title }: { children: ReactNode; intent?: Intent; className?: string; title?: string }): ReactElement {
-  return <span className={cx(styles.badge, intent !== 'neutral' && styles[intent], className)} title={title}>{children}</span>
+/**
+ * A short label with an intent. `icon` goes before the text, decorative; `ariaLabel` names the badge when its visible
+ * text is shorter than what it means (the full sentence then goes to assistive technology); `data-*` passes through.
+ */
+export function Badge({ children, intent = 'neutral', className, title, icon, ariaLabel, ...data }: {
+  children: ReactNode; intent?: Intent; className?: string; title?: string; icon?: ReactNode; ariaLabel?: string
+} & { [key: `data-${string}`]: string | undefined }): ReactElement {
+  return <span className={cx(styles.badge, intent !== 'neutral' && styles[intent], className)} title={title} aria-label={ariaLabel} {...data}>
+    {icon && <span className={styles.badgeIcon} aria-hidden="true">{icon}</span>}{children}
+  </span>
 }
 
 export type Status = 'idle' | 'running' | 'success' | 'attention' | 'danger'
@@ -135,7 +143,7 @@ export function Notice({ intent = 'info', title, children, actions, className }:
 /** The shape of content on its way: lines of text, or one block. Announced once as loading, never read line by line. */
 export function Skeleton({ lines = 3, variant = 'text', label = i18n.t('ui.loading'), decorative = false }: { lines?: number; variant?: 'text' | 'block'; label?: string; decorative?: boolean }): ReactElement {
   // `decorative`: next to something that already announces the loading (a busy region, a status beside it).
-  return <div className={styles.skeleton} {...(decorative ? { 'aria-hidden': true as const } : { role: 'status' as const, 'aria-label': label })}>
+  return <div className={styles.skeleton} data-skeleton="" {...(decorative ? { 'aria-hidden': true as const } : { role: 'status' as const, 'aria-label': label })}>
     {variant === 'block'
       ? <span className={cx(styles.skeletonBar, styles.skeletonBlock)} aria-hidden="true" />
       : Array.from({ length: Math.max(1, lines) }, (_, index) => <span key={index} className={styles.skeletonBar} aria-hidden="true" />)}

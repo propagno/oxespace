@@ -15,9 +15,10 @@
  *      but the OS keeps the folder
  *   8. optional `git branch -d`; an unmerged branch is kept, never forced
  */
-import { rm } from 'node:fs/promises'
+import { realpathSync, type Dirent } from 'node:fs'
+import { readdir, rm, rmdir, unlink } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { resolve, sep } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 import type { GitHubMessageResult, GitHubRemoveWorktreeInput, GitHubWorktree, WorktreeRemovalCode } from '../../../../shared/types/github'
 import { loadRepoConfig } from '../repo-config/loader'
 import { runHook } from '../repo-config/hook-runner'
@@ -25,6 +26,8 @@ import { findSharedLinks, removeSharedLinks } from '../repo-config/shared-dirs'
 import type { RepoHookTrust } from '../repo-config/trust'
 import type { GhExec } from './gh-exec'
 import { ok, parseWorktreePorcelain, sanitizeError } from './parsers'
+import { englishText } from '../../agent-text'
+import { mainMessage, type MainMessage } from '../../../../shared/messages'
 
 export interface WorktreeRemovalDeps {
   gh: GhExec
@@ -41,6 +44,18 @@ export class WorktreeRemovalError extends Error {
 }
 
 const norm = (p: string): string => resolve(p).replace(/[\\/]+$/, '').toLowerCase()
+/**
+ * A path compared by its real, long name: links and Windows 8.3 short names (RUNNER~1) resolved, as git reports its
+ * worktrees. A folder that is gone (prunable) is compared as written. HML on #477.
+ */
+/**
+ * A path by its real, long name (links and 8.3 short names resolved), or as given when it cannot be resolved. Here, with
+ * the removal's other path checks, so the file system stays with the modules allowed to touch it (fs-allowlist).
+ */
+export function longPath(path: string): string {
+  try { return realpathSync.native(path) } catch { return path }
+}
+const normReal = (p: string): string => { try { return norm(realpathSync.native(resolve(p))) } catch { return norm(p) } }
 const within = (child: string, parent: string): boolean => {
   const c = norm(child)
   const p = norm(parent)
@@ -62,13 +77,42 @@ async function listRegistered(deps: WorktreeRemovalDeps, rootPath: string): Prom
   return trees
 }
 
+/**
+ * Every symlink and junction under `root` is unlinked, never followed, before the folder is deleted, so the guarantee
+ * does not rest on how a Node version's recursive rm treats a junction (coordinator on #477; the app runs Electron's
+ * Node 24, CI's unit job Node 22). The walk never enters a link and stops after `limit` entries; past that, Node's rm,
+ * which removes a link without following it, is what remains.
+ */
+export async function unlinkLinksWithin(root: string, limit = 200_000): Promise<number> {
+  const stack = [root]
+  let seen = 0, unlinked = 0
+  while (stack.length) {
+    const dir = stack.pop()!
+    let entries: Dirent[]
+    try { entries = await readdir(dir, { withFileTypes: true }) } catch { continue }
+    for (const entry of entries) {
+      if (++seen > limit) return unlinked
+      const path = join(dir, entry.name)
+      if (entry.isSymbolicLink()) {
+        // A junction on Windows is a link here too; rmdir removes an empty-looking junction where unlink cannot.
+        try { await unlink(path); unlinked++ } catch { try { await rmdir(path); unlinked++ } catch { /* rm's own handling is next */ } }
+      } else if (entry.isDirectory()) {
+        stack.push(path)
+      }
+    }
+  }
+  return unlinked
+}
+
 export async function removeWorktreeSafely(
   deps: WorktreeRemovalDeps,
   input: GitHubRemoveWorktreeInput
 ): Promise<GitHubMessageResult> {
-  const notes: string[] = []
+  // C3 (HML on #477): the window words these; `message` is their English text, for agents and logs.
+  const notes: MainMessage[] = []
   const trees = await listRegistered(deps, input.rootPath)
-  const target = trees.find((t) => norm(t.path) === norm(input.path))
+  const wanted = normReal(input.path)
+  const target = trees.find((t) => norm(t.path) === norm(input.path) || normReal(t.path) === wanted)
   const primary = trees[0]?.path ?? input.rootPath
 
   // 1 — structure
@@ -96,7 +140,7 @@ export async function removeWorktreeSafely(
   const archive = config?.scripts.archive
   if (archive && !target.prunable) {
     if (!deps.trust.isTrusted(primary, 'archive', archive)) {
-      notes.push('The archive hook was not approved and was skipped.')
+      notes.push(mainMessage('worktree.archive.notApproved', {}))
     } else {
       const outcome = await runHook(archive, {
         cwd: target.path,
@@ -115,17 +159,22 @@ export async function removeWorktreeSafely(
               : 'ended without a verifiable result'
         throw new WorktreeRemovalError('archive-failed', `O hook archive ${why}. ${outcome.output.trim().slice(-400)}`.trim())
       }
-      if (outcome.status !== 'passed') notes.push('The archive hook failed and was dismissed.')
+      if (outcome.status !== 'passed') notes.push(mainMessage('worktree.archive.failedDismissed', {}))
     }
   }
 
-  const sharedDirs = config?.worktree.sharedDirectories ?? []
+  // Links are made from the main checkout's list (B19); a worktree made before that, from its branch's own. Both are
+  // unlinked, never followed: only an actual link or junction is removed, and git would delete through one.
+  const primaryConfig = await loadRepoConfig(primary)
+  const sharedDirs = [...new Set([...(primaryConfig?.worktree.sharedDirectories ?? []), ...(config?.worktree.sharedDirectories ?? [])])]
 
-  // 4 — dirty check
+  // 4 — dirty check. Its answer is the only one now: the folder is deleted by us (step 7), not by git.
+  let confirmedClean = input.force === true || target.prunable
   if (!input.force && !target.prunable) {
     const links = await findSharedLinks(target.path, sharedDirs)
-    const status = await deps.gh.spawn('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all'], target.path, undefined, 20_000)
+    const status = await deps.gh.git(['status', '--porcelain=v1', '-z', '--untracked-files=all'], target.path, undefined, 20_000)
     if (status.status === 0 && !status.error) {
+      confirmedClean = true
       const blocking = (status.stdout ?? '')
         .split('\0')
         .filter((entry) => entry.length > 3)
@@ -137,8 +186,10 @@ export async function removeWorktreeSafely(
         )
       }
     }
-    // A status failure is not proof of cleanliness, but git's own refusal in
-    // step 7 is the backstop, so it is deliberately not escalated here.
+  }
+  // A status failure is not proof of cleanliness, and git no longer gets the last word on the folder.
+  if (!confirmedClean) {
+    throw new WorktreeRemovalError('dirty', 'Git could not tell whether the worktree has uncommitted changes. Use force to remove it anyway.')
   }
 
   // 5 — terminals
@@ -152,39 +203,39 @@ export async function removeWorktreeSafely(
   // 6 — shared links
   await removeSharedLinks(target.path, sharedDirs)
 
-  // 7 — git
-  const args = ['worktree', 'remove']
-  if (input.force) args.push('--force')
-  args.push(target.path)
+  // 7 — delete, then de-register. Git deletes THROUGH a junction or symlink (an ignored node_modules link outside the
+  // worktree is emptied), whatever its name; Node's recursive rm removes the link itself and never follows it
+  // (SECURITY #477 H). Git then only drops its record of a folder that is gone, which touches no other worktree.
   try {
-    await deps.gh.runGit(args, input.rootPath)
+    await unlinkLinksWithin(target.path)
+    await rm(target.path, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  } catch (rmError) {
+    throw new WorktreeRemovalError(
+      'git-failed',
+      `The worktree folder could not be deleted: ${rmError instanceof Error ? rmError.message : String(rmError)}`
+    )
+  }
+  try {
+    await deps.gh.runGit(['worktree', 'remove', '--force', target.path], input.rootPath)
   } catch (error) {
-    const stillRegistered = (await listRegistered(deps, input.rootPath)).some((t) => norm(t.path) === norm(target.path))
-    if (stillRegistered) {
-      throw new WorktreeRemovalError('git-failed', sanitizeError(error instanceof Error ? error.message : String(error)))
+    if ((await listRegistered(deps, input.rootPath)).some((t) => norm(t.path) === norm(target.path))) {
+      await deps.gh.tryGit(['worktree', 'prune'], input.rootPath)
+      if ((await listRegistered(deps, input.rootPath)).some((t) => norm(t.path) === norm(target.path))) {
+        throw new WorktreeRemovalError('git-failed', sanitizeError(error instanceof Error ? error.message : String(error)))
+      }
     }
-    // Git de-registered it but the folder survived (Windows handle, long path).
-    // The registry is the only trusted proof, so finish the delete ourselves.
-    try {
-      await rm(target.path, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
-    } catch (rmError) {
-      throw new WorktreeRemovalError(
-        'git-failed',
-        `Worktree unregistered, but the folder could not be deleted: ${rmError instanceof Error ? rmError.message : String(rmError)}`
-      )
-    }
-    await deps.gh.tryGit(['worktree', 'prune'], input.rootPath)
   }
 
   // 8 — branch
   if (input.deleteBranch && target.branch) {
     try {
       await deps.gh.runGit(['branch', '-d', '--', target.branch], input.rootPath)
-      notes.push(`Branch ${target.branch} removido.`)
+      notes.push(mainMessage('worktree.branch.deleted', { branch: target.branch }))
     } catch {
-      notes.push(`Branch ${target.branch} kept: it has unmerged commits.`)
+      notes.push(mainMessage('worktree.branch.kept', { branch: target.branch }))
     }
   }
 
-  return ok([`Worktree em ${input.path} removido.`, ...notes].join(' '))
+  const notices = [mainMessage('worktree.removed', { path: target.path }), ...notes]
+  return { ...ok(notices.map(englishText).join(' ')), notices }
 }

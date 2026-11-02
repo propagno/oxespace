@@ -50,8 +50,10 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `approvals.admin` | `approvals.list`, `respond`, `ack`, `unavailable`, `history` (B10: the app's own approval modal) |
 | `thread.sections` | `thread.sections`, `thread.saveSections` (F13, for 1.4: the person's own organization of the conversation list) |
 | `app.open_external` | `app.openExternal` (the window's only way to open a link outside the app, after the person confirmed its host) |
+| `app.open_in` | `app.openIn`, `app.openInTargets`, `app.setOpenInPreference` (B18, for 1.4: it starts a program on the computer, so only the person opens a file in an editor or its folder) |
 | `app.activity` | `activity.recent`, `activity.record`, `activity.seen`, `activity.resolve` (F30, for 1.4: the person's own notification history) |
 | `mcp.tool_rules_admin` | `mcpInternal.setToolRule` |
+| `policy.accept_change` | `policy.acceptChange`, `policy.reviewChange` (B7.4: accepting, or reviewing again, a policy file changed outside OXESpace; the phone maps a `policyChange` request to its forbidden `policy.edit`) |
 
 ### Per-tool rules (B7.3): where each one holds
 

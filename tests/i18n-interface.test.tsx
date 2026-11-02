@@ -6,7 +6,6 @@ import '../src/commands/settings.commands'
 import { McpServerSafety, quarantineReasons } from '../src/components/MCP/McpServerSafety'
 import { useOxePostStore } from '../src/components/OxePost/oxepost.store'
 import { SlashOverlay } from '../src/components/SlashOverlay/SlashOverlay'
-import { TeamButton } from '../src/components/Teams/TeamButton'
 import { commandCategoryLabel } from '../src/commands/commandText'
 import { changeLanguage } from '../src/i18n'
 import { formatMainMessage } from '../src/i18n/mainMessage'
@@ -52,9 +51,9 @@ describe('text built outside components', () => {
   it('renames the palette commands and their groups when the language changes, without a restart', async () => {
     const { result } = renderHook(() => useContributedCommands())
     const general = (): string | undefined => result.current.find(command => command.id === 'settings.general')?.title
-    expect(general()).toBe('Settings: General')
+    expect(general()).toBe('Settings: Open general settings')
     await act(async () => { await changeLanguage('pt-BR') })
-    expect(general()).toBe('Configurações: Geral')
+    expect(general()).toBe('Configurações: Abrir as configurações gerais')
     expect(commandCategoryLabel('Help')).toBe('Ajuda')
     expect(commandCategoryLabel('OxeQuery')).toBe('OxeQuery')
   })
@@ -75,13 +74,6 @@ describe('text built outside components', () => {
 })
 
 describe('components in Brazilian Portuguese', () => {
-  it('shows the title bar Team button and its tooltip in Portuguese (A2)', async () => {
-    await act(async () => { await changeLanguage('pt-BR') })
-    render(<TeamButton view="code" enabled onOpen={() => undefined} />)
-    const button = screen.getByRole('button', { name: 'Equipe' })
-    expect(button.getAttribute('title')).toBe('Papéis e mensagens do projeto, compartilhados pelo OxeCode e pelo OxeChat')
-  })
-
   it('shows the terminal commands overlay in Portuguese', async () => {
     // jsdom has no layout; the overlay scrolls the selected row into view.
     Element.prototype.scrollIntoView = vi.fn()

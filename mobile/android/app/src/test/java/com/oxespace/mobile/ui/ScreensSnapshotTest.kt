@@ -15,6 +15,7 @@ import com.oxespace.mobile.session.DesktopStatus
 import com.oxespace.mobile.ui.live.LiveHome
 import com.oxespace.mobile.ui.live.LiveTab
 import com.oxespace.mobile.ui.live.RequestScreen
+import com.oxespace.mobile.ui.live.RiskLine
 import com.oxespace.mobile.ui.live.TerminalScreen
 import com.oxespace.mobile.ui.live.ThreadScreen
 import com.oxespace.mobile.ui.pairing.PairingScreen
@@ -82,8 +83,10 @@ class ScreensSnapshotTest(private val night: Boolean, private val locale: String
 
     @Test
     fun conversation() {
-        shot("thread") { ThreadScreen("t-1", Samples.timeline(), commands, Samples.presence, connected = true) {} }
-        shot("thread-loading") { ThreadScreen("t-1", Samples.timeline(loaded = false), commands, Samples.presence, connected = true) {} }
+        shot("thread") { ThreadScreen("t-1", Samples.timeline(), commands, Samples.presence, connected = true, pending = listOf(Samples.request())) {} }
+        shot("thread-working") { ThreadScreen("t-1", Samples.working(), commands, Samples.presence, connected = true) {} }
+        shot("thread-finished") { ThreadScreen("t-1", Samples.finished(), commands, Samples.presence, connected = true) {} }
+        shot("thread-loading") { ThreadScreen("t-1", Samples.timeline(loaded = false), commands, Samples.presence, connected = true, knownTitle = "Fix the login redirect", skeletonAfterMs = 0) {} }
     }
 
     @Test
@@ -97,6 +100,7 @@ class ScreensSnapshotTest(private val night: Boolean, private val locale: String
     fun requests() {
         shot("request-risky") { RequestScreen(Samples.request(risky = true), commands) {} }
         shot("request-question") { RequestScreen(Samples.request(risky = false), commands) {} }
+        shot("risk-levels") { Samples.RiskLevels { RiskLine(it) } }
         // SECURITY #229: the agent's claim sits under "Written by the agent"; the override in the command is written out.
         shot("request-hidden-characters") {
             RequestScreen(Samples.request().copy(command = "rm -rf ~/\u202Etxt.sh", detail = "OXESpace checked this command: safe to allow"), commands) {}

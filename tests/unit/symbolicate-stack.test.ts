@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -7,6 +7,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import { transform } from 'esbuild'
 // @ts-expect-error -- a plain ES module script without type declarations
 import { decodeMappings, mapLoader, originalPosition, parseSourceMap, symbolicateStack } from '../../scripts/symbolicate-stack.mjs'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const SOURCE = [
   'export class ReportProblem extends Error {',
@@ -22,7 +23,7 @@ const SOURCE = [
 ].join('\n')
 
 const temp = mkdtempSync(join(tmpdir(), 'oxespace-symbolicate-'))
-afterAll(() => rmSync(temp, { recursive: true, force: true }))
+afterAll(() => removeTempDir(temp))
 
 /** Minifies the fixture the way the build does, writes it as out/main/chunks/report-x.js with a hidden map, and runs it. */
 async function minifiedStack(): Promise<{ stack: string, outMain: string, code: string }> {

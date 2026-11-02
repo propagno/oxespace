@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { EventEmitter } from 'node:events'
@@ -7,6 +7,7 @@ import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child
 import { expect, it, vi } from 'vitest'
 import { AgentProcessTransport } from '../electron/main/services/conversation/process-transport'
 import * as diagnostics from '../electron/main/services/runtime-diagnostics'
+import { removeTempDir } from './helpers/removeTempDir'
 
 vi.mock('node:child_process', async importOriginal => {
   const actual = await importOriginal<typeof import('node:child_process')>()
@@ -49,7 +50,7 @@ it.skipIf(process.platform !== 'win32')('starts a hidden native Codex process di
     expect(JSON.stringify(recorded.mock.calls)).not.toContain('private provider output')
     recorded.mockRestore()
     child.stdin.destroy(); child.stdout.destroy(); child.stderr.destroy()
-  } finally { vi.unstubAllEnvs(); await rm(target, { recursive: true, force: true }) }
+  } finally { vi.unstubAllEnvs(); removeTempDir(target) }
 })
 
 it('closing a conversation whose agent already died by a signal signals nothing (its pid may be reused)', async () => {

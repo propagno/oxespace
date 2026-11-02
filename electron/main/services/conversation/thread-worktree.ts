@@ -1,4 +1,3 @@
-import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { realpath } from 'node:fs/promises'
@@ -8,6 +7,7 @@ import type { GitHubCreateWorktreeInput, GitHubMessageResult, GitHubRemoveWorktr
 import { checkoutDirectoryName, validateExplicitBranchName } from '../delegation/delegation-branch'
 import type { ThreadWorktreeErrorCode } from '../../../../shared/threadWorktree'
 import { readThreadTitle } from './thread-title'
+import { runGit } from '../../utils/safe-git'
 
 /** What creating a worktree needs from the Git service; the same operation the Worktrees panel uses. */
 export interface ThreadWorktreeHost {
@@ -36,17 +36,17 @@ export class ThreadWorktreeError extends Error {
 /** The folder next to the repository that holds every worktree the app creates for it (delegations included). */
 export const worktreeFolderOf = (projectRoot: string): string => join(dirname(projectRoot), `${basename(projectRoot)}-worktrees`)
 
-export const git = (args: string[], cwd: string): Promise<{ ok: boolean; stdout: string; stderr: string }> => new Promise(resolve => {
-  const child = execFile('git', args, { cwd, windowsHide: true, timeout: 30_000 }, (error, stdout, stderr) => resolve({ ok: !error, stdout: String(stdout), stderr: String(stderr) }))
-  child.stdin?.end()
-})
+export const git = async (args: string[], cwd: string): Promise<{ ok: boolean; stdout: string; stderr: string }> => {
+  const result = await runGit(cwd, args, { timeout: 30_000 })
+  return { ok: result.ok, stdout: result.stdout, stderr: result.stderr }
+}
 
 /**
  * Creates a new branch in its own worktree for a conversation, next to the repository in `<repo>-worktrees/`
  * (the folder Delegation uses). Nothing is left behind when creation fails. The caller registers the
  * returned directory as a context of the same Thread project.
  */
-export async function createThreadWorktree(host: ThreadWorktreeHost, projectRoot: string, request: ThreadWorktreeRequest, now = new Date()): Promise<{ rootPath: string; branch: string; baseSha: string; message: string }> {
+export async function createThreadWorktree(host: ThreadWorktreeHost, projectRoot: string, request: ThreadWorktreeRequest, now = new Date()): Promise<{ rootPath: string; branch: string; baseSha: string; message: string; notices?: GitHubMessageResult['notices'] }> {
   if (!(await git(['rev-parse', '--is-inside-work-tree'], projectRoot)).ok) {
     throw new ThreadWorktreeError('NOT_A_REPO', `${projectRoot} is not a Git repository, so it cannot have a worktree.`)
   }
@@ -87,7 +87,7 @@ export async function createThreadWorktree(host: ThreadWorktreeHost, projectRoot
     await discardThreadWorktree(projectRoot, path, branch)
     throw new ThreadWorktreeError('CREATE_FAILED', result.message || 'The worktree could not be created.')
   }
-  return { rootPath: await realpath(path), branch, baseSha, message: result.message }
+  return { rootPath: await realpath(path), branch, baseSha, message: result.message, ...(result.notices?.length ? { notices: result.notices } : {}) }
 }
 
 /** Removes a worktree this module created and its branch, when what follows the creation fails. */

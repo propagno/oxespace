@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { parseChecksums, sha256File, verifyArchiveChecksum } from '../electron/main/services/rtk-checksum'
+import { removeTempDir } from './helpers/removeTempDir'
 
 const sha = (data: string): string => createHash('sha256').update(data).digest('hex')
 
@@ -14,7 +15,7 @@ describe('RTK archive checksum', () => {
     dir = mkdtempSync(join(tmpdir(), 'rtk-checksum-'))
     writeFileSync(join(dir, 'rtk.zip'), archive)
   })
-  afterAll(() => { rmSync(dir, { recursive: true, force: true }) })
+  afterAll(() => { removeTempDir(dir) })
 
   describe('parseChecksums', () => {
     it('reads sha256sum text mode, binary mode and CRLF lines', () => {

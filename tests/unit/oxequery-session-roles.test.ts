@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -100,6 +100,7 @@ vi.mock('mongodb', () => {
 
 import { AGENT_IDLE_MS, MAX_CONNECTIONS_PER_SLOT, OxeQueryCore } from '../../electron/main/services/oxequery/oxequery-core'
 import { OxeQueryError, type ResolvedConnection } from '../../electron/main/services/oxequery/oxequery-errors'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const person: ResolvedConnection = { id: 'c1', engine: 'postgres', host: 'db.local', port: 5432, database: 'app', username: 'me', password: 'hunter2', sslMode: 'disable', readOnly: false }
 /** What the agent gateway sends: the same connection, forced read-only, as the agent. */
@@ -116,7 +117,7 @@ beforeEach(() => {
   core = new OxeQueryCore()
 })
 afterEach(async () => { server.sleep?.open(); server.insert?.open(); server.find?.open(); server.connecting?.open(); await core.closeAll() })
-afterAll(() => rmSync(dir, { recursive: true, force: true }))
+afterAll(() => removeTempDir(dir))
 
 const failure = async (run: () => Promise<unknown>): Promise<OxeQueryError> => {
   try { await run() } catch (error) { return error as OxeQueryError }

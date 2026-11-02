@@ -186,6 +186,31 @@ describe('session panel actions', () => {
     expect(region).toHaveTextContent('Modelclaude-x')
   })
 
+  it('keeps what creating its worktree refused under Worktree, after the first message and a dismissal; info stays out (DESIGN #487)', async () => {
+    localStorage.setItem('oxe-worktree-notices-dismissed:t1', '1')
+    const notices = [
+      { code: 'worktree.createdFrom', params: { path: '/repo-wt', branch: 'feat/x', base: 'main' } },
+      { code: 'git.hooks.skipped', params: {} },
+      { code: 'worktree.copyFiles.outsideRepo', params: { patterns: ['../outside.txt'] } }
+    ]
+    const message = { type: 'message', id: 'm1', role: 'user', text: 'Start', createdAt: 1 } as unknown as ThreadEvent
+    const snapshot = snapshotWith({ id: 't1', ownedWorktree: { path: '/repo-wt', branch: 'feat/x', projectRoot: '/repo', baseCommit: 'abc', notices } as unknown as ThreadSnapshot['thread']['ownedWorktree'] }, [message])
+    const view = renderPanel(snapshot)
+    const refusals = within(screen.getByRole('region', { name: 'Environment' })).getByTestId('session-worktree-refusals')
+    expect(refusals.querySelectorAll('li')).toHaveLength(1)
+    expect(refusals).toHaveTextContent(/^worktree\.copyFiles patterns refused, .*\.\.\/outside\.txt\.$/)
+    expect(refusals.closest('[role="alert"]')).not.toBeNull()
+    expect(screen.getByRole('region', { name: 'Environment' })).not.toHaveTextContent('Worktree created at')
+    await changeLanguage('pt-BR')
+    view.rerender(<ThreadSessionPanel snapshot={snapshot} running={false} onOpenPanel={() => {}} />)
+    expect(screen.getByTestId('session-worktree-refusals')).toHaveTextContent(/^Padrões do worktree\.copyFiles recusados, .*\.\.\/outside\.txt\.$/)
+  })
+
+  it('has no refusal block when creating the worktree refused nothing', () => {
+    renderPanel(snapshotWith({ ownedWorktree: { path: '/repo-wt', branch: 'feat/x', projectRoot: '/repo', baseCommit: 'abc', notices: [{ code: 'git.hooks.skipped', params: {} }] } as unknown as ThreadSnapshot['thread']['ownedWorktree'] }))
+    expect(screen.queryByTestId('session-worktree-refusals')).toBeNull()
+  })
+
   it('is one of the Thread side panels', async () => {
     const user = userEvent.setup()
     render(<ThreadChangesPanel snapshot={snapshotWith()} panel="session" onClose={() => {}} />)
