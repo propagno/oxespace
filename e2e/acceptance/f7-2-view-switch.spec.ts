@@ -18,6 +18,20 @@ import { launchApp, openDemoWorkspace, resizeWindow } from '../helpers/launch'
 type Frame = { t: number; pressed: boolean; busy: boolean; oldUp: boolean; newUp: boolean; skeleton: boolean; brand: boolean; spinner: boolean; dimmed: boolean; focusInNew: boolean; fading: boolean }
 type Record = { t0: number; frames: Frame[]; announced: string[]; keys: Array<{ t: number; where: 'old' | 'new' | 'other' }> }
 
+/**
+ * The press: pointerdown and click in one task, as a real click delivers them, so no frame paints between the two (#363
+ * CI, Windows ×6: two separate dispatches let a frame paint at 7 ms, before the click had even been sent, and the rule
+ * read that frame). The rule still counts from the pointerdown.
+ */
+async function press(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const button = document.querySelector<HTMLButtonElement>('button[data-app-mode="data"]')!
+    button.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerType: 'mouse' }))
+    button.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, pointerType: 'mouse' }))
+    button.click()
+  })
+}
+
 async function arm(page: Page): Promise<void> {
   await page.evaluate(() => {
     const visible = (el: Element | null) => !!el && (el as HTMLElement).offsetParent !== null && getComputedStyle(el).visibility !== 'hidden'
@@ -104,8 +118,7 @@ for (const variant of [
       expect(wait.quiet, `no quiet window within 8 s (waited ${wait.ms} ms, ${wait.longTasks} long tasks)`).toBe(true)
       await arm(page)
       // No hover first: hovering would prefetch the chunk (rule 4) and the switch would no longer be cold.
-      await page.locator('button[data-app-mode="data"]').dispatchEvent('pointerdown')
-      await page.locator('button[data-app-mode="data"]').dispatchEvent('click')
+      await press(page)
       if (variant.keys) await page.keyboard.type('f72', { delay: 5 })
       await page.waitForTimeout(3_500)
       await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 })
@@ -165,8 +178,7 @@ for (const variant of [{ name: 'normal speed', cpu: 1 }, { name: 'slow CPU ×6',
       if (variant.cpu > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: variant.cpu })
       await page.locator('button[data-app-mode="data"]').waitFor({ state: 'attached', timeout: 30_000 })
       await arm(page)
-      await page.locator('button[data-app-mode="data"]').dispatchEvent('pointerdown')
-      await page.locator('button[data-app-mode="data"]').dispatchEvent('click')
+      await press(page)
       await page.waitForTimeout(3_500)
       await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 })
       const rec = await page.evaluate(() => (window as unknown as { __f72: Record }).__f72)
