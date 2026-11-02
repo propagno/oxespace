@@ -1,12 +1,13 @@
-import { mkdtemp, writeFile, appendFile, rm } from 'node:fs/promises'
+import { mkdtemp, writeFile, appendFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, dirname, resolve } from 'node:path'
 import { describe, it, expect } from 'vitest'
 import { readNativeHistoryPage, type NativeHistoryCursor } from '../electron/main/services/conversation/native-history-page'
+import { removeTempDir } from './helpers/removeTempDir'
 
 async function removeFixture(root: string): Promise<void> {
   if (dirname(resolve(root)) !== resolve(tmpdir())) throw Error('Unsafe test cleanup')
-  await rm(root, { recursive: true, force: true })
+  removeTempDir(root)
 }
 
 describe('native history byte pages', () => {

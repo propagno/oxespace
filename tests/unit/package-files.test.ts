@@ -9,11 +9,12 @@
  * Guards the bug where the `!out/**\/*.map` exclude sat after the migrations FileSet, got
  * merged ahead of `out/**\/*` and did nothing, so every main-process source map shipped.
  */
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join, relative } from 'node:path'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const ROOT = join(__dirname, '..', '..')
 const req = createRequire(join(ROOT, 'package.json'))
@@ -59,7 +60,7 @@ beforeAll(async () => {
 })
 
 afterAll(() => {
-  if (project) rmSync(project, { recursive: true, force: true })
+  if (project) removeTempDir(project)
 })
 
 describe('electron-builder files', () => {

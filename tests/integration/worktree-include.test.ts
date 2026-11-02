@@ -11,6 +11,7 @@ import { unlinkLinksWithin } from '../../electron/main/services/github/worktree-
 import { RepoHookTrust } from '../../electron/main/services/repo-config/trust'
 import { openInMemoryDatabase } from '../../electron/main/db'
 import { MESSAGE_CODES } from '../../shared/messages'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 })
 
@@ -40,7 +41,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  try { rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }) } catch { /* temp dir */ }
+  try { removeTempDir(sandbox) } catch { /* temp dir */ }
 })
 
 describe('worktree.copyFiles (B19)', () => {
