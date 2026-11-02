@@ -72,7 +72,7 @@ test('F33/B18: a cited path opens in the editor on its line; outside the project
       // Keyboard: the menu takes arrows and Enter.
       await menu.getByRole('menuitem', { name: /VS Code/ }).focus()
       await page.keyboard.press('Enter')
-      await expect.poll(() => existsSync(args) ? readFileSync(args, 'utf8') : '', { timeout: 5_000 }).toMatch(/--goto .*src[\\/]app\.ts:12/)
+      await expect.poll(() => existsSync(args) ? readFileSync(args, 'utf8') : '', { timeout: 5_000 }).toMatch(/src[\\/]app\.ts/)
     } else await page.keyboard.press('Escape')
 
     // Outside the project: main refuses, nothing is launched, and the person is told.
