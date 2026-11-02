@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { copyIncludedFiles, includeSegments, INCLUDE_LIMITS } from '../../electron/main/services/repo-config/worktree-include'
-import { parseOxeYaml } from '../../electron/main/services/repo-config/parser'
+import { normalizeSharedDirectories, parseOxeYaml } from '../../electron/main/services/repo-config/parser'
 import { GhExec } from '../../electron/main/services/github/gh-exec'
 import { GitHubRepositoryService } from '../../electron/main/services/github/repository.service'
 import { RepoHookTrust } from '../../electron/main/services/repo-config/trust'
@@ -299,6 +299,37 @@ describe('createWorktree with oxe.yaml (real git)', () => {
     await service.removeWorktree({ rootPath: root, path, force: true })
     expect(existsSync(path)).toBe(false)
     expect(readFileSync(join(root, 'node_modules', 'pkg', 'index.js'), 'utf8')).toBe('main package')
+  })
+
+  it.each([false, true])('removing a worktree never deletes through a link no list names (force: %s; SECURITY #477 H)', async force => {
+    writeFileSync(join(root, '.gitignore'), '.env\nnode_modules\n')
+    const outside = join(sandbox, 'outside-store')
+    put(outside, 'keep/file.txt', 'must survive')
+    const path = join(sandbox, `wt-unlisted-${force}`)
+    await service.createWorktree({ rootPath: root, branch: `wt-unlisted-${force}`, path, createBranch: true, baseRef: 'main' })
+    // Ignored without touching a tracked file (info/exclude is shared by every worktree of the repository).
+    writeFileSync(join(root, '.git', 'info', 'exclude'), 'node_modules\n')
+    // Made by hand, a setup hook or an agent: ignored, so git status shows nothing, and in no oxe.yaml list.
+    if (!link(outside, join(path, 'node_modules'))) return
+    await service.removeWorktree({ rootPath: root, path, force })
+    expect(existsSync(path)).toBe(false)
+    expect(readFileSync(join(outside, 'keep', 'file.txt'), 'utf8')).toBe('must survive')
+    expect(git(root, 'worktree', 'list', '--porcelain')).not.toContain(`wt-unlisted-${force}`)
+  })
+
+  it('a shared directory under a parent that is a link out of the main checkout is not linked (SECURITY #477)', async () => {
+    const elsewhere = join(sandbox, 'elsewhere')
+    put(elsewhere, 'a/node_modules/pkg.js', 'outside')
+    if (!link(elsewhere, join(root, 'packages'))) return
+    writeFileSync(join(root, '.gitignore'), '.env\npackages\n')
+    writeFileSync(join(root, 'oxe.yaml'), 'worktree:\n  sharedDirectories: [packages/a/node_modules]\n')
+    const path = join(sandbox, 'wt-parent-link')
+    await service.createWorktree({ rootPath: root, branch: 'wt-parent-link', path, createBranch: true, baseRef: 'main' })
+    expect(existsSync(join(path, 'packages', 'a', 'node_modules'))).toBe(false)
+  })
+
+  it('shared directory names that Windows can alias are dropped', () => {
+    expect(normalizeSharedDirectories(['.git::$INDEX_ALLOCATION', 'GIT~1', 'cache.', 'cache /x', 'a:b', 'node_modules'])).toEqual(['node_modules'])
   })
 
   it('a repository made with --separate-git-dir still copies from its main working tree (SECURITY #471)', async () => {
