@@ -63,7 +63,8 @@ test('B19/#451: worktree.copyFiles copies what is listed and ignored, refuses th
     expect.soft(a.message, '(6) no Portuguese').not.toMatch(/criado|Copiad|arquivos/i)
 
     // (2) Refused patterns: absolute, .., .git, Windows aliases, a link out, a tracked file, too complex.
-    const deep = 'x/' + Array.from({ length: 9 }, () => '**').join('/') + '/y'
+    // Runs of ** collapse into one, so the nine ** are kept apart by folders: over the cap of 8.
+    const deep = Array.from({ length: 9 }, (_, i) => `d${i}/**`).join('/') + '/y'
     const b = await create(JSON.stringify(['/etc/passwd', 'C:/Windows/win.ini', '../outside.txt', '.git/config', 'GIT~1/config', '.git::$INDEX_ALLOCATION/config', '.git./config', 'linked-out.txt', 'tracked.txt', deep]))
     out.b = { ok: b.ok, notices: b.notices, linkCopied: existsSync(join(b.path, 'linked-out.txt')) }
     expect.soft(b.ok, '(2) the worktree is still created').toBe(true)
@@ -98,7 +99,7 @@ test('B19/#451: worktree.copyFiles copies what is listed and ignored, refuses th
     writeFileSync(join(a.path, 'oxe.yaml'), 'worktree:\n  copyFiles: [secret.pem, .env]\n')
     writeFileSync(join(a.path, 'secret.pem'), 'in the worktree\n')
     const f = await create('', a.path)
-    out.f = { ok: f.ok, notices: f.notices, secret: existsSync(join(f.path, 'secret.pem')) }
+    out.f = { ok: f.ok, notices: f.notices, secret: existsSync(join(f.path, 'secret.pem')), secretFrom: existsSync(join(f.path, 'secret.pem')) ? readFileSync(join(f.path, 'secret.pem'), 'utf8').trim() : null }
     expect.soft(f.ok, '(5) created from a worktree').toBe(true)
     expect.soft(existsSync(join(f.path, 'secret.pem')), '(5) the worktree\'s own oxe.yaml is not read').toBe(false)
   } finally {
