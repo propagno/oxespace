@@ -51,15 +51,15 @@ body {
 .app-shell > .workspace-surface { grid-column: 2; grid-row: 2; min-height: 0; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--frame-radius); background: var(--surface-base); }
 /* Reduced motion: data-motion='reduce' comes from Settings › Appearance (System follows the operating system).
    Busy indicators (any *spin* class) are left out: a frozen spinner reads as a hang. The one spin slows down through --duration-spin.
-   Transitions are 0s, not a tiny duration: transition-property defaults to `all`, so any duration above 0 starts a
+   No transitions at all, not a tiny duration: transition-property defaults to `all`, so any duration above 0 starts a
    transition on every element for every change, and one from `visibility: hidden` paints hidden for a frame. That was
-   the empty frame between views with reduced motion (F7.2, HML on main 3facfbe0). Nothing listens for transitionend;
-   animations keep a tiny duration so animationend (Radix's exits) still fires. */
+   the empty frame between views with reduced motion (F7.2, HML on main 3facfbe0). `none` also drops any delay, so
+   nothing changes late either. Nothing listens for transitionend; animations keep a tiny duration so animationend
+   (Radix's exits) still fires. */
 :root[data-motion='reduce'] body, :root[data-motion='reduce'] body *:not([class*="spin"]), :root[data-motion='reduce'] body *::before, :root[data-motion='reduce'] body *::after {
   scroll-behavior: auto !important;
   animation-duration: .01ms !important;
   animation-iteration-count: 1 !important;
-  transition-duration: 0s !important;
-  transition-delay: 0s !important;
+  transition: none !important;
 }
 
