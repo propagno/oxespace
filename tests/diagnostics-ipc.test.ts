@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { EventEmitter } from 'node:events'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -39,6 +39,7 @@ import type { AppDatabase } from '../electron/main/db'
 import type { InternalMcpHandle } from '../electron/main/mcp-internal/bootstrap'
 import type { DiagnosticsService } from '../electron/main/services/diagnostics.service'
 import type { DiagnosticsMetrics } from '../shared/types/diagnostics'
+import { removeTempDir } from './helpers/removeTempDir'
 
 class Sender extends EventEmitter {
   readonly id = 7
@@ -73,7 +74,7 @@ afterEach(() => {
   resetDiagnosticsIpcForTests()
   hooks.handlers.clear(); hooks.appEvents.clear(); hooks.getAppMetrics.mockClear()
   if (dirname(resolve(hooks.userData)) !== resolve(tmpdir())) throw Error('Unsafe cleanup')
-  rmSync(hooks.userData, { recursive: true, force: true })
+  removeTempDir(hooks.userData)
 })
 
 describe('diagnostics measurement by subscription', () => {

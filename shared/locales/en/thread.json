@@ -1710,6 +1710,7 @@
     "ask": "Ask the side chat",
     "placeholder": "Ask about this conversation…",
     "send": "Ask",
+    "nul": "The question has a null character, which cannot be sent. Remove it and try again.",
     "close": "Close side chat ({{shortcut}})",
     "openMenu": "Side chat",
     "closeMenu": "Close side chat"
@@ -1717,7 +1718,9 @@
   "prArchive": {
     "merged": "Pull request #{{number}} was merged",
     "closed": "Pull request #{{number}} was closed",
-    "description": "Archive this conversation? Archived conversations can't be restored yet.",
-    "archive": "Archive"
+    "description": "This conversation will be archived. You can restore it from Archived in the sidebar.",
+    "keep": "Keep",
+    "archived": "Conversation archived",
+    "restore": "Restore"
   }
 }

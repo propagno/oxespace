@@ -43,7 +43,7 @@ export function normalizeSharedDirectories(value: unknown): string[] {
     entry = entry.replace(/\/+$/, '')
     if (!entry || entry.startsWith('/') || DRIVE.test(entry)) continue
     const segments = entry.split('/')
-    if (segments.some((s) => s === '' || s === '.' || s === '..' || s.toLowerCase() === '.git')) continue
+    if (segments.some((s) => s === '' || s === '.' || s === '..' || s.toLowerCase() === '.git' || s.includes(':') || /[. ]$/.test(s) || /^git~\d+$/i.test(s))) continue
     seen.add(entry)
     if (seen.size >= MAX_SHARED_DIRECTORIES) break
   }

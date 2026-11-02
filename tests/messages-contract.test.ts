@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import en from '../shared/locales/en/main.json'
 import ptBR from '../shared/locales/pt-BR/main.json'
@@ -98,6 +99,11 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'bundle.file.configuration': [],
   'linear.worktree.exists': ['issue', 'path'],
   'worktree.cleanup.notRemovable': [],
+  'worktree.removed': ['path'],
+  'worktree.archive.notApproved': [],
+  'worktree.archive.failedDismissed': [],
+  'worktree.branch.deleted': ['branch'],
+  'worktree.branch.kept': ['branch'],
   'worktree.cleanup.blocked': ['reasons'],
   'worktree.cleanup.needsConfirmation': ['reasons'],
   'worktree.created': ['branch', 'path'],
@@ -235,6 +241,8 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'remote.port.inUse': ['port'],
   'remote.network.noPrivateInterface': [],
   'remote.certificate.failed': [],
+  'remote.keyring.missing': [],
+  'remote.storage.unavailable': [],
   'remote.pairing.failed': ['reason'],
   'remote.gateway.offline': [],
   'remote.pairing.limit': ['max'],
@@ -326,7 +334,14 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'notify.refused.reservedName': ['name'],
   'notify.refused.rateLimit': ['perMinute'],
   'agents.name.reserved': ['name'],
-  'delegation.requester.live': []
+  'delegation.requester.live': [],
+  'app.openIn.outsideRoot': [],
+  'app.openIn.notFound': ['path'],
+  'app.openIn.notAFile': ['editor'],
+  'app.openIn.unknownTarget': [],
+  'app.openIn.editorMissing': ['editor'],
+  'app.openIn.launchFailed': ['editor'],
+  'app.openIn.revealFailed': []
 }
 
 describe('C3 message codes', () => {
@@ -409,5 +424,15 @@ describe('C3 message codes', () => {
     const message = mainMessage('mcp.quarantine.changed', { tools: ['search', 'fetch', 'write'] })
     expect(messageValues(message, 'en')).toEqual({ tools: 'search, fetch, and write' })
     expect(messageValues(message, 'pt-BR')).toEqual({ tools: 'search, fetch e write' })
+  })
+})
+
+describe('an option that lowers protection is never suggested on screen (DESIGN #478)', () => {
+  it('no catalog string and no secret-storage refusal names OXESPACE_ALLOW_WEAK_SECRETS', () => {
+    for (const file of ['en', 'pt-BR'].flatMap(language => ['main', 'common', 'settings'].map(ns => `shared/locales/${language}/${ns}.json`))) {
+      expect(readFileSync(file, 'utf8'), file).not.toContain('OXESPACE_ALLOW_WEAK_SECRETS')
+    }
+    const cipher = readFileSync('electron/main/services/oxequery/secret-cipher.ts', 'utf8')
+    expect(cipher.match(/return '[^']*'/g)?.join(' ')).not.toContain('OXESPACE_ALLOW_WEAK_SECRETS')
   })
 })

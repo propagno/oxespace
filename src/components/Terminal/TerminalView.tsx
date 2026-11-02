@@ -5,6 +5,7 @@ import { Unicode11Addon } from '@xterm/addon-unicode11'
 import type { WebglAddon } from '@xterm/addon-webgl'
 import { loadWebglAddon, loadedWebglAddon, supportsWebgl2 } from './webglAddonLoader'
 import { createTerminalLinksAddon } from './terminalLinks'
+import { attachTerminalPaths } from './terminalPaths'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { ArrowDown, ArrowUp, X } from 'lucide-react'
@@ -215,6 +216,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
     terminal.loadAddon(fitAddon)
     terminal.loadAddon(unicodeAddon)
     terminal.loadAddon(createTerminalLinksAddon())
+    const pathLinksDisposable = attachTerminalPaths(terminal, hostRef.current, workspaceId) // F33: project paths
     terminal.loadAddon(searchAddon)
     searchAddonRef.current = searchAddon
     const searchResultsDisposable = searchAddon.onDidChangeResults((results) => setSearchResults(results))
@@ -798,6 +800,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
       pasteRef.current = null
       refitRef.current = null
       lastSelectionRef.current = null
+      pathLinksDisposable.dispose()
       terminal.dispose()
       terminalRef.current = null
     }

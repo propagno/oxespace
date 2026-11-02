@@ -1,20 +1,21 @@
 // @vitest-environment node
 import { spawnSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { crc32 } from 'node:zlib'
 import unzipper from 'unzipper'
 import { afterEach, describe, expect, it } from 'vitest'
 import { dosDateTime, isSafeZipName, writeZip, ZipLimitError, type ZipEntry } from '../electron/main/services/diagnostics/zip-writer'
+import { removeTempDir } from './helpers/removeTempDir'
 
 const roots: string[] = []
 function fixture(): string { const root = mkdtempSync(join(tmpdir(), 'oxe-zip-')); roots.push(root); return root }
 afterEach(() => {
   for (const root of roots.splice(0)) {
     if (dirname(resolve(root)) !== resolve(tmpdir())) throw Error('Unsafe cleanup')
-    rmSync(root, { recursive: true, force: true })
+    removeTempDir(root)
   }
 })
 

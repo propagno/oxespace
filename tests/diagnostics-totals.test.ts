@@ -1,14 +1,15 @@
 // @vitest-environment node
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { buildBundle } from '../electron/main/services/diagnostics/bundle'
 import { collectMetrics, measureStorage } from '../electron/main/services/diagnostics/metrics'
 import { isMessageCode } from '../shared/messages'
+import { removeTempDir } from './helpers/removeTempDir'
 
 const folder = mkdtempSync(join(tmpdir(), 'oxe-diag-totals-'))
-afterAll(() => rmSync(folder, { recursive: true, force: true }))
+afterAll(() => removeTempDir(folder))
 
 describe('diagnostics totals and bundle summaries (CCR on B8.3)', () => {
   it('reports the computer\'s memory and the data volume\'s size, so meters show a real share', async () => {

@@ -1,5 +1,6 @@
 import { app, BrowserWindow } from 'electron'
 import log from 'electron-log/main.js'
+import { e2eMocksEnabled } from './e2e/e2e-mode'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
@@ -269,7 +270,7 @@ export function initAutoUpdater(): void {
   preferences = loadPreferences()
   if (!app.isPackaged || !updaterSupportsThisInstall()) {
     setState({ status: 'idle', installMode: 'manual', error: null })
-    if (process.env.OXESPACE_E2E_MOCK_NATIVE !== '1') {
+    if (!e2eMocksEnabled(process.env, app.isPackaged)) {
       void checkForAppUpdates(false)
       const timer = setInterval(() => { void checkForAppUpdates(false) }, CHECK_INTERVAL_MS)
       timer.unref?.()

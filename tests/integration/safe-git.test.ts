@@ -11,6 +11,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { __forgetSeenDriversForTests, displayKey, execGit, execGitSync, ghEnv, needsConfigProbe, neutralizeRepositoryCommands, parseConfigEntries, runGit, safeGitArgs, safeGitEnv, SAFE_GIT_OPTIONS } from '../../electron/main/utils/safe-git'
 import { PersonGitRefused, runPersonGit } from '../../electron/main/utils/safe-git-person'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 })
 
@@ -35,7 +36,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  try { rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }) } catch { /* temp dir */ }
+  try { removeTempDir(sandbox) } catch { /* temp dir */ }
 })
 
 const ran = () => existsSync(marker)

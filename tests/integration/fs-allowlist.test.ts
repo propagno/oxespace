@@ -3,6 +3,9 @@ import { join, relative } from 'node:path'
 import { describe, expect, test } from 'vitest'
 
 const ALLOWED_FS_IMPORTS = new Set([
+  // B18: realpaths and stats only to authorize a workspace path and check an editor executable; reads and writes
+  // only <userData>/open-in.json.
+  'electron/main/services/open-in.ts',
   'electron/main/services/file-system.service.ts',
   'electron/main/services/agent.service.ts',
   'electron/main/services/background.service.ts',
@@ -147,7 +150,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Worktree lifecycle: reads only the bounded <root>/oxe.yaml, links/unlinks
   // the repo's declared shared directories (lstat-guarded, never following a
   // link) and finishes deleting a worktree folder git already de-registered.
-  // Source files are never read or written.
+  // worktree-removal also resolves a worktree path's real, long name
+  // (realpath, read-only) to compare it with git's list. Source files are
+  // never read or written.
   'electron/main/services/repo-config/loader.ts',
   'electron/main/services/repo-config/shared-dirs.ts',
   'electron/main/services/github/worktree-removal.ts',

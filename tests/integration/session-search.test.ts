@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { SessionSearchIndex, SessionSearchService, discoverTranscripts } from '../../electron/main/services/session-search'
 import { buildMatchLadder, parseSessionQuery } from '../../electron/main/services/session-search/query'
 import { parseTranscriptLine } from '../../electron/main/services/session-search/transcript'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const CLAUDE_ID = '11111111-1111-4111-8111-111111111111'
 const CODEX_ID = '22222222-2222-4222-8222-222222222222'
@@ -76,7 +77,7 @@ describe('SessionSearchIndex', () => {
 
   afterEach(() => {
     index.close()
-    try { rmSync(home, { recursive: true, force: true }) } catch { /* temp */ }
+    try { removeTempDir(home) } catch { /* temp */ }
   })
 
   test('indexes both agents and finds sessions by content with resume commands', () => {

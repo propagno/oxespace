@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
-import { THREAD_RUN_COMMAND_EVENT } from '../../commands/thread.commands'
+import { THREAD_RUN_COMMAND_EVENT } from '../../commands/thread.events'
 import { useKeybindings } from '../../keyboard/keybindings'
 import { useThreadViewModeStore } from '../../store/thread-view-mode.store'
 import type { ThreadPanel } from '../../store/thread-workbench.store'

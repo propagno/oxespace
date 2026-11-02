@@ -129,6 +129,15 @@
     "app": {
       "connectivity": {
         "offline": "Sem conexão de rede."
+      },
+      "openIn": {
+        "outsideRoot": "Este arquivo está fora do projeto e não pode ser aberto daqui.",
+        "notFound": "{{path}} não existe mais.",
+        "notAFile": "Daqui o {{editor}} só abre arquivos, não pastas.",
+        "unknownTarget": "O OXESpace não abre arquivos desse jeito.",
+        "editorMissing": "O {{editor}} não foi encontrado. Escolha outro editor.",
+        "launchFailed": "Não foi possível abrir no {{editor}}.",
+        "revealFailed": "Não foi possível mostrar o arquivo na pasta."
       }
     },
     "ipc": {
@@ -155,6 +164,12 @@
       },
       "certificate": {
         "failed": "Não foi possível criar o certificado da conexão nem lê-lo do armazenamento seguro."
+      },
+      "keyring": {
+        "missing": "A conexão com o celular fica desligada porque nenhum chaveiro do sistema foi encontrado para proteger a chave dela. Inicie o GNOME Keyring ou o KWallet e reinicie o OXESpace. Se um deles já estiver rodando (comum no i3 ou no sway), inicie o OXESpace com `--password-store=gnome-libsecret`."
+      },
+      "storage": {
+        "unavailable": "A conexão com o celular fica desligada porque o armazenamento seguro não está disponível neste sistema, então a chave dela não pode ser guardada."
       },
       "pairing": {
         "failed": "$t(remotePairingFailure.{{reason}})",
@@ -207,6 +222,15 @@
         "notOverwritten": "Já estavam no worktree novo e ficaram como estão: {{paths}}.",
         "notFollowed": "Não copiados, por serem links ou levarem para fora do repositório ou do worktree: {{paths}}.",
         "failed": "Não foi possível copiar: {{paths}}."
+      },
+      "removed": "Worktree removido de {{path}}.",
+      "archive": {
+        "notApproved": "O hook de archive do oxe.yaml não foi aprovado e foi pulado.",
+        "failedDismissed": "O hook de archive do oxe.yaml falhou, e o worktree foi removido mesmo assim."
+      },
+      "branch": {
+        "deleted": "Branch {{branch}} apagada.",
+        "kept": "Branch {{branch}} mantida: tem commits que não foram mesclados."
       }
     },
     "github": {

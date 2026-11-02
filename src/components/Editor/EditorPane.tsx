@@ -257,6 +257,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
           onCloseOthers={(relativePath) => closeOtherTabs(workspaceId, relativePath)}
           onTogglePin={(relativePath) => togglePin(workspaceId, relativePath)}
           onMove={(fromPath, toPath) => moveTab(workspaceId, fromPath, toPath)}
+          pathScope={{ workspaceId, rootPath }}
         />
         <header className="editor-toolbar">
           <span className="editor-path">{activePath ?? t('editor.noFile')}</span>
@@ -302,6 +303,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
             </Suspense>
           ) : null}
           {!binaryFile && file?.error ? <ErrorState compact title={t('editor.openFailed')} message={file.error} onRetry={() => void openFile({ workspaceId, rootPath, relativePath: file.relativePath })} /> : null}
+          {!binaryFile && file?.saveError ? <ErrorState compact title={t('editor.saveFailed', { name: file.relativePath })} message={file.saveError} onRetry={() => void useEditorStore.getState().savePath(workspaceId, file.relativePath)} /> : null}
           {!binaryFile && file?.conflict ? <ConflictDiff localContent={file.content} externalContent={file.conflict.externalContent} onResolve={(keep) => useEditorStore.getState().resolveConflict(workspaceId, keep)} /> : null}
           {!binaryFile && file && isMarkdown && showRendered ? (
             <div className="editor-preview-host scrollbar-sleek">

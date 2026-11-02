@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { expect, test, vi } from 'vitest'
-import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -9,6 +9,7 @@ import { openInMemoryDatabase } from '../../electron/main/db'
 import { MemoryRuntime } from '../../electron/main/services/memory/memory-runtime'
 import { AiMemoryProvider } from '../../electron/main/services/memory/ai-memory.provider'
 import { AgentMemoryAdapters } from '../../electron/main/services/memory/agent-memory-adapter'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 vi.mock('electron', () => ({ safeStorage: { isEncryptionAvailable: () => true,
   encryptString: (text: string) => Buffer.from(text), decryptString: (value: Buffer) => value.toString() } }))
@@ -79,6 +80,6 @@ test.skipIf(!oldBinary || !newBinary)('upgrades a stopped native 2.1.0 store and
   } finally {
     await runtime.stop()
     db.close()
-    await rm(directory, { recursive: true, force: true })
+    removeTempDir(directory)
   }
 }, 90_000)
