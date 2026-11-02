@@ -288,8 +288,11 @@ describe('B7.4 first sight: no file grants, references only restrict', () => {
     // The committed reads now go through safe-git: what that git gets, from the same call the gate makes.
     const prepared = prepareGitSync(top, committedBlobArgs('.oxespace/policy.json'))
     expect(prepared.env).toMatchObject({ GIT_NO_LAZY_FETCH: '1', GIT_TERMINAL_PROMPT: '0' })
-    expect(safeGitEnv({ GIT_DIR: '/x', PATH: '/bin' }, { systemConfig: true })).not.toHaveProperty('GIT_DIR')
-    expect(prepared.args).toEqual(expect.arrayContaining(['protocol.allow=never', 'protocol.ext.allow=never', 'protocol.ssh.allow=never', 'protocol.file.allow=never']))
+    const stripped = safeGitEnv({ GIT_DIR: '/x', GIT_CONFIG_SYSTEM: '/x', GIT_CONFIG_GLOBAL: '/x', PATH: '/bin' }, { systemConfig: true })
+    for (const name of ['GIT_DIR', 'GIT_CONFIG_SYSTEM', 'GIT_CONFIG_GLOBAL']) expect(stripped).not.toHaveProperty(name)
+    expect(prepared.args).toEqual(expect.arrayContaining(['protocol.allow=never', 'protocol.ext.allow=never', 'protocol.ssh.allow=never', 'protocol.file.allow=never',
+      'protocol.git.allow=never', 'protocol.http.allow=never', 'protocol.https.allow=never', 'core.fsmonitor=', '--no-pager']))
+    expect(prepared.args.some(arg => arg.startsWith('core.hooksPath='))).toBe(true)
     expect(prepared.args.slice(-3)).toEqual(['cat-file', 'blob', 'HEAD:./.oxespace/policy.json'])
   })
 })
