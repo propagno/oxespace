@@ -102,6 +102,30 @@ With `data-motion="reduce"`:
 - the one exception is the spin, which turns slowly (`--duration-spin: 2.4s`): a frozen spinner reads as a hang;
 - presses do not scale.
 
+## Switching views and loading (perceived performance)
+
+Decided 2026-10-31 for F7.2 (FRONTEND's measurements: a cold mode switch shows a loader at ~20 ms and content at
+~330 ms, almost all of it React's fallback throttle, not the chunk).
+
+1. **First feedback ≤ 100 ms is the control the person used**, not necessarily the work area. Clicking a mode makes
+   its button selected (`aria-pressed`) and busy (`aria-busy`) at once; that is the acknowledgement.
+2. **The previous view stays on screen while the next one loads** (a transition), and the new view replaces it in
+   one commit. No dimming, no spinner over the old view: under 300 ms either would only flash.
+3. **Past 300 ms, show the new view's own skeleton** (the shape of its content, `Skeleton`/`SidebarSkeleton`), never
+   the brand loader and never a bare spinner. 300 ms, not 100: a placeholder shown at 100 ms and replaced at 130 ms is
+   a flash. The brand loader is for boot only.
+4. **Prefetch on intent**: a mode's chunk starts loading on hover or focus of its button (and its shortcut's
+   keydown). Idle prefetch after boot is allowed only through the guarded idle preload, so the boot budget doesn't
+   rise.
+5. **Focus and announcement move at the commit**, not at the click: focus goes to the new view's first region, and the
+   mode name is announced once. Input typed into the old view before the commit stays in the old view.
+6. **Reduced motion**: same rules, no cross-fade.
+7. **Measured**: F7 records two numbers per switch, *selected at* (target ≤ 50 ms) and *content at* (the existing
+   one, re-baselined only downward).
+
+These rules apply to every place that swaps a whole surface: mode switch, Settings pages, the S7 central's full view,
+OxeChat conversation switches.
+
 ## Not covered
 
 Monaco and xterm animate on their own (cursor, smooth scrolling); they follow their own settings, not these tokens.

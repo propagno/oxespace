@@ -176,17 +176,6 @@
   padding: var(--space-xl);
 }
 
-.modal-error {
-  margin: 0 18px;
-  padding: 9px 12px;
-  border-radius: var(--radius-md);
-  background: var(--intent-danger-bg);
-  border: 1px solid var(--intent-danger-border);
-  color: var(--intent-danger-fg);
-  font-size: var(--fs-xs);
-  line-height: 1.4;
-}
-
 .modal-actions {
   display: flex;
   align-items: center;
@@ -629,32 +618,8 @@
   color: var(--text-on-accent);
 }
 
-.settings-header-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 0 14px;
-  border-radius: var(--radius-pill);
-  border: 1px solid color-mix(in srgb, var(--text-primary) 14%, transparent);
-  background: transparent;
-  color: var(--tx-secondary);
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
-}
 
-.settings-header-action:hover:not(:disabled) {
-  color: var(--tx-primary);
-  background: var(--ov-2);
-  border-color: color-mix(in srgb, var(--text-primary) 22%, transparent);
-}
 
-.settings-header-action:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 
 /* Provider discovery hero + cards — elevated surface, subtle border */
 .settings-providers-hero {
@@ -958,48 +923,11 @@
   border-radius: var(--radius-md);
 }
 
-.settings-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-2xl) var(--space-lg);
-  text-align: center;
-  color: var(--tx-secondary);
-  border: 1px solid var(--ov-3);
-  border-radius: var(--radius-md);
-  background: var(--surface-canvas);
-}
 
-.settings-empty.compact {
-  padding: 18px 14px;
-  align-items: flex-start;
-  text-align: left;
-}
 
-.settings-empty p {
-  margin: 4px 0 0;
-  color: var(--tx-primary);
-  font-size: var(--fs-base);
-  font-weight: 650;
-}
 
-.settings-empty.compact p {
-  margin: 0;
-  font-size: var(--fs-sm);
-}
 
-.settings-empty span {
-  font-size: var(--fs-xs);
-  max-width: 320px;
-  line-height: 1.45;
-  margin-bottom: 6px;
-}
 
-.settings-empty.compact span {
-  margin-bottom: 0;
-  max-width: none;
-}
 
 /* Form primitives */
 .settings-form {
@@ -1901,13 +1829,6 @@
   font-size: var(--fs-2xs);
   font-weight: 600;
   letter-spacing: 0.3px;
-}
-
-.slash-overlay-empty {
-  padding: 28px 14px;
-  text-align: center;
-  color: var(--tx-muted);
-  font-size: var(--fs-xs);
 }
 
 .slash-overlay-footer {

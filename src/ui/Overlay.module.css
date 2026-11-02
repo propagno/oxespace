@@ -63,7 +63,8 @@
   outline: none;
   user-select: none;
 }
-.menuItem[data-highlighted] { background: var(--fill-hover); }
+.menuItem[data-highlighted], .menuItem[data-state='open'] { background: var(--fill-hover); }
+.menuSubChevron { margin-left: auto; padding-left: var(--space-2); box-sizing: content-box; }
 .menuItem[data-disabled] { color: var(--text-disabled); cursor: default; }
 .menuItem.danger { color: var(--intent-danger-fg); }
 .menuItem svg { flex: none; color: var(--text-secondary); }
@@ -105,3 +106,6 @@
 /* Rich labels: a live value (text size) or a shortcut next to the group name. */
 .menuLabel output { margin-left: var(--space-1); color: var(--text-primary); font-weight: var(--weight-semibold); }
 .menuLabel kbd { margin-left: var(--space-1); font: inherit; }
+
+/* AnchoredMenu: the invisible point a programmatic menu hangs from, centred in its positioned parent. */
+.menuAnchor { position: absolute; top: 50%; left: 50%; width: 0; height: 0; pointer-events: none; }

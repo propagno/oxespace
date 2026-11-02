@@ -1,4 +1,4 @@
-import { forwardRef, useId, type InputHTMLAttributes, type KeyboardEvent, type ReactElement, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { forwardRef, useId, type CSSProperties, type InputHTMLAttributes, type KeyboardEvent, type ReactElement, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { cx } from './cx'
 import styles from './Field.module.css'
 
@@ -85,16 +85,9 @@ export function Switch({ checked, onChange, label, description, ariaLabel, disab
   </div>
 }
 
-export interface SegmentedControlProps<T extends string> {
-  value: T
-  onChange: (value: T) => void
-  options: Array<{ value: T; label: ReactNode; icon?: ReactNode }>
-  label: string
-}
-
-/** A few mutually exclusive choices shown side by side; arrow keys move between them. */
-export function SegmentedControl<T extends string>({ value, onChange, options, label }: SegmentedControlProps<T>): ReactElement {
-  const move = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+/** Arrow keys move the choice of a radio group to the next option and focus it (roving tab stop). */
+function radioKeys<T extends string>(options: Array<{ value: T }>, onChange: (value: T) => void) {
+  return (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     const step = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0
     if (!step) return
     event.preventDefault()
@@ -103,13 +96,56 @@ export function SegmentedControl<T extends string>({ value, onChange, options, l
     const group = event.currentTarget.parentElement
     requestAnimationFrame(() => (group?.querySelector(`[data-value="${CSS.escape(next.value)}"]`) as HTMLElement | null)?.focus())
   }
-  return <div role="radiogroup" aria-label={label} className={styles.segmented}>
-    {options.map((option, index) => <button key={option.value} type="button" role="radio" data-value={option.value} aria-checked={option.value === value} tabIndex={option.value === value ? 0 : -1}
+}
+
+export interface SegmentedControlProps<T extends string> {
+  value: T
+  onChange: (value: T) => void
+  /** `tone: 'danger'` paints the option red while it is chosen (a production environment). */
+  options: Array<{ value: T; label: ReactNode; icon?: ReactNode; tone?: 'danger' }>
+  label: string
+  className?: string
+  /** Off while a change saves: the options read as unavailable instead of ignoring a click. */
+  disabled?: boolean
+}
+
+/** A few mutually exclusive choices shown side by side; arrow keys move between them. Each option is a 24 px target at least. */
+export function SegmentedControl<T extends string>({ value, onChange, options, label, className, disabled = false }: SegmentedControlProps<T>): ReactElement {
+  const move = radioKeys(options, onChange)
+  return <div role="radiogroup" aria-label={label} aria-disabled={disabled || undefined} className={cx(styles.segmented, className)}>
+    {options.map((option, index) => <button key={option.value} type="button" role="radio" data-value={option.value} data-tone={option.tone} aria-checked={option.value === value} tabIndex={option.value === value ? 0 : -1} disabled={disabled}
       className={styles.segment} onClick={() => onChange(option.value)} onKeyDown={event => move(event, index)}>{option.icon}{option.label}</button>)}
+  </div>
+}
+
+export interface SwatchPickerProps<T extends string> {
+  value: T
+  onChange: (value: T) => void
+  /** `color` is a token (`var(--avatar-2)`); an option without one is "no colour", drawn as an empty ring. */
+  options: Array<{ value: T; label: string; color?: string }>
+  label: string
+}
+
+/** A row of colour dots to choose one from. The dot is 18 px; the button around it, the target, is 24×24. */
+export function SwatchPicker<T extends string>({ value, onChange, options, label }: SwatchPickerProps<T>): ReactElement {
+  const move = radioKeys(options, onChange)
+  const stop = options.some(option => option.value === value) ? value : options[0]?.value
+  return <div role="radiogroup" aria-label={label} className={styles.swatches}>
+    {options.map((option, index) => <button key={option.value} type="button" role="radio" data-value={option.value} aria-checked={option.value === value} aria-label={option.label}
+      tabIndex={option.value === stop ? 0 : -1} className={styles.swatch} data-swatch="" data-empty={option.color ? undefined : ''} style={option.color ? { '--swatch-color': option.color } as CSSProperties : undefined}
+      onClick={() => onChange(option.value)} onKeyDown={event => move(event, index)} />)}
   </div>
 }
 
 /** A keyboard key, as in a shortcut hint. */
 export function Kbd({ children }: { children: ReactNode }): ReactElement {
   return <kbd className={styles.kbd}>{children}</kbd>
+}
+
+/**
+ * The error under a control the primitives do not draw (a code editor, a textarea inside a custom layout). Point the
+ * control at it with aria-describedby={id} and aria-invalid; it is announced when it appears.
+ */
+export function FieldError({ id, children, className }: { id?: string; children: ReactNode; className?: string }): ReactElement {
+  return <span id={id} className={cx(styles.error, className)} role="alert">{children}</span>
 }

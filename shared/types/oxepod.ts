@@ -151,6 +151,8 @@ export interface OxePodOps {
 export type OxePodOp = keyof OxePodOps
 
 export interface OxePodErrorInfo {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   code: 'engine-missing' | 'daemon' | 'not-found' | 'invalid' | 'failed' | 'confirm'
   message: string
   /** What the person is asked to accept, when code is 'confirm'. */

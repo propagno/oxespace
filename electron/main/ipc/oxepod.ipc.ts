@@ -1,7 +1,6 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { OxePodEvent, OxePodOp, OxePodResponse } from '../../../shared/types/oxepod'
-import { requireAppFrame } from './ipc-guards'
 
 export interface OxePodIpcService {
   call(op: OxePodOp, input: unknown): Promise<OxePodResponse<unknown>>
@@ -21,12 +20,11 @@ const OPS = new Set<string>(OXEPOD_OPS)
  */
 export function registerOxePodIpc(load: () => Promise<OxePodIpcService>, describeFailure: (error: unknown) => string): void {
   ipcMain.handle(IPC_CHANNELS.oxePod.call, async (event, request: unknown): Promise<OxePodResponse<unknown>> => {
-    requireAppFrame(event, 'OxePod')
     const body = request && typeof request === 'object' ? request as { op?: unknown; input?: unknown } : {}
     if (typeof body.op !== 'string' || !OPS.has(body.op)) throw new Error('Unknown OxePod operation')
     let service: OxePodIpcService
     // The view asks through this channel; answer with the reason instead of a rejected call.
-    try { service = await load() } catch (error) { return { ok: false, error: { code: 'failed', message: `OxePod did not start: ${describeFailure(error)}` } } }
+    try { service = await load() } catch (error) { return { ok: false, error: { code: 'failed', message: `OxePod did not start: ${describeFailure(error)}`, messageCode: { code: 'oxepod.startFailed', params: { reason: describeFailure(error) } } } } }
     return service.call(body.op as OxePodOp, body.input)
   })
 }

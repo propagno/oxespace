@@ -4,13 +4,17 @@ import { existsSync } from 'node:fs'
 import { realpath } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import { canonicalPath } from '../git-common-dir'
-import type { GitHubCreateWorktreeInput, GitHubMessageResult } from '../../../../shared/types/github'
+import type { GitHubCreateWorktreeInput, GitHubMessageResult, GitHubRemoveWorktreeInput } from '../../../../shared/types/github'
 import { checkoutDirectoryName, validateExplicitBranchName } from '../delegation/delegation-branch'
+import type { ThreadWorktreeErrorCode } from '../../../../shared/threadWorktree'
+import { readThreadTitle } from './thread-title'
 
 /** What creating a worktree needs from the Git service; the same operation the Worktrees panel uses. */
 export interface ThreadWorktreeHost {
   createWorktree(input: GitHubCreateWorktreeInput): Promise<GitHubMessageResult>
   resolveBaseRef(rootPath: string): Promise<string>
+  /** The guarded removal of the Worktrees panel, used to clean up when the conversation ends. */
+  removeWorktree?(input: GitHubRemoveWorktreeInput): Promise<GitHubMessageResult>
 }
 
 export interface ThreadWorktreeRequest {
@@ -18,16 +22,21 @@ export interface ThreadWorktreeRequest {
   branch?: string
   /** Start point; the repository's default base when absent. */
   baseRef?: string
+  /** Go on although the project has uncommitted changes that the new worktree will not contain. */
+  allowDirtyBase?: boolean
 }
 
 /** Refusals the dialog can explain by cause, instead of a git error. */
-export type ThreadWorktreeErrorCode = 'BRANCH_EXISTS' | 'INVALID_BRANCH' | 'INVALID_BASE' | 'PATH_EXISTS' | 'CREATE_FAILED'
+export type { ThreadWorktreeErrorCode }
 
 export class ThreadWorktreeError extends Error {
   constructor(readonly code: ThreadWorktreeErrorCode, message: string) { super(message) }
 }
 
-const git = (args: string[], cwd: string): Promise<{ ok: boolean; stdout: string; stderr: string }> => new Promise(resolve => {
+/** The folder next to the repository that holds every worktree the app creates for it (delegations included). */
+export const worktreeFolderOf = (projectRoot: string): string => join(dirname(projectRoot), `${basename(projectRoot)}-worktrees`)
+
+export const git = (args: string[], cwd: string): Promise<{ ok: boolean; stdout: string; stderr: string }> => new Promise(resolve => {
   const child = execFile('git', args, { cwd, windowsHide: true, timeout: 30_000 }, (error, stdout, stderr) => resolve({ ok: !error, stdout: String(stdout), stderr: String(stderr) }))
   child.stdin?.end()
 })
@@ -37,7 +46,10 @@ const git = (args: string[], cwd: string): Promise<{ ok: boolean; stdout: string
  * (the folder Delegation uses). Nothing is left behind when creation fails. The caller registers the
  * returned directory as a context of the same Thread project.
  */
-export async function createThreadWorktree(host: ThreadWorktreeHost, projectRoot: string, request: ThreadWorktreeRequest, now = new Date()): Promise<{ rootPath: string; branch: string; message: string }> {
+export async function createThreadWorktree(host: ThreadWorktreeHost, projectRoot: string, request: ThreadWorktreeRequest, now = new Date()): Promise<{ rootPath: string; branch: string; baseSha: string; message: string }> {
+  if (!(await git(['rev-parse', '--is-inside-work-tree'], projectRoot)).ok) {
+    throw new ThreadWorktreeError('NOT_A_REPO', `${projectRoot} is not a Git repository, so it cannot have a worktree.`)
+  }
   let branch: string
   try {
     branch = request.branch?.trim() ? validateExplicitBranchName(request.branch.trim()) : generatedBranch(now)
@@ -55,7 +67,13 @@ export async function createThreadWorktree(host: ThreadWorktreeHost, projectRoot
   if (!(await git(['rev-parse', '--verify', '--quiet', `${baseRef}^{commit}`], projectRoot)).ok) {
     throw new ThreadWorktreeError('INVALID_BASE', `The base “${baseRef}” does not exist in this repository.`)
   }
-  const path = join(dirname(projectRoot), `${basename(projectRoot)}-worktrees`, checkoutDirectoryName(branch, randomUUID()))
+  // Edits in the project stay where they are: the new branch starts from the base, not from the working tree.
+  if (!request.allowDirtyBase) {
+    const dirty = await git(['status', '--porcelain', '--untracked-files=no'], projectRoot)
+    if (dirty.ok && dirty.stdout.trim()) throw new ThreadWorktreeError('DIRTY_BASE', `The project has uncommitted changes; a new worktree starts from ${baseRef} without them.`)
+  }
+  const baseSha = (await git(['rev-parse', '--verify', `${baseRef}^{commit}`], projectRoot)).stdout.trim()
+  const path = join(worktreeFolderOf(projectRoot), checkoutDirectoryName(branch, randomUUID()))
   if (existsSync(path)) throw new ThreadWorktreeError('PATH_EXISTS', `${path} already exists.`)
 
   let result: GitHubMessageResult
@@ -69,7 +87,7 @@ export async function createThreadWorktree(host: ThreadWorktreeHost, projectRoot
     await discardThreadWorktree(projectRoot, path, branch)
     throw new ThreadWorktreeError('CREATE_FAILED', result.message || 'The worktree could not be created.')
   }
-  return { rootPath: await realpath(path), branch, message: result.message }
+  return { rootPath: await realpath(path), branch, baseSha, message: result.message }
 }
 
 /** Removes a worktree this module created and its branch, when what follows the creation fails. */
@@ -97,7 +115,7 @@ export function threadsInWorktree(db: { prepare(sql: string): { all(): unknown[]
   const inside = (path: unknown): boolean => typeof path === 'string' && (key(path) === target || key(path).startsWith(`${target}/`))
   const rows = db.prepare(`SELECT id, json_extract(data_json, '$.title') AS title, json_extract(data_json, '$.rootPath') AS root,
     json_extract(data_json, '$.observedLocation.checkoutRoot') AS observed, json_extract(data_json, '$.archived') AS archived FROM conversation_threads`).all() as { id: string; title: string | null; root: unknown; observed: unknown; archived: unknown }[]
-  return rows.filter(row => !row.archived && (inside(row.root) || inside(row.observed))).map(row => ({ id: row.id, title: row.title ?? 'Conversation' }))
+  return rows.filter(row => !row.archived && (inside(row.root) || inside(row.observed))).map(row => ({ id: row.id, title: row.title === null ? 'Conversation' : readThreadTitle(row.title) }))
 }
 
 /** The provider could not start because the conversation's folder is gone (a removed worktree). */

@@ -12,7 +12,7 @@
     "unreadable": "Error",
     "noMatch": "No request matches.",
     "empty": "No requests yet. Create one, or import a cURL command or an OpenAPI file. They are saved as files in .oxespace/requests.",
-    "noWorkspace": "Open a workspace in Code to keep requests in it.",
+    "noWorkspace": "Open a workspace in OxeCode to keep requests in it.",
     "failed": "The requests could not be read.",
     "more": "More",
     "import": "Import cURL or OpenAPI",
@@ -20,7 +20,7 @@
   },
   "view": {
     "noWorkspaceTitle": "OxePost needs a workspace",
-    "noWorkspaceText": "Requests are saved as files in the .oxespace/requests folder of the workspace, so they are versioned with the code. Open a workspace in Code, then come back.",
+    "noWorkspaceText": "Requests are saved as files in the .oxespace/requests folder of the workspace, so they are versioned with the code. Open a workspace in OxeCode, then come back.",
     "failed": "The requests could not be read",
     "retry": "Try again",
     "loading": "Loading OxePost"
@@ -37,6 +37,7 @@
     "saved": "Saved",
     "copyCurl": "Copy as cURL",
     "curlCopied": "cURL command copied",
+    "curlWhat": "cURL command",
     "delete": "Delete request",
     "deleteTitle": "Delete {{name}}?",
     "deleteText": "The file is removed from .oxespace/requests. If it is committed, Git still has it.",
@@ -135,6 +136,7 @@
     "timeout": "No answer in time",
     "tls": "The certificate was not accepted",
     "network": "The server could not be reached",
+    "offline": "The request could not leave this computer: there is no network. Send it again when the connection is back.",
     "missing": "A variable has no value",
     "failed": "The request could not be sent",
     "retry": "Send again",
@@ -142,7 +144,8 @@
     "emptyText": "Send the request to see the status, time, size, body and headers here.",
     "summary": "Response summary",
     "copy": "Copy body",
-    "copied": "Body copied",
+    "copied": "Response body copied",
+    "bodyWhat": "response body",
     "sections": "Response sections",
     "binary": "Binary content, {{size}}. It is not shown.",
     "noBody": "The response has no body.",
@@ -159,7 +162,13 @@
   },
   "production": {
     "title": "Send to {{name}}?",
-    "text": "This sends {{method}} {{url}} to a production environment.",
+    "lead": "{{name}} is a production environment. Check where the request goes before sending it.",
+    "request": "Request",
+    "environment": "Environment",
+    "secretsMasked": "Secret values are hidden.",
+    "unknownTitle": "The address is not known",
+    "missing_one": "{{names}} has no value in {{name}}, so the address this would go to is not known. Add it to the environment before sending.",
+    "missing_other": "{{names}} have no value in {{name}}, so the address this would go to is not known. Add them to the environment before sending.",
     "confirm": "Send"
   },
   "import": {

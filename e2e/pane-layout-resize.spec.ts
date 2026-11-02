@@ -36,7 +36,7 @@ test('three terminals resize in both axes without replacing terminal DOM', async
       expect(Math.abs(orientation === 'vertical' ? after.x - box.x : after.y - box.y)).toBeGreaterThan(25)
     }
     await expect(grid.locator('.terminal-pane[data-preserved="yes"]')).toHaveCount(3)
-    const keyboardHandle = grid.getByRole('separator', { name: 'Resize rows' })
+    const keyboardHandle = grid.getByRole('separator', { name: 'Divider between rows' })
     const beforeKeyboard = (await keyboardHandle.boundingBox())!
     await keyboardHandle.focus()
     await page.keyboard.press('ArrowDown')
@@ -55,5 +55,20 @@ test('three terminals resize in both axes without replacing terminal DOM', async
     const menuBox = (await page.getByTestId('pane-actions-menu').boundingBox())!
     expect(menuBox.y + menuBox.height).toBeLessThanOrEqual(650)
     await page.screenshot({ path: test.info().outputPath('layout-menu.png') })
+    // FINDING M: a bottom-row pane's menu must not run under the status bar, which took the click on "Close pane".
+    await page.keyboard.press('Escape')
+    await page.setViewportSize({ width: 1280, height: 860 })
+    const triggers = page.getByRole('button', { name: 'More pane actions' })
+    const tops = await triggers.evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().top))
+    await triggers.nth(tops.indexOf(Math.max(...tops))).click()
+    const bottomMenu = page.getByTestId('pane-actions-menu')
+    const close = bottomMenu.locator('.pane-actions-popover-item.danger')
+    await close.scrollIntoViewIfNeeded()
+    const statusTop = await page.locator('.app-statusbar').first().evaluate(bar => bar.getBoundingClientRect().top)
+    const placed = (await bottomMenu.boundingBox())!
+    expect(placed.y + placed.height).toBeLessThanOrEqual(statusTop)
+    const target = (await close.boundingBox())!
+    expect(await page.evaluate(({x,y}) => document.elementFromPoint(x,y)?.closest('.pane-actions-popover-item.danger') !== null, {x: target.x + target.width / 2, y: target.y + target.height / 2})).toBe(true)
+    await close.click({ trial: true })
   } finally { await app.close() }
 })

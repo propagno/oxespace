@@ -44,7 +44,7 @@ never an argument, so a model cannot ask for less checking:
 |---|---|---|
 | `read` | Any caller with a workspace | Runs. Not recorded. |
 | `write` | Only an agent with a live OXESpace execution (a Code pane or a Thread) | Rate limited (30 per minute per execution) and recorded. |
-| `confirm` | As `write` | A native dialog shows the exact text; the grant is bound to its SHA-256, single use, five minutes. Answers `approval-pending` until the person decides; call again with the same arguments. |
+| `confirm` | As `write` | The app's approval modal shows the exact text (up to 100,000 characters; longer is refused `too-long`), with the requester named by the app; the system dialog only when no window exists. The grant is bound to its SHA-256, single use, five minutes. Answers `approval-pending` until the person decides; call again with the same arguments. |
 
 Read tools available now (all `read`):
 
@@ -104,7 +104,11 @@ Starting a task in an agent's terminal (`tasks.run`) is not a tool: it types int
 
 Calls apply to the caller's own directory (the pane's or Thread's root); a caller without an execution
 gets the workspace it names or the active one. Refusals have a stable `code`: `invalid`, `no-execution`,
-`no-workspace`, `rate-limited`, `too-long`, `denied`, `approval-pending`, `unavailable`, `failed`.
+`no-workspace`, `rate-limited`, `too-long`, `denied`, `approval-pending`, `unavailable`, `reserved-name`, `queue-full`, `failed`.
+`queue-full` (B10): too many approvals were already waiting, so the request was never shown; back off and call again.
+`reserved-name` (B10): a pane name or a notification may not contain OXESpace, OxeChat, OxeCode, OxeQuery, OxePod or
+OxePost (after case, accent and look-alike folding), nor be exactly System or Sistema. Notifications are limited to
+six a minute per execution (`rate-limited`) and are shown with the app's own prefix naming the sender.
 
 Writes and confirmations are kept for 90 days in `agent_action_audit` (append-only). OxeQuery keeps its own
 trail in `oxequery_audit`; both use the same approval broker (`services/agent-actions`).
@@ -135,7 +139,7 @@ as is. **Change**: kept, with a follow-up named here. **Experimental**: may chan
 | Search | `oxespace_search`, `oxespace_code_search`, `oxespace_semantic_search`, `oxespace_hybrid_explore`, `oxespace_code_callers`, `oxespace_code_callees`, `oxespace_code_impact`, `oxespace_code_node`, `oxespace_code_status` | Change | Four ways to search overlap. Follow-up: measure which agents call (the local counters since 1.2.0) and fold the least used into `oxespace_hybrid_explore`, with the semantic-index decision of the roadmap. |
 | OxeQuery | `oxespace_db_*` (6), `oxespace_mongo_*` (3), `oxespace_containers_list`, `oxespace_container_logs`, `oxespace_container_action` | Keep | Writes go through the OxeQuery broker and audit. |
 | Workspace and scripts | `oxespace_list_workspaces`, `oxespace_list_panes`, `oxespace_list_worktrees`, `oxespace_create_worktree`, `oxespace_remove_worktree`, `oxespace_list_scripts`, `oxespace_run_script`, `oxespace_list_background_jobs`, `oxespace_stop_background_job`, `oxespace_get_job_output` | Keep | Predate the domain tools; folding them into `oxespace_workspace` / `oxespace_workspace_change` is a follow-up once callers move. |
-| Web Preview | `oxespace_open_web_preview`, `oxespace_capture_web_preview`, `oxespace_preview_interact` | Keep | Scoped by `preview-scope.ts`. |
+| Web Preview | `oxespace_open_web_preview`, `oxespace_capture_web_preview`, `oxespace_preview_interact` | Keep | Scoped by `preview-scope.ts`. `oxespace_open_web_preview` asks a person first for any http(s) URL outside localhost, `*.localhost`, 127.0.0.1 and [::1]; other schemes, `file:` included, are refused (B15). |
 | Documentation | `oxespace_documentation_*` (7) | Keep | |
 | Context | `oxespace_capabilities`, `oxespace_execution_context`, `oxespace_project_context`, `oxespace_quality_check` | Keep | |
 

@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactElement, ReactNode } from 'react'
+import { AlertTriangle, CheckCircle2, Info, WifiOff } from 'lucide-react'
 import { Tabs as RadixTabs } from 'radix-ui'
 import { i18n } from '../i18n'
 import { BrandLoader, BrandMark } from './BrandLoader'
@@ -58,13 +59,22 @@ export function EmptyState({ icon, title, children, actions, compact = false }: 
  * The technical detail stays folded. Compact is a one-line version for lists and small panels; `brand` puts the mark
  * above a failure that takes a whole view or the window, so it reads as OXESpace speaking, not a broken page.
  */
-export function ErrorState({ title, message, detail, onRetry, retryLabel = i18n.t('ui.tryAgain'), actions, compact = false, brand = false }: {
+export function ErrorState({ title, message, detail, onRetry, retryLabel = i18n.t('ui.tryAgain'), actions, compact = false, brand = false, icon, heading, children }: {
   title: ReactNode; message?: ReactNode; detail?: string; onRetry?: () => void; retryLabel?: string; actions?: ReactNode; compact?: boolean; brand?: boolean
+  /** What the failure is about (the containers engine, a server), drawn like EmptyState's icon. */
+  icon?: ReactNode
+  /** How to fix it, when it takes more than Try again: steps or a command, below the message. */
+  children?: ReactNode
+  /** The title as a heading of this level, when the failure takes the place of a whole view's content. */
+  heading?: 2 | 3
 }): ReactElement {
+  const Title = heading ? (`h${heading}` as const) : 'p'
   return <div className={cx(styles.error, compact && styles.errorCompact)} role="alert">
     {brand && !compact && <BrandMark size={40} />}
-    <p className={styles.errorTitle}>{title}</p>
+    {icon && !brand && !compact && <span className={styles.emptyIcon} aria-hidden="true">{icon}</span>}
+    <Title className={styles.errorTitle}>{title}</Title>
     {message && <p className={styles.errorText}>{message}</p>}
+    {children && <div className={styles.errorFix}>{children}</div>}
     {detail && <details className={styles.errorDetail}><summary>{i18n.t('ui.details')}</summary><code>{detail}</code></details>}
     {(onRetry || actions) && <div className={styles.errorActions}>
       {onRetry && <button type="button" className={styles.errorRetry} onClick={onRetry}>{retryLabel}</button>}
@@ -73,13 +83,75 @@ export function ErrorState({ title, message, detail, onRetry, retryLabel = i18n.
   </div>
 }
 
+/**
+ * Something finished well and the person should know before moving on: what was done and, when it helps, what to do
+ * next. Announced politely; a toast is enough for a quick confirmation that needs no next step.
+ */
+export function SuccessState({ title, message, actions, compact = false }: { title: ReactNode; message?: ReactNode; actions?: ReactNode; compact?: boolean }): ReactElement {
+  return <div className={cx(styles.successState, compact && styles.successCompact)} role="status">
+    <span className={styles.successIcon} aria-hidden="true"><CheckCircle2 size={compact ? 14 : 20} /></span>
+    <p className={styles.successTitle}>{title}</p>
+    {message && <p className={styles.successText}>{message}</p>}
+    {actions && <div className={styles.successActions}>{actions}</div>}
+  </div>
+}
+
+/**
+ * The computer has no network, so this place cannot load or send: what is unavailable, that it comes back by itself,
+ * and a way to check again. The full version carries the brand loader, waiting; compact is one line for a panel.
+ */
+export function OfflineState({ title = i18n.t('ui.offline.title'), message = i18n.t('ui.offline.message'), onRetry, retryLabel = i18n.t('ui.offline.retry'), compact = false }: {
+  title?: ReactNode; message?: ReactNode; onRetry?: () => void; retryLabel?: string; compact?: boolean
+}): ReactElement {
+  return <div className={cx(styles.offline, compact && styles.offlineCompact)} role="status">
+    {compact ? <WifiOff size={14} aria-hidden="true" className={styles.offlineIcon} /> : <BrandLoader decorative />}
+    <p className={styles.offlineTitle}>{title}</p>
+    {message && !compact && <p className={styles.offlineText}>{message}</p>}
+    {onRetry && <button type="button" className={styles.errorRetry} onClick={onRetry}>{retryLabel}</button>}
+  </div>
+}
+
+export type NoticeIntent = 'info' | 'success' | 'warning' | 'danger'
+const NOTICE_ICONS = { info: Info, success: CheckCircle2, warning: AlertTriangle, danger: AlertTriangle } as const
+const NOTICE_STYLES = { info: styles.noticeInfo, success: styles.noticeSuccess, warning: styles.noticeWarning, danger: styles.noticeDanger }
+
+/**
+ * A short message inside a form or panel that stays until its cause goes away: a risk to weigh before acting, a
+ * setting that could not be applied, an action that failed. Warning and danger are announced at once; info and
+ * success politely. For a whole place that failed to load, use ErrorState.
+ */
+export function Notice({ intent = 'info', title, children, actions, className }: { intent?: NoticeIntent; title?: ReactNode; children?: ReactNode; actions?: ReactNode; className?: string }): ReactElement {
+  const Icon = NOTICE_ICONS[intent]
+  return <div className={cx(styles.notice, NOTICE_STYLES[intent], className)} role={intent === 'warning' || intent === 'danger' ? 'alert' : 'status'} data-intent={intent}>
+    <Icon size={14} aria-hidden="true" className={styles.noticeIcon} />
+    <div className={styles.noticeBody}>
+      {title && <strong>{title}</strong>}
+      {children && <div>{children}</div>}
+      {actions && <div className={styles.noticeActions}>{actions}</div>}
+    </div>
+  </div>
+}
+
 /** The shape of content on its way: lines of text, or one block. Announced once as loading, never read line by line. */
-export function Skeleton({ lines = 3, variant = 'text', label = i18n.t('ui.loading') }: { lines?: number; variant?: 'text' | 'block'; label?: string }): ReactElement {
-  return <div className={styles.skeleton} role="status" aria-label={label}>
+export function Skeleton({ lines = 3, variant = 'text', label = i18n.t('ui.loading'), decorative = false }: { lines?: number; variant?: 'text' | 'block'; label?: string; decorative?: boolean }): ReactElement {
+  // `decorative`: next to something that already announces the loading (a busy region, a status beside it).
+  return <div className={styles.skeleton} {...(decorative ? { 'aria-hidden': true as const } : { role: 'status' as const, 'aria-label': label })}>
     {variant === 'block'
       ? <span className={cx(styles.skeletonBar, styles.skeletonBlock)} aria-hidden="true" />
       : Array.from({ length: Math.max(1, lines) }, (_, index) => <span key={index} className={styles.skeletonBar} aria-hidden="true" />)}
   </div>
+}
+
+/**
+ * A view's sidebar on its way: the sidebar frame (its width comes from the app shell's grid, so nothing moves when the
+ * real one arrives), the header with the view's name and placeholder rows. The region is busy and says "Loading…"
+ * once, politely (the Skeleton's status); collapsed to the rail it shows a few short bars without the header.
+ */
+/** Busy (aria-busy) but silent: the view's work area announces the one loading, so a switch is not announced twice. */
+export function SidebarSkeleton({ label, title, collapsed = false }: { label: string; title: string; collapsed?: boolean }): ReactElement {
+  return <aside className={cx('thread-navigation', collapsed && 'thread-navigation-collapsed')} aria-label={label} aria-busy="true">
+    <div className={cx('nav-panel', styles.sidebarRows)}>{!collapsed && <div className="nav-panel-title"><strong>{title}</strong></div>}<Skeleton decorative lines={collapsed ? 3 : 5} /></div>
+  </aside>
 }
 
 /**
@@ -130,7 +202,8 @@ export function Meter({ label, value, max = 100, detail }: { label: ReactNode; v
   const tone = ratio >= 0.9 ? styles.danger : ratio >= 0.75 ? styles.warning : undefined
   return <div className={styles.meter}>
     <div className={styles.meterHead}><span>{label}</span><span>{detail ?? `${Math.round(ratio * 100)}%`}</span></div>
-    <div className={styles.meterTrack} role="meter" aria-valuemin={0} aria-valuemax={max} aria-valuenow={value} aria-label={typeof label === 'string' ? label : undefined}>
+    {/* A meter's value stays within its range (ARIA): past the limit it is full, and `detail` says by how much. */}
+    <div className={styles.meterTrack} role="meter" aria-valuemin={0} aria-valuemax={max} aria-valuenow={Math.min(max, Math.max(0, value))} aria-label={typeof label === 'string' ? label : undefined}>
       <div className={cx(styles.meterFill, tone)} style={{ width: `${ratio * 100}%` }} />
     </div>
   </div>

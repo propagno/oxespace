@@ -8,15 +8,26 @@ publish:
   provider: github
   owner: propagno
   repo: oxespace
+# Every exclude ("!...") goes right after the includes it narrows and BEFORE the
+# `from:` FileSet. electron-builder groups consecutive strings into one FileSet
+# and then merges FileSets with the same from/to, putting the later group's
+# patterns FIRST. Excludes listed after the migrations FileSet therefore ended
+# up ahead of `out/**/*`, where a negation matches nothing yet and is a no-op:
+# that shipped every out/main/**/*.map in app.asar.
+# tests/unit/package-files.test.ts runs electron-builder's own config merge and
+# file walk on this file and fails if a .map gets in.
 files:
   - out/**/*
   - package.json
-  - from: electron/main/db/migrations
-    to: out/main/migrations
   # Dead weight: transformers.js download cache from dev runs. No model ships in
   # the installer: the optional semantic index downloads or imports it into
   # userData (services/semantic-model-store.ts).
   - "!**/node_modules/@xenova/transformers/.cache/**"
+  # The main process's source maps are private: CI keeps them as the main-sourcemaps artifact, and
+  # scripts/symbolicate-stack.mjs reads them to turn a reported stack back into source lines.
+  - "!out/**/*.map"
+  - from: electron/main/db/migrations
+    to: out/main/migrations
 # NOTE: pruning the ONNX Runtime prebuilds for other platforms is done by
 # scripts/slim-pack-deps.mjs (which both `dist:win` and `dist:linux` run before
 # electron-builder), NOT by a filter here. A `files` filter cannot vary by
@@ -28,6 +39,22 @@ files:
 # entries are repeated rather than inherited from a top-level list), so the
 # build never depends on how electron-builder merges platform overrides.
 asar: true
+# Electron fuses (B13, BE-M-02), flipped by electron-builder in the packaged binary only; the dev electron binary that
+# tests and scripts run with ELECTRON_RUN_AS_NODE is never touched. scripts/check-fuses.mjs reads them back in CI.
+# - runAsNode off: the app binary cannot be reused as a Node interpreter. Nothing at runtime needs it: OxeChat runs
+#   Codex's native codex.exe, ConPTY's kill no longer forks (useConptyDll), CodeGraph never spawns process.execPath.
+# - enableNodeOptionsEnvironmentVariable off: NODE_OPTIONS cannot inject --require or --inspect into the app.
+# - enableNodeCliInspectArguments off: `--inspect-brk` would hand any local process a debugger in main, which is
+#   arbitrary Node in this binary again. Playwright's _electron.launch needs --inspect, so the packaged E2E turns this
+#   one fuse back on in its throwaway copy only, and check-fuses.mjs proves that copy differs from dist/ by that byte.
+# - enableEmbeddedAsarIntegrityValidation + onlyLoadAppFromAsar: the app runs only from app.asar, and on Windows the
+#   asar's header hash embedded in the exe is checked (Electron does not validate asar integrity on Linux yet).
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
 asarUnpack:
   - node_modules/better-sqlite3/**/*
   - node_modules/node-pty/**/*

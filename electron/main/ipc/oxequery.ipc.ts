@@ -1,7 +1,6 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { OxeQueryEvent, OxeQueryOp, OxeQueryResponse } from '../../../shared/types/oxequery'
-import { requireAppFrame } from './ipc-guards'
 
 export interface OxeQueryIpcService {
   call(op: OxeQueryOp, input: unknown): Promise<OxeQueryResponse<unknown>>
@@ -22,7 +21,6 @@ const OPS = new Set<string>(OXEQUERY_OPS)
 /** One command channel. Every operation is validated again inside the service. */
 export function registerOxeQueryIpc(service: OxeQueryIpcService): void {
   ipcMain.handle(IPC_CHANNELS.oxeQuery.call, (event, request: unknown) => {
-    requireAppFrame(event, 'OxeQuery')
     const body = request && typeof request === 'object' ? request as { op?: unknown; input?: unknown } : {}
     if (typeof body.op !== 'string' || !OPS.has(body.op)) throw new Error('Unknown OxeQuery operation')
     return service.call(body.op as OxeQueryOp, body.input)

@@ -169,7 +169,7 @@ export function useThreadCommands({ snapshot, draft, textarea, pending, run, onN
       <div className="thread-command-list" id={listId} role="listbox" aria-label={t('commands.list')} ref={menu}>
         {commands.map((command, index) => <button key={command.name} type="button" role="option" id={`${listId}-${index}`} aria-selected={activeIndex === index} tabIndex={-1}
           onMouseDown={event => event.preventDefault()} onMouseMove={() => setSelected(index)} onClick={() => choose(command)}>
-          <Slash size={14} /><span><strong>/{command.name}{command.argumentHint && <small>{command.argumentHint}</small>}</strong><span>{command.description}</span></span><small>{command.execution === 'desktop' || localNames.has(command.name) && command.source === 'oxe' && !catalog.commands.some(native => native.name === command.name) ? 'Thread' : command.source === 'oxe' ? t('commands.skill') : command.source === 'claude' ? 'Claude' : 'Codex'}</small>
+          <Slash size={14} /><span><strong>/{command.name}{command.argumentHint && <small>{command.argumentHint}</small>}</strong><span>{command.description}</span></span><small>{command.execution === 'desktop' || localNames.has(command.name) && command.source === 'oxe' && !catalog.commands.some(native => native.name === command.name) ? 'OxeChat' : command.source === 'oxe' ? t('commands.skill') : command.source === 'claude' ? 'Claude' : 'Codex'}</small>
         </button>)}
       </div>
       {!commands.length && (loading ? <LoadingState label={t('commands.loading')} /> : <EmptyState compact title={t('commands.none')} />)}

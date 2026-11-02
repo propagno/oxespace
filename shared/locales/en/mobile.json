@@ -1,0 +1,249 @@
+{
+  "home": {
+    "title": "Your desktop, in your pocket",
+    "body": "Pair this phone with OXESpace on your computer, on the same Wi-Fi, to follow and answer your sessions.",
+    "pair": "Pair with your computer",
+    "pairedTitle": "Paired with {{desktop}}",
+    "pairedBody": "This phone can follow and answer your sessions on {{desktop}} while both are on the same network.",
+    "unpair": "Unpair",
+    "unknownDesktop": "your computer",
+    "status": {
+      "connecting": "Connecting to {{desktop}}…",
+      "connected": "Connected to {{desktop}}",
+      "unreachable": "Can't reach {{desktop}}. Check that it's on, on the same Wi-Fi, and that the phone connection is on in Settings › Devices.",
+      "incompatible": "{{desktop}} uses a different version of OXESpace. Update the app or OXESpace on your computer.",
+      "notAccepted": "{{desktop}} no longer accepts this phone. Unpair, then pair again.",
+      "reconnecting": "Connection to {{desktop}} lost. Reconnecting…",
+      "offNetwork": "This phone isn't on Wi-Fi. {{desktop}} can only be reached on the same Wi-Fi network; it reconnects when you're back.",
+      "retryIn_one": "Trying again in {{count}} second.",
+      "retryIn_other": "Trying again in {{count}} seconds."
+    },
+    "revoked": "{{desktop}} removed this phone. Pair again to reconnect.",
+    "retry": "Try again",
+    "enterAddress": "Enter the computer's address",
+    "addressTitle": "Computer's address",
+    "addressHint": "The computer's address on your Wi-Fi, for example 192.168.0.12. OXESpace shows it in Settings › Devices.",
+    "addressInvalid": "Use the computer's address on your local network, like 192.168.0.12.",
+    "save": "Save",
+    "cancel": "Cancel",
+    "openWifi": "Open Wi-Fi settings",
+    "unpairConfirm": {
+      "title": "Unpair from {{desktop}}?",
+      "body": "This phone forgets {{desktop}} and the key it used with it. To come back, pair again with the QR in Settings › Devices on the computer."
+    }
+  },
+  "pairing": {
+    "title": "Pair with your computer",
+    "instructions": "On your computer, open OXESpace › Settings › Devices, turn on the phone connection, and point the camera at the code shown there.",
+    "cameraDescription": "Camera view for scanning the pairing code",
+    "cameraNeeded": "The camera reads the pairing code on your computer's screen. Nothing it sees leaves the phone.",
+    "allowCamera": "Allow camera",
+    "openSettings": "Open settings",
+    "cameraDenied": "Camera access is off for OXESpace. Turn it on in the phone's settings to scan the pairing code.",
+    "badCode": {
+      "notPairing": "That isn't an OXESpace pairing code. Point the camera at the code in Settings › Devices.",
+      "unsupportedVersion": "This code comes from a different version of OXESpace. Update the app or OXESpace on your computer.",
+      "publicHost": "This code points outside your local network. OXESpace only pairs on the same Wi-Fi.",
+      "malformed": "This code can't be read. Show a new one on your computer and try again."
+    },
+    "waitingTitle": "Confirm on your computer",
+    "waitingBody": "{{desktop}} is asking whether to pair with this phone. Accept only if it shows this code:",
+    "verificationDescription": "Verification code {{code}}",
+    "pairedTitle": "Paired",
+    "pairedBody": "This phone is now paired with {{desktop}}.",
+    "done": "Done",
+    "scanAgain": "Scan again",
+    "failed": {
+      "codeExpired": "The code expired. Show a new one on your computer and scan it within 2 minutes.",
+      "codeUsed": "That code was already used. Show a new one on your computer.",
+      "codeInvalid": "That code wasn't accepted. Show a new one on your computer and scan it again.",
+      "refusedOnDesktop": "Pairing was declined on the computer.",
+      "locked": "Too many pairing attempts. Wait 2 minutes and try again.",
+      "tooManyDevices": "Your computer already has 5 paired devices. Remove one in Settings › Devices first.",
+      "wrongCertificate": "Another device answered at that address, not your computer. Nothing was sent. Check that you're on your own Wi-Fi.",
+      "unreachable": "Couldn't reach your computer. Check that it's on, on the same Wi-Fi, and that the phone connection is on in Settings › Devices.",
+      "protocol": "Your computer answered in a way this app doesn't understand. Update the app or OXESpace on your computer.",
+      "reservedName": "This phone's name uses a name reserved for OXESpace itself, so your computer won't accept it. Rename the phone in Android Settings › About phone, then scan again."
+    }
+  },
+  "live": {
+    "tabs": {
+      "threads": "Conversations",
+      "requests": "Requests",
+      "terminals": "Terminals",
+      "tasks": "Tasks"
+    },
+    "requestsBadge_one": "{{count}} request waiting",
+    "requestsBadge_other": "{{count}} requests waiting",
+    "emptyThreads": "No conversations on {{desktop}} yet.",
+    "emptyRequests": "Nothing waiting for you.",
+    "emptyTerminals": "No open terminals.",
+    "emptyTasks": "No background jobs or delegations.",
+    "loading": "Loading…",
+    "status": {
+      "idle": "Idle",
+      "running": "Working",
+      "approval": "Needs you",
+      "interrupted": "Stopped",
+      "failed": "Failed"
+    },
+    "pendingCount_one": "Needs you ({{count}})",
+    "pendingCount_other": "Needs you ({{count}})",
+    "back": "Back",
+    "menu": "More options",
+    "jobs": "Background jobs",
+    "delegations": "Delegations",
+    "job": {
+      "pending": "Starting",
+      "running": "Running",
+      "exited": "Finished",
+      "failed": "Failed",
+      "killed": "Stopped"
+    },
+    "exitCode": "exit code {{code}}",
+    "paneAgent": "{{agent}} · {{state}}",
+    "agentState": {
+      "working": "Working",
+      "blocked": "Needs you",
+      "done": "Finished",
+      "idle": "Idle",
+      "unknown": "Not confirmed"
+    },
+    "readOnly": "Read-only",
+    "phoneWrite": "Phone can type",
+    "age": {
+      "now": "just now",
+      "minutes": "{{minutes}} min ago",
+      "hours": "{{hours}} h ago",
+      "days": "{{days}} d ago"
+    }
+  },
+  "thread": {
+    "you": "You",
+    "agent": "Agent",
+    "reasoning": "Thinking",
+    "tool": {
+      "running": "Running",
+      "completed": "Done",
+      "failed": "Failed",
+      "unknown": "Unknown"
+    },
+    "filesChanged_one": "{{count}} file changed",
+    "filesChanged_other": "{{count}} files changed",
+    "plan": "Plan",
+    "request": "Request: {{title}}",
+    "requestState": {
+      "pending": "Needs you",
+      "resolved": "answered",
+      "cancelled": "cancelled",
+      "expired": "expired"
+    },
+    "completed": {
+      "completed": "Turn finished",
+      "interrupted": "Turn interrupted",
+      "failed": "Turn failed"
+    },
+    "truncated": "Shortened on the phone; the full text is on the computer.",
+    "unknownItems_one": "{{count}} item from a newer OXESpace isn't shown.",
+    "unknownItems_other": "{{count}} items from a newer OXESpace aren't shown.",
+    "showOutput": "Show output",
+    "hideOutput": "Hide output",
+    "loadOlder": "Load earlier",
+    "respond": "Respond"
+  },
+  "terminal": {
+    "redacted_one": "{{count}} secret value hidden by your computer.",
+    "redacted_other": "{{count}} secret values hidden by your computer.",
+    "empty": "No output yet."
+  },
+  "approval": {
+    "prompt": {
+      "accept": "Approve this request",
+      "decline": "Decline this request",
+      "cancel": "Cancel this request",
+      "answer": "Send these answers"
+    }
+  },
+  "request": {
+    "title": "Request",
+    "from": "From the conversation “{{conversation}}”",
+    "command": "Command",
+    "cwd": "Folder",
+    "paths": "Files it would change",
+    "reason": "Why",
+    "warnings": "Worth a second look",
+    "tool": "Tool",
+    "risk": {
+      "green": "Only reads",
+      "orange": "Changes something",
+      "red": "Deletes, escalates or publishes"
+    },
+    "decision": {
+      "accept": "Allow once",
+      "decline": "Deny",
+      "cancel": "Cancel request"
+    },
+    "declineReason": "Reason, told to the agent (optional)",
+    "sendAnswers": "Send answers",
+    "desktopOnly": "Only your computer can answer this one. Open OXESpace there.",
+    "truncated": "Part of this request didn't fit on the phone. The full text is only on your computer, so from here you can only decline it.",
+    "truncatedQuestion": "Part of this question didn't fit on the phone. Answer it on your computer, where you can read all of it.",
+    "notConfirmed": "Not sent: the confirmation on this phone was cancelled.",
+    "answered": "Answered.",
+    "gone": "This request is no longer waiting.",
+    "refused": {
+      "notPending": "It was already answered or no longer waits.",
+      "staleGeneration": "The conversation moved on; this request no longer applies.",
+      "forbidden": "Only your computer can answer this one.",
+      "rateLimited": "Too many actions in a minute. Try again shortly.",
+      "other": "Your computer didn't accept the answer."
+    },
+    "riskSpoken": "Risk: {{risk}}",
+    "fromAgent": "Written by the agent",
+    "desktopOnlyTitle": "Answer on the computer"
+  },
+  "action": {
+    "offline": "Not connected to your computer. Nothing was sent.",
+    "noAnswer": "Your computer didn't answer. Check it before trying again.",
+    "rateLimited": "Too many actions in a minute. Try again shortly.",
+    "refused": "Your computer didn't accept it."
+  },
+  "composer": {
+    "placeholder": "Message the agent",
+    "send": "Send",
+    "steer": "Steer",
+    "stop": "Stop"
+  },
+  "terminalInput": {
+    "placeholder": "Type in this terminal",
+    "send": "Send",
+    "notShared": "Typing from the phone is off for this terminal. On your computer, turn on “Allow typing from the phone” in the terminal’s ⋯ menu."
+  },
+  "presence": {
+    "send": "Confirm it’s you to send from this phone",
+    "type": "Confirm it’s you to type into this terminal",
+    "window": "Good for 5 minutes on this phone.",
+    "notConfirmed": "Nothing was sent: the confirmation on this phone was cancelled.",
+    "noScreenLock": "Set a screen lock on this phone to send from it. Nothing was sent.",
+    "confirm": "Confirm it’s you",
+    "locked": "Confirm it’s you before typing into this terminal."
+  },
+  "notify": {
+    "channel": {
+      "session": "Connection to your computer",
+      "needsYou": "Needs you",
+      "done": "Finished",
+      "failed": "Failed"
+    },
+    "needsYou": "Needs you: {{title}}",
+    "done": "Finished: {{title}}",
+    "failed": "Failed: {{title}}",
+    "disconnect": "Disconnect",
+    "session": {
+      "connected": "Connected to {{desktop}}",
+      "reconnecting": "Reconnecting to {{desktop}}…",
+      "offNetwork": "Waiting for Wi-Fi to reach {{desktop}}",
+      "stopped": "Can't stay connected to {{desktop}}. Open the app."
+    }
+  }
+}

@@ -8,6 +8,10 @@ part.
 Record each run in the table at the end. A step fails if the expected speech is missing, wrong, repeated
 endlessly, or needs the mouse. File an issue for each failure and link it in the table.
 
+Automated first: `e2e/screen-reader-script.spec.ts` checks the accessibility tree behind steps 1.3, 2.1, 2.3, 2.4,
+3.1–3.5, 3.7, 5.1 and 5.4 (names, roles, states, live regions, focus return) on every run, so a failure there is
+fixed before anyone listens. The steps that need a real agent, Docker or the terminal's own reader mode are only here.
+
 ## Setup
 
 | | Windows | Linux (Ubuntu/Debian, GNOME) |
@@ -32,7 +36,7 @@ same is the name, the role and the state.
 1. Start the app. **Heard:** the window title, "OXESpace", then the focused control of the first-run guide.
 2. Tab through the first-run guide. **Heard:** each of its three steps as a button or link with its name and
    whether it is done. Nothing unlabelled ("button", "graphic", "clickable") is heard on its own.
-3. Ctrl+K. **Heard:** "Command palette" dialog, then the search field. Type "settings". **Heard:** the number
+3. Ctrl+K. **Heard:** "Search" dialog, then the search field (a combobox) and its "Suggestions" list. Type "settings". **Heard:** the number
    of results or the first result's name as it is highlighted. ↓/↑ read each result. Escape closes the palette
    and focus goes back where it was, with that control read again.
 

@@ -14,12 +14,55 @@
       "ok": "OK"
     }
   },
+  "dialogs": {
+    "approval": {
+      "deny": "Negar",
+      "allowOnce": "Permitir uma vez",
+      "allowSession": "Permitir leituras como esta nesta execução"
+    },
+    "previewAutomation": {
+      "title": "Ação do agente no navegador",
+      "cancel": "Cancelar",
+      "allowOnce": "Permitir uma vez",
+      "closeTab": "Fechar aba",
+      "closeTabMessage": "Permitir que o agente feche esta aba do navegador?",
+      "closeTabDetail": "Aba: {{tab}}\nAlterações não salvas na página podem ser perdidas.",
+      "action": {
+        "click": "Permitir que o agente clique no Navegador?",
+        "fill": "Permitir que o agente digite em um campo do Navegador?",
+        "navigate": "Permitir que o agente abra outra página no Navegador?",
+        "scroll": "Permitir que o agente role a página no Navegador?",
+        "other": "Permitir que o agente execute \"{{action}}\" no Navegador?"
+      },
+      "actionDetail": "Página: {{page}}\nAlvo: {{target}}\nIsso pode alterar dados reais do sistema. Valores de texto não ficam no histórico de operações."
+    }
+  },
   "messages": {
     "mcp": {
       "quarantine": {
         "changed": "A descrição ou as entradas de {{tools}} mudaram depois que você confiou no servidor.",
         "added": "Ele adicionou {{tools}}.",
-        "removed": "Ele removeu {{tools}}."
+        "removed": "Ele removeu {{tools}}.",
+        "configChanged": "O comando, os argumentos, o ambiente ou a URL dele mudaram depois que você confiou no servidor."
+      },
+      "toolRule": {
+        "confirmLevel": "{{tool}} faz mudanças que você confirma a cada vez, então sempre pergunta antes de rodar.",
+        "locked": "A regra de {{tool}} vem da sua política ou da sua organização, então este projeto não pode mudá-la.",
+        "invalidPolicy": "O .oxespace/policy.json deste projeto não é uma política válida. Corrija-o à mão e tente de novo."
+      },
+      "signIn": {
+        "waiting": "Aguardando você entrar no navegador…"
+      },
+      "server": {
+        "quarantined": "Em quarentena: ele mudou depois que você confiou nele. Revise e confie de novo para usá-lo.",
+        "untrusted": "Ainda não confiável. Revise o comando e confie nele antes de testar."
+      },
+      "toolGroups": {
+        "unknownProject": "Esta pasta não é um projeto que o OXESpace conhece. Abra-a como workspace ou adicione-a ao OxeChat antes.",
+        "invalidYaml": "O oxe.yaml deste projeto não é um YAML válido. Corrija-o à mão e tente de novo.",
+        "notMapping": "O oxe.yaml deste projeto não é uma lista de configurações. Corrija-o à mão e tente de novo.",
+        "inlineThread": "thread está escrito em uma linha no oxe.yaml. Defina os grupos de ferramentas em thread.tools à mão.",
+        "unsafeEdit": "Não foi possível mudar o oxe.yaml sem mexer em outras configurações. Defina os grupos de ferramentas em thread.tools à mão."
       }
     },
     "thread": {
@@ -27,13 +70,421 @@
         "notPending": "Este pedido já foi respondido, cancelado ou expirou.",
         "staleGeneration": "A conversa reiniciou desde que este pedido apareceu. Abra-a para ver o que está esperando agora.",
         "alreadyResponding": "Uma resposta a este pedido já está sendo enviada.",
-        "unanswered": "Responda a todas as perguntas antes de continuar."
+        "unanswered": "Responda a todas as perguntas antes de continuar.",
+        "guardedDecision": "Uma alteração em instruções de agente, configurações MCP ou hooks é aprovada uma vez, nunca para a sessão. Responda de novo."
+      },
+      "commands": {
+        "configure": "Configure o provedor em Configurações de agentes e use Atualizar comandos para tentar de novo.",
+        "busy": "A busca de comandos está ocupada. Use Atualizar comandos para tentar de novo.",
+        "claudeFailed": "Não foi possível carregar os comandos do Claude. Confira a CLI em Configurações de agentes e use Atualizar comandos.",
+        "codexFailed": "Não foi possível carregar as skills do Codex. Confira a CLI em Configurações de agentes e use Atualizar comandos."
+      },
+      "capability": {
+        "readOnly": "Desligado pela política de ferramentas somente leitura desta conversa.",
+        "mcpReadOnly": "Limitado pela política somente leitura desta conversa: só consultas do OXESpace, sem servidores MCP seus."
+      },
+      "observe": {
+        "unsupported": "Nenhum provedor conectado informa o estado desta conversa. O resultado continua sem confirmação.",
+        "changed": "O estado do provedor mudou durante a recuperação. A conversa aqui foi mantida; confira de novo."
+      },
+      "queue": {
+        "deliveryUnconfirmed": "Não foi possível confirmar a entrega desta mensagem."
+      },
+      "side": {
+        "unavailable": "Este agente ainda não abre um chat lateral.",
+        "noSession": "Envie uma mensagem primeiro: o chat lateral copia a conversa até aqui.",
+        "closed": "Este chat lateral foi fechado. Abra um novo para continuar perguntando.",
+        "invalidInput": "Não foi possível ler esta mensagem do chat lateral. Tente de novo."
+      },
+      "protectedConfig": {
+        "instructions": "\"{{path}}\" guarda instruções de agente. Uma alteração ali orienta todas as sessões seguintes, então precisa da sua confirmação a cada vez.",
+        "mcp": "\"{{path}}\" guarda configurações de servidor MCP. Uma alteração ali orienta todas as sessões seguintes, então precisa da sua confirmação a cada vez.",
+        "hooks": "\"{{path}}\" guarda hooks de agente. Uma alteração ali orienta todas as sessões seguintes, então precisa da sua confirmação a cada vez.",
+        "git": "\"{{path}}\" guarda configuração do git. O git pode rodar comandos nomeados ali, então precisa da sua confirmação a cada vez.",
+        "policy": "\"{{path}}\" guarda a política de agentes e os grupos de ferramentas do projeto, incluindo as ferramentas que você bloqueou. Uma alteração ali orienta todas as sessões seguintes, então precisa da sua confirmação a cada vez.",
+        "warning": "Um texto que o agente leu (uma página, uma issue, um arquivo) pode estar dirigindo esta alteração. Confira se foi você quem pediu.",
+        "rewritesTracked": "{{command}} reescreve arquivos versionados sem nomeá-los, e instruções de agente, configurações MCP ou hooks podem estar entre eles, então precisa da sua confirmação a cada vez."
+      },
+      "invalidInput": "Não foi possível ler este pedido da conversa.",
+      "notFound": "Esta conversa não existe mais.",
+      "sections": {
+        "invalid": "Não foi possível salvar estas seções. Recarregue a lista e tente de novo.",
+        "tooMany": "Um workspace tem no máximo {{sections}} seções e {{assignments}} conversas colocadas nelas.",
+        "nameEmpty": "Dê um nome à seção.",
+        "nameTooLong": "O nome de uma seção tem no máximo {{max}} caracteres.",
+        "nameHidden": "O nome de uma seção não pode ter caracteres de controle ou invisíveis.",
+        "nameDuplicate": "Já existe uma seção chamada \"{{name}}\" neste workspace.",
+        "unknownWorkspace": "Este workspace não existe mais."
+      },
+      "agent": {
+        "scriptUnsupported": "Escolha o executável do próprio agente nas Configurações de agentes: o OxeChat não inicia agentes por scripts .cmd, .ps1 ou .bat.",
+        "nativeMissing": "Falta o executável nativo (codex.exe) no Codex instalado. Reinstale o Codex ou escolha o codex.exe nas Configurações de agentes."
       }
     },
     "app": {
       "connectivity": {
         "offline": "Sem conexão de rede."
       }
+    },
+    "ipc": {
+      "sender": {
+        "refused": "Só a própria janela do app pode fazer este pedido."
+      }
+    },
+    "activity": {
+      "invalid": "Não foi possível salvar esta atividade. Recarregue o app e tente de novo.",
+      "tooMany": "No máximo {{max}} entradas de atividade podem ser salvas de uma vez.",
+      "titleTooLong": "O título de uma atividade tem no máximo {{max}} caracteres.",
+      "detailTooLong": "O detalhe de uma atividade tem no máximo {{max}} caracteres.",
+      "hiddenCharacters": "O texto de uma atividade não pode ter caracteres de controle ou invisíveis.",
+      "future": "Esta atividade tem data no futuro. Confira o relógio do computador.",
+      "secret": "Esta atividade não foi salva porque o texto parece uma senha, token ou chave."
+    },
+    "remote": {
+      "port": {
+        "privileged": "Escolha uma porta a partir de 1024; a porta {{port}} é reservada pelo sistema.",
+        "inUse": "A porta {{port}} já está em uso por outro programa. Escolha outra porta."
+      },
+      "network": {
+        "noPrivateInterface": "Nenhuma rede privada encontrada para escutar. Conecte-se ao Wi-Fi ou à rede cabeada local e tente de novo."
+      },
+      "certificate": {
+        "failed": "Não foi possível criar o certificado da conexão nem lê-lo do armazenamento seguro."
+      },
+      "pairing": {
+        "failed": "$t(remotePairingFailure.{{reason}})",
+        "limit": "Este computador já tem {{max}} dispositivos pareados. Remova um antes de parear outro."
+      },
+      "gateway": {
+        "offline": "Ligue a conexão antes de parear um celular."
+      },
+      "device": {
+        "notFound": "Este dispositivo não está mais pareado.",
+        "invalidName": "Dê ao dispositivo um nome de 1 a {{max}} caracteres, sem quebras de linha.",
+        "reservedName": "Esse nome só o OXESpace pode usar. Escolha outro nome para o dispositivo."
+      },
+      "desktop": {
+        "invalidName": "Dê a este computador um nome de 1 a {{max}} caracteres, sem quebras de linha nem caracteres ocultos.",
+        "reservedName": "Esse nome poderia se passar pelo OXESpace ou pelo sistema no celular. Escolha outro nome para este computador."
+      },
+      "pane": {
+        "invalid": "Este terminal não está mais disponível."
+      }
+    },
+    "linear": {
+      "worktree": {
+        "exists": "Já existe um worktree para {{issue}} em {{path}}."
+      }
+    },
+    "worktree": {
+      "cleanup": {
+        "notRemovable": "Este não é um worktree removível deste repositório.",
+        "blocked": "Bloqueado: {{reasons}}.",
+        "needsConfirmation": "Precisa de confirmação: {{reasons}}."
+      }
+    },
+    "github": {
+      "cli": {
+        "missing": "GitHub CLI não encontrado. Instale em https://cli.github.com/ e rode gh auth login."
+      }
+    },
+    "git": {
+      "base": {
+        "unresolved": "Não foi possível resolver a base “{{base}}”, e o repositório não tem commits."
+      }
+    },
+    "oxe": {
+      "status": {
+        "unreadable": "Não foi possível ler a saída do oxe status."
+      },
+      "dashboard": {
+        "timeout": "O painel não respondeu a tempo."
+      }
+    },
+    "memory": {
+      "disabled": "A memória do projeto está desligada.",
+      "unavailable": "A memória do projeto está indisponível no momento. Os agentes continuam trabalhando.",
+      "runtimeUnavailable": "As credenciais ou o serviço de memória estão indisponíveis."
+    },
+    "oxequery": {
+      "edit": {
+        "readOnly": "Esta conexão é somente leitura. Desligue o somente leitura para editar dados.",
+        "notTable": "Só tabelas podem ser editadas, não views nem tabelas externas.",
+        "noKey": "Esta tabela não tem chave primária nem índice único NOT NULL, então uma linha não pode ser identificada com segurança."
+      },
+      "test": {
+        "connected": "Conectado"
+      },
+      "startFailed": "O OxeQuery não iniciou: {{reason}}",
+      "sql": {
+        "copyProgram": "COPY … PROGRAM executa um comando de shell no servidor do banco.",
+        "doBlock": "DO executa código no banco; o efeito não é conhecido antes de rodar.",
+        "callProcedure": "CALL executa um procedimento armazenado; o efeito não é conhecido antes de rodar.",
+        "destructiveInside": "{{statement}} contém {{keyword}}, que pode apagar dados ou objetos.",
+        "rowLock": "FOR UPDATE / FOR SHARE trava as linhas lidas até o fim da transação.",
+        "sessionRole": "SET ROLE muda o usuário da sessão e, com ele, o que os próximos comandos podem fazer.",
+        "tableLock": "VACUUM FULL trava a tabela inteira enquanto roda.",
+        "ambiguousEscape": "Uma barra invertida num texto pode encerrá-lo antes num servidor com standard_conforming_strings desligado, e então roda mais do que o texto mostra."
+      },
+      "session": {
+        "busy": "Esta conexão tem uma transação aberta ou um comando em execução, então não pode ser reaberta agora. Faça commit ou rollback da transação, ou espere o comando terminar, e tente de novo.",
+        "limit": "Esta conexão já tem {{limit}} conexões com o banco abertas. Espere uma terminar e tente de novo.",
+        "agentTransaction": "Um agente não pode abrir uma transação: cada instrução dele roda sozinha. A transação foi desfeita."
+      },
+      "mongo": {
+        "confirmName": "Esta é uma conexão de produção. Digite o nome dela para alterar este documento.",
+        "confirm": "Esta alteração precisa da sua confirmação.",
+        "production": "Esta é uma conexão de produção.",
+        "deletes": "O documento será apagado."
+      }
+    },
+    "oxepod": {
+      "startFailed": "O OxePod não iniciou: {{reason}}"
+    },
+    "oxepost": {
+      "network": {
+        "notFound": "O nome do host não foi encontrado. Confira a URL e a conexão.",
+        "refused": "A conexão foi recusada: nada está escutando nesse endereço e porta.",
+        "reset": "O servidor fechou a conexão antes de responder.",
+        "timedOut": "A conexão esgotou o tempo.",
+        "lookupFailed": "Não foi possível consultar o nome do host agora.",
+        "hostUnreachable": "O host não pode ser alcançado.",
+        "networkUnreachable": "A rede não pode ser alcançada."
+      },
+      "send": {
+        "invalidUrl": "A URL não é válida. Ela precisa de um esquema, como https://example.com/path",
+        "scheme": "Só URLs http e https podem ser enviadas.",
+        "bodyNotAllowed": "{{method}} não pode ter corpo. Troque o método ou limpe o corpo.",
+        "bodyTooLarge": "O corpo passa de 5 MB.",
+        "invalidHeader": "“{{name}}” não é um cabeçalho válido.",
+        "timeout": "Nenhuma resposta completa em {{seconds}} segundos.",
+        "tls": "O certificado do servidor não foi aceito ({{code}}). O OxePost sempre verifica certificados: confie no certificado neste computador ou use o endereço para o qual ele foi emitido.",
+        "failed": "O pedido falhou.",
+        "failedWith": "O pedido falhou: {{detail}}"
+      }
+    },
+    "approvals": {
+      "title": {
+        "agent": "Pedido de um agente",
+        "oxequery": "OxeQuery · pedido de um agente",
+        "previewAutomation": "Ação do agente no navegador",
+        "crash": "O OXESpace encontrou um erro inesperado"
+      },
+      "summary": {
+        "mcpConfirm": "Quer executar {{tool}} › {{action}} em {{target}}",
+        "oxequery": {
+          "read": "Quer ler dados",
+          "write": "Quer alterar dados no banco",
+          "action": "Quer executar uma ação no contêiner"
+        },
+        "preview": {
+          "closeTab": "Quer fechar uma aba do navegador",
+          "click": "Quer clicar no Navegador",
+          "fill": "Quer digitar num campo do Navegador",
+          "navigate": "Quer abrir outra página no Navegador",
+          "scroll": "Quer rolar a página no Navegador",
+          "other": "Quer {{action}} no Navegador"
+        },
+        "crash": "O app continua funcionando, mas seu estado não é mais garantido. Reinicie para ficar seguro."
+      },
+      "requester": {
+        "pane": "{{agent}} · painel {{pane}}",
+        "conversation": "{{agent}} · conversa {{conversation}}",
+        "mcpServer": "Servidor MCP {{server}}",
+        "app": "OXESpace",
+        "unknownPane": "Agente desconhecido · painel {{pane}}",
+        "unknownConversation": "Agente desconhecido · conversa {{conversation}}",
+        "preview": "Automação do Web Preview"
+      },
+      "option": {
+        "deny": "Negar",
+        "allowOnce": "Permitir uma vez",
+        "allowSessionReads": "Permitir leituras nesta conexão nesta execução",
+        "closeTab": "Fechar aba",
+        "restart": "Reiniciar",
+        "keepWorking": "Continuar trabalhando"
+      },
+      "note": {
+        "sql": {
+          "removes": "{{statement}} remove objetos ou dados de forma permanente.",
+          "noWhere": "{{statement}} sem cláusula WHERE afeta todas as linhas.",
+          "alterDrop": "ALTER … DROP remove uma coluna, restrição ou objeto.",
+          "withNoWhere": "{{statement}} dentro de WITH não tem cláusula WHERE.",
+          "explainAnalyze": "EXPLAIN ANALYZE executa a instrução.",
+          "selectInto": "SELECT INTO cria uma tabela.",
+          "notReadOnly": "{{statement}} não é uma instrução reconhecida como somente leitura.",
+          "outsideReach": "Chama {{calls}}, que alcança fora do banco (arquivos do servidor, outros servidores, outras sessões ou a configuração do servidor)."
+        },
+        "production": "Esta é uma conexão de produção.",
+        "mongo": {
+          "deletes": "Documentos que serão excluídos: {{count}}.",
+          "changes": "Documentos que serão alterados: {{count}}.",
+          "emptyFilter": "O filtro está vazio: todos os documentos da coleção correspondem."
+        },
+        "agent": {
+          "actsOnPrompt": "Esse agente vai agir sobre este prompt com o próprio acesso.",
+          "turnStopped": "O turno em andamento é interrompido antes."
+        },
+        "thread": {
+          "actsOnMessage": "A outra conversa vai agir sobre esta mensagem com o próprio acesso."
+        },
+        "skill": {
+          "followed": "Todo agente que chamar esta skill segue estas instruções."
+        },
+        "automation": {
+          "runsAlone": "O agente roda sozinho nesta agenda até a automação ser desligada."
+        },
+        "worktree": {
+          "folderDeleted": "A pasta é excluída, com os arquivos não rastreados e ignorados dentro dela.",
+          "forceDiscards": "--force também descarta alterações não commitadas."
+        },
+        "git": {
+          "branchShared": "Outros terminais e conversas nesta pasta vão ver a outra branch."
+        },
+        "checkpoint": {
+          "replaces": "As alterações não commitadas da árvore de trabalho são substituídas."
+        },
+        "github": {
+          "autoMerge": "O pull request é mesclado sozinho quando as verificações e revisões passarem.",
+          "releasePublic": "Um release publicado fica visível para todos com acesso ao repositório e pode notificar quem o acompanha."
+        },
+        "textCut": "O texto passa de {{max}} caracteres, então só parte dele aparece. Ele não pode ser aprovado.",
+        "crash": "Trabalho não salvo nos editores pode ser perdido. Terminais e agentes reiniciam com o app.",
+        "hiddenCharacters": "O texto tem caracteres invisíveis ou que mudam a direção, então o que você vê pode não ser o que roda.",
+        "nativeCriticalDenyOnly": "Esta alteração é crítica, e o diálogo do sistema não consegue segurar o Permitir, então aqui ela só pode ser negada. Abra o OXESpace para aprovar.",
+        "preview": {
+          "notLocal": "Esta página não está no localhost. Ela pode carregar qualquer coisa e vê o que for digitado nela."
+        }
+      },
+      "unavailable": "Não foi possível mostrar a aprovação no app, então ela abriu num diálogo do sistema.",
+      "expired": "Ninguém respondeu a tempo, então o pedido foi negado.",
+      "refused": {
+        "notPending": "Este pedido já foi respondido, cancelado ou expirou.",
+        "staleGeneration": "Este pedido foi feito de novo desde que apareceu. Responda ao atual.",
+        "alreadyAnswered": "Este pedido já tem uma resposta.",
+        "unknownOption": "Essa resposta não é uma das opções deste pedido.",
+        "alreadyReported": "Este pedido já foi informado como não exibido.",
+        "tooSoon": "Aguarde um instante: este pedido é arriscado, então Permitir fica disponível dois segundos depois que ele aparece.",
+        "notShown": "Este pedido ainda não apareceu no app, então não pode ser permitido."
+      },
+      "denied": {
+        "queueFull": "Há pedidos demais esperando ({{max}}), então este foi negado sem ser mostrado.",
+        "tooLong": "O texto a aprovar passa de {{max}} caracteres, mais do que uma pessoa consegue revisar, então foi recusado. Divida em passos menores.",
+        "timeout": "Ninguém respondeu a tempo, então foi negado.",
+        "cancelled": "O pedido foi retirado antes de alguém responder."
+      },
+      "notify": {
+        "waiting": "OXESpace: aprovação aguardando"
+      }
+    },
+    "notify": {
+      "prefix": {
+        "pane": "{{agent}} no painel {{pane}}: {{title}}",
+        "conversation": "{{agent}} na conversa {{conversation}}: {{title}}",
+        "unknownPane": "Agente desconhecido no painel {{pane}}: {{title}}",
+        "unknownConversation": "Agente desconhecido na conversa {{conversation}}: {{title}}"
+      },
+      "refused": {
+        "reservedName": "Uma notificação não pode usar o nome \"{{name}}\"; ele pertence ao app.",
+        "rateLimit": "Notificações demais: no máximo {{perMinute}} por minuto."
+      }
+    },
+    "agents": {
+      "name": {
+        "reserved": "Um painel não pode se chamar \"{{name}}\"; esse nome pertence ao app."
+      },
+      "resume": {
+        "sessionMissing": "A sessão anterior do agente não está mais no disco para esta pasta, então uma nova foi iniciada.",
+        "otherAgent": "Este painel agora inicia outro agente, então a sessão anterior não foi retomada.",
+        "launchOverride": "Este início tinha argumentos ou prompt próprios, então a sessão anterior não foi retomada.",
+        "blocked": "A política da sua organização não permite este agente aqui, então a sessão não foi retomada.",
+        "disabled": "Retomar sessões de agente está desligado nas Configurações.",
+        "startedFresh": "Este painel foi reiniciado com uma sessão nova; a anterior não volta mais.",
+        "failedToLoad": "O agente não conseguiu carregar a sessão anterior e fechou, então este painel iniciou uma nova."
+      },
+      "session": {
+        "notFound": "Este agente ainda não informou a sessão. Ela aparece depois da primeira resposta do agente, ou antes, com os hooks de status ligados (Configurações › Notificações)."
+      }
+    },
+    "incident": {
+      "window": {
+        "crashed": "A janela travou.",
+        "rendererGone": "A interface parou de responder e foi reiniciada.",
+        "externalRefused": "Um link não foi aberto fora do app: tipo não permitido, longo demais ou com nome e senha nele.",
+        "externalRateLimited": "Muitos links foram recusados em um minuto; os demais não foram registrados.",
+        "externalOpenFailed": "O sistema não conseguiu abrir um link que o app permitiu; nenhum aplicativo está registrado para ele.",
+        "openDenied": "A janela tentou abrir uma nova janela sozinha; nada foi aberto.",
+        "navigationDenied": "A janela tentou sair do app para outra página; ela ficou, e nada foi aberto."
+      },
+      "ipc": {
+        "handlerFailed": "Um pedido da janela falhou em segundo plano.",
+        "validationRejected": "A janela enviou um pedido que o app recusou por estar malformado.",
+        "senderRefused": "Algo que não é a janela do app, como uma página em pré-visualização, enviou um pedido; o app recusou."
+      },
+      "agent": {
+        "startFailed": "Um agente não conseguiu iniciar."
+      },
+      "mcp": {
+        "quarantined": "Um servidor MCP foi posto em quarentena depois de mudar.",
+        "toolGroupOff": "Um agente chamou uma ferramenta do OXESpace de um grupo desligado em Configurações › Ferramentas. A chamada foi recusada."
+      },
+      "database": {
+        "busy": "O banco de dados local estava ocupado e uma gravação precisou esperar."
+      },
+      "oxequery": {
+        "timeout": "Um pedido do OxeQuery esgotou o tempo.",
+        "restartDeferred": "O worker do OxeQuery parou de responder. O reinício foi adiado porque uma conexão tem uma transação aberta ou um comando em execução."
+      },
+      "updater": {
+        "failed": "Não foi possível verificar ou instalar uma atualização."
+      },
+      "interaction": {
+        "overBudget": "Uma interação demorou mais do que o orçamento."
+      },
+      "app": {
+        "journalReset": "O diário de diagnóstico estava ilegível e recomeçou.",
+        "closeUnanswered": "A janela não respondeu a um fechamento ou saída em 3 segundos; o app seguiu em frente.",
+        "closeRendererGone": "A janela parou enquanto um fechamento ou saída esperava por ela; o app seguiu em frente.",
+        "closeGuardFailed": "A verificação antes de fechar falhou; o app fechou sem perguntar à janela."
+      }
+    },
+    "diagnostics": {
+      "bundle": {
+        "fileTooLarge": "Um arquivo do pacote de diagnóstico passa de 8 MB, então nada foi salvo.",
+        "tooLarge": "O pacote de diagnóstico passa de 32 MB, então nada foi salvo."
+      }
+    },
+    "bundle": {
+      "file": {
+        "snapshot": "Processos, armazenamento, conectividade e versões",
+        "incidents": "O diário de incidentes: códigos, áreas e contagens",
+        "logTail": "Últimas linhas do log do app: horário, nível e só as mensagens fixas do próprio app",
+        "runtime": "Eventos recentes de execução, redigidos",
+        "versions": "Versões do app, do Electron, do Chrome, do Node e do sistema",
+        "configuration": "Configurações que ajudam no diagnóstico, sem segredos"
+      }
+    },
+    "project": {
+      "file": {
+        "changedMeanwhile": "{{file}} mudou no disco depois de ser lido. Nada foi salvo; tente de novo."
+      }
+    },
+    "workspace": {
+      "root": {
+        "empty": "Escolha a pasta deste workspace.",
+        "notAbsolute": "Use o caminho completo da pasta, a partir da unidade ou de /. “{{path}}” é um caminho relativo.",
+        "notFound": "A pasta {{path}} não existe. Crie a pasta ou escolha outra.",
+        "notDirectory": "{{path}} é um arquivo, não uma pasta. Escolha uma pasta.",
+        "unreadable": "O OXESpace não consegue abrir a pasta {{path}}. Confira as permissões ou escolha outra pasta."
+      }
     }
+  },
+  "remotePairingFailure": {
+    "invalid": "Um celular tentou parear com um código inválido. Mostre um novo código e escaneie de novo.",
+    "expired": "O código de pareamento ou a pergunta neste computador expirou. Mostre um novo código e tente de novo.",
+    "refused": "O pareamento foi recusado neste computador.",
+    "limit": "O celular não conseguiu parear: este computador já tem o número máximo de dispositivos.",
+    "peer-closed": "O celular desistiu do pareamento antes da sua resposta. Mostre um novo código para tentar de novo.",
+    "reserved-name": "O celular se deu um nome que só o OXESpace pode usar. Renomeie-o no celular e tente de novo."
   }
 }

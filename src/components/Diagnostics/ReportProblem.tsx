@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, copyText, Dialog, ErrorState, TextArea, TextField, toast } from '../../ui'
 import { buildIssueUrl, issueClipboardText, type IssueDraft } from '../../../shared/issue-report'
+import { openExternalLink } from '../../lib/externalLinks'
 import styles from './ReportProblem.module.css'
 
 type State = { phase: 'loading' } | { phase: 'failed' } | { phase: 'ready' }
@@ -29,11 +30,11 @@ export function ReportProblem({ onClose }: { onClose: () => void }): ReactElemen
   const link = ready ? buildIssueUrl(draft) : null
   const open = (): void => {
     if (!link) return
-    window.open(link.url, '_blank', 'noopener,noreferrer')
-    toast({ title: t('report.opened'), intent: 'success', duration: 2500 })
+    void openExternalLink(link.url, { source: 'app' })
+    toast({ title: t('report.opened'), intent: 'success' })
     onClose()
   }
-  const copy = async (): Promise<void> => { await copyText(issueClipboardText(draft), t('report.copyWhat')) }
+  const copy = async (): Promise<void> => { await copyText(issueClipboardText(draft), t('report.copyWhat'), t('report.copied')) }
 
   return <Dialog title={t('report.title')} description={t('report.description')} onClose={onClose} size="lg" testId="report-problem"
     footer={<>

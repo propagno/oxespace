@@ -2,8 +2,13 @@ import { useState, type FormEvent, type ReactElement } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Button } from '../../ui/Button'
 import { Dialog } from '../../ui/Overlay'
+import { Notice } from '../../ui/Display'
+import { SegmentedControl } from '../../ui/Field'
 import { errorMessage, oq } from './client'
 import { useOxeQueryStore } from './oxequery.store'
+
+/** Product names, the same in every language. */
+const ENGINES: Array<{ id: 'postgres' | 'mongodb'; name: string }> = [{ id: 'postgres', name: 'PostgreSQL' }, { id: 'mongodb', name: 'MongoDB' }]
 
 /**
  * Creates a PostgreSQL or MongoDB container and the connection to it in one step. It stays in OxeQuery: the person
@@ -36,15 +41,13 @@ export function NewDatabaseDialog({ onClose }: { onClose: () => void }): ReactEl
       <Button type="submit" form="oq-new-database-form" variant="primary" disabled={busy || !name.trim()} loading={busy}>{busy ? t('newDatabase.creating') : t('newDatabase.create')}</Button>
     </>}>
     <form id="oq-new-database-form" className="oq-dialog-form" onSubmit={event => void submit(event)}>
-      <div role="radiogroup" aria-label={t('newDatabase.engine')} className="oq-segment">
-        {(['postgres', 'mongodb'] as const).map(value => <button key={value} type="button" role="radio" aria-checked={kind === value} data-selected={kind === value}
-          onClick={() => { setKind(value); setTag(value === 'postgres' ? '17' : '8') }}>{value === 'postgres' ? 'PostgreSQL' : 'MongoDB'}</button>)}
-      </div>
+      <SegmentedControl label={t('newDatabase.engine')} className="oq-engine-choice" value={kind} onChange={value => { setKind(value); setTag(value === 'postgres' ? '17' : '8') }}
+        options={ENGINES.map(({ id, name }) => ({ value: id, label: name }))} />
       <label>{t('newDatabase.name')}<input value={name} onChange={event => setName(event.target.value)} placeholder={kind === 'postgres' ? 'pg-app' : 'mongo-app'} required autoFocus /></label>
       <label>{t('newDatabase.version')}<input value={tag} onChange={event => setTag(event.target.value)} aria-describedby="oq-tag-hint" required /></label>
       <small id="oq-tag-hint" className="oq-muted">{t('newDatabase.versionHint', { examples: kind === 'postgres' ? '17, 16-alpine' : '8, 7' })}</small>
       <label>{t('newDatabase.port')} <small className="oq-muted">{t('newDatabase.optional')}</small><input type="number" min={1024} max={65535} value={port} onChange={event => setPort(event.target.value)} placeholder={t('newDatabase.portPlaceholder')} /></label>
-      {error && <p role="alert" className="oq-error">{error}</p>}
+      {error && <Notice intent="danger">{error}</Notice>}
     </form>
   </Dialog>
 }
