@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { AlertCircle, Check, Shield, X } from 'lucide-react'
 import type { ThreadPermissionSuggestion, ThreadRequest, ThreadRequestResponse } from '../../../shared/types/thread'
-import { ThreadApprovalDetails } from './ThreadApprovalDetails'
+import { approvalCommandPreview, ThreadApprovalDetails } from './ThreadApprovalDetails'
+import { threadApprovalRisk } from './threadApprovalRisk'
+import { useAllowHold } from '../Approvals/useAllowHold'
 import { useTranslation } from 'react-i18next'
 import { elicitationContent, elicitationDefaults, elicitationFields, validateElicitationField, type ElicitationValue } from '../../../shared/elicitationForm'
 import { cx, ErrorState, FieldError, Select } from '../../ui'
@@ -67,7 +69,19 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, on
     finally { inFlight.current = false; setSending(false) }
   }
   const policy = request.policy
-  const remember = policy?.decision === 'ask' && policy.suggestions?.length && onRemember && request.availableDecisions?.includes('accept') !== false ? policy.suggestions : undefined
+  // B10 risk rules on the card too (P1-8): Approve is quiet above low risk; at critical risk it waits 2 s, Enter never
+  // activates it and nothing is remembered; "allow session" only at low risk.
+  const approvalCommand = request.command ?? request.detail ?? ''
+  // From the request's structure, never its title: titles become translated C3 text (FE-M-11).
+  const fileChanges = request.kind === 'approval' && request.toolName === 'fileChange'
+  const risk = request.kind === 'approval' ? threadApprovalRisk(request, fileChanges || approvalCommandPreview(approvalCommand).writesFiles) : 'low'
+  const critical = risk === 'critical'
+  // P1-17: a change to a file that steers agents (.mcp.json, AGENTS.md, hooks) is answered by a person each time:
+  // no "allow session", nothing remembered, Approve never the primary button, whatever the provider offers.
+  const guarded = request.kind === 'approval' && policy?.guarded === true
+  const holdLeft = useAllowHold(request.kind === 'approval' && request.state === 'pending' && critical, draftKey)
+  const guardEnter = critical ? (event: KeyboardEvent<HTMLButtonElement>) => { if (event.key === 'Enter') event.preventDefault() } : undefined
+  const remember = !critical && !guarded && policy?.decision === 'ask' && policy.suggestions?.length && onRemember && request.availableDecisions?.includes('accept') !== false ? policy.suggestions : undefined
   const rememberAndApprove = async (suggestions: ThreadPermissionSuggestion[]) => {
     if (inFlight.current) return
     setError('')
@@ -91,10 +105,11 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, on
     </div>
   </details>
   return <section ref={card} className={cx(`thread-request thread-request-${request.kind}`, styles.root, request.kind === 'question' && styles.question)} aria-label={requestLabel}>
-    <header>{request.kind === 'permissions' ? <Shield size={14} /> : <AlertCircle size={14} />}<div><strong>{requestLabel}</strong>{request.kind !== 'approval' && request.detail && <p>{request.detail}</p>}</div></header>
+    <header>{request.kind === 'permissions' ? <Shield size={14} /> : <AlertCircle size={14} />}<div><strong>{requestLabel}</strong>{guarded && <span className={cx('thread-request-guarded', styles.guarded)} data-testid="approval-guarded" title={t('request.guardedHint')}><Shield size={12} aria-hidden="true" />{t('request.guarded')}</span>}{request.kind !== 'approval' && request.detail && <p>{request.detail}</p>}</div></header>
+    {guarded && <p className={styles.context} data-testid="approval-guarded-hint">{t('request.guardedHint')}</p>}
     {request.kind === 'elicitation' && <p className={styles.context}>{t('request.elicitation')}</p>}
     {request.kind === 'approval' && request.nativeMethod?.startsWith('can_use_tool:mcp__') && <p className={styles.context}>{t('request.mcpContext')}</p>}
-    {request.kind === 'approval' && <ThreadApprovalDetails command={request.command ?? request.detail ?? ''} cwd={request.cwd} reason={request.reason} fileChanges={request.title === 'Approve file changes'} toolName={request.nativeMethod?.startsWith('can_use_tool:') ? request.nativeMethod.slice('can_use_tool:'.length) : undefined} />}
+    {request.kind === 'approval' && <ThreadApprovalDetails command={approvalCommand} cwd={request.cwd} reason={request.reason} fileChanges={fileChanges} toolName={request.nativeMethod?.startsWith('can_use_tool:') ? request.nativeMethod.slice('can_use_tool:'.length) : undefined} />}
     {request.kind === 'approval' && policy?.decision === 'ask' && policy.reasons.length > 0 && <div className={cx('thread-request-policy', styles.policy, policy.risk && cx('is-high-risk', styles.highRisk))}>
       {policy.risk ? <strong>{t('request.highRisk')}</strong> : policy.level === 'red' ? <strong>{t('request.destructive')}</strong> : policy.level === 'orange' ? <strong>{t('request.changes')}</strong> : null}
       <ul>{policy.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul>
@@ -138,7 +153,8 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, on
         void submit({ decision: 'accept', content })
       }}>{t('request.continue')}</button>}
       {request.kind === 'permissions' && <><button type="button" disabled={disabled} onClick={() => void submit({ decision: 'accept', permissions: request.requestedPermissions ?? {}, scope: 'turn' })}>{t('request.allowTurn')}</button><button type="button" disabled={disabled} onClick={() => void submit({ decision: 'accept', permissions: request.requestedPermissions ?? {}, scope: 'session' })}>{t('request.allowSession')}</button></>}
-      {request.kind === 'approval' && (request.availableDecisions ?? ['accept', 'decline']).filter(decision => decision === 'accept' || decision === 'acceptForSession').map(decision => <button type="button" key={decision} disabled={disabled} onClick={() => void submit({ decision })}>{decision === 'acceptForSession' ? t('request.allowSession') : t('request.approve')}</button>)}
+      {request.kind === 'approval' && critical && <small role="status" data-testid="approval-hold">{holdLeft > 0 ? t('request.holdWaiting', { seconds: Math.ceil(holdLeft / 1000) }) : t('request.holdReady')}</small>}
+      {request.kind === 'approval' && (request.availableDecisions ?? ['accept', 'decline']).filter(decision => decision === 'accept' || (decision === 'acceptForSession' && risk === 'low' && !guarded)).map(decision => <button type="button" key={decision} data-risk={risk} data-guarded={guarded ? 'true' : undefined} className={risk !== 'low' || guarded ? styles.quiet : undefined} disabled={disabled || holdLeft > 0} onKeyDown={guardEnter} onClick={() => { if (holdLeft <= 0) void submit({ decision }) }}>{decision === 'acceptForSession' ? t('request.allowSession') : t('request.approve')}</button>)}
       {/* MCP tool suggestions are alternatives (the tool, or its whole server); the others must all be saved together. */}
       {request.kind === 'approval' && remember && (remember.every(item => item.kind === 'tool') ? remember.map(item => [item]) : [remember]).map(group => <button key={group.map(item => item.pattern).join(',')} type="button" className={cx('thread-request-remember', styles.remember)} disabled={disabled} title={t('request.rememberTitle', { patterns: group.map(item => item.pattern).join(', ') })} onClick={() => void rememberAndApprove(group)}>{t('request.always', { labels: group.map(item => item.label).join(', ') })}</button>)}
       <button type="button" className={cx('thread-request-decline', styles.decline)} disabled={disabled} onClick={() => void submit({ decision: request.availableDecisions?.includes('cancel') ? 'cancel' : 'decline' })}><X size={14} />{request.availableDecisions?.includes('cancel') ? t('request.cancel') : t('request.decline')}</button>
