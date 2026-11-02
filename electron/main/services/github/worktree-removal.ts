@@ -48,6 +48,13 @@ const norm = (p: string): string => resolve(p).replace(/[\\/]+$/, '').toLowerCas
  * A path compared by its real, long name: links and Windows 8.3 short names (RUNNER~1) resolved, as git reports its
  * worktrees. A folder that is gone (prunable) is compared as written. HML on #477.
  */
+/**
+ * A path by its real, long name (links and 8.3 short names resolved), or as given when it cannot be resolved. Here, with
+ * the removal's other path checks, so the file system stays with the modules allowed to touch it (fs-allowlist).
+ */
+export function longPath(path: string): string {
+  try { return realpathSync.native(path) } catch { return path }
+}
 const normReal = (p: string): string => { try { return norm(realpathSync.native(resolve(p))) } catch { return norm(p) } }
 const within = (child: string, parent: string): boolean => {
   const c = norm(child)

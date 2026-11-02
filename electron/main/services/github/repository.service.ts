@@ -3,7 +3,6 @@
  * committing, pushing, branches and worktrees. Everything here is git; only
  * getWorkspaceStatus reaches gh, and only for the repository summary.
  */
-import { realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import type {
   GitHubBranch,
@@ -36,17 +35,12 @@ import { createSharedLinks } from '../repo-config/shared-dirs'
 import { copyIncludedFiles } from '../repo-config/worktree-include'
 import { englishText } from '../../agent-text'
 import type { RepoHookTrust } from '../repo-config/trust'
-import { removeWorktreeSafely } from './worktree-removal'
+import { longPath, removeWorktreeSafely } from './worktree-removal'
 
 export interface WorktreeLifecycleDeps {
   trust: RepoHookTrust
   /** Stops terminals whose cwd is inside `dir`; returns the pane ids stopped. */
   stopTerminalsWithin?: (dir: string) => string[]
-}
-
-/** A path by its real, long name (links and 8.3 short names resolved), or as given when it cannot be resolved. */
-function longPath(path: string): string {
-  try { return realpathSync.native(path) } catch { return path }
 }
 
 export class GitHubRepositoryService {
