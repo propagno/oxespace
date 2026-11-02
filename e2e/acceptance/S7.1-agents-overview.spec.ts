@@ -48,9 +48,12 @@ test('S7.1: one overview of a pane, a conversation, a delegation and a work run,
     await openRepo(page, profile.repo)
     ;({ workspaceId, paneId } = await page.evaluate(() => (window as unknown as { oxe: { workspace: { list: () => Promise<Array<{ id: string; panes: Array<{ id: string }> }>> } } }).oxe.workspace.list().then(l => ({ workspaceId: l[0].id, paneId: l[0].panes[0].id }))))
     threadId = await page.evaluate(async root => {
-      const oxe = (window as unknown as { oxe: { thread: { addProject: (r: string) => Promise<{ projectId: string }>; create: (i: object) => Promise<{ thread: { id: string } }> } } }).oxe
+      type Projects = { projects: Array<{ projectId: string; contexts: Array<{ rootPath: string }> }> }
+      const oxe = (window as unknown as { oxe: { thread: { addProject: (r: string) => Promise<{ projectId: string }>; projects: () => Promise<Projects>; create: (i: object) => Promise<{ thread: { id: string } }> } } }).oxe
       const { projectId } = await oxe.thread.addProject(root)
-      return (await oxe.thread.create({ projectId, rootPath: root, provider: 'claude' })).thread.id
+      // The root the catalog stores (its real path), as the app passes it: a raw 8.3 temp path is refused until 1.4.1.
+      const stored = (await oxe.thread.projects()).projects.find(p => p.projectId === projectId)?.contexts[0]?.rootPath ?? root
+      return (await oxe.thread.create({ projectId, rootPath: stored, provider: 'claude' })).thread.id
     }, profile.repo)
   } finally { await quitReal(app) }
 
