@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { mkdtemp, mkdir, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { openInMemoryDatabase, type AppDatabase } from '../../electron/main/db'
 import { WorkspaceService } from '../../electron/main/services/workspace.service'
 import { MemoryService } from '../../electron/main/services/memory/memory.service'
 import { TOOL_REGISTRY, activeTools, findTool, gateMemoryTools } from '../../electron/main/mcp-internal/tool-registry'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
 vi.mock('electron', () => ({
@@ -16,7 +17,7 @@ const cleanup: { service: MemoryService; db: AppDatabase; directory: string }[] 
 afterEach(async () => {
   gateMemoryTools(() => true)
   handlers.clear()
-  for (const entry of cleanup.splice(0)) { await entry.service.stop(); entry.db.close(); await rm(entry.directory, { recursive: true, force: true }) }
+  for (const entry of cleanup.splice(0)) { await entry.service.stop(); entry.db.close(); removeTempDir(entry.directory) }
 })
 async function fixture(featureEnabled: boolean) {
   const directory = await mkdtemp(join(tmpdir(), 'oxespace-memory-gate-'))

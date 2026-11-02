@@ -370,6 +370,11 @@ export interface OwnedThreadWorktree {
   /** Commit the branch started at, to tell new work from the starting point. */
   baseSha: string
   createdAt: number
+  /**
+   * What creating it reported (C3, as `GitHubMessageResult.notices`: worktree.createdFrom, git.hooks.skipped,
+   * worktree.copyFiles.*, worktree.setup.*). Kept with the conversation, since the dialog closes as it opens.
+   */
+  notices?: import('../messages').MainMessage[]
 }
 
 /** What the new-conversation dialog may ask for when the conversation gets its own worktree. */

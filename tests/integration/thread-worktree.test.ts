@@ -1,11 +1,12 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { openInMemoryDatabase } from '../../electron/main/db'
 import { ThreadProjectService } from '../../electron/main/services/conversation/thread-projects'
 import { createThreadWorktree, generatedBranch, threadsInWorktree, ThreadWorktreeError, type ThreadWorktreeHost } from '../../electron/main/services/conversation/thread-worktree'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const cleanup: (() => void)[] = []
 afterEach(() => { for (const step of cleanup.splice(0).reverse()) step() })
@@ -18,7 +19,7 @@ function repository(): string {
   git('config', 'user.email', 'e@x'); git('config', 'user.name', 'E')
   writeFileSync(join(repo, 'a.txt'), 'a\n'); git('add', '.'); git('commit', '-qm', 'a')
   git('branch', 'taken')
-  cleanup.push(() => rmSync(parent, { recursive: true, force: true }))
+  cleanup.push(() => removeTempDir(parent))
   return repo
 }
 

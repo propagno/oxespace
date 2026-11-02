@@ -4,7 +4,7 @@
  * It spends a little of the person's subscription and needs network, so it never runs in CI.
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
@@ -16,10 +16,11 @@ import { AgentProcessTransport } from '../../electron/main/services/conversation
 import { resolveSessionLocation } from '../../electron/main/services/git-common-dir'
 import { createThreadWorktree } from '../../electron/main/services/conversation/thread-worktree'
 import type { ThreadEvent } from '../../shared/types/thread'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const live = process.env.OXE_LIVE_AGENTS === '1'
 const roots: string[] = []
-afterAll(() => { for (const root of roots) rmSync(root, { recursive: true, force: true }) })
+afterAll(() => { for (const root of roots) removeTempDir(root) })
 
 function repository(): string {
   const root = mkdtempSync(join(tmpdir(), 'oxe-live-'))

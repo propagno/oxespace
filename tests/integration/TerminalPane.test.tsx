@@ -111,21 +111,11 @@ describe('TerminalPane', () => {
         getDiff: vi.fn(),
         onDiffUpdate: vi.fn(() => vi.fn())
       },
-      voice: {
-        transcribe: vi.fn().mockResolvedValue({ text: '', durationMs: 0 }),
-        getModelStatus: vi.fn().mockResolvedValue({ size: 'base', ready: true, path: 'x', engineReady: true }),
-        ensureModel: vi.fn().mockResolvedValue({ size: 'base', ready: true, path: 'x', engineReady: true }),
-        onModelProgress: vi.fn(() => vi.fn())
-      },
       semantic: {
         setEnabled: vi.fn().mockResolvedValue({ enabled: true, workerReady: true, indexing: false, count: 0, lastError: null }),
         getStatus: vi.fn().mockResolvedValue({ enabled: false, workerReady: true, indexing: false, count: 0, lastError: null })
       }
     } as unknown as typeof window.oxe
-    Object.defineProperty(navigator, 'mediaDevices', {
-      configurable: true,
-      value: { getUserMedia: vi.fn() }
-    })
   })
 
   test('explicit start recovers a delegated task instead of using the ordinary launcher', async () => {

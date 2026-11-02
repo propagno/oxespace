@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { IncidentJournal, type JournalIo } from '../electron/main/services/diagnostics/incident-journal'
 import { connectIncidentJournal, flushIncidents, incidentRecorder, incidentSubject, recordIncident } from '../electron/main/services/diagnostics/incident-sink'
 import { DIAGNOSTICS_LIMITS } from '../shared/types/diagnostics'
+import { removeTempDir } from './helpers/removeTempDir'
 
 const roots: string[] = []
 function journalFile(): string { const root = mkdtempSync(join(tmpdir(), 'oxe-journal-')); roots.push(root); return join(root, 'diagnostics', 'incidents.json') }
@@ -13,7 +14,7 @@ afterEach(() => {
   connectIncidentJournal(null)
   for (const root of roots.splice(0)) {
     if (dirname(resolve(root)) !== resolve(tmpdir())) throw Error('Unsafe cleanup')
-    rmSync(root, { recursive: true, force: true })
+    removeTempDir(root)
   }
 })
 const DAY = 86_400_000

@@ -355,7 +355,6 @@
     "mention": "Mention a file",
     "steer": "Steer active turn",
     "steerTitle": "Send guidance to the active turn",
-    "voice": "Voice input",
     "stop": "Stop turn",
     "stopTitle": "Stop turn · Esc",
     "queue": "Queue follow-up",
@@ -1718,7 +1717,9 @@
   "prArchive": {
     "merged": "Pull request #{{number}} was merged",
     "closed": "Pull request #{{number}} was closed",
-    "description": "Archive this conversation? Archived conversations can't be restored yet.",
-    "archive": "Archive"
+    "description": "This conversation will be archived. You can restore it from Archived in the sidebar.",
+    "keep": "Keep",
+    "archived": "Conversation archived",
+    "restore": "Restore"
   }
 }

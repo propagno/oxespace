@@ -146,14 +146,25 @@ class MainActivity : ComponentActivity() {
             openRequest != null -> {
                 BackHandler { requestKey = null }
                 // The request as it is now; null once answered elsewhere, and the screen says so.
-                RequestScreen(requests.firstOrNull { "${it.threadId}/${it.requestId}" == openRequest }, live.streams.commands, onBack = { requestKey = null })
+                val current = requests.firstOrNull { "${it.threadId}/${it.requestId}" == openRequest }
+                val threadList by live.threads.threads.collectAsStateWithLifecycle()
+                RequestScreen(
+                    current,
+                    live.streams.commands,
+                    provider = current?.let { r -> threadList.firstOrNull { it.id == r.threadId }?.provider },
+                    workspaceName = current?.let { r -> workspaces.firstOrNull { it.id == r.workspaceId }?.name },
+                    onBack = { requestKey = null },
+                )
             }
             openThread != null -> {
                 val watched = live.openThread(openThread)
                 DisposableEffect(openThread) { onDispose { live.closeThread(openThread) } }
                 BackHandler { threadId = null }
+                val threads by live.threads.threads.collectAsStateWithLifecycle()
                 ThreadScreen(
                     openThread, watched, live.streams.commands, presence, connected = status is DesktopStatus.Connected,
+                    knownTitle = threads.firstOrNull { it.id == openThread }?.title,
+                    pending = requests.filter { it.threadId == openThread },
                     onOpenRequest = { requestKey = "$openThread/$it" },
                     onBack = { threadId = null },
                 )

@@ -47,6 +47,12 @@ const SEEN_WRITE_INTERVAL_MS = 60_000
 const AUTH_FAILURE_AUDITS_PER_MINUTE = 20
 /** Failed pairings told to the window per minute, so a flood of bad requests from the LAN cannot flood the window. */
 const PAIRING_FAILURES_SHOWN_PER_MINUTE = 20
+/**
+ * B9.2: a pairing the phone never used. A phone that was paired signs in right away with the token it got; one that
+ * has not within this time (the app closed, the network changed, the scan was a mistake) is removed, so an orphan
+ * never stays in Settings › Devices nor holds one of the device slots. It then hears `revoked`, like a removed phone.
+ */
+export const UNUSED_PAIRING_TTL_MS = 2 * 60_000
 
 export interface RemoteGatewayDeps {
   db: AppDatabase
@@ -59,6 +65,8 @@ export interface RemoteGatewayDeps {
   /** Which interface addresses may be listened on; private ones only, unless a test says otherwise. */
   isAllowedAddress?: (address: string) => boolean
   promptTimeoutMs?: number
+  /** B9.2: how long a pairing may go unused; `UNUSED_PAIRING_TTL_MS` by default (tests shorten it). */
+  unusedPairingTtlMs?: number
   /** What phones may watch and do (M4, M5). Without it no topic has data and every command is `forbidden`. */
   desktop?: RemoteDesktop
   /** Overrides of single topic sources (tests). */
@@ -118,6 +126,8 @@ export class RemoteGateway implements ConnectionHost {
   private pairingFailuresShown = { windowStart: 0, count: 0 }
   /** Panes the person let phones type into: in memory only, so off on every launch, and never set by a phone or MCP. */
   private readonly phoneWritePanes = new Set<string>()
+  /** B9.2: devices paired on this launch that have not signed in yet, and when they lapse. In memory only. */
+  private readonly unused = new Map<string, { expiresAt: number; timer: ReturnType<typeof setTimeout> }>()
   private readonly workspaceListeners = new Set<() => void>()
   private readonly rateLimitAudited = new Map<string, number>()
   private readonly topics: Partial<Record<RemoteSubscription, RemoteTopicSource>>
@@ -131,6 +141,8 @@ export class RemoteGateway implements ConnectionHost {
     this.store = new RemoteStore(deps.db, this.now)
     this.pairing = new PairingDesk(this.now, deps.promptTimeoutMs ?? PAIRING_PROMPT_TIMEOUT_MS, prompt => this.deps.broadcast({ pairing: prompt }))
     this.store.pruneAudit()
+    // A failing read here must not take the gateway down for the whole run (it is built once, on first use).
+    try { this.expireUnusedAtLaunch() } catch { /* the in-memory watch still covers what this launch pairs */ }
     const desktop = deps.desktop
     this.topics = {
       ...(desktop ? createTopics({
@@ -227,6 +239,7 @@ export class RemoteGateway implements ConnectionHost {
   revoke(value: unknown): void {
     const { deviceId } = parseDeviceInput(value)
     if (!this.store.revoke(deviceId)) throw deviceNotFound()
+    this.forgetUnused(deviceId)
     for (const connection of this.connections) if (connection.deviceId === deviceId) connection.revoke()
     this.commandTimes.delete(deviceId)
     this.commands?.forget(deviceId)
@@ -280,6 +293,9 @@ export class RemoteGateway implements ConnectionHost {
 
   /** On quit: closes everything, like switching it off. */
   stop(): Promise<void> {
+    // B9.2: a pairing still unused when the app quits is removed now. Nothing marks it on disk (no table, no migration),
+    // so the next launch could not tell it from a phone in use, and it would hold a slot for good (SECURITY #458).
+    for (const deviceId of [...this.unused.keys()]) this.expireUnused(deviceId, false)
     return this.serialize(() => this.shutdown('quit'))
   }
 
@@ -320,7 +336,10 @@ export class RemoteGateway implements ConnectionHost {
   /** The certificate, made the first time and read back from `safeStorage` after that, as DER only. */
   private material(): GatewayMaterial {
     const cipher = createSecretCipher(this.deps.storage, this.deps.platform, this.deps.env)
-    if (!cipher.available()) throw new GatewayStartError(mainMessage('remote.certificate.failed', {}))
+    // Each reason says what to do (SRE on Linux: basic_text is refused for the private key, and the person needs the way out).
+    const missing = cipher.reason()
+    if (missing === 'no-keyring') throw new GatewayStartError(mainMessage('remote.keyring.missing', {}))
+    if (missing) throw new GatewayStartError(mainMessage('remote.storage.unavailable', {}))
     const settings = this.store.settings()
     if (settings.certificateDer && settings.certificateKey) {
       try {
@@ -432,6 +451,7 @@ export class RemoteGateway implements ConnectionHost {
     }
     const response: RemotePairResponse = { deviceId: device.deviceId, ...running.tokens.issue(device.deviceId) }
     this.store.audit({ action: 'pairing', outcome: 'paired', deviceId: device.deviceId, remoteAddress: address })
+    this.watchUnused(device.deviceId)
     json(res, 200, response)
     this.deps.broadcast({ devices: this.devices(), status: this.status() })
   }
@@ -487,6 +507,8 @@ export class RemoteGateway implements ConnectionHost {
     if (!running) return { ok: false, code: 'internal' }
     const outcome = this.check(running, frame, challenge)
     if (!outcome.ok) this.auditAuthFailure(outcome.code, address, 'deviceId' in outcome ? outcome.deviceId : undefined)
+    // The pairing was used: it no longer lapses.
+    else this.forgetUnused(outcome.deviceId)
     return outcome.ok ? outcome : { ok: false, code: outcome.code }
   }
 
@@ -496,6 +518,7 @@ export class RemoteGateway implements ConnectionHost {
       if (!token.ok) return token
       const device = this.store.device(token.deviceId)
       if (!device) return { ok: false, code: 'unauthenticated' }
+      if (this.lapsed(device.deviceId)) return { ok: false, code: 'revoked', deviceId: device.deviceId }
       if (device.revoked) return { ok: false, code: 'revoked', deviceId: device.deviceId }
       // The same token back, with what is left of it: an access token never extends itself.
       return { ok: true, deviceId: device.deviceId, expiresAt: token.expiresAt, result: { accessToken: frame.accessToken, expiresInMs: token.expiresAt - this.now() } }
@@ -505,11 +528,77 @@ export class RemoteGateway implements ConnectionHost {
     try { deviceId = parseDeviceId(refresh.deviceId) } catch { return { ok: false, code: 'unauthenticated' } }
     const device = this.store.device(deviceId)
     if (!device) return { ok: false, code: 'unauthenticated' }
+    if (this.lapsed(deviceId)) return { ok: false, code: 'revoked', deviceId }
     if (device.revoked) return { ok: false, code: 'revoked', deviceId }
     if (!isHelloChallenge(refresh.nonce) || !sameSecret(refresh.nonce, challenge)) return { ok: false, code: 'unauthenticated', deviceId }
     if (!verifyRefreshSignature(device.publicKey, running.fingerprint, deviceId, refresh.nonce, refresh.signature)) return { ok: false, code: 'unauthenticated', deviceId }
     const result = running.tokens.issue(deviceId)
     return { ok: true, deviceId, expiresAt: this.now() + result.expiresInMs, result }
+  }
+
+  // ---- B9.2: a pairing nobody used --------------------------------------------------------------------------
+
+  private watchUnused(deviceId: string, pairedAt = this.now()): void {
+    this.forgetUnused(deviceId)
+    const ttl = this.deps.unusedPairingTtlMs ?? UNUSED_PAIRING_TTL_MS
+    const expiresAt = pairedAt + ttl
+    // Never longer than the time itself: a wall clock set back before a relaunch would otherwise stretch it. The timer
+    // runs on monotonic time and removes the pairing whatever the wall clock says (SECURITY #476).
+    const timer = setTimeout(() => this.expireUnused(deviceId), Math.min(ttl, Math.max(0, expiresAt - this.now())))
+    timer.unref?.()
+    this.unused.set(deviceId, { expiresAt, timer })
+  }
+
+  /**
+   * At launch: a pairing the last run left unused. A crash or a kill skips `stop()`, and a phone that never signed in
+   * could then sign in later by refresh (its device key), past the two minutes (HML on #458). Nothing new is stored:
+   * every sign-in writes `last_seen_at` (`authenticated` → `seen`), and pairing sets it to `paired_at`, so a device whose
+   * last sight is not after its pairing never signed in. Past its time it is removed now; within it, it gets what is left.
+   */
+  private expireUnusedAtLaunch(): void {
+    for (const device of this.store.devices()) {
+      // No last sight recorded at all says nothing either way: kept, as before.
+      if (device.lastSeenAt === null || device.lastSeenAt > device.pairedAt) continue
+      this.watchUnused(device.deviceId, device.pairedAt)
+      if (this.unused.get(device.deviceId)!.expiresAt <= this.now()) this.expireUnused(device.deviceId, false)
+    }
+  }
+
+  private forgetUnused(deviceId: string): void {
+    const entry = this.unused.get(deviceId)
+    if (!entry) return
+    clearTimeout(entry.timer)
+    this.unused.delete(deviceId)
+  }
+
+  /**
+   * Whether this device's pairing went unused past its time; it is removed then. Also the clock's check, not only the
+   * timer's (which fires even when the wall clock goes back). A wall clock that jumps forward can refuse a phone early;
+   * it then pairs again. That costs availability, never safety, and keeps one clock for the whole gateway.
+   */
+  private lapsed(deviceId: string): boolean {
+    const entry = this.unused.get(deviceId)
+    if (!entry || entry.expiresAt > this.now()) return false
+    this.expireUnused(deviceId)
+    return true
+  }
+
+  /** Removes an unused pairing: the device leaves the list and its slot, the trail and the window are told. */
+  private expireUnused(deviceId: string, tellWindow = true): void {
+    const entry = this.unused.get(deviceId)
+    if (!entry) return
+    clearTimeout(entry.timer)
+    let revoked: boolean
+    // Runs from a timer: a busy or failing database must not throw in main. The entry then stays, so the phone is still
+    // refused at sign-in (`lapsed`) and the removal is tried again there (SECURITY #458).
+    try { revoked = this.store.revoke(deviceId) } catch { return }
+    this.unused.delete(deviceId)
+    if (!revoked) return
+    this.commands?.forget(deviceId)
+    this.store.audit({ action: 'pairing', outcome: 'unused-expired', deviceId })
+    if (!tellWindow) return
+    this.tellPairingFailed('expired')
+    try { this.deps.broadcast({ devices: this.devices(), status: this.status() }) } catch { /* a closed window */ }
   }
 
   /** Recorded, but at most a few a minute, so a flood of bad connections cannot flood the trail. */
@@ -573,8 +662,13 @@ export class RemoteGateway implements ConnectionHost {
   }
 
   authenticated(connection: RemoteConnection): void {
-    this.lastSeenWrite.delete(connection.deviceId!)
-    this.seen(connection.deviceId!)
+    const deviceId = connection.deviceId!
+    this.lastSeenWrite.delete(deviceId)
+    this.seen(deviceId)
+    // B9.2: a sign-in always leaves the last sight after the pairing, even in the same millisecond or with the clock set
+    // back, so a launch after a crash never takes a phone in use for an unused pairing (`expireUnusedAtLaunch`).
+    const device = this.store.device(deviceId)
+    if (device && device.lastSeenAt !== null && device.lastSeenAt <= device.pairedAt) this.store.touch(deviceId, device.pairedAt + 1)
     this.deps.broadcast({ devices: this.devices() })
   }
 

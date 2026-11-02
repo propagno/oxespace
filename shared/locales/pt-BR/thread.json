@@ -363,7 +363,6 @@
     "mention": "Mencionar um arquivo",
     "steer": "Orientar o turno ativo",
     "steerTitle": "Enviar uma orientação ao turno ativo",
-    "voice": "Entrada por voz",
     "stop": "Parar o turno",
     "stopTitle": "Parar o turno · Esc",
     "queue": "Pôr na fila",
@@ -1767,7 +1766,9 @@
   "prArchive": {
     "merged": "O pull request #{{number}} foi mesclado",
     "closed": "O pull request #{{number}} foi fechado",
-    "description": "Arquivar esta conversa? Ainda não é possível restaurar conversas arquivadas.",
-    "archive": "Arquivar"
+    "description": "Esta conversa será arquivada. Você pode restaurá-la em Arquivadas, na barra lateral.",
+    "keep": "Manter",
+    "archived": "Conversa arquivada",
+    "restore": "Restaurar"
   }
 }

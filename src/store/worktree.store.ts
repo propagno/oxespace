@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { GitHubWorktree, GitHubWorktreeStatus } from '../../shared/types/github'
+import type { GitHubMessageResult, GitHubWorktree, GitHubWorktreeStatus } from '../../shared/types/github'
 import { humanizeError } from '../utils/humanizeError'
 
 export interface CreateWorktreeOptions {
@@ -16,7 +16,8 @@ interface WorktreeStoreState {
   loading: Record<string, boolean>
   error: Record<string, string | null>
   refresh: (workspaceId: string, rootPath: string) => Promise<void>
-  create: (workspaceId: string, rootPath: string, branch: string, path: string, options?: CreateWorktreeOptions) => Promise<void>
+  /** Resolves with what main reported, so the panel can show its C3 `notices`. */
+  create: (workspaceId: string, rootPath: string, branch: string, path: string, options?: CreateWorktreeOptions) => Promise<GitHubMessageResult>
   remove: (workspaceId: string, rootPath: string, path: string, force?: boolean) => Promise<void>
   status: (rootPath: string, path: string) => Promise<GitHubWorktreeStatus | null>
 }
@@ -45,7 +46,7 @@ export const useWorktreeStore = create<WorktreeStoreState>((set, get) => ({
   },
 
   create: async (workspaceId, rootPath, branch, path, options = {}) => {
-    await window.oxe.github.createWorktree({
+    const result = await window.oxe.github.createWorktree({
       rootPath,
       branch,
       path,
@@ -54,6 +55,7 @@ export const useWorktreeStore = create<WorktreeStoreState>((set, get) => ({
       fetchBase: options.fetchBase === true
     })
     await get().refresh(workspaceId, rootPath)
+    return result
   },
 
   remove: async (workspaceId, rootPath, path, force = false) => {

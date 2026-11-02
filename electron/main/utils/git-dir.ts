@@ -8,7 +8,7 @@
  * would not use itself (SECURITY #387 re-check 3, F3). The answer is kept per cwd while the files that could change it
  * keep their stamp: every `.git` and `HEAD` from the cwd up to the work tree's top (or the git dir), and `commondir`.
  */
-import { realpathSync, statSync } from 'node:fs'
+import { realpathSync, statSync, type BigIntStats } from 'node:fs'
 import { dirname, join, resolve as resolvePath } from 'node:path'
 
 export interface GitDirs { gitDir: string; commonDir: string; topLevel: string | null }
@@ -49,6 +49,26 @@ export function stamp(path: string): string {
 
 export const stampOf = (files: readonly string[]): string => files.map(file => `${file}=${stamp(file)}`).join('|')
 
+/**
+ * A guard's stamp: a folder counts by what it is (device, inode, kind), not by what happens inside it. Every index
+ * write renames index.lock inside `.git`, which moves the folder's times; with the full stamp that forced a rev-parse
+ * on the next call of every turn (about 60 ms on Windows). What could make git find other dirs is guarded by itself:
+ * the folder replaced (another inode) or turned into a gitfile (another kind), `commondir`, the `HEAD`, `objects` and
+ * `refs` git tests a repository by, and the config files that set core.bare or core.worktree (`guardFiles`). A file
+ * keeps the full stamp, a gitfile included; so does a folder whose file system reports no inode (0), where an identity
+ * would say nothing. Only this cache uses it: the config reads keep `stamp`.
+ */
+export function guardStamp(path: string, read: (path: string) => BigIntStats = file => statSync(file, { bigint: true })): string {
+  try {
+    const info = read(path)
+    const kind = info.isDirectory() ? 'dir' : 'file'
+    if (kind === 'dir' && info.ino !== 0n) return `dir:${info.dev}:${info.ino}`
+    return `${kind}:${info.size}:${info.ino}:${info.mtimeNs}:${info.ctimeNs}`
+  } catch { return '-' }
+}
+
+export const guardStampOf = (files: readonly string[]): string => files.map(file => `${file}=${guardStamp(file)}`).join('|')
+
 export const sameFiles = (a: readonly string[], b: readonly string[]): boolean => a.length === b.length && a.every((file, index) => file === b[index])
 
 /**
@@ -57,10 +77,15 @@ export const sameFiles = (a: readonly string[], b: readonly string[]): boolean =
  */
 export function guardFiles(cwd: string, dirs: GitDirs): string[] | null {
   const stop = fold(dirs.topLevel ?? dirs.gitDir)
-  const files = [join(dirs.gitDir, 'commondir')]
+  // What git tests a git dir by, and the config that moves the work tree (core.bare, core.worktree): a folder's own
+  // stamp no longer covers what changes inside it (`guardStamp`).
+  const files = [join(dirs.gitDir, 'commondir'), join(dirs.gitDir, 'HEAD'), join(dirs.commonDir, 'objects'), join(dirs.commonDir, 'refs'),
+    join(dirs.commonDir, 'config'), join(dirs.commonDir, 'config.worktree'), join(dirs.gitDir, 'config.worktree')]
   for (let dir = cwd; ; dir = dirname(dir)) {
-    files.push(join(dir, '.git'), join(dir, 'HEAD'))
-    if (fold(dir) === stop) return files
+    // A folder with no `.git` is a bare repository to git when it holds HEAD, objects and refs, or a commondir: each of
+    // those is guarded at every level, so a folder on the way up that turns into one is seen (SECURITY #468 M).
+    files.push(join(dir, '.git'), join(dir, 'HEAD'), join(dir, 'objects'), join(dir, 'refs'), join(dir, 'commondir'))
+    if (fold(dir) === stop) return [...new Set(files)]
     if (dirname(dir) === dir) return null
   }
 }
@@ -81,7 +106,7 @@ function lookup(cwd: string, env: NodeJS.ProcessEnv): Lookup {
   const before = resolutions.get(key)
   const guards = before?.guards ?? []
   // Stamped before git runs: a change while it runs is seen on the next call.
-  const taken = stampOf(guards)
+  const taken = guardStampOf(guards)
   return { key, real, guards, taken, ...(before?.valid && before.taken === taken ? { hit: before.dirs } : {}) }
 }
 
