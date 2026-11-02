@@ -180,8 +180,23 @@ jobs:
           } else { 'no main.log' | Tee-Object -Append "$out/result.txt" }
           "error lines in main.log: $($errors.Count)" | Tee-Object -Append "$out/result.txt"
           $errors | ForEach-Object { Write-Host "::error title=main.log::$_" }
-          Get-Process | Where-Object { $_.ProcessName -match '^OXESpace' } | Stop-Process -Force -ErrorAction SilentlyContinue
-          Start-Sleep -Seconds 3
+          # Quit the way a person does: close the window, and give the app 10 s to quit (a clean quit also moves the
+          # database's WAL into the file). Force only if it is still running, and say which one ended it.
+          $closer = 'already gone'
+          if ($alive) {
+            Get-Process | Where-Object { $_.ProcessName -match '^OXESpace' -and $_.MainWindowHandle -ne 0 } | ForEach-Object { [void]$_.CloseMainWindow() }
+            $closer = 'window closed'
+            $deadline = (Get-Date).AddSeconds(10)
+            while ((Get-Process | Where-Object { $_.ProcessName -match '^OXESpace' }) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+            if (Get-Process | Where-Object { $_.ProcessName -match '^OXESpace' }) {
+              Get-Process | Where-Object { $_.ProcessName -match '^OXESpace' } | Stop-Process -Force -ErrorAction SilentlyContinue
+              $closer = 'forced after 10 s (the window did not quit the app)'
+              Start-Sleep -Seconds 3
+            }
+          }
+          "ended by: $closer" | Tee-Object -Append "$out/result.txt"
+          $wal = Join-Path $env:APPDATA 'OXESpace\oxespace.sqlite3-wal'
+          "wal after quit: $(if (Test-Path $wal) { (Get-Item $wal).Length } else { 'none' }) bytes" | Tee-Object -Append "$out/result.txt"
           if (-not $alive) { throw 'the shipped exe exited within 25 s on the upgraded profile' }
           if ($windows.Count -eq 0) { throw 'the shipped exe runs but shows no window after 25 s' }
           if ($errors.Count -gt 0) { throw "main.log has $($errors.Count) error line(s); see the annotations" }
