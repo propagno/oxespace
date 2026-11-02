@@ -1718,3 +1718,10 @@
 /* F33: the path menu's items at the end of the tab menu. */
 .ws-group-context-menu-separator { border: 0; border-top: 1px solid var(--border-subtle, var(--border)); margin: 4px 0; }
 .ws-group-context-menu-shortcut { margin-left: auto; padding-left: 12px; color: var(--text-muted); font-size: var(--fs-xs); }
+
+/* F33: inline code that names a project file, in the agent's text. Underline on hover and focus, never colour alone. */
+.path-link { display: inline; padding: 0; margin: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; }
+.path-link > code { text-decoration: underline dotted; text-underline-offset: 2px; }
+.path-link:hover > code, .path-link:focus-visible > code { text-decoration: underline solid; }
+.path-link:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; border-radius: 3px; }
+@media (forced-colors: active) { .path-link > code { text-decoration: underline; } }

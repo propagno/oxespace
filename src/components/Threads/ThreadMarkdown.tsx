@@ -7,6 +7,7 @@ import { ErrorState } from '../../ui'
 import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
 import { parseExternalUrl } from '../../lib/externalLinks'
 import './ThreadMarkdown.css'
+import { InCodeBlockContext, InlineCode } from '../PathMenu/PathLink'
 
 function CodeBlock({ children, ...props }: ComponentPropsWithoutRef<'pre'>) {
   const { t } = useTranslation('thread')
@@ -32,7 +33,9 @@ export function ThreadMarkdown({ text }: { text: string }) {
   const { t } = useTranslation('thread')
   return <div className="thread-markdown"><Markdown remarkPlugins={[remarkGfm]} components={{
     table: ({ children }) => <div className="thread-table-scroll" role="region" aria-label={t('markdown.table')} tabIndex={0}><table>{children}</table></div>,
-    pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
+    pre: ({ children }) => <InCodeBlockContext.Provider value><CodeBlock>{children}</CodeBlock></InCodeBlockContext.Provider>,
+    // F33: inline code that names a project file is a link with the path menu (needs a PathScopeContext above).
+    code: ({ children }) => <InlineCode>{children}</InlineCode>,
     a: ({ href, children }) => href && parseExternalUrl(href)
       ? <ExternalAnchor href={href}>{children}</ExternalAnchor>
       : <span className="thread-markdown-reference" title={href}>{children}</span>,

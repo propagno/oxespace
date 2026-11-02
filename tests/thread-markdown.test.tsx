@@ -47,3 +47,25 @@ it('reparses an incomplete streamed table when its rows arrive', () => {
   view.rerender(<ThreadMarkdown text={`${header}\n| First | Second |`} />)
   expect(screen.getByRole('cell', { name: 'Second' })).toBeVisible()
 })
+
+describe('F33: project paths in the agent text', () => {
+  it('turns inline code that names a project file into a link with its line; code blocks and other code stay plain', async () => {
+    const { render, screen, cleanup } = await import('@testing-library/react')
+    const { PathScopeContext } = await import('../src/components/PathMenu/PathLink')
+    const { ThreadMarkdown } = await import('../src/components/Threads/ThreadMarkdown')
+    const opened: unknown[] = []
+    const scope = { workspaceId: 'ws', rootPath: '/repo', openInOxespace: (path: unknown) => { opened.push(path) } }
+    render(<PathScopeContext.Provider value={scope}><ThreadMarkdown text={'Fixed `src/app.ts:12`, see `npm run dev` and `../other/x.ts`.\n\n```\nsrc/app.ts\n```'} /></PathScopeContext.Provider>)
+    const links = screen.getAllByRole('button', { name: /src\/app\.ts/ })
+    expect(links).toHaveLength(1)
+    expect(links[0].getAttribute('aria-label')).toMatch(/src\/app\.ts, line 12/)
+    links[0].click()
+    expect(opened).toEqual([{ relativePath: 'src/app.ts', line: 12 }])
+    expect(screen.queryByRole('button', { name: /npm|other/ })).toBeNull()
+    cleanup()
+    // Without a project (an approval preview), nothing is a link.
+    render(<ThreadMarkdown text={'Fixed `src/app.ts:12`.'} />)
+    expect(screen.queryByRole('button', { name: /src\/app\.ts/ })).toBeNull()
+    cleanup()
+  })
+})
