@@ -141,7 +141,8 @@ export class RemoteGateway implements ConnectionHost {
     this.store = new RemoteStore(deps.db, this.now)
     this.pairing = new PairingDesk(this.now, deps.promptTimeoutMs ?? PAIRING_PROMPT_TIMEOUT_MS, prompt => this.deps.broadcast({ pairing: prompt }))
     this.store.pruneAudit()
-    this.expireUnusedAtLaunch()
+    // A failing read here must not take the gateway down for the whole run (it is built once, on first use).
+    try { this.expireUnusedAtLaunch() } catch { /* the in-memory watch still covers what this launch pairs */ }
     const desktop = deps.desktop
     this.topics = {
       ...(desktop ? createTopics({
@@ -536,8 +537,11 @@ export class RemoteGateway implements ConnectionHost {
 
   private watchUnused(deviceId: string, pairedAt = this.now()): void {
     this.forgetUnused(deviceId)
-    const expiresAt = pairedAt + (this.deps.unusedPairingTtlMs ?? UNUSED_PAIRING_TTL_MS)
-    const timer = setTimeout(() => this.expireUnused(deviceId), Math.max(0, expiresAt - this.now()))
+    const ttl = this.deps.unusedPairingTtlMs ?? UNUSED_PAIRING_TTL_MS
+    const expiresAt = pairedAt + ttl
+    // Never longer than the time itself: a wall clock set back before a relaunch would otherwise stretch it. The timer
+    // runs on monotonic time and removes the pairing whatever the wall clock says (SECURITY #476).
+    const timer = setTimeout(() => this.expireUnused(deviceId), Math.min(ttl, Math.max(0, expiresAt - this.now())))
     timer.unref?.()
     this.unused.set(deviceId, { expiresAt, timer })
   }

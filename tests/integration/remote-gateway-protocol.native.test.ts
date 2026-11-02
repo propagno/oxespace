@@ -229,6 +229,18 @@ describe('remote gateway: a pairing nobody uses lapses (B9.2)', () => {
     await next.stop()
   })
 
+  test('after a crash and a wall clock set back, the pairing still lapses within its own time, not that plus the jump', async () => {
+    const p = await paired()
+    const crashed = p.h.gateway
+    p.h.clock -= 10 * 60_000
+    const next = p.h.create({ unusedPairingTtlMs: 300 })
+    expect(next.devices()).toHaveLength(1)
+    // Without the cap the timer would wait ten minutes more; it fires after the 300 ms the pairing had.
+    await vi.waitFor(() => expect(next.devices()).toEqual([]), { timeout: 3_000 })
+    await crashed.stop()
+    await next.stop()
+  })
+
   test('a phone that signed in is never removed at launch, however long ago it paired', async () => {
     const p = await paired()
     ;(await signedIn(p)).close()
