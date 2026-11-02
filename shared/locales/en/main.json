@@ -124,6 +124,14 @@
     "app": {
       "connectivity": {
         "offline": "No network connection."
+      },
+      "openIn": {
+        "outsideRoot": "This file is outside the project, so it can't be opened from here.",
+        "notFound": "{{path}} no longer exists.",
+        "unknownTarget": "OXESpace can't open files this way.",
+        "editorMissing": "{{editor}} wasn't found. Choose another editor.",
+        "launchFailed": "Couldn't open in {{editor}}.",
+        "revealFailed": "Couldn't show the file in the folder."
       }
     },
     "ipc": {

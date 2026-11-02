@@ -366,6 +366,18 @@ export interface MessageParams {
   'notify.refused.rateLimit': { perMinute: number }
   /** A pane name an agent chose contains a name only the app uses. */
   'agents.name.reserved': { name: string }
+  /** B18: the path is outside the open workspace, as written or once its links are followed. */
+  'app.openIn.outsideRoot': Record<string, never>
+  /** B18: the file no longer exists; `path` is relative to the project. */
+  'app.openIn.notFound': { path: string }
+  /** B18: the window asked for a target main doesn't know. */
+  'app.openIn.unknownTarget': Record<string, never>
+  /** B18: the editor isn't installed any more (or never was); `editor` is its product name. */
+  'app.openIn.editorMissing': { editor: string }
+  /** B18: the editor was found but didn't start. */
+  'app.openIn.launchFailed': { editor: string }
+  /** B18: the system couldn't show the file in its folder. */
+  'app.openIn.revealFailed': Record<string, never>
 }
 
 export type MessageCode = keyof MessageParams
@@ -616,7 +628,13 @@ export const MESSAGE_CODES = [
   'notify.prefix.unknownConversation',
   'notify.refused.reservedName',
   'notify.refused.rateLimit',
-  'agents.name.reserved'
+  'agents.name.reserved',
+  'app.openIn.outsideRoot',
+  'app.openIn.notFound',
+  'app.openIn.unknownTarget',
+  'app.openIn.editorMissing',
+  'app.openIn.launchFailed',
+  'app.openIn.revealFailed'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */

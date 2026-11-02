@@ -22,7 +22,7 @@ export type McpCapability =
   | Base & { forbidden: string }
 
 /** The user's standing rule: these never become MCP tools. Each must be a `forbidden` capability. */
-export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'linear.token', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'git.repo_hook_approval', 'remote.gateway_admin', 'approvals.admin', 'mcp_internal.tool_groups_admin', 'app.open_external', 'mcp.tool_rules_admin'] as const
+export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'linear.token', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'git.repo_hook_approval', 'remote.gateway_admin', 'approvals.admin', 'mcp_internal.tool_groups_admin', 'app.open_external', 'mcp.tool_rules_admin', 'app.open_in'] as const
 
 /** No tool name or domain action may look like one of these. */
 export const FORBIDDEN_NAME = /approv|permission|access|sign_?in|log_?in|log_?out|token|secret|credential|password|api_?key|trust|host_?key/i
@@ -384,6 +384,11 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     label: 'Open a link in the system browser or mail app',
     forbidden: 'Person-only, like an approval: the window calls it after the person confirmed the link\'s host.',
     ipc: ['app.openExternal']
+  },
+  'app.open_in': {
+    label: 'Open a project file in an installed editor or show it in its folder (B18)',
+    forbidden: 'For 1.4, person-only: it starts a program on the computer, so an agent cannot reach it.',
+    ipc: ['app.openIn', 'app.openInTargets', 'app.setOpenInPreference']
   },
   'app.activity': {
     label: 'The activity center\'s entries and when the person last looked at them (F30)',
