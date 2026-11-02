@@ -54,7 +54,7 @@ const projects = [{ projectId: 'p1', displayName: 'repo', identityLabel: 'C:/rep
 /** Every command the palette shows with a workspace, a running terminal, a conversation and projects open. */
 function paletteCommands(): ContributedCommand[] {
   const code = buildCodeCommands({ applicationView: 'code', activeWorkspace: workspaces[0], activePane: workspaces[0].panes[0], hasTeamTarget: true, toolHandlers: {},
-    openNewWorkspace: noop, splitActivePane: noop, toggleActivePaneMaximize: noop, toggleActivePaneVoice: noop, openDesignSystem: noop })
+    openNewWorkspace: noop, splitActivePane: noop, toggleActivePaneMaximize: noop, openDesignSystem: noop })
   const thread = buildThreadCommands({ snapshot, projects: projects as never, showThread: noop, newThread: noop, newThreadIn: noop, addProject: noop, openAccounts: noop })
   const { result, unmount } = renderHook(() => useContributedCommands())
   const registered = result.current.map(action => ({ id: action.id, label: action.title, action: action.action, category: action.category ?? '', keywords: action.keywords, shortcut: action.shortcut, run: action.run }))
@@ -75,7 +75,8 @@ describe('command palette labels', () => {
       const categories = COMMAND_CATEGORIES.map(commandCategoryLabel)
       const pattern = new RegExp(`^(${categories.map(escape).join('|')}): (\\S+)`)
       const commands = paletteCommands()
-      expect(commands.length).toBeGreaterThanOrEqual(90)
+      // 89 since F34 took OXEVoice out (its toggle and its settings page); Devices came with the phone (#384).
+      expect(commands.length).toBeGreaterThanOrEqual(89)
       const wrong: string[] = []
       for (const command of commands) {
         const match = pattern.exec(command.label)
@@ -146,7 +147,7 @@ class ResizeObserverStub { observe(): void { /* cmdk */ } unobserve(): void { /*
 describe('palette search', () => {
   function Palette(): React.ReactElement {
     useCommandSource('test-code', buildCodeCommands({ applicationView: 'code', activeWorkspace: workspaces[0], activePane: workspaces[0].panes[0], hasTeamTarget: true, toolHandlers: {},
-      openNewWorkspace: noop, splitActivePane: noop, toggleActivePaneMaximize: noop, toggleActivePaneVoice: noop, openDesignSystem: noop }))
+      openNewWorkspace: noop, splitActivePane: noop, toggleActivePaneMaximize: noop, openDesignSystem: noop }))
     const actions = useContributedCommands()
     return <CommandMenu open onOpenChange={noop} workspace={workspaces[0]} actions={actions} workspaces={workspaces} onSelectWorkspace={noop} onSelectPane={noop} />
   }

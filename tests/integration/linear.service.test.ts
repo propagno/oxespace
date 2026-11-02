@@ -154,8 +154,32 @@ describe('LinearService', () => {
       createBranch: true,
       baseRef: 'origin/main',
       fetchBase: true
-    })
+    }, undefined) // no person: the fetch has no transport (utils/safe-git-person.ts)
     expect(result).toMatchObject({ ok: true, branch: 'eduardo/oxe-42-fix-the-thing' })
+  })
+
+  it('passes createWorktree\'s C3 notices through, the creation as messageCode (FINDING L)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ data: { viewer: { name: 'E', email: 'e@x.com' } } }))
+      .mockResolvedValueOnce(jsonResponse({ data: { issue: ISSUE } }))
+    const notices = [
+      { code: 'worktree.createdFrom', params: { path: 'wt-oxe-42', branch: 'eduardo/oxe-42-fix-the-thing', base: 'origin/main' } },
+      { code: 'worktree.copyFiles.copied', params: { count: 1 } }
+    ]
+    const gitHub = {
+      listWorktrees: vi.fn(async () => []),
+      listBranches: vi.fn(async () => []),
+      resolveWorktreeBase: vi.fn(async () => ({ baseRef: 'origin/main', remoteName: 'origin', isRemote: true })),
+      createWorktree: vi.fn(async () => ({ ok: true, message: 'Worktree created at wt-oxe-42.', notices }))
+    } as unknown as GitHubService
+
+    const service = new LinearService(db, gitHub, fetchMock as unknown as typeof fetch)
+    await service.setApiKey('lin_api_abc')
+
+    const result = await service.createWorktreeFromIssue({ workspaceId: 'ws', rootPath: 'C:/repo', issueId: 'issue-1' })
+    expect(result.messageCode).toEqual(notices[0])
+    expect(result.notices).toEqual(notices)
   })
 
   it('reuses an existing worktree instead of failing', async () => {

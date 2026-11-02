@@ -1,4 +1,5 @@
 import { agentMcpArguments } from '../agent-launch.service'
+import { bridgePlanFlags } from '../../mcp-internal/bridge-plan'
 import { claudeMcpEntries, codexMcpArguments, type ManagedMcp } from './thread-managed-mcp'
 import { matchesResource } from '../../../../shared/policy'
 import type { ConversationThread, AgentConversationAdapter, ThreadEvent, ThreadPermissionRule, ThreadSnapshot } from '../../../../shared/types/thread'
@@ -64,6 +65,15 @@ export const CODE_TOOL_GROUP = ['oxespace_list_panes', 'oxespace_terminal', 'oxe
   'oxespace_create_worktree', 'oxespace_remove_worktree', 'oxespace_tasks', 'oxespace_tasks_change', 'oxespace_agents',
   'oxespace_agents_change', 'oxespace_integration', 'oxespace_memory_diagnostics'] as const
 
+/**
+ * What an agent in a Code terminal starts with (T8, about 2.2k chars): its panes, terminal, scripts and jobs. The rest
+ * of the Code tools (worktrees, tasks, agents, integrations, about 8.1k) wait for oxespace_tools_enable { group: "code" },
+ * or come through tool search, so the agent starts within the 9,000-char budget.
+ */
+export const CODE_START_TOOLS = ['oxespace_list_panes', 'oxespace_terminal', 'oxespace_list_scripts', 'oxespace_run_script',
+  'oxespace_list_background_jobs', 'oxespace_get_job_output'] as const satisfies readonly (typeof CODE_TOOL_GROUP[number])[]
+export const CODE_ON_DEMAND_TOOLS: string[] = CODE_TOOL_GROUP.filter(tool => !(CODE_START_TOOLS as readonly string[]).includes(tool))
+
 /** Every group of OXESpace tools, the Code terminal's included (Settings › Tools lists these). */
 export const MCP_TOOL_GROUPS = { ...THREAD_TOOL_GROUPS, code: CODE_TOOL_GROUP } as const satisfies Record<string, readonly string[]>
 /** Groups a project can turn on in oxe.yaml; core is always on and roles are detected. */
@@ -115,7 +125,9 @@ export function threadToolRoles(db: RoleDatabase, threadId: string): ThreadToolR
  * context. A value the person set is kept.
  */
 export function toolSearchEnvironment(provider: 'claude' | 'codex', source: NodeJS.ProcessEnv = process.env): Record<string, string> {
-  return provider === 'claude' && source.ENABLE_TOOL_SEARCH === undefined ? { ENABLE_TOOL_SEARCH: 'auto:5' } : {}
+  // `true`, not `auto:N`: measured in T8, `auto:5` loaded every definition on a large context window (+21.7k tokens
+  // for a plain conversation), while `true` defers them and costs less than 1.3's core group did.
+  return provider === 'claude' && source.ENABLE_TOOL_SEARCH === undefined ? { ENABLE_TOOL_SEARCH: 'true' } : {}
 }
 
 /** The empty strict configuration Claude receives for a read-only conversation. */
@@ -178,7 +190,7 @@ function policyExclusions(deniedTools: readonly string[], tools: readonly string
 }
 
 export function threadMcpArguments(provider: 'claude' | 'codex', args: string[], bridge: string, managed?: ManagedMcp, denied: DeniedMcpTool[] = [],
-  tools: readonly string[] = THREAD_MCP_TOOLS, deniedTools: readonly string[] = []): string[] {
+  tools: readonly string[] = THREAD_MCP_TOOLS, deniedTools: readonly string[] = [], enableable: Readonly<Record<string, readonly string[]>> = {}): string[] {
   if (provider === 'claude' && args.includes('--strict-mcp-config')) {
     // A read-only conversation keeps its strict surface (no user servers, which
     // may write), but gets the OXESpace bridge limited to read-only lookups.
@@ -190,7 +202,8 @@ export function threadMcpArguments(provider: 'claude' | 'codex', args: string[],
     return [...readOnly, ...exclusionArguments(provider, denied, [], deniedTools, lookups)]
   }
   const config = agentMcpArguments(provider, bridge)
-  const bridgeArgs = [bridge, '--allowed-tools', JSON.stringify(tools)]
+  // Groups the session may turn on later with oxespace_tools_enable; the bridge owns that list (B7.2).
+  const bridgeArgs = [bridge, ...bridgePlanFlags({ tools, enableable })]
   if (provider === 'codex') {
     config[3] = `mcp_servers.oxespace-delegation.args=${JSON.stringify(bridgeArgs)}`
     return [...config, ...(managed ? codexMcpArguments(managed) : []), ...exclusionArguments(provider, denied, ['oxespace-delegation', ...(managed?.servers.map(server => server.key) ?? [])], deniedTools, tools), ...args]

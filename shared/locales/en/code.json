@@ -1,5 +1,6 @@
 {
   "panels": {
+    "session": "Conversation details",
     "terminal": "Terminal",
     "changes": "Changes",
     "browser": "Browser",
@@ -15,8 +16,10 @@
   },
   "tools": {
     "team": {
-      "label": "Team",
-      "detail": "Project roles and agent inboxes"
+      "label": "Project team",
+      "detail": "Project roles and agent inboxes",
+      "menu": "Project team…",
+      "keywords": "equipe, time, papéis, coordenadora, membros, caixa de entrada"
     },
     "integration": {
       "label": "Multi-repo coordination",
@@ -106,8 +109,6 @@
     "unsaved": "Unsaved",
     "saved": "Saved",
     "unsavedChanges": "Unsaved changes",
-    "dictation": "Dictation",
-    "dictationTitle": "Tap to start or stop dictation. Hold to talk.",
     "loadingPreview": "Loading preview…",
     "loadingEditor": "Loading the editor…",
     "openFailed": "Could not open the file",
@@ -802,7 +803,9 @@
     "boundary": "this pane",
     "splitRefused": {
       "title": "This pane cannot be split here",
-      "hint": "Every place in this layout is taken. Choose a larger layout, or turn on the split layout to add panes freely."
+      "hint": "Every place in this layout is taken. Choose a larger layout, or turn on the split layout to add panes freely.",
+      "tooNarrow": "Each half would be narrower than {{width}} px. Close another pane, or make the window wider.",
+      "tooShort": "Each half would be shorter than {{height}} px. Close another pane, or make the window taller."
     },
     "attention": {
       "blocked": "Needs your approval or answer",
@@ -1155,6 +1158,11 @@
           "label": "Agent delegation",
           "hint": "Parallel work",
           "description": "Let agents hand a focused task to a new worktree and its own terminal."
+        },
+        "tools": {
+          "label": "Tools",
+          "hint": "MCP tool groups and rules",
+          "description": "Which OXESpace tools agents in this project get, what they cost, and a rule per tool."
         }
       },
       "saveFailed": "Could not save the workspace settings",
@@ -1173,6 +1181,7 @@
       "footer": {
         "memory": "Memory changes use Apply memory settings above.",
         "delegation": "Delegation changes apply right away.",
+        "tools": "Tool modes and rules are saved in the project right away.",
         "default": "Save applies density, layout and default shell. Mode applies right away."
       },
       "discard": "Discard changes",

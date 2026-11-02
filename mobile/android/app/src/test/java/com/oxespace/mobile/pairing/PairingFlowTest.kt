@@ -42,7 +42,7 @@ class PairingFlowTest {
         override fun clear() { saved = null }
     }
 
-    private class Harness(scope: TestScope, answer: (PairingQr, String, String) -> PairOutcome) {
+    private class Harness(scope: TestScope, deviceName: String = "Pixel 8", answer: (PairingQr, String, String) -> PairOutcome) {
         val keys = mutableMapOf<String, FakeKeys>()
         val store = FakeStore()
         val calls = mutableListOf<Triple<PairingQr, String, String>>()
@@ -52,7 +52,7 @@ class PairingFlowTest {
             pairer = { qr, name, key -> calls += Triple(qr, name, key); answer(qr, name, key) },
             keysFor = { alias -> keys.getOrPut(alias) { FakeKeys() } },
             store = store,
-            deviceName = "Pixel 8",
+            deviceName = deviceName,
             newAlias = { "alias-${keys.size + 1}" },
         )
     }
@@ -95,6 +95,7 @@ class PairingFlowTest {
             PairOutcome.Refused(RemotePairingErrorCode.PAIRING_LOCKED) to PairingFailure.LOCKED,
             PairOutcome.Refused(RemotePairingErrorCode.TOO_MANY_DEVICES) to PairingFailure.TOO_MANY_DEVICES,
             PairOutcome.Refused(RemotePairingErrorCode.MALFORMED) to PairingFailure.PROTOCOL,
+            PairOutcome.Refused(RemotePairingErrorCode.RESERVED_NAME) to PairingFailure.RESERVED_NAME,
             PairOutcome.PinMismatch to PairingFailure.WRONG_CERTIFICATE,
             PairOutcome.Unreachable to PairingFailure.UNREACHABLE,
             PairOutcome.Protocol to PairingFailure.PROTOCOL,
@@ -106,6 +107,21 @@ class PairingFlowTest {
             assertEquals(outcome.toString(), PairingState.Failed(failure), harness.flow.state.value)
             assertTrue(outcome.toString(), harness.keys.getValue("alias-1").deleted)
             assertNull(harness.store.saved)
+        }
+    }
+
+    @Test
+    fun aReservedPhoneNameFailsBeforeTheCodeIsSpent() = runTest {
+        for (name in listOf("OXESpace", "my oxecode phone", "Sistema", "​App‎")) {
+            val harness = Harness(this, deviceName = name) { _, _, _ -> error("must not pair") }
+            harness.flow.onScanned(uri)
+            advanceUntilIdle()
+            assertEquals(name, PairingState.Failed(PairingFailure.RESERVED_NAME), harness.flow.state.value)
+            // No /pair call and no key: the code stays good once the phone is renamed.
+            assertTrue(harness.calls.isEmpty())
+            assertTrue(harness.keys.isEmpty())
+            harness.flow.scanAgain()
+            assertEquals(PairingState.Scanning, harness.flow.state.value)
         }
     }
 

@@ -1,4 +1,8 @@
 import '@testing-library/jest-dom/vitest'
+import { scrubLiveAppEnv } from '../e2e/helpers/live-app-env'
+
+// Again in each worker (vitest.config.ts scrubs the runner): nothing a test spawns may reach the running app.
+scrubLiveAppEnv()
 
 // Components render English, the source catalog, whatever the machine's language is.
 if (typeof window !== 'undefined') {

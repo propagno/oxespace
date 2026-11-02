@@ -1,5 +1,6 @@
 {
   "panels": {
+    "session": "Detalhes da conversa",
     "terminal": "Terminal",
     "changes": "Alterações",
     "browser": "Navegador",
@@ -15,8 +16,10 @@
   },
   "tools": {
     "team": {
-      "label": "Equipe",
-      "detail": "Papéis do projeto e caixas de entrada dos agentes"
+      "label": "Equipe do projeto",
+      "detail": "Papéis do projeto e caixas de entrada dos agentes",
+      "menu": "Equipe do projeto…",
+      "keywords": "equipe, time, papéis, coordenadora, membros, caixa de entrada"
     },
     "integration": {
       "label": "Coordenação entre repositórios",
@@ -108,8 +111,6 @@
     "unsaved": "Não salvo",
     "saved": "Salvo",
     "unsavedChanges": "Alterações não salvas",
-    "dictation": "Ditado",
-    "dictationTitle": "Toque para começar ou parar o ditado. Segure para falar.",
     "loadingPreview": "Carregando a prévia…",
     "loadingEditor": "Carregando o editor…",
     "openFailed": "Não foi possível abrir o arquivo",
@@ -835,8 +836,10 @@
   "pane": {
     "boundary": "este painel",
     "splitRefused": {
-      "title": "Não dá para dividir este painel aqui",
-      "hint": "Todos os lugares deste layout estão ocupados. Escolha um layout maior, ou ligue o layout dividido para adicionar painéis livremente."
+      "title": "Não é possível dividir este painel aqui",
+      "hint": "Todos os lugares deste layout estão ocupados. Escolha um layout maior, ou ligue o layout dividido para adicionar painéis livremente.",
+      "tooNarrow": "Cada metade ficaria com menos de {{width}} px de largura. Feche outro painel ou aumente a janela.",
+      "tooShort": "Cada metade ficaria com menos de {{height}} px de altura. Feche outro painel ou aumente a janela."
     },
     "attention": {
       "blocked": "Precisa da sua aprovação ou resposta",
@@ -1212,6 +1215,11 @@
           "label": "Delegação de agentes",
           "hint": "Trabalho em paralelo",
           "description": "Deixe os agentes passarem uma tarefa focada para um worktree novo com terminal próprio."
+        },
+        "tools": {
+          "label": "Ferramentas",
+          "hint": "Grupos de ferramentas MCP e regras",
+          "description": "Quais ferramentas do OXESpace os agentes deste projeto recebem, quanto custam e uma regra por ferramenta."
         }
       },
       "saveFailed": "Não foi possível salvar as configurações do workspace",
@@ -1230,6 +1238,7 @@
       "footer": {
         "memory": "As mudanças de memória usam Aplicar as configurações de memória, acima.",
         "delegation": "As mudanças de delegação valem na hora.",
+        "tools": "Os modos e as regras das ferramentas são salvos no projeto na hora.",
         "default": "Salvar aplica densidade, layout e shell padrão. O modo vale na hora."
       },
       "discard": "Descartar as alterações",

@@ -21,8 +21,38 @@ const TOKEN = process.env.OXESPACE_MCP_TOKEN
 const WSID = process.env.OXESPACE_WORKSPACE_ID || ''
 const MEMORY_RUN = process.env.OXESPACE_MEMORY_RUN_ID || ''
 const OPTIONAL_MEMORY = process.argv.includes('--optional-memory')
+// The workspace's .mcp.json entry, started by the agent OXESpace launched in a Code terminal with its own bridge: list
+// nothing, so the agent pays for the OXESpace tools once (bridge-plan.ts, PROJECT_ENTRY_FLAG and PANE_BRIDGE_ENV).
+// OXESPACE_PANE_BRIDGE is a fresh token per launch. The first project entry started with it claims it for its parent,
+// the launched agent, which starts its servers before it can run anything. A `claude` that agent starts later inherits
+// the token but is another parent, so its entry serves as usual instead of leaving it with no OXESpace tools.
+function stepsAside() {
+  const token = process.env.OXESPACE_PANE_BRIDGE || ''
+  if (!process.argv.includes('--project-entry') || !/^[A-Za-z0-9-]{16,64}$/.test(token)) return false
+  const fs = require('node:fs')
+  const claim = require('node:path').join(require('node:os').tmpdir(), `oxespace-pane-bridge-${token}.json`)
+  const mine = JSON.stringify({ parent: process.ppid })
+  try { fs.writeFileSync(claim, mine, { flag: 'wx' }); return true } catch { /* claimed already */ }
+  try {
+    const parent = JSON.parse(fs.readFileSync(claim, 'utf8')).parent
+    // The same agent restarting its server.
+    if (parent === process.ppid) return true
+    let alive = false
+    try { process.kill(parent, 0); alive = true } catch (error) { alive = error.code === 'EPERM' }
+    if (!alive) { fs.writeFileSync(claim, mine); return true }
+  } catch { /* unreadable claim: serve, never leave the agent without tools */ }
+  return false
+}
+const STEPS_ASIDE = stepsAside()
+// Sent once per session in initialize: when these tools beat grep and file reads. Claude's tool search reads it to decide
+// when to look here (S5, docs/design/teardown-s7-s5.md). One line, at most 600 chars; the T8 test reads and measures it.
+const INSTRUCTIONS = 'Prefer these to grep and reading many files: oxespace_hybrid_explore to find where code lives or how a feature works; oxespace_code_impact and oxespace_code_callers before changing a symbol; oxespace_semantic_search for an idea with no exact name. More tools: oxespace_tools_enable or tool search.'
 const allowIndex = process.argv.indexOf('--allowed-tools')
 const allowedTools = allowIndex < 0 ? null : new Set(JSON.parse(process.argv[allowIndex + 1]))
+// Groups this session may turn on with oxespace_tools_enable: { group: [tool, ...] } (B7.2). Off groups are never here.
+const enableIndex = process.argv.indexOf('--enableable-groups')
+const enableable = enableIndex < 0 || !allowedTools ? null : JSON.parse(process.argv[enableIndex + 1])
+const enabledGroups = new Set()
 const PROTOCOL_VERSION = '2025-06-18'
 const SERVER_NAME = 'oxespace'
 const SERVER_VERSION = '0.1.0'
@@ -41,10 +71,13 @@ const READ_ONLY_TOOLS = new Set([
   'oxespace_diagnostics'
 ])
 
-if ((!PORT || !TOKEN) && !OPTIONAL_MEMORY) {
-  process.stderr.write('[oxespace-mcp] missing OXESPACE_MCP_PORT/TOKEN env — is OXESpace running?\n')
-  process.exit(2)
-}
+// Started without the app's port and token (a client reading .mcp.json outside an OXESpace terminal): still answer, so the
+// client never hangs on initialize. It lists nothing and every call says where to start the agent (homologation of #316).
+const UNCONNECTED = (!PORT || !TOKEN) && !OPTIONAL_MEMORY
+const UNCONNECTED_MESSAGE = 'OXESpace is not connected to this session: start the agent from an OXESpace terminal, with OXESpace running.'
+if (UNCONNECTED) process.stderr.write('[oxespace-mcp] missing OXESPACE_MCP_PORT/TOKEN env: is OXESpace running? Listing no tools.\n')
+/** The tool names OXESpace listed last, before this session's filter; null until the first tools/list. */
+let serverTools = null
 
 /** Write a JSON-RPC envelope to stdout, newline-delimited. */
 function send(envelope) {
@@ -53,6 +86,42 @@ function send(envelope) {
 
 function ok(id, result) {
   send({ jsonrpc: '2.0', id, result })
+}
+
+const textResult = (data, isError = false) => ({ content: [{ type: 'text', text: JSON.stringify(data) }], ...(isError ? { isError: true } : {}) })
+
+/**
+ * oxespace_tools_enable, answered here: the bridge owns this session's tool list. Turning a group on adds its tools and
+ * tells the client the list changed; policy and each tool's own level still apply when a tool is called.
+ */
+function enableGroup(args) {
+  const group = args && typeof args === 'object' && !Array.isArray(args) && Object.keys(args).length === 1 ? args.group : undefined
+  if (typeof group !== 'string') return textResult({ status: 'error', code: 'INVALID_ARGUMENTS', message: 'Pass { "group": "<name>" }.' }, true)
+  if (group === 'team' || group === 'worker') return textResult({ status: 'error', code: 'ROLE_GROUP', message: `The ${group} tools follow the conversation's role and cannot be turned on.` }, true)
+  const tools = enableable && Object.prototype.hasOwnProperty.call(enableable, group) ? enableable[group] : null
+  if (!tools) return textResult({ status: 'error', code: 'GROUP_UNAVAILABLE', message: `The ${group} group is already offered, turned off for this project, or unknown. oxespace_capabilities lists the groups.` }, true)
+  const already = enabledGroups.has(group)
+  enabledGroups.add(group)
+  for (const tool of tools) allowedTools.add(tool)
+  if (!already) send({ jsonrpc: '2.0', method: 'notifications/tools/list_changed' })
+  // Say what the app actually lists: some tools are off in this app now (memory tools while memory is off), and the
+  // group's list alone would promise them (homologation of #316). Unknown until the first tools/list: then all of them.
+  const added = serverTools ? tools.filter(tool => serverTools.has(tool)) : tools
+  const unavailable = tools.filter(tool => !added.includes(tool))
+  return textResult({ status: 'ok', group, tools: added, ...(unavailable.length ? { unavailable, unavailableReason: 'Not offered by OXESpace right now, for example memory tools while memory is off.' } : {}), note: 'If these tools do not appear in your tool list, this client did not reload it: ask the person to start a new conversation, or to set the group to always in Settings > Tools.' })
+}
+
+/** Adds this session's groups to oxespace_capabilities: which were turned on here and which still can be. */
+function withSessionGroups(result) {
+  if (!enableable || !result || !Array.isArray(result.content) || !result.content[0] || typeof result.content[0].text !== 'string') return result
+  try {
+    const body = JSON.parse(result.content[0].text)
+    if (!body || typeof body !== 'object' || !body.data || typeof body.data !== 'object') return result
+    body.data.sessionToolGroups = { enabled: [...enabledGroups], available: Object.keys(enableable).filter(group => !enabledGroups.has(group)), enableWith: 'oxespace_tools_enable' }
+    return { ...result, content: [{ ...result.content[0], text: JSON.stringify(body) }, ...result.content.slice(1)] }
+  } catch {
+    return result
+  }
 }
 
 function err(id, code, message, data) {
@@ -161,8 +230,10 @@ async function dispatch(msg) {
   if (msg.method === 'initialize') {
     ok(msg.id, {
       protocolVersion: PROTOCOL_VERSION,
-      capabilities: { tools: {} },
-      serverInfo: { name: SERVER_NAME, version: SERVER_VERSION }
+      capabilities: { tools: enableable ? { listChanged: true } : {} },
+      serverInfo: { name: SERVER_NAME, version: SERVER_VERSION },
+      // Only where those tools are listed: never from a bridge that lists nothing, or one whose plan leaves them out.
+      ...(!STEPS_ASIDE && !UNCONNECTED && (!allowedTools || allowedTools.has('oxespace_hybrid_explore')) ? { instructions: INSTRUCTIONS } : {})
     })
     return
   }
@@ -173,9 +244,11 @@ async function dispatch(msg) {
   }
 
   if (msg.method === 'tools/list') {
+    if (STEPS_ASIDE || UNCONNECTED) return ok(msg.id, { tools: [] })
     if (OPTIONAL_MEMORY && (!PORT || !TOKEN || !MEMORY_RUN)) return ok(msg.id, { tools: [] })
     try {
       const result = await rpc('tools/list', undefined, true)
+      if (result) serverTools = new Set((result.tools || []).map(tool => tool.name))
       if (allowedTools && result) result.tools = (result.tools || []).filter(tool => allowedTools.has(tool.name))
       ok(msg.id, result || { tools: [] })
     } catch (e) {
@@ -185,11 +258,14 @@ async function dispatch(msg) {
   }
 
   if (msg.method === 'tools/call') {
+    if (UNCONNECTED) return err(msg.id, -32002, UNCONNECTED_MESSAGE)
+    if (STEPS_ASIDE) return err(msg.id, -32602, 'OXESpace started this agent with its own OXESpace server (oxespace-delegation); use its tools')
     if (allowedTools && !allowedTools.has(msg.params && msg.params.name)) return err(msg.id, -32602, 'This tool is not available in Thread')
     if (OPTIONAL_MEMORY && (!PORT || !TOKEN || !MEMORY_RUN)) return err(msg.id, -32602, 'Memory is not bound to an OXESpace execution')
+    if (enableable && msg.params.name === 'oxespace_tools_enable') return ok(msg.id, enableGroup(msg.params.arguments))
     try {
       const result = await rpc('tools/call', msg.params, READ_ONLY_TOOLS.has(msg.params && msg.params.name))
-      ok(msg.id, result || { content: [] })
+      ok(msg.id, msg.params && msg.params.name === 'oxespace_capabilities' ?withSessionGroups(result || { content: [] }) : result || { content: [] })
     } catch (e) {
       err(msg.id, e.code || -32603, e.message || 'tools/call failed', e.data)
     }

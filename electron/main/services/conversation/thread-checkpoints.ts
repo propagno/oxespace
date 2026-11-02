@@ -1,10 +1,10 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { execFile } from 'node:child_process'
 import { lstat, mkdir, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 import type { AppDatabase } from '../../db'
 import type { ThreadFileHunk } from '../../../../shared/types/thread'
 import { diffLines, joinLines, revertHunk, splitLines, type LineHunk } from '../../../../shared/lineDiff'
+import { execGit } from '../../utils/safe-git'
 
 const FILE_LIMIT = 2 * 1024 * 1024
 const CHECKPOINT_LIMIT = 32 * 1024 * 1024
@@ -386,11 +386,11 @@ async function gitImage(root: string, commit: string, path: string, post: FileIm
 }
 
 function gitText(root: string, args: string[]): Promise<string> { return gitBuffer(root, args).then(value => value.toString('utf8').trim()) }
-function gitBuffer(root: string, args: string[]): Promise<Buffer> {
-  return new Promise((resolvePromise, reject) => {
-    execFile('git', args, { cwd: root, windowsHide: true, encoding: 'buffer', maxBuffer: CHECKPOINT_LIMIT + 1024 * 1024, timeout: 20_000 }, (error, stdout, stderr) => {
-      if (error) { reject(Error(Buffer.isBuffer(stderr) ? stderr.toString('utf8').trim() || error.message : String(stderr || error.message))); return }
-      resolvePromise(Buffer.isBuffer(stdout) ? stdout : Buffer.from(stdout))
-    })
-  })
+async function gitBuffer(root: string, args: string[]): Promise<Buffer> {
+  try {
+    return (await execGit(root, args, { encoding: 'buffer', maxBuffer: CHECKPOINT_LIMIT + 1024 * 1024, timeout: 20_000 })).stdout
+  } catch (error) {
+    const failure = error as Error & { stderr?: string }
+    throw Error(failure.stderr?.trim() || failure.message, { cause: error })
+  }
 }

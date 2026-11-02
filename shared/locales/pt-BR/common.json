@@ -105,8 +105,8 @@
       "activity": {
         "open": "Abrir a central de atividade"
       },
-      "voice": {
-        "toggle": "Ligar ou desligar a entrada por voz"
+      "team": {
+        "open": "Abrir a equipe do projeto"
       },
       "code": {
         "changes": "Alterações",
@@ -341,14 +341,12 @@
   },
   "team": {
     "button": {
-      "label": "Equipe",
-      "title": "Papéis e mensagens do projeto, compartilhados pelo OxeCode e pelo OxeChat",
       "needsWorkspace": "Abra um workspace para abrir a equipe dele",
       "needsProject": "Selecione um projeto do OxeChat para abrir a equipe dele",
       "otherViews": "A equipe está disponível no OxeCode e no OxeChat"
     },
     "roles": {
-      "coordinator": "Coordenador / integrador",
+      "coordinator": "Coordenadora",
       "project-manager": "Gerente de projeto",
       "product-manager": "Gerente de produto",
       "developer": "Desenvolvedor",
@@ -509,25 +507,6 @@
     },
     "devBuild": "As atualizações só funcionam em versões instaladas"
   },
-  "voiceHud": {
-    "requesting": "Acessando o microfone…",
-    "downloading": "Baixando o modelo de voz… {{percent}}%",
-    "transcribing": "Transcrevendo…",
-    "listening": "Ouvindo… solte para inserir",
-    "close": "Fechar a entrada de voz",
-    "closeTitle": "Fechar a entrada de voz (Esc)",
-    "errors": {
-      "denied": "Permissão do microfone negada.",
-      "noMicrophone": "Nenhum microfone foi detectado.",
-      "canceled": "O pedido do microfone foi cancelado. Tente de novo.",
-      "access": "Não foi possível acessar o microfone.",
-      "transcription": "A transcrição falhou.",
-      "engine": "Mecanismo de voz indisponível nesta versão.",
-      "model": "Não foi possível preparar o modelo de voz.",
-      "download": "Não foi possível baixar o modelo de voz.",
-      "terminal": "Inicie o terminal antes de usar o OXEVoice."
-    }
-  },
   "brand": {
     "tagline": "Agentes e terminais para os seus projetos"
   },
@@ -554,7 +533,8 @@
       "help": {
         "shortcuts": "Mostrar os atalhos de teclado",
         "report-problem": "Relatar um problema…",
-        "about": "Sobre o OXESpace"
+        "about": "Sobre o OXESpace",
+        "approvals": "Mostrar histórico de aprovações"
       },
       "settings": {
         "general": "Abrir as configurações gerais",
@@ -562,7 +542,7 @@
         "appearance": "Abrir as configurações de aparência",
         "terminal": "Abrir as configurações do terminal",
         "keyboard": "Abrir as configurações de teclado",
-        "voice": "Abrir as configurações de voz",
+        "devices": "Abrir as configurações de dispositivos",
         "notifications": "Abrir as configurações de notificações",
         "updates": "Procurar atualizações",
         "policy": "Abrir as configurações de política",
@@ -610,7 +590,7 @@
       "new-workspace": "Criar um workspace…",
       "workspace-settings": "Abrir as configurações do workspace",
       "toggle-sidebar": "Mostrar ou ocultar a barra lateral",
-      "tool-team": "Abrir a equipe",
+      "tool-team": "Abrir a equipe do projeto…",
       "tool-integration": "Abrir a coordenação entre repositórios",
       "tool-github": "Mostrar ou ocultar o painel de commit e pull request",
       "tool-worktrees": "Mostrar ou ocultar o painel de worktrees",
@@ -641,7 +621,6 @@
       "split-vertical": "Dividir o painel à direita",
       "split-horizontal": "Dividir o painel abaixo",
       "maximize-pane": "Maximizar ou restaurar o painel",
-      "toggle-oxevoice": "Ligar ou desligar a entrada por voz",
       "restart-terminal": "Reiniciar",
       "stop-terminal": "Parar"
     },
@@ -692,7 +671,7 @@
       },
       "new-workspace": "Novo workspace…",
       "workspace-settings": "Configurações do workspace",
-      "tool-team": "Equipe",
+      "tool-team": "Equipe | Equipe do projeto",
       "tool-integration": "Coordenação entre repositórios",
       "tool-github": "Commit e pull request",
       "tool-worktrees": "Worktrees",
@@ -738,8 +717,7 @@
       "designSystemDetail": "Tokens e componentes no claro e no escuro",
       "appearanceDetail": "Vale para o aplicativo inteiro",
       "densityDetail": "Densidade do workspace",
-      "layoutDetail": "Predefinição de layout do workspace",
-      "voiceDetail": "Fale no terminal ativo, no editor ou no rascunho do OxeChat"
+      "layoutDetail": "Predefinição de layout do workspace"
     },
     "thread": {
       "nothingToUndo": "Nada para desfazer",
@@ -862,5 +840,108 @@
       "open": "Abrir",
       "cancel": "Cancelar"
     }
+  },
+  "voiceRemoved": {
+    "title": "O OXEVoice foi removido",
+    "body": "O OXESpace não grava mais voz. O ditado do seu sistema continua digitando em qualquer campo.",
+    "action": "Como ditar"
+  },
+  "approvals": {
+    "facts": "Risco: {{risk}}. Pedido por {{requester}}.",
+    "factsEnvironment": "Risco: {{risk}}. Ambiente: {{environment}}. Pedido por {{requester}}.",
+    "factsProduction": "Risco: {{risk}}. Ambiente de produção: {{environment}}. Pedido por {{requester}}.",
+    "queue": "Pedido {{position}} de {{total}}",
+    "closeDeny": "Negar e fechar",
+    "risk": {
+      "label": "Risco: {{level}}",
+      "low": "Baixo",
+      "medium": "Médio",
+      "high": "Alto",
+      "critical": "Crítico",
+      "hint": {
+        "low": "Só lê",
+        "medium": "Muda algo",
+        "high": "Apaga, eleva acesso ou publica",
+        "critical": "Não tem volta ou afeta produção"
+      }
+    },
+    "environment": {
+      "label": "Ambiente de {{kind}}: {{name}}",
+      "kind": {
+        "local": "trabalho local",
+        "dev": "desenvolvimento",
+        "prod": "produção"
+      },
+      "productionLabel": "Produção · {{name}}",
+      "productionHint": "Mudanças aqui afetam usuários e dados reais."
+    },
+    "requester": {
+      "label": "Pedido por",
+      "agent": "Agente",
+      "mcp-server": "Servidor MCP",
+      "app": "OXESpace",
+      "verified": "identificado pelo OXESpace",
+      "unknown": "Agente desconhecido",
+      "unidentified": "não identificado",
+      "where": "Onde"
+    },
+    "appNotes": "Avisos do OXESpace",
+    "hiddenCharacters": "O texto do agente contém caracteres invisíveis ou que mudam a direção do texto. Cada um aparece como um marcador, por exemplo ⟨U+202E⟩, em vez de ter efeito. Leia o texto considerando isso antes de aprovar.",
+    "unavailableWindow": "A janela de aprovação parou de funcionar. O OXESpace pergunta numa caixa de diálogo do sistema.",
+    "boundaryLabel": "aprovações",
+    "keywords": "aprovações histórico permissões permitido negado decisões segurança approvals history",
+    "agent": {
+      "heading": "Conteúdo do agente",
+      "hint": "Escrito pelo agente e mostrado como foi enviado. O OXESpace não verificou: leia como uma afirmação, não como um fato.",
+      "empty": "O agente não enviou texto.",
+      "length": "{{length}} caracteres"
+    },
+    "textLabel": {
+      "policyChange": "Conteúdo do arquivo"
+    },
+    "textHint": {
+      "policyChange": "Mostrado exatamente como está no disco. O OXESpace não sabe quem fez a mudança: leia antes de permitir."
+    },
+    "expires": "Se você não responder até {{time}}, o pedido será negado.",
+    "hold": {
+      "waiting": "Risco crítico: Permitir fica disponível em {{seconds}} s. Leia o pedido antes.",
+      "ready": "Permitir está disponível. Com risco crítico, Enter não faz nada; use Espaço ou clique.",
+      "readyEnter": "Permitir está disponível.",
+      "paused": "Risco crítico: Permitir espera até esta janela estar em primeiro plano. A contagem recomeça quando você voltar."
+    },
+    "refused": "Sua resposta não foi aplicada",
+    "settled": {
+      "timeout": "O pedido expirou sem resposta e foi negado.",
+      "cancelled": "O pedido foi cancelado antes de uma resposta.",
+      "native": "O pedido foi respondido na caixa de diálogo do sistema."
+    },
+    "outcome": {
+      "deny": "Negado",
+      "allow": "Permitido uma vez",
+      "allow-session": "Permitido nesta sessão"
+    },
+    "by": {
+      "timeout": "Expirou, negado",
+      "cancelled": "Cancelado",
+      "native": "Respondido na caixa de diálogo do sistema",
+      "refused": "Negado pelo OXESpace"
+    },
+    "history": {
+      "open": "Histórico",
+      "command": "Histórico de aprovações",
+      "title": "Decisões de aprovação",
+      "description": "Pedidos respondidos nesta sessão, do mais recente ao mais antigo.",
+      "empty": "Nenhuma decisão nesta sessão ainda.",
+      "back": "Voltar ao pedido",
+      "close": "Fechar",
+      "columns": {
+        "time": "Hora",
+        "what": "O quê",
+        "who": "Pedido por",
+        "decision": "Decisão"
+      }
+    },
+    "unknownCode": "O OXESpace enviou um aviso que esta versão não consegue mostrar (código {{code}}).",
+    "sqlUnknown": "SQL arriscado: o OXESpace apontou um risco neste comando que esta versão não consegue descrever (código {{code}})."
   }
 }

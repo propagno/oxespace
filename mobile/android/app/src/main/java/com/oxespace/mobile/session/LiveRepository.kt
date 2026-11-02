@@ -38,6 +38,12 @@ class Watched<Store : StreamListener>(val store: Store) : StreamListener {
         tick.value++
     }
 
+    /** Changes the store outside the stream (an older page from history) and tells the screen. */
+    fun update(change: (Store) -> Unit) {
+        change(store)
+        tick.value++
+    }
+
     override fun onRefused(code: RemoteErrorCode) {
         refusal.value = code
     }

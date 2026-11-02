@@ -1,4 +1,4 @@
-import { Activity, Columns2, FilePlus2, Grid2x2, LayoutDashboard, ListTodo, Maximize, Mic, Palette, RotateCw, Sliders, Split, StopCircle } from 'lucide-react'
+import { Activity, Columns2, FilePlus2, Grid2x2, LayoutDashboard, ListTodo, Maximize, Palette, RotateCw, Sliders, Split, StopCircle } from 'lucide-react'
 import type { Workspace, WorkspacePane } from '../../shared/types/workspace'
 import { TOOL_CATALOG, type ToolId } from '../components/Workspace/toolCatalog'
 import { LAYOUT_PRESETS, WORKSPACE_DENSITIES } from '../components/Workspace/workspaceOptions'
@@ -17,6 +17,8 @@ export interface CodeCommandContext {
   activePane: WorkspacePane | null | undefined
   /** Team needs a project: the workspace in Code, the project in Thread. */
   hasTeamTarget: boolean
+  /** Why Team can't open here; the palette shows it as the command's description. */
+  teamUnavailable?: string
   toolHandlers: Partial<Record<ToolId, () => void>>
   /** Which Code panels are open, so a command run from Thread or OxeQuery opens a panel instead of closing it. */
   openTools?: Partial<Record<ToolId, boolean>>
@@ -25,7 +27,6 @@ export interface CodeCommandContext {
   openNewWorkspace: () => void
   splitActivePane: (direction: 'vertical' | 'horizontal') => void
   toggleActivePaneMaximize: () => void
-  toggleActivePaneVoice: () => void
   openDesignSystem: () => void
 }
 
@@ -45,8 +46,6 @@ export function buildCodeCommands(ctx: CodeCommandContext): ContributedCommand[]
   const ui = useUIStore.getState()
   const terminalPane = activePane?.type === 'terminal' ? activePane : null
   const terminalRunning = terminalPane !== null && useTerminalStore.getState().getStatus(terminalPane.id).status === 'running'
-  const voiceAvailable = ctx.applicationView === 'thread' || Boolean(activeWorkspace?.editorVisible)
-    || terminalRunning
   // Workspace commands act on Code: from Thread or OxeQuery they show Code first, so their effect is visible.
   const away = ctx.applicationView !== 'code'
   const inCode = (run: () => void) => (): void => { if (away) ctx.showCode?.(); run() }
@@ -68,7 +67,7 @@ export function buildCodeCommands(ctx: CodeCommandContext): ContributedCommand[]
     ...TOOL_CATALOG.map(tool => ({
       id: `tool-${tool.id}`,
       ...text(TOOL_CATEGORY[tool.id], `tool-${tool.id}`, { keywords: [tool.label, ...(tool.keywords ?? [])] }),
-      detail: tool.detail,
+      detail: tool.id === 'team' && !ctx.hasTeamTarget && ctx.teamUnavailable ? ctx.teamUnavailable : tool.detail,
       icon: tool.icon,
       shortcut: tool.keybinding,
       disabled: tool.id === 'team' ? !ctx.hasTeamTarget : tool.id === 'slash' ? !activePane : !['mcp', 'skills', 'semantic'].includes(tool.id) && !activeWorkspace,
@@ -104,7 +103,6 @@ export function buildCodeCommands(ctx: CodeCommandContext): ContributedCommand[]
     { id: 'split-vertical', ...text('Terminal', 'split-vertical'), icon: Split, disabled: !activePane, shortcut: 'pane.splitRight', run: inCode(() => ctx.splitActivePane('vertical')) },
     { id: 'split-horizontal', ...text('Terminal', 'split-horizontal'), icon: Split, disabled: !activePane, shortcut: 'pane.splitDown', run: inCode(() => ctx.splitActivePane('horizontal')) },
     { id: 'maximize-pane', ...text('Terminal', 'maximize-pane'), icon: Maximize, disabled: !activePane, shortcut: 'pane.maximize', run: inCode(ctx.toggleActivePaneMaximize) },
-    { id: 'toggle-oxevoice', ...text('Terminal', 'toggle-oxevoice', { keywords: ['oxevoice', 'voice', 'speech', 'microphone', 'dictation'] }), detail: tCommand('code.voiceDetail'), icon: Mic, disabled: !voiceAvailable, shortcut: 'voice.toggle', run: ctx.toggleActivePaneVoice },
     { id: 'restart-terminal', ...text('Terminal', 'restart-terminal'), icon: RotateCw, disabled: !terminalPane, shortcut: 'terminal.restart', run: inCode(() => { if (terminalPane) void window.oxe.terminal.restart({ paneId: terminalPane.id }) }) },
     { id: 'stop-terminal', ...text('Terminal', 'stop-terminal'), icon: StopCircle, disabled: !terminalRunning, run: inCode(() => { if (terminalPane) void window.oxe.terminal.stop({ paneId: terminalPane.id }) }) }
   ]

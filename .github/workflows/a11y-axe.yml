@@ -39,7 +39,8 @@ on:
 
 concurrency:
   # A newer push to the same pull request replaces the scan of the older one.
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # A push to a draft scans nothing, so it gets a group of its own and cannot cancel the ready-for-review scan.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}${{ github.event.pull_request.draft && '-draft' || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -65,7 +66,7 @@ jobs:
       OXE_A11Y_REPORT: ${{ github.workspace }}/a11y-report.jsonl
       OXE_A11Y_STRICT: "1"
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -79,8 +80,10 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
+          # Ubuntu 24.04 renamed libasound2 (64-bit time_t); 22.04 has only the old name.
+          alsa=libasound2t64; apt-cache show "$alsa" >/dev/null 2>&1 || alsa=libasound2
           sudo apt-get install -y --no-install-recommends \
-            xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libasound2 \
+            xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" \
             libxshmfence1 libnotify4
 
       - name: Install dependencies without lifecycle scripts

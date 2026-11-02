@@ -26,6 +26,7 @@ vi.mock('electron', () => ({
 }))
 
 const { registerWorkspaceIpc } = await import('../../electron/main/ipc/workspace.ipc')
+const { setAcceptedConfig } = await import('../../electron/main/services/policy')
 
 function setup(): {
   workspaceService: { [K in keyof WorkspaceService]?: ReturnType<typeof vi.fn> }
@@ -50,7 +51,10 @@ function setup(): {
     setActive: vi.fn(() => {
       calls.push('workspace.setActive')
       return { id: 'ws-1', rootPath: 'C:/repo' }
-    })
+    }),
+    // Reads: not part of the stop-then-delete order the assertions check.
+    get: vi.fn((id: string) => ({ id, rootPath: 'C:/repo' })),
+    list: vi.fn((): Array<{ id: string; rootPath: string }> => [])
   }
   const semantic = {
     watchWorkspace: record('semantic.watchWorkspace', undefined),
@@ -99,6 +103,21 @@ describe('workspace IPC adapter', () => {
     ])
     expect(ctx.lifecycle.stopWorkspace).toHaveBeenCalledWith('ws-1')
     expect(ctx.semantic.unwatchWorkspace).toHaveBeenCalledWith('ws-1')
+  })
+
+  test('B7.4: deleting the last workspace of a project ends its pending policy change; one still open keeps it', async () => {
+    const forgetRoot = vi.fn()
+    setAcceptedConfig({ forgetRoot } as never)
+    try {
+      await ipcMain.invoke('workspace:delete', 'ws-1')
+      expect(forgetRoot).toHaveBeenCalledWith('C:/repo')
+      forgetRoot.mockClear()
+      ctx.workspaceService.list!.mockReturnValue([{ id: 'ws-2', rootPath: 'C:/repo' }])
+      await ipcMain.invoke('workspace:delete', 'ws-1')
+      expect(forgetRoot).not.toHaveBeenCalled()
+    } finally {
+      setAcceptedConfig(null)
+    }
   })
 
   test('closing a pane stops its PTY first', async () => {

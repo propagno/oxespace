@@ -1,6 +1,4 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
 import { resolve } from 'node:path'
 import type { ConversationThread } from '../../../../shared/types/thread'
 import type { AppDatabase } from '../../db'
@@ -18,8 +16,11 @@ import { DelegationGitProvisioner } from './delegation-git-provisioner'
 import { KnowledgeTransferService, type DelegationEnrichment } from './knowledge-transfer.service'
 import { captureDelegationSessions } from './delegation-session-context'
 import type { ThreadDelegationHost } from './thread-delegation-host'
+import { execGit } from '../../utils/safe-git'
+import { codedMessage, execPersonGit } from '../../utils/safe-git-person'
+import { mainMessage, type MainMessage } from '../../../../shared/messages'
+import { englishText } from '../../agent-text'
 
-const exec = promisify(execFile)
 const terminalStates = new Set<DelegationState>(['cancelled', 'approved'])
 export interface DelegationDependencies {
   workspace: WorkspaceService; git: GitHubWorktreeApi; executions: ExecutionRegistry
@@ -50,11 +51,13 @@ export class DelegationApplicationService {
   private recoveries = new Map<string, Promise<void>>()
   private locks = new Map<string, Promise<void>>()
   private closing = false
+  /** B6.2: refused takeovers already recorded, one event per task and intruding session (a loop cannot flood the timeline). */
+  private readonly takeoverRefusals = new Set<string>()
   private previews = new Map<string, { workspaceId: string; objective: string; intent: string; baseSha: string; branch: string; path: string; expires: number }>()
   constructor(private db: AppDatabase, private deps: DelegationDependencies) {
     this.repository = new DelegationRepository(db)
     this.gitPlanner = new DelegationGitPlanner(deps.git, (cwd, args) => this.git(cwd, args))
-    this.gitProvisioner = new DelegationGitProvisioner(deps.git, this.repository, (cwd, args) => this.git(cwd, args))
+    this.gitProvisioner = new DelegationGitProvisioner(deps.git, this.repository, (cwd, args) => this.git(cwd, args), (task, remote) => this.fetchForPerson(task, remote))
     this.coordinator = new TaskCoordinator(db, deps.workspace, deps.executions)
     this.repository.settleRunningUnknown('OXESpace restarted before the operation result was confirmed.')
     // A fresh application has no surviving managed PTYs. Never replay work on boot.
@@ -130,7 +133,8 @@ export class DelegationApplicationService {
         'Start an independent persistent OxeChat conversation', 'Persist handoff, operation journal and native session binding'
       ] }
   }
-  async create(origin: AgentExecution, input: DelegationInput): Promise<DelegationTask> {
+  /** `fromPerson`: the delegation dialog (createFromSurface), whose "Fetch remote" may reach the network. */
+  async create(origin: AgentExecution, input: DelegationInput, fromPerson = false): Promise<DelegationTask> {
     origin = this.deps.executions.authenticate(origin.id, origin.token, origin.workspaceId)
     for (const field of ['key','agentProfileId','objective','handoff','acceptance'] as const) {
       if (typeof input[field] !== 'string' || !input[field].trim() || input[field].length > (field === 'handoff' ? 16000 : 2000)) throw new Error(`Invalid ${field}`)
@@ -225,6 +229,7 @@ export class DelegationApplicationService {
       this.save(task); this.event(task, 'failed', task.error); throw error
     }
     this.event(task, 'created', 'Delegation queued')
+    if (fromPerson && task.checkout?.fetchBase) this.personFetches.add(task.id)
     this.schedule(task.id)
     return task
   }
@@ -243,7 +248,7 @@ export class DelegationApplicationService {
       }
     } else if (!workspace.panes.some(pane => pane.id === owner.id)) throw new Error('Origin terminal belongs to another workspace')
     if (!execution || execution.workspaceId !== workspaceId) throw new Error('Start the origin agent before delegating')
-    return this.create(execution, input)
+    return this.create(execution, input, true)
   }
   private schedule(id: string): void {
     if (this.pending.has(id) || this.closing) return
@@ -273,8 +278,19 @@ export class DelegationApplicationService {
     const execution = this.deps.executions.forPane(task.paneId)
     if (execution && execution.id === task.destinationExecutionId) this.deps.stop(task.paneId)
   }
+  /**
+   * Tasks the person created with "Fetch remote", this launch: an agent's delegate_task never fetches (its fetchBase
+   * fails with FETCH_NEEDS_PERSON), and after a restart the person asks again.
+   */
+  private readonly personFetches = new Set<string>()
+  private async fetchForPerson(task: DelegationTask, remote: string): Promise<void> {
+    if (!this.personFetches.has(task.id)) {
+      throw new Error(codedMessage("FETCH_NEEDS_PERSON: The agent needs the latest version of the remote branch, but agents can't reach the network through Git. Fetch it yourself in the Git panel or the terminal, then let the agent continue.", mainMessage('git.fetch.needsPerson', {})))
+    }
+    await execPersonGit(task.cwd, ['fetch', '--', remote], { reason: 'delegation-dialog:fetch-base' }, { timeout: 120_000 })
+  }
   private async git(cwd: string, args: string[]): Promise<string> {
-    return (await exec('git', args, { cwd, windowsHide: true, timeout: 15000, maxBuffer: 128 * 1024 })).stdout.trim()
+    return (await execGit(cwd, args, { timeout: 15000, maxBuffer: 128 * 1024 })).stdout.trim()
   }
   private async provision(id: string): Promise<void> {
     try {
@@ -379,11 +395,35 @@ export class DelegationApplicationService {
       this.canonicalPath(execution.canonicalRoot) !== this.canonicalPath(task.originCwd) || this.isDelegatedExecution(task, execution)) {
       throw new Error('Delegation is outside this execution scope')
     }
+    // B6.2: reconnecting by itself is only for the requester's own owner (the same pane, or the same conversation),
+    // whose session ended (its CLI quit, an app restart). While the requester runs, nobody takes its control; another
+    // owner of the same checkout never does by itself, even once it ended: that is the person's `adopt` (SECURITY #196).
+    if (execution.paneId !== task.originPaneId || this.deps.executions.isLive(task.originExecutionId)) {
+      this.refuseTakeover(task, execution)
+    }
     this.coordinator.checkTask(task)
-    await this.coordinator.bind(task, 'requester', execution)
+    // Checked and claimed in one synchronous step, on the task as read now: two sessions racing cannot both pass, and
+    // nothing written while an await ran is overwritten. The binding comes after; if it fails, the claim is undone.
+    const previous = task.originExecutionId
     task.originExecutionId = execution.id
     this.save(task)
+    try {
+      await this.coordinator.bind(task, 'requester', execution)
+    } catch (error) {
+      const current = this.get(task.id)
+      if (current.originExecutionId === execution.id) { current.originExecutionId = previous; this.save(current) }
+      throw error
+    }
     this.event(task, 'origin-reconnected', 'Requester control moved to a live session in the original checkout')
+  }
+  private refuseTakeover(task: DelegationTask, execution: AgentExecution): never {
+    const key = `${task.id}\0${execution.id}`
+    if (!this.takeoverRefusals.has(key)) {
+      if (this.takeoverRefusals.size >= 1024) this.takeoverRefusals.clear()
+      this.takeoverRefusals.add(key)
+      this.event(task, 'origin-takeover-refused', 'Another session tried to take over requester control; refused.')
+    }
+    throw new DelegationRequesterLiveError()
   }
   async authorize(execution: AgentExecution, id: string, options?: { reconnectRequester?: boolean }): Promise<DelegationTask> {
     try { execution = this.deps.executions.authenticate(execution.id, execution.token, execution.workspaceId) }
@@ -621,4 +661,17 @@ export class DelegationApplicationService {
     }
   }
   async stop(): Promise<void> { this.closing = true; await Promise.allSettled([...this.pending.values(), ...this.recoveries.values()]) }
+}
+
+/**
+ * Requester control stays with its session (B6.2): the agent reads the catalog's English text (`englishText`), and
+ * `reason` carries the C3 code for any window that shows it.
+ */
+export class DelegationRequesterLiveError extends Error {
+  readonly code = 'delegation.requester.live'
+  readonly reason: MainMessage = mainMessage('delegation.requester.live', {})
+  constructor() {
+    super(englishText(mainMessage('delegation.requester.live', {})))
+    this.name = 'DelegationRequesterLiveError'
+  }
 }
