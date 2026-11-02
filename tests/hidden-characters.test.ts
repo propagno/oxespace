@@ -96,6 +96,15 @@ describe('T46 · a ZWJ is part of an emoji only inside a recognized (RGI) sequen
     expect(findHiddenCharacters(text)).toEqual([{ index, codePoint: 0x200d }])
   })
 
+  it('stays linear on emoji-heavy text, the size main checks before bounding agent text (SECURITY on #436)', () => {
+    const family = '\u{1F468}‍\u{1F469}‍\u{1F467}'
+    const text = family.repeat(Math.ceil(256_000 / family.length))
+    const started = performance.now()
+    expect(hasHiddenCharacters(text)).toBe(false)
+    // Quadratic took ~3 s here; linear is well under 0.5 s even on a loaded runner.
+    expect(performance.now() - started).toBeLessThan(1_500)
+  })
+
   it('a recognized emoji does not hide a joiner elsewhere in the same text', () => {
     expect(findHiddenCharacters('\u{1F9D1}‍\u{1F4BB} DROP‍TABLE')).toEqual([{ index: 10, codePoint: 0x200d }])
   })

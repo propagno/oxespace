@@ -77,11 +77,13 @@ export interface HiddenCharacter {
 
 /** Every hidden character in the text, in order; the window draws a visible marker for each. */
 export function findHiddenCharacters(text: string): HiddenCharacter[] {
-  const spans = emojiSequenceSpans(text)
-  const inEmoji = (index: number): boolean => spans.some(([start, end]) => index >= start && index < end)
+  // The joiners inside recognized emoji, by index: one pass over each span, so the whole check stays linear in the
+  // text (SECURITY on #436: a lookup per joiner over every span was quadratic on emoji-heavy agent text).
+  const inEmoji = new Set<number>()
+  for (const [start, end] of emojiSequenceSpans(text)) for (let index = text.indexOf('‍', start); index !== -1 && index < end; index = text.indexOf('‍', index + 1)) inEmoji.add(index)
   return [...text.matchAll(new RegExp(PATTERN, 'gu'))]
     .map(match => ({ index: match.index ?? 0, codePoint: match[0].codePointAt(0)! }))
-    .filter(found => !(found.codePoint === 0x200d && inEmoji(found.index)))
+    .filter(found => !(found.codePoint === 0x200d && inEmoji.has(found.index)))
 }
 
 /** `U+202E`-style label for a code point. */
