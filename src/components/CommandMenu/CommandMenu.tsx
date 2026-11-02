@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import { FileText, FolderGit2, Bot, Brain } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
 import type { SearchResult } from '../../../shared/types/search'
 import type { SemanticQueryHit } from '../../../shared/types/ipc'
@@ -11,6 +12,7 @@ import { useCommandHistoryStore } from '../../store/command-history.store'
 import { fuzzyScore, rankBy, rankText } from '../../utils/fuzzy'
 import { KEYBINDINGS, chordsFor, type KeybindingId } from '../../keyboard/keybindings'
 import { KeyChord } from '../Keyboard/KeyChord'
+import { commandCategoryLabel, tCommand } from '../../commands/commandText'
 
 interface CommandMenuProps {
   open: boolean
@@ -36,7 +38,7 @@ function paneLabel(p: WorkspacePane, siblings: WorkspacePane[] = []): string {
   if (p.type !== 'terminal') return p.type
   // Unnamed terminals are told apart by position, not listed as identical rows.
   const index = siblings.filter(item => item.type === 'terminal').findIndex(item => item.id === p.id)
-  return index >= 0 ? `Terminal ${index + 1}` : 'Terminal'
+  return index >= 0 ? tCommand('menu.terminalAt', { index: index + 1 }) : tCommand('menu.terminal')
 }
 
 /** Semantic hits carry absolute paths; the editor opens workspace-relative ones. */
@@ -75,6 +77,7 @@ export function CommandMenu({
   onSelectWorkspace,
   onSelectPane
 }: CommandMenuProps): ReactElement {
+  const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -198,19 +201,19 @@ export function CommandMenu({
       open={open}
       onOpenChange={onOpenChange}
       shouldFilter={false}
-      title="Search"
-      description="Search files and run commands"
+      title={t('commands.menu.title')}
+      description={t('commands.menu.description')}
     >
-      <CommandInput value={query} onValueChange={setQuery} placeholder="Search files and commands…" />
+      <CommandInput value={query} onValueChange={setQuery} placeholder={t('commands.menu.placeholder')} />
       <CommandList>
         {recentActions.length > 0 ? (
-          <CommandGroup heading="Recent">
+          <CommandGroup heading={t('commands.menu.recent')}>
             {recentActions.map((a) => <ActionItem key={`recent-${a.id}`} action={a} value={`recent-${a.id}`} onSelect={runCommand} />)}
           </CommandGroup>
         ) : null}
 
         {matchedWorkspaces.length > 0 ? (
-          <CommandGroup heading="Workspaces">
+          <CommandGroup heading={t('commands.menu.workspaces')}>
             {matchedWorkspaces.map((w) => (
               <CommandItem
                 key={`ws-${w.id}`}
@@ -226,7 +229,7 @@ export function CommandMenu({
         ) : null}
 
         {matchedPanes.length > 0 ? (
-          <CommandGroup heading="Agents">
+          <CommandGroup heading={t('commands.menu.agents')}>
             {matchedPanes.map((p) => (
               <CommandItem
                 key={`pane-${p.id}`}
@@ -244,13 +247,13 @@ export function CommandMenu({
         ) : null}
 
         {[...actionGroups].map(([category, items]) => (
-          <CommandGroup key={category} heading={category}>
+          <CommandGroup key={category} heading={commandCategoryLabel(category)}>
             {items.map((a) => <ActionItem key={a.id} action={a} value={`cmd-${a.id}`} onSelect={runCommand} />)}
           </CommandGroup>
         ))}
 
         {q && nameMatches.length > 0 ? (
-          <CommandGroup heading="Files">
+          <CommandGroup heading={t('commands.menu.files')}>
             {nameMatches.map((p) => {
               const { name, dir } = splitPath(p)
               return (
@@ -265,7 +268,7 @@ export function CommandMenu({
         ) : null}
 
         {q && semanticHits.length > 0 ? (
-          <CommandGroup heading="Semantic · e5-base">
+          <CommandGroup heading={t('commands.menu.semantic')}>
             {semanticHits.map((h) => {
               const rel = workspace ? toRelative(h.filePath, workspace.rootPath) : h.filePath
               const { name, dir } = splitPath(rel)
@@ -281,7 +284,7 @@ export function CommandMenu({
         ) : null}
 
         {q ? (
-          <CommandGroup heading={loading ? 'Searching contents…' : `In file contents · ${results?.totalMatches ?? 0}`}>
+          <CommandGroup heading={loading ? t('commands.menu.searching') : t('commands.menu.contents', { count: results?.totalMatches ?? 0 })}>
             {files.flatMap((f) =>
               f.matches.slice(0, MATCHES_PER_FILE).map((m, i) => (
                 <CommandItem
@@ -306,7 +309,7 @@ export function CommandMenu({
         nameMatches.length === 0 &&
         semanticHits.length === 0 &&
         files.length === 0 ? (
-          <CommandEmpty>No results</CommandEmpty>
+          <CommandEmpty>{t('commands.menu.empty')}</CommandEmpty>
         ) : null}
       </CommandList>
     </CommandDialog>

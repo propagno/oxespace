@@ -7,9 +7,10 @@ import org.junit.Test
 
 class PresenceGateTest {
     private val asked = mutableListOf<PresenceReason>()
+    private val prompted = mutableListOf<Boolean>()
     private val actions = mutableListOf<String>()
 
-    private fun gate(presence: Presence) = PresenceGate { reason -> asked += reason; presence }
+    private fun gate(presence: Presence) = PresenceGate { reason, ask -> asked += reason; prompted += ask; presence }
 
     @Test
     fun runsTheActionOnlyOnceThePersonIsConfirmed() = runBlocking {
@@ -25,5 +26,13 @@ class PresenceGateTest {
         assertEquals(Gated.Blocked(Presence.NO_SCREEN_LOCK), gate(Presence.NO_SCREEN_LOCK).run(PresenceReason.SEND) { actions += "send" })
         assertTrue(actions.isEmpty())
         assertEquals(listOf(PresenceReason.TYPE, PresenceReason.SEND), asked)
+    }
+
+    @Test
+    fun anAutomaticResendOnlyChecksTheWindowAndNeverPrompts() = runBlocking {
+        assertEquals(Gated.Blocked(Presence.NOT_CONFIRMED), gate(Presence.NOT_CONFIRMED).run(PresenceReason.SEND, ask = false) { actions += "resend" })
+        gate(Presence.CONFIRMED).run(PresenceReason.SEND) { actions += "send" }
+        assertEquals(listOf(false, true), prompted)
+        assertEquals(listOf("send"), actions)
     }
 }

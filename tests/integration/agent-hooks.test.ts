@@ -1,5 +1,5 @@
 import { execFileSync, spawn } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
@@ -8,6 +8,7 @@ import { AgentHookInstaller, STATUS_HOOK_FILE } from '../../electron/main/servic
 import { AgentHookServer } from '../../electron/main/services/agent-hooks/server'
 import { resolveSessionLocation } from '../../electron/main/services/git-common-dir'
 import type { AgentHookLocationEvent, AgentHookStatusEvent } from '../../shared/types/agent-hooks'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const HOOK_SCRIPT = join(process.cwd(), 'resources', 'agent-hooks', STATUS_HOOK_FILE)
 
@@ -140,8 +141,8 @@ describe('AgentHookServer', () => {
       expect(locations).toHaveLength(4)
     } finally {
       located.stop()
-      rmSync(tree, { recursive: true, force: true })
-      rmSync(repo, { recursive: true, force: true })
+      removeTempDir(tree)
+      removeTempDir(repo)
     }
   })
 
@@ -196,7 +197,7 @@ describe('AgentHookInstaller', () => {
     codexPath = join(home, 'codex', 'hooks.json')
   })
   afterEach(() => {
-    try { rmSync(home, { recursive: true, force: true }) } catch { /* temp */ }
+    try { removeTempDir(home) } catch { /* temp */ }
   })
 
   const make = (version: string | null = '2.1.100'): AgentHookInstaller =>

@@ -25,7 +25,7 @@ export function KeyboardSettings(): ReactElement {
     if (!capturing) return
     const onKeyDown = (event: KeyboardEvent): void => {
       // Capture phase plus stopPropagation keeps Escape from also closing Settings
-      // and the chord from reaching the app's own shortcuts (as the voice hotkey capture does).
+      // and the chord from reaching the app's own shortcuts.
       event.preventDefault()
       event.stopPropagation()
       if (event.key === 'Escape' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) { setCapturing(null); return }

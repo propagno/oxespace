@@ -1,12 +1,15 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { registerCommands, type ContributedCommand } from '../utils/commandRegistry'
 
 /**
  * Registers commands built from component state. They are registered again only
  * when what the palette shows changes (ids, labels, disabled state, shortcuts),
- * never on every render, and `run` always calls the latest handler.
+ * never on every render, and `run` always calls the latest handler. The host
+ * re-renders when the interface language changes, so the labels follow it.
  */
 export function useCommandSource(source: string, commands: ContributedCommand[]): void {
+  useTranslation()
   const latest = useRef(commands)
   useLayoutEffect(() => { latest.current = commands })
   const signature = commands.map(command => `${command.id}\u0000${command.label}\u0000${command.detail ?? ''}\u0000${command.disabled ? 1 : 0}\u0000${command.shortcut ?? ''}\u0000${command.category}`).join('\u0001')

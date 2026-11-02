@@ -1,12 +1,13 @@
 import type { ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export type ActivityLevel = 'thinking' | 'needs-decision' | 'awaiting' | 'idle' | 'error' | 'exited' | 'starting'
 
 interface ActivityDotProps {
   level: ActivityLevel
   /**
-   * Optional override for the aria-label. Defaults to a short English label
-   * derived from `level`. Set this when the dot lives in a context where the
+   * Optional override for the aria-label. Defaults to a short label
+   * derived from `level` (`activityDot.<level>` in the common catalog). Set this when the dot lives in a context where the
    * full sentence "Agent is X" doesn't make sense (e.g. an integration card
    * already labelled "agent: <role>").
    */
@@ -16,15 +17,6 @@ interface ActivityDotProps {
   title?: string
 }
 
-const DEFAULT_LABELS: Record<ActivityLevel, string> = {
-  thinking: 'Agent is thinking',
-  'needs-decision': 'Needs your decision',
-  awaiting: 'Awaiting your input',
-  idle: 'Idle',
-  error: 'Needs attention',
-  starting: 'Starting',
-  exited: 'Exited'
-}
 
 /**
  * 6-tier activity indicator used wherever a "what state is this pane in"
@@ -38,6 +30,7 @@ const DEFAULT_LABELS: Record<ActivityLevel, string> = {
  * IntegrationPanel) from drifting on the level → label mapping.
  */
 export function ActivityDot({ level, ariaLabel, estimated, title }: ActivityDotProps): ReactElement {
-  const label = ariaLabel ?? DEFAULT_LABELS[level]
+  const { t } = useTranslation()
+  const label = ariaLabel ?? t(`activityDot.${level}`)
   return <span className={`pane-activity-dot activity-${level}${estimated ? ' is-estimated' : ''}`} aria-label={label} title={title} />
 }

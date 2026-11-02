@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -12,6 +12,7 @@ import { GitHubRepositoryService } from '../../electron/main/services/github/rep
 import { WorktreeCleanup } from '../../electron/main/services/github/worktree-cleanup'
 import { RepoHookTrust } from '../../electron/main/services/repo-config/trust'
 import { WORKTREE_IDLE_CLEANUP_MS } from '../../shared/types/worktree-cleanup'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const git = (cwd: string, ...args: string[]): string => execFileSync('git', args, { cwd, encoding: 'utf8' })
 
@@ -39,7 +40,7 @@ describe('worktree cleanup (real git)', () => {
   })
 
   afterEach(() => {
-    try { rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }) } catch { /* temp */ }
+    try { removeTempDir(sandbox) } catch { /* temp */ }
   })
 
   const add = async (name: string): Promise<string> => {

@@ -1,11 +1,12 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { detectEncoding, readRecords, type ImportItem } from '../../electron/main/services/oxequery/import-reader'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const dir = mkdtempSync(join(tmpdir(), 'oxe-encoding-'))
-afterAll(() => rmSync(dir, { recursive: true, force: true }))
+afterAll(() => removeTempDir(dir))
 
 async function records(name: string, bytes: Buffer, format: 'csv' | 'ndjson' | 'json' = 'csv'): Promise<Record<string, unknown>[]> {
   const path = join(dir, name)

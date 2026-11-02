@@ -1,11 +1,11 @@
 // @vitest-environment node
 import { spawn } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 // @ts-expect-error -- a plain ES module script without type declarations
-import { describeLock, isStale, noteWaiting, readLock, release, tryTake, waitForMemory } from '../../scripts/heavy-lock.mjs'
+import { UNREADABLE_GRACE_MS, describeLock, isStale, noteWaiting, readLock, release, tryTake, waitForMemory } from '../../scripts/heavy-lock.mjs'
 
 const folder = mkdtempSync(join(tmpdir(), 'oxe-heavy-lock-'))
 afterAll(() => rmSync(folder, { recursive: true, force: true }))
@@ -43,6 +43,28 @@ describe('machine-wide heavy lock', () => {
     expect(isStale(readLock(path))).toBe(false)
     expect(tryTake('other', 'y', path)).toBe(false)
     rmSync(path)
+  })
+
+  it('never takes over a lock that is still being written: an unreadable lock younger than the grace is held', () => {
+    const path = lockAt('young')
+    // What an older copy of this script leaves for an instant: the file exists, its JSON not written yet.
+    writeFileSync(path, '')
+    expect(tryTake('second', 'npx tsc', path)).toBe(false)
+    expect(readFileSync(path, 'utf8')).toBe('')
+    const old = (Date.now() - UNREADABLE_GRACE_MS - 1_000) / 1000
+    utimesSync(path, old, old)
+    expect(tryTake('second', 'npx tsc', path)).toBe(true)
+    expect(readLock(path)).toMatchObject({ owner: 'second', pid: process.pid })
+    release(path)
+  })
+
+  it('publishes the lock with its content: no side file is left, and a taken lock is never replaced', () => {
+    const path = lockAt('publish')
+    expect(tryTake('first', 'npm run build', path)).toBe(true)
+    expect(tryTake('second', 'npx tsc', path)).toBe(false)
+    expect(readLock(path)).toMatchObject({ owner: 'first' })
+    expect(readdirSync(folder).filter(name => name.startsWith('publish.') && name.endsWith('.new'))).toEqual([])
+    release(path)
   })
 
   it('waits for free memory after it holds the lock, and 0 turns the check off', async () => {

@@ -59,6 +59,8 @@ export async function nativeApproval(request: ApprovalRequest, reason: NativeRea
     // Belt and braces: whatever the dialog returned, a critical request is never allowed from it.
     return request.risk === 'critical' && request.options.find(option => option.id === chosen)?.intent !== 'deny' ? request.defaultOptionId : chosen
   } catch {
-    return signal.aborted ? null : request.defaultOptionId
+    // The dialog failed: nobody answered. The request stays open and ends at its expiry (a deny, by 'timeout'), so a
+    // failure is never recorded as the person's own Deny (B7.4 review L2: a kept-out policy change would hide).
+    return null
   }
 }

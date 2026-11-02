@@ -23,9 +23,27 @@ import type { MainMessage } from '../messages'
 
 export const APPROVAL_SCHEMA_VERSION = 1
 
-/** Which subsystem raised the request. */
-export const APPROVAL_KINDS = ['action', 'mcp-confirm', 'oxequery', 'preview-automation', 'crash'] as const
+/**
+ * Which subsystem raised the request. `policyChange` (B7.4, DESIGN #359): a gated policy file changed outside OXESpace and
+ * widens something; requester the app, options `deny` (the default) and `allowPolicy` (`deny` only for an invalid or too
+ * large file), risk high or critical, `ackRequired`, the rule diff as C3 `approvals.note.policy.*` notes and the file's
+ * new text in `agentText`. A rewrite while it waits re-issues the same request with a new generation (`reissue`).
+ */
+export const APPROVAL_KINDS = ['action', 'mcp-confirm', 'oxequery', 'preview-automation', 'crash', 'policyChange'] as const
 export type ApprovalKind = typeof APPROVAL_KINDS[number]
+
+/**
+ * Kinds the phone may never answer, with the forbidden capability of the remote protocol each one is
+ * (shared/remote/protocol.ts `REMOTE_FORBIDDEN`). A request of these kinds is never offered to a paired device.
+ */
+export const APPROVAL_KINDS_REMOTE_FORBIDDEN = {
+  oxequery: 'oxequery.approve',
+  'mcp-confirm': 'mcp.confirm',
+  policyChange: 'policy.edit'
+} as const satisfies Partial<Record<ApprovalKind, import('../remote/protocol').RemoteForbidden>>
+
+/** Whether a paired phone may be offered a request of this kind. */
+export const remoteMayAnswer = (kind: ApprovalKind): boolean => !(kind in APPROVAL_KINDS_REMOTE_FORBIDDEN)
 
 /** Computed by the main process from the existing classifiers (shared/approval-rules.ts); never taken from a requester. */
 export const APPROVAL_RISKS = ['low', 'medium', 'high', 'critical'] as const

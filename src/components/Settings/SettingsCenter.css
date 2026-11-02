@@ -32,7 +32,6 @@
 .settings-back { display: flex; align-items: center; gap: 8px; min-height: var(--control-h); padding: 6px 10px; border: 0; border-radius: var(--nav-radius); background: transparent; color: var(--text-secondary); font-size: var(--fs-sm); cursor: pointer; }
 .settings-back:hover { background: color-mix(in srgb, var(--text-primary) 4%, transparent); color: var(--text-primary); }
 .settings-compact-category { display: none; }
-.settings-category-empty { color: var(--text-muted); font-size: var(--fs-xs); }
 .settings-center-main { display: grid; grid-template-rows: var(--chrome-h) minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; }
 .settings-center-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 0 var(--chrome-inset); border-bottom: 1px solid var(--border-default); }
 .settings-center-toolbar > div { display: flex; align-items: center; gap: 10px; min-width: 0; color: var(--text-muted); font-size: var(--fs-2xs); }
@@ -51,7 +50,7 @@
 .settings-center .settings-content-body { flex: none; min-height: 0; overflow: visible; padding: 0; gap: 16px; }
 .settings-center :is(.settings-btn, .settings-header-action) { min-height: var(--control-h); padding: 0 12px; border-radius: var(--nav-radius); border-color: var(--border-default); font-size: var(--fs-xs); font-weight: 500; letter-spacing: 0; text-transform: none; }
 .settings-center .settings-btn.primary { color: var(--text-on-accent); background: var(--accent); }
-.settings-center :is(.settings-form-group, .settings-toggle-row, .settings-callout, .settings-providers-hero, .settings-provider-card, .settings-empty) { padding: 16px; border: 1px solid var(--border-default); border-radius: var(--surface-radius); background: var(--surface-raised); }
+.settings-center :is(.settings-form-group, .settings-toggle-row, .settings-callout, .settings-providers-hero, .settings-provider-card) { padding: 16px; border: 1px solid var(--border-default); border-radius: var(--surface-radius); background: var(--surface-raised); }
 .settings-center .settings-form-group { gap: 14px; }
 .settings-center .settings-form-group-title { color: var(--text-primary); font-size: var(--fs-xs); font-weight: 500; letter-spacing: 0; text-transform: none; }
 /* A group is one card of rows: switches, fields and notes inside it are rows split by a line, not cards of their own. */
@@ -63,7 +62,7 @@
 /* A switch and the note right after it, outside a group, read as one card. */
 .settings-center .settings-content-body > .settings-toggle-row:has(+ :is(.settings-toggle-row, .settings-callout)) { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
 .settings-center .settings-content-body > .settings-toggle-row + :is(.settings-toggle-row, .settings-callout) { margin-top: -17px; border-top-color: var(--border-subtle); border-top-left-radius: 0; border-top-right-radius: 0; }
-.settings-center :is(.settings-field select, .settings-field input[type="text"], .settings-hotkey-row input) { min-width: 0; padding: 8px 10px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--surface-canvas); color: var(--text-primary); font-size: var(--fs-xs); }
+.settings-center :is(.settings-field select, .settings-field input[type="text"]) { min-width: 0; padding: 8px 10px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--surface-canvas); color: var(--text-primary); font-size: var(--fs-xs); }
 .settings-center .settings-field { gap: 8px; }
 .settings-center .settings-field-hint { color: var(--text-muted); font-size: var(--fs-2xs); line-height: 1.5; }
 .settings-center .settings-reset-font { align-self: flex-start; padding: 6px 9px; border: 1px solid var(--border-default); border-radius: var(--nav-radius); background: var(--surface-canvas); color: var(--text-secondary); font: inherit; font-size: var(--fs-xs); cursor: pointer; }
@@ -204,7 +203,7 @@
 }
 
 /* A select keeps the control height of the ui Select: vertical padding on top of it clipped the text
-   (Voice model on Linux) and the horizontal padding hid the arrow. */
+   (on Linux) and the horizontal padding hid the arrow. */
 .settings-center .settings-field select, .settings-field select { height: var(--control-lg); padding: 0 var(--space-6) 0 10px; line-height: normal; }
 /* How the app updates: below the status, across the card. */
 .settings-center .settings-update-card .settings-update-preferences { display: grid; justify-items: start; gap: 10px; grid-column: 1 / -1; grid-row: 6; margin: 10px 0 0 40px; padding-top: 12px; border-top: 1px solid var(--border-default); }

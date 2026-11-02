@@ -16,7 +16,8 @@ const numberOf = (name: string): number => Number(/^(\d{3})_/.exec(name)?.[1] ??
 const latest = Number(/export const LATEST_DB_VERSION = (\d+)/.exec(runner)?.[1] ?? NaN)
 
 /** Numbers that never shipped a file; frozen, so a new gap fails. */
-const HISTORICAL_GAPS = [16, 17, 59, 81, 84]
+// 086 skipped: #294 landed 087 before #180 (088).
+const HISTORICAL_GAPS = [16, 17, 59, 81, 84, 86]
 /** One number, two files: 046 is split by platform (PowerShell on Windows, POSIX shells elsewhere). */
 const PLATFORM_SPLIT = new Map([[46, ['046_shell_profiles_posix.sql', '046_shell_profiles_win.sql']]])
 /** Frozen history: 001 has set version 2 since before the convention. */

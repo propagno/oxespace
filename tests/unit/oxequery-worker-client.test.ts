@@ -1,11 +1,12 @@
 // @vitest-environment node
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { OxeQueryWorkerClient } from '../../electron/main/services/oxequery/worker-client'
 import { connectIncidentJournal, incidentSubject } from '../../electron/main/services/diagnostics/incident-sink'
 import type { ResolvedConnection } from '../../electron/main/services/oxequery/oxequery-errors'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 // A worker that answers after the delay given as input, standing in for a slow statement.
 const CRASHING_WORKER = `
@@ -61,7 +62,7 @@ describe('OxeQueryWorkerClient time budget', () => {
   })
   afterAll(async () => {
     await Promise.all(clients.map(client => client.close().catch(() => undefined)))
-    rmSync(dir, { recursive: true, force: true })
+    removeTempDir(dir)
   })
   const client = (timeoutMs: number): OxeQueryWorkerClient => {
     const created = new OxeQueryWorkerClient(workerPath, timeoutMs)

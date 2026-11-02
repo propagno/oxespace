@@ -1,5 +1,5 @@
 import { BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron'
-import { parseDirectory, parseOptionalBoolean, requireAppFrame } from './ipc-guards'
+import { parseDirectory, parseOptionalBoolean } from './ipc-guards'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { OxeService } from '../services/oxe.service'
 
@@ -35,9 +35,9 @@ export function registerOxeIpc(load: () => Promise<OxeService> = createOxeServic
   const service = (): Promise<OxeService> => (pending ??= load().then(value => (loaded = value), error => { pending = null; throw error }))
 
   // Every handler below runs the oxe CLI or a dashboard server with the project root as its working directory.
-  const root = (event: IpcMainInvokeEvent, value: unknown): string => { requireAppFrame(event, 'OXE requests'); return parseDirectory(value) }
-  const path = (event: IpcMainInvokeEvent, value: unknown): string => { requireAppFrame(event, 'OXE requests'); if (typeof value !== 'string') throw new Error('rootPath must be a string'); return value }
-  ipcMain.handle(IPC_CHANNELS.oxe.detect, async (event, force?: unknown) => { requireAppFrame(event, 'OXE requests'); const refresh = parseOptionalBoolean(force); return (await service()).detect(refresh) })
+  const root = (_event: IpcMainInvokeEvent, value: unknown): string => parseDirectory(value)
+  const path = (_event: IpcMainInvokeEvent, value: unknown): string => { if (typeof value !== 'string') throw new Error('rootPath must be a string'); return value }
+  ipcMain.handle(IPC_CHANNELS.oxe.detect, async (event, force?: unknown) => { const refresh = parseOptionalBoolean(force); return (await service()).detect(refresh) })
   ipcMain.handle(IPC_CHANNELS.oxe.status, async (event, rootPath: unknown, force?: unknown) => { const dir = root(event, rootPath); const refresh = parseOptionalBoolean(force); return (await service()).status(dir, refresh) })
   ipcMain.handle(IPC_CHANNELS.oxe.statusSummary, async (event, rootPath: unknown, force?: unknown) => { const dir = root(event, rootPath); const refresh = parseOptionalBoolean(force); return (await service()).statusSummary(dir, refresh) })
   ipcMain.handle(IPC_CHANNELS.oxe.openDashboard, async (event, rootPath: unknown) => { const dir = root(event, rootPath); return (await service()).openDashboard(dir) })

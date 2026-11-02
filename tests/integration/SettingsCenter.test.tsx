@@ -11,7 +11,8 @@ async function setup(onSave = vi.fn(async () => {})) {
   const onClose = vi.fn()
   render(<SettingsCenter workspaces={[workspace]} initialWorkspaceId="ws" shellProfiles={[]} onSave={onSave} onClose={onClose}
     agentProfiles={[]} agentReadiness={[]} isDiscoveringAgents={false} onDiscoverAgents={vi.fn()} onConfigureAgent={vi.fn()} onNewCustomAgent={vi.fn()} />)
-  await screen.findByRole('radio', { name: /Compact/ }) // the pages are a lazy chunk
+  // The pages are a lazy chunk; its first import, on a busy machine, can take longer than findBy's default second.
+  await screen.findByRole('radio', { name: /Compact/ }, { timeout: 10_000 })
   return { onSave, onClose }
 }
 test('scope navigation protects drafts and supports discard without saving', async () => {
@@ -51,6 +52,24 @@ test('explicit initial page overrides the last visited workspace destination', a
   expect(screen.getByRole('group', { name: 'Settings scope' }).querySelector('button')).toHaveAttribute('aria-pressed', 'true')
   expect(await screen.findByRole('heading', { name: 'Agents' })).toBeVisible()
   expect(screen.queryByRole('button', {name:/^Agents CLI discovery/})).toBeNull()
+})
+
+test('F34: Settings has no Voice page, and a link to it lands on the first page', async () => {
+  const props = { workspaces: [workspace], shellProfiles: [], onSave: vi.fn(), onClose: vi.fn(), agentProfiles: [], agentReadiness: [], isDiscoveringAgents: false, onDiscoverAgents: vi.fn(), onConfigureAgent: vi.fn(), onNewCustomAgent: vi.fn() }
+  const firstPageCurrent = async () => {
+    const nav = screen.getByRole('navigation', { name: 'Settings categories' })
+    expect(within(nav).queryByRole('button', { name: /^(Voice|Voz)\b/ })).toBeNull()
+    expect(within(nav).getByRole('button', { name: /^General/ })).toHaveAttribute('aria-current', 'page')
+    expect(await screen.findByRole('heading', { name: 'General' }, { timeout: 10_000 })).toBeVisible()
+  }
+  // An old deep link (palette entry, activity row) that still names the page.
+  render(<SettingsCenter {...props} initialPage={'voice' as never} />)
+  await firstPageCurrent()
+  cleanup()
+  // The destination remembered from a session that had the page.
+  localStorage.setItem('oxe.settings.destination', JSON.stringify({ scope: 'application', page: 'voice' }))
+  render(<SettingsCenter {...props} />)
+  await firstPageCurrent()
 })
 
 test('Agents is a page of application settings, not only a first-run shortcut', async () => {
