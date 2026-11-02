@@ -10,7 +10,7 @@
     "status": {
       "connecting": "Conectando a {{desktop}}…",
       "connected": "Conectado a {{desktop}}",
-      "unreachable": "Não deu para falar com {{desktop}}. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.",
+      "unreachable": "Não foi possível falar com {{desktop}}. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.",
       "incompatible": "{{desktop}} usa outra versão do OXESpace. Atualize o app ou o OXESpace no computador.",
       "notAccepted": "{{desktop}} não aceita mais este celular. Despareie e pareie de novo.",
       "reconnecting": "A conexão com {{desktop}} caiu. Reconectando…",
@@ -45,7 +45,7 @@
       "notPairing": "Esse não é um código de pareamento do OXESpace. Aponte a câmera para o código em Configurações › Dispositivos.",
       "unsupportedVersion": "Esse código vem de outra versão do OXESpace. Atualize o app ou o OXESpace no computador.",
       "publicHost": "Esse código aponta para fora da sua rede local. O OXESpace só pareia na mesma Wi-Fi.",
-      "malformed": "Não deu para ler esse código. Mostre um novo no computador e tente de novo."
+      "malformed": "Não foi possível ler esse código. Mostre um novo no computador e tente de novo."
     },
     "waitingTitle": "Confirme no computador",
     "waitingBody": "{{desktop}} está perguntando se pode parear com este celular. Aceite só se aparecer este código:",
@@ -62,7 +62,7 @@
       "locked": "Tentativas de pareamento demais. Espere 2 minutos e tente de novo.",
       "tooManyDevices": "Seu computador já tem 5 aparelhos pareados. Remova um em Configurações › Dispositivos antes.",
       "wrongCertificate": "Outro aparelho respondeu nesse endereço, não o seu computador. Nada foi enviado. Confira se você está na sua Wi-Fi.",
-      "unreachable": "Não deu para falar com o computador. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.",
+      "unreachable": "Não foi possível falar com o computador. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.",
       "protocol": "O computador respondeu de um jeito que este app não entende. Atualize o app ou o OXESpace no computador.",
       "reservedName": "O nome deste celular usa um nome reservado ao próprio OXESpace, e o computador não o aceita. Mude o nome do celular em Configurações do Android › Sobre o telefone e leia o código de novo."
     }
@@ -164,8 +164,8 @@
   },
   "approval": {
     "prompt": {
-      "accept": "Aprovar este pedido",
-      "decline": "Recusar este pedido",
+      "accept": "Permitir este pedido uma vez",
+      "decline": "Negar este pedido",
       "cancel": "Cancelar este pedido",
       "answer": "Enviar estas respostas"
     }
@@ -180,9 +180,16 @@
     "warnings": "Vale olhar de novo",
     "tool": "Ferramenta",
     "risk": {
-      "green": "Só lê",
-      "orange": "Altera algo",
-      "red": "Apaga, eleva acesso ou publica"
+      "low": "Baixo",
+      "medium": "Médio",
+      "high": "Alto",
+      "critical": "Crítico"
+    },
+    "riskMeaning": {
+      "low": "Só lê",
+      "medium": "Muda algo",
+      "high": "Apaga, eleva acesso ou publica",
+      "critical": "Não tem volta ou afeta produção"
     },
     "decision": {
       "accept": "Permitir uma vez",
@@ -204,7 +211,7 @@
       "rateLimited": "Ações demais em um minuto. Tente de novo daqui a pouco.",
       "other": "O computador não aceitou a resposta."
     },
-    "riskSpoken": "Risco: {{risk}}",
+    "riskBadge": "Risco: {{risk}}",
     "fromAgent": "Escrito pelo agente",
     "desktopOnlyTitle": "Responda no computador"
   },
@@ -249,7 +256,7 @@
       "connected": "Conectado a {{desktop}}",
       "reconnecting": "Reconectando a {{desktop}}…",
       "offNetwork": "Esperando a Wi-Fi para falar com {{desktop}}",
-      "stopped": "Não deu para manter a conexão com {{desktop}}. Abra o app."
+      "stopped": "Não foi possível manter a conexão com {{desktop}}. Abra o app."
     }
   }
 }

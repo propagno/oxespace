@@ -158,8 +158,8 @@
   },
   "approval": {
     "prompt": {
-      "accept": "Approve this request",
-      "decline": "Decline this request",
+      "accept": "Allow this request once",
+      "decline": "Deny this request",
       "cancel": "Cancel this request",
       "answer": "Send these answers"
     }
@@ -174,9 +174,16 @@
     "warnings": "Worth a second look",
     "tool": "Tool",
     "risk": {
-      "green": "Only reads",
-      "orange": "Changes something",
-      "red": "Deletes, escalates or publishes"
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "critical": "Critical"
+    },
+    "riskMeaning": {
+      "low": "Only reads",
+      "medium": "Changes something",
+      "high": "Deletes, escalates access or publishes",
+      "critical": "Can't be undone, or affects production"
     },
     "decision": {
       "accept": "Allow once",
@@ -198,7 +205,7 @@
       "rateLimited": "Too many actions in a minute. Try again shortly.",
       "other": "Your computer didn't accept the answer."
     },
-    "riskSpoken": "Risk: {{risk}}",
+    "riskBadge": "Risk: {{risk}}",
     "fromAgent": "Written by the agent",
     "desktopOnlyTitle": "Answer on the computer"
   },

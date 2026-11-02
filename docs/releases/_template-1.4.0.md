@@ -142,9 +142,9 @@ its run or test. -->
 <!-- add when F34/F35 merge: "OXEVoice was removed. OXESpace no longer records speech; your operating system's
 dictation still types into any field, and the downloaded voice model is deleted on the first start." and "Team moved
 off the title bar: Tools › Project team…, the command palette or Ctrl+Shift+T." -->
-<!-- add when #387 merges: "**Git actions started from OXESpace skip the repository's hooks.** Push, switching
-branches and creating worktrees run without them; use the terminal when a flow depends on hooks. Agents can't reach
-the network through Git: when a task needs the latest remote branch, you fetch it in the Git panel or the terminal." -->
+- **Git actions started from OXESpace skip the repository's hooks.** Push, switching branches and creating worktrees
+  run without them; use the terminal when a flow depends on hooks. Agents can't reach the network through Git: when a
+  task needs the latest remote branch, you fetch it in the Git panel or the terminal.
 - **Closing a pane ends what it started.** Jobs sent to the background with `nohup` or `disown`, and apps launched
   from the pane (`gedit &`, `notepad x`), now close with it. To keep something running, start it outside OXESpace or
   as a system service.
@@ -158,9 +158,9 @@ the network through Git: when a task needs the latest remote branch, you fetch i
 - **The main window opens no link by itself**, and every inter-process call checks that it comes from the app's own
   window.
 - **The installed app carries less to read.** The main process's source maps are no longer packaged.
-<!-- add when #387 merges: "**Git runs through one guard.** OXESpace won't run network Git in a repository whose
-own settings change how Git connects or authenticates (`core.sshCommand`, `credential.helper` and the like); run those
-commands in the terminal. Your global Git settings never trigger this." -->
+- **Git runs through one guard.** OXESpace won't run network Git in a repository whose own settings change how Git
+  connects or authenticates (`core.sshCommand`, `credential.helper` and the like); run those commands in the terminal.
+  Your global Git settings never trigger this.
 - **The packaged app can't be borrowed as a plain Node.js runtime**, so other programs can't use it to run their own
   code.
 
@@ -171,8 +171,8 @@ commands in the terminal. Your global Git settings never trigger this." -->
 - **On Windows, a graphical program used as a pane's command shows as exited right away.** Run it from the pane's
   shell instead. Shells, Claude Code and Codex are not affected.
 - **On Linux and macOS, a real daemon (a process that detaches twice) keeps running after its pane closes.**
-<!-- add when #387 merges (B26 closes it in 1.4.1): "**A Git filter added to a repository's settings at the moment an
-action starts can run once** before OXESpace notices it." -->
+- **A Git filter added to a repository's settings at the moment an action starts can run once** before OXESpace
+  notices it.
 - **Going back to 1.3.3 needs the automatic backup, restored before you open 1.3.3.** 1.4.0 updates your data the
   first time it opens, after saving a verified copy. 1.3.3 can't read the updated data: it shows "No workspaces yet",
   with no warning, though nothing is lost. To go back: close OXESpace, install 1.3.3 from the Releases page, and

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, ClipboardItem, ipcMain, WebContentsView, type WebContents } from 'electron'
+import { app, BrowserWindow, clipboard, ClipboardItem, WebContentsView, type WebContents } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
@@ -303,26 +303,3 @@ export class BrowserPreviewService {
 }
 
 export const browserPreviewService = new BrowserPreviewService()
-
-export function registerBrowserPreviewIpc(): void {
-  const service = browserPreviewService
-  const windowFor = (sender: WebContents): BrowserWindow => {
-    const window = BrowserWindow.fromWebContents(sender)
-    if (!window || window.isDestroyed()) throw new Error('Browser window unavailable')
-    return window
-  }
-  ipcMain.handle(IPC_CHANNELS.browserPreview.mount,(event,input:BrowserPreviewMount) => service.mount(windowFor(event.sender),input))
-  ipcMain.handle(IPC_CHANNELS.browserPreview.session,(event,input) => service.session(windowFor(event.sender),input))
-  ipcMain.handle(IPC_CHANNELS.browserPreview.bounds,(event,input:BrowserPreviewBounds) => service.bounds(windowFor(event.sender),input))
-  ipcMain.handle(IPC_CHANNELS.browserPreview.setAccess,(event,input) => service.setAccess(windowFor(event.sender),input))
-  ipcMain.handle(IPC_CHANNELS.browserPreview.designMode,(event,input) => service.designMode(windowFor(event.sender),input))
-  ipcMain.handle(IPC_CHANNELS.browserPreview.setZoom,(event,input) => service.setZoom(windowFor(event.sender),input))
-  ipcMain.handle(IPC_CHANNELS.browserPreview.reload,(event,input) => service.reload(windowFor(event.sender),input))
-  ipcMain.handle(IPC_CHANNELS.browserPreview.back,(event,input) => service.back(windowFor(event.sender),input))
-  ipcMain.handle(IPC_CHANNELS.browserPreview.forward,(event,input) => service.forward(windowFor(event.sender),input))
-  ipcMain.handle(IPC_CHANNELS.browserPreview.captureElement,(event,input) => service.captureElement(windowFor(event.sender),input))
-  ipcMain.handle(IPC_CHANNELS.browserPreview.captureClipboard,(event,input) => service.captureClipboard(windowFor(event.sender),input))
-  ipcMain.handle(IPC_CHANNELS.browserPreview.close,(event,input) => service.close(windowFor(event.sender),input))
-  ipcMain.on(DESIGN_MODE_CHANNELS.grab,(event,payload:DesignGrabPayload) => service.handleDesignMessage(event.sender,'grab',payload))
-  ipcMain.on(DESIGN_MODE_CHANNELS.cancel,event => service.handleDesignMessage(event.sender,'cancel'))
-}
