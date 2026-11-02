@@ -271,6 +271,23 @@ describe('createWorktree with oxe.yaml (real git)', () => {
     expect(result.notices).toContainEqual({ code: 'worktree.copyFiles.copied', params: { count: 1 } })
   })
 
+  it('a repository made with --separate-git-dir still copies from its main working tree (SECURITY #471)', async () => {
+    const separate = join(sandbox, 'separate')
+    mkdirSync(separate)
+    mkdirSync(join(sandbox, 'gitdirs'))
+    git(separate, 'init', '-q', '-b', 'main', `--separate-git-dir=${join(sandbox, 'gitdirs', 'separate.git')}`)
+    git(separate, 'config', 'user.email', 't@t.t')
+    git(separate, 'config', 'user.name', 't')
+    writeFileSync(join(separate, '.gitignore'), '.env\n')
+    writeFileSync(join(separate, 'oxe.yaml'), 'worktree:\n  copyFiles: [.env]\n')
+    git(separate, 'add', '.')
+    git(separate, 'commit', '-qm', 'init')
+    writeFileSync(join(separate, '.env'), 'TOKEN=separate')
+    const path = join(sandbox, 'wt-separate')
+    await service.createWorktree({ rootPath: separate, branch: 'sep', path, createBranch: true, baseRef: 'main' })
+    expect(readFileSync(join(path, '.env'), 'utf8')).toBe('TOKEN=separate')
+  })
+
   it('the list comes from the main checkout only: a branch cannot add files, and a file git does not ignore stays behind', async () => {
     git(root, 'switch', '-q', '-c', 'hostile')
     writeFileSync(join(root, 'oxe.yaml'), 'worktree:\n  copyFiles: [.env, secret.pem]\n')

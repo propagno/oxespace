@@ -397,12 +397,21 @@ export class GitHubRepositoryService {
     return (await copyIncludedFiles(main, worktreePath, include, ignored)).notices
   }
 
-  /** The repository's main working tree (git's first `worktree list` entry), or null when it is bare or git cannot tell. */
+  /**
+   * The repository's main working tree, or null when it is bare or git cannot tell. Created from the main working tree
+   * itself (its git dir is the common dir), that is rootPath's own top level, which also holds for a repository made
+   * with --separate-git-dir, where `worktree list` names the git dir. From a linked worktree, git's first
+   * `worktree list -z` entry (NUL-separated, so no path is ever cut or quoted). SECURITY review of #471.
+   */
   private async mainCheckout(rootPath: string): Promise<string | null> {
-    const listed = await this.gh.tryGit(['worktree', 'list', '--porcelain'], rootPath)
-    const lines = (listed.split(/\r?\n\r?\n/)[0] ?? '').split(/\r?\n/)
-    const path = lines.find(line => line.startsWith('worktree '))?.slice('worktree '.length).trim()
-    return path && !lines.includes('bare') ? path : null
+    const [gitDir, commonDir, top] = (await this.gh.tryGit(['rev-parse', '--path-format=absolute', '--git-dir', '--git-common-dir', '--show-toplevel'], rootPath))
+      .split(/\r?\n/).map(line => line.trim())
+    const fold = (path: string) => (process.platform === 'win32' ? path.replace(/\\/g, '/').toLowerCase() : path)
+    if (gitDir && commonDir && top && fold(gitDir) === fold(commonDir)) return top
+    const fields = (await this.gh.tryGit(['worktree', 'list', '--porcelain', '-z'], rootPath)).split('\0')
+    const first = fields.slice(0, Math.max(0, fields.indexOf('')))
+    const path = first.find(field => field.startsWith('worktree '))?.slice('worktree '.length)
+    return path && !first.includes('bare') ? path : null
   }
 
   private async refExists(rootPath: string, ref: string): Promise<boolean> {
