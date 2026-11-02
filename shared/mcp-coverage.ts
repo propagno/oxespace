@@ -219,7 +219,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
       ...each('oxespace_threads_change', 'confirm', ['send', 'steer', 'interrupt', 'configure', 'rename', 'archive']),
       oxespace_thread_create: 'write', oxespace_thread_send: 'write'
     },
-    ipc: ['thread.create', 'thread.send', 'thread.steer', 'thread.interrupt', 'thread.stopTask', 'thread.configure', 'thread.pin', 'thread.updateQueued', 'thread.deleteQueued',
+    ipc: ['thread.create', 'thread.send', 'thread.steer', 'thread.interrupt', 'thread.stopTask', 'thread.configure', 'thread.pin', 'thread.keepAfterPr', 'thread.updateQueued', 'thread.deleteQueued',
       'thread.reorderQueued', 'thread.resumeQueue', 'thread.sendQueuedNow', 'thread.retryTurn']
   },
   'thread.history_edit': {

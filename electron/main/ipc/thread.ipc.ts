@@ -310,6 +310,10 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
     if (typeof pinned !== 'boolean') throw new Error('Invalid pin input')
     return manager.then(service => service.pin(string(id), pinned))
   })
+  ipcMain.handle(IPC_CHANNELS.thread.keepAfterPr, (event, id: unknown, prNumber: unknown) => {
+    if (typeof prNumber !== 'number' || !Number.isSafeInteger(prNumber) || prNumber <= 0) throw new Error('Invalid pull request number')
+    return manager.then(service => service.keepAfterPr(string(id), prNumber))
+  })
   registerThreadWorktreeIpc({ db, manager, threadProjects, worktrees, id: string })
   registerThreadSectionsIpc({ db })
   return { manager, stop: async () => { await sideChats?.then(chats => chats.stop()).catch(() => {}); await (await accounts).stop(); await (await manager).stop() } }
