@@ -32,7 +32,7 @@ const calls = (app: ElectronApplication) => app.evaluate(() => (globalThis as Re
 const archives = async (app: ElectronApplication) => (await calls(app)).commands.filter(c => /archive/i.test(c)).length
 /** The PR bar reads on focus; the CI window can report itself hidden, which pauses reads (and toasts), unlike a person's. */
 const read = async (page: Page) => {
-  await page.evaluate(() => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' }); document.dispatchEvent(new Event('visibilitychange')); window.dispatchEvent(new Event('focus')) })
+  await page.evaluate(() => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' }); Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.hasFocus = () => true; document.dispatchEvent(new Event('visibilitychange')); window.dispatchEvent(new Event('focus')) })
   await page.waitForTimeout(1_200)
 }
 const offer = (page: Page) => page.locator('[data-toast]').filter({ hasText: /will be archived/ })
