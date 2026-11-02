@@ -853,5 +853,24 @@
     },
     "unknownCode": "OXESpace sent a note this version cannot show (code {{code}}).",
     "sqlUnknown": "Risky SQL: OXESpace flagged a risk in this statement that this version cannot describe (code {{code}})."
+  },
+  "openIn": {
+    "menuLabel": "Actions for {{path}}",
+    "oxespace": "Open in OXESpace's editor",
+    "editor": "Open in {{editor}}",
+    "editorAtLine": "Open in {{editor}} · line {{line}}",
+    "shortcut": "⇧Ctrl+click",
+    "shortcutMac": "⇧⌘+click",
+    "revealWindows": "Reveal in File Explorer",
+    "revealLinux": "Open containing folder",
+    "revealMac": "Reveal in Finder",
+    "copyRelativePath": "Copy relative path",
+    "copyFullPath": "Copy full path",
+    "path": "Path",
+    "pathCopied": "Path copied",
+    "relativePathCopied": "Relative path copied",
+    "opening": "Opening in {{editor}}",
+    "failed": "Couldn't open the file.",
+    "pathLink": "{{path}}, line {{line}}"
   }
 }
