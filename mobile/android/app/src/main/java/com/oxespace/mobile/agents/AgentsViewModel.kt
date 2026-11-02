@@ -41,13 +41,13 @@ class FakeAgentsSource(private val now: Long, private val unavailable: List<Stri
 }
 
 fun sampleAgents(now: Long): List<AgentRow> = listOf(
-    AgentRow("thread", "t-login", "needs-you", "claude", "Fix the login redirect", now - 240_000,
-        AgentRequest("r-1", "Run npm test -- auth", risk = "high", answerable = true), nudgeAfterMs = 60_000),
-    AgentRow("pane", "p-3", "needs-you", "codex", "Pane 3 · Codex", now - 90_000,
-        AgentRequest("r-2", "Allow access to the network", risk = null, answerable = false)),
-    AgentRow("work", "w-7", "failed", "claude", "Nightly lint", now - 3_600_000),
-    AgentRow("thread", "t-docs", "working", "codex", "Rewrite the setup guide", now - 420_000),
-    AgentRow("delegation", "d-2", "finished", "claude", "Split the settings store", now - 1_200_000),
-    AgentRow("pane", "p-1", "idle", "claude", "Pane 1 · Claude", now - 7_200_000),
-    AgentRow("thread", "t-old", "stopped", "claude", "Try the new parser", now - 86_400_000),
+    AgentRow("thread", "t-login", "needs-you", "claude", "Fix the login redirect", now - 240_000, rev = 1L,
+        request = AgentRequest("r-1", "Run npm test -- auth", risk = "high", answerable = true, titleCode = "approvals.title.shell", titleParams = mapOf("command" to "npm test -- auth")), nudgeAfterMs = 60_000),
+    AgentRow("pane", "p-3", "needs-you", "codex", "Pane 3 · Codex", now - 90_000, rev = 2L,
+        request = AgentRequest("r-2", "Allow access to the network", risk = null, answerable = false)),
+    AgentRow("work", "w-7", "failed", "claude", "Nightly lint", now - 3_600_000, rev = 3L),
+    AgentRow("thread", "t-docs", "working", "codex", "Rewrite the setup guide", now - 420_000, rev = 4L),
+    AgentRow("delegation", "d-2", "finished", "claude", "Split the settings store", now - 1_200_000, rev = 5L),
+    AgentRow("pane", "p-1", "idle", "claude", "Pane 1 · Claude", now - 7_200_000, rev = 6L),
+    AgentRow("thread", "t-old", "stopped", "claude", "Try the new parser", now - 86_400_000, rev = 7L),
 )

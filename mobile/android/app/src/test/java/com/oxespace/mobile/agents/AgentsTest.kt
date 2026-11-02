@@ -27,7 +27,7 @@ class AgentsTest {
     @Test
     fun `an unknown state reads as unknown and sorts last, an unknown kind is never shown`() {
         val store = AgentsStore()
-        store.onSnapshot(listOf(AgentRow("thread", "x", "dreaming", "claude", "New state", now), AgentRow("robot", "y", "working", "other", "New kind", now)), emptyList())
+        store.onSnapshot(listOf(AgentRow("thread", "x", "dreaming", "claude", "New state", now, rev = 1), AgentRow("robot", "y", "working", "other", "New kind", now, rev = 2)), emptyList())
         val shown = store.state.value.rows
         assertEquals(listOf("x"), shown.map { it.id })
         assertEquals(AgentState.UNKNOWN, stateOf(shown.single()))
@@ -56,13 +56,42 @@ class AgentsTest {
     @Test
     fun `events upsert and remove by kind and id, the same id under two kinds is two rows`() {
         val store = AgentsStore()
-        store.onSnapshot(listOf(AgentRow("pane", "1", "idle", "claude", "Pane", now), AgentRow("thread", "1", "working", "codex", "Conversation", now)), emptyList())
-        store.onEvent(upsert = listOf(AgentRow("thread", "1", "finished", "codex", "Conversation", now + 5)), removed = listOf(AgentKey("pane", "1")), unavailable = listOf("work"))
+        store.onSnapshot(listOf(AgentRow("pane", "1", "idle", "claude", "Pane", now, rev = 1), AgentRow("thread", "1", "working", "codex", "Conversation", now, rev = 2)), emptyList())
+        store.onEvent(upsert = listOf(AgentRow("thread", "1", "finished", "codex", "Conversation", now + 5, rev = 3)), removed = listOf(AgentRemoval("pane", "1", rev = 4)), unavailable = listOf("work"))
         val state = store.state.value
         assertEquals(listOf(AgentKey("thread", "1")), state.rows.map { it.key })
         assertEquals("finished", state.rows.single().state)
         assertEquals(listOf("work"), state.unavailable)
         assertTrue(state.loaded)
+    }
+
+    @Test
+    fun `a late or repeated upsert never brings back a removed row nor an older state`() {
+        val store = AgentsStore()
+        val row = AgentRow("thread", "c", "working", "claude", "Conversation", now, rev = 10)
+        store.onSnapshot(listOf(row), emptyList())
+        store.onEvent(upsert = listOf(row.copy(state = "finished", rev = 12)), removed = emptyList(), unavailable = emptyList())
+        store.onEvent(upsert = listOf(row.copy(state = "working", rev = 11)), removed = emptyList(), unavailable = emptyList())
+        assertEquals("finished", store.state.value.rows.single().state)
+        store.onEvent(upsert = emptyList(), removed = listOf(AgentRemoval("thread", "c", rev = 13)), unavailable = emptyList())
+        store.onEvent(upsert = listOf(row.copy(state = "finished", rev = 12)), removed = emptyList(), unavailable = emptyList())
+        assertTrue(store.state.value.rows.isEmpty())
+        // A newer upsert after the removal is a real comeback.
+        store.onEvent(upsert = listOf(row.copy(state = "working", rev = 14)), removed = emptyList(), unavailable = emptyList())
+        assertEquals("working", store.state.value.rows.single().state)
+        // An older removal does nothing.
+        store.onEvent(upsert = emptyList(), removed = listOf(AgentRemoval("thread", "c", rev = 13)), unavailable = emptyList())
+        assertEquals(1, store.state.value.rows.size)
+    }
+
+    @Test
+    fun `a snapshot replaces everything, tombstones included`() {
+        val store = AgentsStore()
+        val row = AgentRow("pane", "p", "idle", "claude", "Pane", now, rev = 50)
+        store.onSnapshot(listOf(row), emptyList())
+        store.onEvent(upsert = emptyList(), removed = listOf(AgentRemoval("pane", "p", rev = 60)), unavailable = emptyList())
+        store.onSnapshot(listOf(row.copy(rev = 5)), emptyList())
+        assertEquals(listOf(AgentKey("pane", "p")), store.state.value.rows.map { it.key })
     }
 
     @Test

@@ -26,8 +26,18 @@ enum class AgentKind(val wire: String) {
     companion object { fun read(wire: String): AgentKind? = entries.firstOrNull { it.wire == wire } }
 }
 
-/** The oldest pending request on a row: its title is the desktop's, already redacted; risk is one of the 4 words. */
-data class AgentRequest(val requestId: String, val title: String, val risk: String?, val answerable: Boolean)
+/**
+ * The oldest pending request on a row. `titleCode` + `titleParams` let the phone word main's title in its own language;
+ * `title` (the desktop's words, already redacted) is the fallback. Risk is one of the 4 words, or null.
+ */
+data class AgentRequest(
+    val requestId: String,
+    val title: String,
+    val risk: String?,
+    val answerable: Boolean,
+    val titleCode: String? = null,
+    val titleParams: Map<String, String>? = null,
+)
 
 /** #513 §6 RemoteAgentRow. Never on the phone: paths, worktrees, session ids, cost. */
 data class AgentRow(
@@ -37,6 +47,8 @@ data class AgentRow(
     val provider: String,
     val title: String,
     val since: Long,
+    /** One counter in main for every row, strictly increasing, never going back after a restart (#513 §6). */
+    val rev: Long,
     val request: AgentRequest? = null,
     val nudgeAfterMs: Long? = null,
 ) {
@@ -45,6 +57,11 @@ data class AgentRow(
 
 /** A row's identity: the same id may exist under two kinds. Also what `agent.markSeen` sends. */
 data class AgentKey(val kind: String, val id: String)
+
+/** A removal, with the rev it happened at. */
+data class AgentRemoval(val kind: String, val id: String, val rev: Long) {
+    val key: AgentKey get() = AgentKey(kind, id)
+}
 
 data class AgentsState(
     val rows: List<AgentRow> = emptyList(),
@@ -55,22 +72,36 @@ data class AgentsState(
 )
 
 /**
- * The `agents` stream as #513 defines it: a snapshot replaces everything; an event upserts and removes rows by key.
- * Rows of an unknown kind are dropped. #513 carries no per-row revision, so events apply in arrival order (the stream
- * is ordered); a revision is asked for in the CCR review so a late upsert can never bring a removed row back.
+ * The `agents` stream as #513 §6 defines it. A snapshot replaces everything held, tombstones included. An event's
+ * upserts and removals apply only when their `rev` is higher than the highest seen for that key, removed keys kept as
+ * tombstones, so a late or repeated upsert never brings back a row the desktop removed, nor an older state. Rows of an
+ * unknown kind are dropped; an unknown state reads as unknown where it is shown.
  */
 class AgentsStore {
     private val mutable = MutableStateFlow(AgentsState())
     val state: StateFlow<AgentsState> = mutable.asStateFlow()
+    /** The highest rev seen per key since the last snapshot, for the rows held and the ones removed. */
+    private val newest = mutableMapOf<AgentKey, Long>()
 
     fun onSnapshot(rows: List<AgentRow>, unavailable: List<String>) {
-        mutable.value = AgentsState(rows.filter(::known).associateBy { it.key }.values.toList(), unavailable, loaded = true)
+        newest.clear()
+        val kept = rows.filter(::known).groupBy { it.key }.mapValues { (_, same) -> same.maxBy { it.rev } }
+        kept.forEach { (key, row) -> newest[key] = row.rev }
+        mutable.value = AgentsState(kept.values.toList(), unavailable, loaded = true)
     }
 
-    fun onEvent(upsert: List<AgentRow>, removed: List<AgentKey>, unavailable: List<String>) {
+    fun onEvent(upsert: List<AgentRow>, removed: List<AgentRemoval>, unavailable: List<String>) {
         val byKey = mutable.value.rows.associateBy { it.key }.toMutableMap()
-        removed.forEach { byKey.remove(it) }
-        upsert.filter(::known).forEach { byKey[it.key] = it }
+        for (removal in removed) {
+            if (removal.rev <= (newest[removal.key] ?: Long.MIN_VALUE)) continue
+            newest[removal.key] = removal.rev
+            byKey.remove(removal.key)
+        }
+        for (row in upsert) {
+            if (row.rev <= (newest[row.key] ?: Long.MIN_VALUE)) continue
+            newest[row.key] = row.rev
+            if (known(row)) byKey[row.key] = row else byKey.remove(row.key)
+        }
         mutable.value = mutable.value.copy(rows = byKey.values.toList(), unavailable = unavailable)
     }
 
