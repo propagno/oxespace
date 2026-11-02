@@ -54,7 +54,7 @@ test('F33/B18: a cited path opens in the editor on its line; outside the project
     await page.locator('.xterm').getByText('src/app.ts:12').first().click({ button: 'right', timeout: 5_000 }).catch(() => undefined)
     const menu = page.getByRole('menu')
     // F33's menu (FRONTEND) may land after B18: the menu checks are soft, so main's refusals below always run.
-    const menuUp = await menu.getByRole('menuitem', { name: /VS Code/ }).isVisible({ timeout: 5_000 }).catch(() => false)
+    const menuUp = await menu.getByRole('menuitem', { name: /VS Code/ }).waitFor({ state: 'visible', timeout: 5_000 }).then(() => true, () => false)
     expect.soft(menuUp, 'the installed editor is listed').toBe(true)
     if (menuUp) {
       expect.soft(await menu.getByRole('menuitem', { name: /Cursor|Zed/ }).count(), 'absent editors are not listed').toBe(0)

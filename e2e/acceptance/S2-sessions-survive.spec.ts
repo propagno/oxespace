@@ -128,7 +128,7 @@ test('S2: six agent panes, started both ways, come back on their own sessions or
   ;({ app, page } = await launchReal(profile))
   try {
     const offer = page.getByRole('button', { name: /Retomar|Resume/ }).first()
-    if (await offer.isVisible({ timeout: 5_000 }).catch(() => false)) await offer.click()
+    if (await offer.waitFor({ state: 'visible', timeout: 5_000 }).then(() => true, () => false)) await offer.click()
     await expect(panes(page)).toHaveCount(6, { timeout: 20_000 })
     await expect.soft.poll(() => launches(log).filter(l => l.resumed).length, { timeout: 30_000, message: 'five CLIs were started on their earlier session' }).toBe(5)
     // What each pane did, for a failure that is not obvious (CI): main's outcome, and every CLI start since reopening.
@@ -174,7 +174,9 @@ test('S2: six agent panes, started both ways, come back on their own sessions or
         await expect.soft(details, '… the fresh pane says why the earlier session was not resumed').toContainText(/não está mais no disco|no longer on disk/i)
         await expect.soft(details, '… and does not offer the deleted id as its session').not.toContainText(new RegExp(`(Sessão do agente|Agent session)\\W*${before.sessionId}`))
       } else {
-        await expect.soft(details, `… with the native id used for the resume (${before.sessionId})`).toContainText(new RegExp(`(Sessão do agente|Agent session)[\\s\\S]{0,120}${before.sessionId}`))
+        // Shown whole or shortened in the middle (first 8 … last 8), as Details does since #311.
+        const id = before.sessionId
+        await expect.soft(details, `… with the native id used for the resume (${id})`).toContainText(new RegExp(`(Sessão do agente|Agent session)[\\s\\S]{0,120}(${id}|${id.slice(0, 8)}…${id.slice(-8)})`))
       }
       await page.keyboard.press('Escape')
       await expect(details).toBeHidden()
@@ -217,7 +219,7 @@ test('S2: a split past the capacity closes cleanly', async () => {
       const close = page.getByRole('menuitem', { name: /^Fechar/ }).first()
       await close.click()
       const confirm = page.getByRole('dialog').getByRole('button', { name: /^Fechar|Encerrar/ })
-      if (await confirm.isVisible({ timeout: 1_000 }).catch(() => false)) await confirm.click()
+      if (await confirm.waitFor({ state: 'visible', timeout: 1_000 }).then(() => true, () => false)) await confirm.click()
       await expect(panes(page), `closing at ${n} panes removes one ${(out.join('').match(/UNIQUE constraint[^\n]*/) ?? [''])[0]}`).toHaveCount(n - 1, { timeout: 5_000 })
     }
     expect(out.join('').match(/UNIQUE constraint[^\n]*/g) ?? [], 'no database error in main').toEqual([])
