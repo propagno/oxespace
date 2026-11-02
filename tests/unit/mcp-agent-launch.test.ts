@@ -49,8 +49,19 @@ describe('MCP servers for an agent started in a Code terminal', () => {
   it('leaves the person\'s own servers to Claude\'s .mcp.json, and turns on tool search unless the person set it', async () => {
     const launch = await codeAgentMcpLaunch(db, 'claude', '/bridge.cjs', 'w1', [], {})
     expect(Object.keys((JSON.parse(launch.args[launch.args.indexOf('--mcp-config') + 1]) as { mcpServers: object }).mcpServers)).toEqual(['oxespace-delegation'])
-    expect(launch.env).toEqual({ ENABLE_TOOL_SEARCH: 'true' })
-    expect((await codeAgentMcpLaunch(db, 'claude', '/bridge.cjs', 'w1', [], { ENABLE_TOOL_SEARCH: 'false' })).env).toEqual({})
+    // OXESPACE_PANE_BRIDGE: the .mcp.json entry Claude also loads steps aside, so the pane has one OXESpace server.
+    const token = expect.stringMatching(/^[0-9a-f-]{36}$/)
+    expect(launch.env).toEqual({ ENABLE_TOOL_SEARCH: 'true', OXESPACE_PANE_BRIDGE: token })
+    const plain = await codeAgentMcpLaunch(db, 'claude', '/bridge.cjs', 'w1', [], { ENABLE_TOOL_SEARCH: 'false' })
+    expect(plain.env).toEqual({ OXESPACE_PANE_BRIDGE: token })
+    // A fresh token per launch: one launch's claim never silences another's entry.
+    expect(plain.env?.OXESPACE_PANE_BRIDGE).not.toBe(launch.env?.OXESPACE_PANE_BRIDGE)
+  })
+
+  it('asks the .mcp.json entry to step aside only for Claude, which loads it next to its own bridge', async () => {
+    expect((await codeAgentMcpLaunch(db, 'codex', '/bridge.cjs', 'w1', [], {})).env).not.toHaveProperty('OXESPACE_PANE_BRIDGE')
+    // Copilot gets no bridge of its own here: the .mcp.json entry is its only OXESpace server.
+    expect((await codeAgentMcpLaunch(db, 'copilot', '/bridge.cjs', 'w1', [], {})).env).not.toHaveProperty('OXESPACE_PANE_BRIDGE')
   })
 
   it('still starts the agent when the servers cannot be read', async () => {
