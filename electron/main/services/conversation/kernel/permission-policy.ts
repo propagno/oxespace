@@ -159,8 +159,11 @@ export function evaluatePermission(
     // Only a plain read from the built-in safe list (cat AGENTS.md) that names one is still answered.
     const part = parts[parts.length - 1]
     const target = commandWritesProtected(command) ?? commandMentionsProtected(command)
-    const rewriter = commandRewritesTracked(command)
-    const plainRead = part.decision === 'allow' && outside.length === 0 && isPlainSafeRead(command)
+    // The root reads an absolute copy destination (`rsync -a tmp/ C:\repo`) as the project's own folder; the caller's
+    // folder check tells a moved folder (`mv dist .`) from a moved file.
+    const copy = { root: rootPath, isDirectory: options.isDirectory }
+    const rewriter = commandRewritesTracked(command, copy)
+    const plainRead = part.decision === 'allow' && outside.length === 0 && isPlainSafeRead(command, copy)
     if (part.decision !== 'deny' && !part.guarded && ((target && !plainRead) || rewriter)) {
       const reasons = [...(target && !plainRead ? [protectedConfigReason(target.path, target.kind)] : []), ...(rewriter ? [rewritesTrackedReason(rewriter)] : [])]
       const reasonCodes = [...(target && !plainRead ? [protectedConfigNote(target.path, target.kind)] : []), ...(rewriter ? [rewritesTrackedNote(rewriter)] : [])]

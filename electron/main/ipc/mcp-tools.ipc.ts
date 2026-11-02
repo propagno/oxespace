@@ -3,7 +3,7 @@ import type { AppDatabase } from '../db'
 import type { FileSystemService } from '../services/file-system.service'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { CONFIGURABLE_MCP_TOOL_GROUPS, MCP_TOOL_GROUP_MODES } from '../../../shared/types/mcp-tools'
-import { parseOneOf, requireAppFrame } from './ipc-guards'
+import { parseOneOf } from './ipc-guards'
 
 function rootPathOf(value: unknown): string {
   if (typeof value !== 'string' || !value.trim() || value.length > 4096 || value.includes('\0')) throw new Error('Invalid project folder')
@@ -19,8 +19,7 @@ function fieldsOf(value: unknown, allowed: readonly string[]): Record<string, un
 /** Settings › Tools (F10): read the groups of a project, and set one group's mode. The service loads on first use. */
 export function registerMcpToolsIpc(db: AppDatabase, files: FileSystemService): void {
   const service = () => import('../services/mcp-tool-groups')
-  ipcMain.handle(IPC_CHANNELS.mcpInternal.toolGroups, async (event, value: unknown) => {
-    requireAppFrame(event, 'Tool groups')
+  ipcMain.handle(IPC_CHANNELS.mcpInternal.toolGroups, async (_event, value: unknown) => {
     const input = value === undefined || value === null ? {} : fieldsOf(value, ['rootPath'])
     const groups = await service()
     if (input.rootPath === undefined) return groups.toolGroupsReport(null)
@@ -29,8 +28,7 @@ export function registerMcpToolsIpc(db: AppDatabase, files: FileSystemService): 
     groups.requireRegisteredProject(db, rootPath)
     return groups.toolGroupsReport(rootPath)
   })
-  ipcMain.handle(IPC_CHANNELS.mcpInternal.setToolGroupMode, async (event, value: unknown) => {
-    requireAppFrame(event, 'Tool groups')
+  ipcMain.handle(IPC_CHANNELS.mcpInternal.setToolGroupMode, async (_event, value: unknown) => {
     const input = fieldsOf(value, ['rootPath', 'group', 'mode'])
     return (await service()).setToolGroupMode(db, files, {
       rootPath: rootPathOf(input.rootPath),

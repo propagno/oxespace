@@ -75,7 +75,11 @@ test('B12: every registered handler is guarded (contract walk over IPC_CHANNELS)
       guest.webContents.close()
       return open
     })
-    // The exception list (channels meant for any frame) is expected to be empty or documented; anything else fails.
-    expect(accepted, 'handlers that accept a guest sender').toEqual([])
+    // Channels registered by Electron itself and by electron-log are not the app's IPC_CHANNELS; they are listed, not
+    // failed (a guest frame has no preload to reach them). Every app channel must refuse a guest sender.
+    const FRAMEWORK = /^(IMPORT_SHARED_TEXTURE_|ELECTRON_|__ELECTRON_LOG__)/
+    const appOpen = accepted.filter(c => !FRAMEWORK.test(c))
+    console.log('B12-FRAMEWORK-CHANNELS', JSON.stringify(accepted.filter(c => FRAMEWORK.test(c))))
+    expect(appOpen, 'app handlers that accept a guest sender').toEqual([])
   } finally { await app.evaluate(({ app }) => app.exit(0)).catch(() => undefined) }
 })

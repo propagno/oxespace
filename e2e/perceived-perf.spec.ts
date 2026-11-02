@@ -395,14 +395,6 @@ function gateChecks(round: Results): Check[] {
 // CI runs this spec both in the E2E step (CI=true) and in the performance gate step (OXESPACE_PERF_GATE=1).
 const CONFIRM = (process.env.CI === 'true' || process.env.OXESPACE_PERF_GATE === '1') && process.env.OXESPACE_PERF_CONFIRM !== '0'
 
-/**
- * F7.3: the one temporary exception. OxeChat (Thread) cold first content regressed from ~330 ms to ~377 ms after
- * bb76b6e9 (bisect in progress). Until the fix, that single check is advisory on pull requests (a warning annotation
- * with the number) and stays blocking on push to main; every other check blocks everywhere and no baseline moves.
- * It expires before the RC: past `expires` the gate fails until the fix lands and this is removed.
- */
-const ADVISORY = { item: 'F7.3', label: 'OxeChat (Thread) cold: first content', expires: '2026-11-07' } as const
-const advisoryHere = (check: Check): boolean => process.env.GITHUB_EVENT_NAME === 'pull_request' && check.label.startsWith(ADVISORY.label)
 
 async function measureRound(): Promise<void> {
   for (let i = 0; i < LAUNCHES; i++) {
@@ -412,6 +404,8 @@ async function measureRound(): Promise<void> {
 }
 
 test('perceived performance: first feedback, first content and blank time per surface', async () => {
+  // A packaged_smoke_only dispatch proves the packaged binary; PR and main runs keep this gate (ci.yml).
+  test.skip(process.env.OXESPACE_PACKAGED_SMOKE === 'true', 'packaged smoke dispatch: perf budgets are gated on PR and main runs')
   test.setTimeout((CONFIRM ? 36 : 20) * 60_000)
   await measureRound()
   if (CAPTURE) {
@@ -433,15 +427,8 @@ test('perceived performance: first feedback, first content and blank time per su
     const failed = over(check) && (!second || !again || over(again))
     if (second && over(check)) console.log(`[CONFIRM] ${check.label}: round 1 ${check.value.toFixed(0)}, round 2 ${again ? again.value.toFixed(0) : 'n/a'} (limit ${check.limit.toFixed(0)}) → ${failed ? 'regression' : 'runner noise'}`)
     const shown = again ? `${check.label} (round 1 ${check.value.toFixed(0)}, round 2 ${again.value.toFixed(0)})` : check.label
-    if (failed && advisoryHere(check)) {
-      // GitHub annotation: visible on the PR, never a failure there; push to main still fails.
-      console.log(`::warning title=F7.3 OxeChat cold first content (advisory on PRs until ${ADVISORY.expires})::${shown}: ${Math.max(check.value, again?.value ?? -Infinity).toFixed(0)} ms, limit ${check.limit.toFixed(0)} ms`)
-      continue
-    }
     expect.soft(failed ? Math.max(check.value, again?.value ?? -Infinity) : Math.min(check.value, check.limit), shown).toBeLessThanOrEqual(check.limit)
   }
-  // The exception must not outlive its fix: past the date the whole gate fails, everywhere, until it is removed.
-  expect(Date.now(), `the F7.3 advisory exception expired on ${ADVISORY.expires}: fix OxeChat cold first content and remove ADVISORY`).toBeLessThan(Date.parse(`${ADVISORY.expires}T00:00:00Z`))
 })
 
 /**

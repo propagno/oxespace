@@ -105,13 +105,15 @@ export interface SegmentedControlProps<T extends string> {
   options: Array<{ value: T; label: ReactNode; icon?: ReactNode; tone?: 'danger' }>
   label: string
   className?: string
+  /** Off while a change saves: the options read as unavailable instead of ignoring a click. */
+  disabled?: boolean
 }
 
 /** A few mutually exclusive choices shown side by side; arrow keys move between them. Each option is a 24 px target at least. */
-export function SegmentedControl<T extends string>({ value, onChange, options, label, className }: SegmentedControlProps<T>): ReactElement {
+export function SegmentedControl<T extends string>({ value, onChange, options, label, className, disabled = false }: SegmentedControlProps<T>): ReactElement {
   const move = radioKeys(options, onChange)
-  return <div role="radiogroup" aria-label={label} className={cx(styles.segmented, className)}>
-    {options.map((option, index) => <button key={option.value} type="button" role="radio" data-value={option.value} data-tone={option.tone} aria-checked={option.value === value} tabIndex={option.value === value ? 0 : -1}
+  return <div role="radiogroup" aria-label={label} aria-disabled={disabled || undefined} className={cx(styles.segmented, className)}>
+    {options.map((option, index) => <button key={option.value} type="button" role="radio" data-value={option.value} data-tone={option.tone} aria-checked={option.value === value} tabIndex={option.value === value ? 0 : -1} disabled={disabled}
       className={styles.segment} onClick={() => onChange(option.value)} onKeyDown={event => move(event, index)}>{option.icon}{option.label}</button>)}
   </div>
 }
