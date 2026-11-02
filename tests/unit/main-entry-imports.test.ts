@@ -14,6 +14,7 @@ const ENTRY = join(ROOT, 'electron', 'main', 'index.ts')
 
 /** Loaded on demand, each by the module named; the entry must not reach them statically. */
 const ON_DEMAND: Array<{ module: string; loadedBy: string }> = [
+  { module: 'electron/main/services/open-in.ts', loadedBy: 'ipc/app-info.ipc.ts, first open-in request' },
   { module: 'electron/main/services/voice.service.ts', loadedBy: 'ipc/voice.ipc.ts, first voice request' },
   { module: 'electron/main/services/session-search/index.ts', loadedBy: 'ipc/session.ipc.ts, first session search' },
   { module: 'electron/main/services/oxe.service.ts', loadedBy: 'ipc/oxe.ipc.ts, first OXE request' },

@@ -87,7 +87,8 @@ export function editorEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
 
 /** The argument list for an editor: at the line (and column) when there is one. The file is always absolute. */
 export function editorArgs(id: OpenInEditorId, file: string, line?: number, column?: number): string[] {
-  if (line === undefined) return [file]
+  // A name with ":" (allowed on Linux) would be misread as file:line, so such a file opens at the top (BACKEND #454).
+  if (line === undefined || file.slice(/^[A-Za-z]:/.test(file) ? 2 : 0).includes(':')) return [file]
   const at = `${file}:${line}:${column ?? 1}`
   return id === 'zed' ? [at] : ['--goto', at]
 }
@@ -100,6 +101,14 @@ function inside(root: string, target: string): boolean {
   const base = normalize(root)
   const prefix = base.endsWith(sep) ? base : `${base}${sep}`
   return target === base || target.startsWith(prefix)
+}
+
+/**
+ * The as-written check: on Windows a path typed in another case than the root still names a place inside it. Only a
+ * pre-check; the decision is `inside` on two real paths, which carry the true case (BACKEND #454).
+ */
+function insideAsWritten(root: string, target: string, platform: NodeJS.Platform): boolean {
+  return platform === 'win32' ? inside(root.toLowerCase(), target.toLowerCase()) : inside(root, target)
 }
 
 function position(value: unknown, name: string): number | undefined {
@@ -156,7 +165,7 @@ export class OpenInService {
 
   setPreference(value: unknown): OpenInTargets {
     if (!isOpenInPreference(value)) throw new Error('Invalid open-in preference')
-    try { writeFileSync(this.deps.preferenceFile, JSON.stringify({ preferred: value })) } catch { /* kept for this run only */ }
+    try { writeFileSync(this.deps.preferenceFile, JSON.stringify({ preferred: value })) } catch { /* not saved: the next read falls back to auto */ }
     return { ...this.targets(), preferred: value }
   }
 
@@ -177,7 +186,7 @@ export class OpenInService {
     }
     const written = resolve(root, input.path)
     // As written first: a path that names a place outside never reports whether it exists.
-    if (!inside(root, written) && !inside(resolve(registered), written)) refuse('app.openIn.outsideRoot', 'Path outside the workspace')
+    if (!insideAsWritten(root, written, this.deps.platform) && !insideAsWritten(resolve(registered), written, this.deps.platform)) refuse('app.openIn.outsideRoot', 'Path outside the workspace')
     let file: string
     try {
       file = await realpath(written)

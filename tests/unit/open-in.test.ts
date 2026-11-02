@@ -197,6 +197,11 @@ describe('where editors are looked for', () => {
     expect(editorArgs('vscode', '/p/a.ts')).toEqual(['/p/a.ts'])
     expect(editorArgs('cursor', '/p/a.ts', 3)).toEqual(['--goto', '/p/a.ts:3:1'])
     expect(editorArgs('zed', '/p/a.ts', 3, 9)).toEqual(['/p/a.ts:3:9'])
+    // A name with ":" would be misread as file:line: it opens at the top instead.
+    expect(editorArgs('vscode', '/p/a:b.ts', 3)).toEqual(['/p/a:b.ts'])
+    expect(editorArgs('zed', '/p/a:b.ts', 3)).toEqual(['/p/a:b.ts'])
+    // A Windows drive's colon is not a name with ":".
+    expect(editorArgs('vscode', String.raw`C:\p\a.ts`, 3)).toEqual(['--goto', String.raw`C:\p\a.ts:3:1`])
   })
 
   it('never hands an editor the run-as-Node switch, Node options or OXESpace variables', () => {

@@ -3,6 +3,9 @@ import { join, relative } from 'node:path'
 import { describe, expect, test } from 'vitest'
 
 const ALLOWED_FS_IMPORTS = new Set([
+  // B18: realpaths and stats only to authorize a workspace path and check an editor executable; reads and writes
+  // only <userData>/open-in.json.
+  'electron/main/services/open-in.ts',
   'electron/main/services/file-system.service.ts',
   'electron/main/services/agent.service.ts',
   'electron/main/services/background.service.ts',
