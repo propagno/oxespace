@@ -24,7 +24,15 @@ async function switchTo(page: Page, from: string, to: string, how: 'click' | str
         const t = performance.now() - w.__t0
         const main = document.querySelector('main') ?? document.body
         const oldV = document.querySelector(`[data-view="${from}"]`), newV = [...document.querySelectorAll(`[data-view="${to}"]`)].find(visible) ?? null
-        w.__s.push({
+        // DIAG (FE, F7.2 follow-up): on a frame with neither view up, every [data-view] host as the browser sees it.
+        const empty = !visible(oldV) && !newV
+        const hosts = empty ? [...document.querySelectorAll('[data-view]')].map(e => {
+          const cs = getComputedStyle(e); const r = e.getBoundingClientRect()
+          return { view: e.getAttribute('data-view'), visibility: cs.visibility, display: cs.display, contentVisibility: cs.getPropertyValue('content-visibility'), opacity: cs.opacity,
+            position: cs.position, offsetParentNull: (e as HTMLElement).offsetParent === null, hidden: (e as HTMLElement).hidden, inert: (e as HTMLElement).inert, ariaHidden: e.getAttribute('aria-hidden'),
+            rect: [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)], cls: String((e as HTMLElement).className).slice(0, 60) }
+        }) : undefined
+        w.__s.push({ ...(hosts ? { hosts } : {}),
           t, pressed: document.querySelector(`button[data-app-mode="${to}"]`)?.getAttribute('aria-pressed') === 'true',
           oldUp: visible(oldV), newUp: !!newV,
           skeleton: [...main.querySelectorAll('[data-skeleton]')].some(visible), brand: [...main.querySelectorAll('[data-brand-loader]')].some(visible),
@@ -72,6 +80,8 @@ for (const motion of ['full', 'reduce'] as const) {
             oldGone: before.some(x => !x.oldUp), dimmed: s.some(x => x.dimmed), brand: s.some(x => x.brand),
             earlySkeleton: s.some(x => x.skeleton && x.t < 300), fading: s.some(x => x.fading) }
           rows.push(JSON.stringify(row))
+          const emptyFrames = s.filter(x => (x as Sample & { hosts?: unknown }).hosts)
+          if (emptyFrames.length) rows.push('EMPTY ' + JSON.stringify({ round, to, motion, frameTimes: s.map(x => Math.round(x.t)), empty: emptyFrames.map(x => ({ t: Math.round(x.t), hosts: (x as Sample & { hosts?: unknown }).hosts })) }))
           expect.soft(first?.pressed, `${round} ${to} (${how}): pressed in the first frame`).toBe(true)
           expect.soft(commit, `${round} ${to}: the new view comes up`).toBeLessThan(2_500)
           expect.soft(row.oldGone, `${round} ${to}: the old view stays until the new one is up`).toBe(false)
