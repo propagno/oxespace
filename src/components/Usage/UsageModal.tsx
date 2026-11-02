@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import { RefreshCw } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { i18n } from '../../i18n'
 import type { AgentCreditsSnapshot, CreditsWindow } from '../../../shared/types/agentCredits'
 import type { CopilotCredits } from '../../../shared/types/copilot'
 import { Badge, Button, Dialog, Meter } from '../../ui'
@@ -12,20 +14,19 @@ interface UsageModalProps {
 }
 
 function fmtReset(ms: number | null): string {
-  if (!ms) return 'Reset time unknown'
+  if (!ms) return i18n.t('usage.resetUnknown')
   const diff = ms - Date.now()
-  if (diff <= 0) return 'Resetting'
+  if (diff <= 0) return i18n.t('usage.resetting')
   const minutes = Math.floor(diff / 60_000)
   const hours = Math.floor(minutes / 60)
   const days = Math.floor(hours / 24)
-  if (days >= 1) return `Resets in ${days}d`
-  if (hours >= 1) return `Resets in ${hours}h`
-  return `Resets in ${Math.max(1, minutes)}m`
+  return i18n.t('usage.resetsIn', { time: days >= 1 ? `${days}d` : hours >= 1 ? `${hours}h` : `${Math.max(1, minutes)}m` })
 }
 
 function WindowRow({ window }: { window: CreditsWindow }): ReactElement {
+  const { t } = useTranslation()
   return <div className={styles.window} data-testid="usage-window">
-    <Meter label={window.kind === 'session' ? 'Current session' : 'Current week'} value={Math.round(window.usedPct)} detail={`${Math.round(window.usedPct)}% used`} />
+    <Meter label={window.kind === 'session' ? t('usage.session') : t('usage.week')} value={Math.round(window.usedPct)} detail={t('usage.used', { percent: Math.round(window.usedPct) })} />
     <span className={styles.note} title={window.resetsAtMs ? formatDateTime(window.resetsAtMs) : undefined}>{fmtReset(window.resetsAtMs)}</span>
   </div>
 }
@@ -39,34 +40,37 @@ function Card({ title, meta, testId, children, footer }: { title: string; meta?:
 }
 
 function ProviderCard({ title, snapshot }: { title: string; snapshot: AgentCreditsSnapshot | null }): ReactElement {
-  const source = snapshot?.source === 'oauth' ? 'Claude account' : snapshot?.source === 'local-session' ? 'Latest local Codex session' : 'Account-wide quota'
-  const checked = snapshot?.observedAtMs ? ` · checked ${formatDateTime(snapshot.observedAtMs, { hour: '2-digit', minute: '2-digit' })}` : ''
+  const { t } = useTranslation()
+  const source = snapshot?.source === 'oauth' ? t('usage.source.oauth') : snapshot?.source === 'local-session' ? t('usage.source.local') : t('usage.source.account')
+  const checked = snapshot?.observedAtMs ? ` · ${t('usage.checked', { time: formatDateTime(snapshot.observedAtMs, { hour: '2-digit', minute: '2-digit' }) })}` : ''
   return <Card title={title} testId={`usage-card-${title.toLowerCase()}`}
-    meta={snapshot?.stale ? <Badge intent="warning">Last known reading</Badge> : snapshot?.planLabel ? <Badge>{snapshot.planLabel}</Badge> : <Badge>Subscription</Badge>}
-    footer={<>{snapshot?.stale && <span className={styles.stale}>Could not refresh. Showing the last known reading.</span>}<span>{source}{checked}</span></>}>
-    {!snapshot || !snapshot.installed ? <p className={styles.note}>Not detected on this machine.</p>
+    meta={snapshot?.stale ? <Badge intent="warning">{t('usage.lastKnown')}</Badge> : snapshot?.planLabel ? <Badge>{snapshot.planLabel}</Badge> : <Badge>{t('usage.subscription')}</Badge>}
+    footer={<>{snapshot?.stale && <span className={styles.stale}>{t('usage.stale')}</span>}<span>{source}{checked}</span></>}>
+    {!snapshot || !snapshot.installed ? <p className={styles.note}>{t('usage.notDetected')}</p>
       : snapshot.error && !snapshot.stale ? <p className={styles.error}>{snapshot.error}</p>
-      : snapshot.windows.length === 0 ? <p className={styles.note}>No quota reported.</p>
+      : snapshot.windows.length === 0 ? <p className={styles.note}>{t('usage.noQuota')}</p>
       : snapshot.windows.map(window => <WindowRow key={window.kind} window={window} />)}
   </Card>
 }
 
 function CopilotCard({ credits }: { credits: CopilotCredits | null }): ReactElement {
+  const { t } = useTranslation()
   return <Card title="Copilot" testId="usage-card-copilot" meta={credits?.plan ? <Badge>{credits.plan}</Badge> : undefined}>
-    {!credits || !credits.installed ? <p className={styles.note}>gh CLI not detected.</p>
+    {!credits || !credits.installed ? <p className={styles.note}>{t('usage.ghMissing')}</p>
       : credits.error ? <p className={styles.error}>{credits.error}</p>
-      : !credits.credits ? <p className={styles.note}>No allowance reported.</p>
-      : credits.credits.unlimited ? <p className={styles.note}>Unlimited on this plan.</p>
+      : !credits.credits ? <p className={styles.note}>{t('usage.noAllowance')}</p>
+      : credits.credits.unlimited ? <p className={styles.note}>{t('usage.unlimited')}</p>
       : <div className={styles.window} data-testid="usage-window">
-        <Meter label="AI credits" value={Math.round(credits.credits.usedPct)} detail={`${Math.round(credits.credits.usedPct)}% used`} />
-        {credits.resetDate && <span className={styles.note}>Resets {credits.resetDate}</span>}
-        <span className={styles.note}>{credits.credits.remaining} / {credits.credits.entitlement} remaining</span>
+        <Meter label={t('usage.credits')} value={Math.round(credits.credits.usedPct)} detail={t('usage.used', { percent: Math.round(credits.credits.usedPct) })} />
+        {credits.resetDate && <span className={styles.note}>{t('usage.resets', { date: credits.resetDate })}</span>}
+        <span className={styles.note}>{t('usage.remaining', { remaining: credits.credits.remaining, total: credits.credits.entitlement })}</span>
       </div>}
   </Card>
 }
 
 /** Subscription limits of each provider (Claude, Codex, Copilot) with reset times. */
 export function UsageModal({ open, onOpenChange }: UsageModalProps): ReactElement | null {
+  const { t } = useTranslation()
   const [claude, setClaude] = useState<AgentCreditsSnapshot | null>(null)
   const [codex, setCodex] = useState<AgentCreditsSnapshot | null>(null)
   const [copilot, setCopilot] = useState<CopilotCredits | null>(null)
@@ -103,12 +107,12 @@ export function UsageModal({ open, onOpenChange }: UsageModalProps): ReactElemen
   }, [open, refreshRevision])
 
   if (!open) return null
-  return <Dialog title="Usage & rate limits" size="lg" testId="usage-modal" onClose={() => onOpenChange(false)}
-    description={loading ? 'Reading provider quotas…' : 'Subscription limits reported by each provider. Percentages show allowance used, not remaining.'}
-    footer={<span className={styles.footnote}>Subscription quota differs from a conversation’s token and context usage.</span>}>
+  return <Dialog title={t('usage.title')} size="lg" testId="usage-modal" onClose={() => onOpenChange(false)}
+    description={loading ? t('usage.reading') : t('usage.description')}
+    footer={<span className={styles.footnote}>{t('usage.footnote')}</span>}>
     <div className={styles.toolbar}>
-      <span>Reset times use your local time zone</span>
-      <Button size="sm" icon={<RefreshCw size={14} className={loading ? styles.spin : undefined} aria-hidden="true" />} disabled={loading} onClick={() => setRefreshRevision(value => value + 1)}>Refresh</Button>
+      <span>{t('usage.timeZone')}</span>
+      <Button size="sm" icon={<RefreshCw size={14} className={loading ? styles.spin : undefined} aria-hidden="true" />} disabled={loading} onClick={() => setRefreshRevision(value => value + 1)}>{t('usage.refresh')}</Button>
     </div>
     <div className={styles.roster}>
       <ProviderCard title="Claude" snapshot={claude} />

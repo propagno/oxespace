@@ -3,7 +3,7 @@
  * who decided what. Rules are per project (`projectRoot`) or global (null).
  */
 import { randomUUID } from 'node:crypto'
-import { realpathSync } from 'node:fs'
+import { realpathSync, statSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import type { AppDatabase } from '../../db'
 import type { ThreadAuditEntry, ThreadPermissionRule, ThreadRequest, ThreadRequestPolicy } from '../../../../shared/types/thread'
@@ -15,6 +15,11 @@ import { warmShellParser } from './shell-parse'
  * through its nearest existing folder, so a new file under a junction that
  * points outside the project is still seen as outside.
  */
+/** Whether a path is an existing folder, for telling a moved folder from a moved file. */
+function isDirectory(path: string): boolean {
+  try { return statSync(path).isDirectory() } catch { return false }
+}
+
 function realpath(path: string): string {
   const rest: string[] = []
   let current = path
@@ -87,7 +92,7 @@ export class ThreadPermissionStore {
   /** The policy verdict for an approval in a project; undefined when no rule can reason about it. */
   evaluate(projectRoot: string, request: Pick<ThreadRequest, 'kind' | 'command' | 'paths' | 'toolName'>): ThreadRequestPolicy | undefined {
     if (request.kind !== 'approval') return undefined
-    return evaluatePermission(request, projectRoot, this.rules(projectRoot), { realpath }, { readOnlyList: this.autoApproveReads() })
+    return evaluatePermission(request, projectRoot, this.rules(projectRoot), { realpath, isDirectory }, { readOnlyList: this.autoApproveReads() })
   }
 
   /**

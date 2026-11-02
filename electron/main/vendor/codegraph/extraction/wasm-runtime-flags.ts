@@ -90,6 +90,8 @@ export function buildRelaunchArgv(
  * OOM is still better than refusing to start.
  */
 export function relaunchWithWasmRuntimeFlagsIfNeeded(scriptPath: string): void {
+  // OXESpace (B13): never relaunch the Electron binary as Node (RunAsNode fuse off); run in-process instead.
+  if (process.versions.electron) return;
   if (processHasWasmRuntimeFlags()) return;
   if (process.env[RELAUNCH_GUARD_ENV]) return;
   if (process.env.CODEGRAPH_NO_RELAUNCH) return;

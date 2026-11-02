@@ -2,7 +2,7 @@ import { ipcMain } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { ContextUsageInput } from '../../../shared/types/contextUsage'
 import { ContextUsageService } from '../services/contextUsage'
-import { parseRecord, parseText, parseToken, requireAppFrame } from './ipc-guards'
+import { parseRecord, parseText, parseToken } from './ipc-guards'
 
 /**
  * Renderer-facing IPC for the live context-window % chip.
@@ -10,7 +10,6 @@ import { parseRecord, parseText, parseToken, requireAppFrame } from './ipc-guard
  */
 export function registerContextUsageIpc(service = new ContextUsageService()): ContextUsageService {
   ipcMain.handle(IPC_CHANNELS.contextUsage.get, (event, value: unknown) => {
-    requireAppFrame(event, 'Context usage')
     const input = parseRecord(value, 'Context usage request')
     const rootPath = parseText(input.workspaceRootPath, 'Workspace root', 4096)
     if (!rootPath) throw new Error('Workspace root must not be empty')

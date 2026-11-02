@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { errorText, humanizeError } from '../utils/humanizeError'
+import { i18n } from '../i18n'
 import type {
   GitHubBranch,
   GitHubCheckpoint,
@@ -199,7 +200,7 @@ export const useGitHubStore = create<GitHubStoreState>((set, get) => ({
       : { loading: true, error: null, lastMessage: null })
     try {
       const result = await window.oxe.github.generateCommitMessage(input)
-      setWorkspace(set, input.workspaceId, { loading: false, refreshing: false, lastMessage: 'Mensagem de commit gerada.' })
+      setWorkspace(set, input.workspaceId, { loading: false, refreshing: false, lastMessage: i18n.t('github.commitMessageGenerated', { ns: 'code' }) })
       return result.message
     } catch (error) {
       const message = sanitizeIpcError(error)
@@ -217,7 +218,7 @@ export const useGitHubStore = create<GitHubStoreState>((set, get) => ({
   rerunRun: async (input) => runMutation(set, input.workspaceId, () => window.oxe.github.rerunRun({ rootPath: input.rootPath, runId: input.runId, failedOnly: input.failedOnly }), () => get().loadTab(input, 'actions')),
   createCheckpoint: async (input) => runMutation(set, input.workspaceId, async () => {
     await window.oxe.github.createCheckpoint(input)
-    return { ok: true, message: 'Checkpoint criado.' }
+    return { ok: true, message: i18n.t('github.checkpointCreated', { ns: 'code' }) }
   }, () => get().loadTab(input, 'checkpoints')),
   restoreCheckpoint: async (input) => runMutation(set, input.workspaceId, () => window.oxe.github.restoreCheckpoint(input), () => get().loadStatus(input)),
   deleteCheckpoint: async (workspaceId, checkpointId) => runMutation(set, workspaceId, () => window.oxe.github.deleteCheckpoint({ checkpointId }), async () => {
@@ -226,7 +227,7 @@ export const useGitHubStore = create<GitHubStoreState>((set, get) => ({
   }),
   connectRepository: async (input) => runMutation(set, input.workspaceId, async () => {
     await window.oxe.github.connectRepository(input)
-    return { ok: true, message: 'Repository connected.' }
+    return { ok: true, message: i18n.t('github.repositoryConnected', { ns: 'code' }) }
   }, () => get().loadTab(input, 'repos')),
   loadCommitDetails: async (input) => {
     const hasCached = get().byWorkspace[input.workspaceId]?.commitDetails?.[input.oid] != null
@@ -352,7 +353,7 @@ async function runMutation(
 export function sanitizeIpcError(error: unknown): string {
   const message = errorText(error).replace(/\s+/g, ' ')
   if (/GitHub CLI not found|gh .*not.*found|spawn gh ENOENT/i.test(message)) {
-    return 'GitHub CLI not found. Install it from cli.github.com and run gh auth login.'
+    return i18n.t('github.cliMissing', { ns: 'code' })
   }
-  return humanizeError(message, 'Unexpected GitHub error')
+  return humanizeError(message, i18n.t('failures.unexpected.github'))
 }

@@ -17,19 +17,55 @@ const RANGES: ReadonlyArray<readonly [number, number]> = [
   [0x115f, 0x115f], [0x1160, 0x1160], [0x3164, 0x3164], [0xffa0, 0xffa0]
 ]
 
+/**
+ * Also hidden (homologation of #238): every Unicode Default_Ignorable_Code_Point (U+034F grapheme joiner among them),
+ * the C0 and C1 controls but tab, line feed and carriage return (NUL, backspace, ESC of an ANSI sequence), the line and
+ * paragraph separators U+2028 and U+2029, and U+2800, the braille blank that reads as a space.
+ */
+const CONTROLS: ReadonlyArray<readonly [number, number]> = [[0x00, 0x08], [0x0b, 0x0c], [0x0e, 0x1f], [0x7f, 0x9f]]
+const SEPARATORS: ReadonlyArray<readonly [number, number]> = [[0x2028, 0x2029], [0x2800, 0x2800]]
+
 const escape = (codePoint: number): string => `\\u{${codePoint.toString(16)}}`
+const ranges = (list: ReadonlyArray<readonly [number, number]>): string =>
+  list.map(([from, to]) => from === to ? escape(from) : `${escape(from)}-${escape(to)}`).join('')
 
 /**
  * The character class body, shared by the patterns below. It is built from the ranges, each code point an escape, so
  * the variation selectors are members on their own and never combine with the character before them.
  */
-const CLASS = '\\p{Cf}' + RANGES.map(([from, to]) => from === to ? escape(from) : `${escape(from)}-${escape(to)}`).join('')
+const CLASS = '\\p{Cf}\\p{Default_Ignorable_Code_Point}' + ranges([...RANGES, ...CONTROLS, ...SEPARATORS])
 
-/** Matches one hidden character (no `g` flag, so `.test` keeps no state). */
-export const HIDDEN_CHARACTERS = new RegExp(`[${CLASS}]`, 'u')
+/**
+ * The pattern, one hidden character per match. U+FE0E/FE0F right after a pictograph ("❤️") picks its style, so it is
+ * not hidden there; a carriage return is hidden alone ("echo safe\rrm -rf /" redraws the line), not as part of a CRLF
+ * line ending. Every U+200D matches here: the one exemption, a joiner inside a recognized emoji, is applied by the
+ * functions below (RGI_ZWJ_SEQUENCE), so this pattern alone is the stricter, fail-closed reading.
+ */
+const PATTERN = [
+  `(?![\\u{fe0e}\\u{fe0f}])[${CLASS}]`,
+  '(?<!\\p{Extended_Pictographic})[\\u{fe0e}\\u{fe0f}]',
+  '\\r(?!\\n)'
+].join('|')
+
+/** Matches one hidden character (no `g` flag, so `.test` keeps no state). Every ZWJ counts here; see above. */
+export const HIDDEN_CHARACTERS = new RegExp(PATTERN, 'u')
+
+/**
+ * T46 (SECURITY on #238): a ZWJ is part of an emoji only inside a sequence Unicode recommends (RGI), as the runtime's
+ * ICU knows them ("👨‍👩‍👧", "🏳️‍🌈", "🧑‍💻"). Two arbitrary pictographs joined ("🔥‍🔥", "©‍®") read the same as without the
+ * joiner, so that joiner stays hidden. A sequence the runtime does not know yet is marked: it fails closed. No table of
+ * our own: the property comes with the regex engine (`v` flag; Node 22 and Electron 44 support it).
+ */
+const RGI_ZWJ_SEQUENCE = new RegExp('\\p{RGI_Emoji_ZWJ_Sequence}', 'gv')
+
+/** The UTF-16 spans of the text that are recognized emoji ZWJ sequences, as [start, end). */
+function emojiSequenceSpans(text: string): Array<readonly [number, number]> {
+  if (!text.includes('‍')) return []
+  return [...text.matchAll(RGI_ZWJ_SEQUENCE)].map(match => [match.index ?? 0, (match.index ?? 0) + match[0].length] as const)
+}
 
 export function hasHiddenCharacters(text: string): boolean {
-  return HIDDEN_CHARACTERS.test(text)
+  return HIDDEN_CHARACTERS.test(text) && findHiddenCharacters(text).length > 0
 }
 
 export interface HiddenCharacter {
@@ -41,7 +77,13 @@ export interface HiddenCharacter {
 
 /** Every hidden character in the text, in order; the window draws a visible marker for each. */
 export function findHiddenCharacters(text: string): HiddenCharacter[] {
-  return [...text.matchAll(new RegExp(`[${CLASS}]`, 'gu'))].map(match => ({ index: match.index ?? 0, codePoint: match[0].codePointAt(0)! }))
+  // The joiners inside recognized emoji, by index: one pass over each span, so the whole check stays linear in the
+  // text (SECURITY on #436: a lookup per joiner over every span was quadratic on emoji-heavy agent text).
+  const inEmoji = new Set<number>()
+  for (const [start, end] of emojiSequenceSpans(text)) for (let index = text.indexOf('‍', start); index !== -1 && index < end; index = text.indexOf('‍', index + 1)) inEmoji.add(index)
+  return [...text.matchAll(new RegExp(PATTERN, 'gu'))]
+    .map(match => ({ index: match.index ?? 0, codePoint: match[0].codePointAt(0)! }))
+    .filter(found => !(found.codePoint === 0x200d && inEmoji.has(found.index)))
 }
 
 /** `U+202E`-style label for a code point. */

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { i18n } from '../i18n'
 import type { GitDiff, GitDiffFile } from '../../shared/types/git'
 import { humanizeError } from '../utils/humanizeError'
 
@@ -150,5 +151,5 @@ export function selectGitState(workspaceId: string) {
 // actually depends on.)
 
 function toMessage(error: unknown): string {
-  return humanizeError(error, 'Unexpected git error')
+  return humanizeError(error, i18n.t('failures.unexpected.git'))
 }

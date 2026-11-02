@@ -163,5 +163,8 @@ Dono de `src/**`, `shared/locales/**`, `e2e/visual/**`, `docs/design/**` e `mobi
 - Em cada grupo e servidor MCP, cada ferramenta com permitir / pedir aprovação / bloquear (B7.3).
 
 
-### Pendências conhecidas (F7 / F27)
-- **Monaco `inputLatency` no Linux da CI.** Em `e2e/close-guard.spec.ts`, ao digitar no editor, o Monaco às vezes lança `Cannot read properties of undefined (reading 'duration')` no `onKeyUp`: o `addMeasure` de `vs/base/browser/performance.js` lê `performance.getEntriesByName(nome)[0].duration` logo depois de medir, e a entrada não está lá. Nenhum código nosso limpa ou observa a timeline (só o próprio Monaco chama `clearMarks`/`clearMeasures`; as marcas do F7 são `oxe:preload:*`), e não reproduz no Windows. Visto uma vez no job Linux do #251. Se voltar: filtrar no spec só esse erro (mensagem com `reading 'duration'` **e** quadro do `inputLatency` do Monaco), com comentário apontando a causa upstream; nunca ignorar `pageerror` em bloco. Acompanhar no Monaco (microsoft/vscode) e remover o filtro quando corrigido.
+### F16 · Terminais em paralelo econômicos (M)
+- **Objetivo:** vários terminais com agentes rodando sem consumir a máquina.
+- **Escopo:** presença por pane (focado, visível, oculto) com o ritmo de saída do B2.3 (focado 16 ms, visível 100 ms, oculto sem envio); cursor piscando só no pane focado; WebGL priorizado no focado.
+- **Aceite (gate do bench, mediana de 5 janelas de 10 s):** cenário gravado (Claude Code + Codex reais, 6 panes) ≤ base × 0,75 (60,4% de um núcleo; base 80,5%); tecla→pintura no pane focado p95 ≤ 50 ms; pior caso sintético não piora em relação a antes da presença (≤ 106,7%).
+- **Fora do 1.4:** a meta de 64% no pior caso sintético e a meta original de 25% no cenário gravado ficam com o R1 (núcleo do terminal em Rust, protótipo com o BACKEND), porque o custo restante é o parse do xterm.

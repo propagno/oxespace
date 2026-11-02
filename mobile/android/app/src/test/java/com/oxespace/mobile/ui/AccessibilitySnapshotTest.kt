@@ -45,7 +45,10 @@ class AccessibilitySnapshotTest {
     }
 
     @Test
-    fun conversation() = paparazzi.snapshot { OxeTheme { ThreadScreen("t-1", Samples.timeline(), commands, Samples.presence, connected = true) {} } }
+    fun conversation() = paparazzi.snapshot {
+        // The real clock moved this golden every day ("20758 d ago"); the fixture's clock keeps it still.
+        OxeTheme { CompositionLocalProvider(LocalClock provides Samples.clock) { ThreadScreen("t-1", Samples.timeline(), commands, Samples.presence, connected = true) {} } }
+    }
 
     @Test
     fun riskyRequest() = paparazzi.snapshot { OxeTheme { RequestScreen(Samples.request(risky = true), commands) {} } }

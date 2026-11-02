@@ -141,31 +141,56 @@ describe('replacing a project file atomically (FileSystemService.replaceFile)', 
   })
 })
 
-describe('the workspace .mcp.json follows the project\'s tool groups (B7.2, M1 of #210)', () => {
-  it('leaves the internal entry as it was while no group is off', () => {
+describe('the workspace .mcp.json offers a Code terminal\'s plan, not every tool (B7.2; homologation check-182)', () => {
+  const enableableOf = (args: string[]) => args.includes('--enableable-groups') ? JSON.parse(args[args.indexOf('--enableable-groups') + 1]) as Record<string, string[]> : {}
+  const loadedChars = (report: Awaited<ReturnType<typeof toolGroupsReport>>, ids: string[]) =>
+    report.groups.filter(group => ids.includes(group.id)).reduce((sum, group) => sum + group.cost.claude.loaded.chars, 0)
+
+  it('offers core and the Code terminal\'s tools, and the on-demand groups through oxespace_tools_enable', () => {
     const { root, db } = project()
     withInternalServer(db)
     new McpConfigSync(db).syncWorkspace('A')
-    expect(internalArgs(root)).toEqual(['/bin/oxespace-mcp.cjs'])
+    const args = internalArgs(root)
+    expect(args[0]).toBe('/bin/oxespace-mcp.cjs')
+    const allowed = allowedOf(args)!
+    expect(allowed).toEqual(expect.arrayContaining([...MCP_TOOL_GROUPS.core, ...MCP_TOOL_GROUPS.code, 'oxespace_tools_enable']))
+    for (const group of ['orchestration', 'data', 'docs', 'app'] as const) for (const tool of MCP_TOOL_GROUPS[group]) expect(allowed, tool).not.toContain(tool)
+    expect(Object.keys(enableableOf(args)).sort()).toEqual(['app', 'data', 'docs', 'orchestration'])
   })
 
-  it('offers every tool but those of a group the project turned off, roles included', () => {
+  it('costs what an agent started in a Code terminal costs, not every definition (T8)', async () => {
+    const report = await toolGroupsReport(null)
+    // core + code: the plan an agent OXESpace starts in a Code terminal already gets (B2.2). T8's 9,000 characters are
+    // the plain conversation's budget (core alone), checked above.
+    const offered = loadedChars(report, ['core', 'code'])
+    const everything = report.groups.reduce((sum, group) => sum + group.cost.claude.loaded.chars, 0)
+    console.log(`[T8] .mcp.json tool text: before ${everything} chars (every group), after ${offered} chars (core + code)`)
+    expect(loadedChars(report, ['core'])).toBeLessThanOrEqual(9000)
+    expect(offered * 3).toBeLessThan(everything)
+  })
+
+  it('never offers a group the project turned off, and offers an always group from the start', () => {
     const { root, db } = project()
     withInternalServer(db)
-    writeFileSync(join(root, 'oxe.yaml'), 'thread:\n  tools:\n    data: off\n')
+    writeFileSync(join(root, 'oxe.yaml'), 'thread:\n  tools:\n    data: off\n    docs: always\n')
     new McpConfigSync(db).syncWorkspace('A')
-    const allowed = allowedOf(internalArgs(root))!
-    for (const tool of MCP_TOOL_GROUPS.data) expect(allowed, tool).not.toContain(tool)
-    for (const group of ['core', 'orchestration', 'docs', 'app', 'team', 'worker', 'code'] as const) expect(allowed).toEqual(expect.arrayContaining([...MCP_TOOL_GROUPS[group]]))
+    const args = internalArgs(root)
+    for (const tool of MCP_TOOL_GROUPS.data) expect(allowedOf(args), tool).not.toContain(tool)
+    expect(allowedOf(args)).toEqual(expect.arrayContaining([...MCP_TOOL_GROUPS.docs]))
+    expect(Object.keys(enableableOf(args)).sort()).toEqual(['app', 'orchestration'])
   })
 
-  it('rewrites the entry when Settings › Tools changes a mode', async () => {
+  it('rewrites the plan when Settings › Tools changes a mode, replacing the flags it wrote before', async () => {
     const { root, db, files } = project()
     withInternalServer(db)
     new McpConfigSync(db).syncWorkspace('A')
-    await setToolGroupMode(db, files, { rootPath: root, group: 'docs', mode: 'off' })
-    expect(allowedOf(internalArgs(root))).not.toContain('oxespace_open_web_preview')
     await setToolGroupMode(db, files, { rootPath: root, group: 'docs', mode: 'always' })
-    expect(internalArgs(root)).toEqual(['/bin/oxespace-mcp.cjs'])
+    let args = internalArgs(root)
+    expect(allowedOf(args)).toContain('oxespace_open_web_preview')
+    expect(args.filter(arg => arg === '--allowed-tools')).toHaveLength(1)
+    await setToolGroupMode(db, files, { rootPath: root, group: 'docs', mode: 'off' })
+    args = internalArgs(root)
+    expect(allowedOf(args)).not.toContain('oxespace_open_web_preview')
+    expect(enableableOf(args)).not.toHaveProperty('docs')
   })
 })

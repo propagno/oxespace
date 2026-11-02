@@ -21,11 +21,16 @@ import com.oxespace.mobile.pairing.PairingState
 import com.oxespace.mobile.protocol.RemotePane
 import com.oxespace.mobile.protocol.RemotePendingRequest
 import com.oxespace.mobile.protocol.live.LiveStreams
+import com.oxespace.mobile.protocol.live.ThreadTimeline
 import com.oxespace.mobile.protocol.live.TerminalBuffer
 import com.oxespace.mobile.session.DesktopStatus
+import com.oxespace.mobile.session.LiveRepository
 import com.oxespace.mobile.session.Watched
+import com.oxespace.mobile.ui.live.LiveHome
+import com.oxespace.mobile.ui.live.LiveTab
 import com.oxespace.mobile.ui.live.RequestScreen
 import com.oxespace.mobile.ui.live.TerminalScreen
+import com.oxespace.mobile.ui.live.ThreadScreen
 import com.oxespace.mobile.ui.pairing.PairingScreen
 import com.oxespace.mobile.ui.theme.OxeTheme
 import org.junit.After
@@ -50,7 +55,7 @@ class SecureAndLanguageOnDeviceTest {
         answerable = true, createdAt = 1,
     )
 
-    private enum class Shown { HOME, REQUEST, TERMINAL, VERIFICATION }
+    private enum class Shown { HOME, LIVE_THREADS, REQUEST, REQUESTS_TAB, THREAD, TERMINAL, SCANNING, VERIFICATION }
 
     private var shown by mutableStateOf(Shown.HOME)
 
@@ -63,8 +68,13 @@ class SecureAndLanguageOnDeviceTest {
         OxeTheme {
             when (shown) {
                 Shown.HOME -> HomeScreen(DesktopStatus.Unpaired(), {}, {}, { true }, {})
+                // The threads tab lists titles only: an ordinary screen.
+                Shown.LIVE_THREADS -> LiveHome("Studio", null, LiveRepository(), {}, {}, {}, {}, {})
                 Shown.REQUEST -> RequestScreen(request, commands) {}
+                Shown.REQUESTS_TAB -> LiveHome("Studio", null, LiveRepository(), {}, {}, {}, {}, {}, initialTab = LiveTab.REQUESTS)
+                Shown.THREAD -> ThreadScreen("t-1", Watched(ThreadTimeline()), commands, PresenceGate { _, _ -> Presence.CONFIRMED }, connected = true) {}
                 Shown.TERMINAL -> TerminalScreen(RemotePane("p-1", "zsh", "terminal", phoneWrite = false), Watched(TerminalBuffer()), commands, PresenceGate { _, _ -> Presence.CONFIRMED }) {}
+                Shown.SCANNING -> PairingScreen(PairingState.Scanning, {}, {}) {}
                 Shown.VERIFICATION -> PairingScreen(PairingState.Waiting("Studio", "28T5CY"), {}, {}) {}
             }
         }
@@ -77,7 +87,11 @@ class SecureAndLanguageOnDeviceTest {
     fun screensWithSecretsAreSecureAndOnlyWhileShown() {
         showAll()
         assertFalse("home is an ordinary screen", secure())
-        for (screen in listOf(Shown.REQUEST, Shown.TERMINAL, Shown.VERIFICATION)) {
+        shown = Shown.LIVE_THREADS
+        assertFalse("the threads list is an ordinary screen", secure())
+        shown = Shown.HOME
+        // SECURITY #236: every screen that shows a command, output or pairing secret, lists and camera included.
+        for (screen in listOf(Shown.REQUEST, Shown.REQUESTS_TAB, Shown.THREAD, Shown.TERMINAL, Shown.SCANNING, Shown.VERIFICATION)) {
             shown = screen
             assertTrue("$screen keeps out of Recents and captures", secure())
             shown = Shown.HOME

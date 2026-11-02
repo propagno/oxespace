@@ -1,3 +1,4 @@
+import { NODE_EXECUTABLE } from '../helpers/node-child'
 import { connect, type Socket } from 'node:net'
 import { randomBytes } from 'node:crypto'
 import { tmpdir } from 'node:os'
@@ -143,19 +144,19 @@ describe('RpcTransport', () => {
 describe('LocalExecutionHost', () => {
   it('runs a command and captures stdout', async () => {
     const host = new LocalExecutionHost()
-    const result = await host.exec(process.execPath, ['-e', 'process.stdout.write("hello")'], { cwd: process.cwd() })
+    const result = await host.exec(NODE_EXECUTABLE, ['-e', 'process.stdout.write("hello")'], { cwd: process.cwd() })
     expect(result).toMatchObject({ code: 0, stdout: 'hello', timedOut: false })
   })
 
   it('reports a non-zero exit instead of throwing', async () => {
     const host = new LocalExecutionHost()
-    const result = await host.exec(process.execPath, ['-e', 'process.exit(3)'], { cwd: process.cwd() })
+    const result = await host.exec(NODE_EXECUTABLE, ['-e', 'process.exit(3)'], { cwd: process.cwd() })
     expect(result.code).toBe(3)
   })
 
   it('kills a command that exceeds its timeout', async () => {
     const host = new LocalExecutionHost()
-    const result = await host.exec(process.execPath, ['-e', 'setTimeout(() => {}, 10000)'], {
+    const result = await host.exec(NODE_EXECUTABLE, ['-e', 'setTimeout(() => {}, 10000)'], {
       cwd: process.cwd(),
       timeoutMs: 300
     })

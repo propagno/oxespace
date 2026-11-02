@@ -108,6 +108,7 @@ import com.oxespace.mobile.protocol.live.CommandApi
 import com.oxespace.mobile.protocol.live.CommandResult
 import com.oxespace.mobile.protocol.live.ThreadTimeline
 import com.oxespace.mobile.session.Watched
+import com.oxespace.mobile.ui.SecureScreen
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeCodeStyle
 import com.oxespace.mobile.ui.theme.OxeRadius
@@ -138,6 +139,8 @@ fun ThreadScreen(
     skeletonAfterMs: Long = SKELETON_DELAY_MS,
     onBack: () -> Unit,
 ) {
+    // SECURITY #236: the conversation shows each tool's command and output in full, so it keeps out of Recents too.
+    SecureScreen()
     val tick by watched.changes.collectAsStateWithLifecycle()
     val timeline = watched.store
     val header = timeline.header

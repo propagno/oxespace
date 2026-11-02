@@ -13,7 +13,8 @@ export class NotifyGate {
 
   /** The refusal, or null when the notice may go out (and is then counted). */
   check(executionKey: string, title: string, body: string): MainMessage | null {
-    const reserved = reservedNameIn(title) ?? reservedNameIn(body)
+    // A notice may not speak as the system anywhere in its text, not only in its first word ("Important: System notice").
+    const reserved = reservedNameIn(title, 'notice') ?? reservedNameIn(body, 'notice')
     if (reserved) return mainMessage('notify.refused.reservedName', { name: reserved })
     const now = this.now()
     for (const [key, times] of this.sent) if (!times.some(at => now - at < 60_000)) this.sent.delete(key)

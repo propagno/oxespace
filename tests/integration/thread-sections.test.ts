@@ -14,6 +14,8 @@ function setup() {
     .run(id, workspaceId, projectId, JSON.stringify({ id, workspaceId, projectId }))
   conversation('t1', 'thread:p1'); conversation('t2', 'thread:p1'); conversation('t3', 'thread:p1')
   conversation('other', 'thread:p2', 'p2'); conversation('c1', 'code')
+  // Delegated or Work-run conversations: a Code workspace id, a Thread project.
+  conversation('d1', 'code', 'p1'); conversation('d2', 'code', 'p2')
   return { db, store: new ThreadSectionsStore(db) }
 }
 
@@ -50,6 +52,25 @@ describe('thread sections store (F13)', () => {
     expect(store.save('thread:p2', { sections: [{ id: 'a', name: 'A', order: 0 }], assignments: { other: 'a' } })).toMatchObject({ ok: true })
     expect(store.list('code').sections).toHaveLength(1)
     expect(store.list('thread:p2').assignments).toEqual({ other: 'a' })
+  })
+
+  it('the list of a Thread project holds its conversations that carry a Code workspace id, and only those of that project', () => {
+    const { store } = setup()
+    const saved = store.save('thread:p1', { sections: [{ id: 'a', name: 'A', order: 0 }], assignments: { t1: 'a', d1: 'a', d2: 'a', other: 'a' } })
+    // d1 is a delegated conversation of p1 in the Code workspace: assignable. d2 has the same Code workspace but belongs
+    // to p2, and `other` is p2's own: both are dropped, as conversations of another list are.
+    expect(saved).toMatchObject({ ok: true, state: { assignments: { t1: 'a', d1: 'a' } } })
+    expect(store.list('thread:p1').assignments).toEqual({ t1: 'a', d1: 'a' })
+    // The Code workspace's own list still takes the conversations that carry its id.
+    expect(store.save('code', { sections: [{ id: 'b', name: 'B', order: 0 }], assignments: { d2: 'b' } })).toMatchObject({ ok: true, state: { assignments: { d2: 'b' } } })
+  })
+
+  it('assigning a conversation in a second list moves it there', () => {
+    const { store } = setup()
+    expect(store.save('code', { sections: [{ id: 'b', name: 'B', order: 0 }], assignments: { d1: 'b' } })).toMatchObject({ ok: true })
+    expect(store.save('thread:p1', { sections: [{ id: 'a', name: 'A', order: 0 }], assignments: { d1: 'a' } })).toMatchObject({ ok: true, state: { assignments: { d1: 'a' } } })
+    expect(store.list('code').assignments).toEqual({})
+    expect(store.list('code').sections).toHaveLength(1)
   })
 
   it('a refused save leaves the stored state untouched', () => {
