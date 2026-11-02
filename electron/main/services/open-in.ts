@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process'
 import { accessSync, constants, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { realpath, stat } from 'node:fs/promises'
-import { delimiter, dirname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path'
+import { delimiter, dirname, isAbsolute, join, normalize, relative, resolve, sep, win32 } from 'node:path'
 import { mainMessage } from '../../../shared/messages'
 import {
   OPEN_IN_EDITOR_NAMES, OPEN_IN_EDITORS, OPEN_IN_MAX_POSITION, isOpenInPreference, isOpenInTarget,
@@ -65,9 +65,10 @@ function defaultIsExecutable(platform: NodeJS.Platform) {
 /** The places an editor's executable may be, most likely first. Only absolute places; nothing from the window. */
 export function editorCandidates(id: OpenInEditorId, platform: NodeJS.Platform, env: NodeJS.ProcessEnv): string[] {
   if (platform === 'win32') {
-    const bases = [env.LOCALAPPDATA && join(env.LOCALAPPDATA, 'Programs'), env.ProgramFiles, env['ProgramFiles(x86)']]
-      .filter((base): base is string => !!base && isAbsolute(base))
-    return bases.flatMap(base => WINDOWS_INSTALLS[id].map(rest => join(base, rest)))
+    // Windows path rules whatever the host, so the list is the same when a test builds it on Linux.
+    const bases = [env.LOCALAPPDATA && win32.join(env.LOCALAPPDATA, 'Programs'), env.ProgramFiles, env['ProgramFiles(x86)']]
+      .filter((base): base is string => !!base && win32.isAbsolute(base))
+    return bases.flatMap(base => WINDOWS_INSTALLS[id].map(rest => win32.join(base, rest)))
   }
   if (platform === 'linux') {
     const dirs = (env.PATH ?? '').split(delimiter).filter(dir => dir && isAbsolute(dir))

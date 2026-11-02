@@ -2,6 +2,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSy
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { NODE_EXECUTABLE } from '../helpers/node-child'
 
 vi.mock('electron', () => ({ app: { isPackaged: false, getPath: () => tmpdir() } }))
 
@@ -227,7 +228,7 @@ describe('launchDetached', () => {
     const out = join(base, 'argv.json')
     const tricky = ['a & echo hacked', '$(whoami)', '`id`', '%PATH%', '"quoted" arg', 'x | y']
     const script = 'require("fs").writeFileSync(process.argv[1], JSON.stringify(process.argv.slice(2)))'
-    await launchDetached(process.execPath, ['-e', script, out, ...tricky], base, process.env)
+    await launchDetached(NODE_EXECUTABLE, ['-e', script, out, ...tricky], base, process.env)
     for (let waited = 0; !existsSync(out) && waited < 10_000; waited += 50) await new Promise(resolve => setTimeout(resolve, 50))
     expect(JSON.parse(readFileSync(out, 'utf8'))).toEqual(tricky)
   })
