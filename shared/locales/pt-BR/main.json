@@ -131,7 +131,7 @@
         "offline": "Sem conexão de rede."
       },
       "openIn": {
-        "outsideRoot": "Este arquivo está fora do projeto e não pode ser aberto daqui.",
+        "outsideRoot": "Isto está fora das pastas do projeto e não pode ser aberto daqui.",
         "notFound": "{{path}} não existe mais.",
         "notAFile": "Daqui o {{editor}} só abre arquivos, não pastas.",
         "unknownTarget": "O OXESpace não abre arquivos desse jeito.",
