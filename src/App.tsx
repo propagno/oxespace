@@ -951,8 +951,10 @@ export function App(): ReactElement {
       {isSettingsOpen || isWorkspaceSettingsOpen ? (
         <Suspense fallback={null}><SettingsCenter
           initialPage={useUIStore.getState().settingsInitialPage}
-          initialWorkspaceId={isWorkspaceSettingsOpen && applicationView === 'code' ? activeWorkspace?.id : undefined}
-          allowWorkspaceScope={applicationView === 'code'}
+          // Workspace settings are asked for from Code (its command shows Code first, the sidebar's row menu is in Code):
+          // the scope follows that request, not the view committed at mount, which lags the switch by a few frames (F7.2).
+          initialWorkspaceId={isWorkspaceSettingsOpen ? activeWorkspace?.id : undefined}
+          allowWorkspaceScope={applicationView === 'code' || isWorkspaceSettingsOpen}
           workspaces={workspaces}
           shellProfiles={shellProfiles}
           onSave={updateSettings}
