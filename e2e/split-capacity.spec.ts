@@ -30,6 +30,10 @@ test('splitting past a 2×2 layout keeps panes usable, refuses what does not fit
     app = await launchReal(join(root, 'db.sqlite3'))
     const page = await app.firstWindow()
     await resizeWindow(app, 1440, 900)
+    // CI screens can be smaller than 1440 px (the window is clamped, and four columns then fit no further split): zoom
+    // out so the layout is 1440 CSS px wide whatever the screen. The 240 px rule is in CSS px, unchanged.
+    await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setZoomFactor(Math.min(1, win.getContentBounds().width / 1440)) })
+    console.log(`[SPLIT-ROOM] window ${await page.evaluate(() => `${window.innerWidth}x${window.innerHeight}`)} CSS px`)
     await page.getByTestId('btn-new-workspace').click()
     await page.getByTestId('wizard-dir-input').fill(repo)
     await page.getByTestId('wizard-layout-card-4').click()
