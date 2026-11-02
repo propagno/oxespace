@@ -10,6 +10,7 @@ import { chunk, lazyFrom } from '../../lib/chunk'
 import { useSharedProjectMemory } from '../../hooks/useSharedProjectMemory'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace } from '../../../shared/types/workspace'
 import { SeenSitesSetting } from './SeenSitesSetting'
+import { ExternalEditorSetting } from './ExternalEditorSetting'
 import './SettingsCenter.css'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
@@ -177,5 +178,5 @@ function GeneralSettings(): ReactElement {
     <div className="settings-general-card"><div><label htmlFor="workspace-cache-cap">{t('general.cacheLabel')}</label>
       <p>{t('general.cacheHint')}</p></div>
       <TextField id="workspace-cache-cap" type="number" min={VISITED_WORKSPACES_CAP_MIN} max={VISITED_WORKSPACES_CAP_MAX} value={cap} onChange={e => { const value = e.currentTarget.valueAsNumber; if (Number.isFinite(value)) setCap(value) }} />
-    </div><SeenSitesSetting /></section>
+    </div><ExternalEditorSetting /><SeenSitesSetting /></section>
 }

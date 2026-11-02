@@ -103,9 +103,10 @@ mensagem e uma fileira de teclas com Esc, Tab, Ctrl+C e setas para o terminal." 
 - **Configurações › Ferramentas** mostra cada grupo, o modo dele neste projeto e o custo em tokens, e muda o modo.
   Se o `oxe.yaml` tiver um erro, a página avisa e os agentes continuam com os últimos modos que puderam ser lidos até
   você corrigir.
-<!-- entra quando o #336 for mesclado: "**Menos tokens no início de um agente do OxeCode.** Um agente que o OXESpace
-inicia num terminal começa com cerca de 9.000 caracteres de definições de ferramentas em vez de 64.600, e fica
-sabendo quando a busca de código do OXESpace é melhor que o grep." Números medidos: 64.574 → 8.965 caracteres. -->
+- **Menos tokens no início de um agente do OxeCode.** Um agente que o OXESpace inicia num terminal começa com cerca de
+  9.000 caracteres de definições de ferramentas em vez de 64.600, e fica sabendo quando a busca de código do OXESpace
+  é melhor que o grep.
+<!-- #336 mediu 64.574 → 8.965 caracteres. -->
 - **Busca de código que você liga por projeto**: busca semântica por projeto do OxeChat, com um interruptor só.
 
 ## OxePod e OxePost
@@ -123,6 +124,12 @@ sabendo quando a busca de código do OXESpace é melhor que o grep." Números me
 - **Português e inglês** no app inteiro, trocados nas Configurações sem reiniciar.
 - **Um teclado para morar nele**: uma paleta de comandos para tudo (`Ctrl+K`), um guia de atalhos e
   **Configurações › Teclado**, F6 para andar entre regiões e um modo em que o Tab sai do terminal.
+- **Comandos com o mesmo nome em todo lugar.** Todo comando da paleta segue *Categoria: Ação* (**Agentes: Abrir a
+  equipe do projeto…**), o menu do app usa as mesmas palavras, e os nomes antigos continuam encontrando os comandos.
+- **Abrir no seu editor.** Todo caminho de arquivo no OXESpace (conversas, mudanças, terminal, busca, abas do editor)
+  tem o mesmo menu: abrir no VS Code, no Cursor ou no Zed na linha, mostrar na pasta ou copiar o caminho. Só aparecem
+  os editores que você tem instalados; escolha o seu em **Configurações › Geral**, e `Ctrl+Shift+clique` num caminho
+  no terminal abre o arquivo nele.
 - **Acessibilidade**: verificações WCAG 2.2 AA no Windows e no Linux, cores forçadas, alvos de 24 px e caminhos de
   teclado para todas as listas.
 - **Escala da interface, densidade e movimento** (Sistema, Reduzido, Completo) para o app inteiro.
@@ -137,13 +144,12 @@ sabendo quando a busca de código do OXESpace é melhor que o grep." Números me
 
 - **Os contêineres saíram do OxeQuery para o OxePod.**
 - **Nomes dos modos**: Code agora é OxeCode e Thread agora é OxeChat.
-<!-- entra quando o B21 for mesclado: "**O OXEVoice foi removido.** O OXESpace não grava mais voz; o ditado do seu
-sistema continua digitando em qualquer campo. A voz nativa está prevista para uma versão futura. Os modelos de voz que
-você baixou continuam no disco: para liberar o espaço, apague os arquivos cujo nome começa com `ggml-` em
-`%APPDATA%\oxespace\models` (Windows), `~/Library/Application Support/oxespace/models` (macOS) ou
-`~/.config/oxespace/models` (Linux). Mantenha os outros arquivos dessa pasta; eles são usados pela busca semântica." -->
-<!-- entra quando o F35 (#344) for mesclado: "**A equipe saiu da barra de título.** Abra em **Ferramentas › Equipe do
-projeto…**, na paleta de comandos ou com `Ctrl+Shift+T`." -->
+- **O OXEVoice foi removido.** O OXESpace não grava mais voz; o ditado do seu sistema continua digitando em qualquer
+  campo. A voz nativa está prevista para uma versão futura. Os modelos de voz que você baixou continuam no disco: para
+  liberar o espaço, apague os arquivos cujo nome começa com `ggml-` em `%APPDATA%\oxespace\models` (Windows) ou
+  `~/.config/oxespace/models` (Linux). Mantenha os outros arquivos dessa pasta; eles são usados pela busca semântica.
+- **A equipe saiu da barra de título.** Abra em **Ferramentas › Abrir a equipe do projeto…**, na paleta de comandos ou com
+  `Ctrl+Shift+T`.
 - **Ações de Git iniciadas pelo OXESpace pulam os hooks do repositório.** Push, troca de branch e criação de worktree
   rodam sem eles; use o terminal quando um fluxo depende de hooks. Os agentes não chegam à rede pelo Git: quando uma
   tarefa precisa da branch remota mais recente, você faz o fetch no painel Git ou no terminal.

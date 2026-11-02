@@ -257,6 +257,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
           onCloseOthers={(relativePath) => closeOtherTabs(workspaceId, relativePath)}
           onTogglePin={(relativePath) => togglePin(workspaceId, relativePath)}
           onMove={(fromPath, toPath) => moveTab(workspaceId, fromPath, toPath)}
+          pathScope={{ workspaceId, rootPath }}
         />
         <header className="editor-toolbar">
           <span className="editor-path">{activePath ?? t('editor.noFile')}</span>

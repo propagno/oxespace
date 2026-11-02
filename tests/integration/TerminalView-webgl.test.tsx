@@ -37,6 +37,7 @@ vi.mock('@xterm/xterm', () => ({
     rows: 32,
     options: {},
     loadAddon: vi.fn(),
+    registerLinkProvider: vi.fn(() => ({ dispose: vi.fn() })),
     open: vi.fn(),
     write: terminalState.write,
     focus: terminalState.focus,
