@@ -101,6 +101,9 @@ With `data-motion="reduce"`:
   so motion is replaced by a change of opacity with nothing travelling;
 - every animation runs for 0.01ms once (`src/styles/base.css`), so pulses and shimmers stand still and the brand
   loader shows the cactus fully grown;
+- there are no transitions at all (`transition: none`), not a tiny duration: `transition-property` defaults to `all`, so any duration above 0
+  would start a transition on every element for every change, and one from `visibility: hidden` paints hidden for a
+  frame (the empty frame between views, F7.2);
 - the one exception is the spin, which turns slowly (`--duration-spin: 2.4s`): a frozen spinner reads as a hang;
 - presses do not scale.
 
