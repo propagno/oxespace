@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { accessSync, constants, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
+import { accessSync, constants, lstatSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import { realpath, stat } from 'node:fs/promises'
 import { delimiter, dirname, isAbsolute, join, normalize, relative, resolve, sep, win32 } from 'node:path'
 import { mainMessage } from '../../../shared/messages'
@@ -50,7 +50,12 @@ export function registeredWorktree(projectRoots: string[], requested: string): s
       // The registered worktree's .git as the repository recorded it, as text: a UNC path planted there is never touched
       // either (SECURITY #507). Only a local path naming the window's folder goes on to the disk checks.
       let recorded: string
-      try { recorded = resolve(adminDir, readFileSync(join(adminDir, 'gitdir'), 'utf8').trim()) } catch { continue }
+      try {
+        // A regular file only: reading a link to a UNC path would touch the network (SECURITY #507).
+        const file = join(adminDir, 'gitdir')
+        if (!lstatSync(file).isFile()) continue
+        recorded = resolve(adminDir, readFileSync(file, 'utf8').trim())
+      } catch { continue }
       if (!isLocalAbsolute(recorded) || comparable(dirname(recorded)) !== wanted) continue
       const back = real(recorded)
       if (!back) continue
