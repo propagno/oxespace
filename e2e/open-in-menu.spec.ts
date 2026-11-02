@@ -15,8 +15,9 @@ const recorded = (app: ElectronApplication): Promise<OpenedIn[]> =>
 const REVEAL = /^(Reveal in File Explorer|Open containing folder|Reveal in Finder)$/
 const EDITORS = [/^Open in VS Code\b/, /^Open in Cursor\b/, /^Open in Zed\b/]
 
-/** The menu's items as the person reads them, separators included as "—". */
+/** The menu's items as the person reads them, separators included as "—". The menu loads on first use: wait for it. */
 async function menuShape(menu: Locator): Promise<string[]> {
+  await expect(menu.getByRole('menuitem').first()).toBeVisible()
   return menu.locator('[role="menuitem"], [role="separator"]').evaluateAll(nodes => nodes.map(node => node.getAttribute('role') === 'separator' ? '—' : (node.textContent ?? '').trim()))
 }
 
@@ -68,7 +69,12 @@ test('the path menu has the same items in the same order on the tree, a tab and 
     await shot(page, 'tab')
     await page.keyboard.press('Escape')
 
-    // Search: a match carries its line, and "open in OXESpace" comes first.
+    // Search: a match carries its line, and "open in OXESpace" comes first. The E2E search double finds nothing, so
+    // this test answers with the one match the file has.
+    await app.evaluate(({ ipcMain }) => {
+      ipcMain.removeHandler('search:run')
+      ipcMain.handle('search:run', () => ({ files: [{ path: 'src/app.ts', truncated: false, matches: [{ lineNumber: 1, line: 'export const needle = 1', submatches: [{ text: 'needle', start: 13, end: 19 }] }] }], totalMatches: 1, totalFiles: 1, truncated: false, elapsedMs: 1 }))
+    })
     await page.keyboard.press('Control+k')
     await page.keyboard.type('Find in files')
     await page.keyboard.press('Enter')
