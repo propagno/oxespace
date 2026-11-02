@@ -34,7 +34,7 @@ export function useTerminalPathMenu(workspaceId: string | undefined): {
       provider = links.registerTerminalPathLinks(terminal, {
         scope: () => scope.current,
         openInOxespace: (where, path) => actions.openInOxespace(requestOf(where, path)),
-        openExternal: (where, path) => actions.openExternal(requestOf(where, path)),
+        openExternal: (where, path) => { void actions.openExternal(requestOf(where, path)) },
         hovered: link => { hovered.current = link },
         hint: actions.hoverHint
       })

@@ -14,7 +14,9 @@ export function openInOxespace(request: OpenInRequest): void {
 }
 
 /** Ctrl/Cmd+Shift+click: the preferred external editor, or a note that none was found. */
-export function openExternal(request: OpenInRequest): void {
+export async function openExternal(request: OpenInRequest): Promise<void> {
+  // A fast hover then Ctrl+Shift+click may come before the list has been read: read it first (FRONTEND #470).
+  if (!useOpenInStore.getState().targets) await useOpenInStore.getState().refresh()
   const editor = preferredEditor(useOpenInStore.getState().targets)
   if (editor) void openPathIn(request, editor.id)
   else toast({ title: (i18n.t as unknown as (key: string, options: object) => string)('openIn.noEditor', { ns: 'common' }), intent: 'info' })

@@ -1,8 +1,27 @@
-import { lazy, Suspense, useRef, useState, type MouseEvent, type ReactElement } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type ComponentType, type MouseEvent, type ReactElement } from 'react'
 import type { OpenInRequest } from '../../lib/openIn'
+import { i18n } from '../../i18n'
+import { toast } from '../../ui'
 
-/** The menu, the open-in client and main's message codes load on the first right click, not with the window. */
-const PathMenuView = lazy(() => import('./PathMenuView'))
+type ViewProps = { request: OpenInRequest; point: { x: number; y: number }; onClose(): void; returnFocus(): HTMLElement | null; openInOxespace?: () => void; folder?: boolean }
+
+/**
+ * The menu, the open-in client and main's message codes load on the first right click, not with the window. A chunk
+ * that fails to load (an update replaced it) never reaches an error boundary, which would replace the pane: the menu
+ * closes with a toast, and the next right click loads it again (FRONTEND #470).
+ */
+let PathMenuView: ComponentType<ViewProps> = makeView()
+function makeView(): ComponentType<ViewProps> {
+  return lazy(() => import('./PathMenuView').catch(() => ({ default: MenuUnavailable })))
+}
+function MenuUnavailable({ onClose }: ViewProps): null {
+  useEffect(() => {
+    PathMenuView = makeView()
+    toast({ title: (i18n.t as unknown as (key: string, options: object) => string)('openIn.menuUnavailable', { ns: 'common' }), intent: 'warning' })
+    onClose()
+  }, [onClose])
+  return null
+}
 
 /** Where a context menu opens: the pointer, or for Shift+F10 / the menu key (no pointer) the element's corner. */
 export function menuPoint(event: MouseEvent): { x: number; y: number } {

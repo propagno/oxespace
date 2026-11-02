@@ -4,7 +4,8 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import type { EditorTab } from '../../store/editor.store'
 // F33: the path menu's items load with the first tab menu, not with the window.
-const TabPathItems = lazy(() => import('../PathMenu/PathMenuView').then(module => ({ default: module.TabPathItems })))
+// A chunk that fails to load leaves the tab menu without these items rather than reaching an error boundary.
+const TabPathItems = lazy(() => import('../PathMenu/PathMenuView').then(module => ({ default: module.TabPathItems }), () => ({ default: () => null })))
 
 interface EditorTabsProps {
   tabs: EditorTab[]
