@@ -15,9 +15,10 @@
  *      but the OS keeps the folder
  *   8. optional `git branch -d`; an unmerged branch is kept, never forced
  */
-import { rm } from 'node:fs/promises'
+import type { Dirent } from 'node:fs'
+import { readdir, rm, rmdir, unlink } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { resolve, sep } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 import type { GitHubMessageResult, GitHubRemoveWorktreeInput, GitHubWorktree, WorktreeRemovalCode } from '../../../../shared/types/github'
 import { loadRepoConfig } from '../repo-config/loader'
 import { runHook } from '../repo-config/hook-runner'
@@ -60,6 +61,33 @@ async function listRegistered(deps: WorktreeRemovalDeps, rootPath: string): Prom
   // itself is a linked worktree.
   if (trees[0]) trees[0] = { ...trees[0], isMain: true }
   return trees
+}
+
+/**
+ * Every symlink and junction under `root` is unlinked, never followed, before the folder is deleted, so the guarantee
+ * does not rest on how a Node version's recursive rm treats a junction (coordinator on #477; the app runs Electron's
+ * Node 24, CI's unit job Node 22). The walk never enters a link and stops after `limit` entries; past that, Node's rm,
+ * which removes a link without following it, is what remains.
+ */
+export async function unlinkLinksWithin(root: string, limit = 200_000): Promise<number> {
+  const stack = [root]
+  let seen = 0, unlinked = 0
+  while (stack.length) {
+    const dir = stack.pop()!
+    let entries: Dirent[]
+    try { entries = await readdir(dir, { withFileTypes: true }) } catch { continue }
+    for (const entry of entries) {
+      if (++seen > limit) return unlinked
+      const path = join(dir, entry.name)
+      if (entry.isSymbolicLink()) {
+        // A junction on Windows is a link here too; rmdir removes an empty-looking junction where unlink cannot.
+        try { await unlink(path); unlinked++ } catch { try { await rmdir(path); unlinked++ } catch { /* rm's own handling is next */ } }
+      } else if (entry.isDirectory()) {
+        stack.push(path)
+      }
+    }
+  }
+  return unlinked
 }
 
 export async function removeWorktreeSafely(
@@ -163,6 +191,7 @@ export async function removeWorktreeSafely(
   // worktree is emptied), whatever its name; Node's recursive rm removes the link itself and never follows it
   // (SECURITY #477 H). Git then only drops its record of a folder that is gone, which touches no other worktree.
   try {
+    await unlinkLinksWithin(target.path)
     await rm(target.path, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   } catch (rmError) {
     throw new WorktreeRemovalError(

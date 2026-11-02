@@ -7,6 +7,7 @@ import { copyIncludedFiles, includeSegments, INCLUDE_LIMITS } from '../../electr
 import { normalizeSharedDirectories, parseOxeYaml } from '../../electron/main/services/repo-config/parser'
 import { GhExec } from '../../electron/main/services/github/gh-exec'
 import { GitHubRepositoryService } from '../../electron/main/services/github/repository.service'
+import { unlinkLinksWithin } from '../../electron/main/services/github/worktree-removal'
 import { RepoHookTrust } from '../../electron/main/services/repo-config/trust'
 import { openInMemoryDatabase } from '../../electron/main/db'
 import { MESSAGE_CODES } from '../../shared/messages'
@@ -315,6 +316,19 @@ describe('createWorktree with oxe.yaml (real git)', () => {
     expect(existsSync(path)).toBe(false)
     expect(readFileSync(join(outside, 'keep', 'file.txt'), 'utf8')).toBe('must survive')
     expect(git(root, 'worktree', 'list', '--porcelain')).not.toContain(`wt-unlisted-${force}`)
+  })
+
+  it('before deleting, every link under the worktree is unlinked by name, never followed, nested ones included', async () => {
+    const outside = join(sandbox, 'outside-links')
+    put(outside, 'keep.txt', 'must survive')
+    const tree2 = join(sandbox, 'tree-links')
+    put(tree2, 'real/dir/file.txt', 'inside')
+    if (!link(outside, join(tree2, 'top-link')) || !link(outside, join(tree2, 'real', 'dir', 'nested-link'))) return
+    expect(await unlinkLinksWithin(tree2)).toBe(2)
+    expect(existsSync(join(tree2, 'top-link'))).toBe(false)
+    expect(existsSync(join(tree2, 'real', 'dir', 'nested-link'))).toBe(false)
+    expect(readFileSync(join(tree2, 'real', 'dir', 'file.txt'), 'utf8')).toBe('inside')
+    expect(readFileSync(join(outside, 'keep.txt'), 'utf8')).toBe('must survive')
   })
 
   it('a shared directory under a parent that is a link out of the main checkout is not linked (SECURITY #477)', async () => {
