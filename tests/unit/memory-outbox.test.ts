@@ -1,14 +1,15 @@
 // @vitest-environment node
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { mkdir, mkdtemp, open, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, open, readdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { MemoryOutbox, type MemoryOutboxRecord } from '../../electron/main/services/memory/memory-outbox'
 import { MemoryDeliveryWorker } from '../../electron/main/services/memory/memory-delivery'
 import type { AiMemoryClient } from '../../electron/main/services/memory/ai-memory.client'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const directories: string[] = []
-afterEach(async () => { for (const directory of directories.splice(0)) await rm(directory, { recursive: true, force: true }) })
+afterEach(async () => { for (const directory of directories.splice(0)) removeTempDir(directory) })
 async function queue() {
   const directory = await mkdtemp(join(tmpdir(), 'oxe-outbox-test-'))
   directories.push(directory)

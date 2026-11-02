@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { openInMemoryDatabase, type AppDatabase } from '../../electron/main/db'
@@ -7,12 +7,13 @@ import { WorkspaceService } from '../../electron/main/services/workspace.service
 import { MemoryService } from '../../electron/main/services/memory/memory.service'
 import { AiMemoryProvider } from '../../electron/main/services/memory/ai-memory.provider'
 import type { ThreadSnapshot } from '../../shared/types/thread'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 vi.mock('electron', () => ({ safeStorage: { isEncryptionAvailable: () => true,
   encryptString: (text: string) => Buffer.from(text), decryptString: (value: Buffer) => value.toString() } }))
 const cleanup: { service: MemoryService; db: AppDatabase; directory: string }[] = []
 afterEach(async () => {
-  for (const entry of cleanup.splice(0)) { await entry.service.stop(); entry.db.close(); await rm(entry.directory, { recursive: true, force: true }) }
+  for (const entry of cleanup.splice(0)) { await entry.service.stop(); entry.db.close(); removeTempDir(entry.directory) }
 })
 async function fixture() {
   const directory = await mkdtemp(join(tmpdir(), 'oxespace-memory-service-test-'))

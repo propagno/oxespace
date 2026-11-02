@@ -5,6 +5,7 @@ import { ToolPanel, Button, EmptyState, Notice } from '../../ui'
 import type { LinearIssue, LinearIssueScope } from '../../../shared/types/linear'
 import { useLinearStore } from '../../store/linear.store'
 import { openExternalLink } from '../../lib/externalLinks'
+import { WorktreeCreationNotices } from '../Worktree/WorktreeCreationNotices'
 
 interface LinearPanelProps {
   workspaceId: string | null
@@ -188,6 +189,7 @@ export function LinearPanel({ onClose, rootPath, workspaceId }: LinearPanelProps
       )}
 
       {state.error ? <Notice intent="danger" className="linear-error">{state.error}</Notice> : null}
+      {state.worktreeNotices ? <WorktreeCreationNotices notices={state.worktreeNotices} onDismiss={() => state.clearNotice()} /> : null}
       {state.notice ? (
         <div className="linear-notice" role="status" onClick={() => state.clearNotice()}>
           {state.notice}

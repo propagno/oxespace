@@ -1,5 +1,5 @@
 import http from 'node:http'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -12,6 +12,7 @@ import { createLocalRpcServer, type LocalRpcServer } from '../../electron/main/m
 import { WebPreviewBus } from '../../electron/main/mcp-internal/web-preview-bus'
 import { WorktreeEventBus } from '../../electron/main/mcp-internal/worktree-event-bus'
 import { ExecutionRegistry } from '../../electron/main/services/execution-registry'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 interface ServerCtx {
   server: LocalRpcServer
@@ -119,7 +120,7 @@ describe('Internal MCP local RPC server', () => {
     const file = text.match(/is in (.+?\.txt);/)?.[1]
     expect(file && existsSync(file)).toBe(true)
     expect(readFileSync(file!, 'utf8')).toContain(blob)
-    rmSync(root, { recursive: true, force: true })
+    removeTempDir(root)
   })
 
   test('retrieval tools resolve a Thread to its checkout instead of refusing it', async () => {

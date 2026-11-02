@@ -4,10 +4,11 @@ import { ThreadManager } from '../../electron/main/services/conversation/thread-
 import { ThreadHistory } from '../../electron/main/services/conversation/thread-history'
 import { ThreadRewindError } from '../../electron/main/services/conversation/thread-rewind'
 import type { AgentConversationAdapter, ThreadEvent } from '../../shared/types/thread'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { claudeTranscriptPath } from '../../electron/main/services/conversation/claude-transcript-fork'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const databases: AppDatabase[] = []
 afterEach(() => { for (const db of databases.splice(0)) db.close() })
@@ -120,7 +121,7 @@ describe('verified conversation rewind', () => {
       await f.manager.stop()
     } finally {
       if (previous === undefined) delete process.env.CLAUDE_CONFIG_DIR; else process.env.CLAUDE_CONFIG_DIR = previous
-      rmSync(home, { recursive: true, force: true })
+      removeTempDir(home)
     }
   })
 })

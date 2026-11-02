@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import { spawn, execFile, type ChildProcess } from 'node:child_process'
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { createServer } from 'node:net'
@@ -12,6 +12,7 @@ import { AiMemoryClient } from '../../electron/main/services/memory/ai-memory.cl
 import { AiMemoryProvider } from '../../electron/main/services/memory/ai-memory.provider'
 import { MemoryOutbox } from '../../electron/main/services/memory/memory-outbox'
 import { MemoryDeliveryWorker } from '../../electron/main/services/memory/memory-delivery'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 // Separate opt-in: these assertions require the fixed 2.6.2 binary, not the
 // production pin. The certification runner must supply it, never accept skips.
@@ -102,7 +103,7 @@ describe.skipIf(!binary)('AI Memory 2.6.2 external lifecycle contract', () => {
     if (directory) {
       const target = resolve(directory)
       if (dirname(target) !== resolve(tmpdir()) || !basename(target).startsWith('oxe-memory-v26-')) throw Error('Unsafe fixture cleanup')
-      await rm(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+      removeTempDir(target)
     }
   }, 10000)
 
