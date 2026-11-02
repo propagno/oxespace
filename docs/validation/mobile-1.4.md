@@ -30,7 +30,7 @@ Evidence for each step: a screenshot from the phone (`adb exec-out screencap -p 
 it, a desktop screenshot or the desktop audit entry (Settings › Devices › activity). On a crash, also
 `adb logcat -d -b crash`. Keep them in `e2e/screenshots/mobile-homologation/<date>/`, which git ignores: phone and
 desktop screenshots can show paths, command lines or tokens. Never attach them to a public issue unredacted.
-The request, terminal and pairing screens block captures (step 10.9). On a debug build, start the app with
+The screens with commands, output or the pairing code (a request, the Requests tab, a conversation, a terminal, pairing) block captures (step 10.9). On a debug build, start the app with
 `adb shell am start -n com.oxespace.mobile/.MainActivity --ez allow_capture true` to take this script's evidence;
 a release build ignores that extra.
 
@@ -156,7 +156,7 @@ Nothing is installed for this pass: the tools are the OS's own (`Get-NetTCPConne
 | 10.6 | **App killed while answering.** With the fingerprint prompt open, force-stop | Nothing sent: the desktop still waits, no audit entry. Reopen: the request is still there | A | screenshot, audit (none) |
 | 10.7 | **Killed right after the answer left.** Approve, and force-stop as soon as the prompt closes | The desktop applies the answer once; reopening shows the request gone | A | audit |
 | 10.8 | **Dark mode and language.** Switch the system to dark and back while on a conversation; switch the system language en ↔ pt-BR; then, on Android 13+, Settings › Apps › OXESpace › Language › the other language, with the system unchanged | Colors follow at once, contrast readable in both; words change to the new language as Android redraws the screen; nothing stays half-translated. The app's own language wins over the system's and is still there after a restart | A | screenshots |
-| 10.9 | **Recents and captures.** Without `allow_capture` (a release build, or debug started normally): open a risky request, then the Recents (overview) screen; try a screenshot (`adb exec-out screencap -p`) on the request, a terminal and the pairing code check | The request's thumbnail in Recents is blank; each capture of those screens comes out black or is refused. The home and conversation lists still capture | A | photo of the phone or a note (the captures are blocked by design) |
+| 10.9 | **Recents and captures.** Without `allow_capture` (a release build, or debug started normally): open a risky request, then the Recents (overview) screen; try a screenshot (`adb exec-out screencap -p`) on the request, the Requests tab, a conversation, a terminal, the pairing camera and the pairing code check | The request's thumbnail in Recents is blank; each capture of those screens comes out black or is refused. Home and the conversations list (titles only) still capture | A | photo of the phone or a note (the captures are blocked by design) |
 
 ## 11. The desktop side: Settings › Devices
 
