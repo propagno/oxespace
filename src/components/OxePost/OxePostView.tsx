@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useState, type ReactElement } from 'react'
+import { SKELETON_AFTER_MS } from '../../app/viewSwitch'
 import { useTranslation } from 'react-i18next'
 import { FolderOpen } from 'lucide-react'
 import { ConfirmDialog, EmptyState, ErrorState, Skeleton } from '../../ui'
@@ -37,7 +38,7 @@ export function OxePostView({ active }: { active: boolean }): ReactElement {
   let body: ReactElement
   if (!workspaceId) body = <div className={styles.center}><EmptyState icon={<FolderOpen size={22} aria-hidden="true" />} title={t('view.noWorkspaceTitle')}>{t('view.noWorkspaceText')}</EmptyState></div>
   else if (error && loaded === workspaceId) body = <div className={styles.center}><ErrorState title={t('view.failed')} message={error} onRetry={() => void useOxePostStore.getState().load(workspaceId)} retryLabel={t('view.retry')} /></div>
-  else if (loading && loaded !== workspaceId) body = <div className={styles.center}><Skeleton lines={6} label={t('view.loading')} /></div>
+  else if (loading && loaded !== workspaceId) body = <div className={styles.center}><Skeleton lines={6} label={t('view.loading')} delay={SKELETON_AFTER_MS} /></div>
   else body = <div className={styles.workbench}><RequestEditor onDelete={() => setDeleting(true)} /><ResponsePanel /></div>
 
   return <div className={styles.view} aria-label="OxePost">
