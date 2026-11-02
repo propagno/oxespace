@@ -1,10 +1,10 @@
 import { ArrowLeft, ArrowRight, Pin, PinOff, X, XSquare } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type ReactElement } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import type { EditorTab } from '../../store/editor.store'
-import { useOpenInTargets } from '../../lib/openIn'
-import { pathMenuEntries } from '../../lib/pathMenu'
+// F33: the path menu's items load with the first tab menu, not with the window.
+const TabPathItems = lazy(() => import('../PathMenu/PathMenuView').then(module => ({ default: module.TabPathItems })))
 
 interface EditorTabsProps {
   tabs: EditorTab[]
@@ -39,7 +39,6 @@ export function EditorTabs({
   const [dropPath, setDropPath] = useState<string | null>(null)
   const stripRef = useRef<HTMLDivElement | null>(null)
   const [menu, setMenu] = useState<{ path: string; x: number; y: number } | null>(null)
-  const openInTargets = useOpenInTargets()
   const menuRef = useRef<HTMLDivElement | null>(null)
 
   // The menu closes on any outside press, Escape or a scroll of the strip, and starts with focus on its first item.
@@ -186,11 +185,7 @@ export function EditorTabs({
               <X size={12} aria-hidden="true" />{t('editor.tabs.close')}
             </button>
             {/* F33: the path menu's items, in its order; this is the editor, so no "open in OXESpace". */}
-            {pathScope ? <hr role="separator" className="ws-group-context-menu-separator" /> : null}
-            {pathScope ? pathMenuEntries({ request: { ...pathScope, relativePath: tab.relativePath }, targets: openInTargets, platform: window.oxe?.app?.platform ?? 'linux' })
-              .map((entry, at) => entry.type === 'separator'
-                ? <hr key={`path-${at}`} role="separator" className="ws-group-context-menu-separator" />
-                : 'onSelect' in entry ? <button key={`path-${at}`} type="button" role="menuitem" onClick={run(entry.onSelect)}>{entry.label}{'shortcut' in entry && entry.shortcut ? <span className="ws-group-context-menu-shortcut">{entry.shortcut}</span> : null}</button> : null) : null}
+            {pathScope ? <Suspense fallback={null}><TabPathItems request={{ ...pathScope, relativePath: tab.relativePath }} close={() => setMenu(null)} /></Suspense> : null}
           </div>,
           document.body
         )

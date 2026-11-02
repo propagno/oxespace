@@ -1,7 +1,8 @@
-import { useRef, useState, type MouseEvent, type ReactElement } from 'react'
-import { AnchoredMenu } from '../../ui'
-import { useOpenInTargets, type OpenInRequest } from '../../lib/openIn'
-import { pathMenuEntries, pathMenuLabel } from '../../lib/pathMenu'
+import { lazy, Suspense, useRef, useState, type MouseEvent, type ReactElement } from 'react'
+import type { OpenInRequest } from '../../lib/openIn'
+
+/** The menu, the open-in client and main's message codes load on the first right click, not with the window. */
+const PathMenuView = lazy(() => import('./PathMenuView'))
 
 /** Where a context menu opens: the pointer, or for Shift+F10 / the menu key (no pointer) the element's corner. */
 export function menuPoint(event: MouseEvent): { x: number; y: number } {
@@ -10,17 +11,12 @@ export function menuPoint(event: MouseEvent): { x: number; y: number } {
   return { x: rect.left, y: rect.bottom }
 }
 
-/**
- * The path menu hung from a point: a zero-size fixed box at the pointer holds AnchoredMenu's anchor, so the menu
- * opens where the person clicked, whatever the size of the element (FRONTEND/DESIGN #470).
- */
-export function PointMenu({ point, open, onOpenChange, label, items, returnFocus }: {
-  point: { x: number; y: number } | null; open: boolean; onOpenChange(open: boolean): void; label: string
-  items: ReturnType<typeof pathMenuEntries>; returnFocus(): HTMLElement | null
-}): ReactElement {
-  return <span style={{ position: 'fixed', left: point?.x ?? 0, top: point?.y ?? 0, width: 0, height: 0 }}>
-    <AnchoredMenu open={open} onOpenChange={onOpenChange} side="bottom" label={label} items={items} returnFocus={returnFocus} />
-  </span>
+/** The loaded path menu at `point`, or nothing while closed. */
+export function LazyPathMenu({ request, point, onClose, returnFocus, openInOxespace, folder }: {
+  request: OpenInRequest | null; point: { x: number; y: number } | null; onClose(): void; returnFocus(): HTMLElement | null; openInOxespace?: () => void; folder?: boolean
+}): ReactElement | null {
+  if (!request || !point) return null
+  return <Suspense fallback={null}><PathMenuView request={request} point={point} onClose={onClose} returnFocus={returnFocus} openInOxespace={openInOxespace} folder={folder} /></Suspense>
 }
 
 /**
@@ -34,7 +30,6 @@ export function usePathMenu(request: OpenInRequest | null, options: { openInOxes
 } {
   const [point, setPoint] = useState<{ x: number; y: number } | null>(null)
   const owner = useRef<HTMLElement | null>(null)
-  const targets = useOpenInTargets()
   const onContextMenu = (event: MouseEvent): void => {
     if (!request) return
     event.preventDefault()
@@ -42,11 +37,7 @@ export function usePathMenu(request: OpenInRequest | null, options: { openInOxes
     owner.current = event.currentTarget as HTMLElement
     setPoint(menuPoint(event))
   }
-  const menu = request
-    ? <PointMenu point={point} open={point !== null} onOpenChange={open => { if (!open) setPoint(null) }} label={pathMenuLabel(request.relativePath)}
-      returnFocus={() => owner.current}
-      items={point ? pathMenuEntries({ request, targets, platform: window.oxe?.app?.platform ?? 'linux', openInOxespace: options.openInOxespace, folder: options.folder }) : []} />
-    : null
+  const menu = <LazyPathMenu request={request} point={point} onClose={() => setPoint(null)} returnFocus={() => owner.current} openInOxespace={options.openInOxespace} folder={options.folder} />
   return { menu, onContextMenu }
 }
 
