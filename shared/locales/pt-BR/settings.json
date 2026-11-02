@@ -856,6 +856,14 @@
         "user": "Sua política de usuário",
         "managed": "Gerenciada pela sua organização"
       }
+    },
+    "invalidYaml": {
+      "title": "Não foi possível ler {{file}}",
+      "body": "O arquivo tem um erro de sintaxe, então os modos abaixo não podem ser lidos nem alterados aqui. Até que seja corrigido, os agentes mantêm as ferramentas como estavam antes de o arquivo quebrar. Corrija-o à mão e escolha Recarregar:",
+      "modeUnread": "Não lido",
+      "modeLocked": "Corrija o oxe.yaml para mudar este modo.",
+      "bodyLastValid": "O arquivo tem um erro de sintaxe. Os agentes mantêm os últimos modos que puderam ser lidos, mostrados abaixo; eles não podem ser alterados aqui até que o arquivo seja corrigido. Corrija-o à mão e escolha Recarregar:",
+      "bodyDefaults": "O arquivo tem um erro de sintaxe e nunca foi lido, então valem os padrões do app, mostrados abaixo; eles não podem ser alterados aqui até que o arquivo seja corrigido. Corrija-o à mão e escolha Recarregar:"
     }
   }
 }

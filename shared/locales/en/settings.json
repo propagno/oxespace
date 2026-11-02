@@ -829,6 +829,14 @@
         "user": "Your user policy",
         "managed": "Managed by your organization"
       }
+    },
+    "invalidYaml": {
+      "title": "{{file}} can't be read",
+      "body": "The file has a syntax error, so the modes below can't be read or changed here. Until it is fixed, agents keep the tools as they were set before the file broke. Fix it by hand, then choose Reload:",
+      "modeUnread": "Not read",
+      "modeLocked": "Fix oxe.yaml to change this mode.",
+      "bodyLastValid": "The file has a syntax error. Agents keep the last modes that could be read, shown below; they can't be changed here until the file is fixed. Fix it by hand, then choose Reload:",
+      "bodyDefaults": "The file has a syntax error and has never been read, so the app's defaults apply, shown below; they can't be changed here until the file is fixed. Fix it by hand, then choose Reload:"
     }
   }
 }

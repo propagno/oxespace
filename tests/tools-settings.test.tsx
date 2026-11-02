@@ -41,10 +41,10 @@ const POLICY: PolicyView = {
   ]
 }
 
-function mount(options: { rules?: McpToolRule[]; dataMode?: McpToolGroupMode; noRules?: boolean } = {}) {
+function mount(options: { rules?: McpToolRule[]; dataMode?: McpToolGroupMode; noRules?: boolean; yaml?: { oxeYaml: McpToolGroupsReport['oxeYaml']; effectiveFrom?: string } } = {}) {
   let rules = options.rules ?? [{ server: 'github', tool: 'delete_repository', decision: 'deny', source: 'user', editable: false, allowedDecisions: [], confirmLevel: false, scope: 'everywhere' }]
   const api = {
-    toolGroups: vi.fn(async () => report(options.dataMode)),
+    toolGroups: vi.fn(async () => ({ ...report(options.dataMode), ...options.yaml })),
     setToolGroupMode: vi.fn(async (input: { group: string; mode: McpToolGroupMode }) => report(input.group === 'data' ? input.mode : options.dataMode)),
     ...(options.noRules ? {} : {
       toolRules: vi.fn(async () => rules),
@@ -66,6 +66,34 @@ const panel = async (name: string) => screen.findByRole('region', { name })
 afterEach(async () => { cleanup(); delete (window as { oxe?: unknown }).oxe; await changeLanguage('en') })
 
 describe('Settings › Tools', () => {
+  it('a broken oxe.yaml is said, its modes are not shown as known, and nothing offers to overwrite it (HML FINDING M on #210)', async () => {
+    const { api } = mount({ dataMode: 'on-demand', yaml: { oxeYaml: 'invalid' } })
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent("oxe.yaml can't be read")
+    expect(within(alert).getByText('oxe.yaml')).toHaveAttribute('title', ROOT)
+    const data = await panel('Data')
+    expect(within(data).getByText('Not read')).toBeVisible()
+    expect(within(data).queryByText('On demand', { selector: 'span' })).toBeNull()
+    for (const radio of within(data).getAllByRole('radio')) expect(radio).toBeDisabled()
+    expect(within(data).getByText('Fix oxe.yaml to change this mode.')).toBeVisible()
+    expect(api.setToolGroupMode).not.toHaveBeenCalled()
+  })
+
+  it('with the modes being enforced (effectiveFrom, BACKEND #372), a broken file shows them, says so, and still locks them', async () => {
+    mount({ dataMode: 'off', yaml: { oxeYaml: 'invalid', effectiveFrom: 'last-valid' } })
+    expect(await screen.findByRole('alert')).toHaveTextContent('Agents keep the last modes that could be read')
+    const data = await panel('Data')
+    expect(within(data).getByText('Off', { selector: 'span' })).toBeVisible()
+    for (const radio of within(data).getAllByRole('radio')) expect(radio).toBeDisabled()
+  })
+
+  it('a valid file has no warning and its modes can be changed', async () => {
+    mount({ yaml: { oxeYaml: 'valid', effectiveFrom: 'file' } })
+    const data = await panel('Data')
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(within(data).getAllByRole('radio').some(radio => !(radio as HTMLButtonElement).disabled)).toBe(true)
+  })
+
   it('shows every group with its mode, where the mode comes from, and the costs from the contract', async () => {
     const { api, policy } = mount()
     expect(api.toolGroups).toHaveBeenCalledWith({ rootPath: ROOT })
