@@ -180,6 +180,7 @@ export class TerminalManager {
   private readonly rtkService: RtkService
   private readonly ringCapacityBytes?: number
   private readonly exitedSessions = new Map<string, ExitedSession>()
+  private readonly outputListeners = new Set<(paneId: string) => void>()
 
   constructor(private readonly db: AppDatabase, options: TerminalManagerOptions = {}) {
     this.prepareLaunch = options.prepareLaunch
@@ -570,6 +571,7 @@ export class TerminalManager {
     session.ring.push(stripDa1(event.data))
     session.modes.consume(event.data)
     session.lastActivityAt = Date.now()
+    for (const listener of this.outputListeners) { try { listener(event.paneId) } catch { /* a reader never breaks the pane */ } }
 
     if (session.attached) {
       this.emitData(event)
@@ -626,6 +628,23 @@ export class TerminalManager {
       truncated: slice.truncated,
       altScreen
     }
+  }
+
+  /**
+   * Main-process readers that are not views (the remote gateway) hear that a pane printed something, then read it
+   * with `readSince`. Nothing is attached, so the pane and its views are unaffected.
+   */
+  onOutput(listener: (paneId: string) => void): () => void {
+    this.outputListeners.add(listener)
+    return () => { this.outputListeners.delete(listener) }
+  }
+
+  /** Output after `seq` in the ring, without attaching. `session` changes when the pane's process is replaced. */
+  readSince(paneId: string, seq: number): { session: string; seq: number; data: string; truncated: boolean } | null {
+    const session = this.sessions.get(paneId)
+    if (!session) return null
+    session.outputBatcher.flush()
+    return { session: session.sessionId, seq: session.ring.seq, ...session.ring.since(seq) }
   }
 
   /** Unbind the view. The process keeps running and its output keeps accruing. */

@@ -146,6 +146,7 @@ enum class RemoteErrorCode(val wire: String) {
     }
 }
 
+/** Why `POST /pair` refused; `reserved-name` is a device name only the app may speak as (the lists below). */
 @Serializable
 enum class RemotePairingErrorCode(val wire: String) {
     @SerialName("pairing-expired") PAIRING_EXPIRED("pairing-expired"),
@@ -155,6 +156,7 @@ enum class RemotePairingErrorCode(val wire: String) {
     @SerialName("too-many-devices") TOO_MANY_DEVICES("too-many-devices"),
     @SerialName("malformed") MALFORMED("malformed"),
     @SerialName("pairing-invalid") PAIRING_INVALID("pairing-invalid"),
+    @SerialName("reserved-name") RESERVED_NAME("reserved-name"),
     ;
 
     companion object {
@@ -207,6 +209,44 @@ val REMOTE_CLIENT_FRAMES: Set<RemoteFrameType> = setOf(
     RemoteFrameType.SUBSCRIBE,
     RemoteFrameType.UNSUBSCRIBE,
     RemoteFrameType.COMMAND,
+)
+
+/**
+ * Names a phone may not give itself, from their one source (B10 `reservedNameIn`, shared/approval-rules.ts): the
+ * desktop answers `reserved-name`, and the phone checks the same lists before asking. These are refused wherever they
+ * appear in the name ("OXESpace: update"). The desktop compares after folding case, accents, invisible characters and
+ * look-alike letters and digits, so a name that passes the phone's plain check may still be refused.
+ */
+val REMOTE_RESERVED_NAME_FRAGMENTS: Set<String> = setOf(
+    "OXESpace",
+    "OxeChat",
+    "OxeCode",
+    "OxeQuery",
+    "OxePod",
+    "OxePost",
+)
+
+/**
+ * Generic words the phone refuses as the whole name ("Chat", "Sistema"); "filesystem" stays allowed. The desktop also refuses the
+ * first words ("Sistema", "App") at the start of a longer name (#247); the phone checks them as whole names only.
+ */
+val REMOTE_RESERVED_NAMES: Set<String> = setOf(
+    "Thread",
+    "Code",
+    "Chat",
+    "System",
+    "Sistema",
+    "Administrator",
+    "Administrador",
+    "Admin",
+    "Aplicação",
+    "Aplicativo",
+    "Application",
+    "App",
+    "root",
+    "sudo",
+    "Security",
+    "Segurança",
 )
 
 /** Every frame; the JSON `type` field picks the class. */
@@ -500,7 +540,15 @@ data class RemotePendingRequest(
     val redacted: Long? = null,
     /** Questions without `secret` only, with options as on the desktop. */
     val questions: List<Question>? = null,
-    /** Offered by the provider; "accept for the session" is never offered on the phone. */
+    /**
+     * True when the phone is not shown all of it: the command, detail, a warning, a question or an option was cut to
+     * `REMOTE_TEXT_LIMITS.detail`, or files, the working directory, warnings past 20, questions past 20 or options past 50
+     * were left out. An approval is then offered no `accept` (deny only, as in B10) and says the full text is on the
+     * desktop; an `accept` sent anyway is `forbidden`. A question is then `answerable: false` with no decisions: it is
+     * answered on the desktop only, and any `thread.respondRequest` for it is `forbidden`.
+     */
+    val truncated: Boolean? = null,
+    /** Offered by the provider; "accept for the session" is never offered on the phone, nor `accept` when `truncated`. */
     val decisions: List<String>,
     /**
      * False when only the desktop can answer: guarded requests, permissions, elicitation, tool and secret questions.

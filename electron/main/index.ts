@@ -21,6 +21,7 @@ import { registerSessionIpc } from './ipc/session.ipc'
 import { broadcastSkillChange, registerSkillIpc } from './ipc/skill.ipc'
 import { broadcastMcpHealth, registerMcpIpc } from './ipc/mcp.ipc'
 import { registerMcpInternalIpc } from './ipc/mcp-internal.ipc'
+import { registerMcpToolRulesIpc } from './ipc/mcp-tool-rules.ipc'
 import { registerVoiceIpc } from './ipc/voice.ipc'
 import { registerNotificationsIpc } from './ipc/notifications.ipc'
 import { registerAppInfoIpc } from './ipc/app-info.ipc'
@@ -313,7 +314,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     log.warn('Automations unavailable', error)
   }
   const linearService = registerLinearIpc(db, gitHubService)
-  registerIntegrationIpc(db); registerRemoteIpc(db)
+  registerIntegrationIpc(db)
   const backgroundManager = new BackgroundManager(db, {
     emitOutput: (event) => {
       for (const window of BrowserWindow.getAllWindows()) {
@@ -378,7 +379,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   registerVoiceIpc()
   registerNotificationsIpc()
-  app.once('before-quit', registerAppInfoIpc(db))
+  registerRemoteIpc(db, { threads: threadManager.manager, terminals: terminalManager, agentState }); app.once('before-quit', registerAppInfoIpc(db))
   registerCopilotIpc()
   const creditsService = registerAgentCreditsIpc()
   const contextUsageService = registerContextUsageIpc()
@@ -393,6 +394,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   const internalMcpGithub = new GitHubService(db)
   internalMcpGithub.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
   const internalMcpGit = new GitService()
+  registerMcpToolRulesIpc(db, fileSystemService, mcpManager) // Settings › Tools, per tool (B7.3)
   const codeGraphService = new CodeGraphService(db)
   const delegationAgents = new AgentService(db)
   const launcher = new AgentLaunchService(terminalManager, () => delegationAgents.list(), app.getPath('userData'))
