@@ -53,7 +53,7 @@ export function useTerminalPathMenu(workspaceId: string | undefined): {
   }
 
   // Hung at the pointer; on close the keyboard goes back to the terminal, so typing continues (FRONTEND #470).
-  const menu = <LazyPathMenu request={request} point={point} onClose={() => { setRequest(null); setPoint(null) }}
+  const menu = <LazyPathMenu request={request} point={point} externalClickHint onClose={() => { setRequest(null); setPoint(null) }}
     returnFocus={() => host.current?.querySelector<HTMLElement>('.xterm-helper-textarea') ?? null}
     openInOxespace={request ? () => { void import('./terminalPathActions').then(actions => actions.openInOxespace(request)) } : undefined} />
   return { register, onContextMenu, menu }

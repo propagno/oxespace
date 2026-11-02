@@ -4,7 +4,7 @@ import { parseProjectPath } from '../../lib/projectPath'
 import { i18n } from '../../i18n'
 import { toast } from '../../ui'
 
-type ViewProps = { request: OpenInRequest; point: { x: number; y: number }; onClose(): void; returnFocus(): HTMLElement | null; openInOxespace?: () => void; folder?: boolean; copyOnly?: boolean }
+type ViewProps = { request: OpenInRequest; point: { x: number; y: number }; onClose(): void; returnFocus(): HTMLElement | null; openInOxespace?: () => void; folder?: boolean; copyOnly?: boolean; externalClickHint?: boolean }
 
 /**
  * The menu, the open-in client and main's message codes load on the first right click, not with the window. A chunk
@@ -32,11 +32,11 @@ export function menuPoint(event: MouseEvent): { x: number; y: number } {
 }
 
 /** The loaded path menu at `point`, or nothing while closed. */
-export function LazyPathMenu({ request, point, onClose, returnFocus, openInOxespace, folder, copyOnly }: {
-  request: OpenInRequest | null; point: { x: number; y: number } | null; onClose(): void; returnFocus(): HTMLElement | null; openInOxespace?: () => void; folder?: boolean; copyOnly?: boolean
+export function LazyPathMenu({ request, point, onClose, returnFocus, openInOxespace, folder, copyOnly, externalClickHint }: {
+  request: OpenInRequest | null; point: { x: number; y: number } | null; onClose(): void; returnFocus(): HTMLElement | null; openInOxespace?: () => void; folder?: boolean; copyOnly?: boolean; externalClickHint?: boolean
 }): ReactElement | null {
   if (!request || !point) return null
-  return <Suspense fallback={null}><PathMenuView request={request} point={point} onClose={onClose} returnFocus={returnFocus} openInOxespace={openInOxespace} folder={folder} copyOnly={copyOnly} /></Suspense>
+  return <Suspense fallback={null}><PathMenuView request={request} point={point} onClose={onClose} returnFocus={returnFocus} openInOxespace={openInOxespace} folder={folder} copyOnly={copyOnly} externalClickHint={externalClickHint} /></Suspense>
 }
 
 /**

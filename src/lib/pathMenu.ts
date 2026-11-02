@@ -28,6 +28,8 @@ export interface PathMenuOptions {
   folder?: boolean
   /** A file of another checkout (a worktree) main can't open from this scope: only the copy items (DESIGN #470). */
   copyOnly?: boolean
+  /** Where Ctrl/Cmd+Shift+click opens the preferred editor (the terminal, §5.3): its item shows that shortcut. */
+  externalClickHint?: boolean
 }
 
 const t = (key: string, options?: Record<string, unknown>): string => (i18n.t as unknown as (key: string, options: object) => string)(key, { ns: 'common', ...options })
@@ -42,7 +44,7 @@ export function externalClickHint(platform: NodeJS.Platform): string {
   return t(platform === 'darwin' ? 'openIn.shortcutMac' : 'openIn.shortcut')
 }
 
-export function pathMenuEntries({ request, targets, platform, openInOxespace, folder, copyOnly }: PathMenuOptions): MenuEntry[] {
+export function pathMenuEntries({ request, targets, platform, openInOxespace, folder, copyOnly, externalClickHint: showClickHint }: PathMenuOptions): MenuEntry[] {
   const groups: MenuEntry[][] = []
   if (copyOnly) return copyGroup(request)
   if (openInOxespace) groups.push([{ label: t('openIn.oxespace'), onSelect: openInOxespace }])
@@ -50,7 +52,8 @@ export function pathMenuEntries({ request, targets, platform, openInOxespace, fo
   if (editors.length) {
     groups.push(editors.map((editor, index) => ({
       label: request.line ? t('openIn.editorAtLine', { editor: editor.name, line: request.line }) : t('openIn.editor', { editor: editor.name }),
-      ...(index === 0 ? { shortcut: externalClickHint(platform) } : {}),
+      // Only where the modifier works: elsewhere the hint would promise a click that does nothing (DESIGN #470).
+      ...(index === 0 && showClickHint ? { shortcut: externalClickHint(platform) } : {}),
       onSelect: () => { void openPathIn(request, editor.id) }
     })))
   }

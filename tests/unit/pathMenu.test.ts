@@ -18,6 +18,13 @@ describe('pathMenuEntries (F33 §4)', () => {
     expect(items.filter(item => item === '—')).toHaveLength(3)
   })
 
+  it('shows the Ctrl+Shift+click hint only where that click works (the terminal)', () => {
+    const plain = pathMenuEntries({ request, targets, platform: 'linux' })
+    const terminal = pathMenuEntries({ request, targets, platform: 'linux', externalClickHint: true })
+    expect(plain.some(entry => 'shortcut' in entry && entry.shortcut)).toBe(false)
+    expect(terminal.filter(entry => 'shortcut' in entry && entry.shortcut)).toHaveLength(1)
+  })
+
   it('leaves no group and no separator for missing editors, a folder, or a copy-only file', () => {
     const none = shape(pathMenuEntries({ request, targets: { editors: [], preferred: 'auto' }, platform: 'linux' }))
     expect(none.filter(item => item === '—')).toHaveLength(1)
