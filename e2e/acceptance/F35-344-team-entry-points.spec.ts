@@ -42,7 +42,7 @@ test('F35/#344: Team from the palette, Tools menu, Ctrl+Shift+T and OxeChat; not
     await page.locator('.app-menu-button').first().click()
     await page.getByRole('menuitem', { name: /^Tools/ }).first().click()
     out.toolsItems = await page.getByRole('menuitem').allInnerTexts().then(l => l.filter(t => /team/i.test(t)))
-    await page.getByRole('menuitem', { name: /Project team|Team/ }).first().click().catch(() => undefined)
+    await page.getByRole('menuitem', { name: /(open the )?project team|team/i }).first().click().catch(() => undefined)
     await closeAndCheck(page, 'toolsMenu', out)
 
     // Ctrl+Shift+T from the workspace (not from a terminal, which keeps its keys).
