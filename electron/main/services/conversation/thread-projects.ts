@@ -6,6 +6,7 @@ import type { AppDatabase } from '../../db'
 import type { ThreadProjectCatalog, ThreadProjectSummary } from '../../../../shared/types/thread'
 import { projectIdentity } from '../memory/memory-project.service'
 import { firstPolicyRead } from '../policy/first-read'
+import { staysLocal } from '../git-common-dir'
 
 interface ProjectRow { id: string; identity: string; root_path: string; display_name: string; hidden: number }
 interface ContextRow { project_id: string; root_path: string }
@@ -60,7 +61,8 @@ export class ThreadProjectService {
   private registeredRoot(projectId: string, rootPath: string): string | null {
     const registered = (path: string) => !!this.db.prepare('SELECT 1 FROM thread_project_contexts WHERE project_id = ? AND root_path = ?').get(projectId, path)
     if (registered(rootPath)) return rootPath
-    if (/^[\\/]{2}/.test(rootPath)) return null
+    // A link inside the path may lead to a share: realpath would follow it to the network (BACKEND #524).
+    if (/^[\\/]{2}/.test(rootPath) || !staysLocal(rootPath)) return null
     let canonical: string
     try { canonical = realpathSync.native(rootPath) } catch { return null }
     return canonical !== rootPath && registered(canonical) ? canonical : null

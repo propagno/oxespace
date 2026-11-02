@@ -91,3 +91,22 @@ it('accepts another spelling of a registered project root: a link in the path, a
     removeTempDir(root)
   }
 })
+
+it('never follows a link inside the given root that leads to a share', async () => {
+  const { symlinkSync, realpathSync } = await import('node:fs')
+  const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'oxespace-thread-share-')))
+  const db = openInMemoryDatabase()
+  try {
+    const repo = join(root, 'repo')
+    mkdirSync(repo, { recursive: true })
+    execFileSync('git', ['init', repo], { windowsHide: true, stdio: 'ignore' })
+    const service = new ThreadProjectService(db)
+    const project = await service.add(repo)
+    // A symlink to a share needs Developer Mode on Windows; where it can't be made, there is nothing to test.
+    try { symlinkSync('//attacker/share', join(root, 'share'), 'dir') } catch { return }
+    expect(() => service.context(project.projectId, join(root, 'share', 'repo'))).toThrow('Directory does not belong to this Thread project')
+  } finally {
+    db.close()
+    removeTempDir(root)
+  }
+})
