@@ -765,21 +765,10 @@ export class ThreadOrchestrator {
     return reorderQueued(this.queueHost(), id, itemIds)
   }
 
-  pin(id: string, pinned: boolean): void {
-    const snapshot = this.read(id)
-    snapshot.thread.pinned = pinned
-    this.save(snapshot, { eventsFrom: snapshot.events.length })
-  }
-
-  /** T40: the person keeps the conversation through the close of PR `prNumber`; stored in the thread's data, no column. */
-  keepAfterPr(id: string, prNumber: number): void {
-    const snapshot = this.read(id)
-    const kept = snapshot.thread.keptAfterPr ?? []
-    if (kept.includes(prNumber)) return
-    // Bounded: a conversation outlives few pull requests; the oldest go first.
-    snapshot.thread.keptAfterPr = [...kept, prNumber].slice(-20)
-    this.save(snapshot, { eventsFrom: snapshot.events.length })
-  }
+  pin(id: string, pinned: boolean): void { this.patch(id, thread => { thread.pinned = pinned }) }
+  /** T40: kept through the close of PR `prNumber` (data_json, no column); each once, the latest 20. */
+  keepAfterPr(id: string, prNumber: number): void { this.patch(id, thread => { thread.keptAfterPr = [...new Set([...(thread.keptAfterPr ?? []), prNumber])].slice(-20) }) }
+  private patch(id: string, change: (thread: ThreadSnapshot['thread']) => void): void { const snapshot = this.read(id); change(snapshot.thread); this.save(snapshot, { eventsFrom: snapshot.events.length }) }
 
   commands(id: string, forceRefresh = false): Promise<ThreadCommandCatalog> {
     return this.commandService?.list(this.readThread(id), forceRefresh) ?? Promise.resolve({ commands: [] })
