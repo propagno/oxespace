@@ -81,9 +81,15 @@ test('S7.1: one overview of a pane, a conversation, a delegation and a work run,
       await page.locator('[data-testid="pane-container"] .xterm').first().click()
       await page.keyboard.type(`node "${hook}" ${event}${stamp ? ` "${sent}"` : ''}`); await page.keyboard.press('Enter')
     }
-    await runHook('PermissionRequest')
-    await page.waitForTimeout(2_000)
+    // The relaunched pane's shell may not take keys yet (PowerShell on Windows starts slowly): wait for the hook's own
+    // log line, and type it again once if it never ran.
     const hookLog = join(profile.root, 'hook-log.jsonl')
+    await runHook('PermissionRequest')
+    if (!(await expect.poll(() => existsSync(hookLog), { timeout: 10_000 }).toBe(true).then(() => true, () => false))) {
+      await page.waitForTimeout(3_000); await runHook('PermissionRequest')
+      await expect.poll(() => existsSync(hookLog), { timeout: 15_000 }).toBe(true).catch(() => undefined)
+    }
+    await page.waitForTimeout(1_000)
     console.log('S71-HOOK', JSON.stringify({ expected: { workspaceId, paneId }, sent: existsSync(hookLog) ? readFileSync(hookLog, 'utf8').trim().split('\n') : 'no hook log (the hook never ran)' }))
 
     const list = await agents(page)
