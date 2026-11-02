@@ -812,6 +812,12 @@
       "empty": "The agent sent no text.",
       "length": "{{length}} characters"
     },
+    "textLabel": {
+      "policyChange": "Content of the file"
+    },
+    "textHint": {
+      "policyChange": "Shown exactly as it is on disk. OXESpace can't tell who changed it: read it before you allow."
+    },
     "expires": "If you do not answer by {{time}}, the request is denied.",
     "hold": {
       "waiting": "Critical risk: Allow is available in {{seconds}} s. Read the request first.",
