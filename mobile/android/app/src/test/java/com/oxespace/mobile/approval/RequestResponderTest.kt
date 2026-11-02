@@ -56,6 +56,11 @@ class RequestResponderTest {
         assertEquals(AnswerOutcome.Blocked(AnswerBlock.TRUNCATED), responder.answer(cut, decision = "accept"))
         assertTrue(confirmations.isEmpty())
         assertEquals(AnswerOutcome.Sent(CommandResult.Done(null)), responder.answer(cut.copy(decisions = listOf("decline")), decision = "decline"))
+        // A decline carries no answers for what the phone wasn't shown in full (SECURITY #422).
+        assertEquals(
+            AnswerOutcome.Blocked(AnswerBlock.TRUNCATED),
+            responder.answer(cut.copy(decisions = listOf("decline")), decision = "decline", answers = mapOf("q" to listOf("yes"))),
+        )
         assertEquals("decline", sent.single().response.decision)
         // A truncated question offers nothing to answer here, whatever its other fields say.
         val question = request.copy(kind = "question", decisions = emptyList(), truncated = true)

@@ -43,7 +43,7 @@ class RequestResponder(
         reason: String? = null,
     ): AnswerOutcome {
         // The desktop already offers no accept and makes a truncated question unanswerable; this holds even if it didn't.
-        if (request.truncated == true && decision != "decline" && decision != "cancel") return AnswerOutcome.Blocked(AnswerBlock.TRUNCATED)
+        if (request.truncated == true && ((decision != "decline" && decision != "cancel") || answers != null)) return AnswerOutcome.Blocked(AnswerBlock.TRUNCATED)
         if (!request.answerable) return AnswerOutcome.Blocked(AnswerBlock.DESKTOP_ONLY)
         if (decision != null && (decision !in request.decisions || decision == "acceptForSession")) return AnswerOutcome.Blocked(AnswerBlock.NOT_OFFERED)
         if (decision == null && answers.isNullOrEmpty()) return AnswerOutcome.Blocked(AnswerBlock.NOT_OFFERED)
