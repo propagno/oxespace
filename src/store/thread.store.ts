@@ -99,8 +99,10 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
     const keep = !cached && id !== null && get().snapshot !== null
     // Only the conversation this switch kept is taken down: one that arrived another way (adopt, a newer select)
     // stays (#363 CI: a timer from an earlier switch cleared a conversation shown since).
-    const keptId = keep ? get().snapshot?.thread.id : undefined
-    if (keep) setTimeout(() => { if (version === generation && get().selectedId === id && get().snapshot?.thread.id === keptId) set({ snapshot: null }) }, CONVERSATION_SKELETON_AFTER_MS)
+    // The very snapshot object kept, not just its id: a store reset or a refresh of that conversation since is not this
+    // switch's to take down (#363 CI: a timer left from an earlier test cleared a fresh fixture with the same id).
+    const kept = keep ? get().snapshot : null
+    if (keep) setTimeout(() => { if (version === generation && get().selectedId === id && get().snapshot === kept) set({ snapshot: null }) }, CONVERSATION_SKELETON_AFTER_MS)
     set(state => ({ selectedId: id, snapshot: keep ? state.snapshot : cached, unreadIds: id && markRead ? state.unreadIds.filter(value => value !== id) : state.unreadIds, errors: Object.fromEntries(Object.entries(state.errors).filter(([key]) => key !== 'selection')),
       ...(state.secondaryId === id ? { secondaryId: null, activeCell: 'primary' as const } : {}) }))
     if (!id) return
