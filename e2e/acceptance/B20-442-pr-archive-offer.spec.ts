@@ -19,7 +19,7 @@ async function stubs(app: ElectronApplication) {
     const g = globalThis as Record<string, unknown>
     g.prStatus = null; g.calls = { keep: [], commands: [] }
     for (const ch of ['github:get-pull-request-status', 'thread:keep-after-pr', 'thread:command']) ipcMain.removeHandler(ch)
-    ipcMain.handle('github:get-pull-request-status', () => g.prStatus)
+    ipcMain.handle('github:get-pull-request-status', () => { g.reads = ((g.reads as number) ?? 0) + 1; return g.prStatus })
     ipcMain.handle('thread:keep-after-pr', (_e, id: string, n: number) => { (g.calls as Calls).keep.push([id, n]) })
     ipcMain.handle('thread:command', (_e, _id: string, text: string) => { (g.calls as Calls).commands.push(text); return { kind: 'applied' } })
   })
@@ -29,7 +29,11 @@ const setPr = (app: ElectronApplication, number: number, state: 'OPEN' | 'MERGED
 }, { number, state, head })
 const calls = (app: ElectronApplication) => app.evaluate(() => (globalThis as Record<string, unknown>).calls as Calls)
 /** The PR bar reads on focus (and every 30 s): a focus is the read. */
-const read = async (page: Page) => { await page.evaluate(() => { window.dispatchEvent(new Event('blur')); window.dispatchEvent(new Event('focus')) }); await page.waitForTimeout(1_200) }
+const read = async (page: Page) => {
+  // The CI window can report itself hidden, and the bar skips its focus and 30 s reads then; a person's window is visible.
+  await page.evaluate(() => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' }); window.dispatchEvent(new Event('focus')) })
+  await page.waitForTimeout(1_200)
+}
 const toast = (page: Page) => page.locator('[role="status"], [role="alert"], [data-testid*="toast"]').filter({ hasText: /Pull request #\d+/ })
 
 test('B20/#442: the archive offer after a PR closes or merges, and only then', async () => {
@@ -96,6 +100,7 @@ test('B20/#442: the archive offer after a PR closes or merges, and only then', a
     expect.soft((await calls(app)).commands.some(c => /archive/i.test(c)), 'Archive archives the conversation').toBe(true)
     expect.soft(consoleErrors.filter(l => l.startsWith('pageerror')), 'no page error').toEqual([])
   } finally {
+    log.reads = await app.evaluate(() => (globalThis as Record<string, unknown>).reads).catch(() => null)
     console.log('B20', JSON.stringify(log))
     await app.close()
   }
