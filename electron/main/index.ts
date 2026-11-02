@@ -21,7 +21,6 @@ import { registerSessionIpc } from './ipc/session.ipc'
 import { broadcastSkillChange, registerSkillIpc } from './ipc/skill.ipc'
 import { broadcastMcpHealth, registerMcpIpc } from './ipc/mcp.ipc'
 import { registerMcpInternalIpc } from './ipc/mcp-internal.ipc'
-import { registerMcpToolRulesIpc } from './ipc/mcp-tool-rules.ipc'
 import { registerVoiceIpc } from './ipc/voice.ipc'
 import { registerNotificationsIpc } from './ipc/notifications.ipc'
 import { registerAppInfoIpc } from './ipc/app-info.ipc'
@@ -64,7 +63,7 @@ import { fallbackShellProfiles } from './services/shell-profile.defaults'
 import { guardMainWindowLinks, isLoopbackHttpUrl } from './utils/external-open'
 import { applyLoginShellPath } from './utils/login-shell-path'
 import { securePreviewGuest, securePreviewSession, WEB_PREVIEW_PARTITION_PREFIX } from './services/browser-preview-security'
-import { registerBrowserPreviewIpc } from './services/browser-preview.service'
+import { registerBrowserPreviewIpc } from './ipc/browser-preview.ipc'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
 import type { ShellProfile } from '../../shared/types/workspace'
 import { redactLogMessage } from './services/log-redaction'
@@ -387,7 +386,6 @@ async function registerIpcHandlers(): Promise<() => void> {
   const internalMcpGithub = new GitHubService(db)
   internalMcpGithub.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
   const internalMcpGit = new GitService()
-  registerMcpToolRulesIpc(db, fileSystemService, mcpManager) // Settings › Tools, per tool (B7.3)
   const codeGraphService = new CodeGraphService(db)
   const delegationAgents = new AgentService(db)
   const launcher = new AgentLaunchService(terminalManager, () => delegationAgents.list(), app.getPath('userData'))
@@ -474,7 +472,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   registerMcpInternalIpc(internalMcp)
   registerDiagnosticsIpc(db, internalMcp, { terminals: terminalManager, mcp: mcpManager })
-  registerPolicyIpc(id => internalMcpWorkspaceServ.get(id)?.rootPath)
+  await registerPolicyIpc(id => internalMcpWorkspaceServ.get(id)?.rootPath, { db, files: fileSystemService, servers: mcpManager, executions })
   // OXESpace context manifest — prepended to the agent's initial prompt on pane spawn so the CLI knows the
   // workspace state without calling any MCP tool. Read shortcut; MCP is still the action path (see oxe-context.service.ts).
   registerOxeContextIpc({
