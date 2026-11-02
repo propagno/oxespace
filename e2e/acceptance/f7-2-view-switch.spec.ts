@@ -85,24 +85,23 @@ for (const variant of [
       if (variant.cpu > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: variant.cpu })
       // Typing into the old view starts before the click, so keys are in flight across the switch.
       await page.locator('[data-testid="pane-container"] .xterm').first().click()
-      // The press is measured from a quiet window (three idle periods of at least 8 ms in a row: with an animation on screen,
-      // such as the terminal's cursor, Chromium caps an idle period at about one frame, so 40 ms never comes): startup and background work still queued after launch (heavier with the
-      // CPU throttled) would otherwise land in the measured frames (#363 CI: the first frame at 1.8 s with the terminal idle).
-      const wait = await page.evaluate(() => new Promise<{ quiet: boolean; ms: number; idle: number }>(resolve => {
+      // The press is measured from a quiet window, no long task for 500 ms (at most 8 s, else the case fails): startup
+      // and background work still queued after launch would otherwise land in the measured frames.
+      const wait = await page.evaluate(() => new Promise<{ quiet: boolean; ms: number; longTasks: number }>(resolve => {
+        // Quiet = no long task (over 50 ms on the main thread) for 500 ms in a row, as the Long Tasks API reports them.
+        // (requestIdleCallback never reported an idle period on CI: with frames always due, it only fired on its timeout.)
         const started = performance.now()
-        let idle = 0, done = false
-        const finish = (quiet: boolean): void => { if (done) return; done = true; resolve({ quiet, ms: Math.round(performance.now() - started), idle }) }
-        const quiet = (left: number): void => {
-          if (done) return
-          if (left === 0) { finish(true); return }
-          requestIdleCallback(deadline => { const enough = deadline.timeRemaining() >= 8; if (enough) idle++; quiet(enough ? left - 1 : 3) }, { timeout: 3_000 })
-        }
+        let last = started, longTasks = 0, done = false
+        const observer = new PerformanceObserver(list => { for (const entry of list.getEntries()) { longTasks++; last = Math.max(last, entry.startTime + entry.duration) } })
+        observer.observe({ type: 'longtask', buffered: false })
+        const finish = (quiet: boolean): void => { if (done) return; done = true; observer.disconnect(); resolve({ quiet, ms: Math.round(performance.now() - started), longTasks }) }
+        const check = (): void => { if (done) return; if (performance.now() - last >= 500) finish(true); else setTimeout(check, 50) }
         setTimeout(() => finish(false), 8_000)
-        quiet(3)
+        setTimeout(check, 50)
       }))
-      console.log(`[F72-WAIT] ${variant.name}: quiet ${wait.quiet}, waited ${wait.ms} ms, idle periods ${wait.idle}`)
+      console.log(`[F72-WAIT] ${variant.name}: quiet ${wait.quiet}, waited ${wait.ms} ms, long tasks ${wait.longTasks}`)
       // TECH LEAD on #363: a window that never goes quiet fails the case; it is never measured anyway.
-      expect(wait.quiet, `no quiet window within 8 s (waited ${wait.ms} ms, ${wait.idle} idle periods)`).toBe(true)
+      expect(wait.quiet, `no quiet window within 8 s (waited ${wait.ms} ms, ${wait.longTasks} long tasks)`).toBe(true)
       await arm(page)
       // No hover first: hovering would prefetch the chunk (rule 4) and the switch would no longer be cold.
       await page.locator('button[data-app-mode="data"]').dispatchEvent('pointerdown')
