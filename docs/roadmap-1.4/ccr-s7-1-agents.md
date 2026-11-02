@@ -41,7 +41,8 @@ export interface AgentRequestSummary {
   requestId: string
   /** Main-built title (C3). */
   title: MainMessage
-  risk: ApprovalRisk            // the 4 words low/medium/high/critical, never colours (DESIGN FINDING M)
+  /** The 4 words low/medium/high/critical, never colours (DESIGN FINDING M); null when nothing assessed it (a pane's own prompt). */
+  risk: ApprovalRisk | null
   /** False when this request can't be answered from where it is read (the phone, for some kinds). */
   answerable: boolean
   since: number
@@ -75,7 +76,7 @@ export type AgentSource = 'panes' | 'threads' | 'delegations' | 'work'
 export type AgentSourceStatus = { ok: true; seq: number } | { ok: false; reason: MainMessage }
 
 export interface AgentsOverview {
-  rows: AgentRow[]
+  agents: AgentRow[]
   sources: Record<AgentSource, AgentSourceStatus>
 }
 
@@ -116,7 +117,8 @@ CREATE TABLE agent_seen (kind TEXT NOT NULL, id TEXT NOT NULL, seen_at INTEGER N
 ```
 
 - One row per agent, the newest mark only; at most 2000 rows, the oldest go first.
-- A row goes when its source goes: a pane closed, a conversation deleted, a delegation or run pruned.
+- A row goes when its source goes: a conversation deleted, a delegation or run pruned (checked at start). A pane's mark
+  stays, since pane ids outlive the agent in them; the 2000 cap bounds it.
 - Opening a row, or "Mark as seen", writes `seen_at = now`. The desktop does it through `agents:mark-seen`, the phone
   through `agent.markSeen`.
 - Conversations: `unreadIds` leave renderer localStorage. On the first start after the update the window sends, once,
@@ -136,8 +138,9 @@ CREATE TABLE agent_seen (kind TEXT NOT NULL, id TEXT NOT NULL, seen_at INTEGER N
   `markSeen(key)` and `onChanged(listener) => unsubscribe`.
 - **Validation:** `markSeen` takes `{ kind ∈ AGENT_KINDS, id: string ≤ 200 }`. Anything else is a plain `Error`
   (malformed input, per C3).
-- **C3 codes** for the per-source status: `agents.source.unavailable { source }`, and
-  `agents.source.timedOut { source }` (a source that didn't answer within 2 s).
+- **C3 codes** for the per-source status: `agents.source.unavailable { source }`. No `timedOut`: every source is a
+  local, synchronous read, so it answers or throws. Request titles: `agents.request.{approval,question,permissions,
+  elicitation,tool,pane}`.
 - **e2e double:** `electron/main/e2e/agents-mock.ts`, registered from mock-ipc's per-domain hook. The
   `OXESPACE_E2E_AGENTS` fixture can keep one agent silent (§14).
 
@@ -156,7 +159,7 @@ export interface RemoteAgentRow {
   title: string                       // redacted like other remote text, ≤ REMOTE_TEXT_LIMITS.title
   since: number
   /** The oldest pending request, if any; the phone shows one per row. */
-  request?: { requestId: string; title: string; risk: ApprovalRisk; answerable: boolean }
+  request?: { requestId: string; title: string; risk: ApprovalRisk | null; answerable: boolean }
   /** Set while state is needs-you: when the phone may nudge (§5.10 timer, the same setting as the desktop). */
   nudgeAfterMs?: number
 }
