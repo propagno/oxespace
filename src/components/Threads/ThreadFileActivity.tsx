@@ -10,8 +10,7 @@ import { changeSummary, threadChanges, turnChanges, type ThreadChangeEntry } fro
 import { ThreadHunkReview } from './ThreadHunkReview'
 import { humanizeError } from '../../utils/humanizeError'
 import { relativeTurnPath } from '../../../shared/threadFilePath'
-import { parseProjectPath } from '../../lib/projectPath'
-import { usePathMenu, WithPathMenu } from '../PathMenu/usePathMenu'
+import { conversationPathMenu, usePathMenu, WithPathMenu } from '../PathMenu/usePathMenu'
 
 /** A changed file's path relative to its checkout, with the checkout named when it is not the conversation's root. */
 export function TurnPath({ path, roots }: { path: string; roots: Array<string | null | undefined> }) {
@@ -30,8 +29,8 @@ function FileActivityRow({ entry, root, roots, threadId, workspaceId, onOpen }: 
   const [expanded, setExpanded] = useState(false)
   const verb = (file: ThreadChangeEntry['file']): string => t(`files.verb.${file.state === 'failed' || file.state === 'running' || file.state === 'unknown' ? file.state
     : file.source === 'tool-input' ? 'toolInput' : file.source === 'working-tree-observation' ? 'observed' : file.kind === 'add' || file.kind === 'delete' || file.kind === 'rename' ? file.kind : 'update'}`)
-  const inProject = workspaceId && root ? parseProjectPath(entry.file.path, root) : null
-  const { menu, onContextMenu } = usePathMenu(inProject && workspaceId ? { workspaceId, rootPath: root, relativePath: inProject.relativePath } : null, { openInOxespace: () => onOpen(entry) })
+  const target = conversationPathMenu(entry.file.path, workspaceId, root, roots)
+  const { menu, onContextMenu } = usePathMenu(target?.request ?? null, { openInOxespace: target?.copyOnly ? undefined : () => onOpen(entry), copyOnly: target?.copyOnly })
   return <div><div className="thread-file-operation"><button type="button" className="thread-file-entry" onClick={() => onOpen(entry)} onContextMenu={onContextMenu} title={entry.file.path}>
     <FileCode2 size={14} /><span className="thread-file-verb">{verb(entry.file)}</span>
     <TurnPath path={entry.file.path} roots={[root, ...roots]} /><FileStats file={entry.file} />
@@ -112,7 +111,7 @@ export function ThreadTurnChanges({ events, root, roots = [], workspaceId, onOpe
       const label = relativeTurnPath(entry.file.path, allRoots).label
       return <div key={entry.key} className="thread-change-file">
         {/* F33: the path menu on a changed file of the conversation's project. */}
-        <WithPathMenu request={(() => { const inProject = workspaceId && root ? parseProjectPath(entry.file.path, root) : null; return inProject && workspaceId ? { workspaceId, rootPath: root, relativePath: inProject.relativePath } : null })()} openInOxespace={() => onOpen(entry)}
+        <WithPathMenu {...(() => { const target = conversationPathMenu(entry.file.path, workspaceId, root, allRoots); return { request: target?.request ?? null, copyOnly: target?.copyOnly } })()} openInOxespace={() => onOpen(entry)}
           render={onContextMenu => <button type="button" onClick={() => onOpen(entry)} onContextMenu={onContextMenu} title={entry.file.path}><span className="thread-change-file-name"><TurnPath path={entry.file.path} roots={allRoots} /></span>{entries.filter(value => value.file.path === entry.file.path).length === 1 && <FileStats file={entry.file} />}</button>} />
         {status?.state === 'reverted' && <span className="thread-change-file-state">{t('files.reverted')}</span>}
         {status?.state === 'modified' && <span className="thread-change-file-state" title={t('files.editedLaterTitle')}>{t('files.editedLater')}</span>}

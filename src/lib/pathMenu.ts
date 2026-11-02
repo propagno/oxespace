@@ -26,6 +26,8 @@ export interface PathMenuOptions {
   openInOxespace?: () => void
   /** A folder: editors only open files (B18 `notAFile`), so it gets reveal and copy. */
   folder?: boolean
+  /** A file of another checkout (a worktree) main can't open from this scope: only the copy items (DESIGN #470). */
+  copyOnly?: boolean
 }
 
 const t = (key: string, options?: Record<string, unknown>): string => (i18n.t as unknown as (key: string, options: object) => string)(key, { ns: 'common', ...options })
@@ -40,8 +42,9 @@ export function externalClickHint(platform: NodeJS.Platform): string {
   return t(platform === 'darwin' ? 'openIn.shortcutMac' : 'openIn.shortcut')
 }
 
-export function pathMenuEntries({ request, targets, platform, openInOxespace, folder }: PathMenuOptions): MenuEntry[] {
+export function pathMenuEntries({ request, targets, platform, openInOxespace, folder, copyOnly }: PathMenuOptions): MenuEntry[] {
   const groups: MenuEntry[][] = []
+  if (copyOnly) return copyGroup(request)
   if (openInOxespace) groups.push([{ label: t('openIn.oxespace'), onSelect: openInOxespace }])
   const editors = folder ? [] : editorsInMenuOrder(targets)
   if (editors.length) {
@@ -52,9 +55,13 @@ export function pathMenuEntries({ request, targets, platform, openInOxespace, fo
     })))
   }
   groups.push([{ label: t(platform === 'win32' ? 'openIn.revealWindows' : platform === 'darwin' ? 'openIn.revealMac' : 'openIn.revealLinux'), onSelect: () => { void openPathIn(request, 'reveal') } }])
-  groups.push([
+  groups.push(copyGroup(request))
+  return groups.flatMap((group, index) => index === 0 ? group : [{ type: 'separator' as const }, ...group])
+}
+
+function copyGroup(request: OpenInRequest): MenuEntry[] {
+  return [
     { label: t('openIn.copyRelativePath'), onSelect: () => void copyText(request.relativePath, t('openIn.path'), t('openIn.relativePathCopied')) },
     { label: t('openIn.copyFullPath'), onSelect: () => void copyText(fullPath(request.rootPath, request.relativePath), t('openIn.path'), t('openIn.pathCopied')) }
-  ])
-  return groups.flatMap((group, index) => index === 0 ? group : [{ type: 'separator' as const }, ...group])
+  ]
 }

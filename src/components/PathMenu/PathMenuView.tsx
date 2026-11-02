@@ -10,18 +10,19 @@ import { pathMenuEntries, pathMenuLabel } from '../../lib/pathMenu'
  * It hangs from a zero-size fixed box at the pointer, so it opens where the person clicked whatever the size of the
  * element, and on close focus goes where `returnFocus` says (FRONTEND/DESIGN #470).
  */
-export default function PathMenuView({ request, point, onClose, returnFocus, openInOxespace, folder }: {
+export default function PathMenuView({ request, point, onClose, returnFocus, openInOxespace, folder, copyOnly }: {
   request: OpenInRequest
   point: { x: number; y: number }
   onClose(): void
   returnFocus(): HTMLElement | null
   openInOxespace?: () => void
   folder?: boolean
+  copyOnly?: boolean
 }): ReactElement {
   const targets = useOpenInTargets()
   return <span style={{ position: 'fixed', left: point.x, top: point.y, width: 0, height: 0 }}>
     <AnchoredMenu open onOpenChange={open => { if (!open) onClose() }} side="bottom" label={pathMenuLabel(request.relativePath)} returnFocus={returnFocus}
-      items={pathMenuEntries({ request, targets, platform: window.oxe?.app?.platform ?? 'linux', openInOxespace, folder })} />
+      items={pathMenuEntries({ request, targets, platform: window.oxe?.app?.platform ?? 'linux', openInOxespace, folder, copyOnly })} />
   </span>
 }
 
