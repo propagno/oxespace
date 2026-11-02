@@ -1,8 +1,10 @@
 import { ExternalLink, GitBranch, KeyRound, RefreshCw, Search, X } from 'lucide-react'
 import { useEffect, useState, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ToolPanel, Button, EmptyState, Notice } from '../../ui'
 import type { LinearIssue, LinearIssueScope } from '../../../shared/types/linear'
 import { useLinearStore } from '../../store/linear.store'
+import { openExternalLink } from '../../lib/externalLinks'
 
 interface LinearPanelProps {
   workspaceId: string | null
@@ -10,17 +12,14 @@ interface LinearPanelProps {
   onClose: () => void
 }
 
-const SCOPES: { id: LinearIssueScope; label: string }[] = [
-  { id: 'assigned', label: 'Assigned to me' },
-  { id: 'created', label: 'Created by me' },
-  { id: 'team', label: 'Team' }
-]
+const SCOPES: LinearIssueScope[] = ['assigned', 'created', 'team']
 
 /**
  * #4 · Linear issues/board with "open a worktree for this issue". The API key
  * lives in the main process (safeStorage) and is never sent back here.
  */
 export function LinearPanel({ onClose, rootPath, workspaceId }: LinearPanelProps): ReactElement {
+  const { t } = useTranslation('code')
   const state = useLinearStore()
   const [apiKeyDraft, setApiKeyDraft] = useState('')
   const [busyIssueId, setBusyIssueId] = useState<string | null>(null)
@@ -41,7 +40,7 @@ export function LinearPanel({ onClose, rootPath, workspaceId }: LinearPanelProps
   return (
     <ToolPanel
       className="linear-panel"
-      label="Linear issues"
+      label={t('linear.title')}
       data-testid="linear-panel" onClose={onClose}>
       <header className="linear-header">
         <div className="linear-title">
@@ -52,15 +51,15 @@ export function LinearPanel({ onClose, rootPath, workspaceId }: LinearPanelProps
         <div className="linear-header-actions">
           {connected ? (
             <>
-              <Button variant="ghost" size="sm" square aria-label="Refresh issues" onClick={() => void state.loadIssues()}>
+              <Button variant="ghost" size="sm" square aria-label={t('linear.refresh')} onClick={() => void state.loadIssues()}>
                 <RefreshCw size={14} aria-hidden="true" />
               </Button>
               <button type="button" className="linear-text-button" onClick={() => void state.disconnect()}>
-                Disconnect
+                {t('linear.disconnect')}
               </button>
             </>
           ) : null}
-          <Button variant="ghost" size="sm" square aria-label="Close Linear" onClick={onClose}>
+          <Button variant="ghost" size="sm" square aria-label={t('linear.close')} onClick={onClose}>
             <X size={14} aria-hidden="true" />
           </Button>
         </div>
@@ -69,10 +68,9 @@ export function LinearPanel({ onClose, rootPath, workspaceId }: LinearPanelProps
       {!connected ? (
         <div className="linear-connect">
           <KeyRound size={28} aria-hidden="true" />
-          <strong>Connect Linear</strong>
+          <strong>{t('linear.connectTitle')}</strong>
           <p>
-            Create a personal API key at <code>linear.app → Settings → API</code> and paste it below. It is encrypted with your
-            OS keychain and stays in the main process.
+            {t('linear.keyBefore')} <code>linear.app → Settings → API</code> {t('linear.keyAfter')}
           </p>
           <div className="linear-connect-row">
             <input
@@ -93,11 +91,11 @@ export function LinearPanel({ onClose, rootPath, workspaceId }: LinearPanelProps
               disabled={!apiKeyDraft.trim() || state.isConnecting}
               onClick={() => void state.connect(apiKeyDraft.trim())}
             >
-              {state.isConnecting ? 'Connecting…' : 'Connect'}
+              {state.isConnecting ? t('linear.connecting') : t('linear.connect')}
             </button>
           </div>
           {state.status && !state.status.encrypted && state.status.connected ? (
-            <small className="linear-warning">An earlier version saved this key unencrypted. Disconnect and connect again once OS encryption is available.</small>
+            <small className="linear-warning">{t('linear.unencrypted')}</small>
           ) : null}
         </div>
       ) : (
@@ -105,12 +103,12 @@ export function LinearPanel({ onClose, rootPath, workspaceId }: LinearPanelProps
           <div className="linear-toolbar">
             {SCOPES.map((scope) => (
               <button
-                key={scope.id}
+                key={scope}
                 type="button"
-                className={`linear-chip${state.scope === scope.id ? ' active' : ''}`}
-                onClick={() => state.setScope(scope.id)}
+                className={`linear-chip${state.scope === scope ? ' active' : ''}`}
+                onClick={() => state.setScope(scope)}
               >
-                {scope.label}
+                {t(`linear.scopes.${scope}`)}
               </button>
             ))}
             {state.teams.length > 0 ? (
@@ -118,9 +116,9 @@ export function LinearPanel({ onClose, rootPath, workspaceId }: LinearPanelProps
                 className="linear-select"
                 value={state.teamId ?? ''}
                 onChange={(event) => state.setTeam(event.currentTarget.value || null)}
-                aria-label="Filter by team"
+                aria-label={t('linear.filterTeam')}
               >
-                <option value="">All teams</option>
+                <option value="">{t('linear.allTeams')}</option>
                 {state.teams.map((team) => (
                   <option key={team.id} value={team.id}>
                     {team.key} · {team.name}
@@ -130,13 +128,13 @@ export function LinearPanel({ onClose, rootPath, workspaceId }: LinearPanelProps
             ) : null}
             <label className="linear-completed-toggle">
               <input type="checkbox" checked={state.includeCompleted} onChange={() => state.toggleCompleted()} />
-              Done
+              {t('linear.done')}
             </label>
             <div className="linear-search">
               <Search size={14} aria-hidden="true" />
               <input
                 className="linear-input"
-                placeholder="Filter issues…"
+                placeholder={t('linear.filter')}
                 value={state.query}
                 spellCheck={false}
                 onChange={(event) => state.setQuery(event.currentTarget.value)}
@@ -148,8 +146,8 @@ export function LinearPanel({ onClose, rootPath, workspaceId }: LinearPanelProps
           </div>
 
           <div className="linear-body scrollbar-sleek">
-            {state.isLoading ? <EmptyState compact title="Loading issues…" /> : null}
-            {!state.isLoading && state.issues.length === 0 ? <EmptyState compact title="No issues match this filter." /> : null}
+            {state.isLoading ? <EmptyState compact title={t('linear.loading')} /> : null}
+            {!state.isLoading && state.issues.length === 0 ? <EmptyState compact title={t('linear.empty')} /> : null}
             {state.issues.map((issue) => (
               <article key={issue.id} className="linear-issue" data-testid={`linear-issue-${issue.identifier}`}>
                 <div className="linear-issue-main">
@@ -167,18 +165,18 @@ export function LinearPanel({ onClose, rootPath, workspaceId }: LinearPanelProps
                   <button
                     type="button"
                     className="linear-text-button"
-                    title={`git worktree on ${issue.branchName}`}
+                    title={t('linear.worktreeTitle', { branch: issue.branchName })}
                     disabled={!workspaceId || !rootPath || busyIssueId === issue.id}
                     onClick={() => void handleWorktree(issue)}
                   >
                     <GitBranch size={12} aria-hidden="true" />
-                    {busyIssueId === issue.id ? 'Creating…' : 'Worktree'}
+                    {busyIssueId === issue.id ? t('linear.creating') : t('linear.worktree')}
                   </button>
                   <Button
                    
                     variant="ghost" size="sm" square
-                    aria-label={`Open ${issue.identifier} in Linear`}
-                    onClick={() => window.open(issue.url, '_blank', 'noopener')}
+                    aria-label={t('linear.open', { id: issue.identifier })}
+                    onClick={() => void openExternalLink(issue.url, { source: 'linear' })}
                   >
                     <ExternalLink size={12} aria-hidden="true" />
                   </Button>

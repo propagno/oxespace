@@ -1,5 +1,5 @@
-import { useRef, type KeyboardEvent, type ReactElement, type ReactNode, type SyntheticEvent } from 'react'
-import { Check, X } from 'lucide-react'
+import { useEffect, useRef, type KeyboardEvent, type ReactElement, type ReactNode, type SyntheticEvent } from 'react'
+import { Check, ChevronRight, X } from 'lucide-react'
 import { Dialog as RadixDialog, DropdownMenu as RadixMenu, Popover as RadixPopover, Tooltip as RadixTooltip } from 'radix-ui'
 import { i18n } from '../i18n'
 import { IconButton } from './Button'
@@ -23,6 +23,8 @@ export interface DialogProps {
   /** Accessible name of the close button. */
   closeLabel?: string
   testId?: string
+  /** Called before Escape closes the dialog; preventDefault keeps it open (e.g. an Escape typed somewhere else). */
+  onEscapeKeyDown?: (event: globalThis.KeyboardEvent) => void
 }
 
 /**
@@ -35,7 +37,7 @@ export function focusSurfaceUnlessChosen(event: Event): void {
 }
 
 /** A modal dialog: title, optional description, body, and footer actions. Escape and the scrim close it. */
-export function Dialog({ title, description, onClose, children, footer, size = 'md', className, returnFocusTo, closeLabel = i18n.t('ui.close'), testId }: DialogProps): ReactElement {
+export function Dialog({ title, description, onClose, children, footer, size = 'md', className, returnFocusTo, closeLabel = i18n.t('ui.close'), testId, onEscapeKeyDown }: DialogProps): ReactElement {
   const previous = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null)
   return <RadixDialog.Root open onOpenChange={open => { if (!open) onClose() }}>
     <RadixDialog.Portal>
@@ -44,8 +46,12 @@ export function Dialog({ title, description, onClose, children, footer, size = '
         // Without a description, tell Radix there is none instead of pointing at a missing element.
         {...(description ? {} : { 'aria-describedby': undefined })}
         onOpenAutoFocus={focusSurfaceUnlessChosen}
+        onEscapeKeyDown={onEscapeKeyDown}
         onCloseAutoFocus={event => {
           event.preventDefault()
+          // Another dialog already took focus (the next approval replaced this one): leave it there, or a key typed
+          // into that dialog would land in the view behind it.
+          if (document.activeElement?.closest('[role="dialog"], [role="alertdialog"]')) return
           const chosen = returnFocusTo?.() ?? previous.current
           // A trigger that disappeared or was disabled meanwhile hands focus to the view's main input.
           const target = chosen?.isConnected && !chosen.hasAttribute('disabled') ? chosen : [...document.querySelectorAll<HTMLElement>('[data-dialog-return]')].at(-1)
@@ -98,27 +104,20 @@ export type MenuEntry =
   | { type: 'radio'; value: string; options: MenuRadioOption[]; onValueChange: (value: string) => void }
   | { type: 'label'; label: ReactNode }
   | { type: 'separator' }
+  /** A nested menu: Right or Enter opens it, Left closes it. Keep to one level. */
+  | { type: 'submenu'; label: string; icon?: ReactNode; items: MenuEntry[]; disabled?: boolean; testId?: string }
 
-export interface MenuProps {
-  trigger: ReactNode
-  items: MenuEntry[]
-  align?: 'start' | 'center' | 'end'
-  label?: string
-  testId?: string
-  side?: 'top' | 'right' | 'bottom' | 'left'
-}
-
-/**
- * A dropdown of actions. Keyboard: arrows move, Enter selects, Escape closes, typing jumps.
- * Not modal: a modal menu marks the rest of the app aria-hidden while its buttons stay focusable
- * (axe aria-hidden-focus). Focus still moves into the menu and returns to the trigger.
- * A click outside, Escape or a choice closes it; focus moved by the app (a terminal starting) does not.
- */
 /** The entries of a dropdown menu, shared by Menu and AnchoredMenu. */
-function menuItems(items: MenuEntry[]): ReactNode {
+function menuEntries(items: MenuEntry[]): ReactNode {
   return items.map((item, index) => {
     if (item.type === 'separator') return <RadixMenu.Separator key={index} className={styles.menuSeparator} />
     if (item.type === 'label') return <RadixMenu.Label key={index} className={styles.menuLabel}>{item.label}</RadixMenu.Label>
+    if (item.type === 'submenu') return <RadixMenu.Sub key={index}>
+      <RadixMenu.SubTrigger className={styles.menuItem} disabled={item.disabled}>{item.icon}{item.label}<ChevronRight size={14} className={styles.menuSubChevron} aria-hidden="true" /></RadixMenu.SubTrigger>
+      <RadixMenu.Portal>
+        <RadixMenu.SubContent className={cx(styles.floating, styles.menu)} sideOffset={4} collisionPadding={CHROME_COLLISION} data-testid={item.testId} onFocusOutside={event => event.preventDefault()}>{menuEntries(item.items)}</RadixMenu.SubContent>
+      </RadixMenu.Portal>
+    </RadixMenu.Sub>
     if (item.type === 'radio') return <RadixMenu.RadioGroup key={index} value={item.value} onValueChange={item.onValueChange}>
       {item.options.map(option => <RadixMenu.RadioItem key={option.value} value={option.value} className={styles.menuItem} aria-label={option.ariaLabel ?? option.label}>
         <span className={styles.menuRadioText}>{option.label}{option.hint && <small>{option.hint}</small>}</span>
@@ -134,13 +133,39 @@ function menuItems(items: MenuEntry[]): ReactNode {
   })
 }
 
-export function Menu({ trigger, items, align = 'start', label, testId, side }: MenuProps): ReactElement {
-  return <RadixMenu.Root modal={false}>
+export interface MenuProps {
+  trigger: ReactNode
+  items: MenuEntry[]
+  align?: 'start' | 'center' | 'end'
+  label?: string
+  testId?: string
+  side?: 'top' | 'right' | 'bottom' | 'left'
+  /** Controlled open state, for opening the same menu from elsewhere (a row's context menu). */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+}
+
+/**
+ * A dropdown of actions. Keyboard: arrows move, Enter selects, Escape closes, typing jumps.
+ * Not modal: a modal menu marks the rest of the app aria-hidden while its buttons stay focusable
+ * (axe aria-hidden-focus). Focus still moves into the menu and returns to the trigger.
+ * A click outside, Escape or a choice closes it; focus moved by the app (a terminal starting) does not.
+ */
+/** Focus is on something other than the page or a menu: a dialog or a field an item just opened took it. */
+function focusMovedOn(): boolean {
+  const active = document.activeElement
+  return active instanceof HTMLElement && active !== document.body && !active.closest('[role="menu"]')
+}
+
+export function Menu({ trigger, items, align = 'start', label, testId, side, open, onOpenChange }: MenuProps): ReactElement {
+  return <RadixMenu.Root modal={false} open={open} onOpenChange={onOpenChange}>
     <RadixMenu.Trigger asChild>{trigger}</RadixMenu.Trigger>
     <RadixMenu.Portal>
       <RadixMenu.Content className={cx(styles.floating, styles.menu)} align={align} side={side} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-label={label} data-testid={testId}
-        onFocusOutside={event => event.preventDefault()}>
-        {menuItems(items)}
+        onFocusOutside={event => event.preventDefault()}
+        // An item that opened a dialog already moved focus there: closing must not pull it back to the trigger.
+        onCloseAutoFocus={event => { if (focusMovedOn()) event.preventDefault() }}>
+        {menuEntries(items)}
       </RadixMenu.Content>
     </RadixMenu.Portal>
   </RadixMenu.Root>
@@ -158,13 +183,23 @@ export function AnchoredMenu({ open, onOpenChange, label, items, side = 'bottom'
   // a divider would start a drag on a click in the menu, an arrow key would resize, a tree row would open its file.
   const contain = (event: SyntheticEvent): void => { event.stopPropagation() }
   const containKeys = (event: KeyboardEvent<HTMLDivElement>): void => { if (event.key !== 'Escape' && event.key !== 'Tab') event.stopPropagation() }
+  const content = useRef<HTMLDivElement>(null)
+  // The menu is opened from code, so the keyboard lands on its first item, the way a menu opened by a key does.
+  const focusFirstItem = (): void => { requestAnimationFrame(() => content.current?.querySelector<HTMLElement>('[role^="menuitem"]:not([data-disabled])')?.focus()) }
+  // (DropdownMenu.Content takes no onOpenAutoFocus: the first item is focused once the menu is open.)
+  useEffect(() => { if (open) focusFirstItem() }, [open])
   return <RadixMenu.Root modal={false} open={open} onOpenChange={onOpenChange}>
     <RadixMenu.Trigger asChild><span className={styles.menuAnchor} aria-hidden="true" tabIndex={-1} /></RadixMenu.Trigger>
     <RadixMenu.Portal>
-      <RadixMenu.Content className={cx(styles.floating, styles.menu)} side={side} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-labelledby={undefined} aria-label={label}
+      <RadixMenu.Content ref={content} className={cx(styles.floating, styles.menu)} side={side} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-labelledby={undefined} aria-label={label}
         onCloseAutoFocus={event => { const target = returnFocus?.(); if (target) { event.preventDefault(); target.focus() } }}
+        // Focus landing on the element a menu belongs to (its owner: a divider, a grip, a tree row, whichever element
+        // `returnFocus` names) is not "outside". A menu reopened right after a close receives the earlier close's
+        // focus hand-back a moment later; that must not dismiss it (a Windows CI race), and the keyboard goes back to
+        // the first item, so the menu stays walkable instead of standing open with focus on the owner.
+        onFocusOutside={event => { const owner = returnFocus?.(); if (owner && event.target instanceof Node && owner.contains(event.target)) { event.preventDefault(); focusFirstItem() } }}
         onPointerDown={contain} onPointerUp={contain} onMouseDown={contain} onClick={contain} onDoubleClick={contain} onContextMenu={contain} onKeyDown={containKeys}>
-        {menuItems(items)}
+        {menuEntries(items)}
       </RadixMenu.Content>
     </RadixMenu.Portal>
   </RadixMenu.Root>

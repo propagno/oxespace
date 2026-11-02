@@ -1,5 +1,6 @@
 import { Check, FolderPlus, MessageSquarePlus, RefreshCw, Settings2, X } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, type ReactElement, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { AgentAccountContext } from '../../../shared/types/agentAuth'
 import { selectAccount, useAccountStore } from '../../store/account.store'
 import { useAgentStore } from '../../store/agent.store'
@@ -8,7 +9,7 @@ import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
 import { Button, IconButton, StatusDot } from '../../ui'
 import { summarizeAgentSetup, type AgentSetupState } from '../../utils/agentSetup'
-import { accountContext, accountMessage } from '../Threads/ProviderAccountsPanel'
+import { accountContext, accountMessage } from '../Threads/accountMessages'
 import { AgentInstallLinks } from './AgentCliOnboarding'
 import { watchFirstAnswer } from './firstAnswer'
 import styles from './FirstRunChecklist.module.css'
@@ -33,11 +34,12 @@ export function formatDuration(ms: number): string {
 /** A finished step folds to its title and, when given, a one-line summary, so the open steps stay in view. */
 function Step({ number, title, done, optional, summary, children }: { number?: number; title: string; done: boolean; optional?: boolean; summary?: ReactNode; children: ReactNode }): ReactElement {
   const id = useId()
+  const { t } = useTranslation()
   return (
     <li className={styles.step} aria-labelledby={id} data-done={done || undefined}>
       <span className={styles.marker} aria-hidden="true">{done ? <Check size={12} /> : number ?? '·'}</span>
       <div className={styles.body}>
-        <h3 className={styles.stepTitle} id={id}>{title}{optional ? <span className={styles.optional}> (optional)</span> : null}{done ? <span className={styles.srOnly}> (done)</span> : null}</h3>
+        <h3 className={styles.stepTitle} id={id}>{title}{optional ? <span className={styles.optional}> {t('firstRun.optional')}</span> : null}{done ? <span className={styles.srOnly}> {t('firstRun.doneMark')}</span> : null}</h3>
         {done ? summary ?? null : children}
       </div>
     </li>
@@ -45,6 +47,7 @@ function Step({ number, title, done, optional, summary, children }: { number?: n
 }
 
 function AccountRow({ provider, projectId }: { provider: 'claude' | 'codex'; projectId: string }): ReactElement {
+  const { t } = useTranslation()
   const context: AgentAccountContext = useMemo(() => accountContext(provider, `thread:${projectId}`), [provider, projectId])
   const status = useAccountStore(selectAccount(context))
   const connected = status?.state === 'connected' && status.method === 'subscription'
@@ -56,7 +59,7 @@ function AccountRow({ provider, projectId }: { provider: 'claude' | 'codex'; pro
         <span className={styles.headline}>{context.provider === 'claude' ? 'Claude Code' : 'Codex'}</span>
         <span className={styles.detail}>{accountMessage(status)}</span>
       </span>
-      {!connected && window.oxe?.agentAccount ? <Button size="sm" variant="ghost" onClick={() => void useAccountStore.getState().login(context).catch(() => undefined)}>Connect</Button> : null}
+      {!connected && window.oxe?.agentAccount ? <Button size="sm" variant="ghost" onClick={() => void useAccountStore.getState().login(context).catch(() => undefined)}>{t('firstRun.connect')}</Button> : null}
     </div>
   )
 }
@@ -69,6 +72,7 @@ function AccountRow({ provider, projectId }: { provider: 'claude' | 'codex'; pro
  */
 export function FirstRunChecklist({ onNewWorkspace, onAddProject }: { onNewWorkspace?: () => void; onAddProject?: () => void }): ReactElement | null {
   const titleId = useId()
+  const { t } = useTranslation()
   const readiness = useAgentStore(state => state.readiness)
   const isDiscovering = useAgentStore(state => state.isDiscovering)
   const loadReadiness = useAgentStore(state => state.loadReadiness)
@@ -99,7 +103,7 @@ export function FirstRunChecklist({ onNewWorkspace, onAddProject }: { onNewWorks
 
   if (firstRun.dismissed) return null
   const done = (step: FirstRunStep): boolean => firstRun.done.includes(step)
-  const checkLabel = summary.state === 'unchecked' ? 'Check now' : 'Check again'
+  const checkLabel = summary.state === 'unchecked' ? t('firstRun.checkNow') : t('firstRun.checkAgain')
   const threadProviders = readiness.filter(entry => entry.status === 'ready' && (entry.provider === 'claude' || entry.provider === 'codex')).map(entry => entry.provider as 'claude' | 'codex')
   const finished = REQUIRED.filter(done).length
   // The CLI status stays visible once ready: it says which agents Code and Thread can use.
@@ -114,44 +118,44 @@ export function FirstRunChecklist({ onNewWorkspace, onAddProject }: { onNewWorks
     <div className={styles.actions}>
       {summary.state === 'none' ? <AgentInstallLinks providers={['claude', 'codex']} size="sm" /> : null}
       {summary.state !== 'ready' ? (
-        <Button variant="ghost" size="sm" disabled={isDiscovering} icon={<RefreshCw size={12} aria-hidden="true" />} onClick={() => void discover(true)}>{isDiscovering ? 'Checking…' : checkLabel}</Button>
+        <Button variant="ghost" size="sm" disabled={isDiscovering} icon={<RefreshCw size={12} aria-hidden="true" />} onClick={() => void discover(true)}>{isDiscovering ? t('firstRun.checking') : checkLabel}</Button>
       ) : null}
-      <Button variant="ghost" size="sm" icon={<Settings2 size={12} aria-hidden="true" />} onClick={openAgentSettings}>Agent settings</Button>
+      <Button variant="ghost" size="sm" icon={<Settings2 size={12} aria-hidden="true" />} onClick={openAgentSettings}>{t('firstRun.agentSettings')}</Button>
     </div>
   </>
 
   return (
     <section className={styles.card} aria-labelledby={titleId} data-testid="first-run-checklist">
       <div className={styles.header}>
-        <h2 className={styles.title} id={titleId}>Before you start</h2>
-        <span className={styles.progress}>{finished} of {REQUIRED.length} done</span>
-        <IconButton size="sm" label="Hide this guide" icon={<X size={14} />} onClick={() => useNavigationPrefs.getState().dismissFirstRun()} />
+        <h2 className={styles.title} id={titleId}>{t('firstRun.title')}</h2>
+        <span className={styles.progress}>{t('firstRun.progress', { done: finished, total: REQUIRED.length })}</span>
+        <IconButton size="sm" label={t('firstRun.hide')} icon={<X size={14} />} onClick={() => useNavigationPrefs.getState().dismissFirstRun()} />
       </div>
       <ol className={styles.steps}>
-        <Step number={1} title="Agent CLIs" done={done('agents')} summary={agents}>{agents}</Step>
-        <Step number={2} title="Sign in" done={done('account')}>
+        <Step number={1} title={t('firstRun.agents')} done={done('agents')} summary={agents}>{agents}</Step>
+        <Step number={2} title={t('firstRun.signIn')} done={done('account')}>
           {project && threadProviders.length ? (
             threadProviders.map(provider => <AccountRow key={provider} provider={provider} projectId={project.projectId} />)
           ) : (
-            <p className={styles.detail}>Claude Code and Codex use your own subscription. OXESpace checks the sign-in once a folder is open; you can also sign in from a terminal with the agent itself.</p>
+            <p className={styles.detail}>{t('firstRun.signInHint')}</p>
           )}
-          <div className={styles.actions}><Button variant="ghost" size="sm" onClick={() => complete('account')}>Skip for now</Button></div>
+          <div className={styles.actions}><Button variant="ghost" size="sm" onClick={() => complete('account')}>{t('firstRun.skip')}</Button></div>
         </Step>
-        <Step number={3} title="First folder and first answer" done={done('folder')} summary={firstRun.firstAnswerMs !== null
-          ? <p className={styles.detail} role="status">First answer {formatDuration(firstRun.firstAnswerMs)} after you started. This stays on this computer.</p> : null}>
-          <p className={styles.detail}>Open a folder and ask an agent something: in a Thread conversation, or in a Code workspace terminal.</p>
+        <Step number={3} title={t('firstRun.folder')} done={done('folder')} summary={firstRun.firstAnswerMs !== null
+          ? <p className={styles.detail} role="status">{t('firstRun.firstAnswer', { duration: formatDuration(firstRun.firstAnswerMs) })}</p> : null}>
+          <p className={styles.detail}>{t('firstRun.folderHint')}</p>
           <div className={styles.actions}>
-            {onAddProject ? <Button variant="ghost" size="sm" icon={<MessageSquarePlus size={12} aria-hidden="true" />} onClick={onAddProject}>Add a Thread project</Button> : null}
-            {onNewWorkspace ? <Button variant="ghost" size="sm" icon={<FolderPlus size={12} aria-hidden="true" />} onClick={onNewWorkspace}>New Code workspace</Button> : null}
+            {onAddProject ? <Button variant="ghost" size="sm" icon={<MessageSquarePlus size={12} aria-hidden="true" />} onClick={onAddProject}>{t('firstRun.addProject')}</Button> : null}
+            {onNewWorkspace ? <Button variant="ghost" size="sm" icon={<FolderPlus size={12} aria-hidden="true" />} onClick={onNewWorkspace}>{t('firstRun.newWorkspace')}</Button> : null}
           </div>
         </Step>
         <Step title="GitHub" optional done={done('github')}>
           <p className={styles.detail}>
-            Pull requests and issues need the GitHub CLI signed in (<code>gh auth login</code>). OXESpace checks it once a project is open.
+            {t('firstRun.githubBefore')} (<code>gh auth login</code>). {t('firstRun.githubAfter')}
           </p>
           <div className={styles.actions}>
-            <Button variant="ghost" size="sm" onClick={() => void navigator.clipboard?.writeText('gh auth login').catch(() => undefined)}>Copy command</Button>
-            <Button variant="ghost" size="sm" onClick={() => complete('github')}>Mark as done</Button>
+            <Button variant="ghost" size="sm" onClick={() => void navigator.clipboard?.writeText('gh auth login').catch(() => undefined)}>{t('firstRun.copy')}</Button>
+            <Button variant="ghost" size="sm" onClick={() => complete('github')}>{t('firstRun.markDone')}</Button>
           </div>
         </Step>
       </ol>

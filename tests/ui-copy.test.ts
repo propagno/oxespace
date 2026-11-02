@@ -16,52 +16,33 @@ const EXEMPT_LINES: Array<{ file: string; includes: string; why: string }> = [
   { file: 'src/components/Settings/AppearanceSettings.tsx', includes: 'Sertão', why: 'brand name of a color palette' },
   { file: 'src/utils/threadQuickReplies.ts', includes: '', why: 'bilingual regex that recognises replies in Portuguese' },
   { file: 'electron/main/services/voice.service.ts', includes: 'PT_BR_PROMPT', why: 'transcription prompt for Brazilian Portuguese speech' },
-  { file: 'electron/main/services/semantic-retrieval.ts', includes: 'EXHAUSTIVE_INTENT', why: 'multilingual intent regex' }
+  { file: 'electron/main/services/semantic-retrieval.ts', includes: 'EXHAUSTIVE_INTENT', why: 'multilingual intent regex' },
+  { file: 'electron/main/e2e/approvals-mock.ts', includes: '-- leitura apenas, seguro', why: 'adversarial agent text (B10): a Portuguese comment that claims the app checked a hidden DROP; never interface copy' },
+  { file: 'shared/reserved-names.ts', includes: 'Aplicação', why: 'reserved names an agent may not use (B10): data compared after folding, in both languages; never shown as copy' },
+  { file: 'shared/reserved-names.ts', includes: 'Segurança', why: 'reserved names an agent may not use (B10): data compared after folding, in both languages; never shown as copy' }
 ]
 
 /**
- * Folders and files whose interface text comes from the catalogs. This list
- * only grows: each migration PR adds its area.
+ * Folders and files whose interface text comes from the catalogs: the whole
+ * renderer (F6). New code under src/ is written with t() from the start.
  */
-const MIGRATED = [
-  'src/ui',
-  'src/components/common/ErrorBoundary.tsx',
-  'src/components/Keyboard',
-  'src/components/Navigation',
-  'src/components/Onboarding/AgentCliOnboarding.tsx',
-  'src/components/OxeQuery',
-  'src/components/OxePod',
-  'src/components/OxePost',
-  'src/components/Settings',
-  'src/components/Threads',
-  // Code mode (V9 4.3)
-  'src/components/Background',
-  'src/components/Changes',
-  'src/components/Editor',
-  'src/components/GitHub',
-  'src/components/Preview',
-  'src/components/Scripts',
-  'src/components/MCP',
-  'src/components/Search',
-  'src/components/Skills',
-  'src/components/Sidebar',
-  'src/components/Panes',
-  'src/components/Terminal',
-  'src/components/WebPreview',
-  'src/components/Workbench',
-  'src/components/Workspace',
-  'src/components/Worktree',
-  'src/utils/agentSetup.ts',
-  'src/utils/humanizeError.ts',
-  'src/utils/paneDisplay.ts',
-  'src/utils/quotaThresholds.ts'
+const MIGRATED = ['src']
+/**
+ * Paths inside MIGRATED that keep English text, with the reason. The design
+ * system gallery is a developer-only tool, hidden from published builds; the
+ * product owner decided it is not translated.
+ */
+const NOT_MIGRATED: Array<{ path: string; why: string }> = [
+  { path: 'src/components/DesignSystem', why: 'developer-only tool hidden from published builds (product owner decision)' }
 ]
 /** Text that stays the same in every language: product and tool names, commands and sample values. */
-const UNTRANSLATED = new Set(['Code', 'Thread', 'OxeQuery', 'OXESpace', 'Claude Code', 'Codex', 'Electron', 'Node', 'RTK', 'Caveman', 'CodeGraph', 'OxePod', 'OxePost', 'cURL', 'OpenAPI 3', 'claude.ai',
+const UNTRANSLATED = new Set(['OxeCode', 'OxeChat', 'OxeQuery', 'OXESpace', 'Claude Code', 'Codex', 'Electron', 'Node', 'RTK', 'Caveman', 'CodeGraph', 'OxePod', 'OxePost', 'cURL', 'OpenAPI 3', 'claude.ai',
   'GitHub', 'MCP', 'RTK · Caveman · Semantic', 'AI Memory', 'Beta', 'SHA:', '.gitignore', 'gh auth login', 'npm run dev', 'main',
   'owner/repo', 'new-branch-name', 'feat/login-v2', 'v1.0.0', 'C:/projects/my-app', 'http://localhost:3000',
   'stdio', 'command:', 'args:', 'env:', 'url:', 'headers:', 'filesystem', 'github', 'npx', '-y @modelcontextprotocol/server-filesystem /tmp',
-  'GITHUB_TOKEN=ghp_...\\nDEBUG=1', 'refactor-react', 'refactor'])
+  'GITHUB_TOKEN=ghp_...\\nDEBUG=1', 'refactor-react', 'refactor',
+  'oxespace', 'Claude', 'claude', 'Copilot', 'Linear', 'linear.app → Settings → API', 'lin_api_…',
+  'docs/architecture.md', 'CARD-142', 'feature/CARD-142-login', 'origin'])
 /** Lines in migrated areas that are not interface text, with the reason. */
 const NOT_INTERFACE: Array<{ file: string; includes: string; why: string }> = [
   { file: 'src/components/Skills/SkillsBrowser.tsx', includes: "    description: '", why: 'frontmatter of the SDLC skill files written for agents' }
@@ -111,9 +92,10 @@ describe('interface copy', () => {
   }, SCAN_TIMEOUT)
 
   it('comes from the catalogs in the migrated areas', () => {
-    for (const path of MIGRATED) expect(existsSync(join(ROOT, path)), path).toBe(true)
+    for (const path of [...MIGRATED, ...NOT_MIGRATED.map(item => item.path)]) expect(existsSync(join(ROOT, path)), path).toBe(true)
     const found: string[] = []
     for (const [file, number, line] of codeLines(MIGRATED)) {
+      if (NOT_MIGRATED.some(item => file.startsWith(`${item.path}/`) || file === item.path)) continue
       if (NOT_INTERFACE.some(item => item.file === file && line.includes(item.includes))) continue
       for (const pattern of UI_LITERAL) {
         for (const match of line.matchAll(pattern)) {

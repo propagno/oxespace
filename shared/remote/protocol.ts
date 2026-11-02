@@ -1,3 +1,8 @@
+// The one import: the reserved-name lists the phone gets through the Kotlin generator (B10, shared/approval-rules.ts).
+// It stays above the header so the header remains the leading comment of REMOTE_PROTOCOL_VERSION, which the generator
+// copies as the Kotlin file's preamble.
+import { RESERVED_APP_NAMES, RESERVED_EXACT_NAMES, RESERVED_FIRST_WORDS } from '../approval-rules'
+
 /**
  * C5 · Remote protocol between the desktop gateway (B9, off by default, LAN only, TLS only) and the Android companion.
  *
@@ -16,6 +21,8 @@ export const REMOTE_PROTOCOL_VERSION = 1
 export const REMOTE_LIMITS = {
   /** Largest frame either side accepts, in UTF-8 bytes. */
   maxFrameBytes: 64 * 1024,
+  /** Deepest nesting of objects and arrays a frame may have, so no later recursive step can overflow the stack. */
+  maxFrameDepth: 64,
   /** Open subscriptions per connection. */
   maxSubscriptions: 32,
   /** Commands per device per minute before `rate-limited`. */
@@ -211,8 +218,24 @@ export function isRemoteCommand(value: unknown): value is RemoteCommand {
  * The checks every frame passes before it is looked at: size, JSON object, known type, and for a client frame a type
  * the phone may send and a known command. Field-level validation belongs to each handler.
  */
+/** The deepest `{`/`[` nesting in JSON text, read without recursion; brackets inside strings do not count. */
+function nestingDepth(text: string): number {
+  let depth = 0, deepest = 0, inString = false
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i]
+    if (inString) {
+      if (char === '\\') i++
+      else if (char === '"') inString = false
+    } else if (char === '"') inString = true
+    else if (char === '{' || char === '[') deepest = Math.max(deepest, ++depth)
+    else if (char === '}' || char === ']') depth--
+  }
+  return deepest
+}
+
 export function readRemoteFrame(text: string, from: 'client' | 'desktop'): { ok: true; frame: RemoteFrame } | { ok: false; code: RemoteErrorCode } {
   if (new TextEncoder().encode(text).byteLength > REMOTE_LIMITS.maxFrameBytes) return { ok: false, code: 'frame-too-large' }
+  if (nestingDepth(text) > REMOTE_LIMITS.maxFrameDepth) return { ok: false, code: 'malformed' }
   let value: unknown
   try { value = JSON.parse(text) } catch { return { ok: false, code: 'malformed' } }
   if (!value || typeof value !== 'object' || Array.isArray(value)) return { ok: false, code: 'malformed' }
@@ -264,8 +287,20 @@ export interface RemotePairResponse {
   expiresInMs: number
 }
 
-export const REMOTE_PAIRING_ERROR_CODES = ['pairing-expired', 'pairing-used', 'pairing-refused', 'pairing-locked', 'too-many-devices', 'malformed', 'pairing-invalid'] as const
+/** Why `POST /pair` refused; `reserved-name` is a device name only the app may speak as (the lists below). */
+export const REMOTE_PAIRING_ERROR_CODES = ['pairing-expired', 'pairing-used', 'pairing-refused', 'pairing-locked', 'too-many-devices', 'malformed', 'pairing-invalid', 'reserved-name'] as const
 export type RemotePairingErrorCode = typeof REMOTE_PAIRING_ERROR_CODES[number]
+
+/**
+ * Names a phone may not give itself, from their one source (B10 `reservedNameIn`, shared/approval-rules.ts): the
+ * desktop answers `reserved-name`, and the phone checks the same lists before asking. These are refused wherever they
+ * appear in the name ("OXESpace: update"). The desktop compares after folding case, accents, invisible characters and
+ * look-alike letters and digits, so a name that passes the phone's plain check may still be refused.
+ */
+export const REMOTE_RESERVED_NAME_FRAGMENTS: readonly string[] = [...RESERVED_APP_NAMES]
+/** Generic words the phone refuses as the whole name ("Chat", "Sistema"); "filesystem" stays allowed. The desktop also refuses the
+ * first words ("Sistema", "App") at the start of a longer name (#247); the phone checks them as whole names only. */
+export const REMOTE_RESERVED_NAMES: readonly string[] = [...RESERVED_EXACT_NAMES, ...RESERVED_FIRST_WORDS]
 
 const BASE64URL = /^[A-Za-z0-9_-]+$/
 /** Base64url without padding of exactly `bytes` bytes. */
@@ -457,14 +492,26 @@ export interface RemotePendingRequest {
   toolName?: string
   /** Files it would write, relative to the project root. */
   paths?: string[]
-  /** The desktop's risk colour and notes for this request. */
-  risk?: 'green' | 'orange' | 'red'
+  /**
+   * The desktop's risk for this request, in the same four words the desktop's approval modal shows (CCR #364). Main
+   * fills it from riskFromShell / riskFromSql / the tool's declaration. A phone that reads an unknown value treats it
+   * as `critical` (Deny leading), as REMOTE_UNKNOWN_VALUES says (#354), so a later level needs no protocol bump.
+   */
+  risk?: 'low' | 'medium' | 'high' | 'critical'
   warnings?: string[]
   /** Values the redactor replaced in `command` and `warnings`. */
   redacted?: number
   /** Questions without `secret` only, with options as on the desktop. */
   questions?: { id: string; header?: string; question: string; options?: { label: string; description?: string }[]; multiple?: boolean; required?: boolean }[]
-  /** Offered by the provider; "accept for the session" is never offered on the phone. */
+  /**
+   * True when the phone is not shown all of it: the command, detail, a warning, a question or an option was cut to
+   * `REMOTE_TEXT_LIMITS.detail`, or files, the working directory, warnings past 20, questions past 20 or options past 50
+   * were left out. An approval is then offered no `accept` (deny only, as in B10) and says the full text is on the
+   * desktop; an `accept` sent anyway is `forbidden`. A question is then `answerable: false` with no decisions: it is
+   * answered on the desktop only, and any `thread.respondRequest` for it is `forbidden`.
+   */
+  truncated?: true
+  /** Offered by the provider; "accept for the session" is never offered on the phone, nor `accept` when `truncated`. */
   decisions: ('accept' | 'decline' | 'cancel')[]
   /**
    * False when only the desktop can answer: guarded requests, permissions, elicitation, tool and secret questions.
@@ -475,6 +522,13 @@ export interface RemotePendingRequest {
   expiresAt?: number
 }
 export interface RemotePendingRequestsData { requests: RemotePendingRequest[] }
+
+/**
+ * The four risk words of the desktop's approval modal (`APPROVAL_RISKS`), the one list the phone's risk fields use
+ * (pending requests here, agent rows in S7.1). A test keeps it equal to the desktop's list and to the field above.
+ */
+export const REMOTE_APPROVAL_RISKS = ['low', 'medium', 'high', 'critical'] as const
+export type RemoteApprovalRisk = typeof REMOTE_APPROVAL_RISKS[number]
 
 // ---- terminal: read-only (target = pane id) -----------------------------------------------------------------------
 /** Snapshot: what the ring keeps, in pages of `terminalChunk`. Event: what came after. ANSI escapes as is. */

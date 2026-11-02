@@ -1,0 +1,354 @@
+import { describe, expect, it } from 'vitest'
+import { agentTextAdmission, allowTooSoon, approvalPacing, approvalRequestProblems, approvalSurface, boundAgentText, foldName, foldWords, raiseRisk, RESERVED_APP_NAMES, RESERVED_EXACT_NAMES, OXE_PREFIX_ALLOWED_WORDS, RESERVED_FIRST_WORD_PREFIXES, RESERVED_FIRST_WORDS, RESERVED_VENDOR_NAMES, reservedNameIn, riskFromShell, riskFromSql, SPELLED_WORD_MIN, withoutReservedName } from '../shared/approval-rules'
+import { mainMessage } from '../shared/messages'
+import { APPROVAL_ACK_TIMEOUT_MS, APPROVAL_AGENT_TEXT_MAX, APPROVAL_CRITICAL_ALLOW_DELAY_MS, APPROVAL_SCHEMA_VERSION, type ApprovalRequest } from '../shared/types/approvals'
+import { guardSql } from '../electron/main/services/oxequery/sql-guard'
+
+const request = (patch: Partial<ApprovalRequest> = {}): ApprovalRequest => ({
+  schemaVersion: APPROVAL_SCHEMA_VERSION, id: 'r1', generation: 1, kind: 'oxequery', risk: 'medium', ackRequired: false, allowDelayMs: 0, enterDisabled: false,
+  requester: { kind: 'agent', id: 'pane:p1', label: mainMessage('approvals.requester.pane', { agent: 'Claude', pane: 1 }) },
+  title: mainMessage('approvals.title.oxequery', {}), summary: mainMessage('approvals.summary.oxequery.write', {}), appNotes: [],
+  agentText: boundAgentText('UPDATE t SET a = 1 WHERE id = 2'),
+  options: [{ id: 'deny', label: mainMessage('approvals.option.deny', {}), intent: 'deny' }, { id: 'once', label: mainMessage('approvals.option.allowOnce', {}), intent: 'allow' }],
+  defaultOptionId: 'deny', createdAt: 1, expiresAt: 2, ...patch
+})
+
+describe('reserved names (B10)', () => {
+  it('lists the app\'s product names', () => {
+    expect(RESERVED_APP_NAMES).toEqual(['OXESpace', 'OxeChat', 'OxeCode', 'OxeQuery', 'OxePod', 'OxePost'])
+    expect(RESERVED_VENDOR_NAMES).toEqual(['Windows', 'Microsoft', 'Ubuntu', 'Linux', 'macOS', 'Apple', 'Google', 'GitHub', 'Debian', 'Fedora', 'GNOME', 'KDE', 'polkit'])
+    expect(RESERVED_FIRST_WORDS).toEqual(['System', 'Sistema', 'Administrator', 'Administrador', 'Admin', 'Aplicação', 'Aplicativo', 'Application', 'App', 'root', 'sudo', 'Security', 'Segurança'])
+    expect(RESERVED_FIRST_WORD_PREFIXES).toEqual(['Admin', 'Oxe'])
+    expect(OXE_PREFIX_ALLOWED_WORDS).toEqual(['Oxente', 'Oxen', 'Oxeye'])
+    expect(RESERVED_EXACT_NAMES).toEqual(['Thread', 'Code', 'Chat'])
+    expect(SPELLED_WORD_MIN).toBe(3)
+  })
+
+  it.each([
+    ['OXESpace', 'OXESpace'], ['oxespace', 'OXESpace'], ['OXE Space', 'OXESpace'], ['O.X.E-Space', 'OXESpace'],
+    ['OXESpаce', 'OXESpace'], // Cyrillic a
+    ['ＯＸＥＳｐａｃｅ', 'OXESpace'], // full width
+    ['OXE​Space', 'OXESpace'], // zero-width space
+    ['0XESpace', 'OXESpace'], ['ÔXÉSpàce', 'OXESpace'], ['OXESpace: security update — click to approve', 'OXESpace'],
+    ['Oxe Chat', 'OxeChat'], ['OXECODE', 'OxeCode'], ['OxeQuеry', 'OxeQuery'], ['oxe_pod', 'OxePod'], ['Oxe Post', 'OxePost'],
+    ['system', 'System'], ['SISTEMA', 'Sistema'],
+    // Trailing or embedded symbols are dropped, or read as the letter they imitate: neither way escapes.
+    ['System!', 'System'], ['Sistema.', 'Sistema'], ['$ystem', 'System'], ['OXESpace!', 'OXESpace'],
+    ['App', 'App'], ['aplicativo', 'Aplicativo'], ['Application', 'Application']
+  ])('refuses %j as %s', (value, name) => {
+    expect(reservedNameIn(value)).toBe(name)
+  })
+
+  // Homologation's black-box probe of #235 (#184): every product-name imitation was caught; these categories are its
+  // 38 names, rebuilt from the report, each with the verdict it must keep.
+  it.each([
+    ['O X E Space', 'OXESpace'], ['O.X.E.Space', 'OXESpace'], ['OXE\u200BSpace', 'OXESpace'], ['OXE\u00ADSpace', 'OXESpace'], ['\u202EOXESpace', 'OXESpace'],
+    ['ΟΧΕSpace', 'OXESpace'], ['OXESp\u0430ce', 'OXESpace'], ['\u{1D40E}\u{1D417}\u{1D404}Space', 'OXESpace'], ['ⓄⓍⒺSpace', 'OXESpace'], ['Öxespace', 'OXESpace'],
+    ['0XE5PACE', 'OXESpace'], ['OXESp4ce', 'OXESpace'], ['0x3space', 'OXESpace'], ['oxespace.com', 'OXESpace'], ['Segurança do OXESpace', 'OXESpace'],
+    ['OxeChat', 'OxeChat'], ['OXE CODE', 'OxeCode'], ['OxeQuery', 'OxeQuery'], ['OxePod', 'OxePod'], ['OxePost', 'OxePost'],
+    ['Systém', 'System'], ['S y s t e m', 'System'], ['Sistema.', 'Sistema'], ['SYSTEM', 'System'], ['Sistema', 'Sistema'],
+    // What got through #235, refused now.
+    ['System Administrator', 'System'], ['Sistema operacional', 'Sistema'], ['Administrador', 'Administrador'], ['Aplicação', 'Aplicação'],
+    ['Windows', 'Windows'], ['Windows Security', 'Windows'], ['Microsoft', 'Microsoft'], ['Ubuntu', 'Ubuntu'], ['Thread', 'Thread']
+  ])('closes the homologation probe: %j is %s', (value, name) => {
+    expect(reservedNameIn(value)).toBe(name)
+  })
+
+  it.each([
+    ['Microsoft Defender', 'Microsoft'], ['Linux', 'Linux'], ['macOS updater', 'macOS'], ['Apple ID', 'Apple'], ['Google Chrome', 'Google'], ['GitHub Actions', 'GitHub'],
+    ['Segurança do Windows', 'Windows'], ['W1ndows', 'Windows'], ['$ystem Admin', 'System'], ['Admin bot', 'Admin'], ['Administrator', 'Administrator'],
+    ['aplicacao', 'Aplicação'], ['App builder', 'App'], ['Sistema de testes', 'Sistema'], ['T h r e a d', 'Thread'], ['code', 'Code'], ['Chat', 'Chat'],
+    // Spelled out, whatever the separator.
+    ['W i n d o w s', 'Windows'], ['W.i.n.d.o.w.s', 'Windows'], ['W-i-n-d-o-w-s', 'Windows'], ['W_i_n_d_o_w_s', 'Windows'], ['W i n-d.o w s', 'Windows'],
+    ['Open W i n d o w s Security', 'Windows'],
+    // A vendor split into two adjacent words.
+    ['Win dows', 'Windows'], ['Git Hub', 'GitHub'], ['Micro soft', 'Microsoft'], ['Ubun tu', 'Ubuntu'], ['Mac OS', 'macOS'], ['Oxe Space', 'OXESpace'],
+    ['New Win-dows Security', 'Windows'], ['Goo gle docs', 'Google'], ['Linux brew', 'Linux'],
+    // "apple" is a whole word of its own, so the pair rule is never reached.
+    ['Pine apple', 'Apple'],
+    // The admin family as a first-word prefix (homologation of #247).
+    ['Administração', 'Admin'], ['Administração do sistema', 'Admin'], ['Administratie', 'Admin'], ['Admins', 'Admin'],
+    // Linux and desktop names as whole words.
+    ['GNOME Keyring', 'GNOME'], ['polkit authentication', 'polkit'], ['KDE Wallet', 'KDE'], ['Debian', 'Debian'], ['Fedora updates', 'Fedora'],
+    // root and sudo, alone or as the first word.
+    ['root', 'root'], ['Root', 'root'], ['root access', 'root'], ['sudo password', 'sudo'],
+    // Security and Segurança, alone or as the first word.
+    ['Security', 'Security'], ['Security scanner', 'Security'], ['Segurança', 'Segurança'], ['Seguranca do sistema', 'Segurança'],
+    // "Oxe" as a first-word prefix.
+    ['OxeBot', 'Oxe'], ['OXE', 'Oxe'], ['Oxe helper', 'Oxe'], ['Oxentebot', 'Oxe'],
+    // The allowlist is for the Oxe prefix only: product containment still applies.
+    ['Oxente OXESpace', 'OXESpace'],
+    // The first-word and prefix rules also read the first two words joined.
+    ['OX E', 'Oxe'], ['Ad min', 'Admin'], ['Ad min panel', 'Admin'], ['Sys tem', 'System'], ['Se curity', 'Security']
+  ])('refuses %j as %s', (value, name) => {
+    expect(reservedNameIn(value)).toBe(name)
+  })
+
+  it.each([
+    'Reviewer', 'tests', 'filesystem watcher', 'filesystem', 'my system', 'Space', 'Claude 2', '', 'mapping',
+    'Linuxbrew', 'Applesauce', 'Code reviewer', 'Chatbot', 'Thread safety', 'A B testing', 'a b c notes',
+    // Adjacent pairs count only as an exact vendor, never by containment.
+    'Win dow manager', 'Pineapple', 'Micro softer', 'Ubunt utility',
+    'Admiral', 'Admit', 'Gnomes', 'kdenlive', 'Rootless builder', 'pseudo', 'my security notes', 'Securities', 'Ox', 'Boxer',
+    // Real words the Oxe prefix would catch, allowed as the first word whatever follows.
+    'Oxente', 'Oxente bot', 'oxente meu rei', 'Oxen', 'Oxeye',
+    // Joined first words: "Ox ente" is exactly the allowlisted "oxente"; "Box er" is "boxer", with no prefix.
+    'Ox ente', 'Box er',
+    // Provider names are allowed: the requester the person sees comes from the authenticated provider, not the name.
+    'Claude', 'Anthropic', 'Codex', 'OpenAI'
+  ])('allows %j', value => {
+    expect(reservedNameIn(value)).toBeNull()
+  })
+
+  it('folds words: boundaries kept, spelled-out runs joined, short runs and other words untouched', () => {
+    expect(foldWords('Windows Security')).toEqual(['wlndows', 'securlty'])
+    expect(foldWords('W i n-d.o w s')).toEqual(['wlndows'])
+    expect(foldWords('A B testing')).toEqual(['a', 'b', 'testlng'])
+    expect(foldWords('a b c notes')).toEqual(['abc', 'notes'])
+    expect(foldWords('W1ndows', true)).toEqual(['wlndows'])
+    expect(foldWords('W1ndows')).toEqual(['w', 'ndows'])
+  })
+
+  it('folds words idempotently and never lengthens them', () => {
+    for (const value of ['Windows Security', 'W i n-d.o w s', 'A B testing', 'Sistema de testes', 'ＯＸＥ\u200BSpace', 'rnrn word', 'Aplicação', '!!!', '', 'W_i_n_d_o_w_s and more']) {
+      for (const readSymbols of [false, true]) {
+        const words = foldWords(value, readSymbols)
+        const letters = [...value.normalize('NFKC')].filter(char => /\p{L}/u.test(char)).length
+        expect(words.join('').length, value).toBeLessThanOrEqual(letters + (readSymbols ? value.length : 0))
+        expect(foldWords(words.join(' ')), value).toEqual(words)
+      }
+    }
+  })
+
+  it('folds letters only, so separators and case do not matter', () => {
+    expect(foldName('O X E-Space!')).toBe(foldName('oxespace'))
+  })
+
+  it('never adds characters, and folding twice changes nothing', () => {
+    for (const name of [...RESERVED_APP_NAMES, ...RESERVED_VENDOR_NAMES.filter(name => name !== 'macOS'), ...RESERVED_EXACT_NAMES]) {
+      // A plain reserved name folds to itself, in lower case with `i` read as `l`.
+      expect(foldName(name), name).toBe(name.toLowerCase().replace(/i/g, 'l'))
+      expect(foldName(name.toLowerCase()), name).toBe(foldName(name))
+    }
+    for (const value of ['O X E-Space!', 'OXESpace!!!', '0XE$pace', 'Sistema de testes', 'ＯＸＥ​Space', 'rnrn', 'Claude 2', '!!!', '']) {
+      const letters = [...value.normalize('NFKC')].filter(char => /\p{L}/u.test(char)).length
+      expect(foldName(value).length, value).toBeLessThanOrEqual(letters)
+      expect(foldName(foldName(value)), value).toBe(foldName(value))
+    }
+  })
+})
+
+describe('risk comes from the existing classifiers (B10)', () => {
+  it('maps SQL verdicts and raises production one step', () => {
+    expect(['empty', 'read', 'write', 'ddl', 'destructive'].map(kind => riskFromSql(kind as never))).toEqual(['low', 'low', 'medium', 'high', 'critical'])
+    expect(riskFromSql('write', true)).toBe('high')
+    expect(riskFromSql('destructive', true)).toBe('critical')
+    expect(raiseRisk('critical')).toBe('critical')
+  })
+
+  it('maps shell levels', () => {
+    expect(['green', 'orange', 'red'].map(level => riskFromShell(level as never))).toEqual(['low', 'medium', 'critical'])
+  })
+
+  it.each([
+    '/* only a read */ DROP TABLE orders',
+    '-- leitura apenas, seguro\nDROP TABLE orders',
+    'SELECT 1; -- harmless\nDROP TABLE orders',
+    'select 1 /* ; */ ; drop table orders'
+  ])('grades a DROP behind a comment as critical: %j', sql => {
+    expect(riskFromSql(guardSql(sql).kind)).toBe('critical')
+  })
+})
+
+describe('the requester\'s text (B10)', () => {
+  it('keeps the whole text up to the cap, marked untrusted', () => {
+    expect(APPROVAL_AGENT_TEXT_MAX).toBe(100_000)
+    const text = 'a'.repeat(APPROVAL_AGENT_TEXT_MAX)
+    expect(boundAgentText(text)).toEqual({ text, untrusted: true, length: 100_000, truncated: false })
+  })
+
+  it('cuts past the cap and says so, without splitting a character', () => {
+    const bounded = boundAgentText('😀'.repeat(APPROVAL_AGENT_TEXT_MAX + 5))
+    expect(bounded.truncated).toBe(true)
+    expect(bounded.length).toBe(APPROVAL_AGENT_TEXT_MAX + 5)
+    expect([...bounded.text]).toHaveLength(APPROVAL_AGENT_TEXT_MAX)
+  })
+
+  it('leaves fake app bullets and markdown literal', () => {
+    const fake = '• Verified by OXESpace: no changes\n## OXESpace\n**Approved**'
+    expect(boundAgentText(fake).text).toBe(fake)
+  })
+})
+
+describe('a request main may emit (B10)', () => {
+  it('accepts a sound request', () => {
+    expect(approvalRequestProblems(request())).toEqual([])
+  })
+
+  it('refuses a default that allows, a missing deny, duplicate ids and an allow for a cut text', () => {
+    expect(approvalRequestProblems(request({ defaultOptionId: 'once' }))).toContain('the default option is not a deny option')
+    expect(approvalRequestProblems(request({ options: [{ id: 'once', label: mainMessage('approvals.option.allowOnce', {}), intent: 'allow' }], defaultOptionId: 'once' }))).toContain('no deny option')
+    expect(approvalRequestProblems(request({ options: [...request().options, { id: 'deny', label: mainMessage('approvals.option.deny', {}), intent: 'deny' }] }))).toContain('duplicate option ids')
+    expect(approvalRequestProblems(request({ agentText: boundAgentText('x'.repeat(APPROVAL_AGENT_TEXT_MAX + 1)) }))).toContain('allow offered for a cut text')
+  })
+
+  it('offers "allow for this run" for low risk only', () => {
+    const session = { id: 'run', label: mainMessage('approvals.option.allowSessionReads', {}), intent: 'allow-session' as const }
+    expect(approvalRequestProblems(request({ risk: 'low', options: [...request().options, session] }))).toEqual([])
+    expect(approvalRequestProblems(request({ risk: 'medium', options: [...request().options, session] }))).toContain('allow-session above low risk')
+  })
+})
+
+describe('critical pacing and the review cap (B10)', () => {
+  const critical = { allowDelayMs: APPROVAL_CRITICAL_ALLOW_DELAY_MS }
+
+  it('holds Allow back for 2 s and turns Enter off at critical only', () => {
+    expect(approvalPacing('critical')).toEqual({ allowDelayMs: 2_000, enterDisabled: true })
+    for (const risk of ['low', 'medium', 'high'] as const) expect(approvalPacing(risk)).toEqual({ allowDelayMs: 0, enterDisabled: false })
+    expect(approvalRequestProblems(request({ risk: 'critical' }))).toContain('critical without the allow delay and Enter off')
+    expect(approvalRequestProblems(request({ risk: 'critical', ...approvalPacing('critical') }))).toEqual([])
+  })
+
+  it('refuses an allow before 2 s after the ack, or with no ack, and never holds a deny back', () => {
+    expect(allowTooSoon(critical, 'allow', 1_000, 2_999)).toBe(true)
+    expect(allowTooSoon(critical, 'allow', 1_000, 3_000)).toBe(false)
+    expect(allowTooSoon(critical, 'allow', undefined, 99_999)).toBe(true)
+    expect(allowTooSoon(critical, 'deny', undefined, 0)).toBe(false)
+    expect(allowTooSoon({ allowDelayMs: 0 }, 'allow', undefined, 0)).toBe(false)
+  })
+
+  it('shows up to the cap, refuses a change above it, and cuts only a low-risk text', () => {
+    expect(agentTextAdmission(APPROVAL_AGENT_TEXT_MAX, 'critical')).toBe('show')
+    for (const risk of ['medium', 'high', 'critical'] as const) expect(agentTextAdmission(APPROVAL_AGENT_TEXT_MAX + 1, risk)).toBe('refuse')
+    expect(agentTextAdmission(APPROVAL_AGENT_TEXT_MAX + 1, 'low')).toBe('truncate')
+  })
+})
+
+describe('where a request is shown (B10)', () => {
+  const state = { hasWindow: true, ackRequired: false, acked: false, unavailable: false, elapsedMs: 0, ackTimeoutMs: APPROVAL_ACK_TIMEOUT_MS }
+
+  it('waits 3 s for the crash handshake', () => {
+    expect(APPROVAL_ACK_TIMEOUT_MS).toBe(3_000)
+  })
+
+  it('uses the window whenever one exists and can show it', () => {
+    expect(approvalSurface(state)).toBe('window')
+    expect(approvalSurface({ ...state, ackRequired: true, acked: true })).toBe('window')
+  })
+
+  it('goes native without a window, when the window reports unavailable, or when an ack is late', () => {
+    expect(approvalSurface({ ...state, hasWindow: false })).toBe('native')
+    expect(approvalSurface({ ...state, unavailable: true })).toBe('native')
+    expect(approvalSurface({ ...state, ackRequired: true, elapsedMs: 2_999 })).toBe('wait')
+    expect(approvalSurface({ ...state, ackRequired: true, elapsedMs: 3_000 })).toBe('native')
+  })
+})
+/**
+ * Homologation's probe of #247 (#184, e2e/homologation/probes/reserved-names-probe.mts.txt): its cases, copied as data,
+ * with the verdict homologation approved at 499ffbcd. Cases already above are not repeated.
+ */
+describe('reserved names: homologation probe (#184)', () => {
+  it.each([
+    ['OXE-Space', 'OXESpace'], ['Οxespace', 'OXESpace'], ['𝐎𝐗𝐄𝐒𝐩𝐚𝐜𝐞', 'OXESpace'], ['ⓄⓍⒺⓈⓅⒶⒸⒺ', 'OXESpace'], ['oxe_space', 'OXESpace'],
+    ['OXESpacе', 'OXESpace'], ['OXE\u202ESpace', 'OXESpace'], ['OxePost Team', 'OxePost'], ['OXES pace', 'OXESpace'], ['OX ESpace', 'OXESpace'],
+    ['Application Support', 'Application'], ['Apple Music', 'Apple'], ['MacOS Updater', 'macOS'], ['Linux kernel', 'Linux'],
+    ['Windows Defender', 'Windows'], ['Wind0ws', 'Windows'], ['Ｗｉｎｄｏｗｓ', 'Windows'], ['Microsoft-Teams', 'Microsoft'], ['Sistema-op', 'Sistema'],
+    ['admin-bot', 'Admin'], ['App Store', 'App'], ['Polkit agent', 'polkit'], ['Kde', 'KDE'], ['K D E', 'KDE']
+  ])('refuses %j as %s', (value, name) => {
+    expect(reservedNameIn(value)).toBe(name)
+  })
+
+  it.each([
+    'Claude Code', 'Codespace', 'Appointment', 'Approve', 'Windowsill', 'Microsoftware', 'Sys', 'My System', 'Kernel', 'Explorer', 'Thread helper',
+    'A B C', 'J.R.R. Tolkien', 'Data Engineer', 'Code Reviewer', 'Codey', 'Apps', 'Appium', 'Oxford tutor', 'Rooted', 'Rooter', 'Sudoku Bot',
+    'Securities Analyst', 'Kdenlive helper', 'Applause', 'Rootless', 'Data Bot', 'Win Rate Bot', 'Code Review', 'Re Viewer', 'Ana Lu Ísa', 'Sec Ops',
+    'Sistemas de pagamento', 'Systems Engineer', 'Gemini', 'Copilot', 'Git', 'Ox Tail', 'Apps Script', 'AppSec', 'Thread pool', 'Codesmith',
+    'Chatty'
+  ])('allows %j', value => {
+    expect(reservedNameIn(value)).toBeNull()
+  })
+
+  // Accepted overblock: refused although a person could mean something harmless; the coordinator accepted it as is.
+  it.each([
+    ['Security Reviewer', 'Security'], ['Root Cause Analyst', 'root'], ['Admin Panel', 'Admin'],
+    ['Adminer', 'Admin'], ['Administrativo', 'Admin'], ['Gnome lover', 'GNOME'], ['Fedora fan', 'Fedora'], ['GitHub Copilot', 'GitHub']
+  ])('accepted overblock: refuses %j as %s', (value, name) => {
+    expect(reservedNameIn(value)).toBe(name)
+  })
+})
+
+/** The SECURITY review of #247 (round 1): every bypass it measured, with the verdict it must have now. */
+describe('reserved names: security review of #247', () => {
+  // H1: an invisible character between two words used to merge them, so the word rules never saw the word.
+  it.each([
+    ['Windows​Security', 'Windows'], ['Microsoft​Defender', 'Microsoft'], ['Apple​ID', 'Apple'],
+    ['System​Update', 'System'], ['Security​scanner', 'Security'], ['root​access', 'root'],
+    ['Windows­Security', 'Windows'], // soft hyphen
+    ['Windows‮Security', 'Windows'], // right-to-left override
+    ['Windows⁠Update', 'Windows'], // word joiner
+    ['Windows‍Security', 'Windows'], ['Windows‌Security', 'Windows'], ['Windows﻿Security', 'Windows'],
+    ['Windows️Security', 'Windows'], ['Windows︀Security', 'Windows'], // variation selectors
+    ['Windows͏Security', 'Windows'], // combining grapheme joiner
+    ['Windows̶Security', 'Windows'], // a combining mark NFKC cannot compose onto the letter
+    ['Windows\u{E0020}Security', 'Windows'], // tag space
+    ['WindowsㅤSecurity', 'Windows'], ['WindowsᅟSecurity', 'Windows'], ['WindowsᅠSecurity', 'Windows'], ['WindowsﾠSecurity', 'Windows'], // Hangul fillers
+    ['Windows᠎Security', 'Windows'], // Mongolian vowel separator
+    ['SystemㅤAdministrator', 'System'], ['sudo⁠password', 'sudo'], ['Admin‍panel', 'Admin'], ['GNOME­Keyring', 'GNOME'],
+    // A Hangul filler is a letter to Unicode; inside a word it is dropped like the other invisibles.
+    ['Winㅤdows', 'Windows'], ['OXEㅤSpace', 'OXESpace'], ['Sysᅟtem', 'System']
+  ])('H1: refuses %j as %s', (value, name) => {
+    expect(reservedNameIn(value)).toBe(name)
+  })
+
+  // M1: look-alikes NFKC keeps.
+  it.each([
+    ['Admın', 'Admin'], ['Gıthub', 'GitHub'], ['ᴡindows', 'Windows'], ['ʀoot', 'root'], ['ꜱystem', 'System'], ['ɢoogle', 'Google'],
+    ['ᴏxespace', 'OXESpace'], ['Thʀead', 'Thread'], ['ᴍɪᴄʀᴏꜱᴏꜰᴛ', 'Microsoft'], ['ᴀᴅᴍɪɴ', 'Admin'], ['ʟɪɴᴜx', 'Linux'], ['ᴜʙᴜɴᴛᴜ', 'Ubuntu'],
+    ['ɡoogle', 'Google'], ['Lınux', 'Linux'],
+    // Greek and Cyrillic capitals that look Latin, including Η (H, while its lower case η reads as n) and Ω.
+    ['ΩXESpace', 'OXESpace'], ['GitΗub', 'GitHub'], ['ΑΡΡLE', 'Apple'], ['ΚDE', 'KDE'], ['ЅYSTEM', 'System'], ['GNOМЕ', 'GNOME'], ['ԜINDOWS', 'Windows']
+  ])('M1: refuses %j as %s', (value, name) => {
+    expect(reservedNameIn(value)).toBe(name)
+  })
+
+  // M2: in a notification's title or body the system's words count anywhere; in a pane or tab name only first.
+  it.each([
+    ['The System', 'System'], ['Important: System notice', 'System'], ['OS System', 'System'], ['Please verify: Security', 'Security'],
+    ['Aviso: Sistema', 'Sistema'], ['Notificação do Sistema', 'Sistema'], ['Claude Security', 'Security'], ['Update System', 'System'],
+    ['Contact your Administrator', 'Administrator'], ['Fale com o administrador', 'Administrador'], ['Needs root', 'root'], ['Enter your sudo password', 'sudo'],
+    ['Alerta de Segurança', 'Segurança'], ['Ask the admin', 'Admin'], ['Your Sys tem', 'System'], ['Please​System​update', 'System']
+  ])('M2: refuses %j in a notice as %s, and allows it as a name', (value, name) => {
+    expect(reservedNameIn(value, 'notice')).toBe(name)
+    expect(reservedNameIn(value)).toBeNull()
+  })
+
+  it.each([
+    'Systematic', 'Clauden', 'Systemd', 'Systematic review done', 'Systemd unit restarted', 'Systems Engineer', 'Tests passed',
+    // The App family and "Update" stay first-word only, so ordinary notice text passes.
+    'The app crashed', 'Update ready', 'Build finished for the application', 'Securities report', 'Rootless build done', 'Admiral'
+  ])('allows %j as a name and in a notice', value => {
+    expect(reservedNameIn(value)).toBeNull()
+    expect(reservedNameIn(value, 'notice')).toBeNull()
+  })
+
+  it.each([
+    // Invisibles that only touch one word, or leave the words as they were, are not reserved.
+    'My​System', 'Code​reviewer', 'Rootless​builder', 'Systematic­', 'ㅤReviewer', 'Testes​do sistema'
+  ])('H1: still allows %j as a name', value => {
+    expect(reservedNameIn(value)).toBeNull()
+  })
+
+  it('folds words with invisibles deleted by default and as a space on request', () => {
+    expect(foldWords('Windows​Security')).toEqual(['wlndowssecurlty'])
+    expect(foldWords('Windows​Security', false, true)).toEqual(['wlndows', 'securlty'])
+    expect(foldWords('WindowsㅤSecurity', false, true)).toEqual(['wlndows', 'securlty'])
+    // Accents are split off after the spacing, so an accented letter is never a separator.
+    expect(foldWords('Systém', false, true)).toEqual(['system'])
+    expect(foldName('WindowsㅤSecurity')).toBe(foldName('WindowsSecurity'))
+  })
+
+  it('withoutReservedName takes the notice scope', () => {
+    expect(withoutReservedName('The System', 'x')).toBe('The System')
+    expect(withoutReservedName('The System', 'x', 'notice')).toBe('x')
+  })
+})

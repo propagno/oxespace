@@ -21,7 +21,7 @@
 .badge.accent { background: var(--accent-soft); border-color: transparent; color: var(--text-accent); }
 
 /* Status dot */
-.dot { flex: none; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--text-disabled); }
+.dot { flex: none; display: inline-block; box-sizing: content-box; width: 8px; height: 8px; min-width: 8px; padding: 0; aspect-ratio: 1; border-radius: 50%; background: var(--text-disabled); }
 .dot.running { background: var(--intent-info-solid); box-shadow: 0 0 0 3px color-mix(in srgb, var(--intent-info-solid) 22%, transparent); }
 .dot.success { background: var(--intent-success-solid); }
 .dot.attention { background: var(--intent-warning-solid); }
@@ -61,6 +61,8 @@
 .errorTitle { margin: 0; font-size: var(--text-md); font-weight: var(--weight-semibold); color: var(--intent-danger-fg); }
 .errorCompact .errorTitle { font-size: var(--text-sm); }
 .errorText { margin: 0; max-width: 56ch; font-size: var(--text-sm); line-height: var(--leading-normal); }
+.errorFix { display: grid; gap: var(--space-1); max-width: 56ch; font-size: var(--text-sm); line-height: var(--leading-normal); color: var(--text-muted); }
+.errorFix p { margin: 0; }
 .errorDetail { max-width: 56ch; font-size: var(--text-xs); color: var(--text-muted); text-align: left; }
 .errorDetail summary { cursor: pointer; }
 .errorDetail code { display: block; margin-top: var(--space-1); white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-mono); }
@@ -71,7 +73,7 @@
 .errorRetry:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 
 /* Success state */
-.success { display: grid; justify-items: center; gap: var(--space-2); padding: var(--space-6) var(--space-4); text-align: center; color: var(--text-secondary); }
+.successState { display: grid; justify-items: center; gap: var(--space-2); padding: var(--space-6) var(--space-4); text-align: center; color: var(--text-secondary); }
 .successCompact { grid-template-columns: auto minmax(0, 1fr); justify-items: start; align-items: center; column-gap: var(--space-2); padding: var(--space-2); text-align: left; }
 .successCompact .successText, .successCompact .successActions { grid-column: 2; }
 .successIcon { display: grid; place-items: center; color: var(--intent-success-fg); }
@@ -110,6 +112,7 @@
 .skeletonBar:nth-child(3n) { width: 62%; }
 .skeletonBar:nth-child(3n + 2) { width: 84%; }
 .skeletonBlock { height: calc(var(--control-lg) * 3); width: 100%; }
+.sidebarRows > :last-child { padding-inline: var(--space-3); }
 :global([data-motion='reduce']) .skeletonBar { animation: none; }
 .separator { flex: none; background: var(--border-subtle); }
 .separator[data-orientation='horizontal'] { height: 1px; width: 100%; }
@@ -151,7 +154,7 @@
 .avatar { flex: none; display: inline-grid; place-items: center; border-radius: var(--radius-sm); color: var(--text-on-identity); font-size: var(--text-2xs); font-weight: var(--weight-semibold); }
 
 /* Toasts */
-.toasts { position: fixed; right: var(--space-4); bottom: var(--space-4); z-index: var(--layer-toast); display: grid; gap: var(--space-2); width: min(380px, calc(100vw - 32px)); }
+.toasts { position: fixed; right: var(--space-4); bottom: calc(var(--statusbar-height) + var(--space-3)); z-index: var(--layer-toast); display: grid; gap: var(--space-2); width: min(380px, calc(100vw - 32px)); }
 .toast {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -168,6 +171,8 @@
 }
 @starting-style { .toast { opacity: 0; translate: 0 var(--motion-shift); } }
 .toast strong { display: block; font-weight: var(--weight-semibold); }
+.toastTitle { display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
+.toastCount { flex: none; padding: 0 var(--space-1); border-radius: var(--radius-full); background: var(--surface-raised); border: 1px solid var(--border-default); color: var(--text-secondary); font-size: var(--text-2xs); font-variant-numeric: tabular-nums; }
 .toast p { margin: 2px 0 0; color: var(--text-secondary); }
 .toastIcon { margin-top: 1px; }
 .toast.success .toastIcon { color: var(--intent-success-fg); }

@@ -50,6 +50,14 @@ function fixture(root: string, options: { realWorkingState?: boolean } = {}) {
 describe('Thread working location', { timeout: 30_000 }, () => {
   // Settles the asynchronous turn bookkeeping (checkpoint, baseline, finalization) between steps.
   const settle = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 400))
+  /** Polls until the condition holds, failing loudly after 8 s instead of carrying on in the wrong state. */
+  const until = async (condition: () => boolean, label = 'condition'): Promise<void> => {
+    const end = Date.now() + 8_000
+    while (!condition()) {
+      if (Date.now() > end) throw new Error(`Timed out waiting for ${label}`)
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
+  }
   const verifiedPaths = (f: ReturnType<typeof fixture>): string[] => f.read().events.flatMap(event => event.type === 'turn-diff' && event.id.startsWith('verified-diff:') ? event.files.map(file => file.path) : [])
   // Finalizing reads git in every checkout the turn used, which takes a moment on Windows.
   // Finalizing reads git in every checkout the turn used, which takes a moment on Windows: wait for the
@@ -124,10 +132,13 @@ describe('Thread working location', { timeout: 30_000 }, () => {
     f.callbacks[0]({ type: 'completed', status: 'completed' })
     await settle()
     await f.manager.send(f.id, 'Edit a.txt')
-    await settle()
+    // A slow runner can still be starting the turn after a fixed pause: wait for it to run, and for the thread to be
+    // idle again before rewinding, which refuses while a turn is active.
+    await until(() => f.read().turns?.length === 2 && f.read().turns!.at(-1)!.status === 'running')
     writeFileSync(join(repo, 'a.txt'), 'edited by the turn\n')
     f.callbacks.at(-1)!({ type: 'completed', status: 'completed' })
     await finalized(f)
+    await until(() => f.read().turns!.at(-1)!.status === 'completed' && f.read().thread.status === 'idle')
     const editTurn = f.read().turns!.at(-1)!.id
 
     const result = await f.manager.rewind(f.id, editTurn, { restoreFiles: true })

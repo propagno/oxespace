@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
+import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { readFile, writeFile } from 'node:fs/promises'
 import type { NativeAccountService, NativeAuthScope } from '../services/conversation/native-account.service'
 import type { ThreadManager } from '../services/conversation/thread-manager'
@@ -15,21 +15,20 @@ import type { ThreadMcpBindings } from '../services/conversation/thread-mcp'
 import { createThreadWorktree, discardThreadWorktree, ThreadWorktreeError, type ThreadWorktreeHost } from '../services/conversation/thread-worktree'
 import { tagThreadWorktreeError } from '../../../shared/threadWorktree'
 import { registerThreadWorktreeIpc } from './thread-worktree.ipc'
+import { registerThreadSectionsIpc } from './thread-sections.ipc'
 import type { ThreadRequestResponse } from '../../../shared/types/thread'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
+import { MainRefusal } from '../services/main-refusal'
 
 function string(value: unknown): string {
-  if (typeof value !== 'string' || !value || value.length > 65536 || value.includes('\0')) throw new Error('Invalid thread input')
+  if (typeof value !== 'string' || !value || value.length > 65536 || value.includes('\0')) throw new MainRefusal('thread.invalidInput', {})
   return value
 }
 /** A prompt can carry a pasted log or file: the 64K cap of other inputs cut it far below what the Code terminal takes. */
 function message(value: unknown): string {
-  if (typeof value !== 'string' || !value || value.includes('\0')) throw new Error('Invalid thread input')
+  if (typeof value !== 'string' || !value || value.includes('\0')) throw new MainRefusal('thread.invalidInput', {})
   if (value.length > THREAD_MESSAGE_MAX_CHARS) throw new Error(`This message has ${value.length.toLocaleString('en-US')} characters; the limit is ${THREAD_MESSAGE_MAX_CHARS.toLocaleString('en-US')}. Attach long text as a file instead.`)
   return value
-}
-function sender(event: IpcMainInvokeEvent): void {
-  if (!BrowserWindow.fromWebContents(event.sender) || event.senderFrame !== event.sender.mainFrame) throw new Error('Thread requests require the application main frame')
 }
 function optionalInteger(value: unknown, min: number, max: number): number | undefined {
   if (value === undefined) return undefined
@@ -105,62 +104,66 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
     return { provider: input.provider, workspaceId: string(input.workspaceId),
       ...(input.paneId ? { paneId: string(input.paneId) } : {}), ...(input.threadId ? { threadId: string(input.threadId) } : {}) }
   }
-  ipcMain.handle(IPC_CHANNELS.agentAccount.read, (event, context) => { sender(event); return accounts.then(service => service.read(accountContext(context))) })
-  ipcMain.handle(IPC_CHANNELS.agentAccount.login, (event, context) => { sender(event); return accounts.then(service => service.login(accountContext(context))) })
-  ipcMain.handle(IPC_CHANNELS.agentAccount.logout, (event, context) => { sender(event); return accounts.then(service => service.logout(accountContext(context))) })
-  ipcMain.handle(IPC_CHANNELS.agentAccount.cancel, (event, id) => { sender(event); return accounts.then(service => service.cancel(string(id))) })
-  ipcMain.handle(IPC_CHANNELS.agentAccount.code, (event, id, code) => { sender(event); return accounts.then(service => service.submitCode(string(id), string(code))) })
-  ipcMain.handle(IPC_CHANNELS.agentAccount.browser, (event, id) => { sender(event); return accounts.then(service => service.openBrowser(string(id))) })
-  ipcMain.handle(IPC_CHANNELS.thread.projects, event => { sender(event); return import('../services/conversation/thread-projects').then(module => module.threadProjectCatalog(db)) })
-  ipcMain.handle(IPC_CHANNELS.thread.addProject, (event, rootPath: unknown) => { sender(event); return threadProjects.add(string(rootPath)) })
-  ipcMain.handle(IPC_CHANNELS.thread.relinkProject, (event, projectId: unknown, rootPath: unknown) => { sender(event); return threadProjects.relink(string(projectId), string(rootPath)) })
+  ipcMain.handle(IPC_CHANNELS.agentAccount.read, (event, context) => accounts.then(service => service.read(accountContext(context))))
+  ipcMain.handle(IPC_CHANNELS.agentAccount.login, (event, context) => accounts.then(service => service.login(accountContext(context))))
+  ipcMain.handle(IPC_CHANNELS.agentAccount.logout, (event, context) => accounts.then(service => service.logout(accountContext(context))))
+  ipcMain.handle(IPC_CHANNELS.agentAccount.cancel, (event, id) => accounts.then(service => service.cancel(string(id))))
+  ipcMain.handle(IPC_CHANNELS.agentAccount.code, (event, id, code) => accounts.then(service => service.submitCode(string(id), string(code))))
+  ipcMain.handle(IPC_CHANNELS.agentAccount.browser, (event, id) => accounts.then(service => service.openBrowser(string(id))))
+  ipcMain.handle(IPC_CHANNELS.thread.projects, event => import('../services/conversation/thread-projects').then(module => module.threadProjectCatalog(db)))
+  ipcMain.handle(IPC_CHANNELS.thread.addProject, (event, rootPath: unknown) => threadProjects.add(string(rootPath)))
+  ipcMain.handle(IPC_CHANNELS.thread.relinkProject, (event, projectId: unknown, rootPath: unknown) => threadProjects.relink(string(projectId), string(rootPath)))
   ipcMain.handle(IPC_CHANNELS.thread.setProjectHidden, (event, projectId: unknown, hidden: unknown) => {
-    sender(event); if (typeof hidden !== 'boolean') throw Error('Invalid project visibility'); threadProjects.setHidden(string(projectId), hidden)
+    if (typeof hidden !== 'boolean') throw Error('Invalid project visibility'); threadProjects.setHidden(string(projectId), hidden)
   })
-  ipcMain.handle(IPC_CHANNELS.thread.list, event => { sender(event); return manager.then(service => service.list()) })
+  ipcMain.handle(IPC_CHANNELS.thread.list, event => manager.then(service => service.list()))
   // Read-only summary for the activity center; answering a request stays in the conversation.
-  ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, event => { sender(event); return manager.then(() => import('../services/conversation/thread-history')).then(module => new module.ThreadHistory(db).pendingRequestsAll()) })
-  ipcMain.handle(IPC_CHANNELS.thread.read, (event, id: unknown) => { sender(event); return manager.then(service => service.readForRenderer(string(id))) })
+  ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, event => manager.then(() => import('../services/conversation/thread-history')).then(module => new module.ThreadHistory(db).pendingRequestsAll()))
+  // Side chats (B1.2) load on the first open. Their events go only to the window that opened them, which takes them along when it closes.
+  let sideChats: Promise<import('../services/conversation/thread-side-chat').ThreadSideChats> | null = null
+  const sides = () => sideChats ??= manager.then(async service => (await import('../services/conversation/thread-side-runtime')).createThreadSideChats(db, mcp.bridge, service))
+  ipcMain.handle(IPC_CHANNELS.thread.sideOpen, async (event, id: unknown) => {
+    const threadId = string(id), contents = event.sender, chats = await sides()
+    const result = await chats.open(threadId, side => { if (!contents.isDestroyed()) contents.send(IPC_CHANNELS.thread.onSideEvent, side) })
+    if (result.ok) contents.once('destroyed', () => { void chats.close(result.side.sideId) })
+    return result
+  })
+  ipcMain.handle(IPC_CHANNELS.thread.sideSend, (event, sideId: unknown, text: unknown) => sides().then(chats => chats.send(sideId, text)))
+  ipcMain.handle(IPC_CHANNELS.thread.sideClose, (event, sideId: unknown) => sides().then(chats => chats.close(sideId)))
+  ipcMain.handle(IPC_CHANNELS.thread.read, (event, id: unknown) => manager.then(service => service.readForRenderer(string(id))))
   ipcMain.handle(IPC_CHANNELS.thread.rewind, (event, id: unknown, turnId: unknown, options: unknown) => {
-    sender(event)
     const restoreFiles = Boolean(options && typeof options === 'object' && (options as Record<string, unknown>).restoreFiles === true)
     return manager.then(service => service.rewind(string(id), string(turnId), { restoreFiles }))
   })
   ipcMain.handle(IPC_CHANNELS.thread.redoRewind, (event, id: unknown) => {
-    sender(event)
     return manager.then(service => service.redoRewind(string(id)))
   })
   ipcMain.handle(IPC_CHANNELS.thread.retryTurn, (event, id: unknown, turnId: unknown, options: unknown) => {
-    sender(event)
     const restoreFiles = Boolean(options && typeof options === 'object' && (options as Record<string, unknown>).restoreFiles === true)
     return manager.then(service => service.retryTurn(string(id), string(turnId), { restoreFiles }))
   })
   ipcMain.handle(IPC_CHANNELS.thread.readSince, (event, id: unknown, cursor: unknown) => {
-    sender(event)
     const input = cursor && typeof cursor === 'object' ? cursor as Record<string, unknown> : {}
     const epoch = string(input.epoch), revision = optionalInteger(input.revision, 0, Number.MAX_SAFE_INTEGER)
     if (revision === undefined || epoch.length > 64) throw Error('Invalid thread cursor')
     return manager.then(service => service.readSinceForRenderer(string(id), { epoch, revision }))
   })
-  ipcMain.handle(IPC_CHANNELS.thread.history, (event, id: unknown, before: unknown, limit: unknown) => { sender(event); return manager.then(service => service.historyPage(string(id), optionalInteger(before, Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER), optionalInteger(limit, 1, 500))) })
+  ipcMain.handle(IPC_CHANNELS.thread.history, (event, id: unknown, before: unknown, limit: unknown) => manager.then(service => service.historyPage(string(id), optionalInteger(before, Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER), optionalInteger(limit, 1, 500))))
   ipcMain.handle(IPC_CHANNELS.thread.attach, (event, id: unknown, input: unknown) => {
-    sender(event)
     if (!input || typeof input !== 'object' || Array.isArray(input)) throw Error('Invalid attachment')
     const value = input as Record<string, unknown>
     if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(String(value.mimeType))) throw Error('Unsupported attachment type')
     if (!(value.data instanceof ArrayBuffer) && !ArrayBuffer.isView(value.data)) throw Error('Invalid attachment data')
     return manager.then(service => service.attach(string(id), { name: string(value.name), mimeType: value.mimeType as import('../../../shared/types/thread').ThreadAttachment['mimeType'], data: value.data as ArrayBuffer | Uint8Array }))
   })
-  ipcMain.handle(IPC_CHANNELS.thread.removeAttachment, (event, id: unknown, attachmentId: unknown) => { sender(event); return manager.then(service => service.removeAttachment(string(id), string(attachmentId))) })
-  ipcMain.handle(IPC_CHANNELS.thread.artifact, (event, id: unknown, artifactId: unknown) => { sender(event); return manager.then(service => service.artifact(string(id), string(artifactId))) })
+  ipcMain.handle(IPC_CHANNELS.thread.removeAttachment, (event, id: unknown, attachmentId: unknown) => manager.then(service => service.removeAttachment(string(id), string(attachmentId))))
+  ipcMain.handle(IPC_CHANNELS.thread.artifact, (event, id: unknown, artifactId: unknown) => manager.then(service => service.artifact(string(id), string(artifactId))))
   ipcMain.handle(IPC_CHANNELS.thread.exportPortable, async (event, id: unknown) => {
-    sender(event)
     const service = await manager, threadId = string(id), snapshot = service.read(threadId)
     const owner = BrowserWindow.fromWebContents(event.sender)
     const options = { title: 'Export conversation', defaultPath: `${snapshot.thread.title.replace(/[<>:"/\\|?*\x00-\x1f]/g, '-').slice(0, 80) || 'conversation'}.oxethread.json`, filters: [{ name: 'OXESpace conversation', extensions: ['json'] }] }
     const result = owner ? await dialog.showSaveDialog(owner, options) : await dialog.showSaveDialog(options)
     if (result.canceled || !result.filePath) return null
-    sender(event)
     await writeFile(result.filePath, service.exportPortable(threadId), { encoding: 'utf8', flag: 'wx' }).catch(async error => {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
       await writeFile(result.filePath!, service.exportPortable(threadId), 'utf8')
@@ -168,22 +171,19 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
     return result.filePath
   })
   ipcMain.handle(IPC_CHANNELS.thread.importPortable, async (event, id: unknown) => {
-    sender(event)
     const owner = BrowserWindow.fromWebContents(event.sender)
     const options: import('electron').OpenDialogOptions = { title: 'Import conversation', properties: ['openFile'], filters: [{ name: 'OXESpace conversation', extensions: ['json'] }] }
     const result = owner ? await dialog.showOpenDialog(owner, options) : await dialog.showOpenDialog(options)
     if (result.canceled || result.filePaths.length !== 1) return null
     const input = await readFile(result.filePaths[0], 'utf8')
-    sender(event)
     return (await manager).importPortable(string(id), input)
   })
-  ipcMain.handle(IPC_CHANNELS.thread.projectDiff, (event, id: unknown) => { sender(event); return manager.then(service => service.projectDiff(string(id))) })
-  ipcMain.handle(IPC_CHANNELS.thread.models, (event, id: unknown, refresh: unknown) => { sender(event); return manager.then(service => service.models(string(id), refresh === true)) })
-  ipcMain.handle(IPC_CHANNELS.thread.command, (event, id: unknown, text: unknown) => { sender(event); return manager.then(service => service.command(string(id), string(text))) })
-  ipcMain.handle(IPC_CHANNELS.thread.observe, (event, id) => { sender(event); return manager.then(service => service.observe(string(id))) })
-  ipcMain.handle(IPC_CHANNELS.thread.recover, (event, id: unknown) => { sender(event); return manager.then(service => service.recover(string(id))) })
+  ipcMain.handle(IPC_CHANNELS.thread.projectDiff, (event, id: unknown) => manager.then(service => service.projectDiff(string(id))))
+  ipcMain.handle(IPC_CHANNELS.thread.models, (event, id: unknown, refresh: unknown) => manager.then(service => service.models(string(id), refresh === true)))
+  ipcMain.handle(IPC_CHANNELS.thread.command, (event, id: unknown, text: unknown) => manager.then(service => service.command(string(id), string(text))))
+  ipcMain.handle(IPC_CHANNELS.thread.observe, (event, id) => manager.then(service => service.observe(string(id))))
+  ipcMain.handle(IPC_CHANNELS.thread.recover, (event, id: unknown) => manager.then(service => service.recover(string(id))))
   ipcMain.handle(IPC_CHANNELS.thread.configure, (event, id: unknown, input: unknown, revision: unknown) => {
-    sender(event)
     if (!input || typeof input !== 'object' || !Number.isSafeInteger(revision) || Number(revision) < 0) throw Error('Invalid configuration')
     const value = input as Record<string, unknown>
     if (Object.keys(value).some(key => !['model', 'reasoningEffort', 'access', 'networkAccess', 'approvalPolicy', 'mode', 'hooksEnabled'].includes(key))) throw Error('Unknown configuration field')
@@ -197,7 +197,6 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
     return manager.then(service => service.configure(string(id), value, Number(revision)))
   })
   ipcMain.handle(IPC_CHANNELS.thread.commands, (event, id: unknown, forceRefresh: unknown) => {
-    sender(event)
     if (forceRefresh !== undefined && typeof forceRefresh !== 'boolean') throw Error('Invalid command refresh input')
     return manager.then(service => service.commands(string(id), forceRefresh === true))
   })
@@ -206,12 +205,10 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
     return value as number
   }
   ipcMain.handle(IPC_CHANNELS.thread.create, async (event, input: unknown) => {
-    sender(event)
-    if (!input || typeof input !== 'object') throw new Error('Invalid thread input')
+    if (!input || typeof input !== 'object') throw new MainRefusal('thread.invalidInput', {})
     const value = input as Record<string, unknown>
     if (value.provider !== 'codex' && value.provider !== 'claude') throw new Error('Invalid thread provider')
     const context = threadProjects.context(string(value.projectId), value.rootPath === undefined ? undefined : string(value.rootPath))
-    sender(event)
     const service = await manager
     if (value.worktree === undefined) return service.create({ workspaceId: `thread:${context.projectId}`, projectId: context.projectId, rootPath: context.rootPath, provider: value.provider })
     // A new branch in its own worktree: registered as another directory of the same project, so the
@@ -238,39 +235,34 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
       throw error
     }
   })
-  ipcMain.handle(IPC_CHANNELS.thread.send, (event, id: unknown, text: unknown, attachmentIds: unknown) => { sender(event); return manager.then(service => service.send(string(id), message(text), stringList(attachmentIds, 8))) })
-  ipcMain.handle(IPC_CHANNELS.thread.turnFiles, (event, id: unknown, turnId: unknown) => { sender(event); return manager.then(service => service.turnFiles(string(id), string(turnId))) })
-  ipcMain.handle(IPC_CHANNELS.thread.undoTurnFile, (event, id: unknown, turnId: unknown, path: unknown) => { sender(event); return manager.then(service => service.undoTurnFile(string(id), string(turnId), string(path))) })
-  ipcMain.handle(IPC_CHANNELS.thread.turnFileHunks, (event, id: unknown, turnId: unknown, path: unknown) => { sender(event); return manager.then(service => service.turnFileHunks(string(id), string(turnId), string(path))) })
-  ipcMain.handle(IPC_CHANNELS.thread.undoTurnHunk, (event, id: unknown, turnId: unknown, path: unknown, hunkId: unknown) => { sender(event); return manager.then(service => service.undoTurnHunk(string(id), string(turnId), string(path), string(hunkId))) })
-  ipcMain.handle(IPC_CHANNELS.thread.permissionRules, (event, id: unknown) => { sender(event); return manager.then(service => service.permissionRules(string(id))) })
+  ipcMain.handle(IPC_CHANNELS.thread.send, (event, id: unknown, text: unknown, attachmentIds: unknown) => manager.then(service => service.send(string(id), message(text), stringList(attachmentIds, 8))))
+  ipcMain.handle(IPC_CHANNELS.thread.turnFiles, (event, id: unknown, turnId: unknown) => manager.then(service => service.turnFiles(string(id), string(turnId))))
+  ipcMain.handle(IPC_CHANNELS.thread.undoTurnFile, (event, id: unknown, turnId: unknown, path: unknown) => manager.then(service => service.undoTurnFile(string(id), string(turnId), string(path))))
+  ipcMain.handle(IPC_CHANNELS.thread.turnFileHunks, (event, id: unknown, turnId: unknown, path: unknown) => manager.then(service => service.turnFileHunks(string(id), string(turnId), string(path))))
+  ipcMain.handle(IPC_CHANNELS.thread.undoTurnHunk, (event, id: unknown, turnId: unknown, path: unknown, hunkId: unknown) => manager.then(service => service.undoTurnHunk(string(id), string(turnId), string(path), string(hunkId))))
+  ipcMain.handle(IPC_CHANNELS.thread.permissionRules, (event, id: unknown) => manager.then(service => service.permissionRules(string(id))))
   ipcMain.handle(IPC_CHANNELS.thread.addPermissionRule, (event, id: unknown, rule: unknown) => {
-    sender(event)
     const input = parsePermissionRuleInput(rule)
     return manager.then(service => service.addPermissionRule(string(id), input))
   })
-  ipcMain.handle(IPC_CHANNELS.thread.removePermissionRule, (event, id: unknown, ruleId: unknown) => { sender(event); return manager.then(service => service.removePermissionRule(string(id), string(ruleId))) })
-  ipcMain.handle(IPC_CHANNELS.thread.workRuns, (event, id: unknown) => { sender(event); return manager.then(service => service.workRuns(string(id))) })
-  ipcMain.handle(IPC_CHANNELS.thread.cancelWork, (event, id: unknown, runId: unknown) => { sender(event); return manager.then(service => service.cancelWork(string(id), string(runId))) })
-  ipcMain.handle(IPC_CHANNELS.thread.autoApproveReads, event => { sender(event); return manager.then(service => service.autoApproveReads()) })
+  ipcMain.handle(IPC_CHANNELS.thread.removePermissionRule, (event, id: unknown, ruleId: unknown) => manager.then(service => service.removePermissionRule(string(id), string(ruleId))))
+  ipcMain.handle(IPC_CHANNELS.thread.workRuns, (event, id: unknown) => manager.then(service => service.workRuns(string(id))))
+  ipcMain.handle(IPC_CHANNELS.thread.cancelWork, (event, id: unknown, runId: unknown) => manager.then(service => service.cancelWork(string(id), string(runId))))
+  ipcMain.handle(IPC_CHANNELS.thread.autoApproveReads, event => manager.then(service => service.autoApproveReads()))
   ipcMain.handle(IPC_CHANNELS.thread.setAutoApproveReads, (event, enabled: unknown) => {
-    sender(event)
     if (typeof enabled !== 'boolean') throw Error('Choose on or off')
     return manager.then(service => service.setAutoApproveReads(enabled))
   })
-  ipcMain.handle(IPC_CHANNELS.thread.idleSuspendMinutes, event => { sender(event); return manager.then(service => service.idleSuspendMinutes()) })
+  ipcMain.handle(IPC_CHANNELS.thread.idleSuspendMinutes, event => manager.then(service => service.idleSuspendMinutes()))
   ipcMain.handle(IPC_CHANNELS.thread.setIdleSuspendMinutes, (event, minutes: unknown) => {
-    sender(event)
     if (typeof minutes !== 'number' || !Number.isInteger(minutes)) throw Error('Choose a number of minutes')
     return manager.then(service => service.setIdleSuspendMinutes(minutes))
   })
   ipcMain.handle(IPC_CHANNELS.thread.shellCheck, (event, command: unknown) => {
-    sender(event)
     if (typeof command !== 'string' || !command.trim() || command.length > 4096) throw Error('Give a command of up to 4096 characters')
     return shellCheck(command)
   })
   ipcMain.handle(IPC_CHANNELS.thread.debugEvents, (event, id: unknown, options: unknown) => {
-    sender(event)
     const value = options && typeof options === 'object' && !Array.isArray(options) ? options as Record<string, unknown> : {}
     const filter = typeof value.filter === 'string' ? value.filter.slice(0, 500) : undefined
     const before = typeof value.before === 'number' && Number.isInteger(value.before) ? value.before : undefined
@@ -278,40 +270,35 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
     return manager.then(service => service.debugEvents(string(id), { filter, before, limit }))
   })
   ipcMain.handle(IPC_CHANNELS.thread.usageSummary, (event, id: unknown, options: unknown) => {
-    sender(event)
     const value = options && typeof options === 'object' && !Array.isArray(options) ? options as Record<string, unknown> : {}
     const scope = value.scope === 'thread' || value.scope === 'all' ? value.scope : 'project' as const
     const days = typeof value.days === 'number' && Number.isInteger(value.days) ? value.days : undefined
     return manager.then(service => service.usageSummary(string(id), { scope, days }))
   })
   ipcMain.handle(IPC_CHANNELS.thread.auditLog, (event, id: unknown, options: unknown) => {
-    sender(event)
     const value = options && typeof options === 'object' && !Array.isArray(options) ? options as Record<string, unknown> : {}
     const scope = value.scope === 'project' ? 'project' as const : 'thread' as const
     const before = typeof value.before === 'number' && Number.isFinite(value.before) ? value.before : undefined
     const limit = typeof value.limit === 'number' && Number.isInteger(value.limit) ? value.limit : undefined
     return manager.then(service => service.auditLog(string(id), { scope, before, limit }))
   })
-  ipcMain.handle(IPC_CHANNELS.thread.stopTask, (event, id: unknown, taskId: unknown) => { sender(event); return manager.then(service => service.stopTask(string(id), string(taskId))) })
-  ipcMain.handle(IPC_CHANNELS.thread.steer, (event, id: unknown, text: unknown, attachmentIds: unknown) => { sender(event); return manager.then(service => service.steer(string(id), message(text), stringList(attachmentIds, 8))) })
-  ipcMain.handle(IPC_CHANNELS.thread.updateQueued, (event, id: unknown, itemId: unknown, text: unknown) => { sender(event); return manager.then(service => service.updateQueued(string(id), string(itemId), message(text))) })
-  ipcMain.handle(IPC_CHANNELS.thread.deleteQueued, (event, id: unknown, itemId: unknown, preserveAttachments: unknown) => { sender(event); return manager.then(service => service.deleteQueued(string(id), string(itemId), preserveAttachments === true)) })
-  ipcMain.handle(IPC_CHANNELS.thread.reorderQueued, (event, id: unknown, itemIds: unknown) => { sender(event); return manager.then(service => service.reorderQueued(string(id), stringList(itemIds, 100))) })
-  ipcMain.handle(IPC_CHANNELS.thread.contextUsage, (event, id: unknown) => { sender(event); return manager.then(service => service.contextUsage(string(id))) })
-  ipcMain.handle(IPC_CHANNELS.thread.resumeQueue, (event, id: unknown) => { sender(event); return manager.then(service => service.resumeQueue(string(id))) })
-  ipcMain.handle(IPC_CHANNELS.thread.sendQueuedNow, (event, id: unknown, itemId: unknown) => { sender(event); return manager.then(service => service.sendQueuedNow(string(id), string(itemId))) })
-  ipcMain.handle(IPC_CHANNELS.thread.interrupt, (event, id: unknown) => { sender(event); return manager.then(service => service.interrupt(string(id))) })
+  ipcMain.handle(IPC_CHANNELS.thread.stopTask, (event, id: unknown, taskId: unknown) => manager.then(service => service.stopTask(string(id), string(taskId))))
+  ipcMain.handle(IPC_CHANNELS.thread.steer, (event, id: unknown, text: unknown, attachmentIds: unknown) => manager.then(service => service.steer(string(id), message(text), stringList(attachmentIds, 8))))
+  ipcMain.handle(IPC_CHANNELS.thread.updateQueued, (event, id: unknown, itemId: unknown, text: unknown) => manager.then(service => service.updateQueued(string(id), string(itemId), message(text))))
+  ipcMain.handle(IPC_CHANNELS.thread.deleteQueued, (event, id: unknown, itemId: unknown, preserveAttachments: unknown) => manager.then(service => service.deleteQueued(string(id), string(itemId), preserveAttachments === true)))
+  ipcMain.handle(IPC_CHANNELS.thread.reorderQueued, (event, id: unknown, itemIds: unknown) => manager.then(service => service.reorderQueued(string(id), stringList(itemIds, 100))))
+  ipcMain.handle(IPC_CHANNELS.thread.contextUsage, (event, id: unknown) => manager.then(service => service.contextUsage(string(id))))
+  ipcMain.handle(IPC_CHANNELS.thread.resumeQueue, (event, id: unknown) => manager.then(service => service.resumeQueue(string(id))))
+  ipcMain.handle(IPC_CHANNELS.thread.sendQueuedNow, (event, id: unknown, itemId: unknown) => manager.then(service => service.sendQueuedNow(string(id), string(itemId))))
+  ipcMain.handle(IPC_CHANNELS.thread.interrupt, (event, id: unknown) => manager.then(service => service.interrupt(string(id))))
   ipcMain.handle(IPC_CHANNELS.thread.approve, (event, id: unknown, request: unknown, decision: unknown) => {
-    sender(event)
     if (decision !== 'accept' && decision !== 'decline') throw new Error('Invalid approval decision')
     return manager.then(service => service.approve(string(id), string(request), decision))
   })
   ipcMain.handle(IPC_CHANNELS.thread.respond, (event, id: unknown, request: unknown, response: unknown) => {
-    sender(event)
     return manager.then(service => service.respond(string(id), string(request), requestResponse(response)))
   })
   ipcMain.handle(IPC_CHANNELS.thread.respondPending, async (event, value: unknown) => {
-    sender(event)
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid pending response')
     const input = value as Record<string, unknown>
     if (Object.keys(input).some(key => !['threadId', 'requestId', 'generation', 'response'].includes(key))) throw new Error('Unknown pending response field')
@@ -320,10 +307,10 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
     return pending.respondPending(await manager, parsed)
   })
   ipcMain.handle(IPC_CHANNELS.thread.pin, (event, id: unknown, pinned: unknown) => {
-    sender(event)
     if (typeof pinned !== 'boolean') throw new Error('Invalid pin input')
     return manager.then(service => service.pin(string(id), pinned))
   })
-  registerThreadWorktreeIpc({ db, manager, threadProjects, worktrees, sender, id: string })
-  return { manager, stop: async () => { await (await accounts).stop(); await (await manager).stop() } }
+  registerThreadWorktreeIpc({ db, manager, threadProjects, worktrees, id: string })
+  registerThreadSectionsIpc({ db })
+  return { manager, stop: async () => { await sideChats?.then(chats => chats.stop()).catch(() => {}); await (await accounts).stop(); await (await manager).stop() } }
 }

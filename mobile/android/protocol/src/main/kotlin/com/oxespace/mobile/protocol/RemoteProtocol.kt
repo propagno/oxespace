@@ -26,6 +26,8 @@ const val REMOTE_PROTOCOL_VERSION: Int = 1
 object RemoteLimits {
     /** Largest frame either side accepts, in UTF-8 bytes. */
     const val MAX_FRAME_BYTES: Int = 65536
+    /** Deepest nesting of objects and arrays a frame may have, so no later recursive step can overflow the stack. */
+    const val MAX_FRAME_DEPTH: Int = 64
     /** Open subscriptions per connection. */
     const val MAX_SUBSCRIPTIONS: Int = 32
     /** Commands per device per minute before `rate-limited`. */
@@ -45,6 +47,23 @@ object RemoteLimits {
     const val PAIRING_ATTEMPT_WINDOW_MS: Long = 120000L
     /** Characters of the device name a phone may give when pairing. */
     const val MAX_DEVICE_NAME_LENGTH: Int = 64
+    /** Bytes a `terminal.write` may carry. */
+    const val TERMINAL_WRITE_BYTES: Int = 4096
+    /** How long the desktop remembers a `clientId` of `thread.send` / `thread.steer`, so a resend is applied once. */
+    const val CLIENT_ID_DEDUPE_MS: Long = 600000L
+}
+
+object RemoteTextLimits {
+    /** Characters of one timeline item's text (message, reasoning, tool output) sent to the phone. */
+    const val ITEM_TEXT: Int = 8000
+    /** Characters of a tool's detail line or a request's command as shown. */
+    const val DETAIL: Int = 2000
+    /** Characters of terminal output per event frame. */
+    const val TERMINAL_CHUNK: Int = 32000
+    /** Items per page of a conversation snapshot. */
+    const val THREAD_PAGE: Int = 50
+    /** Characters of a delegation's objective. */
+    const val OBJECTIVE: Int = 500
 }
 
 @Serializable
@@ -84,7 +103,9 @@ enum class RemoteSubscription(val wire: String) {
 
 /**
  * What the phone can do. `thread.respondRequest` answers a Thread request by id and generation (B1.1) after biometric
- * confirmation on the phone; `terminal.write` works only on a pane the person marked "allow from phone" on the desktop.
+ * confirmation on the phone; `terminal.write` works only on a pane the person marked "allow from phone" on the desktop;
+ * `thread.history` reads older items of a conversation. Every command counts toward `REMOTE_LIMITS.commandsPerMinute`
+ * and is recorded in the desktop's audit with the device id.
  */
 @Serializable
 enum class RemoteCommand(val wire: String) {
@@ -93,6 +114,7 @@ enum class RemoteCommand(val wire: String) {
     @SerialName("thread.interrupt") THREAD_INTERRUPT("thread.interrupt"),
     @SerialName("thread.respondRequest") THREAD_RESPOND_REQUEST("thread.respondRequest"),
     @SerialName("terminal.write") TERMINAL_WRITE("terminal.write"),
+    @SerialName("thread.history") THREAD_HISTORY("thread.history"),
     ;
 
     companion object {
@@ -124,6 +146,7 @@ enum class RemoteErrorCode(val wire: String) {
     }
 }
 
+/** Why `POST /pair` refused; `reserved-name` is a device name only the app may speak as (the lists below). */
 @Serializable
 enum class RemotePairingErrorCode(val wire: String) {
     @SerialName("pairing-expired") PAIRING_EXPIRED("pairing-expired"),
@@ -133,12 +156,37 @@ enum class RemotePairingErrorCode(val wire: String) {
     @SerialName("too-many-devices") TOO_MANY_DEVICES("too-many-devices"),
     @SerialName("malformed") MALFORMED("malformed"),
     @SerialName("pairing-invalid") PAIRING_INVALID("pairing-invalid"),
+    @SerialName("reserved-name") RESERVED_NAME("reserved-name"),
     ;
 
     companion object {
         fun fromWire(wire: String): RemotePairingErrorCode? = entries.firstOrNull { it.wire == wire }
     }
 }
+
+/**
+ * The four risk words of the desktop's approval modal (`APPROVAL_RISKS`), the one list the phone's risk fields use
+ * (pending requests here, agent rows in S7.1). A test keeps it equal to the desktop's list and to the field above.
+ */
+@Serializable
+enum class RemoteApprovalRisk(val wire: String) {
+    @SerialName("low") LOW("low"),
+    @SerialName("medium") MEDIUM("medium"),
+    @SerialName("high") HIGH("high"),
+    @SerialName("critical") CRITICAL("critical"),
+    ;
+
+    companion object {
+        fun fromWire(wire: String): RemoteApprovalRisk? = entries.firstOrNull { it.wire == wire }
+    }
+}
+
+const val REMOTE_PAIRING_SCHEME: String = "oxespace"
+
+const val REMOTE_PAIRING_PATH: String = "/pair"
+
+/** The WebSocket endpoint, on the same pinned TLS port. */
+const val REMOTE_WS_PATH: String = "/v1/ws"
 
 /** Never a command, a subscription or an argument of the remote protocol. */
 val REMOTE_FORBIDDEN: Set<String> = setOf(
@@ -161,6 +209,44 @@ val REMOTE_CLIENT_FRAMES: Set<RemoteFrameType> = setOf(
     RemoteFrameType.SUBSCRIBE,
     RemoteFrameType.UNSUBSCRIBE,
     RemoteFrameType.COMMAND,
+)
+
+/**
+ * Names a phone may not give itself, from their one source (B10 `reservedNameIn`, shared/approval-rules.ts): the
+ * desktop answers `reserved-name`, and the phone checks the same lists before asking. These are refused wherever they
+ * appear in the name ("OXESpace: update"). The desktop compares after folding case, accents, invisible characters and
+ * look-alike letters and digits, so a name that passes the phone's plain check may still be refused.
+ */
+val REMOTE_RESERVED_NAME_FRAGMENTS: Set<String> = setOf(
+    "OXESpace",
+    "OxeChat",
+    "OxeCode",
+    "OxeQuery",
+    "OxePod",
+    "OxePost",
+)
+
+/**
+ * Generic words the phone refuses as the whole name ("Chat", "Sistema"); "filesystem" stays allowed. The desktop also refuses the
+ * first words ("Sistema", "App") at the start of a longer name (#247); the phone checks them as whole names only.
+ */
+val REMOTE_RESERVED_NAMES: Set<String> = setOf(
+    "Thread",
+    "Code",
+    "Chat",
+    "System",
+    "Sistema",
+    "Administrator",
+    "Administrador",
+    "Admin",
+    "Aplicação",
+    "Aplicativo",
+    "Application",
+    "App",
+    "root",
+    "sudo",
+    "Security",
+    "Segurança",
 )
 
 /** Every frame; the JSON `type` field picks the class. */
@@ -208,6 +294,11 @@ data class RemoteSubscribeFrame(
     val target: String? = null,
     /** Resume after this sequence; the gateway sends what came after, without gaps or repeats. */
     val sinceSeq: Long? = null,
+    /**
+     * Resume after this point exactly: an opaque cursor the gateway built (`epoch:revision` of a conversation, the ring
+     * sequence of a terminal). The phone never reads it; an unknown or expired one gets a fresh snapshot.
+     */
+    val cursor: String? = null,
 ) : RemoteFrame
 
 @Serializable
@@ -226,9 +317,14 @@ data class RemoteEventFrame(
     /** The ThreadEvent `schemaVersion`, or this protocol's version for other topics. */
     val schemaVersion: Long,
     val data: JsonElement,
+    /** The point this event brings the phone to, to resume from. */
+    val cursor: String? = null,
 ) : RemoteFrame
 
-/** The whole state of a subscription, sent first and whenever resuming is not possible. */
+/**
+ * The whole state of a subscription, sent first and whenever resuming is not possible. A snapshot over a frame comes
+ * in pages, in order; the phone applies it only when the page marked `last` arrives.
+ */
 @Serializable
 @SerialName("snapshot")
 data class RemoteSnapshotFrame(
@@ -236,7 +332,15 @@ data class RemoteSnapshotFrame(
     val seq: Long,
     val schemaVersion: Long,
     val data: JsonElement,
-) : RemoteFrame
+    val cursor: String? = null,
+    val page: Page? = null,
+) : RemoteFrame {
+    @Serializable
+    data class Page(
+        val index: Long,
+        val last: Boolean,
+    )
+}
 
 @Serializable
 @SerialName("command")
@@ -264,3 +368,400 @@ data class RemoteErrorFrame(
     /** Milliseconds before retrying, for `rate-limited`. */
     val retryAfterMs: Long? = null,
 ) : RemoteFrame
+
+/** `ack.result` of an `auth`: a fresh access token whose validity the desktop computed. */
+@Serializable
+data class RemoteAuthResult(
+    val accessToken: String,
+    val expiresInMs: Long,
+)
+
+/** What the QR carries. `fp` is the SHA-256 of the certificate's DER, as 64 lowercase hex characters. */
+@Serializable
+data class RemotePairingQr(
+    val v: Long,
+    val host: String,
+    val port: Long,
+    val fp: String,
+    /** One-time code: 128 random bits, base64url without padding (22 characters). */
+    val code: String,
+    /** The desktop's display name ("OXESpace" or the person's choice), never the host name, an account or a path. */
+    val name: String? = null,
+)
+
+@Serializable
+data class RemotePairRequest(
+    val code: String,
+    val deviceName: String,
+    /** EC P-256 public key, SubjectPublicKeyInfo DER, base64url without padding. The private key stays in the Keystore. */
+    val publicKey: String,
+)
+
+@Serializable
+data class RemotePairResponse(
+    val deviceId: String,
+    val accessToken: String,
+    val expiresInMs: Long,
+)
+
+@Serializable
+data class RemotePane(
+    val id: String,
+    /** Display name, else the agent's or the shell's; never a path. */
+    val title: String,
+    val kind: String,
+    /** Manifest id (claude, codex…) when an agent runs in it. */
+    val agent: String? = null,
+    val agentState: String? = null,
+    /**
+     * The person turned "allow from phone" on for this pane on the desktop; `terminal.write` works only here. Off by default,
+     * off again when the app restarts, and never changed by the phone or an MCP tool.
+     */
+    val phoneWrite: Boolean,
+)
+
+@Serializable
+data class RemoteWorkspace(
+    val id: String,
+    val name: String,
+    val active: Boolean,
+    val panes: List<RemotePane>,
+)
+
+@Serializable
+data class RemoteWorkspacesData(
+    val workspaces: List<RemoteWorkspace>,
+)
+
+@Serializable
+data class RemoteThreadSummary(
+    val id: String,
+    val workspaceId: String,
+    val title: String,
+    val provider: String,
+    val status: String,
+    val lastTurnStatus: String? = null,
+    /** Background tasks still running after the turn ended. */
+    val backgroundRunning: Long? = null,
+    /** Requests waiting for a person in this conversation. */
+    val pendingRequests: Long,
+    val updatedAt: Long,
+)
+
+/** Snapshot: every conversation not archived, newest first, in pages if needed. */
+@Serializable
+data class RemoteThreadsSnapshot(
+    val threads: List<RemoteThreadSummary>,
+)
+
+/** Event: what changed. */
+@Serializable
+data class RemoteThreadsEvent(
+    val upsert: List<RemoteThreadSummary>? = null,
+    val removed: List<String>? = null,
+)
+
+@Serializable
+data class RemoteThreadHeader(
+    val id: String,
+    val workspaceId: String,
+    val title: String,
+    val provider: String,
+    val status: String,
+    val lastTurnStatus: String? = null,
+    /** Background tasks still running after the turn ended. */
+    val backgroundRunning: Long? = null,
+    /** Requests waiting for a person in this conversation. */
+    val pendingRequests: Long,
+    val updatedAt: Long,
+    val model: String? = null,
+    val queued: Long,
+    /** Whether the provider can take a message while a turn runs. */
+    val canSteer: Boolean,
+)
+
+/** Snapshot: the newest page; `thread.history` asks for older ones. */
+@Serializable
+data class RemoteThreadSnapshot(
+    val thread: RemoteThreadHeader,
+    val items: List<Item>,
+    val hasMore: Boolean,
+) {
+    @Serializable
+    data class Item(
+        val seq: Long,
+        val item: RemoteThreadItem,
+    )
+}
+
+/**
+ * Event: one read of what changed since the last cursor, filtered. An item with a known id replaces the previous one
+ * (messages grow). When the desktop cannot resume from the cursor, the gateway sends a fresh snapshot instead.
+ */
+@Serializable
+data class RemoteThreadEvent(
+    val thread: RemoteThreadHeader,
+    val items: List<Item>,
+) {
+    @Serializable
+    data class Item(
+        val seq: Long,
+        val item: RemoteThreadItem,
+    )
+}
+
+/** A request as the desktop shows it, with what the phone needs to decide, nothing more. */
+@Serializable
+data class RemotePendingRequest(
+    val threadId: String,
+    val workspaceId: String,
+    val threadTitle: String,
+    val requestId: String,
+    val generation: Long,
+    val kind: String,
+    val title: String,
+    val detail: String? = null,
+    /** The command line as the desktop's prompt shows it, redacted and cut to `REMOTE_TEXT_LIMITS.detail`. */
+    val command: String? = null,
+    /** Working directory relative to the project root, `.` for the root; left out when outside it. */
+    val cwd: String? = null,
+    val reason: String? = null,
+    val toolName: String? = null,
+    /** Files it would write, relative to the project root. */
+    val paths: List<String>? = null,
+    /**
+     * The desktop's risk for this request, in the same four words the desktop's approval modal shows (CCR #364). Main
+     * fills it from riskFromShell / riskFromSql / the tool's declaration. A phone that reads an unknown value treats it
+     * as `critical` (Deny leading), as REMOTE_UNKNOWN_VALUES says (#354), so a later level needs no protocol bump.
+     */
+    val risk: String? = null,
+    val warnings: List<String>? = null,
+    /** Values the redactor replaced in `command` and `warnings`. */
+    val redacted: Long? = null,
+    /** Questions without `secret` only, with options as on the desktop. */
+    val questions: List<Question>? = null,
+    /**
+     * True when the phone is not shown all of it: the command, detail, a warning, a question or an option was cut to
+     * `REMOTE_TEXT_LIMITS.detail`, or files, the working directory, warnings past 20, questions past 20 or options past 50
+     * were left out. An approval is then offered no `accept` (deny only, as in B10) and says the full text is on the
+     * desktop; an `accept` sent anyway is `forbidden`. A question is then `answerable: false` with no decisions: it is
+     * answered on the desktop only, and any `thread.respondRequest` for it is `forbidden`.
+     */
+    val truncated: Boolean? = null,
+    /** Offered by the provider; "accept for the session" is never offered on the phone, nor `accept` when `truncated`. */
+    val decisions: List<String>,
+    /**
+     * False when only the desktop can answer: guarded requests, permissions, elicitation, tool and secret questions.
+     * `thread.respondRequest` on one of these is `forbidden`.
+     */
+    val answerable: Boolean,
+    val createdAt: Long,
+    val expiresAt: Long? = null,
+) {
+    @Serializable
+    data class Question(
+        val id: String,
+        val header: String? = null,
+        val question: String,
+        val options: List<Option>? = null,
+        val multiple: Boolean? = null,
+        val required: Boolean? = null,
+    ) {
+        @Serializable
+        data class Option(
+            val label: String,
+            val description: String? = null,
+        )
+    }
+}
+
+@Serializable
+data class RemotePendingRequestsData(
+    val requests: List<RemotePendingRequest>,
+)
+
+/** Snapshot: what the ring keeps, in pages of `terminalChunk`. Event: what came after. ANSI escapes as is. */
+@Serializable
+data class RemoteTerminalData(
+    val data: String,
+    /** The phone was away longer than the ring is deep: clear the view before this. */
+    val truncated: Boolean,
+    val redacted: Long? = null,
+)
+
+/** No command line or cwd: arguments can carry secrets. The label is what the person named it. */
+@Serializable
+data class RemoteJob(
+    val id: String,
+    val workspaceId: String,
+    val label: String,
+    val status: String,
+    val exitCode: Long?,
+    val startedAt: Long,
+    val finishedAt: Long?,
+)
+
+@Serializable
+data class RemoteJobsData(
+    val jobs: List<RemoteJob>,
+)
+
+/** No path, cwd, base commit, evidence, context or handoff; the objective cut to `REMOTE_TEXT_LIMITS.objective`. */
+@Serializable
+data class RemoteDelegation(
+    val id: String,
+    val workspaceId: String,
+    val objective: String,
+    val state: String,
+    val error: String? = null,
+    val branch: String? = null,
+    val destinationThreadId: String? = null,
+    val updatedAt: Long,
+)
+
+@Serializable
+data class RemoteDelegationsData(
+    val delegations: List<RemoteDelegation>,
+)
+
+/**
+ * `clientId` is made by the phone once per message and repeated on a resend after reconnecting; the desktop applies a
+ * given clientId once within `REMOTE_LIMITS.clientIdDedupeMs`, so nothing is sent twice. `text` ≤ `maxTextLength`.
+ */
+@Serializable
+data class RemoteThreadSendArgs(
+    val threadId: String,
+    val text: String,
+    val clientId: String,
+)
+
+@Serializable
+data class RemoteThreadSteerArgs(
+    val threadId: String,
+    val text: String,
+    val clientId: String,
+)
+
+@Serializable
+data class RemoteThreadInterruptArgs(
+    val threadId: String,
+)
+
+/**
+ * After biometric confirmation on the phone. Only accept, decline or cancel, and answers to questions that are not
+ * secret. Refusals are `not-pending`, `stale-generation`, and `forbidden` for a request that is not answerable.
+ */
+@Serializable
+data class RemoteRespondRequestArgs(
+    val threadId: String,
+    val requestId: String,
+    val generation: Long,
+    val response: Response,
+) {
+    @Serializable
+    data class Response(
+        val decision: String? = null,
+        val answers: Map<String, List<String>>? = null,
+        val reason: String? = null,
+    )
+}
+
+@Serializable
+data class RemoteRespondRequestResult(
+    val resolution: String,
+)
+
+/** Only on a pane with `phoneWrite`, else `pane-not-shared`; `data` ≤ `REMOTE_LIMITS.terminalWriteBytes`. */
+@Serializable
+data class RemoteTerminalWriteArgs(
+    val paneId: String,
+    val data: String,
+)
+
+/** Older items of a conversation, for scrolling back. `ack.result` is a `RemoteThreadSnapshot` page. */
+@Serializable
+data class RemoteThreadHistoryArgs(
+    val threadId: String,
+    val beforeSeq: Long,
+)
+
+/**
+ * The timeline items the phone shows. Left out on purpose: location and cwd, session ids, context usage, turn cost,
+ * CLI commands, model pickers, configuration, turn-diff file paths, message context paths and attachment names.
+ * `delta` events are folded into the message they extend, so the phone gets the whole text.
+ */
+@Serializable
+sealed interface RemoteThreadItem {
+    @Serializable
+    @SerialName("message")
+    data class Message(
+        val id: String,
+        val role: String,
+        val text: String,
+        val truncated: Boolean? = null,
+        val attachments: Long? = null,
+    ) : RemoteThreadItem
+
+    @Serializable
+    @SerialName("reasoning")
+    data class Reasoning(
+        val id: String,
+        val text: String,
+        val truncated: Boolean? = null,
+        val completed: Boolean,
+    ) : RemoteThreadItem
+
+    @Serializable
+    @SerialName("tool")
+    data class Tool(
+        val id: String,
+        val name: String,
+        val state: String,
+        val detail: String,
+        val output: String? = null,
+        val outputTruncated: Boolean? = null,
+        val exitCode: Long? = null,
+        val filesChanged: Long? = null,
+        val interrupted: Boolean? = null,
+        val redacted: Long? = null,
+    ) : RemoteThreadItem
+
+    @Serializable
+    @SerialName("plan")
+    data class Plan(
+        val id: String,
+        val steps: List<Step>,
+    ) : RemoteThreadItem {
+        @Serializable
+        data class Step(
+            val label: String,
+            val status: String,
+        )
+    }
+
+    @Serializable
+    @SerialName("request")
+    data class Request(
+        val id: String,
+        val requestId: String,
+        val kind: String,
+        val title: String,
+        val state: String,
+    ) : RemoteThreadItem
+
+    @Serializable
+    @SerialName("subagent")
+    data class Subagent(
+        val id: String,
+        val state: String,
+        val agents: Long,
+    ) : RemoteThreadItem
+
+    @Serializable
+    @SerialName("completed")
+    data class Completed(
+        val id: String,
+        val status: String,
+        val errorCode: String? = null,
+    ) : RemoteThreadItem
+}

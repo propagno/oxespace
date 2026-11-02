@@ -38,16 +38,48 @@ function readDeclarations(source) {
   const consts = new Map()
   const listAliases = new Map()
   const interfaces = []
+  const unions = new Map()
   for (const statement of file.statements) {
     if (ts.isVariableStatement(statement)) {
       for (const declaration of statement.declarationList.declarations) consts.set(declaration.name.getText(file), { statement, declaration })
     } else if (ts.isTypeAliasDeclaration(statement) && ts.isIndexedAccessTypeNode(statement.type) && ts.isTypeQueryNode(statement.type.objectType)) {
       listAliases.set(statement.name.text, statement.type.objectType.exprName.getText(file))
+    } else if (ts.isTypeAliasDeclaration(statement) && unionTags(statement.type)) {
+      unions.set(statement.name.text, statement)
     } else if (ts.isInterfaceDeclaration(statement)) {
       interfaces.push(statement)
     }
   }
-  return { file, consts, listAliases, interfaces }
+  return { file, consts, listAliases, interfaces, unions }
+}
+
+/** The `type` of each member of a union of object types (`{ type: 'a'; … } | { type: 'b'; … }`), or null otherwise. */
+function unionTags(node) {
+  if (!ts.isUnionTypeNode(node)) return null
+  const tags = node.types.map(member => {
+    if (!ts.isTypeLiteralNode(member)) return null
+    const type = member.members.find(item => ts.isPropertySignature(item) && item.name.getText() === 'type')
+    return type?.type && ts.isLiteralTypeNode(type.type) && ts.isStringLiteral(type.type.literal) ? type.type.literal.text : null
+  })
+  return tags.every(Boolean) ? tags : null
+}
+
+const pascalName = wire => constantName(wire).split('_').map(part => part.charAt(0) + part.slice(1).toLowerCase()).join('')
+/** REMOTE_TEXT_LIMITS → RemoteTextLimits. */
+const objectName = name => name.split('_').map(part => part.charAt(0) + part.slice(1).toLowerCase()).join('')
+const singular = name => (name.endsWith('ies') ? `${name.slice(0, -3)}y` : name.endsWith('s') ? name.slice(0, -1) : name)
+
+/** Members of an interface with those of the interfaces it extends first; FrameBase only carries the frame type. */
+function flatMembers(declaration, byName) {
+  const inherited = (declaration.heritageClauses ?? []).flatMap(clause => clause.types)
+    .map(type => type.expression.getText())
+    .filter(name => name !== 'FrameBase')
+    .flatMap(name => {
+      const parent = byName.get(name)
+      if (!parent) throw new Error(`[android] ${declaration.name.text} extends unknown ${name}`)
+      return flatMembers(parent, byName)
+    })
+  return [...inherited, ...declaration.members]
 }
 
 /** The frame type an interface carries through `extends FrameBase<'…'>`, or null for helper interfaces. */
@@ -61,19 +93,38 @@ function frameTag(declaration) {
   return null
 }
 
+const isNull = node => ts.isLiteralTypeNode(node) && node.literal.kind === ts.SyntaxKind.NullKeyword
+const isStringLiteral = node => ts.isLiteralTypeNode(node) && ts.isStringLiteral(node.literal)
+
 function kotlinType(node, context, nested) {
   if (node.kind === ts.SyntaxKind.StringKeyword) return 'String'
   if (node.kind === ts.SyntaxKind.NumberKeyword) return 'Long'
   if (node.kind === ts.SyntaxKind.BooleanKeyword) return 'Boolean'
   if (node.kind === ts.SyntaxKind.UnknownKeyword) return 'JsonElement'
-  if (ts.isArrayTypeNode(node)) return `List<${kotlinType(node.elementType, context, nested)}>`
+  // A flag that is only ever present as `true` (`truncated?: true`) reads as a Boolean, absent meaning false.
+  if (ts.isLiteralTypeNode(node) && (node.literal.kind === ts.SyntaxKind.TrueKeyword || node.literal.kind === ts.SyntaxKind.FalseKeyword)) return 'Boolean'
+  // A set of words is a String on the phone, so a value a newer desktop adds still reads.
+  if (isStringLiteral(node)) return 'String'
+  if (ts.isUnionTypeNode(node)) {
+    const rest = node.types.filter(member => !isNull(member))
+    const nullable = rest.length < node.types.length ? '?' : ''
+    if (rest.every(isStringLiteral)) return `String${nullable}`
+    if (rest.length === 1) return `${kotlinType(rest[0], context, nested)}${nullable}`
+  }
+  if (ts.isParenthesizedTypeNode(node)) return kotlinType(node.type, context, nested)
+  if (ts.isArrayTypeNode(node)) {
+    const element = ts.isTypeLiteralNode(node.elementType) && nested ? nested(node.elementType, true) : kotlinType(node.elementType, context, nested)
+    return `List<${element}>`
+  }
   if (ts.isTypeReferenceNode(node)) {
     const name = node.typeName.getText()
-    const args = node.typeArguments?.map(arg => arg.getText()) ?? []
-    if (name === 'Record' && args[0] === 'string' && args[1] === 'unknown') return 'JsonObject'
-    if (context.enums.has(name) && args.length === 0) return name
+    const args = node.typeArguments ?? []
+    if (name === 'Record' && args[0]?.kind === ts.SyntaxKind.StringKeyword) {
+      return args[1].kind === ts.SyntaxKind.UnknownKeyword ? 'JsonObject' : `Map<String, ${kotlinType(args[1], context, nested)}>`
+    }
+    if (args.length === 0 && (context.enums.has(name) || context.types.has(name))) return name
   }
-  if (ts.isTypeLiteralNode(node) && nested) return nested(node)
+  if (ts.isTypeLiteralNode(node) && nested) return nested(node, false)
   throw new Error(`[android] no Kotlin mapping for \`${node.getText()}\` in ${context.where}; extend scripts/android/protocol-kotlin.mjs`)
 }
 
@@ -83,8 +134,8 @@ function properties(members, context, indent) {
     if (!ts.isPropertySignature(member) || !member.type) throw new Error(`[android] unsupported member \`${member.getText()}\` in ${context.where}`)
     const name = member.name.getText()
     const optional = Boolean(member.questionToken)
-    const type = kotlinType(member.type, { ...context, where: `${context.where}.${name}` }, literal => {
-      const className = capitalize(name)
+    const type = kotlinType(member.type, { ...context, where: `${context.where}.${name}` }, (literal, inArray) => {
+      const className = capitalize(inArray ? singular(name) : name)
       nestedClasses.push(dataClass(className, literal.members, null, { ...context, where: `${context.where}.${name}` }, `${indent}`, ''))
       return className
     })
@@ -106,9 +157,15 @@ function dataClass(name, members, tag, context, indent, supertype) {
  */
 export function protocolKotlin(text, values) {
   const source = text.replace(/\r\n/g, '\n')
-  const { consts, listAliases, interfaces } = readDeclarations(source)
+  const { consts, listAliases, interfaces, unions } = readDeclarations(source)
   const enums = new Map([...listAliases].filter(([alias]) => alias !== 'RemoteForbidden'))
-  const context = { source, enums, where: 'protocol.ts' }
+  const byName = new Map(interfaces.map(declaration => [declaration.name.text, declaration]))
+  // A map from quoted names to types (`'thread.send': RemoteThreadSendArgs`) only types the TypeScript side; no frame
+  // carries it, so it has no Kotlin class.
+  const typeMap = declaration => declaration.members.length > 0 && declaration.members.every(member => member.name && ts.isStringLiteral(member.name))
+  const dataInterfaces = interfaces.filter(declaration => !frameTag(declaration) && !declaration.typeParameters?.length && !typeMap(declaration))
+  const types = new Set([...dataInterfaces.map(declaration => declaration.name.text), ...unions.keys()])
+  const context = { source, enums, types, where: 'protocol.ts' }
   const out = [HEADER, '', 'package com.oxespace.mobile.protocol', '']
   out.push('import kotlinx.serialization.SerialName', 'import kotlinx.serialization.Serializable', 'import kotlinx.serialization.json.JsonElement', 'import kotlinx.serialization.json.JsonObject', '')
 
@@ -116,21 +173,29 @@ export function protocolKotlin(text, values) {
   out.push(preamble)
   out.push(`const val REMOTE_PROTOCOL_VERSION: Int = ${values.REMOTE_PROTOCOL_VERSION}`, '')
 
-  const limits = consts.get('REMOTE_LIMITS')
-  out.push(`${kdoc(limits.statement, source, '')}object RemoteLimits {`)
-  const literal = limits.declaration.initializer.expression ?? limits.declaration.initializer
-  for (const property of literal.properties) {
-    const key = property.name.getText()
-    const value = values.REMOTE_LIMITS[key]
-    if (!Number.isInteger(value)) throw new Error(`[android] REMOTE_LIMITS.${key} is not an integer`)
-    out.push(`${kdoc(property, source, '    ')}    const val ${constantName(key)}: ${key.endsWith('Ms') ? 'Long' : 'Int'} = ${value}${key.endsWith('Ms') ? 'L' : ''}`)
+  // Objects of numbers (REMOTE_LIMITS, REMOTE_TEXT_LIMITS…) become Kotlin objects: REMOTE_LIMITS → RemoteLimits.
+  for (const [name, { statement, declaration }] of consts) {
+    const value = values[name]
+    if (!value || typeof value !== 'object' || Array.isArray(value)) continue
+    const literal = declaration.initializer?.expression ?? declaration.initializer
+    if (!literal || !ts.isObjectLiteralExpression(literal)) continue
+    out.push(`${kdoc(statement, source, '')}object ${objectName(name)} {`)
+    for (const property of literal.properties) {
+      const key = property.name.getText()
+      if (!Number.isInteger(value[key])) throw new Error(`[android] ${name}.${key} is not an integer`)
+      out.push(`${kdoc(property, source, '    ')}    const val ${constantName(key)}: ${key.endsWith('Ms') ? 'Long' : 'Int'} = ${value[key]}${key.endsWith('Ms') ? 'L' : ''}`)
+    }
+    out.push('}', '')
   }
-  out.push('}', '')
 
   for (const [alias, listName] of enums) {
     const { statement } = consts.get(listName)
     const entries = values[listName].map(wire => `    @SerialName("${wire}") ${constantName(wire)}("${wire}"),`)
     out.push(`${kdoc(statement, source, '')}@Serializable\nenum class ${alias}(val wire: String) {`, ...entries, '    ;', '', '    companion object {', `        fun fromWire(wire: String): ${alias}? = entries.firstOrNull { it.wire == wire }`, '    }', '}', '')
+  }
+
+  for (const [name, { statement }] of consts) {
+    if (typeof values[name] === 'string') out.push(`${kdoc(statement, source, '')}const val ${name}: String = ${JSON.stringify(values[name])}`, '')
   }
 
   for (const [name, { statement, declaration }] of consts) {
@@ -150,7 +215,25 @@ export function protocolKotlin(text, values) {
     const tag = frameTag(declaration)
     if (!tag) continue
     const name = declaration.name.text
-    out.push(kdoc(declaration, source, '') + dataClass(name, declaration.members, tag, { ...context, where: name }, '', ' : RemoteFrame'))
+    out.push(kdoc(declaration, source, '') + dataClass(name, flatMembers(declaration, byName), tag, { ...context, where: name }, '', ' : RemoteFrame'))
+  }
+
+  // The other plain-data interfaces (pairing bodies, results); FrameBase is the frames' generic parent, not data.
+  for (const declaration of dataInterfaces) {
+    const name = declaration.name.text
+    out.push(kdoc(declaration, source, '') + dataClass(name, flatMembers(declaration, byName), null, { ...context, where: name }, '', ''))
+  }
+
+  // Unions of object types tagged by `type` become sealed interfaces; the JSON `type` field picks the class.
+  for (const [name, alias] of unions) {
+    const members = alias.type.types.map((member, index) => {
+      const tag = unionTags(alias.type)[index]
+      const fields = member.members.filter(item => item.name?.getText() !== 'type')
+      // The first member's comment sits before the leading `|`, so TypeScript gives it to the union.
+      const doc = kdoc(member, source, '    ') || (index === 0 ? kdoc(alias.type, source, '    ') : '')
+      return doc + dataClass(pascalName(tag), fields, tag, { ...context, where: `${name}.${tag}` }, '    ', ` : ${name}`)
+    })
+    out.push(`${kdoc(alias, source, '')}@Serializable\nsealed interface ${name} {\n${members.join('\n')}}\n`)
   }
   return `${out.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd()}\n`
 }

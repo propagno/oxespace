@@ -12,8 +12,25 @@ on:
   workflow_dispatch:
   pull_request:
     branches: [main]
-    # Only what can change what the scan sees.
-    paths-ignore: ["docs/**", "**/*.md", "electron/main/**/*.test.ts", "tests/**"]
+    types: [opened, synchronize, reopened, ready_for_review]
+    # Only what can change what the scan sees: not docs, not tests, not the Android app or the
+    # phone protocol, not the other workflows.
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - ".claude/**"
+      - "electron/main/**/*.test.ts"
+      - "tests/**"
+      - "mobile/**"
+      - "scripts/android/**"
+      - "shared/remote/**"
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/android.yml"
+      - ".github/workflows/memory-compatibility.yml"
+      - ".github/workflows/provider-contract.yml"
+      - ".github/workflows/release.yml"
+      - ".github/workflows/visual-baselines.yml"
+      - ".github/workflows/visual-regression.yml"
   # A manual run needs the file on the default branch; a change to this file on a release
   # branch runs it there, which is how a candidate gets scanned before the file is merged.
   push:
@@ -22,7 +39,8 @@ on:
 
 concurrency:
   # A newer push to the same pull request replaces the scan of the older one.
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # A push to a draft scans nothing, so it gets a group of its own and cannot cancel the ready-for-review scan.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}${{ github.event.pull_request.draft && '-draft' || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -30,6 +48,8 @@ permissions:
 
 jobs:
   axe:
+    # A draft PR runs nothing; marking it ready for review starts the run.
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     # WCAG 2.2 AA on both desktop platforms: fonts, scrollbars and native controls differ, and so can what axe sees.
     name: axe scan (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
@@ -46,7 +66,7 @@ jobs:
       OXE_A11Y_REPORT: ${{ github.workspace }}/a11y-report.jsonl
       OXE_A11Y_STRICT: "1"
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -60,8 +80,10 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
+          # Ubuntu 24.04 renamed libasound2 (64-bit time_t); 22.04 has only the old name.
+          alsa=libasound2t64; apt-cache show "$alsa" >/dev/null 2>&1 || alsa=libasound2
           sudo apt-get install -y --no-install-recommends \
-            xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libasound2 \
+            xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" \
             libxshmfence1 libnotify4
 
       - name: Install dependencies without lifecycle scripts

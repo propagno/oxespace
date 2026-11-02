@@ -1,6 +1,6 @@
 import { ArrowUpCircle, Activity, Bell, Bot, Check, ChevronDown, ChevronRight, Download, ExternalLink, Mic, Package, Play, Plus, RefreshCw, Settings2, SquareTerminal, Palette, X, Zap } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { RichText } from '../../i18n/RichText'
+import { RichText } from '../../i18n/RichText'; import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
 import { AppearanceSettings } from './AppearanceSettings'
 import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
@@ -16,7 +16,7 @@ import { useVoiceStore } from '../../store/voice.store'
 import { useSettingsStore } from '../../store/settings.store'
 import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
-import { Button, SegmentedControl, Switch, TextField, Select } from '../../ui'
+import { Button, EmptyState, Notice, SegmentedControl, Switch, TextField, Select } from '../../ui'
 import { UpdatePreferences } from './UpdatePreferences'
 import { humanizeError } from '../../utils/humanizeError'
 
@@ -246,11 +246,11 @@ function ProvidersSettingsSection({
   const { t } = useTranslation('settings')
   const [showMissing, setShowMissing] = useState(false)
   const [usingId, setUsingId] = useState<string | null>(null)
-  // The last nightly contract check; one network read when the section opens, cached by the main process.
-  const [compatibility, setCompatibility] = useState<ProviderCompatibility | null>(null)
+  const [compatibility, setCompatibility] = useState<ProviderCompatibility | null>(null) // the nightly contract check, cached by main
   useEffect(() => {
     let active = true
     void window.oxe?.agent?.compatibility?.().then(value => { if (active) setCompatibility(value) }).catch(() => {})
+    void useAgentStore.getState().loadReadiness() // what main knows of each CLI (no probe): not whatever loaded at boot
     return () => { active = false }
   }, [])
   const lastHealthCheckAt = useAgentStore((s) => s.lastHealthCheckAt)
@@ -423,23 +423,22 @@ function ProvidersSettingsSection({
         description={t('providers.description')}
         onClose={onClose}
         actions={
-          <button
-            type="button"
-            className="settings-header-action"
+          <Button
+            size="sm"
             aria-label={t('providers.runHealthCheck')}
             title={t('providers.healthCheckTitle')}
             data-testid="btn-discover-agents"
             disabled={isDiscoveringAgents}
             onClick={onDiscoverAgents}
+            icon={<RefreshCw size={14} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />}
           >
-            <RefreshCw size={14} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
-            <span>{isDiscoveringAgents ? t('providers.checking') : t('providers.healthCheck')}</span>
-          </button>
+            {isDiscoveringAgents ? t('providers.checking') : t('providers.healthCheck')}
+          </Button>
         }
       />
 
       <div className="settings-content-body">
-        <div className="settings-providers-hero" data-testid="providers-summary">
+        {agentProfiles.length > 0 ? <div className="settings-providers-hero" data-testid="providers-summary">
           <div className="settings-providers-hero-text">
             <strong>{summaryPrimary}</strong>
             {summarySecondary ? <span>{summarySecondary}</span> : null}
@@ -464,15 +463,12 @@ function ProvidersSettingsSection({
               </span>
             ) : null}
           </div>
-        </div>
+        </div> : null}
 
         {allMissing ? <AgentCliOnboarding checking={isDiscoveringAgents} onCheck={onDiscoverAgents} /> : null}
 
         {agentProfiles.length === 0 ? (
-          <div className="settings-empty" role="status">
-            <Bot size={20} aria-hidden="true" />
-            <p>{t('providers.empty.title')}</p>
-            <span>{t('providers.empty.hint')}</span>
+          <EmptyState icon={<Bot size={20} />} title={t('providers.empty.title')} actions={
             <Button
               variant="primary"
               disabled={isDiscoveringAgents}
@@ -481,7 +477,7 @@ function ProvidersSettingsSection({
               <RefreshCw size={14} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
               {t('providers.runHealthCheck')}
             </Button>
-          </div>
+          }>{t('providers.empty.hint')}</EmptyState>
         ) : (
           <>
             {primary.length > 0 ? (
@@ -513,8 +509,9 @@ function ProvidersSettingsSection({
           </>
         )}
 
+        {/* With no agent yet the empty state's health check is the one main action. */}
         <Button
-          variant="primary" className="settings-new-agent-btn"
+          variant={agentProfiles.length > 0 ? 'primary' : 'secondary'} className="settings-new-agent-btn"
           onClick={onNewCustomAgent}
           data-testid="btn-new-custom-agent"
         >
@@ -564,7 +561,7 @@ function IdleConversationsSetting(): ReactElement | null {
         </Select>
         <span className="settings-field-hint">{t('idle.hint')}</span>
       </label>
-      {error && <p className="settings-field-hint" role="alert">{error}</p>}
+      {error && <Notice intent="danger">{error}</Notice>}
     </div>
   )
 }
@@ -670,7 +667,7 @@ function SemanticIndexSetting(): ReactElement | null {
         {t('semantic.hint', { model: status.modelId })}
         {calls && (calls.withVector + calls.withoutVector) > 0 && ` ${t('semantic.usage', { without: calls.withoutVector, with: calls.withVector })}`}
       </span>
-      {error && <p className="settings-field-hint" role="alert">{error}</p>}
+      {error && <Notice intent="danger">{error}</Notice>}
     </div>
   )
 }
@@ -1309,7 +1306,7 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
                   {t('updates.restartInstall')}
                 </Button>
               ) : null}
-              {manualInstall && app.status === 'available' ? <a className="settings-btn primary" href="https://github.com/propagno/oxespace/releases/latest" target="_blank" rel="noopener noreferrer"><Download size={14} aria-hidden="true" /> {t('updates.openReleases')}</a> : null}
+              {manualInstall && app.status === 'available' ? <ExternalAnchor className="settings-btn primary" href="https://github.com/propagno/oxespace/releases/latest" source="app"><Download size={14} aria-hidden="true" /> {t('updates.openReleases')}</ExternalAnchor> : null}
             </div>
             <p className="settings-update-hint">
               {t(manualInstall ? 'updates.hint.manual' : asksToDownload ? 'updates.hint.ask' : 'updates.hint.auto')}

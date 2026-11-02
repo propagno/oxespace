@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createHash, generateKeyPairSync, randomBytes, sign, verify } from 'node:crypto'
+import { RESERVED_APP_NAMES, RESERVED_EXACT_NAMES, RESERVED_FIRST_WORDS, reservedNameIn } from '../shared/approval-rules'
 import {
   isCertificateFingerprint,
   isDerSignature,
@@ -13,6 +14,8 @@ import {
   refreshSigningInput,
   REMOTE_PAIRING_ERROR_CODES,
   REMOTE_PAIRING_SCHEME,
+  REMOTE_RESERVED_NAME_FRAGMENTS,
+  REMOTE_RESERVED_NAMES,
   REMOTE_WS_PATH,
   REMOTE_TEXT_LIMITS,
   type RemoteCommandArgs,
@@ -64,6 +67,13 @@ describe('C5 remote protocol', () => {
     // Size is counted in bytes, not characters.
     expect(readRemoteFrame(JSON.stringify({ type: 'hello', versions: [1], pad: 'é'.repeat(REMOTE_LIMITS.maxFrameBytes / 2) }), 'client')).toEqual({ ok: false, code: 'frame-too-large' })
     for (const text of ['', 'not json', '[]', 'null', '1', '{"type":"teleport"}']) expect(readRemoteFrame(text, 'client'), text).toEqual({ ok: false, code: 'malformed' })
+    // Homologation #187: deep nesting is refused before parsing, so nothing recursive downstream can overflow the stack.
+    const nested = (levels: number) => `{"type":"hello","versions":[1],"x":${'['.repeat(levels)}${']'.repeat(levels)}}`
+    expect(readRemoteFrame(nested(20_000), 'client')).toEqual({ ok: false, code: 'malformed' })
+    expect(readRemoteFrame(nested(REMOTE_LIMITS.maxFrameDepth), 'client')).toEqual({ ok: false, code: 'malformed' })
+    expect(readRemoteFrame(nested(REMOTE_LIMITS.maxFrameDepth - 1), 'client').ok).toBe(true)
+    // Brackets inside a string, escaped quotes included, are text, not nesting.
+    expect(readRemoteFrame(JSON.stringify({ type: 'hello', versions: [1], note: `\\"${'['.repeat(500)}` }), 'client').ok).toBe(true)
     expect(readRemoteFrame('{"type":"event","subscription":"s","seq":1,"schemaVersion":1,"data":{}}', 'client')).toEqual({ ok: false, code: 'malformed' })
     expect(readRemoteFrame('{"type":"command","id":"1","command":"host.exec","args":{}}', 'client')).toEqual({ ok: false, code: 'unknown-command' })
     expect(readRemoteFrame('{"type":"command","id":"1","command":"oxequery.approve","args":{}}', 'client')).toEqual({ ok: false, code: 'unknown-command' })
@@ -139,7 +149,11 @@ describe('C5 pairing', () => {
       { code: 'short', deviceName: 'Pixel 8', publicKey }, { code, deviceName: 'Pixel 8', publicKey: 'AAAA' }]) {
       expect(readPairRequest(body), JSON.stringify(body)).toEqual({ ok: false, code: 'malformed' })
     }
-    expect(REMOTE_PAIRING_ERROR_CODES).toEqual(['pairing-expired', 'pairing-used', 'pairing-refused', 'pairing-locked', 'too-many-devices', 'malformed', 'pairing-invalid'])
+    expect(REMOTE_PAIRING_ERROR_CODES).toEqual(['pairing-expired', 'pairing-used', 'pairing-refused', 'pairing-locked', 'too-many-devices', 'malformed', 'pairing-invalid', 'reserved-name'])
+    // The phone pre-checks a device name against the same lists the desktop folds and compares (shared/approval-rules.ts).
+    expect(REMOTE_RESERVED_NAME_FRAGMENTS).toEqual(RESERVED_APP_NAMES)
+    expect(REMOTE_RESERVED_NAMES).toEqual([...RESERVED_EXACT_NAMES, ...RESERVED_FIRST_WORDS])
+    for (const name of [...REMOTE_RESERVED_NAME_FRAGMENTS, ...REMOTE_RESERVED_NAMES]) expect(reservedNameIn(name), name).toBe(name)
     expect(REMOTE_WS_PATH).toBe('/v1/ws')
     expect(REMOTE_LIMITS.pairingAttemptsPerWindow).toBe(5)
   })

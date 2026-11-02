@@ -1,7 +1,6 @@
 import { ipcMain, type BrowserWindow } from 'electron'
 import { performance } from 'node:perf_hooks'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
-import { requireAppFrame } from './ipc/ipc-guards'
 import { recordRuntime, type STARTUP_PHASES } from './services/runtime-diagnostics'
 
 export type StartupPhase = typeof STARTUP_PHASES[number]
@@ -39,7 +38,6 @@ let windowTracked = false
 export function markAppReady(): void {
   publish('app-ready', 0)
   ipcMain.handle(IPC_CHANNELS.diagnostics.reportInteractive, (event) => {
-    requireAppFrame(event, 'Startup timing')
     // A renderer reload (recovery, dev refresh) would report again; only the cold start counts.
     if (interactiveReported) return
     interactiveReported = true

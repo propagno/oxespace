@@ -24,10 +24,10 @@ policy (`tool.use` rules of the policy store) applies by tool name to every tool
 
 | Covered | Excluded | Planned | Forbidden | Total |
 |---|---|---|---|---|
-| 36 | 28 | 2 | 10 | 76 |
+| 37 | 30 | 2 | 15 | 84 |
 
-The registry has 88 tools: 65 single-purpose tools and 23 domain tools with 88 actions, so the
-manifest declares 153 tool-or-action entries.
+The registry has 89 tools: 66 single-purpose tools and 23 domain tools with 88 actions, so the
+manifest declares 154 tool-or-action entries.
 
 ## Forbidden, never a tool
 
@@ -45,7 +45,29 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `mcp_internal.token` | `mcpInternal.regenerateToken` |
 | `oxequery.secrets` | OxeQuery connection credentials, SSH host keys, connection export/import |
 | `mcp.server_trust` | `mcp.create`, `update`, `delete`, `discover`, `importDiscovered`, `openSignIn` |
+| `mcp_internal.tool_groups_admin` | `mcpInternal.setToolGroupMode` |
 | `remote.gateway_admin` | `remote.setEnabled`, `startPairing`, `cancelPairing`, `answerPairing`, `revoke`, `rename`, `setDesktopName`, `setPhoneWrite` |
+| `approvals.admin` | `approvals.list`, `respond`, `ack`, `unavailable`, `history` (B10: the app's own approval modal) |
+| `thread.sections` | `thread.sections`, `thread.saveSections` (F13, for 1.4: the person's own organization of the conversation list) |
+| `app.open_external` | `app.openExternal` (the window's only way to open a link outside the app, after the person confirmed its host) |
+| `app.activity` | `activity.recent`, `activity.record`, `activity.seen`, `activity.resolve` (F30, for 1.4: the person's own notification history) |
+| `mcp.tool_rules_admin` | `mcpInternal.setToolRule` |
+
+### Per-tool rules (B7.3): where each one holds
+
+Settings › Tools sets, per MCP tool of a project, `allow`, `ask` or `deny` (`electron/main/services/mcp-tool-rules.ts`).
+
+- **`deny`** is `{ "effect": "deny", "action": "tool.use", "resource": "mcp__<server>__<tool>" }` in the project's
+  `.oxespace/policy.json`. It holds everywhere: OxeChat hides the tool at launch (Claude `--disallowedTools`, Codex
+  `disabled_tools` for the servers OXESpace attaches) and declines its approvals; the internal MCP server refuses
+  `tools/call` for an OXESpace tool (`mcp__oxespace-delegation__<tool>`) whatever key the caller's CLI uses, which covers
+  agents in OxeCode terminals.
+- **`allow`** is a project permission rule (`tool`, `<server>/<tool>`). It answers OxeChat approvals only. Agents in
+  OxeCode terminals keep following their own CLI's permissions (`.claude/settings*.json`, Codex approval policy); OXESpace
+  does not write those. An OXESpace tool with any action of the `confirm` level cannot be allowed
+  (`mcp.toolRule.confirmLevel`): it asks the person every time.
+- **`ask`** removes both. Rules from the user or managed policy, and permission rules saved for all projects, are shown
+  as not editable (`mcp.toolRule.locked`) and never written.
 
 ## New in X21
 
@@ -65,6 +87,15 @@ Existing tools now behind the same policy door as domain tools (they predate it 
 `oxespace_remove_worktree` is **confirm** (it deletes the folder with its untracked and ignored files).
 A caller without a live execution gets `no-execution` instead of the effect.
 
+`oxespace_open_web_preview` (B15) is **confirm**, and the level depends on the URL. http(s) to `localhost`,
+`*.localhost`, `127.0.0.1` or `[::1]`, on any port, skips the question and runs as **write**, as before. Any other
+host waits for a person to approve that exact URL; nothing is queued for the preview until then. Every other scheme
+(`file:`, `javascript:`, `data:`, `blob:`, `about:`, `chrome:`, `devtools:`, `mailto:`, custom ones) is refused
+without asking. `file:` stays refused in 1.4 because the preview loads http(s) only, so an approval could not lead
+anywhere; opening a file after an approval is a post-1.4 item. The host must be written the way the URL parser writes it: `http://2130706433`, `http://0177.0.0.1`,
+`http://LOCALHOST`, `http://[::ffff:7f00:1]`, `http://localhost.evil.com` and `http://127.0.0.1@evil.com` all ask
+(`electron/main/utils/preview-url.ts`).
+
 None of these is in the core Thread group, so an ordinary Thread sends the same tool definitions as
 before. Code panes receive the whole registry.
 
@@ -72,7 +103,7 @@ before. Code panes receive the whole registry.
 
 | Id | Capability | MCP tools by level, or the decision |
 |---|---|---|
-| `context.discovery` | Discover tools, the caller's execution and the project context | **read**: `oxespace_capabilities`, `oxespace_execution_context`, `oxespace_project_context` |
+| `context.discovery` | Discover tools, the caller's execution and the project context | **read**: `oxespace_capabilities`, `oxespace_tools_enable`, `oxespace_execution_context`, `oxespace_project_context` |
 | `code.workspaces` | List workspaces | **read**: `oxespace_list_workspaces` |
 | `code.workspace_settings` | Read the workspace's settings | **read**: `oxespace_settings#workspace` |
 | `code.workspace_admin` | Create, delete, reorder or switch workspaces; change their settings and panel layout | Excluded: The person's layout and preferences. Deleting a workspace is never exposed. |
@@ -96,7 +127,7 @@ before. Code panes receive the whole registry.
 | `code.oxe_workflow` | OXE workflow state and dashboard | Excluded: The state is in .oxe/ files the agent reads itself; the dashboard is a window for the person. |
 | `code.notifications` | Desktop notification | **write**: `oxespace_workspace_change#notify` |
 | `code.local_input` | Clipboard and voice | Excluded: The person's own input devices. |
-| `web_preview.use` | Open, drive and capture the Web Preview | **read**: `oxespace_capture_web_preview`<br>**write**: `oxespace_open_web_preview`, `oxespace_preview_interact` |
+| `web_preview.use` | Open, drive and capture the Web Preview | **read**: `oxespace_capture_web_preview`<br>**write**: `oxespace_preview_interact`<br>**confirm**: `oxespace_open_web_preview` (a local http(s) URL runs as write; see below) |
 | `web_preview.access` | Let the preview reach external sites | **Forbidden**: Raises access. |
 | `git.read` | Status, branch, diffs, files at a ref, checkpoints | **read**: `oxespace_git#status`, `oxespace_git#branch`, `oxespace_git#diff_summary`, `oxespace_git#diff`, `oxespace_git#file_at_ref`, `oxespace_git#checkpoints` |
 | `git.change` | Stage, commit, branch, fetch, pull, push, checkpoints | **write**: `oxespace_git_change#stage`, `oxespace_git_change#stage_all`, `oxespace_git_change#unstage`, `oxespace_git_change#commit`, `oxespace_git_change#create_branch`, `oxespace_git_change#fetch`, `oxespace_git_change#pull`, `oxespace_git_change#create_checkpoint`<br>**confirm**: `oxespace_git_change#checkout`, `oxespace_git_change#push`, `oxespace_git_change#restore_checkpoint`, `oxespace_git_change#delete_checkpoint` |
@@ -113,7 +144,9 @@ before. Code panes receive the whole registry.
 | `thread.drive` | Create Threads, send, steer, stop, set the model, rename, archive | **write**: `oxespace_thread_create`, `oxespace_thread_send`<br>**confirm**: `oxespace_threads_change#send`, `oxespace_threads_change#steer`, `oxespace_threads_change#interrupt`, `oxespace_threads_change#configure`, `oxespace_threads_change#rename`, `oxespace_threads_change#archive` |
 | `thread.history_edit` | Rewind, undo a turn's edits, export, import, recover, attach files, slash commands | Excluded: Rewrites or acts inside another conversation's session; the person does it. Agents drive Threads with send and steer. |
 | `thread.project_admin` | Add, relink or hide Thread projects; idle suspension; shell check | Excluded: The person's settings. |
+| `thread.sections` | Sections of the conversation list (F13) | **Forbidden**: For 1.4, how the person organizes their own list: an agent neither reads nor rearranges it. |
 | `thread.approvals` | Answer a Thread's approvals and questions | **Forbidden**: Approvals stay with the person. |
+| `thread.side_chat` | A side chat about a conversation | Excluded: The person's read-only scratch copy of a conversation; agents ask in their own. |
 | `thread.access` | Permission rules and auto-approval | **Forbidden**: Raises access. |
 | `thread.session_admin` | Fork, delete, clean up or search CLI sessions | Excluded: Deletes or copies the person's CLI history across projects. Agents search with oxespace_memory_search, scoped to the project. |
 | `team.messaging` | Team status and messages | **read**: `oxespace_team_status`, `oxespace_team_inbox`<br>**write**: `oxespace_team_message`, `oxespace_team_acknowledge` |
@@ -142,9 +175,14 @@ before. Code panes receive the whole registry.
 | `usage.copilot` | GitHub Copilot allowance | Excluded: No agent OXESpace starts runs on Copilot; the panel is for Copilot panes. |
 | `settings.policy` | Organization policy in force | **read**: `oxespace_settings#policy` |
 | `settings.app` | Appearance, UI scale, app updates, RTK, agent hooks | Excluded: The person's app maintenance; installing hooks writes into the agents' own configuration. |
+| `app.open_external` | Open a link in the system browser or mail app | **Forbidden**: Person-only, like an approval: the window calls it after the person confirmed the link's host. |
+| `app.activity` | The activity center's entries and when the person last looked at them (F30) | **Forbidden**: For 1.4, the person's own notification history: an agent neither reads it nor writes into it. |
+| `mcp_internal.tool_groups_admin` | Choose how a project offers each group of OXESpace tools | **Forbidden**: Raises what agents can reach. |
+| `settings.diagnostics` | Diagnostics snapshot, live measurements, problem bundles and reports | Excluded: Whole-app paths and logs, and measuring only while the panel is open; the person exports or clears them. |
+| `diagnostics.read` | Summary of the incident journal and a snapshot of the app | **read**: `oxespace_diagnostics` (app group): the same Markdown summary as the window's "Ask for an analysis". |
 | `remote.devices_read` | Remote gateway status and paired phones | Excluded: The person's devices, shown in Settings › Devices; agents have no use for them. |
 | `remote.gateway_admin` | Turn the remote gateway on or off, pair, answer, revoke or rename a phone, name the desktop, let a phone type into a pane | **Forbidden**: Opens a network surface and grants device access. |
-| `settings.diagnostics` | Diagnostics snapshot and reports | Excluded: Whole-app paths and logs; the person exports them. |
+| `mcp.tool_rules_admin` | Choose, per MCP tool, to run it without asking, ask, or block it | **Forbidden**: Approvals and access stay with the person. |
 | `settings.agent_audit` | Audit of agent actions; internal MCP status | Excluded: The person's review of what agents did. OxeQuery's trail is oxespace_db_activity. |
 | `mcp_internal.token` | Regenerate the internal MCP token | **Forbidden**: A token. |
 | `accounts.sign_in` | Sign in or out of Claude, Codex and other accounts | **Forbidden**: Sign-in and tokens. |

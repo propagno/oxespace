@@ -51,7 +51,7 @@ describe('ending a conversation that owns a worktree', () => {
     const openInCode = vi.fn().mockResolvedValue(undefined)
     const onClose = vi.fn()
     render(<ThreadWorktreeFinishDialog thread={thread} action="archive" onOpenInCode={openInCode} onClose={onClose} />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Open in Code' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Open in OxeCode' }))
     await waitFor(() => expect(openInCode).toHaveBeenCalledWith(owned.path))
     await waitFor(() => expect(onClose).toHaveBeenCalled())
     expect(finish).not.toHaveBeenCalled()

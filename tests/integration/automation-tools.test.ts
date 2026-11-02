@@ -36,3 +36,25 @@ describe('automation discovery', () => {
     expect(JSON.stringify(result)).toContain('EXECUTION_REQUIRED')
   })
 })
+
+// Homologation check-182: a caller the bridge does not answer for got "ok" for any group, nonsense included.
+describe('oxespace_tools_enable on the server', () => {
+  const enable = automationTools(() => []).find(tool => tool.descriptor.name === 'oxespace_tools_enable')!
+  const body = async (args: unknown) => {
+    const result = await enable.handler(args as never, {} as never)
+    return { isError: (result as { isError?: boolean }).isError === true, ...JSON.parse((result as { content: Array<{ text: string }> }).content[0].text) }
+  }
+
+  test('refuses anything that is not one known group, with a code', async () => {
+    for (const args of [undefined, {}, { group: 7 }, { group: 'data', extra: 1 }, []]) {
+      expect(await body(args), JSON.stringify(args)).toMatchObject({ isError: true, status: 'error', error: { code: 'INVALID_ARGUMENTS' } })
+    }
+    for (const group of ['search', 'no-such-group', '../../etc', 'team']) {
+      expect(await body({ group }), group).toMatchObject({ isError: true, status: 'error', error: { code: 'GROUP_UNAVAILABLE' } })
+    }
+  })
+
+  test('a known group says there is nothing to turn on here, without claiming success for it', async () => {
+    expect(await body({ group: 'data' })).toMatchObject({ isError: false, status: 'ok', data: { enabled: [] } })
+  })
+})

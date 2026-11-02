@@ -1,6 +1,255 @@
 {
   "home": {
     "title": "Seu computador no bolso",
-    "body": "Pareie este celular com o OXESpace no seu computador, na mesma Wi-Fi, para acompanhar e responder suas sessões."
+    "body": "Pareie este celular com o OXESpace no seu computador, na mesma Wi-Fi, para acompanhar e responder suas sessões.",
+    "pair": "Parear com o computador",
+    "pairedTitle": "Pareado com {{desktop}}",
+    "pairedBody": "Este celular acompanha e responde suas sessões em {{desktop}} enquanto os dois estiverem na mesma rede.",
+    "unpair": "Desparear",
+    "unknownDesktop": "seu computador",
+    "status": {
+      "connecting": "Conectando a {{desktop}}…",
+      "connected": "Conectado a {{desktop}}",
+      "unreachable": "Não deu para falar com {{desktop}}. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.",
+      "incompatible": "{{desktop}} usa outra versão do OXESpace. Atualize o app ou o OXESpace no computador.",
+      "notAccepted": "{{desktop}} não aceita mais este celular. Despareie e pareie de novo.",
+      "reconnecting": "A conexão com {{desktop}} caiu. Reconectando…",
+      "offNetwork": "Este celular não está na Wi-Fi. {{desktop}} só é alcançável na mesma rede Wi-Fi; reconecta quando você voltar.",
+      "retryIn_one": "Tentando de novo em {{count}} segundo.",
+      "retryIn_many": "Tentando de novo em {{count}} segundos.",
+      "retryIn_other": "Tentando de novo em {{count}} segundos."
+    },
+    "revoked": "{{desktop}} removeu este celular. Pareie de novo para reconectar.",
+    "retry": "Tentar de novo",
+    "enterAddress": "Informar o endereço do computador",
+    "addressTitle": "Endereço do computador",
+    "addressHint": "O endereço do computador na sua Wi-Fi, por exemplo 192.168.0.12. O OXESpace mostra em Configurações › Dispositivos.",
+    "addressInvalid": "Use o endereço do computador na sua rede local, como 192.168.0.12.",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "openWifi": "Abrir configurações de Wi-Fi",
+    "unpairConfirm": {
+      "title": "Desparear de {{desktop}}?",
+      "body": "Este celular esquece {{desktop}} e a chave usada com ele. Para voltar, pareie de novo pelo QR em Configurações › Dispositivos no computador."
+    }
+  },
+  "pairing": {
+    "title": "Parear com o computador",
+    "instructions": "No computador, abra OXESpace › Configurações › Dispositivos, ligue a conexão com o celular e aponte a câmera para o código que aparece lá.",
+    "cameraDescription": "Imagem da câmera para ler o código de pareamento",
+    "cameraNeeded": "A câmera lê o código de pareamento na tela do computador. Nada do que ela vê sai do celular.",
+    "allowCamera": "Permitir câmera",
+    "openSettings": "Abrir configurações",
+    "cameraDenied": "O acesso à câmera está desligado para o OXESpace. Ligue nas configurações do celular para ler o código de pareamento.",
+    "badCode": {
+      "notPairing": "Esse não é um código de pareamento do OXESpace. Aponte a câmera para o código em Configurações › Dispositivos.",
+      "unsupportedVersion": "Esse código vem de outra versão do OXESpace. Atualize o app ou o OXESpace no computador.",
+      "publicHost": "Esse código aponta para fora da sua rede local. O OXESpace só pareia na mesma Wi-Fi.",
+      "malformed": "Não deu para ler esse código. Mostre um novo no computador e tente de novo."
+    },
+    "waitingTitle": "Confirme no computador",
+    "waitingBody": "{{desktop}} está perguntando se pode parear com este celular. Aceite só se aparecer este código:",
+    "verificationDescription": "Código de verificação {{code}}",
+    "pairedTitle": "Pareado",
+    "pairedBody": "Este celular agora está pareado com {{desktop}}.",
+    "done": "Concluir",
+    "scanAgain": "Ler outro código",
+    "failed": {
+      "codeExpired": "O código expirou. Mostre um novo no computador e leia em até 2 minutos.",
+      "codeUsed": "Esse código já foi usado. Mostre um novo no computador.",
+      "codeInvalid": "Esse código não foi aceito. Mostre um novo no computador e leia de novo.",
+      "refusedOnDesktop": "O pareamento foi recusado no computador.",
+      "locked": "Tentativas de pareamento demais. Espere 2 minutos e tente de novo.",
+      "tooManyDevices": "Seu computador já tem 5 aparelhos pareados. Remova um em Configurações › Dispositivos antes.",
+      "wrongCertificate": "Outro aparelho respondeu nesse endereço, não o seu computador. Nada foi enviado. Confira se você está na sua Wi-Fi.",
+      "unreachable": "Não deu para falar com o computador. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.",
+      "protocol": "O computador respondeu de um jeito que este app não entende. Atualize o app ou o OXESpace no computador.",
+      "reservedName": "O nome deste celular usa um nome reservado ao próprio OXESpace, e o computador não o aceita. Mude o nome do celular em Configurações do Android › Sobre o telefone e leia o código de novo."
+    }
+  },
+  "live": {
+    "tabs": {
+      "threads": "Conversas",
+      "requests": "Pedidos",
+      "terminals": "Terminais",
+      "tasks": "Tarefas"
+    },
+    "requestsBadge_one": "{{count}} pedido esperando",
+    "requestsBadge_other": "{{count}} pedidos esperando",
+    "requestsBadge_many": "{{count}} pedidos esperando",
+    "emptyThreads": "Ainda não há conversas em {{desktop}}.",
+    "emptyRequests": "Nada esperando por você.",
+    "emptyTerminals": "Nenhum terminal aberto.",
+    "emptyTasks": "Nenhuma tarefa em segundo plano nem delegação.",
+    "loading": "Carregando…",
+    "status": {
+      "idle": "Ocioso",
+      "running": "Trabalhando",
+      "approval": "Precisa de você",
+      "interrupted": "Interrompido",
+      "failed": "Falhou"
+    },
+    "pendingCount_one": "Precisa de você ({{count}})",
+    "pendingCount_other": "Precisa de você ({{count}})",
+    "pendingCount_many": "Precisa de você ({{count}})",
+    "back": "Voltar",
+    "menu": "Mais opções",
+    "jobs": "Tarefas em segundo plano",
+    "delegations": "Delegações",
+    "job": {
+      "pending": "Iniciando",
+      "running": "Rodando",
+      "exited": "Terminou",
+      "failed": "Falhou",
+      "killed": "Parada"
+    },
+    "exitCode": "código de saída {{code}}",
+    "paneAgent": "{{agent}} · {{state}}",
+    "agentState": {
+      "working": "Trabalhando",
+      "blocked": "Precisa de você",
+      "done": "Terminou",
+      "idle": "Ocioso",
+      "unknown": "Não confirmado"
+    },
+    "readOnly": "Só leitura",
+    "phoneWrite": "Celular pode digitar",
+    "age": {
+      "now": "agora",
+      "minutes": "há {{minutes}} min",
+      "hours": "há {{hours}} h",
+      "days": "há {{days}} d"
+    }
+  },
+  "thread": {
+    "you": "Você",
+    "agent": "Agente",
+    "reasoning": "Pensando",
+    "tool": {
+      "running": "Rodando",
+      "completed": "Concluído",
+      "failed": "Falhou",
+      "unknown": "Desconhecido"
+    },
+    "filesChanged_one": "{{count}} arquivo alterado",
+    "filesChanged_other": "{{count}} arquivos alterados",
+    "filesChanged_many": "{{count}} arquivos alterados",
+    "plan": "Plano",
+    "request": "Pedido: {{title}}",
+    "requestState": {
+      "pending": "Precisa de você",
+      "resolved": "respondido",
+      "cancelled": "cancelado",
+      "expired": "expirou"
+    },
+    "completed": {
+      "completed": "Turno concluído",
+      "interrupted": "Turno interrompido",
+      "failed": "Turno falhou"
+    },
+    "truncated": "Encurtado no celular; o texto completo está no computador.",
+    "unknownItems_one": "{{count}} item de um OXESpace mais novo não aparece.",
+    "unknownItems_other": "{{count}} itens de um OXESpace mais novo não aparecem.",
+    "unknownItems_many": "{{count}} itens de um OXESpace mais novo não aparecem.",
+    "showOutput": "Mostrar saída",
+    "hideOutput": "Esconder saída",
+    "loadOlder": "Carregar anteriores",
+    "respond": "Responder"
+  },
+  "terminal": {
+    "redacted_one": "{{count}} valor secreto escondido pelo seu computador.",
+    "redacted_other": "{{count}} valores secretos escondidos pelo seu computador.",
+    "redacted_many": "{{count}} valores secretos escondidos pelo seu computador.",
+    "empty": "Ainda sem saída."
+  },
+  "approval": {
+    "prompt": {
+      "accept": "Aprovar este pedido",
+      "decline": "Recusar este pedido",
+      "cancel": "Cancelar este pedido",
+      "answer": "Enviar estas respostas"
+    }
+  },
+  "request": {
+    "title": "Pedido",
+    "from": "Da conversa “{{conversation}}”",
+    "command": "Comando",
+    "cwd": "Pasta",
+    "paths": "Arquivos que ele alteraria",
+    "reason": "Por quê",
+    "warnings": "Vale olhar de novo",
+    "tool": "Ferramenta",
+    "risk": {
+      "green": "Só lê",
+      "orange": "Altera algo",
+      "red": "Apaga, eleva acesso ou publica"
+    },
+    "decision": {
+      "accept": "Permitir uma vez",
+      "decline": "Negar",
+      "cancel": "Cancelar pedido"
+    },
+    "declineReason": "Motivo, dito ao agente (opcional)",
+    "sendAnswers": "Enviar respostas",
+    "desktopOnly": "Só o seu computador pode responder este. Abra o OXESpace lá.",
+    "truncated": "Parte deste pedido não coube no celular. O texto completo está só no computador, então daqui você só pode recusar.",
+    "truncatedQuestion": "Parte desta pergunta não coube no celular. Responda no computador, onde dá para ler tudo.",
+    "notConfirmed": "Não enviado: a confirmação neste celular foi cancelada.",
+    "answered": "Respondido.",
+    "gone": "Este pedido não está mais esperando.",
+    "refused": {
+      "notPending": "Ele já foi respondido ou não espera mais.",
+      "staleGeneration": "A conversa seguiu em frente; este pedido não vale mais.",
+      "forbidden": "Só o seu computador pode responder este.",
+      "rateLimited": "Ações demais em um minuto. Tente de novo daqui a pouco.",
+      "other": "O computador não aceitou a resposta."
+    },
+    "riskSpoken": "Risco: {{risk}}",
+    "fromAgent": "Escrito pelo agente",
+    "desktopOnlyTitle": "Responda no computador"
+  },
+  "action": {
+    "offline": "Sem conexão com o computador. Nada foi enviado.",
+    "noAnswer": "O computador não respondeu. Confira lá antes de tentar de novo.",
+    "rateLimited": "Ações demais em um minuto. Tente de novo daqui a pouco.",
+    "refused": "O computador não aceitou."
+  },
+  "composer": {
+    "placeholder": "Mensagem para o agente",
+    "send": "Enviar",
+    "steer": "Orientar",
+    "stop": "Parar"
+  },
+  "terminalInput": {
+    "placeholder": "Digite neste terminal",
+    "send": "Enviar",
+    "notShared": "A digitação pelo celular está desligada neste terminal. No computador, ligue “Permitir digitar pelo celular” no menu ⋯ do terminal."
+  },
+  "presence": {
+    "send": "Confirme que é você para enviar pelo celular",
+    "type": "Confirme que é você para digitar neste terminal",
+    "window": "Vale por 5 minutos neste celular.",
+    "notConfirmed": "Nada foi enviado: a confirmação neste celular foi cancelada.",
+    "noScreenLock": "Defina um bloqueio de tela neste celular para enviar por ele. Nada foi enviado.",
+    "confirm": "Confirmar que sou eu",
+    "locked": "Confirme que é você antes de digitar neste terminal."
+  },
+  "notify": {
+    "channel": {
+      "session": "Conexão com o computador",
+      "needsYou": "Precisa de você",
+      "done": "Concluído",
+      "failed": "Falhou"
+    },
+    "needsYou": "Precisa de você: {{title}}",
+    "done": "Concluído: {{title}}",
+    "failed": "Falhou: {{title}}",
+    "disconnect": "Desconectar",
+    "session": {
+      "connected": "Conectado a {{desktop}}",
+      "reconnecting": "Reconectando a {{desktop}}…",
+      "offNetwork": "Esperando a Wi-Fi para falar com {{desktop}}",
+      "stopped": "Não deu para manter a conexão com {{desktop}}. Abra o app."
+    }
   }
 }

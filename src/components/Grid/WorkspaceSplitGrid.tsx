@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { Workspace } from '../../../shared/types/workspace'
 import { computeLayout, isValidPaneTree, type LeafRect, type PaneNode, type ResizeHandle, type SplitDirection } from '../../../shared/types/pane-tree'
 import { PaneContainer } from './PaneContainer'
+import { ErrorBoundary } from '../common/ErrorBoundary'
 import { AnchoredMenu } from '../../ui'
 import { i18n } from '../../i18n'
 import { usePaneLayoutStore } from '../../store/pane-layout.store'
@@ -84,6 +86,7 @@ export function WorkspaceSplitGrid({
   onResize,
   onMovePane
 }: WorkspaceSplitGridProps): ReactElement {
+  const { t } = useTranslation('code')
   const containerRef = useRef<HTMLDivElement>(null)
   const dragCleanup = useRef<(() => void) | null>(null)
   const topology = JSON.stringify(tree, (key, value) => key === 'sizes' ? undefined : value)
@@ -221,32 +224,34 @@ export function WorkspaceSplitGrid({
             data-compact-active={pane.id === (activePaneId ?? rects[0]?.paneId) ? 'true' : undefined}
             style={style}
           >
-            <PaneContainer
-              pane={pane}
-              workspace={workspace}
-              agentProfile={getAgentProfile(agentProfiles, pane.agentProfileId)}
-              autoStart={workspace.autoStart}
-              isMaximized={focused}
-              isActive={pane.id === activePaneId}
-              onClose={onClosePane}
-              onToggleMaximize={onToggleMaximize}
-              onActivate={onActivatePane}
-              onSplitVertical={(id) => onSplitPane?.(id, 'vertical')}
-              onSplitHorizontal={(id) => onSplitPane?.(id, 'horizontal')}
-              onArrange={rects.length > 1 ? position => {
-                if (position === 'balance') usePaneLayoutStore.getState().balance(workspace.id)
-                else {
-                  const index = rects.findIndex(rect => rect.paneId === pane.id)
-                  const target = rects[(index + rects.length - 1) % rects.length]
-                  onMovePane(pane.id, target.paneId, position === 'bottom' ? 'vertical' : 'horizontal', true)
-                }
-              } : undefined}
-            />
+            <ErrorBoundary id="pane" compact label={i18n.t('pane.boundary', { ns: 'code' })}>
+              <PaneContainer
+                pane={pane}
+                workspace={workspace}
+                agentProfile={getAgentProfile(agentProfiles, pane.agentProfileId)}
+                autoStart={workspace.autoStart}
+                isMaximized={focused}
+                isActive={pane.id === activePaneId}
+                onClose={onClosePane}
+                onToggleMaximize={onToggleMaximize}
+                onActivate={onActivatePane}
+                onSplitVertical={(id) => onSplitPane?.(id, 'vertical')}
+                onSplitHorizontal={(id) => onSplitPane?.(id, 'horizontal')}
+                onArrange={rects.length > 1 ? position => {
+                  if (position === 'balance') usePaneLayoutStore.getState().balance(workspace.id)
+                  else {
+                    const index = rects.findIndex(rect => rect.paneId === pane.id)
+                    const target = rects[(index + rects.length - 1) % rects.length]
+                    onMovePane(pane.id, target.paneId, position === 'bottom' ? 'vertical' : 'horizontal', true)
+                  }
+                } : undefined}
+              />
+            </ErrorBoundary>
             {!isMaximized && rects.length > 1 ? (
               <div
                 className="split-drag-grip"
                 data-testid="split-drag-grip"
-                title="Drag to reposition pane"
+                title={t('grid.dragPane')}
                 onPointerDown={beginPaneDrag(r.paneId)}
               />
             ) : null}
@@ -293,15 +298,22 @@ export function WorkspaceSplitGrid({
                   setDividerMenu(handleKey(h))
                 }
               }}
+              // Shift+F10 and the context-menu key reach the page as a contextmenu event, not always as a keydown
+              // (on Linux, Chromium turns Shift+F10 into contextmenu): open the same menu from it, and from a right click.
+              onContextMenu={event => {
+                event.preventDefault()
+                setDividerMenu(handleKey(h))
+              }}
               style={style}
               onPointerDown={beginDrag(h)}
             >
               <AnchoredMenu open={dividerMenu === handleKey(h)} onOpenChange={open => setDividerMenu(open ? handleKey(h) : null)} side={horizontal ? 'right' : 'bottom'}
                 label={i18n.t(horizontal ? 'ui.divider.columns' : 'ui.divider.rows')}
                 returnFocus={() => document.querySelector<HTMLElement>(`[data-divider="${handleKey(h)}"]`)}
+                // A choice closes the menu and focus goes back to the divider, whose arrow keys keep resizing.
                 items={[
-                  { label: i18n.t(horizontal ? 'ui.divider.left' : 'ui.divider.up'), onSelect: () => onResize(h.path, h.index, -5), keepOpen: true },
-                  { label: i18n.t(horizontal ? 'ui.divider.right' : 'ui.divider.down'), onSelect: () => onResize(h.path, h.index, 5), keepOpen: true }
+                  { label: i18n.t(horizontal ? 'ui.divider.left' : 'ui.divider.up'), onSelect: () => onResize(h.path, h.index, -5) },
+                  { label: i18n.t(horizontal ? 'ui.divider.right' : 'ui.divider.down'), onSelect: () => onResize(h.path, h.index, 5) }
                 ]} />
             </div>
           )

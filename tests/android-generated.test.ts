@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { RESERVED_APP_NAMES, RESERVED_EXACT_NAMES, RESERVED_FIRST_WORDS } from '../shared/approval-rules'
 import * as protocol from '../shared/remote/protocol'
 // @ts-expect-error plain ESM script without types
 import { constantName, PROTOCOL_KOTLIN_PATH, protocolKotlin } from '../scripts/android/protocol-kotlin.mjs'
@@ -21,6 +22,13 @@ const catalog = (language: string): Record<string, unknown> => JSON.parse(readFi
 describe('Android sources generated from the contracts', () => {
   it('match the committed Kotlin of the C5 protocol (run npm run android:generate after a contract change)', () => {
     expect(committed(PROTOCOL_KOTLIN_PATH)).toBe(protocolKotlin(protocolSource, protocol))
+  })
+
+  it('carries the reserved device names to Kotlin from their one source, and the refusal code', () => {
+    const kotlin: string = protocolKotlin(protocolSource, protocol)
+    expect(kotlin).toContain(`val REMOTE_RESERVED_NAME_FRAGMENTS: Set<String> = setOf(\n${[...RESERVED_APP_NAMES].map(name => `    "${name}",`).join('\n')}\n)`)
+    expect(kotlin).toContain(`val REMOTE_RESERVED_NAMES: Set<String> = setOf(\n${[...RESERVED_EXACT_NAMES, ...RESERVED_FIRST_WORDS].map(name => `    "${name}",`).join('\n')}\n)`)
+    expect(kotlin).toContain('@SerialName("reserved-name") RESERVED_NAME("reserved-name")')
   })
 
   it('match the committed Kotlin tokens (run npm run android:generate after editing a token)', () => {
@@ -57,6 +65,29 @@ describe('Android sources generated from the contracts', () => {
     expect(constantName('too-many-subscriptions')).toBe('TOO_MANY_SUBSCRIPTIONS')
     expect(constantName('pendingRequests')).toBe('PENDING_REQUESTS')
     expect(constantName('maxFrameBytes')).toBe('MAX_FRAME_BYTES')
+  })
+
+  it('maps the payload shapes of M4/M5: tagged unions, extends, nullable, word sets, maps and nested arrays', () => {
+    const shapes = `
+export const REMOTE_TEXT_LIMITS = { itemText: 8_000 } as const
+export interface RemoteSummary { id: string; status: 'idle' | 'running' }
+export interface RemoteHeader extends RemoteSummary { queued: number }
+export interface RemoteJob { exitCode: number | null; steps: { label: string }[]; answers?: Record<string, string[]> }
+/** One item. */
+export type RemoteItem =
+  /** Said by someone. */
+  | { type: 'message'; id: string; text: string }
+  | { type: 'request-resolved'; id: string; header: RemoteHeader }`
+    const kotlin: string = protocolKotlin(protocolSource + shapes, { ...protocol, REMOTE_TEXT_LIMITS: { itemText: 8_000 } })
+    expect(kotlin).toContain('object RemoteTextLimits {\n    const val ITEM_TEXT: Int = 8000\n}')
+    // A set of words is a String, so a value a newer desktop adds still reads.
+    expect(kotlin).toContain('data class RemoteSummary(\n    val id: String,\n    val status: String,\n)')
+    expect(kotlin).toContain('data class RemoteHeader(\n    val id: String,\n    val status: String,\n    val queued: Long,\n)')
+    expect(kotlin).toContain('    val exitCode: Long?,\n    val steps: List<Step>,\n    val answers: Map<String, List<String>>? = null,')
+    expect(kotlin).toContain('    @Serializable\n    data class Step(\n        val label: String,\n    )')
+    expect(kotlin).toContain('/** One item. */\n@Serializable\nsealed interface RemoteItem {')
+    expect(kotlin).toContain('    /** Said by someone. */\n    @Serializable\n    @SerialName("message")\n    data class Message(\n        val id: String,\n        val text: String,\n    ) : RemoteItem')
+    expect(kotlin).toContain('    @SerialName("request-resolved")\n    data class RequestResolved(\n        val id: String,\n        val header: RemoteHeader,\n    ) : RemoteItem')
   })
 
   it('carries every color role of both modes to Kotlin', () => {
