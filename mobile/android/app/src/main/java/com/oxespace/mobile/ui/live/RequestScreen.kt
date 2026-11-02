@@ -1,5 +1,6 @@
 package com.oxespace.mobile.ui.live
 
+import com.oxespace.mobile.protocol.RemoteApprovalRisk
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -238,7 +239,7 @@ fun RequestScreen(request: RemotePendingRequest?, commands: CommandApi, onBack: 
  * drawn under a wrong label.
  */
 internal fun decisionLayout(decisions: List<String>, risk: String?): List<Pair<String, Boolean>> {
-    val lead = if (risk != null && riskLevel(risk) == RiskLevel.LOW) "accept" else "decline"
+    val lead = if (risk != null && riskLevel(risk) == RemoteApprovalRisk.LOW) "accept" else "decline"
     return decisions
         .filter { it in KNOWN_DECISIONS }
         .sortedBy { when (it) { lead -> 0; "cancel" -> 2; else -> 1 } }
