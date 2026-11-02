@@ -2,11 +2,10 @@ import type { ToolContext } from './tool-registry'
 import { policyBlockedMessage } from '../../../shared/policy'
 import { policyStore } from '../services/policy'
 import type { PolicyStore } from '../services/policy/policy-store'
-import { resolve } from 'node:path'
 import { CONFIGURABLE_MCP_TOOL_GROUPS, type ConfigurableMcpToolGroup } from '../../../shared/types/mcp-tools'
 import { MCP_TOOL_GROUPS } from '../services/conversation/thread-mcp'
 import type { ProjectToolModes } from '../services/conversation/tool-groups'
-import { effectiveToolConfig } from '../services/policy/tool-config'
+import { enforcedToolModes } from '../services/policy/tool-config'
 import { recordIncident } from '../services/diagnostics/incident-sink'
 
 /**
@@ -52,7 +51,7 @@ function callerRoots(ctx: Pick<ToolContext, 'db' | 'workspaceServ' | 'executions
 export function toolCallBlocked(tool: string, ctx: Parameters<typeof callerRoots>[0], policy: PolicyStore | null = policyStore(),
   modesOf?: (root: string) => ProjectToolModes): string | undefined {
   const { roots, sweep } = callerRoots(ctx)
-  const off = offGroupBlocking(tool, roots, modesOf ?? (root => acceptedToolModes(root, sweep)), callerRoleGroups(ctx))
+  const off = offGroupBlocking(tool, roots, modesOf ?? (root => enforcedToolModes(root, { defer: sweep }).modes), callerRoleGroups(ctx))
   if (off) {
     recordIncident('incident.mcp.toolGroupOff', `${off}:${tool}`)
     // The C3 code is the incident's, the one Settings › Diagnostics shows for it.
@@ -111,28 +110,3 @@ export function offGroupBlocking(tool: string, roots: readonly string[], modesOf
   return undefined
 }
 
-/**
- * oxe.yaml's tool modes per root as they apply: the ACCEPTED version (B7.4, effectiveToolConfig), so a widening waits
- * for the person. On top, it fails closed for this run: deleting the file, or making it unreadable, invalid or too
- * large, is one command for the same agent, so it never lifts an `off` read earlier; the root keeps the last modes read
- * from a valid file, and only a root never read uses the defaults. effectiveToolConfig caches by file stat and gate
- * version, so an accepted widening applies at the next call.
- */
-const modesCache = new Map<string, ProjectToolModes>()
-/** One entry per folder however it is spelled (`C:\x`, `c:/x/`), so a second spelling has no fail-closed memory of its own. */
-const rootKey = (root: string): string => { const full = resolve(root); return process.platform === 'win32' ? full.toLowerCase() : full }
-function acceptedToolModes(root: string, defer: boolean): ProjectToolModes {
-  const key = rootKey(root)
-  const cached = modesCache.get(key)
-  const effective = effectiveToolConfig(root, { defer })
-  // Missing, unreadable, invalid or too large: the last valid read stands (the accepted defaults if there never was one).
-  let modes = effective.file === 'valid' ? effective.modes : cached ?? effective.modes
-  // A valid rewrite that just drops a group's value (or misspells it, `offf`) does not lift an `off` read earlier; a
-  // value the project states (`on-demand`, `always`), once accepted, does.
-  if (effective.file === 'valid' && cached) {
-    modes = Object.fromEntries(Object.entries(modes).map(([group, entry]) =>
-      [group, entry.source === 'default' && cached[group as ConfigurableMcpToolGroup].mode === 'off' ? cached[group as ConfigurableMcpToolGroup] : entry])) as ProjectToolModes
-  }
-  modesCache.set(key, modes)
-  return modes
-}

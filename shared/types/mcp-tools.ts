@@ -58,10 +58,16 @@ export interface McpToolGroupsReport {
   rootPath: string | null
   /**
    * The project's `oxe.yaml`: `missing` (the app's defaults apply), `valid`, or `invalid` (it cannot be read as
-   * settings; the defaults apply until it is fixed by hand, and `setToolGroupMode` refuses with
+   * settings; `effectiveFrom` says what applies until it is fixed by hand, and `setToolGroupMode` refuses with
    * `mcp.toolGroups.invalidYaml`). Always `missing` when `rootPath` is `null`.
    */
   oxeYaml: 'missing' | 'valid' | 'invalid'
+  /**
+   * Where `groups[].mode` comes from; they are always the modes enforcement uses. `file` unless `oxeYaml` is `invalid`;
+   * then `last-valid` (the last valid or accepted version stays in force, so a broken file never turns an `off` back
+   * on) or `defaults` (the file was never valid: the app's defaults apply).
+   */
+  effectiveFrom: 'file' | 'last-valid' | 'defaults'
   /**
    * B7.4 · The project's `oxe.yaml` changed outside OXESpace and its tool modes are not accepted: `groups` show the
    * accepted modes, which apply meanwhile, and `setToolGroupMode` refuses with `policy.change.pending`. `null` when the

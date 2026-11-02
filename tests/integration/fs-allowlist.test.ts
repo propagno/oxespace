@@ -228,7 +228,7 @@ const ALLOWED_FS_IMPORTS = new Set([
   // B7.4: stat and read of <root>/oxe.yaml (256 KiB at most) for its tool modes, like repo-config/loader.ts; never writes.
   'electron/main/services/policy/tool-config.ts',
   // B7.4: reads the first characters of a gated policy file (fixed places only) for the request's untrusted text; never writes.
-  'electron/main/ipc/policy.ipc.ts',
+  'electron/main/ipc/policy-runtime.ts',
   // OXEVoice engine: downloads the Whisper model to <userData>/models and
   // writes a temp WAV for the CLI — outside the workspace tree, so raw fs is
   // appropriate here rather than the workspace-scoped FileSystemService.
