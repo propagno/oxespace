@@ -186,6 +186,8 @@
     "declineReason": "Reason, told to the agent (optional)",
     "sendAnswers": "Send answers",
     "desktopOnly": "Only your computer can answer this one. Open OXESpace there.",
+    "truncated": "Part of this request didn't fit on the phone. The full text is only on your computer, so from here you can only decline it.",
+    "truncatedQuestion": "Part of this question didn't fit on the phone. Answer it on your computer, where you can read all of it.",
     "notConfirmed": "Not sent: the confirmation on this phone was cancelled.",
     "answered": "Answered.",
     "gone": "This request is no longer waiting.",
