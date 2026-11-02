@@ -1,10 +1,10 @@
-import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import type { ThreadEvent, ThreadFileChange, ThreadSnapshot } from '../../../../shared/types/thread'
 import { splitThreadPatch } from '../../../../shared/threadPatch'
 import { canonicalPath } from '../git-common-dir'
 import { recordRuntime } from '../runtime-diagnostics'
 import type { ThreadCheckpointService } from './thread-checkpoints'
+import { execGit } from '../../utils/safe-git'
 
 type TurnEnd = 'completed' | 'interrupted' | 'failed'
 interface WorkingState { patch: string; untracked: Set<string> }
@@ -83,10 +83,7 @@ export class ThreadTurnTracker {
 
   /** The working tree of one checkout: its diff against HEAD and its untracked files. Undefined outside a repository. */
   async workingState(rootPath: string): Promise<WorkingState | undefined> {
-    const run = (args: string[]) => new Promise<string>((resolve, reject) => {
-      const child = execFile('git', args, { cwd: rootPath, windowsHide: true, maxBuffer: 16 * 1024 * 1024, timeout: 15000 }, (error, stdout) => error ? reject(error) : resolve(stdout))
-      child.stdin?.end()
-    })
+    const run = async (args: string[]) => (await execGit(rootPath, args, { maxBuffer: 16 * 1024 * 1024, timeout: 15000 })).stdout
     try {
       const [patch, status] = await Promise.all([
         run(['--no-pager', 'diff', '--no-ext-diff', '--no-textconv', '--binary', 'HEAD', '--']),

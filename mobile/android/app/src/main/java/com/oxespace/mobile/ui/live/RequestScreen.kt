@@ -1,5 +1,6 @@
 package com.oxespace.mobile.ui.live
 
+import com.oxespace.mobile.protocol.RemoteApprovalRisk
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -119,10 +120,7 @@ fun RequestScreen(request: RemotePendingRequest?, commands: CommandApi, onBack: 
             if (!request.answerable) DesktopOnlyNotice()
             Text(displaySafe(request.title, TITLE_MAX), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
             Text(stringResource(R.string.request_from, displaySafe(request.threadTitle, TITLE_MAX)), style = MaterialTheme.typography.labelLarge, color = Oxe.colors.textSecondary)
-            request.risk?.let {
-                val spoken = stringResource(R.string.request_risk_spoken, riskLabel(it))
-                Text(riskLabel(it), style = MaterialTheme.typography.labelLarge, color = riskColor(it), modifier = Modifier.semantics { contentDescription = spoken })
-            }
+            request.risk?.let { RiskLine(it) }
             request.toolName?.let { Field(stringResource(R.string.request_tool), displaySafe(it, TITLE_MAX), mono = false) }
             // What would run is shown whole; hidden characters are written out, never dropped or obeyed.
             request.command?.let { Field(stringResource(R.string.request_command), showHidden(it), mono = true) }
@@ -236,11 +234,12 @@ fun RequestScreen(request: RemotePendingRequest?, commands: CommandApi, onBack: 
 /**
  * The order and emphasis of the answers (P1, as the desktop's modal since #243): on anything but a read-only request,
  * Deny comes first and is the filled button, so a hurried tap denies; Allow is outlined and still needs biometrics.
- * An unknown risk counts as risky. Cancel always comes last. Only the three answers the phone knows are ever shown: a
- * decision added to the protocol later is left to the computer rather than drawn under a wrong label.
+ * A request without a risk, or with a level added later, counts as risky. Cancel always comes last. Only the three
+ * answers the phone knows are ever shown: a decision added to the protocol later is left to the computer rather than
+ * drawn under a wrong label.
  */
 internal fun decisionLayout(decisions: List<String>, risk: String?): List<Pair<String, Boolean>> {
-    val lead = if (risk == "green") "accept" else "decline"
+    val lead = if (risk != null && riskLevel(risk) == RemoteApprovalRisk.LOW) "accept" else "decline"
     return decisions
         .filter { it in KNOWN_DECISIONS }
         .sortedBy { when (it) { lead -> 0; "cancel" -> 2; else -> 1 } }

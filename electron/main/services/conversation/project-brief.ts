@@ -8,11 +8,11 @@
  * Reads only package.json and existence of a few manifest files; never file
  * contents beyond that, never writes.
  */
-import { execFile } from 'node:child_process'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { loadRepoConfig } from '../repo-config/loader'
 import { instructionLabel, instructionSources } from './instruction-sources'
+import { runGit } from '../../utils/safe-git'
 
 export const MAX_BRIEF_BYTES = 3 * 1024
 const PACKAGE_LIMIT = 256 * 1024
@@ -23,8 +23,9 @@ const MARKERS: Array<[string, string]> = [
   ['composer.json', 'PHP'], ['pubspec.yaml', 'Dart/Flutter'], ['Package.swift', 'Swift'], ['mix.exs', 'Elixir'], ['deno.json', 'Deno']
 ]
 
-function git(root: string, args: string[]): Promise<string> {
-  return new Promise(resolve => execFile('git', args, { cwd: root, windowsHide: true, timeout: 3000, maxBuffer: 1024 * 1024 }, (error, stdout) => resolve(error ? '' : String(stdout))))
+async function git(root: string, args: string[]): Promise<string> {
+  const result = await runGit(root, args, { timeout: 3000, maxBuffer: 1024 * 1024 })
+  return result.ok ? result.stdout : ''
 }
 
 function packageSummary(root: string): string[] {

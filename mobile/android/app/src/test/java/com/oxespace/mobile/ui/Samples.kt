@@ -1,5 +1,12 @@
 package com.oxespace.mobile.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import com.oxespace.mobile.approval.Presence
 import com.oxespace.mobile.approval.PresenceCheck
 import com.oxespace.mobile.approval.PresenceGate
@@ -12,6 +19,8 @@ import com.oxespace.mobile.protocol.live.TerminalBuffer
 import com.oxespace.mobile.protocol.live.ThreadTimeline
 import com.oxespace.mobile.session.LiveRepository
 import com.oxespace.mobile.session.Watched
+import com.oxespace.mobile.ui.theme.Oxe
+import com.oxespace.mobile.ui.theme.OxeSpace
 
 /** Data the screenshots show: what a real desktop would send, through the same stores the app uses. */
 object Samples {
@@ -48,7 +57,7 @@ object Samples {
     private fun requestJson(risky: Boolean) = if (risky) {
         """{"threadId":"t-1","workspaceId":"w-1","threadTitle":"Fix the login redirect","requestId":"r-1","generation":3,"kind":"approval",
         "title":"Delete the build output","command":"rm -rf dist build","cwd":".","toolName":"Bash","paths":["dist/","build/"],
-        "reason":"The old bundle breaks the redirect test","risk":"red","warnings":["Deletes files outside the change set"],"redacted":1,
+        "reason":"The old bundle breaks the redirect test","risk":"critical","warnings":["Deletes files outside the change set"],"redacted":1,
         "decisions":["accept","decline"],"answerable":true,"createdAt":1}"""
     } else {
         """{"threadId":"t-1","workspaceId":"w-1","threadTitle":"Fix the login redirect","requestId":"r-2","generation":3,"kind":"question",
@@ -68,6 +77,16 @@ object Samples {
             {"seq":4,"item":{"type":"plan","id":"p1","steps":[{"label":"Read the middleware","status":"completed"},{"label":"Fix the expiry check","status":"inProgress"},{"label":"Add a regression test","status":"pending"}]}},
             {"seq":5,"item":{"type":"message","id":"m2","role":"assistant","text":"The expiry check compared seconds with milliseconds. I fixed it and I'm adding a test now."}},
             {"seq":6,"item":{"type":"request","id":"q-1","requestId":"r-1","kind":"approval","title":"Delete the build output","state":"pending"}}]}""")))
+    }
+
+    /** Every risk wire value the phone may meet: the four levels, the older shell colours and a level added later. */
+    val riskWires = listOf("low", "medium", "high", "critical", "green", "orange", "red", "catastrophic")
+
+    @Composable
+    fun RiskLevels(line: @Composable (String) -> Unit) {
+        Column(Modifier.fillMaxWidth().background(Oxe.colors.surfaceBase).padding(OxeSpace.space4), verticalArrangement = Arrangement.spacedBy(OxeSpace.space3)) {
+            riskWires.forEach { line(it) }
+        }
     }
 
     /** Three minutes after the sample requests were made, so "há 3 min" in every shot, whatever the day. */

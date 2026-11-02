@@ -74,7 +74,8 @@ function GroupPanel({ group, rules, busy, unread = false, locked = false, onMode
       <div><dt>{t('tools.cost.codex')}</dt><dd>{off ? t('tools.cost.notOffered') : t('tools.cost.codexValue', { cost: costText(t, group.cost.codex.loaded) })}</dd></div>
     </dl>
     {group.configurable && <div className={styles.mode}>
-      <SegmentedControl label={t('tools.modeLabel', { group: name })} value={group.mode}
+      {/* A mode that could not be read is not shown as chosen: the control would claim one other than the one in force. */}
+      <SegmentedControl label={t('tools.modeLabel', { group: name })} value={unread ? null : group.mode}
         options={MCP_TOOL_GROUP_MODES.map(mode => ({ value: mode, label: modeName(t, mode) }))}
         onChange={mode => onMode(group.id as ConfigurableMcpToolGroup, mode)} disabled={busy || locked} />
       <p className={styles.hint}>{locked ? t('tools.invalidYaml.modeLocked', { file: OXE_YAML }) : t(`tools.modeHints.${group.mode}`)}</p>

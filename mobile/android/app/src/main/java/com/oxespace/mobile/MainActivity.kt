@@ -20,6 +20,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oxespace.mobile.approval.KeystorePresence
 import com.oxespace.mobile.approval.PresenceGate
 import com.oxespace.mobile.notify.NotificationTaps
+import com.oxespace.mobile.pairing.PairLinkForHomologation
 import com.oxespace.mobile.pairing.PairedDesktop
 import com.oxespace.mobile.pairing.PairingViewModel
 import com.oxespace.mobile.session.DesktopStatus
@@ -43,15 +44,30 @@ class MainActivity : ComponentActivity() {
     /** Where a tapped notification asked to go: a request (thread id, request id) or a conversation. */
     private var opening by mutableStateOf<Pair<String, String?>?>(null)
 
+    /** Debug builds only: a pairing link handed over adb, scanned like a camera frame ([PairLinkForHomologation]). */
+    private var pairLink by mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         CaptureForHomologation.read(intent.getBooleanExtra(CaptureForHomologation.EXTRA, false))
         readNotificationTap(intent)
+        readPairLink(intent)
         setContent {
             OxeTheme {
                 var showPairing by rememberSaveable { mutableStateOf(false) }
                 val status by session.status.collectAsStateWithLifecycle()
+                val link = pairLink
+                LaunchedEffect(link) {
+                    if (link == null) return@LaunchedEffect
+                    pairLink = null
+                    // Only where the person could scan: an unpaired phone. The flow checks it as it checks a scan.
+                    if (status is DesktopStatus.Unpaired) {
+                        pairing.scanAgain()
+                        showPairing = true
+                        pairing.onScanned(link)
+                    }
+                }
                 // Once connected, a drop keeps the person where they were and says so; the home is for before that.
                 var wasConnected by rememberSaveable { mutableStateOf(false) }
                 if (status is DesktopStatus.Connected) wasConnected = true
@@ -165,6 +181,11 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         readNotificationTap(intent)
+        readPairLink(intent)
+    }
+
+    private fun readPairLink(intent: Intent?) {
+        PairLinkForHomologation.read(BuildConfig.DEBUG, intent?.getStringExtra(PairLinkForHomologation.EXTRA))?.let { pairLink = it }
     }
 
     /** Only a tap on one of this app's notifications opens a conversation or request; see [NotificationTaps]. */
