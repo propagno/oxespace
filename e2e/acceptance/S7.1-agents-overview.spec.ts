@@ -60,7 +60,7 @@ test('S7.1: one overview of a pane, a conversation, a delegation and a work run,
   db.prepare("UPDATE conversation_threads SET data_json = json_set(data_json, '$.status', 'failed', '$.title', 'Acceptance conversation') WHERE id = ?").run(threadId)
   const task = { id: 'acc-deleg', workspaceId, project: 'acc', originPaneId: paneId, originExecutionId: 'acc-exec', cwd: profile.repo, path: profile.repo, branch: 'acc/deleg', baseSha: '', localChanges: '', state: 'accepted', createdAt: now, updatedAt: now, key: 'acc-key', agentProfileId: 'claude', objective: 'Acceptance delegation', handoff: '', acceptance: '' }
   db.prepare('INSERT INTO delegations (id, origin_execution, request_key, workspace_id, payload) VALUES (?, ?, ?, ?, ?)').run(task.id, task.originExecutionId, task.key, workspaceId, JSON.stringify(task))
-  db.prepare('INSERT INTO delegation_task_index (task_id, workspace_id, project, state, branch, objective, surface, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(task.id, workspaceId, task.project, task.state, task.branch, task.objective, 'terminal', now, now)
+  // The delegation_task_index row is written by the delegation_index_after_insert trigger (migration 057).
   db.prepare("INSERT INTO work_runs (id, supervisor_thread_id, workspace_id, project_id, project_root, request_key, title, status, created_at, updated_at) VALUES ('acc-run', ?, ?, 'acc', ?, 'acc-run-key', 'Acceptance run', 'blocked', ?, ?)").run(threadId, workspaceId, profile.repo, now, now)
   db.close()
 
@@ -78,7 +78,7 @@ test('S7.1: one overview of a pane, a conversation, a delegation and a work run,
     expect(list, 'oxe.agents.overview exists').not.toBeNull()
     expect(find(list, 'pane', paneId)?.state, 'the pane waiting on a permission needs you').toBe('needs-you')
     expect(find(list, 'thread', threadId)?.state, 'the failed conversation').toBe('failed')
-    expect(find(list, 'delegation', 'acc-deleg')?.state, 'the accepted delegation is working').toBe('working')
+    expect(find(list, 'delegation', 'acc-deleg')?.state, 'a delegation accepted before launch is interrupted on boot (never replayed), so it reads stopped').toBe('stopped')
     expect(find(list, 'work', 'acc-run')?.state, 'the blocked work run needs you').toBe('needs-you')
     for (const e of list ?? []) {
       expect(['needs-you', 'failed', 'working', 'finished', 'idle', 'stopped', 'unknown'], `${e.kind} state is in the vocabulary`).toContain(e.state)
