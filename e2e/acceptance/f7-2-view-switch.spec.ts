@@ -77,7 +77,11 @@ async function arm(page: Page): Promise<void> {
     document.addEventListener('keydown', e => {
       if (!rec.t0) return
       const target = e.target as Element
-      rec.keys.push({ t: performance.now() - rec.t0, where: target.closest('[data-view="code"]') ? 'old' : target.closest('[data-view="data"]') ? 'new' : 'other' })
+      const where = target.closest('[data-view="code"]') ? 'old' : target.closest('[data-view="data"]') ? 'new' : 'other'
+      rec.keys.push({ t: performance.now() - rec.t0, where })
+      // DIAG (HML on #363: a key at +89 ms landed outside the old view): what had the keyboard, and the view hosts then.
+      if (where === 'other') (rec as unknown as { otherKeys?: string[] }).otherKeys = [...((rec as unknown as { otherKeys?: string[] }).otherKeys ?? []),
+        `${Math.round(performance.now() - rec.t0)}:${target.tagName}.${String((target as HTMLElement).className ?? '').slice(0, 40)}:${target.closest('[data-testid]')?.getAttribute('data-testid') ?? ''}:active=${document.activeElement?.tagName}:views=${[...document.querySelectorAll('[data-view]')].map(v => `${v.getAttribute('data-view')}/${getComputedStyle(v).visibility}/${getComputedStyle(v).display}`).join(',')}`].slice(0, 4)
     }, true)
   })
 }
@@ -140,6 +144,7 @@ for (const variant of [
       const around = ((rec as unknown as { longTasks?: Array<{ start: number; duration: number; source: string }> }).longTasks ?? [])
         .map(task => ({ ...task, start: Math.round(task.start - rec.t0) })).filter(task => task.start + task.duration >= -1_000 && task.start <= firstAt)
       console.log(`[F72-LONGTASKS] ${variant.name}: ${JSON.stringify(around)}`)
+      console.log(`[F72-KEYS] ${variant.name}: other ${JSON.stringify((rec as unknown as { otherKeys?: string[] }).otherKeys ?? [])}`)
       // Content at: the new view up without its skeleton; past 300 ms React's fallback hold can push it to ~600 ms (#363 review L3).
       const contentAt = rec.frames.find(f => f.newUp && !f.skeleton)?.t ?? Infinity
       test.info().annotations.push({ type: 'timings', description: `selected at ${rec.frames.find(f => f.pressed)?.t.toFixed(0)} ms, commit at ${commit.toFixed(0)} ms, content at ${contentAt.toFixed(0)} ms, ${rec.frames.length} frames` })
