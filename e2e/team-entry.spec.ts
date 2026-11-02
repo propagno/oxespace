@@ -33,7 +33,9 @@ test('Team is off the title bar and opens from the palette, the Tools menu, Mod+
     await expect(item).toHaveAttribute('aria-disabled', 'true')
     await expect(item).toHaveAttribute('aria-description', 'Open a workspace to open its team')
     await expect(item).toContainText('Open a workspace to open its team')
-    await item.click()
+    // Playwright never clicks an aria-disabled element; this one is muted for assistive tech but still chosen with the
+    // mouse (Radix sees an enabled item), so the click skips that check. What it does is still asserted below.
+    await item.click({ force: true })
     await expect(page.getByText('Open a workspace to open its team', { exact: true }).last()).toBeVisible()
     await page.keyboard.press('Escape')
 
@@ -41,6 +43,8 @@ test('Team is off the title bar and opens from the palette, the Tools menu, Mod+
     await page.getByTestId('wizard-dir-input').fill(repo)
     await page.getByTestId('wizard-launch-btn').click()
     await expect(page.getByTestId('wizard-launch-btn')).toBeHidden()
+    // The OxeChat project, before OxeChat first loads its list (the row's ⋯ menu is checked last).
+    await page.evaluate(async path => { await window.oxe.thread!.addProject(path) }, repo)
 
     // Palette (a focused terminal keeps Ctrl+K, so open it from the sidebar).
     await page.getByPlaceholder('Filter workspaces').focus()
@@ -76,7 +80,6 @@ test('Team is off the title bar and opens from the palette, the Tools menu, Mod+
     await expect(dialog).toBeHidden()
 
     // OxeChat: the project row's ⋯ menu opens the Team of that project.
-    await page.evaluate(async path => { await window.oxe.thread!.addProject(path) }, repo)
     await showView(page, 'OxeChat')
     const actions = page.locator('[data-project-actions]').first()
     await actions.waitFor({ state: 'visible' })
