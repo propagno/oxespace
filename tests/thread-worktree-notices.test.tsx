@@ -33,6 +33,17 @@ describe('ThreadEmptyState with a worktree of its own', () => {
     expect(screen.getByRole('alert')).toBeTruthy()
   })
 
+  it('a switch to another conversation without a remount reads that conversation\'s own dismissal', () => {
+    const notices = [{ code: 'worktree.copyFiles.outsideRepo', params: { patterns: ['../x'] } }] as MainMessage[]
+    const view = render(<ThreadEmptyState thread={thread('a', notices)} onStarter={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+    expect(screen.queryByRole('alert')).toBeNull()
+    view.rerender(<ThreadEmptyState thread={thread('b', notices)} onStarter={() => {}} />)
+    expect(screen.getByRole('alert')).toBeTruthy()
+    view.rerender(<ThreadEmptyState thread={thread('a', notices)} onStarter={() => {}} />)
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
   it('shows nothing extra without notices', () => {
     render(<ThreadEmptyState thread={thread('t3')} onStarter={() => {}} />)
     expect(screen.queryByRole('alert')).toBeNull()
