@@ -53,7 +53,8 @@ test('F35/#344: Team from the palette, Tools menu, Ctrl+Shift+T and OxeChat; not
     // OxeChat's menu.
     await registerThreadProject(app, page, workspaceRoot)
     await openThreadWithState(app, page, workspaceRoot, 'conversation')
-    const menus = page.locator('.thread-heading, main').getByRole('button', { name: /More actions|Conversation actions|Mais ações/ })
+    // OxeChat's ⋯ for the project, in the conversation sidebar ("Actions for <project>"), then the conversation's own menus.
+    const menus = page.locator('[data-project-actions]').or(page.locator('.thread-heading, main').getByRole('button', { name: /More actions|Conversation actions|Mais ações/ }))
     out.threadMenus = await menus.count()
     let found = false
     for (let i = 0; i < out.threadMenus && !found; i++) {
