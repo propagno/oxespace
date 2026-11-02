@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { AgentConversationAdapter, ConversationThread, ThreadConfiguration, ThreadEvent, ThreadSideEvent, ThreadSideOpenResult } from '../../../../shared/types/thread'
 import { mainMessage } from '../../../../shared/messages'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../../shared/threadLimits'
+import { MainRefusal } from '../main-refusal'
 
 /** Built-in tools a side chat never gets, on top of plan mode and the read-only tool list: defence in depth. */
 export const SIDE_CHAT_DISALLOWED_TOOLS = ['Bash', 'Edit', 'Write', 'NotebookEdit'] as const
@@ -38,12 +39,12 @@ interface Side {
 }
 
 export function sideChatId(value: unknown): string {
-  if (typeof value !== 'string' || !SIDE_ID.test(value)) throw Error('Invalid side chat input')
+  if (typeof value !== 'string' || !SIDE_ID.test(value)) throw new MainRefusal('thread.side.invalidInput', {})
   return value
 }
 
 export function sideChatText(value: unknown): string {
-  if (typeof value !== 'string' || !value.trim() || value.length > THREAD_MESSAGE_MAX_CHARS || value.includes('\0')) throw Error('Invalid side chat input')
+  if (typeof value !== 'string' || !value.trim() || value.length > THREAD_MESSAGE_MAX_CHARS || value.includes('\0')) throw new MainRefusal('thread.side.invalidInput', {})
   return value
 }
 
@@ -72,7 +73,7 @@ export class ThreadSideChats {
       if (this.host.unavailable(error)) return { ok: false, message: mainMessage('thread.side.unavailable', {}) }
       throw error
     }
-    if (!this.sides.has(side.sideId)) throw Error('The side chat was closed while opening')
+    if (!this.sides.has(side.sideId)) throw new MainRefusal('thread.side.closed', {})
     side.release = this.host.subscribe(threadId, () => this.mainChanged(threadId))
     return { ok: true, side: { sideId: side.sideId, threadId, provider: thread.provider, readOnly: true } }
   }
@@ -80,7 +81,7 @@ export class ThreadSideChats {
   async send(sideId: unknown, text: unknown): Promise<void> {
     const side = this.sides.get(sideChatId(sideId))
     const message = sideChatText(text)
-    if (!side) throw Error('This side chat is closed')
+    if (!side) throw new MainRefusal('thread.side.closed', {})
     await side.adapter.send(message)
   }
 

@@ -1,10 +1,9 @@
-import { ArrowUpCircle, Activity, Bell, Bot, Check, ChevronDown, ChevronRight, Download, ExternalLink, Mic, Package, Play, Plus, RefreshCw, Settings2, SquareTerminal, Palette, X, Zap } from 'lucide-react'
+import { ArrowUpCircle, Activity, Bell, Bot, Check, ChevronDown, ChevronRight, Download, ExternalLink, Package, Play, Plus, RefreshCw, Settings2, SquareTerminal, Palette, X, Zap } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { RichText } from '../../i18n/RichText'; import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
 import { AppearanceSettings } from './AppearanceSettings'
 import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
-import type { VoiceModelSize, VoiceModelStatus } from '../../../shared/types/voice'
 import type { SemanticUsage, SemanticVectorStatus } from '../../../shared/types/ipc'
 import type { AgentHookAgent, AgentHooksStatus } from '../../../shared/types/agent-hooks'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
@@ -12,11 +11,10 @@ import { AgentCliOnboarding, openInstallDocs } from '../Onboarding/AgentCliOnboa
 import { AutomationsSettings } from './AutomationsSettings'
 import { AgentActivitySettings } from './AgentActivitySettings'
 import { useAgentStore } from '../../store/agent.store'
-import { useVoiceStore } from '../../store/voice.store'
 import { useSettingsStore } from '../../store/settings.store'
 import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
-import { Button, SegmentedControl, Switch, TextField, Select } from '../../ui'
+import { Button, EmptyState, Notice, SegmentedControl, Switch, Select } from '../../ui'
 import { UpdatePreferences } from './UpdatePreferences'
 import { humanizeError } from '../../utils/humanizeError'
 
@@ -48,13 +46,12 @@ function formatCheckedAgo(ts: number | null, t: TFunction<'settings'>): string |
   return t('checked.days', { value: Math.floor(sec / 86400) })
 }
 
-export type SettingsSection = 'providers' | 'appearance' | 'terminal' | 'voice' | 'notifications' | 'updates' | 'diagnostics'
+export type SettingsSection = 'providers' | 'appearance' | 'terminal' | 'notifications' | 'updates' | 'diagnostics'
 
 export function SettingsContent({ section, ...props }: SettingsModalProps & { section: SettingsSection }): ReactElement {
   switch (section) {
     case 'appearance': return <AppearanceSettingsSection onClose={props.onClose} />
     case 'terminal': return <TerminalSettingsSection onClose={props.onClose} />
-    case 'voice': return <VoiceSettingsSection onClose={props.onClose} />
     case 'notifications': return <NotificationsSettingsSection onClose={props.onClose} />
     case 'updates': return <UpdatesSettingsSection onClose={props.onClose} />
     case 'diagnostics': return <DiagnosticsSettingsSection onClose={props.onClose} />
@@ -423,23 +420,22 @@ function ProvidersSettingsSection({
         description={t('providers.description')}
         onClose={onClose}
         actions={
-          <button
-            type="button"
-            className="settings-header-action"
+          <Button
+            size="sm"
             aria-label={t('providers.runHealthCheck')}
             title={t('providers.healthCheckTitle')}
             data-testid="btn-discover-agents"
             disabled={isDiscoveringAgents}
             onClick={onDiscoverAgents}
+            icon={<RefreshCw size={14} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />}
           >
-            <RefreshCw size={14} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
-            <span>{isDiscoveringAgents ? t('providers.checking') : t('providers.healthCheck')}</span>
-          </button>
+            {isDiscoveringAgents ? t('providers.checking') : t('providers.healthCheck')}
+          </Button>
         }
       />
 
       <div className="settings-content-body">
-        <div className="settings-providers-hero" data-testid="providers-summary">
+        {agentProfiles.length > 0 ? <div className="settings-providers-hero" data-testid="providers-summary">
           <div className="settings-providers-hero-text">
             <strong>{summaryPrimary}</strong>
             {summarySecondary ? <span>{summarySecondary}</span> : null}
@@ -464,15 +460,12 @@ function ProvidersSettingsSection({
               </span>
             ) : null}
           </div>
-        </div>
+        </div> : null}
 
         {allMissing ? <AgentCliOnboarding checking={isDiscoveringAgents} onCheck={onDiscoverAgents} /> : null}
 
         {agentProfiles.length === 0 ? (
-          <div className="settings-empty" role="status">
-            <Bot size={20} aria-hidden="true" />
-            <p>{t('providers.empty.title')}</p>
-            <span>{t('providers.empty.hint')}</span>
+          <EmptyState icon={<Bot size={20} />} title={t('providers.empty.title')} actions={
             <Button
               variant="primary"
               disabled={isDiscoveringAgents}
@@ -481,7 +474,7 @@ function ProvidersSettingsSection({
               <RefreshCw size={14} aria-hidden="true" className={isDiscoveringAgents ? 'spin' : undefined} />
               {t('providers.runHealthCheck')}
             </Button>
-          </div>
+          }>{t('providers.empty.hint')}</EmptyState>
         ) : (
           <>
             {primary.length > 0 ? (
@@ -513,8 +506,9 @@ function ProvidersSettingsSection({
           </>
         )}
 
+        {/* With no agent yet the empty state's health check is the one main action. */}
         <Button
-          variant="primary" className="settings-new-agent-btn"
+          variant={agentProfiles.length > 0 ? 'primary' : 'secondary'} className="settings-new-agent-btn"
           onClick={onNewCustomAgent}
           data-testid="btn-new-custom-agent"
         >
@@ -564,7 +558,7 @@ function IdleConversationsSetting(): ReactElement | null {
         </Select>
         <span className="settings-field-hint">{t('idle.hint')}</span>
       </label>
-      {error && <p className="settings-field-hint" role="alert">{error}</p>}
+      {error && <Notice intent="danger">{error}</Notice>}
     </div>
   )
 }
@@ -670,167 +664,8 @@ function SemanticIndexSetting(): ReactElement | null {
         {t('semantic.hint', { model: status.modelId })}
         {calls && (calls.withVector + calls.withoutVector) > 0 && ` ${t('semantic.usage', { without: calls.withoutVector, with: calls.withVector })}`}
       </span>
-      {error && <p className="settings-field-hint" role="alert">{error}</p>}
+      {error && <Notice intent="danger">{error}</Notice>}
     </div>
-  )
-}
-
-const MODEL_SIZES: VoiceModelSize[] = ['tiny', 'base', 'small']
-const DEFAULT_PTT_HOTKEY = 'Ctrl+Shift+Space'
-
-function VoiceSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
-  const { t } = useTranslation('settings')
-  const { modelSize, pttHotkey, setModelSize, setPttHotkey } = useVoiceStore()
-  const [model, setModel] = useState<VoiceModelStatus | null>(null)
-  const [progress, setProgress] = useState<number | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [capturingHotkey, setCapturingHotkey] = useState(false)
-
-  useEffect(() => {
-    let alive = true
-    void window.oxe?.voice?.getModelStatus(modelSize).then((s) => { if (alive) setModel(s) })
-    return () => { alive = false }
-  }, [modelSize])
-
-  useEffect(() => {
-    return window.oxe?.voice?.onModelProgress((event) => {
-      if (event.size !== modelSize) return
-      setProgress(event.done ? null : event.progress)
-      if (event.error) setError(event.error)
-    })
-  }, [modelSize])
-
-  useEffect(() => {
-    if (!capturingHotkey) return
-    const onKeyDown = (event: KeyboardEvent): void => {
-      event.preventDefault()
-      event.stopPropagation()
-      if (event.key === 'Escape') {
-        setCapturingHotkey(false)
-        return
-      }
-      const parts: string[] = []
-      if (event.ctrlKey || event.metaKey) parts.push(event.ctrlKey ? 'Ctrl' : 'Meta')
-      if (event.altKey) parts.push('Alt')
-      if (event.shiftKey) parts.push('Shift')
-      const key = event.key
-      if (!['Control', 'Shift', 'Alt', 'Meta'].includes(key)) {
-        const pretty = key === ' ' ? 'Space' : key.length === 1 ? key.toUpperCase() : key
-        parts.push(pretty)
-        if (parts.length > 0) {
-          setPttHotkey(parts.join('+'))
-          setCapturingHotkey(false)
-        }
-      }
-    }
-    // `capture: true` is load-bearing, not stylistic: it runs this listener
-    // before Radix's document-level Escape handler, and the stopPropagation
-    // above keeps that handler from ever seeing the key. Without it, pressing
-    // Escape to cancel a hotkey capture would also close the whole dialog.
-    window.addEventListener('keydown', onKeyDown, true)
-    return () => window.removeEventListener('keydown', onKeyDown, true)
-  }, [capturingHotkey, setPttHotkey])
-
-  const downloadModel = async (): Promise<void> => {
-    setBusy(true)
-    setError(null)
-    try {
-      const status = await window.oxe.voice.ensureModel(modelSize)
-      setModel(status)
-    } catch (err) {
-      setError(humanizeError(err, t('voice.downloadFailed')))
-    } finally {
-      setBusy(false)
-      setProgress(null)
-    }
-  }
-
-  const progressPct = progress !== null ? Math.round(progress * 100) : null
-
-  return (
-    <section className="settings-modal-content" aria-labelledby="settings-voice-title">
-      <SettingsContentHeader
-        kicker={t('voice.kicker')}
-        title={t('voice.title')}
-        titleId="settings-voice-title"
-        description={t('voice.description')}
-        onClose={onClose}
-      />
-
-      <div className="settings-content-body settings-form">
-        <label className="settings-field">
-          <span>{t('voice.model')}</span>
-          <Select value={modelSize} onChange={(e) => setModelSize(e.target.value as VoiceModelSize)}>
-            {MODEL_SIZES.map((size) => <option key={size} value={size}>{t(`voice.models.${size}`)}</option>)}
-          </Select>
-        </label>
-
-        <div className="settings-field">
-          <span>{t('voice.shortcut')}</span>
-          <div className="settings-hotkey-row">
-            <TextField
-              type="text"
-              value={pttHotkey}
-              spellCheck={false}
-              onChange={(e) => setPttHotkey(e.target.value)}
-              placeholder={DEFAULT_PTT_HOTKEY}
-              aria-label={t('voice.shortcut')}
-            />
-            <button
-              type="button"
-              className={`settings-btn ghost${capturingHotkey ? ' active' : ''}`}
-              onClick={() => setCapturingHotkey((v) => !v)}
-            >
-              {capturingHotkey ? t('voice.pressKeys') : t('voice.capture')}
-            </button>
-          </div>
-          {capturingHotkey ? (
-            <span className="settings-field-hint">{t('voice.captureHint')}</span>
-          ) : null}
-        </div>
-
-        <div className="settings-status-card">
-          <div className="settings-status-row">
-            <strong>{t('voice.engine')}</strong>
-            <span className={`settings-status-pill ${model?.engineReady ? 'ok' : 'warn'}`}>
-              {model?.engineReady ? t('voice.available') : t('voice.unavailable')}
-            </span>
-          </div>
-          <div className="settings-status-row">
-            <strong>{t('voice.modelName', { size: modelSize })}</strong>
-            <span className={`settings-status-pill ${model?.ready ? 'ok' : 'warn'}`}>
-              {model?.ready ? t('voice.modelReady') : progressPct !== null ? t('voice.downloadingPercent', { percent: progressPct }) : t('voice.notDownloaded')}
-            </span>
-          </div>
-          {progressPct !== null ? (
-            <div className="settings-progress" role="progressbar" aria-valuenow={progressPct} aria-valuemin={0} aria-valuemax={100}>
-              <div className="settings-progress-bar" style={{ width: `${progressPct}%` }} />
-            </div>
-          ) : null}
-          {model && !model.engineReady ? (
-            <p className="settings-field-hint" role="note">{t('voice.engineMissing')}</p>
-          ) : !model?.ready ? (
-            <Button
-              variant="primary"
-              disabled={busy || !model?.engineReady}
-              onClick={() => void downloadModel()}
-            >
-              <Download size={14} aria-hidden="true" />
-              {busy ? t('voice.downloading') : t('voice.download')}
-            </Button>
-          ) : (
-            <div className="settings-status-ok-line">
-              <Check size={14} aria-hidden="true" />
-              {t('voice.readyLine')}
-            </div>
-          )}
-          {error ? <p className="settings-error">{error}</p> : null}
-        </div>
-
-        <div className="settings-callout"><RichText text={t('voice.callout')} /></div>
-      </div>
-    </section>
   )
 }
 

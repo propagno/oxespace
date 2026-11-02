@@ -51,7 +51,7 @@ class PairingClientTest {
 
     @Test
     fun sendsOnlyWhatTheGatewayAccepts() {
-        val names = mapOf("  Pixel\n8\u0007 " to "Pixel8", "x".repeat(100) to "x".repeat(64), "\t \n" to "Android")
+        val names = mapOf("  Pixel\n8\u0007 " to "Pixel8", "x".repeat(100) to "x".repeat(64), "\t \n" to "Android", "‮Pixel​ 8" to "Pixel 8")
         for ((given, sent) in names) {
             server.enqueue(MockResponse.Builder().code(200).body("""{"deviceId":"d","accessToken":"t","expiresInMs":1}""").build())
             client.pair(qr(), given, "PUBKEY")

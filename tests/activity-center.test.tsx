@@ -15,39 +15,44 @@ describe('ActivityCenter', () => {
     record({ source: 'thread', id: 't', kind: 'needs-you', target: { type: 'thread', threadId: 't' }, title: 'Fix the login bug', detail: 'Run npm test', at: 3 })
   })
 
-  it('groups entries and counts the unread ones on the bell', () => {
+  it('groups entries and counts the unread ones on the bell', async () => {
     render(<ActivityCenter onSelectView={() => undefined} />)
     expect(screen.getByTestId('activity-count').textContent).toBe('3')
     fireEvent.click(screen.getByTestId('activity-bell'))
+    // The panel loads on its own chunk the first time.
+    await screen.findByTestId('activity-center')
     expect(screen.getByRole('region', { name: 'Needs you' }).textContent).toContain('Fix the login bug')
     expect(screen.getByRole('region', { name: 'Finished' }).textContent).toContain('Build')
     expect(screen.getByRole('region', { name: 'Updates' }).textContent).toContain('OXESpace 1.4.0 is available')
   })
 
-  it('opens the conversation an entry is about and marks it read', () => {
+  it('opens the conversation an entry is about and marks it read', async () => {
     const select = vi.spyOn(useThreadStore.getState(), 'select').mockResolvedValue()
     useThreadStore.setState({ select })
     const onSelectView = vi.fn()
     render(<ActivityCenter onSelectView={onSelectView} />)
     fireEvent.click(screen.getByTestId('activity-bell'))
+    await screen.findByTestId('activity-center')
     fireEvent.click(screen.getByRole('button', { name: /Fix the login bug/ }))
     expect(onSelectView).toHaveBeenCalledWith('thread')
     expect(select).toHaveBeenCalledWith('t')
     expect(useActivityStore.getState().items.find(item => item.id === 't')?.read).toBe(true)
   })
 
-  it('sends quota and update entries to their Settings page', () => {
+  it('sends quota and update entries to their Settings page', async () => {
     const openSettingsPage = vi.fn()
     useUIStore.setState({ openSettingsPage })
     render(<ActivityCenter onSelectView={() => undefined} />)
     fireEvent.click(screen.getByTestId('activity-bell'))
+    await screen.findByTestId('activity-center')
     fireEvent.click(screen.getByRole('button', { name: /OXESpace 1.4.0/ }))
     expect(openSettingsPage).toHaveBeenCalledWith('updates')
   })
 
-  it('marks everything read, and the palette has both commands', () => {
+  it('marks everything read, and the palette has both commands', async () => {
     render(<ActivityCenter onSelectView={() => undefined} />)
     fireEvent.click(screen.getByTestId('activity-bell'))
+    await screen.findByTestId('activity-center')
     fireEvent.click(screen.getByRole('button', { name: 'Mark all as read' }))
     expect(screen.queryByTestId('activity-count')).toBeNull()
     expect(renderHook(() => useContributedCommands()).result.current.map(command => command.id)).toEqual(expect.arrayContaining(['activity.open', 'activity.markAllRead']))

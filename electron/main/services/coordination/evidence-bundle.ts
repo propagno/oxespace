@@ -1,13 +1,11 @@
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
 import { createHash } from 'node:crypto'
 import type { DelegationTask } from '../../../../shared/types/delegation'
-const exec = promisify(execFile)
+import { execGit } from '../../utils/safe-git'
 
 /** Only committed UTF-8 text blobs, never local dirty files or symlink targets. */
 export async function collectEvidence(cwd: string, files: string[]): Promise<NonNullable<DelegationTask['evidence']>> {
   if (!Array.isArray(files) || files.length > 8) throw new Error('Select at most eight evidence files')
-  const git = async (args: string[]) => (await exec('git', args, { cwd, windowsHide: true, timeout: 10000, maxBuffer: 70000 })).stdout
+  const git = async (args: string[]) => (await execGit(cwd, args, { timeout: 10000, maxBuffer: 70000 })).stdout
   const commit = (await git(['rev-parse', '--verify', 'HEAD^{commit}'])).trim()
   const result: NonNullable<DelegationTask['evidence']> = []
   let size = 0

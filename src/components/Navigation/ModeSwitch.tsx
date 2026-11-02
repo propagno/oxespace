@@ -4,6 +4,7 @@ import { describeAttention, useAttentionSummary, type AttentionCounts } from '..
 import type { NavigationMode } from './NavigationChrome'
 import { shortcutLabel, useKeybindings, type KeybindingId } from '../../keyboard/keybindings'
 import styles from './ModeSwitch.module.css'
+import { prefetchView, usePendingView } from '../../app/viewSwitch'
 
 // Product names, never translated.
 const MODES: Array<{ mode: NavigationMode; label: string }> = [
@@ -14,11 +15,17 @@ const MODES: Array<{ mode: NavigationMode; label: string }> = [
   { mode: 'post', label: 'OxePost' }
 ]
 
-/** The application's four views, as one segmented control in the middle of the title bar; Ctrl+1…4 switch between them. */
+/**
+ * The application's views, as one segmented control in the middle of the title bar; Ctrl+1…5 switch between them.
+ * The view being switched to (usePendingView, src/app/viewSwitch.ts): its button is selected and busy at once (the first feedback),
+ * and a view's chunk starts loading as soon as its button is hovered or focused (docs/design/motion.md).
+ */
 export function ModeSwitch({ mode, onSelect }: { mode: NavigationMode; onSelect: (mode: NavigationMode) => void }) {
+  const pending = usePendingView()
   const { t } = useTranslation()
   const attention = useAttentionSummary()
-  const go = (next: NavigationMode) => () => { if (next !== mode) onSelect(next) }
+  const shown = pending ?? mode
+  const go = (next: NavigationMode) => () => { if (next !== shown) onSelect(next) }
   useKeybindings({ 'view.code': go('code'), 'view.thread': go('thread'), 'view.data': go('data'), 'view.pods': go('pods'), 'view.post': go('post') })
   return <nav className={styles.switch} aria-label={t('nav.applicationView')} data-focus-region="modes">
     {MODES.map(item => {
@@ -27,8 +34,9 @@ export function ModeSwitch({ mode, onSelect }: { mode: NavigationMode; onSelect:
       // The badge sits beside the button, not inside it: its count would otherwise be visible text missing from
       // the button's name (WCAG 2.5.3). It describes the button instead, so focus reads "OxeChat … 1 needs you".
       return <span key={item.mode} className={styles.item}>
-        <button type="button" className={styles.option} aria-label={item.label} data-app-mode={item.mode} aria-pressed={mode === item.mode} title={withKey(t(`nav.modeTitle.${item.mode}`), item.mode)} aria-describedby={attentionId}
-          onClick={() => { if (item.mode !== mode) onSelect(item.mode) }}>
+        <button type="button" className={styles.option} aria-label={item.label} data-app-mode={item.mode} aria-pressed={shown === item.mode} aria-busy={pending === item.mode} title={withKey(t(`nav.modeTitle.${item.mode}`), item.mode)} aria-describedby={attentionId}
+          onPointerEnter={() => prefetchView(item.mode)} onFocus={() => prefetchView(item.mode)}
+          onClick={() => { if (item.mode !== shown) onSelect(item.mode) }}>
           {item.label}
         </button>
         {counts && attentionId && <Attention id={attentionId} counts={counts} scope={item.mode === 'code' ? 'code' : 'thread'} />}

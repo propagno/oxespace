@@ -88,7 +88,7 @@ test('sidebar sessions and full-page settings preserve terminal DOM', async () =
     await page.screenshot({ path: test.info().outputPath('settings-compact.png') })
     await page.setViewportSize({ width: 1920, height: 1080 })
     await scope.getByRole('button', { name: 'Application', exact: true }).click()
-    for (const category of ['Terminal', 'Voice', 'Notifications', 'Updates', 'Diagnostics']) {
+    for (const category of ['Terminal', 'Notifications', 'Updates', 'Diagnostics']) {
       await page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: new RegExp(`^${category}`) }).click()
       await expect(page.locator('.settings-center-main')).toBeVisible()
     }

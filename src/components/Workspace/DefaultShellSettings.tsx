@@ -2,6 +2,7 @@ import { Bot, Check, SquareTerminal } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ShellProfile } from '../../../shared/types/workspace'
 import { i18n } from '../../i18n'
+import { Notice } from '../../ui'
 
 /** Agent product names, the same in every language. */
 const AGENT_LABELS: Record<string, string> = {
@@ -20,7 +21,7 @@ export function DefaultShellSettings({ profiles, selectedId, onSelect, applyToId
     <header className="ws-settings-section-header"><SquareTerminal size={16} aria-hidden="true" /><h3 id="ws-section-shell">{t('workspace.shell.title')}</h3></header>
     <p className="shell-intro">{t('workspace.shell.intro')}</p>
     {!profiles.length && <p role="status">{t('workspace.shell.none')}</p>}
-    {!!profiles.length && !selected && <p role="alert">{t('workspace.shell.missing')}</p>}
+    {!!profiles.length && !selected && <Notice intent="warning">{t('workspace.shell.missing')}</Notice>}
     <div role="radiogroup" aria-label={t('workspace.shell.group')}>
       {(['shell', 'agent'] as const).map(kind => {
         const items = profiles.filter(profile => Boolean(AGENT_LABELS[profile.id]) === (kind === 'agent'))

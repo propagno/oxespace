@@ -257,12 +257,14 @@ export class WorkspaceService {
       const updatePane = this.db.prepare(
         "UPDATE panes SET row_index = ?, column_index = ?, updated_at = datetime('now') WHERE id = ?"
       )
+      // (workspace, row, column) is unique, and moving panes one by one into slots others still hold broke it (a split
+      // tree puts panes past the preset, on row 0). Park every grid pane on its own slot below -1 first (-1/-1 is the
+      // off-grid helper pane), then place each. Panes past the largest preset keep a free slot to the right of it.
+      gridPanes.forEach((pane, i) => updatePane.run(-2 - i, -2 - i, pane.id))
+      const columns = positions.reduce((max, slot) => Math.max(max, slot.columnIndex + 1), 0)
       for (let i = 0; i < gridPanes.length; i += 1) {
-        const target = positions[i]
-        if (!target) break
-        if (gridPanes[i].row_index !== target.rowIndex || gridPanes[i].column_index !== target.columnIndex) {
-          updatePane.run(target.rowIndex, target.columnIndex, gridPanes[i].id)
-        }
+        const target = positions[i] ?? { rowIndex: 0, columnIndex: columns + i - positions.length }
+        updatePane.run(target.rowIndex, target.columnIndex, gridPanes[i].id)
       }
       this.db
         .prepare("UPDATE workspaces SET layout = ?, layout_preset = ?, updated_at = datetime('now') WHERE id = ?")
@@ -579,7 +581,9 @@ export class WorkspaceService {
 
   /** Grid-agnostic pane creation for the F2 split-tree layout. Inserts a terminal
    *  pane at a guaranteed-unique grid slot (position is irrelevant in tree mode)
-   *  without touching the layout preset, and returns the new pane id. */
+   *  without touching the layout preset, and returns the new pane id. The preset
+   *  stays: the window sends it back on every settings save, and a preset that
+   *  changed behind its back would read as a layout change and rebuild the panes. */
   createPane(workspaceId: string): { workspace: Workspace; paneId: string } {
     const workspace = this.get(workspaceId)
     if (!workspace) throw new Error('Workspace not found')

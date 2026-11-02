@@ -287,7 +287,8 @@ describe('Thread workspace UI', () => {
     const input = screen.getByRole('textbox', { name: 'Message' })
     act(() => input.focus())
     fireEvent.change(input, { target: { value: '/' } })
-    await screen.findByRole('option', { name: /Second project command/ })
+    // The catalog loads asynchronously: a loaded CI runner needs more than the default second (#363 CI).
+    await screen.findByRole('option', { name: /Second project command/ }, { timeout: 5_000 })
     await act(async () => resolveFirst({ commands: [{ name: 'stale', description: 'Previous project command', source: 'claude' }] }))
     expect(screen.queryByRole('option', { name: /Previous project command/ })).not.toBeInTheDocument()
     expect(screen.getByRole('option', { name: /Second project command/ })).toBeVisible()
@@ -449,6 +450,21 @@ describe('Thread workspace UI', () => {
     fireEvent.change(input, { target: { value: '/oxe-plan Review auth' } })
     fireEvent.keyDown(input, { key: 'Enter' })
     await waitFor(() => expect(f.api.send).toHaveBeenCalledWith('thread', '/oxe-plan Review auth', []))
+  })
+  it('the session panel returns focus to its toggle, and Escape closes it only from inside the panel (HML FINDING M, DESIGN F14)', async () => {
+    const f = fixture(); render(<ThreadView workspace={f.workspace} />)
+    const toggle = await screen.findByRole('button', { name: 'Conversation details' })
+    act(() => toggle.focus())
+    fireEvent.click(toggle)
+    const panel = await screen.findByTestId('thread-session-panel')
+    // Escape in the composer is the composer's: the panel stays.
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Message' }), { key: 'Escape' })
+    expect(screen.getByTestId('thread-session-panel')).toBeInTheDocument()
+    const inside = within(panel).getAllByRole('button')[0]
+    act(() => inside.focus())
+    fireEvent.keyDown(inside, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByTestId('thread-session-panel')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Conversation details' })).toHaveFocus())
   })
   it('keeps drafts on Escape and leaves slash characters in ordinary messages alone', async () => {
     const f = fixture(); render(<ThreadView workspace={f.workspace} />)

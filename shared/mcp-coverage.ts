@@ -22,7 +22,7 @@ export type McpCapability =
   | Base & { forbidden: string }
 
 /** The user's standing rule: these never become MCP tools. Each must be a `forbidden` capability. */
-export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'linear.token', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'git.repo_hook_approval', 'remote.gateway_admin', 'approvals.admin', 'mcp_internal.tool_groups_admin', 'app.open_external'] as const
+export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'linear.token', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'git.repo_hook_approval', 'remote.gateway_admin', 'approvals.admin', 'mcp_internal.tool_groups_admin', 'app.open_external', 'mcp.tool_rules_admin', 'policy.accept_change', 'app.open_in'] as const
 
 /** No tool name or domain action may look like one of these. */
 export const FORBIDDEN_NAME = /approv|permission|access|sign_?in|log_?in|log_?out|token|secret|credential|password|api_?key|trust|host_?key/i
@@ -129,9 +129,9 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   },
   'code.notifications': { label: 'Desktop notification', tools: each('oxespace_workspace_change', 'write', ['notify']), ipc: ['notifications.notify'] },
   'code.local_input': {
-    label: 'Clipboard and voice',
+    label: 'Clipboard',
     excluded: 'The person\'s own input devices.',
-    ipc: ['clipboard.*', 'voice.*', 'browserPreview.captureClipboard']
+    ipc: ['clipboard.*', 'browserPreview.captureClipboard']
   },
 
   // ---- Web Preview --------------------------------------------------------------
@@ -154,8 +154,8 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'git.change': {
     label: 'Stage, commit, branch, fetch, pull, push, checkpoints',
     tools: {
-      ...each('oxespace_git_change', 'write', ['stage', 'stage_all', 'unstage', 'commit', 'create_branch', 'fetch', 'pull', 'create_checkpoint']),
-      ...each('oxespace_git_change', 'confirm', ['checkout', 'push', 'restore_checkpoint', 'delete_checkpoint'])
+      ...each('oxespace_git_change', 'write', ['stage', 'stage_all', 'unstage', 'commit', 'create_branch', 'create_checkpoint']),
+      ...each('oxespace_git_change', 'confirm', ['fetch', 'pull', 'checkout', 'push', 'restore_checkpoint', 'delete_checkpoint'])
     },
     ipc: ['github.fetch', 'github.pullFfOnly', 'github.stageAll', 'github.stageFile', 'github.unstageFile', 'github.commit', 'github.push', 'github.commitAndPush',
       'github.createBranch', 'github.checkoutBranch', 'github.createCheckpoint', 'github.restoreCheckpoint', 'github.deleteCheckpoint']
@@ -219,7 +219,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
       ...each('oxespace_threads_change', 'confirm', ['send', 'steer', 'interrupt', 'configure', 'rename', 'archive']),
       oxespace_thread_create: 'write', oxespace_thread_send: 'write'
     },
-    ipc: ['thread.create', 'thread.send', 'thread.steer', 'thread.interrupt', 'thread.stopTask', 'thread.configure', 'thread.pin', 'thread.updateQueued', 'thread.deleteQueued',
+    ipc: ['thread.create', 'thread.send', 'thread.steer', 'thread.interrupt', 'thread.stopTask', 'thread.configure', 'thread.pin', 'thread.keepAfterPr', 'thread.updateQueued', 'thread.deleteQueued',
       'thread.reorderQueued', 'thread.resumeQueue', 'thread.sendQueuedNow', 'thread.retryTurn']
   },
   'thread.history_edit': {
@@ -374,16 +374,26 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['contextUsage.get', 'agentCredits.get']
   },
   'usage.copilot': { label: 'GitHub Copilot allowance', excluded: 'No agent OXESpace starts runs on Copilot; the panel is for Copilot panes.', ipc: ['copilot.credits'] },
-  'settings.policy': { label: 'Organization policy in force', tools: each('oxespace_settings', 'read', ['policy']), ipc: ['policy.get'] },
+  'settings.policy': { label: 'Organization policy in force', tools: each('oxespace_settings', 'read', ['policy']), ipc: ['policy.get', 'policy.onChanged'] },
+  'policy.accept_change': {
+    label: 'Accept, or review again, a policy file changed outside OXESpace (B7.4)',
+    forbidden: 'Person-only, like an approval: accepting an outside change to the rules is what keeps an agent from widening them.',
+    ipc: ['policy.acceptChange', 'policy.reviewChange']
+  },
   'settings.app': {
     label: 'Appearance, UI scale, app updates, RTK, agent hooks',
     excluded: 'The person\'s app maintenance; installing hooks writes into the agents\' own configuration.',
-    ipc: ['app.*', 'rtk.*', 'agentHooks.*', 'mcpInternal.toolGroups']
+    ipc: ['app.*', 'rtk.*', 'agentHooks.*', 'mcpInternal.toolGroups', 'mcpInternal.toolRules']
   },
   'app.open_external': {
     label: 'Open a link in the system browser or mail app',
     forbidden: 'Person-only, like an approval: the window calls it after the person confirmed the link\'s host.',
     ipc: ['app.openExternal']
+  },
+  'app.open_in': {
+    label: 'Open a project file in an installed editor or show it in its folder (B18)',
+    forbidden: 'For 1.4, person-only: it starts a program on the computer, so an agent cannot reach it.',
+    ipc: ['app.openIn', 'app.openInTargets', 'app.setOpenInPreference']
   },
   'app.activity': {
     label: 'The activity center\'s entries and when the person last looked at them (F30)',
@@ -410,6 +420,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     forbidden: 'Opens a network surface and grants device access.',
     ipc: ['remote.setEnabled', 'remote.startPairing', 'remote.cancelPairing', 'remote.answerPairing', 'remote.revoke', 'remote.rename', 'remote.setDesktopName', 'remote.setPhoneWrite']
   },
+  'mcp.tool_rules_admin': { label: 'Choose, per MCP tool, to run it without asking, ask, or block it', forbidden: 'Approvals and access stay with the person.', ipc: ['mcpInternal.setToolRule'] },
   'settings.agent_audit': {
     label: 'Audit of agent actions; internal MCP status',
     excluded: 'The person\'s review of what agents did. OxeQuery\'s trail is oxespace_db_activity.',
@@ -422,7 +433,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'app.events': {
     label: 'Change notifications sent to the window',
     excluded: 'Events, not actions: agents read the state they describe with the tools above.',
-    ipc: ['*.on*', '*.changed']
+    ipc: ['*.on*', '*.changed', 'remote.pairingFailed']
   },
 
   // ---- future products ----------------------------------------------------------------------

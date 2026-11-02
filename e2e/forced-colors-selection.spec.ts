@@ -171,6 +171,16 @@ for (const base of ['light', 'dark'] as const) {
       await page.emulateMedia({ forcedColors: 'active' })
       expect(await page.evaluate(() => matchMedia('(forced-colors: active)').matches)).toBe(true)
 
+      // The terminal footer's status dot stays visible: its own color is kept and a ring in the text color draws it on any
+      // background the palette forces (visual audit V1: the dots vanished).
+      const dots = await page.locator('[data-testid="terminal-statusbar"] .statusbar-dot').evaluateAll(nodes => nodes.map(node => {
+        const style = getComputedStyle(node)
+        return { adjust: style.getPropertyValue('forced-color-adjust'), outline: style.outlineStyle, width: parseFloat(style.outlineWidth) }
+      }))
+      report[`terminal footer dots (${base})`] = dots
+      expect(dots.length).toBeGreaterThan(0)
+      for (const dot of dots) expect(dot).toEqual({ adjust: 'none', outline: 'solid', width: 1 })
+
       // Settings › Appearance: the mode cards (hand-made radios), Density (SegmentedControl) and the scope rows (pressed toggles).
       await page.getByRole('button', { name: 'Open settings', exact: true }).click()
       const settings = settingsDialog(page)

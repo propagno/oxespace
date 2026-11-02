@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
+import { readFileSync, statSync } from 'node:fs'
+import { readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { load } from 'js-yaml'
 import type { RepoConfig, RepoConfigSnapshot, RepoHookKind } from '../../../../shared/types/repo-config'
@@ -9,6 +9,9 @@ import { hashHookScript, type RepoHookTrust } from './trust'
 /** Reads `<dir>/oxe.yaml`; any I/O or parse problem is "no config", never an error. */
 export async function loadRepoConfig(dir: string): Promise<RepoConfig | null> {
   try {
+    // Only a regular file within the limit is read (a FIFO or device link would hang the read).
+    const info = await stat(join(dir, OXE_YAML_FILE))
+    if (!info.isFile() || info.size > MAX_FILE_BYTES) return null
     const raw = await readFile(join(dir, OXE_YAML_FILE))
     if (raw.length > MAX_FILE_BYTES) return null
     return parseOxeYaml(raw.toString('utf8'))
@@ -34,8 +37,16 @@ export async function readRepoConfigState(dir: string): Promise<{ state: 'missin
 }
 
 /** `loadRepoConfig` for a synchronous caller (the `.mcp.json` sync); same bounds, same "no config" on any problem. */
+/** A cheap identity of `<dir>/oxe.yaml` (size and times), or 'missing': changes whenever the file does. Hot path. */
+export function repoConfigStamp(dir: string): string {
+  try { const info = statSync(join(dir, OXE_YAML_FILE)); return `${info.size}:${info.mtimeMs}:${info.ctimeMs}` } catch { return 'missing' }
+}
+
 export function loadRepoConfigSync(dir: string): RepoConfig | null {
   try {
+    // A FIFO or a link to a device (/dev/zero) would block or never end: only a regular file within the limit is read.
+    const stat = statSync(join(dir, OXE_YAML_FILE))
+    if (!stat.isFile() || stat.size > MAX_FILE_BYTES) return null
     const raw = readFileSync(join(dir, OXE_YAML_FILE))
     return raw.length > MAX_FILE_BYTES ? null : parseOxeYaml(raw.toString('utf8'))
   } catch {
