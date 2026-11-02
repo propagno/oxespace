@@ -5,6 +5,7 @@ import { chmodSync, closeSync, fsyncSync, mkdirSync, openSync, readFileSync, rea
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { recordIncident } from '../services/diagnostics/incident-sink'
+import { testDatabasePath } from '../test-switches'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -19,8 +20,8 @@ const MAX_DB_BACKUPS = 3
 export type AppDatabase = DatabaseHandle
 
 export function resolveAppDatabasePath(): string {
-  if (process.env.OXESPACE_DB_PATH) return process.env.OXESPACE_DB_PATH
-  return join(app.getPath('userData'), 'oxespace.sqlite3')
+  // T50: a packaged build ignores OXESPACE_DB_PATH (test-switches.ts).
+  return testDatabasePath(process.env, app.isPackaged) ?? join(app.getPath('userData'), 'oxespace.sqlite3')
 }
 
 /** Retry the open on TRANSIENT errors (a stale instance or antivirus briefly
