@@ -8,7 +8,6 @@ import * as fs from 'fs';
 import * as fsp from 'fs/promises';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { execFileSync } from 'child_process';
 import {
   Language,
   FileRecord,
@@ -24,6 +23,7 @@ import { validatePathWithinRoot, normalizePath } from '../utils';
 import ignore, { Ignore } from 'ignore';
 import { detectFrameworks } from '../resolution/frameworks';
 import type { ResolutionContext } from '../resolution/types';
+import { execGitSync } from '../../../utils/safe-git';
 
 /**
  * Number of files to read in parallel during indexing.
@@ -192,7 +192,8 @@ export function buildDefaultIgnore(rootDir: string): Ignore {
  * (See issue #193.)
  */
 function collectGitFiles(repoDir: string, prefix: string, files: Set<string>): void {
-  const gitOpts = { cwd: repoDir, encoding: 'utf-8' as const, timeout: 30000, maxBuffer: 50 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] as ['pipe', 'pipe', 'pipe'], windowsHide: true };
+  // OXESpace: through electron/main/utils/safe-git.ts, like every git main runs.
+  const gitOpts = { timeout: 30000, maxBuffer: 50 * 1024 * 1024 };
 
   // Tracked files. --recurse-submodules pulls in files from active submodules,
   // which the index would otherwise represent only as a commit pointer.
@@ -203,7 +204,7 @@ function collectGitFiles(repoDir: string, prefix: string, files: Set<string>): v
   // survive verbatim. Without it git octal-escapes and double-quotes such paths
   // (the core.quotepath default), and the quoted form never matches a real file
   // on disk → those files are silently dropped from the index. (#541)
-  const tracked = execFileSync('git', ['ls-files', '-z', '-c', '--recurse-submodules'], gitOpts);
+  const tracked = execGitSync(repoDir, ['ls-files', '-z', '-c', '--recurse-submodules'], gitOpts);
   for (const rel of tracked.split('\0')) {
     if (rel) files.add(normalizePath(prefix + rel));
   }
@@ -211,7 +212,7 @@ function collectGitFiles(repoDir: string, prefix: string, files: Set<string>): v
   // Untracked files (submodules manage their own untracked state). Embedded git
   // repos surface here as a single "subdir/" entry that git refuses to descend
   // into — recurse into those as their own repos so their source gets indexed.
-  const untracked = execFileSync('git', ['ls-files', '-z', '-o', '--exclude-standard'], gitOpts);
+  const untracked = execGitSync(repoDir, ['ls-files', '-z', '-o', '--exclude-standard'], gitOpts);
   for (const rel of untracked.split('\0')) {
     if (!rel) continue;
     if (rel.endsWith('/')) {
@@ -239,20 +240,12 @@ function getGitVisibleFiles(rootDir: string): Set<string> | null {
     // Check if the project directory is gitignored by a parent repo.
     // When rootDir lives inside a parent git repo that ignores it,
     // `git ls-files` returns nothing — fall back to filesystem walk.
-    const gitRoot = execFileSync(
-      'git',
-      ['rev-parse', '--show-toplevel'],
-      { cwd: rootDir, encoding: 'utf-8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }
-    ).trim();
+    const gitRoot = execGitSync(rootDir, ['rev-parse', '--show-toplevel'], { timeout: 5000 }).trim();
 
     if (path.resolve(gitRoot) !== path.resolve(rootDir)) {
       try {
         // git check-ignore exits 0 if the path IS ignored, 1 if not
-        execFileSync(
-          'git',
-          ['check-ignore', '-q', path.resolve(rootDir)],
-          { cwd: rootDir, encoding: 'utf-8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }
-        );
+        execGitSync(rootDir, ['check-ignore', '-q', path.resolve(rootDir)], { timeout: 5000 });
         // Directory is gitignored by parent repo — fall back to filesystem walk
         return null;
       } catch {
@@ -289,11 +282,7 @@ interface GitChanges {
  */
 function getGitChangedFiles(rootDir: string): GitChanges | null {
   try {
-    const output = execFileSync(
-      'git',
-      ['status', '--porcelain', '--no-renames'],
-      { cwd: rootDir, encoding: 'utf-8', timeout: 10000, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }
-    );
+    const output = execGitSync(rootDir, ['status', '--porcelain', '--no-renames'], { timeout: 10000 });
 
     const modified: string[] = [];
     const added: string[] = [];

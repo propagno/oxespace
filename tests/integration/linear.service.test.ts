@@ -154,7 +154,7 @@ describe('LinearService', () => {
       createBranch: true,
       baseRef: 'origin/main',
       fetchBase: true
-    })
+    }, undefined) // no person: the fetch has no transport (utils/safe-git-person.ts)
     expect(result).toMatchObject({ ok: true, branch: 'eduardo/oxe-42-fix-the-thing' })
   })
 

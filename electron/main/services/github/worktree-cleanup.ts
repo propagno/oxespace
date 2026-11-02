@@ -142,7 +142,7 @@ export class WorktreeCleanup {
     }
 
     const links = await findSharedLinks(tree.path, sharedDirs)
-    const status = await this.deps.gh.spawn('git', ['status', '--porcelain=v2', '--branch', '--untracked-files=all'], tree.path, undefined, 8000)
+    const status = await this.deps.gh.git(['status', '--porcelain=v2', '--branch', '--untracked-files=all'], tree.path, undefined, 8000)
     if (status.status !== 0 || status.error) {
       blockers.add('git-status-error')
     } else {
@@ -160,8 +160,7 @@ export class WorktreeCleanup {
         // matters: otherwise its own ref always "protects" its commits, and a
         // repo without remotes would flag every fresh worktree.
         const exclude = tree.branch ? [`--exclude=${tree.branch}`] : []
-        const count = await this.deps.gh.spawn(
-          'git',
+        const count = await this.deps.gh.git(
           ['rev-list', '--count', 'HEAD', '--not', '--remotes', ...exclude, '--branches'],
           tree.path,
           undefined,
@@ -177,7 +176,7 @@ export class WorktreeCleanup {
     if (lastActivityAt !== null && now - lastActivityAt >= WORKTREE_IDLE_CLEANUP_MS) reasons.push('idle-clean')
 
     if (primaryHead && tree.head && tree.head !== primaryHead) {
-      const merged = await this.deps.gh.spawn('git', ['merge-base', '--is-ancestor', tree.head, primaryHead], tree.path, undefined, 8000)
+      const merged = await this.deps.gh.git(['merge-base', '--is-ancestor', tree.head, primaryHead], tree.path, undefined, 8000)
       if (merged.status === 0) reasons.push('merged')
     } else if (primaryHead && tree.head === primaryHead) {
       reasons.push('merged')
