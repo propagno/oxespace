@@ -30,10 +30,13 @@ export function ThreadEmptyState({ thread, branch, onStarter }: { thread: Conver
   const agent = thread.provider === 'claude' ? 'Claude' : 'Codex'
   const folder = thread.rootPath.split(/[\\/]/).filter(Boolean).at(-1) ?? thread.rootPath
   // What creating its worktree reported (the dialog closed as the conversation opened): shown here until dismissed.
-  const [dismissed, setDismissed] = useState(() => noticesDismissed(thread.id))
+  // The dismissal belongs to one conversation: keyed by its id, so a switch without a remount reads the new one's
+  // (FRONTEND review #487).
+  const [dismissedId, setDismissedId] = useState<string | null>(null)
+  const dismissed = dismissedId === thread.id || noticesDismissed(thread.id)
   const notices = dismissed ? [] : thread.ownedWorktree?.notices ?? []
   const dismiss = (): void => {
-    setDismissed(true)
+    setDismissedId(thread.id)
     try { localStorage.setItem(noticesDismissedKey(thread.id), '1') } catch { /* this window only, then */ }
   }
   return <section className="thread-opening" aria-label={t('opening.label')} data-testid="thread-empty">
