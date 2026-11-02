@@ -69,3 +69,14 @@ describe('F33: project paths in the agent text', () => {
     cleanup()
   })
 })
+
+describe('F33: code inside a link', () => {
+  it('stays plain, never a path button inside an anchor', async () => {
+    const { render, screen, cleanup } = await import('@testing-library/react')
+    const { PathScopeContext } = await import('../src/components/PathMenu/PathLink')
+    const { ThreadMarkdown } = await import('../src/components/Threads/ThreadMarkdown')
+    render(<PathScopeContext.Provider value={{ workspaceId: 'ws', rootPath: '/repo', openInOxespace: () => undefined }}><ThreadMarkdown text={'See [`src/app.ts`](https://example.com/x) and `src/app.ts`.'} /></PathScopeContext.Provider>)
+    expect(screen.getAllByRole('button', { name: 'src/app.ts' })).toHaveLength(1)
+    cleanup()
+  })
+})

@@ -35,10 +35,11 @@ export function ThreadMarkdown({ text }: { text: string }) {
     table: ({ children }) => <div className="thread-table-scroll" role="region" aria-label={t('markdown.table')} tabIndex={0}><table>{children}</table></div>,
     pre: ({ children }) => <InCodeBlockContext.Provider value><CodeBlock>{children}</CodeBlock></InCodeBlockContext.Provider>,
     // F33: inline code that names a project file is a link with the path menu (needs a PathScopeContext above).
-    code: ({ children }) => <InlineCode>{children}</InlineCode>,
-    a: ({ href, children }) => href && parseExternalUrl(href)
+    code: ({ children, className }) => <InlineCode className={className}>{children}</InlineCode>,
+    // Code inside a link stays plain: a path button inside an anchor would be nested interactive content (FRONTEND #470).
+    a: ({ href, children }) => <InCodeBlockContext.Provider value>{href && parseExternalUrl(href)
       ? <ExternalAnchor href={href}>{children}</ExternalAnchor>
-      : <span className="thread-markdown-reference" title={href}>{children}</span>,
+      : <span className="thread-markdown-reference" title={href}>{children}</span>}</InCodeBlockContext.Provider>,
     img: ({ alt }) => <span className="thread-markdown-reference">{alt ? t('markdown.imageAlt', { alt }) : t('markdown.image')}</span>
   }}>{text}</Markdown></div>
 }

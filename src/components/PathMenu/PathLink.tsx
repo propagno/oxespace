@@ -12,7 +12,7 @@ export interface PathScope {
 
 export const PathScopeContext = createContext<PathScope | null>(null)
 
-/** Inside a fenced block: code there is never a link (only inline `code` is). */
+/** Inside a fenced block or a link: code there is never a path link (only plain inline `code` is). */
 export const InCodeBlockContext = createContext(false)
 
 /**
@@ -20,12 +20,12 @@ export const InCodeBlockContext = createContext(false)
  * opens it in OXESpace's editor at the line, right click or Shift+F10 opens the path menu. Anything else, and any
  * code outside a project, stays plain code.
  */
-export function InlineCode({ children }: { children?: ReactNode }): ReactElement {
+export function InlineCode({ children, className }: { children?: ReactNode; className?: string }): ReactElement {
   const scope = useContext(PathScopeContext)
   const inBlock = useContext(InCodeBlockContext)
   const text = typeof children === 'string' ? children : Array.isArray(children) && children.every(part => typeof part === 'string') ? children.join('') : null
   const path = scope && !inBlock && text ? parseProjectPath(text, scope.rootPath) : null
-  if (!scope || !path) return <code>{children}</code>
+  if (!scope || !path) return <code className={className}>{children}</code>
   return <PathCode scope={scope} path={path} text={text!} />
 }
 
