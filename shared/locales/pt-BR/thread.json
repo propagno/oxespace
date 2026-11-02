@@ -1007,6 +1007,7 @@
     "closed": "Pedido encerrado; resultado indisponível"
   },
   "panels": {
+    "session": "Detalhes da conversa",
     "terminal": "Terminal",
     "changes": "Alterações",
     "browser": "Navegador",
@@ -1216,6 +1217,113 @@
     "indexing": "Indexando… {{files}} arquivos até agora",
     "indexed": "{{files}} arquivos indexados",
     "failed": "Não foi possível alterar a busca semântica."
+  },
+  "sessionPanel": {
+    "sections": {
+      "environment": "Ambiente",
+      "context": "Contexto",
+      "tools": "Ferramentas e MCP",
+      "outputs": "Saídas",
+      "background": "Em segundo plano"
+    },
+    "reorder": {
+      "list": "Seções dos detalhes da conversa",
+      "menu": "Mover a seção {{section}}",
+      "handle": "Arraste para mover a seção {{section}}",
+      "up": "Mover para cima",
+      "down": "Mover para baixo",
+      "top": "Mover para o topo",
+      "bottom": "Mover para o fim",
+      "reset": "Voltar à ordem padrão",
+      "moved": "{{section}} foi para a posição {{position}} de {{total}}",
+      "wasReset": "Seções de volta à ordem padrão"
+    },
+    "more_one": "mais {{count}}",
+    "more_many": "mais {{count}}",
+    "more_other": "mais {{count}}",
+    "environment": {
+      "project": "Projeto",
+      "folder": "Pasta",
+      "worktree": "Worktree",
+      "worktreeOwn": "Worktree própria desta conversa",
+      "worktreeMoved": "Worktree para a qual o agente mudou",
+      "worktreeNone": "Nenhuma, a pasta do projeto",
+      "branch": "Branch",
+      "branchUnknown": "Não é um checkout Git",
+      "outside": "Fora da pasta do projeto",
+      "agent": "Agente",
+      "model": "Modelo",
+      "modelDefault": "O padrão do agente"
+    },
+    "context": {
+      "meter": "Janela de contexto",
+      "detail": "{{used}} de {{total}} · {{percent}}%",
+      "breakdown": "O que ocupa o contexto",
+      "category": "Categoria",
+      "tokens": "Tokens",
+      "share": "Parte da janela",
+      "buckets": {
+        "messages": "Mensagens",
+        "tools": "Ferramentas",
+        "mcp": "MCP",
+        "system": "Sistema",
+        "skills": "Skills"
+      },
+      "unattributed": "Outros",
+      "total": "Em uso",
+      "free": "Livre",
+      "reserved": "Reservado para compactar",
+      "notItemized": "O {{provider}} informa só o total, não o que ocupa o contexto.",
+      "deferred": "Mais {{tokens}} em ferramentas carregadas só quando o agente pede.",
+      "autoCompact": "Compacta sozinho em {{tokens}}.",
+      "cost_one": "Custo estimado até agora: {{cost}} em {{count}} turno.",
+      "cost_many": "Custo estimado até agora: {{cost}} em {{count}} turnos.",
+      "cost_other": "Custo estimado até agora: {{cost}} em {{count}} turnos.",
+      "costReported_one": "Custo informado até agora: {{cost}} em {{count}} turno.",
+      "costReported_many": "Custo informado até agora: {{cost}} em {{count}} turnos.",
+      "costReported_other": "Custo informado até agora: {{cost}} em {{count}} turnos.",
+      "capturedAt": "Informado às {{time}}.",
+      "empty": "Ainda sem relatório de contexto",
+      "emptyHint": "O agente informa junto com a primeira resposta.",
+      "compact": "Compactar",
+      "compactHint": "Resume a conversa até aqui para liberar contexto.",
+      "compactBusy": "Espere o agente terminar para compactar.",
+      "compactEmpty": "Ainda não há o que compactar."
+    },
+    "tools": {
+      "mcp": "Servidores MCP",
+      "mcpUnknown": "O agente ainda não informou os servidores MCP. Eles aparecem quando a sessão começa.",
+      "manage": "Gerenciar servidores MCP",
+      "used": "Ferramentas usadas nesta conversa",
+      "calls_one": "{{count}} chamada",
+      "calls_many": "{{count}} chamadas",
+      "calls_other": "{{count}} chamadas",
+      "failed_one": "{{count}} falhou",
+      "failed_many": "{{count}} falharam",
+      "failed_other": "{{count}} falharam",
+      "none": "Nenhuma ferramenta usada ainda."
+    },
+    "outputs": {
+      "files": "Arquivos alterados",
+      "summary_one": "{{count}} arquivo",
+      "summary_many": "{{count}} arquivos",
+      "summary_other": "{{count}} arquivos",
+      "none": "Nenhum arquivo alterado ainda.",
+      "review": "Revisar alterações",
+      "previews": "Prévias",
+      "noPreviews": "Nenhuma página aberta no navegador desta conversa.",
+      "openBrowser": "Abrir o navegador"
+    },
+    "background": {
+      "agents_one": "{{count}} agente rodando",
+      "agents_many": "{{count}} agentes rodando",
+      "agents_other": "{{count}} agentes rodando",
+      "tasks_one": "{{count}} tarefa rodando",
+      "tasks_many": "{{count}} tarefas rodando",
+      "tasks_other": "{{count}} tarefas rodando",
+      "none": "Nada rodando em segundo plano.",
+      "open": "Abrir atividade em segundo plano"
+    }
   },
   "sidebar": {
     "age": {
