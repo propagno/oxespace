@@ -57,7 +57,8 @@ export class PreviewAutomation {
         const panels = [...document.querySelectorAll('.web-preview-panel[data-browser-owner]')].filter(e => e.dataset.browserOwner === ${JSON.stringify(key)} && e.dataset.agentAutomation === 'true' && e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().height > 0)
         return panels.length === 1
       })()`)).catch(() => false)
-      if (found) return window
+      // Main is the authority (T43): the window's flag shows the panel, main's grant lets the agent in.
+      if (found && browserPreviewService.hasAgentAccess(window, key)) return window
     }
     throw new Error('Open this workspace Web Preview and enable Agent documentation access first')
   }
