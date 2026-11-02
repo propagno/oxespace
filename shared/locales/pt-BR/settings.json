@@ -94,6 +94,12 @@
       "cleared_one": "{{count}} site esquecido",
       "cleared_other": "{{count}} sites esquecidos",
       "cleared_many": "{{count}} sites esquecidos"
+    },
+    "externalEditor": {
+      "label": "Editor externo",
+      "hint": "O \"Abrir em…\" mostra este editor primeiro, e Ctrl+Shift+clique num caminho abre o arquivo nele.",
+      "none": "Nenhum editor externo foi encontrado neste computador (VS Code, Cursor ou Zed).",
+      "auto": "Automático"
     }
   },
   "appearance": {
