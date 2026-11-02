@@ -43,6 +43,7 @@ function ToastView({ item, paused, close }: { item: ToastItem; paused: boolean; 
   const onKeyDown = (event: KeyboardEvent): void => {
     if (event.key !== 'Escape') return
     event.preventDefault(); event.stopPropagation()
+    item.onDismiss?.()
     close(item.id, ref.current)
   }
   // Failures are assertive; everything else is spoken by the polite region around the stack.
@@ -54,7 +55,7 @@ function ToastView({ item, paused, close }: { item: ToastItem; paused: boolean; 
       <span className="sr-only">{spoken > 1 ? i18n.t('ui.toast.repeated', { count: spoken }) : ''}</span>
       {item.action && <div className={styles.toastActions}><Button size="sm" onClick={() => { item.action!.run(); dismissToast(item.id) }}>{item.action.label}</Button></div>}
     </div>
-    <IconButton label={i18n.t('ui.toast.dismiss')} icon={<X size={14} />} size="sm" onClick={() => close(item.id, ref.current)} />
+    <IconButton label={i18n.t('ui.toast.dismiss')} icon={<X size={14} />} size="sm" onClick={() => { item.onDismiss?.(); close(item.id, ref.current) }} />
   </div>
 }
 

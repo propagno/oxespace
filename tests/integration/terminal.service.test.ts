@@ -69,6 +69,30 @@ describe('TerminalManager', () => {
       expect(pty.spawn).toHaveBeenCalledWith('codex', ['resume', id, '--no-alt-screen'], expect.anything())
     } finally { manager.stopAll(); db.close() }
   })
+  test('Windows terminals use the bundled ConPTY, whose kill never forks a helper (B13); others do not ask for it', async () => {
+    for (const [platform, expected] of [['win32', true], ['linux', undefined]] as const) {
+      const db = openInMemoryDatabase()
+      const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layout: '1x1', autoStart: false })
+      const pty = createFakePtyModule()
+      const manager = new TerminalManager(db, { pty, platform })
+      try {
+        await manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id, agentCommand: 'codex', disableRtk: true })
+        expect((pty.spawn.mock.calls[0][2] as { useConptyDll?: boolean }).useConptyDll).toBe(expected)
+      } finally { manager.stopAll(); db.close() }
+    }
+  })
+  test('shells never inherit ELECTRON_RUN_AS_NODE, under any casing (B13)', async () => {
+    const db = openInMemoryDatabase()
+    const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layout: '1x1', autoStart: false })
+    const pty = createFakePtyModule()
+    const manager = new TerminalManager(db, { pty, platform: 'linux', env: { PATH: '/bin', ELECTRON_RUN_AS_NODE: '1', electron_run_as_node: '1', KEEP: 'yes' } })
+    try {
+      await manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id, agentCommand: 'my-agent', disableRtk: true })
+      const env = (pty.spawn.mock.calls[0][2] as { env: Record<string, string> }).env
+      expect(Object.keys(env).filter(key => key.toUpperCase() === 'ELECTRON_RUN_AS_NODE')).toEqual([])
+      expect(env.KEEP).toBe('yes')
+    } finally { manager.stopAll(); db.close() }
+  })
   test('records an agent that cannot start as an incident, with only its name hashed (B8.3)', async () => {
     const { connectIncidentJournal, incidentSubject } = await import('../../electron/main/services/diagnostics/incident-sink')
     const recorded: Array<[string, string | undefined]> = []
@@ -83,46 +107,7 @@ describe('TerminalManager', () => {
       await vi.waitFor(() => expect(recorded).toEqual([['incident.agent.startFailed', incidentSubject('claude')]]))
     } finally { manager.stopAll(); db.close(); connectIncidentJournal(null) }
   })
-  test('reopens the recorded agent session on the first start after the app opens, only when asked and only once', async () => {
-    const { PaneAgentSessions } = await import('../../electron/main/services/agent-state/pane-sessions')
-    const db = openInMemoryDatabase()
-    const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layout: '1x2', autoStart: false })
-    const [agentPane, shellPane] = workspace.panes
-    const sessions = new PaneAgentSessions(db)
-    sessions.record(agentPane.id, 'claude', 'abc-123')
-    sessions.record(shellPane.id, 'codex', 'def-456')
-    sessions.record(agentPane.id, 'claude', 'bad id; rm -rf')
-    const pty = createFakePtyModule()
-    const manager = new TerminalManager(db, { pty, platform: 'linux', resumeSession: (paneId, wanted) => sessions.take(paneId, wanted) })
-    try {
-      await manager.start({ workspaceId: workspace.id, paneId: agentPane.id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
-      expect(pty.spawn).toHaveBeenLastCalledWith('claude', ['--resume', 'abc-123'], expect.anything())
-      manager.stop({ paneId: agentPane.id })
-      // A later start in the same run is the person's choice: it starts fresh.
-      await manager.start({ workspaceId: workspace.id, paneId: agentPane.id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
-      expect(pty.spawn).toHaveBeenLastCalledWith('claude', [], expect.anything())
-      // Not asked: the shell pane starts plain.
-      await manager.start({ workspaceId: workspace.id, paneId: shellPane.id, disableRtk: true })
-      expect(pty.instances.at(-1)!.write).not.toHaveBeenCalled()
-    } finally { manager.stopAll(); db.close() }
-  })
-  test('types the resume command into a shell pane where the agent was started by hand', async () => {
-    vi.useFakeTimers()
-    const { PaneAgentSessions } = await import('../../electron/main/services/agent-state/pane-sessions')
-    const db = openInMemoryDatabase()
-    const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layout: '1x1', autoStart: false })
-    const sessions = new PaneAgentSessions(db)
-    sessions.record(workspace.panes[0].id, 'codex', 'def-456')
-    const pty = createFakePtyModule()
-    const manager = new TerminalManager(db, { pty, platform: 'linux', resumeSession: (paneId, wanted) => sessions.take(paneId, wanted) })
-    try {
-      await manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id, disableRtk: true, resumeAgent: true })
-      const instance = pty.instances.at(-1)!
-      instance.emitData('$ ')
-      await vi.advanceTimersByTimeAsync(900)
-      expect(instance.write).toHaveBeenCalledWith('codex resume def-456 --no-alt-screen\r')
-    } finally { vi.useRealTimers(); manager.stopAll(); db.close() }
-  })
+  // The native session resume of a pane (B17) is tested in pane-resume.test.ts.
   test('a stalled RTK download does not hold the first terminal back', async () => {
     const db = openInMemoryDatabase()
     const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layout: '1x1', autoStart: false })

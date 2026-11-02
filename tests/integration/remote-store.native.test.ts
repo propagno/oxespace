@@ -30,7 +30,7 @@ describe('remote store (migration 088)', () => {
   test('settings default to port 47321 and nothing stored; the audit is append-only and exported', () => {
     const db = openInMemoryDatabase()
     const store = new RemoteStore(db, () => 42)
-    expect(store.settings()).toEqual({ port: 47_321, certificateDer: null, certificateKey: null, desktopName: null })
+    expect(store.settings()).toEqual({ port: 47_321, certificateDer: null, certificateKey: null, desktopName: null, listenedBefore: false })
     store.savePort(50_000)
     store.saveCertificate({ der: Buffer.from([1]), encryptedKey: Buffer.from([2]) })
     store.saveDesktopName('Desk')
@@ -39,5 +39,22 @@ describe('remote store (migration 088)', () => {
     expect(() => db.prepare("UPDATE remote_audit SET outcome = 'changed'").run()).toThrow('append-only')
     expect(auditJsonl(db)).toContain('"source":"remote"')
     expect(store.pruneAudit(0)).toBe(0) // written at "now": nothing is older than now
+  })
+
+  test('listenedBefore: off until marked, then on for good, whatever is saved next', () => {
+    const db = openInMemoryDatabase()
+    const store = new RemoteStore(db, () => 7)
+    expect(store.settings().listenedBefore).toBe(false)
+    store.markListened()
+    expect(store.settings().listenedBefore).toBe(true)
+    store.markListened()
+    store.savePort(50_001)
+    store.saveDesktopName(null)
+    store.saveCertificate({ der: Buffer.from([1]), encryptedKey: Buffer.from([2]) })
+    expect(new RemoteStore(db).settings()).toMatchObject({ port: 50_001, listenedBefore: true })
+    // Marked before any other setting was saved: the one row is created with it.
+    const fresh = new RemoteStore(openInMemoryDatabase())
+    fresh.markListened()
+    expect(fresh.settings()).toMatchObject({ port: 47_321, listenedBefore: true })
   })
 })

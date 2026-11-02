@@ -108,13 +108,13 @@ jobs:
           done
 
       - name: Check out the app under test
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ steps.refs.outputs.product_ref }}
           persist-credentials: false
 
       - name: Check out the spec (not run, only copied)
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ steps.refs.outputs.spec_ref }}
           path: .acceptance-spec-src
@@ -151,8 +151,10 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
+          # Ubuntu 24.04 renamed libasound2 (64-bit time_t); 22.04 has only the old name.
+          alsa=libasound2t64; apt-cache show "$alsa" >/dev/null 2>&1 || alsa=libasound2
           sudo apt-get install -y --no-install-recommends \
-            xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libasound2 \
+            xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" \
             libxshmfence1 libnotify4
 
       - name: Install dependencies without lifecycle scripts

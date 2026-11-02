@@ -11,6 +11,7 @@ import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { PaneBranchBadge } from '../Workspace/PaneBranchBadge'
 import { Button, Dialog } from '../../ui'
 import paneMenu from './PaneMenu.module.css'
+import { paneMenuPlacement, statusBarFloor, type PaneMenuPlacement } from './paneMenuPlacement'
 import { DetailList } from '../Navigation/DetailList'
 import { formatDateTime } from '../../utils/formatTime'
 import { i18n } from '../../i18n'
@@ -103,9 +104,8 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
     void window.oxe.terminal.status(pane.id).then(value => { if (active) setSessionDetails(value) }).catch(() => { if (active) setSessionDetailsError(tc('paneMenu.detailsFailed')) })
     return () => { active = false }
   }, [detailsOpen, pane.id, terminalState.status])
-  const [menuHeight, setMenuHeight] = useState(320)
-  // Fixed placement so the menu is not clipped by the pane it belongs to.
-  const [menuAnchor, setMenuAnchor] = useState<{ top: number; right: number }>({ top: 0, right: 0 })
+  // Fixed placement so the menu is not clipped by the pane it belongs to, and kept above the status bar.
+  const [menuPlacement, setMenuPlacement] = useState<PaneMenuPlacement>({ top: 0, right: 0, maxHeight: 320 })
   const menuRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -268,15 +268,14 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
               onClick={(e) => {
                 e.stopPropagation()
                 const trigger = e.currentTarget.getBoundingClientRect()
-                setMenuAnchor({ top: trigger.bottom + 6, right: Math.max(8, window.innerWidth - trigger.right) })
-                setMenuHeight(Math.max(120, window.innerHeight - trigger.bottom - 20))
+                setMenuPlacement(paneMenuPlacement(trigger, { width: window.innerWidth, height: window.innerHeight }, statusBarFloor()))
                 setMenuOpen((open) => !open)
               }}
             >
               <MoreHorizontal size={12} aria-hidden="true" />
             </button>
             {menuOpen ? (
-              <div className="pane-actions-popover" role="menu" data-testid="pane-actions-menu" style={{ position: 'fixed', top: menuAnchor.top, right: menuAnchor.right, left: 'auto', maxHeight: menuHeight, overflowY: 'auto', width: 'min(260px, 75vw)', maxWidth: 'calc(100vw - 32px)' }}>
+              <div className="pane-actions-popover" role="menu" data-testid="pane-actions-menu" data-placement={menuPlacement.bottom === undefined ? 'below' : 'above'} style={{ position: 'fixed', top: menuPlacement.top ?? 'auto', bottom: menuPlacement.bottom ?? 'auto', right: menuPlacement.right, left: 'auto', maxHeight: menuPlacement.maxHeight, overflowY: 'auto', width: 'min(260px, 75vw)', maxWidth: 'calc(100vw - 32px)' }}>
                 {isTerminalPane ? (
                   <>
                     <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={event => { event.stopPropagation(); runMenuAction(() => setDetailsOpen(true)) }}><Info size={14} aria-hidden="true" />{tc('paneMenu.details')}</button>

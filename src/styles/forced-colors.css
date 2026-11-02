@@ -77,8 +77,9 @@
   [data-status-dot='idle'] { background: GrayText; }
   [data-status-dot='running'] { background: Highlight; }
   :is([data-status-dot='attention'], [data-status-dot='danger']) { box-sizing: border-box; background: Canvas; border: 2px solid CanvasText; }
-  /* Older dots keep their own colors: each one carries a label, and the colors are what the user learned. */
-  :is(.pane-status-dot, .pane-activity-dot, .pane-unread-dot, .session-error-dot, .session-starting-dot, .thread-terminal-dot, .thread-subagent-dot, .oxe-health-dot, .app-update-dot, .ws-group-dot, .oq-dot) { forced-color-adjust: none; }
+  /* Older dots keep their own colors: each one carries a label, and the colors are what the user learned. A ring in
+     the text color keeps each dot visible on any background the palette forces (the terminal's footer dot was lost). */
+  :is(.pane-status-dot, .pane-activity-dot, .pane-unread-dot, .session-error-dot, .session-starting-dot, .thread-terminal-dot, .thread-subagent-dot, .oxe-health-dot, .app-update-dot, .ws-group-dot, .oq-dot, .statusbar-dot) { forced-color-adjust: none; outline: 1px solid CanvasText; }
 
   /* Charts: meters, usage bars and the usage ring draw the filled part in the highlight color on an outlined track. */
   [role='meter'], .thread-usage-bar { outline: 1px solid CanvasText; }

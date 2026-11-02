@@ -2,7 +2,7 @@
 
 > O OxeChat organiza muitas conversas e o trabalho dentro delas, e tudo continua no lugar depois de reiniciar.
 
-<!-- Sobre esta página: Fatia S3 · Quem preenche: FRONTEND · Itens: F13, F15, F14, F30, F17, B1.3, B1.4, B19, B20 · parcial: escrita a partir do que está na main em 31/10 (seções e menu da conversa, F13; chat lateral, F15a). Conversas aninhadas e coordenadora (#287/#290, #219), painel da sessão (F14, #227), atividade (F30, #298) e arquivar quando o PR fecha entram quando forem para a main. -->
+<!-- Sobre esta página: Fatia S3 · Quem preenche: FRONTEND · Itens: F13, F15a, F14, F30, F17, B19, B20 (B1.3 conversas aninhadas e B1.4 coordenadora foram para a 1.4.1, corte de escopo do usuário) · parcial: escrita a partir do que está na main em 31/10 (seções e menu da conversa, F13; chat lateral, F15a). Painel da sessão (F14, #227), atividade (F30, #298) e arquivar quando o PR fecha entram quando forem para a main. -->
 
 Também em: [en](../en/03-conversations.md)
 
@@ -11,8 +11,6 @@ Também em: [en](../en/03-conversations.md)
 - Agrupar conversas em seções
 - Usar o menu de uma conversa
 - Chat lateral sobre uma conversa
-- Conversas que um agente iniciou (aninhadas)
-- A coordenadora do projeto e a visão do projeto
 - Painel da sessão: contexto, ferramentas e custo
 - Atividade: o que aconteceu enquanto você estava fora
 - Arquivar a conversa quando o PR dela fecha
@@ -61,18 +59,7 @@ O chat lateral responde perguntas sobre a conversa sem mexer nela.
 3. A gaveta mostra o **Custo até agora** das perguntas.
 4. Para fechar, pressione `Ctrl+.` de novo ou use o botão de fechar da gaveta.
 
-### Conversas que um agente iniciou (aninhadas)
-
-<!-- A PREENCHER quando #287/#290 entrarem: conversas iniciadas por um agente aparecem sob a conversa principal; a
-seção acompanha a conversa principal ("A seção acompanha a conversa principal"). -->
-
-1. …
-
-### A coordenadora do projeto e a visão do projeto
-
-<!-- A PREENCHER quando o #219 entrar (coordenadora unificada com a Equipe do projeto). -->
-
-1. …
+<!-- 1.4.1: "Conversas que um agente iniciou (aninhadas)" e "A coordenadora do projeto e a visão do projeto" (B1.3/B1.4, #287/#290) voltam com os PRs delas. -->
 
 ### Painel da sessão: contexto, ferramentas e custo
 
@@ -99,7 +86,7 @@ novo. -->
 - Excluir uma seção nunca exclui uma conversa.
 - O chat lateral não envia nada à conversa principal, e a cópia é descartada quando você fecha.
 - Excluir uma conversa mantém a sessão do provedor e os arquivos do projeto.
-<!-- Entra com o #219: "A coordenadora do projeto nunca responde um pedido nem uma aprovação." -->
+<!-- 1.4.1, com o B1.4: "A coordenadora do projeto nunca responde um pedido nem uma aprovação." -->
 
 ## Se algo der errado
 
@@ -107,12 +94,12 @@ novo. -->
 - **"Use de 1 a … caracteres, sem quebras de linha nem caracteres de controle."** Encurte o nome ou tire as quebras de
   linha.
 - **"Esta seção não existe mais."** Ela foi excluída em outro lugar; a lista se atualiza.
-- **"Não foi possível atualizar as seções."** Tente de novo. Se continuar, relate em **Ajuda › Relatar um problema**.
+- **"Não foi possível atualizar as seções."** Tente de novo. Se continuar, relate em **Relatar um problema…** (o botão de menu ao lado do logo › **Ajuda**, ou a paleta de comandos).
 - **"O chat lateral não abriu. Tente de novo."** Feche a gaveta e abra de novo com `Ctrl+.`.
 - **"A pergunta não chegou ao chat lateral. Feche e abra de novo."** A cópia parou: feche e abra o chat lateral. A
   conversa principal não é afetada.
 
-<!-- A PREENCHER com as fatias que faltam (#287/#290, #219, #227, #298). -->
+<!-- A PREENCHER com as fatias que faltam (#227, #298). -->
 
 ## No celular
 

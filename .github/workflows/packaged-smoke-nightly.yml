@@ -1,0 +1,82 @@
+name: Nightly packaged smoke
+
+# Builds the installers from main every night and runs the packaged-app E2E on Windows and Linux, publishing nothing
+# (SRE-03, docs/ci-cd.md). The release path had gone untested for a week and ~100 merges before the 1.4 RC; #385
+# (source maps inside app.asar) was found only by the first packaged run in weeks. This finds packaging breakage
+# within a day of the merge that caused it, not on release day.
+#
+# It dispatches ci.yml with packaged_smoke_only=true on main's current commit, waits for that run, and on failure
+# opens an issue (or comments on the open one). The commit is passed as `branch`, so the run gets a concurrency
+# group of its own and is never replaced by the merge train's dispatches on main, which wait in that group.
+
+on:
+  schedule:
+    # 05:30 UTC = 02:30 in Brasília: the merge train and the team are quiet.
+    - cron: "30 5 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: nightly-packaged-smoke
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  smoke:
+    name: Packaged smoke on main
+    runs-on: ubuntu-24.04
+    # The dispatched run takes about an hour (unit, E2E, then packaging on both platforms); this job only waits.
+    timeout-minutes: 150
+    permissions:
+      actions: write
+      issues: write
+    steps:
+      - name: Dispatch and wait
+        id: run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          sha=$(gh api "repos/$GH_REPO/commits/main" --jq .sha)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          gh workflow run ci.yml --ref main -f packaged_smoke_only=true -f branch="$sha"
+          # The dispatch returns no run id: find the run by its title, which names the commit (ci.yml run-name).
+          id=""
+          for _ in $(seq 1 30); do
+            sleep 10
+            id=$(gh run list -w ci.yml -e workflow_dispatch -L 20 --json databaseId,displayTitle \
+              --jq "[.[] | select(.displayTitle == \"Packaged smoke · $sha\")][0].databaseId // empty")
+            [ -n "$id" ] && break
+          done
+          if [ -z "$id" ]; then echo "::error::the dispatched packaged-smoke run for $sha never appeared"; exit 1; fi
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          echo "Watching https://github.com/$GH_REPO/actions/runs/$id"
+          gh run watch "$id" --interval 60 --exit-status > /dev/null
+
+      - name: Open or update the issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ steps.run.outputs.sha }}
+          RUN_ID: ${{ steps.run.outputs.id }}
+        run: |
+          set -euo pipefail
+          title="Nightly packaged smoke failing on main"
+          target="https://github.com/$GH_REPO/actions/runs/${RUN_ID:-$GITHUB_RUN_ID}"
+          body="The packaged smoke failed on main at \`${SHA:-unknown}\`: $target. Installers from this commit must not be released until it passes again (docs/ci-cd.md, Before publishing a release)."
+          existing=$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then gh issue comment "$existing" --body "$body"; else gh issue create --title "$title" --body "$body"; fi
+
+      - name: Close the issue when it passes again
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ steps.run.outputs.id }}
+        run: |
+          set -euo pipefail
+          for number in $(gh issue list --state open --search 'in:title "Nightly packaged smoke failing on main"' --json number --jq '.[].number'); do
+            gh issue close "$number" --comment "The packaged smoke passes on main again: https://github.com/$GH_REPO/actions/runs/$RUN_ID"
+          done

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { i18n } from '../i18n'
 import type {
   BackgroundJob,
   BackgroundJobOutputEvent,
@@ -184,7 +185,7 @@ export function recordJobOutcome(previous: BackgroundJob | undefined, job: Backg
     source: 'background', id: job.id, kind: failed ? 'failed' : 'finished',
     target: { type: 'background', workspaceId: job.workspaceId, jobId: job.id },
     title: job.label || job.command,
-    detail: failed ? `Background job failed${job.exitCode !== null ? ` with exit code ${job.exitCode}` : ''}.` : 'Background job finished.'
+    detail: failed ? (job.exitCode !== null ? i18n.t('background.jobFailedCode', { ns: 'code', code: job.exitCode }) : i18n.t('background.jobFailed', { ns: 'code' })) : i18n.t('background.jobFinished', { ns: 'code' })
   })
 }
 

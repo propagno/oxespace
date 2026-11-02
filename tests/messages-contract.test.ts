@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import en from '../shared/locales/en/main.json'
 import ptBR from '../shared/locales/pt-BR/main.json'
-import { isMainMessage, isMessageCode, mainMessage, MESSAGE_CODES, messageKey, messageValues, type MessageCode } from '../shared/messages'
+import { isMainMessage, isMessageCode, MAIN_MESSAGE_ERROR_TAG, mainMessage, MESSAGE_CODES, messageFromError, messageKey, messageValues, type MessageCode } from '../shared/messages'
 import { ACTIVITY_REFUSALS } from '../shared/types/activity'
 import { APPROVAL_REFUSALS } from '../shared/types/approvals'
+import { REMOTE_PAIRING_FAILURE_REASONS } from '../shared/types/remote'
+import { MCP_TOOL_RULE_REFUSAL_CODES } from '../shared/types/mcp-tools'
 import { THREAD_PENDING_REFUSALS } from '../shared/types/thread'
 import { THREAD_SECTIONS_REFUSALS } from '../shared/types/thread-sections'
 import { WORKSPACE_ROOT_REFUSALS } from '../shared/types/workspace'
@@ -17,6 +19,9 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'mcp.quarantine.added': ['tools'],
   'mcp.quarantine.removed': ['tools'],
   'mcp.quarantine.configChanged': [],
+  'mcp.toolRule.confirmLevel': ['tool'],
+  'mcp.toolRule.locked': ['tool'],
+  'mcp.toolRule.invalidPolicy': [],
   'thread.request.notPending': [],
   'thread.request.staleGeneration': [],
   'thread.request.alreadyResponding': [],
@@ -25,11 +30,20 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'thread.protectedConfig.instructions': ['path'],
   'thread.protectedConfig.mcp': ['path'],
   'thread.protectedConfig.hooks': ['path'],
+  'thread.protectedConfig.git': ['path'],
+  'thread.protectedConfig.policy': ['path'],
   'thread.protectedConfig.warning': [],
   'thread.protectedConfig.rewritesTracked': ['command'],
   'app.connectivity.offline': [],
+  'ipc.sender.refused': [],
   'thread.side.unavailable': [],
   'thread.side.noSession': [],
+  'thread.side.closed': [],
+  'thread.side.invalidInput': [],
+  'thread.invalidInput': [],
+  'thread.notFound': [],
+  'thread.agent.scriptUnsupported': [],
+  'thread.agent.nativeMissing': [],
   'activity.invalid': [],
   'activity.tooMany': ['max'],
   'activity.titleTooLong': ['max'],
@@ -44,10 +58,19 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'thread.sections.nameHidden': [],
   'thread.sections.nameDuplicate': ['name'],
   'thread.sections.unknownWorkspace': [],
+  'agents.resume.sessionMissing': [],
+  'agents.resume.otherAgent': [],
+  'agents.resume.launchOverride': [],
+  'agents.resume.blocked': [],
+  'agents.resume.disabled': [],
+  'agents.resume.startedFresh': [],
+  'agents.resume.failedToLoad': [],
+  'agents.session.notFound': [],
   'incident.window.crashed': [],
   'incident.window.rendererGone': [],
   'incident.ipc.handlerFailed': [],
   'incident.ipc.validationRejected': [],
+  'incident.ipc.senderRefused': [],
   'incident.agent.startFailed': [],
   'incident.mcp.quarantined': [],
   'incident.mcp.toolGroupOff': [],
@@ -86,8 +109,60 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'mcp.toolGroups.inlineThread': [],
   'mcp.toolGroups.unsafeEdit': [],
   'project.file.changedMeanwhile': ['file'],
+  'approvals.title.policyChange': [],
+  'approvals.title.policyChangeUser': [],
+  'approvals.title.policyChangeManaged': [],
+  'approvals.summary.policyChange.widened': ['file'],
+  'approvals.summary.policyChange.deleted': ['file'],
+  'approvals.summary.policyChange.invalid': ['file'],
+  'approvals.summary.policyChange.tooLarge': ['file', 'max'],
+  'approvals.summary.policyChange.worktree': ['file', 'worktree'],
+  'approvals.summary.policyChange.partial': ['file'],
+  'approvals.option.allowPolicy': [],
+  'approvals.textLabel.policyChange': [],
+  'approvals.note.policy.denyRemoved': ['rule'],
+  'approvals.note.policy.allowAdded': ['rule'],
+  'approvals.note.policy.groupRaised': ['from', 'group', 'to'],
+  'approvals.note.policy.ruleEdited': ['from', 'to'],
+  'approvals.note.policy.denyAdded.applied': ['rule'],
+  'approvals.note.policy.denyAdded.waiting': ['rule'],
+  'approvals.note.policy.allowRemoved.applied': ['rule'],
+  'approvals.note.policy.allowRemoved.waiting': ['rule'],
+  'approvals.note.policy.groupLowered': ['from', 'group', 'to'],
+  'approvals.note.policy.reordered': ['count'],
+  'approvals.note.policy.more': ['count'],
+  'approvals.note.policy.notSplit': [],
+  'approvals.note.policy.stillAccepted': [],
+  'approvals.note.policy.allowEffect': [],
+  'approvals.note.policy.noText': [],
+  'approvals.note.policy.problem': ['problem'],
+  'approvals.note.policy.usable': ['tools'],
+  'approvals.note.policy.usableMore': ['more', 'tools'],
+  'approvals.note.policy.committedDeny': ['rule'],
+  'approvals.note.policy.committedOff': ['group'],
+  'approvals.note.policy.matchesBranch': ['branch'],
+  'approvals.title.policyFirstSight': [],
+  'approvals.summary.policyFirstSight': [],
+  'approvals.summary.policyFirstSightLost': [],
+  'policy.firstSight.enforced': [],
+  'approvals.note.policy.committed': [],
+  'approvals.note.policy.uncommitted': [],
+  'approvals.note.policy.liveSessions': ['count'],
+  'approvals.note.policy.managedNotProtected': [],
+  'policy.narrowed': ['file'],
+  'policy.result.kept': [],
+  'policy.result.applied': [],
+  'policy.change.pending': [],
+  'policy.change.baseChanged': [],
+  'policy.change.notPending': [],
+  'policy.change.notApplicable': [],
+  'incident.policy.changedOutside': [],
   'github.cli.missing': [],
   'git.base.unresolved': ['base'],
+  'git.base.maybeStale': ['branch'],
+  'git.fetch.needsPerson': [],
+  'git.person.refused': ['keys'],
+  'git.hooks.skipped': [],
   'oxe.status.unreadable': [],
   'oxe.dashboard.timeout': [],
   'memory.disabled': [],
@@ -143,6 +218,15 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'remote.port.inUse': ['port'],
   'remote.network.noPrivateInterface': [],
   'remote.certificate.failed': [],
+  'remote.pairing.failed': ['reason'],
+  'remote.gateway.offline': [],
+  'remote.pairing.limit': ['max'],
+  'remote.device.notFound': [],
+  'remote.device.invalidName': ['max'],
+  'remote.device.reservedName': [],
+  'remote.desktop.invalidName': ['max'],
+  'remote.desktop.reservedName': [],
+  'remote.pane.invalid': [],
   'workspace.root.empty': [],
   'workspace.root.notAbsolute': ['path'],
   'workspace.root.notFound': ['path'],
@@ -243,7 +327,9 @@ describe('C3 message codes', () => {
 
   it('keeps catalog keys under messages.* to codes that exist', () => {
     const leaves = (node: unknown, path: string[]): string[] => typeof node === 'string' ? [path.join('.')] : Object.entries(node as object).flatMap(([key, child]) => leaves(child, [...path, key]))
-    for (const catalog of [en, ptBR]) expect(leaves(catalog.messages, []).filter(code => !isMessageCode(code))).toEqual([])
+    // A plural form (`<code>_one`, `_many`, `_other`…, B7.4) belongs to its code; the code itself keeps a plain form.
+    const code = (key: string) => key.replace(/_(zero|one|two|few|many|other)$/, '')
+    for (const catalog of [en, ptBR]) expect(leaves(catalog.messages, []).filter(key => !isMessageCode(code(key)))).toEqual([])
   })
 
   it('gives every refusal of a pending answer its own code', () => {
@@ -266,10 +352,38 @@ describe('C3 message codes', () => {
     for (const refusal of APPROVAL_REFUSALS) expect(isMessageCode(`approvals.refused.${refusal}`), refusal).toBe(true)
   })
 
+  it('gives every refusal of a tool rule a code (B7.3)', () => {
+    for (const refusal of MCP_TOOL_RULE_REFUSAL_CODES) expect(isMessageCode(refusal), refusal).toBe(true)
+  })
+
   it('accepts a code with parameters and rejects anything else', () => {
     expect(isMainMessage(mainMessage('mcp.quarantine.added', { tools: ['search'] }))).toBe(true)
     for (const value of [null, 'mcp.quarantine.added', { code: 'mcp.quarantine.added' }, { code: 'made.up', params: {} }, { code: 'app.connectivity.offline', params: [] }]) {
       expect(isMainMessage(value), JSON.stringify(value)).toBe(false)
+    }
+  })
+
+  it.each([['en', en], ['pt-BR', ptBR]] as const)('words every reason a pairing can fail for in %s, through the nested key', (_language, catalog) => {
+    const text = lookup(catalog, messageKey('remote.pairing.failed')) as string
+    const nested = /^\$t\((\w+)\.\{\{reason\}\}\)$/.exec(text)
+    expect(nested, text).not.toBeNull()
+    const words = (catalog as Record<string, unknown>)[nested![1]] as Record<string, unknown>
+    expect(Object.keys(words).sort()).toEqual([...REMOTE_PAIRING_FAILURE_REASONS].sort())
+    for (const reason of REMOTE_PAIRING_FAILURE_REASONS) expect(typeof words[reason] === 'string' && (words[reason] as string).length > 0, reason).toBe(true)
+  })
+
+  it('reads a code after the fixed marker, also inside the text Electron passes across invoke', () => {
+    const message = mainMessage('remote.pairing.limit', { max: 5 })
+    const text = `Too many devices${MAIN_MESSAGE_ERROR_TAG}${JSON.stringify(message)}`
+    expect(MAIN_MESSAGE_ERROR_TAG).toBe(' #c3 ')
+    expect(messageFromError(new Error(text))).toEqual(message)
+    expect(messageFromError(`Error invoking remote method 'remote:start-pairing': MainMessageError: ${text}`)).toEqual(message)
+    expect(messageFromError({ message: text })).toEqual(message)
+  })
+
+  it('finds no code in a plain error, a forged tag or anything else', () => {
+    for (const value of [new Error('Unknown device'), new Error(`x${MAIN_MESSAGE_ERROR_TAG}{"code":"made.up","params":{}}`), new Error(`x${MAIN_MESSAGE_ERROR_TAG}{not json`), null, undefined, 42, {}]) {
+      expect(messageFromError(value)).toBeNull()
     }
   })
 

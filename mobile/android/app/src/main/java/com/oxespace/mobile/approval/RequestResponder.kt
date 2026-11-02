@@ -17,6 +17,8 @@ enum class AnswerBlock {
     NOT_OFFERED,
     /** The person cancelled the biometric prompt or it failed: nothing was sent. */
     NOT_CONFIRMED,
+    /** The phone wasn't shown all of the request: it can only be declined here, and a question only on the desktop. */
+    TRUNCATED,
 }
 
 sealed interface AnswerOutcome {
@@ -26,7 +28,8 @@ sealed interface AnswerOutcome {
 
 /**
  * Answers a Thread request from the phone. The rules hold before anything reaches the desktop: only requests the
- * desktop marked answerable, only the decisions it offered, never acceptForSession, and only after the person
+ * desktop marked answerable, only the decisions it offered, never acceptForSession, never an approval or an answer to
+ * a request the phone wasn't shown in full (`truncated`), and only after the person
  * confirmed with biometrics or the device credential. The desktop checks id and generation again (B1.1).
  */
 class RequestResponder(
@@ -39,6 +42,8 @@ class RequestResponder(
         answers: Map<String, List<String>>? = null,
         reason: String? = null,
     ): AnswerOutcome {
+        // The desktop already offers no accept and makes a truncated question unanswerable; this holds even if it didn't.
+        if (request.truncated == true && ((decision != "decline" && decision != "cancel") || answers != null)) return AnswerOutcome.Blocked(AnswerBlock.TRUNCATED)
         if (!request.answerable) return AnswerOutcome.Blocked(AnswerBlock.DESKTOP_ONLY)
         if (decision != null && (decision !in request.decisions || decision == "acceptForSession")) return AnswerOutcome.Blocked(AnswerBlock.NOT_OFFERED)
         if (decision == null && answers.isNullOrEmpty()) return AnswerOutcome.Blocked(AnswerBlock.NOT_OFFERED)

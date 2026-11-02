@@ -1,4 +1,5 @@
-import { parseRecord, requireAppFrame } from './ipc-guards'
+import { parseRecord } from './ipc-guards'
+import { IPC_SENDER_REFUSED } from './ipc-sender-guard'
 import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent, type WebContents } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -53,9 +54,8 @@ export function registerDiagnosticsIpc(
   loader = load
   app.once('will-quit', () => { flushIncidents(); void runtime?.then(value => value.watcher.stopAll()) })
 
-  ipcMain.handle(IPC_CHANNELS.diagnostics.getSnapshot, (event) => { requireAppFrame(event, 'Diagnostics'); return service.getSnapshot() })
+  ipcMain.handle(IPC_CHANNELS.diagnostics.getSnapshot, (event) => service.getSnapshot())
   ipcMain.handle(IPC_CHANNELS.diagnostics.exportReport, async (event) => {
-    requireAppFrame(event, 'Diagnostics')
     const path = await savePath(event, `oxespace-diagnostics-${new Date().toISOString().slice(0, 10)}.md`, 'Export OXESpace diagnostics', { name: 'Markdown', extensions: ['md'] })
     if (!path) return null
     await writeFile(path, service.buildSanitizedReport(), { encoding: 'utf8', mode: 0o600 })
@@ -63,17 +63,14 @@ export function registerDiagnosticsIpc(
   })
   // Built on demand and loaded lazily: the main bundle carries only this handler, not the report builder.
   ipcMain.handle(IPC_CHANNELS.diagnostics.buildIssueReport, async (event) => {
-    requireAppFrame(event, 'Diagnostics')
     const { buildIssueReport } = await import('../services/issue-report')
     return buildIssueReport({ snapshot: service.getSnapshot(), runtimeEvents: exportRuntimeDiagnostics() })
   })
   ipcMain.handle(IPC_CHANNELS.diagnostics.recordFirstAnswer, (event, input: unknown) => {
-    requireAppFrame(event, 'Diagnostics')
     recordFirstAnswer(input)
   })
 
   ipcMain.handle(IPC_CHANNELS.diagnostics.watch, async (event, ...args: unknown[]) => {
-    requireAppFrame(event, 'Diagnostics')
     const input = strictInput(args, ['intervalMs'])
     const intervalMs = input.intervalMs ?? DIAGNOSTICS_LIMITS.defaultIntervalMs
     if (typeof intervalMs !== 'number' || !Number.isInteger(intervalMs) || intervalMs < DIAGNOSTICS_LIMITS.minIntervalMs || intervalMs > DIAGNOSTICS_LIMITS.maxIntervalMs) {
@@ -82,14 +79,12 @@ export function registerDiagnosticsIpc(
     return { subscriptionId: (await load()).watcher.watch(event.sender, intervalMs) }
   })
   ipcMain.handle(IPC_CHANNELS.diagnostics.unwatch, async (event, ...args: unknown[]) => {
-    requireAppFrame(event, 'Diagnostics')
     const { subscriptionId } = strictInput(args, ['subscriptionId'], true)
     if (typeof subscriptionId !== 'string' || !/^[0-9a-f-]{36}$/.test(subscriptionId)) throw new Error('subscriptionId is not a diagnostics subscription')
     // Nothing to stop when nothing was ever watched: the runtime is not loaded for this.
     if (runtime) (await runtime).watcher.unwatch(subscriptionId, event.sender)
   })
   ipcMain.handle(IPC_CHANNELS.diagnostics.incidents, async (event, ...args: unknown[]) => {
-    requireAppFrame(event, 'Diagnostics')
     const input = strictInput(args, ['since', 'limit'])
     if (input.since !== undefined && (typeof input.since !== 'number' || !Number.isSafeInteger(input.since) || input.since < 0)) throw new Error('since must be a time in milliseconds')
     if (input.limit !== undefined && (typeof input.limit !== 'number' || !Number.isInteger(input.limit) || input.limit < 1 || input.limit > DIAGNOSTICS_LIMITS.maxIncidentsPage)) {
@@ -98,17 +93,14 @@ export function registerDiagnosticsIpc(
     return (await journal())?.list({ since: input.since as number | undefined, limit: input.limit as number | undefined }) ?? []
   })
   ipcMain.handle(IPC_CHANNELS.diagnostics.clearIncidents, async (event, ...args: unknown[]) => {
-    requireAppFrame(event, 'Diagnostics')
     noInput(args)
     ;(await journal())?.clear()
   })
   ipcMain.handle(IPC_CHANNELS.diagnostics.previewBundle, async (event, ...args: unknown[]) => {
-    requireAppFrame(event, 'Diagnostics')
     noInput(args)
     return (await (await load()).bundle()).preview
   })
   ipcMain.handle(IPC_CHANNELS.diagnostics.exportBundle, async (event, ...args: unknown[]) => {
-    requireAppFrame(event, 'Diagnostics')
     noInput(args)
     const [{ writeZip }, bundle] = await Promise.all([import('../services/diagnostics/zip-writer'), load().then(value => value.bundle())])
     // Built before the dialog: a bundle over its size cap fails with its code and nothing is written.
@@ -119,7 +111,6 @@ export function registerDiagnosticsIpc(
     return path
   })
   ipcMain.handle(IPC_CHANNELS.diagnostics.analysisSummary, async (event, ...args: unknown[]) => {
-    requireAppFrame(event, 'Diagnostics')
     noInput(args)
     return (await load()).analysisSummary()
   })
@@ -174,6 +165,7 @@ export function installIncidentHooks(target: Pick<typeof ipcMain, 'handle'> = ip
 
 export function recordIpcFailure(channel: string, error: unknown): void {
   const code = (error as { code?: unknown } | null)?.code
+  if (code === IPC_SENDER_REFUSED) return // the sender guard recorded it as incident.ipc.senderRefused
   recordIncident(code === 'SQLITE_BUSY' || code === 'SQLITE_LOCKED' ? 'incident.database.busy'
     : isValidationRefusal(error) ? 'incident.ipc.validationRejected' : 'incident.ipc.handlerFailed', channel)
 }

@@ -27,6 +27,11 @@ export interface RemoteGatewayStatus {
   phoneWritePanes: string[]
   /** Why it is not listening (port in use, firewall, certificate…), as a code the window translates. */
   error?: MainMessage
+  /**
+   * True once the gateway has really listened on this profile, and never false again: the window explains the system
+   * firewall's question before the first time only.
+   */
+  listenedBefore: boolean
 }
 
 /** A paired phone. No address and no key. */
@@ -57,6 +62,15 @@ export interface RemotePairingOffer {
   expiresAt: number
 }
 
+/**
+ * Why a phone's pairing attempt failed, as `remote.pairing.failed` carries it: a wrong, reused or forged code or request
+ * (`invalid`), a code or question that ran out of time (`expired`), the person said no or cancelled on this desktop
+ * (`refused`), the device limit (`limit`), the phone hung up while the question was on screen (`peer-closed`), or the
+ * phone gave itself a name only the app may speak as (`reserved-name`; `reservedNameIn` in shared/approval-rules.ts).
+ */
+export const REMOTE_PAIRING_FAILURE_REASONS = ['invalid', 'expired', 'refused', 'limit', 'peer-closed', 'reserved-name'] as const
+export type RemotePairingFailureReason = typeof REMOTE_PAIRING_FAILURE_REASONS[number]
+
 export interface RemoteChange {
   status?: RemoteGatewayStatus
   devices?: RemoteDevice[]
@@ -69,9 +83,18 @@ export interface RemoteApi {
   devices(): Promise<RemoteDevice[]>
   onChanged(listener: (change: RemoteChange) => void): () => void
   /**
+   * A phone's pairing attempt failed (`remote.pairing.failed`). Fires once per failed attempt; it never carries the
+   * phone's key, address, name or any identifier.
+   */
+  onPairingFailed(listener: (message: MainMessage) => void): () => void
+  /**
    * On: listens on private interfaces (a certificate is made the first time). Off: closes the port and every connection.
    * A port below `REMOTE_MIN_PORT`, a port in use or no private interface leaves it off with `error` set; a malformed
    * input rejects.
+   *
+   * The actions below reject with a `MainMessageError` (read it with `messageFromError`) when the person can act on the
+   * reason: `remote.gateway.offline`, `remote.pairing.limit`, `remote.device.notFound`, `remote.device.invalidName`,
+   * `remote.desktop.invalidName`, `remote.pane.invalid`. Malformed input (wrong types, unknown fields) is a plain Error.
    */
   setEnabled(input: { enabled: boolean; port?: number }): Promise<RemoteGatewayStatus>
   startPairing(): Promise<RemotePairingOffer>

@@ -16,9 +16,15 @@ const MAX_TRACKED_ADDRESSES = 1024
 
 export type ClaimResult = 'ok' | 'pairing-expired' | 'pairing-used' | 'pairing-invalid'
 
+/**
+ * How the question ended: the person said yes or no in the window, it ran out of time, the person cancelled the
+ * pairing or switched the gateway off, or the phone hung up.
+ */
+export type PairingAnswer = 'accepted' | 'declined' | 'expired' | 'cancelled' | 'abandoned'
+
 interface Prompt {
   prompt: RemotePairingPrompt
-  settle(accept: boolean): void
+  settle(answer: PairingAnswer): void
   timer: ReturnType<typeof setTimeout>
 }
 
@@ -52,7 +58,7 @@ export class PairingDesk {
   cancel(): boolean {
     const had = !!this.offer || !!this.waiting
     this.offer = null
-    this.settle(false)
+    this.settle('cancelled')
     return had
   }
 
@@ -92,14 +98,14 @@ export class PairingDesk {
     return 'ok'
   }
 
-  /** Asks the person; resolves true only on their explicit accept. A second question while one waits is refused. */
-  ask(deviceName: string, verification: string): { promptId: string; answer: Promise<boolean> } | null {
+  /** Asks the person; resolves `accepted` only on their explicit accept. A second question while one waits is refused. */
+  ask(deviceName: string, verification: string): { promptId: string; answer: Promise<PairingAnswer> } | null {
     if (this.waiting) return null
     const promptId = randomUUID()
     const prompt: RemotePairingPrompt = { promptId, deviceName, verification, expiresAt: this.now() + this.promptTimeoutMs }
-    let settle!: (accept: boolean) => void
-    const answer = new Promise<boolean>(resolve => { settle = resolve })
-    const timer = setTimeout(() => this.settle(false, promptId), this.promptTimeoutMs)
+    let settle!: (answer: PairingAnswer) => void
+    const answer = new Promise<PairingAnswer>(resolve => { settle = resolve })
+    const timer = setTimeout(() => this.settle('expired', promptId), this.promptTimeoutMs)
     timer.unref?.()
     this.waiting = { prompt, settle, timer }
     this.onPrompt(prompt)
@@ -113,16 +119,16 @@ export class PairingDesk {
   /** The person's answer, from the app's window. Throws for anything but the question on screen. */
   answer(promptId: string, accept: boolean): void {
     if (!this.waiting || this.waiting.prompt.promptId !== promptId) throw new Error('No such pairing request')
-    this.settle(accept, promptId)
+    this.settle(accept ? 'accepted' : 'declined', promptId)
   }
 
-  /** Refuses the question (the phone went away, it timed out, it was cancelled). */
-  settle(accept: boolean, promptId?: string): void {
+  /** Ends the question (answered, the phone went away, it timed out, it was cancelled). */
+  settle(answer: PairingAnswer, promptId?: string): void {
     const waiting = this.waiting
     if (!waiting || (promptId !== undefined && waiting.prompt.promptId !== promptId)) return
     this.waiting = null
     clearTimeout(waiting.timer)
-    waiting.settle(accept)
+    waiting.settle(answer)
     this.onPrompt(null)
   }
 }

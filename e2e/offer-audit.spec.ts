@@ -62,6 +62,8 @@ const PALETTE_EFFECTS: Record<string, Check> = {
   'settings.general': both(settingsPage('General'), async page => { await expect(page.getByLabel('Recently visited workspaces kept ready')).toBeVisible() }),
   'settings.notifications': both(settingsPage('Notifications'), async page => { await expect(page.getByLabel('Number of workspaces to keep mounted')).toHaveCount(0) }),
   'help.shortcuts': dialog('Keyboard shortcuts'),
+  // F18: the approval history; it opens even with no decision yet, and says so.
+  'help.approvals': both(dialog('Approval decisions'), testId('approval-history')),
   'help.report-problem': both(dialog('Report a problem'), testId('report-problem')),
   'help.about': both(dialog('About OXESpace'), testId('about-dialog')),
   'activity.open': testId('activity-center'),
@@ -155,6 +157,9 @@ async function dismiss(page: Page): Promise<void> {
 
 async function selectView(page: Page, mode: AppMode): Promise<void> {
   await modeButton(page, mode).click()
+  // F7.2: the current view stays until the next one is in; wait for the switch to land before using the new view.
+  await expect(modeButton(page, mode)).toHaveAttribute('aria-pressed', 'true')
+  await expect(modeButton(page, mode)).not.toHaveAttribute('aria-busy', 'true')
 }
 
 async function launchWithWorkspace(): Promise<LaunchedApp> {

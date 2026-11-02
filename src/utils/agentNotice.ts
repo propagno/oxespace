@@ -11,5 +11,6 @@ export function paneNoticeLabel(pane: { displayName?: string | null; agentName?:
 }
 
 export function agentErrorDetail(error: string | null | undefined, fallback: string): string {
-  return withoutReservedName(error ?? '', fallback) || fallback
+  // Free text in a notification body: the system's words count anywhere, not only first.
+  return withoutReservedName(error ?? '', fallback, 'notice') || fallback
 }

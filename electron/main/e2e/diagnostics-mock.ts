@@ -5,7 +5,8 @@
 import { ipcMain, type IpcMainInvokeEvent, type WebContents } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
-import { DIAGNOSTICS_LIMITS, type DiagnosticsIncident, type DiagnosticsMetrics } from '../../../shared/types/diagnostics'
+import { DIAGNOSTICS_INCIDENT_CODES, DIAGNOSTICS_LIMITS, type DiagnosticsIncident, type DiagnosticsIncidentCode, type DiagnosticsMetrics } from '../../../shared/types/diagnostics'
+import { connectIncidentJournal } from '../services/diagnostics/incident-sink'
 
 export function registerDiagnosticsMock(): void {
   const watching = new Map<string, { sender: WebContents; timer: ReturnType<typeof setInterval> }>()
@@ -13,6 +14,17 @@ export function registerDiagnosticsMock(): void {
     { id: 'i1', code: 'incident.mcp.quarantined', area: 'mcp', firstAt: 1, lastAt: 2, count: 2, subject: '3fa9c1d2' },
     { id: 'i2', code: 'incident.oxequery.timeout', area: 'oxequery', firstAt: 3, lastAt: 3, count: 1 }
   ]
+  // The app's recording points (the IPC sender guard among them) land here, grouped as the real journal groups
+  // them: same code and subject add to the count. In memory only.
+  connectIncidentJournal(async () => ({
+    record(code: DiagnosticsIncidentCode, subject?: string) {
+      const at = Date.now()
+      const existing = incidents.find(incident => incident.code === code && incident.subject === subject)
+      if (existing) { existing.count += 1; existing.lastAt = at; return }
+      incidents.push({ id: randomUUID(), code, area: DIAGNOSTICS_INCIDENT_CODES[code], firstAt: at, lastAt: at, count: 1, ...(subject ? { subject } : {}) })
+    },
+    flush() {}
+  }))
   const metrics = (): DiagnosticsMetrics => ({
     at: Date.now(),
     processes: [{ kind: 'main', pid: 1, cpuPercent: 1.5, memoryBytes: 150e6 }, { kind: 'renderer', pid: 2, cpuPercent: 3, memoryBytes: 220e6 }, { kind: 'gpu', pid: 3, cpuPercent: 0.5, memoryBytes: 90e6 }],
