@@ -47,14 +47,14 @@ sozinha).
 
 ## O que mudou de lugar ou saiu
 
-- **O OXEVoice foi removido.** O OXESpace não grava mais voz; o ditado do seu sistema continua digitando em
-  qualquer campo, e o modelo de voz baixado é apagado no primeiro início. A voz nativa está prevista para uma
-  versão futura.
-- **A equipe saiu da barra de título.** Abra em **Ferramentas › Equipe do projeto…**, na paleta de comandos ou com
-  `Ctrl+Shift+T`.
-<!-- entra quando o B13 (#374) for mesclado: "**Fechar um painel encerra o que ele iniciou.** Trabalhos mandados para
-o segundo plano com `nohup` ou `disown`, e apps abertos pelo painel (`gedit &`, `notepad x`), agora fecham junto. Para
-manter algo rodando, inicie fora do OXESpace ou como um serviço do sistema." -->
+<!-- entra quando o F34 for mesclado: "**O OXEVoice foi removido.** O OXESpace não grava mais voz; o ditado do seu
+sistema continua digitando em qualquer campo, e o modelo de voz baixado é apagado no primeiro início. A voz nativa
+está prevista para uma versão futura." -->
+<!-- entra quando o F35 (#344) for mesclado: "**A equipe saiu da barra de título.** Abra em **Ferramentas › Equipe do
+projeto…**, na paleta de comandos ou com `Ctrl+Shift+T`." -->
+- **Fechar um painel encerra o que ele iniciou.** Trabalhos mandados para o segundo plano com `nohup` ou `disown`, e
+  apps abertos pelo painel (`gedit &`, `notepad x`), agora fecham junto. Para manter algo rodando, inicie fora do
+  OXESpace ou como um serviço do sistema.
 - **…**
 
 ## Segurança
@@ -68,8 +68,11 @@ manter algo rodando, inicie fora do OXESpace ou como um serviço do sistema." --
   "No workspaces yet", sem aviso, embora nada se perca. Para voltar: feche o OXESpace, instale a 1.3.3 pela página de
   Releases e, **antes de abri-la**, coloque o `oxespace-v77-…sqlite3` mais recente da pasta `db-backups` no lugar de
   `oxespace.sqlite3`. A pasta é `%APPDATA%\OXESpace` no Windows e `~/.config/oxespace` no Linux. Depois abra a 1.3.3.
+  Os passos completos estão em
+  [Voltar para a versão anterior em uma máquina](https://github.com/propagno/oxespace/blob/main/docs/ci-cd.md#going-back-to-the-previous-release-on-one-machine)
+  (em inglês).
 - …
-<!-- entra quando o B13 (#374) for mesclado: "**No Windows, um programa gráfico usado como comando de um painel aparece
-como encerrado logo de início.** Rode-o pelo shell do painel. Shells, Claude Code e Codex não são afetados." -->
-<!-- entra quando o B13 (#374) for mesclado: "**No Linux e no macOS, um daemon de verdade (um processo que se separa
-duas vezes) continua rodando depois que o painel fecha.**" -->
+- **No Windows, um programa gráfico usado como comando de um painel aparece como encerrado logo de início.** Rode-o
+  pelo shell do painel. Shells, Claude Code e Codex não são afetados.
+- **No Linux e no macOS, um daemon de verdade (um processo que se separa duas vezes) continua rodando depois que o
+  painel fecha.**

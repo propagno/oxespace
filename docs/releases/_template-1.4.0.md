@@ -33,6 +33,8 @@ updates itself).
   blocks, row locks) is flagged; an agent's read never closes your session.
 - **A request ends with whoever asked.** Closing a pane or ending an agent's session withdraws the approval requests
   and permissions it left waiting; they show as cancelled, not answered.
+- **An agent can't pose as the app or your system.** A name an agent picks for itself is refused when it imitates
+  OXESpace, its modes or tabs, your operating system or its vendor ("Windows Security", "System Administrator").
 <!-- add when F18 (#243) merges: "Approvals in the app, not in a system dialog: who asks, the risk in words (Low,
 Medium, High, Critical), the agent's text kept apart from the app's notes, Deny as the default, and this session's
 decision history." -->
@@ -41,12 +43,14 @@ decision history." -->
 
 <!-- S2 · guide: docs/guide/en/02-sessions-that-survive.md -->
 - **Nothing lost on close.** Closing the window or quitting with unsaved editor files or OxePost requests lists them
-  first: save all, close without saving, or cancel. If a save fails, nothing closes.
+  first: save all, close without saving, or cancel. If a save fails, nothing closes. A window that stops responding
+  still closes after a few seconds.
 - **A crash doesn't repeat what an agent did.** Tools that were running when the app closed come back as
   *Interrupted*, with **Continue** (asks the agent to check first) or **Dismiss**; nothing is run again.
 - **Splitting panes past the layout no longer brings the window down**, and a split with no room says why.
-<!-- add when B17/F32 (#309/#311) merge: "Agent panes come back to their earlier Claude or Codex session after a
-restart, or say why they couldn't." -->
+- **Agent panes come back to their earlier Claude or Codex session** after a restart or a crash, including projects
+  opened through a link or a short Windows path.
+<!-- add when F32 (#311) merges: append to the bullet above ", or say why they couldn't". -->
 
 ## Organizing many conversations
 
@@ -73,7 +77,8 @@ restart, or say why they couldn't." -->
   and answer requests with your fingerprint. What only the computer may answer says so on the phone.
 - **Up to 5 phones per computer**, each removable at once from **Settings › Devices**.
 <!-- add at the cut: where to get the Android app (M8). -->
-<!-- add when M6 (#222) merges: "Notifications when an agent needs you or finishes, with the phone in your pocket." -->
+- **Notifications when an agent needs you, finishes or fails**, with the phone in your pocket; it reconnects on its
+  own when the Wi-Fi comes back.
 <!-- add when M9 (#236) merges: "Requests and terminals are kept out of Recents and screenshots; the app follows its
 own language." -->
 <!-- add when M10/M11 (#384/#386) merge: "The phone's conversation in the Mandacaru design: a turn bar with its time,
@@ -108,7 +113,8 @@ with Esc, Tab, Ctrl+C and arrows for the terminal." -->
 ## OXESpace your way
 
 <!-- S6 · guide: docs/guide/en/06-your-way.md -->
-- **Portuguese and English** across the app, switched in Settings without a restart.- **A keyboard you can live in**: a command palette for everything (`Ctrl+K`), a shortcut guide and
+- **Portuguese and English** across the app, switched in Settings without a restart.
+- **A keyboard you can live in**: a command palette for everything (`Ctrl+K`), a shortcut guide and
   **Settings › Keyboard**, F6 to move between regions, and a mode where Tab leaves the terminal.
 - **Accessibility**: WCAG 2.2 AA checks on Windows and Linux, forced colours, 24 px targets, and keyboard paths for
   every list.
@@ -129,9 +135,9 @@ off the title bar: Tools › Project team…, the command palette or Ctrl+Shift+
 <!-- add when #387/#388 merge: "**Git actions started from OXESpace skip the repository's hooks.** Push, switching
 branches and creating worktrees run without them; use the terminal when a flow depends on hooks. Agents can't reach
 the network through Git: when a task needs the latest remote branch, you fetch it in the Git panel or the terminal." -->
-<!-- add when B13 (#374) merges: "**Closing a pane ends what it started.** Jobs sent to the background with `nohup` or
-`disown`, and apps launched from the pane (`gedit &`, `notepad x`), now close with it. To keep something running,
-start it outside OXESpace or as a system service." -->
+- **Closing a pane ends what it started.** Jobs sent to the background with `nohup` or `disown`, and apps launched
+  from the pane (`gedit &`, `notepad x`), now close with it. To keep something running, start it outside OXESpace or
+  as a system service.
 
 ## Security
 
@@ -140,22 +146,21 @@ start it outside OXESpace or as a system service." -->
 - **Untrusted text is fenced**: program output, remote text and memory reach agents marked as data, not
   instructions; agent configuration edits are guarded.
 - **The main window opens no link by itself**, and every inter-process call checks that it comes from the app's own
-  window. <!-- the IPC guard is B12 (#261): keep this clause only if it merges. -->
+  window.
 - **The installed app carries less to read.** The main process's source maps are no longer packaged.
 <!-- add when #387/#388 merge: "**Git runs through one guard.** OXESpace won't run network Git in a repository whose
 own settings change how Git connects or authenticates (`core.sshCommand`, `credential.helper` and the like); run those
 commands in the terminal. Your global Git settings never trigger this." -->
-<!-- add when #378 merges: "**The packaged app can't be borrowed as a plain Node.js runtime**, so other programs can't
-use it to run their own code." -->
+- **The packaged app can't be borrowed as a plain Node.js runtime**, so other programs can't use it to run their own
+  code.
 
 ## Known limits
 
 - The limits listed in [1.3.0](1.3.0.md) still apply unless a section above says otherwise.
 <!-- fill from the guide pages' "Known limits" at the cut. -->
-<!-- add when B13 (#374) merges: "**On Windows, a graphical program used as a pane's command shows as exited right
-away.** Run it from the pane's shell instead. Shells, Claude Code and Codex are not affected." -->
-<!-- add when B13 (#374) merges: "**On Linux and macOS, a real daemon (a process that detaches twice) keeps running
-after its pane closes.**" -->
+- **On Windows, a graphical program used as a pane's command shows as exited right away.** Run it from the pane's
+  shell instead. Shells, Claude Code and Codex are not affected.
+- **On Linux and macOS, a real daemon (a process that detaches twice) keeps running after its pane closes.**
 <!-- add when #387 merges (B26 closes it in 1.4.1): "**A Git filter added to a repository's settings at the moment an
 action starts can run once** before OXESpace notices it." -->
 - **Going back to 1.3.3 needs the automatic backup, restored before you open 1.3.3.** 1.4.0 updates your data the
@@ -163,7 +168,8 @@ action starts can run once** before OXESpace notices it." -->
   with no warning, though nothing is lost. To go back: close OXESpace, install 1.3.3 from the Releases page, and
   **before opening it**, put the newest `oxespace-v77-…sqlite3` from the `db-backups` folder in place of
   `oxespace.sqlite3`. The folder is `%APPDATA%\OXESpace` on Windows and `~/.config/oxespace` on Linux. Then open 1.3.3.
-  <!-- link the runbook when #401 merges: docs/ci-cd.md, "Going back to the previous release on one machine". Folders
-  measured by SRE on the install-over CI runs 41318110576 and 41319224178. -->
+  The full steps are in
+  [Going back to the previous release on one machine](https://github.com/propagno/oxespace/blob/main/docs/ci-cd.md#going-back-to-the-previous-release-on-one-machine).
+  <!-- folders measured by SRE on the install-over CI runs 41318110576 and 41319224178. -->
 - **The phone and the computer must be on the same local network**; there is no access over the internet, and the
   phone app is Android only.

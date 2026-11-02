@@ -12,6 +12,7 @@ import com.oxespace.mobile.protocol.RemoteEventFrame
 import com.oxespace.mobile.protocol.RemoteFrames
 import com.oxespace.mobile.protocol.RemoteHelloFrame
 import com.oxespace.mobile.protocol.RemoteSnapshotFrame
+import com.oxespace.mobile.ui.CaptureForHomologation
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -33,6 +34,17 @@ class ReleaseSmokeTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.moveToState(Lifecycle.State.RESUMED)
             scenario.onActivity { assertTrue(!it.isFinishing) }
+        }
+    }
+
+    @Test
+    fun aShippedBuildNeverAllowsCaptures() {
+        // SECURITY #236: the homologation extra is ignored outside debug, so the screens with secrets always protect.
+        try {
+            CaptureForHomologation.read(true)
+            assertEquals(BuildConfig.DEBUG, CaptureForHomologation.allowed)
+        } finally {
+            CaptureForHomologation.read(false)
         }
     }
 
