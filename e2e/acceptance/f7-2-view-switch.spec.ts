@@ -42,7 +42,7 @@ async function arm(page: Page): Promise<void> {
           oldUp: visible(old), newUp: !!next, skeleton: inMain('[data-skeleton]'), brand: inMain('[data-brand-loader]'), spinner: inMain('[class*="spinner"]'),
           dimmed: !!old && Number(getComputedStyle(old).opacity) < 1,
           focusInNew: !!next && !!document.activeElement && next.contains(document.activeElement),
-          fading: document.getAnimations().some(a => { const k = (a.effect as KeyframeEffect | null)?.getKeyframes?.() ?? []; return k.some(f => 'opacity' in f) && !!(a.effect as KeyframeEffect).target?.closest?.('main') })
+          fading: document.getAnimations().some(a => { const k = (a.effect as KeyframeEffect | null)?.getKeyframes?.() ?? []; return k.some(f => 'opacity' in f) && !!(a.effect as KeyframeEffect).target?.closest?.('main') && Number((a.effect as KeyframeEffect).getTiming().duration) > 1 })
         })
         if (performance.now() < end) requestAnimationFrame(sample)
       }
@@ -112,7 +112,8 @@ for (const variant of [{ name: 'normal speed', cpu: 1, motion: 'full' }, { name:
       expect.soft(rec.announced.filter(a => /OxeQuery/.test(a)).length, 'the mode name is announced once').toBe(1)
       const early = rec.keys.filter(k => k.t < commit)
       expect.soft(early.filter(k => k.where !== 'old').map(k => `${k.where}@${Math.round(k.t)}`), 'keys typed before the commit stay in the old view').toEqual([])
-      // 6. Reduced motion: no cross-fade at any frame.
+      // 6. Reduced motion: no cross-fade at any frame. With data-motion="reduce" every animation runs once for 0.01ms
+      // (docs/design/motion.md, src/styles/base.css); only an animation that lasts is a fade (#363 CI).
       if (variant.motion === 'reduce') expect.soft(rec.frames.some(f => f.fading), 'no cross-fade with reduced motion').toBe(false)
     } finally { await app.close() }
   })
