@@ -6,7 +6,7 @@
 .thread-file-activity { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; max-width: 100%; gap: 2px; margin: 2px 0; }
 .thread-file-activity > div { min-width: 0; max-width: 100%; }
 .thread-file-operation { display: flex; align-items: center; min-width: 0; }
-.thread-file-operation > .thread-file-entry { min-width: 0; }
+.thread-file-operation > .thread-file-entry { min-width: 0; position: relative; }
 .thread-file-error { margin: 4px 8px 0 30px; color: var(--dot-red); font-size: var(--fs-2xs); line-height: 1.5; overflow-wrap: anywhere; }
 .thread-view .thread-file-expand { min-width: 28px; min-height: 28px; flex-shrink: 0; padding: 6px; color: var(--text-muted); }
 .thread-file-expand[aria-expanded="true"] svg { transform: rotate(90deg); }

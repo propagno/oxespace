@@ -856,5 +856,29 @@
     },
     "unknownCode": "O OXESpace enviou um aviso que esta versão não consegue mostrar (código {{code}}).",
     "sqlUnknown": "SQL arriscado: o OXESpace apontou um risco neste comando que esta versão não consegue descrever (código {{code}})."
+  },
+  "openIn": {
+    "menuLabel": "Ações de {{path}}",
+    "oxespace": "Abrir no editor do OXESpace",
+    "editor": "Abrir no {{editor}}",
+    "editorAtLine": "Abrir no {{editor}} · linha {{line}}",
+    "shortcut": "⇧Ctrl+clique",
+    "shortcutMac": "⇧⌘+clique",
+    "revealWindows": "Mostrar no Explorador de Arquivos",
+    "revealLinux": "Abrir a pasta",
+    "revealMac": "Mostrar no Finder",
+    "copyRelativePath": "Copiar caminho relativo",
+    "copyFullPath": "Copiar caminho completo",
+    "path": "Caminho",
+    "pathCopied": "Caminho copiado",
+    "relativePathCopied": "Caminho relativo copiado",
+    "opening": "Abrindo no {{editor}}",
+    "failed": "Não foi possível abrir o arquivo.",
+    "pathLink": "{{path}}, linha {{line}}",
+    "terminalHint": "{{key}}+clique abre no editor do OXESpace",
+    "terminalHintExternal": "{{key}}+clique abre no editor do OXESpace · {{key}}+Shift+clique abre no {{editor}}",
+    "noEditor": "Nenhum editor externo foi encontrado (VS Code, Cursor ou Zed). Instale um e tente de novo.",
+    "notAFile": "Daqui o {{editor}} só abre arquivos. Para abrir uma pasta, use “{{reveal}}”.",
+    "menuUnavailable": "Não foi possível carregar o menu. Tente de novo."
   }
 }
