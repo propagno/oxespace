@@ -165,7 +165,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
             items={[
               { label: t('sidebar.projectSettings'), onSelect: () => setProjectSettingsId(group.id) },
               { label: t('sections.newSection'), onSelect: () => sections.setDialog({ kind: 'create', projectId: group.id }) },
-              ...(onOpenTeam ? [{ label: `${t('tools.team.label', { ns: 'code' })}…`, onSelect: () => onOpenTeam(group.id) }] : []),
+              ...(onOpenTeam ? [{ label: t('tools.team.menu', { ns: 'code' }), onSelect: () => onOpenTeam(group.id) }] : []),
               ...(group.rootPath ? [{ label: t('sidebar.openInCode'), disabled: unavailableProjects.includes(group.id), onSelect: () => void onOpenInCode?.(group.rootPath!).catch(error => setActionError(humanizeError(error, t('sidebar.openInCodeFailed')))) }] : []),
               { type: 'separator' as const },
               { label: t('sidebar.removeProjectMenu'), danger: true, onSelect: () => { setActionError(''); setConfirmation({ kind: 'project', id: group.id, title: group.name }) } }

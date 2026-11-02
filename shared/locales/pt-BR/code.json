@@ -17,7 +17,9 @@
   "tools": {
     "team": {
       "label": "Equipe do projeto",
-      "detail": "Papéis do projeto e caixas de entrada dos agentes"
+      "detail": "Papéis do projeto e caixas de entrada dos agentes",
+      "menu": "Equipe do projeto…",
+      "keywords": "equipe, time, papéis, coordenadora, membros, caixa de entrada"
     },
     "integration": {
       "label": "Coordenação entre repositórios",

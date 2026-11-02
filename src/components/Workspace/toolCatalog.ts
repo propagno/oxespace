@@ -28,6 +28,12 @@ function tool(id: ToolId, group: ToolGroup, icon: LucideIcon, rest: { keybinding
   const key = id === 'web-preview' ? 'webPreview' : id
   return {
     id, group, icon, ...rest,
+    // Words in the language on screen come from the catalog (tools.<id>.keywords, comma separated); code keeps English.
+    get keywords() {
+      const local = i18n.t(`tools.${key as 'team'}.keywords`, { ns: 'code', defaultValue: '' })
+      const words = [...(rest.keywords ?? []), ...local.split(',').map(word => word.trim()).filter(Boolean)]
+      return words.length ? words : undefined
+    },
     get label() { return PANEL_OF[id] ? i18n.t(`panels.${PANEL_OF[id] as 'git'}`, { ns: 'code' }) : i18n.t(`tools.${key as 'team'}.label`, { ns: 'code' }) },
     get detail() { return i18n.t(`tools.${key as 'team'}.detail`, { ns: 'code' }) }
   }
@@ -38,7 +44,7 @@ function tool(id: ToolId, group: ToolGroup, icon: LucideIcon, rest: { keybinding
  * shortcuts of the shared panel catalog (src/components/Workbench/panelCatalog.ts).
  */
 export const TOOL_CATALOG: ToolMeta[] = [
-  tool('team', 'Project', Users, { keybinding: 'team.open', keywords: ['team', 'equipe', 'time', 'roles', 'papéis', 'coordinator', 'coordenadora', 'members', 'membros', 'inbox', 'caixa de entrada', 'agents'] }),
+  tool('team', 'Project', Users, { keybinding: 'team.open', keywords: ['team', 'roles', 'coordinator', 'members', 'inbox', 'agents'] }),
   tool('integration', 'Project', Network, { keywords: ['integration', 'srv', 'bff', 'handoff'] }),
   tool('github', 'Development', Github, { keywords: ['git', 'pr', 'workflow', 'actions'] }),
   tool('worktrees', 'Development', FolderTree, { keywords: ['branch', 'checkout'] }),
