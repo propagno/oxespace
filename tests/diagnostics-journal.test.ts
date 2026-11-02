@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdtempSync, readdirSync, readFileSync, renameSync, writeFileSync, mkdirSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
