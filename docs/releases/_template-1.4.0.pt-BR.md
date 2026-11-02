@@ -142,10 +142,9 @@ sistema continua digitando em qualquer campo, e o modelo de voz baixado é apaga
 está prevista para uma versão futura." -->
 <!-- entra quando o F35 (#344) for mesclado: "**A equipe saiu da barra de título.** Abra em **Ferramentas › Equipe do
 projeto…**, na paleta de comandos ou com `Ctrl+Shift+T`." -->
-<!-- entra quando o #387 for mesclado: "**Ações de Git iniciadas pelo OXESpace pulam os hooks do repositório.** Push,
-troca de branch e criação de worktree rodam sem eles; use o terminal quando um fluxo depende de hooks. Os agentes não
-chegam à rede pelo Git: quando uma tarefa precisa da branch remota mais recente, você faz o fetch no painel Git ou no
-terminal." -->
+- **Ações de Git iniciadas pelo OXESpace pulam os hooks do repositório.** Push, troca de branch e criação de worktree
+  rodam sem eles; use o terminal quando um fluxo depende de hooks. Os agentes não chegam à rede pelo Git: quando uma
+  tarefa precisa da branch remota mais recente, você faz o fetch no painel Git ou no terminal.
 - **Fechar um painel encerra o que ele iniciou.** Trabalhos mandados para o segundo plano com `nohup` ou `disown`, e
   apps abertos pelo painel (`gedit &`, `notepad x`), agora fecham junto. Para manter algo rodando, inicie fora do
   OXESpace ou como um serviço do sistema.
@@ -158,10 +157,9 @@ terminal." -->
 - **A janela principal não abre link sozinha**, e toda chamada entre processos confere que vem da janela do próprio
   app.
 - **O app instalado carrega menos para ler.** Os source maps do processo principal não vão mais no pacote.
-<!-- entra quando o #387 for mesclado: "**O Git passa por uma proteção só.** O OXESpace não roda Git de rede num
-repositório cujas configurações próprias mudam como o Git se conecta ou se autentica (`core.sshCommand`,
-`credential.helper` e afins); rode esses comandos no terminal. As suas configurações globais do Git nunca disparam
-isso." -->
+- **O Git passa por uma proteção só.** O OXESpace não roda Git de rede num repositório cujas configurações próprias
+  mudam como o Git se conecta ou se autentica (`core.sshCommand`, `credential.helper` e afins); rode esses comandos no
+  terminal. As suas configurações globais do Git nunca disparam isso.
 - **O app empacotado não pode ser usado como um Node.js comum**, então outros programas não conseguem usá-lo para
   rodar o próprio código.
 
@@ -172,8 +170,8 @@ isso." -->
   pelo shell do painel. Shells, Claude Code e Codex não são afetados.
 - **No Linux e no macOS, um daemon de verdade (um processo que se separa duas vezes) continua rodando depois que o
   painel fecha.**
-<!-- entra quando o #387 for mesclado (o B26 fecha isso na 1.4.1): "**Um filtro do Git adicionado às configurações de
-um repositório no momento em que uma ação começa pode rodar uma vez** antes que o OXESpace perceba." -->
+- **Um filtro do Git adicionado às configurações de um repositório no momento em que uma ação começa pode rodar uma
+  vez** antes que o OXESpace perceba.
 - **Voltar para a 1.3.3 exige restaurar o backup automático antes de abrir a 1.3.3.** A 1.4.0 atualiza seus dados na
   primeira vez que abre, depois de salvar uma cópia verificada. A 1.3.3 não consegue ler os dados atualizados: mostra
   "No workspaces yet", sem aviso, embora nada se perca. Para voltar: feche o OXESpace, instale a 1.3.3 pela página de

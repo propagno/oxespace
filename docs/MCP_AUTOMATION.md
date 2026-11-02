@@ -66,7 +66,7 @@ Change tools (separate from the read tools, so a read-only Thread never gets the
 
 | Tool | `write` (runs, recorded) | `confirm` (a person approves the exact text) |
 |---|---|---|
-| `oxespace_git_change` | `stage`, `stage_all`, `unstage`, `commit` (local), `create_branch` (no switch), `fetch`, `pull` (fast-forward only), `create_checkpoint` | `checkout`, `push`, `restore_checkpoint` |
+| `oxespace_git_change` | `stage`, `stage_all`, `unstage`, `commit` (local), `create_branch` (no switch), `create_checkpoint` | `fetch`, `pull` (fast-forward only), `checkout`, `push`, `restore_checkpoint`: each reaches the network, so git runs on the person path (`electron/main/utils/safe-git-person.ts`) |
 | `oxespace_github_change` | — | `create_pull_request`, `set_auto_merge`, `create_release`, `run_workflow`, `rerun` |
 | `oxespace_threads_change` | `send`, `steer`, `interrupt`, `configure` (model and effort only), `rename` on a Thread the caller created (handoff or Agent Work) | the same on any other Thread of the project, and `archive` |
 | `oxespace_tasks_change` | `create`, `update`, `reorder`, `add_dependency`, `remove_dependency` | `verify` (shows the command), `delete` |

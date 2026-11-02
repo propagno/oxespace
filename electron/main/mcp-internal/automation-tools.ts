@@ -1,11 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
 import type { ToolEntry } from './tool-registry'
 import { projectIdentity } from '../services/memory/memory-project.service'
+import { execGit } from '../utils/safe-git'
 import { CONFIGURABLE_MCP_TOOL_GROUPS as TOOL_GROUP_NAMES } from '../../../shared/types/mcp-tools'
 
-const exec = promisify(execFile)
 
 /** What each optional group is for, as oxespace_capabilities tells an agent. */
 const TOOL_GROUP_PURPOSES = {
@@ -104,8 +102,8 @@ export function automationTools(catalogue: () => ToolEntry[]): ToolEntry[] {
       let repositoryIdentity: string | null = null
       try {
         repositoryIdentity = `local-project-sha256:${createHash('sha256').update(await projectIdentity(execution.cwd)).digest('hex')}`
-        const result = await exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: execution.cwd, windowsHide: true, timeout: 2000, maxBuffer: 8192 })
-        const head = await exec('git', ['rev-parse', '--verify', 'HEAD'], { cwd: execution.cwd, windowsHide: true, timeout: 2000, maxBuffer: 8192 })
+        const result = await execGit(execution.cwd, ['rev-parse', '--abbrev-ref', 'HEAD'], { timeout: 2000, maxBuffer: 8192 })
+        const head = await execGit(execution.cwd, ['rev-parse', '--verify', 'HEAD'], { timeout: 2000, maxBuffer: 8192 })
         git = { status: 'ok', branch: result.stdout.trim(), head: head.stdout.trim(), sampledAt: Date.now() }
       } catch { /* A non-Git or unavailable checkout still has execution context. */ }
       return reply('ok', { surface: execution.owner.kind === 'thread' ? 'thread' : 'code', workspaceId: execution.owner.kind === 'pane' ? execution.workspaceId : null,

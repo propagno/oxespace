@@ -15,7 +15,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { execFileSync } from 'child_process';
+import { execGitSync } from '../../../utils/safe-git';
 
 const MARKER_BEGIN = '# >>> codegraph sync hook >>>';
 const MARKER_END = '# <<< codegraph sync hook <<<';
@@ -40,12 +40,7 @@ export interface GitHookResult {
  */
 export function isGitRepo(projectRoot: string): boolean {
   try {
-    const out = execFileSync('git', ['rev-parse', '--is-inside-work-tree'], {
-      cwd: projectRoot,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      windowsHide: true,
-    }).trim();
+    const out = execGitSync(projectRoot, ['rev-parse', '--is-inside-work-tree']).trim();
     return out === 'true';
   } catch {
     return false;
@@ -58,12 +53,8 @@ export function isGitRepo(projectRoot: string): boolean {
  */
 function gitHooksDir(projectRoot: string): string | null {
   try {
-    const out = execFileSync('git', ['rev-parse', '--git-path', 'hooks'], {
-      cwd: projectRoot,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      windowsHide: true,
-    }).trim();
+    // The repository's own hooks directory is the answer here, so its core.hooksPath stays; nothing runs.
+    const out = execGitSync(projectRoot, ['rev-parse', '--git-path', 'hooks'], { asksHooksPath: true }).trim();
     if (!out) return null;
     return path.isAbsolute(out) ? out : path.resolve(projectRoot, out);
   } catch {

@@ -178,6 +178,9 @@ describe('Agent Work', () => {
     await finish(run.id, 'edit', 'Edited')
     expect(manager.work.run(run.id).status).toBe('succeeded')
     await manager.work.message(run.id, 'edit', 'Also update the docs')
+    // settle() waits only for a worker that has received nothing; this one already has its first prompt, so wait for the
+    // follow-up itself (the send runs after the turn's git checks, which can take longer than settle()'s floor).
+    await vi.waitFor(() => expect(worker(run.id, 'edit').sent.at(-1)).toBe('Also update the docs'), { timeout: 5_000 })
     await settle()
     expect(manager.work.run(run.id)).toMatchObject({ status: 'running', tasks: [{ status: 'running' }] })
     expect(worker(run.id, 'edit').sent.at(-1)).toBe('Also update the docs')

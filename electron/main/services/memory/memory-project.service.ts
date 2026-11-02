@@ -1,13 +1,11 @@
-import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { realpath } from 'node:fs/promises'
 import { basename, dirname, resolve } from 'node:path'
-import { promisify } from 'node:util'
 import type { AppDatabase } from '../../db'
 import type { MemoryContext, MemorySettings } from '../../../../shared/types/memory'
 import { integrationBlocked } from '../policy'
+import { execGit } from '../../utils/safe-git'
 
-const exec = promisify(execFile)
 export const DEFAULT_MEMORY_SETTINGS: MemorySettings = { enabled: false, automaticCapture: false, automaticContext: false }
 
 export async function retryIdentityProbe<T>(probe: () => Promise<T>): Promise<T> {
@@ -23,7 +21,7 @@ export async function projectIdentity(cwd: string): Promise<string> {
   const root = await realpath(cwd)
   let identity = root
   try {
-    const probe = () => exec('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: root, timeout: 2000, windowsHide: true })
+    const probe = () => execGit(root, ['rev-parse', '--path-format=absolute', '--git-common-dir'], { timeout: 2000 })
     // A heavily loaded Windows host can delay process startup beyond the
     // bounded probe. Retry one timeout only; never convert it into a new identity.
     const result = await retryIdentityProbe(probe)

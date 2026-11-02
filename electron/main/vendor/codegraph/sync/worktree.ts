@@ -19,7 +19,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { execFileSync } from 'child_process';
+import { execGitSync } from '../../../utils/safe-git';
 
 /**
  * Absolute, symlink-resolved toplevel of the git working tree that `dir`
@@ -31,12 +31,7 @@ import { execFileSync } from 'child_process';
  */
 export function gitWorktreeRoot(dir: string): string | null {
   try {
-    const out = execFileSync('git', ['rev-parse', '--show-toplevel'], {
-      cwd: dir,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      windowsHide: true,
-    }).trim();
+    const out = execGitSync(dir, ['rev-parse', '--show-toplevel']).trim();
     return out ? realpath(out) : null;
   } catch {
     return null;
