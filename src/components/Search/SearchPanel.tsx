@@ -8,6 +8,7 @@ import { useWorkspaceStore } from '../../store/workspace.store'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
 import { ErrorState, Spinner } from '../../ui'
+import { usePathMenu } from '../PathMenu/usePathMenu'
 
 interface SearchPanelProps {
   workspace: Workspace
@@ -134,7 +135,7 @@ export function SearchPanel({ workspace, onOpenFile }: SearchPanelProps): ReactE
 
       <div className="search-panel-results">
         {files.map((file) => (
-          <FileGroup key={file.path} file={file} onOpen={openMatch} />
+          <FileGroup key={file.path} file={file} onOpen={openMatch} workspaceId={workspace.id} rootPath={workspace.rootPath} />
         ))}
       </div>
     </div>
@@ -144,13 +145,17 @@ export function SearchPanel({ workspace, onOpenFile }: SearchPanelProps): ReactE
 interface FileGroupProps {
   file: SearchFileResult
   onOpen: (path: string, line?: number) => void
+  workspaceId: string
+  rootPath: string
 }
 
-function FileGroup({ file, onOpen }: FileGroupProps): ReactElement {
+function FileGroup({ file, onOpen, workspaceId, rootPath }: FileGroupProps): ReactElement {
   const { t } = useTranslation('code')
   const [open, setOpen] = useState(true)
   const name = file.path.split('/').pop() ?? file.path
   const dir = file.path.slice(0, file.path.length - name.length)
+  // F33: the path menu on the file and on each match, at its line.
+  const { menu, onContextMenu } = usePathMenu({ workspaceId, rootPath, relativePath: file.path }, { openInOxespace: () => onOpen(file.path) })
 
   return (
     <section className="search-file-group">
@@ -159,29 +164,34 @@ function FileGroup({ file, onOpen }: FileGroupProps): ReactElement {
         className="search-file-header"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
+        onContextMenu={onContextMenu}
       >
         {open ? <ChevronDown size={12} aria-hidden="true" /> : <ChevronRight size={12} aria-hidden="true" />}
         <span className="search-file-name">{name}</span>
         {dir ? <span className="search-file-dir">{dir}</span> : null}
         <span className="search-file-count">{file.matches.length}{file.truncated ? '+' : ''}</span>
       </button>
+      {menu}
       {open ? (
         <ul className="search-file-matches">
           {file.matches.map((match, index) => (
-            <li key={`${match.lineNumber}-${index}`}>
-              <button
-                type="button"
-                className="search-match-row"
-                onClick={() => onOpen(file.path, match.lineNumber)}
-                title={t('search.openAt', { path: file.path, line: match.lineNumber })}
-              >
-                <span className="search-match-line">{match.lineNumber}</span>
-                <span className="search-match-text">{highlight(match.line, match.submatches)}</span>
-              </button>
-            </li>
+            <MatchRow key={`${match.lineNumber}-${index}`} path={file.path} line={match.lineNumber} workspaceId={workspaceId} rootPath={rootPath} onOpen={onOpen}
+              title={t('search.openAt', { path: file.path, line: match.lineNumber })}>
+              <span className="search-match-line">{match.lineNumber}</span>
+              <span className="search-match-text">{highlight(match.line, match.submatches)}</span>
+            </MatchRow>
           ))}
         </ul>
       ) : null}
     </section>
   )
+}
+
+/** A match: click opens it in OXESpace at its line; right click or Shift+F10 opens the path menu at that line (F33). */
+function MatchRow({ path, line, workspaceId, rootPath, onOpen, title, children }: { path: string; line: number; workspaceId: string; rootPath: string; onOpen: (path: string, line?: number) => void; title: string; children: ReactNode }): ReactElement {
+  const { menu, onContextMenu } = usePathMenu({ workspaceId, rootPath, relativePath: path, line }, { openInOxespace: () => onOpen(path, line) })
+  return <li>
+    <button type="button" className="search-match-row" onClick={() => onOpen(path, line)} onContextMenu={onContextMenu} title={title}>{children}</button>
+    {menu}
+  </li>
 }
