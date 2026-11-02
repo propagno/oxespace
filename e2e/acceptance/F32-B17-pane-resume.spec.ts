@@ -70,7 +70,9 @@ test('F32/B17: four Claude panes come back on their own sessions; a deleted one 
     expect(launched, 'the deleted session is not resumed').not.toContain(SESSIONS[3])
     // Each resumed pane says so; the fourth says why it started fresh.
     const headers = await page.locator('[data-testid="pane-container"]').allInnerTexts()
-    expect(headers.filter(h => /retomad|retomou|resumed/i.test(h)).length, 'three panes show they resumed').toBe(3)
+    // "Not resumed" also contains "resumed": count only the panes whose marker says resumed.
+    const outcomes = await page.locator('[data-testid="pane-resume-marker"]').evaluateAll(list => list.map(e => e.getAttribute('data-outcome')))
+    expect(outcomes.filter(o => o === 'resumed').length, `three panes show they resumed (${JSON.stringify(outcomes)})`).toBe(3)
     expect(headers.some(h => /não (foi possível|encontr)|apagad|not found|deleted/i.test(h)), 'the fourth explains why it is new').toBe(true)
   } finally { await quit(app) }
 })

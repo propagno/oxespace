@@ -174,7 +174,9 @@ test('S2: six agent panes, started both ways, come back on their own sessions or
         await expect.soft(details, '… the fresh pane says why the earlier session was not resumed').toContainText(/não está mais no disco|no longer on disk/i)
         await expect.soft(details, '… and does not offer the deleted id as its session').not.toContainText(new RegExp(`(Sessão do agente|Agent session)\\W*${before.sessionId}`))
       } else {
-        await expect.soft(details, `… with the native id used for the resume (${before.sessionId})`).toContainText(new RegExp(`(Sessão do agente|Agent session)[\\s\\S]{0,120}${before.sessionId}`))
+        // Shown whole or shortened in the middle (first 8 … last 8), as Details does since #311.
+        const id = before.sessionId
+        await expect.soft(details, `… with the native id used for the resume (${id})`).toContainText(new RegExp(`(Sessão do agente|Agent session)[\\s\\S]{0,120}(${id}|${id.slice(0, 8)}…${id.slice(-8)})`))
       }
       await page.keyboard.press('Escape')
       await expect(details).toBeHidden()
