@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -484,6 +484,23 @@ describe('B7.4 · SECURITY re-review N3', () => {
     await first.settle()
     expect(first.db.prepare("SELECT COUNT(*) AS n FROM accepted_project_config WHERE accepted_via = 'inherited'").get()).toEqual({ n: 0 })
     // Strict: the allow is not taken silently at first sight, as an unknown worktree is not a fresh project.
+    expect(first.requests()).toHaveLength(1)
+  })
+
+  it('a folder whose .git is a link to a real worktree\'s .git borrows nothing (the #510 check)', async () => {
+    const primary = temp('oxe-b74-n3l-')
+    const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-c', 'user.email=t@example.invalid', '-c', 'user.name=t', ...args], { cwd, stdio: 'ignore' })
+    git(primary, 'init', '-q')
+    const first = await accepted({ root: primary })
+    git(primary, 'add', '.'); git(primary, 'commit', '-q', '-m', 'accepted')
+    const real = join(temp('oxe-b74-n3lwt-'), 'real')
+    git(primary, 'worktree', 'add', '-q', '-b', 'real', real, 'HEAD')
+    const forged = temp('oxe-b74-n3lf-')
+    try { symlinkSync(join(real, '.git'), join(forged, '.git'), 'file') } catch { return } // no symlink privilege here: the junction case is in worktree-root-verified
+    first.write(join(forged, '.oxespace', 'policy.json'), policyText(rule('deny', DB_EXECUTE), rule('allow', 'mcp__x')))
+    expect(first.store.decide('tool.use', DB_EXECUTE, forged).allowed).toBe(false)
+    await first.settle()
+    expect(first.db.prepare("SELECT COUNT(*) AS n FROM accepted_project_config WHERE accepted_via = 'inherited'").get()).toEqual({ n: 0 })
     expect(first.requests()).toHaveLength(1)
   })
 })
