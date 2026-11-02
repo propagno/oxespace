@@ -39,6 +39,16 @@ async function arm(page: Page): Promise<void> {
     const newView = () => [...document.querySelectorAll('[data-view="data"]')].find(visible) ?? null
     const rec: Record = { t0: 0, frames: [], announced: [], keys: [] }
     ;(window as unknown as { __f72: Record }).__f72 = rec
+    // DIAG (TECH LEAD on #363/#442, ×6 terminal idle: first frame at 1.6 s once): every long task from arming on, with
+    // its attribution, so the work that lands between the press and the first frame can be named (T45).
+    const longTasks: Array<{ start: number; duration: number; source: string }> = []
+    ;(rec as unknown as { longTasks: typeof longTasks }).longTasks = longTasks
+    new PerformanceObserver(list => {
+      for (const entry of list.getEntries() as Array<PerformanceEntry & { attribution?: Array<{ containerType?: string; containerName?: string; containerSrc?: string; name?: string }> }>) {
+        const a = entry.attribution?.[0]
+        longTasks.push({ start: entry.startTime, duration: Math.round(entry.duration), source: a ? `${a.containerType ?? ''}:${a.containerName || a.containerSrc || a.name || ''}` : entry.name })
+      }
+    }).observe({ type: 'longtask' })
     const button = document.querySelector('button[data-app-mode="data"]')!
     button.addEventListener('pointerdown', () => {
       rec.t0 = performance.now()
@@ -125,6 +135,11 @@ for (const variant of [
       const rec = await page.evaluate(() => (window as unknown as { __f72: Record }).__f72)
       const commit = commitAt(rec)
       console.log(`[F72-DIAG] ${variant.name}: commit ${commit.toFixed(0)} ms, selected ${rec.frames.find(f => f.pressed)?.t.toFixed(0)} ms, busy ${rec.frames.find(f => f.busy)?.t.toFixed(0)} ms, first frame ${rec.frames[0]?.t.toFixed(0)} ms, early skeletons ${JSON.stringify((rec as unknown as { early?: string[] }).early ?? [])}`)
+      // Long tasks from 1 s before the press to the first frame, relative to the press (ms), with their source.
+      const firstAt = rec.frames[0]?.t ?? 3_000
+      const around = ((rec as unknown as { longTasks?: Array<{ start: number; duration: number; source: string }> }).longTasks ?? [])
+        .map(task => ({ ...task, start: Math.round(task.start - rec.t0) })).filter(task => task.start + task.duration >= -1_000 && task.start <= firstAt)
+      console.log(`[F72-LONGTASKS] ${variant.name}: ${JSON.stringify(around)}`)
       // Content at: the new view up without its skeleton; past 300 ms React's fallback hold can push it to ~600 ms (#363 review L3).
       const contentAt = rec.frames.find(f => f.newUp && !f.skeleton)?.t ?? Infinity
       test.info().annotations.push({ type: 'timings', description: `selected at ${rec.frames.find(f => f.pressed)?.t.toFixed(0)} ms, commit at ${commit.toFixed(0)} ms, content at ${contentAt.toFixed(0)} ms, ${rec.frames.length} frames` })
