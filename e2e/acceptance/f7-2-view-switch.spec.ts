@@ -87,11 +87,21 @@ for (const variant of [
       await page.locator('[data-testid="pane-container"] .xterm').first().click()
       // The press is measured from a quiet window: startup and background work still queued after launch (heavier with the
       // CPU throttled) would otherwise land in the measured frames (#363 CI: the first frame at 1.8 s with the terminal idle).
-      await page.evaluate(() => new Promise<void>(resolve => {
-        const quiet = (left: number): void => { if (left === 0) { resolve(); return } requestIdleCallback(deadline => quiet(deadline.timeRemaining() >= 40 ? left - 1 : 3), { timeout: 3_000 }) }
-        setTimeout(resolve, 8_000) // at most: a window that never goes quiet is measured anyway
+      const wait = await page.evaluate(() => new Promise<{ quiet: boolean; ms: number; idle: number }>(resolve => {
+        const started = performance.now()
+        let idle = 0, done = false
+        const finish = (quiet: boolean): void => { if (done) return; done = true; resolve({ quiet, ms: Math.round(performance.now() - started), idle }) }
+        const quiet = (left: number): void => {
+          if (done) return
+          if (left === 0) { finish(true); return }
+          requestIdleCallback(deadline => { const enough = deadline.timeRemaining() >= 40; if (enough) idle++; quiet(enough ? left - 1 : 3) }, { timeout: 3_000 })
+        }
+        setTimeout(() => finish(false), 8_000)
         quiet(3)
       }))
+      console.log(`[F72-WAIT] ${variant.name}: quiet ${wait.quiet}, waited ${wait.ms} ms, idle periods ${wait.idle}`)
+      // TECH LEAD on #363: a window that never goes quiet fails the case; it is never measured anyway.
+      expect(wait.quiet, `no quiet window within 8 s (waited ${wait.ms} ms, ${wait.idle} idle periods)`).toBe(true)
       await arm(page)
       // No hover first: hovering would prefetch the chunk (rule 4) and the switch would no longer be cold.
       await page.locator('button[data-app-mode="data"]').dispatchEvent('pointerdown')
