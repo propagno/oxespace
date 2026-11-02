@@ -5,12 +5,12 @@ import type { DelegationTask } from '../../../shared/types/delegation'
 import type { TerminalManager } from './terminal.service'
 import type { AppDatabase } from '../db/index'
 import { codexMcpArguments, readManagedMcp } from './conversation/thread-managed-mcp'
+import { bridgePlanFlags, type BridgePlan } from '../mcp-internal/bridge-plan'
 
 const forwarded = ['OXESPACE_MCP_PORT','OXESPACE_MCP_TOKEN','OXESPACE_WORKSPACE_ID','OXESPACE_EXECUTION_ID','OXESPACE_EXECUTION_TOKEN','OXESPACE_MEMORY_RUN_ID']
 /** The bridge's own arguments: the session's tool list and the groups it may turn on, when a plan limits them (B7.2). */
-export function bridgeArguments(bridge: string, plan?: { tools: readonly string[]; enableable: Readonly<Record<string, readonly string[]>> }): string[] {
-  if (!plan) return [bridge]
-  return [bridge, '--allowed-tools', JSON.stringify(plan.tools), ...(Object.keys(plan.enableable).length ? ['--enableable-groups', JSON.stringify(plan.enableable)] : [])]
+export function bridgeArguments(bridge: string, plan?: BridgePlan): string[] {
+  return plan ? [bridge, ...bridgePlanFlags(plan)] : [bridge]
 }
 export function agentMcpArguments(provider: string, bridge: string, plan?: Parameters<typeof bridgeArguments>[1]): string[] {
   const args = bridgeArguments(bridge, plan)

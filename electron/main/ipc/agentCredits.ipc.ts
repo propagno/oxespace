@@ -2,7 +2,7 @@ import { ipcMain } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { AgentCreditsInput } from '../../../shared/types/agentCredits'
 import { AgentCreditsService } from '../services/agentCredits'
-import { parseRecord, parseToken, requireAppFrame } from './ipc-guards'
+import { parseRecord, parseToken } from './ipc-guards'
 
 /**
  * Renderer-facing IPC for the per-provider usage/credits counter.
@@ -10,7 +10,6 @@ import { parseRecord, parseToken, requireAppFrame } from './ipc-guards'
  */
 export function registerAgentCreditsIpc(service = new AgentCreditsService()): AgentCreditsService {
   ipcMain.handle(IPC_CHANNELS.agentCredits.get, (event, value: unknown) => {
-    requireAppFrame(event, 'Usage requests')
     const input = parseRecord(value, 'Usage request')
     return service.getCredits(parseToken(input.provider, 'Provider', 40) as AgentCreditsInput['provider'], input.force === true)
   })

@@ -14,6 +14,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.oxespace.mobile.ui.theme.OxeCodeStyle
 import kotlinx.coroutines.delay
 import com.oxespace.mobile.ui.theme.OxeFonts
+import com.oxespace.mobile.protocol.RemoteApprovalRisk
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -113,6 +114,7 @@ fun RequestScreen(
                     AnswerBlock.DESKTOP_ONLY -> R.string.request_desktop_only
                     AnswerBlock.NOT_OFFERED -> R.string.request_refused_other
                     AnswerBlock.NOT_CONFIRMED -> R.string.request_not_confirmed
+                    AnswerBlock.TRUNCATED -> R.string.request_truncated
                 }
                 is AnswerOutcome.Sent -> answerMessage(outcome.result)
             }
@@ -180,9 +182,20 @@ fun RequestScreen(
             val own = displaySafe(request.title, TITLE_MAX).takeIf { it.isNotBlank() }
             if (own != null || detail != null || why != null) AgentWords(listOfNotNull(own, detail).joinToString("\n").ifEmpty { null }, why)
 
-            if (!request.answerable) return@Column
+            val truncated = request.truncated == true
+            if (truncated) {
+                Text(
+                    stringResource(if (request.kind == "question") R.string.request_truncated_question else R.string.request_truncated),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Oxe.colors.intentWarningFg,
+                )
+            }
+            // A truncated question is answered on the desktop only: nothing to pick or send here.
+            if (!request.answerable || (truncated && request.kind == "question")) return@Column
 
-            val questions = request.questions.orEmpty()
+            val questions = if (truncated) emptyList() else request.questions.orEmpty()
+            // Never an approval for what the phone wasn't shown in full, even if the desktop offered one.
+            val decisions = if (truncated) request.decisions.filter { it == "decline" || it == "cancel" } else request.decisions
             for (question in questions) {
                 Text(displaySafe(question.header ?: question.question, QUESTION_MAX), style = MaterialTheme.typography.titleSmall, modifier = Modifier.semantics { heading() })
                 if (question.header != null) Text(displaySafeBlock(question.question, QUESTION_MAX), style = MaterialTheme.typography.bodyMedium)
@@ -230,7 +243,7 @@ fun RequestScreen(
             }
 
             // The only box on the screen that looks editable.
-            if ("decline" in request.decisions) {
+            if ("decline" in decisions) {
                 OutlinedTextField(
                     value = reason,
                     onValueChange = { reason = it.take(500) },
@@ -239,11 +252,11 @@ fun RequestScreen(
                 )
             }
             // At critical risk Allow waits the desktop's hold before it can be pressed (APPROVAL_CRITICAL_ALLOW_DELAY_MS).
-            val critical = request.risk?.let { riskLevel(it) } == RiskLevel.CRITICAL
+            val critical = request.risk?.let { riskLevel(it) } == RemoteApprovalRisk.CRITICAL
             // Keyed on the generation and the level too: a request raised to critical takes the hold again.
             var held by remember(request.requestId, request.generation, critical) { mutableStateOf(critical) }
             LaunchedEffect(request.requestId, request.generation, critical) { if (critical) { delay(CRITICAL_HOLD_MS); held = false } }
-            for ((decision, leads) in decisionLayout(request.decisions, request.risk)) {
+            for ((decision, leads) in decisionLayout(decisions, request.risk)) {
                 val label = stringResource(
                     when (decision) {
                         "accept" -> R.string.request_decision_accept
@@ -280,7 +293,7 @@ fun RequestScreen(
  * drawn under a wrong label.
  */
 internal fun decisionLayout(decisions: List<String>, risk: String?): List<Pair<String, Boolean>> {
-    val lead = if (risk != null && riskLevel(risk) == RiskLevel.LOW) "accept" else "decline"
+    val lead = if (risk != null && riskLevel(risk) == RemoteApprovalRisk.LOW) "accept" else "decline"
     return decisions
         .filter { it in KNOWN_DECISIONS }
         .sortedBy { when (it) { lead -> 0; "cancel" -> 2; else -> 1 } }

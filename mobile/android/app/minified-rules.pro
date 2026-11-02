@@ -14,3 +14,5 @@
 -keep class com.oxespace.mobile.pairing.PairLinkForHomologation { *; }
 -keep class com.oxespace.mobile.pairing.PairingViewModel { *; }
 -keep class com.oxespace.mobile.pairing.PairingState** { *; }
+# The smoke test asks the shrunk build whether captures can be allowed (they never can outside debug).
+-keep class com.oxespace.mobile.ui.CaptureForHomologation { *; }

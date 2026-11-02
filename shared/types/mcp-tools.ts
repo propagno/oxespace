@@ -80,6 +80,52 @@ export interface McpToolGroupsApi {
    * `MCP_TOOL_GROUPS_REFUSAL_CODES` (a C3 code the window turns into words); any other message is an invalid request.
    */
   setToolGroupMode?(input: { rootPath: string; group: ConfigurableMcpToolGroup; mode: McpToolGroupMode }): Promise<McpToolGroupsReport>
+  /** B7.3: what each MCP tool of a project needs before it runs (OXESpace's and other servers'). */
+  toolRules?(input: { rootPath: string }): Promise<McpToolRule[]>
+  /**
+   * Sets one tool's rule in the project, from the app's window only, and records it in the audit. The person's choice:
+   * never an MCP tool. A refusal rejects with an error whose message is one of `MCP_TOOL_RULE_REFUSAL_CODES` (a C3
+   * message code the window turns into words): `allow` on an OXESpace tool of the confirm level, a rule from the user or
+   * managed layer, or a project policy file that is not valid. Any other message is an invalid request.
+   */
+  setToolRule?(input: { rootPath: string; server: string; tool: string; decision: McpToolDecision }): Promise<McpToolRule[]>
+}
+
+/** Per tool: run without asking, ask the person (the default), or never run. */
+export const MCP_TOOL_DECISIONS = ['allow', 'ask', 'deny'] as const
+export type McpToolDecision = typeof MCP_TOOL_DECISIONS[number]
+
+/** Why `setToolRule` refused: the error's message, a message code of `shared/messages.ts`. */
+export const MCP_TOOL_RULE_REFUSAL_CODES = ['mcp.toolRule.confirmLevel', 'mcp.toolRule.locked', 'mcp.toolRule.invalidPolicy'] as const satisfies readonly MessageCode[]
+export type McpToolRuleRefusalCode = typeof MCP_TOOL_RULE_REFUSAL_CODES[number]
+
+export const isMcpToolRuleRefusal = (message: unknown): message is McpToolRuleRefusalCode =>
+  (MCP_TOOL_RULE_REFUSAL_CODES as readonly unknown[]).includes(message)
+
+/**
+ * One tool's rule, and where it holds. `deny` is a `tool.use` rule in the project's `.oxespace/policy.json`: it holds
+ * everywhere (OxeChat conversations, OxeCode terminals and MCP). `allow` is a project permission rule: it holds for
+ * OxeChat conversations, while agents in OxeCode terminals follow their own CLI's permissions. `ask` is no rule.
+ */
+export interface McpToolRule {
+  /**
+   * The MCP server's key, `oxespace-delegation` for OXESpace's own tools. A configured server's is its `McpServer.key`
+   * (`serverKey(name)`, suffixed when two servers normalize alike), so the window can group rows under the servers it lists.
+   */
+  server: string
+  tool: string
+  decision: McpToolDecision
+  /** Where the deciding rule lives; `default` when there is none. A user or managed rule cannot be changed here. */
+  source: 'project' | 'user' | 'managed' | 'default'
+  editable: boolean
+  /**
+   * The decisions the person may pick for this row: none when it is not editable, `ask` and `deny` for an OXESpace tool
+   * of the confirm level, otherwise all three.
+   */
+  allowedDecisions: McpToolDecision[]
+  /** An OXESpace tool with an action of the confirm level: it asks the person every time, so it is never `allow`. */
+  confirmLevel: boolean
+  scope: 'everywhere' | 'oxechat' | null
 }
 
 /** Why `toolGroups` or `setToolGroupMode` refused: the error's message, a message code of `shared/messages.ts`. */

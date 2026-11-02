@@ -13,7 +13,6 @@ import { createFakeIpcMain } from '../helpers/fake-ipc-main'
 
 const ipc = createFakeIpcMain()
 vi.mock('electron', () => ({ ipcMain: ipc, BrowserWindow: { getAllWindows: () => [] }, safeStorage: {}, app: { getPath: () => tmpdir() } }))
-vi.mock('../../electron/main/ipc/ipc-guards', async (original) => ({ ...await original<object>(), requireAppFrame: () => undefined }))
 
 const { IPC_CHANNELS } = await import('../../shared/types/ipc')
 const { registerAgentHooksIpc } = await import('../../electron/main/ipc/agent-hooks.ipc')

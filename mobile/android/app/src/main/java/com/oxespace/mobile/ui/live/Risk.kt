@@ -19,42 +19,40 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.oxespace.mobile.R
+import com.oxespace.mobile.protocol.RemoteApprovalRisk
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeRadius
 import com.oxespace.mobile.ui.theme.OxeSpace
 
-/** The desktop's four risk levels (glossary §6), the same words as the desktop's approval modal and S7. */
-enum class RiskLevel { LOW, MEDIUM, HIGH, CRITICAL }
-
 /**
- * The level for a wire value. The four words are read as they are. The shell colours older desktops still send map as
- * the desktop's own `riskFromShell` does (green low, orange medium, red critical), so the phone never shows a red
- * command as anything softer. Anything else is a level added later and reads as critical, the strongest badge (#354).
+ * The level for a wire value, as the generated [RemoteApprovalRisk] (#368, the desktop's `APPROVAL_RISKS`): the four
+ * words are read as they are. The shell colours older desktops still send map as the desktop's own `riskFromShell` does
+ * (green low, orange medium, red critical), so the phone never shows a red command as anything softer. Anything else is
+ * a level added later and reads as critical, the strongest badge (#354).
  */
-fun riskLevel(wire: String): RiskLevel = when (wire) {
-    "low", "green" -> RiskLevel.LOW
-    "medium", "orange" -> RiskLevel.MEDIUM
-    "high" -> RiskLevel.HIGH
-    else -> RiskLevel.CRITICAL
+fun riskLevel(wire: String): RemoteApprovalRisk = RemoteApprovalRisk.fromWire(wire) ?: when (wire) {
+    "green" -> RemoteApprovalRisk.LOW
+    "orange" -> RemoteApprovalRisk.MEDIUM
+    else -> RemoteApprovalRisk.CRITICAL
 }
 
 @Composable
-fun riskWord(level: RiskLevel): String = stringResource(
+fun riskWord(level: RemoteApprovalRisk): String = stringResource(
     when (level) {
-        RiskLevel.LOW -> R.string.request_risk_low
-        RiskLevel.MEDIUM -> R.string.request_risk_medium
-        RiskLevel.HIGH -> R.string.request_risk_high
-        RiskLevel.CRITICAL -> R.string.request_risk_critical
+        RemoteApprovalRisk.LOW -> R.string.request_risk_low
+        RemoteApprovalRisk.MEDIUM -> R.string.request_risk_medium
+        RemoteApprovalRisk.HIGH -> R.string.request_risk_high
+        RemoteApprovalRisk.CRITICAL -> R.string.request_risk_critical
     },
 )
 
 @Composable
-fun riskMeaning(level: RiskLevel): String = stringResource(
+fun riskMeaning(level: RemoteApprovalRisk): String = stringResource(
     when (level) {
-        RiskLevel.LOW -> R.string.request_risk_meaning_low
-        RiskLevel.MEDIUM -> R.string.request_risk_meaning_medium
-        RiskLevel.HIGH -> R.string.request_risk_meaning_high
-        RiskLevel.CRITICAL -> R.string.request_risk_meaning_critical
+        RemoteApprovalRisk.LOW -> R.string.request_risk_meaning_low
+        RemoteApprovalRisk.MEDIUM -> R.string.request_risk_meaning_medium
+        RemoteApprovalRisk.HIGH -> R.string.request_risk_meaning_high
+        RemoteApprovalRisk.CRITICAL -> R.string.request_risk_meaning_critical
     },
 )
 
@@ -62,12 +60,12 @@ private data class BadgeStyle(val background: Color, val border: Color, val text
 
 /** Glossary §6: low neutral, medium warning, high danger soft, critical danger solid, so critical never looks like high. */
 @Composable
-private fun badgeStyle(level: RiskLevel): BadgeStyle = with(Oxe.colors) {
+private fun badgeStyle(level: RemoteApprovalRisk): BadgeStyle = with(Oxe.colors) {
     when (level) {
-        RiskLevel.LOW -> BadgeStyle(fillHover, borderSubtle, textSecondary, bold = false)
-        RiskLevel.MEDIUM -> BadgeStyle(intentWarningBg, intentWarningBorder, intentWarningFg, bold = false)
-        RiskLevel.HIGH -> BadgeStyle(intentDangerBg, intentDangerBorder, intentDangerFg, bold = false)
-        RiskLevel.CRITICAL -> BadgeStyle(intentDangerSolid, intentDangerSolid, textOnSolid, bold = true)
+        RemoteApprovalRisk.LOW -> BadgeStyle(fillHover, borderSubtle, textSecondary, bold = false)
+        RemoteApprovalRisk.MEDIUM -> BadgeStyle(intentWarningBg, intentWarningBorder, intentWarningFg, bold = false)
+        RemoteApprovalRisk.HIGH -> BadgeStyle(intentDangerBg, intentDangerBorder, intentDangerFg, bold = false)
+        RemoteApprovalRisk.CRITICAL -> BadgeStyle(intentDangerSolid, intentDangerSolid, textOnSolid, bold = true)
     }
 }
 

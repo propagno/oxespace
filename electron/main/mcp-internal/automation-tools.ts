@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import type { ToolEntry } from './tool-registry'
 import { projectIdentity } from '../services/memory/memory-project.service'
+import { CONFIGURABLE_MCP_TOOL_GROUPS as TOOL_GROUP_NAMES } from '../../../shared/types/mcp-tools'
 
 const exec = promisify(execFile)
 
@@ -27,7 +28,19 @@ const toolsEnable: ToolEntry = {
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
   },
   requiresWorkspace: false,
-  handler: async () => ({ content: [{ type: 'text' as const, text: JSON.stringify({ schemaVersion: 1, status: 'ok', data: { enabled: [], note: 'This session already lists every OXESpace tool it can use.' } }) }] })
+  // The bridge answers this when it owns the session's groups. Reaching the server means a direct caller or a bridge
+  // with nothing to turn on: refuse what is not a group, the same codes as the bridge, never an "ok" for nonsense.
+  handler: async args => {
+    const reply = (body: Record<string, unknown>, isError = false) => ({
+      content: [{ type: 'text' as const, text: JSON.stringify({ schemaVersion: 1, ...body }) }], ...(isError ? { isError: true } : {})
+    })
+    const group = args && typeof args === 'object' && !Array.isArray(args) && Object.keys(args).length === 1 ? (args as { group?: unknown }).group : undefined
+    if (typeof group !== 'string') return reply({ status: 'error', error: { code: 'INVALID_ARGUMENTS', message: 'Pass { "group": "<name>" }.', retryable: false } }, true)
+    if (!(TOOL_GROUP_NAMES as readonly string[]).includes(group)) {
+      return reply({ status: 'error', error: { code: 'GROUP_UNAVAILABLE', message: `Unknown group "${group.slice(0, 40)}". Groups: ${TOOL_GROUP_NAMES.join(', ')}.`, retryable: false } }, true)
+    }
+    return reply({ status: 'ok', data: { enabled: [], note: 'Nothing to turn on here: this caller already lists every OXESpace tool it can use.' } })
+  }
 }
 
 /** Discovery is read-only and authenticated independently of optional memory. */

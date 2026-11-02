@@ -1,6 +1,10 @@
 import { defineConfig } from '@playwright/test'
 // Workers import this config: makes every spec's Electron close() finish on Windows (see the helper).
 import './e2e/helpers/electron-close'
+import { scrubLiveAppEnv } from './e2e/helpers/live-app-env'
+
+// Before any worker starts: a run from an OXESpace terminal must never reach the running app (e2e/helpers/live-app-env.ts).
+scrubLiveAppEnv()
 
 // Visual-regression suite. Kept out of `npm run test:e2e` until baselines are
 // approved on both platforms; run it with `npm run test:visual`.

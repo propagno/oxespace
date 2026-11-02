@@ -51,14 +51,14 @@ export function sessionToolPlan(toolSearch: boolean, roles: ThreadToolRoles & { 
 }
 
 /**
- * The OXESpace tools the workspace's `.mcp.json` offers (any agent started there, whatever its role): every group but
- * those the project turned off. `null` when none is off, so the entry stays as it was and offers every tool.
+ * The plan of the workspace's `.mcp.json`. Claude Code and Copilot read it (Codex reads only its own configuration and
+ * gets its plan at launch), and so does an agent typed into a plain shell pane: the same plan as an agent OXESpace starts
+ * in a Code terminal, without tool search since the reader is not known. Core, the Code terminal's tools and the
+ * `always` groups are offered; `on-demand` groups wait for oxespace_tools_enable; `off` is never offered.
+ * It used to offer every tool unless a group was off: 94 definitions on every model request (homologation, check-182).
  */
-export function projectOfferedTools(modes: ProjectToolModes): string[] | null {
-  if (!CONFIGURABLE_MCP_TOOL_GROUPS.some(group => modes[group].mode === 'off')) return null
-  const groups = (Object.keys(MCP_TOOL_GROUPS) as (keyof typeof MCP_TOOL_GROUPS)[])
-    .filter(group => !(CONFIGURABLE_MCP_TOOL_GROUPS as readonly string[]).includes(group) || modes[group as ConfigurableMcpToolGroup].mode !== 'off')
-  return [...new Set(groups.flatMap(group => MCP_TOOL_GROUPS[group]))]
+export function projectMcpJsonPlan(modes: ProjectToolModes): SessionToolPlan {
+  return sessionToolPlan(false, { code: true }, modes)
 }
 
 /**

@@ -101,6 +101,8 @@ function kotlinType(node, context, nested) {
   if (node.kind === ts.SyntaxKind.NumberKeyword) return 'Long'
   if (node.kind === ts.SyntaxKind.BooleanKeyword) return 'Boolean'
   if (node.kind === ts.SyntaxKind.UnknownKeyword) return 'JsonElement'
+  // A flag that is only ever present as `true` (`truncated?: true`) reads as a Boolean, absent meaning false.
+  if (ts.isLiteralTypeNode(node) && (node.literal.kind === ts.SyntaxKind.TrueKeyword || node.literal.kind === ts.SyntaxKind.FalseKeyword)) return 'Boolean'
   // A set of words is a String on the phone, so a value a newer desktop adds still reads.
   if (isStringLiteral(node)) return 'String'
   if (ts.isUnionTypeNode(node)) {
