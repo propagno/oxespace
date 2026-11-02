@@ -10,12 +10,12 @@ const reason = 'Open a workspace to open its team'
 const actions = (): CommandPaletteAction[] => buildCodeCommands({
   applicationView: 'code', activeWorkspace: null, activePane: null, hasTeamTarget: false, teamUnavailable: reason, toolHandlers: {},
   openNewWorkspace: vi.fn(), splitActivePane: vi.fn(), toggleActivePaneMaximize: vi.fn(), openDesignSystem: vi.fn()
-}).map(command => ({ id: command.id, title: command.label, subtitle: command.detail, disabled: command.disabled, shortcut: command.shortcut, run: command.run }))
+}).map(command => ({ id: command.id, title: command.label, action: command.action, subtitle: command.detail, disabled: command.disabled, shortcut: command.shortcut, run: command.run }))
 
 beforeEach(() => { useToasts.setState({ items: [] }) })
 afterEach(() => { cleanup() })
 
-describe('Tools › Project team… where Team cannot open', () => {
+describe('Tools › Open the project team… where Team cannot open', () => {
   it('is reached by the keyboard, read with its reason, and says the reason again when chosen', async () => {
     const user = userEvent.setup()
     render(<AppMenuBar context={{ actions: actions(), applicationView: 'code', setApplicationView: vi.fn(), openSettings: vi.fn(), addThreadProject: vi.fn(), openCommandMenu: vi.fn(), version: '1.4.0' }} />)
@@ -24,7 +24,7 @@ describe('Tools › Project team… where Team cannot open', () => {
     const tools = await screen.findByRole('menuitem', { name: 'Tools' })
     tools.focus()
     await user.keyboard('{ArrowRight}')
-    const item = await screen.findByRole('menuitem', { name: /^Project team…/ })
+    const item = await screen.findByRole('menuitem', { name: /^Open the project team…/ })
     expect(item).toHaveAttribute('aria-disabled', 'true')
     expect(item).not.toHaveAttribute('data-disabled')
     expect(item).toHaveAttribute('aria-description', reason)
@@ -37,6 +37,6 @@ describe('Tools › Project team… where Team cannot open', () => {
     }
     expect(item).toHaveFocus()
     await user.keyboard('{Enter}')
-    await waitFor(() => expect(useToasts.getState().items).toEqual([expect.objectContaining({ title: 'Project team', description: reason, intent: 'info' })]))
+    await waitFor(() => expect(useToasts.getState().items).toEqual([expect.objectContaining({ title: 'Open the project team', description: reason, intent: 'info' })]))
   })
 })
