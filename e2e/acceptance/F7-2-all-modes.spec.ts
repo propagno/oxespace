@@ -43,7 +43,9 @@ async function switchTo(page: Page, from: string, to: string, how: 'click' | str
       }
       requestAnimationFrame(sample)
     }
-    document.addEventListener('keydown', start, { capture: true, once: true })
+    // Armed on the digit's keydown (Ctrl+N selects on the digit), never on the Control key a frame earlier (FE on #450).
+    const onKey = (e: KeyboardEvent) => { if (/^[1-9]$/.test(e.key) || /^Digit[1-9]$/.test(e.code)) { document.removeEventListener('keydown', onKey, true); start() } }
+    document.addEventListener('keydown', onKey, true)
     document.querySelector(`button[data-app-mode="${to}"]`)?.addEventListener('pointerdown', start, { capture: true, once: true })
   }, { from, to })
   if (how === 'click') await page.locator(`button[data-app-mode="${to}"]`).first().click()
