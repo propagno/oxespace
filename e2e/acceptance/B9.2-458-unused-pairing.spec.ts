@@ -49,7 +49,7 @@ async function acceptInWindow(page: Page): Promise<string> {
 
 test('B9.2/#458: a pairing never signed in is revoked after 2 min; quitting drops one too', async () => {
   test.skip(process.env.GITHUB_ACTIONS !== 'true', 'the gateway shows the OS firewall prompt; CI only')
-  test.setTimeout(420_000)
+  test.setTimeout(600_000)
   const profile = realProfile('b92', { OXESPACE_LOCALE: 'en-US' })
   let { app, page } = await launchReal(profile)
   const out: Record<string, unknown> = {}
@@ -108,6 +108,33 @@ test('B9.2/#458: a pairing never signed in is revoked after 2 min; quitting drop
     out.devicesAfterRelaunch = await oxe(page, 'window.oxe.remote.devices().then(l => l.map(d => d.name))')
     expect.soft(out.devicesBeforeQuit, 'the second phone was paired').toEqual(['HML Phone 2'])
     expect.soft(out.devicesAfterRelaunch, 'quitting dropped the unused pairing').toEqual([])
+
+    // #476: an abrupt end (a crash or a kill: app.exit, no quit handlers). Relaunched past the 2 min, the device that
+    // never signed in is revoked at launch.
+    await app.evaluate(({ dialog }) => {
+      dialog.showMessageBox = (() => new Promise(() => undefined)) as typeof dialog.showMessageBox
+      dialog.showMessageBoxSync = (() => 0) as typeof dialog.showMessageBoxSync
+    })
+    await oxe(page, 'window.oxe.remote.setEnabled({ enabled: true })')
+    await page.keyboard.press('Control+,')
+    await page.getByRole('button', { name: /^Devices/ }).first().click().catch(() => undefined)
+    const offer3 = await oxe<{ uri: string }>(page, 'window.oxe.remote.startPairing()')
+    const answered3 = pair(readQr(offer3.uri), 'HML Phone 3')
+    await page.waitForTimeout(1_500)
+    out.acceptedVia3 = await acceptInWindow(page)
+    out.paired3 = (await answered3).status
+    const paired3At = Date.now()
+    out.devicesBeforeCrash = await oxe(page, 'window.oxe.remote.devices().then(l => l.map(d => d.name))')
+    await app.evaluate(({ app }) => app.exit(0)).catch(() => undefined)
+    await quitReal(app)
+    while (Date.now() < paired3At + 125_000) await new Promise(r => setTimeout(r, 5_000))
+    ;({ app, page } = await launchReal(profile))
+    await page.waitForTimeout(3_000)
+    out.devicesAfterCrash = await oxe(page, 'window.oxe.remote.devices().then(l => l.map(d => d.name))')
+    out.slotsAfterCrash = await oxe(page, 'window.oxe.remote.status().then(s => s.devices)')
+    expect.soft(out.devicesBeforeCrash, 'the third phone was paired').toEqual(['HML Phone 3'])
+    expect.soft(out.devicesAfterCrash, 'after a crash, the unused pairing past 2 min is revoked at launch').toEqual([])
+    expect.soft(out.slotsAfterCrash, 'and its slot is free').toBe(0)
   } finally {
     console.log('B92', JSON.stringify(out).slice(0, 3000))
     await quitReal(app)
