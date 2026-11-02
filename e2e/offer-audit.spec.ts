@@ -325,6 +325,8 @@ test.describe('offer audit', () => {
         'View/Split pane right': async p => { expect(await paneCount(p)).toBe(3) },
         'View/Split pane down': async p => { expect(await paneCount(p)).toBe(3) },
         'View/Maximize / restore pane': async p => { expect(await paneCount(p)).toBe(1) },
+        // F35: the project Team moved off the title bar into the Tools menu.
+        'Tools/Project team…': dialog('Project team'),
         'Tools/MCP servers': dialog('MCP servers'),
         'Tools/Skills': dialog('Skills'),
         'Tools/Usage & limits': dialog('Usage & rate limits'),
