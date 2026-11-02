@@ -6,10 +6,10 @@
     <string name="action_offline">Sem conexão com o computador. Nada foi enviado.</string>
     <string name="action_rate_limited">Ações demais em um minuto. Tente de novo daqui a pouco.</string>
     <string name="action_refused">O computador não aceitou.</string>
-    <string name="approval_prompt_accept">Aprovar este pedido</string>
+    <string name="approval_prompt_accept">Permitir este pedido uma vez</string>
     <string name="approval_prompt_answer">Enviar estas respostas</string>
     <string name="approval_prompt_cancel">Cancelar este pedido</string>
-    <string name="approval_prompt_decline">Recusar este pedido</string>
+    <string name="approval_prompt_decline">Negar este pedido</string>
     <string name="composer_placeholder">Mensagem para o agente</string>
     <string name="composer_send">Enviar</string>
     <string name="composer_steer">Orientar</string>
@@ -38,7 +38,7 @@
         <item quantity="many">Tentando de novo em %1$d segundos.</item>
         <item quantity="other">Tentando de novo em %1$d segundos.</item>
     </plurals>
-    <string name="home_status_unreachable">Não deu para falar com %1$s. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.</string>
+    <string name="home_status_unreachable">Não foi possível falar com %1$s. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.</string>
     <string name="home_title">Seu computador no bolso</string>
     <string name="home_unknown_desktop">seu computador</string>
     <string name="home_unpair">Desparear</string>
@@ -101,9 +101,9 @@
     <string name="notify_session_connected">Conectado a %1$s</string>
     <string name="notify_session_off_network">Esperando a Wi-Fi para falar com %1$s</string>
     <string name="notify_session_reconnecting">Reconectando a %1$s…</string>
-    <string name="notify_session_stopped">Não deu para manter a conexão com %1$s. Abra o app.</string>
+    <string name="notify_session_stopped">Não foi possível manter a conexão com %1$s. Abra o app.</string>
     <string name="pairing_allow_camera">Permitir câmera</string>
-    <string name="pairing_bad_code_malformed">Não deu para ler esse código. Mostre um novo no computador e tente de novo.</string>
+    <string name="pairing_bad_code_malformed">Não foi possível ler esse código. Mostre um novo no computador e tente de novo.</string>
     <string name="pairing_bad_code_not_pairing">Esse não é um código de pareamento do OXESpace. Aponte a câmera para o código em Configurações › Dispositivos.</string>
     <string name="pairing_bad_code_public_host">Esse código aponta para fora da sua rede local. O OXESpace só pareia na mesma Wi-Fi.</string>
     <string name="pairing_bad_code_unsupported_version">Esse código vem de outra versão do OXESpace. Atualize o app ou o OXESpace no computador.</string>
@@ -119,7 +119,7 @@
     <string name="pairing_failed_refused_on_desktop">O pareamento foi recusado no computador.</string>
     <string name="pairing_failed_reserved_name">O nome deste celular usa um nome reservado ao próprio OXESpace, e o computador não o aceita. Mude o nome do celular em Configurações do Android › Sobre o telefone e leia o código de novo.</string>
     <string name="pairing_failed_too_many_devices">Seu computador já tem 5 aparelhos pareados. Remova um em Configurações › Dispositivos antes.</string>
-    <string name="pairing_failed_unreachable">Não deu para falar com o computador. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.</string>
+    <string name="pairing_failed_unreachable">Não foi possível falar com o computador. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.</string>
     <string name="pairing_failed_wrong_certificate">Outro aparelho respondeu nesse endereço, não o seu computador. Nada foi enviado. Confira se você está na sua Wi-Fi.</string>
     <string name="pairing_instructions">No computador, abra OXESpace › Configurações › Dispositivos, ligue a conexão com o celular e aponte a câmera para o código que aparece lá.</string>
     <string name="pairing_open_settings">Abrir configurações</string>
@@ -157,10 +157,15 @@
     <string name="request_refused_other">O computador não aceitou a resposta.</string>
     <string name="request_refused_rate_limited">Ações demais em um minuto. Tente de novo daqui a pouco.</string>
     <string name="request_refused_stale_generation">A conversa seguiu em frente; este pedido não vale mais.</string>
-    <string name="request_risk_green">Só lê</string>
-    <string name="request_risk_orange">Altera algo</string>
-    <string name="request_risk_red">Apaga, eleva acesso ou publica</string>
-    <string name="request_risk_spoken">Risco: %1$s</string>
+    <string name="request_risk_critical">Crítico</string>
+    <string name="request_risk_high">Alto</string>
+    <string name="request_risk_low">Baixo</string>
+    <string name="request_risk_medium">Médio</string>
+    <string name="request_risk_badge">Risco: %1$s</string>
+    <string name="request_risk_meaning_critical">Não tem volta ou afeta produção</string>
+    <string name="request_risk_meaning_high">Apaga, eleva acesso ou publica</string>
+    <string name="request_risk_meaning_low">Só lê</string>
+    <string name="request_risk_meaning_medium">Muda algo</string>
     <string name="request_send_answers">Enviar respostas</string>
     <string name="request_title">Pedido</string>
     <string name="request_tool">Ferramenta</string>

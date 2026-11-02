@@ -8,6 +8,7 @@ import com.oxespace.mobile.protocol.live.LiveStreams
 import com.oxespace.mobile.session.DesktopStatus
 import com.oxespace.mobile.ui.live.LiveHome
 import com.oxespace.mobile.ui.live.RequestScreen
+import com.oxespace.mobile.ui.live.RiskLine
 import com.oxespace.mobile.ui.live.ThreadScreen
 import com.oxespace.mobile.ui.pairing.PairingScreen
 import com.oxespace.mobile.pairing.PairingState
@@ -48,4 +49,7 @@ class AccessibilitySnapshotTest {
 
     @Test
     fun riskyRequest() = paparazzi.snapshot { OxeTheme { RequestScreen(Samples.request(risky = true), commands) {} } }
+
+    @Test
+    fun riskLevels() = paparazzi.snapshot { OxeTheme { Samples.RiskLevels { RiskLine(it) } } }
 }

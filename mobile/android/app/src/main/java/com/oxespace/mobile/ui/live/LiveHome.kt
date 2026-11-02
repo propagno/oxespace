@@ -238,7 +238,7 @@ private fun RequestRow(request: RemotePendingRequest, onOpen: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(OxeSpace.space1),
     ) {
         Text(displaySafe(request.title, 200), style = MaterialTheme.typography.titleMedium)
-        request.risk?.let { Text(riskLabel(it), style = MaterialTheme.typography.labelMedium, color = riskColor(it)) }
+        request.risk?.let { RiskLine(it) }
         request.command?.let { Text(showHidden(it), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis) }
         Text("${displaySafe(request.threadTitle, 200)} · ${ageLabel(request.createdAt)}", style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary)
     }
