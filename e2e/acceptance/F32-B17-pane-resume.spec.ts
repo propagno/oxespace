@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
+import { quitReal } from './real-app'
 
 /**
  * B17 + F32 (S2) · Agent panes come back on their own sessions after the app closes, or say why not.
@@ -29,7 +30,9 @@ function setup() {
 }
 const launch = (s: ReturnType<typeof setup>) => electron.launch({ args: [join(process.cwd(), 'e2e', 'electron-main.cjs')], env: { ...process.env, PATH: `${s.bin}${delimiter}${process.env.PATH}`, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: join(s.root, 'oxespace.sqlite3'), CLAUDE_CONFIG_DIR: s.claudeDir, OXESPACE_LOCALE: 'pt-BR' } })
 const panes = (page: Page) => page.evaluate(() => (window as unknown as { oxe: { workspace: { list: () => Promise<Array<{ panes: Array<{ id: string }> }>> } } }).oxe.workspace.list().then(l => l[0]?.panes.map(p => p.id) ?? []))
-const quit = (app: ElectronApplication) => app.evaluate(({ app }) => app.exit(0)).catch(() => undefined)
+// The shared harness quit: exits, releases Playwright's handle and ends the process tree, so the worker never waits out
+// its teardown (a bare app.exit left the handle open: "Worker teardown timeout" on Windows).
+const quit = (app: ElectronApplication) => quitReal(app)
 
 test('F32/B17: four Claude panes come back on their own sessions; a deleted one says why', async () => {
   const s = setup()

@@ -89,7 +89,8 @@ test('#208 per-tool rules: written with what was there, enforced on an agent, li
     // A policy.json that is not a policy: refused, untouched.
     writeFileSync(policyPath, '{ this is not json')
     const invalid = await set('deny', notify!) as unknown as { refused?: string }
-    expect.soft(invalid.refused, 'an unreadable policy is refused').toMatch(/mcp\.toolRule\.invalidPolicy/)
+    // Since B7.4 (#372) a hand-written policy.json is an outside change waiting for the person: refused as pending first.
+    expect.soft(invalid.refused, 'an unreadable policy is refused').toMatch(/mcp\.toolRule\.invalidPolicy|policy\.change\.pending/)
     expect.soft(readFileSync(policyPath, 'utf8'), 'and left as it was').toBe('{ this is not json')
     // Another project's path is not a registered project.
     const foreign = await oxe<{ refused?: string }>(page, `window.oxe.mcpInternal.setToolRule(${JSON.stringify({ rootPath: join(root, 'not-a-project'), server: notify!.server, tool: notify!.tool, decision: 'deny' })}).then(() => ({}), e => ({ refused: String(e && e.message) }))`)
