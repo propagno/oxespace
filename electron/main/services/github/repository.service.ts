@@ -34,7 +34,6 @@ import { runHook } from '../repo-config/hook-runner'
 import { createSharedLinks } from '../repo-config/shared-dirs'
 import { copyIncludedFiles } from '../repo-config/worktree-include'
 import { englishText } from '../../agent-text'
-import { mainMessage, type MainMessage } from '../../../../shared/messages'
 import type { RepoHookTrust } from '../repo-config/trust'
 import { removeWorktreeSafely } from './worktree-removal'
 
