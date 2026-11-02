@@ -8,6 +8,7 @@ import {
   type OpenInEditor, type OpenInEditorId, type OpenInInput, type OpenInPreference, type OpenInTargets
 } from '../../../shared/types/open-in'
 import { MainMessageError } from '../ipc/main-message-error'
+import { sameRepository } from './git-common-dir'
 
 /**
  * B18 · "Abrir em…". Loaded on first use (`app:open-in*`), so editor detection costs the main entry nothing.
@@ -20,66 +21,25 @@ import { MainMessageError } from '../ipc/main-message-error'
 /** The workspace root main has registered for an id, or null; the same resolver the file system channels use. */
 export type OpenInRootResolver = (workspaceId: string, requestedRoot: string) => string | null
 
-/** One spelling per existing path (Windows 8.3 names expanded, case as on disk); null when it doesn't exist. */
-function real(path: string): string | null {
-  try { return normalize(realpathSync.native(path)) } catch { return null }
-}
-
 /**
- * `requested` when it is a linked worktree that one of `projectRoots`' repositories registered itself, else null. A
- * conversation may work in such a worktree (F33: its files open and reveal from there).
+ * `requested` (as a real path) when it is a checkout of one of `projectRoots`' repositories, verified both ways against
+ * the repository's own records: the shared `sameRepository` (#510), which the file system channels use too. A
+ * conversation may work in such a worktree (F33: its files open and reveal from there). A `.git` file anyone can write
+ * in any folder, a copied pointer or a `.git` that is a link does not pass.
  *
- * Stricter than "same repository": a `.git` file anyone can write in any folder names a repository, so the check also
- * goes the other way. The worktree's `.git` must point into `<project>/.git/worktrees/<name>`, and that folder's own
- * `gitdir` must point back at this worktree's `.git`. Only the repository's own `git worktree add` writes both.
- *
- * The project side is read first: the window's path is never touched (no realpath, no read) unless it is a local
- * absolute path that one of the project's registered worktrees names. A UNC or device path (`\\host\share`, `\\?\`,
- * `\\.\`) would block main on the network and hand the person's NTLM hash to that host (SECURITY #507).
+ * A UNC or device path (`\\host\share`, `\\?\`, `\\.\`) is refused before anything reads it: on Windows it would block
+ * main on the network and hand the person's NTLM hash to that host (SECURITY #507).
  */
 export function registeredWorktree(projectRoots: string[], requested: string): string | null {
   if (!isLocalAbsolute(requested)) return null
-  const wanted = comparable(resolve(requested))
-  for (const projectRoot of projectRoots) {
-    const worktrees = real(join(projectRoot, '.git', 'worktrees'))
-    if (!worktrees) continue
-    let names: string[]
-    try { names = readdirSync(worktrees) } catch { continue }
-    for (const name of names) {
-      const adminDir = join(worktrees, name)
-      // The registered worktree's .git as the repository recorded it, as text: a UNC path planted there is never touched
-      // either (SECURITY #507). Only a local path naming the window's folder goes on to the disk checks.
-      let recorded: string
-      try {
-        // A regular file only: reading a link to a UNC path would touch the network (SECURITY #507).
-        const file = join(adminDir, 'gitdir')
-        if (!lstatSync(file).isFile()) continue
-        recorded = resolve(adminDir, readFileSync(file, 'utf8').trim())
-      } catch { continue }
-      if (!isLocalAbsolute(recorded) || comparable(dirname(recorded)) !== wanted) continue
-      const back = real(recorded)
-      if (!back) continue
-      const root = real(requested)
-      if (!root || real(join(root, '.git')) !== back) continue
-      try {
-        const pointer = /^gitdir:\s*(.+)$/m.exec(readFileSync(back, 'utf8'))
-        if (pointer && real(resolve(root, pointer[1].trim())) === real(adminDir)) return root
-      } catch { /* not a worktree's .git file */ }
-    }
-  }
-  return null
+  if (!projectRoots.some(projectRoot => sameRepository(projectRoot, requested))) return null
+  try { return normalize(realpathSync.native(requested)) } catch { return null }
 }
 
 /** A drive or POSIX absolute path on this machine: never UNC (`\\host`, `//host`) nor a device path (`\\?\`, `\\.\`). */
 function isLocalAbsolute(path: string): boolean {
   if (/^[\\/]{2}/.test(path)) return false
   return process.platform === 'win32' ? /^[A-Za-z]:[\\/]/.test(path) : path.startsWith('/')
-}
-
-/** Case-folded on Windows for the name match only; the decision compares real paths. */
-function comparable(path: string): string {
-  const normal = normalize(path).replace(/[\\/]+$/, '')
-  return process.platform === 'win32' ? normal.toLowerCase() : normal
 }
 
 export interface OpenInDeps {
