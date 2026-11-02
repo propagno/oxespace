@@ -94,7 +94,7 @@ item and one palette command away, from both OxeCode and OxeChat. Decided by the
 | Entry | en | pt-BR | Notes |
 |---|---|---|---|
 | Palette | "Open project team" | "Abrir a equipe do projeto" | already a tool (`toolCatalog` `team`); keywords add "team", "equipe", "time", "roles", "papéis" |
-| Menu | Tools › Project team… | Ferramentas › Equipe do projeto… | next to MCP servers and Skills; the ellipsis because it opens a dialog |
+| Menu | Tools › Open the project team… | Ferramentas › Abrir a equipe do projeto… | next to MCP servers and Skills; the ellipsis because it opens a dialog; the verb since F17 (#242: a menu item says its palette action, "Agents: Open the project team…") |
 | Shortcut | `Mod+Shift+T` (proposal; FRONTEND checks the catalog) | | `reservedInTerminal`; shown in the menu and the palette |
 | Agents central | ⋯ › Project team… | ⋯ › Equipe do projeto… | S7 #313 §6 |
 | OxeChat project header menu | Project team… | Equipe do projeto… | the project is already the Team's scope there |

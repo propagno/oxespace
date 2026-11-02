@@ -143,6 +143,33 @@ describe('Toaster', () => {
     expect(other).not.toHaveBeenCalled()
   })
 
+  it('after a toast\'s action is clicked, later toasts still run out: the stack is not left paused (HML, B20 #486)', async () => {
+    await mount(<><button type="button">Editor</button><Toaster /></>)
+    const acted = vi.fn()
+    raise({ title: 'Kept?', duration: 5_000, action: { label: 'Keep', run: acted } })
+    const keep = screen.getByRole('button', { name: 'Keep' })
+    act(() => { keep.focus() })
+    act(() => { keep.click() })
+    expect(acted).toHaveBeenCalledTimes(1)
+    expect(toasts()).toHaveLength(0)
+    const ended = vi.fn()
+    raise({ title: 'Later', duration: 5_000, onTimeout: ended })
+    tick(5_100)
+    expect(ended).toHaveBeenCalledTimes(1)
+    expect(toasts()).toHaveLength(0)
+  })
+
+  it('a toast taken down by code while it held focus does not leave the stack paused', async () => {
+    await mount(<Toaster />)
+    const id = raise({ title: 'Withdrawn', duration: 5_000 })
+    act(() => { screen.getByRole('button', { name: 'Dismiss notification' }).focus() })
+    act(() => dismissToast(id))
+    const ended = vi.fn()
+    raise({ title: 'Next', duration: 5_000, onTimeout: ended })
+    tick(5_100)
+    expect(ended).toHaveBeenCalledTimes(1)
+  })
+
   it('pauses while the window is hidden: a toast nobody can see does not run out', async () => {
     await mount(<Toaster />)
     const ended = vi.fn()

@@ -63,14 +63,18 @@ test('F32/B17: four Claude panes come back on their own sessions; a deleted one 
     await page.getByTestId('btn-new-workspace').first().waitFor({ timeout: 30_000 })
     // Either the app resumes on its own, or it offers one action ("Retomar 4" / "Resume 4"); both are acceptable.
     const offer = page.getByRole('button', { name: /Retomar|Resume/ }).first()
-    if (await offer.isVisible({ timeout: 5_000 }).catch(() => false)) await offer.click()
+    if (await offer.waitFor({ state: 'visible', timeout: 5_000 }).then(() => true, () => false)) await offer.click()
     await page.waitForTimeout(6_000)
     const launched = existsSync(s.args) ? readFileSync(s.args, 'utf8') : ''
     for (const id of SESSIONS.slice(0, 3)) expect(launched, `a pane resumed ${id}`).toContain(`--resume ${id}`)
     expect(launched, 'the deleted session is not resumed').not.toContain(SESSIONS[3])
     // Each resumed pane says so; the fourth says why it started fresh.
     const headers = await page.locator('[data-testid="pane-container"]').allInnerTexts()
-    expect(headers.filter(h => /retomad|retomou|resumed/i.test(h)).length, 'three panes show they resumed').toBe(3)
-    expect(headers.some(h => /não (foi possível|encontr)|apagad|not found|deleted/i.test(h)), 'the fourth explains why it is new').toBe(true)
+    // "Not resumed" also contains "resumed": count only the panes whose marker says resumed.
+    const outcomes = await page.locator('[data-testid="pane-resume-marker"]').evaluateAll(list => list.map(e => e.getAttribute('data-outcome')))
+    expect(outcomes.filter(o => o === 'resumed').length, `three panes show they resumed (${JSON.stringify(outcomes)})`).toBe(3)
+    const reasons = await page.locator('[data-testid="pane-resume-marker"][data-outcome="notResumed"]').evaluateAll(list => list.map(e => `${e.getAttribute('aria-label') ?? ''} ${e.getAttribute('title') ?? ''}`))
+    expect(headers.some(h => /não (foi possível|encontr)|apagad|not found|deleted|no longer on disk|não está mais no disco/i.test(h)) || reasons.some(r => /no longer on disk|não está mais no disco/i.test(r)),
+      `the fourth explains why it is new (${JSON.stringify(reasons)})`).toBe(true)
   } finally { await quit(app) }
 })

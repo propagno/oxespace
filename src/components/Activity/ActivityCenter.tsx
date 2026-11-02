@@ -1,7 +1,7 @@
 import { Bell } from 'lucide-react'
 import { Suspense, useEffect, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
-import { OPEN_ACTIVITY_CENTER_EVENT } from '../../commands/activity.commands'
+import { OPEN_ACTIVITY_CENTER_EVENT } from '../../commands/activity.events'
 import { useKeybindings, withShortcut } from '../../keyboard/keybindings'
 import { unreadActivityCount, useActivityStore } from '../../store/activity.store'
 import { chunk, lazyFrom } from '../../lib/chunk'

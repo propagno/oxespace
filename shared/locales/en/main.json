@@ -133,7 +133,7 @@
       "openIn": {
         "outsideRoot": "This file is outside the project, so it can't be opened from here.",
         "notFound": "{{path}} no longer exists.",
-        "notAFile": "Only files open in {{editor}} from here. Use “Reveal in File Explorer” for a folder.",
+        "notAFile": "{{editor}} opens only files from here, not folders.",
         "unknownTarget": "OXESpace can't open files this way.",
         "editorMissing": "{{editor}} wasn't found. Choose another editor.",
         "launchFailed": "Couldn't open in {{editor}}.",
@@ -222,6 +222,15 @@
         "notOverwritten": "Already in the new worktree, kept as they are: {{paths}}.",
         "notFollowed": "Not copied, because they are links or lead outside the repository or the worktree: {{paths}}.",
         "failed": "Could not be copied: {{paths}}."
+      },
+      "removed": "Worktree removed from {{path}}.",
+      "archive": {
+        "notApproved": "The oxe.yaml archive hook was not approved and was skipped.",
+        "failedDismissed": "The oxe.yaml archive hook failed, and the worktree was removed anyway."
+      },
+      "branch": {
+        "deleted": "Branch {{branch}} deleted.",
+        "kept": "Branch {{branch}} kept: it has unmerged commits."
       }
     },
     "github": {

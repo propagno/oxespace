@@ -29,6 +29,14 @@ const button = (name: string) => screen.getByRole('button', { name })
 
 describe('switching views (F7.2, docs/design/motion.md)', () => {
   // The view's chunk starts loading after the selected button has painted (a frame, advanced with the timers).
+  it('a shortcut (Ctrl+3) selects and marks the button busy in the same task, as a click does (HML on #363)', () => {
+    render(<Harness onCommit={() => undefined} />)
+    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: '3', code: 'Digit3', ctrlKey: true, bubbles: true })) })
+    expect(button('OxeQuery')).toHaveAttribute('aria-pressed', 'true')
+    expect(button('OxeQuery')).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByTestId('current')).toHaveTextContent('code')
+  })
+
   it('the button is selected and busy at once; the current view stays until the next one is ready', async () => {
     const commit = vi.fn()
     render(<Harness onCommit={commit} />)
