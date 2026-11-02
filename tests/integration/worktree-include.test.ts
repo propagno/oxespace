@@ -256,6 +256,38 @@ describe('createWorktree with oxe.yaml (real git)', () => {
     expect(result.message).not.toMatch(/criado|a partir de/)
   })
 
+  it('created from inside another worktree: the list and the files still come from the main checkout (HML FINDING M)', async () => {
+    const first = join(sandbox, 'wt-1')
+    await service.createWorktree({ rootPath: root, branch: 'wt-1', path: first, createBranch: true, baseRef: 'main' })
+    // What an agent in wt-1 can write: its own list asking for more, its own copies, and ignore rules that allow them.
+    writeFileSync(join(first, 'oxe.yaml'), 'worktree:\n  copyFiles: [secret.pem, .env]\n')
+    writeFileSync(join(first, '.gitignore'), '.env\nsecret.pem\n')
+    writeFileSync(join(first, 'secret.pem'), 'key from wt-1')
+    writeFileSync(join(first, '.env'), 'TOKEN=from-wt-1')
+    const second = join(sandbox, 'wt-2')
+    const result = await service.createWorktree({ rootPath: first, branch: 'wt-2', path: second, createBranch: true, baseRef: 'main' })
+    expect(existsSync(join(second, 'secret.pem'))).toBe(false)
+    expect(readFileSync(join(second, '.env'), 'utf8')).toBe('TOKEN=dev')
+    expect(result.notices).toContainEqual({ code: 'worktree.copyFiles.copied', params: { count: 1 } })
+  })
+
+  it('a repository made with --separate-git-dir still copies from its main working tree (SECURITY #471)', async () => {
+    const separate = join(sandbox, 'separate')
+    mkdirSync(separate)
+    mkdirSync(join(sandbox, 'gitdirs'))
+    git(separate, 'init', '-q', '-b', 'main', `--separate-git-dir=${join(sandbox, 'gitdirs', 'separate.git')}`)
+    git(separate, 'config', 'user.email', 't@t.t')
+    git(separate, 'config', 'user.name', 't')
+    writeFileSync(join(separate, '.gitignore'), '.env\n')
+    writeFileSync(join(separate, 'oxe.yaml'), 'worktree:\n  copyFiles: [.env]\n')
+    git(separate, 'add', '.')
+    git(separate, 'commit', '-qm', 'init')
+    writeFileSync(join(separate, '.env'), 'TOKEN=separate')
+    const path = join(sandbox, 'wt-separate')
+    await service.createWorktree({ rootPath: separate, branch: 'sep', path, createBranch: true, baseRef: 'main' })
+    expect(readFileSync(join(path, '.env'), 'utf8')).toBe('TOKEN=separate')
+  })
+
   it('the list comes from the main checkout only: a branch cannot add files, and a file git does not ignore stays behind', async () => {
     git(root, 'switch', '-q', '-c', 'hostile')
     writeFileSync(join(root, 'oxe.yaml'), 'worktree:\n  copyFiles: [.env, secret.pem]\n')
