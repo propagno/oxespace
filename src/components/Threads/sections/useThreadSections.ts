@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { i18n } from '../../../i18n'
-import { useThreadStore } from '../../../store/thread.store'
 import { humanizeError } from '../../../utils/humanizeError'
 import { SECTION_NAME_MAX, sectionErrorCode, type SectionedThread, type ThreadSection } from './sectionsContract'
-import { mockAssignments, sectionIdOf, sectionsApi, sectionsUseMock } from './sectionsApi'
+import { projectAssignments, sectionIdOf, sectionsApi } from './sectionsApi'
 import { moveSectionIds } from './sectionsModel'
 
 /**
@@ -25,7 +24,7 @@ export type SectionDialogState =
   | { kind: 'rename'; section: ThreadSection }
   | { kind: 'delete'; section: ThreadSection; count: number }
 
-/** Sections of the visible projects, kept current by `thread:sections-changed`, and the actions on them. */
+/** Sections of the visible projects, kept by the main process, and the actions on them. */
 export function useThreadSections(projectIds: readonly string[], threads: readonly SectionedThread[]) {
   const [byProject, setByProject] = useState<Record<string, ThreadSection[]>>({})
   const [assignments, setAssignments] = useState<Record<string, Record<string, string>>>({})
@@ -45,8 +44,8 @@ export function useThreadSections(projectIds: readonly string[], threads: readon
       void api.listSections(projectId).then(list => {
         if (!live) return
         setByProject(value => ({ ...value, [projectId]: list }))
-        // Read once per change, not once per row and render (empty against the real API).
-        setAssignments(value => ({ ...value, [projectId]: mockAssignments(projectId) }))
+        // Read once per change, not once per row and render.
+        setAssignments(value => ({ ...value, [projectId]: projectAssignments(projectId) }))
       }).catch(cause => { if (live) setError(sectionErrorText(cause)) })
     }
     ids.forEach(load)
@@ -60,8 +59,6 @@ export function useThreadSections(projectIds: readonly string[], threads: readon
     setError('')
     try {
       await action()
-      // The real API changes the summaries: read them again so `sectionId` follows. The mock keeps them itself.
-      if (!sectionsUseMock()) void useThreadStore.getState().load()
       return true
     } catch (cause) { setError(sectionErrorText(cause)); return false }
   }, [])

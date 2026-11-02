@@ -14,7 +14,10 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import com.oxespace.mobile.R
 import androidx.compose.ui.unit.TextUnit
 
 val LocalOxeColors = staticCompositionLocalOf { LightOxeColors }
@@ -71,18 +74,47 @@ fun oxeColorScheme(colors: OxeColors, dark: Boolean): ColorScheme {
     )
 }
 
-private fun style(size: TextUnit, leading: Float, weight: FontWeight) =
-    TextStyle(fontSize = size, lineHeight = size * leading, fontWeight = weight)
+/**
+ * The desktop's three Mandacaru families (`--font-ui`, `--font-mono`, `--font-display`), bundled in res/font from the
+ * same @fontsource files the desktop ships (SIL OFL; licence in assets/licenses). Spec: docs/design/mobile-conversation.md §1.
+ */
+object OxeFonts {
+    /** IBM Plex Sans: the interface and every body text. */
+    val ui = FontFamily(
+        Font(R.font.ibm_plex_sans_regular, FontWeight(400)),
+        Font(R.font.ibm_plex_sans_medium, FontWeight(500)),
+        Font(R.font.ibm_plex_sans_semibold, FontWeight(600)),
+        Font(R.font.ibm_plex_sans_bold, FontWeight(700)),
+    )
+
+    /** IBM Plex Mono: commands, paths, code and the terminal. */
+    val mono = FontFamily(
+        Font(R.font.ibm_plex_mono_regular, FontWeight(400)),
+        Font(R.font.ibm_plex_mono_medium, FontWeight(500)),
+    )
+
+    /** Bricolage Grotesque: screen titles and the request title only. */
+    val display = FontFamily(
+        Font(R.font.bricolage_grotesque_semibold, FontWeight(600)),
+        Font(R.font.bricolage_grotesque_extrabold, FontWeight(800)),
+    )
+}
+
+private fun style(size: TextUnit, leading: Float, weight: FontWeight, family: FontFamily = OxeFonts.ui) =
+    TextStyle(fontFamily = family, fontSize = size, lineHeight = size * leading, fontWeight = weight)
+
+/** Inline code, code blocks, commands and paths (spec §1, the role the desktop calls `--font-mono` at `sm`). */
+val OxeCodeStyle = style(OxeType.textSm, OxeType.leadingNormal, OxeType.weightRegular, OxeFonts.mono)
 
 /**
  * The desktop's type scale on Material's roles. Phones read at arm's length, so body text starts at `lg` (16 sp)
  * where the desktop's compact density uses `md`.
  */
 val OxeTypography = Typography(
-    displaySmall = style(OxeType.textDisplay, OxeType.leadingTight, OxeType.weightSemibold),
-    headlineMedium = style(OxeType.textDisplay, OxeType.leadingTight, OxeType.weightSemibold),
-    headlineSmall = style(OxeType.textXl, OxeType.leadingTight, OxeType.weightSemibold),
-    titleLarge = style(OxeType.textXl, OxeType.leadingSnug, OxeType.weightSemibold),
+    displaySmall = style(OxeType.textDisplay, OxeType.leadingTight, OxeType.weightSemibold, OxeFonts.display),
+    headlineMedium = style(OxeType.textDisplay, OxeType.leadingTight, OxeType.weightSemibold, OxeFonts.display),
+    headlineSmall = style(OxeType.textXl, OxeType.leadingTight, OxeType.weightSemibold, OxeFonts.display),
+    titleLarge = style(OxeType.textXl, OxeType.leadingSnug, OxeType.weightSemibold, OxeFonts.display),
     titleMedium = style(OxeType.textLg, OxeType.leadingSnug, OxeType.weightSemibold),
     titleSmall = style(OxeType.textMd, OxeType.leadingSnug, OxeType.weightMedium),
     bodyLarge = style(OxeType.textLg, OxeType.leadingNormal, OxeType.weightRegular),

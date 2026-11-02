@@ -1,8 +1,8 @@
-import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, Keyboard, Mic, Palette, Settings2, ShieldCheck, Smartphone, SquareTerminal, X } from 'lucide-react'
+import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, Keyboard, Palette, Settings2, ShieldCheck, Smartphone, SquareTerminal, X } from 'lucide-react'
 import { Suspense, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
-import { Button, Dialog, LoadingState, TextField } from '../../ui'
+import { Button, Dialog, EmptyState, Skeleton, TextField } from '../../ui'
 import type { SettingsModalProps, SettingsSection } from './SettingsModal'
 import { SETTINGS_PAGES } from '../Workspace/workspaceSettingsPages'
 import { ErrorBoundary } from '../common/ErrorBoundary'
@@ -34,10 +34,18 @@ type AppPage = 'general' | 'policy' | 'devices' | 'keyboard' | SettingsSection
 export type SettingsDestination = { scope: 'application'; page: AppPage } | { scope: 'workspace'; workspaceId: string; page: typeof SETTINGS_PAGES[number]['id'] }
 const appPages = [
   { id: 'general', icon: Settings2 }, { id: 'providers', icon: Bot }, { id: 'appearance', icon: Palette },
-  { id: 'terminal', icon: SquareTerminal }, { id: 'keyboard', icon: Keyboard }, { id: 'voice', icon: Mic },
+  { id: 'terminal', icon: SquareTerminal }, { id: 'keyboard', icon: Keyboard },
   { id: 'notifications', icon: Bell }, { id: 'updates', icon: ArrowUpCircle }, { id: 'policy', icon: ShieldCheck }, { id: 'devices', icon: Smartphone },
   { id: 'diagnostics', icon: Activity }
 ] as const
+
+/**
+ * The application page a deep link or a saved destination opens. A page that no longer exists (the Voice page went with
+ * OXEVoice, F34) lands on Settings' first page instead of an empty panel.
+ */
+export function resolveAppPage(page: string): AppPage {
+  return appPages.find(p => p.id === page)?.id ?? appPages[0].id
+}
 
 export function SettingsCenter(props: SettingsModalProps & {
   workspaces: Workspace[]; initialWorkspaceId?: string; initialPage?: AppPage; shellProfiles: ShellProfile[]; allowWorkspaceScope?: boolean
@@ -46,10 +54,10 @@ export function SettingsCenter(props: SettingsModalProps & {
   const { t } = useTranslation('settings')
   const [destination, setDestination] = useState<SettingsDestination>(() => {
     if (props.allowWorkspaceScope !== false && props.initialWorkspaceId) return { scope: 'workspace', workspaceId: props.initialWorkspaceId, page: 'appearance' }
-    if (props.initialPage) return { scope: 'application', page: props.initialPage }
+    if (props.initialPage) return { scope: 'application', page: resolveAppPage(props.initialPage) }
     try {
       const saved = JSON.parse(localStorage.getItem('oxe.settings.destination') ?? 'null') as SettingsDestination
-      if (saved?.scope === 'application' && appPages.some(p => p.id === saved.page)) return saved
+      if (saved?.scope === 'application' && typeof saved.page === 'string') return { scope: 'application', page: resolveAppPage(saved.page) }
       if (props.allowWorkspaceScope !== false && saved?.scope === 'workspace' && props.workspaces.some(w => w.id === saved.workspaceId) && SETTINGS_PAGES.some(p => p.id === saved.page)) return saved
     } catch { /* Invalid preferences use safe defaults. */ }
     return { scope: 'application', page: 'appearance' }
@@ -108,7 +116,7 @@ export function SettingsCenter(props: SettingsModalProps & {
           <div className="settings-category-choices" role="group" aria-label={t('center.categoryGroup')}>
             {filtered.map(page => <button type="button" key={page.id} aria-pressed={destination.page === page.id}
               onClick={() => go(destination.scope === 'application' ? { scope: 'application', page: page.id as AppPage } : { ...destination, page: page.id as typeof SETTINGS_PAGES[number]['id'] })}>{page.label}</button>)}
-            {!filtered.length && <span className="settings-category-empty">{t('center.noMatch')}</span>}
+            {!filtered.length && <EmptyState compact title={t('center.noMatch')} />}
           </div>
         </div>
         <nav aria-label={t('center.categories')}>
@@ -129,7 +137,7 @@ export function SettingsCenter(props: SettingsModalProps & {
           <div><span>{t('center.title')}</span><ChevronRight size={12} aria-hidden="true" /><span title={workspace?.rootPath}>{workspace?.name ?? t('center.application')}</span></div>
           <button type="button" aria-label={t('center.close')} title={t('center.closeTitle')} onClick={close}><X size={16} aria-hidden="true" /></button>
         </header>
-        <div ref={content} className={`settings-center-content${destination.scope === 'workspace' ? ' is-workspace' : ''}`}><ErrorBoundary id="settings-page" component="SettingsCenter" compact label={t('center.title')} onReset={retryPages}><Suspense fallback={<LoadingState />}>
+        <div ref={content} className={`settings-center-content${destination.scope === 'workspace' ? ' is-workspace' : ''}`}><ErrorBoundary id="settings-page" component="SettingsCenter" compact label={t('center.title')} onReset={retryPages}><Suspense fallback={<Skeleton lines={6} label={t('center.title')} />}>
           {destination.scope === 'workspace' ? workspace ? <WorkspaceSettingsModal key={workspace.id} embedded workspace={workspace} selectedPageId={destination.page}
             shellProfiles={props.shellProfiles} onSave={props.onSave} onClose={close} onDraftChange={value => { draft.current = value }}
             onOpenDiagnostics={() => go({ scope: 'application', page: 'diagnostics' })}

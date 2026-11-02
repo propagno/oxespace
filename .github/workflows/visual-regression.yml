@@ -1,17 +1,17 @@
 name: Visual regression
-run-name: Visual regression · ${{ github.event_name == 'push' && github.sha || inputs.branch || github.ref_name }}
+run-name: Visual regression · ${{ inputs.branch || github.ref_name }}
 
-# The visual gate of a batch (roadmap 1.4, F8). It never blocks a pull request: after each merge to main it compares
-# every surface with the committed baselines, on Linux and Windows, and when one differs it uploads a side-by-side
-# review page (scripts/visual-review.mjs) and opens an issue, or comments on the open one, per platform. Someone then
-# fixes the regression, or accepts the change by regenerating the baselines with visual-baselines.yml and reviewing
-# them image by image. Never publishes anything and never commits.
+# The visual gate of a batch (roadmap 1.4, F8). It never blocks a pull request: run it on main at the end of a batch
+# of screen changes. It compares every surface with the committed baselines, on Linux and Windows, and when one
+# differs it uploads a side-by-side review page (scripts/visual-review.mjs) and opens an issue, or comments on the
+# open one, per platform. Someone then fixes the regression, or accepts the change by regenerating the baselines with
+# visual-baselines.yml and reviewing them image by image. Never publishes anything and never commits.
+#
+# On demand only, no push trigger: baselines are regenerated once per batch, not per PR, so between batches every
+# merge to main differed by design. From 18/10 to 01/11 that was 0 green out of 28 push runs and 26 comments on each of
+# #249 and #250 that told nobody anything new (SRE-06, docs/ci-cd.md).
 
 on:
-  push:
-    branches: [main]
-    # Only what can change what is drawn.
-    paths-ignore: ["docs/**", "**/*.md", "tests/**", "electron/main/**/*.test.ts", ".github/workflows/release.yml"]
   workflow_dispatch:
     inputs:
       branch:
@@ -49,7 +49,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.branch || github.ref }}
 
@@ -63,8 +63,10 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
+          # Ubuntu 24.04 renamed libasound2 (64-bit time_t); 22.04 has only the old name.
+          alsa=libasound2t64; apt-cache show "$alsa" >/dev/null 2>&1 || alsa=libasound2
           sudo apt-get install -y --no-install-recommends \
-            xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libasound2 \
+            xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" \
             libxshmfence1 libnotify4
 
       - name: Install dependencies without lifecycle scripts

@@ -167,7 +167,7 @@ export class LinearService {
    * Creates a git worktree checked out on the branch Linear suggests for the
    * issue, so the agent working the ticket gets an isolated tree.
    */
-  async createWorktreeFromIssue(input: LinearWorktreeFromIssueInput): Promise<LinearWorktreeFromIssueResult> {
+  async createWorktreeFromIssue(input: LinearWorktreeFromIssueInput, person?: { reason: `linear:${string}` }): Promise<LinearWorktreeFromIssueResult> {
     const issue = await this.getIssue(input.issueId)
     const branch = issue.branchName || `linear/${issue.identifier.toLowerCase()}`
     const directoryName = sanitizeDirectoryName(issue.identifier)
@@ -201,9 +201,11 @@ export class LinearService {
       createBranch: !branchExists,
       baseRef: base?.baseRef,
       fetchBase: base?.isRemote === true
-    })
+    }, person)
 
-    return { ok: result.ok, message: result.message, branch, worktreePath: directoryName }
+    // C3 (FINDING L): the creation's own code, and every notice createWorktree had, reach the window.
+    const created = result.notices?.[0]
+    return { ok: result.ok, message: result.message, branch, worktreePath: directoryName, ...(created ? { messageCode: created } : {}), ...(result.notices ? { notices: result.notices } : {}) }
   }
 
   private buildFilter(input: LinearListIssuesInput): Record<string, unknown> {

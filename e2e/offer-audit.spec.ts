@@ -32,7 +32,7 @@ const paneCount = (page: Page): Promise<number> => page.locator('[data-testid="p
 const SELF_RESTORING = new Set(['toggle-sidebar', 'toggle-split-layout', 'maximize-pane'])
 
 const SETTINGS_LABELS: Record<string, string> = {
-  general: 'General', providers: 'Agents', appearance: 'Appearance', terminal: 'Terminal', keyboard: 'Keyboard', voice: 'Voice',
+  general: 'General', providers: 'Agents', appearance: 'Appearance', terminal: 'Terminal', keyboard: 'Keyboard',
   notifications: 'Notifications', updates: 'Updates', policy: 'Policy', devices: 'Devices', diagnostics: 'Diagnostics'
 }
 
@@ -62,6 +62,8 @@ const PALETTE_EFFECTS: Record<string, Check> = {
   'settings.general': both(settingsPage('General'), async page => { await expect(page.getByLabel('Recently visited workspaces kept ready')).toBeVisible() }),
   'settings.notifications': both(settingsPage('Notifications'), async page => { await expect(page.getByLabel('Number of workspaces to keep mounted')).toHaveCount(0) }),
   'help.shortcuts': dialog('Keyboard shortcuts'),
+  // F18: the approval history; it opens even with no decision yet, and says so.
+  'help.approvals': both(dialog('Approval decisions'), testId('approval-history')),
   'help.report-problem': both(dialog('Report a problem'), testId('report-problem')),
   'help.about': both(dialog('About OXESpace'), testId('about-dialog')),
   'activity.open': testId('activity-center'),
@@ -71,7 +73,7 @@ const PALETTE_EFFECTS: Record<string, Check> = {
     await expect(page.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: /Current workspace/ })).toHaveAttribute('aria-pressed', 'true')
   }),
   'toggle-sidebar': async page => { await expect(page.locator('.app-shell')).toHaveClass(/sidebar-collapsed/) },
-  'tool-team': dialog('Team'),
+  'tool-team': dialog('Project team'),
   'tool-integration': both(view('code'), testId('workspace-integration-panel')),
   'tool-github': both(view('code'), testId('workspace-github-panel')),
   'tool-worktrees': both(view('code'), testId('workspace-worktree-panel')),
@@ -97,7 +99,6 @@ const PALETTE_EFFECTS: Record<string, Check> = {
   'split-vertical': view('code'),
   'split-horizontal': view('code'),
   'restart-terminal': view('code'),
-  'toggle-oxevoice': async () => undefined,
   'thread.new': both(view('thread'), dialog('Add project')),
   'thread.add-project': both(view('thread'), dialog('Add project'))
 }
@@ -155,6 +156,9 @@ async function dismiss(page: Page): Promise<void> {
 
 async function selectView(page: Page, mode: AppMode): Promise<void> {
   await modeButton(page, mode).click()
+  // F7.2: the current view stays until the next one is in; wait for the switch to land before using the new view.
+  await expect(modeButton(page, mode)).toHaveAttribute('aria-pressed', 'true')
+  await expect(modeButton(page, mode)).not.toHaveAttribute('aria-busy', 'true')
 }
 
 async function launchWithWorkspace(): Promise<LaunchedApp> {
@@ -324,6 +328,8 @@ test.describe('offer audit', () => {
         'View/Split pane right': async p => { expect(await paneCount(p)).toBe(3) },
         'View/Split pane down': async p => { expect(await paneCount(p)).toBe(3) },
         'View/Maximize / restore pane': async p => { expect(await paneCount(p)).toBe(1) },
+        // F35: the project Team moved off the title bar into the Tools menu.
+        'Tools/Project team…': dialog('Project team'),
         'Tools/MCP servers': dialog('MCP servers'),
         'Tools/Skills': dialog('Skills'),
         'Tools/Usage & limits': dialog('Usage & rate limits'),

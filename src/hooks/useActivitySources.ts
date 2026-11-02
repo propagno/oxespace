@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import type { AppUpdateState } from '../../shared/types/updater'
+import { i18n } from '../i18n'
 import { useActivityStore } from '../store/activity.store'
 import { useUpdaterStore } from '../store/updater.store'
 import { useAgentNotifications } from './useAgentNotifications'
@@ -11,8 +12,8 @@ import { useThreadAttention } from './useThreadAttention'
 export function updateActivity(app: Pick<AppUpdateState, 'status' | 'availableVersion'>): { version: string; title: string; detail: string } | null {
   const version = app.availableVersion
   if (!version) return null
-  if (app.status === 'available') return { version, title: `OXESpace ${version} is available`, detail: 'Open the update to download it.' }
-  if (app.status === 'downloaded') return { version, title: `OXESpace ${version} is ready`, detail: 'Restart to install the update.' }
+  if (app.status === 'available') return { version, title: i18n.t('updates.activity.available', { version }), detail: i18n.t('updates.activity.availableDetail') }
+  if (app.status === 'downloaded') return { version, title: i18n.t('updates.activity.ready', { version }), detail: i18n.t('updates.activity.readyDetail') }
   return null
 }
 

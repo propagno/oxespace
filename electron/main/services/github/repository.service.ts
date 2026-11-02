@@ -22,10 +22,18 @@ import type {
   GitHubCliStatus
 } from '../../../../shared/types/github'
 import { countStatusLines, emptyRepositorySummary, inferCommitArea, inferCommitType, isAbsolutePath, ok, parseStatusLine, parseWorktreePorcelain, parseWorktreeStatusPorcelainV2, splitPair, summarizeCommitFiles } from './parsers'
+import type { PersonGit } from '../../utils/safe-git-person'
+import { mainMessage, type MainMessage } from '../../../../shared/messages'
+
+/** A person-started push, switch or worktree ran without the repository's hooks (utils/safe-git-person.ts). */
+const HOOKS_SKIPPED: MainMessage = mainMessage('git.hooks.skipped', {})
+const withNotices = (result: GitHubMessageResult, notices: MainMessage[]): GitHubMessageResult => notices.length ? { ...result, notices } : result
 import type { GhExec } from './gh-exec'
 import { loadRepoConfig } from '../repo-config/loader'
 import { runHook } from '../repo-config/hook-runner'
 import { createSharedLinks } from '../repo-config/shared-dirs'
+import { copyIncludedFiles } from '../repo-config/worktree-include'
+import { englishText } from '../../agent-text'
 import type { RepoHookTrust } from '../repo-config/trust'
 import { removeWorktreeSafely } from './worktree-removal'
 
@@ -113,8 +121,9 @@ export class GitHubRepositoryService {
     }
   }
 
-  async fetch(input: GitHubWorkspaceInput): Promise<GitHubMessageResult> {
-    await this.gh.runGit(['fetch', '--all', '--prune'], input.rootPath)
+  /** Network calls need the person (utils/safe-git-person.ts); without one, git has no transport and fails. */
+  async fetch(input: GitHubWorkspaceInput, person?: PersonGit): Promise<GitHubMessageResult> {
+    await this.network(['fetch', '--all', '--prune'], input.rootPath, person)
     return ok('Fetch complete.')
   }
 
@@ -122,11 +131,11 @@ export class GitHubRepositoryService {
    * Fast-forward only pull. Safe default for the Status "Update" action —
    * diverged branches fail with a clear error instead of creating a merge.
    */
-  async pullFfOnly(input: GitHubWorkspaceInput): Promise<GitHubMessageResult> {
+  async pullFfOnly(input: GitHubWorkspaceInput, person?: PersonGit): Promise<GitHubMessageResult> {
     if (await this.gh.hasWorkingTreeChanges(input.rootPath)) {
       throw new Error('The working tree has changes. Commit or stash them before updating the branch.')
     }
-    await this.gh.runGit(['pull', '--ff-only'], input.rootPath)
+    await this.network(['pull', '--ff-only'], input.rootPath, person)
     return ok('Branch atualizada (fast-forward).')
   }
 
@@ -178,15 +187,15 @@ export class GitHubRepositoryService {
     return ok(`${type}${area ? `(${area})` : ''}: ${summary || `update ${firstFile}`}`)
   }
 
-  async push(input: GitHubWorkspaceInput): Promise<GitHubMessageResult> {
-    await this.gh.runGit(['push'], input.rootPath)
-    return ok('Push complete.')
+  async push(input: GitHubWorkspaceInput, person?: PersonGit): Promise<GitHubMessageResult> {
+    await this.network(['push'], input.rootPath, person)
+    return withNotices(ok('Push complete.'), person ? [HOOKS_SKIPPED] : [])
   }
 
-  async commitAndPush(input: GitHubCommitInput): Promise<GitHubMessageResult> {
+  async commitAndPush(input: GitHubCommitInput, person?: PersonGit): Promise<GitHubMessageResult> {
     await this.commit(input)
-    await this.push(input)
-    return ok('Commit and push complete.')
+    await this.push(input, person)
+    return withNotices(ok('Commit and push complete.'), person ? [HOOKS_SKIPPED] : [])
   }
 
   async listBranches(input: GitHubWorkspaceInput): Promise<GitHubBranch[]> {
@@ -202,16 +211,16 @@ export class GitHubRepositoryService {
     }).filter((branch) => branch.name !== 'origin' && !branch.name.endsWith('/HEAD'))
   }
 
-  async createBranch(input: GitHubCreateBranchInput): Promise<GitHubMessageResult> {
+  async createBranch(input: GitHubCreateBranchInput, person?: PersonGit): Promise<GitHubMessageResult> {
     if (input.checkout && input.name.startsWith('origin/')) {
-      await this.gh.runGit(['switch', '--track', input.name], input.rootPath)
-      return ok(`Branch local criada rastreando ${input.name}.`)
+      await this.network(['switch', '--track', input.name], input.rootPath, person)
+      return withNotices(ok(`Branch local criada rastreando ${input.name}.`), person ? [HOOKS_SKIPPED] : [])
     }
-    await this.gh.runGit(input.checkout ? ['switch', '-c', input.name] : ['branch', input.name], input.rootPath)
-    return ok(input.checkout ? `Branch ${input.name} criada e selecionada.` : `Branch ${input.name} criada.`)
+    await this.network(input.checkout ? ['switch', '-c', input.name] : ['branch', input.name], input.rootPath, person)
+    return withNotices(ok(input.checkout ? `Branch ${input.name} criada e selecionada.` : `Branch ${input.name} criada.`), person && input.checkout ? [HOOKS_SKIPPED] : [])
   }
 
-  async checkoutBranch(input: { rootPath: string; name: string; force?: boolean }): Promise<GitHubMessageResult> {
+  async checkoutBranch(input: { rootPath: string; name: string; force?: boolean }, person?: PersonGit): Promise<GitHubMessageResult> {
     if (!input.force && await this.gh.hasWorkingTreeChanges(input.rootPath)) {
       throw new Error('The working tree has changes. Confirm a forced checkout, or commit or stash them first.')
     }
@@ -220,16 +229,16 @@ export class GitHubRepositoryService {
       const localName = input.name.slice('origin/'.length)
       const localRef = await this.gh.tryGit(['rev-parse', '--verify', `refs/heads/${localName}`], input.rootPath)
       if (localRef.trim()) {
-        await this.gh.runGit(['switch', localName], input.rootPath)
-        return ok(`Branch ${localName} selecionada.`)
+        await this.network(['switch', localName], input.rootPath, person)
+        return withNotices(ok(`Branch ${localName} selecionada.`), person ? [HOOKS_SKIPPED] : [])
       }
 
-      await this.gh.runGit(['switch', '--track', '-c', localName, input.name], input.rootPath)
-      return ok(`Branch ${localName} criada rastreando ${input.name}.`)
+      await this.network(['switch', '--track', '-c', localName, input.name], input.rootPath, person)
+      return withNotices(ok(`Branch ${localName} criada rastreando ${input.name}.`), person ? [HOOKS_SKIPPED] : [])
     }
 
-    await this.gh.runGit(['switch', input.name], input.rootPath)
-    return ok(`Branch ${input.name} selecionada.`)
+    await this.network(['switch', input.name], input.rootPath, person)
+    return withNotices(ok(`Branch ${input.name} selecionada.`), person ? [HOOKS_SKIPPED] : [])
   }
 
   async listWorktrees(input: GitHubWorkspaceInput): Promise<GitHubWorktree[]> {
@@ -286,7 +295,8 @@ export class GitHubRepositoryService {
     return { path: input.path, ...parseWorktreeStatusPorcelainV2(raw) }
   }
 
-  async createWorktree(input: GitHubCreateWorktreeInput): Promise<GitHubMessageResult> {
+  /** Without `person`, a fetchBase fetch has no transport and becomes the stale-base warning below. */
+  async createWorktree(input: GitHubCreateWorktreeInput, person?: PersonGit): Promise<GitHubMessageResult> {
     const absolutePath = isAbsolutePath(input.path) ? input.path : join(input.rootPath, '..', input.path)
     // A base ref only means anything when git is creating the branch; checking
     // out an existing branch already has a start point of its own.
@@ -296,14 +306,14 @@ export class GitHubRepositoryService {
     // until you fetch, so a base the user believes is the remote tip may not be.
     // Fetch failures are reported, not thrown: being offline should degrade the
     // guarantee, not block the worktree.
-    let warning = ''
+    const earlier: MainMessage[] = person ? [HOOKS_SKIPPED] : []
     if (baseRef && input.fetchBase) {
       const remoteName = baseRef.includes('/') ? baseRef.slice(0, baseRef.indexOf('/')) : null
       if (remoteName) {
         try {
-          await this.gh.runGit(['fetch', remoteName, '--prune'], input.rootPath)
+          await this.network(['fetch', remoteName, '--prune'], input.rootPath, person)
         } catch {
-          warning = ` Warning: fetching ${remoteName} failed — the base may be out of date.`
+          earlier.push(mainMessage('git.base.maybeStale', { branch: baseRef }))
         }
       }
     }
@@ -315,30 +325,35 @@ export class GitHubRepositoryService {
     } else {
       args.push(absolutePath, input.branch)
     }
-    await this.gh.runGit(args, input.rootPath)
+    await this.network(args, input.rootPath, person)
 
-    warning += await this.prepareNewWorktree(input.rootPath, absolutePath)
-
-    const from = baseRef ? ` a partir de ${baseRef}` : ''
-    return ok(`Worktree criado em ${absolutePath} (branch ${input.branch}${from}).${warning}`)
+    const created = baseRef
+      ? mainMessage('worktree.createdFrom', { path: absolutePath, branch: input.branch, base: baseRef })
+      : mainMessage('worktree.created', { path: absolutePath, branch: input.branch })
+    const notices = [created, ...earlier, ...(await this.prepareNewWorktree(input.rootPath, absolutePath))]
+    // C3 (FINDING L): the window words `notices` in the person's language; `message` is the English text, for agents
+    // (the MCP tool) and logs.
+    return withNotices(ok(notices.map(englishText).join(' ')), notices)
   }
 
   /**
    * Applies the repo's oxe.yaml to a worktree that now exists: shared links
-   * first (so setup sees them), then the setup hook. Nothing here may fail the
-   * creation — the worktree is real by now — so problems become a warning.
+   * first, then the `worktree.copyFiles` copies (so setup sees both), then the
+   * setup hook. Nothing here may fail the creation — the worktree is real by
+   * now — so every outcome becomes a C3 notice.
    */
-  private async prepareNewWorktree(rootPath: string, worktreePath: string): Promise<string> {
+  private async prepareNewWorktree(rootPath: string, worktreePath: string): Promise<MainMessage[]> {
     const config = (await loadRepoConfig(worktreePath)) ?? (await loadRepoConfig(rootPath))
-    if (!config) return ''
-    let notes = ''
-    if (config.worktree.sharedDirectories.length > 0) {
+    const notes: MainMessage[] = []
+    if (config && config.worktree.sharedDirectories.length > 0) {
       await createSharedLinks(rootPath, worktreePath, config.worktree.sharedDirectories)
     }
+    notes.push(...(await this.copyFromMainCheckout(rootPath, worktreePath)))
+    if (!config) return notes
     const setup = config.scripts.setup
     if (!setup) return notes
     if (!this.lifecycle?.trust.isTrusted(rootPath, 'setup', setup)) {
-      return ' Warning: the oxe.yaml setup hook was not approved and did not run.'
+      return [...notes, mainMessage('worktree.setup.notApproved', {})]
     }
     const outcome = await runHook(setup, {
       cwd: worktreePath,
@@ -348,10 +363,55 @@ export class GitHubRepositoryService {
         OXE_WORKSPACE_NAME: worktreePath.replace(/\\/g, '/').split('/').pop() ?? ''
       }
     })
-    if (outcome.status === 'passed') notes += ' Setup hook complete.'
-    else if (outcome.status === 'failed') notes += ` Warning: the setup hook exited with code ${outcome.exitCode}.`
-    else notes += ' Warning: the setup hook did not end in a verifiable way.'
+    if (outcome.status === 'passed') notes.push(mainMessage('worktree.setup.complete', {}))
+    else if (outcome.status === 'failed') notes.push(mainMessage('worktree.setup.failed', { exitCode: outcome.exitCode }))
+    else notes.push(mainMessage('worktree.setup.unverified', {}))
     return notes
+  }
+
+  /**
+   * The person path for what the person started: network calls, and the checkouts (switch, worktree add), which let
+   * git-lfs download content. Without a person: local git, no transport, LFS files stay pointers.
+   */
+  private network(args: string[], rootPath: string, person: PersonGit | undefined): Promise<string> {
+    return person ? this.gh.runPersonGit(args, rootPath, person) : this.gh.runGit(args, rootPath)
+  }
+
+  /**
+   * B19: `worktree.copyFiles` from the person's main checkout, whatever checkout the worktree is created from. Both the
+   * list and the files come from there: a branch, or an agent in another worktree, never chooses which of the person's
+   * files are copied, nor serves them (SECURITY review of #451; HML FINDING M on creating from inside a worktree). The
+   * main checkout is git's first `worktree list` entry; a bare main has none, and then nothing is copied.
+   */
+  private async copyFromMainCheckout(rootPath: string, worktreePath: string): Promise<MainMessage[]> {
+    const main = await this.mainCheckout(rootPath)
+    if (!main) return []
+    const include = (await loadRepoConfig(main))?.worktree.copyFiles ?? []
+    if (!include.length) return []
+    // check-ignore exits 0 when some path is ignored, 1 when none is; anything else means git could not tell.
+    const ignored = async (paths: string[]): Promise<Set<string> | null> => {
+      const result = await this.gh.git(['check-ignore', '-z', '--stdin'], worktreePath, paths.join('\0') + '\0')
+      if (result.status === 1) return new Set()
+      return result.status === 0 ? new Set((result.stdout ?? '').split('\0').filter(Boolean)) : null
+    }
+    return (await copyIncludedFiles(main, worktreePath, include, ignored)).notices
+  }
+
+  /**
+   * The repository's main working tree, or null when it is bare or git cannot tell. Created from the main working tree
+   * itself (its git dir is the common dir), that is rootPath's own top level, which also holds for a repository made
+   * with --separate-git-dir, where `worktree list` names the git dir. From a linked worktree, git's first
+   * `worktree list -z` entry (NUL-separated, so no path is ever cut or quoted). SECURITY review of #471.
+   */
+  private async mainCheckout(rootPath: string): Promise<string | null> {
+    const [gitDir, commonDir, top] = (await this.gh.tryGit(['rev-parse', '--path-format=absolute', '--git-dir', '--git-common-dir', '--show-toplevel'], rootPath))
+      .split(/\r?\n/).map(line => line.trim())
+    const fold = (path: string) => (process.platform === 'win32' ? path.replace(/\\/g, '/').toLowerCase() : path)
+    if (gitDir && commonDir && top && fold(gitDir) === fold(commonDir)) return top
+    const fields = (await this.gh.tryGit(['worktree', 'list', '--porcelain', '-z'], rootPath)).split('\0')
+    const first = fields.slice(0, Math.max(0, fields.indexOf('')))
+    const path = first.find(field => field.startsWith('worktree '))?.slice('worktree '.length)
+    return path && !first.includes('bare') ? path : null
   }
 
   private async refExists(rootPath: string, ref: string): Promise<boolean> {

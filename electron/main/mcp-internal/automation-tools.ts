@@ -1,10 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
 import type { ToolEntry } from './tool-registry'
 import { projectIdentity } from '../services/memory/memory-project.service'
+import { execGit } from '../utils/safe-git'
+import { CONFIGURABLE_MCP_TOOL_GROUPS as TOOL_GROUP_NAMES } from '../../../shared/types/mcp-tools'
 
-const exec = promisify(execFile)
 
 /** What each optional group is for, as oxespace_capabilities tells an agent. */
 const TOOL_GROUP_PURPOSES = {
@@ -21,13 +20,25 @@ const TOOL_GROUP_PURPOSES = {
 const toolsEnable: ToolEntry = {
   descriptor: {
     name: 'oxespace_tools_enable',
-    description: 'Turn on a group of OXESpace tools for this session: orchestration, data, docs or app. Read-only: it changes which tools you see, not what they may do; groups the project turned off stay off.',
-    inputSchema: { type: 'object', properties: { group: { type: 'string', enum: ['orchestration', 'data', 'docs', 'app'] } }, required: ['group'], additionalProperties: false },
+    description: 'Turn on a group of OXESpace tools for this session: orchestration, data, docs, app, or code (a Code terminal\'s worktrees, tasks, agents and integrations). Read-only: it changes which tools you see, not what they may do; groups the project turned off stay off.',
+    inputSchema: { type: 'object', properties: { group: { type: 'string', enum: [...TOOL_GROUP_NAMES, 'code'] } }, required: ['group'], additionalProperties: false },
     // True: it changes nothing outside the session; each tool it lists keeps its own level and approval.
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
   },
   requiresWorkspace: false,
-  handler: async () => ({ content: [{ type: 'text' as const, text: JSON.stringify({ schemaVersion: 1, status: 'ok', data: { enabled: [], note: 'This session already lists every OXESpace tool it can use.' } }) }] })
+  // The bridge answers this when it owns the session's groups. Reaching the server means a direct caller or a bridge
+  // with nothing to turn on: refuse what is not a group, the same codes as the bridge, never an "ok" for nonsense.
+  handler: async args => {
+    const reply = (body: Record<string, unknown>, isError = false) => ({
+      content: [{ type: 'text' as const, text: JSON.stringify({ schemaVersion: 1, ...body }) }], ...(isError ? { isError: true } : {})
+    })
+    const group = args && typeof args === 'object' && !Array.isArray(args) && Object.keys(args).length === 1 ? (args as { group?: unknown }).group : undefined
+    if (typeof group !== 'string') return reply({ status: 'error', error: { code: 'INVALID_ARGUMENTS', message: 'Pass { "group": "<name>" }.', retryable: false } }, true)
+    if (![...TOOL_GROUP_NAMES, 'code'].includes(group)) {
+      return reply({ status: 'error', error: { code: 'GROUP_UNAVAILABLE', message: `Unknown group "${group.slice(0, 40)}". Groups: ${[...TOOL_GROUP_NAMES, 'code'].join(', ')}.`, retryable: false } }, true)
+    }
+    return reply({ status: 'ok', data: { enabled: [], note: 'Nothing to turn on here: this caller already lists every OXESpace tool it can use.' } })
+  }
 }
 
 /** Discovery is read-only and authenticated independently of optional memory. */
@@ -91,8 +102,8 @@ export function automationTools(catalogue: () => ToolEntry[]): ToolEntry[] {
       let repositoryIdentity: string | null = null
       try {
         repositoryIdentity = `local-project-sha256:${createHash('sha256').update(await projectIdentity(execution.cwd)).digest('hex')}`
-        const result = await exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: execution.cwd, windowsHide: true, timeout: 2000, maxBuffer: 8192 })
-        const head = await exec('git', ['rev-parse', '--verify', 'HEAD'], { cwd: execution.cwd, windowsHide: true, timeout: 2000, maxBuffer: 8192 })
+        const result = await execGit(execution.cwd, ['rev-parse', '--abbrev-ref', 'HEAD'], { timeout: 2000, maxBuffer: 8192 })
+        const head = await execGit(execution.cwd, ['rev-parse', '--verify', 'HEAD'], { timeout: 2000, maxBuffer: 8192 })
         git = { status: 'ok', branch: result.stdout.trim(), head: head.stdout.trim(), sampledAt: Date.now() }
       } catch { /* A non-Git or unavailable checkout still has execution context. */ }
       return reply('ok', { surface: execution.owner.kind === 'thread' ? 'thread' : 'code', workspaceId: execution.owner.kind === 'pane' ? execution.workspaceId : null,
