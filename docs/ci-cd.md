@@ -46,6 +46,15 @@ Useful dispatches of `ci.yml`, all from the branch chosen in **Use workflow from
 - `publish_release=true` (+ optional `tag`): a real release. Stable versions only from `main`; the job refuses a
   commit that is not on main (`ci.yml`, "Plan build vs release").
 
+### Draft pull requests
+
+A push to a draft runs nothing: CI, axe and Memory compatibility skip, and `CI result` is skipped. Marking the PR
+ready for review starts the full run. **Mark it ready first, then push**, or push again once it is ready. If you push
+and run `gh pr ready` at once, GitHub can handle the ready event before the push: the full run then tests the head
+from *before* that push, and the new head has only the skipped run. The merge train requires a `CI result` that
+tested the head, so it will not take that PR. Since #429, the draft's skip run has a concurrency group of its own and
+can no longer cancel the ready run.
+
 ## Running the checks locally
 
 The machine running the team is memory-starved: prefer CI for anything heavy, and run heavy local jobs one at a

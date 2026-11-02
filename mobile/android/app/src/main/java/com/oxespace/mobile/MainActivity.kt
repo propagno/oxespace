@@ -25,6 +25,7 @@ import com.oxespace.mobile.pairing.PairingViewModel
 import com.oxespace.mobile.session.DesktopStatus
 import com.oxespace.mobile.session.SessionViewModel
 import com.oxespace.mobile.ui.AddressDialog
+import com.oxespace.mobile.ui.CaptureForHomologation
 import com.oxespace.mobile.ui.HomeScreen
 import com.oxespace.mobile.ui.live.AskForNotifications
 import com.oxespace.mobile.ui.live.LiveHome
@@ -45,6 +46,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        CaptureForHomologation.read(intent.getBooleanExtra(CaptureForHomologation.EXTRA, false))
         readNotificationTap(intent)
         setContent {
             OxeTheme {
@@ -134,7 +136,11 @@ class MainActivity : ComponentActivity() {
                 val watched = live.openThread(openThread)
                 DisposableEffect(openThread) { onDispose { live.closeThread(openThread) } }
                 BackHandler { threadId = null }
-                ThreadScreen(openThread, watched, live.streams.commands, presence, connected = status is DesktopStatus.Connected, onBack = { threadId = null })
+                ThreadScreen(
+                    openThread, watched, live.streams.commands, presence, connected = status is DesktopStatus.Connected,
+                    onOpenRequest = { requestKey = "$openThread/$it" },
+                    onBack = { threadId = null },
+                )
             }
             openPane != null -> {
                 val watched = live.openTerminal(openPane.id)

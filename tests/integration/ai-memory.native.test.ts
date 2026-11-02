@@ -47,8 +47,11 @@ describe.skipIf(!binary)('AI Memory native contract', () => {
       child.stdin.end(JSON.stringify({ session_id: ctx.sessionId, cwd: ctx.cwd, ...extra }))
     })
   }
-  async function eventually(check: () => Promise<boolean>) {
-    for (let attempt = 0; attempt < 40; attempt++) {
+  // A native server start on a loaded Windows runner can take longer than 4 s (FL-07): starts get 15 s, which still
+  // fits in the 20 s of the hook or test that waits; every other condition keeps 4 s.
+  const SERVER_START_ATTEMPTS = 150
+  async function eventually(check: () => Promise<boolean>, attempts = 40) {
+    for (let attempt = 0; attempt < attempts; attempt++) {
       try { if (await check()) return } catch { /* Server/session may be admitting a queued hook. */ }
       await new Promise(resolve => setTimeout(resolve, 100))
     }
@@ -72,7 +75,7 @@ describe.skipIf(!binary)('AI Memory native contract', () => {
       { env: { ...env, AI_MEMORY_AUTH_TOKEN: token }, windowsHide: true, stdio: 'ignore' })
     client = new AiMemoryClient(url, token)
     provider = new AiMemoryProvider(client)
-    await eventually(async () => (await provider.health()).status === 'ready')
+    await eventually(async () => (await provider.health()).status === 'ready', SERVER_START_ATTEMPTS)
     await provider.start()
   }, 20000)
   afterAll(async () => {
@@ -171,7 +174,7 @@ describe.skipIf(!binary)('AI Memory native contract', () => {
     await new Promise<void>(resolve => { server.once('exit', () => resolve()); server.kill() })
     server = spawn(binary!, ['--data-dir', join(directory, 'data'), '--config', config, 'serve', '--transport', 'http', '--bind', new URL(url).host, '--enable-web'],
       { env: { ...env, AI_MEMORY_AUTH_TOKEN: token }, windowsHide: true, stdio: 'ignore' })
-    await eventually(async () => (await provider.health()).status === 'ready')
+    await eventually(async () => (await provider.health()).status === 'ready', SERVER_START_ATTEMPTS)
     await provider.start()
     expect(JSON.stringify(await provider.search(ctx, 'DurableCanary'))).toContain('JWT HttpOnly')
   }, 20000)

@@ -3,8 +3,9 @@ import type { AppDatabase } from '../../electron/main/db/index'
 import { readManagedMcp } from '../../electron/main/services/conversation/thread-managed-mcp'
 import { threadMcpArguments } from '../../electron/main/services/conversation/thread-mcp'
 
+// Every query gets the same rows, with the id and creation order a real mcp_servers row has (server keys need them).
 function dbWith(rows: Array<{ name: string; workspace_id: string | null; config: unknown }>): AppDatabase {
-  return { prepare: () => ({ all: () => rows.map(row => ({ name: row.name, workspace_id: row.workspace_id, config_json: JSON.stringify(row.config) })) }) } as unknown as AppDatabase
+  return { prepare: () => ({ all: () => rows.map((row, index) => ({ id: `s${index}`, name: row.name, workspace_id: row.workspace_id, created_at: index, config_json: JSON.stringify(row.config) })) }) } as unknown as AppDatabase
 }
 
 const rows = [

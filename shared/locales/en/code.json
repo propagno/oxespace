@@ -1,5 +1,6 @@
 {
   "panels": {
+    "session": "Conversation details",
     "terminal": "Terminal",
     "changes": "Changes",
     "browser": "Browser",
@@ -1155,6 +1156,11 @@
           "label": "Agent delegation",
           "hint": "Parallel work",
           "description": "Let agents hand a focused task to a new worktree and its own terminal."
+        },
+        "tools": {
+          "label": "Tools",
+          "hint": "MCP tool groups and rules",
+          "description": "Which OXESpace tools agents in this project get, what they cost, and a rule per tool."
         }
       },
       "saveFailed": "Could not save the workspace settings",
@@ -1173,6 +1179,7 @@
       "footer": {
         "memory": "Memory changes use Apply memory settings above.",
         "delegation": "Delegation changes apply right away.",
+        "tools": "Tool modes and rules are saved in the project right away.",
         "default": "Save applies density, layout and default shell. Mode applies right away."
       },
       "discard": "Discard changes",

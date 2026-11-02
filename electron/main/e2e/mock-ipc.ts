@@ -34,6 +34,8 @@ import { registerThreadSectionsMock } from './thread-sections-mock'
 import { registerOpenExternalMock } from './open-external-mock'
 import { installMcpFixture } from './mcp-fixture'
 import { registerApprovalsMock } from './approvals-mock'
+import { registerApprovalsIpc } from '../ipc/approvals.ipc'
+import { approvalCenter } from '../services/approvals'
 import { registerCloseGuardMock } from './close-guard-mock'
 import { installE2eAgentStateHook } from './agent-state-hook'
 import { loadManifests } from '../services/agent-state/manifest'
@@ -64,7 +66,10 @@ export function registerE2eMockIpcHandlers(): void {
   registerOpenExternalMock()
   // Never in a packaged build: the gate is inside, on app.isPackaged (see mcp-fixture.ts).
   installMcpFixture(ipcMain, process.env, app.isPackaged)
-  registerApprovalsMock()
+  // The preview spec drives the real PreviewAutomation, which asks the real approval center: the window must answer
+  // that center (B10), not the double, or its modal can neither ack nor answer and main asks natively too (#243).
+  if (process.env.OXESPACE_E2E_PREVIEW_SERVICE) registerApprovalsIpc(approvalCenter)
+  else registerApprovalsMock()
   // F26: the real close guard is not installed here, so app.close() never waits; specs ask through this double.
   registerCloseGuardMock(app.isPackaged, (channel, request) => {
     const windows = BrowserWindow.getAllWindows().filter(window => !window.isDestroyed())
@@ -327,14 +332,14 @@ export function registerE2eMockIpcHandlers(): void {
   // B1.2: a side chat answers each message with a fixed reply and its usage, and is gone once closed.
   const sides = new Map<string, string>()
   ipcMain.handle(IPC_CHANNELS.thread.sideOpen, (_event: IpcMainInvokeEvent, id: unknown): ThreadSideOpenResult => {
-    if (typeof id !== 'string' || !id) throw new Error('Invalid thread input')
+    if (typeof id !== 'string' || !id) throw new Error('thread.invalidInput')
     if (process.env.OXESPACE_E2E_SIDE_UNAVAILABLE === '1') return { ok: false, message: mainMessage('thread.side.unavailable', {}) }
     const sideId = randomUUID()
     sides.set(sideId, id)
     return { ok: true, side: { sideId, threadId: id, provider: 'claude', readOnly: true } }
   })
   ipcMain.handle(IPC_CHANNELS.thread.sideSend, (event: IpcMainInvokeEvent, sideId: unknown, text: unknown) => {
-    if (typeof sideId !== 'string' || !sides.has(sideId) || typeof text !== 'string' || !text.trim()) throw new Error('Invalid side chat input')
+    if (typeof sideId !== 'string' || !sides.has(sideId) || typeof text !== 'string' || !text.trim()) throw new Error('thread.side.invalidInput')
     event.sender.send(IPC_CHANNELS.thread.onSideEvent, { sideId, event: { type: 'message', id: randomUUID(), role: 'assistant', text: 'E2E side chat reply.' } })
   })
   ipcMain.handle(IPC_CHANNELS.thread.sideClose, (_event: IpcMainInvokeEvent, sideId: unknown) => { if (typeof sideId === 'string') sides.delete(sideId) })

@@ -6,6 +6,7 @@ import { useKeybindings } from '../../keyboard/keybindings'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { usePostCatalog } from './catalog'
 import { useOxePostStore } from './oxepost.store'
+import { ProductionConfirm } from './ProductionConfirm'
 import { RequestEditor } from './RequestEditor'
 import { ResponsePanel } from './ResponsePanel'
 import styles from './OxePost.module.css'
@@ -49,7 +50,7 @@ export function OxePostView({ active }: { active: boolean }): ReactElement {
       onConfirm={() => void useOxePostStore.getState().open(pendingOpen, true)} onCancel={() => useOxePostStore.getState().cancelOpen()} />}
     {deleting && selected && <ConfirmDialog title={t('request.deleteTitle', { name: draftName })} description={t('request.deleteText')} confirmLabel={t('request.delete')} cancelLabel={t('common.cancel')} danger
       onConfirm={() => { setDeleting(false); void useOxePostStore.getState().remove() }} onCancel={() => setDeleting(false)} />}
-    {confirmSend && <ConfirmDialog title={t('production.title', { name: environment?.name ?? '' })} description={t('production.text', { method: useOxePostStore.getState().draft.method, url: useOxePostStore.getState().draft.url })}
-      confirmLabel={t('production.confirm')} cancelLabel={t('common.cancel')} danger onConfirm={() => void useOxePostStore.getState().send(true)} onCancel={() => useOxePostStore.getState().setConfirmSend(false)} />}
+    {confirmSend && <ProductionConfirm method={useOxePostStore.getState().draft.method} url={useOxePostStore.getState().draft.url} environment={environment}
+      onConfirm={() => void useOxePostStore.getState().send(true)} onCancel={() => useOxePostStore.getState().setConfirmSend(false)} />}
   </div>
 }

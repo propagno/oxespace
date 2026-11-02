@@ -11,7 +11,7 @@ import { ThreadChangesPanel } from './ThreadChangesPanel'
  * The side panel next to the conversation (changes, files, terminal…): a
  * resizable column on wide layouts, a modal drawer on narrow ones. Loaded on demand.
  */
-export default function ThreadReviewHost({ snapshot, workspace, panel, drawer, availableWidth, workbench, onClose, onReturnFocus, onSendToConversation }: {
+export default function ThreadReviewHost({ snapshot, workspace, panel, drawer, availableWidth, workbench, onClose, onReturnFocus, onSendToConversation, onCompact }: {
   snapshot: ThreadSnapshot
   workspace?: Workspace
   panel: ThreadPanel
@@ -21,11 +21,13 @@ export default function ThreadReviewHost({ snapshot, workspace, panel, drawer, a
   onClose: () => void
   onReturnFocus: () => void
   onSendToConversation: (prompt: string) => void
+  /** Runs /compact in the conversation, for the session panel. */
+  onCompact?: () => void
 }) {
   const { t } = useTranslation('thread')
   const reviewWidth = useThreadWorkbenchStore(state => state.width)
   const maximized = useThreadWorkbenchStore(state => state.maximizedId === snapshot.thread.id) && !drawer
-  const content = <ThreadChangesPanel key={snapshot.thread.id} snapshot={snapshot} workspace={workspace} panel={panel} onClose={onClose} onSendToConversation={onSendToConversation}
+  const content = <ThreadChangesPanel key={snapshot.thread.id} snapshot={snapshot} workspace={workspace} panel={panel} onClose={onClose} onSendToConversation={onSendToConversation} onCompact={onCompact}
     maximized={maximized} onToggleMaximized={drawer ? undefined : () => useThreadWorkbenchStore.getState().setMaximized(maximized ? null : snapshot.thread.id)} />
   if (drawer) return <Dialog.Root open onOpenChange={open => { if (!open) onClose() }}><Dialog.Portal container={workbench.current}>
     <Dialog.Overlay className="thread-review-scrim" />
