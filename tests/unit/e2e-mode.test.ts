@@ -24,47 +24,72 @@ describe('the E2E switch', () => {
 })
 
 // Where an OXESPACE_E2E_* read may live (the list in electron/main/e2e/e2e-mode.ts). A read anywhere else must go
-// through e2eMocksEnabled, or check isPackaged itself and be added here with that check.
-const OWN_PACKAGED_CHECK = new Set(['e2e/mcp-fixture.ts', 'e2e/agent-state-hook.ts', 'services/browser-preview-security.ts'])
+// through e2eMocksEnabled, or check isPackaged itself and be added here with its exact guard.
+const OWN_PACKAGED_CHECK: Record<string, RegExp> = {
+  'e2e/mcp-fixture.ts': /mcpFixtureMode\(env[^)]*isPackaged: boolean\)[^{]*\{\s*if \(isPackaged\) return null/,
+  'e2e/agent-state-hook.ts': /e2eAgentStateEnabled\(env[^)]*isPackaged: boolean\)[^{]*\{\s*if \(isPackaged\) return false/,
+  'services/browser-preview-security.ts': /packaged = app\.isPackaged\)[^{]*\{\s*if \(packaged \|\| env\.OXESPACE_E2E_GUEST_PROBE !== '1'\) return \{\}/,
+}
 const MOCK_LAYER_ONLY = new Set(['e2e/mock-ipc.ts', 'e2e/remote-mock.ts', 'e2e/approvals-mock.ts'])
 const THROUGH_SWITCH = new Set(['index.ts', 'window-close-guard.ts', 'ipc/agent.ipc.ts', 'updater.ts'])
+const SWITCH = 'e2eMocksEnabled(process.env, app.isPackaged)'
+// The E2E modules nothing outside electron/main/e2e may load, except index.ts behind the switch.
+const MOCK_MODULE = /(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"`][^'"`]*\be2e\/(?:mock-ipc|remote-mock|approvals-mock|mcp-fixture|agent-state-hook|oxequery-mock-guard)['"`]/g
 
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap(name => {
     const path = join(dir, name)
-    if (statSync(path).isDirectory()) return name === 'vendor' ? [] : sources(path)
-    return /\.tsx?$/.test(name) ? [path] : []
+    if (statSync(path).isDirectory()) return sources(path)
+    return /\.(?:[cm]?[jt]sx?)$/.test(name) ? [path] : []
   })
+}
+
+/** The body of the first `if (<condition>) {` block, matched by braces. */
+function blockAfter(text: string, condition: string): string {
+  const start = text.indexOf(`if (${condition}) {`)
+  if (start < 0) return ''
+  let depth = 0
+  for (let index = text.indexOf('{', start); index < text.length; index++) {
+    if (text[index] === '{') depth++
+    else if (text[index] === '}' && --depth === 0) return text.slice(start, index + 1)
+  }
+  return ''
 }
 
 describe('every OXESPACE_E2E_* read in electron/main', () => {
   const root = join(process.cwd(), 'electron', 'main')
-  const reads = sources(root)
-    .map(path => ({ file: relative(root, path).split(sep).join('/'), text: readFileSync(path, 'utf8') }))
-    .filter(source => /OXESPACE_E2E_[A-Z_]+/.test(source.text) && source.file !== 'e2e/e2e-mode.ts')
+  const all = sources(root).map(path => ({ file: relative(root, path).split(sep).join('/'), text: readFileSync(path, 'utf8') }))
+  // A read is the name itself, or one built from pieces ('OXESPACE_' + …, `OXESPACE_${…}`).
+  const reads = all.filter(source => source.file !== 'e2e/e2e-mode.ts' && /OXESPACE_E2E_|['"`]OXESPACE_['"`]\s*\+|`OXESPACE_\$\{/.test(source.text))
 
   it('sits in a file that is guarded against a packaged build', () => {
-    const unknown = reads.map(read => read.file).filter(file => !OWN_PACKAGED_CHECK.has(file) && !MOCK_LAYER_ONLY.has(file) && !THROUGH_SWITCH.has(file))
+    const unknown = reads.map(read => read.file).filter(file => !(file in OWN_PACKAGED_CHECK) && !MOCK_LAYER_ONLY.has(file) && !THROUGH_SWITCH.has(file))
     expect(unknown).toEqual([])
   })
 
   it('reads the mock switch only through e2eMocksEnabled outside the e2e folder', () => {
-    for (const read of reads.filter(source => THROUGH_SWITCH.has(source.file))) {
-      expect(read.text, read.file).not.toMatch(/process\.env\.OXESPACE_E2E_MOCK_NATIVE/)
-      expect(read.text, read.file).toMatch(/e2eMocksEnabled\(process\.env, app\.isPackaged\)/)
+    for (const file of THROUGH_SWITCH) {
+      const text = all.find(source => source.file === file)!.text
+      expect(text, file).toContain(SWITCH)
+      // No other E2E name in these files, however it is written; index.ts keeps PREVIEW_SERVICE inside the switch.
+      const names = [...text.matchAll(/OXESPACE_E2E_[A-Z_]*/g)].map(match => match[0])
+      expect(names, file).toEqual(file === 'index.ts' ? ['OXESPACE_E2E_PREVIEW_SERVICE'] : [])
+      expect(text, file).not.toMatch(/['"`]OXESPACE_['"`]\s*\+|`OXESPACE_\$\{/)
     }
-    for (const file of OWN_PACKAGED_CHECK) {
-      expect(reads.find(read => read.file === file)?.text, file).toMatch(/isPackaged|packaged/)
+    expect(blockAfter(all.find(source => source.file === 'index.ts')!.text, SWITCH)).toContain('OXESPACE_E2E_PREVIEW_SERVICE')
+    for (const [file, guard] of Object.entries(OWN_PACKAGED_CHECK)) {
+      expect(all.find(source => source.file === file)?.text, file).toMatch(guard)
     }
   })
 
-  it('loads the mock layer only behind the switch', () => {
-    const entry = reads.find(read => read.file === 'index.ts')!.text
-    const switchAt = entry.indexOf('if (e2eMocksEnabled(process.env, app.isPackaged)) {')
-    expect(switchAt).toBeGreaterThan(0)
-    expect(entry.indexOf("import('./e2e/mock-ipc')")).toBeGreaterThan(switchAt)
-    for (const read of reads.filter(source => !source.file.startsWith('e2e/') && source.file !== 'index.ts')) {
-      expect(read.text, read.file).not.toMatch(/from '\.{1,2}\/(\.\.\/)*e2e\/(mock-ipc|remote-mock|approvals-mock)'/)
-    }
+  it('loads the E2E modules only inside the switch, from any file', () => {
+    const outside = all
+      .filter(source => !source.file.startsWith('e2e/'))
+      .flatMap(source => {
+        const text = source.file === 'index.ts' ? source.text.replace(blockAfter(source.text, SWITCH), '') : source.text
+        return [...text.matchAll(MOCK_MODULE)].map(match => `${source.file}: ${match[0]}`)
+      })
+    expect(outside).toEqual([])
+    expect(blockAfter(all.find(source => source.file === 'index.ts')!.text, SWITCH)).toContain("import('./e2e/mock-ipc')")
   })
 })
