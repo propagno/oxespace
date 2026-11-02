@@ -35,6 +35,12 @@ describe('useDeferredModule', () => {
 })
 
 describe('the command contributions load after the first frame', () => {
+  it('a list read before they arrive fills in by itself when they land, without a reload', async () => {
+    const { result } = renderHook(() => useContributedCommands())
+    await act(async () => { await import('../src/commands/CommandContributors') })
+    await waitFor(() => expect(result.current.map(command => command.id)).toEqual(expect.arrayContaining(['activity.open', 'activity.markAllRead'])))
+  })
+
   it('the deferred module registers the settings and activity commands and exposes both contributors', async () => {
     const contributors = await import('../src/commands/CommandContributors')
     expect(typeof contributors.CodeCommandContributor).toBe('function')

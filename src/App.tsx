@@ -29,6 +29,8 @@ import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { ThemeProvider } from './components/Theme/ThemeProvider'
 import { humanizeError } from './utils/humanizeError'
 // Modals/overlays are user-triggered and infrequent — lazy-load them so they're not in the first-paint bundle.
+/** The palette's and menu bar's command lists, loaded after the first frame (T52). */
+const loadCommandContributors = () => import('./commands/CommandContributors')
 const AgentConfigModal = lazy(() => import('./components/Agents/AgentConfigModal').then((m) => ({ default: m.AgentConfigModal })))
 const DesignSystemPage = lazy(() => import('./components/DesignSystem/DesignSystemPage').then((m) => ({ default: m.DesignSystemPage })))
 const DelegatedWorkDialog = lazy(() => import('./components/Delegation/DelegatedWorkDialog').then(m => ({ default: m.DelegatedWorkDialog })))
@@ -37,7 +39,8 @@ const ProviderAccountsPanel = lazy(() => import('./components/Threads/ProviderAc
 const NewThreadDialog = lazy(() => import('./components/Threads/ThreadDialogs').then(m => ({ default: m.NewThreadDialog })))
 const AddThreadProjectDialog = lazy(() => import('./components/Threads/ThreadDialogs').then(m => ({ default: m.AddThreadProjectDialog })))
 const SlashOverlay = lazy(() => import('./components/SlashOverlay/SlashOverlay').then(m => ({ default: m.SlashOverlay })))
-const CommandMenu = lazy(() => import('./components/CommandMenu/CommandMenu').then(m => ({ default: m.CommandMenu })))
+// The palette waits for the command lists (T52), so its first opening never shows an empty or partial list.
+const CommandMenu = lazy(() => Promise.all([import('./components/CommandMenu/CommandMenu'), loadCommandContributors()]).then(([m]) => ({ default: m.CommandMenu })))
 const UsageModal = lazy(() => import('./components/Usage/UsageModal').then(m => ({ default: m.UsageModal })))
 const McpPanel = lazy(() => import('./components/MCP/McpPanel').then((m) => ({ default: m.McpPanel })))
 const LinearPanel = lazy(() => import('./components/Linear/LinearPanel').then((m) => ({ default: m.LinearPanel })))
@@ -78,11 +81,9 @@ import { QUOTA_NOTIFICATION_PANE_PREFIX } from './hooks/useQuotaAlerts'
 import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZE_MAX } from './store/terminal-prefs.store'
 
 /** macOS keeps its native application menu; Windows/Linux draw it in the title bar. */
-const AppMenuBar = lazy(() => import('./components/Navigation/AppMenuBar').then(module => ({ default: module.AppMenuBar })))
+// Like the palette, the menu bar waits for the command lists (T52) so it never opens short.
+const AppMenuBar = lazy(() => Promise.all([import('./components/Navigation/AppMenuBar'), loadCommandContributors()]).then(([module]) => ({ default: module.AppMenuBar })))
 const IS_MAC = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform)
-
-/** The palette's and menu bar's command lists, loaded after the first frame (T52). */
-const loadCommandContributors = () => import('./commands/CommandContributors')
 
 export function App(): ReactElement {
   const { t } = useTranslation()
