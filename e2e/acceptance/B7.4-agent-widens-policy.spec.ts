@@ -259,7 +259,7 @@ test('B7.4: an agent widening the OXESpace policy waits for the person', async (
     await expect.soft.poll(() => policyText(), { timeout: 5_000, message: '(4) the narrowing applies at once (at the next read)' }).toContain('oxespace_git_change')
     expect.soft((await pending()).length, '(4) a narrowing asks nothing').toBe(beforeNarrow)
     await expect.soft.poll(async () => (await policyEvents()).map(e => e.message.code), { timeout: 5_000, message: '(4) main tells the window: policy.narrowed on policy.onChanged' }).toContain('policy.narrowed')
-    await expect.soft(page.getByRole('status').or(page.getByRole('alert')).filter({ hasText: /policy|política/i }).first(), '(4) the person is told the rules got stricter').toBeVisible({ timeout: 5_000 })
+    await expect.soft(page.locator('[data-toast]').or(page.getByRole('status')).or(page.getByRole('alert')).filter({ hasText: /policy|política/i }).first(), '(4) the person is told the rules got stricter').toBeVisible({ timeout: 5_000 })
 
     // (8) A fresh worktree of the same repo with a wider committed policy.json, opened as a workspace.
     const wt = join(root, 'wt-wide')
