@@ -69,15 +69,6 @@ fun completedLabel(status: String): String = when (status) {
     else -> stringResource(R.string.thread_completed_completed)
 }
 
-/** The risk in words, never by colour alone. */
-@Composable
-fun riskLabel(risk: String): String = when (risk) {
-    "green" -> stringResource(R.string.request_risk_green)
-    "orange" -> stringResource(R.string.request_risk_orange)
-    "red" -> stringResource(R.string.request_risk_red)
-    else -> risk
-}
-
 /** A provider's product name as the desktop shows it ("claude" → "Claude"); names aren't translated. */
 fun providerName(id: String): String = when (id.lowercase()) {
     "claude" -> "Claude"
@@ -100,11 +91,3 @@ fun ageLabel(atMs: Long): String {
     }
 }
 
-/** The risk color the desktop's prompt uses for a command. */
-@Composable
-fun riskColor(risk: String?): Color = when (risk) {
-    "red" -> Oxe.colors.intentDangerFg
-    "orange" -> Oxe.colors.intentWarningFg
-    "green" -> Oxe.colors.intentSuccessFg
-    else -> Oxe.colors.textSecondary
-}

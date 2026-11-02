@@ -10,5 +10,9 @@
 -keep class com.oxespace.mobile.protocol.RemoteFrames { *; }
 -keep class com.oxespace.mobile.protocol.FrameRead** { *; }
 -keep enum com.oxespace.mobile.protocol.FrameSource { *; }
+# ReleaseSmokeTest checks that the shipped build ignores the debug-only pairing link.
+-keep class com.oxespace.mobile.pairing.PairLinkForHomologation { *; }
+-keep class com.oxespace.mobile.pairing.PairingViewModel { *; }
+-keep class com.oxespace.mobile.pairing.PairingState** { *; }
 # The smoke test asks the shrunk build whether captures can be allowed (they never can outside debug).
 -keep class com.oxespace.mobile.ui.CaptureForHomologation { *; }
