@@ -60,6 +60,8 @@ export type AutomationRunStatus =
   | 'skipped_busy'
 
 export interface AutomationRun {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   id: string
   automationId: string
   scheduledFor: number

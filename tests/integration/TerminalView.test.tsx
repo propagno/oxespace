@@ -3,6 +3,8 @@ import { Terminal } from '@xterm/xterm'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { TerminalView } from '../../src/components/Terminal/TerminalView'
 import { TERMINAL_PREFS_DEFAULTS } from '../../src/store/terminal-prefs.store'
+import { useSettingsStore } from '../../src/store/settings.store'
+import { useTerminalFocusStore } from '../../src/keyboard/terminalFocus'
 
 const terminalState = {
   onData: null as ((data: string) => void) | null,
@@ -632,5 +634,42 @@ describe('TerminalView', () => {
     expect(window.oxe.terminal.detach).toHaveBeenCalledWith({ paneId: 'pane-1' })
     // Killing it here is exactly what made returning cost a respawn.
     expect(window.oxe.terminal.stop).not.toHaveBeenCalled()
+  })
+  // WCAG 2.1.2 No Keyboard Trap: the ways out of a terminal never reach the shell (src/keyboard/terminalFocus.ts).
+  test('F6, Shift+F6 and the Tab focus toggle never reach the shell; Tab leaves only a pane that turned it on', () => {
+    const onInput = vi.fn()
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={onInput} onResize={vi.fn()} />)
+    const handler = terminalState.attachCustomKeyEventHandler.mock.calls[0][0] as (event: KeyboardEvent) => boolean
+    const press = (init: KeyboardEventInit, type = 'keydown'): boolean => handler(new KeyboardEvent(type, init))
+    expect(screen.getByTestId('terminal-view')).toHaveAttribute('data-terminal-pane', 'pane-1')
+    for (const type of ['keydown', 'keypress', 'keyup']) {
+      expect(press({ key: 'F6' }, type)).toBe(false)
+      expect(press({ key: 'F6', shiftKey: true }, type)).toBe(false)
+      expect(press({ key: 'm', code: 'KeyM', ctrlKey: true }, type)).toBe(false)
+    }
+    // Tab is the shell's until this pane's Tab moves focus; then xterm leaves it to the browser, which moves focus.
+    expect(press({ key: 'Tab' })).toBe(true)
+    useTerminalFocusStore.getState().setTabMovesFocus('pane-1', true)
+    expect(press({ key: 'Tab' })).toBe(false)
+    expect(press({ key: 'Tab', shiftKey: true })).toBe(false)
+    expect(press({ key: 'Tab', ctrlKey: true })).toBe(true)
+    useTerminalFocusStore.getState().setTabMovesFocus('other-pane', false)
+    expect(press({ key: 'Tab' })).toBe(false)
+    useTerminalFocusStore.getState().setTabMovesFocus('pane-1', false)
+    expect(press({ key: 'Tab' })).toBe(true)
+    // Rebound, the toggle frees Ctrl+M (Enter, CR) for the shell.
+    useSettingsStore.setState({ keybindingOverrides: { 'terminal.tabMovesFocus': ['Ctrl+Alt+T'] } })
+    expect(press({ key: 'm', code: 'KeyM', ctrlKey: true })).toBe(true)
+    expect(press({ key: 't', code: 'KeyT', ctrlKey: true, altKey: true })).toBe(false)
+    // Not F6, whatever the overrides say.
+    useSettingsStore.setState({ keybindingOverrides: { 'focus.nextRegion': ['F7'] } })
+    expect(press({ key: 'F6' })).toBe(false)
+    expect(press({ key: 'F7' })).toBe(true)
+    // A pane that sends the toggle's key to the shell gets Ctrl+M back.
+    useSettingsStore.setState({ keybindingOverrides: {} })
+    useTerminalFocusStore.getState().setToggleKeyToShell('pane-1', true)
+    expect(press({ key: 'm', code: 'KeyM', ctrlKey: true })).toBe(true)
+    useTerminalFocusStore.setState({ tabMovesFocus: {}, toggleKeyToShell: {} })
+    expect(onInput).not.toHaveBeenCalled()
   })
 })

@@ -1,5 +1,28 @@
-import type { ThreadRequest, ThreadRequestResponse } from '../../../../shared/types/thread'
+import type { ThreadPendingRefusal, ThreadRequest, ThreadRequestPolicy, ThreadRequestResponse } from '../../../../shared/types/thread'
+import { guardedDecisions } from './kernel/permission-policy'
 import { requestOutcome } from '../../../../shared/threadRequestOutcome'
+
+/** An answer the registry will not deliver, with the reason a window or device can show (C3 `thread.request.<refusal>`). */
+export class ThreadRequestRefusalError extends Error {
+  constructor(readonly refusal: ThreadPendingRefusal, message: string) {
+    super(message)
+    this.name = 'ThreadRequestRefusalError'
+  }
+}
+
+/**
+ * P1-17: attaches the permission policy to a request; a guarded one (agent instructions, MCP settings, hooks) then offers
+ * no "for the session" answer, whichever provider listed it (Codex lists its own).
+ */
+export function attachPolicy(request: ThreadRequest, policy: ThreadRequestPolicy): void {
+  request.policy = policy
+  if (request.availableDecisions) request.availableDecisions = guardedDecisions(request.availableDecisions, policy)
+}
+
+/** A guarded request is approved once or declined; a session answer (a stale window, a forged one) is refused, still pending. */
+export function assertSessionAllowed(request: Pick<ThreadRequest, 'policy'> | undefined, response: ThreadRequestResponse): void {
+  if (response.decision === 'acceptForSession' && request?.policy?.guarded) throw new ThreadRequestRefusalError('guardedDecision', 'A change to agent instructions, MCP settings or hooks is approved once, never for the session')
+}
 
 interface PendingEntry {
   request: ThreadRequest
@@ -41,13 +64,14 @@ export class ThreadRequestRegistry {
     this.expire(threadId)
     const requests = this.pending.get(threadId)
     const entry = requests?.get(requestId)
-    if (!entry || entry.request.state !== 'pending') throw Error('Request is no longer pending')
-    if (entry.responding) throw Error('A response is already being sent for this request')
-    if (entry.request.generation !== generation) throw Error('Request belongs to an older conversation generation')
+    if (!entry || entry.request.state !== 'pending') throw new ThreadRequestRefusalError('notPending', 'Request is no longer pending')
+    if (entry.responding) throw new ThreadRequestRefusalError('alreadyResponding', 'A response is already being sent for this request')
+    if (entry.request.generation !== generation) throw new ThreadRequestRefusalError('staleGeneration', 'Request belongs to an older conversation generation')
     if (entry.request.kind === 'question' && !['decline', 'cancel'].includes(response.decision ?? '')) {
       const questions = entry.request.questions ?? []
-      if (!questions.length || questions.some(question => !response.answers?.[question.id]?.some(value => value.trim()))) throw Error('Answer every question before continuing')
+      if (!questions.length || questions.some(question => !response.answers?.[question.id]?.some(value => value.trim()))) throw new ThreadRequestRefusalError('unanswered', 'Answer every question before continuing')
     }
+    assertSessionAllowed(entry.request, response)
     // Keep ownership visible to expiry/shutdown/turn completion while awaiting
     // the provider. A failed response must not resurrect an invalidated request.
     entry.responding = true

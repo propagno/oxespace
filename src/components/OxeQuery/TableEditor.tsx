@@ -131,7 +131,7 @@ export function TableEditor({ connection, schema, table, result, selectedRow, on
     setBusy(true); setError(''); setConflict(false)
     try {
       await oq('sql.apply', { ...input, confirmed })
-      toast({ title: t('rows.applied', { count: staged.length }), intent: 'success', duration: 3000 })
+      toast({ title: t('rows.applied', { count: staged.length }), intent: 'success' })
       setStaged([]); setStatements(null); setConfirmReasons(null)
       onApplied()
     } catch (cause) {

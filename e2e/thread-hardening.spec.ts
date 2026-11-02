@@ -1,3 +1,4 @@
+import { modeButton } from './helpers/modes'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -64,7 +65,7 @@ test('Thread shows delivery, queue pause, context usage and rewind, and merges i
       ipcMain.handle('thread:read-since', (_event, _id, cursor) => { calls.readSince.push([cursor]); return delta })
       ipcMain.handle('thread:create', (_event, input) => {
         snapshot = { thread: { id: 'e2e-thread', workspaceId: g.e2eWorkspaceId, projectId: 'e2e-project', rootPath: fixtureRoot, provider: input.provider, nativeSessionId: null,
-          title: 'New thread', pinned: false, status: 'idle', createdAt: Date.now(), updatedAt: Date.now() }, events: [] }
+          title: 'New conversation', pinned: false, status: 'idle', createdAt: Date.now(), updatedAt: Date.now() }, events: [] }
         changed(); return snapshot
       })
       ipcMain.handle('thread:send', (_event, _id, text, attachments) => { calls.send.push([text, attachments]) })
@@ -122,10 +123,10 @@ test('Thread shows delivery, queue pause, context usage and rewind, and merges i
     }, { workspaceId: workspace.id, rootPath: repo })
     await expect(page.locator('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]').first()).toBeVisible()
 
-    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'Thread', exact: true }).click()
-    await page.getByRole('button', { name: 'New thread in repo' }).click()
+    await modeButton(page, 'thread').click()
+    await page.getByRole('button', { name: 'New conversation in repo' }).click()
     await page.getByRole('radio', { name: /Codex/ }).check()
-    await page.getByRole('button', { name: 'Create thread', exact: true }).click()
+    await page.getByRole('button', { name: 'Create conversation', exact: true }).click()
     await expect(page.locator('.thread-composer textarea')).toBeVisible()
     const calls = async () => app.evaluate(() => (globalThis as Record<string, any>).hardeningCalls as Record<string, unknown[][]>)
 

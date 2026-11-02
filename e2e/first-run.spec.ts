@@ -33,7 +33,7 @@ test('the first-run guide walks the steps, opens a workspace and stays dismissed
     await guide.getByRole('button', { name: 'Mark as done' }).click()
     await expect(guide.getByRole('heading', { name: 'GitHub (optional) (done)' })).toBeVisible()
 
-    await guide.getByRole('button', { name: 'New Code workspace' }).click()
+    await guide.getByRole('button', { name: 'New OxeCode workspace' }).click()
     const wizard = page.getByRole('dialog', { name: 'Create new workspace' })
     await expect(wizard).toBeVisible()
     await page.keyboard.press('Escape')

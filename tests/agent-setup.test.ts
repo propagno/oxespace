@@ -26,7 +26,7 @@ describe('first-run agent setup summary', () => {
   it('names one ready CLI and says Thread can use it when it is Claude Code or Codex', () => {
     const summary = summarizeAgentSetup([entry('claude', 'ready'), entry('codex', 'missing')], false)
     expect(summary).toMatchObject({ state: 'ready', headline: 'Claude Code is ready', threadReady: true, ready: ['Claude Code'] })
-    expect(summary.detail).toBe('Code and Thread can use it.')
+    expect(summary.detail).toBe('OxeCode and OxeChat can use it.')
   })
 
   it('joins several ready CLIs in plain language', () => {
@@ -38,7 +38,7 @@ describe('first-run agent setup summary', () => {
     const summary = summarizeAgentSetup([entry('copilot', 'ready'), entry('claude', 'missing')], false)
     expect(summary.state).toBe('ready')
     expect(summary.threadReady).toBe(false)
-    expect(summary.detail).toBe('Code can run it. Thread needs Claude Code or Codex.')
+    expect(summary.detail).toBe('OxeCode can run it. OxeChat needs Claude Code or Codex.')
   })
 
   it('a ready CLI wins over a check still running for the others', () => {

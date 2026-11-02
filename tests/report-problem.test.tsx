@@ -3,14 +3,14 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ReportProblem } from '../src/components/Diagnostics/ReportProblem'
 import { ISSUE_NEW_URL, ISSUE_URL_MAX, buildIssueUrl, issueClipboardText } from '../shared/issue-report'
+import { stubOpenExternal } from './helpers/openExternal'
 
 const REPORT = { title: '[Bug] ', diagnosticLines: 3, body: '## What happened\n\n## Environment\n\n- OXESpace: 1.4.0\n- System: Windows 11 10.0 (win32 x64)\n' }
 
-function install(build: () => Promise<typeof REPORT>): { writeText: ReturnType<typeof vi.fn>; open: ReturnType<typeof vi.fn> } {
+function install(build: () => Promise<typeof REPORT>): { writeText: ReturnType<typeof vi.fn>; open: ReturnType<typeof stubOpenExternal> } {
   const writeText = vi.fn(async () => true)
-  const open = vi.fn()
-  vi.stubGlobal('open', open)
   ;(window as unknown as { oxe: unknown }).oxe = { diagnostics: { buildIssueReport: vi.fn(build) }, clipboard: { writeText } }
+  const open = stubOpenExternal()
   return { writeText, open }
 }
 
@@ -37,9 +37,8 @@ describe('Report a problem dialog', () => {
     expect(screen.getByRole('button', { name: 'Open on GitHub' })).toBeDisabled()
     await userEvent.type(title, 'Crash on start')
     await userEvent.click(screen.getByRole('button', { name: 'Open on GitHub' }))
-    expect(open).toHaveBeenCalledTimes(1)
-    const [url, target] = open.mock.calls[0] as [string, string]
-    expect(target).toBe('_blank')
+    await waitFor(() => expect(open).toHaveBeenCalledTimes(1))
+    const [url] = open.mock.calls[0] as [string]
     const parsed = new URL(url)
     expect(`${parsed.origin}${parsed.pathname}`).toBe(ISSUE_NEW_URL)
     expect(parsed.searchParams.get('title')).toBe('Crash on start')

@@ -3,7 +3,11 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { AppDatabase } from '../db/index'
 import type { McpHttpConfig, McpServerConfig, McpStdioConfig } from '../../../shared/types/mcp'
+import { mcpServerKeys } from './mcp-keys'
 import { mcpServerAllowed } from './policy'
+import { projectMcpJsonPlan } from './conversation/tool-groups'
+import { bridgePlanFlags, type BridgePlan } from '../mcp-internal/bridge-plan'
+import { effectiveToolModes } from './policy/tool-config'
 
 /**
  * Materializes the workspace's enabled MCP servers into `<workspaceRoot>/.mcp.json`
@@ -78,7 +82,8 @@ export class McpConfigSync {
   syncAll(): void {
     const workspaces = this.db.prepare('SELECT id, root_path FROM workspaces').all() as WorkspaceRootRow[]
     for (const ws of workspaces) {
-      if (ws.root_path && existsSync(ws.root_path)) this.writeMcpJson(ws.root_path)
+      // A sweep of every project (B7.4): what a project's policy changed waits for its own launch or Settings read.
+      if (ws.root_path && existsSync(ws.root_path)) this.writeMcpJson(ws.root_path, undefined, { defer: true })
     }
   }
 
@@ -91,7 +96,7 @@ export class McpConfigSync {
     else this.syncWorkspace(workspaceId)
   }
 
-  private writeMcpJson(workspaceRoot: string, explicitWorkspaceId?: string): string | null {
+  private writeMcpJson(workspaceRoot: string, explicitWorkspaceId?: string, policyRead: { defer?: boolean } = {}): string | null {
     const mcpPath = join(workspaceRoot, MCP_FILE)
     const snapshotPath = join(workspaceRoot, SNAPSHOT_DIR, SNAPSHOT_FILE)
 
@@ -113,22 +118,27 @@ export class McpConfigSync {
            AND (workspace_id IS NULL OR workspace_id = ?)`
       )
       .all(workspaceId ?? null) as ManagedRow[]
+    // The same key the conversation and Settings › Tools give the server (mcp-keys.ts).
+    const keys = mcpServerKeys(this.db, workspaceId ? [workspaceId] : [])
 
     const desiredEntries = new Map<string, unknown>()
     const desiredNames: string[] = []
     let internalServerKey: string | null = null
     for (const row of rows) {
       // A server the policy blocks is never handed to an agent.
-      if (!mcpServerAllowed(row.name, workspaceRoot)) continue
+      if (!mcpServerAllowed(row.name, workspaceRoot, undefined, policyRead)) continue
       const isInternal = row.name === 'oxespace' && row.workspace_id === null
       const entry = serializeConfig(row.config_json, {
         injectWorkspaceId: isInternal && workspaceId ? workspaceId : null,
-        internal: isInternal
+        internal: isInternal,
+        // The same plan as an agent OXESpace starts in a Code terminal (B7.2): core and the groups the project keeps
+        // always on now, the on-demand ones through oxespace_tools_enable, the off ones never. The modes are the ones
+        // the person accepted (B7.4), so an agent's widening of oxe.yaml waits for their OK.
+        plan: isInternal ? projectMcpJsonPlan(effectiveToolModes(workspaceRoot, policyRead)) : null
       })
       if (!entry) continue
-      const key = sanitizeKey(row.name)
-      // If two servers share a sanitized name we suffix to disambiguate.
-      const finalKey = ensureUniqueKey(key, desiredEntries)
+      const finalKey = keys.get(row.id)
+      if (!finalKey) continue
       desiredEntries.set(finalKey, entry)
       desiredNames.push(finalKey)
       if (isInternal) internalServerKey = finalKey
@@ -149,7 +159,7 @@ export class McpConfigSync {
       mcpServers[key] = value
     }
     // Entries someone added by hand stay, unless the policy blocks them by name.
-    for (const key of Object.keys(mcpServers)) if (!desiredEntries.has(key) && !mcpServerAllowed(key, workspaceRoot)) delete mcpServers[key]
+    for (const key of Object.keys(mcpServers)) if (!desiredEntries.has(key) && !mcpServerAllowed(key, workspaceRoot, undefined, policyRead)) delete mcpServers[key]
 
     const nextDoc = { ...(existing as object), mcpServers }
     writeFileSync(mcpPath, JSON.stringify(nextDoc, null, 2) + '\n', 'utf8')
@@ -303,9 +313,21 @@ function approveOxespaceToolsInCopilot(workspaceRoot: string, serverName: string
   }
 }
 
+/** The stored arguments without a plan already in them, so the plan written is always the current one. */
+function withoutPlanFlags(args: readonly string[]): string[] {
+  const out: string[] = []
+  for (let i = 0; i < args.length; i += 1) {
+    if (args[i] === '--allowed-tools' || args[i] === '--enableable-groups') { i += 1; continue }
+    out.push(args[i])
+  }
+  return out
+}
+
 interface SerializeOptions {
   injectWorkspaceId: string | null
   internal: boolean
+  /** The internal bridge's tool plan (its `--allowed-tools` and `--enableable-groups`); null for other servers. */
+  plan?: BridgePlan | null
 }
 
 function serializeConfig(configJson: string, options: SerializeOptions): unknown {
@@ -327,9 +349,10 @@ function serializeConfig(configJson: string, options: SerializeOptions): unknown
     if (options.injectWorkspaceId) {
       env.OXESPACE_WORKSPACE_ID = options.injectWorkspaceId
     }
+    const args = cfg.args ?? []
     const entry: Record<string, unknown> = {
       command: cfg.command,
-      args: cfg.args ?? []
+      args: options.internal && options.plan ? [...withoutPlanFlags(args), ...bridgePlanFlags(options.plan)] : args
     }
     if (Object.keys(env).length > 0) entry.env = env
     return entry
@@ -361,19 +384,6 @@ function ensureGitignored(workspaceRoot: string, entry: string): void {
   }
 }
 
-function sanitizeKey(name: string): string {
-  // Agent CLIs are tolerant of names but a slug avoids surprises with spaces /
-  // shell-special chars when the user references the server later.
-  const slug = name.trim().toLowerCase().replace(/[^a-z0-9-_]+/g, '-').replace(/^-+|-+$/g, '')
-  return slug || 'mcp-server'
-}
-
-function ensureUniqueKey(base: string, taken: Map<string, unknown>): string {
-  if (!taken.has(base)) return base
-  let counter = 2
-  while (taken.has(`${base}-${counter}`)) counter += 1
-  return `${base}-${counter}`
-}
 
 function readJsonSafe(path: string): unknown {
   if (!existsSync(path)) return null

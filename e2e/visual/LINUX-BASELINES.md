@@ -118,3 +118,16 @@ jobs:
 
 It does not run the suite on every push. That needs a normal job in `ci.yml`, which is a separate
 decision: the suite is local-first for 1.0, and each CI visual run costs minutes on a runner.
+
+## The visual gate after each merge (F8)
+
+Visual comparison never blocks a pull request. After each merge to `main`, `.github/workflows/visual-regression.yml`
+compares every surface with the committed baselines on Linux and Windows. When one differs, it uploads
+`visual-review-<platform>` (open `visual-review.html`: baseline, this run and the difference side by side, built by
+`scripts/visual-review.mjs`) and opens an issue labelled `visual-regression`, or comments on the open one. Then either
+fix the regression, or accept the change: dispatch `visual-baselines.yml` for that platform, look at every image and
+commit them by path. Baselines are regenerated once per batch, on `main`, never as a step of each pull request.
+
+The anchor surfaces are also captured in Portuguese (`*-pt-BR`), in Comfortable density (`*-comfortable`) and with
+forced colors (`*-forced-colors`), at desktop size in light mode: longer labels, taller controls and system colors
+are where layouts break first.

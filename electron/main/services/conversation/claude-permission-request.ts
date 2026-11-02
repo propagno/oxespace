@@ -8,7 +8,7 @@
  * only author of permission rules. Field names were checked against the
  * installed CLI's own request schema.
  */
-import { commandWritesProtected, protectedConfigKind } from './kernel/protected-config'
+import { commandTouchesProtected, protectedConfigKind } from './kernel/protected-config'
 
 export interface ClaudePermissionPresentation {
   title: string
@@ -97,7 +97,7 @@ export function describePermissionRequest(
     request.decision_reason_type === 'safetyCheck' ||
     // Instructions, MCP settings and hooks are approved one change at a time, never for the session.
     ['file_path', 'notebook_path', 'path'].some(key => typeof input[key] === 'string' && protectedConfigKind(input[key] as string) !== null) ||
-    (typeof input.command === 'string' && commandWritesProtected(input.command) !== null)
+    (typeof input.command === 'string' && commandTouchesProtected(input.command))
   const allowScope = suggestions.length > 0 && !noRemember
 
   return {

@@ -1,0 +1,121 @@
+name: Visual regression
+run-name: Visual regression · ${{ inputs.branch || github.ref_name }}
+
+# The visual gate of a batch (roadmap 1.4, F8). It never blocks a pull request: run it on main at the end of a batch
+# of screen changes. It compares every surface with the committed baselines, on Linux and Windows, and when one
+# differs it uploads a side-by-side review page (scripts/visual-review.mjs) and opens an issue, or comments on the
+# open one, per platform. Someone then fixes the regression, or accepts the change by regenerating the baselines with
+# visual-baselines.yml and reviewing them image by image. Never publishes anything and never commits.
+#
+# On demand only, no push trigger: baselines are regenerated once per batch, not per PR, so between batches every
+# merge to main differed by design. From 18/10 to 01/11 that was 0 green out of 28 push runs and 26 comments on each of
+# #249 and #250 that told nobody anything new (SRE-06, docs/ci-cd.md).
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Optional override — leave empty to use "Use workflow from"
+        required: false
+        type: string
+
+concurrency:
+  # One comparison per platform at a time; a newer merge replaces one still waiting.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    name: Compare ${{ matrix.label }} surfaces
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      issues: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            label: linux
+            run: bash scripts/run-with-xvfb.sh
+          - os: windows-2022
+            label: windows
+            run: ""
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.branch || github.ref }}
+
+      - name: Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          # Ubuntu 24.04 renamed libasound2 (64-bit time_t); 22.04 has only the old name.
+          alsa=libasound2t64; apt-cache show "$alsa" >/dev/null 2>&1 || alsa=libasound2
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" \
+            libxshmfence1 libnotify4
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Build
+        run: npm run build
+
+      - name: Prepare and verify native modules for Electron
+        run: |
+          npm run fix:native
+          npm run verify:native
+
+      # The first launch after a build is slower; a throwaway pass warms it up so it does not read as a difference.
+      - name: Warm-up (result ignored)
+        continue-on-error: true
+        run: ${{ matrix.run }} npx playwright test --config playwright.visual.config.ts anchor-surfaces -g "light desktop$"
+
+      - name: Compare with the baselines
+        id: compare
+        run: ${{ matrix.run }} npx playwright test --config playwright.visual.config.ts
+
+      - name: Side-by-side review
+        if: failure() && steps.compare.outcome == 'failure'
+        run: node scripts/visual-review.mjs test-results test-results/visual-review.html
+
+      - name: Upload the review
+        id: upload
+        if: failure() && steps.compare.outcome == 'failure'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: visual-review-${{ matrix.label }}
+          if-no-files-found: ignore
+          retention-days: 14
+          path: test-results/**
+
+      - name: Open or update the issue
+        if: failure() && steps.compare.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLATFORM: ${{ matrix.label }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        run: |
+          count=$(find test-results -name '*-actual.png' | wc -l | tr -d ' ')
+          surfaces=$(find test-results -name '*-actual.png' | sed 's#.*/\(.*\)-actual.png#- `\1`#' | sort | head -60)
+          title="Visual regression on ${PLATFORM}"
+          body=$(printf '%s surface(s) differ from the baselines after %s.\n\n%s\n\nSide-by-side review: download [visual-review-%s](%s) and open `visual-review.html`. Run: %s\n\nFix the regression, or accept the change: dispatch visual-baselines.yml for %s, review the images and commit them.' \
+            "$count" "${GITHUB_SHA::8}" "$surfaces" "$PLATFORM" "${ARTIFACT_URL:-$RUN_URL}" "$RUN_URL" "$PLATFORM")
+          gh label create visual-regression --color c5def5 --description "A surface differs from its visual baseline" 2>/dev/null || true
+          existing=$(gh issue list --label visual-regression --state open --search "in:title \"$title\"" --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then gh issue comment "$existing" --body "$body"; else gh issue create --title "$title" --label visual-regression --body "$body"; fi

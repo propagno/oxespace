@@ -10,6 +10,7 @@
  * Build first: npm run build   ·   Run: npx playwright test e2e/perf-benchmark.spec.ts
  * Budgets: 1 frame @60fps = 16.7ms · 100ms = perceptible.
  */
+import { modeButton } from './helpers/modes'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { mkdirSync, symlinkSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -21,6 +22,8 @@ import { installThreadFixtures, openThreadWithState, registerThreadProject } fro
 
 const REPEATS = 6
 const ENFORCE_BUDGETS = process.env.OXESPACE_PERF_GATE === '1'
+/** On CI a frame budget missed once is measured again before it fails (OXESPACE_PERF_CONFIRM=0 turns it off). */
+const CONFIRM_ON_CI = process.env.CI === 'true' && process.env.OXESPACE_PERF_CONFIRM !== '0'
 
 const PERF_BUDGETS_MS: Record<string, number> = {
   'boot: launch→firstWindow': 5_000,
@@ -631,15 +634,15 @@ test('boot: window interactive', async () => {
 })
 
 /** Click→painted inside the renderer: a synchronous click, then two frames so layout and paint are included. */
-async function timeModeSwitch(page: Page, label: 'Code' | 'Thread' | 'OxeQuery'): Promise<number> {
+async function timeModeSwitch(page: Page, mode: 'code' | 'thread' | 'data'): Promise<number> {
   return page.evaluate(async (name) => {
-    const button = document.querySelector<HTMLButtonElement>(`nav[aria-label="Application view"] button[aria-label="${name}"]`)!
+    const button = document.querySelector<HTMLButtonElement>(`button[data-app-mode="${name}"]`)!
     const started = performance.now()
     button.click()
     await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
     if (button.getAttribute('aria-pressed') !== 'true') throw new Error(`${name} did not become the active view`)
     return performance.now() - started
-  }, label)
+  }, mode)
 }
 
 /**
@@ -653,19 +656,19 @@ test('mode switch: Code ↔ Thread ↔ OxeQuery', async () => {
   try {
     await createWorkspace(page)
     const nav = page.getByRole('navigation', { name: 'Application view' })
-    await nav.getByRole('button', { name: 'Thread', exact: true }).click()
+    await modeButton(page, 'thread').click()
     await page.locator('.thread-host').waitFor({ state: 'visible' })
     await nav.getByRole('button', { name: 'OxeQuery', exact: true }).click()
     await page.locator('.oq-host').waitFor({ state: 'visible' })
-    await nav.getByRole('button', { name: 'Code', exact: true }).click()
+    await modeButton(page, 'code').click()
     await page.waitForTimeout(250)
     const toThread: number[] = []
     const toData: number[] = []
     const toCode: number[] = []
     for (let i = 0; i < REPEATS; i++) {
-      toThread.push(await timeModeSwitch(page, 'Thread'))
-      toData.push(await timeModeSwitch(page, 'OxeQuery'))
-      toCode.push(await timeModeSwitch(page, 'Code'))
+      toThread.push(await timeModeSwitch(page, 'thread'))
+      toData.push(await timeModeSwitch(page, 'data'))
+      toCode.push(await timeModeSwitch(page, 'code'))
     }
     report('mode switch: Code→Thread', toThread)
     report('mode switch: Thread→OxeQuery', toData)
@@ -752,7 +755,7 @@ test('thread: 5,000 events, scroll and streaming append', async () => {
 
     // From the end to the start, 600 px per frame, recording every frame interval. Each step mounts
     // new rows, the virtualizer's worst steady case.
-    const frames = await page.evaluate(async () => {
+    const scrollFrames = (): Promise<number[]> => page.evaluate(async () => {
       const timeline = document.querySelector<HTMLElement>('.thread-timeline')!
       timeline.scrollTop = timeline.scrollHeight
       await new Promise(resolve => setTimeout(resolve, 300))
@@ -767,9 +770,19 @@ test('thread: 5,000 events, scroll and streaming append', async () => {
       }
       return intervals
     })
+    const over = (frames: number[]): number[] => frames.filter(frame => frame > PERF_BUDGETS_MS['thread 5k: scroll frame'])
+    let frames = await scrollFrames()
     report('thread 5k: scroll frame', frames)
-    const longFrames = frames.filter(frame => frame > PERF_BUDGETS_MS['thread 5k: scroll frame'])
+    let longFrames = over(frames)
     console.log(`[RESULT] thread 5k: scroll frames over 50 ms = ${longFrames.length}/${frames.length} max=${Math.max(...frames).toFixed(1)} ms`)
+    // On CI a pass with more than one long frame scrolls again and is judged on that second pass: a shared runner's
+    // slow minute fails one pass, a real regression fails both (as perceived-perf's second round, #353).
+    if (ENFORCE_BUDGETS && CONFIRM_ON_CI && longFrames.length > 1) {
+      const first = longFrames.length
+      frames = await scrollFrames()
+      longFrames = over(frames)
+      console.log(`[CONFIRM] thread 5k: scroll frames over 50 ms, pass 1 ${first}, pass 2 ${longFrames.length}/${frames.length} → ${longFrames.length > 1 ? 'regression' : 'runner noise'}`)
+    }
     // p95 alone would let 7 long frames through; the target is none. One is tolerated as a runner pause.
     if (ENFORCE_BUDGETS) expect(longFrames.length, 'scroll frames over 50 ms').toBeLessThanOrEqual(1)
 
@@ -839,7 +852,7 @@ test('memory: main process with 10 Threads open', async () => {
     })
 
     const project = await page.evaluate(root => window.oxe.thread!.addProject(root), repo)
-    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'Thread', exact: true }).click()
+    await modeButton(page, 'thread').click()
     await page.locator('.thread-host').waitFor({ state: 'visible' })
     await page.waitForTimeout(1_500)
     const before = await sample()

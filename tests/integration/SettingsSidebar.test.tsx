@@ -1,9 +1,10 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
 import type { AgentProfile, AgentReadiness } from '../../shared/types/agent'
 import { AgentConfigModal } from '../../src/components/Agents/AgentConfigModal'
 import { SettingsContent } from '../../src/components/Settings/SettingsModal'
+import { stubOpenExternal } from '../helpers/openExternal'
 import { useUpdaterStore } from '../../src/store/updater.store'
 
 const profiles: AgentProfile[] = [
@@ -112,7 +113,7 @@ describe('Settings agents UI', () => {
 
   test('onboarding when all CLIs are missing shows install guides', async () => {
     const user = userEvent.setup()
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
+    const openSpy = stubOpenExternal()
 
     render(
       <SettingsContent
@@ -135,8 +136,7 @@ describe('Settings agents UI', () => {
     expect(screen.getByTestId('providers-missing-list')).toBeInTheDocument()
 
     await user.click(screen.getByTestId('btn-onboarding-install-claude'))
-    expect(openSpy).toHaveBeenCalled()
-    openSpy.mockRestore()
+    await waitFor(() => expect(openSpy).toHaveBeenCalled())
   })
 
   test('Use in pane is offered for ready providers', async () => {

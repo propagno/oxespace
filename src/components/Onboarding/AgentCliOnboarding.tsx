@@ -4,10 +4,11 @@ import { useTranslation } from 'react-i18next'
 import type { AgentProvider } from '../../../shared/types/agent'
 import { RichText } from '../../i18n/RichText'
 import { Button } from '../../ui'
+import { openExternalLink } from '../../lib/externalLinks'
 import { installDocLabel, PROVIDER_INSTALL_DOCS, type ProviderInstallDoc } from '../Settings/providerInstallDocs'
 
 export function openInstallDocs(url: string): void {
-  window.open(url, '_blank', 'noopener,noreferrer')
+  void openExternalLink(url, { source: 'app' })
 }
 
 /** One button per install guide. Shared by the first-run guide and the Agents settings page. */

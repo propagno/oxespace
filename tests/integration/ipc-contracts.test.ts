@@ -34,6 +34,8 @@ describe('ipc contracts', () => {
     expect(IPC_CHANNELS.app.connectivity).toBe('app:connectivity')
     expect(IPC_CHANNELS.app.onConnectivity).toBe('app:connectivity-changed')
     expect(IPC_CHANNELS.app.about).toBe('app:about')
+    expect(IPC_CHANNELS.app.closeRequested).toBe('app:close-requested')
+    expect(IPC_CHANNELS.app.closeAnswer).toBe('app:close-answer')
     expect(IPC_CHANNELS.thread.pendingRequestsAll).toBe('thread:pending-requests-all')
     expect(IPC_CHANNELS.thread.respondPending).toBe('thread:respond-pending')
   })

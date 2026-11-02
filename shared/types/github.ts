@@ -6,6 +6,8 @@ export interface GitHubWorkspaceInput {
 }
 
 export interface GitHubCliStatus {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   available: boolean
   authenticated: boolean
   user: string | null
@@ -310,6 +312,11 @@ export interface GitHubConnectedRepository {
 export interface GitHubMessageResult {
   ok: boolean
   message: string
+  /**
+   * What the window shows with the result, translated (C3): `git.hooks.skipped` once per person (FRONTEND keeps the
+   * dismissal), `git.base.maybeStale` when a worktree's base was not fetched first.
+   */
+  notices?: import('../messages').MainMessage[]
 }
 
 export interface GitHubCommitInput extends GitHubWorkspaceInput {
@@ -391,7 +398,8 @@ export interface GitHubConnectRepositoryInput extends GitHubWorkspaceInput {
 export interface GitHubWorktreeApi {
   listBranches(input: GitHubWorkspaceInput): Promise<GitHubBranch[]>
   listWorktrees(input: GitHubWorkspaceInput): Promise<GitHubWorktree[]>
-  createWorktree(input: GitHubCreateWorktreeInput): Promise<GitHubMessageResult>
+  /** `person` names who started it (electron/main/utils/safe-git-person.ts); without one a fetchBase fetch cannot reach the network. */
+  createWorktree(input: GitHubCreateWorktreeInput, person?: { reason: `${string}:${string}` }): Promise<GitHubMessageResult>
   removeWorktree(input: GitHubRemoveWorktreeInput): Promise<GitHubMessageResult>
   /**
    * Part of the contract because every caller that creates a branch needs it:

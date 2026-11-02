@@ -5,6 +5,7 @@ import { KeyboardSettings } from '../src/components/Settings/KeyboardSettings'
 import { ShortcutGuide } from '../src/components/Keyboard/ShortcutGuide'
 import { formatChord } from '../src/keyboard/chords'
 import { bindingsForView, chordsFor, type KeybindingId } from '../src/keyboard/keybindings'
+import { bindingLabel } from '../src/keyboard/labels'
 import { useSettingsStore } from '../src/store/settings.store'
 import { useUIStore } from '../src/store/ui.store'
 
@@ -19,8 +20,8 @@ describe('Settings › Keyboard', () => {
     expect(within(row('code.files')).getByText('Press the new shortcut, or Esc to cancel')).toBeInTheDocument()
     fireEvent.keyDown(window, { key: 'D', code: 'KeyD', ctrlKey: true, shiftKey: true })
     expect(useSettingsStore.getState().keybindingOverrides['code.files']).toEqual(['Mod+Shift+D'])
-    expect(within(row('code.files')).getByText(/Also used by Changes \(Code\)/)).toBeInTheDocument()
-    expect(within(row('code.changes')).getByText(/Also used by Files \(Code\)/)).toBeInTheDocument()
+    expect(within(row('code.files')).getByText(/Also used by Changes \(OxeCode\)/)).toBeInTheDocument()
+    expect(within(row('code.changes')).getByText(/Also used by Files \(OxeCode\)/)).toBeInTheDocument()
 
     await userEvent.click(within(row('code.files')).getByRole('button', { name: 'Reset shortcut for Files' }))
     expect(useSettingsStore.getState().keybindingOverrides).toEqual({})
@@ -37,6 +38,17 @@ describe('Settings › Keyboard', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Reset all shortcuts' }))
     expect(useSettingsStore.getState().keybindingOverrides).toEqual({})
   })
+
+  it('lists F6 as always on and the Tab focus toggle as rebindable (WCAG 2.1.2)', async () => {
+    render(<KeyboardSettings />)
+    for (const id of ['focus.nextRegion', 'focus.previousRegion']) {
+      expect(within(row(id)).getByText('Always on')).toBeInTheDocument()
+      expect(within(row(id)).queryByRole('button')).toBeNull()
+    }
+    await userEvent.click(within(row('terminal.tabMovesFocus')).getByRole('button', { name: 'Change shortcut for Tab moves focus in the terminal' }))
+    fireEvent.keyDown(window, { key: 't', code: 'KeyT', ctrlKey: true, altKey: true })
+    expect(chordsFor('terminal.tabMovesFocus')).toEqual(['Mod+Alt+T'])
+  })
 })
 
 describe('shortcut guide', () => {
@@ -46,7 +58,7 @@ describe('shortcut guide', () => {
     const expected = bindingsForView('thread').flatMap(group => group.bindings)
     expect(within(guide).getAllByRole('listitem')).toHaveLength(expected.length)
     for (const binding of expected) {
-      const item = within(guide).getByText(binding.label).closest('li')!
+      const item = within(guide).getByText(bindingLabel(binding)).closest('li')!
       for (const chord of chordsFor(binding.id as KeybindingId)) expect(within(item).getByLabelText(formatChord(chord))).toBeInTheDocument()
     }
     // Code-only shortcuts stay out of the Thread guide.

@@ -37,7 +37,7 @@ export class OxePostService {
   async call(op: PostOp, rawInput: unknown): Promise<PostApiResult<unknown>> {
     try { return { ok: true, value: await this.run(op, record(rawInput)) } } catch (error) {
       if (error instanceof Refusal) return { ok: false, error: { code: error.code, message: error.message } }
-      if (error instanceof SendError) return { ok: false, error: { code: error.code, message: error.message } }
+      if (error instanceof SendError) return { ok: false, error: { code: error.code, message: error.message, ...(error.messageCode ? { messageCode: error.messageCode } : {}) } }
       const code = (error as NodeJS.ErrnoException).code
       const message = code === 'ENOENT' ? 'That file no longer exists' : error instanceof Error ? error.message : 'Something went wrong'
       return { ok: false, error: { code: code === 'ENOENT' ? 'missing' : 'failed', message } }

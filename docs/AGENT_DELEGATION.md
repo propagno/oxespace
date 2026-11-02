@@ -1,7 +1,7 @@
 # Agent delegation through OXESpace MCP
 
 Agent delegation is optional and disabled by default. It does not require AI Memory.
-Enable **Workspace settings → Agent delegation**, then start from Code or Thread
+Enable **Workspace settings → Agent delegation**, then start from OxeCode or OxeChat
 using an OXESpace agent profile. Node.js, Git and the selected native CLI
 must be installed. Profiles must contain an executable name/path, not a shell command
 with embedded arguments. Other providers are not yet eligible.
@@ -21,7 +21,7 @@ Reuse the key for the same request; different content requires a new key.
 Choose an existing branch, an exact new branch name and base, or a local generated
 template. The preview shows the resolved branch, base SHA and worktree path;
 creation revalidates them. The default base follows the repository default branch,
-not the origin feature branch. A persistent Thread opens by default; a Code terminal
+not the origin feature branch. A persistent OxeChat conversation opens by default; an OxeCode terminal
 remains available as a compatibility surface. The destination has its own native
 conversation and execution credentials, including for authorized cross-workspace tasks.
 Dirty files are listed in the handoff but never copied. Commit necessary shared
@@ -36,7 +36,7 @@ evidence using `review`. Approval records review; it does **not** merge or verif
 the agent's claims automatically.
 
 The origin can inspect `oxespace_delegation_status` and use
-`oxespace_delegation_control` to approve, cancel, resume the exact bound Thread session,
+`oxespace_delegation_control` to approve, cancel, resume the exact bound OxeChat session,
 retry provisioning or explicitly start a new session from the handoff. The child may report
 accepted/blocked/review but cannot control or recursively delegate tasks.
 At most four provisioning/working tasks per project are allowed; provisioning
@@ -47,10 +47,10 @@ Both participants use `oxespace_delegation_message` and poll
 Reading does not consume events. Messages are not typed into occupied terminals
 and cannot wake an idle model. Workspace settings show state, the latest report
 and message, preserved context, and explicit recovery controls. **Delegated Work** in
-Code and Thread is the daily searchable task list, with branch, path and native ID details. UI notifications
+OxeCode and OxeChat is the daily searchable task list, with branch, path and native ID details. UI notifications
 link to the task without stealing terminal focus.
 
-In Thread, `/resume` shows other saved conversations and delegated sessions with their
+In OxeChat, `/resume` shows other saved conversations and delegated sessions with their
 branch and native ID. It explains when the current conversation is already open.
 `/resume <native-session-UUID>` can import a known Claude/Codex session only after
 the native reader verifies the same provider and project directory; it never chooses
@@ -68,9 +68,9 @@ does not inherit control automatically. The user can still manage tasks in setti
 ## Context and security
 
 The explicit handoff and acceptance criteria always work without AI Memory.
-In the creation dialog, select up to five saved Thread conversations from the
+In the creation dialog, select up to five saved OxeChat conversations from the
 same project and choose whether to include relevant AI Memory. The current
-Thread is selected by default when delegating from it. The selection captures
+OxeChat is selected by default when delegating from it. The selection captures
 the latest 12 public user/assistant messages per conversation, limited to 3 KB
 per session, at creation time. The final 24 KB bundle distributes space across
 the selected sources, so a long handoff cannot crowd out AI Memory or another

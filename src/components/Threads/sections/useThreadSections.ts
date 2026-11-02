@@ -1,0 +1,107 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { i18n } from '../../../i18n'
+import { humanizeError } from '../../../utils/humanizeError'
+import { SECTION_NAME_MAX, sectionErrorCode, type SectionedThread, type ThreadSection } from './sectionsContract'
+import { projectAssignments, sectionIdOf, sectionsApi } from './sectionsApi'
+import { moveSectionIds } from './sectionsModel'
+
+/**
+ * The words for a section failure. TODO(CCR F13): once the `thread.section.*` codes are in shared/messages.ts,
+ * word them from the `main` catalog (messageKey/messageValues) instead of thread.json.
+ */
+export function sectionErrorText(cause: unknown): string {
+  const code = sectionErrorCode(cause)
+  const t = i18n.t.bind(i18n)
+  if (code === 'thread.section.invalidName') return t('thread:sections.errors.invalidName', { max: SECTION_NAME_MAX })
+  if (code === 'thread.section.duplicateName') return t('thread:sections.errors.duplicateName')
+  if (code === 'thread.section.notFound') return t('thread:sections.errors.notFound')
+  if (code === 'thread.section.childFollowsParent') return t('thread:sections.errors.childFollowsParent')
+  return humanizeError(cause, t('thread:sections.errors.failed'))
+}
+
+export type SectionDialogState =
+  | { kind: 'create'; projectId: string; /** Moved into the new section once it exists. */ threadId?: string }
+  | { kind: 'rename'; section: ThreadSection }
+  | { kind: 'delete'; section: ThreadSection; count: number }
+
+/** Sections of the visible projects, kept by the main process, and the actions on them. */
+export function useThreadSections(projectIds: readonly string[], threads: readonly SectionedThread[]) {
+  const [byProject, setByProject] = useState<Record<string, ThreadSection[]>>({})
+  const [assignments, setAssignments] = useState<Record<string, Record<string, string>>>({})
+  const [error, setError] = useState('')
+  // Said once in a polite live region after a move or a delete (the sidebar renders it).
+  const [announcement, setAnnouncement] = useState('')
+  // The conversation just moved: its row takes the focus back once it shows in its new place.
+  const [movedId, setMovedId] = useState<string | null>(null)
+  const [dialog, setDialog] = useState<SectionDialogState | null>(null)
+  const key = projectIds.join('\n')
+
+  useEffect(() => {
+    let live = true
+    const ids = key ? key.split('\n') : []
+    const api = sectionsApi()
+    const load = (projectId: string): void => {
+      void api.listSections(projectId).then(list => {
+        if (!live) return
+        setByProject(value => ({ ...value, [projectId]: list }))
+        // Read once per change, not once per row and render.
+        setAssignments(value => ({ ...value, [projectId]: projectAssignments(projectId) }))
+      }).catch(cause => { if (live) setError(sectionErrorText(cause)) })
+    }
+    ids.forEach(load)
+    const off = api.onSectionsChanged(({ projectId }) => { if (ids.includes(projectId)) load(projectId) })
+    return () => { live = false; off() }
+  }, [key])
+
+  const sectionOf = useMemo(() => (thread: SectionedThread) => sectionIdOf(thread, threads, projectId => assignments[projectId] ?? {}), [threads, assignments])
+
+  const run = useCallback(async (action: () => Promise<unknown>): Promise<boolean> => {
+    setError('')
+    try {
+      await action()
+      return true
+    } catch (cause) { setError(sectionErrorText(cause)); return false }
+  }, [])
+
+  const api = sectionsApi
+  return {
+    sectionsOf: (projectId: string): ThreadSection[] => byProject[projectId] ?? [],
+    sectionOf,
+    error,
+    clearError: () => setError(''),
+    dialog,
+    setDialog,
+    moveTo: async (thread: SectionedThread, sectionId: string | null): Promise<boolean> => {
+      if (thread.parentThreadId) { setError(sectionErrorText({ code: 'thread.section.childFollowsParent' })); return false }
+      const moved = await run(() => api().moveToSection({ threadId: thread.id, sectionId }))
+      if (moved) {
+        const section = sectionId ? (byProject[thread.projectId] ?? []).find(item => item.id === sectionId)?.name : null
+        setAnnouncement(i18n.t('thread:sections.moved', { name: thread.title.trim() || i18n.t('thread:dialogs.newTitle'), section: section ?? i18n.t('thread:sections.none') }))
+        setMovedId(thread.id)
+      }
+      return moved
+    },
+    announcement,
+    movedId,
+    clearMoved: () => setMovedId(null),
+    setCollapsed: (section: ThreadSection, collapsed: boolean) => run(() => api().setSectionCollapsed({ id: section.id, collapsed })),
+    shift: (section: ThreadSection, delta: -1 | 1) => {
+      const ids = moveSectionIds(byProject[section.projectId] ?? [], section.id, delta)
+      return ids ? run(() => api().reorderSections({ projectId: section.projectId, ids })) : Promise.resolve(false)
+    },
+    /** Throws for the dialog to show the reason under the field. */
+    create: async (projectId: string, name: string, threadId?: string): Promise<ThreadSection> => {
+      const section = await api().createSection({ projectId, name })
+      if (threadId) await run(() => api().moveToSection({ threadId, sectionId: section.id }))
+      return section
+    },
+    rename: (section: ThreadSection, name: string) => api().renameSection({ id: section.id, name }),
+    /** Throws for the dialog to show the reason; `count` is how many conversations go back to no section. */
+    remove: async (section: ThreadSection, count: number): Promise<void> => {
+      await api().deleteSection({ id: section.id })
+      setAnnouncement(i18n.t('thread:sections.deleted', { count }))
+    }
+  }
+}
+
+export type ThreadSectionsController = ReturnType<typeof useThreadSections>

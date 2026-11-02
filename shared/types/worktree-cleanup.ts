@@ -70,6 +70,8 @@ export interface WorktreeCleanupRemoveInput {
 }
 
 export interface WorktreeCleanupRemoveResult {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   path: string
   ok: boolean
   message: string

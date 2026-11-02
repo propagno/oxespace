@@ -1,7 +1,9 @@
 import { create } from 'zustand'
 import { emptyRequest, serializeRequest } from '../../../shared/oxepost/format'
+import { i18n } from '../../i18n'
 import type { PostEnvironmentView, PostRequest, PostRequestEntry, PostResponse } from '../../../shared/oxepost/types'
 import { PostError, messageOf, post } from './client'
+import { registerUnsavedSource } from '../../lib/unsavedWork'
 
 export type PostDialog = 'import' | 'environments' | null
 export interface SendFailure { code: string; message: string }
@@ -48,14 +50,19 @@ interface PostState {
 let loadToken = 0
 let sendToken = 0
 const snapshot = (request: PostRequest): string => serializeRequest(request)
+/**
+ * A blank request named in the language on screen. The name lives in the common catalog, not OxePost's own: the store
+ * is created when this module loads, which can be before OxePost's catalog has been fetched.
+ */
+const blankRequest = (): PostRequest => emptyRequest(i18n.t('postCommands.defaultName'))
 
 export const useOxePostStore = create<PostState>((set, get) => ({
   workspaceId: null, loading: false, error: null, entries: [], environments: [], secretsProblem: null, selected: null,
-  draft: emptyRequest(), baseline: snapshot(emptyRequest()), environment: '', response: null, failure: null, sending: false, filter: '', dialog: null, pendingOpen: undefined, confirmSend: false,
+  draft: blankRequest(), baseline: snapshot(blankRequest()), environment: '', response: null, failure: null, sending: false, filter: '', dialog: null, pendingOpen: undefined, confirmSend: false,
 
   load: async workspaceId => {
     const token = ++loadToken
-    if (workspaceId !== get().workspaceId) set({ workspaceId, entries: [], environments: [], selected: null, draft: emptyRequest(), baseline: snapshot(emptyRequest()), response: null, failure: null, environment: '' })
+    if (workspaceId !== get().workspaceId) set({ workspaceId, entries: [], environments: [], selected: null, draft: blankRequest(), baseline: snapshot(blankRequest()), response: null, failure: null, environment: '' })
     if (!workspaceId) { set({ loading: false, error: null }); return }
     set({ loading: true })
     try {
@@ -84,7 +91,7 @@ export const useOxePostStore = create<PostState>((set, get) => ({
 
   cancelOpen: () => set({ pendingOpen: undefined }),
 
-  newRequest: () => set({ selected: null, draft: emptyRequest(), baseline: snapshot(emptyRequest()), response: null, failure: null, pendingOpen: undefined }),
+  newRequest: () => set({ selected: null, draft: blankRequest(), baseline: snapshot(blankRequest()), response: null, failure: null, pendingOpen: undefined }),
 
   edit: patch => set(state => ({ draft: { ...state.draft, ...patch } })),
 
@@ -145,3 +152,14 @@ export const useOxePostStore = create<PostState>((set, get) => ({
 }))
 
 export const isDirty = (state: Pick<PostState, 'draft' | 'baseline'>): boolean => snapshot(state.draft) !== state.baseline
+
+// The request being edited, when it changed since it was opened or saved: the close guard lists it and can save it.
+registerUnsavedSource({
+  id: 'oxepost',
+  items: () => {
+    const state = useOxePostStore.getState()
+    if (!state.workspaceId || snapshot(state.draft) === state.baseline) return []
+    return [{ id: state.selected ?? 'new', label: state.draft.name.trim() || i18n.t('closeGuard.untitledRequest', { ns: 'common' }), detail: i18n.t('closeGuard.inOxePost', { ns: 'common' }) }]
+  },
+  saveAll: async () => { await useOxePostStore.getState().save() }
+})

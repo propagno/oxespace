@@ -29,9 +29,9 @@ export function compatibilityBadge(provider: string, installed: string | undefin
   if (!summary || !entry) return null
   const checked = Object.values(entry.versions).map(parse).filter((value): value is number[] => value !== null).sort(compare).at(-1)
   const checkedLabel = checked ? checked.join('.') : 'an unknown version'
-  if (!entry.ok) return { state: 'failing', label: 'Contract check failing', title: `The OXESpace check against ${checkedLabel} failed ${when(summary.checkedAt)}; Thread mode may not work with that version.` }
+  if (!entry.ok) return { state: 'failing', label: 'Contract check failing', title: `The OXESpace check against ${checkedLabel} failed ${when(summary.checkedAt)}; OxeChat may not work with that version.` }
   const local = parse(installed)
   if (!local || !checked) return { state: 'unknown', label: 'Not checked', title: `Checked ${checkedLabel} ${when(summary.checkedAt)}; the installed version could not be read.` }
   if (compare(local, checked) > 0) return { state: 'newer', label: 'Newer than checked', title: `Installed ${local.join('.')} is newer than ${checkedLabel}, the version OXESpace checked ${when(summary.checkedAt)}.` }
-  return { state: 'verified', label: 'Checked', title: `OXESpace checked Thread mode against ${checkedLabel} ${when(summary.checkedAt)}.` }
+  return { state: 'verified', label: 'Checked', title: `OXESpace checked OxeChat against ${checkedLabel} ${when(summary.checkedAt)}.` }
 }

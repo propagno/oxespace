@@ -6,10 +6,10 @@
 export const ISSUE_NEW_URL = 'https://github.com/propagno/oxespace/issues/new'
 
 /**
- * Most browsers and GitHub accept links up to roughly 8,000 characters. The body keeps well under that after
- * percent-encoding; a longer body is cut for the link only, and the preview offers Copy for the whole text.
+ * Links that leave the app are capped at 2,048 characters (src/lib/externalLinks.ts and the main process refuse
+ * longer ones). The body is cut to fit after percent-encoding, for the link only; the preview offers Copy for the whole text.
  */
-export const ISSUE_URL_MAX = 7000
+export const ISSUE_URL_MAX = 2048
 
 export interface IssueDraft {
   title: string

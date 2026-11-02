@@ -57,7 +57,7 @@ can force a runtime bump.
 
 ## 4. Supported agent CLI versions
 
-Thread talks to the Claude Code and Codex CLIs, which change independently of OXESpace.
+OxeChat talks to the Claude Code and Codex CLIs, which change independently of OXESpace.
 
 What has been verified, with the date and the report:
 

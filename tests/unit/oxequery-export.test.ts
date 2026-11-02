@@ -5,7 +5,9 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { createSink, csvField, exportValue } from '../../electron/main/services/oxequery/export-writer'
 
 const directories: string[] = []
-afterEach(() => { for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true }) })
+// Windows can still hold a just-written export open (indexer, antivirus) when the test ends; a plain rm then fails with
+// ENOTEMPTY and turns a green run red. Retry a few times instead.
+afterEach(() => { for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }) })
 const temp = (): string => { const directory = mkdtempSync(join(tmpdir(), 'oxe-export-')); directories.push(directory); return directory }
 
 async function write(format: Parameters<typeof createSink>[0], rows: unknown[][], options: Parameters<typeof createSink>[2] = {}): Promise<string> {

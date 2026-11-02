@@ -67,7 +67,8 @@ describe('oxespace_git_change', () => {
     const git = { getStatus: async () => ({ branch: 'feat/x', upstream: 'origin/feat/x', ahead: 2, behind: 0, files: [], checkedAt: 0 }) }
     const { asked, ctx } = setup({ app: { github: gh } as never, git })
     expect(await call('oxespace_git_change', { action: 'push' }, ctx)).toMatchObject({ ok: true })
-    expect(asked[0].text).toBe('git push\nfeat/x → origin/feat/x (2 commits ahead)\nin /repo')
+    // Then the destination git would really use; /repo is no repository here, so it is unknown (SECURITY #387 H3).
+    expect(asked[0].text).toBe('git push\nfeat/x → origin/feat/x (2 commits ahead)\nto unknown\nin /repo')
     const denied = setup({ decide: 'deny', app: { github: gh } as never, git })
     gh.push.mockClear()
     expect(await call('oxespace_git_change', { action: 'push' }, denied.ctx)).toMatchObject({ ok: false, code: 'denied' })
@@ -110,7 +111,7 @@ describe('oxespace_threads_change', () => {
     expect(own.asked).toHaveLength(0)
     const other = setup({ ...asThread, threads: Promise.resolve(manager), db })
     expect(await call('oxespace_threads_change', { action: 'send', threadId: 'peer', text: 'go' }, other.ctx)).toMatchObject({ ok: true })
-    expect(other.asked[0]).toMatchObject({ summary: 'thread:self wants to send a message to "Peer"', text: 'go' })
+    expect(other.asked[0]).toMatchObject({ summary: expect.objectContaining({ code: 'approvals.summary.mcpConfirm', params: expect.objectContaining({ tool: 'oxespace_threads_change', action: 'send' }) }), text: 'go', notes: [{ code: 'approvals.note.thread.actsOnMessage', params: {} }] })
   })
 
   it('refuses itself and Threads of another project', async () => {

@@ -421,7 +421,7 @@ describe('thread persistence and ownership', () => {
     f.callbacks[0]({ type: 'tool', id: 'command', name: 'commandExecution', state: 'completed', detail: 'npm test', output: 'authorization=private-token', files: [{ path: 'src/a.ts', kind: 'update', source: 'native-patch', state: 'completed', patch: '@@ -1 +1 @@\n-old\n+new\n' }] })
     f.callbacks[0]({ type: 'completed', status: 'completed' })
     const result = await f.manager.command(id, '/export')
-    expect(result.text).toContain(`Thread ID: \`${id}\``)
+    expect(result.text).toContain(`Conversation ID: \`${id}\``)
     expect(result.text).toContain('Native session: `native-1`')
     expect(result.text).toContain('Tool · commandExecution · completed')
     expect(result.text).toContain('```diff')
@@ -453,7 +453,7 @@ describe('thread persistence and ownership', () => {
     const result = await f.manager.command(id, '/status')
     expect(result).toMatchObject({ kind: 'panel', title: 'Conversation status' })
     expect(Object.fromEntries(result.rows?.map(row => [row.label, row.detail]) ?? [])).toMatchObject({
-      'Thread ID': id,
+      'Conversation ID': id,
       'Project ID': 'project-A',
       'Workspace ID': 'A',
       Connection: 'connected',
@@ -797,6 +797,14 @@ describe('thread persistence and ownership', () => {
     await expect(f.manager.send(id, ' ')).rejects.toThrow('Message')
     f.manager.pin(id, true)
     expect(f.manager.read(id).thread.pinned).toBe(true)
+    await f.manager.stop()
+  })
+  it('stores the pull requests a conversation was kept through, once each, in its own data (T40)', async () => {
+    const f = fixture(), id = f.create()
+    f.manager.keepAfterPr(id, 41)
+    f.manager.keepAfterPr(id, 41)
+    f.manager.keepAfterPr(id, 52)
+    expect(f.manager.read(id).thread.keptAfterPr).toEqual([41, 52])
     await f.manager.stop()
   })
 })

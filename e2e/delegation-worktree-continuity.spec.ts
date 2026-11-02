@@ -1,3 +1,4 @@
+import { modeButton } from './helpers/modes'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtempSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -74,7 +75,7 @@ test('Code and Thread share delegation creation, exact recovery and session deta
     await expect.poll(() => app.evaluate(() => (globalThis as Record<string, unknown>).delegationRequest)).toMatchObject({ workspaceId: ws.id, owner: { kind: 'pane' }, input: { agentProfileId: 'codex', objective: 'Fix callback', surface: 'thread', includeMemory: true,
       sourceThreadIds: ['00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002'], branchIntent: { strategy: 'create', name: 'feature/CARD-143' } } })
     await page.getByRole('dialog', { name: 'Delegated work' }).getByRole('button', { name: 'Close', exact: true }).click()
-    await page.getByRole('button', { name: 'Thread', exact: true }).click()
+    await modeButton(page, 'thread').click()
     // Thread no longer carries a Delegated work shortcut; it offers MCP servers instead.
     await expect(page.getByRole('button', { name: 'Delegated work', exact: true })).toHaveCount(0)
     await page.getByRole('button', { name: 'More actions' }).click()

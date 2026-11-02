@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { Profiler } from 'react'
 import type { FileTreeNode } from '../../shared/types/ipc'
 import type { Workspace } from '../../shared/types/workspace'
 import { EditorPane } from '../../src/components/Editor/EditorPane'
@@ -163,6 +164,19 @@ describe('EditorPane', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Close other tabs' }))
     expect(screen.getByTestId('editor-tab-src/index.ts')).toBeInTheDocument()
     expect(screen.getByTestId('editor-tab-README.md')).toBeInTheDocument()
+  })
+
+  test('does not re-render for editor changes in another workspace', async () => {
+    let renders = 0
+    render(<Profiler id="editor" onRender={() => { renders++ }}><EditorPane workspaceId="workspace-1" rootPath="C:/repo" /></Profiler>)
+    await screen.findByText('src')
+    await waitFor(() => expect(renders).toBeGreaterThan(0))
+    const before = renders
+    // Before the narrow selectors, each of these re-rendered the editor (it subscribed to the whole store): 5 extra renders.
+    for (let index = 0; index < 5; index++) {
+      act(() => { useEditorStore.setState(state => ({ tabs: { ...state.tabs, 'workspace-2': [{ path: `other-${index}.ts`, pinned: false }] as never } })) })
+    }
+    expect(renders - before).toBe(0)
   })
 })
 

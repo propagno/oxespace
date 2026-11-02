@@ -12,6 +12,7 @@ import '../../lib/monacoSetup'
 import { MONACO_THEME } from '../../lib/monacoTheme'
 import type { FileTreeNode } from '../../../shared/types/ipc'
 import { selectActiveFile, useEditorStore } from '../../store/editor.store'
+import { useShallow } from 'zustand/react/shallow'
 import { isBinaryPreview, previewKind } from '../Preview/previewKind'
 import { ConflictDiff } from './ConflictDiff'
 import { EditorTabs } from './EditorTabs'
@@ -47,8 +48,9 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
   const file = useEditorStore((state) => selectActiveFile(state, workspaceId))
   const tabs = useEditorStore((state) => state.tabs[workspaceId] ?? EMPTY_TABS)
   const workspaceFiles = useEditorStore((state) => state.files[workspaceId] ?? EMPTY_FILES)
+  // The actions only: subscribing to the whole store re-rendered the editor on every change in any workspace.
   const { closeOtherTabs, closeTab, markExternalChange, moveTab, openFile, restoreSession, saveFile, togglePin, updateContent } =
-    useEditorStore()
+    useEditorStore(useShallow((state) => ({ closeOtherTabs: state.closeOtherTabs, closeTab: state.closeTab, markExternalChange: state.markExternalChange, moveTab: state.moveTab, openFile: state.openFile, restoreSession: state.restoreSession, saveFile: state.saveFile, togglePin: state.togglePin, updateContent: state.updateContent })))
   const monacoHostRef = useRef<HTMLDivElement | null>(null)
   const [tree, setTree] = useState<FileTreeNode[]>([])
   const [treeError, setTreeError] = useState<string | null>(null)

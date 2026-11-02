@@ -1,8 +1,9 @@
 import { RefreshCw, Trash2 } from 'lucide-react'
 import { type FormEvent, type ReactElement, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
 import { BUILTIN_PROVIDERS, type UpdateAgentProfileInput } from '../../../shared/types/agent'
-import { Button, ConfirmDialog, Dialog, IconButton, TextField, Select, TextArea } from '../../ui'
+import { Button, ConfirmDialog, Dialog, IconButton, Notice, TextField, Select, TextArea } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 
 const PROVIDER_LABEL: Record<(typeof BUILTIN_PROVIDERS)[number], string> = {
@@ -33,6 +34,7 @@ export function AgentConfigModal({
   onHealthCheck,
   onClose
 }: AgentConfigModalProps): ReactElement {
+  const { t } = useTranslation('settings')
   const isCustom = profile.provider === 'custom'
   const isNew = profile.agentProfileId === ''
 
@@ -51,7 +53,7 @@ export function AgentConfigModal({
     if (isCustom) {
       const trimmedPrompt = systemPrompt.trim()
       if (!trimmedPrompt) {
-        setSubmitError('Skill prompt is required')
+        setSubmitError(t('agentConfig.promptRequired'))
         return
       }
       setSubmitting(true)
@@ -66,7 +68,7 @@ export function AgentConfigModal({
         })
         onClose()
       } catch (err) {
-        setSubmitError(humanizeError(err, 'Failed to save agent profile'))
+        setSubmitError(humanizeError(err, t('agentConfig.saveFailed')))
       } finally {
         setSubmitting(false)
       }
@@ -75,7 +77,7 @@ export function AgentConfigModal({
 
     const nextCommand = command.trim()
     if (!nextCommand) {
-      setSubmitError('Command is required')
+      setSubmitError(t('agentConfig.commandRequired'))
       return
     }
     setSubmitting(true)
@@ -87,7 +89,7 @@ export function AgentConfigModal({
       })
       onClose()
     } catch (err) {
-      setSubmitError(humanizeError(err, 'Failed to save agent profile'))
+      setSubmitError(humanizeError(err, t('agentConfig.saveFailed')))
     } finally {
       setSubmitting(false)
     }
@@ -99,53 +101,53 @@ export function AgentConfigModal({
       await onDelete(profile.agentProfileId)
       onClose()
     } catch (err) {
-      setSubmitError(humanizeError(err, 'Failed to delete agent profile'))
+      setSubmitError(humanizeError(err, t('agentConfig.deleteFailed')))
       setConfirmDelete(false)
       setDeleting(false)
     }
   }
 
   if (confirmDelete) {
-    return <ConfirmDialog title="Delete this agent profile?" description={`“${profile.name}” is removed from OXESpace. Terminals already running it keep running.`}
-      confirmLabel="Delete profile" danger busy={isDeleting} onCancel={() => setConfirmDelete(false)} onConfirm={() => void handleDelete()} />
+    return <ConfirmDialog title={t('agentConfig.deleteTitle')} description={t('agentConfig.deleteDescription', { name: profile.name })}
+      confirmLabel={t('agentConfig.delete')} danger busy={isDeleting} onCancel={() => setConfirmDelete(false)} onConfirm={() => void handleDelete()} />
   }
 
   return (
     <Dialog
-      title={isNew ? 'New custom agent' : 'Configure agent'}
-      description={isCustom ? 'A skill prompt that runs on top of a built-in agent.' : 'The name and command OXESpace uses to start this agent.'}
+      title={isNew ? t('providers.newCustomAgent') : t('agentConfig.configure')}
+      description={isCustom ? t('agentConfig.customDescription') : t('agentConfig.description')}
       onClose={onClose}
       footer={<>
         {!profile.isBuiltin && !isNew ? (
           <Button variant="ghost" data-align="start" icon={<Trash2 size={14} aria-hidden="true" />} disabled={isDeleting} onClick={() => setConfirmDelete(true)} data-testid="btn-delete-agent">
-            Delete profile
+            {t('agentConfig.delete')}
           </Button>
         ) : null}
-        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button variant="secondary" onClick={onClose}>{t('ui.cancel', { ns: 'common' })}</Button>
         <Button type="submit" form="agent-config-form" variant="primary" loading={isSubmitting} data-testid="btn-save-agent">
-          {isNew ? 'Create' : 'Save'}
+          {isNew ? t('agentConfig.create') : t('agentConfig.save')}
         </Button>
       </>}
     >
       {readiness && !isCustom ? (
         <div className="readiness-row agent-config-readiness">
-          <span className={`agent-badge ${readiness.status}`}>{readiness.status}</span>
+          <span className={`agent-badge ${readiness.status}`}>{t(`providers.status.${readiness.status}`)}</span>
           {readiness.details ? <span className="agent-config-readiness-detail">{readiness.details}</span> : null}
           {readiness.version ? <span className="readiness-version">{readiness.version}</span> : null}
-          <IconButton className="agent-config-health" label="Run health check" size="sm" disabled={isDiscovering} onClick={onHealthCheck}
+          <IconButton className="agent-config-health" label={t('providers.runHealthCheck')} size="sm" disabled={isDiscovering} onClick={onHealthCheck}
             icon={<RefreshCw size={12} aria-hidden="true" className={isDiscovering ? 'spin' : undefined} />} />
         </div>
       ) : null}
 
       <form id="agent-config-form" className="modal-form" onSubmit={(e) => void handleSubmit(e)}>
           <label className="field">
-            <span>Name</span>
+            <span>{t('agentConfig.name')}</span>
             <TextField
               type="text"
               value={name}
               disabled={profile.isBuiltin}
               onChange={(e) => setName(e.target.value)}
-              placeholder="My agent"
+              placeholder={t('agentConfig.namePlaceholder')}
               data-testid="input-agent-name"
             />
           </label>
@@ -153,7 +155,7 @@ export function AgentConfigModal({
           {isCustom ? (
             <>
               <label className="field">
-                <span>Parent provider</span>
+                <span>{t('agentConfig.parent')}</span>
                 <Select
                   value={parentProvider}
                   onChange={(e) => setParentProvider(e.target.value as AgentProvider)}
@@ -166,11 +168,11 @@ export function AgentConfigModal({
               </label>
 
               <label className="field">
-                <span>Skill prompt</span>
+                <span>{t('agentConfig.prompt')}</span>
                 <TextArea
                   value={systemPrompt}
                   onChange={(e) => setSystemPrompt(e.target.value)}
-                  placeholder="You are a Java 8+ expert. Review this code for best practices, performance, and correctness."
+                  placeholder={t('agentConfig.promptPlaceholder')}
                   rows={5}
                   data-testid="textarea-system-prompt"
                 />
@@ -178,7 +180,7 @@ export function AgentConfigModal({
             </>
           ) : (
             <label className="field">
-              <span>Command</span>
+              <span>{t('agentConfig.command')}</span>
               <TextField
                 type="text"
                 value={command}
@@ -190,7 +192,7 @@ export function AgentConfigModal({
           )}
 
           {submitError ? (
-            <div className="modal-error" role="alert">{submitError}</div>
+            <Notice intent="danger">{submitError}</Notice>
           ) : null}
 
         </form>

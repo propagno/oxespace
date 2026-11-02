@@ -73,6 +73,21 @@ describe('sending', () => {
     expect((await sendRequest(request({ url: `${base}/missing` }))).status).toBe(404)
   })
 
+  it('says why a send failed as a message code the window translates (C3)', async () => {
+    const failing = (code: string, name = 'TypeError') => (async () => { throw Object.assign(new Error('fetch failed'), { name, cause: { code, message: `getaddrinfo ${code}` } }) }) as unknown as typeof fetch
+    const codeOf = async (fetchImpl: typeof fetch, extra: Partial<PostRequest> = {}) => {
+      try { await sendRequest(request({ url: 'http://nao-existe.invalid/ping', ...extra }), { fetchImpl }); return null } catch (error) { return (error as { messageCode?: { code: string } }).messageCode?.code }
+    }
+    expect(await codeOf(failing('ENOTFOUND'))).toBe('oxepost.network.notFound')
+    expect(await codeOf(failing('ECONNREFUSED'))).toBe('oxepost.network.refused')
+    expect(await codeOf(failing('ETIMEDOUT'))).toBe('oxepost.network.timedOut')
+    expect(await codeOf(failing('CERT_HAS_EXPIRED'))).toBe('oxepost.send.tls')
+    expect(await codeOf(failing('', 'TimeoutError'))).toBe('oxepost.send.timeout')
+    expect(await codeOf(failing('EWEIRD'))).toBe('oxepost.send.failedWith')
+    expect(await codeOf(failing('ENOTFOUND'), { url: 'not a url' })).toBe('oxepost.send.invalidUrl')
+    expect(await codeOf(failing('ENOTFOUND'), { body: 'x'.repeat(6 * 1024 * 1024), method: 'POST' })).toBe('oxepost.send.bodyTooLarge')
+  })
+
   it('caps the body it returns but still counts the size', async () => {
     const response = await sendRequest(request({ url: `${base}/big` }), { maxBody: 1024 })
     expect(response.body).toHaveLength(1024)

@@ -1,3 +1,4 @@
+import { envNamesProbeArgs, NODE_EXECUTABLE } from './helpers/node-child'
 import { spawnSync } from 'node:child_process'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { clearWithheldForTests, inheritsVariable, looksSecret, noteWithheld, scrubEnvironment, withheldSummary } from '../shared/env-scrub'
@@ -71,8 +72,9 @@ describe('scrubEnvironment', () => {
 
 describe('a spawned child', () => {
   beforeEach(() => clearWithheldForTests())
-  const probe = (env: NodeJS.ProcessEnv): string[] => JSON.parse(spawnSync(process.execPath, ['-e', 'console.log(JSON.stringify(Object.keys(process.env)))'],
-    { env, encoding: 'utf8' }).stdout)
+  // Only the names this test is about, through the system node under Electron (tests/helpers/node-child.ts).
+  const PROBED = ['PATH', 'SystemRoot', 'GITHUB_TOKEN', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'MY_SECRET']
+  const probe = (env: NodeJS.ProcessEnv): string[] => JSON.parse(spawnSync(NODE_EXECUTABLE, envNamesProbeArgs(PROBED), { env, encoding: 'utf8' }).stdout)
 
   it('does not see a withheld variable but sees the provider ones', () => {
     const source = { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot, GITHUB_TOKEN: 'x', ANTHROPIC_API_KEY: 'y', OPENAI_API_KEY: 'z', MY_SECRET: 's' }

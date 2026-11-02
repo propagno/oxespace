@@ -4,7 +4,6 @@ import { mkdir, readFile, writeFile, copyFile, unlink } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { promisify } from 'node:util'
-import hookSource from '../../../../resources/memory/agent-hook.cjs?raw'
 import type { MemoryContext, MemorySession, MemorySettings } from '../../../../shared/types/memory'
 import { MemoryRuntime, memoryEnvironment, readJson, writePrivateJson } from './memory-runtime'
 
@@ -51,6 +50,8 @@ export class AgentMemoryAdapters {
     const directory = join(this.runtime.directory, 'adapters')
     await mkdir(directory, { recursive: true })
     const script = join(directory, 'oxespace-memory-hook.cjs')
+    // The hook's source is inlined by the build; read here, on setup, rather than carried by the main entry.
+    const { default: hookSource } = await import('../../../../resources/memory/agent-hook.cjs?raw')
     await writeFile(script, hookSource, { mode: 0o600 })
     for (const adapter of this.targets) {
       // Ask the official installer for the actual supported event set/schema.

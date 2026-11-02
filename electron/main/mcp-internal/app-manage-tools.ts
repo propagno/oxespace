@@ -1,6 +1,10 @@
 import type { ToolContext, ToolEntry } from './tool-registry'
 import { codeWorkspace, domainTool, parsed, service, str, type Args } from './domain-tool'
 import { ActionRefused } from '../services/agent-actions/agent-actions'
+import { NotifyGate } from '../services/approvals/notify-gate'
+import { requesterFor } from '../services/approvals/requester'
+import { englishText } from '../agent-text'
+import { mainMessage } from '../../../shared/messages'
 import { parseAutomationInput } from '../ipc/automations.ipc'
 import { parseLinearWorktreeFromIssueInput } from '../ipc/validation'
 import type { AutomationSchedule } from '../../../shared/types/automation'
@@ -54,7 +58,7 @@ const SKILLS_CHANGE = domainTool('oxespace_skills_change', 'Add a skill (a reusa
     confirm: (args, scope) => ({
       summary: `add the skill /${str(args, 'name', 64)} ${str(args, 'scope', 10) === 'user' ? 'for every project' : `to ${scope.name}`}`,
       text: `/${str(args, 'name', 64)} — ${str(args, 'description', 300)}\n\n${str(args, 'body', 5000)}`,
-      reasons: ['Every agent that calls this skill follows these instructions.']
+      notes: [mainMessage('approvals.note.skill.followed', {})]
     }),
     run: async (args, scope, ctx) => {
       const agents = Array.isArray(args.agents) ? args.agents.filter((agent): agent is 'claude' | 'codex' => agent === 'claude' || agent === 'codex') : []
@@ -85,7 +89,7 @@ const AUTOMATIONS_CHANGE = domainTool('oxespace_automations_change', 'Schedule a
       return {
         summary: `schedule "${input.name}" (${input.agent}) ${describeSchedule(input.schedule)}`,
         text: `${input.agent} in ${scope.rootPath}, ${describeSchedule(input.schedule)}${input.enabled === false ? ' (created disabled)' : ''}${input.baseBranch ? `\nfrom ${input.baseBranch}` : ''}${input.precheck ? `\nprecheck: ${input.precheck}` : ''}\n\n${input.prompt}`,
-        reasons: ['The agent runs on its own on this schedule until the automation is turned off.']
+        notes: [mainMessage('approvals.note.automation.runsAlone', {})]
       }
     },
     run: async (args, scope, ctx) => automations(ctx).create(automationInput(args, scope.rootPath))
@@ -111,11 +115,23 @@ const AUTOMATIONS_CHANGE = domainTool('oxespace_automations_change', 'Schedule a
   }
 })
 
+/** One per process: the limit is per execution, across every call of the tool. */
+export const notifyGate = new NotifyGate()
+
 const WORKSPACE_CHANGE = domainTool('oxespace_workspace_change', 'Small workspace actions: tell the person something with a desktop notification, rebuild the semantic index, start a worktree for a Linear issue.', {
   notify: {
     level: 'write', description: 'Show a desktop notification (for example when a long job ends).',
     properties: { title: { type: 'string', minLength: 1, maxLength: 100 }, body: { type: 'string', maxLength: 500 } }, required: ['title'],
-    run: async (args, _scope, ctx) => ({ shown: service(ctx, 'notify')(str(args, 'title', 100)!.replace(/\s+/g, ' '), (str(args, 'body', 500) ?? '').slice(0, 500)) })
+    run: async (args, scope, ctx) => {
+      const title = str(args, 'title', 100)!.replace(/\s+/g, ' ')
+      const body = (str(args, 'body', 500) ?? '').slice(0, 500)
+      // B10: no app names, a per-minute limit, and the title prefixed by the app with who sent it.
+      const refused = notifyGate.check(scope.actor.key, title, body)
+      if (refused) throw new ActionRefused(englishText(refused), refused.code === 'notify.refused.rateLimit' ? 'rate-limited' : 'reserved-name')
+      const requester = scope.actor.requester ?? (scope.owner ? requesterFor(scope.owner) : undefined)
+      if (!requester) throw new ActionRefused('A notification must come from an agent running inside OXESpace.', 'no-execution')
+      return { shown: service(ctx, 'notify')(requester, title, body) }
+    }
   },
   reindex: {
     level: 'write', description: 'Rebuild the semantic index of this Code workspace (after large changes).',

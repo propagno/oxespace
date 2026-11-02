@@ -32,9 +32,11 @@ describe('read tools', () => {
     for (const name of APP_READ_TOOL_NAMES) {
       expect(TOOL_REGISTRY.filter(entry => entry.descriptor.name === name)).toHaveLength(1)
       expect(bridge).toContain(`'${name}'`)
-      const schema = tool(name).descriptor.inputSchema as { properties: { action: { enum: string[] } } }
+      const schema = tool(name).descriptor.inputSchema as { properties: { action?: { enum: string[] } } }
       expect(tool(name).descriptor.description).not.toMatch(/\((write|confirm)\)/)
-      expect(schema.properties.action.enum.length).toBeGreaterThan(0)
+      // A domain tool lists its actions; a single-purpose one (oxespace_diagnostics) takes no input at all.
+      if (schema.properties.action) expect(schema.properties.action.enum.length).toBeGreaterThan(0)
+      else expect(schema.properties).toEqual({})
       const codeOnly = name === 'oxespace_tasks' || name === 'oxespace_terminal'
       expect(THREAD_MCP_TOOLS.includes(name)).toBe(!codeOnly)
       expect(THREAD_READ_ONLY_MCP_TOOLS.includes(name)).toBe(!codeOnly)

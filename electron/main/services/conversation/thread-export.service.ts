@@ -10,7 +10,7 @@ export class ThreadExportService {
   markdown(snapshot: ThreadSnapshot): string {
     const safe = (value: unknown) => diagnosticText(typeof value === 'string' ? value : JSON.stringify(value))
     const lines = [`# ${safe(snapshot.thread.title) || 'Conversation'}`, '',
-      `- Thread ID: \`${snapshot.thread.id}\``, `- Native session: \`${snapshot.thread.nativeSessionId ?? 'not started'}\``,
+      `- Conversation ID: \`${snapshot.thread.id}\``, `- Native session: \`${snapshot.thread.nativeSessionId ?? 'not started'}\``,
       `- Provider: \`${snapshot.thread.provider}\``, `- Directory: \`${safe(snapshot.thread.rootPath)}\``,
       `- Model: \`${safe(snapshot.thread.model ?? 'provider default')}\``, `- Effort: \`${safe(snapshot.thread.reasoningEffort ?? 'automatic')}\``, '']
     if (snapshot.thread.nativeHistoryCursor) lines.push('_Earlier native messages have not been loaded; this export contains imported history only._', '')

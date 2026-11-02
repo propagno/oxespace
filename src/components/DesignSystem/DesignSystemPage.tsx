@@ -4,7 +4,7 @@ import { OxeLogo } from '../Brand/OxeLogo'
 import { colorRoles } from '../../design/tokens/semantic'
 import { palette, SCALE_SPECS, type ScaleName } from '../../design/tokens/palette'
 import { MOTION, RADIUS, REDUCED_MOTION, SPACE, TEXT } from '../../design/tokens/scales'
-import { Badge, BrandLoader, Button, ButtonGroup, Checkbox, Dialog, EmptyState, ErrorState, IconButton, Kbd, LoadingState, Menu, Meter, Panel, SegmentedControl, Select, Skeleton, Spinner, StatusDot, Switch, Tabs, TextArea, TextField, Toolbar, ToolbarSpacer, Tooltip, toast, useModalSurface } from '../../ui'
+import { Badge, BrandLoader, Button, ButtonGroup, Checkbox, Dialog, EmptyState, Notice, OfflineState, SuccessState, ErrorState, IconButton, Kbd, LoadingState, Menu, Meter, Panel, SegmentedControl, Select, Skeleton, Spinner, StatusDot, Switch, Tabs, TextArea, TextField, Toolbar, ToolbarSpacer, Tooltip, toast, useModalSurface } from '../../ui'
 import styles from './DesignSystemPage.module.css'
 
 type Section = 'brand' | 'color' | 'type' | 'shape' | 'motion' | 'components' | 'states'
@@ -108,7 +108,7 @@ function MotionSection(): ReactElement {
   </>
 }
 
-/** The four states every place in the app uses, so no screen invents its own: empty, loading, failed and unavailable. */
+/** The states every place in the app uses, so no screen invents its own: empty, loading, failed, succeeded, offline, notices and unavailable. */
 function StatesGallery(): ReactElement {
   return <div className={styles.stack}>
     <h2 className={styles.sectionTitle}>Empty</h2>
@@ -123,6 +123,17 @@ function StatesGallery(): ReactElement {
     <Panel title="Pull requests"><ErrorState title="Could not load pull requests" message="GitHub did not answer. Check your connection and try again." detail="HTTP 502 from api.github.com" onRetry={() => {}} /></Panel>
     <Panel title="Branches"><ErrorState compact title="Could not list branches." onRetry={() => {}} /></Panel>
     <Panel title="A whole view"><ErrorState brand title="Something went wrong while showing OxeQuery." message="The rest of OXESpace keeps working. Try again, and if it happens again, report it from the Help menu." detail="TypeError: rows is undefined" onRetry={() => {}} /></Panel>
+    <h2 className={styles.sectionTitle}>Succeeded</h2>
+    <Panel title="Worktree"><SuccessState title="Worktree created" message="feat/login-redirect is ready in its own folder." actions={<Button size="sm" variant="primary">Open it</Button>} /></Panel>
+    <Panel title="Connection"><SuccessState compact title="Connected to production-db." /></Panel>
+    <h2 className={styles.sectionTitle}>Offline</h2>
+    <Panel title="Pull requests"><OfflineState onRetry={() => {}} /></Panel>
+    <Panel title="Issues"><OfflineState compact /></Panel>
+    <h2 className={styles.sectionTitle}>Notices</h2>
+    <Notice intent="warning" title="2 worktrees have uncommitted changes">Removing them discards those changes.</Notice>
+    <Notice intent="danger">The policy could not be applied: line 4 is not valid YAML.</Notice>
+    <Notice intent="info">Agents in this workspace run with your shell profile.</Notice>
+    <Notice intent="success">Saved. New conversations use this model.</Notice>
     <h2 className={styles.sectionTitle}>Unavailable and focus</h2>
     <div className={styles.row}><Button disabled>Disabled</Button><Checkbox label="Disabled option" disabled /><Switch checked={false} onChange={() => {}} label="Disabled switch" disabled /></div>
     <TextField label="With an error" defaultValue="wip" error="Describe what changed in a sentence." />

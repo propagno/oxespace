@@ -18,7 +18,7 @@ import { createLocalRpcServer, type LocalRpcServer } from './local-rpc-server'
 import { AgentActions } from '../services/agent-actions/agent-actions'
 import { ActionAudit } from '../services/agent-actions/action-audit'
 import { ApprovalBroker } from '../services/agent-actions/approval-broker'
-import { nativeApprovalPrompter } from '../services/agent-actions/approval-prompter'
+import { appApprovalPrompter } from '../services/agent-actions/approval-prompter'
 import { activeTools } from './tool-registry'
 import { WebPreviewBus } from './web-preview-bus'
 import { WorktreeEventBus } from './worktree-event-bus'
@@ -105,7 +105,7 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
     memory: deps.memory,
     oxeQuery: deps.oxeQuery,
     oxeQueryError: deps.oxeQueryError,
-    agentActions: new AgentActions({ broker: new ApprovalBroker(nativeApprovalPrompter), audit: actionAudit }),
+    agentActions: new AgentActions({ broker: new ApprovalBroker(appApprovalPrompter), audit: actionAudit }),
     git: deps.git,
     app: deps.app,
     workspaceServ: deps.workspaceServ,

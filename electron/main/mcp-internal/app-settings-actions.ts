@@ -2,6 +2,7 @@ import type { ToolContext } from './tool-registry'
 import type { InternalMcpToolCallResult } from '../../../shared/types/mcp-internal'
 import { codeWorkspace, int, resolveScope, service, str, type ActionScope, type Approval, type Args, type Gate } from './domain-tool'
 import { ActionRefused, AgentActions } from '../services/agent-actions/agent-actions'
+import { mainMessage } from '../../../shared/messages'
 import { policyStore } from '../services/policy'
 import { SemanticProjects } from '../services/semantic-projects'
 import { SessionService } from '../services/session.service'
@@ -88,7 +89,7 @@ export async function runGated(gate: Gate, raw: unknown, ctx: ToolContext): Prom
     const scope = await resolveScope(ctx)
     const approval = gate.level === 'confirm' ? await gate.confirm?.(args, scope) : undefined
     return await (ctx.agentActions ?? fallbackActions).run(scope.actor, {
-      tool: gate.tool, action: 'call', level: gate.level, target: scope.rootPath, summary: approval?.summary, text: approval?.text, reasons: approval?.reasons
+      tool: gate.tool, action: 'call', level: gate.level, target: scope.rootPath, summary: approval?.summary, text: approval?.text, notes: approval?.notes
     }, () => gate.handler(raw, ctx))
   } catch (error) {
     if (!(error instanceof ActionRefused)) throw error
@@ -101,6 +102,6 @@ export function removeWorktreeApproval(args: Args, scope: ActionScope): Approval
   return {
     summary: `remove the worktree ${String(args.path)}`,
     text: `git worktree remove${force ? ' --force' : ''} ${String(args.path)}\nfrom ${scope.rootPath}`,
-    reasons: ['Its folder is deleted, with untracked and ignored files in it.', ...(force ? ['--force also discards uncommitted changes.'] : [])]
+    notes: [mainMessage('approvals.note.worktree.folderDeleted', {}), ...(force ? [mainMessage('approvals.note.worktree.forceDiscards', {})] : [])]
   }
 }

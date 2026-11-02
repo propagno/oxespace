@@ -33,8 +33,8 @@ describe('AppearanceSettings', () => {
 
   it('lets the Thread list go back to the app density', () => {
     render(<AppearanceSettings global />)
-    expect(screen.getByTestId('thread-density-override')).toHaveTextContent('The Thread list uses its own density: Comfortable.')
-    fireEvent.click(screen.getByRole('button', { name: 'Use app density in the Thread list' }))
+    expect(screen.getByTestId('thread-density-override')).toHaveTextContent('The OxeChat list uses its own density: Comfortable.')
+    fireEvent.click(screen.getByRole('button', { name: 'Use app density in the OxeChat list' }))
     expect(useNavigationPrefs.getState().threadDensity).toBeNull()
     expect(screen.queryByTestId('thread-density-override')).toBeNull()
   })
@@ -48,7 +48,7 @@ describe('AppearanceSettings', () => {
     expect(screen.getByTestId('workspace-density-override')).toHaveTextContent('2 workspaces use their own density.')
     fireEvent.click(screen.getByRole('button', { name: 'Use app density in all workspaces' }))
     expect(updateSettings.mock.calls.map(([input]) => input)).toEqual([{ workspaceId: 'a', uiDensity: 'default' }, { workspaceId: 'b', uiDensity: 'default' }])
-    expect(await screen.findByText('The Thread list uses its own density: Comfortable.')).toBeVisible()
+    expect(await screen.findByText('The OxeChat list uses its own density: Comfortable.')).toBeVisible()
     expect(screen.queryByTestId('workspace-density-override')).toBeNull()
   })
 })

@@ -171,9 +171,11 @@ describe('what a statement may do', () => {
     expect(await core.sqlCancel(connection())).toBe(false)
   })
 
-  it('reconnects when the connection settings change', async () => {
+  it('reconnects when the connection settings change, but not for read-only, which each statement applies itself', async () => {
     await core.sqlRun(connection(), 'SELECT 1')
     await core.sqlRun(connection({ readOnly: true }), 'SELECT 1')
+    expect(server.clients).toBe(1)
+    await core.sqlRun(connection({ password: 'changed' }), 'SELECT 1')
     expect(server.clients).toBe(2)
     await core.closeConnection('c1')
     await core.sqlRun(connection(), 'SELECT 1')

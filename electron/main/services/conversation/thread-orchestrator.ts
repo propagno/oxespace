@@ -10,7 +10,6 @@ import { blocksThreadInput, PARTIAL_NATIVE_HISTORY_NOTICE } from '../../../../sh
 import { formatNativeUserText, taskNotification } from '../../../../shared/native-session-text'
 import { assertThreadMessage, THREAD_PROMPT_MAX_CHARS } from '../../../../shared/threadLimits'
 import { idleSuspendMinutes, setIdleSuspendMinutes, suspendIdle, type IdleHost } from './thread-idle'
-import { execFile } from 'node:child_process'
 import { ThreadAgentError, threadFailure } from './thread-failure'
 import { ThreadHistory, type ThreadHistoryWriteOptions } from './thread-history'
 import { ThreadSnapshotCache } from './thread-snapshot-cache'
@@ -18,13 +17,13 @@ import { applyPendingRewind, redoRewind, retryTurn, rewind, type RewindHost } fr
 import { deleteQueued, drainQueue, reorderQueued, resumeQueue, sendQueuedNow, updateQueued, type QueueHost } from './thread-queue'
 import { addTurnCost } from './thread-cost'
 import { repairLegacyCost } from '../../../../shared/threadCostRepair'
-import { deriveThreadTitle } from './thread-title'
+import { deriveThreadTitle, isUnnamedThreadTitle, parseThreadRow } from './thread-title'
 import { resolveMentionContext } from './thread-context-resolver'
 import { briefBlock, projectBrief } from './project-brief'
 import { reduceThreadEvent, type KernelEffect } from './kernel/event-reducer'
 import { mergeTurnConfiguration, turnConfiguration } from './kernel/turn-configuration'
 import { runThreadCommand, type CommandHost } from './kernel/command-router'
-import { ThreadRequestRegistry } from './thread-request-registry'
+import { assertSessionAllowed, attachPolicy, ThreadRequestRefusalError, ThreadRequestRegistry } from './thread-request-registry'
 import type { ThreadAttachmentStore } from './thread-attachments'
 import { threadCapabilityManifest } from './thread-capabilities'
 import { settleVolatileThreadSnapshot } from './thread-recovery.service'
@@ -44,6 +43,7 @@ import { hasUnconfirmedTurnTools, recoverPublicTurn } from './thread-result-reco
 import type { NativeStateResult } from './codex-state-reader'
 import { canonicalPath, resolveSessionLocation } from '../git-common-dir'
 import { explainMissingFolder, ThreadFolderMissingError } from './thread-worktree'
+import { execGit } from '../../utils/safe-git'
 
 // Canonical comparison: a Windows short name and its long form are the same folder.
 const sameCheckout = (a: string, b: string): boolean => canonicalPath(a) === canonicalPath(b)
@@ -83,15 +83,15 @@ function settleCompletedHistoryTools(events: ThreadEvent[]): number {
 }
 
 export class ThreadOrchestrator {
-  private readonly changeListeners = new Map<string, Set<() => void>>()
-  subscribe(id: string, listener: () => void): () => void {
-    const listeners = this.changeListeners.get(id) ?? new Set<() => void>()
+  private readonly changeListeners = new Map<string, Set<(id: string) => void>>()
+  /** `id` '*' hears every conversation (the remote gateway's lists); thread ids are UUIDs, so it names none. */
+  subscribe(id: string, listener: (id: string) => void): () => void { const listeners = this.changeListeners.get(id) ?? new Set<(id: string) => void>()
     listeners.add(listener); this.changeListeners.set(id, listeners)
     return () => { listeners.delete(listener); if (!listeners.size) this.changeListeners.delete(id) }
   }
   private changed(id: string): void {
     this.notifyChanged(id)
-    for (const listener of this.changeListeners.get(id) ?? []) listener()
+    for (const listener of [...this.changeListeners.get(id) ?? [], ...this.changeListeners.get('*') ?? []]) listener(id)
   }
   private readonly history: ThreadHistory
   /** Full snapshots are retained only for active main-process work. Renderer reads stay paginated. */
@@ -221,17 +221,17 @@ export class ThreadOrchestrator {
        ORDER BY CAST(json_extract(turn.data_json, '$.sequence') AS INTEGER) DESC LIMIT 1) AS last_turn_status
       FROM conversation_threads`).all() as { data_json: string; last_turn_status: ConversationThread['lastTurnStatus'] | null }[])
       .map(row => {
-        const thread = JSON.parse(row.data_json) as ConversationThread
+        const thread = parseThreadRow<ConversationThread>(row.data_json)
         if (!thread.lastTurnStatus && row.last_turn_status) thread.lastTurnStatus = row.last_turn_status
         return thread
       })
       .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt - a.updatedAt)
   }
 
-  create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId'>): ThreadSnapshot {
+  create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId' | 'ownedWorktree'>): ThreadSnapshot {
     const now = Date.now()
     const snapshot: ThreadSnapshot = { thread: { ...context, id: randomUUID(), nativeSessionId: null,
-      title: 'New thread', pinned: false, status: 'idle', createdAt: now, updatedAt: now, generation: 1, queue: [], capabilities: threadCapabilityManifest(context.provider), connection: { state: 'closed', attempt: 0, changedAt: now } }, events: [] }
+      title: '', pinned: false, status: 'idle', createdAt: now, updatedAt: now, generation: 1, queue: [], capabilities: threadCapabilityManifest(context.provider), connection: { state: 'closed', attempt: 0, changedAt: now } }, events: [] }
     this.db.transaction(() => {
       // Legacy/delegated callers enter here with a validated directory but no
       // renderer project-registration step. Keep their conversation durable.
@@ -256,8 +256,8 @@ export class ThreadOrchestrator {
         this.snapshots.touch(id)
         return cached
       }
+      // Deleted meanwhile: the history read below refuses it with thread.notFound.
       this.snapshots.delete(id)
-      throw Error('Thread not found')
     }
     const snapshot = this.history.read(id)
     const firstRepairedEvent = settleCompletedHistoryTools(snapshot.events)
@@ -376,14 +376,14 @@ export class ThreadOrchestrator {
         ? await adapter!.observe!(nativeTurnId)
         : canRecover && this.stateReader?.recover ? await this.stateReader.recover({ ...snapshot.thread }, nativeTurnId)
         : this.stateReader ? await this.stateReader.observe({ ...snapshot.thread }, nativeTurnId)
-        : { state: 'unknown', observedAt: Date.now(), source: 'unavailable', detail: 'No connected provider supports a state query for this conversation. The execution outcome remains unconfirmed.' }
+        : { state: 'unknown', observedAt: Date.now(), source: 'unavailable', detail: 'No connected provider supports a state query for this conversation. The execution outcome remains unconfirmed.', messageCode: { code: 'thread.observe.unsupported', params: {} } }
       if (connected && canRecover && this.stateReader?.recover && ['completed', 'failed'].includes(result.state)) {
         const recovered = await this.stateReader.recover({ ...snapshot.thread }, nativeTurnId)
         const confirmed = await adapter!.observe!(nativeTurnId)
         // An intervening execution or conflicting provider result must not be
         // overwritten by a passive journal snapshot.
         if (confirmed.state === recovered.state && confirmed.nativeTurnId === nativeTurnId) result = recovered
-        else result = { ...confirmed, state: 'unknown', detail: 'Provider state changed during recovery. The local conversation was preserved; check again.' }
+        else result = { ...confirmed, state: 'unknown', detail: 'Provider state changed during recovery. The local conversation was preserved; check again.', messageCode: { code: 'thread.observe.changed', params: {} } }
       }
       if (this.stopping) throw Error('Thread service is shutting down')
       const current = this.read(id)
@@ -463,10 +463,7 @@ export class ThreadOrchestrator {
     const thread = this.readThread(id)
     // The project's changes live in the worktree the provider moved into, when it reported one.
     const rootPath = thread.observedLocation?.sameRepository && thread.observedLocation.checkoutRoot ? thread.observedLocation.checkoutRoot : thread.rootPath
-    const run = (args: string[]) => new Promise<string>((resolve, reject) => {
-      const child = execFile('git', args, { cwd: rootPath, windowsHide: true, maxBuffer: 2 * 1024 * 1024, timeout: 15000 }, (error, stdout) => error ? reject(error) : resolve(stdout))
-      child.stdin?.end()
-    })
+    const run = async (args: string[]) => (await execGit(rootPath, args, { maxBuffer: 2 * 1024 * 1024, timeout: 15000 })).stdout
     let hasHead = true
     try { await run(['rev-parse', '--verify', 'HEAD']) } catch { hasHead = false }
     const args = ['--no-pager', 'diff', '--no-ext-diff', '--no-textconv', '--unified=3']
@@ -543,7 +540,7 @@ export class ThreadOrchestrator {
     try {
       input = await this.commandService?.prepare(snapshot.thread, text) ?? input
       if (input.nativeCli) {
-        throw Error('This command does not have an integrated Thread handler yet.')
+        throw Error('This command does not have an integrated OxeChat handler yet.')
       }
       if (snapshot.thread.cliNotice && blocksThreadInput(snapshot.thread)) throw Error(snapshot.thread.cliNotice)
       assertThreadMessage(input.text, THREAD_PROMPT_MAX_CHARS)
@@ -564,7 +561,7 @@ export class ThreadOrchestrator {
     snapshot.thread.status = 'running'
     delete snapshot.thread.providerObservation
     delete snapshot.thread.queuePause
-    if (snapshot.thread.title === 'New thread' && !text.trim().startsWith('/')) snapshot.thread.title = deriveThreadTitle(text)
+    if (isUnnamedThreadTitle(snapshot.thread.title) && !text.trim().startsWith('/')) snapshot.thread.title = deriveThreadTitle(text)
     const turnId = randomUUID()
     const operation = this.history.beginOperation({ threadId: id, turnId, generation: snapshot.thread.generation ?? 1, kind: 'turn' })
     const eventsFrom = snapshot.events.length
@@ -659,7 +656,7 @@ export class ThreadOrchestrator {
     const adapter = this.adapters.get(id)
     const task = this.read(id).events.find((event): event is Extract<ThreadEvent, { type: 'subagent' }> => event.type === 'subagent' && event.state === 'running' && event.receiverThreadIds.includes(taskId))
     if (!task) throw Error('That background task is no longer running')
-    if (adapter && !adapter.stopTask) throw Error('This provider cannot stop background tasks from Thread')
+    if (adapter && !adapter.stopTask) throw Error('This provider cannot stop background tasks from OxeChat')
     if (!adapter?.stopTask) {
       // No provider session is left to ask: the task cannot be running, so it stops being listed as running.
       this.applyEvent(id, { ...task, state: 'unknown', completedAt: Date.now(), agents: task.agents.map(agent => ({ ...agent, status: 'unknown' as const })) })
@@ -668,15 +665,14 @@ export class ThreadOrchestrator {
     await adapter.stopTask(taskId)
   }
 
-  async approve(id: string, requestId: string, decision: 'accept' | 'decline'): Promise<void> {
-    await this.respond(id, requestId, { decision })
-  }
+  async approve(id: string, requestId: string, decision: 'accept' | 'decline'): Promise<void> { await this.respond(id, requestId, { decision }) }
 
-  async respond(id: string, requestId: string, response: ThreadRequestResponse): Promise<void> {
+  async respond(id: string, requestId: string, response: ThreadRequestResponse, listedGeneration?: number): Promise<ThreadRequest | undefined> {
     const snapshot = this.read(id), generation = snapshot.thread.generation ?? 1
+    if (listedGeneration !== undefined && listedGeneration !== generation) throw new ThreadRequestRefusalError('staleGeneration', 'Request belongs to an older conversation generation')
     const adapter = this.adapters.get(id)
-    if (!adapter) throw new Error('Request has no live execution')
-    const request = this.requests.list(id, generation).find(value => value.id === requestId)
+    if (!adapter) throw new ThreadRequestRefusalError('notPending', 'Request has no live execution')
+    const request = this.requests.list(id, generation).find(value => value.id === requestId); assertSessionAllowed(request, response)
     if (adapter.respondRequest) await this.requests.resolve(id, requestId, generation, response)
     else await adapter.approve(requestId, response.decision === 'accept' || response.decision === 'acceptForSession' ? 'accept' : 'decline')
     this.lastActivity.set(id, Date.now())
@@ -685,6 +681,7 @@ export class ThreadOrchestrator {
       const verb = response.decision === 'acceptForSession' ? 'Allowed for the session' : response.decision === 'accept' || response.permissions ? 'Allowed' : 'Declined'
       this.audit(id, { action: 'approval', actor: 'user', summary: `${verb} ${requestSubject(request)}` })
     }
+    return request
   }
 
   async steer(id: string, text: string, attachmentIds: string[] = []): Promise<void> {
@@ -765,11 +762,10 @@ export class ThreadOrchestrator {
     return reorderQueued(this.queueHost(), id, itemIds)
   }
 
-  pin(id: string, pinned: boolean): void {
-    const snapshot = this.read(id)
-    snapshot.thread.pinned = pinned
-    this.save(snapshot, { eventsFrom: snapshot.events.length })
-  }
+  pin(id: string, pinned: boolean): void { this.patch(id, thread => { thread.pinned = pinned }) }
+  /** T40: kept through the close of PR `prNumber` (data_json, no column); each once, the latest 20. */
+  keepAfterPr(id: string, prNumber: number): void { this.patch(id, thread => { thread.keptAfterPr = [...new Set([...(thread.keptAfterPr ?? []), prNumber])].slice(-20) }) }
+  private patch(id: string, change: (thread: ThreadSnapshot['thread']) => void): void { const snapshot = this.read(id); change(snapshot.thread); this.save(snapshot, { eventsFrom: snapshot.events.length }) }
 
   commands(id: string, forceRefresh = false): Promise<ThreadCommandCatalog> {
     return this.commandService?.list(this.readThread(id), forceRefresh) ?? Promise.resolve({ commands: [] })
@@ -1041,7 +1037,7 @@ export class ThreadOrchestrator {
       const adapter = this.adapters.get(id)
       event.request.generation = snapshot.thread.generation ?? 1
       const policy = this.evaluatePolicy(snapshot.thread.rootPath, event.request, snapshot.thread.access)
-      if (policy) event.request.policy = policy
+      if (policy) attachPolicy(event.request, policy)
       if (adapter?.respondRequest) this.requests.register(id, event.request, response => adapter.respondRequest!(event.id, response), expired => {
         try { this.event(id, { type: 'request-resolved', id: expired.id, state: 'expired', resolution: 'unknown', resolvedAt: expired.resolvedAt }, expired.generation) }
         catch { /* The conversation may have been deleted while the timer was pending. */ }
@@ -1271,7 +1267,7 @@ export class ThreadOrchestrator {
         const other = this.read(otherId).thread
         const activeNativeId = other.nativeSessionId
         if (other.provider === provider && activeNativeId === nativeSessionId) {
-          throw Error('This native session is already open in another Thread conversation')
+          throw Error('This native session is already open in another OxeChat conversation')
         }
       } catch (error) {
         if (error instanceof Error && error.message.includes('already open')) throw error

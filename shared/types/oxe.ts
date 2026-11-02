@@ -59,6 +59,8 @@ export interface OxeSummaryResult {
 
 /** Result of starting/looking up an embedded dashboard server. */
 export interface OxeDashboardHandle {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   ok: boolean
   url: string | null
   port: number | null
@@ -97,6 +99,8 @@ export interface OxeStatus {
 
 /** What the renderer receives for a workspace's OXE state. */
 export interface OxeStatusResult {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   /** oxe-cc resolved on the machine. */
   installed: boolean
   version: string | null

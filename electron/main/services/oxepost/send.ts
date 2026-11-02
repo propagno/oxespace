@@ -1,15 +1,20 @@
 import { LIMITS, type PostRequest, type PostResponse } from '../../../../shared/oxepost/types'
+import type { MainMessage } from '../../../../shared/messages'
 
 export class SendError extends Error {
-  constructor(readonly code: 'invalid' | 'timeout' | 'network' | 'tls', message: string) { super(message); this.name = 'SendError' }
+  /** `messageCode` is the same sentence as a code the window translates (C3); the message stays for logs. */
+  constructor(readonly code: 'invalid' | 'timeout' | 'network' | 'tls', message: string, readonly messageCode?: MainMessage) { super(message); this.name = 'SendError' }
 }
 
 const TLS_CODES = new Set(['CERT_HAS_EXPIRED', 'DEPTH_ZERO_SELF_SIGNED_CERT', 'SELF_SIGNED_CERT_IN_CHAIN', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'UNABLE_TO_GET_ISSUER_CERT_LOCALLY', 'ERR_TLS_CERT_ALTNAME_INVALID', 'CERT_NOT_YET_VALID', 'CERT_UNTRUSTED'])
-const NETWORK_TEXT: Record<string, string> = {
-  ENOTFOUND: 'The host name was not found. Check the URL and the connection.',
-  ECONNREFUSED: 'The connection was refused: nothing is listening at that address and port.',
-  ECONNRESET: 'The server closed the connection before answering.',
-  ETIMEDOUT: 'The connection timed out.', EAI_AGAIN: 'The host name could not be looked up right now.', EHOSTUNREACH: 'The host cannot be reached.', ENETUNREACH: 'The network cannot be reached.'
+const NETWORK_TEXT: Record<string, [string, Extract<MainMessage, { params: Record<string, never> }>['code']]> = {
+  ENOTFOUND: ['The host name was not found. Check the URL and the connection.', 'oxepost.network.notFound'],
+  ECONNREFUSED: ['The connection was refused: nothing is listening at that address and port.', 'oxepost.network.refused'],
+  ECONNRESET: ['The server closed the connection before answering.', 'oxepost.network.reset'],
+  ETIMEDOUT: ['The connection timed out.', 'oxepost.network.timedOut'],
+  EAI_AGAIN: ['The host name could not be looked up right now.', 'oxepost.network.lookupFailed'],
+  EHOSTUNREACH: ['The host cannot be reached.', 'oxepost.network.hostUnreachable'],
+  ENETUNREACH: ['The network cannot be reached.', 'oxepost.network.networkUnreachable']
 }
 const TEXTUAL = /^(text\/|application\/(json|xml|javascript|x-javascript|x-www-form-urlencoded|graphql|yaml|x-yaml|ld\+json|problem\+json|x-ndjson)|image\/svg)|[+/](json|xml|yaml)\b/i
 
@@ -20,15 +25,15 @@ export async function sendRequest(request: PostRequest, options: SendOptions = {
   const timeoutMs = Math.min(LIMITS.maxTimeoutMs, Math.max(1000, options.timeoutMs ?? LIMITS.defaultTimeoutMs))
   const cap = options.maxBody ?? LIMITS.responseBodyBytes
   let url: URL
-  try { url = new URL(request.url.trim()) } catch { throw new SendError('invalid', 'The URL is not valid. It needs a scheme, such as https://example.com/path') }
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new SendError('invalid', 'Only http and https URLs can be sent')
-  if (request.body !== '' && (request.method === 'GET' || request.method === 'HEAD')) throw new SendError('invalid', `${request.method} cannot carry a body. Change the method or clear the body`)
-  if (Buffer.byteLength(request.body) > LIMITS.requestBodyBytes) throw new SendError('invalid', 'The body is larger than 5 MB')
+  try { url = new URL(request.url.trim()) } catch { throw new SendError('invalid', 'The URL is not valid. It needs a scheme, such as https://example.com/path', { code: 'oxepost.send.invalidUrl', params: {} }) }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new SendError('invalid', 'Only http and https URLs can be sent', { code: 'oxepost.send.scheme', params: {} })
+  if (request.body !== '' && (request.method === 'GET' || request.method === 'HEAD')) throw new SendError('invalid', `${request.method} cannot carry a body. Change the method or clear the body`, { code: 'oxepost.send.bodyNotAllowed', params: { method: request.method } })
+  if (Buffer.byteLength(request.body) > LIMITS.requestBodyBytes) throw new SendError('invalid', 'The body is larger than 5 MB', { code: 'oxepost.send.bodyTooLarge', params: {} })
 
   const headers = new Headers()
   for (const header of request.headers) {
     if (!header.enabled || !header.name.trim()) continue
-    try { headers.append(header.name.trim(), header.value) } catch { throw new SendError('invalid', `"${header.name}" is not a valid header`) }
+    try { headers.append(header.name.trim(), header.value) } catch { throw new SendError('invalid', `"${header.name}" is not a valid header`, { code: 'oxepost.send.invalidHeader', params: { name: header.name } }) }
   }
   const auth = request.auth
   if (auth.type === 'bearer' && auth.token) headers.set('Authorization', `Bearer ${auth.token}`)
@@ -78,10 +83,13 @@ export async function sendRequest(request: PostRequest, options: SendOptions = {
 
 function describeFailure(error: unknown, timeoutMs: number): SendError {
   const name = (error as { name?: string })?.name
-  if (name === 'TimeoutError' || name === 'AbortError') return new SendError('timeout', `No complete answer within ${Math.round(timeoutMs / 1000)} seconds`)
+  if (name === 'TimeoutError' || name === 'AbortError') return new SendError('timeout', `No complete answer within ${Math.round(timeoutMs / 1000)} seconds`, { code: 'oxepost.send.timeout', params: { seconds: Math.round(timeoutMs / 1000) } })
   const cause = (error as { cause?: { code?: string; message?: string } })?.cause
   const code = cause?.code ?? (error as { code?: string })?.code ?? ''
-  if (TLS_CODES.has(code)) return new SendError('tls', `The server's certificate was not accepted (${code}). OxePost always verifies certificates; trust the certificate on this computer or use the address the certificate was issued for.`)
-  if (NETWORK_TEXT[code]) return new SendError('network', NETWORK_TEXT[code]!)
-  return new SendError('network', `The request failed${cause?.message ? `: ${cause.message}` : error instanceof Error && error.message !== 'fetch failed' ? `: ${error.message}` : ''}`)
+  if (TLS_CODES.has(code)) return new SendError('tls', `The server's certificate was not accepted (${code}). OxePost always verifies certificates; trust the certificate on this computer or use the address the certificate was issued for.`, { code: 'oxepost.send.tls', params: { code } })
+  const known = NETWORK_TEXT[code]
+  // Every code in the table takes no parameters.
+  if (known) return new SendError('network', known[0], { code: known[1], params: {} } as MainMessage)
+  const detail = cause?.message ? cause.message : error instanceof Error && error.message !== 'fetch failed' ? error.message : ''
+  return new SendError('network', `The request failed${detail ? `: ${detail}` : ''}`, detail ? { code: 'oxepost.send.failedWith', params: { detail } } : { code: 'oxepost.send.failed', params: {} })
 }

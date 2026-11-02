@@ -1,4 +1,6 @@
 import type { ConversationThread, ThreadStatus } from '../../shared/types/thread'
+import { i18n } from '../i18n'
+import { withoutReservedName } from '../../shared/reserved-names'
 
 /**
  * One decision for "should this thread demand attention", used for both the
@@ -44,10 +46,12 @@ export function decideThreadAttention({ previous, current, viewing }: ThreadAtte
 }
 
 export function threadAttentionText(kind: ThreadAttentionKind, title: string): { title: string; body: string } {
-  const name = title.trim() || 'Conversation'
+  // B10: the title can come from the agent; a reserved app name in it is never shown as the sender.
+  const untitled = i18n.t('notify.untitled', { ns: 'thread' })
+  const name = withoutReservedName(title.trim(), untitled) || untitled
   switch (kind) {
-    case 'needs-approval': return { title: `${name} — needs approval`, body: 'The agent is waiting for your decision to continue.' }
-    case 'failed': return { title: `${name} — failed`, body: 'The turn ended with an error. Open the conversation to see why.' }
-    case 'finished': return { title: `${name} — finished`, body: 'The agent completed the turn.' }
+    case 'needs-approval': return { title: i18n.t('notify.approval', { ns: 'thread', name }), body: i18n.t('notify.approvalBody', { ns: 'thread' }) }
+    case 'failed': return { title: i18n.t('notify.failed', { ns: 'thread', name }), body: i18n.t('notify.failedBody', { ns: 'thread' }) }
+    case 'finished': return { title: i18n.t('notify.finished', { ns: 'thread', name }), body: i18n.t('notify.finishedBody', { ns: 'thread' }) }
   }
 }

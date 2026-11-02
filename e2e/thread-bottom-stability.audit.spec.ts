@@ -1,3 +1,4 @@
+import { modeButton } from './helpers/modes'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { copyFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -19,7 +20,7 @@ test('a long restored Thread stays visually still at the bottom', async () => {
   try {
     const page = await app.firstWindow()
     await page.setViewportSize({ width: 1440, height: 900 })
-    await page.getByRole('button', { name: 'Thread', exact: true }).click()
+    await modeButton(page, 'thread').click()
     const thread = await page.evaluate(id => window.oxe.thread!.read(id), threadId!)
     await page.locator('.thread-navigation-item').filter({ hasText: thread.thread.title.slice(0, 25) }).first().click()
     await expect(page.getByRole('heading', { name: thread.thread.title, exact: true })).toBeVisible()

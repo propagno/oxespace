@@ -164,6 +164,9 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
           webPreview: deps.webPreview,
           worktree: deps.worktree
         }
+        // A tool the project's, user's or organization's policy blocks never runs, whichever client calls it.
+        const blocked = (await import('./tool-policy')).toolCallBlocked(tool.descriptor.name, ctx)
+        if (blocked) return { jsonrpc: '2.0', id, result: errorResult(blocked) }
         const result = await tool.handler(params.arguments, ctx)
         const save = deps.toolOutputRoot ? toolOutputSaver(deps.toolOutputRoot, name) : undefined
         return { jsonrpc: '2.0', id, result: (await import('./untrusted-output')).fenceUntrusted(name, params.arguments, boundToolResult(result, tool.outputLimit ?? DEFAULT_TOOL_OUTPUT_LIMIT, save)) }

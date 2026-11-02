@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { contrast, oklchToHex, over } from '../src/design/tokens/color'
-import { tokensCss } from '../src/design/tokens/css'
+import { moreContrastTokens, tokensCss } from '../src/design/tokens/css'
 import { generateScale, SCALE_SPECS } from '../src/design/tokens/palette'
 import { colorRoles } from '../src/design/tokens/semantic'
 
@@ -86,6 +86,17 @@ describe('design tokens', () => {
       })
     })
   }
+
+  it('raises contrast when the system asks for more: borders take the strong step, muted text reads as secondary', () => {
+    expect(tokensCss()).toContain('@media (prefers-contrast: more)')
+    for (const mode of ['light', 'dark'] as const) {
+      const roles = colorRoles(mode), more = moreContrastTokens(mode)
+      expect(more['border-subtle']).toBe(roles['border-strong'])
+      expect(more['text-muted']).toBe(roles['text-secondary'])
+      // Muted text gains contrast on every surface it sits on.
+      for (const surface of ['surface-canvas', 'surface-base', 'surface-raised'] as const) expect(contrast(more['text-muted'], roles[surface])).toBeGreaterThan(contrast(roles['text-muted'], roles[surface]))
+    }
+  })
 
   it('composites overlays for contrast checks', () => {
     expect(over('#000000', 0.5, '#ffffff')).toBe('#808080')

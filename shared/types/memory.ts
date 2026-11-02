@@ -64,6 +64,8 @@ export interface MemoryPipelineStatus {
   consolidation: 'unknown' | 'idle' | 'pending' | 'running' | 'failed'
 }
 export interface MemoryHealth {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   status: 'disabled' | 'ready' | 'unavailable'
   message?: string
   errorCode?: MemoryErrorCode
@@ -92,7 +94,7 @@ export interface MemoryWorkspaceStatus {
 }
 /** Physical bytes per top-level entry of the memory directory. Informational only: nothing here is deleted by the app. */
 export interface MemoryStorageUsage { categories: Record<string, number>; totalBytes: number; truncated: boolean; measuredAt: number }
-export type MemoryReply<T> = { status: 'ok'; value: T } | { status: 'disabled' | 'unavailable'; message: string }
+export type MemoryReply<T> = { status: 'ok'; value: T } | { status: 'disabled' | 'unavailable'; message: string; messageCode?: import('../messages').MainMessage }
 /** What a person does with stored memory from Settings. Served by a module that loads on first use, not by the service itself. */
 export interface MemoryManageApi {
   /** Every note the app knows for the workspace's project, with its origin and state; searched by text when `query` is given. */

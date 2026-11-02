@@ -57,6 +57,59 @@
   opacity: 0.4;
 }
 
+/* Needs a decision: an agent stopped on an approval or a question. A warning ring around a light center, a
+   different shape from the filled "finished" dot, so it does not rest on color alone. A border, not a shadow:
+   the active pane's header drops its dot's shadow. */
+.pane-activity-dot.activity-needs-decision,
+.pane-status-dot.activity-needs-decision {
+  box-sizing: border-box;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--intent-warning-solid);
+  background: var(--intent-warning-bg);
+  opacity: 1;
+}
+
+/* Estimated from output timing, not reported: dimmer and dashed, so a guess is not read as certain. */
+.pane-activity-dot.is-estimated,
+.pane-status-dot.is-estimated {
+  opacity: 0.6;
+  outline: 1px dashed var(--tx-muted);
+  outline-offset: 1px;
+}
+
+/* The pane header says it in words too: "Needs your decision". */
+.pane-decision-chip {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid var(--intent-warning-border);
+  border-radius: var(--radius-md);
+  background: var(--intent-warning-bg);
+  color: var(--intent-warning-fg);
+  font-size: var(--fs-2xs);
+  font-weight: 620;
+  white-space: nowrap;
+}
+
+/* "Why this status?": main's raw answer, under Technical details. */
+.status-explain-raw {
+  max-height: 240px;
+  margin: 8px 0 0;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  white-space: pre-wrap;
+  color: var(--tx-secondary);
+}
+
+/* The sidebar row's state line, in the same warning words. */
+.pane-row-preview.is-decision { color: var(--intent-warning-fg); font-weight: 600; }
+/* Beside the row's name, visible in the compact layout too. */
+.pane-row-decision-mark { flex-shrink: 0; color: var(--intent-warning-fg); }
+
 
 /* Consolidated integration control. Five equal-looking topbar chips competed
    with agent activity; the trigger keeps the aggregate glanceable and moves

@@ -5,7 +5,7 @@ import type { ThreadAttachment, ThreadSnapshot } from '../../../shared/types/thr
 import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
 import { ErrorState, Menu } from '../../ui'
-import { VoiceHud } from '../Voice/VoiceHud'
+import { VoiceHudSlot } from '../Voice/VoiceHudSlot'
 import { ThreadConfigurationBar } from './ThreadConfigurationBar'
 import { ThreadMcpHealth } from './ThreadMcpHealth'
 import { ThreadUsageRing } from './ThreadUsageRing'
@@ -13,6 +13,7 @@ import type { useOxeVoice } from '../../hooks/useOxeVoice'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
 import { withShortcut } from '../../keyboard/keybindings'
 import './ThreadComposerChrome.css'
+import { displayThreadTitle } from './threadTitle'
 import { formatNumber } from '../../utils/formatTime'
 
 type Voice = ReturnType<typeof useOxeVoice>
@@ -58,12 +59,12 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
   const blocked = !snapshot || pending || Boolean(snapshot.thread.cliActive)
   const tooLong = draft.length > THREAD_MESSAGE_MAX_CHARS
   return <form className="thread-composer" data-state={composerState} aria-busy={pending} onSubmit={e => { e.preventDefault(); if (!tooLong) onSend() }} onDragOver={event => { if ([...event.dataTransfer.items].some(item => item.kind === 'file')) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy' } }} onDrop={event => { const files = [...event.dataTransfer.files].filter(file => file.type.startsWith('image/')); if (files.length) { event.preventDefault(); onUpload(files) } }}>
-    <VoiceHud status={voice.status} error={voice.error} level={voice.level} modelProgress={voice.modelProgress} onDismiss={voice.dismiss} containerSelector=".thread-view" focusSelector="textarea[data-thread-composer='true']" />
+    <VoiceHudSlot status={voice.status} error={voice.error} level={voice.level} modelProgress={voice.modelProgress} onDismiss={voice.dismiss} containerSelector=".thread-view" focusSelector="textarea[data-thread-composer='true']" />
     {commands.popup}
     {mentions.popup}
     {attachments.length > 0 && <div className="thread-attachments" aria-label={t('composer.attachments')}>{attachments.map(attachment => <div key={attachment.id}><span>{attachment.name}</span><small>{t('message.kilobytes', { size: formatNumber(Math.ceil(attachment.bytes / 1024)) })}</small><button type="button" aria-label={t('composer.remove', { name: attachment.name })} disabled={pending} onClick={() => onRemoveAttachment(attachment.id)}><X size={12} /></button></div>)}</div>}
     <input ref={fileInput} type="file" hidden multiple accept="image/png,image/jpeg,image/webp,image/gif" onChange={event => { onUpload(Array.from(event.target.files ?? [])); event.target.value = '' }} />
-    <textarea ref={textarea} data-thread-composer="true" data-dialog-return aria-label={active ? t('composer.message') : t('composer.messageIn', { title: snapshot?.thread.title ?? t('composer.conversation') })} {...commands.inputProps} placeholder={!snapshot ? t('composer.placeholderNone') : snapshot.thread.connection?.suspendedAt ? t('composer.placeholderSuspended') : t('composer.placeholder')} value={draft} disabled={blocked}
+    <textarea ref={textarea} data-thread-composer="true" data-dialog-return aria-label={active ? t('composer.message') : t('composer.messageIn', { title: snapshot ? displayThreadTitle(snapshot.thread.title) : t('composer.conversation') })} {...commands.inputProps} placeholder={!snapshot ? t('composer.placeholderNone') : snapshot.thread.connection?.suspendedAt ? t('composer.placeholderSuspended') : t('composer.placeholder')} value={draft} disabled={blocked}
       onChange={e => { onCaret(e.target.selectionStart); commands.onChange(e.target.value, e.target.selectionStart) }} onSelect={e => { onCaret(e.currentTarget.selectionStart); commands.onSelect(e.currentTarget.selectionStart) }} onFocus={commands.onFocus} onBlur={commands.onBlur}
       onPaste={event => { const files = [...event.clipboardData.files].filter(file => file.type.startsWith('image/')); if (files.length) { event.preventDefault(); onUpload(files) } }}
       onKeyDown={e => { if (mentions.onKeyDown(e)) return; if (commands.onKeyDown(e)) return; if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); onSend() } else if (e.key === 'Escape' && running && !pending) { e.preventDefault(); e.stopPropagation(); onInterrupt() } }} />

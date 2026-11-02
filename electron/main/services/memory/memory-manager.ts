@@ -10,7 +10,7 @@ export class MemoryManager {
   }
   constructor(private readonly provider: () => MemoryProvider | Promise<MemoryProvider>, private readonly settings: (projectId: string) => MemorySettings, private readonly deadlineMs = 3000) {}
   async run<T>(context: MemoryContext, operation: (provider: MemoryProvider) => Promise<T>, kind?: 'read' | 'write'): Promise<MemoryReply<T>> {
-    if (!this.settings(context.projectId).enabled) return { status: 'disabled', message: 'Project memory is disabled' }
+    if (!this.settings(context.projectId).enabled) return { status: 'disabled', message: 'Project memory is disabled', messageCode: { code: 'memory.disabled', params: {} } }
     let timer: ReturnType<typeof setTimeout> | undefined
     const controller = new AbortController()
     try {
@@ -30,7 +30,7 @@ export class MemoryManager {
       metrics.lastFailureAt = Date.now()
       if (this.activity.size >= 512 && !this.activity.has(context.projectId)) this.activity.delete(this.activity.keys().next().value!)
       this.activity.set(context.projectId, metrics)
-      return { status: 'unavailable', message: 'Project memory is temporarily unavailable. Agent execution can continue.' }
+      return { status: 'unavailable', message: 'Project memory is temporarily unavailable. Agent execution can continue.', messageCode: { code: 'memory.unavailable', params: {} } }
     }
     finally { if (timer) clearTimeout(timer); controller.abort() }
   }

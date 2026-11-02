@@ -36,6 +36,15 @@ describe('preload api', () => {
     api.app.onConnectivity!(listener)
     expect(ipc.on).toHaveBeenCalledWith(IPC_CHANNELS.app.onConnectivity, expect.any(Function))
   })
+  test('F26: subscribes to close requests and sends the answer as given', async () => {
+    const ipc = createFakeIpc(), api = createOxeApi(ipc)
+    const listener = vi.fn()
+    const unsubscribe = api.app.onCloseRequested!(listener)
+    expect(ipc.on).toHaveBeenCalledWith(IPC_CHANNELS.app.closeRequested, expect.any(Function))
+    expect(typeof unsubscribe).toBe('function')
+    await api.app.answerClose!({ requestId: 'r-1', answer: 'hold' })
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.app.closeAnswer, { requestId: 'r-1', answer: 'hold' })
+  })
   test('exposes workspace and terminal APIs without raw ipc access', async () => {
     const ipc = createFakeIpc()
     const api = createOxeApi(ipc)

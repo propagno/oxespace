@@ -1,4 +1,4 @@
-import { Pin, PinOff, X, XSquare } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Pin, PinOff, X, XSquare } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
@@ -15,7 +15,10 @@ interface EditorTabsProps {
   onMove: (fromPath: string, toPath: string) => void
 }
 
-/** Editor tab strip: click to activate, middle-click to close, drag to reorder, right-click for tab actions. */
+/**
+ * Editor tab strip: click to activate, middle-click to close, drag to reorder, right-click for tab actions. Reordering
+ * never needs a drag (WCAG 2.5.7): the tab's menu moves it left or right.
+ */
 export function EditorTabs({
   activePath,
   dirtyPaths,
@@ -154,11 +157,21 @@ export function EditorTabs({
         const tab = tabs.find((item) => item.relativePath === menu.path)
         if (!tab) return null
         const run = (action: () => void) => () => { setMenu(null); action() }
+        const index = tabs.indexOf(tab)
+        // Pinned tabs stay ahead of the others, so a tab only moves past neighbours of its own kind.
+        const neighbour = (offset: number) => { const other = tabs[index + offset]; return other && other.pinned === tab.pinned ? other : undefined }
+        const left = neighbour(-1), right = neighbour(1)
         // Outside the tablist, which may only own tabs.
         return createPortal(
           <div ref={menuRef} className="ws-group-context-menu" role="menu" aria-label={t('editor.tabs.menu', { name: basename(tab.relativePath) })} style={{ left: menu.x, top: menu.y }} data-testid="editor-tab-menu">
             <button type="button" role="menuitem" onClick={run(() => onTogglePin(tab.relativePath))}>
               {tab.pinned ? <PinOff size={12} aria-hidden="true" /> : <Pin size={12} aria-hidden="true" />}{tab.pinned ? t('editor.tabs.unpin') : t('editor.tabs.pin')}
+            </button>
+            <button type="button" role="menuitem" disabled={!left} onClick={run(() => left && onMove(tab.relativePath, left.relativePath))}>
+              <ArrowLeft size={12} aria-hidden="true" />{t('editor.tabs.moveLeft')}
+            </button>
+            <button type="button" role="menuitem" disabled={!right} onClick={run(() => right && onMove(tab.relativePath, right.relativePath))}>
+              <ArrowRight size={12} aria-hidden="true" />{t('editor.tabs.moveRight')}
             </button>
             <button type="button" role="menuitem" disabled={tabs.length < 2} title={t('editor.tabs.closeOthersTitle')} onClick={run(() => onCloseOthers(tab.relativePath))}>
               <XSquare size={12} aria-hidden="true" />{t('editor.tabs.closeOthers')}

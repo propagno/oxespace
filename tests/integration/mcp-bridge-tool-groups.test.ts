@@ -1,0 +1,117 @@
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import http from 'node:http'
+import { resolve } from 'node:path'
+import { afterEach, describe, expect, it } from 'vitest'
+
+const BRIDGE = resolve(__dirname, '..', '..', 'resources', 'mcp-bridge', 'oxespace-mcp.cjs')
+const TOOLS = ['oxespace_capabilities', 'oxespace_tools_enable', 'oxespace_code_search', 'oxespace_db_query', 'oxespace_containers_list', 'oxespace_open_web_preview']
+
+/** The OXESpace endpoint the bridge forwards to: every tool exists, and capabilities answers like the app. */
+async function server(): Promise<{ port: number; calls: string[]; close: () => Promise<void> }> {
+  const calls: string[] = []
+  const instance = http.createServer((request, response) => {
+    let body = ''
+    request.on('data', chunk => { body += chunk })
+    request.on('end', () => {
+      const envelope = JSON.parse(body) as { id: number; method: string; params?: { name: string } }
+      calls.push(envelope.params?.name ?? envelope.method)
+      const result = envelope.method === 'tools/list'
+        ? { tools: TOOLS.map(name => ({ name, description: name, inputSchema: { type: 'object' } })) }
+        : { content: [{ type: 'text', text: JSON.stringify({ schemaVersion: 1, status: 'ok', data: { tools: [] } }) }] }
+      response.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ jsonrpc: '2.0', id: envelope.id, result }))
+    })
+  })
+  const port = await new Promise<number>(done => instance.listen(0, '127.0.0.1', () => done((instance.address() as { port: number }).port)))
+  return { port, calls, close: () => new Promise(done => instance.close(() => done())) }
+}
+
+const children: ChildProcessWithoutNullStreams[] = []
+afterEach(() => { for (const child of children.splice(0)) child.kill() })
+
+/** Runs the bridge the way a conversation does and talks to it over stdio. */
+function bridge(port: number, allowed: string[], enableable?: Record<string, string[]>) {
+  const child = spawn(process.execPath, [BRIDGE, '--allowed-tools', JSON.stringify(allowed), ...(enableable ? ['--enableable-groups', JSON.stringify(enableable)] : [])], {
+    env: { ...process.env, OXESPACE_MCP_PORT: String(port), OXESPACE_MCP_TOKEN: 't'.repeat(64), OXESPACE_WORKSPACE_ID: 'ws' }
+  })
+  children.push(child)
+  const lines: Record<string, unknown>[] = []
+  let buffer = ''
+  child.stdout.on('data', chunk => {
+    buffer += chunk
+    for (let index = buffer.indexOf('\n'); index >= 0; index = buffer.indexOf('\n')) { lines.push(JSON.parse(buffer.slice(0, index))); buffer = buffer.slice(index + 1) }
+  })
+  let next = 1
+  const request = async (method: string, params?: unknown): Promise<Record<string, unknown>> => {
+    const id = next++
+    child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id, method, params })}\n`)
+    for (let waited = 0; waited < 5000; waited += 10) {
+      const reply = lines.find(line => line.id === id)
+      if (reply) return reply
+      await new Promise(done => setTimeout(done, 10))
+    }
+    throw new Error(`No reply to ${method}`)
+  }
+  const listed = async () => ((await request('tools/list')).result as { tools: { name: string }[] }).tools.map(tool => tool.name)
+  const call = async (name: string, args: unknown) => {
+    const result = (await request('tools/call', { name, arguments: args })).result as { content: { text: string }[]; isError?: boolean }
+    return { ...JSON.parse(result.content[0].text) as Record<string, unknown>, isError: result.isError === true }
+  }
+  return { request, listed, call, notifications: () => lines.filter(line => line.method === 'notifications/tools/list_changed') }
+}
+
+describe('turning a tool group on in a session (B7.2)', () => {
+  it('adds the group\'s tools, tells the client the list changed once, and answers locally', async () => {
+    const endpoint = await server()
+    try {
+      const session = bridge(endpoint.port, ['oxespace_capabilities', 'oxespace_tools_enable', 'oxespace_code_search'], { data: ['oxespace_db_query', 'oxespace_containers_list'] })
+      const init = await session.request('initialize', {})
+      expect((init.result as { capabilities: unknown }).capabilities).toEqual({ tools: { listChanged: true } })
+      expect(await session.listed()).toEqual(['oxespace_capabilities', 'oxespace_tools_enable', 'oxespace_code_search'])
+      expect((await session.request('tools/call', { name: 'oxespace_db_query', arguments: {} })).error).toMatchObject({ code: -32602 })
+
+      expect(await session.call('oxespace_tools_enable', { group: 'data' })).toMatchObject({ status: 'ok', group: 'data', tools: ['oxespace_db_query', 'oxespace_containers_list'], isError: false })
+      expect(session.notifications()).toHaveLength(1)
+      expect(await session.listed()).toEqual(['oxespace_capabilities', 'oxespace_tools_enable', 'oxespace_code_search', 'oxespace_db_query', 'oxespace_containers_list'])
+      await session.call('oxespace_tools_enable', { group: 'data' })
+      expect(session.notifications()).toHaveLength(1)
+      // The enable call never reached the app; the newly offered tool does.
+      expect(endpoint.calls).not.toContain('oxespace_tools_enable')
+      await session.call('oxespace_db_query', {})
+      expect(endpoint.calls).toContain('oxespace_db_query')
+    } finally { await endpoint.close() }
+  })
+
+  it('refuses role groups, groups the project turned off or already offered, and malformed input', async () => {
+    const endpoint = await server()
+    try {
+      const session = bridge(endpoint.port, ['oxespace_tools_enable', 'oxespace_open_web_preview'], { data: ['oxespace_db_query'] })
+      expect(await session.call('oxespace_tools_enable', { group: 'team' })).toMatchObject({ status: 'error', code: 'ROLE_GROUP', isError: true })
+      expect(await session.call('oxespace_tools_enable', { group: 'app' })).toMatchObject({ status: 'error', code: 'GROUP_UNAVAILABLE', isError: true })
+      expect(await session.call('oxespace_tools_enable', { group: 'docs' })).toMatchObject({ code: 'GROUP_UNAVAILABLE' })
+      expect(await session.call('oxespace_tools_enable', { group: '__proto__' })).toMatchObject({ code: 'GROUP_UNAVAILABLE' })
+      for (const args of [{}, { group: 1 }, { group: 'data', extra: true }, null, 'data']) expect(await session.call('oxespace_tools_enable', args), JSON.stringify(args)).toMatchObject({ code: 'INVALID_ARGUMENTS' })
+      expect(session.notifications()).toHaveLength(0)
+      expect(await session.listed()).toEqual(['oxespace_tools_enable', 'oxespace_open_web_preview'])
+    } finally { await endpoint.close() }
+  })
+
+  it('tells oxespace_capabilities which groups this session turned on and which it still can', async () => {
+    const endpoint = await server()
+    try {
+      const session = bridge(endpoint.port, ['oxespace_capabilities', 'oxespace_tools_enable'], { data: ['oxespace_db_query'], docs: ['oxespace_open_web_preview'] })
+      await session.call('oxespace_tools_enable', { group: 'docs' })
+      const capabilities = await session.call('oxespace_capabilities', {})
+      expect((capabilities.data as Record<string, unknown>).sessionToolGroups).toEqual({ enabled: ['docs'], available: ['data'], enableWith: 'oxespace_tools_enable' })
+    } finally { await endpoint.close() }
+  })
+
+  it('keeps today\'s behaviour when the session has nothing to turn on', async () => {
+    const endpoint = await server()
+    try {
+      const session = bridge(endpoint.port, ['oxespace_capabilities'])
+      expect(((await session.request('initialize', {})).result as { capabilities: unknown }).capabilities).toEqual({ tools: {} })
+      const capabilities = await session.call('oxespace_capabilities', {})
+      expect(capabilities.data).toEqual({ tools: [] })
+    } finally { await endpoint.close() }
+  })
+})

@@ -48,14 +48,14 @@ export function threadCapabilityManifest(provider: ThreadProvider, native?: Conv
         : capability(false, provider === 'codex'
           ? 'The Codex app-server version in use does not expose independent, idempotent child lifecycle operations'
           : 'Claude headless mode does not expose spawn, interrupt, resume or retry operations for child agents'),
-      additionalProviders: capability(false, 'Code providers without a supported headless protocol remain Code-only')
+      additionalProviders: capability(false, 'OxeCode providers without a supported headless protocol remain OxeCode-only')
     }
   }
   if (provider === 'claude' && (configuration?.access ?? 'read-only') === 'read-only') {
     for (const name of ['mcpManagement', 'hooks', 'subagentObservation'] as const) {
-      manifest.features[name] = { ...manifest.features[name], enabled: false, authorized: false, reason: 'Disabled by this conversation’s read-only tool policy' }
+      manifest.features[name] = { ...manifest.features[name], enabled: false, authorized: false, reason: 'Disabled by this conversation’s read-only tool policy', messageCode: { code: 'thread.capability.readOnly', params: {} } }
     }
-    manifest.features.mcp = { ...manifest.features.mcp, reason: 'Restricted by this conversation’s read-only policy: OXESpace lookups only, no user MCP servers' }
+    manifest.features.mcp = { ...manifest.features.mcp, reason: 'Restricted by this conversation’s read-only policy: OXESpace lookups only, no user MCP servers', messageCode: { code: 'thread.capability.mcpReadOnly', params: {} } }
   }
   return manifest
 

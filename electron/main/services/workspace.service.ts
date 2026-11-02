@@ -21,6 +21,7 @@ import type {
   UpdateWorkspaceReviewStateInput,
   WorkspacePane
 } from '../../../shared/types/workspace'
+import { planSplit } from '../../../shared/workspace-split'
 
 interface WorkspaceRow {
   id: string
@@ -256,12 +257,14 @@ export class WorkspaceService {
       const updatePane = this.db.prepare(
         "UPDATE panes SET row_index = ?, column_index = ?, updated_at = datetime('now') WHERE id = ?"
       )
+      // (workspace, row, column) is unique, and moving panes one by one into slots others still hold broke it (a split
+      // tree puts panes past the preset, on row 0). Park every grid pane on its own slot below -1 first (-1/-1 is the
+      // off-grid helper pane), then place each. Panes past the largest preset keep a free slot to the right of it.
+      gridPanes.forEach((pane, i) => updatePane.run(-2 - i, -2 - i, pane.id))
+      const columns = positions.reduce((max, slot) => Math.max(max, slot.columnIndex + 1), 0)
       for (let i = 0; i < gridPanes.length; i += 1) {
-        const target = positions[i]
-        if (!target) break
-        if (gridPanes[i].row_index !== target.rowIndex || gridPanes[i].column_index !== target.columnIndex) {
-          updatePane.run(target.rowIndex, target.columnIndex, gridPanes[i].id)
-        }
+        const target = positions[i] ?? { rowIndex: 0, columnIndex: columns + i - positions.length }
+        updatePane.run(target.rowIndex, target.columnIndex, gridPanes[i].id)
       }
       this.db
         .prepare("UPDATE workspaces SET layout = ?, layout_preset = ?, updated_at = datetime('now') WHERE id = ?")
@@ -548,23 +551,9 @@ export class WorkspaceService {
     const workspace = this.get(paneRow.workspace_id)
     if (!workspace) throw new Error('Workspace not found')
 
-    const [currentRows, currentCols] = workspace.layout.split('x').map(Number)
-    const targetRow = direction === 'horizontal' ? paneRow.row_index + 1 : paneRow.row_index
-    const targetCol = direction === 'vertical' ? paneRow.column_index + 1 : paneRow.column_index
-
-    const occupied = workspace.panes.find((p) => p.rowIndex === targetRow && p.columnIndex === targetCol)
-    if (occupied) throw new Error('Target slot is already occupied')
-
-    let newLayout: WorkspaceLayout = workspace.layout
-    if (direction === 'vertical' && targetCol >= currentCols) {
-      const upgraded = LAYOUT_UPGRADE_VERTICAL[workspace.layout]
-      if (!upgraded) throw new Error('Cannot split vertically: layout limit reached')
-      newLayout = upgraded
-    } else if (direction === 'horizontal' && targetRow >= currentRows) {
-      const upgraded = LAYOUT_UPGRADE_HORIZONTAL[workspace.layout]
-      if (!upgraded) throw new Error('Cannot split horizontally: layout limit reached')
-      newLayout = upgraded
-    }
+    const plan = planSplit(workspace.layout, workspace.panes, { rowIndex: paneRow.row_index, columnIndex: paneRow.column_index }, direction)
+    if (!plan.ok) throw new Error(plan.reason === 'occupied' ? 'Target slot is already occupied' : `Cannot split ${direction}ly: layout limit reached`)
+    const { layout: newLayout, rowIndex: targetRow, columnIndex: targetCol } = plan
 
     const doSplit = this.db.transaction(() => {
       if (newLayout !== workspace.layout) {
@@ -592,7 +581,9 @@ export class WorkspaceService {
 
   /** Grid-agnostic pane creation for the F2 split-tree layout. Inserts a terminal
    *  pane at a guaranteed-unique grid slot (position is irrelevant in tree mode)
-   *  without touching the layout preset, and returns the new pane id. */
+   *  without touching the layout preset, and returns the new pane id. The preset
+   *  stays: the window sends it back on every settings save, and a preset that
+   *  changed behind its back would read as a layout change and rebuild the panes. */
   createPane(workspaceId: string): { workspace: Workspace; paneId: string } {
     const workspace = this.get(workspaceId)
     if (!workspace) throw new Error('Workspace not found')
@@ -722,22 +713,6 @@ function clampEditorWidth(width: number): number {
 function clampPanelWidth(width: number): number {
   if (!Number.isFinite(width)) return 40
   return Math.min(70, Math.max(25, Math.round(width)))
-}
-
-const LAYOUT_UPGRADE_VERTICAL: Partial<Record<WorkspaceLayout, WorkspaceLayout>> = {
-  '1x1': '1x2',
-  '2x1': '2x2',
-  '2x2': '2x3',
-  '2x3': '2x4',
-  '2x4': '2x5',
-  '2x5': '2x7'
-}
-
-const LAYOUT_UPGRADE_HORIZONTAL: Partial<Record<WorkspaceLayout, WorkspaceLayout>> = {
-  '1x1': '2x1',
-  '1x2': '2x2',
-  '2x2': '3x4',
-  '3x4': '4x4'
 }
 
 export function getPanePositions(layout: WorkspaceLayout): Array<{ rowIndex: number; columnIndex: number }> {

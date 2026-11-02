@@ -3,7 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } 
 import type { GitHubCheckState, GitHubPrStatus } from '../../../shared/types/github'
 import { useTranslation } from 'react-i18next'
 import { humanizeError } from '../../utils/humanizeError'
-import { ErrorState, Spinner } from '../../ui'
+import { EmptyState, ErrorState, Spinner } from '../../ui'
+import { openExternalLink } from '../../lib/externalLinks'
 import './PrStatusBar.css'
 
 const POLL_MS = 30_000
@@ -35,10 +36,12 @@ export function ciFixPrompt(status: GitHubPrStatus): string {
  * per-check list, "fix failing checks" and auto-merge. Renders nothing when
  * there is no pull request (or gh is unavailable), so it is safe to mount anywhere.
  */
-export function PrStatusBar({ workspaceId, rootPath, onFix }: {
+export function PrStatusBar({ workspaceId, rootPath, onFix, onStatus }: {
   workspaceId: string; rootPath: string
   /** Receives a ready-made prompt; the host decides where it goes (composer, terminal). */
   onFix?: (prompt: string) => void
+  /** Each status read, open or not (T40: a conversation offers to archive itself when its PR closed). */
+  onStatus?: (status: GitHubPrStatus | null) => void
 }): ReactElement | null {
   const { t } = useTranslation('code')
   const [status, setStatus] = useState<GitHubPrStatus | null>(null)
@@ -46,6 +49,8 @@ export function PrStatusBar({ workspaceId, rootPath, onFix }: {
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
   const request = useRef(0)
+  const onStatusRef = useRef(onStatus)
+  useEffect(() => { onStatusRef.current = onStatus })
 
   const load = useCallback(async (): Promise<void> => {
     const github = window.oxe.github
@@ -53,7 +58,7 @@ export function PrStatusBar({ workspaceId, rootPath, onFix }: {
     const id = ++request.current
     try {
       const value = await github.getPullRequestStatus({ workspaceId, rootPath })
-      if (id === request.current) setStatus(value ?? null)
+      if (id === request.current) { setStatus(value ?? null); onStatusRef.current?.(value ?? null) }
     } catch { if (id === request.current) setStatus(null) }
   }, [workspaceId, rootPath])
 
@@ -103,17 +108,17 @@ export function PrStatusBar({ workspaceId, rootPath, onFix }: {
         <button type="button" aria-pressed={status.autoMerge} disabled={busy} onClick={() => void toggleAutoMerge()} title={t('git.pr.autoMergeTitle')}>
           {busy ? <Spinner size="sm" decorative /> : <GitMerge size={14} aria-hidden="true" />}{t('git.pr.autoMerge')}
         </button>
-        {status.url && <button type="button" aria-label={t('git.pr.open')} title={t('git.pr.open')} onClick={() => window.open(status.url!, '_blank', 'noopener,noreferrer')}><ExternalLink size={14} aria-hidden="true" /></button>}
+        {status.url && <button type="button" aria-label={t('git.pr.open')} title={t('git.pr.open')} onClick={() => void openExternalLink(status.url!, { source: 'github' })}><ExternalLink size={14} aria-hidden="true" /></button>}
       </span>
     </div>
     {notice && <ErrorState compact title={t('git.pr.autoMergeFailed')} message={notice} />}
     {open && <ul className="pr-status-checks" aria-label={t('git.pr.checks')}>
-      {status.checks.length === 0 && <li className="is-empty">{t('git.pr.noChecksYet')}</li>}
+      {status.checks.length === 0 && <li><EmptyState compact title={t('git.pr.noChecksYet')} /></li>}
       {status.checks.map((check, index) => <li key={`${check.workflow ?? ''}:${check.name}:${index}`} className={`is-${check.state}`}>
         <span className="pr-check-icon" role="img" aria-label={t(`git.pr.check.${check.state}`)}>{ICON[check.state]}</span>
         <span className="pr-check-name">{check.name}</span>
         {check.workflow && <small>{check.workflow}</small>}
-        {check.url && <button type="button" aria-label={t('git.pr.openCheck', { name: check.name })} onClick={() => window.open(check.url!, '_blank', 'noopener,noreferrer')}><ExternalLink size={12} aria-hidden="true" /></button>}
+        {check.url && <button type="button" aria-label={t('git.pr.openCheck', { name: check.name })} onClick={() => void openExternalLink(check.url!, { source: 'github' })}><ExternalLink size={12} aria-hidden="true" /></button>}
       </li>)}
     </ul>}
   </section>

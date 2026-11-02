@@ -34,7 +34,7 @@ export class ThreadCommandService {
   private nativeCatalog(thread: ConversationThread, forceRefresh: boolean): Promise<NativeCatalog> {
     if (this.stopping) return Promise.reject(Error('Application is shutting down'))
     let command: string
-    try { command = this.command(thread) } catch { return Promise.resolve({ commands: [], warning: 'Configure the provider in Agent Settings and use Refresh commands to retry.' }) }
+    try { command = this.command(thread) } catch { return Promise.resolve({ commands: [], warning: 'Configure the provider in Agent Settings and use Refresh commands to retry.', messageCode: { code: 'thread.commands.configure', params: {} } }) }
     // Account homes, provider executables and exact working directories have distinct catalogs.
     const key = JSON.stringify([thread.provider, command, thread.rootPath, this.options.home ?? homedir(),
       process.env.CODEX_HOME, process.env.CLAUDE_CONFIG_DIR, process.env.PATH ?? process.env.Path])
@@ -45,13 +45,14 @@ export class ThreadCommandService {
     if (this.catalogs.size >= 32) {
       const settled = [...this.catalogs].find(([, entry]) => entry.expiresAt !== Infinity)
       if (settled) this.catalogs.delete(settled[0])
-      else return Promise.resolve({ commands: [], warning: 'Command discovery is busy. Use Refresh commands to retry.' })
+      else return Promise.resolve({ commands: [], warning: 'Command discovery is busy. Use Refresh commands to retry.', messageCode: { code: 'thread.commands.busy', params: {} } })
     }
     const entry = { promise: Promise.resolve<NativeCatalog>({ commands: [] }), expiresAt: Infinity }
     // Schedule after registering the promise so concurrent list/prepare/refresh calls share one process.
     entry.promise = Promise.resolve().then(() => thread.provider === 'claude'
       ? this.claudeCommands(thread, command) : this.codexSkills(thread, command)).then<NativeCatalog, NativeCatalog>(commands => ({ commands }), () => ({
-      commands: [], warning: `Could not load ${thread.provider === 'claude' ? 'Claude commands' : 'Codex skills'}. Check the CLI in Agent Settings and use Refresh commands to retry.`
+      commands: [], warning: `Could not load ${thread.provider === 'claude' ? 'Claude commands' : 'Codex skills'}. Check the CLI in Agent Settings and use Refresh commands to retry.`,
+      messageCode: { code: thread.provider === 'claude' ? 'thread.commands.claudeFailed' : 'thread.commands.codexFailed', params: {} }
     })).then(result => { entry.expiresAt = Date.now() + (result.warning ? 5000 : 60000); return result })
     this.catalogs.set(key, entry)
     return entry.promise
@@ -155,7 +156,7 @@ export class ThreadCommandService {
     if (entry?.source === 'codex' && entry.path) return { text: `$${entry.name}${argument ? ` ${argument}` : ''}`, skill: { name: entry.name, path: entry.path } }
     if (thread.provider === 'claude' && entry?.execution === 'conversation') return { text: text.trim() }
     // A TUI-only command is offered as an explicit auxiliary action in Thread.
-    if (entry?.execution === 'unavailable' || entry?.execution === 'cli') throw Error(`/${match[1]} is not available in Thread yet. ${entry.unavailableReason ?? ''}`)
+    if (entry?.execution === 'unavailable' || entry?.execution === 'cli') throw Error(`/${match[1]} is not available in OxeChat yet. ${entry.unavailableReason ?? ''}`)
     if (match[1] === 'compact') {
       if (thread.provider === 'codex' && argument) throw Error('/compact does not take arguments in Codex.')
       return { text: text.trim() }

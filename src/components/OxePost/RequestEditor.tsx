@@ -5,7 +5,7 @@ import { toCurl } from '../../../shared/oxepost/curl'
 import { literalSecrets } from '../../../shared/oxepost/format'
 import { findVariables } from '../../../shared/oxepost/variables'
 import { HTTP_METHODS, type HttpMethod, type PostAuth, type PostHeader, type PostRequest } from '../../../shared/oxepost/types'
-import { Badge, Button, Checkbox, IconButton, Select, Tabs, TextArea, TextField, copyText, toast } from '../../ui'
+import { Badge, Button, Checkbox, IconButton, Select, Tabs, TextArea, TextField, copyText } from '../../ui'
 import { EXAMPLE } from './examples'
 import { isDirty, useOxePostStore } from './oxepost.store'
 import { queryParams, withParams, prettyBody } from './post-model'
@@ -31,7 +31,7 @@ export function RequestEditor({ onDelete }: { onDelete: () => void }): ReactElem
   const unresolved = used.filter(name => !known.has(name))
   const params = queryParams(draft.url)
   const activeHeaders = draft.headers.filter(header => header.enabled && header.name).length
-  const copy = (): void => { void copyText(toCurl(draft)).then(() => toast({ title: t('request.curlCopied'), intent: 'success' })) }
+  const copy = (): void => { void copyText(toCurl(draft), t('request.curlWhat'), t('request.curlCopied')) }
 
   return <div className={styles.editor}>
     <div className={styles.urlBar} role="group" aria-label={t('request.line')}>

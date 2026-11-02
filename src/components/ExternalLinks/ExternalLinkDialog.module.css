@@ -1,0 +1,13 @@
+.field { margin: 0 0 var(--space-3); }
+.field dt { margin-bottom: var(--space-1); color: var(--text-muted); font-size: var(--text-xs); font-weight: var(--weight-semibold); }
+.field dd { margin: 0; }
+.url {
+  display: block; max-height: 9rem; overflow: auto; padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--surface-sunken);
+  color: var(--text-secondary); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-normal);
+  overflow-wrap: anywhere; white-space: pre-wrap; user-select: text;
+}
+.host { color: var(--text-primary); font-weight: var(--weight-semibold); background: var(--accent-soft); border-radius: var(--radius-sm); }
+.hostLine { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-primary); overflow-wrap: anywhere; }
+.idn { margin-top: var(--space-1); color: var(--intent-warning-fg); font-size: var(--text-xs); }
+.text { color: var(--text-primary); font-size: var(--text-sm); overflow-wrap: anywhere; }

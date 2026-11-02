@@ -1,16 +1,38 @@
-import { Suspense, lazy, useEffect, useRef, useState, type ReactElement } from 'react'
+import { Suspense, useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ErrorBoundary } from '../common/ErrorBoundary'
-import { LoadingState } from '../../ui'
+import { Skeleton, SidebarSkeleton } from '../../ui'
 import type { AppView } from '../../keyboard/keybindings'
+import { useUIStore } from '../../store/ui.store'
+import { scheduleIdle } from '../../lib/preloadSchedule'
+import { chunk, lazyFrom } from '../../lib/chunk'
+import { loadNamespace } from '../../i18n'
+import styles from './ModeViews.module.css'
+import { USAGE_CHUNK } from '../Workspace/usageChunk'
 
-// OxeQuery (databases), OxePod (containers) and OxePost (API requests) are entirely lazy: nothing of them is in the entry chunk until first use.
-const OxeQuerySidebar = lazy(() => import('../OxeQuery/OxeQuerySidebar').then(m => ({ default: m.OxeQuerySidebar })))
-const OxeQueryView = lazy(() => import('../OxeQuery/OxeQueryView').then(m => ({ default: m.OxeQueryView })))
-const OxePodSidebar = lazy(() => import('../OxePod/OxePodSidebar').then(m => ({ default: m.OxePodSidebar })))
-const OxePodView = lazy(() => import('../OxePod/OxePodView').then(m => ({ default: m.OxePodView })))
-const OxePostSidebar = lazy(() => import('../OxePost/OxePostSidebar').then(m => ({ default: m.OxePostSidebar })))
-const OxePostView = lazy(() => import('../OxePost/OxePostView').then(m => ({ default: m.OxePostView })))
+/**
+ * Thread, OxeQuery (databases), OxePod (containers) and OxePost (API requests) are entirely lazy: nothing of them is in
+ * the entry chunk until first use. Each view's sidebar and work area are one chunk pair requested together, so they
+ * reveal in one commit; the idle preload (src/lib/idlePreload.ts) loads the same pairs.
+ */
+export const VIEW_CHUNKS = {
+  // OxeChat's status bar shows the provider's usage: loaded with the view, so the view and the bar reveal in one
+  // commit instead of two boundaries resolving apart (F7.3: +40 ms on the cold first content when apart).
+  thread: chunk(() => Promise.all([import('../Threads/ThreadSidebar'), import('../Threads/ThreadGrid'), USAGE_CHUNK.load()])),
+  // With each view, its catalog (src/i18n useNamespace): loaded with the chunk, the view renders at once instead of
+  // suspending once more for its words after the switch (#363 CI: OxeQuery's sidebar skeleton at 128 ms).
+  data: chunk(() => Promise.all([import('../OxeQuery/OxeQuerySidebar'), import('../OxeQuery/OxeQueryView'), loadNamespace('oxequery')])),
+  pods: chunk(() => Promise.all([import('../OxePod/OxePodSidebar'), import('../OxePod/OxePodView'), loadNamespace('pods')])),
+  post: chunk(() => Promise.all([import('../OxePost/OxePostSidebar'), import('../OxePost/OxePostView'), loadNamespace('post')]))
+}
+export const ThreadSidebar = lazyFrom(VIEW_CHUNKS.thread, ([sidebar]) => sidebar.ThreadSidebar)
+export const ThreadGrid = lazyFrom(VIEW_CHUNKS.thread, ([, grid]) => grid.ThreadGrid)
+const OxeQuerySidebar = lazyFrom(VIEW_CHUNKS.data, ([sidebar]) => sidebar.OxeQuerySidebar)
+const OxeQueryView = lazyFrom(VIEW_CHUNKS.data, ([, view]) => view.OxeQueryView)
+const OxePodSidebar = lazyFrom(VIEW_CHUNKS.pods, ([sidebar]) => sidebar.OxePodSidebar)
+const OxePodView = lazyFrom(VIEW_CHUNKS.pods, ([, view]) => view.OxePodView)
+const OxePostSidebar = lazyFrom(VIEW_CHUNKS.post, ([sidebar]) => sidebar.OxePostSidebar)
+const OxePostView = lazyFrom(VIEW_CHUNKS.post, ([, view]) => view.OxePostView)
 
 export type DataView = 'data' | 'pods' | 'post'
 /** The views with their own lazy sidebar and work area, laid out alike. */
@@ -20,9 +42,44 @@ const NAMES: Record<DataView, string> = { data: 'OxeQuery', pods: 'OxePod', post
 const HOSTS: Record<DataView, string> = { data: 'oq-host', pods: 'pod-host', post: 'post-host' }
 const ORDER: readonly DataView[] = ['data', 'pods', 'post']
 
-export function DataSidebar({ view }: { view: DataView }): ReactElement {
+/** What a lazy view's sidebar shows while its chunk loads: the same frame and header, with placeholder rows. */
+export function ViewSidebarSkeleton({ view }: { view: DataView | 'thread' }): ReactElement {
   const { t } = useTranslation()
-  return <Suspense fallback={<aside className="thread-navigation" aria-label={t('nav.viewSidebar', { name: NAMES[view] })} />}>{view === 'data' ? <OxeQuerySidebar /> : view === 'pods' ? <OxePodSidebar /> : <OxePostSidebar />}</Suspense>
+  const { t: tt } = useTranslation('thread')
+  const collapsed = useUIStore(state => state.isSidebarCollapsed)
+  return view === 'thread'
+    ? <SidebarSkeleton label={tt('sidebar.region')} title={tt('sidebar.conversations')} collapsed={collapsed} />
+    : <SidebarSkeleton label={t('nav.viewSidebar', { name: NAMES[view] })} title={NAMES[view]} collapsed={collapsed} />
+}
+
+/**
+ * A view's work area on its way, shown only when its chunk takes longer than 300 ms (docs/design/motion.md): the
+ * shape of its content, never the brand loader, which is for boot. Announced once as loading the view.
+ */
+export function ViewSkeleton({ name }: { name: string }): ReactElement {
+  const { t } = useTranslation()
+  return <div className={styles.viewSkeleton} role="status" aria-label={t('nav.loadingView', { name })} data-view-skeleton="">
+    <Skeleton decorative variant="block" /><Skeleton decorative lines={4} /><Skeleton decorative lines={3} />
+  </div>
+}
+
+const SIDEBARS = { data: OxeQuerySidebar, pods: OxePodSidebar, post: OxePostSidebar }
+const VIEWS = { data: OxeQueryView, pods: OxePodView, post: OxePostView }
+
+/** A view's sidebar: a chunk that fails to load shows its error here, with Try again, and leaves the window alone. */
+/** The Thread sidebar's frame while its chunk loads or fails: the skeleton, and an error that stays in the sidebar. */
+export function ThreadSidebarBoundary({ children }: { children: ReactNode }): ReactElement {
+  const { t } = useTranslation('thread')
+  return <ErrorBoundary id="sidebar" component="ThreadSidebar" compact label={t('sidebar.conversations')} onReset={ThreadSidebar.retry}>
+    <Suspense fallback={<ViewSidebarSkeleton view="thread" />}>{children}</Suspense>
+  </ErrorBoundary>
+}
+
+export function DataSidebar({ view }: { view: DataView }): ReactElement {
+  const Sidebar = SIDEBARS[view]
+  return <ErrorBoundary id="sidebar" component={NAMES[view]} compact label={NAMES[view]} onReset={Sidebar.retry}>
+    <Suspense fallback={<ViewSidebarSkeleton view={view} />}><Sidebar /></Suspense>
+  </ErrorBoundary>
 }
 
 /**
@@ -34,9 +91,12 @@ export function DataHosts({ view }: { view: AppView }): ReactElement {
   const { t } = useTranslation()
   const [opened, setOpened] = useState<DataView[]>([])
   if (isDataView(view) && !opened.includes(view)) setOpened([...opened, view])
+  // Every start shows Code first; only the views the person switches to count as the most recent one.
+  const initial = useRef<AppView | null>(view)
+  useEffect(() => { if (view === initial.current) return; initial.current = null; void import('../../lib/idlePreload').then(m => m.rememberView(view)).catch(() => undefined) }, [view])
   return <>{ORDER.filter(item => opened.includes(item) || item === view).map(item =>
-    <div key={item} className={HOSTS[item]} style={{ display: view === item ? 'flex' : 'none', flex: 1, minWidth: 0, minHeight: 0 }} aria-hidden={view !== item}>
-      <ErrorBoundary label={NAMES[item]}><Suspense fallback={<LoadingState brand label={t('nav.loadingView', { name: NAMES[item] })} />}>
+    <div key={item} className={HOSTS[item]} data-view={item} style={{ display: view === item ? 'flex' : 'none', flex: 1, minWidth: 0, minHeight: 0 }} aria-hidden={view !== item}>
+      <ErrorBoundary id="mode-view" component={NAMES[item]} label={NAMES[item]} onReset={VIEWS[item].retry}><Suspense fallback={<ViewSkeleton name={NAMES[item]} />}>
         {item === 'data' ? <OxeQueryView active={view === 'data'} /> : item === 'pods' ? <OxePodView active={view === 'pods'} /> : <OxePostView active={view === 'post'} />}
       </Suspense></ErrorBoundary>
     </div>)}</>
@@ -48,6 +108,7 @@ export function DataHosts({ view }: { view: AppView }): ReactElement {
  * view first, then lets the action find its control.
  */
 export function useModeActions(select: (view: AppView) => void): void {
+  useIdlePreload()
   const latest = useRef(select)
   useEffect(() => { latest.current = select })
   useEffect(() => {
@@ -62,5 +123,17 @@ export function useModeActions(select: (view: AppView) => void): void {
       ]
     })
     return () => { cancelled = true; off.forEach(stop => stop()) }
+  }, [])
+}
+
+/**
+ * Once the window is idle after its first paint, warms up the chunks of the view used most recently and Settings
+ * (src/lib/idlePreload.ts decides, and skips on battery or low memory). Cancelled when the app unmounts.
+ */
+function useIdlePreload(): void {
+  useEffect(() => {
+    let cancelled = false
+    const cancel = scheduleIdle(() => { void import('../../lib/idlePreload').then(m => m.runIdlePreload(() => cancelled)).catch(() => undefined) })
+    return () => { cancelled = true; cancel() }
   }, [])
 }

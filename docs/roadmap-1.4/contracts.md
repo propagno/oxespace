@@ -1,0 +1,62 @@
+# Contratos entre Frontend, Backend e Mobile
+
+
+- **C0 · Regra de ouro:** contrato primeiro.
+  - Um PR do BE só com tipos + teste de contrato + mock em `e2e/mock-ipc.ts`.
+  - Depois a implementação (BE) e a tela (FE), em paralelo.
+- **C1 · IPC:**
+  - `IPC_CHANNELS`/`OxeApi` em `shared/types/ipc.ts`, `electron/preload/api.ts`, op-lists (`*:call`) por domínio;
+  - testes `ipc-contracts`, `preload-api`, `*-op-contract` e `mcp-coverage`.
+  - Novos canais: `app:connectivity`, `app:about`, `notifications` com ícone, `thread.pendingRequestsAll` (resposta) e `remote.*` (página Dispositivos).
+- **C2 · Eventos:**
+  - união `ThreadEvent` versionada (`schemaVersion`) e `ThreadDelta` por notificação seguida de leitura;
+  - campos só são adicionados; remover exige CCR e migração.
+- **C3 · Mensagens:**
+  - o main nunca devolve frase de interface, e sim `MessageCode` + parâmetros;
+  - as chaves em `shared/locales/*/main.json` pertencem ao FE.
+  - **Recusas (rejeições de IPC):** o Electron só passa o texto de um erro pelo `invoke`, então uma recusa que a pessoa pode resolver usa:
+    - **um serializador no main:** `MainMessageError(message, textoEmInglês)`, em `electron/main/ipc/main-message-error.ts`;
+    - **um leitor em `shared/`:** `messageFromError(cause)`, em `shared/messages.ts`.
+  - O texto do erro é `"<frase em inglês> #c3 <MainMessage em JSON>"`:
+    - a frase vem antes do marcador fixo (`MAIN_MESSAGE_ERROR_TAG`) e se lê sozinha em logs e relatórios de falha;
+    - os parâmetros de texto passam pela mesma redação do resto do C3: a pasta do usuário fica relativa (`sanitizeDiagnosticText`) e segredos saem (`redactSecrets`);
+    - os parâmetros têm limite (`MAIN_MESSAGE_PARAM_LIMITS`: 200 caracteres por texto, 20 itens por lista).
+  - A janela chama `messageFromError` e formata com `formatMainMessage`. O leitor procura o marcador do fim para o início e usa a última ocorrência cujo resto é uma `MainMessage` válida, então "#c3" na frase em inglês ou dentro de um parâmetro não o engana. Sem marcador, ou com JSON inválido, ela mostra a própria frase genérica.
+  - Entrada malformada (tipo errado, campo desconhecido) continua `Error` comum, sem código.
+  - Primeiro uso: `remote.*` (Configurações › Dispositivos, CCR F9).
+- **C4 · Design tokens:**
+  - fonte única em `src/design/tokens`;
+  - exportação `tokens.json` versionada, consumida pelo CSS e pelo Android;
+  - mudar nome de token é CCR.
+- **C5 · Protocolo remoto:**
+  - `shared/remote/protocol.ts` com versão, frames JSON (`hello`, `auth`, `subscribe`, `event`, `snapshot`, `command`, `ack`, `error`), códigos de erro e limites;
+  - JSON Schema gerado e checado na CI;
+  - teste de capacidades proibidas.
+- **C6 · Migrações:** não há faixas reservadas. Cada migração usa o próximo número livre na main no momento do merge; quando dois PRs usam o mesmo número, o que faz merge por segundo renumera a sua. O #180 tem o 084. O coordenador mantém `LATEST_DB_VERSION`.
+- **C7 · Arquivos compartilhados:** `ipc.ts`, `preload/api.ts`, `mcp-coverage.ts`, `index.ts`, `db/index.ts`, `fs-allowlist.test.ts`, `file-size-baseline.json`, `verify-bundle-budgets.mjs` e `mock-ipc.ts` só mudam no PR de contrato do item, com o coordenador avisado.
+- **B10 · Aprovações (`approvals.*`):** todo pedido que um agente (ou o próprio app) faz à pessoa aparece no modal do app, nunca num diálogo nativo enquanto existir uma janela do app.
+  - Tipos em `shared/types/approvals.ts`, regras puras em `shared/approval-rules.ts`, mock em `electron/main/e2e/approvals-mock.ts` (`OXESPACE_E2E_APPROVALS=sample`).
+  - **main → janela:**
+    - `approvals:requested` leva um `ApprovalRequest` montado só pelo main, com `id`, `generation`, `kind` (origem: `action`, `mcp-confirm`, `oxequery`, `preview-automation`, `crash`), `risk` (`low`…`critical`), `environment` (local/dev/prod) e `requester`.
+    - Título, resumo, notas do app e rótulos das opções são códigos C3. O texto do agente vai em `agentText` (`untrusted: true`, até `APPROVAL_AGENT_TEXT_MAX` = 100 000 caracteres, com `truncated` e `length`).
+    - `approvals:resolved` avisa quando o pedido foi respondido, expirou (`timeout`, como negado), foi cancelado pela origem ou foi respondido no nativo.
+  - **janela → main** (só o frame principal):
+    - `respond({ id, generation, optionId })` aceita uma resposta por pedido e geração. O main valida `optionId` contra as opções daquele pedido.
+    - `ack({ id, generation, visible, focused })` confirma que o modal está mostrando o pedido, com a visibilidade e o foco da janela naquele momento. A janela manda para todo pedido e pode mandar de novo na mesma geração (por exemplo, quando volta o foco); todo ack é aceito. É obrigatório quando `ackRequired`: o pedido de `crash` vai para o nativo se o ack não chegar em `APPROVAL_ACK_TIMEOUT_MS` (3 000 ms).
+    - **R1:** um allow antes de qualquer ack é recusado com `approvals.refused.notShown`, em qualquer risco. Negar vale sem ack.
+    - **R2:** se o `agentText` tem controles bidi ou caracteres invisíveis (U+202A–202E, U+2066–2069, U+200B–200F, U+2060–2064, U+FEFF, U+00AD, U+061C, U+180E), o main acrescenta a nota `approvals.note.hiddenCharacters` e sobe o risco para no mínimo `high`. O texto continua literal; quem torna esses caracteres visíveis é a janela.
+    - **R3:** quando um pedido chega e a janela não está em foco, o main chama `flashFrame(true)` e mostra uma notificação do sistema com o texto fixo `approvals.notify.waiting` ("OXESpace: aprovação aguardando"), sem nada do pedido. A espera de 2 s do risco crítico conta só a partir do primeiro ack com `visible && focused`; um ack sem foco vale como mostrado (R1), mas não inicia a espera, e ela não reinicia com acks seguintes.
+    - `unavailable({ id, generation })` informa que o modal não pôde ser mostrado (o chunk falhou ou o modal não montou). Não aprova nem nega: o main pergunta no nativo uma vez, só para esse pedido.
+    - `list()` devolve a fila pendente e `history()` as decisões da sessão, sem o texto, só o hash. Uma entrada que terminou sem a resposta de uma pessoa traz `reason` (C3): `approvals.denied.queueFull`, `tooLong`, `timeout` ou `cancelled`; a decisão de uma pessoa não traz motivo (CCR do FRONTEND no #238).
+    - Recusas tipadas `{ ok: false, refusal, message }` com `approvals.refused.<notPending|staleGeneration|alreadyAnswered|unknownOption|alreadyReported|tooSoon|notShown>`. Elas convergem para `MainMessageError` quando o F9 chegar na main.
+  - **Risco crítico:** permitir nunca é o padrão, Enter não responde (`enterDisabled`) e as opções de permitir ficam desabilitadas por `allowDelayMs` (`APPROVAL_CRITICAL_ALLOW_DELAY_MS` = 2 000 ms). O main também aplica a regra: um allow antes do ack, ou a menos de 2 000 ms dele, é recusado com `tooSoon`, e o pedido continua pendente. Negar vale a qualquer momento.
+  - **Expiração e fila:** sem resposta em `APPROVAL_TIMEOUT_MS` (5 min), o pedido é negado. A fila tem no máximo `APPROVAL_QUEUE_MAX` (50) pedidos; um pedido NOVO acima disso é negado com `approvals.denied.queueFull`, fica registrado no log e entra no histórico com `by: 'refused'`. O agente recebe essa mesma frase (código MCP `queue-full`), não um "negado" genérico, para esperar e tentar de novo.
+  - **Limite de revisão:** `APPROVAL_AGENT_TEXT_MAX` (100 000 caracteres) em todas as portas. O que a pessoa vê é exatamente o que roda. Acima do limite, uma escrita, DDL ou destrutiva é recusada antes de aparecer (`approvals.denied.tooLong`), nunca cortada. Só um pedido de risco `low` pode ser cortado, e aí só com negar.
+  - **Resumo das ações MCP:** em 1.4, um código genérico `approvals.summary.mcpConfirm { tool, action, target }`, sempre com o id da ação e o alvo. Frases por ação vêm num CCR depois da 1.4.
+  - **Nativo só como reserva:** `dialog.showMessageBox` só quando não existe janela, quando a janela informa `unavailable` para aquele pedido ou quando um pedido `ackRequired` fica sem ack. O aviso "renderer caiu" (`index.ts:892`) continua nativo, porque o renderer que mostraria o modal morreu.
+  - **Solicitante:** atribuído pelo main a partir da execução autenticada e do dono dela (painel ou conversa), com o nome do próprio app (`approvals.requester.pane` = provedor + posição do painel). Nunca usa `actor.label`, nome de painel ou título escolhidos pelo agente. Quando o app não sabe o provedor, mostra "Agente desconhecido" com a posição do painel (`approvals.requester.unknownPane` / `unknownConversation`, e `notify.prefix.unknown*`), nunca um nome de provedor.
+  - **Nomes reservados:** `reservedNameIn()` recusa OXESpace, OxeChat, OxeCode, OxeQuery, OxePod e OxePost por contenção, e System/Sistema como nome inteiro. A comparação ignora caixa e acentos e passa por NFKC, caracteres invisíveis e letras parecidas de outros alfabetos. Vale para nome de painel (`agents.name.reserved`) e para notificações.
+  - **Risco:** calculado pelo main com os classificadores que já existem: `guardSql` (`riskFromSql`, com produção subindo um nível; um `DROP` atrás de comentário continua `critical`) e `classifyShellRisk` (`riskFromShell`; um comando vermelho é `critical`, como uma instrução destrutiva e como o cartão de aprovação do OxeChat — CCR no #238). "Permitir nesta execução" só existe para risco `low`, e texto truncado só oferece negar (`approvalRequestProblems`).
+  - **`notify` de agente:** sai com o prefixo do app (`notify.prefix.pane`/`conversation`), recusa nomes reservados (`notify.refused.reservedName`) e tem limite de `NOTIFY_PER_MINUTE` (6) por execução (`notify.refused.rateLimit`).
+  - **MCP:** `approvals.admin` é capacidade proibida; aprovações nunca viram ferramenta.
+- **CCR (pedido de mudança de contrato):** quem precisa manda ao coordenador o contrato, a mudança, o porquê e o impacto. O coordenador aprova, ajusta ou recusa, e avisa a outra sessão antes de qualquer código.

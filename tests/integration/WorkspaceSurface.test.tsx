@@ -166,7 +166,8 @@ describe('WorkspaceSurface', () => {
     expect(screen.getByLabelText('Workspace status')).toBeInTheDocument()
     expect(screen.queryByTestId('workspace-integrations-menu')).not.toBeInTheDocument()
 
-    await user.click(screen.getByTestId('workspace-integrations-trigger'))
+    // The status chips load after first paint (their own chunk).
+    await user.click(await screen.findByTestId('workspace-integrations-trigger'))
 
     const menu = screen.getByRole('menu', { name: 'Integration status' })
     for (const name of ['GitHub', 'MCP', 'RTK', 'Caveman', 'Semantic']) expect(within(menu).getByText(name)).toBeInTheDocument()

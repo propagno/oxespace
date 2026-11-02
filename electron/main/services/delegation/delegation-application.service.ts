@@ -1,6 +1,4 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
 import { resolve } from 'node:path'
 import type { ConversationThread } from '../../../../shared/types/thread'
 import type { AppDatabase } from '../../db'
@@ -18,8 +16,10 @@ import { DelegationGitProvisioner } from './delegation-git-provisioner'
 import { KnowledgeTransferService, type DelegationEnrichment } from './knowledge-transfer.service'
 import { captureDelegationSessions } from './delegation-session-context'
 import type { ThreadDelegationHost } from './thread-delegation-host'
+import { execGit } from '../../utils/safe-git'
+import { codedMessage, execPersonGit } from '../../utils/safe-git-person'
+import { mainMessage } from '../../../../shared/messages'
 
-const exec = promisify(execFile)
 const terminalStates = new Set<DelegationState>(['cancelled', 'approved'])
 export interface DelegationDependencies {
   workspace: WorkspaceService; git: GitHubWorktreeApi; executions: ExecutionRegistry
@@ -54,7 +54,7 @@ export class DelegationApplicationService {
   constructor(private db: AppDatabase, private deps: DelegationDependencies) {
     this.repository = new DelegationRepository(db)
     this.gitPlanner = new DelegationGitPlanner(deps.git, (cwd, args) => this.git(cwd, args))
-    this.gitProvisioner = new DelegationGitProvisioner(deps.git, this.repository, (cwd, args) => this.git(cwd, args))
+    this.gitProvisioner = new DelegationGitProvisioner(deps.git, this.repository, (cwd, args) => this.git(cwd, args), (task, remote) => this.fetchForPerson(task, remote))
     this.coordinator = new TaskCoordinator(db, deps.workspace, deps.executions)
     this.repository.settleRunningUnknown('OXESpace restarted before the operation result was confirmed.')
     // A fresh application has no surviving managed PTYs. Never replay work on boot.
@@ -127,10 +127,11 @@ export class DelegationApplicationService {
     return { previewId, targetWorkspaceId: workspaceId, targetName: target.name, checkout, ready: this.enabled(project),
       reason: this.enabled(project) ? null : 'PROJECT_OPT_IN_REQUIRED', effects: [
         checkout.reuseExistingWorktree ? 'Reuse selected destination worktree' : 'Create isolated destination worktree',
-        'Start an independent persistent Thread', 'Persist handoff, operation journal and native session binding'
+        'Start an independent persistent OxeChat conversation', 'Persist handoff, operation journal and native session binding'
       ] }
   }
-  async create(origin: AgentExecution, input: DelegationInput): Promise<DelegationTask> {
+  /** `fromPerson`: the delegation dialog (createFromSurface), whose "Fetch remote" may reach the network. */
+  async create(origin: AgentExecution, input: DelegationInput, fromPerson = false): Promise<DelegationTask> {
     origin = this.deps.executions.authenticate(origin.id, origin.token, origin.workspaceId)
     for (const field of ['key','agentProfileId','objective','handoff','acceptance'] as const) {
       if (typeof input[field] !== 'string' || !input[field].trim() || input[field].length > (field === 'handoff' ? 16000 : 2000)) throw new Error(`Invalid ${field}`)
@@ -138,7 +139,7 @@ export class DelegationApplicationService {
     if (input.mode !== undefined && !['analysis','isolated-change'].includes(input.mode)) throw new Error('Invalid execution mode')
     if (input.schemaVersion !== undefined && input.schemaVersion !== 2) throw new Error('Invalid delegation schema version')
     if (input.surface !== undefined && !['thread','terminal'].includes(input.surface)) throw new Error('Invalid delegation surface')
-    if (input.schemaVersion === 2 && !input.surface) throw new Error('Choose Thread or Code terminal as the delegation destination')
+    if (input.schemaVersion === 2 && !input.surface) throw new Error('Choose OxeChat or an OxeCode terminal as the delegation destination')
     if (input.branchIntent !== undefined && (!input.branchIntent || typeof input.branchIntent !== 'object' || !['existing','create','generated'].includes(input.branchIntent.strategy))) throw new Error('Invalid branch intent')
     if (input.evidenceFiles !== undefined && (!Array.isArray(input.evidenceFiles) || input.evidenceFiles.length > 8 || input.evidenceFiles.some(path => typeof path !== 'string' || !path || path.length > 512))) throw new Error('Invalid evidence selection')
     if (input.sourceThreadIds !== undefined && (!Array.isArray(input.sourceThreadIds) || input.sourceThreadIds.length > 5 || new Set(input.sourceThreadIds).size !== input.sourceThreadIds.length || input.sourceThreadIds.some(id => typeof id !== 'string' || !/^[a-f\d-]{36}$/i.test(id)))) throw new Error('Select up to five distinct conversations')
@@ -146,7 +147,7 @@ export class DelegationApplicationService {
     if (input.targetWorkspaceId !== undefined && (typeof input.targetWorkspaceId !== 'string' || !input.targetWorkspaceId || input.targetWorkspaceId.length > 128)) throw new Error('Invalid target workspace')
     const originProject = await projectIdentity(origin.cwd)
     const targetId = input.targetWorkspaceId ?? origin.workspaceId
-    if (targetId.startsWith('thread:') && input.surface === 'terminal') throw Error('A Code terminal requires an explicit Code workspace destination')
+    if (targetId.startsWith('thread:') && input.surface === 'terminal') throw Error('An OxeCode terminal requires an explicit OxeCode workspace destination')
     const target = this.surfaceProject(targetId)
     if (!target) throw new Error('Target workspace not found')
     const cwd = targetId === origin.workspaceId ? origin.cwd : target.rootPath
@@ -225,6 +226,7 @@ export class DelegationApplicationService {
       this.save(task); this.event(task, 'failed', task.error); throw error
     }
     this.event(task, 'created', 'Delegation queued')
+    if (fromPerson && task.checkout?.fetchBase) this.personFetches.add(task.id)
     this.schedule(task.id)
     return task
   }
@@ -243,7 +245,7 @@ export class DelegationApplicationService {
       }
     } else if (!workspace.panes.some(pane => pane.id === owner.id)) throw new Error('Origin terminal belongs to another workspace')
     if (!execution || execution.workspaceId !== workspaceId) throw new Error('Start the origin agent before delegating')
-    return this.create(execution, input)
+    return this.create(execution, input, true)
   }
   private schedule(id: string): void {
     if (this.pending.has(id) || this.closing) return
@@ -273,8 +275,19 @@ export class DelegationApplicationService {
     const execution = this.deps.executions.forPane(task.paneId)
     if (execution && execution.id === task.destinationExecutionId) this.deps.stop(task.paneId)
   }
+  /**
+   * Tasks the person created with "Fetch remote", this launch: an agent's delegate_task never fetches (its fetchBase
+   * fails with FETCH_NEEDS_PERSON), and after a restart the person asks again.
+   */
+  private readonly personFetches = new Set<string>()
+  private async fetchForPerson(task: DelegationTask, remote: string): Promise<void> {
+    if (!this.personFetches.has(task.id)) {
+      throw new Error(codedMessage("FETCH_NEEDS_PERSON: The agent needs the latest version of the remote branch, but agents can't reach the network through Git. Fetch it yourself in the Git panel or the terminal, then let the agent continue.", mainMessage('git.fetch.needsPerson', {})))
+    }
+    await execPersonGit(task.cwd, ['fetch', '--', remote], { reason: 'delegation-dialog:fetch-base' }, { timeout: 120_000 })
+  }
   private async git(cwd: string, args: string[]): Promise<string> {
-    return (await exec('git', args, { cwd, windowsHide: true, timeout: 15000, maxBuffer: 128 * 1024 })).stdout.trim()
+    return (await execGit(cwd, args, { timeout: 15000, maxBuffer: 128 * 1024 })).stdout.trim()
   }
   private async provision(id: string): Promise<void> {
     try {
@@ -340,7 +353,7 @@ export class DelegationApplicationService {
         this.repository.journal(id, 'provider-start', launchGeneration, 'succeeded', { threadId: result.threadId,
           provider: result.provider, nativeSessionId: result.nativeSessionId, canonicalRoot: t.path })
         this.coordinator.receipt(id, 'execution-registered')
-        this.event(t, 'starting', 'Thread started and bound to its native provider session.')
+        this.event(t, 'starting', 'OxeChat conversation started and bound to its native provider session.')
         return
       }
       await this.deps.launch(t)
@@ -515,7 +528,7 @@ export class DelegationApplicationService {
       this.save(t); this.schedule(id)
     } else if (action === 'resume') {
       if (!['failed','interrupted'].includes(t.state) || this.pending.has(id)) throw new Error('Task is not ready to resume')
-      if (!this.deps.threadHost || t.surface !== 'thread' || !t.nativeSession?.resumable) throw new Error('This task has no resumable native Thread session')
+      if (!this.deps.threadHost || t.surface !== 'thread' || !t.nativeSession?.resumable) throw new Error('This task has no resumable native OxeChat session')
       if (!this.enabled(t.project) || (t.originProjectId && !this.enabled(t.originProjectId))) throw new Error('Enable Agent delegation before resuming')
       this.coordinator.checkTask(t)
       const resumeGeneration = t.nativeSession.generation + 1

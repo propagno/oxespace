@@ -5,6 +5,7 @@ on:
   # Called by ci.yml so a release cannot publish without the native memory contracts.
   workflow_call:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'electron/main/services/memory/**'
       - 'electron/main/services/conversation/**'
@@ -21,6 +22,8 @@ permissions:
 
 jobs:
   contract:
+    # A draft PR runs nothing; marking it ready for review starts the run.
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
@@ -53,7 +56,9 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libasound2 libxshmfence1 libnotify4
+          # Ubuntu 24.04 renamed libasound2 (64-bit time_t); 22.04 has only the old name.
+          alsa=libasound2t64; apt-cache show "$alsa" >/dev/null 2>&1 || alsa=libasound2
+          sudo apt-get install -y --no-install-recommends libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1 libnotify4
       - run: npm ci --ignore-scripts
       - run: npm rebuild electron better-sqlite3
       - name: Durable queue and Thread capture regressions

@@ -70,3 +70,16 @@ describe('updaterSupportsThisInstall', () => {
     expect(updaterSupportsThisInstall('linux', { APPIMAGE: '' })).toBe(false)
   })
 })
+
+describe('updater incidents (B8.3)', () => {
+  test('a failed check is recorded with the step that failed, never the error text', async () => {
+    const { connectIncidentJournal, incidentSubject } = await import('../../electron/main/services/diagnostics/incident-sink')
+    const recorded: Array<[string, string | undefined]> = []
+    connectIncidentJournal(async () => ({ record: (code, subject) => { recorded.push([code, subject]) }, flush: () => undefined }))
+    try {
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('proxy at corp.example.net refused maria@example.com')))
+      expect((await checkForAppUpdates(true)).status).toBe('error')
+      await vi.waitFor(() => expect(recorded).toEqual([['incident.updater.failed', incidentSubject('checking')]]))
+    } finally { connectIncidentJournal(null) }
+  })
+})

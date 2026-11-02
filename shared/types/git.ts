@@ -100,6 +100,8 @@ export interface GitDiffSummaryFile {
 }
 
 export interface GitDiffSummary {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   files: GitDiffSummaryFile[]
   additions: number
   deletions: number

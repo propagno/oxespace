@@ -2,24 +2,41 @@ import { app } from 'electron'
 import { evaluatePolicy, policyBlockedMessage } from '../../../../shared/policy'
 import { noteWithheld, scrubEnvironment, type EnvScope } from '../../../../shared/env-scrub'
 import { PolicyStore } from './policy-store'
+import type { AcceptedConfig } from './accepted-config'
 
 /**
  * The app's policy, created on first use from Electron's userData folder. Outside the app (unit tests) there is
  * no `app`, so there is no policy and nothing is blocked; tests that need one pass a store explicitly.
  */
 let store: PolicyStore | null | undefined
+let accepted: AcceptedConfig | null = null
 
-export function setPolicyStore(next: PolicyStore | null): void { store = next }
+export function setPolicyStore(next: PolicyStore | null): void {
+  store = next
+  // A test may pass a stand-in without a gate.
+  if (next && typeof next.setGate === 'function') next.setGate(accepted)
+}
 export function policyStore(): PolicyStore | null {
   if (store === undefined) {
     try { store = app?.getPath ? new PolicyStore({ userData: app.getPath('userData') }) : null } catch { store = null }
+    if (store && typeof store.setGate === 'function') store.setGate(accepted)
   }
   return store
 }
 
+/**
+ * B7.4 · The accepted versions of the gated files, set once at start-up where the database is open (registerPolicyIpc).
+ * Without it (unit tests that do not set one) files apply as they are read.
+ */
+export function setAcceptedConfig(next: AcceptedConfig | null): void {
+  accepted = next
+  if (store && typeof store.setGate === 'function') store.setGate(next)
+}
+export function acceptedConfig(): AcceptedConfig | null { return accepted }
+
 /** Whether policy lets agents use an MCP server, by its configured name, in a project. */
-export function mcpServerAllowed(name: string, projectRoot?: string | null, policy: PolicyStore | null = policyStore()): boolean {
-  return !policy || policy.decide('integration.use', `mcp:${name}`, projectRoot).allowed
+export function mcpServerAllowed(name: string, projectRoot?: string | null, policy: PolicyStore | null = policyStore(), options: { defer?: boolean } = {}): boolean {
+  return !policy || policy.decide('integration.use', `mcp:${name}`, projectRoot, options).allowed
 }
 
 /**
@@ -40,14 +57,17 @@ export function policyDeniedMcpNames(projectRoot?: string | null, policy: Policy
   return [...names]
 }
 
-/** Tool names a policy denies outright (no wildcards), still denied after every layer. Claude hides them at launch. */
+/**
+ * Tool names a policy denies, still denied after every layer, for launch exclusions: exact names, plus MCP rules with
+ * wildcards or a whole server (`mcp__github`, `mcp__github__*`, `mcp__github__delete_*`), which thread-mcp.ts resolves per CLI.
+ */
 export function policyDeniedToolNames(projectRoot?: string | null, policy: PolicyStore | null = policyStore()): string[] {
   if (!policy) return []
   const loaded = policy.load(projectRoot)
   const names = new Set<string>()
   for (const source of loaded.sources) {
     for (const rule of source.rules) {
-      if (rule.action !== 'tool.use' || rule.effect !== 'deny' || rule.resource.includes('*')) continue
+      if (rule.action !== 'tool.use' || rule.effect !== 'deny' || (rule.resource.includes('*') && !/^mcp__[^*]/i.test(rule.resource))) continue
       if (!evaluatePolicy(loaded, 'tool.use', rule.resource).allowed) names.add(rule.resource)
     }
   }

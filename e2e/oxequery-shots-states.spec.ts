@@ -33,14 +33,14 @@ test('captures the OxeQuery states', async () => {
     const shot = async (name: string): Promise<void> => { for (const m of ['light', 'dark'] as const) { await mode(page, m); await page.screenshot({ path: join(OUT, `${name}-${m}.png`) }) } }
 
     // OxePod: resources and container details.
-    await openView(page, 'OxePod')
+    await openView(page, 'pods')
     await page.getByRole('button', { name: 'Images, volumes and networks' }).last().click()
     await page.waitForTimeout(500)
     await shot('01-resources')
     await page.getByRole('button', { name: /mongo-dev/ }).first().click()
     await page.waitForTimeout(400)
     await shot('02-container-details')
-    await openView(page, 'OxeQuery')
+    await openView(page, 'data')
 
     // OxeQuery: wizard, connection form, activity.
     await page.getByRole('button', { name: 'New local database' }).click()

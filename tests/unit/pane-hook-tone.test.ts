@@ -33,7 +33,8 @@ describe('deriveStatusTone with agent hooks', () => {
     expect(deriveStatusTone(entry({ hookState: 'working', hookAt: NOW - 1000, lastActivityAt: NOW - 1000 }))).toBe('thinking')
     // The agent is done even though a spinner redraw set isWorking.
     expect(deriveStatusTone(entry({ hookState: 'done', hookAt: NOW - 1000, isWorking: true }))).toBe('awaiting')
-    expect(deriveStatusTone(entry({ hookState: 'waiting', hookAt: NOW - 10 * 60_000 }))).toBe('awaiting')
+    // A hook 'waiting' is a permission prompt or a question: a decision, not a finished turn.
+    expect(deriveStatusTone(entry({ hookState: 'waiting', hookAt: NOW - 10 * 60_000 }))).toBe('needs-decision')
   })
 
   it('lets done decay to idle', () => {

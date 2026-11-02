@@ -5,11 +5,12 @@ import { chordsCollide, formatChord, matchesChord, parseChord, type ParsedChord 
 
 /**
  * Every app keyboard shortcut, in one place. Components bind handlers to these
- * ids with `useKeybindings`; menus, the palette and tooltips read the labels
- * from here, so a shortcut is defined once and shown the same everywhere.
+ * ids with `useKeybindings`; menus, the palette and tooltips read the chords
+ * from here, so a shortcut is defined once and shown the same everywhere. Each
+ * shortcut's name is `keys.bindings.<id>` in the common catalog (bindingLabel).
  */
 export type KeybindingScope = 'global' | 'code' | 'thread' | 'oxequery' | 'oxepod' | 'oxepost' | 'terminal'
-/** The application's views: Code, Thread, OxeQuery (`data`), OxePod (`pods`) and OxePost (`post`). */
+/** The application's views: OxeCode (`code`), OxeChat (`thread`), OxeQuery (`data`), OxePod (`pods`) and OxePost (`post`). */
 export type AppView = 'code' | 'thread' | 'data' | 'pods' | 'post'
 export const APP_VIEWS: readonly AppView[] = ['code', 'thread', 'data', 'pods', 'post']
 
@@ -23,11 +24,14 @@ export interface Keybinding {
   /** Default chords, first one is the one shown. */
   chords: string[]
   scope: KeybindingScope
-  label: string
   /** Extra condition on top of the scope. */
   when?: (context: KeybindingContext) => boolean
   /** A focused terminal hands these chords to the app instead of the shell. */
   reservedInTerminal?: boolean
+  /** Also reserved in the Thread native CLI, which otherwise owns its whole keymap: the ways out of a terminal (WCAG 2.1.2). */
+  everyTerminal?: boolean
+  /** Not rebindable and never off: F6 is the one way out of any region that always works. */
+  fixed?: boolean
 }
 
 export const inXterm = (target: Element | null): boolean => Boolean(target?.closest('.xterm'))
@@ -36,61 +40,67 @@ export const inEditor = (target: Element | null): boolean => Boolean(target?.clo
 /** Anywhere a key types text: inputs, text areas, editable content, editors and terminals. */
 export const inTextField = (target: Element | null): boolean => Boolean(target?.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')) || inEditor(target)
 
-export const SCOPE_LABELS: Record<KeybindingScope, string> = { global: 'Everywhere', code: 'Code', terminal: 'Terminal', thread: 'Thread', oxequery: 'OxeQuery', oxepod: 'OxePod', oxepost: 'OxePost' }
+export const SCOPE_LABELS: Record<KeybindingScope, string> = { global: 'Everywhere', code: 'OxeCode', terminal: 'Terminal', thread: 'OxeChat', oxequery: 'OxeQuery', oxepod: 'OxePod', oxepost: 'OxePost' }
 
 export const KEYBINDINGS = [
   // Global
-  { id: 'palette.open', chords: ['Mod+K', 'Mod+Shift+P'], scope: 'global', label: 'Open command palette', reservedInTerminal: true },
-  { id: 'palette.search', chords: ['Mod+J'], scope: 'global', label: 'Search files & commands' },
-  { id: 'settings.open', chords: ['Mod+,'], scope: 'global', label: 'Open settings', reservedInTerminal: true },
-  { id: 'sidebar.toggle', chords: ['Mod+B'], scope: 'global', label: 'Toggle sidebar', reservedInTerminal: true },
-  { id: 'activity.open', chords: ['Mod+Shift+A'], scope: 'global', label: 'Open activity center', reservedInTerminal: true },
-  { id: 'voice.toggle', chords: ['Mod+Shift+V'], scope: 'global', label: 'Toggle voice input', when: context => context.view === 'code' || context.view === 'thread' },
+  { id: 'palette.open', chords: ['Mod+K', 'Mod+Shift+P'], scope: 'global', reservedInTerminal: true },
+  { id: 'palette.search', chords: ['Mod+J'], scope: 'global' },
+  { id: 'settings.open', chords: ['Mod+,'], scope: 'global', reservedInTerminal: true },
+  { id: 'sidebar.toggle', chords: ['Mod+B'], scope: 'global', reservedInTerminal: true },
+  { id: 'activity.open', chords: ['Mod+Shift+A'], scope: 'global', reservedInTerminal: true },
+  { id: 'voice.toggle', chords: ['Mod+Shift+V'], scope: 'global', when: context => context.view === 'code' || context.view === 'thread' },
   // The four views, in the order of the switch in the title bar.
-  { id: 'view.code', chords: ['Mod+1'], scope: 'global', label: 'Show Code', reservedInTerminal: true },
-  { id: 'view.thread', chords: ['Mod+2'], scope: 'global', label: 'Show Thread', reservedInTerminal: true },
-  { id: 'view.data', chords: ['Mod+3'], scope: 'global', label: 'Show OxeQuery', reservedInTerminal: true },
-  { id: 'view.pods', chords: ['Mod+4'], scope: 'global', label: 'Show OxePod', reservedInTerminal: true },
-  { id: 'view.post', chords: ['Mod+5'], scope: 'global', label: 'Show OxePost', reservedInTerminal: true },
+  { id: 'view.code', chords: ['Mod+1'], scope: 'global', reservedInTerminal: true },
+  { id: 'view.thread', chords: ['Mod+2'], scope: 'global', reservedInTerminal: true },
+  { id: 'view.data', chords: ['Mod+3'], scope: 'global', reservedInTerminal: true },
+  { id: 'view.pods', chords: ['Mod+4'], scope: 'global', reservedInTerminal: true },
+  { id: 'view.post', chords: ['Mod+5'], scope: 'global', reservedInTerminal: true },
+  // The ways out of a terminal (WCAG 2.1.2 No Keyboard Trap): F6 moves between the window's regions, and the
+  // toggle (Ctrl+M, as in VS Code) makes Tab move focus in the focused terminal instead of reaching the shell.
+  { id: 'focus.nextRegion', chords: ['F6'], scope: 'global', reservedInTerminal: true, everyTerminal: true, fixed: true },
+  { id: 'focus.previousRegion', chords: ['Shift+F6'], scope: 'global', reservedInTerminal: true, everyTerminal: true, fixed: true },
+  { id: 'terminal.tabMovesFocus', chords: ['Ctrl+M'], scope: 'global', reservedInTerminal: true, everyTerminal: true, when: context => inXterm(context.target) },
   // Code
-  { id: 'code.changes', chords: ['Mod+Shift+D'], scope: 'code', label: 'Changes' },
-  { id: 'code.browser', chords: ['Mod+Shift+B'], scope: 'code', label: 'Browser' },
-  { id: 'code.files', chords: ['Mod+E'], scope: 'code', label: 'Files' },
-  { id: 'code.search', chords: ['Mod+Shift+F'], scope: 'code', label: 'Find in files' },
-  { id: 'code.splitLayout', chords: ['F2'], scope: 'code', label: 'Toggle split layout' },
-  { id: 'pane.splitRight', chords: ['Mod+Shift+\\'], scope: 'code', label: 'Split pane right' },
-  { id: 'pane.splitDown', chords: ['Mod+Shift+-'], scope: 'code', label: 'Split pane down' },
-  { id: 'pane.maximize', chords: ['Mod+Shift+Enter'], scope: 'code', label: 'Maximize / restore pane' },
+  { id: 'code.changes', chords: ['Mod+Shift+D'], scope: 'code' },
+  { id: 'code.browser', chords: ['Mod+Shift+B'], scope: 'code' },
+  { id: 'code.files', chords: ['Mod+E'], scope: 'code' },
+  { id: 'code.search', chords: ['Mod+Shift+F'], scope: 'code' },
+  { id: 'code.splitLayout', chords: ['F2'], scope: 'code' },
+  { id: 'pane.splitRight', chords: ['Mod+Shift+\\'], scope: 'code' },
+  { id: 'pane.splitDown', chords: ['Mod+Shift+-'], scope: 'code' },
+  { id: 'pane.maximize', chords: ['Mod+Shift+Enter'], scope: 'code' },
 
   // Terminal (Code panes)
-  { id: 'terminal.restart', chords: ['Mod+R'], scope: 'terminal', label: 'Restart terminal' },
-  { id: 'terminal.slash', chords: ['Mod+/'], scope: 'terminal', label: 'Terminal commands' },
-  { id: 'terminal.zoomIn', chords: ['Mod+=', 'Mod+Shift+='], scope: 'terminal', label: 'Terminal font bigger', when: context => inXterm(context.target) },
-  { id: 'terminal.zoomOut', chords: ['Mod+-'], scope: 'terminal', label: 'Terminal font smaller', when: context => inXterm(context.target) },
-  { id: 'terminal.zoomReset', chords: ['Mod+0'], scope: 'terminal', label: 'Terminal font reset', when: context => inXterm(context.target) },
+  { id: 'terminal.restart', chords: ['Mod+R'], scope: 'terminal' },
+  { id: 'terminal.slash', chords: ['Mod+/'], scope: 'terminal' },
+  { id: 'terminal.zoomIn', chords: ['Mod+=', 'Mod+Shift+='], scope: 'terminal', when: context => inXterm(context.target) },
+  { id: 'terminal.zoomOut', chords: ['Mod+-'], scope: 'terminal', when: context => inXterm(context.target) },
+  { id: 'terminal.zoomReset', chords: ['Mod+0'], scope: 'terminal', when: context => inXterm(context.target) },
 
   // Thread
-  { id: 'thread.new', chords: ['Ctrl+Alt+N'], scope: 'thread', label: 'New conversation' },
-  { id: 'thread.next', chords: ['Ctrl+Alt+PageDown'], scope: 'thread', label: 'Next conversation' },
-  { id: 'thread.previous', chords: ['Ctrl+Alt+PageUp'], scope: 'thread', label: 'Previous conversation' },
-  { id: 'thread.find', chords: ['Mod+F'], scope: 'thread', label: 'Find in conversation', when: context => !inEditor(context.target) },
-  { id: 'thread.viewMode', chords: ['Mod+O'], scope: 'thread', label: 'Transcript view', when: context => !inXterm(context.target) },
-  { id: 'thread.terminal', chords: ['Mod+`'], scope: 'thread', label: 'Terminal' },
-  { id: 'thread.changes', chords: ['Mod+Shift+D'], scope: 'thread', label: 'Changes' },
-  { id: 'thread.browser', chords: ['Mod+Shift+B'], scope: 'thread', label: 'Browser' },
-  { id: 'thread.permissions', chords: ['Mod+Shift+M'], scope: 'thread', label: 'Permissions' },
-  { id: 'thread.model', chords: ['Mod+Shift+I'], scope: 'thread', label: 'Model' },
-  { id: 'thread.effort', chords: ['Mod+Shift+E'], scope: 'thread', label: 'Reasoning effort' },
+  { id: 'thread.new', chords: ['Ctrl+Alt+N'], scope: 'thread' },
+  { id: 'thread.next', chords: ['Ctrl+Alt+PageDown'], scope: 'thread' },
+  { id: 'thread.previous', chords: ['Ctrl+Alt+PageUp'], scope: 'thread' },
+  { id: 'thread.find', chords: ['Mod+F'], scope: 'thread', when: context => !inEditor(context.target) },
+  { id: 'thread.viewMode', chords: ['Mod+O'], scope: 'thread', when: context => !inXterm(context.target) },
+  { id: 'thread.terminal', chords: ['Mod+`'], scope: 'thread' },
+  { id: 'thread.changes', chords: ['Mod+Shift+D'], scope: 'thread' },
+  { id: 'thread.browser', chords: ['Mod+Shift+B'], scope: 'thread' },
+  { id: 'thread.permissions', chords: ['Mod+Shift+M'], scope: 'thread' },
+  { id: 'thread.model', chords: ['Mod+Shift+I'], scope: 'thread' },
+  { id: 'thread.effort', chords: ['Mod+Shift+E'], scope: 'thread' },
+  { id: 'thread.sideChat', chords: ['Mod+.'], scope: 'thread' },
 
   // OxePod
-  { id: 'oxepod.filter', chords: ['/'], scope: 'oxepod', label: 'Find a container', when: context => !inTextField(context.target) },
+  { id: 'oxepod.filter', chords: ['/'], scope: 'oxepod', when: context => !inTextField(context.target) },
 
   // OxePost
-  { id: 'oxepost.send', chords: ['Mod+Enter'], scope: 'oxepost', label: 'Send the request' },
-  { id: 'oxepost.filter', chords: ['/'], scope: 'oxepost', label: 'Find a request', when: context => !inTextField(context.target) },
+  { id: 'oxepost.send', chords: ['Mod+Enter'], scope: 'oxepost' },
+  { id: 'oxepost.filter', chords: ['/'], scope: 'oxepost', when: context => !inTextField(context.target) },
 
   // Last, so Ctrl+/ reaches terminal commands first while a terminal pane is active.
-  { id: 'help.shortcuts', chords: ['?', 'Mod+/'], scope: 'global', label: 'Show keyboard shortcuts', when: context => !inTextField(context.target) }
+  { id: 'help.shortcuts', chords: ['?', 'Mod+/'], scope: 'global', when: context => !inTextField(context.target) }
 ] as const satisfies readonly Keybinding[]
 
 export type KeybindingId = typeof KEYBINDINGS[number]['id']
@@ -110,11 +120,12 @@ const parsed = (chord: string): ParsedChord => {
 
 /** The chords in effect: the user's override from Settings › Keyboard (an empty list turns it off) or the default. */
 export function chordsFor(id: KeybindingId): string[] {
+  if (getKeybinding(id).fixed) return [...getKeybinding(id).chords]
   return useSettingsStore.getState().keybindingOverrides[id] ?? [...getKeybinding(id).chords]
 }
 
 export function isOverridden(id: KeybindingId): boolean {
-  return id in useSettingsStore.getState().keybindingOverrides
+  return !getKeybinding(id).fixed && id in useSettingsStore.getState().keybindingOverrides
 }
 
 /**
@@ -173,10 +184,18 @@ export function bindingsCollide(a: Keybinding, b: Keybinding, chordsA: string[],
   return chordsA.some(x => chordsB.some(y => chordsCollide(x, y)))
 }
 
-/** True when a focused terminal should give this key to the app rather than the shell. */
-export function isTerminalReservedChord(event: KeyboardEvent): boolean {
-  return (KEYBINDINGS as readonly Keybinding[]).some(binding => binding.reservedInTerminal
-    && chordsFor(binding.id as KeybindingId).some(chord => matchesChord(event, parsed(chord))))
+/** True when the key press is one of the chords in effect for `id`. */
+export function matchesBinding(event: KeyboardEvent, id: KeybindingId): boolean {
+  return chordsFor(id).some(chord => matchesChord(event, parsed(chord)))
+}
+
+/**
+ * True when a focused terminal should give this key to the app rather than the shell. In the Thread native CLI
+ * (`nativeCli`) only the ways out of the terminal are reserved; it owns the rest of its keymap.
+ */
+export function isTerminalReservedChord(event: KeyboardEvent, nativeCli = false): boolean {
+  return (KEYBINDINGS as readonly Keybinding[]).some(binding => binding.reservedInTerminal && (!nativeCli || binding.everyTerminal)
+    && matchesBinding(event, binding.id as KeybindingId))
 }
 
 /** Return false when the shortcut does not apply right now; the key then goes on as usual. */
@@ -185,9 +204,9 @@ type HandlerMap = Partial<Record<KeybindingId, KeybindingHandler>>
 
 const layers: Array<{ current: HandlerMap }> = []
 
-function blocked(target: Element | null): boolean {
-  // The native CLI owns its keymap, including Ctrl+R, Ctrl+B and Ctrl+J.
-  if (target?.closest('.thread-native-cli')) return true
+function blocked(target: Element | null, binding: Keybinding): boolean {
+  // The native CLI owns its keymap, including Ctrl+R, Ctrl+B and Ctrl+J, but not the ways out of it.
+  if (target?.closest('.thread-native-cli') && !binding.everyTerminal) return true
   const ui = useUIStore.getState()
   return ui.isSettingsOpen || ui.isWorkspaceSettingsOpen
 }
@@ -195,9 +214,9 @@ function blocked(target: Element | null): boolean {
 export function dispatchKeybinding(event: KeyboardEvent): boolean {
   if (event.defaultPrevented || event.isComposing) return false
   const target = event.target instanceof Element ? event.target : null
-  if (blocked(target)) return false
   const context: KeybindingContext = { view: activeView, target }
   for (const binding of KEYBINDINGS as readonly Keybinding[]) {
+    if (blocked(target, binding)) continue
     if (!scopeIsActive(binding.scope, context.view)) continue
     if (!chordsFor(binding.id as KeybindingId).some(chord => matchesChord(event, parsed(chord)))) continue
     if (binding.when && !binding.when(context)) continue

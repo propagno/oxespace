@@ -27,7 +27,8 @@ export interface ConfirmDialogProps {
 export function ConfirmDialog({ title, description, confirmLabel, cancelLabel = i18n.t('ui.cancel'), danger = false, busy = false, confirmDisabled = false, error, onConfirm, onCancel, children, returnFocusTo, testId }: ConfirmDialogProps): ReactElement {
   return <Dialog title={title} description={description} size="sm" returnFocusTo={returnFocusTo} testId={testId} onClose={() => { if (!busy) onCancel() }}
     footer={<>
-      <Button variant="secondary" autoFocus disabled={busy} onClick={onCancel}>{cancelLabel}</Button>
+      {/* Busy: Cancel keeps its focus and says it is unavailable, rather than dropping the focus. */}
+      <Button variant="secondary" autoFocus aria-disabled={busy || undefined} onClick={() => { if (!busy) onCancel() }}>{cancelLabel}</Button>
       <Button variant={danger ? 'danger' : 'primary'} loading={busy} disabled={busy || confirmDisabled} onClick={onConfirm}>{confirmLabel}</Button>
     </>}>
     {children}

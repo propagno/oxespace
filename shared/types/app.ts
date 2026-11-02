@@ -39,6 +39,44 @@ export interface AppInfoApi {
   onConnectivity?(listener: (state: AppConnectivity) => void): () => void
   /** Version, build and runtime facts for the About screen. */
   about?(): Promise<AppAbout>
+  /**
+   * Opens a link in the system browser or mail app, once the person confirmed its host. Refused (`opened: false`, and
+   * journalled by its reason) unless it is an http(s) or mailto: URL of at most 2,048 characters without credentials.
+   */
+  openExternal?(url: string): Promise<{ opened: boolean }>
+  /** Sent when the window is about to close or the app to quit (F26): answer with `answerClose`. */
+  onCloseRequested?(listener: (request: CloseRequest) => void): () => void
+  /** The window's answer to a `CloseRequest`. */
+  answerClose?(input: CloseAnswerInput): Promise<void>
+}
+
+/** Why main asks: the main window is closing, or the whole app is quitting. */
+export const CLOSE_REASONS = ['close', 'quit'] as const
+export type CloseReason = typeof CLOSE_REASONS[number]
+
+/**
+ * `app:close-requested` (F26, nothing lost on close): main holds a close or a quit and asks the window first. The
+ * first answer must arrive within 3 s or main goes ahead anyway; never sent on OS shutdown, session end or an
+ * update install.
+ */
+export interface CloseRequest {
+  requestId: string
+  /** A `close` that is still pending becomes `quit` when a quit arrives meanwhile; no second request is sent. */
+  reason: CloseReason
+}
+
+/**
+ * `hold`: an unsaved-work dialog is open; main waits, with no deadline, for a later `proceed` or `cancel`.
+ * `proceed`: close or quit now. `cancel`: stay open.
+ */
+export const CLOSE_ANSWERS = ['hold', 'proceed', 'cancel'] as const
+export type CloseAnswer = typeof CLOSE_ANSWERS[number]
+
+/** `app:close-answer`: exactly these two keys. An unknown or stale `requestId` is ignored. */
+export interface CloseAnswerInput {
+  /** At most 100 characters. */
+  requestId: string
+  answer: CloseAnswer
 }
 
 /**

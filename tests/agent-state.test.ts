@@ -154,7 +154,7 @@ describe('pane tone from the agent state', () => {
   it('prefers the main-process state over hooks and timing while the pane runs', async () => {
     const { deriveStatusTone } = await import('../src/utils/paneDisplay')
     const base = { status: 'running' as const, error: null, lastActivityAt: null, lastOutput: null, lastIntent: null, lastIntentAt: null, isWorking: false, hasUnread: false, hookState: 'working' as const, hookAt: Date.now() }
-    expect(deriveStatusTone({ ...base, agentState: 'blocked' })).toBe('awaiting')
+    expect(deriveStatusTone({ ...base, agentState: 'blocked' })).toBe('needs-decision')
     expect(deriveStatusTone({ ...base, agentState: 'done' })).toBe('awaiting')
     expect(deriveStatusTone({ ...base, agentState: 'idle' })).toBe('idle')
     expect(deriveStatusTone({ ...base, agentState: 'working' })).toBe('thinking')

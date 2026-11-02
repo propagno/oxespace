@@ -1,5 +1,6 @@
 import { Pencil, Save, Trash2, X } from 'lucide-react'
 import { useEffect, useState, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { IntegrationMember, IntegrationRole } from '../../../shared/types/integration'
 import type { WorkspacePane } from '../../../shared/types/workspace'
 import { useIntegrationStore } from '../../store/integration.store'
@@ -30,6 +31,7 @@ const ROLES: IntegrationRole[] = ['fed', 'bff', 'srv', 'api', 'apim', 'mktapi', 
  * don't auto-save on blur — that confuses users who tab between fields.
  */
 export function MemberEditor({ member, panes, confirmingRemoval, isRemoving, onClose, onRemove }: MemberEditorProps): ReactElement {
+  const { t } = useTranslation('code')
   const updateMember = useIntegrationStore((s) => s.updateMember)
   const [alias, setAlias] = useState(member.alias)
   const [role, setRole] = useState<IntegrationRole>(member.role)
@@ -71,47 +73,47 @@ export function MemberEditor({ member, panes, confirmingRemoval, isRemoving, onC
   }
 
   return (
-    <div className="integration-member-editor" role="region" aria-label={`Edit ${member.role}/${member.alias}`}>
+    <div className="integration-member-editor" role="region" aria-label={t('integration.editor.label', { member: `${member.role}/${member.alias}` })}>
       {error ? <div className="integration-error">{error}</div> : null}
       <div className="integration-member-editor-row">
         <label className="integration-member-editor-field">
-          <span>Alias</span>
+          <span>{t('integration.editor.alias')}</span>
           <TextField value={alias} onChange={(e) => setAlias(e.currentTarget.value)} placeholder={member.workspaceName} disabled={busy} />
         </label>
         <label className="integration-member-editor-field">
-          <span>Role</span>
+          <span>{t('integration.editor.role')}</span>
           <Select value={role} onChange={(e) => setRole(e.currentTarget.value as IntegrationRole)} disabled={busy}>
             {ROLES.map((r) => <option key={r} value={r}>{r.toUpperCase()}</option>)}
           </Select>
         </label>
       </div>
       <label className="integration-member-editor-field">
-        <span>Last intent</span>
+        <span>{t('integration.editor.lastIntent')}</span>
         <TextField
           value={lastIntent}
           onChange={(e) => setLastIntent(e.currentTarget.value)}
-          placeholder="What this member is currently working on"
+          placeholder={t('integration.editor.lastIntentPlaceholder')}
           disabled={busy}
         />
       </label>
       <label className="integration-member-editor-field">
-        <span>Agent terminal</span>
+        <span>{t('integration.editor.terminal')}</span>
         <Select value={paneId} onChange={(e) => setPaneId(e.currentTarget.value)} disabled={busy}>
-          <option value="">No linked agent terminal</option>
+          <option value="">{t('integration.editor.noTerminal')}</option>
           {panes.map((pane) => (
             <option key={pane.id} value={pane.id}>
-              {pane.displayName || pane.agentName || `Terminal ${pane.rowIndex + 1}.${pane.columnIndex + 1}`}
+              {pane.displayName || pane.agentName || t('integration.terminalAt', { position: `${pane.rowIndex + 1}.${pane.columnIndex + 1}` })}
             </option>
           ))}
         </Select>
-        <small className="integration-member-editor-help">Link a terminal to let this member receive handoffs directly.</small>
+        <small className="integration-member-editor-help">{t('integration.editor.terminalHint')}</small>
       </label>
       <label className="integration-member-editor-field">
-        <span>Blockers</span>
+        <span>{t('integration.editor.blockers')}</span>
         <TextArea
           value={blockers}
           onChange={(e) => setBlockers(e.currentTarget.value)}
-          placeholder="Something else has to land first, missing creds, etc."
+          placeholder={t('integration.editor.blockersPlaceholder')}
           rows={2}
           disabled={busy}
         />
@@ -124,15 +126,15 @@ export function MemberEditor({ member, panes, confirmingRemoval, isRemoving, onC
           disabled={busy || isRemoving}
         >
           <Trash2 size={12} aria-hidden="true" />
-          {isRemoving ? 'Removing…' : confirmingRemoval ? 'Confirm removal' : 'Remove member'}
+          {isRemoving ? t('integration.editor.removing') : confirmingRemoval ? t('integration.editor.confirmRemove') : t('integration.editor.remove')}
         </button>
         <Button variant="ghost" size="sm" onClick={onClose} disabled={busy}>
           <X size={12} aria-hidden="true" />
-          Cancel
+          {t('ui.cancel', { ns: 'common' })}
         </Button>
         <Button variant="primary" size="sm" onClick={() => void handleSave()} disabled={busy}>
           <Save size={12} aria-hidden="true" />
-          {busy ? 'Saving…' : 'Save'}
+          {busy ? t('integration.editor.saving') : t('integration.editor.save')}
         </Button>
       </div>
     </div>
@@ -145,13 +147,14 @@ interface MemberEditButtonProps {
 }
 
 export function MemberEditButton({ onClick, isEditing }: MemberEditButtonProps): ReactElement {
+  const { t } = useTranslation('code')
   return (
     <button
       type="button"
       className={`integration-member-edit-btn${isEditing ? ' active' : ''}`}
       onClick={onClick}
-      aria-label={isEditing ? 'Close member editor' : 'Edit member'}
-      title={isEditing ? 'Close' : 'Edit member'}
+      aria-label={isEditing ? t('integration.editor.close') : t('integration.editor.edit')}
+      title={isEditing ? t('ui.close', { ns: 'common' }) : t('integration.editor.edit')}
     >
       <Pencil size={12} aria-hidden="true" />
     </button>

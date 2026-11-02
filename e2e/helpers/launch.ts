@@ -2,6 +2,7 @@ import { _electron as electron, type ElectronApplication, type Page } from '@pla
 import { mkdirSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { withoutLiveApp } from './live-app-env'
 
 export interface LaunchedApp {
   app: ElectronApplication
@@ -17,13 +18,44 @@ export type Appearance = 'light' | 'dark' | 'system'
 /** The instant every visual test pretends it is, so relative times render identically. */
 export const FIXED_NOW = Date.UTC(2026, 9, 14, 12, 0, 0)
 
-/** Freezes Date in the renderer. Call again after a reload. */
+/** The user-timing methods Playwright's fake clock stubs out; they are put back so the timeline stays real (F28). */
+const USER_TIMING = ['mark', 'measure', 'getEntries', 'getEntriesByName', 'getEntriesByType', 'clearMarks', 'clearMeasures'] as const
+
+/** Keeps the page's real user-timing methods, before the fake clock replaces `performance`. */
+function captureUserTiming(names: readonly string[]): void {
+  const holder = window as unknown as { __oxeUserTiming?: Record<string, unknown> }
+  if (holder.__oxeUserTiming) return
+  const real = performance as unknown as Record<string, (...args: unknown[]) => unknown>
+  holder.__oxeUserTiming = Object.fromEntries(names.filter(name => typeof real[name] === 'function').map(name => [name, real[name].bind(performance)]))
+}
+
+/** Puts the real user-timing methods back on the fake `performance`: Date, now() and timers stay frozen. */
+function restoreUserTiming(): void {
+  const real = (window as unknown as { __oxeUserTiming?: Record<string, unknown> }).__oxeUserTiming
+  if (!real) return
+  for (const [name, method] of Object.entries(real)) {
+    try { Object.defineProperty(performance, name, { configurable: true, writable: true, value: method }) } catch { /* left as the clock made it */ }
+  }
+}
+
+/**
+ * Freezes Date in the renderer (and performance.now and timers, the way Playwright's clock does). Its fake
+ * `performance` also stubs the user timing: marks and measures are dropped and getEntriesByName returns [], so Monaco's
+ * input-latency probe threw "reading 'duration'" page errors on every few keystrokes (F28). The real user-timing
+ * methods are kept before the clock installs and put back after, on this page and on every reload.
+ */
 export async function freezeClock(page: Page): Promise<void> {
+  await page.addInitScript(captureUserTiming, USER_TIMING)
+  await page.evaluate(captureUserTiming, USER_TIMING)
   await page.clock.setFixedTime(new Date(FIXED_NOW))
+  await page.evaluate(restoreUserTiming)
+  await page.addInitScript(restoreUserTiming)
 }
 
 /** Launches the built app against a temporary database (requires `npm run build` first). */
-export async function launchApp(options: { appearance?: Appearance; locale?: string } = {}): Promise<LaunchedApp> {
+/** `env` adds variables for one spec (e.g. OXESPACE_E2E_AGENT_STATE=1), on top of the defaults below. */
+/** `realClock` skips freezeClock, for a spec that needs time to move. */
+export async function launchApp(options: { appearance?: Appearance; locale?: string; density?: Density; env?: Record<string, string>; realClock?: boolean } = {}): Promise<LaunchedApp> {
   const root = mkdtempSync(join(tmpdir(), 'oxespace-visual-'))
   const workspaceRoot = join(root, 'demo-repo')
   mkdirSync(workspaceRoot, { recursive: true })
@@ -31,14 +63,16 @@ export async function launchApp(options: { appearance?: Appearance; locale?: str
   const app = await electron.launch({
     args: [join(process.cwd(), 'e2e', 'electron-main.cjs')],
     env: {
-      ...process.env,
+      // Never the running app's MCP, execution or hook variables: the app under test is the only one a spec reaches.
+      ...withoutLiveApp(process.env),
       // Clock formatting ('checked 09:00 local time') must not depend on the machine's zone.
       TZ: 'UTC',
       OXESPACE_DISABLE_SINGLE_INSTANCE: '1',
       OXESPACE_E2E_MOCK_NATIVE: '1',
       OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'),
       // The system language the app sees; e2e/electron-main.cjs pins English when unset.
-      ...(options.locale ? { OXESPACE_LOCALE: options.locale } : {})
+      ...(options.locale ? { OXESPACE_LOCALE: options.locale } : {}),
+      ...options.env
     }
   })
   // The RTK sidecar check hits the network and, when it finds an update, adds an icon to
@@ -56,20 +90,22 @@ export async function launchApp(options: { appearance?: Appearance; locale?: str
   // The stack's first frames are what tells a fixture gap from a real renderer bug.
   page.on('pageerror', e => consoleErrors.push(`pageerror: ${e.message.slice(0, 300)}\n${(e.stack ?? '').split('\n').slice(1, 4).join('\n')}`))
   await page.waitForLoadState('load')
-  await freezeClock(page)
+  if (!options.realClock) await freezeClock(page)
 
-  if (options.appearance) await setAppearance(page, options.appearance)
+  if (options.appearance || options.density) await setAppearance(page, options.appearance ?? 'light', options.density)
   return { app, page, root, workspaceRoot, consoleErrors }
 }
 
-/** Persists the appearance setting and reloads so the whole app renders with it. */
-export async function setAppearance(page: Page, appearance: Appearance): Promise<void> {
+export type Density = 'compact' | 'comfortable'
+
+/** Persists the appearance (and, when given, the density) and reloads so the whole app renders with it. */
+export async function setAppearance(page: Page, appearance: Appearance, density?: Density): Promise<void> {
   await page.evaluate(
-    mode => localStorage.setItem('oxe-settings', JSON.stringify({
-      state: { appearance: mode, notificationsEnabled: true, visitedWorkspacesCap: 5 },
+    ([mode, spacing]) => localStorage.setItem('oxe-settings', JSON.stringify({
+      state: { appearance: mode, notificationsEnabled: true, visitedWorkspacesCap: 5, ...(spacing ? { density: spacing } : {}) },
       version: 3
     })),
-    appearance
+    [appearance, density] as const
   )
   await page.reload()
   await page.waitForLoadState('load')

@@ -13,7 +13,9 @@ import type { ThreadPanelState } from './threadCommandPanels'
 import { threadNavigationStatus } from './threadNavigationStatus'
 import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, TextField } from '../../ui'
 import { formatDateTime } from '../../utils/formatTime'
+import { displayThreadTitle, namedThreadTitle } from './threadTitle'
 import { localizeConfirmation } from './threadConfirmationText'
+import { openExternalLink } from '../../lib/externalLinks'
 
 function sessionDate(timestamp: number): string { return formatDateTime(timestamp, { dateStyle: 'medium', timeStyle: 'short' }) }
 
@@ -23,7 +25,7 @@ const DESCRIBED = new Set(['rename', 'sessions', 'rules', 'work', 'events', 'spe
 const SESSION_ID_SHAPE = 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
 /** The rows /status sends, in the order shown, with their catalog keys; the main process names them in English. */
 const STATUS_ROWS: Record<string, string> = { Provider: 'provider', 'Native session ID (resume)': 'nativeSession', Status: 'status', Model: 'model', Effort: 'effort', Access: 'access', Network: 'network', Approvals: 'approvals', Mode: 'mode', Connection: 'connection', Directory: 'directory' }
-const INTERNAL_ROWS: Record<string, string> = { 'Thread ID': 'threadId', 'Project ID': 'projectId', 'Workspace ID': 'workspaceId', Generation: 'generation', Operation: 'operation', Hooks: 'hooks' }
+const INTERNAL_ROWS: Record<string, string> = { 'Conversation ID': 'threadId', 'Project ID': 'projectId', 'Workspace ID': 'workspaceId', Generation: 'generation', Operation: 'operation', Hooks: 'hooks' }
 
 /** The dialog a desktop command opens: confirmations, command output, rename, resume, delegations and permission rules. Loaded on demand. */
 export default function ThreadCommandDialog({ panel, snapshot, pending, error, onClose, onError, action, runCommand, onDelegations }: {
@@ -38,7 +40,7 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
   onDelegations?: () => void
 }) {
   const { t } = useTranslation('thread')
-  const [rename, setRename] = useState(snapshot?.thread.title ?? '')
+  const [rename, setRename] = useState(namedThreadTitle(snapshot?.thread.title))
   const [resumeQuery, setResumeQuery] = useState('')
   const [nativeResumeId, setNativeResumeId] = useState('')
   const api = window.oxe?.thread
@@ -66,7 +68,7 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
 
   const footer = panel.surface === 'rename'
     ? <><Button onClick={onClose}>{t('common.cancel')}</Button><Button type="submit" form="thread-rename-form" variant="primary" loading={pending} disabled={!canRename}>{t('commandDialog.rename')}</Button></>
-    : !panel.surface && output && panel.externalUrl ? <Button onClick={() => window.open(panel.externalUrl, '_blank', 'noopener,noreferrer')}>{t('commandDialog.openBrowser')}</Button>
+    : !panel.surface && output && panel.externalUrl ? <Button onClick={() => void openExternalLink(panel.externalUrl!, { source: 'app' })}>{t('commandDialog.openBrowser')}</Button>
     : !panel.surface && output && panel.text ? <Button onClick={() => void navigator.clipboard.writeText(panel.text!).catch(() => onError(t('commandDialog.copyFailed')))}>{t('commandDialog.copy')}</Button>
     : undefined
 
@@ -83,8 +85,8 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
     : panel.surface === 'sessions' ? <div className="thread-resume-sections">
       <label className="thread-resume-search">{t('commandDialog.find')}<TextField aria-label={t('commandDialog.find')} type="search" placeholder={t('commandDialog.findPlaceholder')} value={resumeQuery} onChange={event => setResumeQuery(event.target.value)} /></label>
       <section><h3>{t('commandDialog.saved')}</h3><p>{t('commandDialog.savedHint')}</p>
-        <div className="thread-panel-list">{useThreadStore.getState().threads.filter(thread => thread.id !== snapshot?.thread.id && thread.provider === snapshot?.thread.provider && thread.rootPath === snapshot?.thread.rootPath && resumeMatches([thread.title, thread.nativeSessionId, thread.id, thread.status])).map(thread => <button key={thread.id} type="button" disabled={pending} onClick={() => void action(() => runCommand(`/resume ${thread.id}`))}><strong>{thread.title}</strong><span>{thread.nativeSessionId ? t('commandDialog.session', { id: thread.nativeSessionId }) : t('commandDialog.notStarted')} · {thread.archived ? t('commandDialog.archived') : threadNavigationStatus(thread).label}</span></button>)}
-          {!useThreadStore.getState().threads.some(thread => thread.id !== snapshot?.thread.id && thread.provider === snapshot?.thread.provider && thread.rootPath === snapshot?.thread.rootPath && resumeMatches([thread.title, thread.nativeSessionId, thread.id, thread.status])) && <EmptyState compact title={resumeQuery ? t('commandDialog.noSavedMatch') : t('commandDialog.noSaved')} />}
+        <div className="thread-panel-list">{useThreadStore.getState().threads.filter(thread => thread.id !== snapshot?.thread.id && thread.provider === snapshot?.thread.provider && thread.rootPath === snapshot?.thread.rootPath && resumeMatches([displayThreadTitle(thread.title), thread.nativeSessionId, thread.id, thread.status])).map(thread => <button key={thread.id} type="button" disabled={pending} onClick={() => void action(() => runCommand(`/resume ${thread.id}`))}><strong>{displayThreadTitle(thread.title)}</strong><span>{thread.nativeSessionId ? t('commandDialog.session', { id: thread.nativeSessionId }) : t('commandDialog.notStarted')} · {thread.archived ? t('commandDialog.archived') : threadNavigationStatus(thread).label}</span></button>)}
+          {!useThreadStore.getState().threads.some(thread => thread.id !== snapshot?.thread.id && thread.provider === snapshot?.thread.provider && thread.rootPath === snapshot?.thread.rootPath && resumeMatches([displayThreadTitle(thread.title), thread.nativeSessionId, thread.id, thread.status])) && <EmptyState compact title={resumeQuery ? t('commandDialog.noSavedMatch') : t('commandDialog.noSaved')} />}
         </div>
       </section>
       <section><h3>{t('commandDialog.delegated')}</h3>{resume?.notice && <p role="status">{resume.notice}</p>}

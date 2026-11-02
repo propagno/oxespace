@@ -7,7 +7,6 @@
 .thread-navigation button:hover, .thread-view button:hover { background: color-mix(in srgb, var(--text-primary) 5%, transparent); }
 .thread-navigation button:focus-visible, .thread-view button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .thread-view button:disabled { opacity: .45; cursor: default; }
-.thread-resize { position: absolute; top: 0; bottom: 0; right: 0; width: 4px; z-index: var(--layer-sticky); cursor: ew-resize; touch-action: none; }
 /* Match Code's project → child tree while keeping conversation titles primary. */
 .thread-command-dialog .thread-panel-list button span { white-space: pre-line; overflow-wrap: anywhere; }
 .thread-resume-sections { display: grid; gap: 22px; min-height: 0; overflow-y: auto; padding-right: 8px; }
@@ -80,6 +79,8 @@
 .thread-native-link button { padding: 6px 10px; margin-bottom: 8px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: var(--text-primary); }
 /* The virtualizer and "Load earlier" correct scrollTop themselves; native anchoring added the same correction again and made scrolling up jump. */
 .thread-timeline { overflow-y: auto; overflow-x: hidden; min-height: 0; min-width: 0; overscroll-behavior: contain; scrollbar-gutter: stable; overflow-anchor: none; }
+/* WCAG 2.4.11: a control focused by keyboard scrolls into view below the sticky prompt pill, never under it. */
+.thread-timeline { scroll-padding-top: 40px; }
 .thread-timeline:focus-visible { outline: 1px solid var(--accent); outline-offset: -2px; }
 .thread-reading-column { width: min(100%, var(--thread-canvas-max)); max-width: none; padding: 16px clamp(20px, 3vw, 48px); margin: 0 auto; }
 .thread-virtual-space { width: 100%; min-height: 1px; }
@@ -135,18 +136,26 @@
 .thread-tool pre, .thread-approval pre { max-height: 220px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 10px 12px; margin: 0; border-top: 1px solid var(--border-default); font-size: var(--fs-2xs); }
 .thread-approval-actions { display: flex; gap: 8px; padding: 8px 10px; }
 .thread-approval-actions button { border: 1px solid var(--border-default); }
-.thread-approval-content { display: grid; gap: 12px; min-width: 0; padding: 14px; border-bottom: 1px solid var(--border-default); }
+/* Rows keep their content's height: in the request dock the card is height-capped, and boxes that clip (the command,
+   the preview) would otherwise shrink to nothing instead of the card scrolling (P1-8: the "empty" preview). */
+.thread-approval-content { display: grid; grid-auto-rows: max-content; gap: 12px; min-width: 0; padding: 14px; border-bottom: 1px solid var(--border-default); }
 .thread-approval-intent { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
 .thread-approval-intent > svg { flex-shrink: 0; margin-top: 2px; color: var(--accent); }
 .thread-approval-intent > div { display: grid; gap: 4px; min-width: 0; }
 .thread-approval-intent strong { font-size: var(--fs-sm); line-height: 1.45; }
 .thread-approval-intent span, .thread-approval-reason { color: var(--text-muted); font-size: var(--fs-xs); overflow-wrap: anywhere; }
 .thread-approval-reason { margin: 0; }
-.thread-approval-preview { min-width: 0; overflow: hidden; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-canvas); }
+.thread-approval-preview, .thread-approval-exact { min-width: 0; overflow: hidden; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-canvas); }
 .thread-approval-preview-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; padding: 8px 11px; border-bottom: 1px solid var(--border-default); font-size: var(--fs-xs); }
 .thread-approval-preview-heading small { color: var(--text-muted); font-size: var(--fs-2xs); }
-.thread-approval-preview pre, .thread-approval-raw pre { max-height: 300px; margin: 0; padding: 12px; overflow: auto; color: var(--text-secondary); font: var(--fs-xs)/1.55 var(--font-mono); white-space: pre; tab-size: 2; }
+.thread-approval-preview pre, .thread-approval-raw pre, .thread-approval-exact pre, .thread-approval-agent pre { max-height: 300px; margin: 0; padding: 12px; overflow: auto; color: var(--text-secondary); font: var(--fs-xs)/1.55 var(--font-mono); white-space: pre; tab-size: 2; }
 .thread-approval-preview pre.is-structured { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* The exact command (P1-8): open, monospace, wrapped, scrollable; it is what runs. */
+.thread-approval-exact pre { max-height: 260px; color: var(--text-primary); white-space: pre-wrap; overflow-wrap: anywhere; }
+.thread-approval-exact > button { display: inline-flex; align-items: center; gap: 5px; margin: 0 0 8px 8px; padding: 5px 8px; font-size: var(--fs-2xs); }
+/* The agent's own words: the same dashed, sunken box as the approval modal's agent block. */
+.thread-approval-agent { min-width: 0; overflow: hidden; border: 1px dashed var(--border-strong); border-radius: var(--radius-md); background: var(--surface-sunken); }
+.thread-approval-agent pre { max-height: 160px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .thread-approval-plan { max-height: 320px; overflow: auto; padding: 0 12px; }
 .thread-approval-raw { min-width: 0; font-size: var(--fs-xs); color: var(--text-secondary); }
 .thread-approval-raw > summary { display: flex; align-items: center; gap: 6px; width: fit-content; cursor: pointer; }
@@ -308,7 +317,8 @@
 .thread-connection-notice.is-warning { color: var(--dot-yellow); }
 .thread-connection-notice.is-connected { color: var(--text-muted); }
 .thread-action-error { max-height: 120px; overflow: auto; overflow-wrap: anywhere; }
-.thread-create-dialog label, .thread-auth-code label { display: grid; gap: 8px; margin: 16px 0; font-size: var(--fs-xs); }
+/* :where keeps this at the specificity it always had, so the agent cards' own label rule still wins. */
+.thread-create-dialog label:where(:not(:has(> input[type='checkbox']))), .thread-auth-code label { display: grid; gap: 8px; margin: 16px 0; font-size: var(--fs-xs); }
 .thread-create-dialog select, .thread-create-dialog input:not([type='checkbox'], [type='radio']), .thread-auth-code input { min-height: var(--control-h); min-width: 0; width: 100%; padding: 8px 10px; background: var(--surface-raised); color: var(--text-primary); border: 1px solid var(--border-default); border-radius: var(--nav-radius); font: inherit; }
 .thread-project-folder-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
 .thread-create-dialog .thread-dialog-error { color: var(--dot-red); }
@@ -324,7 +334,6 @@
 @media (max-width: 1000px) { .thread-heading { padding: 0 16px; gap: 10px; } .thread-heading-context { max-width: 160px; } .thread-reading-column { padding: 16px; } .thread-composer-dock { padding: 0 calc(16px + var(--thread-scrollbar-width, 0px)) 12px 16px; } }
 @media (max-height: 600px) { .thread-composer-dock { padding-bottom: 8px; } .thread-composer { padding: 10px; } .thread-welcome { margin-top: 8px; } .thread-connection-notice { padding-top: 2px; padding-bottom: 4px; min-height: 32px; } }
 
-.thread-resize:hover, .thread-resize:focus-visible { background: color-mix(in srgb, var(--accent) 35%, transparent); }
 .thread-create-dialog p, .thread-account-card p, .thread-accounts-dialog p { font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.5; }
 
 .thread-configuration { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; min-width: 0; }
@@ -434,6 +443,9 @@
 .thread-create-dialog .thread-create-section>label, .thread-agent-choice legend { margin: 0; color: var(--text-primary); font-size: var(--fs-xs); font-weight: 600; }
 .thread-create-dialog .thread-create-section>p { margin: 0; color: var(--text-muted); font-size: var(--fs-2xs); }
 .thread-create-dialog .thread-worktree-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.thread-create-dialog .thread-worktree-failure { margin-top: 12px; }
+.thread-worktree-finish .thread-worktree-finish-list { margin: 0 0 12px; padding-left: 18px; color: var(--text-primary); font-size: var(--fs-xs); }
+.thread-worktree-finish p { margin: 0; color: var(--text-muted); font-size: var(--fs-2xs); }
 .thread-create-dialog .thread-create-section select { min-height: 40px; padding-inline: 12px; background: var(--surface-canvas); }
 .thread-project-settings-body { min-height: 0; overflow-y: auto; padding: 0 4px 4px; }
 .thread-project-settings .thread-create-section { padding-top: 16px; border-top: 1px solid var(--border-default); }

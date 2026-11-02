@@ -1,0 +1,61 @@
+/* Settings › Devices: the phone gateway, pairing by QR, paired phones and what a phone may do. */
+.page { display: grid; gap: var(--space-4); }
+.intro { margin: 0; color: var(--text-secondary); font-size: var(--text-sm); }
+.stack { display: grid; gap: var(--space-3); }
+.meta { margin: 0; color: var(--text-muted); font-size: var(--text-xs); }
+.note {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--intent-info-border);
+  border-radius: var(--radius-md);
+  background: var(--intent-info-bg);
+  color: var(--intent-info-fg);
+  font-size: var(--text-sm);
+}
+.row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-2); }
+.row > :first-child { flex: 1 1 220px; }
+.actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+/* Pairing: the QR next to its text alternative. */
+.offer { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: flex-start; }
+.qr {
+  /* design-lint-disable — scanners need dark modules on a light ground in either mode, so the QR keeps fixed colors. */
+  background: #ffffff;
+  color: #000000;
+  /* design-lint-enable */
+  width: 200px;
+  height: 200px;
+  flex: none;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+.details { display: grid; gap: var(--space-2); margin: 0; min-width: 0; flex: 1 1 240px; }
+.details dt { color: var(--text-muted); font-size: var(--text-xs); }
+.details dd { margin: 0; font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-primary); overflow-wrap: anywhere; }
+.verification {
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.2em;
+  color: var(--text-primary);
+}
+
+/* Paired phones. */
+.list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.device {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+.deviceText { display: grid; gap: var(--space-1); flex: 1 1 200px; min-width: 0; }
+.deviceName { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--text-primary); overflow-wrap: anywhere; }
+
+/* What a phone can and cannot do. */
+.scope { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-4); }
+.scope h4 { margin: 0 0 var(--space-2); font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--text-primary); }
+.scope ul { margin: 0; padding-left: var(--space-4); display: grid; gap: var(--space-1); font-size: var(--text-sm); color: var(--text-secondary); }

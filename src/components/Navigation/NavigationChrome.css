@@ -20,7 +20,7 @@
 .sidebar-redesign .sidebar-search-wrap { margin: 0 12px 16px; }
 .sidebar-redesign .sidebar-section-header { padding: 8px 12px; height: 32px; }
 .sidebar-redesign .sidebar-section-header > span, .thread-project-list h2, .settings-nav-caption { color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: 500; text-transform: none; letter-spacing: 0; }
-.sidebar-redesign .ws-group-name { font-size: var(--fs-sm); font-weight: 500; line-height: 1.5; }
+.sidebar-redesign .ws-group-name { font-size: var(--fs-sm); font-weight: 500; line-height: var(--target-min); }
 .sidebar-redesign .ws-group.active .ws-group-name { font-weight: 500; }
 .sidebar-redesign .ws-group.active > .ws-group-header { border-left-color: transparent; background: var(--nav-selected); }
 .sidebar-redesign .ws-group.active:not(.drop-before):not(.drop-after)::before { display: none; }

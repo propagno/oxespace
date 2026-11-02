@@ -1,3 +1,4 @@
+import { modeButton } from './helpers/modes'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -46,7 +47,7 @@ test('the activity center lists what needs you, opens it, and marks everything r
     // A click goes to the conversation and marks that entry read.
     await needsYou.getByRole('button', { name: /Fix the login bug/ }).click()
     await expect(center).toBeHidden()
-    await expect(page.getByRole('button', { name: 'Thread', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(modeButton(page, 'thread')).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByTestId('activity-count')).toHaveText('1')
 
     // The palette command opens it again; "Mark all as read" clears the count.

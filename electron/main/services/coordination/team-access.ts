@@ -66,10 +66,10 @@ export class TeamAccess {
   setDeliveryFromUi(teamId: string, revision: number, memberId: string, enabled: boolean): void {
     const team = this.snapshotFromUi(teamId), member = team.members.find(m => m.id === memberId && !m.archived)
     if (team.revision !== revision || !member) throw Error('Team changed; refresh first')
-    if (enabled && (member.connection?.state !== 'connected' || member.connection.owner.kind !== 'thread')) throw Error('Automatic delivery requires a connected Thread session. Code agents read the inbox through MCP.')
+    if (enabled && (member.connection?.state !== 'connected' || member.connection.owner.kind !== 'thread')) throw Error('Automatic delivery requires a connected OxeChat session. OxeCode agents read the inbox through MCP.')
     if (enabled) {
       const row = this.db.prepare('SELECT data_json FROM conversation_threads WHERE id=?').get(member.connection!.owner.id) as { data_json: string } | undefined
-      if (!row) throw Error('Thread is no longer available')
+      if (!row) throw Error('This conversation is no longer available')
       const thread = JSON.parse(row.data_json) as { provider: string; access?: string }
       if (thread.provider === 'claude' && (!thread.access || thread.access === 'read-only')) throw Error('Claude read-only disables MCP. Choose native permissions before enabling Team delivery.')
     }

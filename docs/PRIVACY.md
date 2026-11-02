@@ -19,10 +19,10 @@ Everything lives in the per-user application data directory (Electron's `userDat
 
 | Data | What it holds | Kept |
 |---|---|---|
-| SQLite database | Workspaces, panes, Thread conversations and history, tasks, settings, MCP server definitions | Until you delete it |
+| SQLite database | Workspaces, panes, OxeChat conversations and history, tasks, settings, MCP server definitions | Until you delete it |
 | Database backups | A verified copy taken before an upgrade changes the database | The five most recent |
-| Composer drafts | Text you typed in a Thread message box and did not send, as plain text | Seven days after the last edit |
-| Thread attachments | Images you attached, in a private store under opaque names | On your machine |
+| Composer drafts | Text you typed in an OxeChat message box and did not send, as plain text | Seven days after the last edit |
+| OxeChat attachments | Images you attached, in a private store under opaque names | On your machine |
 | Project memory | Optional, off by default (Beta); local memory across worktrees | On your machine |
 | Semantic index | Embeddings and a text index of your project, built on this machine by a bundled model | On your machine |
 | Diagnostics log | A bounded runtime log | Three files of 512 KiB, seven days |
@@ -36,7 +36,7 @@ Project files are never copied: workspaces reference folders on disk.
   with the operating system's secure storage (`safeStorage`). If the system cannot encrypt, the
   Linear key is **refused** rather than saved in plain text; a key an earlier version saved
   unencrypted is still read, and the Linear panel asks you to reconnect.
-- **MCP server secrets** are stored with the server definition. For a Thread they are passed to the
+- **MCP server secrets** are stored with the server definition. For an OxeChat conversation they are passed to the
   agent process through its environment, not on the command line.
 - **Composer drafts** are plain text. A secret you paste into a message box and leave unsent stays on
   disk for up to seven days.

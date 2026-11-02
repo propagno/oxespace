@@ -257,7 +257,6 @@
   opacity: 0.45;
 }
 
-.linear-error,
 .linear-notice {
   flex-shrink: 0;
   border-top: 1px solid var(--bd-subtle);
@@ -266,8 +265,8 @@
 }
 
 .linear-error {
-  background: var(--intent-danger-bg);
-  color: var(--intent-danger-fg);
+  flex-shrink: 0;
+  margin: 8px 14px;
 }
 
 .linear-notice {

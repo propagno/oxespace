@@ -1,3 +1,5 @@
+import type { MainMessage } from '../messages'
+
 export type McpTransport = 'stdio' | 'http' | 'sse'
 
 export interface McpStdioConfig {
@@ -19,6 +21,15 @@ export interface McpHttpConfig {
 export type McpServerConfig = McpStdioConfig | McpHttpConfig
 
 /**
+ * The config a person last trusted, without a secret (shared/mcp-trusted.ts): environment and header KEYS only,
+ * secret-looking argument values replaced by `[redacted]`, and the URL as origin and path (no user info, query or
+ * fragment). What a moved config is compared with.
+ */
+export type McpTrustedSnapshot =
+  | { transport: 'stdio'; command: string; args: string[]; envKeys: string[] }
+  | { transport: 'http' | 'sse'; url: string; headerKeys: string[] }
+
+/**
  * What OXESpace remembers since the person trusted a server (see electron/main/services/mcp-guard.ts).
  * A server whose tools or descriptions changed afterwards is quarantined: untrusted until the person
  * trusts it again. Secrets never appear here, only what to tell the person.
@@ -26,7 +37,15 @@ export type McpServerConfig = McpStdioConfig | McpHttpConfig
 export interface McpServerGuard {
   /** The tools and descriptions seen since trust are remembered, so a later change can be told. */
   toolsRemembered: boolean
-  quarantine: { at: number; reasons: string[]; added: string[]; removed: string[]; changed: string[] } | null
+  /**
+   * `reasons` are English sentences, kept for records written before `codes` existed and for anything that reads
+   * them. `codes` say the same as message codes the window translates (shared/messages.ts); absent on older records.
+   */
+  quarantine: {
+    at: number; reasons: string[]; codes?: MainMessage[]; added: string[]; removed: string[]; changed: string[]
+    /** The config as last trusted, to show next to the server's current one; absent on records written before it existed. */
+    trusted?: McpTrustedSnapshot
+  } | null
 }
 
 /**
@@ -36,10 +55,18 @@ export interface McpServerGuard {
 export type McpHealthStatus = 'unknown' | 'starting' | 'healthy' | 'needs-auth' | 'unhealthy'
 
 export interface McpServer {
+  /** `healthMessage` as a message code the window translates (C3). */
+  healthMessageCode?: import('../messages').MainMessage
   id: string
   /** Null = global (cross-workspace). */
   workspaceId: string | null
   name: string
+  /**
+   * The server's key in a conversation and in `.mcp.json`, and the `server` of its tool rules (B7.3), so the window can
+   * group rules under its servers: `serverKey(name)`, with `-2`, `-3`… when two servers of the scope (the global ones
+   * with the workspace's) normalize alike, in creation order. Main fills it on every server it returns.
+   */
+  key?: string
   transport: McpTransport
   config: McpServerConfig
   enabled: boolean
@@ -55,6 +82,12 @@ export interface McpServer {
   createdAtMs: number
   updatedAtMs: number
 }
+
+/**
+ * The key a configured server gets from its name: in a conversation, in `.mcp.json`, in policy resources
+ * (`mcp__<key>__<tool>`) and in tool rules. One function for main and the window.
+ */
+export const serverKey = (name: string): string => name.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'mcp-server'
 
 /** A test run to explain a failure: the tested server and the Node.js a Node-based server runs on. */
 export interface McpDiagnosis { server: McpServer; node: string | null }
@@ -96,6 +129,8 @@ export interface McpCallToolResult {
 }
 
 export interface McpServerHealthEvent {
+  /** The sentence above as a message code the window translates (C3); the text stays for logs and older clients. */
+  messageCode?: import('../messages').MainMessage
   serverId: string
   status: McpHealthStatus
   message: string | null

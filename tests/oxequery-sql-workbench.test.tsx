@@ -41,6 +41,7 @@ const run = (): void => { fireEvent.click(screen.getAllByRole('button', { name: 
 describe('SqlWorkbench', () => {
   it('runs the statement in the editor and shows its rows', async () => {
     render(<SqlWorkbench connection={connection()} />)
+    await screen.findByLabelText('SQL editor') // Monaco loads with the first SQL tab, not with the view
     await waitFor(() => expect(api.callsOf('workspace.load')).toHaveLength(1))
     type('SELECT id, name FROM users')
     run()
@@ -50,6 +51,7 @@ describe('SqlWorkbench', () => {
 
   it('asks for the value of :name before running, and sends it as a parameter', async () => {
     render(<SqlWorkbench connection={connection()} />)
+    await screen.findByLabelText('SQL editor') // Monaco loads with the first SQL tab, not with the view
     await waitFor(() => expect(api.callsOf('workspace.load')).toHaveLength(1))
     type('SELECT * FROM users WHERE id = :id')
     run()
@@ -63,6 +65,7 @@ describe('SqlWorkbench', () => {
 
   it('keeps a transaction the person opened visible until it is ended', async () => {
     render(<SqlWorkbench connection={connection()} />)
+    await screen.findByLabelText('SQL editor') // Monaco loads with the first SQL tab, not with the view
     api.on('sql.tx', (input: Record<string, unknown>) => input.action === 'begin' ? { state: 'open', statements: 0, since: Date.now() } : { state: 'none', statements: 0 })
     fireEvent.click(await screen.findByRole('button', { name: 'Begin transaction' }))
     expect(await screen.findByText(/Transaction open/)).toBeInTheDocument()
@@ -80,6 +83,7 @@ describe('SqlWorkbench', () => {
   it('opens a table from the tree, and asks the server to order it by a clicked column', async () => {
     api.on('sql.browse', users)
     render(<SqlWorkbench connection={connection()} />)
+    await screen.findByLabelText('SQL editor') // Monaco loads with the first SQL tab, not with the view
     const row = await screen.findByRole('treeitem', { name: 'users' })
     fireEvent.click(row)
     await screen.findByRole('gridcell', { name: 'alice' })
@@ -90,6 +94,7 @@ describe('SqlWorkbench', () => {
 
   it('shows the error with its code, and a reconnect bar when the connection dropped', async () => {
     render(<SqlWorkbench connection={connection()} />)
+    await screen.findByLabelText('SQL editor') // Monaco loads with the first SQL tab, not with the view
     await waitFor(() => expect(api.callsOf('workspace.load')).toHaveLength(1))
     api.on('sql.run', () => { throw Object.assign(new Error('x'), refusal('query', 'Connection terminated unexpectedly')) })
     type('SELECT 1')
@@ -100,6 +105,7 @@ describe('SqlWorkbench', () => {
 
   it('asks before a destructive statement the server flags, and runs it only when confirmed', async () => {
     render(<SqlWorkbench connection={connection()} />)
+    await screen.findByLabelText('SQL editor') // Monaco loads with the first SQL tab, not with the view
     await waitFor(() => expect(api.callsOf('workspace.load')).toHaveLength(1))
     api.on('sql.run', (input: Record<string, unknown>) => {
       if (input.confirmed !== true) throw refusal('confirm', 'This statement is destructive and needs confirmation.', ['DELETE inside WITH has no WHERE clause.'])
@@ -115,6 +121,7 @@ describe('SqlWorkbench', () => {
 
   it('asks about a statement the lint marks as destructive before it reaches the server', async () => {
     render(<SqlWorkbench connection={connection()} />)
+    await screen.findByLabelText('SQL editor') // Monaco loads with the first SQL tab, not with the view
     await waitFor(() => expect(api.callsOf('workspace.load')).toHaveLength(1))
     type('DROP TABLE users')
     run()
@@ -132,6 +139,7 @@ describe('SqlWorkbench', () => {
 
   it('does not interrupt a read, a safe write or a statement with a WHERE', async () => {
     render(<SqlWorkbench connection={connection()} />)
+    await screen.findByLabelText('SQL editor') // Monaco loads with the first SQL tab, not with the view
     await waitFor(() => expect(api.callsOf('workspace.load')).toHaveLength(1))
     for (const [index, sql] of ['SELECT * FROM users', "UPDATE users SET name = 'x' WHERE id = 1", 'DELETE FROM users WHERE id = 2'].entries()) {
       type(sql)
@@ -149,6 +157,7 @@ describe('SqlWorkbench', () => {
 
     it('asks for the connection name before a write, and sends it with the run', async () => {
       render(<SqlWorkbench connection={connection(production)} />)
+      await screen.findByLabelText('SQL editor') // Monaco loads with the first SQL tab, not with the view
       await waitFor(() => expect(api.callsOf('workspace.load')).toHaveLength(1))
       api.on('sql.run', (input: Record<string, unknown>) => {
         if (input.confirmName !== 'shop-prod') throw refusal('confirm-name', 'This is a production connection. Type its name to run a statement that changes data.')
@@ -174,6 +183,7 @@ describe('SqlWorkbench', () => {
 
     it('does not run when the dialog is cancelled, and does not carry a typed name into the next one', async () => {
       render(<SqlWorkbench connection={connection(production)} />)
+      await screen.findByLabelText('SQL editor') // Monaco loads with the first SQL tab, not with the view
       await waitFor(() => expect(api.callsOf('workspace.load')).toHaveLength(1))
       api.on('sql.run', () => { throw refusal('confirm-name', 'Type its name.') })
       type("UPDATE users SET name = 'x' WHERE id = 1")
@@ -190,6 +200,7 @@ describe('SqlWorkbench', () => {
 
     it('puts the name in the same dialog as the destructive warning', async () => {
       render(<SqlWorkbench connection={connection(production)} />)
+      await screen.findByLabelText('SQL editor') // Monaco loads with the first SQL tab, not with the view
       await waitFor(() => expect(api.callsOf('workspace.load')).toHaveLength(1))
       type('DELETE FROM users')
       run()
@@ -203,8 +214,40 @@ describe('SqlWorkbench', () => {
       expect(api.callsOf('sql.run')).toHaveLength(1)
     })
 
+    it('shows each flagged statement with its line and reason, and the whole script, before the typed name (P1-18)', async () => {
+      render(<SqlWorkbench connection={connection(production)} />)
+      await waitFor(() => expect(api.callsOf('workspace.load')).toHaveLength(1))
+      const script = `${Array.from({ length: 1301 }, (_, index) => `SELECT ${index};`).join('\n')}\nDELETE FROM users;`
+      type(script)
+      fireEvent.click(screen.getByRole('button', { name: 'Run all' }))
+      const confirm = await screen.findByRole('dialog', { name: 'This statement is destructive' })
+      const flagged = within(confirm).getAllByTestId('oxequery-confirm-flagged')
+      expect(flagged).toHaveLength(1)
+      expect(flagged[0]).toHaveTextContent('Line 1302')
+      expect(flagged[0]).toHaveTextContent('DELETE without WHERE')
+      expect(within(flagged[0]).getByRole('region', { name: 'Statement on line 1302' })).toHaveTextContent('1302DELETE FROM users')
+      const whole = within(confirm).getByTestId('oxequery-confirm-script')
+      expect(whole.textContent).toContain('1302DELETE FROM users;')
+      expect(within(confirm).getByText('What will run (1,302 statements)')).toBeInTheDocument()
+      // The statements come before the name field, so nobody types a name for something they have not seen.
+      const field = within(confirm).getByLabelText('Type shop-prod to continue')
+      expect(flagged[0].compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(api.callsOf('sql.script')).toHaveLength(0)
+    })
+
+    it('shows the exact statement for a production write the server flags', async () => {
+      render(<SqlWorkbench connection={connection(production)} />)
+      await waitFor(() => expect(api.callsOf('workspace.load')).toHaveLength(1))
+      api.on('sql.run', () => { throw refusal('confirm-name', 'Type its name.') })
+      type("UPDATE users SET name = 'x' WHERE id = 1")
+      run()
+      const confirm = await screen.findByRole('dialog', { name: 'Change data on production?' })
+      expect(within(confirm).getByTestId('oxequery-confirm-script')).toHaveTextContent("1UPDATE users SET name = 'x' WHERE id = 1")
+    })
+
     it('does not ask for the name to read', async () => {
       render(<SqlWorkbench connection={connection(production)} />)
+      await screen.findByLabelText('SQL editor') // Monaco loads with the first SQL tab, not with the view
       await waitFor(() => expect(api.callsOf('workspace.load')).toHaveLength(1))
       type('SELECT id FROM users LIMIT 10')
       run()
@@ -215,6 +258,7 @@ describe('SqlWorkbench', () => {
 
     it('asks for the name before an ANALYZE of a write, and sends it', async () => {
       render(<SqlWorkbench connection={connection(production)} />)
+      await screen.findByLabelText('SQL editor') // Monaco loads with the first SQL tab, not with the view
       await waitFor(() => expect(api.callsOf('workspace.load')).toHaveLength(1))
       api.on('sql.explain', (input: Record<string, unknown>) => {
         if (input.confirmName !== 'shop-prod') throw refusal('confirm-name', 'Type its name.', ['ANALYZE runs the statement.'])
@@ -241,6 +285,7 @@ describe('SqlWorkbench', () => {
   it('shows a connection that policy keeps read-only, and does not offer a transaction', async () => {
     api.on('safety.get', { readOnly: true, readOnlyBy: 'policy', typedConfirmation: false, maxRows: 500, maxRowsCeiling: 100_000, statementTimeoutMs: 60_000 })
     render(<SqlWorkbench connection={connection()} />)
+    await screen.findByLabelText('SQL editor') // Monaco loads with the first SQL tab, not with the view
     const badge = await screen.findByText('read-only by policy')
     expect(badge).toHaveAttribute('title', expect.stringContaining('policy'))
     expect(screen.queryByRole('group', { name: 'Transaction' })).toBeNull()

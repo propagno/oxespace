@@ -12,7 +12,7 @@ import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useWorktreeStore } from '../../store/worktree.store'
 import { deriveStatusTone } from '../../utils/paneDisplay'
-import { Button, ConfirmDialog, EmptyState, ErrorState, LoadingState } from '../../ui'
+import { Button, ConfirmDialog, EmptyState, ErrorState, LoadingState, Notice } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 
 /** "idle for 3 days", "active today", in the interface language. */
@@ -148,7 +148,7 @@ export function WorktreeCleanupPanel({ workspaceId, rootPath }: { workspaceId: s
         </ul>
       )}
       {risky.length > 0 ? (
-        <p className="worktree-remove-confirm-body" role="alert">{t('worktree.cleanup.risky', { count: risky.length })}</p>
+        <Notice intent="warning">{t('worktree.cleanup.risky', { count: risky.length })}</Notice>
       ) : null}
       {message ? <p className="worktree-remove-confirm-body" role="status">{message}</p> : null}
       <div className="worktree-remove-confirm-actions">

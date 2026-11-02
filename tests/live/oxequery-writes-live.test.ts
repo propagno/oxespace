@@ -556,6 +556,44 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
     db.close()
   })
 
+  it("an agent's read never closes the person's transaction, and does not see its uncommitted row (B14)", async () => {
+    await exec('CREATE TABLE b14_rows (id serial PRIMARY KEY, name text NOT NULL)')
+    const db = openInMemoryDatabase()
+    const deps: GatewayDeps = {
+      list: () => [{ id: 'pg', name: 'live', engine: 'postgres', environment: 'dev', readOnly: false, agentAccess: 'read' } as never],
+      resolve: () => pg,
+      // As the worker runs a request: tracked on its own slot (the connection carries role 'agent').
+      call: async (op, connection, input) => {
+        const value = input as { sql: string; maxRows?: number }
+        if (op === 'sql.run') return core.track(connection!, () => core.sqlRun(connection!, value.sql, { maxRows: value.maxRows })) as never
+        if (op === 'sql.cancel') return { cancelled: await core.sqlCancel(connection!) } as never
+        return {} as never
+      },
+      containers: { list: async () => ({ containers: [] }), logsTail: async () => '', action: async () => undefined },
+      broker: new ApprovalBroker({ ask: async () => 'allow-once' }),
+      audit: new AuditLog(db)
+    }
+    const gateway = new AgentGateway(deps)
+    const actor = { key: 'b14', label: 'thread:b14' }
+
+    // The person begins a transaction and inserts a row, on the same connection the agent is about to read.
+    await core.sqlRun(pg, 'BEGIN')
+    await core.sqlRun(pg, `INSERT INTO b14_rows (name) VALUES ('pending')`)
+    const read = await gateway.handle('oxespace_db_query', { connection: 'live', sql: `SELECT count(*) FROM b14_rows WHERE name = 'pending'` }, actor) as { rows: unknown[][] }
+    // The agent read on its own backend, so it does not see the uncommitted row...
+    expect(String(read.rows[0][0])).toBe('0')
+    // ...and the person's transaction is still open: the read did not close or reopen their session.
+    expect(core.txState(pg)).toMatchObject({ state: 'open', statements: 1 })
+    await core.sqlRun(pg, 'COMMIT')
+    expect(core.txState(pg).state).toBe('none')
+    expect(await scalar(`SELECT count(*) FROM b14_rows WHERE name = 'pending'`)).toBe('1')
+    // Now committed, the agent sees it.
+    const after = await gateway.handle('oxespace_db_query', { connection: 'live', sql: `SELECT count(*) FROM b14_rows WHERE name = 'pending'` }, actor) as { rows: unknown[][] }
+    expect(String(after.rows[0][0])).toBe('1')
+    await core.closeConnection('pg', 'agent')
+    db.close()
+  })
+
   it('creates a database container, lists resources and refuses to remove what is in use', async () => {
     const runtime = new ContainerRuntime({ host: new LocalExecutionHost(), emit: () => undefined, preferred: () => ENGINE })
     const name = `oxe-new-${suffix}`

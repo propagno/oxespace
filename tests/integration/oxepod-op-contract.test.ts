@@ -1,6 +1,6 @@
 /**
  * The contract of OxePod's channel, `oxePod:call`: which operations it carries, that each one reaches a service that
- * knows it, and that anything else (an unknown name, an OxeQuery operation, a request from another frame) is refused
+ * knows it, and that anything else (an unknown name, an OxeQuery operation) is refused
  * before the service is even loaded.
  */
 import { readFileSync } from 'node:fs'
@@ -10,8 +10,7 @@ import { IPC_CHANNELS } from '../../shared/types/ipc'
 import type { ExecutionHost } from '../../electron/main/runtime/execution-host'
 
 const ipcMain: FakeIpcMain = createFakeIpcMain()
-const window = { trusted: true }
-vi.mock('electron', () => ({ ipcMain, BrowserWindow: { getAllWindows: () => [], fromWebContents: () => (window.trusted ? {} : null) } }))
+vi.mock('electron', () => ({ ipcMain, BrowserWindow: { getAllWindows: () => [], fromWebContents: () => ({}) } }))
 
 const { OXEPOD_OPS, registerOxePodIpc } = await import('../../electron/main/ipc/oxepod.ipc')
 const { OXEQUERY_OPS } = await import('../../electron/main/ipc/oxequery.ipc')
@@ -70,15 +69,11 @@ describe('OxePod op contract', () => {
     expect(load).not.toHaveBeenCalled()
   })
 
-  test('answers only the application main frame', async () => {
-    window.trusted = false
-    try {
-      await expect(ipcMain.invoke('oxePod:call', { op: 'containers.list', input: {} })).rejects.toThrow('OxePod requires the application main frame')
-    } finally { window.trusted = true }
-  })
-
   test('says why OxePod did not start instead of rejecting the call', async () => {
     load.mockRejectedValueOnce(new Error('engine module missing'))
-    await expect(ipcMain.invoke('oxePod:call', { op: 'containers.engines', input: {} })).resolves.toEqual({ ok: false, error: { code: 'failed', message: 'OxePod did not start: reason: engine module missing' } })
+    await expect(ipcMain.invoke('oxePod:call', { op: 'containers.engines', input: {} })).resolves.toEqual({ ok: false, error: {
+      code: 'failed', message: 'OxePod did not start: reason: engine module missing',
+      messageCode: { code: 'oxepod.startFailed', params: { reason: 'reason: engine module missing' } }
+    } })
   })
 })

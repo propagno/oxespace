@@ -27,8 +27,8 @@ export function installFakeOxeQuery(): FakeOxeQuery {
     const handler = handlers.get(op)
     if (!handler) return { ok: false, error: { code: 'failed', message: `No answer scripted for ${op}.` } }
     try { return { ok: true, value: handler(input) } } catch (error) {
-      const info = error as { code?: string; message?: string; reasons?: string[] }
-      return { ok: false, error: { code: info.code ?? 'failed', message: info.message ?? 'failed', ...(info.reasons ? { reasons: info.reasons } : {}) } }
+      const info = error as { code?: string; message?: string; reasons?: string[]; codes?: unknown[] }
+      return { ok: false, error: { code: info.code ?? 'failed', message: info.message ?? 'failed', ...(info.reasons ? { reasons: info.reasons } : {}), ...(info.codes ? { codes: info.codes } : {}) } }
     }
   })
   const target = window as unknown as { oxe?: Record<string, unknown> }

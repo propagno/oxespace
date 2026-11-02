@@ -31,7 +31,7 @@ process.stdin.on('data', chunk => {
 describe('OAuth bridge start', () => {
   afterEach(() => openExternal.mockReset())
 
-  it('waits for the sign-in, opens the page itself when the bridge does not, and keeps one start per server', async () => {
+  it('waits for the sign-in, never opens the page by itself, and keeps one start per server', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'oxe-mcp-signin-'))
     // The file name ends in "mcp-remote", which is what marks a server as an OAuth bridge.
     const script = join(dir, 'mcp-remote')
@@ -49,7 +49,10 @@ describe('OAuth bridge start', () => {
       expect(joined.map(tool => tool.name)).toEqual(['search'])
       expect(tools.map(tool => tool.name)).toEqual(['search'])
       expect(events.some(event => event.status === 'starting' && /sign in/i.test(event.message ?? ''))).toBe(true)
-      // mcp-remote never said "Browser opened automatically", so OXESpace opened the page.
+      // mcp-remote never said "Browser opened automatically", and still nothing opened: the page waits for a click.
+      expect(openExternal).not.toHaveBeenCalled()
+      openExternal.mockResolvedValue(undefined)
+      expect(manager.openSignIn('srv')).toBe(true)
       expect(openExternal).toHaveBeenCalledWith('https://auth.example.test/authorize?client_id=abc')
       expect(openExternal).toHaveBeenCalledTimes(1)
     } finally { manager.stopAll() }

@@ -1,3 +1,4 @@
+import { modeButton } from './helpers/modes'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtempSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -104,7 +105,7 @@ test('OxeQuery opens on its connections and queries PostgreSQL and MongoDB from 
     await expect(page.locator('.oq-documents')).toContainText('"n": 60')
 
     // Leaving and returning keeps the open connections.
-    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'Code' }).click()
+    await modeButton(page, 'code').click()
     await expect(page.locator('.oq-view')).toBeHidden()
     await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
     await expect(page.getByRole('tab', { name: 'mongo-dev' })).toBeVisible()

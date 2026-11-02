@@ -36,6 +36,6 @@ test('Team opens from the title bar, the command palette and the Tools hub, and 
 
     await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
     await expect(team).toBeDisabled()
-    await expect(team).toHaveAttribute('title', 'Team is available in Code and Thread')
+    await expect(team).toHaveAttribute('title', 'Team is available in OxeCode and OxeChat')
   } finally { await app.close() }
 })

@@ -23,6 +23,10 @@ const MEMORY_RUN = process.env.OXESPACE_MEMORY_RUN_ID || ''
 const OPTIONAL_MEMORY = process.argv.includes('--optional-memory')
 const allowIndex = process.argv.indexOf('--allowed-tools')
 const allowedTools = allowIndex < 0 ? null : new Set(JSON.parse(process.argv[allowIndex + 1]))
+// Groups this session may turn on with oxespace_tools_enable: { group: [tool, ...] } (B7.2). Off groups are never here.
+const enableIndex = process.argv.indexOf('--enableable-groups')
+const enableable = enableIndex < 0 || !allowedTools ? null : JSON.parse(process.argv[enableIndex + 1])
+const enabledGroups = new Set()
 const PROTOCOL_VERSION = '2025-06-18'
 const SERVER_NAME = 'oxespace'
 const SERVER_VERSION = '0.1.0'
@@ -37,7 +41,8 @@ const READ_ONLY_TOOLS = new Set([
   'oxespace_delegation_inbox', 'oxespace_delegation_targets', 'oxespace_delegation_preflight',
   'oxespace_documentation_get', 'oxespace_documentation_list', 'oxespace_git',
   'oxespace_github', 'oxespace_threads', 'oxespace_tasks', 'oxespace_skills', 'oxespace_automations', 'oxespace_linear',
-  'oxespace_terminal', 'oxespace_mcp_servers', 'oxespace_search', 'oxespace_usage', 'oxespace_settings', 'oxespace_integration'
+  'oxespace_terminal', 'oxespace_mcp_servers', 'oxespace_search', 'oxespace_usage', 'oxespace_settings', 'oxespace_integration',
+  'oxespace_diagnostics'
 ])
 
 if ((!PORT || !TOKEN) && !OPTIONAL_MEMORY) {
@@ -52,6 +57,38 @@ function send(envelope) {
 
 function ok(id, result) {
   send({ jsonrpc: '2.0', id, result })
+}
+
+const textResult = (data, isError = false) => ({ content: [{ type: 'text', text: JSON.stringify(data) }], ...(isError ? { isError: true } : {}) })
+
+/**
+ * oxespace_tools_enable, answered here: the bridge owns this session's tool list. Turning a group on adds its tools and
+ * tells the client the list changed; policy and each tool's own level still apply when a tool is called.
+ */
+function enableGroup(args) {
+  const group = args && typeof args === 'object' && !Array.isArray(args) && Object.keys(args).length === 1 ? args.group : undefined
+  if (typeof group !== 'string') return textResult({ status: 'error', code: 'INVALID_ARGUMENTS', message: 'Pass { "group": "<name>" }.' }, true)
+  if (group === 'team' || group === 'worker') return textResult({ status: 'error', code: 'ROLE_GROUP', message: `The ${group} tools follow the conversation's role and cannot be turned on.` }, true)
+  const tools = enableable && Object.prototype.hasOwnProperty.call(enableable, group) ? enableable[group] : null
+  if (!tools) return textResult({ status: 'error', code: 'GROUP_UNAVAILABLE', message: `The ${group} group is already offered, turned off for this project, or unknown. oxespace_capabilities lists the groups.` }, true)
+  const already = enabledGroups.has(group)
+  enabledGroups.add(group)
+  for (const tool of tools) allowedTools.add(tool)
+  if (!already) send({ jsonrpc: '2.0', method: 'notifications/tools/list_changed' })
+  return textResult({ status: 'ok', group, tools, note: 'If these tools do not appear in your tool list, this client did not reload it: ask the person to start a new conversation, or to set the group to always in Settings > Tools.' })
+}
+
+/** Adds this session's groups to oxespace_capabilities: which were turned on here and which still can be. */
+function withSessionGroups(result) {
+  if (!enableable || !result || !Array.isArray(result.content) || !result.content[0] || typeof result.content[0].text !== 'string') return result
+  try {
+    const body = JSON.parse(result.content[0].text)
+    if (!body || typeof body !== 'object' || !body.data || typeof body.data !== 'object') return result
+    body.data.sessionToolGroups = { enabled: [...enabledGroups], available: Object.keys(enableable).filter(group => !enabledGroups.has(group)), enableWith: 'oxespace_tools_enable' }
+    return { ...result, content: [{ ...result.content[0], text: JSON.stringify(body) }, ...result.content.slice(1)] }
+  } catch {
+    return result
+  }
 }
 
 function err(id, code, message, data) {
@@ -160,7 +197,7 @@ async function dispatch(msg) {
   if (msg.method === 'initialize') {
     ok(msg.id, {
       protocolVersion: PROTOCOL_VERSION,
-      capabilities: { tools: {} },
+      capabilities: { tools: enableable ? { listChanged: true } : {} },
       serverInfo: { name: SERVER_NAME, version: SERVER_VERSION }
     })
     return
@@ -186,9 +223,10 @@ async function dispatch(msg) {
   if (msg.method === 'tools/call') {
     if (allowedTools && !allowedTools.has(msg.params && msg.params.name)) return err(msg.id, -32602, 'This tool is not available in Thread')
     if (OPTIONAL_MEMORY && (!PORT || !TOKEN || !MEMORY_RUN)) return err(msg.id, -32602, 'Memory is not bound to an OXESpace execution')
+    if (enableable && msg.params.name === 'oxespace_tools_enable') return ok(msg.id, enableGroup(msg.params.arguments))
     try {
       const result = await rpc('tools/call', msg.params, READ_ONLY_TOOLS.has(msg.params && msg.params.name))
-      ok(msg.id, result || { content: [] })
+      ok(msg.id, msg.params && msg.params.name === 'oxespace_capabilities' ?withSessionGroups(result || { content: [] }) : result || { content: [] })
     } catch (e) {
       err(msg.id, e.code || -32603, e.message || 'tools/call failed', e.data)
     }

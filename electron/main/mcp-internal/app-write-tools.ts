@@ -1,6 +1,7 @@
 import type { ToolContext, ToolEntry } from './tool-registry'
 import { bool, codeWorkspace, domainTool, int, parsed, service, str, type ActionScope, type Args } from './domain-tool'
 import { ActionRefused } from '../services/agent-actions/agent-actions'
+import { mainMessage, type MainMessage } from '../../../shared/messages'
 import {
   parseGitHubCreateCheckpointInput, parseGitHubCreatePullRequestInput, parseGitHubCreateReleaseInput, parseGitHubFileInput,
   parseGitHubRestoreCheckpointInput, parseGitHubWorkflowRunInput, parseTaskCreateInput, parseTaskReorderInput, parseTaskUpdateInput
@@ -8,6 +9,20 @@ import {
 import type { ConversationThread } from '../../../shared/types/thread'
 import type { Task } from '../../../shared/types/task'
 import { lazy } from './app-settings-tools'
+import { displayKey, execGit } from '../utils/safe-git'
+
+/**
+ * Where `git push` would send the branch, as git resolves it (push remote, `pushurl`, `pushInsteadOf`), so the person
+ * approves the real destination and not a remote name the repository can repoint (SECURITY #387 H3).
+ */
+async function pushDestination(rootPath: string, branch: string | null | undefined): Promise<string> {
+  try {
+    const ref = branch ? `refs/heads/${branch}` : 'HEAD'
+    const remote = (await execGit(rootPath, ['for-each-ref', '--format=%(push:remotename)', ref], { timeout: 5000 })).stdout.trim() || 'origin'
+    const url = (await execGit(rootPath, ['remote', 'get-url', '--push', '--', remote], { timeout: 5000 })).stdout.trim()
+    return url ? `${displayKey(remote, 60)}: ${displayKey(url, 300)}` : 'unknown'
+  } catch { return 'unknown' }
+}
 
 /**
  * Tools that change the app. They are separate from the read tools so a
@@ -52,30 +67,40 @@ const GIT_CHANGE = domainTool('oxespace_git_change', 'Change the Git state of yo
     run: (args, scope, ctx) => github(ctx).commit({ ...workspaceInput(scope), message: text(args, 'message', 5000) }) },
   create_branch: { level: 'write', description: 'Create a branch at HEAD without switching to it.', properties: { name: { type: 'string', maxLength: 200 } }, required: ['name'],
     run: (args, scope, ctx) => github(ctx).createBranch({ ...workspaceInput(scope), name: refName(args, 'name')!, checkout: false }) },
-  fetch: { level: 'write', description: 'Fetch from the remotes.', run: (_a, scope, ctx) => github(ctx).fetch(workspaceInput(scope)) },
-  pull: { level: 'write', description: 'Pull, fast-forward only.', run: (_a, scope, ctx) => github(ctx).pullFfOnly(workspaceInput(scope)) },
+  // Fetch and pull leave this machine, so a person approves them; only then does git get its transports
+  // (electron/main/utils/safe-git-person.ts).
+  fetch: {
+    level: 'confirm', description: 'Fetch from the remotes.',
+    confirm: (_a, scope) => ({ summary: `fetch the remotes of ${scope.name}`, text: `git fetch --all --prune\nin ${scope.rootPath}` }),
+    run: (_a, scope, ctx) => github(ctx).fetch(workspaceInput(scope), { reason: 'mcp-approved:fetch' })
+  },
+  pull: {
+    level: 'confirm', description: 'Pull, fast-forward only.',
+    confirm: (_a, scope) => ({ summary: `pull ${scope.name}, fast-forward only`, text: `git pull --ff-only\nin ${scope.rootPath}` }),
+    run: (_a, scope, ctx) => github(ctx).pullFfOnly(workspaceInput(scope), { reason: 'mcp-approved:pull' })
+  },
   create_checkpoint: { level: 'write', description: 'Save a named checkpoint of the work tree.', properties: { description: { type: 'string', maxLength: 2000 } }, required: ['name'],
     run: (args, scope, ctx) => github(ctx).createCheckpoint(parsed(() => parseGitHubCreateCheckpointInput({ ...workspaceInput(scope), name: text(args, 'name', 200), description: args.description }))) },
   checkout: {
     level: 'confirm', description: 'Switch the work tree to another branch. Every terminal and Thread in this folder sees the switch.', required: ['name'],
-    confirm: (args, scope) => ({ summary: `switch ${scope.name} to branch ${refName(args, 'name')}`, text: `git checkout ${refName(args, 'name')}\nin ${scope.rootPath}`, reasons: ['Other terminals and Threads working in this folder will see the other branch.'] }),
-    run: (args, scope, ctx) => github(ctx).checkoutBranch({ rootPath: scope.rootPath, name: refName(args, 'name')! })
+    confirm: (args, scope) => ({ summary: `switch ${scope.name} to branch ${refName(args, 'name')}`, text: `git checkout ${refName(args, 'name')}\nin ${scope.rootPath}`, notes: [mainMessage('approvals.note.git.branchShared', {})] }),
+    run: (args, scope, ctx) => github(ctx).checkoutBranch({ rootPath: scope.rootPath, name: refName(args, 'name')! }, { reason: 'mcp-approved:checkout' })
   },
   push: {
     level: 'confirm', description: 'Push the current branch to its upstream.',
     confirm: async (_a, scope, ctx) => {
       const status = await ctx.git?.getStatus(scope.rootPath)
       const what = status ? `${status.branch ?? 'HEAD'} → ${status.upstream ?? 'its upstream'} (${status.ahead} commit${status.ahead === 1 ? '' : 's'} ahead)` : 'the current branch'
-      return { summary: `push ${status?.branch ?? 'the current branch'}`, text: `git push\n${what}\nin ${scope.rootPath}` }
+      return { summary: `push ${status?.branch ?? 'the current branch'}`, text: `git push\n${what}\nto ${await pushDestination(scope.rootPath, status?.branch)}\nin ${scope.rootPath}` }
     },
-    run: (_a, scope, ctx) => github(ctx).push(workspaceInput(scope))
+    run: (_a, scope, ctx) => github(ctx).push(workspaceInput(scope), { reason: 'mcp-approved:push' })
   },
   restore_checkpoint: {
     level: 'confirm', description: 'Restore the work tree to a checkpoint; current changes are replaced.', properties: { checkpointId: { type: 'string', maxLength: 200 } }, required: ['checkpointId'],
     confirm: (args, scope, ctx) => {
       const checkpoint = github(ctx).listCheckpoints(workspaceInput(scope)).find(item => item.id === id(args, 'checkpointId'))
       if (!checkpoint) throw new ActionRefused('No checkpoint with that id here.', 'not-found')
-      return { summary: `restore checkpoint "${checkpoint.name}"`, text: `Restore checkpoint "${checkpoint.name}"\nin ${scope.rootPath}`, reasons: ['Uncommitted changes in the work tree are replaced.'] }
+      return { summary: `restore checkpoint "${checkpoint.name}"`, text: `Restore checkpoint "${checkpoint.name}"\nin ${scope.rootPath}`, notes: [mainMessage('approvals.note.checkpoint.replaces', {})] }
     },
     run: (args, scope, ctx) => github(ctx).restoreCheckpoint(parsed(() => parseGitHubRestoreCheckpointInput({ ...workspaceInput(scope), checkpointId: args.checkpointId })))
   },
@@ -97,14 +122,14 @@ const GITHUB_CHANGE = domainTool('oxespace_github_change', 'Act on GitHub for yo
   },
   set_auto_merge: {
     level: 'confirm', description: 'Turn auto-merge on or off for a pull request.', properties: { number: { type: 'integer', minimum: 1 }, enable: { type: 'boolean' } }, required: ['number', 'enable'],
-    confirm: (args) => ({ summary: `${bool(args, 'enable', true) ? 'turn on' : 'turn off'} auto-merge for #${int(args, 'number', 0, 1, Number.MAX_SAFE_INTEGER)}`, text: `Auto-merge ${bool(args, 'enable', true) ? 'ON' : 'OFF'} for pull request #${int(args, 'number', 0, 1, Number.MAX_SAFE_INTEGER)}`, reasons: bool(args, 'enable', true) ? ['The pull request merges by itself once its checks and reviews pass.'] : [] }),
+    confirm: (args) => ({ summary: `${bool(args, 'enable', true) ? 'turn on' : 'turn off'} auto-merge for #${int(args, 'number', 0, 1, Number.MAX_SAFE_INTEGER)}`, text: `Auto-merge ${bool(args, 'enable', true) ? 'ON' : 'OFF'} for pull request #${int(args, 'number', 0, 1, Number.MAX_SAFE_INTEGER)}`, notes: bool(args, 'enable', true) ? [mainMessage('approvals.note.github.autoMerge', {})] : [] }),
     run: (args, scope, ctx) => github(ctx).setPullRequestAutoMerge({ ...workspaceInput(scope), number: int(args, 'number', 0, 1, Number.MAX_SAFE_INTEGER), enable: bool(args, 'enable', true) })
   },
   create_release: {
     level: 'confirm', description: 'Create a release and its tag.',
     properties: { tagName: { type: 'string', maxLength: 200 }, title: { type: 'string', maxLength: 300 }, draft: { type: 'boolean' }, notes: { type: 'string', maxLength: 5000 }, generateNotes: { type: 'boolean' }, prerelease: { type: 'boolean' } },
     required: ['tagName'],
-    confirm: (args) => ({ summary: `publish release ${refName(args, 'tagName')}`, text: `${bool(args, 'draft', false) ? 'Draft release' : bool(args, 'prerelease', false) ? 'Pre-release' : 'Release'} ${args.tagName}${args.title ? ` "${args.title}"` : ''}${bool(args, 'generateNotes', false) ? '\nNotes generated by GitHub' : ''}\n\n${str(args, 'notes', 5000) ?? ''}`, reasons: bool(args, 'draft', false) ? [] : ['A published release is visible to everyone with access to the repository and may notify watchers.'] }),
+    confirm: (args) => ({ summary: `publish release ${refName(args, 'tagName')}`, text: `${bool(args, 'draft', false) ? 'Draft release' : bool(args, 'prerelease', false) ? 'Pre-release' : 'Release'} ${args.tagName}${args.title ? ` "${args.title}"` : ''}${bool(args, 'generateNotes', false) ? '\nNotes generated by GitHub' : ''}\n\n${str(args, 'notes', 5000) ?? ''}`, notes: bool(args, 'draft', false) ? [] : [mainMessage('approvals.note.github.releasePublic', {})] }),
     run: (args, scope, ctx) => github(ctx).createRelease(parsed(() => parseGitHubCreateReleaseInput({ ...workspaceInput(scope), tagName: refName(args, 'tagName'), title: args.title, notes: args.notes, generateNotes: args.generateNotes, prerelease: args.prerelease, draft: args.draft })))
   },
   run_workflow: {
@@ -141,7 +166,7 @@ async function targetThread(args: Args, scope: ActionScope, ctx: ToolContext): P
 
 const ownedNote = 'A person approves unless the Thread was created by the caller (oxespace_thread_create or Agent Work).'
 
-function ownedOrAsk(verb: (thread: ConversationThread, args: Args) => { summary: string; text: string; reasons?: string[] }) {
+function ownedOrAsk(verb: (thread: ConversationThread, args: Args) => { summary: string; text: string; notes?: MainMessage[] }) {
   return async (args: Args, scope: ActionScope, ctx: ToolContext) => {
     const { thread, owned } = await targetThread(args, scope, ctx)
     return owned ? null : verb(thread, args)
@@ -152,7 +177,7 @@ const THREADS_CHANGE = domainTool('oxespace_threads_change', 'Drive other Thread
   send: {
     level: 'confirm', description: 'Send a message (queued if the Thread is working).', approvalNote: ownedNote,
     properties: { threadId: { type: 'string', maxLength: 200 }, text: { type: 'string', minLength: 1, maxLength: 20_000 } }, required: ['threadId', 'text'],
-    confirm: ownedOrAsk((thread, args) => ({ summary: `send a message to "${thread.title}"`, text: text(args, 'text', 20_000), reasons: ['The other conversation will act on this message with its own access.'] })),
+    confirm: ownedOrAsk((thread, args) => ({ summary: `send a message to "${thread.title}"`, text: text(args, 'text', 20_000), notes: [mainMessage('approvals.note.thread.actsOnMessage', {})] })),
     run: async (args, scope, ctx) => { const { thread } = await targetThread(args, scope, ctx); await (await ctx.threads!).send(thread.id, text(args, 'text', 20_000)); return { sent: true } }
   },
   steer: {
@@ -188,7 +213,7 @@ const THREADS_CHANGE = domainTool('oxespace_threads_change', 'Drive other Thread
   },
   archive: {
     level: 'confirm', description: 'Archive a Thread (it can be restored by the person).', required: ['threadId'],
-    confirm: async (args, scope, ctx) => { const { thread } = await targetThread(args, scope, ctx); return { summary: `archive "${thread.title}"`, text: `Archive the Thread "${thread.title}"`, reasons: thread.status === 'running' ? ['Its running turn is stopped first.'] : [] } },
+    confirm: async (args, scope, ctx) => { const { thread } = await targetThread(args, scope, ctx); return { summary: `archive "${thread.title}"`, text: `Archive the Thread "${thread.title}"`, notes: thread.status === 'running' ? [mainMessage('approvals.note.agent.turnStopped', {})] : [] } },
     run: async (args, scope, ctx) => { const { thread } = await targetThread(args, scope, ctx); await (await ctx.threads!).command(thread.id, '/archive confirm'); return { archived: true } }
   }
 })

@@ -126,7 +126,7 @@ export class OxeService {
     }
     const parsed = extractJson<OxeStatus>(result.stdout)
     if (!parsed) {
-      return { installed: true, version: detected.version, isOxeProject: true, status: null, error: 'Could not parse `oxe status --json` output.' }
+      return { installed: true, version: detected.version, isOxeProject: true, status: null, error: 'Could not parse `oxe status --json` output.', messageCode: { code: 'oxe.status.unreadable', params: {} } }
     }
     return { installed: true, version: detected.version, isOxeProject: true, status: parsed, error: null }
   }
@@ -210,7 +210,7 @@ export class OxeService {
       }
       const timer = setTimeout(() => {
         try { child.kill() } catch { /* gone */ }
-        done({ ok: false, url: null, port: null, mode: null, error: 'The dashboard did not respond in time.' })
+        done({ ok: false, url: null, port: null, mode: null, error: 'The dashboard did not respond in time.', messageCode: { code: 'oxe.dashboard.timeout', params: {} } })
       }, DASHBOARD_LINE_TIMEOUT_MS)
       child.stdout?.setEncoding('utf8')
       const rl = createInterface({ input: child.stdout! })
