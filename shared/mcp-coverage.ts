@@ -22,7 +22,7 @@ export type McpCapability =
   | Base & { forbidden: string }
 
 /** The user's standing rule: these never become MCP tools. Each must be a `forbidden` capability. */
-export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'linear.token', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'git.repo_hook_approval', 'remote.gateway_admin', 'approvals.admin', 'mcp_internal.tool_groups_admin', 'app.open_external', 'mcp.tool_rules_admin'] as const
+export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'linear.token', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'git.repo_hook_approval', 'remote.gateway_admin', 'approvals.admin', 'mcp_internal.tool_groups_admin', 'app.open_external', 'mcp.tool_rules_admin', 'policy.accept_change'] as const
 
 /** No tool name or domain action may look like one of these. */
 export const FORBIDDEN_NAME = /approv|permission|access|sign_?in|log_?in|log_?out|token|secret|credential|password|api_?key|trust|host_?key/i
@@ -374,7 +374,12 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['contextUsage.get', 'agentCredits.get']
   },
   'usage.copilot': { label: 'GitHub Copilot allowance', excluded: 'No agent OXESpace starts runs on Copilot; the panel is for Copilot panes.', ipc: ['copilot.credits'] },
-  'settings.policy': { label: 'Organization policy in force', tools: each('oxespace_settings', 'read', ['policy']), ipc: ['policy.get'] },
+  'settings.policy': { label: 'Organization policy in force', tools: each('oxespace_settings', 'read', ['policy']), ipc: ['policy.get', 'policy.onChanged'] },
+  'policy.accept_change': {
+    label: 'Accept, or review again, a policy file changed outside OXESpace (B7.4)',
+    forbidden: 'Person-only, like an approval: accepting an outside change to the rules is what keeps an agent from widening them.',
+    ipc: ['policy.acceptChange', 'policy.reviewChange']
+  },
   'settings.app': {
     label: 'Appearance, UI scale, app updates, RTK, agent hooks',
     excluded: 'The person\'s app maintenance; installing hooks writes into the agents\' own configuration.',

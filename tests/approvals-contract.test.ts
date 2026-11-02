@@ -16,7 +16,7 @@ describe('approvals contract (B10)', () => {
   })
 
   it('fixes the kinds, risks, intents and refusals', () => {
-    expect(APPROVAL_KINDS).toEqual(['action', 'mcp-confirm', 'oxequery', 'preview-automation', 'crash'])
+    expect(APPROVAL_KINDS).toEqual(['action', 'mcp-confirm', 'oxequery', 'preview-automation', 'crash', 'policyChange'])
     expect(APPROVAL_RISKS).toEqual(['low', 'medium', 'high', 'critical'])
     expect(APPROVAL_INTENTS).toEqual(['deny', 'allow', 'allow-session'])
     expect(APPROVAL_REFUSALS).toEqual(['notPending', 'staleGeneration', 'alreadyAnswered', 'unknownOption', 'alreadyReported', 'tooSoon', 'notShown'])
