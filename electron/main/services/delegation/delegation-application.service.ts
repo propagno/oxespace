@@ -18,7 +18,8 @@ import { captureDelegationSessions } from './delegation-session-context'
 import type { ThreadDelegationHost } from './thread-delegation-host'
 import { execGit } from '../../utils/safe-git'
 import { codedMessage, execPersonGit } from '../../utils/safe-git-person'
-import { mainMessage } from '../../../../shared/messages'
+import { mainMessage, type MainMessage } from '../../../../shared/messages'
+import { englishText } from '../../agent-text'
 
 const terminalStates = new Set<DelegationState>(['cancelled', 'approved'])
 export interface DelegationDependencies {
@@ -50,6 +51,8 @@ export class DelegationApplicationService {
   private recoveries = new Map<string, Promise<void>>()
   private locks = new Map<string, Promise<void>>()
   private closing = false
+  /** B6.2: refused takeovers already recorded, one event per task and intruding session (a loop cannot flood the timeline). */
+  private readonly takeoverRefusals = new Set<string>()
   private previews = new Map<string, { workspaceId: string; objective: string; intent: string; baseSha: string; branch: string; path: string; expires: number }>()
   constructor(private db: AppDatabase, private deps: DelegationDependencies) {
     this.repository = new DelegationRepository(db)
@@ -392,11 +395,35 @@ export class DelegationApplicationService {
       this.canonicalPath(execution.canonicalRoot) !== this.canonicalPath(task.originCwd) || this.isDelegatedExecution(task, execution)) {
       throw new Error('Delegation is outside this execution scope')
     }
+    // B6.2: reconnecting by itself is only for the requester's own owner (the same pane, or the same conversation),
+    // whose session ended (its CLI quit, an app restart). While the requester runs, nobody takes its control; another
+    // owner of the same checkout never does by itself, even once it ended: that is the person's `adopt` (SECURITY #196).
+    if (execution.paneId !== task.originPaneId || this.deps.executions.isLive(task.originExecutionId)) {
+      this.refuseTakeover(task, execution)
+    }
     this.coordinator.checkTask(task)
-    await this.coordinator.bind(task, 'requester', execution)
+    // Checked and claimed in one synchronous step, on the task as read now: two sessions racing cannot both pass, and
+    // nothing written while an await ran is overwritten. The binding comes after; if it fails, the claim is undone.
+    const previous = task.originExecutionId
     task.originExecutionId = execution.id
     this.save(task)
+    try {
+      await this.coordinator.bind(task, 'requester', execution)
+    } catch (error) {
+      const current = this.get(task.id)
+      if (current.originExecutionId === execution.id) { current.originExecutionId = previous; this.save(current) }
+      throw error
+    }
     this.event(task, 'origin-reconnected', 'Requester control moved to a live session in the original checkout')
+  }
+  private refuseTakeover(task: DelegationTask, execution: AgentExecution): never {
+    const key = `${task.id}\0${execution.id}`
+    if (!this.takeoverRefusals.has(key)) {
+      if (this.takeoverRefusals.size >= 1024) this.takeoverRefusals.clear()
+      this.takeoverRefusals.add(key)
+      this.event(task, 'origin-takeover-refused', 'Another session tried to take over requester control; refused.')
+    }
+    throw new DelegationRequesterLiveError()
   }
   async authorize(execution: AgentExecution, id: string, options?: { reconnectRequester?: boolean }): Promise<DelegationTask> {
     try { execution = this.deps.executions.authenticate(execution.id, execution.token, execution.workspaceId) }
@@ -634,4 +661,17 @@ export class DelegationApplicationService {
     }
   }
   async stop(): Promise<void> { this.closing = true; await Promise.allSettled([...this.pending.values(), ...this.recoveries.values()]) }
+}
+
+/**
+ * Requester control stays with its session (B6.2): the agent reads the catalog's English text (`englishText`), and
+ * `reason` carries the C3 code for any window that shows it.
+ */
+export class DelegationRequesterLiveError extends Error {
+  readonly code = 'delegation.requester.live'
+  readonly reason: MainMessage = mainMessage('delegation.requester.live', {})
+  constructor() {
+    super(englishText(mainMessage('delegation.requester.live', {})))
+    this.name = 'DelegationRequesterLiveError'
+  }
 }

@@ -325,7 +325,8 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'notify.prefix.unknownConversation': ['conversation', 'title'],
   'notify.refused.reservedName': ['name'],
   'notify.refused.rateLimit': ['perMinute'],
-  'agents.name.reserved': ['name']
+  'agents.name.reserved': ['name'],
+  'delegation.requester.live': []
 }
 
 describe('C3 message codes', () => {
