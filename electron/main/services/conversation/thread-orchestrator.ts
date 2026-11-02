@@ -771,6 +771,16 @@ export class ThreadOrchestrator {
     this.save(snapshot, { eventsFrom: snapshot.events.length })
   }
 
+  /** T40: the person keeps the conversation through the close of PR `prNumber`; stored in the thread's data, no column. */
+  keepAfterPr(id: string, prNumber: number): void {
+    const snapshot = this.read(id)
+    const kept = snapshot.thread.keptAfterPr ?? []
+    if (kept.includes(prNumber)) return
+    // Bounded: a conversation outlives few pull requests; the oldest go first.
+    snapshot.thread.keptAfterPr = [...kept, prNumber].slice(-20)
+    this.save(snapshot, { eventsFrom: snapshot.events.length })
+  }
+
   commands(id: string, forceRefresh = false): Promise<ThreadCommandCatalog> {
     return this.commandService?.list(this.readThread(id), forceRefresh) ?? Promise.resolve({ commands: [] })
   }

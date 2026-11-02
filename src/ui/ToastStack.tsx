@@ -18,7 +18,7 @@ function useAutoDismiss(item: ToastItem, paused: boolean): void {
     if (left.current.item !== item) left.current = { item, ms: item.timeout }
     if (!item.timeout || paused) return
     const started = Date.now()
-    const timer = setTimeout(() => dismissToast(item.id), left.current.ms)
+    const timer = setTimeout(() => { dismissToast(item.id); item.onTimeout?.() }, left.current.ms)
     return () => { clearTimeout(timer); left.current.ms = Math.max(0, left.current.ms - (Date.now() - started)) }
   }, [item, paused])
 }

@@ -8,6 +8,11 @@ export interface ToastInput {
   action?: { label: string; run: () => void }
   /** Milliseconds before it closes on its own, overriding the reading-time rule; 0 keeps it until dismissed. */
   duration?: number
+  /**
+   * Runs only when the toast closes on its own: its time ran out, counted only while not paused by hover or focus.
+   * Never on dismiss, Escape or its action. For an offer that happens unless the person acts (T40).
+   */
+  onTimeout?: () => void
 }
 export interface ToastItem extends ToastInput {
   id: number
