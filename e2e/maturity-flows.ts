@@ -139,7 +139,7 @@ export function registerMaturityFlows(options: MaturityFlowsOptions): void {
       }
       await card.getByRole('button', { name: 'Agent settings' }).click()
       // The providers page of the settings center, not just any settings screen.
-      await expect(page.getByTestId('providers-summary')).toBeVisible()
+      await expect(page.getByTestId('btn-discover-agents')).toBeVisible()
     } finally {
       await app.close()
     }
