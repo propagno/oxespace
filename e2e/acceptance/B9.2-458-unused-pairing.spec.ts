@@ -97,6 +97,12 @@ test('B9.2/#458: a pairing never signed in is revoked after 2 min; quitting drop
     out.acceptedVia2 = await acceptInWindow(page)
     out.paired2 = (await answered2).status
     out.devicesBeforeQuit = await oxe(page, 'window.oxe.remote.devices().then(l => l.map(d => d.name))')
+    // A person's quit (app.quit, so before-quit and will-quit run), not app.exit.
+    const proc = app.process()
+    await app.evaluate(({ app }) => { setTimeout(() => app.quit(), 50) }).catch(() => undefined)
+    const quitStart = Date.now()
+    while (proc.exitCode === null && Date.now() - quitStart < 20_000) await new Promise(r => setTimeout(r, 250))
+    out.quitMs = proc.exitCode === null ? 'did not exit' : Date.now() - quitStart
     await quitReal(app)
     ;({ app, page } = await launchReal(profile))
     out.devicesAfterRelaunch = await oxe(page, 'window.oxe.remote.devices().then(l => l.map(d => d.name))')
