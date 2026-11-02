@@ -164,6 +164,23 @@ enum class RemotePairingErrorCode(val wire: String) {
     }
 }
 
+/**
+ * The four risk words of the desktop's approval modal (`APPROVAL_RISKS`), the one list the phone's risk fields use
+ * (pending requests here, agent rows in S7.1). A test keeps it equal to the desktop's list and to the field above.
+ */
+@Serializable
+enum class RemoteApprovalRisk(val wire: String) {
+    @SerialName("low") LOW("low"),
+    @SerialName("medium") MEDIUM("medium"),
+    @SerialName("high") HIGH("high"),
+    @SerialName("critical") CRITICAL("critical"),
+    ;
+
+    companion object {
+        fun fromWire(wire: String): RemoteApprovalRisk? = entries.firstOrNull { it.wire == wire }
+    }
+}
+
 const val REMOTE_PAIRING_SCHEME: String = "oxespace"
 
 const val REMOTE_PAIRING_PATH: String = "/pair"
@@ -512,7 +529,11 @@ data class RemotePendingRequest(
     val toolName: String? = null,
     /** Files it would write, relative to the project root. */
     val paths: List<String>? = null,
-    /** The desktop's risk colour and notes for this request. */
+    /**
+     * The desktop's risk for this request, in the same four words the desktop's approval modal shows (CCR #364). Main
+     * fills it from riskFromShell / riskFromSql / the tool's declaration. A phone that reads an unknown value treats it
+     * as `critical` (Deny leading), as REMOTE_UNKNOWN_VALUES says (#354), so a later level needs no protocol bump.
+     */
     val risk: String? = null,
     val warnings: List<String>? = null,
     /** Values the redactor replaced in `command` and `warnings`. */
