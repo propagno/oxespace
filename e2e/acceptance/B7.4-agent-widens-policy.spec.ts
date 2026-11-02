@@ -253,13 +253,17 @@ test('B7.4: an agent widening the OXESpace policy waits for the person', async (
     await runAgent('write', payload('huge', HUGE_POLICY))
     await expectAskedThenDeny('(7) policy.json of 3 MB', null, denyKeepsDbDeny)
 
-    // (4) A narrowing edit: one more deny rule. Applies at once, with a notice, and asks nothing.
+    // (4) A narrowing edit: one more deny rule. Applies at once and asks nothing. DESIGN (1.4.0, decisoes.md): silently, by
+    // design; tightening is the safe direction, and its effect shows up as an approval request that explains itself.
     const beforeNarrow = (await pending()).length
     await runAgent('write', payload('narrow', NARROW_POLICY))
     await expect.soft.poll(() => policyText(), { timeout: 5_000, message: '(4) the narrowing applies at once (at the next read)' }).toContain('oxespace_git_change')
     expect.soft((await pending()).length, '(4) a narrowing asks nothing').toBe(beforeNarrow)
     await expect.soft.poll(async () => (await policyEvents()).map(e => e.message.code), { timeout: 5_000, message: '(4) main tells the window: policy.narrowed on policy.onChanged' }).toContain('policy.narrowed')
-    await expect.soft(page.locator('[data-toast]').or(page.getByRole('status')).or(page.getByRole('alert')).filter({ hasText: /policy|política/i }).first(), '(4) the person is told the rules got stricter').toBeVisible({ timeout: 5_000 })
+    await page.waitForTimeout(2_000)
+    expect.soft(await page.locator('[data-toast]').filter({ hasText: /policy|política|rules|regras/i }).count(), '(4) the narrowing shows no notice (DESIGN, 1.4.0)').toBe(0)
+    expect.soft(await policyText(), '(4) the stricter rule is in force').toContain('oxespace_git_change')
+    expect.soft(await policyText(), '(4) and the earlier deny with it').toContain('oxespace_db_execute')
 
     // (8) A fresh worktree of the same repo with a wider committed policy.json, opened as a workspace.
     const wt = join(root, 'wt-wide')
