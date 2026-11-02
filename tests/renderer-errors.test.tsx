@@ -86,7 +86,7 @@ describe('stack hash', () => {
 })
 
 describe('boundaries', () => {
-  const ids: RendererErrorBoundary[] = ['root', 'window', 'conversations', 'mode-view', 'sidebar', 'settings-page', 'workspace-grid', 'workspace-panel', 'pane', 'terminal', 'title-bar']
+  const ids: RendererErrorBoundary[] = ['root', 'window', 'conversations', 'mode-view', 'sidebar', 'settings-page', 'workspace-grid', 'workspace-panel', 'pane', 'terminal', 'title-bar', 'approvals']
   it.each(ids)('%s sends its id', async id => {
     render(<ErrorBoundary id={id} label="x"><Boom token="prop-value-xyz" /></ErrorBoundary>)
     await settle()
@@ -101,7 +101,8 @@ describe('boundaries', () => {
     const expected: Array<[string, RendererErrorBoundary[]]> = [
       ['src/main.tsx', ['root']], ['src/App.tsx', ['conversations', 'window']], ['src/app/UpdateChips.tsx', ['title-bar']], ['src/components/Activity/ActivityCenter.tsx', ['title-bar']], ['src/components/Voice/VoiceHudSlot.tsx', ['pane']], ['src/components/Navigation/ModeViews.tsx', ['sidebar', 'sidebar', 'mode-view']], ['src/components/Settings/SettingsCenter.tsx', ['settings-page']],
       ['src/components/Workspace/WorkspaceSurface.tsx', ['workspace-grid', 'workspace-panel']], ['src/components/Grid/WorkspaceGrid.tsx', ['pane']],
-      ['src/components/Grid/WorkspaceSplitGrid.tsx', ['pane']], ['src/components/Panes/TerminalPane.tsx', ['terminal']]
+      ['src/components/Grid/WorkspaceSplitGrid.tsx', ['pane']], ['src/components/Panes/TerminalPane.tsx', ['terminal']],
+      ['src/components/Approvals/ApprovalsHost.tsx', ['approvals']]
     ]
     for (const [file, wanted] of expected) {
       const found = [...readFileSync(join(ROOT, file), 'utf8').matchAll(/<ErrorBoundary\b[^>]*\bid="([^"]+)"/g)].map(match => match[1])

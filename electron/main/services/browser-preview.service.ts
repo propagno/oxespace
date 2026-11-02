@@ -137,11 +137,15 @@ export class BrowserPreviewService {
         meta.canGoForward = view.webContents.canGoForward()
         this.emit(current,{type:'navigation',url:next,canGoBack:meta.canGoBack,canGoForward:meta.canGoForward})
       }
-      view.webContents.on('did-navigate', (_event,next) => emitNavigation(next))
-      view.webContents.on('did-navigate-in-page', (_event,next) => emitNavigation(next))
+      // A same-document navigation (a #hash, history.pushState) keeps the page that was ready: Chromium reports it as a
+      // load (did-start-loading) but never a new dom-ready, so the window would think the page is still loading and
+      // keep design mode off (#243 CI). Say it is ready again once that load stops.
+      let inPage = false
+      view.webContents.on('did-navigate', (_event,next) => { inPage = false; emitNavigation(next) })
+      view.webContents.on('did-navigate-in-page', (_event,next,isMainFrame) => { if (isMainFrame) inPage = true; emitNavigation(next); if (isMainFrame && isCurrent() && !view.webContents.isLoading()) this.emit(current,{type:'ready'}) })
       view.webContents.on('page-title-updated', (_event,title) => { if (!isCurrent()) return; meta.title = title.slice(0,100); this.emit(current,{type:'title',title:meta.title}) })
       view.webContents.on('did-start-loading', () => { if (!isCurrent()) return; meta.loading = true; meta.error = null; this.emit(current,{type:'loading',loading:true}) })
-      view.webContents.on('did-stop-loading', () => { if (!isCurrent()) return; meta.loading = false; this.emit(current,{type:'loading',loading:false}) })
+      view.webContents.on('did-stop-loading', () => { if (!isCurrent()) return; meta.loading = false; this.emit(current,{type:'loading',loading:false}); if (inPage) { inPage = false; this.emit(current,{type:'ready'}) } })
       view.webContents.on('did-fail-load', (_event,code,description,_url,isMainFrame) => { if (!isCurrent()) return; if(code !== -3 && isMainFrame) { meta.loading = false; meta.error = description.slice(0,200); this.emit(current,{type:'failed',message:meta.error}) } })
       view.webContents.on('dom-ready', () => { if (isCurrent()) this.emit(current,{type:'ready'}) })
       view.webContents.once('destroyed', () => { if (this.tabs.get(key) === current) this.tabs.delete(key) })
@@ -270,13 +274,27 @@ export class BrowserPreviewService {
     tab.window.contentView.removeChildView(tab.view)
     tab.view.webContents.close()
   }
-  activeFor(workspaceId: string, owner?: ExecutionOwner): {guest:WebContents;window:BrowserWindow;external:boolean;tabId:string;sessionId:string} | null {
+  /**
+   * The owner's preview has agent access but is not reported visible right now: something covers it for a moment, such
+   * as the approval modal that just closed (#243). Not a grant: actions still need activeFor.
+   */
+  /** The owner's tabs the agent may use: one owner, workspace and thread, access on, not destroyed (the one access rule). */
+  private agentTabs(workspaceId: string, owner?: ExecutionOwner): { ownerKey: string; tabs: BrowserTab[] } {
     const ownerKey = owner?.kind === 'thread' ? `thread:${owner.id}` : workspaceId
-    const matches = [...this.tabs.values()].filter(tab => tab.ownerKey === ownerKey && tab.workspaceId === workspaceId && tab.threadId === (owner?.kind === 'thread' ? owner.id : undefined) && tab.visible && tab.agentAccess && !tab.view.webContents.isDestroyed())
+    return { ownerKey, tabs: [...this.tabs.values()].filter(tab => tab.ownerKey === ownerKey && tab.workspaceId === workspaceId && tab.threadId === (owner?.kind === 'thread' ? owner.id : undefined) && tab.agentAccess && !tab.view.webContents.isDestroyed()) }
+  }
+  coveredWithAccess(workspaceId: string, owner?: ExecutionOwner): boolean {
+    // Only the owner's active tab: a background tab is never visible and is not "covered" (#243 security review L2).
+    return this.agentTabs(workspaceId, owner).tabs.some(tab => !tab.visible && this.tabSessions.get(this.ownerKey(tab.window, tab.ownerKey))?.activeTabId === tab.tabId)
+  }
+  activeFor(workspaceId: string, owner?: ExecutionOwner): {guest:WebContents;window:BrowserWindow;external:boolean;tabId:string;sessionId:string} | null {
+    const { ownerKey, tabs } = this.agentTabs(workspaceId, owner)
+    const matches = tabs.filter(tab => tab.visible)
     if (matches.length !== 1) return null
     const tab = matches[0]
     return {guest:tab.view.webContents,window:tab.window,external:tab.allowExternal,tabId:tab.tabId,sessionId:this.sessionId(ownerKey)}
   }
+
   handleDesignMessage(sender: WebContents, type: 'grab'|'cancel', payload?: DesignGrabPayload): void {
     const tab = [...this.tabs.values()].find(item => item.view.webContents === sender)
     if (!tab || !tab.visible) return

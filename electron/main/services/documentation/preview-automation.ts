@@ -33,6 +33,8 @@ export function safePageUrl(raw: string): string {
   return `${url.origin}${url.pathname}${privateRoute ? `?route=${createHash('sha256').update(privateRoute).digest('hex').slice(0, 16)}` : ''}`
 }
 const CONFIRMED_ACTIONS = ['click', 'fill', 'navigate', 'scroll'] as const
+/** How long an allowed action waits for the preview to be reported visible again after the approval modal closes (#243). */
+const PREVIEW_BACK_MS = 1_500
 /** The question of the confirmation dialog, in the interface's language. */
 export function actionQuestion(action: PreviewRequest['action']): string {
   const known = CONFIRMED_ACTIONS.find(item => item === action)
@@ -88,6 +90,26 @@ export class PreviewAutomation {
     browserPreviewService.session(window,{ownerKey:key,action:input.action === 'selectTab' ? 'select' : 'close',tabId:input.tabId})
     return { sessionId:this.sessionId(workspaceId, owner), tabId:input.tabId, dispatched:true, verificationRequired:true }
   }
+  /**
+   * #243: the approval modal covers the native preview while it is up, so the window reports it not visible. Once
+   * the person allows, the modal closes and the window reports the preview visible again, a moment later over IPC:
+   * wait for that report (bounded) before the action checks the preview, or every allowed action would be refused.
+   * Access turned off meanwhile still refuses it; the check after this wait is unchanged.
+   */
+  private async previewBack(workspaceId: string, owner?: ExecutionOwner, timeoutMs = PREVIEW_BACK_MS): Promise<void> {
+    const until = Date.now() + timeoutMs
+    // A cancelled execution stops waiting at once (#243 security review L3); verify() then refuses it.
+    while (!browserPreviewService.activeFor(workspaceId, owner) && !executionSignal(owner)?.aborted && Date.now() < until) await new Promise(resolve => setTimeout(resolve, 25))
+  }
+  /**
+   * The same wait before any action starts, but only while the preview has access and is merely covered: the agent's
+   * next action right after a modal closed (#243 CI: a fill sent as the deny modal closed was refused). With access
+   * off, or no preview, it refuses at once as before.
+   */
+  private async uncovered(workspaceId: string, owner?: ExecutionOwner): Promise<void> {
+    const until = Date.now() + PREVIEW_BACK_MS
+    while (!browserPreviewService.activeFor(workspaceId, owner) && browserPreviewService.coveredWithAccess(workspaceId, owner) && !executionSignal(owner)?.aborted && Date.now() < until) await new Promise(resolve => setTimeout(resolve, 25))
+  }
   async assertAccess(workspaceId: string, verify: () => void, owner?: ExecutionOwner): Promise<void> { verify(); await this.target(workspaceId, owner); verify() }
   private async target(workspaceId: string, owner?: ExecutionOwner): Promise<{ guest: WebContents; window: BrowserWindow; external: boolean; tabId: string }> {
     const native = browserPreviewService.activeFor(workspaceId, owner)
@@ -110,6 +132,7 @@ export class PreviewAutomation {
   }
   private async exclusive<T>(workspaceId: string, verify: () => void, fn: (guest: WebContents, window: BrowserWindow, external: boolean, tabId: string) => Promise<T>, owner?: ExecutionOwner): Promise<T> {
     verify()
+    await this.uncovered(workspaceId, owner)
     const target = await this.target(workspaceId, owner)
     if (this.locks.has(target.guest.id)) throw new Error('Preview is busy; retry after the current operation')
     this.locks.add(target.guest.id)
@@ -183,6 +206,7 @@ export class PreviewAutomation {
       const confirmation = await approvalCenter.ask(previewDraft({ requester: previewRequester(owner, workspaceId), action: input.action, page: safePageUrl(initialUrl), text: input.action === 'navigate' ? safePageUrl(input.url ?? '') : input.action === 'fill' ? `${input.selector ?? ''}\n${input.text ?? ''}` : input.selector ?? '' }), executionSignal(owner))
       if (confirmation.intent !== 'allow') throw new Error('User declined browser action')
       verify()
+      await this.previewBack(workspaceId, owner)
       const current = await this.target(workspaceId, owner)
       if (current.guest.id !== guest.id || guest.getURL() !== initialUrl) throw new Error('Preview changed while awaiting approval; inspect again')
       if (input.action === 'navigate') {
