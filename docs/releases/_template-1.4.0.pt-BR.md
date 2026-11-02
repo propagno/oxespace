@@ -61,6 +61,12 @@ atualiza sozinha).
 - **Um chat lateral sobre uma conversa** (`Ctrl+.`): pergunte sobre ela numa gaveta ao lado; nada chega à conversa.
 - **Uma worktree isolada por conversa**, se você quiser: a conversa trabalha na própria branch e a worktree é
   limpa quando ela termina.
+- **Worktrees novas podem começar com os seus arquivos locais.** Liste em `worktree.copyFiles` no `oxe.yaml` (o
+  `.env`, por exemplo) e eles são copiados do checkout principal, até 200 arquivos ou 50 MB, sem sobrescrever nada. O
+  que for recusado é explicado quando a worktree é criada, e a worktree da própria conversa guarda isso em
+  **Detalhes da conversa**.
+- **Uma conversa é arquivada quando o pull request dela fecha**, a não ser que você escolha **Manter** no aviso.
+  Conversas arquivadas voltam por **Arquivadas**, na barra lateral.
 - **A Atividade** (o sino, `Ctrl+Shift+A`) lista o que precisa de você, o que terminou e o que é novo, e guarda
   tudo entre reinícios.
 - **Uso por turno**: contexto e passos no painel de uso; um passo em andamento avisa quando está mais lento que o
