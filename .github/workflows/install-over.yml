@@ -157,15 +157,34 @@ jobs:
           node scripts/check-fuses.mjs --app $exe
           $out = 'upgrade-state/shipped-exe'
           New-Item -ItemType Directory -Force $out | Out-Null
+          # main.log keeps the earlier runs (the 1.3.3 seed, the verify step): only the lines this launch adds count.
+          $log = Join-Path $env:APPDATA 'OXESpace\logs\main.log'
+          $skip = if (Test-Path $log) { @(Get-Content $log).Count } else { 0 }
           $p = Start-Process $exe -PassThru -RedirectStandardOutput "$out/stdout.txt" -RedirectStandardError "$out/stderr.txt"
           Start-Sleep -Seconds 25
           $alive = -not $p.HasExited
+          # A window the person can see: Windows reports the main window of the app's processes (the browser process
+          # owns it), with its title.
+          $windows = @(Get-Process | Where-Object { $_.ProcessName -match '^OXESpace' -and $_.MainWindowHandle -ne 0 } |
+            ForEach-Object { "pid $($_.Id): '$($_.MainWindowTitle)'" })
           "alive after 25 s: $alive$(if (-not $alive) { "; exit code $($p.ExitCode)" })" | Tee-Object "$out/result.txt"
-          $log = Join-Path $env:APPDATA 'OXESpace\logs\main.log'
-          if (Test-Path $log) { Copy-Item $log "$out/main.log" } else { 'no main.log' | Add-Content "$out/result.txt" }
+          "windows: $($windows -join '; ')" | Tee-Object -Append "$out/result.txt"
+          $errors = @()
+          if (Test-Path $log) {
+            Copy-Item $log "$out/main.log"
+            $mine = @(Get-Content $log | Select-Object -Skip $skip)
+            $mine | Set-Content "$out/main.this-launch.log"
+            # electron-log writes "[date time] [level] message"; an [error] line from this launch fails the step.
+            $errors = @($mine | Where-Object { $_ -match '\] \[error\] ' })
+            Write-Host "--- main.log, this launch ($($mine.Count) lines) ---"; $mine | Write-Host; Write-Host '--- end ---'
+          } else { 'no main.log' | Tee-Object -Append "$out/result.txt" }
+          "error lines in main.log: $($errors.Count)" | Tee-Object -Append "$out/result.txt"
+          $errors | ForEach-Object { Write-Host "::error title=main.log::$_" }
           Get-Process | Where-Object { $_.ProcessName -match '^OXESpace' } | Stop-Process -Force -ErrorAction SilentlyContinue
           Start-Sleep -Seconds 3
           if (-not $alive) { throw 'the shipped exe exited within 25 s on the upgraded profile' }
+          if ($windows.Count -eq 0) { throw 'the shipped exe runs but shows no window after 25 s' }
+          if ($errors.Count -gt 0) { throw "main.log has $($errors.Count) error line(s); see the annotations" }
 
       # G8 (docs/ci-cd.md, "When a release goes wrong"): a user who already updated goes back to the last stable.
       # The runbook's steps, in order: reinstall the previous installer, see that it refuses the upgraded database
