@@ -1,5 +1,6 @@
 package com.oxespace.mobile.ui.live
 
+import com.oxespace.mobile.protocol.RemoteApprovalRisk
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -57,6 +58,7 @@ import com.oxespace.mobile.protocol.displaySafe
 import com.oxespace.mobile.protocol.displaySafeBlock
 import com.oxespace.mobile.protocol.showHidden
 import com.oxespace.mobile.protocol.live.CommandApi
+import com.oxespace.mobile.ui.SecureScreen
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeRadius
 import com.oxespace.mobile.ui.theme.OxeSpace
@@ -71,6 +73,7 @@ private val Target = 48.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RequestScreen(request: RemotePendingRequest?, commands: CommandApi, onBack: () -> Unit) {
+    SecureScreen()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val responder = remember(context, commands) { RequestResponder(BiometricApprovalGate(context), commands::respondRequest) }
@@ -88,6 +91,7 @@ fun RequestScreen(request: RemotePendingRequest?, commands: CommandApi, onBack: 
                     AnswerBlock.DESKTOP_ONLY -> R.string.request_desktop_only
                     AnswerBlock.NOT_OFFERED -> R.string.request_refused_other
                     AnswerBlock.NOT_CONFIRMED -> R.string.request_not_confirmed
+                    AnswerBlock.TRUNCATED -> R.string.request_truncated
                 }
                 is AnswerOutcome.Sent -> answerMessage(outcome.result)
             }
@@ -116,10 +120,7 @@ fun RequestScreen(request: RemotePendingRequest?, commands: CommandApi, onBack: 
             if (!request.answerable) DesktopOnlyNotice()
             Text(displaySafe(request.title, TITLE_MAX), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
             Text(stringResource(R.string.request_from, displaySafe(request.threadTitle, TITLE_MAX)), style = MaterialTheme.typography.labelLarge, color = Oxe.colors.textSecondary)
-            request.risk?.let {
-                val spoken = stringResource(R.string.request_risk_spoken, riskLabel(it))
-                Text(riskLabel(it), style = MaterialTheme.typography.labelLarge, color = riskColor(it), modifier = Modifier.semantics { contentDescription = spoken })
-            }
+            request.risk?.let { RiskLine(it) }
             request.toolName?.let { Field(stringResource(R.string.request_tool), displaySafe(it, TITLE_MAX), mono = false) }
             // What would run is shown whole; hidden characters are written out, never dropped or obeyed.
             request.command?.let { Field(stringResource(R.string.request_command), showHidden(it), mono = true) }
@@ -141,9 +142,20 @@ fun RequestScreen(request: RemotePendingRequest?, commands: CommandApi, onBack: 
                 why?.let { Field(stringResource(R.string.request_reason), it, mono = false, fromAgent = true) }
             }
 
-            if (!request.answerable) return@Column
+            val truncated = request.truncated == true
+            if (truncated) {
+                Text(
+                    stringResource(if (request.kind == "question") R.string.request_truncated_question else R.string.request_truncated),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Oxe.colors.intentWarningFg,
+                )
+            }
+            // A truncated question is answered on the desktop only: nothing to pick or send here.
+            if (!request.answerable || (truncated && request.kind == "question")) return@Column
 
-            val questions = request.questions.orEmpty()
+            val questions = if (truncated) emptyList() else request.questions.orEmpty()
+            // Never an approval for what the phone wasn't shown in full, even if the desktop offered one.
+            val decisions = if (truncated) request.decisions.filter { it == "decline" || it == "cancel" } else request.decisions
             if (questions.isNotEmpty() && detail == null && why == null) FromAgentLabel()
             for (question in questions) {
                 Text(displaySafe(question.header ?: question.question, QUESTION_MAX), style = MaterialTheme.typography.titleSmall, modifier = Modifier.semantics { heading() })
@@ -179,7 +191,7 @@ fun RequestScreen(request: RemotePendingRequest?, commands: CommandApi, onBack: 
                 ) { Text(stringResource(R.string.request_send_answers)) }
             }
 
-            if ("decline" in request.decisions) {
+            if ("decline" in decisions) {
                 OutlinedTextField(
                     value = reason,
                     onValueChange = { reason = it.take(500) },
@@ -187,7 +199,7 @@ fun RequestScreen(request: RemotePendingRequest?, commands: CommandApi, onBack: 
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            for ((decision, leads) in decisionLayout(request.decisions, request.risk)) {
+            for ((decision, leads) in decisionLayout(decisions, request.risk)) {
                 val label = stringResource(
                     when (decision) {
                         "accept" -> R.string.request_decision_accept
@@ -222,11 +234,12 @@ fun RequestScreen(request: RemotePendingRequest?, commands: CommandApi, onBack: 
 /**
  * The order and emphasis of the answers (P1, as the desktop's modal since #243): on anything but a read-only request,
  * Deny comes first and is the filled button, so a hurried tap denies; Allow is outlined and still needs biometrics.
- * An unknown risk counts as risky. Cancel always comes last. Only the three answers the phone knows are ever shown: a
- * decision added to the protocol later is left to the computer rather than drawn under a wrong label.
+ * A request without a risk, or with a level added later, counts as risky. Cancel always comes last. Only the three
+ * answers the phone knows are ever shown: a decision added to the protocol later is left to the computer rather than
+ * drawn under a wrong label.
  */
 internal fun decisionLayout(decisions: List<String>, risk: String?): List<Pair<String, Boolean>> {
-    val lead = if (risk == "green") "accept" else "decline"
+    val lead = if (risk != null && riskLevel(risk) == RemoteApprovalRisk.LOW) "accept" else "decline"
     return decisions
         .filter { it in KNOWN_DECISIONS }
         .sortedBy { when (it) { lead -> 0; "cancel" -> 2; else -> 1 } }

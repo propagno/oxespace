@@ -2,7 +2,7 @@ import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, session 
 import log from 'electron-log/main.js'
 import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from './services/runtime-diagnostics'
 import { markAppReady, measureStartup, trackWindowStartup } from './startup-timing'
-import { initAutoUpdater, registerAppUpdateIpc } from './updater'
+import { registerAppUpdateIpc, startAutoUpdater } from './ipc/app-update.ipc'
 import { RendererRecoveryPolicy } from './renderer-recovery'
 import { installCloseGuard } from './window-close-guard'
 import { initialWindowColors, registerAppearanceIpc, savedUiScale } from './ipc/appearance.ipc'
@@ -56,15 +56,14 @@ import { registerAgentHooksIpc } from './ipc/agent-hooks.ipc'
 import { AgentHookServer } from './services/agent-hooks/server'
 import { resolveSessionLocation } from './services/git-common-dir'
 import { registerAutomationsIpc } from './ipc/automations.ipc'
-import { AutomationService } from './services/automations/service'
+import { startAutomations } from './services/automations/startup'
 import { SearchService } from './services/search.service'
-import { AutomationStore } from './services/automations/store'
 import { runHook } from './services/repo-config/hook-runner'
 import { fallbackShellProfiles } from './services/shell-profile.defaults'
 import { guardMainWindowLinks, isLoopbackHttpUrl } from './utils/external-open'
 import { applyLoginShellPath } from './utils/login-shell-path'
 import { securePreviewGuest, securePreviewSession, WEB_PREVIEW_PARTITION_PREFIX } from './services/browser-preview-security'
-import { registerBrowserPreviewIpc } from './services/browser-preview.service'
+import { registerBrowserPreviewIpc } from './ipc/browser-preview.ipc'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
 import type { ShellProfile } from '../../shared/types/workspace'
 import { redactLogMessage } from './services/log-redaction'
@@ -142,6 +141,8 @@ async function registerIpcHandlers(): Promise<() => void> {
     if (process.env.OXESPACE_E2E_PREVIEW_SERVICE) {
       const { PreviewAutomation } = await import('./services/documentation/preview-automation')
       ;(globalThis as typeof globalThis & { preview: InstanceType<typeof PreviewAutomation> }).preview = new PreviewAutomation()
+      // The spec revokes agent access from main while an approval modal blocks the window, as it does in the product.
+      ;(globalThis as typeof globalThis & { previewService: unknown }).previewService = (await import('./services/browser-preview.service')).browserPreviewService
     }
     // Dynamic so the ~475 lines of E2E doubles land in their own chunk instead
     // of the main entry bundle. A normal launch never resolves this import.
@@ -290,28 +291,20 @@ async function registerIpcHandlers(): Promise<() => void> {
   const agentSearch = new SearchService()
   const gitHubService = registerGitHubIpc(db)
   gitHubService.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
-  // Scheduled automations. Their own SQLite file keeps them independent of the
-  // application schema; a store that cannot open only disables this feature.
-  let automationService: AutomationService | undefined
-  try {
-    const automations = new AutomationService({
-      store: new AutomationStore(join(app.getPath('userData'), 'automations.sqlite3')),
-      createWorktree: (input) => gitHubService.createWorktree(input),
-      resolveBaseRef: async (rootPath) => (await gitHubService.resolveWorktreeBase({ workspaceId: '', rootPath })).baseRef,
-      runCommand: runHook,
-      onChange: (event) => {
-        for (const window of BrowserWindow.getAllWindows()) {
-          window.webContents.send(IPC_CHANNELS.automations.onChange, event)
-        }
+  // Scheduled automations, from their own chunk; a store that cannot open or code that cannot load leaves them off.
+  const automationService = await startAutomations(join(app.getPath('userData'), 'automations.sqlite3'), {
+    createWorktree: (input) => gitHubService.createWorktree(input),
+    resolveBaseRef: async (rootPath) => (await gitHubService.resolveWorktreeBase({ workspaceId: '', rootPath })).baseRef,
+    runCommand: runHook,
+    onChange: (event) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        window.webContents.send(IPC_CHANNELS.automations.onChange, event)
       }
-    })
+    }
+  }, (automations) => {
     registerAutomationsIpc(automations)
-    automationService = automations
-    automations.start()
     app.once('before-quit', () => automations.stop())
-  } catch (error) {
-    log.warn('Automations unavailable', error)
-  }
+  }, (message, error) => log.warn(message, error))
   const linearService = registerLinearIpc(db, gitHubService)
   registerIntegrationIpc(db)
   const backgroundManager = new BackgroundManager(db, {
@@ -555,7 +548,7 @@ async function registerIpcHandlers(): Promise<() => void> {
         log.info(`[rpc] listening on ${handle.endpoint}`)
       })
       .catch((error: unknown) => log.warn('[rpc] failed to start:', toMessage(error)))
-    initAutoUpdater()
+    void startAutoUpdater(undefined, (message) => log.warn('[updater] failed to load:', message))
   }
 }
 

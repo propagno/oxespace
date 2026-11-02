@@ -518,7 +518,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       session: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.session, input) as Promise<import('../../shared/types/browser-preview').BrowserPreviewSessionState>,
       mount: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.mount, input) as Promise<import('../../shared/types/browser-preview').BrowserPreviewMountResult>,
       bounds: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.bounds, input) as Promise<void>,
-      setAccess: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.setAccess, input) as Promise<void>,
+      setAccess: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.setAccess, input) as Promise<{ agentAccess: boolean }>,
       designMode: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.designMode, input) as Promise<void>,
       setZoom: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.setZoom, input) as Promise<void>,
       reload: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.reload, input) as Promise<void>,

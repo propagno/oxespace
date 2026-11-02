@@ -92,7 +92,9 @@
       },
       "side": {
         "unavailable": "This agent cannot open a side chat yet.",
-        "noSession": "Send a message first: a side chat copies the conversation so far."
+        "noSession": "Send a message first: a side chat copies the conversation so far.",
+        "closed": "This side chat is closed. Open a new one to keep asking.",
+        "invalidInput": "This side chat message could not be read. Try again."
       },
       "protectedConfig": {
         "instructions": "\"{{path}}\" holds agent instructions. A change there steers every later session, so it needs your confirmation each time.",
@@ -103,6 +105,8 @@
         "warning": "Text the agent read (a web page, an issue, a file) may be steering this change. Check that you asked for it.",
         "rewritesTracked": "{{command}} rewrites tracked files without naming them, and agent instructions, MCP settings or hooks may be among them, so it needs your confirmation each time."
       },
+      "invalidInput": "This conversation request could not be read.",
+      "notFound": "This conversation no longer exists.",
       "sections": {
         "invalid": "These sections could not be saved. Reload the list and try again.",
         "tooMany": "A workspace has at most {{sections}} sections and {{assignments}} conversations placed in them.",
@@ -186,7 +190,17 @@
     },
     "git": {
       "base": {
-        "unresolved": "Base “{{base}}” could not be resolved and the repository has no commits."
+        "unresolved": "Base “{{base}}” could not be resolved and the repository has no commits.",
+        "maybeStale": "The base may be out of date. This was created from your local copy of {{branch}}, which wasn't fetched first."
+      },
+      "fetch": {
+        "needsPerson": "The agent needs the latest version of the remote branch, but agents can't reach the network through Git. Fetch it yourself in the Git panel or the terminal, then let the agent continue."
+      },
+      "person": {
+        "refused": "OXESpace won't run network Git in this repository because its own settings (.git/config) set {{keys}}. Run the command in the terminal instead."
+      },
+      "hooks": {
+        "skipped": "Git hooks don't run for actions started here. Push, switching branches and creating worktrees from OXESpace skip the repository's hooks. If your flow depends on them, run those steps in the terminal."
       }
     },
     "oxe": {

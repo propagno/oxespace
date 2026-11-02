@@ -52,6 +52,14 @@ export interface MessageParams {
   'thread.side.unavailable': Record<string, never>
   /** The conversation has no native session to copy yet: send a message first. */
   'thread.side.noSession': Record<string, never>
+  /** The side chat was closed (by the person, or with its window) before this message. */
+  'thread.side.closed': Record<string, never>
+  /** A side chat call carried an id or a message that is not one. */
+  'thread.side.invalidInput': Record<string, never>
+  /** A conversation call carried an id or input that is not one. */
+  'thread.invalidInput': Record<string, never>
+  /** No conversation has this id (deleted, or never existed). */
+  'thread.notFound': Record<string, never>
   /** B13: OxeChat starts agents only from a native executable; any other .cmd/.ps1/.bat is refused. */
   'thread.agent.scriptUnsupported': Record<string, never>
   /** B13: a `codex.cmd` npm install whose native `codex.exe` is missing (it is never run through the app as Node). */
@@ -247,6 +255,10 @@ export interface MessageParams {
   'incident.policy.changedOutside': Record<string, never>
   'github.cli.missing': Record<string, never>
   'git.base.unresolved': { base: string }
+  'git.base.maybeStale': { branch: string }
+  'git.fetch.needsPerson': Record<string, never>
+  'git.person.refused': { keys: string[] }
+  'git.hooks.skipped': Record<string, never>
   'oxe.status.unreadable': Record<string, never>
   'oxe.dashboard.timeout': Record<string, never>
   'memory.disabled': Record<string, never>
@@ -478,6 +490,10 @@ export const MESSAGE_CODES = [
   'ipc.sender.refused',
   'thread.side.unavailable',
   'thread.side.noSession',
+  'thread.side.closed',
+  'thread.side.invalidInput',
+  'thread.invalidInput',
+  'thread.notFound',
   'thread.agent.scriptUnsupported',
   'thread.agent.nativeMissing',
   'activity.invalid',
@@ -595,6 +611,10 @@ export const MESSAGE_CODES = [
   'incident.policy.changedOutside',
   'github.cli.missing',
   'git.base.unresolved',
+  'git.base.maybeStale',
+  'git.fetch.needsPerson',
+  'git.person.refused',
+  'git.hooks.skipped',
   'oxe.status.unreadable',
   'oxe.dashboard.timeout',
   'memory.disabled',

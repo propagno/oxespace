@@ -106,7 +106,7 @@ jobs:
           # proves nothing: require that they all ran.
           script: |
             ./gradlew --no-daemon -Poxespace.testBuildType=minified connectedMinifiedAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.oxespace.mobile.ReleaseSmokeTest
-            grep -Eq 'tests="[2-9]' app/build/outputs/androidTest-results/connected/minified/*.xml || { echo "::error::ReleaseSmokeTest did not run"; exit 1; }
+            grep -Eq 'tests="[3-9]' app/build/outputs/androidTest-results/connected/minified/*.xml || { echo "::error::ReleaseSmokeTest did not run"; exit 1; }
             grep -Eq 'skipped="0"' app/build/outputs/androidTest-results/connected/minified/*.xml || { echo "::error::ReleaseSmokeTest skipped tests"; exit 1; }
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

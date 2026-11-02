@@ -67,6 +67,7 @@ import com.oxespace.mobile.approval.Gated
 import com.oxespace.mobile.approval.PresenceGate
 import com.oxespace.mobile.approval.PresenceReason
 import com.oxespace.mobile.session.Watched
+import com.oxespace.mobile.ui.SecureScreen
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeRadius
 import com.oxespace.mobile.ui.theme.OxeSpace
@@ -85,6 +86,8 @@ fun ThreadScreen(
     onOpenRequest: (requestId: String) -> Unit = {},
     onBack: () -> Unit,
 ) {
+    // SECURITY #236: the conversation shows each tool's command and output in full, so it keeps out of Recents too.
+    SecureScreen()
     val tick by watched.changes.collectAsStateWithLifecycle()
     val timeline = watched.store
     val header = timeline.header

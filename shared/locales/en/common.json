@@ -232,11 +232,25 @@
     }
   },
   "postCommands": {
-    "open": { "label": "Open OxePost", "detail": "API requests, environments and cURL" },
-    "newRequest": { "label": "New API request", "detail": "Saved in .oxespace/requests" },
-    "filter": { "label": "Find an API request" },
-    "import": { "label": "Import cURL or OpenAPI", "detail": "Becomes request files" },
-    "environments": { "label": "API environments", "detail": "Variables and secrets" },
+    "open": {
+      "label": "Open OxePost",
+      "detail": "API requests, environments and cURL"
+    },
+    "newRequest": {
+      "label": "New API request",
+      "detail": "Saved in .oxespace/requests"
+    },
+    "filter": {
+      "label": "Find an API request"
+    },
+    "import": {
+      "label": "Import cURL or OpenAPI",
+      "detail": "Becomes request files"
+    },
+    "environments": {
+      "label": "API environments",
+      "detail": "Variables and secrets"
+    },
     "defaultName": "New request"
   },
   "podsCommands": {
@@ -654,6 +668,11 @@
       "empty": "No results",
       "terminal": "Terminal",
       "terminalAt": "Terminal {{index}}"
+    },
+    "action": {
+      "help": {
+        "approvals": "Show approval history"
+      }
     }
   },
   "activityDot": {
@@ -742,5 +761,97 @@
       "open": "Open",
       "cancel": "Cancel"
     }
+  },
+  "approvals": {
+    "facts": "Risk: {{risk}}. Asked by {{requester}}.",
+    "factsEnvironment": "Risk: {{risk}}. Environment: {{environment}}. Asked by {{requester}}.",
+    "factsProduction": "Risk: {{risk}}. Production environment: {{environment}}. Asked by {{requester}}.",
+    "queue": "Request {{position}} of {{total}}",
+    "closeDeny": "Deny and close",
+    "risk": {
+      "label": "Risk: {{level}}",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "critical": "Critical",
+      "hint": {
+        "low": "Only reads",
+        "medium": "Changes something",
+        "high": "Deletes, escalates access or publishes",
+        "critical": "Can't be undone, or affects production"
+      }
+    },
+    "environment": {
+      "label": "{{kind}} environment: {{name}}",
+      "kind": {
+        "local": "Local",
+        "dev": "Development",
+        "prod": "Production"
+      },
+      "productionLabel": "Production · {{name}}",
+      "productionHint": "Changes here affect real users and data."
+    },
+    "requester": {
+      "label": "Asked by",
+      "agent": "Agent",
+      "mcp-server": "MCP server",
+      "app": "OXESpace",
+      "verified": "identified by OXESpace",
+      "unknown": "Unknown agent",
+      "unidentified": "not identified",
+      "where": "Where"
+    },
+    "appNotes": "OXESpace notes",
+    "hiddenCharacters": "The agent's text contains invisible or direction-changing characters. Each one is shown as a marker such as ⟨U+202E⟩ instead of taking effect. Read the text with them in mind before you approve.",
+    "unavailableWindow": "The approval window stopped working. OXESpace asks in a system dialog instead.",
+    "boundaryLabel": "approvals",
+    "keywords": "approvals history permissions allowed denied decisions security",
+    "agent": {
+      "heading": "Content from the agent",
+      "hint": "Written by the agent, shown exactly as sent. OXESpace did not check it: read it as a claim, not as a fact.",
+      "empty": "The agent sent no text.",
+      "length": "{{length}} characters"
+    },
+    "expires": "If you do not answer by {{time}}, the request is denied.",
+    "hold": {
+      "waiting": "Critical risk: Allow is available in {{seconds}} s. Read the request first.",
+      "ready": "Allow is available. At critical risk Enter does nothing; use Space or click.",
+      "readyEnter": "Allow is available.",
+      "paused": "Critical risk: Allow waits until this window is in front. The count starts again when you come back."
+    },
+    "refused": "Your answer was not applied",
+    "settled": {
+      "timeout": "The request expired before an answer and was denied.",
+      "cancelled": "The request was cancelled before an answer.",
+      "native": "The request was answered in the system dialog."
+    },
+    "outcome": {
+      "deny": "Denied",
+      "allow": "Allowed once",
+      "allow-session": "Allowed for this session"
+    },
+    "by": {
+      "timeout": "Expired, denied",
+      "cancelled": "Cancelled",
+      "native": "Answered in the system dialog",
+      "refused": "Denied by OXESpace"
+    },
+    "history": {
+      "open": "History",
+      "command": "Approval history",
+      "title": "Approval decisions",
+      "description": "Requests answered in this session, newest first.",
+      "empty": "No decisions in this session yet.",
+      "back": "Back to the request",
+      "close": "Close",
+      "columns": {
+        "time": "Time",
+        "what": "What",
+        "who": "Asked by",
+        "decision": "Decision"
+      }
+    },
+    "unknownCode": "OXESpace sent a note this version cannot show (code {{code}}).",
+    "sqlUnknown": "Risky SQL: OXESpace flagged a risk in this statement that this version cannot describe (code {{code}})."
   }
 }

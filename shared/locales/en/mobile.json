@@ -158,8 +158,8 @@
   },
   "approval": {
     "prompt": {
-      "accept": "Approve this request",
-      "decline": "Decline this request",
+      "accept": "Allow this request once",
+      "decline": "Deny this request",
       "cancel": "Cancel this request",
       "answer": "Send these answers"
     }
@@ -174,9 +174,16 @@
     "warnings": "Worth a second look",
     "tool": "Tool",
     "risk": {
-      "green": "Only reads",
-      "orange": "Changes something",
-      "red": "Deletes, escalates or publishes"
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "critical": "Critical"
+    },
+    "riskMeaning": {
+      "low": "Only reads",
+      "medium": "Changes something",
+      "high": "Deletes, escalates access or publishes",
+      "critical": "Can't be undone, or affects production"
     },
     "decision": {
       "accept": "Allow once",
@@ -186,6 +193,8 @@
     "declineReason": "Reason, told to the agent (optional)",
     "sendAnswers": "Send answers",
     "desktopOnly": "Only your computer can answer this one. Open OXESpace there.",
+    "truncated": "Part of this request didn't fit on the phone. The full text is only on your computer, so from here you can only decline it.",
+    "truncatedQuestion": "Part of this question didn't fit on the phone. Answer it on your computer, where you can read all of it.",
     "notConfirmed": "Not sent: the confirmation on this phone was cancelled.",
     "answered": "Answered.",
     "gone": "This request is no longer waiting.",
@@ -196,7 +205,7 @@
       "rateLimited": "Too many actions in a minute. Try again shortly.",
       "other": "Your computer didn't accept the answer."
     },
-    "riskSpoken": "Risk: {{risk}}",
+    "riskBadge": "Risk: {{risk}}",
     "fromAgent": "Written by the agent",
     "desktopOnlyTitle": "Answer on the computer"
   },
