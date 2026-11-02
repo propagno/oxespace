@@ -4,8 +4,8 @@ import { expectSurface } from '../helpers/visual'
 
 const THEMES: Appearance[] = ['light', 'dark']
 /**
- * The Settings pages whose content is the app's own. Agents, Voice and Updates show what
- * this machine has installed (CLIs, the speech engine, an update state), so a baseline of
+ * The Settings pages whose content is the app's own. Agents and Updates show what
+ * this machine has installed (CLIs, an update state), so a baseline of
  * them would compare runners, not the app.
  */
 const PAGES = [['general', 'General'], ['appearance', 'Appearance'], ['terminal', 'Terminal'], ['notifications', 'Notifications']] as const

@@ -38,6 +38,11 @@
     }
   },
   "messages": {
+    "delegation": {
+      "requester": {
+        "live": "The conversation that delegated this task is still running; only it can control the task."
+      }
+    },
     "mcp": {
       "quarantine": {
         "changed": "The description or inputs of {{tools}} changed after you trusted it.",
@@ -124,6 +129,15 @@
     "app": {
       "connectivity": {
         "offline": "No network connection."
+      },
+      "openIn": {
+        "outsideRoot": "This file is outside the project, so it can't be opened from here.",
+        "notFound": "{{path}} no longer exists.",
+        "notAFile": "Only files open in {{editor}} from here. Use “Reveal in File Explorer” for a folder.",
+        "unknownTarget": "OXESpace can't open files this way.",
+        "editorMissing": "{{editor}} wasn't found. Choose another editor.",
+        "launchFailed": "Couldn't open in {{editor}}.",
+        "revealFailed": "Couldn't show the file in the folder."
       }
     },
     "ipc": {
@@ -151,6 +165,12 @@
       "certificate": {
         "failed": "The connection certificate could not be created or read from secure storage."
       },
+      "keyring": {
+        "missing": "The phone connection stays off because no system keyring was found to protect its key. Start GNOME Keyring or KWallet and restart OXESpace. If one is already running (common on i3 or sway), start OXESpace with `--password-store=gnome-libsecret`."
+      },
+      "storage": {
+        "unavailable": "The phone connection stays off because secure storage isn't available on this system, so its key can't be kept."
+      },
       "pairing": {
         "failed": "$t(remotePairingFailure.{{reason}})",
         "limit": "This computer already has {{max}} paired devices. Remove one before pairing another."
@@ -177,10 +197,31 @@
       }
     },
     "worktree": {
+      "created": "Worktree created at {{path}} (branch {{branch}}).",
+      "createdFrom": "Worktree created at {{path}} (branch {{branch}} from {{base}}).",
+      "setup": {
+        "notApproved": "The oxe.yaml setup hook was not approved and did not run.",
+        "complete": "Setup hook complete.",
+        "failed": "The setup hook exited with code {{exitCode}}.",
+        "unverified": "The setup hook did not end in a way that can be checked."
+      },
       "cleanup": {
         "notRemovable": "This is not a removable worktree of this repository.",
         "blocked": "Blocked: {{reasons}}.",
         "needsConfirmation": "Needs confirmation: {{reasons}}."
+      },
+      "copyFiles": {
+        "copied": "Copied {{count}} files listed in worktree.copyFiles.",
+        "outsideRepo": "worktree.copyFiles patterns refused, because patterns must be relative to the repository and cannot use .. or .git: {{patterns}}.",
+        "overLimit": "worktree.copyFiles matched {{files}} files ({{megabytes}} MB), over the limit of {{maxFiles}} files or {{maxMegabytes}} MB. Nothing was copied; the worktree was created.",
+        "tooComplex": "worktree.copyFiles patterns refused, because they have too many folders or ** to match safely: {{patterns}}.",
+        "excludeReserved": "worktree.copyFiles patterns starting with ! are kept for excluding files in a later version, so nothing was copied for them: {{patterns}}.",
+        "ignoreCheckFailed": "Git could not tell which files it ignores in the new worktree, so nothing from worktree.copyFiles was copied.",
+        "notIgnored": "Not copied, because Git does not ignore them in the new worktree and they could be committed: {{paths}}.",
+        "searchTooLarge": "worktree.copyFiles looked through more than {{limit}} entries without finishing. Nothing was copied; the worktree was created. Use narrower patterns.",
+        "notOverwritten": "Already in the new worktree, kept as they are: {{paths}}.",
+        "notFollowed": "Not copied, because they are links or lead outside the repository or the worktree: {{paths}}.",
+        "failed": "Could not be copied: {{paths}}."
       }
     },
     "github": {
@@ -278,7 +319,11 @@
         "agent": "Request from an agent",
         "oxequery": "OxeQuery · request from an agent",
         "previewAutomation": "Agent browser action",
-        "crash": "OXESpace hit an unexpected error"
+        "crash": "OXESpace hit an unexpected error",
+        "policyChange": "The project's rules changed outside OXESpace",
+        "policyChangeUser": "Your rules changed outside OXESpace",
+        "policyChangeManaged": "The organization's rules changed on this computer",
+        "policyFirstSight": "Review this project's rules before they apply"
       },
       "summary": {
         "mcpConfirm": "Wants to run {{tool}} › {{action}} on {{target}}",
@@ -295,7 +340,17 @@
           "scroll": "Wants to scroll in the Browser",
           "other": "Wants to {{action}} in the Browser"
         },
-        "crash": "The app keeps running, but its state is no longer certain. Restart it to be safe."
+        "crash": "The app keeps running, but its state is no longer certain. Restart it to be safe.",
+        "policyChange": {
+          "widened": "{{file}} now allows more than the rules you accepted. Until you decide, the accepted rules stay in force.",
+          "deleted": "{{file}} was deleted. Allowing it removes this file's rules. Until you decide, the accepted rules stay in force.",
+          "invalid": "{{file}} has an error, so it can't be applied. The accepted rules stay in force.",
+          "tooLarge": "{{file}} is larger than {{max}}, so it can't be applied. The accepted rules stay in force.",
+          "worktree": "The worktree {{worktree}} has its own {{file}}, which allows more than the rules you accepted for this project. Until you decide, the accepted rules apply there too.",
+          "partial": "{{file}} changed outside OXESpace. Its stricter rules already apply; the ones that allow more wait for you."
+        },
+        "policyFirstSight": "This is the first time OXESpace reads these rules, and they allow more than OXESpace does by default. Until you decide, only what they deny applies.",
+        "policyFirstSightLost": "This is the first time OXESpace reads these rules, and the file on disk dropped restrictions the committed version has. Until you decide, the committed restrictions apply."
       },
       "requester": {
         "pane": "{{agent}} · pane {{pane}}",
@@ -312,7 +367,8 @@
         "allowSessionReads": "Allow reads on this connection for this run",
         "closeTab": "Close tab",
         "restart": "Restart",
-        "keepWorking": "Keep working"
+        "keepWorking": "Keep working",
+        "allowPolicy": "Allow the new rules"
       },
       "note": {
         "sql": {
@@ -364,6 +420,41 @@
         "nativeCriticalDenyOnly": "This change is critical, and the system dialog cannot hold Allow back, so it can only be denied here. Open OXESpace to approve it.",
         "preview": {
           "notLocal": "This page is not on localhost. It can load anything, and it sees what is typed into it."
+        },
+        "policy": {
+          "denyRemoved": "− No longer denied: {{rule}}",
+          "allowAdded": "+ Now allowed: {{rule}}",
+          "groupRaised": "↑ {{group}} tools: {{from}} → {{to}}",
+          "ruleEdited": "~ Changed: {{from}} → {{to}}",
+          "denyAdded": {
+            "applied": "+ Now denied: {{rule}} (applies already)",
+            "waiting": "+ Now denied: {{rule}}"
+          },
+          "allowRemoved": {
+            "applied": "− No longer allowed: {{rule}} (applies already)",
+            "waiting": "− No longer allowed: {{rule}}"
+          },
+          "groupLowered": "↓ {{group}} tools: {{from}} → {{to}}",
+          "reordered": "~ The order of {{count}} rules changed, and the last rule that matches decides",
+          "more": "and {{count}} more changes in the file below",
+          "notSplit": "This change can't be split into stricter and wider parts, so none of it applies until you decide.",
+          "stillAccepted": "Deny keeps the rules you accepted. OXESpace doesn't change the file.",
+          "allowEffect": "Allow applies the whole file as it is now.",
+          "noText": "The file no longer exists.",
+          "problem": "Error: {{problem}}",
+          "usable": "Agents could then use: {{tools}}",
+          "committed": "The file matches the version committed in Git.",
+          "uncommitted": "The file differs from the version committed in Git.",
+          "liveSessions": "{{count}} agent sessions of this project were running when the change was detected.",
+          "managedNotProtected": "Anyone using this computer can write to the organization's policy folder, so you confirm changes there too.",
+          "reordered_one": "~ The order of {{count}} rule changed, and the last rule that matches decides",
+          "reordered_other": "~ The order of {{count}} rules changed, and the last rule that matches decides",
+          "usableMore": "Agents could then use: {{tools}} and {{more}} more",
+          "liveSessions_one": "{{count}} agent session of this project was running when the change was detected.",
+          "liveSessions_other": "{{count}} agent sessions of this project were running when the change was detected.",
+          "committedDeny": "− Still denied: {{rule}}. The file on disk dropped it, but the committed version keeps it, so it stays in force.",
+          "committedOff": "↓ {{group}} tools stay off. The file on disk turned them back on, but the committed version keeps them off.",
+          "matchesBranch": "Same as `origin/{{branch}}`."
         }
       },
       "unavailable": "The approval could not be shown in the app, so it opened in a system dialog.",
@@ -385,6 +476,9 @@
       },
       "notify": {
         "waiting": "OXESpace: approval waiting"
+      },
+      "textLabel": {
+        "policyChange": "Content of the file"
       }
     },
     "notify": {
@@ -456,6 +550,9 @@
         "closeUnanswered": "The window did not answer a close or quit within 3 seconds; the app went ahead.",
         "closeRendererGone": "The window stopped while a close or quit waited on it; the app went ahead.",
         "closeGuardFailed": "The check before closing failed; the app closed without asking the window."
+      },
+      "policy": {
+        "changedOutside": "A policy file changed outside OXESpace and waited for an answer."
       }
     },
     "diagnostics": {
@@ -486,6 +583,22 @@
         "notFound": "The folder {{path}} does not exist. Create it or choose another folder.",
         "notDirectory": "{{path}} is a file, not a folder. Choose a folder.",
         "unreadable": "OXESpace cannot open the folder {{path}}. Check its permissions or choose another folder."
+      }
+    },
+    "policy": {
+      "narrowed": "The project's rules got stricter: {{file}} changed outside OXESpace, and the new rules apply now.",
+      "result": {
+        "kept": "The accepted rules stay in force.",
+        "applied": "The new rules are in force."
+      },
+      "change": {
+        "pending": "A change to this project's rules is waiting for your answer. Answer it first, then change this setting.",
+        "baseChanged": "The rules changed again since this was shown. The request comes back with the current version.",
+        "notPending": "This change to the rules is no longer waiting for an answer.",
+        "notApplicable": "This file can't be applied as it is. Fix the file, or keep the accepted rules."
+      },
+      "firstSight": {
+        "enforced": "Waiting for your review: only the rules that deny apply, and tool groups are at most on demand."
       }
     }
   },

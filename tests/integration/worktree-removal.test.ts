@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -11,6 +11,7 @@ import { GhExec } from '../../electron/main/services/github/gh-exec'
 import { GitHubRepositoryService } from '../../electron/main/services/github/repository.service'
 import { RepoHookTrust } from '../../electron/main/services/repo-config/trust'
 import { parseWorktreeRemovalError } from '../../shared/types/github'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 function git(cwd: string, ...args: string[]): string {
   return execFileSync('git', args, { cwd, encoding: 'utf8' })
@@ -51,7 +52,7 @@ describe('safe worktree removal (real git)', () => {
     // Windows can keep a just-exited git's directory handle for a moment; a
     // leftover temp folder must not fail an otherwise-passing test.
     try {
-      rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+      removeTempDir(sandbox)
     } catch {
       /* temp dir, reclaimed by the OS */
     }

@@ -1,12 +1,13 @@
 // @vitest-environment node
 import { afterEach, expect, test } from 'vitest'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { configureExperimentalFeatures, sharedProjectMemoryEnabled } from '../../electron/main/services/experimental-features'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const directories: string[] = []
-afterEach(async () => { for (const directory of directories.splice(0)) await rm(directory, { recursive: true, force: true }) })
+afterEach(async () => { for (const directory of directories.splice(0)) removeTempDir(directory) })
 async function userData(content?: string): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), 'oxe-experimental-'))
   directories.push(directory)

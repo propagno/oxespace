@@ -4,12 +4,13 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { afterEach, expect, it } from 'vitest'
 import { RuntimeDiagnostics, diagnosticId, firstAnswerDetail } from '../electron/main/services/runtime-diagnostics'
+import { removeTempDir } from './helpers/removeTempDir'
 
 const roots: string[] = []
 function fixture() { const root = mkdtempSync(join(tmpdir(), 'oxe-diagnostics-')); roots.push(root); return root }
 afterEach(() => { for (const root of roots.splice(0)) {
   if (dirname(resolve(root)) !== resolve(tmpdir())) throw Error('Unsafe cleanup')
-  rmSync(root, { recursive: true, force: true })
+  removeTempDir(root)
 } })
 
 it('does not retain arbitrary content, paths, arguments or credentials', () => {

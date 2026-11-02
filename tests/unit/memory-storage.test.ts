@@ -1,12 +1,13 @@
 // @vitest-environment node
 import { afterEach, expect, test } from 'vitest'
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { measureMemoryStorage } from '../../electron/main/services/memory/memory-storage'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const roots: string[] = []
-afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }) })
+afterEach(async () => { for (const root of roots.splice(0)) removeTempDir(root) })
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), 'oxe-memory-storage-'))
   roots.push(root)

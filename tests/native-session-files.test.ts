@@ -1,13 +1,14 @@
 // B17 · HML FINDING M (S2, run 41321809846): Claude Code names its transcript folder after the cwd it sees, which is not
 // always the root as OXESpace stored it (8.3 short form, letter case, junction or symlink). Temp folders only: nothing
 // here reads the real ~/.claude, and no provider runs.
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs'
 import { realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { nativeSessionExists, type NativeSessionRoots } from '../electron/main/services/agent-state/native-session-files'
 import { encodeClaudeProjectPath } from '../electron/main/services/usage/claude-project-path'
+import { removeTempDir } from './helpers/removeTempDir'
 
 const ID = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
 const CODEX_ID = '019a5c1e-7b2d-7c3e-9f00-112233445566'
@@ -24,7 +25,7 @@ beforeEach(() => {
   roots = { claudeProjects: join(dir, 'claude', 'projects'), codexSessions: join(dir, 'codex', 'sessions') }
   mkdirSync(roots.claudeProjects, { recursive: true })
 })
-afterEach(() => { rmSync(dir, { recursive: true, force: true }) })
+afterEach(() => { removeTempDir(dir) })
 
 function transcriptIn(folder: string, id = ID): void {
   mkdirSync(join(roots.claudeProjects, folder), { recursive: true })

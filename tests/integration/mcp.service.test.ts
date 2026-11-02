@@ -1,10 +1,11 @@
 import { describe, expect, test } from 'vitest'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { openInMemoryDatabase } from '../../electron/main/db/index'
 import { McpManager } from '../../electron/main/services/mcp.service'
 import { WorkspaceService } from '../../electron/main/services/workspace.service'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 describe('McpManager trust gates', () => {
   test('internal MCP credentials are inherited, never written into tracked project config', async () => {
@@ -21,7 +22,7 @@ describe('McpManager trust gates', () => {
       expect(config).not.toContain('fixture-machine-secret')
       expect(config).not.toContain('fixture-execution-secret')
       expect(config).toContain('1234')
-    } finally { db.close(); await rm(rootPath, { recursive: true, force: true }) }
+    } finally { db.close(); removeTempDir(rootPath) }
   })
   test('does not start untrusted servers', async () => {
     const db = openInMemoryDatabase()
@@ -57,7 +58,7 @@ describe('McpManager trust gates', () => {
       expect(doc.mcpServers['untrusted-test']).toBeUndefined()
     } finally {
       db.close()
-      await rm(rootPath, { recursive: true, force: true })
+      removeTempDir(rootPath)
     }
   })
 
@@ -120,7 +121,7 @@ describe('McpManager trust gates', () => {
       // OXESpace does not keep a copy running beside the agent's.
       expect(manager.list(null).find(row => row.id === server.id)).toMatchObject({ health: 'healthy', tools: [{ name: 'echo' }] })
       expect((manager as unknown as { runtimes: Map<string, unknown> }).runtimes.size).toBe(0)
-    } finally { db.close(); await rm(dir, { recursive: true, force: true }) }
+    } finally { db.close(); removeTempDir(dir) }
   })
 })
 
@@ -152,7 +153,7 @@ describe('McpManager under a policy', () => {
     } finally {
       setPolicyStore(null)
       db.close()
-      await rm(rootPath, { recursive: true, force: true }); await rm(userData, { recursive: true, force: true })
+      removeTempDir(rootPath); removeTempDir(userData)
     }
   })
 })

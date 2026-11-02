@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { expect, test } from 'vitest'
 import { spawn, execFile, type ChildProcess } from 'node:child_process'
-import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, basename, join, resolve } from 'node:path'
 import { createServer } from 'node:net'
@@ -9,6 +9,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { promisify } from 'node:util'
 import { AiMemoryClient } from '../../electron/main/services/memory/ai-memory.client'
 import { AiMemoryProvider } from '../../electron/main/services/memory/ai-memory.provider'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const binary = process.env.OXESPACE_MEMORY_BASELINE_BINARY
 const report = process.env.OXESPACE_MEMORY_BASELINE_REPORT
@@ -107,6 +108,6 @@ test.skipIf(!binary)('measures synthetic provider retrieval baseline without mod
         child.kill('SIGKILL')
       })
     }
-    await rm(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+    removeTempDir(target)
   }
 }, 90000)

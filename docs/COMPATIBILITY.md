@@ -81,6 +81,21 @@ Proposed for `1.0`:
 `1.0` as drafted covers **Windows 10 or later (x64)** and **Linux x64** (AppImage and
 `.deb`). macOS and ARM are not published.
 
+**Linux needs a system keyring for anything secret.** Passwords and keys are stored through the system keyring
+(Secret Service: GNOME Keyring or KWallet). Without one, Chromium falls back to a fixed key that anyone with the file
+can reverse, and OXESpace refuses to store secrets that way. These features don't work until a keyring is running:
+- the phone connection (its certificate key);
+- OxeQuery and OxePost passwords;
+- the Linear key;
+- the project memory token.
+
+To fix it, start GNOME Keyring or KWallet and restart OXESpace.
+
+Chromium chooses the keyring from the desktop environment. With a window manager it doesn't recognise (i3, sway and
+other tiling setups), it can pick the fixed key even when a keyring is running. In that case start OXESpace with
+`--password-store=gnome-libsecret`, or `kwallet5`/`kwallet6`. `OXESPACE_ALLOW_WEAK_SECRETS=1` stores secrets
+without real protection; use it only if you accept that.
+
 **Decision:** keep that as the `1.0` statement, or hold `1.0` until macOS exists.
 
 ## 6. What `1.0` does not promise
@@ -96,3 +111,4 @@ Proposed for `1.0`:
 | Date | Change |
 |---|---|
 | 2026-10-14 | First draft. |
+| 2026-11-02 | Linux: a system keyring is required for secrets; the `--password-store` workaround for unrecognised window managers. |

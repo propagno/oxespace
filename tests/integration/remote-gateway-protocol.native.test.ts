@@ -5,6 +5,7 @@ import { dirname, join, relative, resolve } from 'node:path'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { ExecutionRegistry } from '../../electron/main/services/execution-registry'
 import type { RemoteTopicSource } from '../../electron/main/services/remote/connection'
+import { UNUSED_PAIRING_TTL_MS } from '../../electron/main/services/remote/gateway'
 import { RemoteStore } from '../../electron/main/services/remote/store'
 import { isHelloChallenge, REMOTE_COMMANDS, REMOTE_FORBIDDEN, REMOTE_LIMITS } from '../../shared/remote/protocol'
 import { maskedFrame, received, TestSocket, type Target } from '../helpers/remote-client'
@@ -139,12 +140,149 @@ describe('remote gateway: hello and auth', () => {
     const p = await paired()
     expect(p.h.gateway.rename({ deviceId: p.deviceId, name: '  Work phone  ' })).toMatchObject({ deviceId: p.deviceId, name: 'Work phone' })
     for (const name of ['', '   ', 'x'.repeat(65), 'bad\u0007name', 42]) expect(() => p.h.gateway.rename({ deviceId: p.deviceId, name })).toThrow()
+    // Used right away (an unused pairing lapses after two minutes, B9.2), then back five minutes later.
+    const first = await signedIn(p)
+    first.close()
+    await first.closed
     p.h.clock += 5 * 60_000
     const socket = await signedIn(p)
     expect(p.h.gateway.devices()[0]).toMatchObject({ name: 'Work phone', connected: true, lastSeenAt: p.h.clock })
     socket.close()
     await socket.closed
     await vi.waitFor(() => expect(p.h.gateway.devices()[0].connected).toBe(false))
+  })
+})
+
+describe('remote gateway: a pairing nobody uses lapses (B9.2)', () => {
+  const lapse = (h: Harness) => { h.clock += UNUSED_PAIRING_TTL_MS + 1 }
+
+  test('unused past two minutes (controlled clock): the phone hears revoked by token or refresh, the list and its slot are freed, the window is told it expired', async () => {
+    const p = await paired()
+    expect(UNUSED_PAIRING_TTL_MS).toBe(2 * 60_000)
+    expect(p.h.gateway.devices()).toHaveLength(1)
+    p.h.clock += UNUSED_PAIRING_TTL_MS - 1
+    expect(p.h.gateway.devices()).toHaveLength(1)
+    lapse(p.h)
+
+    const byToken = await hello(p.target)
+    expect(await byToken.socket.ask({ type: 'auth', id: 'a', accessToken: p.accessToken })).toEqual({ type: 'error', id: 'a', code: 'revoked' })
+    const byRefresh = await hello(p.target)
+    expect(await byRefresh.socket.ask({ type: 'auth', id: 'b', refresh: { deviceId: p.deviceId, nonce: byRefresh.challenge, signature: signRefresh(p.phone, p.target.fp, p.deviceId, byRefresh.challenge) } }))
+      .toEqual({ type: 'error', id: 'b', code: 'revoked' })
+
+    expect(p.h.gateway.devices()).toEqual([])
+    expect(p.h.gateway.status().devices).toBe(0)
+    expect(p.h.changes.at(-1)).toMatchObject({ devices: [], status: { devices: 0 } })
+    expect(p.h.pairingFailures.filter(message => message.code === 'remote.pairing.failed')).toEqual([{ code: 'remote.pairing.failed', params: { reason: 'expired' } }])
+    const trail = new RemoteStore(p.h.db).auditEntries().filter(entry => entry.outcome === 'unused-expired')
+    expect(trail).toEqual([expect.objectContaining({ action: 'pairing', deviceId: p.deviceId })])
+  })
+
+  test('used once, it never lapses: the phone signs in again by refresh long after', async () => {
+    const p = await paired()
+    const socket = await signedIn(p)
+    socket.close()
+    await socket.closed
+    p.h.clock += 10 * UNUSED_PAIRING_TTL_MS
+    const again = await hello(p.target)
+    expect(await again.socket.ask({ type: 'auth', id: 'r', refresh: { deviceId: p.deviceId, nonce: again.challenge, signature: signRefresh(p.phone, p.target.fp, p.deviceId, again.challenge) } }))
+      .toMatchObject({ type: 'ack', id: 'r' })
+    expect(p.h.gateway.devices()).toEqual([expect.objectContaining({ deviceId: p.deviceId })])
+    expect(new RemoteStore(p.h.db).auditEntries().some(entry => entry.outcome === 'unused-expired')).toBe(false)
+  })
+
+  test('with no phone at all, the timer takes it off Settings › Devices and gives the slot back', async () => {
+    const p = await paired({ unusedPairingTtlMs: 150 })
+    lapse(p.h)
+    await vi.waitFor(() => expect(p.h.gateway.devices()).toEqual([]), { timeout: 3_000 })
+    expect(p.h.changes.at(-1)).toMatchObject({ devices: [], status: { devices: 0 } })
+    expect(p.h.pairingFailures).toContainEqual({ code: 'remote.pairing.failed', params: { reason: 'expired' } })
+    // The freed slot takes a new phone.
+    expect((await p.h.pair()).res.status).toBe(200)
+  })
+
+  // A crash or a kill skips stop(): the next launch, on the same database, is a new gateway whose old one never stopped.
+  test('after a crash, the next launch removes a pairing left unused past its time; its phone cannot sign in by refresh', async () => {
+    const p = await paired()
+    const crashed = p.h.gateway
+    p.h.clock += UNUSED_PAIRING_TTL_MS + 1
+    const next = p.h.create()
+    expect(next.devices()).toEqual([])
+    expect(new RemoteStore(p.h.db).device(p.deviceId)?.revoked).toBe(true)
+    expect(new RemoteStore(p.h.db).auditEntries().filter(entry => entry.outcome === 'unused-expired')).toEqual([expect.objectContaining({ deviceId: p.deviceId })])
+    await crashed.stop()
+    p.h.gateway = next
+    const target = await p.h.enable()
+    const late = await hello(target)
+    expect(await late.socket.ask({ type: 'auth', id: 'r', refresh: { deviceId: p.deviceId, nonce: late.challenge, signature: signRefresh(p.phone, target.fp, p.deviceId, late.challenge) } }))
+      .toEqual({ type: 'error', id: 'r', code: 'revoked' })
+  })
+
+  test('after a crash within its time, the pairing keeps only what is left of it, not a new two minutes', async () => {
+    const p = await paired()
+    const crashed = p.h.gateway
+    p.h.clock += 100
+    const next = p.h.create({ unusedPairingTtlMs: 400 })
+    expect(next.devices()).toHaveLength(1)
+    await vi.waitFor(() => expect(next.devices()).toEqual([]), { timeout: 3_000 })
+    await crashed.stop()
+    await next.stop()
+  })
+
+  test('after a crash and a wall clock set back, the pairing still lapses within its own time, not that plus the jump', async () => {
+    const p = await paired()
+    const crashed = p.h.gateway
+    p.h.clock -= 10 * 60_000
+    const next = p.h.create({ unusedPairingTtlMs: 300 })
+    expect(next.devices()).toHaveLength(1)
+    // Without the cap the timer would wait ten minutes more; it fires after the 300 ms the pairing had.
+    await vi.waitFor(() => expect(next.devices()).toEqual([]), { timeout: 3_000 })
+    await crashed.stop()
+    await next.stop()
+  })
+
+  test('a phone that signed in is never removed at launch, however long ago it paired', async () => {
+    const p = await paired()
+    ;(await signedIn(p)).close()
+    await vi.waitFor(() => expect(p.h.gateway.devices()[0].connected).toBe(false))
+    const crashed = p.h.gateway
+    p.h.clock += 10 * UNUSED_PAIRING_TTL_MS
+    const next = p.h.create()
+    expect(next.devices()).toEqual([expect.objectContaining({ deviceId: p.deviceId })])
+    await crashed.stop()
+    await next.stop()
+  })
+
+  test('a pairing still unused when the app quits is removed then, so no launch inherits an orphan', async () => {
+    const p = await paired()
+    const used = await paired()
+    ;(await signedIn(used)).close()
+    await p.h.gateway.stop()
+    await used.h.gateway.stop()
+    expect(new RemoteStore(p.h.db).device(p.deviceId)?.revoked).toBe(true)
+    expect(new RemoteStore(p.h.db).auditEntries().filter(entry => entry.outcome === 'unused-expired')).toEqual([expect.objectContaining({ deviceId: p.deviceId })])
+    expect(new RemoteStore(used.h.db).device(used.deviceId)?.revoked).toBe(false)
+  })
+
+  test('a database error when the timer fires throws nothing in main; the phone is still refused and the removal is retried at its sign-in', async () => {
+    const p = await paired({ unusedPairingTtlMs: 100 })
+    const failing = vi.spyOn(RemoteStore.prototype, 'revoke').mockImplementationOnce(() => { throw new Error('SQLITE_BUSY') })
+    await vi.waitFor(() => expect(failing).toHaveBeenCalledTimes(1), { timeout: 3_000 })
+    expect(p.h.gateway.devices()).toHaveLength(1)
+    lapse(p.h)
+    const late = await hello(p.target)
+    expect(await late.socket.ask({ type: 'auth', id: 'a', accessToken: p.accessToken })).toEqual({ type: 'error', id: 'a', code: 'revoked' })
+    expect(p.h.gateway.devices()).toEqual([])
+    failing.mockRestore()
+  })
+
+  test('a phone the person removed first is not reported again when its time would have run out', async () => {
+    const p = await paired({ unusedPairingTtlMs: 150 })
+    p.h.gateway.revoke({ deviceId: p.deviceId })
+    await new Promise(resolve => setTimeout(resolve, 300))
+    lapse(p.h)
+    expect(p.h.pairingFailures).toEqual([])
+    expect(new RemoteStore(p.h.db).auditEntries().some(entry => entry.outcome === 'unused-expired')).toBe(false)
   })
 })
 
@@ -348,6 +486,10 @@ describe('remote gateway: the token signing key lives only in memory', () => {
       }
     }
 
+    // A phone in use (it signed in once): a pairing still unused at quit is removed then (B9.2).
+    const using = await signedIn(p)
+    using.close()
+    await using.closed
     await p.h.gateway.stop()
     p.h.gateway = p.h.create()
     const target = await p.h.enable()

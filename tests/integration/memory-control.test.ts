@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { mkdtemp, mkdir, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { openInMemoryDatabase, type AppDatabase } from '../../electron/main/db'
@@ -7,6 +7,7 @@ import { WorkspaceService } from '../../electron/main/services/workspace.service
 import { MemoryService } from '../../electron/main/services/memory/memory.service'
 import { AiMemoryProvider } from '../../electron/main/services/memory/ai-memory.provider'
 import { MEMORY_TOOLS } from '../../electron/main/mcp-internal/memory-tool-handlers'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 vi.mock('electron', () => ({ safeStorage: { isEncryptionAvailable: () => true,
   encryptString: (text: string) => Buffer.from(text), decryptString: (value: Buffer) => value.toString() } }))
@@ -15,7 +16,7 @@ vi.mock('../../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: 
 const cleanup: { service: MemoryService; db: AppDatabase; directory: string }[] = []
 afterEach(async () => {
   vi.restoreAllMocks()
-  for (const entry of cleanup.splice(0)) { await entry.service.stop(); entry.db.close(); await rm(entry.directory, { recursive: true, force: true }) }
+  for (const entry of cleanup.splice(0)) { await entry.service.stop(); entry.db.close(); removeTempDir(entry.directory) }
 })
 async function fixture(settings = { enabled: true, automaticCapture: false, automaticContext: true }) {
   const directory = await mkdtemp(join(tmpdir(), 'oxespace-memory-control-'))

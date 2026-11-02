@@ -65,6 +65,15 @@ export const CODE_TOOL_GROUP = ['oxespace_list_panes', 'oxespace_terminal', 'oxe
   'oxespace_create_worktree', 'oxespace_remove_worktree', 'oxespace_tasks', 'oxespace_tasks_change', 'oxespace_agents',
   'oxespace_agents_change', 'oxespace_integration', 'oxespace_memory_diagnostics'] as const
 
+/**
+ * What an agent in a Code terminal starts with (T8, about 2.2k chars): its panes, terminal, scripts and jobs. The rest
+ * of the Code tools (worktrees, tasks, agents, integrations, about 8.1k) wait for oxespace_tools_enable { group: "code" },
+ * or come through tool search, so the agent starts within the 9,000-char budget.
+ */
+export const CODE_START_TOOLS = ['oxespace_list_panes', 'oxespace_terminal', 'oxespace_list_scripts', 'oxespace_run_script',
+  'oxespace_list_background_jobs', 'oxespace_get_job_output'] as const satisfies readonly (typeof CODE_TOOL_GROUP[number])[]
+export const CODE_ON_DEMAND_TOOLS: string[] = CODE_TOOL_GROUP.filter(tool => !(CODE_START_TOOLS as readonly string[]).includes(tool))
+
 /** Every group of OXESpace tools, the Code terminal's included (Settings › Tools lists these). */
 export const MCP_TOOL_GROUPS = { ...THREAD_TOOL_GROUPS, code: CODE_TOOL_GROUP } as const satisfies Record<string, readonly string[]>
 /** Groups a project can turn on in oxe.yaml; core is always on and roles are detected. */

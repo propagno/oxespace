@@ -16,8 +16,10 @@
   },
   "tools": {
     "team": {
-      "label": "Team",
-      "detail": "Project roles and agent inboxes"
+      "label": "Project team",
+      "detail": "Project roles and agent inboxes",
+      "menu": "Project team…",
+      "keywords": "equipe, time, papéis, coordenadora, membros, caixa de entrada"
     },
     "integration": {
       "label": "Multi-repo coordination",
@@ -107,11 +109,10 @@
     "unsaved": "Unsaved",
     "saved": "Saved",
     "unsavedChanges": "Unsaved changes",
-    "dictation": "Dictation",
-    "dictationTitle": "Tap to start or stop dictation. Hold to talk.",
     "loadingPreview": "Loading preview…",
     "loadingEditor": "Loading the editor…",
     "openFailed": "Could not open the file",
+    "saveFailed": "Could not save {{name}}",
     "previewFailed": "Could not show the preview",
     "readFailed": "Could not read the file.",
     "unexpected": "The editor ran into an unexpected error.",
@@ -803,7 +804,9 @@
     "boundary": "this pane",
     "splitRefused": {
       "title": "This pane cannot be split here",
-      "hint": "Every place in this layout is taken. Choose a larger layout, or turn on the split layout to add panes freely."
+      "hint": "Every place in this layout is taken. Choose a larger layout, or turn on the split layout to add panes freely.",
+      "tooNarrow": "Each half would be narrower than {{width}} px. Close another pane, or make the window wider.",
+      "tooShort": "Each half would be shorter than {{height}} px. Close another pane, or make the window taller."
     },
     "attention": {
       "blocked": "Needs your approval or answer",
@@ -1891,6 +1894,11 @@
       "hook": "Last hook report",
       "screen": "Screen rule",
       "fallback": "Screen fallback",
+      "screenMatched": "The screen shows a known state of this agent: {{state}}",
+      "fallbacks": {
+        "default_known_agent_idle_fallback": "Nothing on the screen matched a known state of this agent, so it is shown as idle.",
+        "other": "Nothing on the screen matched a known state, so the status comes from other signals."
+      },
       "pendingIdle": "Confirming that it stopped",
       "none": "OXESpace has no lifecycle report for this pane, so its status is estimated from terminal activity.",
       "unavailable": "The status explanation is not available in this build.",

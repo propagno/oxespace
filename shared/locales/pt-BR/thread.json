@@ -363,7 +363,6 @@
     "mention": "Mencionar um arquivo",
     "steer": "Orientar o turno ativo",
     "steerTitle": "Enviar uma orientação ao turno ativo",
-    "voice": "Entrada por voz",
     "stop": "Parar o turno",
     "stopTitle": "Parar o turno · Esc",
     "queue": "Pôr na fila",
@@ -1763,5 +1762,13 @@
     "close": "Fechar o chat lateral ({{shortcut}})",
     "openMenu": "Chat lateral",
     "closeMenu": "Fechar o chat lateral"
+  },
+  "prArchive": {
+    "merged": "O pull request #{{number}} foi mesclado",
+    "closed": "O pull request #{{number}} foi fechado",
+    "description": "Esta conversa será arquivada. Você pode restaurá-la em Arquivadas, na barra lateral.",
+    "keep": "Manter",
+    "archived": "Conversa arquivada",
+    "restore": "Restaurar"
   }
 }

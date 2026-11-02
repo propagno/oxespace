@@ -29,7 +29,7 @@ test('Settings stays usable in short windows and renders updater states', async 
     await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Agents/ }).click()
     await expect(settings.getByTestId('provider-contract-claude')).toHaveText('Newer than checked')
     await expect(settings.getByTestId('provider-contract-claude')).toHaveAttribute('title', /newer than 2\.1\.306/)
-    const categories = [['general', 'General'], ['providers', 'Agents'], ['terminal', 'Terminal'], ['voice', 'Voice'], ['notifications', 'Notifications'], ['updates', 'Updates'], ['diagnostics', 'Diagnostics']]
+    const categories = [['general', 'General'], ['providers', 'Agents'], ['terminal', 'Terminal'], ['notifications', 'Notifications'], ['updates', 'Updates'], ['diagnostics', 'Diagnostics']]
     for (const width of [1440, 1280, 900, 600]) {
       await page.setViewportSize({ width, height: width === 1440 ? 900 : width === 1280 ? 720 : 600 })
       if (width === 600) {

@@ -137,9 +137,11 @@ sabendo quando a busca de código do OXESpace é melhor que o grep." Números me
 
 - **Os contêineres saíram do OxeQuery para o OxePod.**
 - **Nomes dos modos**: Code agora é OxeCode e Thread agora é OxeChat.
-<!-- entra quando o F34 for mesclado: "**O OXEVoice foi removido.** O OXESpace não grava mais voz; o ditado do seu
-sistema continua digitando em qualquer campo, e o modelo de voz baixado é apagado no primeiro início. A voz nativa
-está prevista para uma versão futura." -->
+<!-- entra quando o B21 for mesclado: "**O OXEVoice foi removido.** O OXESpace não grava mais voz; o ditado do seu
+sistema continua digitando em qualquer campo. A voz nativa está prevista para uma versão futura. Os modelos de voz que
+você baixou continuam no disco: para liberar o espaço, apague os arquivos cujo nome começa com `ggml-` em
+`%APPDATA%\oxespace\models` (Windows), `~/Library/Application Support/oxespace/models` (macOS) ou
+`~/.config/oxespace/models` (Linux). Mantenha os outros arquivos dessa pasta; eles são usados pela busca semântica." -->
 <!-- entra quando o F35 (#344) for mesclado: "**A equipe saiu da barra de título.** Abra em **Ferramentas › Equipe do
 projeto…**, na paleta de comandos ou com `Ctrl+Shift+T`." -->
 - **Ações de Git iniciadas pelo OXESpace pulam os hooks do repositório.** Push, troca de branch e criação de worktree
