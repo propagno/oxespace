@@ -2,6 +2,8 @@ import type { AppDatabase } from '../../db'
 import { ThreadHistory } from '../conversation/thread-history'
 import type { BackgroundJobStatus } from '../../../../shared/types/background'
 import type { AgentLifecycleState } from '../../../../shared/types/agent-state'
+import type { MainMessage } from '../../../../shared/messages'
+import { AGENT_SOURCES, type AgentKey, type AgentSourceStatus, type AgentsOverview } from '../../../../shared/types/agents'
 import type {
   ConversationThread, ThreadDelta, ThreadHistoryPage, ThreadPendingRefusal, ThreadRequest, ThreadRequestResponse, ThreadSnapshot, ThreadSyncCursor
 } from '../../../../shared/types/thread'
@@ -49,6 +51,13 @@ export interface RemoteDesktop {
   writeTerminal(paneId: string, data: string): Promise<boolean>
   jobs(): RemoteJobRow[]
   delegations(): RemoteDelegationRow[]
+  /** S7.1: every agent, already in the seven states, with each source's status. */
+  agents(): AgentsOverview
+  onAgentsChanged(listener: () => void): () => void
+  /** The person looked at it on the phone. False for a malformed key. */
+  markAgentSeen(key: AgentKey): boolean
+  /** Main's words for a C3 message, in English: the fallback beside the code the phone words itself. */
+  messageText(message: MainMessage): string
 }
 
 // ---- The production adapter --------------------------------------------------------------------------------------
@@ -74,7 +83,21 @@ export interface RemoteTerminalHost {
 }
 export interface RemoteAgentStateHost { list(): Array<{ paneId: string; agent: string; state: AgentLifecycleState }> }
 
-export interface RemoteDesktopHosts { db: AppDatabase; threads: RemoteThreadHost; terminals: RemoteTerminalHost; agentState: RemoteAgentStateHost }
+/** The agents read model (S7.1), as far as the gateway uses it. */
+export interface RemoteAgentsHost {
+  overview(): AgentsOverview
+  markSeen(key: unknown): boolean
+  onChanged(listener: () => void): () => void
+  text(message: MainMessage): string
+}
+
+export interface RemoteDesktopHosts { db: AppDatabase; threads: RemoteThreadHost; terminals: RemoteTerminalHost; agentState: RemoteAgentStateHost; agents?: RemoteAgentsHost }
+
+/** Without the read model (tests, a failed start): every source unavailable, never an empty "nothing running". */
+const NO_AGENTS = (): AgentsOverview => ({
+  agents: [],
+  sources: Object.fromEntries(AGENT_SOURCES.map(source => [source, { ok: false, reason: { code: 'agents.source.unavailable', params: { source } } }])) as Record<typeof AGENT_SOURCES[number], AgentSourceStatus>
+})
 
 const LIST_LIMIT = 200
 
@@ -94,7 +117,7 @@ export function refusalOf(error: unknown): ThreadPendingRefusal | undefined {
 }
 
 export function createRemoteDesktop(hosts: RemoteDesktopHosts): RemoteDesktop {
-  const { db, threads, terminals, agentState } = hosts
+  const { db, threads, terminals, agentState, agents } = hosts
   const history = new ThreadHistory(db)
   return {
     roots() {
@@ -157,6 +180,18 @@ export function createRemoteDesktop(hosts: RemoteDesktopHosts): RemoteDesktop {
         Array<{ task_id: string; workspace_id: string; objective: string; state: string; branch: string; updated_at: number; error: string | null; thread_id: string | null }>)
         .map(row => ({ id: row.task_id, workspaceId: row.workspace_id, objective: row.objective, state: row.state, updatedAt: row.updated_at,
           ...(row.branch ? { branch: row.branch } : {}), ...(row.error ? { error: row.error } : {}), ...(row.thread_id ? { destinationThreadId: row.thread_id } : {}) }))
+    },
+    agents() {
+      return agents ? agents.overview() : NO_AGENTS()
+    },
+    onAgentsChanged(listener) {
+      return agents ? agents.onChanged(listener) : () => {}
+    },
+    markAgentSeen(key) {
+      return agents ? agents.markSeen(key) : false
+    },
+    messageText(message) {
+      return agents ? agents.text(message) : message.code
     }
   }
 }

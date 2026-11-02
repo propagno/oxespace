@@ -2,8 +2,10 @@ import { homedir } from 'node:os'
 import { describe, expect, test, vi } from 'vitest'
 import { openInMemoryDatabase } from '../../electron/main/db'
 import { DiagnosticsService, sanitizeDiagnosticText } from '../../electron/main/services/diagnostics.service'
+import { version as packageVersion } from '../../package.json'
 
-vi.mock('electron', () => ({ app: { getVersion: () => 'test' } }))
+// Electron's version, as app.getVersion() reports it unpackaged: the snapshot must not use it.
+vi.mock('electron', () => ({ app: { getVersion: () => '44.9.3' } }))
 
 describe('DiagnosticsService', () => {
   test('reports database, MCP and sandbox health', () => {
@@ -14,7 +16,7 @@ describe('DiagnosticsService', () => {
         uptimeMs: 1, toolCount: 3, tools: []
       }))
       const snapshot = service.getSnapshot()
-      expect(snapshot.appVersion).toBe('test')
+      expect(snapshot.appVersion).toBe(packageVersion)
       expect(snapshot.checks).toEqual(expect.arrayContaining([
         expect.objectContaining({ id: 'database', tone: 'ok' }),
         expect.objectContaining({ id: 'mcp', tone: 'ok' }),

@@ -131,7 +131,7 @@
         "offline": "No network connection."
       },
       "openIn": {
-        "outsideRoot": "This file is outside the project, so it can't be opened from here.",
+        "outsideRoot": "Only files and folders inside the project can be opened from here.",
         "notFound": "{{path}} no longer exists.",
         "notAFile": "{{editor}} opens only files from here, not folders.",
         "unknownTarget": "OXESpace can't open files this way.",
@@ -517,6 +517,17 @@
       },
       "session": {
         "notFound": "This agent hasn't reported its session yet. It shows after the agent's first reply, or sooner with the status hooks on (Settings › Notifications)."
+      },
+      "request": {
+        "approval": "Waiting for your approval",
+        "question": "Asking you a question",
+        "permissions": "Asking for more permissions",
+        "elicitation": "Asking you for details",
+        "tool": "Waiting on a tool you run",
+        "pane": "Waiting on its prompt in the pane"
+      },
+      "source": {
+        "unavailable": "Could not read {{source}} right now; the other agents still show."
       }
     },
     "incident": {

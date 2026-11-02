@@ -11,6 +11,7 @@
  * share the working tree.
  */
 import { randomUUID } from 'node:crypto'
+import { notifyAgentsChanged } from '../agents/agents-notifier'
 import type { AppDatabase } from '../../db'
 import type { ConversationThread, ThreadConfiguration, ThreadSnapshot } from '../../../../shared/types/thread'
 import type { WorkEvent, WorkPlanInput, WorkRun, WorkRunStatus, WorkTask, WorkTaskResult, WorkTaskStatus } from '../../../../shared/types/work'
@@ -162,6 +163,7 @@ export class WorkService {
       this.db.prepare(`INSERT INTO work_runs (id, supervisor_thread_id, workspace_id, project_id, project_root, request_key, title, status, depth, budget_usd, budget_turns, auto_wake, wakes, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, 'running', ?, ?, ?, ?, 0, ?, ?)`).run(runId, supervisorId, supervisor.workspaceId, supervisor.projectId, supervisor.rootPath, plan.key, plan.title, depth,
         plan.budget?.usd ?? null, plan.budget?.turns ?? null, plan.autoWake ? 1 : 0, now, now)
+      notifyAgentsChanged()
       const ids = new Map<string, string>()
       plan.tasks.forEach((task, position) => {
         const id = randomUUID(); ids.set(task.key, id)
@@ -219,6 +221,7 @@ export class WorkService {
       const turns = this.host.read(task.thread_id).turns?.length ?? 0
       this.db.prepare("UPDATE work_tasks SET status = 'running', reason = NULL, turn_base = ?, finished_at = NULL WHERE id = ?").run(turns, task.id)
       this.db.prepare("UPDATE work_runs SET status = 'running', updated_at = ? WHERE id = ?").run(Date.now(), runId)
+      notifyAgentsChanged()
       this.watch({ ...task, status: 'running' })
     }
     this.event(runId, task.id, 'message', body.slice(0, 500))
@@ -427,6 +430,7 @@ export class WorkService {
     for (const task of open) this.finishTask(task, 'cancelled', `Budget reached (${over})`, false)
     for (const task of running) void this.host.interrupt(task.thread_id!).catch(() => {})
     this.db.prepare("UPDATE work_runs SET status = 'blocked', updated_at = ? WHERE id = ?").run(Date.now(), runId)
+    notifyAgentsChanged()
     this.event(runId, undefined, 'budget', `Budget reached (${over}); ${open.length} unfinished ${open.length === 1 ? 'task was' : 'tasks were'} stopped`)
     this.note(runId, `The run stopped at its budget (${over}). Unfinished tasks were cancelled; plan new work with a larger budget to continue.`)
   }
@@ -438,6 +442,7 @@ export class WorkService {
     if (tasks.some(task => !TERMINAL.has(task.status))) return
     const status: WorkRunStatus = tasks.some(task => task.status === 'failed') ? 'failed' : tasks.some(task => task.status === 'cancelled') ? 'cancelled' : 'succeeded'
     this.db.prepare('UPDATE work_runs SET status = ?, updated_at = ? WHERE id = ?').run(status, Date.now(), runId)
+    notifyAgentsChanged()
     this.event(runId, undefined, 'finished', status)
     if (quiet) return
     const lines = tasks.map(task => `- ${task.key} (${task.status})${task.reason ? `: ${task.reason}` : ''}`)

@@ -22,7 +22,8 @@ const rememberFirewallExplained = (): void => { try { localStorage.setItem(FIREW
 /** Catalog keys of what the protocol lets a phone do and what it never does (shared/remote/protocol.ts). */
 const COMMAND_KEYS = {
   'thread.send': 'threadSend', 'thread.steer': 'threadSteer', 'thread.interrupt': 'threadInterrupt',
-  'thread.respondRequest': 'threadRespondRequest', 'terminal.write': 'terminalWrite', 'thread.history': 'threadHistory'
+  'thread.respondRequest': 'threadRespondRequest', 'terminal.write': 'terminalWrite', 'thread.history': 'threadHistory',
+  'agent.markSeen': 'agentMarkSeen'
 } as const satisfies Record<RemoteCommand, string>
 const FORBIDDEN_KEYS = {
   'oxequery.approve': 'oxequeryApprove', 'mcp.confirm': 'mcpConfirm', 'mcp.trust': 'mcpTrust', 'accounts.signIn': 'accountsSignIn',
