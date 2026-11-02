@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import { spawn, type ChildProcess } from 'node:child_process'
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from 'node:net'
@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto'
 import { AiMemoryClient } from '../../electron/main/services/memory/ai-memory.client'
 import { AiMemoryProvider } from '../../electron/main/services/memory/ai-memory.provider'
 import type { MemoryContext } from '../../shared/types/memory'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 // Opt-in contract test against the actual, checksum-verified native executable.
 // No agent model/API calls, user transcripts, home configuration or cloud models.
@@ -82,7 +83,7 @@ describe.skipIf(!binary)('AI Memory native contract', () => {
     if (server && server.exitCode === null) {
       await new Promise<void>(resolve => { server.once('exit', () => resolve()); server.kill() })
     }
-    if (directory) await rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+    if (directory) removeTempDir(directory)
   })
   test('Claude ends; independent Codex session retrieves JWT decision from persistent project memory', async () => {
     const claude = await context('continuity', 'claude-code')

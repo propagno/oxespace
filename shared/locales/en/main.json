@@ -165,6 +165,12 @@
       "certificate": {
         "failed": "The connection certificate could not be created or read from secure storage."
       },
+      "keyring": {
+        "missing": "The phone connection stays off because no system keyring was found to protect its key. Start GNOME Keyring or KWallet and restart OXESpace. If one is already running (common on i3 or sway), start OXESpace with `--password-store=gnome-libsecret`."
+      },
+      "storage": {
+        "unavailable": "The phone connection stays off because secure storage isn't available on this system, so its key can't be kept."
+      },
       "pairing": {
         "failed": "$t(remotePairingFailure.{{reason}})",
         "limit": "This computer already has {{max}} paired devices. Remove one before pairing another."

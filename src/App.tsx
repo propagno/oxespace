@@ -5,6 +5,7 @@ import { useCodeCommands } from './commands/code.commands'
 import { sayAddProjectFirst, useThreadCommands } from './commands/thread.commands'
 import { DataHosts, DataSidebar, isDataView, ThreadGrid, ThreadSidebar, ThreadSidebarBoundary, useModeActions, ViewSkeleton } from './components/Navigation/ModeViews'
 import { useViewSwitch } from './app/viewSwitch'
+import { setShownView } from './app/shownView'
 import { SettingsCenter } from './components/Settings/SettingsHost'
 import { NoWorkspaceStart } from './components/Onboarding/NoWorkspaceStart'
 import { DelegationNotice } from './components/Delegation/DelegationNotice'
@@ -12,7 +13,8 @@ import { useTranslation } from 'react-i18next'
 import type { ToolId } from './components/Workspace/toolCatalog'
 import { panelMenuEntries, type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
 import { Button, cx, Toaster, TitleTooltips, TooltipProvider } from './ui'
-import { reportSplitRefused } from './components/Grid/splitRefusal'
+import { reportSplitRefused, reportSplitTooSmall } from './components/Grid/splitRefusal'
+import { layoutPaneSize, paneSize, splitGridSize, splitHasRoom } from './components/Grid/splitRoom'
 import titleBar from './components/Navigation/TitleBar.module.css'
 import { ModeSwitch } from './components/Navigation/ModeSwitch'
 import { ActivityCenter } from './components/Activity/ActivityCenter'
@@ -590,6 +592,13 @@ export function App(): ReactElement {
       void splitPane(paneId, direction).catch(reportSplitRefused)
       return
     }
+    // Each split halves the pane: one that would leave halves too small to use is refused before main creates a pane.
+    // From the layout, not the screen: a maximized pane looks big enough but goes back to its own share on restore.
+    const size = layoutPaneSize(usePaneLayoutStore.getState().trees[workspaceId] ?? null, paneId, splitGridSize()) ?? paneSize(paneId)
+    if (size && !splitHasRoom(size, direction)) {
+      reportSplitTooSmall(direction)
+      return
+    }
 
     // WorkspaceSurface instances for recently visited workspaces stay mounted
     // to preserve xterm state. Global split routing must therefore live here;
@@ -666,7 +675,7 @@ export function App(): ReactElement {
     openTools: { editor: activeWorkspace?.editorVisible, github: activeWorkspace?.githubPanelVisible, review: activeWorkspace?.reviewPanelVisible, background: activeWorkspace?.backgroundPanelVisible, worktrees: activeWorkspace?.worktreePanelVisible, scripts: isScriptsPanelOpen, search: isSearchPanelOpen, 'web-preview': activeWorkspace ? webPreviewOpenByWorkspace[activeWorkspace.id] : false },
     splitActivePane, toggleActivePaneMaximize, openDesignSystem: () => setDesignSystemOpen(true) })
   const commandActions = useContributedCommands()
-  useEffect(() => { setKeyboardView(applicationView) }, [applicationView])
+  useEffect(() => { setKeyboardView(applicationView); setShownView(applicationView) }, [applicationView])
   const terminalPane = activePane?.type === 'terminal' ? activePane : null
   const zoomTerminal = (delta: 1 | -1 | 0): void => {
     const store = useTerminalPrefsStore.getState()
