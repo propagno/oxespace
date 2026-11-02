@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -7,6 +7,7 @@ import { AgentProcessTransport } from '../electron/main/services/conversation/pr
 import { connectIncidentJournal, incidentSubject, recordInteractionOverBudget } from '../electron/main/services/diagnostics/incident-sink'
 import { OxeQueryWorkerClient } from '../electron/main/services/oxequery/worker-client'
 import type { ResolvedConnection } from '../electron/main/services/oxequery/oxequery-errors'
+import { removeTempDir } from './helpers/removeTempDir'
 
 // Recording points of the incident journal (B8.3) outside the IPC wrapper; each passes a code and an id of ours.
 const recorded: Array<[string, string | undefined]> = []
@@ -24,7 +25,7 @@ parentPort.on('message', ({ requestId, op }) => {
   parentPort.postMessage({ requestId, error: { code: 'timeout', message: 'statement timeout on SELECT salary FROM people' } })
 })`)
 })
-afterAll(() => rmSync(dir, { recursive: true, force: true }))
+afterAll(() => removeTempDir(dir))
 
 describe('incident recording points', () => {
   it('OxeQuery: a statement the server stopped and a request the worker never answered', async () => {

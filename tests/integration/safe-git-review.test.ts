@@ -14,6 +14,7 @@ import { __forgetConfigReadsForTests, __forgetSeenDriversForTests, execConfigRea
 import { PersonGitRefused, runPersonGit } from '../../electron/main/utils/safe-git-person'
 import { commonGitDir } from '../../electron/main/utils/git-dir'
 import { GhExec, type SpawnAsyncOptions, type SpawnResult } from '../../electron/main/services/github/gh-exec'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 })
 
@@ -36,7 +37,7 @@ beforeEach(() => {
   writeFileSync(runScript, `#!/bin/sh\necho "ran $0 $*" >> '${slash(marker)}'\nexit 0\n`)
   evilRun = `sh '${slash(runScript)}'`
 })
-afterEach(() => { try { rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }) } catch { /* temp dir */ } })
+afterEach(() => { try { removeTempDir(sandbox) } catch { /* temp dir */ } })
 const ran = () => existsSync(marker)
 const reset = () => rmSync(marker, { force: true })
 

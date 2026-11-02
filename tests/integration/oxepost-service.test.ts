@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { OxePostService } from '../../electron/main/services/oxepost/service'
 import { sendRequest } from '../../electron/main/services/oxepost/send'
 import type { PostEnvironmentView, PostHistoryEntry, PostRequest, PostResponse } from '../../shared/oxepost/types'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 /** A vault that "encrypts" by reversing and tagging, so a test can tell the file never holds the plain value. */
 const vault = {
@@ -140,7 +141,7 @@ describe('collections, environments and secrets through the service', () => {
     userData = mkdtempSync(join(tmpdir(), 'oxepost-ud-'))
     service = new OxePostService({ rootOf: id => id === 'w1' ? root : undefined, vault, secretsFile: join(userData, 'secrets.json') })
   })
-  afterAll(() => { rmSync(root, { recursive: true, force: true }); rmSync(userData, { recursive: true, force: true }) })
+  afterAll(() => { removeTempDir(root); removeTempDir(userData) })
 
   it('saves requests as readable files, lists, reads, renames and deletes them', async () => {
     const saved = await call<{ path: string }>('save', { request: request({ name: 'Get user', url: '{{baseUrl}}/users/1' }), folder: 'users' })
@@ -179,7 +180,7 @@ describe('collections, environments and secrets through the service', () => {
       expect(await refused('save', { request: request(), folder: 'linked' })).toMatch(/outside the workspace/)
       expect(readdirSync(outside)).toEqual(['leak.http'])
       expect((await call<{ requests: unknown[] }>('list', {})).requests).toEqual([])
-    } finally { rmSync(join(root, '.oxespace/requests/linked'), { force: true, recursive: false }); rmSync(outside, { recursive: true, force: true }) }
+    } finally { rmSync(join(root, '.oxespace/requests/linked'), { force: true, recursive: false }); removeTempDir(outside) }
   })
 
   it('keeps secret values out of every file and out of every answer', async () => {

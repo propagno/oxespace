@@ -5,13 +5,14 @@
  * (SemanticModelStore), so the cut leaves that folder alone: an upgrade keeps the semantic model and every file
  * OXEVoice downloaded there (the 1.4.0 notes, #449, tell the person to delete the `ggml-*` files by hand).
  */
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync, existsSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
 import { SEMANTIC_MODEL_FILES, SemanticModelStore } from '../../electron/main/services/semantic-model-store'
 import { SEMANTIC_MODEL_ID } from '../../electron/main/services/semantic-model'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const repo = process.cwd()
 const read = (rel: string) => readFileSync(join(repo, rel), 'utf8')
@@ -97,7 +98,7 @@ describe('B21: an upgrade leaves <userData>/models as it was', () => {
       expect(listing()).toEqual(before)
       expect(readFileSync(join(models, 'ggml-base.bin'), 'utf8')).toBe('whisper model')
     } finally {
-      rmSync(models, { recursive: true, force: true })
+      removeTempDir(models)
     }
   })
 })

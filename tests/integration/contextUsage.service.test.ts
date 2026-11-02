@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, utimesSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, utimesSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
@@ -9,6 +9,7 @@ import { readCopilotContext } from '../../electron/main/services/contextUsage/co
 import { UsageService } from '../../electron/main/services/usage.service'
 import { ClaudeUsageProvider } from '../../electron/main/services/usage/claudeProvider'
 import { CodexUsageProvider } from '../../electron/main/services/usage/codexProvider'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 function encodePath(p: string): string {
   return p.replace(/[^a-zA-Z0-9]/g, '-')
@@ -19,7 +20,7 @@ function encodePath(p: string): string {
 describe('ContextUsageService — Claude/Codex (lastTurn ÷ contextLimit)', () => {
   let root: string
   beforeEach(() => { root = mkdtempSync(join(tmpdir(), 'ctx-usage-')) })
-  afterEach(() => { rmSync(root, { recursive: true, force: true }) })
+  afterEach(() => { removeTempDir(root) })
 
   test('claude: context % from the last turn of the newest transcript', async () => {
     const ws = join(root, 'eduardo.carvalho@seedz.ag', 'repo-with-dashes')
@@ -137,7 +138,7 @@ describe('readCopilotContext — Copilot process logs', () => {
     mkdirSync(join(copilotRoot, 'logs'), { recursive: true })
     mkdirSync(ws, { recursive: true })
   })
-  afterEach(() => { rmSync(root, { recursive: true, force: true }) })
+  afterEach(() => { removeTempDir(root) })
 
   function writeSession(sessionId: string, cwd: string): void {
     const dir = join(copilotRoot, 'session-state', sessionId)
