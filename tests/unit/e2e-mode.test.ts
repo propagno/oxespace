@@ -29,6 +29,7 @@ const OWN_PACKAGED_CHECK: Record<string, RegExp> = {
   'e2e/mcp-fixture.ts': /mcpFixtureMode\(env[^)]*isPackaged: boolean\)[^{]*\{\s*if \(isPackaged\) return null/,
   'e2e/agent-state-hook.ts': /e2eAgentStateEnabled\(env[^)]*isPackaged: boolean\)[^{]*\{\s*if \(isPackaged\) return false/,
   'services/browser-preview-security.ts': /packaged = app\.isPackaged\)[^{]*\{\s*if \(packaged \|\| env\.OXESPACE_E2E_GUEST_PROBE !== '1'\) return \{\}/,
+  'services/approvals/timeout.ts': /approvalTimeoutMs\(env[^)]*isPackaged: boolean\)[^{]*\{\s*if \(isPackaged\) return APPROVAL_TIMEOUT_MS/,
 }
 const MOCK_LAYER_ONLY = new Set(['e2e/mock-ipc.ts', 'e2e/remote-mock.ts', 'e2e/approvals-mock.ts'])
 const THROUGH_SWITCH = new Set(['index.ts', 'window-close-guard.ts', 'ipc/agent.ipc.ts', 'updater.ts'])
@@ -42,6 +43,15 @@ function sources(dir: string): string[] {
     if (statSync(path).isDirectory()) return sources(path)
     return /\.(?:[cm]?[jt]sx?)$/.test(name) ? [path] : []
   })
+}
+
+/**
+ * The source without its whole-line comments: lines that start with `//`, `/*`, `*` or `*\/`. A comment after code on
+ * the same line is kept, on purpose: telling it apart from a string or regex needs a parser, and keeping it can only
+ * make the check stricter, never hide a real read.
+ */
+function withoutComments(source: string): string {
+  return source.split('\n').map(line => (/^\s*(?:\/\/|\/\*|\*)/.test(line) ? '' : line)).join('\n')
 }
 
 /** The body of the first `if (<condition>) {` block, matched by braces. */
@@ -58,7 +68,8 @@ function blockAfter(text: string, condition: string): string {
 
 describe('every OXESPACE_E2E_* read in electron/main', () => {
   const root = join(process.cwd(), 'electron', 'main')
-  const all = sources(root).map(path => ({ file: relative(root, path).split(sep).join('/'), text: readFileSync(path, 'utf8') }))
+  // Comments name variables without reading them; strings and code are kept, so a real read is never hidden.
+  const all = sources(root).map(path => ({ file: relative(root, path).split(sep).join('/'), text: withoutComments(readFileSync(path, 'utf8')) }))
   // A read is the name itself, or one built from pieces ('OXESPACE_' + …, `OXESPACE_${…}`).
   const reads = all.filter(source => source.file !== 'e2e/e2e-mode.ts' && /OXESPACE_E2E_|['"`]OXESPACE_['"`]\s*\+|`OXESPACE_\$\{/.test(source.text))
 
@@ -80,6 +91,8 @@ describe('every OXESPACE_E2E_* read in electron/main', () => {
     for (const [file, guard] of Object.entries(OWN_PACKAGED_CHECK)) {
       expect(all.find(source => source.file === file)?.text, file).toMatch(guard)
     }
+    // The approvals timeout is only as safe as its caller: without an Electron app it must assume a packaged build.
+    expect(all.find(source => source.file === 'services/approvals/index.ts')?.text).toContain('approvalTimeoutMs(process.env, app?.isPackaged ?? true)')
   })
 
   it('loads the E2E modules only inside the switch, from any file', () => {
