@@ -109,6 +109,8 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'worktree.include.copied': ['count'],
   'worktree.include.outsideRepo': ['pattern'],
   'worktree.include.overLimit': ['files', 'maxFiles', 'maxMegabytes', 'megabytes'],
+  'worktree.include.tooComplex': ['pattern'],
+  'worktree.include.notIgnored': ['paths'],
   'worktree.include.searchTooLarge': ['limit'],
   'worktree.include.notOverwritten': ['paths'],
   'worktree.include.notFollowed': ['paths'],

@@ -160,6 +160,10 @@ export interface MessageParams {
   'worktree.include.outsideRepo': { pattern: string }
   /** B19: the patterns matched more than the limit; nothing is copied, the worktree is created anyway. */
   'worktree.include.overLimit': { files: number; megabytes: number; maxFiles: number; maxMegabytes: number }
+  /** B19: a pattern with more segments or `**` than the matcher allows; nothing is copied for it. */
+  'worktree.include.tooComplex': { pattern: string }
+  /** B19: files git does not ignore in the new worktree; a copy could be committed, so they are not copied. */
+  'worktree.include.notIgnored': { paths: string[] }
   /** B19: the search went through more entries than allowed before finishing; nothing is copied. */
   'worktree.include.searchTooLarge': { limit: number }
   /** B19: files already in the new worktree; they are kept as they are. */
@@ -491,6 +495,8 @@ export const MESSAGE_CODES = [
   'worktree.include.copied',
   'worktree.include.outsideRepo',
   'worktree.include.overLimit',
+  'worktree.include.tooComplex',
+  'worktree.include.notIgnored',
   'worktree.include.searchTooLarge',
   'worktree.include.notOverwritten',
   'worktree.include.notFollowed',

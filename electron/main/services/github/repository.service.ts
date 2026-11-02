@@ -349,8 +349,15 @@ export class GitHubRepositoryService {
     if (config.worktree.sharedDirectories.length > 0) {
       await createSharedLinks(rootPath, worktreePath, config.worktree.sharedDirectories)
     }
-    if (config.worktree.include?.length) {
-      notes.push(...(await copyIncludedFiles(rootPath, worktreePath, config.worktree.include)).notices)
+    // B19: the list comes from the main checkout's oxe.yaml only, which the person controls. A branch being checked
+    // out must not choose which of the person's files are copied next to it (SECURITY review of #451).
+    const include = (await loadRepoConfig(rootPath))?.worktree.include ?? []
+    if (include.length) {
+      const ignored = async (paths: string[]): Promise<Set<string>> => {
+        const result = await this.gh.git(['check-ignore', '-z', '--stdin'], worktreePath, paths.join('\0') + '\0')
+        return new Set(result.status === 0 ? (result.stdout ?? '').split('\0').filter(Boolean) : [])
+      }
+      notes.push(...(await copyIncludedFiles(rootPath, worktreePath, include, ignored)).notices)
     }
     const setup = config.scripts.setup
     if (!setup) return notes
