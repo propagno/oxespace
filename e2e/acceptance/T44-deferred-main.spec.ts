@@ -67,7 +67,7 @@ test('T44: boot, updates and a scheduled automation behave as before, across a r
     out.created = { nextRunAt: created.nextRunAt, inMs: created.nextRunAt ? created.nextRunAt - Date.now() : null }
     const runs = () => oxe<Run[]>(page, `window.oxe.automations.runs(${JSON.stringify(created.id)})`)
     await oxe(page, `window.oxe.automations.runNow(${JSON.stringify(created.id)})`)
-    await expect.poll(async () => (await runs()).length, { timeout: 60_000, intervals: [2_000], message: 'run now runs' }).toBeGreaterThan(0)
+    await expect.poll(async () => (await runs()).filter(r => !['pending', 'running'].includes(r.status)).length, { timeout: 90_000, intervals: [2_000], message: 'run now runs and ends' }).toBeGreaterThan(0)
     out.runsBefore = (await runs()).map(r => r.status)
     out.markerBefore = existsSync(marker) ? readFileSync(marker, 'utf8').trim().split('\n').length : 0
 
