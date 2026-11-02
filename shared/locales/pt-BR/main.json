@@ -519,6 +519,17 @@
       },
       "session": {
         "notFound": "Este agente ainda não informou a sessão. Ela aparece depois da primeira resposta do agente, ou antes, com os hooks de status ligados (Configurações › Notificações)."
+      },
+      "request": {
+        "approval": "Aguardando sua aprovação",
+        "question": "Fazendo uma pergunta",
+        "permissions": "Pedindo mais permissões",
+        "elicitation": "Pedindo detalhes",
+        "tool": "Aguardando uma ferramenta que você executa",
+        "pane": "Aguardando o prompt no painel"
+      },
+      "source": {
+        "unavailable": "Não foi possível ler {{source}} agora; os outros agentes continuam aparecendo."
       }
     },
     "incident": {

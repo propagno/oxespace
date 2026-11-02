@@ -517,6 +517,17 @@
       },
       "session": {
         "notFound": "This agent hasn't reported its session yet. It shows after the agent's first reply, or sooner with the status hooks on (Settings › Notifications)."
+      },
+      "request": {
+        "approval": "Waiting for your approval",
+        "question": "Asking you a question",
+        "permissions": "Asking for more permissions",
+        "elicitation": "Asking you for details",
+        "tool": "Waiting on a tool you run",
+        "pane": "Waiting on its prompt in the pane"
+      },
+      "source": {
+        "unavailable": "Could not read {{source}} right now; the other agents still show."
       }
     },
     "incident": {
