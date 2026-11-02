@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { pathMenuEntries } from '../../src/lib/pathMenu'
-import { conversationPathMenu } from '../../src/components/PathMenu/usePathMenu'
+import { conversationPathMenu } from '../../src/components/PathMenu/conversationPathMenu'
 
 const request = { workspaceId: 'ws', rootPath: '/repo', relativePath: 'src/app.ts', line: 4 }
 const targets = { editors: [{ id: 'vscode' as const, name: 'VS Code' }, { id: 'zed' as const, name: 'Zed' }], preferred: 'zed' as const }

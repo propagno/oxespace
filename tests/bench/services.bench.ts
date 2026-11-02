@@ -6,13 +6,14 @@
  */
 import { afterAll, beforeAll, bench, describe } from 'vitest'
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { AppDatabase } from '../../electron/main/db/index'
 import { GitHubService } from '../../electron/main/services/github.service'
 import { GitService } from '../../electron/main/services/git.service'
 import { SearchService } from '../../electron/main/services/search.service'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 let searchRoot = ''
 let gitRoot = ''
@@ -48,8 +49,8 @@ beforeAll(() => {
 })
 
 afterAll(() => {
-  if (searchRoot) rmSync(searchRoot, { recursive: true, force: true })
-  if (gitRoot) rmSync(gitRoot, { recursive: true, force: true })
+  if (searchRoot) removeTempDir(searchRoot)
+  if (gitRoot) removeTempDir(gitRoot)
 })
 
 const serviceBenchOptions = {

@@ -1,10 +1,11 @@
 // @vitest-environment node
 import { expect, test } from 'vitest'
-import { mkdtemp, mkdir, readFile, rm, writeFile, readdir } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, writeFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { MemoryMigration } from '../../electron/main/services/memory/memory-migration'
 import type { MemoryRuntimeSettings } from '../../shared/types/memory'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const old: MemoryRuntimeSettings = { mode: 'managed', executable: 'old', url: 'http://127.0.0.1:1' }
 const next: MemoryRuntimeSettings = { ...old, executable: 'new' }
@@ -33,7 +34,7 @@ test.each(['copied', 'validated', 'snapshot', 'swapped', 'settings'])('restores 
     expect(await readFile(join(data, 'store.sqlite-wal'), 'utf8')).toBe('old-wal')
     expect(await readFile(join(data, 'auth-token'), 'utf8')).toBe('synthetic-token')
     expect(await readFile(join(directory, 'local.toml'), 'utf8')).toBe('old-config')
-  } finally { await rm(directory, { recursive: true, force: true }) }
+  } finally { removeTempDir(directory) }
 })
 
 test('committed upgrade retains a rollback snapshot and preserves newer writes separately', async () => {
@@ -55,7 +56,7 @@ test('committed upgrade retains a rollback snapshot and preserves newer writes s
     expect(await readFile(join(data, 'store.sqlite'), 'utf8')).toBe('old-database')
     expect(await readFile(join(migration.displaced, 'new-writes'), 'utf8')).toBe('retain-me')
     expect(await readdir(data)).toEqual(['store.sqlite'])
-  } finally { await rm(directory, { recursive: true, force: true }) }
+  } finally { removeTempDir(directory) }
 })
 
 test('rejects a linked path inside a snapshot', async () => {
@@ -68,7 +69,7 @@ test('rejects a linked path inside a snapshot', async () => {
     const migration = new MemoryMigration(directory, () => {})
     await expect(migration.upgrade(old, next, 'new-config', async () => {})).rejects.toThrow('unsupported file type')
     expect((await readdir(directory)).sort()).toEqual(['data', 'outside'])
-  } finally { await rm(directory, { recursive: true, force: true }) }
+  } finally { removeTempDir(directory) }
 })
 
 test('recovers an interrupted swap from its journal before opening either runtime', async () => {
@@ -89,5 +90,5 @@ test('recovers an interrupted swap from its journal before opening either runtim
     expect(await readFile(join(directory, 'local.toml'), 'utf8')).toBe('old-config')
     await migration.recover()
     expect(await readFile(join(directory, 'data', 'store.sqlite'), 'utf8')).toBe('old-database')
-  } finally { await rm(directory, { recursive: true, force: true }) }
+  } finally { removeTempDir(directory) }
 })

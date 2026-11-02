@@ -1,11 +1,12 @@
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { claudeTranscriptPath, forkClaudeBefore, planClaudeFork } from '../electron/main/services/conversation/claude-transcript-fork'
+import { removeTempDir } from './helpers/removeTempDir'
 
 const directories: string[] = []
-afterEach(() => { for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true }) })
+afterEach(() => { for (const directory of directories.splice(0)) removeTempDir(directory) })
 
 const prompt = (text: string, extra: Record<string, unknown> = {}) => JSON.stringify({ type: 'user', uuid: `u-${text}`, message: { role: 'user', content: text }, ...extra })
 const toolResult = JSON.stringify({ type: 'user', uuid: 'tool', toolUseResult: { ok: true }, message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't', content: 'x' }] } })

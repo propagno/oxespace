@@ -1,12 +1,13 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { inflateRawSync } from 'node:zlib'
 import { afterEach, describe, expect, it } from 'vitest'
 import { XLSX_MAX_ROWS, cellXml, columnName, crc32, createXlsxSink, xmlText } from '../../electron/main/services/oxequery/xlsx-writer'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const dirs: string[] = []
-afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }) })
+afterEach(() => { for (const dir of dirs.splice(0)) removeTempDir(dir) })
 const tempDir = (): string => { const dir = mkdtempSync(join(tmpdir(), 'xlsx-test-')); dirs.push(dir); return dir }
 
 /** Reads a ZIP through its central directory, checking every entry's size and CRC: an independent reader for the writer's output. */

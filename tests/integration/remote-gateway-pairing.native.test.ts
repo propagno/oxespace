@@ -117,9 +117,15 @@ describe('remote gateway: off by default, on only by the person', () => {
     expect(await noLan.gateway.setEnabled({ enabled: true, port: await freePort() })).toMatchObject({ enabled: false, error: { code: 'remote.network.noPrivateInterface' } })
 
     const noStorage = harness({ storage: fakeSafeStorage(false) })
-    expect(await noStorage.gateway.setEnabled({ enabled: true, port: await freePort() })).toMatchObject({ enabled: false, error: { code: 'remote.certificate.failed' } })
+    // Each storage problem has its own code, with what to do (SRE on Linux).
+    expect(await noStorage.gateway.setEnabled({ enabled: true, port: await freePort() })).toMatchObject({ enabled: false, error: { code: 'remote.storage.unavailable' } })
     const weakLinux = harness({ platform: 'linux', env: {}, storage: { ...fakeSafeStorage(), getSelectedStorageBackend: () => 'basic_text' } })
-    expect(await weakLinux.gateway.setEnabled({ enabled: true, port: await freePort() })).toMatchObject({ enabled: false, error: { code: 'remote.certificate.failed' } })
+    expect(await weakLinux.gateway.setEnabled({ enabled: true, port: await freePort() })).toMatchObject({ enabled: false, error: { code: 'remote.keyring.missing' } })
+    const unknownLinux = harness({ platform: 'linux', env: {}, storage: { ...fakeSafeStorage(), getSelectedStorageBackend: undefined } as never })
+    expect(await unknownLinux.gateway.setEnabled({ enabled: true, port: await freePort() })).toMatchObject({ enabled: false, error: { code: 'remote.keyring.missing' } })
+    // The way out the message names works: the person's explicit opt-in starts it.
+    const optedIn = harness({ platform: 'linux', env: { OXESPACE_ALLOW_WEAK_SECRETS: '1' }, storage: { ...fakeSafeStorage(), getSelectedStorageBackend: () => 'basic_text' } })
+    expect(await optedIn.gateway.setEnabled({ enabled: true, port: await freePort() })).toMatchObject({ enabled: true })
 
     // A successful start clears the error.
     const target = await h.enable()

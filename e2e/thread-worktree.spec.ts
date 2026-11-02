@@ -100,3 +100,51 @@ test('a conversation can work in its own worktree, shows its branch, and is clea
     await app.close()
   }
 })
+
+test('a conversation worktree shows what creating it reported, a refusal included, until dismissed', async () => {
+  test.setTimeout(120_000)
+  const { app, page, workspaceRoot } = await launchApp({ locale: 'en-US' })
+  try {
+    await installThreadFixtures(app, workspaceRoot)
+    await openDemoWorkspace(page, workspaceRoot)
+    await registerThreadProject(app, page, workspaceRoot)
+    // Main's stand-in answers with the C3 notices createWorktree reported, as thread.ipc.ts keeps them on the conversation.
+    await app.evaluate(({ ipcMain, BrowserWindow }, { root }) => {
+      const g = globalThis as Record<string, unknown>
+      const threads: Record<string, unknown>[] = []
+      const changed = (id: string) => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send('thread:changed', { threadId: id }) }
+      for (const channel of ['list', 'read', 'create']) ipcMain.removeHandler(`thread:${channel}`)
+      ipcMain.handle('thread:list', () => threads)
+      ipcMain.handle('thread:read', (_event, id) => ({ thread: threads.find(thread => thread.id === id), events: [] }))
+      ipcMain.handle('thread:create', (_event, input) => {
+        const path = `${root}-worktrees/feature-notices-cd34`
+        const notices = [
+          { code: 'worktree.createdFrom', params: { path, branch: 'feature/notices', base: 'main' } },
+          { code: 'worktree.copyFiles.outsideRepo', params: { patterns: ['../outside.txt'] } }
+        ]
+        const thread = { id: `t${threads.length + 1}`, workspaceId: g.e2eWorkspaceId, projectId: 'e2e-project', rootPath: path, provider: input.provider,
+          nativeSessionId: null, title: 'New conversation', pinned: false, status: 'idle', createdAt: 1, updatedAt: 1,
+          ownedWorktree: { path, branch: 'feature/notices', projectRoot: root, baseSha: 'a'.repeat(40), createdAt: 1, notices } }
+        threads.push(thread); changed(String(thread.id)); return { thread, events: [] }
+      })
+    }, { root: workspaceRoot })
+
+    await modeButton(page, 'thread').click()
+    await page.getByRole('button', { name: 'New conversation in repo' }).click()
+    const dialog = page.getByRole('dialog', { name: 'New conversation' })
+    await dialog.getByRole('checkbox', { name: 'Work in an isolated worktree' }).check()
+    await dialog.getByLabel('Branch').fill('feature/notices')
+    await dialog.getByRole('button', { name: 'Create conversation', exact: true }).click()
+    await expect(dialog).toBeHidden()
+
+    // The dialog closed as the conversation opened: what creating its worktree reported is on the opening screen.
+    const opening = page.getByTestId('thread-empty')
+    await expect(opening.getByText(/^Worktree created at .*feature-notices-cd34 \(branch feature\/notices from main\)\.$/)).toBeVisible()
+    await expect(opening.getByRole('alert')).toContainText('../outside.txt')
+    await page.screenshot({ path: test.info().outputPath('thread-worktree-notices.png') })
+    await opening.getByRole('button', { name: 'Dismiss' }).click()
+    await expect(opening.getByRole('alert')).toHaveCount(0)
+  } finally {
+    await app.close()
+  }
+})
