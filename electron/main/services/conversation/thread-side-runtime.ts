@@ -9,12 +9,14 @@ import { deniedMcpTools, threadMcpArguments, threadToolList, threadToolRoles, to
 import { ThreadPermissionStore } from './thread-permissions'
 import { threadAgentProfile } from './thread-runtime'
 import { SIDE_CHAT_DISALLOWED_TOOLS, ThreadSideChats } from './thread-side-chat'
-import { loadRepoConfig } from '../repo-config/loader'
+import { effectiveToolModes } from '../policy/tool-config'
 import { assertProviderAllowed, policyDeniedMcpNames, policyDeniedToolNames } from '../policy'
 
 /** The OXESpace tools a side chat may call: the read-only lookups among those its conversation has. */
 export async function sideChatMcpTools(db: AppDatabase, thread: ConversationThread): Promise<string[]> {
-  const tools = threadToolList(threadToolRoles(db, thread.id), (await loadRepoConfig(thread.rootPath).catch(() => null))?.thread?.tools)
+  // The groups the project turned on, in the accepted modes (B7.4).
+  const modes = effectiveToolModes(thread.rootPath)
+  const tools = threadToolList(threadToolRoles(db, thread.id), Object.entries(modes).filter(([, entry]) => entry.mode === 'always').map(([group]) => group))
   return THREAD_READ_ONLY_MCP_TOOLS.filter(tool => tools.includes(tool))
 }
 
