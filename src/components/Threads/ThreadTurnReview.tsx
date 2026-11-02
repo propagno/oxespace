@@ -62,11 +62,10 @@ export function ThreadTurnReview({ snapshot, turnId, onShowAll, onComment }: {
       </EmptyState>
       : <>
         <ul className="thread-turn-review-files" aria-label={t('turnReview.files')}>{files.map(file => {
-          // F33: a file of the conversation's own checkout gets the path menu; one in another checkout (a worktree)
-          // only the copy items, in that checkout's own root (DESIGN #470).
+          // F33: the path menu, rooted at the checkout the file is in: the project or a worktree it registered.
           const other = file.root && file.root !== snapshot.thread.rootPath ? file.root : null
           const inProject = parseProjectPath(file.path, other ?? snapshot.thread.rootPath)
-          return <li key={file.path}><WithPathMenu request={inProject ? { workspaceId: snapshot.thread.workspaceId, rootPath: other ?? snapshot.thread.rootPath, relativePath: inProject.relativePath } : null} copyOnly={!!other}
+          return <li key={file.path}><WithPathMenu request={inProject ? { workspaceId: snapshot.thread.workspaceId, rootPath: other ?? snapshot.thread.rootPath, relativePath: inProject.relativePath } : null}
             render={onContextMenu => <button type="button" aria-current={file.path === selected || undefined} title={file.root ? `${file.root.replace(/[\\/]+$/, '')}/${file.path}` : file.path} onClick={() => setSelected(file.path)} onContextMenu={onContextMenu}>
             <span className="thread-change-file-name"><TurnPath path={file.path} roots={roots} /></span>
             {file.state !== 'pending' && <span className="thread-change-file-state">{t(`turnReview.${file.state}`)}</span>}

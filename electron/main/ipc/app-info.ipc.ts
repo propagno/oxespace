@@ -34,10 +34,13 @@ export function registerAppInfoIpc(db: AppDatabase): () => void {
   // target id; main checks the path by its real path inside the registered root and picks an editor it detected.
   type OpenIn = import('../services/open-in').OpenInService
   let openIn: Promise<OpenIn> | undefined
-  const openInService = (): Promise<OpenIn> => openIn ??= import('../services/open-in').then(({ OpenInService, launchDetached }) => new OpenInService({
+  const openInService = (): Promise<OpenIn> => openIn ??= import('../services/open-in').then(({ OpenInService, launchDetached, registeredWorktree }) => new OpenInService({
     platform: process.platform,
     env: process.env,
-    resolveRoot: workspaceRootResolver(db),
+    // A conversation's project root, or a worktree its repository registered (the conversation may work there).
+    resolveRoot: (workspaceId, requestedRoot) => workspaceRootResolver(db)(workspaceId, requestedRoot) ?? (workspaceId.startsWith('thread:')
+      ? registeredWorktree((db.prepare('SELECT root_path FROM thread_project_contexts WHERE project_id = ?').all(workspaceId.slice('thread:'.length)) as Array<{ root_path: string }>).map(row => row.root_path), requestedRoot)
+      : null),
     preferenceFile: join(app.getPath('userData'), 'open-in.json'),
     launch: (file, args, cwd) => launchDetached(file, args, cwd, process.env),
     reveal: path => shell.showItemInFolder(path)
