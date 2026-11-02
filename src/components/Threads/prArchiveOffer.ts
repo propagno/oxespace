@@ -1,7 +1,7 @@
 import type { GitHubPrStatus } from '../../../shared/types/github'
 import type { ConversationThread } from '../../../shared/types/thread'
 
-/** How long the offer to archive waits before archiving, counted while the toast is not paused (T40). */
+/** How long the offer to archive stays up, counted while the toast is not paused; its end archives nothing (T40). */
 export const PR_ARCHIVE_OFFER_MS = 10_000
 
 /**

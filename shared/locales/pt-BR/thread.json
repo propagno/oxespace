@@ -1765,9 +1765,9 @@
     "closeMenu": "Fechar o chat lateral"
   },
   "prArchive": {
-    "merged": "O pull request #{{number}} foi integrado",
+    "merged": "O pull request #{{number}} foi mesclado",
     "closed": "O pull request #{{number}} foi fechado",
-    "description": "Esta conversa será arquivada. Ainda não é possível restaurar conversas arquivadas.",
-    "keep": "Manter"
+    "description": "Arquivar esta conversa? Ainda não é possível restaurar conversas arquivadas.",
+    "archive": "Arquivar"
   }
 }

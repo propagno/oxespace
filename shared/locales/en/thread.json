@@ -1718,7 +1718,7 @@
   "prArchive": {
     "merged": "Pull request #{{number}} was merged",
     "closed": "Pull request #{{number}} was closed",
-    "description": "This conversation will be archived. Archived conversations can't be restored yet.",
-    "keep": "Keep"
+    "description": "Archive this conversation? Archived conversations can't be restored yet.",
+    "archive": "Archive"
   }
 }

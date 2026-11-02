@@ -4,11 +4,11 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import type { GitHubPrStatus } from '../shared/types/github'
 import type { ConversationThread } from '../shared/types/thread'
 import { PR_ARCHIVE_OFFER_MS, prArchiveOffer } from '../src/components/Threads/prArchiveOffer'
-import { usePrArchiveOffer } from '../src/components/Threads/usePrArchiveOffer'
+import { resetPrArchiveOffers, usePrArchiveOffer } from '../src/components/Threads/usePrArchiveOffer'
 import { useThreadStore } from '../src/store/thread.store'
 import { Toaster, useToasts } from '../src/ui/Toast'
 
-/** T40 (B20): a conversation whose own pull request closed or merged offers to archive itself, with Keep. */
+/** T40 (B20), opt-in in 1.4.0: a conversation whose own pull request closed or merged is offered to be archived. */
 
 const BRANCH = 'oxe/fix-login'
 const thread = (change: Partial<ConversationThread> = {}): ConversationThread => ({
@@ -47,14 +47,14 @@ function Host({ conversation }: { conversation: ConversationThread | undefined }
 const settle = async (): Promise<void> => { for (let i = 0; i < 3; i++) await act(async () => { await Promise.resolve() }) }
 const tick = (ms: number): void => { act(() => { vi.advanceTimersByTime(ms) }) }
 
-describe('the offer (toast with Keep, archived when its time runs out)', () => {
+describe('the offer (toast with Archive; nothing happens on its own)', () => {
   let archive: ReturnType<typeof vi.fn>
   let keep: ReturnType<typeof vi.fn>
   beforeAll(async () => { await import('../src/ui/ToastStack') })
   beforeEach(() => {
     vi.useFakeTimers()
     vi.stubGlobal('requestIdleCallback', (run: () => void) => { run(); return 1 })
-    vi.spyOn(document, 'hasFocus').mockReturnValue(true)
+    resetPrArchiveOffers()
     archive = vi.fn(async () => true)
     keep = vi.fn(async () => undefined)
     useThreadStore.setState({ archiveThread: archive } as never)
@@ -68,24 +68,51 @@ describe('the offer (toast with Keep, archived when its time runs out)', () => {
     return { rerender: next => view.rerender(<Host conversation={next} />) }
   }
 
-  it('merged: says so, offers Keep politely, and archives when the time runs out', async () => {
+  it('merged: asks politely, with Archive; its time running out archives and stores nothing, and it is not offered again this session', async () => {
     await mount()
     act(() => report(status('MERGED')))
     await settle()
     expect(screen.getByText('Pull request #41 was merged')).toBeVisible()
-    expect(screen.getByText('This conversation will be archived. Archived conversations can\'t be restored yet.')).toBeVisible()
+    expect(screen.getByText('Archive this conversation? Archived conversations can\'t be restored yet.')).toBeVisible()
     expect(screen.getByRole('region', { name: 'Notifications' })).toHaveAttribute('aria-live', 'polite')
-    expect(screen.getByRole('button', { name: 'Keep' })).toBeVisible()
-    tick(PR_ARCHIVE_OFFER_MS - 1)
+    expect(screen.getByRole('button', { name: 'Archive' })).toBeVisible()
+    tick(PR_ARCHIVE_OFFER_MS * 2)
     expect(archive).not.toHaveBeenCalled()
-    tick(1)
-    expect(archive).toHaveBeenCalledWith('conv-1')
-    // Not offered again for the same PR in this session.
+    expect(keep).not.toHaveBeenCalled()
     act(() => report(status('MERGED')))
     expect(useToasts.getState().items).toHaveLength(0)
   })
 
-  it('closed: offered too; an open PR and a conversation without its own worktree are left alone', async () => {
+  it('Archive archives it', async () => {
+    await mount()
+    act(() => report(status('MERGED')))
+    await settle()
+    fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
+    expect(archive).toHaveBeenCalledWith('conv-1')
+    expect(keep).not.toHaveBeenCalled()
+  })
+
+  it('the close button keeps it: the PR is stored with the conversation and nothing is archived', async () => {
+    await mount()
+    act(() => report(status('MERGED')))
+    await settle()
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss notification' }))
+    expect(keep).toHaveBeenCalledWith('conv-1', 41)
+    expect(archive).not.toHaveBeenCalled()
+  })
+
+  it('Escape keeps it too', async () => {
+    await mount()
+    act(() => report(status('CLOSED')))
+    await settle()
+    const button = screen.getByRole('button', { name: 'Archive' })
+    act(() => button.focus())
+    fireEvent.keyDown(button, { key: 'Escape' })
+    expect(keep).toHaveBeenCalledWith('conv-1', 41)
+    expect(archive).not.toHaveBeenCalled()
+  })
+
+  it('closed is offered too; an open PR and a conversation without its own worktree are left alone', async () => {
     const { rerender } = await mount()
     act(() => report(status('OPEN')))
     expect(useToasts.getState().items).toHaveLength(0)
@@ -97,50 +124,15 @@ describe('the offer (toast with Keep, archived when its time runs out)', () => {
     expect(useToasts.getState().items).toHaveLength(0)
   })
 
-  it('the timer pauses while the toast has focus: nothing is archived until it is let go', async () => {
-    await mount()
-    act(() => report(status('MERGED')))
-    await settle()
-    const keepButton = screen.getByRole('button', { name: 'Keep' })
-    act(() => keepButton.focus())
-    fireEvent.focus(keepButton)
-    tick(PR_ARCHIVE_OFFER_MS * 3)
-    expect(archive).not.toHaveBeenCalled()
-  })
-
-  it('Keep keeps it: nothing archived, the PR number is stored with the conversation, and it is not offered again', async () => {
-    await mount()
-    act(() => report(status('MERGED')))
-    await settle()
-    fireEvent.click(screen.getByRole('button', { name: 'Keep' }))
-    expect(keep).toHaveBeenCalledWith('conv-1', 41)
-    tick(PR_ARCHIVE_OFFER_MS * 2)
-    expect(archive).not.toHaveBeenCalled()
-    act(() => report(status('MERGED')))
-    expect(useToasts.getState().items).toHaveLength(0)
-  })
-
-  it('leaving the conversation or the window archives nothing, and the next read offers again', async () => {
+  it('leaving the conversation before answering withdraws the offer, and the next read offers it again', async () => {
     const { rerender } = await mount()
     act(() => report(status('MERGED')))
+    expect(useToasts.getState().items).toHaveLength(1)
     rerender(thread({ id: 'conv-2', ownedWorktree: undefined }))
-    tick(PR_ARCHIVE_OFFER_MS * 2)
-    expect(archive).not.toHaveBeenCalled()
+    expect(useToasts.getState().items).toHaveLength(0)
     rerender(thread())
     act(() => report(status('MERGED')))
     expect(useToasts.getState().items).toHaveLength(1)
-    act(() => { window.dispatchEvent(new Event('blur')) })
-    tick(PR_ARCHIVE_OFFER_MS * 2)
-    expect(archive).not.toHaveBeenCalled()
-    act(() => report(status('MERGED')))
-    expect(useToasts.getState().items).toHaveLength(1)
-  })
-
-  it('without window focus when the time runs out, nothing is archived', async () => {
-    vi.spyOn(document, 'hasFocus').mockReturnValue(false)
-    await mount()
-    act(() => report(status('MERGED')))
-    tick(PR_ARCHIVE_OFFER_MS)
     expect(archive).not.toHaveBeenCalled()
   })
 })

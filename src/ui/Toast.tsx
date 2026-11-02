@@ -9,10 +9,10 @@ export interface ToastInput {
   /** Milliseconds before it closes on its own, overriding the reading-time rule; 0 keeps it until dismissed. */
   duration?: number
   /**
-   * Runs only when the toast closes on its own: its time ran out, counted only while not paused by hover or focus.
-   * Never on dismiss, Escape or its action. For an offer that happens unless the person acts (T40).
+   * Runs only when the person closes the toast (its ✕ or Escape). Never when its time runs out or its action runs:
+   * a declined offer is told apart from one that was not seen (T40).
    */
-  onTimeout?: () => void
+  onDismiss?: () => void
 }
 export interface ToastItem extends ToastInput {
   id: number
