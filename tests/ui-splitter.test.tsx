@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { useRef, useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Splitter } from '../src/ui/Splitter'
 
@@ -13,6 +14,54 @@ if (typeof window.PointerEvent === 'undefined') {
   window.PointerEvent = PointerEventPolyfill as unknown as typeof PointerEvent
 }
 
+// FL-09 (e2e/thread-view.spec.ts:331): a parent that applies the size later, as a slow store does. Keys that arrive
+// before it renders must each count.
+function LateParent({ onChange }: { onChange: (size: number) => void }) {
+  const [value, setValue] = useState(360)
+  const pending = useRef<number | null>(null)
+  return <>
+    <Splitter orientation="vertical" label="Sidebar width" value={value} min={240} max={520} defaultValue={280} step={8}
+      onChange={size => { pending.current = size; onChange(size) }} />
+    <button type="button" onClick={() => { if (pending.current !== null) setValue(pending.current) }}>apply</button>
+  </>
+}
+
+describe('Splitter: every request counts before the new size renders (FL-09)', () => {
+  it('two ArrowLeft without a render in between are two steps', () => {
+    const onChange = vi.fn()
+    render(<LateParent onChange={onChange} />)
+    const separator = screen.getByRole('separator', { name: 'Sidebar width' })
+    fireEvent.keyDown(separator, { key: 'ArrowLeft' })
+    fireEvent.keyDown(separator, { key: 'ArrowLeft' })
+    expect(onChange.mock.calls.map(([size]) => size)).toEqual([352, 344])
+    fireEvent.click(screen.getByRole('button', { name: 'apply' }))
+    expect(separator).toHaveAttribute('aria-valuenow', '344')
+    // After the render, the next key starts from the rendered size.
+    fireEvent.keyDown(separator, { key: 'ArrowLeft' })
+    expect(onChange).toHaveBeenLastCalledWith(336)
+  })
+
+  it('two Smaller from the menu without a render in between are two steps', async () => {
+    const onChange = vi.fn()
+    render(<LateParent onChange={onChange} />)
+    fireEvent.keyDown(screen.getByRole('separator', { name: 'Sidebar width' }), { key: 'Enter' })
+    const menu = await screen.findByRole('menu', { name: 'Sidebar width: size options' })
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Smaller' }))
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Smaller' }))
+    expect(onChange.mock.calls.map(([size]) => size)).toEqual([352, 344])
+  })
+
+  it('a size the parent sets on its own becomes the starting point', () => {
+    const onChange = vi.fn()
+    const { rerender } = render(<Splitter orientation="vertical" label="Width" value={300} min={200} max={500} defaultValue={300} step={10} onChange={onChange} />)
+    const separator = screen.getByRole('separator', { name: 'Width' })
+    fireEvent.keyDown(separator, { key: 'ArrowRight' })
+    rerender(<Splitter orientation="vertical" label="Width" value={250} min={200} max={500} defaultValue={300} step={10} onChange={onChange} />)
+    fireEvent.keyDown(separator, { key: 'ArrowRight' })
+    expect(onChange.mock.calls.map(([size]) => size)).toEqual([310, 260])
+  })
+})
+
 describe('Splitter', () => {
   it('resizes from the keyboard within its limits and restores the default on double click', () => {
     const onChange = vi.fn()
@@ -24,7 +73,8 @@ describe('Splitter', () => {
     fireEvent.keyDown(separator, { key: 'Home' })
     fireEvent.keyDown(separator, { key: 'End' })
     fireEvent.doubleClick(separator)
-    expect(onChange.mock.calls.map(([size]) => size)).toEqual([186, 154, 80, 400, 170])
+    // The parent here never renders the new size, so each key starts from the last one requested (FL-09).
+    expect(onChange.mock.calls.map(([size]) => size)).toEqual([186, 170, 80, 400, 170])
   })
 
   it('shrinks a panel that comes after it when dragged toward it, and never past its limits', () => {
@@ -36,7 +86,7 @@ describe('Splitter', () => {
     fireEvent.pointerMove(separator, { clientX: 150, pointerId: 1 })
     fireEvent.pointerMove(separator, { clientX: -400, pointerId: 1 })
     fireEvent.keyDown(separator, { key: 'ArrowRight' })
-    expect(onChange.mock.calls.map(([size]) => size)).toEqual([250, 500, 284])
+    expect(onChange.mock.calls.map(([size]) => size)).toEqual([250, 500, 484])
   })
 
   it('resizes without dragging (WCAG 2.5.7): a click opens Smaller, Larger and Restore, and the separator keeps a valid role', async () => {
@@ -55,7 +105,7 @@ describe('Splitter', () => {
     expect(screen.getByRole('menu')).toBeInTheDocument()
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Smaller' }))
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Restore the default size' }))
-    expect(onChange.mock.calls.map(([size]) => size)).toEqual([316, 284, 280])
+    expect(onChange.mock.calls.map(([size]) => size)).toEqual([316, 300, 280])
     expect(separator).not.toHaveAttribute('aria-expanded')
     expect(separator).not.toHaveAttribute('aria-haspopup')
   })
