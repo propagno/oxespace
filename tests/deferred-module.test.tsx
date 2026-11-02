@@ -34,6 +34,26 @@ describe('useDeferredModule', () => {
   })
 })
 
+describe('useDeferredModule: the words say which part is missing', () => {
+  it('a caller can name what is missing (activity and notifications); the commands wording is the default', async () => {
+    function Activity() {
+      useDeferredModule(() => Promise.reject(new Error('chunk missing')), () => 'Activity and notifications may not update until it loads.')
+      return null
+    }
+    render(<><Activity /><Toaster /></>)
+    expect(await screen.findByText('Activity and notifications may not update until it loads.')).toBeTruthy()
+    expect(screen.queryByText(/Some commands may be missing/)).toBeNull()
+  })
+})
+
+describe('the activity producers load after the first frame', () => {
+  it('ActivitySources is a component that renders nothing', async () => {
+    const { ActivitySources } = await import('../src/app/ActivitySources')
+    const { container } = render(<ActivitySources applicationView="code" />)
+    expect(container.innerHTML).toBe('')
+  })
+})
+
 describe('the command contributions load after the first frame', () => {
   it('a list read before they arrive fills in by itself when they land, without a reload', async () => {
     const { result } = renderHook(() => useContributedCommands())

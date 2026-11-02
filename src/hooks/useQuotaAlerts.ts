@@ -3,8 +3,8 @@ import { useActivityStore } from '../store/activity.store'
 import { useSettingsStore } from '../store/settings.store'
 import { nextQuotaState, quotaNotificationText, type QuotaTrack } from '../utils/quotaThresholds'
 
-/** Prefix on the notification pane id so a click is recognised as "not a pane". */
-export const QUOTA_NOTIFICATION_PANE_PREFIX = 'quota:'
+import { QUOTA_NOTIFICATION_PANE_PREFIX } from './notificationPrefixes'
+export { QUOTA_NOTIFICATION_PANE_PREFIX }
 
 const FIRST_CHECK_MS = 20_000
 const POLL_MS = 5 * 60_000
