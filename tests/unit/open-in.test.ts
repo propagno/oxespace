@@ -1,4 +1,5 @@
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -6,7 +7,7 @@ import { NODE_EXECUTABLE } from '../helpers/node-child'
 
 vi.mock('electron', () => ({ app: { isPackaged: false, getPath: () => tmpdir() } }))
 
-const { OpenInService, editorArgs, editorCandidates, editorEnv, launchDetached, parseOpenInInput, trustedExecutable } = await import('../../electron/main/services/open-in')
+const { OpenInService, editorArgs, editorCandidates, editorEnv, launchDetached, parseOpenInInput, registeredWorktree, trustedExecutable } = await import('../../electron/main/services/open-in')
 const { messageFromError } = await import('../../shared/messages')
 
 let base: string
@@ -235,5 +236,43 @@ describe('launchDetached', () => {
 
   it('rejects when the executable is missing', async () => {
     await expect(launchDetached(join(base, 'no-such-editor'), [], base, process.env)).rejects.toThrow()
+  })
+})
+
+describe('registeredWorktree: the worktree of a conversation opens, a folder that only claims to be one does not', () => {
+  // Only the repository's own `git worktree add` writes both directions of the link.
+  function repoWithWorktree(): { project: string; worktree: string } {
+    const project = join(base, 'repo')
+    const worktree = join(base, 'repo-wt')
+    mkdirSync(project)
+    const git = (...args: string[]): void => { execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', ...args], { cwd: project, stdio: 'ignore' }) }
+    git('init', '-q')
+    git('commit', '-q', '--allow-empty', '-m', 'init')
+    git('worktree', 'add', '-q', worktree)
+    return { project, worktree: realpathSync.native(worktree) }
+  }
+
+  it('accepts a worktree the repository of the project registered, only for that project', () => {
+    const { project, worktree } = repoWithWorktree()
+    expect(registeredWorktree([project], worktree)).toBe(worktree)
+    expect(registeredWorktree([join(base, 'project')], worktree)).toBeNull()
+    expect(registeredWorktree([project], project)).toBeNull()
+  })
+
+  it('refuses a folder whose .git file merely points at the repository', () => {
+    const { project, worktree } = repoWithWorktree()
+    const forged = join(base, 'forged')
+    mkdirSync(forged)
+    writeFileSync(join(forged, '.git'), `gitdir: ${join(project, '.git')}
+`)
+    expect(registeredWorktree([project], forged)).toBeNull()
+    // Copying a real worktree's pointer does not help: its admin folder points back at the real worktree only.
+    writeFileSync(join(forged, '.git'), readFileSync(join(worktree, '.git'), 'utf8'))
+    expect(registeredWorktree([project], forged)).toBeNull()
+  })
+
+  it('refuses a missing folder or one without .git', () => {
+    expect(registeredWorktree([root], join(base, 'nowhere'))).toBeNull()
+    expect(registeredWorktree([root], outside)).toBeNull()
   })
 })

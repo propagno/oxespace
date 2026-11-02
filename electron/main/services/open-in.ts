@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { accessSync, constants, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { accessSync, constants, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import { realpath, stat } from 'node:fs/promises'
 import { delimiter, dirname, isAbsolute, join, normalize, relative, resolve, sep, win32 } from 'node:path'
 import { mainMessage } from '../../../shared/messages'
@@ -19,6 +19,40 @@ import { MainMessageError } from '../ipc/main-message-error'
 
 /** The workspace root main has registered for an id, or null; the same resolver the file system channels use. */
 export type OpenInRootResolver = (workspaceId: string, requestedRoot: string) => string | null
+
+/** One spelling per existing path (Windows 8.3 names expanded, case as on disk); null when it doesn't exist. */
+function real(path: string): string | null {
+  try { return normalize(realpathSync.native(path)) } catch { return null }
+}
+
+/**
+ * `requested` when it is a linked worktree that one of `projectRoots`' repositories registered itself, else null. A
+ * conversation may work in such a worktree (F33: its files open and reveal from there).
+ *
+ * Stricter than "same repository": a `.git` file anyone can write in any folder names a repository, so the check also
+ * goes the other way. The worktree's `.git` must point into `<project>/.git/worktrees/<name>`, and that folder's own
+ * `gitdir` must point back at this worktree's `.git`. Only the repository's own `git worktree add` writes both.
+ */
+export function registeredWorktree(projectRoots: string[], requested: string): string | null {
+  const root = real(requested)
+  const dotGit = root ? join(root, '.git') : null
+  if (!root || !dotGit) return null
+  let adminDir: string | null
+  try {
+    if (!statSync(dotGit).isFile()) return null
+    const pointer = /^gitdir:\s*(.+)$/m.exec(readFileSync(dotGit, 'utf8'))
+    adminDir = pointer ? real(resolve(root, pointer[1].trim())) : null
+  } catch { return null }
+  if (!adminDir) return null
+  for (const projectRoot of projectRoots) {
+    const worktrees = real(join(projectRoot, '.git', 'worktrees'))
+    if (!worktrees || dirname(adminDir) !== worktrees) continue
+    let back: string | null
+    try { back = real(resolve(adminDir, readFileSync(join(adminDir, 'gitdir'), 'utf8').trim())) } catch { back = null }
+    if (back && back === real(dotGit)) return root
+  }
+  return null
+}
 
 export interface OpenInDeps {
   platform: NodeJS.Platform

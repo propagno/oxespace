@@ -30,9 +30,9 @@ describe('pathMenuEntries (F33 §4)', () => {
 })
 
 describe('conversationPathMenu', () => {
-  it('gives the conversation project files the full menu, worktree files copy only, and others none', () => {
+  it('gives project and worktree files the full menu at their own checkout, and others none', () => {
     expect(conversationPathMenu('/repo/src/a.ts', 'ws', '/repo', ['/wt'])).toEqual({ request: { workspaceId: 'ws', rootPath: '/repo', relativePath: 'src/a.ts' }, copyOnly: false })
-    expect(conversationPathMenu('/wt/src/a.ts', 'ws', '/repo', ['/wt'])).toEqual({ request: { workspaceId: 'ws', rootPath: '/wt', relativePath: 'src/a.ts' }, copyOnly: true })
+    expect(conversationPathMenu('/wt/src/a.ts', 'ws', '/repo', ['/wt'])).toEqual({ request: { workspaceId: 'ws', rootPath: '/wt', relativePath: 'src/a.ts' }, copyOnly: false })
     expect(conversationPathMenu('/elsewhere/a.ts', 'ws', '/repo', ['/wt'])).toBeNull()
     expect(conversationPathMenu('/repo/src/a.ts', undefined, '/repo', [])).toBeNull()
   })
