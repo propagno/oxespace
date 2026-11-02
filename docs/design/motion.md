@@ -115,7 +115,8 @@ Decided 2026-10-31 for F7.2 (FRONTEND's measurements: a cold mode switch shows a
    one commit. No dimming, no spinner over the old view: under 300 ms either would only flash.
 3. **Past 300 ms, show the new view's own skeleton** (the shape of its content, `Skeleton`/`SidebarSkeleton`), never
    the brand loader and never a bare spinner. 300 ms, not 100: a placeholder shown at 100 ms and replaced at 130 ms is
-   a flash. The brand loader is for boot only.
+   a flash. The brand loader is for boot only. The 300 ms count from the press and cover the placeholders inside the
+   new view too (a list's own skeleton): before 300 ms the view shows its frame with the area empty.
 4. **Prefetch on intent**: a mode's chunk starts loading on hover or focus of its button (and its shortcut's
    keydown). Idle prefetch after boot is allowed only through the guarded idle preload, so the boot budget doesn't
    rise.
