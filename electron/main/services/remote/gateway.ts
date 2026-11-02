@@ -291,8 +291,9 @@ export class RemoteGateway implements ConnectionHost {
 
   /** On quit: closes everything, like switching it off. */
   stop(): Promise<void> {
-    // B9.2's timers go with the app: what lapses is only what this launch saw unused (no table, no migration).
-    for (const deviceId of [...this.unused.keys()]) this.forgetUnused(deviceId)
+    // B9.2: a pairing still unused when the app quits is removed now. Nothing marks it on disk (no table, no migration),
+    // so the next launch could not tell it from a phone in use, and it would hold a slot for good (SECURITY #458).
+    for (const deviceId of [...this.unused.keys()]) this.expireUnused(deviceId, false)
     return this.serialize(() => this.shutdown('quit'))
   }
 
@@ -547,7 +548,11 @@ export class RemoteGateway implements ConnectionHost {
     this.unused.delete(deviceId)
   }
 
-  /** Whether this device's pairing went unused past its time; it is removed then. Also the clock's check, not only the timer's. */
+  /**
+   * Whether this device's pairing went unused past its time; it is removed then. Also the clock's check, not only the
+   * timer's (which fires even when the wall clock goes back). A wall clock that jumps forward can refuse a phone early;
+   * it then pairs again. That costs availability, never safety, and keeps one clock for the whole gateway.
+   */
   private lapsed(deviceId: string): boolean {
     const entry = this.unused.get(deviceId)
     if (!entry || entry.expiresAt > this.now()) return false
@@ -556,14 +561,21 @@ export class RemoteGateway implements ConnectionHost {
   }
 
   /** Removes an unused pairing: the device leaves the list and its slot, the trail and the window are told. */
-  private expireUnused(deviceId: string): void {
-    if (!this.unused.has(deviceId)) return
-    this.forgetUnused(deviceId)
-    if (!this.store.revoke(deviceId)) return
+  private expireUnused(deviceId: string, tellWindow = true): void {
+    const entry = this.unused.get(deviceId)
+    if (!entry) return
+    clearTimeout(entry.timer)
+    let revoked: boolean
+    // Runs from a timer: a busy or failing database must not throw in main. The entry then stays, so the phone is still
+    // refused at sign-in (`lapsed`) and the removal is tried again there (SECURITY #458).
+    try { revoked = this.store.revoke(deviceId) } catch { return }
+    this.unused.delete(deviceId)
+    if (!revoked) return
     this.commands?.forget(deviceId)
     this.store.audit({ action: 'pairing', outcome: 'unused-expired', deviceId })
+    if (!tellWindow) return
     this.tellPairingFailed('expired')
-    this.deps.broadcast({ devices: this.devices(), status: this.status() })
+    try { this.deps.broadcast({ devices: this.devices(), status: this.status() }) } catch { /* a closed window */ }
   }
 
   /** Recorded, but at most a few a minute, so a flood of bad connections cannot flood the trail. */

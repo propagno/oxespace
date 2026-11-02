@@ -201,6 +201,29 @@ describe('remote gateway: a pairing nobody uses lapses (B9.2)', () => {
     expect((await p.h.pair()).res.status).toBe(200)
   })
 
+  test('a pairing still unused when the app quits is removed then, so no launch inherits an orphan', async () => {
+    const p = await paired()
+    const used = await paired()
+    ;(await signedIn(used)).close()
+    await p.h.gateway.stop()
+    await used.h.gateway.stop()
+    expect(new RemoteStore(p.h.db).device(p.deviceId)?.revoked).toBe(true)
+    expect(new RemoteStore(p.h.db).auditEntries().filter(entry => entry.outcome === 'unused-expired')).toEqual([expect.objectContaining({ deviceId: p.deviceId })])
+    expect(new RemoteStore(used.h.db).device(used.deviceId)?.revoked).toBe(false)
+  })
+
+  test('a database error when the timer fires throws nothing in main; the phone is still refused and the removal is retried at its sign-in', async () => {
+    const p = await paired({ unusedPairingTtlMs: 100 })
+    const failing = vi.spyOn(RemoteStore.prototype, 'revoke').mockImplementationOnce(() => { throw new Error('SQLITE_BUSY') })
+    await vi.waitFor(() => expect(failing).toHaveBeenCalledTimes(1), { timeout: 3_000 })
+    expect(p.h.gateway.devices()).toHaveLength(1)
+    lapse(p.h)
+    const late = await hello(p.target)
+    expect(await late.socket.ask({ type: 'auth', id: 'a', accessToken: p.accessToken })).toEqual({ type: 'error', id: 'a', code: 'revoked' })
+    expect(p.h.gateway.devices()).toEqual([])
+    failing.mockRestore()
+  })
+
   test('a phone the person removed first is not reported again when its time would have run out', async () => {
     const p = await paired({ unusedPairingTtlMs: 150 })
     p.h.gateway.revoke({ deviceId: p.deviceId })
@@ -411,6 +434,10 @@ describe('remote gateway: the token signing key lives only in memory', () => {
       }
     }
 
+    // A phone in use (it signed in once): a pairing still unused at quit is removed then (B9.2).
+    const using = await signedIn(p)
+    using.close()
+    await using.closed
     await p.h.gateway.stop()
     p.h.gateway = p.h.create()
     const target = await p.h.enable()
