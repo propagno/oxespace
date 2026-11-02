@@ -128,7 +128,7 @@ test('S2: six agent panes, started both ways, come back on their own sessions or
   ;({ app, page } = await launchReal(profile))
   try {
     const offer = page.getByRole('button', { name: /Retomar|Resume/ }).first()
-    if (await offer.isVisible({ timeout: 5_000 }).catch(() => false)) await offer.click()
+    if (await offer.waitFor({ state: 'visible', timeout: 5_000 }).then(() => true, () => false)) await offer.click()
     await expect(panes(page)).toHaveCount(6, { timeout: 20_000 })
     await expect.soft.poll(() => launches(log).filter(l => l.resumed).length, { timeout: 30_000, message: 'five CLIs were started on their earlier session' }).toBe(5)
     // What each pane did, for a failure that is not obvious (CI): main's outcome, and every CLI start since reopening.
@@ -217,7 +217,7 @@ test('S2: a split past the capacity closes cleanly', async () => {
       const close = page.getByRole('menuitem', { name: /^Fechar/ }).first()
       await close.click()
       const confirm = page.getByRole('dialog').getByRole('button', { name: /^Fechar|Encerrar/ })
-      if (await confirm.isVisible({ timeout: 1_000 }).catch(() => false)) await confirm.click()
+      if (await confirm.waitFor({ state: 'visible', timeout: 1_000 }).then(() => true, () => false)) await confirm.click()
       await expect(panes(page), `closing at ${n} panes removes one ${(out.join('').match(/UNIQUE constraint[^\n]*/) ?? [''])[0]}`).toHaveCount(n - 1, { timeout: 5_000 })
     }
     expect(out.join('').match(/UNIQUE constraint[^\n]*/g) ?? [], 'no database error in main').toEqual([])

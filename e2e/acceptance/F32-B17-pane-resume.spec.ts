@@ -63,7 +63,7 @@ test('F32/B17: four Claude panes come back on their own sessions; a deleted one 
     await page.getByTestId('btn-new-workspace').first().waitFor({ timeout: 30_000 })
     // Either the app resumes on its own, or it offers one action ("Retomar 4" / "Resume 4"); both are acceptable.
     const offer = page.getByRole('button', { name: /Retomar|Resume/ }).first()
-    if (await offer.isVisible({ timeout: 5_000 }).catch(() => false)) await offer.click()
+    if (await offer.waitFor({ state: 'visible', timeout: 5_000 }).then(() => true, () => false)) await offer.click()
     await page.waitForTimeout(6_000)
     const launched = existsSync(s.args) ? readFileSync(s.args, 'utf8') : ''
     for (const id of SESSIONS.slice(0, 3)) expect(launched, `a pane resumed ${id}`).toContain(`--resume ${id}`)

@@ -10,7 +10,7 @@ import { installThreadFixtures, openThreadWithState, registerThreadProject } fro
 // Found by its heading; whether it is also named for assistive tech is recorded on its own.
 const teamDialog = (page: Page) => page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: /Project team|Equipe do projeto/i }) })
 async function closeAndCheck(page: Page, how: string, out: Record<string, unknown>) {
-  const opened = await teamDialog(page).first().isVisible({ timeout: 5_000 }).catch(() => false)
+  const opened = await teamDialog(page).first().waitFor({ state: 'visible', timeout: 5_000 }).then(() => true, () => false)
   out[how] = opened
   if (opened) {
     out[`${how}Named`] = await page.getByRole('dialog', { name: /team|equipe/i }).count()
@@ -59,7 +59,7 @@ test('F35/#344: Team from the palette, Tools menu, Ctrl+Shift+T and OxeChat; not
     for (let i = 0; i < out.threadMenus && !found; i++) {
       await menus.nth(i).click().catch(() => undefined)
       const item = page.getByRole('menuitem', { name: /team|equipe/i }).first()
-      if (await item.isVisible({ timeout: 1_500 }).catch(() => false)) { found = true; await item.click() } else await page.keyboard.press('Escape')
+      if (await item.waitFor({ state: 'visible', timeout: 1_500 }).then(() => true, () => false)) { found = true; await item.click() } else await page.keyboard.press('Escape')
     }
     out.threadMenuItem = found
     expect.soft(found, 'OxeChat\'s menu has Team').toBe(true)
