@@ -37,7 +37,9 @@ export async function launchReal(profile: RealProfile): Promise<{ app: ElectronA
  * Exiting alone left the handle open: on CI the worker then waited out its teardown limit after a passing test.
  */
 export async function quitReal(app: ElectronApplication): Promise<void> {
-  const proc = app.process()
+  // A window the spec closed on purpose can take the app with it: then there is nothing left to quit.
+  let proc: ReturnType<ElectronApplication['process']> | undefined
+  try { proc = app.process() } catch { return }
   await app.evaluate(({ app }) => app.exit(0)).catch(() => undefined)
   await Promise.race([app.close().catch(() => undefined), new Promise(resolve => setTimeout(resolve, 10_000))])
   if (proc.exitCode === null && proc.pid) {
