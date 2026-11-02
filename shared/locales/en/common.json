@@ -122,8 +122,8 @@
       "activity": {
         "open": "Open activity center"
       },
-      "voice": {
-        "toggle": "Toggle voice input"
+      "team": {
+        "open": "Open project team"
       },
       "code": {
         "changes": "Changes",
@@ -408,14 +408,12 @@
   },
   "team": {
     "button": {
-      "label": "Team",
-      "title": "Project roles and messages shared by OxeCode and OxeChat",
       "needsWorkspace": "Open a workspace to open its team",
       "needsProject": "Select an OxeChat project to open its team",
       "otherViews": "Team is available in OxeCode and OxeChat"
     },
     "roles": {
-      "coordinator": "Coordinator / integrator",
+      "coordinator": "Coordinator",
       "project-manager": "Project manager",
       "product-manager": "Product manager",
       "developer": "Developer",
@@ -575,25 +573,6 @@
     },
     "devBuild": "Updates only run in installed builds"
   },
-  "voiceHud": {
-    "requesting": "Accessing the microphone…",
-    "downloading": "Downloading voice model… {{percent}}%",
-    "transcribing": "Transcribing…",
-    "listening": "Listening… release to insert",
-    "close": "Close voice input",
-    "closeTitle": "Close voice input (Esc)",
-    "errors": {
-      "denied": "Microphone permission denied.",
-      "noMicrophone": "No microphone was detected.",
-      "canceled": "Microphone request was canceled. Try again.",
-      "access": "Could not access the microphone.",
-      "transcription": "Transcription failed.",
-      "engine": "Voice engine unavailable in this build.",
-      "model": "Voice model could not be prepared.",
-      "download": "Could not download the voice model.",
-      "terminal": "Start the terminal before using OXEVoice."
-    }
-  },
   "brand": {
     "tagline": "Agents and terminals for your projects"
   },
@@ -640,7 +619,6 @@
       "layout_one": "Layout: {{count}} pane",
       "layout_other": "Layout: {{count}} panes",
       "layoutDetail": "Workspace layout preset",
-      "voiceDetail": "Speak into the active terminal, editor, or OxeChat draft",
       "stopTerminal": "Stop terminal"
     },
     "thread": {
@@ -762,6 +740,11 @@
       "cancel": "Cancel"
     }
   },
+  "voiceRemoved": {
+    "title": "Voice input was removed",
+    "body": "OXESpace no longer records speech. Your operating system's dictation still types into any field.",
+    "action": "How to dictate"
+  },
   "approvals": {
     "facts": "Risk: {{risk}}. Asked by {{requester}}.",
     "factsEnvironment": "Risk: {{risk}}. Environment: {{environment}}. Asked by {{requester}}.",
@@ -811,6 +794,12 @@
       "hint": "Written by the agent, shown exactly as sent. OXESpace did not check it: read it as a claim, not as a fact.",
       "empty": "The agent sent no text.",
       "length": "{{length}} characters"
+    },
+    "textLabel": {
+      "policyChange": "Content of the file"
+    },
+    "textHint": {
+      "policyChange": "Shown exactly as it is on disk. OXESpace can't tell who changed it: read it before you allow."
     },
     "expires": "If you do not answer by {{time}}, the request is denied.",
     "hold": {

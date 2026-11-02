@@ -496,6 +496,8 @@ export interface MessageParams {
   'notify.refused.rateLimit': { perMinute: number }
   /** A pane name an agent chose contains a name only the app uses. */
   'agents.name.reserved': { name: string }
+  /** Another session tried to control a delegation whose requester is still running (B6.2). */
+  'delegation.requester.live': Record<string, never>
 }
 
 export type MessageCode = keyof MessageParams
@@ -811,7 +813,8 @@ export const MESSAGE_CODES = [
   'notify.prefix.unknownConversation',
   'notify.refused.reservedName',
   'notify.refused.rateLimit',
-  'agents.name.reserved'
+  'agents.name.reserved',
+  'delegation.requester.live'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */

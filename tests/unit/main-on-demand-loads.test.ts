@@ -17,7 +17,6 @@ vi.mock('electron', () => ({ ipcMain: ipc, BrowserWindow: { getAllWindows: () =>
 
 const { IPC_CHANNELS } = await import('../../shared/types/ipc')
 const { registerAgentHooksIpc } = await import('../../electron/main/ipc/agent-hooks.ipc')
-const { registerVoiceIpc } = await import('../../electron/main/ipc/voice.ipc')
 const { registerOxeIpc } = await import('../../electron/main/ipc/oxe.ipc')
 const { AgentMemoryAdapters } = await import('../../electron/main/services/memory/agent-memory-adapter')
 
@@ -54,20 +53,6 @@ describe('hook install paths load their script on demand', () => {
 })
 
 describe('on-demand services are imported once and kept', () => {
-  test('voice: the second request reuses the service; a failed load is retried', async () => {
-    const service = { getModelStatus: vi.fn(() => ({ ready: true })), transcribe: vi.fn(), ensureModel: vi.fn() }
-    const load = vi.fn().mockRejectedValueOnce(new Error('load failed')).mockResolvedValue(service)
-    registerVoiceIpc(load)
-    await expect(ipc.invoke(IPC_CHANNELS.voice.getModelStatus)).rejects.toThrow('load failed')
-    await ipc.invoke(IPC_CHANNELS.voice.getModelStatus)
-    await ipc.invoke(IPC_CHANNELS.voice.getModelStatus, 'small')
-    expect(load).toHaveBeenCalledTimes(2)
-    expect(service.getModelStatus).toHaveBeenLastCalledWith('small')
-    // Input is still checked first: a bad size never reaches, or loads, the service.
-    await expect(ipc.invoke(IPC_CHANNELS.voice.getModelStatus, 'huge')).rejects.toThrow()
-    expect(load).toHaveBeenCalledTimes(2)
-  })
-
   test('OXE: one import for every channel, and quitting before any request disposes nothing', async () => {
     const service = { detect: vi.fn(async () => ({ installed: true })), stopDashboard: vi.fn(() => ({ ok: true })), disposeAll: vi.fn() }
     const load = vi.fn(async () => service as never)
