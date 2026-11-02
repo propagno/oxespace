@@ -51,6 +51,7 @@ export function registerFileSystemIpc(db: AppDatabase, fileSystemService = new F
  * so the service's root comparison rejects it.
  */
 export function worktreeOrWorkspaceRoot(workspaceRoot: string, requestedRoot: string): string {
-  if (!requestedRoot || resolve(requestedRoot) === resolve(workspaceRoot)) return workspaceRoot
+  // A requested root on a network share or a device path is never looked at (SECURITY #510 L).
+  if (!requestedRoot || /^[\\/]{2}/.test(requestedRoot) || resolve(requestedRoot) === resolve(workspaceRoot)) return workspaceRoot
   return sameRepository(workspaceRoot, requestedRoot) ? requestedRoot : workspaceRoot
 }
