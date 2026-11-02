@@ -122,6 +122,15 @@ Decided 2026-10-31 for F7.2 (FRONTEND's measurements: a cold mode switch shows a
 5. **Focus and announcement move at the commit**, not at the click: focus goes to the new view's first region, and the
    mode name is announced once. Input typed into the old view before the commit stays in the old view.
 6. **Reduced motion**: same rules, no cross-fade.
+
+Measured in `e2e/acceptance/f7-2-view-switch.spec.ts`. Rule 1 (selected and busy) is 50 ms at normal speed and with
+reduced motion. With the CPU throttled ×6 it is measured two ways (TECH LEAD on #363):
+
+- **Keys in flight across the switch:** the press is selected and busy in the first frame painted after it, and that
+  frame comes within 800 ms. The terminal is still handling input that was already queued before the press, so that
+  first frame comes late for a reason the app does not control. The cap keeps a regression from hiding.
+- **Terminal idle:** selected and busy within 300 ms, 50 ms scaled ×6. This case catches app work put before the first
+  paint, which the first-frame rule cannot see.
 7. **Measured**: F7 records two numbers per switch, *selected at* (target ≤ 50 ms) and *content at* (the existing
    one, re-baselined only downward).
 

@@ -60,7 +60,14 @@ async function arm(page: Page): Promise<void> {
 
 const commitAt = (r: Record) => r.frames.find(f => f.newUp)?.t ?? Infinity
 
-for (const variant of [{ name: 'normal speed', cpu: 1, motion: 'full' }, { name: 'slow CPU ×6', cpu: 6, motion: 'full' }, { name: 'reduced motion', cpu: 1, motion: 'reduce' }] as const) {
+// `keys`: typing into the old view continues across the switch (keys in flight); the idle case presses with the terminal
+// quiet, so app work put before the first paint shows (TECH LEAD on #363).
+for (const variant of [
+  { name: 'normal speed', cpu: 1, motion: 'full', keys: true },
+  { name: 'slow CPU ×6', cpu: 6, motion: 'full', keys: true },
+  { name: 'slow CPU ×6, terminal idle', cpu: 6, motion: 'full', keys: false },
+  { name: 'reduced motion', cpu: 1, motion: 'reduce', keys: true }
+] as const) {
   test(`F7.2: a cold switch to OxeQuery follows the view-switch rules (${variant.name})`, async () => {
     test.setTimeout(120_000)
     const { app, page, workspaceRoot } = await launchApp({ locale: 'en-US' })
@@ -82,7 +89,7 @@ for (const variant of [{ name: 'normal speed', cpu: 1, motion: 'full' }, { name:
       // No hover first: hovering would prefetch the chunk (rule 4) and the switch would no longer be cold.
       await page.locator('button[data-app-mode="data"]').dispatchEvent('pointerdown')
       await page.locator('button[data-app-mode="data"]').dispatchEvent('click')
-      await page.keyboard.type('f72', { delay: 5 })
+      if (variant.keys) await page.keyboard.type('f72', { delay: 5 })
       await page.waitForTimeout(3_500)
       await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 })
       const rec = await page.evaluate(() => (window as unknown as { __f72: Record }).__f72)
@@ -95,7 +102,14 @@ for (const variant of [{ name: 'normal speed', cpu: 1, motion: 'full' }, { name:
       expect(commit, 'the new view commits').toBeLessThan(Infinity)
       // 1. Acknowledged by the control within 50 ms.
       const ack = rec.frames.find(f => f.pressed && (f.busy || f.newUp))
-      expect.soft(ack?.t ?? Infinity, 'selected and busy within 50 ms').toBeLessThanOrEqual(50)
+      const firstFrame = rec.frames[0]
+      if (variant.cpu === 1) expect.soft(ack?.t ?? Infinity, 'selected and busy within 50 ms').toBeLessThanOrEqual(50)
+      else if (variant.keys) {
+        // CPU ×6 with keys in flight: the terminal is handling input already queued before the first paint, so the rule
+        // is the first painted frame, with a cap so a regression cannot hide (docs/design/motion.md, F7.2, TECH LEAD).
+        expect.soft(Boolean(firstFrame?.pressed && (firstFrame.busy || firstFrame.newUp)), 'selected and busy in the first frame after the press').toBe(true)
+        expect.soft(firstFrame?.t ?? Infinity, 'the first frame after the press within 800 ms').toBeLessThanOrEqual(800)
+      } else expect.soft(ack?.t ?? Infinity, 'selected and busy within 300 ms (50 ms at CPU ×6), terminal idle').toBeLessThanOrEqual(300)
       // 2. The old view stays until the commit, never dimmed; no spinner or brand loader at any frame.
       const before = rec.frames.filter(f => f.t < commit)
       expect.soft(before.every(f => f.oldUp), 'the old view stays up until the commit').toBe(true)
