@@ -83,15 +83,15 @@ function settleCompletedHistoryTools(events: ThreadEvent[]): number {
 }
 
 export class ThreadOrchestrator {
-  private readonly changeListeners = new Map<string, Set<() => void>>()
-  subscribe(id: string, listener: () => void): () => void {
-    const listeners = this.changeListeners.get(id) ?? new Set<() => void>()
+  private readonly changeListeners = new Map<string, Set<(id: string) => void>>()
+  /** `id` '*' hears every conversation (the remote gateway's lists); thread ids are UUIDs, so it names none. */
+  subscribe(id: string, listener: (id: string) => void): () => void { const listeners = this.changeListeners.get(id) ?? new Set<(id: string) => void>()
     listeners.add(listener); this.changeListeners.set(id, listeners)
     return () => { listeners.delete(listener); if (!listeners.size) this.changeListeners.delete(id) }
   }
   private changed(id: string): void {
     this.notifyChanged(id)
-    for (const listener of this.changeListeners.get(id) ?? []) listener()
+    for (const listener of [...this.changeListeners.get(id) ?? [], ...this.changeListeners.get('*') ?? []]) listener(id)
   }
   private readonly history: ThreadHistory
   /** Full snapshots are retained only for active main-process work. Renderer reads stay paginated. */
@@ -256,8 +256,8 @@ export class ThreadOrchestrator {
         this.snapshots.touch(id)
         return cached
       }
+      // Deleted meanwhile: the history read below refuses it with thread.notFound.
       this.snapshots.delete(id)
-      throw Error('Thread not found')
     }
     const snapshot = this.history.read(id)
     const firstRepairedEvent = settleCompletedHistoryTools(snapshot.events)

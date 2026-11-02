@@ -62,7 +62,8 @@
       "tooManyDevices": "Your computer already has 5 paired devices. Remove one in Settings › Devices first.",
       "wrongCertificate": "Another device answered at that address, not your computer. Nothing was sent. Check that you're on your own Wi-Fi.",
       "unreachable": "Couldn't reach your computer. Check that it's on, on the same Wi-Fi, and that the phone connection is on in Settings › Devices.",
-      "protocol": "Your computer answered in a way this app doesn't understand. Update the app or OXESpace on your computer."
+      "protocol": "Your computer answered in a way this app doesn't understand. Update the app or OXESpace on your computer.",
+      "reservedName": "This phone's name uses a name reserved for OXESpace itself, so your computer won't accept it. Rename the phone in Android Settings › About phone, then scan again."
     }
   },
   "live": {
@@ -185,6 +186,8 @@
     "declineReason": "Reason, told to the agent (optional)",
     "sendAnswers": "Send answers",
     "desktopOnly": "Only your computer can answer this one. Open OXESpace there.",
+    "truncated": "Part of this request didn't fit on the phone. The full text is only on your computer, so from here you can only decline it.",
+    "truncatedQuestion": "Part of this question didn't fit on the phone. Answer it on your computer, where you can read all of it.",
     "notConfirmed": "Not sent: the confirmation on this phone was cancelled.",
     "answered": "Answered.",
     "gone": "This request is no longer waiting.",

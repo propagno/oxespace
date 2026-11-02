@@ -1,7 +1,7 @@
 import { BrowserWindow, type WebContents } from 'electron'
 import { createHash, randomUUID } from 'node:crypto'
 import type { CapturedPage } from './documentation.service'
-import type { ExecutionOwner } from '../execution-registry'
+import { executionSignal, type ExecutionOwner } from '../execution-registry'
 import { browserPreviewService } from '../browser-preview.service'
 import { tMain } from '../../i18n'
 import { approvalCenter } from '../approvals'
@@ -57,7 +57,8 @@ export class PreviewAutomation {
         const panels = [...document.querySelectorAll('.web-preview-panel[data-browser-owner]')].filter(e => e.dataset.browserOwner === ${JSON.stringify(key)} && e.dataset.agentAutomation === 'true' && e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().height > 0)
         return panels.length === 1
       })()`)).catch(() => false)
-      if (found) return window
+      // Main is the authority (T43): the window's flag shows the panel, main's grant lets the agent in.
+      if (found && browserPreviewService.hasAgentAccess(window, key)) return window
     }
     throw new Error('Open this workspace Web Preview and enable Agent documentation access first')
   }
@@ -77,7 +78,7 @@ export class PreviewAutomation {
     if (!input.tabId || !verifiedTabs.some(tab => tab.id === input.tabId)) throw new Error('Select a tab ID returned by tabs')
     if (input.action === 'closeTab') {
       // B10: the app's approval modal; the tab title comes from the page, so it is the untrusted text.
-      const confirmation = await approvalCenter.ask(previewDraft({ requester: previewRequester(owner, workspaceId), action: 'closeTab', page: verifiedTabs.find(tab => tab.id === input.tabId)?.label ?? '', text: verifiedTabs.find(tab => tab.id === input.tabId)?.label ?? '' }))
+      const confirmation = await approvalCenter.ask(previewDraft({ requester: previewRequester(owner, workspaceId), action: 'closeTab', page: verifiedTabs.find(tab => tab.id === input.tabId)?.label ?? '', text: verifiedTabs.find(tab => tab.id === input.tabId)?.label ?? '' }), executionSignal(owner))
       if (confirmation.intent !== 'allow') throw new Error('User declined browser action')
     }
     verify()
@@ -179,7 +180,7 @@ export class PreviewAutomation {
         return { sessionId: this.sessionId(workspaceId, owner), tabId, found, url: safePageUrl(guest.getURL()) }
       }
       // B10: the app's approval modal; the selector or URL the agent sent is the untrusted text, the page the target.
-      const confirmation = await approvalCenter.ask(previewDraft({ requester: previewRequester(owner, workspaceId), action: input.action, page: safePageUrl(initialUrl), text: input.action === 'navigate' ? safePageUrl(input.url ?? '') : input.action === 'fill' ? `${input.selector ?? ''}\n${input.text ?? ''}` : input.selector ?? '' }))
+      const confirmation = await approvalCenter.ask(previewDraft({ requester: previewRequester(owner, workspaceId), action: input.action, page: safePageUrl(initialUrl), text: input.action === 'navigate' ? safePageUrl(input.url ?? '') : input.action === 'fill' ? `${input.selector ?? ''}\n${input.text ?? ''}` : input.selector ?? '' }), executionSignal(owner))
       if (confirmation.intent !== 'allow') throw new Error('User declined browser action')
       verify()
       const current = await this.target(workspaceId, owner)
