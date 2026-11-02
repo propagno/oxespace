@@ -345,5 +345,50 @@
       "offNetwork": "Esperando a Wi-Fi para falar com {{desktop}}",
       "stopped": "Não foi possível manter a conexão com {{desktop}}. Abra o app."
     }
+  },
+  "agents": {
+    "filter": {
+      "all": "Todos",
+      "needsYou": "Precisam de você",
+      "conversations": "Conversas",
+      "terminals": "Terminais",
+      "tasks": "Tarefas"
+    },
+    "action": {
+      "respond": "Responder"
+    },
+    "answerOnComputer": "Responda no computador",
+    "partial": "Não foi possível ler alguns agentes agora. O resto está atualizado.",
+    "empty": "Nenhum agente rodando em {{desktop}}",
+    "emptyFilter": "Nada aqui agora.",
+    "loading": "Carregando agentes…",
+    "emptyBody": "Os agentes que você iniciar no computador aparecem aqui.",
+    "showAll": "Mostrar todos",
+    "detailsOnComputer": "Os detalhes estão no computador.",
+    "close": "Fechar",
+    "spoken": {
+      "since": "{{state}} há {{duration}}",
+      "ago": "{{state}} há {{duration}}"
+    },
+    "duration": {
+      "minutes_one": "{{count}} minuto",
+      "minutes_other": "{{count}} minutos",
+      "hours_one": "{{count}} hora",
+      "hours_other": "{{count}} horas",
+      "days_one": "{{count}} dia",
+      "days_other": "{{count}} dias",
+      "minutes_many": "{{count}} minutos",
+      "hours_many": "{{count}} horas",
+      "days_many": "{{count}} dias"
+    },
+    "state": {
+      "needsYou": "Precisa de você",
+      "failed": "Falhou",
+      "working": "Trabalhando",
+      "finished": "Terminou",
+      "idle": "Ocioso",
+      "stopped": "Parado",
+      "unknown": "Não confirmado"
+    }
   }
 }

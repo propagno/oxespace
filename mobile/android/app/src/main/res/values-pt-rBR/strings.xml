@@ -6,6 +6,45 @@
     <string name="action_offline">Sem conexão com o computador. Nada foi enviado.</string>
     <string name="action_rate_limited">Ações demais em um minuto. Tente de novo daqui a pouco.</string>
     <string name="action_refused">O computador não aceitou.</string>
+    <string name="agents_action_respond">Responder</string>
+    <string name="agents_answer_on_computer">Responda no computador</string>
+    <string name="agents_close">Fechar</string>
+    <string name="agents_details_on_computer">Os detalhes estão no computador.</string>
+    <plurals name="agents_duration_days">
+        <item quantity="one">%1$d dia</item>
+        <item quantity="other">%1$d dias</item>
+        <item quantity="many">%1$d dias</item>
+    </plurals>
+    <plurals name="agents_duration_hours">
+        <item quantity="one">%1$d hora</item>
+        <item quantity="other">%1$d horas</item>
+        <item quantity="many">%1$d horas</item>
+    </plurals>
+    <plurals name="agents_duration_minutes">
+        <item quantity="one">%1$d minuto</item>
+        <item quantity="other">%1$d minutos</item>
+        <item quantity="many">%1$d minutos</item>
+    </plurals>
+    <string name="agents_empty">Nenhum agente rodando em %1$s</string>
+    <string name="agents_empty_body">Os agentes que você iniciar no computador aparecem aqui.</string>
+    <string name="agents_empty_filter">Nada aqui agora.</string>
+    <string name="agents_filter_all">Todos</string>
+    <string name="agents_filter_conversations">Conversas</string>
+    <string name="agents_filter_needs_you">Precisam de você</string>
+    <string name="agents_filter_tasks">Tarefas</string>
+    <string name="agents_filter_terminals">Terminais</string>
+    <string name="agents_loading">Carregando agentes…</string>
+    <string name="agents_partial">Não foi possível ler alguns agentes agora. O resto está atualizado.</string>
+    <string name="agents_show_all">Mostrar todos</string>
+    <string name="agents_spoken_ago">%1$s há %2$s</string>
+    <string name="agents_spoken_since">%1$s há %2$s</string>
+    <string name="agents_state_failed">Falhou</string>
+    <string name="agents_state_finished">Terminou</string>
+    <string name="agents_state_idle">Ocioso</string>
+    <string name="agents_state_needs_you">Precisa de você</string>
+    <string name="agents_state_stopped">Parado</string>
+    <string name="agents_state_unknown">Não confirmado</string>
+    <string name="agents_state_working">Trabalhando</string>
     <string name="approval_prompt_accept">Permitir este pedido uma vez</string>
     <string name="approval_prompt_answer">Enviar estas respostas</string>
     <string name="approval_prompt_cancel">Cancelar este pedido</string>

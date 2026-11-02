@@ -332,5 +332,47 @@
       "offNetwork": "Waiting for Wi-Fi to reach {{desktop}}",
       "stopped": "Can't stay connected to {{desktop}}. Open the app."
     }
+  },
+  "agents": {
+    "filter": {
+      "all": "All",
+      "needsYou": "Need you",
+      "conversations": "Conversations",
+      "terminals": "Terminals",
+      "tasks": "Tasks"
+    },
+    "action": {
+      "respond": "Respond"
+    },
+    "answerOnComputer": "Answer on the computer",
+    "partial": "Some agents couldn't be read right now. The rest is up to date.",
+    "empty": "No agents running on {{desktop}}",
+    "emptyFilter": "Nothing here right now.",
+    "loading": "Loading agents…",
+    "emptyBody": "Agents you start on your computer show up here.",
+    "showAll": "Show all",
+    "detailsOnComputer": "Details are on your computer.",
+    "close": "Close",
+    "spoken": {
+      "since": "{{state}} for {{duration}}",
+      "ago": "{{state}} {{duration}} ago"
+    },
+    "duration": {
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days"
+    },
+    "state": {
+      "needsYou": "Needs you",
+      "failed": "Failed",
+      "working": "Working",
+      "finished": "Finished",
+      "idle": "Idle",
+      "stopped": "Stopped",
+      "unknown": "Not confirmed"
+    }
   }
 }
