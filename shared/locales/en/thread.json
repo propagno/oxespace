@@ -984,6 +984,7 @@
     "closed": "Request closed; outcome unavailable"
   },
   "panels": {
+    "session": "Conversation details",
     "terminal": "Terminal",
     "changes": "Changes",
     "browser": "Browser",
@@ -1192,6 +1193,106 @@
     "indexed": "{{files}} files indexed",
     "failed": "Could not change semantic search."
   },
+  "sessionPanel": {
+    "sections": {
+      "environment": "Environment",
+      "context": "Context",
+      "tools": "Tools and MCP",
+      "outputs": "Outputs",
+      "background": "Background work"
+    },
+    "reorder": {
+      "list": "Conversation details sections",
+      "menu": "Move the {{section}} section",
+      "handle": "Drag to move the {{section}} section",
+      "up": "Move up",
+      "down": "Move down",
+      "top": "Move to the top",
+      "bottom": "Move to the bottom",
+      "reset": "Restore the default order",
+      "moved": "{{section}} moved to position {{position}} of {{total}}",
+      "wasReset": "Sections back in the default order"
+    },
+    "more_one": "{{count}} more",
+    "more_other": "{{count}} more",
+    "environment": {
+      "project": "Project",
+      "folder": "Folder",
+      "worktree": "Worktree",
+      "worktreeOwn": "This conversation's own worktree",
+      "worktreeMoved": "A worktree the agent moved to",
+      "worktreeNone": "None, the project folder",
+      "branch": "Branch",
+      "branchUnknown": "Not a Git checkout",
+      "outside": "Outside the project folder",
+      "agent": "Agent",
+      "model": "Model",
+      "modelDefault": "The agent's default"
+    },
+    "context": {
+      "meter": "Context window",
+      "detail": "{{used}} of {{total}} · {{percent}}%",
+      "detailOver": "{{used}} of {{total}} · {{percent}}%, past the window",
+      "breakdown": "What fills the context",
+      "category": "Category",
+      "tokens": "Tokens",
+      "share": "Share of the window",
+      "buckets": {
+        "messages": "Messages",
+        "tools": "Tools",
+        "mcp": "MCP",
+        "system": "System",
+        "skills": "Skills"
+      },
+      "unattributed": "Other",
+      "total": "In use",
+      "free": "Free",
+      "reserved": "Reserved for compaction",
+      "notItemized": "{{provider}} reports only the total, not what fills it.",
+      "deferred": "{{tokens}} more in tools loaded only when the agent asks for them.",
+      "autoCompact": "Compacts by itself at {{tokens}}.",
+      "cost_one": "Estimated cost so far: {{cost}} in {{count}} turn.",
+      "cost_other": "Estimated cost so far: {{cost}} in {{count}} turns.",
+      "costReported_one": "Reported cost so far: {{cost}} in {{count}} turn.",
+      "costReported_other": "Reported cost so far: {{cost}} in {{count}} turns.",
+      "capturedAt": "Reported at {{time}}.",
+      "empty": "No context report yet",
+      "emptyHint": "The agent reports it with its first reply.",
+      "compact": "Compact",
+      "compactHint": "Summarizes the conversation so far to free context.",
+      "compactBusy": "Wait for the agent to finish before compacting.",
+      "compactEmpty": "Nothing to compact yet."
+    },
+    "tools": {
+      "mcp": "MCP servers",
+      "mcpUnknown": "The agent has not reported its MCP servers yet. They appear when its session starts.",
+      "manage": "Manage MCP servers",
+      "used": "Tools used in this conversation",
+      "calls_one": "{{count}} call",
+      "calls_other": "{{count}} calls",
+      "failed_one": "{{count}} failed",
+      "failed_other": "{{count}} failed",
+      "none": "No tools used yet."
+    },
+    "outputs": {
+      "files": "Changed files",
+      "summary_one": "{{count}} file",
+      "summary_other": "{{count}} files",
+      "none": "No files changed yet.",
+      "review": "Review changes",
+      "previews": "Previews",
+      "noPreviews": "No page open in this conversation's browser.",
+      "openBrowser": "Open the browser"
+    },
+    "background": {
+      "agents_one": "{{count}} agent running",
+      "agents_other": "{{count}} agents running",
+      "tasks_one": "{{count}} task running",
+      "tasks_other": "{{count}} tasks running",
+      "none": "Nothing running in the background.",
+      "open": "Open background activity"
+    }
+  },
   "sidebar": {
     "age": {
       "now": "now",
@@ -1263,6 +1364,8 @@
     "restartToDelete": "Restart the updated application to delete conversations."
   },
   "sections": {
+    "notKept_one": "Could not keep {{count}} section. The rest of the list is as before.",
+    "notKept_other": "Could not keep {{count}} sections. The rest of the list is as before.",
     "newSection": "New section…",
     "newTitle": "New section",
     "newDescription": "Group this project’s conversations under a name. Conversations stay where they are until you move them.",
@@ -1570,6 +1673,17 @@
     "nativeActivity": "Native background activity",
     "providerActivity": "Provider activity · {{count}} running",
     "noNativeTasks": "No native tasks have been reported in this conversation."
+  },
+  "notify": {
+    "untitled": "Conversation",
+    "approval": "{{name}} — needs approval",
+    "approvalBody": "The agent is waiting for your decision to continue.",
+    "failed": "{{name}} — failed",
+    "failedBody": "The turn ended with an error. Open the conversation to see why.",
+    "finished": "{{name}} — finished",
+    "finishedBody": "The agent completed the turn.",
+    "requestsWaiting_one": "{{count}} request is waiting for your decision.",
+    "requestsWaiting_other": "{{count}} requests are waiting for your decision."
   },
   "side": {
     "title": "Side chat",

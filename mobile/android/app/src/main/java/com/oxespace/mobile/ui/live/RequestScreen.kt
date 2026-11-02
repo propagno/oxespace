@@ -90,6 +90,7 @@ fun RequestScreen(request: RemotePendingRequest?, commands: CommandApi, onBack: 
                     AnswerBlock.DESKTOP_ONLY -> R.string.request_desktop_only
                     AnswerBlock.NOT_OFFERED -> R.string.request_refused_other
                     AnswerBlock.NOT_CONFIRMED -> R.string.request_not_confirmed
+                    AnswerBlock.TRUNCATED -> R.string.request_truncated
                 }
                 is AnswerOutcome.Sent -> answerMessage(outcome.result)
             }
@@ -140,9 +141,20 @@ fun RequestScreen(request: RemotePendingRequest?, commands: CommandApi, onBack: 
                 why?.let { Field(stringResource(R.string.request_reason), it, mono = false, fromAgent = true) }
             }
 
-            if (!request.answerable) return@Column
+            val truncated = request.truncated == true
+            if (truncated) {
+                Text(
+                    stringResource(if (request.kind == "question") R.string.request_truncated_question else R.string.request_truncated),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Oxe.colors.intentWarningFg,
+                )
+            }
+            // A truncated question is answered on the desktop only: nothing to pick or send here.
+            if (!request.answerable || (truncated && request.kind == "question")) return@Column
 
-            val questions = request.questions.orEmpty()
+            val questions = if (truncated) emptyList() else request.questions.orEmpty()
+            // Never an approval for what the phone wasn't shown in full, even if the desktop offered one.
+            val decisions = if (truncated) request.decisions.filter { it == "decline" || it == "cancel" } else request.decisions
             if (questions.isNotEmpty() && detail == null && why == null) FromAgentLabel()
             for (question in questions) {
                 Text(displaySafe(question.header ?: question.question, QUESTION_MAX), style = MaterialTheme.typography.titleSmall, modifier = Modifier.semantics { heading() })
@@ -178,7 +190,7 @@ fun RequestScreen(request: RemotePendingRequest?, commands: CommandApi, onBack: 
                 ) { Text(stringResource(R.string.request_send_answers)) }
             }
 
-            if ("decline" in request.decisions) {
+            if ("decline" in decisions) {
                 OutlinedTextField(
                     value = reason,
                     onValueChange = { reason = it.take(500) },
@@ -186,7 +198,7 @@ fun RequestScreen(request: RemotePendingRequest?, commands: CommandApi, onBack: 
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            for ((decision, leads) in decisionLayout(request.decisions, request.risk)) {
+            for ((decision, leads) in decisionLayout(decisions, request.risk)) {
                 val label = stringResource(
                     when (decision) {
                         "accept" -> R.string.request_decision_accept

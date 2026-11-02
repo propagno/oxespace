@@ -63,7 +63,8 @@
       "tooManyDevices": "Seu computador já tem 5 aparelhos pareados. Remova um em Configurações › Dispositivos antes.",
       "wrongCertificate": "Outro aparelho respondeu nesse endereço, não o seu computador. Nada foi enviado. Confira se você está na sua Wi-Fi.",
       "unreachable": "Não foi possível falar com o computador. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.",
-      "protocol": "O computador respondeu de um jeito que este app não entende. Atualize o app ou o OXESpace no computador."
+      "protocol": "O computador respondeu de um jeito que este app não entende. Atualize o app ou o OXESpace no computador.",
+      "reservedName": "O nome deste celular usa um nome reservado ao próprio OXESpace, e o computador não o aceita. Mude o nome do celular em Configurações do Android › Sobre o telefone e leia o código de novo."
     }
   },
   "live": {
@@ -198,6 +199,8 @@
     "declineReason": "Motivo, dito ao agente (opcional)",
     "sendAnswers": "Enviar respostas",
     "desktopOnly": "Só o seu computador pode responder este. Abra o OXESpace lá.",
+    "truncated": "Parte deste pedido não coube no celular. O texto completo está só no computador, então daqui você só pode recusar.",
+    "truncatedQuestion": "Parte desta pergunta não coube no celular. Responda no computador, onde dá para ler tudo.",
     "notConfirmed": "Não enviado: a confirmação neste celular foi cancelada.",
     "answered": "Respondido.",
     "gone": "Este pedido não está mais esperando.",

@@ -323,6 +323,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       status: () => ipc.invoke(IPC_CHANNELS.remote.status) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
       devices: () => ipc.invoke(IPC_CHANNELS.remote.devices) as Promise<import('../../shared/types/remote').RemoteDevice[]>,
       onChanged: listener => subscribe<import('../../shared/types/remote').RemoteChange>(ipc, IPC_CHANNELS.remote.changed, listener),
+      onPairingFailed: listener => subscribe<import('../../shared/messages').MainMessage>(ipc, IPC_CHANNELS.remote.pairingFailed, listener),
       setEnabled: input => ipc.invoke(IPC_CHANNELS.remote.setEnabled, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
       startPairing: () => ipc.invoke(IPC_CHANNELS.remote.startPairing) as Promise<import('../../shared/types/remote').RemotePairingOffer>,
       cancelPairing: () => ipc.invoke(IPC_CHANNELS.remote.cancelPairing) as Promise<void>,
@@ -364,6 +365,12 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       history: () => ipc.invoke(IPC_CHANNELS.approvals.history) as Promise<import('../../shared/types/approvals').ApprovalHistoryEntry[]>,
       onRequested: listener => subscribe<import('../../shared/types/approvals').ApprovalRequest>(ipc, IPC_CHANNELS.approvals.onRequested, listener),
       onResolved: listener => subscribe<import('../../shared/types/approvals').ApprovalResolved>(ipc, IPC_CHANNELS.approvals.onResolved, listener)
+    },
+    activity: {
+      recent: () => ipc.invoke(IPC_CHANNELS.activity.recent) as Promise<import('../../shared/types/activity').ActivityRecent>,
+      record: entries => ipc.invoke(IPC_CHANNELS.activity.record, entries) as Promise<import('../../shared/types/activity').ActivityRecordResult>,
+      seen: at => ipc.invoke(IPC_CHANNELS.activity.seen, at) as Promise<import('../../shared/types/activity').ActivitySeenResult>,
+      resolve: input => ipc.invoke(IPC_CHANNELS.activity.resolve, input) as Promise<import('../../shared/types/activity').ActivityResolveResult>
     },
     oxe: {
       detect: (force) => ipc.invoke(IPC_CHANNELS.oxe.detect, force) as Promise<import('../../shared/types/oxe').OxeDetect>,
@@ -496,6 +503,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     },
     mcpInternal: {
       toolGroups: (input) => ipc.invoke(IPC_CHANNELS.mcpInternal.toolGroups, input) as Promise<import('../../shared/types/mcp-tools').McpToolGroupsReport>,
+      toolRules: (input) => ipc.invoke(IPC_CHANNELS.mcpInternal.toolRules, input) as Promise<import('../../shared/types/mcp-tools').McpToolRule[]>,
+      setToolRule: (input) => ipc.invoke(IPC_CHANNELS.mcpInternal.setToolRule, input) as Promise<import('../../shared/types/mcp-tools').McpToolRule[]>,
       setToolGroupMode: (input) => ipc.invoke(IPC_CHANNELS.mcpInternal.setToolGroupMode, input) as Promise<import('../../shared/types/mcp-tools').McpToolGroupsReport>,
       getStatus: () => ipc.invoke(IPC_CHANNELS.mcpInternal.getStatus) as Promise<import('../../shared/types/mcp-internal').InternalMcpStatus>,
       regenerateToken: () => ipc.invoke(IPC_CHANNELS.mcpInternal.regenerateToken) as Promise<import('../../shared/types/mcp-internal').InternalMcpStatus>,
@@ -509,7 +518,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       session: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.session, input) as Promise<import('../../shared/types/browser-preview').BrowserPreviewSessionState>,
       mount: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.mount, input) as Promise<import('../../shared/types/browser-preview').BrowserPreviewMountResult>,
       bounds: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.bounds, input) as Promise<void>,
-      setAccess: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.setAccess, input) as Promise<void>,
+      setAccess: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.setAccess, input) as Promise<{ agentAccess: boolean }>,
       designMode: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.designMode, input) as Promise<void>,
       setZoom: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.setZoom, input) as Promise<void>,
       reload: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.reload, input) as Promise<void>,

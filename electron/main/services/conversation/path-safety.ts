@@ -26,6 +26,8 @@ export interface PathSafetyOptions {
   windows?: boolean
   /** Resolves links for an existing path; returning the input means "no link" or "not found". */
   realpath?: (path: string) => string
+  /** Whether an absolute path is an existing folder (a move of a folder into the root is guarded, B7.3). */
+  isDirectory?: (path: string) => boolean
 }
 
 export function checkWorkspacePath(workspaceRoot: string, candidate: string, options: PathSafetyOptions = {}): PathVerdict {

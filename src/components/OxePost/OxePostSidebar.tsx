@@ -6,7 +6,7 @@ import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH, SIDEBAR_RESIZE_STEP, SIDEBAR_WIDTH, useNavigationPrefs } from '../../store/navigation-prefs.store'
 import { useKeybindings, shortcutLabel } from '../../keyboard/keybindings'
-import { Badge, Kbd, Skeleton, cx } from '../../ui'
+import { Badge, ErrorState, Kbd, Skeleton, cx } from '../../ui'
 import { Splitter } from '../../ui/Splitter'
 import { usePostCatalog } from './catalog'
 import { useOxePostStore } from './oxepost.store'
@@ -57,7 +57,7 @@ export function OxePostSidebar(): ReactElement {
         </section>)}
         {entries.length > 0 && groups.length === 0 && <p className={styles.sideNote}>{t('sidebar.noMatch')}</p>}
         {!loading && !error && entries.length === 0 && <p className={styles.sideNote}>{workspaceId ? t('sidebar.empty') : t('sidebar.noWorkspace')}</p>}
-        {error && <p className={styles.sideNote} role="alert">{t('sidebar.failed')}</p>}
+        {error && <ErrorState compact title={t('sidebar.failed')} onRetry={() => void store().load(workspaceId)} />}
       </div>
       <nav className={styles.sidebarLinks} aria-label={t('sidebar.more')}>
         <button type="button" className={styles.row} onClick={() => store().show('import')}><Upload size={14} aria-hidden="true" /><span className={styles.rowName}>{t('sidebar.import')}</span></button>

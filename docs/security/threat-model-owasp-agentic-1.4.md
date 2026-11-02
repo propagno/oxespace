@@ -156,6 +156,19 @@ Gap: no detection of unusual behavior; the audit is read after the fact. Network
   see what a CLI's own tools connect to. The order of work is S3 (sandbox), then S4 enforcement using this classifier for the prompt and
   `decideNet` for the decision, then more of S7.
 
+## Remote gateway (B9): what reaches the phone
+
+- Text sent to the phone is filtered on the desktop: `electron/main/services/remote/filters.ts`, `electron/main/services/remote/text.ts`.
+  Secrets are redacted with the shared patterns (`shared/secrets.ts`). A path under a registered workspace or project root goes out relative;
+  every other absolute path (POSIX, another drive, UNC, `~`, `file:`) is replaced. Tests: `tests/unit/remote-text-filters.test.ts`.
+- Terminal output is redacted over a sliding window per subscription, so a secret split across two output batches is still caught. Output
+  is held until it can be released safely, at most 250 ms (the flush timeout). The phone's terminal is read only and the M4 target is
+  under 300 ms on the LAN, so this latency is accepted in exchange for the redaction.
+- **Accepted risk:** a secret whose two halves are printed more than 250 ms apart is flushed in two parts, and each part may not match a
+  pattern alone. Holding output longer would leave the phone's terminal stuck. Decided by the 1.4 coordinator; revisit if a stream
+  format that prints secrets slowly (for example, character by character) turns up.
+- The first terminal snapshot can be empty while output is held; the phone shows it as loading, not as an empty terminal.
+
 ## Open items
 
 1. S3 sandbox (the single largest gap: ASI01, ASI02, ASI05, ASI10).
