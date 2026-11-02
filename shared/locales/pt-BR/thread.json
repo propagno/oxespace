@@ -1168,6 +1168,7 @@
     "always": "Sempre permitir {{labels}}",
     "cancel": "Cancelar",
     "decline": "Recusar",
+    "deny": "Negar",
     "holdWaiting": "Risco crítico: Aprovar fica disponível em {{seconds}} s. Leia o comando antes.",
     "holdReady": "Aprovar está disponível. Com comando crítico, Enter não aprova; use Espaço ou clique.",
     "guarded": "Arquivo que orienta o agente",
@@ -1561,7 +1562,7 @@
     "restartUndo": "Reinicie o aplicativo atualizado para desfazer alterações.",
     "noCheckpoint": "Não há checkpoint restaurável para este turno.",
     "approve": "Aprovar",
-    "decline": "Recusar",
+    "decline": "Negar",
     "usageUnavailable": "Uso indisponível",
     "interrupted": "Interrompido",
     "noPublicMessages": "Nenhuma mensagem pública neste trecho. Continue carregando as mensagens anteriores, se houver."
