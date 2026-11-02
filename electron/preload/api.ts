@@ -300,16 +300,6 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       readText: () => ipc.invoke(IPC_CHANNELS.clipboard.readText) as Promise<string>,
       writeText: (text) => ipc.invoke(IPC_CHANNELS.clipboard.writeText, text) as Promise<boolean>
     },
-    voice: {
-      transcribe: (wav, options) =>
-        ipc.invoke(IPC_CHANNELS.voice.transcribe, wav, options) as Promise<import('../../shared/types/voice').VoiceTranscribeResult>,
-      getModelStatus: (size) =>
-        ipc.invoke(IPC_CHANNELS.voice.getModelStatus, size) as Promise<import('../../shared/types/voice').VoiceModelStatus>,
-      ensureModel: (size) =>
-        ipc.invoke(IPC_CHANNELS.voice.ensureModel, size) as Promise<import('../../shared/types/voice').VoiceModelStatus>,
-      onModelProgress: (listener) =>
-        subscribe<import('../../shared/types/voice').VoiceModelProgressEvent>(ipc, IPC_CHANNELS.voice.onModelProgress, listener)
-    },
     oxeQuery: {
       call: (op, input) => ipc.invoke(IPC_CHANNELS.oxeQuery.call, { op, input }) as never,
       onEvent: listener => subscribe<import('../../shared/types/oxequery').OxeQueryEvent>(ipc, IPC_CHANNELS.oxeQuery.onEvent, listener)

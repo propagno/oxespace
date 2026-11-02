@@ -129,9 +129,9 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   },
   'code.notifications': { label: 'Desktop notification', tools: each('oxespace_workspace_change', 'write', ['notify']), ipc: ['notifications.notify'] },
   'code.local_input': {
-    label: 'Clipboard and voice',
+    label: 'Clipboard',
     excluded: 'The person\'s own input devices.',
-    ipc: ['clipboard.*', 'voice.*', 'browserPreview.captureClipboard']
+    ipc: ['clipboard.*', 'browserPreview.captureClipboard']
   },
 
   // ---- Web Preview --------------------------------------------------------------
