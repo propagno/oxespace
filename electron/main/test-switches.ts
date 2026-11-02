@@ -1,3 +1,4 @@
+import { realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 /**
@@ -23,14 +24,19 @@ export interface SingleInstanceInput {
   /** The profile a packaged build uses without the switch: `<appData>/<app name>`. */
   defaultUserData: string
   platform?: NodeJS.Platform
+  /** Resolves junctions, symlinks and 8.3 names of a path that exists; throws when it does not. */
+  realpath?: (path: string) => string
 }
 
-export function singleInstanceDisabled({ env, isPackaged, userDataDirSwitch, defaultUserData, platform = process.platform }: SingleInstanceInput): boolean {
+export function singleInstanceDisabled({ env, isPackaged, userDataDirSwitch, defaultUserData, platform = process.platform, realpath = realpathSync.native }: SingleInstanceInput): boolean {
   if (env.OXESPACE_DISABLE_SINGLE_INSTANCE !== '1') return false
   if (!isPackaged) return true
   if (!userDataDirSwitch.trim()) return false
   const normalize = (path: string) => {
-    const full = resolve(path).replace(/[\\/]+$/, '')
+    // Another spelling of the person's profile (junction, symlink, short name, \\?\ prefix) must still count as theirs.
+    let full = resolve(path)
+    try { full = realpath(full) } catch { /* A folder that does not exist yet cannot be the existing profile. */ }
+    full = full.replace(/^\\\\\?\\/, '').replace(/[\\/.]+$/, '')
     return platform === 'win32' || platform === 'darwin' ? full.toLowerCase() : full
   }
   return normalize(userDataDirSwitch) !== normalize(defaultUserData)

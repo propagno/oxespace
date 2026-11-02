@@ -20,7 +20,7 @@ const MAX_DB_BACKUPS = 3
 export type AppDatabase = DatabaseHandle
 
 export function resolveAppDatabasePath(): string {
-  // T50: a packaged build ignores OXESPACE_DB_PATH (test-switches.ts).
+  // T50: a packaged build ignores the test database path (test-switches.ts).
   return testDatabasePath(process.env, app.isPackaged) ?? join(app.getPath('userData'), 'oxespace.sqlite3')
 }
 

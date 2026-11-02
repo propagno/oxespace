@@ -1,7 +1,7 @@
 // @vitest-environment node
 // T50: a packaged build neither moves the person's database nor shares their profile with a second instance.
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { join, relative, sep } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { singleInstanceDisabled, testDatabasePath } from '../../electron/main/test-switches'
 
@@ -32,6 +32,14 @@ describe('OXESPACE_DISABLE_SINGLE_INSTANCE', () => {
     expect(packaged('c:\\users\\PERSON\\appdata\\roaming\\oxespace\\')).toBe(false)
   })
 
+  it('treats another spelling of the profile as the profile: junction, short name, \\\\?\\ prefix, trailing dot', () => {
+    // A fake realpath stands in for the file system: both spellings resolve to the same folder.
+    const realpath = (path: string) => (/OXESPA~1|profile-link/i.test(path) ? DEFAULT : path)
+    for (const spelling of ['C:\\Users\\person\\AppData\\Roaming\\OXESPA~1', 'C:\\Temp\\profile-link', '\\\\?\\C:\\Users\\person\\AppData\\Roaming\\OXESpace', `${DEFAULT}.`]) {
+      expect(singleInstanceDisabled({ env: ON, isPackaged: true, userDataDirSwitch: spelling, defaultUserData: DEFAULT, platform: 'win32', realpath }), spelling).toBe(false)
+    }
+  })
+
   it('lets a packaged build run a second instance on its own --user-data-dir', () => {
     expect(packaged('C:\\Temp\\oxe-packaged-win32-1\\user-data')).toBe(true)
     expect(singleInstanceDisabled({ env: ON, isPackaged: true, userDataDirSwitch: '/tmp/oxe/user-data', defaultUserData: '/home/person/.config/OXESpace', platform: 'linux' })).toBe(true)
@@ -56,5 +64,20 @@ describe('the app reads both switches only through test-switches.ts', () => {
     // The only other read: dev mode keeps its own profile unless a test moved the database.
     expect([...entry.matchAll(/OXESPACE_DB_PATH/g)]).toHaveLength(1)
     expect(entry).toMatch(/if \(isDev && !process\.env\.OXESPACE_DB_PATH\)/)
+  })
+
+  it('no other file in electron/ reads either variable, however it is written', () => {
+    const files = (dir: string): string[] => readdirSync(dir).flatMap(name => {
+      const path = join(dir, name)
+      if (statSync(path).isDirectory()) return files(path)
+      return /\.(?:[cm]?[jt]sx?)$/.test(name) ? [path] : []
+    })
+    const electron = join(process.cwd(), 'electron')
+    const readers = files(electron)
+      .map(path => relative(electron, path).split(sep).join('/'))
+      .filter(file => file !== 'main/test-switches.ts')
+      .filter(file => /OXESPACE_DB_PATH|OXESPACE_DISABLE_SINGLE_INSTANCE|['"`]OXESPACE_['"`]\s*\+|`OXESPACE_\$\{/.test(readFileSync(join(electron, file), 'utf8')))
+    // index.ts keeps the dev-only line above; nothing else may read them.
+    expect(readers).toEqual(['main/index.ts'])
   })
 })
