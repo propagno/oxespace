@@ -8,6 +8,7 @@ import { installCloseGuard } from './window-close-guard'
 import { initialWindowColors, registerAppearanceIpc, savedUiScale } from './ipc/appearance.ipc'
 import { systemLocale, tMain } from './i18n'
 import { randomUUID } from 'node:crypto'
+import { realpathSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -23,6 +24,7 @@ import { broadcastMcpHealth, registerMcpIpc } from './ipc/mcp.ipc'
 import { registerMcpInternalIpc } from './ipc/mcp-internal.ipc'
 import { registerNotificationsIpc } from './ipc/notifications.ipc'
 import { registerAppInfoIpc } from './ipc/app-info.ipc'
+import { singleInstanceDisabled } from './test-switches'
 import { e2eMocksEnabled } from './e2e/e2e-mode'
 import { registerClipboardTextIpc } from './ipc/clipboard.ipc'
 import { registerOxeIpc } from './ipc/oxe.ipc'
@@ -895,7 +897,14 @@ function createMainWindow(): BrowserWindow {
   return mainWindow
 }
 
-const gotLock = process.env.OXESPACE_DISABLE_SINGLE_INSTANCE === '1' || app.requestSingleInstanceLock()
+// T50: a packaged build allows a second instance only on its own --user-data-dir (test-switches.ts).
+const gotLock = singleInstanceDisabled({
+  env: process.env,
+  isPackaged: app.isPackaged,
+  userDataDirSwitch: app.commandLine.getSwitchValue('user-data-dir'),
+  defaultUserData: () => join(app.getPath('appData'), app.getName()),
+  realpath: realpathSync.native,
+}) || app.requestSingleInstanceLock()
 
 if (!gotLock) {
   app.quit()

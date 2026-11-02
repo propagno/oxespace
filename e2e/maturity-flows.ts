@@ -34,7 +34,10 @@ export function packagedLauncher(): MaturityFlowsOptions['launch'] {
     const executablePath = process.env.OXESPACE_PACKAGED_EXECUTABLE
     expect(executablePath, 'OXESPACE_PACKAGED_EXECUTABLE').toBeTruthy()
     expect(existsSync(executablePath!), `packaged executable ${executablePath}`).toBe(true)
-    return electron.launch({ executablePath, env: { ...process.env, ...env } })
+    // A packaged build ignores OXESPACE_DB_PATH (T50): the flows' database is <root>/oxespace.sqlite3, which is
+    // where the app keeps it when --user-data-dir is <root>.
+    const args = env.OXESPACE_DB_PATH ? [`--user-data-dir=${dirname(env.OXESPACE_DB_PATH)}`] : []
+    return electron.launch({ executablePath, args, env: { ...process.env, ...env } })
   }
 }
 
