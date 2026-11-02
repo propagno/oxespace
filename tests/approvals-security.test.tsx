@@ -412,9 +412,13 @@ describe('S2/S3 · one hidden-character definition, shared with main', () => {
     expect(revealHidden('a️b\u{E0041}c').filter(piece => piece.kind === 'hidden')).toEqual([{ kind: 'hidden', code: 'U+FE0F' }, { kind: 'hidden', code: 'U+E0041' }])
   })
 
-  it('marks the ZWJ inside an emoji sequence too (accepted false alarm for 1.4)', () => {
-    // 👩‍💻 is U+1F469 U+200D U+1F4BB: the joiner is Cf, so the window shows it.
-    expect(revealHidden('\u{1F469}‍\u{1F4BB}')).toEqual([{ kind: 'text', text: '\u{1F469}' }, { kind: 'hidden', code: 'U+200D' }, { kind: 'text', text: '\u{1F4BB}' }])
+  it('a ZWJ joining two pictographs is part of the emoji; a ZWJ next to anything else is shown (#238 on main)', () => {
+    // #238 (ae7a4765, shared/hidden-characters.ts) made the joiner between two pictographs part of the emoji
+    // (U+1F469 U+200D U+1F4BB), so it is no longer the false alarm 1.4 had accepted here. The security property holds:
+    // a ZWJ that does not join two pictographs (next to a letter, alone in text) is still marked hidden.
+    expect(revealHidden('\u{1F469}‍\u{1F4BB}')).toEqual([{ kind: 'text', text: '\u{1F469}‍\u{1F4BB}' }])
+    expect(revealHidden('\u{1F468}‍x')).toEqual([{ kind: 'text', text: '\u{1F468}' }, { kind: 'hidden', code: 'U+200D' }, { kind: 'text', text: 'x' }])
+    expect(revealHidden('a‍b').filter(piece => piece.kind === 'hidden')).toEqual([{ kind: 'hidden', code: 'U+200D' }])
   })
 
   it('the window keeps no list of its own', () => {
