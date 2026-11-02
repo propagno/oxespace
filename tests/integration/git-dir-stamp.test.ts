@@ -127,6 +127,35 @@ describe('the git-dir cache stamps a .git folder by identity', () => {
     expect(gone.value).toBeNull()
   })
 
+  test('a folder on the way up that becomes a bare repository (HEAD already there) is resolved again (SECURITY #468 M)', () => {
+    const root = repo('nested-bare')
+    const sub = join(root, 'sub')
+    mkdirSync(sub)
+    writeFileSync(join(sub, 'HEAD'), 'ref: refs/heads/main\n')
+    git(root, 'add', '.')
+    git(root, 'commit', '-q', '-m', 'sub/HEAD')
+    expect(warm(sub)?.gitDir.toLowerCase()).toBe(join(root, '.git').toLowerCase())
+    mkdirSync(join(sub, 'objects'))
+    mkdirSync(join(sub, 'refs'))
+    writeFileSync(join(sub, 'config'), '[core]\n\tbare = true\n')
+    const after = revParsesOf(() => dirsOf(sub))
+    expect(after.ran).toBe(1)
+    expect(after.value?.gitDir.toLowerCase()).toBe(sub.toLowerCase())
+  })
+
+  test('the same through a commondir file in a folder on the way up', () => {
+    const root = repo('nested-commondir')
+    const sub = join(root, 'sub')
+    mkdirSync(sub)
+    writeFileSync(join(sub, 'HEAD'), 'ref: refs/heads/main\n')
+    git(root, 'add', '.')
+    git(root, 'commit', '-q', '-m', 'sub/HEAD')
+    warm(sub)
+    writeFileSync(join(sub, 'commondir'), `${join(root, '.git')}\n`)
+    const after = revParsesOf(() => dirsOf(sub))
+    expect(after.ran).toBe(1)
+  })
+
   test('4. a folder counts by device, inode and kind, and by its full stamp where the file system has no inode (0)', () => {
     const info = (over: Partial<Record<'ino' | 'dev' | 'size' | 'mtimeNs' | 'ctimeNs', bigint>> & { dir?: boolean }) => (() => ({
       isDirectory: () => over.dir ?? true, ino: over.ino ?? 7n, dev: over.dev ?? 3n, size: over.size ?? 0n, mtimeNs: over.mtimeNs ?? 1n, ctimeNs: over.ctimeNs ?? 1n

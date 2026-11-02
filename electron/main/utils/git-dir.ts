@@ -82,7 +82,9 @@ export function guardFiles(cwd: string, dirs: GitDirs): string[] | null {
   const files = [join(dirs.gitDir, 'commondir'), join(dirs.gitDir, 'HEAD'), join(dirs.commonDir, 'objects'), join(dirs.commonDir, 'refs'),
     join(dirs.commonDir, 'config'), join(dirs.commonDir, 'config.worktree'), join(dirs.gitDir, 'config.worktree')]
   for (let dir = cwd; ; dir = dirname(dir)) {
-    files.push(join(dir, '.git'), join(dir, 'HEAD'))
+    // A folder with no `.git` is a bare repository to git when it holds HEAD, objects and refs, or a commondir: each of
+    // those is guarded at every level, so a folder on the way up that turns into one is seen (SECURITY #468 M).
+    files.push(join(dir, '.git'), join(dir, 'HEAD'), join(dir, 'objects'), join(dir, 'refs'), join(dir, 'commondir'))
     if (fold(dir) === stop) return [...new Set(files)]
     if (dirname(dir) === dir) return null
   }
