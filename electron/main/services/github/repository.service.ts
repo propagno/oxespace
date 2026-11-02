@@ -35,7 +35,7 @@ import { createSharedLinks } from '../repo-config/shared-dirs'
 import { copyIncludedFiles } from '../repo-config/worktree-include'
 import { englishText } from '../../agent-text'
 import type { RepoHookTrust } from '../repo-config/trust'
-import { removeWorktreeSafely } from './worktree-removal'
+import { longPath, removeWorktreeSafely } from './worktree-removal'
 
 export interface WorktreeLifecycleDeps {
   trust: RepoHookTrust
@@ -327,9 +327,12 @@ export class GitHubRepositoryService {
     }
     await this.network(args, input.rootPath, person)
 
+    // The folder by its long name: on Windows a temp path can come in 8.3 form (RUNNER~1), which git never reports, so
+    // a removal by the path shown here would not find it (HML on #477).
+    const shownPath = longPath(absolutePath)
     const created = baseRef
-      ? mainMessage('worktree.createdFrom', { path: absolutePath, branch: input.branch, base: baseRef })
-      : mainMessage('worktree.created', { path: absolutePath, branch: input.branch })
+      ? mainMessage('worktree.createdFrom', { path: shownPath, branch: input.branch, base: baseRef })
+      : mainMessage('worktree.created', { path: shownPath, branch: input.branch })
     const notices = [created, ...earlier, ...(await this.prepareNewWorktree(input.rootPath, absolutePath))]
     // C3 (FINDING L): the window words `notices` in the person's language; `message` is the English text, for agents
     // (the MCP tool) and logs.
