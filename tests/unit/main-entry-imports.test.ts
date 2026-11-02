@@ -32,6 +32,7 @@ const ON_DEMAND: Array<{ module: string; loadedBy: string }> = [
   { module: 'shared/activity.ts', loadedBy: 'services/activity-store.ts, first activity request' },
   { module: 'electron/main/services/conversation/thread-sections.ts', loadedBy: 'ipc/thread-sections.ipc.ts, first sections request' },
   { module: 'electron/main/e2e/mock-ipc.ts', loadedBy: 'index.ts, E2E mock launches only' },
+  { module: 'electron/main/services/copilotCredits.service.ts', loadedBy: 'ipc/copilot.ipc.ts, first credits request' },
   { module: 'electron/main/updater.ts', loadedBy: 'ipc/app-update.ipc.ts, first update request or after the first window' },
   { module: 'electron/main/services/automations/service.ts', loadedBy: 'services/automations/startup.ts, after the first window' },
   { module: 'electron/main/services/automations/store.ts', loadedBy: 'services/automations/startup.ts, after the first window' },

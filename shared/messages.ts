@@ -146,8 +146,6 @@ export interface MessageParams {
   'worktree.created': { path: string; branch: string }
   /** The same, for a new branch started at `base`. */
   'worktree.createdFrom': { path: string; branch: string; base: string }
-  /** Fetching the base's remote failed before creating the worktree; the base may be out of date. */
-  'worktree.fetchFailed': { remote: string }
   /** The oxe.yaml setup hook was not approved, so it did not run in the new worktree. */
   'worktree.setup.notApproved': Record<string, never>
   /** The oxe.yaml setup hook ran and passed. */
@@ -187,6 +185,10 @@ export interface MessageParams {
   'project.file.changedMeanwhile': { file: string }
   'github.cli.missing': Record<string, never>
   'git.base.unresolved': { base: string }
+  'git.base.maybeStale': { branch: string }
+  'git.fetch.needsPerson': Record<string, never>
+  'git.person.refused': { keys: string[] }
+  'git.hooks.skipped': Record<string, never>
   'oxe.status.unreadable': Record<string, never>
   'oxe.dashboard.timeout': Record<string, never>
   'memory.disabled': Record<string, never>
@@ -482,7 +484,6 @@ export const MESSAGE_CODES = [
   'worktree.cleanup.needsConfirmation',
   'worktree.created',
   'worktree.createdFrom',
-  'worktree.fetchFailed',
   'worktree.setup.notApproved',
   'worktree.setup.complete',
   'worktree.setup.failed',
@@ -505,6 +506,10 @@ export const MESSAGE_CODES = [
   'project.file.changedMeanwhile',
   'github.cli.missing',
   'git.base.unresolved',
+  'git.base.maybeStale',
+  'git.fetch.needsPerson',
+  'git.person.refused',
+  'git.hooks.skipped',
   'oxe.status.unreadable',
   'oxe.dashboard.timeout',
   'memory.disabled',

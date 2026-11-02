@@ -11,6 +11,7 @@
  * collaborators. github.service.test.ts covers behavior; this covers the seam.
  */
 import { describe, expect, test, vi } from 'vitest'
+import { plainGitArgs } from '../helpers/plain-git-args'
 import { openInMemoryDatabase } from '../../electron/main/db/index'
 import { GitHubService } from '../../electron/main/services/github.service'
 
@@ -32,7 +33,7 @@ describe('GitHubService composition', () => {
   test('the CLI probe is paid once across collaborators, not once per collaborator', async () => {
     const db = openInMemoryDatabase()
     const spawn = makeSpawn()
-    const service = new GitHubService(db, { spawnCommand: spawn, now: () => 1_700_000_000_000 })
+    const service = new GitHubService(db, { spawnCommand: plainGitArgs(spawn), now: () => 1_700_000_000_000 })
     const input = { workspaceId: 'ws-1', rootPath: 'C:/repo' }
 
     // One call into each of the three gh-backed collaborators.
@@ -50,7 +51,7 @@ describe('GitHubService composition', () => {
   test('concurrent callers in different collaborators share one in-flight probe', async () => {
     const db = openInMemoryDatabase()
     const spawn = makeSpawn()
-    const service = new GitHubService(db, { spawnCommand: spawn, now: () => 1_700_000_000_000 })
+    const service = new GitHubService(db, { spawnCommand: plainGitArgs(spawn), now: () => 1_700_000_000_000 })
     const input = { workspaceId: 'ws-1', rootPath: 'C:/repo' }
 
     // The GitHub panel opens several tabs at once; without in-flight dedupe
@@ -71,7 +72,7 @@ describe('GitHubService composition', () => {
     const db = openInMemoryDatabase()
     const spawn = makeSpawn()
     let clock = 1_700_000_000_000
-    const service = new GitHubService(db, { spawnCommand: spawn, now: () => clock })
+    const service = new GitHubService(db, { spawnCommand: plainGitArgs(spawn), now: () => clock })
 
     await service.listCommits({ workspaceId: 'ws-1', rootPath: 'C:/repo' })
     const before = spawn.mock.calls.filter(([, args]) => (args as string[])[0] === 'remote').length
