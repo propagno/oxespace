@@ -576,6 +576,26 @@
     "resetAll": "Restaurar todos os atalhos",
     "fixed": "Sempre ativo"
   },
+  "agentConfig": {
+    "promptRequired": "O prompt da skill é obrigatório",
+    "saveFailed": "Falha ao salvar o perfil do agente",
+    "commandRequired": "O comando é obrigatório",
+    "deleteFailed": "Falha ao excluir o perfil do agente",
+    "deleteTitle": "Excluir este perfil de agente?",
+    "deleteDescription": "“{{name}}” será removido do OXESpace. Terminais que já o executam continuam em execução.",
+    "delete": "Excluir perfil",
+    "configure": "Configurar agente",
+    "customDescription": "Um prompt de skill executado sobre um agente embutido.",
+    "description": "O nome e o comando que o OXESpace usa para iniciar este agente.",
+    "create": "Criar",
+    "save": "Salvar",
+    "name": "Nome",
+    "namePlaceholder": "Meu agente",
+    "parent": "Provedor base",
+    "prompt": "Prompt da skill",
+    "promptPlaceholder": "Você é especialista em Java 8+. Revise este código quanto a boas práticas, desempenho e correção.",
+    "command": "Comando"
+  },
   "devices": {
     "title": "Dispositivos",
     "intro": "Use o OXESpace pelo seu celular Android na mesma rede: acompanhe conversas, responda pedidos e veja terminais. O celular fala só com este computador, pela sua rede local, nunca pela internet.",
@@ -696,6 +716,155 @@
         "threadAccess": "Mudar o que uma conversa pode acessar",
         "hostExec": "Executar comandos neste computador"
       }
+    }
+  },
+  "tools": {
+    "title": "Ferramentas",
+    "intro": "Os grupos de ferramentas MCP do OXESpace oferecidos aos agentes deste projeto, como cada grupo é oferecido e quanto custa. Os agentes que começarem depois de uma mudança já a recebem. Os modos ficam no arquivo do projeto:",
+    "reload": "Recarregar",
+    "loading": "Lendo os grupos de ferramentas…",
+    "loadFailed": "Não foi possível ler os grupos de ferramentas",
+    "unavailable": "Esta versão do OXESpace ainda não mostra isto.",
+    "providers": {
+      "title": "Como cada provedor recebe as ferramentas",
+      "claude": "Grupos sempre ligados enviam as definições em toda requisição. Grupos sob demanda enviam só os nomes das ferramentas, e o Claude carrega uma definição quando a procura.",
+      "codex": "Todo grupo que não está desligado fica disponível desde o início; não há como ligar um grupo durante a sessão. O Codex não envia definições de antemão e as carrega quando precisa."
+    },
+    "totals": {
+      "title": "O que uma conversa do Claude envia em toda requisição",
+      "plain": "Uma conversa que não pede nada a mais",
+      "everything": "Com todos os grupos sob demanda",
+      "estimate": "Os tokens são estimados a partir dos caracteres."
+    },
+    "cost": {
+      "label": "Quanto custa {{group}}",
+      "value": "≈ {{tokens}} tokens · {{chars}} caracteres",
+      "claudeFixed": "Claude, em toda requisição",
+      "claudeLoaded": "Claude, depois de carregado",
+      "codex": "Codex",
+      "codexValue": "Desde o início; {{cost}} quando usado",
+      "notOffered": "Não oferecido"
+    },
+    "sections": {
+      "project": "Grupos que este projeto escolhe",
+      "role": "Grupos que seguem o papel",
+      "roleIntro": "Estes vêm com o que a conversa ou o terminal é: membro da Equipe do projeto, uma tarefa delegada ou um agente num terminal OxeCode. Não podem ser mudados aqui."
+    },
+    "groups": {
+      "core": {
+        "name": "Essenciais",
+        "description": "Consultas de código, busca e memória, em toda conversa."
+      },
+      "orchestration": {
+        "name": "Orquestração",
+        "description": "Iniciar outros agentes e conversas, delegar tarefas e acompanhar o Trabalho dos agentes."
+      },
+      "data": {
+        "name": "Dados",
+        "description": "Bancos de dados e contêineres; toda leitura e mudança de dados é aprovada por você no OxeQuery."
+      },
+      "docs": {
+        "name": "Documentação",
+        "description": "Prévias web e capturas de documentação."
+      },
+      "app": {
+        "name": "App",
+        "description": "Git, GitHub, conversas, skills, automações, Linear, servidores MCP, busca e uso. Pushes, pull requests e releases são aprovados por você."
+      },
+      "team": {
+        "name": "Equipe",
+        "description": "Mensagens e status entre os membros da Equipe do projeto."
+      },
+      "worker": {
+        "name": "Tarefa delegada",
+        "description": "Uma conversa que executa uma tarefa delegada ou do Trabalho dos agentes: contexto, atualizações, checkpoints e o resultado."
+      },
+      "code": {
+        "name": "Terminal OxeCode",
+        "description": "Agentes em terminais OxeCode: painéis, terminais, scripts, jobs em segundo plano, worktrees, tarefas e agentes. Sempre ligado lá, nunca oferecido a uma conversa do OxeChat."
+      }
+    },
+    "toolCount_one": "{{count}} ferramenta.",
+    "toolCount_other": "{{count}} ferramentas.",
+    "toolCount_many": "{{count}} ferramentas.",
+    "modes": {
+      "always": "Sempre ligado",
+      "on-demand": "Sob demanda",
+      "off": "Desligado"
+    },
+    "modeHints": {
+      "always": "Todas as definições vão em cada requisição.",
+      "on-demand": "Só os nomes das ferramentas vão em cada requisição; o agente carrega uma ferramenta quando precisa dela.",
+      "off": "Não é oferecido neste projeto, e uma sessão não pode ligá-lo."
+    },
+    "modeLabel": "Como {{group}} é oferecido neste projeto",
+    "modeSaved": "Modo de {{group}} neste projeto: {{mode}}.",
+    "modeFailed": "Não foi possível mudar o grupo",
+    "source": {
+      "default": "Padrão do app",
+      "project": "oxe.yaml",
+      "role": "Pelo papel"
+    },
+    "sourceHint": {
+      "default": "O oxe.yaml do projeto não define este grupo.",
+      "project": "Definido no oxe.yaml do projeto (thread.tools).",
+      "role": "Segue o que a conversa ou o terminal é."
+    },
+    "rules": {
+      "intro": "Cada grupo também lista as suas ferramentas: executar sem perguntar, perguntar a você (o padrão) ou bloquear. O bloqueio vale em todo lugar; executar sem perguntar vale nas conversas do OxeChat.",
+      "summary_one": "Regras por ferramenta · {{count}} definida",
+      "summary_other": "Regras por ferramenta · {{count}} definidas",
+      "summary_many": "Regras por ferramenta · {{count}} definidas",
+      "listLabel": "Regras das ferramentas de {{group}}",
+      "label": "Regra de {{tool}}",
+      "decisions": {
+        "allow": "Executar sem perguntar",
+        "ask": "Perguntar",
+        "deny": "Bloquear"
+      },
+      "scope": {
+        "everywhere": "Bloqueada em todo lugar: conversas do OxeChat, terminais OxeCode e MCP.",
+        "oxechat": "Executa sem perguntar nas conversas do OxeChat; agentes em terminais OxeCode seguem as permissões da própria CLI."
+      },
+      "source": {
+        "user": "Definida na sua política de usuário; mude por lá.",
+        "managed": "Definida pela sua organização; não pode ser mudada aqui."
+      },
+      "confirmLevel": "Sempre pergunta: esta ferramenta faz coisas que você confirma a cada vez.",
+      "saved": "{{tool}}: {{decision}}.",
+      "failed": "Não foi possível mudar a regra",
+      "loadFailed": "Não foi possível ler as regras das ferramentas",
+      "otherTitle": "Outros servidores MCP",
+      "otherEmpty": "Nenhuma regra para ferramentas de outros servidores MCP neste projeto.",
+      "confirmAllow": {
+        "title": "Executar {{tool}} sem perguntar?",
+        "description": "Nas conversas do OxeChat deste projeto, {{tool}} vai executar sem perguntar antes. Agentes em terminais OxeCode continuam seguindo as permissões da própria CLI. Você pode desfazer isso aqui a qualquer momento.",
+        "confirm": "Executar sem perguntar"
+      }
+    },
+    "policy": {
+      "title": "Política de usuário e da organização",
+      "intro": "Regras sobre ferramentas e servidores MCP dos seus arquivos de política de usuário e gerenciada. Somente leitura: são mudadas nos arquivos (Aplicativo › Política mostra onde).",
+      "empty": "Nenhuma regra de usuário ou da organização sobre ferramentas ou servidores MCP.",
+      "loadFailed": "Não foi possível ler a política",
+      "effect": {
+        "allow": "Permite",
+        "deny": "Bloqueia"
+      },
+      "layer": {
+        "project": "Projeto",
+        "user": "Sua política de usuário",
+        "managed": "Gerenciada pela sua organização"
+      }
+    },
+    "invalidYaml": {
+      "title": "Não foi possível ler {{file}}",
+      "body": "O arquivo tem um erro, então os modos abaixo não podem ser mudados aqui. Os agentes continuam com as ferramentas que tinham antes do erro. Corrija o arquivo à mão e escolha Recarregar.",
+      "modeUnread": "Não lido",
+      "modeLocked": "Corrija o {{file}} para mudar este modo.",
+      "bodyLastValid": "O arquivo tem um erro. Os agentes continuam com os últimos modos que puderam ser lidos, mostrados abaixo. Para mudá-los, corrija o arquivo à mão e escolha Recarregar.",
+      "bodyDefaults": "O arquivo tem um erro e nunca foi lido, então os agentes usam os padrões do app, mostrados abaixo. Para mudá-los, corrija o arquivo à mão e escolha Recarregar.",
+      "readAgain": "Modos lidos de novo"
     }
   }
 }

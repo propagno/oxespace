@@ -18,6 +18,12 @@ export interface MessageParams {
   'mcp.quarantine.removed': { tools: string[] }
   /** MCP quarantine: the server's command, arguments, environment or URL no longer match what was trusted. */
   'mcp.quarantine.configChanged': Record<string, never>
+  /** B7.3: an OXESpace tool of the confirm level asks the person every time; it cannot be set to run without asking. */
+  'mcp.toolRule.confirmLevel': { tool: string }
+  /** B7.3: the tool's rule comes from the user's or the organization's policy, which a project cannot change. */
+  'mcp.toolRule.locked': { tool: string }
+  /** B7.3: the project's `.oxespace/policy.json` is not a valid policy; it is left as it is until fixed by hand. */
+  'mcp.toolRule.invalidPolicy': Record<string, never>
   /** A pending request was answered, cancelled or expired before this answer arrived. */
   'thread.request.notPending': Record<string, never>
   /** The conversation restarted since the request was listed; the answer belongs to an older generation. */
@@ -32,15 +38,32 @@ export interface MessageParams {
   'thread.protectedConfig.instructions': { path: string }
   'thread.protectedConfig.mcp': { path: string }
   'thread.protectedConfig.hooks': { path: string }
+  'thread.protectedConfig.git': { path: string }
+  /** B7.3: the project's `.oxespace/policy.json` (the MCP tools the person blocked) or `oxe.yaml` (the tool groups offered). */
+  'thread.protectedConfig.policy': { path: string }
   'thread.protectedConfig.warning': Record<string, never>
   /** B16: `command` rewrites tracked files without naming them (git checkout, tar x…), so it needs the person each time. */
   'thread.protectedConfig.rewritesTracked': { command: string }
   /** The system reports no network interface with a route. */
   'app.connectivity.offline': Record<string, never>
+  /** B12: the IPC sender guard refused a call from a sender other than the app window's main frame. */
+  'ipc.sender.refused': Record<string, never>
   /** The provider cannot fork its session into a side chat (B1.2). */
   'thread.side.unavailable': Record<string, never>
   /** The conversation has no native session to copy yet: send a message first. */
   'thread.side.noSession': Record<string, never>
+  /** The side chat was closed (by the person, or with its window) before this message. */
+  'thread.side.closed': Record<string, never>
+  /** A side chat call carried an id or a message that is not one. */
+  'thread.side.invalidInput': Record<string, never>
+  /** A conversation call carried an id or input that is not one. */
+  'thread.invalidInput': Record<string, never>
+  /** No conversation has this id (deleted, or never existed). */
+  'thread.notFound': Record<string, never>
+  /** B13: OxeChat starts agents only from a native executable; any other .cmd/.ps1/.bat is refused. */
+  'thread.agent.scriptUnsupported': Record<string, never>
+  /** B13: a `codex.cmd` npm install whose native `codex.exe` is missing (it is never run through the app as Node). */
+  'thread.agent.nativeMissing': Record<string, never>
   /** F30 · Refusals of the activity center's calls (ACTIVITY_REFUSALS); a refused call stores nothing. */
   'activity.invalid': Record<string, never>
   'activity.tooMany': { max: number }
@@ -60,13 +83,27 @@ export interface MessageParams {
   /** `name` is the second section's name, trimmed, as the person typed it. */
   'thread.sections.nameDuplicate': { name: string }
   'thread.sections.unknownWorkspace': Record<string, never>
+  /** B17 · Why a pane's recorded agent session was not resumed on its first start (PaneAgentResume `notResumed`). */
+  'agents.resume.sessionMissing': Record<string, never>
+  'agents.resume.otherAgent': Record<string, never>
+  'agents.resume.launchOverride': Record<string, never>
+  'agents.resume.blocked': Record<string, never>
+  'agents.resume.disabled': Record<string, never>
+  /** The person restarted the pane without its session (terminal.restart with `resume: false`). */
+  'agents.resume.startedFresh': Record<string, never>
+  /** The resumed agent exited at once: its session would not load, so the pane started fresh and forgot it. */
+  'agents.resume.failedToLoad': Record<string, never>
+  /** B17 · Terminal details: the pane runs Claude Code or Codex, but no session was reported yet. */
+  'agents.session.notFound': Record<string, never>
   /** Diagnostics journal (B8.3): one kind of incident. */
   'incident.window.crashed': Record<string, never>
   'incident.window.rendererGone': Record<string, never>
   'incident.ipc.handlerFailed': Record<string, never>
   'incident.ipc.validationRejected': Record<string, never>
+  'incident.ipc.senderRefused': Record<string, never>
   'incident.agent.startFailed': Record<string, never>
   'incident.mcp.quarantined': Record<string, never>
+  'incident.mcp.toolGroupOff': Record<string, never>
   'incident.database.busy': Record<string, never>
   'incident.oxequery.timeout': Record<string, never>
   /** The OxeQuery worker stopped answering, and its restart was put off because a person session has a transaction open or a command running (B14). */
@@ -196,6 +233,24 @@ export interface MessageParams {
   'remote.network.noPrivateInterface': Record<string, never>
   /** The gateway's certificate could not be made or read back from secure storage. */
   'remote.certificate.failed': Record<string, never>
+  /** A phone's pairing attempt failed. Never carries the phone's key, address, name or any identifier. */
+  'remote.pairing.failed': { reason: 'invalid' | 'expired' | 'refused' | 'limit' | 'peer-closed' | 'reserved-name' }
+  /** A pairing code was asked for while the gateway is off. */
+  'remote.gateway.offline': Record<string, never>
+  /** Pairing another phone would pass the device limit. */
+  'remote.pairing.limit': { max: number }
+  /** No paired device has this id (revoked, or never paired). */
+  'remote.device.notFound': Record<string, never>
+  /** A device name that is empty, longer than `max` or has control characters. */
+  'remote.device.invalidName': { max: number }
+  /** A device name only the app may speak as ("OXESpace", "System"; `reservedNameIn` in shared/approval-rules.ts). */
+  'remote.device.reservedName': Record<string, never>
+  /** A desktop name that is empty, longer than `max` or has control characters. */
+  'remote.desktop.invalidName': { max: number }
+  /** The name phones see for this computer passes for the app or the system ("Windows Security"). */
+  'remote.desktop.reservedName': Record<string, never>
+  /** A pane id that cannot be a pane. */
+  'remote.pane.invalid': Record<string, never>
   /** A workspace root that is not an absolute path (a relative one would depend on where the app started). */
   /** No folder was given: the text was empty, or only spaces or quotes. */
   'workspace.root.empty': Record<string, never>
@@ -316,6 +371,9 @@ export const MESSAGE_CODES = [
   'mcp.quarantine.added',
   'mcp.quarantine.removed',
   'mcp.quarantine.configChanged',
+  'mcp.toolRule.confirmLevel',
+  'mcp.toolRule.locked',
+  'mcp.toolRule.invalidPolicy',
   'thread.request.notPending',
   'thread.request.staleGeneration',
   'thread.request.alreadyResponding',
@@ -324,11 +382,20 @@ export const MESSAGE_CODES = [
   'thread.protectedConfig.instructions',
   'thread.protectedConfig.mcp',
   'thread.protectedConfig.hooks',
+  'thread.protectedConfig.git',
+  'thread.protectedConfig.policy',
   'thread.protectedConfig.warning',
   'thread.protectedConfig.rewritesTracked',
   'app.connectivity.offline',
+  'ipc.sender.refused',
   'thread.side.unavailable',
   'thread.side.noSession',
+  'thread.side.closed',
+  'thread.side.invalidInput',
+  'thread.invalidInput',
+  'thread.notFound',
+  'thread.agent.scriptUnsupported',
+  'thread.agent.nativeMissing',
   'activity.invalid',
   'activity.tooMany',
   'activity.titleTooLong',
@@ -343,12 +410,22 @@ export const MESSAGE_CODES = [
   'thread.sections.nameHidden',
   'thread.sections.nameDuplicate',
   'thread.sections.unknownWorkspace',
+  'agents.resume.sessionMissing',
+  'agents.resume.otherAgent',
+  'agents.resume.launchOverride',
+  'agents.resume.blocked',
+  'agents.resume.disabled',
+  'agents.resume.startedFresh',
+  'agents.resume.failedToLoad',
+  'agents.session.notFound',
   'incident.window.crashed',
   'incident.window.rendererGone',
   'incident.ipc.handlerFailed',
   'incident.ipc.validationRejected',
+  'incident.ipc.senderRefused',
   'incident.agent.startFailed',
   'incident.mcp.quarantined',
+  'incident.mcp.toolGroupOff',
   'incident.database.busy',
   'incident.oxequery.timeout',
   'incident.oxequery.restartDeferred',
@@ -441,6 +518,15 @@ export const MESSAGE_CODES = [
   'remote.port.inUse',
   'remote.network.noPrivateInterface',
   'remote.certificate.failed',
+  'remote.pairing.failed',
+  'remote.gateway.offline',
+  'remote.pairing.limit',
+  'remote.device.notFound',
+  'remote.device.invalidName',
+  'remote.device.reservedName',
+  'remote.desktop.invalidName',
+  'remote.desktop.reservedName',
+  'remote.pane.invalid',
   'workspace.root.empty',
   'workspace.root.notAbsolute',
   'workspace.root.notFound',
@@ -543,6 +629,38 @@ export function isMainMessage(value: unknown): value is MainMessage {
 
 export function mainMessage<Code extends MessageCode>(code: Code, params: MessageParams[Code]): { code: Code; params: MessageParams[Code] } {
   return { code, params }
+}
+
+/**
+ * C3 in a rejection. Electron passes only an error's text across `invoke`, so a handler that rejects with something
+ * the person should read throws `MainMessageError` (`electron/main/ipc/main-message-error.ts`, the one serializer):
+ * its text is the English sentence, readable on its own in logs and crash reports, then this fixed marker, then the
+ * message as JSON with its parameters redacted and capped. The window reads it back with `messageFromError` (the one
+ * reader) and words it with `formatMainMessage`; without the marker it shows its generic text. Malformed input (wrong
+ * types, unknown fields) stays a plain `Error`.
+ */
+export const MAIN_MESSAGE_ERROR_TAG = ' #c3 '
+
+/** Caps on what a rejection's parameters may carry: characters per text value, and values per list. */
+export const MAIN_MESSAGE_PARAM_LIMITS = { textLength: 200, listLength: 20 } as const
+
+/**
+ * The C3 message a rejection carries, in this process or after crossing IPC; `null` for any other error. The marker
+ * is looked for from the end: the message is the tail after the last occurrence that parses as one, so the English
+ * sentence, and a parameter inside the JSON, may themselves contain "#c3" or the marker without misleading the read.
+ */
+export function messageFromError(cause: unknown): MainMessage | null {
+  const text = cause instanceof Error ? cause.message
+    : typeof cause === 'string' ? cause
+      : cause && typeof cause === 'object' && typeof (cause as { message?: unknown }).message === 'string' ? (cause as { message: string }).message : ''
+  for (let at = text.lastIndexOf(MAIN_MESSAGE_ERROR_TAG); at >= 0; at = text.lastIndexOf(MAIN_MESSAGE_ERROR_TAG, at - 1)) {
+    try {
+      const value: unknown = JSON.parse(text.slice(at + MAIN_MESSAGE_ERROR_TAG.length))
+      if (isMainMessage(value)) return value
+    } catch { /* not this occurrence: an earlier one may be the marker */ }
+    if (at === 0) break
+  }
+  return null
 }
 
 /** The catalog key of a code in the `main` namespace. */

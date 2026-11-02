@@ -1,10 +1,12 @@
 import { FolderGit2, PanelsTopLeft, Radio, Moon, WifiOff } from 'lucide-react'
-import { Suspense, lazy, useMemo, type ReactElement } from 'react'
+import { Suspense, useMemo, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useAgentStore } from '../../store/agent.store'
-// Usage reads the provider's quota after first paint.
-const UsageStatus = lazy(() => import('./UsageStatus').then(module => ({ default: module.UsageStatus })))
+import { lazyFrom } from '../../lib/chunk'
+import { USAGE_CHUNK } from './usageChunk'
+// Usage reads the provider's quota after first paint; OxeChat's view chunk loads it too (usageChunk.ts).
+const UsageStatus = lazyFrom(USAGE_CHUNK, module => module.UsageStatus)
 import { useConnectivity } from '../../hooks/useConnectivity'
 import { cx } from '../../ui'
 import styles from './AppStatusBar.module.css'
