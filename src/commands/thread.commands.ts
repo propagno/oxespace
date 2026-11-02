@@ -6,6 +6,7 @@ import { toast } from '../ui'
 import type { ContributedCommand } from '../utils/commandRegistry'
 import { humanizeError } from '../utils/humanizeError'
 import { navigableThreads } from '../utils/threadNavigation'
+import { tCommand } from './commandText'
 import { useCommandSource } from './useCommandSource'
 
 /** Agent accounts are checked inside a project; without one there is nothing to show yet. */
@@ -69,20 +70,20 @@ export function buildThreadCommands(ctx: ThreadCommandContext): ContributedComma
     run: inThread(() => requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(THREAD_RUN_COMMAND_EVENT, { detail: { text } }))))
   })
   return [
-    { id: 'thread.new', label: 'New conversation', icon: MessageSquarePlus, category: CATEGORY, keywords: ['thread', 'chat', 'oxechat', 'start'], shortcut: 'thread.new', run: inThread(ctx.newThread) },
-    { id: 'thread.add-project', label: 'Add OxeChat project…', icon: FolderPlus, category: CATEGORY, keywords: ['folder', 'repository'], run: inThread(ctx.addProject) },
+    { id: 'thread.new', label: i18n.t('keys.bindings.thread.new'), icon: MessageSquarePlus, category: CATEGORY, keywords: ['thread', 'chat', 'oxechat', 'start'], shortcut: 'thread.new', run: inThread(ctx.newThread) },
+    { id: 'thread.add-project', label: tCommand('thread.addProject'), icon: FolderPlus, category: CATEGORY, keywords: ['folder', 'repository'], run: inThread(ctx.addProject) },
     ...ctx.projects.filter(project => !project.hidden).map(project => ({
-      id: `thread.project.${project.projectId}`, label: `Switch to project ${project.displayName}`, detail: project.identityLabel, icon: FolderInput,
+      id: `thread.project.${project.projectId}`, label: tCommand('thread.switchProject', { project: project.displayName }), detail: project.identityLabel, icon: FolderInput,
       category: CATEGORY, keywords: ['project', 'change', project.displayName], run: inThread(() => switchProject(ctx, project.projectId))
     })),
-    slash('resume', 'Resume a session', '/resume', History, ['sessions', 'continue', 'history']),
-    slash('rename', 'Rename conversation', '/rename', PencilLine, ['title', 'name']),
-    slash('spending', 'Conversation spending', '/spending', CircleDollarSign, ['cost', 'usage', 'tokens', 'money']),
-    slash('events', 'Conversation events', '/events', ScrollText, ['log', 'debug']),
-    slash('rules', 'Approval rules', '/rules', ListChecks, ['permissions', 'allow', 'deny']),
-    { id: 'thread.undo-last-turn', label: 'Undo the last turn’s file changes', icon: Undo2, category: CATEGORY, keywords: ['revert', 'restore', 'checkpoint', 'rewind'],
+    slash('resume', tCommand('thread.resume'), '/resume', History, ['sessions', 'continue', 'history']),
+    slash('rename', tCommand('thread.rename'), '/rename', PencilLine, ['title', 'name']),
+    slash('spending', tCommand('thread.spending'), '/spending', CircleDollarSign, ['cost', 'usage', 'tokens', 'money']),
+    slash('events', tCommand('thread.events'), '/events', ScrollText, ['log', 'debug']),
+    slash('rules', tCommand('thread.rules'), '/rules', ListChecks, ['permissions', 'allow', 'deny']),
+    { id: 'thread.undo-last-turn', label: tCommand('thread.undo'), icon: Undo2, category: CATEGORY, keywords: ['revert', 'restore', 'checkpoint', 'rewind'],
       disabled: !snapshot || running || !finished, run: inThread(() => { if (snapshot) void undoLastTurn(snapshot) }) },
-    { id: 'thread.accounts', label: 'Provider accounts', icon: UserRound, category: CATEGORY, keywords: ['login', 'logout', 'claude', 'codex', 'account'],
+    { id: 'thread.accounts', label: tCommand('thread.accounts'), icon: UserRound, category: CATEGORY, keywords: ['login', 'logout', 'claude', 'codex', 'account'],
       // Accounts are checked inside a project.
       disabled: ctx.projects.length === 0, run: inThread(ctx.openAccounts) }
   ]

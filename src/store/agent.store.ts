@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { i18n } from '../i18n'
 import type { AgentProfile, AgentReadiness } from '../../shared/types/agent'
 import type { CreateAgentProfileInput, UpdateAgentProfileInput } from '../../shared/types/agent'
 import { humanizeError } from '../utils/humanizeError'
@@ -116,5 +117,5 @@ export function selectReadinessByProvider(state: AgentState, provider: string): 
 }
 
 function toMessage(error: unknown): string {
-  return humanizeError(error, 'Unexpected agent error')
+  return humanizeError(error, i18n.t('failures.unexpected.agent'))
 }
