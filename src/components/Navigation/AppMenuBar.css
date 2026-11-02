@@ -7,6 +7,10 @@
 .app-menu-item { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px 0 4px; border-radius: var(--radius-sm); font-size: var(--fs-xs); cursor: default; outline: none; user-select: none; }
 .app-menu-item[data-highlighted] { background: var(--nav-hover); }
 .app-menu-item[data-disabled] { color: var(--tx-muted); pointer-events: none; }
+/* Can't run here but says why: muted, still focusable, the reason on a second line. */
+.app-menu-item-unavailable { height: auto; min-height: 28px; padding-block: 4px; color: var(--tx-muted); }
+.app-menu-item-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.app-menu-item-text small { font-size: var(--fs-2xs); color: var(--tx-muted); white-space: normal; max-width: 260px; }
 .app-menu-item kbd { margin-left: auto; padding-left: 24px; color: var(--tx-muted); font: inherit; font-size: var(--fs-2xs); }
 .app-menu-indicator { display: inline-grid; place-items: center; width: 16px; flex-shrink: 0; }
 .app-menu-chevron { margin-left: auto; color: var(--tx-muted); }

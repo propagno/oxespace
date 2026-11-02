@@ -203,7 +203,9 @@ export class LinearService {
       fetchBase: base?.isRemote === true
     }, person)
 
-    return { ok: result.ok, message: result.message, branch, worktreePath: directoryName }
+    // C3 (FINDING L): the creation's own code, and every notice createWorktree had, reach the window.
+    const created = result.notices?.[0]
+    return { ok: result.ok, message: result.message, branch, worktreePath: directoryName, ...(created ? { messageCode: created } : {}), ...(result.notices ? { notices: result.notices } : {}) }
   }
 
   private buildFilter(input: LinearListIssuesInput): Record<string, unknown> {

@@ -39,25 +39,32 @@ export function Splitter({ orientation, label, value, min, max, defaultValue, on
   const axis = (event: { clientX: number; clientY: number }): number => orientation === 'vertical' ? event.clientX : event.clientY
   const direction = after ? -1 : 1
   const smaller = orientation === 'vertical' ? 'ArrowLeft' : 'ArrowUp', larger = orientation === 'vertical' ? 'ArrowRight' : 'ArrowDown'
+  // FL-09: keys, menu items and drags start from the last size REQUESTED, not the rendered `value`: two keys that
+  // arrive before the new size renders would otherwise both start from the old one and count as one step. A new
+  // `value` from the parent (its own change, or the request applied) becomes the starting point again.
+  const requested = useRef(value)
+  const seen = useRef(value)
+  if (seen.current !== value) { seen.current = value; requested.current = value }
+  const request = (size: number): void => { requested.current = clamp(size); onChange(requested.current) }
   // The panel's own size, whichever side of the splitter it is on.
-  const resize = (change: number): void => onChange(clamp(value + change))
+  const resize = (change: number): void => request(requested.current + change)
   return <div ref={separator} role="separator" tabIndex={0} aria-label={label} aria-orientation={orientation} aria-valuemin={min} aria-valuemax={max} aria-valuenow={clamp(value)}
       aria-keyshortcuts="Enter Shift+F10" className={cx(styles.splitter, edge && styles.edge, className)} data-orientation={orientation}
-      onPointerDown={event => { drag.current = { start: axis(event), size: value, moved: false }; event.currentTarget.setPointerCapture(event.pointerId); event.preventDefault() }}
+      onPointerDown={event => { drag.current = { start: axis(event), size: requested.current, moved: false }; event.currentTarget.setPointerCapture(event.pointerId); event.preventDefault() }}
       onPointerMove={event => {
         if (!drag.current) return
         const delta = axis(event) - drag.current.start
         if (Math.abs(delta) > CLICK_SLOP) drag.current.moved = true
-        if (drag.current.moved) onChange(clamp(drag.current.size + delta * direction))
+        if (drag.current.moved) request(drag.current.size + delta * direction)
       }}
       onPointerUp={() => { const click = drag.current?.moved === false; drag.current = null; if (click) setMenu(true) }}
       onPointerCancel={() => { drag.current = null }} onLostPointerCapture={() => { drag.current = null }}
-      onDoubleClick={() => { setMenu(false); onChange(clamp(defaultValue)) }}
+      onDoubleClick={() => { setMenu(false); request(defaultValue) }}
       onKeyDown={event => {
         const change = event.key === smaller ? -step : event.key === larger ? step : 0
-        if (change) { event.preventDefault(); onChange(clamp(value + change * direction)) }
-        if (event.key === 'Home') { event.preventDefault(); onChange(min) }
-        if (event.key === 'End') { event.preventDefault(); onChange(max) }
+        if (change) { event.preventDefault(); request(requested.current + change * direction) }
+        if (event.key === 'Home') { event.preventDefault(); request(min) }
+        if (event.key === 'End') { event.preventDefault(); request(max) }
         if (event.key === 'Enter' || event.key === ' ' || event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) { event.preventDefault(); setMenu(true) }
       }}
       // Shift+F10 and the context-menu key often reach the page only as a contextmenu event (Chromium on Linux and
@@ -68,7 +75,7 @@ export function Splitter({ orientation, label, value, min, max, defaultValue, on
         items={[
           { label: i18n.t('ui.splitter.smaller'), onSelect: () => resize(-step), disabled: value <= min, keepOpen: true },
           { label: i18n.t('ui.splitter.larger'), onSelect: () => resize(step), disabled: value >= max, keepOpen: true },
-          { label: i18n.t('ui.splitter.restore'), onSelect: () => onChange(clamp(defaultValue)), disabled: clamp(value) === clamp(defaultValue) }
+          { label: i18n.t('ui.splitter.restore'), onSelect: () => request(defaultValue), disabled: clamp(value) === clamp(defaultValue) }
         ]} />
     </div>
 }
