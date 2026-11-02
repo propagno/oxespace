@@ -59,7 +59,7 @@ function realOf(path: string): string | null {
  * A main checkout made with `--separate-git-dir` (a `.git` file naming `common` itself) looks exactly like a forgery,
  * so it is accepted only as the same folder (see `sameRepository`), never as another checkout.
  */
-function checkoutOf(root: string, common: string): boolean {
+export function checkoutOf(root: string, common: string): boolean {
   try {
     const dotGit = join(root, '.git')
     // A `.git` that is itself a link (a junction needs no privilege on Windows) would borrow the real one's identity:
