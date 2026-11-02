@@ -498,6 +498,20 @@ export interface MessageParams {
   'agents.name.reserved': { name: string }
   /** Another session tried to control a delegation whose requester is still running (B6.2). */
   'delegation.requester.live': Record<string, never>
+  /** B18: the path is outside the open workspace, as written or once its links are followed. */
+  'app.openIn.outsideRoot': Record<string, never>
+  /** B18: the file no longer exists; `path` is relative to the project. */
+  'app.openIn.notFound': { path: string }
+  /** B18: a folder was sent to an editor; folders are only shown in the file manager. */
+  'app.openIn.notAFile': { editor: string }
+  /** B18: the window asked for a target main doesn't know. */
+  'app.openIn.unknownTarget': Record<string, never>
+  /** B18: the editor isn't installed any more (or never was); `editor` is its product name. */
+  'app.openIn.editorMissing': { editor: string }
+  /** B18: the editor was found but didn't start. */
+  'app.openIn.launchFailed': { editor: string }
+  /** B18: the system couldn't show the file in its folder. */
+  'app.openIn.revealFailed': Record<string, never>
 }
 
 export type MessageCode = keyof MessageParams
@@ -814,7 +828,14 @@ export const MESSAGE_CODES = [
   'notify.refused.reservedName',
   'notify.refused.rateLimit',
   'agents.name.reserved',
-  'delegation.requester.live'
+  'delegation.requester.live',
+  'app.openIn.outsideRoot',
+  'app.openIn.notFound',
+  'app.openIn.notAFile',
+  'app.openIn.unknownTarget',
+  'app.openIn.editorMissing',
+  'app.openIn.launchFailed',
+  'app.openIn.revealFailed'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */
