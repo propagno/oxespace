@@ -5,6 +5,8 @@ import type { RepoConfigSnapshot, RepoHookKind } from '../../../shared/types/rep
 import type { WorkspacePane } from '../../../shared/types/workspace'
 import { selectWorktrees, useWorktreeStore } from '../../store/worktree.store'
 import { WorktreeCleanupPanel } from './WorktreeCleanupPanel'
+import { WorktreeCreationNotices } from './WorktreeCreationNotices'
+import type { MainMessage } from '../../../shared/messages'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
@@ -72,6 +74,8 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [busy, setBusy] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
+  /** What the last creation reported (worktree.created, git.hooks.skipped, worktree.copyFiles.*, worktree.setup.*). */
+  const [createdNotices, setCreatedNotices] = useState<MainMessage[]>([])
   const [pendingRemoval, setPendingRemoval] = useState<PendingRemoval | null>(null)
   // Start point for the new branch. `resolvedBase` is what the repo says the
   // default is (origin/main and friends); `baseOverride` is the user typing
@@ -162,12 +166,14 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
     if (!branch || !path) return
     setBusy(true)
     setLocalError(null)
+    setCreatedNotices([])
     try {
-      await createWorktree(workspaceId, workspaceRootPath, branch, path, {
+      const result = await createWorktree(workspaceId, workspaceRootPath, branch, path, {
         createBranch: createNewBranch,
         baseRef: createNewBranch && effectiveBase ? effectiveBase : undefined,
         fetchBase: createNewBranch && baseIsRemote && fetchBase
       })
+      setCreatedNotices(result.notices ?? [])
       setCreating(false)
       resetCreateForm()
     } catch (err) {
@@ -296,6 +302,8 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
       {error || localError ? (
         <ErrorState compact title={localError ?? error} actions={<Button size="sm" variant="ghost" icon={<X size={12} aria-hidden="true" />} onClick={dismissError}>{t('worktree.dismiss')}</Button>} />
       ) : null}
+
+      <WorktreeCreationNotices notices={createdNotices} onDismiss={() => setCreatedNotices([])} />
 
       <RepoHooksNotice rootPath={workspaceRootPath} />
 
