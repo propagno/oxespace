@@ -21,6 +21,29 @@ const TOKEN = process.env.OXESPACE_MCP_TOKEN
 const WSID = process.env.OXESPACE_WORKSPACE_ID || ''
 const MEMORY_RUN = process.env.OXESPACE_MEMORY_RUN_ID || ''
 const OPTIONAL_MEMORY = process.argv.includes('--optional-memory')
+// The workspace's .mcp.json entry, started by the agent OXESpace launched in a Code terminal with its own bridge: list
+// nothing, so the agent pays for the OXESpace tools once (bridge-plan.ts, PROJECT_ENTRY_FLAG and PANE_BRIDGE_ENV).
+// OXESPACE_PANE_BRIDGE is a fresh token per launch. The first project entry started with it claims it for its parent,
+// the launched agent, which starts its servers before it can run anything. A `claude` that agent starts later inherits
+// the token but is another parent, so its entry serves as usual instead of leaving it with no OXESpace tools.
+function stepsAside() {
+  const token = process.env.OXESPACE_PANE_BRIDGE || ''
+  if (!process.argv.includes('--project-entry') || !/^[A-Za-z0-9-]{16,64}$/.test(token)) return false
+  const fs = require('node:fs')
+  const claim = require('node:path').join(require('node:os').tmpdir(), `oxespace-pane-bridge-${token}.json`)
+  const mine = JSON.stringify({ parent: process.ppid })
+  try { fs.writeFileSync(claim, mine, { flag: 'wx' }); return true } catch { /* claimed already */ }
+  try {
+    const parent = JSON.parse(fs.readFileSync(claim, 'utf8')).parent
+    // The same agent restarting its server.
+    if (parent === process.ppid) return true
+    let alive = false
+    try { process.kill(parent, 0); alive = true } catch (error) { alive = error.code === 'EPERM' }
+    if (!alive) { fs.writeFileSync(claim, mine); return true }
+  } catch { /* unreadable claim: serve, never leave the agent without tools */ }
+  return false
+}
+const STEPS_ASIDE = stepsAside()
 const allowIndex = process.argv.indexOf('--allowed-tools')
 const allowedTools = allowIndex < 0 ? null : new Set(JSON.parse(process.argv[allowIndex + 1]))
 // Groups this session may turn on with oxespace_tools_enable: { group: [tool, ...] } (B7.2). Off groups are never here.
@@ -209,6 +232,7 @@ async function dispatch(msg) {
   }
 
   if (msg.method === 'tools/list') {
+    if (STEPS_ASIDE) return ok(msg.id, { tools: [] })
     if (OPTIONAL_MEMORY && (!PORT || !TOKEN || !MEMORY_RUN)) return ok(msg.id, { tools: [] })
     try {
       const result = await rpc('tools/list', undefined, true)
@@ -221,6 +245,7 @@ async function dispatch(msg) {
   }
 
   if (msg.method === 'tools/call') {
+    if (STEPS_ASIDE) return err(msg.id, -32602, 'OXESpace started this agent with its own OXESpace server (oxespace-delegation); use its tools')
     if (allowedTools && !allowedTools.has(msg.params && msg.params.name)) return err(msg.id, -32602, 'This tool is not available in Thread')
     if (OPTIONAL_MEMORY && (!PORT || !TOKEN || !MEMORY_RUN)) return err(msg.id, -32602, 'Memory is not bound to an OXESpace execution')
     if (enableable && msg.params.name === 'oxespace_tools_enable') return ok(msg.id, enableGroup(msg.params.arguments))
