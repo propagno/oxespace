@@ -56,7 +56,9 @@ concurrency:
   # Only a pull request's run gives way to its next push. A run on main (or a tag) that started always finishes:
   # with a long runner queue, cancelling it on every merge meant main went untested for hours. Runs still waiting
   # in the group coalesce, so a burst of merges queues one run, not one per merge.
-  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && format('dispatch-{0}', inputs.branch || github.ref_name) || github.ref }}
+  # A push to a draft runs nothing, so it gets a group of its own: arriving after a "ready for review" (a push
+  # followed at once by marking the PR ready), it must not cancel the run that tests the PR.
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && format('dispatch-{0}', inputs.branch || github.ref_name) || github.ref }}${{ github.event.pull_request.draft && '-draft' || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:

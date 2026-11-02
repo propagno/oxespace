@@ -39,7 +39,8 @@ on:
 
 concurrency:
   # A newer push to the same pull request replaces the scan of the older one.
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # A push to a draft scans nothing, so it gets a group of its own and cannot cancel the ready-for-review scan.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}${{ github.event.pull_request.draft && '-draft' || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
