@@ -57,6 +57,10 @@ test('B20/#442: the archive offer after a PR closes or merges, and only then', a
     await page.waitForTimeout(800)
 
     await setPr(app, 10, 'OPEN'); await read(page)
+    log.openBar = await page.locator('.pr-status-bar').count()
+    log.direct = await page.evaluate('window.oxe.github.getPullRequestStatus({ workspaceId: "x", rootPath: "y" }).then(r => r && r.state, e => "error: " + e.message)')
+    log.readsAfterOpen = await app.evaluate(() => (globalThis as Record<string, unknown>).reads ?? 0)
+    log.visibility = await page.evaluate(() => document.visibilityState)
     expect.soft(await toast(page).count(), 'an open PR offers nothing').toBe(0)
     await setPr(app, 10, 'MERGED', 'someone-else'); await read(page)
     expect.soft(await toast(page).count(), 'a PR on another branch offers nothing').toBe(0)
