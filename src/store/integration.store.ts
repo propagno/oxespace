@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { i18n } from '../i18n'
 import { humanizeError } from '../utils/humanizeError'
 import type {
   AddIntegrationMemberInput,
@@ -183,7 +184,7 @@ function resolveMemberSelection(groups: IntegrationGroup[], activeGroupId: strin
 }
 
 function toMessage(error: unknown): string {
-  return humanizeError(error, 'Unexpected integration error')
+  return humanizeError(error, i18n.t('failures.unexpected.integration'))
 }
 
 /**

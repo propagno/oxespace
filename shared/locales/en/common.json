@@ -232,11 +232,26 @@
     }
   },
   "postCommands": {
-    "open": { "label": "Open OxePost", "detail": "API requests, environments and cURL" },
-    "newRequest": { "label": "New API request", "detail": "Saved in .oxespace/requests" },
-    "filter": { "label": "Find an API request" },
-    "import": { "label": "Import cURL or OpenAPI", "detail": "Becomes request files" },
-    "environments": { "label": "API environments", "detail": "Variables and secrets" }
+    "open": {
+      "label": "Open OxePost",
+      "detail": "API requests, environments and cURL"
+    },
+    "newRequest": {
+      "label": "New API request",
+      "detail": "Saved in .oxespace/requests"
+    },
+    "filter": {
+      "label": "Find an API request"
+    },
+    "import": {
+      "label": "Import cURL or OpenAPI",
+      "detail": "Becomes request files"
+    },
+    "environments": {
+      "label": "API environments",
+      "detail": "Variables and secrets"
+    },
+    "defaultName": "New request"
   },
   "podsCommands": {
     "open": {
@@ -364,6 +379,326 @@
     "unchecked": "Agent CLIs not checked yet",
     "uncheckedDetail": "Check which agent CLIs are installed on this machine."
   },
+  "app": {
+    "workbench": "OXESpace workbench",
+    "loadingWorkspaces": "Loading workspaces",
+    "boundary": {
+      "conversations": "the conversations",
+      "window": "this window"
+    },
+    "start": {
+      "prompt": "Select a folder to start your first agentic terminal workspace.",
+      "newWorkspace": "New workspace",
+      "otherWays": "Other ways to start",
+      "elsewhere": "Or start somewhere else",
+      "open": {
+        "thread": "Open OxeChat",
+        "data": "Open OxeQuery",
+        "pods": "Open OxePod",
+        "post": "Open OxePost"
+      }
+    },
+    "notice": {
+      "unsavedEditor": "Workspace has unsaved editor changes. Save or close the file before closing the workspace.",
+      "splitFailed": "Failed to split pane",
+      "noTerminal": "No visible terminal to run the command.",
+      "needsTerminal": "Open a workspace with a terminal pane first.",
+      "agentFailed": "Failed to start agent in pane"
+    }
+  },
+  "team": {
+    "button": {
+      "label": "Team",
+      "title": "Project roles and messages shared by OxeCode and OxeChat",
+      "needsWorkspace": "Open a workspace to open its team",
+      "needsProject": "Select an OxeChat project to open its team",
+      "otherViews": "Team is available in OxeCode and OxeChat"
+    },
+    "roles": {
+      "coordinator": "Coordinator / integrator",
+      "project-manager": "Project manager",
+      "product-manager": "Product manager",
+      "developer": "Developer",
+      "reviewer": "Reviewer"
+    },
+    "unavailable": "Team is unavailable in this runtime.",
+    "description": "Persistent roles for this project, shared by OxeCode and OxeChat.",
+    "loading": "Loading team…",
+    "note": "Members are saved independently of sessions. Creating a role does not start an agent. Automatic delivery sends inbox messages to a connected idle OxeChat conversation. It pauses after failure, interruption or restart; OxeCode sessions read their inbox through MCP.",
+    "members": "Team members",
+    "connection": {
+      "idle": "Session connected · idle, a message starts it again",
+      "connected": "Session connected",
+      "disconnected": "Session disconnected · reconnect to authorize MCP",
+      "none": "No session connected"
+    },
+    "messagesFor": "Messages: {{name}}",
+    "messages": "Messages",
+    "connectTitle": "Lets the active session read and send this member's messages through MCP",
+    "connect": "Connect current session",
+    "pauseDelivery": "Pause automatic delivery",
+    "enableDelivery": "Enable automatic delivery",
+    "disconnect": "Disconnect",
+    "makeCoordinator": "Make coordinator",
+    "archive": "Archive",
+    "empty": "No members yet. Add a coordinator or another project role.",
+    "name": "Member name",
+    "namePlaceholder": "e.g. Authentication developer",
+    "role": "Role",
+    "oneCoordinator": "A team has one coordinator. Use Make coordinator on a member to hand the role over.",
+    "saving": "Saving…",
+    "add": "Add member",
+    "you": "You",
+    "archivedMember": "Archived member",
+    "messagesWith": "Messages with {{name}}",
+    "messagesTitle": "Messages · {{name}}",
+    "inboxNote": "Messages remain in the inbox until acknowledged. Automatic delivery, when enabled, submits them to the connected OxeChat conversation after it becomes idle. An uncertain delivery is never automatically repeated.",
+    "loadEarlier": "Load earlier messages",
+    "delivery": {
+      "received": "Receipt confirmed by agent",
+      "submitted": "Submitted to session · receipt not confirmed",
+      "unknown": "Delivery uncertain · check the session before sending again",
+      "dispatching": "Submitting to session…",
+      "saved": "Saved · receipt not confirmed"
+    },
+    "noMessages": "No messages yet.",
+    "limit": "Showing up to 500 messages. Older messages remain saved.",
+    "messageTo": "Message to {{name}}",
+    "send": "Send to inbox"
+  },
+  "firstRun": {
+    "optional": "(optional)",
+    "doneMark": "(done)",
+    "connect": "Connect",
+    "checkNow": "Check now",
+    "checkAgain": "Check again",
+    "checking": "Checking…",
+    "agentSettings": "Agent settings",
+    "title": "Before you start",
+    "progress": "{{done}} of {{total}} done",
+    "hide": "Hide this guide",
+    "agents": "Agent CLIs",
+    "signIn": "Sign in",
+    "signInHint": "Claude Code and Codex use your own subscription. OXESpace checks the sign-in once a folder is open; you can also sign in from a terminal with the agent itself.",
+    "skip": "Skip for now",
+    "folder": "First folder and first answer",
+    "firstAnswer": "First answer {{duration}} after you started. This stays on this computer.",
+    "folderHint": "Open a folder and ask an agent something: in an OxeChat conversation, or in an OxeCode workspace terminal.",
+    "addProject": "Add an OxeChat project",
+    "newWorkspace": "New OxeCode workspace",
+    "githubBefore": "Pull requests and issues need the GitHub CLI signed in",
+    "githubAfter": "OXESpace checks it once a project is open.",
+    "copy": "Copy command",
+    "markDone": "Mark as done"
+  },
+  "usage": {
+    "resetUnknown": "Reset time unknown",
+    "resetting": "Resetting",
+    "resetsIn": "Resets in {{time}}",
+    "session": "Current session",
+    "week": "Current week",
+    "used": "{{percent}}% used",
+    "source": {
+      "oauth": "Claude account",
+      "local": "Latest local Codex session",
+      "account": "Account-wide quota"
+    },
+    "checked": "checked {{time}}",
+    "lastKnown": "Last known reading",
+    "subscription": "Subscription",
+    "stale": "Could not refresh. Showing the last known reading.",
+    "notDetected": "Not detected on this machine.",
+    "noQuota": "No quota reported.",
+    "ghMissing": "gh CLI not detected.",
+    "noAllowance": "No allowance reported.",
+    "unlimited": "Unlimited on this plan.",
+    "credits": "AI credits",
+    "resets": "Resets {{date}}",
+    "remaining": "{{remaining}} / {{total}} remaining",
+    "title": "Usage & rate limits",
+    "reading": "Reading provider quotas…",
+    "description": "Subscription limits reported by each provider. Percentages show allowance used, not remaining.",
+    "footnote": "Subscription quota differs from a conversation’s token and context usage.",
+    "timeZone": "Reset times use your local time zone",
+    "refresh": "Refresh"
+  },
+  "activity": {
+    "title": "Activity",
+    "unread_one": "Activity, {{count}} unread",
+    "unread_other": "Activity, {{count}} unread",
+    "markAll": "Mark all as read",
+    "empty": "Nothing yet",
+    "emptyHint": "Finished turns, requests that need you and updates show up here.",
+    "group": {
+      "needs-you": "Needs you",
+      "finished": "Finished",
+      "updates": "Updates"
+    },
+    "kind": {
+      "needs-you": "Needs you",
+      "failed": "Failed",
+      "finished": "Finished",
+      "quota": "Quota",
+      "update": "Update"
+    },
+    "itemLabel": "{{kind}}: {{title}}",
+    "itemLabelUnread": "{{kind}}: {{title}} (unread)"
+  },
+  "updates": {
+    "app": {
+      "ready": "OXESpace update ready",
+      "available": "OXESpace update {{version}} available",
+      "title": "OXESpace update",
+      "manual": "A newer release is available. Development and Linux package installs update manually.",
+      "downloaded": "Downloaded and ready to install.",
+      "downloading": "Downloading… {{percent}}%",
+      "background": "Downloading in the background.",
+      "releases": "Open releases",
+      "install": "Restart and install"
+    },
+    "rtk": {
+      "title": "RTK update",
+      "updatingLabel": "RTK updating",
+      "availableLabel": "RTK update {{version}} available",
+      "updating": "RTK {{version}} updating",
+      "available": "RTK {{version}} available",
+      "installed": "Installed {{version}} · token saver sidecar.",
+      "unknown": "unknown (legacy)",
+      "updatingButton": "Updating…",
+      "update": "Update RTK"
+    },
+    "activity": {
+      "available": "OXESpace {{version}} is available",
+      "availableDetail": "Open the update to download it.",
+      "ready": "OXESpace {{version}} is ready",
+      "readyDetail": "Restart to install the update."
+    },
+    "devBuild": "Updates only run in installed builds"
+  },
+  "voiceHud": {
+    "requesting": "Accessing the microphone…",
+    "downloading": "Downloading voice model… {{percent}}%",
+    "transcribing": "Transcribing…",
+    "listening": "Listening… release to insert",
+    "close": "Close voice input",
+    "closeTitle": "Close voice input (Esc)",
+    "errors": {
+      "denied": "Microphone permission denied.",
+      "noMicrophone": "No microphone was detected.",
+      "canceled": "Microphone request was canceled. Try again.",
+      "access": "Could not access the microphone.",
+      "transcription": "Transcription failed.",
+      "engine": "Voice engine unavailable in this build.",
+      "model": "Voice model could not be prepared.",
+      "download": "Could not download the voice model.",
+      "terminal": "Start the terminal before using OXEVoice."
+    }
+  },
+  "brand": {
+    "tagline": "Agents and terminals for your projects"
+  },
+  "commands": {
+    "category": {
+      "general": "General",
+      "workspace": "Workspace",
+      "project": "Project",
+      "development": "Development",
+      "agents": "AI & Agents",
+      "system": "System",
+      "view": "View",
+      "appearance": "Appearance",
+      "layout": "Layout",
+      "terminal": "Terminal",
+      "settings": "Settings",
+      "help": "Help"
+    },
+    "settingsPage": "Settings: {{page}}",
+    "reportProblem": "Report a problem",
+    "about": "About OXESpace",
+    "aboutKeywords": "about version",
+    "activity": {
+      "markAllRead": "Activity: Mark all as read"
+    },
+    "code": {
+      "newWorkspaceDetail": "Open the New Workspace wizard",
+      "workspaceSettingsDetail": "Layout, density and shell",
+      "linearDetail": "Issues, boards and worktree from issue",
+      "balanceDetail": "Restore equal sizes within each split",
+      "splitLayoutDetail": "Recursive resizable panes (default on)",
+      "usageDetail": "Claude, Codex & Copilot quota + resets",
+      "designSystem": "Design System: Open Viewer",
+      "designSystemDetail": "Tokens and components in light and dark",
+      "appearance": "Appearance: {{mode}}",
+      "appearanceMode": {
+        "system": "Follow system",
+        "light": "Light",
+        "dark": "Dark"
+      },
+      "appearanceDetail": "Applies to the whole application",
+      "density": "Density: {{density}}",
+      "densityDetail": "Workspace density",
+      "layout_one": "Layout: {{count}} pane",
+      "layout_other": "Layout: {{count}} panes",
+      "layoutDetail": "Workspace layout preset",
+      "voiceDetail": "Speak into the active terminal, editor, or OxeChat draft",
+      "stopTerminal": "Stop terminal"
+    },
+    "thread": {
+      "addProject": "Add OxeChat project…",
+      "switchProject": "Switch to project {{project}}",
+      "resume": "Resume a session",
+      "rename": "Rename conversation",
+      "spending": "Conversation spending",
+      "events": "Conversation events",
+      "rules": "Approval rules",
+      "undo": "Undo the last turn’s file changes",
+      "accounts": "Provider accounts"
+    },
+    "menu": {
+      "title": "Search",
+      "description": "Search files and run commands",
+      "placeholder": "Search files and commands…",
+      "recent": "Recent",
+      "workspaces": "Workspaces",
+      "agents": "Agents",
+      "files": "Files",
+      "semantic": "Semantic · e5-base",
+      "searching": "Searching contents…",
+      "contents": "In file contents · {{count}}",
+      "empty": "No results",
+      "terminal": "Terminal",
+      "terminalAt": "Terminal {{index}}"
+    },
+    "action": {
+      "help": {
+        "approvals": "Show approval history"
+      }
+    }
+  },
+  "activityDot": {
+    "thinking": "Agent is thinking",
+    "needs-decision": "Needs your decision",
+    "awaiting": "Awaiting your input",
+    "idle": "Idle",
+    "error": "Needs attention",
+    "starting": "Starting",
+    "exited": "Exited"
+  },
+  "failures": {
+    "unexpected": {
+      "agent": "Unexpected agent error",
+      "git": "Unexpected git error",
+      "integration": "Unexpected integration error",
+      "mcp": "The MCP server action did not complete.",
+      "github": "Unexpected GitHub error",
+      "workspace": "Unexpected workspace error"
+    },
+    "workspace": {
+      "switch": "Failed to switch workspace",
+      "panelState": "Could not save the panel state",
+      "reorder": "Failed to reorder workspaces"
+    }
+  },
   "about": {
     "title": "About OXESpace",
     "versionLine": "Version {{version}}",
@@ -426,5 +761,97 @@
       "open": "Open",
       "cancel": "Cancel"
     }
+  },
+  "approvals": {
+    "facts": "Risk: {{risk}}. Asked by {{requester}}.",
+    "factsEnvironment": "Risk: {{risk}}. Environment: {{environment}}. Asked by {{requester}}.",
+    "factsProduction": "Risk: {{risk}}. Production environment: {{environment}}. Asked by {{requester}}.",
+    "queue": "Request {{position}} of {{total}}",
+    "closeDeny": "Deny and close",
+    "risk": {
+      "label": "Risk: {{level}}",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "critical": "Critical",
+      "hint": {
+        "low": "Only reads",
+        "medium": "Changes something",
+        "high": "Deletes, escalates access or publishes",
+        "critical": "Can't be undone, or affects production"
+      }
+    },
+    "environment": {
+      "label": "{{kind}} environment: {{name}}",
+      "kind": {
+        "local": "Local",
+        "dev": "Development",
+        "prod": "Production"
+      },
+      "productionLabel": "Production · {{name}}",
+      "productionHint": "Changes here affect real users and data."
+    },
+    "requester": {
+      "label": "Asked by",
+      "agent": "Agent",
+      "mcp-server": "MCP server",
+      "app": "OXESpace",
+      "verified": "identified by OXESpace",
+      "unknown": "Unknown agent",
+      "unidentified": "not identified",
+      "where": "Where"
+    },
+    "appNotes": "OXESpace notes",
+    "hiddenCharacters": "The agent's text contains invisible or direction-changing characters. Each one is shown as a marker such as ⟨U+202E⟩ instead of taking effect. Read the text with them in mind before you approve.",
+    "unavailableWindow": "The approval window stopped working. OXESpace asks in a system dialog instead.",
+    "boundaryLabel": "approvals",
+    "keywords": "approvals history permissions allowed denied decisions security",
+    "agent": {
+      "heading": "Content from the agent",
+      "hint": "Written by the agent, shown exactly as sent. OXESpace did not check it: read it as a claim, not as a fact.",
+      "empty": "The agent sent no text.",
+      "length": "{{length}} characters"
+    },
+    "expires": "If you do not answer by {{time}}, the request is denied.",
+    "hold": {
+      "waiting": "Critical risk: Allow is available in {{seconds}} s. Read the request first.",
+      "ready": "Allow is available. At critical risk Enter does nothing; use Space or click.",
+      "readyEnter": "Allow is available.",
+      "paused": "Critical risk: Allow waits until this window is in front. The count starts again when you come back."
+    },
+    "refused": "Your answer was not applied",
+    "settled": {
+      "timeout": "The request expired before an answer and was denied.",
+      "cancelled": "The request was cancelled before an answer.",
+      "native": "The request was answered in the system dialog."
+    },
+    "outcome": {
+      "deny": "Denied",
+      "allow": "Allowed once",
+      "allow-session": "Allowed for this session"
+    },
+    "by": {
+      "timeout": "Expired, denied",
+      "cancelled": "Cancelled",
+      "native": "Answered in the system dialog",
+      "refused": "Denied by OXESpace"
+    },
+    "history": {
+      "open": "History",
+      "command": "Approval history",
+      "title": "Approval decisions",
+      "description": "Requests answered in this session, newest first.",
+      "empty": "No decisions in this session yet.",
+      "back": "Back to the request",
+      "close": "Close",
+      "columns": {
+        "time": "Time",
+        "what": "What",
+        "who": "Asked by",
+        "decision": "Decision"
+      }
+    },
+    "unknownCode": "OXESpace sent a note this version cannot show (code {{code}}).",
+    "sqlUnknown": "Risky SQL: OXESpace flagged a risk in this statement that this version cannot describe (code {{code}})."
   }
 }

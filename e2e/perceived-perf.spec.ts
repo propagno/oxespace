@@ -31,7 +31,6 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { installThreadFixtures, registerThreadProject, setThreadState } from './helpers/thread-fixtures'
-import { PERF_ADVISORY, perfAdvisoryApplies } from './helpers/perfAdvisory'
 
 const LAUNCHES = Number(process.env.OXESPACE_PERF_LAUNCHES ?? 5)
 const BLANK_GOAL_MS = 100
@@ -205,6 +204,11 @@ const settingsSurface = (name: string, page: 'providers' | 'appearance'): Surfac
   probe: { dialog: true, sidebar: false, settleMs: 300, timeoutMs: 10_000, content: ['.settings-center-content :is(h2, h3)', '.settings-center-content :is(button, input, select, textarea, [role="switch"])'] },
   arm: async p => {
     await modeButton(p, 'OxeCode').click()
+    // F7.2: a view switch commits after the selected button has painted, so let it land before tagging a control the
+    // commit re-renders (untimed setup).
+    await expect(modeButton(p, 'OxeCode')).toHaveAttribute('aria-pressed', 'true')
+    await expect(modeButton(p, 'OxeCode')).not.toHaveAttribute('aria-busy', 'true')
+    await p.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
     await p.evaluate(target => localStorage.setItem('oxe.settings.destination', JSON.stringify({ scope: 'application', page: target })), page)
     await p.getByRole('button', { name: 'Open settings' }).first().evaluate(el => el.setAttribute('data-perf-trigger', ''))
   },
@@ -396,9 +400,6 @@ function gateChecks(round: Results): Check[] {
 // CI runs this spec both in the E2E step (CI=true) and in the performance gate step (OXESPACE_PERF_GATE=1).
 const CONFIRM = (process.env.CI === 'true' || process.env.OXESPACE_PERF_GATE === '1') && process.env.OXESPACE_PERF_CONFIRM !== '0'
 
-// F7.3: the one temporary exception, advisory on every run that is not for main or a tag (e2e/helpers/perfAdvisory.ts).
-const ADVISORY = PERF_ADVISORY
-const advisoryHere = (check: Check): boolean => perfAdvisoryApplies(check.label)
 
 async function measureRound(): Promise<void> {
   for (let i = 0; i < LAUNCHES; i++) {
@@ -408,6 +409,8 @@ async function measureRound(): Promise<void> {
 }
 
 test('perceived performance: first feedback, first content and blank time per surface', async () => {
+  // A packaged_smoke_only dispatch proves the packaged binary; PR and main runs keep this gate (ci.yml).
+  test.skip(process.env.OXESPACE_PACKAGED_SMOKE === 'true', 'packaged smoke dispatch: perf budgets are gated on PR and main runs')
   test.setTimeout((CONFIRM ? 36 : 20) * 60_000)
   await measureRound()
   if (CAPTURE) {
@@ -429,15 +432,8 @@ test('perceived performance: first feedback, first content and blank time per su
     const failed = over(check) && (!second || !again || over(again))
     if (second && over(check)) console.log(`[CONFIRM] ${check.label}: round 1 ${check.value.toFixed(0)}, round 2 ${again ? again.value.toFixed(0) : 'n/a'} (limit ${check.limit.toFixed(0)}) → ${failed ? 'regression' : 'runner noise'}`)
     const shown = again ? `${check.label} (round 1 ${check.value.toFixed(0)}, round 2 ${again.value.toFixed(0)})` : check.label
-    if (failed && advisoryHere(check)) {
-      // GitHub annotation: visible on the PR, never a failure there; push to main still fails.
-      console.log(`::warning title=F7.3 OxeChat cold first content (advisory off main until ${ADVISORY.expires})::${shown}: ${Math.max(check.value, again?.value ?? -Infinity).toFixed(0)} ms, limit ${check.limit.toFixed(0)} ms`)
-      continue
-    }
     expect.soft(failed ? Math.max(check.value, again?.value ?? -Infinity) : Math.min(check.value, check.limit), shown).toBeLessThanOrEqual(check.limit)
   }
-  // The exception must not outlive its fix: past the date the whole gate fails, everywhere, until it is removed.
-  expect(Date.now(), `the F7.3 advisory exception expired on ${ADVISORY.expires}: fix OxeChat cold first content and remove ADVISORY`).toBeLessThan(Date.parse(`${ADVISORY.expires}T00:00:00Z`))
 })
 
 /**

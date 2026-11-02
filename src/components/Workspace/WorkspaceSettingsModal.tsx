@@ -7,6 +7,7 @@ import { resolveDensity } from '../../design/density'
 import { AppearanceSettings } from '../Settings/AppearanceSettings'
 import { WorkspaceMemorySettings } from './WorkspaceMemorySettings'
 import { WorkspaceDelegationSettings } from './WorkspaceDelegationSettings'
+import { ToolsSettings } from '../Settings/ToolsSettings'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import './WorkspaceSettingsModal.css'
@@ -140,6 +141,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
               <header className="ws-settings-page-heading"><h3>{selectedPage.label}</h3><p>{selectedPage.description}</p></header>
               {memoryOn && <div id="ws-page-memory" hidden={page !== 'memory'}><WorkspaceMemorySettings workspaceId={workspace.id} /></div>}
               <div id="ws-page-delegation" hidden={page !== 'delegation'}><WorkspaceDelegationSettings workspaceId={workspace.id} paneIds={workspace.panes.map(pane => pane.id)} onOpenTerminal={onOpenTerminal} onOpenDiagnostics={onOpenDiagnostics} /></div>
+              {page === 'tools' && <div id="ws-page-tools"><ToolsSettings rootPath={workspace.rootPath} workspaceId={workspace.id} /></div>}
               <div id="ws-page-appearance" className="ws-appearance-layout" hidden={page !== 'appearance'}>
               <div className="ws-appearance-controls">
               <section className="ws-settings-section" aria-labelledby="ws-section-appearance">
@@ -207,7 +209,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
           {saved && !error ? <div className="ws-settings-saved" role="status"><Check size={14} aria-hidden="true" />{t('workspace.settings.saved')}</div> : null}
 
           <footer className="modal-actions">
-            <p>{page === 'memory' ? t('workspace.settings.footer.memory') : page === 'delegation' ? t('workspace.settings.footer.delegation') : t('workspace.settings.footer.default')}</p>
+            <p>{page === 'memory' ? t('workspace.settings.footer.memory') : page === 'delegation' ? t('workspace.settings.footer.delegation') : page === 'tools' ? t('workspace.settings.footer.tools') : t('workspace.settings.footer.default')}</p>
             <Button variant="secondary" onClick={embedded ? discard : onClose}>{embedded ? t('workspace.settings.discard') : t('workspace.settings.closeButton')}</Button>
             <Button type="submit" variant="primary" disabled={isSaving}>{isSaving ? t('editor.saving') : t('workspace.settings.save')}</Button>
           </footer>

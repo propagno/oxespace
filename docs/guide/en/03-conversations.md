@@ -2,7 +2,7 @@
 
 > OxeChat organizes many conversations and the work inside them, and everything stays in place after a restart.
 
-<!-- About this page: Slice S3 · Filled by: FRONTEND · Items: F13, F15, F14, F30, F17, B1.3, B1.4, B19, B20 · partial: written from what is on main on 10/31 (sections and the conversation menu, F13; side chat, F15a). Nested conversations and the coordinator (#287/#290, #219), the session panel (F14, #227), activity (F30, #298) and archiving when the PR closes join when they reach main. -->
+<!-- About this page: Slice S3 · Filled by: FRONTEND · Items: F13, F15a, F14, F30, F17, B19, B20 (B1.3 nested conversations and B1.4 the coordinator moved to 1.4.1, scope cut by the user) · partial: written from what is on main on 10/31 (sections and the conversation menu, F13; side chat, F15a). The session panel (F14, #227), activity (F30, #298) and archiving when the PR closes join when they reach main. -->
 
 Also in: [pt-BR](../pt-BR/03-conversas.md)
 
@@ -11,8 +11,6 @@ Also in: [pt-BR](../pt-BR/03-conversas.md)
 - Grouping conversations in sections
 - Using a conversation's menu
 - A side chat about a conversation
-- Conversations an agent started (nested)
-- The project coordinator and the project view
 - Session panel: context, tools and cost
 - Activity: what happened while you were away
 - Archiving the conversation when its PR closes
@@ -61,18 +59,7 @@ The side chat answers questions about a conversation without touching it.
 3. The drawer shows the questions' **Cost so far**.
 4. To close it, press `Ctrl+.` again or use the drawer's close button.
 
-### Conversations an agent started (nested)
-
-<!-- TO FILL when #287/#290 land: conversations an agent started show under the parent conversation; the section
-follows the parent ("Section follows the parent conversation"). -->
-
-1. …
-
-### The project coordinator and the project view
-
-<!-- TO FILL when #219 lands (coordinator unified with the Project team). -->
-
-1. …
+<!-- 1.4.1: "Conversations an agent started (nested)" and "The project coordinator and the project view" (B1.3/B1.4, #287/#290) come back with their PRs. -->
 
 ### Session panel: context, tools and cost
 
@@ -98,19 +85,19 @@ follows the parent ("Section follows the parent conversation"). -->
 - Deleting a section never deletes a conversation.
 - The side chat sends nothing to the main conversation, and the copy is thrown away when you close it.
 - Deleting a conversation keeps the provider session and the project files.
-<!-- Joins with #219: "The project coordinator never answers a request or an approval." -->
+<!-- 1.4.1, with B1.4: "The project coordinator never answers a request or an approval." -->
 
 ## If something goes wrong
 
 - **"Another section in this project already has this name."** Pick another name.
 - **"Use 1 to … characters, without line breaks or control characters."** Shorten the name or remove the line breaks.
 - **"This section no longer exists."** It was deleted elsewhere; the list updates.
-- **"Could not update the sections."** Try again. If it keeps happening, report it from **Help › Report a problem**.
+- **"Could not update the sections."** Try again. If it keeps happening, report it from **Report a problem…** (the menu button beside the logo › **Help**, or the command palette).
 - **"The side chat could not open. Try again."** Close the drawer and open it again with `Ctrl+.`.
 - **"The question did not reach the side chat. Close it and open it again."** The copy stopped: close and reopen the
   side chat. The main conversation isn't affected.
 
-<!-- TO FILL with the slices still to come (#287/#290, #219, #227, #298). -->
+<!-- TO FILL with the slices still to come (#227, #298). -->
 
 ## On the phone
 

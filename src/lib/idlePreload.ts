@@ -1,6 +1,6 @@
 /**
  * Warms up, while the window is idle after its first paint, only what the next click is most likely to need:
- * Settings (small, always) and the chunks of the view the person used most recently. The view is preloaded only on a
+ * Settings and the status bar's usage chip (small, always) and the chunks of the view the person used most recently. The view is preloaded only on a
  * machine that reports at least 8 GB (`navigator.deviceMemory`; when it is missing, the view is not preloaded), is not
  * on battery, and whose renderer heap is at most 70% used; each of those APIs may be missing or throw.
  *
@@ -44,7 +44,9 @@ const LOADERS: Record<PreloadTarget, () => Promise<unknown>> = {
   data: () => import('../components/Navigation/ModeViews').then(m => m.VIEW_CHUNKS.data.load()),
   pods: () => import('../components/Navigation/ModeViews').then(m => m.VIEW_CHUNKS.pods.load()),
   post: () => import('../components/Navigation/ModeViews').then(m => m.VIEW_CHUNKS.post.load()),
-  settings: () => import('../components/Settings/SettingsHost').then(m => m.preloadSettings())
+  // With Settings, the usage chip OxeChat's status bar shows: loaded at its first switch it cost the cold first
+  // content ~40 ms (F7.3); loaded here it renders at once (lazyFrom).
+  settings: () => Promise.all([import('../components/Settings/SettingsHost').then(m => m.preloadSettings()), import('../components/Workspace/usageChunk').then(m => m.USAGE_CHUNK.load())])
 }
 
 /** The most recent view, when it is one that loads lazily (Code is in the boot bundle). */

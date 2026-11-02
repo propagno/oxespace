@@ -1,5 +1,6 @@
 package com.oxespace.mobile.ui.pairing
 
+import com.oxespace.mobile.ui.theme.OxeFonts
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -52,6 +53,7 @@ import com.oxespace.mobile.R
 import com.oxespace.mobile.pairing.PairingFailure
 import com.oxespace.mobile.pairing.PairingState
 import com.oxespace.mobile.protocol.pairing.PairingQrProblem
+import com.oxespace.mobile.ui.SecureScreen
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeRadius
 import com.oxespace.mobile.ui.theme.OxeSpace
@@ -89,6 +91,8 @@ private fun Title(text: String) {
 
 @Composable
 private fun Scanning(badCode: PairingState.BadCode?, camera: @Composable (Modifier) -> Unit) {
+    // The camera preview shows the desktop's pairing QR, a one-time secret: not for a screen recording either.
+    SecureScreen()
     Title(stringResource(R.string.pairing_title))
     Text(stringResource(R.string.pairing_instructions), style = MaterialTheme.typography.bodyLarge)
     val frame = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(OxeRadius.lg))
@@ -105,6 +109,8 @@ private fun Scanning(badCode: PairingState.BadCode?, camera: @Composable (Modifi
 
 @Composable
 private fun Waiting(state: PairingState.Waiting) {
+    // The verification code is what the person compares with the desktop: not for Recents or a screen recording.
+    SecureScreen()
     val desktop = state.desktopName ?: stringResource(R.string.home_unknown_desktop)
     Title(stringResource(R.string.pairing_waiting_title))
     Text(stringResource(R.string.pairing_waiting_body, desktop), style = MaterialTheme.typography.bodyLarge)
@@ -115,7 +121,7 @@ private fun Waiting(state: PairingState.Waiting) {
             val spoken = stringResource(R.string.pairing_verification_description, state.verification.toList().joinToString(" "))
             Text(
                 state.verification,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = OxeFonts.mono,
                 fontSize = 40.sp,
                 letterSpacing = 6.sp,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -181,6 +187,7 @@ private fun failureText(failure: PairingFailure): Int = when (failure) {
     PairingFailure.WRONG_CERTIFICATE -> R.string.pairing_failed_wrong_certificate
     PairingFailure.UNREACHABLE -> R.string.pairing_failed_unreachable
     PairingFailure.PROTOCOL -> R.string.pairing_failed_protocol
+    PairingFailure.RESERVED_NAME -> R.string.pairing_failed_reserved_name
 }
 
 @Preview

@@ -145,8 +145,18 @@ time, oldest labelling first. Each run moves the PR at the head of the queue one
 | Green on the current head and 0 commits behind `main` | Merges with a merge commit, pinned to the tested SHA, then serves the next PR |
 | Waited more than 60 minutes for CI on one head | Removes the label (`MERGE_TRAIN_TIMEOUT_MINUTES` variable or the dispatch input changes the limit) |
 
-The train keeps one `merge-train:` comment per PR and edits it. A check counts when branch protection
-requires it, or, while protection requires none, every check run on the head except skipped ones.
+The train keeps one `merge-train:` comment per PR and edits it. Every check run on the head counts except
+skipped ones, and a few must have run and passed: the train's own `TRAIN_REQUIRED_CHECKS` (`CI result`, the
+summary job of `ci.yml`) plus whatever branch protection requires. Protection only adds names; turning
+required checks on in the settings never narrows what the train looks at. A required check that was
+skipped counts as not passed.
+
+**Hold while `main` is red.** With the repository variable `MERGE_TRAIN_HOLD_WHEN_MAIN_RED` set to `true`
+(off by default), the train merges nothing while none of `main`'s 3 latest completed `ci.yml` runs passed
+(pushes and the train's "Full check · main" dispatches; cancelled and skipped runs don't count; runs it
+cannot read count as red). The run summary says `held: main red since <sha> (<run>)`, and the waiting cars
+get no comment. The one exception is a car labelled **`fix-main`** by a maintainer or an admin: it goes
+first, through the same checks as any car, and the train removes `fix-main` after merging it.
 
 **GITHUB_TOKEN.** The train uses the workflow's built-in token, and what that token does starts no
 usable workflow run: a merge fires no `push` run on `main`, and a branch update's `pull_request` runs only
@@ -188,7 +198,7 @@ repository's own `push`, `pull_request` and `workflow_dispatch` runs on the head
 `github-actions[bot]` comment, whose state marker it validates. Still, the CI it dispatches runs the PR
 branch's own scripts, so a PR could make its CI pass by changing them. The real gate is branch protection
 on `main` (required reviews and required checks, with no bypass for Actions): the train never merges what
-protection would refuse, and it follows protection's required checks as soon as there are any.
+protection would refuse, and it adds protection's required checks to its own as soon as there are any.
 
 ---
 

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { LinearIssue, LinearIssueScope, LinearStatus, LinearTeam } from '../../shared/types/linear'
 import { humanizeError } from '../utils/humanizeError'
+import { i18n } from '../i18n'
 
 interface LinearState {
   status: LinearStatus | null
@@ -59,7 +60,7 @@ export const useLinearStore = create<LinearState>((set, get) => ({
     set({ isConnecting: true, error: null })
     try {
       const status = await window.oxe.linear.setApiKey({ apiKey })
-      set({ status, isConnecting: false, notice: `Connected as ${status.viewerName ?? 'Linear user'}.` })
+      set({ status, isConnecting: false, notice: i18n.t('linear.connected', { ns: 'code', name: status.viewerName ?? i18n.t('linear.user', { ns: 'code' }) }) })
       void get().loadIssues()
       void window.oxe.linear
         .listTeams()
@@ -76,7 +77,7 @@ export const useLinearStore = create<LinearState>((set, get) => ({
       status: { connected: false, encrypted: false, viewerName: null, viewerEmail: null, organization: null, error: null },
       issues: [],
       teams: [],
-      notice: 'Linear disconnected.'
+      notice: i18n.t('linear.disconnected', { ns: 'code' })
     })
   },
 
@@ -122,5 +123,5 @@ export const useLinearStore = create<LinearState>((set, get) => ({
 }))
 
 function toMessage(error: unknown): string {
-  return humanizeError(error, 'Unexpected Linear error')
+  return humanizeError(error, i18n.t('linear.unexpected', { ns: 'code' }))
 }

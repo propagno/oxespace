@@ -1,11 +1,14 @@
 // @vitest-environment node
 import { createPrivateKey, X509Certificate } from 'node:crypto'
 import http from 'node:http'
+import https from 'node:https'
 import net from 'node:net'
 import { hostname, networkInterfaces } from 'node:os'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { isPrivateAddress } from '../../electron/main/services/remote/network'
 import { RemoteStore } from '../../electron/main/services/remote/store'
+import { MainMessageError } from '../../electron/main/ipc/main-message-error'
+import { messageFromError } from '../../shared/messages'
 import { isCertificateFingerprint, isPairingCode, pairingVerification, readPairingUri, REMOTE_LIMITS } from '../../shared/remote/protocol'
 import { connectPinned, peerCertificate, peerFingerprint, request } from '../helpers/remote-client'
 import { fakeSafeStorage, freePort, Harness, LOOPBACK, newPhone, spkiDigest, tcpOpen } from '../helpers/remote-gateway-harness'
@@ -385,5 +388,234 @@ describe('remote gateway: the desktop name phones see', () => {
     for (const text of [JSON.stringify(hello), uri, decodeURIComponent(uri), JSON.stringify(qr), JSON.stringify(h.gateway.status())]) {
       expect(text.toLowerCase()).not.toContain(host.toLowerCase())
     }
+  })
+})
+
+describe('remote gateway: what the window is told (CCR F9)', () => {
+  const failed = (reason: string) => ({ code: 'remote.pairing.failed', params: { reason } })
+  /** The failures told to the window since `from`, each checked to carry the reason and nothing about the phone. */
+  const toldSince = (h: Harness, from: number, phone?: { publicKey: string; name?: string }) => {
+    const told = h.pairingFailures.slice(from)
+    for (const message of told) {
+      expect(Object.keys(message.params)).toEqual(['reason'])
+      const text = JSON.stringify(message)
+      for (const secret of ['127.0.0.1', '::1', 'Pixel', phone?.publicKey, phone?.name].filter(Boolean)) expect(text).not.toContain(secret)
+    }
+    return told
+  }
+
+  test('every failed pairing reaches the window once, with its reason only; a paired phone sends nothing', async () => {
+    const h = harness({ promptTimeoutMs: 300 })
+    const target = await h.enable()
+    const phone = newPhone()
+    let mark = h.pairingFailures.length
+
+    // invalid: a wrong code, a malformed request, a code used twice.
+    const real = h.offer()
+    await h.pair({ qr: { ...real, code: 'A'.repeat(22) }, phone })
+    expect(toldSince(h, mark, phone)).toEqual([failed('invalid')])
+    mark = h.pairingFailures.length
+    await request(target, { body: 'not json' })
+    expect(toldSince(h, mark)).toEqual([failed('invalid')])
+    mark = h.pairingFailures.length
+    // refused: the person said no.
+    const declined = await h.pair({ qr: real, accept: false, phone, name: 'Galaxy of Ana' })
+    expect(declined.res.body).toEqual({ code: 'pairing-refused' })
+    expect(toldSince(h, mark, { publicKey: phone.publicKey, name: 'Galaxy of Ana' })).toEqual([failed('refused')])
+    mark = h.pairingFailures.length
+    expect((await h.pair({ qr: real, phone })).res.body).toEqual({ code: 'pairing-used' })
+    expect(toldSince(h, mark, phone)).toEqual([failed('invalid')])
+
+    // expired: the code ran out, and the question went unanswered.
+    h.passAttemptWindow()
+    mark = h.pairingFailures.length
+    const old = h.offer()
+    h.clock += REMOTE_LIMITS.pairingCodeTtlMs + 1
+    expect((await h.pair({ qr: old, phone })).res.body).toEqual({ code: 'pairing-expired' })
+    expect(toldSince(h, mark, phone)).toEqual([failed('expired')])
+    mark = h.pairingFailures.length
+    expect((await h.pair({ accept: null, phone })).res.body).toEqual({ code: 'pairing-refused' })
+    expect(toldSince(h, mark, phone)).toEqual([failed('expired')])
+
+    // refused: cancelled from the window while the question is on screen.
+    mark = h.pairingFailures.length
+    const qr = h.offer()
+    const prompt = h.nextPrompt()
+    const pending = request(qr, { body: JSON.stringify({ code: qr.code, deviceName: 'Pixel', publicKey: phone.publicKey }) })
+    await prompt
+    h.gateway.cancelPairing()
+    expect((await pending).body).toEqual({ code: 'pairing-refused' })
+    expect(toldSince(h, mark, phone)).toEqual([failed('refused')])
+
+    // invalid: two more wrong codes use up the address's five attempts, and then it is locked out.
+    mark = h.pairingFailures.length
+    const spare = h.offer()
+    for (let attempt = 0; attempt < 2; attempt += 1) expect((await h.pair({ qr: { ...spare, code: 'B'.repeat(22) }, phone })).res.body).toEqual({ code: 'pairing-invalid' })
+    expect((await h.pair({ qr: spare, phone })).res.body).toEqual({ code: 'pairing-locked' })
+    expect(toldSince(h, mark, phone)).toEqual([failed('invalid'), failed('invalid'), failed('invalid')])
+
+    // A phone that pairs tells the window nothing here.
+    h.passAttemptWindow()
+    mark = h.pairingFailures.length
+    expect((await h.pair()).res.status).toBe(200)
+    expect(h.pairingFailures.length).toBe(mark)
+
+    // limit: the list filled up while the code was on screen.
+    h.passAttemptWindow()
+    const last = h.offer()
+    const store = new RemoteStore(h.db)
+    while (store.activeCount() < REMOTE_LIMITS.maxDevices) store.addDevice('Racer', newPhone().spki)
+    expect((await h.pair({ qr: last, phone })).res.body).toEqual({ code: 'too-many-devices' })
+    expect(toldSince(h, mark, phone)).toEqual([failed('limit')])
+  })
+
+  test('a phone that hangs up while the question is on screen: peer-closed, once, inside the same cap', async () => {
+    const h = harness()
+    const target = await h.enable()
+    const phone = newPhone()
+    const qr = h.offer()
+    const prompt = h.nextPrompt()
+    const socket = await connectPinned(target)
+    const body = JSON.stringify({ code: qr.code, deviceName: 'Pixel', publicKey: phone.publicKey })
+    const req = https.request({
+      host: target.host, port: target.port, method: 'POST', path: '/pair', agent: false, rejectUnauthorized: false,
+      headers: { 'content-type': 'application/json', 'content-length': String(Buffer.byteLength(body)) }, createConnection: () => socket
+    })
+    req.on('error', () => { /* hung up on purpose */ })
+    req.end(body)
+    await prompt
+    const shownBefore = (h.gateway as unknown as { pairingFailuresShown: { count: number } }).pairingFailuresShown.count
+    req.destroy()
+    const deadline = Date.now() + 3000
+    while (!h.pairingFailures.length && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 20))
+    expect(toldSince(h, 0, phone)).toEqual([failed('peer-closed')])
+    expect((h.gateway as unknown as { pairingFailuresShown: { count: number } }).pairingFailuresShown.count).toBe(shownBefore + 1)
+    // The question is off the screen, and nothing else follows.
+    expect(h.changes.at(-1)).toEqual({ pairing: null })
+    await new Promise(resolve => setTimeout(resolve, 100))
+    expect(h.pairingFailures).toHaveLength(1)
+    expect(new RemoteStore(h.db).auditEntries().some(entry => entry.action === 'pairing' && entry.outcome === 'abandoned')).toBe(true)
+  })
+
+  test('a phone may not call itself by a name only the app speaks as; invisible format characters are no name', async () => {
+    const h = harness()
+    await h.enable()
+    const phone = newPhone()
+    // Reserved: refused before the code is spent, with `reserved-name` for the phone and the window alike.
+    for (const name of ['OXESpace', 'Sistema', 'OXESpace: update', 'S​istema']) {
+      const mark = h.pairingFailures.length
+      const { res } = await h.pair({ name, phone })
+      expect([res.status, res.body], name).toEqual([403, { code: 'reserved-name' }])
+      expect(toldSince(h, mark, { publicKey: phone.publicKey, name })).toEqual([failed('reserved-name')])
+    }
+    expect(h.gateway.devices()).toEqual([])
+    expect(new RemoteStore(h.db).auditEntries().filter(entry => entry.action === 'pairing' && entry.outcome === 'reserved-name')).toHaveLength(4)
+    // Four attempts used; the window passes so the next ones are not locked out.
+    h.passAttemptWindow()
+    // A name that is only a zero-width space is no name at all.
+    let mark = h.pairingFailures.length
+    expect((await h.pair({ name: '​', phone })).res.body).toEqual({ code: 'malformed' })
+    expect(toldSince(h, mark, phone)).toEqual([failed('invalid')])
+    // The format characters inside a good name are dropped.
+    mark = h.pairingFailures.length
+    const { res } = await h.pair({ name: 'Ana​‍s Pixel', phone })
+    expect(res.status).toBe(200)
+    expect(h.pairingFailures).toHaveLength(mark)
+    const { deviceId } = res.body as { deviceId: string }
+    expect(h.gateway.devices()[0].name).toBe('Anas Pixel')
+    // The same rule at rename, with its own code.
+    const code = (run: () => unknown) => { try { run() } catch (error) { return messageFromError(error) } throw new Error('did not throw') }
+    for (const name of ['OXESpace', 'Sistema', 'oxe​space']) expect(code(() => h.gateway.rename({ deviceId, name })), name).toEqual({ code: 'remote.device.reservedName', params: {} })
+    expect(code(() => h.gateway.rename({ deviceId, name: ' ​ ' }))).toEqual({ code: 'remote.device.invalidName', params: { max: 64 } })
+    expect(h.gateway.rename({ deviceId, name: 'My​Phone' }).name).toBe('MyPhone')
+  })
+
+  test('a flood of bad requests reaches the window at most twenty times a minute', async () => {
+    const h = harness()
+    const target = await h.enable()
+    for (let index = 0; index < 24; index += 1) await request(target, { body: 'not json' })
+    expect(h.pairingFailures).toHaveLength(20)
+    h.clock += 60_000
+    await request(target, { body: 'not json' })
+    expect(h.pairingFailures).toHaveLength(21)
+  })
+
+  test('refusals the person can act on carry their C3 code, also as the text Electron passes across invoke', async () => {
+    const thrown = (run: () => unknown): unknown => {
+      try { run() } catch (error) { return error }
+      throw new Error('did not throw')
+    }
+    const coded = (run: () => unknown) => {
+      const error = thrown(run)
+      const crossed = messageFromError(new Error(`Error invoking remote method 'remote:x': ${String(error)}`))
+      expect(crossed).toEqual(messageFromError(error))
+      return messageFromError(error)
+    }
+    const h = harness()
+    const unknown = '00000000-0000-4000-8000-000000000000'
+    expect(coded(() => h.gateway.startPairing())).toEqual({ code: 'remote.gateway.offline', params: {} })
+    expect(coded(() => h.gateway.revoke({ deviceId: unknown }))).toEqual({ code: 'remote.device.notFound', params: {} })
+    expect(coded(() => h.gateway.revoke({ deviceId: 'not-a-device' }))).toEqual({ code: 'remote.device.notFound', params: {} })
+    expect(coded(() => h.gateway.rename({ deviceId: unknown, name: 'Phone' }))).toEqual({ code: 'remote.device.notFound', params: {} })
+    for (const name of ['', '   ', 'x'.repeat(65), 'a\nb']) {
+      expect(coded(() => h.gateway.rename({ deviceId: unknown, name }))).toEqual({ code: 'remote.device.invalidName', params: { max: 64 } })
+    }
+    for (const name of ['', 'x'.repeat(33), 'tab\there']) {
+      expect(coded(() => h.gateway.setDesktopName({ name }))).toEqual({ code: 'remote.desktop.invalidName', params: { max: 32 } })
+    }
+    for (const paneId of ['', 'has space', 'x'.repeat(201)]) {
+      expect(coded(() => h.gateway.setPhoneWrite({ paneId, allowed: true }))).toEqual({ code: 'remote.pane.invalid', params: {} })
+    }
+    await h.enable()
+    const store = new RemoteStore(h.db)
+    while (store.activeCount() < REMOTE_LIMITS.maxDevices) store.addDevice('Phone', newPhone().spki)
+    expect(coded(() => h.gateway.startPairing())).toEqual({ code: 'remote.pairing.limit', params: { max: 5 } })
+  })
+
+  test('malformed input stays a plain error, with no code', async () => {
+    const h = harness()
+    const unknown = '00000000-0000-4000-8000-000000000000'
+    const malformed: Array<() => unknown> = [
+      () => h.gateway.revoke({ deviceId: 5 }), () => h.gateway.revoke({ deviceId: unknown, extra: 1 }), () => h.gateway.revoke(null),
+      () => h.gateway.rename({ deviceId: unknown, name: 5 }), () => h.gateway.rename({ deviceId: 5, name: 'Phone' }), () => h.gateway.rename({ deviceId: unknown }),
+      () => h.gateway.setDesktopName({ name: 5 }), () => h.gateway.setDesktopName({}), () => h.gateway.setDesktopName({ name: 'ok', more: 1 }), () => h.gateway.setDesktopName('name'),
+      () => h.gateway.setPhoneWrite({ paneId: 5, allowed: true }), () => h.gateway.setPhoneWrite({ paneId: 'p1', allowed: 'yes' }), () => h.gateway.setPhoneWrite({ paneId: 'p1' }),
+      () => h.gateway.answerPairing({ promptId: unknown, accept: 'yes' })
+    ]
+    for (const [index, run] of malformed.entries()) {
+      let caught: unknown
+      try { run() } catch (error) { caught = error }
+      expect(caught, `case ${index}`).toBeInstanceOf(Error)
+      expect(caught, `case ${index}`).not.toBeInstanceOf(MainMessageError)
+      expect(messageFromError(caught), `case ${index}`).toBeNull()
+    }
+    for (const input of [{ enabled: 'yes' }, { enabled: true, extra: 1 }]) {
+      const error = await h.gateway.setEnabled(input).catch((caught: unknown) => caught)
+      expect(error).toBeInstanceOf(Error)
+      expect(messageFromError(error)).toBeNull()
+    }
+  })
+
+  test('listenedBefore turns true the first time it really listens, never goes back, and survives a restart', async () => {
+    const h = harness()
+    expect(h.gateway.status().listenedBefore).toBe(false)
+    // A start that fails is not a listen.
+    expect(await h.gateway.setEnabled({ enabled: true, port: 80 })).toMatchObject({ enabled: false, listenedBefore: false })
+    const noStorage = harness({ storage: fakeSafeStorage(false) })
+    expect(await noStorage.gateway.setEnabled({ enabled: true, port: await freePort() })).toMatchObject({ enabled: false, listenedBefore: false })
+
+    await h.enable()
+    expect(h.gateway.status().listenedBefore).toBe(true)
+    expect(h.changes.at(-1)).toMatchObject({ status: { enabled: true, listenedBefore: true } })
+    expect(await h.gateway.setEnabled({ enabled: false })).toMatchObject({ enabled: false, listenedBefore: true })
+    // A failed start afterwards does not take it back.
+    expect(await h.gateway.setEnabled({ enabled: true, port: 80 })).toMatchObject({ enabled: false, listenedBefore: true })
+    expect((h.db.prepare('SELECT listened_before FROM remote_gateway WHERE id = 1').get() as { listened_before: number }).listened_before).toBe(1)
+
+    // The gateway service starts again on the same profile: still true, before it listens.
+    await h.gateway.stop()
+    h.gateway = h.create()
+    expect(h.gateway.status()).toMatchObject({ enabled: false, listenedBefore: true })
+    expect(await h.gateway.setEnabled({ enabled: true, port: 80 })).toMatchObject({ enabled: false, listenedBefore: true })
   })
 })
