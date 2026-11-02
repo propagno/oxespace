@@ -5,8 +5,8 @@ import { toast } from '../ui'
 import { registerCommands } from '../utils/commandRegistry'
 import { registerTranslated, tCommand } from './commandText'
 
-/** Event the palette sends to open the activity center in the title bar. */
-export const OPEN_ACTIVITY_CENTER_EVENT = 'oxe:open-activity-center'
+import { OPEN_ACTIVITY_CENTER_EVENT } from './activity.events'
+export { OPEN_ACTIVITY_CENTER_EVENT }
 
 registerTranslated(() => registerCommands('activity', [
   { id: 'activity.open', label: i18n.t('keys.bindings.activity.open'), icon: Bell, category: 'View', keywords: ['notifications', 'inbox', 'needs you', 'finished', 'updates'], shortcut: 'activity.open',
