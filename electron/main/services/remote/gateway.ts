@@ -334,7 +334,10 @@ export class RemoteGateway implements ConnectionHost {
   /** The certificate, made the first time and read back from `safeStorage` after that, as DER only. */
   private material(): GatewayMaterial {
     const cipher = createSecretCipher(this.deps.storage, this.deps.platform, this.deps.env)
-    if (!cipher.available()) throw new GatewayStartError(mainMessage('remote.certificate.failed', {}))
+    // Each reason says what to do (SRE on Linux: basic_text is refused for the private key, and the person needs the way out).
+    const missing = cipher.reason()
+    if (missing === 'no-keyring') throw new GatewayStartError(mainMessage('remote.keyring.missing', {}))
+    if (missing) throw new GatewayStartError(mainMessage('remote.storage.unavailable', {}))
     const settings = this.store.settings()
     if (settings.certificateDer && settings.certificateKey) {
       try {

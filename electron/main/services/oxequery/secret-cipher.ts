@@ -14,10 +14,14 @@ export interface SafeStorageLike {
  * "secure storage" would store database passwords, SSH keys and certificates as if protected.
  * They are refused instead, with the way to fix it, unless the person opts in explicitly.
  */
-export function createSecretCipher(storage: SafeStorageLike, platform: NodeJS.Platform = process.platform, env: NodeJS.ProcessEnv = process.env): SecretCipher & { problem(): string | null } {
+/** Why secrets cannot be kept, for a caller that answers with its own C3 code: no secure storage, or Linux with no keyring. */
+export type SecretStorageProblem = 'unavailable' | 'no-keyring'
+
+export function createSecretCipher(storage: SafeStorageLike, platform: NodeJS.Platform = process.platform, env: NodeJS.ProcessEnv = process.env): SecretCipher & { problem(): string | null; reason(): SecretStorageProblem | null } {
   const backend = platform === 'linux' ? storage.getSelectedStorageBackend?.() ?? 'unknown' : null
   const weak = backend === 'basic_text' || backend === 'unknown'
   const optedIn = env.OXESPACE_ALLOW_WEAK_SECRETS === '1'
+  const reason = (): SecretStorageProblem | null => !storage.isEncryptionAvailable() ? 'unavailable' : weak && !optedIn ? 'no-keyring' : null
   const problem = (): string | null => {
     if (!storage.isEncryptionAvailable()) return 'Secure storage is unavailable on this system, so passwords, keys and certificates cannot be saved. Use a connection that does not need them.'
     if (weak && !optedIn) {
@@ -28,6 +32,7 @@ export function createSecretCipher(storage: SafeStorageLike, platform: NodeJS.Pl
   return {
     available: () => problem() === null,
     problem,
+    reason,
     encrypt: value => storage.encryptString(value),
     decrypt: value => storage.decryptString(value)
   }

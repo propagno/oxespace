@@ -235,6 +235,8 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'remote.port.inUse': ['port'],
   'remote.network.noPrivateInterface': [],
   'remote.certificate.failed': [],
+  'remote.keyring.missing': [],
+  'remote.storage.unavailable': [],
   'remote.pairing.failed': ['reason'],
   'remote.gateway.offline': [],
   'remote.pairing.limit': ['max'],

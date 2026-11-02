@@ -151,6 +151,12 @@
       "certificate": {
         "failed": "The connection certificate could not be created or read from secure storage."
       },
+      "keyring": {
+        "missing": "No system keyring was found, so the connection's private key could not be protected and the connection stays off. Start GNOME Keyring or KWallet and restart OXESpace, or set OXESPACE_ALLOW_WEAK_SECRETS=1 to keep it without real protection."
+      },
+      "storage": {
+        "unavailable": "Secure storage is unavailable on this system, so the connection's private key cannot be kept and the connection stays off."
+      },
       "pairing": {
         "failed": "$t(remotePairingFailure.{{reason}})",
         "limit": "This computer already has {{max}} paired devices. Remove one before pairing another."

@@ -367,6 +367,10 @@ export interface MessageParams {
   'remote.network.noPrivateInterface': Record<string, never>
   /** The gateway's certificate could not be made or read back from secure storage. */
   'remote.certificate.failed': Record<string, never>
+  /** Linux with no system keyring (basic_text): the connection's private key would only be obfuscated, so it stays off. */
+  'remote.keyring.missing': Record<string, never>
+  /** No secure storage at all on this system: the connection's private key cannot be kept, so it stays off. */
+  'remote.storage.unavailable': Record<string, never>
   /** A phone's pairing attempt failed. Never carries the phone's key, address, name or any identifier. */
   'remote.pairing.failed': { reason: 'invalid' | 'expired' | 'refused' | 'limit' | 'peer-closed' | 'reserved-name' }
   /** A pairing code was asked for while the gateway is off. */
@@ -721,6 +725,8 @@ export const MESSAGE_CODES = [
   'remote.port.inUse',
   'remote.network.noPrivateInterface',
   'remote.certificate.failed',
+  'remote.keyring.missing',
+  'remote.storage.unavailable',
   'remote.pairing.failed',
   'remote.gateway.offline',
   'remote.pairing.limit',
