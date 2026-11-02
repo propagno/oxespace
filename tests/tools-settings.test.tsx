@@ -70,7 +70,7 @@ describe('Settings › Tools', () => {
     const { api } = mount({ dataMode: 'on-demand', yaml: { oxeYaml: 'invalid' } })
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent("oxe.yaml can't be read")
-    expect(within(alert).getByText('oxe.yaml')).toHaveAttribute('title', ROOT)
+    expect(within(alert).getByText(`${ROOT}/oxe.yaml`)).toBeVisible()
     const data = await panel('Data')
     expect(within(data).getByText('Not read')).toBeVisible()
     expect(within(data).queryByText('On demand', { selector: 'span' })).toBeNull()

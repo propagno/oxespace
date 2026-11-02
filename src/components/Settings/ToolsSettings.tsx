@@ -40,6 +40,12 @@ function RuleRow({ rule, busy, onChoose }: { rule: McpToolRule; busy: boolean; o
 }
 
 /** One group: what it does, its mode and where the mode comes from, its cost per provider, and its tools' rules. */
+/** The project's oxe.yaml as a full path, in the project's own separator (the Notice names which file, DESIGN on #426). */
+function yamlPath(rootPath: string): string {
+  const separator = rootPath.includes('\\') && !rootPath.includes('/') ? '\\' : '/'
+  return `${rootPath.replace(/[\\/]+$/, '')}${separator}${OXE_YAML}`
+}
+
 function GroupPanel({ group, rules, busy, unread = false, locked = false, onMode, onRule }: {
   group: McpToolGroupInfo; rules: McpToolRule[] | null; busy: boolean
   /** The project's oxe.yaml cannot be read and the report does not say what applies: the mode is not shown as known. */
@@ -180,7 +186,7 @@ export function ToolsSettings({ rootPath, workspaceId }: { rootPath: string; wor
       : !report ? <LoadingState label={t('tools.loading')} />
         : <>
           {invalid && <Notice intent="warning" title={t('tools.invalidYaml.title', { file: OXE_YAML })}>
-            <code title={rootPath}>{OXE_YAML}</code>: {t(effectiveFrom === 'last-valid' ? 'tools.invalidYaml.bodyLastValid' : effectiveFrom === 'defaults' ? 'tools.invalidYaml.bodyDefaults' : 'tools.invalidYaml.body')}
+            <code>{yamlPath(rootPath)}</code>: {t(effectiveFrom === 'last-valid' ? 'tools.invalidYaml.bodyLastValid' : effectiveFrom === 'defaults' ? 'tools.invalidYaml.bodyDefaults' : 'tools.invalidYaml.body')}
           </Notice>}
           <dl className={styles.totals} aria-label={t('tools.totals.title')}>
             <div><dt>{t('tools.totals.plain')}</dt><dd>{costText(t, report.totals.plainConversation)}</dd></div>
