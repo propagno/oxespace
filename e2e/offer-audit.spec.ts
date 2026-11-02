@@ -157,6 +157,9 @@ async function dismiss(page: Page): Promise<void> {
 
 async function selectView(page: Page, mode: AppMode): Promise<void> {
   await modeButton(page, mode).click()
+  // F7.2: the current view stays until the next one is in; wait for the switch to land before using the new view.
+  await expect(modeButton(page, mode)).toHaveAttribute('aria-pressed', 'true')
+  await expect(modeButton(page, mode)).not.toHaveAttribute('aria-busy', 'true')
 }
 
 async function launchWithWorkspace(): Promise<LaunchedApp> {

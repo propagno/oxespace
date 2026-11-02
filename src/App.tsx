@@ -3,7 +3,8 @@ import { useContributedCommands } from './utils/commandRegistry'
 import './commands/settings.commands'
 import { useCodeCommands } from './commands/code.commands'
 import { sayAddProjectFirst, useThreadCommands } from './commands/thread.commands'
-import { DataHosts, DataSidebar, isDataView, ThreadGrid, ThreadSidebar, ThreadSidebarBoundary, useModeActions } from './components/Navigation/ModeViews'
+import { DataHosts, DataSidebar, isDataView, ThreadGrid, ThreadSidebar, ThreadSidebarBoundary, useModeActions, ViewSkeleton } from './components/Navigation/ModeViews'
+import { useViewSwitch } from './app/viewSwitch'
 import { SettingsCenter } from './components/Settings/SettingsHost'
 import { NoWorkspaceStart } from './components/Onboarding/NoWorkspaceStart'
 import { TeamButton } from './components/Teams/TeamButton'
@@ -11,7 +12,7 @@ import { DelegationNotice } from './components/Delegation/DelegationNotice'
 import { useTranslation } from 'react-i18next'
 import type { ToolId } from './components/Workspace/toolCatalog'
 import { panelMenuEntries, type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
-import { Button, cx, Toaster, TitleTooltips, TooltipProvider, LoadingState } from './ui'
+import { Button, cx, Toaster, TitleTooltips, TooltipProvider } from './ui'
 import { reportSplitRefused } from './components/Grid/splitRefusal'
 import titleBar from './components/Navigation/TitleBar.module.css'
 import { ModeSwitch } from './components/Navigation/ModeSwitch'
@@ -87,10 +88,9 @@ export function App(): ReactElement {
   const [teamScope, setTeamScope] = useState<import('../shared/types/team').TeamScope | null>(null)
   const [delegationTarget, setDelegationTarget] = useState<{ workspaceId: string; taskId: string } | null>(null)
   const [hasOpenedThread, setHasOpenedThread] = useState(false)
-  const selectMode = (mode: AppView): void => {
-    if (mode === 'thread') setHasOpenedThread(true)
-    setApplicationView(mode)
-  }
+  // The view switches when the next view is ready; until then the current one stays and the button is busy (F7.2).
+  const viewSwitch = useViewSwitch(applicationView, mode => { if (mode === 'thread') setHasOpenedThread(true); setApplicationView(mode) })
+  const selectMode = viewSwitch.select
   useModeActions(selectMode)
   const [newThreadWorkspaceId, setNewThreadWorkspaceId] = useState<string | null | undefined>(undefined)
   const [newThreadRootPath, setNewThreadRootPath] = useState<string | undefined>()
@@ -855,7 +855,7 @@ export function App(): ReactElement {
         ) : activeWorkspace || applicationView !== 'code' ? (
           <>
             <DataHosts view={applicationView} />
-            {hasOpenedThread && <div className="thread-host" style={{ display: applicationView === 'thread' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'thread'}><ErrorBoundary id="conversations" label={t('app.boundary.conversations')} onReset={ThreadGrid.retry}><Suspense fallback={<LoadingState brand />}><ThreadGrid onNewThread={newThread} onAccounts={openThreadAccounts} onDelegations={() => setDelegatedWorkOpen(true)} /></Suspense></ErrorBoundary></div>}
+            {hasOpenedThread && <div className="thread-host" data-view="thread" style={{ display: applicationView === 'thread' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'thread'}><ErrorBoundary id="conversations" label={t('app.boundary.conversations')} onReset={ThreadGrid.retry}><Suspense fallback={<ViewSkeleton name="OxeChat" />}><ThreadGrid onNewThread={newThread} onAccounts={openThreadAccounts} onDelegations={() => setDelegatedWorkOpen(true)} /></Suspense></ErrorBoundary></div>}
             {workspaces
               // Include the active id synchronously. On a first visit the MRU
               // effect has not run yet, but the user should never wait an extra
@@ -866,7 +866,7 @@ export function App(): ReactElement {
                 return (
                   <div
                     key={ws.id}
-                    className={`workspace-host${isActive ? '' : ' workspace-host-hidden'}`}
+                    className={`workspace-host${isActive ? '' : ' workspace-host-hidden'}`} data-view={isActive ? 'code' : undefined}
                     aria-hidden={!isActive}
                   >
                     <WorkspaceSurface

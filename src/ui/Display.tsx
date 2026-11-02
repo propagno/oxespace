@@ -135,7 +135,7 @@ export function Notice({ intent = 'info', title, children, actions, className }:
 /** The shape of content on its way: lines of text, or one block. Announced once as loading, never read line by line. */
 export function Skeleton({ lines = 3, variant = 'text', label = i18n.t('ui.loading'), decorative = false }: { lines?: number; variant?: 'text' | 'block'; label?: string; decorative?: boolean }): ReactElement {
   // `decorative`: next to something that already announces the loading (a busy region, a status beside it).
-  return <div className={styles.skeleton} {...(decorative ? { 'aria-hidden': true as const } : { role: 'status' as const, 'aria-label': label })}>
+  return <div className={styles.skeleton} data-skeleton="" {...(decorative ? { 'aria-hidden': true as const } : { role: 'status' as const, 'aria-label': label })}>
     {variant === 'block'
       ? <span className={cx(styles.skeletonBar, styles.skeletonBlock)} aria-hidden="true" />
       : Array.from({ length: Math.max(1, lines) }, (_, index) => <span key={index} className={styles.skeletonBar} aria-hidden="true" />)}
