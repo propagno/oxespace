@@ -57,19 +57,25 @@ test('T44: boot, updates and a scheduled automation behave as before, across a r
     }
     await page.keyboard.press('Escape')
 
-    // A scheduled automation, every minute, whose precheck stops it before any agent.
+    // A daily automation due two minutes from now (the shortest interval is 5 minutes), whose precheck stops it before
+    // any agent. Run now first: the manual path.
     const precheck = `node -e "require('fs').appendFileSync('precheck-ran.txt', Date.now() + '\\n'); process.exit(1)"`
+    const due = new Date(Date.now() + 2 * 60_000)
     const created = await oxe<{ id: string; nextRunAt: number | null }>(page, `window.oxe.automations.create(${JSON.stringify({
-      name: 'hml-t44', prompt: 'never runs', rootPath: profile.repo, agent: 'claude', schedule: { kind: 'interval', everyMinutes: 1 }, precheck, graceMinutes: 5, enabled: true
+      name: 'hml-t44', prompt: 'never runs', rootPath: profile.repo, agent: 'claude', schedule: { kind: 'daily', hour: due.getHours(), minute: due.getMinutes() }, precheck, graceMinutes: 10, enabled: true
     })})`)
     out.created = { nextRunAt: created.nextRunAt, inMs: created.nextRunAt ? created.nextRunAt - Date.now() : null }
     const runs = () => oxe<Run[]>(page, `window.oxe.automations.runs(${JSON.stringify(created.id)})`)
-    await expect.poll(async () => (await runs()).length, { timeout: 150_000, intervals: [5_000], message: 'the schedule fires on its own' }).toBeGreaterThan(0)
+    await oxe(page, `window.oxe.automations.runNow(${JSON.stringify(created.id)})`)
+    await expect.poll(async () => (await runs()).length, { timeout: 60_000, intervals: [2_000], message: 'run now runs' }).toBeGreaterThan(0)
     out.runsBefore = (await runs()).map(r => r.status)
     out.markerBefore = existsSync(marker) ? readFileSync(marker, 'utf8').trim().split('\n').length : 0
 
-    // Restart: the same profile, so automations and the updater load through the deferred path.
+    // Closed across the due time, then the same profile again: the automations load through the deferred path, and the
+    // run that came due while the app was closed (within its grace) runs at the wake.
     await quitReal(app)
+    const dueAt = created.nextRunAt ?? due.getTime()
+    while (Date.now() < dueAt + 20_000) await new Promise(r => setTimeout(r, 5_000))
     const restartedAt = Date.now()
     ;({ app, page } = await launchReal(profile))
     out.bootAgain = Date.now() - restartedAt
@@ -80,8 +86,8 @@ test('T44: boot, updates and a scheduled automation behave as before, across a r
     })
     const listed = await oxe<Array<{ id: string; enabled: boolean; nextRunAt: number | null }>>(page, 'window.oxe.automations.list()')
     out.listedAfterRestart = listed.map(a => ({ enabled: a.enabled, nextInMs: a.nextRunAt ? a.nextRunAt - Date.now() : null }))
-    await expect.poll(async () => (await runs()).filter(r => r.scheduledFor >= restartedAt - 1_000 || (r.startedAt ?? 0) >= restartedAt).length,
-      { timeout: 150_000, intervals: [5_000], message: 'the schedule fires again after the restart' }).toBeGreaterThan(0)
+    await expect.poll(async () => (await runs()).filter(r => (r.startedAt ?? 0) >= restartedAt || r.scheduledFor >= dueAt - 60_000).length,
+      { timeout: 120_000, intervals: [5_000], message: 'the run due while closed runs at the wake' }).toBeGreaterThan(0)
     out.runsAfter = (await runs()).map(r => r.status)
     out.markerAfter = existsSync(marker) ? readFileSync(marker, 'utf8').trim().split('\n').length : 0
     settings = await openUpdates(page)
