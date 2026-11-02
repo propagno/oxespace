@@ -123,6 +123,12 @@ with Esc, Tab, Ctrl+C and arrows for the terminal." -->
 - **Portuguese and English** across the app, switched in Settings without a restart.
 - **A keyboard you can live in**: a command palette for everything (`Ctrl+K`), a shortcut guide and
   **Settings › Keyboard**, F6 to move between regions, and a mode where Tab leaves the terminal.
+- **Commands named the same everywhere.** Every palette command reads *Category: Action* (**Agents: Open the project
+  team…**), the app menu uses the same words, and the old names still find them.
+- **Open in your editor.** Every file path in OXESpace (conversations, changes, terminal, search, editor tabs) has the
+  same menu: open it in VS Code, Cursor or Zed at the line, show it in its folder, or copy its path. Only the editors
+  you have installed are listed; choose yours in **Settings › General**, and `Ctrl+Shift+click` on a path in a
+  terminal opens it there.
 - **Accessibility**: WCAG 2.2 AA checks on Windows and Linux, forced colours, 24 px targets, and keyboard paths for
   every list.
 - **Interface scale, density and motion** (System, Reduced, Full) for the whole app.
@@ -143,7 +149,8 @@ its run or test. -->
   field. Native voice is planned for a future version. Speech models you downloaded stay on disk: to free the space,
   delete the files whose names start with `ggml-` in `%APPDATA%\oxespace\models` (Windows) or
   `~/.config/oxespace/models` (Linux). Leave the other files in that folder; semantic search uses them.
-- **Team moved off the title bar.** Open it from **Tools › Project team…**, the command palette or `Ctrl+Shift+T`.
+- **Team moved off the title bar.** Open it from **Tools › Open the project team…**, the command palette or
+  `Ctrl+Shift+T`.
 - **Git actions started from OXESpace skip the repository's hooks.** Push, switching branches and creating worktrees
   run without them; use the terminal when a flow depends on hooks. Agents can't reach the network through Git: when a
   task needs the latest remote branch, you fetch it in the Git panel or the terminal.

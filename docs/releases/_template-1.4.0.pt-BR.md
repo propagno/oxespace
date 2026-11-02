@@ -124,6 +124,12 @@ mensagem e uma fileira de teclas com Esc, Tab, Ctrl+C e setas para o terminal." 
 - **Português e inglês** no app inteiro, trocados nas Configurações sem reiniciar.
 - **Um teclado para morar nele**: uma paleta de comandos para tudo (`Ctrl+K`), um guia de atalhos e
   **Configurações › Teclado**, F6 para andar entre regiões e um modo em que o Tab sai do terminal.
+- **Comandos com o mesmo nome em todo lugar.** Todo comando da paleta segue *Categoria: Ação* (**Agentes: Abrir a
+  equipe do projeto…**), o menu do app usa as mesmas palavras, e os nomes antigos continuam encontrando os comandos.
+- **Abrir no seu editor.** Todo caminho de arquivo no OXESpace (conversas, mudanças, terminal, busca, abas do editor)
+  tem o mesmo menu: abrir no VS Code, no Cursor ou no Zed na linha, mostrar na pasta ou copiar o caminho. Só aparecem
+  os editores que você tem instalados; escolha o seu em **Configurações › Geral**, e `Ctrl+Shift+clique` num caminho
+  no terminal abre o arquivo nele.
 - **Acessibilidade**: verificações WCAG 2.2 AA no Windows e no Linux, cores forçadas, alvos de 24 px e caminhos de
   teclado para todas as listas.
 - **Escala da interface, densidade e movimento** (Sistema, Reduzido, Completo) para o app inteiro.
@@ -142,7 +148,7 @@ mensagem e uma fileira de teclas com Esc, Tab, Ctrl+C e setas para o terminal." 
   campo. A voz nativa está prevista para uma versão futura. Os modelos de voz que você baixou continuam no disco: para
   liberar o espaço, apague os arquivos cujo nome começa com `ggml-` em `%APPDATA%\oxespace\models` (Windows) ou
   `~/.config/oxespace/models` (Linux). Mantenha os outros arquivos dessa pasta; eles são usados pela busca semântica.
-- **A equipe saiu da barra de título.** Abra em **Ferramentas › Equipe do projeto…**, na paleta de comandos ou com
+- **A equipe saiu da barra de título.** Abra em **Ferramentas › Abrir a equipe do projeto…**, na paleta de comandos ou com
   `Ctrl+Shift+T`.
 - **Ações de Git iniciadas pelo OXESpace pulam os hooks do repositório.** Push, troca de branch e criação de worktree
   rodam sem eles; use o terminal quando um fluxo depende de hooks. Os agentes não chegam à rede pelo Git: quando uma
