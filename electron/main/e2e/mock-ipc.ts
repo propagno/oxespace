@@ -32,6 +32,7 @@ import { registerRemoteMock } from './remote-mock'
 import { registerActivityMock } from './activity-mock'
 import { registerThreadSectionsMock } from './thread-sections-mock'
 import { registerOpenExternalMock } from './open-external-mock'
+import { registerAgentHooksMock } from './agent-hooks-mock'
 import { registerOpenInMock } from './open-in-mock'
 import { installMcpFixture } from './mcp-fixture'
 import { registerApprovalsMock } from './approvals-mock'
@@ -65,6 +66,7 @@ export function registerE2eMockIpcHandlers(): void {
   registerActivityMock()
   registerThreadSectionsMock(id => workspaces.some(workspace => workspace.id === id))
   registerOpenExternalMock()
+  registerAgentHooksMock()
   // Never in a packaged build: the gate is inside, on app.isPackaged (see mcp-fixture.ts).
   installMcpFixture(ipcMain, process.env, app.isPackaged)
   // The preview spec drives the real PreviewAutomation, which asks the real approval center: the window must answer
