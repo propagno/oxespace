@@ -141,6 +141,7 @@ export class RemoteGateway implements ConnectionHost {
     this.store = new RemoteStore(deps.db, this.now)
     this.pairing = new PairingDesk(this.now, deps.promptTimeoutMs ?? PAIRING_PROMPT_TIMEOUT_MS, prompt => this.deps.broadcast({ pairing: prompt }))
     this.store.pruneAudit()
+    this.expireUnusedAtLaunch()
     const desktop = deps.desktop
     this.topics = {
       ...(desktop ? createTopics({
@@ -533,12 +534,27 @@ export class RemoteGateway implements ConnectionHost {
 
   // ---- B9.2: a pairing nobody used --------------------------------------------------------------------------
 
-  private watchUnused(deviceId: string): void {
+  private watchUnused(deviceId: string, pairedAt = this.now()): void {
     this.forgetUnused(deviceId)
-    const ttl = this.deps.unusedPairingTtlMs ?? UNUSED_PAIRING_TTL_MS
-    const timer = setTimeout(() => this.expireUnused(deviceId), ttl)
+    const expiresAt = pairedAt + (this.deps.unusedPairingTtlMs ?? UNUSED_PAIRING_TTL_MS)
+    const timer = setTimeout(() => this.expireUnused(deviceId), Math.max(0, expiresAt - this.now()))
     timer.unref?.()
-    this.unused.set(deviceId, { expiresAt: this.now() + ttl, timer })
+    this.unused.set(deviceId, { expiresAt, timer })
+  }
+
+  /**
+   * At launch: a pairing the last run left unused. A crash or a kill skips `stop()`, and a phone that never signed in
+   * could then sign in later by refresh (its device key), past the two minutes (HML on #458). Nothing new is stored:
+   * every sign-in writes `last_seen_at` (`authenticated` → `seen`), and pairing sets it to `paired_at`, so a device whose
+   * last sight is not after its pairing never signed in. Past its time it is removed now; within it, it gets what is left.
+   */
+  private expireUnusedAtLaunch(): void {
+    for (const device of this.store.devices()) {
+      // No last sight recorded at all says nothing either way: kept, as before.
+      if (device.lastSeenAt === null || device.lastSeenAt > device.pairedAt) continue
+      this.watchUnused(device.deviceId, device.pairedAt)
+      if (this.unused.get(device.deviceId)!.expiresAt <= this.now()) this.expireUnused(device.deviceId, false)
+    }
   }
 
   private forgetUnused(deviceId: string): void {
@@ -639,8 +655,13 @@ export class RemoteGateway implements ConnectionHost {
   }
 
   authenticated(connection: RemoteConnection): void {
-    this.lastSeenWrite.delete(connection.deviceId!)
-    this.seen(connection.deviceId!)
+    const deviceId = connection.deviceId!
+    this.lastSeenWrite.delete(deviceId)
+    this.seen(deviceId)
+    // B9.2: a sign-in always leaves the last sight after the pairing, even in the same millisecond or with the clock set
+    // back, so a launch after a crash never takes a phone in use for an unused pairing (`expireUnusedAtLaunch`).
+    const device = this.store.device(deviceId)
+    if (device && device.lastSeenAt !== null && device.lastSeenAt <= device.pairedAt) this.store.touch(deviceId, device.pairedAt + 1)
     this.deps.broadcast({ devices: this.devices() })
   }
 
