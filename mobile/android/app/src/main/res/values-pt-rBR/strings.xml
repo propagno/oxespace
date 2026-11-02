@@ -27,13 +27,16 @@
     </plurals>
     <string name="agents_empty">Nenhum agente rodando em %1$s</string>
     <string name="agents_empty_body">Os agentes que você iniciar no computador aparecem aqui.</string>
-    <string name="agents_empty_filter">Nada aqui agora.</string>
+    <string name="agents_empty_filter">Nada em %1$s agora.</string>
     <string name="agents_filter_all">Todos</string>
     <string name="agents_filter_conversations">Conversas</string>
     <string name="agents_filter_needs_you">Precisam de você</string>
     <string name="agents_filter_tasks">Tarefas</string>
     <string name="agents_filter_terminals">Terminais</string>
     <string name="agents_loading">Carregando agentes…</string>
+    <string name="agents_offline">Sem conexão com %1$s · atualizado %2$s</string>
+    <string name="agents_offline_actions">As ações ficam pausadas até reconectar.</string>
+    <string name="agents_offline_now">Sem conexão com %1$s</string>
     <string name="agents_partial">Não foi possível ler alguns agentes agora. O resto está atualizado.</string>
     <string name="agents_show_all">Mostrar todos</string>
     <string name="agents_spoken_ago">%1$s há %2$s</string>

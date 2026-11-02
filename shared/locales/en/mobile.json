@@ -347,7 +347,7 @@
     "answerOnComputer": "Answer on the computer",
     "partial": "Some agents couldn't be read right now. The rest is up to date.",
     "empty": "No agents running on {{desktop}}",
-    "emptyFilter": "Nothing here right now.",
+    "emptyFilter": "Nothing in {{filter}} right now.",
     "loading": "Loading agents…",
     "emptyBody": "Agents you start on your computer show up here.",
     "showAll": "Show all",
@@ -373,6 +373,9 @@
       "idle": "Idle",
       "stopped": "Stopped",
       "unknown": "Not confirmed"
-    }
+    },
+    "offline": "Not connected to {{desktop}} · updated {{age}}",
+    "offlineActions": "Actions are paused until it reconnects.",
+    "offlineNow": "Not connected to {{desktop}}"
   }
 }

@@ -360,7 +360,7 @@
     "answerOnComputer": "Responda no computador",
     "partial": "Não foi possível ler alguns agentes agora. O resto está atualizado.",
     "empty": "Nenhum agente rodando em {{desktop}}",
-    "emptyFilter": "Nada aqui agora.",
+    "emptyFilter": "Nada em {{filter}} agora.",
     "loading": "Carregando agentes…",
     "emptyBody": "Os agentes que você iniciar no computador aparecem aqui.",
     "showAll": "Mostrar todos",
@@ -389,6 +389,9 @@
       "idle": "Ocioso",
       "stopped": "Parado",
       "unknown": "Não confirmado"
-    }
+    },
+    "offline": "Sem conexão com {{desktop}} · atualizado {{age}}",
+    "offlineActions": "As ações ficam pausadas até reconectar.",
+    "offlineNow": "Sem conexão com {{desktop}}"
   }
 }

@@ -50,7 +50,7 @@ class AgentsSnapshotTest(private val night: Boolean, private val locale: String)
 
     @Composable
     private fun Screen(state: AgentsState, filter: AgentFilter = AgentFilter.ALL, connected: Boolean = true) =
-        AgentsScreen("Studio", state, filter, connected, {}, { tapTarget(it) }, {}, {}, { _, _ -> })
+        AgentsScreen("Studio", state, filter, connected, {}, { tapTarget(it) }, {}, {}, { _, _ -> }, updatedAt = NOW - 4 * 60_000L, skeletonDelayMs = 0L)
 
     @Test
     fun agents() {

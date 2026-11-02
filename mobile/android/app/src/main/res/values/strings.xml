@@ -24,13 +24,16 @@
     </plurals>
     <string name="agents_empty">No agents running on %1$s</string>
     <string name="agents_empty_body">Agents you start on your computer show up here.</string>
-    <string name="agents_empty_filter">Nothing here right now.</string>
+    <string name="agents_empty_filter">Nothing in %1$s right now.</string>
     <string name="agents_filter_all">All</string>
     <string name="agents_filter_conversations">Conversations</string>
     <string name="agents_filter_needs_you">Need you</string>
     <string name="agents_filter_tasks">Tasks</string>
     <string name="agents_filter_terminals">Terminals</string>
     <string name="agents_loading">Loading agents…</string>
+    <string name="agents_offline">Not connected to %1$s · updated %2$s</string>
+    <string name="agents_offline_actions">Actions are paused until it reconnects.</string>
+    <string name="agents_offline_now">Not connected to %1$s</string>
     <string name="agents_partial">Some agents couldn\'t be read right now. The rest is up to date.</string>
     <string name="agents_show_all">Show all</string>
     <string name="agents_spoken_ago">%1$s %2$s ago</string>

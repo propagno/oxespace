@@ -29,6 +29,8 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -67,12 +69,13 @@ import com.oxespace.mobile.ui.live.riskWord
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeRadius
 import com.oxespace.mobile.ui.theme.OxeSpace
+import kotlinx.coroutines.delay
 
 /**
  * The phone's Agents tab (spec §8, S7.4) on CCR #513: every agent on the paired desktop in the shared order, filtered by
  * chips, one row each. v1 answers only a conversation's request here (Respond); Stop lives in the conversation screen.
- * A conversation or pane opens its screen; a work run or delegation opens a read-only sheet. Offline, the list stays
- * readable but dimmed and does nothing.
+ * A conversation or pane opens its screen; a work run or delegation opens a read-only sheet. Offline, a banner says
+ * which computer is out of reach and how old the list is, and the list stays readable but dimmed and does nothing.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,6 +90,10 @@ fun AgentsScreen(
     onOpenPane: (String) -> Unit,
     onOpenRequest: (threadId: String, requestId: String) -> Unit,
     modifier: Modifier = Modifier,
+    /** When the list was last brought up to date; shown in the offline banner. */
+    updatedAt: Long? = null,
+    /** Skeleton rows appear only if loading lasts longer than this (DESIGN #521), so a fast load doesn't flash. */
+    skeletonDelayMs: Long = SKELETON_DELAY_MS,
 ) {
     var sheet by rememberSaveable { mutableStateOf<String?>(null) }
     val rows = visibleRows(state.rows, filter)
@@ -129,11 +136,12 @@ fun AgentsScreen(
                 )
             }
         }
+        if (!connected && state.loaded) OfflineNotice(desktopName, updatedAt)
         if (connected && state.unavailable.isNotEmpty()) WarningNotice(stringResource(R.string.agents_partial))
         when {
-            !state.loaded -> EmptyState(stringResource(R.string.agents_loading), null)
+            !state.loaded -> Skeleton(skeletonDelayMs)
             state.rows.isEmpty() -> EmptyState(stringResource(R.string.agents_empty, desktopName), stringResource(R.string.agents_empty_body))
-            rows.isEmpty() -> EmptyState(stringResource(R.string.agents_empty_filter), null) {
+            rows.isEmpty() -> EmptyState(stringResource(R.string.agents_empty_filter, stringResource(filter.label)), null) {
                 TextButton(onClick = { onFilter(AgentFilter.ALL) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.agents_show_all)) }
             }
             else -> LazyColumn(Modifier.fillMaxSize().alpha(if (connected) 1f else 0.6f)) {
@@ -152,7 +160,8 @@ private fun AgentRowItem(row: AgentRow, enabled: Boolean, onOpen: () -> Unit) {
     val request = row.request
     val title = displaySafe(row.title, TITLE_MAX)
     val stateWord = stringResource(state.label)
-    val provider = providerName(displaySafe(row.provider, PROVIDER_MAX))
+    // A pane's title already names its agent ("Pane 3 · Codex"): the provider isn't repeated (DESIGN #521).
+    val provider = if (kindOf(row) == AgentKind.PANE) null else providerName(displaySafe(row.provider, PROVIDER_MAX))
     val requestTitle = request?.let { displaySafe(it.title, TITLE_MAX) }
     val risk = request?.risk?.let { riskWord(riskLevel(it)) }
     // Spec §5.8: "Fix the login redirect, needs you for 3 minutes, Claude, Run npm test, High risk".
@@ -189,7 +198,7 @@ private fun AgentRowItem(row: AgentRow, enabled: Boolean, onOpen: () -> Unit) {
                 val color = stateColor(state)
                 val meta = buildAnnotatedString {
                     withStyle(SpanStyle(color = color)) { append(stateWord) }
-                    listOf(ageLabel(row.since), provider).forEach { append(" · "); append(it) }
+                    listOfNotNull(ageLabel(row.since), provider).forEach { append(" · "); append(it) }
                 }
                 Text(meta, style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (requestTitle != null) {
@@ -242,6 +251,49 @@ private fun RowSheet(row: AgentRow, onDismiss: () -> Unit) {
             )
             Text(stringResource(R.string.agents_details_on_computer), style = MaterialTheme.typography.bodyMedium, color = Oxe.colors.textMuted)
             TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End).heightIn(min = 48.dp)) { Text(stringResource(R.string.agents_close)) }
+        }
+    }
+}
+
+/** Offline: which computer is out of reach, how old the list is, and why nothing can be done until it is back. */
+@Composable
+private fun OfflineNotice(desktopName: String, updatedAt: Long?) {
+    val head = updatedAt?.let { stringResource(R.string.agents_offline, desktopName, ageLabel(it)) }
+        ?: stringResource(R.string.agents_offline_now, desktopName)
+    Text(
+        head + "\n" + stringResource(R.string.agents_offline_actions),
+        style = MaterialTheme.typography.bodyMedium,
+        color = Oxe.colors.textSecondary,
+        modifier = Modifier.fillMaxWidth()
+            .padding(horizontal = OxeSpace.space4, vertical = OxeSpace.space1)
+            .background(Oxe.colors.surfaceSunken, RoundedCornerShape(OxeRadius.md))
+            .border(1.dp, Oxe.colors.borderSubtle, RoundedCornerShape(OxeRadius.md))
+            .padding(OxeSpace.space3)
+            .semantics { liveRegion = LiveRegionMode.Polite },
+    )
+}
+
+/** Loading: nothing for a moment, then three placeholder rows; TalkBack hears "Loading agents…" once. */
+@Composable
+private fun Skeleton(delayMs: Long) {
+    var shown by remember { mutableStateOf(delayMs <= 0L) }
+    LaunchedEffect(delayMs) { if (delayMs > 0L) { delay(delayMs); shown = true } }
+    val loading = stringResource(R.string.agents_loading)
+    Column(Modifier.fillMaxSize().semantics { contentDescription = loading; liveRegion = LiveRegionMode.Polite }) {
+        if (!shown) return@Column
+        repeat(3) {
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(horizontal = OxeSpace.space4, vertical = OxeSpace.space3),
+                horizontalArrangement = Arrangement.spacedBy(OxeSpace.space3),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(24.dp).background(Oxe.colors.borderSubtle, RoundedCornerShape(OxeRadius.sm)))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
+                    Box(Modifier.fillMaxWidth(0.6f).heightIn(min = 14.dp).background(Oxe.colors.borderSubtle, RoundedCornerShape(OxeRadius.sm)))
+                    Box(Modifier.fillMaxWidth(0.4f).heightIn(min = 10.dp).background(Oxe.colors.borderSubtle, RoundedCornerShape(OxeRadius.sm)))
+                }
+            }
+            HorizontalDivider(color = Oxe.colors.borderSubtle)
         }
     }
 }
@@ -313,3 +365,4 @@ private val AgentFilter.label: Int get() = when (this) {
 
 private const val TITLE_MAX = 200
 private const val PROVIDER_MAX = 40
+private const val SKELETON_DELAY_MS = 300L
