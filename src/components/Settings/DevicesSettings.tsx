@@ -149,7 +149,7 @@ function PhoneTyping({ panes }: { panes: string[] }): ReactElement {
   return <Panel title={t('devices.typing.title')} label={t('devices.typing.title')}>
     <div className={styles.stack}>
       <p className={styles.meta} data-testid="devices-typing">{panes.length ? t('devices.typing.some', { count: panes.length }) : t('devices.typing.none')}</p>
-      {panes.length ? <div className={styles.actions}><Button loading={busy} disabled={busy} onClick={() => void stopAll()}>{t('devices.typing.stopAll')}</Button></div> : null}
+      {panes.length ? <div className={styles.actions}><Button loading={busy} onClick={() => void stopAll()}>{t('devices.typing.stopAll')}</Button></div> : null}
       {error ? <ErrorState compact title={error} /> : null}
     </div>
   </Panel>

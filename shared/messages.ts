@@ -140,6 +140,16 @@ export interface MessageParams {
   // Main-process sentences the window used to receive ready-made in English (C3 sweep).
   'linear.worktree.exists': { issue: string; path: string }
   'worktree.cleanup.notRemovable': Record<string, never>
+  /** A worktree was removed (HML on #477: the main process no longer words this itself). */
+  'worktree.removed': { path: string }
+  /** The oxe.yaml archive hook was not approved, so removal skipped it. */
+  'worktree.archive.notApproved': Record<string, never>
+  /** The oxe.yaml archive hook failed, and the person chose to remove anyway. */
+  'worktree.archive.failedDismissed': Record<string, never>
+  /** The worktree's branch was deleted with it. */
+  'worktree.branch.deleted': { branch: string }
+  /** The worktree's branch was kept: it has commits not merged anywhere. */
+  'worktree.branch.kept': { branch: string }
   'worktree.cleanup.blocked': { reasons: string[] }
   'worktree.cleanup.needsConfirmation': { reasons: string[] }
   /** A worktree was created, checking out `branch` (FINDING L: the main process no longer words this itself). */
@@ -604,6 +614,11 @@ export const MESSAGE_CODES = [
   'bundle.file.configuration',
   'linear.worktree.exists',
   'worktree.cleanup.notRemovable',
+  'worktree.removed',
+  'worktree.archive.notApproved',
+  'worktree.archive.failedDismissed',
+  'worktree.branch.deleted',
+  'worktree.branch.kept',
   'worktree.cleanup.blocked',
   'worktree.cleanup.needsConfirmation',
   'worktree.created',

@@ -1,8 +1,9 @@
 import { Activity, Palette } from 'lucide-react'
 import { useContributedCommands } from './utils/commandRegistry'
-import './commands/settings.commands'
-import { useCodeCommands } from './commands/code.commands'
-import { sayAddProjectFirst, useThreadCommands } from './commands/thread.commands'
+import { sayAddProjectFirst } from './commands/thread.events'
+import type { CodeCommandContext } from './commands/code.commands'
+import type { ThreadCommandContext } from './commands/thread.commands'
+import { useDeferredModule } from './app/useDeferredModule'
 import { DataHosts, DataSidebar, isDataView, ThreadGrid, ThreadSidebar, ThreadSidebarBoundary, useModeActions, ViewSkeleton } from './components/Navigation/ModeViews'
 import { useViewSwitch } from './app/viewSwitch'
 import { setShownView } from './app/shownView'
@@ -28,6 +29,8 @@ import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { ThemeProvider } from './components/Theme/ThemeProvider'
 import { humanizeError } from './utils/humanizeError'
 // Modals/overlays are user-triggered and infrequent — lazy-load them so they're not in the first-paint bundle.
+/** The palette's and menu bar's command lists, loaded after the first frame (T52). */
+const loadCommandContributors = () => import('./commands/CommandContributors')
 const AgentConfigModal = lazy(() => import('./components/Agents/AgentConfigModal').then((m) => ({ default: m.AgentConfigModal })))
 const DesignSystemPage = lazy(() => import('./components/DesignSystem/DesignSystemPage').then((m) => ({ default: m.DesignSystemPage })))
 const DelegatedWorkDialog = lazy(() => import('./components/Delegation/DelegatedWorkDialog').then(m => ({ default: m.DelegatedWorkDialog })))
@@ -36,7 +39,8 @@ const ProviderAccountsPanel = lazy(() => import('./components/Threads/ProviderAc
 const NewThreadDialog = lazy(() => import('./components/Threads/ThreadDialogs').then(m => ({ default: m.NewThreadDialog })))
 const AddThreadProjectDialog = lazy(() => import('./components/Threads/ThreadDialogs').then(m => ({ default: m.AddThreadProjectDialog })))
 const SlashOverlay = lazy(() => import('./components/SlashOverlay/SlashOverlay').then(m => ({ default: m.SlashOverlay })))
-const CommandMenu = lazy(() => import('./components/CommandMenu/CommandMenu').then(m => ({ default: m.CommandMenu })))
+// The palette waits for the command lists (T52), so its first opening never shows an empty or partial list.
+const CommandMenu = lazy(() => Promise.all([import('./components/CommandMenu/CommandMenu'), loadCommandContributors()]).then(([m]) => ({ default: m.CommandMenu })))
 const UsageModal = lazy(() => import('./components/Usage/UsageModal').then(m => ({ default: m.UsageModal })))
 const McpPanel = lazy(() => import('./components/MCP/McpPanel').then((m) => ({ default: m.McpPanel })))
 const LinearPanel = lazy(() => import('./components/Linear/LinearPanel').then((m) => ({ default: m.LinearPanel })))
@@ -68,7 +72,6 @@ import { selectWorkspacesToEvict } from './components/Terminal/webglBudget'
 import { useSettingsStore, VISITED_WORKSPACES_CAP_DEFAULT } from './store/settings.store'
 import { useIntegrationStore } from './store/integration.store'
 import { useWorktreeStore } from './store/worktree.store'
-import { showVoiceRemovedNotice } from './app/voiceRemovedNotice'
 import { useActivitySources } from './hooks/useActivitySources'
 import { useAgentHookStatus } from './hooks/useAgentHookStatus'
 import { THREAD_NOTIFICATION_PANE_PREFIX } from './hooks/useThreadAttention'
@@ -79,7 +82,8 @@ import { QUOTA_NOTIFICATION_PANE_PREFIX } from './hooks/useQuotaAlerts'
 import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZE_MAX } from './store/terminal-prefs.store'
 
 /** macOS keeps its native application menu; Windows/Linux draw it in the title bar. */
-const AppMenuBar = lazy(() => import('./components/Navigation/AppMenuBar').then(module => ({ default: module.AppMenuBar })))
+// Like the palette, the menu bar waits for the command lists (T52) so it never opens short.
+const AppMenuBar = lazy(() => Promise.all([import('./components/Navigation/AppMenuBar'), loadCommandContributors()]).then(([module]) => ({ default: module.AppMenuBar })))
 const IS_MAC = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform)
 
 export function App(): ReactElement {
@@ -447,7 +451,8 @@ export function App(): ReactElement {
   }, [])
 
   // Former OXEVoice users are told once that it was removed (F34).
-  useEffect(() => { showVoiceRemovedNotice() }, [])
+  // After the first frame: it only ever shows a toast, once (T52 keeps it and its link helper out of the entry).
+  useEffect(() => { void import('./app/voiceRemovedNotice').then(m => m.showVoiceRemovedNotice(), () => {}) }, [])
 
   // Native desktop notifications when a background agent finishes / needs you.
   useEffect(() => {
@@ -671,10 +676,12 @@ export function App(): ReactElement {
     editor: toggleEditor, review: toggleReviewPanel, team: team.open, slash: () => { if (activePane) openSlashOverlay(activePane.id) }
   }
 
-  // Palette and menu commands live in src/commands/*.commands.ts.
-  useCodeCommands({ applicationView, activeWorkspace, activePane, hasTeamTarget: team.target !== null, teamUnavailable: team.unavailable, toolHandlers, openNewWorkspace: openNewWorkspaceFromUI, showCode: () => selectMode('code'),
+  // Palette and menu commands live in src/commands/*.commands.ts. They load after the first frame (T52): only the lazy
+  // palette and menu bar read them, and shortcuts never go through them.
+  const commandContributors = useDeferredModule(loadCommandContributors)
+  const codeCommandContext: CodeCommandContext = { applicationView, activeWorkspace, activePane, hasTeamTarget: team.target !== null, teamUnavailable: team.unavailable, toolHandlers, openNewWorkspace: openNewWorkspaceFromUI, showCode: () => selectMode('code'),
     openTools: { editor: activeWorkspace?.editorVisible, github: activeWorkspace?.githubPanelVisible, review: activeWorkspace?.reviewPanelVisible, background: activeWorkspace?.backgroundPanelVisible, worktrees: activeWorkspace?.worktreePanelVisible, scripts: isScriptsPanelOpen, search: isSearchPanelOpen, 'web-preview': activeWorkspace ? webPreviewOpenByWorkspace[activeWorkspace.id] : false },
-    splitActivePane, toggleActivePaneMaximize, openDesignSystem: () => setDesignSystemOpen(true) })
+    splitActivePane, toggleActivePaneMaximize, openDesignSystem: () => setDesignSystemOpen(true) }
   const commandActions = useContributedCommands()
   useEffect(() => { setKeyboardView(applicationView); setShownView(applicationView) }, [applicationView])
   const terminalPane = activePane?.type === 'terminal' ? activePane : null
@@ -729,8 +736,8 @@ export function App(): ReactElement {
 
   // Accounts are checked inside a project; without one there is nothing to show yet.
   const openThreadAccounts = () => { if (threadProject ?? threadProjects[0]) setAccountsOpen(true); else sayAddProjectFirst() }
-  useThreadCommands({ snapshot: threadSnapshot, projects: threadProjects, showThread: () => selectMode('thread'), newThread, newThreadIn: setNewThreadWorkspaceId,
-    addProject: () => setThreadProjectOpen(true), openAccounts: openThreadAccounts })
+  const threadCommandContext: ThreadCommandContext = { snapshot: threadSnapshot, projects: threadProjects, showThread: () => selectMode('thread'), newThread, newThreadIn: setNewThreadWorkspaceId,
+    addProject: () => setThreadProjectOpen(true), openAccounts: openThreadAccounts }
   const openDelegation = async (task: DelegationTask): Promise<boolean> => {
     const showDelegationDetails = () => {
       setDelegationTarget({ workspaceId: task.originWorkspaceId ?? task.workspaceId, taskId: task.id })
@@ -765,9 +772,10 @@ export function App(): ReactElement {
     <ThemeProvider themeId={applicationView !== 'code' ? undefined : activeWorkspace?.themeId} density={applicationView !== 'code' ? undefined : activeWorkspace?.uiDensity}>
       <TooltipProvider>
       <TitleTooltips />
+      {commandContributors && <><commandContributors.CodeCommandContributor {...codeCommandContext} /><commandContributors.ThreadCommandContributor {...threadCommandContext} /></>}
       <main className={`app-shell${applicationView === 'thread' ? ' thread-shell' : isDataView(applicationView) ? ' oq-shell' : isSidebarCollapsed ? ' sidebar-collapsed' : ''}`} style={applicationView !== 'code' ? { '--thread-sidebar-width': `${isSidebarCollapsed ? 48 : codeSidebarWidth}px` } as CSSProperties : { '--sidebar-w': `${codeSidebarWidth}px` } as CSSProperties}>
       <header className={cx('workbench-titlebar', titleBar.bar)} aria-label={t('app.workbench')}>
-        <div className={titleBar.brand}><OxeLogo size={16} /><strong className={titleBar.word}>oxespace</strong>{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), openCommandMenu, version: appVersion }} /></Suspense>}</div>
+        <div className={titleBar.brand}><OxeLogo size={16} /><strong className={titleBar.word}>oxespace</strong>{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), openCommandMenu }} /></Suspense>}</div>
         <ModeSwitch mode={applicationView} onSelect={selectMode} />
         <div className={titleBar.trailing}><ActivityCenter onSelectView={selectMode} /><UpdateChips /></div>
       </header>
@@ -948,7 +956,9 @@ export function App(): ReactElement {
           onClose={closeSkillsBrowser}
         />
       ) : null}
-      {isSettingsOpen || isWorkspaceSettingsOpen ? (
+      {/* Workspace settings asked for from another view (the palette shows Code first) mount once Code is shown, so they
+          open on "Current workspace": SettingsCenter reads its scope only when it mounts. */}
+      {isSettingsOpen || (isWorkspaceSettingsOpen && applicationView === 'code') ? (
         <Suspense fallback={null}><SettingsCenter
           initialPage={useUIStore.getState().settingsInitialPage}
           initialWorkspaceId={isWorkspaceSettingsOpen && applicationView === 'code' ? activeWorkspace?.id : undefined}
