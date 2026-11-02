@@ -65,6 +65,8 @@ export class ExecutionRegistry {
     }
     return execution
   }
+  /** Whether the execution is still running in this app process; an app restart or a new session of its owner ends it. */
+  isLive(id: string | undefined): boolean { return id !== undefined && this.executions.has(id) }
   /** B7.4 · How many live executions run in this folder or below it (the policy change request's note). */
   liveWithin(root: string): number {
     const folder = resolve(root)

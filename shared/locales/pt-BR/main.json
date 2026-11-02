@@ -38,6 +38,11 @@
     }
   },
   "messages": {
+    "delegation": {
+      "requester": {
+        "live": "A conversa que delegou esta tarefa ainda está rodando; só ela pode controlar a tarefa."
+      }
+    },
     "mcp": {
       "quarantine": {
         "changed": "A descrição ou as entradas de {{tools}} mudaram depois que você confiou no servidor.",
