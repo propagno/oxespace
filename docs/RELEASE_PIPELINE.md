@@ -5,7 +5,11 @@ OXESpace uses a **single GitHub Actions workflow** — **CI and Release**
 typecheck, tests, build and E2E have succeeded on the same commit.
 
 The workflow uses the repository's built-in GitHub Actions token and needs no
-release secrets or protected Environment configuration.
+release secrets. The **release** job runs in the `release` environment, whose required
+reviewer is the release owner: everything is built and verified first, then the
+run waits for **Review deployments → Approve** on its page before it tags and
+publishes. The environment must exist with that reviewer before this job is merged
+(a missing environment would be created without protection).
 
 ## Jobs
 
