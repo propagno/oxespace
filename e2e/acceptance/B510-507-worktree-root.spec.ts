@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
 import { launchReal, openRepo, quitReal, realProfile } from './real-app'
 
@@ -27,6 +27,8 @@ test('#510/#507: only the repository\'s own worktrees are roots; forged, copied 
   const forged = join(root, 'forged'); mkdirSync(forged); writeFileSync(join(forged, '.git'), `gitdir: ${join(repo, '.git').replace(/\\/g, '/')}\n`); writeFileSync(join(forged, 'secret.txt'), 'forged secret\n')
   const copied = join(root, 'copied'); mkdirSync(copied); copyFileSync(join(wt, '.git'), join(copied, '.git')); writeFileSync(join(copied, 'secret.txt'), 'copied secret\n')
   const unc = join(root, 'unc'); mkdirSync(unc); writeFileSync(join(unc, '.git'), 'gitdir: //hml-unc.invalid/share/repo/.git\n'); writeFileSync(join(unc, 'secret.txt'), 'unc secret\n')
+  // #519: a .git that is a link (a junction on Windows, a symlink elsewhere) to the repository's own .git inherits nothing.
+  const linked = join(root, 'linked'); mkdirSync(linked); symlinkSync(join(repo, '.git'), join(linked, '.git'), win ? 'junction' : 'dir'); writeFileSync(join(linked, 'secret.txt'), 'linked secret\n')
   // Real OpenInService; on Linux a stand-in `code` records a launch, on Windows a stand-in is listed and nothing is launched.
   const args = join(root, 'code-args.txt')
   const env: Record<string, string> = { ...base.env, OXESPACE_LOCALE: 'en-US', OXESPACE_E2E_MOCK_NATIVE: '0' }
@@ -48,7 +50,7 @@ test('#510/#507: only the repository\'s own worktrees are roots; forged, copied 
     const read = (rootPath: string, relativePath: string) => run(page, `window.oxe.fs.readFile(${JSON.stringify({ workspaceId: ws, rootPath, relativePath })})`)
     // #510, file channels (workspace scope).
     out.readWorktree = await read(wt, 'a.txt')
-    for (const [name, folder] of [['forged', forged], ['copied', copied], ['unc', unc]] as const) {
+    for (const [name, folder] of [['forged', forged], ['copied', copied], ['unc', unc], ['linked', linked]] as const) {
       const t0 = Date.now()
       out[`read-${name}`] = await read(folder, 'secret.txt')
       out[`read-${name}`].detail += ` (${Date.now() - t0} ms)`
@@ -67,9 +69,10 @@ test('#510/#507: only the repository\'s own worktrees are roots; forged, copied 
       await expect.poll(() => existsSync(args) ? readFileSync(args, 'utf8') : '', { timeout: 5_000 }).toContain('wt-real')
     }
     const launchedBefore = existsSync(args) ? readFileSync(args, 'utf8') : ''
-    for (const [name, folder] of [['forged', forged], ['copied', copied], ['unc', unc]] as const) {
+    for (const [name, folder] of [['forged', forged], ['copied', copied], ['unc', unc], ['linked', linked]] as const) {
       out[`open-${name}`] = await openIn(folder, 'secret.txt')
       expect.soft(out[`open-${name}`].ok, `${name}: Open in… is refused`).toBe(false)
+      expect.soft(out[`open-${name}`].detail, `${name}: in #522's words`).toContain('Only files and folders inside the project can be opened from here.')
     }
     expect.soft(existsSync(args) ? readFileSync(args, 'utf8') : '', 'nothing launched for the forged roots').toBe(launchedBefore)
   } finally {
