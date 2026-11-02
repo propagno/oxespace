@@ -23,7 +23,8 @@ function record(id: string, sessionId = 'native-1', createdAt = Date.now()): Mem
 }
 
 describe('durable memory outbox', () => {
-  test('preserves admission order across restart when timestamps tie or move backwards', async () => {
+  // FL-08: the first test of the file pays the Windows runner's cold disk (13 durable writes with rename); 5 s is not enough there.
+  test('preserves admission order across restart when timestamps tie or move backwards', { timeout: 20_000 }, async () => {
     const outbox = await queue()
     const time = Date.now()
     const events = Array.from({ length: 12 }, (_, index) => record(`event-${index}`, 'same-session', time - Math.floor(index / 4)))
