@@ -222,6 +222,15 @@
         "notOverwritten": "Já estavam no worktree novo e ficaram como estão: {{paths}}.",
         "notFollowed": "Não copiados, por serem links ou levarem para fora do repositório ou do worktree: {{paths}}.",
         "failed": "Não foi possível copiar: {{paths}}."
+      },
+      "removed": "Worktree removido de {{path}}.",
+      "archive": {
+        "notApproved": "O hook de archive do oxe.yaml não foi aprovado e foi pulado.",
+        "failedDismissed": "O hook de archive do oxe.yaml falhou, e o worktree foi removido mesmo assim."
+      },
+      "branch": {
+        "deleted": "Branch {{branch}} apagada.",
+        "kept": "Branch {{branch}} mantida: tem commits que não foram mesclados."
       }
     },
     "github": {

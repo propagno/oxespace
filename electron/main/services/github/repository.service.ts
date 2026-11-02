@@ -3,6 +3,7 @@
  * committing, pushing, branches and worktrees. Everything here is git; only
  * getWorkspaceStatus reaches gh, and only for the repository summary.
  */
+import { realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import type {
   GitHubBranch,
@@ -41,6 +42,11 @@ export interface WorktreeLifecycleDeps {
   trust: RepoHookTrust
   /** Stops terminals whose cwd is inside `dir`; returns the pane ids stopped. */
   stopTerminalsWithin?: (dir: string) => string[]
+}
+
+/** A path by its real, long name (links and 8.3 short names resolved), or as given when it cannot be resolved. */
+function longPath(path: string): string {
+  try { return realpathSync.native(path) } catch { return path }
 }
 
 export class GitHubRepositoryService {
@@ -327,9 +333,12 @@ export class GitHubRepositoryService {
     }
     await this.network(args, input.rootPath, person)
 
+    // The folder by its long name: on Windows a temp path can come in 8.3 form (RUNNER~1), which git never reports, so
+    // a removal by the path shown here would not find it (HML on #477).
+    const shownPath = longPath(absolutePath)
     const created = baseRef
-      ? mainMessage('worktree.createdFrom', { path: absolutePath, branch: input.branch, base: baseRef })
-      : mainMessage('worktree.created', { path: absolutePath, branch: input.branch })
+      ? mainMessage('worktree.createdFrom', { path: shownPath, branch: input.branch, base: baseRef })
+      : mainMessage('worktree.created', { path: shownPath, branch: input.branch })
     const notices = [created, ...earlier, ...(await this.prepareNewWorktree(input.rootPath, absolutePath))]
     // C3 (FINDING L): the window words `notices` in the person's language; `message` is the English text, for agents
     // (the MCP tool) and logs.

@@ -15,7 +15,7 @@
  *      but the OS keeps the folder
  *   8. optional `git branch -d`; an unmerged branch is kept, never forced
  */
-import type { Dirent } from 'node:fs'
+import { realpathSync, type Dirent } from 'node:fs'
 import { readdir, rm, rmdir, unlink } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, resolve, sep } from 'node:path'
@@ -26,6 +26,8 @@ import { findSharedLinks, removeSharedLinks } from '../repo-config/shared-dirs'
 import type { RepoHookTrust } from '../repo-config/trust'
 import type { GhExec } from './gh-exec'
 import { ok, parseWorktreePorcelain, sanitizeError } from './parsers'
+import { englishText } from '../../agent-text'
+import { mainMessage, type MainMessage } from '../../../../shared/messages'
 
 export interface WorktreeRemovalDeps {
   gh: GhExec
@@ -42,6 +44,11 @@ export class WorktreeRemovalError extends Error {
 }
 
 const norm = (p: string): string => resolve(p).replace(/[\\/]+$/, '').toLowerCase()
+/**
+ * A path compared by its real, long name: links and Windows 8.3 short names (RUNNER~1) resolved, as git reports its
+ * worktrees. A folder that is gone (prunable) is compared as written. HML on #477.
+ */
+const normReal = (p: string): string => { try { return norm(realpathSync.native(resolve(p))) } catch { return norm(p) } }
 const within = (child: string, parent: string): boolean => {
   const c = norm(child)
   const p = norm(parent)
@@ -94,9 +101,11 @@ export async function removeWorktreeSafely(
   deps: WorktreeRemovalDeps,
   input: GitHubRemoveWorktreeInput
 ): Promise<GitHubMessageResult> {
-  const notes: string[] = []
+  // C3 (HML on #477): the window words these; `message` is their English text, for agents and logs.
+  const notes: MainMessage[] = []
   const trees = await listRegistered(deps, input.rootPath)
-  const target = trees.find((t) => norm(t.path) === norm(input.path))
+  const wanted = normReal(input.path)
+  const target = trees.find((t) => norm(t.path) === norm(input.path) || normReal(t.path) === wanted)
   const primary = trees[0]?.path ?? input.rootPath
 
   // 1 — structure
@@ -124,7 +133,7 @@ export async function removeWorktreeSafely(
   const archive = config?.scripts.archive
   if (archive && !target.prunable) {
     if (!deps.trust.isTrusted(primary, 'archive', archive)) {
-      notes.push('The archive hook was not approved and was skipped.')
+      notes.push(mainMessage('worktree.archive.notApproved', {}))
     } else {
       const outcome = await runHook(archive, {
         cwd: target.path,
@@ -143,7 +152,7 @@ export async function removeWorktreeSafely(
               : 'ended without a verifiable result'
         throw new WorktreeRemovalError('archive-failed', `O hook archive ${why}. ${outcome.output.trim().slice(-400)}`.trim())
       }
-      if (outcome.status !== 'passed') notes.push('The archive hook failed and was dismissed.')
+      if (outcome.status !== 'passed') notes.push(mainMessage('worktree.archive.failedDismissed', {}))
     }
   }
 
@@ -214,11 +223,12 @@ export async function removeWorktreeSafely(
   if (input.deleteBranch && target.branch) {
     try {
       await deps.gh.runGit(['branch', '-d', '--', target.branch], input.rootPath)
-      notes.push(`Branch ${target.branch} removido.`)
+      notes.push(mainMessage('worktree.branch.deleted', { branch: target.branch }))
     } catch {
-      notes.push(`Branch ${target.branch} kept: it has unmerged commits.`)
+      notes.push(mainMessage('worktree.branch.kept', { branch: target.branch }))
     }
   }
 
-  return ok([`Worktree em ${input.path} removido.`, ...notes].join(' '))
+  const notices = [mainMessage('worktree.removed', { path: target.path }), ...notes]
+  return { ...ok(notices.map(englishText).join(' ')), notices }
 }
