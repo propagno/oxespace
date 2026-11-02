@@ -63,6 +63,11 @@ updates itself).
   conversation.
 - **One isolated worktree per conversation**, if you want: the conversation works on its own branch and the worktree
   is cleaned up when it ends.
+- **New worktrees can start with your local files.** List them under `worktree.copyFiles` in `oxe.yaml` (`.env`, for
+  example) and they are copied from the main checkout, up to 200 files or 50 MB, never overwriting. Anything refused
+  is explained when the worktree is created, and a conversation's own worktree keeps it in **Conversation details**.
+- **A conversation is archived when its pull request closes**, unless you choose **Keep** in the notice. Archived
+  conversations come back from **Archived** in the sidebar.
 - **The activity center** (the bell, `Ctrl+Shift+A`) lists what needs you, what finished and what's new, and keeps
   it across restarts.
 - **Usage per turn**: context and steps in the usage panel; a running step says when it is slower than usual.
