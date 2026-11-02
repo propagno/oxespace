@@ -1,11 +1,12 @@
 // @vitest-environment node
 import { createHash } from 'node:crypto'
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { expect, test, vi } from 'vitest'
 import { openInMemoryDatabase } from '../../electron/main/db'
 import { MemoryRuntime } from '../../electron/main/services/memory/memory-runtime'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 vi.mock('electron', () => ({ safeStorage: { isEncryptionAvailable: () => true,
   encryptString: (text: string) => Buffer.from(text), decryptString: (value: Buffer) => value.toString() } }))
@@ -43,6 +44,6 @@ test.skipIf(!archive)('installs the verified 2.6.2 archive atomically and cleans
     globalThis.fetch = original
     await runtime.stop()
     db.close()
-    await rm(directory, { recursive: true, force: true })
+    removeTempDir(directory)
   }
 }, 90_000)

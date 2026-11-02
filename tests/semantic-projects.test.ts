@@ -1,11 +1,12 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SemanticProjects } from '../electron/main/services/semantic-projects'
+import { removeTempDir } from './helpers/removeTempDir'
 
 const dirs: string[] = []
-afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }) })
+afterEach(() => { for (const dir of dirs.splice(0)) removeTempDir(dir) })
 
 function fakeIndex() {
   const enabled = new Map<string, boolean>()

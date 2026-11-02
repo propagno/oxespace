@@ -10,11 +10,12 @@
  * meant the backup taken before an upgrade was replaced by copies of itself.
  */
 import Database from 'better-sqlite3'
-import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { LATEST_DB_VERSION, openDatabase } from '../../electron/main/db'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 vi.mock('electron', () => ({ app: { getPath: () => tmpdir() } }))
 
@@ -25,7 +26,7 @@ describe('reopening a migrated database', () => {
     directory = mkdtempSync(join(tmpdir(), 'oxe-reopen-'))
     path = join(directory, 'oxespace.sqlite3')
   })
-  afterEach(() => { rmSync(directory, { recursive: true, force: true }) })
+  afterEach(() => { removeTempDir(directory) })
 
   const backups = (): string[] => (existsSync(join(directory, 'db-backups')) ? readdirSync(join(directory, 'db-backups')) : [])
   const versionAtRest = (): number => {

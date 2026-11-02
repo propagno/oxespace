@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync, ftruncateSync } from 'node:fs'
+import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, realpathSync, symlinkSync, writeFileSync, ftruncateSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -10,6 +10,7 @@ import { GitHubRepositoryService } from '../../electron/main/services/github/rep
 import { RepoHookTrust } from '../../electron/main/services/repo-config/trust'
 import { openInMemoryDatabase } from '../../electron/main/db'
 import { MESSAGE_CODES } from '../../shared/messages'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 })
 
@@ -39,7 +40,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  try { rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }) } catch { /* temp dir */ }
+  try { removeTempDir(sandbox) } catch { /* temp dir */ }
 })
 
 describe('worktree.copyFiles (B19)', () => {
@@ -225,7 +226,7 @@ describe('createWorktree with oxe.yaml (real git)', () => {
   let close: () => void
 
   beforeEach(() => {
-    rmSync(join(root, '.git'), { recursive: true, force: true })
+    removeTempDir(join(root, '.git'))
     git(root, 'init', '-q', '-b', 'main')
     git(root, 'config', 'user.email', 't@t.t')
     git(root, 'config', 'user.name', 't')

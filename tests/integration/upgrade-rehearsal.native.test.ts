@@ -23,6 +23,7 @@ import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest'
 import { LATEST_DB_VERSION, openDatabase } from '../../electron/main/db'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 vi.mock('electron', () => ({
   app: { getPath: () => tmpdir() },
@@ -87,7 +88,7 @@ describe.skipIf(!available)(`upgrading a database created by ${PREVIOUS_STABLE}`
   }
 
   beforeAll(async () => {
-    rmSync(mirror, { recursive: true, force: true })
+    removeTempDir(mirror)
     mkdirSync(mirror, { recursive: true })
     const listing = execFileSync('git', ['ls-tree', '-r', '--name-only', PREVIOUS_STABLE, 'electron/main/db'], { encoding: 'utf8' })
     for (const file of listing.split(/\r?\n/).filter(Boolean)) {
@@ -140,9 +141,9 @@ describe.skipIf(!available)(`upgrading a database created by ${PREVIOUS_STABLE}`
   }, 120_000)
 
   afterAll(() => {
-    rmSync(mirror, { recursive: true, force: true })
-    if (directory) rmSync(directory, { recursive: true, force: true })
-    for (const copy of copies) rmSync(copy, { recursive: true, force: true })
+    removeTempDir(mirror)
+    if (directory) removeTempDir(directory)
+    for (const copy of copies) removeTempDir(copy)
   })
 
   test('starts from the real previous schema', () => {

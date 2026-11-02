@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
@@ -6,6 +6,7 @@ import type { AppDatabase } from '../../electron/main/db/index'
 import { codeAgentMcpLaunch } from '../../electron/main/services/agent-launch.service'
 import { agentStatusFor } from '../../src/components/MCP/mcpAgentStatus'
 import { CODE_TOOL_GROUP, MCP_TOOL_GROUPS } from '../../electron/main/services/conversation/thread-mcp'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 function dbWith(rows: Array<{ name: string; workspace_id: string | null; config: unknown }>, rootPath?: string): AppDatabase {
   return { prepare: () => ({
@@ -26,7 +27,7 @@ const allowed = (args: string[]) => JSON.parse(bridgeOf(args)[bridgeOf(args).ind
 const enableable = (args: string[]) => { const bridge = bridgeOf(args), at = bridge.indexOf('--enableable-groups'); return at < 0 ? {} : JSON.parse(bridge[at + 1]) as Record<string, string[]> }
 
 const project = mkdtempSync(join(tmpdir(), 'oxe-launch-'))
-afterAll(() => rmSync(project, { recursive: true, force: true }))
+afterAll(() => removeTempDir(project))
 
 const db = dbWith([
   { name: 'GitHub', workspace_id: null, config: { transport: 'http', url: 'https://api.githubcopilot.com/mcp/', headers: { Authorization: 'Bearer ghp_secret' } } },

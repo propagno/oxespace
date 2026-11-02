@@ -1,17 +1,18 @@
 // @vitest-environment node
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { build } from 'esbuild'
 import { afterEach, describe, expect, it } from 'vitest'
 import { NativeHistoryWorkerClient } from '../electron/main/services/conversation/native-history-worker-client'
 import type { ConversationThread } from '../shared/types/thread'
+import { removeTempDir } from './helpers/removeTempDir'
 
 const roots: string[] = []
 afterEach(async () => {
   for (const root of roots.splice(0)) {
     if (dirname(resolve(root)) !== resolve(tmpdir()) || !root.includes('oxe-history-worker-')) throw Error('Unsafe fixture cleanup')
-    await rm(root, { recursive: true, force: true })
+    removeTempDir(root)
   }
 })
 
