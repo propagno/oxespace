@@ -256,7 +256,8 @@ describe('Per-tool rules, CCR from FRONTEND (B7.3)', () => {
     mkdirSync(join(root, '.oxespace'))
     writeFileSync(policyFile, '{ not json')
     await refuse({ rootPath: root, server: 'github', tool: 'create_issue', decision: 'deny' })
-    expect(messages).toEqual([...MCP_TOOL_RULE_REFUSAL_CODES])
+    // B7.4 adds policy.change.pending and project.file.changedMeanwhile, covered in policy-change-gate.test.ts and below.
+    expect(messages).toEqual([...MCP_TOOL_RULE_REFUSAL_CODES].filter(code => code.startsWith('mcp.toolRule.')))
     expect(messages.every(isMcpToolRuleRefusal)).toBe(true)
     // An invalid request is not a refusal the window words.
     const invalid = await setToolRule(deps, { rootPath: root, server: 'a__b', tool: 'x', decision: 'deny' }).catch((error: Error) => error.message)

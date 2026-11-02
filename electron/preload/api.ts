@@ -304,16 +304,6 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       readText: () => ipc.invoke(IPC_CHANNELS.clipboard.readText) as Promise<string>,
       writeText: (text) => ipc.invoke(IPC_CHANNELS.clipboard.writeText, text) as Promise<boolean>
     },
-    voice: {
-      transcribe: (wav, options) =>
-        ipc.invoke(IPC_CHANNELS.voice.transcribe, wav, options) as Promise<import('../../shared/types/voice').VoiceTranscribeResult>,
-      getModelStatus: (size) =>
-        ipc.invoke(IPC_CHANNELS.voice.getModelStatus, size) as Promise<import('../../shared/types/voice').VoiceModelStatus>,
-      ensureModel: (size) =>
-        ipc.invoke(IPC_CHANNELS.voice.ensureModel, size) as Promise<import('../../shared/types/voice').VoiceModelStatus>,
-      onModelProgress: (listener) =>
-        subscribe<import('../../shared/types/voice').VoiceModelProgressEvent>(ipc, IPC_CHANNELS.voice.onModelProgress, listener)
-    },
     oxeQuery: {
       call: (op, input) => ipc.invoke(IPC_CHANNELS.oxeQuery.call, { op, input }) as never,
       onEvent: listener => subscribe<import('../../shared/types/oxequery').OxeQueryEvent>(ipc, IPC_CHANNELS.oxeQuery.onEvent, listener)
@@ -570,7 +560,10 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       analysisSummary: () => ipc.invoke(IPC_CHANNELS.diagnostics.analysisSummary) as Promise<string>
     },
     policy: {
-      get: (workspaceId) => ipc.invoke(IPC_CHANNELS.policy.get, workspaceId ?? null) as Promise<import('../../shared/policy').PolicyView>
+      get: (workspaceId) => ipc.invoke(IPC_CHANNELS.policy.get, workspaceId ?? null) as Promise<import('../../shared/policy').PolicyView>,
+      acceptChange: input => ipc.invoke(IPC_CHANNELS.policy.acceptChange, input) as Promise<import('../../shared/policy').PolicyView>,
+      reviewChange: input => ipc.invoke(IPC_CHANNELS.policy.reviewChange, input) as Promise<import('../../shared/policy').PolicyView>,
+      onChanged: listener => subscribe<import('../../shared/policy').PolicyChangedEvent>(ipc, IPC_CHANNELS.policy.onChanged, listener)
     }
   }
 }

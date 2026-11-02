@@ -47,10 +47,6 @@
         "label": "Keyboard",
         "hint": "Shortcuts and key bindings"
       },
-      "voice": {
-        "label": "Voice",
-        "hint": "Microphone and local transcription"
-      },
       "notifications": {
         "label": "Notifications",
         "hint": "Alerts and sounds"
@@ -276,34 +272,6 @@
     "hint": "The model ({{model}}) runs on this machine and is kept in the app's data folder, so updates do not download it again. To import, choose a folder with config.json, tokenizer.json, tokenizer_config.json and onnx/model_quantized.onnx.",
     "usage": "Agent searches so far: {{without}} without the index, {{with}} with it (counted on this machine only).",
     "changeFailed": "Could not change the semantic index."
-  },
-  "voice": {
-    "kicker": "OXEVoice · local STT",
-    "title": "Voice",
-    "description": "Dictate with local transcription and your preferred shortcuts.",
-    "model": "Model",
-    "models": {
-      "tiny": "Tiny — fastest, least accurate (~75 MB)",
-      "base": "Base — balanced (~142 MB)",
-      "small": "Small — more accurate, slower (~466 MB)"
-    },
-    "shortcut": "Push-to-talk shortcut",
-    "pressKeys": "Press keys…",
-    "capture": "Capture",
-    "captureHint": "Press the shortcut, or Esc to cancel",
-    "engine": "Engine",
-    "available": "available",
-    "unavailable": "unavailable",
-    "modelName": "Model «{{size}}»",
-    "modelReady": "ready",
-    "downloadingPercent": "downloading… {{percent}}%",
-    "notDownloaded": "not downloaded",
-    "engineMissing": "Voice input needs the whisper.cpp engine, which this version ships for Windows only. The model download starts once the engine is available on this system.",
-    "downloading": "Downloading…",
-    "download": "Download model",
-    "readyLine": "Model ready for push-to-talk",
-    "downloadFailed": "Failed to download model.",
-    "callout": "Local recognition (whisper.cpp), <strong>Brazilian Portuguese</strong>. Hold the shortcut to speak; tap the mic for hands-free."
   },
   "terminal": {
     "title": "Terminal",

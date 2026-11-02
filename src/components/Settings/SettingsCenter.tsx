@@ -1,4 +1,4 @@
-import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, Keyboard, Mic, Palette, Settings2, ShieldCheck, Smartphone, SquareTerminal, X } from 'lucide-react'
+import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, Keyboard, Palette, Settings2, ShieldCheck, Smartphone, SquareTerminal, X } from 'lucide-react'
 import { Suspense, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
@@ -35,10 +35,18 @@ type AppPage = 'general' | 'policy' | 'devices' | 'keyboard' | SettingsSection
 export type SettingsDestination = { scope: 'application'; page: AppPage } | { scope: 'workspace'; workspaceId: string; page: typeof SETTINGS_PAGES[number]['id'] }
 const appPages = [
   { id: 'general', icon: Settings2 }, { id: 'providers', icon: Bot }, { id: 'appearance', icon: Palette },
-  { id: 'terminal', icon: SquareTerminal }, { id: 'keyboard', icon: Keyboard }, { id: 'voice', icon: Mic },
+  { id: 'terminal', icon: SquareTerminal }, { id: 'keyboard', icon: Keyboard },
   { id: 'notifications', icon: Bell }, { id: 'updates', icon: ArrowUpCircle }, { id: 'policy', icon: ShieldCheck }, { id: 'devices', icon: Smartphone },
   { id: 'diagnostics', icon: Activity }
 ] as const
+
+/**
+ * The application page a deep link or a saved destination opens. A page that no longer exists (the Voice page went with
+ * OXEVoice, F34) lands on Settings' first page instead of an empty panel.
+ */
+export function resolveAppPage(page: string): AppPage {
+  return appPages.find(p => p.id === page)?.id ?? appPages[0].id
+}
 
 export function SettingsCenter(props: SettingsModalProps & {
   workspaces: Workspace[]; initialWorkspaceId?: string; initialPage?: AppPage; shellProfiles: ShellProfile[]; allowWorkspaceScope?: boolean
@@ -47,10 +55,10 @@ export function SettingsCenter(props: SettingsModalProps & {
   const { t } = useTranslation('settings')
   const [destination, setDestination] = useState<SettingsDestination>(() => {
     if (props.allowWorkspaceScope !== false && props.initialWorkspaceId) return { scope: 'workspace', workspaceId: props.initialWorkspaceId, page: 'appearance' }
-    if (props.initialPage) return { scope: 'application', page: props.initialPage }
+    if (props.initialPage) return { scope: 'application', page: resolveAppPage(props.initialPage) }
     try {
       const saved = JSON.parse(localStorage.getItem('oxe.settings.destination') ?? 'null') as SettingsDestination
-      if (saved?.scope === 'application' && appPages.some(p => p.id === saved.page)) return saved
+      if (saved?.scope === 'application' && typeof saved.page === 'string') return { scope: 'application', page: resolveAppPage(saved.page) }
       if (props.allowWorkspaceScope !== false && saved?.scope === 'workspace' && props.workspaces.some(w => w.id === saved.workspaceId) && SETTINGS_PAGES.some(p => p.id === saved.page)) return saved
     } catch { /* Invalid preferences use safe defaults. */ }
     return { scope: 'application', page: 'appearance' }
