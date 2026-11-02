@@ -24,7 +24,7 @@ export interface RepoConfig {
      * typically gitignored ones such as `.env`. Kept as written: the copy step refuses, with a code, any pattern that
      * leaves the repository, so the person sees it instead of the entry vanishing.
      */
-    include?: string[]
+    copyFiles?: string[]
   }
   defaultTabs: RepoConfigTab[]
   /** Thread conversations in this project. */

@@ -42,11 +42,11 @@ afterEach(() => {
   try { rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }) } catch { /* temp dir */ }
 })
 
-describe('worktree.include (B19)', () => {
+describe('worktree.copyFiles (B19)', () => {
   it('oxe.yaml keeps the patterns as written, so a bad one can be refused by name', () => {
-    const config = parseOxeYaml('worktree:\n  include: [.env, "config\\\\*.local.json", ../up, .env, 42]\n')
-    expect(config?.worktree.include).toEqual(['.env', 'config/*.local.json', '../up'])
-    expect(parseOxeYaml('worktree:\n  include: []\n')).toBeNull()
+    const config = parseOxeYaml('worktree:\n  copyFiles: [.env, "config\\\\*.local.json", ../up, .env, 42]\n')
+    expect(config?.worktree.copyFiles).toEqual(['.env', 'config/*.local.json', '../up'])
+    expect(parseOxeYaml('worktree:\n  copyFiles: []\n')).toBeNull()
   })
 
   it('copies files, globs and a folder named on its own into the new worktree', async () => {
@@ -60,7 +60,7 @@ describe('worktree.include (B19)', () => {
     expect(report.copied.sort()).toEqual(['.env', 'apps/web/.env.local', 'certs/dev/key.pem', 'certs/dev/sub/ca.pem', 'config/app.local.json'])
     expect(readFileSync(join(tree, '.env'), 'utf8')).toBe('SECRET=1')
     expect(existsSync(join(tree, 'config', 'app.json'))).toBe(false)
-    expect(report.notices).toEqual([{ code: 'worktree.include.copied', params: { count: 5 } }])
+    expect(report.notices).toEqual([{ code: 'worktree.copyFiles.copied', params: { count: 5 } }])
   })
 
   it('refuses, by name, every pattern that is absolute, climbs out or names .git; nothing is copied for it', async () => {
@@ -70,7 +70,8 @@ describe('worktree.include (B19)', () => {
     const refused = ['/etc/passwd', 'C:/Windows/win.ini', 'c:\\x', '../outside.txt', 'a/../../outside.txt', '.git/config', 'x/.GIT/y', './', '.']
     const report = await copyIncludedFiles(root, tree, refused)
     expect(report.copied).toEqual([])
-    expect(report.notices).toEqual(refused.map(pattern => ({ code: 'worktree.include.outsideRepo', params: { pattern } })))
+    // One notice names them all.
+    expect(report.notices).toEqual([{ code: 'worktree.copyFiles.outsideRepo', params: { patterns: refused } }])
     for (const pattern of refused) expect(includeSegments(pattern)).toBeNull()
     expect(existsSync(join(tree, 'outside.txt'))).toBe(false)
     expect(existsSync(join(tree, '.git'))).toBe(false)
@@ -80,7 +81,7 @@ describe('worktree.include (B19)', () => {
     const aliases = ['.git::$INDEX_ALLOCATION/config', 'GIT~1/config', 'git~2', 'a./b', 'a /b', 'x:y', 'dir/.Git/HEAD']
     const report = await copyIncludedFiles(root, tree, aliases)
     expect(report.copied).toEqual([])
-    expect(report.notices).toEqual(aliases.map(pattern => ({ code: 'worktree.include.outsideRepo', params: { pattern } })))
+    expect(report.notices).toEqual([{ code: 'worktree.copyFiles.outsideRepo', params: { patterns: aliases } }])
   })
 
   it('matches in bounded time: runs of ** count as one, and a pattern past the limits is refused by name', async () => {
@@ -96,7 +97,7 @@ describe('worktree.include (B19)', () => {
     const tooMany = `${'**/a/'.repeat(INCLUDE_LIMITS.globstars + 1)}zz`
     const tooDeep = `${'a/'.repeat(INCLUDE_LIMITS.segments)}zz`
     const refused = await copyIncludedFiles(root, tree, [tooMany, tooDeep])
-    expect(refused.notices).toEqual([tooMany, tooDeep].map(pattern => ({ code: 'worktree.include.tooComplex', params: { pattern } })))
+    expect(refused.notices).toEqual([{ code: 'worktree.copyFiles.tooComplex', params: { patterns: [tooMany, tooDeep] } }])
   })
 
   it('a named prefix never reads from another repository or worktree inside this one', async () => {
@@ -117,7 +118,30 @@ describe('worktree.include (B19)', () => {
     expect(asked).toEqual([['.env', 'notes.txt']])
     expect(report.copied).toEqual(['.env'])
     expect(existsSync(join(tree, 'notes.txt'))).toBe(false)
-    expect(report.notices).toContainEqual({ code: 'worktree.include.notIgnored', params: { paths: ['notes.txt'] } })
+    expect(report.notices).toContainEqual({ code: 'worktree.copyFiles.notIgnored', params: { paths: ['notes.txt'] } })
+  })
+
+  it('keeps a leading ! for excluding later: such a pattern copies nothing, even a file named that way', async () => {
+    put(root, '!literal.txt')
+    put(root, '.env')
+    const report = await copyIncludedFiles(root, tree, ['!literal.txt', ' !*.env', '.env'])
+    expect(report.copied).toEqual(['.env'])
+    expect(report.notices[0]).toEqual({ code: 'worktree.copyFiles.excludeReserved', params: { patterns: ['!literal.txt', ' !*.env'] } })
+  })
+
+  it('a refusal list stays capped, however many patterns there are', async () => {
+    const many = Array.from({ length: 60 }, (_, i) => `../up${i}`)
+    const report = await copyIncludedFiles(root, tree, many)
+    expect(report.notices).toHaveLength(1)
+    expect((report.notices[0].params as { patterns: string[] }).patterns).toHaveLength(20)
+  })
+
+  it('when git cannot tell what it ignores, nothing is copied and the report says git failed', async () => {
+    put(root, '.env', 'secret')
+    const report = await copyIncludedFiles(root, tree, ['.env'], async () => null)
+    expect(report.copied).toEqual([])
+    expect(existsSync(join(tree, '.env'))).toBe(false)
+    expect(report.notices).toEqual([{ code: 'worktree.copyFiles.ignoreCheckFailed', params: {} }])
   })
 
   it('never searches .git, even through a glob', async () => {
@@ -135,7 +159,7 @@ describe('worktree.include (B19)', () => {
     const report = await copyIncludedFiles(root, tree, ['*.env', '.env'])
     expect(readFileSync(join(tree, '.env'), 'utf8')).toBe('committed')
     expect(report.copied).toEqual(['b.env'])
-    expect(report.notices).toContainEqual({ code: 'worktree.include.notOverwritten', params: { paths: ['.env'] } })
+    expect(report.notices).toContainEqual({ code: 'worktree.copyFiles.notOverwritten', params: { paths: ['.env'] } })
   })
 
   it('does not follow a link in the repository, named or reached by a glob', async () => {
@@ -144,7 +168,7 @@ describe('worktree.include (B19)', () => {
     const report = await copyIncludedFiles(root, tree, ['linked/secret.txt', 'linked', '**/secret.txt', '*'])
     expect(report.copied).toEqual([])
     expect(existsSync(join(tree, 'linked'))).toBe(false)
-    expect(report.notices).toEqual([{ code: 'worktree.include.notFollowed', params: { paths: ['linked', 'linked/secret.txt'] } }])
+    expect(report.notices).toEqual([{ code: 'worktree.copyFiles.notFollowed', params: { paths: ['linked', 'linked/secret.txt'] } }])
   })
 
   it('does not write through a link in the new worktree that leads outside it', async () => {
@@ -155,7 +179,7 @@ describe('worktree.include (B19)', () => {
     const report = await copyIncludedFiles(root, tree, ['conf/local.ini'])
     expect(report.copied).toEqual([])
     expect(existsSync(join(outside, 'local.ini'))).toBe(false)
-    expect(report.notices).toEqual([{ code: 'worktree.include.notFollowed', params: { paths: ['conf/local.ini'] } }])
+    expect(report.notices).toEqual([{ code: 'worktree.copyFiles.notFollowed', params: { paths: ['conf/local.ini'] } }])
   })
 
   it('skips another repository or worktree kept inside this one', async () => {
@@ -171,7 +195,7 @@ describe('worktree.include (B19)', () => {
     const report = await copyIncludedFiles(root, tree, ['many/*.txt'])
     expect(report.copied).toEqual([])
     expect(existsSync(join(tree, 'many'))).toBe(false)
-    expect(report.notices).toEqual([{ code: 'worktree.include.overLimit', params: { files: INCLUDE_LIMITS.files + 1, megabytes: 1, maxFiles: INCLUDE_LIMITS.files, maxMegabytes: 50 } }])
+    expect(report.notices).toEqual([{ code: 'worktree.copyFiles.overLimit', params: { files: INCLUDE_LIMITS.files + 1, megabytes: 1, maxFiles: INCLUDE_LIMITS.files, maxMegabytes: 50 } }])
   })
 
   it('above 50 MB copies nothing and says so', async () => {
@@ -181,14 +205,14 @@ describe('worktree.include (B19)', () => {
     closeSync(fd)
     const report = await copyIncludedFiles(root, tree, ['big/blob.bin'])
     expect(report.copied).toEqual([])
-    expect(codes(report)).toEqual(['worktree.include.overLimit'])
+    expect(codes(report)).toEqual(['worktree.copyFiles.overLimit'])
     expect(existsSync(join(tree, 'big'))).toBe(false)
   })
 
   it('every code it sends is in the catalog contract', () => {
-    for (const code of ['worktree.include.copied', 'worktree.include.outsideRepo', 'worktree.include.overLimit', 'worktree.include.searchTooLarge',
-      'worktree.include.tooComplex', 'worktree.include.notIgnored',
-      'worktree.include.notOverwritten', 'worktree.include.notFollowed', 'worktree.include.failed']) expect(MESSAGE_CODES).toContain(code)
+    for (const code of ['worktree.copyFiles.copied', 'worktree.copyFiles.outsideRepo', 'worktree.copyFiles.overLimit', 'worktree.copyFiles.searchTooLarge',
+      'worktree.copyFiles.tooComplex', 'worktree.copyFiles.notIgnored', 'worktree.copyFiles.excludeReserved', 'worktree.copyFiles.ignoreCheckFailed',
+      'worktree.copyFiles.notOverwritten', 'worktree.copyFiles.notFollowed', 'worktree.copyFiles.failed']) expect(MESSAGE_CODES).toContain(code)
   })
 })
 
@@ -206,7 +230,7 @@ describe('createWorktree with oxe.yaml (real git)', () => {
     git(root, 'config', 'user.email', 't@t.t')
     git(root, 'config', 'user.name', 't')
     writeFileSync(join(root, '.gitignore'), '.env\n')
-    writeFileSync(join(root, 'oxe.yaml'), 'worktree:\n  include: [.env, ../outside.txt]\n')
+    writeFileSync(join(root, 'oxe.yaml'), 'worktree:\n  copyFiles: [.env, ../outside.txt]\n')
     git(root, 'add', '.')
     git(root, 'commit', '-qm', 'init')
     writeFileSync(join(root, '.env'), 'TOKEN=dev')
@@ -224,8 +248,8 @@ describe('createWorktree with oxe.yaml (real git)', () => {
     expect(readFileSync(join(path, '.env'), 'utf8')).toBe('TOKEN=dev')
     expect(result.notices).toEqual([
       { code: 'worktree.createdFrom', params: { path, branch: 'feature/b19', base: 'main' } },
-      { code: 'worktree.include.outsideRepo', params: { pattern: '../outside.txt' } },
-      { code: 'worktree.include.copied', params: { count: 1 } }
+      { code: 'worktree.copyFiles.outsideRepo', params: { patterns: ['../outside.txt'] } },
+      { code: 'worktree.copyFiles.copied', params: { count: 1 } }
     ])
     // The text is English for agents and logs, whatever the machine's language; the window words `notices` itself.
     expect(result.message).toMatch(/^Worktree created at .* \(branch feature\/b19 from main\)\. /)
@@ -234,18 +258,18 @@ describe('createWorktree with oxe.yaml (real git)', () => {
 
   it('the list comes from the main checkout only: a branch cannot add files, and a file git does not ignore stays behind', async () => {
     git(root, 'switch', '-q', '-c', 'hostile')
-    writeFileSync(join(root, 'oxe.yaml'), 'worktree:\n  include: [.env, secret.pem]\n')
+    writeFileSync(join(root, 'oxe.yaml'), 'worktree:\n  copyFiles: [.env, secret.pem]\n')
     git(root, 'commit', '-qam', 'branch asks for more')
     git(root, 'switch', '-q', 'main')
     writeFileSync(join(root, 'secret.pem'), 'key')
-    writeFileSync(join(root, 'oxe.yaml'), 'worktree:\n  include: [.env, notes.txt]\n')
+    writeFileSync(join(root, 'oxe.yaml'), 'worktree:\n  copyFiles: [.env, notes.txt]\n')
     writeFileSync(join(root, 'notes.txt'), 'not ignored')
     const path = join(sandbox, 'wt-hostile')
     const result = await service.createWorktree({ rootPath: root, branch: 'hostile', path, createBranch: false })
     expect(existsSync(join(path, '.env'))).toBe(true)
     expect(existsSync(join(path, 'secret.pem'))).toBe(false)
     expect(existsSync(join(path, 'notes.txt'))).toBe(false)
-    expect(result.notices).toContainEqual({ code: 'worktree.include.notIgnored', params: { paths: ['notes.txt'] } })
+    expect(result.notices).toContainEqual({ code: 'worktree.copyFiles.notIgnored', params: { paths: ['notes.txt'] } })
   })
 
   it('an existing branch reports worktree.created, without a base', async () => {

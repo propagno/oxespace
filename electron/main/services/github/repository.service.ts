@@ -338,7 +338,7 @@ export class GitHubRepositoryService {
 
   /**
    * Applies the repo's oxe.yaml to a worktree that now exists: shared links
-   * first, then the `worktree.include` copies (so setup sees both), then the
+   * first, then the `worktree.copyFiles` copies (so setup sees both), then the
    * setup hook. Nothing here may fail the creation — the worktree is real by
    * now — so every outcome becomes a C3 notice.
    */
@@ -351,11 +351,13 @@ export class GitHubRepositoryService {
     }
     // B19: the list comes from the main checkout's oxe.yaml only, which the person controls. A branch being checked
     // out must not choose which of the person's files are copied next to it (SECURITY review of #451).
-    const include = (await loadRepoConfig(rootPath))?.worktree.include ?? []
+    const include = (await loadRepoConfig(rootPath))?.worktree.copyFiles ?? []
     if (include.length) {
-      const ignored = async (paths: string[]): Promise<Set<string>> => {
+      // check-ignore exits 0 when some path is ignored, 1 when none is; anything else means git could not tell.
+      const ignored = async (paths: string[]): Promise<Set<string> | null> => {
         const result = await this.gh.git(['check-ignore', '-z', '--stdin'], worktreePath, paths.join('\0') + '\0')
-        return new Set(result.status === 0 ? (result.stdout ?? '').split('\0').filter(Boolean) : [])
+        if (result.status === 1) return new Set()
+        return result.status === 0 ? new Set((result.stdout ?? '').split('\0').filter(Boolean)) : null
       }
       notes.push(...(await copyIncludedFiles(rootPath, worktreePath, include, ignored)).notices)
     }

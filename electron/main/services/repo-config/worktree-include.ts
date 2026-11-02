@@ -1,5 +1,5 @@
 /**
- * B19 · `worktree.include` in oxe.yaml: files from the main checkout (usually gitignored ones such as `.env`) copied
+ * B19 · `worktree.copyFiles` in oxe.yaml: files from the main checkout (usually gitignored ones such as `.env`) copied
  * into a worktree that was just created.
  *
  * Bounds, all checked here and not trusted from the parser:
@@ -33,7 +33,8 @@ export interface WorktreeIncludeReport {
 }
 
 /** Which of these repo-relative paths git ignores in the new worktree (`git check-ignore`). */
-export type IgnoredFilter = (paths: string[]) => Promise<Set<string>>
+/** `null` when git could not tell (it failed): then nothing is copied, and the report says git failed. */
+export type IgnoredFilter = (paths: string[]) => Promise<Set<string> | null>
 
 type Segment = RegExp | '**'
 
@@ -212,14 +213,20 @@ export async function copyIncludedFiles(rootPath: string, worktreePath: string, 
   const report: WorktreeIncludeReport = { copied: [], notices: [] }
   if (patterns.length === 0) return report
 
+  // One notice per kind of refusal, each naming its patterns (capped), however many there are.
   const accepted: string[][] = []
+  const reserved: string[] = [], outside: string[] = [], complex: string[] = []
   for (const pattern of patterns) {
+    // `!` is kept for excluding files later (`"!pattern"`, as in .worktreeinclude): never matched as a literal now.
+    if (pattern.trim().startsWith('!')) { reserved.push(pattern); continue }
     const segments = includeSegments(pattern)
-    const shown = capped([pattern])[0]
-    if (!segments) report.notices.push(mainMessage('worktree.include.outsideRepo', { pattern: shown }))
-    else if (!withinBounds(segments)) report.notices.push(mainMessage('worktree.include.tooComplex', { pattern: shown }))
+    if (!segments) outside.push(pattern)
+    else if (!withinBounds(segments)) complex.push(pattern)
     else accepted.push(segments)
   }
+  if (reserved.length) report.notices.push(mainMessage('worktree.copyFiles.excludeReserved', { patterns: capped(reserved) }))
+  if (outside.length) report.notices.push(mainMessage('worktree.copyFiles.outsideRepo', { patterns: capped(outside) }))
+  if (complex.length) report.notices.push(mainMessage('worktree.copyFiles.tooComplex', { patterns: capped(complex) }))
   if (accepted.length === 0) return report
 
   const rootReal = await realpath(rootPath).catch(() => null)
@@ -230,14 +237,14 @@ export async function copyIncludedFiles(rootPath: string, worktreePath: string, 
   for (const segments of accepted) {
     await search(rootReal, segments, found)
     if (found.tooLarge) {
-      report.notices.push(mainMessage('worktree.include.searchTooLarge', { limit: INCLUDE_LIMITS.entries }))
+      report.notices.push(mainMessage('worktree.copyFiles.searchTooLarge', { limit: INCLUDE_LIMITS.entries }))
       return report
     }
   }
 
   const bytes = [...found.files.values()].reduce((sum, file) => sum + file.size, 0)
   if (found.files.size > INCLUDE_LIMITS.files || bytes > INCLUDE_LIMITS.bytes) {
-    report.notices.push(mainMessage('worktree.include.overLimit', {
+    report.notices.push(mainMessage('worktree.copyFiles.overLimit', {
       files: found.files.size,
       megabytes: Math.ceil(bytes / (1024 * 1024)),
       maxFiles: INCLUDE_LIMITS.files,
@@ -264,7 +271,11 @@ export async function copyIncludedFiles(rootPath: string, worktreePath: string, 
   let toCopy = [...sources.keys()].sort((a, b) => a.localeCompare(b))
   const notIgnored: string[] = []
   if (ignored && toCopy.length) {
-    const set = await ignored(toCopy).catch(() => new Set<string>())
+    const set = await ignored(toCopy).catch(() => null)
+    if (!set) {
+      report.notices.push(mainMessage('worktree.copyFiles.ignoreCheckFailed', {}))
+      return report
+    }
     notIgnored.push(...toCopy.filter((rel) => !set.has(rel)))
     toCopy = toCopy.filter((rel) => set.has(rel))
   }
@@ -284,10 +295,10 @@ export async function copyIncludedFiles(rootPath: string, worktreePath: string, 
     }
   }
 
-  if (report.copied.length) report.notices.push(mainMessage('worktree.include.copied', { count: report.copied.length }))
-  if (kept.length) report.notices.push(mainMessage('worktree.include.notOverwritten', { paths: capped(kept) }))
-  if (notIgnored.length) report.notices.push(mainMessage('worktree.include.notIgnored', { paths: capped(notIgnored) }))
-  if (notFollowed.length) report.notices.push(mainMessage('worktree.include.notFollowed', { paths: capped(notFollowed.sort()) }))
-  if (failed.length) report.notices.push(mainMessage('worktree.include.failed', { paths: capped(failed) }))
+  if (report.copied.length) report.notices.push(mainMessage('worktree.copyFiles.copied', { count: report.copied.length }))
+  if (kept.length) report.notices.push(mainMessage('worktree.copyFiles.notOverwritten', { paths: capped(kept) }))
+  if (notIgnored.length) report.notices.push(mainMessage('worktree.copyFiles.notIgnored', { paths: capped(notIgnored) }))
+  if (notFollowed.length) report.notices.push(mainMessage('worktree.copyFiles.notFollowed', { paths: capped(notFollowed.sort()) }))
+  if (failed.length) report.notices.push(mainMessage('worktree.copyFiles.failed', { paths: capped(failed) }))
   return report
 }

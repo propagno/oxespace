@@ -54,7 +54,7 @@ export const MAX_INCLUDE_PATTERNS = 100
 const MAX_INCLUDE_CHARS = 1024
 
 /**
- * `worktree.include` (B19). Only the shape is checked here: strings, trimmed, `\` read as `/`, deduplicated. Patterns
+ * `worktree.copyFiles` (B19). Only the shape is checked here: strings, trimmed, `\` read as `/`, deduplicated. Patterns
  * that would leave the repository are kept on purpose, so the copy step can refuse each one by name (C3) instead of
  * dropping it where nobody sees.
  */
@@ -105,8 +105,8 @@ export function parseOxeYaml(content: string): RepoConfig | null {
     worktree: { sharedDirectories: normalizeSharedDirectories(worktree.sharedDirectories) },
     defaultTabs: normalizeDefaultTabs(root.defaultTabs)
   }
-  const include = normalizeIncludePatterns(worktree.include)
-  if (include.length) config.worktree.include = include
+  const include = normalizeIncludePatterns(worktree.copyFiles)
+  if (include.length) config.worktree.copyFiles = include
   const thread = asRecord(root.thread)
   if (thread && typeof thread.brief === 'boolean') config.thread = { brief: thread.brief }
   if (thread && Array.isArray(thread.tools)) {
@@ -126,7 +126,7 @@ export function parseOxeYaml(content: string): RepoConfig | null {
     !config.scripts.setup &&
     !config.scripts.archive &&
     config.worktree.sharedDirectories.length === 0 &&
-    !config.worktree.include &&
+    !config.worktree.copyFiles &&
     config.defaultTabs.length === 0 &&
     !config.thread
   return empty ? null : config
