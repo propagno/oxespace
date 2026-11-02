@@ -152,10 +152,10 @@
         "failed": "Não foi possível criar o certificado da conexão nem lê-lo do armazenamento seguro."
       },
       "keyring": {
-        "missing": "Nenhum chaveiro do sistema foi encontrado, então a chave privada da conexão não pôde ser protegida e a conexão fica desligada. Inicie o GNOME Keyring ou o KWallet e reinicie o OXESpace, ou defina OXESPACE_ALLOW_WEAK_SECRETS=1 para guardá-la sem proteção real."
+        "missing": "A conexão com o celular fica desligada porque nenhum chaveiro do sistema foi encontrado para proteger a chave dela. Inicie o GNOME Keyring ou o KWallet e reinicie o OXESpace. Se um deles já estiver rodando (comum no i3 ou no sway), inicie o OXESpace com `--password-store=gnome-libsecret`."
       },
       "storage": {
-        "unavailable": "O armazenamento seguro não está disponível neste sistema, então a chave privada da conexão não pode ser guardada e a conexão fica desligada."
+        "unavailable": "A conexão com o celular fica desligada porque o armazenamento seguro não está disponível neste sistema, então a chave dela não pode ser guardada."
       },
       "pairing": {
         "failed": "$t(remotePairingFailure.{{reason}})",
