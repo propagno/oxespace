@@ -70,7 +70,7 @@ updates itself).
 - **Conversation details**, from the conversation's header: its environment (project, worktree, branch, agent,
   model), context in detail with **Compact**, the MCP servers and tools it used, the files it changed, and its
   background work. Reorder the sections by dragging or from each section's menu.
-<!-- add when F15b/F15c (#287/#290) merge. -->
+<!-- nested conversations and the project coordinator (B1.3/B1.4, #287/#290) are 1.4.1: scope cut by the user; never list them here. -->
 
 ## Your phone
 
