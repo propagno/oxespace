@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { worktreeOrWorkspaceRoot } from '../../electron/main/ipc/file-system.ipc'
-import { resolveSessionLocation, sameRepository } from '../../electron/main/services/git-common-dir'
+import { findCheckoutRoot, gitCommonDir, resolveSessionLocation, sameRepository, staysLocal } from '../../electron/main/services/git-common-dir'
 
 let sandbox: string, repo: string, worktree: string, sibling: string
 const git = (cwd: string, ...args: string[]): void => { execFileSync('git', args, { cwd, stdio: 'ignore' }) }
@@ -97,5 +97,69 @@ describe('a worktree root is the repository\'s own, checked both ways', () => {
     const outside = forged('agent-cwd', join(repo, '.git'))
     expect(resolveSessionLocation(outside, repo)).toMatchObject({ sameRepository: false })
     expect(resolveSessionLocation(worktree, repo)).toMatchObject({ sameRepository: true })
+  })
+})
+
+describe('a link to a network share is never followed (SECURITY, #518 review)', () => {
+  const SHARE = '//oxe-probe.invalid/share'
+  /** A link at `at` naming `target`; false where this machine grants no symlink privilege. */
+  const link = (target: string, at: string, type: 'file' | 'dir'): boolean => {
+    try { symlinkSync(target, at, type); return true } catch { return false }
+  }
+  /** Each case must answer at once: a real lookup of the share takes seconds to fail. */
+  const fast = (check: () => void): void => {
+    const started = Date.now()
+    check()
+    expect(Date.now() - started).toBeLessThan(1000)
+  }
+
+  it('a .git that is a file link to a share', () => {
+    const folder = join(sandbox, 'git-to-share')
+    mkdirSync(folder)
+    if (!link(`${SHARE}/repo/.git`, join(folder, '.git'), 'file')) return
+    fast(() => {
+      expect(gitCommonDir(folder)).toBeNull()
+      expect(findCheckoutRoot(join(folder, 'sub'))).toBe(folder)
+      expect(sameRepository(repo, folder)).toBe(false)
+      expect(worktreeOrWorkspaceRoot(repo, folder)).toBe(repo)
+    })
+  })
+
+  it('a gitdir pointer that passes through a folder link to a share, directly or through a local link', () => {
+    if (!link(SHARE, join(sandbox, 'evil'), 'dir')) return
+    link(join(sandbox, 'evil'), join(sandbox, 'hop'), 'dir')
+    for (const [name, pointer] of [['via-evil', 'evil/repo/.git/worktrees/x'], ['via-hop', 'hop/repo/.git/worktrees/x']]) {
+      const folder = join(sandbox, name)
+      mkdirSync(folder)
+      writeFileSync(join(folder, '.git'), `gitdir: ../${pointer}\n`)
+      fast(() => {
+        expect(gitCommonDir(folder)).toBeNull()
+        expect(sameRepository(repo, folder)).toBe(false)
+        expect(resolveSessionLocation(folder, repo)).toMatchObject({ sameRepository: false })
+      })
+    }
+    fast(() => expect(resolveSessionLocation(join(sandbox, 'hop', 'repo'), repo)).toBeNull())
+  })
+
+  it('a commondir that is a link to a share', () => {
+    const admin = join(repo, '.git', 'worktrees', 'wt-real')
+    rmSync(join(admin, 'commondir'))
+    if (!link(`${SHARE}/common`, join(admin, 'commondir'), 'file')) return
+    fast(() => {
+      expect(gitCommonDir(worktree)).toBeNull()
+      expect(sameRepository(repo, worktree)).toBe(false)
+    })
+  })
+
+  it('local links still resolve, and a link cycle ends', () => {
+    expect(staysLocal(worktree)).toBe(true)
+    const viaJunction = join(sandbox, 'wt-junction')
+    if (link(worktree, viaJunction, process.platform === 'win32' ? 'junction' as 'dir' : 'dir')) {
+      expect(staysLocal(viaJunction)).toBe(true)
+      expect(gitCommonDir(viaJunction)).toBe(gitCommonDir(worktree))
+    }
+    if (link(join(sandbox, 'loop-b'), join(sandbox, 'loop-a'), 'dir') && link(join(sandbox, 'loop-a'), join(sandbox, 'loop-b'), 'dir')) {
+      fast(() => expect(staysLocal(join(sandbox, 'loop-a', 'x'))).toBe(false))
+    }
   })
 })

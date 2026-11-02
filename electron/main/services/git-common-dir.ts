@@ -1,5 +1,5 @@
-import { existsSync, lstatSync, readFileSync, realpathSync, statSync } from 'node:fs'
-import { dirname, isAbsolute, join, resolve } from 'node:path'
+import { lstatSync, readFileSync, readlinkSync, realpathSync, statSync } from 'node:fs'
+import { dirname, isAbsolute, join, parse, resolve } from 'node:path'
 import type { SessionLocation } from '../../../shared/types/agent-hooks'
 
 /**
@@ -12,6 +12,9 @@ export function gitCommonDir(root: string): string | null {
   if (!localPointer(root)) return null
   try {
     const dotGit = join(root, '.git')
+    // A `.git`, a pointer or a `commondir` that is a link to a share would be followed by stat/read/realpath: each path
+    // is walked first, reading links without following them (SECURITY, #518 review).
+    if (!staysLocal(dotGit)) return null
     const stat = statSync(dotGit)
     if (stat.isDirectory()) return normalize(realpathSync.native(dotGit))
     if (!stat.isFile()) return null
@@ -21,11 +24,14 @@ export function gitCommonDir(root: string): string | null {
     if (!match || !localPointer(match[1].trim())) return null
     const gitDir = resolve(root, match[1].trim())
     let common = gitDir
+    const marker = join(gitDir, 'commondir')
+    if (!staysLocal(marker)) return null
     try {
-      const named = readFileSync(join(gitDir, 'commondir'), 'utf8').trim()
+      const named = readFileSync(marker, 'utf8').trim()
       if (!localPointer(named)) return null
       common = resolve(gitDir, named)
     } catch { /* not a linked worktree */ }
+    if (!staysLocal(common)) return null
     return normalize(realpathSync.native(common))
   } catch {
     return null
@@ -38,15 +44,46 @@ export function gitCommonDir(root: string): string | null {
  * the same folder compares unequal. Falls back to the resolved path when the folder does not exist.
  */
 export function canonicalPath(path: string): string {
-  if (!localPointer(path)) return normalize(path).replace(/\/+$/, '')
+  if (!localPointer(path) || !staysLocal(path)) return normalize(path).replace(/\/+$/, '')
   try { return normalize(realpathSync.native(path)) } catch { return normalize(resolve(path)).replace(/\/+$/, '') }
 }
 
 /** A path a `.git` pointer may name: never a UNC share or a device path (`\\server\…`, `//server/…`, `\\?\…`). */
 const localPointer = (pointer: string): boolean => !/^[\\/]{2}/.test(pointer)
 
-/** The real path of `path` in compare form, or null when it does not exist. */
+/** Links followed by hand in one walk, so a cycle ends. */
+const MAX_LINKS = 40
+
+/**
+ * Whether reaching `path` stays on this machine: every component is lstat'ed and every link on the way read with
+ * readlink, which touches only the link, never its target. A link naming a share or a device path, or too many
+ * links, is refused before stat, read or realpath would follow it there (and, on Windows, hand that host the
+ * person's credentials). A component that does not exist ends the walk: nothing past it can be reached.
+ */
+export function staysLocal(path: string, budget = { links: MAX_LINKS }): boolean {
+  const full = resolve(path)
+  if (!localPointer(full)) return false
+  const { root } = parse(full)
+  let current = root
+  for (const part of full.slice(root.length).split(/[\\/]+/).filter(Boolean)) {
+    const next = join(current, part)
+    let link: boolean
+    try { link = lstatSync(next).isSymbolicLink() } catch { return true }
+    if (!link) { current = next; continue }
+    if (--budget.links < 0) return false
+    let target: string
+    try { target = readlinkSync(next) } catch { return false }
+    if (!localPointer(target)) return false
+    const resolved = resolve(current, target)
+    if (!staysLocal(resolved, budget)) return false
+    current = resolved
+  }
+  return true
+}
+
+/** The real path of `path` in compare form, or null when it does not exist or is reached through a share. */
 function realOf(path: string): string | null {
+  if (!staysLocal(path)) return null
   try { return normalize(realpathSync.native(path)) } catch { return null }
 }
 
@@ -75,6 +112,7 @@ function checkoutOf(root: string, common: string): boolean {
     if (!pointer || !localPointer(pointer)) return false
     const admin = realOf(resolve(root, pointer))
     if (!admin || normalize(dirname(admin)) !== `${common}/worktrees`) return false
+    if (!staysLocal(join(admin, 'gitdir'))) return false
     const back = readFileSync(join(admin, 'gitdir'), 'utf8').trim()
     if (!back || !localPointer(back)) return false
     return realOf(resolve(admin, back)) === realOf(dotGit)
@@ -98,7 +136,8 @@ export function sameRepository(a: string, b: string): boolean {
 export function findCheckoutRoot(dir: string): string | null {
   let current = resolve(dir)
   for (let depth = 0; depth < 64; depth++) {
-    if (existsSync(join(current, '.git'))) return current
+    // lstat: the entry itself, never what a `.git` link names (it may be a share).
+    if (entryExists(join(current, '.git'))) return current
     const parent = dirname(current)
     if (parent === current) return null
     current = parent
@@ -112,6 +151,7 @@ export function findCheckoutRoot(dir: string): string | null {
  */
 export function resolveSessionLocation(cwd: string, launchRoot: string): SessionLocation | null {
   if (!cwd || cwd.length > 4096 || cwd.includes('\0') || !isAbsolute(cwd) || !localPointer(cwd)) return null
+  if (!staysLocal(cwd)) return null
   try { if (!statSync(cwd).isDirectory()) return null } catch { return null }
   const found = findCheckoutRoot(cwd)
   const launchCheckout = findCheckoutRoot(launchRoot) ?? launchRoot
@@ -119,6 +159,10 @@ export function resolveSessionLocation(cwd: string, launchRoot: string): Session
   // of the same folder never reads as a move into another worktree.
   const checkoutRoot = found !== null && canonicalPath(found) === canonicalPath(launchCheckout) ? launchCheckout : found
   return { cwd, checkoutRoot, sameRepository: checkoutRoot !== null && sameRepository(checkoutRoot, launchCheckout) }
+}
+
+function entryExists(path: string): boolean {
+  try { lstatSync(path); return true } catch { return false }
 }
 
 function normalize(path: string): string {
