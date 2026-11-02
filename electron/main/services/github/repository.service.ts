@@ -345,10 +345,14 @@ export class GitHubRepositoryService {
   private async prepareNewWorktree(rootPath: string, worktreePath: string): Promise<MainMessage[]> {
     const config = (await loadRepoConfig(worktreePath)) ?? (await loadRepoConfig(rootPath))
     const notes: MainMessage[] = []
-    if (config && config.worktree.sharedDirectories.length > 0) {
-      await createSharedLinks(rootPath, worktreePath, config.worktree.sharedDirectories)
+    // Shared links and copies both follow the person's main checkout: its oxe.yaml lists them and its folders are what
+    // they point to or come from, whatever checkout the worktree is made from (SECURITY #471 follow-up).
+    const main = await this.mainCheckout(rootPath)
+    const mainConfig = main ? await loadRepoConfig(main) : null
+    if (main && mainConfig && mainConfig.worktree.sharedDirectories.length > 0) {
+      await createSharedLinks(main, worktreePath, mainConfig.worktree.sharedDirectories)
     }
-    notes.push(...(await this.copyFromMainCheckout(rootPath, worktreePath)))
+    if (main && mainConfig) notes.push(...(await this.copyFromMainCheckout(main, mainConfig.worktree.copyFiles ?? [], worktreePath)))
     if (!config) return notes
     const setup = config.scripts.setup
     if (!setup) return notes
@@ -383,10 +387,7 @@ export class GitHubRepositoryService {
    * files are copied, nor serves them (SECURITY review of #451; HML FINDING M on creating from inside a worktree). The
    * main checkout is git's first `worktree list` entry; a bare main has none, and then nothing is copied.
    */
-  private async copyFromMainCheckout(rootPath: string, worktreePath: string): Promise<MainMessage[]> {
-    const main = await this.mainCheckout(rootPath)
-    if (!main) return []
-    const include = (await loadRepoConfig(main))?.worktree.copyFiles ?? []
+  private async copyFromMainCheckout(main: string, include: string[], worktreePath: string): Promise<MainMessage[]> {
     if (!include.length) return []
     // check-ignore exits 0 when some path is ignored, 1 when none is; anything else means git could not tell.
     const ignored = async (paths: string[]): Promise<Set<string> | null> => {

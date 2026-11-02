@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { execFile } from 'node:child_process'
@@ -12,6 +12,7 @@ import { collectEvidence } from '../../electron/main/services/coordination/evide
 import type { GitHubWorktreeApi } from '../../shared/types/github'
 import { DELEGATION_TOOLS } from '../../electron/main/mcp-internal/delegation-tools'
 import type { ToolContext } from '../../electron/main/mcp-internal/tool-registry'
+import { removeTempDir } from '../helpers/removeTempDir'
 const exec = promisify(execFile)
 const cleanup: (() => Promise<void>)[] = []
 afterEach(async () => { for (const fn of cleanup.splice(0)) await fn() }, 30000)
@@ -43,7 +44,7 @@ async function fixture() {
     launch: vi.fn(async task => { registry.register({ paneId: task.paneId!, workspaceId: task.workspaceId, cwd: task.path }) }),
     stop: paneId => registry.end(paneId), changed: vi.fn(), enrich: async () => { throw new Error('memory offline') } }
   let service = new DelegationService(db, deps)
-  cleanup.push(async () => { await service.stop(); db.close(); await rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }) })
+  cleanup.push(async () => { await service.stop(); db.close(); removeTempDir(directory) })
   await service.configure(a.id, true); await service.configure(b.id, true)
   const input = { key: 'request', agentProfileId: 'claude', objective: 'Analyze workflow', handoff: 'Analyze selected evidence', acceptance: 'Return a report', targetWorkspaceId: b.id, evidenceFiles: ['decision.md'], mode: 'analysis' as const }
   return { db, workspace, a, b, registry, origin, roots, input, createWorktree, deps, service, git,

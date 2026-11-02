@@ -6,7 +6,7 @@
  *   node scripts/heavy-lock.mjs --owner <who> -- <command> [args...]
  *   node scripts/heavy-lock.mjs --status
  *
- * The lock is a JSON file created atomically (`wx`) in the system temp folder, holding the owner, the PID of the
+ * The lock is a JSON file created atomically, content included (a hard link of a side file), in the system temp folder, holding the owner, the PID of the
  * process that holds it and when it was taken. It counts as left behind, and is taken over, when that PID no longer
  * runs or it is older than OXESPACE_HEAVY_LOCK_MAX_MINUTES (120 by default). Only its holder removes it.
  * Once it holds the lock, a command waits for OXESPACE_HEAVY_MIN_FREE_GB of free memory (1 by default), but for
@@ -15,7 +15,7 @@
  * OXESPACE_HEAVY_LOCK overrides the path (tests).
  */
 import { spawn } from 'node:child_process'
-import { closeSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync, writeSync } from 'node:fs'
+import { closeSync, linkSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync, writeSync } from 'node:fs'
 import { freemem, tmpdir } from 'node:os'
 import { isAbsolute, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -63,24 +63,57 @@ export function isStale(lock, now = Date.now()) {
   return !lock || !isRunning(lock.pid) || !(now - lock.takenAt < MAX_AGE_MS)
 }
 
+/** An unreadable lock this young is a holder still writing it (an older copy of this script), not one left behind. */
+export const UNREADABLE_GRACE_MS = 5_000
+
+/**
+ * Creates the lock with its content in one step: the JSON goes to a side file that is hard-linked to the lock path,
+ * which fails with EEXIST when the lock exists. A reader never sees the lock empty: with `wx` then a write, a second
+ * command starting at the same moment read an empty file, judged it left behind and took it too (run 41405625020).
+ * Where hard links are unsupported, falls back to `wx`.
+ */
+function publish(path, entry) {
+  const side = `${path}.${process.pid}.${Math.random().toString(36).slice(2)}.new`
+  writeFileSync(side, entry)
+  try {
+    linkSync(side, path)
+    return true
+  } catch (error) {
+    if (error.code === 'EEXIST') return false
+    if (!['EPERM', 'ENOTSUP', 'EXDEV', 'ENOSYS'].includes(error.code)) throw error
+    try {
+      const fd = openSync(path, 'wx')
+      try { writeSync(fd, entry) } finally { closeSync(fd) }
+      return true
+    } catch (fallback) {
+      if (fallback.code === 'EEXIST') return false
+      throw fallback
+    }
+  } finally {
+    try { unlinkSync(side) } catch { /* already gone */ }
+  }
+}
+
+const holds = path => readLock(path)?.pid === process.pid
+
 /** Takes the lock if it is free or left behind; true when this process now holds it. */
 export function tryTake(owner, command, path = LOCK_PATH, now = Date.now()) {
   const entry = JSON.stringify({ owner, pid: process.pid, command, takenAt: now })
-  try {
-    const fd = openSync(path, 'wx')
-    try { writeSync(fd, entry) } finally { closeSync(fd) }
-    return true
-  } catch (error) {
-    if (error.code !== 'EEXIST') throw error
+  if (publish(path, entry)) return true
+  let seen
+  try { seen = readFileSync(path, 'utf8') } catch { return publish(path, entry) && holds(path) }
+  let lock = null
+  try { lock = JSON.parse(seen) } catch { /* unreadable */ }
+  if (!lock) {
+    let age = Infinity
+    try { age = now - statSync(path).mtimeMs } catch { /* gone */ }
+    if (age < UNREADABLE_GRACE_MS) return false
   }
-  if (!isStale(readLock(path), now)) return false
-  // Left behind: remove it and race for it once more; whoever creates it first holds it.
-  try { unlinkSync(path) } catch { /* someone else removed it first */ }
-  try {
-    const fd = openSync(path, 'wx')
-    try { writeSync(fd, entry) } finally { closeSync(fd) }
-    return true
-  } catch { return false }
+  if (!isStale(lock, now)) return false
+  // Left behind: remove it only if it is still the one judged left behind (another command may have taken it over
+  // meanwhile), then race for it once more; whoever creates it first holds it, and a holder confirms it is its own.
+  try { if (readFileSync(path, 'utf8') === seen) unlinkSync(path) } catch { /* someone else removed it first */ }
+  return publish(path, entry) && holds(path)
 }
 
 /**

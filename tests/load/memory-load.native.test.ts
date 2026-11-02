@@ -16,7 +16,7 @@
  */
 import { afterAll, expect, test } from 'vitest'
 import { spawn, type ChildProcess } from 'node:child_process'
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
@@ -27,6 +27,7 @@ import { AiMemoryClient } from '../../electron/main/services/memory/ai-memory.cl
 import { MemoryOutbox } from '../../electron/main/services/memory/memory-outbox'
 import { MemoryDeliveryWorker } from '../../electron/main/services/memory/memory-delivery'
 import { measureMemoryStorage } from '../../electron/main/services/memory/memory-storage'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const binary = process.env.OXESPACE_AI_MEMORY_V26_TEST_BINARY
 const enabled = process.env.OXESPACE_MEMORY_LOAD === '1'
@@ -56,7 +57,7 @@ afterAll(async () => {
   if (directory) {
     const target = resolve(directory)
     if (dirname(target) !== resolve(tmpdir()) || !basename(target).startsWith('oxe-memory-load-')) throw Error('Unsafe fixture cleanup')
-    await rm(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+    removeTempDir(target)
   }
 })
 

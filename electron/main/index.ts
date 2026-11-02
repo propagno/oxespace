@@ -23,6 +23,7 @@ import { broadcastMcpHealth, registerMcpIpc } from './ipc/mcp.ipc'
 import { registerMcpInternalIpc } from './ipc/mcp-internal.ipc'
 import { registerNotificationsIpc } from './ipc/notifications.ipc'
 import { registerAppInfoIpc } from './ipc/app-info.ipc'
+import { e2eMocksEnabled } from './e2e/e2e-mode'
 import { registerClipboardTextIpc } from './ipc/clipboard.ipc'
 import { registerOxeIpc } from './ipc/oxe.ipc'
 import { registerCopilotIpc } from './ipc/copilot.ipc'
@@ -136,7 +137,8 @@ async function registerIpcHandlers(): Promise<() => void> {
   void registerRtkIpc()
   registerBrowserPreviewIpc()
 
-  if (process.env.OXESPACE_E2E_MOCK_NATIVE === '1') {
+  // T48: never in a packaged build, whatever the environment says (e2e/e2e-mode.ts).
+  if (e2eMocksEnabled(process.env, app.isPackaged)) {
     if (process.env.OXESPACE_E2E_PREVIEW_SERVICE) {
       const { PreviewAutomation } = await import('./services/documentation/preview-automation')
       ;(globalThis as typeof globalThis & { preview: InstanceType<typeof PreviewAutomation> }).preview = new PreviewAutomation()

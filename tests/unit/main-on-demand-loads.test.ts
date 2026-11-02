@@ -4,12 +4,13 @@
  * install paths import their script and write it, and each on-demand service is imported once and kept, so only
  * the first request of a launch pays for the import and a failed one is retried by the next.
  */
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile } from 'node:fs/promises'
 import { readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { describe, expect, test, vi } from 'vitest'
 import { createFakeIpcMain } from '../helpers/fake-ipc-main'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const ipc = createFakeIpcMain()
 vi.mock('electron', () => ({ ipcMain: ipc, BrowserWindow: { getAllWindows: () => [] }, safeStorage: {}, app: { getPath: () => tmpdir() } }))
@@ -28,7 +29,7 @@ describe('hook install paths load their script on demand', () => {
       await new AgentMemoryAdapters(runtime, []).setup()
       const written = await readFile(join(directory, 'adapters', 'oxespace-memory-hook.cjs'), 'utf8')
       expect(written).toBe(readFileSync(resolve('resources/memory/agent-hook.cjs'), 'utf8'))
-    } finally { await rm(directory, { recursive: true, force: true }) }
+    } finally { removeTempDir(directory) }
   })
 
   test('the status hook installer loads on the first Settings request, once, and installs through it', async () => {

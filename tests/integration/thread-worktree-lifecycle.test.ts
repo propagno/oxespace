@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -10,6 +10,7 @@ import { RepoHookTrust } from '../../electron/main/services/repo-config/trust'
 import { createThreadWorktree, ThreadWorktreeError, type ThreadWorktreeHost } from '../../electron/main/services/conversation/thread-worktree'
 import { endThreadWithWorktree, finishThreadWorktree, inspectThreadWorktree, isOwnedWorktreePath } from '../../electron/main/services/conversation/thread-worktree-lifecycle'
 import type { OwnedThreadWorktree } from '../../shared/types/thread'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 // Each test spawns many real git processes; a loaded Windows box needs room.
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 })
@@ -48,7 +49,7 @@ describe('a conversation\'s own worktree (real git)', () => {
   afterEach(() => {
     for (const close of closers.splice(0)) close()
     // Windows can keep a just-exited git's directory handle for a moment; a leftover temp folder must not fail a passing test.
-    try { rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }) } catch { /* temp dir */ }
+    try { removeTempDir(sandbox) } catch { /* temp dir */ }
   })
 
   const own = async (branch = 'feature/x'): Promise<OwnedThreadWorktree> => {

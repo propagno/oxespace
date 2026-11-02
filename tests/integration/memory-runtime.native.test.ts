@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest'
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createServer } from 'node:net'
@@ -10,6 +10,7 @@ import { openInMemoryDatabase } from '../../electron/main/db'
 import { MemoryRuntime } from '../../electron/main/services/memory/memory-runtime'
 import { AgentMemoryAdapters } from '../../electron/main/services/memory/agent-memory-adapter'
 import { AiMemoryProvider } from '../../electron/main/services/memory/ai-memory.provider'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 vi.mock('electron', () => ({ safeStorage: { isEncryptionAvailable: () => true,
   encryptString: (text: string) => Buffer.from(text), decryptString: (value: Buffer) => value.toString() } }))
@@ -26,7 +27,7 @@ test('reports a missing executable and permits a bounded retry', async () => {
   } finally {
     await runtime.stop()
     db.close()
-    await rm(directory, { recursive: true, force: true })
+    removeTempDir(directory)
   }
 })
 
@@ -123,7 +124,7 @@ describe.skipIf(!process.env.OXESPACE_AI_MEMORY_TEST_BINARY)('managed native run
     } finally {
       await connected.stop(); await runtime.stop()
       db.close(); otherDb.close()
-      await rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+      removeTempDir(directory)
     }
   }, 30000)
 })

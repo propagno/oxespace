@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, sep } from 'node:path'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const incidents: Array<[string, string | undefined]> = []
 vi.mock('../../electron/main/services/diagnostics/incident-sink', () => ({ recordIncident: (code: string, subject?: string) => { incidents.push([code, subject]) } }))
@@ -18,7 +19,7 @@ const DATA_TOOL = MCP_TOOL_GROUPS.data[0]
 const CORE_TOOL = MCP_TOOL_GROUPS.core[0]
 
 const folders: string[] = []
-afterAll(() => { for (const folder of folders) rmSync(folder, { recursive: true, force: true }) })
+afterAll(() => { for (const folder of folders) removeTempDir(folder) })
 beforeEach(() => { incidents.length = 0 })
 
 /** A caller: authenticated (a live execution whose folder is `cwd`) or not, with the registered projects. */

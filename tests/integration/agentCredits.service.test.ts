@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -8,6 +8,7 @@ vi.mock('electron', () => ({ app: { getVersion: () => '9.9.9' } }))
 
 import { CodexCreditsService } from '../../electron/main/services/agentCredits/codexCredits.service'
 import { ClaudeCreditsService } from '../../electron/main/services/agentCredits/claudeCredits.service'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 // ── Codex ────────────────────────────────────────────────────────────────────
 
@@ -26,7 +27,7 @@ describe('CodexCreditsService', () => {
     root = mkdtempSync(join(tmpdir(), 'codex-credits-'))
   })
   afterEach(() => {
-    rmSync(root, { recursive: true, force: true })
+    removeTempDir(root)
   })
 
   function writeRollout(name: string, lines: string[]): void {
@@ -91,7 +92,7 @@ describe('ClaudeCreditsService', () => {
     writeFileSync(credsPath, JSON.stringify({ claudeAiOauth: { accessToken: 'tok-123', subscriptionType: 'max' } }))
   })
   afterEach(() => {
-    rmSync(root, { recursive: true, force: true })
+    removeTempDir(root)
     vi.unstubAllGlobals()
   })
 
