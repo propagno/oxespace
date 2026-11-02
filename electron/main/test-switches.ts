@@ -1,4 +1,4 @@
-import { resolve } from 'node:path'
+import { posix, win32 } from 'node:path'
 
 /**
  * T50: the two test switches the app reads from its environment, and what a packaged build does with them.
@@ -35,7 +35,9 @@ export function singleInstanceDisabled({ env, isPackaged, userDataDirSwitch, def
   if (!userDataDirSwitch.trim()) return false
   const normalize = (path: string) => {
     // Another spelling of the person's profile (junction, symlink, short name, \\?\ prefix) must still count as theirs.
-    let full = resolve(path)
+    // The path rules of the platform being judged, not of the machine running this: on Linux, node:path's resolve
+    // would take a Windows path as relative and prefix the working folder.
+    let full = (platform === 'win32' ? win32 : posix).resolve(path)
     try { full = realpath(full) } catch { /* A folder that does not exist yet cannot be the existing profile. */ }
     full = full.replace(/^\\\\\?\\/, '').replace(/[\\/.]+$/, '')
     return platform === 'win32' || platform === 'darwin' ? full.toLowerCase() : full

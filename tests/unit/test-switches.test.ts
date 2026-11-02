@@ -38,6 +38,19 @@ describe('OXESPACE_DISABLE_SINGLE_INSTANCE', () => {
     for (const spelling of ['C:\\Users\\person\\AppData\\Roaming\\OXESPA~1', 'C:\\Temp\\profile-link', '\\\\?\\C:\\Users\\person\\AppData\\Roaming\\OXESpace', `${DEFAULT}.`]) {
       expect(singleInstanceDisabled({ env: ON, isPackaged: true, userDataDirSwitch: spelling, defaultUserData: DEFAULT, platform: 'win32', realpath }), spelling).toBe(false)
     }
+    // A different folder is still different, under the Windows rules, on whatever machine runs this.
+    expect(singleInstanceDisabled({ env: ON, isPackaged: true, userDataDirSwitch: 'C:\\Temp\\own-profile', defaultUserData: DEFAULT, platform: 'win32', realpath })).toBe(true)
+  })
+
+  it('treats another spelling of the profile as the profile on Linux: symlink, trailing slash, ..', () => {
+    const profile = '/home/person/.config/OXESpace'
+    const realpath = (path: string) => (path === '/tmp/profile-link' ? profile : path)
+    for (const spelling of ['/tmp/profile-link', `${profile}/`, '/home/person/.config/../.config/OXESpace', '/home/person/./.config/OXESpace']) {
+      expect(singleInstanceDisabled({ env: ON, isPackaged: true, userDataDirSwitch: spelling, defaultUserData: profile, platform: 'linux', realpath }), spelling).toBe(false)
+    }
+    // Linux paths are case-sensitive: another case is another folder.
+    expect(singleInstanceDisabled({ env: ON, isPackaged: true, userDataDirSwitch: '/home/person/.config/oxespace', defaultUserData: profile, platform: 'linux', realpath })).toBe(true)
+    expect(singleInstanceDisabled({ env: ON, isPackaged: true, userDataDirSwitch: '/tmp/oxe/user-data', defaultUserData: profile, platform: 'linux', realpath })).toBe(true)
   })
 
   it('lets a packaged build run a second instance on its own --user-data-dir', () => {
