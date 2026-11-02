@@ -287,7 +287,8 @@ describe('Thread workspace UI', () => {
     const input = screen.getByRole('textbox', { name: 'Message' })
     act(() => input.focus())
     fireEvent.change(input, { target: { value: '/' } })
-    await screen.findByRole('option', { name: /Second project command/ })
+    // The catalog loads asynchronously: a loaded CI runner needs more than the default second (#363 CI).
+    await screen.findByRole('option', { name: /Second project command/ }, { timeout: 5_000 })
     await act(async () => resolveFirst({ commands: [{ name: 'stale', description: 'Previous project command', source: 'claude' }] }))
     expect(screen.queryByRole('option', { name: /Previous project command/ })).not.toBeInTheDocument()
     expect(screen.getByRole('option', { name: /Second project command/ })).toBeVisible()
