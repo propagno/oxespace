@@ -42,3 +42,33 @@ describe('hidden characters', () => {
     expect(fromRules).toBe(hasHiddenCharacters)
   })
 })
+
+/** Homologation of #238 (e2e/homologation/probes/hidden-characters-probe.mts.txt): the probe's cases, each as a test. */
+describe('hidden characters: the homologation probe', () => {
+  it.each([
+    ['RLO', 'rm -rf ~ #‮txt.etadpu'], ['LRO', 'a‭b'], ['RLI/PDI', 'a⁧b⁩'], ['LRM', 'a‎b'], ['RLM', 'a‏b'],
+    ['ALM', 'a؜b'], ['ZWSP', 'DELETE​ FROM'], ['ZWNJ', 'a‌b'], ['ZWJ', 'a‍b'], ['WJ', 'a⁠b'], ['BOM', '﻿DROP TABLE'],
+    ['soft hyphen', 'DE­LETE'], ['tag characters', 'ok\u{E0049}\u{E0047}\u{E004E}'], ['variation selector', 'a️b'],
+    ['supplementary variation selector', 'a\u{E0100}b'], ['Hangul filler', 'aㅤb'], ['halfwidth filler', 'aﾠb'], ['Mongolian vowel separator', 'a᠎b'],
+    ['interlinear annotation', 'a￹b'], ['line separator', 'a b'], ['paragraph separator', 'a b'], ['NUL', 'a\u0000b'],
+    ['ESC of an ANSI sequence', 'a\u001b[31mred'], ['carriage return alone', 'echo safe\rrm -rf /'], ['backspace', 'safe\u0008\u0008\u0008rm'],
+    ['combining grapheme joiner', 'a͏b'], ['braille blank', 'a⠀b'], ['a C1 control', 'a\u0085b'], ['a variation selector after a digit', '1️']
+  ])('finds %s', (_name, text) => {
+    expect(hasHiddenCharacters(text)).toBe(true)
+    expect(findHiddenCharacters(text).length).toBeGreaterThan(0)
+  })
+
+  it.each([
+    ['plain SQL', 'SELECT 1'], ['accents', 'ação São João'], ['emoji with a skin tone', 'ok 🔥👍🏽'], ['an emoji style selector', 'I ❤️ it'],
+    ['an emoji family joined by ZWJ', '👨‍👩‍👧'], ['a CRLF line ending', 'line1\r\nline2'], ['tab and newline', 'a\tb\nc'],
+    ['a no-break space (visible)', 'a b'], ['an ideographic space (visible)', 'a　b']
+  ])('leaves %s alone', (_name, text) => {
+    expect(hasHiddenCharacters(text)).toBe(false)
+    expect(findHiddenCharacters(text)).toEqual([])
+  })
+
+  it('points at the hidden one inside an emoji-like run: a ZWJ before a letter, a lone carriage return', () => {
+    expect(findHiddenCharacters('👨‍x')).toEqual([{ index: 2, codePoint: 0x200d }])
+    expect(findHiddenCharacters('a\rb\r\nc')).toEqual([{ index: 1, codePoint: 0x0d }])
+  })
+})

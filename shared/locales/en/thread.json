@@ -1232,6 +1232,7 @@
     "context": {
       "meter": "Context window",
       "detail": "{{used}} of {{total}} · {{percent}}%",
+      "detailOver": "{{used}} of {{total}} · {{percent}}%, past the window",
       "breakdown": "What fills the context",
       "category": "Category",
       "tokens": "Tokens",

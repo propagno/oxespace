@@ -7,6 +7,16 @@ import { isAnswerable, toPendingRequest, toThreadHeader } from './filters'
 import { fitPage, numbered, threadItems } from './topics'
 
 /**
+ * A thread that is not there reads as `not-found`, whether main says so in text ("not found") or as a C3 refusal
+ * (a MainRefusal whose code ends in `.notFound`). Read by shape: the gateway imports nothing from main's services.
+ */
+function failureCode(error: unknown): 'not-found' | 'internal' {
+  const code = (error as { code?: unknown } | null)?.code
+  if (typeof code === 'string' && /\.notFound$/.test(code)) return 'not-found'
+  return /not found/i.test(error instanceof Error ? error.message : '') ? 'not-found' : 'internal'
+}
+
+/**
  * The M5 commands. Every argument is read strictly (unknown keys, wrong types and sizes are `malformed`); then the
  * command runs against the desktop. `thread.send` and `thread.steer` are applied once per `clientId` within
  * `clientIdDedupeMs`: a resend after reconnecting gets the first outcome back and nothing is sent twice.
@@ -117,7 +127,7 @@ export class RemoteCommands {
         case 'thread.history': return await this.history(args as RemoteCommandArgs['thread.history'])
       }
     } catch (error) {
-      return { ok: false, code: /not found/i.test(error instanceof Error ? error.message : '') ? 'not-found' : 'internal' }
+      return { ok: false, code: failureCode(error) }
     }
     return { ok: false, code: 'unknown-command' }
   }
@@ -150,7 +160,7 @@ export class RemoteCommands {
       } else await desktop.send(args.threadId, args.text)
       return { ok: true }
     } catch (error) {
-      return { ok: false, code: /not found/i.test(error instanceof Error ? error.message : '') ? 'not-found' : 'internal' }
+      return { ok: false, code: failureCode(error) }
     }
   }
 
