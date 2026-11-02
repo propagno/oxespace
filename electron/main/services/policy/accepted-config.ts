@@ -17,7 +17,7 @@
  */
 import { createHash, randomUUID } from 'node:crypto'
 import { execFile } from 'node:child_process'
-import { closeSync, openSync, readFileSync, statSync, unlinkSync } from 'node:fs'
+import { closeSync, lstatSync, openSync, readFileSync, statSync, unlinkSync } from 'node:fs'
 import { basename, dirname, join, relative, resolve, sep } from 'node:path'
 import { promisify } from 'node:util'
 import type { AppDatabase } from '../../db'
@@ -605,7 +605,9 @@ export class AcceptedConfig {
       const key = root ? this.projectKey(root) : null
       let found: { key: string; root: string } | 'unknown' | null = root && key && key !== subject.key ? (backLinked(subject.root, common!) ? { key, root } : 'unknown') : null
       // A .git file is a linked worktree; one that does not resolve to a repository is not a fresh project.
-      if (!found && !common) { try { if (statSync(join(subject.root, '.git')).isFile()) found = 'unknown' } catch { /* no .git: not a worktree */ } }
+      // lstat, never stat: a `.git` link to a share would be followed (SECURITY #520 M1). A link is not a file: the
+      // strict rule too, like any .git this cannot verify.
+      if (!found && !common) { try { const entry = lstatSync(join(subject.root, '.git')); if (entry.isFile() || entry.isSymbolicLink()) found = 'unknown' } catch { /* no .git: not a worktree */ } }
       this.primaries.set(subject.key, found)
     }
     return this.primaries.get(subject.key) ?? null
