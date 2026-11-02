@@ -22,6 +22,8 @@ async function menuShape(menu: Locator): Promise<string[]> {
 }
 
 async function shot(page: Page, name: string): Promise<void> {
+  // After the menu's open animation: mid-fade, its items read as greyed (DESIGN #470).
+  await page.evaluate(() => Promise.all(document.getAnimations().map(animation => animation.finished.catch(() => undefined))))
   await test.info().attach(name, { body: await page.screenshot(), contentType: 'image/png' })
 }
 

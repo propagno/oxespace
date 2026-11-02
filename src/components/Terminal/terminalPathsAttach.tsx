@@ -42,7 +42,7 @@ export function attach(terminal: Terminal, host: HTMLElement, workspaceId: strin
     const request = requestOf(link.scope, link.path)
     if (!root) { mount = document.createElement('div'); document.body.append(mount); root = createRoot(mount) }
     root.render(<PathMenuView request={request} point={menuPoint(event as unknown as ReactMouseEvent)} onClose={close}
-      returnFocus={() => host.querySelector<HTMLElement>('.xterm-helper-textarea')} openInOxespace={() => openInOxespace(request)} />)
+      returnFocus={() => host.querySelector<HTMLElement>('.xterm-helper-textarea')} openInOxespace={() => openInOxespace(request)} externalClickHint />)
   }
   host.addEventListener('contextmenu', onContextMenu)
   return {
