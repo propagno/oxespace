@@ -28,7 +28,7 @@ export function showVoiceRemovedNotice(): boolean {
   try { stored = localStorage.getItem(VOICE_PREFS_KEY) !== null } catch { return false }
   if (!stored) return false
   try { localStorage.removeItem(VOICE_PREFS_KEY) } catch { /* Storage went away: the notice still shows this once. */ }
-  const t = (key: string): string => i18n.t(`voiceRemoved.${key}`, { ns: 'common' })
+  const t = (key: 'title' | 'body' | 'action'): string => i18n.t(`voiceRemoved.${key}`, { ns: 'common' })
   toast({
     title: t('title'),
     description: t('body'),
