@@ -5,7 +5,7 @@ import { Unicode11Addon } from '@xterm/addon-unicode11'
 import type { WebglAddon } from '@xterm/addon-webgl'
 import { loadWebglAddon, loadedWebglAddon, supportsWebgl2 } from './webglAddonLoader'
 import { createTerminalLinksAddon } from './terminalLinks'
-import { useTerminalPathMenu } from './useTerminalPathMenu'
+import { attachTerminalPaths } from './terminalPaths'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { ArrowDown, ArrowUp, X } from 'lucide-react'
@@ -164,7 +164,6 @@ interface TerminalViewProps {
 export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, workspaceId, themeId, prefs, transport }: TerminalViewProps): ReactElement {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const terminalRef = useRef<Terminal | null>(null)
-  const { register: registerPathLinks, onContextMenu: onPathContextMenu, menu: pathMenu } = useTerminalPathMenu(workspaceId) // F33: project paths
   const pasteRef = useRef<((text: string) => void) | null>(null)
   const refitRef = useRef<(() => void) | null>(null)
   // Last non-empty selection + when it was seen, so a copy can still fire if
@@ -217,7 +216,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
     terminal.loadAddon(fitAddon)
     terminal.loadAddon(unicodeAddon)
     terminal.loadAddon(createTerminalLinksAddon())
-    const pathLinksDisposable = registerPathLinks(terminal)
+    const pathLinksDisposable = attachTerminalPaths(terminal, hostRef.current, workspaceId) // F33: project paths
     terminal.loadAddon(searchAddon)
     searchAddonRef.current = searchAddon
     const searchResultsDisposable = searchAddon.onDidChangeResults((results) => setSearchResults(results))
@@ -805,7 +804,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
       terminal.dispose()
       terminalRef.current = null
     }
-  }, [paneId, workspaceId, transport, registerPathLinks])
+  }, [paneId, workspaceId, transport])
 
   const colorMode = useColorMode()
   // Apply prefs + theme to the live terminal without recreating it. Font/cursor
@@ -942,9 +941,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onContextMenu={onPathContextMenu}
       />
-      {pathMenu}
       <TabFocusBadge paneId={paneId} />
       {searchOpen ? (
         <div className="terminal-search" role="search" data-testid="terminal-search">
