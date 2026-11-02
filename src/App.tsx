@@ -12,7 +12,8 @@ import { useTranslation } from 'react-i18next'
 import type { ToolId } from './components/Workspace/toolCatalog'
 import { panelMenuEntries, type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
 import { Button, cx, Toaster, TitleTooltips, TooltipProvider, LoadingState } from './ui'
-import { reportSplitRefused } from './components/Grid/splitRefusal'
+import { reportSplitRefused, reportSplitTooSmall } from './components/Grid/splitRefusal'
+import { layoutPaneSize, paneSize, splitGridSize, splitHasRoom } from './components/Grid/splitRoom'
 import titleBar from './components/Navigation/TitleBar.module.css'
 import { ModeSwitch } from './components/Navigation/ModeSwitch'
 import { ActivityCenter } from './components/Activity/ActivityCenter'
@@ -587,6 +588,13 @@ export function App(): ReactElement {
   const splitWorkspacePane = useCallback((workspaceId: string, paneId: string, direction: 'vertical' | 'horizontal'): void => {
     if (!useUIStore.getState().splitLayoutEnabled) {
       void splitPane(paneId, direction).catch(reportSplitRefused)
+      return
+    }
+    // Each split halves the pane: one that would leave halves too small to use is refused before main creates a pane.
+    // From the layout, not the screen: a maximized pane looks big enough but goes back to its own share on restore.
+    const size = layoutPaneSize(usePaneLayoutStore.getState().trees[workspaceId] ?? null, paneId, splitGridSize()) ?? paneSize(paneId)
+    if (size && !splitHasRoom(size, direction)) {
+      reportSplitTooSmall(direction)
       return
     }
 
