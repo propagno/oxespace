@@ -11,7 +11,7 @@ afterEach(async () => { await changeLanguage('en') })
 
 const context = (over: Partial<CodeCommandContext> = {}): CodeCommandContext => ({
   applicationView: 'code', activeWorkspace: null, activePane: null, hasTeamTarget: false, toolHandlers: {},
-  openNewWorkspace: vi.fn(), splitActivePane: vi.fn(), toggleActivePaneMaximize: vi.fn(), toggleActivePaneVoice: vi.fn(), openDesignSystem: vi.fn(), ...over
+  openNewWorkspace: vi.fn(), splitActivePane: vi.fn(), toggleActivePaneMaximize: vi.fn(), openDesignSystem: vi.fn(), ...over
 })
 const teamCommand = (over: Partial<CodeCommandContext> = {}) => buildCodeCommands(context(over)).find(command => command.id === 'tool-team')!
 /** The palette action a contributed command becomes (commandRegistry). */

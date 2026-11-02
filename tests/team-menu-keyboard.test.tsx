@@ -9,7 +9,7 @@ import { useToasts } from '../src/ui/Toast'
 const reason = 'Open a workspace to open its team'
 const actions = (): CommandPaletteAction[] => buildCodeCommands({
   applicationView: 'code', activeWorkspace: null, activePane: null, hasTeamTarget: false, teamUnavailable: reason, toolHandlers: {},
-  openNewWorkspace: vi.fn(), splitActivePane: vi.fn(), toggleActivePaneMaximize: vi.fn(), toggleActivePaneVoice: vi.fn(), openDesignSystem: vi.fn()
+  openNewWorkspace: vi.fn(), splitActivePane: vi.fn(), toggleActivePaneMaximize: vi.fn(), openDesignSystem: vi.fn()
 }).map(command => ({ id: command.id, title: command.label, subtitle: command.detail, disabled: command.disabled, shortcut: command.shortcut, run: command.run }))
 
 beforeEach(() => { useToasts.setState({ items: [] }) })

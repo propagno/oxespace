@@ -107,8 +107,6 @@
     "unsaved": "Unsaved",
     "saved": "Saved",
     "unsavedChanges": "Unsaved changes",
-    "dictation": "Dictation",
-    "dictationTitle": "Tap to start or stop dictation. Hold to talk.",
     "loadingPreview": "Loading preview…",
     "loadingEditor": "Loading the editor…",
     "openFailed": "Could not open the file",

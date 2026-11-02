@@ -125,9 +125,6 @@
       "team": {
         "open": "Open project team"
       },
-      "voice": {
-        "toggle": "Toggle voice input"
-      },
       "code": {
         "changes": "Changes",
         "browser": "Browser",
@@ -576,25 +573,6 @@
     },
     "devBuild": "Updates only run in installed builds"
   },
-  "voiceHud": {
-    "requesting": "Accessing the microphone…",
-    "downloading": "Downloading voice model… {{percent}}%",
-    "transcribing": "Transcribing…",
-    "listening": "Listening… release to insert",
-    "close": "Close voice input",
-    "closeTitle": "Close voice input (Esc)",
-    "errors": {
-      "denied": "Microphone permission denied.",
-      "noMicrophone": "No microphone was detected.",
-      "canceled": "Microphone request was canceled. Try again.",
-      "access": "Could not access the microphone.",
-      "transcription": "Transcription failed.",
-      "engine": "Voice engine unavailable in this build.",
-      "model": "Voice model could not be prepared.",
-      "download": "Could not download the voice model.",
-      "terminal": "Start the terminal before using OXEVoice."
-    }
-  },
   "brand": {
     "tagline": "Agents and terminals for your projects"
   },
@@ -641,7 +619,6 @@
       "layout_one": "Layout: {{count}} pane",
       "layout_other": "Layout: {{count}} panes",
       "layoutDetail": "Workspace layout preset",
-      "voiceDetail": "Speak into the active terminal, editor, or OxeChat draft",
       "stopTerminal": "Stop terminal"
     },
     "thread": {
@@ -762,6 +739,11 @@
       "open": "Open",
       "cancel": "Cancel"
     }
+  },
+  "voiceRemoved": {
+    "title": "Voice input was removed",
+    "body": "OXESpace no longer records speech. Your operating system's dictation still types into any field.",
+    "action": "How to dictate"
   },
   "approvals": {
     "facts": "Risk: {{risk}}. Asked by {{requester}}.",

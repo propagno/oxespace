@@ -64,12 +64,11 @@ import { selectWorkspacesToEvict } from './components/Terminal/webglBudget'
 import { useSettingsStore, VISITED_WORKSPACES_CAP_DEFAULT } from './store/settings.store'
 import { useIntegrationStore } from './store/integration.store'
 import { useWorktreeStore } from './store/worktree.store'
-import { useVoiceStore } from './store/voice.store'
+import { showVoiceRemovedNotice } from './app/voiceRemovedNotice'
 import { useActivitySources } from './hooks/useActivitySources'
 import { useAgentHookStatus } from './hooks/useAgentHookStatus'
 import { THREAD_NOTIFICATION_PANE_PREFIX } from './hooks/useThreadAttention'
 import { useThreadShortcuts } from './hooks/useThreadShortcuts'
-import { matchesHotkey } from './keyboard/chords'
 import { setKeyboardView, useKeybindings, type AppView } from './keyboard/keybindings'
 import { projectTeam } from './app/projectTeam'
 import { QUOTA_NOTIFICATION_PANE_PREFIX } from './hooks/useQuotaAlerts'
@@ -363,7 +362,6 @@ export function App(): ReactElement {
     return () => { for (const off of unsubscribes) off() }
   }, [notePaneActivity, workspaces])
   const activePane = activeWorkspace?.panes.find((pane) => pane.id === activePaneId) ?? activeWorkspace?.panes[0] ?? null
-  const pttHotkey = useVoiceStore((s) => s.pttHotkey)
   const slashPane = slashOverlayPaneId ? activeWorkspace?.panes.find((pane) => pane.id === slashOverlayPaneId) ?? null : null
   const skills = useSkillStore((s) => s.skills)
   const dispatchSlashCommand = useSlashDispatcher({ workspace: activeWorkspace ?? null, pane: slashPane })
@@ -444,6 +442,9 @@ export function App(): ReactElement {
     })
     return unsubscribe
   }, [])
+
+  // Former OXEVoice users are told once that it was removed (F34).
+  useEffect(() => { showVoiceRemovedNotice() }, [])
 
   // Native desktop notifications when a background agent finishes / needs you.
   useEffect(() => {
@@ -616,18 +617,6 @@ export function App(): ReactElement {
     setMaximizedPane(maximizedPaneId === activePane.id ? null : activePane.id)
   }
 
-  const toggleActivePaneVoice = (): void => {
-    if (applicationView === 'thread') {
-      window.dispatchEvent(new CustomEvent('oxe:thread-toggle-voice'))
-    } else if (activeWorkspace?.editorVisible) {
-      window.dispatchEvent(new CustomEvent('oxe:editor-toggle-voice'))
-    } else if (activePane && activePane.type === 'terminal') {
-      window.dispatchEvent(new CustomEvent('oxe:terminal-toggle-voice', {
-        detail: { paneId: activePane.id }
-      }))
-    }
-  }
-
   const runCommandInTerminal = async (command: string): Promise<void> => {
     const terminalPanes = activeWorkspace?.panes.filter((pane) => pane.type === 'terminal') ?? []
     const runningPane = terminalPanes.find((pane) => getTerminalStatus(pane.id).status === 'running') ?? null
@@ -675,7 +664,7 @@ export function App(): ReactElement {
   // Palette and menu commands live in src/commands/*.commands.ts.
   useCodeCommands({ applicationView, activeWorkspace, activePane, hasTeamTarget: team.target !== null, teamUnavailable: team.unavailable, toolHandlers, openNewWorkspace: openNewWorkspaceFromUI, showCode: () => selectMode('code'),
     openTools: { editor: activeWorkspace?.editorVisible, github: activeWorkspace?.githubPanelVisible, review: activeWorkspace?.reviewPanelVisible, background: activeWorkspace?.backgroundPanelVisible, worktrees: activeWorkspace?.worktreePanelVisible, scripts: isScriptsPanelOpen, search: isSearchPanelOpen, 'web-preview': activeWorkspace ? webPreviewOpenByWorkspace[activeWorkspace.id] : false },
-    splitActivePane, toggleActivePaneMaximize, toggleActivePaneVoice, openDesignSystem: () => setDesignSystemOpen(true) })
+    splitActivePane, toggleActivePaneMaximize, openDesignSystem: () => setDesignSystemOpen(true) })
   const commandActions = useContributedCommands()
   useEffect(() => { setKeyboardView(applicationView) }, [applicationView])
   const terminalPane = activePane?.type === 'terminal' ? activePane : null
@@ -687,7 +676,7 @@ export function App(): ReactElement {
   useKeybindings({
     'team.open': team.openOrSay,
     'palette.open': openCommandMenu, 'palette.search': openCommandMenu, 'settings.open': () => { if (!isSettingsOpen) toggleSettings() }, 'sidebar.toggle': toggleSidebar,
-    'voice.toggle': toggleActivePaneVoice, 'code.changes': toggleReviewPanel, 'code.browser': toggleWebPreviewPanel, 'code.files': toggleEditor,
+    'code.changes': toggleReviewPanel, 'code.browser': toggleWebPreviewPanel, 'code.files': toggleEditor,
     'code.splitLayout': () => useUIStore.getState().toggleSplitLayout(),
     // Read fresh state: the search panel flag is not part of this render's closure.
     'code.search': () => { const ui = useUIStore.getState(); if (ui.isSearchPanelOpen) ui.closeSearchPanel(); else ui.openSearchPanel() },
@@ -698,45 +687,6 @@ export function App(): ReactElement {
     'terminal.zoomIn': () => terminalPane ? zoomTerminal(1) : false, 'terminal.zoomOut': () => terminalPane ? zoomTerminal(-1) : false,
     'terminal.zoomReset': () => terminalPane ? zoomTerminal(0) : false
   })
-
-  // Push-to-talk: hold the configured hotkey to dictate into the active
-  // terminal, release to transcribe + insert. Works even while the terminal
-  // is focused (window-level listener). Auto-repeat is guarded so holding
-  // doesn't restart capture each tick.
-  useEffect(() => {
-    if (applicationView !== 'code' && applicationView !== 'thread') return
-    let holding = false
-    const dispatch = (type: 'start' | 'end'): void => {
-      if (applicationView === 'thread') {
-        window.dispatchEvent(new CustomEvent(`oxe:thread-voice-hold-${type}`))
-        return
-      }
-      if (!activePane || activePane.type !== 'terminal') return
-      window.dispatchEvent(new CustomEvent(`oxe:terminal-voice-hold-${type}`, {
-        detail: { paneId: activePane.id }
-      }))
-    }
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.repeat || holding) return
-      if (!matchesHotkey(event, pttHotkey)) return
-      event.preventDefault()
-      holding = true
-      dispatch('start')
-    }
-    const onKeyUp = (): void => {
-      if (!holding) return
-      holding = false
-      dispatch('end')
-    }
-    window.addEventListener('keydown', onKeyDown)
-    window.addEventListener('keyup', onKeyUp)
-    window.addEventListener('blur', onKeyUp)
-    return () => {
-      window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('keyup', onKeyUp)
-      window.removeEventListener('blur', onKeyUp)
-    }
-  }, [activePane, applicationView, pttHotkey])
 
   useEffect(() => {
     if (!hasOpenedThread) return

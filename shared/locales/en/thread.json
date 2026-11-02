@@ -355,7 +355,6 @@
     "mention": "Mention a file",
     "steer": "Steer active turn",
     "steerTitle": "Send guidance to the active turn",
-    "voice": "Voice input",
     "stop": "Stop turn",
     "stopTitle": "Stop turn · Esc",
     "queue": "Queue follow-up",

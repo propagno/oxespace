@@ -1,4 +1,4 @@
-import { Activity, Columns2, FilePlus2, Grid2x2, LayoutDashboard, ListTodo, Maximize, Mic, Palette, RotateCw, Sliders, Split, StopCircle } from 'lucide-react'
+import { Activity, Columns2, FilePlus2, Grid2x2, LayoutDashboard, ListTodo, Maximize, Palette, RotateCw, Sliders, Split, StopCircle } from 'lucide-react'
 import type { Workspace, WorkspacePane } from '../../shared/types/workspace'
 import { TOOL_CATALOG, type ToolId } from '../components/Workspace/toolCatalog'
 import { LAYOUT_PRESETS, WORKSPACE_DENSITIES } from '../components/Workspace/workspaceOptions'
@@ -28,7 +28,6 @@ export interface CodeCommandContext {
   openNewWorkspace: () => void
   splitActivePane: (direction: 'vertical' | 'horizontal') => void
   toggleActivePaneMaximize: () => void
-  toggleActivePaneVoice: () => void
   openDesignSystem: () => void
 }
 
@@ -42,8 +41,6 @@ export function buildCodeCommands(ctx: CodeCommandContext): ContributedCommand[]
   const ui = useUIStore.getState()
   const terminalPane = activePane?.type === 'terminal' ? activePane : null
   const terminalRunning = terminalPane !== null && useTerminalStore.getState().getStatus(terminalPane.id).status === 'running'
-  const voiceAvailable = ctx.applicationView === 'thread' || Boolean(activeWorkspace?.editorVisible)
-    || terminalRunning
   // Workspace commands act on Code: from Thread or OxeQuery they show Code first, so their effect is visible.
   const away = ctx.applicationView !== 'code'
   const inCode = (run: () => void) => (): void => { if (away) ctx.showCode?.(); run() }
@@ -104,7 +101,6 @@ export function buildCodeCommands(ctx: CodeCommandContext): ContributedCommand[]
     { id: 'split-vertical', label: i18n.t('menu.splitRight'), icon: Split, category: 'Terminal', disabled: !activePane, shortcut: 'pane.splitRight', run: inCode(() => ctx.splitActivePane('vertical')) },
     { id: 'split-horizontal', label: i18n.t('menu.splitDown'), icon: Split, category: 'Terminal', disabled: !activePane, shortcut: 'pane.splitDown', run: inCode(() => ctx.splitActivePane('horizontal')) },
     { id: 'maximize-pane', label: i18n.t('menu.maximizePane'), icon: Maximize, category: 'Terminal', disabled: !activePane, shortcut: 'pane.maximize', run: inCode(ctx.toggleActivePaneMaximize) },
-    { id: 'toggle-oxevoice', label: i18n.t('keys.bindings.voice.toggle'), detail: tCommand('code.voiceDetail'), icon: Mic, category: 'Terminal', keywords: ['oxevoice', 'voice', 'speech', 'microphone', 'dictation'], disabled: !voiceAvailable, shortcut: 'voice.toggle', run: ctx.toggleActivePaneVoice },
     { id: 'restart-terminal', label: i18n.t('keys.bindings.terminal.restart'), icon: RotateCw, category: 'Terminal', disabled: !terminalPane, shortcut: 'terminal.restart', run: inCode(() => { if (terminalPane) void window.oxe.terminal.restart({ paneId: terminalPane.id }) }) },
     { id: 'stop-terminal', label: tCommand('code.stopTerminal'), icon: StopCircle, category: 'Terminal', disabled: !terminalRunning, run: inCode(() => { if (terminalPane) void window.oxe.terminal.stop({ paneId: terminalPane.id }) }) }
   ]

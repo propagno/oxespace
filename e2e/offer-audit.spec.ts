@@ -32,7 +32,7 @@ const paneCount = (page: Page): Promise<number> => page.locator('[data-testid="p
 const SELF_RESTORING = new Set(['toggle-sidebar', 'toggle-split-layout', 'maximize-pane'])
 
 const SETTINGS_LABELS: Record<string, string> = {
-  general: 'General', providers: 'Agents', appearance: 'Appearance', terminal: 'Terminal', keyboard: 'Keyboard', voice: 'Voice',
+  general: 'General', providers: 'Agents', appearance: 'Appearance', terminal: 'Terminal', keyboard: 'Keyboard',
   notifications: 'Notifications', updates: 'Updates', policy: 'Policy', devices: 'Devices', diagnostics: 'Diagnostics'
 }
 
@@ -99,7 +99,6 @@ const PALETTE_EFFECTS: Record<string, Check> = {
   'split-vertical': view('code'),
   'split-horizontal': view('code'),
   'restart-terminal': view('code'),
-  'toggle-oxevoice': async () => undefined,
   'thread.new': both(view('thread'), dialog('Add project')),
   'thread.add-project': both(view('thread'), dialog('Add project'))
 }
