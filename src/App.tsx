@@ -953,7 +953,9 @@ export function App(): ReactElement {
           onClose={closeSkillsBrowser}
         />
       ) : null}
-      {isSettingsOpen || isWorkspaceSettingsOpen ? (
+      {/* Workspace settings asked for from another view (the palette shows Code first) mount once Code is shown, so they
+          open on "Current workspace": SettingsCenter reads its scope only when it mounts. */}
+      {isSettingsOpen || (isWorkspaceSettingsOpen && applicationView === 'code') ? (
         <Suspense fallback={null}><SettingsCenter
           initialPage={useUIStore.getState().settingsInitialPage}
           initialWorkspaceId={isWorkspaceSettingsOpen && applicationView === 'code' ? activeWorkspace?.id : undefined}
