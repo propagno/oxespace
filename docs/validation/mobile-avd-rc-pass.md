@@ -13,7 +13,9 @@ with `-memory 1536`.
 - **The machine-wide heavy lock**, held for the whole pass. Nothing else heavy runs alongside: no Gradle, no vitest, no
   E2E, no packaging.
 - **Free memory before booting.** At least 4 GB free: about 3 GB for qemu plus the team's 1 GB floor. If it drops under
-  1 GB during the pass, MOBILE stops at the next step boundary, shuts the emulator down and reports.
+  1 GB during the pass, MOBILE stops at the next step boundary, shuts the emulator down and reports. The script enforces
+  both: `avd-rc-pass.sh preflight` checks the 4 GB without touching the emulator, and every phase refuses to boot below
+  it. During a phase, each screenshot, each wait and the boot wait stop on 1 GB with `fail.txt` saying `memory`.
 - **Fixed emulator options.** `-memory 1536 -no-snapshot-load -no-snapshot-save -no-window -no-audio -no-boot-anim
   -gpu swiftshader_indirect`. No snapshots, so nothing from a previous run carries over.
 - **Foreground only.** Each phase is one foreground call that ends by shutting the emulator down (`adb emu kill`), even
