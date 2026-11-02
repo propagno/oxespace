@@ -64,6 +64,10 @@ Num pedido que altera, apaga ou publica algo, **Negar** é o primeiro botão; **
 Se o agente fez uma pergunta, escolha as opções e toque em **Enviar respostas**. Um pedido que só o computador pode
 responder mostra **Responda no computador** no topo e não tem botões.
 
+Se parte do pedido não coube no celular, ele avisa: **Parte deste pedido não coube no celular.** Daí você só pode
+**Negar**; para permitir, abra o pedido no computador, onde dá para ler tudo. Uma pergunta que não coube pede para
+responder no computador.
+
 Dentro de uma conversa, um pedido esperando mostra **Precisa de você** e **Responder**, que abre o mesmo pedido.
 
 ### Remover um celular pareado
@@ -83,6 +87,8 @@ Dentro de uma conversa, um pedido esperando mostra **Precisa de você** e **Resp
 - Nenhuma resposta sai do celular sem a sua confirmação (digital, rosto ou bloqueio de tela); se você cancelar, nada é
   enviado.
 - O celular só oferece as respostas que o computador ofereceu, e nunca "permitir sempre nesta sessão".
+- As telas que mostram comandos, saídas do terminal ou o código de pareamento (o pedido, a aba **Pedidos**, a conversa,
+  o terminal e o pareamento) ficam em branco na lista de apps recentes e não saem em capturas nem gravações de tela.
 
 ## Se algo der errado
 
@@ -102,6 +108,8 @@ Dentro de uma conversa, um pedido esperando mostra **Precisa de você** e **Resp
 - **"A conversa seguiu em frente; este pedido não vale mais."** O agente já está em outro passo; veja a conversa.
 - **"Só o seu computador pode responder este."** Responda no computador.
 - **"Ações demais em um minuto. Tente de novo daqui a pouco."** Espere um pouco e tente de novo.
+- **"O nome deste celular usa um nome reservado ao próprio OXESpace…"** Mude o nome do celular em **Configurações do
+  Android › Sobre o telefone** e leia o código de novo.
 - **"… removeu este celular."** O aparelho foi removido no computador. Pareie de novo.
 - **"… usa outra versão do OXESpace."** Atualize o app ou o OXESpace no computador.
 

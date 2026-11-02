@@ -63,6 +63,10 @@ On a request that changes, deletes or publishes something, **Deny** is the first
 If the agent asked a question, pick the options and tap **Send answers**. A request only the computer can answer shows
 **Answer on the computer** at the top and has no buttons.
 
+If part of the request didn't fit on the phone, it says so: **Part of this request didn't fit on the phone.** From
+there you can only **Deny**; to allow it, open the request on the computer, where you can read all of it. A question
+that didn't fit asks you to answer it on the computer.
+
 Inside a conversation, a waiting request shows **Needs you** and **Respond**, which opens the same request.
 
 ### Remove a paired phone
@@ -82,6 +86,9 @@ Inside a conversation, a waiting request shows **Needs you** and **Respond**, wh
 - No answer leaves the phone without your confirmation (fingerprint, face or screen lock); if you cancel, nothing is
   sent.
 - The phone offers only the answers the computer offered, and never "allow for the rest of the session".
+- The screens that show commands, terminal output or the pairing code (the request, the **Requests** tab, the
+  conversation, the terminal and pairing) are blank in the recent apps list and don't show up in screenshots or screen
+  recordings.
 
 ## If something goes wrong
 
@@ -102,6 +109,8 @@ Inside a conversation, a waiting request shows **Needs you** and **Respond**, wh
   conversation.
 - **"Only your computer can answer this one."** Answer on the computer.
 - **"Too many actions in a minute. Try again shortly."** Wait a moment and try again.
+- **"This phone's name uses a name reserved for OXESpace itself…"** Rename the phone in **Android Settings › About
+  phone**, then scan again.
 - **"… removed this phone."** The device was removed on the computer. Pair again.
 - **"… uses a different version of OXESpace."** Update the app or OXESpace on your computer.
 
