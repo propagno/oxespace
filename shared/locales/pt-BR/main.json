@@ -177,10 +177,28 @@
       }
     },
     "worktree": {
+      "created": "Worktree criado em {{path}} (branch {{branch}}).",
+      "createdFrom": "Worktree criado em {{path}} (branch {{branch}} a partir de {{base}}).",
+      "fetchFailed": "Não foi possível buscar {{remote}}; a base pode estar desatualizada.",
+      "setup": {
+        "notApproved": "O hook de setup do oxe.yaml não foi aprovado e não rodou.",
+        "complete": "Hook de setup concluído.",
+        "failed": "O hook de setup terminou com o código {{exitCode}}.",
+        "unverified": "O hook de setup não terminou de um jeito que dê para conferir."
+      },
       "cleanup": {
         "notRemovable": "Este não é um worktree removível deste repositório.",
         "blocked": "Bloqueado: {{reasons}}.",
         "needsConfirmation": "Precisa de confirmação: {{reasons}}."
+      },
+      "include": {
+        "copied": "{{count}} arquivos listados em worktree.include foram copiados.",
+        "outsideRepo": "O padrão “{{pattern}}” do worktree.include foi recusado: os padrões são relativos ao repositório e não podem usar .. nem .git.",
+        "overLimit": "O worktree.include encontrou {{files}} arquivos ({{megabytes}} MB), acima do limite de {{maxFiles}} arquivos ou {{maxMegabytes}} MB. Nada foi copiado; o worktree foi criado.",
+        "searchTooLarge": "O worktree.include percorreu mais de {{limit}} itens sem terminar. Nada foi copiado; o worktree foi criado. Use padrões mais específicos.",
+        "notOverwritten": "Já estavam no worktree novo e ficaram como estão: {{paths}}.",
+        "notFollowed": "Não copiados, por serem links ou levarem para fora do repositório ou do worktree: {{paths}}.",
+        "failed": "Não foi possível copiar: {{paths}}."
       }
     },
     "github": {

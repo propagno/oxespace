@@ -312,6 +312,8 @@ export interface GitHubConnectedRepository {
 export interface GitHubMessageResult {
   ok: boolean
   message: string
+  /** C3 notes for the person about an action that succeeded (B19: what `worktree.include` copied or refused). */
+  notices?: import('../messages').MainMessage[]
 }
 
 export interface GitHubCommitInput extends GitHubWorkspaceInput {

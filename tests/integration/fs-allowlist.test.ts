@@ -148,6 +148,12 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/repo-config/loader.ts',
   'electron/main/services/repo-config/shared-dirs.ts',
   'electron/main/services/github/worktree-removal.ts',
+  // B19 worktree.include: copies the files the repo's oxe.yaml lists from the
+  // main checkout into a just-created worktree. Patterns stay in the repo (no
+  // absolute, .. or .git), links are never followed on either side, real paths
+  // are checked against both roots, at most 200 files / 50 MB, and nothing
+  // existing is overwritten (COPYFILE_EXCL). Never edits a file in place.
+  'electron/main/services/repo-config/worktree-include.ts',
   // Cleanup scan: stat-only probes of a worktree's own git metadata (HEAD,
   // reflog tail) to estimate idleness. Never reads source files.
   'electron/main/services/github/worktree-cleanup.ts',
