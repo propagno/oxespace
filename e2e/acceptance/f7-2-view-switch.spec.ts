@@ -85,6 +85,13 @@ for (const variant of [
       if (variant.cpu > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: variant.cpu })
       // Typing into the old view starts before the click, so keys are in flight across the switch.
       await page.locator('[data-testid="pane-container"] .xterm').first().click()
+      // The press is measured from a quiet window: startup and background work still queued after launch (heavier with the
+      // CPU throttled) would otherwise land in the measured frames (#363 CI: the first frame at 1.8 s with the terminal idle).
+      await page.evaluate(() => new Promise<void>(resolve => {
+        const quiet = (left: number): void => { if (left === 0) { resolve(); return } requestIdleCallback(deadline => quiet(deadline.timeRemaining() >= 40 ? left - 1 : 3), { timeout: 3_000 }) }
+        setTimeout(resolve, 8_000) // at most: a window that never goes quiet is measured anyway
+        quiet(3)
+      }))
       await arm(page)
       // No hover first: hovering would prefetch the chunk (rule 4) and the switch would no longer be cold.
       await page.locator('button[data-app-mode="data"]').dispatchEvent('pointerdown')
