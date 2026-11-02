@@ -68,6 +68,14 @@ describe('app:open-in refuses anything outside an open workspace', () => {
     expect(launches).toEqual([])
   })
 
+  it('a folder that is not one of the workspace roots is outsideRoot, and never says the workspace is not open', async () => {
+    const call = open({ workspaceId: 'w2', path: 'secret.txt' })
+    expect(await refusal(call)).toBe('app.openIn.outsideRoot')
+    const text = await open({ workspaceId: 'w2', path: 'secret.txt' }).then(() => '', (error: Error) => error.message)
+    expect(text).toContain('not one of this workspace')
+    expect(text).not.toMatch(/not open/i)
+  })
+
   it('says outsideRoot, not notFound, for a missing path outside: it never tells whether it exists', async () => {
     expect(await refusal(open({ path: '../outside/nothing-here.txt' }))).toBe('app.openIn.outsideRoot')
   })
