@@ -1,4 +1,5 @@
 import { agentMcpArguments } from '../agent-launch.service'
+import { bridgePlanFlags } from '../../mcp-internal/bridge-plan'
 import { claudeMcpEntries, codexMcpArguments, type ManagedMcp } from './thread-managed-mcp'
 import { matchesResource } from '../../../../shared/policy'
 import type { ConversationThread, AgentConversationAdapter, ThreadEvent, ThreadPermissionRule, ThreadSnapshot } from '../../../../shared/types/thread'
@@ -193,7 +194,7 @@ export function threadMcpArguments(provider: 'claude' | 'codex', args: string[],
   }
   const config = agentMcpArguments(provider, bridge)
   // Groups the session may turn on later with oxespace_tools_enable; the bridge owns that list (B7.2).
-  const bridgeArgs = [bridge, '--allowed-tools', JSON.stringify(tools), ...(Object.keys(enableable).length ? ['--enableable-groups', JSON.stringify(enableable)] : [])]
+  const bridgeArgs = [bridge, ...bridgePlanFlags({ tools, enableable })]
   if (provider === 'codex') {
     config[3] = `mcp_servers.oxespace-delegation.args=${JSON.stringify(bridgeArgs)}`
     return [...config, ...(managed ? codexMcpArguments(managed) : []), ...exclusionArguments(provider, denied, ['oxespace-delegation', ...(managed?.servers.map(server => server.key) ?? [])], deniedTools, tools), ...args]

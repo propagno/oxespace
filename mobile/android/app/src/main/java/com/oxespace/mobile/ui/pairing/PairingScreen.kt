@@ -181,6 +181,7 @@ private fun failureText(failure: PairingFailure): Int = when (failure) {
     PairingFailure.WRONG_CERTIFICATE -> R.string.pairing_failed_wrong_certificate
     PairingFailure.UNREACHABLE -> R.string.pairing_failed_unreachable
     PairingFailure.PROTOCOL -> R.string.pairing_failed_protocol
+    PairingFailure.RESERVED_NAME -> R.string.pairing_failed_reserved_name
 }
 
 @Preview

@@ -108,9 +108,7 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
     // The page changes while a click waits for approval (a page script navigates): allowing afterwards must not run the
     // click on a page other than the one the person decided on (main's check on allow). The modal blocks the window's
     // UI, as it does in the product.
-    // NOT COVERED HERE, moved to T43 (BACKEND): access revoked from main while a click waits. Today the window re-sends
-    // agent access for every tab change (WebPreviewPanel.tsx setAccess effect) and re-grants what main revoked (CI on
-    // #243, Windows); once main is the authority (T43), that case comes back here as a regression test.
+    // The case of access revoked from main while a click waits is the next step (T43, #418: main is the authority).
     const pendingClick = run({action:'click',selector:'#save',expectedUrl:url})
     await expect(approval).toBeVisible()
     await app.evaluate(({webContents},baseUrl) => webContents.getAllWebContents().find(c=>c.getURL().startsWith(baseUrl))!.executeJavaScript("location.hash='moved'"),url)
@@ -120,6 +118,18 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
     // Back to the exact URL the later steps name.
     await app.evaluate(({webContents},baseUrl) => webContents.getAllWebContents().find(c=>c.getURL().startsWith(baseUrl))!.executeJavaScript("history.replaceState(null, '', location.pathname)"),url)
     await expect.poll(() => app.evaluate(({webContents},baseUrl) => webContents.getAllWebContents().find(c=>c.getURL().startsWith(baseUrl))!.getURL(),url)).toBe(url)
+    // Access revoked from main while a click waits (T43): the window's re-sends cannot give it back, and allowing
+    // afterwards must not run the click. The person grants it again from the window's toggle.
+    await app.evaluate(({webContents},baseUrl) => webContents.getAllWebContents().find(c=>c.getURL().startsWith(baseUrl))!.executeJavaScript("document.querySelector('#name').value='Revoked'"),url)
+    const revokedClick = run({action:'click',selector:'#save',expectedUrl:url})
+    await expect(approval).toBeVisible()
+    expect(await app.evaluate((_, ws) => (globalThis as unknown as { previewService: { revokeAgentAccess: (match: { workspaceId: string }) => number } }).previewService.revokeAgentAccess({ workspaceId: ws }), workspaceId)).toBeGreaterThan(0)
+    expect((await answer(revokedClick, 'allow')).error).toContain('enable Agent documentation access')
+    await expect.poll(async () => (await run({action:'tabs'})).error).toContain('enable Agent documentation access')
+    expect(await app.evaluate(({webContents},baseUrl) => webContents.getAllWebContents().find(c=>c.getURL().startsWith(baseUrl))!.executeJavaScript("document.querySelector('h1').textContent"),url)).toBe('Saved Example')
+    await expect(page.getByLabel('Agent documentation access')).not.toBeChecked()
+    await page.getByLabel('Agent documentation access').click(); await page.getByRole('button', { name: 'Allow access' }).click()
+    await expect.poll(async()=> (await run({action:'inspect'})).error).toBeUndefined()
     // And from the window's own control, with no approval pending: unchecking turns access off, checking asks first.
     await page.getByLabel('Agent documentation access').uncheck()
     await expect.poll(async () => (await run({action:'tabs'})).error).toContain('enable Agent documentation access')
