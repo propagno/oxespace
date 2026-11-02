@@ -24,6 +24,14 @@ describe('createSecretCipher', () => {
     }
   })
 
+  it('names the reason, for callers that answer with their own C3 code (the remote gateway)', () => {
+    for (const backend of ['basic_text', 'unknown', undefined]) expect(createSecretCipher(storage(backend), 'linux', {}).reason()).toBe('no-keyring')
+    expect(createSecretCipher(storage('gnome_libsecret', false), 'linux', {}).reason()).toBe('unavailable')
+    expect(createSecretCipher(storage(undefined, false), 'win32', {}).reason()).toBe('unavailable')
+    expect(createSecretCipher(storage('basic_text'), 'linux', { OXESPACE_ALLOW_WEAK_SECRETS: '1' }).reason()).toBeNull()
+    expect(createSecretCipher(storage('gnome_libsecret'), 'linux', {}).reason()).toBeNull()
+  })
+
   it('allows it only when the person opts in, and reports unavailable storage', () => {
     expect(createSecretCipher(storage('basic_text'), 'linux', { OXESPACE_ALLOW_WEAK_SECRETS: '1' }).available()).toBe(true)
     expect(createSecretCipher(storage('gnome_libsecret', false), 'linux', {}).problem()).toMatch(/unavailable/)
