@@ -31,7 +31,14 @@ function readyNow(view: AppView): boolean {
 
 /** Starts loading a view's chunk (hover, focus); a failure is left for the switch itself to show. */
 export function prefetchView(view: AppView): void {
-  void chunkOf(view).then(chunk => chunk?.load()).catch(() => undefined)
+  // After the frame: parsing a view's chunk holds the main thread, and the press that may follow must paint first.
+  afterPaint(() => { void chunkOf(view).then(chunk => chunk?.load()).catch(() => undefined) })
+}
+
+/** Runs `task` once the next frame has painted (#363 CI: a chunk loaded in the click left nothing painted for 1.7 s on a slow CPU). */
+function afterPaint(task: () => void): void {
+  if (typeof requestAnimationFrame !== 'function') { setTimeout(task, 0); return }
+  requestAnimationFrame(() => { setTimeout(task, 0) })
 }
 
 /** How long focus and the announcement wait for a slow view's content before moving anyway. */
@@ -100,14 +107,20 @@ export function useViewSwitch(current: AppView, commit: (view: AppView) => void)
 
   const select = useCallback((view: AppView): void => {
     if (view === current && target.current === null) return
+    // Already on its way: a second request (a command that selects again on each render) changes nothing.
+    if (view === target.current) return
     clearTimeout(timer.current)
     if (view === current) { target.current = null; setPendingView(null); return }
     target.current = view
-    if (readyNow(view)) { finish(view); return }
+    // 1. The button is selected and busy, and that frame paints before any of the view's work (#363 CI).
     setPendingView(view)
     timer.current = setTimeout(() => finish(view), SKELETON_AFTER_MS)
-    // A failed load commits too: the view's error boundary says what went wrong, with Try again.
-    void chunkOf(view).then(chunk => chunk?.load()).then(() => finish(view), () => finish(view))
+    afterPaint(() => {
+      if (target.current !== view) return
+      if (readyNow(view)) { finish(view); return }
+      // A failed load commits too: the view's error boundary says what went wrong, with Try again.
+      void chunkOf(view).then(chunk => chunk?.load()).then(() => finish(view), () => finish(view))
+    })
   }, [current, finish])
 
   // After the commit has painted: focus and announcement, for switches made here (not on start). On the slow path the

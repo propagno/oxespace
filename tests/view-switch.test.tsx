@@ -28,6 +28,7 @@ afterEach(() => { cleanup(); vi.useRealTimers() })
 const button = (name: string) => screen.getByRole('button', { name })
 
 describe('switching views (F7.2, docs/design/motion.md)', () => {
+  // The view's chunk starts loading after the selected button has painted (a frame, advanced with the timers).
   it('the button is selected and busy at once; the current view stays until the next one is ready', async () => {
     const commit = vi.fn()
     render(<Harness onCommit={commit} />)
@@ -36,7 +37,7 @@ describe('switching views (F7.2, docs/design/motion.md)', () => {
     expect(button('OxeQuery')).toHaveAttribute('aria-busy', 'true')
     expect(button('OxeCode')).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByTestId('current')).toHaveTextContent('code')
-    await act(async () => { await vi.dynamicImportSettled(); await Promise.resolve(); release(); await Promise.resolve(); await Promise.resolve() })
+    await act(async () => { vi.advanceTimersByTime(20); await vi.dynamicImportSettled(); await Promise.resolve(); release(); await Promise.resolve(); await Promise.resolve() })
     expect(commit).toHaveBeenCalledWith('data')
     expect(screen.getByTestId('current')).toHaveTextContent('data')
     expect(button('OxeQuery')).toHaveAttribute('aria-busy', 'false')
@@ -67,7 +68,7 @@ describe('switching views (F7.2, docs/design/motion.md)', () => {
     render(<Harness onCommit={() => undefined} />)
     act(() => { button('OxeQuery').click() })
     expect(document.querySelector('[data-testid="focus-announcer"], [aria-live="polite"]')?.textContent ?? '').not.toContain('OxeQuery')
-    await act(async () => { await vi.dynamicImportSettled(); await Promise.resolve(); release(); await Promise.resolve(); await Promise.resolve() })
+    await act(async () => { vi.advanceTimersByTime(20); await vi.dynamicImportSettled(); await Promise.resolve(); release(); await Promise.resolve(); await Promise.resolve() })
     await act(async () => { vi.advanceTimersByTime(20) })
     expect(document.querySelector('[aria-live="polite"]')?.textContent).toBe('OxeQuery')
     expect(screen.getByTestId('current')).toHaveFocus()
@@ -77,7 +78,7 @@ describe('switching views (F7.2, docs/design/motion.md)', () => {
     render(<><Harness onCommit={() => undefined} /><div role="dialog" aria-label="New connection"><input aria-label="Password" /></div></>)
     act(() => { button('OxeQuery').click() })
     act(() => { screen.getByLabelText('Password').focus() })
-    await act(async () => { await vi.dynamicImportSettled(); await Promise.resolve(); release(); await Promise.resolve(); await Promise.resolve() })
+    await act(async () => { vi.advanceTimersByTime(20); await vi.dynamicImportSettled(); await Promise.resolve(); release(); await Promise.resolve(); await Promise.resolve() })
     await act(async () => { vi.advanceTimersByTime(20) })
     expect(document.querySelector('[aria-live="polite"]')?.textContent).toBe('OxeQuery')
     expect(screen.getByLabelText('Password')).toHaveFocus()
