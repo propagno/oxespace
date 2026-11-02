@@ -103,7 +103,11 @@ test('#210 Settings › Tools on the real app: what the page sets reaches the ag
     tools = await openTools()
     const reloaded = await tools.getByRole('button', { name: 'Reload' }).click({ timeout: 5_000 }).then(() => 'clicked', e => `not clicked: ${String(e).slice(0, 80)}`)
     await page.waitForTimeout(1_500)
-    const text = await tools.innerText()
+    // Since B7.4 (#372) a hand edit of oxe.yaml is an outside change the person is asked about: log what is on screen.
+    const dialogs = await page.getByRole('dialog').evaluateAll(list => list.map(d => `${d.getAttribute('aria-label') ?? d.querySelector('h2,h3')?.textContent ?? ''}|testid=${d.getAttribute('data-testid') ?? ''}`.slice(0, 120)))
+    const asked = await page.evaluate('window.oxe.approvals.list().then(l => l.map(r => r.kind + ":" + r.title.code))').catch(() => [])
+    console.log('F10-SCREEN', JSON.stringify({ dialogs, asked }))
+    const text = await tools.innerText({ timeout: 5_000 }).catch(async () => `(no tools page) ${(await page.locator('body').innerText()).replace(/\s+/g, ' ').slice(0, 400)}`)
     const dataMode = await tools.getByRole('region', { name: 'Data', exact: true }).getByRole('radio', { checked: true }).allInnerTexts().catch(() => [])
     const notices = await page.locator('[role="alert"], [role="status"], [data-intent="danger"], [data-intent="warning"]').allInnerTexts().catch(() => [])
     console.log('F10-BROKEN-DIAG', JSON.stringify({ reloaded, dataMode, notices: notices.slice(0, 6), yamlMentions: text.match(/.{0,80}oxe\.yaml.{0,120}/g)?.slice(0, 4) }))
