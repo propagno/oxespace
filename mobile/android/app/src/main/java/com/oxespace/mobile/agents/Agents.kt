@@ -150,3 +150,35 @@ fun markSeenOnOpen(row: AgentRow): AgentKey? = if (stateOf(row) == AgentState.FI
 
 private fun answerableRequest(row: AgentRow): AgentRequest? =
     row.request?.takeIf { it.answerable && kindOf(row) == AgentKind.CONVERSATION }
+
+/*
+ * From the C5 `agents` block (#531): the generated types into the screen's model. kind, state and the unavailable
+ * sources arrive as text (the C5 unknown-value rule): an unknown state reads as unknown where it is shown, a row of an
+ * unknown kind is dropped by the store, and an unknown source only adds to the partial notice.
+ */
+fun com.oxespace.mobile.protocol.RemoteAgentRow.toAgentRow(): AgentRow = AgentRow(
+    kind = kind,
+    id = id,
+    state = state,
+    provider = provider,
+    title = title,
+    since = since,
+    rev = rev,
+    request = request?.let { r ->
+        AgentRequest(
+            requestId = r.requestId,
+            title = r.title,
+            risk = r.risk?.wire,
+            answerable = r.answerable,
+            titleCode = r.titleCode,
+            titleParams = r.titleParams.mapValues { (_, value) -> (value as? kotlinx.serialization.json.JsonPrimitive)?.takeIf { it.isString }?.content ?: value.toString() },
+        )
+    },
+    nudgeAfterMs = nudgeAfterMs,
+)
+
+fun AgentsStore.apply(snapshot: com.oxespace.mobile.protocol.RemoteAgentsSnapshot) =
+    onSnapshot(snapshot.rows.map { it.toAgentRow() }, snapshot.unavailable)
+
+fun AgentsStore.apply(event: com.oxespace.mobile.protocol.RemoteAgentsEvent) =
+    onEvent(event.upsert.orEmpty().map { it.toAgentRow() }, event.removed.orEmpty().map { AgentRemoval(it.kind, it.id, it.rev) }, event.unavailable)
