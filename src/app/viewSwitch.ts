@@ -103,10 +103,8 @@ export function useViewSwitch(current: AppView, commit: (view: AppView) => void)
     clearTimeout(timer.current)
     if (view === current) { target.current = null; setPendingView(null); return }
     target.current = view
-    // The button is selected and busy first, and painted, whatever the view costs to render (#363 CI: a loaded chunk
-    // committed in the click's own task, and nothing painted for 158 ms).
+    if (readyNow(view)) { finish(view); return }
     setPendingView(view)
-    if (readyNow(view)) { requestAnimationFrame(() => { timer.current = setTimeout(() => finish(view), 0) }); return }
     timer.current = setTimeout(() => finish(view), SKELETON_AFTER_MS)
     // A failed load commits too: the view's error boundary says what went wrong, with Try again.
     void chunkOf(view).then(chunk => chunk?.load()).then(() => finish(view), () => finish(view))

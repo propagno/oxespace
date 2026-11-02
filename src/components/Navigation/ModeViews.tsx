@@ -6,6 +6,7 @@ import type { AppView } from '../../keyboard/keybindings'
 import { useUIStore } from '../../store/ui.store'
 import { scheduleIdle } from '../../lib/preloadSchedule'
 import { chunk, lazyFrom } from '../../lib/chunk'
+import { loadNamespace } from '../../i18n'
 import styles from './ModeViews.module.css'
 
 /**
@@ -15,9 +16,11 @@ import styles from './ModeViews.module.css'
  */
 export const VIEW_CHUNKS = {
   thread: chunk(() => Promise.all([import('../Threads/ThreadSidebar'), import('../Threads/ThreadGrid')])),
-  data: chunk(() => Promise.all([import('../OxeQuery/OxeQuerySidebar'), import('../OxeQuery/OxeQueryView')])),
-  pods: chunk(() => Promise.all([import('../OxePod/OxePodSidebar'), import('../OxePod/OxePodView')])),
-  post: chunk(() => Promise.all([import('../OxePost/OxePostSidebar'), import('../OxePost/OxePostView')]))
+  // With each view, its catalog (src/i18n useNamespace): loaded with the chunk, the view renders at once instead of
+  // suspending once more for its words after the switch (#363 CI: OxeQuery's sidebar skeleton at 128 ms).
+  data: chunk(() => Promise.all([import('../OxeQuery/OxeQuerySidebar'), import('../OxeQuery/OxeQueryView'), loadNamespace('oxequery')])),
+  pods: chunk(() => Promise.all([import('../OxePod/OxePodSidebar'), import('../OxePod/OxePodView'), loadNamespace('pods')])),
+  post: chunk(() => Promise.all([import('../OxePost/OxePostSidebar'), import('../OxePost/OxePostView'), loadNamespace('post')]))
 }
 export const ThreadSidebar = lazyFrom(VIEW_CHUNKS.thread, ([sidebar]) => sidebar.ThreadSidebar)
 export const ThreadGrid = lazyFrom(VIEW_CHUNKS.thread, ([, grid]) => grid.ThreadGrid)

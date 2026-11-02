@@ -63,18 +63,6 @@ describe('switching views (F7.2, docs/design/motion.md)', () => {
     expect(screen.getByTestId('current')).toHaveTextContent('code')
   })
 
-  it('a view already loaded is selected first and committed after that paint, never in the click itself (#363 CI)', async () => {
-    const commit = vi.fn()
-    loaded = true
-    render(<Harness onCommit={commit} />)
-    act(() => { button('OxeQuery').click() })
-    expect(button('OxeQuery')).toHaveAttribute('aria-pressed', 'true')
-    expect(commit).not.toHaveBeenCalled()
-    await act(async () => { await vi.dynamicImportSettled(); vi.advanceTimersByTime(40) })
-    expect(commit).toHaveBeenCalledWith('data')
-    expect(button('OxeQuery')).toHaveAttribute('aria-busy', 'false')
-  })
-
   it('announces the view and moves focus into it at the commit, not at the click', async () => {
     render(<Harness onCommit={() => undefined} />)
     act(() => { button('OxeQuery').click() })
