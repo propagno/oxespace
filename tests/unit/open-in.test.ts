@@ -271,6 +271,11 @@ describe('registeredWorktree: the worktree of a conversation opens, a folder tha
     expect(registeredWorktree([project], forged)).toBeNull()
   })
 
+  it('never touches a UNC or device path, whatever the project registered', () => {
+    const { project } = repoWithWorktree()
+    for (const path of ['//attacker/share', String.raw`\\attacker\share`, String.raw`\\?\C:\x`, String.raw`\\.\pipe\x`, 'relative/wt']) expect(registeredWorktree([project], path)).toBeNull()
+  })
+
   it('refuses a missing folder or one without .git', () => {
     expect(registeredWorktree([root], join(base, 'nowhere'))).toBeNull()
     expect(registeredWorktree([root], outside)).toBeNull()

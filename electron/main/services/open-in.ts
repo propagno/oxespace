@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { accessSync, constants, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
+import { accessSync, constants, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
 import { realpath, stat } from 'node:fs/promises'
 import { delimiter, dirname, isAbsolute, join, normalize, relative, resolve, sep, win32 } from 'node:path'
 import { mainMessage } from '../../../shared/messages'
@@ -32,26 +32,46 @@ function real(path: string): string | null {
  * Stricter than "same repository": a `.git` file anyone can write in any folder names a repository, so the check also
  * goes the other way. The worktree's `.git` must point into `<project>/.git/worktrees/<name>`, and that folder's own
  * `gitdir` must point back at this worktree's `.git`. Only the repository's own `git worktree add` writes both.
+ *
+ * The project side is read first: the window's path is never touched (no realpath, no read) unless it is a local
+ * absolute path that one of the project's registered worktrees names. A UNC or device path (`\\host\share`, `\\?\`,
+ * `\\.\`) would block main on the network and hand the person's NTLM hash to that host (SECURITY #507).
  */
 export function registeredWorktree(projectRoots: string[], requested: string): string | null {
-  const root = real(requested)
-  const dotGit = root ? join(root, '.git') : null
-  if (!root || !dotGit) return null
-  let adminDir: string | null
-  try {
-    if (!statSync(dotGit).isFile()) return null
-    const pointer = /^gitdir:\s*(.+)$/m.exec(readFileSync(dotGit, 'utf8'))
-    adminDir = pointer ? real(resolve(root, pointer[1].trim())) : null
-  } catch { return null }
-  if (!adminDir) return null
+  if (!isLocalAbsolute(requested)) return null
+  const wanted = comparable(resolve(requested))
   for (const projectRoot of projectRoots) {
     const worktrees = real(join(projectRoot, '.git', 'worktrees'))
-    if (!worktrees || dirname(adminDir) !== worktrees) continue
-    let back: string | null
-    try { back = real(resolve(adminDir, readFileSync(join(adminDir, 'gitdir'), 'utf8').trim())) } catch { back = null }
-    if (back && back === real(dotGit)) return root
+    if (!worktrees) continue
+    let names: string[]
+    try { names = readdirSync(worktrees) } catch { continue }
+    for (const name of names) {
+      const adminDir = join(worktrees, name)
+      let back: string | null
+      try { back = real(resolve(adminDir, readFileSync(join(adminDir, 'gitdir'), 'utf8').trim())) } catch { back = null }
+      // The registered worktree's folder, as the repository recorded it; only now is the window's path read.
+      if (!back || comparable(dirname(back)) !== wanted) continue
+      const root = real(requested)
+      if (!root || real(join(root, '.git')) !== back) continue
+      try {
+        const pointer = /^gitdir:\s*(.+)$/m.exec(readFileSync(back, 'utf8'))
+        if (pointer && real(resolve(root, pointer[1].trim())) === real(adminDir)) return root
+      } catch { /* not a worktree's .git file */ }
+    }
   }
   return null
+}
+
+/** A drive or POSIX absolute path on this machine: never UNC (`\\host`, `//host`) nor a device path (`\\?\`, `\\.\`). */
+function isLocalAbsolute(path: string): boolean {
+  if (/^[\\/]{2}/.test(path)) return false
+  return process.platform === 'win32' ? /^[A-Za-z]:[\\/]/.test(path) : path.startsWith('/')
+}
+
+/** Case-folded on Windows for the name match only; the decision compares real paths. */
+function comparable(path: string): string {
+  const normal = normalize(path).replace(/[\\/]+$/, '')
+  return process.platform === 'win32' ? normal.toLowerCase() : normal
 }
 
 export interface OpenInDeps {
