@@ -34,7 +34,14 @@ if (sent) require('fs').writeFileSync(sent, String(Date.now()))
 fetch('http://127.0.0.1:' + process.env.OXESPACE_AGENT_HOOK_PORT + '/hook', { method: 'POST', headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ executionId: process.env.OXESPACE_EXECUTION_ID, token: process.env.OXESPACE_EXECUTION_TOKEN, workspaceId: process.env.OXESPACE_WORKSPACE_ID,
     agent: 'claude-code', payload: { hook_event_name: event, session_id: 'acc-s71-session', cwd: process.cwd() } }) })
-  .then(r => console.log('hook ' + event + ' ' + r.status), e => console.log('hook error ' + e.message))
+  .then(r => r.status, e => 'error: ' + e.message)
+  .then(status => {
+    console.log('hook ' + event + ' ' + status)
+    // DIAG (#441, Windows): what the hook sent and got back. The token's value is never written, only whether it was set.
+    require('fs').appendFileSync(require('path').join(__dirname, 'hook-log.jsonl'), JSON.stringify({ event, status,
+      port: process.env.OXESPACE_AGENT_HOOK_PORT || null, executionId: process.env.OXESPACE_EXECUTION_ID || null,
+      workspaceId: process.env.OXESPACE_WORKSPACE_ID || null, tokenSet: !!process.env.OXESPACE_EXECUTION_TOKEN }) + '\n')
+  })
 `
 
 test('S7.1: one overview of a pane, a conversation, a delegation and a work run, live within 1 s', async () => {
@@ -76,6 +83,8 @@ test('S7.1: one overview of a pane, a conversation, a delegation and a work run,
     }
     await runHook('PermissionRequest')
     await page.waitForTimeout(2_000)
+    const hookLog = join(profile.root, 'hook-log.jsonl')
+    console.log('S71-HOOK', JSON.stringify({ expected: { workspaceId, paneId }, sent: existsSync(hookLog) ? readFileSync(hookLog, 'utf8').trim().split('\n') : 'no hook log (the hook never ran)' }))
 
     const list = await agents(page)
     expect(list, 'oxe.agents.overview exists').not.toBeNull()
