@@ -5,6 +5,7 @@ import { chmodSync, closeSync, fsyncSync, mkdirSync, openSync, readFileSync, rea
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { recordIncident } from '../services/diagnostics/incident-sink'
+import { testDatabasePath } from '../test-switches'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -12,15 +13,15 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 88
+export const LATEST_DB_VERSION = 90
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 3
 
 export type AppDatabase = DatabaseHandle
 
 export function resolveAppDatabasePath(): string {
-  if (process.env.OXESPACE_DB_PATH) return process.env.OXESPACE_DB_PATH
-  return join(app.getPath('userData'), 'oxespace.sqlite3')
+  // T50: a packaged build ignores the test database path (test-switches.ts).
+  return testDatabasePath(process.env, app.isPackaged) ?? join(app.getPath('userData'), 'oxespace.sqlite3')
 }
 
 /** Retry the open on TRANSIENT errors (a stale instance or antivirus briefly
@@ -520,6 +521,8 @@ export function runMigrations(db: AppDatabase): void {
   if (startingVersion < 85) db.transaction(() => db.exec(readMigration('085_thread_sections.sql')))()
   if (startingVersion < 87) db.transaction(() => db.exec(readMigration('087_activity_entries.sql')))()
   if (startingVersion < 88) db.transaction(() => db.exec(readMigration('088_remote_devices.sql')))()
+  if (startingVersion < 89) db.transaction(() => db.exec(withoutExistingColumns(db, readMigration('089_remote_gateway_listened.sql'))))()
+  if (startingVersion < 90) db.transaction(() => db.exec(readMigration('090_accepted_project_config.sql')))()
 }
 
 /** Rebuild the parent without cascading its children or rewriting their IDs. */

@@ -2,11 +2,10 @@ import type { ToolContext } from './tool-registry'
 import { policyBlockedMessage } from '../../../shared/policy'
 import { policyStore } from '../services/policy'
 import type { PolicyStore } from '../services/policy/policy-store'
-import { resolve } from 'node:path'
 import { CONFIGURABLE_MCP_TOOL_GROUPS, type ConfigurableMcpToolGroup } from '../../../shared/types/mcp-tools'
 import { MCP_TOOL_GROUPS } from '../services/conversation/thread-mcp'
-import { projectToolModes, type ProjectToolModes } from '../services/conversation/tool-groups'
-import { loadRepoConfigSync, repoConfigStamp } from '../services/repo-config/loader'
+import type { ProjectToolModes } from '../services/conversation/tool-groups'
+import { enforcedToolModes } from '../services/policy/tool-config'
 import { recordIncident } from '../services/diagnostics/incident-sink'
 
 /**
@@ -22,7 +21,7 @@ export const oxespaceToolResources = (tool: string): string[] => [`mcp__oxespace
  * - any other call answers to every registered project, so the strictest deny among them holds.
  * Policy is checked against each root, and the user and managed layers apply to all of them.
  */
-function callerRoots(ctx: Pick<ToolContext, 'db' | 'workspaceServ' | 'executions' | 'executionId' | 'executionToken' | 'workspaceId'>): string[] {
+function callerRoots(ctx: Pick<ToolContext, 'db' | 'workspaceServ' | 'executions' | 'executionId' | 'executionToken' | 'workspaceId'>): { roots: string[]; sweep: boolean } {
   const roots = new Set<string>()
   let execution: { cwd: string; workspaceId: string } | undefined
   try { execution = ctx.executions?.authenticate(ctx.executionId, ctx.executionToken, ctx.workspaceId) } catch { /* Not a live execution. */ }
@@ -35,12 +34,12 @@ function callerRoots(ctx: Pick<ToolContext, 'db' | 'workspaceServ' | 'executions
       const workspace = ctx.workspaceServ.get(execution.workspaceId)
       if (workspace) roots.add(workspace.rootPath)
     }
-    return [...roots]
+    return { roots: [...roots], sweep: false }
   }
   for (const workspace of ctx.workspaceServ.list()) roots.add(workspace.rootPath)
   const rows = ctx.db?.prepare('SELECT DISTINCT root_path FROM thread_project_contexts').all() as { root_path: string }[] | undefined
   for (const row of rows ?? []) roots.add(row.root_path)
-  return [...roots]
+  return { roots: [...roots], sweep: true }
 }
 
 /**
@@ -50,9 +49,9 @@ function callerRoots(ctx: Pick<ToolContext, 'db' | 'workspaceServ' | 'executions
  * caller's own roots. Returns the message the agent sees, or nothing when the call may run.
  */
 export function toolCallBlocked(tool: string, ctx: Parameters<typeof callerRoots>[0], policy: PolicyStore | null = policyStore(),
-  modesOf: (root: string) => ProjectToolModes = cachedToolModes): string | undefined {
-  const roots = callerRoots(ctx)
-  const off = offGroupBlocking(tool, roots, modesOf, callerRoleGroups(ctx))
+  modesOf?: (root: string) => ProjectToolModes): string | undefined {
+  const { roots, sweep } = callerRoots(ctx)
+  const off = offGroupBlocking(tool, roots, modesOf ?? (root => enforcedToolModes(root, { defer: sweep }).modes), callerRoleGroups(ctx))
   if (off) {
     recordIncident('incident.mcp.toolGroupOff', `${off}:${tool}`)
     // The C3 code is the incident's, the one Settings › Diagnostics shows for it.
@@ -61,7 +60,9 @@ export function toolCallBlocked(tool: string, ctx: Parameters<typeof callerRoots
   if (!policy) return undefined
   for (const root of roots.length ? roots : [null]) {
     for (const resource of oxespaceToolResources(tool)) {
-      const decision = policy.decide('tool.use', resource, root)
+      // The sweep of every registered root (a call outside a live execution) parks what it finds (B7.4): the floor
+      // applies at once, and each project is asked at its own launch or Settings read.
+      const decision = policy.decide('tool.use', resource, root, { defer: sweep })
       if (!decision.allowed) return policyBlockedMessage(decision, tool)
     }
   }
@@ -102,35 +103,10 @@ export function offGroupBlocking(tool: string, roots: readonly string[], modesOf
   const configurable = groups.filter((group): group is ConfigurableMcpToolGroup => (CONFIGURABLE_MCP_TOOL_GROUPS as readonly string[]).includes(group))
   for (const root of roots) {
     let modes: ProjectToolModes
-    try { modes = modesOf(root) } catch { continue }
+    // Fails closed: a root whose modes cannot be read (the gate's database busy, full or closed) counts as every group off.
+    try { modes = modesOf(root) } catch { if (configurable.length) return configurable[0]; continue }
     if (configurable.length && configurable.every(group => modes[group].mode === 'off')) return configurable[0]
   }
   return undefined
 }
 
-/**
- * oxe.yaml's tool modes per root, read again only when the file's size or times change (hot path).
- * Fails closed: deleting the file, or making it unreadable, invalid or too large, is one command for the same agent,
- * so it never lifts an `off` read earlier in this run. The root keeps the last modes read from a valid file, and only a
- * root never read uses the defaults. B7.4 persists this and asks the person about any widening.
- */
-const modesCache = new Map<string, { stamp: string; modes: ProjectToolModes }>()
-/** One entry per folder however it is spelled (`C:\x`, `c:/x/`), so a second spelling has no fail-closed memory of its own. */
-const rootKey = (root: string): string => { const full = resolve(root); return process.platform === 'win32' ? full.toLowerCase() : full }
-function cachedToolModes(root: string): ProjectToolModes {
-  const key = rootKey(root)
-  const stamp = repoConfigStamp(root)
-  const cached = modesCache.get(key)
-  if (cached && cached.stamp === stamp) return cached.modes
-  const config = stamp === 'missing' ? null : loadRepoConfigSync(root)
-  // Missing, unreadable, invalid or too large: the last valid read stands (defaults if there never was one).
-  let modes = config ? projectToolModes(config.thread) : cached?.modes ?? projectToolModes(undefined)
-  // A valid rewrite that just drops a group's value (or misspells it, `offf`) does not lift an `off` read earlier; a
-  // value the project states (`on-demand`, `always`) does, until B7.4 asks the person about such widenings.
-  if (config && cached) {
-    modes = Object.fromEntries(Object.entries(modes).map(([group, entry]) =>
-      [group, entry.source === 'default' && cached.modes[group as ConfigurableMcpToolGroup].mode === 'off' ? cached.modes[group as ConfigurableMcpToolGroup] : entry])) as ProjectToolModes
-  }
-  modesCache.set(key, { stamp, modes })
-  return modes
-}

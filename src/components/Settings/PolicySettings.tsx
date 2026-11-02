@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactElement } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { PolicyLayer, PolicyView } from '../../../shared/policy'
-import { Button } from '../../ui'
+import { Button, ErrorState, Notice } from '../../ui'
 
 /** Read only: shows which policy files apply and what they block. Nothing here writes a policy. */
 export function PolicySettings({ workspaceId }: { workspaceId?: string }): ReactElement {
@@ -21,8 +21,8 @@ export function PolicySettings({ workspaceId }: { workspaceId?: string }): React
 
   return <section className="settings-general" data-testid="policy-settings"><h2>{t('policy.title')}</h2>
     <p>{t('policy.intro')}</p>
-    {error ? <div className="settings-callout" role="alert">{error}</div> : null}
-    {view?.problems.map(problem => <div key={problem} className="settings-callout" role="alert">{t('policy.notApplied', { problem })}</div>)}
+    {error ? <ErrorState compact title={error} /> : null}
+    {view?.problems.map(problem => <Notice key={problem} intent="warning">{t('policy.notApplied', { problem })}</Notice>)}
     {(view?.locations ?? []).map(({ layer, path }) => {
       const source = view?.sources.find(item => item.path === path)
       return <div key={path}>

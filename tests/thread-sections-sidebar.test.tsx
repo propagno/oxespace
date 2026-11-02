@@ -2,8 +2,9 @@ import { cleanup, createEvent, fireEvent, render, screen, waitFor, within } from
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ThreadSidebar } from '../src/components/Threads/ThreadSidebar'
-import { resetSectionsMockForTests, sectionsApi } from '../src/components/Threads/sections/sectionsApi'
-import { SECTIONS_STORAGE_PREFIX } from '../src/components/Threads/sections/sectionsMock'
+import { normalizeThreadSections } from '../shared/thread-sections'
+import type { ThreadSections } from '../shared/types/thread-sections'
+import { LEGACY_STORAGE_PREFIX, resetSectionsForTests, sectionsApi } from '../src/components/Threads/sections/sectionsApi'
 import { THREAD_DRAG_TYPE } from '../src/components/Threads/sections/useSectionDrag'
 import { useThreadStore } from '../src/store/thread.store'
 import type { ConversationThread, ThreadApi } from '../shared/types/thread'
@@ -12,16 +13,25 @@ const base: ConversationThread = { id: 'a', workspaceId: 'ws', projectId: 'proje
 
 function fixture() {
   const threads = [base, { ...base, id: 'b', title: 'Bravo', createdAt: 2 }, { ...base, id: 'child', title: 'Nested', createdAt: 1, parentThreadId: 'a' } as ConversationThread]
-  const api = { list: vi.fn(async () => threads), projects: vi.fn(async () => ({ projects: [], unavailable: [] })), onChanged: vi.fn(() => () => {}) } as unknown as ThreadApi
+  // Main's two section channels, in memory, checked by the shared validator main uses.
+  const stored = new Map<string, ThreadSections>()
+  const api = { list: vi.fn(async () => threads), projects: vi.fn(async () => ({ projects: [], unavailable: [] })), onChanged: vi.fn(() => () => {}),
+    sections: vi.fn(async (workspaceId: string) => structuredClone(stored.get(workspaceId) ?? { sections: [], assignments: {} })),
+    saveSections: vi.fn(async (workspaceId: string, state: ThreadSections) => {
+      const result = normalizeThreadSections(state, id => threads.some(item => item.id === id))
+      if (result.ok) stored.set(workspaceId, structuredClone(result.state))
+      return result
+    }) } as unknown as ThreadApi
   Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: api } })
   useThreadStore.setState({ threads, projects: [{ projectId: 'project', displayName: 'Repo', identityLabel: '/repo', hidden: false, contexts: [{ rootPath: '/repo', label: 'Repo' }] }], selectedId: null, secondaryId: null, errors: {}, hiddenProjects: [], expanded: {}, unreadIds: [] })
-  localStorage.setItem(`${SECTIONS_STORAGE_PREFIX}project`, JSON.stringify({ sections: [{ id: 'work', projectId: 'project', name: 'Work', order: 0, collapsed: false, createdAt: 1 }], assignments: { a: 'work' } }))
+  // Sections this window kept before main did: the first load moves them to main.
+  localStorage.setItem(`${LEGACY_STORAGE_PREFIX}project`, JSON.stringify({ sections: [{ id: 'work', projectId: 'project', name: 'Work', order: 0, collapsed: false, createdAt: 1 }], assignments: { a: 'work' } }))
 }
 
 const region = (name: string) => screen.getByRole('region', { name })
 const titlesIn = (element: HTMLElement) => [...element.querySelectorAll('.thread-session-title')].map(node => node.textContent)
 
-beforeEach(() => { localStorage.clear(); resetSectionsMockForTests() })
+beforeEach(() => { localStorage.clear(); resetSectionsForTests() })
 afterEach(() => { cleanup() })
 
 describe('sections in the conversation list', () => {
@@ -156,14 +166,14 @@ describe('sections in the conversation list', () => {
     expect(i18n.t('thread:sections.count', { count: 0 })).toBe('0 conversations')
   })
 
-  it('uses the real API when the preload has it', async () => {
+  it("reads a project's sections from main under the project's own key; what main keeps wins over a local copy", async () => {
     fixture()
-    const real = { listSections: vi.fn(async () => [{ id: 'real', projectId: 'project', name: 'From main', order: 0, collapsed: false, createdAt: 1 }]), createSection: vi.fn(), renameSection: vi.fn(), deleteSection: vi.fn(), reorderSections: vi.fn(), setSectionCollapsed: vi.fn(), moveToSection: vi.fn(), onSectionsChanged: vi.fn(() => () => {}) }
-    Object.assign(window.oxe.thread!, real)
-    useThreadStore.setState({ threads: useThreadStore.getState().threads.map(thread => thread.id === 'b' ? { ...thread, sectionId: 'real' } as ConversationThread : thread) })
+    const thread = window.oxe.thread as unknown as { sections: ReturnType<typeof vi.fn>; saveSections: ReturnType<typeof vi.fn> }
+    thread.sections.mockResolvedValue({ sections: [{ id: 'real', name: 'From main', order: 0, collapsed: false }], assignments: { b: 'real' } })
     render(<ThreadSidebar onCreate={vi.fn()} />)
     await waitFor(() => expect(titlesIn(region('From main'))).toEqual(['Bravo']))
-    expect(real.listSections).toHaveBeenCalledWith('project')
+    expect(thread.sections).toHaveBeenCalledWith('thread:project')
+    expect(thread.saveSections).not.toHaveBeenCalled()
     expect(screen.queryByRole('region', { name: 'Work' })).toBeNull()
   })
 })

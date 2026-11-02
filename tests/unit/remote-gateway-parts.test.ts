@@ -3,7 +3,10 @@ import { createPrivateKey, generateKeyPairSync, sign, X509Certificate } from 'no
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { certificateFingerprint, createGatewayCertificate, decodeKeyDer, derInteger, derOid, derTime, encodeKeyDer, readCertificateDer, readPrivateKeyDer } from '../../electron/main/services/remote/certificate'
 import { RemoteConnection, mentionsForbidden, type ConnectionHost, type FrameSocket } from '../../electron/main/services/remote/connection'
-import { parseAnswerPairingInput, parseDesktopNameInput, parseDeviceName, parseNoInput, parseRenameInput, parseSetEnabledInput } from '../../electron/main/services/remote/inputs'
+import {
+  deviceNameProblem, parseAnswerPairingInput, parseDesktopNameInput, parseDeviceId, parseDeviceName, parseNoInput, parseRenameInput, parseSetEnabledInput, parseSetPhoneWriteInput
+} from '../../electron/main/services/remote/inputs'
+import { messageFromError } from '../../shared/messages'
 import { isPrivateAddress, listenAddresses, peerAddress } from '../../electron/main/services/remote/network'
 import { PairingDesk } from '../../electron/main/services/remote/pairing'
 import { AccessTokens, readDevicePublicKey, sameSecret, verifyRefreshSignature } from '../../electron/main/services/remote/tokens'
@@ -146,13 +149,19 @@ describe('pairing desk', () => {
     expect(desk.ask('Other', 'ZZZZZZ')).toBeNull()
     expect(() => desk.answer('nope', true)).toThrow('No such pairing request')
     desk.answer(asked.promptId, true)
-    expect(await asked.answer).toBe(true)
+    expect(await asked.answer).toBe('accepted')
     const timed = desk.ask('Pixel', 'ABCDEF')!
-    expect(await timed.answer).toBe(false)
+    expect(await timed.answer).toBe('expired')
     expect(prompts.filter(prompt => prompt === null)).toHaveLength(2)
     const cancelled = desk.ask('Pixel', 'ABCDEF')!
     expect(desk.cancel()).toBe(true)
-    expect(await cancelled.answer).toBe(false)
+    expect(await cancelled.answer).toBe('cancelled')
+    const declined = desk.ask('Pixel', 'ABCDEF')!
+    desk.answer(declined.promptId, false)
+    expect(await declined.answer).toBe('declined')
+    const abandoned = desk.ask('Pixel', 'ABCDEF')!
+    desk.settle('abandoned', abandoned.promptId)
+    expect(await abandoned.answer).toBe('abandoned')
   })
 
   test('tracks a bounded number of addresses', () => {
@@ -177,6 +186,40 @@ describe('window inputs', () => {
     expect(parseDesktopNameInput({ name: ' Desk ' })).toEqual({ name: 'Desk' })
     expect(parseDesktopNameInput({ name: null })).toEqual({ name: null })
     for (const input of [{ name: 'x'.repeat(33) }, { name: '' }, { name: 'a\u0000' }, { name: undefined }, {}]) expect(() => parseDesktopNameInput(input)).toThrow()
+  })
+
+  test('what the person can fix carries a C3 code; malformed input does not', () => {
+    const code = (run: () => unknown) => { try { run() } catch (error) { return messageFromError(error) } throw new Error('did not throw') }
+    expect(code(() => parseDeviceId('x'))).toEqual({ code: 'remote.device.notFound', params: {} })
+    expect(code(() => parseDeviceName(''))).toEqual({ code: 'remote.device.invalidName', params: { max: REMOTE_LIMITS.maxDeviceNameLength } })
+    expect(code(() => parseDesktopNameInput({ name: 'x'.repeat(33) }))).toEqual({ code: 'remote.desktop.invalidName', params: { max: 32 } })
+    // HOMOLOGATION check-221: the name phones see may not pass for the system or the app, nor hide characters.
+    // Vendor names ("Windows Security") join when #247's wider rules land; the shared reservedNameIn decides.
+    for (const name of ['OXESpace Admin', 'System', 'O X E Space']) {
+      expect(code(() => parseDesktopNameInput({ name })), name).toEqual({ code: 'remote.desktop.reservedName', params: {} })
+    }
+    for (const name of ['Studio‮exe.txt', 'Stu​dio']) {
+      expect(code(() => parseDesktopNameInput({ name })), name).toEqual({ code: 'remote.desktop.invalidName', params: { max: 32 } })
+    }
+    expect(parseDesktopNameInput({ name: 'Studio do Edu' })).toEqual({ name: 'Studio do Edu' })
+    expect(code(() => parseSetPhoneWriteInput({ paneId: 'a b', allowed: true }))).toEqual({ code: 'remote.pane.invalid', params: {} })
+    for (const run of [() => parseDeviceId(5), () => parseDeviceName(null), () => parseDesktopNameInput({ name: 5 }), () => parseSetPhoneWriteInput({ paneId: 5, allowed: true }),
+      () => parseRenameInput({ deviceId: '00000000-0000-4000-8000-000000000000', name: 'a', extra: 1 })]) {
+      expect(code(run)).toBeNull()
+    }
+  })
+
+  test('a device name loses its invisible format characters, and one only the app speaks as is refused', () => {
+    const code = (run: () => unknown) => { try { run() } catch (error) { return messageFromError(error) } throw new Error('did not throw') }
+    expect(parseDeviceName('My​Phone‍')).toBe('MyPhone')
+    expect(parseDeviceName(' Pixel of Ana ')).toBe('Pixel of Ana')
+    expect(code(() => parseDeviceName('​‌'))).toEqual({ code: 'remote.device.invalidName', params: { max: 64 } })
+    for (const name of ['OXESpace', 'Sistema', 'System', 'O​XESpace', 'oxespace of Ana', '0XESPACE', 'ＯＸＥＳＰＡＣＥ']) {
+      expect(code(() => parseDeviceName(name)), name).toEqual({ code: 'remote.device.reservedName', params: {} })
+    }
+    expect(deviceNameProblem('filesystem')).toBeNull()
+    expect(deviceNameProblem('')).toBe('invalid')
+    expect(deviceNameProblem('Sistema')).toBe('reserved')
   })
 })
 
@@ -207,6 +250,42 @@ describe('connection', () => {
     expect(out.sent.at(-1)).toEqual({ type: 'error', code: 'unauthenticated' })
     expect(out.closes).toEqual([1008])
     connection.closed()
+  })
+
+  test('a connection that only listens is closed when its token ends; a new sign-in re-arms the timer', () => {
+    vi.useFakeTimers()
+    let now = 0
+    const out = socket()
+    const connection = new RemoteConnection('10.0.0.2', host({ now: () => now, authenticate: () => ({ ok: true, deviceId: 'd', expiresAt: now + 1_000, result: { accessToken: 't', expiresInMs: 1_000 } }) }))
+    connection.attach(out.socket)
+    connection.receive(JSON.stringify({ type: 'hello', versions: [1] }))
+    connection.receive(JSON.stringify({ type: 'auth', id: 'a', accessToken: 't' }))
+    expect(out.sent.at(-1)).toMatchObject({ type: 'ack', id: 'a' })
+    now = 900
+    vi.advanceTimersByTime(900)
+    // Signed in again before the end: the new token's end counts.
+    connection.receive(JSON.stringify({ type: 'auth', id: 'b', accessToken: 't2' }))
+    now = 1_500
+    vi.advanceTimersByTime(600)
+    expect(out.closes).toEqual([])
+    now = 1_900
+    vi.advanceTimersByTime(400)
+    expect(out.sent.at(-1)).toEqual({ type: 'error', code: 'token-expired' })
+    expect(out.closes).toEqual([1008])
+    connection.closed()
+  })
+
+  test('evicted while still to sign in: told so, closed, and gone from the host at once', () => {
+    const closed: RemoteConnection[] = []
+    const out = socket()
+    const connection = new RemoteConnection('10.0.0.2', host({ closed: value => { closed.push(value) } }))
+    connection.attach(out.socket)
+    connection.evict()
+    expect(out.sent).toEqual([{ type: 'error', code: 'unauthenticated' }])
+    expect(out.closes).toEqual([1008])
+    expect(closed).toEqual([connection])
+    connection.closed()
+    expect(closed).toHaveLength(1)
   })
 
   test('a frame flood ends the connection', () => {

@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron'
+import { ipcMain, type IpcMainInvokeEvent } from 'electron'
 import type { AppDatabase } from '../db'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { TeamRole, TeamScope } from '../../../shared/types/team'
@@ -10,7 +10,6 @@ import type { ExecutionOwner } from '../services/execution-registry'
 export function registerTeamIpc(db: AppDatabase, access?: TeamAccess): void {
   const repository = new TeamRepository(db)
   const resolve = async (event: IpcMainInvokeEvent, scope: TeamScope) => {
-    if (!BrowserWindow.fromWebContents(event.sender) || event.senderFrame !== event.sender.mainFrame) throw Error('Team requires the application main frame')
     if (!scope || !['code', 'thread'].includes(scope.kind) || typeof scope.id !== 'string' || scope.id.length > 256) throw Error('Invalid team scope')
     const query = scope.kind === 'code' ? 'SELECT root_path AS root,name FROM workspaces WHERE id=?' : 'SELECT root_path AS root,display_name AS name FROM thread_projects WHERE id=?'
     const source = db.prepare(query).get(scope.id) as { root: string; name: string } | undefined

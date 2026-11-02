@@ -23,12 +23,18 @@ const TOKENS: RegExp[] = [
 /** `password=…`, `"api_key": "…"`, `Authorization: …`: the name stays, the value goes. */
 const NAMED = /((?:password|passwd|pwd|secret|client[_-]?secret|api[_-]?key|access[_-]?token|refresh[_-]?token|auth[_-]?token|token|authorization)["']?\s*[:=]\s*)(?:"[^"\n]*"|'[^'\n]*'|(?:Bearer|Basic)\s+[^\s,;"'}]+|[^\s,;"'}]+)/gi
 
+const AUTH_SCHEME = /\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{8,}/g
+/** scheme://user:password@host keeps the user and the host. */
+const URL_PASSWORD = /(\b[a-z][a-z0-9+.-]*:\/\/[^\s/:@]+):[^\s/@]+@/gi
+
+/** Every shape `redactSecrets` removes, for readers that need to know how long a secret can be (the remote gateway). */
+export const SECRET_PATTERNS: readonly RegExp[] = [...TOKENS, AUTH_SCHEME, NAMED, URL_PASSWORD]
+
 export function redactSecrets(text: string): string {
   let value = text
   for (const pattern of TOKENS) value = value.replace(pattern, REDACTED)
   return value
-    .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{8,}/g, `$1 ${REDACTED}`)
+    .replace(AUTH_SCHEME, `$1 ${REDACTED}`)
     .replace(NAMED, `$1${REDACTED}`)
-    // scheme://user:password@host keeps the user and the host.
-    .replace(/(\b[a-z][a-z0-9+.-]*:\/\/[^\s/:@]+):[^\s/@]+@/gi, `$1:${REDACTED}@`)
+    .replace(URL_PASSWORD, `$1:${REDACTED}@`)
 }

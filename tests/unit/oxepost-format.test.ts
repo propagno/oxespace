@@ -29,7 +29,7 @@ describe('request file format', () => {
       { type: 'none' }, { type: 'basic', username: '{{user}}', password: '{{pass}} with spaces' },
       { type: 'apikey', in: 'query', name: 'api_key', value: '{{apiKey}}' }, { type: 'apikey', in: 'header', name: 'X-Key', value: '{{k}}' }
     ] as const) {
-      const request = { ...emptyRequest(), url: 'http://x', auth }
+      const request = { ...emptyRequest('New request'), url: 'http://x', auth }
       expect(parseRequest(serializeRequest(request)).auth).toEqual(auth)
     }
   })

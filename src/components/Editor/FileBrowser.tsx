@@ -3,7 +3,8 @@ import { useState, type ReactElement } from 'react'
 import type { FileTreeNode } from '../../../shared/types/ipc'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
-import { AnchoredMenu, EmptyState, ErrorState, Spinner, copyText } from '../../ui'
+import { EmptyState, ErrorState, Spinner } from '../../ui'
+import { usePathMenu } from '../PathMenu/usePathMenu'
 import { useTreeKeyboard } from '../../hooks/useTreeKeyboard'
 import { humanizeError } from '../../utils/humanizeError'
 
@@ -47,6 +48,7 @@ export function FileBrowser({ nodes, onOpenFile, rootPath, selectedPath, workspa
       <div className="editor-browser-tree" role="tree" aria-label={t('panels.files')} ref={tree.ref} onKeyDown={tree.onKeyDown}>
       {nodes.map((node, index) => (
         <FileNode
+          workspaceId={workspaceId}
           key={node.relativePath}
           node={node}
           level={1}
@@ -79,6 +81,7 @@ interface FileNodeProps {
   childrenByPath: Record<string, FileTreeNode[]>
   loadingByPath: Record<string, boolean>
   errorByPath: Record<string, string>
+  workspaceId: string
 }
 
 function buildAbsolutePath(rootPath: string, relativePath: string): string {
@@ -89,16 +92,12 @@ function buildAbsolutePath(rootPath: string, relativePath: string): string {
   return full.includes(' ') ? `"${full}"` : full
 }
 
-function FileNode({ node, level, position, siblings, onOpenFile, rootPath, selectedPath, loadDirectory, childrenByPath, loadingByPath, errorByPath }: FileNodeProps): ReactElement {
+function FileNode({ node, level, position, siblings, onOpenFile, rootPath, selectedPath, loadDirectory, childrenByPath, loadingByPath, errorByPath, workspaceId }: FileNodeProps): ReactElement {
   const { t } = useTranslation('code')
   const [isExpanded, setIsExpanded] = useState(false)
   // Dragging a file into a terminal types its path; the menu copies it instead, so no drag is needed (WCAG 2.5.7).
-  const [menu, setMenu] = useState(false)
-  const openMenu = (event: React.MouseEvent): void => { event.preventDefault(); event.stopPropagation(); setMenu(true) }
-  const pathMenu = <AnchoredMenu open={menu} onOpenChange={setMenu} side="right" label={t('editor.browser.pathMenu', { name: node.name })} items={[
-    { label: t('editor.browser.copyPath'), onSelect: () => void copyText(buildAbsolutePath(rootPath, node.relativePath).replace(/^"|"$/g, ''), t('editor.browser.path'), t('editor.browser.pathCopied')) },
-    { label: t('editor.browser.copyRelativePath'), onSelect: () => void copyText(node.relativePath, t('editor.browser.path'), t('editor.browser.relativePathCopied')) }
-  ]} />
+  // F33: the same path menu as every other surface; the tree is the editor itself, so no "open in OXESpace" item.
+  const { menu: pathMenu, onContextMenu: openMenu } = usePathMenu({ workspaceId, rootPath, relativePath: node.relativePath }, { folder: node.type === 'directory' })
 
   const handleDragStart = (event: React.DragEvent): void => {
     event.dataTransfer.effectAllowed = 'copy'
@@ -145,6 +144,7 @@ function FileNode({ node, level, position, siblings, onOpenFile, rootPath, selec
             {!isLoading && !error && children.length === 0 ? <EmptyState compact title={t('editor.emptyFolder')} /> : null}
             {children.map((child, childIndex) => (
               <FileNode
+                workspaceId={workspaceId}
                 key={child.relativePath}
                 node={child}
                 level={level + 1}

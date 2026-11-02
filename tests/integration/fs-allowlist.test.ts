@@ -3,6 +3,9 @@ import { join, relative } from 'node:path'
 import { describe, expect, test } from 'vitest'
 
 const ALLOWED_FS_IMPORTS = new Set([
+  // B18: realpaths and stats only to authorize a workspace path and check an editor executable; reads and writes
+  // only <userData>/open-in.json.
+  'electron/main/services/open-in.ts',
   'electron/main/services/file-system.service.ts',
   'electron/main/services/agent.service.ts',
   'electron/main/services/background.service.ts',
@@ -13,6 +16,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // cannot reach the filesystem at all.
   'electron/main/services/github/gh-exec.ts',
   'electron/main/services/integration.service.ts',
+  // safe-git's stamps: stats the files git read for a repository's config (and HEAD, `.git`, `commondir`) to know
+  // when git must find the dirs or read the config again, and resolves the cwd's real path. Reads and writes nothing.
+  'electron/main/utils/git-dir.ts',
   'electron/main/services/mcp-sync.service.ts',
   // Reads the user-level MCP config files of Claude Desktop, Cursor and Windsurf at their fixed locations
   // (512 KiB at most, JSON only); the renderer never supplies a path.
@@ -93,6 +99,12 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Agent state: reads detection manifests (*.toml) from the app's own
   // userData/agent-detection override folder, never the workspace. Never writes.
   'electron/main/services/agent-state/manifest.ts',
+  // B17: whether a pane's recorded agent session is still on disk before it is resumed. Stats
+  // <claude>/projects/<encoded cwd>/<id>.jsonl and lists the dated folders of <codex>/sessions for a rollout named
+  // after the id. The id is a UUID the hooks or main recorded; never a path from the renderer. No contents, no writes.
+  // For Claude it also realpaths the pane root and lists <claude>/projects once; a project folder holding the id is
+  // decoded through the folder names on the way down to it (bounded), and accepted only if it resolves to the root.
+  'electron/main/services/agent-state/native-session-files.ts',
   // Shell parsing: existence probes for the bash grammar and the tree-sitter runtime wasm at
   // fixed app-asset locations. Never a path from the renderer or the agent, never contents.
   'electron/main/services/conversation/shell-parse.ts',
@@ -138,10 +150,18 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Worktree lifecycle: reads only the bounded <root>/oxe.yaml, links/unlinks
   // the repo's declared shared directories (lstat-guarded, never following a
   // link) and finishes deleting a worktree folder git already de-registered.
-  // Source files are never read or written.
+  // worktree-removal also resolves a worktree path's real, long name
+  // (realpath, read-only) to compare it with git's list. Source files are
+  // never read or written.
   'electron/main/services/repo-config/loader.ts',
   'electron/main/services/repo-config/shared-dirs.ts',
   'electron/main/services/github/worktree-removal.ts',
+  // B19 worktree.copyFiles: copies the files the repo's oxe.yaml lists from the
+  // main checkout into a just-created worktree. Patterns stay in the repo (no
+  // absolute, .. or .git), links are never followed on either side, real paths
+  // are checked against both roots, at most 200 files / 50 MB, and nothing
+  // existing is overwritten (COPYFILE_EXCL). Never edits a file in place.
+  'electron/main/services/repo-config/worktree-include.ts',
   // Cleanup scan: stat-only probes of a worktree's own git metadata (HEAD,
   // reflog tail) to estimate idleness. Never reads source files.
   'electron/main/services/github/worktree-cleanup.ts',
@@ -216,10 +236,13 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Reads three policy files at fixed places (the project's .oxespace/policy.json, <userData>/policy.json and the
   // machine-wide managed file), 256 KiB at most, JSON only; it never writes, and no caller supplies a path.
   'electron/main/services/policy/policy-store.ts',
-  // OXEVoice engine: downloads the Whisper model to <userData>/models and
-  // writes a temp WAV for the CLI — outside the workspace tree, so raw fs is
-  // appropriate here rather than the workspace-scoped FileSystemService.
-  'electron/main/services/voice.service.ts',
+  // B7.4: the managed policy's write probe (open r+, create and remove an empty probe file beside it, Windows) and its
+  // owner and mode (elsewhere), on the fixed managed path only; never a workspace path, never a caller-supplied one.
+  'electron/main/services/policy/accepted-config.ts',
+  // B7.4: stat and read of <root>/oxe.yaml (256 KiB at most) for its tool modes, like repo-config/loader.ts; never writes.
+  'electron/main/services/policy/tool-config.ts',
+  // B7.4: reads the first characters of a gated policy file (fixed places only) for the request's untrusted text; never writes.
+  'electron/main/ipc/policy-runtime.ts',
   // OXE integration: existsSync(`<root>/.oxe`) to decide onboarding vs status —
   // a read-only project probe, not a workspace file operation.
   'electron/main/services/oxe.service.ts',
@@ -228,7 +251,7 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Semantic Service: indexes the workspace tree for local embeddings (reads
   // arbitrary files to embed) and creates the transformers.js model cache under
   // <userData>/models. Background indexing outside the workspace-scoped
-  // FileSystemService, like rtk/voice above.
+  // FileSystemService, like rtk above.
   'electron/main/services/semantic.service.ts',
   // Search Service: Find in Files delegates the actual file reads to the
   // ripgrep child process; its only raw fs use is existsSync to locate the

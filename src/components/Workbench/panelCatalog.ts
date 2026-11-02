@@ -1,9 +1,9 @@
 import { withShortcut, type KeybindingId } from '../../keyboard/keybindings'
-import { Activity, Code2, FileCode2, FolderTree, GitCompareArrows, GitPullRequest, Globe, Search, TerminalSquare, type LucideIcon } from 'lucide-react'
+import { Activity, Code2, Info, FileCode2, FolderTree, GitCompareArrows, GitPullRequest, Globe, Search, TerminalSquare, type LucideIcon } from 'lucide-react'
 import { i18n } from '../../i18n'
 
 /** The side panels Code and Thread share. One name, icon and shortcut for each, whichever mode opens it. */
-export type WorkbenchPanelId = 'terminal' | 'changes' | 'browser' | 'git' | 'files' | 'search' | 'scripts' | 'worktrees' | 'background'
+export type WorkbenchPanelId = 'session' | 'terminal' | 'changes' | 'browser' | 'git' | 'files' | 'search' | 'scripts' | 'worktrees' | 'background'
 
 export interface WorkbenchPanelMeta {
   /** Read in the interface language each time it is used; do not keep a copy. */
@@ -17,6 +17,8 @@ function panel(id: WorkbenchPanelId, icon: LucideIcon, keybinding?: KeybindingId
 }
 
 export const WORKBENCH_PANELS: Record<WorkbenchPanelId, WorkbenchPanelMeta> = {
+  /** Thread only: everything about the conversation (environment, context, tools, outputs, background). */
+  session: panel('session', Info),
   terminal: panel('terminal', TerminalSquare, 'thread.terminal'),
   changes: panel('changes', GitCompareArrows, 'code.changes'),
   browser: panel('browser', Globe, 'code.browser'),
@@ -31,7 +33,7 @@ export const WORKBENCH_PANELS: Record<WorkbenchPanelId, WorkbenchPanelMeta> = {
 /** Panels shown as buttons in the bar; the rest live in the Panels menu. */
 export const CODE_BAR_PANELS: WorkbenchPanelId[] = ['changes', 'browser']
 export const CODE_MENU_PANELS: WorkbenchPanelId[] = ['git', 'files', 'search', 'scripts', 'worktrees']
-export const THREAD_BAR_PANELS: WorkbenchPanelId[] = ['terminal', 'changes', 'browser']
+export const THREAD_BAR_PANELS: WorkbenchPanelId[] = ['terminal', 'changes', 'browser', 'session']
 export const THREAD_MENU_PANELS: WorkbenchPanelId[] = ['git', 'files', 'search', 'scripts', 'background']
 
 export function panelTitle(id: WorkbenchPanelId): string {

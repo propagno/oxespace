@@ -82,6 +82,23 @@ describe('diagnostics bundle', () => {
     expect(JSON.parse(text('configuration.json')).updates).toEqual({ mode: 'auto', channel: 'stable' })
   })
 
+  // Homologation of #203: a four-part V8 version came out as "[ip]-electron.0" in versions.json.
+  it('keeps version fields that look like a version and redacts the rest of versions.json as before', async () => {
+    const bundle = await buildBundle({
+      ...sources,
+      about: () => ({ name: 'OXESpace', version: '1.3.3', host: '10.1.2.3', user: MACHINE,
+        versions: { electron: '44.9.3', chrome: '146.0.7680.65', node: '24.11.1', v8: '14.6.202.31-electron.0', fake: `10.0.0.7 at ${WINDOWS_PATH}` } })
+    })
+    const text = bundle.entries.find(entry => entry.name === 'versions.json')!.data.toString('utf8')
+    const parsed = JSON.parse(text) as { version: string; host: string; user: string; versions: Record<string, string> }
+    expect(parsed.version).toBe('1.3.3')
+    expect(parsed.versions).toMatchObject({ electron: '44.9.3', chrome: '146.0.7680.65', node: '24.11.1', v8: '14.6.202.31-electron.0' })
+    // The exception is the field's shape, not a looser IP rule: anything else is still redacted, even in versions.
+    expect(parsed.versions.fake).toBe('[ip] at [path]')
+    expect(parsed.host).toBe('[ip]')
+    expect(text).not.toContain(MACHINE)
+  })
+
   it('counts each replaced value', () => {
     const redactor = createRedactor({ names: [MACHINE] })
     expect(redactor.text(`${EMAIL} ${WINDOWS_PATH} ${MACHINE} ${TOKEN}`)).toBe('[email] [path] [name] [redacted]')

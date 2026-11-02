@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronRight, GitBranch, Link2, MoreHorizontal, Network, Plus, Send, Trash2, X, Zap } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { IntegrationGroup, IntegrationRole, IntegrationStatus } from '../../../shared/types/integration'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
 import { useIntegrationStore } from '../../store/integration.store'
@@ -10,6 +11,7 @@ import { HandoffInbox } from './HandoffInbox'
 import { MemberEditButton, MemberEditor } from './MemberEditor'
 import { Button, TextField, Select, EmptyState, Notice } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
+import { i18n } from '../../i18n'
 
 interface IntegrationPanelProps {
   activePaneId: string | null
@@ -21,20 +23,9 @@ interface IntegrationPanelProps {
 
 const ROLES: IntegrationRole[] = ['fed', 'bff', 'srv', 'api', 'apim', 'mktapi', 'aut', 'lib', 'db', 'infra', 'docs', 'other']
 
-const ROLE_LABELS: Record<IntegrationRole, string> = {
-  fed: 'Frontend (FED)',
-  bff: 'Backend-for-Frontend (BFF)',
-  srv: 'Service (SRV)',
-  api: 'API',
-  apim: 'API management',
-  mktapi: 'Marketing API',
-  aut: 'Automation',
-  lib: 'Shared library',
-  db: 'Database',
-  infra: 'Infrastructure',
-  docs: 'Documentation',
-  other: 'Other responsibility'
-}
+/** A responsibility's name in the interface language. */
+const roleLabel = (role: IntegrationRole): string => i18n.t(`integration.roles.${role}`, { ns: 'code' })
+const STATUS_FILTERS = ['active', 'paused', 'done', 'all'] as const
 
 /**
  * Compact, single-column layout. The previous version stacked five
@@ -51,6 +42,7 @@ const ROLE_LABELS: Record<IntegrationRole, string> = {
  */
 export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorkspace, workspace, workspaces }: IntegrationPanelProps): ReactElement {
   const { activeGroupId, activeMemberId, addMember, buildContext, createGroup, deleteGroup, error, groups, isLoading, load, removeMember, setActiveGroup, setActiveMember, updateGroup } = useIntegrationStore()
+  const { t } = useTranslation('code')
   const getTerminalStatus = useTerminalStore((state) => state.getStatus)
   const [name, setName] = useState('')
   const [goal, setGoal] = useState('')
@@ -129,7 +121,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
     const targetWorkspace = workspaces.find((item) => item.id === memberWorkspaceId)
     if (!targetWorkspace) return
     if (activeGroup.members.some((member) => member.workspaceId === targetWorkspace.id && member.role === memberRole)) {
-      setPanelNotice(`${ROLE_LABELS[memberRole]} is already assigned to ${targetWorkspace.name}. Choose another responsibility or workspace.`)
+      setPanelNotice(t('integration.roleTaken', { role: roleLabel(memberRole), workspace: targetWorkspace.name }))
       return
     }
     const targetPane = memberPanes.find((pane) => pane.id === memberPaneId) ?? null
@@ -138,13 +130,13 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
       workspaceId: targetWorkspace.id,
       paneId: targetPane?.id ?? null,
       role: memberRole,
-      alias: `${ROLE_LABELS[memberRole]} · ${targetWorkspace.name}`,
+      alias: `${roleLabel(memberRole)} · ${targetWorkspace.name}`,
       rootPath: targetPane?.rootPath ?? targetWorkspace.rootPath
     })
     setMemberPaneId('')
     setPanelNotice(targetPane
-      ? `${targetWorkspace.name} is ready to receive handoffs in its linked agent terminal.`
-      : `${targetWorkspace.name} was added for visibility. Link an agent terminal when you are ready to send handoffs.`)
+      ? t('integration.memberReady', { workspace: targetWorkspace.name })
+      : t('integration.memberAdded', { workspace: targetWorkspace.name }))
   }
 
   const handleBuildContext = async (send: boolean): Promise<void> => {
@@ -153,9 +145,9 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
     setContextText(result.text)
     if (send) {
       onRunInTerminal(result.text)
-      setPanelNotice('Brief sent to the active agent terminal.')
+      setPanelNotice(t('integration.briefSent'))
     } else {
-      setPanelNotice('Brief generated. Review it before sending it to the active agent terminal.')
+      setPanelNotice(t('integration.briefGenerated'))
     }
   }
 
@@ -168,7 +160,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
   const handleSendContext = (): void => {
     if (!contextText.trim()) return
     onRunInTerminal(contextText)
-    setPanelNotice('Edited brief sent to the active agent terminal.')
+    setPanelNotice(t('integration.briefEditedSent'))
   }
 
   const handleDeleteGroup = async (): Promise<void> => {
@@ -180,7 +172,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
     setConfirmDeleteGroupId(null)
     setShowGroupMenu(false)
     setContextText('')
-    setPanelNotice('Coordination removed.')
+    setPanelNotice(t('integration.removed'))
   }
 
   const handleRemoveMember = async (member: IntegrationGroup['members'][number]): Promise<void> => {
@@ -194,7 +186,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
       await removeMember(member.id)
       setEditingMemberId(null)
       setConfirmRemoveMemberId(null)
-      setPanelNotice(`${member.alias} was removed from this coordination.`)
+      setPanelNotice(t('integration.memberRemoved', { member: member.alias }))
     } catch (err) {
       setMemberActionError(humanizeError(err))
     } finally {
@@ -206,8 +198,8 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
     <div className="integration-panel">
       <div className="integration-toolbar">
         {groups.length > 0 ? (
-          <div className="integration-status-filter" role="group" aria-label="Filter integrations by status">
-            {(['active', 'paused', 'done', 'all'] as const).map((value) => {
+          <div className="integration-status-filter" role="group" aria-label={t('integration.filter')}>
+            {STATUS_FILTERS.map((value) => {
               const count = value === 'all' ? groups.length : groups.filter((g) => g.status === value).length
               return (
                 <button
@@ -217,7 +209,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                   onClick={() => setStatusFilter(value)}
                   aria-pressed={statusFilter === value}
                 >
-                  {value === 'all' ? 'All' : value.charAt(0).toUpperCase() + value.slice(1)}
+                  {t(`integration.filters.${value}`)}
                   <span className="integration-status-filter-count">{count}</span>
                 </button>
               )
@@ -230,32 +222,32 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
           onClick={() => setShowCreateForm((value) => !value)}
           aria-expanded={showCreateForm}
           aria-controls="integration-create-form"
-          title={showCreateForm ? 'Close setup' : 'Set up multi-repo coordination'}
+          title={showCreateForm ? t('integration.closeSetup') : t('integration.setupTitle')}
         >
           {showCreateForm ? <X size={14} aria-hidden="true" /> : <Plus size={14} aria-hidden="true" />}
-          {showCreateForm ? 'Close' : 'Set up'}
+          {showCreateForm ? t('ui.close', { ns: 'common' }) : t('integration.setup')}
         </button>
       </div>
 
       {showCreateForm ? (
         <section id="integration-create-form" className="integration-create-card" aria-labelledby="integration-setup-title">
           <div className="integration-create-intro">
-            <strong id="integration-setup-title">Set up multi-repo coordination</strong>
-            <span>Start with this workspace, then link the repositories and agents that share this delivery.</span>
+            <strong id="integration-setup-title">{t('integration.setupTitle')}</strong>
+            <span>{t('integration.setupHint')}</span>
           </div>
           <div className="integration-create-grid">
             <label className="integration-field">
-              <span>Delivery name</span>
-              <TextField autoFocus value={name} onChange={(event) => setName(event.currentTarget.value)} placeholder="e.g. Payment flow" />
+              <span>{t('integration.name')}</span>
+              <TextField autoFocus value={name} onChange={(event) => setName(event.currentTarget.value)} placeholder={t('integration.namePlaceholder')} />
             </label>
             <label className="integration-field">
-              <span>Shared outcome</span>
-              <TextField value={goal} onChange={(event) => setGoal(event.currentTarget.value)} placeholder="e.g. Ship checkout across frontend and API" />
+              <span>{t('integration.goal')}</span>
+              <TextField value={goal} onChange={(event) => setGoal(event.currentTarget.value)} placeholder={t('integration.goalPlaceholder')} />
             </label>
             <label className="integration-field">
-              <span>This workspace owns</span>
+              <span>{t('integration.owns')}</span>
               <Select value={initialRole} onChange={(event) => setInitialRole(event.currentTarget.value as IntegrationRole)}>
-                {ROLES.map((role) => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}
+                {ROLES.map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
               </Select>
             </label>
             <Button
@@ -265,7 +257,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
               disabled={!name.trim() || !goal.trim()}
             >
               <Plus size={14} aria-hidden="true" />
-              Start coordination
+              {t('integration.start')}
             </Button>
           </div>
         </section>
@@ -273,14 +265,14 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
 
       {error || memberActionError ? <Notice intent="danger">{memberActionError ?? error}</Notice> : null}
       {panelNotice ? <div className="integration-notice" role="status">{panelNotice}</div> : null}
-      {isLoading ? <EmptyState compact title="Loading integration groups…" /> : null}
+      {isLoading ? <EmptyState compact title={t('integration.loading')} /> : null}
 
       {visibleGroups.length > 1 ? (
-        <nav className="integration-group-tabs" aria-label="Integration groups">
+        <nav className="integration-group-tabs" aria-label={t('integration.groups')}>
           {visibleGroups.map((group) => (
             <button key={group.id} type="button" className={group.id === activeGroup?.id ? 'active' : ''} onClick={() => setActiveGroup(group.id)}>
               {group.name}
-              <span className={`integration-group-tab-status status-${group.status}`}>{group.status}</span>
+              <span className={`integration-group-tab-status status-${group.status}`}>{t(`integration.filters.${group.status}`)}</span>
             </button>
           ))}
         </nav>
@@ -289,17 +281,17 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
       {!activeGroup && !isLoading ? (
         <EmptyState
           icon={<Network size={24} />}
-          title={`No coordination ${statusFilter !== 'all' && groups.length > 0 ? `with status ${statusFilter}` : 'yet'}`}
+          title={statusFilter !== 'all' && groups.length > 0 ? t('integration.noneWithStatus', { status: t(`integration.filters.${statusFilter}`) }) : t('integration.none')}
           actions={groups.length === 0 ? (
             <Button variant="primary" size="sm" onClick={() => setShowCreateForm(true)}>
               <Plus size={12} aria-hidden="true" />
-              Set up coordination
+              {t('integration.setupShort')}
             </Button>
           ) : undefined}
         >
           {groups.length > 0 && statusFilter !== 'all'
-            ? <>Switch to <Button variant="link" size="sm" onClick={() => setStatusFilter('all')}>All</Button> or set up another coordination.</>
-            : <>Align the repositories, agents and handoffs involved in one delivery.</>}
+            ? <>{t('integration.switchTo')} <Button variant="link" size="sm" onClick={() => setStatusFilter('all')}>{t('integration.filters.all')}</Button> {t('integration.orSetUp')}</>
+            : <>{t('integration.emptyHint')}</>}
         </EmptyState>
       ) : null}
 
@@ -311,7 +303,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                 <div className="integration-active-title-row">
                   <Zap size={14} aria-hidden="true" className="integration-active-icon" />
                   <strong>{activeGroup.name}</strong>
-                  <span className={`integration-group-tab-status status-${activeGroup.status}`}>{activeGroup.status}</span>
+                  <span className={`integration-group-tab-status status-${activeGroup.status}`}>{t(`integration.filters.${activeGroup.status}`)}</span>
                 </div>
                 {activeGroup.goal ? <span className="integration-active-goal">{activeGroup.goal}</span> : null}
               </div>
@@ -320,8 +312,8 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                   type="button"
                   className="integration-icon-btn"
                   onClick={handlePrepareContext}
-                  title="Generate a brief for the active agent"
-                  aria-label="Generate brief"
+                  title={t('integration.generateBriefTitle')}
+                  aria-label={t('integration.generateBrief')}
                 >
                   <Send size={14} aria-hidden="true" />
                 </button>
@@ -331,16 +323,16 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                   onClick={() => setShowGroupMenu((value) => !value)}
                   aria-haspopup="menu"
                   aria-expanded={showGroupMenu}
-                  aria-label="Group actions"
-                  title="More actions"
+                  aria-label={t('integration.groupActions')}
+                  title={t('integration.moreActions')}
                 >
                   <MoreHorizontal size={14} aria-hidden="true" />
                 </button>
                 {showGroupMenu ? (
                   <div className="integration-active-menu" role="menu">
                     <div className="integration-active-menu-section">
-                      <span className="integration-active-menu-label">Status</span>
-                      <div className="integration-status-segments" role="radiogroup" aria-label="Group status">
+                      <span className="integration-active-menu-label">{t('integration.status')}</span>
+                      <div className="integration-status-segments" role="radiogroup" aria-label={t('integration.groupStatus')}>
                         {(['active', 'paused', 'done'] as const).map((value) => (
                           <button
                             key={value}
@@ -350,7 +342,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                             className={`integration-status-segment status-${value}${activeGroup.status === value ? ' active' : ''}`}
                             onClick={() => void updateGroup({ groupId: activeGroup.id, status: value })}
                           >
-                            {value}
+                            {t(`integration.filters.${value}`)}
                           </button>
                         ))}
                       </div>
@@ -362,7 +354,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                       onClick={handlePrepareContext}
                     >
                       <Send size={12} aria-hidden="true" />
-                      Generate brief
+                      {t('integration.generateBrief')}
                     </button>
                     <button
                       type="button"
@@ -371,18 +363,18 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                       onClick={() => void handleDeleteGroup()}
                     >
                       <Trash2 size={12} aria-hidden="true" />
-                      {confirmDeleteGroupId === activeGroup.id ? 'Click again to confirm' : 'Remove integration'}
+                      {confirmDeleteGroupId === activeGroup.id ? t('integration.confirmAgain') : t('integration.remove')}
                     </button>
                   </div>
                 ) : null}
               </div>
             </header>
 
-            <ul className="integration-member-rows" aria-label="Members">
+            <ul className="integration-member-rows" aria-label={t('integration.members')}>
               {activeGroup.members.map((member) => {
                 const terminal = member.paneId ? getTerminalStatus(member.paneId) : null
                 let statusTone: PaneDisplayTone = 'idle'
-                let statusLabel = 'not bound'
+                let statusLabel = t('integration.notBound')
                 if (member.paneId && terminal) {
                   const fakePane = {
                     id: member.paneId,
@@ -415,14 +407,14 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                         onSelectWorkspace(member.workspaceId)
                       }}
                     >
-                      <span className="integration-member-role" title={ROLE_LABELS[member.role]}>{member.role}</span>
+                      <span className="integration-member-role" title={roleLabel(member.role)}>{member.role}</span>
                       <span className="integration-member-name">{member.alias}</span>
-                      <span className="integration-member-branch" title={member.branch ?? 'no git branch'}>
+                      <span className="integration-member-branch" title={member.branch ?? t('integration.noGitBranch')}>
                         <GitBranch size={12} aria-hidden="true" />
-                        {member.branch ?? 'no branch'}
+                        {member.branch ?? t('integration.noBranch')}
                       </span>
                       <span className="integration-member-status">
-                        <ActivityDot level={statusTone} ariaLabel={`${member.role} is ${statusLabel}`} />
+                        <ActivityDot level={statusTone} ariaLabel={t('integration.memberStatus', { role: member.role, status: statusLabel })} />
                         <span>{member.activeProvider ? `${member.activeProvider} · ${statusLabel}` : statusLabel}</span>
                       </span>
                     </button>
@@ -459,7 +451,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                   className="integration-add-select"
                   value={memberWorkspaceId}
                   onChange={(event) => { setMemberWorkspaceId(event.currentTarget.value); setMemberPaneId('') }}
-                  aria-label="Workspace to add"
+                  aria-label={t('integration.workspaceToAdd')}
                 >
                   {workspaces.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                 </select>
@@ -467,24 +459,24 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
                   className="integration-add-select compact"
                   value={memberRole}
                   onChange={(event) => setMemberRole(event.currentTarget.value as IntegrationRole)}
-                  aria-label="Member role"
+                  aria-label={t('integration.memberRole')}
                 >
-                  {ROLES.map((role) => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}
+                  {ROLES.map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
                 </select>
-                <select className="integration-add-select" value={memberPaneId} onChange={(event) => setMemberPaneId(event.currentTarget.value)} aria-label="Agent terminal to link">
-                  <option value="">No agent terminal yet</option>
+                <select className="integration-add-select" value={memberPaneId} onChange={(event) => setMemberPaneId(event.currentTarget.value)} aria-label={t('integration.terminalToLink')}>
+                  <option value="">{t('integration.noTerminalYet')}</option>
                   {memberPanes.map((pane) => <option key={pane.id} value={pane.id}>{paneLabel(pane)}</option>)}
                 </select>
-                <button type="button" className="integration-add-action" onClick={() => void handleAddMember()} title="Add workspace to this coordination">
+                <button type="button" className="integration-add-action" onClick={() => void handleAddMember()} title={t('integration.addTitle')}>
                   <Plus size={12} aria-hidden="true" />
-                  Add
+                  {t('integration.add')}
                 </button>
               </li>
             </ul>
           </section>
 
           <DisclosureSection
-            label="Handoffs to act on"
+            label={t('integration.handoffs')}
             icon={<Send size={14} aria-hidden="true" />}
             badge={useIntegrationStore.getState().handoffs[activeGroup.id]?.filter((h) => h.status !== 'saved').length || 0}
             open={showHandoffs}
@@ -502,28 +494,28 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
           </DisclosureSection>
 
           <DisclosureSection
-            label="Brief for the active agent"
+            label={t('integration.brief')}
             icon={<Network size={14} aria-hidden="true" />}
             open={showContext}
             onToggle={() => setShowContext((value) => !value)}
           >
             <div className="integration-actions">
-              <Button variant="ghost" size="sm" onClick={() => void handleBuildContext(false)}>Generate brief</Button>
-              <Button variant="ghost" size="sm" onClick={handleSendContext} disabled={!activeGroup || !contextText.trim()}>Send brief to agent</Button>
+              <Button variant="ghost" size="sm" onClick={() => void handleBuildContext(false)}>{t('integration.generateBrief')}</Button>
+              <Button variant="ghost" size="sm" onClick={handleSendContext} disabled={!activeGroup || !contextText.trim()}>{t('integration.sendBrief')}</Button>
               <Button
                
                 variant="ghost" size="sm"
-                onClick={() => { void navigator.clipboard.writeText(contextText); setPanelNotice('Context copied.') }}
+                onClick={() => { void navigator.clipboard.writeText(contextText); setPanelNotice(t('integration.copied')) }}
                 disabled={!contextText}
               >
-                Copy
+                {t('integration.copy')}
               </Button>
             </div>
             <textarea
               className="integration-context-preview"
               value={contextText}
               onChange={(event) => setContextText(event.currentTarget.value)}
-              placeholder="Generate a brief, review it, then send it to the active agent terminal."
+              placeholder={t('integration.briefPlaceholder')}
               spellCheck={false}
             />
           </DisclosureSection>
@@ -562,5 +554,5 @@ function activePaneRootPath(workspace: Workspace, activePaneId: string | null): 
 }
 
 function paneLabel(pane: WorkspacePane): string {
-  return pane.displayName || pane.agentName || `Terminal ${pane.rowIndex + 1}.${pane.columnIndex + 1}`
+  return pane.displayName || pane.agentName || i18n.t('integration.terminalAt', { ns: 'code', position: `${pane.rowIndex + 1}.${pane.columnIndex + 1}` })
 }

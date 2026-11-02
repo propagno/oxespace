@@ -1,22 +1,18 @@
 import type { ReactNode, RefObject, KeyboardEvent as ReactKeyboardEvent } from 'react'
-import { ArrowUp, AtSign, AudioLines, CornerDownLeft, Paperclip, Plug, Plus, Slash, Square, X } from 'lucide-react'
+import { ArrowUp, AtSign, CornerDownLeft, Paperclip, Plug, Plus, Slash, Square, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadAttachment, ThreadSnapshot } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
 import { ErrorState, Menu } from '../../ui'
-import { VoiceHud } from '../Voice/VoiceHud'
 import { ThreadConfigurationBar } from './ThreadConfigurationBar'
 import { ThreadMcpHealth } from './ThreadMcpHealth'
 import { ThreadUsageRing } from './ThreadUsageRing'
-import type { useOxeVoice } from '../../hooks/useOxeVoice'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
-import { withShortcut } from '../../keyboard/keybindings'
 import './ThreadComposerChrome.css'
 import { displayThreadTitle } from './threadTitle'
 import { formatNumber } from '../../utils/formatTime'
 
-type Voice = ReturnType<typeof useOxeVoice>
 /** The parts of useThreadCommands / useFileMentions the composer wires into its textarea. */
 interface CommandInput {
   popup: ReactNode
@@ -30,8 +26,8 @@ interface CommandInput {
   onKeyDown: (event: ReactKeyboardEvent<HTMLTextAreaElement>) => boolean
 }
 
-/** The message box: text, attachments, commands, mentions, voice, configuration and send/steer/stop. */
-export function ThreadComposerForm({ snapshot, draft, attachments, pending, running, active, composerState, textarea, fileInput, commands, mentions, voice, openControl, onControlClosed, onError, onSend, onUpload, onRemoveAttachment, onInsertMention, onInterrupt, onCaret }: {
+/** The message box: text, attachments, commands, mentions, configuration and send/steer/stop. */
+export function ThreadComposerForm({ snapshot, draft, attachments, pending, running, active, composerState, textarea, fileInput, commands, mentions, openControl, onControlClosed, onError, onSend, onUpload, onRemoveAttachment, onInsertMention, onInterrupt, onCaret }: {
   snapshot: ThreadSnapshot | null
   draft: string
   attachments: ThreadAttachment[]
@@ -43,7 +39,6 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
   fileInput: RefObject<HTMLInputElement | null>
   commands: CommandInput
   mentions: { popup: ReactNode; onKeyDown: (event: ReactKeyboardEvent<HTMLTextAreaElement>) => boolean }
-  voice: Voice
   openControl: 'model' | 'effort' | 'permissions' | null
   onControlClosed: () => void
   onError: (message: string) => void
@@ -59,7 +54,6 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
   const blocked = !snapshot || pending || Boolean(snapshot.thread.cliActive)
   const tooLong = draft.length > THREAD_MESSAGE_MAX_CHARS
   return <form className="thread-composer" data-state={composerState} aria-busy={pending} onSubmit={e => { e.preventDefault(); if (!tooLong) onSend() }} onDragOver={event => { if ([...event.dataTransfer.items].some(item => item.kind === 'file')) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy' } }} onDrop={event => { const files = [...event.dataTransfer.files].filter(file => file.type.startsWith('image/')); if (files.length) { event.preventDefault(); onUpload(files) } }}>
-    <VoiceHud status={voice.status} error={voice.error} level={voice.level} modelProgress={voice.modelProgress} onDismiss={voice.dismiss} containerSelector=".thread-view" focusSelector="textarea[data-thread-composer='true']" />
     {commands.popup}
     {mentions.popup}
     {attachments.length > 0 && <div className="thread-attachments" aria-label={t('composer.attachments')}>{attachments.map(attachment => <div key={attachment.id}><span>{attachment.name}</span><small>{t('message.kilobytes', { size: formatNumber(Math.ceil(attachment.bytes / 1024)) })}</small><button type="button" aria-label={t('composer.remove', { name: attachment.name })} disabled={pending} onClick={() => onRemoveAttachment(attachment.id)}><X size={12} /></button></div>)}</div>}
@@ -79,7 +73,6 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
       {snapshot && <div className="thread-composer-group thread-composer-status">
       <ThreadMcpHealth thread={snapshot.thread} />
       <ThreadUsageRing provider={snapshot.thread.provider} idle={!running} threadId={snapshot.thread.id} context={snapshot.thread.contextReport} /></div>}
-      <button type="button" className="thread-voice" aria-label={t('composer.voice')} title={withShortcut(t('composer.voice'), 'voice.toggle')} disabled={!snapshot || pending || !voice.isSupported} onClick={voice.toggle}><AudioLines size={15} /></button>
       {running && <button type="button" className="thread-stop" aria-label={t('composer.stop')} title={t('composer.stopTitle')} disabled={pending} onClick={onInterrupt}><Square size={14} /></button>}
       <button type="submit" className="thread-send oxe-press" aria-label={running ? t('composer.queue') : t('composer.send')} title={running ? t('composer.queueTitle') : t('composer.sendTitle')} disabled={blocked || tooLong || (!draft.trim() && !attachments.length)}><ArrowUp size={16} /></button></footer>
     {tooLong && <ErrorState compact title={t('composer.tooLong', { length: formatNumber(draft.length), limit: formatNumber(THREAD_MESSAGE_MAX_CHARS) })} />}

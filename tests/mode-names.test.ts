@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { KEYBINDINGS, SCOPE_LABELS } from '../src/keyboard/keybindings'
+import { bindingLabel } from '../src/keyboard/labels'
 
 /**
  * The modes are named OxeCode and OxeChat on screen (F12), in the family of OxeQuery, OxePod and OxePost, and an
@@ -23,7 +24,9 @@ const CODE = /(?<!Claude |VS )\bCode\b/
 const ALLOWED: Array<{ language: string; file: string; key: string; why: string }> = [
   { language: 'en', file: 'thread.json', key: 'dialogs.branchPlaceholder', why: 'the thread/<date> branch name the main process generates (thread-worktree.ts), shown verbatim' },
   { language: 'pt-BR', file: 'thread.json', key: 'dialogs.branchPlaceholder', why: 'the thread/<data> branch name the main process generates (thread-worktree.ts), shown verbatim' },
-  { language: 'en', file: 'thread.json', key: 'markdown.code', why: 'the label of a code block in a message: source code, not the mode (pt-BR says "Código")' }
+  { language: 'en', file: 'thread.json', key: 'markdown.code', why: 'the label of a code block in a message: source code, not the mode (pt-BR says "Código")' },
+  { language: 'en', file: 'settings.json', key: 'tools.sourceHint.project', why: 'the oxe.yaml key thread.tools, shown verbatim so the person can find it in the file' },
+  { language: 'pt-BR', file: 'settings.json', key: 'tools.sourceHint.project', why: 'a chave thread.tools do oxe.yaml, mostrada como está para a pessoa achá-la no arquivo' }
 ]
 
 function flatten(value: unknown, prefix = ''): Array<[string, string]> {
@@ -70,7 +73,7 @@ describe('mode names in the interface copy', () => {
     }
     expect(SCOPE_LABELS.code).toBe('OxeCode')
     expect(SCOPE_LABELS.thread).toBe('OxeChat')
-    const labels = KEYBINDINGS.map(binding => binding.label).filter(label => THREAD.test(label) || CODE.test(label))
+    const labels = KEYBINDINGS.map(binding => bindingLabel(binding)).filter(label => THREAD.test(label) || CODE.test(label))
     expect(labels).toEqual([])
   })
 

@@ -1,4 +1,5 @@
-import { Button, ErrorState, Spinner } from '../../ui'
+import { Button, cx, ErrorState, Skeleton, Spinner } from '../../ui'
+import skeletonStyles from '../Navigation/ModeViews.module.css'
 import { useTranslation } from 'react-i18next'
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, ArrowDown, ArrowUp, Check, MessageSquarePlus, TerminalSquare, Image as ImageIcon } from 'lucide-react'
@@ -14,6 +15,7 @@ import { accountContext, accountMessage } from './accountMessages'
 import { useThreadCommands } from './useThreadCommands'
 import { useFileMentions } from './useFileMentions'
 import { PrStatusBar } from '../GitHub/PrStatusBar'
+import { usePrArchiveOffer } from './usePrArchiveOffer'
 import { ThreadLiveActivity } from './ThreadLiveActivity'
 import { threadQuickReplies } from './threadQuickReplies'
 import { createThreadTimelineBuilder, flattenThreadTimeline, foldFinishedTurns, summarizeThreadEvents } from './threadTimelineModel'
@@ -53,7 +55,6 @@ const ThreadCommandDialog = lazy(() => import('./ThreadCommandDialog'))
 const ThreadReviewHost = lazy(() => import('./ThreadReviewHost'))
 const ThreadSideChat = lazy(() => import('./side/ThreadSideChat').then(module => ({ default: module.ThreadSideChat })))
 import { DelegationCreateDialog } from '../Delegation/DelegationCreateDialog'
-import { useOxeVoice } from '../../hooks/useOxeVoice'
 import { threadWorkingRoot } from './threadChanges'
 import { useThreadWorktreeFinishStore } from '../../store/thread-worktree-finish.store'
 import './ThreadWorkbench.css'
@@ -65,32 +66,32 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const storeSelectedId = useThreadStore(state => state.selectedId)
   const snapshot = useThreadStore(state => threadId ? state.selectedId === threadId ? state.snapshot : state.snapshotCache[threadId] ?? null : state.snapshot)
   const selectedId = threadId ?? storeSelectedId
+  // While the next conversation loads (F7.2) the previous one is still on screen: what belongs to a conversation
+  // (scroll position, review state, history feedback) follows the one shown, not the one selected.
+  const shownId = snapshot?.thread.id ?? selectedId
   const threadFontSize = useThreadPrefs(state => state.fontSize)
   const setThreadFontSize = useThreadPrefs(state => state.setFontSize)
   const workbench = useRef<HTMLDivElement>(null)
   const [availableWidth, setAvailableWidth] = useState(0)
-  const review = useThreadWorkbenchStore(state => selectedId ? state.views[selectedId] : undefined)
+  const review = useThreadWorkbenchStore(state => shownId ? state.views[shownId] : undefined)
   const drawer = availableWidth > 0 && availableWidth < 1120
   const draft = useThreadStore(state => snapshot ? state.drafts[snapshot.thread.id] ?? '' : '')
   const attachments = useThreadStore(state => snapshot ? state.attachments[snapshot.thread.id] ?? NO_ATTACHMENTS : NO_ATTACHMENTS)
   const [error, setError] = useState(''), [pending, setPending] = useState(false)
   const [outgoing, setOutgoing] = useState<{ threadId: string; text: string; attachments: ThreadAttachment[]; knownEvents: Set<string> } | null>(null)
   const [panel, setPanel] = useState<ThreadPanelState | null>(null)
+  const panelOpener = useRef<HTMLElement | null>(null)
   const [openControl, setOpenControl] = useState<'model' | 'effort' | 'permissions' | null>(null)
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const [delegationOpen, setDelegationOpen] = useState(false)
   const textarea = useRef<HTMLTextAreaElement>(null), fileInput = useRef<HTMLInputElement>(null), actionInFlight = useRef(false)
-  const scroll = useThreadScrollAnchor(snapshot, selectedId)
+  // T40: its own PR closed or merged, the conversation offers to archive itself (src/components/Threads/usePrArchiveOffer.ts).
+  const onPrStatus = usePrArchiveOffer(snapshot?.thread)
+  const scroll = useThreadScrollAnchor(snapshot, shownId)
   const { timeline, scrollEnd } = scroll
   // The branch of the checkout the conversation works in, which is a worktree once the provider moves into one.
   const branch = useGitBranch(workspace?.id ?? '', snapshot ? threadWorkingRoot(snapshot.thread) : workspace?.rootPath ?? '')
   const api = window.oxe?.thread
-  const voice = useOxeVoice({ enabled: Boolean(active && snapshot && !snapshot.thread.cliActive), onFinalText: text => {
-    if (!snapshot) return
-    const current = useThreadStore.getState().drafts[snapshot.thread.id] ?? ''
-    useThreadStore.getState().setDraft(snapshot.thread.id, `${current}${current && !/\s$/.test(current) ? ' ' : ''}${text} `)
-    requestAnimationFrame(() => textarea.current?.focus())
-  } })
   useEffect(() => {
     const node = workbench.current
     if (!node || typeof ResizeObserver === 'undefined') return
@@ -103,7 +104,15 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const togglePanel = (panelId: ThreadPanel, keepOpen = false): void => {
     if (!snapshot) return
     const current = useThreadWorkbenchStore.getState().views[snapshot.thread.id]?.panel ?? null
+    // The control that opens the panel gets focus back when it closes (HML FINDING M on #227, DESIGN on F14).
+    if (current === null && document.activeElement instanceof HTMLElement && document.activeElement !== document.body) panelOpener.current = document.activeElement
     useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: current === panelId && !keepOpen ? null : panelId })
+  }
+  /** Back to what opened the panel (the header toggle), or the composer when that is gone (a menu item, say). */
+  const returnFocusFromPanel = (): void => {
+    const opener = panelOpener.current
+    panelOpener.current = null
+    requestAnimationFrame(() => { if (opener?.isConnected) opener.focus(); else textarea.current?.focus() })
   }
   const [finding, setFinding] = useState(false)
   // The conversation the side chat drawer is open for; another conversation closes it, and its copy goes with it.
@@ -112,7 +121,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const toggleSideChat = (): void => setSideChatFor(sideChatOpen || !snapshot ? null : snapshot.thread.id)
   const scrollToRow = useRef<((index: number) => void) | null>(null)
   const scrollTo = useCallback((index: number) => scrollToRow.current?.(index), [])
-  useThreadShortcuts({ active, voice, togglePanel, openControl: setOpenControl, onFind: () => setFinding(true), onSideChat: toggleSideChat, runCommand: text => action(() => runCommand(text)) })
+  useThreadShortcuts({ active, togglePanel, openControl: setOpenControl, onFind: () => setFinding(true), onSideChat: toggleSideChat, runCommand: text => action(() => runCommand(text)) })
   const closeReview = () => { if (snapshot) useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: null }); if (useThreadWorkbenchStore.getState().maximizedId === snapshot?.thread.id) useThreadWorkbenchStore.getState().setMaximized(null); requestAnimationFrame(() => textarea.current?.focus()) }
   const reviewMaximized = useThreadWorkbenchStore(state => Boolean(snapshot) && state.maximizedId === snapshot?.thread.id) && Boolean(review?.panel) && !drawer
   const appendToConversation = (prompt: string) => {
@@ -288,7 +297,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     scroll.reinitialize()
   }
   // Esc first gives a maximized panel its place back, then closes it.
-  return <div ref={workbench} className={`thread-workbench${drawer ? ' is-drawer' : ''}${active ? ' is-active-cell' : ''}${reviewMaximized ? ' is-review-maximized' : ''}`} onPointerDown={onActivate} onKeyDown={event => { if (event.key === 'Escape' && review?.panel && !panel && !commands.open && !openControl) { event.preventDefault(); if (reviewMaximized) useThreadWorkbenchStore.getState().setMaximized(null); else closeReview() } }}>
+  return <div ref={workbench} className={`thread-workbench${drawer ? ' is-drawer' : ''}${active ? ' is-active-cell' : ''}${reviewMaximized ? ' is-review-maximized' : ''}`} onPointerDown={onActivate} onKeyDown={event => { if (event.key === 'Escape' && review?.panel && !panel && !commands.open && !openControl && event.target instanceof Element && event.target.closest('.thread-review-host')) { event.preventDefault(); if (reviewMaximized) useThreadWorkbenchStore.getState().setMaximized(null); else { closeReview(); returnFocusFromPanel() } } }}>
     <section className="thread-view" aria-label={t('view.region')} style={{ '--thread-reader-font-size': `${threadFontSize}px` } as React.CSSProperties}>
     <ThreadHeader thread={snapshot?.thread} workspace={workspace} branch={branch?.branch ?? undefined} pending={pending} running={running} activePanel={review?.panel} onTogglePanel={togglePanel} onCloseCell={onCloseCell}
       onCommand={command => void action(async () => { setPanel(null); await runCommand(command) })}
@@ -301,8 +310,9 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
         {/* Zero-height sticky anchor: the strip overlays the top edge without shifting the rows below. */}
         {snapshot && <div className="thread-sticky-prompt-anchor"><ThreadPromptNavigator rows={timelineRows} scrollRef={timeline} scrollTo={scrollTo} /></div>}
         {snapshot?.page?.hasMore && <button type="button" className="thread-load-earlier" disabled={scroll.loadingEarlier} onClick={() => void scroll.loadEarlier()}>{scroll.loadingEarlier ? <Spinner size="sm" decorative /> : <ArrowUp size={14} />}{t('view.loadEarlier')}</button>}
-        {scroll.historyFeedback?.id === selectedId && <p className="thread-history-feedback" role={scroll.historyFeedback.error ? 'alert' : 'status'}>{scroll.historyFeedback.text}</p>}
-        {!snapshot && <div className="thread-welcome"><span className="thread-welcome-mark"><MessageSquarePlus size={26} strokeWidth={1.5} /></span><h2>{selectedId ? t('view.opening') : t('view.welcomeTitle')}</h2><p>{selectedId ? t('view.openingBody') : t('view.welcomeBody')}</p>{!selectedId && <div className="thread-welcome-actions">{onNewThread && <Button variant="primary" icon={<MessageSquarePlus size={14} />} onClick={onNewThread}>{t('view.newConversation')}</Button>}{onAccounts && <Button onClick={onAccounts}>{t('view.providerAccounts')}</Button>}</div>}</div>}
+        {scroll.historyFeedback?.id === shownId && <p className="thread-history-feedback" role={scroll.historyFeedback.error ? 'alert' : 'status'}>{scroll.historyFeedback.text}</p>}
+        {!snapshot && selectedId && <div className={cx('thread-opening', skeletonStyles.viewSkeleton)} role="status" aria-label={t('view.opening')} data-view-skeleton=""><Skeleton decorative lines={2} /><Skeleton decorative variant="block" /><Skeleton decorative lines={3} /></div>}
+        {!snapshot && !selectedId && <div className="thread-welcome"><span className="thread-welcome-mark"><MessageSquarePlus size={26} strokeWidth={1.5} /></span><h2>{selectedId ? t('view.opening') : t('view.welcomeTitle')}</h2><p>{selectedId ? t('view.openingBody') : t('view.welcomeBody')}</p>{!selectedId && <div className="thread-welcome-actions">{onNewThread && <Button variant="primary" icon={<MessageSquarePlus size={14} />} onClick={onNewThread}>{t('view.newConversation')}</Button>}{onAccounts && <Button onClick={onAccounts}>{t('view.providerAccounts')}</Button>}</div>}</div>}
         <ThreadTimelineWindow key={snapshot?.thread.id ?? 'empty'} rows={timelineRows} scrollRef={timeline} followingRef={scroll.following} onViewportUpdateRef={scroll.updateTimelineViewport} scrollToRef={scrollToRow}>{row => <ThreadTimelineEntry row={row} snapshot={snapshot} viewMode={viewMode} running={running} pending={pending} pendingRequests={pendingRequests}
           lastResult={lastResult} lastMessageId={lastConversationMessage?.id} quickReplies={quickReplies} copiedMessageId={copiedMessageId} action={action} runCommand={runCommand} onAccounts={onAccounts}
           onCopy={(id, text) => void copyMessage(id, text)} onPermissions={() => setOpenControl('permissions')} onQuote={text => appendToConversation(quoteMarkdown(text))} onDraft={appendToConversation}
@@ -328,9 +338,9 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
       {snapshot && <ThreadDockPlan events={snapshot.events} />}
       {snapshot && <ThreadDockChanges snapshot={snapshot} running={running} onViewChanges={() => useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'changes' })} />}
       {snapshot && <ThreadDockQueue snapshot={snapshot} pending={pending} textarea={textarea} action={action} />}
-      {snapshot && <PrStatusBar key={snapshot.thread.id} workspaceId={snapshot.thread.workspaceId} rootPath={snapshot.thread.rootPath} onFix={appendToConversation} />}
+      {snapshot && <PrStatusBar key={snapshot.thread.id} workspaceId={snapshot.thread.workspaceId} rootPath={snapshot.thread.rootPath} onFix={appendToConversation} onStatus={onPrStatus} />}
       <ThreadComposerForm snapshot={snapshot} draft={draft} attachments={attachments} pending={pending} running={running} active={active} composerState={composerState} textarea={textarea} fileInput={fileInput}
-        commands={commands} mentions={mentions} voice={voice} openControl={openControl} onControlClosed={() => setOpenControl(null)} onError={setError} onSend={send} onCaret={setCaret}
+        commands={commands} mentions={mentions} openControl={openControl} onControlClosed={() => setOpenControl(null)} onError={setError} onSend={send} onCaret={setCaret}
         onUpload={files => void uploadFiles(files)} onRemoveAttachment={attachmentId => void removeAttachment(attachmentId)} onInsertMention={insertMention} onInterrupt={() => void action(() => api!.interrupt(snapshot!.thread.id))} />
     </div></div>
     {panel && <Suspense fallback={null}><ThreadCommandDialog key={`${panel.surface ?? panel.kind}:${panel.title ?? ''}`} panel={panel} snapshot={snapshot} pending={pending} error={error} onError={setError} action={action} runCommand={runCommand} onDelegations={onDelegations}
@@ -338,7 +348,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     {delegationOpen && snapshot && <DelegationCreateDialog thread={snapshot.thread} onClose={() => setDelegationOpen(false)} />}
   </section>
     {snapshot && review?.panel && <Suspense fallback={null}><ThreadReviewHost snapshot={snapshot} workspace={workspace} panel={review.panel} drawer={drawer} availableWidth={availableWidth} workbench={workbench}
-      onClose={closeReview} onReturnFocus={() => textarea.current?.focus()} onSendToConversation={appendToConversation} /></Suspense>}
+      onClose={() => { closeReview(); if (!drawer) returnFocusFromPanel() }} onReturnFocus={returnFocusFromPanel} onSendToConversation={appendToConversation} onCompact={api?.command ? () => void action(() => runCommand('/compact')) : undefined} /></Suspense>}
     {snapshot && sideChatOpen && <Suspense fallback={null}><ThreadSideChat threadId={snapshot.thread.id} onClose={() => { setSideChatFor(null); requestAnimationFrame(() => textarea.current?.focus()) }} /></Suspense>}
   </div>
 }

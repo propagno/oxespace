@@ -2,16 +2,28 @@
  * Shared directories: gitignored directories (node_modules, caches) that a new
  * worktree links to the main checkout's copy instead of duplicating.
  */
-import { lstat, mkdir, rmdir, symlink, unlink } from 'node:fs/promises'
+import { lstat, mkdir, realpath, rmdir, symlink, unlink } from 'node:fs/promises'
 import { dirname, resolve, sep } from 'node:path'
 
 /** A relative path that stays inside `root`, or null. Mirrors the parser's rules. */
 export function safeRelativePath(root: string, relative: string): string | null {
   const segments = relative.replace(/\\/g, '/').split('/')
-  if (segments.some((s) => !s || s === '.' || s === '..' || s.toLowerCase() === '.git')) return null
+  // Also the Windows spellings that can name another entry: a `:` stream, a trailing dot or space, an 8.3 `GIT~1`.
+  if (segments.some((s) => !s || s === '.' || s === '..' || s.toLowerCase() === '.git' || s.includes(':') || /[. ]$/.test(s) || /^git~\d+$/i.test(s))) return null
   if (/^[a-zA-Z]:/.test(relative) || relative.startsWith('/')) return null
   const full = resolve(root, ...segments)
   return full.startsWith(resolve(root) + sep) ? full : null
+}
+
+/** Whether `path`'s real place is `root`'s real place or inside it. */
+async function realInside(root: string, path: string): Promise<boolean> {
+  try {
+    const [base, real] = [await realpath(root), await realpath(path)]
+    const fold = (p: string) => (process.platform === 'win32' ? p.toLowerCase() : p)
+    return fold(real) === fold(base) || fold(real).startsWith(fold(base.endsWith(sep) ? base : base + sep))
+  } catch {
+    return false
+  }
 }
 
 async function isDirectory(path: string): Promise<boolean> {
@@ -45,6 +57,8 @@ export async function createSharedLinks(primaryRoot: string, worktreePath: strin
     if (!(await isDirectory(source)) || (await exists(target))) continue
     try {
       await mkdir(dirname(target), { recursive: true })
+      // A parent on either side may itself be a link: both must really be inside their own root (SECURITY #477).
+      if (!(await realInside(primaryRoot, dirname(source))) || !(await realInside(worktreePath, dirname(target)))) continue
       await symlink(source, target, process.platform === 'win32' ? 'junction' : 'dir')
       linked.push(relative)
     } catch {

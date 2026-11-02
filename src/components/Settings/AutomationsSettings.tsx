@@ -11,7 +11,7 @@ import type {
   AutomationSchedule
 } from '../../../shared/types/automation'
 import { useWorkspaceStore } from '../../store/workspace.store'
-import { Button, TextField, Select, TextArea } from '../../ui'
+import { Button, Notice, TextField, Select, TextArea } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 import { formatDateTime } from '../../utils/formatTime'
 
@@ -149,7 +149,7 @@ export function AutomationsSettings(): ReactElement | null {
         )
       })}
 
-      {error ? <p className="settings-field-hint" role="alert">{error}</p> : null}
+      {error ? <Notice intent="danger">{error}</Notice> : null}
 
       {creating ? (
         <div className="settings-form-group">

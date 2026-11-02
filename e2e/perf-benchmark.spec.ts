@@ -22,6 +22,8 @@ import { installThreadFixtures, openThreadWithState, registerThreadProject } fro
 
 const REPEATS = 6
 const ENFORCE_BUDGETS = process.env.OXESPACE_PERF_GATE === '1'
+/** On CI a frame budget missed once is measured again before it fails (OXESPACE_PERF_CONFIRM=0 turns it off). */
+const CONFIRM_ON_CI = process.env.CI === 'true' && process.env.OXESPACE_PERF_CONFIRM !== '0'
 
 const PERF_BUDGETS_MS: Record<string, number> = {
   'boot: launch→firstWindow': 5_000,
@@ -309,8 +311,9 @@ test('shell: sidebar, command menu, tools and split renderer', async () => {
     await page.getByTestId('pane-container').first().click()
     await pressShellShortcut(page, 'Control+k')
     const commandInput = page.locator('input[placeholder="Search files and commands…"]')
-    await commandInput.fill('Split pane right')
-    const splitCommand = page.getByText('Split pane right', { exact: true })
+    // By command id, not its words: the palette's labels are "Category: Action" (F17) and may be reworded.
+    await commandInput.fill('split')
+    const splitCommand = page.locator('[cmdk-item][data-value="cmd-split-vertical"]')
     await splitCommand.waitFor({ state: 'visible' })
     const splitStarted = await page.evaluate(() => performance.now())
     await splitCommand.click()
@@ -555,8 +558,8 @@ test('modal surfaces: agents, MCP, skills, semantic, workspace settings and usag
       await page.locator('.sidebar-section-header').last().click()
       await page.keyboard.press('Control+k')
       const input = page.locator('input[placeholder="Search files and commands…"]')
-      await input.fill('Usage & limits')
-      await page.getByText('Usage & limits', { exact: true }).click()
+      await input.fill('usage')
+      await page.locator('[cmdk-item][data-value="cmd-open-usage"]').click()
       await page.locator('[data-testid="usage-modal"]').waitFor({ state: 'visible' })
       usageOpen.push(await page.evaluate((start) => performance.now() - start, started))
       usageClose.push(await timeDomToggle(page, () => page.getByTestId('usage-modal').getByRole('button', { name: 'Close' }).click(), '[data-testid="usage-modal"]', false))
@@ -753,7 +756,7 @@ test('thread: 5,000 events, scroll and streaming append', async () => {
 
     // From the end to the start, 600 px per frame, recording every frame interval. Each step mounts
     // new rows, the virtualizer's worst steady case.
-    const frames = await page.evaluate(async () => {
+    const scrollFrames = (): Promise<number[]> => page.evaluate(async () => {
       const timeline = document.querySelector<HTMLElement>('.thread-timeline')!
       timeline.scrollTop = timeline.scrollHeight
       await new Promise(resolve => setTimeout(resolve, 300))
@@ -768,9 +771,19 @@ test('thread: 5,000 events, scroll and streaming append', async () => {
       }
       return intervals
     })
+    const over = (frames: number[]): number[] => frames.filter(frame => frame > PERF_BUDGETS_MS['thread 5k: scroll frame'])
+    let frames = await scrollFrames()
     report('thread 5k: scroll frame', frames)
-    const longFrames = frames.filter(frame => frame > PERF_BUDGETS_MS['thread 5k: scroll frame'])
+    let longFrames = over(frames)
     console.log(`[RESULT] thread 5k: scroll frames over 50 ms = ${longFrames.length}/${frames.length} max=${Math.max(...frames).toFixed(1)} ms`)
+    // On CI a pass with more than one long frame scrolls again and is judged on that second pass: a shared runner's
+    // slow minute fails one pass, a real regression fails both (as perceived-perf's second round, #353).
+    if (ENFORCE_BUDGETS && CONFIRM_ON_CI && longFrames.length > 1) {
+      const first = longFrames.length
+      frames = await scrollFrames()
+      longFrames = over(frames)
+      console.log(`[CONFIRM] thread 5k: scroll frames over 50 ms, pass 1 ${first}, pass 2 ${longFrames.length}/${frames.length} → ${longFrames.length > 1 ? 'regression' : 'runner noise'}`)
+    }
     // p95 alone would let 7 long frames through; the target is none. One is tolerated as a runner pause.
     if (ENFORCE_BUDGETS) expect(longFrames.length, 'scroll frames over 50 ms').toBeLessThanOrEqual(1)
 

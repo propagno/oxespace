@@ -1,11 +1,5 @@
 import { statSync } from 'node:fs'
 import { isAbsolute } from 'node:path'
-import { BrowserWindow, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
-
-/** Requests that act on the machine (spawn a process, read audio, change settings) come only from the app's own window. */
-export function requireAppFrame(event: IpcMainInvokeEvent | IpcMainEvent, label = 'This request'): void {
-  if (!BrowserWindow.fromWebContents(event.sender) || event.senderFrame !== event.sender.mainFrame) throw new Error(`${label} requires the application main frame`)
-}
 
 /** An absolute path to an existing directory, the way a project root arrives from the renderer. */
 export function parseDirectory(value: unknown, label = 'rootPath'): string {

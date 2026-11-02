@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactElement } from 'react'
+import { SKELETON_AFTER_MS } from '../../app/viewSwitch'
 import { useTranslation } from 'react-i18next'
 import { FilePlus2, KeyRound, RefreshCw, Search, Upload } from 'lucide-react'
 import { NavigationRail, SidebarActions, SidebarFooter, type RailAction } from '../Navigation/NavigationChrome'
@@ -6,7 +7,7 @@ import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH, SIDEBAR_RESIZE_STEP, SIDEBAR_WIDTH, useNavigationPrefs } from '../../store/navigation-prefs.store'
 import { useKeybindings, shortcutLabel } from '../../keyboard/keybindings'
-import { Badge, Kbd, Skeleton, cx } from '../../ui'
+import { Badge, ErrorState, Kbd, Skeleton, cx } from '../../ui'
 import { Splitter } from '../../ui/Splitter'
 import { usePostCatalog } from './catalog'
 import { useOxePostStore } from './oxepost.store'
@@ -46,7 +47,7 @@ export function OxePostSidebar(): ReactElement {
         {shortcutLabel('oxepost.filter') && <Kbd>{shortcutLabel('oxepost.filter')}</Kbd>}
       </label>
       <div className={styles.groups}>
-        {loading && entries.length === 0 && <Skeleton lines={4} label={t('sidebar.loading')} />}
+        {loading && entries.length === 0 && <Skeleton lines={4} label={t('sidebar.loading')} delay={SKELETON_AFTER_MS} />}
         {groups.map(group => <section key={group.folder} aria-label={group.folder ? t('sidebar.folder', { name: group.folder }) : t('sidebar.root')}>
           {group.folder && <h3 className={styles.groupTitle}>{group.folder}</h3>}
           {group.entries.map(entry => <button key={entry.path} type="button" className={styles.row} aria-current={selected === entry.path ? 'page' : undefined} title={entry.problem ?? entry.path}
@@ -57,7 +58,7 @@ export function OxePostSidebar(): ReactElement {
         </section>)}
         {entries.length > 0 && groups.length === 0 && <p className={styles.sideNote}>{t('sidebar.noMatch')}</p>}
         {!loading && !error && entries.length === 0 && <p className={styles.sideNote}>{workspaceId ? t('sidebar.empty') : t('sidebar.noWorkspace')}</p>}
-        {error && <p className={styles.sideNote} role="alert">{t('sidebar.failed')}</p>}
+        {error && <ErrorState compact title={t('sidebar.failed')} onRetry={() => void store().load(workspaceId)} />}
       </div>
       <nav className={styles.sidebarLinks} aria-label={t('sidebar.more')}>
         <button type="button" className={styles.row} onClick={() => store().show('import')}><Upload size={14} aria-hidden="true" /><span className={styles.rowName}>{t('sidebar.import')}</span></button>

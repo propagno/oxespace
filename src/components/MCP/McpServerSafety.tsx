@@ -2,10 +2,20 @@ import { ShieldAlert, TriangleAlert } from 'lucide-react'
 import { useMemo, type ReactElement } from 'react'
 import type { McpServer } from '../../../shared/types/mcp'
 import { launcherPackage } from '../../../shared/mcp-launcher'
-import { messageKey, messageValues } from '../../../shared/messages'
 import { scanToolDescriptions } from '../../../shared/mcp-scan'
 import { McpRunsNow } from './McpRunsNow'
 import { useTranslation } from 'react-i18next'
+import { formatMainMessage } from '../../i18n/mainMessage'
+
+type Quarantine = NonNullable<NonNullable<McpServer['guard']>['quarantine']>
+
+/**
+ * Why a server is quarantined, in the interface language. A quarantine recorded since message codes exist is worded
+ * from its codes (C3); an older one keeps the reasons the main process recorded.
+ */
+export function quarantineReasons(quarantine: Quarantine): string[] {
+  return quarantine.codes?.length ? quarantine.codes.map(formatMainMessage) : quarantine.reasons
+}
 
 /**
  * What a person should know before trusting an MCP server (or trusting it again): the quarantine and why,
@@ -13,10 +23,6 @@ import { useTranslation } from 'react-i18next'
  */
 export function McpServerSafety({ server }: { server: McpServer }): ReactElement | null {
   const { t } = useTranslation('code')
-  // A quarantine recorded since message codes exist is worded in the interface's language; older ones keep `reasons`.
-  const { t: tMain, i18n } = useTranslation('main')
-  // The key is one of several codes, each with its own values; the catalog test checks they all match.
-  const tm = tMain as unknown as (key: string, values: Record<string, string>) => string
   const findings = useMemo(() => scanToolDescriptions(server.tools), [server.tools])
   const quarantine = server.guard?.quarantine ?? null
   // Its command, arguments, environment or URL changed since it was trusted: show what it runs now.
@@ -31,8 +37,7 @@ export function McpServerSafety({ server }: { server: McpServer }): ReactElement
           <ShieldAlert size={14} aria-hidden="true" />
           <div>
             <strong>{t('mcp.safety.quarantineTitle')}</strong>
-            {(quarantine.codes?.length ? quarantine.codes.map((message) => tm(messageKey(message.code), messageValues(message, i18n.language))) : quarantine.reasons)
-              .map((reason) => <p key={reason}>{reason}</p>)}
+            {quarantineReasons(quarantine).map((reason) => <p key={reason}>{reason}</p>)}
             <p>{t('mcp.safety.quarantineBody')}</p>
             {configChanged ? <McpRunsNow config={server.config} /> : null}
           </div>

@@ -1,8 +1,9 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { createSink, isPgArrayType, pgArrayLiteral } from '../../electron/main/services/oxequery/export-writer'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 describe('SQL export of array columns', () => {
   it('writes PostgreSQL array literals, quoting what needs it', () => {
@@ -23,6 +24,6 @@ describe('SQL export of array columns', () => {
       const text = readFileSync(path, 'utf8')
       expect(text).toContain('-- Rename "query_result"')
       expect(text).toContain(`VALUES ('{"a","it''s"}', '["a","b"]');`)
-    } finally { rmSync(dir, { recursive: true, force: true }) }
+    } finally { removeTempDir(dir) }
   })
 })

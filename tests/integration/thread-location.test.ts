@@ -4,7 +4,7 @@
  * root clears it, and an unrelated directory is recorded as outside the repository.
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -12,6 +12,7 @@ import { openInMemoryDatabase, type AppDatabase } from '../../electron/main/db'
 import { ThreadHistory } from '../../electron/main/services/conversation/thread-history'
 import { ThreadManager } from '../../electron/main/services/conversation/thread-manager'
 import type { AgentConversationAdapter, ThreadEvent } from '../../shared/types/thread'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const cleanup: (() => void | Promise<void>)[] = []
 afterEach(async () => { for (const step of cleanup.splice(0).reverse()) await step() })
@@ -23,7 +24,7 @@ function repository(): { repo: string; tree: string } {
   git('init', '-q', '-b', 'main'); git('config', 'user.email', 'e@x'); git('config', 'user.name', 'E')
   writeFileSync(join(repo, 'a.txt'), 'a\n'); git('add', '.'); git('commit', '-qm', 'a')
   git('worktree', 'add', '-q', '-b', 'agent-fix', tree)
-  cleanup.push(() => { rmSync(tree, { recursive: true, force: true }); rmSync(repo, { recursive: true, force: true }) })
+  cleanup.push(() => { removeTempDir(tree); removeTempDir(repo) })
   return { repo, tree }
 }
 

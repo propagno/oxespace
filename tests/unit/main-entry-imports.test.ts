@@ -14,7 +14,7 @@ const ENTRY = join(ROOT, 'electron', 'main', 'index.ts')
 
 /** Loaded on demand, each by the module named; the entry must not reach them statically. */
 const ON_DEMAND: Array<{ module: string; loadedBy: string }> = [
-  { module: 'electron/main/services/voice.service.ts', loadedBy: 'ipc/voice.ipc.ts, first voice request' },
+  { module: 'electron/main/services/open-in.ts', loadedBy: 'ipc/app-info.ipc.ts, first open-in request' },
   { module: 'electron/main/services/session-search/index.ts', loadedBy: 'ipc/session.ipc.ts, first session search' },
   { module: 'electron/main/services/oxe.service.ts', loadedBy: 'ipc/oxe.ipc.ts, first OXE request' },
   { module: 'electron/main/services/agent-hooks/installer.ts', loadedBy: 'ipc/agent-hooks.ipc.ts, Settings' },
@@ -32,6 +32,10 @@ const ON_DEMAND: Array<{ module: string; loadedBy: string }> = [
   { module: 'shared/activity.ts', loadedBy: 'services/activity-store.ts, first activity request' },
   { module: 'electron/main/services/conversation/thread-sections.ts', loadedBy: 'ipc/thread-sections.ipc.ts, first sections request' },
   { module: 'electron/main/e2e/mock-ipc.ts', loadedBy: 'index.ts, E2E mock launches only' },
+  { module: 'electron/main/services/copilotCredits.service.ts', loadedBy: 'ipc/copilot.ipc.ts, first credits request' },
+  { module: 'electron/main/updater.ts', loadedBy: 'ipc/app-update.ipc.ts, first update request or after the first window' },
+  { module: 'electron/main/services/automations/service.ts', loadedBy: 'services/automations/startup.ts, after the first window' },
+  { module: 'electron/main/services/automations/store.ts', loadedBy: 'services/automations/startup.ts, after the first window' },
   { module: 'resources/memory/agent-hook.cjs', loadedBy: 'services/memory/agent-memory-adapter.ts, hook setup' },
   { module: 'resources/agent-hooks/oxespace-status-hook.cjs', loadedBy: 'ipc/agent-hooks.ipc.ts, Settings' },
   { module: 'resources/mcp-bridge/oxespace-mcp.cjs', loadedBy: 'mcp-internal/bootstrap.ts, internal MCP start' }

@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -23,6 +23,7 @@ import { GitHubService } from '../../electron/main/services/github.service'
 import { BackgroundManager } from '../../electron/main/services/background.service'
 import { FileSystemService } from '../../electron/main/services/file-system.service'
 import { createInternalMcpHandle } from '../../electron/main/mcp-internal/bootstrap'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 describe('Internal MCP bootstrap', () => {
   beforeEach(() => {
@@ -31,7 +32,7 @@ describe('Internal MCP bootstrap', () => {
 
   afterEach(() => {
     for (const path of cleanupPaths) {
-      try { rmSync(path, { recursive: true, force: true }) } catch { /* ignore */ }
+      try { removeTempDir(path) } catch { /* ignore */ }
     }
   })
 

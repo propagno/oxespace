@@ -1,12 +1,13 @@
-import { mkdtempSync, readdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readdirSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { boundToolResult, pruneToolOutputs, TOOL_OUTPUT_RETENTION_MS, toolOutputSaver } from '../electron/main/mcp-internal/tool-result-bound'
+import { removeTempDir } from './helpers/removeTempDir'
 
 const roots: string[] = []
 const root = () => { const dir = mkdtempSync(join(tmpdir(), 'oxe-bound-')); roots.push(dir); return dir }
-afterEach(() => { for (const dir of roots.splice(0)) rmSync(dir, { recursive: true, force: true }) })
+afterEach(() => { for (const dir of roots.splice(0)) removeTempDir(dir) })
 
 describe('bounding internal MCP tool results', () => {
   it('leaves a result within the limit untouched', () => {

@@ -16,6 +16,20 @@ import { appendFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
 export const LABEL = 'na-fila'
+/**
+ * The car that fixes a red main. While main is red and the hold is on (MERGE_TRAIN_HOLD_WHEN_MAIN_RED), the
+ * train merges only cars with this label, added by a maintainer or an admin, and removes it after the merge.
+ */
+export const FIX_MAIN_LABEL = 'fix-main'
+export const FIX_MAIN_ROLES = new Set(['admin', 'maintain'])
+/** How many of main's latest completed CI runs are read: main is red when none of them passed. */
+export const MAIN_HEALTH_RUNS = 3
+/**
+ * Checks every car must have passed, whatever branch protection says: ci.yml's summary job, which fails when
+ * any job that had to run did not pass. Protection's required checks are added to these, never in place of
+ * them, and any other check that failed on the head still keeps the car out (decisions.md, item 11).
+ */
+export const TRAIN_REQUIRED_CHECKS = ['CI result']
 export const PREFIX = 'merge-train:'
 export const STATE_MARKER = 'merge-train-state'
 /** The workflow's own job name: its check run on a PR head is never a check the PR must pass. */
@@ -260,6 +274,28 @@ function latestByName(items) {
   return [...byName.values()]
 }
 
+/** Run conclusions that say nothing about main's health: the run stopped or never tested anything. */
+const NO_VERDICT_CONCLUSIONS = new Set(['cancelled', 'skipped', 'neutral', 'action_required', 'stale'])
+
+/**
+ * Whether main is green: one of its latest MAIN_HEALTH_RUNS completed CI runs passed ("green" is a completed
+ * run; cancelled or skipped ones say nothing). Fails closed: runs that could not be read, or none completed,
+ * is red. `since` is the oldest red run after the last green one, for the hold message.
+ * runs: [{ id, status, conclusion, headSha, htmlUrl, createdAt }], from `api.mainRuns` (main's own ci.yml runs)
+ */
+export function mainHealth(runs, n = MAIN_HEALTH_RUNS) {
+  if (!Array.isArray(runs)) return { green: false, reason: "main's CI runs could not be read" }
+  const done = runs
+    .filter((r) => r?.status === 'completed' && r.conclusion && !NO_VERDICT_CONCLUSIONS.has(r.conclusion))
+    .sort((a, b) => time(b.createdAt) - time(a.createdAt))
+  if (done.slice(0, n).some((r) => r.conclusion === 'success')) return { green: true }
+  if (!done.length) return { green: false, reason: 'main has no completed CI run' }
+  const lastGreen = done.findIndex((r) => r.conclusion === 'success')
+  const since = done[(lastGreen === -1 ? done.length : lastGreen) - 1]
+  const url = cleanLink(since.htmlUrl)
+  return { green: false, since, reason: `main red since ${short(since.headSha)}${url ? ` (${url})` : ''}` }
+}
+
 /**
  * One step of the train for the PR at the head of the queue.
  *
@@ -269,7 +305,8 @@ function latestByName(items) {
  *   behindBy,                          // commits of main the head lacks
  *   runs:   [{ name, path, headSha, status, conclusion, htmlUrl, createdAt }],   // workflow runs on the head
  *   checks: [{ name, headSha, status, conclusion, htmlUrl, failedStep, startedAt }], // check runs on the head
- *   requiredChecks: string[],          // from branch protection; empty = every check run on the head
+ *   trainRequiredChecks: string[],     // the train's own (TRAIN_REQUIRED_CHECKS); must have passed
+ *   requiredChecks: string[],          // from branch protection; added to the train's own, never in their place
  *   trainState: { head, since, labeledAt } | null,
  *   now: ms, timeoutMinutes
  * }
@@ -350,19 +387,15 @@ export function step(input) {
   if (running.length) return wait(`${running.map((r) => cleanName(r.name)).join(', ')} still running on ${short(head)}`)
 
   const checks = latestByName((input.checks ?? []).filter((c) => c.headSha === head && c.name !== TRAIN_JOB_NAME))
-  const required = input.requiredChecks ?? []
-  let considered
-  if (required.length) {
-    const missing = required.filter((name) => !checks.some((c) => c.name === name))
-    if (missing.length) return wait(`required check ${missing.map(cleanName).join(', ')} has not run on ${short(head)}`)
-    considered = checks.filter((c) => required.includes(c.name))
-  } else {
-    considered = checks.filter((c) => !IGNORED_CONCLUSIONS.has(c.conclusion))
-  }
+  // The train's own required checks plus branch protection's: protection can add names, never narrow what is
+  // checked, so turning required checks on in the repository settings changes nothing the train lets through.
+  const required = [...new Set([...(input.trainRequiredChecks ?? []), ...(input.requiredChecks ?? [])])]
+  // Every check that ran counts; a required one counts even when skipped (a skipped gate tested nothing).
+  const considered = checks.filter((c) => !IGNORED_CONCLUSIONS.has(c.conclusion) || required.includes(c.name))
   const pending = considered.filter((c) => c.status !== 'completed')
   if (pending.length) return wait(`${pending.map((c) => cleanName(c.name)).join(', ')} still running on ${short(head)}`)
 
-  const failed = considered.find((c) => c.conclusion !== 'success' && !IGNORED_CONCLUSIONS.has(c.conclusion))
+  const failed = considered.find((c) => c.conclusion !== 'success' && (!IGNORED_CONCLUSIONS.has(c.conclusion) || required.includes(c.name)))
   if (failed) {
     const where = failed.failedStep ? ` at step "${cleanName(failed.failedStep)}"` : ''
     const url = cleanLink(failed.htmlUrl)
@@ -375,6 +408,9 @@ export function step(input) {
     const link = url ? ` (${url})` : ''
     return unlabel(`${cleanName(failedRun.name)} ended ${cleanName(failedRun.conclusion ?? 'without a result')} on ${short(head)}${link}. Fix it and label it again.`)
   }
+  // Every run is done and nothing failed, but a required check never ran on this head: never merge without it.
+  const missing = required.filter((name) => !checks.some((c) => c.name === name))
+  if (missing.length) return wait(`required check ${missing.map(cleanName).join(', ')} has not run on ${short(head)}`)
 
   const upToDate = input.behindBy > 0 ? 'green; main is ahead of it only by docs' : 'green and up to date with main'
   return { type: 'merge', message: `merged ${short(head)}, ${upToDate}.`, state: null, expectedHead: head }
@@ -431,6 +467,7 @@ export async function loadInput(api, entry, { now, timeoutMinutes }) {
     docsOnlyBehind,
     runs,
     checks,
+    trainRequiredChecks: TRAIN_REQUIRED_CHECKS,
     requiredChecks,
     trainState: parseTrainState(own[own.length - 1]?.body, now),
     now,
@@ -453,28 +490,49 @@ export async function runTrain(
     headPolls = 10,
     repo = null,
     base = 'main',
+    holdWhenMainRed = false,
   } = {},
 ) {
   const queue = orderQueue(await api.listQueue())
   const actions = []
-  /** Takes the PR at the head of the queue out of it, with the cause in the train's comment. */
-  const leave = async (number, cause) => {
+  const drop = (entry) => {
+    const at = queue.indexOf(entry)
+    if (at !== -1) queue.splice(at, 1)
+  }
+  /** Takes the PR being stepped out of the queue, with the cause in the train's comment. */
+  const leave = async (entry, cause) => {
     const message = `left the queue: ${cause}`
-    actions.push({ type: 'unlabel', message, state: null, number })
-    log(`#${number}: unlabel — ${message}`)
-    await upsertComment(api, number, renderComment(message, null))
-    await api.removeLabel(number)
-    queue.shift()
+    actions.push({ type: 'unlabel', message, state: null, number: entry.number })
+    log(`#${entry.number}: unlabel — ${message}`)
+    await upsertComment(api, entry.number, renderComment(message, null))
+    await api.removeLabel(entry.number)
+    drop(entry)
+  }
+  // While main is red (and the hold is on), only a car labelled fix-main by a maintainer moves, oldest first;
+  // the others keep their place and get no comment: the hold is one line in the train's run summary.
+  const health = holdWhenMainRed && queue.length ? mainHealth(await api.mainRuns().catch(() => null)) : { green: true }
+  const fixRoles = new Map()
+  const fixer = async () => {
+    for (const entry of queue) {
+      if (!entry.fixMain || !entry.fixMainBy) continue
+      if (!fixRoles.has(entry.fixMainBy)) fixRoles.set(entry.fixMainBy, await api.collaboratorRole(entry.fixMainBy).catch(() => null))
+      if (FIX_MAIN_ROLES.has(fixRoles.get(entry.fixMainBy))) return entry
+    }
+    return null
   }
   while (actions.length < maxSteps) {
-    const entry = queue[0]
+    const entry = health.green ? queue[0] : await fixer()
     if (!entry) {
-      actions.push({ type: 'idle', message: `no pull request is labelled ${LABEL}` })
+      if (queue.length) {
+        const message = `held: ${health.reason}. ${queue.length} car(s) wait; a car labelled ${FIX_MAIN_LABEL} by a maintainer goes first.`
+        actions.push({ type: 'hold', message })
+        log(message)
+      } else actions.push({ type: 'idle', message: `no pull request is labelled ${LABEL}` })
       break
     }
     const input = await loadInput(api, entry, { now, timeoutMinutes })
     if (!input) {
-      queue.shift()
+      drop(entry)
       continue
     }
     const action = step(input)
@@ -484,7 +542,7 @@ export async function runTrain(
     if (action.type === 'unlabel') {
       await upsertComment(api, entry.number, renderComment(action.message, null))
       await api.removeLabel(entry.number)
-      queue.shift()
+      drop(entry)
       continue
     }
     if (action.type === 'update') {
@@ -493,7 +551,7 @@ export async function runTrain(
       } catch (error) {
         // 422 with an expected_head_sha mismatch: the head moved, the next step sees it.
         if (error?.status === 422 && /expected head sha/i.test(String(error?.message))) continue
-        await leave(entry.number, `GitHub refused to update the branch (${refusal(error)}). Merge main into it yourself and label it again.`)
+        await leave(entry, `GitHub refused to update the branch (${refusal(error)}). Merge main into it yourself and label it again.`)
         continue
       }
       // The update is asynchronous: dispatch only once the branch has its new head, or CI would test the old one.
@@ -535,13 +593,15 @@ export async function runTrain(
       } catch (error) {
         // 409: the head moved after the green run; the next step sees the new head.
         if (error?.status === 409) continue
-        await leave(entry.number, `GitHub refused the merge (${refusal(error)}). It needs a merge by hand.`)
+        await leave(entry, `GitHub refused the merge (${refusal(error)}). It needs a merge by hand.`)
         continue
       }
       await upsertComment(api, entry.number, renderComment(action.message, null))
       // A merge by GITHUB_TOKEN starts no push run on main, so main's CI is dispatched here.
       await api.dispatchWorkflow('ci.yml', 'main')
-      queue.shift()
+      // The fix-main label covers one merge: a later push to that PR does not jump a held queue again.
+      if (entry.fixMain) await api.removeLabel(entry.number, FIX_MAIN_LABEL)
+      drop(entry)
       continue
     }
     if (action.type === 'wait') await upsertComment(api, entry.number, renderComment(action.message, action.state))
@@ -593,9 +653,17 @@ export function createGitHubApi({ token, repo, base = 'main', fetchImpl = global
       const entries = []
       for (const issue of issues.filter((i) => i.pull_request)) {
         const events = await paginate(`${r}/issues/${issue.number}/events?per_page=100`)
-        const labeled = events.filter((e) => e.event === 'labeled' && e.label?.name === LABEL)
-        const last = labeled[labeled.length - 1]
-        entries.push({ number: issue.number, labeledAt: last?.created_at ?? null, labeledBy: last?.actor?.login ?? null })
+        const lastLabeled = (name) => events.filter((e) => e.event === 'labeled' && e.label?.name === name).at(-1)
+        const last = lastLabeled(LABEL)
+        const fixMain = (issue.labels ?? []).some((l) => (typeof l === 'string' ? l : l?.name) === FIX_MAIN_LABEL)
+        entries.push({
+          number: issue.number,
+          labeledAt: last?.created_at ?? null,
+          labeledBy: last?.actor?.login ?? null,
+          fixMain,
+          // Who added fix-main last: only a maintainer's or an admin's label lets a car through a hold.
+          fixMainBy: fixMain ? (lastLabeled(FIX_MAIN_LABEL)?.actor?.login ?? null) : null,
+        })
       }
       return entries
     },
@@ -697,6 +765,14 @@ export function createGitHubApi({ token, repo, base = 'main', fetchImpl = global
         return []
       }
     },
+    async mainRuns() {
+      // main's own ci.yml runs: pushes and the train's "Full check � main" dispatches, never a packaged smoke or
+      // a publish, or a dispatch that built another branch (testsItsOwnHead).
+      const { data } = await request('GET', `${r}/actions/workflows/ci.yml/runs?branch=${encodeURIComponent(base)}&per_page=30`)
+      return data.workflow_runs
+        .filter((run) => run.head_branch === base && run.head_repository?.full_name === repo && (run.event === 'push' || run.event === 'workflow_dispatch') && testsItsOwnHead(run))
+        .map((run) => ({ id: run.id, status: run.status, conclusion: run.conclusion, headSha: run.head_sha, htmlUrl: run.html_url, createdAt: run.created_at }))
+    },
     async listComments(number) {
       const comments = await paginate(`${r}/issues/${number}/comments?per_page=100`)
       return comments.map((c) => ({
@@ -717,9 +793,10 @@ export function createGitHubApi({ token, repo, base = 'main', fetchImpl = global
     async updateComment(id, body) {
       return (await request('PATCH', `${r}/issues/comments/${id}`, { body })).data
     },
-    async removeLabel(number) {
+    async removeLabel(number, label = LABEL) {
+      if (label !== LABEL && label !== FIX_MAIN_LABEL) throw new Error(`refusing to remove ${cleanName(label)}: not a train label`)
       try {
-        await request('DELETE', `${r}/issues/${number}/labels/${encodeURIComponent(LABEL)}`)
+        await request('DELETE', `${r}/issues/${number}/labels/${encodeURIComponent(label)}`)
       } catch (error) {
         if (error.status !== 404) throw error
       }
@@ -788,7 +865,9 @@ async function main() {
   if (!token || !repo) throw new Error('GITHUB_TOKEN and GITHUB_REPOSITORY are required')
   const minutes = Number(process.env.MERGE_TRAIN_TIMEOUT_MINUTES)
   const timeoutMinutes = Number.isFinite(minutes) && minutes > 0 ? minutes : DEFAULT_TIMEOUT_MINUTES
-  const actions = await runTrain(createGitHubApi({ token, repo }), { timeoutMinutes, repo, log: (line) => console.log(line) })
+  // Off unless the repository variable turns it on (merge-train.yml): main can be red for a known reason.
+  const holdWhenMainRed = process.env.MERGE_TRAIN_HOLD_WHEN_MAIN_RED === 'true'
+  const actions = await runTrain(createGitHubApi({ token, repo }), { timeoutMinutes, repo, holdWhenMainRed, log: (line) => console.log(line) })
   const summary = process.env.GITHUB_STEP_SUMMARY
   if (summary) {
     const lines = actions.map((a) => `- ${a.number ? `#${a.number} ` : ''}**${a.type}**: ${a.message}`)

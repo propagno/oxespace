@@ -10,7 +10,7 @@ import { useContributedCommands } from '../src/utils/commandRegistry'
 
 const noop = (): void => undefined
 const codeContext = { applicationView: 'code' as const, activeWorkspace: null, activePane: null, hasTeamTarget: false, toolHandlers: {},
-  openNewWorkspace: noop, splitActivePane: noop, toggleActivePaneMaximize: noop, toggleActivePaneVoice: noop, openDesignSystem: noop }
+  openNewWorkspace: noop, splitActivePane: noop, toggleActivePaneMaximize: noop, openDesignSystem: noop }
 const threadContext = { snapshot: null, projects: [], showThread: vi.fn(), newThread: vi.fn(), newThreadIn: vi.fn(), addProject: vi.fn(), openAccounts: vi.fn() }
 
 describe('command modules', () => {

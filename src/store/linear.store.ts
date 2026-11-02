@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import type { LinearIssue, LinearIssueScope, LinearStatus, LinearTeam } from '../../shared/types/linear'
+import type { MainMessage } from '../../shared/messages'
 import { humanizeError } from '../utils/humanizeError'
+import { i18n } from '../i18n'
 
 interface LinearState {
   status: LinearStatus | null
@@ -14,6 +16,8 @@ interface LinearState {
   isConnecting: boolean
   error: string | null
   notice: string | null
+  /** What creating a worktree from an issue reported, in C3 (the window words it); replaces `notice` for that action. */
+  worktreeNotices: MainMessage[] | null
   loadStatus: () => Promise<void>
   connect: (apiKey: string) => Promise<void>
   disconnect: () => Promise<void>
@@ -38,6 +42,7 @@ export const useLinearStore = create<LinearState>((set, get) => ({
   isConnecting: false,
   error: null,
   notice: null,
+  worktreeNotices: null,
 
   loadStatus: async () => {
     try {
@@ -59,7 +64,7 @@ export const useLinearStore = create<LinearState>((set, get) => ({
     set({ isConnecting: true, error: null })
     try {
       const status = await window.oxe.linear.setApiKey({ apiKey })
-      set({ status, isConnecting: false, notice: `Connected as ${status.viewerName ?? 'Linear user'}.` })
+      set({ status, isConnecting: false, notice: i18n.t('linear.connected', { ns: 'code', name: status.viewerName ?? i18n.t('linear.user', { ns: 'code' }) }) })
       void get().loadIssues()
       void window.oxe.linear
         .listTeams()
@@ -76,7 +81,7 @@ export const useLinearStore = create<LinearState>((set, get) => ({
       status: { connected: false, encrypted: false, viewerName: null, viewerEmail: null, organization: null, error: null },
       issues: [],
       teams: [],
-      notice: 'Linear disconnected.'
+      notice: i18n.t('linear.disconnected', { ns: 'code' })
     })
   },
 
@@ -109,18 +114,21 @@ export const useLinearStore = create<LinearState>((set, get) => ({
   },
 
   createWorktree: async (input) => {
-    set({ error: null, notice: null })
+    set({ error: null, notice: null, worktreeNotices: null })
     try {
       const result = await window.oxe.linear.createWorktreeFromIssue(input)
-      set({ notice: result.message })
+      // C3: the codes, worded in the interface language; main's `message` is English, for agents and logs. A main
+      // without codes (older build) still gets its text shown.
+      const notices = result.notices?.length ? result.notices : result.messageCode ? [result.messageCode] : null
+      set(notices ? { worktreeNotices: notices } : { notice: result.message })
     } catch (error) {
       set({ error: toMessage(error) })
     }
   },
 
-  clearNotice: () => set({ notice: null })
+  clearNotice: () => set({ notice: null, worktreeNotices: null })
 }))
 
 function toMessage(error: unknown): string {
-  return humanizeError(error, 'Unexpected Linear error')
+  return humanizeError(error, i18n.t('linear.unexpected', { ns: 'code' }))
 }

@@ -71,9 +71,11 @@ the token export, so renaming one is a contract change.
 trunk stands still while the two arms sprout from it in turn, half a beat apart, and the sertão sun breathes with
 them. It is for waits longer than a moment:
 
-- a whole view loading (`<LoadingState brand />`: OxeQuery, OxePod, OxePost and the Thread view);
 - the boot splash (F2);
 - reconnecting (the offline state, F1).
+
+A view loading never shows it: a view switch keeps the current view, and past 300 ms the new view shows its own
+skeleton (`ViewSkeleton`; see "Switching views and loading").
 
 A control, a row or a small panel keeps the `Spinner`: the brand loader is a signature, not a busy indicator for
 every button.
@@ -99,6 +101,9 @@ With `data-motion="reduce"`:
   so motion is replaced by a change of opacity with nothing travelling;
 - every animation runs for 0.01ms once (`src/styles/base.css`), so pulses and shimmers stand still and the brand
   loader shows the cactus fully grown;
+- there are no transitions at all (`transition: none`), not a tiny duration: `transition-property` defaults to `all`, so any duration above 0
+  would start a transition on every element for every change, and one from `visibility: hidden` paints hidden for a
+  frame (the empty frame between views, F7.2);
 - the one exception is the spin, which turns slowly (`--duration-spin: 2.4s`): a frozen spinner reads as a hang;
 - presses do not scale.
 
@@ -113,13 +118,23 @@ Decided 2026-10-31 for F7.2 (FRONTEND's measurements: a cold mode switch shows a
    one commit. No dimming, no spinner over the old view: under 300 ms either would only flash.
 3. **Past 300 ms, show the new view's own skeleton** (the shape of its content, `Skeleton`/`SidebarSkeleton`), never
    the brand loader and never a bare spinner. 300 ms, not 100: a placeholder shown at 100 ms and replaced at 130 ms is
-   a flash. The brand loader is for boot only.
+   a flash. The brand loader is for boot only. The 300 ms count from the press and cover the placeholders inside the
+   new view too (a list's own skeleton): before 300 ms the view shows its frame with the area empty.
 4. **Prefetch on intent**: a mode's chunk starts loading on hover or focus of its button (and its shortcut's
    keydown). Idle prefetch after boot is allowed only through the guarded idle preload, so the boot budget doesn't
    rise.
 5. **Focus and announcement move at the commit**, not at the click: focus goes to the new view's first region, and the
    mode name is announced once. Input typed into the old view before the commit stays in the old view.
 6. **Reduced motion**: same rules, no cross-fade.
+
+Measured in `e2e/acceptance/f7-2-view-switch.spec.ts`. Rule 1 (selected and busy) is 50 ms at normal speed and with
+reduced motion. With the CPU throttled ×6 it is measured two ways (TECH LEAD on #363):
+
+- **Keys in flight across the switch:** the press is selected and busy in the first frame painted after it, and that
+  frame comes within 800 ms. The terminal is still handling input that was already queued before the press, so that
+  first frame comes late for a reason the app does not control. The cap keeps a regression from hiding.
+- **Terminal idle:** selected and busy within 300 ms, 50 ms scaled ×6. This case catches app work put before the first
+  paint, which the first-frame rule cannot see.
 7. **Measured**: F7 records two numbers per switch, *selected at* (target ≤ 50 ms) and *content at* (the existing
    one, re-baselined only downward).
 
