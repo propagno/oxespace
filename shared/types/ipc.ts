@@ -91,7 +91,9 @@ export const IPC_CHANNELS = {
     /** F26: main → window before a close or quit, and the window's answer. */
     closeRequested: 'app:close-requested', closeAnswer: 'app:close-answer',
     /** The main window's only way out to the system browser or mail app. */
-    openExternal: 'app:open-external'
+    openExternal: 'app:open-external',
+    /** B18: a project file in a detected editor or its folder; the editors found; the preferred one. */
+    openIn: 'app:open-in', openInTargets: 'app:open-in-targets', setOpenInPreference: 'app:set-open-in-preference'
   },
   rtk: {
     getStatus: 'rtk:get-status',

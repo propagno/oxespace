@@ -326,7 +326,14 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'notify.refused.reservedName': ['name'],
   'notify.refused.rateLimit': ['perMinute'],
   'agents.name.reserved': ['name'],
-  'delegation.requester.live': []
+  'delegation.requester.live': [],
+  'app.openIn.outsideRoot': [],
+  'app.openIn.notFound': ['path'],
+  'app.openIn.notAFile': ['editor'],
+  'app.openIn.unknownTarget': [],
+  'app.openIn.editorMissing': ['editor'],
+  'app.openIn.launchFailed': ['editor'],
+  'app.openIn.revealFailed': []
 }
 
 describe('C3 message codes', () => {

@@ -44,6 +44,16 @@ export interface AppInfoApi {
    * journalled by its reason) unless it is an http(s) or mailto: URL of at most 2,048 characters without credentials.
    */
   openExternal?(url: string): Promise<{ opened: boolean }>
+  /**
+   * B18: opens a file of an open workspace in a detected editor, at the line, or shows it in its folder. Rejects with
+   * a C3 `app.openIn.*` code: outside the workspace (links followed), gone, an unknown target, an editor no longer
+   * installed, or a launch that failed.
+   */
+  openIn?(input: import('./open-in').OpenInInput): Promise<void>
+  /** B18: the editors installed now and the person's preferred one. */
+  openInTargets?(): Promise<import('./open-in').OpenInTargets>
+  /** B18: saves the preferred editor (Settings › Geral › Editor externo); resolves to the targets in effect. */
+  setOpenInPreference?(preference: import('./open-in').OpenInPreference): Promise<import('./open-in').OpenInTargets>
   /** Sent when the window is about to close or the app to quit (F26): answer with `answerClose`. */
   onCloseRequested?(listener: (request: CloseRequest) => void): () => void
   /** The window's answer to a `CloseRequest`. */
