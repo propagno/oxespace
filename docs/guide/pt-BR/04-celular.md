@@ -50,10 +50,25 @@ endereço que aparece em **Configurações › Dispositivos** (por exemplo `192.
 
 ### Responder a um pedido pelo celular
 
-<!-- A PREENCHER (MOBILE): passos da aba Pedidos e da tela do pedido, com a biometria, quando a cadeia #222 → #236
-entrar. Usar as palavras do glossário (Permitir / Negar) e do mobile-audit-1.4 (P1, P2). -->
+1. Quando um agente precisa de você, o celular avisa: **Precisa de você: …**. Toque no aviso para abrir o pedido, ou
+   abra a aba **Pedidos** e toque nele.
+2. Leia o pedido: o que o agente quer fazer, o **Comando**, a **Pasta**, os **Arquivos que ele alteraria** e o risco
+   (**Só lê**, **Altera algo** ou **Apaga, eleva acesso ou publica**). O que está em **Escrito pelo agente** é a
+   explicação do próprio agente, não do OXESpace.
+3. Para negar, escreva, se quiser, um **Motivo, dito ao agente (opcional)** e toque em **Negar**.
+4. Para permitir, toque em **Permitir uma vez**.
+5. Confirme que é você com a digital, o rosto ou o bloqueio de tela do celular.
+6. O celular mostra **Respondido.**
 
-1. …
+Num pedido que altera, apaga ou publica algo, **Negar** é o primeiro botão; **Permitir uma vez** fica abaixo dele.
+Se o agente fez uma pergunta, escolha as opções e toque em **Enviar respostas**. Um pedido que só o computador pode
+responder mostra **Responda no computador** no topo e não tem botões.
+
+Se parte do pedido não coube no celular, ele avisa: **Parte deste pedido não coube no celular.** Daí você só pode
+**Negar**; para permitir, abra o pedido no computador, onde dá para ler tudo. Uma pergunta que não coube pede para
+responder no computador.
+
+Dentro de uma conversa, um pedido esperando mostra **Precisa de você** e **Responder**, que abre o mesmo pedido.
 
 ### Remover um celular pareado
 
@@ -69,6 +84,11 @@ entrar. Usar as palavras do glossário (Permitir / Negar) e do mobile-audit-1.4 
   mesmo endereço é recusado.
 - Um código de pareamento vale uma vez e expira em 2 minutos; no máximo 5 celulares por computador.
 - O nome de rede do seu computador nunca é enviado: o celular vê o nome que você escolhe em **Nome deste computador**.
+- Nenhuma resposta sai do celular sem a sua confirmação (digital, rosto ou bloqueio de tela); se você cancelar, nada é
+  enviado.
+- O celular só oferece as respostas que o computador ofereceu, e nunca "permitir sempre nesta sessão".
+- As telas que mostram comandos, saídas do terminal ou o código de pareamento (o pedido, a aba **Pedidos**, a conversa,
+  o terminal e o pareamento) ficam em branco na lista de apps recentes e não saem em capturas nem gravações de tela.
 
 ## Se algo der errado
 
@@ -80,8 +100,16 @@ entrar. Usar as palavras do glossário (Permitir / Negar) e do mobile-audit-1.4 
 - **"Tentativas de pareamento demais."** Espere 2 minutos e tente de novo.
 - **"Seu computador já tem 5 aparelhos pareados."** Remova um em **Configurações › Dispositivos**.
 - **"O acesso à câmera está desligado para o OXESpace."** Toque em **Abrir configurações** e ligue a câmera.
-- **"Não deu para falar com o computador."** Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular
-  ligada.
+- **"Não foi possível falar com o computador."** Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o
+  celular ligada.
+- **"Não enviado: a confirmação neste celular foi cancelada."** Toque de novo em **Negar** ou **Permitir uma vez** e
+  confirme que é você.
+- **"Ele já foi respondido ou não espera mais."** Alguém já respondeu, no computador ou em outro celular. Nada a fazer.
+- **"A conversa seguiu em frente; este pedido não vale mais."** O agente já está em outro passo; veja a conversa.
+- **"Só o seu computador pode responder este."** Responda no computador.
+- **"Ações demais em um minuto. Tente de novo daqui a pouco."** Espere um pouco e tente de novo.
+- **"O nome deste celular usa um nome reservado ao próprio OXESpace…"** Mude o nome do celular em **Configurações do
+  Android › Sobre o telefone** e leia o código de novo.
 - **"… removeu este celular."** O aparelho foi removido no computador. Pareie de novo.
 - **"… usa outra versão do OXESpace."** Atualize o app ou o OXESpace no computador.
 
