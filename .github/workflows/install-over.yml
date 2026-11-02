@@ -231,7 +231,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libasound2 \
-            libxshmfence1 libnotify4
+            libxshmfence1 libnotify4 x11-utils
 
       - name: Install dependencies without lifecycle scripts
         run: npm ci --ignore-scripts
@@ -310,11 +310,79 @@ jobs:
             echo "OXESPACE_EXECUTABLE=$CANDIDATE_APPIMAGE" >> "$GITHUB_ENV"
           fi
 
+      # B13, as on Windows: the shipped binary carries every fuse as configured, and Playwright, which needs --inspect,
+      # gets that binary with only that fuse turned back on. An AppImage cannot be changed in place, so its extracted
+      # binary is checked and used instead.
+      - name: "B13: let Playwright attach to the installed candidate"
+        run: |
+          set -euo pipefail
+          check="$GITHUB_WORKSPACE/scripts/check-fuses.mjs"
+          if [ "$OXESPACE_INSTALL_KIND" = deb ]; then
+            bin=/opt/OXESpace/oxespace
+          else
+            rm -rf "$RUNNER_TEMP/appimage" && mkdir -p "$RUNNER_TEMP/appimage"
+            (cd "$RUNNER_TEMP/appimage" && "$CANDIDATE_APPIMAGE" --appimage-extract >/dev/null)
+            bin="$RUNNER_TEMP/appimage/squashfs-root/oxespace"
+            echo "OXESPACE_EXECUTABLE=$bin" >> "$GITHUB_ENV"
+          fi
+          node "$check" --app "$bin"
+          cp "$bin" "$RUNNER_TEMP/oxespace.shipped"
+          if [ "$OXESPACE_INSTALL_KIND" = deb ]; then
+            sudo env "PATH=$PATH" npx --no-install @electron/fuses write --app "$bin" EnableNodeCliInspectArguments=on
+          else
+            npx --no-install @electron/fuses write --app "$bin" EnableNodeCliInspectArguments=on
+          fi
+          node "$check" --app "$bin" --test-copy-of "$RUNNER_TEMP/oxespace.shipped"
+          echo "SHIPPED_BIN=$bin" >> "$GITHUB_ENV"
+
       - name: "Verify the upgrade"
         run: xvfb-run -a npx playwright test -c playwright.tools.config.ts "$SPEC"
         env:
           OXESPACE_UPGRADE_STEP: verify-upgrade
           OXESPACE_EXPECT_VERSION: ${{ env.CANDIDATE_VERSION }}
+
+      # As on Windows: the binary exactly as shipped, started without Playwright on the upgraded profile, must still run
+      # after 25 s with a window and log no error; it is quit the way the desktop does (SIGTERM), forced only after 10 s.
+      - name: "The shipped binary runs on the upgraded profile without Playwright"
+        run: |
+          set -euo pipefail
+          if [ "$OXESPACE_INSTALL_KIND" = deb ]; then sudo cp "$RUNNER_TEMP/oxespace.shipped" "$SHIPPED_BIN"; else cp "$RUNNER_TEMP/oxespace.shipped" "$SHIPPED_BIN"; fi
+          node scripts/check-fuses.mjs --app "$SHIPPED_BIN"
+          out=upgrade-state/shipped-exe && mkdir -p "$out"
+          profile="$HOME/.config/OXESpace"; [ -d "$profile" ] || profile="$HOME/.config/oxespace"
+          log="$profile/logs/main.log"
+          skip=0; [ -f "$log" ] && skip=$(wc -l < "$log")
+          Xvfb :97 -screen 0 1280x800x24 >/dev/null 2>&1 & xvfb=$!
+          sleep 1
+          args=(); [ "$OXESPACE_INSTALL_KIND" = appimage ] && args=(--no-sandbox)
+          DISPLAY=:97 "$SHIPPED_BIN" "${args[@]}" >"$out/stdout.txt" 2>"$out/stderr.txt" & app=$!
+          sleep 25
+          alive=false; kill -0 "$app" 2>/dev/null && alive=true
+          windows=$(DISPLAY=:97 xwininfo -root -tree 2>/dev/null | grep -i '"OXESpace"' || true)
+          echo "alive after 25 s: $alive" | tee "$out/result.txt"
+          echo "windows: ${windows:-none}" | tee -a "$out/result.txt"
+          closer='already gone'
+          if $alive; then
+            kill -TERM "$app"; closer='SIGTERM'
+            for _ in $(seq 1 20); do kill -0 "$app" 2>/dev/null || break; sleep 0.5; done
+            if kill -0 "$app" 2>/dev/null; then kill -KILL "$app"; closer='forced after 10 s (SIGTERM did not quit the app)'; fi
+          fi
+          kill "$xvfb" 2>/dev/null || true
+          echo "ended by: $closer" | tee -a "$out/result.txt"
+          errors=0
+          if [ -f "$log" ]; then
+            cp "$log" "$out/main.log"
+            tail -n +"$((skip + 1))" "$log" > "$out/main.this-launch.log"
+            echo "--- main.log, this launch ---"; cat "$out/main.this-launch.log"; echo "--- end ---"
+            errors=$(grep -c '\] \[error\] ' "$out/main.this-launch.log" || true)
+            grep '\] \[error\] ' "$out/main.this-launch.log" | while read -r line; do echo "::error title=main.log::$line"; done || true
+          else
+            echo "no main.log under $profile" | tee -a "$out/result.txt"
+          fi
+          echo "error lines in main.log: $errors" | tee -a "$out/result.txt"
+          $alive || { echo "::error::the shipped binary exited within 25 s on the upgraded profile"; exit 1; }
+          [ -n "$windows" ] || { echo "::error::the shipped binary runs but shows no window after 25 s"; exit 1; }
+          [ "$errors" -eq 0 ] || { echo "::error::main.log has $errors error line(s)"; exit 1; }
 
       # G8, as on Windows: back to the previous release, which must leave the upgraded database alone, then the
       # backup restored the way docs/ci-cd.md says, before the first start of the old version.
