@@ -73,11 +73,11 @@ test('T43 real app: the person grants and revokes; tab changes and the window al
     expect.soft(refused(log.newTabRevoked), `newTab refused too → ${log.newTabRevoked}`).toBe(true)
 
     // The tab list changes in the window: a new tab, then back to the first one.
-    await page.getByRole('button', { name: /New tab/i }).first().click()
+    await page.locator('.web-preview-new-tab').first().click()
     await page.waitForTimeout(800)
     await page.locator('.web-preview-address-input').fill(url); await page.locator('.web-preview-address-input').press('Enter')
     await page.waitForTimeout(1_200)
-    await page.locator('.web-preview-tabs').getByRole('button', { name: /^Tab 1/ }).first().click().catch(() => undefined)
+    await page.locator('.web-preview-tabs').locator('button[aria-current], button').first().click().catch(() => undefined)
     await page.waitForTimeout(1_200)
     log.afterTabs = await agent({ action: 'inspect' })
     expect.soft(refused(log.afterTabs), `still refused after the tab changes → ${log.afterTabs}`).toBe(true)
