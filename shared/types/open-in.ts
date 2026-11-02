@@ -50,6 +50,7 @@ export interface OpenInTargets {
 export const OPEN_IN_REFUSALS = [
   'app.openIn.outsideRoot',
   'app.openIn.notFound',
+  'app.openIn.notAFile',
   'app.openIn.unknownTarget',
   'app.openIn.editorMissing',
   'app.openIn.launchFailed',

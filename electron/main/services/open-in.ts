@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process'
 import { accessSync, constants, readFileSync, statSync, writeFileSync } from 'node:fs'
-import { realpath } from 'node:fs/promises'
-import { delimiter, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path'
+import { realpath, stat } from 'node:fs/promises'
+import { delimiter, dirname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path'
 import { mainMessage } from '../../../shared/messages'
 import {
   OPEN_IN_EDITOR_NAMES, OPEN_IN_EDITORS, OPEN_IN_MAX_POSITION, isOpenInPreference, isOpenInTarget,
@@ -40,14 +40,26 @@ const WINDOWS_INSTALLS: Record<OpenInEditorId, string[]> = {
 }
 const POSIX_NAMES: Record<OpenInEditorId, string[]> = { vscode: ['code'], cursor: ['cursor'], zed: ['zed', 'zeditor'] }
 
+/**
+ * Whether `path` is an editor main may start. POSIX also asks who could have put it there: the file must belong to
+ * root or the person, in a folder other users can't write to (a world-writable PATH entry, like /tmp, without the
+ * sticky bit), so another account on the machine can't plant the "editor" (SECURITY #454 L).
+ */
+export function trustedExecutable(path: string, platform: NodeJS.Platform, uid = process.getuid?.()): boolean {
+  try {
+    const file = statSync(path)
+    if (!file.isFile()) return false
+    if (platform === 'win32') return true
+    accessSync(path, constants.X_OK)
+    if (file.uid !== 0 && file.uid !== uid) return false
+    if (file.mode & 0o002) return false
+    const folder = statSync(dirname(path))
+    return !(folder.mode & 0o002) || !!(folder.mode & 0o1000)
+  } catch { return false }
+}
+
 function defaultIsExecutable(platform: NodeJS.Platform) {
-  return (path: string): boolean => {
-    try {
-      if (!statSync(path).isFile()) return false
-      if (platform !== 'win32') accessSync(path, constants.X_OK)
-      return true
-    } catch { return false }
-  }
+  return (path: string): boolean => trustedExecutable(path, platform)
 }
 
 /** The places an editor's executable may be, most likely first. Only absolute places; nothing from the window. */
@@ -184,8 +196,11 @@ export class OpenInService {
       try { this.deps.reveal(file) } catch { refuse('app.openIn.revealFailed', 'Could not show the file in its folder') }
       return
     }
-    const editor = this.detect().find(found => found.id === input.target)
     const name = OPEN_IN_EDITOR_NAMES[input.target]
+    // Files only: an editor opening a folder may run the tasks an agent wrote there on folder open (SECURITY #454 L).
+    // A folder can still be shown in the system's file manager.
+    if (!(await stat(file)).isFile()) throw new MainMessageError(mainMessage('app.openIn.notAFile', { editor: name }), 'Only files open in an editor')
+    const editor = this.detect().find(found => found.id === input.target)
     if (!editor) throw new MainMessageError(mainMessage('app.openIn.editorMissing', { editor: name }), 'The editor is not installed')
     try {
       await this.deps.launch(editor.executable, editorArgs(editor.id, file, input.line, input.column), root)

@@ -370,6 +370,8 @@ export interface MessageParams {
   'app.openIn.outsideRoot': Record<string, never>
   /** B18: the file no longer exists; `path` is relative to the project. */
   'app.openIn.notFound': { path: string }
+  /** B18: a folder was sent to an editor; folders are only shown in the file manager. */
+  'app.openIn.notAFile': { editor: string }
   /** B18: the window asked for a target main doesn't know. */
   'app.openIn.unknownTarget': Record<string, never>
   /** B18: the editor isn't installed any more (or never was); `editor` is its product name. */
@@ -631,6 +633,7 @@ export const MESSAGE_CODES = [
   'agents.name.reserved',
   'app.openIn.outsideRoot',
   'app.openIn.notFound',
+  'app.openIn.notAFile',
   'app.openIn.unknownTarget',
   'app.openIn.editorMissing',
   'app.openIn.launchFailed',

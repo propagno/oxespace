@@ -263,6 +263,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'agents.name.reserved': ['name'],
   'app.openIn.outsideRoot': [],
   'app.openIn.notFound': ['path'],
+  'app.openIn.notAFile': ['editor'],
   'app.openIn.unknownTarget': [],
   'app.openIn.editorMissing': ['editor'],
   'app.openIn.launchFailed': ['editor'],

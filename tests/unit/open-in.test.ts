@@ -1,11 +1,11 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('electron', () => ({ app: { isPackaged: false, getPath: () => tmpdir() } }))
 
-const { OpenInService, editorArgs, editorCandidates, editorEnv, launchDetached, parseOpenInInput } = await import('../../electron/main/services/open-in')
+const { OpenInService, editorArgs, editorCandidates, editorEnv, launchDetached, parseOpenInInput, trustedExecutable } = await import('../../electron/main/services/open-in')
 const { messageFromError } = await import('../../shared/messages')
 
 let base: string
@@ -102,6 +102,14 @@ describe('app:open-in refuses anything outside an open workspace', () => {
     expect(launches).toEqual([])
   })
 
+  it('opens only files in an editor: a folder could run tasks an agent wrote for folder open', async () => {
+    expect(await message(open({ path: 'src' }))).toEqual({ code: 'app.openIn.notAFile', params: { editor: 'VS Code' } })
+    expect(await message(open({ path: '.', target: 'zed' }))).toEqual({ code: 'app.openIn.notAFile', params: { editor: 'Zed' } })
+    expect(launches).toEqual([])
+    await open({ path: 'src', target: 'reveal' })
+    expect(reveals).toEqual([join(root, 'src')])
+  })
+
   it('keeps malformed input a plain error, never a C3 message', async () => {
     expect(await refusal(open({ path: 'src/app.ts', line: 0 }))).toMatch(/^plain: /)
     expect(await refusal(open({ path: 'src/app.ts', line: 1.5 }))).toMatch(/^plain: /)
@@ -157,6 +165,32 @@ describe('where editors are looked for', () => {
 
   it('macOS: none yet', () => {
     expect(editorCandidates('vscode', 'darwin', { PATH: '/usr/local/bin' })).toEqual([])
+  })
+
+  it.runIf(process.platform !== 'win32')('POSIX: an editor anyone could have planted is not one', () => {
+    const bin = join(base, 'bin')
+    mkdirSync(bin)
+    const editor = join(bin, 'code')
+    writeFileSync(editor, String.raw`#!/bin/sh` + '\n')
+    chmodSync(editor, 0o755)
+    chmodSync(bin, 0o755)
+    expect(trustedExecutable(editor, 'linux')).toBe(true)
+    // Someone else's file, a file others can rewrite, a folder others can write to without the sticky bit.
+    expect(trustedExecutable(editor, 'linux', 999_999)).toBe(process.getuid?.() === 0)
+    chmodSync(editor, 0o757)
+    expect(trustedExecutable(editor, 'linux')).toBe(false)
+    chmodSync(editor, 0o755)
+    chmodSync(bin, 0o777)
+    expect(trustedExecutable(editor, 'linux')).toBe(false)
+    chmodSync(bin, 0o1777)
+    expect(trustedExecutable(editor, 'linux')).toBe(true)
+    chmodSync(bin, 0o755)
+  })
+
+  it('Windows: a file is enough, never a folder', () => {
+    expect(trustedExecutable(join(root, 'src', 'app.ts'), 'win32')).toBe(true)
+    expect(trustedExecutable(join(root, 'src'), 'win32')).toBe(false)
+    expect(trustedExecutable(join(root, 'missing.exe'), 'win32')).toBe(false)
   })
 
   it('builds the arguments for each editor', () => {
