@@ -32,7 +32,7 @@ const paneCount = (page: Page): Promise<number> => page.locator('[data-testid="p
 const SELF_RESTORING = new Set(['toggle-sidebar', 'toggle-split-layout', 'maximize-pane'])
 
 const SETTINGS_LABELS: Record<string, string> = {
-  general: 'General', providers: 'Agents', appearance: 'Appearance', terminal: 'Terminal', keyboard: 'Keyboard', voice: 'Voice',
+  general: 'General', providers: 'Agents', appearance: 'Appearance', terminal: 'Terminal', keyboard: 'Keyboard',
   notifications: 'Notifications', updates: 'Updates', policy: 'Policy', devices: 'Devices', diagnostics: 'Diagnostics'
 }
 
@@ -73,7 +73,7 @@ const PALETTE_EFFECTS: Record<string, Check> = {
     await expect(page.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: /Current workspace/ })).toHaveAttribute('aria-pressed', 'true')
   }),
   'toggle-sidebar': async page => { await expect(page.locator('.app-shell')).toHaveClass(/sidebar-collapsed/) },
-  'tool-team': dialog('Team'),
+  'tool-team': dialog('Project team'),
   'tool-integration': both(view('code'), testId('workspace-integration-panel')),
   'tool-github': both(view('code'), testId('workspace-github-panel')),
   'tool-worktrees': both(view('code'), testId('workspace-worktree-panel')),
@@ -99,7 +99,6 @@ const PALETTE_EFFECTS: Record<string, Check> = {
   'split-vertical': view('code'),
   'split-horizontal': view('code'),
   'restart-terminal': view('code'),
-  'toggle-oxevoice': async () => undefined,
   'thread.new': both(view('thread'), dialog('Add project')),
   'thread.add-project': both(view('thread'), dialog('Add project'))
 }
@@ -329,6 +328,8 @@ test.describe('offer audit', () => {
         'View/Split pane right': async p => { expect(await paneCount(p)).toBe(3) },
         'View/Split pane down': async p => { expect(await paneCount(p)).toBe(3) },
         'View/Maximize / restore pane': async p => { expect(await paneCount(p)).toBe(1) },
+        // F35: the project Team moved off the title bar into the Tools menu.
+        'Tools/Project team…': dialog('Project team'),
         'Tools/MCP servers': dialog('MCP servers'),
         'Tools/Skills': dialog('Skills'),
         'Tools/Usage & limits': dialog('Usage & rate limits'),

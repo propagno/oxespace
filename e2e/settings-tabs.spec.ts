@@ -41,7 +41,7 @@ test('captures every Agent Settings tab', async () => {
     await page.locator('.settings-center').waitFor()
     await page.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: 'Application', exact: true }).click()
 
-    const tabs = ['Terminal', 'Voice', 'Notifications', 'Updates', 'Diagnostics']
+    const tabs = ['Terminal', 'Notifications', 'Updates', 'Diagnostics']
     for (const [index, label] of tabs.entries()) {
       await page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: new RegExp(`^${label}`) }).click()
       await shot(page, `settings-${index + 1}-${label.toLowerCase().replace(/\s+/g, '-')}`)

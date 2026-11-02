@@ -154,6 +154,12 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/repo-config/loader.ts',
   'electron/main/services/repo-config/shared-dirs.ts',
   'electron/main/services/github/worktree-removal.ts',
+  // B19 worktree.copyFiles: copies the files the repo's oxe.yaml lists from the
+  // main checkout into a just-created worktree. Patterns stay in the repo (no
+  // absolute, .. or .git), links are never followed on either side, real paths
+  // are checked against both roots, at most 200 files / 50 MB, and nothing
+  // existing is overwritten (COPYFILE_EXCL). Never edits a file in place.
+  'electron/main/services/repo-config/worktree-include.ts',
   // Cleanup scan: stat-only probes of a worktree's own git metadata (HEAD,
   // reflog tail) to estimate idleness. Never reads source files.
   'electron/main/services/github/worktree-cleanup.ts',
@@ -228,10 +234,13 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Reads three policy files at fixed places (the project's .oxespace/policy.json, <userData>/policy.json and the
   // machine-wide managed file), 256 KiB at most, JSON only; it never writes, and no caller supplies a path.
   'electron/main/services/policy/policy-store.ts',
-  // OXEVoice engine: downloads the Whisper model to <userData>/models and
-  // writes a temp WAV for the CLI — outside the workspace tree, so raw fs is
-  // appropriate here rather than the workspace-scoped FileSystemService.
-  'electron/main/services/voice.service.ts',
+  // B7.4: the managed policy's write probe (open r+, create and remove an empty probe file beside it, Windows) and its
+  // owner and mode (elsewhere), on the fixed managed path only; never a workspace path, never a caller-supplied one.
+  'electron/main/services/policy/accepted-config.ts',
+  // B7.4: stat and read of <root>/oxe.yaml (256 KiB at most) for its tool modes, like repo-config/loader.ts; never writes.
+  'electron/main/services/policy/tool-config.ts',
+  // B7.4: reads the first characters of a gated policy file (fixed places only) for the request's untrusted text; never writes.
+  'electron/main/ipc/policy-runtime.ts',
   // OXE integration: existsSync(`<root>/.oxe`) to decide onboarding vs status —
   // a read-only project probe, not a workspace file operation.
   'electron/main/services/oxe.service.ts',
@@ -240,7 +249,7 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Semantic Service: indexes the workspace tree for local embeddings (reads
   // arbitrary files to embed) and creates the transformers.js model cache under
   // <userData>/models. Background indexing outside the workspace-scoped
-  // FileSystemService, like rtk/voice above.
+  // FileSystemService, like rtk above.
   'electron/main/services/semantic.service.ts',
   // Search Service: Find in Files delegates the actual file reads to the
   // ripgrep child process; its only raw fs use is existsSync to locate the

@@ -19,6 +19,12 @@ export interface RepoConfig {
   worktree: {
     /** Repo-relative, gitignored directories symlinked from the main checkout. */
     sharedDirectories: string[]
+    /**
+     * B19 · repo-relative files or glob patterns (`*`, `?`, `**`) copied from the main checkout into a new worktree,
+     * typically gitignored ones such as `.env`. Kept as written: the copy step refuses, with a code, any pattern that
+     * leaves the repository, so the person sees it instead of the entry vanishing.
+     */
+    copyFiles?: string[]
   }
   defaultTabs: RepoConfigTab[]
   /** Thread conversations in this project. */

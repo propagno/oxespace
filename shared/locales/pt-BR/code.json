@@ -16,8 +16,10 @@
   },
   "tools": {
     "team": {
-      "label": "Equipe",
-      "detail": "Papéis do projeto e caixas de entrada dos agentes"
+      "label": "Equipe do projeto",
+      "detail": "Papéis do projeto e caixas de entrada dos agentes",
+      "menu": "Equipe do projeto…",
+      "keywords": "equipe, time, papéis, coordenadora, membros, caixa de entrada"
     },
     "integration": {
       "label": "Coordenação entre repositórios",
@@ -109,8 +111,6 @@
     "unsaved": "Não salvo",
     "saved": "Salvo",
     "unsavedChanges": "Alterações não salvas",
-    "dictation": "Ditado",
-    "dictationTitle": "Toque para começar ou parar o ditado. Segure para falar.",
     "loadingPreview": "Carregando a prévia…",
     "loadingEditor": "Carregando o editor…",
     "openFailed": "Não foi possível abrir o arquivo",
