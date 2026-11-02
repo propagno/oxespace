@@ -162,7 +162,13 @@
   },
   "production": {
     "title": "Send to {{name}}?",
-    "text": "This sends {{method}} {{url}} to a production environment.",
+    "lead": "{{name}} is a production environment. Check where the request goes before sending it.",
+    "request": "Request",
+    "environment": "Environment",
+    "secretsMasked": "Secret values are hidden.",
+    "unknownTitle": "The address is not known",
+    "missing_one": "{{names}} has no value in {{name}}, so the address this would go to is not known. Add it to the environment before sending.",
+    "missing_other": "{{names}} have no value in {{name}}, so the address this would go to is not known. Add them to the environment before sending.",
     "confirm": "Send"
   },
   "import": {

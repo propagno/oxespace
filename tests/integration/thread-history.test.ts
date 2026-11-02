@@ -21,7 +21,7 @@ describe('indexed Thread history', () => {
     expect(f.history.readThread('thread')).toBeUndefined()
     f.history.read('thread')
     expect(f.history.readThread('thread')).toMatchObject({ id: 'thread', provider: 'codex', rootPath: '/repo' })
-    expect(() => f.history.readThread('missing')).toThrow('Thread not found')
+    expect(() => f.history.readThread('missing')).toThrow('thread.notFound')
   })
   it('keeps actionable requests outside the renderer history window until resolved', () => {
     const f = fixture()

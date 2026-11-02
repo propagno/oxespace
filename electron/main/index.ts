@@ -2,7 +2,7 @@ import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, session 
 import log from 'electron-log/main.js'
 import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from './services/runtime-diagnostics'
 import { markAppReady, measureStartup, trackWindowStartup } from './startup-timing'
-import { initAutoUpdater, registerAppUpdateIpc } from './updater'
+import { registerAppUpdateIpc, startAutoUpdater } from './ipc/app-update.ipc'
 import { RendererRecoveryPolicy } from './renderer-recovery'
 import { installCloseGuard } from './window-close-guard'
 import { initialWindowColors, registerAppearanceIpc, savedUiScale } from './ipc/appearance.ipc'
@@ -21,6 +21,7 @@ import { registerSessionIpc } from './ipc/session.ipc'
 import { broadcastSkillChange, registerSkillIpc } from './ipc/skill.ipc'
 import { broadcastMcpHealth, registerMcpIpc } from './ipc/mcp.ipc'
 import { registerMcpInternalIpc } from './ipc/mcp-internal.ipc'
+import { registerMcpToolRulesIpc } from './ipc/mcp-tool-rules.ipc'
 import { registerVoiceIpc } from './ipc/voice.ipc'
 import { registerNotificationsIpc } from './ipc/notifications.ipc'
 import { registerAppInfoIpc } from './ipc/app-info.ipc'
@@ -56,9 +57,8 @@ import { registerAgentHooksIpc } from './ipc/agent-hooks.ipc'
 import { AgentHookServer } from './services/agent-hooks/server'
 import { resolveSessionLocation } from './services/git-common-dir'
 import { registerAutomationsIpc } from './ipc/automations.ipc'
-import { AutomationService } from './services/automations/service'
+import { startAutomations } from './services/automations/startup'
 import { SearchService } from './services/search.service'
-import { AutomationStore } from './services/automations/store'
 import { runHook } from './services/repo-config/hook-runner'
 import { fallbackShellProfiles } from './services/shell-profile.defaults'
 import { guardMainWindowLinks, isLoopbackHttpUrl } from './utils/external-open'
@@ -68,7 +68,9 @@ import { registerBrowserPreviewIpc } from './services/browser-preview.service'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
 import type { ShellProfile } from '../../shared/types/workspace'
 import { redactLogMessage } from './services/log-redaction'
+import { installIpcSenderGuard, trustAppWindow } from './ipc/ipc-sender-guard'
 
+installIpcSenderGuard() // B12: before any channel exists (markAppReady registers one ahead of registerIpcHandlers)
 log.initialize()
 log.transports.file.maxSize = 512 * 1024
 log.hooks.push(redactLogMessage)
@@ -140,6 +142,8 @@ async function registerIpcHandlers(): Promise<() => void> {
     if (process.env.OXESPACE_E2E_PREVIEW_SERVICE) {
       const { PreviewAutomation } = await import('./services/documentation/preview-automation')
       ;(globalThis as typeof globalThis & { preview: InstanceType<typeof PreviewAutomation> }).preview = new PreviewAutomation()
+      // The spec revokes agent access from main while an approval modal blocks the window, as it does in the product.
+      ;(globalThis as typeof globalThis & { previewService: unknown }).previewService = (await import('./services/browser-preview.service')).browserPreviewService
     }
     // Dynamic so the ~475 lines of E2E doubles land in their own chunk instead
     // of the main entry bundle. A normal launch never resolves this import.
@@ -221,7 +225,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   const terminalManager: TerminalManager = new TerminalManager(db, {
     oxeQueryShell: paneId => oxeQueryShells.shellFor?.(paneId),
     observer: agentState,
-    resumeSession: (paneId, wanted) => paneAgentSessions.take(paneId, wanted),
+    resumeSession: (paneId, wanted, again) => paneAgentSessions.take(paneId, wanted, again), assignSession: (paneId, agent, sessionId) => paneAgentSessions.record(paneId, agent, sessionId, 'launch'), clearSession: paneId => paneAgentSessions.clear(paneId), currentSession: paneId => paneAgentSessions.current(paneId),
     prepareLaunch: (input) => memoryService.prepareLaunch(input),
     isManagedPane: paneId => delegationService?.ownsPane(paneId) ?? false,
     onLaunchExit: (paneId) => { memoryService.endLaunch(paneId); executions.end(paneId); delegationService?.exited(paneId) },
@@ -275,11 +279,11 @@ async function registerIpcHandlers(): Promise<() => void> {
   // not inflate the main entry or block startup parsing.
   const [
     { registerGitIpc }, { registerSearchIpc }, { registerGitHubIpc },
-    { registerLinearIpc }, { registerIntegrationIpc },
+    { registerLinearIpc }, { registerIntegrationIpc }, { registerRemoteIpc },
     { GitHubService }, { GitService }, { CodeGraphService }
   ] = await Promise.all([
     import('./ipc/git.ipc'), import('./ipc/search.ipc'), import('./ipc/github.ipc'),
-    import('./ipc/linear.ipc'), import('./ipc/integration.ipc'),
+    import('./ipc/linear.ipc'), import('./ipc/integration.ipc'), import('./ipc/remote.ipc'),
     import('./services/github.service'), import('./services/git.service'), import('./services/codegraph.service')
   ])
   const gitService = registerGitIpc()
@@ -288,28 +292,20 @@ async function registerIpcHandlers(): Promise<() => void> {
   const agentSearch = new SearchService()
   const gitHubService = registerGitHubIpc(db)
   gitHubService.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
-  // Scheduled automations. Their own SQLite file keeps them independent of the
-  // application schema; a store that cannot open only disables this feature.
-  let automationService: AutomationService | undefined
-  try {
-    const automations = new AutomationService({
-      store: new AutomationStore(join(app.getPath('userData'), 'automations.sqlite3')),
-      createWorktree: (input) => gitHubService.createWorktree(input),
-      resolveBaseRef: async (rootPath) => (await gitHubService.resolveWorktreeBase({ workspaceId: '', rootPath })).baseRef,
-      runCommand: runHook,
-      onChange: (event) => {
-        for (const window of BrowserWindow.getAllWindows()) {
-          window.webContents.send(IPC_CHANNELS.automations.onChange, event)
-        }
+  // Scheduled automations, from their own chunk; a store that cannot open or code that cannot load leaves them off.
+  const automationService = await startAutomations(join(app.getPath('userData'), 'automations.sqlite3'), {
+    createWorktree: (input) => gitHubService.createWorktree(input),
+    resolveBaseRef: async (rootPath) => (await gitHubService.resolveWorktreeBase({ workspaceId: '', rootPath })).baseRef,
+    runCommand: runHook,
+    onChange: (event) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        window.webContents.send(IPC_CHANNELS.automations.onChange, event)
       }
-    })
+    }
+  }, (automations) => {
     registerAutomationsIpc(automations)
-    automationService = automations
-    automations.start()
     app.once('before-quit', () => automations.stop())
-  } catch (error) {
-    log.warn('Automations unavailable', error)
-  }
+  }, (message, error) => log.warn(message, error))
   const linearService = registerLinearIpc(db, gitHubService)
   registerIntegrationIpc(db)
   const backgroundManager = new BackgroundManager(db, {
@@ -376,7 +372,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   registerVoiceIpc()
   registerNotificationsIpc()
-  app.once('before-quit', registerAppInfoIpc(db))
+  registerRemoteIpc(db, { threads: threadManager.manager, terminals: terminalManager, agentState }); app.once('before-quit', registerAppInfoIpc(db))
   registerCopilotIpc()
   const creditsService = registerAgentCreditsIpc()
   const contextUsageService = registerContextUsageIpc()
@@ -391,6 +387,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   const internalMcpGithub = new GitHubService(db)
   internalMcpGithub.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
   const internalMcpGit = new GitService()
+  registerMcpToolRulesIpc(db, fileSystemService, mcpManager) // Settings › Tools, per tool (B7.3)
   const codeGraphService = new CodeGraphService(db)
   const delegationAgents = new AgentService(db)
   const launcher = new AgentLaunchService(terminalManager, () => delegationAgents.list(), app.getPath('userData'))
@@ -553,7 +550,7 @@ async function registerIpcHandlers(): Promise<() => void> {
         log.info(`[rpc] listening on ${handle.endpoint}`)
       })
       .catch((error: unknown) => log.warn('[rpc] failed to start:', toMessage(error)))
-    initAutoUpdater()
+    void startAutoUpdater(undefined, (message) => log.warn('[updater] failed to load:', message))
   }
 }
 
@@ -749,7 +746,7 @@ function createMainWindow(): BrowserWindow {
     ? { titleBarStyle: 'hiddenInset' }
     : { titleBarStyle: 'hidden', titleBarOverlay: { color: '#00000000', symbolColor: initialWindowColors().symbols, height: 36 } }
 
-  const mainWindow = new BrowserWindow({
+  const mainWindow = trustAppWindow(new BrowserWindow({
     width: 1280,
     height: 820,
     minWidth: 960,
@@ -767,14 +764,13 @@ function createMainWindow(): BrowserWindow {
       // remains compatible with Chromium's renderer sandbox. Native PTY/SQLite
       // stay exclusively in the main process behind validated IPC handlers.
       sandbox: true,
-      // Design Mode (#3) needs a <webview> — an iframe cannot be scripted cross-origin, so element
-      // picking is impossible there. Every attach is vetted by the will-attach-webview handler below.
-      webviewTag: true,
+      // No <webview> (B12): the Browser preview and Design Mode run in a main-process WebContentsView.
+      webviewTag: false, // the will-attach-webview handler below stays as a backstop
       zoomFactor: savedUiScale(),
       // A sandboxed preload cannot ask app.getLocale(), so the default interface language travels as an argument.
       additionalArguments: [`--oxe-locale=${systemLocale()}`]
     }
-  })
+  }))
 
   if (process.platform !== 'darwin') mainWindow.setMenuBarVisibility(false)
 
@@ -802,9 +798,8 @@ function createMainWindow(): BrowserWindow {
     }
   })
 
-  // The <webview> replaced a `sandbox`ed, `no-referrer` iframe: its guest carries the same restrictions explicitly, in
-  // its own in-memory partition, which also keeps preview cookies and storage out of the app's session.
-
+  // The <webview> guest carries the old sandboxed iframe's restrictions explicitly (they are not defaults), in its
+  // own in-memory partition. It is not trusted by the IPC sender guard: no channel answers it.
   // A guest must not be able to spawn windows; external links go to the OS browser.
   mainWindow.webContents.on('did-attach-webview', (_event, guestWebContents) => {
     securePreviewGuest(guestWebContents)

@@ -5,7 +5,7 @@ import { APPROVAL_AGENT_TEXT_MAX, APPROVAL_CRITICAL_ALLOW_DELAY_MS, APPROVAL_RIS
 
 // ---- reserved names: in ./reserved-names, re-exported so callers keep one import ------------------------
 
-export { foldName, RESERVED_APP_NAMES, RESERVED_EXACT_NAMES, reservedNameIn, withoutReservedName, type ReservedAppName } from './reserved-names'
+export { foldName, foldWords, OXE_PREFIX_ALLOWED_WORDS, RESERVED_APP_NAMES, RESERVED_EXACT_NAMES, RESERVED_FIRST_WORD_PREFIXES, RESERVED_FIRST_WORDS, RESERVED_NOTICE_WORDS, RESERVED_VENDOR_NAMES, reservedNameIn, SPELLED_WORD_MIN, withoutReservedName, type ReservedAppName } from './reserved-names'
 
 // ---- risk ----------------------------------------------------------------------------------
 

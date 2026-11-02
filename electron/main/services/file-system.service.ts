@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { watch, type FSWatcher } from 'node:fs'
-import { chmod, readdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, readdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, normalize, relative, resolve, sep } from 'node:path'
 import type {
   FileSystemFileChangedEvent,
@@ -222,6 +222,19 @@ export class FileSystemService {
     if (entry.timeout) clearTimeout(entry.timeout)
     entry.watcher.close()
     this.watchers.delete(watchId)
+  }
+
+  /**
+   * Creates one folder whose parent already exists inside the root (never a chain of folders), and accepts one that is
+   * already there. The result is checked again, so a link planted meanwhile cannot lead outside. Not reachable from the window.
+   */
+  async createDirectory(input: { workspaceId: string; rootPath: string; relativePath: string }): Promise<void> {
+    const rootPath = await this.authorizeRoot(input.workspaceId, input.rootPath)
+    const directoryPath = safeJoin(rootPath, input.relativePath)
+    await assertCanonicalInside(rootPath, dirname(directoryPath))
+    await mkdir(directoryPath).catch((error: NodeJS.ErrnoException) => { if (error?.code !== 'EEXIST') throw error })
+    await assertCanonicalInside(rootPath, directoryPath)
+    if (!(await stat(directoryPath)).isDirectory()) throw new Error('Path is not a directory')
   }
 
   closeAll(): void {

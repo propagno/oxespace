@@ -76,6 +76,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const [error, setError] = useState(''), [pending, setPending] = useState(false)
   const [outgoing, setOutgoing] = useState<{ threadId: string; text: string; attachments: ThreadAttachment[]; knownEvents: Set<string> } | null>(null)
   const [panel, setPanel] = useState<ThreadPanelState | null>(null)
+  const panelOpener = useRef<HTMLElement | null>(null)
   const [openControl, setOpenControl] = useState<'model' | 'effort' | 'permissions' | null>(null)
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const [delegationOpen, setDelegationOpen] = useState(false)
@@ -103,7 +104,15 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const togglePanel = (panelId: ThreadPanel, keepOpen = false): void => {
     if (!snapshot) return
     const current = useThreadWorkbenchStore.getState().views[snapshot.thread.id]?.panel ?? null
+    // The control that opens the panel gets focus back when it closes (HML FINDING M on #227, DESIGN on F14).
+    if (current === null && document.activeElement instanceof HTMLElement && document.activeElement !== document.body) panelOpener.current = document.activeElement
     useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: current === panelId && !keepOpen ? null : panelId })
+  }
+  /** Back to what opened the panel (the header toggle), or the composer when that is gone (a menu item, say). */
+  const returnFocusFromPanel = (): void => {
+    const opener = panelOpener.current
+    panelOpener.current = null
+    requestAnimationFrame(() => { if (opener?.isConnected) opener.focus(); else textarea.current?.focus() })
   }
   const [finding, setFinding] = useState(false)
   // The conversation the side chat drawer is open for; another conversation closes it, and its copy goes with it.
@@ -288,7 +297,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     scroll.reinitialize()
   }
   // Esc first gives a maximized panel its place back, then closes it.
-  return <div ref={workbench} className={`thread-workbench${drawer ? ' is-drawer' : ''}${active ? ' is-active-cell' : ''}${reviewMaximized ? ' is-review-maximized' : ''}`} onPointerDown={onActivate} onKeyDown={event => { if (event.key === 'Escape' && review?.panel && !panel && !commands.open && !openControl) { event.preventDefault(); if (reviewMaximized) useThreadWorkbenchStore.getState().setMaximized(null); else closeReview() } }}>
+  return <div ref={workbench} className={`thread-workbench${drawer ? ' is-drawer' : ''}${active ? ' is-active-cell' : ''}${reviewMaximized ? ' is-review-maximized' : ''}`} onPointerDown={onActivate} onKeyDown={event => { if (event.key === 'Escape' && review?.panel && !panel && !commands.open && !openControl && event.target instanceof Element && event.target.closest('.thread-review-host')) { event.preventDefault(); if (reviewMaximized) useThreadWorkbenchStore.getState().setMaximized(null); else { closeReview(); returnFocusFromPanel() } } }}>
     <section className="thread-view" aria-label={t('view.region')} style={{ '--thread-reader-font-size': `${threadFontSize}px` } as React.CSSProperties}>
     <ThreadHeader thread={snapshot?.thread} workspace={workspace} branch={branch?.branch ?? undefined} pending={pending} running={running} activePanel={review?.panel} onTogglePanel={togglePanel} onCloseCell={onCloseCell}
       onCommand={command => void action(async () => { setPanel(null); await runCommand(command) })}
@@ -338,7 +347,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     {delegationOpen && snapshot && <DelegationCreateDialog thread={snapshot.thread} onClose={() => setDelegationOpen(false)} />}
   </section>
     {snapshot && review?.panel && <Suspense fallback={null}><ThreadReviewHost snapshot={snapshot} workspace={workspace} panel={review.panel} drawer={drawer} availableWidth={availableWidth} workbench={workbench}
-      onClose={closeReview} onReturnFocus={() => textarea.current?.focus()} onSendToConversation={appendToConversation} /></Suspense>}
+      onClose={() => { closeReview(); if (!drawer) returnFocusFromPanel() }} onReturnFocus={returnFocusFromPanel} onSendToConversation={appendToConversation} onCompact={api?.command ? () => void action(() => runCommand('/compact')) : undefined} /></Suspense>}
     {snapshot && sideChatOpen && <Suspense fallback={null}><ThreadSideChat threadId={snapshot.thread.id} onClose={() => { setSideChatFor(null); requestAnimationFrame(() => textarea.current?.focus()) }} /></Suspense>}
   </div>
 }

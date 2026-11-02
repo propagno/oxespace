@@ -123,6 +123,13 @@ test('restores a collapsed workspace terminal list after restart', async () => {
     await expect(toggle).toHaveAttribute('aria-expanded', 'true')
     await toggle.click()
     await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    // FL-06: the collapse lives in localStorage, which Chromium writes to disk later. Wait until the store holds it,
+    // then flush it, so closing right away cannot lose it.
+    await page.waitForFunction(() => {
+      const expanded = JSON.parse(localStorage.getItem('oxe.navigation') ?? 'null')?.state?.expanded ?? {}
+      return Object.values(expanded).includes(false)
+    })
+    await firstApp.evaluate(({ session }) => session.defaultSession.flushStorageData())
   } finally {
     await firstApp.close()
   }
