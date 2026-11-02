@@ -139,9 +139,13 @@ its run or test. -->
 
 - **Containers moved from OxeQuery to OxePod.**
 - **Mode names**: Code is now OxeCode and Thread is now OxeChat.
-<!-- add when F34/F35 merge: "OXEVoice was removed. OXESpace no longer records speech; your operating system's
-dictation still types into any field, and the downloaded voice model is deleted on the first start." and "Team moved
-off the title bar: Tools › Project team…, the command palette or Ctrl+Shift+T." -->
+<!-- add when B21 merges: "**OXEVoice was removed.** OXESpace no longer records speech; your operating system's
+dictation still types into any field. Native voice is planned for a future version. Speech models you downloaded stay
+on disk: to free the space, delete the files whose names start with `ggml-` in `%APPDATA%\oxespace\models` (Windows),
+`~/Library/Application Support/oxespace/models` (macOS) or `~/.config/oxespace/models` (Linux). Leave the other files
+in that folder; semantic search uses them." -->
+<!-- add when F35 (#344) merges: "**Team moved off the title bar.** Open it from **Tools › Project team…**, the
+command palette or `Ctrl+Shift+T`." -->
 - **Git actions started from OXESpace skip the repository's hooks.** Push, switching branches and creating worktrees
   run without them; use the terminal when a flow depends on hooks. Agents can't reach the network through Git: when a
   task needs the latest remote branch, you fetch it in the Git panel or the terminal.
