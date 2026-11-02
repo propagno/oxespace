@@ -28,6 +28,7 @@ Estado em 02/11, na `main` até 983422d2 (lotes 1a a 7 do trem), contra `.claude
 - Cada linha cita a evidência; o que não foi conferido diz **falta**.
 - As execuções são do `acceptance.yml`, sob demanda, no app real com perfil descartável, em windows-2022 e, onde indicado, em ubuntu-24.04.
 - As specs estão nos PRs #314, #315, #340, #350 e #440.
+- Os passes manuais da homologação (`e2e/homologation/**`, rodados à mão com `playwright.tools.config.ts`) ficam no ramo [`test/homologation-1.4`](https://github.com/propagno/oxespace/tree/test/homologation-1.4), para reexecutar no commit candidato (G1, G5, G9).
 - Escopo do usuário em modo de economia: S1, S2, S4 e o RC. S7.1, S7.2, S7.3 e S7.5 vão para a 1.4.1.
 
 ### G1: fatias homologadas
