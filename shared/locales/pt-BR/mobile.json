@@ -10,9 +10,14 @@
     "status": {
       "connecting": "Conectando a {{desktop}}…",
       "connected": "Conectado a {{desktop}}",
-      "unreachable": "Não deu para falar com {{desktop}}. Confira se ele está ligado, na mesma Wi-Fi, e com o acesso pelo celular ligado.",
+      "unreachable": "Não deu para falar com {{desktop}}. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.",
       "incompatible": "{{desktop}} usa outra versão do OXESpace. Atualize o app ou o OXESpace no computador.",
-      "notAccepted": "{{desktop}} não aceita mais este celular. Despareie e pareie de novo."
+      "notAccepted": "{{desktop}} não aceita mais este celular. Despareie e pareie de novo.",
+      "reconnecting": "A conexão com {{desktop}} caiu. Reconectando…",
+      "offNetwork": "Este celular não está na Wi-Fi. {{desktop}} só é alcançável na mesma rede Wi-Fi; reconecta quando você voltar.",
+      "retryIn_one": "Tentando de novo em {{count}} segundo.",
+      "retryIn_many": "Tentando de novo em {{count}} segundos.",
+      "retryIn_other": "Tentando de novo em {{count}} segundos."
     },
     "revoked": "{{desktop}} removeu este celular. Pareie de novo para reconectar.",
     "retry": "Tentar de novo",
@@ -21,7 +26,12 @@
     "addressHint": "O endereço do computador na sua Wi-Fi, por exemplo 192.168.0.12. O OXESpace mostra em Configurações › Dispositivos.",
     "addressInvalid": "Use o endereço do computador na sua rede local, como 192.168.0.12.",
     "save": "Salvar",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "openWifi": "Abrir configurações de Wi-Fi",
+    "unpairConfirm": {
+      "title": "Desparear de {{desktop}}?",
+      "body": "Este celular esquece {{desktop}} e a chave usada com ele. Para voltar, pareie de novo pelo QR em Configurações › Dispositivos no computador."
+    }
   },
   "pairing": {
     "title": "Parear com o computador",
@@ -53,7 +63,8 @@
       "tooManyDevices": "Seu computador já tem 5 aparelhos pareados. Remova um em Configurações › Dispositivos antes.",
       "wrongCertificate": "Outro aparelho respondeu nesse endereço, não o seu computador. Nada foi enviado. Confira se você está na sua Wi-Fi.",
       "unreachable": "Não deu para falar com o computador. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.",
-      "protocol": "O computador respondeu de um jeito que este app não entende. Atualize o app ou o OXESpace no computador."
+      "protocol": "O computador respondeu de um jeito que este app não entende. Atualize o app ou o OXESpace no computador.",
+      "reservedName": "O nome deste celular usa um nome reservado ao próprio OXESpace, e o computador não o aceita. Mude o nome do celular em Configurações do Android › Sobre o telefone e leia o código de novo."
     }
   },
   "live": {
@@ -72,15 +83,15 @@
     "emptyTasks": "Nenhuma tarefa em segundo plano nem delegação.",
     "loading": "Carregando…",
     "status": {
-      "idle": "Parada",
+      "idle": "Ocioso",
       "running": "Trabalhando",
-      "approval": "Esperando você",
-      "interrupted": "Interrompida",
+      "approval": "Precisa de você",
+      "interrupted": "Interrompido",
       "failed": "Falhou"
     },
-    "pendingCount_one": "{{count}} esperando",
-    "pendingCount_other": "{{count}} esperando",
-    "pendingCount_many": "{{count}} esperando",
+    "pendingCount_one": "Precisa de você ({{count}})",
+    "pendingCount_other": "Precisa de você ({{count}})",
+    "pendingCount_many": "Precisa de você ({{count}})",
     "back": "Voltar",
     "menu": "Mais opções",
     "jobs": "Tarefas em segundo plano",
@@ -95,14 +106,20 @@
     "exitCode": "código de saída {{code}}",
     "paneAgent": "{{agent}} · {{state}}",
     "agentState": {
-      "working": "trabalhando",
-      "blocked": "esperando",
-      "done": "concluiu",
-      "idle": "parado",
-      "unknown": "desconhecido"
+      "working": "Trabalhando",
+      "blocked": "Precisa de você",
+      "done": "Terminou",
+      "idle": "Ocioso",
+      "unknown": "Não confirmado"
     },
     "readOnly": "Só leitura",
-    "phoneWrite": "Celular pode digitar"
+    "phoneWrite": "Celular pode digitar",
+    "age": {
+      "now": "agora",
+      "minutes": "há {{minutes}} min",
+      "hours": "há {{hours}} h",
+      "days": "há {{days}} d"
+    }
   },
   "thread": {
     "you": "Você",
@@ -120,7 +137,7 @@
     "plan": "Plano",
     "request": "Pedido: {{title}}",
     "requestState": {
-      "pending": "esperando você",
+      "pending": "Precisa de você",
       "resolved": "respondido",
       "cancelled": "cancelado",
       "expired": "expirou"
@@ -136,7 +153,8 @@
     "unknownItems_many": "{{count}} itens de um OXESpace mais novo não aparecem.",
     "showOutput": "Mostrar saída",
     "hideOutput": "Esconder saída",
-    "loadOlder": "Carregar anteriores"
+    "loadOlder": "Carregar anteriores",
+    "respond": "Responder"
   },
   "terminal": {
     "redacted_one": "{{count}} valor secreto escondido pelo seu computador.",
@@ -154,7 +172,7 @@
   },
   "request": {
     "title": "Pedido",
-    "from": "De {{conversation}}",
+    "from": "Da conversa “{{conversation}}”",
     "command": "Comando",
     "cwd": "Pasta",
     "paths": "Arquivos que ele alteraria",
@@ -167,13 +185,15 @@
       "red": "Apaga, eleva acesso ou publica"
     },
     "decision": {
-      "accept": "Aprovar",
-      "decline": "Recusar",
+      "accept": "Permitir uma vez",
+      "decline": "Negar",
       "cancel": "Cancelar pedido"
     },
     "declineReason": "Motivo, dito ao agente (opcional)",
     "sendAnswers": "Enviar respostas",
     "desktopOnly": "Só o seu computador pode responder este. Abra o OXESpace lá.",
+    "truncated": "Parte deste pedido não coube no celular. O texto completo está só no computador, então daqui você só pode recusar.",
+    "truncatedQuestion": "Parte desta pergunta não coube no celular. Responda no computador, onde dá para ler tudo.",
     "notConfirmed": "Não enviado: a confirmação neste celular foi cancelada.",
     "answered": "Respondido.",
     "gone": "Este pedido não está mais esperando.",
@@ -183,7 +203,10 @@
       "forbidden": "Só o seu computador pode responder este.",
       "rateLimited": "Ações demais em um minuto. Tente de novo daqui a pouco.",
       "other": "O computador não aceitou a resposta."
-    }
+    },
+    "riskSpoken": "Risco: {{risk}}",
+    "fromAgent": "Escrito pelo agente",
+    "desktopOnlyTitle": "Responda no computador"
   },
   "action": {
     "offline": "Sem conexão com o computador. Nada foi enviado.",
@@ -194,7 +217,7 @@
   "composer": {
     "placeholder": "Mensagem para o agente",
     "send": "Enviar",
-    "steer": "Direcionar",
+    "steer": "Orientar",
     "stop": "Parar"
   },
   "terminalInput": {
@@ -210,5 +233,23 @@
     "noScreenLock": "Defina um bloqueio de tela neste celular para enviar por ele. Nada foi enviado.",
     "confirm": "Confirmar que sou eu",
     "locked": "Confirme que é você antes de digitar neste terminal."
+  },
+  "notify": {
+    "channel": {
+      "session": "Conexão com o computador",
+      "needsYou": "Precisa de você",
+      "done": "Concluído",
+      "failed": "Falhou"
+    },
+    "needsYou": "Precisa de você: {{title}}",
+    "done": "Concluído: {{title}}",
+    "failed": "Falhou: {{title}}",
+    "disconnect": "Desconectar",
+    "session": {
+      "connected": "Conectado a {{desktop}}",
+      "reconnecting": "Reconectando a {{desktop}}…",
+      "offNetwork": "Esperando a Wi-Fi para falar com {{desktop}}",
+      "stopped": "Não deu para manter a conexão com {{desktop}}. Abra o app."
+    }
   }
 }

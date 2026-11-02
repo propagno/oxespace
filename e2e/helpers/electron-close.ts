@@ -1,5 +1,8 @@
 import { spawnSync } from 'node:child_process'
+import { createRequire } from 'node:module'
 import { _electron, type ElectronApplication } from '@playwright/test'
+
+const { installNativeDialogStubs } = createRequire(import.meta.url)('./native-dialogs.cjs') as { installNativeDialogStubs: (dialog: unknown, env: NodeJS.ProcessEnv) => boolean }
 
 /**
  * Playwright treats an Electron app as closed when its process emits 'close', which needs the
@@ -56,6 +59,13 @@ if (!electron[patched]) {
   electron.launch = (async (...args: Parameters<Launch>) => {
     const app = await launch(...args)
     guard(app)
+    // A packaged executable does not go through e2e/electron-main.cjs: stub its dialogs as soon as main answers.
+    const options = args[0] as { args?: string[]; executablePath?: string; env?: NodeJS.ProcessEnv } | undefined
+    const viaEntry = (options?.args ?? []).some(arg => /electron-main\.cjs$/.test(arg))
+    const env = options?.env ?? process.env
+    if (!viaEntry && env.OXESPACE_E2E_NATIVE_DIALOGS !== '1') {
+      await app.evaluate(({ dialog }, source) => { (0, eval)(`(${source})`)(dialog, {}) }, installNativeDialogStubs.toString()).catch(() => undefined)
+    }
     return app
   }) as Launch
 }
