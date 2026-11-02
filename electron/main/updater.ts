@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import log from 'electron-log/main.js'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -263,14 +263,6 @@ export function quitAndInstallUpdate(): boolean {
     })
     return false
   }
-}
-
-export function registerAppUpdateIpc(): void {
-  ipcMain.handle(IPC_CHANNELS.app.getUpdateState, () => getAppUpdateState())
-  ipcMain.handle(IPC_CHANNELS.app.checkForUpdates, () => checkForAppUpdates(true))
-  ipcMain.handle(IPC_CHANNELS.app.quitAndInstall, () => quitAndInstallUpdate())
-  ipcMain.handle(IPC_CHANNELS.app.downloadUpdate, () => downloadAppUpdate())
-  ipcMain.handle(IPC_CHANNELS.app.setUpdatePreferences, (_event, value: unknown) => setUpdatePreferences(value))
 }
 
 export function initAutoUpdater(): void {
