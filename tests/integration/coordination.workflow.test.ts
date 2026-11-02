@@ -113,10 +113,13 @@ describe('cross-workspace coordination', () => {
     const task = await f.service.create(f.origin, f.input)
     await vi.waitFor(() => expect(f.service.get(task.id).destinationExecutionId).toBeTruthy(), { timeout: 15000 })
     const service = await f.restart()
-    // An app restart ends every session of the old process, the requester's included.
+    // An app restart ends every session of the old process, the requester's included; the same pane starts a new one.
     f.registry.end(f.a.panes[0].id)
-    f.registry.register({ paneId: 'replacement-origin-pane', workspaceId: f.a.id, cwd: f.roots[0] })
-    const resumed = f.registry.forPane('replacement-origin-pane')!
+    // Another pane of the same checkout never takes control by itself, even now (SECURITY #196): that is the person's adopt.
+    f.registry.register({ paneId: 'other-pane', workspaceId: f.a.id, cwd: f.roots[0] })
+    await expect(service.authorize(f.registry.forPane('other-pane')!, task.id, { reconnectRequester: true })).rejects.toMatchObject({ code: 'delegation.requester.live' })
+    f.registry.register({ paneId: f.a.panes[0].id, workspaceId: f.a.id, cwd: f.roots[0] })
+    const resumed = f.registry.forPane(f.a.panes[0].id)!
     await expect(service.authorize(resumed, task.id)).rejects.toThrow()
     await expect(service.authorize(resumed, task.id, { reconnectRequester: true })).resolves.toMatchObject({ id: task.id })
     expect(service.get(task.id).originExecutionId).toBe(resumed.id)
@@ -136,10 +139,10 @@ describe('cross-workspace coordination', () => {
     const destination = f.registry.forPane(f.service.get(task.id).paneId!)!
     await expect(f.service.authorize(destination, task.id, { reconnectRequester: true })).resolves.toMatchObject({ id: task.id })
     expect(f.service.get(task.id).originExecutionId).toBe(f.origin.id)
-    // The requester's session ended (the app restarted); a new session of the same checkout takes control over.
+    // The requester's session ended (its CLI quit, or the app restarted); the same pane's new session takes control back.
     f.registry.end(f.a.panes[0].id)
-    f.registry.register({ paneId: 'reconnected-requester', workspaceId: f.a.id, cwd: f.roots[0] })
-    const requester = f.registry.forPane('reconnected-requester')!
+    f.registry.register({ paneId: f.a.panes[0].id, workspaceId: f.a.id, cwd: f.roots[0] })
+    const requester = f.registry.forPane(f.a.panes[0].id)!
     const context = { delegation: f.service, executions: f.registry, executionId: requester.id,
       executionToken: requester.token, workspaceId: f.a.id } as unknown as ToolContext
     const control = DELEGATION_TOOLS.find(entry => entry.descriptor.name === 'oxespace_delegation_control')!
@@ -166,7 +169,8 @@ describe('cross-workspace coordination', () => {
     expect(f.service.get(task.id)).toMatchObject({ originExecutionId: f.origin.id })
     expect(f.service.get(task.id).state).not.toBe('cancelled')
     const refused = f.db.prepare("SELECT COUNT(*) AS n FROM delegation_events WHERE task_id = ? AND kind = 'origin-takeover-refused'").get(task.id) as { n: number }
-    expect(refused.n).toBeGreaterThanOrEqual(8)
+    // One event per intruding session, however many times it tries.
+    expect(refused.n).toBe(2)
     // The requester itself keeps control.
     await expect(control.handler({ taskId: task.id, action: 'cancel' }, asSession(f.origin))).resolves.toMatchObject({ content: expect.any(Array) })
     expect(f.service.get(task.id).state).toBe('cancelled')
