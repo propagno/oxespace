@@ -12,7 +12,7 @@ type ViewProps = { request: OpenInRequest; point: { x: number; y: number }; onCl
  */
 let PathMenuView: ComponentType<ViewProps> = makeView()
 function makeView(): ComponentType<ViewProps> {
-  return lazy(() => import('./PathMenuView').catch(() => ({ default: MenuUnavailable })))
+  return lazy((): Promise<{ default: ComponentType<ViewProps> }> => import('./PathMenuView').catch(() => ({ default: MenuUnavailable })))
 }
 function MenuUnavailable({ onClose }: ViewProps): null {
   useEffect(() => {
