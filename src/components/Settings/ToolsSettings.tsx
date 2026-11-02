@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactElement } from 'react'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -71,7 +71,7 @@ function GroupPanel({ group, rules, busy, unread = false, locked = false, onMode
       <SegmentedControl label={t('tools.modeLabel', { group: name })} value={group.mode}
         options={MCP_TOOL_GROUP_MODES.map(mode => ({ value: mode, label: modeName(t, mode) }))}
         onChange={mode => onMode(group.id as ConfigurableMcpToolGroup, mode)} disabled={busy || locked} />
-      <p className={styles.hint}>{locked ? t('tools.invalidYaml.modeLocked') : t(`tools.modeHints.${group.mode}`)}</p>
+      <p className={styles.hint}>{locked ? t('tools.invalidYaml.modeLocked', { file: OXE_YAML }) : t(`tools.modeHints.${group.mode}`)}</p>
     </div>}
     {rules && <details className={styles.rules}>
       <summary>{t('tools.rules.summary', { count: ruled })}</summary>
@@ -98,17 +98,27 @@ export function ToolsSettings({ rootPath, workspaceId }: { rootPath: string; wor
   const [status, setStatus] = useState('')
   const [actionError, setActionError] = useState<{ title: string; message: string } | null>(null)
   const [confirmAllow, setConfirmAllow] = useState<McpToolRule | null>(null)
+  /** The file could not be read before the last Reload: a read that works then is announced (DESIGN on #426). */
+  const wasInvalid = useRef(false)
+  const [readAgain, setReadAgain] = useState(false)
 
   // The page mounts per workspace (WorkspaceSettingsModal is keyed by it); Reload clears what was read, then reads again.
   useEffect(() => {
     let live = true
     const api = window.oxe?.mcpInternal
-    api?.toolGroups?.({ rootPath }).then(next => { if (live) setReport(next) }, (cause: unknown) => { if (live) setGroupsError(humanizeError(cause)) })
+    api?.toolGroups?.({ rootPath }).then(next => {
+      if (!live) return
+      setReport(next)
+      if (wasInvalid.current && next.oxeYaml !== 'invalid') setReadAgain(true)
+      wasInvalid.current = false
+    }, (cause: unknown) => { if (live) setGroupsError(humanizeError(cause)) })
     api?.toolRules?.({ rootPath }).then(next => { if (live) setRules(next) }, (cause: unknown) => { if (live) setRulesError(humanizeError(cause)) })
     window.oxe?.policy?.get(workspaceId).then(next => { if (live) setPolicy(next) }, (cause: unknown) => { if (live) setPolicyError(humanizeError(cause)) })
     return () => { live = false }
   }, [rootPath, workspaceId, reloads])
   const reload = (): void => {
+    wasInvalid.current = report?.oxeYaml === 'invalid'
+    setReadAgain(false)
     setReport(null); setGroupsError(''); setRules(null); setRulesError(''); setPolicy(null); setPolicyError(''); setStatus(''); setActionError(null)
     setReloads(count => count + 1)
   }
@@ -164,13 +174,13 @@ export function ToolsSettings({ rootPath, workspaceId }: { rootPath: string; wor
       <p><strong>{CLAUDE}</strong> {t('tools.providers.claude')}</p>
       <p data-testid="tools-codex-note"><strong>{CODEX}</strong> {t('tools.providers.codex')}</p>
     </div>
-    {status && <p className={styles.status} role="status">{status}</p>}
+    {(status || readAgain) && <p className={styles.status} role="status">{status || t('tools.invalidYaml.readAgain')}</p>}
     {actionError && <ErrorState compact title={actionError.title} message={actionError.message} />}
     {groupsProblem ? <ErrorState title={t('tools.loadFailed')} message={groupsProblem} onRetry={reload} />
       : !report ? <LoadingState label={t('tools.loading')} />
         : <>
           {invalid && <Notice intent="warning" title={t('tools.invalidYaml.title', { file: OXE_YAML })}>
-            {t(effectiveFrom === 'last-valid' ? 'tools.invalidYaml.bodyLastValid' : effectiveFrom === 'defaults' ? 'tools.invalidYaml.bodyDefaults' : 'tools.invalidYaml.body')} <code title={rootPath}>{OXE_YAML}</code>
+            <code title={rootPath}>{OXE_YAML}</code>: {t(effectiveFrom === 'last-valid' ? 'tools.invalidYaml.bodyLastValid' : effectiveFrom === 'defaults' ? 'tools.invalidYaml.bodyDefaults' : 'tools.invalidYaml.body')}
           </Notice>}
           <dl className={styles.totals} aria-label={t('tools.totals.title')}>
             <div><dt>{t('tools.totals.plain')}</dt><dd>{costText(t, report.totals.plainConversation)}</dd></div>

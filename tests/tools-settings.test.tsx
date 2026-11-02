@@ -81,10 +81,19 @@ describe('Settings › Tools', () => {
 
   it('with the modes being enforced (effectiveFrom, BACKEND #372), a broken file shows them, says so, and still locks them', async () => {
     mount({ dataMode: 'off', yaml: { oxeYaml: 'invalid', effectiveFrom: 'last-valid' } })
-    expect(await screen.findByRole('alert')).toHaveTextContent('Agents keep the last modes that could be read')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Agents keep using the last modes that could be read')
     const data = await panel('Data')
     expect(within(data).getByText('Off', { selector: 'span' })).toBeVisible()
     for (const radio of within(data).getAllByRole('radio')) expect(radio).toBeDisabled()
+  })
+
+  it('once the file is fixed, Reload reads it, the warning goes and that is announced politely (DESIGN on #426)', async () => {
+    const { api } = mount({ dataMode: 'off', yaml: { oxeYaml: 'invalid', effectiveFrom: 'last-valid' } })
+    await screen.findByRole('alert')
+    api.toolGroups.mockImplementation(async () => ({ ...report('off'), oxeYaml: 'valid', effectiveFrom: 'file' }))
+    fireEvent.click(screen.getByRole('button', { name: /Reload/ }))
+    expect(await screen.findByText('Modes read again')).toHaveAttribute('role', 'status')
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 
   it('a valid file has no warning and its modes can be changed', async () => {
