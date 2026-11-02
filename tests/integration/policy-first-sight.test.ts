@@ -6,7 +6,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { openInMemoryDatabase, type AppDatabase } from '../../electron/main/db'
 import { ApprovalCenter } from '../../electron/main/services/approvals/approval-center'
 import { setAcceptedConfig, setPolicyStore } from '../../electron/main/services/policy'
-import { AcceptedConfig, committedBlobArgs, firstSightFloorOf, gitEnvironment, SAFE_GIT_OPTIONS, type AnyProjection } from '../../electron/main/services/policy/accepted-config'
+import { AcceptedConfig, committedBlobArgs, firstSightFloorOf, type AnyProjection } from '../../electron/main/services/policy/accepted-config'
+import { prepareGitSync, safeGitEnv } from '../../electron/main/utils/safe-git'
 import { McpConfigSync } from '../../electron/main/services/mcp-sync.service'
 import { classify } from '../../electron/main/services/policy/policy-change'
 import { PolicyStore } from '../../electron/main/services/policy/policy-store'
@@ -194,7 +195,8 @@ describe('B7.4 first sight: no file grants, references only restrict', () => {
     write(join(root, POLICY), policyText(allow('*')))
     const h = harness()
     expect(h.denied(root, 'Bash')).toBe(true)
-    expect(committedBlobArgs(root, '.oxespace/policy.json')).toEqual([...SAFE_GIT_OPTIONS, '-C', root, 'cat-file', 'blob', 'HEAD:./.oxespace/policy.json'])
+    // Run from the nested root (git's working directory), so `./` is that folder.
+    expect(committedBlobArgs('.oxespace/policy.json')).toEqual(['cat-file', 'blob', 'HEAD:./.oxespace/policy.json'])
   })
 
   it('8. a worktree: inherits a primary row; with none, the primary\'s file and HEAD restrict it; a committed allow * on its branch asks', async () => {
@@ -268,7 +270,7 @@ describe('B7.4 first sight: no file grants, references only restrict', () => {
     // A promisor repo whose HEAD names a blob it does not have: reading it would fetch from "origin" over ssh.
     for (const [name, value] of [['core.repositoryformatversion', '1'], ['extensions.partialClone', 'origin'], ['remote.origin.promisor', 'true'],
       ['remote.origin.url', 'ssh://example.invalid/repo'], ['core.sshCommand', `node "${script}"`], ['protocol.ssh.allow', 'always']]) git(top, 'config', name, value)
-    const run = (args: string[], input?: string) => execFileSync('git', ['-C', top, ...args], { input, encoding: 'utf8', env: gitEnvironment(), stdio: ['pipe', 'pipe', 'ignore'] }).trim()
+    const run = (args: string[], input?: string) => execFileSync('git', ['-C', top, ...args], { input, encoding: 'utf8', env: safeGitEnv(), stdio: ['pipe', 'pipe', 'ignore'] }).trim()
     const blob = run(['hash-object', '--stdin'], policyText(deny('Bash')))
     const folder = run(['mktree', '--missing'], `100644 blob ${blob}\tpolicy.json\n`)
     const tree = run(['mktree', '--missing'], `040000 tree ${folder}\t.oxespace\n`)
@@ -283,8 +285,12 @@ describe('B7.4 first sight: no file grants, references only restrict', () => {
     expect(h.denied(top, 'Bash')).toBe(false)
     await h.settle()
     expect(existsSync(marker)).toBe(false)
-    expect(gitEnvironment({ GIT_DIR: '/x', PATH: '/bin' })).toEqual({ PATH: '/bin', GIT_NO_LAZY_FETCH: '1', GIT_TERMINAL_PROMPT: '0', GIT_CONFIG_NOSYSTEM: '1' })
-    expect(SAFE_GIT_OPTIONS).toEqual(expect.arrayContaining(['protocol.allow=never', 'protocol.ext.allow=never', 'protocol.ssh.allow=never', 'protocol.file.allow=never']))
+    // The committed reads now go through safe-git: what that git gets, from the same call the gate makes.
+    const prepared = prepareGitSync(top, committedBlobArgs('.oxespace/policy.json'))
+    expect(prepared.env).toMatchObject({ GIT_NO_LAZY_FETCH: '1', GIT_TERMINAL_PROMPT: '0' })
+    expect(safeGitEnv({ GIT_DIR: '/x', PATH: '/bin' }, { systemConfig: true })).not.toHaveProperty('GIT_DIR')
+    expect(prepared.args).toEqual(expect.arrayContaining(['protocol.allow=never', 'protocol.ext.allow=never', 'protocol.ssh.allow=never', 'protocol.file.allow=never']))
+    expect(prepared.args.slice(-3)).toEqual(['cat-file', 'blob', 'HEAD:./.oxespace/policy.json'])
   })
 })
 

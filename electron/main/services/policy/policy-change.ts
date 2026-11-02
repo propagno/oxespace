@@ -17,9 +17,7 @@
  *   worktree's primary); see accepted-config.ts `firstSightFloorOf`. Everything else is classified against that floor
  *   like any other change, so an allow, an `always` group or a dropped committed restriction asks.
  */
-import { execFile } from 'node:child_process'
 import { relative } from 'node:path'
-import { promisify } from 'node:util'
 import { evaluatePolicy, type PolicyRule } from '../../../../shared/policy'
 import { mainMessage, type MainMessage } from '../../../../shared/messages'
 import { APPROVAL_AGENT_TEXT_MAX, type ApprovalRisk } from '../../../../shared/types/approvals'
@@ -28,7 +26,8 @@ import type { ApprovalDraft } from '../approvals/approval-center'
 import { DENY } from '../approvals/drafts'
 import { APP_REQUESTER } from '../approvals/requester'
 import type { AnyProjection, ChangeContext, ChangeVerdict, ModesValue, PolicyProjection, PolicyValue, Subject } from './accepted-config'
-import { committedBlobArgs, defaultModes, fileLabel, gitEnvironment, projectionHash, SAFE_GIT_OPTIONS } from './accepted-config'
+import { committedBlobArgs, defaultModes, fileLabel, projectionHash } from './accepted-config'
+import { execGit } from '../../utils/safe-git'
 import { MAX_POLICY_BYTES, parsePolicyProjection } from './projections'
 import { parseModesProjection } from './tool-config'
 
@@ -259,15 +258,14 @@ async function committed(subject: Subject, next: AnyProjection): Promise<boolean
   if (subject.layer !== 'project' || !subject.root) return null
   const rel = relative(subject.root, subject.path).replace(/\\/g, '/')
   const parse = (text: string) => subject.file === 'policy' ? parsePolicyProjection(text, 'project', subject.path).projection : parseModesProjection(text)
-  const run = promisify(execFile)
-  const options = { timeout: 3_000, maxBuffer: MAX_POLICY_BYTES + 1, windowsHide: true, env: gitEnvironment() }
+  const options = { timeout: 3_000, maxBuffer: MAX_POLICY_BYTES + 1 }
   try {
-    // cat-file blob from the subject's folder: no pager, fsmonitor, textconv or filters the repository configures.
-    const { stdout } = await run('git', committedBlobArgs(subject.root, rel), options)
+    // cat-file blob from the subject's folder, through safe-git: no pager, fsmonitor, textconv or filters the repository configures.
+    const { stdout } = await execGit(subject.root, committedBlobArgs(rel), options)
     return projectionHash(subject.file, parse(stdout)) === projectionHash(subject.file, next)
   } catch {
     // Not committed (or no HEAD): when git runs here at all, the file is not the committed version.
-    try { await run('git', [...SAFE_GIT_OPTIONS, '-C', subject.root, 'rev-parse', '--git-dir'], options); return next.state === 'absent' ? null : false } catch { return null }
+    try { await execGit(subject.root, ['rev-parse', '--git-dir'], options); return next.state === 'absent' ? null : false } catch { return null }
   }
 }
 
@@ -278,13 +276,12 @@ async function committed(subject: Subject, next: AnyProjection): Promise<boolean
 async function sameAsRemoteBranch(subject: Subject, next: AnyProjection): Promise<string | null> {
   if (subject.layer !== 'project' || !subject.root) return null
   const rel = relative(subject.root, subject.path).replace(/\\/g, '/')
-  const run = promisify(execFile)
-  const options = { timeout: 3_000, maxBuffer: MAX_POLICY_BYTES + 1, windowsHide: true, env: gitEnvironment() }
+  const options = { timeout: 3_000, maxBuffer: MAX_POLICY_BYTES + 1 }
   try {
-    const { stdout: branch } = await run('git', [...SAFE_GIT_OPTIONS, '-C', subject.root, 'symbolic-ref', '--quiet', '--short', 'HEAD'], options)
+    const { stdout: branch } = await execGit(subject.root, ['symbolic-ref', '--quiet', '--short', 'HEAD'], options)
     const name = branch.trim()
     if (!name) return null
-    const { stdout } = await run('git', committedBlobArgs(subject.root, rel, `refs/remotes/origin/${name}`), options)
+    const { stdout } = await execGit(subject.root, committedBlobArgs(rel, `refs/remotes/origin/${name}`), options)
     const remote = subject.file === 'policy' ? parsePolicyProjection(stdout, 'project', subject.path).projection : parseModesProjection(stdout)
     return projectionHash(subject.file, remote) === projectionHash(subject.file, next) ? safeName(name) : null
   } catch {

@@ -16,7 +16,7 @@
  * watcher: a rule takes effect only when it is read, and every read checks.
  */
 import { createHash, randomUUID } from 'node:crypto'
-import { execFile, execFileSync } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import { closeSync, openSync, readFileSync, statSync, unlinkSync } from 'node:fs'
 import { basename, dirname, join, relative, resolve, sep } from 'node:path'
 import { promisify } from 'node:util'
@@ -29,6 +29,7 @@ import type { ApprovalDraft, ApprovalOutcome } from '../approvals/approval-cente
 import { recordIncident } from '../diagnostics/incident-sink'
 import { canonicalPath, gitCommonDir } from '../git-common-dir'
 import { MainRefusal } from '../main-refusal'
+import { execGitSync } from '../../utils/safe-git'
 import { trustKey } from '../repo-config/trust'
 import { MAX_POLICY_BYTES, parsePolicyProjection } from './projections'
 import { parseModesProjection } from './tool-config'
@@ -281,39 +282,20 @@ function backLinked(root: string, common: string): boolean {
   }
 }
 
-/** The environment git runs with from main: the person's, without GIT_* (a repository's own settings are the agent's). */
-export function gitEnvironment(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  return {
-    ...Object.fromEntries(Object.entries(source).filter(([name]) => !/^GIT_/i.test(name))),
-    // A promisor (partial clone) repo would fetch a missing object, which runs the transport the repo configures
-    // (core.sshCommand, an ext:: URL): never from here (SECURITY S4-1). No prompt, and no system-wide config either.
-    GIT_NO_LAZY_FETCH: '1',
-    GIT_TERMINAL_PROMPT: '0',
-    GIT_CONFIG_NOSYSTEM: '1'
-  }
-}
-
 /**
- * The options every main-process git read starts with: no pager, no fsmonitor, and no transport at all (for git older
- * than 2.45, which ignores GIT_NO_LAZY_FETCH). `-c` beats the repository's own config, and each protocol is named, since
- * a repo's `protocol.<name>.allow` would win over the general one.
+ * git's arguments to read a committed blob without running anything the repository configures: `cat-file blob` (no
+ * textconv, no filters) and the path relative to the subject's own folder (`HEAD:./<rel>`), so a nested project root,
+ * used as git's working directory, reads its own file. safe-git adds the rest: no pager, fsmonitor, hooks or transport,
+ * no lazy fetch from a promisor remote (SECURITY S4-1), no prompt, and the repository's command keys emptied.
  */
-export const SAFE_GIT_OPTIONS: readonly string[] = ['--no-pager', '-c', 'core.fsmonitor=', '-c', 'protocol.allow=never',
-  ...['ext', 'file', 'ssh', 'git', 'http', 'https'].flatMap(name => ['-c', `protocol.${name}.allow=never`])]
-
-/**
- * git's arguments to read a committed blob without running anything the repository configures: the safe options,
- * `cat-file blob` (no textconv, no filters), and the path relative to the subject's own folder (`HEAD:./<rel>`), so a
- * nested project root reads its own file.
- */
-export function committedBlobArgs(root: string, rel: string, ref = 'HEAD'): string[] {
-  return [...SAFE_GIT_OPTIONS, '-C', root, 'cat-file', 'blob', `${ref}:./${rel}`]
+export function committedBlobArgs(rel: string, ref = 'HEAD'): string[] {
+  return ['cat-file', 'blob', `${ref}:./${rel}`]
 }
 
 /** The text of `rel` committed at HEAD under `root`, or null (no repository, no HEAD, not committed, or any failure). */
 export function committedText(root: string, rel: string): string | null {
   try {
-    return execFileSync('git', committedBlobArgs(root, rel), { encoding: 'utf8', timeout: 3_000, maxBuffer: MAX_POLICY_BYTES + 1, windowsHide: true, env: gitEnvironment(), stdio: ['ignore', 'pipe', 'ignore'] })
+    return execGitSync(root, committedBlobArgs(rel), { timeout: 3_000, maxBuffer: MAX_POLICY_BYTES + 1 })
   } catch {
     return null
   }
