@@ -2,6 +2,7 @@ import { DiffEditor } from '@monaco-editor/react'
 import { useEffect, useRef, type ReactElement } from 'react'
 import type { DiffComment, DiffSide } from '../../../shared/types/diff-comments'
 import { attachLineComments } from './diffLineComments'
+import { i18n } from '../../i18n'
 // Self-hosts Monaco and registers its workers (CSP-compliant, offline).
 import '../../lib/monacoSetup'
 import { MONACO_THEME, defineMonacoTheme } from '../../lib/monacoTheme'
@@ -13,7 +14,7 @@ function relabelFolds(root: HTMLElement): void {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
     const match = HIDDEN_LINES.exec(node.nodeValue ?? '')
-    if (match) node.nodeValue = `${match[1]} unmodified lines`
+    if (match) node.nodeValue = i18n.t('changes.unmodified', { ns: 'code', count: Number(match[1]) })
   }
 }
 

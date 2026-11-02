@@ -1,16 +1,14 @@
 import { realpath } from 'node:fs/promises'
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
 import type { WorkspaceService } from '../workspace.service'
 import { projectIdentity } from '../memory/memory-project.service'
 import { isAbsolute } from 'node:path'
-const exec = promisify(execFile)
+import { execGit } from '../../utils/safe-git'
 
 /** Trusted UI registration only; MCP may discover already-authorized targets. */
 export async function registerLocalRepository(workspace: WorkspaceService, rootPath: string) {
   if (typeof rootPath !== 'string' || !isAbsolute(rootPath) || rootPath.length > 4096 || /[\0\r\n]/.test(rootPath)) throw new Error('Invalid repository path')
   const root = await realpath(rootPath)
-  const info = await exec('git', ['rev-parse', '--show-toplevel'], { cwd: root, windowsHide: true, timeout: 10000 })
+  const info = await execGit(root, ['rev-parse', '--show-toplevel'], { timeout: 10000 })
   const top = await realpath(info.stdout.trim())
   const project = await projectIdentity(top)
   for (const existing of workspace.list()) {

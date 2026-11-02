@@ -118,14 +118,8 @@ describe('app:open-external', () => {
     expect(JSON.stringify(recordIncident.mock.calls)).not.toMatch(/example|secret|pass/)
   })
 
-  it('refuses a sender that is not the app window\'s main frame', () => {
-    const { sender } = appEvent()
-    expect(() => invoke({ sender, senderFrame: {} }, 'https://example.com/')).toThrow(/main frame/)
-    expect(() => invoke({ sender: { mainFrame: {} }, senderFrame: {} }, 'https://example.com/')).toThrow(/main frame/)
-    const stranger = { mainFrame: {} }
-    expect(() => invoke({ sender: stranger, senderFrame: stranger.mainFrame }, 'https://example.com/')).toThrow(/main frame/)
-    expect(openExternal).not.toHaveBeenCalled()
-  })
+  // A sender that is not the app window's main frame never reaches this handler: the central guard (B12) refuses it on
+  // every channel, app:open-external included; tests/unit/ipc-sender-guard.test.ts covers that.
 })
 
 describe('the E2E mock of app:open-external', () => {

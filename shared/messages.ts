@@ -18,6 +18,12 @@ export interface MessageParams {
   'mcp.quarantine.removed': { tools: string[] }
   /** MCP quarantine: the server's command, arguments, environment or URL no longer match what was trusted. */
   'mcp.quarantine.configChanged': Record<string, never>
+  /** B7.3: an OXESpace tool of the confirm level asks the person every time; it cannot be set to run without asking. */
+  'mcp.toolRule.confirmLevel': { tool: string }
+  /** B7.3: the tool's rule comes from the user's or the organization's policy, which a project cannot change. */
+  'mcp.toolRule.locked': { tool: string }
+  /** B7.3: the project's `.oxespace/policy.json` is not a valid policy; it is left as it is until fixed by hand. */
+  'mcp.toolRule.invalidPolicy': Record<string, never>
   /** A pending request was answered, cancelled or expired before this answer arrived. */
   'thread.request.notPending': Record<string, never>
   /** The conversation restarted since the request was listed; the answer belongs to an older generation. */
@@ -32,15 +38,32 @@ export interface MessageParams {
   'thread.protectedConfig.instructions': { path: string }
   'thread.protectedConfig.mcp': { path: string }
   'thread.protectedConfig.hooks': { path: string }
+  'thread.protectedConfig.git': { path: string }
+  /** B7.3: the project's `.oxespace/policy.json` (the MCP tools the person blocked) or `oxe.yaml` (the tool groups offered). */
+  'thread.protectedConfig.policy': { path: string }
   'thread.protectedConfig.warning': Record<string, never>
   /** B16: `command` rewrites tracked files without naming them (git checkout, tar x…), so it needs the person each time. */
   'thread.protectedConfig.rewritesTracked': { command: string }
   /** The system reports no network interface with a route. */
   'app.connectivity.offline': Record<string, never>
+  /** B12: the IPC sender guard refused a call from a sender other than the app window's main frame. */
+  'ipc.sender.refused': Record<string, never>
   /** The provider cannot fork its session into a side chat (B1.2). */
   'thread.side.unavailable': Record<string, never>
   /** The conversation has no native session to copy yet: send a message first. */
   'thread.side.noSession': Record<string, never>
+  /** The side chat was closed (by the person, or with its window) before this message. */
+  'thread.side.closed': Record<string, never>
+  /** A side chat call carried an id or a message that is not one. */
+  'thread.side.invalidInput': Record<string, never>
+  /** A conversation call carried an id or input that is not one. */
+  'thread.invalidInput': Record<string, never>
+  /** No conversation has this id (deleted, or never existed). */
+  'thread.notFound': Record<string, never>
+  /** B13: OxeChat starts agents only from a native executable; any other .cmd/.ps1/.bat is refused. */
+  'thread.agent.scriptUnsupported': Record<string, never>
+  /** B13: a `codex.cmd` npm install whose native `codex.exe` is missing (it is never run through the app as Node). */
+  'thread.agent.nativeMissing': Record<string, never>
   /** F30 · Refusals of the activity center's calls (ACTIVITY_REFUSALS); a refused call stores nothing. */
   'activity.invalid': Record<string, never>
   'activity.tooMany': { max: number }
@@ -60,13 +83,27 @@ export interface MessageParams {
   /** `name` is the second section's name, trimmed, as the person typed it. */
   'thread.sections.nameDuplicate': { name: string }
   'thread.sections.unknownWorkspace': Record<string, never>
+  /** B17 · Why a pane's recorded agent session was not resumed on its first start (PaneAgentResume `notResumed`). */
+  'agents.resume.sessionMissing': Record<string, never>
+  'agents.resume.otherAgent': Record<string, never>
+  'agents.resume.launchOverride': Record<string, never>
+  'agents.resume.blocked': Record<string, never>
+  'agents.resume.disabled': Record<string, never>
+  /** The person restarted the pane without its session (terminal.restart with `resume: false`). */
+  'agents.resume.startedFresh': Record<string, never>
+  /** The resumed agent exited at once: its session would not load, so the pane started fresh and forgot it. */
+  'agents.resume.failedToLoad': Record<string, never>
+  /** B17 · Terminal details: the pane runs Claude Code or Codex, but no session was reported yet. */
+  'agents.session.notFound': Record<string, never>
   /** Diagnostics journal (B8.3): one kind of incident. */
   'incident.window.crashed': Record<string, never>
   'incident.window.rendererGone': Record<string, never>
   'incident.ipc.handlerFailed': Record<string, never>
   'incident.ipc.validationRejected': Record<string, never>
+  'incident.ipc.senderRefused': Record<string, never>
   'incident.agent.startFailed': Record<string, never>
   'incident.mcp.quarantined': Record<string, never>
+  'incident.mcp.toolGroupOff': Record<string, never>
   'incident.database.busy': Record<string, never>
   'incident.oxequery.timeout': Record<string, never>
   /** The OxeQuery worker stopped answering, and its restart was put off because a person session has a transaction open or a command running (B14). */
@@ -105,6 +142,40 @@ export interface MessageParams {
   'worktree.cleanup.notRemovable': Record<string, never>
   'worktree.cleanup.blocked': { reasons: string[] }
   'worktree.cleanup.needsConfirmation': { reasons: string[] }
+  /** A worktree was created, checking out `branch` (FINDING L: the main process no longer words this itself). */
+  'worktree.created': { path: string; branch: string }
+  /** The same, for a new branch started at `base`. */
+  'worktree.createdFrom': { path: string; branch: string; base: string }
+  /** The oxe.yaml setup hook was not approved, so it did not run in the new worktree. */
+  'worktree.setup.notApproved': Record<string, never>
+  /** The oxe.yaml setup hook ran and passed. */
+  'worktree.setup.complete': Record<string, never>
+  /** The oxe.yaml setup hook exited with an error code. */
+  'worktree.setup.failed': { exitCode: number }
+  /** The oxe.yaml setup hook did not end in a way that can be checked (timed out or killed). */
+  'worktree.setup.unverified': Record<string, never>
+  /** B19: files from `worktree.copyFiles` copied into the new worktree. */
+  'worktree.copyFiles.copied': { count: number }
+  /** B19: an include pattern that is absolute, climbs with `..`, or names `.git`; nothing is copied for it. */
+  'worktree.copyFiles.outsideRepo': { patterns: string[] }
+  /** B19: the patterns matched more than the limit; nothing is copied, the worktree is created anyway. */
+  'worktree.copyFiles.overLimit': { files: number; megabytes: number; maxFiles: number; maxMegabytes: number }
+  /** B19: a pattern with more segments or `**` than the matcher allows; nothing is copied for it. */
+  'worktree.copyFiles.tooComplex': { patterns: string[] }
+  /** B19: patterns starting with `!`, kept for excluding files later; nothing is copied for them. */
+  'worktree.copyFiles.excludeReserved': { patterns: string[] }
+  /** B19: `git check-ignore` failed in the new worktree, so nothing is copied (only ignored files may be). */
+  'worktree.copyFiles.ignoreCheckFailed': Record<string, never>
+  /** B19: files git does not ignore in the new worktree; a copy could be committed, so they are not copied. */
+  'worktree.copyFiles.notIgnored': { paths: string[] }
+  /** B19: the search went through more entries than allowed before finishing; nothing is copied. */
+  'worktree.copyFiles.searchTooLarge': { limit: number }
+  /** B19: files already in the new worktree; they are kept as they are. */
+  'worktree.copyFiles.notOverwritten': { paths: string[] }
+  /** B19: links and files whose real location is outside the repository or the worktree; they are not copied. */
+  'worktree.copyFiles.notFollowed': { paths: string[] }
+  /** B19: files that could not be copied (permissions, a disk error). */
+  'worktree.copyFiles.failed': { paths: string[] }
   'mcp.signIn.waiting': Record<string, never>
   'mcp.server.quarantined': Record<string, never>
   'mcp.server.untrusted': Record<string, never>
@@ -120,8 +191,108 @@ export interface MessageParams {
   'mcp.toolGroups.unsafeEdit': Record<string, never>
   /** A project file changed on disk after OXESpace read it (another editor, a git checkout); nothing was written. */
   'project.file.changedMeanwhile': { file: string }
+  /** B7.4 · A project policy file changed outside OXESpace (DESIGN #359). */
+  'approvals.title.policyChange': Record<string, never>
+  /** B7.4 · Your own policy file (<userData>/policy.json) changed outside OXESpace (BACKEND draft). */
+  'approvals.title.policyChangeUser': Record<string, never>
+  /** B7.4 · The organization's policy file changed, in a folder people on this computer can write to (BACKEND draft). */
+  'approvals.title.policyChangeManaged': Record<string, never>
+  /** B7.4 · The file allows more than the accepted rules. */
+  'approvals.summary.policyChange.widened': { file: string }
+  /** B7.4 · The file was deleted. */
+  'approvals.summary.policyChange.deleted': { file: string }
+  /** B7.4 · The file has an error; Deny only. */
+  'approvals.summary.policyChange.invalid': { file: string }
+  /** B7.4 · The file is over the size limit; Deny only. */
+  'approvals.summary.policyChange.tooLarge': { file: string; max: string }
+  /** B7.4 · A worktree's own file allows more than the project's accepted rules. */
+  'approvals.summary.policyChange.worktree': { worktree: string; file: string }
+  /** B7.4 · A mixed change that splits exactly: its stricter rules already apply (DESIGN #361). */
+  'approvals.summary.policyChange.partial': { file: string }
+  /** B7.4 · Accept the file's new rules. */
+  'approvals.option.allowPolicy': Record<string, never>
+  /** B7.4 · The label of the agentText block of a policyChange request. */
+  'approvals.textLabel.policyChange': Record<string, never>
+  /** B7.4 · Diff line, wider. `rule` is the app's reading of the rule (kind + pattern), sanitized. */
+  'approvals.note.policy.denyRemoved': { rule: string }
+  /** B7.4 · Diff line, wider. */
+  'approvals.note.policy.allowAdded': { rule: string }
+  /** B7.4 · Diff line, wider. `group` is a configurable group id; `from`/`to` are mode ids (off, on-demand, always). */
+  'approvals.note.policy.groupRaised': { group: string; from: string; to: string }
+  /** B7.4 · Diff line, wider: an edited pattern cannot be proven stricter. */
+  'approvals.note.policy.ruleEdited': { from: string; to: string }
+  /** B7.4 · Diff line, stricter, already in force (the pure narrowing of a partial change). */
+  'approvals.note.policy.denyAdded.applied': { rule: string }
+  /** B7.4 · Diff line, stricter, waiting with the rest. */
+  'approvals.note.policy.denyAdded.waiting': { rule: string }
+  /** B7.4 · Diff line, stricter, already in force. */
+  'approvals.note.policy.allowRemoved.applied': { rule: string }
+  /** B7.4 · Diff line, stricter, waiting with the rest. */
+  'approvals.note.policy.allowRemoved.waiting': { rule: string }
+  /** B7.4 · Diff line, stricter; inside a mixed change it waits with the rest. */
+  'approvals.note.policy.groupLowered': { group: string; from: string; to: string }
+  /** B7.4 · Diff line, wider: only the order of the rules changed, and a later rule decides (BACKEND draft). */
+  'approvals.note.policy.reordered': { count: number }
+  /** B7.4 · More diff lines than are listed. */
+  'approvals.note.policy.more': { count: number }
+  /** B7.4 · A mixed change that does not split exactly: nothing applies early (DESIGN #361). */
+  'approvals.note.policy.notSplit': Record<string, never>
+  /** B7.4 · What Deny does. */
+  'approvals.note.policy.stillAccepted': Record<string, never>
+  /** B7.4 · What Allow does (BACKEND draft). */
+  'approvals.note.policy.allowEffect': Record<string, never>
+  /** B7.4 · In place of the text block when the file was deleted. */
+  'approvals.note.policy.noText': Record<string, never>
+  /** B7.4 · The parser's short reason for an invalid file. */
+  'approvals.note.policy.problem': { problem: string }
+  /** B7.4 · OXESpace tools this change would let agents use again, from the app's registry (BACKEND draft). */
+  'approvals.note.policy.usable': { tools: string[] }
+  /** B7.4 · The first OXESpace tools this change would let agents use again, and how many more (DESIGN #372). */
+  'approvals.note.policy.usableMore': { tools: string[]; more: number }
+  /** B7.4 · First sight: a deny the committed version keeps and the file dropped; it stays in force. */
+  'approvals.note.policy.committedDeny': { rule: string }
+  /** B7.4 · First sight: a group the committed version keeps off and the file turned back on; it stays off. */
+  'approvals.note.policy.committedOff': { group: string }
+  /** B7.4 · A hint only: the file is the same as the remote-tracking copy of its branch (never changes the verdict). */
+  'approvals.note.policy.matchesBranch': { branch: string }
+  /** B7.4 · OXESpace reads this project's rules for the first time. */
+  'approvals.title.policyFirstSight': Record<string, never>
+  /** B7.4 · First sight: the rules allow more than the defaults; only their denies apply meanwhile. */
+  'approvals.summary.policyFirstSight': Record<string, never>
+  /** B7.4 · First sight: the file dropped restrictions the committed version has; those apply meanwhile. */
+  'approvals.summary.policyFirstSightLost': Record<string, never>
+  /** B7.4 · Status while a first-sight review waits (Settings › Policy and Tools). */
+  'policy.firstSight.enforced': Record<string, never>
+  /** B7.4 · Git provenance from the app's own check (BACKEND draft). */
+  'approvals.note.policy.committed': Record<string, never>
+  /** B7.4 · Git provenance from the app's own check (BACKEND draft). */
+  'approvals.note.policy.uncommitted': Record<string, never>
+  /** B7.4 · Agent sessions of the project running when the change was found (BACKEND draft). */
+  'approvals.note.policy.liveSessions': { count: number }
+  /** B7.4 · The managed policy folder is writable by people on this computer (BACKEND draft). */
+  'approvals.note.policy.managedNotProtected': Record<string, never>
+  /** B7.4 · Notice: a change that only tightens applied at once (DESIGN #359 §4). */
+  'policy.narrowed': { file: string }
+  /** B7.4 · After Deny. */
+  'policy.result.kept': Record<string, never>
+  /** B7.4 · After Allow. */
+  'policy.result.applied': Record<string, never>
+  /** B7.4 · An app write to a gated file refused while a change is pending (or the file is not the accepted version). */
+  'policy.change.pending': Record<string, never>
+  /** B7.4 · Accept refused: the accepted version or the file changed since the change was shown (BACKEND draft). */
+  'policy.change.baseChanged': Record<string, never>
+  /** B7.4 · Accept or review refused: no such change waits (BACKEND draft). */
+  'policy.change.notPending': Record<string, never>
+  /** B7.4 · Accept refused: an invalid or too large file cannot be applied (BACKEND draft). */
+  'policy.change.notApplicable': Record<string, never>
+  /** B7.4 · Incident: a gated policy file changed outside OXESpace and was asked about. */
+  'incident.policy.changedOutside': Record<string, never>
   'github.cli.missing': Record<string, never>
   'git.base.unresolved': { base: string }
+  'git.base.maybeStale': { branch: string }
+  'git.fetch.needsPerson': Record<string, never>
+  'git.person.refused': { keys: string[] }
+  'git.hooks.skipped': Record<string, never>
   'oxe.status.unreadable': Record<string, never>
   'oxe.dashboard.timeout': Record<string, never>
   'memory.disabled': Record<string, never>
@@ -196,6 +367,24 @@ export interface MessageParams {
   'remote.network.noPrivateInterface': Record<string, never>
   /** The gateway's certificate could not be made or read back from secure storage. */
   'remote.certificate.failed': Record<string, never>
+  /** A phone's pairing attempt failed. Never carries the phone's key, address, name or any identifier. */
+  'remote.pairing.failed': { reason: 'invalid' | 'expired' | 'refused' | 'limit' | 'peer-closed' | 'reserved-name' }
+  /** A pairing code was asked for while the gateway is off. */
+  'remote.gateway.offline': Record<string, never>
+  /** Pairing another phone would pass the device limit. */
+  'remote.pairing.limit': { max: number }
+  /** No paired device has this id (revoked, or never paired). */
+  'remote.device.notFound': Record<string, never>
+  /** A device name that is empty, longer than `max` or has control characters. */
+  'remote.device.invalidName': { max: number }
+  /** A device name only the app may speak as ("OXESpace", "System"; `reservedNameIn` in shared/approval-rules.ts). */
+  'remote.device.reservedName': Record<string, never>
+  /** A desktop name that is empty, longer than `max` or has control characters. */
+  'remote.desktop.invalidName': { max: number }
+  /** The name phones see for this computer passes for the app or the system ("Windows Security"). */
+  'remote.desktop.reservedName': Record<string, never>
+  /** A pane id that cannot be a pane. */
+  'remote.pane.invalid': Record<string, never>
   /** A workspace root that is not an absolute path (a relative one would depend on where the app started). */
   /** No folder was given: the text was empty, or only spaces or quotes. */
   'workspace.root.empty': Record<string, never>
@@ -316,6 +505,9 @@ export const MESSAGE_CODES = [
   'mcp.quarantine.added',
   'mcp.quarantine.removed',
   'mcp.quarantine.configChanged',
+  'mcp.toolRule.confirmLevel',
+  'mcp.toolRule.locked',
+  'mcp.toolRule.invalidPolicy',
   'thread.request.notPending',
   'thread.request.staleGeneration',
   'thread.request.alreadyResponding',
@@ -324,11 +516,20 @@ export const MESSAGE_CODES = [
   'thread.protectedConfig.instructions',
   'thread.protectedConfig.mcp',
   'thread.protectedConfig.hooks',
+  'thread.protectedConfig.git',
+  'thread.protectedConfig.policy',
   'thread.protectedConfig.warning',
   'thread.protectedConfig.rewritesTracked',
   'app.connectivity.offline',
+  'ipc.sender.refused',
   'thread.side.unavailable',
   'thread.side.noSession',
+  'thread.side.closed',
+  'thread.side.invalidInput',
+  'thread.invalidInput',
+  'thread.notFound',
+  'thread.agent.scriptUnsupported',
+  'thread.agent.nativeMissing',
   'activity.invalid',
   'activity.tooMany',
   'activity.titleTooLong',
@@ -343,12 +544,22 @@ export const MESSAGE_CODES = [
   'thread.sections.nameHidden',
   'thread.sections.nameDuplicate',
   'thread.sections.unknownWorkspace',
+  'agents.resume.sessionMissing',
+  'agents.resume.otherAgent',
+  'agents.resume.launchOverride',
+  'agents.resume.blocked',
+  'agents.resume.disabled',
+  'agents.resume.startedFresh',
+  'agents.resume.failedToLoad',
+  'agents.session.notFound',
   'incident.window.crashed',
   'incident.window.rendererGone',
   'incident.ipc.handlerFailed',
   'incident.ipc.validationRejected',
+  'incident.ipc.senderRefused',
   'incident.agent.startFailed',
   'incident.mcp.quarantined',
+  'incident.mcp.toolGroupOff',
   'incident.database.busy',
   'incident.oxequery.timeout',
   'incident.oxequery.restartDeferred',
@@ -375,6 +586,23 @@ export const MESSAGE_CODES = [
   'worktree.cleanup.notRemovable',
   'worktree.cleanup.blocked',
   'worktree.cleanup.needsConfirmation',
+  'worktree.created',
+  'worktree.createdFrom',
+  'worktree.setup.notApproved',
+  'worktree.setup.complete',
+  'worktree.setup.failed',
+  'worktree.setup.unverified',
+  'worktree.copyFiles.copied',
+  'worktree.copyFiles.outsideRepo',
+  'worktree.copyFiles.overLimit',
+  'worktree.copyFiles.tooComplex',
+  'worktree.copyFiles.excludeReserved',
+  'worktree.copyFiles.ignoreCheckFailed',
+  'worktree.copyFiles.notIgnored',
+  'worktree.copyFiles.searchTooLarge',
+  'worktree.copyFiles.notOverwritten',
+  'worktree.copyFiles.notFollowed',
+  'worktree.copyFiles.failed',
   'mcp.signIn.waiting',
   'mcp.server.quarantined',
   'mcp.server.untrusted',
@@ -384,8 +612,60 @@ export const MESSAGE_CODES = [
   'mcp.toolGroups.inlineThread',
   'mcp.toolGroups.unsafeEdit',
   'project.file.changedMeanwhile',
+  'approvals.title.policyChange',
+  'approvals.title.policyChangeUser',
+  'approvals.title.policyChangeManaged',
+  'approvals.summary.policyChange.widened',
+  'approvals.summary.policyChange.deleted',
+  'approvals.summary.policyChange.invalid',
+  'approvals.summary.policyChange.tooLarge',
+  'approvals.summary.policyChange.worktree',
+  'approvals.summary.policyChange.partial',
+  'approvals.option.allowPolicy',
+  'approvals.textLabel.policyChange',
+  'approvals.note.policy.denyRemoved',
+  'approvals.note.policy.allowAdded',
+  'approvals.note.policy.groupRaised',
+  'approvals.note.policy.ruleEdited',
+  'approvals.note.policy.denyAdded.applied',
+  'approvals.note.policy.denyAdded.waiting',
+  'approvals.note.policy.allowRemoved.applied',
+  'approvals.note.policy.allowRemoved.waiting',
+  'approvals.note.policy.groupLowered',
+  'approvals.note.policy.reordered',
+  'approvals.note.policy.more',
+  'approvals.note.policy.notSplit',
+  'approvals.note.policy.stillAccepted',
+  'approvals.note.policy.allowEffect',
+  'approvals.note.policy.noText',
+  'approvals.note.policy.problem',
+  'approvals.note.policy.usable',
+  'approvals.note.policy.usableMore',
+  'approvals.note.policy.committedDeny',
+  'approvals.note.policy.committedOff',
+  'approvals.note.policy.matchesBranch',
+  'approvals.title.policyFirstSight',
+  'approvals.summary.policyFirstSight',
+  'approvals.summary.policyFirstSightLost',
+  'policy.firstSight.enforced',
+  'approvals.note.policy.committed',
+  'approvals.note.policy.uncommitted',
+  'approvals.note.policy.liveSessions',
+  'approvals.note.policy.managedNotProtected',
+  'policy.narrowed',
+  'policy.result.kept',
+  'policy.result.applied',
+  'policy.change.pending',
+  'policy.change.baseChanged',
+  'policy.change.notPending',
+  'policy.change.notApplicable',
+  'incident.policy.changedOutside',
   'github.cli.missing',
   'git.base.unresolved',
+  'git.base.maybeStale',
+  'git.fetch.needsPerson',
+  'git.person.refused',
+  'git.hooks.skipped',
   'oxe.status.unreadable',
   'oxe.dashboard.timeout',
   'memory.disabled',
@@ -441,6 +721,15 @@ export const MESSAGE_CODES = [
   'remote.port.inUse',
   'remote.network.noPrivateInterface',
   'remote.certificate.failed',
+  'remote.pairing.failed',
+  'remote.gateway.offline',
+  'remote.pairing.limit',
+  'remote.device.notFound',
+  'remote.device.invalidName',
+  'remote.device.reservedName',
+  'remote.desktop.invalidName',
+  'remote.desktop.reservedName',
+  'remote.pane.invalid',
   'workspace.root.empty',
   'workspace.root.notAbsolute',
   'workspace.root.notFound',
@@ -545,14 +834,50 @@ export function mainMessage<Code extends MessageCode>(code: Code, params: Messag
   return { code, params }
 }
 
+/**
+ * C3 in a rejection. Electron passes only an error's text across `invoke`, so a handler that rejects with something
+ * the person should read throws `MainMessageError` (`electron/main/ipc/main-message-error.ts`, the one serializer):
+ * its text is the English sentence, readable on its own in logs and crash reports, then this fixed marker, then the
+ * message as JSON with its parameters redacted and capped. The window reads it back with `messageFromError` (the one
+ * reader) and words it with `formatMainMessage`; without the marker it shows its generic text. Malformed input (wrong
+ * types, unknown fields) stays a plain `Error`.
+ */
+export const MAIN_MESSAGE_ERROR_TAG = ' #c3 '
+
+/** Caps on what a rejection's parameters may carry: characters per text value, and values per list. */
+export const MAIN_MESSAGE_PARAM_LIMITS = { textLength: 200, listLength: 20 } as const
+
+/**
+ * The C3 message a rejection carries, in this process or after crossing IPC; `null` for any other error. The marker
+ * is looked for from the end: the message is the tail after the last occurrence that parses as one, so the English
+ * sentence, and a parameter inside the JSON, may themselves contain "#c3" or the marker without misleading the read.
+ */
+export function messageFromError(cause: unknown): MainMessage | null {
+  const text = cause instanceof Error ? cause.message
+    : typeof cause === 'string' ? cause
+      : cause && typeof cause === 'object' && typeof (cause as { message?: unknown }).message === 'string' ? (cause as { message: string }).message : ''
+  for (let at = text.lastIndexOf(MAIN_MESSAGE_ERROR_TAG); at >= 0; at = text.lastIndexOf(MAIN_MESSAGE_ERROR_TAG, at - 1)) {
+    try {
+      const value: unknown = JSON.parse(text.slice(at + MAIN_MESSAGE_ERROR_TAG.length))
+      if (isMainMessage(value)) return value
+    } catch { /* not this occurrence: an earlier one may be the marker */ }
+    if (at === 0) break
+  }
+  return null
+}
+
 /** The catalog key of a code in the `main` namespace. */
 export function messageKey(code: MessageCode): `messages.${MessageCode}` {
   return `messages.${code}`
 }
 
+/** Codes whose list is followed by its own "and N more": joined with ", " in every language (DESIGN #372, option A), never with a final "and". */
+const UNIT_LISTS: ReadonlySet<MessageCode> = new Set<MessageCode>(['approvals.note.policy.usableMore'])
+
 /** Interpolation values for the catalog: lists are joined the way the language writes them. */
 export function messageValues(message: MainMessage, language: string): Record<string, string> {
   const list = new Intl.ListFormat(language, { style: 'long', type: 'conjunction' })
+  const join = (items: string[]) => UNIT_LISTS.has(message.code) ? items.join(', ') : list.format(items)
   return Object.fromEntries(Object.entries(message.params as Record<string, unknown>)
-    .map(([name, value]) => [name, Array.isArray(value) ? list.format(value.map(String)) : String(value)]))
+    .map(([name, value]) => [name, Array.isArray(value) ? join(value.map(String)) : String(value)]))
 }

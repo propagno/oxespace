@@ -31,7 +31,7 @@ for (const theme of THEMES) {
 
       // Containers live in the OxePod mode (#161): the list is its sidebar, the work area holds the open container,
       // so these shots take the whole window. The first running container opens by itself.
-      await openView(page, 'OxePod')
+      await openView(page, 'pods')
       await expect(containerRow(page, 'mongo-dev')).toBeVisible()
       await expect(page.getByRole('region', { name: 'mongo-dev details' })).toBeVisible()
       // "running for 2 hours" and the Started date are the clock of the run: the app marks both volatile (data-oq-volatile),
@@ -48,7 +48,7 @@ for (const theme of THEMES) {
       await shot('oxepod-container-details')
 
       // The connection forms, the local database wizard and the audit stay in OxeQuery.
-      await openView(page, 'OxeQuery')
+      await openView(page, 'data')
       const view = page.locator('.oq-view')
       await view.waitFor()
 

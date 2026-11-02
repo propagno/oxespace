@@ -2,7 +2,7 @@ import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, Keyboard, 
 import { Suspense, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
-import { Button, Dialog, LoadingState, TextField } from '../../ui'
+import { Button, Dialog, EmptyState, Skeleton, TextField } from '../../ui'
 import type { SettingsModalProps, SettingsSection } from './SettingsModal'
 import { SETTINGS_PAGES } from '../Workspace/workspaceSettingsPages'
 import { ErrorBoundary } from '../common/ErrorBoundary'
@@ -108,7 +108,7 @@ export function SettingsCenter(props: SettingsModalProps & {
           <div className="settings-category-choices" role="group" aria-label={t('center.categoryGroup')}>
             {filtered.map(page => <button type="button" key={page.id} aria-pressed={destination.page === page.id}
               onClick={() => go(destination.scope === 'application' ? { scope: 'application', page: page.id as AppPage } : { ...destination, page: page.id as typeof SETTINGS_PAGES[number]['id'] })}>{page.label}</button>)}
-            {!filtered.length && <span className="settings-category-empty">{t('center.noMatch')}</span>}
+            {!filtered.length && <EmptyState compact title={t('center.noMatch')} />}
           </div>
         </div>
         <nav aria-label={t('center.categories')}>
@@ -129,7 +129,7 @@ export function SettingsCenter(props: SettingsModalProps & {
           <div><span>{t('center.title')}</span><ChevronRight size={12} aria-hidden="true" /><span title={workspace?.rootPath}>{workspace?.name ?? t('center.application')}</span></div>
           <button type="button" aria-label={t('center.close')} title={t('center.closeTitle')} onClick={close}><X size={16} aria-hidden="true" /></button>
         </header>
-        <div ref={content} className={`settings-center-content${destination.scope === 'workspace' ? ' is-workspace' : ''}`}><ErrorBoundary id="settings-page" component="SettingsCenter" compact label={t('center.title')} onReset={retryPages}><Suspense fallback={<LoadingState />}>
+        <div ref={content} className={`settings-center-content${destination.scope === 'workspace' ? ' is-workspace' : ''}`}><ErrorBoundary id="settings-page" component="SettingsCenter" compact label={t('center.title')} onReset={retryPages}><Suspense fallback={<Skeleton lines={6} label={t('center.title')} />}>
           {destination.scope === 'workspace' ? workspace ? <WorkspaceSettingsModal key={workspace.id} embedded workspace={workspace} selectedPageId={destination.page}
             shellProfiles={props.shellProfiles} onSave={props.onSave} onClose={close} onDraftChange={value => { draft.current = value }}
             onOpenDiagnostics={() => go({ scope: 'application', page: 'diagnostics' })}

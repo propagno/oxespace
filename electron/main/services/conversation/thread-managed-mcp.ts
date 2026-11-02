@@ -1,5 +1,6 @@
 import type { AppDatabase } from '../../db/index'
 import type { McpHttpConfig, McpServerConfig, McpStdioConfig } from '../../../../shared/types/mcp'
+import { mcpServerKeys } from '../mcp-keys'
 
 /**
  * MCP servers configured in OXESpace (global + the thread's workspace) that a
@@ -29,9 +30,8 @@ export interface ManagedMcp {
   env: Record<string, string>
 }
 
-interface Row { name: string; workspace_id: string | null; config_json: string }
+interface Row { id: string; name: string; workspace_id: string | null; config_json: string }
 
-const slug = (name: string): string => name.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'mcp-server'
 const variable = (key: string, name: string): string => `OXE_MCP_${key.replace(/[^A-Za-z0-9]+/g, '_').toUpperCase()}_${name.replace(/[^A-Za-z0-9]+/g, '_').toUpperCase()}`
 
 // Names that would change how the agent process itself behaves when set in its environment.
@@ -56,7 +56,7 @@ function launch(command: string, args: string[], platform: NodeJS.Platform): { c
 export function readManagedMcp(db: AppDatabase, workspaceIds: string | string[] | null | undefined, platform: NodeJS.Platform = process.platform, allowed: (name: string) => boolean = () => true): ManagedMcp {
   const scoped = (Array.isArray(workspaceIds) ? workspaceIds : workspaceIds ? [workspaceIds] : []).slice(0, 50)
   const all = db.prepare(
-    `SELECT name, workspace_id, config_json FROM mcp_servers
+    `SELECT id, name, workspace_id, config_json FROM mcp_servers
      WHERE enabled = 1 AND trusted = 1 AND (workspace_id IS NULL${scoped.length ? ` OR workspace_id IN (${scoped.map(() => '?').join(', ')})` : ''})
      ORDER BY created_at ASC`
   ).all(...scoped) as Row[]
@@ -64,16 +64,16 @@ export function readManagedMcp(db: AppDatabase, workspaceIds: string | string[] 
   const rows = all.filter(row => row.workspace_id !== null || !scopedNames.has(row.name))
   const servers: ManagedMcpServer[] = []
   const env: Record<string, string> = {}
-  const taken = new Set<string>(['oxespace-delegation'])
+  // The same key `.mcp.json` and Settings › Tools give the server (mcp-keys.ts), so a rule on it holds here too.
+  const keys = mcpServerKeys(db, scoped)
   for (const row of rows) {
     // The OXESpace bridge is already attached by threadMcpArguments.
     if (row.name === 'oxespace' && row.workspace_id === null) continue
     if (!allowed(row.name)) continue
     let config: McpServerConfig
     try { config = JSON.parse(row.config_json) as McpServerConfig } catch { continue }
-    let key = slug(row.name)
-    for (let counter = 2; taken.has(key); counter += 1) key = `${slug(row.name)}-${counter}`
-    taken.add(key)
+    const key = keys.get(row.id)
+    if (!key) continue
     if (config.transport === 'stdio') {
       const stdio = config as McpStdioConfig
       if (!stdio.command) continue

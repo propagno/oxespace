@@ -1,5 +1,6 @@
 package com.oxespace.mobile.ui.live
 
+import com.oxespace.mobile.ui.theme.OxeFonts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -37,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.semantics
@@ -60,6 +62,7 @@ import com.oxespace.mobile.approval.Presence
 import com.oxespace.mobile.approval.PresenceGate
 import com.oxespace.mobile.approval.PresenceReason
 import com.oxespace.mobile.session.Watched
+import com.oxespace.mobile.ui.SecureScreen
 import com.oxespace.mobile.ui.terminal.Ansi
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeColors
@@ -71,6 +74,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands: CommandApi, presence: PresenceGate, onBack: () -> Unit) {
+    SecureScreen()
     val tick by watched.changes.collectAsStateWithLifecycle()
     val colors = Oxe.colors
     val text = remember(tick, colors) { colored(watched.store.output, colors) }
@@ -91,7 +95,7 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
             TopAppBar(
                 title = {
                     Column {
-                        Text(pane.title, maxLines = 1)
+                        Text(pane.title, maxLines = 1, modifier = Modifier.semantics { heading() })
                         Text(
                             stringResource(if (pane.phoneWrite) R.string.live_phone_write else R.string.live_read_only),
                             style = MaterialTheme.typography.labelMedium,
@@ -120,7 +124,7 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
             } else {
                 Text(
                     text,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = OxeFonts.mono,
                     fontSize = 13.sp,
                     color = colors.textPrimary,
                     softWrap = false,
@@ -166,8 +170,8 @@ private fun colored(output: String, colors: OxeColors): AnnotatedString = buildA
 private fun TerminalInput(paneId: String, commands: CommandApi, presence: PresenceGate) {
     val scope = rememberCoroutineScope()
     // Opening a terminal the phone can type into asks right away (MB-M-01); inside the window nothing is shown.
-    var unlocked by remember(paneId) { mutableStateOf<Presence?>(null) }
-    LaunchedEffect(paneId) { unlocked = presence.confirm(PresenceReason.TYPE) }
+    var unlocked by remember(paneId) { mutableStateOf(if (presence.windowOpen()) Presence.CONFIRMED else null) }
+    LaunchedEffect(paneId) { if (unlocked != Presence.CONFIRMED) unlocked = presence.confirm(PresenceReason.TYPE) }
     if (unlocked != Presence.CONFIRMED) {
         LockedInput(unlocked) { scope.launch { unlocked = presence.confirm(PresenceReason.TYPE) } }
         return
@@ -186,7 +190,7 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
                 onValueChange = { text = it; message = null },
                 placeholder = { Text(stringResource(R.string.terminal_input_placeholder)) },
                 singleLine = true,
-                textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = OxeFonts.mono),
                 modifier = Modifier.weight(1f),
             )
             Button(

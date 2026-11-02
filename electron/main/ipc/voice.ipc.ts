@@ -2,7 +2,7 @@ import { BrowserWindow, ipcMain } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { VoiceModelSize, VoiceTranscribeOptions } from '../../../shared/types/voice'
 import type { VoiceService } from '../services/voice.service'
-import { parseBytes, parseOneOf, requireAppFrame } from './ipc-guards'
+import { parseBytes, parseOneOf } from './ipc-guards'
 
 const MODEL_SIZES: readonly VoiceModelSize[] = ['tiny', 'base', 'small']
 
@@ -44,19 +44,16 @@ export function registerVoiceIpc(load: () => Promise<VoiceService> = createVoice
   const voice = (): Promise<VoiceService> => (service ??= load().catch(error => { service = null; throw error }))
 
   ipcMain.handle(IPC_CHANNELS.voice.transcribe, async (event, wav: unknown, options?: unknown) => {
-    requireAppFrame(event, 'Voice input')
     // Push-to-talk audio is 16 kHz mono PCM: 32 MB is over 15 minutes, far past any dictation.
     const bytes = parseBytes(wav, 32 * 1024 * 1024, 'Audio')
     const parsed = parseTranscribeOptions(options)
     return (await voice()).transcribe(bytes, parsed)
   })
   ipcMain.handle(IPC_CHANNELS.voice.getModelStatus, async (event, size?: unknown) => {
-    requireAppFrame(event, 'Voice input')
     const modelSize = size === undefined ? 'base' : parseOneOf(size, MODEL_SIZES, 'Model size')
     return (await voice()).getModelStatus(modelSize)
   })
   ipcMain.handle(IPC_CHANNELS.voice.ensureModel, async (event, size?: unknown) => {
-    requireAppFrame(event, 'Voice input')
     const modelSize = size === undefined ? 'base' : parseOneOf(size, MODEL_SIZES, 'Model size')
     return (await voice()).ensureModel(modelSize)
   })

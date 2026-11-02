@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { EventEmitter } from 'node:events'
 import { PassThrough } from 'node:stream'
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { expect, it, vi } from 'vitest'
 import { AgentProcessTransport } from '../electron/main/services/conversation/process-transport'
 import * as diagnostics from '../electron/main/services/runtime-diagnostics'
@@ -50,4 +50,26 @@ it.skipIf(process.platform !== 'win32')('starts a hidden native Codex process di
     recorded.mockRestore()
     child.stdin.destroy(); child.stdout.destroy(); child.stderr.destroy()
   } finally { vi.unstubAllEnvs(); await rm(target, { recursive: true, force: true }) }
+})
+
+it('closing a conversation whose agent already died by a signal signals nothing (its pid may be reused)', async () => {
+  const child = Object.assign(new EventEmitter(), { pid: 456, stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough(), exitCode: null, signalCode: null }) as unknown as ChildProcessWithoutNullStreams
+  vi.mocked(spawn).mockReturnValue(child)
+  vi.mocked(execFile).mockClear()
+  const kill = vi.spyOn(process, 'kill')
+  try {
+    // Any existing file will do: spawn is mocked. Not process.execPath, which OxeChat refuses under Electron (B13).
+    const transport = new AgentProcessTransport(resolve('package.json'), ['agent.js'], process.cwd())
+    child.emit('spawn')
+    // The OOM killer or a kill -9: no exit code, a signal instead.
+    Object.defineProperty(child, 'signalCode', { value: 'SIGKILL' })
+    child.emit('close', null, 'SIGKILL')
+    await transport.close()
+    await transport.close()
+    expect(execFile).not.toHaveBeenCalled()
+    expect(kill).not.toHaveBeenCalled()
+  } finally {
+    kill.mockRestore()
+    child.stdin.destroy(); child.stdout.destroy(); child.stderr.destroy()
+  }
 })

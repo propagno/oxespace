@@ -7,6 +7,7 @@ import com.oxespace.mobile.protocol.pairing.PairingQrProblem
 import com.oxespace.mobile.protocol.pairing.PairingQrRead
 import com.oxespace.mobile.protocol.pairing.PairingQrs
 import com.oxespace.mobile.protocol.pairing.PairingVerification
+import com.oxespace.mobile.protocol.pairing.isReservedDeviceName
 import java.util.UUID
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -19,6 +20,8 @@ import kotlinx.coroutines.withContext
 /** Why pairing ended without a paired desktop; each has its own words and next step on screen. */
 enum class PairingFailure {
     CODE_EXPIRED, CODE_USED, CODE_INVALID, REFUSED_ON_DESKTOP, LOCKED, TOO_MANY_DEVICES, WRONG_CERTIFICATE, UNREACHABLE, PROTOCOL,
+    /** The phone's name is one only OXESpace may speak as; the person renames the phone in Android's settings. */
+    RESERVED_NAME,
 }
 
 sealed interface PairingState {
@@ -58,7 +61,12 @@ class PairingFlow(
         if (current !is PairingState.Scanning && current !is PairingState.BadCode) return
         when (val read = PairingQrs.read(text)) {
             is PairingQrRead.Refused -> mutableState.value = PairingState.BadCode(read.problem)
-            is PairingQrRead.Ok -> start(read.qr)
+            // Checked before the code is spent or a key is made: the desktop would refuse the name anyway.
+            is PairingQrRead.Ok -> if (isReservedDeviceName(deviceName)) {
+                mutableState.value = PairingState.Failed(PairingFailure.RESERVED_NAME)
+            } else {
+                start(read.qr)
+            }
         }
     }
 
@@ -98,6 +106,7 @@ class PairingFlow(
             RemotePairingErrorCode.PAIRING_LOCKED -> PairingFailure.LOCKED
             RemotePairingErrorCode.TOO_MANY_DEVICES -> PairingFailure.TOO_MANY_DEVICES
             RemotePairingErrorCode.MALFORMED -> PairingFailure.PROTOCOL
+            RemotePairingErrorCode.RESERVED_NAME -> PairingFailure.RESERVED_NAME
         }
         PairOutcome.PinMismatch -> PairingFailure.WRONG_CERTIFICATE
         PairOutcome.Unreachable -> PairingFailure.UNREACHABLE
