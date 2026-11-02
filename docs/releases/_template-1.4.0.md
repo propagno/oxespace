@@ -36,9 +36,10 @@ updates itself).
   and permissions it left waiting; they show as cancelled, not answered.
 - **An agent can't pose as the app or your system.** A name an agent picks for itself is refused when it imitates
   OXESpace, its modes or tabs, your operating system or its vendor ("Windows Security", "System Administrator").
-<!-- add when F18 (#243) merges: "Approvals in the app, not in a system dialog: who asks, the risk in words (Low,
-Medium, High, Critical), the agent's text kept apart from the app's notes, Deny as the default, and this session's
-decision history." -->
+- **Approvals in the app, not in a system dialog.** Every request opens inside the window and says who asks, the
+  risk in words (Low, Medium, High, Critical) and what will happen. The agent's own text is kept apart from the
+  app's notes. **Deny** is the default, a critical request can't be allowed with Enter, and you can look back at this
+  session's decisions.
 
 ## Closing and coming back without losing your agents
 
@@ -101,6 +102,7 @@ with Esc, Tab, Ctrl+C and arrows for the terminal." -->
 - **A group that is off stays off.** OXESpace refuses its tools on every call, even if an agent edits its own MCP
   configuration, and records it in **Settings › Diagnostics**.
 - **Settings › Tools** shows each group, its mode in this project and its token cost, and changes the mode.
+  If `oxe.yaml` has an error, the page says so and agents keep the last modes that could be read until you fix it.
 <!-- add when #336 merges: "**Fewer tokens at the start of a Code agent.** An agent OXESpace starts in a terminal
 begins with about 9,000 characters of tool definitions instead of 64,600, and is told when OXESpace's code search
 beats grep." Measured numbers: 64,574 → 8,965 chars. -->
