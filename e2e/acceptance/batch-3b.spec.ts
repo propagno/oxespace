@@ -99,9 +99,16 @@ test('#210 Settings › Tools on the real app: what the page sets reaches the ag
     }
     // A broken oxe.yaml is explained, not a blank page.
     writeFileSync(join(repo, 'oxe.yaml'), 'thread:\n  tools: [unclosed\n')
-    await tools.getByRole('button', { name: 'Reload' }).click().catch(() => undefined)
-    await page.waitForTimeout(1_000)
+    tools = await openTools()
+    const reloaded = await tools.getByRole('button', { name: 'Reload' }).click({ timeout: 5_000 }).then(() => 'clicked', e => `not clicked: ${String(e).slice(0, 80)}`)
+    await page.waitForTimeout(1_500)
     const text = await tools.innerText()
+    const dataMode = await tools.getByRole('region', { name: 'Data', exact: true }).getByRole('radio', { checked: true }).allInnerTexts().catch(() => [])
+    const notices = await page.locator('[role="alert"], [role="status"], [data-intent="danger"], [data-intent="warning"]').allInnerTexts().catch(() => [])
+    console.log('F10-BROKEN-DIAG', JSON.stringify({ reloaded, dataMode, notices: notices.slice(0, 6), yamlMentions: text.match(/.{0,80}oxe\.yaml.{0,120}/g)?.slice(0, 4) }))
+    // What an agent gets while oxe.yaml is broken.
+    const agentWhileBroken = await call('oxespace_db_connections', {})
+    console.log('F10-BROKEN-AGENT', agentWhileBroken.slice(0, 300))
     console.log('F10-BROKEN', text.slice(0, 400).replace(/\s+/g, ' '))
     console.log('F10-BROKEN-ERR', (text.match(/.{0,120}(invalid|can.t be read|cannot be read|not valid|could not).{0,160}/i) ?? ['none'])[0])
     expect.soft(text, 'the broken oxe.yaml is explained').toMatch(/invalid|can.t be read|cannot be read|not valid|could not/i)
