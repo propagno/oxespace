@@ -46,7 +46,7 @@ async function message(call: Promise<unknown>) {
 const open = (input: Record<string, unknown>) => service().open({ workspaceId: 'w1', rootPath: root, target: 'vscode', ...input })
 
 beforeEach(() => {
-  base = realpathSync(mkdtempSync(join(tmpdir(), 'oxe-open-in-')))
+  base = realpathSync.native(mkdtempSync(join(tmpdir(), 'oxe-open-in-')))
   root = join(base, 'project')
   outside = join(base, 'outside')
   mkdirSync(join(root, 'src'), { recursive: true })
