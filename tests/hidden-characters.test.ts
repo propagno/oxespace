@@ -72,3 +72,31 @@ describe('hidden characters: the homologation probe', () => {
     expect(findHiddenCharacters('a\rb\r\nc')).toEqual([{ index: 1, codePoint: 0x0d }])
   })
 })
+
+describe('T46 · a ZWJ is part of an emoji only inside a recognized (RGI) sequence', () => {
+  it.each([
+    ['a family', '\u{1F468}‍\u{1F469}‍\u{1F467}'],
+    ['the rainbow flag', '\u{1F3F3}️‍\u{1F308}'],
+    ['a technologist', '\u{1F9D1}‍\u{1F4BB}'],
+    ['a family in a sentence', 'ok \u{1F468}‍\u{1F469}‍\u{1F467} ok']
+  ])('%s is not marked', (_name, text) => {
+    expect(hasHiddenCharacters(text)).toBe(false)
+    expect(findHiddenCharacters(text)).toEqual([])
+  })
+
+  it.each([
+    ['two pictographs that form no emoji', '\u{1F525}‍\u{1F525}', 2],
+    ['copyright and registered', '©‍®', 1],
+    ['next to an unassigned code point', '\u{1F468}‍\u{1FAFF}', 2],
+    ['next to a letter', '\u{1F468}‍x', 2],
+    ['at the start of the text', '‍\u{1F468}', 0],
+    ['at the end of the text', '\u{1F468}‍', 2]
+  ])('a ZWJ %s is marked', (_name, text, index) => {
+    expect(hasHiddenCharacters(text)).toBe(true)
+    expect(findHiddenCharacters(text)).toEqual([{ index, codePoint: 0x200d }])
+  })
+
+  it('a recognized emoji does not hide a joiner elsewhere in the same text', () => {
+    expect(findHiddenCharacters('\u{1F9D1}‍\u{1F4BB} DROP‍TABLE')).toEqual([{ index: 10, codePoint: 0x200d }])
+  })
+})
