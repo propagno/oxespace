@@ -46,6 +46,7 @@ test('#210 Settings › Tools on the real app: what the page sets reaches the ag
     return readFileSync(out, 'utf8')
   }
   const openTools = async () => {
+    for (let i = 0; i < 2 && await page.getByRole('dialog', { name: 'Settings', exact: true }).isVisible().catch(() => false); i++) { await page.keyboard.press('Escape'); await page.waitForTimeout(300) }
     await palette(page, 'Workspace settings')
     const modal = page.getByRole('dialog', { name: 'Settings', exact: true })
     await modal.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Tools/ }).click()
