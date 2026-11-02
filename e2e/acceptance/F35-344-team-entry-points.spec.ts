@@ -7,10 +7,15 @@ import { installThreadFixtures, openThreadWithState, registerThreadProject } fro
  * the command palette, the application menu's Tools › Project team…, Ctrl+Shift+T, and OxeChat's menu. Each opens the
  * project team dialog; Escape closes it and focus comes back. The title bar has no Team button.
  */
-const teamDialog = (page: Page) => page.getByRole('dialog', { name: /Team|Equipe/i })
+// Found by its heading; whether it is also named for assistive tech is recorded on its own.
+const teamDialog = (page: Page) => page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: /Project team|Equipe do projeto/i }) })
 async function closeAndCheck(page: Page, how: string, out: Record<string, unknown>) {
   const opened = await teamDialog(page).first().isVisible({ timeout: 5_000 }).catch(() => false)
   out[how] = opened
+  if (opened) {
+    out[`${how}Named`] = await page.getByRole('dialog', { name: /team|equipe/i }).count()
+    expect.soft(out[`${how}Named`], `${how}: the dialog has an accessible name`).toBeGreaterThan(0)
+  }
   expect.soft(opened, `${how} opens the project team`).toBe(true)
   if (opened) { await page.keyboard.press('Escape'); await expect.soft(teamDialog(page)).toHaveCount(0, { timeout: 3_000 }) }
 }
