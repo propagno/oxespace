@@ -1,4 +1,7 @@
 {
+  "deferred": {
+    "partMissing": "Alguns comandos podem faltar na paleta e nos menus até carregar. O resto do OXESpace continua funcionando."
+  },
   "languageName": {
     "en": "English",
     "pt-BR": "Português (Brasil)"
