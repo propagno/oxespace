@@ -806,6 +806,12 @@
       "empty": "O agente não enviou texto.",
       "length": "{{length}} caracteres"
     },
+    "textLabel": {
+      "policyChange": "Conteúdo do arquivo"
+    },
+    "textHint": {
+      "policyChange": "Mostrado exatamente como está no disco. O OXESpace não sabe quem fez a mudança: leia antes de permitir."
+    },
     "expires": "Se você não responder até {{time}}, o pedido será negado.",
     "hold": {
       "waiting": "Risco crítico: Permitir fica disponível em {{seconds}} s. Leia o pedido antes.",

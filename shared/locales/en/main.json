@@ -463,7 +463,7 @@
         "waiting": "OXESpace: approval waiting"
       },
       "textLabel": {
-        "policyChange": "The file as it is now"
+        "policyChange": "Content of the file"
       }
     },
     "notify": {
