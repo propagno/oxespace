@@ -186,8 +186,18 @@ test('G8 rollback: 1.3.3 refuses the upgraded database and leaves it untouched',
   test.skip(STEP !== 'verify-refuse')
   test.setTimeout(180_000)
   const seeded = JSON.parse(readFileSync(stateFile(), 'utf8')) as { db: string }
+  // The database runs in WAL mode. A candidate that was ended without a clean quit (the job's shipped-exe check stops
+  // it) leaves pages in oxespace.sqlite3-wal, and whoever opens the file next moves them into it: the bytes would
+  // change without 1.3.3 writing anything. Checkpoint first, as a clean quit does, so the comparison measures 1.3.3.
+  const wal = `${seeded.db}-wal`
+  const walBefore = existsSync(wal) ? statSync(wal).size : 0
+  if (walBefore > 0) { const db = new DatabaseSync(seeded.db); try { db.exec('PRAGMA wal_checkpoint(TRUNCATE)') } finally { db.close() } }
+  // What 1.3.3 could change, table by table, in case the bytes differ.
+  const tables = () => read(seeded.db, db => Object.fromEntries((db.prepare("select name from sqlite_master where type = 'table' and name not like 'sqlite_%' order by name").all() as Array<{ name: string }>)
+    .map(({ name }) => [name, (db.prepare(`select count(*) as n from "${name.replace(/"/g, '""')}"`).get() as { n: number }).n])))
+  const tablesBefore = tables()
   const before = sha256(seeded.db)
-  const result: Record<string, unknown> = { dbVersionBefore: version(seeded.db), shaBefore: before }
+  const result: Record<string, unknown> = { dbVersionBefore: version(seeded.db), shaBefore: before, walCheckpointedBytes: walBefore }
   // Whatever 1.3.3 does with a newer database: a dialog (recorded, held), an error, or an exit. The start may already
   // have shown its dialog before the stub is in place; the bytes are the check either way.
   let app: Awaited<ReturnType<typeof electron.launch>> | null = null
@@ -214,6 +224,10 @@ test('G8 rollback: 1.3.3 refuses the upgraded database and leaves it untouched',
   }
   result.shaAfter = sha256(seeded.db)
   result.dbVersionAfter = version(seeded.db)
+  result.walAfterBytes = existsSync(wal) ? statSync(wal).size : 0
+  const tablesAfter = tables()
+  result.tablesChanged = Object.fromEntries(Object.keys({ ...tablesBefore, ...tablesAfter })
+    .filter(name => tablesBefore[name] !== tablesAfter[name]).map(name => [name, { before: tablesBefore[name] ?? null, after: tablesAfter[name] ?? null }]))
   writeFileSync(join(STATE, 'verify-refuse.json'), JSON.stringify(result, null, 2))
   console.log('G8-REFUSE', JSON.stringify(result))
   expect(result.version ?? '1.3.3', 'the build started is 1.3.3').toBe('1.3.3')
