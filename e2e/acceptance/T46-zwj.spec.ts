@@ -46,7 +46,8 @@ test('T46 approval modal: a ZWJ is unmarked only inside a recommended emoji sequ
       const id = (await pending(page))[0]
       const markers = await modal.locator('pre [data-hidden-char]').evaluateAll(list => list.map(e => e.getAttribute('data-hidden-char')))
       seen[id] = markers.length
-      expect.soft(markers.length, `${id}: "${JSON.stringify(c.text)}" → ${JSON.stringify(markers)}`).toBe(CASES.find(x => `t46-${x.id}` === id)?.marks ?? -1)
+      const expected = CASES.find(x => `t46-${x.id}` === id)
+      expect.soft(markers.length, `${id}: ${JSON.stringify(expected?.text)} → ${JSON.stringify(markers)}`).toBe(expected?.marks ?? -1)
       if (markers.length) expect.soft(markers.every(m => /200D/i.test(m ?? '')), `${id}: the marker names U+200D`).toBe(true)
       await page.waitForTimeout(600)
       await modal.getByRole('button', { name: /^Deny$/ }).click()
