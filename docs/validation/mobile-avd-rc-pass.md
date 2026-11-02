@@ -49,14 +49,32 @@ that didn't arrive, shuts the emulator down and reports.
 same link as an extra:
 
 ```sh
-adb shell am start -n com.oxespace.mobile/.MainActivity --es pair_link "$(cat "$RC_ROOT/pair-link.txt")" --ez allow_capture true
+adb shell am start -n com.oxespace.mobile/.MainActivity --es pair_link "'$(cat "$RC_ROOT/pair-link.txt")'" --ez allow_capture true
 ```
+
+The inner single quotes matter. `adb shell` hands its arguments to the phone's shell as one line, where the `&` in the link's query would end the command.
 
 The link goes through exactly the checks of a scanned code: a private address, the certificate fingerprint and a
 one-time code. A release build ignores the extra (`ReleaseSmokeTest`).
 
 `allow_capture` lets this pass take screenshots of the screens that normally block them. Step 10.9 of
 [mobile-1.4.md](mobile-1.4.md) checks that blocking separately, without the extra.
+
+## The script
+
+`scripts/android/avd-rc-pass.sh` runs one phase per call, inside the heavy lock and in the foreground:
+
+```sh
+RC_ROOT=… OUT=… APK=mobile/android/app/build/outputs/apk/debug/app-debug.apk \
+  node "$TEMP/oxespace-heavy-lock.mjs" --owner mobile-rc -- sh scripts/android/avd-rc-pass.sh pair
+RC_ROOT=… OUT=… STEPS=steps.txt \
+  node "$TEMP/oxespace-heavy-lock.mjs" --owner mobile-rc -- sh scripts/android/avd-rc-pass.sh script
+```
+
+- **`pair`** boots `oxespace-test` with the fixed options and installs the APK, then writes `avd-ready`. It waits for `pair-link.txt`, delivers the link, writes `phone-code.txt` and, once the phone shows it is connected, `done`.
+- **`script`** runs `adb shell` lines from a file (taps, key events, `sleep N`) and takes a screenshot and a UI dump after each one.
+- **Failures:** any wait longer than 6 minutes writes `fail.txt` with the step's name.
+- **Shutdown:** the emulator is always shut down at the end, and logcat is saved.
 
 ## Scenarios
 
