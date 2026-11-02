@@ -5,6 +5,7 @@ import { useCodeCommands } from './commands/code.commands'
 import { sayAddProjectFirst, useThreadCommands } from './commands/thread.commands'
 import { DataHosts, DataSidebar, isDataView, ThreadGrid, ThreadSidebar, ThreadSidebarBoundary, useModeActions, ViewSkeleton } from './components/Navigation/ModeViews'
 import { useViewSwitch } from './app/viewSwitch'
+import { setShownView } from './app/shownView'
 import { SettingsCenter } from './components/Settings/SettingsHost'
 import { NoWorkspaceStart } from './components/Onboarding/NoWorkspaceStart'
 import { DelegationNotice } from './components/Delegation/DelegationNotice'
@@ -666,7 +667,7 @@ export function App(): ReactElement {
     openTools: { editor: activeWorkspace?.editorVisible, github: activeWorkspace?.githubPanelVisible, review: activeWorkspace?.reviewPanelVisible, background: activeWorkspace?.backgroundPanelVisible, worktrees: activeWorkspace?.worktreePanelVisible, scripts: isScriptsPanelOpen, search: isSearchPanelOpen, 'web-preview': activeWorkspace ? webPreviewOpenByWorkspace[activeWorkspace.id] : false },
     splitActivePane, toggleActivePaneMaximize, openDesignSystem: () => setDesignSystemOpen(true) })
   const commandActions = useContributedCommands()
-  useEffect(() => { setKeyboardView(applicationView) }, [applicationView])
+  useEffect(() => { setKeyboardView(applicationView); setShownView(applicationView) }, [applicationView])
   const terminalPane = activePane?.type === 'terminal' ? activePane : null
   const zoomTerminal = (delta: 1 | -1 | 0): void => {
     const store = useTerminalPrefsStore.getState()
