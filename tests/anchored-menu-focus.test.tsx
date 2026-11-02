@@ -112,3 +112,28 @@ describeDialog('a dialog opened from a menu item', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: '⋯' })).toHaveFocus())
   })
 })
+
+describeDialog('a dialog opened from an AnchoredMenu item', () => {
+  test('gives focus back to the menu owner when it closes', async () => {
+    const { AnchoredMenu: Anchored, ConfirmDialog } = await import('../src/ui')
+    const { useState } = await import('react')
+    const userEvent = (await import('@testing-library/user-event')).default
+    function Host() {
+      const [menu, setMenu] = useState(true)
+      const [dialog, setDialog] = useState(false)
+      return <>
+        <div data-testid="row-owner" tabIndex={0} style={{ position: 'relative' }}>
+          <Anchored open={menu} onOpenChange={setMenu} label="Actions for src/app.ts" returnFocus={() => document.querySelector<HTMLElement>('[data-testid="row-owner"]')}
+            items={[{ label: 'Delete…', onSelect: () => setDialog(true) }]} />
+        </div>
+        {dialog && <ConfirmDialog title="Delete this?" description="It cannot be undone." confirmLabel="Delete" onConfirm={() => setDialog(false)} onCancel={() => setDialog(false)} />}
+      </>
+    }
+    const user = userEvent.setup()
+    render(<Host />)
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete…' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Delete this?' }).catch(() => screen.findByRole('dialog', { name: 'Delete this?' }))
+    await user.click(within(dialog).getByRole('button', { name: /cancel/i }))
+    await waitFor(() => expect(screen.getByTestId("row-owner")).toHaveFocus())
+  })
+})
