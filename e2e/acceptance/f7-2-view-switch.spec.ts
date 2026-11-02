@@ -85,7 +85,8 @@ for (const variant of [
       if (variant.cpu > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: variant.cpu })
       // Typing into the old view starts before the click, so keys are in flight across the switch.
       await page.locator('[data-testid="pane-container"] .xterm').first().click()
-      // The press is measured from a quiet window: startup and background work still queued after launch (heavier with the
+      // The press is measured from a quiet window (three idle periods of at least 8 ms in a row: with an animation on screen,
+      // such as the terminal's cursor, Chromium caps an idle period at about one frame, so 40 ms never comes): startup and background work still queued after launch (heavier with the
       // CPU throttled) would otherwise land in the measured frames (#363 CI: the first frame at 1.8 s with the terminal idle).
       const wait = await page.evaluate(() => new Promise<{ quiet: boolean; ms: number; idle: number }>(resolve => {
         const started = performance.now()
@@ -94,7 +95,7 @@ for (const variant of [
         const quiet = (left: number): void => {
           if (done) return
           if (left === 0) { finish(true); return }
-          requestIdleCallback(deadline => { const enough = deadline.timeRemaining() >= 40; if (enough) idle++; quiet(enough ? left - 1 : 3) }, { timeout: 3_000 })
+          requestIdleCallback(deadline => { const enough = deadline.timeRemaining() >= 8; if (enough) idle++; quiet(enough ? left - 1 : 3) }, { timeout: 3_000 })
         }
         setTimeout(() => finish(false), 8_000)
         quiet(3)
