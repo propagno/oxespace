@@ -10,7 +10,8 @@ import { changeSummary, threadChanges, turnChanges, type ThreadChangeEntry } fro
 import { ThreadHunkReview } from './ThreadHunkReview'
 import { humanizeError } from '../../utils/humanizeError'
 import { relativeTurnPath } from '../../../shared/threadFilePath'
-import { conversationPathMenu, usePathMenu, WithPathMenu } from '../PathMenu/usePathMenu'
+import { usePathMenu, WithPathMenu } from '../PathMenu/usePathMenu'
+import { conversationPathMenu } from '../PathMenu/conversationPathMenu'
 
 /** A changed file's path relative to its checkout, with the checkout named when it is not the conversation's root. */
 export function TurnPath({ path, roots }: { path: string; roots: Array<string | null | undefined> }) {
