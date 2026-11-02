@@ -1,5 +1,6 @@
 {
   "panels": {
+    "session": "Detalhes da conversa",
     "terminal": "Terminal",
     "changes": "Alterações",
     "browser": "Navegador",
@@ -1212,6 +1213,11 @@
           "label": "Delegação de agentes",
           "hint": "Trabalho em paralelo",
           "description": "Deixe os agentes passarem uma tarefa focada para um worktree novo com terminal próprio."
+        },
+        "tools": {
+          "label": "Ferramentas",
+          "hint": "Grupos de ferramentas MCP e regras",
+          "description": "Quais ferramentas do OXESpace os agentes deste projeto recebem, quanto custam e uma regra por ferramenta."
         }
       },
       "saveFailed": "Não foi possível salvar as configurações do workspace",
@@ -1230,6 +1236,7 @@
       "footer": {
         "memory": "As mudanças de memória usam Aplicar as configurações de memória, acima.",
         "delegation": "As mudanças de delegação valem na hora.",
+        "tools": "Os modos e as regras das ferramentas são salvos no projeto na hora.",
         "default": "Salvar aplica densidade, layout e shell padrão. O modo vale na hora."
       },
       "discard": "Descartar as alterações",

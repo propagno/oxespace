@@ -13,6 +13,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // cannot reach the filesystem at all.
   'electron/main/services/github/gh-exec.ts',
   'electron/main/services/integration.service.ts',
+  // safe-git's stamps: stats the files git read for a repository's config (and HEAD, `.git`, `commondir`) to know
+  // when git must find the dirs or read the config again, and resolves the cwd's real path. Reads and writes nothing.
+  'electron/main/utils/git-dir.ts',
   'electron/main/services/mcp-sync.service.ts',
   // Reads the user-level MCP config files of Claude Desktop, Cursor and Windsurf at their fixed locations
   // (512 KiB at most, JSON only); the renderer never supplies a path.
@@ -93,6 +96,12 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Agent state: reads detection manifests (*.toml) from the app's own
   // userData/agent-detection override folder, never the workspace. Never writes.
   'electron/main/services/agent-state/manifest.ts',
+  // B17: whether a pane's recorded agent session is still on disk before it is resumed. Stats
+  // <claude>/projects/<encoded cwd>/<id>.jsonl and lists the dated folders of <codex>/sessions for a rollout named
+  // after the id. The id is a UUID the hooks or main recorded; never a path from the renderer. No contents, no writes.
+  // For Claude it also realpaths the pane root and lists <claude>/projects once; a project folder holding the id is
+  // decoded through the folder names on the way down to it (bounded), and accepted only if it resolves to the root.
+  'electron/main/services/agent-state/native-session-files.ts',
   // Shell parsing: existence probes for the bash grammar and the tree-sitter runtime wasm at
   // fixed app-asset locations. Never a path from the renderer or the agent, never contents.
   'electron/main/services/conversation/shell-parse.ts',

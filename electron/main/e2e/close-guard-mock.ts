@@ -21,7 +21,6 @@ import { app, ipcMain, type IpcMainInvokeEvent } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { CloseAnswerInput, CloseReason, CloseRequest } from '../../../shared/types/app'
 import { CloseGuard, isCloseReason, parseCloseAnswerInput, type CloseGuardDeps, type CloseOutcome } from '../services/close-guard'
-import { requireAppFrame } from '../ipc/ipc-guards'
 import { gateBeforeQuit } from '../window-close-guard'
 
 export const E2E_REQUEST_CLOSE_GLOBAL = '__oxeRequestClose'
@@ -100,7 +99,6 @@ export function registerCloseGuardMock(packaged: boolean, broadcast: (channel: s
   const double = installE2eCloseGuard(scope, packaged, request => broadcast(IPC_CHANNELS.app.closeRequested, request))
   if (!packaged) scope[E2E_CLOSE_GATE_CANARY_GLOBAL] = () => runCloseGateCanary(app as unknown as CanaryApp)
   ipcMain.handle(IPC_CHANNELS.app.closeAnswer, (event: IpcMainInvokeEvent, input: unknown) => {
-    requireAppFrame(event, 'Close answer')
     double.answer(input)
   })
 }

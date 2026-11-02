@@ -25,8 +25,10 @@ export interface RepoConfig {
   thread?: {
     /** Attach the short project brief to a conversation's first message (default true). */
     brief?: boolean
-    /** OXESpace tool groups to offer besides the core ones: orchestration, data, docs. */
+    /** OXESpace tool groups always offered besides the core ones (the 1.3 list form of `thread.tools`). */
     tools?: string[]
+    /** The map form of `thread.tools`: group → `always`, `on-demand` or `off` (B7.2). */
+    toolModes?: Record<string, string>
   }
 }
 

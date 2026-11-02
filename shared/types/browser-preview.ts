@@ -42,7 +42,7 @@ export interface BrowserPreviewSessionState {
 export interface BrowserPreviewEvent {
   ownerKey: string
   tabId: string
-  type: 'ready' | 'navigation' | 'loading' | 'title' | 'failed' | 'grab' | 'cancel' | 'session'
+  type: 'ready' | 'navigation' | 'loading' | 'title' | 'failed' | 'grab' | 'cancel' | 'session' | 'access'
   session?: BrowserPreviewSessionState
   url?: string
   title?: string
@@ -52,13 +52,16 @@ export interface BrowserPreviewEvent {
   message?: string
   payload?: DesignGrabPayload
   screenshot?: string | null
+  /** `access`: main turned agent access off (T43); the window shows it and asks the person again to turn it on. */
+  agentAccess?: boolean
 }
 
 export interface BrowserPreviewApi {
   session(input: {ownerKey:string;action:'open'|'new'|'select'|'close'|'navigate';tabId?:string;url?:string;allowExternal?:boolean}): Promise<BrowserPreviewSessionState>
   mount(input: BrowserPreviewMount): Promise<BrowserPreviewMountResult>
   bounds(input: BrowserPreviewBounds): Promise<void>
-  setAccess(input: {ownerKey:string;tabId:string;agentAccess:boolean;allowExternal:boolean}): Promise<void>
+  /** `grant` only when the person confirms access (T43): without it, main can keep or lower agent access but never raise it. */
+  setAccess(input: {ownerKey:string;tabId:string;agentAccess:boolean;allowExternal:boolean;grant?:boolean}): Promise<{agentAccess:boolean}>
   designMode(input: {ownerKey:string;tabId:string;enabled:boolean}): Promise<void>
   setZoom(input: {ownerKey:string;tabId:string;zoom:number}): Promise<void>
   reload(input: {ownerKey:string;tabId:string}): Promise<void>

@@ -16,7 +16,7 @@ const CopilotCreditsStatus = lazy(() => import('../Terminal/CopilotCreditsStatus
 const AgentCreditsStatus = lazy(() => import('../Terminal/AgentCreditsStatus').then(module => ({ default: module.AgentCreditsStatus })))
 const ContextUsageStatus = lazy(() => import('../Terminal/ContextUsageStatus').then(module => ({ default: module.ContextUsageStatus })))
 import { ErrorBoundary } from '../common/ErrorBoundary'
-import { VoiceHud } from '../Voice/VoiceHud'
+import { VoiceHudSlot } from '../Voice/VoiceHudSlot'
 
 import { Dialog, EmptyState, ErrorState, LoadingState, TextField } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
@@ -431,7 +431,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
             }}
           />
           </ErrorBoundary>
-          <VoiceHud status={voice.status} error={voice.error} level={voice.level} modelProgress={voice.modelProgress} onDismiss={voice.dismiss} />
+          <VoiceHudSlot status={voice.status} error={voice.error} level={voice.level} modelProgress={voice.modelProgress} onDismiss={voice.dismiss} />
         </div>
       ) : (
         <div className="terminal-idle">

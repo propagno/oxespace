@@ -5,7 +5,7 @@ import type { ThreadAttachment, ThreadSnapshot } from '../../../shared/types/thr
 import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
 import { ErrorState, Menu } from '../../ui'
-import { VoiceHud } from '../Voice/VoiceHud'
+import { VoiceHudSlot } from '../Voice/VoiceHudSlot'
 import { ThreadConfigurationBar } from './ThreadConfigurationBar'
 import { ThreadMcpHealth } from './ThreadMcpHealth'
 import { ThreadUsageRing } from './ThreadUsageRing'
@@ -59,7 +59,7 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
   const blocked = !snapshot || pending || Boolean(snapshot.thread.cliActive)
   const tooLong = draft.length > THREAD_MESSAGE_MAX_CHARS
   return <form className="thread-composer" data-state={composerState} aria-busy={pending} onSubmit={e => { e.preventDefault(); if (!tooLong) onSend() }} onDragOver={event => { if ([...event.dataTransfer.items].some(item => item.kind === 'file')) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy' } }} onDrop={event => { const files = [...event.dataTransfer.files].filter(file => file.type.startsWith('image/')); if (files.length) { event.preventDefault(); onUpload(files) } }}>
-    <VoiceHud status={voice.status} error={voice.error} level={voice.level} modelProgress={voice.modelProgress} onDismiss={voice.dismiss} containerSelector=".thread-view" focusSelector="textarea[data-thread-composer='true']" />
+    <VoiceHudSlot status={voice.status} error={voice.error} level={voice.level} modelProgress={voice.modelProgress} onDismiss={voice.dismiss} containerSelector=".thread-view" focusSelector="textarea[data-thread-composer='true']" />
     {commands.popup}
     {mentions.popup}
     {attachments.length > 0 && <div className="thread-attachments" aria-label={t('composer.attachments')}>{attachments.map(attachment => <div key={attachment.id}><span>{attachment.name}</span><small>{t('message.kilobytes', { size: formatNumber(Math.ceil(attachment.bytes / 1024)) })}</small><button type="button" aria-label={t('composer.remove', { name: attachment.name })} disabled={pending} onClick={() => onRemoveAttachment(attachment.id)}><X size={12} /></button></div>)}</div>}
