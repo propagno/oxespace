@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactElement, ReactNode } from 'react'
+import { useEffect, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react'
 import { AlertTriangle, CheckCircle2, Info, WifiOff } from 'lucide-react'
 import { Tabs as RadixTabs } from 'radix-ui'
 import { i18n } from '../i18n'
@@ -133,7 +133,16 @@ export function Notice({ intent = 'info', title, children, actions, className }:
 }
 
 /** The shape of content on its way: lines of text, or one block. Announced once as loading, never read line by line. */
-export function Skeleton({ lines = 3, variant = 'text', label = i18n.t('ui.loading'), decorative = false }: { lines?: number; variant?: 'text' | 'block'; label?: string; decorative?: boolean }): ReactElement {
+export function Skeleton({ lines = 3, variant = 'text', label = i18n.t('ui.loading'), decorative = false, delay = 0 }: { lines?: number; variant?: 'text' | 'block'; label?: string; decorative?: boolean; delay?: number }): ReactElement | null {
+  // `delay`: shown only once this long has passed (motion.md rule 3: no placeholder before 300 ms, inner ones included,
+  // so content that arrives sooner never flashes one). Until then the area is empty.
+  const [due, setDue] = useState(delay <= 0)
+  useEffect(() => {
+    if (delay <= 0) return
+    const timer = setTimeout(() => setDue(true), delay)
+    return () => clearTimeout(timer)
+  }, [delay])
+  if (!due) return null
   // `decorative`: next to something that already announces the loading (a busy region, a status beside it).
   return <div className={styles.skeleton} data-skeleton="" {...(decorative ? { 'aria-hidden': true as const } : { role: 'status' as const, 'aria-label': label })}>
     {variant === 'block'
