@@ -8,6 +8,7 @@ import { scheduleIdle } from '../../lib/preloadSchedule'
 import { chunk, lazyFrom } from '../../lib/chunk'
 import { loadNamespace } from '../../i18n'
 import styles from './ModeViews.module.css'
+import { USAGE_CHUNK } from '../Workspace/usageChunk'
 
 /**
  * Thread, OxeQuery (databases), OxePod (containers) and OxePost (API requests) are entirely lazy: nothing of them is in
@@ -15,7 +16,9 @@ import styles from './ModeViews.module.css'
  * reveal in one commit; the idle preload (src/lib/idlePreload.ts) loads the same pairs.
  */
 export const VIEW_CHUNKS = {
-  thread: chunk(() => Promise.all([import('../Threads/ThreadSidebar'), import('../Threads/ThreadGrid')])),
+  // OxeChat's status bar shows the provider's usage: loaded with the view, so the view and the bar reveal in one
+  // commit instead of two boundaries resolving apart (F7.3: +40 ms on the cold first content when apart).
+  thread: chunk(() => Promise.all([import('../Threads/ThreadSidebar'), import('../Threads/ThreadGrid'), USAGE_CHUNK.load()])),
   // With each view, its catalog (src/i18n useNamespace): loaded with the chunk, the view renders at once instead of
   // suspending once more for its words after the switch (#363 CI: OxeQuery's sidebar skeleton at 128 ms).
   data: chunk(() => Promise.all([import('../OxeQuery/OxeQuerySidebar'), import('../OxeQuery/OxeQueryView'), loadNamespace('oxequery')])),

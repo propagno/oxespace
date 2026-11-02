@@ -46,6 +46,23 @@ describe('a change to agent instructions, MCP settings or hooks', () => {
     expect(policy.evaluate(root, edit('src/a.ts', 'r2'), 'full-access')).toMatchObject({ decision: 'allow' })
   })
 
+  it('reaches the person for git configuration too: a file edit or a git config write, under saved rules and Full access', () => {
+    const { root, store, policy, edit } = setup()
+    store.add({ projectRoot: root, kind: 'path', pattern: '.*', decision: 'allow' })
+    store.add({ projectRoot: root, kind: 'path', pattern: '.git/**', decision: 'allow' })
+    store.add({ projectRoot: root, kind: 'command', pattern: 'git', decision: 'allow' })
+    for (const path of ['.git/config', '.gitconfig', '.git/info/attributes']) {
+      expect(policy.evaluate(root, edit(path), 'full-access'), path).toMatchObject({ decision: 'ask', guarded: true, reasonCodes: [{ code: 'thread.protectedConfig.git', params: { path } }] })
+    }
+    const command = (line: string): ThreadRequest => ({ id: 'c1', nativeId: 'c1', nativeMethod: 'can_use_tool:Bash', kind: 'approval', title: 'Bash', detail: line, generation: 1, createdAt: 0, state: 'pending', toolName: 'Bash', command: line })
+    const write = policy.evaluate(root, command('git config core.fsmonitor x'), 'full-access')
+    expect(write).toMatchObject({ decision: 'ask', guarded: true, reasonCodes: [{ code: 'thread.protectedConfig.git', params: { path: '.git/config' } }] })
+    expect(write!.suggestions).toBeUndefined()
+    // The .gitattributes agents edit and a git config read stay with the saved rules.
+    expect(policy.evaluate(root, edit('.gitattributes'))).toMatchObject({ decision: 'allow' })
+    expect(policy.evaluate(root, command('git config --get user.name'))?.guarded).toBeUndefined()
+  })
+
   it('covers the project policy and oxe.yaml, so a conversation cannot lift a tool the person blocked (B7.3)', () => {
     const { root, store, policy, edit } = setup()
     // The widest rules a person can save for the folder and the file (`**` alone is refused by the store), plus Full access.

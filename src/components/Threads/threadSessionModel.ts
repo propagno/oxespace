@@ -7,8 +7,10 @@ export const SESSION_CONTEXT_BUCKETS: SessionContextBucket[] = ['messages', 'too
 export interface SessionContext {
   used: number
   window: number
-  /** As the report says it; the panel never recomputes it, so it matches the composer's ring. */
+  /** As the report says it, clamped to 0–100, so it matches the composer's ring; past the window, used ÷ window (as the rows and the ring show). */
   percent: number
+  /** More used than the window holds: the meter is full and the text says it is past the window. */
+  over: boolean
   free: number
   /** Kept aside for compaction (Claude's auto-compact buffer). */
   reserved: number
@@ -60,7 +62,10 @@ export function sessionContext(report: ThreadContextReport | undefined | null): 
   }
   return {
     used, window,
-    percent: Math.max(0, Math.min(100, Math.round(report.percentage))),
+    // Past the window (a report can be: 260k of 200k), the share is the same one the rows show, and it says so (HML
+    // FINDING L on #227): 130%, never a clamped 100% next to a 130% row.
+    percent: used > window ? Math.round(used / window * 100) : Math.max(0, Math.min(100, Math.round(report.percentage))),
+    over: used > window,
     free: free ?? Math.max(0, window - used - reserved),
     reserved,
     ...(report.autoCompactAtTokens !== undefined ? { autoCompactAt: report.autoCompactAtTokens } : {}),
