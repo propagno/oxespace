@@ -126,8 +126,8 @@
       "activity": {
         "open": "Abrir a central de atividade"
       },
-      "voice": {
-        "toggle": "Ligar ou desligar a entrada por voz"
+      "team": {
+        "open": "Abrir a equipe do projeto"
       },
       "code": {
         "changes": "Alterações",
@@ -415,14 +415,12 @@
   },
   "team": {
     "button": {
-      "label": "Equipe",
-      "title": "Papéis e mensagens do projeto, compartilhados pelo OxeCode e pelo OxeChat",
       "needsWorkspace": "Abra um workspace para abrir a equipe dele",
       "needsProject": "Selecione um projeto do OxeChat para abrir a equipe dele",
       "otherViews": "A equipe está disponível no OxeCode e no OxeChat"
     },
     "roles": {
-      "coordinator": "Coordenador / integrador",
+      "coordinator": "Coordenadora",
       "project-manager": "Gerente de projeto",
       "product-manager": "Gerente de produto",
       "developer": "Desenvolvedor",
@@ -583,25 +581,6 @@
     },
     "devBuild": "As atualizações só funcionam em versões instaladas"
   },
-  "voiceHud": {
-    "requesting": "Acessando o microfone…",
-    "downloading": "Baixando o modelo de voz… {{percent}}%",
-    "transcribing": "Transcrevendo…",
-    "listening": "Ouvindo… solte para inserir",
-    "close": "Fechar a entrada de voz",
-    "closeTitle": "Fechar a entrada de voz (Esc)",
-    "errors": {
-      "denied": "Permissão do microfone negada.",
-      "noMicrophone": "Nenhum microfone foi detectado.",
-      "canceled": "O pedido do microfone foi cancelado. Tente de novo.",
-      "access": "Não foi possível acessar o microfone.",
-      "transcription": "A transcrição falhou.",
-      "engine": "Mecanismo de voz indisponível nesta versão.",
-      "model": "Não foi possível preparar o modelo de voz.",
-      "download": "Não foi possível baixar o modelo de voz.",
-      "terminal": "Inicie o terminal antes de usar o OXEVoice."
-    }
-  },
   "brand": {
     "tagline": "Agentes e terminais para os seus projetos"
   },
@@ -648,7 +627,6 @@
       "layout_one": "Layout: {{count}} painel",
       "layout_other": "Layout: {{count}} painéis",
       "layoutDetail": "Predefinição de layout do workspace",
-      "voiceDetail": "Fale no terminal ativo, no editor ou no rascunho do OxeChat",
       "stopTerminal": "Parar terminal",
       "layout_many": "Layout: {{count}} painéis"
     },
@@ -772,6 +750,11 @@
       "open": "Abrir",
       "cancel": "Cancelar"
     }
+  },
+  "voiceRemoved": {
+    "title": "O OXEVoice foi removido",
+    "body": "O OXESpace não grava mais voz. O ditado do seu sistema continua digitando em qualquer campo.",
+    "action": "Como ditar"
   },
   "approvals": {
     "facts": "Risco: {{risk}}. Pedido por {{requester}}.",
