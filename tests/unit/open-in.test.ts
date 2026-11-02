@@ -132,6 +132,13 @@ describe('app:open-in starts the detected editor with an argument list', () => {
     expect(launches.map(launch => launch.args)).toEqual([[file], [`${file}:7:1`]])
   })
 
+  it.runIf(process.platform !== 'win32')('POSIX: a name with ":" opens at the top, and never in Zed, which reads it as path:row', async () => {
+    writeFileSync(join(root, 'src', 'x:12'), 'x')
+    expect(await message(open({ path: 'src/x:12', target: 'zed' }))).toEqual({ code: 'app.openIn.launchFailed', params: { editor: 'Zed' } })
+    await open({ path: 'src/x:12', line: 3 })
+    expect(launches.map(launch => launch.args)).toEqual([[join(root, 'src', 'x:12')]])
+  })
+
   it('shows a file in its folder by its real path', async () => {
     await open({ path: 'src/app.ts', target: 'reveal' })
     expect(reveals).toEqual([join(root, 'src', 'app.ts')])

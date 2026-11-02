@@ -86,9 +86,14 @@ export function editorEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
 }
 
 /** The argument list for an editor: at the line (and column) when there is one. The file is always absolute. */
+/** Whether a path has a ":" past its drive letter (a Linux name, or a Windows stream), which editors may read as :line. */
+export function hasNameColon(file: string): boolean {
+  return file.slice(/^[A-Za-z]:/.test(file) ? 2 : 0).includes(':')
+}
+
 export function editorArgs(id: OpenInEditorId, file: string, line?: number, column?: number): string[] {
-  // A name with ":" (allowed on Linux) would be misread as file:line, so such a file opens at the top (BACKEND #454).
-  if (line === undefined || file.slice(/^[A-Za-z]:/.test(file) ? 2 : 0).includes(':')) return [file]
+  // A name with ":" would be misread as file:line, so such a file opens at the top (BACKEND #454).
+  if (line === undefined || hasNameColon(file)) return [file]
   const at = `${file}:${line}:${column ?? 1}`
   return id === 'zed' ? [at] : ['--goto', at]
 }
@@ -211,6 +216,8 @@ export class OpenInService {
     if (!(await stat(file)).isFile()) throw new MainMessageError(mainMessage('app.openIn.notAFile', { editor: name }), 'Only files open in an editor')
     const editor = this.detect().find(found => found.id === input.target)
     if (!editor) throw new MainMessageError(mainMessage('app.openIn.editorMissing', { editor: name }), 'The editor is not installed')
+    // Zed reads path:row from any argument, so "x:12" would open "x", possibly a link out (SECURITY #454 L).
+    if (editor.id === 'zed' && hasNameColon(file)) throw new MainMessageError(mainMessage('app.openIn.launchFailed', { editor: name }), 'Zed would misread this file name')
     try {
       await this.deps.launch(editor.executable, editorArgs(editor.id, file, input.line, input.column), root)
     } catch {
