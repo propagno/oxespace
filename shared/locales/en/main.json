@@ -131,7 +131,7 @@
         "offline": "No network connection."
       },
       "openIn": {
-        "outsideRoot": "This file is outside the project, so it can't be opened from here.",
+        "outsideRoot": "Only files and folders inside the project can be opened from here.",
         "notFound": "{{path}} no longer exists.",
         "notAFile": "{{editor}} opens only files from here, not folders.",
         "unknownTarget": "OXESpace can't open files this way.",
