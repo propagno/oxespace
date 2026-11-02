@@ -66,4 +66,6 @@ export interface LinearWorktreeFromIssueResult {
   message: string
   branch: string
   worktreePath: string | null
+  /** Everything createWorktree reported, in its order (GitHubMessageResult.notices): the creation, then hooks, base and copies. */
+  notices?: import('../messages').MainMessage[]
 }

@@ -154,24 +154,28 @@ export interface MessageParams {
   'worktree.setup.failed': { exitCode: number }
   /** The oxe.yaml setup hook did not end in a way that can be checked (timed out or killed). */
   'worktree.setup.unverified': Record<string, never>
-  /** B19: files from `worktree.include` copied into the new worktree. */
-  'worktree.include.copied': { count: number }
+  /** B19: files from `worktree.copyFiles` copied into the new worktree. */
+  'worktree.copyFiles.copied': { count: number }
   /** B19: an include pattern that is absolute, climbs with `..`, or names `.git`; nothing is copied for it. */
-  'worktree.include.outsideRepo': { pattern: string }
+  'worktree.copyFiles.outsideRepo': { patterns: string[] }
   /** B19: the patterns matched more than the limit; nothing is copied, the worktree is created anyway. */
-  'worktree.include.overLimit': { files: number; megabytes: number; maxFiles: number; maxMegabytes: number }
+  'worktree.copyFiles.overLimit': { files: number; megabytes: number; maxFiles: number; maxMegabytes: number }
   /** B19: a pattern with more segments or `**` than the matcher allows; nothing is copied for it. */
-  'worktree.include.tooComplex': { pattern: string }
+  'worktree.copyFiles.tooComplex': { patterns: string[] }
+  /** B19: patterns starting with `!`, kept for excluding files later; nothing is copied for them. */
+  'worktree.copyFiles.excludeReserved': { patterns: string[] }
+  /** B19: `git check-ignore` failed in the new worktree, so nothing is copied (only ignored files may be). */
+  'worktree.copyFiles.ignoreCheckFailed': Record<string, never>
   /** B19: files git does not ignore in the new worktree; a copy could be committed, so they are not copied. */
-  'worktree.include.notIgnored': { paths: string[] }
+  'worktree.copyFiles.notIgnored': { paths: string[] }
   /** B19: the search went through more entries than allowed before finishing; nothing is copied. */
-  'worktree.include.searchTooLarge': { limit: number }
+  'worktree.copyFiles.searchTooLarge': { limit: number }
   /** B19: files already in the new worktree; they are kept as they are. */
-  'worktree.include.notOverwritten': { paths: string[] }
+  'worktree.copyFiles.notOverwritten': { paths: string[] }
   /** B19: links and files whose real location is outside the repository or the worktree; they are not copied. */
-  'worktree.include.notFollowed': { paths: string[] }
+  'worktree.copyFiles.notFollowed': { paths: string[] }
   /** B19: files that could not be copied (permissions, a disk error). */
-  'worktree.include.failed': { paths: string[] }
+  'worktree.copyFiles.failed': { paths: string[] }
   'mcp.signIn.waiting': Record<string, never>
   'mcp.server.quarantined': Record<string, never>
   'mcp.server.untrusted': Record<string, never>
@@ -492,15 +496,17 @@ export const MESSAGE_CODES = [
   'worktree.setup.complete',
   'worktree.setup.failed',
   'worktree.setup.unverified',
-  'worktree.include.copied',
-  'worktree.include.outsideRepo',
-  'worktree.include.overLimit',
-  'worktree.include.tooComplex',
-  'worktree.include.notIgnored',
-  'worktree.include.searchTooLarge',
-  'worktree.include.notOverwritten',
-  'worktree.include.notFollowed',
-  'worktree.include.failed',
+  'worktree.copyFiles.copied',
+  'worktree.copyFiles.outsideRepo',
+  'worktree.copyFiles.overLimit',
+  'worktree.copyFiles.tooComplex',
+  'worktree.copyFiles.excludeReserved',
+  'worktree.copyFiles.ignoreCheckFailed',
+  'worktree.copyFiles.notIgnored',
+  'worktree.copyFiles.searchTooLarge',
+  'worktree.copyFiles.notOverwritten',
+  'worktree.copyFiles.notFollowed',
+  'worktree.copyFiles.failed',
   'mcp.signIn.waiting',
   'mcp.server.quarantined',
   'mcp.server.untrusted',

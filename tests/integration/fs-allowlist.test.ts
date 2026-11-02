@@ -151,7 +151,7 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/repo-config/loader.ts',
   'electron/main/services/repo-config/shared-dirs.ts',
   'electron/main/services/github/worktree-removal.ts',
-  // B19 worktree.include: copies the files the repo's oxe.yaml lists from the
+  // B19 worktree.copyFiles: copies the files the repo's oxe.yaml lists from the
   // main checkout into a just-created worktree. Patterns stay in the repo (no
   // absolute, .. or .git), links are never followed on either side, real paths
   // are checked against both roots, at most 200 files / 50 MB, and nothing
