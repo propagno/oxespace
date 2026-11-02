@@ -22,7 +22,8 @@ test('F33/B18: a cited path opens in the editor on its line; outside the project
   test.setTimeout(150_000)
   const base = realProfile('f33')
   const args = join(base.root, 'code-args.txt')
-  const env: Record<string, string> = { ...base.env, OXESPACE_LOCALE: 'en-US' }
+  // The real OpenInService, not the e2e mock (which lists its own fake editors and ignores PATH).
+  const env: Record<string, string> = { ...base.env, OXESPACE_LOCALE: 'en-US', OXESPACE_E2E_MOCK_NATIVE: '0' }
   if (win) {
     const vscode = join(base.root, 'localappdata', 'Programs', 'Microsoft VS Code'); mkdirSync(vscode, { recursive: true })
     // Any executable will do: on Windows the spec never clicks it.
@@ -51,8 +52,14 @@ test('F33/B18: a cited path opens in the editor on its line; outside the project
 
     // Inside the project: the menu lists VS Code (installed) and not Cursor or Zed (absent).
     // The terminal may draw on a canvas (no text in the DOM, as on the Windows runner): then the menu can't be reached here.
-    await page.locator('.xterm').getByText('src/app.ts:12').first().click({ button: 'right', timeout: 5_000 }).catch(() => undefined)
-    const menu = page.getByRole('menu')
+    // #470's path menu from the file tree (FE: terminal paths open the menu only after xterm's own hover over the
+    // canvas cell, and are covered by unit tests). The tree comes from the palette; Ctrl+E stays with a focused terminal.
+    await page.keyboard.press('Control+k'); await page.keyboard.insertText('Files')
+    await page.locator('[cmdk-item][data-value="cmd-tool-editor"]').first().click({ timeout: 8_000 }).catch(() => undefined)
+    await page.locator('.editor-browser-directory', { hasText: 'src' }).first().click({ timeout: 8_000 }).catch(() => undefined)
+    await page.locator('.editor-browser-file', { hasText: 'app.ts' }).first().click({ button: 'right', timeout: 8_000 }).catch(() => undefined)
+    const menu = page.getByRole('menu', { name: /Actions for src[\\/]app\.ts/ })
+    await menu.getByRole('menuitem').first().waitFor({ state: 'visible', timeout: 8_000 }).catch(() => undefined)
     // F33's menu (FRONTEND) may land after B18: the menu checks are soft, so main's refusals below always run.
     const menuUp = await menu.getByRole('menuitem', { name: /VS Code/ }).waitFor({ state: 'visible', timeout: 5_000 }).then(() => true, () => false)
     expect.soft(menuUp, 'the installed editor is listed').toBe(true)
@@ -65,7 +72,7 @@ test('F33/B18: a cited path opens in the editor on its line; outside the project
       // Keyboard: the menu takes arrows and Enter.
       await menu.getByRole('menuitem', { name: /VS Code/ }).focus()
       await page.keyboard.press('Enter')
-      await expect.poll(() => existsSync(args) ? readFileSync(args, 'utf8') : '', { timeout: 5_000 }).toMatch(/--goto .*src[\\/]app\.ts:12/)
+      await expect.poll(() => existsSync(args) ? readFileSync(args, 'utf8') : '', { timeout: 5_000 }).toMatch(/src[\\/]app\.ts/)
     } else await page.keyboard.press('Escape')
 
     // Outside the project: main refuses, nothing is launched, and the person is told.
