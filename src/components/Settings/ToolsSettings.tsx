@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactElement } from 'react'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -7,7 +7,7 @@ import {
   MCP_TOOL_GROUP_MODES, type ConfigurableMcpToolGroup, type McpToolCost, type McpToolDecision, type McpToolGroupInfo,
   type McpToolGroupMode, type McpToolGroupsReport, type McpToolRule
 } from '../../../shared/types/mcp-tools'
-import { Badge, Button, ConfirmDialog, EmptyState, ErrorState, LoadingState, Panel, SegmentedControl, Select, type Intent } from '../../ui'
+import { Badge, Button, ConfirmDialog, EmptyState, ErrorState, LoadingState, Notice, Panel, SegmentedControl, Select, type Intent } from '../../ui'
 import { formatNumber } from '../../utils/formatTime'
 import { humanizeError } from '../../utils/humanizeError'
 import { claudeFixedCost, decisionsFor, organizationToolRules, OXESPACE_SERVER, otherServerRules, ruleFor } from './toolsModel'
@@ -40,8 +40,18 @@ function RuleRow({ rule, busy, onChoose }: { rule: McpToolRule; busy: boolean; o
 }
 
 /** One group: what it does, its mode and where the mode comes from, its cost per provider, and its tools' rules. */
-function GroupPanel({ group, rules, busy, onMode, onRule }: {
+/** The project's oxe.yaml as a full path, in the project's own separator (the Notice names which file, DESIGN on #426). */
+function yamlPath(rootPath: string): string {
+  const separator = rootPath.includes('\\') && !rootPath.includes('/') ? '\\' : '/'
+  return `${rootPath.replace(/[\\/]+$/, '')}${separator}${OXE_YAML}`
+}
+
+function GroupPanel({ group, rules, busy, unread = false, locked = false, onMode, onRule }: {
   group: McpToolGroupInfo; rules: McpToolRule[] | null; busy: boolean
+  /** The project's oxe.yaml cannot be read and the report does not say what applies: the mode is not shown as known. */
+  unread?: boolean
+  /** The project's oxe.yaml cannot be read: a mode change would overwrite the broken file, so it is not offered. */
+  locked?: boolean
   onMode: (group: ConfigurableMcpToolGroup, mode: McpToolGroupMode) => void
   onRule: (rule: McpToolRule, decision: McpToolDecision) => void
 }): ReactElement {
@@ -52,8 +62,10 @@ function GroupPanel({ group, rules, busy, onMode, onRule }: {
   const ruled = groupRules.filter(rule => rule.decision !== 'ask').length
   const off = group.mode === 'off'
   return <Panel className={styles.group} label={name} title={name} actions={<>
-    <Badge intent={MODE_INTENT[group.mode]}>{modeName(t, group.mode)}</Badge>
-    <Badge title={t(`tools.sourceHint.${group.source}`)}>{t(`tools.source.${group.source}`)}</Badge>
+    {unread && group.configurable ? <Badge intent="warning">{t('tools.invalidYaml.modeUnread')}</Badge> : <>
+      <Badge intent={MODE_INTENT[group.mode]}>{modeName(t, group.mode)}</Badge>
+      <Badge title={t(`tools.sourceHint.${group.source}`)}>{t(`tools.source.${group.source}`)}</Badge>
+    </>}
   </>}>
     <p className={styles.description}>{t(`tools.groups.${group.id}.description`, { defaultValue: '' })} {t('tools.toolCount', { count: group.tools.length })}</p>
     <dl className={styles.costs} aria-label={t('tools.cost.label', { group: name })}>
@@ -64,8 +76,8 @@ function GroupPanel({ group, rules, busy, onMode, onRule }: {
     {group.configurable && <div className={styles.mode}>
       <SegmentedControl label={t('tools.modeLabel', { group: name })} value={group.mode}
         options={MCP_TOOL_GROUP_MODES.map(mode => ({ value: mode, label: modeName(t, mode) }))}
-        onChange={mode => onMode(group.id as ConfigurableMcpToolGroup, mode)} disabled={busy} />
-      <p className={styles.hint}>{t(`tools.modeHints.${group.mode}`)}</p>
+        onChange={mode => onMode(group.id as ConfigurableMcpToolGroup, mode)} disabled={busy || locked} />
+      <p className={styles.hint}>{locked ? t('tools.invalidYaml.modeLocked', { file: OXE_YAML }) : t(`tools.modeHints.${group.mode}`)}</p>
     </div>}
     {rules && <details className={styles.rules}>
       <summary>{t('tools.rules.summary', { count: ruled })}</summary>
@@ -92,17 +104,27 @@ export function ToolsSettings({ rootPath, workspaceId }: { rootPath: string; wor
   const [status, setStatus] = useState('')
   const [actionError, setActionError] = useState<{ title: string; message: string } | null>(null)
   const [confirmAllow, setConfirmAllow] = useState<McpToolRule | null>(null)
+  /** The file could not be read before the last Reload: a read that works then is announced (DESIGN on #426). */
+  const wasInvalid = useRef(false)
+  const [readAgain, setReadAgain] = useState(false)
 
   // The page mounts per workspace (WorkspaceSettingsModal is keyed by it); Reload clears what was read, then reads again.
   useEffect(() => {
     let live = true
     const api = window.oxe?.mcpInternal
-    api?.toolGroups?.({ rootPath }).then(next => { if (live) setReport(next) }, (cause: unknown) => { if (live) setGroupsError(humanizeError(cause)) })
+    api?.toolGroups?.({ rootPath }).then(next => {
+      if (!live) return
+      setReport(next)
+      if (wasInvalid.current && next.oxeYaml !== 'invalid') setReadAgain(true)
+      wasInvalid.current = false
+    }, (cause: unknown) => { if (live) setGroupsError(humanizeError(cause)) })
     api?.toolRules?.({ rootPath }).then(next => { if (live) setRules(next) }, (cause: unknown) => { if (live) setRulesError(humanizeError(cause)) })
     window.oxe?.policy?.get(workspaceId).then(next => { if (live) setPolicy(next) }, (cause: unknown) => { if (live) setPolicyError(humanizeError(cause)) })
     return () => { live = false }
   }, [rootPath, workspaceId, reloads])
   const reload = (): void => {
+    wasInvalid.current = report?.oxeYaml === 'invalid'
+    setReadAgain(false)
     setReport(null); setGroupsError(''); setRules(null); setRulesError(''); setPolicy(null); setPolicyError(''); setStatus(''); setActionError(null)
     setReloads(count => count + 1)
   }
@@ -138,6 +160,11 @@ export function ToolsSettings({ rootPath, workspaceId }: { rootPath: string; wor
   }
   const onMode = (group: ConfigurableMcpToolGroup, mode: McpToolGroupMode): void => { void setMode(group, mode) }
 
+  // A broken oxe.yaml (HML FINDING M on #210). With `effectiveFrom` (BACKEND #372) the modes shown are the ones being
+  // enforced: the last valid read, or the defaults if the file was never read; before it, they cannot be shown as known.
+  const invalid = report?.oxeYaml === 'invalid'
+  const effectiveFrom = (report as { effectiveFrom?: 'file' | 'last-valid' | 'defaults' } | null)?.effectiveFrom
+  const unread = invalid && effectiveFrom !== 'last-valid' && effectiveFrom !== 'defaults'
   const chosen = report?.groups.filter(group => group.configurable || group.id === 'core') ?? []
   const byRole = report?.groups.filter(group => !group.configurable && group.id !== 'core') ?? []
   const others = rules ? otherServerRules(rules) : []
@@ -153,11 +180,14 @@ export function ToolsSettings({ rootPath, workspaceId }: { rootPath: string; wor
       <p><strong>{CLAUDE}</strong> {t('tools.providers.claude')}</p>
       <p data-testid="tools-codex-note"><strong>{CODEX}</strong> {t('tools.providers.codex')}</p>
     </div>
-    {status && <p className={styles.status} role="status">{status}</p>}
+    {(status || readAgain) && <p className={styles.status} role="status">{status || t('tools.invalidYaml.readAgain')}</p>}
     {actionError && <ErrorState compact title={actionError.title} message={actionError.message} />}
     {groupsProblem ? <ErrorState title={t('tools.loadFailed')} message={groupsProblem} onRetry={reload} />
       : !report ? <LoadingState label={t('tools.loading')} />
         : <>
+          {invalid && <Notice intent="warning" title={t('tools.invalidYaml.title', { file: OXE_YAML })}>
+            <code>{yamlPath(rootPath)}</code>: {t(effectiveFrom === 'last-valid' ? 'tools.invalidYaml.bodyLastValid' : effectiveFrom === 'defaults' ? 'tools.invalidYaml.bodyDefaults' : 'tools.invalidYaml.body')}
+          </Notice>}
           <dl className={styles.totals} aria-label={t('tools.totals.title')}>
             <div><dt>{t('tools.totals.plain')}</dt><dd>{costText(t, report.totals.plainConversation)}</dd></div>
             <div><dt>{t('tools.totals.everything')}</dt><dd>{costText(t, report.totals.everythingOnDemand)}</dd></div>
@@ -166,7 +196,7 @@ export function ToolsSettings({ rootPath, workspaceId }: { rootPath: string; wor
           {rulesProblem && <ErrorState compact title={t('tools.rules.loadFailed')} message={rulesProblem} />}
           <h4 className={styles.sectionTitle}>{t('tools.sections.project')}</h4>
           <p className={styles.hint}>{t('tools.rules.intro')}</p>
-          <div className={styles.groups}>{chosen.map(group => <GroupPanel key={group.id} group={group} rules={rules} busy={busy} onMode={onMode} onRule={chooseRule} />)}</div>
+          <div className={styles.groups}>{chosen.map(group => <GroupPanel key={group.id} group={group} rules={rules} busy={busy} unread={unread} locked={invalid} onMode={onMode} onRule={chooseRule} />)}</div>
           <h4 className={styles.sectionTitle}>{t('tools.sections.role')}</h4>
           <p className={styles.hint}>{t('tools.sections.roleIntro')}</p>
           <div className={styles.groups}>{byRole.map(group => <GroupPanel key={group.id} group={group} rules={rules} busy={busy} onMode={onMode} onRule={chooseRule} />)}</div>

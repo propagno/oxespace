@@ -856,6 +856,15 @@
         "user": "Sua política de usuário",
         "managed": "Gerenciada pela sua organização"
       }
+    },
+    "invalidYaml": {
+      "title": "Não foi possível ler {{file}}",
+      "body": "O arquivo tem um erro, então os modos abaixo não podem ser mudados aqui. Os agentes continuam com as ferramentas que tinham antes do erro. Corrija o arquivo à mão e escolha Recarregar.",
+      "modeUnread": "Não lido",
+      "modeLocked": "Corrija o {{file}} para mudar este modo.",
+      "bodyLastValid": "O arquivo tem um erro. Os agentes continuam com os últimos modos que puderam ser lidos, mostrados abaixo. Para mudá-los, corrija o arquivo à mão e escolha Recarregar.",
+      "bodyDefaults": "O arquivo tem um erro e nunca foi lido, então os agentes usam os padrões do app, mostrados abaixo. Para mudá-los, corrija o arquivo à mão e escolha Recarregar.",
+      "readAgain": "Modos lidos de novo"
     }
   }
 }

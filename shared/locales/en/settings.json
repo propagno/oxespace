@@ -829,6 +829,15 @@
         "user": "Your user policy",
         "managed": "Managed by your organization"
       }
+    },
+    "invalidYaml": {
+      "title": "{{file}} can't be read",
+      "body": "The file has an error, so the modes below can't be changed here. Agents keep the tools they had before the error. Fix the file by hand and choose Reload.",
+      "modeUnread": "Not read",
+      "modeLocked": "Fix {{file}} to change this mode.",
+      "bodyLastValid": "The file has an error. Agents keep using the last modes that could be read, shown below. To change them, fix the file by hand and choose Reload.",
+      "bodyDefaults": "The file has an error and has never been read, so agents use the app's defaults, shown below. To change them, fix the file by hand and choose Reload.",
+      "readAgain": "Modes read again"
     }
   }
 }
