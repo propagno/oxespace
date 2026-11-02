@@ -256,8 +256,8 @@ export class ThreadOrchestrator {
         this.snapshots.touch(id)
         return cached
       }
+      // Deleted meanwhile: the history read below refuses it with thread.notFound.
       this.snapshots.delete(id)
-      throw Error('Thread not found')
     }
     const snapshot = this.history.read(id)
     const firstRepairedEvent = settleCompletedHistoryTools(snapshot.events)

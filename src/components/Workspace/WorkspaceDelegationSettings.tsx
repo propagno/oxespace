@@ -3,7 +3,7 @@ import type { DelegationSnapshot } from '../../../shared/types/delegation'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import './WorkspaceMemorySettings.css'
-import { Button, Checkbox, ConfirmDialog, EmptyState, ErrorState, TextField, Select } from '../../ui'
+import { Button, Checkbox, ConfirmDialog, EmptyState, ErrorState, Notice, TextField, Select } from '../../ui'
 import { useTranslation } from 'react-i18next'
 import { humanizeError } from '../../utils/humanizeError'
 import { formatDate } from '../../utils/formatTime'
@@ -72,7 +72,7 @@ export function WorkspaceDelegationSettings({ workspaceId, paneIds, onOpenTermin
       <div className="memory-status-line"><strong>{task.objective}</strong><span className="memory-badge" data-state={task.state}>{t(`background.delegationState.${task.state}`)}</span></div>
       <p>{task.branch}</p>
       {task.originWorkspaceId && <p>{workspaces.find(w => w.id === task.originWorkspaceId)?.name ?? t('delegation.origin')} → {workspaces.find(w => w.id === task.workspaceId)?.name ?? t('delegation.destination')} · {task.mode ?? 'isolated-change'}</p>}
-      {task.error && <p role="alert">{task.error}</p>}
+      {task.error && <Notice intent="danger">{task.error}</Notice>}
       {task.lastReport && <p>{task.lastReport}</p>}
       {task.lastMessage && <p>{t('delegation.latest', { message: task.lastMessage })}</p>}
       <div className="memory-task-actions">

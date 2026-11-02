@@ -80,7 +80,7 @@ export function SessionContextSection({ snapshot, running, onCompact }: SessionS
   </tr>
   return <>
     <Meter label={t('sessionPanel.context.meter')} value={context.used} max={context.window}
-      detail={t('sessionPanel.context.detail', { used: compactTokens(context.used), total: compactTokens(context.window), percent: context.percent })} />
+      detail={t(context.over ? 'sessionPanel.context.detailOver' : 'sessionPanel.context.detail', { used: compactTokens(context.used), total: compactTokens(context.window), percent: context.percent })} />
     <table className={styles.table} aria-label={t('sessionPanel.context.breakdown')} data-testid="session-context-breakdown">
       <thead className="sr-only"><tr><th scope="col">{t('sessionPanel.context.category')}</th><th scope="col">{t('sessionPanel.context.tokens')}</th><th scope="col">{t('sessionPanel.context.share')}</th></tr></thead>
       <tbody>

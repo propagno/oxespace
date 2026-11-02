@@ -92,7 +92,9 @@
       },
       "side": {
         "unavailable": "Este agente ainda não abre um chat lateral.",
-        "noSession": "Envie uma mensagem primeiro: o chat lateral copia a conversa até aqui."
+        "noSession": "Envie uma mensagem primeiro: o chat lateral copia a conversa até aqui.",
+        "closed": "Este chat lateral foi fechado. Abra um novo para continuar perguntando.",
+        "invalidInput": "Não foi possível ler esta mensagem do chat lateral. Tente de novo."
       },
       "protectedConfig": {
         "instructions": "\"{{path}}\" guarda instruções de agente. Uma alteração ali orienta todas as sessões seguintes, então precisa da sua confirmação a cada vez.",
@@ -103,6 +105,8 @@
         "warning": "Um texto que o agente leu (uma página, uma issue, um arquivo) pode estar dirigindo esta alteração. Confira se foi você quem pediu.",
         "rewritesTracked": "{{command}} reescreve arquivos versionados sem nomeá-los, e instruções de agente, configurações MCP ou hooks podem estar entre eles, então precisa da sua confirmação a cada vez."
       },
+      "invalidInput": "Não foi possível ler este pedido da conversa.",
+      "notFound": "Esta conversa não existe mais.",
       "sections": {
         "invalid": "Não foi possível salvar estas seções. Recarregue a lista e tente de novo.",
         "tooMany": "Um workspace tem no máximo {{sections}} seções e {{assignments}} conversas colocadas nelas.",
