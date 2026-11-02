@@ -149,3 +149,33 @@ for (const variant of [
     } finally { await app.close() }
   })
 }
+
+/**
+ * Advisory (never blocks, as F7.3/#391): a press while the app is still starting, armed as soon as the mode buttons
+ * show, with no wait for a quiet window. Startup work still queued lands before the first paint here; removing it and
+ * making this case blocking is T45 (1.4.1). The timings go to the test output and the CI summary.
+ */
+for (const variant of [{ name: 'normal speed', cpu: 1 }, { name: 'slow CPU ×6', cpu: 6 }] as const) {
+  test(`F7.2 advisory: a click during startup (${variant.name})`, async () => {
+    test.setTimeout(120_000)
+    const { app, page } = await launchApp({ locale: 'en-US' })
+    try {
+      await resizeWindow(app, 1280, 860)
+      const cdp = await page.context().newCDPSession(page)
+      if (variant.cpu > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: variant.cpu })
+      await page.locator('button[data-app-mode="data"]').waitFor({ state: 'attached', timeout: 30_000 })
+      await arm(page)
+      await page.locator('button[data-app-mode="data"]').dispatchEvent('pointerdown')
+      await page.locator('button[data-app-mode="data"]').dispatchEvent('click')
+      await page.waitForTimeout(3_500)
+      await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 })
+      const rec = await page.evaluate(() => (window as unknown as { __f72: Record }).__f72)
+      const selected = rec.frames.find(f => f.pressed && (f.busy || f.newUp))?.t
+      const line = `startup click (${variant.name}): selected ${selected?.toFixed(0) ?? 'never'} ms, busy ${rec.frames.find(f => f.busy)?.t.toFixed(0) ?? 'never'} ms, first frame ${rec.frames[0]?.t.toFixed(0) ?? 'none'} ms, commit ${commitAt(rec).toFixed(0)} ms`
+      console.log(`[F72-STARTUP] ${line}`)
+      // GitHub annotation: shown in the run's summary, never a failure (T45 makes it one).
+      console.log(`::notice title=F7.2 advisory (T45)::${line}`)
+      test.info().annotations.push({ type: 'advisory', description: line })
+    } finally { await app.close() }
+  })
+}
