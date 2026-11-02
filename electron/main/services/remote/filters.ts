@@ -5,6 +5,7 @@ import {
 import type { ConversationThread, ThreadEvent, ThreadRequest } from '../../../../shared/types/thread'
 import type { RemoteDelegationRow, RemoteJobRow, RemotePendingRow, RemoteWorkspaceRow } from './desktop'
 import { clean, relativeTo } from './text'
+import { riskFromShell } from '../../../../shared/approval-rules'
 
 /**
  * Desktop data to C5 payloads. Each mapper names what it keeps; anything not named here (absolute paths, cwd, native
@@ -152,7 +153,7 @@ export function toPendingRequest({ thread, request }: RemotePendingRow, roots: r
     ...(request.reason ? { reason: text(request.reason, all, REMOTE_TEXT_LIMITS.detail) } : {}),
     ...(request.toolName ? { toolName: text(request.toolName, all, TITLE) } : {}),
     ...(paths.length ? { paths } : {}),
-    ...(request.policy?.level ? { risk: request.policy.level } : {}),
+    ...(request.policy?.level ? { risk: riskFromShell(request.policy.level) } : {}),
     ...(warnings.length ? { warnings: warnings.map(warning => warning.text) } : {}),
     ...(redacted ? { redacted } : {}),
     ...(questions.length ? { questions } : {}),
