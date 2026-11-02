@@ -54,6 +54,7 @@ import { Sidebar } from './components/Sidebar/Sidebar'
 import type { WizardLaunchInput } from './components/Workspace/NewWorkspaceModal'
 const NewWorkspaceModal = lazy(() => import('./components/Workspace/NewWorkspaceModal').then((m) => ({ default: m.NewWorkspaceModal })))
 import { WorkspaceSurface } from './components/Workspace/WorkspaceSurface'
+import { AgentHooksPromptHost } from './components/AgentSessions/AgentHooksPromptHost'
 import './components/Threads/ThreadView.css'
 import { AppStatusBar } from './components/Workspace/AppStatusBar'
 import { UpdateChips } from './app/UpdateChips'
@@ -812,6 +813,8 @@ export function App(): ReactElement {
         ) : activeWorkspace || applicationView !== 'code' ? (
           <>
             <DataHosts view={applicationView} />
+            {/* F32: the status hooks' one question, when a Claude or Codex pane runs without them. */}
+            <AgentHooksPromptHost />
             {hasOpenedThread && <div className="thread-host" data-view="thread" style={{ display: applicationView === 'thread' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'thread'}><ErrorBoundary id="conversations" label={t('app.boundary.conversations')} onReset={ThreadGrid.retry}><Suspense fallback={<ViewSkeleton name="OxeChat" />}><ThreadGrid onNewThread={newThread} onAccounts={openThreadAccounts} onDelegations={() => setDelegatedWorkOpen(true)} /></Suspense></ErrorBoundary></div>}
             {workspaces
               // Include the active id synchronously. On a first visit the MRU
