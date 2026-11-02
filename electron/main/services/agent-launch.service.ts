@@ -29,11 +29,13 @@ export function agentMcpArguments(provider: string, bridge: string, plan?: Param
 export async function codeAgentMcpLaunch(db: AppDatabase, provider: string, bridge: string, workspaceId: string, args: string[],
   source: NodeJS.ProcessEnv = process.env): Promise<{ args: string[]; env?: Record<string, string> }> {
   // The same groups as an OxeChat conversation, plus the Code terminal's own, by the project's modes (B2.2).
-  const [{ projectToolModes, sessionToolPlan, usesToolSearch }, { toolSearchEnvironment }, { loadRepoConfig }] = await Promise.all([
-    import('./conversation/tool-groups'), import('./conversation/thread-mcp'), import('./repo-config/loader')])
+  const [{ sessionToolPlan, usesToolSearch }, { toolSearchEnvironment }, { effectiveToolModes, toolConfigSubject }, { acceptedConfig, policyStore }] = await Promise.all([
+    import('./conversation/tool-groups'), import('./conversation/thread-mcp'), import('./policy/tool-config'), import('./policy')])
   let root: string | undefined
   try { root = (db.prepare('SELECT root_path FROM workspaces WHERE id = ?').get(workspaceId) as { root_path: string } | undefined)?.root_path } catch { /* defaults */ }
-  const modes = projectToolModes(root ? (await loadRepoConfig(root).catch(() => null))?.thread : undefined)
+  // The accepted modes (B7.4); a launch is a review point, so a change whose request ended unanswered is asked again.
+  const modes = effectiveToolModes(root)
+  if (root) acceptedConfig()?.reviewPoint([toolConfigSubject(root), ...(policyStore()?.subjects(root) ?? [])].filter(subject => subject !== null))
   const search = provider === 'claude' || provider === 'codex' ? toolSearchEnvironment(provider, source) : {}
   // Other agents read the workspace's .mcp.json and get no bridge arguments here; the plan only matters for these two.
   const plan = sessionToolPlan(provider === 'claude' || provider === 'codex' ? usesToolSearch(provider, { ...source, ...search }) : false, { code: true }, modes)
