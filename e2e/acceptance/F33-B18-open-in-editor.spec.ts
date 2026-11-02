@@ -51,8 +51,19 @@ test('F33/B18: a cited path opens in the editor on its line; outside the project
 
     // Inside the project: the menu lists VS Code (installed) and not Cursor or Zed (absent).
     // The terminal may draw on a canvas (no text in the DOM, as on the Windows runner): then the menu can't be reached here.
-    await page.locator('.xterm').getByText('src/app.ts:12').first().click({ button: 'right', timeout: 5_000 }).catch(() => undefined)
+    // #470: hovering a path loads the link provider; a right click then opens the path menu.
+    const cited = page.locator('.xterm').getByText('src/app.ts:12').first()
+    await cited.hover({ timeout: 5_000 }).catch(() => undefined)
+    await page.waitForTimeout(800)
+    await cited.click({ button: 'right', timeout: 5_000 }).catch(() => undefined)
     const menu = page.getByRole('menu')
+    // Where the terminal can't be reached (a canvas), the file tree has the same menu (#470).
+    if (!(await menu.getByRole('menuitem', { name: /VS Code/ }).waitFor({ state: 'visible', timeout: 3_000 }).then(() => true, () => false))) {
+      await page.keyboard.press('Escape')
+      await page.keyboard.press('Control+e')
+      await page.locator('.editor-browser-file, [role="treeitem"]', { hasText: /^src$/ }).first().click({ timeout: 8_000 }).catch(() => undefined)
+      await page.locator('.editor-browser-file, [role="treeitem"]', { hasText: 'app.ts' }).first().click({ button: 'right', timeout: 8_000 }).catch(() => undefined)
+    }
     // F33's menu (FRONTEND) may land after B18: the menu checks are soft, so main's refusals below always run.
     const menuUp = await menu.getByRole('menuitem', { name: /VS Code/ }).waitFor({ state: 'visible', timeout: 5_000 }).then(() => true, () => false)
     expect.soft(menuUp, 'the installed editor is listed').toBe(true)
