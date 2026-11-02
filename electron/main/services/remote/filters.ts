@@ -1,11 +1,13 @@
 import {
   REMOTE_TEXT_LIMITS,
-  type RemoteDelegation, type RemoteJob, type RemotePane, type RemotePendingRequest, type RemoteThreadHeader, type RemoteThreadItem, type RemoteThreadSummary, type RemoteWorkspace
+  type RemoteAgentRow, type RemoteDelegation, type RemoteJob, type RemotePane, type RemotePendingRequest, type RemoteThreadHeader, type RemoteThreadItem, type RemoteThreadSummary, type RemoteWorkspace
 } from '../../../../shared/remote/protocol'
 import type { ConversationThread, ThreadEvent, ThreadRequest } from '../../../../shared/types/thread'
 import type { RemoteDelegationRow, RemoteJobRow, RemotePendingRow, RemoteWorkspaceRow } from './desktop'
 import { clean, relativeTo } from './text'
 import { riskFromShell } from '../../../../shared/approval-rules'
+import type { AgentRow } from '../../../../shared/types/agents'
+import type { MainMessage } from '../../../../shared/messages'
 
 /**
  * Desktop data to C5 payloads. Each mapper names what it keeps; anything not named here (absolute paths, cwd, native
@@ -178,5 +180,23 @@ export function toDelegation(row: RemoteDelegationRow, roots: readonly string[])
     ...(row.branch ? { branch: text(row.branch, roots, TITLE) } : {}),
     ...(row.destinationThreadId ? { destinationThreadId: row.destinationThreadId } : {}),
     updatedAt: row.updatedAt
+  }
+}
+
+/**
+ * S7.1 · One agent for the phone (CCR #513 §6): the state already mapped, the oldest pending request with main's own
+ * title (never the agent's text), and nothing that names a place or an account: no path, worktree, session or cost.
+ */
+export function toRemoteAgent(row: AgentRow, rev: number, roots: readonly string[], words: (message: MainMessage) => string): RemoteAgentRow {
+  const oldest = [...row.requests].sort((a, b) => a.since - b.since)[0]
+  return {
+    kind: row.kind, id: row.id, rev, state: row.state, provider: row.provider,
+    title: clean(row.title, roots, REMOTE_TEXT_LIMITS.objective).text, since: row.since,
+    ...(oldest ? {
+      request: {
+        requestId: oldest.requestId, title: clean(words(oldest.title), roots, REMOTE_TEXT_LIMITS.detail).text, titleCode: oldest.title.code,
+        titleParams: { ...oldest.title.params } as Record<string, unknown>, risk: oldest.risk, answerable: oldest.answerable
+      }
+    } : {})
   }
 }

@@ -1,5 +1,5 @@
 import {
-  REMOTE_LIMITS, REMOTE_TEXT_LIMITS,
+  REMOTE_AGENT_KINDS, REMOTE_LIMITS, REMOTE_TEXT_LIMITS,
   type RemoteCommand, type RemoteCommandArgs, type RemoteErrorCode, type RemoteRespondRequestArgs, type RemoteThreadSnapshot
 } from '../../../../shared/remote/protocol'
 import type { RemoteDesktop } from './desktop'
@@ -92,6 +92,11 @@ export function parseCommandArgs<C extends RemoteCommand>(command: C, value: unk
       const input = fields(value, ['threadId', 'beforeSeq'])
       return { threadId: id(input.threadId), beforeSeq: integer(input.beforeSeq, Number.MIN_SAFE_INTEGER) } as RemoteCommandArgs[C]
     }
+    case 'agent.markSeen': {
+      const input = fields(value, ['kind', 'id'])
+      if (typeof input.kind !== 'string' || !(REMOTE_AGENT_KINDS as readonly string[]).includes(input.kind)) throw new Malformed()
+      return { kind: input.kind, id: id(input.id) } as RemoteCommandArgs[C]
+    }
     default:
       throw new Malformed()
   }
@@ -100,7 +105,7 @@ export function parseCommandArgs<C extends RemoteCommand>(command: C, value: unk
 /** A note for the audit trail: the command and what it acted on, never its text or answers. */
 export function auditDetail(command: RemoteCommand, args: unknown): string {
   const input = isPlain(args) ? args : {}
-  const target = [input.threadId, input.requestId, input.paneId].filter(value => typeof value === 'string' && ID.test(value)).join(' ')
+  const target = [input.threadId, input.requestId, input.paneId, command === 'agent.markSeen' ? input.kind : undefined, command === 'agent.markSeen' ? input.id : undefined].filter(value => typeof value === 'string' && ID.test(value)).join(' ')
   return target ? `${command} ${target}` : command
 }
 
@@ -125,6 +130,8 @@ export class RemoteCommands {
         case 'thread.respondRequest': return await this.respond(args as RemoteCommandArgs['thread.respondRequest'])
         case 'terminal.write': return await this.write(args as RemoteCommandArgs['terminal.write'])
         case 'thread.history': return await this.history(args as RemoteCommandArgs['thread.history'])
+        // Idempotent, and an unknown key is ok too: the answer never tells whether a key exists (CCR #513 §6).
+        case 'agent.markSeen': this.host.desktop.markAgentSeen(args as RemoteCommandArgs['agent.markSeen']); return { ok: true }
       }
     } catch (error) {
       return { ok: false, code: failureCode(error) }
