@@ -14,6 +14,7 @@
  * unchanged, which is the only real proof the four parts still add up to the
  * whole.
  */
+import type { PersonGit } from '../../utils/safe-git-person'
 import type { AppDatabase } from '../../db/index'
 import type {
   GitHubBranch,
@@ -135,11 +136,11 @@ export class GitHubService {
   getWorkspaceStatus(input: GitHubWorkspaceInput): Promise<GitHubWorkspaceStatus> {
     return this.repository.getWorkspaceStatus(input)
   }
-  fetch(input: GitHubWorkspaceInput): Promise<GitHubMessageResult> {
-    return this.repository.fetch(input)
+  fetch(input: GitHubWorkspaceInput, person?: PersonGit): Promise<GitHubMessageResult> {
+    return this.repository.fetch(input, person)
   }
-  pullFfOnly(input: GitHubWorkspaceInput): Promise<GitHubMessageResult> {
-    return this.repository.pullFfOnly(input)
+  pullFfOnly(input: GitHubWorkspaceInput, person?: PersonGit): Promise<GitHubMessageResult> {
+    return this.repository.pullFfOnly(input, person)
   }
   stageAll(input: GitHubWorkspaceInput): Promise<GitHubMessageResult> {
     return this.repository.stageAll(input)
@@ -156,26 +157,26 @@ export class GitHubService {
   generateCommitMessage(input: GitHubWorkspaceInput): Promise<GitHubMessageResult> {
     return this.repository.generateCommitMessage(input)
   }
-  push(input: GitHubWorkspaceInput): Promise<GitHubMessageResult> {
-    return this.repository.push(input)
+  push(input: GitHubWorkspaceInput, person?: PersonGit): Promise<GitHubMessageResult> {
+    return this.repository.push(input, person)
   }
-  commitAndPush(input: GitHubCommitInput): Promise<GitHubMessageResult> {
-    return this.repository.commitAndPush(input)
+  commitAndPush(input: GitHubCommitInput, person?: PersonGit): Promise<GitHubMessageResult> {
+    return this.repository.commitAndPush(input, person)
   }
   listBranches(input: GitHubWorkspaceInput): Promise<GitHubBranch[]> {
     return this.repository.listBranches(input)
   }
-  createBranch(input: GitHubCreateBranchInput): Promise<GitHubMessageResult> {
-    return this.repository.createBranch(input)
+  createBranch(input: GitHubCreateBranchInput, person?: PersonGit): Promise<GitHubMessageResult> {
+    return this.repository.createBranch(input, person)
   }
-  checkoutBranch(input: { rootPath: string; name: string; force?: boolean }): Promise<GitHubMessageResult> {
-    return this.repository.checkoutBranch(input)
+  checkoutBranch(input: { rootPath: string; name: string; force?: boolean }, person?: PersonGit): Promise<GitHubMessageResult> {
+    return this.repository.checkoutBranch(input, person)
   }
   listWorktrees(input: GitHubWorkspaceInput): Promise<GitHubWorktree[]> {
     return this.repository.listWorktrees(input)
   }
-  createWorktree(input: GitHubCreateWorktreeInput): Promise<GitHubMessageResult> {
-    return this.repository.createWorktree(input)
+  createWorktree(input: GitHubCreateWorktreeInput, person?: PersonGit): Promise<GitHubMessageResult> {
+    return this.repository.createWorktree(input, person)
   }
   removeWorktree(input: GitHubRemoveWorktreeInput): Promise<GitHubMessageResult> {
     return this.repository.removeWorktree(input)

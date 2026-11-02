@@ -10,7 +10,6 @@ import { blocksThreadInput, PARTIAL_NATIVE_HISTORY_NOTICE } from '../../../../sh
 import { formatNativeUserText, taskNotification } from '../../../../shared/native-session-text'
 import { assertThreadMessage, THREAD_PROMPT_MAX_CHARS } from '../../../../shared/threadLimits'
 import { idleSuspendMinutes, setIdleSuspendMinutes, suspendIdle, type IdleHost } from './thread-idle'
-import { execFile } from 'node:child_process'
 import { ThreadAgentError, threadFailure } from './thread-failure'
 import { ThreadHistory, type ThreadHistoryWriteOptions } from './thread-history'
 import { ThreadSnapshotCache } from './thread-snapshot-cache'
@@ -44,6 +43,7 @@ import { hasUnconfirmedTurnTools, recoverPublicTurn } from './thread-result-reco
 import type { NativeStateResult } from './codex-state-reader'
 import { canonicalPath, resolveSessionLocation } from '../git-common-dir'
 import { explainMissingFolder, ThreadFolderMissingError } from './thread-worktree'
+import { execGit } from '../../utils/safe-git'
 
 // Canonical comparison: a Windows short name and its long form are the same folder.
 const sameCheckout = (a: string, b: string): boolean => canonicalPath(a) === canonicalPath(b)
@@ -463,10 +463,7 @@ export class ThreadOrchestrator {
     const thread = this.readThread(id)
     // The project's changes live in the worktree the provider moved into, when it reported one.
     const rootPath = thread.observedLocation?.sameRepository && thread.observedLocation.checkoutRoot ? thread.observedLocation.checkoutRoot : thread.rootPath
-    const run = (args: string[]) => new Promise<string>((resolve, reject) => {
-      const child = execFile('git', args, { cwd: rootPath, windowsHide: true, maxBuffer: 2 * 1024 * 1024, timeout: 15000 }, (error, stdout) => error ? reject(error) : resolve(stdout))
-      child.stdin?.end()
-    })
+    const run = async (args: string[]) => (await execGit(rootPath, args, { maxBuffer: 2 * 1024 * 1024, timeout: 15000 })).stdout
     let hasHead = true
     try { await run(['rev-parse', '--verify', 'HEAD']) } catch { hasHead = false }
     const args = ['--no-pager', 'diff', '--no-ext-diff', '--no-textconv', '--unified=3']

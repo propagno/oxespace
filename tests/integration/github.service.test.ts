@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from 'vitest'
+import { plainGitArgs } from '../helpers/plain-git-args'
 import { openInMemoryDatabase } from '../../electron/main/db/index'
 import { GitHubService } from '../../electron/main/services/github.service'
 import { WorkspaceService } from '../../electron/main/services/workspace.service'
@@ -12,7 +13,7 @@ describe('GitHubService', () => {
     const db = openInMemoryDatabase()
     const ws = new WorkspaceService(db).create({ rootPath: 'C:/projects/repo', layoutPreset: 4 })
     const spawn = makeSpawn('main')
-    const service = new GitHubService(db, { spawnCommand: spawn, now: () => 1_700_000_000_000 })
+    const service = new GitHubService(db, { spawnCommand: plainGitArgs(spawn), now: () => 1_700_000_000_000 })
 
     const cp = await service.createCheckpoint({ workspaceId: ws.id, rootPath: 'C:/projects/repo', name: 'snap-1', description: 'before refactor' })
     expect(cp.workspaceId).toBe(ws.id)
@@ -38,7 +39,7 @@ describe('GitHubService', () => {
     const svc = new WorkspaceService(db)
     const ws1 = svc.create({ rootPath: 'C:/projects/a', layoutPreset: 4 })
     const ws2 = svc.create({ rootPath: 'C:/projects/b', layoutPreset: 4 })
-    const service = new GitHubService(db, { spawnCommand: makeSpawn('main') })
+    const service = new GitHubService(db, { spawnCommand: plainGitArgs(makeSpawn('main')) })
 
     await service.createCheckpoint({ workspaceId: ws1.id, rootPath: 'C:/projects/a', name: 'snap-ws1' })
     await service.createCheckpoint({ workspaceId: ws2.id, rootPath: 'C:/projects/b', name: 'snap-ws2' })
@@ -53,7 +54,7 @@ describe('GitHubService', () => {
   test('connects and lists repositories', () => {
     const db = openInMemoryDatabase()
     const ws = new WorkspaceService(db).create({ rootPath: 'C:/projects/repo', layoutPreset: 4 })
-    const service = new GitHubService(db, { spawnCommand: makeSpawn() })
+    const service = new GitHubService(db, { spawnCommand: plainGitArgs(makeSpawn()) })
 
     const connected = service.connectRepository({ workspaceId: ws.id, rootPath: 'C:/projects/repo', fullName: 'org/repo', url: 'https://github.com/org/repo' })
     expect(connected.workspaceId).toBe(ws.id)
@@ -70,7 +71,7 @@ describe('GitHubService', () => {
   test('connecting the same repository twice upserts the url', () => {
     const db = openInMemoryDatabase()
     const ws = new WorkspaceService(db).create({ rootPath: 'C:/projects/repo', layoutPreset: 4 })
-    const service = new GitHubService(db, { spawnCommand: makeSpawn() })
+    const service = new GitHubService(db, { spawnCommand: plainGitArgs(makeSpawn()) })
 
     service.connectRepository({ workspaceId: ws.id, rootPath: 'C:/projects/repo', fullName: 'org/repo' })
     service.connectRepository({ workspaceId: ws.id, rootPath: 'C:/projects/repo', fullName: 'org/repo', url: 'https://github.com/org/repo' })
@@ -115,7 +116,7 @@ describe('GitHubService', () => {
       if (args[0] === 'run' && args[1] === 'view') return { stdout: runPayload, stderr: '', status: 0, error: undefined }
       return { stdout: '', stderr: '', status: 0, error: undefined }
     })
-    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: spawn })
+    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: plainGitArgs(spawn) })
 
     const details = await service.getWorkflowRunDetails({ rootPath: 'C:/projects/repo', runId: 42 })
 
@@ -147,7 +148,7 @@ describe('GitHubService', () => {
       'branch refs/heads/feat/x'
     ].join('\n')
     const spawn = vi.fn().mockResolvedValue({ stdout: porcelain, stderr: '', status: 0, error: undefined })
-    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: spawn })
+    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: plainGitArgs(spawn) })
 
     const trees = await service.listWorktrees({ rootPath: 'C:\\Users\\dudu-' })
     expect(trees).toHaveLength(2)
@@ -168,7 +169,7 @@ describe('GitHubService', () => {
       'branch refs/heads/feat'
     ].join('\n')
     const spawn = vi.fn().mockResolvedValue({ stdout: porcelain, stderr: '', status: 0, error: undefined })
-    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: spawn })
+    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: plainGitArgs(spawn) })
 
     const trees = await service.listWorktrees({ rootPath: '/some/other/path' })
     expect(trees).toHaveLength(2)
@@ -178,7 +179,7 @@ describe('GitHubService', () => {
 
   test('fetch runs git fetch --all --prune', async () => {
     const spawn = vi.fn().mockResolvedValue({ stdout: '', stderr: '', status: 0, error: undefined })
-    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: spawn })
+    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: plainGitArgs(spawn) })
 
     const result = await service.fetch({ workspaceId: 'ws-1', rootPath: 'C:/projects/repo' })
     expect(result.ok).toBe(true)
@@ -195,7 +196,7 @@ describe('GitHubService', () => {
       if (args[0] === 'rev-parse') return { stdout: '', stderr: 'unknown revision', status: 128, error: undefined }
       return { stdout: '', stderr: '', status: 0, error: undefined }
     })
-    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: spawn })
+    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: plainGitArgs(spawn) })
 
     const result = await service.checkoutBranch({ rootPath: 'C:/projects/repo', name: 'origin/develop' })
 
@@ -213,7 +214,7 @@ describe('GitHubService', () => {
       if (args[0] === 'rev-parse') return { stdout: 'abc123\n', stderr: '', status: 0, error: undefined }
       return { stdout: '', stderr: '', status: 0, error: undefined }
     })
-    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: spawn })
+    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: plainGitArgs(spawn) })
 
     const result = await service.checkoutBranch({ rootPath: 'C:/projects/repo', name: 'origin/develop' })
 
@@ -230,7 +231,7 @@ describe('GitHubService', () => {
       if (args[0] === 'status') return { stdout: ' M src/a.ts\n', stderr: '', status: 0, error: undefined }
       return { stdout: '', stderr: '', status: 0, error: undefined }
     })
-    const dirtyService = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: dirtySpawn })
+    const dirtyService = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: plainGitArgs(dirtySpawn) })
     await expect(dirtyService.pullFfOnly({ workspaceId: 'ws-1', rootPath: 'C:/projects/repo' }))
       .rejects.toThrow(/commit or stash/i)
 
@@ -238,7 +239,7 @@ describe('GitHubService', () => {
       if (args[0] === 'status') return { stdout: '', stderr: '', status: 0, error: undefined }
       return { stdout: '', stderr: '', status: 0, error: undefined }
     })
-    const cleanService = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: cleanSpawn })
+    const cleanService = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: plainGitArgs(cleanSpawn) })
     const result = await cleanService.pullFfOnly({ workspaceId: 'ws-1', rootPath: 'C:/projects/repo' })
     expect(result.ok).toBe(true)
     expect(cleanSpawn).toHaveBeenCalledWith(
@@ -265,7 +266,7 @@ describe('GitHubService', () => {
       if (args[0] === 'rev-list') return { stdout: '0 0\n', stderr: '', status: 0, error: undefined }
       return { stdout: '', stderr: '', status: 0, error: undefined }
     })
-    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: spawn })
+    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: plainGitArgs(spawn) })
 
     const status = await service.getWorkspaceStatus({ workspaceId: 'ws-1', rootPath: 'C:/projects/repo' })
 
@@ -280,7 +281,7 @@ describe('GitHubService', () => {
 
   test('stages and unstages a single file without invoking a shell', async () => {
     const spawn = vi.fn().mockResolvedValue({ stdout: '', stderr: '', status: 0, error: undefined })
-    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: spawn })
+    const service = new GitHubService({} as ReturnType<typeof openInMemoryDatabase>, { spawnCommand: plainGitArgs(spawn) })
     const input = { workspaceId: 'ws-1', rootPath: 'C:/projects/repo', path: 'src/file with spaces.ts' }
 
     await service.stageFile(input)

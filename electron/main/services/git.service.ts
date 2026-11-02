@@ -1,6 +1,7 @@
 import { existsSync, promises as fsp, watch as fsWatch, type FSWatcher } from 'node:fs'
 import { spawn, type SpawnOptions } from 'node:child_process'
 import { join, resolve as resolvePath } from 'node:path'
+import { prepareGit, runGit } from '../utils/safe-git'
 import type { GitBranchStatus, GitCompareMode, GitControlFile, GitControlStatus, GitDiff, GitDiffFile, GitDiffInput, GitDiffSummary, GitDiffSummaryFile, GitFileOriginal, GitSummaryStatus } from '../../../shared/types/git'
 
 export interface SpawnGitResult {
@@ -36,9 +37,9 @@ const RESOLVE_TIMEOUT_MS = 5_000
 let cachedGitCommand: string | undefined
 let gitResolveInFlight: Promise<string | null> | null = null
 
-function spawnCommandAsync(command: string, args: string[], cwd: string, timeoutMs: number, maxOutputBytes = Infinity): Promise<SpawnGitResult> {
+function spawnCommandAsync(command: string, args: string[], cwd: string, timeoutMs: number, maxOutputBytes = Infinity, env?: NodeJS.ProcessEnv): Promise<SpawnGitResult> {
   return new Promise((resolve) => {
-    const opts: SpawnOptions = { cwd, shell: false, windowsHide: true, ...(args.includes('--porcelain=v2') ? { env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } } : {}) }
+    const opts: SpawnOptions = { cwd, shell: false, windowsHide: true, ...(env ? { env } : {}) }
     const child = spawn(command, args, opts)
     let stdout = ''
     let stderr = ''
@@ -84,8 +85,8 @@ async function resolveGitCommand(cwd: string): Promise<string | null> {
   if (gitResolveInFlight) return gitResolveInFlight
 
   gitResolveInFlight = (async () => {
-    const direct = await spawnCommandAsync('git', ['--version'], cwd, RESOLVE_TIMEOUT_MS)
-    if (direct.status === 0) return 'git'
+    const direct = await runGit(cwd, ['--version'], { timeout: RESOLVE_TIMEOUT_MS })
+    if (direct.ok) return 'git'
 
     if (process.platform === 'win32') {
       const where = await spawnCommandAsync('where.exe', ['git'], cwd, RESOLVE_TIMEOUT_MS)
@@ -133,7 +134,12 @@ async function spawnGitAsync(args: string[], cwd: string): Promise<SpawnGitResul
   if (!git) {
     return { stdout: '', stderr: 'Git executable not found', status: null }
   }
-  return spawnCommandAsync(git, args, cwd, SPAWN_TIMEOUT_MS, args.includes('--porcelain=v2') ? 4 * 1024 * 1024 : Infinity)
+  // A porcelain status must not take the index lock an agent's own git may be waiting on.
+  const porcelain = args.includes('--porcelain=v2')
+  let prepared
+  try { prepared = await prepareGit(cwd, porcelain ? ['--no-optional-locks', ...args] : args, { git }) }
+  catch (error) { return { stdout: '', stderr: error instanceof Error ? error.message : String(error), status: null } }
+  return spawnCommandAsync(prepared.command, prepared.args, cwd, SPAWN_TIMEOUT_MS, porcelain ? 4 * 1024 * 1024 : Infinity, prepared.env)
 }
 
 /** Parse one bounded porcelain-v2 snapshot. NUL records preserve unusual file names. */
