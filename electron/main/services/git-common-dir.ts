@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
+import { existsSync, lstatSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import type { SessionLocation } from '../../../shared/types/agent-hooks'
 
@@ -8,6 +8,8 @@ import type { SessionLocation } from '../../../shared/types/agent-hooks'
  * directory is not the top of a checkout. Synchronous so it can sit in the file-system authorization path.
  */
 export function gitCommonDir(root: string): string | null {
+  // A folder on a network share or a device path is never touched (SECURITY #510 L: realpath/stat would reach it).
+  if (!localPointer(root)) return null
   try {
     const dotGit = join(root, '.git')
     const stat = statSync(dotGit)
@@ -36,6 +38,7 @@ export function gitCommonDir(root: string): string | null {
  * the same folder compares unequal. Falls back to the resolved path when the folder does not exist.
  */
 export function canonicalPath(path: string): string {
+  if (!localPointer(path)) return normalize(path).replace(/\/+$/, '')
   try { return normalize(realpathSync.native(path)) } catch { return normalize(resolve(path)).replace(/\/+$/, '') }
 }
 
@@ -59,8 +62,14 @@ function realOf(path: string): string | null {
 function checkoutOf(root: string, common: string): boolean {
   try {
     const dotGit = join(root, '.git')
+    // A `.git` that is itself a link (a junction needs no privilege on Windows) would borrow the real one's identity:
+    // refused, and the real `.git` must sit in the folder's own real place (SECURITY #510 H).
+    if (lstatSync(dotGit).isSymbolicLink()) return false
+    const realRoot = realOf(root)
+    const realDotGit = realOf(dotGit)
+    if (!realRoot || !realDotGit || normalize(dirname(realDotGit)) !== realRoot) return false
     const info = statSync(dotGit)
-    if (info.isDirectory()) return realOf(dotGit) === common
+    if (info.isDirectory()) return realDotGit === common
     if (!info.isFile()) return false
     const pointer = /^gitdir:\s*(.+)$/m.exec(readFileSync(dotGit, 'utf8'))?.[1].trim()
     if (!pointer || !localPointer(pointer)) return false
@@ -102,7 +111,7 @@ export function findCheckoutRoot(dir: string): string | null {
  * existing directory is accepted: the value comes from the agent's hook payload.
  */
 export function resolveSessionLocation(cwd: string, launchRoot: string): SessionLocation | null {
-  if (!cwd || cwd.length > 4096 || cwd.includes('\0') || !isAbsolute(cwd)) return null
+  if (!cwd || cwd.length > 4096 || cwd.includes('\0') || !isAbsolute(cwd) || !localPointer(cwd)) return null
   try { if (!statSync(cwd).isDirectory()) return null } catch { return null }
   const found = findCheckoutRoot(cwd)
   const launchCheckout = findCheckoutRoot(launchRoot) ?? launchRoot

@@ -5,7 +5,7 @@
  * worktree root for reading and writing. Checkouts are now verified against the repository's own records, both ways.
  */
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -64,6 +64,33 @@ describe('a worktree root is the repository\'s own, checked both ways', () => {
   it('a pointer to a UNC share or a device path is refused', () => {
     const outside = forged('unc', '\\\\server\\share\\repo\\.git\\worktrees\\x')
     expect(sameRepository(repo, outside)).toBe(false)
+  })
+
+  it('a .git that is a link to the real one borrows nothing: a junction to the repository\'s, a symlink to a worktree\'s', () => {
+    const viaJunction = join(sandbox, 'junction-git')
+    mkdirSync(viaJunction)
+    writeFileSync(join(viaJunction, 'secret.txt'), 'outside')
+    let linked = false
+    try { symlinkSync(join(repo, '.git'), join(viaJunction, '.git'), process.platform === 'win32' ? 'junction' : 'dir'); linked = true } catch { /* no links here */ }
+    if (linked) {
+      expect(sameRepository(repo, viaJunction)).toBe(false)
+      expect(worktreeOrWorkspaceRoot(repo, viaJunction)).toBe(repo)
+    }
+    const viaFileLink = join(sandbox, 'file-link-git')
+    mkdirSync(viaFileLink)
+    let fileLinked = false
+    try { symlinkSync(join(worktree, '.git'), join(viaFileLink, '.git'), 'file'); fileLinked = true } catch { /* symlinks need a privilege on Windows */ }
+    if (fileLinked) expect(sameRepository(repo, viaFileLink)).toBe(false)
+  })
+
+  it('a root or an agent folder on a network share is refused before anything touches it', () => {
+    const started = Date.now()
+    expect(worktreeOrWorkspaceRoot(repo, '\\\\server\\share\\repo')).toBe(repo)
+    expect(worktreeOrWorkspaceRoot(repo, '//server/share/repo')).toBe(repo)
+    expect(resolveSessionLocation('\\\\server\\share\\repo', repo)).toBeNull()
+    expect(sameRepository(repo, '\\\\?\\UNC\\server\\share\\repo')).toBe(false)
+    // No network lookup happened: a real one takes seconds to fail.
+    expect(Date.now() - started).toBeLessThan(1000)
   })
 
   it('an agent reporting a forged folder as where it works is not in the same repository', () => {
