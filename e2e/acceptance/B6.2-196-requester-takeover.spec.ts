@@ -50,6 +50,9 @@ test('B6.2/#196: another live pane cannot take over a delegation; the requester 
     await page.getByTestId('wizard-launch-btn').click()
     await expect(panes).toHaveCount(2, { timeout: 20_000 })
     await page.waitForTimeout(2_000)
+    // Agent delegation is off by default; the person turns it on in Workspace settings (the same call its checkbox makes).
+    const wsId = await oxe<string>(page, 'window.oxe.workspace.list().then(l => l[0].id)')
+    out.delegationOn = await oxe(page, `window.oxe.delegation.configure(${JSON.stringify(wsId)}, true).then(() => window.oxe.delegation.status(${JSON.stringify(wsId)})).then(s => s.enabled, e => 'error: ' + e.message)`)
     const profiles = await oxe<Array<{ agentProfileId: string; provider: string; isBuiltin: boolean }>>(page, 'window.oxe.agent.list()')
     const agentProfileId = (profiles.find(p => p.provider === 'claude' && p.isBuiltin) ?? profiles[0])?.agentProfileId
     out.profiles = profiles.map(p => `${p.provider}:${p.isBuiltin}`)
