@@ -8,6 +8,7 @@ import { installCloseGuard } from './window-close-guard'
 import { initialWindowColors, registerAppearanceIpc, savedUiScale } from './ipc/appearance.ipc'
 import { systemLocale, tMain } from './i18n'
 import { randomUUID } from 'node:crypto'
+import { realpathSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -906,7 +907,8 @@ const gotLock = singleInstanceDisabled({
   env: process.env,
   isPackaged: app.isPackaged,
   userDataDirSwitch: app.commandLine.getSwitchValue('user-data-dir'),
-  defaultUserData: join(app.getPath('appData'), app.getName()),
+  defaultUserData: () => join(app.getPath('appData'), app.getName()),
+  realpath: realpathSync.native,
 }) || app.requestSingleInstanceLock()
 
 if (!gotLock) {
