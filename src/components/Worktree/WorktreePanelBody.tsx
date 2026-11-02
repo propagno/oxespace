@@ -76,6 +76,8 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
   const [localError, setLocalError] = useState<string | null>(null)
   /** What the last creation reported (worktree.created, git.hooks.skipped, worktree.copyFiles.*, worktree.setup.*). */
   const [createdNotices, setCreatedNotices] = useState<MainMessage[]>([])
+  // They belong to the workspace they were made in: another workspace starts with none (FRONTEND review #485).
+  useEffect(() => { setCreatedNotices([]) }, [workspaceId, workspaceRootPath])
   const [pendingRemoval, setPendingRemoval] = useState<PendingRemoval | null>(null)
   // Start point for the new branch. `resolvedBase` is what the repo says the
   // default is (origin/main and friends); `baseOverride` is the user typing

@@ -28,7 +28,10 @@ export function worktreeNoticesIntent(notices: readonly MainMessage[]): NoticeIn
 export function WorktreeCreationNotices({ notices, onDismiss }: { notices: readonly MainMessage[]; onDismiss: () => void }): ReactElement | null {
   const { t } = useTranslation('code')
   if (notices.length === 0) return null
-  const [first, ...rest] = notices
+  // The title is the creation by its code, wherever it sits; without one, the first notice (FRONTEND review #485).
+  const titleAt = Math.max(0, notices.findIndex((notice) => notice.code === 'worktree.created' || notice.code === 'worktree.createdFrom'))
+  const first = notices[titleAt]
+  const rest = notices.filter((_, index) => index !== titleAt)
   return (
     <Notice
       intent={worktreeNoticesIntent(notices)}

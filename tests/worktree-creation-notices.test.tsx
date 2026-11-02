@@ -44,6 +44,13 @@ describe('WorktreeCreationNotices', () => {
     expect(screen.getByRole('status')).toBeTruthy()
   })
 
+  it('the creation is the title by its code, even when another notice comes first', () => {
+    const stale: MainMessage = { code: 'git.base.maybeStale', params: { branch: 'origin/main' } }
+    render(<WorktreeCreationNotices notices={[stale, created]} onDismiss={() => {}} />)
+    expect(screen.getByText('Worktree created at /repo-wt (branch feature/x from origin/main).').tagName).toBe('STRONG')
+    expect(screen.getByTestId('worktree-creation-notices').textContent).toContain('origin/main')
+  })
+
   it('shows nothing without notices', () => {
     const { container } = render(<WorktreeCreationNotices notices={[]} onDismiss={() => {}} />)
     expect(container.innerHTML).toBe('')
