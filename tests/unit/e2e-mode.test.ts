@@ -31,11 +31,14 @@ const OWN_PACKAGED_CHECK: Record<string, RegExp> = {
   'services/browser-preview-security.ts': /packaged = app\.isPackaged\)[^{]*\{\s*if \(packaged \|\| env\.OXESPACE_E2E_GUEST_PROBE !== '1'\) return \{\}/,
   'services/approvals/timeout.ts': /approvalTimeoutMs\(env[^)]*isPackaged: boolean\)[^{]*\{\s*if \(isPackaged\) return APPROVAL_TIMEOUT_MS/,
 }
-const MOCK_LAYER_ONLY = new Set(['e2e/mock-ipc.ts', 'e2e/remote-mock.ts', 'e2e/approvals-mock.ts'])
+// Every other file in electron/main/e2e is mock layer: it only runs when loaded, and the check below lets nothing
+// outside that folder load one of them except index.ts inside the switch. A new mock (e2e/open-in-mock.ts, #454)
+// needs no change here.
+const isMockLayer = (file: string): boolean => file.startsWith('e2e/') && file !== 'e2e/e2e-mode.ts'
 const THROUGH_SWITCH = new Set(['index.ts', 'window-close-guard.ts', 'ipc/agent.ipc.ts', 'updater.ts'])
 const SWITCH = 'e2eMocksEnabled(process.env, app.isPackaged)'
-// The E2E modules nothing outside electron/main/e2e may load, except index.ts behind the switch.
-const MOCK_MODULE = /(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"`][^'"`]*\be2e\/(?:mock-ipc|remote-mock|approvals-mock|mcp-fixture|agent-state-hook|oxequery-mock-guard)['"`]/g
+// Any load of an electron/main/e2e module other than the switch itself (e2e-mode), static, dynamic or require.
+const MOCK_MODULE = /(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"`][^'"`]*\be2e\/(?!e2e-mode['"`])[\w.-]+['"`]/g
 
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap(name => {
@@ -74,7 +77,7 @@ describe('every OXESPACE_E2E_* read in electron/main', () => {
   const reads = all.filter(source => source.file !== 'e2e/e2e-mode.ts' && /OXESPACE_E2E_|['"`]OXESPACE_['"`]\s*\+|`OXESPACE_\$\{/.test(source.text))
 
   it('sits in a file that is guarded against a packaged build', () => {
-    const unknown = reads.map(read => read.file).filter(file => !(file in OWN_PACKAGED_CHECK) && !MOCK_LAYER_ONLY.has(file) && !THROUGH_SWITCH.has(file))
+    const unknown = reads.map(read => read.file).filter(file => !(file in OWN_PACKAGED_CHECK) && !isMockLayer(file) && !THROUGH_SWITCH.has(file))
     expect(unknown).toEqual([])
   })
 

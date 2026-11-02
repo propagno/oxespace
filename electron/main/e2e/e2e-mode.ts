@@ -10,10 +10,12 @@
  * - with their own `isPackaged` check: e2e/mcp-fixture.ts (OXESPACE_E2E_MCP_FIXTURE), e2e/agent-state-hook.ts
  *   (OXESPACE_E2E_AGENT_STATE), services/browser-preview-security.ts (OXESPACE_E2E_GUEST_PROBE),
  *   services/approvals/timeout.ts (OXESPACE_E2E_APPROVALS_TIMEOUT_MS; its caller passes `app?.isPackaged ?? true`);
- * - only reachable from the mock layer, which index.ts loads through this switch: e2e/mock-ipc.ts
- *   (OXESPACE_E2E_OFFLINE, _PENDING_REQUESTS, _SIDE_UNAVAILABLE, _REAL_GIT_BRANCH, _PREVIEW_SERVICE),
- *   e2e/remote-mock.ts (OXESPACE_E2E_REMOTE_*), e2e/approvals-mock.ts (OXESPACE_E2E_APPROVALS*).
- * tests/unit/e2e-mode.test.ts fails when a new read appears outside these files.
+ * - any other file in electron/main/e2e is mock layer, reachable only through e2e/mock-ipc.ts, which index.ts loads
+ *   behind this switch: e.g. mock-ipc (OXESPACE_E2E_OFFLINE, _PENDING_REQUESTS, _SIDE_UNAVAILABLE, _REAL_GIT_BRANCH,
+ *   _PREVIEW_SERVICE), remote-mock (OXESPACE_E2E_REMOTE_*), approvals-mock (OXESPACE_E2E_APPROVALS*), open-in-mock
+ *   (OXESPACE_E2E_OPEN_IN_EDITORS).
+ * tests/unit/e2e-mode.test.ts fails when a read appears outside these files, or when anything outside electron/main/e2e
+ * loads one of its modules (other than this one) except index.ts inside the switch.
  */
 export function e2eMocksEnabled(env: Record<string, string | undefined>, isPackaged: boolean): boolean {
   if (isPackaged) return false
