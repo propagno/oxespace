@@ -96,7 +96,7 @@ input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; accent-
 :where(
   .bg-jobs-panel-empty, .changes-empty, .git-control-empty, .github-empty, .github-empty-center, .github-empty-inline,
   .github-actions-v2-empty, .github-changes-empty, .linear-empty,
-  .thread-review-empty, .editor-empty, .editor-browser-empty, .settings-empty, .worktree-menu-empty,
+  .thread-review-empty, .editor-empty, .editor-browser-empty, .worktree-menu-empty,
   .workspace-list-empty, .sidebar-empty-state
 ) {
   color: var(--text-muted);

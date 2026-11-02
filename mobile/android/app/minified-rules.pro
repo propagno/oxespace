@@ -10,3 +10,5 @@
 -keep class com.oxespace.mobile.protocol.RemoteFrames { *; }
 -keep class com.oxespace.mobile.protocol.FrameRead** { *; }
 -keep enum com.oxespace.mobile.protocol.FrameSource { *; }
+# The smoke test asks the shrunk build whether captures can be allowed (they never can outside debug).
+-keep class com.oxespace.mobile.ui.CaptureForHomologation { *; }

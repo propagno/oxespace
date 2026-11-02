@@ -1264,6 +1264,7 @@
     "context": {
       "meter": "Janela de contexto",
       "detail": "{{used}} de {{total}} · {{percent}}%",
+      "detailOver": "{{used}} de {{total}} · {{percent}}%, além da janela",
       "breakdown": "O que ocupa o contexto",
       "category": "Categoria",
       "tokens": "Tokens",

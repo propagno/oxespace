@@ -34,6 +34,17 @@ beforeEach(() => { try { localStorage.clear() } catch { /* jsdom always has it *
 afterEach(async () => { cleanup(); vi.restoreAllMocks(); await changeLanguage('en') })
 
 describe('session panel context numbers', () => {
+  it('a report past the window reads as such: the meter stays in range, and the header and the rows agree (HML FINDING L)', () => {
+    const report = { model: 'claude-x', usedTokens: 260_000, windowTokens: 200_000, percentage: 130, capturedAt: 5, source: 'claude-control' as const,
+      categories: [{ name: 'Messages', tokens: 260_000, kind: 'used' as const }, { name: 'Free space', tokens: 0, kind: 'free' as const }] }
+    expect(sessionContext(report)).toMatchObject({ used: 260_000, window: 200_000, percent: 130, over: true })
+    renderPanel(snapshotWith({ contextReport: report }))
+    const meter = screen.getByRole('meter', { name: 'Context window' })
+    expect(Number(meter.getAttribute('aria-valuenow'))).toBeLessThanOrEqual(Number(meter.getAttribute('aria-valuemax')))
+    expect(screen.getByText(`${compactTokens(260_000)} of ${compactTokens(200_000)} · 130%, past the window`)).toBeVisible()
+    expect(row('Messages')).toHaveTextContent('130%')
+  })
+
   it('match the usage events the thread received: the newest report, grouped by category', () => {
     const report = latestContextReport(claudeEvents())!
     expect(report.capturedAt).toBe(1001)
