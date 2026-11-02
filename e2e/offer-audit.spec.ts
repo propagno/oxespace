@@ -2,7 +2,7 @@ import { modeButton, type AppMode } from './helpers/modes'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { launchApp, resizeWindow, type LaunchedApp } from './helpers/launch'
+import { launchApp, layoutAtWidth, type LaunchedApp } from './helpers/launch'
 
 /**
  * Every entry point the app offers works or is gone (docs/validation/offer-audit-1.4.md).
@@ -165,15 +165,14 @@ async function selectView(page: Page, mode: AppMode): Promise<void> {
 async function launchWithWorkspace(): Promise<LaunchedApp> {
   const launched = await launchApp()
   const { app, page, workspaceRoot } = launched
-  // Splits are refused when the halves would be under 240 px (#310). The audit runs them, so it lays out 1440 CSS px
-  // whatever the CI screen (a smaller one clamps the window): zoomed out when the screen is smaller.
-  await resizeWindow(app, 1440, 900)
-  await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setZoomFactor(Math.min(1, win.getContentBounds().width / 1440)) })
   await page.evaluate(root => window.oxe.workspace.create({ rootPath: root, layoutPreset: 2, autoStart: false }), workspaceRoot)
   await page.reload()
   await page.waitForLoadState('load')
   await page.getByTestId('btn-new-workspace').first().waitFor()
   await expect(page.locator('[data-testid="pane-container"]').first()).toBeVisible()
+  // Splits are refused when the halves would be under 240 px (#310). The audit runs them, so it lays out 1440 CSS px
+  // whatever the CI screen (a smaller one clamps the window), after the reload: the app sets its own scale on mount.
+  await layoutAtWidth(app, page, 1440, 900)
   return launched
 }
 

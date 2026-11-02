@@ -2,7 +2,7 @@ import { _electron as electron, expect, test, type ElectronApplication, type Pag
 import { mkdirSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { resizeWindow } from './helpers/launch'
+import { layoutAtWidth } from './helpers/launch'
 
 /**
  * The user's report (31/10): splitting past a 2×2 layout left panes ~90 px wide and closing them failed. This runs main
@@ -29,10 +29,9 @@ test('splitting past a 2×2 layout keeps panes usable, refuses what does not fit
   try {
     app = await launchReal(join(root, 'db.sqlite3'))
     const page = await app.firstWindow()
-    await resizeWindow(app, 1440, 900)
-    // CI screens can be smaller than 1440 px (the window is clamped, and four columns then fit no further split): zoom
-    // out so the layout is 1440 CSS px wide whatever the screen. The 240 px rule is in CSS px, unchanged.
-    await app.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows()[0]; win.webContents.setZoomFactor(Math.min(1, win.getContentBounds().width / 1440)) })
+    // CI screens can be smaller than 1440 px (the window is clamped, and four columns then fit no further split): the
+    // layout is 1440 CSS px wide whatever the screen. The 240 px rule is in CSS px, unchanged.
+    await layoutAtWidth(app, page, 1440, 900)
     console.log(`[SPLIT-ROOM] window ${await page.evaluate(() => `${window.innerWidth}x${window.innerHeight}`)} CSS px`)
     await page.getByTestId('btn-new-workspace').click()
     await page.getByTestId('wizard-dir-input').fill(repo)
