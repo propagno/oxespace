@@ -187,16 +187,35 @@ export function toDelegation(row: RemoteDelegationRow, roots: readonly string[])
  * S7.1 · One agent for the phone (CCR #513 §6): the state already mapped, the oldest pending request with main's own
  * title (never the agent's text), and nothing that names a place or an account: no path, worktree, session or cost.
  */
-export function toRemoteAgent(row: AgentRow, rev: number, roots: readonly string[], words: (message: MainMessage) => string): RemoteAgentRow {
+export function toRemoteAgent(
+  row: AgentRow, rev: number, roots: readonly string[], words: (message: MainMessage) => string,
+  /** How the phone itself sees a conversation's request (`toPendingRequest`): its risk, and whether it can answer it. */
+  asShown?: (threadId: string, requestId: string) => Pick<RemotePendingRequest, 'risk' | 'answerable'> | undefined
+): RemoteAgentRow {
   const oldest = [...row.requests].sort((a, b) => a.since - b.since)[0]
+  const shown = oldest && row.kind === 'thread' ? asShown?.(row.id, oldest.requestId) : undefined
   return {
     kind: row.kind, id: row.id, rev, state: row.state, provider: row.provider,
     title: clean(row.title, roots, REMOTE_TEXT_LIMITS.objective).text, since: row.since,
     ...(oldest ? {
       request: {
         requestId: oldest.requestId, title: clean(words(oldest.title), roots, REMOTE_TEXT_LIMITS.detail).text, titleCode: oldest.title.code,
-        titleParams: { ...oldest.title.params } as Record<string, unknown>, risk: oldest.risk, answerable: oldest.answerable
+        titleParams: remoteParams(oldest.title.params, roots),
+        // A conversation's request as the phone's own pending list has it (SECURITY #531 L3, L4); one the phone does
+        // not list is not answerable from it.
+        risk: row.kind === 'thread' ? shown?.risk ?? null : oldest.risk,
+        answerable: row.kind === 'thread' ? shown?.answerable ?? false : oldest.answerable
       }
     } : {})
   }
+}
+
+/** A message's parameters for the phone: strings cleaned like any remote text, numbers kept, anything else dropped. */
+function remoteParams(params: object, roots: readonly string[]): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(params)) {
+    if (typeof value === 'string') out[key] = clean(value, roots, REMOTE_TEXT_LIMITS.detail).text
+    else if (typeof value === 'number' && Number.isFinite(value)) out[key] = value
+  }
+  return out
 }

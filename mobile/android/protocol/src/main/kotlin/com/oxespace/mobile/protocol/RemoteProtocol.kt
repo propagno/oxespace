@@ -693,16 +693,16 @@ data class RemoteAgentRequest(
  */
 @Serializable
 data class RemoteAgentRow(
-    val kind: RemoteAgentKind,
+    val kind: String,
     /** The source's own id; for a conversation, the thread id the phone opens it with. */
     val id: String,
     /**
-     * Higher on every change of this row. One counter for all rows, seeded from the clock at start, so it never goes
-     * back across a restart. The phone keeps the highest `rev` per key, removed keys included, and applies an upsert or
+     * Higher on every change of this row. One counter for all rows, seeded from the clock at start; a restart always
+     * begins with a snapshot. The phone keeps the highest `rev` per key, removed keys included, and applies an upsert or
      * a removal only when its `rev` is higher; a snapshot replaces everything it holds.
      */
     val rev: Long,
-    val state: RemoteAgentState,
+    val state: String,
     val provider: String,
     val title: String,
     val since: Long,
@@ -713,7 +713,7 @@ data class RemoteAgentRow(
 
 @Serializable
 data class RemoteAgentKey(
-    val kind: RemoteAgentKind,
+    val kind: String,
     val id: String,
     val rev: Long,
 )
@@ -722,7 +722,7 @@ data class RemoteAgentKey(
 @Serializable
 data class RemoteAgentsSnapshot(
     val rows: List<RemoteAgentRow>,
-    val unavailable: List<RemoteAgentSource>,
+    val unavailable: List<String>,
 )
 
 /** Event: what changed, and what left (with the `rev` at which it left). */
@@ -730,7 +730,7 @@ data class RemoteAgentsSnapshot(
 data class RemoteAgentsEvent(
     val upsert: List<RemoteAgentRow>? = null,
     val removed: List<RemoteAgentKey>? = null,
-    val unavailable: List<RemoteAgentSource>,
+    val unavailable: List<String>,
 )
 
 /**

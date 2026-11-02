@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   REMOTE_AGENT_KINDS, REMOTE_AGENT_SOURCES, REMOTE_AGENT_STATES, REMOTE_APPROVAL_RISKS, REMOTE_COMMANDS, REMOTE_SUBSCRIPTIONS,
-  type RemoteAgentRow, type RemoteAgentsEvent, type RemoteAgentsSnapshot
+  type RemoteAgentKey, type RemoteAgentRow, type RemoteAgentsEvent, type RemoteAgentsSnapshot
 } from '../../shared/remote/protocol'
 import { AGENT_KINDS, AGENT_SOURCES, AGENT_STATES, type AgentRow, type AgentsOverview } from '../../shared/types/agents'
 import { APPROVAL_RISKS } from '../../shared/types/approvals'
@@ -33,7 +33,8 @@ function fakeDesktop(overview: () => AgentsOverview) {
     agents: overview,
     onAgentsChanged: (listener: () => void) => { listeners.add(listener); return () => listeners.delete(listener) },
     markAgentSeen: (key: unknown) => { marked.push(key); return true },
-    messageText: englishText
+    messageText: englishText,
+    pendingRequests: () => []
   } as unknown as RemoteDesktop
   return { desktop, marked, changed: () => { for (const listener of listeners) listener() }, listening: () => listeners.size }
 }
@@ -46,6 +47,16 @@ describe('the C5 agents contract', () => {
     expect([...REMOTE_AGENT_KINDS]).toEqual([...AGENT_KINDS])
     expect([...REMOTE_AGENT_SOURCES]).toEqual([...AGENT_SOURCES])
     expect([...REMOTE_APPROVAL_RISKS]).toEqual([...APPROVAL_RISKS])
+    // The wire words are written out (the phone reads them as text, MOBILE review); they must be exactly the lists.
+    type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
+    const wire: [
+      Same<RemoteAgentRow['state'], typeof REMOTE_AGENT_STATES[number]>,
+      Same<RemoteAgentRow['kind'], typeof REMOTE_AGENT_KINDS[number]>,
+      Same<RemoteAgentKey['kind'], typeof REMOTE_AGENT_KINDS[number]>,
+      Same<RemoteAgentsSnapshot['unavailable'][number], typeof REMOTE_AGENT_SOURCES[number]>,
+      Same<RemoteAgentsEvent['unavailable'][number], typeof REMOTE_AGENT_SOURCES[number]>
+    ] = [true, true, true, true, true]
+    expect(wire).toEqual([true, true, true, true, true])
     expect(REMOTE_SUBSCRIPTIONS).toContain('agents')
     expect(REMOTE_COMMANDS).toContain('agent.markSeen')
   })
@@ -63,6 +74,24 @@ describe('the C5 agents contract', () => {
     expect(remote).toMatchObject({ kind: 'thread', id: 't1', rev: 7, state: 'working', provider: 'claude', since: 100 })
     // The oldest request, with its C3 code beside main's English words.
     expect(remote.request).toEqual({ requestId: 'r1', title: 'Waiting for your approval', titleCode: 'agents.request.approval', titleParams: {}, risk: null, answerable: false })
+  })
+})
+
+describe('what the phone is told about a request (SECURITY #531 L1, L3, L4)', () => {
+  it('cleans string parameters like any remote text, keeps numbers and drops anything else', () => {
+    const title = { code: 'worktree.removed', params: { path: `${ROOT}/wt/secret`, count: 3, nested: { x: 1 } } } as unknown as AgentRow['requests'][number]['title']
+    const remote = toRemoteAgent(row({ kind: 'pane', id: 'p1', requests: [{ requestId: 'r', title, risk: null, answerable: false, since: 1 }] }), 1, [ROOT], englishText)
+    expect(JSON.stringify(remote.request?.titleParams)).not.toContain(ROOT)
+    expect(remote.request?.titleParams).toMatchObject({ count: 3 })
+    expect(remote.request?.titleParams).not.toHaveProperty('nested')
+  })
+
+  it('a conversation request takes the risk and answerability of the phone pending list, else none', () => {
+    const requests = [{ requestId: 'r1', title: mainMessage('agents.request.approval', {}), risk: null, answerable: true, since: 1 }]
+    const listed = toRemoteAgent(row({ requests }), 1, [ROOT], englishText, () => ({ risk: 'high', answerable: true }))
+    expect(listed.request).toMatchObject({ risk: 'high', answerable: true })
+    const unlisted = toRemoteAgent(row({ requests }), 1, [ROOT], englishText, () => undefined)
+    expect(unlisted.request).toMatchObject({ risk: null, answerable: false })
   })
 })
 
@@ -144,6 +173,23 @@ describe('the agents topic', () => {
     const fresh: RemoteTopicFrame[] = []
     topics.agents.open({ deviceId: 'd1', cursor: 'a.unknown' }, frame => fresh.push(frame))!.close()
     expect(fresh[0].kind).toBe('snapshot')
+  })
+
+  it('a source that fails keeps its last rows instead of removing them (SECURITY #531 L5)', async () => {
+    vi.useFakeTimers()
+    let failing = false
+    const fake = fakeDesktop(() => ({
+      agents: failing ? [row()] : [row(), row({ kind: 'pane', id: 'p1', mode: 'code' })],
+      sources: failing ? { ...ok(), panes: { ok: false, reason: mainMessage('agents.source.unavailable', { source: 'panes' }) } } : ok()
+    }))
+    const { frames, handle } = open(fake.desktop)
+    failing = true
+    fake.changed()
+    await vi.advanceTimersByTimeAsync(20)
+    const event = frames[1].data as RemoteAgentsEvent
+    expect(event.removed ?? []).toEqual([])
+    expect(event.unavailable).toEqual(['panes'])
+    handle.close()
   })
 
   it('names a source that could not be read, and still sends the others', () => {

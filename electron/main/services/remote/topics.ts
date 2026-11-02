@@ -7,7 +7,7 @@ import {
 import type { ConversationThread, ThreadEvent, ThreadSyncCursor } from '../../../../shared/types/thread'
 import type { RemoteTopicFrame, RemoteTopicSource } from './connection'
 import type { RemoteDesktop } from './desktop'
-import { toDelegation, toJob, toRemoteAgent, toPendingRequest, toThreadHeader, toThreadItem, toThreadSummary, toWorkspace } from './filters'
+import { toDelegation, toJob, toPendingRequest, toRemoteAgent, toThreadHeader, toThreadItem, toThreadSummary, toWorkspace } from './filters'
 import { fitItem, FRAME_BUDGET, pageList, splitText } from './frames'
 import { clean, TerminalWindow } from './text'
 
@@ -322,7 +322,8 @@ const AGENT_TOMBSTONES = 2_000
 
 /**
  * The `rev` of every agent row, one book per gateway so every phone sees the same numbers. One counter for all rows,
- * seeded from the clock (milliseconds × 1000) so it never goes back across a restart; a row gets the next value when
+ * seeded from the clock (milliseconds × 1000), so a restart starts above the last run unless the clock went back; a
+ * restart sends a fresh snapshot anyway (cursors live in memory), which replaces what the phone holds; a row gets the next value when
  * what the phone sees of it changes, and a removed row gets one when it leaves.
  */
 export class AgentRevisions {
@@ -364,16 +365,32 @@ export class AgentRevisions {
   }
 }
 
+/** Which kind of row each source reads. */
+const SOURCE_KIND: Record<RemoteAgentSource, RemoteAgentRow['kind']> = { panes: 'pane', threads: 'thread', delegations: 'delegation', work: 'work' }
+
 class AgentsTopic implements RemoteTopicSource {
   private readonly states = new Map<string, Map<string, number>>()
+  private readonly lastRows = new Map<RemoteAgentRow['kind'], RemoteAgentRow[]>()
 
   constructor(private readonly desktop: RemoteDesktop, private readonly revisions: AgentRevisions, private readonly pollMs: number, private readonly debounceMs: number) {}
 
   private capture(): { cursor: string; rows: RemoteAgentRow[]; byKey: Map<string, number>; unavailable: RemoteAgentSource[] } {
     const overview = this.desktop.agents()
     const roots = this.desktop.roots()
-    const rows = this.revisions.update(overview.agents.map(row => toRemoteAgent(row, 0, roots, message => this.desktop.messageText(message))))
+    const shown = new Map(this.desktop.pendingRequests().map(row => {
+      const request = toPendingRequest(row, roots)
+      return [`${request.threadId}\u0000${request.requestId}`, request] as const
+    }))
     const unavailable = REMOTE_AGENT_SOURCES.filter(source => !overview.sources[source]?.ok)
+    const fresh = overview.agents.map(row => toRemoteAgent(row, 0, roots, message => this.desktop.messageText(message), (threadId, requestId) => shown.get(`${threadId}\u0000${requestId}`)))
+    // A source that could not be read keeps its last rows, named in `unavailable`: a failure never reads as "gone"
+    // (SECURITY #531 L5, §5.7).
+    for (const source of REMOTE_AGENT_SOURCES) {
+      const kind = SOURCE_KIND[source]
+      if (unavailable.includes(source)) fresh.push(...(this.lastRows.get(kind) ?? []))
+      else this.lastRows.set(kind, fresh.filter(row => row.kind === kind))
+    }
+    const rows = this.revisions.update(fresh)
     const byKey = new Map(rows.map(row => [agentKey(row), row.rev]))
     const cursor = `a.${digest(JSON.stringify([[...byKey], unavailable]))}`
     this.states.delete(cursor)

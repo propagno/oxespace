@@ -558,6 +558,12 @@ export type RemoteAgentKind = typeof REMOTE_AGENT_KINDS[number]
 /** Each source answers on its own; one listed here could not be read, and the others still show. */
 export const REMOTE_AGENT_SOURCES = ['panes', 'threads', 'delegations', 'work'] as const
 export type RemoteAgentSource = typeof REMOTE_AGENT_SOURCES[number]
+/*
+ * On the wire, kind, state and source are written out as words, not as the lists above: the phone reads them as text
+ * (like `RemoteThreadSummary.status`), so a value a newer desktop adds still reads. An unknown state shows as
+ * `unknown`, a row of an unknown kind is skipped, an unknown source ignored (MOBILE review of #531). A test keeps these
+ * words equal to the lists.
+ */
 
 /** The oldest pending request of an agent: main-built, never the agent's own text. */
 export interface RemoteAgentRequest {
@@ -578,16 +584,16 @@ export interface RemoteAgentRequest {
  * worktree, a session id or a cost.
  */
 export interface RemoteAgentRow {
-  kind: RemoteAgentKind
+  kind: 'pane' | 'thread' | 'delegation' | 'work'
   /** The source's own id; for a conversation, the thread id the phone opens it with. */
   id: string
   /**
-   * Higher on every change of this row. One counter for all rows, seeded from the clock at start, so it never goes
-   * back across a restart. The phone keeps the highest `rev` per key, removed keys included, and applies an upsert or
+   * Higher on every change of this row. One counter for all rows, seeded from the clock at start; a restart always
+   * begins with a snapshot. The phone keeps the highest `rev` per key, removed keys included, and applies an upsert or
    * a removal only when its `rev` is higher; a snapshot replaces everything it holds.
    */
   rev: number
-  state: RemoteAgentState
+  state: 'needs-you' | 'failed' | 'working' | 'finished' | 'idle' | 'stopped' | 'unknown'
   provider: 'claude' | 'codex' | 'other'
   title: string
   since: number
@@ -595,11 +601,11 @@ export interface RemoteAgentRow {
   /** While `needs-you`: when the phone may nudge (the desktop's needs-you timer, S7.2). Not sent before S7.2. */
   nudgeAfterMs?: number
 }
-export interface RemoteAgentKey { kind: RemoteAgentKind; id: string; rev: number }
+export interface RemoteAgentKey { kind: 'pane' | 'thread' | 'delegation' | 'work'; id: string; rev: number }
 /** Snapshot: every row, in pages if needed. */
-export interface RemoteAgentsSnapshot { rows: RemoteAgentRow[]; unavailable: RemoteAgentSource[] }
+export interface RemoteAgentsSnapshot { rows: RemoteAgentRow[]; unavailable: ('panes' | 'threads' | 'delegations' | 'work')[] }
 /** Event: what changed, and what left (with the `rev` at which it left). */
-export interface RemoteAgentsEvent { upsert?: RemoteAgentRow[]; removed?: RemoteAgentKey[]; unavailable: RemoteAgentSource[] }
+export interface RemoteAgentsEvent { upsert?: RemoteAgentRow[]; removed?: RemoteAgentKey[]; unavailable: ('panes' | 'threads' | 'delegations' | 'work')[] }
 
 // ---- commands: args, and ack.result -------------------------------------------------------------------------------
 /**

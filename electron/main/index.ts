@@ -383,7 +383,19 @@ async function registerIpcHandlers(): Promise<() => void> {
   registerRemoteIpc(db, {
     threads: threadManager.manager, terminals: terminalManager, agentState,
     // S7.1: the phone's `agents` topic; a mark from the phone reaches the window too.
-    agents: { overview: () => agentsModel.overview(), markSeen: key => { const ok = agentsModel.markSeen(key); if (ok) notifyAgentsChanged(); return ok }, onChanged: onAgentsChanged, text: englishText }
+    agents: {
+      overview: () => agentsModel.overview(),
+      // Only an agent the overview lists: a phone cannot push the person's real marks out of the store with made-up
+      // keys (SECURITY #531 L2). The answer is ok either way; the phone already sees every row.
+      markSeen: key => {
+        const { kind, id } = (key ?? {}) as { kind?: unknown; id?: unknown }
+        if (!agentsModel.overview().agents.some(row => row.kind === kind && row.id === id)) return false
+        const ok = agentsModel.markSeen(key)
+        if (ok) notifyAgentsChanged()
+        return ok
+      },
+      onChanged: onAgentsChanged, text: englishText
+    }
   }); app.once('before-quit', registerAppInfoIpc(db))
   registerCopilotIpc()
   const creditsService = registerAgentCreditsIpc()
