@@ -1,0 +1,8 @@
+/* A view's work area while its chunk loads past 300 ms (docs/design/motion.md): the shape of its content. */
+.viewSkeleton {
+  display: grid;
+  flex: 1;
+  align-content: start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}

@@ -204,6 +204,11 @@ const settingsSurface = (name: string, page: 'providers' | 'appearance'): Surfac
   probe: { dialog: true, sidebar: false, settleMs: 300, timeoutMs: 10_000, content: ['.settings-center-content :is(h2, h3)', '.settings-center-content :is(button, input, select, textarea, [role="switch"])'] },
   arm: async p => {
     await modeButton(p, 'OxeCode').click()
+    // F7.2: a view switch commits after the selected button has painted, so let it land before tagging a control the
+    // commit re-renders (untimed setup).
+    await expect(modeButton(p, 'OxeCode')).toHaveAttribute('aria-pressed', 'true')
+    await expect(modeButton(p, 'OxeCode')).not.toHaveAttribute('aria-busy', 'true')
+    await p.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
     await p.evaluate(target => localStorage.setItem('oxe.settings.destination', JSON.stringify({ scope: 'application', page: target })), page)
     await p.getByRole('button', { name: 'Open settings' }).first().evaluate(el => el.setAttribute('data-perf-trigger', ''))
   },
