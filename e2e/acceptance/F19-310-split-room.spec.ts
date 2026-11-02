@@ -13,7 +13,14 @@ const sizes = (page: Page) => panes(page).evaluateAll(list => list.map(e => { co
 async function split(page: Page, direction: 'right' | 'down'): Promise<string> {
   const last = panes(page).last()
   await last.getByRole('button', { name: /More pane actions/ }).click()
-  await page.getByRole('menuitem', { name: direction === 'right' ? /Split pane right/ : /Split pane down/ }).click()
+  const item = page.getByRole('menuitem', { name: direction === 'right' ? /Split pane right/ : /Split pane down/ })
+  // In a short window the pane menu can sit past the bottom edge: then the pane's own shortcut (Settings › Keyboard,
+  // Ctrl+Shift+\ / Ctrl+Shift+-), from the focused pane, is the same split.
+  if (!(await item.click({ timeout: 5_000 }).then(() => true, () => false))) {
+    await page.keyboard.press('Escape')
+    await last.locator('.xterm').click()
+    await page.keyboard.press(direction === 'right' ? 'Control+Shift+Backslash' : 'Control+Shift+Minus')
+  }
   await page.waitForTimeout(1_200)
   return (await page.locator('[data-toast]').allInnerTexts().catch(() => [] as string[])).join(' | ')
 }
