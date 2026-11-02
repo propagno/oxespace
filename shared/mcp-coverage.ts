@@ -423,7 +423,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'app.events': {
     label: 'Change notifications sent to the window',
     excluded: 'Events, not actions: agents read the state they describe with the tools above.',
-    ipc: ['*.on*', '*.changed']
+    ipc: ['*.on*', '*.changed', 'remote.pairingFailed']
   },
 
   // ---- future products ----------------------------------------------------------------------

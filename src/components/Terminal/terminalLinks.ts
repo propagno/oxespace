@@ -1,12 +1,14 @@
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { i18n } from '../../i18n'
-import { openExternalLink } from '../../lib/externalLinks'
 
 const isMac = (): boolean => typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform)
 
-/** Ctrl+click (Cmd+click on macOS) opens a link; a plain click keeps selecting text. */
+/**
+ * Ctrl+click (Cmd+click on macOS) opens a link; a plain click keeps selecting text. The link checks load on the first
+ * one, so the terminal does not carry them in the boot bundle.
+ */
 export function onTerminalLink(event: MouseEvent, uri: string): void {
-  if (event.ctrlKey || event.metaKey) void openExternalLink(uri, { text: uri, source: 'terminal' })
+  if (event.ctrlKey || event.metaKey) void import('../../lib/externalLinks').then(links => links.openExternalLink(uri, { text: uri, source: 'terminal' }))
 }
 
 /**
