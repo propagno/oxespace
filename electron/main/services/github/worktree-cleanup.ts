@@ -114,7 +114,9 @@ export class WorktreeCleanup {
     const results: WorktreeCleanupCandidate[] = []
     for (let i = 0; i < candidates.length; i += 3) {
       const batch = candidates.slice(i, i + 3)
-      results.push(...(await Promise.all(batch.map((t) => this.inspect(t, primary?.head ?? null, sharedDirs, input.context, now)))))
+      // The main checkout's list (what links are made from), plus the worktree's own (one made before B19 took the main's).
+      results.push(...(await Promise.all(batch.map(async (t) => this.inspect(t, primary?.head ?? null,
+        [...new Set([...sharedDirs, ...((await loadRepoConfig(t.path))?.worktree.sharedDirectories ?? [])])], input.context, now)))))
     }
     return results
   }

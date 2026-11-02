@@ -119,7 +119,10 @@ export async function removeWorktreeSafely(
     }
   }
 
-  const sharedDirs = config?.worktree.sharedDirectories ?? []
+  // Links are made from the main checkout's list (B19); a worktree made before that, from its branch's own. Both are
+  // unlinked, never followed: only an actual link or junction is removed, and git would delete through one.
+  const primaryConfig = await loadRepoConfig(primary)
+  const sharedDirs = [...new Set([...(primaryConfig?.worktree.sharedDirectories ?? []), ...(config?.worktree.sharedDirectories ?? [])])]
 
   // 4 — dirty check
   if (!input.force && !target.prunable) {

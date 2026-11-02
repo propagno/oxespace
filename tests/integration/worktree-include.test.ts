@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync, ftruncateSync } from 'node:fs'
+import { closeSync, existsSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync, ftruncateSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -269,6 +269,36 @@ describe('createWorktree with oxe.yaml (real git)', () => {
     expect(existsSync(join(second, 'secret.pem'))).toBe(false)
     expect(readFileSync(join(second, '.env'), 'utf8')).toBe('TOKEN=dev')
     expect(result.notices).toContainEqual({ code: 'worktree.copyFiles.copied', params: { count: 1 } })
+  })
+
+  it('shared directories follow the main checkout too: its list, linked to its folders, even created from a worktree', async () => {
+    writeFileSync(join(root, '.gitignore'), '.env\nnode_modules\nsecrets\n')
+    writeFileSync(join(root, 'oxe.yaml'), 'worktree:\n  sharedDirectories: [node_modules]\n')
+    put(root, 'node_modules/pkg/index.js', 'main package')
+    const first = join(sandbox, 'wt-1')
+    await service.createWorktree({ rootPath: root, branch: 'wt-1', path: first, createBranch: true, baseRef: 'main' })
+    // What an agent in wt-1 can write: its own list, naming a folder of its own.
+    writeFileSync(join(first, 'oxe.yaml'), 'worktree:\n  sharedDirectories: [secrets]\n')
+    put(first, 'secrets/key.pem', 'wt-1 key')
+    const second = join(sandbox, 'wt-2')
+    await service.createWorktree({ rootPath: first, branch: 'wt-2', path: second, createBranch: true, baseRef: 'main' })
+    expect(lstatSync(join(second, 'node_modules')).isSymbolicLink()).toBe(true)
+    expect(realpathSync.native(join(second, 'node_modules')).toLowerCase()).toBe(realpathSync.native(join(root, 'node_modules')).toLowerCase())
+    expect(existsSync(join(second, 'secrets'))).toBe(false)
+  })
+
+  it('removing a worktree unlinks the main checkout\'s shared links even when its own oxe.yaml lists none; nothing is deleted through them', async () => {
+    writeFileSync(join(root, '.gitignore'), '.env\nnode_modules\n')
+    writeFileSync(join(root, 'oxe.yaml'), 'worktree:\n  sharedDirectories: [node_modules]\n')
+    put(root, 'node_modules/pkg/index.js', 'main package')
+    const path = join(sandbox, 'wt-remove')
+    await service.createWorktree({ rootPath: root, branch: 'wt-remove', path, createBranch: true, baseRef: 'main' })
+    expect(lstatSync(join(path, 'node_modules')).isSymbolicLink()).toBe(true)
+    // Its branch's oxe.yaml (the committed one) lists no shared directory.
+    writeFileSync(join(path, 'oxe.yaml'), 'worktree:\n  copyFiles: [.env]\n')
+    await service.removeWorktree({ rootPath: root, path, force: true })
+    expect(existsSync(path)).toBe(false)
+    expect(readFileSync(join(root, 'node_modules', 'pkg', 'index.js'), 'utf8')).toBe('main package')
   })
 
   it('a repository made with --separate-git-dir still copies from its main working tree (SECURITY #471)', async () => {
