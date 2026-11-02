@@ -222,6 +222,13 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Reads three policy files at fixed places (the project's .oxespace/policy.json, <userData>/policy.json and the
   // machine-wide managed file), 256 KiB at most, JSON only; it never writes, and no caller supplies a path.
   'electron/main/services/policy/policy-store.ts',
+  // B7.4: the managed policy's write probe (open r+, create and remove an empty probe file beside it, Windows) and its
+  // owner and mode (elsewhere), on the fixed managed path only; never a workspace path, never a caller-supplied one.
+  'electron/main/services/policy/accepted-config.ts',
+  // B7.4: stat and read of <root>/oxe.yaml (256 KiB at most) for its tool modes, like repo-config/loader.ts; never writes.
+  'electron/main/services/policy/tool-config.ts',
+  // B7.4: reads the first characters of a gated policy file (fixed places only) for the request's untrusted text; never writes.
+  'electron/main/ipc/policy-runtime.ts',
   // OXEVoice engine: downloads the Whisper model to <userData>/models and
   // writes a temp WAV for the CLI — outside the workspace tree, so raw fs is
   // appropriate here rather than the workspace-scoped FileSystemService.

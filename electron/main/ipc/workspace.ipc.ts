@@ -7,6 +7,8 @@ import { WorkspaceService } from '../services/workspace.service'
 import { checkWorkspaceRoot, normalizeWorkspaceRoot } from '../services/workspace-root'
 import { parseId, parseSetPaneAgentInput, parseSetPaneRootPathInput, parseSplitPaneInput, parseUpdatePaneNameInput, parseUpdatePaneTypeInput, parseUpdateWorkspaceBackgroundStateInput, parseUpdateWorkspaceEditorStateInput, parseUpdateWorkspaceGitHubStateInput, parseUpdateWorkspaceReviewStateInput, parseUpdateWorkspaceSettingsInput, parseUpdateWorkspaceWorktreeStateInput, parseWorkspaceCreateInput } from './validation'
 import type { SemanticService } from '../services/semantic.service'
+import { acceptedConfig } from '../services/policy'
+import { firstPolicyRead } from '../services/policy/first-read'
 
 interface WorkspaceLifecycleController {
   stop(input: { paneId: string }): Promise<void> | void
@@ -42,7 +44,10 @@ export function registerWorkspaceIpc(
     const root = rootPath === undefined ? undefined : checkWorkspaceRoot(rootPath)
     if (root && !root.ok) return root
     const parsed = parseWorkspaceCreateInput(rootPath === undefined ? input : { ...(input as object), rootPath })
-    return workspaceService.create(parsed)
+    const created = workspaceService.create(parsed)
+    // B7.4: the project's policy is read before any pane of it starts (the floor applies; what needs the person asks).
+    if (created?.rootPath) firstPolicyRead(created.rootPath)
+    return created
   })
   ipcMain.handle(IPC_CHANNELS.workspace.setActive, (_event, id: unknown) => {
     const workspaceId = parseId(id)
@@ -64,7 +69,10 @@ export function registerWorkspaceIpc(
     const workspaceId = parseId(id)
     lifecycle?.stopWorkspace(workspaceId)
     semanticService.unwatchWorkspace(workspaceId)
+    // B7.4: a policy change still asked about for this project ends with it (closing a pane never cancels one).
+    const root = workspaceService.get(workspaceId)?.rootPath
     workspaceService.delete(workspaceId)
+    if (root && !workspaceService.list().some(other => other.rootPath === root)) acceptedConfig()?.forgetRoot(root)
   })
   ipcMain.handle(IPC_CHANNELS.workspace.closePane, (_event, id: unknown) => {
     const paneId = parseId(id, 'paneId')

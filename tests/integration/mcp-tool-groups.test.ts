@@ -8,6 +8,8 @@ import { ThreadPermissionStore } from '../../electron/main/services/conversation
 import { MCP_TOOL_GROUPS } from '../../electron/main/services/conversation/thread-mcp'
 import { McpConfigSync } from '../../electron/main/services/mcp-sync.service'
 import { setToolGroupMode, toolGroupsReport } from '../../electron/main/services/mcp-tool-groups'
+import { enforcedToolModes } from '../../electron/main/services/policy/tool-config'
+import { offGroupBlocking } from '../../electron/main/mcp-internal/tool-policy'
 import { estimateTokens } from '../../shared/types/mcp-tools'
 import { removeTempDir } from '../helpers/removeTempDir'
 
@@ -104,6 +106,8 @@ describe('Settings › Tools (F10)', () => {
     writeFileSync(join(root, 'oxe.yaml'), broken)
     const report = await toolGroupsReport(root)
     expect(report.oxeYaml).toBe('invalid')
+    // Never valid: the defaults apply, and the report says so.
+    expect(report.effectiveFrom).toBe('defaults')
     expect(report.groups.filter(group => group.configurable).every(group => group.source === 'default')).toBe(true)
     await expect(setToolGroupMode(db, files, { rootPath: root, group: 'data', mode: 'off' })).rejects.toThrow('mcp.toolGroups.invalidYaml')
     expect(readFileSync(join(root, 'oxe.yaml'), 'utf8')).toBe(broken)
@@ -111,6 +115,23 @@ describe('Settings › Tools (F10)', () => {
     // An empty or comments-only file is valid and sets nothing.
     writeFileSync(join(root, 'oxe.yaml'), '# nothing yet\n')
     expect((await toolGroupsReport(root)).oxeYaml).toBe('valid')
+  })
+
+  it('a file broken after a valid read reports the modes enforcement still applies: the last valid ones (F10 HML)', async () => {
+    const { root } = project()
+    writeFileSync(join(root, 'oxe.yaml'), 'thread:\n  tools:\n    data: off\n')
+    const valid = await toolGroupsReport(root)
+    expect(valid).toMatchObject({ oxeYaml: 'valid', effectiveFrom: 'file' })
+    expect(valid.groups.find(group => group.id === 'data')?.mode).toBe('off')
+    expect(offGroupBlocking('oxespace_db_query', [root], name => enforcedToolModes(name).modes)).toBe('data')
+
+    writeFileSync(join(root, 'oxe.yaml'), 'thread:\n  tools: [unclosed\n')
+    utimesSync(join(root, 'oxe.yaml'), new Date(), new Date(Date.now() + 5_000))
+    const broken = await toolGroupsReport(root)
+    expect(broken).toMatchObject({ oxeYaml: 'invalid', effectiveFrom: 'last-valid' })
+    // The page and enforcement agree: data stays off on both.
+    expect(broken.groups.find(group => group.id === 'data')?.mode).toBe('off')
+    expect(offGroupBlocking('oxespace_db_query', [root], name => enforcedToolModes(name).modes)).toBe('data')
   })
 })
 

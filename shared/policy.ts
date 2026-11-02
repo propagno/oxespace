@@ -95,13 +95,65 @@ export function policyBlockedMessage(decision: PolicyDecision, what: string): st
   return `${what} is blocked by ${owner}.`
 }
 
+/** B7.4 · A gated file: a policy layer's `policy.json`, or the tool group modes of the project's `oxe.yaml`. */
+export type PolicyChangeFile = 'policy' | 'oxe.yaml'
+
+/**
+ * B7.4 · A gated file whose content on disk is not the version the person accepted. Until they accept it, the accepted
+ * version applies. `pending`: a request is (or will be) asked. `rejected`: the person kept the accepted rules for exactly
+ * this content; it is not asked again until the file changes, and "Review again" (`policy.reviewChange`) asks once more.
+ * The hashes bind an answer to the versions compared, so an answer for an older pair is refused.
+ */
+export interface PolicyChangeStatus {
+  layer: PolicyLayer
+  file: PolicyChangeFile
+  /** The file, as the app located it. */
+  path: string
+  state: 'pending' | 'rejected'
+  baseHash: string
+  newHash: string
+  /** OXESpace reads this file for the first time: only its restrictions apply until the person reviews it (`policy.firstSight.enforced`). */
+  firstSight?: boolean
+  /** Lines that widen and lines that tighten; absent until the change was compared. */
+  widen?: number
+  tighten?: number
+}
+
 /** What Settings shows: the files that apply to a project, read only. */
 export interface PolicyView extends LoadedPolicy {
   /** Every place a policy file is looked for, in evaluation order, whether or not it exists. */
   locations: Array<{ layer: PolicyLayer; path: string }>
+  /** B7.4 · Policy files of these layers whose content on disk is not accepted; the accepted version applies. */
+  changes?: PolicyChangeStatus[]
+}
+
+/** B7.4 · Which pending change an answer from Settings is for: the project of a workspace (or none), the layer and file, and the compared versions. */
+export interface PolicyChangeAnswerInput {
+  workspaceId?: string | null
+  layer: PolicyLayer
+  file: PolicyChangeFile
+  baseHash: string
+  newHash: string
+}
+
+/** Main's notice that a gated file changed (`policy.onChanged`): the tightening that applied at once, or a version kept out. */
+export interface PolicyChangedEvent {
+  layer: PolicyLayer
+  file: PolicyChangeFile
+  path: string
+  message: import('./messages').MainMessage
 }
 
 export interface PolicyApi {
   /** The policy for a workspace's project, or the app-wide layers without one. */
   get(workspaceId?: string): Promise<PolicyView>
+  /**
+   * B7.4 · Accepts a pending change, the same as Accept in its request: the content compared is recorded as accepted,
+   * the file is not rewritten. Refused with a C3 code (`policy.change.baseChanged` when the accepted version or the
+   * file changed since, `policy.change.notPending`). The window only; never an MCP tool or a phone command.
+   */
+  acceptChange?(input: PolicyChangeAnswerInput): Promise<PolicyView>
+  /** B7.4 · "Review again": asks once more about a change the person kept out, or one whose request ended unanswered. */
+  reviewChange?(input: PolicyChangeAnswerInput): Promise<PolicyView>
+  onChanged?(listener: (event: PolicyChangedEvent) => void): () => void
 }

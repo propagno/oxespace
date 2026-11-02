@@ -17,7 +17,8 @@ import type { FileSystemService } from './file-system.service'
 import { ThreadPermissionStore } from './conversation/thread-permissions'
 import { mcpServerKeys } from './mcp-keys'
 import { parseGuard } from './mcp-pin'
-import { policyStore } from './policy'
+import { acceptedConfig, policyStore } from './policy'
+import { parsePolicyProjection } from './policy/projections'
 import { POLICY_MAX_BYTES, type PolicyStore } from './policy/policy-store'
 
 /** The key OXESpace's own tools have in a conversation, and in the policy resources that name them. */
@@ -184,6 +185,10 @@ export async function setToolRule(deps: ToolRulesDeps, input: { rootPath: string
     throw error
   })
   const existing = read?.content ?? null
+  // B7.4: a change the person has not accepted is never written through (and recorded as theirs) by an unrelated click.
+  const gate = acceptedConfig()
+  const subject = gate?.subject('policy', 'project', rootPath, path)
+  if (gate && subject) await gate.assertAccepted(subject, parsePolicyProjection(existing, 'project', path).projection)
   let document: { rules: unknown[] } & Record<string, unknown> = { rules: [] }
   if (existing !== null) {
     // Over the store's limit the layer would not apply at all (B7.3 review L3): refused like an invalid file.
@@ -209,8 +214,17 @@ export async function setToolRule(deps: ToolRulesDeps, input: { rootPath: string
     const content = JSON.stringify({ ...document, rules }, null, 2).replace(/\n/g, eol) + eol
     if (Buffer.byteLength(content, 'utf8') > POLICY_MAX_BYTES || 'problem' in parsePolicy(content, 'project', path)) throw new ToolRuleRefusal('mcp.toolRule.invalidPolicy', {})
     if (existing === null) await deps.files.createDirectory({ workspaceId, rootPath, relativePath: '.oxespace' })
-    // Replaced atomically, and only if nobody changed the file since it was read (the same check as oxe.yaml's writer).
-    await deps.files.replaceFile({ ...target, content, expectedMtimeMs: read?.mtimeMs ?? null })
+    // What lands is recorded before the rename and accepted after it (B7.4), so the app's own write never asks.
+    const written = parsePolicyProjection(content, 'project', path).projection
+    const intent = gate && subject ? gate.markIntent(subject, written) : null
+    try {
+      // Replaced atomically, and only if nobody changed the file since it was read (the same check as oxe.yaml's writer).
+      await deps.files.replaceFile({ ...target, content, expectedMtimeMs: read?.mtimeMs ?? null })
+    } catch (error) {
+      if (gate && subject && intent) gate.clearIntent(subject, intent)
+      throw error
+    }
+    if (gate && subject && intent) gate.commitIntent(subject, intent, written)
     policy.forget(path)
     store.audit({ projectRoot: rootPath, action: 'configuration', actor: 'user',
       summary: decision === 'deny' ? `Blocked the MCP tool ${name} in ${POLICY_FILE}` : `Removed the block on the MCP tool ${name} from ${POLICY_FILE}` })

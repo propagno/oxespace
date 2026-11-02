@@ -268,7 +268,11 @@
         "agent": "Pedido de um agente",
         "oxequery": "OxeQuery · pedido de um agente",
         "previewAutomation": "Ação do agente no navegador",
-        "crash": "O OXESpace encontrou um erro inesperado"
+        "crash": "O OXESpace encontrou um erro inesperado",
+        "policyChange": "As regras do projeto mudaram fora do OXESpace",
+        "policyChangeUser": "Suas regras mudaram fora do OXESpace",
+        "policyChangeManaged": "As regras da organização mudaram neste computador",
+        "policyFirstSight": "Revise as regras deste projeto antes de valerem"
       },
       "summary": {
         "mcpConfirm": "Quer executar {{tool}} › {{action}} em {{target}}",
@@ -285,7 +289,17 @@
           "scroll": "Quer rolar a página no Navegador",
           "other": "Quer {{action}} no Navegador"
         },
-        "crash": "O app continua funcionando, mas seu estado não é mais garantido. Reinicie para ficar seguro."
+        "crash": "O app continua funcionando, mas seu estado não é mais garantido. Reinicie para ficar seguro.",
+        "policyChange": {
+          "widened": "{{file}} agora permite mais do que as regras que você aceitou. Até você decidir, as regras aceitas continuam valendo.",
+          "deleted": "{{file}} foi excluído. Permitir remove as regras deste arquivo. Até você decidir, as regras aceitas continuam valendo.",
+          "invalid": "{{file}} tem um erro, então não pode ser aplicado. As regras aceitas continuam valendo.",
+          "tooLarge": "{{file}} passa de {{max}}, então não pode ser aplicado. As regras aceitas continuam valendo.",
+          "worktree": "A worktree {{worktree}} tem o próprio {{file}}, que permite mais do que as regras que você aceitou para este projeto. Até você decidir, as regras aceitas valem lá também.",
+          "partial": "{{file}} mudou fora do OXESpace. As regras mais rígidas já valem; as que permitem mais esperam por você."
+        },
+        "policyFirstSight": "É a primeira vez que o OXESpace lê estas regras, e elas permitem mais do que o padrão do OXESpace. Até você decidir, só vale o que elas negam.",
+        "policyFirstSightLost": "É a primeira vez que o OXESpace lê estas regras, e o arquivo no disco tirou restrições que a versão commitada tem. Até você decidir, valem as restrições commitadas."
       },
       "requester": {
         "pane": "{{agent}} · painel {{pane}}",
@@ -302,7 +316,8 @@
         "allowSessionReads": "Permitir leituras nesta conexão nesta execução",
         "closeTab": "Fechar aba",
         "restart": "Reiniciar",
-        "keepWorking": "Continuar trabalhando"
+        "keepWorking": "Continuar trabalhando",
+        "allowPolicy": "Permitir as novas regras"
       },
       "note": {
         "sql": {
@@ -354,6 +369,43 @@
         "nativeCriticalDenyOnly": "Esta alteração é crítica, e o diálogo do sistema não consegue segurar o Permitir, então aqui ela só pode ser negada. Abra o OXESpace para aprovar.",
         "preview": {
           "notLocal": "Esta página não está no localhost. Ela pode carregar qualquer coisa e vê o que for digitado nela."
+        },
+        "policy": {
+          "denyRemoved": "− Deixa de ser negado: {{rule}}",
+          "allowAdded": "+ Passa a ser permitido: {{rule}}",
+          "groupRaised": "↑ Ferramentas de {{group}}: {{from}} → {{to}}",
+          "ruleEdited": "~ Alterada: {{from}} → {{to}}",
+          "denyAdded": {
+            "applied": "+ Passa a ser negado: {{rule}} (já vale)",
+            "waiting": "+ Passa a ser negado: {{rule}}"
+          },
+          "allowRemoved": {
+            "applied": "− Deixa de ser permitido: {{rule}} (já vale)",
+            "waiting": "− Deixa de ser permitido: {{rule}}"
+          },
+          "groupLowered": "↓ Ferramentas de {{group}}: {{from}} → {{to}}",
+          "reordered": "~ A ordem de {{count}} regras mudou, e a última regra que se aplica decide",
+          "more": "e mais {{count}} alterações no arquivo abaixo",
+          "notSplit": "Esta alteração não pode ser separada em partes mais rígidas e mais amplas, então nada dela vale até você decidir.",
+          "stillAccepted": "Negar mantém as regras que você aceitou. O OXESpace não altera o arquivo.",
+          "allowEffect": "Permitir aplica o arquivo inteiro como está agora.",
+          "noText": "O arquivo não existe mais.",
+          "problem": "Erro: {{problem}}",
+          "usable": "Os agentes passariam a poder usar: {{tools}}",
+          "committed": "O arquivo é igual à versão commitada no Git.",
+          "uncommitted": "O arquivo é diferente da versão commitada no Git.",
+          "liveSessions": "{{count}} sessões de agente deste projeto estavam rodando quando a mudança foi detectada.",
+          "managedNotProtected": "Qualquer pessoa neste computador pode gravar na pasta de política da organização, então você também confirma as mudanças nela.",
+          "reordered_one": "~ A ordem de {{count}} regra mudou, e a última regra que se aplica decide",
+          "reordered_many": "~ A ordem de {{count}} regras mudou, e a última regra que se aplica decide",
+          "reordered_other": "~ A ordem de {{count}} regras mudou, e a última regra que se aplica decide",
+          "usableMore": "Os agentes passariam a poder usar: {{tools}} e mais {{more}}",
+          "liveSessions_one": "{{count}} sessão de agente deste projeto estava rodando quando a mudança foi detectada.",
+          "liveSessions_many": "{{count}} sessões de agente deste projeto estavam rodando quando a mudança foi detectada.",
+          "liveSessions_other": "{{count}} sessões de agente deste projeto estavam rodando quando a mudança foi detectada.",
+          "committedDeny": "− Continua negado: {{rule}}. O arquivo no disco tirou esta regra, mas a versão commitada a mantém, então ela continua valendo.",
+          "committedOff": "↓ As ferramentas de {{group}} continuam desligadas. O arquivo no disco as religou, mas a versão commitada as mantém desligadas.",
+          "matchesBranch": "Igual a `origin/{{branch}}`."
         }
       },
       "unavailable": "Não foi possível mostrar a aprovação no app, então ela abriu num diálogo do sistema.",
@@ -375,6 +427,9 @@
       },
       "notify": {
         "waiting": "OXESpace: aprovação aguardando"
+      },
+      "textLabel": {
+        "policyChange": "O arquivo como está agora"
       }
     },
     "notify": {
@@ -446,6 +501,9 @@
         "closeUnanswered": "A janela não respondeu a um fechamento ou saída em 3 segundos; o app seguiu em frente.",
         "closeRendererGone": "A janela parou enquanto um fechamento ou saída esperava por ela; o app seguiu em frente.",
         "closeGuardFailed": "A verificação antes de fechar falhou; o app fechou sem perguntar à janela."
+      },
+      "policy": {
+        "changedOutside": "Um arquivo de política mudou fora do OXESpace e esperou uma resposta."
       }
     },
     "diagnostics": {
@@ -476,6 +534,22 @@
         "notFound": "A pasta {{path}} não existe. Crie a pasta ou escolha outra.",
         "notDirectory": "{{path}} é um arquivo, não uma pasta. Escolha uma pasta.",
         "unreadable": "O OXESpace não consegue abrir a pasta {{path}}. Confira as permissões ou escolha outra pasta."
+      }
+    },
+    "policy": {
+      "narrowed": "As regras do projeto ficaram mais rígidas: {{file}} mudou fora do OXESpace, e as novas regras já valem.",
+      "result": {
+        "kept": "As regras aceitas continuam valendo.",
+        "applied": "As novas regras estão valendo."
+      },
+      "change": {
+        "pending": "Uma alteração nas regras deste projeto está esperando sua resposta. Responda antes de mudar esta configuração.",
+        "baseChanged": "As regras mudaram de novo desde que isto apareceu. O pedido volta com a versão atual.",
+        "notPending": "Esta alteração nas regras não está mais esperando sua resposta.",
+        "notApplicable": "Este arquivo não pode ser aplicado como está. Corrija o arquivo ou mantenha as regras aceitas."
+      },
+      "firstSight": {
+        "enforced": "Esperando sua revisão: só valem as regras que negam, e os grupos de ferramentas ficam no máximo sob demanda."
       }
     }
   },

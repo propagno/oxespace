@@ -58,10 +58,22 @@ export interface McpToolGroupsReport {
   rootPath: string | null
   /**
    * The project's `oxe.yaml`: `missing` (the app's defaults apply), `valid`, or `invalid` (it cannot be read as
-   * settings; the defaults apply until it is fixed by hand, and `setToolGroupMode` refuses with
+   * settings; `effectiveFrom` says what applies until it is fixed by hand, and `setToolGroupMode` refuses with
    * `mcp.toolGroups.invalidYaml`). Always `missing` when `rootPath` is `null`.
    */
   oxeYaml: 'missing' | 'valid' | 'invalid'
+  /**
+   * Where `groups[].mode` comes from; they are always the modes enforcement uses. `file` unless `oxeYaml` is `invalid`;
+   * then `last-valid` (the last valid or accepted version stays in force, so a broken file never turns an `off` back
+   * on) or `defaults` (the file was never valid: the app's defaults apply).
+   */
+  effectiveFrom: 'file' | 'last-valid' | 'defaults'
+  /**
+   * B7.4 · The project's `oxe.yaml` changed outside OXESpace and its tool modes are not accepted: `groups` show the
+   * accepted modes, which apply meanwhile, and `setToolGroupMode` refuses with `policy.change.pending`. `null` when the
+   * file is the accepted version. Answered with `policy.acceptChange` / `policy.reviewChange`.
+   */
+  pendingChange?: import('../policy').PolicyChangeStatus | null
   groups: McpToolGroupInfo[]
   totals: {
     /** What a conversation that asks for nothing extra sends (Claude). */
@@ -96,7 +108,7 @@ export const MCP_TOOL_DECISIONS = ['allow', 'ask', 'deny'] as const
 export type McpToolDecision = typeof MCP_TOOL_DECISIONS[number]
 
 /** Why `setToolRule` refused: the error's message, a message code of `shared/messages.ts`. */
-export const MCP_TOOL_RULE_REFUSAL_CODES = ['mcp.toolRule.confirmLevel', 'mcp.toolRule.locked', 'mcp.toolRule.invalidPolicy'] as const satisfies readonly MessageCode[]
+export const MCP_TOOL_RULE_REFUSAL_CODES = ['mcp.toolRule.confirmLevel', 'mcp.toolRule.locked', 'mcp.toolRule.invalidPolicy', 'policy.change.pending', 'project.file.changedMeanwhile'] as const satisfies readonly MessageCode[]
 export type McpToolRuleRefusalCode = typeof MCP_TOOL_RULE_REFUSAL_CODES[number]
 
 export const isMcpToolRuleRefusal = (message: unknown): message is McpToolRuleRefusalCode =>
@@ -130,7 +142,7 @@ export interface McpToolRule {
 
 /** Why `toolGroups` or `setToolGroupMode` refused: the error's message, a message code of `shared/messages.ts`. */
 export const MCP_TOOL_GROUPS_REFUSAL_CODES = ['mcp.toolGroups.unknownProject', 'mcp.toolGroups.invalidYaml', 'mcp.toolGroups.notMapping',
-  'mcp.toolGroups.inlineThread', 'mcp.toolGroups.unsafeEdit', 'project.file.changedMeanwhile'] as const satisfies readonly MessageCode[]
+  'mcp.toolGroups.inlineThread', 'mcp.toolGroups.unsafeEdit', 'project.file.changedMeanwhile', 'policy.change.pending'] as const satisfies readonly MessageCode[]
 export type McpToolGroupsRefusalCode = typeof MCP_TOOL_GROUPS_REFUSAL_CODES[number]
 
 export const isMcpToolGroupsRefusal = (message: unknown): message is McpToolGroupsRefusalCode =>

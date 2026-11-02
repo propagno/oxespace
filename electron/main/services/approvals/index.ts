@@ -1,9 +1,10 @@
 /**
  * B10 · The app's approval center: the window's modal first, the system dialog only as the fallback.
  */
-import { BrowserWindow, Notification } from 'electron'
+import { app, BrowserWindow, Notification } from 'electron'
 import { ApprovalCenter } from './approval-center'
 import { askForAttention, endAttention } from './attention'
+import { approvalTimeoutMs } from './timeout'
 
 function liveWindows(): BrowserWindow[] {
   return BrowserWindow.getAllWindows().filter(window => !window.isDestroyed() && !window.webContents.isDestroyed() && !window.webContents.isCrashed())
@@ -18,6 +19,8 @@ export const approvalCenter = new ApprovalCenter({
     title: () => import('../../i18n').then(({ tMain }) => tMain('messages.approvals.notify.waiting' as never))
   }),
   attentionEnd: () => endAttention(liveWindows()),
+  // Shorter only, and only in an unpackaged build: OXESPACE_E2E_APPROVALS_TIMEOUT_MS (homologation covers expiry).
+  timeoutMs: approvalTimeoutMs(process.env, app?.isPackaged ?? true),
   native: (request, reason, signal) => import('./native-approval').then(({ nativeApproval }) => nativeApproval(request, reason, signal)),
   // Loaded on first use, so importing the center has no logging side effects (tests mock Electron).
   log: (event, detail) => { void import('electron-log/main.js').then(({ default: log }) => log.warn(`[approvals] ${event}`, detail), () => undefined) }
