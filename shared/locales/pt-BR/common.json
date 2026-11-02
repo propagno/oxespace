@@ -885,6 +885,7 @@
     "pathLink": "{{path}}, linha {{line}}",
     "terminalHint": "{{key}}+clique abre no editor do OXESpace",
     "terminalHintExternal": "{{key}}+clique abre no editor do OXESpace · {{key}}+Shift+clique abre no {{editor}}",
-    "noEditor": "Nenhum editor externo foi encontrado. Escolha um em Configurações › Geral."
+    "noEditor": "Nenhum editor externo foi encontrado (VS Code, Cursor ou Zed). Instale um e tente de novo.",
+    "notAFile": "Daqui o {{editor}} só abre arquivos. Para abrir uma pasta, use “{{reveal}}”."
   }
 }

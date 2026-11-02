@@ -90,7 +90,11 @@ export async function openPathIn(request: OpenInRequest, target: OpenInTarget): 
     if (message?.code === 'app.openIn.editorMissing') void useOpenInStore.getState().refresh()
     const danger = message?.code === 'app.openIn.launchFailed' || message?.code === 'app.openIn.revealFailed'
     const withCopy = message?.code === 'app.openIn.notFound' || message?.code === 'app.openIn.launchFailed'
-    toast({ title: message ? formatMainMessage(message) : t('openIn.failed'), intent: danger || !message ? 'danger' : 'warning', ...(withCopy ? { action: copy } : {}) })
+    // notAFile names the reveal item, whose words depend on the system: the window words it (DESIGN #470).
+    const platform = window.oxe?.app?.platform
+    const reveal = t(platform === 'win32' ? 'openIn.revealWindows' : platform === 'darwin' ? 'openIn.revealMac' : 'openIn.revealLinux')
+    const title = message?.code === 'app.openIn.notAFile' ? t('openIn.notAFile', { editor: message.params.editor, reveal }) : message ? formatMainMessage(message) : t('openIn.failed')
+    toast({ title, intent: danger || !message ? 'danger' : 'warning', ...(withCopy ? { action: copy } : {}) })
     return false
   }
 }

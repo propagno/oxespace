@@ -3,9 +3,8 @@ import { useState, type ReactElement } from 'react'
 import type { FileTreeNode } from '../../../shared/types/ipc'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
-import { AnchoredMenu, EmptyState, ErrorState, Spinner } from '../../ui'
-import { useOpenInTargets } from '../../lib/openIn'
-import { pathMenuEntries, pathMenuLabel } from '../../lib/pathMenu'
+import { EmptyState, ErrorState, Spinner } from '../../ui'
+import { usePathMenu } from '../PathMenu/usePathMenu'
 import { useTreeKeyboard } from '../../hooks/useTreeKeyboard'
 import { humanizeError } from '../../utils/humanizeError'
 
@@ -97,16 +96,8 @@ function FileNode({ node, level, position, siblings, onOpenFile, rootPath, selec
   const { t } = useTranslation('code')
   const [isExpanded, setIsExpanded] = useState(false)
   // Dragging a file into a terminal types its path; the menu copies it instead, so no drag is needed (WCAG 2.5.7).
-  const [menu, setMenu] = useState(false)
-  const openMenu = (event: React.MouseEvent): void => { event.preventDefault(); event.stopPropagation(); setMenu(true) }
   // F33: the same path menu as every other surface; the tree is the editor itself, so no "open in OXESpace" item.
-  const targets = useOpenInTargets()
-  const pathMenu = <AnchoredMenu open={menu} onOpenChange={setMenu} side="right" label={pathMenuLabel(node.relativePath)} items={menu ? pathMenuEntries({
-    request: { workspaceId, rootPath, relativePath: node.relativePath },
-    targets,
-    platform: window.oxe?.app?.platform ?? 'linux',
-    folder: node.type === 'directory'
-  }) : []} />
+  const { menu: pathMenu, onContextMenu: openMenu } = usePathMenu({ workspaceId, rootPath, relativePath: node.relativePath }, { folder: node.type === 'directory' })
 
   const handleDragStart = (event: React.DragEvent): void => {
     event.dataTransfer.effectAllowed = 'copy'

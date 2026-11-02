@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactElement } from 'react'
 import type { IDisposable, Terminal } from '@xterm/xterm'
-import { AnchoredMenu, toast } from '../../ui'
+import { toast } from '../../ui'
+import { PointMenu, menuPoint } from '../PathMenu/usePathMenu'
 import { i18n } from '../../i18n'
 import { openPathIn, preferredEditor, useOpenInStore, useOpenInTargets, type OpenInRequest } from '../../lib/openIn'
 import { pathMenuEntries, pathMenuLabel } from '../../lib/pathMenu'
@@ -36,6 +37,8 @@ export function useTerminalPathMenu(workspaceId: string | undefined): {
     hint.current = terminalPathHint(preferredEditor(targets)?.name ?? null)
   }, [workspaceId, rootPath, targets])
   const [request, setRequest] = useState<OpenInRequest | null>(null)
+  const [point, setPoint] = useState<{ x: number; y: number } | null>(null)
+  const host = useRef<HTMLElement | null>(null)
 
   const register = useCallback((terminal: Terminal) => registerTerminalPathLinks(terminal, {
     scope: () => scope.current,
@@ -54,10 +57,14 @@ export function useTerminalPathMenu(workspaceId: string | undefined): {
     if (!link) return
     event.preventDefault()
     event.stopPropagation()
+    host.current = event.currentTarget as HTMLElement
+    setPoint(menuPoint(event))
     setRequest(requestOf(link.scope, link.path))
   }
 
-  const menu = <AnchoredMenu open={request !== null} onOpenChange={open => { if (!open) setRequest(null) }} label={request ? pathMenuLabel(request.relativePath) : ''}
+  // Hung at the pointer; on close the keyboard goes back to the terminal, so typing continues (FRONTEND #470).
+  const menu = <PointMenu point={point} open={request !== null} onOpenChange={open => { if (!open) setRequest(null) }} label={request ? pathMenuLabel(request.relativePath) : ''}
+    returnFocus={() => host.current?.querySelector<HTMLElement>('.xterm-helper-textarea') ?? null}
     items={request ? pathMenuEntries({ request, targets, platform: window.oxe?.app?.platform ?? 'linux', openInOxespace: () => openInOxespace(request) }) : []} />
   return { register, onContextMenu, menu }
 }

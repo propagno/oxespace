@@ -34,8 +34,8 @@ function FileActivityRow({ entry, root, roots, threadId, workspaceId, onOpen }: 
   const { menu, onContextMenu } = usePathMenu(inProject && workspaceId ? { workspaceId, rootPath: root, relativePath: inProject.relativePath } : null, { openInOxespace: () => onOpen(entry) })
   return <div><div className="thread-file-operation"><button type="button" className="thread-file-entry" onClick={() => onOpen(entry)} onContextMenu={onContextMenu} title={entry.file.path}>
     <FileCode2 size={14} /><span className="thread-file-verb">{verb(entry.file)}</span>
-    <TurnPath path={entry.file.path} roots={[root, ...roots]} /><FileStats file={entry.file} />{menu}
-  </button>{entry.file.artifactId && <button type="button" className="thread-file-expand" aria-label={t('files.expand', { path: relativeTurnPath(entry.file.path, [root, ...roots]).label })} aria-expanded={expanded} onClick={() => setExpanded(value => !value)}><ChevronRight size={12} /></button>}</div>
+    <TurnPath path={entry.file.path} roots={[root, ...roots]} /><FileStats file={entry.file} />
+  </button>{menu}{entry.file.artifactId && <button type="button" className="thread-file-expand" aria-label={t('files.expand', { path: relativeTurnPath(entry.file.path, [root, ...roots]).label })} aria-expanded={expanded} onClick={() => setExpanded(value => !value)}><ChevronRight size={12} /></button>}</div>
     {expanded && <ThreadInlineEvidence threadId={threadId} artifactId={entry.file.artifactId!} />}
   </div>
 }
