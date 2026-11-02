@@ -45,6 +45,11 @@
         "removed": "It removed {{tools}}.",
         "configChanged": "Its command, arguments, environment or URL changed after you trusted it."
       },
+      "toolRule": {
+        "confirmLevel": "{{tool}} changes things you confirm each time, so it always asks before it runs.",
+        "locked": "The rule for {{tool}} comes from your policy or your organization’s, so this project cannot change it.",
+        "invalidPolicy": "This project’s .oxespace/policy.json is not a valid policy. Fix it by hand, then try again."
+      },
       "signIn": {
         "waiting": "Waiting for you to sign in in the browser…"
       },
@@ -87,15 +92,21 @@
       },
       "side": {
         "unavailable": "This agent cannot open a side chat yet.",
-        "noSession": "Send a message first: a side chat copies the conversation so far."
+        "noSession": "Send a message first: a side chat copies the conversation so far.",
+        "closed": "This side chat is closed. Open a new one to keep asking.",
+        "invalidInput": "This side chat message could not be read. Try again."
       },
       "protectedConfig": {
         "instructions": "\"{{path}}\" holds agent instructions. A change there steers every later session, so it needs your confirmation each time.",
         "mcp": "\"{{path}}\" holds MCP server settings. A change there steers every later session, so it needs your confirmation each time.",
         "hooks": "\"{{path}}\" holds agent hooks. A change there steers every later session, so it needs your confirmation each time.",
+        "git": "\"{{path}}\" holds git configuration. Git can run commands named there, so it needs your confirmation each time.",
+        "policy": "\"{{path}}\" holds the project's agent policy and tool groups, including the tools you blocked. A change there steers every later session, so it needs your confirmation each time.",
         "warning": "Text the agent read (a web page, an issue, a file) may be steering this change. Check that you asked for it.",
         "rewritesTracked": "{{command}} rewrites tracked files without naming them, and agent instructions, MCP settings or hooks may be among them, so it needs your confirmation each time."
       },
+      "invalidInput": "This conversation request could not be read.",
+      "notFound": "This conversation no longer exists.",
       "sections": {
         "invalid": "These sections could not be saved. Reload the list and try again.",
         "tooMany": "A workspace has at most {{sections}} sections and {{assignments}} conversations placed in them.",
@@ -104,11 +115,20 @@
         "nameHidden": "A section name cannot contain control or invisible characters.",
         "nameDuplicate": "There is already a section named \"{{name}}\" in this workspace.",
         "unknownWorkspace": "This workspace no longer exists."
+      },
+      "agent": {
+        "scriptUnsupported": "Choose the agent's own executable in Agent Settings: OxeChat does not start agents through .cmd, .ps1 or .bat scripts.",
+        "nativeMissing": "The installed Codex is missing its native executable (codex.exe). Reinstall Codex, or choose codex.exe in Agent Settings."
       }
     },
     "app": {
       "connectivity": {
         "offline": "No network connection."
+      }
+    },
+    "ipc": {
+      "sender": {
+        "refused": "Only the app's own window can make this request."
       }
     },
     "activity": {
@@ -130,6 +150,25 @@
       },
       "certificate": {
         "failed": "The connection certificate could not be created or read from secure storage."
+      },
+      "pairing": {
+        "failed": "$t(remotePairingFailure.{{reason}})",
+        "limit": "This computer already has {{max}} paired devices. Remove one before pairing another."
+      },
+      "gateway": {
+        "offline": "Turn on the connection before pairing a phone."
+      },
+      "device": {
+        "notFound": "This device is no longer paired.",
+        "invalidName": "Give the device a name of 1 to {{max}} characters, without line breaks.",
+        "reservedName": "That name is one only OXESpace may use. Pick another name for the device."
+      },
+      "desktop": {
+        "invalidName": "Give this computer a name of 1 to {{max}} characters, without line breaks or hidden characters.",
+        "reservedName": "That name could pass for OXESpace or the system on the phone. Pick another name for this computer."
+      },
+      "pane": {
+        "invalid": "This terminal is no longer available."
       }
     },
     "linear": {
@@ -353,6 +392,18 @@
     "agents": {
       "name": {
         "reserved": "A pane cannot be named after \"{{name}}\"; that name belongs to the app."
+      },
+      "resume": {
+        "sessionMissing": "The agent's previous session is no longer on disk for this folder, so a new one started.",
+        "otherAgent": "This pane now starts a different agent, so its previous session was not resumed.",
+        "launchOverride": "This start had its own arguments or prompt, so the previous session was not resumed.",
+        "blocked": "Your organization's policy does not allow this agent here, so its session was not resumed.",
+        "disabled": "Resuming agent sessions is turned off in Settings.",
+        "startedFresh": "This pane was restarted with a new session; the previous one will not come back.",
+        "failedToLoad": "The agent could not load its previous session and closed, so this pane started a new one."
+      },
+      "session": {
+        "notFound": "This agent hasn't reported its session yet. It shows after the agent's first reply, or sooner with the status hooks on (Settings › Notifications)."
       }
     },
     "incident": {
@@ -367,7 +418,8 @@
       },
       "ipc": {
         "handlerFailed": "A request from the window failed in the background.",
-        "validationRejected": "The window sent a request the app refused as malformed."
+        "validationRejected": "The window sent a request the app refused as malformed.",
+        "senderRefused": "Something other than the app's window, such as a previewed page, sent a request; the app refused it."
       },
       "agent": {
         "startFailed": "An agent could not start."
@@ -426,5 +478,13 @@
         "unreadable": "OXESpace cannot open the folder {{path}}. Check its permissions or choose another folder."
       }
     }
+  },
+  "remotePairingFailure": {
+    "invalid": "A phone tried to pair with a code that is not valid. Show a new code and scan it again.",
+    "expired": "The pairing code or the question on this computer expired. Show a new code and try again.",
+    "refused": "Pairing was declined on this computer.",
+    "limit": "The phone could not pair: this computer already has the maximum number of devices.",
+    "peer-closed": "The phone stopped pairing before you answered. Show a new code to try again.",
+    "reserved-name": "The phone gave itself a name only OXESpace may use. Rename it on the phone and try again."
   }
 }

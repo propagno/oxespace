@@ -81,7 +81,8 @@ export {
 export { Mutex, FileLock, processInBatches, debounce, throttle, MemoryMonitor } from './utils';
 export { FileWatcher } from './sync';
 export type { WatchOptions, PendingFile } from './sync';
-export { MCPServer } from './mcp';
+// OXESpace (B13): MCPServer is not re-exported. The app uses only mcp/tools; MCPServer can spawn a daemon with
+// process.execPath, which the packaged app cannot run as Node (RunAsNode fuse off). The CLI imports it directly.
 
 /**
  * Options for initializing a new CodeGraph project
