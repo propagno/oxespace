@@ -69,7 +69,6 @@ const QUERIES = [
   { q: 'Como o RTK baixa o binário rtk.exe para a pasta de dados do usuário?', target: ['services/rtk.service.ts'] },
   { q: 'Onde está o registro das ferramentas internas expostas via MCP?', target: ['mcp-internal/tool-registry.ts'] },
   { q: 'Como um workspace é criado com um pane por célula do layout?', target: ['services/workspace.service.ts'] },
-  { q: 'Onde o áudio é transcrito usando o Whisper na funcionalidade de voz?', target: ['services/voice.service.ts'] },
   // --- expansão n=10 → n=30 (domínios ainda não cobertos) ---
   { q: 'Onde os comandos git como status, diff e commit são executados no processo principal?', target: ['services/git.service.ts'] },
   { q: 'Como as sessões de terminal são persistidas no banco e forkadas em novas sessões?', target: ['services/session.service.ts'] },

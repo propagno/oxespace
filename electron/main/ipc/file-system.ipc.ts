@@ -12,14 +12,22 @@ import {
   parseFileSystemWriteFileInput
 } from './validation'
 
-export function registerFileSystemIpc(db: AppDatabase, fileSystemService = new FileSystemService((workspaceId, requestedRoot) => {
-  if (workspaceId.startsWith('thread:')) {
-    const row = db.prepare('SELECT root_path FROM thread_project_contexts WHERE project_id = ? AND root_path = ?').get(workspaceId.slice('thread:'.length), requestedRoot) as { root_path: string } | undefined
-    return row?.root_path ?? null
+/**
+ * The root main has registered for a workspace id (or `thread:<projectId>`), or null. The file system channels and
+ * "Abrir em…" (B18) authorize a window's path by it.
+ */
+export function workspaceRootResolver(db: AppDatabase): (workspaceId: string, requestedRoot: string) => string | null {
+  return (workspaceId, requestedRoot) => {
+    if (workspaceId.startsWith('thread:')) {
+      const row = db.prepare('SELECT root_path FROM thread_project_contexts WHERE project_id = ? AND root_path = ?').get(workspaceId.slice('thread:'.length), requestedRoot) as { root_path: string } | undefined
+      return row?.root_path ?? null
+    }
+    const row = db.prepare('SELECT root_path FROM workspaces WHERE id = ?').get(workspaceId) as { root_path: string } | undefined
+    return row ? worktreeOrWorkspaceRoot(row.root_path, requestedRoot) : null
   }
-  const row = db.prepare('SELECT root_path FROM workspaces WHERE id = ?').get(workspaceId) as { root_path: string } | undefined
-  return row ? worktreeOrWorkspaceRoot(row.root_path, requestedRoot) : null
-})): FileSystemService {
+}
+
+export function registerFileSystemIpc(db: AppDatabase, fileSystemService = new FileSystemService(workspaceRootResolver(db))): FileSystemService {
   ipcMain.handle(IPC_CHANNELS.fs.listTree, (_event, input: unknown) => fileSystemService.listTree(parseFileSystemListTreeInput(input)))
   ipcMain.handle(IPC_CHANNELS.fs.readFile, (_event, input: unknown) => fileSystemService.readFile(parseFileSystemReadFileInput(input)))
   // Rich previews (#10): same validated shape as readFile, base64 payload out.

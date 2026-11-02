@@ -142,6 +142,40 @@ export interface MessageParams {
   'worktree.cleanup.notRemovable': Record<string, never>
   'worktree.cleanup.blocked': { reasons: string[] }
   'worktree.cleanup.needsConfirmation': { reasons: string[] }
+  /** A worktree was created, checking out `branch` (FINDING L: the main process no longer words this itself). */
+  'worktree.created': { path: string; branch: string }
+  /** The same, for a new branch started at `base`. */
+  'worktree.createdFrom': { path: string; branch: string; base: string }
+  /** The oxe.yaml setup hook was not approved, so it did not run in the new worktree. */
+  'worktree.setup.notApproved': Record<string, never>
+  /** The oxe.yaml setup hook ran and passed. */
+  'worktree.setup.complete': Record<string, never>
+  /** The oxe.yaml setup hook exited with an error code. */
+  'worktree.setup.failed': { exitCode: number }
+  /** The oxe.yaml setup hook did not end in a way that can be checked (timed out or killed). */
+  'worktree.setup.unverified': Record<string, never>
+  /** B19: files from `worktree.copyFiles` copied into the new worktree. */
+  'worktree.copyFiles.copied': { count: number }
+  /** B19: an include pattern that is absolute, climbs with `..`, or names `.git`; nothing is copied for it. */
+  'worktree.copyFiles.outsideRepo': { patterns: string[] }
+  /** B19: the patterns matched more than the limit; nothing is copied, the worktree is created anyway. */
+  'worktree.copyFiles.overLimit': { files: number; megabytes: number; maxFiles: number; maxMegabytes: number }
+  /** B19: a pattern with more segments or `**` than the matcher allows; nothing is copied for it. */
+  'worktree.copyFiles.tooComplex': { patterns: string[] }
+  /** B19: patterns starting with `!`, kept for excluding files later; nothing is copied for them. */
+  'worktree.copyFiles.excludeReserved': { patterns: string[] }
+  /** B19: `git check-ignore` failed in the new worktree, so nothing is copied (only ignored files may be). */
+  'worktree.copyFiles.ignoreCheckFailed': Record<string, never>
+  /** B19: files git does not ignore in the new worktree; a copy could be committed, so they are not copied. */
+  'worktree.copyFiles.notIgnored': { paths: string[] }
+  /** B19: the search went through more entries than allowed before finishing; nothing is copied. */
+  'worktree.copyFiles.searchTooLarge': { limit: number }
+  /** B19: files already in the new worktree; they are kept as they are. */
+  'worktree.copyFiles.notOverwritten': { paths: string[] }
+  /** B19: links and files whose real location is outside the repository or the worktree; they are not copied. */
+  'worktree.copyFiles.notFollowed': { paths: string[] }
+  /** B19: files that could not be copied (permissions, a disk error). */
+  'worktree.copyFiles.failed': { paths: string[] }
   'mcp.signIn.waiting': Record<string, never>
   'mcp.server.quarantined': Record<string, never>
   'mcp.server.untrusted': Record<string, never>
@@ -462,6 +496,22 @@ export interface MessageParams {
   'notify.refused.rateLimit': { perMinute: number }
   /** A pane name an agent chose contains a name only the app uses. */
   'agents.name.reserved': { name: string }
+  /** Another session tried to control a delegation whose requester is still running (B6.2). */
+  'delegation.requester.live': Record<string, never>
+  /** B18: the path is outside the open workspace, as written or once its links are followed. */
+  'app.openIn.outsideRoot': Record<string, never>
+  /** B18: the file no longer exists; `path` is relative to the project. */
+  'app.openIn.notFound': { path: string }
+  /** B18: a folder was sent to an editor; folders are only shown in the file manager. */
+  'app.openIn.notAFile': { editor: string }
+  /** B18: the window asked for a target main doesn't know. */
+  'app.openIn.unknownTarget': Record<string, never>
+  /** B18: the editor isn't installed any more (or never was); `editor` is its product name. */
+  'app.openIn.editorMissing': { editor: string }
+  /** B18: the editor was found but didn't start. */
+  'app.openIn.launchFailed': { editor: string }
+  /** B18: the system couldn't show the file in its folder. */
+  'app.openIn.revealFailed': Record<string, never>
 }
 
 export type MessageCode = keyof MessageParams
@@ -552,6 +602,23 @@ export const MESSAGE_CODES = [
   'worktree.cleanup.notRemovable',
   'worktree.cleanup.blocked',
   'worktree.cleanup.needsConfirmation',
+  'worktree.created',
+  'worktree.createdFrom',
+  'worktree.setup.notApproved',
+  'worktree.setup.complete',
+  'worktree.setup.failed',
+  'worktree.setup.unverified',
+  'worktree.copyFiles.copied',
+  'worktree.copyFiles.outsideRepo',
+  'worktree.copyFiles.overLimit',
+  'worktree.copyFiles.tooComplex',
+  'worktree.copyFiles.excludeReserved',
+  'worktree.copyFiles.ignoreCheckFailed',
+  'worktree.copyFiles.notIgnored',
+  'worktree.copyFiles.searchTooLarge',
+  'worktree.copyFiles.notOverwritten',
+  'worktree.copyFiles.notFollowed',
+  'worktree.copyFiles.failed',
   'mcp.signIn.waiting',
   'mcp.server.quarantined',
   'mcp.server.untrusted',
@@ -760,7 +827,15 @@ export const MESSAGE_CODES = [
   'notify.prefix.unknownConversation',
   'notify.refused.reservedName',
   'notify.refused.rateLimit',
-  'agents.name.reserved'
+  'agents.name.reserved',
+  'delegation.requester.live',
+  'app.openIn.outsideRoot',
+  'app.openIn.notFound',
+  'app.openIn.notAFile',
+  'app.openIn.unknownTarget',
+  'app.openIn.editorMissing',
+  'app.openIn.launchFailed',
+  'app.openIn.revealFailed'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */

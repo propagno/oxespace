@@ -9,7 +9,7 @@ import { clampUiScale, UI_SCALE_DEFAULT } from '../../shared/uiScale'
 /**
  * General app preferences, persisted to localStorage (OXESpace has no global
  * settings backend yet). Keep this lean — feature-specific prefs live in their
- * own stores (e.g. voice.store).
+ * own stores (e.g. terminal-prefs.store).
  */
 export const VISITED_WORKSPACES_CAP_MIN = 1
 // Raised from 5/3 once eviction stopped killing shells: keeping a workspace

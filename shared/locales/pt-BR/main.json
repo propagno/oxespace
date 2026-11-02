@@ -38,6 +38,11 @@
     }
   },
   "messages": {
+    "delegation": {
+      "requester": {
+        "live": "A conversa que delegou esta tarefa ainda está rodando; só ela pode controlar a tarefa."
+      }
+    },
     "mcp": {
       "quarantine": {
         "changed": "A descrição ou as entradas de {{tools}} mudaram depois que você confiou no servidor.",
@@ -124,6 +129,15 @@
     "app": {
       "connectivity": {
         "offline": "Sem conexão de rede."
+      },
+      "openIn": {
+        "outsideRoot": "Este arquivo está fora do projeto e não pode ser aberto daqui.",
+        "notFound": "{{path}} não existe mais.",
+        "notAFile": "Daqui só arquivos abrem no {{editor}}. Para uma pasta, use “Mostrar no Explorador de Arquivos”.",
+        "unknownTarget": "O OXESpace não abre arquivos desse jeito.",
+        "editorMissing": "O {{editor}} não foi encontrado. Escolha outro editor.",
+        "launchFailed": "Não foi possível abrir no {{editor}}.",
+        "revealFailed": "Não foi possível mostrar o arquivo na pasta."
       }
     },
     "ipc": {
@@ -177,10 +191,31 @@
       }
     },
     "worktree": {
+      "created": "Worktree criado em {{path}} (branch {{branch}}).",
+      "createdFrom": "Worktree criado em {{path}} (branch {{branch}} a partir de {{base}}).",
+      "setup": {
+        "notApproved": "O hook de setup do oxe.yaml não foi aprovado e não rodou.",
+        "complete": "Hook de setup concluído.",
+        "failed": "O hook de setup terminou com o código {{exitCode}}.",
+        "unverified": "O hook de setup não terminou de um jeito que dê para conferir."
+      },
       "cleanup": {
         "notRemovable": "Este não é um worktree removível deste repositório.",
         "blocked": "Bloqueado: {{reasons}}.",
         "needsConfirmation": "Precisa de confirmação: {{reasons}}."
+      },
+      "copyFiles": {
+        "copied": "{{count}} arquivos listados em worktree.copyFiles foram copiados.",
+        "outsideRepo": "Padrões do worktree.copyFiles recusados, porque são relativos ao repositório e não podem usar .. nem .git: {{patterns}}.",
+        "overLimit": "O worktree.copyFiles encontrou {{files}} arquivos ({{megabytes}} MB), acima do limite de {{maxFiles}} arquivos ou {{maxMegabytes}} MB. Nada foi copiado; o worktree foi criado.",
+        "tooComplex": "Padrões do worktree.copyFiles recusados, porque têm pastas ou ** demais para comparar com segurança: {{patterns}}.",
+        "excludeReserved": "Padrões do worktree.copyFiles que começam com ! ficam reservados para excluir arquivos numa versão futura, e nada foi copiado para eles: {{patterns}}.",
+        "ignoreCheckFailed": "O Git não conseguiu dizer quais arquivos ignora no worktree novo, então nada do worktree.copyFiles foi copiado.",
+        "notIgnored": "Não copiados, porque o Git não os ignora no worktree novo e eles poderiam ir para um commit: {{paths}}.",
+        "searchTooLarge": "O worktree.copyFiles percorreu mais de {{limit}} itens sem terminar. Nada foi copiado; o worktree foi criado. Use padrões mais específicos.",
+        "notOverwritten": "Já estavam no worktree novo e ficaram como estão: {{paths}}.",
+        "notFollowed": "Não copiados, por serem links ou levarem para fora do repositório ou do worktree: {{paths}}.",
+        "failed": "Não foi possível copiar: {{paths}}."
       }
     },
     "github": {
@@ -439,7 +474,7 @@
         "waiting": "OXESpace: aprovação aguardando"
       },
       "textLabel": {
-        "policyChange": "O arquivo como está agora"
+        "policyChange": "Conteúdo do arquivo"
       }
     },
     "notify": {

@@ -47,10 +47,6 @@
         "label": "Teclado",
         "hint": "Atalhos e combinações de teclas"
       },
-      "voice": {
-        "label": "Voz",
-        "hint": "Microfone e transcrição local"
-      },
       "notifications": {
         "label": "Notificações",
         "hint": "Alertas e sons"
@@ -295,34 +291,6 @@
     "hint": "O modelo ({{model}}) roda nesta máquina e fica na pasta de dados do app, então as atualizações não o baixam de novo. Para importar, escolha uma pasta com config.json, tokenizer.json, tokenizer_config.json e onnx/model_quantized.onnx.",
     "usage": "Buscas dos agentes até agora: {{without}} sem o índice, {{with}} com ele (contadas só nesta máquina).",
     "changeFailed": "Não foi possível mudar o índice semântico."
-  },
-  "voice": {
-    "kicker": "OXEVoice · transcrição local",
-    "title": "Voz",
-    "description": "Dite com transcrição local e os atalhos que você preferir.",
-    "model": "Modelo",
-    "models": {
-      "tiny": "Tiny — o mais rápido, menos preciso (~75 MB)",
-      "base": "Base — equilibrado (~142 MB)",
-      "small": "Small — mais preciso, mais lento (~466 MB)"
-    },
-    "shortcut": "Atalho para falar",
-    "pressKeys": "Pressione as teclas…",
-    "capture": "Capturar",
-    "captureHint": "Pressione o atalho, ou Esc para cancelar",
-    "engine": "Motor",
-    "available": "disponível",
-    "unavailable": "indisponível",
-    "modelName": "Modelo «{{size}}»",
-    "modelReady": "pronto",
-    "downloadingPercent": "baixando… {{percent}}%",
-    "notDownloaded": "não baixado",
-    "engineMissing": "A entrada por voz precisa do motor whisper.cpp, que esta versão traz só para Windows. O download do modelo começa quando o motor estiver disponível neste sistema.",
-    "downloading": "Baixando…",
-    "download": "Baixar o modelo",
-    "readyLine": "Modelo pronto para falar com o atalho",
-    "downloadFailed": "Não foi possível baixar o modelo.",
-    "callout": "Reconhecimento local (whisper.cpp), em <strong>português do Brasil</strong>. Segure o atalho para falar; toque no microfone para falar sem segurar."
   },
   "terminal": {
     "title": "Terminal",

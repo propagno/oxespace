@@ -21,7 +21,6 @@ import { registerSessionIpc } from './ipc/session.ipc'
 import { broadcastSkillChange, registerSkillIpc } from './ipc/skill.ipc'
 import { broadcastMcpHealth, registerMcpIpc } from './ipc/mcp.ipc'
 import { registerMcpInternalIpc } from './ipc/mcp-internal.ipc'
-import { registerVoiceIpc } from './ipc/voice.ipc'
 import { registerNotificationsIpc } from './ipc/notifications.ipc'
 import { registerAppInfoIpc } from './ipc/app-info.ipc'
 import { e2eMocksEnabled } from './e2e/e2e-mode'
@@ -371,7 +370,6 @@ async function registerIpcHandlers(): Promise<() => void> {
     timer.unref?.()
     return filePath
   })
-  registerVoiceIpc()
   registerNotificationsIpc()
   registerRemoteIpc(db, { threads: threadManager.manager, terminals: terminalManager, agentState }); app.once('before-quit', registerAppInfoIpc(db))
   registerCopilotIpc()
@@ -588,9 +586,6 @@ function registerNativeFailureIpcHandlers(message: string): void {
   ipcMain.handle(IPC_CHANNELS.terminal.attach, fail)
   ipcMain.handle(IPC_CHANNELS.terminal.detach, fail)
   ipcMain.handle(IPC_CHANNELS.terminal.status, fail)
-  ipcMain.handle(IPC_CHANNELS.voice.transcribe, fail)
-  ipcMain.handle(IPC_CHANNELS.voice.getModelStatus, () => ({ size: 'base', ready: false, path: '', engineReady: false }))
-  ipcMain.handle(IPC_CHANNELS.voice.ensureModel, fail)
   ipcMain.handle(IPC_CHANNELS.notifications.notify, () => false)
   ipcMain.handle(IPC_CHANNELS.oxe.detect, () => ({ installed: false, version: null }))
   ipcMain.handle(IPC_CHANNELS.oxe.status, () => ({ installed: false, version: null, isOxeProject: false, status: null, error: null }))
@@ -805,10 +800,10 @@ function createMainWindow(): BrowserWindow {
     securePreviewGuest(guestWebContents)
   })
 
-  // `media` allows microphone for OXEVoice. `clipboard-read` / `clipboard-sanitized-write`
-  // allow terminal Ctrl+V paste, which reads via navigator.clipboard.readText(). A
-  // media-only handler silently denied clipboard-read, which is what broke paste.
-  const ALLOWED_PERMISSIONS = new Set(['media', 'clipboard-read', 'clipboard-sanitized-write'])
+  // `clipboard-read` / `clipboard-sanitized-write` allow terminal Ctrl+V paste, which reads via navigator.clipboard.readText(). A
+  // handler without them silently denied clipboard-read, which is what broke paste. No `media`: nothing in the window
+  // uses the microphone or camera since OXEVoice left (B21), so a request for them is denied.
+  const ALLOWED_PERMISSIONS = new Set(['clipboard-read', 'clipboard-sanitized-write'])
   mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback, details) => {
     const isMainWindow = webContents === mainWindow.webContents
     const isMainFrame = details.isMainFrame !== false

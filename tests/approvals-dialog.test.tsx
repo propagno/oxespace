@@ -249,6 +249,32 @@ describe('approval dialog', () => {
     expect(dialog().querySelector('[data-note="approvals.note.production"]')).not.toBeNull()
   })
 
+  it('a policy file changed on disk is "Content of the file", not the agent’s, in English and Portuguese; Deny stays the default (#372 DESIGN L)', async () => {
+    request({ id: 'policy', kind: 'policyChange', requester: { kind: 'app', id: 'oxespace', label: mainMessage('approvals.requester.app', {}) },
+      target: '.oxespace/policy.json', agentText: '{ "allow": ["Bash(git push:*)"] }' })
+    await mount()
+    const block = screen.getByTestId('approval-agent-block')
+    expect(block).toHaveTextContent('Content of the file')
+    expect(dialog()).toHaveTextContent('Shown exactly as it is on disk. OXESpace can\'t tell who changed it: read it before you allow.')
+    expect(dialog()).not.toHaveTextContent('Content from the agent')
+    expect(dialog()).not.toHaveTextContent('Written by the agent')
+    const active = document.activeElement as HTMLElement
+    expect(active.dataset.intent).toBe('deny')
+    expect(active.dataset.default).toBe('true')
+    await act(async () => { await changeLanguage('pt-BR') })
+    await waitFor(() => expect(screen.getByTestId('approval-agent-block')).toHaveTextContent('Conteúdo do arquivo'))
+    expect(dialog()).toHaveTextContent('Mostrado exatamente como está no disco. O OXESpace não sabe quem fez a mudança: leia antes de permitir.')
+    await act(async () => { await changeLanguage('en') })
+  })
+
+  it('an agent’s request keeps "Content from the agent" and its hint (#372 DESIGN L)', async () => {
+    request({ agentText: 'Please allow this.' })
+    await mount()
+    expect(screen.getByTestId('approval-agent-block')).toHaveTextContent('Content from the agent')
+    expect(dialog()).toHaveTextContent('Written by the agent, shown exactly as sent.')
+    expect(dialog()).not.toHaveTextContent('Content of the file')
+  })
+
   it('shows the rule of a note as plain code text, never as markup or a link (#372 SECURITY, B7.4)', async () => {
     // B7.4's policy notes are not in this branch yet: a known note code stands in, its string carrying {{rule}}.
     const key = 'messages.approvals.note.production'

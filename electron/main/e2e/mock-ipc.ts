@@ -32,6 +32,7 @@ import { registerRemoteMock } from './remote-mock'
 import { registerActivityMock } from './activity-mock'
 import { registerThreadSectionsMock } from './thread-sections-mock'
 import { registerOpenExternalMock } from './open-external-mock'
+import { registerOpenInMock } from './open-in-mock'
 import { installMcpFixture } from './mcp-fixture'
 import { registerApprovalsMock } from './approvals-mock'
 import { registerApprovalsIpc } from '../ipc/approvals.ipc'
@@ -312,9 +313,6 @@ export function registerE2eMockIpcHandlers(): void {
     const seeded = (globalThis as { __oxeAgentResume?: Record<string, PaneAgentResume> }).__oxeAgentResume?.[String(paneId)]
     return { running: false, seq: 0, altScreen: false, ...(seeded ? { agentResume: seeded } : {}) }
   })
-  ipcMain.handle(IPC_CHANNELS.voice.transcribe, () => ({ text: '', durationMs: 0 }))
-  ipcMain.handle(IPC_CHANNELS.voice.getModelStatus, () => ({ size: 'base', ready: false, path: '', engineReady: false }))
-  ipcMain.handle(IPC_CHANNELS.voice.ensureModel, () => ({ size: 'base', ready: false, path: '', engineReady: false }))
   ipcMain.handle(IPC_CHANNELS.notifications.notify, () => false)
   // Offline is opted into per run, so a spec can check the offline state without unplugging the runner.
   ipcMain.handle(IPC_CHANNELS.app.connectivity, (): AppConnectivity => process.env.OXESPACE_E2E_OFFLINE === '1'
@@ -373,10 +371,13 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.tasks.executions, () => [])
   // The file system service needs no native module, so e2e gets the real one —
   // that is what makes the editor, file browser and rich previews testable.
-  const mockFileSystemService = new FileSystemService((workspaceId, requestedRoot) => {
+  const mockWorkspaceRoot = (workspaceId: string, requestedRoot: string): string | null => {
     const root = workspaces.find((workspace) => workspace.id === workspaceId)?.rootPath
     return root ? worktreeOrWorkspaceRoot(root, requestedRoot) : null
-  })
+  }
+  const mockFileSystemService = new FileSystemService(mockWorkspaceRoot)
+  // B18: the real path checks against the same roots, with fake editors that record what main would start.
+  registerOpenInMock(mockWorkspaceRoot)
   ipcMain.handle(IPC_CHANNELS.fs.listTree, (_event: IpcMainInvokeEvent, input: unknown) =>
     mockFileSystemService.listTree(input as Parameters<FileSystemService['listTree']>[0])
   )
