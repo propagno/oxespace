@@ -175,9 +175,9 @@ async function registerIpcHandlers(): Promise<() => void> {
   registerMemoryIpc(memoryService)
   registerAgentHooksIpc(app.getPath('userData'))
   // What each pane's agent is doing (working, blocked, done...), from its hooks and its screen.
-  const [{ AgentStateService }, { loadManifests }, { BUNDLED_MANIFESTS }, { registerAgentStateIpc, broadcastAgentState }] = await Promise.all([
+  const [{ AgentStateService }, { loadManifests }, { BUNDLED_MANIFESTS }, { registerAgentStateIpc, broadcastAgentState }, { notifyAgentsChanged }] = await Promise.all([
     import('./services/agent-state/agent-state.service'), import('./services/agent-state/manifest'),
-    import('./services/agent-state/bundled-manifests'), import('./ipc/agent-state.ipc')
+    import('./services/agent-state/bundled-manifests'), import('./ipc/agent-state.ipc'), import('./services/agents/agents-notifier')
   ])
   const agentManifests = loadManifests(BUNDLED_MANIFESTS, join(app.getPath('userData'), 'agent-detection'))
   for (const warning of agentManifests.warnings) log.warn(`[agent-state] ${warning}`)
@@ -185,10 +185,16 @@ async function registerIpcHandlers(): Promise<() => void> {
   let terminalForHistory: { peek(paneId: string): { data: string } | null } | undefined
   const agentState = new AgentStateService({
     manifests: () => agentManifests.manifests,
-    emit: broadcastAgentState,
+    emit: event => { broadcastAgentState(event); notifyAgentsChanged() },
     history: paneId => terminalForHistory?.peek(paneId)?.data ?? null
   })
   registerAgentStateIpc(agentState)
+  // S7.1: every agent in one overview (panes, conversations, delegations, work runs), for the window and later the phone.
+  const [{ AgentsReadModel }, { registerAgentsIpc }, { ThreadHistory }] = await Promise.all([
+    import('./services/agents/agents-read-model'), import('./ipc/agents.ipc'), import('./services/conversation/thread-history')
+  ])
+  const agentThreadHistory = new ThreadHistory(db)
+  registerAgentsIpc(new AgentsReadModel({ db, panes: () => agentState.list(), threadRequests: () => agentThreadHistory.pendingRequestsAll(), markPaneSeen: paneId => agentState.markSeen(paneId) }))
   const { PaneAgentSessions } = await import('./services/agent-state/pane-sessions')
   const paneAgentSessions = new PaneAgentSessions(db)
   // Agents' own lifecycle hooks report here. Deliveries authenticate with the
@@ -405,6 +411,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     launch: task => launcher.launch(task), stop: paneId => terminalManager.stop({ paneId }),
     changed: (workspaceId, taskId) => {
       for (const window of BrowserWindow.getAllWindows()) window.webContents.send(IPC_CHANNELS.delegation.changed, { workspaceId, taskId })
+      notifyAgentsChanged()
     },
     enrich: async task => {
       let memory = ''
