@@ -367,6 +367,10 @@ export interface MessageParams {
   'remote.network.noPrivateInterface': Record<string, never>
   /** The gateway's certificate could not be made or read back from secure storage. */
   'remote.certificate.failed': Record<string, never>
+  /** Linux with no system keyring (basic_text): the connection's private key would only be obfuscated, so it stays off. */
+  'remote.keyring.missing': Record<string, never>
+  /** No secure storage at all on this system: the connection's private key cannot be kept, so it stays off. */
+  'remote.storage.unavailable': Record<string, never>
   /** A phone's pairing attempt failed. Never carries the phone's key, address, name or any identifier. */
   'remote.pairing.failed': { reason: 'invalid' | 'expired' | 'refused' | 'limit' | 'peer-closed' | 'reserved-name' }
   /** A pairing code was asked for while the gateway is off. */
@@ -498,6 +502,20 @@ export interface MessageParams {
   'agents.name.reserved': { name: string }
   /** Another session tried to control a delegation whose requester is still running (B6.2). */
   'delegation.requester.live': Record<string, never>
+  /** B18: the path is outside the open workspace, as written or once its links are followed. */
+  'app.openIn.outsideRoot': Record<string, never>
+  /** B18: the file no longer exists; `path` is relative to the project. */
+  'app.openIn.notFound': { path: string }
+  /** B18: a folder was sent to an editor; folders are only shown in the file manager. */
+  'app.openIn.notAFile': { editor: string }
+  /** B18: the window asked for a target main doesn't know. */
+  'app.openIn.unknownTarget': Record<string, never>
+  /** B18: the editor isn't installed any more (or never was); `editor` is its product name. */
+  'app.openIn.editorMissing': { editor: string }
+  /** B18: the editor was found but didn't start. */
+  'app.openIn.launchFailed': { editor: string }
+  /** B18: the system couldn't show the file in its folder. */
+  'app.openIn.revealFailed': Record<string, never>
 }
 
 export type MessageCode = keyof MessageParams
@@ -723,6 +741,8 @@ export const MESSAGE_CODES = [
   'remote.port.inUse',
   'remote.network.noPrivateInterface',
   'remote.certificate.failed',
+  'remote.keyring.missing',
+  'remote.storage.unavailable',
   'remote.pairing.failed',
   'remote.gateway.offline',
   'remote.pairing.limit',
@@ -814,7 +834,14 @@ export const MESSAGE_CODES = [
   'notify.refused.reservedName',
   'notify.refused.rateLimit',
   'agents.name.reserved',
-  'delegation.requester.live'
+  'delegation.requester.live',
+  'app.openIn.outsideRoot',
+  'app.openIn.notFound',
+  'app.openIn.notAFile',
+  'app.openIn.unknownTarget',
+  'app.openIn.editorMissing',
+  'app.openIn.launchFailed',
+  'app.openIn.revealFailed'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */

@@ -123,8 +123,9 @@ export class RemoteStore {
     return this.db.prepare('UPDATE remote_devices SET revoked = 1, revoked_at = ? WHERE revoked = 0').run(this.now()).changes
   }
 
+  /** Never moves the last sight back (a clock set back, or a close in the same millisecond as the sign-in): B9.2 reads it. */
   touch(deviceId: string, at = this.now()): void {
-    this.db.prepare('UPDATE remote_devices SET last_seen_at = ? WHERE device_id = ? AND revoked = 0').run(at, deviceId)
+    this.db.prepare('UPDATE remote_devices SET last_seen_at = MAX(?, COALESCE(last_seen_at, 0)) WHERE device_id = ? AND revoked = 0').run(at, deviceId)
   }
 
   /** Append-only and best effort: a failed write never changes what is being recorded. */

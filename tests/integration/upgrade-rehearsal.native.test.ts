@@ -88,7 +88,7 @@ describe.skipIf(!available)(`upgrading a database created by ${PREVIOUS_STABLE}`
   }
 
   beforeAll(async () => {
-    removeTempDir(mirror)
+    rmSync(mirror, { recursive: true, force: true })
     mkdirSync(mirror, { recursive: true })
     const listing = execFileSync('git', ['ls-tree', '-r', '--name-only', PREVIOUS_STABLE, 'electron/main/db'], { encoding: 'utf8' })
     for (const file of listing.split(/\r?\n/).filter(Boolean)) {
