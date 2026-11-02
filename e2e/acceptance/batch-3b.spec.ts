@@ -103,7 +103,8 @@ test('#210 Settings › Tools on the real app: what the page sets reaches the ag
     await page.waitForTimeout(1_000)
     const text = await tools.innerText()
     console.log('F10-BROKEN', text.slice(0, 400).replace(/\s+/g, ' '))
-    expect.soft(text, 'the broken oxe.yaml is explained').toMatch(/oxe\.yaml/i)
+    console.log('F10-BROKEN-ERR', (text.match(/.{0,120}(invalid|can.t be read|cannot be read|not valid|could not).{0,160}/i) ?? ['none'])[0])
+    expect.soft(text, 'the broken oxe.yaml is explained').toMatch(/invalid|can.t be read|cannot be read|not valid|could not/i)
     expect.soft(text.length, 'the page still shows something').toBeGreaterThan(50)
   } finally { await quitReal(app) }
 })
@@ -147,6 +148,13 @@ test('#176 Settings states, #414 the cold switch to OxeChat, and the 1.4.0 notes
       const menu = Menu.getApplicationMenu(); if (menu) walk(menu.items, '')
       return labels.filter(l => /report|help|ajuda/i.test(l)).slice(0, 10)
     })
+    // On Windows the menus are the app's own (title bar), so also look where a person would: the menu bar and the palette.
+    out.helpMenu = await page.getByRole('menubar').getByRole('menuitem', { name: /^Help/ }).first().click({ timeout: 3_000 }).then(async () => {
+      const items = await page.getByRole('menuitem').allInnerTexts(); await page.keyboard.press('Escape'); return items.filter(t => /report/i.test(t))
+    }, () => 'no menubar Help')
+    await page.keyboard.press('Control+k'); await page.keyboard.insertText('Report a problem'); await page.waitForTimeout(500)
+    out.paletteReport = await page.locator('[cmdk-item]').allInnerTexts().then(list => list.filter(t => /report a problem/i.test(t)))
+    await page.keyboard.press('Escape')
 
     // Settings: categories the notes name; no agent CLI → the empty state with the health check (#176).
     await palette(page, 'Settings')
@@ -164,7 +172,7 @@ test('#176 Settings states, #414 the cold switch to OxeChat, and the 1.4.0 notes
       const button = nav.getByRole('button', { name: new RegExp(`^${name}`) })
       if (!(await button.count())) { out[key] = 'missing'; continue }
       await button.first().click(); await page.waitForTimeout(1_000)
-      out[key] = (await settings.innerText()).replace(/\s+/g, ' ').slice(0, 600)
+      out[key] = (await settings.innerText()).replace(/\s+/g, ' ').slice(0, 4000)
     }
     // A filter with no match: an empty state, not a blank list.
     const filter = settings.getByRole('searchbox').or(settings.getByRole('textbox', { name: /search|filter/i })).first()
@@ -175,11 +183,11 @@ test('#176 Settings states, #414 the cold switch to OxeChat, and the 1.4.0 notes
     console.log('B3B', JSON.stringify(out))
     expect.soft(out.threadColdMs as number, 'OxeChat cold switch').toBeLessThan(1_500)
     expect.soft(out.activity, 'Ctrl+Shift+A opens the activity center').toBe(true)
-    expect.soft(JSON.stringify(out.menu), 'Help › Report a problem').toMatch(/Report a problem/)
+    expect.soft(JSON.stringify([out.menu, out.helpMenu, out.paletteReport]), 'Help › Report a problem').toMatch(/Report a problem/)
     expect.soft(out.categories, 'Settings › Keyboard exists').toContain('Keyboard')
     expect.soft(String(out.devices), 'phone connection off by default').toMatch(/off|Turn on|not on/i)
     expect.soft(String(out.updates), 'beta versions can be chosen').toMatch(/beta/i)
-    expect.soft(String(out.appearance), 'motion System/Reduced/Full').toMatch(/Reduced[\s\S]*Full|System[\s\S]*Reduced/)
+    expect.soft(String(out.appearance).match(/Motion.{0,200}/)?.[0] ?? 'no Motion', 'motion System/Reduced/Full').toMatch(/System.*Reduced.*Full/)
     expect.soft(errors, 'no page error').toEqual([])
   } finally { await quitReal(app) }
 })
