@@ -69,7 +69,7 @@ atualiza sozinha).
 - **Detalhes da conversa**, pelo cabeçalho da conversa: o ambiente (projeto, worktree, branch, agente, modelo), o
   contexto em detalhe com **Compactar**, os servidores MCP e as ferramentas que ela usou, os arquivos que ela mudou e
   o trabalho em segundo plano. Reordene as seções arrastando ou pelo menu de cada seção.
-<!-- entra quando o F15b/F15c (#287/#290) for mesclado. -->
+<!-- conversas aninhadas e a coordenadora do projeto (B1.3/B1.4, #287/#290) são da 1.4.1: corte de escopo do usuário; nunca listar aqui. -->
 
 ## O seu celular
 
