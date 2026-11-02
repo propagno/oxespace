@@ -344,23 +344,12 @@ export class GitHubRepositoryService {
    */
   private async prepareNewWorktree(rootPath: string, worktreePath: string): Promise<MainMessage[]> {
     const config = (await loadRepoConfig(worktreePath)) ?? (await loadRepoConfig(rootPath))
-    if (!config) return []
     const notes: MainMessage[] = []
-    if (config.worktree.sharedDirectories.length > 0) {
+    if (config && config.worktree.sharedDirectories.length > 0) {
       await createSharedLinks(rootPath, worktreePath, config.worktree.sharedDirectories)
     }
-    // B19: the list comes from the main checkout's oxe.yaml only, which the person controls. A branch being checked
-    // out must not choose which of the person's files are copied next to it (SECURITY review of #451).
-    const include = (await loadRepoConfig(rootPath))?.worktree.copyFiles ?? []
-    if (include.length) {
-      // check-ignore exits 0 when some path is ignored, 1 when none is; anything else means git could not tell.
-      const ignored = async (paths: string[]): Promise<Set<string> | null> => {
-        const result = await this.gh.git(['check-ignore', '-z', '--stdin'], worktreePath, paths.join('\0') + '\0')
-        if (result.status === 1) return new Set()
-        return result.status === 0 ? new Set((result.stdout ?? '').split('\0').filter(Boolean)) : null
-      }
-      notes.push(...(await copyIncludedFiles(rootPath, worktreePath, include, ignored)).notices)
-    }
+    notes.push(...(await this.copyFromMainCheckout(rootPath, worktreePath)))
+    if (!config) return notes
     const setup = config.scripts.setup
     if (!setup) return notes
     if (!this.lifecycle?.trust.isTrusted(rootPath, 'setup', setup)) {
@@ -386,6 +375,34 @@ export class GitHubRepositoryService {
    */
   private network(args: string[], rootPath: string, person: PersonGit | undefined): Promise<string> {
     return person ? this.gh.runPersonGit(args, rootPath, person) : this.gh.runGit(args, rootPath)
+  }
+
+  /**
+   * B19: `worktree.copyFiles` from the person's main checkout, whatever checkout the worktree is created from. Both the
+   * list and the files come from there: a branch, or an agent in another worktree, never chooses which of the person's
+   * files are copied, nor serves them (SECURITY review of #451; HML FINDING M on creating from inside a worktree). The
+   * main checkout is git's first `worktree list` entry; a bare main has none, and then nothing is copied.
+   */
+  private async copyFromMainCheckout(rootPath: string, worktreePath: string): Promise<MainMessage[]> {
+    const main = await this.mainCheckout(rootPath)
+    if (!main) return []
+    const include = (await loadRepoConfig(main))?.worktree.copyFiles ?? []
+    if (!include.length) return []
+    // check-ignore exits 0 when some path is ignored, 1 when none is; anything else means git could not tell.
+    const ignored = async (paths: string[]): Promise<Set<string> | null> => {
+      const result = await this.gh.git(['check-ignore', '-z', '--stdin'], worktreePath, paths.join('\0') + '\0')
+      if (result.status === 1) return new Set()
+      return result.status === 0 ? new Set((result.stdout ?? '').split('\0').filter(Boolean)) : null
+    }
+    return (await copyIncludedFiles(main, worktreePath, include, ignored)).notices
+  }
+
+  /** The repository's main working tree (git's first `worktree list` entry), or null when it is bare or git cannot tell. */
+  private async mainCheckout(rootPath: string): Promise<string | null> {
+    const listed = await this.gh.tryGit(['worktree', 'list', '--porcelain'], rootPath)
+    const lines = (listed.split(/\r?\n\r?\n/)[0] ?? '').split(/\r?\n/)
+    const path = lines.find(line => line.startsWith('worktree '))?.slice('worktree '.length).trim()
+    return path && !lines.includes('bare') ? path : null
   }
 
   private async refExists(rootPath: string, ref: string): Promise<boolean> {
