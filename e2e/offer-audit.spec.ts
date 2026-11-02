@@ -2,7 +2,7 @@ import { modeButton, type AppMode } from './helpers/modes'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { launchApp, layoutAtWidth, type LaunchedApp } from './helpers/launch'
+import { launchApp, layoutAtWidth, layoutDiag, type LaunchedApp } from './helpers/launch'
 
 /**
  * Every entry point the app offers works or is gone (docs/validation/offer-audit-1.4.md).
@@ -146,6 +146,24 @@ async function runCommand(page: Page, id: string): Promise<boolean> {
 }
 
 /** Closes whatever a command opened, back to the work surface. */
+/** Code's side panels, by the tool command that toggles each and the panel it shows. */
+// Integration last: its command only opens it, so it closes from its own Collapse button, shown once it is the only one.
+const SIDE_PANELS = ['github', 'worktrees', 'scripts', 'search', 'web-preview', 'background', 'editor', 'review', 'integration'] as const
+/**
+ * Splits are refused when the halves would be under 240 px (#310), so they are checked from the known layout: Code,
+ * two panes, no side panel. Earlier commands leave theirs open (each panel takes its share of the width), so every
+ * panel still open is toggled off by its own command first.
+ */
+async function closeSidePanels(page: Page): Promise<void> {
+  for (const id of SIDE_PANELS) {
+    const panel = page.getByTestId(id === 'worktrees' ? 'workspace-worktree-panel' : `workspace-${id}-panel`)
+    if (!(await panel.count())) continue
+    if (id === 'integration') await panel.getByRole('button', { name: 'Collapse panel', exact: true }).click()
+    else await runCommand(page, `tool-${id}`)
+    await expect(panel).toHaveCount(0)
+  }
+}
+
 async function dismiss(page: Page): Promise<void> {
   for (let attempt = 0; attempt < 4; attempt++) {
     const open = page.locator('[role="dialog"]:visible, [role="alertdialog"]:visible, [role="menu"]:visible')
@@ -173,6 +191,7 @@ async function launchWithWorkspace(): Promise<LaunchedApp> {
   // Splits are refused when the halves would be under 240 px (#310). The audit runs them, so it lays out 1440 CSS px
   // whatever the CI screen (a smaller one clamps the window), after the reload: the app sets its own scale on mount.
   await layoutAtWidth(app, page, 1440, 900)
+  console.log(`[SPLIT-DIAG] launch ${await layoutDiag(app, page)}`)
   return launched
 }
 
@@ -195,6 +214,7 @@ test.describe('offer audit', () => {
       for (const id of ids) {
         if (NATIVE_DIALOG.has(id)) continue
         await dismiss(page)
+        if (id.startsWith('split-')) { if (await modeButton(page, 'code').getAttribute('aria-pressed') !== 'true') await selectView(page, 'code'); await closeSidePanels(page) }
         const errorsBefore = pageErrors(launched).length
         const panesBefore = await paneCount(page)
         // A command that needs Code's workspace is offered there; come back to Code when the last command left it.
@@ -207,6 +227,7 @@ test.describe('offer audit', () => {
           else await effectFor(id)!(page)
         } catch (error) {
           failures.push(`${id}: ${(error as Error).message.split('\n')[0]}`)
+          if (id.startsWith('split-')) console.log(`[SPLIT-DIAG] ${id} panes ${panesBefore} → ${await paneCount(page)} ${await layoutDiag(app, page)}`)
         }
         const errors = pageErrors(launched).slice(errorsBefore)
         if (errors.length) failures.push(`${id}: page error ${errors[0]}`)
@@ -373,11 +394,16 @@ test.describe('offer audit', () => {
           const effect = key === 'Help/About' ? dialog('About OXESpace') : MENU_EFFECTS[key]
           if (!effect) { failures.push(`${key}: no expected effect in e2e/offer-audit.spec.ts`); continue }
           if (effect === 'native') continue
+          if (label.startsWith('Split pane')) await closeSidePanels(page)
           const s = await openMenu(menu)
           const item = s.locator(':scope > [role="menuitem"], :scope > [role="menuitemcheckbox"]').filter({ hasText: label }).first()
           if (await item.getAttribute('aria-disabled') === 'true') { failures.push(`${key}: disabled with a workspace open`); continue }
+          const panesBefore = label.startsWith('Split pane') ? await paneCount(page) : 0
           await item.click()
-          await effect(page).catch(error => failures.push(`${key}: ${(error as Error).message.split('\n')[0]}`))
+          await effect(page).catch(async error => {
+            failures.push(`${key}: ${(error as Error).message.split('\n')[0]}`)
+            if (label.startsWith('Split pane')) console.log(`[SPLIT-DIAG] ${key} panes ${panesBefore} → ${await paneCount(page)} ${await layoutDiag(app, page)}`)
+          })
           const errors = pageErrors(launched).slice(errorsBefore)
           if (errors.length) failures.push(`${key}: page error ${errors[0]}`)
           // Back to a known state: Code, two panes, sidebar shown, split layout on.

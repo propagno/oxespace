@@ -140,6 +140,26 @@ export async function layoutAtWidth(app: ElectronApplication, page: Page, width:
   }, { message: `the shell lays out ${width} CSS px wide`, timeout: 10_000 }).toBe(true)
 }
 
+/** Diagnostics for a layout-dependent failure: zoom, window, shell, split grid and pane widths, and visible toasts. */
+export async function layoutDiag(app: ElectronApplication, page: Page): Promise<string> {
+  const win = await app.evaluate(({ BrowserWindow }) => {
+    const window = BrowserWindow.getAllWindows()[0]
+    return { zoom: window.webContents.getZoomFactor(), content: window.getContentBounds(), maximized: window.isMaximized(), fullScreen: window.isFullScreen() }
+  })
+  const dom = await page.evaluate(() => {
+    const width = (selector: string): number[] => [...document.querySelectorAll(selector)].map(node => Math.round(node.getBoundingClientRect().width))
+    return {
+      inner: `${window.innerWidth}x${window.innerHeight}`, dpr: window.devicePixelRatio, shell: width('.app-shell'), sidebar: width('aside.sidebar'),
+      grids: width('.workspace-host:not(.workspace-host-hidden) .workspace-split-grid'), panes: width('[data-testid="pane-container"]'),
+      surface: width('section.workspace-surface'),
+      sidePanels: [...document.querySelectorAll('.workspace-host:not(.workspace-host-hidden) [data-testid$="-panel"]')].map(node => `${node.getAttribute('data-testid')}=${Math.round(node.getBoundingClientRect().width)}`),
+      panelTabs: [...document.querySelectorAll('.workspace-host:not(.workspace-host-hidden) .workspace-panel-stack-tablist [role="tab"]')].map(node => node.textContent ?? ''),
+      toasts: [...document.querySelectorAll('[role=status],[role=alert]')].map(node => (node.textContent ?? '').slice(0, 120)).filter(Boolean)
+    }
+  })
+  return JSON.stringify({ ...win, ...dom })
+}
+
 /** Creates the demo workspace through the wizard, the same path a user takes. */
 export async function openDemoWorkspace(page: Page, workspaceRoot: string): Promise<void> {
   await page.getByTestId('btn-new-workspace').click()
