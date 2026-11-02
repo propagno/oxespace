@@ -72,7 +72,10 @@ test('#510/#507: only the repository\'s own worktrees are roots; forged, copied 
     for (const [name, folder] of [['forged', forged], ['copied', copied], ['unc', unc], ['linked', linked]] as const) {
       out[`open-${name}`] = await openIn(folder, 'secret.txt')
       expect.soft(out[`open-${name}`].ok, `${name}: Open in… is refused`).toBe(false)
-      expect.soft(out[`open-${name}`].detail, `${name}: in #522's words`).toContain('Only files and folders inside the project can be opened from here.')
+      // The window shows the C3 code's text (#522: "Only files and folders inside the project can be opened from here.");
+      // main's own English line names the reason, no longer "The workspace is not open".
+      expect.soft(out[`open-${name}`].detail, `${name}: refused as outsideRoot`).toContain('app.openIn.outsideRoot')
+      expect.soft(out[`open-${name}`].detail, `${name}: not "The workspace is not open"`).not.toContain('The workspace is not open')
     }
     expect.soft(existsSync(args) ? readFileSync(args, 'utf8') : '', 'nothing launched for the forged roots').toBe(launchedBefore)
   } finally {
