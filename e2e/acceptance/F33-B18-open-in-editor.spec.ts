@@ -50,7 +50,8 @@ test('F33/B18: a cited path opens in the editor on its line; outside the project
     await page.waitForTimeout(1_500)
 
     // Inside the project: the menu lists VS Code (installed) and not Cursor or Zed (absent).
-    await page.locator('.xterm').getByText('src/app.ts:12').first().click({ button: 'right' })
+    // The terminal may draw on a canvas (no text in the DOM, as on the Windows runner): then the menu can't be reached here.
+    await page.locator('.xterm').getByText('src/app.ts:12').first().click({ button: 'right', timeout: 5_000 }).catch(() => undefined)
     const menu = page.getByRole('menu')
     // F33's menu (FRONTEND) may land after B18: the menu checks are soft, so main's refusals below always run.
     const menuUp = await menu.getByRole('menuitem', { name: /VS Code/ }).isVisible({ timeout: 5_000 }).catch(() => false)
