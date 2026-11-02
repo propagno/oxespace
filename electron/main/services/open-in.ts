@@ -243,7 +243,7 @@ export class OpenInService {
    */
   async resolveFile(input: Pick<OpenInInput, 'workspaceId' | 'rootPath' | 'path'>): Promise<{ file: string; root: string }> {
     const registered = this.deps.resolveRoot(input.workspaceId, input.rootPath)
-    if (!registered) refuse('app.openIn.outsideRoot', 'The workspace is not open')
+    if (!registered) refuse('app.openIn.outsideRoot', 'The folder is not one of this workspace’s roots')
     let root: string
     try {
       root = await realpath(resolve(registered))
