@@ -70,7 +70,7 @@ try {
   else if (step === 'git-checkout') execFileSync('git', ['checkout', 'HEAD~1', '--', 'oxe.yaml'], { stdio: 'ignore' })
   else if (step === 'interpreter') {
     try { execFileSync('python', ['-c', 'import shutil,sys; shutil.copyfile(sys.argv[1], sys.argv[2])', payload, policy], { stdio: 'ignore' }); out.used = 'python' }
-    catch { execFileSync(process.execPath, ['-e', 'require("fs").copyFileSync(process.argv[1], process.argv[2])', payload, policy], { stdio: 'ignore' }); out.used = 'node -e' }
+    catch { execFileSync('node', ['-e', 'require("fs").copyFileSync(process.argv[1], process.argv[2])', payload, policy], { stdio: 'ignore' }); out.used = 'node -e' }
   }
   else if (step === 'worktree') {
     gitc('.', 'worktree', 'add', '-q', '-b', 'acc-wide', target, 'HEAD')
