@@ -86,7 +86,11 @@ function localReal(path: string, budget = { links: MAX_LINKS }): string | null {
   for (let index = 0; index < parts.length; index++) {
     const next = join(current, parts[index])
     let link: boolean
-    try { link = lstatSync(next).isSymbolicLink() } catch {
+    try { link = lstatSync(next).isSymbolicLink() } catch (error) {
+      // Only a component that is really not there ends the walk. A denied lstat (an ACL the agent can set on its own
+      // folders) does not stop stat from crossing the folder to a link behind it (SECURITY #520 re-review M).
+      const code = (error as NodeJS.ErrnoException).code
+      if (code !== 'ENOENT' && code !== 'ENOTDIR') return null
       if (followed && index < parts.length - 1) return null
       return join(next, ...parts.slice(index + 1))
     }

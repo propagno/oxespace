@@ -170,6 +170,22 @@ describe('a link to a network share is never followed (SECURITY, #518 review and
     expect(staysLocal(join(sandbox, 'hop', 'l', 'x', 'commondir'))).toBe(false)
   })
 
+  it.skipIf(!canLink || process.platform !== 'win32' || !process.env.USERNAME)('a folder the agent hides from lstat is not taken as missing (re-review M)', () => {
+    const user = process.env.USERNAME!
+    const a = join(sandbox, 'acl-a'), d = join(a, 'd')
+    mkdirSync(d, { recursive: true })
+    link(SHARE, join(d, 'net'), 'dir')
+    const icacls = (...args: string[]): void => { execFileSync('icacls', args, { stdio: 'ignore' }) }
+    icacls(a, '/deny', `${user}:(RD)`)
+    icacls(d, '/deny', `${user}:(RA,REA)`)
+    try {
+      expect(staysLocal(join(d, 'net', 'x'))).toBe(false)
+    } finally {
+      icacls(a, '/remove:d', user)
+      icacls(d, '/remove:d', user)
+    }
+  })
+
   it.skipIf(!canLink)('local links still resolve, and a link cycle ends', () => {
     expect(staysLocal(worktree)).toBe(true)
     const viaJunction = join(sandbox, 'wt-junction')
