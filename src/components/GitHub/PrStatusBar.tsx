@@ -36,10 +36,12 @@ export function ciFixPrompt(status: GitHubPrStatus): string {
  * per-check list, "fix failing checks" and auto-merge. Renders nothing when
  * there is no pull request (or gh is unavailable), so it is safe to mount anywhere.
  */
-export function PrStatusBar({ workspaceId, rootPath, onFix }: {
+export function PrStatusBar({ workspaceId, rootPath, onFix, onStatus }: {
   workspaceId: string; rootPath: string
   /** Receives a ready-made prompt; the host decides where it goes (composer, terminal). */
   onFix?: (prompt: string) => void
+  /** Each status read, open or not (T40: a conversation offers to archive itself when its PR closed). */
+  onStatus?: (status: GitHubPrStatus | null) => void
 }): ReactElement | null {
   const { t } = useTranslation('code')
   const [status, setStatus] = useState<GitHubPrStatus | null>(null)
@@ -47,6 +49,8 @@ export function PrStatusBar({ workspaceId, rootPath, onFix }: {
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
   const request = useRef(0)
+  const onStatusRef = useRef(onStatus)
+  useEffect(() => { onStatusRef.current = onStatus })
 
   const load = useCallback(async (): Promise<void> => {
     const github = window.oxe.github
@@ -54,7 +58,7 @@ export function PrStatusBar({ workspaceId, rootPath, onFix }: {
     const id = ++request.current
     try {
       const value = await github.getPullRequestStatus({ workspaceId, rootPath })
-      if (id === request.current) setStatus(value ?? null)
+      if (id === request.current) { setStatus(value ?? null); onStatusRef.current?.(value ?? null) }
     } catch { if (id === request.current) setStatus(null) }
   }, [workspaceId, rootPath])
 

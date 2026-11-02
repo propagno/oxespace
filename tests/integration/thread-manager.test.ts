@@ -799,4 +799,12 @@ describe('thread persistence and ownership', () => {
     expect(f.manager.read(id).thread.pinned).toBe(true)
     await f.manager.stop()
   })
+  it('stores the pull requests a conversation was kept through, once each, in its own data (T40)', async () => {
+    const f = fixture(), id = f.create()
+    f.manager.keepAfterPr(id, 41)
+    f.manager.keepAfterPr(id, 41)
+    f.manager.keepAfterPr(id, 52)
+    expect(f.manager.read(id).thread.keptAfterPr).toEqual([41, 52])
+    await f.manager.stop()
+  })
 })
