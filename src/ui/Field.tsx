@@ -99,7 +99,8 @@ function radioKeys<T extends string>(options: Array<{ value: T }>, onChange: (va
 }
 
 export interface SegmentedControlProps<T extends string> {
-  value: T
+  /** `null`: no option is chosen (a value not known, such as a mode that could not be read); none reads as checked. */
+  value: T | null
   onChange: (value: T) => void
   /** `tone: 'danger'` paints the option red while it is chosen (a production environment). */
   options: Array<{ value: T; label: ReactNode; icon?: ReactNode; tone?: 'danger' }>
@@ -113,7 +114,7 @@ export interface SegmentedControlProps<T extends string> {
 export function SegmentedControl<T extends string>({ value, onChange, options, label, className, disabled = false }: SegmentedControlProps<T>): ReactElement {
   const move = radioKeys(options, onChange)
   return <div role="radiogroup" aria-label={label} aria-disabled={disabled || undefined} className={cx(styles.segmented, className)}>
-    {options.map((option, index) => <button key={option.value} type="button" role="radio" data-value={option.value} data-tone={option.tone} aria-checked={option.value === value} tabIndex={option.value === value ? 0 : -1} disabled={disabled}
+    {options.map((option, index) => <button key={option.value} type="button" role="radio" data-value={option.value} data-tone={option.tone} aria-checked={option.value === value} tabIndex={(value === null ? index === 0 : option.value === value) ? 0 : -1} disabled={disabled}
       className={styles.segment} onClick={() => onChange(option.value)} onKeyDown={event => move(event, index)}>{option.icon}{option.label}</button>)}
   </div>
 }
