@@ -35,9 +35,10 @@ atualiza sozinha).
 - **Um agente não pode se passar pelo app ou pelo seu sistema.** Um nome que o agente escolhe para si é recusado
   quando imita o OXESpace, seus modos ou abas, o seu sistema operacional ou o fabricante dele ("Windows Security",
   "System Administrator").
-<!-- entra quando o F18 (#243) for mesclado: "Pedidos no app, não numa janela do sistema: quem pede, o risco em
-palavras (Baixo, Médio, Alto, Crítico), o texto do agente separado das notas do app, Negar como padrão e o histórico
-de decisões desta sessão." -->
+- **Pedidos no app, não numa janela do sistema.** Todo pedido abre dentro da janela e diz quem pede, o risco em
+  palavras (Baixo, Médio, Alto, Crítico) e o que vai acontecer. O texto do próprio agente fica separado das notas do
+  app. **Negar** é o padrão, um pedido crítico não pode ser permitido com Enter, e você pode rever as decisões desta
+  sessão.
 
 ## Fechar e voltar sem perder os agentes
 
@@ -100,6 +101,8 @@ mensagem e uma fileira de teclas com Esc, Tab, Ctrl+C e setas para o terminal." 
 - **Um grupo desligado continua desligado.** O OXESpace recusa as ferramentas dele em toda chamada, mesmo se um
   agente editar a própria configuração de MCP, e registra isso em **Configurações › Diagnóstico**.
 - **Configurações › Ferramentas** mostra cada grupo, o modo dele neste projeto e o custo em tokens, e muda o modo.
+  Se o `oxe.yaml` tiver um erro, a página avisa e os agentes continuam com os últimos modos que puderam ser lidos até
+  você corrigir.
 <!-- entra quando o #336 for mesclado: "**Menos tokens no início de um agente do OxeCode.** Um agente que o OXESpace
 inicia num terminal começa com cerca de 9.000 caracteres de definições de ferramentas em vez de 64.600, e fica
 sabendo quando a busca de código do OXESpace é melhor que o grep." Números medidos: 64.574 → 8.965 caracteres. -->
