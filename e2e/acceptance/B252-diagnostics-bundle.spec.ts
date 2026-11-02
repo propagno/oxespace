@@ -55,7 +55,9 @@ test('#252: the diagnostics bundle keeps versions intact and secrets out', async
     await app.evaluate(({ dialog }, path) => { dialog.showSaveDialog = (async () => ({ canceled: false, filePath: path })) as typeof dialog.showSaveDialog }, zip)
     out.exported = await page.evaluate('window.oxe.diagnostics.exportBundle()')
     const extracted = join(base.root, 'bundle'); mkdirSync(extracted)
-    execFileSync(process.platform === 'win32' ? String.raw`C:\Windows\System32\tar.exe` : 'tar', ['-xf', zip, '-C', extracted])
+    // Windows' bsdtar reads zips; GNU tar on Linux doesn't, so unzip there.
+    if (process.platform === 'win32') execFileSync(String.raw`C:\Windows\System32\tar.exe`, ['-xf', zip, '-C', extracted])
+    else execFileSync('unzip', ['-q', '-o', zip, '-d', extracted])
     const files: Record<string, string> = Object.fromEntries(readdirSync(extracted).map(name => [name, readFileSync(join(extracted, name), 'utf8')]))
     files['(ipc) analysisSummary'] = String(await page.evaluate('window.oxe.diagnostics.analysisSummary()'))
     const pkgVersion = (JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as { version: string }).version
