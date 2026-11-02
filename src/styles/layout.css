@@ -1714,3 +1714,7 @@
 .workspace-panel-stack-content > * { height: 100%; }
 .workspace-panel-stack-content > [hidden] { display: none; }
 .workspace-panel-stack-tabs .workspace-panel-stack-more { display: inline-flex; flex: none; align-items: center; gap: 4px; margin-left: auto; }
+
+/* F33: the path menu's items at the end of the tab menu. */
+.ws-group-context-menu-separator { border: 0; border-top: 1px solid var(--border-subtle, var(--border)); margin: 4px 0; }
+.ws-group-context-menu-shortcut { margin-left: auto; padding-left: 12px; color: var(--text-muted); font-size: var(--fs-xs); }
