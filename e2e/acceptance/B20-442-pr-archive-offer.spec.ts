@@ -34,7 +34,7 @@ const read = async (page: Page) => {
   await page.evaluate(() => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' }); window.dispatchEvent(new Event('focus')) })
   await page.waitForTimeout(1_200)
 }
-const toast = (page: Page) => page.locator('[role="status"], [role="alert"], [data-testid*="toast"]').filter({ hasText: /Pull request #\d+/ })
+const toast = (page: Page) => page.locator('[data-toast]').filter({ hasText: /Pull request #\d+/ })
 
 test('B20/#442: the archive offer after a PR closes or merges, and only then', async () => {
   test.setTimeout(240_000)
