@@ -882,6 +882,9 @@
     "relativePathCopied": "Caminho relativo copiado",
     "opening": "Abrindo no {{editor}}",
     "failed": "Não foi possível abrir o arquivo.",
-    "pathLink": "{{path}}, linha {{line}}"
+    "pathLink": "{{path}}, linha {{line}}",
+    "terminalHint": "{{key}}+clique abre no editor do OXESpace",
+    "terminalHintExternal": "{{key}}+clique abre no editor do OXESpace · {{key}}+Shift+clique abre no {{editor}}",
+    "noEditor": "Nenhum editor externo foi encontrado. Escolha um em Configurações › Geral."
   }
 }
