@@ -10,8 +10,9 @@ export type Language = (typeof LANGUAGES)[number]
 export type LanguagePreference = 'system' | Language
 
 /**
- * Namespaces, one JSON file each. `main` is only loaded by the main process; `mobile` is the Android app's, turned
- * into its string resources by scripts/android/generate.mjs.
+ * Namespaces, one JSON file each. `main` is only loaded by the main process and holds its own text and the words of
+ * its message codes (C3); `mobile` is the Android app's, turned into its string resources by
+ * scripts/android/generate.mjs.
  */
 export const NAMESPACES = ['common', 'code', 'thread', 'oxequery', 'pods', 'post', 'settings', 'main', 'mobile'] as const
 export type Namespace = (typeof NAMESPACES)[number]

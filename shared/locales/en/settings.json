@@ -551,6 +551,26 @@
     "resetAll": "Reset all shortcuts",
     "fixed": "Always on"
   },
+  "agentConfig": {
+    "promptRequired": "Skill prompt is required",
+    "saveFailed": "Failed to save agent profile",
+    "commandRequired": "Command is required",
+    "deleteFailed": "Failed to delete agent profile",
+    "deleteTitle": "Delete this agent profile?",
+    "deleteDescription": "“{{name}}” is removed from OXESpace. Terminals already running it keep running.",
+    "delete": "Delete profile",
+    "configure": "Configure agent",
+    "customDescription": "A skill prompt that runs on top of a built-in agent.",
+    "description": "The name and command OXESpace uses to start this agent.",
+    "create": "Create",
+    "save": "Save",
+    "name": "Name",
+    "namePlaceholder": "My agent",
+    "parent": "Parent provider",
+    "prompt": "Skill prompt",
+    "promptPlaceholder": "You are a Java 8+ expert. Review this code for best practices, performance, and correctness.",
+    "command": "Command"
+  },
   "devices": {
     "title": "Devices",
     "intro": "Use OXESpace from your Android phone on the same network: follow conversations, answer requests and watch terminals. The phone talks only to this computer, over your local network, never through the internet.",
@@ -671,6 +691,153 @@
         "threadAccess": "Change what a conversation may access",
         "hostExec": "Run commands on this computer"
       }
+    }
+  },
+  "tools": {
+    "title": "Tools",
+    "intro": "The groups of OXESpace MCP tools that agents in this project are offered, how each group is offered and what it costs. Agents that start after a change get it. Modes are saved in the project's file:",
+    "reload": "Reload",
+    "loading": "Reading the tool groups…",
+    "loadFailed": "Could not read the tool groups",
+    "unavailable": "This version of OXESpace cannot show this yet.",
+    "providers": {
+      "title": "How each provider gets the tools",
+      "claude": "Groups always on send their definitions with every request. Groups on demand send only the tool names, and Claude loads a definition when it searches for it.",
+      "codex": "Every group that is not off is available from the start; there is no turning a group on during a session. Codex sends no definitions up front and loads them as it needs them."
+    },
+    "totals": {
+      "title": "What a Claude conversation sends with every request",
+      "plain": "A conversation that asks for nothing extra",
+      "everything": "With every group on demand",
+      "estimate": "Tokens are estimated from characters."
+    },
+    "cost": {
+      "label": "What {{group}} costs",
+      "value": "≈ {{tokens}} tokens · {{chars}} characters",
+      "claudeFixed": "Claude, with every request",
+      "claudeLoaded": "Claude, once loaded",
+      "codex": "Codex",
+      "codexValue": "From the start; {{cost}} once used",
+      "notOffered": "Not offered"
+    },
+    "sections": {
+      "project": "Groups this project chooses",
+      "role": "Groups that follow the role",
+      "roleIntro": "These come with what a conversation or terminal is: a team member, a delegated task, or an agent in an OxeCode terminal. They cannot be changed here."
+    },
+    "groups": {
+      "core": {
+        "name": "Core tools",
+        "description": "Source code, search and memory lookups, in every conversation."
+      },
+      "orchestration": {
+        "name": "Orchestration",
+        "description": "Start other agents and conversations, delegate tasks and follow Agent Work."
+      },
+      "data": {
+        "name": "Data",
+        "description": "Databases and containers; every data read and change is approved by you in OxeQuery."
+      },
+      "docs": {
+        "name": "Documentation",
+        "description": "Web previews and documentation captures."
+      },
+      "app": {
+        "name": "App",
+        "description": "Git, GitHub, conversations, skills, automations, Linear, MCP servers, search and usage. Pushes, pull requests and releases are approved by you."
+      },
+      "team": {
+        "name": "Team",
+        "description": "Messages and status between members of an agent team."
+      },
+      "worker": {
+        "name": "Delegated task",
+        "description": "A conversation that runs a delegated task or an Agent Work task: context, updates, checkpoints and the result."
+      },
+      "code": {
+        "name": "OxeCode terminal",
+        "description": "Agents in OxeCode terminals: panes, terminals, scripts, background jobs, worktrees, tasks and agents. Always on there, never offered to an OxeChat conversation."
+      }
+    },
+    "toolCount_one": "{{count}} tool.",
+    "toolCount_other": "{{count}} tools.",
+    "modes": {
+      "always": "Always on",
+      "on-demand": "On demand",
+      "off": "Off"
+    },
+    "modeHints": {
+      "always": "Every definition goes with each request.",
+      "on-demand": "Only the tool names go with each request; an agent loads a tool when it needs it.",
+      "off": "Not offered in this project, and a session cannot turn it on."
+    },
+    "modeLabel": "How {{group}} is offered in this project",
+    "modeSaved": "{{group}} in this project: {{mode}}.",
+    "modeFailed": "Could not change the group",
+    "source": {
+      "default": "App default",
+      "project": "oxe.yaml",
+      "role": "By role"
+    },
+    "sourceHint": {
+      "default": "The project's oxe.yaml does not set this group.",
+      "project": "Set in the project's oxe.yaml (thread.tools).",
+      "role": "Follows what the conversation or terminal is."
+    },
+    "rules": {
+      "intro": "Each group also lists its tools: run without asking, ask you (the default), or block. Blocking holds everywhere; running without asking holds in OxeChat conversations.",
+      "summary_one": "Rules per tool · {{count}} set",
+      "summary_other": "Rules per tool · {{count}} set",
+      "listLabel": "Rules for the tools of {{group}}",
+      "label": "Rule for {{tool}}",
+      "decisions": {
+        "allow": "Run without asking",
+        "ask": "Ask me",
+        "deny": "Block"
+      },
+      "scope": {
+        "everywhere": "Blocked everywhere: OxeChat conversations, OxeCode terminals and MCP.",
+        "oxechat": "Runs without asking in OxeChat conversations; agents in OxeCode terminals follow their own CLI's permissions."
+      },
+      "source": {
+        "user": "Set in your user policy; change it there.",
+        "managed": "Set by your organization; it cannot be changed here."
+      },
+      "confirmLevel": "Always asks: this tool can do things you confirm each time.",
+      "saved": "{{tool}}: {{decision}}.",
+      "failed": "Could not change the rule",
+      "loadFailed": "Could not read the tool rules",
+      "otherTitle": "Other MCP servers",
+      "otherEmpty": "No rules for other MCP servers' tools in this project.",
+      "confirmAllow": {
+        "title": "Run {{tool}} without asking?",
+        "description": "In this project's OxeChat conversations, {{tool}} will run without asking you first. Agents in OxeCode terminals keep following their own CLI's permissions. You can change it back here at any time.",
+        "confirm": "Run without asking"
+      }
+    },
+    "policy": {
+      "title": "User and organization policy",
+      "intro": "Rules about tools and MCP servers from your user and managed policy files. Read only: they are changed in the files (Application › Policy shows where).",
+      "empty": "No user or organization rule about tools or MCP servers.",
+      "loadFailed": "Could not read the policy",
+      "effect": {
+        "allow": "Allows",
+        "deny": "Blocks"
+      },
+      "layer": {
+        "project": "Project",
+        "user": "Your user policy",
+        "managed": "Managed by your organization"
+      }
+    },
+    "invalidYaml": {
+      "title": "{{file}} can't be read",
+      "body": "The file has an error, so the modes below can't be changed here. Agents keep the tools they had before the error. Fix the file by hand and choose Reload.",
+      "modeUnread": "Not read",
+      "modeLocked": "Fix {{file}} to change this mode.",
+      "bodyLastValid": "The file has an error. Agents keep using the last modes that could be read, shown below. To change them, fix the file by hand and choose Reload.",
+      "bodyDefaults": "The file has an error and has never been read, so agents use the app's defaults, shown below. To change them, fix the file by hand and choose Reload.",
+      "readAgain": "Modes read again"
     }
   }
 }

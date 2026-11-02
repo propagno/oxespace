@@ -136,18 +136,26 @@
 .thread-tool pre, .thread-approval pre { max-height: 220px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 10px 12px; margin: 0; border-top: 1px solid var(--border-default); font-size: var(--fs-2xs); }
 .thread-approval-actions { display: flex; gap: 8px; padding: 8px 10px; }
 .thread-approval-actions button { border: 1px solid var(--border-default); }
-.thread-approval-content { display: grid; gap: 12px; min-width: 0; padding: 14px; border-bottom: 1px solid var(--border-default); }
+/* Rows keep their content's height: in the request dock the card is height-capped, and boxes that clip (the command,
+   the preview) would otherwise shrink to nothing instead of the card scrolling (P1-8: the "empty" preview). */
+.thread-approval-content { display: grid; grid-auto-rows: max-content; gap: 12px; min-width: 0; padding: 14px; border-bottom: 1px solid var(--border-default); }
 .thread-approval-intent { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
 .thread-approval-intent > svg { flex-shrink: 0; margin-top: 2px; color: var(--accent); }
 .thread-approval-intent > div { display: grid; gap: 4px; min-width: 0; }
 .thread-approval-intent strong { font-size: var(--fs-sm); line-height: 1.45; }
 .thread-approval-intent span, .thread-approval-reason { color: var(--text-muted); font-size: var(--fs-xs); overflow-wrap: anywhere; }
 .thread-approval-reason { margin: 0; }
-.thread-approval-preview { min-width: 0; overflow: hidden; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-canvas); }
+.thread-approval-preview, .thread-approval-exact { min-width: 0; overflow: hidden; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-canvas); }
 .thread-approval-preview-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; padding: 8px 11px; border-bottom: 1px solid var(--border-default); font-size: var(--fs-xs); }
 .thread-approval-preview-heading small { color: var(--text-muted); font-size: var(--fs-2xs); }
-.thread-approval-preview pre, .thread-approval-raw pre { max-height: 300px; margin: 0; padding: 12px; overflow: auto; color: var(--text-secondary); font: var(--fs-xs)/1.55 var(--font-mono); white-space: pre; tab-size: 2; }
+.thread-approval-preview pre, .thread-approval-raw pre, .thread-approval-exact pre, .thread-approval-agent pre { max-height: 300px; margin: 0; padding: 12px; overflow: auto; color: var(--text-secondary); font: var(--fs-xs)/1.55 var(--font-mono); white-space: pre; tab-size: 2; }
 .thread-approval-preview pre.is-structured { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* The exact command (P1-8): open, monospace, wrapped, scrollable; it is what runs. */
+.thread-approval-exact pre { max-height: 260px; color: var(--text-primary); white-space: pre-wrap; overflow-wrap: anywhere; }
+.thread-approval-exact > button { display: inline-flex; align-items: center; gap: 5px; margin: 0 0 8px 8px; padding: 5px 8px; font-size: var(--fs-2xs); }
+/* The agent's own words: the same dashed, sunken box as the approval modal's agent block. */
+.thread-approval-agent { min-width: 0; overflow: hidden; border: 1px dashed var(--border-strong); border-radius: var(--radius-md); background: var(--surface-sunken); }
+.thread-approval-agent pre { max-height: 160px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .thread-approval-plan { max-height: 320px; overflow: auto; padding: 0 12px; }
 .thread-approval-raw { min-width: 0; font-size: var(--fs-xs); color: var(--text-secondary); }
 .thread-approval-raw > summary { display: flex; align-items: center; gap: 6px; width: fit-content; cursor: pointer; }

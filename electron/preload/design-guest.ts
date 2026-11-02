@@ -1,5 +1,5 @@
-import { ipcRenderer } from 'electron'
-import { DESIGN_MODE_CHANNELS, type DesignGrabPayload, type DesignGrabStyle } from '../../shared/types/design-mode'
+import { contextBridge, ipcRenderer } from 'electron'
+import { DESIGN_MODE_CHANNELS, GUEST_PROBE_ARGUMENT, type DesignGrabPayload, type DesignGrabStyle } from '../../shared/types/design-mode'
 
 /**
  * Design Mode guest script (#3). Runs inside the previewed page's <webview>,
@@ -201,3 +201,15 @@ function setEnabled(next: boolean): void {
 ipcRenderer.on(DESIGN_MODE_CHANNELS.setEnabled, (_event, value: boolean) => {
   setEnabled(value === true)
 })
+
+// B12, E2E only (tests/unit/guest-probe-gate.test.ts): what a compromised guest renderer has, handed to the page so
+// e2e/ipc-sender-guard.spec.ts can prove the sender guard refuses a real guest. Never present without the argument.
+if (process.argv.includes(GUEST_PROBE_ARGUMENT)) {
+  contextBridge.exposeInMainWorld('__oxeGuestProbe', {
+    invoke: (channel: string, payload?: unknown) => ipcRenderer.invoke(channel, payload).then(
+      value => ({ ok: true, value: value === undefined ? null : value }),
+      (error: unknown) => ({ ok: false, message: String((error as { message?: unknown } | null)?.message ?? error) })
+    ),
+    send: (channel: string, payload?: unknown): void => { ipcRenderer.send(channel, payload) }
+  })
+}

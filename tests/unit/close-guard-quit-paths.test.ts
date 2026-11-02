@@ -49,10 +49,39 @@ vi.mock('electron-updater', () => ({ autoUpdater: fakes.autoUpdater }))
 vi.mock('electron-log/main.js', () => ({ default: { info: () => undefined, warn: () => undefined, error: () => undefined } }))
 vi.mock('../../electron/main/services/diagnostics/incident-sink', () => ({ recordIncident: vi.fn() }))
 
+/**
+ * Electron's window, as far as the guard sees it: `close()` emits `close` and, when nobody prevents it, waits on the
+ * page's beforeunload/unload, which a busy page (`busy`) never runs, so the window stays. `destroy()` skips the page and
+ * the `close` event, and emits `closed`.
+ */
 async function fakeWindow() {
   const { EventEmitter } = await import('node:events')
-  const webContents = Object.assign(new EventEmitter(), { send: vi.fn(), isDestroyed: () => false, mainFrame: {} })
-  const window = Object.assign(new EventEmitter(), { webContents, close: vi.fn(), isDestroyed: () => false })
+  let destroyed = false
+  const webContents = Object.assign(new EventEmitter(), { send: vi.fn(), isDestroyed: () => destroyed, mainFrame: {} })
+  const window = Object.assign(new EventEmitter(), {
+    webContents,
+    busy: true,
+    prevented: [] as boolean[],
+    isDestroyed: () => destroyed,
+    close: vi.fn(() => {
+      if (destroyed) return
+      if (!window.userClose() || window.busy) return
+      destroyed = true
+      window.emit('closed')
+    }),
+    destroy: vi.fn(() => {
+      if (destroyed) return
+      destroyed = true
+      window.emit('closed')
+    }),
+    /** The close button: emits `close`; true when nobody prevented it. */
+    userClose(): boolean {
+      let prevented = false
+      window.emit('close', { preventDefault: () => { prevented = true } })
+      window.prevented.push(prevented)
+      return !prevented
+    }
+  })
   fakes.windows.add(window)
   return window
 }
@@ -139,6 +168,106 @@ describe('the before-quit gate', () => {
     expect(fakes.app.exited).toBe(0)
     expect(window.webContents.send).not.toHaveBeenCalled()
     for (const listener of all) expect(listener).not.toHaveBeenCalled()
+  })
+})
+
+describe('the forced close (no answer, or the renderer gone)', () => {
+  const answerAs = (window: Awaited<ReturnType<typeof fakeWindow>>, answer: string) => {
+    const request = window.webContents.send.mock.calls[0][1] as CloseRequest
+    fakes.handlers.get('app:close-answer')!({ sender: window.webContents, senderFrame: window.webContents.mainFrame }, { requestId: request.requestId, answer })
+  }
+
+  it('no answer within 3 s destroys the window, once, without the guard asking again', async () => {
+    const { recordIncident } = await import('../../electron/main/services/diagnostics/incident-sink')
+    const window = await fakeWindow()
+    binding.installCloseGuard(window as never)
+    expect(window.userClose()).toBe(false) // asked: the first close is prevented
+    vi.advanceTimersByTime(2999)
+    expect(window.destroy).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+    expect(recordIncident).toHaveBeenCalledWith('incident.app.closeUnanswered')
+    expect(window.destroy).toHaveBeenCalledTimes(1)
+    expect(window.isDestroyed()).toBe(true)
+    // Not close(): that would wait on the busy page's unload and leave the window open.
+    expect(window.close).not.toHaveBeenCalled()
+    expect(window.prevented).toEqual([true])
+    expect(window.webContents.send).toHaveBeenCalledTimes(1)
+    vi.advanceTimersByTime(60_000)
+    expect(window.destroy).toHaveBeenCalledTimes(1)
+  })
+
+  it('a close issued after the forced one is not intercepted again', async () => {
+    const window = await fakeWindow()
+    binding.installCloseGuard(window as never)
+    window.destroy.mockImplementationOnce(() => { throw new Error('native destroy failed') })
+    window.busy = false
+    window.userClose()
+    vi.advanceTimersByTime(3000)
+    // destroy threw: falls back to close(), whose close event the guard lets through.
+    expect(window.close).toHaveBeenCalledTimes(1)
+    expect(window.prevented).toEqual([true, false])
+    expect(window.isDestroyed()).toBe(true)
+    expect(window.webContents.send).toHaveBeenCalledTimes(1)
+  })
+
+  it('no answer to a quit destroys the window and quits: the drain runs once and will-quit follows', async () => {
+    const window = await fakeWindow()
+    binding.installCloseGuard(window as never)
+    const { all } = quitListeners()
+    const willQuit = vi.fn()
+    fakes.app.on('will-quit', willQuit)
+    fakes.app.quit()
+    for (const listener of all) expect(listener).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(3000)
+    expect(window.destroy).toHaveBeenCalledTimes(1)
+    for (const listener of all) expect(listener).toHaveBeenCalledTimes(1)
+    expect(willQuit).toHaveBeenCalledTimes(1)
+    vi.advanceTimersByTime(60_000)
+    expect(willQuit).toHaveBeenCalledTimes(1)
+  })
+
+  it('hold then silence is never forced: no deadline after hold', async () => {
+    const window = await fakeWindow()
+    binding.installCloseGuard(window as never)
+    window.userClose()
+    answerAs(window, 'hold')
+    vi.advanceTimersByTime(10 * 60_000)
+    expect(window.destroy).not.toHaveBeenCalled()
+    expect(window.close).not.toHaveBeenCalled()
+    expect(window.isDestroyed()).toBe(false)
+  })
+
+  it('a renderer gone while held still closes the window', async () => {
+    const window = await fakeWindow()
+    binding.installCloseGuard(window as never)
+    window.userClose()
+    answerAs(window, 'hold')
+    window.webContents.emit('render-process-gone', {}, { reason: 'crashed' })
+    expect(window.destroy).toHaveBeenCalledTimes(1)
+    expect(window.isDestroyed()).toBe(true)
+  })
+
+  it('a renderer gone while a quit is held still quits', async () => {
+    const window = await fakeWindow()
+    binding.installCloseGuard(window as never)
+    const { all } = quitListeners()
+    fakes.app.quit()
+    answerAs(window, 'hold')
+    window.webContents.emit('render-process-gone', {}, { reason: 'crashed' })
+    expect(window.destroy).toHaveBeenCalledTimes(1)
+    for (const listener of all) expect(listener).toHaveBeenCalledTimes(1)
+  })
+
+  it('proceed still closes the normal way, through close() and its unload', async () => {
+    const window = await fakeWindow()
+    binding.installCloseGuard(window as never)
+    window.busy = false
+    window.userClose()
+    answerAs(window, 'proceed')
+    expect(window.close).toHaveBeenCalledTimes(1)
+    expect(window.destroy).not.toHaveBeenCalled()
+    expect(window.prevented).toEqual([true, false])
+    expect(window.isDestroyed()).toBe(true)
   })
 })
 
