@@ -28,7 +28,9 @@ const call = i => fetch('http://127.0.0.1:' + process.env.OXESPACE_MCP_PORT + '/
 `
 const ARMED = 600 // the approval ignores answers for 400 ms after it appears (#243)
 const approval = (page: Page) => page.getByTestId('approval-dialog')
-const settingsDialog = (page: Page) => page.getByRole('dialog').filter({ has: page.getByRole('navigation', { name: 'Settings categories' }) }).first()
+// By CSS, not by role: while the approval is up the layer under it is aria-hidden, which a role query skips even
+// though the person still sees it.
+const settingsDialog = (page: Page) => page.locator('[role="dialog"]:has(nav[aria-label="Settings categories"])').first()
 const pending = (page: Page) => page.evaluate(() => (window as unknown as { oxe: { approvals: { list: () => Promise<Array<{ id: string }>> } } }).oxe.approvals.list().then(l => l.length))
 const history = (page: Page) => page.evaluate(() => (window as unknown as { oxe: { approvals: { history: () => Promise<Array<{ id: string; by: string; outcome: string }>> } } }).oxe.approvals.history())
 
@@ -108,7 +110,7 @@ test('approval over Settings: on top, Settings stays, focus and place come back,
       out[`${round}-layered`] = layered
       expect.soft(layered.settingsVisible, `${round}: Settings stays open under the approval`).toBe(true)
       expect.soft(layered.approvalOnTop, `${round}: the approval is the topmost layer`).toBe(true)
-      const decided = (await history(page)).length
+      const decided = new Set((await history(page)).map(h => h.id))
       if (answer === 'Escape') await page.keyboard.press('Escape')
       else await approval(page).getByRole('button', { name: /^Deny$/ }).click()
       await expect.soft(approval(page), `${round}: the approval closes`).toHaveCount(0, { timeout: 5_000 })
@@ -119,7 +121,7 @@ test('approval over Settings: on top, Settings stays, focus and place come back,
       expect.soft(after.focus, `${round}: the focus is back on the same control`).toBe(before.focus)
       expect.soft(after.page, `${round}: the same Settings page`).toBe(before.page)
       expect.soft(after.scroll, `${round}: the same scroll`).toBe(before.scroll)
-      const latest = (await history(page)).slice(decided)
+      const latest = (await history(page)).filter(h => !decided.has(h.id))
       out[`${round}-decision`] = latest
       expect.soft(latest.length, `${round}: one decision recorded`).toBe(1)
       expect.soft(latest[0]?.outcome ?? '', `${round}: answered as Deny`).toMatch(/deny|declin/i)

@@ -29,6 +29,7 @@ const fs = require('fs'), path = require('path'), crypto = require('crypto')
 const dir = __dirname, args = process.argv.slice(2)
 const log = entry => fs.appendFileSync(path.join(dir, 'stand-in-log.jsonl'), JSON.stringify({ at: Date.now(), ...entry }) + '\n')
 const out = value => process.stdout.write(JSON.stringify(value) + '\n')
+log({ event: 'start', args: args.join(' ').slice(0, 400) })
 if (args[0] === '--version' || args[0] === '-v') { process.stdout.write('2.1.0 (Claude Code)\n'); process.exit(0) }
 if (args[0] === 'auth' && args[1] === 'status') { process.stdout.write(JSON.stringify({ loggedIn: true, authMethod: 'claude.ai', subscriptionType: 'stand-in' })); process.exit(0) }
 const at = flag => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : undefined }
@@ -103,7 +104,15 @@ test('T53: OXESpace read lookups are answered without the person; writes, other 
       writeFileSync(join(bin, 'scenario.json'), JSON.stringify(tools.map(tool => ({ tool, input: { query: 'applyDiscount' } }))))
       const before = answers().length
       const asked = new Set<string>()
-      await oxe(page, 'thread.send', id, `T53 ${label}`)
+      // A start that fails is recorded with the app's own reason, then tried once more (a person would press Send again).
+      for (let attempt = 1; ; attempt++) {
+        const sent = await oxe(page, 'thread.send', id, `T53 ${label}`).then(() => 'ok', e => String(e instanceof Error ? e.message : e))
+        if (sent === 'ok') break
+        const events = (await oxe<{ events: Array<{ type: string; error?: string; failure?: unknown }> }>(page, 'thread.read', id)).events
+        out[`${label}-send-${attempt}`] = { sent: sent.slice(0, 300), failure: JSON.stringify(events.filter(e => e.type === 'completed').at(-1) ?? null).slice(0, 600) }
+        if (attempt === 2) throw new Error(`${label}: the turn could not start (${sent})`)
+        await page.waitForTimeout(3_000)
+      }
       const end = Date.now() + 60_000
       while (Date.now() < end) {
         const snap = await oxe<Snap>(page, 'thread.read', id)
@@ -137,6 +146,7 @@ test('T53: OXESpace read lookups are answered without the person; writes, other 
     const left = (await oxe<Snap>(page, 'thread.read', id)).pendingRequests?.filter(r => !r.state || r.state === 'pending') ?? []
     expect.soft(left.length, 'no request left pending').toBe(0)
   } finally {
+    out.standInStarts = answers().filter(a => a.event === 'start').map(a => (a as unknown as { args: string }).args.slice(0, 120))
     console.log('T53', JSON.stringify(out))
     await quitReal(app)
   }
