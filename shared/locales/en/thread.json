@@ -1145,6 +1145,7 @@
     "always": "Always allow {{labels}}",
     "cancel": "Cancel",
     "decline": "Decline",
+    "deny": "Deny",
     "holdWaiting": "Critical risk: Approve is available in {{seconds}} s. Read the command first.",
     "holdReady": "Approve is available. Enter does not approve a critical command; use Space or click.",
     "guarded": "Agent-steering file",
@@ -1444,7 +1445,7 @@
   },
   "status": {
     "running": "Running",
-    "attention": "Needs input",
+    "attention": "Needs you",
     "failed": "Failed",
     "interrupted": "Interrupted",
     "background": "Background",
@@ -1518,7 +1519,7 @@
     "restartUndo": "Restart the updated application to undo changes.",
     "noCheckpoint": "No restorable checkpoint exists for this turn.",
     "approve": "Approve",
-    "decline": "Decline",
+    "decline": "Deny",
     "usageUnavailable": "Usage unavailable",
     "interrupted": "Interrupted",
     "noPublicMessages": "No public messages in this section. Continue loading earlier messages if available."

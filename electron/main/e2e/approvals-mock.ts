@@ -114,14 +114,19 @@ export function registerApprovalsMock(): void {
     return { ok: true, id: request.id }
   })
 
+  const raise = (request: ApprovalRequest): void => {
+    pending.set(request.id, request)
+    send(IPC_CHANNELS.approvals.onRequested, request)
+    setTimeout(() => { if (pending.get(request.id) === request) resolve(request, request.defaultOptionId, 'timeout') }, Math.max(0, request.expiresAt - Date.now()))
+  }
+  // A spec raises a request at the moment it chooses (an approval arriving while Settings is open):
+  //   await app.evaluate((_electron, request) => (globalThis as { __oxeRaiseApproval?: (r: unknown) => void }).__oxeRaiseApproval?.(request), request)
+  ;(globalThis as typeof globalThis & { __oxeRaiseApproval?: (request: ApprovalRequest) => void }).__oxeRaiseApproval = raise
+
   if (!setting) return
   const queue = (): void => {
     const requests: ApprovalRequest[] = setting === 'sample' ? sampleApprovals(Date.now(), ttl) : JSON.parse(setting)
-    for (const request of requests) {
-      pending.set(request.id, request)
-      send(IPC_CHANNELS.approvals.onRequested, request)
-      setTimeout(() => { if (pending.get(request.id) === request) resolve(request, request.defaultOptionId, 'timeout') }, Math.max(0, request.expiresAt - Date.now()))
-    }
+    for (const request of requests) raise(request)
   }
   setTimeout(queue, 1_000)
 }
