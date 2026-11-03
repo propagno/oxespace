@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -7,10 +7,11 @@ import { ThreadHistory } from '../../electron/main/services/conversation/thread-
 import { settleVolatileThreadSnapshot } from '../../electron/main/services/conversation/thread-recovery.service'
 import { INTERRUPTED_TOOL_NOTE, pendingInterruptedTools, runCrashRecoveryCommand } from '../../electron/main/services/conversation/thread-crash-recovery'
 import type { ThreadSnapshot } from '../../shared/types/thread'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const dirs: string[] = []
 const open: AppDatabase[] = []
-afterEach(() => { for (const db of open.splice(0)) try { db.close() } catch { /* already closed */ } for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }) })
+afterEach(() => { for (const db of open.splice(0)) try { db.close() } catch { /* already closed */ } for (const dir of dirs.splice(0)) removeTempDir(dir) })
 
 function seed(db: AppDatabase): ThreadSnapshot {
   db.prepare("INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES ('ws', 'Repo', '/repo', '1x1', 'builtin-claude')").run()

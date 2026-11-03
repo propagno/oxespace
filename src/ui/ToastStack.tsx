@@ -18,7 +18,7 @@ function useAutoDismiss(item: ToastItem, paused: boolean): void {
     if (left.current.item !== item) left.current = { item, ms: item.timeout }
     if (!item.timeout || paused) return
     const started = Date.now()
-    const timer = setTimeout(() => dismissToast(item.id), left.current.ms)
+    const timer = setTimeout(() => { item.onTimeout?.(); dismissToast(item.id) }, left.current.ms)
     return () => { clearTimeout(timer); left.current.ms = Math.max(0, left.current.ms - (Date.now() - started)) }
   }, [item, paused])
 }
@@ -53,7 +53,7 @@ function ToastView({ item, paused, close }: { item: ToastItem; paused: boolean; 
       <div className={styles.toastTitle}><strong>{item.title}</strong>{item.count > 1 && <span className={styles.toastCount} aria-hidden="true"> ×{item.count}</span>}</div>
       {item.description && <p>{item.description}</p>}
       <span className="sr-only">{spoken > 1 ? i18n.t('ui.toast.repeated', { count: spoken }) : ''}</span>
-      {item.action && <div className={styles.toastActions}><Button size="sm" onClick={() => { item.action!.run(); dismissToast(item.id) }}>{item.action.label}</Button></div>}
+      {item.action && <div className={styles.toastActions}><Button size="sm" onClick={() => { item.action!.run(); close(item.id, ref.current) }}>{item.action.label}</Button></div>}
     </div>
     <IconButton label={i18n.t('ui.toast.dismiss')} icon={<X size={14} />} size="sm" onClick={() => { item.onDismiss?.(); close(item.id, ref.current) }} />
   </div>
@@ -98,7 +98,17 @@ export default function ToastStack(): ReactElement {
   }
   // A stack that empties under the pointer gets no mouseleave; the next toast must not start paused.
   useEffect(() => { if (!items.length) setHovered(false) }, [items.length])
-  const paused = hovered || focused
+  // A toast removed while it held focus (its action, or the code that raised it taking it down) fires no blur: focus
+  // went to the body, and the stack must not stay paused for every later toast (HML on B20 #486).
+  useEffect(() => { if (focused && !region.current?.contains(document.activeElement)) setFocused(false) }, [items, focused])
+  // A window nobody can see (minimized, behind another app's full screen) runs no timer: a toast must be seen to end.
+  const [hidden, setHidden] = useState(() => typeof document !== 'undefined' && document.visibilityState === 'hidden')
+  useEffect(() => {
+    const update = (): void => setHidden(document.visibilityState === 'hidden')
+    document.addEventListener('visibilitychange', update)
+    return () => document.removeEventListener('visibilitychange', update)
+  }, [])
+  const paused = hovered || focused || hidden
   return <section ref={region} className={styles.toasts} aria-label={i18n.t('ui.toast.region')} aria-live="polite" aria-atomic="false"
     onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onFocus={onFocus} onBlur={onBlur}>
     {listening && items.map(item => <ToastView key={item.id} item={item} paused={paused} close={close} />)}

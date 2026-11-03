@@ -5,7 +5,9 @@ import type { Workspace } from '../../../shared/types/workspace'
 import type { ThreadPanel } from '../../store/thread-workbench.store'
 import { useUIStore } from '../../store/ui.store'
 import { useGitBranch } from '../../hooks/useGitBranch'
-import { Badge, Button, EmptyState, Meter } from '../../ui'
+import { Badge, Button, EmptyState, Meter, Notice } from '../../ui'
+import { formatMainMessage } from '../../i18n/mainMessage'
+import { worktreeNoticeIntent } from '../Worktree/WorktreeCreationNotices'
 import { formatClock, formatNumber } from '../../utils/formatTime'
 import { compactTokens } from './ThreadUsagePanel'
 import { formatThreadCost } from './threadCost'
@@ -37,12 +39,19 @@ export function SessionEnvironment({ snapshot, workspace }: SessionSectionProps)
   const worktree = thread.ownedWorktree ? t('sessionPanel.environment.worktreeOwn')
     : observed?.sameRepository && observed.checkoutRoot ? t('sessionPanel.environment.worktreeMoved')
       : t('sessionPanel.environment.worktreeNone')
+  const refusals = (thread.ownedWorktree?.notices ?? []).filter(notice => worktreeNoticeIntent(notice) === 'warning')
   const branchName = branch?.branch ?? thread.ownedWorktree?.branch
   const model = thread.model ?? thread.contextReport?.model
   return <dl className={styles.facts}>
     <dt>{t('sessionPanel.environment.project')}</dt><dd>{workspace?.name ?? lastSegment(thread.rootPath)}</dd>
     <dt>{t('sessionPanel.environment.folder')}</dt><dd className={styles.path} title={root}>{root}</dd>
-    <dt>{t('sessionPanel.environment.worktree')}</dt><dd>{worktree}</dd>
+    <dt>{t('sessionPanel.environment.worktree')}</dt><dd>{worktree}
+      {/* DESIGN on #487: what creating the worktree refused stays reachable here after the first message, whatever was
+          dismissed on the opening screen; info notices stay there only. Same words as there. */}
+      {refusals.length > 0 && <Notice intent="warning" className={styles.worktreeNotices}>
+        <ul data-testid="session-worktree-refusals">{refusals.map((notice, index) => <li key={`${notice.code}-${index}`}>{formatMainMessage(notice)}</li>)}</ul>
+      </Notice>}
+    </dd>
     <dt>{t('sessionPanel.environment.branch')}</dt><dd>{branchName ? <code>{branchName}</code> : <span className={styles.muted}>{t('sessionPanel.environment.branchUnknown')}</span>}</dd>
     {observed && !observed.sameRepository && <><dt>{t('sessionPanel.environment.outside')}</dt><dd className={styles.path} title={observed.cwd}>{observed.cwd}</dd></>}
     <dt>{t('sessionPanel.environment.agent')}</dt><dd>{thread.provider === 'claude' ? 'Claude Code' : 'Codex'}</dd>

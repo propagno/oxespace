@@ -1,8 +1,9 @@
 import { describe, expect, test, vi, beforeEach, afterEach } from 'vitest'
-import { mkdirSync, writeFileSync, existsSync, rmSync } from 'node:fs'
+import { mkdirSync, writeFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { RtkService } from '../../electron/main/services/rtk.service'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 describe('RtkService version tracking', () => {
   let dir: string
@@ -13,7 +14,7 @@ describe('RtkService version tracking', () => {
   })
 
   afterEach(() => {
-    try { rmSync(dir, { recursive: true, force: true }) } catch { /* ignore */ }
+    try { removeTempDir(dir) } catch { /* ignore */ }
   })
 
   test('getStatus reports not installed when binary missing', () => {

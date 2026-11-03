@@ -1,8 +1,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest'
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { SearchService, __resetRgCommandCacheForTests } from '../../electron/main/services/search.service'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 // These tests run the real bundled ripgrep binary against a throwaway fixture
 // tree — they validate the actual `rg --json` parsing + argument building
@@ -23,7 +24,7 @@ beforeAll(() => {
 })
 
 afterAll(() => {
-  rmSync(root, { recursive: true, force: true })
+  removeTempDir(root)
 })
 
 beforeEach(() => {

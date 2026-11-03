@@ -7,6 +7,7 @@ import type { AppDatabase } from '../db'
 import type { InternalMcpStatus } from '../../../shared/types/mcp-internal'
 import type { DiagnosticCheck, DiagnosticsSnapshot } from '../../../shared/types/diagnostics'
 import { redactSecrets } from '../../../shared/secrets'
+import { APP_VERSION } from './app-info'
 
 export class DiagnosticsService {
   constructor(
@@ -45,7 +46,7 @@ export class DiagnosticsService {
     const workspaceCount = (this.db.prepare('SELECT COUNT(*) AS count FROM workspaces').get() as { count: number }).count
     return {
       generatedAt: Date.now(),
-      appVersion: app.getVersion(),
+      appVersion: APP_VERSION,
       platform: process.platform,
       arch: process.arch,
       nodeVersion: process.versions.node,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { projectToolModes, sessionToolPlan, usesToolSearch } from '../../electron/main/services/conversation/tool-groups'
-import { THREAD_TOOL_GROUPS } from '../../electron/main/services/conversation/thread-mcp'
+import { CODE_ON_DEMAND_TOOLS, CODE_START_TOOLS, CODE_TOOL_GROUP, THREAD_TOOL_GROUPS } from '../../electron/main/services/conversation/thread-mcp'
 import { parseOxeYaml } from '../../electron/main/services/repo-config/parser'
 
 const modesOf = (yaml: string) => projectToolModes(parseOxeYaml(yaml)?.thread)
@@ -55,6 +55,21 @@ describe('session tool plan (B7.2)', () => {
     expect(Object.keys(plan.enableable)).not.toContain('team')
     expect(Object.keys(plan.enableable)).not.toContain('worker')
     expect(new Set(plan.tools).size).toBe(plan.tools.length)
+  })
+
+  it('starts a Code terminal with its panes, terminal, scripts and jobs; the rest of its tools wait or follow tool search', () => {
+    const plan = sessionToolPlan(false, { code: true }, defaults)
+    expect(plan.tools).toEqual([...core, ...CODE_START_TOOLS, 'oxespace_tools_enable'])
+    expect(plan.enableable.code).toEqual(CODE_ON_DEMAND_TOOLS)
+    expect(new Set([...CODE_START_TOOLS, ...CODE_ON_DEMAND_TOOLS])).toEqual(new Set(CODE_TOOL_GROUP))
+    const searching = sessionToolPlan(true, { code: true }, defaults)
+    expect(searching.tools).toEqual(expect.arrayContaining([...CODE_TOOL_GROUP]))
+    expect(searching.enableable).toEqual({})
+    // Even with every configurable group off, the Code tools can still be turned on.
+    const fixed = Object.fromEntries(Object.keys(defaults).map(group => [group, { mode: 'off', source: 'project' }])) as typeof defaults
+    expect(sessionToolPlan(false, { code: true }, fixed)).toEqual({ tools: [...core, ...CODE_START_TOOLS, 'oxespace_tools_enable'], enableable: { code: CODE_ON_DEMAND_TOOLS } })
+    // A conversation never gets them.
+    expect(sessionToolPlan(false, {}, defaults).enableable).not.toHaveProperty('code')
   })
 
   it('adds only the enable tool to a plain conversation without tool search, and nothing when there is nothing to enable', () => {

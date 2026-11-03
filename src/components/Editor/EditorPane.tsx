@@ -1,10 +1,9 @@
 import Editor from '@monaco-editor/react'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, useCallback, type ReactElement } from 'react'
-import { Code2, Eye, GitCompareArrows, Mic, MicOff } from 'lucide-react'
+import { Code2, Eye, GitCompareArrows } from 'lucide-react'
 import { openInChanges } from '../../store/changes-request.store'
 import { WORKBENCH_PANELS } from '../Workbench/panelCatalog'
 import type { editor as monacoEditor } from 'monaco-editor'
-import { useOxeVoice } from '../../hooks/useOxeVoice'
 // Side-effect: self-host Monaco (loader.config + local workers) so the Editor
 // never reaches for the jsdelivr CDN — works behind corporate VPN/proxy and
 // satisfies the packaged-build CSP. Must run before <Editor> mounts.
@@ -97,78 +96,6 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
       resizeFrameRef.current = null
     })
   }
-
-  const insertVoiceText = useCallback((text: string): void => {
-    const editor = editorRef.current
-    if (!editor) return
-    const position = editor.getPosition()
-    if (!position) return
-    
-    editor.executeEdits('oxevoice', [{
-      range: {
-        startLineNumber: position.lineNumber,
-        startColumn: position.column,
-        endLineNumber: position.lineNumber,
-        endColumn: position.column
-      },
-      text: text + ' ',
-      forceMoveMarkers: true
-    }])
-    editor.focus()
-  }, [])
-
-  const voice = useOxeVoice({ enabled: true, onFinalText: insertVoiceText })
-  const isVoiceActive = voice.status === 'listening' || voice.status === 'transcribing'
-
-  const holdTimerRef = useRef<number | null>(null)
-  const holdingRef = useRef(false)
-  const HOLD_THRESHOLD_MS = 220
-
-  const onVoicePointerDown = useCallback((): void => {
-    if (!voice.isSupported) return
-    holdingRef.current = false
-    holdTimerRef.current = window.setTimeout(() => {
-      holdingRef.current = true
-      voice.startHold()
-    }, HOLD_THRESHOLD_MS)
-  }, [voice])
-
-  const onVoicePointerEnd = useCallback((): void => {
-    if (holdTimerRef.current !== null) {
-      clearTimeout(holdTimerRef.current)
-      holdTimerRef.current = null
-    }
-    if (holdingRef.current) {
-      holdingRef.current = false
-      voice.endHold()
-    } else {
-      voice.toggle()
-    }
-  }, [voice])
-
-  const onVoicePointerCancel = useCallback((): void => {
-    if (holdTimerRef.current !== null) {
-      clearTimeout(holdTimerRef.current)
-      holdTimerRef.current = null
-    }
-    holdingRef.current = false
-  }, [])
-
-  useEffect(() => {
-    const onToggle = () => voice.toggle()
-    const onHoldStart = () => voice.startHold()
-    const onHoldEnd = () => voice.endHold()
-
-    window.addEventListener('oxe:editor-toggle-voice', onToggle)
-    window.addEventListener('oxe:editor-voice-hold-start', onHoldStart)
-    window.addEventListener('oxe:editor-voice-hold-end', onHoldEnd)
-
-    return () => {
-      window.removeEventListener('oxe:editor-toggle-voice', onToggle)
-      window.removeEventListener('oxe:editor-voice-hold-start', onHoldStart)
-      window.removeEventListener('oxe:editor-voice-hold-end', onHoldEnd)
-    }
-  }, [voice])
 
   useEffect(() => {
     return window.oxe.fs.onFileChanged((event) => markExternalChange(event))
@@ -330,6 +257,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
           onCloseOthers={(relativePath) => closeOtherTabs(workspaceId, relativePath)}
           onTogglePin={(relativePath) => togglePin(workspaceId, relativePath)}
           onMove={(fromPath, toPath) => moveTab(workspaceId, fromPath, toPath)}
+          pathScope={{ workspaceId, rootPath }}
         />
         <header className="editor-toolbar">
           <span className="editor-path">{activePath ?? t('editor.noFile')}</span>
@@ -361,36 +289,6 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
             {binaryFile ? null : (
               <span className={`editor-dirty${isDirty ? ' active' : ''}`}>{file?.isSaving ? t('editor.saving') : isDirty ? t('editor.unsaved') : t('editor.saved')}</span>
             )}
-
-            {voice.isSupported && (
-              <button
-                type="button"
-                className={`tile-btn ${isVoiceActive ? 'active pulse' : ''}`}
-                onPointerDown={onVoicePointerDown}
-                onPointerUp={onVoicePointerEnd}
-                onPointerCancel={onVoicePointerCancel}
-                onContextMenu={(e) => e.preventDefault()}
-                aria-label={t('editor.dictation')}
-                aria-pressed={isVoiceActive}
-                title={t('editor.dictationTitle')}
-                style={{ position: 'relative' }}
-              >
-                {isVoiceActive ? <Mic size={12} aria-hidden="true" /> : <MicOff size={12} aria-hidden="true" />}
-                {isVoiceActive && (
-                  <span
-                    style={{
-                      position: 'absolute',
-                      bottom: -2,
-                      left: 0,
-                      height: 2,
-                      background: 'var(--accent)',
-                      width: `${Math.min(100, Math.max(0, voice.level * 100))}%`,
-                      transition: 'width 50ms linear'
-                    }}
-                  />
-                )}
-              </button>
-            )}
           </div>
         </header>
         <div className="editor-body">
@@ -405,6 +303,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
             </Suspense>
           ) : null}
           {!binaryFile && file?.error ? <ErrorState compact title={t('editor.openFailed')} message={file.error} onRetry={() => void openFile({ workspaceId, rootPath, relativePath: file.relativePath })} /> : null}
+          {!binaryFile && file?.saveError ? <ErrorState compact title={t('editor.saveFailed', { name: file.relativePath })} message={file.saveError} onRetry={() => void useEditorStore.getState().savePath(workspaceId, file.relativePath)} /> : null}
           {!binaryFile && file?.conflict ? <ConflictDiff localContent={file.content} externalContent={file.conflict.externalContent} onResolve={(keep) => useEditorStore.getState().resolveConflict(workspaceId, keep)} /> : null}
           {!binaryFile && file && isMarkdown && showRendered ? (
             <div className="editor-preview-host scrollbar-sleek">

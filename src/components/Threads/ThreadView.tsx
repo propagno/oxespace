@@ -33,7 +33,7 @@ import { ThreadTimelineWindow } from './ThreadTimeline'
 import { deriveThreadComposerState } from './threadComposerState'
 import { hasDesktopCommand } from '../../../shared/threadDesktopCommands'
 import { useUIStore } from '../../store/ui.store'
-import { useThreadWorkbenchStore, type ThreadPanel } from '../../store/thread-workbench.store'
+import { CONVERSATION_MIN_WIDTH, REVIEW_MIN_WIDTH, useThreadWorkbenchStore, type ThreadPanel } from '../../store/thread-workbench.store'
 import { authText, ThreadMessageBody } from './ThreadMessageRow'
 import { ThreadHeader } from './ThreadHeader'
 import { useThreadShortcuts } from './useThreadShortcuts'
@@ -55,7 +55,6 @@ const ThreadCommandDialog = lazy(() => import('./ThreadCommandDialog'))
 const ThreadReviewHost = lazy(() => import('./ThreadReviewHost'))
 const ThreadSideChat = lazy(() => import('./side/ThreadSideChat').then(module => ({ default: module.ThreadSideChat })))
 import { DelegationCreateDialog } from '../Delegation/DelegationCreateDialog'
-import { useOxeVoice } from '../../hooks/useOxeVoice'
 import { threadWorkingRoot } from './threadChanges'
 import { useThreadWorktreeFinishStore } from '../../store/thread-worktree-finish.store'
 import './ThreadWorkbench.css'
@@ -75,7 +74,9 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const workbench = useRef<HTMLDivElement>(null)
   const [availableWidth, setAvailableWidth] = useState(0)
   const review = useThreadWorkbenchStore(state => shownId ? state.views[shownId] : undefined)
-  const drawer = availableWidth > 0 && availableWidth < 1120
+  // The panel sits beside the conversation, as OxeCode's do, whenever both keep their minimum width; only a workbench
+  // too narrow for that gets the drawer over the conversation.
+  const drawer = availableWidth > 0 && availableWidth < CONVERSATION_MIN_WIDTH + REVIEW_MIN_WIDTH
   const draft = useThreadStore(state => snapshot ? state.drafts[snapshot.thread.id] ?? '' : '')
   const attachments = useThreadStore(state => snapshot ? state.attachments[snapshot.thread.id] ?? NO_ATTACHMENTS : NO_ATTACHMENTS)
   const [error, setError] = useState(''), [pending, setPending] = useState(false)
@@ -93,12 +94,6 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   // The branch of the checkout the conversation works in, which is a worktree once the provider moves into one.
   const branch = useGitBranch(workspace?.id ?? '', snapshot ? threadWorkingRoot(snapshot.thread) : workspace?.rootPath ?? '')
   const api = window.oxe?.thread
-  const voice = useOxeVoice({ enabled: Boolean(active && snapshot && !snapshot.thread.cliActive), onFinalText: text => {
-    if (!snapshot) return
-    const current = useThreadStore.getState().drafts[snapshot.thread.id] ?? ''
-    useThreadStore.getState().setDraft(snapshot.thread.id, `${current}${current && !/\s$/.test(current) ? ' ' : ''}${text} `)
-    requestAnimationFrame(() => textarea.current?.focus())
-  } })
   useEffect(() => {
     const node = workbench.current
     if (!node || typeof ResizeObserver === 'undefined') return
@@ -128,7 +123,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const toggleSideChat = (): void => setSideChatFor(sideChatOpen || !snapshot ? null : snapshot.thread.id)
   const scrollToRow = useRef<((index: number) => void) | null>(null)
   const scrollTo = useCallback((index: number) => scrollToRow.current?.(index), [])
-  useThreadShortcuts({ active, voice, togglePanel, openControl: setOpenControl, onFind: () => setFinding(true), onSideChat: toggleSideChat, runCommand: text => action(() => runCommand(text)) })
+  useThreadShortcuts({ active, togglePanel, openControl: setOpenControl, onFind: () => setFinding(true), onSideChat: toggleSideChat, runCommand: text => action(() => runCommand(text)) })
   const closeReview = () => { if (snapshot) useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: null }); if (useThreadWorkbenchStore.getState().maximizedId === snapshot?.thread.id) useThreadWorkbenchStore.getState().setMaximized(null); requestAnimationFrame(() => textarea.current?.focus()) }
   const reviewMaximized = useThreadWorkbenchStore(state => Boolean(snapshot) && state.maximizedId === snapshot?.thread.id) && Boolean(review?.panel) && !drawer
   const appendToConversation = (prompt: string) => {
@@ -347,7 +342,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
       {snapshot && <ThreadDockQueue snapshot={snapshot} pending={pending} textarea={textarea} action={action} />}
       {snapshot && <PrStatusBar key={snapshot.thread.id} workspaceId={snapshot.thread.workspaceId} rootPath={snapshot.thread.rootPath} onFix={appendToConversation} onStatus={onPrStatus} />}
       <ThreadComposerForm snapshot={snapshot} draft={draft} attachments={attachments} pending={pending} running={running} active={active} composerState={composerState} textarea={textarea} fileInput={fileInput}
-        commands={commands} mentions={mentions} voice={voice} openControl={openControl} onControlClosed={() => setOpenControl(null)} onError={setError} onSend={send} onCaret={setCaret}
+        commands={commands} mentions={mentions} openControl={openControl} onControlClosed={() => setOpenControl(null)} onError={setError} onSend={send} onCaret={setCaret}
         onUpload={files => void uploadFiles(files)} onRemoveAttachment={attachmentId => void removeAttachment(attachmentId)} onInsertMention={insertMention} onInterrupt={() => void action(() => api!.interrupt(snapshot!.thread.id))} />
     </div></div>
     {panel && <Suspense fallback={null}><ThreadCommandDialog key={`${panel.surface ?? panel.kind}:${panel.title ?? ''}`} panel={panel} snapshot={snapshot} pending={pending} error={error} onError={setError} action={action} runCommand={runCommand} onDelegations={onDelegations}

@@ -60,7 +60,7 @@ never left blank.
 | T4 | Side chat (`Ctrl+.`) | opening, empty, answering, failed | "Cópia somente leitura"; nothing reaches the conversation |
 | T5 | Conversation details panel | no context report yet, no tools, no files, nothing in background | "Custo informado" vs "estimado"; the reorder works by keyboard |
 | T6 | Project settings, semantic search | indexing, indexed, failed | progress in words |
-| T7 | Project team (Tools › Project team…, `Ctrl+Shift+T`) | no members, no target (disabled with a reason) | "Equipe do projeto"; roles "Coordenadora" … |
+| T7 | Project team (Tools › Open the project team…, `Ctrl+Shift+T`) | no members, no target (disabled with a reason) | "Equipe do projeto"; roles "Coordenadora" … |
 
 ## 3. OxeQuery, OxePod, OxePost
 

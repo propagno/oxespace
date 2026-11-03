@@ -1,5 +1,5 @@
 /* Composer footer in the reference pattern:
-   [Plan | Agent] [/ +] · model · effort · permission ············ status · stop · voice · send */
+   [Plan | Agent] [/ +] · model · effort · permission ············ status · stop · send */
 .thread-composer footer { gap: 6px; }
 .thread-composer footer .thread-mode-toggle { order: -1; }
 .thread-composer footer .thread-config-trigger.is-permissions { margin-left: 0; }
@@ -20,9 +20,6 @@
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
 
-/* Round actions on the right: voice is the light orb, send takes the accent only when there is something to send. */
-.thread-composer footer :is(.thread-send, .thread-stop, .thread-voice) { flex: 0 0 28px; width: 28px; height: 28px; padding: 0; justify-content: center; border-radius: 50%; }
-.thread-composer footer .thread-voice { background: var(--text-primary); color: var(--surface-base); }
-.thread-composer footer .thread-voice:hover { background: var(--text-secondary); }
-.thread-composer footer .thread-voice:disabled { opacity: .4; }
+/* Round actions on the right: send takes the accent only when there is something to send. */
+.thread-composer footer :is(.thread-send, .thread-stop) { flex: 0 0 28px; width: 28px; height: 28px; padding: 0; justify-content: center; border-radius: 50%; }
 .thread-composer footer .thread-send:disabled { background: var(--fill-pressed); color: var(--text-muted); opacity: 1; }

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 // Mocked spawn, kept in vi.hoisted so the hoisted vi.mock factory can read it.
-// Same idiom as oxe.service.test.ts / voice.service.test.ts.
+// Same idiom as oxe.service.test.ts.
 const h = vi.hoisted(() => ({
   spawnMock: vi.fn(),
   runs: [] as Array<{ stdout?: string; stderr?: string; code?: number }>

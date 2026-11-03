@@ -38,6 +38,11 @@
     }
   },
   "messages": {
+    "delegation": {
+      "requester": {
+        "live": "The conversation that delegated this task is still running; only it can control the task."
+      }
+    },
     "mcp": {
       "quarantine": {
         "changed": "The description or inputs of {{tools}} changed after you trusted it.",
@@ -124,6 +129,15 @@
     "app": {
       "connectivity": {
         "offline": "No network connection."
+      },
+      "openIn": {
+        "outsideRoot": "Only files and folders inside the project can be opened from here.",
+        "notFound": "{{path}} no longer exists.",
+        "notAFile": "{{editor}} opens only files from here, not folders.",
+        "unknownTarget": "OXESpace can't open files this way.",
+        "editorMissing": "{{editor}} wasn't found. Choose another editor.",
+        "launchFailed": "Couldn't open in {{editor}}.",
+        "revealFailed": "Couldn't show the file in the folder."
       }
     },
     "ipc": {
@@ -151,6 +165,12 @@
       "certificate": {
         "failed": "The connection certificate could not be created or read from secure storage."
       },
+      "keyring": {
+        "missing": "The phone connection stays off because no system keyring was found to protect its key. Start GNOME Keyring or KWallet and restart OXESpace. If one is already running (common on i3 or sway), start OXESpace with `--password-store=gnome-libsecret`."
+      },
+      "storage": {
+        "unavailable": "The phone connection stays off because secure storage isn't available on this system, so its key can't be kept."
+      },
       "pairing": {
         "failed": "$t(remotePairingFailure.{{reason}})",
         "limit": "This computer already has {{max}} paired devices. Remove one before pairing another."
@@ -177,10 +197,40 @@
       }
     },
     "worktree": {
+      "created": "Worktree created at {{path}} (branch {{branch}}).",
+      "createdFrom": "Worktree created at {{path}} (branch {{branch}} from {{base}}).",
+      "setup": {
+        "notApproved": "The oxe.yaml setup hook was not approved and did not run.",
+        "complete": "Setup hook complete.",
+        "failed": "The setup hook exited with code {{exitCode}}.",
+        "unverified": "The setup hook did not end in a way that can be checked."
+      },
       "cleanup": {
         "notRemovable": "This is not a removable worktree of this repository.",
         "blocked": "Blocked: {{reasons}}.",
         "needsConfirmation": "Needs confirmation: {{reasons}}."
+      },
+      "copyFiles": {
+        "copied": "Copied {{count}} files listed in worktree.copyFiles.",
+        "outsideRepo": "worktree.copyFiles patterns refused, because patterns must be relative to the repository and cannot use .. or .git: {{patterns}}.",
+        "overLimit": "worktree.copyFiles matched {{files}} files ({{megabytes}} MB), over the limit of {{maxFiles}} files or {{maxMegabytes}} MB. Nothing was copied; the worktree was created.",
+        "tooComplex": "worktree.copyFiles patterns refused, because they have too many folders or ** to match safely: {{patterns}}.",
+        "excludeReserved": "worktree.copyFiles patterns starting with ! are kept for excluding files in a later version, so nothing was copied for them: {{patterns}}.",
+        "ignoreCheckFailed": "Git could not tell which files it ignores in the new worktree, so nothing from worktree.copyFiles was copied.",
+        "notIgnored": "Not copied, because Git does not ignore them in the new worktree and they could be committed: {{paths}}.",
+        "searchTooLarge": "worktree.copyFiles looked through more than {{limit}} entries without finishing. Nothing was copied; the worktree was created. Use narrower patterns.",
+        "notOverwritten": "Already in the new worktree, kept as they are: {{paths}}.",
+        "notFollowed": "Not copied, because they are links or lead outside the repository or the worktree: {{paths}}.",
+        "failed": "Could not be copied: {{paths}}."
+      },
+      "removed": "Worktree removed from {{path}}.",
+      "archive": {
+        "notApproved": "The oxe.yaml archive hook was not approved and was skipped.",
+        "failedDismissed": "The oxe.yaml archive hook failed, and the worktree was removed anyway."
+      },
+      "branch": {
+        "deleted": "Branch {{branch}} deleted.",
+        "kept": "Branch {{branch}} kept: it has unmerged commits."
       }
     },
     "github": {
@@ -437,7 +487,7 @@
         "waiting": "OXESpace: approval waiting"
       },
       "textLabel": {
-        "policyChange": "The file as it is now"
+        "policyChange": "Content of the file"
       }
     },
     "notify": {

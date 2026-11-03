@@ -1,14 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pruneStorage } from '../../electron/main/services/storage-retention'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const DAY = 24 * 60 * 60 * 1000
 const NOW = Date.UTC(2026, 9, 29)
 let root: string
 beforeEach(() => { root = mkdtempSync(join(tmpdir(), 'oxe-retention-')) })
-afterEach(() => { rmSync(root, { recursive: true, force: true }) })
+afterEach(() => { removeTempDir(root) })
 
 function put(relative: string, ageDays: number, bytes = 10): string {
   const path = join(root, relative)

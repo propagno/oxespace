@@ -7,7 +7,7 @@
  *   OXE_LIVE=1 npm run test:electron -- tests/live/oxequery-writes-live.test.ts
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -19,6 +19,7 @@ import { LocalExecutionHost } from '../../electron/main/runtime/execution-host'
 import { ApprovalBroker } from '../../electron/main/services/agent-actions/approval-broker'
 import { AuditLog } from '../../electron/main/services/oxequery/audit-log'
 import { openInMemoryDatabase } from '../../electron/main/db'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 /** The server versions under test; CI runs the suite against several (OXE_LIVE_PG_IMAGE / OXE_LIVE_MONGO_IMAGE). */
 const PG_IMAGE = process.env.OXE_LIVE_PG_IMAGE ?? 'docker.io/library/postgres:16-alpine'
@@ -79,7 +80,7 @@ describe.skipIf(!live)('OxeQuery writes against real servers', () => {
   afterAll(async () => {
     await core.closeAll()
     for (const name of [PG, MONGO]) { try { docker('rm', '-f', name) } catch { /* gone */ } }
-    rmSync(dir, { recursive: true, force: true })
+    removeTempDir(dir)
   })
 
   it('edits rows in one transaction and refuses a stale change without saving anything', async () => {

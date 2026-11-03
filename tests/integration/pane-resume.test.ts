@@ -1,6 +1,6 @@
 // B17 · Why the agent panes did not go back to their sessions after the crash of 31/10, one test per root cause, and
 // what each pane tells the window. No provider ever runs: the PTY is a fake and the transcripts are fake files.
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -11,6 +11,7 @@ import { TerminalManager } from '../../electron/main/services/terminal.service'
 import { PaneAgentSessions } from '../../electron/main/services/agent-state/pane-sessions'
 import { encodeClaudeProjectPath } from '../../electron/main/services/usage/claude-project-path'
 import { RESUME_LOAD_MS } from '../../electron/main/services/agent-state/pane-resume'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const A = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
 const B = '019a5c1e-7b2d-7c3e-9f00-112233445566'
@@ -27,7 +28,7 @@ beforeEach(() => {
   mkdirSync(root)
   roots = { claudeProjects: join(dir, 'claude', 'projects'), codexSessions: join(dir, 'codex', 'sessions') }
 })
-afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); rmSync(dir, { recursive: true, force: true }) })
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); removeTempDir(dir) })
 
 function claudeTranscript(id: string, cwd = root): void {
   const folder = join(roots.claudeProjects, encodeClaudeProjectPath(cwd))

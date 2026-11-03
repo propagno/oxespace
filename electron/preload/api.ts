@@ -193,7 +193,10 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       about: () => ipc.invoke(IPC_CHANNELS.app.about) as Promise<import('../../shared/types/app').AppAbout>,
       onCloseRequested: (listener) => subscribe(ipc, IPC_CHANNELS.app.closeRequested, listener),
       answerClose: (input) => ipc.invoke(IPC_CHANNELS.app.closeAnswer, input) as Promise<void>,
-      openExternal: (url: string) => ipc.invoke(IPC_CHANNELS.app.openExternal, url) as Promise<{ opened: boolean }>
+      openExternal: (url: string) => ipc.invoke(IPC_CHANNELS.app.openExternal, url) as Promise<{ opened: boolean }>,
+      openIn: (input) => ipc.invoke(IPC_CHANNELS.app.openIn, input) as Promise<void>,
+      openInTargets: () => ipc.invoke(IPC_CHANNELS.app.openInTargets) as Promise<import('../../shared/types/open-in').OpenInTargets>,
+      setOpenInPreference: (preference) => ipc.invoke(IPC_CHANNELS.app.setOpenInPreference, preference) as Promise<import('../../shared/types/open-in').OpenInTargets>
     },
     rtk: {
       getStatus: () => ipc.invoke(IPC_CHANNELS.rtk.getStatus) as Promise<import('../../shared/types/updater').RtkUpdateState>,
@@ -300,16 +303,6 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       saveImageToTemp: () => ipc.invoke(IPC_CHANNELS.clipboard.saveImageToTemp) as Promise<string | null>,
       readText: () => ipc.invoke(IPC_CHANNELS.clipboard.readText) as Promise<string>,
       writeText: (text) => ipc.invoke(IPC_CHANNELS.clipboard.writeText, text) as Promise<boolean>
-    },
-    voice: {
-      transcribe: (wav, options) =>
-        ipc.invoke(IPC_CHANNELS.voice.transcribe, wav, options) as Promise<import('../../shared/types/voice').VoiceTranscribeResult>,
-      getModelStatus: (size) =>
-        ipc.invoke(IPC_CHANNELS.voice.getModelStatus, size) as Promise<import('../../shared/types/voice').VoiceModelStatus>,
-      ensureModel: (size) =>
-        ipc.invoke(IPC_CHANNELS.voice.ensureModel, size) as Promise<import('../../shared/types/voice').VoiceModelStatus>,
-      onModelProgress: (listener) =>
-        subscribe<import('../../shared/types/voice').VoiceModelProgressEvent>(ipc, IPC_CHANNELS.voice.onModelProgress, listener)
     },
     oxeQuery: {
       call: (op, input) => ipc.invoke(IPC_CHANNELS.oxeQuery.call, { op, input }) as never,
