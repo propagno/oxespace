@@ -154,6 +154,9 @@ describe('side chat: Claude launch', () => {
     expect(args[args.indexOf('--permission-mode') + 1]).toBe('default')
     expect(args[args.indexOf('--tools') + 1]).toBe('Read,Glob,Grep,AskUserQuestion')
     expect(args.slice(args.indexOf('--disallowedTools') + 1, args.indexOf('--disallowedTools') + 5)).toEqual(['Bash', 'Edit', 'Write', 'NotebookEdit'])
+    expect(args).toEqual(expect.arrayContaining(['--fork-session', '--strict-mcp-config']))
+    expect(args).not.toContain('--allow-dangerously-skip-permissions')
+    expect(args[args.indexOf('--settings') + 1]).toContain('"disableAllHooks":true')
     const asks = [['edit', 'Edit', { file_path: '/project/README.md', old_string: 'teh', new_string: 'the' }], ['write', 'Write', { file_path: '/project/new.txt', content: 'x' }], ['bash', 'Bash', { command: 'rm -rf build' }]] as const
     for (const [id, tool, input] of asks) f.emit(0, { type: 'control_request', request_id: id, request: { subtype: 'can_use_tool', tool_name: tool, input } })
     await vi.waitFor(() => expect(f.launches[0].writes.filter(write => write.type === 'control_response')).toHaveLength(3))
