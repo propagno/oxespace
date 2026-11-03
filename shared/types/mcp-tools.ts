@@ -127,8 +127,12 @@ export interface McpToolRule {
   server: string
   tool: string
   decision: McpToolDecision
-  /** Where the deciding rule lives; `default` when there is none. A user or managed rule cannot be changed here. */
-  source: 'project' | 'user' | 'managed' | 'default'
+  /**
+   * Where the deciding rule lives; `default` when there is none. A user or managed rule cannot be changed here. `reads`:
+   * no rule, and one of OXESpace's read-only lookups that "Auto-approve reads" allows (T53); it asks only when that
+   * setting is off, so the row offers allow or block.
+   */
+  source: 'project' | 'user' | 'managed' | 'default' | 'reads'
   editable: boolean
   /**
    * The decisions the person may pick for this row: none when it is not editable, `ask` and `deny` for an OXESpace tool

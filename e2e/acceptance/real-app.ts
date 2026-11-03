@@ -16,8 +16,11 @@ export function realProfile(prefix: string, extraEnv: Record<string, string> = {
   execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: repo })
   execFileSync('git', ['-c', 'user.email=acc@example.invalid', '-c', 'user.name=acc', 'commit', '-q', '--allow-empty', '-m', 'init'], { cwd: repo })
   const db = join(root, 'oxespace.sqlite3')
+  // A run from inside a live OXESpace pane inherits that app's OXESPACE_* (its MCP port and token): never passed on
+  // (SECURITY on #547). The spec adds back what it needs through extraEnv.
+  const inherited = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('OXESPACE_'))) as Record<string, string>
   const env: Record<string, string> = {
-    ...(process.env as Record<string, string>),
+    ...inherited,
     OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: db,
     CLAUDE_CONFIG_DIR: join(root, 'claude-config'), CODEX_HOME: join(root, 'codex-home'), ANTHROPIC_API_KEY: '', OPENAI_API_KEY: '',
     ...extraEnv

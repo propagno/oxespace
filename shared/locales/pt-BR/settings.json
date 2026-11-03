@@ -802,7 +802,8 @@
       },
       "source": {
         "user": "Definida na sua política de usuário; mude por lá.",
-        "managed": "Definida pela sua organização; não pode ser mudada aqui."
+        "managed": "Definida pela sua organização; não pode ser mudada aqui.",
+        "reads": "Uma consulta somente leitura, permitida por \"Aprovar comandos somente leitura automaticamente\" nas Permissões de uma conversa. Desligue isso para ser perguntado."
       },
       "confirmLevel": "Sempre pergunta: esta ferramenta faz coisas que você confirma a cada vez.",
       "saved": "{{tool}}: {{decision}}.",

@@ -1044,7 +1044,7 @@
     "unavailable": "As regras de permissão não estão disponíveis nesta versão.",
     "readOnly": "Comandos somente leitura",
     "autoReads": "Aprovar comandos somente leitura automaticamente",
-    "autoReadsHint": "Comandos como ls, cat, grep, find, git status, git log e git diff são aprovados sem perguntar quando só leem arquivos dentro do projeto. Um comando que lê fora do projeto, grava um arquivo, executa outro programa ou usa a rede continua perguntando. As regras salvas continuam valendo com isto ligado ou desligado.",
+    "autoReadsHint": "Comandos como ls, cat, grep, find, git status, git log e git diff são aprovados sem perguntar quando só leem arquivos dentro do projeto. As consultas do próprio OXESpace (busca de código, chamadores, impacto, contexto do projeto e suas outras ferramentas somente leitura) também são aprovadas. Um comando que lê fora do projeto, grava um arquivo, executa outro programa ou usa a rede continua perguntando. As regras salvas continuam valendo com isto ligado ou desligado.",
     "rules": "Regras",
     "rulesHint": "O OXESpace responde aos pedidos de aprovação do agente com estas regras. As regras de permitir só aprovam quando cobrem todos os comandos de uma linha, ou todos os arquivos; as de negar recusam. Todo o resto continua perguntando a você. Uma ferramenta MCP negada também sai das ferramentas do agente quando a próxima sessão começa.",
     "loading": "Carregando as regras…",
