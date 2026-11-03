@@ -60,8 +60,8 @@ export async function resolveScope(ctx: ToolContext): Promise<ActionScope> {
     }
   }
   // The same refusal as requireProjectScope (tool-handlers.ts).
-  if (ctx.workspaceId?.startsWith('thread:')) throw new ActionRefused('This Thread execution could not be verified. Start a new turn and try again.', 'no-execution')
-  const named = ctx.workspaceId && !ctx.workspaceId.startsWith('thread:') ? ctx.workspaceServ.get(ctx.workspaceId) : null
+  if (ctx.workspaceId?.trim().toLowerCase().startsWith('thread:')) throw new ActionRefused('This Thread execution could not be verified. Start a new turn and try again.', 'no-execution')
+  const named = ctx.workspaceId ? ctx.workspaceServ.get(ctx.workspaceId) : null
   const workspace = named ?? ctx.workspaceServ.list().find(item => item.isActive === true) ?? null
   if (!workspace) throw new ActionRefused('No workspace is open in OXESpace. Open the project first.', 'no-workspace')
   return {

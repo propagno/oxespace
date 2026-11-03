@@ -106,6 +106,8 @@ describe('domain tools', () => {
     await expect(resolveScope(context({ workspaceId: 'thread:proj-1' }, false))).rejects.toMatchObject({
       code: 'no-execution', message: 'This Thread execution could not be verified. Start a new turn and try again.'
     })
+    // Any spelling of the prefix (SECURITY L on #553).
+    for (const id of ['Thread:proj-1', ' THREAD:proj-1', 'thread:']) await expect(resolveScope(context({ workspaceId: id }, false)), id).rejects.toMatchObject({ code: 'no-execution' })
     // A generic MCP caller with no workspace stays on the active workspace, read only.
     expect(await resolveScope(context({ workspaceId: undefined }, false))).toMatchObject({ rootPath: '/repo', workspaceId: WS.id, actor: { authenticated: false } })
     // A verified Thread execution is unchanged: its own project root.
