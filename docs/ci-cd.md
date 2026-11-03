@@ -68,6 +68,15 @@ from *before* that push, and the new head has only the skipped run. The merge tr
 tested the head, so it will not take that PR. Since #429, the draft's skip run has a concurrency group of its own and
 can no longer cancel the ready run.
 
+### Batches of docs and tests
+
+The train merges one PR at a time. To move several queued PRs that change only documentation or test code in one CI
+run, a maintainer runs `node scripts/merge-batch.mjs --dry-run` (prints the batch), then without `--dry-run`. With their
+own `gh` login, it builds `train/batch-N` from main with each PR merged in, opens the batch PR labelled `na-fila`, and
+takes the members out of the queue; each closes as merged when the batch lands. It skips the queue's first car, drafts,
+forks and PRs labelled `fix-main` or `no-batch`. If a batch fails, close it and relabel its members. (The train itself
+cannot open pull requests: GitHub Actions is not allowed to, and that setting stays off.)
+
 ## Running the checks locally
 
 The machine running the team is memory-starved: prefer CI for anything heavy, and run heavy local jobs one at a
