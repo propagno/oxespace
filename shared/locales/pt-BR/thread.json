@@ -365,6 +365,7 @@
     "steerTitle": "Enviar uma orientação ao turno ativo",
     "stop": "Parar o turno",
     "stopTitle": "Parar o turno · Esc",
+    "stopShort": "Parar",
     "queue": "Pôr na fila",
     "queueTitle": "Pôr na fila · Enter",
     "send": "Enviar",
@@ -386,6 +387,13 @@
     "selectModel": "Escolher modelo",
     "loadingModels": "Carregando modelos…",
     "providerDefault": "Padrão do provedor",
+    "chip": {
+      "model": "Modelo",
+      "effort": "Esforço",
+      "permissions": "Permissões",
+      "canEdit": "Pode editar",
+      "pending": "Vale a partir da próxima mensagem"
+    },
     "filterModels": "Filtrar modelos",
     "searchModels": "Buscar modelos…",
     "noModels": "Nenhum modelo disponível.",
@@ -890,22 +898,6 @@
     "unmanaged": "Não é gerenciado pelo OXESpace, então não pode ser testado aqui. Confira onde ele foi adicionado, por exemplo com <code>claude mcp list</code>.",
     "ok": "Inicia no teste de agora ({{message}}). Comece uma nova conversa para carregá-lo.",
     "again": "Testar de novo"
-  },
-  "mcpHealth": {
-    "stoppedLabel": "Servidores MCP parados enquanto a conversa está ociosa; eles voltam com a sua próxima mensagem",
-    "unavailable_one": "{{count}} servidor MCP indisponível, {{connected}} conectados",
-    "unavailable_many": "{{count}} servidores MCP indisponíveis, {{connected}} conectados",
-    "unavailable_other": "{{count}} servidores MCP indisponíveis, {{connected}} conectados",
-    "connected_one": "{{count}} servidor MCP conectado",
-    "connected_many": "{{count}} servidores MCP conectados",
-    "connected_other": "{{count}} servidores MCP conectados",
-    "title": "Servidores MCP",
-    "chip": "MCP · {{value}}",
-    "chipStopped": "parados",
-    "chipFailed": "{{count}} com falha",
-    "stoppedBody": "Parados enquanto a conversa está ociosa. Esta é a lista da última sessão; a sua próxima mensagem os inicia de novo.",
-    "reportedBody": "Como a sessão desta conversa os informou ao começar.",
-    "open": "Abrir conexões"
   },
   "mcpList": {
     "failed": {
