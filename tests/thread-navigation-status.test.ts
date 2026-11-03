@@ -12,7 +12,7 @@ describe('Thread navigation status', () => {
     ['idle', undefined, 'ready', 'Ready'],
     ['idle', 'completed', 'completed', 'Completed'],
     ['running', undefined, 'running', 'Running'],
-    ['approval', undefined, 'attention', 'Needs input'],
+    ['approval', undefined, 'attention', 'Needs you'],
     ['failed', undefined, 'failed', 'Failed'],
     ['interrupted', undefined, 'interrupted', 'Interrupted']
   ] as const)('maps %s and last turn %s to %s', (status, lastTurnStatus, kind, label) => {

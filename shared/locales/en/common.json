@@ -1,6 +1,7 @@
 {
   "deferred": {
-    "partMissing": "Some commands may be missing from the palette and the menus until it loads. The rest of OXESpace keeps working."
+    "partMissing": "Some commands may be missing from the palette and the menus until it loads. The rest of OXESpace keeps working.",
+    "activityMissing": "Activity and notifications may not update until it loads. The rest of OXESpace keeps working."
   },
   "languageName": {
     "en": "English",
