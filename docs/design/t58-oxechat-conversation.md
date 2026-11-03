@@ -350,8 +350,10 @@ the default, and Esc is the easiest key to press by accident.
 - The copy also ends when the conversation is closed, archived or deleted, or when the app quits. It is never
   saved.
 
-This needs BACKEND to keep the side session alive while the drawer is hidden (decision 5 in §8). If that is not
-possible in 1.5.0, the fallback is: Close discards, and with at least one answer it asks first, with the same dialog.
+> **Decided (TECH LEAD, 2026-11-03), ships in 1.4.1 as FRONTEND's T60** with the tab-switch fix. It needs no
+> new BACKEND work: main already keeps the side session alive until `sideClose`, and only the renderer called it on
+> unmount. Close hides the drawer and keeps the copy while the conversation exists; Esc only returns focus;
+> "Discard and close…" confirms when there are answers, with Keep as the default.
 
 ## 8. Decisions for the user
 
@@ -361,9 +363,6 @@ possible in 1.5.0, the fallback is: Close discards, and with at least one answer
 3. **Tool rows color-coded by kind** (§2.3). Recommended: yes, as a 3 px bar only.
 4. **Name when the provider doesn't report its default model**: "Provider's choice" until the first turn
    (recommended), or keep the strip empty until it is known.
-
-5. **Side chat close keeps the copy** until you discard it or close the conversation (§7c), instead of throwing it
-   away. Recommended: yes. It costs BACKEND a hidden-but-alive session; the fallback is confirm-on-close.
 
 ## 9. Out of scope
 
