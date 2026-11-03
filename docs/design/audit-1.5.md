@@ -8,9 +8,12 @@ work. Docs only.
 - **Inventory first.** `src/` has 129 files that open an overlay: 49 `Dialog`, 43 `ConfirmDialog`, 9 `Popover`,
   15 `Menu`, 6 `ToolPanel`, 70 toast calls and 20 hand-built `role="dialog"` surfaces (appendix A).
 - **Screenshots of main at 68100918** (v1.4.0 plus #533), from the e2e mock, in light and dark, at 1440×900 and
-  900×620: 55 surfaces × 4 = 220 shots in [`audit-1.5/`](audit-1.5/). They were taken in CI ("Visual baselines" run
-  41701172204, Linux), never from a real profile. Each folder has `facts.json` with measured contrast, targets under
-  24 px, overflow, dialog size and where focus landed.
+  900×620: 55 surfaces × 4 = 220 shots. They were taken in CI ("Visual baselines" run
+  [41701172204](https://github.com/propagno/oxespace/actions/runs/41701172204), Linux), never from a real profile.
+  They are not in the repo. They are in that run's artifact `visual-baselines-linux`, under `audit-1.5/`, **which
+  expires on 2026-11-17**. Each folder has `facts.json` with measured contrast, targets under 24 px, overflow,
+  dialog size and where focus landed. To capture them again, re-run that workflow on a branch with the capture spec
+  from this PR's history (commit 2f885f7e).
 - Each screen was judged against Mandacaru (`src/design/tokens`, `src/ui`): hierarchy, density, alignment, type,
   color and contrast, consistency between equivalent surfaces, button copy and order, states, focus, Esc and narrow
   windows.
@@ -156,6 +159,9 @@ the side chat (§7c). They are referenced here, not repeated.
 
 ## Split: 1.4.x quick wins and 1.5.0
 
+> **Assigned (TECH LEAD, 2026-11-03):** the 1.4.x list is MOBILE's T66. C-01 is FRONTEND's T67 in 1.4.1 (approval
+> safety). Everything else goes to 1.5.0.
+
 **1.4.x** (small, local, low risk; each one is a FRONTEND PR with no new primitive):
 
 - G-06 Usage provider label (bug).
@@ -213,5 +219,3 @@ From `git grep` on `src/` at 68100918 (counts of opening tags):
 | OxeChat sidebar context menu, usage ring popover | Selectors did not match | code |
 | OxeQuery import | Opens a native file dialog | code |
 | Toasts (70 call sites) | None fired in the scripted path | `design-system-states` baseline; a toast pass is a follow-up |
-
-The capture spec (`e2e/visual/audit-1.5.spec.ts`) is audit-only and must be removed before this PR leaves draft.
