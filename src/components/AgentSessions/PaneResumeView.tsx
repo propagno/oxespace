@@ -24,6 +24,13 @@ export function PaneResumeMarker({ paneId, outcome }: { paneId: string; outcome:
   const collapsed = useAgentResumeStore(state => !!state.collapsed[paneId])
   if (outcome.outcome === 'nothingRecorded' || startedFresh(outcome)) return null
   const agent = AGENT[outcome.agent]
+  if (outcome.outcome === 'resumed' && outcome.note) {
+    // T54 · Resumed, but asking for permission although the session had skipped it: said, with the setting, never hidden.
+    const name = `${tc('agentResume.resumedTitle', { agent })}. ${formatMainMessage(outcome.note)}`
+    return <Badge intent="warning" icon={<TriangleAlert size={12} />} title={name} ariaLabel={name} data-testid="pane-resume-marker" data-outcome="resumed-asking">
+      {tc('agentResume.resumedChip')}
+    </Badge>
+  }
   if (outcome.outcome === 'resumed') {
     if (collapsed) return null
     const name = tc('agentResume.resumedTitle', { agent })
@@ -128,7 +135,7 @@ export function AgentSessionDetails({ session, resume }: { session: PaneAgentSes
   }
   const state = missed ? null
     : !resume || resume.outcome === 'nothingRecorded' ? null
-      : resume.outcome === 'resumed' ? tc('agentResume.details.resumed') : tc('agentResume.details.startedFresh')
+      : resume.outcome === 'resumed' ? [tc('agentResume.details.resumed'), resume.note ? formatMainMessage(resume.note) : ''].filter(Boolean).join('. ') : tc('agentResume.details.startedFresh')
   return <div className="pane-agent-session" data-testid="pane-agent-session">
     <dl className="detail-list">
       <div><dt>{tc('agentResume.details.label')}</dt><dd><code data-testid="pane-agent-session-id" title={session.sessionId}>{middleCut(session.sessionId)}</code> ({AGENT[session.agent]})</dd></div>

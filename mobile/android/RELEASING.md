@@ -1,7 +1,8 @@
 # Releasing the Android app
 
-The signed APK is attached to each GitHub release by `.github/workflows/android-release.yml`. It runs when the
-desktop's "CI and Release" pipeline publishes a release, or by hand (Actions › Android release › Run workflow, with
+The signed APK is attached to each GitHub release by `.github/workflows/android-release.yml`. The
+desktop's "CI and Release" pipeline starts it on the tag right after it publishes a release (`GITHUB_TOKEN`
+publishes fire no `release` event, so that run's last step dispatches it). It also runs by hand (Actions › Android release › Run workflow, with
 **Use workflow from** set to the `vX.Y.Z` tag; from a branch it stops at once). It's not on the Play Store.
 
 It has two jobs, so the key is never near build or test code:
@@ -48,6 +49,9 @@ environment:
    ```sh
    keytool -list -v -keystore oxespace-release.jks -alias oxespace | grep "SHA256:"
    ```
+
+   Published in the 1.4.0 release notes ("Verify the Android APK"): `CC:65:D9:0A:FA:2F:DE:65:18:AD:AD:92:D4:07:69:49:6A:04:3B:90:1F:60:3E:FF:05:62:E0:56:CD:43:36:E4`
+   (`apksigner` prints it as `cc65d90afa2fde6518adad92d40769496a043b901f603eff0562e056cd4336e4`).
 
 Without the secrets, the signing job stops at its first step and names the ones missing; nothing is published. If
 older repository secrets with these names exist, delete them once the environment holds them.

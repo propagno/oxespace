@@ -7,7 +7,7 @@ import { toast } from '../ui'
  * until it arrives. If the import fails (a chunk missing after an update, a disk error), the person is told in words,
  * with a way to try again, and the rest of the app keeps working.
  */
-export function useDeferredModule<M>(load: () => Promise<M>): M | null {
+export function useDeferredModule<M>(load: () => Promise<M>, missing: () => string = () => i18n.t('deferred.partMissing', { ns: 'common' })): M | null {
   const [module, setModule] = useState<M | null>(null)
   const [attempt, setAttempt] = useState(0)
   const retry = useCallback(() => setAttempt(value => value + 1), [])
@@ -19,7 +19,7 @@ export function useDeferredModule<M>(load: () => Promise<M>): M | null {
         if (!alive) return
         toast({
           title: i18n.t('errors.generic', { ns: 'common' }),
-          description: i18n.t('deferred.partMissing', { ns: 'common' }),
+          description: missing(),
           intent: 'warning',
           action: { label: i18n.t('ui.tryAgain', { ns: 'common' }), run: retry }
         })
