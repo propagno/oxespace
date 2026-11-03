@@ -93,7 +93,7 @@
     },
     "externalEditor": {
       "label": "Editor externo",
-      "hint": "O \"Abrir em…\" mostra este editor primeiro, e Ctrl+Shift+clique num caminho abre o arquivo nele.",
+      "hint": "O \"Abrir em…\" mostra este editor primeiro, e Ctrl+Shift+clique num caminho em um terminal abre o arquivo nele.",
       "none": "Nenhum editor externo foi encontrado neste computador (VS Code, Cursor ou Zed).",
       "auto": "Automático"
     }
