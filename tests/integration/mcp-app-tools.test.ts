@@ -100,6 +100,19 @@ describe('domain tools', () => {
     expect(await resolveScope(context())).toMatchObject({ rootPath: '/repo/sub', actor: { label: 'pane:p1', authenticated: true } })
     expect(await resolveScope(context({}, false))).toMatchObject({ rootPath: '/repo', actor: { authenticated: false } })
   })
+
+  it('T56: a Thread caller that cannot be verified is refused, never moved to the active Code workspace', async () => {
+    // Unverified (ended, or wrong credentials), naming a Thread project: refused with requireProjectScope's words.
+    await expect(resolveScope(context({ workspaceId: 'thread:proj-1' }, false))).rejects.toMatchObject({
+      code: 'no-execution', message: 'This Thread execution could not be verified. Start a new turn and try again.'
+    })
+    // A generic MCP caller with no workspace stays on the active workspace, read only.
+    expect(await resolveScope(context({ workspaceId: undefined }, false))).toMatchObject({ rootPath: '/repo', workspaceId: WS.id, actor: { authenticated: false } })
+    // A verified Thread execution is unchanged: its own project root.
+    const thread = { id: 'exec-t', owner: { kind: 'thread', id: 't1' }, workspaceId: 'thread:proj-1', canonicalRoot: '/projects/one', cwd: '/projects/one' }
+    expect(await resolveScope(context({ workspaceId: 'thread:proj-1', executions: { authenticate: () => thread } } as unknown as Partial<ToolContext>)))
+      .toMatchObject({ rootPath: '/projects/one', workspaceId: 'thread:proj-1', actor: { label: 'thread:t1', authenticated: true } })
+  })
 })
 
 describe('oxespace_git', () => {
