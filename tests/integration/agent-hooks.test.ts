@@ -86,6 +86,18 @@ describe('AgentHookServer', () => {
     ])
   })
 
+  test('T54: the permission mode comes only from a Claude SessionStart, and only as one of its four words', async () => {
+    const deliver = (agent: string, payload: Record<string, unknown>) => post({ executionId: 'exec', token: 'secret', workspaceId: 'ws', agent, payload })
+    await deliver('claude-code', { hook_event_name: 'SessionStart', source: 'startup', session_id: 's1', permission_mode: 'bypassPermissions' })
+    await deliver('claude-code', { hook_event_name: 'UserPromptSubmit', session_id: 's1', permission_mode: 'plan' })
+    await deliver('claude-code', { hook_event_name: 'SessionStart', source: 'startup', session_id: 's2', permission_mode: 'everything' })
+    await deliver('codex', { hook_event_name: 'SessionStart', session_id: 's3', permission_mode: 'bypassPermissions' })
+    expect(events.map(event => [event.event, event.sessionId, event.permissionMode])).toEqual([
+      ['SessionStart', 's1', 'bypassPermissions'], ['UserPromptSubmit', 's1', undefined], ['SessionStart', 's2', undefined], ['SessionStart', 's3', undefined]
+    ])
+    expect(events.filter(event => event.permissionMode === undefined).every(event => !('permissionMode' in event))).toBe(true)
+  })
+
   test('rejects bad credentials and never emits', async () => {
     expect(await post({ executionId: 'exec', token: 'nope', workspaceId: 'ws', agent: 'codex', payload: { hook_event_name: 'Stop' } })).toBe(403)
     expect(events).toHaveLength(0)

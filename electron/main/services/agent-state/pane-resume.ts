@@ -8,7 +8,20 @@ import { randomUUID } from 'node:crypto'
 import { mainMessage } from '../../../../shared/messages'
 import type { PaneAgentResume } from '../../../../shared/types/ipc/terminal'
 import { agentFromCommand } from './agents'
-import { resumeArgs, type PaneResumeRecord, type ResumableAgent } from './pane-sessions'
+import { resumeArgs, type ClaudePermissionMode, type PaneResumeRecord, type ResumableAgent } from './pane-sessions'
+
+/** Arguments that already set Claude's permission mode: a command that has one keeps it, and nothing is added. */
+const OWN_PERMISSION = /^(--dangerously-skip-permissions|--allow-dangerously-skip-permissions|--permission-mode)(=|$)/
+
+/**
+ * T54 · The flags that start a resumed Claude session in the permission mode it started in, from a closed list and
+ * never more than that mode: `bypassPermissions` → --dangerously-skip-permissions, `acceptEdits` and `plan` →
+ * --permission-mode <mode>, `default` or nothing recorded → none. None either when the command sets a mode itself.
+ */
+export function permissionModeArgs(mode: ClaudePermissionMode | undefined, command: readonly string[]): string[] {
+  if (!mode || mode === 'default' || command.some(part => OWN_PERMISSION.test(part))) return []
+  return mode === 'bypassPermissions' ? ['--dangerously-skip-permissions'] : ['--permission-mode', mode]
+}
 
 /** Arguments that already pick a session, or run something other than an interactive session, per provider. */
 const OWN_SESSION: Record<ResumableAgent, RegExp> = {
@@ -72,7 +85,8 @@ export async function planPaneResume(record: PaneResumeRecord | null, start: Pan
   if (parts.slice(1).some(part => OWN_SESSION[agent].test(part))) return fail('launchOverride')
   if (!deps.allowed(agent)) return fail('blocked')
   if (!(await deps.exists(agent, sessionId, cwd))) return fail('sessionMissing')
-  return { agentCommand: start.agentCommand ?? agent, extraArgs: resumeArgs(agent, sessionId), status: { outcome: 'resumed', agent, sessionId } }
+  const modeArgs = agent === 'claude' ? permissionModeArgs(record.permissionMode, parts.slice(1)) : []
+  return { agentCommand: start.agentCommand ?? agent, extraArgs: [...modeArgs, ...resumeArgs(agent, sessionId)], status: { outcome: 'resumed', agent, sessionId } }
 }
 
 /**

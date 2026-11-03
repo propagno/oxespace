@@ -14,6 +14,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from 'node:net'
 import type { AgentHookAgent, AgentHookLocationEvent, AgentHookStatusEvent, SessionLocation } from '../../../../shared/types/agent-hooks'
 import { mapHookEvent, type HookPayload } from './events'
+import { isClaudePermissionMode } from '../agent-state/pane-sessions'
 
 const MAX_BODY_BYTES = 1024 * 1024
 const BODY_TIMEOUT_MS = 5_000
@@ -123,7 +124,9 @@ export class AgentHookServer {
       state,
       event: typeof record.hook_event_name === 'string' ? record.hook_event_name : '',
       at,
-      sessionId
+      sessionId,
+      // Only the mode a Claude session started in: later events would carry a mode changed during it (T54).
+      ...(agent === 'claude-code' && record.hook_event_name === 'SessionStart' && isClaudePermissionMode(record.permission_mode) ? { permissionMode: record.permission_mode } : {})
     })
   }
 

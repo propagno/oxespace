@@ -12,9 +12,9 @@ import { getRtkService, type RtkService } from './rtk.service'
 import { PtyInputQueue } from './pty-input-queue'
 import { PtyOutputBatcher } from './pty-output-batcher'
 import { PtyRingBuffer } from './pty-ring-buffer'
-import { resumeCommand, type PaneResumeRecord, type PaneSessionSource } from './agent-state/pane-sessions'
+import { resumeCommand, type ClaudePermissionMode, type PaneResumeRecord, type PaneSessionSource } from './agent-state/pane-sessions'
 import { mainMessage } from '../../../shared/messages'
-import { claudeSessionToAssign, failedToLoadStatus, planPaneResume, RESUME_LOAD_MS, startedFreshStatus } from './agent-state/pane-resume'
+import { claudeSessionToAssign, failedToLoadStatus, permissionModeArgs, planPaneResume, RESUME_LOAD_MS, startedFreshStatus } from './agent-state/pane-resume'
 import { nativeSessionExists, type NativeSessionRoots } from './agent-state/native-session-files'
 import { PtyModeTracker } from './pty-mode-tracker'
 import { DA1_CARRY_MS, DA1_REPLY, Da1Filter, stripDa1 } from './pty-da1'
@@ -54,7 +54,7 @@ interface TerminalManagerOptions {
   /** Forgets the pane's recorded session (a restart with `resume: false`). */
   clearSession?: (paneId: string) => void
   /** The pane's current agent session and where it came from (Terminal details, S2). */
-  currentSession?: (paneId: string) => { agent: 'claude' | 'codex'; sessionId: string; source: PaneSessionSource } | null
+  currentSession?: (paneId: string) => { agent: 'claude' | 'codex'; sessionId: string; source: PaneSessionSource; permissionMode?: ClaudePermissionMode } | null
   /** Records the session id main gave a Claude Code it started (`--session-id`), as the hooks would. */
   assignSession?: (paneId: string, agent: 'claude', sessionId: string) => void
   /** Where the providers keep their sessions; the user's own folders by default. For tests. */
@@ -307,8 +307,14 @@ export class TerminalManager {
     const executable = input.launch ? resolveExecutable(input.launch.executable, this.env, this.platform) : agentParts
       ? resolveExecutable(agentParts[0], this.env, this.platform)
       : resolveExecutable(launch.shell_executable, this.env, this.platform)
+    // T54 · Restore session (the pane's own `--resume <id>`): the session main recorded for this pane starts again in the
+    // mode it started in. Only that exact session, only Claude, never a launch an agent or Team asked for.
+    const recorded = !input.launch && !threadShell && !oxeShell && agentName === 'claude' && input.agentArgs?.length === 2 && input.agentArgs[0] === '--resume'
+      ? this.currentSession?.(input.paneId) ?? null : null
+    const restoreMode = recorded?.agent === 'claude' && recorded.sessionId === input.agentArgs?.[1] && agentParts
+      ? permissionModeArgs(recorded.permissionMode, agentParts.slice(1)) : []
     let args = input.launch ? input.launch.args : agentParts
-      ? [...agentParts.slice(1), ...(input.agentArgs ?? []), ...plan.extraArgs]
+      ? [...agentParts.slice(1), ...restoreMode, ...(input.agentArgs ?? []), ...plan.extraArgs]
       : [...shellArgs, ...(input.agentArgs ?? [])]
     // A fresh Claude conversation gets a session id main knows, so the pane can resume it without the hooks.
     const assigned = this.assignSession && !threadShell && !oxeShell && !input.launch && !plan.extraArgs.length ? claudeSessionToAssign(agentParts?.[0] ?? launch.shell_executable, args) : null
