@@ -1,12 +1,14 @@
 import { expect, test } from '@playwright/test'
 import { scanSurface } from './helpers/a11y'
+import { modeButton } from './helpers/modes'
 import { launchApp, openDemoWorkspace, resizeWindow } from './helpers/launch'
 import { installThreadFixtures, openThreadWithState, registerThreadProject } from './helpers/thread-fixtures'
 
 /**
  * F15 / B1.2: the side chat drawer. Ctrl+. opens a read-only copy of the conversation beside it; a question there gets
  * the mock's answer (electron/main/e2e/mock-ipc.ts) and never reaches the conversation; its cost stays in view; Escape
- * closes it and gives the composer its focus back; the header menu opens it too.
+ * gives the composer its focus back. T60: leaving the conversation, ✕ and Ctrl+. only hide it, and the copy with its
+ * answers is there on return; "Discard and close…" asks, with Keep focused, and main drops the copy.
  */
 test('the side chat asks a read-only copy, shows its cost, and leaves the conversation alone', async () => {
   test.setTimeout(150_000)
@@ -59,16 +61,49 @@ test('the side chat asks a read-only copy, shows its cost, and leaves the conver
     const findings = await scanSurface(page, 'thread-side-chat')
     expect(findings.filter(item => item.nodes.some(node => /thread-side-chat|_(drawer|header|note|cost|log|question|answer|status|composer|input)_/i.test(node)))).toEqual([])
 
-    // Escape closes it and gives the composer its focus back.
+    const copies = () => app.evaluate(() => ((globalThis as Record<string, unknown>).__oxeSideChats as Map<string, string> | undefined)?.size ?? 0)
+    expect(await copies()).toBe(1)
+
+    // Escape gives the composer its focus back; the drawer stays.
     await input.focus()
     await page.keyboard.press('Escape')
-    await expect(drawer).toHaveCount(0)
     await expect(composer).toBeFocused()
+    await expect(drawer).toBeVisible()
 
-    // The header's menu opens it too.
+    // T60: leaving the conversation and coming back finds the drawer open, with the same copy and its answers.
+    await modeButton(page, 'code').click()
+    await expect(drawer).toHaveCount(0)
+    await modeButton(page, 'thread').click()
+    await expect(drawer).toBeVisible()
+    await expect(drawer).toHaveAttribute('data-side-id', sideId!)
+    await expect(log).toContainText('E2E side chat reply.')
+    await expect(drawer.getByTestId('thread-side-chat-cost')).toHaveText('Cost so far: ≈ US$ 0.03 · 5k tokens')
+    expect(await copies()).toBe(1)
+
+    // ✕ hides it and keeps the copy; Ctrl+. shows the same one again.
+    await drawer.getByTestId('thread-side-chat-close').click()
+    await expect(drawer).toHaveCount(0)
+    expect(await copies()).toBe(1)
+    await composer.focus()
+    await page.keyboard.press('Control+.')
+    await expect(drawer).toHaveAttribute('data-side-id', sideId!)
+    await expect(log).toContainText('E2E side chat reply.')
+
+    // "Discard and close…" asks first (there is an answer), Keep focused; Discard closes it and main drops the copy.
+    await drawer.getByTestId('thread-side-chat-actions').click()
+    await page.getByRole('menuitem', { name: 'Discard and close…' }).click()
+    const confirm = page.getByRole('dialog', { name: 'Discard this side chat?' })
+    await expect(confirm.getByRole('button', { name: 'Keep' })).toBeFocused()
+    await confirm.getByRole('button', { name: 'Discard' }).click()
+    await expect(drawer).toHaveCount(0)
+    await expect.poll(copies).toBe(0)
+
+    // The header's menu opens a new copy, without the old answers.
     await page.getByRole('button', { name: 'More actions' }).click()
     await page.getByRole('menuitem', { name: /^Side chat/ }).click()
     await expect(drawer).toBeVisible()
+    await expect(drawer).not.toHaveAttribute('data-side-id', sideId!)
+    await expect(log).not.toContainText('E2E side chat reply.')
     await drawer.getByTestId('thread-side-chat-close').click()
     await expect(drawer).toHaveCount(0)
 
