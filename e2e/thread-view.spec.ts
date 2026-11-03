@@ -5,6 +5,7 @@ import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { recordThreadVisualAudit } from './helpers/thread-visual-audit'
+import { pressUntilValueChanges } from './helpers/pressUntilValueChanges'
 
 test('Thread UI preserves Code terminals and renders a structured conversation', async () => {
   test.setTimeout(120000)
@@ -307,7 +308,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     const codeSidebar = page.locator('.sidebar')
     const resize = codeSidebar.getByRole('separator', { name: 'Sidebar width', exact: true })
     for (const [key, presses, width] of [['ArrowLeft', 20, 240], ['ArrowRight', 15, 360], ['ArrowLeft', 10, 280]] as const) {
-      for (let index = 0; index < presses; index++) await resize.press(key)
+      // FL-09: each press checked to its exact step; a press that does not land is recorded and pressed again (≤2).
+      await pressUntilValueChanges(resize, key, presses, { step: 8, label: `Sidebar width ${key}×${presses}→${width}` })
       await expect(resize).toHaveAttribute('aria-valuenow', String(width))
       await expect.poll(() => page.evaluate(() => Math.round(document.querySelector('.workspace-surface')!.getBoundingClientRect().left - document.querySelector('.sidebar')!.getBoundingClientRect().right))).toBe(8) // --frame-gap
       await expect(codeSidebar.getByRole('button', { name: 'Open settings', exact: true })).toBeVisible()
