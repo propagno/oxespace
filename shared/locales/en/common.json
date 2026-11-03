@@ -191,6 +191,8 @@
     "newRequest": { "detail": "Saved in .oxespace/requests" },
     "import": { "detail": "Becomes request files" },
     "environments": { "detail": "Variables and secrets" },
+    "createFailed": "Couldn't create the request",
+    "noProject": "Open a project first: requests are saved in its .oxespace/requests folder.",
     "defaultName": "New request"
   },
   "podsCommands": {
