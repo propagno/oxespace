@@ -237,6 +237,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       attach: (input) => ipc.invoke(IPC_CHANNELS.terminal.attach, input) as Promise<TerminalAttachResult>,
       detach: (input) => ipc.invoke(IPC_CHANNELS.terminal.detach, input) as Promise<void>,
       status: (paneId) => ipc.invoke(IPC_CHANNELS.terminal.status, paneId) as Promise<TerminalStatusResult>,
+      resumeBypass: () => ipc.invoke(IPC_CHANNELS.terminal.resumeBypass) as Promise<boolean>,
+      setResumeBypass: (enabled) => ipc.invoke(IPC_CHANNELS.terminal.setResumeBypass, enabled) as Promise<boolean>,
       onData: terminalData,
       onExit: terminalExit,
       onActivity: terminalActivity

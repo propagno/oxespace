@@ -55,6 +55,20 @@ for (const appearance of ['light', 'dark'] as Appearance[]) {
         return Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
       })
       expect(order).toBe(true)
+      // An approval is denied, not declined (DESIGN, RC; F18's word).
+      await expect(card.getByRole('button', { name: 'Deny', exact: true })).toBeVisible()
+      // The capped dock scrolls the card's middle: while more is below, it fades out at the bottom (DESIGN, RC); at
+      // the bottom the fade is gone and the agent's reason is in reach.
+      const content = card.locator('.thread-approval-content')
+      const overflows = await content.evaluate(node => node.scrollHeight > node.clientHeight + 1)
+      if (overflows) {
+        await expect(content).toHaveAttribute('data-more-below', 'true')
+        await page.screenshot({ path: `${SHOTS}/thread-card-more-below-${appearance}.png` })
+        await content.evaluate(node => { node.scrollTop = node.scrollHeight })
+        await expect(content).not.toHaveAttribute('data-more-below')
+        await expect(reason).toBeInViewport()
+      }
+      console.log(`[CARD-FADE] ${appearance}: overflows ${overflows}`)
 
       const approve = card.getByRole('button', { name: 'Approve', exact: true })
       await expect(approve).toBeDisabled()

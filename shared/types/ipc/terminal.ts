@@ -122,7 +122,8 @@ export type PaneAgentSession =
  * was not used, C3 `agents.resume.*`), or `nothingRecorded`.
  */
 export type PaneAgentResume =
-  | { outcome: 'resumed'; agent: 'claude' | 'codex'; sessionId: string }
+  /** `note` (T54): resumed, but without skipping permissions as the session had, since the setting is off. */
+  | { outcome: 'resumed'; agent: 'claude' | 'codex'; sessionId: string; note?: MainMessage }
   | { outcome: 'notResumed'; agent: 'claude' | 'codex'; sessionId: string; message: MainMessage }
   | { outcome: 'nothingRecorded' }
 

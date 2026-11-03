@@ -93,7 +93,7 @@
     },
     "externalEditor": {
       "label": "Editor externo",
-      "hint": "O \"Abrir em…\" mostra este editor primeiro, e Ctrl+Shift+clique num caminho abre o arquivo nele.",
+      "hint": "O \"Abrir em…\" mostra este editor primeiro, e Ctrl+Shift+clique num caminho em um terminal abre o arquivo nele.",
       "none": "Nenhum editor externo foi encontrado neste computador (VS Code, Cursor ou Zed).",
       "auto": "Automático"
     }
@@ -324,7 +324,9 @@
     "lines": "{{lines}} linhas",
     "opacity": "Opacidade do fundo",
     "translucent": "translúcido",
-    "globalDefaults": "Padrões <strong>globais</strong>. Cada workspace pode mudá-los."
+    "globalDefaults": "Padrões <strong>globais</strong>. Cada workspace pode mudá-los.",
+    "resumeBypass": "Retomar sessões com as permissões ignoradas quando a sessão estava assim",
+    "resumeBypassHint": "Uma sessão do Claude Code iniciada ignorando os pedidos de permissão é retomada do mesmo jeito depois de reiniciar ou de Restaurar sessão. Desligado: ela é retomada pedindo permissão."
   },
   "hooks": {
     "title": "Hooks de status dos agentes",
@@ -802,7 +804,8 @@
       },
       "source": {
         "user": "Definida na sua política de usuário; mude por lá.",
-        "managed": "Definida pela sua organização; não pode ser mudada aqui."
+        "managed": "Definida pela sua organização; não pode ser mudada aqui.",
+        "reads": "Uma consulta somente leitura, permitida por \"Aprovar comandos somente leitura automaticamente\" nas Permissões de uma conversa. Desligue isso para ser perguntado."
       },
       "confirmLevel": "Sempre pergunta: esta ferramenta faz coisas que você confirma a cada vez.",
       "saved": "{{tool}}: {{decision}}.",

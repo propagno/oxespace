@@ -93,6 +93,8 @@ export interface MessageParams {
   'agents.resume.startedFresh': Record<string, never>
   /** The resumed agent exited at once: its session would not load, so the pane started fresh and forgot it. */
   'agents.resume.failedToLoad': Record<string, never>
+  /** T54: resumed, but without skipping permissions as the session had: Settings › Terminal keeps that off. */
+  'agents.resume.bypassWithheld': Record<string, never>
   /** B17 · Terminal details: the pane runs Claude Code or Codex, but no session was reported yet. */
   'agents.session.notFound': Record<string, never>
   /** Diagnostics journal (B8.3): one kind of incident. */
@@ -581,6 +583,7 @@ export const MESSAGE_CODES = [
   'agents.resume.disabled',
   'agents.resume.startedFresh',
   'agents.resume.failedToLoad',
+  'agents.resume.bypassWithheld',
   'agents.session.notFound',
   'incident.window.crashed',
   'incident.window.rendererGone',

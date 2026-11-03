@@ -513,7 +513,8 @@
         "blocked": "Your organization's policy does not allow this agent here, so its session was not resumed.",
         "disabled": "Resuming agent sessions is turned off in Settings.",
         "startedFresh": "This pane was restarted with a new session; the previous one will not come back.",
-        "failedToLoad": "The agent could not load its previous session and closed, so this pane started a new one."
+        "failedToLoad": "The agent could not load its previous session and closed, so this pane started a new one.",
+        "bypassWithheld": "Resumed without skipping permissions, as the session had. To resume that way, turn it on in Settings › Terminal."
       },
       "session": {
         "notFound": "This agent hasn't reported its session yet. It shows after the agent's first reply, or sooner with the status hooks on (Settings › Notifications)."

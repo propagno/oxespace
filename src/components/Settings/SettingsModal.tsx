@@ -738,6 +738,16 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
   const global = useTerminalPrefsStore((s) => s.global)
   const setGlobal = useTerminalPrefsStore((s) => s.setGlobal)
   const { t } = useTranslation('settings')
+  // T54 · Kept in main, where only this window changes it: a session's own hooks never can. Null until read.
+  const [resumeBypass, setResumeBypass] = useState<boolean | null>(null)
+  useEffect(() => {
+    let live = true
+    void window.oxe?.terminal?.resumeBypass?.().then(value => { if (live) setResumeBypass(value) }, () => undefined)
+    return () => { live = false }
+  }, [])
+  const changeResumeBypass = (next: boolean): void => {
+    void window.oxe?.terminal?.setResumeBypass?.(next).then(setResumeBypass, () => undefined)
+  }
   return (
     <section className="settings-modal-content" aria-labelledby="settings-terminal-title">
       <SettingsContentHeader
@@ -846,6 +856,18 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
               ariaLabel={t('terminal.resume')}
             />
           </div>
+
+          {resumeBypass !== null && <div className="settings-toggle-row">
+            <span>
+              <strong>{t('terminal.resumeBypass')}</strong>
+              <small>{t('terminal.resumeBypassHint')}</small>
+            </span>
+            <SettingsSwitch
+              checked={resumeBypass}
+              onChange={changeResumeBypass}
+              ariaLabel={t('terminal.resumeBypass')}
+            />
+          </div>}
 
           <label className="settings-field">
             <span className="settings-field-label-row">
