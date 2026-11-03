@@ -27,7 +27,7 @@ commit ─▶ pull request ─▶ CI and Release (PR)          first red ≈ 3 m
 
 | Workflow | Trigger | What it gates |
 |---|---|---|
-| `ci.yml` — CI and Release | PR, push to main, `v*.*.*` tag, dispatch | The single pipeline: quick checks, unit (Windows + Linux), E2E (3 shards per OS), perf gate, live DB tests, packaging and release. `CI result` is the one check for the run. See [RELEASE_PIPELINE.md](RELEASE_PIPELINE.md#jobs). |
+| `ci.yml` — CI and Release | PR, push to main, `v*.*.*` tag, dispatch | The single pipeline: quick checks, unit (Windows + Linux), E2E (3 shards per OS), perf gate, live DB tests, packaging and release, and the dependency review when a manifest, lockfile or workflow changes (a high or critical advisory fails it). `CI result` is the one check for the run, and the one branch protection requires. See [RELEASE_PIPELINE.md](RELEASE_PIPELINE.md#jobs). |
 | `merge-train.yml` | `na-fila` label, workflow_run, schedule, dispatch | Merges PRs one at a time ([RELEASE_PIPELINE.md#merge-train](RELEASE_PIPELINE.md#merge-train)). PRs that change `.github/workflows/**` can't be merged by its token and are merged by hand. |
 | `a11y-axe.yml` | PR, push, dispatch | axe scan of the screens. |
 | `memory-compatibility.yml` | PR (memory paths), called by `ci.yml` | AI Memory contract against pinned upstream versions. |
