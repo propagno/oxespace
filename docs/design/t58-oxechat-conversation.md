@@ -6,7 +6,9 @@ The user asked for more color, a nicer look and compact buttons. The message box
 (for example "Opus 5.5", never "default"), the effort and the permissions as compact chips.
 
 T57 already ships the immediate fixes in 1.4.1: the person's bubble on the right, a compact bottom strip, a visible
-Stop button and the model name. T58 is the full visual pass on top of that. It changes no behavior: every control
+Stop button and the model name. By the user's decision (2026-11-03), T57 also implements the composer chips of §4
+(model, effort, permissions) in 1.4.1, and MCP health comes out of the composer. Everything else here is T58 in
+1.5.0: the full visual pass on top of that. It changes no behavior: every control
 keeps its shortcut, popover, aria label and confirmation (the full-access confirmation included).
 
 Tokens are the Mandacaru roles from `src/design/tokens/semantic.ts`. The accent is caatinga green in light mode and
@@ -92,7 +94,8 @@ never color alone.
   enough structure.
 - Left: commands `/` and add `+` as 28 px icon buttons (`fill-hover` on hover).
 - Middle: the Plan/Agent segmented control and the three chips (§4).
-- Right: the context ring and MCP health (existing), then Stop and Send.
+- Right: the context ring (existing), then Stop and Send. MCP health is not in the composer (user decision,
+  2026-11-03).
 - **Send**: 28 px round, `accent` with `text-on-accent`; disabled is `fill-pressed` with `text-disabled`.
 - **Stop** (while running): 28 px round, `intent-danger-solid` with `text-on-solid` and the square icon. It sits
   where Send is and Send moves left of it (queue). It is never hidden behind a menu (T57).
@@ -143,7 +146,7 @@ tooltip "Applies to the next message" / "Vale a partir da próxima mensagem".
 |---|---|
 | ≥ 560 px | everything as in §3 |
 | 420–559 px | the chips drop their text except the model; effort and permissions show icon only (the color stays, the aria label carries the text, the tooltip shows it) |
-| < 420 px | the model chip also drops to the dot and a 10ch name; MCP health moves into the `+` menu |
+| < 420 px | the model chip also drops to the dot and a 10ch name |
 
 The permissions chip is never hidden at any width.
 
