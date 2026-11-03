@@ -119,7 +119,7 @@ test('T53: OXESpace read lookups are answered without the person; writes, other 
         for (const request of (snap.pendingRequests ?? []).filter(r => !r.state || r.state === 'pending')) {
           asked.add(request.toolName ?? request.id)
           // As the person: the window's own answer to a listed request, naming its generation.
-          const answer = await oxe(page, 'thread.respondPending', { threadId: id, requestId: request.id, generation: request.generation, response: { decision: 'decline', reason: 'T53 acceptance: the person declines' } })
+          const answer = await oxe(page, 'thread.respondPending', { threadId: id, requestId: request.id, generation: request.generation, response: { decision: 'decline' } })
             .then(r => JSON.stringify(r), e => `error: ${e instanceof Error ? e.message : String(e)}`)
           responses.push(`${request.toolName}: ${answer.slice(0, 200)}`)
         }

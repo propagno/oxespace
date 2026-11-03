@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { launchReal, openRepo, quitReal, realProfile } from './real-app'
 
@@ -52,6 +53,46 @@ const onTop = (page: Page) => approval(page).evaluate(node => {
   return !!hit && node.contains(hit)
 })
 
+/** One approval over Settings, answered with Esc or the Deny button: layering, the answer, and the person's place after. */
+async function answerOver(page: Page, settings: Locator, before: Awaited<ReturnType<typeof place>>, round: string, answer: 'Escape' | 'button', out: Record<string, unknown>) {
+  await expect(approval(page), `${round}: the approval arrives`).toBeVisible({ timeout: 30_000 })
+  await page.waitForTimeout(ARMED)
+  // How Settings is kept while the approval is up: mounted, and if hidden, by what.
+  const kept = await page.evaluate(() => {
+    const nav = document.querySelector('nav[aria-label="Settings categories"]')
+    const dialog = nav?.closest('[role="dialog"]') as HTMLElement | null
+    if (!dialog) return { mounted: false }
+    const chain: string[] = []
+    for (let node: HTMLElement | null = dialog; node && node !== document.body; node = node.parentElement) {
+      const s = getComputedStyle(node)
+      if (s.display === 'none' || s.visibility !== 'visible' || Number(s.opacity) === 0 || node.hidden || node.hasAttribute('inert')) chain.push(`${node.tagName.toLowerCase()}.${String(node.className).slice(0, 40)} display=${s.display} visibility=${s.visibility} opacity=${s.opacity} hidden=${node.hidden} inert=${node.hasAttribute('inert')}`)
+    }
+    const r = dialog.getBoundingClientRect()
+    return { mounted: true, rect: [Math.round(r.width), Math.round(r.height)], hiddenBy: chain.slice(0, 4) }
+  })
+  out[`${round}-kept`] = kept
+  expect.soft(kept.mounted, `${round}: Settings stays mounted under the approval`).toBe(true)
+  const layered = { settingsVisible: await settings.isVisible(), approvalOnTop: await onTop(page) }
+  out[`${round}-layered`] = layered
+  expect.soft(layered.settingsVisible, `${round}: Settings stays open under the approval`).toBe(true)
+  expect.soft(layered.approvalOnTop, `${round}: the approval is the topmost layer`).toBe(true)
+  const decided = new Set((await history(page)).map(h => h.id))
+  if (answer === 'Escape') await page.keyboard.press('Escape')
+  else await approval(page).getByRole('button', { name: /^Deny$/ }).click()
+  await expect.soft(approval(page), `${round}: the approval closes`).toHaveCount(0, { timeout: 5_000 })
+  await page.waitForTimeout(500)
+  const after = await place(page, settings).catch(() => ({ focus: 'Settings is gone', focusInSettings: false, page: '', scroll: -1 }))
+  out[`${round}-after`] = after
+  expect.soft(await settings.isVisible(), `${round}: Settings is still open after the answer`).toBe(true)
+  expect.soft(after.focus, `${round}: the focus is back on the same control`).toBe(before.focus)
+  expect.soft(after.page, `${round}: the same Settings page`).toBe(before.page)
+  expect.soft(after.scroll, `${round}: the same scroll`).toBe(before.scroll)
+  const latest = (await history(page)).filter(h => !decided.has(h.id))
+  out[`${round}-decision`] = latest
+  expect.soft(latest.length, `${round}: one decision recorded`).toBe(1)
+  expect.soft(latest[0]?.outcome ?? '', `${round}: answered as Deny`).toMatch(/deny|declin/i)
+}
+
 test('approval over Settings: on top, Settings stays, focus and place come back, Esc denies only the approval', async () => {
   test.setTimeout(240_000)
   const profile = realProfile('aos', { OXESPACE_LOCALE: 'en-US' })
@@ -88,44 +129,7 @@ test('approval over Settings: on top, Settings stays, focus and place come back,
     out.before = before
     expect(before.focusInSettings, 'setup: the focus is on a control in Settings').toBe(true)
 
-    for (const [round, answer] of [['esc', 'Escape'], ['deny', 'button']] as const) {
-      await expect(approval(page), `${round}: the approval arrives`).toBeVisible({ timeout: 30_000 })
-      await page.waitForTimeout(ARMED)
-      // How Settings is kept while the approval is up: mounted, and if hidden, by what.
-      const kept = await page.evaluate(() => {
-        const nav = document.querySelector('nav[aria-label="Settings categories"]')
-        const dialog = nav?.closest('[role="dialog"]') as HTMLElement | null
-        if (!dialog) return { mounted: false }
-        const chain: string[] = []
-        for (let node: HTMLElement | null = dialog; node && node !== document.body; node = node.parentElement) {
-          const s = getComputedStyle(node)
-          if (s.display === 'none' || s.visibility !== 'visible' || Number(s.opacity) === 0 || node.hidden || node.hasAttribute('inert')) chain.push(`${node.tagName.toLowerCase()}.${String(node.className).slice(0, 40)} display=${s.display} visibility=${s.visibility} opacity=${s.opacity} hidden=${node.hidden} inert=${node.hasAttribute('inert')}`)
-        }
-        const r = dialog.getBoundingClientRect()
-        return { mounted: true, rect: [Math.round(r.width), Math.round(r.height)], hiddenBy: chain.slice(0, 4) }
-      })
-      out[`${round}-kept`] = kept
-      expect.soft(kept.mounted, `${round}: Settings stays mounted under the approval`).toBe(true)
-      const layered = { settingsVisible: await settings.isVisible(), approvalOnTop: await onTop(page) }
-      out[`${round}-layered`] = layered
-      expect.soft(layered.settingsVisible, `${round}: Settings stays open under the approval`).toBe(true)
-      expect.soft(layered.approvalOnTop, `${round}: the approval is the topmost layer`).toBe(true)
-      const decided = new Set((await history(page)).map(h => h.id))
-      if (answer === 'Escape') await page.keyboard.press('Escape')
-      else await approval(page).getByRole('button', { name: /^Deny$/ }).click()
-      await expect.soft(approval(page), `${round}: the approval closes`).toHaveCount(0, { timeout: 5_000 })
-      await page.waitForTimeout(500)
-      const after = await place(page, settings).catch(() => ({ focus: 'Settings is gone', focusInSettings: false, page: '', scroll: -1 }))
-      out[`${round}-after`] = after
-      expect.soft(await settings.isVisible(), `${round}: Settings is still open after the answer`).toBe(true)
-      expect.soft(after.focus, `${round}: the focus is back on the same control`).toBe(before.focus)
-      expect.soft(after.page, `${round}: the same Settings page`).toBe(before.page)
-      expect.soft(after.scroll, `${round}: the same scroll`).toBe(before.scroll)
-      const latest = (await history(page)).filter(h => !decided.has(h.id))
-      out[`${round}-decision`] = latest
-      expect.soft(latest.length, `${round}: one decision recorded`).toBe(1)
-      expect.soft(latest[0]?.outcome ?? '', `${round}: answered as Deny`).toMatch(/deny|declin/i)
-    }
+    for (const [round, answer] of [['esc', 'Escape'], ['deny', 'button']] as const) await answerOver(page, settings, before, round, answer, out)
     expect.soft(await pending(page), 'nothing left pending').toBe(0)
     await expect.poll(() => existsSync(results), { timeout: 15_000 }).toBe(true)
     const answers = JSON.parse(readFileSync(results, 'utf8')) as string[]
@@ -134,6 +138,59 @@ test('approval over Settings: on top, Settings stays, focus and place come back,
     expect.soft(await app.evaluate(() => (globalThis as Record<string, unknown>).nativeAsked), 'no native dialog').toBe(0)
   } finally {
     console.log('AOS', JSON.stringify(out))
+    await quitReal(app)
+  }
+})
+
+/**
+ * The case DESIGN ruled on (found by batch-3b): a policyChange approval (B7.4). The agent in the pane widens
+ * .oxespace/policy.json; the person then opens Settings › Tools, whose read of the policy raises the request, so the
+ * approval arrives while Settings is open on that page. Esc denies it; the accepted rule stays.
+ */
+test('approval over Settings: a policy change raised by opening Settings › Tools', async () => {
+  test.setTimeout(240_000)
+  const profile = realProfile('aosp', { OXESPACE_LOCALE: 'en-US' })
+  const { repo, root } = profile
+  const git = (...args: string[]) => execFileSync('git', ['-c', 'user.email=acc@example.invalid', '-c', 'user.name=acc', ...args], { cwd: repo })
+  const rule = (effect: string, resource: string) => ({ effect, action: 'tool.use', resource })
+  mkdirSync(join(repo, '.oxespace'))
+  writeFileSync(join(repo, '.oxespace', 'policy.json'), JSON.stringify({ rules: [rule('deny', 'mcp__oxespace__oxespace_db_execute')] }, null, 2) + '\n')
+  git('add', '.'); git('commit', '-q', '-m', 'accepted policy')
+  const wide = join(root, 'wide.json'); writeFileSync(wide, JSON.stringify({ rules: [rule('allow', '*')] }, null, 2) + '\n')
+  const done = join(root, 'widened.txt')
+  const { app, page } = await launchReal(profile)
+  const out: Record<string, unknown> = {}
+  try {
+    await app.evaluate(({ dialog }) => {
+      const g = globalThis as Record<string, unknown>; g.nativeAsked = 0
+      dialog.showMessageBox = (() => { g.nativeAsked = (g.nativeAsked as number) + 1; return new Promise(() => undefined) }) as typeof dialog.showMessageBox
+      dialog.showMessageBoxSync = (() => { g.nativeAsked = (g.nativeAsked as number) + 1; return 0 }) as typeof dialog.showMessageBoxSync
+    })
+    await openRepo(page, repo)
+    // The agent's write, from the pane with its execution env.
+    await page.locator('[data-testid="pane-container"] .xterm').first().click()
+    await page.keyboard.type(`node -e "require('fs').copyFileSync(process.argv[1], '.oxespace/policy.json'); require('fs').writeFileSync(process.argv[2], 'ok')" "${wide}" "${done}"`)
+    await page.keyboard.press('Enter')
+    await expect.poll(() => existsSync(done), { timeout: 20_000, message: 'the agent widened the policy' }).toBe(true)
+
+    await page.keyboard.press('Control+k'); await page.keyboard.insertText('Workspace settings')
+    await page.locator('[cmdk-item]', { hasText: 'Workspace settings' }).first().click()
+    const settings = settingsDialog(page)
+    await expect(settings).toBeVisible({ timeout: 10_000 })
+    const entry = settings.locator('nav[aria-label="Settings categories"] button', { hasText: /^Tools/ }).first()
+    await entry.click()
+    // Where the person is: the Tools entry they just pressed, its page, its top.
+    const before = { ...(await place(page, settings)), focus: await entry.evaluate(node => `${node.tagName.toLowerCase()}|${node.getAttribute('role') ?? ''}|${node.getAttribute('aria-label') ?? ''}|${(node.textContent ?? '').trim().slice(0, 40)}`), focusInSettings: true }
+    out.before = before
+    const kind = await expect.poll(() => page.evaluate(() => (window as unknown as { oxe: { approvals: { list: () => Promise<Array<{ kind: string }>> } } }).oxe.approvals.list().then(l => l[0]?.kind ?? 'none')), { timeout: 15_000, message: 'the widening is put to the person' }).toBe('policyChange').then(() => 'policyChange', () => 'none')
+    out.kind = kind
+    await answerOver(page, settings, before, 'policy-esc', 'Escape', out)
+    const policy = await page.evaluate(() => (window as unknown as { oxe: { workspace: { list: () => Promise<Array<{ id: string }>> }; policy: { get: (id: string) => Promise<unknown> } } }).oxe.workspace.list().then(l => (window as unknown as { oxe: { policy: { get: (id: string) => Promise<unknown> } } }).oxe.policy.get(l[0].id)).then(v => JSON.stringify(v)))
+    expect.soft(policy, 'after Esc (Deny) the accepted rule stays in force').toContain('oxespace_db_execute')
+    expect.soft(await pending(page), 'nothing left pending').toBe(0)
+    expect.soft(await app.evaluate(() => (globalThis as Record<string, unknown>).nativeAsked), 'no native dialog').toBe(0)
+  } finally {
+    console.log('AOSP', JSON.stringify(out))
     await quitReal(app)
   }
 })
