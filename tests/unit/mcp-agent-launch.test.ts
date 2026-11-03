@@ -1,11 +1,12 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import type { AppDatabase } from '../../electron/main/db/index'
 import { codeAgentMcpLaunch } from '../../electron/main/services/agent-launch.service'
 import { agentStatusFor } from '../../src/components/MCP/mcpAgentStatus'
-import { CODE_TOOL_GROUP, MCP_TOOL_GROUPS } from '../../electron/main/services/conversation/thread-mcp'
+import { CODE_START_TOOLS, CODE_TOOL_GROUP, MCP_TOOL_GROUPS } from '../../electron/main/services/conversation/thread-mcp'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 function dbWith(rows: Array<{ name: string; workspace_id: string | null; config: unknown }>, rootPath?: string): AppDatabase {
   return { prepare: () => ({
@@ -26,7 +27,7 @@ const allowed = (args: string[]) => JSON.parse(bridgeOf(args)[bridgeOf(args).ind
 const enableable = (args: string[]) => { const bridge = bridgeOf(args), at = bridge.indexOf('--enableable-groups'); return at < 0 ? {} : JSON.parse(bridge[at + 1]) as Record<string, string[]> }
 
 const project = mkdtempSync(join(tmpdir(), 'oxe-launch-'))
-afterAll(() => rmSync(project, { recursive: true, force: true }))
+afterAll(() => removeTempDir(project))
 
 const db = dbWith([
   { name: 'GitHub', workspace_id: null, config: { transport: 'http', url: 'https://api.githubcopilot.com/mcp/', headers: { Authorization: 'Bearer ghp_secret' } } },
@@ -49,8 +50,19 @@ describe('MCP servers for an agent started in a Code terminal', () => {
   it('leaves the person\'s own servers to Claude\'s .mcp.json, and turns on tool search unless the person set it', async () => {
     const launch = await codeAgentMcpLaunch(db, 'claude', '/bridge.cjs', 'w1', [], {})
     expect(Object.keys((JSON.parse(launch.args[launch.args.indexOf('--mcp-config') + 1]) as { mcpServers: object }).mcpServers)).toEqual(['oxespace-delegation'])
-    expect(launch.env).toEqual({ ENABLE_TOOL_SEARCH: 'true' })
-    expect((await codeAgentMcpLaunch(db, 'claude', '/bridge.cjs', 'w1', [], { ENABLE_TOOL_SEARCH: 'false' })).env).toEqual({})
+    // OXESPACE_PANE_BRIDGE: the .mcp.json entry Claude also loads steps aside, so the pane has one OXESpace server.
+    const token = expect.stringMatching(/^[0-9a-f-]{36}$/)
+    expect(launch.env).toEqual({ ENABLE_TOOL_SEARCH: 'true', OXESPACE_PANE_BRIDGE: token })
+    const plain = await codeAgentMcpLaunch(db, 'claude', '/bridge.cjs', 'w1', [], { ENABLE_TOOL_SEARCH: 'false' })
+    expect(plain.env).toEqual({ OXESPACE_PANE_BRIDGE: token })
+    // A fresh token per launch: one launch's claim never silences another's entry.
+    expect(plain.env?.OXESPACE_PANE_BRIDGE).not.toBe(launch.env?.OXESPACE_PANE_BRIDGE)
+  })
+
+  it('asks the .mcp.json entry to step aside only for Claude, which loads it next to its own bridge', async () => {
+    expect((await codeAgentMcpLaunch(db, 'codex', '/bridge.cjs', 'w1', [], {})).env).not.toHaveProperty('OXESPACE_PANE_BRIDGE')
+    // Copilot gets no bridge of its own here: the .mcp.json entry is its only OXESpace server.
+    expect((await codeAgentMcpLaunch(db, 'copilot', '/bridge.cjs', 'w1', [], {})).env).not.toHaveProperty('OXESPACE_PANE_BRIDGE')
   })
 
   it('still starts the agent when the servers cannot be read', async () => {
@@ -76,10 +88,11 @@ describe('OXESpace tools for an agent in a Code terminal (B2.2)', () => {
     expect(enableable(args)).toEqual({})
   })
 
-  it('gives Claude without tool search core, the Code group and the enable tool for the on-demand groups', async () => {
+  it('gives Claude without tool search core, the Code terminal\'s start tools and the enable tool for the rest (T8)', async () => {
     const args = (await codeAgentMcpLaunch(db, 'claude', '/bridge.cjs', 'w1', [], { ENABLE_TOOL_SEARCH: 'false' })).args
-    expect(allowed(args)).toEqual([...thread('core'), ...CODE_TOOL_GROUP, 'oxespace_tools_enable'])
-    expect(Object.keys(enableable(args)).sort()).toEqual(['app', 'data', 'docs', 'orchestration'])
+    expect(allowed(args)).toEqual([...thread('core'), ...CODE_START_TOOLS, 'oxespace_tools_enable'])
+    expect(Object.keys(enableable(args)).sort()).toEqual(['app', 'code', 'data', 'docs', 'orchestration'])
+    expect(new Set([...CODE_START_TOOLS, ...enableable(args).code])).toEqual(new Set(CODE_TOOL_GROUP))
   })
 
   it('follows the project\'s modes in oxe.yaml', async () => {
@@ -93,7 +106,7 @@ describe('OXESpace tools for an agent in a Code terminal (B2.2)', () => {
     expect(codex).not.toContain('oxespace_db_query')
     const noSearch = (await codeAgentMcpLaunch(inProject, 'claude', '/bridge.cjs', 'w1', [], { ENABLE_TOOL_SEARCH: 'false' })).args
     expect(allowed(noSearch)).toEqual(expect.arrayContaining(thread('docs')))
-    expect(Object.keys(enableable(noSearch)).sort()).toEqual(['app', 'orchestration'])
+    expect(Object.keys(enableable(noSearch)).sort()).toEqual(['app', 'code', 'orchestration'])
   })
 })
 

@@ -1,11 +1,12 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, test } from 'vitest'
 import { openInMemoryDatabase } from '../../electron/main/db/index'
 import { AgentProcessTransport } from '../../electron/main/services/conversation/process-transport'
 import { resolveExecutable, TerminalManager } from '../../electron/main/services/terminal.service'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 /*
  * BE-M-08 on the real OS: a terminal (or agent) whose child starts a grandchild that ignores SIGTERM, SIGHUP and
@@ -89,7 +90,7 @@ afterEach(() => {
     } catch { /* gone */ }
   }
   spawned.clear()
-  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+  for (const root of roots.splice(0)) removeTempDir(root)
 })
 
 function terminalWith(script: string, pidFile: string, cwd: string) {

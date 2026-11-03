@@ -818,7 +818,7 @@ test('the command palette opens OxeQuery and its dialogs from anywhere', async (
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
     await page.keyboard.press('Control+k')
     await page.keyboard.type('New database connection')
-    await page.getByText('New database connection', { exact: true }).click()
+    await page.locator('[cmdk-item][data-value="cmd-oxequery.newConnection"]').click()
     await expect(page.getByRole('dialog', { name: 'New connection' })).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(page.getByRole('dialog', { name: 'New connection' })).toHaveCount(0)
@@ -826,7 +826,7 @@ test('the command palette opens OxeQuery and its dialogs from anywhere', async (
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
     await page.keyboard.press('Control+k')
     await page.keyboard.type('OxeQuery settings')
-    await page.getByText('OxeQuery settings', { exact: true }).click()
+    await page.locator('[cmdk-item][data-value="cmd-oxequery.settings"]').click()
     await expect(page.getByRole('dialog', { name: 'OxeQuery settings' })).toBeVisible()
   } finally { await app.close() }
 })

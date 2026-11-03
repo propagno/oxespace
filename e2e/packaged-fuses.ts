@@ -43,6 +43,9 @@ const { spawn } = require('node:child_process')
 const { writeFileSync } = require('node:fs')
 const out = process.env.B13_FAKE_CLAUDE_OUT
 const argv = process.argv.slice(2)
+// The app also asks the CLI for its version (agent detection, the status-hook installer), and that call can come
+// before the launch. Answer it like Claude Code and leave the result alone: only the launch is under test.
+if (argv[0] === '--version' || argv[0] === '-v') { process.stdout.write('2.1.0 (Claude Code)\n'); process.exit(0) }
 const result = { argv, env: { ELECTRON_RUN_AS_NODE: process.env.ELECTRON_RUN_AS_NODE ?? null }, answers: {} }
 const save = () => writeFileSync(out, JSON.stringify(result))
 const at = argv.indexOf('--mcp-config')
@@ -153,7 +156,8 @@ function mainProcessCount(executablePath: string): number {
 
 async function launch(root: string, extraEnv: Record<string, string> = {}): Promise<{ app: ElectronApplication; page: Page }> {
   const executablePath = process.env.OXESPACE_PACKAGED_EXECUTABLE!
-  const app = await electron.launch({ executablePath, env: { ...process.env, OXESPACE_DB_PATH: join(root, 'db.sqlite3'), ...extraEnv } })
+  // A packaged build ignores OXESPACE_DB_PATH (T50): the data lives in this launch's own --user-data-dir.
+  const app = await electron.launch({ executablePath, args: [`--user-data-dir=${join(root, 'user-data')}`], env: { ...process.env, ...extraEnv } })
   const page = await app.firstWindow()
   await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible', timeout: 30_000 })
   return { app, page }
@@ -243,8 +247,9 @@ export function registerPackagedFuses({ platform, label }: PackagedFusesOptions)
       const root = scratch('run-as-node')
       const marker = 'RAN_AS_NODE_B13'
       // With the fuse off this starts the app itself (a GUI), so it gets its own database and is ended by tree.
-      const child = spawn(process.env.OXESPACE_PACKAGED_EXECUTABLE!, ['-e', `process.stdout.write('${marker}')`], {
-        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_DB_PATH: join(root, 'db.sqlite3') },
+      // --user-data-dir goes after the script: Node would take it as an option and fail, not print the marker.
+      const child = spawn(process.env.OXESPACE_PACKAGED_EXECUTABLE!, ['-e', `process.stdout.write('${marker}')`, `--user-data-dir=${join(root, 'user-data')}`], {
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', OXESPACE_DISABLE_SINGLE_INSTANCE: '1' },
         stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, detached: process.platform !== 'win32'
       })
       let output = ''

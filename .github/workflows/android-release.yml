@@ -76,8 +76,10 @@ jobs:
         run: echo "ANDROID_VERSION_NAME=${TAG#v}" >> "$GITHUB_ENV"
 
       # No signing secrets exist in this job, so Gradle builds the release APK unsigned.
+      # Since AGP 9, unit tests exist only for the tested build type (debug), so testReleaseUnitTest was gone and the
+      # v1.4.0 run failed here: the flag brings back the release unit tests, which run against the release build.
       - name: Build the unsigned release APK
-        run: ./gradlew --no-daemon lint testReleaseUnitTest :protocol:test assembleRelease
+        run: ./gradlew --no-daemon -Pandroid.onlyEnableUnitTestForTheTestedBuildType=false lint testReleaseUnitTest :protocol:test assembleRelease
 
       # MB-M-03: the build R8 shrank, started on an emulator before anything is signed or published. The `minified`
       # build type is the release build with the debug key, so ReleaseSmokeTest installs beside it: the app starts and

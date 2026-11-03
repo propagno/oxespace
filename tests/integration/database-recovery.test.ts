@@ -1,16 +1,17 @@
 // @vitest-environment node
 import Database from 'better-sqlite3'
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, expect, test } from 'vitest'
 import { LATEST_DB_VERSION, openDatabase } from '../../electron/main/db/index'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const roots: string[] = []
 const handles: Database.Database[] = []
 afterEach(() => {
   for (const handle of handles.splice(0)) { if (handle.open) handle.close() }
-  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
+  for (const root of roots.splice(0)) removeTempDir(root)
 })
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), 'oxe-db-recovery-'))

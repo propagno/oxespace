@@ -13,6 +13,11 @@ export interface ToastInput {
    * a declined offer is told apart from one that was not seen (T40).
    */
   onDismiss?: () => void
+  /**
+   * Runs only when its time runs out while shown: never when the person closes it, its action runs, or the code that
+   * raised it takes it down (dismissToast). The timer counts only while the toast is not paused (T40).
+   */
+  onTimeout?: () => void
 }
 export interface ToastItem extends ToastInput {
   id: number

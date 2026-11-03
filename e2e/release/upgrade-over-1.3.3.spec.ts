@@ -16,7 +16,7 @@ import { DatabaseSync } from 'node:sqlite'
  *   seed            after `OXESpace-1.3.3-x64.exe /S`: the installed 1.3.3 opens, a workspace is created through its
  *                   wizard, as a person would; the database is version 77.
  *   verify-upgrade  after main's installer `/S` over it: the installed build reports the expected version; Desktop and
- *                   Start Menu shortcuts point at it; it opens; the database is OXESPACE_EXPECT_DB_VERSION (88 today),
+ *                   Start Menu shortcuts point at it; it opens; the database is the latest migration in this checkout,
  *                   passes integrity_check and still holds the workspace; db-backups holds the verified v77 backup with
  *                   the same workspace; nothing reached a native dialog.
  *   verify-refuse   (G8, rollback runbook) after v1.3.3's installer `/S` over the candidate, before anything is
@@ -29,7 +29,7 @@ import { DatabaseSync } from 'node:sqlite'
  *                   (userData database and backups) is kept.
  *
  * Inputs (env): OXESPACE_UPGRADE_STEP, OXESPACE_UPGRADE_STATE, OXESPACE_EXPECT_VERSION (main's package version; 1.3.3 for verify-rollback),
- * OXESPACE_EXPECT_DB_VERSION (default 88); optional OXESPACE_INSTALL_DIR, OXESPACE_USER_DATA.
+ * OXESPACE_EXPECT_DB_VERSION (default: the highest numbered electron/main/db/migrations/NNN_*.sql); optional OXESPACE_INSTALL_DIR, OXESPACE_USER_DATA.
  * Linux (SRE's matrix, every step under xvfb-run): OXESPACE_INSTALL_KIND = nsis | deb | appimage (default nsis on
  * Windows, deb elsewhere) and OXESPACE_EXECUTABLE (deb: /opt/OXESpace/oxespace; appimage: the AppImage, run with
  * APPIMAGE_EXTRACT_AND_RUN=1 and --no-sandbox, since an extracted AppImage has no setuid chrome-sandbox). The shortcut
@@ -51,7 +51,17 @@ const SHORTCUTS = KIND === 'nsis'
   : KIND === 'deb' ? ['/usr/share/applications/oxespace.desktop'] : []
 const LAUNCH_ARGS = KIND === 'appimage' ? ['--no-sandbox'] : []
 const LAUNCH_ENV: Record<string, string> = KIND === 'appimage' ? { APPIMAGE_EXTRACT_AND_RUN: '1' } : {}
-const EXPECT_DB = Number(process.env.OXESPACE_EXPECT_DB_VERSION ?? '88')
+/**
+ * The schema version the candidate migrates to: the highest numbered migration in this checkout, which is the code the
+ * job builds the candidate from. A fixed number went stale as soon as a migration landed (88 while main was at 90).
+ */
+function latestMigration(): number {
+  const numbers = readdirSync(join(process.cwd(), 'electron', 'main', 'db', 'migrations'))
+    .map(name => /^(\d{3})_.+\.sql$/.exec(name)?.[1]).filter((n): n is string => Boolean(n)).map(Number)
+  if (!numbers.length) throw new Error('no migrations found under electron/main/db/migrations')
+  return Math.max(...numbers)
+}
+const EXPECT_DB = process.env.OXESPACE_EXPECT_DB_VERSION ? Number(process.env.OXESPACE_EXPECT_DB_VERSION) : latestMigration()
 
 test.skip(STEP === '' || process.env.GITHUB_ACTIONS !== 'true', 'runs only inside the release upgrade job on a CI runner')
 
@@ -176,8 +186,18 @@ test('G8 rollback: 1.3.3 refuses the upgraded database and leaves it untouched',
   test.skip(STEP !== 'verify-refuse')
   test.setTimeout(180_000)
   const seeded = JSON.parse(readFileSync(stateFile(), 'utf8')) as { db: string }
+  // The database runs in WAL mode. A candidate that was ended without a clean quit (the job's shipped-exe check stops
+  // it) leaves pages in oxespace.sqlite3-wal, and whoever opens the file next moves them into it: the bytes would
+  // change without 1.3.3 writing anything. Checkpoint first, as a clean quit does, so the comparison measures 1.3.3.
+  const wal = `${seeded.db}-wal`
+  const walBefore = existsSync(wal) ? statSync(wal).size : 0
+  if (walBefore > 0) { const db = new DatabaseSync(seeded.db); try { db.exec('PRAGMA wal_checkpoint(TRUNCATE)') } finally { db.close() } }
+  // What 1.3.3 could change, table by table, in case the bytes differ.
+  const tables = () => read(seeded.db, db => Object.fromEntries((db.prepare("select name from sqlite_master where type = 'table' and name not like 'sqlite_%' order by name").all() as Array<{ name: string }>)
+    .map(({ name }) => [name, (db.prepare(`select count(*) as n from "${name.replace(/"/g, '""')}"`).get() as { n: number }).n])))
+  const tablesBefore = tables()
   const before = sha256(seeded.db)
-  const result: Record<string, unknown> = { dbVersionBefore: version(seeded.db), shaBefore: before }
+  const result: Record<string, unknown> = { dbVersionBefore: version(seeded.db), shaBefore: before, walCheckpointedBytes: walBefore }
   // Whatever 1.3.3 does with a newer database: a dialog (recorded, held), an error, or an exit. The start may already
   // have shown its dialog before the stub is in place; the bytes are the check either way.
   let app: Awaited<ReturnType<typeof electron.launch>> | null = null
@@ -204,6 +224,10 @@ test('G8 rollback: 1.3.3 refuses the upgraded database and leaves it untouched',
   }
   result.shaAfter = sha256(seeded.db)
   result.dbVersionAfter = version(seeded.db)
+  result.walAfterBytes = existsSync(wal) ? statSync(wal).size : 0
+  const tablesAfter = tables()
+  result.tablesChanged = Object.fromEntries(Object.keys({ ...tablesBefore, ...tablesAfter })
+    .filter(name => tablesBefore[name] !== tablesAfter[name]).map(name => [name, { before: tablesBefore[name] ?? null, after: tablesAfter[name] ?? null }]))
   writeFileSync(join(STATE, 'verify-refuse.json'), JSON.stringify(result, null, 2))
   console.log('G8-REFUSE', JSON.stringify(result))
   expect(result.version ?? '1.3.3', 'the build started is 1.3.3').toBe('1.3.3')

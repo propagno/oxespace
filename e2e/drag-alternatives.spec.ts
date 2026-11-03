@@ -80,9 +80,10 @@ test('dividers and the file tree work without dragging', async () => {
     await page.locator('[cmdk-item][data-value="cmd-tool-editor"]').click()
     const file = page.locator('.editor-browser-file', { hasText: 'notes.md' })
     await file.click({ button: 'right' })
-    const pathMenu = page.getByRole('menu', { name: 'Path of notes.md' })
+    // F33: the shared path menu, named by its path.
+    const pathMenu = page.getByRole('menu', { name: 'Actions for notes.md' })
     await pathMenu.getByRole('menuitem', { name: 'Copy relative path' }).click()
-    await expect(page.getByText('Path copied')).toBeVisible()
+    await expect(page.getByText('Relative path copied')).toBeVisible()
 
     // The conversations sidebar has the same divider.
     // Ctrl+2 opens the conversations mode, whatever it is called on screen.

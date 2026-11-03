@@ -5,7 +5,7 @@
  * Opt-in: OXE_LIVE_AGENTS=1 [OXE_LIVE_CODEX_MODEL=<id>] npx vitest run tests/live/thread-side-chat-codex.live.test.ts
  * It spends a little of the person's subscription and needs network, so it never runs in CI.
  */
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
@@ -13,10 +13,11 @@ import { CodexConversationAdapter } from '../../electron/main/services/conversat
 import { AgentProcessTransport } from '../../electron/main/services/conversation/process-transport'
 import { ThreadSideChats } from '../../electron/main/services/conversation/thread-side-chat'
 import type { ConversationThread, ThreadEvent, ThreadSideEvent } from '../../shared/types/thread'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const live = process.env.OXE_LIVE_AGENTS === '1'
 const roots: string[] = []
-afterAll(() => { for (const root of roots) rmSync(root, { recursive: true, force: true }) })
+afterAll(() => { for (const root of roots) removeTempDir(root) })
 
 const WRITER = String.raw`const { writeFileSync } = require('node:fs')
 const marker = process.argv[2]

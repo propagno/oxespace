@@ -38,7 +38,6 @@ const QUERIES: { q: string; target: string[] }[] = [
   { q: 'Como o RTK baixa o binário rtk.exe para a pasta de dados do usuário?', target: ['services/rtk.service.ts'] },
   { q: 'Onde está o registro das ferramentas internas expostas via MCP?', target: ['mcp-internal/tool-registry.ts'] },
   { q: 'Como um workspace é criado com um pane por célula do layout?', target: ['services/workspace.service.ts'] },
-  { q: 'Onde o áudio é transcrito usando o Whisper na funcionalidade de voz?', target: ['services/voice.service.ts'] }
 ]
 
 let countTokens: (t: string) => number

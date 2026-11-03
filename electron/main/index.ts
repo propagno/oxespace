@@ -8,6 +8,7 @@ import { installCloseGuard } from './window-close-guard'
 import { initialWindowColors, registerAppearanceIpc, savedUiScale } from './ipc/appearance.ipc'
 import { systemLocale, tMain } from './i18n'
 import { randomUUID } from 'node:crypto'
+import { realpathSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -21,9 +22,10 @@ import { registerSessionIpc } from './ipc/session.ipc'
 import { broadcastSkillChange, registerSkillIpc } from './ipc/skill.ipc'
 import { broadcastMcpHealth, registerMcpIpc } from './ipc/mcp.ipc'
 import { registerMcpInternalIpc } from './ipc/mcp-internal.ipc'
-import { registerVoiceIpc } from './ipc/voice.ipc'
 import { registerNotificationsIpc } from './ipc/notifications.ipc'
 import { registerAppInfoIpc } from './ipc/app-info.ipc'
+import { singleInstanceDisabled } from './test-switches'
+import { e2eMocksEnabled } from './e2e/e2e-mode'
 import { registerClipboardTextIpc } from './ipc/clipboard.ipc'
 import { registerOxeIpc } from './ipc/oxe.ipc'
 import { registerCopilotIpc } from './ipc/copilot.ipc'
@@ -137,7 +139,8 @@ async function registerIpcHandlers(): Promise<() => void> {
   void registerRtkIpc()
   registerBrowserPreviewIpc()
 
-  if (process.env.OXESPACE_E2E_MOCK_NATIVE === '1') {
+  // T48: never in a packaged build, whatever the environment says (e2e/e2e-mode.ts).
+  if (e2eMocksEnabled(process.env, app.isPackaged)) {
     if (process.env.OXESPACE_E2E_PREVIEW_SERVICE) {
       const { PreviewAutomation } = await import('./services/documentation/preview-automation')
       ;(globalThis as typeof globalThis & { preview: InstanceType<typeof PreviewAutomation> }).preview = new PreviewAutomation()
@@ -369,7 +372,6 @@ async function registerIpcHandlers(): Promise<() => void> {
     timer.unref?.()
     return filePath
   })
-  registerVoiceIpc()
   registerNotificationsIpc()
   registerRemoteIpc(db, { threads: threadManager.manager, terminals: terminalManager, agentState }); app.once('before-quit', registerAppInfoIpc(db))
   registerCopilotIpc()
@@ -586,9 +588,6 @@ function registerNativeFailureIpcHandlers(message: string): void {
   ipcMain.handle(IPC_CHANNELS.terminal.attach, fail)
   ipcMain.handle(IPC_CHANNELS.terminal.detach, fail)
   ipcMain.handle(IPC_CHANNELS.terminal.status, fail)
-  ipcMain.handle(IPC_CHANNELS.voice.transcribe, fail)
-  ipcMain.handle(IPC_CHANNELS.voice.getModelStatus, () => ({ size: 'base', ready: false, path: '', engineReady: false }))
-  ipcMain.handle(IPC_CHANNELS.voice.ensureModel, fail)
   ipcMain.handle(IPC_CHANNELS.notifications.notify, () => false)
   ipcMain.handle(IPC_CHANNELS.oxe.detect, () => ({ installed: false, version: null }))
   ipcMain.handle(IPC_CHANNELS.oxe.status, () => ({ installed: false, version: null, isOxeProject: false, status: null, error: null }))
@@ -803,10 +802,10 @@ function createMainWindow(): BrowserWindow {
     securePreviewGuest(guestWebContents)
   })
 
-  // `media` allows microphone for OXEVoice. `clipboard-read` / `clipboard-sanitized-write`
-  // allow terminal Ctrl+V paste, which reads via navigator.clipboard.readText(). A
-  // media-only handler silently denied clipboard-read, which is what broke paste.
-  const ALLOWED_PERMISSIONS = new Set(['media', 'clipboard-read', 'clipboard-sanitized-write'])
+  // `clipboard-read` / `clipboard-sanitized-write` allow terminal Ctrl+V paste, which reads via navigator.clipboard.readText(). A
+  // handler without them silently denied clipboard-read, which is what broke paste. No `media`: nothing in the window
+  // uses the microphone or camera since OXEVoice left (B21), so a request for them is denied.
+  const ALLOWED_PERMISSIONS = new Set(['clipboard-read', 'clipboard-sanitized-write'])
   mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback, details) => {
     const isMainWindow = webContents === mainWindow.webContents
     const isMainFrame = details.isMainFrame !== false
@@ -898,7 +897,14 @@ function createMainWindow(): BrowserWindow {
   return mainWindow
 }
 
-const gotLock = process.env.OXESPACE_DISABLE_SINGLE_INSTANCE === '1' || app.requestSingleInstanceLock()
+// T50: a packaged build allows a second instance only on its own --user-data-dir (test-switches.ts).
+const gotLock = singleInstanceDisabled({
+  env: process.env,
+  isPackaged: app.isPackaged,
+  userDataDirSwitch: app.commandLine.getSwitchValue('user-data-dir'),
+  defaultUserData: () => join(app.getPath('appData'), app.getName()),
+  realpath: realpathSync.native,
+}) || app.requestSingleInstanceLock()
 
 if (!gotLock) {
   app.quit()

@@ -4,19 +4,19 @@
  * install paths import their script and write it, and each on-demand service is imported once and kept, so only
  * the first request of a launch pays for the import and a failed one is retried by the next.
  */
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile } from 'node:fs/promises'
 import { readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { describe, expect, test, vi } from 'vitest'
 import { createFakeIpcMain } from '../helpers/fake-ipc-main'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const ipc = createFakeIpcMain()
 vi.mock('electron', () => ({ ipcMain: ipc, BrowserWindow: { getAllWindows: () => [] }, safeStorage: {}, app: { getPath: () => tmpdir() } }))
 
 const { IPC_CHANNELS } = await import('../../shared/types/ipc')
 const { registerAgentHooksIpc } = await import('../../electron/main/ipc/agent-hooks.ipc')
-const { registerVoiceIpc } = await import('../../electron/main/ipc/voice.ipc')
 const { registerOxeIpc } = await import('../../electron/main/ipc/oxe.ipc')
 const { AgentMemoryAdapters } = await import('../../electron/main/services/memory/agent-memory-adapter')
 
@@ -29,7 +29,7 @@ describe('hook install paths load their script on demand', () => {
       await new AgentMemoryAdapters(runtime, []).setup()
       const written = await readFile(join(directory, 'adapters', 'oxespace-memory-hook.cjs'), 'utf8')
       expect(written).toBe(readFileSync(resolve('resources/memory/agent-hook.cjs'), 'utf8'))
-    } finally { await rm(directory, { recursive: true, force: true }) }
+    } finally { removeTempDir(directory) }
   })
 
   test('the status hook installer loads on the first Settings request, once, and installs through it', async () => {
@@ -53,20 +53,6 @@ describe('hook install paths load their script on demand', () => {
 })
 
 describe('on-demand services are imported once and kept', () => {
-  test('voice: the second request reuses the service; a failed load is retried', async () => {
-    const service = { getModelStatus: vi.fn(() => ({ ready: true })), transcribe: vi.fn(), ensureModel: vi.fn() }
-    const load = vi.fn().mockRejectedValueOnce(new Error('load failed')).mockResolvedValue(service)
-    registerVoiceIpc(load)
-    await expect(ipc.invoke(IPC_CHANNELS.voice.getModelStatus)).rejects.toThrow('load failed')
-    await ipc.invoke(IPC_CHANNELS.voice.getModelStatus)
-    await ipc.invoke(IPC_CHANNELS.voice.getModelStatus, 'small')
-    expect(load).toHaveBeenCalledTimes(2)
-    expect(service.getModelStatus).toHaveBeenLastCalledWith('small')
-    // Input is still checked first: a bad size never reaches, or loads, the service.
-    await expect(ipc.invoke(IPC_CHANNELS.voice.getModelStatus, 'huge')).rejects.toThrow()
-    expect(load).toHaveBeenCalledTimes(2)
-  })
-
   test('OXE: one import for every channel, and quitting before any request disposes nothing', async () => {
     const service = { detect: vi.fn(async () => ({ installed: true })), stopDashboard: vi.fn(() => ({ ok: true })), disposeAll: vi.fn() }
     const load = vi.fn(async () => service as never)

@@ -36,9 +36,21 @@ export function focusSurfaceUnlessChosen(event: Event): void {
   if (surface && !surface.contains(document.activeElement)) { event.preventDefault(); surface.focus({ preventScroll: true }) }
 }
 
+/**
+ * Where a dialog gives focus back: what had it when the dialog opened, or, when that was an item of a menu (which is
+ * gone once the menu closes), the button that opened the menu (WAI-ARIA dialog pattern). Radix links a menu to its
+ * trigger with aria-labelledby.
+ */
+function focusOrigin(active: Element | null): HTMLElement | null {
+  if (!(active instanceof HTMLElement)) return null
+  const triggerId = active.closest('[role="menu"]')?.getAttribute('aria-labelledby')
+  const trigger = triggerId ? document.getElementById(triggerId) : null
+  return trigger ?? active
+}
+
 /** A modal dialog: title, optional description, body, and footer actions. Escape and the scrim close it. */
 export function Dialog({ title, description, onClose, children, footer, size = 'md', className, returnFocusTo, closeLabel = i18n.t('ui.close'), testId, onEscapeKeyDown }: DialogProps): ReactElement {
-  const previous = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null)
+  const previous = useRef(focusOrigin(document.activeElement))
   return <RadixDialog.Root open onOpenChange={open => { if (!open) onClose() }}>
     <RadixDialog.Portal>
       <RadixDialog.Overlay className={styles.scrim} />
@@ -199,10 +211,23 @@ export function AnchoredMenu({ open, onOpenChange, label, items, side = 'bottom'
         // the first item, so the menu stays walkable instead of standing open with focus on the owner.
         onFocusOutside={event => { const owner = returnFocus?.(); if (owner && event.target instanceof Node && owner.contains(event.target)) { event.preventDefault(); focusFirstItem() } }}
         onPointerDown={contain} onPointerUp={contain} onMouseDown={contain} onClick={contain} onDoubleClick={contain} onContextMenu={contain} onKeyDown={containKeys}>
-        {menuEntries(items)}
+        {menuEntries(returnFocus ? items.map(item => withOwnerFocus(item, returnFocus)) : items)}
       </RadixMenu.Content>
     </RadixMenu.Portal>
   </RadixMenu.Root>
+}
+
+/**
+ * An AnchoredMenu item that runs with focus already back on the menu's owner. A dialog it opens then gives focus back
+ * there when it closes (focusOrigin), not to the body: by the time the dialog mounts, the menu is gone and has not yet
+ * handed focus back (FRONTEND #312).
+ */
+function withOwnerFocus(item: MenuEntry, owner: () => HTMLElement | null): MenuEntry {
+  if (item.type !== undefined && item.type !== 'item') return item
+  const plain = item as Extract<MenuEntry, { onSelect: () => void }>
+  // An item that keeps the menu open (a splitter's Smaller/Larger) keeps the keyboard in the menu too.
+  if ('keepOpen' in plain && plain.keepOpen) return item
+  return { ...plain, onSelect: () => { owner()?.focus({ preventScroll: true }); plain.onSelect() } }
 }
 
 /** Wrap the app once so tooltips share their open delay. */

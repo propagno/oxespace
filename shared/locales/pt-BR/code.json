@@ -16,8 +16,10 @@
   },
   "tools": {
     "team": {
-      "label": "Equipe",
-      "detail": "Papéis do projeto e caixas de entrada dos agentes"
+      "label": "Equipe do projeto",
+      "detail": "Papéis do projeto e caixas de entrada dos agentes",
+      "menu": "Equipe do projeto…",
+      "keywords": "equipe, time, papéis, coordenadora, membros, caixa de entrada"
     },
     "integration": {
       "label": "Coordenação entre repositórios",
@@ -109,11 +111,10 @@
     "unsaved": "Não salvo",
     "saved": "Salvo",
     "unsavedChanges": "Alterações não salvas",
-    "dictation": "Ditado",
-    "dictationTitle": "Toque para começar ou parar o ditado. Segure para falar.",
     "loadingPreview": "Carregando a prévia…",
     "loadingEditor": "Carregando o editor…",
     "openFailed": "Não foi possível abrir o arquivo",
+    "saveFailed": "Não foi possível salvar {{name}}",
     "previewFailed": "Não foi possível mostrar a prévia",
     "readFailed": "Não foi possível ler o arquivo.",
     "unexpected": "O editor encontrou um erro inesperado.",
@@ -836,8 +837,10 @@
   "pane": {
     "boundary": "este painel",
     "splitRefused": {
-      "title": "Não dá para dividir este painel aqui",
-      "hint": "Todos os lugares deste layout estão ocupados. Escolha um layout maior, ou ligue o layout dividido para adicionar painéis livremente."
+      "title": "Não é possível dividir este painel aqui",
+      "hint": "Todos os lugares deste layout estão ocupados. Escolha um layout maior, ou ligue o layout dividido para adicionar painéis livremente.",
+      "tooNarrow": "Cada metade ficaria com menos de {{width}} px de largura. Feche outro painel ou aumente a janela.",
+      "tooShort": "Cada metade ficaria com menos de {{height}} px de altura. Feche outro painel ou aumente a janela."
     },
     "attention": {
       "blocked": "Precisa da sua aprovação ou resposta",
@@ -1948,6 +1951,46 @@
       "create": "Criar skill"
     }
   },
+  "agentResume": {
+    "details": {
+      "label": "Sessão do agente",
+      "source": "Origem",
+      "sources": {
+        "launch": "Definida quando o OXESpace iniciou o agente",
+        "hook": "Informada pelo hook de status do agente",
+        "recorded": "Lembrada de uma execução anterior"
+      },
+      "state": "Último início",
+      "resumed": "Retomada quando o painel iniciou",
+      "startedFresh": "Iniciada do zero, como você escolheu",
+      "savedNotResumed": "Sessão salva não retomada: {{reason}}",
+      "copy": "Copiar comando de retomada",
+      "command": "Comando de retomada",
+      "copied": "Comando de retomada copiado"
+    },
+    "resumedChip": "Sessão retomada",
+    "resumedTitle": "Retomou a sessão anterior do {{agent}}",
+    "notResumedChip": "Não retomada",
+    "notResumedTitle": "A sessão anterior do {{agent}} não foi retomada: {{reason}}",
+    "notResumedNotice": "{{pane}}: a sessão anterior não foi retomada",
+    "notResumedMany_one": "{{count}} painel não retomou a sessão anterior",
+    "notResumedMany_many": "{{count}} painéis não retomaram a sessão anterior",
+    "notResumedMany_other": "{{count}} painéis não retomaram a sessão anterior",
+    "enableMenu": "Ativar a retomada após travamento…",
+    "startFresh": "Começar do zero",
+    "startFreshTitle": "Começar este painel do {{agent}} do zero?",
+    "startFreshBody": "O {{agent}} reinicia aqui numa sessão nova, e o que ele está fazendo agora para. A sessão anterior continua no disco, mas este painel não volta para ela.",
+    "startFreshFailed": "Não foi possível reiniciar o painel.",
+    "hooks": {
+      "title": "Deixar os painéis do {{agent}} voltarem após um travamento?",
+      "body": "Os hooks de status do OXESpace deixam cada painel registrar qual sessão do {{agent}} ele roda, para que reabrir o app a retome. Instalar adiciona algumas entradas às configurações do {{agent}} em {{folder}}; dá para removê-las em Configurações › Notificações.",
+      "install": "Instalar",
+      "notNow": "Agora não",
+      "never": "Não perguntar de novo",
+      "installed": "Os painéis do {{agent}} agora registram as sessões",
+      "failed": "Não foi possível instalar os hooks do {{agent}}"
+    }
+  },
   "paneMenu": {
     "phoneWrite": "Permitir digitar pelo celular",
     "phoneWriteBadge": "Celular pode digitar",
@@ -1963,6 +2006,11 @@
       "hook": "Último aviso do hook",
       "screen": "Regra da tela",
       "fallback": "Padrão da tela",
+      "screenMatched": "A tela mostra um estado conhecido deste agente: {{state}}",
+      "fallbacks": {
+        "default_known_agent_idle_fallback": "Nada na tela correspondeu a um estado conhecido deste agente, então ele aparece como ocioso.",
+        "other": "Nada na tela correspondeu a um estado conhecido, então o status vem de outros sinais."
+      },
       "pendingIdle": "Confirmando que parou",
       "none": "O OXESpace não tem um aviso do ciclo de vida deste painel, então o status é estimado pela atividade do terminal.",
       "unavailable": "A explicação do status não está disponível nesta versão.",
