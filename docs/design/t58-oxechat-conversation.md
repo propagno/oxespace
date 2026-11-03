@@ -264,6 +264,95 @@ Everything here comes from the primitive. FRONTEND changes it only if it differs
 The trigger is a 28 px icon button (`fill-hover` on hover, `fill-selected` while open, `aria-expanded`), matching
 the composer's icon buttons (§3).
 
+## 7c. Side chat
+
+The side chat (`side/ThreadSideChat.tsx`, B1.2, `Mod+.`) is a drawer where you ask about the conversation without
+changing it. Today it reads as unfinished: a bare header, a gray "Read-only copy" tag that looks like a disabled
+state, the explanation as a paragraph above the messages, and a plain text box. From T59 (BACKEND, 1.4.1) it no
+longer runs in plan mode, so it answers directly. The design must not suggest "plan" anywhere.
+
+### Panel
+
+- A drawer on the right of the conversation, 360 px by default, resizable between 320 and 560 px, on
+  `surface-base` with a 1 px `border-default` on its left edge (no shadow in either mode: it is part of the
+  workbench, not floating).
+- It enters with the tool panel's fade (`base`) and leaves at once (motion.md). Focus goes to its text box on open
+  and back to the side chat button on close.
+- Under 720 px of total width it covers the conversation as an overlay (`surface-overlay`, `elevation-3` in light
+  mode) instead of squeezing it.
+
+### Header
+
+40 px, one row:
+
+```
+[⧉] Side chat  ·  Copy of "Fix login redirect"        $0.04   [⋯] [✕]
+```
+
+- A copy icon (14 px, `text-accent`), the title "Side chat" (`text-sm` semibold) and, after a `text-muted` dot, the
+  conversation's title truncated with an ellipsis. The title is the link between the two, in place of the gray tag.
+- On the right, the cost so far in `text-xs` `text-muted` (tokens when the provider has no price), then a ⋯ menu
+  (the same `Menu` primitive as §7b: Copy all answers · *separator* · Discard and close…) and the close button.
+- The close tooltip carries the shortcut (`Mod+.`), as today.
+
+### Showing that it is a read-only copy
+
+It must read as "a safe place to ask", not as an error, a warning or a plan:
+
+- **No intent color.** Info, warning and danger fills are not used on the side chat chrome. The identity is the
+  accent and the copy icon.
+- An **accent top border**: 2 px `accent` across the top edge of the drawer, so the drawer is visibly a different
+  place from the conversation next to it.
+- The explanation moves from the paragraph to the **empty state**: the copy icon at 24 px, "Ask about this
+  conversation" (`text-md`), and under it, in `text-secondary`: "Answers come from a copy. Nothing you ask here
+  reaches the conversation or changes your files." It goes away with the first question. After that the header
+  and the permissions chip below say the same thing.
+- Busy state: the running `StatusDot` in `accent` and "Answering: reading files…" in `text-muted`, under the last
+  message. The word "plan" never appears.
+
+### Messages
+
+The same rules as the conversation, scaled down: your questions in the `accent-soft` bubble on the right (§2.1);
+answers without a bubble, with the provider avatar at 16 px (§2.2); code blocks with copy. Each answer has a Copy
+action on hover and focus. There are no tool rows: the copy's activity shows only in the busy line.
+
+### Composer
+
+The same box as the conversation (§3) in its compact form: `radius-lg`, 2 to 6 lines, the strip below:
+
+```
+┌──────────────────────────────────────────────┐
+│ Ask about this conversation…                 │
+├──────────────────────────────────────────────┤
+│ (● Opus 5.5) (⏲ High) (👁 Read only 🔒)  [↑] │
+└──────────────────────────────────────────────┘
+```
+
+- **Model** and **effort** chips work as in §4 and start with the conversation's values. A change applies to the
+  side chat only, and the chip's tooltip says so: "For the side chat only" / "Só para o chat lateral".
+- **Permissions** is the read-only chip from §4.3 (`intent-info-bg` / `intent-info-fg`), **fixed**: it has a small
+  lock, `aria-disabled`, and a tooltip "The side chat can only read" / "O chat lateral só pode ler". It is not a
+  button that opens a popover. This is the one place info color appears, because it is the same chip as everywhere
+  else.
+- Send is the round `accent` button; Stop replaces it while answering (§3). No `/` or `+` buttons: the side chat
+  takes no commands or attachments.
+
+### Closing and discarding
+
+Today closing (✕, Esc or `Mod+.`) throws the copy and its answers away at once. An irreversible action must never be
+the default, and Esc is the easiest key to press by accident.
+
+- **Close (✕, `Mod+.`) hides the drawer and keeps the copy** while the conversation stays open in this window.
+  Reopening shows the same messages. Esc inside the drawer moves focus back to the conversation without closing it.
+- **Discard and close…** in the ⋯ menu ends the copy. With at least one answer it asks first: "Discard the side
+  chat? Its answers will be gone." [Keep] [Discard], with Keep as the default. With no answers it closes without
+  asking.
+- The copy also ends when the conversation is closed, archived or deleted, or when the app quits. It is never
+  saved.
+
+This needs BACKEND to keep the side session alive while the drawer is hidden (decision 5 in §8). If that is not
+possible in 1.5.0, the fallback is: Close discards, and with at least one answer it asks first, with the same dialog.
+
 ## 8. Decisions for the user
 
 1. **Agent reply without a bubble** (§2.2), or a light `surface-raised` bubble on the left too? Recommended: no bubble.
@@ -272,6 +361,9 @@ the composer's icon buttons (§3).
 3. **Tool rows color-coded by kind** (§2.3). Recommended: yes, as a 3 px bar only.
 4. **Name when the provider doesn't report its default model**: "Provider's choice" until the first turn
    (recommended), or keep the strip empty until it is known.
+
+5. **Side chat close keeps the copy** until you discard it or close the conversation (§7c), instead of throwing it
+   away. Recommended: yes. It costs BACKEND a hidden-but-alive session; the fallback is confirm-on-close.
 
 ## 9. Out of scope
 
