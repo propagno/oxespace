@@ -56,7 +56,8 @@ git push origin v1.4.0
 
 The tag's CI run (`Publish vX.Y.Z`) checks the tag matches `package.json` and is on `main`, builds and verifies
 everything, then waits on **Review deployments → Approve** (the `release` environment's required reviewer) before it
-publishes. `android-release.yml` then signs and attaches the APK.
+publishes. Its last step starts `android-release.yml` on the tag (a release published with `GITHUB_TOKEN` fires no
+`release` event, so it would not start on its own), which signs and attaches the APK after its own approval.
 
 ### Draft pull requests
 

@@ -1168,6 +1168,9 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: write
+      # Starts android-release.yml after publishing (the last step): a release published with GITHUB_TOKEN fires no
+      # `release` event, so that workflow would never start on its own.
+      actions: write
       # Build provenance: GitHub signs a statement that these files came from this workflow run.
       id-token: write
       attestations: write
@@ -1371,3 +1374,30 @@ jobs:
           }
           Write-Host "Release is live: $($release.url)"
           Write-Host "Assets: $($assetNames -join ', ')"
+
+      # GitHub starts no workflow for an event caused by GITHUB_TOKEN, so publishing above fires no `release` event and
+      # android-release.yml (signed APK) would not run; v1.4.0's was started by hand. A workflow_dispatch is the one
+      # event GITHUB_TOKEN may cause, so start it here, on the tag (its environment allows only v* tags and still waits
+      # for its reviewer). Only a vX.Y.Z tag: that workflow refuses any other. Skipped when a run for this tag already
+      # exists (someone started it by hand), since attaching the APK twice is refused anyway.
+      - name: Start the Android release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:RELEASE_TAG -notmatch '^v\d+\.\d+\.\d+$') {
+            Write-Host "Android release: $env:RELEASE_TAG is not vX.Y.Z, not started."
+            exit 0
+          }
+          $runs = gh run list --workflow android-release.yml --branch $env:RELEASE_TAG --json databaseId,status,conclusion --limit 20 | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "Failed to list Android release runs for $env:RELEASE_TAG" }
+          $live = @($runs | Where-Object { $_.status -ne 'completed' -or $_.conclusion -eq 'success' })
+          if ($live.Count -gt 0) {
+            Write-Host "Android release for $env:RELEASE_TAG already started (run $($live[0].databaseId)), not started again."
+            exit 0
+          }
+          gh workflow run android-release.yml --ref $env:RELEASE_TAG
+          if ($LASTEXITCODE -ne 0) { throw "Failed to start android-release.yml on $env:RELEASE_TAG" }
+          Write-Host "Android release started on $env:RELEASE_TAG; it waits for approval in the android-release environment."
