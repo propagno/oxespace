@@ -1,6 +1,6 @@
 # 1.5.0 UI plan
 
-Status: **proposal**. Owner: DESIGN. The TECH LEAD confirms the owners and the order.
+Status: **agreed** with the TECH LEAD (03/11). Owner: DESIGN.
 
 This plan breaks the 1.5.0 design work into items one PR each can carry. Its sources:
 
@@ -39,9 +39,24 @@ They come first because the rest builds on them. U1 and U2 can run in parallel.
 | Id | Item | Audit / spec | Owner | Depends on | Notes |
 |---|---|---|---|---|---|
 | U1 | **Dialog contract in `ui/Dialog` and `ui/ConfirmDialog`** | X1, D-01, D-02, D-04 | FRONTEND | — | `size` required (sm/md/lg/xl). Initial focus rule: the first field, else the safe action, never the container. Footer API with slots: `extra` (start), Cancel (always "Cancel", secondary), primary or danger (end). Lint: no `className` restyling the dialog box. Unit tests for focus and order. The primitive only, with no screen migrations. |
-| U2 | **`SettingRow`, `SettingsSection` and the Settings shell** | X3, S-01, S-03 | FRONTEND | — | Row anatomy, wide variant, section card, page max 720 px, 14 px body. Apply-at-once for both scopes, with an **undo toast** for the risky changes; the risky list comes from the TECH LEAD. Removes "Save workspace settings". |
+| U2 | **`SettingRow`, `SettingsSection` and the Settings shell** | X3, S-01, S-03 | FRONTEND | — | Row anatomy, wide variant, section card, page max 720 px, 14 px body. Apply-at-once for both scopes, with an **undo toast** for the risky changes (list below the table). Removes "Save workspace settings". |
 | U3 | **`SectionLabel` and the uppercase lint** | X2, D-03 | MOBILE | — | Sentence case, `text-xs` semibold, `text-secondary`. A `design-lint` rule bans `text-transform: uppercase` outside the token export. Replaces the 12 sites in the same PR. |
-| U4 | **Selected-state roles** | X7, D-05 | MOBILE | — | `fill-selected` dark → accent 3, with `accent-border` on selected cards and rows. A C4 value change: check Android in the same PR. |
+| U4 | **Selected-state roles** | X7, D-05 | MOBILE | — | `fill-selected` dark → accent 3, with `accent-border` on selected cards and rows. A C4 value change. It ships in 1.5.0 on the desktop; Android follows through the C4 export when it arrives and does not block it. |
+
+**Risky settings for U2** (TECH LEAD, 03/11). A change that widens what an agent can do, or that loses data, applies
+at once and shows an **undo toast**:
+
+- Auto-approve reads.
+- Bypass on resume (T54).
+- Agent access per OxeQuery connection and per OxePost collection.
+- Turning on an MCP server or a skill.
+- Network access.
+- Retention and history clearing.
+- Remote devices (pair, unpair).
+- Agent and shell commands and profiles.
+
+A destructive action that cannot be undone (deleting data, unpairing with revocation) keeps its **confirmation
+dialog** instead of an undo.
 
 ## Wave 1: migrations and primitives that need wave 0
 
@@ -61,7 +76,8 @@ They come first because the rest builds on them. U1 and U2 can run in parallel.
 | Id | Item | Audit / spec | Owner | Depends on | Notes |
 |---|---|---|---|---|---|
 | U11 | **Tool panels: one anatomy, catalogs as dialogs, working panels docked** | X5, G-03, G-04, G-05 | FRONTEND | U1 | MCP and Skills open as `Dialog lg`. Scripts, Background activity, Linear and Semantic dock on the right with one header (icon, title, count, actions, close). Background activity drops to 2 tab levels with a status `Select`. "Skills" everywhere. |
-| U12 | **One Agent activity page with sources** | S-07, T64 §6 | FRONTEND (+ BACKEND for the query) | U2 | Settings › Agent activity with sources: Changes (today in Diagnostics), Databases, Containers, and OxePost when T64 lands. Same columns, filters and T63 detail modal. Diagnostics and OxeQuery link to it. BACKEND: one read across the two audit stores, or the page queries both (the TECH LEAD decides). |
+| U12-be | **Agent activity read model** | S-07 | BACKEND | — | One query over a read model with a `source` field (`changes`, `databases`, `containers`, `post`), with server-side pagination and filters. The renderer never merges two lists. |
+| U12 | **One Agent activity page with sources** | S-07, T64 §6 | FRONTEND | U2, U12-be | Settings › Agent activity with sources: Changes (today in Diagnostics), Databases, Containers, and OxePost when T64 lands. Same columns, filters and T63 detail modal. Diagnostics and OxeQuery link to it. |
 | U13 | **Short-window rules** | X8 | FRONTEND | U1, U7, T67 | Docked cards at most 60% of the conversation height (generalizes T67 to the question card). A dialog body of at least 240 px before the footer stops being sticky. Menus split per U7. |
 | U14 | **OxeChat header: "View" menu, panels to the rail** | C-04 | FRONTEND | U7, U11 | The right ⋯ becomes "View" (text size, transcript view). Delegate, Side chat, Pin and MCP become header icons with tooltips. Workbench panels move to the rail. |
 
@@ -98,7 +114,7 @@ They come first because the rest builds on them. U1 and U2 can run in parallel.
 ```
 Wave 0:  U1 ─┬─ U5a, U5b, U5c ─┬─ U9, U11 ─ U14
              │                 └─ U13 (with T67, U7)
-         U2 ─┴─ U8, U12
+         U2 ─┴─ U8, U12 (also needs U12-be, BACKEND)
          U3 ─── U8, U10, A1, T58-g
          U4     (independent; C4 check)
 Any time: U6, U7 ─ T58-h, A2, A3; T58-a ─ T58-b; T58-d/e (after T57) ─ T58-f
@@ -107,9 +123,9 @@ Any time: U6, U7 ─ T58-h, A2, A3; T58-a ─ T58-b; T58-d/e (after T57) ─ T58
 Suggested load: FRONTEND carries U1, U2, U9, U11–U14 and most of T58. MOBILE carries U3–U7, U10, the migrations
 U5b/U5c, T58-g/h/j and A3/A5/A6. U1 and U2 should be in review before anything in wave 1 starts.
 
-## Open points for the TECH LEAD
+## Decided points (TECH LEAD, 03/11)
 
-1. The list of **risky settings** that get an undo toast (U2). Proposal: the ones that change what agents may do or
-   what is stored, such as policy-affecting toggles, phone connection, the update channel and clearing data.
-2. **U12 data:** one backend query across the audit stores, or the page reads both.
-3. Whether **U4** (selected-state roles) ships in 1.5.0 or waits for the Android release that reads C4.
+1. **Risky settings** for the undo toast: the list under wave 0 (U2).
+2. **U12 data:** one BACKEND read model with a `source` field, with server-side pagination and filters (U12-be);
+   U12 depends on it.
+3. **U4** ships in 1.5.0 on the desktop; Android follows through the C4 export and does not block it.
