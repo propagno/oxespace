@@ -87,6 +87,7 @@ test('T53: OXESpace read lookups are answered without the person; writes, other 
   const answers = () => existsSync(logFile) ? readFileSync(logFile, 'utf8').trim().split('\n').filter(Boolean).map(line => JSON.parse(line) as { event: string; tool: string; id: string; behavior?: string }) : []
   const { app, page } = await launchReal(profile)
   const out: Record<string, unknown> = {}
+  const responses: string[] = []; out.responses = responses
   try {
     await app.evaluate(({ dialog }) => {
       dialog.showMessageBox = (() => new Promise(() => undefined)) as typeof dialog.showMessageBox
@@ -108,7 +109,10 @@ test('T53: OXESpace read lookups are answered without the person; writes, other 
         const snap = await oxe<Snap>(page, 'thread.read', id)
         for (const request of (snap.pendingRequests ?? []).filter(r => !r.state || r.state === 'pending')) {
           asked.add(request.toolName ?? request.id)
-          await oxe(page, 'thread.respond', id, request.id, { decision: 'decline', reason: 'T53 acceptance: the person declines' }).catch(() => undefined)
+          // As the person: the window's own answer to a listed request, naming its generation.
+          const answer = await oxe(page, 'thread.respondPending', { threadId: id, requestId: request.id, generation: request.generation, response: { decision: 'decline', reason: 'T53 acceptance: the person declines' } })
+            .then(r => JSON.stringify(r), e => `error: ${e instanceof Error ? e.message : String(e)}`)
+          responses.push(`${request.toolName}: ${answer.slice(0, 200)}`)
         }
         if (answers().slice(before).filter(a => a.event === 'answer').length >= tools.length) break
         await page.waitForTimeout(500)

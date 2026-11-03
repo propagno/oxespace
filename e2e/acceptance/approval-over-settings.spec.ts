@@ -89,6 +89,21 @@ test('approval over Settings: on top, Settings stays, focus and place come back,
     for (const [round, answer] of [['esc', 'Escape'], ['deny', 'button']] as const) {
       await expect(approval(page), `${round}: the approval arrives`).toBeVisible({ timeout: 30_000 })
       await page.waitForTimeout(ARMED)
+      // How Settings is kept while the approval is up: mounted, and if hidden, by what.
+      const kept = await page.evaluate(() => {
+        const nav = document.querySelector('nav[aria-label="Settings categories"]')
+        const dialog = nav?.closest('[role="dialog"]') as HTMLElement | null
+        if (!dialog) return { mounted: false }
+        const chain: string[] = []
+        for (let node: HTMLElement | null = dialog; node && node !== document.body; node = node.parentElement) {
+          const s = getComputedStyle(node)
+          if (s.display === 'none' || s.visibility !== 'visible' || Number(s.opacity) === 0 || node.hidden || node.hasAttribute('inert')) chain.push(`${node.tagName.toLowerCase()}.${String(node.className).slice(0, 40)} display=${s.display} visibility=${s.visibility} opacity=${s.opacity} hidden=${node.hidden} inert=${node.hasAttribute('inert')}`)
+        }
+        const r = dialog.getBoundingClientRect()
+        return { mounted: true, rect: [Math.round(r.width), Math.round(r.height)], hiddenBy: chain.slice(0, 4) }
+      })
+      out[`${round}-kept`] = kept
+      expect.soft(kept.mounted, `${round}: Settings stays mounted under the approval`).toBe(true)
       const layered = { settingsVisible: await settings.isVisible(), approvalOnTop: await onTop(page) }
       out[`${round}-layered`] = layered
       expect.soft(layered.settingsVisible, `${round}: Settings stays open under the approval`).toBe(true)
