@@ -1056,6 +1056,8 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
+      # The commit status below (a dispatched run only).
+      statuses: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: needs.e2e.result != 'skipped'
@@ -1100,6 +1102,7 @@ jobs:
           path: e2e-report
 
       - name: Decide the run's result
+        id: decide
         env:
           NEEDS: ${{ toJSON(needs) }}
           EVENT_NAME: ${{ github.event_name }}
@@ -1125,6 +1128,25 @@ jobs:
           }
           console.log('every job that had to run passed')
           EOF
+
+      # Branch protection requires "CI result", but GitHub does not count a check run from a workflow_dispatch run for
+      # a pull request (docs: troubleshooting required status checks), and the merge train's runs are dispatches: its
+      # merges were refused with 405 "Required status check "CI result" is expected" on a green head (#542, #544).
+      # A commit status is tied to the commit alone, so the dispatched run also posts its result as the status
+      # "CI result" on the commit it tested. A pull_request run needs none: its check run counts. Not on main.
+      - name: Post the result as a commit status for the tested commit
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && needs.changes.outputs.sha != '' && github.ref_name != github.event.repository.default_branch }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ needs.changes.outputs.sha }}
+          OUTCOME: ${{ steps.decide.outcome }}
+          RUN_URL: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.run_id) }}
+        run: |
+          set -euo pipefail
+          if [ "$OUTCOME" = "success" ]; then state=success; text="every job that had to run passed"; else state=failure; text="CI failed ($OUTCOME)"; fi
+          gh api "repos/$REPO/statuses/$SHA" -f state="$state" -f context="CI result" -f description="$text" -f target_url="$RUN_URL" >/dev/null
+          echo "status CI result=$state on $SHA"
 
   # The merge train's wake-up. A run the train dispatched (with GITHUB_TOKEN) fires no workflow_run when it
   # finishes, so without this the train only learns of the result at its next cron, 10 minutes or more later.
