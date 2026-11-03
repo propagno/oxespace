@@ -1,6 +1,6 @@
 # T64: Agent access in OxePost (1.5.0)
 
-Status: **proposal**. Owner: DESIGN (product and UX). BACKEND builds it, SECURITY reviews it. The technical shape
+Status: **approved by the TECH LEAD as the basis for 1.5.0** (2026-11-03). SECURITY reviews it when T64 starts. Owner: DESIGN (product and UX). BACKEND builds it, SECURITY reviews it. The technical shape
 (gateway, tool names, storage) is the TECH LEAD's.
 
 Today agents have no HTTP tool: OxePost requests are only sent by the person. T64 lets an agent send requests from
@@ -16,8 +16,8 @@ OxePost has no "collection" object today: requests live in folders under `.oxesp
 **collection is a top-level folder** of that tree. Access is set on it and covers every request inside it,
 subfolders included. Requests at the root (outside any folder) form the collection "Ungrouped".
 
-> Question for the TECH LEAD: if a per-request setting is simpler to store, the UI below still works, but per
-> folder is what people will understand ("the Payments API"). Recommended: per top-level folder.
+> **Decided (TECH LEAD, 2026-11-03):** per top-level folder, not per request (per request would be noise in the
+> approvals).
 
 ## 2. Turning it on
 
@@ -43,7 +43,10 @@ subfolders included. Requests at the root (outside any folder) form the collecti
 - **New requests** only to the same origins (scheme + host + port) as the collection's saved requests in that
   environment. Never to any other host: an agent with a free HTTP client could send data anywhere. A request to
   another origin is **refused by policy**, without asking the person, and it shows in Agent activity as refused.
-- Redirects are followed only within those origins.
+- Redirects are followed only within those origins, and never from https to http.
+- Private, loopback and link-local addresses are refused (checked on the resolved IP, every connection, so DNS
+  rebinding to localhost fails), unless the collection's origin is itself one of them (a local API on
+  `localhost:3000` stays reachable).
 
 ## 4. Approval
 
@@ -91,10 +94,12 @@ T63:
 - Intro: "Every HTTP request an AI agent made through OxePost, and what you decided."
 - Empty state: "Agents only reach an API when you turn on agent access for a collection in OxePost. Every request
   they make appears here, with what you decided."
-- Detail modal (T63): request and response with the same masking as §5, response body capped at 64 KB in the log.
-  The log keeps the request and the status, and the body only for failures (it follows the audit retention days).
-- Decision wording uses **Deny/denied**, not "declined" (the 1.4.1 consistency fix). The OxeQuery string
-  `decision.denied: "declined"` changes with it.
+- Detail modal (T63): request and response with the same masking as §5. The log keeps the request and the status
+  for every entry. It keeps a response body only for failures, **capped at 4 KB**, after the same secret masking, and
+  marked "Truncated" when cut. A binary body is never logged, only its type and size. Entries follow the audit
+  retention days.
+- Decision wording uses **Deny/denied**, not "declined". The OxeQuery string `decision.denied: "declined"` changes
+  with MOBILE's T63, not in a separate PR.
 
 ## 7. Copy (en / pt-BR)
 
