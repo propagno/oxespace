@@ -16,8 +16,9 @@ commit ─▶ pull request ─▶ CI and Release (PR)          first red ≈ 3 m
        ─▶ label na-fila ─▶ Merge train                  updates the PR with main, dispatches CI on that head,
                                                         merges when every check is green, one PR at a time
        ─▶ main ─▶ CI and Release (push)                 everything runs, including the OxeQuery live matrices
-       ─▶ Run workflow "CI and Release" from main,      package (Windows + Linux, packaged-app E2E)
-          publish_release=true (the release owner)      → tag → draft → re-download and verify → publish
+       ─▶ the release owner pushes the tag vX.Y.Z     package (Windows + Linux, packaged-app E2E)
+          on the candidate commit of main               → draft → wait for approval (environment `release`)
+                                                        → re-download and verify → publish
        ─▶ installed apps                                electron-updater reads the feed; stable installs get
                                                         stable releases, beta installs also get prereleases
 ```
@@ -36,15 +37,26 @@ commit ─▶ pull request ─▶ CI and Release (PR)          first red ≈ 3 m
 | `acceptance.yml` | dispatch | `e2e/acceptance` specs. They are written before the feature, so red is expected until the item lands. |
 | `visual-regression.yml` | push to main | Screenshot comparison of the anchor surfaces. |
 | `visual-baselines.yml` | dispatch | Regenerates the baselines, once per batch on main, not per PR. |
-| `release.yml` | dispatch | Redirect only: forwards to `ci.yml` with `publish_release=true`. |
+| `release.yml` | dispatch | Redirect only: forwards to `ci.yml` with `publish_release=true`. Not for a stable release: the `release` environment accepts only tags (see below). |
 
 Useful dispatches of `ci.yml`, all from the branch chosen in **Use workflow from**:
 
 - no inputs: a full check of that branch (what the train uses);
 - `packaged_smoke_only=true`: builds the installer layout and runs the packaged-app E2E on both platforms, publishes
   nothing. Use it before any release and on any PR that touches packaging, `electron-builder.yml` or the fuses;
-- `publish_release=true` (+ optional `tag`): a real release. Stable versions only from `main`; the job refuses a
-  commit that is not on main (`ci.yml`, "Plan build vs release").
+- `publish_release=true` (+ optional `tag`): **not how a stable version is published.** The publish job runs in the
+  `release` environment, which accepts only `v*` tags, so a dispatch from `main` stops at that job.
+
+**Publishing a release** is a tag push by the release owner (the user), on the candidate commit of `main`:
+
+```sh
+git tag v1.4.0 <candidate sha>     # package.json on that commit says 1.4.0
+git push origin v1.4.0
+```
+
+The tag's CI run (`Publish vX.Y.Z`) checks the tag matches `package.json` and is on `main`, builds and verifies
+everything, then waits on **Review deployments → Approve** (the `release` environment's required reviewer) before it
+publishes. `android-release.yml` then signs and attaches the APK.
 
 ### Draft pull requests
 
