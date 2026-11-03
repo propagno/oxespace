@@ -1,0 +1,11 @@
+[
+  "011-menu-file: locator.click: Timeout 4000ms exceeded.",
+  "011-menu-edit: locator.click: Timeout 4000ms exceeded.",
+  "011-menu-view: locator.click: Timeout 4000ms exceeded.",
+  "011-menu-tools: locator.click: Timeout 4000ms exceeded.",
+  "011-menu-help: locator.click: Timeout 4000ms exceeded.",
+  "settings Workspace: locator.click: Timeout 3000ms exceeded.",
+  "049-chat-usage-ring: locator.click: Timeout 4000ms exceeded.",
+  "051-chat-details: locator.click: Timeout 30000ms exceeded.",
+  "054-chat-sidebar-menu: locator.click: Timeout 30000ms exceeded."
+]
