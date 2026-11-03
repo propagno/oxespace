@@ -164,6 +164,69 @@ New shots in `e2e/visual` for light and dark, linux and win32: a conversation wi
 reply with a code block, three tool rows (read, edit, run), an approval card, and the strip in each permission level
 plus Plan mode. They are refreshed once per batch on main, not per PR.
 
+## 7a. Conversation details panel
+
+The side panel (`ThreadSessionPanel`, F14) has five sections: Environment, Context, Tools, Outputs and Background.
+Today they are five equal cards with the same weight, every fact in the same gray-on-gray grid, and each card
+carries a grip and a menu in its header. Nothing tells you where to look first. T57 (1.4.1) fixes only its scroll;
+the redesign below is 1.5.0.
+
+### Hierarchy
+
+1. **Summary header** (new, not collapsible): one block at the top answering "what is this conversation running
+   on and how full is it", without opening anything.
+   - Line 1: provider avatar (§2.2), model chip and permissions chip, the same chips as the composer (§4), read-only
+     here. A click opens the same popover as in the composer.
+   - Line 2: branch (mono, `text-secondary`) and a worktree badge when the conversation has its own worktree.
+   - Line 3: the context meter, full width, 6 px tall, `radius-full`. Track `fill-hover`, fill `accent`; from 80%
+     `intent-warning-solid`, past the window `intent-danger-solid`. To its right, `62% · 124k / 200k` in
+     `text-xs`, tabular numbers.
+2. **Sections** below, in the person's order (reordering stays as it is).
+
+### Sections
+
+- Each section is a disclosure: a 32 px header button with a chevron, the title (`text-sm` semibold,
+  `text-primary`) and a **summary on the right** in `text-muted` `text-xs`, so a closed section still says
+  something. Summaries: Environment "main · own worktree"; Context "Messages 48%"; Tools "23 calls · 1 failed"
+  (the failed count in `intent-danger-fg`); Outputs "4 files"; Background "2 running" (with the running
+  `StatusDot`).
+- The header is `aria-expanded` on a real button; the body is its region. Enter/Space toggles it. Open/closed is kept
+  per viewer with the order.
+- Defaults: Context and Tools open, the others closed. Since the summary header already shows the model, branch and
+  meter, Environment is detail.
+- The grip and the reorder menu stay, but they show only on header hover or focus-within (they are always reachable
+  by keyboard through the menu, WCAG 2.5.7).
+- No card per section. Sections are separated by a 1 px `border-subtle` rule on a single `surface-base` panel. This
+  removes four nested borders and saves about 40 px of height.
+
+### Density and content
+
+- Facts (`dl`): label in `text-muted` `text-xs` above the value, `text-sm` `text-primary`, two columns when the
+  panel is ≥ 320 px wide. Paths and branches are mono with a middle ellipsis and the full value in the tooltip.
+- Context breakdown: each bucket is a row with an 8 px swatch, name, a thin share bar and tokens. Colors come from
+  the existing intent and accent roles, the same in both modes: messages `accent`, tools `intent-info-solid`, MCP
+  `intent-warning-solid`, system `border-strong`, skills `intent-success-solid`. Free, reserved and deferred are
+  `text-muted` rows without a bar. "Compact now" is a secondary small button under the table.
+- Tools: the top 5 tools by calls, each with its count; failed calls in `intent-danger-fg` with an icon; "Show all"
+  expands in place. MCP servers are a row of 24 px chips with a status dot (`intent-success-solid` connected,
+  `intent-danger-solid` failed, `border-strong` unknown).
+- Outputs: changed files with `+n` in `intent-success-fg` and `−n` in `intent-danger-fg`, as in review; previews as
+  links.
+- Empty sections show one `text-muted` line, never an empty card.
+- Spacing: `space-3` inside a section, `space-4` between sections, panel padding `space-3`.
+
+### Light and dark
+
+| Part | Light | Dark |
+|---|---|---|
+| Panel | `surface-base` | `surface-base` |
+| Summary header | `surface-raised` with `elevation-1` | `surface-raised` with a `border-subtle` bottom rule |
+| Section header hover | `fill-hover` | `fill-hover` |
+| Section rule | `border-subtle` | `border-subtle` |
+| Labels / values | `text-muted` / `text-primary` | same roles |
+
+Visual baselines (§7) add the panel with all sections open and with the defaults, in both modes.
+
 ## 8. Decisions for the user
 
 1. **Agent reply without a bubble** (§2.2), or a light `surface-raised` bubble on the left too? Recommended: no bubble.
