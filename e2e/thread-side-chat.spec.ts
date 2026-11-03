@@ -70,15 +70,29 @@ test('the side chat asks a read-only copy, shows its cost, and leaves the conver
     await expect(composer).toBeFocused()
     await expect(drawer).toBeVisible()
 
-    // T60: leaving the conversation and coming back finds the drawer open, with the same copy and its answers.
-    await modeButton(page, 'code').click()
+    // T60: another conversation tab unmounts the drawer (another mode only hides the view). A second conversation joins
+    // the fixture's list; going to it and back finds the drawer open, with the same copy and its answers.
+    const first = await page.evaluate(() => window.oxe.thread!.read('e2e-thread'))
+    await app.evaluate(({ ipcMain, BrowserWindow }, snapshot) => {
+      const second = { ...snapshot, thread: { ...snapshot.thread, id: 'e2e-thread-2', title: 'Second conversation', updatedAt: snapshot.thread.updatedAt + 1 }, events: [] }
+      for (const channel of ['thread:list', 'thread:read']) ipcMain.removeHandler(channel)
+      ipcMain.handle('thread:list', () => [snapshot.thread, second.thread])
+      ipcMain.handle('thread:read', (_event, id: string) => id === 'e2e-thread-2' ? second : snapshot)
+      for (const window of BrowserWindow.getAllWindows()) window.webContents.send('thread:changed', { threadId: 'e2e-thread-2' })
+    }, first)
+    const conversations = page.getByRole('navigation', { name: 'OxeChat projects' })
+    await conversations.getByRole('button', { name: /Second conversation/ }).first().click()
     await expect(drawer).toHaveCount(0)
-    await modeButton(page, 'thread').click()
+    await conversations.getByRole('button', { name: /Authentication flow/ }).first().click()
     await expect(drawer).toBeVisible()
     await expect(drawer).toHaveAttribute('data-side-id', sideId!)
     await expect(log).toContainText('E2E side chat reply.')
     await expect(drawer.getByTestId('thread-side-chat-cost')).toHaveText('Cost so far: ≈ US$ 0.03 · 5k tokens')
     expect(await copies()).toBe(1)
+    await modeButton(page, 'code').click()
+    await expect(drawer).toBeHidden()
+    await modeButton(page, 'thread').click()
+    await expect(drawer).toHaveAttribute('data-side-id', sideId!)
 
     // ✕ hides it and keeps the copy; Ctrl+. shows the same one again.
     await drawer.getByTestId('thread-side-chat-close').click()
