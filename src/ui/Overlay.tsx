@@ -27,13 +27,22 @@ export interface DialogProps {
   onEscapeKeyDown?: (event: globalThis.KeyboardEvent) => void
 }
 
+const FIELD = 'input:not([type="hidden"]), select, textarea, [contenteditable="true"], [role="textbox"], [role="combobox"]'
+const usable = (element: HTMLElement): boolean => !element.matches(':disabled, [aria-disabled="true"], [readonly], [tabindex="-1"]') && !element.closest('[hidden], [inert], [aria-hidden="true"]')
+
 /**
- * Opening focus goes to the dialog itself unless a child already took it (a safe button in a confirmation).
- * The close button is first in tab order, and focusing it would open its tooltip, which then eats the first Escape.
+ * Where a dialog starts (D-01, one rule for every dialog): what a child already focused (a safe button in a
+ * confirmation, an autoFocus field), else the first field of the body, else the first button of the footer, and only
+ * when it has neither, the dialog itself. Never the close button: it is first in tab order, and focusing it would open
+ * its tooltip, which then eats the first Escape.
  */
 export function focusSurfaceUnlessChosen(event: Event): void {
   const surface = event.currentTarget as HTMLElement | null
-  if (surface && !surface.contains(document.activeElement)) { event.preventDefault(); surface.focus({ preventScroll: true }) }
+  if (!surface || surface.contains(document.activeElement)) return
+  event.preventDefault()
+  const field = [...surface.querySelectorAll<HTMLElement>(`[data-dialog-body] :is(${FIELD})`)].find(usable)
+  const action = [...surface.querySelectorAll<HTMLElement>('[data-dialog-footer] :is(button, a[href])')].find(usable)
+  ;(field ?? action ?? surface).focus({ preventScroll: true })
 }
 
 /**
@@ -76,8 +85,8 @@ export function Dialog({ title, description, onClose, children, footer, size = '
           </div>
           <IconButton label={closeLabel} icon={<X size={16} />} size="sm" onClick={onClose} />
         </header>
-        {children ? <div className={styles.dialogBody}>{children}</div> : null}
-        {footer && <footer className={styles.dialogFooter}>{footer}</footer>}
+        {children ? <div className={styles.dialogBody} data-dialog-body="">{children}</div> : null}
+        {footer && <footer className={styles.dialogFooter} data-dialog-footer="">{footer}</footer>}
       </RadixDialog.Content>
     </RadixDialog.Portal>
   </RadixDialog.Root>
