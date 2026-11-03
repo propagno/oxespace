@@ -1,4 +1,5 @@
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import { realpathSync } from 'node:fs'
 import { launchReal, mode, quitReal, realProfile } from './real-app'
 
 /**
@@ -27,8 +28,10 @@ test('#537: the side panel is a column at 1280 px and a drawer at 640 px (real a
   const out: Record<string, unknown> = {}
   try {
     await app.evaluate(({ dialog }) => { dialog.showMessageBox = (() => new Promise(() => undefined)) as typeof dialog.showMessageBox; dialog.showMessageBoxSync = (() => 0) as typeof dialog.showMessageBoxSync })
-    const { projectId } = await page.evaluate(root => (window as unknown as { oxe: Api }).oxe.thread.addProject(root), profile.repo)
-    await page.evaluate(i => (window as unknown as { oxe: Api }).oxe.thread.create({ projectId: i.projectId, rootPath: i.root, provider: 'claude' }), { projectId, root: profile.repo })
+    // The long form of the path: the Windows runner's temp folder is an 8.3 short path (RUNNER~1), a known 1.4.1 item.
+    const root = realpathSync.native(profile.repo)
+    const { projectId } = await page.evaluate(r => (window as unknown as { oxe: Api }).oxe.thread.addProject(r), root)
+    await page.evaluate(i => (window as unknown as { oxe: Api }).oxe.thread.create({ projectId: i.projectId, rootPath: i.root, provider: 'claude' }), { projectId, root })
     await windowAt(app, page, 1280)
     await mode(page, 'thread')
     const nav = page.locator('.thread-navigation')
