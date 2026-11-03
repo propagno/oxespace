@@ -1,6 +1,6 @@
 # T58: OxeChat conversation redesign (1.5.0)
 
-Status: **proposal, waiting for the user's approval**. Owner: DESIGN. Builds on FRONTEND's T57 (1.4.1).
+Status: **approved** (user, 03/11). Owner: DESIGN. Builds on FRONTEND's T57 (1.4.1).
 
 The user asked for more color, a nicer look and compact buttons. The message box shows the model by its real name
 (for example "Opus 5.5", never "default"), the effort and the permissions as compact chips.
@@ -355,14 +355,14 @@ the default, and Esc is the easiest key to press by accident.
 > unmount. Close hides the drawer and keeps the copy while the conversation exists; Esc only returns focus;
 > "Discard and close…" confirms when there are answers, with Keep as the default.
 
-## 8. Decisions for the user
+## 8. Decisions
 
-1. **Agent reply without a bubble** (§2.2), or a light `surface-raised` bubble on the left too? Recommended: no bubble.
-2. **The permission chip in danger color for full access** (§4.3). Recommended: yes. It is the riskiest state and
-   should be impossible to miss.
-3. **Tool rows color-coded by kind** (§2.3). Recommended: yes, as a 3 px bar only.
-4. **Name when the provider doesn't report its default model**: "Provider's choice" until the first turn
-   (recommended), or keep the strip empty until it is known.
+**Decided by the user on 03/11** (relayed by the TECH LEAD): the recommended option in each case.
+
+1. **Agent reply without a bubble** (§2.2).
+2. **The permissions chip in danger color for full access** (§4.3).
+3. **Tool rows color-coded by kind**, as a 3 px bar only (§2.3).
+4. **"Provider's choice"** until the first turn when the provider doesn't report its default model (§4.1).
 
 ## 9. Out of scope
 
