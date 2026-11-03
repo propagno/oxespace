@@ -438,6 +438,7 @@ describe('T54 · the permission mode a Claude session started in comes back with
     try {
       await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', agentArgs: ['--resume', C], disableRtk: true })
       expect(pty.spawn).toHaveBeenLastCalledWith('claude', ['--resume', C], expect.anything())
+      expect(terminals.status(pane.id).agentResume).toMatchObject({ outcome: 'resumed', note: { code: 'agents.resume.bypassWithheld' } })
       terminals.stopAll()
       terminals.setResumeBypass(true)
       await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', agentArgs: ['--resume', C], disableRtk: true })

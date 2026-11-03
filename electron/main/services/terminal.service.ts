@@ -15,7 +15,7 @@ import { PtyRingBuffer } from './pty-ring-buffer'
 import { resumeCommand, type ClaudePermissionMode, type PaneResumeRecord, type PaneSessionSource } from './agent-state/pane-sessions'
 import { mainMessage } from '../../../shared/messages'
 import { resumeBypassAllowed, setResumeBypassAllowed } from './agent-state/resume-bypass-setting'
-import { claudeSessionToAssign, failedToLoadStatus, permissionModeArgs, planPaneResume, RESUME_LOAD_MS, startedFreshStatus } from './agent-state/pane-resume'
+import { bypassWithheld, claudeSessionToAssign, failedToLoadStatus, permissionModeArgs, planPaneResume, RESUME_LOAD_MS, startedFreshStatus } from './agent-state/pane-resume'
 import { nativeSessionExists, type NativeSessionRoots } from './agent-state/native-session-files'
 import { PtyModeTracker } from './pty-mode-tracker'
 import { DA1_CARRY_MS, DA1_REPLY, Da1Filter, stripDa1 } from './pty-da1'
@@ -315,6 +315,10 @@ export class TerminalManager {
       ? this.currentSession?.(input.paneId) ?? null : null
     const restoreMode = recorded?.agent === 'claude' && recorded.sessionId === input.agentArgs?.[1] && agentParts
       ? permissionModeArgs(recorded.permissionMode, agentParts.slice(1), resumeBypassAllowed(this.db)) : []
+    // The same one line as a B17 resume when the setting held the session's skipped permissions back (SECURITY L on #552).
+    if (recorded?.agent === 'claude' && recorded.sessionId === input.agentArgs?.[1] && agentParts && bypassWithheld(recorded.permissionMode, agentParts.slice(1), resumeBypassAllowed(this.db))) {
+      this.agentResumes.set(input.paneId, { outcome: 'resumed', agent: 'claude', sessionId: recorded.sessionId, note: mainMessage('agents.resume.bypassWithheld', {}) })
+    }
     let args = input.launch ? input.launch.args : agentParts
       ? [...agentParts.slice(1), ...restoreMode, ...(input.agentArgs ?? []), ...plan.extraArgs]
       : [...shellArgs, ...(input.agentArgs ?? [])]
