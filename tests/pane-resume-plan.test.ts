@@ -58,7 +58,9 @@ describe('claudeSessionToAssign', () => {
 
 describe('T54 · permissionModeArgs', () => {
   it('maps each recorded mode to Claude flags from a closed list, never more than recorded', () => {
-    expect(permissionModeArgs('bypassPermissions', [])).toEqual(['--dangerously-skip-permissions'])
+    // bypassPermissions only with the person's setting: the recorded mode comes from a hook any process can send.
+    expect(permissionModeArgs('bypassPermissions', [])).toEqual([])
+    expect(permissionModeArgs('bypassPermissions', [], true)).toEqual(['--dangerously-skip-permissions'])
     expect(permissionModeArgs('acceptEdits', [])).toEqual(['--permission-mode', 'acceptEdits'])
     expect(permissionModeArgs('plan', [])).toEqual(['--permission-mode', 'plan'])
     expect(permissionModeArgs('default', [])).toEqual([])
@@ -67,14 +69,18 @@ describe('T54 · permissionModeArgs', () => {
 
   it('adds nothing when the command already sets a mode', () => {
     for (const command of [['--dangerously-skip-permissions'], ['--permission-mode', 'plan'], ['--permission-mode=plan'], ['--allow-dangerously-skip-permissions']]) {
-      expect(permissionModeArgs('bypassPermissions', command), command.join(' ')).toEqual([])
+      expect(permissionModeArgs('bypassPermissions', command, true), command.join(' ')).toEqual([])
     }
   })
 
   it('a B17 resume of a Claude session puts the mode before --resume; Codex never gets one', async () => {
     expect((await planPaneResume({ agent: 'claude', sessionId: A, wanted: true, permissionMode: 'plan' }, {}, '/repo', deps())).extraArgs)
       .toEqual(['--permission-mode', 'plan', '--resume', A])
-    expect((await planPaneResume({ agent: 'codex', sessionId: A, wanted: true, permissionMode: 'bypassPermissions' }, {}, '/repo', deps())).extraArgs)
+    expect(await planPaneResume({ agent: 'claude', sessionId: A, wanted: true, permissionMode: 'bypassPermissions' }, {}, '/repo', deps()))
+      .toMatchObject({ extraArgs: ['--resume', A], status: { outcome: 'resumed', note: { code: 'agents.resume.bypassWithheld' } } })
+    expect((await planPaneResume({ agent: 'claude', sessionId: A, wanted: true, permissionMode: 'bypassPermissions' }, {}, '/repo', { ...deps(), allowBypass: true })).extraArgs)
+      .toEqual(['--dangerously-skip-permissions', '--resume', A])
+    expect((await planPaneResume({ agent: 'codex', sessionId: A, wanted: true, permissionMode: 'bypassPermissions' }, {}, '/repo', { ...deps(), allowBypass: true })).extraArgs)
       .toEqual(['resume', A, '--no-alt-screen'])
   })
 })

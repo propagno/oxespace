@@ -14,6 +14,7 @@ import { PtyOutputBatcher } from './pty-output-batcher'
 import { PtyRingBuffer } from './pty-ring-buffer'
 import { resumeCommand, type ClaudePermissionMode, type PaneResumeRecord, type PaneSessionSource } from './agent-state/pane-sessions'
 import { mainMessage } from '../../../shared/messages'
+import { resumeBypassAllowed, setResumeBypassAllowed } from './agent-state/resume-bypass-setting'
 import { claudeSessionToAssign, failedToLoadStatus, permissionModeArgs, planPaneResume, RESUME_LOAD_MS, startedFreshStatus } from './agent-state/pane-resume'
 import { nativeSessionExists, type NativeSessionRoots } from './agent-state/native-session-files'
 import { PtyModeTracker } from './pty-mode-tracker'
@@ -293,7 +294,8 @@ export class TerminalManager {
     if (failed) this.clearSession?.(input.paneId)
     const plan = await planPaneResume(failed ? null : consulted, input, cwd, {
       allowed: agent => { try { assertProviderAllowed(agent, launch.workspace_root_path); return true } catch { return false } },
-      exists: (agent, sessionId, dir) => nativeSessionExists(agent, sessionId, dir, this.nativeSessionRoots)
+      exists: (agent, sessionId, dir) => nativeSessionExists(agent, sessionId, dir, this.nativeSessionRoots),
+      allowBypass: resumeBypassAllowed(this.db)
     })
     const status = failed ? failedToLoadStatus(failed) : plan.status
     if (status) this.agentResumes.set(input.paneId, status)
@@ -312,7 +314,7 @@ export class TerminalManager {
     const recorded = !input.launch && !threadShell && !oxeShell && agentName === 'claude' && input.agentArgs?.length === 2 && input.agentArgs[0] === '--resume'
       ? this.currentSession?.(input.paneId) ?? null : null
     const restoreMode = recorded?.agent === 'claude' && recorded.sessionId === input.agentArgs?.[1] && agentParts
-      ? permissionModeArgs(recorded.permissionMode, agentParts.slice(1)) : []
+      ? permissionModeArgs(recorded.permissionMode, agentParts.slice(1), resumeBypassAllowed(this.db)) : []
     let args = input.launch ? input.launch.args : agentParts
       ? [...agentParts.slice(1), ...restoreMode, ...(input.agentArgs ?? []), ...plan.extraArgs]
       : [...shellArgs, ...(input.agentArgs ?? [])]
@@ -671,6 +673,11 @@ export class TerminalManager {
     if (!session) return null
     return { running: true, data: session.ring.snapshot(), altScreen: session.modes.altScreen }
   }
+
+  /** T54 · Settings › Terminal: whether a session that skipped permissions resumes that way (off by default). */
+  resumeBypass(): boolean { return resumeBypassAllowed(this.db) }
+
+  setResumeBypass(enabled: boolean): boolean { return setResumeBypassAllowed(this.db, enabled) }
 
   status(paneId: string): TerminalStatusResult {
     const session = this.sessions.get(paneId)

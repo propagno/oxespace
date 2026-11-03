@@ -403,17 +403,45 @@ describe('a resume that cannot load (exits within RESUME_LOAD_MS)', () => {
 describe('T54 · the permission mode a Claude session started in comes back with it', () => {
   const C = '7c9e6679-7425-40de-944b-e07fc1f90ae7'
 
-  test('(a) typed by hand in a shell pane, then the app restarts: B17 resumes it in the recorded mode (it lost the flag before)', async () => {
+  test('(a) bypassPermissions comes back only with the person\'s setting on (TECH LEAD on #552: the hook\'s mode is untrusted)', async () => {
     const db = openInMemoryDatabase()
     const ws = workspace(db)
     const pane = ws.panes[0]
-    // The person typed `claude --dangerously-skip-permissions` in the shell; its SessionStart said so.
+    // A SessionStart reported bypassPermissions: the person's own `claude --dangerously-skip-permissions`, or a forged
+    // hook from any process in the pane. The two look the same.
     new PaneAgentSessions(db).record(pane.id, 'claude', C, 'hook', 'bypassPermissions')
     claudeTranscript(C)
-    const { pty, terminals } = run(db)
+    const first = run(db)
     try {
-      await terminals.start({ workspaceId: ws.id, paneId: pane.id, disableRtk: true, resumeAgent: true })
-      expect(pty.spawn).toHaveBeenLastCalledWith('claude', ['--dangerously-skip-permissions', '--resume', C], expect.objectContaining({ cwd: root }))
+      // Off (the default): no escalation, and the pane says it resumed asking, pointing at the setting.
+      expect(first.terminals.resumeBypass()).toBe(false)
+      await first.terminals.start({ workspaceId: ws.id, paneId: pane.id, disableRtk: true, resumeAgent: true })
+      expect(first.pty.spawn).toHaveBeenLastCalledWith('claude', ['--resume', C], expect.objectContaining({ cwd: root }))
+      expect(first.terminals.status(pane.id).agentResume).toEqual({ outcome: 'resumed', agent: 'claude', sessionId: C, note: { code: 'agents.resume.bypassWithheld', params: {} } })
+    } finally { first.terminals.stopAll() }
+    const second = run(db)
+    try {
+      // On: it comes back as it was, with no note.
+      expect(second.terminals.setResumeBypass(true)).toBe(true)
+      await second.terminals.start({ workspaceId: ws.id, paneId: pane.id, disableRtk: true, resumeAgent: true })
+      expect(second.pty.spawn).toHaveBeenLastCalledWith('claude', ['--dangerously-skip-permissions', '--resume', C], expect.objectContaining({ cwd: root }))
+      expect(second.terminals.status(pane.id).agentResume).toEqual({ outcome: 'resumed', agent: 'claude', sessionId: C })
+    } finally { second.terminals.stopAll(); db.close() }
+  })
+
+  test('Restore session of a session that skipped permissions: no flag with the setting off, the flag with it on', async () => {
+    const db = openInMemoryDatabase()
+    const ws = workspace(db)
+    const pane = ws.panes[0]
+    const { sessions, pty, terminals } = run(db)
+    sessions.record(pane.id, 'claude', C, 'hook', 'bypassPermissions')
+    try {
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', agentArgs: ['--resume', C], disableRtk: true })
+      expect(pty.spawn).toHaveBeenLastCalledWith('claude', ['--resume', C], expect.anything())
+      terminals.stopAll()
+      terminals.setResumeBypass(true)
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', agentArgs: ['--resume', C], disableRtk: true })
+      expect(pty.spawn).toHaveBeenLastCalledWith('claude', ['--dangerously-skip-permissions', '--resume', C], expect.anything())
     } finally { terminals.stopAll(); db.close() }
   })
 
@@ -460,12 +488,13 @@ describe('T54 · the permission mode a Claude session started in comes back with
     } finally { terminals.stopAll(); db.close() }
   })
 
-  test('an agent started by MCP or Team (a launch) never gets a recorded mode', async () => {
+  test('an agent started by MCP or Team (a launch) never gets a recorded mode, even with the setting on', async () => {
     const db = openInMemoryDatabase()
     const ws = workspace(db)
     const pane = ws.panes[0]
     const { sessions, pty, terminals } = run(db)
     sessions.record(pane.id, 'claude', C, 'hook', 'bypassPermissions')
+    terminals.setResumeBypass(true)
     try {
       await terminals.start({ workspaceId: ws.id, paneId: pane.id, launch: { executable: 'claude', args: ['--resume', C] }, disableRtk: true })
       expect(pty.spawn.mock.calls.at(-1)![1]).not.toContain('--dangerously-skip-permissions')

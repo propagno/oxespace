@@ -15,12 +15,19 @@ const OWN_PERMISSION = /^(--dangerously-skip-permissions|--allow-dangerously-ski
 
 /**
  * T54 · The flags that start a resumed Claude session in the permission mode it started in, from a closed list and
- * never more than that mode: `bypassPermissions` → --dangerously-skip-permissions, `acceptEdits` and `plan` →
- * --permission-mode <mode>, `default` or nothing recorded → none. None either when the command sets a mode itself.
+ * never more than that mode: `acceptEdits` and `plan` → --permission-mode <mode>, `default` or nothing recorded →
+ * none, and `bypassPermissions` → --dangerously-skip-permissions only when `allowBypass` (the person's setting: the
+ * recorded mode comes from a hook any process in the pane can send). None either when the command sets a mode itself.
  */
-export function permissionModeArgs(mode: ClaudePermissionMode | undefined, command: readonly string[]): string[] {
+export function permissionModeArgs(mode: ClaudePermissionMode | undefined, command: readonly string[], allowBypass = false): string[] {
   if (!mode || mode === 'default' || command.some(part => OWN_PERMISSION.test(part))) return []
-  return mode === 'bypassPermissions' ? ['--dangerously-skip-permissions'] : ['--permission-mode', mode]
+  if (mode === 'bypassPermissions') return allowBypass ? ['--dangerously-skip-permissions'] : []
+  return ['--permission-mode', mode]
+}
+
+/** T54 · The one line a resumed pane shows when its session skipped permissions and the setting kept that off. */
+export function bypassWithheld(mode: ClaudePermissionMode | undefined, command: readonly string[], allowBypass: boolean): boolean {
+  return mode === 'bypassPermissions' && !allowBypass && !command.some(part => OWN_PERMISSION.test(part))
 }
 
 /** Arguments that already pick a session, or run something other than an interactive session, per provider. */
@@ -42,6 +49,8 @@ export interface PaneResumeDeps {
   allowed(agent: ResumableAgent): boolean
   /** Whether the provider still has the session for that folder (see native-session-files.ts). */
   exists(agent: ResumableAgent, sessionId: string, cwd: string): Promise<boolean>
+  /** T54 · The person's setting that lets a session that skipped permissions resume that way; off when absent. */
+  allowBypass?: boolean
 }
 
 export interface PaneResumePlan {
@@ -85,8 +94,13 @@ export async function planPaneResume(record: PaneResumeRecord | null, start: Pan
   if (parts.slice(1).some(part => OWN_SESSION[agent].test(part))) return fail('launchOverride')
   if (!deps.allowed(agent)) return fail('blocked')
   if (!(await deps.exists(agent, sessionId, cwd))) return fail('sessionMissing')
-  const modeArgs = agent === 'claude' ? permissionModeArgs(record.permissionMode, parts.slice(1)) : []
-  return { agentCommand: start.agentCommand ?? agent, extraArgs: [...modeArgs, ...resumeArgs(agent, sessionId)], status: { outcome: 'resumed', agent, sessionId } }
+  const allowBypass = deps.allowBypass === true
+  const modeArgs = agent === 'claude' ? permissionModeArgs(record.permissionMode, parts.slice(1), allowBypass) : []
+  const withheld = agent === 'claude' && bypassWithheld(record.permissionMode, parts.slice(1), allowBypass)
+  return {
+    agentCommand: start.agentCommand ?? agent, extraArgs: [...modeArgs, ...resumeArgs(agent, sessionId)],
+    status: { outcome: 'resumed', agent, sessionId, ...(withheld ? { note: mainMessage('agents.resume.bypassWithheld', {}) } : {}) }
+  }
 }
 
 /**

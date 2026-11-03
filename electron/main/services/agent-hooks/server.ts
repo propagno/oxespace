@@ -125,8 +125,9 @@ export class AgentHookServer {
       event: typeof record.hook_event_name === 'string' ? record.hook_event_name : '',
       at,
       sessionId,
-      // Only the mode a Claude session started in: later events would carry a mode changed during it (T54).
-      ...(agent === 'claude-code' && record.hook_event_name === 'SessionStart' && isClaudePermissionMode(record.permission_mode) ? { permissionMode: record.permission_mode } : {})
+      // Only the mode a Claude session started in: a fresh start's SessionStart. Later events, and the SessionStart of
+      // a /clear or /resume inside Claude, carry a mode changed during the session (T54, SECURITY L1 on #552).
+      ...(agent === 'claude-code' && record.hook_event_name === 'SessionStart' && (record.source ?? 'startup') === 'startup' && isClaudePermissionMode(record.permission_mode) ? { permissionMode: record.permission_mode } : {})
     })
   }
 
