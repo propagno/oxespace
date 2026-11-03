@@ -1152,7 +1152,6 @@
     "guardedHint": "This changes a file that steers agents (instructions, MCP settings, hooks). Only a person approves it, each time; it is never remembered."
   },
   "requests": {
-    "waiting": "The agent is waiting for your answer",
     "waitingMany": "{{count}} requests are waiting for your answer",
     "shrinkTitle": "Give the room back to the conversation",
     "expandTitle": "Give the request more room to read its options",
