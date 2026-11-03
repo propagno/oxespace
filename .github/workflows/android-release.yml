@@ -1,8 +1,9 @@
 name: Android release
 # Builds the companion app's release APK, starts the minified build on an emulator, then signs the APK with the
 # project's key, checks the signature, attests the APK's provenance, and attaches the APK and its SHA-256 to the GitHub
-# release (never replacing one already there). Runs when a release is published (the desktop's "CI and Release"
-# pipeline publishes it) or by hand on an existing vX.Y.Z tag.
+# release (never replacing one already there). The desktop's "CI and Release" pipeline starts it on the tag right after
+# it publishes (a dispatch: a release published with GITHUB_TOKEN fires no `release` event). It also runs when a
+# person publishes a release, or by hand on an existing vX.Y.Z tag.
 #
 # Two jobs, so the key is never near third-party build or test code (SECURITY #231):
 # - `build`: no secrets, read-only. Unsigned release APK, lint, unit tests, the minified smoke test on an emulator.

@@ -1,7 +1,8 @@
 # Releasing the Android app
 
-The signed APK is attached to each GitHub release by `.github/workflows/android-release.yml`. It runs when the
-desktop's "CI and Release" pipeline publishes a release, or by hand (Actions › Android release › Run workflow, with
+The signed APK is attached to each GitHub release by `.github/workflows/android-release.yml`. The
+desktop's "CI and Release" pipeline starts it on the tag right after it publishes a release (`GITHUB_TOKEN`
+publishes fire no `release` event, so that run's last step dispatches it). It also runs by hand (Actions › Android release › Run workflow, with
 **Use workflow from** set to the `vX.Y.Z` tag; from a branch it stops at once). It's not on the Play Store.
 
 It has two jobs, so the key is never near build or test code:
