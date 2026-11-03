@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { evaluatePermission } from '../../electron/main/services/conversation/kernel/permission-policy'
-import { isOxespaceReadOnlyTool, OXESPACE_BRIDGE_KEY, THREAD_READ_ONLY_MCP_TOOLS } from '../../electron/main/services/conversation/read-only-mcp-tools'
+import { AUTO_APPROVED_LOOKUPS, isOxespaceReadOnlyTool, OXESPACE_BRIDGE_KEY, THREAD_READ_ONLY_MCP_TOOLS } from '../../electron/main/services/conversation/read-only-mcp-tools'
 import { MCP_COVERAGE } from '../../shared/mcp-coverage'
 import type { ThreadPermissionRule, ThreadRequest } from '../../shared/types/thread'
 
@@ -18,7 +18,7 @@ const own = (tool: string) => `mcp__${OXESPACE_BRIDGE_KEY}__${tool}`
 
 describe('OXESpace read-only lookups under "Auto-approve reads"', () => {
   it('approves each listed lookup from OXESpace\'s own server, marked as the safe list', () => {
-    for (const tool of THREAD_READ_ONLY_MCP_TOOLS) {
+    for (const tool of AUTO_APPROVED_LOOKUPS) {
       expect(evaluatePermission(approval(own(tool)), root, [], {}, { readOnlyList: true }), tool)
         .toMatchObject({ decision: 'allow', safeList: true })
     }
@@ -36,7 +36,7 @@ describe('OXESpace read-only lookups under "Auto-approve reads"', () => {
   })
 
   it('asks for every lookup when the setting is off', () => {
-    for (const tool of THREAD_READ_ONLY_MCP_TOOLS) {
+    for (const tool of AUTO_APPROVED_LOOKUPS) {
       expect(evaluatePermission(approval(own(tool)), root, [], {}, { readOnlyList: false }), tool).toMatchObject({ decision: 'ask' })
     }
   })
@@ -45,6 +45,19 @@ describe('OXESpace read-only lookups under "Auto-approve reads"', () => {
     for (const tool of ['oxespace_git_change', 'oxespace_db_execute', 'oxespace_delegate_task', 'oxespace_thread_send', 'oxespace_create_worktree', 'oxespace_work_plan']) {
       expect(evaluatePermission(approval(own(tool)), root, [], {}, { readOnlyList: true }), tool).toMatchObject({ decision: 'ask' })
     }
+  })
+
+  it('reads beyond this project, an account or the team still ask, like a shell read outside the folder (SECURITY #547 M1)', () => {
+    const outside = ['oxespace_automations', 'oxespace_linear', 'oxespace_list_workspaces', 'oxespace_list_agents', 'oxespace_github', 'oxespace_skills',
+      'oxespace_mcp_servers', 'oxespace_settings', 'oxespace_usage', 'oxespace_diagnostics', 'oxespace_team_status', 'oxespace_team_inbox',
+      'oxespace_delegation_status', 'oxespace_delegation_inbox', 'oxespace_delegation_result']
+    // Still lookups a read-only conversation may call, but not approved without asking.
+    for (const tool of outside) {
+      expect(THREAD_READ_ONLY_MCP_TOOLS as readonly string[], tool).toContain(tool)
+      expect(evaluatePermission(approval(own(tool)), root, [], {}, { readOnlyList: true }), tool).toMatchObject({ decision: 'ask' })
+    }
+    // Every read-only lookup is either auto-approved or on that list: a new one is a decision, not an accident.
+    expect([...THREAD_READ_ONLY_MCP_TOOLS].filter(tool => !(AUTO_APPROVED_LOOKUPS as readonly string[]).includes(tool)).sort()).toEqual([...outside].sort())
   })
 
   it('a saved rule still decides first: a deny blocks a lookup, whatever the setting', () => {
@@ -66,7 +79,7 @@ describe('OXESpace read-only lookups under "Auto-approve reads"', () => {
         levels.set(name, [...levels.get(name) ?? [], level])
       }
     }
-    for (const tool of THREAD_READ_ONLY_MCP_TOOLS) {
+    for (const tool of AUTO_APPROVED_LOOKUPS) {
       expect(levels.get(tool), `${tool} is declared`).toBeDefined()
       expect([...new Set(levels.get(tool))], tool).toEqual(['read'])
     }
