@@ -227,6 +227,43 @@ the redesign below is 1.5.0.
 
 Visual baselines (§7) add the panel with all sections open and with the defaults, in both modes.
 
+## 7b. Conversation menu (⋯, top right)
+
+`ThreadConversationActions` already uses the app's `Menu` primitive (`src/ui/Overlay.tsx`). It looks poor because
+it uses only part of that primitive: no shortcuts, an inconsistent group label ("current" heading over one group
+only), and Archive sitting right next to Delete. The redesign keeps the primitive and its light/dark styles, adds no
+new component, and changes no action.
+
+### Grouping
+
+Three groups separated by the primitive's `separator`, no group labels (the trigger already says "Conversation
+actions"):
+
+| Group | Items, in order | Icon | Shortcut column |
+|---|---|---|---|
+| This conversation | Rename · Status · Checkpoints | pencil · info · history | `/rename` · `/status` · `/checkpoint` |
+| Move and copy | Open another conversation · Fork (Codex only) · Export · Import | folder-open · git-fork · download · upload | `/resume` · `/fork` · — · — |
+| End | Archive · *(separator)* · Delete… | archive · trash-2 | `/archive` · `/delete` |
+
+- The shortcut column uses the primitive's `shortcut` field. The value is the slash command (mono, `text-muted`), so
+  the menu also teaches the composer commands. A real key combination wins when one exists; none does today.
+- Archive is not destructive: it can be restored from Sidebar › Archived, so it uses the normal item colors.
+- **Delete is alone in its own group at the bottom** with `danger: true` (`intent-danger-fg` text and icon, hover
+  `intent-danger-bg`), and its label ends with an ellipsis because it opens a confirmation. The confirmation, where
+  Cancel is the default, does not change.
+- Disabled items (Export or Import without the API) stay visible and disabled with a tooltip saying why, never
+  removed, so the menu keeps its shape.
+
+### Spacing and look
+
+Everything here comes from the primitive. FRONTEND changes it only if it differs, and then for every menu in the app:
+28 px rows, `space-2` icon gap, 14 px icons in `text-secondary`, `space-1` vertical padding around separators,
+`radius-md`, `surface-overlay` with `elevation-3` in light mode and `border-default` in dark mode, minimum width
+220 px so the shortcut column lines up.
+
+The trigger is a 28 px icon button (`fill-hover` on hover, `fill-selected` while open, `aria-expanded`), matching
+the composer's icon buttons (§3).
+
 ## 8. Decisions for the user
 
 1. **Agent reply without a bubble** (§2.2), or a light `surface-raised` bubble on the left too? Recommended: no bubble.
