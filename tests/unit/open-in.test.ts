@@ -264,7 +264,8 @@ describe('registeredWorktree: the worktree of a conversation opens, a folder tha
     const { project, worktree } = repoWithWorktree()
     expect(registeredWorktree([project], worktree)).toBe(worktree)
     expect(registeredWorktree([join(base, 'project')], worktree)).toBeNull()
-    expect(registeredWorktree([project], project)).toBeNull()
+    // The project's own checkout is the same repository too (the base resolver already accepts it).
+    expect(registeredWorktree([project], project)).toBe(realpathSync.native(project))
   })
 
   it('refuses a folder whose .git file merely points at the repository', () => {
