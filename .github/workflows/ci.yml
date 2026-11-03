@@ -85,6 +85,8 @@ jobs:
     outputs:
       code: ${{ steps.classify.outputs.code }}
       oxequery: ${{ steps.classify.outputs.oxequery }}
+      deps: ${{ steps.classify.outputs.deps }}
+      base: ${{ steps.classify.outputs.base }}
       sha: ${{ steps.commit.outputs.sha }}
     steps:
       # Resolved once, so every later job tests the same commit: checking out a branch name in each job
@@ -121,11 +123,26 @@ jobs:
           EVENT: ${{ github.event_name }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ steps.commit.outputs.sha }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
+          # Dependency review (job dependency-review) for a change to a manifest or lockfile. It runs inside this
+          # workflow, not on its own, so its result is part of CI result: one required check that reports on every
+          # pull request (docs-only too) and on the merge train's dispatched runs, where a pull_request-only
+          # workflow never starts. The base is where the head left main.
+          manifests='^(package\.json|package-lock\.json|mobile/.*\.gradle(\.kts)?|mobile/.*libs\.versions\.toml|\.github/workflows/.*)$'
           if [ "$EVENT" != "pull_request" ]; then
             echo "code=true" >> "$GITHUB_OUTPUT"; echo "oxequery=true" >> "$GITHUB_OUTPUT"
-            echo "not a pull request: everything runs"; exit 0
+            deps=false; base=
+            compare=$(gh api "repos/$REPO/compare/$DEFAULT_BRANCH...$SHA" --jq '{base: .merge_base_commit.sha, ahead: .ahead_by, files: [.files[]?.filename]}')
+            if [ "$(echo "$compare" | jq .ahead)" != "0" ]; then
+              base=$(echo "$compare" | jq -r .base)
+              # The compare API lists at most 300 files: past that, review rather than guess.
+              if [ "$(echo "$compare" | jq '.files | length')" -ge 300 ] || echo "$compare" | jq -r '.files[]' | grep -Eq "$manifests"; then deps=true; fi
+            fi
+            echo "deps=$deps" >> "$GITHUB_OUTPUT"; echo "base=$base" >> "$GITHUB_OUTPUT"
+            echo "not a pull request: everything runs; dependency review: $deps"; exit 0
           fi
           files=$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename')
           echo "$files" | sed 's/^/  /'
@@ -133,7 +150,31 @@ jobs:
           if echo "$files" | grep -Eqv '^(docs/|\.claude/|.*\.md$)'; then code=true; fi
           if echo "$files" | grep -Eq '^(electron/main/services/(oxequery|oxepod)/|electron/main/workers/[^/]*oxequery|shared/[^/]*oxequery|shared/types/[^/]*oxequery|shared/(sqlText|mongoQueryText)\.ts$|tests/live/|tests/([^/]+/)?[^/]*oxequery|scripts/[^/]*oxequery|\.github/workflows/ci\.yml$)'; then oxequery=true; fi
           echo "code=$code" >> "$GITHUB_OUTPUT"; echo "oxequery=$oxequery" >> "$GITHUB_OUTPUT"
-          echo "code=$code oxequery=$oxequery"
+          deps=false; if echo "$files" | grep -Eq "$manifests"; then deps=true; fi
+          echo "deps=$deps" >> "$GITHUB_OUTPUT"
+          echo "code=$code oxequery=$oxequery deps=$deps"
+
+  # Supply chain gate (SRE-08, docs/ci-cd.md): a change that adds or changes a dependency is checked against the
+  # GitHub Advisory Database before it merges. It looks only at what the change brings, so an advisory already on
+  # main doesn't block unrelated work; Dependabot covers those. A high or critical advisory fails it, and with it
+  # CI result (decisions.md #13; the Dependency graph is on).
+  dependency-review:
+    name: Dependency review
+    needs: changes
+    if: needs.changes.outputs.deps == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          # On a pull request the action takes its base and head from the event; on a dispatched run (the merge
+          # train's), from where the tested commit left main.
+          base-ref: ${{ github.event_name != 'pull_request' && needs.changes.outputs.base || '' }}
+          head-ref: ${{ github.event_name != 'pull_request' && needs.changes.outputs.sha || '' }}
+          # High and critical advisories block; lower ones are listed in the job summary.
+          fail-on-severity: high
 
   # Stage 1, the fast signal (Linux only, about 6 minutes): plan, audits, typecheck, lint with the file-size
   # guard, the migration-numbering guard, and the build with its bundle budgets. These checks do not depend on
@@ -1009,7 +1050,7 @@ jobs:
   # E2E shards' blob reports into one HTML report per platform (best effort; the shards' blobs are kept anyway).
   ci-result:
     name: CI result
-    needs: [changes, quick, unit, e2e, package, oxequery-live, oxequery-live-versions, memory-compatibility, release]
+    needs: [changes, dependency-review, quick, unit, e2e, package, oxequery-live, oxequery-live-versions, memory-compatibility, release]
     if: ${{ always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -1068,12 +1109,13 @@ jobs:
           const pr = process.env.EVENT_NAME === 'pull_request'
           const code = needs.changes.outputs?.code === 'true'
           const oxequery = needs.changes.outputs?.oxequery === 'true'
+          const deps = needs.changes.outputs?.deps === 'true'
           const problems = []
           for (const [job, { result }] of Object.entries(needs)) {
             console.log(`${job}: ${result}`)
             if (result === 'failure' || result === 'cancelled') problems.push(`${job} ${result}`)
           }
-          const required = ['changes']
+          const required = ['changes', ...(deps ? ['dependency-review'] : [])]
           if (!pr) required.push('quick', 'unit', 'e2e', 'oxequery-live', 'oxequery-live-versions', 'memory-compatibility')
           else if (code) required.push('quick', 'unit', 'e2e', ...(oxequery ? ['oxequery-live', 'oxequery-live-versions'] : []))
           for (const job of required) if (needs[job].result !== 'success') problems.push(`${job} should have passed and is ${needs[job].result}`)
@@ -1126,6 +1168,9 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: write
+      # Starts android-release.yml after publishing (the last step): a release published with GITHUB_TOKEN fires no
+      # `release` event, so that workflow would never start on its own.
+      actions: write
       # Build provenance: GitHub signs a statement that these files came from this workflow run.
       id-token: write
       attestations: write
@@ -1329,3 +1374,30 @@ jobs:
           }
           Write-Host "Release is live: $($release.url)"
           Write-Host "Assets: $($assetNames -join ', ')"
+
+      # GitHub starts no workflow for an event caused by GITHUB_TOKEN, so publishing above fires no `release` event and
+      # android-release.yml (signed APK) would not run; v1.4.0's was started by hand. A workflow_dispatch is the one
+      # event GITHUB_TOKEN may cause, so start it here, on the tag (its environment allows only v* tags and still waits
+      # for its reviewer). Only a vX.Y.Z tag: that workflow refuses any other. Skipped when a run for this tag already
+      # exists (someone started it by hand), since attaching the APK twice is refused anyway.
+      - name: Start the Android release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:RELEASE_TAG -notmatch '^v\d+\.\d+\.\d+$') {
+            Write-Host "Android release: $env:RELEASE_TAG is not vX.Y.Z, not started."
+            exit 0
+          }
+          $runs = gh run list --workflow android-release.yml --branch $env:RELEASE_TAG --json databaseId,status,conclusion --limit 20 | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "Failed to list Android release runs for $env:RELEASE_TAG" }
+          $live = @($runs | Where-Object { $_.status -ne 'completed' -or $_.conclusion -eq 'success' })
+          if ($live.Count -gt 0) {
+            Write-Host "Android release for $env:RELEASE_TAG already started (run $($live[0].databaseId)), not started again."
+            exit 0
+          }
+          gh workflow run android-release.yml --ref $env:RELEASE_TAG
+          if ($LASTEXITCODE -ne 0) { throw "Failed to start android-release.yml on $env:RELEASE_TAG" }
+          Write-Host "Android release started on $env:RELEASE_TAG; it waits for approval in the android-release environment."
