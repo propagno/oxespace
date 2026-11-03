@@ -52,6 +52,20 @@ test('the side chat asks a read-only copy, shows its cost, and leaves the conver
     }, sideId)
     await expect(drawer.getByTestId('thread-side-chat-cost')).toHaveText('Cost so far: ≈ US$ 0.03 · 5k tokens')
     await expect(drawer.getByRole('status')).toHaveCount(0)
+
+    // T59: the copy runs in the ordinary mode, not plan, with every other layer kept.
+    type SideLog = { starts: Record<string, unknown>[]; responses: { tool: string; response: { decision?: string } }[] }
+    const sideLog = () => app.evaluate(() => (globalThis as typeof globalThis & { __e2eSideChat?: unknown }).__e2eSideChat as SideLog)
+    const started = (await sideLog()).starts
+    expect(started).toHaveLength(1)
+    expect(started[0]).toMatchObject({ mode: 'default', access: 'read-only', approvalPolicy: 'on-request', networkAccess: false, hooksEnabled: false })
+    // Asked for a change, the provider requests Edit, Write and Bash: each is declined and none is shown.
+    await input.fill('Fix the typo in README')
+    await page.keyboard.press('Enter')
+    await expect(log.getByText('E2E side chat reply.')).toHaveCount(2)
+    await expect.poll(async () => (await sideLog()).responses.map(item => `${item.tool}:${item.response.decision}`)).toEqual(['Edit:decline', 'Write:decline', 'Bash:decline'])
+    await expect(page.getByText(/Allow (Edit|Write|Bash)\?/)).toHaveCount(0)
+    await expect(page.getByRole('alertdialog')).toHaveCount(0)
     // Nothing reached the conversation.
     expect(await app.evaluate(() => ((globalThis as typeof globalThis & { __threadSends?: unknown[] }).__threadSends ?? []).length)).toBe(0)
     await page.waitForTimeout(300)
