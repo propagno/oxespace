@@ -10,8 +10,10 @@ import { launchReal, openRepo, quitReal, realProfile } from './real-app'
  *   1. the approval is the topmost layer and Settings stays open (mounted and visible) under it;
  *   2. once answered, the focus is back on the same control in Settings, on the same page, at the same scroll;
  *   3. Esc closes only the approval, as Deny; Settings stays open.
- * RED until the FRONTEND PR lands (today the approval takes the focus and Settings closes). Non-blocking: acceptance
- * runs only on dispatch.
+ * GREEN on main (48b767d4), Linux and Windows: FRONTEND found no bug and #548 pins the three points with the approvals
+ * double; this is the same check on the REAL app with real requests (an agent's tool call and a B7.4 policy change).
+ * A role query cannot see Settings while the approval is up (the modal aria-hides the layer under it), so Settings is
+ * found by CSS. Non-blocking: acceptance runs only on dispatch.
  *
  * The approval is real: a script started in the pane's own terminal calls the internal MCP with that pane's execution
  * credentials, as an agent in the pane would (oxespace_skills_change create, confirm level). It is denied both times,
