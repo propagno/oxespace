@@ -184,12 +184,14 @@ for (const variant of [
 }
 
 /**
- * Advisory (never blocks, as F7.3/#391): a press while the app is still starting, armed as soon as the mode buttons
- * show, with no wait for a quiet window. Startup work still queued lands before the first paint here; removing it and
- * making this case blocking is T45 (1.4.1). The timings go to the test output and the CI summary.
+ * T45 (1.4.1): a press while the app is still starting, armed as soon as the mode buttons show, with no wait for a quiet
+ * window. Blocking since T45, on the same rules as a press in a settled app: at normal speed selected and busy within
+ * 50 ms; at CPU ×6, selected and busy in the first painted frame, that frame within 800 ms. Measured on main
+ * 48b767d4 before this: 10 / 19 ms (ubuntu) and 12 / 32 ms (windows); the 1.8 s that opened T45 is gone (T52 and the
+ * deferrals after it). The timings still go to the test output.
  */
 for (const variant of [{ name: 'normal speed', cpu: 1 }, { name: 'slow CPU ×6', cpu: 6 }] as const) {
-  test(`F7.2 advisory: a click during startup (${variant.name})`, async () => {
+  test(`F7.2: a click during startup follows the press rules (${variant.name})`, async () => {
     test.setTimeout(120_000)
     const { app, page } = await launchApp({ locale: 'en-US' })
     try {
@@ -205,9 +207,14 @@ for (const variant of [{ name: 'normal speed', cpu: 1 }, { name: 'slow CPU ×6',
       const selected = rec.frames.find(f => f.pressed && (f.busy || f.newUp))?.t
       const line = `startup click (${variant.name}): selected ${selected?.toFixed(0) ?? 'never'} ms, busy ${rec.frames.find(f => f.busy)?.t.toFixed(0) ?? 'never'} ms, first frame ${rec.frames[0]?.t.toFixed(0) ?? 'none'} ms, commit ${commitAt(rec).toFixed(0)} ms`
       console.log(`[F72-STARTUP] ${line}`)
-      // GitHub annotation: shown in the run's summary, never a failure (T45 makes it one).
-      console.log(`::notice title=F7.2 advisory (T45)::${line}`)
-      test.info().annotations.push({ type: 'advisory', description: line })
+      test.info().annotations.push({ type: 'timings', description: line })
+      expect(commitAt(rec), 'the new view commits').toBeLessThan(Infinity)
+      const firstFrame = rec.frames[0]
+      if (variant.cpu === 1) expect(selected ?? Infinity, 'selected and busy within 50 ms').toBeLessThanOrEqual(50)
+      else {
+        expect(Boolean(firstFrame?.pressed && (firstFrame.busy || firstFrame.newUp)), 'selected and busy in the first frame after the press').toBe(true)
+        expect(firstFrame?.t ?? Infinity, 'the first frame after the press within 800 ms').toBeLessThanOrEqual(800)
+      }
     } finally { await app.close() }
   })
 }
