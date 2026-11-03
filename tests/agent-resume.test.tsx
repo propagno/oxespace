@@ -131,6 +131,16 @@ describe('the status hooks question', () => {
   })
 })
 
+describe('T54 · a session that skipped permissions, resumed with the setting off', () => {
+  it('is a warning that says it now asks for permission and where to change that', () => {
+    const resumed: PaneAgentResume = { outcome: 'resumed', agent: 'claude', sessionId: '0199a1b2', note: { code: 'agents.resume.bypassWithheld', params: {} } }
+    render(<PaneResumeMarker paneId="x" outcome={resumed} />)
+    const marker = screen.getByTestId('pane-resume-marker')
+    expect(marker).toHaveAttribute('data-outcome', 'resumed-asking')
+    expect(marker).toHaveAccessibleName('Resumed the earlier Claude session. Resumed without skipping permissions, as the session had. To resume that way, turn it on in Settings › Terminal.')
+  })
+})
+
 describe('a session that would not load', () => {
   it('is a warning with its reason, unlike a fresh start the person chose', () => {
     const failed: PaneAgentResume = { outcome: 'notResumed', agent: 'claude', sessionId: '0199a1b2', message: { code: 'agents.resume.failedToLoad', params: {} } }

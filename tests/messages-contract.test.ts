@@ -66,6 +66,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'agents.resume.disabled': [],
   'agents.resume.startedFresh': [],
   'agents.resume.failedToLoad': [],
+  'agents.resume.bypassWithheld': [],
   'agents.session.notFound': [],
   'incident.window.crashed': [],
   'incident.window.rendererGone': [],
