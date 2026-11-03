@@ -299,7 +299,9 @@
     "lines": "{{lines}} lines",
     "opacity": "Background opacity",
     "translucent": "translucent",
-    "globalDefaults": "<strong>Global</strong> defaults. Workspaces can override them."
+    "globalDefaults": "<strong>Global</strong> defaults. Workspaces can override them.",
+    "resumeBypass": "Resume sessions with permissions skipped, when the session was",
+    "resumeBypassHint": "A Claude Code session started with its permission prompts skipped resumes the same way after a restart or Restore session. Off: it resumes asking for permission."
   },
   "hooks": {
     "title": "Agent status hooks",

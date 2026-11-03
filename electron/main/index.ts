@@ -208,7 +208,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       agentState.hook(event.paneId, hookAgent, event.state)
       // Remember the native session so the pane can reopen it after a restart; an ended session is forgotten.
       if (event.state === 'ended') paneAgentSessions.clear(event.paneId)
-      else if (event.sessionId) paneAgentSessions.record(event.paneId, hookAgent, event.sessionId)
+      else if (event.sessionId) paneAgentSessions.record(event.paneId, hookAgent, event.sessionId, 'hook', event.permissionMode)
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send(IPC_CHANNELS.agentHooks.onStatus, event)
       }
