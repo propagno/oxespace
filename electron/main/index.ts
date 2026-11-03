@@ -339,7 +339,9 @@ async function registerIpcHandlers(): Promise<() => void> {
     observed: thread => delegatedThreadObserver.current?.(thread),
     bridge: join(app.getPath('userData'), 'bin', 'oxespace-mcp.cjs'),
     prepare: async thread => {
-      const meta = db.prepare('SELECT port, token FROM internal_mcp_meta LIMIT 1').get() as { port: number; token: string } | undefined
+      // The internal MCP starts after first paint: a conversation sent in the first seconds waits for it (bounded).
+      const { waitForInternalMcp } = await import('./mcp-internal/ready')
+      const meta = await waitForInternalMcp(() => db.prepare('SELECT port, token FROM internal_mcp_meta LIMIT 1').get() as { port: number; token: string } | undefined)
       if (!meta) throw Error('Internal MCP is still starting. Retry shortly.')
       const nativeHooks = thread.hooksEnabled === true && (thread.access === 'workspace-write' || thread.access === 'full-access')
       const memory = await memoryService.prepareLaunch({ paneId: `thread:${thread.id}`, workspaceId: thread.workspaceId, cwd: thread.rootPath,
