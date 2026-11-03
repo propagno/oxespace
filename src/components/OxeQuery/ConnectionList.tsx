@@ -61,7 +61,7 @@ export function ConnectionList({ activeTab }: { activeTab: string }): ReactEleme
     {pendingDelete && <ConfirmDialog danger title={t('connections.deleteTitle', { name: pendingDelete.name })} confirmLabel={t('common.delete')} cancelLabel={t('common.cancel')}
       description={t('connections.deleteDescription')}
       onCancel={() => setPendingDelete(null)} onConfirm={() => void remove(pendingDelete.id)} />}
-    {connections.length === 0 && !connectionsError && <EmptyState compact title={t('connections.emptyTitle')} actions={<Button size="sm" onClick={() => store().openDialog(null)}>{t('connections.add')}</Button>}>{t('connections.emptyText')}</EmptyState>}
+    {connections.length === 0 && !connectionsError && <EmptyState compact title={t('connections.emptyTitle')} actions={<Button size="sm" onClick={() => store().openDialog(null)}>{t('connections.new')}</Button>}>{t('connections.emptyText')}</EmptyState>}
     {search.trim() && sections.length === 0 && <p className="oq-muted" role="status">{t('common.noMatch', { text: search.trim() })}</p>}
     {sections.map(section => {
       const headed = sections.length > 1 || section.id === 'results' || section.id.startsWith('group:')

@@ -525,6 +525,7 @@
   box-shadow: 0 12px 28px rgb(0 0 0 / 45%);
 }
 
+.ws-group-context-separator { height: 1px; margin: 4px 0; background: var(--border-default); }
 .ws-group-context-menu button {
   width: 100%;
   display: inline-flex;

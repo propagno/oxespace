@@ -119,8 +119,24 @@ export type MenuEntry =
   /** A nested menu: Right or Enter opens it, Left closes it. Keep to one level. */
   | { type: 'submenu'; label: string; icon?: ReactNode; items: MenuEntry[]; disabled?: boolean; testId?: string }
 
+/**
+ * A destructive item stands apart (G-08/P-01): a separator goes before the first danger item of a run when the entry
+ * above it is not already a separator or a label.
+ */
+export function withDangerSeparators(items: MenuEntry[]): MenuEntry[] {
+  const out: MenuEntry[] = []
+  items.forEach((item, index) => {
+    const before = out.at(-1)
+    const danger = (entry: MenuEntry | undefined): boolean => Boolean(entry && (entry.type === undefined || entry.type === 'item') && entry.danger)
+    if (index > 0 && danger(item) && !danger(before) && before?.type !== 'separator' && before?.type !== 'label') out.push({ type: 'separator' })
+    out.push(item)
+  })
+  return out
+}
+
 /** The entries of a dropdown menu, shared by Menu and AnchoredMenu. */
-function menuEntries(items: MenuEntry[]): ReactNode {
+function menuEntries(entries: MenuEntry[]): ReactNode {
+  const items = withDangerSeparators(entries)
   return items.map((item, index) => {
     if (item.type === 'separator') return <RadixMenu.Separator key={index} className={styles.menuSeparator} />
     if (item.type === 'label') return <RadixMenu.Label key={index} className={styles.menuLabel}>{item.label}</RadixMenu.Label>
