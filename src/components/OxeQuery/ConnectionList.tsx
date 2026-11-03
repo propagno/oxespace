@@ -15,8 +15,10 @@ export function ConnectionList({ activeTab }: { activeTab: string }): ReactEleme
   const { t } = useTranslation('oxequery')
   const connections = useOxeQueryStore(state => state.connections)
   const connectionsError = useOxeQueryStore(state => state.connectionsError)
-  const [search, setSearch] = useState('')
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
+  // Kept in the store: collapsing the sidebar unmounts this list, and its folded sections and search came back reset (T61).
+  const search = useOxeQueryStore(state => state.connectionSearch), setSearch = useOxeQueryStore(state => state.setConnectionSearch)
+  const folded = useOxeQueryStore(state => state.foldedSections)
+  const collapsed = useMemo(() => new Set(folded), [folded])
   const [failure, setFailure] = useState('')
   const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string; ephemeral: boolean } | null>(null)
   const sections = useMemo(() => organize(connections, search), [connections, search])
@@ -30,7 +32,7 @@ export function ConnectionList({ activeTab }: { activeTab: string }): ReactEleme
     setPendingDelete(null)
     try { await oq('connections.delete', { id }); store().forgetConnection(id) } catch (cause) { setFailure(errorMessage(cause)) }
   }
-  const toggleSection = (id: string): void => setCollapsed(current => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next })
+  const toggleSection = (id: string): void => store().toggleSection(id)
 
   const row = (connection: OxeQueryConnection, section: string): ReactElement => <div key={`${section}:${connection.id}`} className="oq-connection-row">
     <button type="button" className="oq-nav-item" aria-current={activeTab === `connection:${connection.id}` ? 'page' : undefined}
