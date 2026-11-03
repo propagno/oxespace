@@ -260,7 +260,7 @@ describe('Thread workspace UI', () => {
     expect(status()).toHaveTextContent('Running')
     expect(screen.getByLabelText('Unread conversation')).toBeVisible()
     act(() => useThreadStore.setState({ threads: [{ ...f.snapshot.thread, status: 'approval' }] }))
-    expect(status()).toHaveTextContent('Needs input')
+    expect(status()).toHaveTextContent('Needs you')
     act(() => useThreadStore.setState({ threads: [{ ...f.snapshot.thread, status: 'idle', lastTurnStatus: 'completed' }] }))
     expect(status()).toHaveTextContent('Completed')
   })

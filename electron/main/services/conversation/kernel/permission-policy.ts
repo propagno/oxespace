@@ -23,6 +23,7 @@ import { readsOutsideProject } from '../shell-reads'
 import { checkWorkspacePath, type PathSafetyOptions } from '../path-safety'
 import { commandMentionsProtected, commandRewritesTracked, commandWritesProtected, isPlainSafeRead, protectedConfigKind, protectedConfigNote, protectedConfigReason, PROTECTED_CONFIG_WARNING, PROTECTED_CONFIG_WARNING_NOTE, rewritesTrackedNote, rewritesTrackedReason } from './protected-config'
 import type { MainMessage } from '../../../../../shared/messages'
+import { isOxespaceReadOnlyTool } from '../read-only-mcp-tools'
 
 type Decision = ThreadRequestPolicy['decision']
 
@@ -101,12 +102,17 @@ function toolRuleMatches(pattern: string, server: string, tool: string): boolean
   return ruleServer === server && (ruleTool === '*' || ruleTool === tool)
 }
 
-/** Allow or deny rules for an MCP tool call; anything unruled asks, offering the tool or its server. */
-function evaluateTool(server: string, tool: string, rules: ThreadPermissionRule[]): ThreadRequestPolicy {
+/**
+ * Allow or deny rules for an MCP tool call. With no rule, one of OXESpace's own read-only lookups (its server and
+ * name together) is approved while "Auto-approve reads" is on (T53); anything else asks, offering the tool or its
+ * server. Organization policy is checked before this (thread-policy.ts), so a tool it blocks never gets here.
+ */
+function evaluateTool(server: string, tool: string, rules: ThreadPermissionRule[], readOnlyList: boolean): ThreadRequestPolicy {
   const toolRules = rules.filter(rule => rule.kind === 'tool')
   const denied = toolRules.find(rule => rule.decision === 'deny' && toolRuleMatches(rule.pattern, server, tool))
   if (denied) return { decision: 'deny', reasons: [`The tool ${server}/${tool} is blocked by the rule ${denied.pattern}.`] }
   if (toolRules.some(rule => rule.decision === 'allow' && toolRuleMatches(rule.pattern, server, tool))) return { decision: 'allow', reasons: ['Covered by the project permission rules.'] }
+  if (readOnlyList && isOxespaceReadOnlyTool(server, tool)) return { decision: 'allow', reasons: ['Read-only OXESpace lookup, approved by "Auto-approve reads".'], safeList: true }
   return { decision: 'ask', reasons: [`The tool ${server}/${tool} is not covered by a rule.`], suggestions: [
     { kind: 'tool', pattern: `${server}/${tool}`, label: `the tool ${tool} of ${server}` },
     { kind: 'tool', pattern: `${server}/*`, label: `every tool of ${server}` }
@@ -124,7 +130,7 @@ export function evaluatePermission(
   const command = request.command?.trim()
   const paths = (request.paths ?? []).filter(Boolean)
   const mcp = mcpToolName(request.toolName)
-  if (mcp && !command && !paths.length) return evaluateTool(mcp.server, mcp.tool, rules)
+  if (mcp && !command && !paths.length) return evaluateTool(mcp.server, mcp.tool, rules, settings.readOnlyList !== false)
   // Nothing OXESpace can reason about (a web fetch, a native tool): the provider's prompt stands.
   if (!command && !paths.length) return undefined
 
