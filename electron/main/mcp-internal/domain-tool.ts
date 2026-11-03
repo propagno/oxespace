@@ -45,7 +45,9 @@ const fallbackActions = new AgentActions()
 /**
  * Resolves the caller. A live execution (a Code pane or a Thread started by
  * OXESpace) is authoritative; a caller without one may only read, scoped to the
- * workspace it names or the active one.
+ * workspace it names or the active one. A Thread whose execution cannot be
+ * verified (it ended, or its credentials do not match) is refused: it never
+ * falls back to the active Code workspace, which is not its project (T56).
  */
 export async function resolveScope(ctx: ToolContext): Promise<ActionScope> {
   let execution: ReturnType<NonNullable<ToolContext['executions']>['authenticate']> | undefined
@@ -57,7 +59,9 @@ export async function resolveScope(ctx: ToolContext): Promise<ActionScope> {
       actor: { key: execution.id, label: `${execution.owner.kind}:${execution.owner.id}`, workspaceId: execution.workspaceId, authenticated: true, requester: requesterFor(execution.owner) }
     }
   }
-  const named = ctx.workspaceId && !ctx.workspaceId.startsWith('thread:') ? ctx.workspaceServ.get(ctx.workspaceId) : null
+  // The same refusal as requireProjectScope (tool-handlers.ts).
+  if (ctx.workspaceId?.trim().toLowerCase().startsWith('thread:')) throw new ActionRefused('This Thread execution could not be verified. Start a new turn and try again.', 'no-execution')
+  const named = ctx.workspaceId ? ctx.workspaceServ.get(ctx.workspaceId) : null
   const workspace = named ?? ctx.workspaceServ.list().find(item => item.isActive === true) ?? null
   if (!workspace) throw new ActionRefused('No workspace is open in OXESpace. Open the project first.', 'no-workspace')
   return {
