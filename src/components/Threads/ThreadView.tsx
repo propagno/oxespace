@@ -33,7 +33,7 @@ import { ThreadTimelineWindow } from './ThreadTimeline'
 import { deriveThreadComposerState } from './threadComposerState'
 import { hasDesktopCommand } from '../../../shared/threadDesktopCommands'
 import { useUIStore } from '../../store/ui.store'
-import { useThreadWorkbenchStore, type ThreadPanel } from '../../store/thread-workbench.store'
+import { CONVERSATION_MIN_WIDTH, REVIEW_MIN_WIDTH, useThreadWorkbenchStore, type ThreadPanel } from '../../store/thread-workbench.store'
 import { authText, ThreadMessageBody } from './ThreadMessageRow'
 import { ThreadHeader } from './ThreadHeader'
 import { useThreadShortcuts } from './useThreadShortcuts'
@@ -74,7 +74,9 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const workbench = useRef<HTMLDivElement>(null)
   const [availableWidth, setAvailableWidth] = useState(0)
   const review = useThreadWorkbenchStore(state => shownId ? state.views[shownId] : undefined)
-  const drawer = availableWidth > 0 && availableWidth < 1120
+  // The panel sits beside the conversation, as OxeCode's do, whenever both keep their minimum width; only a workbench
+  // too narrow for that gets the drawer over the conversation.
+  const drawer = availableWidth > 0 && availableWidth < CONVERSATION_MIN_WIDTH + REVIEW_MIN_WIDTH
   const draft = useThreadStore(state => snapshot ? state.drafts[snapshot.thread.id] ?? '' : '')
   const attachments = useThreadStore(state => snapshot ? state.attachments[snapshot.thread.id] ?? NO_ATTACHMENTS : NO_ATTACHMENTS)
   const [error, setError] = useState(''), [pending, setPending] = useState(false)

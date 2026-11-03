@@ -17,7 +17,7 @@
  */
 import { createHash, randomUUID } from 'node:crypto'
 import { execFile } from 'node:child_process'
-import { closeSync, openSync, readFileSync, statSync, unlinkSync } from 'node:fs'
+import { closeSync, lstatSync, openSync, readFileSync, statSync, unlinkSync } from 'node:fs'
 import { basename, dirname, join, relative, resolve, sep } from 'node:path'
 import { promisify } from 'node:util'
 import type { AppDatabase } from '../../db'
@@ -27,7 +27,7 @@ import type { ApprovalRequest } from '../../../../shared/types/approvals'
 import { CONFIGURABLE_MCP_TOOL_GROUPS, type ConfigurableMcpToolGroup, type McpToolGroupMode } from '../../../../shared/types/mcp-tools'
 import type { ApprovalDraft, ApprovalOutcome } from '../approvals/approval-center'
 import { recordIncident } from '../diagnostics/incident-sink'
-import { canonicalPath, gitCommonDir } from '../git-common-dir'
+import { canonicalPath, checkoutOf, gitCommonDir } from '../git-common-dir'
 import { MainRefusal } from '../main-refusal'
 import { execGitSync } from '../../utils/safe-git'
 import { trustKey } from '../repo-config/trust'
@@ -265,21 +265,13 @@ export async function managedIsProtected(path: string, platform: NodeJS.Platform
 }
 
 /**
- * Whether a linked worktree is the one its repository knows (review N3): its .git file names a folder under
- * `<common>/worktrees/`, and that folder's `gitdir` names this worktree's .git back. Both are the user's files, so this is
- * defense in depth; anything else is an unknown primary (the strict rule).
+ * Whether a linked worktree is the one its repository knows (review N3): the same check the file system channels use
+ * (git-common-dir `checkoutOf`, SECURITY #510): its .git file names a folder under `<common>/worktrees/`, that folder's
+ * `gitdir` names this worktree's .git back, a `.git` that is a link is refused, and no pointer reaches a network share.
+ * Anything else is an unknown primary (the strict rule).
  */
 function backLinked(root: string, common: string): boolean {
-  try {
-    const dotGit = join(root, '.git')
-    const match = /^gitdir:\s*(.+)$/m.exec(readFileSync(dotGit, 'utf8'))
-    if (!match) return false
-    const gitDir = resolve(root, match[1].trim())
-    if (canonicalPath(dirname(gitDir)) !== canonicalPath(join(common, 'worktrees'))) return false
-    return canonicalPath(resolve(gitDir, readFileSync(join(gitDir, 'gitdir'), 'utf8').trim())) === canonicalPath(dotGit)
-  } catch {
-    return false
-  }
+  return checkoutOf(root, common)
 }
 
 /**
@@ -613,7 +605,9 @@ export class AcceptedConfig {
       const key = root ? this.projectKey(root) : null
       let found: { key: string; root: string } | 'unknown' | null = root && key && key !== subject.key ? (backLinked(subject.root, common!) ? { key, root } : 'unknown') : null
       // A .git file is a linked worktree; one that does not resolve to a repository is not a fresh project.
-      if (!found && !common) { try { if (statSync(join(subject.root, '.git')).isFile()) found = 'unknown' } catch { /* no .git: not a worktree */ } }
+      // lstat, never stat: a `.git` link to a share would be followed (SECURITY #520 M1). A link is not a file: the
+      // strict rule too, like any .git this cannot verify.
+      if (!found && !common) { try { const entry = lstatSync(join(subject.root, '.git')); if (entry.isFile() || entry.isSymbolicLink()) found = 'unknown' } catch { /* no .git: not a worktree */ } }
       this.primaries.set(subject.key, found)
     }
     return this.primaries.get(subject.key) ?? null

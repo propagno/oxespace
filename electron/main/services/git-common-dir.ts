@@ -1,5 +1,5 @@
-import { existsSync, lstatSync, readFileSync, realpathSync, statSync } from 'node:fs'
-import { dirname, isAbsolute, join, resolve } from 'node:path'
+import { lstatSync, readFileSync, readlinkSync, realpathSync, statSync } from 'node:fs'
+import { dirname, isAbsolute, join, parse, resolve } from 'node:path'
 import type { SessionLocation } from '../../../shared/types/agent-hooks'
 
 /**
@@ -12,6 +12,9 @@ export function gitCommonDir(root: string): string | null {
   if (!localPointer(root)) return null
   try {
     const dotGit = join(root, '.git')
+    // A `.git`, a pointer or a `commondir` that is a link to a share would be followed by stat/read/realpath: each path
+    // is walked first, reading links without following them (SECURITY, #518 review).
+    if (!staysLocal(dotGit)) return null
     const stat = statSync(dotGit)
     if (stat.isDirectory()) return normalize(realpathSync.native(dotGit))
     if (!stat.isFile()) return null
@@ -21,11 +24,14 @@ export function gitCommonDir(root: string): string | null {
     if (!match || !localPointer(match[1].trim())) return null
     const gitDir = resolve(root, match[1].trim())
     let common = gitDir
+    const marker = join(gitDir, 'commondir')
+    if (!staysLocal(marker)) return null
     try {
-      const named = readFileSync(join(gitDir, 'commondir'), 'utf8').trim()
+      const named = readFileSync(marker, 'utf8').trim()
       if (!localPointer(named)) return null
       common = resolve(gitDir, named)
     } catch { /* not a linked worktree */ }
+    if (!staysLocal(common)) return null
     return normalize(realpathSync.native(common))
   } catch {
     return null
@@ -38,15 +44,77 @@ export function gitCommonDir(root: string): string | null {
  * the same folder compares unequal. Falls back to the resolved path when the folder does not exist.
  */
 export function canonicalPath(path: string): string {
-  if (!localPointer(path)) return normalize(path).replace(/\/+$/, '')
+  if (!localPointer(path) || !staysLocal(path)) return normalize(path).replace(/\/+$/, '')
   try { return normalize(realpathSync.native(path)) } catch { return normalize(resolve(path)).replace(/\/+$/, '') }
 }
 
 /** A path a `.git` pointer may name: never a UNC share or a device path (`\\server\…`, `//server/…`, `\\?\…`). */
 const localPointer = (pointer: string): boolean => !/^[\\/]{2}/.test(pointer)
 
-/** The real path of `path` in compare form, or null when it does not exist. */
+/** Links followed by hand in one walk, so a cycle ends. */
+const MAX_LINKS = 40
+
+/**
+ * A link target the walk may follow by hand. On Windows only a drive path (`C:\…`) or a plain relative one: never a
+ * UNC share, and never a device or NT-namespace form (`\\?\…`, `\??\GLOBALROOT\…`, `\\.\…`, `\Device\…`), which
+ * readlink returns as written and which reach the network redirector (SECURITY #520 H1). Elsewhere, anything but `//`.
+ */
+function localTarget(target: string, platform: NodeJS.Platform = process.platform): boolean {
+  if (!target || target.includes('\0')) return false
+  if (platform !== 'win32') return !target.startsWith('//')
+  if (/[?*"<>|]/.test(target)) return false
+  if (/^[A-Za-z]:[\\/]/.test(target)) return true
+  return !/^[\\/]/.test(target) && !target.includes(':')
+}
+
+/**
+ * The real, link-free path of `path`, resolved by hand so that reaching it stays on this machine; null when it would
+ * not. Every component is lstat'ed and every link on the way read with readlink, which touches only the link, never
+ * its target. A link naming a share or a device path, too many links, or a component after a link that cannot be
+ * checked is refused before stat, read or realpath would follow it there (and, on Windows, hand that host the
+ * person's credentials). A link's relative target is resolved from the link's real folder, as Windows does
+ * (SECURITY #520 H2). A missing last component, or a missing folder before any link, ends the walk: nothing past it
+ * can be reached.
+ */
+function localReal(path: string, budget = { links: MAX_LINKS }): string | null {
+  const full = resolve(path)
+  if (!localPointer(full)) return null
+  const { root } = parse(full)
+  const parts = full.slice(root.length).split(/[\\/]+/).filter(Boolean)
+  let current = root
+  let followed = false
+  for (let index = 0; index < parts.length; index++) {
+    const next = join(current, parts[index])
+    let link: boolean
+    try { link = lstatSync(next).isSymbolicLink() } catch (error) {
+      // Only a component that is really not there ends the walk. A denied lstat (an ACL the agent can set on its own
+      // folders) does not stop stat from crossing the folder to a link behind it (SECURITY #520 re-review M).
+      const code = (error as NodeJS.ErrnoException).code
+      if (code !== 'ENOENT' && code !== 'ENOTDIR') return null
+      if (followed && index < parts.length - 1) return null
+      return join(next, ...parts.slice(index + 1))
+    }
+    if (!link) { current = next; continue }
+    if (--budget.links < 0) return null
+    let target: string
+    try { target = readlinkSync(next) } catch { return null }
+    if (!localTarget(target)) return null
+    const real = localReal(resolve(current, target), budget)
+    if (real === null) return null
+    current = real
+    followed = true
+  }
+  return current
+}
+
+/** Whether reaching `path` stays on this machine (see `localReal`). */
+export function staysLocal(path: string): boolean {
+  return localReal(path) !== null
+}
+
+/** The real path of `path` in compare form, or null when it does not exist or is reached through a share. */
 function realOf(path: string): string | null {
+  if (!staysLocal(path)) return null
   try { return normalize(realpathSync.native(path)) } catch { return null }
 }
 
@@ -59,7 +127,7 @@ function realOf(path: string): string | null {
  * A main checkout made with `--separate-git-dir` (a `.git` file naming `common` itself) looks exactly like a forgery,
  * so it is accepted only as the same folder (see `sameRepository`), never as another checkout.
  */
-function checkoutOf(root: string, common: string): boolean {
+export function checkoutOf(root: string, common: string): boolean {
   try {
     const dotGit = join(root, '.git')
     // A `.git` that is itself a link (a junction needs no privilege on Windows) would borrow the real one's identity:
@@ -75,6 +143,7 @@ function checkoutOf(root: string, common: string): boolean {
     if (!pointer || !localPointer(pointer)) return false
     const admin = realOf(resolve(root, pointer))
     if (!admin || normalize(dirname(admin)) !== `${common}/worktrees`) return false
+    if (!staysLocal(join(admin, 'gitdir'))) return false
     const back = readFileSync(join(admin, 'gitdir'), 'utf8').trim()
     if (!back || !localPointer(back)) return false
     return realOf(resolve(admin, back)) === realOf(dotGit)
@@ -98,7 +167,8 @@ export function sameRepository(a: string, b: string): boolean {
 export function findCheckoutRoot(dir: string): string | null {
   let current = resolve(dir)
   for (let depth = 0; depth < 64; depth++) {
-    if (existsSync(join(current, '.git'))) return current
+    // lstat: the entry itself, never what a `.git` link names (it may be a share).
+    if (entryExists(join(current, '.git'))) return current
     const parent = dirname(current)
     if (parent === current) return null
     current = parent
@@ -112,13 +182,19 @@ export function findCheckoutRoot(dir: string): string | null {
  */
 export function resolveSessionLocation(cwd: string, launchRoot: string): SessionLocation | null {
   if (!cwd || cwd.length > 4096 || cwd.includes('\0') || !isAbsolute(cwd) || !localPointer(cwd)) return null
+  if (!staysLocal(cwd)) return null
   try { if (!statSync(cwd).isDirectory()) return null } catch { return null }
   const found = findCheckoutRoot(cwd)
-  const launchCheckout = findCheckoutRoot(launchRoot) ?? launchRoot
+  // The launch folder is the pane's, but an agent can replace it with a link: walked first like the reported cwd.
+  const launchCheckout = (staysLocal(launchRoot) ? findCheckoutRoot(launchRoot) : null) ?? launchRoot
   // The launch checkout itself is reported in the spelling the pane already uses, so a short or long form
   // of the same folder never reads as a move into another worktree.
   const checkoutRoot = found !== null && canonicalPath(found) === canonicalPath(launchCheckout) ? launchCheckout : found
   return { cwd, checkoutRoot, sameRepository: checkoutRoot !== null && sameRepository(checkoutRoot, launchCheckout) }
+}
+
+function entryExists(path: string): boolean {
+  try { lstatSync(path); return true } catch { return false }
 }
 
 function normalize(path: string): string {
