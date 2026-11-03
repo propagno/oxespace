@@ -70,7 +70,9 @@ describe('Per-tool rules (B7.3)', () => {
     db.prepare('INSERT INTO mcp_servers (id, workspace_id, name, transport, config_json, enabled, trusted, created_at, updated_at, guard_json) VALUES (?, ?, ?, ?, ?, 1, 1, 0, 0, ?)')
       .run('g', null, 'GitHub', 'stdio', '{"transport":"stdio","command":"gh"}', JSON.stringify({ pin: { hash: 'x', at: 0 }, tools: [{ name: 'create_issue', hash: 'h' }], quarantine: null }))
     const rules = await toolRules(deps, root)
-    expect(find(rules, 'oxespace-delegation', 'oxespace_project_context')).toEqual({ server: 'oxespace-delegation', tool: 'oxespace_project_context', decision: 'ask', source: 'default', editable: true, allowedDecisions: ['allow', 'ask', 'deny'], confirmLevel: false, scope: null })
+    expect(find(rules, 'oxespace-delegation', 'oxespace_documentation_create')).toEqual({ server: 'oxespace-delegation', tool: 'oxespace_documentation_create', decision: 'ask', source: 'default', editable: true, allowedDecisions: ['allow', 'ask', 'deny'], confirmLevel: false, scope: null })
+    // T53: a read-only OXESpace lookup is allowed by "Auto-approve reads" (on by default), offering allow or block.
+    expect(find(rules, 'oxespace-delegation', 'oxespace_project_context')).toEqual({ server: 'oxespace-delegation', tool: 'oxespace_project_context', decision: 'allow', source: 'reads', editable: true, allowedDecisions: ['allow', 'deny'], confirmLevel: false, scope: 'oxechat' })
     expect(find(rules, 'github', 'create_issue')).toMatchObject({ decision: 'ask', source: 'default' })
     expect(rules[0].server).toBe('oxespace-delegation')
   })
@@ -140,6 +142,38 @@ describe('Per-tool rules (B7.3)', () => {
       { id: 'r1', response: { decision: 'accept' } },
       { id: 'r2', response: { decision: 'decline', reason: expect.stringContaining('blocked by this project’s policy') } }
     ])
+    await manager.stop()
+  })
+
+  it('T53: an OXESpace lookup with no rule is answered by "Auto-approve reads" in a conversation; off, or from another server, it asks', { timeout: 30_000 }, async () => {
+    const { root, db, deps } = project()
+    let emit: (event: ThreadEvent) => void = () => {}
+    const responses: { id: string; response: ThreadRequestResponse }[] = []
+    const factory = vi.fn(async () => ({
+      capabilities: { resume: true, approvals: true, attachments: false, modelSelection: false },
+      start: vi.fn(async (_context, listener) => { emit = listener; listener({ type: 'session', nativeSessionId: 'n' }) }),
+      send: vi.fn(async () => {}), interrupt: vi.fn(async () => {}), approve: vi.fn(async () => {}), dispose: vi.fn(async () => {}), configure: vi.fn(async () => {}),
+      respondRequest: vi.fn(async (id: string, response: ThreadRequestResponse) => {
+        responses.push({ id, response })
+        emit({ type: 'request-resolved', id, state: 'resolved', resolution: response.decision === 'accept' ? 'approved' : 'declined', resolvedAt: Date.now() })
+      })
+    }) as AgentConversationAdapter)
+    const manager = new ThreadManager(db, factory, vi.fn())
+    vi.spyOn((manager as unknown as { turns: { workingState: () => Promise<undefined> } }).turns, 'workingState').mockResolvedValue(undefined)
+    const id = manager.create({ workspaceId: 'A', projectId: 'p', rootPath: root, provider: 'claude' }).thread.id
+    await manager.send(id, 'Go')
+    const request = (requestId: string, toolName: string) => emit({ type: 'request', id: requestId, request: {
+      id: requestId, nativeId: requestId, nativeMethod: `can_use_tool:${toolName}`, kind: 'approval', title: `Approve ${toolName}`, generation: 0, createdAt: Date.now(), state: 'pending', availableDecisions: ['accept', 'decline'], toolName
+    } as ThreadRequest })
+    request('r1', 'mcp__oxespace-delegation__oxespace_code_impact'); await settle()
+    request('r2', 'mcp__evil__oxespace_code_impact'); await settle()
+    request('r3', 'mcp__oxespace-delegation__oxespace_documentation_create'); await settle()
+    expect(responses).toEqual([{ id: 'r1', response: { decision: 'accept' } }])
+    // Off: the same lookup asks, and Settings › Tools shows it as asking by default.
+    new ThreadPermissionStore(db).setAutoApproveReads(false)
+    request('r4', 'mcp__oxespace-delegation__oxespace_code_impact'); await settle()
+    expect(responses.map(item => item.id)).toEqual(['r1'])
+    expect(find(await toolRules(deps, root), 'oxespace-delegation', 'oxespace_code_impact')).toMatchObject({ decision: 'ask', source: 'default', allowedDecisions: ['allow', 'ask', 'deny'] })
     await manager.stop()
   })
 
@@ -230,7 +264,8 @@ describe('Per-tool rules, CCR from FRONTEND (B7.3)', () => {
     userBlock(userData)
     const rules = await toolRules(deps, root)
     expect(find(rules, 'oxespace-delegation', 'oxespace_db_execute')).toMatchObject({ editable: true, confirmLevel: true, allowedDecisions: ['ask', 'deny'] })
-    expect(find(rules, 'oxespace-delegation', 'oxespace_project_context')).toMatchObject({ confirmLevel: false, allowedDecisions: ['allow', 'ask', 'deny'] })
+    expect(find(rules, 'oxespace-delegation', 'oxespace_documentation_create')).toMatchObject({ confirmLevel: false, allowedDecisions: ['allow', 'ask', 'deny'] })
+    expect(find(rules, 'oxespace-delegation', 'oxespace_project_context')).toMatchObject({ confirmLevel: false, source: 'reads', allowedDecisions: ['allow', 'deny'] })
     expect(find(rules, 'github', 'delete_repository')).toMatchObject({ editable: false, confirmLevel: false, allowedDecisions: [] })
     // Every confirm-level OXESpace tool is marked, and only those; none offers allow.
     const confirm = confirmLevelTools()

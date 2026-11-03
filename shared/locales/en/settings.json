@@ -775,7 +775,8 @@
       },
       "source": {
         "user": "Set in your user policy; change it there.",
-        "managed": "Set by your organization; it cannot be changed here."
+        "managed": "Set by your organization; it cannot be changed here.",
+        "reads": "A read-only lookup, allowed by \"Approve read-only commands automatically\" in a conversation's Permissions. Turn that off to be asked."
       },
       "confirmLevel": "Always asks: this tool can do things you confirm each time.",
       "saved": "{{tool}}: {{decision}}.",

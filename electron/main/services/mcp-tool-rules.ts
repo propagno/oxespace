@@ -15,6 +15,7 @@ import { MCP_TOOL_DECISIONS, type McpToolDecision, type McpToolRule, type McpToo
 import type { ThreadPermissionRule } from '../../../shared/types/thread'
 import type { FileSystemService } from './file-system.service'
 import { ThreadPermissionStore } from './conversation/thread-permissions'
+import { isOxespaceReadOnlyTool } from './conversation/read-only-mcp-tools'
 import { mcpServerKeys } from './mcp-keys'
 import { parseGuard } from './mcp-pin'
 import { acceptedConfig, policyStore } from './policy'
@@ -103,16 +104,20 @@ let confirmLevel: Set<string> | null = null
 function withChoices(rule: Omit<McpToolRule, 'allowedDecisions' | 'confirmLevel'>): McpToolRule {
   confirmLevel ??= confirmLevelTools()
   const confirm = rule.server === OXESPACE_MCP_SERVER && confirmLevel.has(rule.tool)
-  const allowedDecisions = !rule.editable ? [] : MCP_TOOL_DECISIONS.filter(decision => !(confirm && decision === 'allow'))
+  // An auto-approved read (T53) asks only when "Auto-approve reads" is off, so here it is allowed or blocked.
+  const allowedDecisions = !rule.editable ? [] : MCP_TOOL_DECISIONS.filter(decision => !(confirm && decision === 'allow') && !(rule.source === 'reads' && decision === 'ask'))
   return { ...rule, allowedDecisions, confirmLevel: confirm }
 }
 
-/** The deciding rule for one tool: policy first (it outranks permission rules), then the permission rules. */
-function ruleFor(server: string, tool: string, loaded: LoadedPolicy, permissions: ThreadPermissionRule[]): McpToolRule {
-  return withChoices(decidingRule(server, tool, loaded, permissions))
+/**
+ * The deciding rule for one tool: policy first (it outranks permission rules), then the permission rules, then, with
+ * neither, "Auto-approve reads" for OXESpace's own read-only lookups (T53), as a conversation's approvals decide.
+ */
+function ruleFor(server: string, tool: string, loaded: LoadedPolicy, permissions: ThreadPermissionRule[], reads: boolean): McpToolRule {
+  return withChoices(decidingRule(server, tool, loaded, permissions, reads))
 }
 
-function decidingRule(server: string, tool: string, loaded: LoadedPolicy, permissions: ThreadPermissionRule[]): Omit<McpToolRule, 'allowedDecisions' | 'confirmLevel'> {
+function decidingRule(server: string, tool: string, loaded: LoadedPolicy, permissions: ThreadPermissionRule[], reads: boolean): Omit<McpToolRule, 'allowedDecisions' | 'confirmLevel'> {
   const verdict = evaluatePolicy(loaded, 'tool.use', toolResource(server, tool))
   if (!verdict.allowed) {
     const source = verdict.layer ?? 'project'
@@ -129,6 +134,7 @@ function decidingRule(server: string, tool: string, loaded: LoadedPolicy, permis
     // A rule saved for all projects is the person's own, like the user policy: shown, never changed from a project.
     return { server, tool, decision: deciding.decision, source: project ? 'project' : 'user', editable: project && deciding.pattern === `${server}/${tool}`, scope: 'oxechat' }
   }
+  if (reads && isOxespaceReadOnlyTool(server, tool)) return { server, tool, decision: 'allow', source: 'reads', editable: true, scope: 'oxechat' }
   return { server, tool, decision: 'ask', source: 'default', editable: true, scope: null }
 }
 
@@ -149,7 +155,9 @@ export async function toolRules(deps: ToolRulesDeps, rootPath: string): Promise<
   requireProject(deps.db, rootPath)
   const { TOOL_REGISTRY } = await import('../mcp-internal/tool-registry')
   const loaded = policyOf(deps).load(rootPath)
-  const permissions = new ThreadPermissionStore(deps.db).rules(rootPath)
+  const permissionStore = new ThreadPermissionStore(deps.db)
+  const permissions = permissionStore.rules(rootPath)
+  const reads = permissionStore.autoApproveReads()
   const seen = new Set<string>()
   const pairs: Array<[string, string]> = []
   const add = ([server, tool]: [string, string]) => {
@@ -165,7 +173,7 @@ export async function toolRules(deps: ToolRulesDeps, rootPath: string): Promise<
   }
   for (const rule of permissions) if (rule.kind === 'tool' && !rule.pattern.endsWith('/*')) others.push(rule.pattern.split('/') as [string, string])
   others.sort(([a, x], [b, y]) => a.localeCompare(b) || x.localeCompare(y)).forEach(add)
-  return pairs.map(([server, tool]) => ruleFor(server, tool, loaded, permissions))
+  return pairs.map(([server, tool]) => ruleFor(server, tool, loaded, permissions, reads))
 }
 
 /**
@@ -197,7 +205,7 @@ export async function setToolRule(deps: ToolRulesDeps, input: { rootPath: string
   }
   policy.forget(path)
   const store = new ThreadPermissionStore(deps.db)
-  const current = ruleFor(server, tool, policy.load(rootPath), store.rules(rootPath))
+  const current = ruleFor(server, tool, policy.load(rootPath), store.rules(rootPath), store.autoApproveReads())
   const name = `${server}/${tool}`
   if (!current.editable) throw new ToolRuleRefusal('mcp.toolRule.locked', { tool: name })
   if (!current.allowedDecisions.includes(decision)) throw new ToolRuleRefusal('mcp.toolRule.confirmLevel', { tool: name })

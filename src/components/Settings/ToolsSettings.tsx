@@ -27,7 +27,7 @@ const costText = (t: T, value: McpToolCost): string => t('tools.cost.value', { t
 function RuleRow({ rule, busy, onChoose }: { rule: McpToolRule; busy: boolean; onChoose: (rule: McpToolRule, decision: McpToolDecision) => void }): ReactElement {
   const { t } = useTranslation('settings')
   const choices = decisionsFor(rule)
-  const note = rule.source === 'user' || rule.source === 'managed' ? t(`tools.rules.source.${rule.source}`)
+  const note = rule.source === 'user' || rule.source === 'managed' || rule.source === 'reads' ? t(`tools.rules.source.${rule.source}`)
     : !choices.includes('allow') ? t('tools.rules.confirmLevel')
       : rule.scope ? t(`tools.rules.scope.${rule.scope}`) : ''
   return <li className={styles.rule}>
@@ -59,7 +59,8 @@ function GroupPanel({ group, rules, busy, unread = false, locked = false, onMode
   const name = groupName(t, group.id)
   const fixed = claudeFixedCost(group)
   const groupRules = rules ? group.tools.map(tool => ruleFor(rules, OXESPACE_SERVER, tool)) : []
-  const ruled = groupRules.filter(rule => rule.decision !== 'ask').length
+  // A row nobody set (asking by default, or a read "Auto-approve reads" allows) is not counted as set.
+  const ruled = groupRules.filter(rule => rule.source !== 'default' && rule.source !== 'reads').length
   const off = group.mode === 'off'
   return <Panel className={styles.group} label={name} title={name} actions={<>
     {unread && group.configurable ? <Badge intent="warning">{t('tools.invalidYaml.modeUnread')}</Badge> : <>
