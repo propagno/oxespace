@@ -1,6 +1,6 @@
 # Design audit 1.5 (T65)
 
-Status: **draft for decisions**. Owner: DESIGN. Input for T58 (`t58-oxechat-conversation.md`) and the 1.5.0 design
+Status: **decided** (user, 03/11). Owner: DESIGN. Input for T58 (`t58-oxechat-conversation.md`) and the 1.5.0 design
 work. Docs only.
 
 ## How this was done
@@ -182,13 +182,14 @@ the side chat (§7c). They are referenced here, not repeated.
 - G-01 first run; G-02 Team states; G-03, G-05 tool panels.
 - Q-02, P-01, H-01, H-03.
 
-## Decisions for the user
+## Decisions
 
-1. **Settings save model** (S-01): apply at once in both scopes (recommended), or Save in both.
-2. **One Agent activity page** with sources (S-07), instead of one in Diagnostics and one in OxeQuery/OxePod.
-   Recommended: yes, since T64 adds a third source.
-3. **The OxeChat header** (C-04): the right ⋯ becomes "View", and the panels move to the rail. Recommended: yes.
-4. **Catalogs as dialogs, working panels docked** (X5). Recommended: yes.
+**Decided by the user on 03/11** (relayed by the TECH LEAD): the recommended option in each case.
+
+1. **Settings apply at once in both scopes** (S-01), with undo in a toast for the risky changes.
+2. **One Agent activity page with sources** (S-07): changes, databases, containers, and OxePost (T64).
+3. **The OxeChat header** (C-04): the right ⋯ becomes "View" (text size, transcript view); panels move to the rail.
+4. **Catalogs open as dialogs, working panels dock** (X5).
 
 ## Appendix A: inventory
 
