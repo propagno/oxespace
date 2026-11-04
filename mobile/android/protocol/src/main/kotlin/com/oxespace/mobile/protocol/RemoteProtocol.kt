@@ -630,6 +630,23 @@ data class RemoteTerminalData(
     /** The phone was away longer than the ring is deep: clear the view before this. */
     val truncated: Boolean,
     val redacted: Long? = null,
+    /**
+     * 1.4.3 P4: the pane's screen, on the FIRST page of a snapshot only, never on an event. A phone that reads it resets
+     * its view to `cols` × `rows`, feeds `ansi` once and skips that snapshot's `data` pages (the same ring); then it applies
+     * events as before. Absent (an older desktop, or over the frame budget): behave as without it.
+     */
+    val snapshot: RemoteTerminalSnapshot? = null,
+)
+
+/**
+ * xterm's own serialization of the pane's screen: up to 200 rows of scrollback, then the screen, the modes (the
+ * alternate screen when a full-screen app holds it) and the cursor. Built only from text already redacted.
+ */
+@Serializable
+data class RemoteTerminalSnapshot(
+    val ansi: String,
+    val cols: Long,
+    val rows: Long,
 )
 
 /** No command line or cwd: arguments can carry secrets. The label is what the person named it. */

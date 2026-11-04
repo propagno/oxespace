@@ -207,6 +207,23 @@ export type TextFilter = (text: string) => { text: string; redacted: number }
  * a secret still being printed is released; the carried tail waits for the next batch, or for `flush()`. Output is
  * never released twice.
  */
+/**
+ * The cut moved back to before an escape sequence that `at` would split: CSI (ESC [ … final byte 0x40–0x7E), OSC
+ * (ESC ] … BEL or ESC \), DCS/SOS/PM/APC (ESC P/X/^/_ … ESC \) and two-byte escapes. A phone parsing the next batch
+ * then never starts mid-sequence.
+ */
+export function escapeSafeCut(text: string, at: number): number {
+  const start = text.lastIndexOf('\x1b', at - 1)
+  if (start < 0) return at
+  if (start === at - 1) return start // a lone ESC at the end
+  const kind = text[start + 1]
+  const body = text.slice(start + 2, at)
+  if (kind === '[') return /[\x40-\x7e]/.test(body) ? at : start
+  if (kind === ']') return /\x07|\x1b\\/.test(text.slice(start + 2, at)) ? at : start
+  if (kind === 'P' || kind === 'X' || kind === '^' || kind === '_') return text.slice(start + 2, at).includes('\x1b\\') ? at : start
+  return at
+}
+
 export class TerminalWindow {
   private held = ''
 
@@ -229,6 +246,17 @@ export class TerminalWindow {
   flush(): { text: string; redacted: number } { return this.take('', true) }
 
   /**
+   * 1.4.3 P4: everything held plus `raw`, filtered as one, except an escape sequence still unfinished at the end, which
+   * stays held for the next batch. Used for the subscribe snapshot, after it waited the same time the hold timer would.
+   */
+  takeAll(raw: string): { text: string; redacted: number } {
+    const all = this.held + raw
+    const at = escapeSafeCut(all, all.length)
+    this.held = all.slice(at)
+    return at ? this.filter(all.slice(0, at)) : { text: '', redacted: 0 }
+  }
+
+  /**
    * The last place to cut before the window, where filtering both sides apart gives what filtering them together
    * gives: no secret and no path is cut there. Each refusal moves the cut to the blank before it.
    */
@@ -238,6 +266,8 @@ export class TerminalWindow {
     for (let attempt = 0; attempt < 64 && at > 0; attempt += 1) {
       const code = text.charCodeAt(at - 1)
       if (code >= 0xd800 && code <= 0xdbff) at -= 1
+      // 1.4.3 P4: never inside an escape sequence; the rest of it goes out whole with the next batch.
+      at = escapeSafeCut(text, at)
       if (at > 0 && this.filter(text.slice(0, at)).text + this.filter(text.slice(at)).text === whole) return at
       const blank = text.slice(0, at - 1).search(/\s(?=\S*$)/)
       at = blank >= 0 ? blank : 0
