@@ -57,9 +57,22 @@ function formerNames(key: string, values?: Record<string, unknown>): string[] {
  * action (the menus show it as it is), `commands.formerly.<key>` the old labels, " | " between them.
  */
 export function commandText(category: CommandCategory, key: string, options: { values?: Record<string, unknown>; keywords?: string[] } = {}): CommandText {
+  // The same text until the language or the catalog changes: the hook sources rebuild every command on each render of
+  // their host (App, on every view switch), and the lookups here were the most of that work (T45: a 309 ms task at ×6
+  // between a press and its view's commit).
+  const cacheKey = JSON.stringify([i18n.language, category, key, options.values ?? null, options.keywords ?? []])
+  const cached = textCache.get(cacheKey)
+  if (cached) return cached
   const action = tCommand(`action.${key}`, options.values)
-  return { category, action, label: `${commandCategoryLabel(category)}: ${action}`, keywords: [...(options.keywords ?? []), ...formerNames(key, options.values)] }
+  const text: CommandText = { category, action, label: `${commandCategoryLabel(category)}: ${action}`, keywords: [...(options.keywords ?? []), ...formerNames(key, options.values)] }
+  // Nothing is kept before the translator has started (no text yet): those commands register again once it has.
+  if (action) textCache.set(cacheKey, text)
+  return text
 }
+
+const textCache = new Map<string, CommandText>()
+// A new language, or words added to a catalog (namespaces load on first use), can change any text.
+for (const event of ['languageChanged', 'added', 'loaded'] as const) i18n.on(event, () => { textCache.clear() })
 
 /** Registers a static command source now and again whenever the interface language changes. */
 export function registerTranslated(register: () => void): void {

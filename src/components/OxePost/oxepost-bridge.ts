@@ -40,7 +40,8 @@ export function performOxePostAction(action: OxePostAction): void {
   if (action === 'filter') { void focusFilter(); return }
   void import('./oxepost.store').then(({ useOxePostStore }) => {
     const store = useOxePostStore.getState()
-    if (action === 'newRequest') store.newRequest()
+    // The same path as the sidebar's button: unsaved changes are asked about first, then the request is created.
+    if (action === 'newRequest') void store.open(null)
     else store.show(action)
   })
 }
