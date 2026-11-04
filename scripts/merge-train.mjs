@@ -653,48 +653,55 @@ async function driveBatch(api, batch, queue, { now, timeoutMinutes, log, actions
     return giveUp(`the batch's ${CI_WORKFLOW} ended ${cleanName(run.conclusion ?? 'without a result')}${result ? `, CI result ${cleanName(result.conclusion ?? 'pending')}` : ', no CI result'}${link}`, members, true)
   }
 
-  // Green: merge in the batch's order, each only on the main the batch expects.
+  // Green: merge in the batch's order, each only on the main the batch expects. The branch is deleted however this
+  // ends, an error thrown half-way included (#567 condition 4): the members left keep na-fila and are served again.
   let expected = batch.base
   const merged = []
-  for (const [i, m] of members.entries()) {
-    const rest = members.slice(i)
-    const main = await api.mainSha()
-    if (main !== expected) {
-      await sendBack(rest, `main moved to ${short(main)} while ${short(expected)} was expected, so the tested tree no longer applies`, true)
-      break
+  try {
+    for (const [i, m] of members.entries()) {
+      const rest = members.slice(i)
+      const main = await api.mainSha()
+      if (main !== expected) {
+        await sendBack(rest, `main moved to ${short(main)} while ${short(expected)} was expected, so the tested tree no longer applies`, true)
+        break
+      }
+      const pr = await api.getPull(m.number)
+      if (!pr || pr.state !== 'open' || pr.headSha !== m.sha) {
+        await sendBack(rest, `#${m.number} has a new head or was closed before its merge`, true)
+        break
+      }
+      // The file rule again, at merge time: never a status on a head that changes anything outside docs and tests.
+      const files = await api.listFiles(m.number)
+      const outside = !Array.isArray(files) || !files.length || files.length >= BATCH_MAX_FILES || (pr.changedFiles != null && files.length !== pr.changedFiles) ? 'its file list is incomplete' : files.find((path) => !isBatchPath(path))
+      if (outside) {
+        await sendBack(rest, `#${m.number} ${outside === 'its file list is incomplete' ? outside : `changes ${cleanName(outside)}`}, outside docs and tests`, true)
+        break
+      }
+      await api.postStatus(m.sha, { state: 'success', context: 'CI result', description: `batch ${branch}`, targetUrl: url })
+      let sha
+      try {
+        sha = await mergeMember(api, m, expected, sleep)
+      } catch (error) {
+        await sendBack(rest, `GitHub refused the merge of #${m.number} (${refusal(error)})`, true)
+        break
+      }
+      merged.push(m)
+      await upsertComment(api, m.number, renderComment(`merged ${short(m.sha)} in ${branch}: tested with ${members.map((x) => `#${x.number}`).join(' ')} on ${short(batch.head)}${link}.`, null))
+      // The merge must sit right on the expected main: a push between the check and the merge stops the rest.
+      const commit = sha ? await api.getCommit(sha) : null
+      if (!commit || commit.parents[0] !== expected) {
+        await sendBack(members.slice(i + 1), `the merge of #${m.number} did not land on ${short(expected)}`, true)
+        break
+      }
+      expected = sha
     }
-    const pr = await api.getPull(m.number)
-    if (!pr || pr.state !== 'open' || pr.headSha !== m.sha) {
-      await sendBack(rest, `#${m.number} has a new head or was closed before its merge`, true)
-      break
-    }
-    // The file rule again, at merge time: never a status on a head that changes anything outside docs and tests.
-    const files = await api.listFiles(m.number)
-    const outside = !Array.isArray(files) || !files.length || files.length >= BATCH_MAX_FILES || (pr.changedFiles != null && files.length !== pr.changedFiles) ? 'its file list is incomplete' : files.find((path) => !isBatchPath(path))
-    if (outside) {
-      await sendBack(rest, `#${m.number} ${outside === 'its file list is incomplete' ? outside : `changes ${cleanName(outside)}`}, outside docs and tests`, true)
-      break
-    }
-    await api.postStatus(m.sha, { state: 'success', context: 'CI result', description: `batch ${branch}`, targetUrl: url })
-    let sha
+  } finally {
     try {
-      sha = await mergeMember(api, m, expected, sleep)
-    } catch (error) {
-      await sendBack(rest, `GitHub refused the merge of #${m.number} (${refusal(error)})`, true)
-      break
+      await api.deleteRef(branch)
+    } finally {
+      if (merged.length) await api.dispatchWorkflow('ci.yml', 'main')
     }
-    merged.push(m)
-    await upsertComment(api, m.number, renderComment(`merged ${short(m.sha)} in ${branch}: tested with ${members.map((x) => `#${x.number}`).join(' ')} on ${short(batch.head)}${link}.`, null))
-    // The merge must sit right on the expected main: a push between the check and the merge stops the rest.
-    const commit = sha ? await api.getCommit(sha) : null
-    if (!commit || commit.parents[0] !== expected) {
-      await sendBack(members.slice(i + 1), `the merge of #${m.number} did not land on ${short(expected)}`, true)
-      break
-    }
-    expected = sha
   }
-  if (merged.length) await api.dispatchWorkflow('ci.yml', 'main')
-  await api.deleteRef(branch)
   record('batch-end', `${branch}: merged ${merged.map((m) => `#${m.number}`).join(' ') || 'nothing'}${merged.length < members.length ? `; ${members.length - merged.length} back on their own` : ''}`)
 }
 
@@ -931,6 +938,11 @@ export async function runTrain(
       await upsertComment(api, entry.number, renderComment(action.message, null))
       // A merge by GITHUB_TOKEN starts no push run on main, so main's CI is dispatched here.
       await api.dispatchWorkflow('ci.yml', 'main')
+      // A merged batch PR (merge-batch.mjs) leaves its train/batch-N branch behind, and the repository does not
+      // delete head branches: the train removes it, as its own batches do (#567 condition 4). Never a fork's.
+      if (!input.pr.isFork && /^train\/batch-\d+$/.test(String(input.pr.headRef ?? ''))) {
+        await api.deleteRef?.(input.pr.headRef).catch((error) => log(`#${entry.number}: ${input.pr.headRef} not deleted (${cleanName(String(error?.message ?? error))})`))
+      }
       // The fix-main label covers one merge: a later push to that PR does not jump a held queue again.
       if (entry.fixMain) await api.removeLabel(entry.number, FIX_MAIN_LABEL)
       drop(entry)

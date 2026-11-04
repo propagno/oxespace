@@ -304,8 +304,8 @@ describe('driving a batch', () => {
       ['merge', 1, head('a')],
       ['postStatus', head('b'), { state: 'success', context: 'CI result', description: 'batch train/batch-1', targetUrl: RUN_URL }],
       ['merge', 2, head('b')],
-      ['dispatch', 'ci.yml', 'main'],
       ['deleteRef', 'train/batch-1'],
+      ['dispatch', 'ci.yml', 'main'],
     ])
     // main is the base plus the members' merges, in the batch's order: the tested tree.
     const top = api.commits.get(api.refs.get('main')!)!
@@ -469,6 +469,20 @@ describe('driving a batch', () => {
     reads = 0
     await step(api)
     expect(reads).toBeLessThanOrEqual(BATCH_REFS_READ + 3)
+  })
+
+  it('an error half-way through the merges still deletes the branch and dispatches main CI for what merged', async () => {
+    const api = await built()
+    finishCi(api)
+    const post = api.postStatus
+    api.postStatus = async (sha: string, status: Record<string, unknown>) => {
+      if (sha === head('b')) throw Object.assign(new Error('POST statuses: 502'), { status: 502 })
+      return post(sha, status)
+    }
+    await expect(step(api)).rejects.toThrow(/502/)
+    expect(kinds(api, 'merge')).toEqual([['merge', 1, head('a')]])
+    expect(api.refs.has('train/batch-1')).toBe(false)
+    expect(kinds(api, 'dispatch')).toEqual([['dispatch', 'ci.yml', 'main']])
   })
 
   it('runTrain gives the run to the batch and serves no car alongside it', async () => {
