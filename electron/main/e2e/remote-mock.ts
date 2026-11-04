@@ -3,7 +3,8 @@
  * unless `OXESPACE_E2E_REMOTE_DEVICES=0`; with `OXESPACE_E2E_REMOTE_PAIR_PROMPT=1`, a phone asks to pair shortly after a
  * pairing code is shown, so a spec can answer it. With `OXESPACE_E2E_REMOTE_PAIR_FAIL=<reason>` (invalid, expired,
  * refused, limit, peer-closed, reserved-name), a pairing attempt fails that way shortly after a code is shown. `OXESPACE_E2E_REMOTE_LISTENED=1`
- * starts as if the gateway had listened before on this profile.
+ * starts as if the gateway had listened before on this profile. `OXESPACE_E2E_REMOTE_NETWORK=public|private|domain` reports
+ * Windows' network profile while the gateway is on.
  *
  * Rejections carry the same C3 codes as the real gateway; malformed input stays a plain Error.
  */
@@ -31,10 +32,14 @@ export function registerRemoteMock(): void {
   let prompt: RemotePairingPrompt | null = null, offerExpiresAt = 0
   const failWith = REMOTE_PAIRING_FAILURE_REASONS.find(reason => reason === process.env.OXESPACE_E2E_REMOTE_PAIR_FAIL) as RemotePairingFailureReason | undefined
   const phoneWritePanes = new Set<string>()
+  const networkCategory = (['public', 'private', 'domain'] as const).find(value => value === process.env.OXESPACE_E2E_REMOTE_NETWORK)
   const devices: RemoteDevice[] = process.env.OXESPACE_E2E_REMOTE_DEVICES === '0' ? [] : [{ deviceId: 'device-1', name: 'Pixel 8', pairedAt: 1, lastSeenAt: 2, connected: true }]
   const status = (): RemoteGatewayStatus => ({
     enabled, desktopName, phoneWritePanes: [...phoneWritePanes], listening: enabled ? { addresses: ['192.168.0.10'], port } : null, fingerprint, devices: devices.length,
-    maxDevices: REMOTE_LIMITS.maxDevices, listenedBefore, ...(error ? { error } : {})
+    maxDevices: REMOTE_LIMITS.maxDevices, listenedBefore, ...(error ? { error } : {}),
+    // As #595's status: the question waiting for the person, and (with OXESPACE_E2E_REMOTE_NETWORK) Windows' profile.
+    ...(prompt ? { pendingPairing: prompt } : {}),
+    ...(enabled && networkCategory ? { network: { interfaceName: 'Wi-Fi', category: networkCategory } } : {})
   })
   const send = (channel: string, payload: unknown) => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send(channel, payload) }
   const changed = (change: RemoteChange) => send(IPC_CHANNELS.remote.changed, change)
