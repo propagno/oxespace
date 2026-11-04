@@ -79,6 +79,17 @@ object Samples {
             {"seq":6,"item":{"type":"request","id":"q-1","requestId":"r-1","kind":"approval","title":"Delete the build output","state":"pending"}}]}""")))
     }
 
+    /** T100: a conversation longer than the screen; it must open on its last message, not its first. */
+    fun long() = Watched(ThreadTimeline()).apply {
+        val idle = header.replace("\"status\":\"running\"", "\"status\":\"idle\"").replace("\"pendingRequests\":1", "\"pendingRequests\":0")
+        val items = (1..24).joinToString(",") { n ->
+            val role = if (n % 2 == 1) "user" else "assistant"
+            val text = if (n == 24) "The last message: the expiry check is fixed and the test passes." else "Message $n of the conversation."
+            """{"seq":$n,"item":{"type":"message","id":"m$n","role":"$role","text":"$text"}}"""
+        }
+        onSnapshot(listOf(json("""{"thread":$idle,"hasMore":false,"items":[$items]}""")))
+    }
+
     /** M10: a working turn with folded reads, a running command, and an earlier finished turn behind its bar. */
     fun working() = Watched(ThreadTimeline()).apply {
         onSnapshot(listOf(json("""{"thread":$header,"hasMore":false,"items":[
