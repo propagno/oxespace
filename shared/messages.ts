@@ -528,6 +528,16 @@ export interface MessageParams {
   'app.openIn.launchFailed': { editor: string }
   /** B18: the system couldn't show the file in its folder. */
   'app.openIn.revealFailed': Record<string, never>
+  /** S7.1: what an agent is waiting on, in the agents overview. Main-built; never the agent's own words. */
+  'agents.request.approval': Record<string, never>
+  'agents.request.question': Record<string, never>
+  'agents.request.permissions': Record<string, never>
+  'agents.request.elicitation': Record<string, never>
+  'agents.request.tool': Record<string, never>
+  /** S7.1: a pane's agent is waiting on its own prompt, answered in the pane. */
+  'agents.request.pane': Record<string, never>
+  /** S7.1: one source of the agents overview (panes, threads, delegations, work) could not be read; the others still show. */
+  'agents.source.unavailable': { source: string }
 }
 
 export type MessageCode = keyof MessageParams
@@ -859,7 +869,14 @@ export const MESSAGE_CODES = [
   'app.openIn.unknownTarget',
   'app.openIn.editorMissing',
   'app.openIn.launchFailed',
-  'app.openIn.revealFailed'
+  'app.openIn.revealFailed',
+  'agents.request.approval',
+  'agents.request.question',
+  'agents.request.permissions',
+  'agents.request.elicitation',
+  'agents.request.tool',
+  'agents.request.pane',
+  'agents.source.unavailable'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */
