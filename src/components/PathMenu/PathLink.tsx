@@ -7,7 +7,13 @@ import { usePathMenu } from './usePathMenu'
 export interface PathScope {
   workspaceId: string
   rootPath: string
-  openInOxespace(path: ProjectPath): void
+  /**
+   * Every root a path of this text may be under, most specific first (T70: a conversation's worktree, then its
+   * project root). An absolute path links when it is under any of them. Absent: `rootPath` alone.
+   */
+  roots?: string[]
+  /** `text` is the code as written, so the owner can look for a relative path where the agent worked (T70). */
+  openInOxespace(path: ProjectPath, text: string): void
 }
 
 export const PathScopeContext = createContext<PathScope | null>(null)
@@ -24,16 +30,22 @@ export function InlineCode({ children, className }: { children?: ReactNode; clas
   const scope = useContext(PathScopeContext)
   const inBlock = useContext(InCodeBlockContext)
   const text = typeof children === 'string' ? children : Array.isArray(children) && children.every(part => typeof part === 'string') ? children.join('') : null
-  const path = scope && !inBlock && text ? parseProjectPath(text, scope.rootPath) : null
-  if (!scope || !path) return <code className={className}>{children}</code>
-  return <PathCode scope={scope} path={path} text={text!} />
+  let match: { root: string; path: ProjectPath } | null = null
+  if (scope && !inBlock && text) {
+    for (const root of scope.roots?.length ? scope.roots : [scope.rootPath]) {
+      const path = parseProjectPath(text, root)
+      if (path) { match = { root, path }; break }
+    }
+  }
+  if (!scope || !match) return <code className={className}>{children}</code>
+  return <PathCode scope={scope} root={match.root} path={match.path} text={text!} />
 }
 
-function PathCode({ scope, path, text }: { scope: PathScope; path: ProjectPath; text: string }): ReactElement {
+function PathCode({ scope, root, path, text }: { scope: PathScope; root: string; path: ProjectPath; text: string }): ReactElement {
   const { t } = useTranslation('common')
-  const { menu, onContextMenu } = usePathMenu({ workspaceId: scope.workspaceId, rootPath: scope.rootPath, relativePath: path.relativePath, line: path.line, column: path.column }, { openInOxespace: () => scope.openInOxespace(path) })
+  const { menu, onContextMenu } = usePathMenu({ workspaceId: scope.workspaceId, rootPath: root, relativePath: path.relativePath, line: path.line, column: path.column }, { openInOxespace: () => scope.openInOxespace(path, text) })
   return <>
-    <button type="button" className="path-link" onClick={() => scope.openInOxespace(path)} onContextMenu={onContextMenu}
+    <button type="button" className="path-link" onClick={() => scope.openInOxespace(path, text)} onContextMenu={onContextMenu}
       aria-label={path.line ? t('openIn.pathLink', { path: path.relativePath, line: path.line }) : path.relativePath}>
       <code>{text}</code>
     </button>
