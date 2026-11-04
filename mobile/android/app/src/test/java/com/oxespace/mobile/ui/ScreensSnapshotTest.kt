@@ -72,6 +72,12 @@ class ScreensSnapshotTest(private val night: Boolean, private val locale: String
         shot("paired") { PairingScreen(PairingState.Paired(Samples.desktop), {}, {}, camera) }
         shot("wrong-certificate") { PairingScreen(PairingState.Failed(PairingFailure.WRONG_CERTIFICATE), {}, {}, camera) }
         shot("unreachable") { PairingScreen(PairingState.Failed(PairingFailure.UNREACHABLE), {}, {}, camera) }
+        shot("timed-out") { PairingScreen(PairingState.Failed(PairingFailure.TIMED_OUT), {}, {}, camera) }
+        shot("refused-by-computer") { PairingScreen(PairingState.Failed(PairingFailure.REFUSED_BY_COMPUTER), {}, {}, camera) }
+        shot("local-network-blocked") { PairingScreen(PairingState.Failed(PairingFailure.LOCAL_NETWORK_BLOCKED), {}, {}, camera) }
+        // Android 17: the scan waits for local network access, then for the camera.
+        shot("local-network-ask") { PairingScreen(PairingState.Scanning, {}, {}) { modifier -> LocalNetworkPrompt(LocalNetworkAsk.NOT_ASKED, {}, {}, modifier) } }
+        shot("local-network-denied") { PairingScreen(PairingState.Scanning, {}, {}) { modifier -> LocalNetworkPrompt(LocalNetworkAsk.DENIED, {}, {}, modifier) } }
     }
 
     @Test

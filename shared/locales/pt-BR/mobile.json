@@ -64,9 +64,12 @@
       "locked": "Tentativas de pareamento demais. Espere 2 minutos e tente de novo.",
       "tooManyDevices": "Seu computador já tem 5 aparelhos pareados. Remova um em Configurações › Dispositivos antes.",
       "wrongCertificate": "Outro aparelho respondeu nesse endereço, não o seu computador. Nada foi enviado. Confira se você está na sua Wi-Fi.",
-      "unreachable": "Não foi possível falar com o computador, então ele não recebeu o pedido. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos. No Windows, o firewall bloqueia o celular quando a Wi-Fi está como Pública: mude a rede para Privada ou libere o OXESpace no firewall.",
+      "unreachable": "Este celular não tem caminho até o computador. Confira se ele está na mesma Wi-Fi do computador, sem dados móveis, e sem VPN ligada.",
       "protocol": "O computador respondeu de um jeito que este app não entende. Atualize o app ou o OXESpace no computador.",
-      "reservedName": "O nome deste celular usa um nome reservado ao próprio OXESpace, e o computador não o aceita. Mude o nome do celular em Configurações do Android › Sobre o telefone e leia o código de novo."
+      "reservedName": "O nome deste celular usa um nome reservado ao próprio OXESpace, e o computador não o aceita. Mude o nome do celular em Configurações do Android › Sobre o telefone e leia o código de novo.",
+      "localNetworkBlocked": "O Android impediu este celular de falar com o computador: o acesso à rede local está desligado para o OXESpace. Ligue nas configurações do app (Permissões) e escaneie de novo.",
+      "refusedByComputer": "O computador recusou a conexão. Confira se a conexão com o celular está ligada em Configurações › Dispositivos. Se houver um firewall de terceiros, como McAfee ou Norton, libere o OXESpace nele também: ele pode recusar conexões mesmo com o Firewall do Windows permitindo.",
+      "timedOut": "O computador não respondeu, então não recebeu o pedido. No Windows, o firewall bloqueia o celular quando a Wi-Fi está como Pública: mude a rede para Privada ou libere o OXESpace no firewall. Confira também se os dois estão na mesma Wi-Fi."
     }
   },
   "live": {
@@ -347,5 +350,12 @@
       "offNetwork": "Esperando a Wi-Fi para falar com {{desktop}}",
       "stopped": "Não foi possível manter a conexão com {{desktop}}. Abra o app."
     }
+  },
+  "localNetwork": {
+    "title": "Acesso à rede local",
+    "needed": "O OXESpace fala com o seu computador direto pela Wi-Fi, então o Android pergunta se ele pode usar a rede local. Ele só se conecta ao computador que você parear, nunca a outros aparelhos.",
+    "allow": "Permitir acesso à rede local",
+    "denied": "O acesso à rede local está desligado para o OXESpace, então o Android bloqueia toda conexão com o computador. Ligue \"Acesso à rede local\" para o OXESpace nas configurações do app (Permissões) e volte.",
+    "openSettings": "Abrir configurações do app"
   }
 }
