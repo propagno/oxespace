@@ -1,4 +1,28 @@
 {
+  "startupFailure": {
+    "newer-schema": {
+      "title": "Estes dados são de um OXESpace mais novo",
+      "message": "Uma versão mais nova do OXESpace atualizou seus dados, e esta versão não consegue lê-los. Nada foi apagado. Instale a versão mais nova de novo, ou restaure o backup que ela fez antes de atualizar."
+    },
+    "corrupt": {
+      "title": "O arquivo de dados do OXESpace está danificado",
+      "message": "Não foi possível ler o banco de dados. Nada foi alterado. Restaure um backup da pasta de backups, ou envie os detalhes ao suporte."
+    },
+    "locked": {
+      "title": "Os dados do OXESpace estão em uso",
+      "message": "Outro programa, ou outro OXESpace que ainda está fechando, está usando o banco de dados. Feche-o e abra o OXESpace de novo."
+    },
+    "other": {
+      "title": "O OXESpace não conseguiu abrir seus dados",
+      "message": "Nada foi apagado. Os detalhes abaixo dizem o motivo; copie-os para um relato de problema."
+    },
+    "openBackups": "Abrir a pasta de backups",
+    "copyDetails": "Copiar detalhes",
+    "detailsWhat": "Os detalhes",
+    "quit": "Sair",
+    "tryAgain": "Tentar de novo",
+    "backupsAt": "Os backups ficam em"
+  },
   "deferred": {
     "partMissing": "Alguns comandos podem faltar na paleta e nos menus até carregar. O resto do OXESpace continua funcionando.",
     "activityMissing": "A atividade e as notificações podem não se atualizar até carregar. O resto do OXESpace continua funcionando."
@@ -244,6 +268,7 @@
     "tryAgain": "Tentar de novo",
     "details": "Detalhes",
     "cancel": "Cancelar",
+    "undo": "Desfazer",
     "close": "Fechar",
     "dismiss": "Dispensar",
     "toast": {

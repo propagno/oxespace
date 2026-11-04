@@ -96,7 +96,7 @@ test('interface scale, density and motion apply app-wide and survive a restart',
     await workspaceDensity.getByRole('radio', { name: 'Compact' }).click()
     await workspaceDensity.evaluate(el => el.scrollIntoView({ block: 'center' }))
     await capture(app, 'workspace-density.png')
-    await settings.getByRole('button', { name: 'Save workspace settings' }).click()
+    // U2: the workspace's density applies at once; there is no Save button.
     await expect.poll(() => page.evaluate(() => document.documentElement.dataset.density)).toBe('compact')
     await scope.getByRole('button', { name: 'Application', exact: true }).click()
     await expect(settings.getByTestId('workspace-density-override')).toHaveText(/1 workspace uses its own density\./)
