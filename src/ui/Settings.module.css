@@ -1,0 +1,19 @@
+/* U2 (X3): the anatomy of every Settings page. A section is a card; a row is the setting's words on the left and its
+   control on the right, or under the words when wide. Body text is 14 px. */
+.section { display: grid; gap: var(--space-3); padding: var(--space-4) var(--space-5); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-raised); font-size: var(--text-sm); }
+.sectionHeader { display: flex; align-items: flex-start; gap: var(--space-3); }
+.sectionHeader > div { flex: 1; min-width: 0; display: grid; gap: var(--space-1); }
+.sectionTitle { margin: 0; font-size: var(--text-md); font-weight: var(--weight-semibold); line-height: var(--leading-tight); color: var(--text-primary); }
+.sectionDescription { margin: 0; color: var(--text-secondary); line-height: var(--leading-snug); }
+.sectionActions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.rows { display: grid; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-2) var(--space-4); padding: var(--space-3) 0; border-top: 1px solid var(--border-subtle); }
+.rows > .row:first-child { border-top: 0; padding-top: 0; }
+.rows > .row:last-child { padding-bottom: 0; }
+.wide { grid-template-columns: minmax(0, 1fr); }
+.text { min-width: 0; display: grid; gap: var(--space-1); }
+.label { color: var(--text-primary); font-weight: var(--weight-medium); line-height: var(--leading-snug); }
+.description { margin: 0; color: var(--text-secondary); line-height: var(--leading-snug); }
+.control { display: flex; justify-content: flex-end; min-width: 0; }
+.wide .control { justify-content: flex-start; }
+.extra { grid-column: 1 / -1; min-width: 0; }

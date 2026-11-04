@@ -251,6 +251,10 @@
     "agentRead": "Leitura — agentes podem pedir para ler; cada pedido precisa da sua aprovação",
     "agentWrite": "Leitura e escrita — cada alteração precisa da sua aprovação",
     "agentProd": "Agentes nunca escrevem numa conexão de produção.",
+    "agentsWidened": {
+      "read": "Agentes agora podem pedir para ler {{name}}",
+      "write": "Agentes agora podem pedir para ler e alterar {{name}}"
+    },
     "keepalive": "Keep-alive (segundos)",
     "keepaliveHint": "0 desliga",
     "mask": "Nomes que os agentes não podem ver",
@@ -304,6 +308,8 @@
     "noneSaved": "Nada salvo ainda.",
     "noHistory": "As instruções que você executar aparecem aqui.",
     "clearHistory": "Limpar histórico",
+    "clearHistoryTitle": "Limpar o histórico de consultas de {{name}}?",
+    "clearHistoryBody": "Todas as consultas feitas nesta conexão saem do histórico. As consultas salvas ficam. Não dá para desfazer.",
     "savedTab_many": "Salvas ({{count}})",
     "historyTab_many": "Histórico ({{count}})"
   },
@@ -698,6 +704,7 @@
     "loading": "Carregando preferências…",
     "loadFailed": "Não foi possível ler as configurações",
     "saveFailed": "Não foi possível salvar as configurações",
+    "riskySaved": "Configurações do OxeQuery salvas: guarda menos, ou agentes podem receber mais",
     "history": "Instruções guardadas por conexão",
     "historyHint": "O histórico de consultas da Biblioteca. As instruções mais antigas são descartadas.",
     "audit": "Guardar o registro de auditoria dos agentes por",

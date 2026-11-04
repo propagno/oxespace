@@ -61,11 +61,11 @@ test('sidebar sessions and full-page settings preserve terminal DOM', async () =
     await scope.getByRole('button', { name: /Current workspace/ }).click()
     await expect(page.getByRole('radio', { name: /Comfortable/ })).toBeVisible()
     await page.screenshot({ path: test.info().outputPath('settings-workspace.png') })
-    // An unsaved workspace change (density) makes leaving ask first.
+    // A workspace change (density) applies at once (U2), so leaving asks nothing.
     await page.getByRole('radio', { name: /Comfortable/ }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'Workspace settings saved' })).toBeVisible()
     await page.getByRole('button', { name: 'Back to work' }).click()
-    await expect(page.getByRole('dialog', { name: 'Save your changes?' })).toBeVisible()
-    await page.getByRole('button', { name: 'Discard', exact: true }).click()
+    await expect(page.getByRole('dialog', { name: 'Save your changes?' })).toHaveCount(0)
     await expect(settings).toHaveCount(0)
     await expect(page.locator('.terminal-pane[data-preserved="yes"]')).toHaveCount(1)
     // Settings deliberately restores terminal focus on the next animation

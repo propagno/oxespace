@@ -198,7 +198,7 @@
 }
 
 .worktree-menu-item:hover { background: var(--surface-hover); border-color: var(--bd-base); }
-.worktree-menu-item.active { background: var(--accent-soft); border-color: var(--accent-border); }
+.worktree-menu-item.active { background: var(--fill-selected); border-color: var(--accent-border); }
 .worktree-menu-item.is-active-pane { box-shadow: inset 3px 0 0 var(--brand); }
 .worktree-menu-item.prunable { opacity: 0.55; }
 .worktree-menu-item-select {
