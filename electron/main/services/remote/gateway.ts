@@ -10,7 +10,7 @@ import { mainMessage, type MainMessage } from '../../../../shared/messages'
 import { MainMessageError } from '../../ipc/main-message-error'
 import {
   isHelloChallenge, pairingUri, pairingVerification, readPairRequest, REMOTE_LIMITS, REMOTE_PAIRING_PATH, REMOTE_PROTOCOL_VERSION, REMOTE_WS_PATH,
-  type RemoteAuthFrame, type RemoteCommand, type RemotePairingErrorCode, type RemotePairResponse, type RemoteSubscription
+  type RemoteAuthFrame, type RemoteCommand, type RemoteErrorReason, type RemotePairingErrorCode, type RemotePairResponse, type RemoteSubscription
 } from '../../../../shared/remote/protocol'
 import {
   REMOTE_DEFAULT_DESKTOP_NAME, REMOTE_MIN_PORT, type RemoteChange, type RemoteDevice, type RemoteGatewayStatus, type RemotePairingFailureReason, type RemotePairingOffer
@@ -127,7 +127,8 @@ export class RemoteGateway implements ConnectionHost {
   /** Panes the person let phones type into: in memory only, so off on every launch, and never set by a phone or MCP. */
   private readonly phoneWritePanes = new Set<string>()
   /** B9.2: devices paired on this launch that have not signed in yet, and when they lapse. In memory only. */
-  private readonly unused = new Map<string, { expiresAt: number; timer: ReturnType<typeof setTimeout> }>()
+  /** A paused entry (the gateway is off) has no timer and never lapses until the gateway is on again (T96). */
+  private readonly unused = new Map<string, { expiresAt: number; timer: ReturnType<typeof setTimeout> | null }>()
   private readonly workspaceListeners = new Set<() => void>()
   private readonly rateLimitAudited = new Map<string, number>()
   private readonly topics: Partial<Record<RemoteSubscription, RemoteTopicSource>>
@@ -200,6 +201,7 @@ export class RemoteGateway implements ConnectionHost {
             if (port < REMOTE_MIN_PORT) throw new GatewayStartError(mainMessage('remote.port.privileged', { port }))
             this.running = await this.start(port)
             this.error = undefined
+            this.resumeUnused()
             this.store.savePort(port)
             this.store.markListened()
             this.store.audit({ action: 'enable', outcome: 'ok', detail: `port ${port}` })
@@ -386,6 +388,7 @@ export class RemoteGateway implements ConnectionHost {
   private async shutdown(reason: 'person' | 'restart' | 'quit'): Promise<void> {
     const running = this.running
     this.running = null
+    this.pauseUnused()
     this.pairing.reset()
     if (!running) return
     for (const connection of this.connections) { connection.close(WS_CLOSE.goingAway); connection.closed() }
@@ -509,17 +512,18 @@ export class RemoteGateway implements ConnectionHost {
     if (!outcome.ok) this.auditAuthFailure(outcome.code, address, 'deviceId' in outcome ? outcome.deviceId : undefined)
     // The pairing was used: it no longer lapses.
     else this.forgetUnused(outcome.deviceId)
-    return outcome.ok ? outcome : { ok: false, code: outcome.code }
+    return outcome.ok ? outcome : { ok: false, code: outcome.code, ...('reason' in outcome && outcome.reason ? { reason: outcome.reason } : {}) }
   }
 
-  private check(running: Running, frame: RemoteAuthFrame, challenge: string): AuthOutcome | { ok: false; code: 'unauthenticated' | 'token-expired' | 'revoked'; deviceId?: string } {
+  private check(running: Running, frame: RemoteAuthFrame, challenge: string): AuthOutcome | { ok: false; code: 'unauthenticated' | 'token-expired' | 'revoked'; deviceId?: string; reason?: RemoteErrorReason } {
     if (frame.accessToken !== undefined) {
       const token = running.tokens.check(frame.accessToken)
       if (!token.ok) return token
       const device = this.store.device(token.deviceId)
       if (!device) return { ok: false, code: 'unauthenticated' }
-      if (this.lapsed(device.deviceId)) return { ok: false, code: 'revoked', deviceId: device.deviceId }
-      if (device.revoked) return { ok: false, code: 'revoked', deviceId: device.deviceId }
+      // Still `revoked` on the wire (a 1.4.2 phone reads it as before); the reason lets a newer phone say "pair again" (T96).
+      if (this.lapsed(device.deviceId)) return { ok: false, code: 'revoked', deviceId: device.deviceId, reason: 'pairing-lapsed' }
+      if (device.revoked) return this.revokedAnswer(device)
       // The same token back, with what is left of it: an access token never extends itself.
       return { ok: true, deviceId: device.deviceId, expiresAt: token.expiresAt, result: { accessToken: frame.accessToken, expiresInMs: token.expiresAt - this.now() } }
     }
@@ -528,12 +532,22 @@ export class RemoteGateway implements ConnectionHost {
     try { deviceId = parseDeviceId(refresh.deviceId) } catch { return { ok: false, code: 'unauthenticated' } }
     const device = this.store.device(deviceId)
     if (!device) return { ok: false, code: 'unauthenticated' }
-    if (this.lapsed(deviceId)) return { ok: false, code: 'revoked', deviceId }
-    if (device.revoked) return { ok: false, code: 'revoked', deviceId }
+    if (this.lapsed(deviceId)) return { ok: false, code: 'revoked', deviceId, reason: 'pairing-lapsed' }
+    if (device.revoked) return this.revokedAnswer(device)
     if (!isHelloChallenge(refresh.nonce) || !sameSecret(refresh.nonce, challenge)) return { ok: false, code: 'unauthenticated', deviceId }
     if (!verifyRefreshSignature(device.publicKey, running.fingerprint, deviceId, refresh.nonce, refresh.signature)) return { ok: false, code: 'unauthenticated', deviceId }
     const result = running.tokens.issue(deviceId)
     return { ok: true, deviceId, expiresAt: this.now() + result.expiresInMs, result }
+  }
+
+  /**
+   * T96: a revoked device that never signed in was a pairing nobody used (its window ran out, or it was removed before
+   * the phone ever connected): the phone is told to pair again rather than "removed". Every sign-in moves last_seen_at
+   * past paired_at (`authenticated`), and revoking never touches it, so the row says which case it was.
+   */
+  private revokedAnswer(device: { deviceId: string; pairedAt: number; lastSeenAt: number | null }): { ok: false; code: 'revoked'; deviceId: string; reason?: RemoteErrorReason } {
+    const neverUsed = device.lastSeenAt !== null && device.lastSeenAt <= device.pairedAt
+    return { ok: false, code: 'revoked', deviceId: device.deviceId, ...(neverUsed ? { reason: 'pairing-lapsed' as const } : {}) }
   }
 
   // ---- B9.2: a pairing nobody used --------------------------------------------------------------------------
@@ -567,8 +581,25 @@ export class RemoteGateway implements ConnectionHost {
   private forgetUnused(deviceId: string): void {
     const entry = this.unused.get(deviceId)
     if (!entry) return
-    clearTimeout(entry.timer)
+    if (entry.timer) clearTimeout(entry.timer)
     this.unused.delete(deviceId)
+  }
+
+  /**
+   * T96: while the gateway is off, no phone can sign in, so the window of an unused pairing must not run out then.
+   * Switching off pauses every unused pairing; switching on gives each one the whole window again. Quitting still
+   * removes them (`stop()`), and the next launch's check (`expireUnusedAtLaunch`) is unchanged.
+   */
+  private pauseUnused(): void {
+    for (const entry of this.unused.values()) {
+      if (entry.timer) clearTimeout(entry.timer)
+      entry.timer = null
+      entry.expiresAt = Number.POSITIVE_INFINITY
+    }
+  }
+
+  private resumeUnused(): void {
+    for (const [deviceId, entry] of [...this.unused]) if (entry.timer === null) this.watchUnused(deviceId)
   }
 
   /**
@@ -587,7 +618,7 @@ export class RemoteGateway implements ConnectionHost {
   private expireUnused(deviceId: string, tellWindow = true): void {
     const entry = this.unused.get(deviceId)
     if (!entry) return
-    clearTimeout(entry.timer)
+    if (entry.timer) clearTimeout(entry.timer)
     let revoked: boolean
     // Runs from a timer: a busy or failing database must not throw in main. The entry then stays, so the phone is still
     // refused at sign-in (`lapsed`) and the removal is tried again there (SECURITY #458).
