@@ -47,6 +47,8 @@ class PairingFlowTest {
         val keys = mutableMapOf<String, FakeKeys>()
         val store = FakeStore()
         val calls = mutableListOf<Triple<PairingQr, String, String>>()
+        /** How many times the flow asked for the session to start, and what was saved by then. */
+        val started = mutableListOf<PairedDesktop?>()
         /** What the phone showed right after the request reached the desktop. */
         val sentStates = mutableListOf<PairingState>()
         val flow: PairingFlow = PairingFlow(
@@ -66,6 +68,7 @@ class PairingFlowTest {
             store = store,
             deviceName = deviceName,
             newAlias = { "alias-${keys.size + 1}" },
+            onPaired = { started += store.saved },
         )
     }
 
@@ -119,6 +122,28 @@ class PairingFlowTest {
         harness.flow.scanAgain()
         assertEquals(PairingState.Contacting("Studio"), harness.flow.state.value)
         advanceUntilIdle()
+    }
+
+    /**
+     * 1.4.2 on a real phone: only Done started the session. Back, Home or a slow tap left the new pairing unused past
+     * the desktop's 2 minutes, and the next sign-in read "OXESpace removed this phone". The session now starts once
+     * the pairing is saved, whatever the person taps.
+     */
+    @Test
+    fun startsTheSessionAsSoonAsThePairingIsSaved() = runTest {
+        val harness = Harness(this) { _, _, _ -> PairOutcome.Paired(RemotePairResponse("dev-9", "tok", 900_000)) }
+        harness.flow.onScanned(uri)
+        advanceUntilIdle()
+        // Once, and only after the new pairing is in the store, so the session signs in as dev-9.
+        assertEquals(listOf("dev-9"), harness.started.map { it?.deviceId })
+    }
+
+    @Test
+    fun aFailedPairingStartsNothing() = runTest {
+        val harness = Harness(this) { _, _, _ -> PairOutcome.Refused(RemotePairingErrorCode.PAIRING_REFUSED) }
+        harness.flow.onScanned(uri)
+        advanceUntilIdle()
+        assertTrue(harness.started.isEmpty())
     }
 
     @Test
