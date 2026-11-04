@@ -68,6 +68,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     excluded: 'A window-only list of the person\'s notifications. The states behind it are read with oxespace_agents list and oxespace_threads list.'
   },
   'code.agent_seen': { label: 'Mark an agent\'s finished turn as seen', excluded: 'An attention marker of the person\'s window.', ipc: ['agentState.markSeen'] },
+  'code.agents_overview': { label: 'The agents overview and what the person has seen (agents:overview, agents:mark-seen, agents:changed)', forbidden: 'The person\'s overview of every agent; only the person marks what they have seen. Agents read the same states with oxespace_agents list, oxespace_threads list and oxespace_work status.', ipc: ['agents.*'] },
   'code.terminal_output': { label: 'Read a pane\'s output', tools: each('oxespace_terminal', 'read', ['output']), ipc: ['terminal.status'] },
   'code.terminal_input': {
     label: 'Start, type into, resize or stop a terminal',
