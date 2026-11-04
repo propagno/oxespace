@@ -218,7 +218,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
         cancel: { label: t('common.cancel'), disabled: acting, onClick: () => setRenameTarget(null) },
         primary: { label: acting ? t('sidebar.renaming') : t('commandDialog.rename'), disabled: acting || !renameValue.trim() || renameValue.trim() === renameTarget.title, onClick: () => (document.getElementById('rename-thread-form') as HTMLFormElement | null)?.requestSubmit() }
       }}>
-      <form id="rename-thread-form" className="thread-create-body" onSubmit={event => { event.preventDefault(); const title = renameValue.trim(); if (!title || !window.oxe.thread?.command) return
+      <form id="rename-thread-form" className="thread-create-body" onSubmit={event => { event.preventDefault(); const title = renameValue.trim(); if (acting || !title || title === renameTarget.title || !window.oxe.thread?.command) return
         // The new name shows at once; a failed save puts the old one back and says so in a toast.
         setRenameTarget(null); void useThreadStore.getState().renameThread(renameTarget.id, title)
       }}>
