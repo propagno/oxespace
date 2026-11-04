@@ -113,6 +113,6 @@ fun ToolDiffView(diff: RemoteToolDiff, modifier: Modifier = Modifier) {
             }
         }
         shown.patch?.takeIf { it.isNotEmpty() }?.let { CodeBlock(showHidden(it)) }
-        if (shown.truncated) Text(stringResource(R.string.thread_extras_diff_cut), style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textMuted)
+        if (shown.truncated == true) Text(stringResource(R.string.thread_extras_diff_cut), style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textMuted)
     }
 }
