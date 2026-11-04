@@ -11,6 +11,17 @@ describe('A8 · workspace color is stored per workspace and has a stable default
     expect(WORKSPACE_COLORS).toEqual([1, 2, 3, 4, 5, 6, 7, 8])
   })
 
+  test('workspaces.color is a nullable INTEGER column added by a migration', () => {
+    const db = openInMemoryDatabase()
+    try {
+      const columns = db.prepare('PRAGMA table_info(workspaces)').all() as Array<{ name: string; type: string; notnull: number }>
+      const color = columns.find(column => column.name === 'color')
+      expect(color?.type.toUpperCase()).toBe('INTEGER')
+      expect(color?.notnull).toBe(0)
+      expect(() => db.prepare("UPDATE workspaces SET color = 9 WHERE 0").run()).not.toThrow()
+    } finally { db.close() }
+  })
+
   test('a new workspace has no stored color; its shown color is a stable hash of its id', () => {
     const db = openInMemoryDatabase()
     try {

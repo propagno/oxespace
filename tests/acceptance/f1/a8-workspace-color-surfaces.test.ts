@@ -17,7 +17,7 @@ describe('A8 · the workspace color reaches every workspace surface', () => {
     expect(source).toMatch(/workspaceColorAttrs\(/)
   })
 
-  test('the workspace menu offers the eight colors through update-settings', () => {
+  test('the workspace menu offers the eight colors through workspace:update-settings', () => {
     const source = read('src/components/Sidebar/WorkspaceGroup.tsx')
     expect(source).toMatch(/WORKSPACE_COLORS/)
     expect(source).toMatch(/updateSettings\([^)]*color/s)

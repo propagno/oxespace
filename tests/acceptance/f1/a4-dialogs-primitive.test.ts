@@ -34,6 +34,14 @@ describe('A4 · every dialog is the U1 primitive', () => {
     expect(restyled.map(path => relative(ROOT, path))).toEqual([])
   })
 
+  test('every file that renders <Dialog> takes it from ui/Dialog (the src/ui barrel), never a local copy', () => {
+    const local = files.filter(path => {
+      const source = readFileSync(path, 'utf8')
+      return /<Dialog\b/.test(source) && !/import\s*\{[^}]*\bDialog\b[^}]*\}\s*from\s*['"][./]*ui['"]/.test(source)
+    })
+    expect(local.map(path => relative(ROOT, path))).toEqual([])
+  })
+
   test('every <Dialog> under src/ declares its size', () => {
     const unsized = files.filter(path => dialogTags(readFileSync(path, 'utf8')).some(attrs => !/\ssize=/.test(attrs)))
     expect(unsized.map(path => relative(ROOT, path))).toEqual([])
