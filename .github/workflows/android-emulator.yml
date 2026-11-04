@@ -54,13 +54,15 @@ jobs:
           if [[ "$LEVEL" =~ ^[0-9]+$ ]] && (( LEVEL >= 37 )); then LEVEL="$LEVEL.0"; fi
           image="system-images;android-$LEVEL;google_apis;x86_64"
           # The whole listing first: `sdkmanager --list | grep -q` under pipefail reads a match as a failure, since
-          # grep -q exits at the first match and sdkmanager then dies of SIGPIPE.
-          listing=$(sdkmanager --list 2>/dev/null || true)
-          if ! grep -q '^ *system-images;' <<< "$listing"; then
+          # grep -q exits at the first match and sdkmanager then dies of SIGPIPE. cmdline-tools 23 (the Android CLI)
+          # lists packages as system-images/android-37.0/google_apis/x86_64, in colour; older ones use ";". Both are
+          # read, colours stripped; installing still takes the ";" name.
+          listing=$(sdkmanager --list 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' || true)
+          if ! grep -qE '^ *system-images[;/]' <<< "$listing"; then
             echo "::error::sdkmanager --list listed no system image at all, so the level could not be checked"
             exit 1
           fi
-          if grep -qF "$image " <<< "$listing"; then
+          if grep -qE "^ *system-images[;/]android-${LEVEL//./\\.}[;/]google_apis[;/]x86_64[[:space:]]" <<< "$listing"; then
             echo "level=$LEVEL" >> "$GITHUB_OUTPUT"
             echo "available=true" >> "$GITHUB_OUTPUT"
             echo "Emulator API level $LEVEL ($image)"
