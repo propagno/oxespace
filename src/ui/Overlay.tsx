@@ -1,4 +1,4 @@
-import { useEffect, useRef, type KeyboardEvent, type ReactElement, type ReactNode, type SyntheticEvent } from 'react'
+import { useEffect, useId, useRef, type KeyboardEvent, type ReactElement, type ReactNode, type SyntheticEvent } from 'react'
 import { Check, ChevronRight, X } from 'lucide-react'
 import { Dialog as RadixDialog, DropdownMenu as RadixMenu, Popover as RadixPopover, Tooltip as RadixTooltip } from 'radix-ui'
 import { i18n } from '../i18n'
@@ -223,7 +223,14 @@ export function orderMenuEntries(items: MenuEntry[]): MenuEntry[] {
     safe.push(entry)
   }
   while (safe.at(-1)?.type === 'separator') safe.pop()
-  return safe.length > 0 ? [...safe, { type: 'separator' }, ...danger] : danger
+  // A group heading whose items all moved to the danger group heads nothing now: drop it (CR-01).
+  const headed = safe.filter((entry, index) => {
+    if (entry.type !== 'label') return true
+    const next = safe[index + 1]
+    return next !== undefined && next.type !== 'label' && next.type !== 'separator'
+  })
+  while (headed.at(-1)?.type === 'separator') headed.pop()
+  return headed.length > 0 ? [...headed, { type: 'separator' }, ...danger] : danger
 }
 
 /** The entries of a dropdown menu, shared by Menu and AnchoredMenu; every menu follows the U7 order. */
@@ -247,10 +254,23 @@ function menuEntries(entries: MenuEntry[]): ReactNode {
     if (item.type === 'check') return <RadixMenu.CheckboxItem key={index} className={styles.menuItem} checked={item.checked} disabled={item.disabled} onSelect={item.onSelect}>
       {item.label}<RadixMenu.ItemIndicator className={styles.menuCheck}><Check size={14} /></RadixMenu.ItemIndicator>
     </RadixMenu.CheckboxItem>
-    return <RadixMenu.Item key={index} className={cx(styles.menuItem, item.danger && styles.danger)} data-danger={item.danger ? 'true' : undefined} disabled={item.disabled} aria-label={item.hint ? item.label : undefined} onSelect={event => { if (item.keepOpen) event.preventDefault(); item.onSelect() }}>
-      {item.icon}{item.hint ? <span className={styles.menuHintText}>{item.label}<small>{item.hint}</small></span> : item.label}{item.shortcut && <span className={styles.menuShortcut}>{item.shortcut}</span>}
-    </RadixMenu.Item>
+    return <MenuActionItem key={index} item={item} />
   })
+}
+
+type MenuActionEntry = Extract<MenuEntry, { onSelect: () => void; label: string }> & { type?: 'item' }
+
+/**
+ * An action item. With a hint (U7), the label stays the accessible name, the hint is the item's description
+ * (aria-describedby) and typing ahead matches the label only (textValue) (CR-01).
+ */
+function MenuActionItem({ item }: { item: MenuActionEntry }): ReactElement {
+  const hintId = useId()
+  return <RadixMenu.Item className={cx(styles.menuItem, item.danger && styles.danger)} data-danger={item.danger ? 'true' : undefined} disabled={item.disabled}
+    textValue={item.hint ? item.label : undefined} aria-describedby={item.hint ? hintId : undefined}
+    onSelect={event => { if (item.keepOpen) event.preventDefault(); item.onSelect() }}>
+    {item.icon}{item.hint ? <span className={styles.menuHintText}><span>{item.label}</span><small id={hintId} aria-hidden="true">{item.hint}</small></span> : item.label}{item.shortcut && <span className={styles.menuShortcut}>{item.shortcut}</span>}
+  </RadixMenu.Item>
 }
 
 export interface MenuProps {
