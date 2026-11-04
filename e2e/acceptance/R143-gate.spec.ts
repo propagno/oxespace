@@ -135,6 +135,43 @@ test.describe('1.4.3 gate', () => {
     }
   })
 
+  test('P4 compatibility: a 1.4.2 phone (no snapshot reading) still gets the terminal from the replay, then live', async ({}, info) => {
+    test.skip(!onRunner && process.env.OXESPACE_ACCEPT_FIREWALL !== '1', 'turns the gateway on: CI runners only (or OXESPACE_ACCEPT_FIREWALL=1)')
+    test.setTimeout(240_000)
+    const profile = realProfile('hml-p4-compat')
+    const { app, page } = await launchReal(profile)
+    let socket: TestSocket | undefined
+    try {
+      await openRepo(page, profile.repo)
+      const paneId = await page.evaluate(() => (window as unknown as { oxe: { workspace: { list(): Promise<Array<{ panes: Array<{ id: string }> }>> } } }).oxe.workspace.list().then(l => l[0].panes[0].id))
+      const write = (data: string) => page.evaluate(([id, d]) => (window as unknown as { oxe: { terminal: { write(i: { paneId: string; data: string }): Promise<void> } } }).oxe.terminal.write({ paneId: id, data: d }), [paneId, data] as const)
+      const loop = process.platform === 'win32' ? '1..1500 | % { "compat line $_" }\r' : 'for i in $(seq 1 1500); do echo "compat line $i"; done\r'
+      await page.waitForTimeout(2_000); await write(loop); await page.waitForTimeout(5_000)
+      ;({ socket } = await pairStandInPhone(page))
+      // Exactly what a 1.4.2 phone does: subscribe, then read only `data.data` of each frame. Any extra field is ignored.
+      const ack = await socket.ask({ type: 'subscribe', id: 'old', topic: 'terminal', target: paneId })
+      note(`subscribe: ${JSON.stringify(ack).slice(0, 120)}`)
+      let text = typeof (ack.data as { data?: unknown } | undefined)?.data === 'string' ? (ack.data as { data: string }).data : ''
+      const ended = (f: Record<string, unknown>) => f.type === 'snapshot' && (!(f.page as { last?: boolean } | undefined) || (f.page as { last: boolean }).last)
+      const frames = ended(ack) ? [] : await framesUntil(socket, f => ended(f), 15_000)
+      for (const f of frames) { const d = (f.data as { data?: unknown } | undefined)?.data; if (typeof d === 'string') text += d }
+      const latest = Math.max(0, ...[...text.matchAll(/compat line (\d+)/g)].map(m => Number(m[1])))
+      note(`replay: ${frames.length + 1} frames, ${text.length} chars of terminal text, latest "compat line ${latest}"`)
+      expect.soft(latest, 'the replay alone reaches the end of the busy output').toBe(1500)
+      // Then live output reaches the old phone as events.
+      await write(process.platform === 'win32' ? 'Write-Host HML-COMPAT-LIVE\r' : 'echo HML-COMPAT-LIVE\r')
+      const live = await framesUntil(socket, f => typeof (f.data as { data?: unknown } | undefined)?.data === 'string' && ((f.data as { data: string }).data).includes('HML-COMPAT-LIVE'), 10_000)
+      const got = live.some(f => typeof (f.data as { data?: unknown } | undefined)?.data === 'string' && ((f.data as { data: string }).data).includes('HML-COMPAT-LIVE'))
+      note(`live after the replay: ${got ? 'received' : 'NOT received'} (${live.length} frames)`)
+      expect.soft(got, 'live output reaches a phone that reads only data.data').toBe(true)
+    } finally {
+      socket?.close()
+      flush(info, 'p4-compat-report')
+      await quitReal(app)
+      rmSync(profile.root, { recursive: true, force: true })
+    }
+  })
+
   test('P1: Public network and no rule → explained, repaired on consent, scoped, undone', async ({}, info) => {
     test.skip(process.platform !== 'win32', 'Windows firewall only')
     test.skip(!onRunner, 'changes the machine\'s firewall and network profile: CI runners only, never a person\'s machine')
