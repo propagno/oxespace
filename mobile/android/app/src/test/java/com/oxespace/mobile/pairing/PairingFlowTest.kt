@@ -43,7 +43,7 @@ class PairingFlowTest {
         override fun clear() { saved = null }
     }
 
-    private class Harness(scope: TestScope, deviceName: String = "Pixel 8", answer: (PairingQr, String, String) -> PairOutcome) {
+    private class Harness(scope: TestScope, deviceName: String = "Pixel 8", probe: ProbeResult = ProbeResult.Ok, answer: (PairingQr, String, String) -> PairOutcome) {
         val keys = mutableMapOf<String, FakeKeys>()
         val store = FakeStore()
         val calls = mutableListOf<Triple<PairingQr, String, String>>()
@@ -69,6 +69,7 @@ class PairingFlowTest {
             deviceName = deviceName,
             newAlias = { "alias-${keys.size + 1}" },
             onPaired = { started += store.saved },
+            probe = { _, _ -> probe },
         )
     }
 
@@ -129,6 +130,26 @@ class PairingFlowTest {
      * the desktop's 2 minutes, and the next sign-in read "OXESpace removed this phone". The session now starts once
      * the pairing is saved, whatever the person taps.
      */
+    /**
+     * P3: the desktop accepted, but the phone can't sign in with the new identity. Nothing is saved, nothing starts,
+     * the key is deleted, and the person reads why now, instead of "removed this phone" later.
+     */
+    @Test
+    fun aPairingThatCantSignInIsNotSaved() = runTest {
+        val cases = mapOf(ProbeResult.TimedOut to PairingFailure.TIMED_OUT, ProbeResult.Closed to PairingFailure.UNREACHABLE,
+            ProbeResult.Refused(com.oxespace.mobile.protocol.session.SessionEnd.UNAUTHENTICATED) to PairingFailure.REFUSED_ON_DESKTOP,
+            ProbeResult.Refused(com.oxespace.mobile.protocol.session.SessionEnd.PROTOCOL) to PairingFailure.PROTOCOL)
+        for ((result, failure) in cases) {
+            val harness = Harness(this, probe = result) { _, _, _ -> PairOutcome.Paired(RemotePairResponse("dev-9", "tok", 900_000)) }
+            harness.flow.onScanned(uri)
+            advanceUntilIdle()
+            assertEquals(result.toString(), PairingState.Failed(failure), harness.flow.state.value)
+            assertNull(harness.store.saved)
+            assertTrue(harness.started.isEmpty())
+            assertTrue(harness.keys.getValue("alias-1").deleted)
+        }
+    }
+
     @Test
     fun startsTheSessionAsSoonAsThePairingIsSaved() = runTest {
         val harness = Harness(this) { _, _, _ -> PairOutcome.Paired(RemotePairResponse("dev-9", "tok", 900_000)) }

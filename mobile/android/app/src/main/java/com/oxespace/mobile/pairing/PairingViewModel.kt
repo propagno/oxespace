@@ -7,11 +7,15 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.oxespace.mobile.notify.SessionService
 import com.oxespace.mobile.protocol.pairing.PairingClient
+import com.oxespace.mobile.protocol.session.RemoteConnection
+import com.oxespace.mobile.protocol.session.TokenHolder
+import java.util.concurrent.Executors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
 
 /** Holds one pairing attempt across rotations; the work happens in [PairingFlow]. */
 class PairingViewModel(application: Application) : AndroidViewModel(application) {
+    private val probeScheduler = Executors.newSingleThreadScheduledExecutor()
     private val client = PairingClient()
     private val flow = PairingFlow(
         scope = viewModelScope,
@@ -22,6 +26,7 @@ class PairingViewModel(application: Application) : AndroidViewModel(application)
         deviceName = deviceName(application),
         // The app is on screen while pairing, so the foreground service may start here.
         onPaired = { SessionService.start(application) },
+        probe = SessionPairingProbe(linkFor = { target, keys -> RemoteConnection(target, keys::sign, TokenHolder(), probeScheduler) }),
     )
 
     val state: StateFlow<PairingState> = flow.state
@@ -35,5 +40,9 @@ class PairingViewModel(application: Application) : AndroidViewModel(application)
         fun deviceName(application: Application): String =
             Settings.Global.getString(application.contentResolver, Settings.Global.DEVICE_NAME)?.takeIf { it.isNotBlank() }
                 ?: listOf(Build.MANUFACTURER, Build.MODEL).joinToString(" ").trim()
+    }
+
+    override fun onCleared() {
+        probeScheduler.shutdownNow()
     }
 }
