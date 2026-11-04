@@ -35,6 +35,7 @@ import {
   type Workspace
 } from '../../shared/types/ipc'
 import type { GitDiff } from '../../shared/types/git'
+import { createAgentsApi } from './agents'
 
 export interface PreloadIpc {
   invoke(channel: string, ...args: unknown[]): Promise<unknown>
@@ -491,6 +492,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       callTool: (input) => ipc.invoke(IPC_CHANNELS.mcp.callTool, input) as Promise<import('../../shared/types/mcp').McpCallToolResult>,
       onHealth: (listener) => subscribe<import('../../shared/types/mcp').McpServerHealthEvent>(ipc, IPC_CHANNELS.mcp.onHealth, listener)
     },
+    agents: createAgentsApi(ipc),
     agentState: {
       list: (workspaceId) => ipc.invoke(IPC_CHANNELS.agentState.list, workspaceId) as Promise<import('../../shared/types/agent-state').PaneAgentState[]>,
       markSeen: (paneId) => ipc.invoke(IPC_CHANNELS.agentState.markSeen, paneId) as Promise<void>,
