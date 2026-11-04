@@ -698,9 +698,25 @@ async function driveBatch(api, batch, queue, { now, timeoutMinutes, log, actions
   record('batch-end', `${branch}: merged ${merged.map((m) => `#${m.number}`).join(' ') || 'nothing'}${merged.length < members.length ? `; ${members.length - merged.length} back on their own` : ''}`)
 }
 
+/** How many of the highest-numbered train/batch-N branches are read to find the train's open batch. */
+export const BATCH_REFS_READ = 5
+
+/**
+ * The batch branches worth reading, newest first: the train's own batch is always numbered after every batch
+ * branch that existed when it was built, so it is among the highest numbers. Old manual-batch branches left on
+ * origin (59 on 04/11) are then never read, one commit each, on every run.
+ */
+export function recentBatchRefs(refs, n = BATCH_REFS_READ) {
+  const number = (ref) => Number(BATCH_REF_RE.exec(ref.name)?.[1] ?? -1)
+  return refs
+    .filter((ref) => number(ref) >= 0)
+    .sort((a, b) => number(b) - number(a))
+    .slice(0, n)
+}
+
 /** Drives an open batch, or builds one; true when the batch took this run. */
 export async function runBatch(api, queue, { now, timeoutMinutes, log, actions, canStart, sleep }) {
-  for (const ref of await api.listBatchRefs()) {
+  for (const ref of recentBatchRefs(await api.listBatchRefs())) {
     const batch = await readBatch(api, ref.name, ref.sha)
     if (!batch) continue
     await driveBatch(api, batch, queue, { now, timeoutMinutes, log, actions, sleep })

@@ -10,6 +10,8 @@ import {
   dryRunApi,
   isBatchPath,
   nextBatchRef,
+  recentBatchRefs,
+  BATCH_REFS_READ,
   parseBatchMessage,
   runBatch,
   runTrain,
@@ -440,6 +442,33 @@ describe('driving a batch', () => {
     api.refs.set('train/batch-4', sha)
     expect((await step(api)).took).toBe(false)
     expect(api.writes).toEqual([])
+  })
+
+  it('reads only the newest batch branches, and still finds its own batch among dozens of stale ones', async () => {
+    expect(recentBatchRefs([3, 45, 1, 12, 46, 2, 44].map((n) => ({ name: `train/batch-${n}`, sha: 'x' })).concat([{ name: 'train/batch-D', sha: 'x' }]), 3).map((r: { name: string }) => r.name)).toEqual([
+      'train/batch-46',
+      'train/batch-45',
+      'train/batch-44',
+    ])
+    const api = fakeGitHub({ 1: docs(1, 'a'), 2: docs(2, 'b') })
+    const main = api.refs.get('main')!
+    for (let n = 1; n <= 45; n++) {
+      const sha = (1000 + n).toString(16).padStart(40, 'c')
+      api.commits.set(sha, { sha, message: `Merge PR #${n} into batch ${n}`, parents: [main, head('a')], date: BUILT })
+      api.refs.set(`train/batch-${n}`, sha)
+    }
+    let reads = 0
+    const getCommit = api.getCommit
+    api.getCommit = async (sha: string) => {
+      reads++
+      return getCommit(sha)
+    }
+    await step(api)
+    // The new batch is numbered 46, after every branch; building it reads its own commits, not the 45 stale ones.
+    expect(kinds(api, 'createRef')).toEqual([['createRef', 'train/batch-46', main]])
+    reads = 0
+    await step(api)
+    expect(reads).toBeLessThanOrEqual(BATCH_REFS_READ + 3)
   })
 
   it('runTrain gives the run to the batch and serves no car alongside it', async () => {
