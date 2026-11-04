@@ -1167,7 +1167,6 @@
     "guardedHint": "Isto altera um arquivo que orienta os agentes (instruções, configurações MCP, hooks). Só uma pessoa aprova, a cada vez; nunca fica lembrado."
   },
   "requests": {
-    "waiting": "O agente está esperando a sua resposta",
     "waitingMany": "{{count}} pedidos estão esperando a sua resposta",
     "shrinkTitle": "Devolver o espaço para a conversa",
     "expandTitle": "Dar mais espaço ao pedido para ler as opções",
