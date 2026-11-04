@@ -17,6 +17,11 @@ export interface AgentHookStatusEvent {
   event: string
   at: number
   sessionId: string | null
+  /**
+   * T54 · The permission mode a Claude session started in, from its SessionStart hook only, when it is one of Claude
+   * Code's four (`default`, `acceptEdits`, `plan`, `bypassPermissions`). A resume of that session starts in it again.
+   */
+  permissionMode?: 'default' | 'acceptEdits' | 'plan' | 'bypassPermissions'
 }
 
 /**

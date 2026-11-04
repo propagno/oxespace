@@ -20,6 +20,8 @@ export interface TerminalIpcController {
   detach(input: ReturnType<typeof parseTerminalStopInput>): void
   status(paneId: string): TerminalStatusResult
   hasSession?(paneId: string): boolean
+  resumeBypass?(): boolean
+  setResumeBypass?(enabled: boolean): boolean
 }
 
 export function registerTerminalIpc(controller: TerminalIpcController = createPendingTerminalController()): void {
@@ -33,6 +35,12 @@ export function registerTerminalIpc(controller: TerminalIpcController = createPe
   ipcMain.handle(IPC_CHANNELS.terminal.attach, (_event, input: unknown) => controller.attach(parseTerminalAttachInput(input)))
   ipcMain.handle(IPC_CHANNELS.terminal.detach, (_event, input: unknown) => controller.detach(parseTerminalStopInput(input)))
   ipcMain.handle(IPC_CHANNELS.terminal.status, (_event, paneId: unknown) => controller.status(String(paneId ?? '')))
+  // T54 · Only the window changes it; no agent hook or MCP tool reaches these (mcp-coverage: forbidden).
+  ipcMain.handle(IPC_CHANNELS.terminal.resumeBypass, () => controller.resumeBypass?.() ?? false)
+  ipcMain.handle(IPC_CHANNELS.terminal.setResumeBypass, (_event, enabled: unknown) => {
+    if (typeof enabled !== 'boolean') throw new Error('Invalid resume setting')
+    return controller.setResumeBypass?.(enabled) ?? false
+  })
 }
 
 export function createPendingTerminalController(): TerminalIpcController {

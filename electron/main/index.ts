@@ -215,7 +215,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       agentState.hook(event.paneId, hookAgent, event.state)
       // Remember the native session so the pane can reopen it after a restart; an ended session is forgotten.
       if (event.state === 'ended') paneAgentSessions.clear(event.paneId)
-      else if (event.sessionId) paneAgentSessions.record(event.paneId, hookAgent, event.sessionId)
+      else if (event.sessionId) paneAgentSessions.record(event.paneId, hookAgent, event.sessionId, 'hook', event.permissionMode)
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send(IPC_CHANNELS.agentHooks.onStatus, event)
       }
@@ -346,7 +346,9 @@ async function registerIpcHandlers(): Promise<() => void> {
     observed: thread => delegatedThreadObserver.current?.(thread),
     bridge: join(app.getPath('userData'), 'bin', 'oxespace-mcp.cjs'),
     prepare: async thread => {
-      const meta = db.prepare('SELECT port, token FROM internal_mcp_meta LIMIT 1').get() as { port: number; token: string } | undefined
+      // The internal MCP starts after first paint: a conversation sent in the first seconds waits for it (bounded).
+      const { waitForInternalMcp } = await import('./mcp-internal/ready')
+      const meta = await waitForInternalMcp(() => db.prepare('SELECT port, token FROM internal_mcp_meta LIMIT 1').get() as { port: number; token: string } | undefined)
       if (!meta) throw Error('Internal MCP is still starting. Retry shortly.')
       const nativeHooks = thread.hooksEnabled === true && (thread.access === 'workspace-write' || thread.access === 'full-access')
       const memory = await memoryService.prepareLaunch({ paneId: `thread:${thread.id}`, workspaceId: thread.workspaceId, cwd: thread.rootPath,
