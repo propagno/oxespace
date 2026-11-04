@@ -1,5 +1,5 @@
 import { Check, Maximize2, Minimize2, Palette, Settings2, SquareTerminal, X } from 'lucide-react'
-import { useEffect, useRef, useState, type FormEvent, type ReactElement } from 'react'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace, WorkspaceDensity, WorkspaceLayoutPreset, WorkspaceThemeId } from '../../../shared/types/workspace'
 import { LAYOUT_PRESETS, WORKSPACE_DENSITIES } from './workspaceOptions'
 import { useSettingsStore } from '../../store/settings.store'
@@ -13,7 +13,7 @@ import { useResolvedTerminalPrefs, useTerminalPrefsStore, type TerminalCursorSty
 import './WorkspaceSettingsModal.css'
 import { DefaultShellSettings } from './DefaultShellSettings'
 import { useSharedProjectMemory } from '../../hooks/useSharedProjectMemory'
-import { Button, ErrorState, Select } from '../../ui'
+import { applyWithUndo, Button, ErrorState, Select } from '../../ui'
 import { formatNumber } from '../../utils/formatTime'
 import { humanizeError } from '../../utils/humanizeError'
 import { useTranslation } from 'react-i18next'
@@ -27,7 +27,6 @@ export { SETTINGS_PAGES }
 interface WorkspaceSettingsModalProps {
   embedded?: boolean
   selectedPageId?: (typeof SETTINGS_PAGES)[number]['id']
-  onDraftChange?: (draft: { dirty: boolean; save: () => Promise<boolean>; discard: () => void }) => void
   workspace: Workspace
   shellProfiles: ShellProfile[]
   onClose: () => void
@@ -63,7 +62,7 @@ const FONT_PRESETS = [
   'monospace'
 ]
 
-export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange, onClose, onOpenTerminal, onOpenDiagnostics, onSave, shellProfiles, workspace }: WorkspaceSettingsModalProps): ReactElement {
+export function WorkspaceSettingsModal({ embedded, selectedPageId, onClose, onOpenTerminal, onOpenDiagnostics, onSave, shellProfiles, workspace }: WorkspaceSettingsModalProps): ReactElement {
   const { t } = useTranslation('code')
   const [themeId, setThemeId] = useState<WorkspaceThemeId>(workspace.themeId)
   const [uiDensity, setUiDensity] = useState<WorkspaceDensity>(workspace.uiDensity)
@@ -72,7 +71,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
   const [applyShellToIdlePanes, setApplyShellToIdlePanes] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
-  const [isSaving, setSaving] = useState(false)
+
   const [localPage, setPage] = useState<(typeof SETTINGS_PAGES)[number]['id']>('appearance')
   const page = selectedPageId ?? localPage
   const memoryOn = useSharedProjectMemory(workspace.id) === true
@@ -85,30 +84,42 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
   // live as the user edits the Terminal section below.
   const terminalPrefs = useResolvedTerminalPrefs(workspace.id)
 
-  const save = async (): Promise<boolean> => {
-    setSaving(true)
+  // U2 (S-01): every change applies at once; there is no draft and no Save button. A change that fails to apply comes
+  // back to what was there, with the error under the page.
+  type Applied = Required<Pick<UpdateWorkspaceSettingsInput, 'themeId' | 'uiDensity' | 'layoutPreset' | 'defaultShellProfileId'>>
+  const current = useRef<Applied>({ themeId, uiDensity, layoutPreset, defaultShellProfileId })
+  const show = (value: Applied): void => {
+    current.current = value
+    setThemeId(value.themeId); setUiDensity(value.uiDensity); setLayoutPreset(value.layoutPreset); setDefaultShellProfileId(value.defaultShellProfileId)
+  }
+  const apply = async (patch: Partial<Applied>, options: { applyShellToIdlePanes?: boolean } = {}): Promise<void> => {
+    const before = current.current
+    const next = { ...before, ...patch }
+    show(next)
+    setSaved(false)
     setError(null)
     try {
-      await onSave({ workspaceId: workspace.id, themeId, uiDensity, layoutPreset, defaultShellProfileId, applyShellToIdlePanes })
-      setApplyShellToIdlePanes(false)
+      // Only what changed: saving an unchanged layout too can rebuild the panes, and with them the terminals.
+      await onSave({ workspaceId: workspace.id, ...patch, applyShellToIdlePanes: options.applyShellToIdlePanes ?? false })
       setSaved(true)
-      if (!embedded) onClose()
-      return true
     } catch (err) {
+      show(before)
       setError(humanizeError(err, t('workspace.settings.saveFailed')))
-      return false
-    } finally {
-      setSaving(false)
+      throw err
     }
   }
-  const discard = (): void => {
-    setThemeId(workspace.themeId); setUiDensity(workspace.uiDensity); setLayoutPreset(workspace.layoutPreset)
-    setDefaultShellProfileId(workspace.defaultShellProfileId); setApplyShellToIdlePanes(false); setError(null)
+  const applyQuietly = (patch: Partial<Applied>): void => { void apply(patch).catch(() => undefined) }
+  // The default shell is on the risky list (agent and shell commands and profiles): it says what changed, with Undo.
+  const chooseShell = (id: string): void => {
+    const before = current.current.defaultShellProfileId
+    if (id === before) return
+    const name = shellProfiles.find(profile => profile.id === id)?.name ?? id
+    void applyWithUndo({
+      apply: () => apply({ defaultShellProfileId: id }, { applyShellToIdlePanes }),
+      undo: () => apply({ defaultShellProfileId: before }, { applyShellToIdlePanes }).catch(() => undefined),
+      done: t('workspace.settings.shellApplied', { name })
+    })
   }
-  const dirty = themeId !== workspace.themeId || uiDensity !== workspace.uiDensity || layoutPreset !== workspace.layoutPreset || defaultShellProfileId !== workspace.defaultShellProfileId || applyShellToIdlePanes
-  useEffect(() => { setSaved(false) }, [themeId, uiDensity, layoutPreset, defaultShellProfileId, applyShellToIdlePanes])
-  useEffect(() => { onDraftChange?.({ dirty, save, discard }) })
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => { event.preventDefault(); await save() }
 
   const content = <>
         {!embedded &&
@@ -125,9 +136,8 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
           </Button>
         </header>}
 
-        <form
+        <div
           className="ws-settings-form-v2"
-          onSubmit={handleSubmit}
         >
           <div className="ws-settings-body">
             {!embedded && <nav className="ws-settings-nav" aria-label={t('workspace.settings.sections')}>
@@ -159,7 +169,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
                   {WORKSPACE_DENSITIES.map(({ id, label }) => {
                     const Icon = id === 'compact' ? Minimize2 : id === 'comfortable' ? Maximize2 : Settings2
                     return <button key={id} type="button" role="radio" aria-checked={uiDensity === id}
-                      className={`density-option${uiDensity === id ? ' selected' : ''}`} onClick={() => setUiDensity(id)}>
+                      className={`density-option${uiDensity === id ? ' selected' : ''}`} onClick={() => applyQuietly({ uiDensity: id })}>
                       <Icon size={14} aria-hidden="true" />
                       <span>{label}</span>
                     </button>
@@ -178,7 +188,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
                     const selected = layoutPreset === preset
                     return (
                       <button key={preset} type="button" role="radio" aria-checked={selected}
-                        className={`layout-card${selected ? ' selected' : ''}`} onClick={() => setLayoutPreset(preset)}
+                        className={`layout-card${selected ? ' selected' : ''}`} onClick={() => applyQuietly({ layoutPreset: preset })}
                         aria-label={t('workspace.status.panes', { count: preset })}
                         title={`${grid.rows}×${grid.cols} (${t('workspace.status.panes', { count: preset })})`}>
                         <LayoutPreview rows={grid.rows} cols={grid.cols} />
@@ -199,7 +209,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
               <p className="ws-settings-save-note">{t('workspace.settings.terminalNote')}</p>
               <TerminalOverrideSection workspaceId={workspace.id} />
 
-              <DefaultShellSettings profiles={shellProfiles} selectedId={defaultShellProfileId} onSelect={setDefaultShellProfileId}
+              <DefaultShellSettings profiles={shellProfiles} selectedId={defaultShellProfileId} onSelect={chooseShell}
                 applyToIdle={applyShellToIdlePanes} onApplyToIdle={setApplyShellToIdlePanes} rootPath={workspace.rootPath} />
               </div>
             </div>
@@ -210,14 +220,12 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onDraftChange
 
           <footer className="modal-actions">
             <p>{page === 'memory' ? t('workspace.settings.footer.memory') : page === 'delegation' ? t('workspace.settings.footer.delegation') : page === 'tools' ? t('workspace.settings.footer.tools') : t('workspace.settings.footer.default')}</p>
-            <Button variant="secondary" onClick={embedded ? discard : onClose}>{embedded ? t('workspace.settings.discard') : t('workspace.settings.closeButton')}</Button>
-            <Button type="submit" variant="primary" disabled={isSaving}>{isSaving ? t('editor.saving') : t('workspace.settings.save')}</Button>
           </footer>
-        </form>
+        </div>
       </>
   if (embedded) return <div className="workspace-settings-modal-v2 settings-workspace-content">{content}</div>
   return <ModalRoot open onOpenChange={(next) => { if (!next) onClose() }}>
-    <ModalSurface className="modal workspace-settings-modal-v2 modal-dialog-surface">{content}</ModalSurface>
+    <ModalSurface toasts className="modal workspace-settings-modal-v2 modal-dialog-surface">{content}</ModalSurface>
   </ModalRoot>
 }
 
