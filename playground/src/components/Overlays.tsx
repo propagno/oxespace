@@ -83,7 +83,7 @@ function palItems (): PalItem[] {
   S.tasks.filter(t => t.id !== 'quick').forEach(t => it.push({ g: 'Conversations', icon: 'list', label: t.title, sub: t.model, act: () => openTask(t.id) }))
   D.queries.forEach(q => it.push({ g: 'Made by agents', icon: 'db', label: q.sql.split('\n')[0], sub: `${q.conn} · ${q.at.slice(0, 5)}`, act: () => { if (task(q.task)) S.taskId = q.task; S.q.sel = q.id; S.tab = 'queries'; goScreen('task-current') } }))
   Object.values(D.requests).filter(r => r.task).forEach(r => it.push({ g: 'Made by agents', icon: 'net', label: `${r.method} ${r.name}`, sub: `${task(r.task!)!.key} · ${r.at}`, act: () => { S.taskId = r.task!; S.post.req = r.id; S.tab = 'requests'; goScreen('task-current') } }))
-  ;([['code', 'term', 'OxeCode'], ['query', 'db', 'OxeQuery'], ['post', 'net', 'OxePost'], ['pod', 'box', 'OxePod'], ['chat', 'chat', 'Quick chat (no project)']] as const).forEach(([v, i, l]) => it.push({ g: 'Modes', icon: i, label: 'Open ' + l, act: () => { S.overlay = null; railGo(v) } }))
+  ;([['code', 'term', 'OxeCode'], ['query', 'db', 'OxeQuery'], ['pod', 'box', 'OxePod'], ['post', 'net', 'OxePost'], ['chat', 'chat', 'Quick chat (no project)']] as const).forEach(([v, i, l]) => it.push({ g: 'Modes', icon: i, label: 'Open ' + l, act: () => { S.overlay = null; railGo(v) } }))
   it.push({ g: 'Go to', icon: 'shield', label: 'Approvals', act: () => goScreen('queue') })
   it.push({ g: 'Go to', icon: 'gear', label: 'Settings', k: 'Ctrl ,', act: () => goScreen('settings-general') })
   it.push({ g: 'Go to', icon: 'palette', label: 'Foundations: tokens and components', act: () => goScreen('foundations') })

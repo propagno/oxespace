@@ -117,7 +117,7 @@ export function ReqDetail ({ r, inTask }: { r: Req; inTask?: boolean }) {
 export function ImpactBody ({ ap }: { ap: Approval }) {
   const t = task(ap.task)!; const isDb = ap.kind === 'db'
   return <div className="imp">
-    <div className="imp-h"><Av p={t.prov} size="lg" /><div style={{ minWidth: 0 }}><h3>{ap.title}</h3><p>{prov(t.prov).name} · {t.title}</p></div></div>
+    <div className="imp-h"><Av p={t.prov} size="lg" /><div style={{ minWidth: 0 }}><h2 className="imp-t">{ap.title}</h2><p>{prov(t.prov).name} · {t.title}</p></div></div>
     <p style={{ color: 'var(--text-secondary)' }}>{ap.why}</p>
     <div className="imp-facts"><div><small>Where it runs</small><strong>{ap.where}</strong><small>{ap.whereSub}</small></div><div><small>Affects</small><strong>{ap.rows}</strong><small>{ap.rowsSub}</small></div>
       <div><small>Can it be undone?</small><strong className={ap.irreversible ? 'irrev' : 'rev'}>{ap.irreversible ? 'No' : 'Yes'}</strong><small>{ap.undoSub}</small></div><div><small>Risk</small><strong>{{ high: 'High', medium: 'Medium', low: 'Low' }[ap.risk]}</strong><small>{ap.risk === 'high' ? 'Writes shared data' : ap.risk === 'medium' ? 'Deletes local data' : 'Reversible, remote'}</small></div></div>
@@ -136,7 +136,7 @@ export function cancelHold () { if (holdTimer) { clearTimeout(holdTimer); holdTi
 export function ImpactActions ({ ap }: { ap: Approval }) {
   return <>{ap.snapshot ? <button className="btn" onClick={run(() => resolve(ap.id, 'snap'))}><Icon n="db" s={12} />Snapshot, then approve <Kbd>S</Kbd></button> : null}<span className="sp" />
     <button className="btn" data-autofocus onClick={run(() => resolve(ap.id, 'deny'))}>Deny <Kbd>D</Kbd></button>
-    {ap.irreversible ? <button className={'btn dng hold' + (S.holding === ap.id ? ' holding' : '')} aria-label="Hold to approve" onPointerDown={() => startHold(ap.id)} onPointerUp={cancelHold} onPointerLeave={cancelHold}
+    {ap.irreversible ? <button className={'btn dng hold' + (S.holding === ap.id ? ' holding' : '')} aria-label="Hold to approve A" onPointerDown={() => startHold(ap.id)} onPointerUp={cancelHold} onPointerLeave={cancelHold}
       onKeyDown={e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); startHold(ap.id) } }} onKeyUp={e => { if (e.key === ' ' || e.key === 'Enter') cancelHold() }}>
       <i className="fillbar" /><span>{S.holding === ap.id ? 'Keep holding…' : 'Hold to approve'} <kbd className="k" style={{ background: 'transparent', color: 'inherit', borderColor: 'currentColor' }}>A</kbd></span></button>
       : <button className="btn pri" onClick={run(() => resolve(ap.id, 'ok'))}>Approve <kbd className="k">A</kbd></button>}

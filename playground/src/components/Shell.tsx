@@ -19,7 +19,7 @@ export function TitleBar () {
     <div className="tb-l"><Logo /><nav className="menubar" aria-label="Menu">{MENUBAR.map(([id, l]) => <button key={id} onClick={menuBtn(id)} aria-haspopup="menu" aria-expanded={S.menu?.id === id}>{l}</button>)}</nav></div>
     <nav className="modes" aria-label="Modes">{MODES.map(([id, l, k]) => <button key={id} aria-current={cur === id ? 'page' : undefined} title={`${l} (${k})`} onClick={() => goMode(id)}>{l}</button>)}</nav>
     <div className="tb-r">
-      <button className="cmdk sm" onClick={run(() => { S.overlay = { type: 'pal', query: '', sel: 0 } })} aria-label="Search (Ctrl K)"><Icon n="search" /><span>Search</span><Kbd>Ctrl K</Kbd></button>
+      <button className="cmdk sm" onClick={run(() => { S.overlay = { type: 'pal', query: '', sel: 0 } })} aria-label="Search Ctrl K"><Icon n="search" /><span>Search</span><Kbd>Ctrl K</Kbd></button>
       <button className={'needs' + (n ? '' : ' zero')} onClick={() => goScreen('queue')} title="Approvals waiting for you (Ctrl Shift A)">{n ? <span className="sun live" /> : <Icon n="check" s={12} />}{n ? `${n} need${n === 1 ? 's' : ''} you` : 'Nothing waiting'}</button>
       <button className="ibtn" onClick={e => { e.stopPropagation(); S.notif = !S.notif; S.menu = null; emit() }} aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'} aria-expanded={S.notif} style={{ position: 'relative' }}><Icon n="bell" />{unread ? <span className="badge" style={{ position: 'absolute', top: 0, right: -2 }}>{unread}</span> : null}</button>
       <button className="ibtn" onClick={() => goScreen('settings-general')} aria-label="Settings (Ctrl ,)" title="Settings (Ctrl ,)"><Icon n="gear" /></button>
