@@ -9,7 +9,7 @@ import { ThreadView } from './ThreadView'
 function projectView(thread: ConversationThread | undefined, name: string | undefined): Workspace | undefined {
   if (!thread) return undefined
   return { id: `thread:${thread.projectId}`, name: name ?? thread.rootPath.split(/[\\/]/).filter(Boolean).at(-1) ?? i18n.t('thread:common.project'), rootPath: thread.rootPath,
-    layout: '1x1', layoutPreset: 1, themeId: 'midnight', uiDensity: 'compact', defaultShellProfileId: '', autoStart: false, isActive: false, panes: [] }
+    layout: '1x1', layoutPreset: 1, themeId: 'midnight', uiDensity: 'compact', defaultShellProfileId: '', autoStart: false, isActive: false, color: null, panes: [] }
 }
 
 export function ThreadGrid({ onNewThread, onAccounts, onDelegations }: { onNewThread?: () => void; onAccounts?: () => void; onDelegations?: () => void }) {

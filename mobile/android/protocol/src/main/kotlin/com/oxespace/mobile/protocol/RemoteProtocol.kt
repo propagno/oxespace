@@ -66,6 +66,16 @@ object RemoteTextLimits {
     const val OBJECTIVE: Int = 500
 }
 
+object RemoteDiffLimits {
+    const val FILES: Int = 20
+    const val PATCH_BYTES: Int = 8192
+}
+
+object RemoteQueuePreview {
+    const val ITEMS: Int = 5
+    const val TEXT: Int = 200
+}
+
 @Serializable
 enum class RemoteFrameType(val wire: String) {
     @SerialName("hello") HELLO("hello"),
@@ -461,6 +471,33 @@ data class RemoteThreadsEvent(
     val removed: List<String>? = null,
 )
 
+/**
+ * What a tool step changed (CCR #509 §3): paths relative to the project (any outside it is dropped), at most
+ * `REMOTE_DIFF_LIMITS.files` files, and a unified `patch` of at most `REMOTE_DIFF_LIMITS.patchBytes`, cut at a hunk
+ * boundary and redacted like tool output. A binary file is listed with zero counts and no patch.
+ */
+@Serializable
+data class RemoteToolDiff(
+    val files: List<RemoteToolDiffFile>,
+    val patch: String? = null,
+    val truncated: Boolean? = null,
+)
+
+@Serializable
+data class RemoteToolDiffFile(
+    val path: String,
+    val additions: Long,
+    val deletions: Long,
+)
+
+/** A message waiting in the conversation's queue (CCR #509 §4), in send order. */
+@Serializable
+data class RemoteQueuedPreview(
+    val id: String,
+    val text: String,
+    val truncated: Boolean? = null,
+)
+
 @Serializable
 data class RemoteThreadHeader(
     val id: String,
@@ -478,6 +515,12 @@ data class RemoteThreadHeader(
     val queued: Long,
     /** Whether the provider can take a message while a turn runs. */
     val canSteer: Boolean,
+    /** While `status` is running or approval: how long the current turn has run, measured when this was built (CCR #509 §1). */
+    val turnElapsedMs: Long? = null,
+    /** While a turn runs: time since the provider last sent anything (CCR #509 §2). */
+    val quietMs: Long? = null,
+    /** The first `REMOTE_QUEUE_PREVIEW.items` queued messages, each cut to `REMOTE_QUEUE_PREVIEW.text` characters (CCR #509 §4). */
+    val queuedPreview: List<RemoteQueuedPreview>? = null,
 )
 
 /** Snapshot: the newest page; `thread.history` asks for older ones. */
@@ -687,7 +730,8 @@ data class RemoteThreadHistoryArgs(
 
 /**
  * The timeline items the phone shows. Left out on purpose: location and cwd, session ids, context usage, turn cost,
- * CLI commands, model pickers, configuration, turn-diff file paths, message context paths and attachment names.
+ * CLI commands, model pickers, configuration, absolute file paths, message context paths and attachment names.
+ * Turn-diff file paths come only inside a tool step's `diff`, project-relative, with a bounded, redacted patch.
  * `delta` events are folded into the message they extend, so the phone gets the whole text.
  */
 @Serializable
@@ -724,6 +768,7 @@ sealed interface RemoteThreadItem {
         val filesChanged: Long? = null,
         val interrupted: Boolean? = null,
         val redacted: Long? = null,
+        val diff: RemoteToolDiff? = null,
     ) : RemoteThreadItem
 
     @Serializable

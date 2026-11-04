@@ -21,7 +21,7 @@ const BUILT = '2026-11-04T11:50:00Z'
 const RUN_URL = 'https://github.com/o/r/actions/runs/77'
 
 type Commit = { sha: string; message: string; parents: string[]; date: string }
-type Pull = { headSha: string; files: string[]; state?: string; draft?: boolean; mergeable?: boolean | null; headRef?: string }
+type Pull = { headSha: string; files: string[]; state?: string; draft?: boolean; mergeable?: boolean | null; headRef?: string; mergedSha?: string }
 
 /** A fake GitHub with real branches and merge commits, so the batch's state lives where it does on GitHub. */
 function fakeGitHub(pulls: Record<number, Pull>, { queue = Object.keys(pulls).map(Number) }: { queue?: number[] } = {}) {
@@ -67,6 +67,8 @@ function fakeGitHub(pulls: Record<number, Pull>, { queue = Object.keys(pulls).ma
         mergeable: p.mergeable === undefined ? true : p.mergeable,
         mergeableState: 'clean',
         changedFiles: p.files.length,
+        merged: Boolean(p.mergedSha),
+        mergeCommitSha: p.mergedSha ?? null,
       }
     },
     async listFiles(number: number) {
@@ -105,12 +107,18 @@ function fakeGitHub(pulls: Record<number, Pull>, { queue = Object.keys(pulls).ma
       refs.set(name, sha)
       return { sha }
     },
+    // Per call: 'ok' merges; '500' answers 500 without merging; '500-merged' merges and still answers 500.
+    mergeAnswers: [] as Array<'ok' | '500' | '500-merged'>,
     async merge(number: number, head: string) {
       api.beforeMerge(number)
       writes.push(['merge', number, head])
+      const answer = api.mergeAnswers.shift() ?? 'ok'
+      if (answer === '500') throw Object.assign(new Error('PUT merge: 500'), { status: 500 })
       const sha = add(`Merge pull request #${number}`, [refs.get('main')!, head])
       refs.set('main', sha)
       pulls[number].state = 'closed'
+      pulls[number].mergedSha = sha
+      if (answer === '500-merged') throw Object.assign(new Error('PUT merge: 500'), { status: 500 })
       return { sha }
     },
     async postStatus(sha: string, status: Record<string, unknown>) {
@@ -153,7 +161,7 @@ const docs = (n: number, c: string): Pull => ({ headSha: head(c), files: [`docs/
 const step = async (api: ReturnType<typeof fakeGitHub>, now = NOW) => {
   const actions: Array<{ type: string; message: string }> = []
   const log: string[] = []
-  const took = await runBatch(api, api.queue(), { now, timeoutMinutes: 60, log: (l: string) => log.push(l), actions, canStart: true })
+  const took = await runBatch(api, api.queue(), { now, timeoutMinutes: 60, log: (l: string) => log.push(l), actions, canStart: true, sleep: async () => {} })
   return { took, actions, log }
 }
 const batchHead = (api: ReturnType<typeof fakeGitHub>) => api.refs.get('train/batch-1')!
@@ -359,6 +367,45 @@ describe('driving a batch', () => {
     ])
     expect(kinds(api, 'addLabel')).toEqual([['addLabel', 2, NO_BATCH_LABEL]])
     expect(api.comments.get(2)!.at(-1)!.body).toMatch(/changes src\/App\.tsx, outside docs and tests/)
+  })
+
+  it('a 500 on a merge is retried once while main and the head are unchanged (batch-46)', async () => {
+    const api = await built()
+    finishCi(api)
+    api.mergeAnswers = ['500', 'ok']
+    const { actions } = await step(api)
+    expect(kinds(api, 'merge')).toEqual([['merge', 1, head('a')], ['merge', 1, head('a')], ['merge', 2, head('b')]])
+    expect(actions.at(-1)!.message).toBe('train/batch-1: merged #1 #2')
+    expect(kinds(api, 'addLabel')).toEqual([])
+  })
+
+  it('a 500 after GitHub did merge counts the merge, and is not merged twice', async () => {
+    const api = await built()
+    finishCi(api)
+    api.mergeAnswers = ['500-merged']
+    const { actions } = await step(api)
+    expect(kinds(api, 'merge')).toEqual([['merge', 1, head('a')], ['merge', 2, head('b')]])
+    expect(actions.at(-1)!.message).toBe('train/batch-1: merged #1 #2')
+  })
+
+  it('two 500s send the members back on their own, nothing merged', async () => {
+    const api = await built()
+    finishCi(api)
+    api.mergeAnswers = ['500', '500']
+    await step(api)
+    expect(kinds(api, 'merge')).toHaveLength(2)
+    expect(api.commits.get(api.refs.get('main')!)!.message).toBe('initial')
+    expect(kinds(api, 'addLabel')).toEqual([['addLabel', 1, NO_BATCH_LABEL], ['addLabel', 2, NO_BATCH_LABEL]])
+  })
+
+  it('a 500 is not retried when main moved meanwhile', async () => {
+    const api = await built()
+    finishCi(api)
+    api.mergeAnswers = ['500']
+    api.beforeMerge = () => api.refs.set('main', head('f'))
+    await step(api)
+    expect(kinds(api, 'merge')).toHaveLength(1)
+    expect(kinds(api, 'addLabel')).toHaveLength(2)
   })
 
   it('a green run without a passing CI result is not green', async () => {

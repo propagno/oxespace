@@ -130,7 +130,7 @@
 .integration-group-tabs button.active {
   color: var(--accent);
   border-color: var(--accent-border);
-  background: var(--accent-soft);
+  background: var(--fill-selected);
 }
 
 .integration-member-edit-btn {

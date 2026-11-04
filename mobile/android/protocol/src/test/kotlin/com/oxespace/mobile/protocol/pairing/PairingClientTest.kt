@@ -11,6 +11,7 @@ import okhttp3.tls.HandshakeCertificates
 import okhttp3.tls.HeldCertificate
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
@@ -98,6 +99,28 @@ class PairingClientTest {
     fun reportsAnUnreachableDesktop() {
         val port = server.port
         server.close()
-        assertEquals(PairOutcome.Unreachable, client.pair(PairingQr("127.0.0.1", port, "a".repeat(64), code, null), "Pixel 8", "PUBKEY"))
+        var sent = false
+        // Nothing listens on the port: the OS refuses the connection.
+        assertEquals(PairOutcome.Unreachable(ConnectFailure.REFUSED), client.pair(PairingQr("127.0.0.1", port, "a".repeat(64), code, null), "Pixel 8", "PUBKEY") { sent = true })
+        // Nothing reached a desktop, so the phone must not say the desktop is asking.
+        assertFalse(sent)
+    }
+
+    @Test
+    fun saysWhenTheDesktopHasTheRequestBeforeItAnswers() {
+        server.enqueue(MockResponse.Builder().code(200).body("""{"deviceId":"dev-1","accessToken":"tok","expiresInMs":900000}""").build())
+        val events = mutableListOf<String>()
+        val outcome = client.pair(qr(), "Pixel 8", "PUBKEY") { events += "sent" }
+        events += "answered"
+        assertEquals(listOf("sent", "answered"), events)
+        assertEquals(PairOutcome.Paired(RemotePairResponse("dev-1", "tok", 900_000)), outcome)
+    }
+
+    @Test
+    fun neverSaysSentToAnImpostor() {
+        server.enqueue(MockResponse.Builder().code(200).body("{}").build())
+        var sent = false
+        assertEquals(PairOutcome.PinMismatch, client.pair(qr(fingerprint = certificateFingerprint(otherCertificate.certificate)), "Pixel 8", "PUBKEY") { sent = true })
+        assertFalse(sent)
     }
 }
