@@ -40,6 +40,8 @@ export interface RemoteDesktop {
   threadWindow(id: string): ThreadSnapshot
   threadSince(id: string, cursor: ThreadSyncCursor): ThreadDelta
   threadPage(id: string, before: number, limit: number): Promise<ThreadHistoryPage>
+  /** A tool step's file evidence (a unified diff), or undefined when it is gone. Filtered by the topic before sending. */
+  threadArtifact?(id: string, artifactId: string): string | undefined
   /** `'*'` hears every conversation. */
   onThreadChanged(id: string, listener: () => void): () => void
   send(id: string, text: string): Promise<void>
@@ -145,6 +147,7 @@ export function createRemoteDesktop(hosts: RemoteDesktopHosts): RemoteDesktop {
     threadWindow: id => threads.readForRenderer(id),
     threadSince: (id, cursor) => threads.readSinceForRenderer(id, cursor),
     threadPage: (id, before, limit) => threads.historyPage(id, before, limit),
+    threadArtifact(id, artifactId) { try { return history.artifact(id, artifactId).content } catch { return undefined } },
     onThreadChanged: (id, listener) => threads.subscribe(id, () => listener()),
     send: (id, text) => threads.send(id, text),
     steer: (id, text) => threads.steer(id, text),

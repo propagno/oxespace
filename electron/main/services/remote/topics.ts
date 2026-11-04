@@ -157,10 +157,10 @@ export function readThreadCursor(cursor: string | undefined): ThreadSyncCursor |
 }
 
 /** Events with their sequence, to timeline items; delta events are already folded into their message. */
-export function threadItems(events: Array<{ seq: number; event: ThreadEvent }>, roots: readonly string[]): Array<{ seq: number; item: RemoteThreadItem }> {
+export function threadItems(events: Array<{ seq: number; event: ThreadEvent }>, roots: readonly string[], patchOf?: (artifactId: string) => string | undefined): Array<{ seq: number; item: RemoteThreadItem }> {
   const items: Array<{ seq: number; item: RemoteThreadItem }> = []
   for (const { seq, event } of events) {
-    const item = toThreadItem(event, seq, roots)
+    const item = toThreadItem(event, seq, roots, patchOf)
     if (item) items.push({ seq, item: fitItem(item) })
   }
   return items
@@ -185,7 +185,8 @@ export function numbered(events: ThreadEvent[], upper: number): Array<{ seq: num
   return events.map((event, index) => ({ seq: upper - events.length + index, event }))
 }
 
-const headerKey = (header: RemoteThreadHeader): string => JSON.stringify({ ...header, updatedAt: 0 })
+/** The clocks change on every build; a header that differs only in them is not news. */
+const headerKey = (header: RemoteThreadHeader): string => JSON.stringify({ ...header, updatedAt: 0, turnElapsedMs: header.turnElapsedMs === undefined ? undefined : 0, quietMs: header.quietMs === undefined ? undefined : 0 })
 
 class ThreadTopic implements RemoteTopicSource {
   constructor(private readonly desktop: RemoteDesktop, private readonly debounceMs: number) {}
@@ -200,12 +201,13 @@ class ThreadTopic implements RemoteTopicSource {
     let sync = readThreadCursor(request.cursor)
     let lastHeader: string | undefined
     const roots = () => [thread.rootPath, ...desktop.roots()]
+    const patchOf = (artifactId: string): string | undefined => desktop.threadArtifact?.(id, artifactId)
     const snapshot = (): void => {
       const window = desktop.threadWindow(id)
       thread = window.thread
       const all = roots()
-      const header = toThreadHeader(window.thread, window.pendingRequests?.length ?? 0, all)
-      const items = threadItems(numbered(window.events, window.page?.live ?? window.events.length), all)
+      const header = toThreadHeader(window.thread, window.pendingRequests?.length ?? 0, all, { turns: window.turns, now: Date.now() })
+      const items = threadItems(numbered(window.events, window.page?.live ?? window.events.length), all, patchOf)
       const newest = items.slice(-REMOTE_TEXT_LIMITS.threadPage)
       const hasMore = items.length > newest.length || Boolean(window.page?.hasMore)
       stream.snapshot(pageList(newest, chunk => ({ thread: header, items: chunk, hasMore })), threadCursor(window.sync))
@@ -218,8 +220,8 @@ class ThreadTopic implements RemoteTopicSource {
       if (!delta.ok) return snapshot()
       thread = delta.thread
       const all = roots()
-      const header = toThreadHeader(delta.thread, delta.pendingRequests.length, all)
-      const items = threadItems(delta.events, all)
+      const header = toThreadHeader(delta.thread, delta.pendingRequests.length, all, { turns: delta.turns, now: Date.now() })
+      const items = threadItems(delta.events, all, patchOf)
       sync = { epoch: delta.epoch, revision: delta.revision }
       if (!items.length && headerKey(header) === lastHeader) return
       lastHeader = headerKey(header)
