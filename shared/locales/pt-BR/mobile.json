@@ -47,6 +47,8 @@
       "publicHost": "Esse código aponta para fora da sua rede local. O OXESpace só pareia na mesma Wi-Fi.",
       "malformed": "Não foi possível ler esse código. Mostre um novo no computador e tente de novo."
     },
+    "contactingTitle": "Conectando a {{desktop}}…",
+    "contactingBody": "Falando com o computador pela Wi-Fi. Quando ele receber o pedido, vai pedir sua confirmação e este celular mostra o código para comparar.",
     "waitingTitle": "Confirme no computador",
     "waitingBody": "{{desktop}} está perguntando se pode parear com este celular. Aceite só se aparecer este código:",
     "verificationDescription": "Código de verificação {{code}}",
@@ -62,7 +64,7 @@
       "locked": "Tentativas de pareamento demais. Espere 2 minutos e tente de novo.",
       "tooManyDevices": "Seu computador já tem 5 aparelhos pareados. Remova um em Configurações › Dispositivos antes.",
       "wrongCertificate": "Outro aparelho respondeu nesse endereço, não o seu computador. Nada foi enviado. Confira se você está na sua Wi-Fi.",
-      "unreachable": "Não foi possível falar com o computador. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos.",
+      "unreachable": "Não foi possível falar com o computador, então ele não recebeu o pedido. Confira se ele está ligado, na mesma Wi-Fi, e com a conexão com o celular ligada em Configurações › Dispositivos. No Windows, o firewall bloqueia o celular quando a Wi-Fi está como Pública: mude a rede para Privada ou libere o OXESpace no firewall.",
       "protocol": "O computador respondeu de um jeito que este app não entende. Atualize o app ou o OXESpace no computador.",
       "reservedName": "O nome deste celular usa um nome reservado ao próprio OXESpace, e o computador não o aceita. Mude o nome do celular em Configurações do Android › Sobre o telefone e leia o código de novo."
     }

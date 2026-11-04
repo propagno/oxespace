@@ -71,6 +71,7 @@ fun PairingScreen(state: PairingState, onScanAgain: () -> Unit, onDone: () -> Un
         ) {
             when (state) {
                 PairingState.Scanning, is PairingState.BadCode -> Scanning(state as? PairingState.BadCode, camera)
+                is PairingState.Contacting -> Contacting(state)
                 is PairingState.Waiting -> Waiting(state)
                 is PairingState.Paired -> Result(
                     title = stringResource(R.string.pairing_paired_title),
@@ -105,6 +106,15 @@ private fun Scanning(badCode: PairingState.BadCode?, camera: @Composable (Modifi
             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
         )
     }
+}
+
+/** Reaching the desktop: no code yet, because the computer can't be asking before it has the request. */
+@Composable
+private fun Contacting(state: PairingState.Contacting) {
+    val desktop = state.desktopName ?: stringResource(R.string.home_unknown_desktop)
+    Title(stringResource(R.string.pairing_contacting_title, desktop))
+    Text(stringResource(R.string.pairing_contacting_body), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+    Box(modifier = Modifier.fillMaxWidth().padding(vertical = OxeSpace.space6), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
 }
 
 @Composable
