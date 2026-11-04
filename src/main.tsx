@@ -37,8 +37,17 @@ document.documentElement.dataset.platform = /Mac/i.test(navigator.platform) ? 'd
 // Before anything renders: main asks the window before it closes, and a window that never answers is closed anyway.
 installCloseGuard()
 
+/** T87: main could not open the database; ask before anything renders, so the normal interface never mounts empty. */
+const startupFailure = (): Promise<import('../shared/types/app').StartupFailure | null> =>
+  (window.oxe?.app?.startupFailure?.() ?? Promise.resolve(null)).catch(() => null)
+
 // The interface language loads before the first render, so no text flashes in the other language.
-void initI18n().catch(error => console.error('[i18n] could not start the translator', error)).finally(() => {
+void Promise.all([initI18n().catch(error => console.error('[i18n] could not start the translator', error)), startupFailure()]).then(async ([, failure]) => {
+  if (failure) {
+    const { StartupFailureScreen } = await import('./components/Startup/StartupFailureScreen')
+    ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(<StartupFailureScreen failure={failure} />)
+    return
+  }
   ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <React.StrictMode>
       {/* A crash anywhere above the views' own boundaries shows OXESpace's message, never a blank window. */}
@@ -52,4 +61,4 @@ void initI18n().catch(error => console.error('[i18n] could not start the transla
       <StartupInteractiveMark />
     </React.StrictMode>
   )
-})
+}).catch(error => console.error('[startup] the first screen could not load', error))

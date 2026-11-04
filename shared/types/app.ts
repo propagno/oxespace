@@ -32,7 +32,24 @@ export interface AppAbout {
 }
 
 /** The `app` API members of these contracts, next to the update ones in `ipc.ts`. */
+/** T87: why the database could not be opened at startup. */
+export type StartupFailureCode = 'newer-schema' | 'corrupt' | 'locked' | 'other'
+export interface StartupFailure {
+  code: StartupFailureCode
+  /** The error's own words, clipped; shown under "Details" and copied with "Copy details". */
+  message: string
+  /** Where the pre-migration backups are kept (`db-backups` next to the database). */
+  backupsPath: string
+  databasePath: string
+}
+
 export interface AppInfoApi {
+  /** T87: the startup failure, or null when the app started normally. Asked before the window renders. */
+  startupFailure?(): Promise<StartupFailure | null>
+  /** T87, only after a startup failure: opens the backups folder (or the data folder when there is none yet). */
+  openBackupsFolder?(): Promise<void>
+  /** T87, only after a startup failure: quits the app. */
+  quitAfterStartupFailure?(): Promise<void>
   /** Whether the computer has a network route right now. */
   connectivity?(): Promise<AppConnectivity>
   /** Sent when connectivity changes. */
