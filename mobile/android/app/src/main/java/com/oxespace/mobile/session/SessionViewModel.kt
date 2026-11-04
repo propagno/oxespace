@@ -16,6 +16,8 @@ class SessionViewModel(application: Application) : AndroidViewModel(application)
     fun onVisible() {
         core.inForeground = true
         if (core.isPaired()) SessionService.start(getApplication()) else core.start()
+        // Back on screen: don't sit out a reconnect wait the person can't see (P6).
+        core.resume()
     }
 
     fun onHidden() {

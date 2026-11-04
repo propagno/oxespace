@@ -140,6 +140,24 @@ class DesktopSessionControllerTest {
         assertEquals(DesktopStatus.Unreachable(paired, 1_000), h.controller.status.value)
     }
 
+    /** P6: back in the foreground, a retry waiting out its backoff goes now; a live session is left alone. */
+    @Test
+    fun comingBackToTheForegroundSkipsAPendingWait() = runTest {
+        val h = harness()
+        h.controller.start()
+        h.link.state.value = SessionState.Ended(SessionEnd.CLOSED)
+        assertTrue(h.controller.status.value is DesktopStatus.Unreachable)
+        h.controller.resume()
+        assertEquals(2, h.links.size)
+        assertEquals(DesktopStatus.Connecting(paired), h.controller.status.value)
+        advanceTimeBy(60_000); runCurrent()
+        assertEquals("the skipped wait doesn't connect again", 2, h.links.size)
+
+        h.link.state.value = SessionState.Ready(null)
+        h.controller.resume()
+        assertEquals("a live session is left alone", 2, h.links.size)
+    }
+
     @Test
     fun tryingNowSkipsTheWait() = runTest {
         val h = harness()
