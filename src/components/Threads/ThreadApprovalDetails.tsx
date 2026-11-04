@@ -51,9 +51,10 @@ export function ThreadApprovalDetails({ command, cwd, reason, fileChanges = fals
     <div className="thread-approval-intent">{isToolRequest ? <Wrench size={16} /> : display.writesFiles || fileChanges ? <FilePenLine size={16} /> : <TerminalSquare size={16} />}<div><strong>{summary}</strong><span>{isToolRequest ? t('approvalDetails.toolRequest') : fileChanges ? t('approvalDetails.fileChanges') : display.runner}{where ? ` · ${where}` : ''}</span></div></div>
     {/* The exact text being approved, open from the start: what runs is never behind a click. */}
     {exact && <section className="thread-approval-exact" aria-label={t('approvalDetails.exact')} data-testid="approval-exact">
-      <div className="thread-approval-preview-heading"><strong>{t('approvalDetails.exact')}</strong>{where && <small>{t('approvalDetails.directory', { path: where })}</small>}</div>
+      {/* Copy sits in the heading, which stays in view while a long command scrolls in the dock (T67). */}
+      <div className="thread-approval-preview-heading"><strong>{t('approvalDetails.exact')}</strong>{where && <small>{t('approvalDetails.directory', { path: where })}</small>}
+        <button type="button" onClick={() => void navigator.clipboard?.writeText(command).then(() => setCopied(true)).catch(() => setCopied(false))}><Copy size={14} />{copied ? t('approvalDetails.copied') : t('approvalDetails.copyExact')}</button></div>
       <pre tabIndex={0}>{command}</pre>
-      <button type="button" onClick={() => void navigator.clipboard?.writeText(command).then(() => setCopied(true)).catch(() => setCopied(false))}><Copy size={14} />{copied ? t('approvalDetails.copied') : t('approvalDetails.copyExact')}</button>
     </section>}
     {showPreview && <div className="thread-approval-preview" data-testid="approval-readable"><div className="thread-approval-preview-heading"><strong>{isPlan ? t('approvalDetails.plan') : isToolRequest ? t('approvalDetails.toolInput') : fileChanges ? t('approvalDetails.proposedChange') : t('approvalDetails.readable')}</strong><small>{t('approvalDetails.readableHint')}</small></div>{plan ? <div className="thread-approval-plan"><ThreadMarkdown text={plan} /></div> : <pre className={isToolRequest ? 'is-structured' : undefined}>{structured ?? display.preview}</pre>}</div>}
     {/* The agent's own words, below the command and marked as such: a claim, not something OXESpace checked. */}

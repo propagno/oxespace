@@ -437,8 +437,9 @@
   min-width: 0;
 }
 
+/* Only the kicker: a button's own <span> in the header's actions kept its case (S-07: "REFRESH"). */
 .settings-modal-brand span,
-.settings-content-header span {
+.settings-content-header .settings-content-kicker {
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 700;

@@ -1,7 +1,7 @@
 import { AlertCircle, Check, ChevronDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
-import { Spinner } from '../../ui'
+import { Spinner, toast } from '../../ui'
 import type { ThreadEvent, ThreadRequest, ThreadSnapshot } from '../../../shared/types/thread'
 import type { ThreadViewMode } from '../../store/thread-view-mode.store'
 import { useThreadStore } from '../../store/thread.store'
@@ -21,6 +21,19 @@ import { ThreadTurnFoldRow } from './ThreadTurnFold'
 import { threadFileLabel, threadFileScope, threadWorkingRoot, type ThreadChangeEntry } from './threadChanges'
 import type { ThreadTimelineItem } from './threadTimelineModel'
 import { PathScopeContext, type PathScope } from '../PathMenu/PathLink'
+import { inlinePathExists, inlinePathRoots, resolveInlinePath, turnWorkingDirectory } from './threadInlinePath'
+
+/** Opens an inline code path from the first place that has it (T70), or names the places looked in. */
+async function openInlinePath(snapshot: ThreadSnapshot, turnEvents: readonly ThreadEvent[], line: number | undefined, text: string): Promise<void> {
+  const { workspaceId } = snapshot.thread
+  const result = await resolveInlinePath(text, { cwd: turnWorkingDirectory(turnEvents), thread: snapshot.thread }, place => inlinePathExists(workspaceId, place))
+  if ('looked' in result) {
+    toast({ title: i18n.t('thread:inlinePath.notFound', { path: text.trim() }), description: i18n.t('thread:inlinePath.looked', { places: result.looked.join('; ') }), intent: 'warning' })
+    return
+  }
+  void useEditorStore.getState().openFile({ workspaceId, rootPath: result.found.root, relativePath: result.found.relativePath, line })
+  useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'files' })
+}
 
 /**
  * Restores the files of one turn from its checkpoint. The orchestrator refuses
@@ -74,14 +87,13 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
     void useEditorStore.getState().openFile({ workspaceId: snapshot.thread.workspaceId, rootPath: root, relativePath: threadFileLabel(entry.file.path, root) })
     useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'files' })
   }
-  // F33: inline code paths in the agent's text open in the conversation's project.
+  // F33: inline code paths in the agent's text open where the agent worked (T70: the turn's folder, the worktree it
+  // moved into, then the project root), and say where they looked when none has the file.
   const pathScope: PathScope | null = snapshot ? {
     workspaceId: snapshot.thread.workspaceId,
     rootPath: snapshot.thread.rootPath,
-    openInOxespace: path => {
-      void useEditorStore.getState().openFile({ workspaceId: snapshot.thread.workspaceId, rootPath: snapshot.thread.rootPath, relativePath: path.relativePath, line: path.line })
-      useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'files' })
-    }
+    roots: inlinePathRoots(snapshot.thread),
+    openInOxespace: (path, text) => void openInlinePath(snapshot, turnEvents, path.line, text)
   } : null
   const body = (() => {
     if (event.type === 'turn-fold') return <ThreadTurnFoldRow key={key} fold={event} turn={snapshot?.turns?.find(value => value.id === turnId)} events={turnEvents} onToggle={() => onToggleFold?.(turnId)} />

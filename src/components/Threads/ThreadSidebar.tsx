@@ -9,7 +9,7 @@ import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, Circ
 import type { ConversationThread } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
-import { NavigationRail, SidebarActions, SidebarFooter, type RailAction } from '../Navigation/NavigationChrome'
+import { NavigationRail, RailItems, SidebarActions, SidebarFooter, type RailAction } from '../Navigation/NavigationChrome'
 import { useNavigationSearch } from '../Navigation/useNavigationSearch'
 import { SearchField } from '../Navigation/SearchField'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
@@ -34,6 +34,8 @@ import sectionStyles from './sections/ThreadSections.module.css'
 
 /** Threads shown per project before "Show more" (a search or the selected thread always shows). */
 const THREAD_ROWS_PER_PROJECT = 8
+/** How many conversations the collapsed rail lists: the pinned, then the most recent (T61). */
+const RAIL_CONVERSATIONS = 12
 
 function relativeTime(timestamp: number): string {
   const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000))
@@ -145,7 +147,12 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   const railContext: RailAction = { id: 'accounts', label: t('sidebar.accounts'), ariaLabel: t('sidebar.agentAccounts'), icon: UserRound, onClick: onAccounts }
   return <aside className={`thread-navigation${collapsed ? ' thread-navigation-collapsed' : ''}`} data-density={density} aria-label={t('sidebar.region')}>
     {!collapsed && <Splitter edge orientation="vertical" label={t('sidebar.width')} value={width} min={SIDEBAR_MIN_WIDTH} max={SIDEBAR_MAX_WIDTH} defaultValue={SIDEBAR_WIDTH} step={SIDEBAR_RESIZE_STEP} onChange={setWidth} />}
-    {collapsed && <NavigationRail mode="thread" primary={railPrimary} context={railContext} onToggle={toggleCollapse} />}
+    {collapsed && <NavigationRail mode="thread" primary={railPrimary} context={railContext} onToggle={toggleCollapse}>
+      <RailItems label={t('sidebar.conversations')} items={threads.filter(thread => !thread.archived && !hiddenProjects.includes(thread.projectId))
+        .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || b.updatedAt - a.updatedAt).slice(0, RAIL_CONVERSATIONS)
+        .map(thread => ({ id: thread.id, label: `${displayThreadTitle(thread.title)} · ${threadNavigationStatus(thread).label}`, current: thread.id === selectedId,
+          onSelect: () => void select(thread.id) }))} />
+    </NavigationRail>}
     {!collapsed && <div className="nav-panel">
       <div className="nav-panel-title"><strong>{t('sidebar.conversations')}</strong><SidebarActions actions={railPrimary} /></div>
       <div className={cx('thread-nav-actions', styles.search)}>

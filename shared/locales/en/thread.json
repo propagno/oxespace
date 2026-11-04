@@ -357,6 +357,7 @@
     "steerTitle": "Send guidance to the active turn",
     "stop": "Stop turn",
     "stopTitle": "Stop turn · Esc",
+    "stopShort": "Stop",
     "queue": "Queue follow-up",
     "queueTitle": "Queue follow-up · Enter",
     "send": "Send",
@@ -378,6 +379,13 @@
     "selectModel": "Select model",
     "loadingModels": "Loading models…",
     "providerDefault": "Provider default",
+    "chip": {
+      "model": "Model",
+      "effort": "Effort",
+      "permissions": "Permissions",
+      "canEdit": "Can edit",
+      "pending": "Applies to the next message"
+    },
     "filterModels": "Filter models",
     "searchModels": "Search models…",
     "noModels": "No models available.",
@@ -870,20 +878,6 @@
     "ok": "Starts when tested now ({{message}}). Start a new conversation to load it.",
     "again": "Test again"
   },
-  "mcpHealth": {
-    "stoppedLabel": "MCP servers stopped while the conversation is idle; they start again with your next message",
-    "unavailable_one": "{{count}} MCP server unavailable, {{connected}} connected",
-    "unavailable_other": "{{count}} MCP servers unavailable, {{connected}} connected",
-    "connected_one": "{{count}} MCP server connected",
-    "connected_other": "{{count}} MCP servers connected",
-    "title": "MCP servers",
-    "chip": "MCP · {{value}}",
-    "chipStopped": "stopped",
-    "chipFailed": "{{count}} failed",
-    "stoppedBody": "Stopped while the conversation is idle. This is the list from its last session; your next message starts them again.",
-    "reportedBody": "As this conversation's session reported them when it started.",
-    "open": "Open connections"
-  },
   "mcpList": {
     "failed": {
       "title": "Failed to start",
@@ -1152,7 +1146,6 @@
     "guardedHint": "This changes a file that steers agents (instructions, MCP settings, hooks). Only a person approves it, each time; it is never remembered."
   },
   "requests": {
-    "waiting": "The agent is waiting for your answer",
     "waitingMany": "{{count}} requests are waiting for your answer",
     "shrinkTitle": "Give the room back to the conversation",
     "expandTitle": "Give the request more room to read its options",
@@ -1695,7 +1688,7 @@
     "title": "Side chat",
     "region": "Side chat",
     "readOnly": "Read-only copy",
-    "note": "Ask about this conversation without changing it. Nothing asked here reaches the conversation, and the copy is thrown away when you close it.",
+    "note": "Ask about this conversation without changing it. Nothing asked here reaches the conversation. The copy stays while you switch conversations; it is thrown away when you discard it or archive the conversation.",
     "costLabel": "Cost so far:",
     "noCostYet": "nothing yet",
     "messages": "Side chat messages",
@@ -1706,15 +1699,21 @@
     "thinking": "The copy is answering…",
     "working": "The copy is answering: {{activity}}",
     "openFailed": "The side chat could not open. Try again.",
-    "sendFailed": "The question did not reach the side chat. Close it and open it again.",
+    "sendFailed": "The question did not reach the side chat. Discard it and open it again.",
     "turnFailed": "The answer failed.",
     "ask": "Ask the side chat",
     "placeholder": "Ask about this conversation…",
     "send": "Ask",
     "nul": "The question has a null character, which cannot be sent. Remove it and try again.",
-    "close": "Close side chat ({{shortcut}})",
+    "close": "Hide side chat ({{shortcut}})",
     "openMenu": "Side chat",
-    "closeMenu": "Close side chat"
+    "closeMenu": "Hide side chat",
+    "actions": "Side chat actions",
+    "discard": "Discard and close…",
+    "discardTitle": "Discard this side chat?",
+    "discardBody": "Its answers are lost. The conversation itself does not change.",
+    "discardConfirm": "Discard",
+    "keep": "Keep"
   },
   "prArchive": {
     "merged": "Pull request #{{number}} was merged",
@@ -1723,5 +1722,9 @@
     "keep": "Keep",
     "archived": "Conversation archived",
     "restore": "Restore"
+  },
+  "inlinePath": {
+    "notFound": "{{path}} was not found",
+    "looked": "Looked in: {{places}}"
   }
 }

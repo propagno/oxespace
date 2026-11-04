@@ -27,8 +27,18 @@ interface OxeQueryState {
   dialog: { open: boolean; editing: OxeQueryConnection | null; draft?: ConnectionDraft }
   /** OxeQuery settings dialog; in the store so the palette opens it whether or not the sidebar is expanded. */
   preferencesOpen: boolean
+  /** The connection list's folded sections and its search, kept while the sidebar is collapsed (T61). */
+  foldedSections: string[]
+  connectionSearch: string
   /** The New database wizard; in the store so the palette and the welcome page open the same one. */
   newDatabaseOpen: boolean
+  /**
+   * Text to open in a new query tab of a connection's editor (from the agent activity), until that editor takes it.
+   * It is only ever put in the editor: running it is the person's own action.
+   */
+  editorRequest: { connectionId: string; text: string } | null
+  openInEditor(connectionId: string, text: string): boolean
+  takeEditorRequest(connectionId: string): string | null
   refreshConnections(): Promise<void>
   openConnection(connection: OxeQueryConnection): void
   openActivity(): void
@@ -37,6 +47,8 @@ interface OxeQueryState {
   openDialog(editing?: OxeQueryConnection | null, draft?: ConnectionDraft): void
   closeDialog(): void
   setPreferencesOpen(open: boolean): void
+  toggleSection(id: string): void
+  setConnectionSearch(text: string): void
   setNewDatabaseOpen(open: boolean): void
   forgetConnection(id: string): void
 }
@@ -49,8 +61,8 @@ function nextActive(tabs: OxeQueryTab[], closing: string, active: string): strin
   return rest[Math.min(index, rest.length - 1)]?.id ?? ''
 }
 
-export const useOxeQueryStore = create<OxeQueryState>((set) => ({
-  connections: [], connectionsError: null, tabs: [], activeTab: '', dialog: { open: false, editing: null }, preferencesOpen: false, newDatabaseOpen: false,
+export const useOxeQueryStore = create<OxeQueryState>((set, get) => ({
+  connections: [], connectionsError: null, tabs: [], activeTab: '', dialog: { open: false, editing: null }, preferencesOpen: false, newDatabaseOpen: false, editorRequest: null, foldedSections: [], connectionSearch: '',
 
   refreshConnections: async () => {
     try { set({ connections: await oq('connections.list', {}), connectionsError: null }) }
@@ -68,9 +80,26 @@ export const useOxeQueryStore = create<OxeQueryState>((set) => ({
   closeTab: id => set(state => ({ tabs: state.tabs.filter(tab => tab.id !== id), activeTab: nextActive(state.tabs, id, state.activeTab) })),
 
   setActiveTab: id => set({ activeTab: id }),
+
+  openInEditor: (connectionId, text) => {
+    const connection = get().connections.find(item => item.id === connectionId)
+    if (!connection) return false
+    get().openConnection(connection)
+    set({ editorRequest: { connectionId, text } })
+    return true
+  },
+
+  takeEditorRequest: connectionId => {
+    const request = get().editorRequest
+    if (!request || request.connectionId !== connectionId) return null
+    set({ editorRequest: null })
+    return request.text
+  },
   openDialog: (editing, draft) => set({ dialog: { open: true, editing: editing ?? null, ...(draft && !editing ? { draft } : {}) } }),
   closeDialog: () => set({ dialog: { open: false, editing: null } }),
   setPreferencesOpen: open => set({ preferencesOpen: open }),
+  toggleSection: id => set(state => ({ foldedSections: state.foldedSections.includes(id) ? state.foldedSections.filter(item => item !== id) : [...state.foldedSections, id] })),
+  setConnectionSearch: text => set({ connectionSearch: text }),
   setNewDatabaseOpen: open => set({ newDatabaseOpen: open }),
   forgetConnection: id => set(state => {
     const closing = state.tabs.find(tab => tab.kind === 'connection' && tab.connectionId === id)

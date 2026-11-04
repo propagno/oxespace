@@ -40,6 +40,13 @@ describe('request file format', () => {
     expect(parsed.headers).toEqual([{ name: 'Accept', value: '*/*', enabled: true }])
   })
 
+  it('reads back a request with no URL yet, as "New request" saves it (T62)', () => {
+    const blank = emptyRequest('New request')
+    expect(serializeRequest(blank)).toBe('# name: New request\nGET \n')
+    expect(parseRequest(serializeRequest(blank))).toEqual(blank)
+    expect(parseRequest('POST')).toMatchObject({ method: 'POST', url: '', name: 'POST' })
+  })
+
   it('says which line is wrong', () => {
     expect(() => parseRequest('# name: x\n')).toThrow(/no request line/)
     expect(() => parseRequest('FETCH http://x')).toThrow(/Line 1.*method/)
