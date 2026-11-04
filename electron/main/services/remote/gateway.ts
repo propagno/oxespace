@@ -213,7 +213,7 @@ export class RemoteGateway implements ConnectionHost {
             if (port < REMOTE_MIN_PORT) throw new GatewayStartError(mainMessage('remote.port.privileged', { port }))
             this.running = await this.start(port)
             this.error = undefined
-            await this.readNetwork()
+            this.refreshNetwork()
             this.store.savePort(port)
             this.store.markListened()
             this.store.audit({ action: 'enable', outcome: 'ok', detail: `port ${port}` })
@@ -239,7 +239,7 @@ export class RemoteGateway implements ConnectionHost {
     this.store.audit({ action: 'pairing-start', outcome: 'ok' })
     this.watchOffer(expiresAt)
     // The profile can change while the gateway runs (another Wi-Fi); read it again, then tell the window.
-    void this.readNetwork().then(() => { try { this.deps.broadcast({ status: this.status() }) } catch { /* a closed window */ } })
+    this.refreshNetwork()
     const host = running.addresses[0].address
     return { uri: pairingUri({ v: REMOTE_PROTOCOL_VERSION, host, port: running.port, fp: running.fingerprint, code, name: this.desktopName }), expiresAt }
   }
@@ -269,6 +269,18 @@ export class RemoteGateway implements ConnectionHost {
     this.offerWatch = null
   }
 
+  /**
+   * Reads the network profile in the background, then tells the window. Never awaited: a slow or failing read
+   * (PowerShell can take seconds) never delays switching the gateway on or showing a code.
+   */
+  private refreshNetwork(): void {
+    const running = this.running
+    void this.readNetwork().then(() => {
+      if (this.running !== running) return
+      try { this.deps.broadcast({ status: this.status() }) } catch { /* a closed window */ }
+    }, () => undefined)
+  }
+
   /** Reads the network profile of the interface the QR names. Never throws, never changes anything. */
   private async readNetwork(): Promise<void> {
     const running = this.running
@@ -277,6 +289,7 @@ export class RemoteGateway implements ConnectionHost {
     const name = interfaceOf(running.addresses[0].address, interfaces)
     const categories = await (this.deps.networkCategories ?? (() => networkCategories(this.deps.platform ?? process.platform)))().catch(() => new Map<string, RemoteNetworkCategory>())
     const category = name ? categories.get(name.toLowerCase()) : undefined
+    if (this.running !== running) return
     this.network = name && category ? { interfaceName: name, category } : undefined
   }
 

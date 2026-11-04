@@ -443,14 +443,29 @@ describe('remote gateway: what the window is told (CCR F9)', () => {
     const reads: string[] = []
     const h = harness({ networkCategories: async () => { reads.push('read'); return new Map([['lo', 'public' as const]]) } })
     await h.enable()
-    expect(h.gateway.status().network).toEqual({ interfaceName: 'lo', category: 'public' })
+    // Read in the background, then broadcast to the window.
+    await vi.waitFor(() => expect(h.gateway.status().network).toEqual({ interfaceName: 'lo', category: 'public' }))
+    await vi.waitFor(() => expect(h.changes.some(change => change.status?.network?.category === 'public')).toBe(true))
     h.offer()
     await vi.waitFor(() => expect(reads.length).toBe(2))
     await h.gateway.setEnabled({ enabled: false })
     expect(h.gateway.status()).not.toHaveProperty('network')
     const unknown = harness({ networkCategories: async () => { throw new Error('no PowerShell') } })
     await unknown.enable()
+    await new Promise(resolve => setTimeout(resolve, 50))
     expect(unknown.gateway.status()).not.toHaveProperty('network')
+  })
+
+  test('1.4.1 pairing: a profile read that hangs never delays switching on or showing a code', async () => {
+    let release: (value: Map<string, 'private'>) => void = () => {}
+    const h = harness({ networkCategories: () => new Promise(resolve => { release = resolve }) })
+    const started = Date.now()
+    await h.enable()
+    h.offer()
+    expect(Date.now() - started).toBeLessThan(2_000)
+    expect(h.gateway.status()).not.toHaveProperty('network')
+    release(new Map([['lo', 'private']]))
+    await vi.waitFor(() => expect(h.gateway.status().network?.category).toBe('private'))
   })
 
   test('1.4.1 pairing: the question waiting for the person is in status, so a reloaded window can show it', async () => {

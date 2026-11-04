@@ -19,8 +19,13 @@ const PROFILE_SCRIPT = 'Get-NetConnectionProfile | ForEach-Object { [string]$_.I
 
 export type ProfileRunner = () => Promise<string>
 
+/** The environment PowerShell gets: the app's own, without the live app's OXESPACE_* values (MCP tokens and ports). */
+export function profileEnv(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  return Object.fromEntries(Object.entries(env).filter(([key]) => !key.toUpperCase().startsWith('OXESPACE_')))
+}
+
 const runPowerShell: ProfileRunner = () => new Promise((resolve, reject) => {
-  execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', PROFILE_SCRIPT], { timeout: PROFILE_TIMEOUT_MS, windowsHide: true, maxBuffer: 64 * 1024 }, (error, stdout) => {
+  execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', PROFILE_SCRIPT], { timeout: PROFILE_TIMEOUT_MS, windowsHide: true, maxBuffer: 64 * 1024, env: profileEnv() }, (error, stdout) => {
     if (error) reject(error)
     else resolve(String(stdout))
   })
@@ -47,11 +52,20 @@ export async function networkCategories(platform: string = process.platform, run
   try { return parseConnectionProfiles(await run()) } catch { return new Map() }
 }
 
-/** The local IPv4 address the default route uses, or null without one. Sends nothing. */
-export function defaultRouteAddress(): Promise<string | null> {
+/** The local IPv4 address the default route uses, or null without one (or after `timeoutMs`). Sends nothing. */
+export function defaultRouteAddress(timeoutMs = 500): Promise<string | null> {
   return new Promise(resolve => {
     const socket = createSocket('udp4')
-    const done = (value: string | null) => { try { socket.close() } catch { /* already closed */ } resolve(value) }
+    let settled = false
+    const timer = setTimeout(() => done(null), timeoutMs)
+    timer.unref?.()
+    const done = (value: string | null) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      try { socket.close() } catch { /* already closed */ }
+      resolve(value)
+    }
     socket.once('error', () => done(null))
     try {
       socket.connect(9, '192.0.2.1', () => {

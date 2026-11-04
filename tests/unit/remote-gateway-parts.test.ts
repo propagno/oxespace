@@ -370,3 +370,10 @@ describe('network profile and route (1.4.1 pairing)', () => {
     expect(preferRoute(found, '10.9.9.9')).toEqual(found)
   })
 })
+
+describe('the profile read runs without the live app\'s environment', () => {
+  test('OXESPACE_* values (any case) never reach PowerShell; everything else does', async () => {
+    const { profileEnv } = await import('../../electron/main/services/remote/network-profile')
+    expect(profileEnv({ PATH: 'C:\Windows', OXESPACE_MCP_TOKEN: 'secret', oxespace_port: '1', SystemRoot: 'C:\Windows' })).toEqual({ PATH: 'C:\Windows', SystemRoot: 'C:\Windows' })
+  })
+})
