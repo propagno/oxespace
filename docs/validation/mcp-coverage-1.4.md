@@ -55,6 +55,7 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `app.activity` | `activity.recent`, `activity.record`, `activity.seen`, `activity.resolve` (F30, for 1.4: the person's own notification history) |
 | `mcp.tool_rules_admin` | `mcpInternal.setToolRule` |
 | `policy.accept_change` | `policy.acceptChange`, `policy.reviewChange` (B7.4: accepting, or reviewing again, a policy file changed outside OXESpace; the phone maps a `policyChange` request to its forbidden `policy.edit`) |
+| `code.agents_overview` | `agents.overview`, `agents.markSeen`, `agents.onChanged` (`agents:overview`, `agents:mark-seen`, `agents:changed`; S7.1: the person's overview of every agent, and only the person marks what they have seen. Agents read the same states with oxespace_agents list, oxespace_threads list and oxespace_work status) |
 
 ### Per-tool rules (B7.3): where each one holds
 

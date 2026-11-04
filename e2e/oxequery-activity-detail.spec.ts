@@ -47,7 +47,8 @@ test('Agent activity shows a request in full, copies it and opens it in the edit
     await expect(dialog).toBeVisible()
     const statement = dialog.getByLabel('Statement', { exact: true })
     await expect(statement).toContainText('ORDER BY')
-    expect((await statement.innerText()).split('\n').length).toBeGreaterThan(3)
+    // The statement shows as recorded until the SQL formatter has loaded (ActivityDetail), then formatted (FL-14).
+    await expect.poll(async () => (await statement.innerText()).split('\n').length).toBeGreaterThan(3)
     for (const fact of ['thread:abc', 'pg-dev', 'dev', 'db_query', 'approved', '3']) await expect(dialog).toContainText(fact)
     await expect(dialog.getByRole('status')).toContainText('never the data it returned')
     const axe = await new AxeBuilder({ page }).setLegacyMode(true).withTags(TAGS).include('[data-testid="oq-activity-detail"]').analyze()
