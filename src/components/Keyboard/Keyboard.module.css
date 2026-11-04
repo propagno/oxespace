@@ -25,6 +25,10 @@
 /* Settings › Keyboard */
 .settingsList { flex: 1; min-width: 0; }
 .settingsRow { align-items: center; }
+/* S-04: a row's actions show on hover and keyboard focus (and while that row waits for keys); the shortcut always shows. */
+.rowAction { opacity: 0; transition: opacity var(--duration-fast) ease; }
+.settingsRow:hover .rowAction, .settingsRow:focus-within .rowAction, .rowAction[data-shown] { opacity: 1; }
+@media (hover: none) { .rowAction { opacity: 1; } }
 .settingsLabel { display: grid; gap: var(--space-1); min-width: 0; }
 .warning { font-size: var(--text-xs); color: var(--intent-warning-fg); }
 .capturing { font-size: var(--text-xs); color: var(--text-secondary); }

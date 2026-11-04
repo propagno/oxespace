@@ -84,7 +84,9 @@ novo. -->
 
 - As seções são guardadas pelo OXESpace e continuam iguais depois de reiniciar.
 - Excluir uma seção nunca exclui uma conversa.
-- O chat lateral não envia nada à conversa principal, e a cópia é descartada quando você fecha.
+- O chat lateral não envia nada à conversa principal. Ocultá-lo (✕ ou `Ctrl+.`) ou trocar de conversa mantém a
+  cópia e as respostas; ela é descartada em **⋯ › Descartar e fechar…**, quando a conversa é arquivada ou excluída,
+  ou quando a janela fecha.
 - Excluir uma conversa mantém a sessão do provedor e os arquivos do projeto.
 <!-- 1.4.1, com o B1.4: "A coordenadora do projeto nunca responde um pedido nem uma aprovação." -->
 
@@ -96,8 +98,8 @@ novo. -->
 - **"Esta seção não existe mais."** Ela foi excluída em outro lugar; a lista se atualiza.
 - **"Não foi possível atualizar as seções."** Tente de novo. Se continuar, relate em **Relatar um problema…** (o botão de menu ao lado do logo › **Ajuda**, ou a paleta de comandos).
 - **"O chat lateral não abriu. Tente de novo."** Feche a gaveta e abra de novo com `Ctrl+.`.
-- **"A pergunta não chegou ao chat lateral. Feche e abra de novo."** A cópia parou: feche e abra o chat lateral. A
-  conversa principal não é afetada.
+- **"A pergunta não chegou ao chat lateral. Descarte e abra de novo."** A cópia parou: use **⋯ › Descartar e
+  fechar…** e abra o chat lateral de novo. A conversa principal não é afetada.
 
 <!-- A PREENCHER com as fatias que faltam (#227, #298). -->
 

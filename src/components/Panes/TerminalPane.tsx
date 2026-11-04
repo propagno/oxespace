@@ -421,7 +421,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
                 }}
               >
                 <Zap size={12} aria-hidden="true" />
-                <span className="statusbar-more-label">RTK</span>
+                <span className="statusbar-more-label">RTK<small className="statusbar-more-hint">{tc('terminalPane.rtkHint')}</small></span>
                 {terminalPrefs.rtkHookEnabled ? <Check size={12} className="statusbar-more-check" aria-hidden="true" /> : null}
               </button>
               <button
@@ -435,7 +435,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
                 }}
               >
                 <Bone size={12} aria-hidden="true" />
-                <span className="statusbar-more-label">Caveman</span>
+                <span className="statusbar-more-label">Caveman<small className="statusbar-more-hint">{tc('terminalPane.cavemanHint')}</small></span>
                 {terminalPrefs.cavemanModeEnabled ? <Check size={12} className="statusbar-more-check" aria-hidden="true" /> : null}
               </button>
               <button
@@ -451,7 +451,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
                 }}
               >
                 <Brain size={12} aria-hidden="true" />
-                <span className="statusbar-more-label">{tc('workspace.systems.semantic')}</span>
+                <span className="statusbar-more-label">{tc('workspace.systems.semantic')}<small className="statusbar-more-hint">{tc('terminalPane.semanticHint')}</small></span>
                 {terminalPrefs.semanticSearchEnabled ? <Check size={12} className="statusbar-more-check" aria-hidden="true" /> : null}
               </button>
             </div>

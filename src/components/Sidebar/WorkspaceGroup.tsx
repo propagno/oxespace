@@ -319,6 +319,8 @@ function WorkspaceGroupComponent({
             }
             setMenu(null)
           }}>{direction === 'up' ? <ArrowUp size={12} aria-hidden="true" /> : <ArrowDown size={12} aria-hidden="true" />}{t(direction === 'up' ? 'sidebar.moveUp' : 'sidebar.moveDown')}</button>)}
+          {/* G-08: the destructive item stands apart. */}
+          <div role="separator" className="ws-group-context-separator" />
           <button
             type="button"
             role="menuitem"

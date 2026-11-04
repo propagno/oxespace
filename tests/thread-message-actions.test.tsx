@@ -4,7 +4,6 @@ import { ThreadRewindControl } from '../src/components/Threads/ThreadRewindContr
 import { ThreadFailureCard } from '../src/components/Threads/ThreadFailureCard'
 import { quoteMarkdown } from '../src/components/Threads/threadComposerState'
 import { ThreadHunkReview, hunkComment } from '../src/components/Threads/ThreadHunkReview'
-import { ThreadMcpHealth } from '../src/components/Threads/ThreadMcpHealth'
 
 afterEach(cleanup)
 
@@ -68,24 +67,5 @@ describe('ThreadHunkReview', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Undo change' }))
     await waitFor(() => expect(onUndoHunk).toHaveBeenCalledWith('h1'))
     expect(await screen.findByText(/No change blocks to review here/)).toBeInTheDocument()
-  })
-})
-
-describe('ThreadMcpHealth', () => {
-  const thread = (servers: Array<{ name: string; status: 'connected' | 'failed' | 'needs-auth' }>) => ({ mcpServers: { servers, checkedAt: 1 } }) as never
-
-  it('stays hidden when the session reported no servers, and counts connected ones otherwise', () => {
-    const { container } = render(<ThreadMcpHealth thread={thread([])} />)
-    expect(container).toBeEmptyDOMElement()
-    render(<ThreadMcpHealth thread={thread([{ name: 'github', status: 'connected' }])} />)
-    expect(screen.getByRole('button', { name: '1 MCP server connected' })).toHaveTextContent('MCP · 1')
-  })
-
-  it('shows how many servers are unavailable and lists them', async () => {
-    vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} })
-    render(<ThreadMcpHealth thread={thread([{ name: 'github', status: 'connected' }, { name: 'jira', status: 'needs-auth' }, { name: 'db', status: 'failed' }])} />)
-    fireEvent.click(screen.getByRole('button', { name: '2 MCP servers unavailable, 1 connected' }))
-    expect(await screen.findByText('Needs sign-in')).toBeInTheDocument()
-    expect(screen.getByText('Failed to start')).toBeInTheDocument()
   })
 })

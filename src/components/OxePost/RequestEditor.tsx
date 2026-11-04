@@ -41,7 +41,7 @@ export function RequestEditor({ onDelete }: { onDelete: () => void }): ReactElem
       <Button variant="primary" icon={<Send size={13} aria-hidden="true" />} loading={sending} disabled={!draft.url.trim()} onClick={() => void useOxePostStore.getState().send()}>{sending ? t('request.sending') : t('request.send')}</Button>
     </div>
     <div className={styles.metaBar}>
-      <TextField className={styles.nameInput} aria-label={t('request.name')} value={draft.name} onChange={event => edit({ name: event.target.value })} />
+      <TextField data-post-name="" className={styles.nameInput} aria-label={t('request.name')} value={draft.name} onChange={event => edit({ name: event.target.value })} />
       <Select aria-label={t('env.label')} value={environment} onChange={event => useOxePostStore.getState().setEnvironment(event.target.value)}
         options={[{ value: '', label: t('env.none') }, ...environments.map(item => ({ value: item.id, label: item.production ? t('env.productionOption', { name: item.name }) : item.name }))]} />
       {env?.production && <Badge intent="danger">{t('env.production')}</Badge>}
