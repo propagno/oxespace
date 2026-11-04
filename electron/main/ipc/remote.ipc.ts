@@ -39,6 +39,16 @@ export function registerRemoteIpc(db: AppDatabase, hosts?: { threads: Promise<Re
   handle(IPC_CHANNELS.remote.rename, (gateway, input) => gateway.rename(input))
   handle(IPC_CHANNELS.remote.setDesktopName, (gateway, input) => gateway.setDesktopName(input))
   handle(IPC_CHANNELS.remote.setPhoneWrite, (gateway, input) => gateway.setPhoneWrite(input))
+  // 1.4.3 P1: the firewall check reads the port and the QR's address from the gateway; the module loads on first use.
+  const firewall = (run: (module: typeof import('../services/remote/windows-firewall'), port: number | null, address: string | undefined, env: import('../services/remote/windows-firewall').FirewallEnvironment) => unknown) =>
+    noInput(async gateway => {
+      const listening = gateway.status().listening
+      const module = await import('../services/remote/windows-firewall')
+      return run(module, listening?.port ?? null, listening?.addresses[0], { platform: process.platform, isPackaged: app.isPackaged, executablePath: process.execPath, systemRoot: process.env.SystemRoot })
+    })
+  handle(IPC_CHANNELS.remote.firewallStatus, firewall((module, port, address, env) => module.inspectFirewall(port, address, env)))
+  handle(IPC_CHANNELS.remote.firewallRepair, firewall((module, port, address, env) => module.repairFirewall(port, address, env)))
+  handle(IPC_CHANNELS.remote.firewallUndo, firewall((module, port, address, env) => module.undoFirewall(port, address, env)))
 
   app.on('before-quit', () => { void gateway?.then(loaded => loaded.stop()) })
 }
