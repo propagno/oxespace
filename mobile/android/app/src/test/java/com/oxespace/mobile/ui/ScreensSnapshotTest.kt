@@ -104,6 +104,8 @@ class ScreensSnapshotTest(private val night: Boolean, private val locale: String
     fun terminal() {
         shot("terminal-typing") { TerminalScreen(Samples.pane, Samples.terminal(), commands, Samples.presence) {} }
         shot("terminal-read-only") { TerminalScreen(Samples.readOnlyPane, Samples.terminal(), commands, Samples.presence) {} }
+        // T97: a full-screen TUI shows its latest frame, not a pile of erased ones.
+        shot("terminal-tui") { TerminalScreen(Samples.readOnlyPane, Samples.claudeTerminal(), commands, Samples.presence) {} }
         shot("terminal-loading") { TerminalScreen(Samples.readOnlyPane, Samples.terminal(loaded = false), commands, Samples.presence) {} }
     }
 
