@@ -283,8 +283,18 @@ export function parseUpdateWorkspaceSettingsInput(value: unknown): UpdateWorkspa
     uiDensity: input.uiDensity === undefined ? undefined : expectDensity(input.uiDensity),
     defaultShellProfileId: input.defaultShellProfileId === undefined ? undefined : expectNonEmptyString(input.defaultShellProfileId, 'defaultShellProfileId'),
     layoutPreset: input.layoutPreset === undefined ? undefined : expectLayoutPreset(input.layoutPreset),
-    applyShellToIdlePanes: input.applyShellToIdlePanes === undefined ? undefined : expectBoolean(input.applyShellToIdlePanes, 'applyShellToIdlePanes')
+    applyShellToIdlePanes: input.applyShellToIdlePanes === undefined ? undefined : expectBoolean(input.applyShellToIdlePanes, 'applyShellToIdlePanes'),
+    color: input.color === undefined ? undefined : expectWorkspaceColor(input.color)
   }
+}
+
+/** A workspace color is a slot 1–8 (shared/workspace-color.ts) or null to clear it. */
+function expectWorkspaceColor(value: unknown): number | null {
+  if (value === null) return null
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 8) {
+    throw new Error('color must be an integer from 1 to 8, or null')
+  }
+  return value
 }
 
 export function parseTaskCreateInput(value: unknown): CreateTaskInput {
