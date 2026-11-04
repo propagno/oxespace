@@ -124,7 +124,13 @@ test.describe('1.4.3 gate', () => {
       if (screen) {
         expect.soft(typeof screen.ansi === 'string' && screen.ansi.length > 0, 'the snapshot has the screen\'s ANSI').toBe(true)
         expect.soft((screen.cols ?? 0) > 0 && (screen.rows ?? 0) > 0, 'the snapshot has the grid size').toBe(true)
-        expect.soft(/line \d{4}/.test(screen.ansi ?? ''), 'the snapshot shows the latest lines of the busy output').toBe(true)
+        // BACKEND: the last line written is in `ansi` as plain text, maybe wrapped in SGR; match with escapes stripped.
+        const plain = (screen.ansi ?? '').replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '').replace(/\u001b[\]P^_][^\u0007\u001b]*(\u0007|\u001b\\)/g, '')
+        const latest = Math.max(0, ...[...plain.matchAll(/line (\d+)/g)].map(m => Number(m[1])))
+        note(`P4 snapshot shows up to "line ${latest}"`)
+        expect.soft(latest, 'the snapshot shows the last line of the busy output').toBe(4000)
+        const first = frames.find(f => f.type === 'snapshot')
+        expect.soft(Boolean((first?.data as { snapshot?: unknown } | undefined)?.snapshot), 'the screen sits on the FIRST snapshot frame, under data').toBe(true)
       }
       await page.screenshot({ path: info.outputPath('p4-desktop.png') })
     } finally {
