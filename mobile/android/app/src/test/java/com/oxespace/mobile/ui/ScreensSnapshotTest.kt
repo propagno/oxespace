@@ -67,9 +67,11 @@ class ScreensSnapshotTest(private val night: Boolean, private val locale: String
         val camera: @Composable (androidx.compose.ui.Modifier) -> Unit = { modifier -> Box(modifier.background(Oxe.colors.surfaceInverse)) }
         shot("scanning") { PairingScreen(PairingState.Scanning, {}, {}, camera) }
         shot("bad-code") { PairingScreen(PairingState.BadCode(PairingQrProblem.PUBLIC_HOST), {}, {}, camera) }
+        shot("contacting") { PairingScreen(PairingState.Contacting("Studio"), {}, {}, camera) }
         shot("waiting") { PairingScreen(PairingState.Waiting("Studio", "28T5CY"), {}, {}, camera) }
         shot("paired") { PairingScreen(PairingState.Paired(Samples.desktop), {}, {}, camera) }
         shot("wrong-certificate") { PairingScreen(PairingState.Failed(PairingFailure.WRONG_CERTIFICATE), {}, {}, camera) }
+        shot("unreachable") { PairingScreen(PairingState.Failed(PairingFailure.UNREACHABLE), {}, {}, camera) }
     }
 
     @Test

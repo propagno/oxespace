@@ -46,10 +46,21 @@ class PairingFlowTest {
         val keys = mutableMapOf<String, FakeKeys>()
         val store = FakeStore()
         val calls = mutableListOf<Triple<PairingQr, String, String>>()
-        val flow = PairingFlow(
+        /** What the phone showed right after the request reached the desktop. */
+        val sentStates = mutableListOf<PairingState>()
+        val flow: PairingFlow = PairingFlow(
             scope = scope,
             io = StandardTestDispatcher(scope.testScheduler),
-            pairer = { qr, name, key -> calls += Triple(qr, name, key); answer(qr, name, key) },
+            pairer = { qr, name, key, onSent ->
+                calls += Triple(qr, name, key)
+                val outcome = answer(qr, name, key)
+                // A desktop that can't be reached, or an impostor's certificate, never gets the request.
+                if (outcome != PairOutcome.Unreachable && outcome != PairOutcome.PinMismatch) {
+                    onSent()
+                    sentStates += this.flow.state.value
+                }
+                outcome
+            },
             keysFor = { alias -> keys.getOrPut(alias) { FakeKeys() } },
             store = store,
             deviceName = deviceName,
@@ -73,16 +84,40 @@ class PairingFlowTest {
     }
 
     @Test
-    fun showsTheVerificationCodeTheDesktopDerivesWhileWaiting() = runTest {
+    fun showsTheCodeOnlyOnceTheDesktopHasTheRequest() = runTest {
+        val harness = Harness(this) { _, _, _ -> PairOutcome.Refused(RemotePairingErrorCode.PAIRING_REFUSED) }
+        val seen = mutableListOf<PairingState>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { harness.flow.state.collect { seen += it } }
+        harness.flow.onScanned(uri)
+        advanceUntilIdle()
+        // Contacting first: no code, and no "confirm on your computer", before the request is sent.
+        assertEquals(PairingState.Contacting("Studio"), seen[1])
+        val code = PairingVerification.of(harness.keys.getValue("alias-1").publicKeySpki())
+        assertEquals(listOf(PairingState.Waiting("Studio", code)), harness.sentStates)
+        assertEquals(PairingState.Failed(PairingFailure.REFUSED_ON_DESKTOP), seen.last())
+    }
+
+    @Test
+    fun anUnreachableDesktopNeverShowsTheCode() = runTest {
+        // 1.4.1 on a real phone: the computer's firewall dropped the connection. The phone showed the code and
+        // "confirm on your computer" while the desktop never had the request.
         val harness = Harness(this) { _, _, _ -> PairOutcome.Unreachable }
         val seen = mutableListOf<PairingState>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { harness.flow.state.collect { seen += it } }
         harness.flow.onScanned(uri)
         advanceUntilIdle()
-        val waiting = seen.filterIsInstance<PairingState.Waiting>().last()
-        assertEquals(PairingVerification.of(harness.keys.getValue("alias-1").publicKeySpki()), waiting.verification)
-        assertEquals("Studio", waiting.desktopName)
-        assertEquals(PairingState.Failed(PairingFailure.UNREACHABLE), seen.last())
+        assertTrue(seen.none { it is PairingState.Waiting })
+        assertEquals(listOf(PairingState.Scanning, PairingState.Contacting("Studio"), PairingState.Failed(PairingFailure.UNREACHABLE)), seen)
+    }
+
+    @Test
+    fun scanAgainDoesNotInterruptAnAttemptInFlight() = runTest {
+        val harness = Harness(this) { _, _, _ -> PairOutcome.Unreachable }
+        harness.flow.onScanned(uri)
+        assertEquals(PairingState.Contacting("Studio"), harness.flow.state.value)
+        harness.flow.scanAgain()
+        assertEquals(PairingState.Contacting("Studio"), harness.flow.state.value)
+        advanceUntilIdle()
     }
 
     @Test
