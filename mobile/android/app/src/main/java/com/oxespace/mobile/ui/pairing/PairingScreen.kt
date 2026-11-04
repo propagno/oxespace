@@ -71,6 +71,7 @@ fun PairingScreen(state: PairingState, onScanAgain: () -> Unit, onDone: () -> Un
         ) {
             when (state) {
                 PairingState.Scanning, is PairingState.BadCode -> Scanning(state as? PairingState.BadCode, camera)
+                is PairingState.Contacting -> Contacting(state)
                 is PairingState.Waiting -> Waiting(state)
                 is PairingState.Paired -> Result(
                     title = stringResource(R.string.pairing_paired_title),
@@ -105,6 +106,15 @@ private fun Scanning(badCode: PairingState.BadCode?, camera: @Composable (Modifi
             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
         )
     }
+}
+
+/** Reaching the desktop: no code yet, because the computer can't be asking before it has the request. */
+@Composable
+private fun Contacting(state: PairingState.Contacting) {
+    val desktop = state.desktopName ?: stringResource(R.string.home_unknown_desktop)
+    Title(stringResource(R.string.pairing_contacting_title, desktop))
+    Text(stringResource(R.string.pairing_contacting_body), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+    Box(modifier = Modifier.fillMaxWidth().padding(vertical = OxeSpace.space6), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
 }
 
 @Composable
@@ -185,6 +195,9 @@ private fun failureText(failure: PairingFailure): Int = when (failure) {
     PairingFailure.LOCKED -> R.string.pairing_failed_locked
     PairingFailure.TOO_MANY_DEVICES -> R.string.pairing_failed_too_many_devices
     PairingFailure.WRONG_CERTIFICATE -> R.string.pairing_failed_wrong_certificate
+    PairingFailure.LOCAL_NETWORK_BLOCKED -> R.string.pairing_failed_local_network_blocked
+    PairingFailure.REFUSED_BY_COMPUTER -> R.string.pairing_failed_refused_by_computer
+    PairingFailure.TIMED_OUT -> R.string.pairing_failed_timed_out
     PairingFailure.UNREACHABLE -> R.string.pairing_failed_unreachable
     PairingFailure.PROTOCOL -> R.string.pairing_failed_protocol
     PairingFailure.RESERVED_NAME -> R.string.pairing_failed_reserved_name
