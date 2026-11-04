@@ -68,20 +68,20 @@ export function ThreadWorktreeFinishDialog({ thread, action, onOpenInCode, onClo
   }
   // Work in the worktree, or Git could not be read: ask, and offer the choices that lose nothing first.
   const ask = decision?.kind === 'ask' ? decision : null
-  return <Dialog closeLabel={t('common.close')} className="thread-worktree-finish" size="md" title={title} description={t('worktreeFinish.askDescription', { branch })} onClose={() => { if (!busy) onClose() }}
+  return <Dialog closeLabel={t('common.close')} size="md" title={title} description={t('worktreeFinish.askDescription', { branch })} onClose={() => { if (!busy) onClose() }}
     footer={<>
       <Button disabled={busy} onClick={onClose}>{t('common.cancel')}</Button>
       {onOpenInCode && owned && <Button disabled={busy} onClick={() => { void onOpenInCode(owned.path).then(onClose, cause => setError(humanizeError(cause, t('sidebar.openInCodeFailed')))) }}>{t('worktreeFinish.openInCode')}</Button>}
       <Button loading={busy} variant="primary" onClick={() => void finish('keep')}>{t(`worktreeFinish.${action}AndKeep`)}</Button>
       {inspection && <Button variant="danger" disabled={busy} onClick={() => setConfirmingDiscard(true)}>{t('worktreeFinish.discard')}</Button>}
     </>}>
-    <ul className="thread-worktree-finish-list">
+    <div className="thread-worktree-finish-body"><ul className="thread-worktree-finish-list">
       {ask?.unreadable || !ask ? <li>{t('worktreeFinish.unreadable')}</li> : null}
       {ask && ask.uncommitted > 0 && <li>{t('worktreeFinish.uncommitted', { count: ask.uncommitted })}</li>}
       {ask && ask.untracked > 0 && <li>{t('worktreeFinish.untracked', { count: ask.untracked })}</li>}
       {ask && ask.unpushed > 0 && <li>{t('worktreeFinish.unpushed', { count: ask.unpushed })}</li>}
     </ul>
     <p>{t('worktreeFinish.keepHint')}</p>
-    {error && <ErrorState compact title={error} />}
+    {error && <ErrorState compact title={error} />}</div>
   </Dialog>
 }
