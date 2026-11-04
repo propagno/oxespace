@@ -1769,5 +1769,9 @@
     "keep": "Manter",
     "archived": "Conversa arquivada",
     "restore": "Restaurar"
+  },
+  "inlinePath": {
+    "notFound": "{{path}} não foi encontrado",
+    "looked": "Procurado em: {{places}}"
   }
 }
