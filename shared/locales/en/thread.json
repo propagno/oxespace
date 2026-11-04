@@ -357,6 +357,7 @@
     "steerTitle": "Send guidance to the active turn",
     "stop": "Stop turn",
     "stopTitle": "Stop turn · Esc",
+    "stopShort": "Stop",
     "queue": "Queue follow-up",
     "queueTitle": "Queue follow-up · Enter",
     "send": "Send",
@@ -378,6 +379,13 @@
     "selectModel": "Select model",
     "loadingModels": "Loading models…",
     "providerDefault": "Provider default",
+    "chip": {
+      "model": "Model",
+      "effort": "Effort",
+      "permissions": "Permissions",
+      "canEdit": "Can edit",
+      "pending": "Applies to the next message"
+    },
     "filterModels": "Filter models",
     "searchModels": "Search models…",
     "noModels": "No models available.",
@@ -869,20 +877,6 @@
     "unmanaged": "Not managed by OXESpace, so it cannot be tested here. Check it where it was added, for example with <code>claude mcp list</code>.",
     "ok": "Starts when tested now ({{message}}). Start a new conversation to load it.",
     "again": "Test again"
-  },
-  "mcpHealth": {
-    "stoppedLabel": "MCP servers stopped while the conversation is idle; they start again with your next message",
-    "unavailable_one": "{{count}} MCP server unavailable, {{connected}} connected",
-    "unavailable_other": "{{count}} MCP servers unavailable, {{connected}} connected",
-    "connected_one": "{{count}} MCP server connected",
-    "connected_other": "{{count}} MCP servers connected",
-    "title": "MCP servers",
-    "chip": "MCP · {{value}}",
-    "chipStopped": "stopped",
-    "chipFailed": "{{count}} failed",
-    "stoppedBody": "Stopped while the conversation is idle. This is the list from its last session; your next message starts them again.",
-    "reportedBody": "As this conversation's session reported them when it started.",
-    "open": "Open connections"
   },
   "mcpList": {
     "failed": {
