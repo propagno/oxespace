@@ -33,9 +33,9 @@ function fresh () {
     open: {} as Record<string, boolean>, disc: { ctx: true, tools: true } as Record<string, boolean>, past: {} as Record<string, number>,
     cmp: {} as Record<string, Cmp>, drafts: {} as Record<string, string>, notifRead: {} as Record<string, boolean>, extraNotifs: [] as typeof D.notifications,
     emptyWs: false, holding: null as string | null, bigText: false, verbose: false, queueSel: 0, tick: 0, running: { t142: 72 } as Record<string, number>,
-    q: { conn: 'billing-staging', tab: 'editor', sel: 'q4', act: null as string | null }, qRunning: false,
-    post: { col: 'pix', req: 'r1', tab: 'body', activity: false, newReq: null as null | { name: string; method: string; url: string; status?: number; ms?: number; size?: string; resBody: string }, sending: false, sentNew: false },
-    pod: { sel: 'api', tab: 'logs' }, filter: '', renameTo: '', rp900: false, finishPick: 0,
+    q: { conn: 'billing-staging', tab: 'editor', sel: 'q4', act: null as string | null, sql: undefined as string | undefined, qtab: 0 as number | undefined, untitled: '' as string | undefined }, tFilter: '' as string | undefined, qRunning: false,
+    post: { col: 'pix', req: 'r1', tab: 'body', env: 'sandbox' as string | undefined, activity: false, newReq: null as null | { name: string; method: string; url: string; status?: number; ms?: number; size?: string; resBody: string }, sending: false, sentNew: false },
+    pod: { sel: 'api', tab: 'logs' }, filter: '', renameTo: '', podAgent: false as boolean | undefined, ncEnv: 'staging' as string | undefined, impPick: 0 as number | undefined, rp900: false, finishPick: 0,
     newTask: null as null | { project: string; prov: string; model: string; access: string; worktree: boolean }, code: { focus: 0 }, codePanes: null as null | import('../mock/types').Term[], codeWt: 1 as number | undefined, codeLayout: 'grid' as string | undefined, codeDraft: {} as Record<string, string> | undefined, set: clone(SETTINGS_DEFAULT), quickBusy: false, ckExtra: {} as Record<string, number>
   }
 }

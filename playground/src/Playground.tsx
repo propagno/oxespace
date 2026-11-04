@@ -10,6 +10,7 @@ import { OverlayLayer, closeOverlay, rememberFocus } from './components/Overlays
 import { Icon, StateBlock } from './components/ui'
 import { Later } from './components/Later'
 import { QuickChat, CodeMode } from './components/Modes'
+import { QueryMode, PostMode, PodMode } from './components/Modes2'
 
 const GROUPS = Array.from(new Set(SCREENS.map(s => s.group)))
 const tagLabel = (s: { tag: string; stage?: number }) => s.stage ? 'next push' : s.tag === 'later' ? 'later' : '1.5.0'
@@ -38,6 +39,9 @@ function Body () {
   if (a === 'queue') return wb(S.view === 'loading' ? <StateBlock kind="loading" /> : <QueueView />)
   if (a === 'chat') return wb(<QuickChat />)
   if (a === 'mode' && S.mode2 === 'code') return wb(<CodeMode />)
+  if (a === 'mode' && S.mode2 === 'query') return wb(<QueryMode />)
+  if (a === 'mode' && S.mode2 === 'post') return wb(<PostMode />)
+  if (a === 'mode' && S.mode2 === 'pod') return wb(<PodMode />)
   return wb(<NextPush />)
 }
 

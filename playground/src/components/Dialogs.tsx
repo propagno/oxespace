@@ -1,6 +1,8 @@
 /* Dialog catalog from the #569 audit, rebuilt on the U1 contract. Each entry is a spec rendered by <Dialog>. */
 import { D } from '../mock/data'
-import { S, emit, run, cur, plural, toast } from '../state/store'
+import { S, emit, run, cur, plural, toast, task, prov } from '../state/store'
+import { Highlight } from './Tools'
+import { goScreen } from '../screens/registry'
 import { Icon } from './ui'
 import type { DialogSpec } from './Overlays'
 
@@ -42,4 +44,39 @@ export const EXTRA_DIALOGS: Record<string, () => DialogSpec> = {
     <div className="field"><label htmlFor="nw-name">Name</label><input className="input" id="nw-name" placeholder="Personal" /></div>
     <div className="field"><label htmlFor="nw-path">Folder</label><div className="row"><input className="input mono" id="nw-path" defaultValue="~/code" /><button className="btn" onClick={run(() => toast('Opens the system folder picker'))}>Browse…</button></div></div></>,
     primary: { label: 'Create workspace', act: () => toast('Created the workspace (simulated)') } }),
+  newconn: () => ({ size: 'md', icon: 'db', title: 'New connection', body: () => <>
+    <div className="row" style={{ alignItems: 'start' }}><div className="field" style={{ flex: 1 }}><label htmlFor="nc-name">Name</label><input className="input" id="nc-name" placeholder="billing-staging" /></div><div className="field" style={{ width: 170 }}><label htmlFor="nc-eng">Database</label><select className="sel" id="nc-eng"><option>Postgres</option><option>MySQL</option><option>SQLite</option><option>SQL Server</option><option>ClickHouse</option></select></div></div>
+    <div className="row"><div className="field" style={{ flex: 1 }}><label htmlFor="nc-host">Host</label><input className="input mono" id="nc-host" defaultValue="staging-db.cajui.internal" /></div><div className="field" style={{ width: 90 }}><label htmlFor="nc-port">Port</label><input className="input mono" id="nc-port" defaultValue="5432" /></div></div>
+    <div className="row"><div className="field" style={{ flex: 1 }}><label htmlFor="nc-user">User</label><input className="input" id="nc-user" defaultValue="marina" /></div><div className="field" style={{ flex: 1 }}><label htmlFor="nc-pw">Password</label><input className="input" id="nc-pw" type="password" defaultValue="••••••••" /></div></div>
+    <div className="field"><label>Environment</label><div className="chips">{['local', 'staging', 'production'].map(e => <button key={e} className={'chip' + (e === 'production' ? ' dz' : '')} aria-pressed={(S.ncEnv ?? 'staging') === e} onClick={run(() => { S.ncEnv = e })}>{e}</button>)}</div></div>
+    <div className="field"><label htmlFor="nc-agent">What agents may do here</label><select className="sel" id="nc-agent" defaultValue="confirm"><option value="off">Nothing</option><option value="read">Read</option><option value="confirm">Read, and ask before writing</option><option value="write">Read and write</option></select></div>
+    <details><summary className="muted" style={{ fontSize: 12 }}>Advanced: TLS and SSH tunnel</summary><div className="row" style={{ marginTop: 8 }}><label className="row" style={{ fontSize: 13 }}><input type="checkbox" defaultChecked /> Require TLS</label><label className="row" style={{ fontSize: 13 }}><input type="checkbox" /> Connect through SSH</label></div></details></>,
+    extra: <button className="btn ghost" onClick={run(() => toast('Connected in 84 ms. Postgres 16.4, 42 tables.'))}>Test</button>, primary: { label: 'Save connection', act: () => toast('Saved billing-staging') } }),
+  oqsettings: () => ({ size: 'md', icon: 'gear', title: 'OxeQuery settings', body: () => <>
+    <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Limits per environment. They apply to you and to agents.</p>
+    <table className="ctable"><thead><tr><th>Environment</th><th>Rows returned</th><th>Statement time</th></tr></thead><tbody>{[['local', '10,000', '60 s'], ['staging', '5,000', '30 s'], ['production', '500', '10 s']].map(([e, r, t]) => <tr key={e}><td><span className={'env ' + e}>{e}</span></td><td><input className="input mono" defaultValue={r} style={{ width: 100, padding: '3px 8px' }} aria-label={`Rows for ${e}`} /></td><td><input className="input mono" defaultValue={t} style={{ width: 80, padding: '3px 8px' }} aria-label={`Time for ${e}`} /></td></tr>)}</tbody></table></>,
+    primary: { label: 'Save', act: () => toast('Saved the limits') } }),
+  qrow: () => { const q = D.queries.find(x => x.id === S.overlay!.q)!; const t = task(q.task); const pend = q.status === 'pending' && !S.resolved.ap_sql
+    return { size: 'lg', icon: 'db', title: `${q.kind === 'read' ? 'Query' : q.kind === 'ddl' ? 'Schema change' : 'Write'} by ${prov(q.by).name}`, body: () => <>
+      <dl className="kv"><dt>Task</dt><dd>{t ? `${t.key} · ${t.title}` : 'T-138 · Explain the settlement batch job'}</dd><dt>Connection</dt><dd>{q.conn}</dd><dt>When</dt><dd>{q.at}</dd><dt>Result</dt><dd>{q.status === 'ok' ? `${plural(q.rows, 'row')} in ${q.ms} ms` : pend ? 'Waiting for your approval' : q.status === 'denied' ? 'Not run: ' + q.note : S.resolved.ap_sql === 'deny' ? 'Denied by you' : '1,284 rows changed in 3.4 s'}</dd></dl>
+      <pre className="code"><Highlight s={q.sql} /></pre>
+      {q.cols.length ? <div className="tbl-wrap"><table className="grid-t"><thead><tr>{q.cols.map(c => <th key={c}>{c}</th>)}</tr></thead><tbody>{q.data.map((r, i) => <tr key={i}>{r.map((v, j) => <td key={j}>{v}</td>)}</tr>)}</tbody></table></div> : null}</>,
+      extra: t ? <button className="btn ghost" onClick={() => { S.overlay = null; S.taskId = q.task; S.tab = 'conv'; goScreen('task-current') }}>Open the task</button> : undefined,
+      primary: pend ? { label: 'See impact', act: () => { setTimeout(() => { S.overlay = { type: 'approve', id: 'ap_sql' }; emit() }, 0) } } : undefined } },
+  prow: () => { const r = D.requests[S.overlay!.r!]; const t = task(r.task!)
+    return { size: 'lg', icon: 'net', title: `${r.method} ${r.name}`, body: () => <>
+      <dl className="kv"><dt>Task</dt><dd>{t?.key} · {t?.title}</dd><dt>Agent</dt><dd>{prov(r.by!).name}</dd><dt>When</dt><dd>{r.at}</dd><dt>Result</dt><dd>{r.blocked ? 'Blocked by policy before sending' : `${r.status} in ${r.ms} ms · ${r.size}`}</dd></dl>
+      <pre className="code">{r.method} {r.url}{'\n'}{r.headers.map(h => h.join(': ')).join('\n')}{r.reqBody ? '\n\n' + r.reqBody : ''}</pre>
+      {r.resBody ? <pre className="code">{r.resBody}</pre> : null}</>,
+      extra: t ? <button className="btn ghost" onClick={() => { S.overlay = null; S.taskId = r.task!; S.post.req = r.id; S.tab = 'requests'; goScreen('task-current') }}>Open the task</button> : undefined } },
+  import: () => ({ size: 'md', icon: 'upload', title: 'Import requests', body: () => <>
+    <div className="chips">{['Postman collection', 'OpenAPI 3', 'cURL', 'Insomnia'].map((x, i) => <button key={x} className="chip" aria-pressed={(S.impPick ?? 0) === i} onClick={run(() => { S.impPick = i })}>{x}</button>)}</div>
+    <div className="state" style={{ border: '1px dashed var(--border-default)', borderRadius: 10, padding: 24 }}><p style={{ fontSize: 13 }}>Drop a file here, or <button className="lk" onClick={run(() => toast('Opens the system file picker'))}>choose one</button>.</p></div></>,
+    primary: { label: 'Import', disabled: true, act: () => {} } }),
+  envs: () => ({ size: 'lg', icon: 'layers', title: 'Environments', body: () => <>
+    <div className="callout warn"><Icon n="key" /><span>Secrets aren't stored here. Reference them as <span className="mono">{'{{secret:NAME}}'}</span>; they come from your keychain and agents never see them.</span></div>
+    {D.envs.map(e => <div key={e.id} className="ssec"><div className="ssec-h"><h2>{e.name}</h2>{e.locked ? <span className="acc off">Agents can't use it</span> : null}</div>{e.vars.map(([k, v]) => <div key={k} className="srow" style={{ padding: '6px 16px' }}><span className="mono" style={{ fontSize: 12 }}>{k}</span><span className="mono muted" style={{ fontSize: 12 }}>{v}</span></div>)}</div>)}</>,
+    extra: <button className="btn ghost" onClick={run(() => toast('Added an empty environment'))}><Icon n="plus" s={12} />New environment</button>, cancel: 'Done' }),
+  podremove: () => { const c = D.containers.find(x => x.id === S.overlay!.c)!; return { size: 'sm', icon: 'trash', title: `Remove ${c.name}?`, safeFirst: true, body: () => <p style={{ color: 'var(--text-secondary)' }}>The container is deleted. {c.vol ? <>Its volume <span className="mono">{c.vol}</span> is kept.</> : null} This can't be undone.</p>, primary: { label: 'Remove container', danger: true, act: () => toast(`Removed ${c.name}`) } } },
+  poddown: () => { const c = D.containers.find(x => x.id === S.pod.sel) || D.containers[0]; return { size: 'sm', icon: 'box', title: `Stop the ${c.stack} stack?`, safeFirst: true, body: () => <p style={{ color: 'var(--text-secondary)' }}>Runs <span className="mono">docker compose down</span>: every container in {c.stack} stops and is removed. Volumes are kept.</p>, primary: { label: 'Stop the stack', danger: true, act: () => toast(`Stopped ${c.stack}`) } } },
 }
