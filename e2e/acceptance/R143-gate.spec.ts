@@ -161,6 +161,9 @@ test.describe('1.4.3 gate', () => {
       const ended = (f: Record<string, unknown>) => f.type === 'snapshot' && (!(f.page as { last?: boolean } | undefined) || (f.page as { last: boolean }).last)
       const frames = ended(ack) ? [] : await framesUntil(socket, f => ended(f), 15_000)
       for (const f of frames) { const d = (f.data as { data?: unknown } | undefined)?.data; if (typeof d === 'string') text += d }
+      for (const f of frames.slice(0, 3)) note(`frame shape: ${JSON.stringify(f, (k, v) => typeof v === 'string' && v.length > 80 ? `${v.slice(0, 80)}…(${v.length})` : v).slice(0, 300)}`)
+      const desk = await page.evaluate((id) => (window as unknown as { oxe: { terminal: { attach(i: { paneId: string }): Promise<{ replay?: string }> } } }).oxe.terminal.attach({ paneId: id }).then(r => (r.replay ?? '').slice(-200)), paneId).catch(e => `attach failed: ${String(e)}`)
+      note(`desktop pane tail: ${JSON.stringify(desk)}`)
       const latest = Math.max(0, ...[...text.matchAll(/compat line (\d+)/g)].map(m => Number(m[1])))
       note(`replay: ${frames.length + 1} frames, ${text.length} chars of terminal text, latest "compat line ${latest}"`)
       expect.soft(latest, 'the replay alone reaches the end of the busy output').toBe(1500)
