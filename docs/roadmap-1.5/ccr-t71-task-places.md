@@ -238,6 +238,35 @@ Inputs are checked like the other thread channels:
 
 `thread:place-drift-answer` is `forbidden` in mcp-coverage. An agent must not answer a drift about its own place.
 
+**Read-only files outside the repository** (TECH LEAD's decision from FRONTEND-1-14):
+
+- **Today:** main refuses to open a file outside the repository. `fs:read-file` only accepts roots that
+  `workspaceRootResolver` knows: a workspace, its worktrees, or the thread project's `thread_project_contexts`. That
+  stays as it is: nothing widens it.
+- **New in 1.5.0:** the editor can open such a file **read-only** through one more channel:
+
+| Channel | Input | Output | Notes |
+|---|---|---|---|
+| `thread:place-read` | `threadId, placeId, relativePath` | the same shape as `fs:read-file` (text, size, binary flag), plus `readOnly: true` | Read only. **`forbidden` in mcp-coverage:** no agent can read through it. |
+
+Rules:
+- The place must be one of this thread's `outside` or `checkout` places, and it must come **from tool evidence**
+  (§2.2 point 3, `thread_place_writes`), never from a path found only in the agent's text. A resolver hit from text
+  (§3) can only *point at* a place that evidence already created.
+- `relativePath` must stay inside the place:
+  - no `..`, no absolute path, no NUL, at most 4096 characters;
+  - the target is re-checked with `staysLocal`, `localPointer` and the link walk, so a link inside the folder cannot
+    lead out of it;
+  - a file that is not a regular file is refused.
+- Limits: the same as `fs:read-file` (2 MiB text, binary previews per the existing rules).
+- **There is no write channel for it.** Save, rename, delete and "open in terminal" stay refused for these files, and
+  the editor tab shows "Read only · outside the repository".
+- C3 refusals:
+  - `thread.place.notEvidence` (the place came from text only);
+  - `thread.place.outside` (the path escapes the place);
+  - `thread.place.gone`.
+- This goes in T72 PR 4, under the same SECURITY review as the rest of T72.
+
 ### 4.2 Events
 
 - **A new `ThreadEvent`:** `{ type: 'place-drift'; placeId; from; to; by; certain; seenAt }`. It is saved in the
@@ -370,6 +399,16 @@ Unit tests, all with temp-dir repositories and no live providers:
    - the migration guard covers the new number.
 8. **Terminal tab:** a pane launched in the worktree and a pane whose agent reported a cwd in it are listed; a pane
    elsewhere is not.
+9. **Read-only outside files:**
+   - `thread:place-read` opens a file in an `outside` place created from a `Write` tool event;
+   - it refuses with `thread.place.notEvidence` a folder named only in the agent's text;
+   - it refuses with `thread.place.outside` a `..` escape, an absolute `relativePath`, and a link inside the folder
+     pointing out of it;
+   - it refuses a directory or a FIFO;
+   - it never reads above the 2 MiB limit;
+   - `fs:read-file` still refuses the same path;
+   - mcp-coverage marks the channel `forbidden`;
+   - no write channel accepts a `placeId`.
 
 E2E, mock IPC (B1.2 style): the playground's Changes tab with one worktree that drifted, one outside folder and one
 F33 link that resolves to a sibling worktree. Each place is grouped, the drift banner shows its three answers, and
@@ -396,7 +435,7 @@ BACKEND, about M–L, in four PRs:
 1. **Model, migration and places from evidence,** with tests 1, 2 and 7.
 2. **Diff per place and outside folders,** with tests 5 and 7, plus `thread:places` and `thread:place-diff`.
 3. **Drift and its answers,** with tests 3 and 4, plus SECURITY.
-4. **Path resolver,** with test 6, plus `thread:resolve-path`. This replaces T70.
+4. **Path resolver,** with test 6, plus `thread:resolve-path` and the read-only `thread:place-read` (§4.1, with test 9). This replaces T70.
 
 The section 6 items are separate S items: Terminal tab, PR reviewers, and the containers owner, which needs U12-be
 first. FRONTEND consumes them after PR 2 for the Changes tab and after PR 4 for links.
