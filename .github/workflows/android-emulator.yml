@@ -53,7 +53,14 @@ jobs:
           fi
           if [[ "$LEVEL" =~ ^[0-9]+$ ]] && (( LEVEL >= 37 )); then LEVEL="$LEVEL.0"; fi
           image="system-images;android-$LEVEL;google_apis;x86_64"
-          if sdkmanager --list 2>/dev/null | grep -qF "$image "; then
+          # The whole listing first: `sdkmanager --list | grep -q` under pipefail reads a match as a failure, since
+          # grep -q exits at the first match and sdkmanager then dies of SIGPIPE.
+          listing=$(sdkmanager --list 2>/dev/null || true)
+          if ! grep -q '^ *system-images;' <<< "$listing"; then
+            echo "::error::sdkmanager --list listed no system image at all, so the level could not be checked"
+            exit 1
+          fi
+          if grep -qF "$image " <<< "$listing"; then
             echo "level=$LEVEL" >> "$GITHUB_OUTPUT"
             echo "available=true" >> "$GITHUB_OUTPUT"
             echo "Emulator API level $LEVEL ($image)"
