@@ -16,12 +16,14 @@ export const THREADS: PThread[] = [
 
 /** Requests the phone sees. kind: approval | question. phoneAnswerable false = answered on the computer only. */
 export type Risk = 'low' | 'medium' | 'high' | 'critical'
-export interface PRequest { id: string; thread: string; kind: 'approval' | 'question'; title: string; risk?: Risk; answerable: boolean; where?: string; tool?: string; cmd?: string; files?: string[]; notes?: string[]; why?: string; at: string; hidden?: boolean }
+export interface PRequest { id: string; thread: string; kind: 'approval' | 'question'; title: string; risk?: Risk; answerable: boolean; truncated?: boolean; where?: string; tool?: string; cmd?: string; files?: string[]; notes?: string[]; why?: string; at: string; hidden?: boolean }
 export const REQUESTS: PRequest[] = [
   { id: 'r-vol', thread: 't144', kind: 'approval', title: 'Remove the pix-mock-data volume', risk: 'critical', answerable: true, where: 'Local Docker', tool: 'Bash', cmd: 'docker volume rm pix-mock-data', files: [], notes: ['Deletes 3 days of webhook fixtures', 'Nothing in the change set uses it'], why: 'The sandbox replays old webhooks from this volume and the tests count them twice.', at: '31 min' },
   { id: 'r-sql', thread: 't143', kind: 'approval', title: 'Update 1,284 invoices on billing-staging', risk: 'critical', answerable: false, where: 'billing-staging (Postgres)', tool: 'OxeQuery', cmd: "UPDATE invoices SET status = 'paid'\nWHERE status = 'open' AND charge_settled_at IS NOT NULL;", at: '37 min' },
   { id: 'r-q', thread: 't147', kind: 'question', title: 'The agent has 2 questions', answerable: true, at: '9 min' },
-  { id: 'r-hid', thread: 't142', kind: 'approval', title: 'Delete a build script', risk: 'high', answerable: true, where: 'project folder', tool: 'Bash', cmd: 'rm -rf ~/‮txt.sh', notes: ['Deletes files outside the change set'], why: 'The old script breaks the redirect test.', at: '3 min', hidden: true }
+  { id: 'r-cut', thread: 't145', kind: 'approval', title: 'Run the data migration script', risk: 'high', answerable: true, truncated: true, where: 'cajui-infra', tool: 'Bash', cmd: 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<SQL\nBEGIN;\nALTER TABLE invoices ADD COLUMN settled_at timestamptz;\nUPDATE invoices SET settled_at = c.settled_at FROM charges c WHERE …', at: '6 min' },
+  { id: 'r-cutq', thread: 't147', kind: 'question', title: 'A long question from the agent', answerable: true, truncated: true, at: '2 min' },
+  { id: 'r-hid', thread: 't142', kind: 'approval', title: 'Delete a build script', risk: 'critical', answerable: true, where: 'project folder', tool: 'Bash', cmd: 'rm -rf ~/\u202Etxt.sh', notes: ['Deletes files outside the change set'], why: 'The old script breaks the redirect test.', at: '3 min', hidden: true }
 ]
 export const QUESTIONS: { q: string; multi: boolean; opts: [string, string][] }[] = [
   { q: 'A refund request is larger than what is left on the charge. What should happen?', multi: false, opts: [['Reject it with 422', 'The merchant sends a new request with the right amount. Recommended.'], ['Refund what is left', 'Silently lower the amount to the balance.']] },
