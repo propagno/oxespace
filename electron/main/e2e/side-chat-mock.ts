@@ -17,6 +17,9 @@ export function registerE2eSideChat(ipcMain: IpcMain): void {
   const log: E2eSideChatLog = { starts: [], responses: [] }
   ;(globalThis as typeof globalThis & { __e2eSideChat?: E2eSideChatLog }).__e2eSideChat = log
   const threads = new Map<string, ConversationThread>()
+  // Specs read how many copies main still holds (T60: hiding keeps the copy, discarding drops it).
+  const sides = new Map<string, string>()
+  ;(globalThis as Record<string, unknown>).__oxeSideChats = sides
   const chats = new ThreadSideChats({
     readThread: id => {
       const thread = threads.get(id)
@@ -32,10 +35,15 @@ export function registerE2eSideChat(ipcMain: IpcMain): void {
     if (typeof id !== 'string' || !id) throw new Error('thread.invalidInput')
     if (process.env.OXESPACE_E2E_SIDE_UNAVAILABLE === '1') return { ok: false, message: mainMessage('thread.side.unavailable', {}) }
     threads.set(id, { id, provider: 'claude', rootPath: '', workspaceId: 'thread:e2e', nativeSessionId: randomUUID(), status: 'idle', generation: 1, title: 'E2E', createdAt: 1, updatedAt: 1 } as ConversationThread)
-    return chats.open(id, sideEvent => { if (!event.sender.isDestroyed()) event.sender.send(IPC_CHANNELS.thread.onSideEvent, sideEvent) })
+    const result = await chats.open(id, sideEvent => { if (!event.sender.isDestroyed()) event.sender.send(IPC_CHANNELS.thread.onSideEvent, sideEvent) })
+    if (result.ok) sides.set(result.side.sideId, id)
+    return result
   })
   ipcMain.handle(IPC_CHANNELS.thread.sideSend, (_event: IpcMainInvokeEvent, sideId: unknown, text: unknown) => chats.send(sideId, text))
-  ipcMain.handle(IPC_CHANNELS.thread.sideClose, (_event: IpcMainInvokeEvent, sideId: unknown) => chats.close(sideId))
+  ipcMain.handle(IPC_CHANNELS.thread.sideClose, async (_event: IpcMainInvokeEvent, sideId: unknown) => {
+    await chats.close(sideId)
+    if (typeof sideId === 'string') sides.delete(sideId)
+  })
 }
 
 const CHANGE = /\b(fix|edit|write|change|run)\b/i

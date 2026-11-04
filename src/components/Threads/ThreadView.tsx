@@ -17,6 +17,7 @@ import { useFileMentions } from './useFileMentions'
 import { PrStatusBar } from '../GitHub/PrStatusBar'
 import { usePrArchiveOffer } from './usePrArchiveOffer'
 import { ThreadLiveActivity } from './ThreadLiveActivity'
+import { showSideChat, useSideChatStore } from './side/sideChatStore'
 import { threadQuickReplies } from './threadQuickReplies'
 import { createThreadTimelineBuilder, flattenThreadTimeline, foldFinishedTurns, summarizeThreadEvents } from './threadTimelineModel'
 import { humanizeError } from '../../utils/humanizeError'
@@ -117,10 +118,10 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
     requestAnimationFrame(() => { if (opener?.isConnected) opener.focus(); else textarea.current?.focus() })
   }
   const [finding, setFinding] = useState(false)
-  // The conversation the side chat drawer is open for; another conversation closes it, and its copy goes with it.
-  const [sideChatFor, setSideChatFor] = useState<string | null>(null)
-  const sideChatOpen = Boolean(snapshot && sideChatFor === snapshot.thread.id)
-  const toggleSideChat = (): void => setSideChatFor(sideChatOpen || !snapshot ? null : snapshot.thread.id)
+  // T60: whether each conversation's side chat drawer shows is kept with its copy, outside this view, so another tab
+  // only hides it and coming back shows it with its answers.
+  const sideChatOpen = useSideChatStore(store => Boolean(snapshot && store.shown[snapshot.thread.id]))
+  const toggleSideChat = (): void => { if (snapshot) showSideChat(snapshot.thread.id, !sideChatOpen) }
   const scrollToRow = useRef<((index: number) => void) | null>(null)
   const scrollTo = useCallback((index: number) => scrollToRow.current?.(index), [])
   useThreadShortcuts({ active, togglePanel, openControl: setOpenControl, onFind: () => setFinding(true), onSideChat: toggleSideChat, runCommand: text => action(() => runCommand(text)) })
@@ -351,7 +352,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   </section>
     {snapshot && review?.panel && <Suspense fallback={null}><ThreadReviewHost snapshot={snapshot} workspace={workspace} panel={review.panel} drawer={drawer} availableWidth={availableWidth} workbench={workbench}
       onClose={() => { closeReview(); if (!drawer) returnFocusFromPanel() }} onReturnFocus={returnFocusFromPanel} onSendToConversation={appendToConversation} onCompact={api?.command ? () => void action(() => runCommand('/compact')) : undefined} /></Suspense>}
-    {snapshot && sideChatOpen && <Suspense fallback={null}><ThreadSideChat threadId={snapshot.thread.id} onClose={() => { setSideChatFor(null); requestAnimationFrame(() => textarea.current?.focus()) }} /></Suspense>}
+    {snapshot && sideChatOpen && <Suspense fallback={null}><ThreadSideChat threadId={snapshot.thread.id} onClose={() => { showSideChat(snapshot.thread.id, false); requestAnimationFrame(() => textarea.current?.focus()) }} onLeave={() => textarea.current?.focus()} /></Suspense>}
   </div>
 }
 

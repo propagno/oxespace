@@ -137,6 +137,9 @@ export const IPC_CHANNELS = {
     attach: 'terminal:attach',
     detach: 'terminal:detach',
     status: 'terminal:status',
+    // T54 · Settings › Terminal: a session that skipped permissions resumes that way only with this on.
+    resumeBypass: 'terminal:resume-bypass',
+    setResumeBypass: 'terminal:set-resume-bypass',
     onData: 'terminal:data',
     onExit: 'terminal:exit',
     onActivity: 'terminal:activity'
@@ -463,6 +466,9 @@ export interface WorkspaceApi {
 
 export interface TerminalApi {
   start(input: TerminalStartInput): Promise<void>
+  /** T54 · Whether a Claude session that skipped permissions resumes that way. Off by default. */
+  resumeBypass?(): Promise<boolean>
+  setResumeBypass?(enabled: boolean): Promise<boolean>
   write(input: TerminalWriteInput): Promise<void>
   resize(input: TerminalResizeInput): Promise<void>
   stop(input: TerminalStopInput): Promise<void>

@@ -82,6 +82,9 @@ test('dividers and the file tree work without dragging', async () => {
     await file.click({ button: 'right' })
     // F33: the shared path menu, named by its path.
     const pathMenu = page.getByRole('menu', { name: 'Actions for notes.md' })
+    // FL-11: the menu opens with its final rows, the three fake editors among them, and keeps them; check that before
+    // clicking, so a row moving under the click shows up here, not as a wrong action.
+    await expect(pathMenu.getByRole('menuitem', { name: /^Open in (VS Code|Cursor|Zed)/ })).toHaveCount(3)
     await pathMenu.getByRole('menuitem', { name: 'Copy relative path' }).click()
     await expect(page.getByText('Relative path copied')).toBeVisible()
 

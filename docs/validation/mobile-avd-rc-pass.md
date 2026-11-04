@@ -74,7 +74,8 @@ RC_ROOT=… OUT=… STEPS=steps.txt \
 ```
 
 - **`pair`** boots `oxespace-test` with the fixed options and installs the APK, then writes `avd-ready`. It waits for `pair-link.txt`, delivers the link, writes `phone-code.txt` and, once the phone shows it is connected, `done`.
-- **`script`** runs `adb shell` lines from a file (taps, key events, `sleep N`) and takes a screenshot and a UI dump after each one.
+- **`script`** runs the lines of a steps file and takes a screenshot and a UI dump after each one. A line is `sleep N`; `tap Text` (taps the first element whose text or content-desc contains Text, case-insensitive; the step fails if none); `tap? Text` (the same, but nothing on screen is fine); `type Some text` (types it, spaces included); or any other `adb shell` line (key events, `locksettings set-pin`). It ends by writing `done-$RC_PHASE_NAME` (default `done-script`). A phase that sets a temporary screen-lock PIN passes it as `RC_TEMP_PIN`, and the cleanup clears it even when a step failed: sending to a terminal needs a screen lock.
+- On Windows, run it from Git Bash with an APK path in Windows form (`C:/…`). The script sets `MSYS_NO_PATHCONV=1` so the phone-side paths reach adb as written, and bounds every adb call, so a cleanup with no device can't hang and later shut down the next pass's emulator.
 - **Failures:** any wait longer than 6 minutes writes `fail.txt` with the step's name.
 - **Shutdown:** the emulator is always shut down at the end, and logcat is saved.
 
