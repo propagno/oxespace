@@ -14,6 +14,7 @@ import type {
   TerminalStopInput,
   TerminalWriteInput
 } from '../../../shared/types/ipc'
+import { isWorkspaceColor } from '../../../shared/workspace-color'
 import type { GitCompareMode, GitDiffInput, GitFileAtRefInput, GitFileOriginalInput } from '../../../shared/types/git'
 import type { LinearIssueScope, LinearListIssuesInput, LinearWorktreeFromIssueInput } from '../../../shared/types/linear'
 import type {
@@ -291,7 +292,7 @@ export function parseUpdateWorkspaceSettingsInput(value: unknown): UpdateWorkspa
 /** A workspace color is a slot 1–8 (shared/workspace-color.ts) or null to clear it. */
 function expectWorkspaceColor(value: unknown): number | null {
   if (value === null) return null
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 8) {
+  if (!isWorkspaceColor(value)) {
     throw new Error('color must be an integer from 1 to 8, or null')
   }
   return value
