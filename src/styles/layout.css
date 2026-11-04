@@ -91,7 +91,7 @@
 .sidebar-rail-workspace.active .sidebar-rail-workspace-btn {
   color: var(--tx-primary);
   border-color: var(--accent-border);
-  background: var(--accent-soft);
+  background: var(--fill-selected);
 }
 
 .sidebar-rail-workspace-btn:hover {
@@ -208,7 +208,7 @@
 }
 
 .ws-group.active > .ws-group-header {
-  background: var(--ov-2);
+  background: var(--fill-selected);
   border-color: var(--ov-2);
 }
 
@@ -596,7 +596,7 @@
   border-color: var(--ov-2);
 }
 .pane-session-row.active {
-  background: var(--surface-active);
+  background: var(--fill-selected);
   border-color: var(--bd-base);
   /* Left-edge brand accent replaces the previous hardcoded green
      (rgba(92,189,109,0.75)) that wasn't aligned with the OXESpace teal. */
@@ -1057,7 +1057,7 @@
 }
 
 .sidebar-integration-row.active {
-  background: var(--accent-soft);
+  background: var(--fill-selected);
 }
 
 .sidebar-integration-row.open {
@@ -1173,7 +1173,7 @@
 }
 
 .sidebar-integration-row-member.active {
-  background: var(--accent-soft);
+  background: var(--fill-selected);
   color: var(--tx-primary);
   box-shadow: inset 2px 0 0 var(--brand);
 }
@@ -1709,7 +1709,7 @@
 .workspace-panel-stack-tabs button { flex: 1 1 auto; text-align: center; min-height: 28px; padding: 3px 10px; border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--tx-secondary); background: transparent; font: inherit; font-size: var(--fs-xs); white-space: nowrap; cursor: pointer; }
 .workspace-panel-stack-tablist { display: contents; }
 .workspace-panel-stack-tabs button:hover { color: var(--tx-primary); background: var(--bg-hover); }
-.workspace-panel-stack-tabs button[aria-selected="true"] { color: var(--tx-primary); border-color: var(--bd-base); background: var(--bg-subtle); }
+.workspace-panel-stack-tabs button[aria-selected="true"] { color: var(--tx-primary); border-color: var(--bd-base); background: var(--fill-selected); }
 .workspace-panel-stack-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .workspace-panel-stack-content { flex: 1; width: 100%; min-width: 0; min-height: 0; overflow: hidden; }
 .workspace-panel-stack-content > * { height: 100%; }
