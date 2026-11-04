@@ -95,13 +95,26 @@ export function preloadToastStack(ready: () => void): () => void {
   return () => { live = false; clearTimeout(timer) }
 }
 
+/** How many open modals host the stack (U2). A modal hides everything outside it and blocks its pointer events. */
+const useToastHosts = create<{ hosts: number }>(() => ({ hosts: 0 }))
+
 /**
  * Mount once near the root of the app. The stack mounts at idle after the first paint, or at once when a toast
  * comes first: toasts raised before then (boot errors) wait in the store and show, and are announced, when it mounts.
+ *
+ * A modal whose own changes raise toasts with an action (Settings: Undo, U2) mounts one more with `inModal`. While it
+ * is open the stack lives inside it, where its buttons can be reached, and the root one steps aside.
  */
-export function Toaster(): ReactElement | null {
+export function Toaster({ inModal = false }: { inModal?: boolean } = {}): ReactElement | null {
   const waiting = useToasts(state => state.items.length > 0)
+  const hosted = useToastHosts(state => state.hosts > 0)
   const [preloaded, setPreloaded] = useState(false)
   useEffect(() => preloadToastStack(() => setPreloaded(true)), [])
+  useEffect(() => {
+    if (!inModal) return
+    useToastHosts.setState(state => ({ hosts: state.hosts + 1 }))
+    return () => useToastHosts.setState(state => ({ hosts: state.hosts - 1 }))
+  }, [inModal])
+  if (hosted && !inModal) return null
   return preloaded || waiting ? <Suspense fallback={null}><ToastStack /></Suspense> : null
 }

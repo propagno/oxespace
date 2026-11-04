@@ -2,7 +2,7 @@ import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, Keyboard, 
 import { Suspense, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
-import { Button, Dialog, EmptyState, Skeleton, TextField } from '../../ui'
+import { EmptyState, Skeleton, TextField, Toaster } from '../../ui'
 import type { SettingsModalProps, SettingsSection } from './SettingsModal'
 import { SETTINGS_PAGES } from '../Workspace/workspaceSettingsPages'
 import { ErrorBoundary } from '../common/ErrorBoundary'
@@ -65,9 +65,6 @@ export function SettingsCenter(props: SettingsModalProps & {
   })
   const navigationWidth = useNavigationPrefs(state => state.width)
   const [query, setQuery] = useState('')
-  const [pending, setPending] = useState<(() => void) | null>(null)
-  const [saving, setSaving] = useState(false)
-  const draft = useRef<{ dirty: boolean; save: () => Promise<boolean>; discard: () => void } | null>(null)
   const search = useRef<HTMLInputElement>(null)
   const content = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -84,20 +81,17 @@ export function SettingsCenter(props: SettingsModalProps & {
   const workspace = destination.scope === 'workspace' ? props.workspaces.find(w => w.id === destination.workspaceId) : undefined
   const activeWorkspaceId = useWorkspaceStore(state => state.activeWorkspaceId)
   const scopeWorkspace = props.allowWorkspaceScope === false ? undefined : workspace ?? props.workspaces.find(w => w.id === activeWorkspaceId) ?? props.workspaces[0]
-  const navigate = (action: () => void): void => {
-    if (draft.current?.dirty) setPending(() => action)
-    else action()
-  }
-  const go = (next: SettingsDestination): void => navigate(() => {
-    draft.current = null; setDestination(next)
+  // Every setting applies at once (U2), so leaving a page never has anything to save or discard.
+  const go = (next: SettingsDestination): void => {
+    setDestination(next)
     try { localStorage.setItem('oxe.settings.destination', JSON.stringify(next)) } catch { /* Preferences are optional. */ }
-  })
-  const close = (): void => navigate(props.onClose)
+  }
+  const close = (): void => props.onClose()
   const memoryOn = useSharedProjectMemory(destination.scope === 'workspace' ? destination.workspaceId : undefined) === true
   const pages = destination.scope === 'workspace' ? SETTINGS_PAGES.filter(p => p.id !== 'memory' || memoryOn)
     : appPages.map(p => ({ ...p, label: t(`center.pages.${p.id}.label`), hint: t(`center.pages.${p.id}.hint`) }))
   const filtered = pages.filter(p => `${p.label} ${p.hint}`.toLowerCase().includes(query.toLowerCase()))
-  return <ModalRoot open onOpenChange={open => { if (!open && !pending) close() }}>
+  return <ModalRoot open onOpenChange={open => { if (!open) close() }}>
     <ModalSurface className="settings-center" style={{ '--settings-navigation-width': `${navigationWidth}px` } as CSSProperties} scrimClassName="settings-center-overlay" aria-describedby={undefined}
       onCloseAutoFocus={event => { if (returnPane.current) { event.preventDefault(); requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('oxe:focus-pane', { detail: { paneId: returnPane.current } }))) } }}
       onPointerDownOutside={event => event.preventDefault()}>
@@ -140,31 +134,22 @@ export function SettingsCenter(props: SettingsModalProps & {
         </header>
         <div ref={content} className={`settings-center-content${destination.scope === 'workspace' ? ' is-workspace' : ''}`}><ErrorBoundary id="settings-page" component="SettingsCenter" compact label={t('center.title')} onReset={retryPages}><Suspense fallback={<Skeleton lines={6} label={t('center.title')} />}>
           {destination.scope === 'workspace' ? workspace ? <WorkspaceSettingsModal key={workspace.id} embedded workspace={workspace} selectedPageId={destination.page}
-            shellProfiles={props.shellProfiles} onSave={props.onSave} onClose={close} onDraftChange={value => { draft.current = value }}
+            shellProfiles={props.shellProfiles} onSave={props.onSave} onClose={close}
             onOpenDiagnostics={() => go({ scope: 'application', page: 'diagnostics' })}
-            onOpenTerminal={(paneId, targetWorkspaceId) => navigate(() => {
+            onOpenTerminal={(paneId, targetWorkspaceId) => {
               returnPane.current = paneId
               void useWorkspaceStore.getState().setActiveWorkspace(targetWorkspaceId ?? workspace.id)
               useUIStore.getState().setMaximizedPane(null)
               useUIStore.getState().setActivePane(paneId)
               useTerminalStore.getState().setActivePaneId(paneId)
               props.onClose()
-            })} />
+            }} />
             : <section className="settings-general"><h2>{t('center.workspaceClosed')}</h2><p>{t('center.workspaceClosedHint')}</p></section>
             : destination.page === 'general' ? <GeneralSettings /> : destination.page === 'policy' ? <PolicySettings workspaceId={scopeWorkspace?.id} /> : destination.page === 'keyboard' ? <KeyboardSettings /> : destination.page === 'devices' ? <DevicesSettings /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
         </Suspense></ErrorBoundary></div>
       </main>
-      {pending && <Dialog title={t('center.unsaved.title')} size="sm" onClose={() => { if (!saving) setPending(null) }}
-        description={t('center.unsaved.description')}
-        footer={<>
-          <Button disabled={saving} autoFocus onClick={() => setPending(null)}>{t('center.unsaved.stay')}</Button>
-          <Button variant="danger" disabled={saving} onClick={() => { draft.current?.discard(); const action = pending; setPending(null); action() }}>{t('center.unsaved.discard')}</Button>
-          <Button variant="primary" loading={saving} onClick={async () => {
-            setSaving(true)
-            try { if (await draft.current?.save()) { const action = pending; setPending(null); action() } }
-            finally { setSaving(false) }
-          }}>{saving ? t('center.unsaved.saving') : t('center.unsaved.save')}</Button>
-        </>} />}
+      {/* U2: Undo toasts from a setting must be reachable while Settings, a modal, is open. */}
+      <Toaster inModal />
     </ModalSurface>
   </ModalRoot>
 }

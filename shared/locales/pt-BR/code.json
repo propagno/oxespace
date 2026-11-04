@@ -1224,6 +1224,7 @@
         }
       },
       "saveFailed": "Não foi possível salvar as configurações do workspace",
+      "shellApplied": "O shell padrão agora é {{name}}",
       "close": "Fechar as configurações do workspace",
       "sections": "Seções das configurações do workspace",
       "navLabel": "WORKSPACE",
@@ -1234,13 +1235,13 @@
       "layout": "Layout",
       "layoutPreset": "Layout predefinido",
       "preview": "Prévia",
-      "terminalNote": "A aparência do terminal vale na hora. Use Salvar as configurações do workspace para aplicar o shell padrão.",
+      "terminalNote": "A aparência do terminal e o shell padrão valem na hora.",
       "saved": "Configurações do workspace salvas",
       "footer": {
         "memory": "As mudanças de memória usam Aplicar as configurações de memória, acima.",
         "delegation": "As mudanças de delegação valem na hora.",
         "tools": "Os modos e as regras das ferramentas são salvos no projeto na hora.",
-        "default": "Salvar aplica densidade, layout e shell padrão. O modo vale na hora."
+        "default": "As mudanças valem na hora."
       },
       "discard": "Descartar as alterações",
       "closeButton": "Fechar",

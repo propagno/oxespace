@@ -244,6 +244,7 @@
     "tryAgain": "Tentar de novo",
     "details": "Detalhes",
     "cancel": "Cancelar",
+    "undo": "Desfazer",
     "close": "Fechar",
     "dismiss": "Dispensar",
     "toast": {

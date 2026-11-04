@@ -1167,6 +1167,7 @@
         }
       },
       "saveFailed": "Could not save the workspace settings",
+      "shellApplied": "The default shell is now {{name}}",
       "close": "Close workspace settings",
       "sections": "Workspace settings sections",
       "navLabel": "WORKSPACE",
@@ -1177,13 +1178,13 @@
       "layout": "Layout",
       "layoutPreset": "Layout preset",
       "preview": "Preview",
-      "terminalNote": "Terminal appearance applies right away. Use Save workspace settings to apply your default shell.",
+      "terminalNote": "Terminal appearance and the default shell apply right away.",
       "saved": "Workspace settings saved",
       "footer": {
         "memory": "Memory changes use Apply memory settings above.",
         "delegation": "Delegation changes apply right away.",
         "tools": "Tool modes and rules are saved in the project right away.",
-        "default": "Save applies density, layout and default shell. Mode applies right away."
+        "default": "Changes apply right away."
       },
       "discard": "Discard changes",
       "closeButton": "Close",
