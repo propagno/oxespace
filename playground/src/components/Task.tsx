@@ -8,6 +8,7 @@ import { syncScreen, goScreen } from '../screens/registry'
 import { ToolTab, Highlight, DiffFile, placesFor } from './Tools'
 import { isRich, RichItem, decideCmd } from './Thread'
 import { CodeBlock, type Lang } from './Code'
+import { TOOLS, ToolPanel } from './Workbench'
 
 /* ================================================================ sidebar (T61: collapsed keeps every item) */
 const GROUPS: [string, string][] = [['needs', 'Needs you'], ['run', 'Running'], ['review', 'Ready for review'], ['err', 'Stopped'], ['done', 'Done']]
@@ -17,10 +18,10 @@ export function openTask (id: string) { S.notif = false; S.area = 'task'; S.empt
 export function Sidebar () {
   const col = S.sbCol
   const list = S.emptyWs ? [] : S.tasks.filter(t => t.id !== 'quick' && (!S.projFilter || t.project === S.projFilter) && (!S.filter || (t.title + t.key).toLowerCase().includes(S.filter.toLowerCase())))
-  const groups = GROUPS.map(([k, l]) => [k, l, list.filter(t => (t.status === 'idle' ? 'run' : t.status) === k)] as const).filter(g => g[2].length)
+  const groups = (S.sideGroup === 'project' ? Object.values(D.projects).map(p => [p.id, p.name, list.filter(t => t.project === p.id)] as const) : GROUPS.map(([k, l]) => [k, l, list.filter(t => (t.status === 'idle' ? 'run' : t.status) === k)] as const)).filter(g => g[2].length)
   return <aside className={'sbar' + (col ? ' col' : '')} aria-label="Tasks">
-    <div className="sbar-h"><h2>Tasks</h2><button className="ibtn" onClick={run(() => { S.overlay = { type: 'newtask', text: '' } })} title="New task (N)" aria-label="New task"><Icon n="plus" /></button>
-      <button className="ibtn" onClick={run(() => { S.sbCol = !S.sbCol; syncScreen() })} title={`${col ? 'Expand' : 'Collapse'} the task list (Ctrl B)`} aria-label={`${col ? 'Expand' : 'Collapse'} the task list`}><Icon n="sidebar" /></button></div>
+    <div className="sbar-h"><h2>Conversations</h2><button className="ibtn" onClick={run(() => { S.overlay = { type: 'newtask', text: '' } })} title="New task (N)" aria-label="New task"><Icon n="plus" /></button>
+      <button className="ibtn" onClick={menuBtn('sgroup')} title="Group conversations" aria-label="Group conversations"><Icon n="filter" /></button><button className="ibtn" onClick={run(() => { S.sbCol = !S.sbCol; syncScreen() })} title={`${col ? 'Expand' : 'Collapse'} the task list (Ctrl B)`} aria-label={`${col ? 'Expand' : 'Collapse'} the task list`}><Icon n="sidebar" /></button></div>
     <div className="sbar-tools"><label className="search"><Icon n="search" s={12} /><input id="tsearch" placeholder="Filter tasks" aria-label="Filter tasks" value={S.filter || ''} onChange={e => { S.filter = e.target.value; emit() }} /></label>
       <button className="btn sm" onClick={menuBtn('proj')} aria-haspopup="menu">{S.projFilter ? D.projects[S.projFilter].name : 'All projects'}<Icon n="down" s={12} /></button></div>
     <div className="sbar-l">{list.length ? groups.map(([k, l, ts]) => <div key={k}><div className="tg"><span>{l}</span><span className="n">{ts.length}</span></div>
@@ -28,7 +29,7 @@ export function Sidebar () {
         return <button key={t.id} className="trow" onClick={() => openTask(t.id)} aria-current={on ? 'page' : undefined} aria-label={`${t.key} ${t.title}, ${STATUS_LABEL[t.status]}`}>
           <span className={'sg ' + t.status} /><span className="tt trunc">{t.title}</span><span className="tm">{t.status === 'run' || t.status === 'needs' ? t.mins + 'm' : t.started}</span>
           {t.status === 'needs' ? <span className="meta"><span className="trunc attn-t">{t.now.replace('Waiting for you: ', 'Asks to ').replace('Waiting for your answer: ', 'Asks you ')}</span></span> : null}
-          <span className="key">{t.key.slice(2)}</span>{col ? <span className="tipc">{t.key} · {t.title} · {STATUS_LABEL[t.status]}</span> : null}</button> })}</div>)
+          {!col && t.id !== S.taskId ? <span className="beside" role="button" tabIndex={0} title="Open side by side" aria-label={`Open ${t.key} side by side`} onClick={e => { e.stopPropagation(); S.split2 = t.id; S.area = 'task'; emit() }}><Icon n="panel" s={12} /></span> : null}<span className="key">{t.key.slice(2)}</span>{col ? <span className="tipc">{t.key} · {t.title} · {STATUS_LABEL[t.status]}</span> : null}</button> })}</div>)
       : col ? null : <div className="state" style={{ padding: '24px 12px' }}><p style={{ fontSize: 12 }}>{S.filter ? `No task matches "${S.filter}".` : 'No tasks yet. A task is one conversation with an agent, with everything it touches.'}</p></div>}</div>
     <div className="sbar-f">{col ? <button className="ibtn sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'archived' } })} aria-label="Archived tasks" title="Archived tasks"><Icon n="archive" s={12} /></button>
       : <><button className="btn ghost sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'archived' } })}><Icon n="archive" s={12} /><span className="lbl">Archived · 14</span></button><span className="sp" /><span className="lbl">{plural(list.length, 'task')}</span></>}</div></aside>
@@ -45,17 +46,20 @@ export function EmptyHome () {
 
 /* ================================================================ task view */
 const TABS: [string, string, string, string, keyof Task['counts'] | 'pr' | null][] = [['conv', 'chat', 'Conversation', '', null], ['terminal', 'term', 'Terminal', 'k-shell', 'terminal'], ['queries', 'db', 'Queries', 'k-db', 'queries'], ['requests', 'net', 'Requests', 'k-net', 'requests'], ['containers', 'box', 'Containers', 'k-box', 'containers'], ['changes', 'diff', 'Changes', 'k-file', 'changes'], ['pr', 'pr', 'Pull request', 'k-pr', 'pr']]
-export function TaskView () {
+export function TaskView ({ compact }: { compact?: boolean } = {}) {
   const t = cur(); if (!t) return null
   const sc = S.sideChat[t.id]?.open
-  const rp = S.w === 900 ? S.rp900 && !sc : S.rp && !sc
+  const rp = !compact && (S.w === 900 ? S.rp900 && !sc : S.rp && !sc)
+  const extra = S.extraTabs[t.id] || []
   // Only the tools this task used. Conversation is always there; Pull request once there is one or the work is done.
   const tabs = TABS.filter(([, , , , cnt]) => !cnt || (cnt === 'pr' ? !!t.pr || ['review', 'done'].includes(t.status) : t.counts[cnt] > 0))
   return <div className={'taskv' + (rp ? '' : ' norp') + (sc ? ' sc' : '')}>
     <section className="tcol" aria-label={t.title}><TaskHeader t={t} />
       <div className="tabs" role="tablist" aria-label="Task tools">{tabs.map(([id, , lbl, , cnt]) => { const n = cnt && cnt !== 'pr' ? t.counts[cnt] : null
-        return <button key={id} role="tab" aria-selected={S.tab === id} onClick={() => { S.tab = id; syncScreen(); emit() }}><span className="lbl2">{lbl}</span>{n ? <span className="n">{n}</span> : null}</button> })}</div>
-      <div className="tbody">{S.view === 'loading' ? <StateBlock kind="loading" /> : S.view === 'error' ? <StateBlock kind="error" /> : S.tab === 'conv' ? <Conversation t={t} /> : <ToolTab t={t} tab={S.tab} />}</div></section>
+        return <button key={id} role="tab" aria-selected={S.tab === id} onClick={() => { S.tab = id; syncScreen(); emit() }}><span className="lbl2">{lbl}</span>{n ? <span className="n">{n}</span> : null}</button> })}
+        {extra.map(id => { const tl = TOOLS.find(x => x[0] === id)!; return <button key={id} role="tab" className="xtab" aria-selected={S.tab === id} onClick={() => { S.tab = id; emit() }}><span className="lbl2">{tl[2]}</span><span className="x" role="button" aria-label={`Close ${tl[2]}`} onClick={e => { e.stopPropagation(); S.extraTabs[t.id] = extra.filter(x => x !== id); if (S.tab === id) S.tab = 'conv'; emit() }}><Icon n="x" s={12} /></span></button> })}
+        <button className="addtool" onClick={menuBtn('addtool')} aria-haspopup="menu" title="Open a tool for this conversation"><Icon n="plus" s={12} />Tool</button></div>
+      <div className="tbody">{S.view === 'loading' ? <StateBlock kind="loading" /> : S.view === 'error' ? <StateBlock kind="error" /> : S.tab === 'conv' ? <Conversation t={t} /> : TOOLS.some(x => x[0] === S.tab) ? <ToolPanel id={S.tab} t={t} /> : <ToolTab t={t} tab={S.tab} />}</div></section>
     {sc ? <SideChatPanel t={t} /> : null}
     {rp ? <RightPanel t={t} /> : null}</div>
 }
@@ -75,7 +79,7 @@ function NowLine ({ t }: { t: Task }) {
   if (t.status === 'review') return <div className="nowline ok" role="status"><Icon n="check" s={12} /><span className="what"><b>Ready for review.</b> {t.now}.</span>{t.pr ? <button className="btn sm" onClick={run(() => { S.tab = 'pr'; syncScreen() })}>Open pull request</button> : null}</div>
   return <div className="nowline ok" role="status"><Icon n="check" s={12} /><span className="what"><b>Done.</b> {t.now}.</span></div>
 }
-function TaskHeader ({ t }: { t: Task }) {
+export function TaskHeader ({ t }: { t: Task }) {
   const p = D.projects[t.project]; const later = S.area === 'later-multi'
   const rpOn = S.w === 900 ? S.rp900 : S.rp
   return <header className="th"><div className="th-top"><span className={'sg ' + t.status} aria-hidden="true" /><h1>{t.title}</h1>
@@ -116,7 +120,7 @@ export function pinBottom (el: HTMLElement | null) {
 function Item ({ t, it, i }: { t: Task; it: ConvItem; i: number }) {
   if (isRich(it)) return <RichItem t={t} it={it} i={i} />
   if (it.you) return <><div className="m-you">{it.images ? <div className="att">{it.images.map(f => <span key={f} className="img"><span className="thumb" aria-hidden="true" />{f}</span>)}</div> : null}{it.files ? <div className="att">{it.files.map(f => <span key={f}><Icon n="clip" s={12} />{f}</span>)}</div> : null}<div title={it.at}>{it.you}</div></div></>
-  if (it.agent) return <div className="m-ag"><Av p={t.prov} /><div className="body"><Html as="div" html={it.agent} />{it.code ? <CodeBlock lang={it.code[0] as Lang} title={it.code[1]} code={it.code[2]} /> : null}</div>
+  if (it.agent) return <div className="m-ag"><Av p={t.prov} /><div className="body"><Html as="div" html={it.agent} />{it.code ? <CodeBlock lang={it.code[0] as Lang} title={it.code[1]} code={it.code[2]} /> : null}{it.paths ? <PathLinks t={t} paths={it.paths} k={`${t.id}:${i}`} /> : null}</div>
     <div className="hov"><button className="ibtn sm" onClick={run(() => toast('Copied to the clipboard'))} title="Copy" aria-label="Copy message"><Icon n="copy" s={12} /></button><button className="ibtn sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'branch', ck: 'message' } })} title="Branch from this message" aria-label="Branch from this message"><Icon n="fork" s={12} /></button></div></div>
   if (it.tools) return <ToolGroup t={t} rows={it.tools} k={`${t.id}:${i}`} />
   if (it.ck != null) return <div className="ck3"><span>Checkpoint {it.ck} · {it.label}</span><button onClick={run(() => { S.past[t.id] = it.ck!; syncScreen() })}>View</button></div>
@@ -261,4 +265,34 @@ function ToolGroup ({ t, rows, k }: { t: Task; rows: ToolRow[]; k: string }) {
     {running ? <span className="spin" /> : <Icon n={open ? 'down' : 'right'} s={12} />}<span>{running ? rows.find(r => r[5])![2] : `${plural(rows.length, 'step')}: ${parts.join(', ')}`}</span>
     {failed ? <span className={fixed ? 'muted' : 'dz-t'}>· {fixed ? `${failed} error, fixed` : `${failed} failed`}</span> : null}</button>
     {open ? <div className="trs">{rows.map((r, j) => <ToolRowView key={j} r={r} k={`${k}:${j}`} />)}</div> : null}</div>
+}
+
+MENUS.sgroup = () => <><div className="mg">Group conversations</div><MI check={S.sideGroup === 'status'} label="By status" hint="Needs you first (new in 1.5.0)" onClick={() => { S.sideGroup = 'status' }} /><MI check={S.sideGroup === 'project'} label="By project" hint="As in 1.4" onClick={() => { S.sideGroup = 'project' }} /></>
+
+/** OxeChat keeps several conversations side by side (ThreadGrid). The focused one has the task panel. */
+export function ChatArea () {
+  const two = S.split2 && S.split2 !== S.taskId && task(S.split2)
+  if (!two) return <TaskView />
+  const b = task(S.split2!)!
+  return <div className="chat-split"><div className="cs-pane focus"><TaskView compact /></div>
+    <div className="cs-pane" onMouseDownCapture={() => { const a = S.taskId; S.taskId = b.id; S.split2 = a; S.tab = 'conv'; emit() }}>
+      <section className="tcol" aria-label={b.title}><TaskHeader t={b} /><div className="tabs"><button role="tab" aria-selected="true"><span className="lbl2">Conversation</span></button><span className="sp" /><button className="ibtn sm" aria-label="Close this side" title="Close this side" onClick={e => { e.stopPropagation(); S.split2 = null; emit() }}><Icon n="x" s={12} /></button></div><div className="tbody"><Conversation t={b} /></div></section></div></div>
+}
+
+MENUS.addtool = () => { const t = cur(); const x = S.extraTabs[t.id] || []; return <><div className="mg">Open in this conversation</div>{TOOLS.map(([id, ic, l, k]) => <MI key={id} icon={ic} label={l} sc={k} check={x.includes(id) ? true : undefined} onClick={() => { if (!x.includes(id)) S.extraTabs[t.id] = x.concat(id); S.tab = id }} />)}</> }
+
+/** Paths named in the agent's text open from where the file really is. The search order is shown when a path is
+    opened, and a miss says where it looked (F33, T70). */
+const PATH_HITS: Record<string, [string, string]> = {
+  '~/cajui-scripts/refunds-0311/backfill-refunds.js': ['outside', '~/cajui-scripts/refunds-0311 · outside the repository'],
+  'ROTEIRO.md': ['outside', '~/cajui-scripts/refunds-0311 · found next to the agent\'s last file, outside the repository'],
+  'src/refunds/create.ts': ['worktree', 'Task worktree · ~/.oxespace/worktrees/cajui-api/t147 · oxe/t147-pix-refunds']
+}
+function PathLinks ({ t, paths, k }: { t: Task; paths: string[]; k: string }) {
+  const open = S.pathOpen?.[k]
+  return <div className="plinks">{paths.map(p => { const hit = PATH_HITS[p]
+    return <button key={p} className={'plink' + (hit ? '' : ' miss') + (open === p ? ' on' : '')} onClick={run(() => { (S.pathOpen ||= {})[k] = open === p ? '' : p; if (hit) toast(`Opened ${p.split('/').pop()} from ${hit[1].split(' · ')[0]}`) })}><Icon n={hit ? 'file' : 'warn'} s={12} /><span className="mono">{p}</span></button> })}
+    {open ? (PATH_HITS[open] ? <div className="pnote"><Icon n={PATH_HITS[open][0] === 'outside' ? 'folder' : 'branch'} s={12} /><span>Opened from <b>{PATH_HITS[open][1]}</b></span></div>
+      : <div className="pnote miss"><Icon n="search" s={12} /><div><b>{open} wasn't found.</b> Looked in, in order: the path as written · the agent's folder at that turn (~/.oxespace/worktrees/cajui-api/t147) · its checkout root · the task's worktree · the project root (~/code/cajui/cajui-api) · 3 other worktrees of cajui-api.
+        <div className="row" style={{ marginTop: 6 }}><button className="btn sm" onClick={run(() => toast('Find file: search every checkout and recent folders'))}><Icon n="search" s={12} />Find file…</button><button className="btn sm" onClick={run(() => { S.conv[t.id].push({ you: `Where is ${open}? I can't find it.`, at: '14:57' }); toast('Asked the agent') })}>Ask the agent</button></div></div></div>) : null}</div>
 }

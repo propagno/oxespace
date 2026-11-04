@@ -21,7 +21,7 @@ export interface ConvItem {
   cmd?: { cmd: string; cwd: string; why: string; state: string; at: string }
   edit?: { path: string; diff: string; state: string; at: string }
   bg?: { id: string; cmd: string; started: string; lines: string[] }
-  retry?: string; compact?: string; ask?: string; answered?: [string, string][]
+  paths?: string[]; retry?: string; compact?: string; ask?: string; answered?: [string, string][]
   summary?: { text: string; files: [string, number, number][] }
 }
 export interface Approval {

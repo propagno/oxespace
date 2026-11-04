@@ -7,18 +7,31 @@ import { goScreen, syncScreen } from '../screens/registry'
 
 export const MENUS: Record<string, () => ReactNode> = {}
 
+/** The five modes, in 1.4's order and shortcuts (keybindings.ts view.code … view.post). */
+export const MODES: [string, string, string][] = [['code', 'OxeCode', 'Ctrl 1'], ['chat', 'OxeChat', 'Ctrl 2'], ['query', 'OxeQuery', 'Ctrl 3'], ['pod', 'OxePod', 'Ctrl 4'], ['post', 'OxePost', 'Ctrl 5']]
+export function modeOf () { return S.area === 'task' || S.area === 'later-multi' || S.area === 'later-watch' ? 'chat' : S.area === 'mode' ? S.mode2 : '' }
+export function goMode (m: string) { railGo(m === 'chat' ? 'tasks' : m) }
+const MENUBAR: [string, string][] = [['m_file', 'File'], ['m_edit', 'Edit'], ['m_view', 'View'], ['m_tools', 'Tools'], ['m_help', 'Help']]
 export function TitleBar () {
-  const n = needsN()
+  const n = needsN(); const cur = modeOf()
   const unread = D.notifications.filter(x => !S.notifRead[x.id]).length + S.extraNotifs.length
-  return <header className="tb">
-    <div className="tb-l"><Logo /><button className="ws" onClick={menuBtn('ws')} aria-haspopup="menu">{D.company.name} <small className="hide-n">3 projects</small><Icon n="down" s={12} /></button></div>
-    <button className="cmdk" onClick={run(() => { S.overlay = { type: 'pal', query: '', sel: 0 } })} aria-label="Search or run a command (Ctrl K)"><Icon n="search" /><span>Search tasks, files, queries or run a command</span><Kbd>Ctrl K</Kbd></button>
+  return <header className="tb tb2">
+    <div className="tb-l"><Logo /><nav className="menubar" aria-label="Menu">{MENUBAR.map(([id, l]) => <button key={id} onClick={menuBtn(id)} aria-haspopup="menu" aria-expanded={S.menu?.id === id}>{l}</button>)}</nav></div>
+    <nav className="modes" aria-label="Modes">{MODES.map(([id, l, k]) => <button key={id} aria-current={cur === id ? 'page' : undefined} title={`${l} (${k})`} onClick={() => goMode(id)}>{l}</button>)}</nav>
     <div className="tb-r">
-      <button className={'needs' + (n ? '' : ' zero')} onClick={() => goScreen('queue')} title="Approvals waiting for you">{n ? <span className="sun live" /> : <Icon n="check" s={12} />}{n ? `${n} need${n === 1 ? 's' : ''} you` : 'Nothing waiting'}</button>
+      <button className="cmdk sm" onClick={run(() => { S.overlay = { type: 'pal', query: '', sel: 0 } })} aria-label="Search or run a command (Ctrl K)"><Icon n="search" /><span>Search</span><Kbd>Ctrl K</Kbd></button>
+      <button className={'needs' + (n ? '' : ' zero')} onClick={() => goScreen('queue')} title="Approvals waiting for you (Ctrl Shift A)">{n ? <span className="sun live" /> : <Icon n="check" s={12} />}{n ? `${n} need${n === 1 ? 's' : ''} you` : 'Nothing waiting'}</button>
       <button className="ibtn" onClick={e => { e.stopPropagation(); S.notif = !S.notif; S.menu = null; emit() }} aria-label="Notifications" aria-expanded={S.notif} style={{ position: 'relative' }}><Icon n="bell" />{unread ? <span className="badge" style={{ position: 'absolute', top: 0, right: -2 }}>{unread}</span> : null}</button>
+      <button className="ibtn" onClick={() => goScreen('settings-general')} aria-label="Settings (Ctrl ,)" title="Settings (Ctrl ,)"><Icon n="gear" /></button>
       <div className="wc" aria-hidden="true"><span><Icon n="min" s={12} /></span><span><Icon n="max" s={12} /></span><span><Icon n="x" s={12} /></span></div>
     </div></header>
 }
+const dlgOpen = (id: string) => () => { S.overlay = { type: 'dlg', id } }
+MENUS.m_file = () => <><MI icon="plus" label="New conversation" sc="Ctrl Alt N" onClick={() => { S.overlay = { type: 'newtask', text: '' } }} /><MI icon="term" label="New terminal" onClick={() => { railGo('code') }} /><MI icon="folder" label="Add project…" onClick={dlgOpen('addproject')} /><MI icon="plus" label="New workspace…" onClick={dlgOpen('newws')} /><hr /><MI icon="gear" label="Settings" sc="Ctrl ," onClick={() => goScreen('settings-general')} /><hr /><MI icon="x" label="Exit" onClick={dlgOpen('unsaved')} /></>
+MENUS.m_edit = () => <>{([['Undo', 'Ctrl Z'], ['Redo', 'Ctrl Shift Z'], ['Cut', 'Ctrl X'], ['Copy', 'Ctrl C'], ['Paste', 'Ctrl V'], ['Select all', 'Ctrl A']] as const).map(([l, k]) => <MI key={l} label={l} sc={k} onClick={() => toast(`${l} (the focused field)`)} />)}<hr /><MI icon="search" label="Find in conversation" sc="Ctrl F" onClick={() => toast('Find bar opens above the conversation')} /></>
+MENUS.m_view = () => <><MI icon="search" label="Command palette" sc="Ctrl K" onClick={() => { S.overlay = { type: 'pal', query: '', sel: 0 } }} /><MI icon="sidebar" label="Toggle sidebar" sc="Ctrl B" onClick={() => { S.sbCol = !S.sbCol }} /><hr /><div className="mg">Appearance</div><MI check={S.mode === 'light'} label="Light" onClick={() => { S.mode = 'light' }} /><MI check={S.mode === 'dark'} label="Dark" onClick={() => { S.mode = 'dark' }} /><hr /><div className="mg">Modes</div>{MODES.map(([id, l, k]) => <MI key={id} label={l} sc={k} onClick={() => goMode(id)} />)}</>
+MENUS.m_tools = () => <><MI icon="plug" label="MCP servers" onClick={dlgOpen('mcp')} /><MI icon="book" label="Skills" onClick={dlgOpen('skills')} /><MI icon="play" label="Scripts" onClick={() => { S.area = 'mode'; S.mode2 = 'code'; S.codeDock = 'scripts' }} /><MI icon="activity" label="Activity" sc="Ctrl Shift A" onClick={() => goScreen('queue')} /><MI icon="users" label="Team" sc="Ctrl Shift T" onClick={dlgOpen('team')} /><MI icon="users" label="Delegated work" onClick={dlgOpen('delegated')} /><MI icon="activity" label="Usage" onClick={dlgOpen('usage')} /><hr /><MI icon="cpu" label="Diagnostics" onClick={() => goScreen('settings-diagnostics')} /></>
+MENUS.m_help = () => <><MI icon="keyboard" label="Keyboard shortcuts" sc="?" onClick={dlgOpen('shortcuts')} /><MI icon="warn" label="Report a problem…" onClick={dlgOpen('report')} /><MI icon="refresh" label="Check for updates" onClick={() => toast('You\'re on the latest version, 1.5.0')} /><hr /><MI icon="info" label="About OXESpace" onClick={dlgOpen('about')} /></>
 MENUS.ws = () => <><div className="mg">Workspace</div><MI check label={D.company.name} hint="3 projects · ~/code/cajui" /><MI check={false} label="Personal" hint="1 project" onClick={() => toastSoonLocal('Switching workspaces reloads the window in the app.')} /><hr />
   <MI icon="plus" label="New workspace…" onClick={() => { S.overlay = { type: 'dlg', id: 'newws' } }} /><MI icon="gear" label="Workspace settings" onClick={() => goScreen('settings-ws-projects')} /><hr /><MI icon="trash" dz label="Remove workspace…" onClick={() => { S.overlay = { type: 'dlg', id: 'removews' } }} /></>
 import { toast } from '../state/store'
@@ -29,7 +42,7 @@ export function StatusBar () {
   const t = S.area === 'task' ? task(S.taskId) : null
   return <footer className="sb"><span><Icon n="branch" s={12} /> <b>{t ? t.branch : 'main'}</b></span><span className="hide-n">{t ? D.projects[t.project].name : 'cajui-api'}</span>
     <span><span className="sdot on" /> {plural(running, 'agent')} working</span><span className="sp" />
-    <span>OXESpace 1.5.0</span></footer>
+    <button className="usage-sb" onClick={run(() => { S.overlay = { type: 'dlg', id: 'usage' } })} title="Usage by provider"><span className="pdot claude" />Claude 41%<span className="ubar"><i style={{ width: '41%' }} /></span><span className="pdot codex" />Codex 18%<span className="ubar"><i style={{ width: '18%' }} /></span></button><span>OXESpace 1.5.0</span></footer>
 }
 
 const RAIL: [string, string, string][] = [['tasks', 'chat', 'OxeChat: tasks and threads'], ['code', 'term', 'OxeCode'], ['query', 'query', 'OxeQuery'], ['post', 'net', 'OxePost'], ['pod', 'box', 'OxePod']]

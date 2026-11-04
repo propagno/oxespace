@@ -4,7 +4,9 @@ import { D } from './mock/data'
 import { S, emit, run, useStore, tick, setAppEl, cur, H, toast, resolve } from './state/store'
 import { SCREENS, goScreen, syncScreen, resetAll } from './screens/registry'
 import { TitleBar, StatusBar, Rail, Notifications, MenuLayer, Toasts, railGo } from './components/Shell'
-import { Sidebar, TaskView, EmptyHome } from './components/Task'
+import { Sidebar, EmptyHome, ChatArea } from './components/Task'
+import { goMode, MODES } from './components/Shell'
+import { codeMaxToggle } from './components/Modes'
 import { QueueView, startHold, cancelHold } from './components/Tools'
 import { OverlayLayer, closeOverlay, rememberFocus } from './components/Overlays'
 import { Icon, StateBlock } from './components/ui'
@@ -36,9 +38,9 @@ function NextPush () {
 }
 function Body () {
   const a = S.area
-  const wb = (main: React.ReactNode, side = false) => <div className={'wb' + (side ? (S.sbCol ? ' sb-col' : '') : ' sb-none')}><Rail />{side ? <Sidebar /> : null}<main className="main">{main}</main></div>
+  const wb = (main: React.ReactNode, side = false) => <div className={'wb' + (side ? (S.sbCol ? ' sb-col' : '') : ' sb-none')}>{side ? <Sidebar /> : null}<main className="main">{main}</main></div>
   if (a === 'firstrun') return wb(<FirstRun />)
-  if (a === 'task') return wb(S.emptyWs ? <EmptyHome /> : S.view === 'empty' ? <EmptyHome /> : <TaskView />, true)
+  if (a === 'task') return wb(S.emptyWs ? <EmptyHome /> : S.view === 'empty' ? <EmptyHome /> : <ChatArea />, true)
   if (a === 'later-multi' || a === 'later-watch') return wb(<Later />, true)
   if (a === 'queue') return wb(S.view === 'loading' ? <StateBlock kind="loading" /> : <QueueView />)
   if (a === 'mode' && S.mode2 === 'code') return wb(<CodeMode />)
@@ -82,6 +84,12 @@ function useKeys () {
       if (mod && e.key === '.') { e.preventDefault(); if (S.area === 'task') { const t = cur(); const sc = S.sideChat[t.id] || null; if (sc) sc.open = !sc.open; else { S.sideChat[t.id] = { open: true, msgs: [], draft: '', model: t.prov === 'claude' ? 'Sonnet 5.5' : t.model, effort: 'Medium' } } syncScreen(); emit() } return }
       if (mod && e.key.toLowerCase() === 'b') { e.preventDefault(); S.sbCol = !S.sbCol; syncScreen(); emit(); return }
       if (mod && e.key === ',') { e.preventDefault(); goScreen('settings-general'); return }
+      if (mod && !e.shiftKey && !e.altKey && /^[1-5]$/.test(e.key)) { e.preventDefault(); goMode(MODES[+e.key - 1][0]); return }
+      if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'n') { e.preventDefault(); rememberFocus(); S.overlay = { type: 'newtask', text: '' }; emit(); return }
+      if (mod && e.shiftKey && e.key.toLowerCase() === 't') { e.preventDefault(); S.overlay = { type: 'dlg', id: 'team' }; emit(); return }
+      if (mod && e.shiftKey && e.key.toLowerCase() === 'a') { e.preventDefault(); goScreen('queue'); return }
+      if (mod && e.shiftKey && e.key === 'Enter' && S.area === 'mode' && S.mode2 === 'code') { e.preventDefault(); codeMaxToggle(); emit(); return }
+      if (mod && !e.shiftKey && e.key.toLowerCase() === 'e') { e.preventDefault(); if (S.area === 'mode' && S.mode2 === 'code') S.codeDock = S.codeDock === 'files' ? undefined : 'files'; else if (S.area === 'task') { const t = cur(); const x = S.extraTabs[t.id] || []; if (!x.includes('files')) S.extraTabs[t.id] = x.concat('files'); S.tab = 'files' } emit(); return }
       if (e.key === 'Escape') { if (S.menu || S.notif) { S.menu = null; S.notif = false; emit() } else if (S.overlay) closeOverlay(); return }
       if (typing || mod || e.altKey) return
       const k = e.key.toLowerCase()
@@ -93,6 +101,7 @@ function useKeys () {
       if (S.overlay) return
       if (S.area === 'task' && cur()?.ask === 'cmd' && (k === 'd' || k === 'a')) { decideCmd(cur(), k === 'd' ? 'deny' : 'once'); emit(); return }
       if (S.area === 'queue' && (k === 'j' || k === 'k')) { const n = S.queue.filter(q => !S.resolved[q]).length; S.queueSel = Math.max(0, Math.min(n - 1, S.queueSel + (k === 'j' ? 1 : -1))); emit(); return }
+      if (e.key === '?') { S.overlay = { type: 'dlg', id: 'shortcuts' }; emit(); return }
       if (k === 'n') { e.preventDefault(); rememberFocus(); S.overlay = { type: 'newtask', text: '' }; emit(); return }
       if (k === 'l' && S.area === 'task' && S.past[S.taskId] != null) { delete S.past[S.taskId]; emit() }
     }
