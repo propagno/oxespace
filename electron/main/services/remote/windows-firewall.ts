@@ -24,8 +24,11 @@ export type PowerShellRunner = (script: string, timeoutMs: number) => Promise<st
 
 export interface FirewallEnvironment {
   platform: NodeJS.Platform
-  /** A development Electron path is transient: never written into a rule that outlives the checkout. */
-  isPackaged: boolean
+  /**
+   * Whether the check may run: a packaged build, or an unpackaged CI run with the test switch (`firewallCheckEnabled`).
+   * A development Electron path is transient: never written into a rule on a person's machine by accident.
+   */
+  enabled: boolean
   executablePath: string
   systemRoot?: string
   runPowerShell?: PowerShellRunner
@@ -54,8 +57,18 @@ export function undoCommand(): string {
   return `Remove-NetFirewallRule -Name ${quotePowerShellLiteral(FIREWALL_RULE_NAME)}`
 }
 
+/**
+ * OXESPACE_E2E_FIREWALL_CHECK=1 lets an UNPACKAGED run (the CI acceptance gate: an admin runner, UAC off) use the
+ * real check and repair. A packaged build always may, and ignores the switch: an installed app's behaviour never
+ * depends on it (T50's rule for test switches).
+ */
+export function firewallCheckEnabled(env: Record<string, string | undefined>, isPackaged: boolean): boolean {
+  if (isPackaged) return true
+  return env.OXESPACE_E2E_FIREWALL_CHECK === '1'
+}
+
 function supported(env: FirewallEnvironment, port: number | null): port is number {
-  return env.platform === 'win32' && env.isPackaged && port !== null && Number.isInteger(port) && port > 0 && port <= 65_535
+  return env.platform === 'win32' && env.enabled && port !== null && Number.isInteger(port) && port > 0 && port <= 65_535
 }
 
 export async function inspectFirewall(port: number | null, address: string | undefined, env: FirewallEnvironment): Promise<RemoteFirewallStatus> {
