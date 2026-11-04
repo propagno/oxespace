@@ -134,6 +134,31 @@ class PairingFlowTest {
      * P3: the desktop accepted, but the phone can't sign in with the new identity. Nothing is saved, nothing starts,
      * the key is deleted, and the person reads why now, instead of "removed this phone" later.
      */
+    /** P3 review: backing out while the probe runs (the screen's scope is cancelled) deletes the key and saves nothing. */
+    @Test
+    fun backingOutMidProbeLeavesNoKeyBehind() = runTest {
+        val keys = mutableMapOf<String, FakeKeys>()
+        val store = FakeStore()
+        val screen = kotlinx.coroutines.Job()
+        val flow = PairingFlow(
+            scope = TestScope(StandardTestDispatcher(testScheduler) + screen),
+            io = StandardTestDispatcher(testScheduler),
+            pairer = { _, _, _, onSent -> onSent(); PairOutcome.Paired(RemotePairResponse("dev-9", "tok", 900_000)) },
+            keysFor = { alias -> keys.getOrPut(alias) { FakeKeys() } },
+            store = store,
+            deviceName = "Pixel 8",
+            newAlias = { "alias-1" },
+            probe = { _, _ -> kotlinx.coroutines.awaitCancellation() },
+        )
+        flow.onScanned(uri)
+        advanceUntilIdle()
+        assertEquals(PairingState.Contacting("Studio"), flow.state.value)
+        screen.cancel()
+        advanceUntilIdle()
+        assertTrue(keys.getValue("alias-1").deleted)
+        assertNull(store.saved)
+    }
+
     @Test
     fun aPairingThatCantSignInIsNotSaved() = runTest {
         val cases = mapOf(ProbeResult.TimedOut to PairingFailure.TIMED_OUT, ProbeResult.Closed to PairingFailure.UNREACHABLE,

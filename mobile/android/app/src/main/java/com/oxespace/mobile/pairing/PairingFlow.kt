@@ -11,7 +11,9 @@ import com.oxespace.mobile.protocol.pairing.PairingQrs
 import com.oxespace.mobile.protocol.pairing.PairingVerification
 import com.oxespace.mobile.protocol.pairing.isReservedDeviceName
 import java.util.UUID
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -121,7 +123,15 @@ class PairingFlow(
                     // P3: accepted is not reachable. Sign in once with the new identity before saving or saying
                     // "Paired", so a phone that can't keep a session says why now, not later as "removed".
                     mutableState.value = PairingState.Contacting(qr.desktopName)
-                    when (val probed = probe.probe(desktop, keys)) {
+                    // Backed out mid-probe (the screen closed): the key is deleted before the cancellation goes on, so
+                    // it never stays behind unsaved.
+                    val probed = try {
+                        probe.probe(desktop, keys)
+                    } catch (cancelled: CancellationException) {
+                        withContext(NonCancellable + io) { keys.delete() }
+                        throw cancelled
+                    }
+                    when (probed) {
                         ProbeResult.Ok -> {
                             withContext(io) { store.save(desktop) }
                             onPaired()
