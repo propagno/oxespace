@@ -30,7 +30,22 @@
     "notRun": "não executado",
     "failedCode": "falhou ({{code}})",
     "introContainers": "Cada pedido de contêiner que um agente de IA fez, e o que você decidiu.",
-    "emptyContainers": "Os agentes só chegam a um contêiner quando você ativa o acesso de agentes numa conexão a ele no OxeQuery. Cada pedido que fizerem aparece aqui, com o que você decidiu."
+    "emptyContainers": "Os agentes só chegam a um contêiner quando você ativa o acesso de agentes numa conexão a ele no OxeQuery. Cada pedido que fizerem aparece aqui, com o que você decidiu.",
+    "detail": {
+      "title": "Pedido do agente",
+      "open": "Ver este pedido por inteiro",
+      "environment": "Ambiente",
+      "tool": "Ferramenta",
+      "rows": "Linhas",
+      "duration": "Duração",
+      "error": "Erro",
+      "statement": "Comando",
+      "noStatement": "Este pedido não tem comando (ele leu o esquema).",
+      "openInEditor": "Abrir no editor",
+      "noDataOpen": "A auditoria guarda o que o agente pediu e como terminou, nunca os dados que voltaram. Para ver os dados, abra o comando no editor e execute-o lá. Valores de texto aparecem como ? na auditoria.",
+      "noData": "A auditoria guarda o que o agente pediu e como terminou, nunca os dados que voltaram. Para ver os dados, execute o comando no editor desta conexão. Valores de texto aparecem como ? na auditoria.",
+      "noDataContainers": "A auditoria guarda o que o agente pediu e como terminou, nunca a saída que voltou."
+    }
   },
   "common": {
     "close": "Fechar",
@@ -78,7 +93,6 @@
   "connections": {
     "title": "Conexões",
     "new": "Nova conexão",
-    "add": "Adicionar conexão",
     "notSaved": "não salva",
     "favorite": "Favoritar {{name}}",
     "unfavorite": "Desfavoritar {{name}}",

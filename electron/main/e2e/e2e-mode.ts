@@ -11,9 +11,9 @@
  *   (OXESPACE_E2E_AGENT_STATE), services/browser-preview-security.ts (OXESPACE_E2E_GUEST_PROBE),
  *   services/approvals/timeout.ts (OXESPACE_E2E_APPROVALS_TIMEOUT_MS; its caller passes `app?.isPackaged ?? true`);
  * - any other file in electron/main/e2e is mock layer, reachable only through e2e/mock-ipc.ts, which index.ts loads
- *   behind this switch: e.g. mock-ipc (OXESPACE_E2E_OFFLINE, _PENDING_REQUESTS, _SIDE_UNAVAILABLE, _REAL_GIT_BRANCH,
+ *   behind this switch: e.g. mock-ipc (OXESPACE_E2E_OFFLINE, _PENDING_REQUESTS, _REAL_GIT_BRANCH,
  *   _PREVIEW_SERVICE), remote-mock (OXESPACE_E2E_REMOTE_*), approvals-mock (OXESPACE_E2E_APPROVALS*), open-in-mock
- *   (OXESPACE_E2E_OPEN_IN_EDITORS).
+ *   (OXESPACE_E2E_OPEN_IN_EDITORS), side-chat-mock (OXESPACE_E2E_SIDE_UNAVAILABLE).
  * tests/unit/e2e-mode.test.ts fails when a read appears outside these files, or when anything outside electron/main/e2e
  * loads one of its modules (other than this one) except index.ts inside the switch.
  */

@@ -164,7 +164,7 @@
   right: 0;
   bottom: calc(100% + 4px);
   z-index: var(--layer-dropdown);
-  min-width: 168px;
+  min-width: 232px;
   padding: 4px;
   border-radius: var(--radius-md);
   border: 1px solid var(--ov-3);
@@ -204,6 +204,16 @@
 
 .statusbar-more-label {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* K-02: what RTK, Caveman and Semantic do, under each name. */
+.statusbar-more-hint {
+  color: var(--tx-secondary);
+  font-size: var(--fs-2xs);
+  font-weight: 400;
 }
 
 .statusbar-more-check {

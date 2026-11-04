@@ -84,11 +84,12 @@ export function parseRequest(text: string): PostRequest {
     break
   }
   if (index >= lines.length) throw new PostFormatError('There is no request line (METHOD URL)')
-  const start = /^([A-Za-z]+)\s+(\S.*?)(?:\s+HTTP\/\d(?:\.\d)?)?\s*$/.exec(lines[index]!)
+  // The URL may be empty: a request just created ("New request") is saved before it has one, and must read back.
+  const start = /^([A-Za-z]+)(?:\s+(\S.*?))?(?:\s+HTTP\/\d(?:\.\d)?)?\s*$/.exec(lines[index]!)
   const method = start?.[1]?.toUpperCase()
   if (!start || !(HTTP_METHODS as readonly string[]).includes(method!)) throw new PostFormatError(`Expected "METHOD URL", with a method among ${HTTP_METHODS.join(', ')}`, index + 1)
   request.method = method as HttpMethod
-  request.url = start[2]!.trim()
+  request.url = (start[2] ?? '').trim()
   index++
   for (; index < lines.length; index++) {
     const raw = lines[index]!
@@ -99,7 +100,7 @@ export function parseRequest(text: string): PostRequest {
     request.headers.push({ name: header[1]!.trim(), value: header[2]!.trim(), enabled: !disabled })
   }
   request.body = lines.slice(index).join('\n').replace(/\n$/, '')
-  if (!request.name) request.name = `${request.method} ${request.url}`.slice(0, 80)
+  if (!request.name) request.name = `${request.method} ${request.url}`.trim().slice(0, 80)
   return request
 }
 

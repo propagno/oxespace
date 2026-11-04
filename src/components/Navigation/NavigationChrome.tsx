@@ -67,6 +67,31 @@ export function SidebarFooter({ context, onToggle, children }: { context: RailAc
   </footer>
 }
 
+/** One thing the sidebar lists (a conversation, a connection, a container), as the collapsed rail shows it. */
+export interface RailItem {
+  id: string
+  label: string
+  /** What the button shows; the label's first letter when absent. */
+  mark?: ReactNode
+  current?: boolean
+  onSelect: () => void
+}
+
+/**
+ * The sidebar's items in the collapsed rail (T61): collapsing hid the list itself in OxeChat, OxeQuery and OxePod,
+ * while OxeCode's rail kept its workspaces. Each item is a button named by its label, the current one marked.
+ */
+export function RailItems({ label, items }: { label: string; items: RailItem[] }) {
+  if (!items.length) return null
+  return <nav className={cx(styles.group, styles.items)} aria-label={label} data-rail-items="">
+    <span className={styles.separator} aria-hidden="true" />
+    {items.map(item => <button key={item.id} type="button" className={cx('nav-rail-btn', styles.button, styles.item)} aria-label={item.label} title={item.label}
+      aria-current={item.current ? 'page' : undefined} onClick={item.onSelect}>
+      {item.mark ?? <span className={styles.initial} aria-hidden="true">{[...item.label.trim()][0]?.toUpperCase() ?? '·'}</span>}
+    </button>)}
+  </nav>
+}
+
 /**
  * A collapsed sidebar: a narrow column with the same actions, so nothing is out of reach while the sidebar is
  * small. Expanded sidebars draw SidebarActions and SidebarFooter instead.
