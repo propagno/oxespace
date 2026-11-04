@@ -600,7 +600,8 @@
     "redo": "Redo"
   },
   "errors": {
-    "action": "Could not complete the action."
+    "action": "Could not complete the action.",
+    "accountUnavailable": "OXESpace couldn’t reach Claude Code or Codex to check your account. Make sure the CLI is installed and signed in, then try again."
   },
   "events": {
     "loadFailed": "Could not load the events",
@@ -1570,6 +1571,7 @@
     "history": "Conversation history",
     "copyFailed": "Could not copy this message.",
     "connectFirst": "Connect your subscription before sending.",
+    "connectAgent": "Connect an agent",
     "restartForCommands": "Restart the updated application to use integrated commands.",
     "unsupportedImage": "{{name}} is not a supported image.",
     "cliOwns": "The native CLI owns this conversation. Recover it before sending a message.",

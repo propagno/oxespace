@@ -325,7 +325,7 @@
     "opacity": "Opacidade do fundo",
     "translucent": "translúcido",
     "globalDefaults": "Padrões <strong>globais</strong>. Cada workspace pode mudá-los.",
-    "resumeBypass": "Retomar sessões com as permissões ignoradas quando a sessão estava assim",
+    "resumeBypass": "Retomar do mesmo jeito as sessões que ignoravam os pedidos de permissão",
     "resumeBypassHint": "Uma sessão do Claude Code iniciada ignorando os pedidos de permissão é retomada do mesmo jeito depois de reiniciar ou de Restaurar sessão. Desligado: ela é retomada pedindo permissão."
   },
   "hooks": {

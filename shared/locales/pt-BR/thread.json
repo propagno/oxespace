@@ -613,7 +613,8 @@
     "redo": "Refazer"
   },
   "errors": {
-    "action": "Não foi possível concluir a ação."
+    "action": "Não foi possível concluir a ação.",
+    "accountUnavailable": "O OXESpace não conseguiu falar com o Claude Code ou o Codex para verificar sua conta. Confira se a CLI está instalada e conectada e tente de novo."
   },
   "events": {
     "loadFailed": "Não foi possível carregar os eventos",
@@ -1613,6 +1614,7 @@
     "history": "Histórico da conversa",
     "copyFailed": "Não foi possível copiar esta mensagem.",
     "connectFirst": "Conecte sua assinatura antes de enviar.",
+    "connectAgent": "Conectar um agente",
     "restartForCommands": "Reinicie o aplicativo atualizado para usar os comandos integrados.",
     "unsupportedImage": "{{name}} não é uma imagem compatível.",
     "cliOwns": "A CLI nativa está com esta conversa. Recupere-a antes de enviar uma mensagem.",
