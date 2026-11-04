@@ -56,6 +56,7 @@ class ScreensSnapshotTest(private val night: Boolean, private val locale: String
     fun home() {
         shot("unpaired") { HomeScreen(DesktopStatus.Unpaired(), {}, {}, { true }, {}) }
         shot("revoked") { HomeScreen(DesktopStatus.Unpaired(revokedFrom = "Studio", revoked = true), {}, {}, { true }, {}) }
+        shot("lapsed") { HomeScreen(DesktopStatus.Unpaired(revokedFrom = "Studio", revoked = true, lapsed = true), {}, {}, { true }, {}) }
         shot("connecting") { HomeScreen(DesktopStatus.Connecting(Samples.desktop), {}, {}, { true }, {}) }
         shot("unreachable") { HomeScreen(DesktopStatus.Unreachable(Samples.desktop, 8_000), {}, {}, { true }, {}) }
         shot("offline") { HomeScreen(DesktopStatus.OffNetwork(Samples.desktop), {}, {}, { true }, {}) }

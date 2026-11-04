@@ -19,6 +19,7 @@
     <string name="home_body">Pair this phone with OXESpace on your computer, on the same Wi-Fi, to follow and answer your sessions.</string>
     <string name="home_cancel">Cancel</string>
     <string name="home_enter_address">Enter the computer\'s address</string>
+    <string name="home_lapsed">This pairing expired before the phone connected. Pair again.</string>
     <string name="home_open_wifi">Open Wi-Fi settings</string>
     <string name="home_pair">Pair with your computer</string>
     <string name="home_paired_body">This phone can follow and answer your sessions on %1$s while both are on the same network.</string>

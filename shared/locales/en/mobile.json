@@ -19,6 +19,7 @@
       "retryIn_other": "Trying again in {{count}} seconds."
     },
     "revoked": "{{desktop}} removed this phone. Pair again to reconnect.",
+    "lapsed": "This pairing expired before the phone connected. Pair again.",
     "retry": "Try again",
     "enterAddress": "Enter the computer's address",
     "addressTitle": "Computer's address",
