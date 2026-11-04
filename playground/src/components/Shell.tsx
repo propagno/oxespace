@@ -14,12 +14,12 @@ export function goMode (m: string) { railGo(m === 'chat' ? 'tasks' : m) }
 const MENUBAR: [string, string][] = [['m_file', 'File'], ['m_edit', 'Edit'], ['m_view', 'View'], ['m_tools', 'Tools'], ['m_help', 'Help']]
 export function TitleBar () {
   const n = needsN(); const cur = modeOf()
-  const unread = D.notifications.filter(x => !S.notifRead[x.id]).length + S.extraNotifs.length
+  const unread = S.area === 'firstrun' ? 0 : D.notifications.filter(x => !S.notifRead[x.id]).length + S.extraNotifs.length
   return <header className="tb tb2">
     <div className="tb-l"><Logo /><nav className="menubar" aria-label="Menu">{MENUBAR.map(([id, l]) => <button key={id} onClick={menuBtn(id)} aria-haspopup="menu" aria-expanded={S.menu?.id === id}>{l}</button>)}</nav></div>
     <nav className="modes" aria-label="Modes">{MODES.map(([id, l, k]) => <button key={id} aria-current={cur === id ? 'page' : undefined} title={`${l} (${k})`} onClick={() => goMode(id)}>{l}</button>)}</nav>
     <div className="tb-r">
-      <button className="cmdk sm" onClick={run(() => { S.overlay = { type: 'pal', query: '', sel: 0 } })} aria-label="Search or run a command (Ctrl K)"><Icon n="search" /><span>Search</span><Kbd>Ctrl K</Kbd></button>
+      <button className="cmdk sm" onClick={run(() => { S.overlay = { type: 'pal', query: '', sel: 0 } })} aria-label="Search (Ctrl K)"><Icon n="search" /><span>Search</span><Kbd>Ctrl K</Kbd></button>
       <button className={'needs' + (n ? '' : ' zero')} onClick={() => goScreen('queue')} title="Approvals waiting for you (Ctrl Shift A)">{n ? <span className="sun live" /> : <Icon n="check" s={12} />}{n ? `${n} need${n === 1 ? 's' : ''} you` : 'Nothing waiting'}</button>
       <button className="ibtn" onClick={e => { e.stopPropagation(); S.notif = !S.notif; S.menu = null; emit() }} aria-label="Notifications" aria-expanded={S.notif} style={{ position: 'relative' }}><Icon n="bell" />{unread ? <span className="badge" style={{ position: 'absolute', top: 0, right: -2 }}>{unread}</span> : null}</button>
       <button className="ibtn" onClick={() => goScreen('settings-general')} aria-label="Settings (Ctrl ,)" title="Settings (Ctrl ,)"><Icon n="gear" /></button>
@@ -38,9 +38,10 @@ import { toast } from '../state/store'
 const toastSoonLocal = (m: string) => toast(m)
 
 export function StatusBar () {
-  const running = S.tasks.filter(t => t.status === 'run').length
+  const running = S.area === 'firstrun' ? 0 : S.tasks.filter(t => t.status === 'run').length
   const t = S.area === 'task' ? task(S.taskId) : null
-  return <footer className="sb"><span><Icon n="branch" s={12} /> <b>{t ? t.branch : 'main'}</b></span><span className="hide-n">{t ? D.projects[t.project].name : 'cajui-api'}</span>
+  if (S.area === 'firstrun') return <footer className="sb"><span>Nothing set up yet</span><span className="sp" /><span>OXESpace 1.5.0</span></footer>
+  return <footer className="sb"><span><Icon n="branch" s={12} /> <b>{t && t.id === 't143' ? 'mig-prd' : t ? t.branch : 'main'}</b>{t && t.id === 't143' ? <span className="moved-sb" title="This conversation started on oxe/t143-invoice-report; the worktree's branch changed">moved</span> : null}</span><span className="hide-n">{t ? D.projects[t.project].name : 'cajui-api'}</span>
     <span><span className="sdot on" /> {plural(running, 'agent')} working</span><span className="sp" />
     <button className="usage-sb" onClick={run(() => { S.overlay = { type: 'dlg', id: 'usage' } })} title="Usage by provider"><span className="pdot claude" />Claude 41%<span className="ubar"><i style={{ width: '41%' }} /></span><span className="pdot codex" />Codex 18%<span className="ubar"><i style={{ width: '18%' }} /></span></button><span>OXESpace 1.5.0</span></footer>
 }

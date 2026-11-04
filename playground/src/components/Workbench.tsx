@@ -6,6 +6,7 @@ import { S, emit, run, toast, plural, task, prov, type AppState } from '../state
 import { Icon, Av, Kbd, MI, StateBlock } from './ui'
 import { CodeEditor, type Lang } from './Code'
 import { TermView } from './Tools'
+import { PLACES } from '../mock/locations'
 
 export const TOOLS: [string, string, string, string][] = [
   ['files', 'file', 'Files', 'Ctrl E'], ['browser', 'globe', 'Browser', 'Ctrl Shift B'], ['git', 'branch', 'Git and pull request', ''], ['scripts', 'play', 'Scripts', ''],
@@ -31,12 +32,14 @@ export function ToolPanel ({ id, t }: { id: string; t?: { id: string; branch: st
 }
 
 function FilesPanel ({ t }: { t?: { branch: string } }) {
-  const open = S.wbFile || 'idempotency.ts'; const [lang, code] = FILES[open] || ['text', '// Preview of ' + open]
+  const open = S.wbFile || 'idempotency.ts'; const outside = S.wbRO && S.wbRO.endsWith(open) ? S.wbRO : null
+  const fromPlace = outside ? (PLACES.t147.find(p => p.kind === 'outside')?.files.find(f => f.path === open)?.hunks.map(h => h[1]).join('\n') || '') : null
+  const [lang, code] = fromPlace != null ? [open.endsWith('.js') ? 'ts' as Lang : 'text' as Lang, fromPlace] : FILES[open] || ['text', '// Preview of ' + open]
   const tabs = S.wbTabs || ['idempotency.ts', 'package.json']
   return <div className="files-p"><div className="ftree"><div className="mside-h"><b>cajui-api</b><span className="sp" /><span className="mono muted" style={{ fontSize: 11 }}>{t?.branch || 'main'}</span></div>
     <div className="scroll">{TREE.map(([d, n, dir], i) => <button key={i} className={'fnode' + (dir ? ' dir' : '') + (n === open ? ' on' : '')} style={{ paddingLeft: 10 + d * 14 }} onClick={run(() => { if (dir) return; S.wbFile = n; if (!tabs.includes(n)) S.wbTabs = tabs.concat(n) })}><Icon n={dir ? 'folder' : 'file'} s={12} /><span className="trunc">{n}</span>{['create.ts', 'idempotency.ts', 'routes.ts', '0043_invoice_items_invoice_id_idx.sql', 'invoice-report.ts'].includes(n) ? <span className="fm">M</span> : null}</button>)}</div></div>
     <div className="feditor"><div className="qtabs">{tabs.map(n => <button key={n} role="tab" aria-selected={n === open} onClick={run(() => { S.wbFile = n })}><Icon n="file" s={12} />{n}<span className="x" role="button" aria-label={`Close ${n}`} onClick={e => { e.stopPropagation(); S.wbTabs = tabs.filter(x => x !== n); if (open === n) S.wbFile = S.wbTabs[0]; emit() }}><Icon n="x" s={12} /></span></button>)}<span className="sp" /><button className="btn sm" onClick={run(() => toast(`Opened ${open} in VS Code`))}><Icon n="ext" s={12} />Open in editor</button></div>
-      <CodeEditor lang={lang} label={open} value={S.wbEdits?.[open] ?? code} onChange={v => { (S.wbEdits ||= {})[open] = v }} /></div></div>
+      {outside ? <div className="ro-band"><Icon n="lock" s={12} />Read-only, outside the project · {outside}</div> : null}<CodeEditor lang={lang} label={open} readOnly={!!outside} value={outside ? code : S.wbEdits?.[open] ?? code} onChange={v => { (S.wbEdits ||= {})[open] = v }} /></div></div>
 }
 function BrowserPanel () {
   const url = S.wbUrl ?? 'http://localhost:3002/statements'

@@ -27,9 +27,9 @@ export function Sidebar () {
     <div className="sbar-l">{list.length ? groups.map(([k, l, ts]) => <div key={k}><div className="tg"><span>{l}</span><span className="n">{ts.length}</span></div>
       {ts.map(t => { const on = (S.area === 'task' || S.area === 'later-multi') && S.taskId === t.id
         return <button key={t.id} className="trow" onClick={() => openTask(t.id)} aria-current={on ? 'page' : undefined} aria-label={`${t.title}, ${STATUS_LABEL[t.status]}`}>
-          <span className={'sg ' + t.status} /><span className="tt trunc">{t.title}</span><span className="tm">{t.status === 'run' || t.status === 'needs' ? t.mins + 'm' : t.started}</span>
+          <span className={'sg ' + t.status} /><span className="tt trunc">{t.title}{t.id === 't143' ? <span className="drift-g" title="Its worktree moved to another branch" aria-label="branch moved"><Icon n="branch" s={12} /></span> : null}</span><span className="tm">{t.status === 'run' || t.status === 'needs' ? t.mins + 'm' : t.started}</span>
           {t.status === 'needs' ? <span className="meta"><span className="trunc attn-t">{t.now.replace('Waiting for you: ', 'Asks to ').replace('Waiting for your answer: ', 'Asks you ')}</span></span> : null}
-          {!col && t.id !== S.taskId ? <span className="beside" role="button" tabIndex={0} title="Open side by side" aria-label={`Open "${t.title}" side by side`} onClick={e => { e.stopPropagation(); S.split2 = t.id; S.area = 'task'; emit() }}><Icon n="panel" s={12} /></span> : null}{col ? <span className="tipc">{t.title} · {STATUS_LABEL[t.status]}</span> : null}</button> })}</div>)
+          {!col && t.id !== S.taskId ? <span className="beside" role="button" tabIndex={0} title="Open side by side" aria-label={`Open "${t.title}" side by side`} onClick={e => { e.stopPropagation(); openBeside(t.id); emit() }}><Icon n="panel" s={12} /></span> : null}{col ? <span className="tipc">{t.title} · {STATUS_LABEL[t.status]}</span> : null}</button> })}</div>)
       : col ? null : <div className="state" style={{ padding: '24px 12px' }}><p style={{ fontSize: 12 }}>{S.filter ? `No task matches "${S.filter}".` : 'No conversations yet. Each one is an agent working on something, with everything it touches.'}</p></div>}</div>
     <div className="sbar-f">{col ? <button className="ibtn sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'archived' } })} aria-label="Archived tasks" title="Archived tasks"><Icon n="archive" s={12} /></button>
       : <><button className="btn ghost sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'archived' } })}><Icon n="archive" s={12} /><span className="lbl">Archived · 14</span></button><span className="sp" /><span className="lbl">{plural(list.length, 'conversation')}</span></>}</div></aside>
@@ -46,20 +46,31 @@ export function EmptyHome () {
 
 /* ================================================================ task view */
 const TABS: [string, string, string, string, keyof Task['counts'] | 'pr' | null][] = [['conv', 'chat', 'Conversation', '', null], ['terminal', 'term', 'Terminal', 'k-shell', 'terminal'], ['queries', 'db', 'Queries', 'k-db', 'queries'], ['requests', 'net', 'Requests', 'k-net', 'requests'], ['containers', 'box', 'Containers', 'k-box', 'containers'], ['changes', 'diff', 'Changes', 'k-file', 'changes'], ['pr', 'pr', 'Pull request', 'k-pr', 'pr']]
-export function TaskView ({ compact }: { compact?: boolean } = {}) {
-  const t = cur(); if (!t) return null
-  const sc = S.sideChat[t.id]?.open
+export function TaskView ({ tid, compact, cell }: { tid?: string; compact?: boolean; cell?: number } = {}) {
+  const t = task(tid ?? S.taskId); if (!t) return null
+  const sc = !compact && S.sideChat[t.id]?.open
   const rp = !compact && (S.w === 900 ? S.rp900 && !sc : S.rp && !sc)
-  const extra = S.extraTabs[t.id] || []
-  // Only the tools this task used. Conversation is always there; Pull request once there is one or the work is done.
+  const tab = compact ? (S.cellTab[t.id] ?? 'conv') : S.tab
+  const setTab = (v: string) => { if (compact) S.cellTab[t.id] = v; else { S.tab = v; syncScreen() } emit() }
+  // Only the tools this conversation used. Conversation is always there; Pull request once there is one or the work is done.
   const tabs = TABS.filter(([, , , , cnt]) => !cnt || (cnt === 'pr' ? !!t.pr || ['review', 'done'].includes(t.status) : t.counts[cnt] > 0))
+  const dock = S.dockTool[t.id]
+  const body = S.view === 'loading' ? <StateBlock kind="loading" /> : S.view === 'error' ? <StateBlock kind="error" /> : tab === 'conv' ? <Conversation t={t} /> : <ToolTab t={t} tab={tab} />
   return <div className={'taskv' + (rp ? '' : ' norp') + (sc ? ' sc' : '')}>
-    <section className="tcol" aria-label={t.title}><TaskHeader t={t} />
-      <div className="tabs" role="tablist" aria-label="Task tools">{tabs.map(([id, , lbl, , cnt]) => { const n = cnt && cnt !== 'pr' ? t.counts[cnt] : null
-        return <button key={id} role="tab" aria-selected={S.tab === id} onClick={() => { S.tab = id; syncScreen(); emit() }}><span className="lbl2">{lbl}</span>{n ? <span className="n">{n}</span> : null}</button> })}
-        {extra.map(id => { const tl = TOOLS.find(x => x[0] === id)!; return <button key={id} role="tab" className="xtab" aria-selected={S.tab === id} onClick={() => { S.tab = id; emit() }}><span className="lbl2">{tl[2]}</span><span className="x" role="button" aria-label={`Close ${tl[2]}`} onClick={e => { e.stopPropagation(); S.extraTabs[t.id] = extra.filter(x => x !== id); if (S.tab === id) S.tab = 'conv'; emit() }}><Icon n="x" s={12} /></span></button> })}
-        <button className="addtool" onClick={menuBtn('addtool')} aria-haspopup="menu" title="Open a tool for this conversation"><Icon n="plus" s={12} />Tool</button></div>
-      <div className="tbody">{S.view === 'loading' ? <StateBlock kind="loading" /> : S.view === 'error' ? <StateBlock kind="error" /> : S.tab === 'conv' ? <Conversation t={t} /> : TOOLS.some(x => x[0] === S.tab) ? <ToolPanel id={S.tab} t={t} /> : <ToolTab t={t} tab={S.tab} />}</div></section>
+    <section className="tcol" aria-label={t.title}><TaskHeader t={t} cell={cell} />
+      <div className="tabrow"><div className="tabs" role="tablist" aria-label={`Tools of ${t.title}`}>{tabs.map(([id, , lbl, , cnt]) => { const n = cnt && cnt !== 'pr' ? t.counts[cnt] : null
+        return <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}><span className="lbl2">{lbl}</span>{n ? <span className="n">{n}</span> : null}</button> })}</div>
+        <button className="addtool" onClick={menuBtn('addtool')} aria-haspopup="menu" aria-expanded={S.menu?.id === 'addtool'}><Icon n="plus" s={12} />Tool</button></div>
+      <div className={'tbody' + (dock ? ' docked' : '') + (dock && S.chatDockMax ? ' dmax' : '')} style={dock && !S.chatDockMax ? { gridTemplateColumns: `minmax(0,1fr) ${Math.max(320, S.chatDockW || (S.w === 900 ? 320 : 380))}px` } : undefined}>
+        {dock && S.chatDockMax ? null : body}
+        {dock ? <aside className="cdock" aria-label={`${TOOLS.find(x => x[0] === dock)?.[2]} beside the conversation`}>
+          <div className="dock-h"><div className="dock-grip" role="separator" aria-orientation="vertical" aria-label="Resize the tool panel" aria-valuenow={S.chatDockW || 380} aria-valuemin={320} aria-valuemax={800} tabIndex={0}
+            onKeyDown={e => { if (e.key === 'ArrowLeft') { S.chatDockW = Math.min(800, (S.chatDockW || 380) + 20); emit() } if (e.key === 'ArrowRight') { S.chatDockW = Math.max(320, (S.chatDockW || 380) - 20); emit() } }}
+            onPointerDown={e => { const x0 = e.clientX, w0 = S.chatDockW || 380; const move = (ev: PointerEvent) => { S.chatDockW = Math.max(320, Math.min(800, w0 + (x0 - ev.clientX) / S.scale)); emit() }; const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }; window.addEventListener('pointermove', move); window.addEventListener('pointerup', up) }} />
+            <div className="dtabs" role="tablist" aria-label="Tools">{TOOLS.filter(x => (S.dockOpen[t.id] || [dock]).includes(x[0])).map(([id, ic, l]) => <button key={id} role="tab" aria-selected={dock === id} onClick={run(() => { S.dockTool[t.id] = id })}><Icon n={ic} s={12} />{l}</button>)}</div>
+            <span className="sp" /><button className="ibtn sm" aria-label={S.chatDockMax ? 'Restore the conversation' : 'Maximize the tool'} title={S.chatDockMax ? 'Restore' : 'Maximize'} onClick={run(() => { S.chatDockMax = !S.chatDockMax })}><Icon n={S.chatDockMax ? 'min' : 'max'} s={12} /></button>
+            <button className="ibtn sm" aria-label="Close the tool panel" title="Close" onClick={run(() => { delete S.dockTool[t.id]; S.chatDockMax = false })}><Icon n="x" s={12} /></button></div>
+          <ToolPanel id={dock} t={t} /></aside> : null}</div></section>
     {sc ? <SideChatPanel t={t} /> : null}
     {rp ? <RightPanel t={t} /> : null}</div>
 }
@@ -70,23 +81,25 @@ function NowLine ({ t }: { t: Task }) {
   const goAsk = () => document.getElementById('ask-' + t.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   if (t.ask === 'cmd') return <div className="nowline attn" role="status"><span className="sun live" /><span className="what"><b>Needs you.</b> {who} wants to run <span className="mono">{[...(S.conv[t.id] || [])].reverse().find(x => x.cmd && x.cmd.state === 'pending')?.cmd?.cmd || 'a command'}</span>.</span><button className="btn sm" onClick={run(() => decideCmd(t, 'deny'))}>Deny</button><button className="btn sm pri" onClick={goAsk}>Review</button></div>
   if (t.ask) return <div className="nowline attn" role="status"><span className="sun live" /><span className="what"><b>Needs you.</b> {who} asked 2 questions before writing the tests.</span><button className="btn sm pri" onClick={goAsk}>Answer</button></div>
-  if (ap) return <div className="nowline attn" role="status"><span className="sun live" /><span className="what"><b>Needs you.</b> {who} asks to {ap.title.charAt(0).toLowerCase() + ap.title.slice(1)}.</span>
+  const drift = t.id === 't143' ? <button className="drift-chip" onClick={run(() => { S.tab = 'changes'; syncScreen() })} title="The worktree's branch changed since this conversation started"><Icon n="branch" s={12} />moved to mig-prd</button> : null
+  if (ap) return <div className="nowline attn" role="status" tabIndex={-1} id={'now-' + t.id}><span className="sun live" /><span className="what"><b>Needs you.</b> {who} asks to {ap.title.charAt(0).toLowerCase() + ap.title.slice(1)}.</span>{drift}
     <button className="btn sm" onClick={run(() => resolve(ap.id, 'deny'))}>Deny</button><button className="btn sm pri" onClick={run(() => { S.overlay = { type: 'approve', id: ap.id } })}>See impact</button></div>
-  if (t.status === 'run') return <div className="nowline run" role="status"><span className="spin" /><span className="what"><b>Working.</b> {t.now}.</span><span className="num muted">{fmtElapsed(S.running[t.id] ?? 72)}</span>
+  if (t.status === 'run') return <div className="nowline run" role="status" tabIndex={-1} id={'now-' + t.id}><span className="spin" /><span className="what"><b>Working.</b> {t.now}.</span><span className="num muted">{fmtElapsed(S.running[t.id] ?? 72)}</span>
     <button className="btn sm" onClick={run(() => { t.status = 'idle'; t.now = 'Stopped by you'; toast(`Stopped ${t.key}. The work so far is kept.`) })}><Icon n="stop" s={12} />Stop</button></div>
   if (t.status === 'idle') return <div className="nowline idle" role="status"><Icon n="warn" s={12} /><span className="what"><b>Paused.</b> You stopped it. The work so far is kept; send a message to continue.</span></div>
-  if (t.status === 'err') return <div className="nowline err" role="status"><Icon n="warn" s={12} /><span className="what"><b>Stopped with an error.</b> {t.now.replace('Stopped: ', '')}.</span><button className="btn sm" onClick={run(() => { t.status = 'run'; t.now = 'Recreating the volume'; S.conv[t.id].push({ you: 'Retry with a fresh volume.', at: '14:44' }) })}><Icon n="refresh" s={12} />Retry</button></div>
+  if (t.status === 'err') return <div className="nowline err" role="status" tabIndex={-1} id={'now-' + t.id}><Icon n="warn" s={12} /><span className="what"><b>Stopped with an error.</b> {t.now.replace('Stopped: ', '')}.</span><button className="btn sm" onClick={run(() => { t.status = 'run'; t.now = 'Retrying: docker compose up -d postgres'; S.running[t.id] = 0; setTimeout(() => document.getElementById('now-' + t.id)?.focus(), 0) })}><Icon n="refresh" s={12} />Retry the failed step</button><button className="btn sm" onClick={run(() => { if (!S.queue.includes('ap_fresh')) S.queue.push('ap_fresh'); t.gate = 'ap_fresh'; t.status = 'needs'; S.overlay = { type: 'approve', id: 'ap_fresh' } })}>Start with a fresh volume…</button></div>
   if (t.status === 'review') return <div className="nowline ok" role="status"><Icon n="check" s={12} /><span className="what"><b>Ready for review.</b> {t.now}.</span>{t.pr ? <button className="btn sm" onClick={run(() => { S.tab = 'pr'; syncScreen() })}>Open pull request</button> : null}</div>
   return <div className="nowline ok" role="status"><Icon n="check" s={12} /><span className="what"><b>Done.</b> {t.now}.</span></div>
 }
-export function TaskHeader ({ t }: { t: Task }) {
+export function TaskHeader ({ t, cell }: { t: Task; cell?: number }) {
   const p = D.projects[t.project]; const later = S.area === 'later-multi'
   const rpOn = S.w === 900 ? S.rp900 : S.rp
-  return <header className="th"><div className="th-top"><span className={'sg ' + t.status} aria-hidden="true" /><h1>{t.title}</h1>
+  return <header className="th"><div className="th-top"><span className={'sg ' + t.status} aria-hidden="true" /><h1 tabIndex={-1}>{t.title}</h1>
     <div className="hdr-acts">
       <button className="ibtn" onClick={run(() => { const s = scState(t); s.open = !s.open; syncScreen(); if (s.open) setTimeout(() => document.getElementById('sc-' + t.id)?.focus(), 0) })} aria-pressed={!!S.sideChat[t.id]?.open} title="Side chat: ask about this task without changing it (Ctrl .)" aria-label="Side chat"><Icon n="copy" /></button>
       <button className="ibtn" onClick={run(() => { if (S.w === 900) S.rp900 = !S.rp900; else S.rp = !S.rp })} aria-pressed={rpOn} title={rpOn ? 'Hide the task panel' : 'Show the task panel'} aria-label="Task panel"><Icon n="panel" /></button>
-      <button className="ibtn" onClick={menuBtn('convact')} aria-haspopup="menu" aria-label="More task actions" aria-expanded={S.menu?.id === 'convact'}><Icon n="more" /></button></div></div>
+      <button className="ibtn" onClick={menuBtn('convact')} aria-haspopup="menu" aria-label="More actions" aria-expanded={S.menu?.id === 'convact'}><Icon n="more" /></button>
+      {cell != null ? <button className="ibtn" aria-label={`Close "${t.title}" on this side`} title="Close this side" onClick={e => { e.stopPropagation(); closeCell(cell) }}><Icon n="x" /></button> : null}</div></div>
     <div className="th-sub">{later ? <><Av p="claude" size="s16" /><Av p="codex" size="s16" />2 agents</> : <><Av p={t.prov} size="s16" />{prov(t.prov).name} · {t.model}</>}<span>·</span><span>{p.name}</span><span>·</span><span className="num">{t.mins} min</span><span>·</span><span className="num" title={t.costEst ? 'Codex doesn\'t report cost; estimated from tokens' : 'Reported by Claude Code'}>{t.costEst ? '≈ ' : ''}{money(t.cost)}</span></div>
     <NowLine t={t} /></header>
 }
@@ -126,7 +139,7 @@ function Item ({ t, it, i }: { t: Task; it: ConvItem; i: number }) {
   if (it.ck != null) return <div className="ck3"><span>Checkpoint {it.ck} · {it.label}</span><button onClick={run(() => { S.past[t.id] = it.ck!; syncScreen() })}>View</button></div>
   if (it.gate) return S.resolved[it.gate] ? null : <div className="gate-mark"><span className="sun live" />Asked to {D.approvals[it.gate].verb.charAt(0).toLowerCase() + D.approvals[it.gate].verb.slice(1)} · waiting for you (top of the task)</div>
   if (it.done) return <div className="apc done"><div className="apc-h"><Icon n={it.how === 'deny' ? 'x' : 'check'} s={12} />{it.how === 'deny' ? 'You denied' : it.how === 'snap' ? 'You took a snapshot, then approved' : 'You approved'}: {D.approvals[it.done].title} · {it.at}</div></div>
-  if (it.err) return <div className="callout danger" style={{ marginLeft: 30 }}><Icon n="warn" /><div><b>Stopped.</b> {it.err}<div className="row" style={{ marginTop: 6 }}><button className="btn sm" onClick={run(() => { S.tab = 'containers' })}>Open containers</button><button className="btn sm" onClick={run(() => { t.status = 'run'; t.now = 'Recreating the volume'; S.conv[t.id].push({ you: 'Retry with a fresh volume.', at: '14:44' }); toast(`Codex is retrying ${t.key}`) })}><Icon n="refresh" s={12} />Retry with a fresh volume</button></div></div></div>
+  if (it.err) return <div className="callout danger" style={{ marginLeft: 30 }}><Icon n="warn" /><div><b>Stopped.</b> {it.err}<div className="row" style={{ marginTop: 6 }}><button className="btn sm" onClick={run(() => { S.tab = 'containers' })}>Open containers</button><button className="btn sm" onClick={run(() => { t.status = 'run'; t.now = 'Retrying: docker compose up -d postgres'; S.running[t.id] = 0 })}><Icon n="refresh" s={12} />Retry the failed step</button></div></div></div>
   return null
 }
 const TK: Record<string, [string, string]> = { read: ['read', 'file'], edit: ['edit', 'pencil'], run: ['run', 'shell'], fail: ['fail', 'warn'], done: ['', 'check'] }
@@ -269,17 +282,18 @@ function ToolGroup ({ t, rows, k }: { t: Task; rows: ToolRow[]; k: string }) {
 
 MENUS.sgroup = () => <><div className="mg">Group conversations</div><MI check={S.sideGroup === 'status'} label="By status" hint="Needs you first (new in 1.5.0)" onClick={() => { S.sideGroup = 'status' }} /><MI check={S.sideGroup === 'project'} label="By project" hint="As in 1.4" onClick={() => { S.sideGroup = 'project' }} /></>
 
-/** OxeChat keeps several conversations side by side (ThreadGrid). The focused one has the task panel. */
+/** OxeChat keeps two conversations side by side (ThreadGrid): fixed cells, both full views; focus never reorders. */
 export function ChatArea () {
-  const two = S.split2 && S.split2 !== S.taskId && task(S.split2)
-  if (!two) return <TaskView />
-  const b = task(S.split2!)!
-  return <div className="chat-split"><div className="cs-pane focus"><TaskView compact /></div>
-    <div className="cs-pane" onMouseDownCapture={() => { const a = S.taskId; S.taskId = b.id; S.split2 = a; S.tab = 'conv'; emit() }}>
-      <section className="tcol" aria-label={b.title}><TaskHeader t={b} /><div className="tabs"><button role="tab" aria-selected="true"><span className="lbl2">Conversation</span></button><span className="sp" /><button className="ibtn sm" aria-label="Close this side" title="Close this side" onClick={e => { e.stopPropagation(); S.split2 = null; emit() }}><Icon n="x" s={12} /></button></div><div className="tbody"><Conversation t={b} /></div></section></div></div>
+  const cells = S.split2 && S.cellA && S.split2 !== S.cellA && task(S.split2) && task(S.cellA) ? [S.cellA, S.split2] : null
+  if (!cells) return <TaskView />
+  if (S.w === 900) return <div className="chat-one"><div className="cs-switch" role="tablist" aria-label="Side by side">{cells.map((id, i) => <button key={i} role="tab" aria-selected={S.taskId === id} onClick={run(() => { S.taskId = id })}><span className={'sg ' + task(id)!.status} />{task(id)!.title}</button>)}<span className="sp" /><span className="muted" style={{ fontSize: 11 }}>Side by side needs a wider window</span></div><TaskView tid={S.taskId} compact cell={cells.indexOf(S.taskId)} /></div>
+  return <div className="chat-split">{cells.map((id, i) => <div key={i} className={'cs-pane' + (S.taskId === id ? ' focus' : '')}
+    onMouseDownCapture={() => { if (S.taskId !== id) { S.taskId = id; emit() } }} onFocusCapture={() => { if (S.taskId !== id) { S.taskId = id; emit() } }}>
+    <TaskView tid={id} compact cell={i} /></div>)}</div>
 }
-
-MENUS.addtool = () => { const t = cur(); const x = S.extraTabs[t.id] || []; return <><div className="mg">Open in this conversation</div>{TOOLS.map(([id, ic, l, k]) => <MI key={id} icon={ic} label={l} sc={k} check={x.includes(id) ? true : undefined} onClick={() => { if (!x.includes(id)) S.extraTabs[t.id] = x.concat(id); S.tab = id }} />)}</> }
+export function openBeside (id: string) { if (id === S.taskId) return; S.cellA = S.taskId; S.split2 = id; S.taskId = id; S.area = 'task' }
+export function closeCell (i: number) { const keep = i === 0 ? S.split2! : S.cellA!; S.split2 = null; S.cellA = null; S.taskId = keep; emit() }
+MENUS.addtool = () => { const t = cur(); const open = S.dockOpen[t.id] || []; return <><div className="mg">Open beside the conversation</div>{TOOLS.map(([id, ic, l, k]) => <MI key={id} icon={ic} label={l} sc={k} onClick={() => { S.dockTool[t.id] = id; if (!open.includes(id)) S.dockOpen[t.id] = open.concat(id) }} />)}</> }
 
 /** Paths named in the agent's text open from where the file really is. The search order is shown when a path is
     opened, and a miss says where it looked (F33, T70). */
@@ -291,8 +305,8 @@ const PATH_HITS: Record<string, [string, string]> = {
 function PathLinks ({ t, paths, k }: { t: Task; paths: string[]; k: string }) {
   const open = S.pathOpen?.[k]
   return <div className="plinks">{paths.map(p => { const hit = PATH_HITS[p]
-    return <button key={p} className={'plink' + (hit ? '' : ' miss') + (open === p ? ' on' : '')} onClick={run(() => { (S.pathOpen ||= {})[k] = open === p ? '' : p; if (hit) toast(`Opened ${p.split('/').pop()} from ${hit[1].split(' · ')[0]}`) })}><Icon n={hit ? 'file' : 'warn'} s={12} /><span className="mono">{p}</span></button> })}
-    {open ? (PATH_HITS[open] ? <div className="pnote"><Icon n={PATH_HITS[open][0] === 'outside' ? 'folder' : 'branch'} s={12} /><span>Opened from <b>{PATH_HITS[open][1]}</b></span></div>
+    return <button key={p} className={'flink' + (hit ? '' : ' miss') + (open === p ? ' on' : '')} onClick={run(() => { (S.pathOpen ||= {})[k] = open === p ? '' : p; if (hit) { S.dockTool[t.id] = 'files'; const o = S.dockOpen[t.id] || []; if (!o.includes('files')) S.dockOpen[t.id] = o.concat('files'); S.wbFile = p.split('/').pop(); S.wbRO = hit[0] === 'outside' ? p : undefined } })}><span className="mono">{p}</span>{hit && hit[0] === 'outside' ? <span className="ro">read-only</span> : null}</button> })}
+    {open ? (PATH_HITS[open] ? <div className="pnote"><Icon n={PATH_HITS[open][0] === 'outside' ? 'folder' : 'branch'} s={12} /><span>Opened from <b>{PATH_HITS[open][1]}</b>{PATH_HITS[open][0] === 'outside' ? ' · read-only, outside the project. It opens because the agent wrote it in this conversation.' : ''}</span></div>
       : <div className="pnote miss"><Icon n="search" s={12} /><div><b>{open} wasn't found.</b> Looked in, in order: the path as written · the agent's folder at that turn (~/.oxespace/worktrees/cajui-api/t147) · its checkout root · this conversation's worktree · the project root (~/code/cajui/cajui-api) · this conversation's other places (~/code/cajui/cajui-ops, ~/cajui-scripts/refunds-0311) · 3 other worktrees of cajui-api.
         <div className="row" style={{ marginTop: 6 }}><button className="btn sm" onClick={run(() => toast('Find file: searches this conversation\'s places and the other worktrees of cajui-api'))}><Icon n="search" s={12} />Find file…</button><button className="btn sm" onClick={run(() => { S.conv[t.id].push({ you: `Where is ${open}? I can't find it.`, at: '14:57' }); toast('Asked the agent') })}>Ask the agent</button></div></div></div>) : null}</div>
 }

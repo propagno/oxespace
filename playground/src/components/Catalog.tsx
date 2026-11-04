@@ -1,9 +1,10 @@
 /* The rest of the #569 dialog inventory on the U1 contract, and a gallery that opens each one. */
 import { D } from '../mock/data'
-import { S, emit, run, toast, plural } from '../state/store'
+import { S, emit, run, toast, plural, resolve } from '../state/store'
 import { Icon, Av, Kbd } from './ui'
 import type { DialogSpec } from './Overlays'
 import { KEYS } from './Settings'
+import { addPane, focusedPlace } from './Modes'
 
 const p = (s: string) => <p style={{ color: 'var(--text-secondary)' }}>{s}</p>
 function QR () { // a stand-in pairing code, drawn from a fixed pattern
@@ -15,6 +16,12 @@ function QR () { // a stand-in pairing code, drawn from a fixed pattern
 }
 
 export const MORE_DIALOGS: Record<string, () => DialogSpec> = {
+  newpane: () => { const kind = S.overlay!.text; const d = focusedPlace(); const sel = (S.npSel ||= { project: d.project, wt: d.wt })
+    return { size: 'sm', icon: kind === 'agent' ? 'sparkle' : 'term', title: kind === 'agent' ? 'New agent pane' : 'New terminal', body: () => <>
+      <div className="field"><label htmlFor="np-p">Project</label><select className="sel" id="np-p" value={sel.project} onChange={e => { sel.project = e.target.value; sel.wt = 'main'; emit() }}><option>cajui-api</option><option>cajui-web</option></select></div>
+      <div className="field"><label htmlFor="np-w">Worktree</label><select className="sel" id="np-w" value={sel.wt} onChange={e => { sel.wt = e.target.value; emit() }}>{(sel.project === 'cajui-api' ? ['main', 't142', 't143', 't144', 't147'] : ['main']).map(w => <option key={w} value={w}>{w === 'main' ? 'main checkout' : `${w} · its conversation's worktree`}</option>)}</select></div>
+      <p className="muted" style={{ fontSize: 12 }}>Defaults to where the focused pane is.</p></>,
+      primary: { label: kind === 'agent' ? 'Start Claude Code' : 'Open terminal', act: () => { addPane(kind!, sel.project, sel.wt); S.npSel = undefined } } } },
   delegated: () => ({ size: 'lg', icon: 'users', title: 'Delegated work', body: () => <table className="ctable"><thead><tr><th>Task</th><th>Who</th><th>State</th><th>Updated</th></tr></thead><tbody>{[['T-136 Translate merchant emails', 'Rafael Moura · Claude', 'Running', '14:20'], ['T-130 Fix flaky e2e', 'Júlia Prado · Codex', 'Waiting for them', 'Yesterday'], ['T-128 Settlement report v2', 'Rafael Moura · Claude', 'Done · PR #306', 'Mon']].map(r => <tr key={r[0]}><td>{r[0]}</td><td>{r[1]}</td><td>{r[2] === 'Running' ? <span className="res ok">{r[2]}</span> : r[2]}</td><td className="mono">{r[3]}</td></tr>)}</tbody></table> }),
   accounts: () => ({ size: 'md', icon: 'key', title: 'Agent accounts', body: () => <>
     {Object.values(D.providers).map(pv => <div key={pv.id} className="ssec"><div className="srow"><div className="l"><b><Av p={pv.id} size="s16" />{pv.name}</b><p>{pv.account} · {pv.plan} plan</p></div><div className="ra"><span className="res ok">Connected</span><button className="btn sm ghost" onClick={run(() => toast(`Signed out of ${pv.name}`, { undo: () => {} }))}>Sign out</button></div></div></div>)}
@@ -40,6 +47,9 @@ export const MORE_DIALOGS: Record<string, () => DialogSpec> = {
     safeFirst: (S.pairStep ?? 0) === 1, cancel: (S.pairStep ?? 0) === 1 ? 'Refuse' : 'Cancel',
     primary: (S.pairStep ?? 0) === 1 ? { label: 'Pair', act: () => { S.pairStep = 0; toast('Paired Pixel 8a · Marina') } } : undefined }),
   unpair: () => { const n = S.overlay!.c!; return { size: 'sm', icon: 'phone', title: `Unpair ${n}?`, safeFirst: true, body: () => p('The phone loses access at once and its key is revoked. To use it again you pair it from scratch.'), primary: { label: 'Unpair', danger: true, act: () => { (S.unpaired ||= []).push(n); toast(`Unpaired ${n}`) } } } },
+  driftback: () => ({ size: 'sm', icon: 'branch', title: `Switch the worktree back to ${S.overlay!.text}?`, safeFirst: true, body: () => p('Runs git switch in this worktree. Your terminal there will be on the old branch again; anything it was doing on mig-prd stays on mig-prd.'), primary: { label: 'Switch back', act: () => toast(`Switched back to ${S.overlay?.text || 'the task branch'}`) } }),
+  driftfollow: () => ({ size: 'sm', icon: 'branch', title: 'Follow the new branch?', safeFirst: true, body: () => p(`This conversation will compare its changes with ${S.overlay!.text}. The changes made before the switch stay in Checkpoints.`), primary: { label: 'Follow', act: () => toast('This conversation now follows mig-prd') } }),
+  irrev: () => { const ap = D.approvals[S.overlay!.text!]; return { size: 'sm', icon: 'warn', title: 'Approve without holding', body: () => <><p style={{ color: 'var(--text-secondary)' }}>{ap.title}. {ap.undoSub}.</p><label className="row" style={{ fontSize: 13 }}><input type="checkbox" checked={!!S.irrevOk} onChange={e => { S.irrevOk = e.target.checked; emit() }} /> I understand this can't be undone</label></>, safeFirst: true, primary: { label: 'Approve', danger: true, disabled: !S.irrevOk, act: () => { S.irrevOk = false; resolve(ap.id, 'ok') } } } },
   clearmemory: () => ({ size: 'sm', icon: 'trash', title: 'Clear memory?', safeFirst: true, body: () => p('Every fact agents remember about this workspace is deleted. Conversations are not affected. This can\'t be undone.'), primary: { label: 'Clear memory', danger: true, act: () => toast('Memory cleared') } }),
   clearhistory: () => ({ size: 'sm', icon: 'trash', title: 'Clear history?', safeFirst: true, body: () => p('Deletes 14 archived tasks, their conversations and checkpoints (2.1 GB). Open and pinned tasks stay. This can\'t be undone.'), primary: { label: 'Clear history', danger: true, act: () => toast('History cleared') } }),
   about: () => ({ size: 'sm', icon: 'info', title: 'About OXESpace', body: () => <><div className="row"><span className="logo" style={{ width: 32, height: 32 }} /><div><b style={{ font: '700 16px var(--f-display)' }}>OXESpace 1.5.0</b><p className="muted" style={{ fontSize: 12 }}>Electron 39 · Node 22.11 · Windows 11 · build 2026.11.03</p></div></div><p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Made in Recife. Mandacaru design system. 174 open-source packages; their licenses are in THIRD_PARTY_NOTICES.</p></>,

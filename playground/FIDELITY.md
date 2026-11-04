@@ -138,3 +138,30 @@ Every capability the app has today, and where it is in the 1.5.0 playground. Bui
 ## Dropped (ask the user)
 
 None. Nothing that exists in 1.4 is removed. Two screens are tagged *later (full B)* because they need the Task entity: a task with two agents, and the board of running tasks.
+
+## Round 1 additions
+
+| Capability | 1.4 (where) | 1.5.0 (where) | Status |
+|---|---|---|---|
+| Phone connection switch (off: no port open), computer name | `DevicesSettings` | `#settings-devices` | kept |
+| Paired phones N of max, connected / last seen, Rename, Unpair | `DevicesList` | `#settings-devices` ("Unpair" on both devices) | kept |
+| Typing in terminals, "Stop typing from the phone everywhere" | `DevicesSettings`, `PanePhoneWrite` | `#settings-devices`; pane ⋯ › Allow typing from the phone (toggle, badge) | kept |
+| What a phone can do | `DevicesSettings` | `#settings-devices` | kept |
+| Pair flow: code, expiry, fingerprint, "Pair <device>?" | `DevicesPairing` | Dialogs › Pair a phone | kept |
+| Split tree: row/column dividers, divider menu, drag to move, room rules, 2×5 / 2×7 | `WorkspaceSplitGrid`, `splitRoom.ts`, `splitRefusal.ts` | `#mode-code` | kept |
+| Hunk undo, comment on a hunk, review by turn | `ThreadHunkReview`, `ThreadTurnReview` | Changes tab | kept |
+| New terminal / agent pane asks project and worktree | Pane creation | `#mode-code` › Terminal / Agent | changed |
+
+**Dependencies (principle 5):**
+- Agent activity in Requests and OxePost needs **T64**.
+- Changes by place, branch drift and path resolution need **T71/T72**; outside files open read-only only through T72's places.
+- The pane branch "changed since" needs **T73**.
+- Always allow as the provider's rule is **T74**.
+- Steer with this / Send now is **T76**.
+- Background state is **T77**.
+- The irreversible → phone `critical` mapping is **T78**.
+- PR notifications need PR polling (S–M).
+- The terminal "agent" tag comes from the agent_action_audit actor.
+- No task keys: lite B has no task entity, so conversations are named by title.
+
+**Visual baselines:** the dark accent change (sun → caatinga) means every dark-mode visual baseline is re-shot in 1.5.0 (FRONTEND, once per batch on main).
