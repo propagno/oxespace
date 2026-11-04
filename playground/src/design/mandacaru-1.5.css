@@ -1,0 +1,54 @@
+/* ---------------------------------------------------------------- APP --- */
+/* Mandacaru roles from src/design/tokens (main @ 03/11). Evolved roles are marked "1.5". */
+.app {
+  --surface-canvas:#f6f8f7; --surface-sunken:#edf1ee; --surface-chrome:#edf1ee; --surface-base:#fbfdfc; --surface-raised:#ffffff; --surface-overlay:#ffffff; --surface-inverse:#1d2720;
+  --fill-hover:#e3ebe5; --fill-pressed:#d9e2dc; --fill-selected:#d7f0e0; --fill-selected-strong:#c8e9d5;
+  --text-primary:#1a211c; --text-secondary:#404742; --text-muted:#555d57; --text-disabled:#a1b3a6; --text-on-accent:#ffffff; --text-on-solid:#ffffff; --text-accent:#26704b; --text-link:#18659b;
+  --border-subtle:#d9e2dc; --border-default:#cdd8d0; --border-strong:#bbc9bf;
+  --accent:#006d42; --accent-hover:#005d38; --accent-soft:#e5f5eb; --accent-soft-hover:#d7f0e0; --accent-border:#a0d3b4;
+  --success-bg:#e4f6e6; --success-border:#9ed5a5; --success:#21843c; --success-fg:#237236;
+  --warning-bg:#ffece1; --warning-border:#f9b389; --warning:#d56a10; --warning-fg:#964700;
+  --danger-bg:#ffebe9; --danger-border:#ffaca4; --danger:#c92f33; --danger-fg:#aa2b2c;
+  --info-bg:#e4f2ff; --info-border:#99cbf6; --info:#1174b4; --info-fg:#18659b;
+  --diff-add-bg:#e4f6e6; --diff-add-strong:#c8ebcb; --diff-del-bg:#ffebe9; --diff-del-strong:#ffd4cf;
+  --scrim: rgba(18, 28, 22, 0.32);
+  /* 1.5: the sun means "needs you" in both modes */
+  --attn:#dd9314; --attn-bg:#fdeddb; --attn-border:#ebbb81; --attn-fg:#845500;
+  /* 1.5: resource kinds (bars, chips, timeline marks) */
+  --k-file:#1174b4; --k-file-bg:#e4f2ff; --k-file-fg:#18659b;
+  --k-db:#7860b5; --k-db-bg:#f1edff; --k-db-fg:#665299;
+  --k-box:#00858a; --k-box-bg:#e0f5f6; --k-box-fg:#006e73;
+  --k-net:#af4a88; --k-net-bg:#ffe9f4; --k-net-fg:#913d71;
+  --k-shell:#555d57; --k-shell-bg:#edf1ee; --k-shell-fg:#404742;
+  --prov-claude:#c2643f; --prov-codex:#10a37f;
+  --e1: 0 1px 2px rgba(18,32,24,.06); --e2: 0 2px 6px rgba(18,32,24,.08), 0 1px 2px rgba(18,32,24,.05);
+  --e3: 0 8px 24px rgba(18,32,24,.12), 0 2px 6px rgba(18,32,24,.06); --e4: 0 16px 48px rgba(18,32,24,.18), 0 4px 12px rgba(18,32,24,.08);
+  --ease: cubic-bezier(0.2, 0, 0, 1); --ease-out: cubic-bezier(0.22, 1, 0.36, 1); --ease-emph: cubic-bezier(0.3, 0, 0, 1.2);
+  --fast: 120ms; --base: 200ms; --slow: 320ms;
+  color-scheme: light;
+}
+.app[data-mode="dark"] {
+  --surface-canvas:#0d100e; --surface-sunken:#0c110e; --surface-chrome:#131714; --surface-base:#131714; --surface-raised:#1b201c; --surface-overlay:#212723; --surface-inverse:#e7efe9;
+  --fill-hover:#212723; --fill-pressed:#27302a; --fill-selected:#122c1e; --fill-selected-strong:#1e5137;
+  --text-primary:#e8f1ea; --text-secondary:#c4cdc7; --text-muted:#9ea7a1; --text-disabled:#4f6054; --text-on-accent:#06120b; --text-on-solid:#0d100e; --text-accent:#91d2ac; --text-link:#88c8fe;
+  --border-subtle:#27302a; --border-default:#303a33; --border-strong:#3c4940;
+  /* 1.5: dark accent moves from sun to caatinga, so the sun is free to mean "needs you" */
+  --accent:#49a072; --accent-hover:#5eaf82; --accent-soft:#102318; --accent-soft-hover:#122c1e; --accent-border:#1e5137;
+  --success-bg:#0f2413; --success-border:#1c5228; --success:#5ab66b; --success-fg:#8fd599;
+  --warning-bg:#301707; --warning-border:#6e3200; --warning:#f18336; --warning-fg:#ffaa75;
+  --danger-bg:#351210; --danger-border:#7a2121; --danger:#f05653; --danger-fg:#ffa59e;
+  --info-bg:#0d202f; --info-border:#154970; --info:#4fa6e9; --info-fg:#88c8fe;
+  --diff-add-bg:#0f2413; --diff-add-strong:#13361a; --diff-del-bg:#351210; --diff-del-strong:#511615;
+  --scrim: rgba(0,0,0,.56);
+  --attn:#f5a939; --attn-bg:#2b1a03; --attn-border:#613d00; --attn-fg:#f0b467;
+  --k-file:#4fa6e9; --k-file-bg:#0d202f; --k-file-fg:#88c8fe;
+  --k-db:#a58de6; --k-db-bg:#201a2f; --k-db-fg:#c5b4fc;
+  --k-box:#35b9c0; --k-box-bg:#072324; --k-box-fg:#79d2d7;
+  --k-net:#de75b4; --k-net-bg:#2d1523; --k-net-fg:#f7a2d2;
+  --k-shell:#9ea7a1; --k-shell-bg:#1b201c; --k-shell-fg:#c4cdc7;
+  --e1: 0 1px 2px rgba(0,0,0,.13); --e2: 0 2px 6px rgba(0,0,0,.18), 0 1px 2px rgba(0,0,0,.11);
+  --e3: 0 8px 24px rgba(0,0,0,.26), 0 2px 6px rgba(0,0,0,.13); --e4: 0 16px 48px rgba(0,0,0,.4), 0 4px 12px rgba(0,0,0,.18);
+  color-scheme: dark;
+}
+@media (prefers-reduced-motion: reduce) { .app { --fast: 0ms; --base: 0ms; --slow: 0ms; } .app *, .app *::before, .app *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; } }
+
