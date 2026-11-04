@@ -64,7 +64,7 @@
 .shell-count { margin-left: 8px; padding: 1px 6px; border-radius: var(--radius-xs); background: var(--bg-elevated); font-size: var(--fs-2xs); }
 .shell-choice { position: relative; display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid var(--bd-base); border-radius: var(--radius-md); background: var(--bg-input); cursor: pointer; min-width: 0; }
 .shell-choice:hover { border-color: var(--tx-muted); }
-.shell-choice.selected { border-color: var(--accent); background: var(--fill-selected); }
+.shell-choice.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--bg-input)); }
 .shell-choice:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; }
 .shell-choice > input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .shell-choice-icon { flex-shrink: 0; color: var(--tx-muted); margin-top: 2px; }

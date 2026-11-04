@@ -125,7 +125,7 @@
 }
 .github-actions-v2-run-row:hover { background: var(--bg-ws-hover); color: var(--tx-primary); }
 .github-actions-v2-run-row.selected {
-  background: var(--fill-selected);
+  background: var(--bg-pane-active-header);
   color: var(--accent);
 }
 .github-actions-v2-run-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

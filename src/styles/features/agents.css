@@ -68,7 +68,7 @@
 
 .github-tab.active {
   color: var(--brand-light, var(--text-accent));
-  background: var(--fill-selected);
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
   border-color: color-mix(in srgb, var(--brand) 28%, transparent);
 }
 

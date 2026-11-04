@@ -220,7 +220,7 @@
 .thread-turn-review-files { flex: none; max-height: 40%; margin: 0; padding: 4px; overflow: auto; list-style: none; border-bottom: 1px solid var(--border-subtle, var(--border-default)); }
 .thread-turn-review-files button { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 28px; padding: 0 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); font: inherit; text-align: left; cursor: pointer; }
 .thread-turn-review-files button:hover { background: var(--nav-hover); color: var(--text-primary); }
-.thread-turn-review-files button[aria-current='true'] { background: var(--fill-selected); color: var(--text-primary); }
+.thread-turn-review-files button[aria-current='true'] { background: var(--accent-soft); color: var(--text-primary); }
 .thread-turn-review-files button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 .thread-turn-review-files .thread-change-file-name { flex: 1; }
 .thread-turn-review-diff { flex: 1; min-height: 0; padding: 4px 12px 12px; overflow: auto; }

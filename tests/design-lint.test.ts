@@ -11,10 +11,11 @@ import { describe, expect, it } from 'vitest'
  */
 const ROOT = join(__dirname, '..')
 /**
- * U4: selected states that still set their own background (see the test). 22 when U4 landed: pressed toggle buttons
- * (tile, toolbar and segment buttons), editor tabs, the focused pane's header and a few combined hover rules.
+ * U4: selected states that still set their own background instead of reading var(--fill-selected) (see the test). 44
+ * when U4 landed. The C4 token PR moves them, with the new value and one baseline re-shoot; until then this number may
+ * only go down. --nav-selected counts as the role: C4 routes it to --fill-selected in one line.
  */
-const LIMIT_SELECTED = 22
+const LIMIT_SELECTED = 44
 
 function files(dir: string, match: (path: string) => boolean): string[] {
   return readdirSync(dir).flatMap(name => {

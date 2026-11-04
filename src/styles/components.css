@@ -505,7 +505,7 @@
 }
 
 .settings-nav-item.active {
-  background: var(--fill-selected);
+  background: var(--surface-canvas);
   color: var(--tx-primary);
   box-shadow: inset 0 0 0 1px var(--ov-2);
 }
@@ -1734,7 +1734,7 @@
 
 .slash-overlay-item.active {
   /* Quiet selected state — no teal border halo. */
-  background: var(--fill-selected);
+  background: var(--surface-active);
   border-color: transparent;
 }
 
