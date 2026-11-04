@@ -427,7 +427,7 @@
     "week": "Current week",
     "used": "{{percent}}% used",
     "source": {
-      "oauth": "Claude account",
+      "oauth": "{{provider}} account",
       "local": "Latest local Codex session",
       "account": "Account-wide quota"
     },

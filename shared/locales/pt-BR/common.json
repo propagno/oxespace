@@ -434,7 +434,7 @@
     "week": "Semana atual",
     "used": "{{percent}}% usado",
     "source": {
-      "oauth": "Conta do Claude",
+      "oauth": "Conta do {{provider}}",
       "local": "Última sessão local do Codex",
       "account": "Cota da conta inteira"
     },
