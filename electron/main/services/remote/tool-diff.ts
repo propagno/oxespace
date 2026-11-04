@@ -12,6 +12,8 @@ const PATH_BYTES = 512
 /** Raw evidence read per file and per item, before redaction; the cap plus room for the redactor's context. */
 const READ_FILE_BYTES = REMOTE_DIFF_LIMITS.patchBytes * 4
 const READ_ITEM_BYTES = REMOTE_DIFF_LIMITS.patchBytes * 2
+/** Raw evidence pulled from the store per item, kept or not (SECURITY L-c on #585): a few large files stop the reading. */
+const RAW_ITEM_BYTES = 1024 * 1024
 /** Key material: a marker, or a run of base64-only lines (a key body without its markers). */
 const KEY_MATERIAL = /PRIVATE KEY|^[-+ ][A-Za-z0-9+/=]{40,}\r?\n[-+ ][A-Za-z0-9+/=]{40,}\r?\n[-+ ][A-Za-z0-9+/=]{40,}$/m
 
@@ -33,13 +35,15 @@ export function toToolDiff(files: readonly ThreadFileChange[], roots: readonly s
   let truncated = false
   let redacted = 0
   let read = 0
+  let raw = 0
   for (const file of files) {
     const path = projectPath(file.path, roots)
     if (path === undefined) continue
     if (listed.length >= REMOTE_DIFF_LIMITS.files) { truncated = true; continue }
     let content: string | undefined
-    if (file.artifactId && patchOf && file.source !== 'tool-input' && read < READ_ITEM_BYTES) {
+    if (file.artifactId && patchOf && file.source !== 'tool-input' && read < READ_ITEM_BYTES && raw < RAW_ITEM_BYTES) {
       try { content = patchOf(file.artifactId) } catch { content = undefined }
+      raw += content?.length ?? 0
     }
     const binary = content !== undefined && (content.includes('\0') || BINARY.test(content))
     const name = redactCounted(path)
