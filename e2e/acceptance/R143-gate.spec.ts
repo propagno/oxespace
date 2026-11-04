@@ -41,6 +41,8 @@ async function pairStandInPhone(page: Page): Promise<{ socket: TestSocket; targe
   })
   const status = await remote<Record<string, unknown>>(page, 'setEnabled', { enabled: true })
   note(`gateway: ${JSON.stringify(status).slice(0, 400)}`)
+  // A Linux runner has no keyring: the gateway can't store its keys (remote.storage.unavailable). Not a product bug.
+  test.skip(JSON.stringify(status.error ?? '').includes('remote.storage.unavailable'), 'no OS keyring on this runner: the gateway cannot store its keys')
   const offer = await remote<{ uri: string }>(page, 'startPairing')
   const parsed = readPairingUri(offer.uri)
   if (!parsed.ok) throw new Error('the pairing URI did not parse: ' + offer.uri.slice(0, 80))
@@ -69,7 +71,8 @@ async function pairStandInPhone(page: Page): Promise<{ socket: TestSocket; targe
   const socket = await TestSocket.connect(target)
   await socket.ask({ type: 'hello', versions: [1] })
   const auth = await socket.ask({ type: 'auth', id: 'a', accessToken: body.accessToken })
-  note(`auth: ${JSON.stringify(auth).slice(0, 120)}`)
+  // Never log the token itself.
+  note(`auth: ${String(auth.type)}`)
   return { socket, target }
 }
 
