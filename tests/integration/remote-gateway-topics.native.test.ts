@@ -320,6 +320,117 @@ describe('remote topics: what never reaches the phone', () => {
   })
 })
 
+describe('remote topics: the terminal screen on subscribe (1.4.3 P4)', () => {
+  type TerminalBody = { data: string; truncated: boolean; redacted?: number; snapshot?: { ansi: string; cols: number; rows: number } }
+  const strip = (ansi: string) => ansi.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-_]/g, '')
+
+  test('the first snapshot page carries the screen at the pane size; the latest busy line is on it; events never carry one', async () => {
+    const phone = await phoneWithDesktop(harnesses, desk => {
+      desk.terminals.start('p1')
+      desk.terminals.sizes.set('p1', { cols: 100, rows: 30 })
+      desk.terminals.print('p1', 'build started\r\n\x1b[32mbusy: compiling 3/7\x1b[0m')
+    })
+    const socket = await signIn(phone)
+    const stream = await subscribeOnly(socket, 'terminal', { target: 'p1' })
+    const got = await terminalUntil(socket, stream, text => text.includes('compiling 3/7'))
+    expect(got.frames[0]).toMatchObject({ type: 'snapshot', subscription: stream })
+    // The screen has the first page to itself (TECH LEAD on #634): no ring data beside it.
+    const body = data<TerminalBody>(got.frames[0])
+    expect(body.data).toBe('')
+    expect(body.snapshot).toMatchObject({ cols: 100, rows: 30 })
+    expect(strip(body.snapshot!.ansi)).toContain('busy: compiling 3/7')
+    expect(got.frames.slice(1).every(frame => data<TerminalBody>(frame).snapshot === undefined)).toBe(true)
+    // An older phone reads `data` across the pages exactly as before: the ring's text.
+    expect(got.text).toBe('build started\r\n\x1b[32mbusy: compiling 3/7\x1b[0m')
+    phone.desk.terminals.print('p1', '\r\nbusy: compiling 4/7')
+    const next = await socket.next()
+    expect(next.type).toBe('event')
+    expect(data<TerminalBody>(next).snapshot).toBeUndefined()
+  })
+
+  test('output that arrives while the screen is being built comes after the snapshot, never before, and once', async () => {
+    const phone = await phoneWithDesktop(harnesses, desk => { desk.terminals.start('p1'); desk.terminals.print('p1', 'before\r\n') })
+    const socket = await signIn(phone)
+    const stream = await subscribeOnly(socket, 'terminal', { target: 'p1' })
+    phone.desk.terminals.print('p1', 'during\r\n')
+    const got = await terminalUntil(socket, stream, text => text.includes('during'))
+    expect(got.frames[0].type).toBe('snapshot')
+    expect(got.text.match(/during/g)).toHaveLength(1)
+  })
+
+  test('a secret printed in two colours reaches neither data nor the snapshot in clear on screen; redactions are counted', async () => {
+    const SECRET = `sk-ant-${'z'.repeat(40)}`
+    const phone = await phoneWithDesktop(harnesses, desk => {
+      desk.terminals.start('p1')
+      desk.terminals.print('p1', `key ${SECRET.slice(0, 12)}\x1b[31m${SECRET.slice(12)}\x1b[0m\r\nok\r\n`)
+    })
+    const socket = await signIn(phone)
+    await subscribeOnly(socket, 'terminal', { target: 'p1' })
+    const body = data<TerminalBody>(await socket.next())
+    expect(body.snapshot).toBeDefined()
+    expect(strip(body.snapshot!.ansi)).not.toContain(SECRET)
+    expect(body.snapshot!.ansi).not.toContain(SECRET.slice(12))
+    expect(body.redacted ?? 0).toBeGreaterThan(0)
+  })
+
+  test('a resume by cursor sends events only, with no screen; a new process gets a fresh snapshot with one', async () => {
+    const phone = await phoneWithDesktop(harnesses, desk => { desk.terminals.start('p1'); desk.terminals.print('p1', 'one\r\n') })
+    let socket = await signIn(phone)
+    let stream = await subscribeOnly(socket, 'terminal', { target: 'p1' })
+    const got = await terminalUntil(socket, stream, text => text === 'one\r\n')
+    away(phone, socket)
+    phone.desk.terminals.print('p1', 'two\r\n')
+    socket = await signIn(phone)
+    stream = await subscribeOnly(socket, 'terminal', { target: 'p1', cursor: got.cursor })
+    const resumed = await terminalUntil(socket, stream, text => text === 'two\r\n')
+    expect(resumed.frames.every(frame => frame.type === 'event' && data<TerminalBody>(frame).snapshot === undefined)).toBe(true)
+    phone.desk.terminals.start('p1', 'restarted')
+    phone.desk.terminals.print('p1', 'fresh')
+    const fresh = await terminalUntil(socket, stream, text => text === 'fresh')
+    expect(fresh.frames[0].type).toBe('snapshot')
+    expect(strip(data<TerminalBody>(fresh.frames[0]).snapshot!.ansi)).toContain('fresh')
+  })
+})
+
+describe('remote topics: a busy pane keeps its screen (TECH LEAD on #634)', () => {
+  type TerminalBody = { data: string; snapshot?: { ansi: string; cols: number; rows: number } }
+  const strip = (ansi: string) => ansi.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-_]/g, '')
+
+  test('4000 coloured lines at 80×24: the snapshot is there and carries the latest line', async () => {
+    const lines = Array.from({ length: 4000 }, (_, index) => `\x1b[3${index % 7 + 1}m${index} working on step ${index}\x1b[0m`).join('\r\n')
+    const phone = await phoneWithDesktop(harnesses, desk => {
+      desk.terminals.start('p1', 'session-p1', 1024 * 1024)
+      desk.terminals.sizes.set('p1', { cols: 80, rows: 24 })
+      desk.terminals.print('p1', lines)
+    })
+    const socket = await signIn(phone)
+    const stream = await subscribeOnly(socket, 'terminal', { target: 'p1' })
+    const first = await socket.next(5_000)
+    expect(first).toMatchObject({ type: 'snapshot', subscription: stream })
+    const body = data<TerminalBody>(first)
+    expect(body.snapshot).toBeDefined()
+    expect(strip(body.snapshot!.ansi)).toContain('3999 working on step 3999')
+  })
+
+  test('a 500-column pane: the history is reduced, not the screen dropped', async () => {
+    const wide = Array.from({ length: 400 }, (_, index) => `\x1b[1m${String(index).padEnd(490, '=')}\x1b[0m`).join('\r\n')
+    const phone = await phoneWithDesktop(harnesses, desk => {
+      desk.terminals.start('p1', 'session-p1', 1024 * 1024)
+      desk.terminals.sizes.set('p1', { cols: 500, rows: 30 })
+      desk.terminals.print('p1', wide)
+    })
+    const socket = await signIn(phone)
+    await subscribeOnly(socket, 'terminal', { target: 'p1' })
+    const body = data<TerminalBody>(await socket.next(5_000))
+    expect(body.snapshot).toMatchObject({ cols: 500, rows: 30 })
+    const rows = strip(body.snapshot!.ansi).split(/\r?\n/).filter(row => /^\d+=/.test(row))
+    expect(rows.at(-1)).toMatch(/^399=/)
+    // Fewer than the 200 rows of history plus the screen: it stepped down to fit.
+    expect(rows.length).toBeLessThan(200 + 30)
+    expect(rows.length).toBeGreaterThanOrEqual(30)
+  })
+})
+
 describe('remote topics: lifecycle', () => {
   test('unsubscribing, disconnecting and revoking release every listener and timer', async () => {
     const phone = await phoneWithDesktop(harnesses, desk => { desk.threads.create('t1'); desk.terminals.start('p1') })
