@@ -286,7 +286,7 @@ for (const theme of THEMES) {
         await page.getByRole('menuitem', { name: 'Delegate work' }).click()
       }, () => page.getByRole('dialog', { name: 'Delegate work' }))
       await dialogScan('thread-confirm-full-access', async () => {
-        await page.getByRole('button', { name: 'Permissions', exact: true }).click()
+        await page.getByRole('button', { name: /^Permissions: / }).click()
         await page.locator('.thread-config-popover').getByRole('button', { name: /Full access/ }).click()
       }, () => page.getByRole('dialog', { name: 'Allow expanded access?' }))
     } finally {

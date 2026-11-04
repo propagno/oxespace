@@ -365,6 +365,7 @@
     "steerTitle": "Enviar uma orientação ao turno ativo",
     "stop": "Parar o turno",
     "stopTitle": "Parar o turno · Esc",
+    "stopShort": "Parar",
     "queue": "Pôr na fila",
     "queueTitle": "Pôr na fila · Enter",
     "send": "Enviar",
@@ -386,6 +387,13 @@
     "selectModel": "Escolher modelo",
     "loadingModels": "Carregando modelos…",
     "providerDefault": "Padrão do provedor",
+    "chip": {
+      "model": "Modelo",
+      "effort": "Esforço",
+      "permissions": "Permissões",
+      "canEdit": "Pode editar",
+      "pending": "Vale a partir da próxima mensagem"
+    },
     "filterModels": "Filtrar modelos",
     "searchModels": "Buscar modelos…",
     "noModels": "Nenhum modelo disponível.",
@@ -891,22 +899,6 @@
     "ok": "Inicia no teste de agora ({{message}}). Comece uma nova conversa para carregá-lo.",
     "again": "Testar de novo"
   },
-  "mcpHealth": {
-    "stoppedLabel": "Servidores MCP parados enquanto a conversa está ociosa; eles voltam com a sua próxima mensagem",
-    "unavailable_one": "{{count}} servidor MCP indisponível, {{connected}} conectados",
-    "unavailable_many": "{{count}} servidores MCP indisponíveis, {{connected}} conectados",
-    "unavailable_other": "{{count}} servidores MCP indisponíveis, {{connected}} conectados",
-    "connected_one": "{{count}} servidor MCP conectado",
-    "connected_many": "{{count}} servidores MCP conectados",
-    "connected_other": "{{count}} servidores MCP conectados",
-    "title": "Servidores MCP",
-    "chip": "MCP · {{value}}",
-    "chipStopped": "parados",
-    "chipFailed": "{{count}} com falha",
-    "stoppedBody": "Parados enquanto a conversa está ociosa. Esta é a lista da última sessão; a sua próxima mensagem os inicia de novo.",
-    "reportedBody": "Como a sessão desta conversa os informou ao começar.",
-    "open": "Abrir conexões"
-  },
   "mcpList": {
     "failed": {
       "title": "Não iniciaram",
@@ -1044,7 +1036,7 @@
     "unavailable": "As regras de permissão não estão disponíveis nesta versão.",
     "readOnly": "Comandos somente leitura",
     "autoReads": "Aprovar comandos somente leitura automaticamente",
-    "autoReadsHint": "Comandos como ls, cat, grep, find, git status, git log e git diff são aprovados sem perguntar quando só leem arquivos dentro do projeto. Um comando que lê fora do projeto, grava um arquivo, executa outro programa ou usa a rede continua perguntando. As regras salvas continuam valendo com isto ligado ou desligado.",
+    "autoReadsHint": "Comandos como ls, cat, grep, find, git status, git log e git diff são aprovados sem perguntar quando só leem arquivos dentro do projeto. As consultas do próprio OXESpace (busca de código, chamadores, impacto, contexto do projeto e suas outras ferramentas somente leitura) também são aprovadas. Um comando que lê fora do projeto, grava um arquivo, executa outro programa ou usa a rede continua perguntando. As regras salvas continuam valendo com isto ligado ou desligado.",
     "rules": "Regras",
     "rulesHint": "O OXESpace responde aos pedidos de aprovação do agente com estas regras. As regras de permitir só aprovam quando cobrem todos os comandos de uma linha, ou todos os arquivos; as de negar recusam. Todo o resto continua perguntando a você. Uma ferramenta MCP negada também sai das ferramentas do agente quando a próxima sessão começa.",
     "loading": "Carregando as regras…",
@@ -1175,7 +1167,6 @@
     "guardedHint": "Isto altera um arquivo que orienta os agentes (instruções, configurações MCP, hooks). Só uma pessoa aprova, a cada vez; nunca fica lembrado."
   },
   "requests": {
-    "waiting": "O agente está esperando a sua resposta",
     "waitingMany": "{{count}} pedidos estão esperando a sua resposta",
     "shrinkTitle": "Devolver o espaço para a conversa",
     "expandTitle": "Dar mais espaço ao pedido para ler as opções",
@@ -1744,7 +1735,7 @@
     "title": "Chat lateral",
     "region": "Chat lateral",
     "readOnly": "Cópia somente leitura",
-    "note": "Pergunte sobre esta conversa sem alterá-la. Nada do que você perguntar aqui chega à conversa, e a cópia é descartada quando você fecha.",
+    "note": "Pergunte sobre esta conversa sem alterá-la. Nada do que você perguntar aqui chega à conversa. A cópia fica enquanto você troca de conversa; ela é descartada quando você a descarta ou arquiva a conversa.",
     "costLabel": "Custo até agora:",
     "noCostYet": "nada ainda",
     "messages": "Mensagens do chat lateral",
@@ -1755,15 +1746,21 @@
     "thinking": "A cópia está respondendo…",
     "working": "A cópia está respondendo: {{activity}}",
     "openFailed": "O chat lateral não abriu. Tente de novo.",
-    "sendFailed": "A pergunta não chegou ao chat lateral. Feche e abra de novo.",
+    "sendFailed": "A pergunta não chegou ao chat lateral. Descarte e abra de novo.",
     "turnFailed": "A resposta falhou.",
     "ask": "Pergunte ao chat lateral",
     "placeholder": "Pergunte sobre esta conversa…",
     "send": "Perguntar",
     "nul": "A pergunta tem um caractere nulo, que não pode ser enviado. Remova-o e tente de novo.",
-    "close": "Fechar o chat lateral ({{shortcut}})",
+    "close": "Ocultar o chat lateral ({{shortcut}})",
     "openMenu": "Chat lateral",
-    "closeMenu": "Fechar o chat lateral"
+    "closeMenu": "Ocultar o chat lateral",
+    "actions": "Ações do chat lateral",
+    "discard": "Descartar e fechar…",
+    "discardTitle": "Descartar este chat lateral?",
+    "discardBody": "As respostas dele se perdem. A conversa em si não muda.",
+    "discardConfirm": "Descartar",
+    "keep": "Manter"
   },
   "prArchive": {
     "merged": "O pull request #{{number}} foi mesclado",

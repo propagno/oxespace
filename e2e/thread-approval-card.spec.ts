@@ -91,3 +91,64 @@ for (const appearance of ['light', 'dark'] as Appearance[]) {
     }
   })
 }
+
+// T67 (DESIGN #568 C-01): at 900×620 the dock showed ~100 px of the command in its own scroll, so a long command was
+// approved unseen. Now the command has no scroll of its own, the card takes up to 60% of the conversation, past that
+// the details scroll as one with "Copy exact text" kept in view, and the title is said once.
+const longCommand = Array.from({ length: 40 }, (_, line) => `echo "step ${line + 1}: rebuild package ${line + 1} and check its output"`).join(' &&\n  ')
+const longApproval = (root: string) => ({
+  status: 'approval',
+  title: 'Rebuild everything',
+  events: [
+    { type: 'message', id: 'u1', role: 'user', text: 'Rebuild every package' },
+    { type: 'request', id: 'long', request: {
+      id: 'long', nativeId: 'long', nativeMethod: 'item/commandExecution/requestApproval', kind: 'approval', title: 'Approve command',
+      command: longCommand, detail: longCommand, cwd: root, generation: 1, createdAt: NOW, state: 'pending', reason: 'Rebuild after the version bump'
+    } }
+  ]
+})
+
+for (const [width, height] of [[900, 620], [1440, 900]] as const) {
+  test(`a long command is read whole in the dock, with Copy in view (${width}×${height})`, async () => {
+    test.setTimeout(120_000)
+    const { app, page, workspaceRoot, consoleErrors } = await launchApp()
+    try {
+      await resizeWindow(app, width, height)
+      await installThreadFixtures(app, workspaceRoot)
+      await openDemoWorkspace(page, workspaceRoot)
+      await registerThreadProject(app, page, workspaceRoot)
+      await openThreadWithState(app, page, workspaceRoot, 'conversation')
+      await app.evaluate((_context, state) => { (globalThis as Record<string, (s: unknown) => void>).applyThreadState(state) }, longApproval(workspaceRoot))
+
+      const card = page.getByRole('region', { name: 'Approve command' })
+      const exact = card.getByTestId('approval-exact')
+      const copy = exact.getByRole('button', { name: 'Copy exact text' })
+      await expect(exact).toBeVisible()
+      // No scroll of its own: the command box is as tall as the command.
+      expect(await exact.locator('pre').evaluate(pre => pre.scrollHeight <= pre.clientHeight + 1)).toBe(true)
+      await expect(copy).toBeInViewport()
+      // The card takes the room, up to 60% of the conversation.
+      const share = await page.evaluate(() => document.querySelector('.thread-pending-requests')!.getBoundingClientRect().height / document.querySelector('.thread-view')!.getBoundingClientRect().height)
+      console.log(`[T67] ${width}×${height}: request share ${share.toFixed(2)}`)
+      expect(share).toBeGreaterThan(0.45)
+      expect(share).toBeLessThanOrEqual(0.61)
+      // Past the cap the details scroll as one: the end of the command is reachable, and Copy is still in view.
+      const content = card.locator('.thread-approval-content')
+      await content.evaluate(node => { node.scrollTop = node.scrollHeight })
+      const end = await content.evaluate(node => {
+        const pre = node.querySelector('[data-testid="approval-exact"] pre')!.getBoundingClientRect(), box = node.getBoundingClientRect()
+        return { preBottom: pre.bottom, boxBottom: box.bottom }
+      })
+      expect(end.preBottom).toBeLessThanOrEqual(end.boxBottom + 1)
+      await expect(copy).toBeInViewport()
+      // One title: the bar above the card no longer repeats it, and its buttons are icons named by their word.
+      await expect(page.locator('.thread-pending-requests-bar')).toHaveText('')
+      await expect(page.getByRole('button', { name: 'Expand', exact: true })).toHaveAttribute('title', /more room/)
+      await expect(page.getByRole('button', { name: 'Hide', exact: true })).toHaveAttribute('title', /Hide the request/)
+      await page.screenshot({ path: `${SHOTS}/thread-card-long-${width}x${height}.png` })
+      expect(consoleErrors.filter(line => line.startsWith('pageerror:'))).toEqual([])
+    } finally {
+      await app.close()
+    }
+  })
+}

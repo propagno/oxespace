@@ -515,7 +515,8 @@
         "blocked": "A política da sua organização não permite este agente aqui, então a sessão não foi retomada.",
         "disabled": "Retomar sessões de agente está desligado nas Configurações.",
         "startedFresh": "Este painel foi reiniciado com uma sessão nova; a anterior não volta mais.",
-        "failedToLoad": "O agente não conseguiu carregar a sessão anterior e fechou, então este painel iniciou uma nova."
+        "failedToLoad": "O agente não conseguiu carregar a sessão anterior e fechou, então este painel iniciou uma nova.",
+        "bypassWithheld": "Retomada sem ignorar as permissões, como a sessão estava. Para retomar assim, ative em Configurações › Terminal."
       },
       "session": {
         "notFound": "Este agente ainda não informou a sessão. Ela aparece depois da primeira resposta do agente, ou antes, com os hooks de status ligados (Configurações › Notificações)."

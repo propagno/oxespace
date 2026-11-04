@@ -6,7 +6,6 @@ import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
 import { ErrorState, Menu } from '../../ui'
 import { ThreadConfigurationBar } from './ThreadConfigurationBar'
-import { ThreadMcpHealth } from './ThreadMcpHealth'
 import { ThreadUsageRing } from './ThreadUsageRing'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
 import './ThreadComposerChrome.css'
@@ -71,9 +70,9 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
       {snapshot && <ThreadConfigurationBar key={snapshot.thread.id} thread={snapshot.thread} openControl={openControl} onControlClosed={onControlClosed} onError={onError} onConfigured={value => useThreadStore.getState().updateSnapshot(value)} />}
       {running && snapshot?.thread.capabilities?.features.steering?.enabled && <button type="button" className="thread-command-trigger" aria-label={t('composer.steer')} title={t('composer.steerTitle')} disabled={pending || (!draft.trim() && !attachments.length)} onClick={() => onSend('steer')}><CornerDownLeft size={14} /></button>}
       {snapshot && <div className="thread-composer-group thread-composer-status">
-      <ThreadMcpHealth thread={snapshot.thread} />
       <ThreadUsageRing provider={snapshot.thread.provider} idle={!running} threadId={snapshot.thread.id} context={snapshot.thread.contextReport} /></div>}
-      {running && <button type="button" className="thread-stop" aria-label={t('composer.stop')} title={t('composer.stopTitle')} disabled={pending} onClick={onInterrupt}><Square size={14} /></button>}
+      {/* T57: a labelled button in the danger color, never a second accent circle next to Send. */}
+      {running && <button type="button" className="thread-stop" aria-label={t('composer.stop')} title={t('composer.stopTitle')} disabled={pending} onClick={onInterrupt}><Square size={12} fill="currentColor" aria-hidden="true" /><span>{t('composer.stopShort')}</span></button>}
       <button type="submit" className="thread-send oxe-press" aria-label={running ? t('composer.queue') : t('composer.send')} title={running ? t('composer.queueTitle') : t('composer.sendTitle')} disabled={blocked || tooLong || (!draft.trim() && !attachments.length)}><ArrowUp size={16} /></button></footer>
     {tooLong && <ErrorState compact title={t('composer.tooLong', { length: formatNumber(draft.length), limit: formatNumber(THREAD_MESSAGE_MAX_CHARS) })} />}
   </form>

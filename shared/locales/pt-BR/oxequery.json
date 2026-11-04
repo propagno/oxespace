@@ -93,7 +93,6 @@
   "connections": {
     "title": "Conexões",
     "new": "Nova conexão",
-    "add": "Adicionar conexão",
     "notSaved": "não salva",
     "favorite": "Favoritar {{name}}",
     "unfavorite": "Desfavoritar {{name}}",
