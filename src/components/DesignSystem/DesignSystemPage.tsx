@@ -104,7 +104,7 @@ function MotionSection(): ReactElement {
     <BothModes>{() => <div className={styles.row}><BrandLoader label="Loading the view" /><Spinner /><StatusDot status="running" label="Running" /><div className={styles.loopSkeleton}><Skeleton lines={2} /></div></div>}</BothModes>
     <h2 className={styles.sectionTitle}>Entrance and press</h2>
     <div className={styles.row}><Button variant="primary" onClick={() => setDialog(true)}>Open a dialog</Button><Button onClick={() => toast({ title: 'Copied the branch name', intent: 'success' })}>Show a toast</Button></div>
-    {dialog && <Dialog title="A dialog enters" description="It rises by --motion-shift while it fades in; reduced motion shows it at once." onClose={() => setDialog(false)} footer={<Button variant="primary" onClick={() => setDialog(false)}>Done</Button>}><p>Exits are instant: what the person dismissed should not linger.</p></Dialog>}
+    {dialog && <Dialog size="md" title="A dialog enters" description="It rises by --motion-shift while it fades in; reduced motion shows it at once." onClose={() => setDialog(false)} footer={<Button variant="primary" onClick={() => setDialog(false)}>Done</Button>}><p>Exits are instant: what the person dismissed should not linger.</p></Dialog>}
   </>
 }
 

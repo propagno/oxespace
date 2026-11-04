@@ -153,7 +153,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-grid-header b { color: var(--accent); font-size: 10px; }
 .oq-grid-row { cursor: default; }
 .oq-grid-row:hover { background: color-mix(in srgb, var(--text-primary) 4%, transparent); }
-.oq-grid-row.is-selected { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.oq-grid-row.is-selected { background: var(--fill-selected); }
 .oq-grid-row .is-number { text-align: right; color: var(--text-secondary); }
 
 /* ── SQL workbench: query tabs, history, row details ─────────────────────── */

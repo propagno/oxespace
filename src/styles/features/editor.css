@@ -84,7 +84,7 @@
 
 .editor-browser-file.active {
   color: var(--brand-light);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--brand) 12%, transparent) 0%, transparent 100%);
+  background: var(--fill-selected);
   border-left-color: var(--brand);
 }
 

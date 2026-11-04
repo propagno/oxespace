@@ -12,6 +12,10 @@ import { useOxeQueryStore, type ConnectionDraft } from './oxequery.store'
 import { Button } from '../../ui/Button'
 import { Dialog } from '../../ui/Overlay'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
+import { toast } from '../../ui/Toast'
+import { i18n } from '../../i18n'
+
+const ACCESS_ORDER: AgentAccess[] = ['off', 'read', 'write']
 import { FieldError, Select, SegmentedControl, SwatchPicker, Switch } from '../../ui/Field'
 import { splitHostInput } from '../../../shared/oxequeryHost'
 
@@ -183,10 +187,18 @@ function ConnectionForm({ editing, draft }: { editing: OxeQueryConnection | null
     event.preventDefault()
     setBusy(true); setError('')
     try {
+      const sent = input()
       const saved = await save()
       await useOxeQueryStore.getState().refreshConnections()
       useOxeQueryStore.getState().closeDialog()
       useOxeQueryStore.getState().openConnection(saved)
+      // U2: more agent access on a connection widens what agents may do; it says so, with Undo to what it was.
+      const before = editing?.agentAccess ?? 'off'
+      if (ACCESS_ORDER.indexOf(agentAccess) > ACCESS_ORDER.indexOf(before)) {
+        toast({ title: agentAccess === 'write' ? t('form.agentsWidened.write', { name: saved.name }) : t('form.agentsWidened.read', { name: saved.name }), intent: 'info', action: { label: i18n.t('ui.undo'), run: () => {
+          void oq('connections.save', { ...sent, id: saved.id, agentAccess: before }).then(() => useOxeQueryStore.getState().refreshConnections(), () => undefined)
+        } } })
+      }
     } catch (cause) { setError(errorMessage(cause)) } finally { setBusy(false) }
   }
 

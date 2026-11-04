@@ -24,12 +24,12 @@ const pr = (number: number, files: string[], extra: Record<string, unknown> = {}
 const at = (minute: number) => `2026-11-03T10:${String(minute).padStart(2, '0')}:00Z`
 
 describe('isBatchablePath', () => {
-  it('takes documentation, docs a test reads included (a batch runs the full CI), and test code', () => {
-    for (const path of ['docs/guide/setup.pt.md', 'docs/ci-cd.md', 'README.md', '.claude/notes.md', 'CHANGELOG.md', 'mobile/android/RELEASING.md', 'docs/screens/a.png', 'tests/unit/x.test.ts', 'e2e/thread-view.spec.ts', 'e2e/helpers/launch.ts'])
+  it('is the train’s batch allowlist: documentation, docs a test reads included (a batch runs the full CI), tests and e2e specs', () => {
+    for (const path of ['docs/guide/setup.pt.md', 'docs/ci-cd.md', 'README.md', '.claude/notes.md', 'CHANGELOG.md', 'docs/screens/a.png', 'tests/unit/x.test.ts', 'e2e/thread-view.spec.ts'])
       expect(isBatchablePath(path), path).toBe(true)
   })
-  it('refuses app code (Markdown in it too), config, workflows, scripts and lockfiles', () => {
-    for (const path of ['src/App.tsx', 'electron/main/index.ts', 'shared/x.ts', 'package.json', 'package-lock.json', '.github/workflows/ci.yml', 'scripts/merge-train.mjs', 'mobile/android/app/build.gradle.kts', 'src/ui/README.md', 'electron/main/x/NOTES.md', 'vitest.config.ts', 'THIRD_PARTY_NOTICES'])
+  it('refuses app code (Markdown in it too), config, workflows, scripts, lockfiles, android and e2e helpers', () => {
+    for (const path of ['src/App.tsx', 'electron/main/index.ts', 'shared/x.ts', 'package.json', 'package-lock.json', '.github/workflows/ci.yml', 'scripts/merge-train.mjs', 'mobile/android/app/build.gradle.kts', 'mobile/android/RELEASING.md', 'e2e/helpers/launch.ts', 'src/ui/README.md', 'electron/main/x/NOTES.md', 'vitest.config.ts', 'THIRD_PARTY_NOTICES'])
       expect(isBatchablePath(path), path).toBe(false)
   })
   it('refuses odd paths', () => {

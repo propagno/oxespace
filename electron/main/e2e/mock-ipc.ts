@@ -30,6 +30,7 @@ import { registerMcpToolsMock } from './mcp-tools-mock'
 import { registerDiagnosticsMock } from './diagnostics-mock'
 import { registerRemoteMock } from './remote-mock'
 import { registerActivityMock } from './activity-mock'
+import { registerAgentsMock } from './agents-mock'
 import { registerThreadSectionsMock } from './thread-sections-mock'
 import { registerOpenExternalMock } from './open-external-mock'
 import { registerAgentHooksMock } from './agent-hooks-mock'
@@ -65,6 +66,7 @@ export function registerE2eMockIpcHandlers(): void {
   registerDiagnosticsMock()
   registerRemoteMock()
   registerActivityMock()
+  registerAgentsMock()
   registerThreadSectionsMock(id => workspaces.some(workspace => workspace.id === id))
   registerOpenExternalMock()
   registerAgentHooksMock()
@@ -330,6 +332,8 @@ export function registerE2eMockIpcHandlers(): void {
   // Pending requests across conversations, seeded per run with a JSON list of summaries. An answer is accepted once,
   // for the listed generation, exactly as the registry does.
   // A new profile has no conversation projects yet; the real catalog answers an empty one, never nothing.
+  // T87: the window asks before it renders; under the mocks the start never failed.
+  ipcMain.handle(IPC_CHANNELS.app.startupFailure, () => null)
   ipcMain.handle(IPC_CHANNELS.thread.projects, (): ThreadProjectCatalog => ({ projects: [], unavailable: [] }))
   const pendingRequests: ThreadPendingRequestSummary[] = JSON.parse(process.env.OXESPACE_E2E_PENDING_REQUESTS || '[]')
   ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, () => pendingRequests)

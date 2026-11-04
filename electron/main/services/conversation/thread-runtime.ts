@@ -19,6 +19,7 @@ import { effectiveToolModes, toolConfigSubject } from '../policy/tool-config'
 import { ThreadPermissionStore } from './thread-permissions'
 import { readManagedMcp } from './thread-managed-mcp'
 import { ThreadAttachmentStore } from './thread-attachments'
+import { notifyAgentsChanged } from '../agents/agents-notifier'
 import { acceptedConfig, assertProviderAllowed, mcpServerAllowed, policyDeniedMcpNames, policyDeniedToolNames, policyStore } from '../policy'
 
 /** The agent profile a conversation runs with; a child profile runs its parent's executable. */
@@ -74,5 +75,6 @@ export function createThreadManager(db: AppDatabase, accounts: NativeAccountServ
     const row = db.prepare('SELECT data_json FROM conversation_threads WHERE id = ?').get(threadId) as { data_json: string } | undefined
     if (row) mcp.observed?.(JSON.parse(row.data_json))
     for (const window of BrowserWindow.getAllWindows()) window.webContents.send(IPC_CHANNELS.thread.changed, { threadId })
+    notifyAgentsChanged()
   }, thread => accounts.requireSubscription({ provider: thread.provider, workspaceId: thread.workspaceId, threadId: thread.id }), commands, cli, new ThreadModelService(executable), new ThreadAttachmentStore(join(app.getPath('userData'), 'thread-attachments')), new CodexStateReader(executable), (snapshot, event) => mcp.memoryEvent?.(snapshot, event))
 }
