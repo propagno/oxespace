@@ -29,7 +29,7 @@ export function PolicySettings({ workspaceId }: { workspaceId?: string }): React
         <h3>{label(layer)}{source?.organization ? ` · ${source.organization}` : ''}</h3>
         <div className="settings-general-card"><div>
           <p title={path}>{t(`policy.layers.${layer}.hint`)}. <code>{path}</code></p>
-          {!source ? (view?.problems.some(problem => problem.startsWith(path)) ? <p>{t('policy.fileError')}</p> : <Notice intent="info">{t('policy.noFile')}</Notice>)
+          {!source ? (view?.problems.some(problem => problem.startsWith(path)) ? <Notice intent="warning">{t('policy.fileError')}</Notice> : <Notice intent="info">{t('policy.noFile')}</Notice>)
             : source.rules.length === 0 ? <p>{t('policy.noRules')}</p>
               : <ul className="diagnostics-checks" aria-label={t('policy.rules', { layer: label(layer) })}>
                 {source.rules.map((rule, index) => <li key={index} className={`diagnostics-check tone-${rule.effect === 'deny' ? 'warning' : 'ok'}`}>
