@@ -7,7 +7,10 @@ import {
   MCP_TOOL_GROUP_MODES, type ConfigurableMcpToolGroup, type McpToolCost, type McpToolDecision, type McpToolGroupInfo,
   type McpToolGroupMode, type McpToolGroupsReport, type McpToolRule
 } from '../../../shared/types/mcp-tools'
-import { Badge, Button, ConfirmDialog, EmptyState, ErrorState, LoadingState, Notice, Panel, SegmentedControl, Select, type Intent } from '../../ui'
+import { Badge, Button, ConfirmDialog, EmptyState, ErrorState, LoadingState, Notice, Panel, SegmentedControl, Select, toast, type Intent } from '../../ui'
+import { i18n } from '../../i18n'
+
+const tc = i18n.getFixedT(null, 'common')
 import { formatNumber } from '../../utils/formatTime'
 import { humanizeError } from '../../utils/humanizeError'
 import { claudeFixedCost, decisionsFor, organizationToolRules, OXESPACE_SERVER, otherServerRules, ruleFor } from './toolsModel'
@@ -134,28 +137,39 @@ export function ToolsSettings({ rootPath, workspaceId }: { rootPath: string; wor
   const groupsProblem = window.oxe?.mcpInternal?.toolGroups ? groupsError : missing
   const rulesProblem = window.oxe?.mcpInternal?.toolRules ? rulesError : missing
 
-  const setMode = async (group: ConfigurableMcpToolGroup, mode: McpToolGroupMode): Promise<void> => {
+  // U2: a change that widens what agents get (a group offered sooner, or a tool run without asking once confirmed) says so,
+  // and its toast offers Undo, which puts back what was there. Narrowing needs no undo.
+  const setMode = async (group: ConfigurableMcpToolGroup, mode: McpToolGroupMode, undoable = true): Promise<void> => {
     const api = window.oxe.mcpInternal
-    if (busy || !api.setToolGroupMode || report?.groups.find(item => item.id === group)?.mode === mode) return
+    const before = report?.groups.find(item => item.id === group)?.mode
+    if (busy || !api.setToolGroupMode || before === mode) return
     setBusy(true); setActionError(null); setStatus('')
     try {
       setReport(await api.setToolGroupMode({ rootPath, group, mode }))
       setStatus(t('tools.modeSaved', { group: groupName(t, group), mode: modeName(t, mode) }))
+      if (undoable && before && MCP_TOOL_GROUP_MODES.indexOf(mode) < MCP_TOOL_GROUP_MODES.indexOf(before)) {
+        toast({ title: t('tools.modeSaved', { group: groupName(t, group), mode: modeName(t, mode) }), intent: 'info', action: { label: tc('ui.undo'), run: () => void setMode(group, before, false) } })
+      }
     } catch (cause) { setActionError({ title: t('tools.modeFailed'), message: humanizeError(cause) }) }
     finally { setBusy(false) }
   }
 
-  const applyRule = async (rule: McpToolRule, decision: McpToolDecision): Promise<void> => {
+  const applyRule = async (rule: McpToolRule, decision: McpToolDecision, undoable = true): Promise<void> => {
     const api = window.oxe.mcpInternal
     if (busy || !api.setToolRule || rule.decision === decision) return
     setBusy(true); setActionError(null); setStatus('')
     try {
       setRules(await api.setToolRule({ rootPath, server: rule.server, tool: rule.tool, decision }))
       setStatus(t('tools.rules.saved', { tool: rule.tool, decision: decisionName(t, decision) }))
+      // Running without asking widens what agents do unattended: it says so, with Undo back to what the rule was.
+      if (undoable && decision === 'allow') {
+        toast({ title: t('tools.rules.saved', { tool: rule.tool, decision: decisionName(t, decision) }), intent: 'info', action: { label: tc('ui.undo'), run: () => void applyRule({ ...rule, decision }, rule.decision, false) } })
+      }
     } catch (cause) { setActionError({ title: t('tools.rules.failed'), message: humanizeError(cause) }) }
     finally { setBusy(false) }
   }
-  // Running without asking widens what agents do unattended, so it is confirmed first; asking and blocking are not.
+  // Running without asking widens what agents do unattended, so it is confirmed first, then offers Undo; asking and
+  // blocking are neither.
   const chooseRule = (rule: McpToolRule, decision: McpToolDecision): void => {
     if (decision === 'allow') setConfirmAllow(rule)
     else void applyRule(rule, decision)
