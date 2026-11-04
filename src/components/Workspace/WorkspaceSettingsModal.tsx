@@ -99,7 +99,8 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onClose, onOp
     setSaved(false)
     setError(null)
     try {
-      await onSave({ workspaceId: workspace.id, ...next, applyShellToIdlePanes: options.applyShellToIdlePanes ?? false })
+      // Only what changed: saving an unchanged layout too can rebuild the panes, and with them the terminals.
+      await onSave({ workspaceId: workspace.id, ...patch, applyShellToIdlePanes: options.applyShellToIdlePanes ?? false })
       setSaved(true)
     } catch (err) {
       show(before)

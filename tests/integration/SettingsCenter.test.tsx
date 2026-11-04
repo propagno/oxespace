@@ -21,6 +21,8 @@ test('a workspace change applies at once and leaving needs no confirmation', asy
   fireEvent.click(screen.getByRole('radio', { name: /Compact/ }))
   await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 'ws', uiDensity: 'compact', applyShellToIdlePanes: false })))
   expect(await screen.findByRole('status')).toHaveTextContent('Workspace settings saved')
+  // Only what changed: an unchanged layout sent along can rebuild the panes and their terminals.
+  expect(onSave.mock.calls[0][0]).not.toHaveProperty('layoutPreset')
   expect(screen.queryByRole('button', { name: 'Save workspace settings' })).toBeNull()
   fireEvent.click(screen.getByRole('group', { name: 'Settings scope' }).querySelector('button')!)
   expect(screen.queryByRole('dialog', { name: 'Save your changes?' })).toBeNull()
