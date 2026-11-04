@@ -1,6 +1,7 @@
 import type { ReactElement, SVGProps } from 'react'
 
-// Mandacaru own icon (T85): OxeQuery mode, a database cylinder. 24 px grid, 2 px stroke.
+// Mandacaru own icon (T85, CR-02): OxeQuery mode, a database cylinder with a cactus.
+// Approved drawing from playground icons.ts @718ddfcf, 24 px grid, 2 px stroke.
 type Props = SVGProps<SVGSVGElement> & { size?: number; title?: string }
 
 export function OxeQueryIcon({ size = 24, title, ...rest }: Props): ReactElement {
@@ -20,9 +21,9 @@ export function OxeQueryIcon({ size = 24, title, ...rest }: Props): ReactElement
       {...rest}
     >
       {title ? <title>{title}</title> : null}
-      <ellipse cx="12" cy="6" rx="7" ry="2.5" />
-      <path d="M5 6v12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6" />
-      <path d="M5 12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5" />
+      <ellipse cx="12" cy="5.5" rx="7" ry="2.5" />
+      <path d="M5 5.5v13c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-13" />
+      <path d="M12 11v6M12 13.5H9.5V12" />
     </svg>
   )
 }
