@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import {
   REMOTE_PROTOCOL_VERSION, REMOTE_TEXT_LIMITS,
-  type RemoteSubscription, type RemoteThreadHeader, type RemoteThreadItem, type RemoteThreadSnapshot
+  type RemoteSubscription, type RemoteTerminalData, type RemoteTerminalSnapshot, type RemoteThreadHeader, type RemoteThreadItem, type RemoteThreadSnapshot
 } from '../../../../shared/remote/protocol'
 import type { ConversationThread, ThreadEvent, ThreadSyncCursor } from '../../../../shared/types/thread'
 import type { RemoteTopicFrame, RemoteTopicSource } from './connection'
@@ -9,6 +9,7 @@ import type { RemoteDesktop } from './desktop'
 import { toDelegation, toJob, toPendingRequest, toThreadHeader, toThreadItem, toThreadSummary, toWorkspace } from './filters'
 import { fitItem, FRAME_BUDGET, pageList, splitText } from './frames'
 import { clean, TerminalWindow } from './text'
+import { buildTerminalSnapshot } from './terminal-snapshot'
 
 /**
  * The M4 topics. Each subscription sends a snapshot first (in pages when it is over a frame), then events, and every
@@ -230,6 +231,15 @@ class ThreadTopic implements RemoteTopicSource {
   }
 }
 
+/**
+ * 1.4.3 P4: the screen has a snapshot page of its own (`data: ''`), so a busy pane's ring never pushes it out (TECH
+ * LEAD on #634). It must fit that page within the frame budget; the builder tries less history before giving up, and
+ * a screen that does not fit is left out, never cut (a cut serialization would draw garbage).
+ */
+export function snapshotFits(snapshot: RemoteTerminalSnapshot): boolean {
+  return Buffer.byteLength(JSON.stringify({ data: '', truncated: false, redacted: 0, snapshot })) <= FRAME_BUDGET - 2048
+}
+
 // ---- Terminal (read-only) -----------------------------------------------------------------------------------------
 
 /**
@@ -279,16 +289,50 @@ class TerminalTopic implements RemoteTopicSource {
       flushTimer = null
       window.reset()
     }
+    // 1.4.3 P4: while the screen is being built (the emulator parses asynchronously), output waits; it is pushed after
+    // the snapshot frame, so the phone never gets an event before the screen it applies to.
+    let building = false
+    let pushWaiting = false
     const snapshot = (): void => {
       const now = desktop.terminal(paneId, 0)
       if (!now) return
       restart()
       session = digest(now.session)
       read = now.seq
+      building = true
+      // The newest characters are held for `flushMs` so a secret split by the next batch is redacted whole; the screen
+      // needs them. So the snapshot waits that same `flushMs` (what the hold timer would wait anyway), takes whatever
+      // came meanwhile, and then releases everything but an unfinished escape sequence.
       // `since(0)` hands back everything retained, which ends at `seq`.
-      release(window.take(now.data), 'snapshot', false)
+      let raw = now.data
+      const timer = setTimeout(() => {
+        if (closed) return
+        let size = { cols: now.cols, rows: now.rows }
+        try {
+          const later = desktop.terminal(paneId, read)
+          if (later && digest(later.session) === session && !later.truncated && later.seq !== read) { raw += later.data; read = later.seq; size = { cols: later.cols ?? size.cols, rows: later.rows ?? size.rows } }
+        } catch { /* the pane went away: the snapshot is what was read */ }
+        const out = window.takeAll(raw)
+        void buildTerminalSnapshot(out.text, size.cols ?? 80, size.rows ?? 24, desktop.roots(), snapshotFits)
+          .catch(() => null)
+          .then(built => {
+            building = false
+            if (closed) return
+            if (built) releaseWithScreen(out, built)
+            else release(out, 'snapshot', false)
+            if (pushWaiting) { pushWaiting = false; try { push() } catch { /* the pane went away */ } }
+          })
+      }, this.flushMs)
+      timer.unref?.()
+    }
+    /** The screen on a first page of its own (its second-layer redactions counted there), then the ring's pages. */
+    const releaseWithScreen = (out: { text: string; redacted: number }, built: { snapshot: RemoteTerminalSnapshot; redacted: number }): void => {
+      const screen: RemoteTerminalData = { data: '', truncated: false, ...(built.redacted ? { redacted: built.redacted } : {}), snapshot: built.snapshot }
+      stream.snapshot([screen, ...pieces(out, false)], `${session}:${sent()}`)
+      holdTimer()
     }
     const push = (): void => {
+      if (building) { pushWaiting = true; return }
       const now = desktop.terminal(paneId, read)
       if (!now) return
       if (digest(now.session) !== session) return snapshot()
