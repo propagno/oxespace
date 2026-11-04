@@ -90,6 +90,7 @@ export function AddThreadProjectDialog({ onPickFolder, onAdd, onClose }: {
   const [pending, setPending] = useState(false)
   const [picking, setPicking] = useState(false)
   const submit = async () => {
+    if (pending) return
     const normalized = rootPath.trim()
     if (!normalized) { setError(t('dialogs.chooseFolder')); return }
     setPending(true); setError('')
