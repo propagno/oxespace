@@ -152,6 +152,9 @@ test.describe('1.4.3 gate', () => {
       const paneId = await page.evaluate(() => (window as unknown as { oxe: { workspace: { list(): Promise<Array<{ panes: Array<{ id: string }> }>> } } }).oxe.workspace.list().then(l => l[0].panes[0].id))
       const write = (data: string) => page.evaluate(([id, d]) => (window as unknown as { oxe: { terminal: { write(i: { paneId: string; data: string }): Promise<void> } } }).oxe.terminal.write({ paneId: id, data: d }), [paneId, data] as const)
       const loop = process.platform === 'win32' ? '1..1500 | % { "compat line $_" }\r' : 'for i in $(seq 1 1500); do echo "compat line $i"; done\r'
+      // The phone connection is on BEFORE the output, as for a person who keeps it on. (On 1.4.2, output written while
+      // it was off never reached a phone: the replay came back empty, run 41915926840.)
+      await remote(page, 'setEnabled', { enabled: true })
       await page.waitForTimeout(2_000); await write(loop); await page.waitForTimeout(5_000)
       ;({ socket } = await pairStandInPhone(page))
       // Exactly what a 1.4.2 phone does: subscribe, then read only `data.data` of each frame. Any extra field is ignored.
@@ -181,52 +184,80 @@ test.describe('1.4.3 gate', () => {
     }
   })
 
-  test('P1: Public network and no rule → explained, repaired on consent, scoped, undone', async ({}, info) => {
+  test('P1: Public is explained, then on Private the rule is shown, added on consent, scoped, verified, removed', async ({}, info) => {
     test.skip(process.platform !== 'win32', 'Windows firewall only')
     test.skip(!onRunner, 'changes the machine\'s firewall and network profile: CI runners only, never a person\'s machine')
-    test.setTimeout(240_000)
+    test.setTimeout(300_000)
     const ps = (cmd: string) => { try { return execFileSync('powershell', ['-NoProfile', '-Command', cmd], { encoding: 'utf8' }).trim() } catch (e) { return `ERROR ${(e as Error).message.split('\n')[0]}` } }
+    const category = (c: 'Public' | 'Private') => ps(`Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory ${c}; Get-NetConnectionProfile | ForEach-Object { $_.InterfaceAlias + '=' + $_.NetworkCategory }`)
     const rules = () => ps("Get-NetFirewallRule -Direction Inbound -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -match 'OXESpace' } | ForEach-Object { $r=$_; $p=($r | Get-NetFirewallPortFilter); $a=($r | Get-NetFirewallApplicationFilter); '{0} | enabled={1} | action={2} | profile={3} | {4} {5} | program={6}' -f $r.DisplayName,$r.Enabled,$r.Action,$r.Profile,$p.Protocol,$p.LocalPort,$a.Program }")
-    note(`profiles before: ${ps("Get-NetConnectionProfile | ForEach-Object { $_.InterfaceAlias + '=' + $_.NetworkCategory }")}`)
-    const made = ps("Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory Public; Get-NetConnectionProfile | ForEach-Object { $_.InterfaceAlias + '=' + $_.NetworkCategory }")
-    note(`set Public → ${made}`)
-    note(`OXESpace inbound rules before: ${rules() || '(none)'}`)
-    const profile = realProfile('hml-p1')
+    note(`rules at start: ${rules() || '(none)'}`)
+    note(`set Public → ${category('Public')}`)
+    // FRONTEND (#632): the check is hidden in a dev build; the e2e build needs a test switch honoured only unpackaged.
+    const profile = realProfile('hml-p1', process.env.HML_P1_SWITCH ? { [process.env.HML_P1_SWITCH]: '1' } : {})
     const { app, page } = await launchReal(profile)
     try {
+      await app.evaluate(({ dialog }) => { dialog.showMessageBox = (() => Promise.resolve({ response: 0, checkboxChecked: false })) as typeof dialog.showMessageBox })
       await remote(page, 'setEnabled', { enabled: true })
       await page.keyboard.press('Control+,'); await page.waitForTimeout(800)
       await page.getByRole('button', { name: /^(Devices|Dispositivos)/ }).locator('visible=true').first().click()
-      await page.waitForTimeout(1_500)
-      const text = (await page.locator('body').innerText()).replace(/\s+/g, ' ')
-      const hit = text.match(/[^.]{0,160}(Public|Pública|firewall|regra|rule)[^.]{0,200}/i)?.[0] ?? '(no firewall/Public text on Devices)'
-      note(`Devices says: ${hit}`)
-      await page.screenshot({ path: info.outputPath('p1-devices-before.png') })
-      expect.soft(/Public|Pública/i.test(text), 'P1: Devices says the network is Public').toBe(true)
-      // The exact rule is shown before consent.
-      expect.soft(/47321/.test(text) && /TCP/i.test(text), 'P1: the exact rule (TCP 47321) is shown').toBe(true)
-      const repair = page.getByRole('button', { name: /allow|repair|add the rule|permitir|corrigir|adicionar/i }).first()
-      const canRepair = await repair.isVisible().catch(() => false)
-      note(`repair button: ${canRepair ? await repair.innerText() : 'none'}`)
-      expect.soft(canRepair, 'P1: a repair action is offered').toBe(true)
-      if (canRepair) {
-        await repair.click(); await page.waitForTimeout(4_000)
-        const after = rules()
-        note(`rules after repair: ${after || '(none)'}`)
-        expect.soft(after, 'the rule exists').toMatch(/OXESpace/)
-        expect.soft(after, 'scoped to TCP 47321').toMatch(/TCP 47321/)
-        expect.soft(after, 'scoped to the Private profile only').toMatch(/profile=Private\b/)
-        expect.soft(after, 'scoped to the program').toMatch(/program=.+\.exe/i)
-        await page.screenshot({ path: info.outputPath('p1-devices-after.png') })
-        const recheck = (await page.locator('body').innerText()).replace(/\s+/g, ' ').match(/[^.]{0,120}(verified|verificad|could not be verified|não foi possível verificar)[^.]{0,120}/i)?.[0]
-        note(`after repair, Devices says: ${recheck ?? '(no verified wording)'}`)
-        const undo = page.getByRole('button', { name: /undo|remove the rule|desfazer|remover a regra/i }).first()
-        if (await undo.isVisible().catch(() => false)) {
-          await undo.click(); await page.waitForTimeout(3_000)
-          const gone = rules(); note(`rules after undo: ${gone || '(none)'}`)
-          expect.soft(gone, 'Undo removes the rule').not.toMatch(/TCP 47321/)
-        } else { note('no Undo control'); expect.soft(false, 'P1: an Undo is offered').toBe(true) }
-      }
+      // The check re-reads each time a pairing code shows.
+      await remote(page, 'startPairing').catch(() => undefined)
+      const check = page.getByTestId('devices-firewall-check')
+      const shown = await check.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true, () => false)
+      note(`devices-firewall-check visible: ${shown}`)
+      expect(shown, 'P1: the firewall check is on Settings › Devices (dev builds hide it unless the test switch is set)').toBe(true)
+
+      // 1. Public: explained, no repair.
+      const pub = check.getByRole('alert').first()
+      await expect.soft(pub, 'Public title').toContainText('This network is Public, so Windows blocks phones', { timeout: 10_000 })
+      await expect.soft(pub, 'Public text says to set it to Private').toContainText('set it to Private')
+      await expect.soft(pub).toContainText("OXESpace doesn't change it for you")
+      await expect.soft(check.getByRole('button', { name: 'Allow on private networks' }), 'no repair on Public').toHaveCount(0)
+      await page.screenshot({ path: info.outputPath('p1-1-public.png') })
+
+      // 2. Private, no rule: the exact rule before consent.
+      note(`set Private → ${category('Private')}`)
+      const again = check.getByRole('button', { name: 'Check again' })
+      if (await again.count()) await again.first().click(); else await remote(page, 'startPairing').catch(() => undefined)
+      await expect.soft(check, 'no-rule title').toContainText("Windows Firewall doesn't let phones in yet", { timeout: 15_000 })
+      await expect.soft(check, 'the exact rule is shown before consent').toContainText('Adds one rule: OXESpace.exe, TCP 47321, Private networks only.')
+      await expect.soft(check, 'the UAC line').toContainText('Windows will ask for permission. Nothing changes if you say No.')
+      await page.screenshot({ path: info.outputPath('p1-2-private-no-rule.png') })
+
+      // 3. Consent: the dialog with the exact command, then Allow.
+      await check.getByRole('button', { name: 'Allow on private networks' }).click()
+      const dlg = page.getByRole('dialog', { name: 'Allow phones on private networks?' })
+      await expect.soft(dlg, 'confirm dialog').toBeVisible({ timeout: 5_000 })
+      const command = await page.getByTestId('devices-firewall-command').innerText().catch(() => '(no command shown)')
+      note(`command shown: ${command}`)
+      expect.soft(command, 'the exact PowerShell line is shown').toMatch(/New-NetFirewallRule/)
+      await page.screenshot({ path: info.outputPath('p1-3-consent.png') })
+      await dlg.getByRole('button', { name: 'Allow', exact: true }).click()
+      await page.waitForTimeout(5_000)
+      const added = rules(); note(`rules after Allow: ${added || '(none)'}`)
+      expect.soft(added, 'the rule exists').toMatch(/OXESpace/)
+      expect.soft(added, 'it allows').toMatch(/action=Allow/)
+      expect.soft(added, 'TCP 47321 only').toMatch(/TCP 47321/)
+      expect.soft(added, 'Private profile only').toMatch(/profile=Private(\s|\||$)/)
+      expect.soft(added, 'scoped to the program').toMatch(/program=.+\.exe/i)
+      const verified = await page.getByText('Verified: phones can now reach this computer on private networks').first().waitFor({ timeout: 15_000 }).then(() => 'verified', async () => (await page.getByTestId('devices-firewall-outcome').innerText().catch(() => 'no outcome')))
+      note(`re-check after repair: ${verified}`)
+      expect.soft(verified, 'the re-check verifies the rule').toBe('verified')
+      await page.screenshot({ path: info.outputPath('p1-4-repaired.png') })
+
+      // 4. Undo.
+      await page.getByRole('button', { name: 'Remove the rule' }).first().click()
+      const rm = page.getByRole('dialog', { name: 'Remove the firewall rule?' })
+      await expect.soft(rm, 'remove dialog').toBeVisible({ timeout: 5_000 })
+      await rm.getByRole('button', { name: 'Remove', exact: true }).click()
+      await page.waitForTimeout(4_000)
+      const after = rules(); note(`rules after Remove: ${after || '(none)'}`)
+      expect.soft(after, 'Remove takes the rule away').not.toMatch(/TCP 47321/)
+      const removed = await page.getByText('Verified: the firewall rule is removed').first().waitFor({ timeout: 10_000 }).then(() => true, () => false)
+      note(`removal verified message: ${removed}`)
+      expect.soft(removed, 'the removal is verified').toBe(true)
+      await page.screenshot({ path: info.outputPath('p1-5-removed.png') })
     } finally {
       flush(info, 'p1-report')
       await quitReal(app)
