@@ -140,6 +140,31 @@ class DesktopSessionControllerTest {
         assertEquals(DesktopStatus.Unreachable(paired, 1_000), h.controller.status.value)
     }
 
+    /**
+     * P6 review: after a revoke, `running` is false, but the pairing and key are already gone. Coming back to the
+     * foreground opens nothing and keeps "removed this phone" on screen; it never signs in again as a revoked phone.
+     * The same holds for "Other version" and "Not accepted": they're running with no retry pending, so resume() leaves
+     * them alone.
+     */
+    @Test
+    fun comingBackAfterARevokeOpensNothing() = runTest {
+        val h = harness()
+        h.controller.start()
+        h.link.state.value = SessionState.Ended(SessionEnd.REVOKED)
+        val removed = h.controller.status.value
+        h.controller.resume()
+        h.controller.resume()
+        advanceTimeBy(120_000); runCurrent()
+        assertEquals(1, h.links.size)
+        assertEquals(removed, h.controller.status.value)
+
+        val other = harness()
+        other.controller.start()
+        other.link.state.value = SessionState.Ended(SessionEnd.UNSUPPORTED_VERSION)
+        other.controller.resume()
+        assertEquals("an incompatible desktop isn't redialled by a foreground", 1, other.links.size)
+    }
+
     /** P6: back in the foreground, a retry waiting out its backoff goes now; a live session is left alone. */
     @Test
     fun comingBackToTheForegroundSkipsAPendingWait() = runTest {
