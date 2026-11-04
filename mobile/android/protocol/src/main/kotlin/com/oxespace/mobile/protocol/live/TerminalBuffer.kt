@@ -28,9 +28,20 @@ class TerminalBuffer(capacity: Int = 256 * 1024) : StreamListener {
 
     override fun onSnapshot(pages: List<JsonElement>) {
         synchronized(this) {
-            screen.reset()
             redacted = 0
-            pages.mapNotNull(::read).forEach { apply(it, clearFirst = false) }
+            val chunks = pages.mapNotNull(::read)
+            val snapshot = chunks.firstOrNull()?.snapshot
+            if (snapshot != null) {
+                // P4: the desktop's own emulator, serialized: scrollback, screen, modes and cursor, already redacted.
+                // Fed once at the pane's height. That snapshot's data pages are the same ring, so they are skipped.
+                screen.reset(snapshot.rows.toInt())
+                screen.feed(snapshot.ansi)
+                chunks.forEach { redacted += it.redacted ?: 0 }
+            } else {
+                // A 1.4.2 desktop, or a screen over the frame budget: the ring, as before.
+                screen.reset()
+                chunks.forEach { apply(it, clearFirst = false) }
+            }
             version++
         }
     }
