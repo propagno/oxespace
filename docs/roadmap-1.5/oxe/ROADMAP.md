@@ -98,7 +98,7 @@ Junto entram T79 (cwd por OSC), T73 (branch por painel) e as lacunas do §6: pai
 ## Fase 8 — Endurecimento e release
 
 **Requisitos:** R13
-**Critérios de aceite:** A37, A38, A39
+**Critérios de aceite:** A37, A38, A39, A40, A41
 **Escopo:**
 
 - xterm 6 com os addons e o bench; vite 8 só se houver suporte oficial.

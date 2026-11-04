@@ -2,7 +2,7 @@
 
 **Fonte:** o playground aprovado pelo usuário (#577 @ 718ddfcf), `playground/HANDOFF-1.5.md` e `FIDELITY.md`, mais as 5 rodadas de revisão, o CCR T71 (#580), `docs/design/plan-1.5-ui.md` e a sequência do backend.
 
-**Ferramenta:** OXE (oxe-cc) **1.21**, como programa por fases. A SPEC está em `.oxe/SPEC.md` (R1–R13, A1–A39) e o ROADMAP em `.oxe/ROADMAP.md`. Como a pasta `.oxe/` é local e não versionada, uma cópia de ambos acompanha este documento em `docs/roadmap-1.5/oxe/`.
+**Ferramenta:** OXE (oxe-cc) **1.21**, como programa por fases. A SPEC está em `.oxe/SPEC.md` (R1–R13, A1–A41) e o ROADMAP em `.oxe/ROADMAP.md`. Como a pasta `.oxe/` é local e não versionada, uma cópia de ambos acompanha este documento em `docs/roadmap-1.5/oxe/`.
 
 **Decisões do usuário (04/11):**
 
@@ -162,7 +162,7 @@ Testes congelados: contraste de tokens (A1); ratchet ≤ 22 (A2); migração e s
 | F7-T3 | OxeQuery A5 + Q-*; OxePod A3 + P-*; OxePost A4 (junto com o T64) | M | FE | F2 |
 | F7-T4 | Primeiro uso A1 com conexão de agente real (detectar CLI, entrar, checar pronto); A6 (campo de caminho); A7 | M | FE | — |
 
-### F8 — Endurecimento e release (A37–A39)
+### F8 — Endurecimento e release (A37–A41)
 
 | Tarefa | O quê | Tam. | Dono-revisor | Dependência |
 |---|---|---|---|---|
@@ -170,7 +170,9 @@ Testes congelados: contraste de tokens (A1); ratchet ≤ 22 (A2); migração e s
 | F8-T2 | xterm 6 com headless e todos os addons + bench do terminal | M | FE | — |
 | F8-T3 | Homologação HML no app empacotado contra a 1.4.1 (6 + 3 cenários, passos ≤ 1.4.1) e sign-off do usuário | M | HML | F1–F7 |
 | F8-T4 | Orçamentos (bundle, perf, memória), axe nas telas novas e baselines finais | S | FE/SRE | — |
-| F8-T5 | Notas da 1.5.0 e CI da main verde; **a tag sai com o OK do usuário** | S | Coordenador | T3, T4 |
+| F8-T5 | Atualização e volta no app empacotado (A40): 1.4.1 com dados → auto-update para a 1.5.0, todas as migrações e o backup vNN; voltar à 1.4.1 mostra a tela T87; `install-over.yml` com `candidate_version` 1.5.0 | M | HML | F1–F7 |
+| F8-T6 | Compatibilidade do celular (A41): APK 1.4.1 ↔ desktop 1.5.0 e APK 1.5.0 ↔ desktop 1.4.1; pareamento real em rede real, incluindo a Pública (celular do usuário, ≥ 1,5 GB livres); `android-release` verde, com sha256 e apksigner conferidos | M | MOBILE/HML/Coordenador | T5 |
+| F8-T7 | Corte (A39):<br>• trem vazio e run **concluído** da main verde no commit da tag;<br>• nenhum flake com 2 falhas em 3 runs;<br>• baselines depois do último PR de UI;<br>• PR de versão (package/lock + `1.5.0.md` en/pt-BR) pelo trem;<br>• strings das notas conferidas em `shared/locales`;<br>• SECURITY de F5-T5/T6 e F6-T3 nos PRs;<br>• limites conhecidos escritos a partir da HML.<br>**A tag sai com o OK do usuário.** | S | Coordenador | T1 e T2 (ou adiamento registrado), T3–T6 |
 
 ## 3. Orçamento e custo (decisão do usuário)
 
@@ -185,8 +187,8 @@ O executor do OXE roda `claude -p` na conta do usuário, que é paga. Proposta d
 | F5 | 7 | 260 | 40 |
 | F6 | 5 | 200 | 30 |
 | F7 | 4 | 160 | 25 |
-| F8 | 5 | 120 | 15 |
-| **Total** | **58** | **1.920** | **270** |
+| F8 | 7 | 160 | 20 |
+| **Total** | **60** | **1.960** | **275** |
 
 Ao bater o teto, o runtime emite `BudgetExhausted` e para. Só continua com um novo OK, nunca com reset silencioso. Nenhuma execução começa sem o OK do usuário para o teto da fase.
 
