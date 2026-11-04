@@ -108,7 +108,7 @@ function useKeys () {
         if (k === 'a') { if (D.approvals[ap].irreversible) startHold(ap); else { resolve(ap, 'ok'); emit() } return }
       }
       if (S.overlay) return
-      if (S.area === 'agora' && (k === 'd' || k === 'a') && !e.repeat && agoraKey(k)) return
+      if (S.area === 'agora' && ['d', 'a', 'j', 'k', 'arrowdown', 'arrowup'].includes(k) && !e.repeat && agoraKey(k)) { e.preventDefault(); return }
       if (S.area === 'task' && cur()?.ask === 'cmd' && (k === 'd' || k === 'a')) { decideCmd(cur(), k === 'd' ? 'deny' : 'once'); emit(); return }
       if (S.area === 'queue' && (k === 'j' || k === 'k')) { const n = S.queue.filter(q => !S.resolved[q]).length; S.queueSel = Math.max(0, Math.min(n - 1, S.queueSel + (k === 'j' ? 1 : -1))); emit(); return }
       if (e.key === '?') { S.overlay = { type: 'dlg', id: 'shortcuts' }; emit(); return }

@@ -10,8 +10,8 @@ export const D = (function () {
     infra: { id: 'infra', name: 'cajui-infra', path: '~/code/cajui/cajui-infra', stack: 'Docker Compose · Terraform', branch: 'main', remote: 'github.com/cajui/cajui-infra' }
   }
   const providers: Record<string, Provider> = {
-    claude: { id: 'claude', name: 'Claude Code', initial: 'C', account: 'marina@cajui.com.br', plan: 'Max', models: ['Opus 5.5', 'Sonnet 5.5', 'Haiku 5.5'], efforts: ['Low', 'Medium', 'High', 'Max'], status: 'ok' },
-    codex: { id: 'codex', name: 'Codex', initial: 'X', account: 'marina@cajui.com.br', plan: 'Pro', models: ['GPT-5 Codex', 'GPT-5', 'GPT-5 mini'], efforts: ['Low', 'Medium', 'High'], status: 'ok' }
+    claude: { id: 'claude', name: 'Claude Code', initial: 'C', account: 'marina@cajui.com.br', plan: 'Max', models: ['Opus 5.5', 'Sonnet 5.5', 'Haiku 5.5'], efforts: ['Low', 'Medium', 'High', 'Max'], status: 'ok', caps: { canSteer: true } },
+    codex: { id: 'codex', name: 'Codex', initial: 'X', account: 'marina@cajui.com.br', plan: 'Pro', models: ['GPT-5 Codex', 'GPT-5', 'GPT-5 mini'], efforts: ['Low', 'Medium', 'High'], status: 'ok', caps: { canSteer: true } }
   }
 
   /* Tasks. In 1.5.0 (lite B) one task is one conversation; its tabs come from that conversation's agent activity. */

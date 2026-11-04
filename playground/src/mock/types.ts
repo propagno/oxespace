@@ -3,7 +3,7 @@ export type ProviderId = 'claude' | 'codex'
 export type Access = 'read' | 'edit' | 'full'
 export type TaskStatus = 'needs' | 'run' | 'review' | 'err' | 'done' | 'idle'
 export interface Project { id: string; name: string; path: string; stack: string; branch: string; remote: string }
-export interface Provider { id: ProviderId; name: string; initial: string; account: string; plan: string; models: string[]; efforts: string[]; status: string }
+export interface Provider { id: ProviderId; name: string; initial: string; account: string; plan: string; models: string[]; efforts: string[]; status: string; caps?: { canSteer: boolean } }
 export interface Counts { terminal: number; queries: number; requests: number; containers: number; changes: number; pr: number }
 export interface Task {
   id: string; key: string; title: string; project: string; prov: ProviderId; model: string; effort: string; access: Access

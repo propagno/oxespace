@@ -166,7 +166,7 @@ function rank (items: PalItem[], q: string): PalItem[] {
   const best = items.filter(i => i.g === 'Conversations' && (i.label.toLowerCase() === q || i.label.toLowerCase().startsWith(q))).map(i => ({ ...i, g: 'Best match' }))
   return best.length ? best.concat(items.filter(i => !(i.g === 'Conversations' && best.some(b => b.label === i.label)))) : items
 }
-let liveTimer: ReturnType<typeof setTimeout> | null = null
+let liveTimer: ReturnType<typeof setTimeout> | null = null; let liveFor = ''
 /** The combobox pattern: options only inside the listbox (in labelled groups), none of them tabbable; activedescendant
     and aria-expanded only while there are options; a polite, debounced count. */
 function Palette () {
@@ -178,8 +178,7 @@ function Palette () {
   const groups: [string, [PalItem, number][]][] = []
   items.forEach((it, n) => { const g = groups[groups.length - 1]; if (g && g[0] === it.g) g[1].push([it, n]); else groups.push([it.g, [[it, n]]]) })
   const say = items.length ? plural(items.length, 'result') : `No match for "${o.query}"`
-  if (liveTimer) clearTimeout(liveTimer)
-  liveTimer = setTimeout(() => { const el = document.getElementById('pal-live'); if (el && el.textContent !== say) el.textContent = say }, 300)
+  if (S.palSay !== say && liveFor !== say) { if (liveTimer) clearTimeout(liveTimer); liveFor = say; liveTimer = setTimeout(() => { liveFor = ''; if (S.overlay?.type === 'pal') { S.palSay = say; emit() } }, 300) }
   return <div className="ov" onMouseDown={e => { if (e.target === e.currentTarget) closeOverlay() }}>
     <div className="pal" role="dialog" aria-modal="true" aria-label="Command bar">
       <div className="pal-in"><Icon n="search" s={16} /><input autoFocus id="pal-q" value={o.query || ''} placeholder="Ask, run or go to: @agent, /command, open …, or search" aria-label="Command bar" role="combobox" aria-autocomplete="list" aria-expanded={items.length > 0} aria-controls="pal-list" aria-activedescendant={items.length ? 'pal-' + sel : undefined}
@@ -189,7 +188,7 @@ function Palette () {
         <div className="pal-g" id={'palg-' + gi} role="presentation">{g}</div>
         {list.map(([i, n]) => <div key={n} id={'pal-' + n} role="option" className="pal-i" aria-selected={n === sel} onMouseEnter={() => { o.sel = n; emit() }} onMouseDown={e => e.preventDefault()} onClick={() => pick(i)}><span className="ico"><Icon n={i.icon} /></span><span className="trunc">{i.label}{i.sub ? <span className="muted">{i.sub}</span> : null}{i.also ? <span className="also">Also: {i.also}</span> : null}</span>{i.k ? <Kbd>{i.k}</Kbd> : <span />}</div>)}</div>)}</div>
       {!items.length ? <div className="state" style={{ padding: 24 }}><p>Nothing matches "{o.query}". Try a word from a title, a table name, or a mode.</p></div> : null}
-      <div className="pal-f"><span><Kbd>↑↓</Kbd> move</span><span><Kbd>Enter</Kbd> open</span><span><Kbd>Esc</Kbd> close</span><span><Kbd>@</Kbd> agent <Kbd>/</Kbd> command <Kbd>?</Kbd> all</span><span className="sp" /><span aria-hidden="true">{plural(items.length, 'result')}</span><span id="pal-live" className="sr" role="status" aria-live="polite" /></div></div></div>
+      <div className="pal-f"><span><Kbd>↑↓</Kbd> move</span><span><Kbd>Enter</Kbd> open</span><span><Kbd>Esc</Kbd> close</span><span><Kbd>@</Kbd> agent <Kbd>/</Kbd> command <Kbd>?</Kbd> all</span><span className="sp" /><span aria-hidden="true">{plural(items.length, 'result')}</span><span id="pal-live" className="sr" role="status" aria-live="polite">{S.palSay}</span></div></div></div>
 }
 
 /* ---------------------------------------------------------------- stage-1 dialogs */
@@ -200,7 +199,7 @@ export const DIALOGS: Record<string, () => DialogSpec> = {
   restore: () => { const t = cur(); const ck = S.overlay!.ck as number; const c = (D.checkpoints[t.id] || [])[ck]; return { size: 'md', icon: 'undo', title: `Restore files to checkpoint ${ck}?`, body: () => <><p style={{ color: 'var(--text-secondary)' }}>The worktree goes back to "{c?.label}" ({c?.at}). The conversation stays as it is.</p>
     <div className="callout ok"><Icon n="history" /><span>A checkpoint of the current files is made first, so you can come back.</span></div><div className="callout warn"><Icon n="warn" /><span>Only files go back. Queries, requests and container changes already happened and stay.</span></div></>, primary: { label: 'Restore files', act: () => { delete S.past[t.id]; toast(`Files restored to checkpoint ${ck}`, { undo: () => { toast('Back to the files you had') } }) } } } },
   branch: () => { const t = cur(); const ck = S.overlay!.ck; return { size: 'md', icon: 'fork', title: ck === 'message' ? 'Branch from this message' : `Branch from checkpoint ${ck}`, body: () => <><p style={{ color: 'var(--text-secondary)' }}>A new task starts with the conversation up to that point and a new worktree from the same files. {t.key} keeps running untouched.</p>
-    <div className="field"><label htmlFor="br-n">New task name</label><input className="input" id="br-n" defaultValue={t.title + ' (try 2)'} /></div>{t.prov === 'codex' ? <div className="callout info"><Icon n="info" /><span>Codex can't fork a session, so the conversation is replayed into a new one. It takes about 20 s.</span></div> : null}</>, primary: { label: 'Create branch', act: () => toast(`Branched ${t.key}. The new task appears under Running.`) } } },
+    <div className="field"><label htmlFor="br-n">New task name</label><input className="input" id="br-n" defaultValue={t.title + ' (try 2)'} /></div>{t.prov === 'codex' ? <div className="callout info"><Icon n="info" /><span>Codex forks its session and rolls back the later turns.</span></div> : null}</>, primary: { label: 'Create branch', act: () => toast(`Branched ${t.key}. The new task appears under Running.`) } } },
   fullaccess: () => conf('Give full access?', <>{prov(cur().prov).name} will run commands, write to databases and call any network without asking you, until you change it back. Use it only in a throwaway environment.</>, 'Give full access', () => { const c = cmpState(cur()); c.access = 'full'; c.pend.access = true }, true, 'shieldx'),
   scdiscard: () => ({ size: 'sm', icon: 'trash', title: 'Discard the side chat?', body: () => <p style={{ color: 'var(--text-secondary)' }}>Its answers will be gone. The conversation isn't affected.</p>, cancel: 'Keep', safeFirst: true, primary: { label: 'Discard', danger: true, act: () => { const s = scState(cur()); s.open = false; s.msgs = [] } } }),
   discard: () => conf('Discard all changes?', <>Every change in <span className="mono">{cur().branch}</span> that isn't committed is thrown away. The checkpoints stay, so you can restore one later.</>, 'Discard changes', () => toast('Changes discarded'), true, 'trash'),

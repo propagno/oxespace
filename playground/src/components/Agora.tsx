@@ -53,7 +53,8 @@ function open (a: Agent) {
   else { S.overlay = { type: 'dlg', id: 'delegated' }; emit() }
 }
 /** Steer a conversation (it queues if the provider can't steer mid-turn); type into a pane (the person's own keys). */
-export const canSteer = (t: Task) => t.prov === 'claude'
+/** From the provider's capabilities (the conversation header's canSteer); both Claude Code and Codex steer today. */
+export const canSteer = (t: Task) => !!D.providers[t.prov]?.caps?.canSteer
 function steer (a: Agent) {
   const text = (S.agSteer?.[a.id] || '').trim(); if (!text) return
   if (a.t) { S.drafts[a.t.id] = text; sendMsg(a.t) } else toast(`Typed into the ${a.prov === 'claude' ? 'Claude Code' : 'Codex'} pane in ${wsName(a.ws)}`)
@@ -66,7 +67,11 @@ function Steer ({ a }: { a: Agent }) {
 }
 /** A on the focused card: Allow when reversible; the impact preview (then hold A) when not. D: Deny. */
 export function agoraKey (k: string): boolean {
-  const card = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>('.ag-need'); const id = card?.dataset.ap; if (!id || S.resolved[id]) return false
+  const card = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>('.ag-need'); if (!card) return false
+  if (k === 'arrowdown' || k === 'arrowup' || k === 'j' || k === 'k') { const all = [...document.querySelectorAll<HTMLElement>('.ag-need')]; const i = all.indexOf(card); const nx = all[i + (k === 'arrowdown' || k === 'j' ? 1 : -1)]; if (nx) nx.focus(); return true }
+  const id = card.dataset.ap
+  if (!id && (k === 'd' || k === 'a')) { card.querySelector<HTMLElement>('.ag-answer')?.focus(); toast('This one asks you a question: Enter answers it in the conversation, or ↓ goes to the next card'); emit(); return true }
+  if (!id || S.resolved[id]) return false
   if (k === 'd') { resolve(id, 'deny'); emit(); refocus(); return true }
   if (k === 'a') { if (D.approvals[id].irreversible) S.overlay = { type: 'approve', id }; else { resolve(id, 'ok'); refocus() } emit(); return true }
   return false
@@ -74,13 +79,13 @@ export function agoraKey (k: string): boolean {
 function NeedsCard ({ a, first }: { a: Agent; first: boolean }) {
   const ap = a.request ? D.approvals[a.request] : null; const ref = useRef<HTMLElement>(null)
   useEffect(() => { if (first && !document.activeElement?.closest('.ag-need, .ag-h, input')) ref.current?.focus() }, [first])
-  return <article ref={ref} className="ag-need" tabIndex={0} data-ap={ap?.id} data-ws={wsColor(a.ws)} aria-label={`${a.title} needs you${ap ? `: ${ap.title}. D to deny, A to ${ap.irreversible ? 'see the impact' : 'allow'}` : ''}`}>
+  return <article ref={ref} className="ag-need" tabIndex={0} data-ap={ap?.id} data-ws={wsColor(a.ws)} aria-label={`${a.title} needs you${ap ? `: ${ap.title}. D to deny, A to ${ap.irreversible ? 'see the impact' : 'allow'}` : ': it asks you a question. Answer it in the conversation'}`}>
     <header><span className="wschip"><span className="wsdot" />{wsName(a.ws)}</span><Av p={a.prov} /><button className="ag-t" onClick={() => open(a)}>{a.title}</button><span className="sp" /><span className="muted mono" style={{ fontSize: 11 }}>{a.since}</span></header>
     {ap ? <><p className="ag-ask"><b>{ap.title}</b> <span className="muted">· {ap.where}</span>{ap.irreversible ? <span className="pill danger" style={{ height: 18, marginLeft: 6 }}>can't be undone</span> : null}</p>
       <div className="ag-acts"><button className="btn sm" onClick={() => { resolve(ap.id, 'deny'); emit(); refocus() }}>Deny <Kbd>D</Kbd></button>
         {ap.irreversible ? <button className="btn sm pri" onClick={run(() => { S.overlay = { type: 'approve', id: ap.id } })}>See impact… <Kbd>A</Kbd></button> : <button className="btn sm pri" onClick={() => { resolve(ap.id, 'ok'); emit(); refocus() }}>Allow <Kbd>A</Kbd></button>}
         <span className="sp" /><button className="btn sm ghost" onClick={run(() => { S.agOpen = a.id })}>Tell it something else</button></div></>
-      : <><p className="ag-ask"><b>{(a.activity || '').replace('Waiting for your answer: ', 'Asks you ')}</b></p><div className="ag-acts"><button className="btn sm pri" onClick={() => open(a)}>Answer in the conversation</button><span className="sp" /><button className="btn sm ghost" onClick={run(() => { S.agOpen = a.id })}>Tell it something else</button></div></>}
+      : <><p className="ag-ask"><b>{(a.activity || '').replace('Waiting for your answer: ', 'Asks you ')}</b></p><div className="ag-acts"><button className="btn sm pri ag-answer" onClick={() => open(a)}>Answer in the conversation</button><span className="sp" /><button className="btn sm ghost" onClick={run(() => { S.agOpen = a.id })}>Tell it something else</button></div></>}
     {S.agOpen === a.id ? <Steer a={a} /> : null}</article>
 }
 const FILTERS: [string, string, (a: Agent) => boolean][] = [
@@ -109,7 +114,7 @@ export function Agora () {
     <div className="ag-body scroll">
       {!S.agWorkOk ? <div className="callout info" role="status"><Icon n="info" /><span>Some agents couldn't be read right now. The rest is up to date.</span><span className="sp" /><button className="btn sm" onClick={run(() => { S.agWorkOk = true; toast('Work runs read again') })}>Try again</button></div> : null}
       {f === 'all' || f === 'needs-you' ? needs.length
-        ? <section className="ag-needs" aria-labelledby="ag-needs-h"><h2 id="ag-needs-h"><span className="sun" />Needs you <span className="n">{needs.length}</span><span className="muted ag-keys"><Kbd>D</Kbd> deny · <Kbd>A</Kbd> allow or see the impact, on the focused card</span></h2><div className="ag-ngrid">{needs.map((a, i) => <NeedsCard key={a.id} a={a} first={i === 0} />)}</div></section>
+        ? <section className="ag-needs" aria-labelledby="ag-needs-h"><h2 id="ag-needs-h"><span className="sun" />Needs you <span className="n">{needs.length}</span><span className="muted ag-keys"><Kbd>↑</Kbd><Kbd>↓</Kbd> or <Kbd>J</Kbd><Kbd>K</Kbd> move · <Kbd>D</Kbd> deny · <Kbd>A</Kbd> allow or see the impact</span></h2><div className="ag-ngrid">{needs.map((a, i) => <NeedsCard key={a.id} a={a} first={i === 0} />)}</div></section>
         : <section className="ag-needs"><h2 className="ag-needs-none" tabIndex={-1}><Icon n="check" s={12} />Nothing needs you</h2></section> : null}
       {groups.map(([w, list]) => { const shut = S.agShut?.[w.id]; const top = list.filter(a => !a.parent || !list.some(p => p.id === a.parent)); const done = top.filter(a => a.state === 'finished'); const live = top.filter(a => a.state !== 'finished'); const showDone = f !== 'all' || S.agDone?.[w.id]
         return <section key={w.id} className="ag-ws" data-ws={wsColor(w)} aria-label={wsName(w)}>
