@@ -20,7 +20,7 @@ export function TitleBar () {
     </div></header>
 }
 MENUS.ws = () => <><div className="mg">Workspace</div><MI check label={D.company.name} hint="3 projects · ~/code/cajui" /><MI check={false} label="Personal" hint="1 project" onClick={() => toastSoonLocal('Switching workspaces reloads the window in the app.')} /><hr />
-  <MI icon="plus" label="New workspace…" onClick={() => { S.overlay = { type: 'dlg', id: 'newws' } }} /><MI icon="gear" label="Workspace settings" onClick={() => goScreen('settings-ws')} /><hr /><MI icon="trash" dz label="Remove workspace…" onClick={() => { S.overlay = { type: 'dlg', id: 'removews' } }} /></>
+  <MI icon="plus" label="New workspace…" onClick={() => { S.overlay = { type: 'dlg', id: 'newws' } }} /><MI icon="gear" label="Workspace settings" onClick={() => goScreen('settings-ws-projects')} /><hr /><MI icon="trash" dz label="Remove workspace…" onClick={() => { S.overlay = { type: 'dlg', id: 'removews' } }} /></>
 import { toast } from '../state/store'
 const toastSoonLocal = (m: string) => toast(m)
 
@@ -29,10 +29,10 @@ export function StatusBar () {
   const t = S.area === 'task' ? task(S.taskId) : null
   return <footer className="sb"><span><Icon n="branch" s={12} /> <b>{t ? t.branch : 'main'}</b></span><span className="hide-n">{t ? D.projects[t.project].name : 'cajui-api'}</span>
     <span><span className="sdot on" /> {plural(running, 'agent')} working</span><span className="sp" />
-    <span className="hide-n">Today {money(S.tasks.reduce((s, x) => s + (x.started.includes(':') ? x.cost : 0), 0))}</span><span className="hide-n">Claude Max · 41% of the 5 h window</span><span>OXESpace 1.5.0</span></footer>
+    <span>OXESpace 1.5.0</span></footer>
 }
 
-const RAIL: [string, string, string][] = [['tasks', 'list', 'Tasks'], ['code', 'term', 'OxeCode'], ['query', 'query', 'OxeQuery'], ['post', 'net', 'OxePost'], ['pod', 'box', 'OxePod'], ['chat', 'chat', 'OxeChat']]
+const RAIL: [string, string, string][] = [['tasks', 'chat', 'OxeChat: tasks and threads'], ['code', 'term', 'OxeCode'], ['query', 'query', 'OxeQuery'], ['post', 'net', 'OxePost'], ['pod', 'box', 'OxePod']]
 export function railGo (v: string) {
   S.menu = null; S.notif = false
   if (v === 'tasks') { S.area = 'task'; S.emptyWs = false } else if (v === 'settings') { S.area = 'settings' } else if (v === 'found') { S.area = 'found' } else if (v === 'chat') { S.area = 'chat' } else { S.area = 'mode'; S.mode2 = v as Mode2 }

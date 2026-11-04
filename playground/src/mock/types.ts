@@ -8,13 +8,21 @@ export interface Counts { terminal: number; queries: number; requests: number; c
 export interface Task {
   id: string; key: string; title: string; project: string; prov: ProviderId; model: string; effort: string; access: Access
   status: TaskStatus; branch: string; worktree: boolean; started: string; mins: number; cost: number; costEst?: boolean
-  ctx: [number, string, string]; counts: Counts; gate?: string | null; pr?: number; now: string; pinned?: boolean
+  ctx: [number, string, string]; counts: Counts; gate?: string | null; pr?: number; now: string; pinned?: boolean; ask?: string | null
 }
 /** [kind, verb, target, meta, detail?, running?] — kind: read | edit | run | fail | done */
 export type ToolRow = [string, string, string, string, string?, boolean?]
 export interface ConvItem {
   you?: string; agent?: string; at?: string; files?: string[]; tools?: ToolRow[]; ck?: number; label?: string
   gate?: string; done?: string; how?: string; err?: string; sys?: string
+  images?: string[]; think?: [number, string]; todos?: [string, string][]; code?: [string, string, string]
+  sub?: { name: string; task: string; secs: number; rows: ToolRow[]; result: string }
+  plan?: { steps: string[]; state: string; at?: string }
+  cmd?: { cmd: string; cwd: string; why: string; state: string; at: string }
+  edit?: { path: string; diff: string; state: string; at: string }
+  bg?: { id: string; cmd: string; started: string; lines: string[] }
+  retry?: string; compact?: string; ask?: string; answered?: [string, string][]
+  summary?: { text: string; files: [string, number, number][] }
 }
 export interface Approval {
   id: string; task: string; kind: 'db' | 'box' | 'net'; title: string; verb: string; why: string; where: string; whereSub: string

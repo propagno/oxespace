@@ -9,6 +9,7 @@ import { openTask } from './Task'
 import { goScreen, SCREENS } from '../screens/registry'
 import { railGo } from './Shell'
 import { EXTRA_DIALOGS } from './Dialogs'
+import { MORE_DIALOGS } from './Catalog'
 
 export interface DialogSpec { size: 'sm' | 'md' | 'lg' | 'xl'; title: ReactNode; icon?: string; body: () => ReactNode; primary?: { label: string; danger?: boolean; act: () => void; disabled?: boolean }; extra?: ReactNode; cancel?: string; safeFirst?: boolean; noFooter?: boolean }
 
@@ -20,7 +21,7 @@ export function Dialog ({ spec }: { spec: DialogSpec }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const el = ref.current; if (!el) return
-    const f = el.querySelector<HTMLElement>('.dlg-b input:not([type=checkbox]):not([readonly]), .dlg-b textarea, .dlg-b select') || el.querySelector<HTMLElement>('[data-autofocus]')
+    const f = (spec.safeFirst ? null : el.querySelector<HTMLElement>('.dlg-b input:not([type=checkbox]):not([type=range]):not([readonly]), .dlg-b textarea, .dlg-b select')) || el.querySelector<HTMLElement>('[data-autofocus]') || el.querySelector<HTMLElement>('.dlg-h button')
     f?.focus()
   }, [spec.title])
   return <div className="ov center" onMouseDown={e => { if (e.target === e.currentTarget) closeOverlay() }}>
@@ -29,7 +30,7 @@ export function Dialog ({ spec }: { spec: DialogSpec }) {
       <div className="dlg-h">{spec.icon ? <Icon n={spec.icon} s={16} /> : null}<h2 id="dlg-title">{spec.title}</h2><button className="ibtn" onClick={closeOverlay} aria-label="Close" title="Close (Esc)"><Icon n="x" /></button></div>
       <div className="dlg-b">{spec.body()}</div>
       {spec.noFooter ? null : <div className="dlg-f">{spec.extra}<span className="sp" />
-        <button className="btn" onClick={closeOverlay} data-autofocus={spec.safeFirst || !spec.primary ? true : undefined}>{spec.cancel || (spec.primary ? 'Cancel' : 'Close')}</button>
+        <button className="btn" onClick={closeOverlay} data-autofocus>{spec.cancel || (spec.primary ? 'Cancel' : 'Close')}</button>
         {spec.primary ? <button className={'btn ' + (spec.primary.danger ? 'dng' : 'pri')} disabled={spec.primary.disabled} onClick={() => { spec.primary!.act(); if (S.overlay) closeOverlay(); else emit() }}>{spec.primary.label}</button> : null}</div>}
     </div></div>
 }
@@ -116,7 +117,8 @@ export const DIALOGS: Record<string, () => DialogSpec> = {
   scdiscard: () => ({ size: 'sm', icon: 'trash', title: 'Discard the side chat?', body: () => <p style={{ color: 'var(--text-secondary)' }}>Its answers will be gone. The conversation isn't affected.</p>, cancel: 'Keep', safeFirst: true, primary: { label: 'Discard', danger: true, act: () => { const s = scState(cur()); s.open = false; s.msgs = [] } } }),
   discard: () => conf('Discard all changes?', <>Every change in <span className="mono">{cur().branch}</span> that isn't committed is thrown away. The checkpoints stay, so you can restore one later.</>, 'Discard changes', () => toast('Changes discarded'), true, 'trash'),
   removews: () => conf(`Remove ${D.company.name}?`, 'The workspace leaves OXESpace. Your project folders, git history and agent accounts are not touched. Its tasks and settings are deleted.', 'Remove workspace', () => toast('Removing a workspace is simulated here.'), true, 'trash'),
-  ...EXTRA_DIALOGS
+  ...EXTRA_DIALOGS,
+  ...MORE_DIALOGS
 }
 
 export function OverlayLayer () {

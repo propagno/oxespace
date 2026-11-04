@@ -2,9 +2,12 @@
    Simple on purpose: the playground is a reference for looks and flows, not for app architecture. */
 import { useSyncExternalStore } from 'react'
 import { D } from '../mock/data'
+import { T147, T147_CONV } from '../mock/thread'
+import { T147_CHANGES } from '../mock/locations'
+D.changes.t147 = T147_CHANGES
 import type { Access, ConvItem, Task } from '../mock/types'
 
-export type Area = 'task' | 'queue' | 'firstrun' | 'mode' | 'settings' | 'found' | 'chat' | 'later-watch' | 'later-multi'
+export type Area = 'task' | 'queue' | 'firstrun' | 'mode' | 'settings' | 'found' | 'dialogs' | 'chat' | 'later-watch' | 'later-multi'
 export type Mode2 = 'code' | 'query' | 'post' | 'pod'
 export interface Toast { id: number; text: string; kind?: 'attn' | 'err'; undo?: () => void; go?: string }
 export interface MenuState { id: string; x: number; y: number; r: number; top: number; pop?: boolean }
@@ -27,15 +30,15 @@ const QUICK_CONV: ConvItem[] = [{ you: 'What’s the Pix rule for refunds after 
 function fresh () {
   return {
     area: 'task' as Area, taskId: 't143', tab: 'conv', mode2: 'query' as Mode2, page: 'general',
-    sbCol: false, rp: true, rpTab: 'overview' as 'overview' | 'details', sideChat: {} as Record<string, SideChat>, menu: null as MenuState | null,
+    sbCol: false, rp: false, rpTab: 'overview' as 'overview' | 'details', sideChat: {} as Record<string, SideChat>, menu: null as MenuState | null,
     notif: false, overlay: null as Overlay | null, toasts: [] as Toast[], projFilter: null as string | null,
-    tasks: clone(D.tasks).concat([QUICK]) as Task[], conv: Object.assign(clone(D.conv), { quick: clone(QUICK_CONV) }) as Record<string, ConvItem[]>, resolved: {} as Record<string, string>, queue: ['ap_sql', 'ap_down'],
+    tasks: [clone(T147)].concat(clone(D.tasks), [QUICK]) as Task[], conv: Object.assign(clone(D.conv), { quick: clone(QUICK_CONV), t147: clone(T147_CONV) }) as Record<string, ConvItem[]>, resolved: {} as Record<string, string>, queue: ['ap_sql', 'ap_down'],
     open: {} as Record<string, boolean>, disc: { ctx: true, tools: true } as Record<string, boolean>, past: {} as Record<string, number>,
     cmp: {} as Record<string, Cmp>, drafts: {} as Record<string, string>, notifRead: {} as Record<string, boolean>, extraNotifs: [] as typeof D.notifications,
-    emptyWs: false, holding: null as string | null, bigText: false, verbose: false, queueSel: 0, tick: 0, running: { t142: 72 } as Record<string, number>,
-    q: { conn: 'billing-staging', tab: 'editor', sel: 'q4', act: null as string | null, sql: undefined as string | undefined, qtab: 0 as number | undefined, untitled: '' as string | undefined }, tFilter: '' as string | undefined, qRunning: false,
-    post: { col: 'pix', req: 'r1', tab: 'body', env: 'sandbox' as string | undefined, activity: false, newReq: null as null | { name: string; method: string; url: string; status?: number; ms?: number; size?: string; resBody: string }, sending: false, sentNew: false },
-    pod: { sel: 'api', tab: 'logs' }, filter: '', renameTo: '', podAgent: false as boolean | undefined, ncEnv: 'staging' as string | undefined, impPick: 0 as number | undefined, rp900: false, finishPick: 0,
+    emptyWs: false, holding: null as string | null, bigText: false, verbose: false, queueSel: 0, tick: 0, running: { t142: 72, t147: 18 } as Record<string, number>,
+    q: { conn: 'billing-staging', tab: 'editor', sel: 'q4', act: null as string | null, sql: undefined as string | undefined, qtab: 0 as number | undefined, untitled: '' as string | undefined }, tFilter: '' as string | undefined, qRunning: false, qRan: false,
+    post: { col: 'pix', req: 'r1', tab: 'body', raw: false as boolean | undefined, body: {} as Record<string, string> | undefined, env: 'sandbox' as string | undefined, activity: false, newReq: null as null | { name: string; method: string; url: string; status?: number; ms?: number; size?: string; resBody: string }, sending: false, sentNew: false },
+    pod: { sel: 'api', tab: 'logs' }, filter: '', renameTo: '', answers: {} as Record<string, string[]> | undefined, bgState: {} as Record<string, string> | undefined, queued: { t147: ['Also write every refund to the audit table'] } as Record<string, string[]>, fdPulse: 0 as number | undefined, connAgent: {} as Record<string, string> | undefined, colAgent: {} as Record<string, string> | undefined, kFilter: '' as string | undefined, keys: {} as Record<string, string> | undefined, unpaired: [] as string[] | undefined, removedProj: [] as string[] | undefined, actSrc: 'all' as string | undefined, sFilter: '' as string | undefined, podAgent: false as boolean | undefined, ncEnv: 'staging' as string | undefined, impPick: 0 as number | undefined, rp900: false, finishPick: 0,
     newTask: null as null | { project: string; prov: string; model: string; access: string; worktree: boolean }, code: { focus: 0 }, codePanes: null as null | import('../mock/types').Term[], codeWt: 1 as number | undefined, codeLayout: 'grid' as string | undefined, codeDraft: {} as Record<string, string> | undefined, set: clone(SETTINGS_DEFAULT), quickBusy: false, ckExtra: {} as Record<string, number>
   }
 }
@@ -55,7 +58,7 @@ export const run = (fn: () => void) => () => { fn(); emit() }
 
 /* ------------------------------------------------------------------ helpers */
 export const task = (id: string) => S.tasks.find(t => t.id === id)
-export const cur = () => task(S.area === 'chat' ? 'quick' : S.taskId) as Task
+export const cur = () => task(S.taskId) as Task
 export const prov = (id: string) => D.providers[id]
 export const H = () => (S.w === 900 ? 620 : 900)
 export const plural = (n: number, one: string, many?: string) => `${n.toLocaleString('en')} ${n === 1 ? one : (many || one + 's')}`

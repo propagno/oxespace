@@ -5,7 +5,9 @@ import { S, emit, run, task, cur, prov, plural, money, fmtElapsed, cmpState, scS
 import { Icon, Av, Kbd, Gauge, Ring, Html, MI, menuBtn, StateBlock, ACCESS, toastSoon } from './ui'
 import { MENUS } from './Shell'
 import { syncScreen, goScreen } from '../screens/registry'
-import { ToolTab, Highlight } from './Tools'
+import { ToolTab, Highlight, DiffFile, placesFor } from './Tools'
+import { isRich, RichItem, decideCmd } from './Thread'
+import { CodeBlock, type Lang } from './Code'
 
 /* ================================================================ sidebar (T61: collapsed keeps every item) */
 const GROUPS: [string, string][] = [['needs', 'Needs you'], ['run', 'Running'], ['review', 'Ready for review'], ['err', 'Stopped'], ['done', 'Done']]
@@ -25,7 +27,7 @@ export function Sidebar () {
       {ts.map(t => { const on = (S.area === 'task' || S.area === 'later-multi') && S.taskId === t.id
         return <button key={t.id} className="trow" onClick={() => openTask(t.id)} aria-current={on ? 'page' : undefined} aria-label={`${t.key} ${t.title}, ${STATUS_LABEL[t.status]}`}>
           <span className={'sg ' + t.status} /><span className="tt trunc">{t.title}</span><span className="tm">{t.status === 'run' || t.status === 'needs' ? t.mins + 'm' : t.started}</span>
-          <span className="meta">{t.status === 'needs' ? <span className="trunc attn-t">{t.now.replace('Waiting for you: ', 'Asks to ')}</span> : <><span className="mono">{t.key}</span><span>·</span><span>{prov(t.prov).name}</span></>}</span>
+          {t.status === 'needs' ? <span className="meta"><span className="trunc attn-t">{t.now.replace('Waiting for you: ', 'Asks to ').replace('Waiting for your answer: ', 'Asks you ')}</span></span> : null}
           <span className="key">{t.key.slice(2)}</span>{col ? <span className="tipc">{t.key} · {t.title} · {STATUS_LABEL[t.status]}</span> : null}</button> })}</div>)
       : col ? null : <div className="state" style={{ padding: '24px 12px' }}><p style={{ fontSize: 12 }}>{S.filter ? `No task matches "${S.filter}".` : 'No tasks yet. A task is one conversation with an agent, with everything it touches.'}</p></div>}</div>
     <div className="sbar-f">{col ? <button className="ibtn sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'archived' } })} aria-label="Archived tasks" title="Archived tasks"><Icon n="archive" s={12} /></button>
@@ -61,6 +63,9 @@ export function TaskView () {
 function NowLine ({ t }: { t: Task }) {
   const ap = t.gate && !S.resolved[t.gate] ? D.approvals[t.gate] : null
   const who = prov(t.prov).name
+  const goAsk = () => document.getElementById('ask-' + t.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  if (t.ask === 'cmd') return <div className="nowline attn" role="status"><span className="sun live" /><span className="what"><b>Waiting for you.</b> {who} wants to run <span className="mono">npm test -- refunds</span>.</span><button className="btn sm" onClick={run(() => decideCmd(t, 'deny'))}>Deny</button><button className="btn sm pri" onClick={goAsk}>Review</button></div>
+  if (t.ask) return <div className="nowline attn" role="status"><span className="sun live" /><span className="what"><b>Waiting for you.</b> {who} asked 2 questions before writing the tests.</span><button className="btn sm pri" onClick={goAsk}>Answer</button></div>
   if (ap) return <div className="nowline attn" role="status"><span className="sun live" /><span className="what"><b>Waiting for you.</b> {who} asks to {ap.title.charAt(0).toLowerCase() + ap.title.slice(1)}.</span>
     <button className="btn sm" onClick={run(() => resolve(ap.id, 'deny'))}>Deny</button><button className="btn sm pri" onClick={run(() => { S.overlay = { type: 'approve', id: ap.id } })}>See impact</button></div>
   if (t.status === 'run') return <div className="nowline run" role="status"><span className="spin" /><span className="what"><b>Working.</b> {t.now}.</span><span className="num muted">{fmtElapsed(S.running[t.id] ?? 72)}</span>
@@ -95,7 +100,7 @@ export function Conversation ({ t, empty }: { t: Task; empty?: React.ReactNode }
   return <div className="conv-wrap">
     {past != null ? <div className="past-banner"><Icon n="history" s={12} /><span>Viewing checkpoint {past} · {D.checkpoints[t.id]?.[past]?.at}. Later messages are dimmed; files on disk are unchanged.</span><span className="sp" />
       <button className="btn sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'restore', ck: past } })}>Restore files…</button><button className="btn sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'branch', ck: past } })}><Icon n="fork" s={12} />Branch from here</button><button className="btn sm pri" onClick={run(() => { delete S.past[t.id] })}>Back to now <Kbd>L</Kbd></button></div> : null}
-    <div className={'conv' + (S.bigText ? ' big' : '')} role="log" aria-label="Conversation" ref={pinBottom}><div className="conv-in">
+    <div className={'conv' + (S.bigText ? ' big' : '')} role="log" aria-label="Conversation" ref={el => { if (el && el.dataset.tid !== t.id) { el.dataset.tid = t.id; delete el.dataset.seen; setTimeout(() => { el.scrollTop = el.scrollHeight }, 60) } pinBottom(el) }}><div className="conv-in">
       {!items.length && empty ? empty : null}{items.map((it, i) => { if (it.ck != null) ck = it.ck; const dim = past != null && (it.ck != null ? it.ck > past : ck > past); return <div key={i} className={dim ? 'inpast' : undefined} style={{ display: 'contents' }}><Item t={t} it={it} i={i} /></div> })}
       {t.status === 'idle' ? <div className="turn" style={{ color: 'var(--warning-fg)' }}><Icon n="warn" s={12} />Interrupted. The work so far is kept; send a message to continue.</div> : null}
     </div></div><Composer t={t} /></div>
@@ -109,11 +114,12 @@ export function pinBottom (el: HTMLElement | null) {
   if (!el.dataset.l) { el.dataset.l = '1'; el.addEventListener('scroll', () => { el.dataset.grow = '0' }) }
 }
 function Item ({ t, it, i }: { t: Task; it: ConvItem; i: number }) {
-  if (it.you) return <><div className="m-you">{it.files ? <div className="att">{it.files.map(f => <span key={f}><Icon n="clip" s={12} />{f}</span>)}</div> : null}<div>{it.you}</div></div>{it.at ? <div className="m-time">{it.at}</div> : null}</>
-  if (it.agent) return <div className="m-ag"><Av p={t.prov} /><div className="body"><Html as="div" html={it.agent} />{it.at ? <div className="m-time" style={{ marginTop: 4 }}>{it.at}</div> : null}</div>
+  if (isRich(it)) return <RichItem t={t} it={it} i={i} />
+  if (it.you) return <><div className="m-you">{it.images ? <div className="att">{it.images.map(f => <span key={f} className="img"><span className="thumb" aria-hidden="true" />{f}</span>)}</div> : null}{it.files ? <div className="att">{it.files.map(f => <span key={f}><Icon n="clip" s={12} />{f}</span>)}</div> : null}<div title={it.at}>{it.you}</div></div></>
+  if (it.agent) return <div className="m-ag"><Av p={t.prov} /><div className="body"><Html as="div" html={it.agent} />{it.code ? <CodeBlock lang={it.code[0] as Lang} title={it.code[1]} code={it.code[2]} /> : null}</div>
     <div className="hov"><button className="ibtn sm" onClick={run(() => toast('Copied to the clipboard'))} title="Copy" aria-label="Copy message"><Icon n="copy" s={12} /></button><button className="ibtn sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'branch', ck: 'message' } })} title="Branch from this message" aria-label="Branch from this message"><Icon n="fork" s={12} /></button></div></div>
-  if (it.tools) return <div className="trs">{it.tools.map((r, j) => <ToolRowView key={j} r={r} k={`${t.id}:${i}:${j}`} />)}</div>
-  if (it.ck != null) return <div className="ck2"><Icon n="ck" s={12} />Checkpoint {it.ck} · {it.at} · {it.label} <button onClick={run(() => { S.past[t.id] = it.ck!; syncScreen() })}>View</button></div>
+  if (it.tools) return <ToolGroup t={t} rows={it.tools} k={`${t.id}:${i}`} />
+  if (it.ck != null) return <div className="ck3"><span>Checkpoint {it.ck} · {it.label}</span><button onClick={run(() => { S.past[t.id] = it.ck!; syncScreen() })}>View</button></div>
   if (it.gate) return S.resolved[it.gate] ? null : <div className="gate-mark"><span className="sun live" />Asked to {D.approvals[it.gate].verb.charAt(0).toLowerCase() + D.approvals[it.gate].verb.slice(1)} · waiting for you (top of the task)</div>
   if (it.done) return <div className="apc done"><div className="apc-h"><Icon n={it.how === 'deny' ? 'x' : 'check'} s={12} />{it.how === 'deny' ? 'You denied' : it.how === 'snap' ? 'You took a snapshot, then approved' : 'You approved'}: {D.approvals[it.done].title} · {it.at}</div></div>
   if (it.err) return <div className="callout danger" style={{ marginLeft: 30 }}><Icon n="warn" /><div><b>Stopped.</b> {it.err}<div className="row" style={{ marginTop: 6 }}><button className="btn sm" onClick={run(() => { S.tab = 'containers' })}>Open containers</button><button className="btn sm" onClick={run(() => { t.status = 'run'; t.now = 'Recreating the volume'; S.conv[t.id].push({ you: 'Retry with a fresh volume.', at: '14:44' }); toast(`Codex is retrying ${t.key}`) })}><Icon n="refresh" s={12} />Retry with a fresh volume</button></div></div></div>
@@ -127,7 +133,7 @@ export function ToolRowView ({ r, k, still }: { r: ToolRow; k: string; still?: b
   const link = verb === 'Query' ? 'queries' : verb === 'Request' ? 'requests' : kind === 'edit' ? 'changes' : null
   return <><button className={'tr ' + TK[kind][0]} onClick={canOpen ? run(() => { S.open[k] = !S.open[k] }) : undefined} aria-expanded={canOpen ? open : undefined} style={canOpen ? undefined : { cursor: 'default' }}>
     <span className="ti">{running ? <span className="spin" /> : <Icon n={icon} s={12} />}</span><span className="verb">{verb}</span><span className="tgt">{target}</span><span className="mt">{meta}</span><span className="chev">{canOpen ? <Icon n="right" s={12} /> : null}</span></button>
-    {open ? <div className="trd">{detail || (kind === 'edit' ? 'Open Changes to see the full diff.' : target)}{link ? <>{'\n\n'}<button className="lk" onClick={run(() => { S.tab = link; syncScreen() })}>Open in {link === 'queries' ? 'Queries' : link === 'requests' ? 'Requests' : 'Changes'} →</button></> : null}</div> : null}</>
+    {open && kind === 'edit' ? <EditDetail tid={k.split(':')[0]} path={target} /> : open ? <div className="trd">{detail || target}{link ? <>{'\n\n'}<button className="lk" onClick={run(() => { S.tab = link; syncScreen() })}>Open in {link === 'queries' ? 'Queries' : link === 'requests' ? 'Requests' : 'Changes'} →</button></> : null}</div> : null}</>
 }
 function GateCard ({ t, id }: { t: Task; id: string }) {
   const ap = D.approvals[id]
@@ -149,8 +155,9 @@ export function Chips ({ t, c, side }: { t: Task; c: Cmp; side?: boolean }) {
 export function Composer ({ t }: { t: Task }) {
   const c = cmpState(t); const running = t.status === 'run'; const draft = S.drafts[t.id] || ''
   return <div className="cmp-wrap"><div className="cmp-in">
+    {(S.queued[t.id] || []).length ? <div className="queued">{S.queued[t.id].map((q, n) => <div key={n} className="qitem"><Icon n="clock" s={12} /><span className="trunc"><b>Queued</b> · {q}</span><button className="btn sm" onClick={run(() => { S.queued[t.id].splice(n, 1); S.conv[t.id].push({ you: q, at: '14:57' }); toast('Sent now. The agent reads it after its current step.') })}>Send now</button><button className="ibtn sm" aria-label="Remove from queue" onClick={run(() => { S.queued[t.id].splice(n, 1) })}><Icon n="x" s={12} /></button></div>)}</div> : null}
     <div className="cmp"><textarea id={'cmp-' + t.id} rows={2} value={draft} aria-label={`Message to ${prov(t.prov).name}`}
-      placeholder={running ? 'Steer: the agent reads this after its current step' : t.status === 'needs' ? 'Answer, or tell the agent what to do instead' : 'Ask, or type / for commands'}
+      placeholder={t.ask ? 'Answer above, or type to tell Claude something else' : running ? 'Steer: the agent reads this after its current step' : t.status === 'needs' ? 'Answer, or tell the agent what to do instead' : 'Ask, or type / for commands'}
       onChange={e => { S.drafts[t.id] = e.target.value; emit() }} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(t); emit() } }} />
       <div className="strip"><button className="ibtn" onClick={menuBtn('slash')} title="Commands (/)" aria-label="Commands"><Icon n="slash" /></button><button className="ibtn" onClick={() => toastSoon('In the app this opens the file picker; attachments show as chips in the bubble.')} title="Add files" aria-label="Add files"><Icon n="plus" /></button>
         {t.id === 'quick' ? null : <div className="segm" role="group" aria-label="Mode"><button className="plan" aria-pressed={c.mode === 'plan'} onClick={run(() => { c.mode = 'plan' })} title="Plan: nothing changes until you agree">Plan</button><button aria-pressed={c.mode === 'agent'} onClick={run(() => { c.mode = 'agent' })}>Agent</button></div>}
@@ -158,7 +165,6 @@ export function Composer ({ t }: { t: Task }) {
         {running ? <><button className="ibtn" onClick={run(() => { if (!draft.trim()) { toast('Type a note first; the agent reads it after its current step.'); return } S.conv[t.id].push({ you: draft, at: '14:43' }); S.drafts[t.id] = ''; toast(`Steer sent. ${t.model} reads it between steps.`) })} title="Steer now (Ctrl Enter)" aria-label="Steer"><Icon n="compass" /></button>
           <button className="stopb" onClick={run(() => { t.status = 'idle'; t.now = 'Stopped by you'; toast(`Stopped ${t.key}. The work so far is kept.`) })} title="Stop (Esc Esc)" aria-label="Stop"><Icon n="stop" /></button></> : null}
         <button className="send" disabled={!draft.trim()} onClick={run(() => sendMsg(t))} title={running ? 'Queue for after this step (Enter)' : 'Send (Enter)'} aria-label="Send"><Icon n="up" /></button></div></div>
-    <div className="cmp-hint"><span>Enter to send · Shift Enter for a new line</span><span>{c.mode === 'plan' ? 'Plan mode: nothing changes until you agree' : ''}</span><span className="sp" /><span>{t.ctx[0]}% of context · {t.ctx[1]} / {t.ctx[2]}</span></div>
   </div></div>
 }
 const setC = (k: 'model' | 'effort' | 'access', v: string) => () => { const t = cur(); const c = cmpState(t); if (k === 'access' && v === 'full') { S.overlay = { type: 'dlg', id: 'fullaccess' }; return } if (c[k] !== v) { (c as unknown as Record<string, string>)[k] = v; c.pend[k] = true } }
@@ -232,3 +238,27 @@ function SideChatPanel ({ t }: { t: Task }) {
 MENUS.scmenu = () => { const t = cur(), s = scState(t); return <><MI icon="copy" label="Copy all answers" onClick={() => toast('Copied every answer')} /><hr /><MI icon="trash" dz label="Discard and close…" onClick={() => { if (s.msgs.some(m => m.a)) S.overlay = { type: 'dlg', id: 'scdiscard' }; else { s.open = false; s.msgs = [] } }} /></> }
 
 export { raisePush, goScreen, task }
+
+/** An edit row, expanded: the file's diff and the checkout it was written in, so it opens from the right place. */
+function EditDetail ({ tid, path }: { tid: string; path: string }) {
+  const t = task(tid); const places = t ? placesFor(t) : []
+  const pl = places.find(p => p.files.some(f => f.path === path)) || places[0]
+  const f = pl?.files.find(x => x.path === path)
+  return <div className="trd edit-d">{f ? <DiffFile f={f} /> : <p className="muted">The diff for this edit is in the checkpoint.</p>}
+    <div className="row" style={{ fontFamily: 'var(--f-ui)', fontSize: 12 }}><Icon n={pl?.kind === 'outside' ? 'folder' : 'branch'} s={12} /><span className="muted">Written in</span><span className="mono trunc">{pl?.path}{pl?.branch ? ` · ${pl.branch}` : ''}</span><span className="sp" />
+      <button className="btn sm" onClick={run(() => toast(`Opened ${path} from ${pl?.path}`))}>Open file</button><button className="btn sm" onClick={run(() => { S.tab = 'changes'; syncScreen() })}>All changes</button></div></div>
+}
+
+const VERB_KIND: Record<string, string> = { Read: 'read', Search: 'read', Fetch: 'read', MCP: 'read', Create: 'edit', Edit: 'edit', Shell: 'run', Query: 'run', Request: 'run', Container: 'run' }
+/** Consecutive tool calls fold into one line ("6 steps: …"). The latest group stays open while it runs. */
+function ToolGroup ({ t, rows, k }: { t: Task; rows: ToolRow[]; k: string }) {
+  const running = rows.some(r => r[5]); const open = S.open[k] ?? (running || S.verbose)
+  const n = (kind: string) => rows.filter(r => VERB_KIND[r[1]] === kind || (kind === 'run' && r[0] === 'fail' && VERB_KIND[r[1]] === 'run')).length
+  const files = new Set(rows.filter(r => VERB_KIND[r[1]] === 'edit').map(r => r[2])).size
+  const failed = rows.filter(r => r[0] === 'fail').length; const fixed = failed && rows.slice(rows.findIndex(r => r[0] === 'fail') + 1).some(r => r[0] !== 'fail' && r[1] === rows.find(x => x[0] === 'fail')![1])
+  const parts = [n('read') ? `read ${plural(n('read'), 'thing')}` : '', files ? `edited ${plural(files, 'file')}` : '', n('run') ? `ran ${plural(n('run'), 'command')}` : ''].filter(Boolean)
+  return <div className="tgroup"><button className="tg-sum" aria-expanded={open} onClick={run(() => { S.open[k] = !open })}>
+    {running ? <span className="spin" /> : <Icon n={open ? 'down' : 'right'} s={12} />}<span>{running ? rows.find(r => r[5])![2] : `${plural(rows.length, 'step')}: ${parts.join(', ')}`}</span>
+    {failed ? <span className={fixed ? 'muted' : 'dz-t'}>· {fixed ? `${failed} error, fixed` : `${failed} failed`}</span> : null}</button>
+    {open ? <div className="trs">{rows.map((r, j) => <ToolRowView key={j} r={r} k={`${k}:${j}`} />)}</div> : null}</div>
+}

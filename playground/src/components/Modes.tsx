@@ -42,13 +42,18 @@ export function CodeMode () {
   if (S.view === 'loading') return <StateBlock kind="loading" />
   if (S.view === 'error') return <StateBlock kind="error" title="Couldn't start the terminal" text="bash exited with code 127 at start. Check the shell path under Settings › Terminal." />
   if (S.view === 'empty' || !panes.length) return <div className="pane"><Head wt={wt} n={0} /><StateBlock kind="empty" icon="term" title="No terminals open" text="Open a terminal in a project or a task's worktree. Agent CLIs run here too."><button className="btn pri" onClick={run(addTerm)}><Icon n="plus" s={12} />New terminal</button><button className="btn" onClick={run(addAgent)}><Icon n="sparkle" s={12} />Start Claude Code</button></StateBlock></div>
-  const layout = S.codeLayout || 'grid'
-  const cols = layout === 'one' ? 1 : panes.length === 1 ? 1 : 2
-  const style = layout === 'rows' ? { gridTemplateColumns: 'minmax(0,1fr)', gridAutoRows: 'minmax(0,1fr)' } : { gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))`, gridAutoRows: 'minmax(0,1fr)' }
+  const layout = (S.codeLayout === 'rows' ? 'grid' : S.codeLayout) || 'grid'
+  const n = panes.length, narrow = S.w === 900
+  // Auto grid: 2 side by side; 3 = one tall on the left + two; 4 = 2 × 2; 5-6 = 3 × 2. At 900 px at most 2 columns.
+  const auto = narrow ? { gridTemplateColumns: n > 1 ? 'repeat(2, minmax(0,1fr))' : 'minmax(0,1fr)', gridAutoRows: n > 2 ? 'minmax(180px, 1fr)' : 'minmax(0,1fr)' }
+    : n === 3 ? { gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gridTemplateRows: 'repeat(2, minmax(0,1fr))', gridTemplateAreas: '"a b" "a c"' }
+      : { gridTemplateColumns: `repeat(${n <= 2 ? n : n === 4 ? 2 : 3}, minmax(0,1fr))`, gridAutoRows: 'minmax(0,1fr)' }
+  const style = layout === 'cols' ? { gridTemplateColumns: `repeat(${narrow ? Math.min(n, 2) : n}, minmax(0,1fr))`, gridAutoRows: 'minmax(0,1fr)' } : layout === 'one' ? { gridTemplateColumns: 'minmax(0,1fr)', gridAutoRows: 'minmax(0,1fr)' } : auto
   const shown = layout === 'one' ? [panes[Math.min(S.code.focus, panes.length - 1)]] : panes
-  return <div className="mode code">
+  return <div className={'mode code' + (layout === 'one' && n > 1 ? ' tabs' : '')}>
     <Head wt={wt} n={panes.length} />
-      <div className="panes" style={style}>{shown.map(k => { const i = panes.indexOf(k)
+      {layout === 'one' && n > 1 ? <div className="ptabs" role="tablist" aria-label="Terminals">{panes.map((k, i) => <button key={k.id + i} role="tab" aria-selected={S.code.focus === i} onClick={run(() => { S.code.focus = i })}><Icon n={k.shell === 'claude' || k.shell === 'codex' ? 'sparkle' : 'term'} s={12} />{k.name}{k.by === 'agent' ? <span className="dot" style={{ color: 'var(--accent)' }} /> : null}</button>)}</div> : null}
+      <div className={'panes' + (layout === 'grid' && n === 3 && !narrow ? ' three' : '')} style={style}>{shown.map(k => { const i = panes.indexOf(k)
         return <div key={k.id + i} className={S.code.focus === i ? 'focus' : ''} onMouseDown={() => { if (S.code.focus !== i) { S.code.focus = i; emit() } }}>
           <div className="th-pane"><Icon n={k.shell === 'claude' || k.shell === 'codex' ? 'sparkle' : 'term'} s={12} /><b>{k.name}</b><span className="mono">{k.cwd}</span>{k.by === 'agent' ? <span className="pill run" style={{ height: 18 }}>agent</span> : null}{(k as Term & { tag?: string }).tag ? <span className="pill neutral" style={{ height: 18 }}>{(k as Term & { tag?: string }).tag}</span> : null}<span className="sp" />
             <span className="muted" style={{ fontSize: 11 }}>{k.by === 'agent' ? 'Running' : 'Idle'}</span><button className="ibtn sm" onClick={e => { S.code.focus = i; menuBtn('codepane')(e) }} aria-label={`Actions for ${k.name}`}><Icon n="more" s={12} /></button></div>
@@ -63,7 +68,7 @@ function Head ({ wt, n }: { wt: [string, string, string]; n: number }) {
 }
 function addTerm () { const p = initCode(); const wt = WORKTREES[S.codeWt ?? 1]; p.push({ id: 'n' + Date.now(), name: 'bash', shell: 'bash', cwd: wt[2] ? `~/.oxespace/worktrees/${wt[0]}/${wt[2].toLowerCase().replace('-', '')}` : `~/code/cajui/${wt[0]}`, by: 'you', lines: [] }); S.code.focus = p.length - 1; S.view = 'live' }
 function addAgent () { const p = initCode(); p.push(JSON.parse(JSON.stringify(Object.assign({}, CLAUDE_PANE, { id: 'a' + Date.now(), lines: CLAUDE_PANE.lines.slice(0, 4).concat([['dim', '> Ask Claude Code anything about this project']]) })))); S.code.focus = p.length - 1; S.view = 'live'; toast('Started Claude Code (Opus 5.5) in a new pane') }
-MENUS.codelayout = () => { const l = S.codeLayout || 'grid'; return <><div className="mg">Layout</div><MI check={l === 'grid'} label="Grid" hint="Two columns" onClick={() => { S.codeLayout = 'grid' }} /><MI check={l === 'rows'} label="Stacked" hint="One column, every pane" onClick={() => { S.codeLayout = 'rows' }} /><MI check={l === 'one'} label="Focused pane only" onClick={() => { S.codeLayout = 'one' }} /></> }
+MENUS.codelayout = () => { const l = (S.codeLayout === 'rows' ? 'grid' : S.codeLayout) || 'grid'; return <><div className="mg">Layout</div><MI check={l === 'grid'} label="Grid" hint="Fits the panes: 2 side by side, 2 × 2, 3 × 2" onClick={() => { S.codeLayout = 'grid' }} /><MI check={l === 'cols'} label="Columns" hint="Every pane side by side, full height" onClick={() => { S.codeLayout = 'cols' }} /><MI check={l === 'one'} label="Focus" hint="One pane big, the others as tabs" onClick={() => { S.codeLayout = 'one' }} /></> }
 MENUS.codepane = () => { const p = initCode(); const k = p[S.code.focus]; return <><MI icon="copy" label="Copy output" onClick={() => toast('Copied the output')} /><MI icon="history" label="Clear" onClick={() => { if (k) k.lines = [] }} /><hr /><div className="mg">Output savers</div>
   <MI check label="RTK" hint="Compress command output" /><MI check={false} label="Caveman" hint="Shorter agent replies" /><MI check label="Semantic" hint="Search code by meaning" /><hr />
   <MI icon="x" dz label="Close terminal" dis={k?.by === 'agent'} title={k?.by === 'agent' ? 'An agent is using this terminal; stop the task first' : undefined} onClick={() => { const name = k.name; p.splice(S.code.focus, 1); S.code.focus = Math.max(0, S.code.focus - 1); toast(`Closed ${name}`) }} /></> }

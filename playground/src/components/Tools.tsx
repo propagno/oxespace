@@ -2,6 +2,7 @@
 import { Fragment } from 'react'
 import { D } from '../mock/data'
 import type { Task, Term, Query, Req, FileChange, Approval } from '../mock/types'
+import { PLACES, type Place } from '../mock/locations'
 import { S, emit, run, task, prov, plural, toast, resolve, raisePush } from '../state/store'
 import { Icon, Av, Kbd, MI, menuBtn, StateBlock, toastSoon } from './ui'
 import { MENUS, railGo } from './Shell'
@@ -63,14 +64,7 @@ export function ToolTab ({ t, tab }: { t: Task; tab: string }) {
       <div className="pane"><div className="pane-h"><Icon n="log" s={12} /><h3>Logs · {sel.name}</h3><span className="sp" /><button className="btn sm" onClick={() => { S.pod.sel = sel.id; railGo('pod') }}>Open in OxePod</button></div>
         <TermView k={{ id: 'lg', name: '', shell: '', cwd: '', by: '', lines: (D.logs[sel.id] || D.logs.api).map(l => [/error|FATAL/.test(l) ? 'err' : /warn|DETAIL/.test(l) ? 'dim' : '', l]) }} live={sel.status === 'running'} /></div></div>
   }
-  if (tab === 'changes') {
-    const fs = D.changes[t.id] || []
-    if (!fs.length) return <StateBlock kind="empty" icon="diff" title="No changes" text="Files the agent edits in this task's worktree show up here, ready to review." />
-    const add = fs.reduce((s, f) => s + f.add, 0), del = fs.reduce((s, f) => s + f.del, 0)
-    return <div className="pane"><div className="pane-h"><h3>{plural(fs.length, 'file')} changed</h3><span className="num" style={{ color: 'var(--success-fg)' }}>+{add}</span><span className="num" style={{ color: 'var(--danger-fg)' }}>−{del}</span><span className="muted hide-n">against main @ 9bb5339</span><span className="sp" />
-      <button className="btn sm" onClick={run(() => toast('Asked the agent to review its own diff'))}>Ask for a review</button><button className="btn sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'discard' } })}>Discard all…</button><button className="btn sm pri" onClick={run(() => { S.overlay = { type: 'dlg', id: 'finish' } })}>Finish the worktree…</button></div>
-      <div className="scroll"><div className="stack" style={{ padding: '12px 16px', gap: 12 }}>{fs.map(f => <DiffFile key={f.path} f={f} />)}</div></div></div>
-  }
+  if (tab === 'changes') return <ChangesTab t={t} />
   return <PrTab t={t} />
 }
 
@@ -157,3 +151,27 @@ export function QueueView () {
       : <StateBlock kind="empty" icon="check" title="All clear" text="When an agent asks to do something outside its permissions, it waits here and on its task. Your phone gets it too when it's paired." />}</div></div>
 }
 export { syncScreen }
+
+/** Changes, grouped by where they happened. Each checkout is compared with the commit the task started from, so a
+    terminal that switches the branch doesn't make the task's work disappear. Folders outside any repository are
+    listed as written. */
+export function placesFor (t: Task): Place[] {
+  const ps = PLACES[t.id]
+  const wt: Place = { id: 'w', kind: t.worktree ? 'worktree' : 'main', path: t.worktree ? `~/.oxespace/worktrees/${D.projects[t.project].name}/${t.id}` : D.projects[t.project].path, branch: t.branch, base: '9bb5339', head: `${t.branch} @ 5c0e9b1`, files: [] }
+  return (ps || [wt]).map(pl => pl.kind === 'outside' ? pl : Object.assign({}, pl, { files: D.changes[t.id] || [] }))
+}
+function ChangesTab ({ t }: { t: Task }) {
+  const places = placesFor(t).filter(p => p.files.length)
+  if (!places.length) return <StateBlock kind="empty" icon="diff" title="No changes" text="Files the agent writes show up here, grouped by where it wrote them: its worktree, another checkout, or a folder outside the repository." />
+  const all = places.flatMap(p => p.files); const add = all.reduce((n, f) => n + f.add, 0), del = all.reduce((n, f) => n + f.del, 0)
+  return <div className="pane"><div className="pane-h"><h3>{plural(all.length, 'file')} changed</h3><span className="num" style={{ color: 'var(--success-fg)' }}>+{add}</span><span className="num" style={{ color: 'var(--danger-fg)' }}>−{del}</span><span className="muted">{places.length > 1 ? `in ${places.length} places` : ''}</span><span className="sp" />
+    <button className="btn sm" onClick={run(() => toast('Asked the agent to review its own changes'))}>Ask for a review</button><button className="btn sm pri" onClick={run(() => { S.overlay = { type: 'dlg', id: 'finish' } })}>Finish the worktree…</button></div>
+    <div className="scroll"><div className="stack" style={{ padding: '12px 16px', gap: 16 }}>{places.map(pl => <section key={pl.id} className="place">
+      <header className="place-h"><span className={'place-k ' + pl.kind}><Icon n={pl.kind === 'outside' ? 'folder' : 'branch'} s={12} />{pl.kind === 'worktree' ? 'Task worktree' : pl.kind === 'main' ? 'Main checkout' : 'Outside the repository'}</span>
+        {pl.branch ? <span className="mono">{pl.branch}</span> : null}<span className="mono muted trunc">{pl.path}</span><span className="sp" />
+        {pl.base ? <span className="muted" title="The commit this checkout was on when the task first touched it">against <span className="mono">{pl.base}</span>, where the task started</span> : <span className="muted">Not a git checkout: files as the agent wrote them</span>}
+        {pl.kind !== 'outside' ? <button className="btn sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'discard' } })}>Discard…</button> : <button className="btn sm" onClick={run(() => toast(`Opened ${pl.path} in the file manager`))}>Open folder</button>}</header>
+      {pl.drift ? <div className="callout warn drift"><Icon n="branch" /><div><b>This worktree is on another branch now.</b> At {pl.drift.at} {pl.drift.by} switched it from <span className="mono">{pl.drift.from}</span> to <span className="mono">{pl.drift.to}</span>. The changes below are still the task's, compared with where it started; nothing was lost.
+        <div className="row" style={{ marginTop: 8 }}><button className="btn sm" onClick={run(() => toast('Switched the worktree back to oxe/t143-invoice-report'))}>Switch back to {pl.branch}</button><button className="btn sm" onClick={run(() => { S.tab = 'terminal' })}>Open that terminal</button><button className="btn sm" onClick={run(() => toast('The task now follows mig-prd. Its changes are compared with a12f0c4'))}>Follow the new branch</button></div></div></div> : null}
+      {pl.files.map(f => <DiffFile key={f.path} f={f} />)}</section>)}</div></div></div>
+}

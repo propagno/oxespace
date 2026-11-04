@@ -46,19 +46,54 @@ What lite B needs that isn't in the plan yet:
 
 ## Screen map
 
+Pick screens from the bar on top or the list on the right; every one has its own URL hash.
+
 | Group | Screens |
 |---|---|
 | Shell | First run · Workspace with no tasks · Task list collapsed (T61) · Command palette · Notifications · New task |
-| Task view | Waiting for an approval · Running (Stop, steer) · Reversible approval · Stopped with an error · Terminal · Queries · Requests · Containers · Changes · Pull request · Conversation details (T58 §7a) · Side chat (T58 §7c, T60) |
-| Approvals | Impact preview for a database write · Impact preview for deleting a volume · Approval queue |
-| Modes | OxeCode · OxeQuery · OxeQuery agent activity (T63) · OxePost (T62) · OxePost agent activity · OxePod · Quick chat |
-| Settings | Every page, with apply at once, undo toasts and confirm dialogs (U2, U8) |
-| Dialogs | The #569 audit's dialogs on the U1 contract |
-| Foundations | Tokens, type, spacing, icons and primitives with their states |
+| OxeChat thread | T-147, every part of a Claude Code session: image attachment, thinking, todos, an explore subagent, web and MCP calls, an approved plan, command and edit approvals, a background shell, a retried API error, compaction, a queued message, and interactive questions. Answer them, then approve the command it asks for. |
+| Task view | Waiting for an approval · Running (Stop, steer) · Reversible approval · Stopped with an error · Terminal · Queries · Requests · Containers · Changes (grouped by place) · Pull request · Conversation details · Side chat |
+| Approvals | Impact preview for a database write · for deleting a volume · Approval queue |
+| Modes | OxeCode (grid, columns, focus with tabs) · OxeQuery and what agents ran (T63) · OxePost (T62) and what agents sent · OxePod |
+| Settings | General · Appearance · Agents · Approvals and safety · Notifications · Keyboard · Terminal · Tools and skills · Phone and devices · Data and privacy · Agent activity (U12) · Diagnostics · About · Projects · Policy |
+| Dialogs | Every dialog from the #569 audit on the U1 contract, opened from a gallery |
+| Foundations | Mandacaru 1.5 read from the token file: colors in light and dark, syntax roles, type, space, motion, icons, components and their states |
 | Later (full B) | Task with two agents · Watch running tasks |
 
-The PR lands in stages. The first push has the shell, the task view, the conversation and approvals. Screens tagged
-"next push" in the picker say so when opened.
+## Rules this playground sets
+
+- **What it is doing comes first.** A task shows one line under its title that says what the agent is doing and
+  whether you must act. Tool calls fold into one summary line per group; times show on hover.
+- **Only what exists.** Tabs appear for the tools a task used; panels list only what was touched.
+- **Every text button looks like a button at rest** (a fill or a border). Only toolbar icon buttons may be bare,
+  and they always have a tooltip and an aria label.
+- **Code is colored** with the `syn-*` roles in editors, code blocks, approvals and diffs.
+- **Deny is the default; irreversible approvals need a 1.2 s hold.**
+
+## Worktree-aware Changes: what the backend needs
+
+The Changes tab and file links here assume that one task can write in several places: its own worktree, another
+checkout a terminal switched, and folders outside any repository. Today (main at the time of writing) the app tracks one place
+per thread, so people who work with many worktrees and terminals see missing or wrong files:
+
+- `thread-orchestrator.ts` `projectDiff` diffs one root (`observedLocation.checkoutRoot` when it is the same
+  repository, else `thread.rootPath`) against its current `HEAD`. A terminal that switches that checkout's branch
+  moves the base, and folders outside the repository fall back to the project root.
+- `ThreadTimelineEntry.tsx` (F33) opens paths named in the agent's text from `thread.rootPath`, so a file in the
+  worktree or in an outside folder reports "does not exist".
+
+To match the design:
+
+1. **Places per task.** Record every checkout root and outside folder the agent wrote to, from the absolute paths
+   in tool events, not only the last reported `cwd`.
+2. **A base per place.** Capture the commit each checkout was on when the task first touched it (the checkpoint
+   store already keeps `baseCommit`) and diff against it, not against `HEAD`.
+3. **Branch drift.** When a checkout's branch changes outside the task, emit an event (old and new branch, by which
+   terminal or pane) so the UI can warn and offer Switch back or Follow the new branch.
+4. **Outside folders.** List files written outside any repository as written, with no diff base.
+5. **Path resolution.** Resolve a path from the agent's text in order: absolute path, the agent's `cwd` at that
+   turn, its checkout root, the task's worktree, the project root, then other worktrees of the same repository.
+   With several matches, ask; with none, say where it looked.
 
 ## Mandacaru 1.5
 

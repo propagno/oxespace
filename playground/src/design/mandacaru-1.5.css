@@ -20,6 +20,8 @@
   --k-box:#00858a; --k-box-bg:#e0f5f6; --k-box-fg:#006e73;
   --k-net:#af4a88; --k-net-bg:#ffe9f4; --k-net-fg:#913d71;
   --k-shell:#555d57; --k-shell-bg:#edf1ee; --k-shell-fg:#404742;
+  /* 1.5: syntax roles for editors, code blocks and diffs */
+  --syn-kw:#6b4fb0; --syn-str:#237236; --syn-num:#a83f7f; --syn-fn:#18659b; --syn-type:#00727a; --syn-key:#8a4b00; --syn-cm:#6c766f; --syn-pun:#555d57; --syn-var-bg:#fdeddb; --syn-var:#845500;
   --prov-claude:#c2643f; --prov-codex:#10a37f;
   --e1: 0 1px 2px rgba(18,32,24,.06); --e2: 0 2px 6px rgba(18,32,24,.08), 0 1px 2px rgba(18,32,24,.05);
   --e3: 0 8px 24px rgba(18,32,24,.12), 0 2px 6px rgba(18,32,24,.06); --e4: 0 16px 48px rgba(18,32,24,.18), 0 4px 12px rgba(18,32,24,.08);
@@ -46,6 +48,7 @@
   --k-box:#35b9c0; --k-box-bg:#072324; --k-box-fg:#79d2d7;
   --k-net:#de75b4; --k-net-bg:#2d1523; --k-net-fg:#f7a2d2;
   --k-shell:#9ea7a1; --k-shell-bg:#1b201c; --k-shell-fg:#c4cdc7;
+  --syn-kw:#c5b4fc; --syn-str:#8fd599; --syn-num:#f7a2d2; --syn-fn:#88c8fe; --syn-type:#79d2d7; --syn-key:#f0b467; --syn-cm:#7d877f; --syn-pun:#9ea7a1; --syn-var-bg:#2b1a03; --syn-var:#f0b467;
   --e1: 0 1px 2px rgba(0,0,0,.13); --e2: 0 2px 6px rgba(0,0,0,.18), 0 1px 2px rgba(0,0,0,.11);
   --e3: 0 8px 24px rgba(0,0,0,.26), 0 2px 6px rgba(0,0,0,.13); --e4: 0 16px 48px rgba(0,0,0,.4), 0 4px 12px rgba(0,0,0,.18);
   color-scheme: dark;

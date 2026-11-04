@@ -9,12 +9,16 @@ import { QueueView, startHold, cancelHold } from './components/Tools'
 import { OverlayLayer, closeOverlay, rememberFocus } from './components/Overlays'
 import { Icon, StateBlock } from './components/ui'
 import { Later } from './components/Later'
-import { QuickChat, CodeMode } from './components/Modes'
+import { CodeMode } from './components/Modes'
+import { decideCmd } from './components/Thread'
 import { QueryMode, PostMode, PodMode } from './components/Modes2'
+import { SettingsView } from './components/Settings'
+import { Foundations } from './components/Foundations'
+import { DialogGallery } from './components/Catalog'
 
 const GROUPS = Array.from(new Set(SCREENS.map(s => s.group)))
-const tagLabel = (s: { tag: string; stage?: number }) => s.stage ? 'next push' : s.tag === 'later' ? 'later' : '1.5.0'
-const tagClass = (s: { tag: string; stage?: number }) => s.stage ? 'soon' : s.tag === 'later' ? 'later' : 'now'
+const tagLabel = (s: { tag: string }) => s.tag === 'later' ? 'later' : '1.5.0'
+const tagClass = (s: { tag: string }) => s.tag === 'later' ? 'later' : 'now'
 
 function FirstRun () {
   return <div className="fr"><div className="fr-in">
@@ -27,7 +31,7 @@ function FirstRun () {
 }
 function NextPush () {
   const s = SCREENS.find(x => x.id === S.screen)
-  return <StateBlock kind="empty" icon="layers" title={`${s ? s.name : 'This screen'} arrives in the next push`} text="This PR is published in stages, as agreed: the shell, the task view and the conversation first. Modes on their own, Settings, the dialog catalog and Foundations come next on the same branch.">
+  return <StateBlock kind="empty" icon="layers" title={`${s ? s.name : 'This screen'} isn't in the playground`} text="Pick another screen from the list on the right.">
     <button className="btn pri" onClick={() => goScreen('task-approval')}>Back to the task view</button></StateBlock>
 }
 function Body () {
@@ -37,11 +41,13 @@ function Body () {
   if (a === 'task') return wb(S.emptyWs ? <EmptyHome /> : S.view === 'empty' ? <EmptyHome /> : <TaskView />, true)
   if (a === 'later-multi' || a === 'later-watch') return wb(<Later />, true)
   if (a === 'queue') return wb(S.view === 'loading' ? <StateBlock kind="loading" /> : <QueueView />)
-  if (a === 'chat') return wb(<QuickChat />)
   if (a === 'mode' && S.mode2 === 'code') return wb(<CodeMode />)
   if (a === 'mode' && S.mode2 === 'query') return wb(<QueryMode />)
   if (a === 'mode' && S.mode2 === 'post') return wb(<PostMode />)
   if (a === 'mode' && S.mode2 === 'pod') return wb(<PodMode />)
+  if (a === 'settings') return wb(<SettingsView />)
+  if (a === 'found') return wb(<Foundations />)
+  if (a === 'dialogs') return wb(<DialogGallery />)
   return wb(<NextPush />)
 }
 
@@ -85,6 +91,7 @@ function useKeys () {
         if (k === 'a') { if (D.approvals[ap].irreversible) startHold(ap); else { resolve(ap, 'ok'); emit() } return }
       }
       if (S.overlay) return
+      if (S.area === 'task' && cur()?.ask === 'cmd' && (k === 'd' || k === 'a')) { decideCmd(cur(), k === 'd' ? 'deny' : 'once'); emit(); return }
       if (S.area === 'queue' && (k === 'j' || k === 'k')) { const n = S.queue.filter(q => !S.resolved[q]).length; S.queueSel = Math.max(0, Math.min(n - 1, S.queueSel + (k === 'j' ? 1 : -1))); emit(); return }
       if (k === 'n') { e.preventDefault(); rememberFocus(); S.overlay = { type: 'newtask', text: '' }; emit(); return }
       if (k === 'l' && S.area === 'task' && S.past[S.taskId] != null) { delete S.past[S.taskId]; emit() }
