@@ -90,11 +90,37 @@ describe('buildTerminalSnapshot', () => {
   })
 })
 
-describe('the frame budget', () => {
-  test('a screen that would not fit with its first data page is left out, never cut', async () => {
-    const { fitsWithSnapshot } = await import('../../electron/main/services/remote/topics')
+describe('the frame budget (TECH LEAD on #634)', () => {
+  test('the screen is judged on a page of its own, with no ring data beside it', async () => {
+    const { snapshotFits } = await import('../../electron/main/services/remote/topics')
     const { REMOTE_LIMITS } = await import('../../shared/remote/protocol')
-    expect(fitsWithSnapshot('small', { ansi: 'x'.repeat(1000), cols: 80, rows: 24 })).toBe(true)
-    expect(fitsWithSnapshot('small', { ansi: 'x'.repeat(REMOTE_LIMITS.maxFrameBytes), cols: 80, rows: 24 })).toBe(false)
+    expect(snapshotFits({ ansi: 'x'.repeat(30_000), cols: 80, rows: 24 })).toBe(true)
+    expect(snapshotFits({ ansi: 'x'.repeat(REMOTE_LIMITS.maxFrameBytes), cols: 80, rows: 24 })).toBe(false)
+  })
+
+  test('too big: less history (200, then 50, then none); left out only when the screen alone does not fit', async () => {
+    const lines = Array.from({ length: 400 }, (_, index) => `row ${index} ${'#'.repeat(60)}`).join('\r\n')
+    const sizes: number[] = []
+    const reduced = await buildTerminalSnapshot(lines, 80, 10, [], snapshot => { sizes.push(snapshot.ansi.length); return sizes.length === 2 })
+    expect(sizes).toHaveLength(2)
+    expect(sizes[1]).toBeLessThan(sizes[0])
+    expect(plain(reduced!.snapshot.ansi)).toContain('row 399')
+    expect(plain(reduced!.snapshot.ansi)).not.toContain('row 300 ')
+    // Nothing fits, not even the screen alone: left out (null), all three tried.
+    let tries = 0
+    expect(await buildTerminalSnapshot(lines, 80, 10, [], () => { tries += 1; return false })).toBeNull()
+    expect(tries).toBe(3)
+  })
+
+  test('the plain fallback (a secret was redacted on screen) also steps its history down', async () => {
+    const SPLIT = `key ${SECRET.slice(0, 12)}\x1b[31m${SECRET.slice(12)}\x1b[0m\r\n`
+    const text = `${Array.from({ length: 300 }, (_, index) => `old ${index}`).join('\r\n')}\r\n${SPLIT}tail`
+    const released = clean(text, [], Number.MAX_SAFE_INTEGER).text
+    const tried: string[] = []
+    const built = await buildTerminalSnapshot(released, 80, 10, [], snapshot => { tried.push(snapshot.ansi); return tried.length === 3 })
+    expect(plain(built!.snapshot.ansi)).toContain('tail')
+    expect(plain(built!.snapshot.ansi)).not.toContain('old 250')
+    expect(built!.snapshot.ansi).not.toContain(SECRET.slice(12))
+    expect(built!.redacted).toBeGreaterThan(0)
   })
 })

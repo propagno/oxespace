@@ -631,7 +631,8 @@ data class RemoteTerminalData(
     val truncated: Boolean,
     val redacted: Long? = null,
     /**
-     * 1.4.3 P4: the pane's screen, on the FIRST page of a snapshot only, never on an event. A phone that reads it resets
+     * 1.4.3 P4: the pane's screen, on the FIRST page of a snapshot only (a page of its own: its `data` is empty), never on
+     * an event. A phone that reads it resets
      * its view to `cols` × `rows`, feeds `ansi` once and skips that snapshot's `data` pages (the same ring); then it applies
      * events as before. Absent (an older desktop, or over the frame budget): behave as without it.
      */

@@ -6,6 +6,8 @@ import { redactCounted, scrubPaths } from './text'
 
 /** Rows of history kept above the screen (TECH LEAD, 1.4.3 P4). */
 export const SNAPSHOT_SCROLLBACK = 200
+/** History tried in turn when the snapshot does not fit its frame (TECH LEAD on #634). */
+export const SCROLLBACK_STEPS = [SNAPSHOT_SCROLLBACK, 50, 0] as const
 const MAX_COLS = 500
 const MAX_ROWS = 200
 
@@ -21,7 +23,9 @@ const MAX_ROWS = 200
  * escape sequence, so the raw-text redactor never saw it whole; on screen it reads as one. When that check finds
  * anything, the snapshot falls back to the redacted plain rows (colours lost, the secret never shown).
  */
-export async function buildTerminalSnapshot(text: string, cols: number, rows: number, roots: readonly string[]): Promise<{ snapshot: RemoteTerminalSnapshot; redacted: number }> {
+export async function buildTerminalSnapshot(
+  text: string, cols: number, rows: number, roots: readonly string[], fits: (snapshot: RemoteTerminalSnapshot) => boolean = () => true
+): Promise<{ snapshot: RemoteTerminalSnapshot; redacted: number } | null> {
   const width = clamp(cols, 20, MAX_COLS, 80), height = clamp(rows, 5, MAX_ROWS, 24)
   const terminal = new xtermHeadless.Terminal({ cols: width, rows: height, scrollback: SNAPSHOT_SCROLLBACK, allowProposedApi: true })
   try {
@@ -40,12 +44,20 @@ export async function buildTerminalSnapshot(text: string, cols: number, rows: nu
     }
     const rendered = lines.join('\n')
     const checked = redactCounted(scrubPaths(rendered, roots))
-    if (!checked.redacted && checked.text === rendered) {
-      return { snapshot: { ansi: serializer.serialize({ scrollback: SNAPSHOT_SCROLLBACK }), cols: width, rows: height }, redacted: 0 }
-    }
-    // Fallback: the redacted plain rows, the cursor placed where it was, colours dropped.
+    const styled = !checked.redacted && checked.text === rendered
+    // Fallback rows: the redacted plain text, the cursor placed where it was, colours dropped.
+    const plainRows = checked.text.split('\n')
     const cursor = `\x1b[${buffer.cursorY + 1};${buffer.cursorX + 1}H`
-    return { snapshot: { ansi: `${checked.text.split('\n').join('\r\n')}${cursor}`, cols: width, rows: height }, redacted: checked.redacted }
+    // TECH LEAD on #634: a busy pane must keep its screen. Too big for its frame: less history (200, 50, then none);
+    // left out only when the screen alone does not fit.
+    for (const keep of SCROLLBACK_STEPS) {
+      const ansi = styled
+        ? serializer.serialize({ scrollback: keep })
+        : `${plainRows.slice(Math.max(0, plainRows.length - height - keep)).join('\r\n')}${cursor}`
+      const snapshot = { ansi, cols: width, rows: height }
+      if (fits(snapshot)) return { snapshot, redacted: styled ? 0 : checked.redacted }
+    }
+    return null
   } finally {
     terminal.dispose()
   }
