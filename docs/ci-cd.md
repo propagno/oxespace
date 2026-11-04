@@ -16,8 +16,9 @@ commit ─▶ pull request ─▶ CI and Release (PR)          first red ≈ 3 m
        ─▶ label na-fila ─▶ Merge train                  updates the PR with main, dispatches CI on that head,
                                                         merges when every check is green, one PR at a time
        ─▶ main ─▶ CI and Release (push)                 everything runs, including the OxeQuery live matrices
-       ─▶ Run workflow "CI and Release" from main,      package (Windows + Linux, packaged-app E2E)
-          publish_release=true (the release owner)      → tag → draft → re-download and verify → publish
+       ─▶ the release owner pushes the tag vX.Y.Z     package (Windows + Linux, packaged-app E2E)
+          on the candidate commit of main               → draft → wait for approval (environment `release`)
+                                                        → re-download and verify → publish
        ─▶ installed apps                                electron-updater reads the feed; stable installs get
                                                         stable releases, beta installs also get prereleases
 ```
@@ -26,7 +27,7 @@ commit ─▶ pull request ─▶ CI and Release (PR)          first red ≈ 3 m
 
 | Workflow | Trigger | What it gates |
 |---|---|---|
-| `ci.yml` — CI and Release | PR, push to main, `v*.*.*` tag, dispatch | The single pipeline: quick checks, unit (Windows + Linux), E2E (3 shards per OS), perf gate, live DB tests, packaging and release. `CI result` is the one check for the run. See [RELEASE_PIPELINE.md](RELEASE_PIPELINE.md#jobs). |
+| `ci.yml` — CI and Release | PR, push to main, `v*.*.*` tag, dispatch | The single pipeline: quick checks, unit (Windows + Linux), E2E (3 shards per OS), perf gate, live DB tests, packaging and release, and the dependency review when a manifest, lockfile or workflow changes (a high or critical advisory fails it). `CI result` is the one check for the run, and the one branch protection requires. A dispatched run (the merge train's) also posts it as a commit status on the commit it tested, since GitHub does not count a `workflow_dispatch` check run toward a pull request's required checks. See [RELEASE_PIPELINE.md](RELEASE_PIPELINE.md#jobs). |
 | `merge-train.yml` | `na-fila` label, workflow_run, schedule, dispatch | Merges PRs one at a time ([RELEASE_PIPELINE.md#merge-train](RELEASE_PIPELINE.md#merge-train)). PRs that change `.github/workflows/**` can't be merged by its token and are merged by hand. |
 | `a11y-axe.yml` | PR, push, dispatch | axe scan of the screens. |
 | `memory-compatibility.yml` | PR (memory paths), called by `ci.yml` | AI Memory contract against pinned upstream versions. |
@@ -36,15 +37,27 @@ commit ─▶ pull request ─▶ CI and Release (PR)          first red ≈ 3 m
 | `acceptance.yml` | dispatch | `e2e/acceptance` specs. They are written before the feature, so red is expected until the item lands. |
 | `visual-regression.yml` | push to main | Screenshot comparison of the anchor surfaces. |
 | `visual-baselines.yml` | dispatch | Regenerates the baselines, once per batch on main, not per PR. |
-| `release.yml` | dispatch | Redirect only: forwards to `ci.yml` with `publish_release=true`. |
+| `release.yml` | dispatch | Redirect only: forwards to `ci.yml` with `publish_release=true`. Not for a stable release: the `release` environment accepts only tags (see below). |
 
 Useful dispatches of `ci.yml`, all from the branch chosen in **Use workflow from**:
 
 - no inputs: a full check of that branch (what the train uses);
 - `packaged_smoke_only=true`: builds the installer layout and runs the packaged-app E2E on both platforms, publishes
   nothing. Use it before any release and on any PR that touches packaging, `electron-builder.yml` or the fuses;
-- `publish_release=true` (+ optional `tag`): a real release. Stable versions only from `main`; the job refuses a
-  commit that is not on main (`ci.yml`, "Plan build vs release").
+- `publish_release=true` (+ optional `tag`): **not how a stable version is published.** The publish job runs in the
+  `release` environment, which accepts only `v*` tags, so a dispatch from `main` stops at that job.
+
+**Publishing a release** is a tag push by the release owner (the user), on the candidate commit of `main`:
+
+```sh
+git tag v1.4.0 <candidate sha>     # package.json on that commit says 1.4.0
+git push origin v1.4.0
+```
+
+The tag's CI run (`Publish vX.Y.Z`) checks the tag matches `package.json` and is on `main`, builds and verifies
+everything, then waits on **Review deployments → Approve** (the `release` environment's required reviewer) before it
+publishes. Its last step starts `android-release.yml` on the tag (a release published with `GITHUB_TOKEN` fires no
+`release` event, so it would not start on its own), which signs and attaches the APK after its own approval.
 
 ### Draft pull requests
 

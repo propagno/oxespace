@@ -76,6 +76,8 @@ export function codexEventPlan(): HookEventPlan[] {
 
 export interface HookPayload {
   hook_event_name?: unknown
+  /** Claude Code's permission mode (`default`, `acceptEdits`, `plan`, `bypassPermissions`), read at SessionStart only (T54). */
+  permission_mode?: unknown
   tool_name?: unknown
   agent_id?: unknown
   session_id?: unknown

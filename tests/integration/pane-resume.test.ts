@@ -400,6 +400,128 @@ describe('a resume that cannot load (exits within RESUME_LOAD_MS)', () => {
   })
 })
 
+describe('T54 · the permission mode a Claude session started in comes back with it', () => {
+  const C = '7c9e6679-7425-40de-944b-e07fc1f90ae7'
+
+  test('(a) bypassPermissions comes back only with the person\'s setting on (TECH LEAD on #552: the hook\'s mode is untrusted)', async () => {
+    const db = openInMemoryDatabase()
+    const ws = workspace(db)
+    const pane = ws.panes[0]
+    // A SessionStart reported bypassPermissions: the person's own `claude --dangerously-skip-permissions`, or a forged
+    // hook from any process in the pane. The two look the same.
+    new PaneAgentSessions(db).record(pane.id, 'claude', C, 'hook', 'bypassPermissions')
+    claudeTranscript(C)
+    const first = run(db)
+    try {
+      // Off (the default): no escalation, and the pane says it resumed asking, pointing at the setting.
+      expect(first.terminals.resumeBypass()).toBe(false)
+      await first.terminals.start({ workspaceId: ws.id, paneId: pane.id, disableRtk: true, resumeAgent: true })
+      expect(first.pty.spawn).toHaveBeenLastCalledWith('claude', ['--resume', C], expect.objectContaining({ cwd: root }))
+      expect(first.terminals.status(pane.id).agentResume).toEqual({ outcome: 'resumed', agent: 'claude', sessionId: C, note: { code: 'agents.resume.bypassWithheld', params: {} } })
+    } finally { first.terminals.stopAll() }
+    const second = run(db)
+    try {
+      // On: it comes back as it was, with no note.
+      expect(second.terminals.setResumeBypass(true)).toBe(true)
+      await second.terminals.start({ workspaceId: ws.id, paneId: pane.id, disableRtk: true, resumeAgent: true })
+      expect(second.pty.spawn).toHaveBeenLastCalledWith('claude', ['--dangerously-skip-permissions', '--resume', C], expect.objectContaining({ cwd: root }))
+      expect(second.terminals.status(pane.id).agentResume).toEqual({ outcome: 'resumed', agent: 'claude', sessionId: C })
+    } finally { second.terminals.stopAll(); db.close() }
+  })
+
+  test('Restore session of a session that skipped permissions: no flag with the setting off, the flag with it on', async () => {
+    const db = openInMemoryDatabase()
+    const ws = workspace(db)
+    const pane = ws.panes[0]
+    const { sessions, pty, terminals } = run(db)
+    sessions.record(pane.id, 'claude', C, 'hook', 'bypassPermissions')
+    try {
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', agentArgs: ['--resume', C], disableRtk: true })
+      expect(pty.spawn).toHaveBeenLastCalledWith('claude', ['--resume', C], expect.anything())
+      expect(terminals.status(pane.id).agentResume).toMatchObject({ outcome: 'resumed', note: { code: 'agents.resume.bypassWithheld' } })
+      terminals.stopAll()
+      terminals.setResumeBypass(true)
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', agentArgs: ['--resume', C], disableRtk: true })
+      expect(pty.spawn).toHaveBeenLastCalledWith('claude', ['--dangerously-skip-permissions', '--resume', C], expect.anything())
+    } finally { terminals.stopAll(); db.close() }
+  })
+
+  test('(a) the same with plan and acceptEdits; default and nothing recorded add no flag', async () => {
+    for (const [mode, flags] of [['plan', ['--permission-mode', 'plan']], ['acceptEdits', ['--permission-mode', 'acceptEdits']], ['default', []], [undefined, []]] as const) {
+      const db = openInMemoryDatabase()
+      const ws = workspace(db)
+      const pane = ws.panes[0]
+      new PaneAgentSessions(db).record(pane.id, 'claude', C, 'hook', mode)
+      claudeTranscript(C)
+      const { pty, terminals } = run(db)
+      try {
+        await terminals.start({ workspaceId: ws.id, paneId: pane.id, disableRtk: true, resumeAgent: true })
+        expect(pty.spawn, String(mode)).toHaveBeenLastCalledWith('claude', [...flags, '--resume', C], expect.anything())
+      } finally { terminals.stopAll(); db.close() }
+    }
+  })
+
+  test('(b) a profile command that sets its own mode keeps it, and nothing is added twice', async () => {
+    const db = openInMemoryDatabase()
+    const ws = workspace(db)
+    const pane = ws.panes[0]
+    new PaneAgentSessions(db).record(pane.id, 'claude', C, 'hook', 'bypassPermissions')
+    claudeTranscript(C)
+    const { pty, terminals } = run(db)
+    try {
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude --permission-mode plan', disableRtk: true, resumeAgent: true })
+      expect(pty.spawn).toHaveBeenLastCalledWith('claude', ['--permission-mode', 'plan', '--resume', C], expect.anything())
+    } finally { terminals.stopAll(); db.close() }
+  })
+
+  test('Restore session: the recorded session comes back in its mode; another session id gets no flag', async () => {
+    const db = openInMemoryDatabase()
+    const ws = workspace(db)
+    const pane = ws.panes[0]
+    const { sessions, pty, terminals } = run(db)
+    sessions.record(pane.id, 'claude', C, 'hook', 'acceptEdits')
+    try {
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', agentArgs: ['--resume', C], disableRtk: true })
+      expect(pty.spawn).toHaveBeenLastCalledWith('claude', ['--permission-mode', 'acceptEdits', '--resume', C], expect.anything())
+      terminals.stopAll()
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', agentArgs: ['--resume', A], disableRtk: true })
+      expect(pty.spawn).toHaveBeenLastCalledWith('claude', ['--resume', A], expect.anything())
+    } finally { terminals.stopAll(); db.close() }
+  })
+
+  test('an agent started by MCP or Team (a launch) never gets a recorded mode, even with the setting on', async () => {
+    const db = openInMemoryDatabase()
+    const ws = workspace(db)
+    const pane = ws.panes[0]
+    const { sessions, pty, terminals } = run(db)
+    sessions.record(pane.id, 'claude', C, 'hook', 'bypassPermissions')
+    terminals.setResumeBypass(true)
+    try {
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, launch: { executable: 'claude', args: ['--resume', C] }, disableRtk: true })
+      expect(pty.spawn.mock.calls.at(-1)![1]).not.toContain('--dangerously-skip-permissions')
+    } finally { terminals.stopAll(); db.close() }
+  })
+
+  test('only a SessionStart sets the mode: a later event of the same session keeps it, a new session starts with none', () => {
+    const db = openInMemoryDatabase()
+    try {
+      const pane = workspace(db).panes[0]
+      const sessions = new PaneAgentSessions(db)
+      sessions.record(pane.id, 'claude', C, 'hook', 'plan')
+      sessions.record(pane.id, 'claude', C, 'hook')
+      expect(sessions.current(pane.id)).toMatchObject({ sessionId: C, permissionMode: 'plan' })
+      sessions.record(pane.id, 'claude', A, 'hook')
+      expect(sessions.current(pane.id)).not.toHaveProperty('permissionMode')
+      // Never stored: a word Claude does not use, or a mode for Codex.
+      sessions.record(pane.id, 'claude', C, 'hook', 'yolo' as never)
+      expect(sessions.current(pane.id)).not.toHaveProperty('permissionMode')
+      sessions.record(pane.id, 'codex', B, 'hook', 'bypassPermissions')
+      expect(sessions.take(pane.id, true)).toEqual({ agent: 'codex', sessionId: B, wanted: true })
+      expect(() => db.prepare("UPDATE pane_agent_sessions SET permission_mode = 'yolo'").run()).toThrow()
+    } finally { db.close() }
+  })
+})
+
 describe('what survives the crash', () => {
   test('a session with no end recorded (the app died) is still there after the restart', async () => {
     const db = openInMemoryDatabase()

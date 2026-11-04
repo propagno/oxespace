@@ -192,6 +192,18 @@ describe('Settings › Tools', () => {
     expect(within(others).getByText('Set in your user policy; change it there.')).toBeVisible()
   })
 
+  it('T53: an auto-approved read says why, offers running or blocking, and is not counted as a rule set', async () => {
+    mount({ rules: [{ server: 'oxespace-delegation', tool: 'oxespace_code_search', decision: 'allow', source: 'reads', editable: true, allowedDecisions: ['allow', 'deny'], confirmLevel: false, scope: 'oxechat' }] })
+    const core = await panel('Core tools')
+    fireEvent.click(await within(core).findByText('Rules per tool · 0 set'))
+    const row = within(core).getByRole('combobox', { name: 'Rule for oxespace_code_search' })
+    expect(row).toHaveValue('allow')
+    expect(within(row).getByRole('option', { name: 'Run without asking' })).toBeInTheDocument()
+    expect(within(row).getByRole('option', { name: 'Block' })).toBeInTheDocument()
+    expect(within(row).queryByRole('option', { name: 'Ask me' })).toBeNull()
+    expect(screen.getByText(`A read-only lookup, allowed by "Approve read-only commands automatically" in a conversation's Permissions. Turn that off to be asked.`)).toBeVisible()
+  })
+
   it('shows the organization policy about tools read only, without project rules', async () => {
     mount()
     const policy = await panel('User and organization policy')

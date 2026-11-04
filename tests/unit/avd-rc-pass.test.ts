@@ -37,6 +37,15 @@ describe.runIf(hasSh)('avd-rc-pass.sh memory floor', () => {
     }
   })
 
+  it('fails the boot step at once when there is no device, instead of waiting for one forever', () => {
+    const started = Date.now()
+    const result = run('pair', 5000)
+    expect(result.status).toBe(1)
+    expect(readFileSync(join(root, 'rc', 'fail.txt'), 'utf8')).toMatch(/^boot: no device/)
+    expect(existsSync(join(root, 'rc', 'avd-ready'))).toBe(false)
+    expect(Date.now() - started).toBeLessThan(15_000)
+  })
+
   it('rejects an unknown phase', () => {
     expect(run('boot', 5000).status).toBe(2)
   })

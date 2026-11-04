@@ -10,4 +10,4 @@ CREATE TABLE IF NOT EXISTS agent_seen (
 );
 CREATE INDEX IF NOT EXISTS agent_seen_oldest ON agent_seen(seen_at);
 
-PRAGMA user_version = 91;
+PRAGMA user_version = 92;
