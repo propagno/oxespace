@@ -569,6 +569,45 @@
       "later": "If you refuse, phones cannot reach this computer. You can change the answer later in the firewall settings of your system.",
       "confirm": "Turn on"
     },
+    "firewallCheck": {
+      "rule": "OXESpace.exe, TCP {{port}}, Private networks only",
+      "blocked": {
+        "title": "A firewall rule blocks OXESpace",
+        "text": "A Block rule in Windows Defender Firewall stops phones from reaching this computer, and it wins over any Allow rule. OXESpace never removes it: ask your IT, or remove it in Windows Defender Firewall."
+      },
+      "public": {
+        "title": "This network is Public, so Windows blocks phones",
+        "text": "Windows keeps devices out on Public networks. If this is your home or office Wi-Fi, set it to Private: Windows Settings › Network & internet › Wi-Fi › this network › Private network. OXESpace doesn't change it for you."
+      },
+      "noRule": {
+        "title": "Windows Firewall doesn't let phones in yet",
+        "text": "No firewall rule lets OXESpace accept connections from phones on this network."
+      },
+      "noInspection": "OXESpace couldn't read the firewall settings, so this is a guess. Allowing it is still safe.",
+      "ok": "Phones can reach this computer: {{rule}}.",
+      "checkAgain": "Check again",
+      "uac": "Windows will ask for permission. Nothing changes if you say No.",
+      "command": "What runs:",
+      "repair": {
+        "action": "Allow on private networks",
+        "adds": "Adds one rule: {{rule}}.",
+        "confirmTitle": "Allow phones on private networks?",
+        "explain": "OXESpace adds one Windows Firewall rule, \"{{name}}\": {{rule}}. You can remove it here later.",
+        "confirm": "Allow",
+        "done": "Verified: phones can now reach this computer on private networks",
+        "notVerified": "The rule could not be verified. Check again, or add it in Windows Defender Firewall.",
+        "failed": "The rule couldn't be added"
+      },
+      "undo": {
+        "action": "Remove the rule",
+        "confirmTitle": "Remove the firewall rule?",
+        "explain": "OXESpace removes only the rule it added, \"{{name}}\" ({{rule}}). Phones won't reach this computer until it is allowed again.",
+        "confirm": "Remove",
+        "done": "Verified: the firewall rule is removed",
+        "notVerified": "The removal could not be verified. Check again.",
+        "failed": "The rule couldn't be removed"
+      }
+    },
     "name": {
       "title": "Name of this computer",
       "label": "Name phones see",
