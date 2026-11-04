@@ -1,6 +1,7 @@
 /* OxeCode, evolved from 1.4: the workspace sidebar (WorkspaceGroup, PaneSessionRow, sessions to resume), the
    layout presets (Grid/layouts.ts), resizable splits, pane maximize, a branch badge on every pane, and the
    Files / Changes / Browser dock. New in 1.5.0: Focus with tabs, and a warning when a terminal's branch moved. */
+import { CodeSidebar, curWs, wsName, wsColor } from './Sidebars'
 import { D } from '../mock/data'
 import type { Term } from '../mock/types'
 import { S, emit, run, toast } from '../state/store'
@@ -17,15 +18,20 @@ const CANNED: Record<string, string[][]> = {
   'git branch --show-current': [['', 'oxe/t142-idempotent-charges']], ls: [['', 'README.md  docker-compose.yml  migrations  package.json  src  test']], 'npm test': [['', ' PASS  test/charges/create.test.ts'], ['ok', 'Tests:       26 passed, 26 total']], pwd: [['', '~/.oxespace/worktrees/cajui-api/t142']]
 }
 const clone = <T,>(o: T): T => JSON.parse(JSON.stringify(o))
-function initCode (): CPane[] {
-  if (!S.codePanes) S.codePanes = [
-    Object.assign(clone(D.terms.t142[1]), { branch: 'oxe/t142-idempotent-charges', project: 'cajui-api' }),
-    Object.assign(clone(D.terms.t142[0]), { tag: 'Make charge creation idempotent', prov: 'claude', branch: 'oxe/t142-idempotent-charges', project: 'cajui-api' }),
-    Object.assign(clone(D.terms.t143[0]), { tag: 'Find why the monthly invoice report takes 40 s', prov: 'codex', branch: 'mig-prd', moved: 'oxe/t143-invoice-report', project: 'cajui-api' }),
-    { id: 'kc', name: 'claude', shell: 'claude', cwd: '~/code/cajui/cajui-web', by: 'you', prov: 'claude', branch: 'main', project: 'cajui-web', lines: [['', '╭─ Claude Code ──────────────────────────────╮'], ['', '│ Opus 5.5 · ~/code/cajui/cajui-web           │'], ['', '╰────────────────────────────────────────────╯'], ['', ''], ['', '> Where do we format BRL amounts?'], ['', ''], ['', '● lib/money.ts:12  formatBRL(cents) uses Intl.NumberFormat("pt-BR")'], ['dim', '  Used by 14 components; the statements export has its own copy.']] }
-  ] as CPane[]
-  return S.codePanes as CPane[]
+/** 1.4: each workspace owns its panes; the grid shows the active workspace's. */
+function seedPanes (): Record<string, CPane[]> {
+  return {
+    'w-api': [{ id: 'ka', name: 'bash', shell: 'bash', cwd: '~/code/cajui/cajui-api', by: 'you', branch: 'main', project: 'cajui-api', lines: [['$ ', 'git status'], ['', 'On branch main'], ['', "Your branch is up to date with 'origin/main'."], ['$ ', 'git worktree list'], ['', '~/code/cajui/cajui-api                    3f2a91c [main]'], ['', '~/.oxespace/worktrees/cajui-api/t142      9c01e2d [oxe/t142-idempotent-charges]'], ['', '~/.oxespace/worktrees/cajui-api/t143      b7d4410 [mig-prd]']] }],
+    'w-t142': [
+      Object.assign(clone(D.terms.t142[1]), { branch: 'oxe/t142-idempotent-charges', project: 'cajui-api' }),
+      Object.assign(clone(D.terms.t142[0]), { tag: 'Make charge creation idempotent', prov: 'claude', branch: 'oxe/t142-idempotent-charges', project: 'cajui-api' })],
+    'w-t143': [Object.assign(clone(D.terms.t143[0]), { tag: 'Find why the monthly invoice report takes 40 s', prov: 'codex', branch: 'mig-prd', moved: 'oxe/t143-invoice-report', project: 'cajui-api' })],
+    'w-web': [{ id: 'kc', name: 'claude', shell: 'claude', cwd: '~/code/cajui/cajui-web', by: 'you', prov: 'claude', branch: 'main', project: 'cajui-web', lines: [['', '╭─ Claude Code ──────────────────────────────╮'], ['', '│ Opus 5.5 · ~/code/cajui/cajui-web           │'], ['', '╰────────────────────────────────────────────╯'], ['', ''], ['', '> Where do we format BRL amounts?'], ['', ''], ['', '● lib/money.ts:12  formatBRL(cents) uses Intl.NumberFormat("pt-BR")'], ['dim', '  Used by 14 components; the statements export has its own copy.']] }],
+    'w-infra': [Object.assign(clone(D.terms.t145[0]), { cwd: '~/code/cajui/cajui-infra', tag: 'Move docker-compose to Postgres 17', prov: 'codex', branch: 'main', project: 'cajui-infra' })]
+  } as Record<string, CPane[]>
 }
+export function panesOf (ws: string): CPane[] { if (!S.wsPanes) S.wsPanes = seedPanes() as never; return ((S.wsPanes as Record<string, CPane[]>)[ws] ||= []) }
+function initCode (): CPane[] { const p = panesOf(S.ws); S.codePanes = p as never; return p }
 
 export function CodeMode () {
   const panes = initCode()
@@ -48,16 +54,10 @@ export function CodeMode () {
   const shown = panes
   const dock = S.codeDock as string | undefined
   return <div className="mode-split code-split">
-    <aside className="mode-side ws-side" aria-label="Workspace"><div className="mside-h"><b>{D.company.name}</b><span className="sp" /><button className="ibtn sm" title="New terminal" aria-label="New terminal" onClick={run(addTerm)}><Icon n="plus" s={12} /></button></div>
-      <div className="scroll"><div className="lst">{['cajui-api', 'cajui-web'].map(pr => <div key={pr}><div className="tg"><Icon n="folder" s={12} /><span>{pr}</span><span className="n">{panes.filter(p => (p.project || 'cajui-api') === pr).length}</span></div>
-        {panes.map((p, i) => (p.project || 'cajui-api') !== pr ? null : <button key={p.id + i} className="psr one" aria-current={S.code.focus === i} onClick={run(() => { S.code.focus = i; if (max != null) S.codeMax = i })}>
-          <span className={'sdot ' + (p.by === 'agent' ? 'on' : 'off')} /><span className="psr-n">{p.prov ? <span className={'pdot ' + p.prov} /> : <Icon n="term" s={12} />}<span className="trunc">{p.name}</span></span>
-          <span className={'bb' + (p.moved ? ' moved' : '')} title={p.moved ? `Was ${p.moved}` : undefined}><Icon n="branch" s={12} /><span className="trunc">{p.branch || 'main'}</span></span></button>)}</div>)}
-        <div className="tg"><Icon n="history" s={12} /><span>Sessions you can resume</span></div>{SESSIONS.map(([pv, m, ti, at]) => <div key={ti} className="psr ro"><span className={'pdot ' + pv} /><span className="psr-n"><span className="trunc">{ti}</span></span><button className="btn sm" onClick={run(() => resume(pv, m, ti, at))}>Resume</button><span className="psr-s">{m} · {at}</span></div>)}</div></div>
-      <div className="mside-f"><button className="btn sm ghost" onClick={run(() => { S.overlay = { type: 'dlg', id: 'newws' } })}><Icon n="plus" s={12} />New workspace</button></div></aside>
+    <CodeSidebar panesOf={panesOf} onPane={(ws, i) => { S.ws = ws; S.code.focus = i; if (S.codeMax != null) S.codeMax = i }} />
     <div className={'mode code' + (focusTabs && panes.length > 1 && max == null ? (tooMany ? ' tabs fit' : ' tabs') : '')}>
-      <div className="mode-h"><span style={{ color: 'var(--k-shell)' }}><Icon n="term" s={16} /></span><h2 className="mt">OxeCode</h2><span className="muted" style={{ fontSize: 12 }}>{panes.length === 1 ? '1 pane' : `${panes.length} panes`}</span><span className="sp" />
-        <span className="splitbtn"><button className="btn sm" title="New terminal where the focused pane is" onClick={run(() => { const d = focusedPlace(); addPane('term', d.project, d.wt) })}><Icon n="plus" s={12} />Terminal</button><button className="btn sm" aria-label="New terminal in…" title="New terminal in…" onClick={run(() => { S.overlay = { type: 'dlg', id: 'newpane', text: 'term' } })}><Icon n="down" s={12} /></button></span><button className="btn sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'newpane', text: 'agent' } })}><Icon n="sparkle" s={12} />Agent</button>
+      <div className="mode-h"><span style={{ color: 'var(--k-shell)' }}><Icon n="term" s={16} /></span><h2 className="mt">OxeCode</h2><span className="wschip" style={{ ['--wsc' as string]: `var(--ws-${wsColor(curWs())})` }}><span className="wsdot" />{wsName(curWs())}</span><span className="muted" style={{ fontSize: 12 }}>{panes.length === 1 ? '1 pane' : `${panes.length} panes`}</span><span className="sp" />
+        <span className="splitbtn"><button className="btn sm" title="New terminal where the focused pane is" onClick={run(() => { const d = focusedPlace(); addPane('term', d.project, d.wt) })}><Icon n="plus" s={12} />Terminal</button><button className="btn sm" aria-label="New terminal in…" title="New terminal in…" onClick={run(() => { S.overlay = { type: 'dlg', id: 'newpane', text: 'term' } })}><Icon n="down" s={12} /></button></span><span className="splitbtn"><button className="btn sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'newpane', text: 'agent' } })}><Icon n="sparkle" s={12} />Agent</button><button className="btn sm" aria-label="Resume an agent session…" title="Resume an agent session…" onClick={menuBtn('resume')}><Icon n="history" s={12} /></button></span>
         <button className="btn sm" onClick={menuBtn('codelayout')} aria-haspopup="menu"><Icon n="grid" s={12} />{focusTabs ? 'Focus' : layout.replace('x', ' × ')}</button><span className="vsep" />
         {([['files', 'file', 'Files (Ctrl E)'], ['changes', 'diff', 'Changes (Ctrl Shift D)'], ['browser', 'globe', 'Browser (Ctrl Shift B)'], ['worktrees', 'layers', 'Worktrees']] as const).map(([id, ic, l]) => <button key={id} className="ibtn" aria-pressed={dock === id} title={l} aria-label={l} onClick={run(() => { S.codeDock = dock === id ? undefined : id })}><Icon n={ic} /></button>)}</div>
       {tooMany && max == null ? <div className="fitnote"><Icon n="info" s={12} />{panes.length} panes don't fit at this width, so they show one at a time. Widen the window for the {layout.replace('x', ' × ')} grid.</div> : null}
@@ -66,7 +66,7 @@ export function CodeMode () {
         {empty ? <StateBlock kind="empty" icon="term" title="No terminals open" text="Open a terminal in a project or a task's worktree. Agent CLIs run here too."><button className="btn pri" onClick={run(addTerm)}><Icon n="plus" s={12} />New terminal</button><button className="btn" onClick={run(addAgent)}><Icon n="sparkle" s={12} />Start Claude Code</button></StateBlock>
           : <div className="panes rs" style={{ gridTemplateColumns: max != null || focusTabs ? 'minmax(0,1fr)' : fr.map(f => `minmax(0,${f}fr)`).join(' '), gridTemplateRows: max != null || focusTabs ? 'minmax(0,1fr)' : rfr.map(f => `minmax(0,${f}fr)`).join(' ') }}>
             {shown.map(k => { const i = panes.indexOf(k)
-              return <div key={k.id + i} hidden={!visible(i)} className={(S.code.focus === i ? 'focus' : '') + (S.dragOver === i ? ' dropt' : '')} onMouseDown={() => { if (S.code.focus !== i) { S.code.focus = i; emit() } }}
+              return <div key={k.id + i} hidden={!visible(i)} style={{ ['--wsc' as string]: `var(--ws-${wsColor(curWs())})` }} className={'wsp ' + (S.code.focus === i ? 'focus' : '') + (S.dragOver === i ? ' dropt' : '')} onMouseDown={() => { if (S.code.focus !== i) { S.code.focus = i; emit() } }}
                 onDragOver={e => { if (S.dragPane != null && S.dragPane !== i) { e.preventDefault(); if (S.dragOver !== i) { S.dragOver = i; emit() } } }} onDragLeave={() => { S.dragOver = null; emit() }}
                 onDrop={e => { e.preventDefault(); const from = S.dragPane; S.dragPane = null; S.dragOver = null; if (from == null || from === i) { emit(); return } const a = panes[from]; panes[from] = panes[i]; panes[i] = a; S.code.focus = i; toast(`Moved ${a.name}`); emit() }}>
                 <div className="th-pane" draggable onDragStart={e => { S.dragPane = i; e.dataTransfer.effectAllowed = 'move'; emit() }} onDragEnd={() => { S.dragPane = null; S.dragOver = null; emit() }} title="Drag to move this pane">{k.prov ? <span className={'pdot ' + k.prov} /> : <Icon n="term" s={12} />}<b><span className="pj">{k.project || 'cajui-api'} · </span>{k.name}</b><span className="wtn" title={k.cwd}>{/worktrees/.test(k.cwd) ? k.cwd.split('/').pop() : 'main checkout'}</span>{k.tag ? <span className="pill neutral" style={{ height: 18 }}>{k.tag}</span> : null}{(S.phoneTyping || []).includes(k.name) ? <span className="pill needs" style={{ height: 18 }} title="A paired phone can type in this terminal. Turn it off in the ⋯ menu."><Icon n="phone" s={12} />Phone</span> : null}
@@ -102,6 +102,7 @@ MENUS.codepane = () => { const p = initCode(); const k = p[S.code.focus]; return
   <MI check label="RTK" hint="Compress command output" /><MI check={false} label="Caveman" hint="Shorter agent replies" /><MI check label="Semantic" hint="Search code by meaning" /><hr />
   <MI check={(S.phoneTyping || []).includes(k?.name)} label="Allow typing from the phone" hint="Turns off when OXESpace restarts" onClick={() => { const l = S.phoneTyping || []; const onNow = l.includes(k.name); S.phoneTyping = onNow ? l.filter(x => x !== k.name) : l.concat(k.name); toast(onNow ? 'Your phone can no longer type here' : 'Your phone can type here until you turn it off or restart OXESpace') }} /><hr />
   <MI icon="x" dz label="Close terminal" dis={k?.by === 'agent'} title={k?.by === 'agent' ? 'An agent is using this terminal; stop the task first' : undefined} onClick={() => { const name = k.name; p.splice(S.code.focus, 1); S.code.focus = Math.max(0, S.code.focus - 1); toast(`Closed ${name}`) }} /></> }
+MENUS.resume = () => <><div className="mg">Sessions you can resume</div>{SESSIONS.map(([pv, m, ti, at]) => <MI key={ti} icon="history" label={ti} hint={`${pv === 'claude' ? 'Claude Code' : 'Codex'} · ${m} · ${at}`} onClick={() => resume(pv, m, ti, at)} />)}</>
 export function codeMaxToggle () { S.codeMax = S.codeMax != null ? null : S.code.focus }
 
 /** The 1.4 room rules: a split is refused when a pane would drop below 240 × 120 px. */
@@ -128,6 +129,6 @@ export function addPane (kind: string, project: string, wt: string) {
   else p.push({ id: 'n' + Date.now(), name: 'bash', shell: 'bash', cwd, by: 'you', branch: wt === 'main' ? 'main' : 'oxe/' + wt, project, lines: [] })
   S.code.focus = p.length - 1; if (S.view === 'empty') S.view = 'live'; toast(`New ${kind === 'agent' ? 'Claude Code pane' : 'terminal'} in ${project} · ${wt}`)
 }
-export function focusedPlace () { const p = initCode()[S.code.focus]; return { project: p?.project || 'cajui-api', wt: p && /worktrees/.test(p.cwd) ? p.cwd.split('/').pop()! : 'main' } }
+export function focusedPlace () { const p = initCode()[S.code.focus]; if (!p) { const w = curWs(); return { project: D.projects[w.project].name, wt: w.wt || 'main' } } return { project: p.project || 'cajui-api', wt: p && /worktrees/.test(p.cwd) ? p.cwd.split('/').pop()! : 'main' } }
 
 export { split }

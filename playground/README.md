@@ -23,8 +23,11 @@ Open each link after `http://localhost:5199/`. It takes about 15 minutes. The pa
 what to try; Reset in the top bar puts the mock data back.
 
 1. **`#mode-code`: your terminals, as today.**
-   - The sidebar lists projects and panes, each with its branch. `mig-prd` shows as moved because a terminal switched
-     that worktree.
+   - The sidebar is 1.4's: one card per workspace (a repository or one of its worktrees), New workspace, Delegated
+     work, Files & commands, and each card's terminals under it. Open **cajui-api · t143**: its pane shows `mig-prd`
+     as moved because a terminal switched that worktree.
+   - Each workspace has a color (its gear › Color). It follows the workspace into pane headers, the conversation
+     header, Agora and the status bar.
    - **+ Terminal** opens at once where the focused pane is; its chevron asks for another project or worktree.
    - Drag a divider, right-click it for the divider menu, or drag a pane header to move the pane.
 2. **`#chat`: one OxeChat conversation, end to end.** Claude has two questions for you. Answer them (the pager is in
@@ -55,6 +58,17 @@ what to try; Reset in the top bar puts the mock data back.
 
 Switch **Frame** to 900 × 620 and **Theme** to Dark at any stop; every screen works in all four combinations.
 `#first-run` shows the app with nothing set up.
+
+## Round 4: four radical decisions
+
+The user chose all four; the workspace structure stayed 1.4's (see FIDELITY.md › Round 4).
+
+- **`#agora`: every agent, right now** (T82). Needs-you first, then every workspace in its color. Deny, See impact,
+  Steer and Stop work in place. Ctrl 0 from anywhere.
+- **`#history`: time travel in a conversation** (T83). Scrub the transcript; files snap to checkpoints; restore or
+  branch into a new worktree. What can't go back is always listed.
+- **`#command-bar`: one bar** (T84). `@Codex …`, `/approve`, `open billing-staging`, `?` for every command.
+- **Identity** (T85). Workspace colors, our own mode icons, bolder titles, motion only when state changes.
 
 ## Using it
 
@@ -89,10 +103,10 @@ Pick screens from the bar on top or the list on the right; every one has its own
 
 | Group | Screens |
 |---|---|
-| Shell | First run · Workspace with no tasks · Task list collapsed (T61) · Command palette · Notifications · New task |
-| OxeChat thread | T-147, every part of a Claude Code session: image attachment, thinking, todos, an explore subagent, web and MCP calls, an approved plan, command and edit approvals, a background shell, a retried API error, compaction, a queued message, and interactive questions. Answer them, then approve the command it asks for. |
+| Shell | First run · Workspace with no tasks · Task list collapsed (T61) · The command bar (T84) · Notifications · New task |
+| OxeChat thread | Time travel in a conversation (T83) · T-147, every part of a Claude Code session: image attachment, thinking, todos, an explore subagent, web and MCP calls, an approved plan, command and edit approvals, a background shell, a retried API error, compaction, a queued message, and interactive questions. Answer them, then approve the command it asks for. |
 | Task view | Waiting for an approval · Running (Stop, steer) · Reversible approval · Stopped with an error · Terminal · Queries · Requests · Containers · Changes (grouped by place) · Pull request · Conversation details · Side chat |
-| Approvals | Impact preview for a database write · for deleting a volume · Approval queue |
+| Approvals | Agora: every agent, right now (T82) · Impact preview for a database write · for deleting a volume · Approval queue |
 | Modes | OxeCode (grid, columns, focus with tabs) · OxeQuery and what agents ran (T63) · OxePost (T62) and what agents sent · OxePod |
 | Settings | General · Appearance · Agents · Approvals and safety · Notifications · Keyboard · Terminal · Tools and skills · Phone and devices · Data and privacy · Agent activity (U12) · Diagnostics · About · Projects · Policy |
 | Dialogs | Every dialog from the #569 audit on the U1 contract, opened from a gallery |

@@ -9,34 +9,16 @@ import { ToolTab, Highlight, DiffFile, placesFor } from './Tools'
 import { isRich, RichItem, decideCmd } from './Thread'
 import { CodeBlock, type Lang } from './Code'
 import { TOOLS, ToolPanel } from './Workbench'
+import { TimeBar } from './TimeTravel'
+import { wsFor, TASK_WT } from '../mock/workspaces'
+import { wsName, wsColor } from '../state/ws'
 
 /* ================================================================ sidebar (T61: collapsed keeps every item) */
 const GROUPS: [string, string][] = [['needs', 'Needs you'], ['run', 'Running'], ['review', 'Ready for review'], ['err', 'Stopped'], ['done', 'Done']]
 export const STATUS_LABEL: Record<string, string> = { needs: 'Needs you', run: 'Running', review: 'Ready for review', err: 'Stopped', done: 'Done', idle: 'Paused' }
 export function openTask (id: string) { S.notif = false; S.area = 'task'; S.emptyWs = false; S.taskId = id; S.tab = 'conv'; S.menu = null; D.notifications.forEach(n => { if (n.task === id) S.notifRead[n.id] = true }); syncScreen(); emit() }
 
-export function Sidebar () {
-  const col = S.sbCol || (S.w === 900 && !!S.split2 && S.split2 !== S.taskId)
-  const list = S.emptyWs || S.view === 'empty' ? [] : S.tasks.filter(t => t.id !== 'quick' && (!S.projFilter || t.project === S.projFilter) && (!S.filter || (t.title + t.key).toLowerCase().includes(S.filter.toLowerCase())))
-  const groups = (S.sideGroup === 'project' ? Object.values(D.projects).map(p => [p.id, p.name, list.filter(t => t.project === p.id)] as const) : GROUPS.map(([k, l]) => [k, l, list.filter(t => (t.status === 'idle' ? 'run' : t.status) === k)] as const)).filter(g => g[2].length)
-  return <aside className={'sbar' + (col ? ' col' : '')} aria-label="Tasks">
-    <div className="sbar-h"><h2>Conversations</h2><button className="ibtn" onClick={run(() => { S.overlay = { type: 'newtask', text: '' } })} title="New conversation (N)" aria-label="New conversation"><Icon n="plus" /></button>
-      <button className="ibtn" onClick={menuBtn('sgroup')} title="Group conversations" aria-label="Group conversations"><Icon n="filter" /></button><button className="ibtn" onClick={run(() => { S.sbCol = !S.sbCol; syncScreen() })} title={`${col ? 'Expand' : 'Collapse'} the task list (Ctrl B)`} aria-label={`${col ? 'Expand' : 'Collapse'} the task list`}><Icon n="sidebar" /></button></div>
-    <div className="sbar-tools"><label className="search"><Icon n="search" s={12} /><input id="tsearch" placeholder="Filter" aria-label="Filter conversations" value={S.filter || ''} onChange={e => { S.filter = e.target.value; emit() }} /></label>
-      <button className="btn sm" onClick={menuBtn('proj')} aria-haspopup="menu">{S.projFilter ? D.projects[S.projFilter].name : 'All projects'}<Icon n="down" s={12} /></button></div>
-    <div className="sbar-l">{list.length ? groups.map(([k, l, ts]) => <div key={k}><div className="tg"><span>{l}</span><span className="n">{ts.length}</span></div>
-      {ts.map(t => { const on = (S.area === 'task' || S.area === 'later-multi') && S.taskId === t.id
-        const moved = t.id === 't143'
-        return <div key={t.id} className="trow-w"><button className="trow" onClick={() => openTask(t.id)} aria-current={on ? 'page' : undefined} aria-describedby={'st-' + t.id}>
-          <span className={'sg ' + t.status} /><span className="tt trunc">{moved ? <span className="drift-g" aria-hidden="true"><Icon n="branch" s={12} /></span> : null}{t.title}</span><span className="tm">{t.status === 'run' || t.status === 'needs' ? t.mins + 'm' : t.started}</span>
-          {t.status === 'needs' ? <span className="meta"><span className="trunc attn-t">{t.now.replace('Waiting for you: ', 'Asks to ').replace('Waiting for your answer: ', 'Asks you ').replace('Needs you: ', 'Asks to ')}</span></span> : null}
-          <span id={'st-' + t.id} className="sr">{STATUS_LABEL[t.status]}{moved ? ', branch moved' : ''}</span>{col ? <span className="tipc">{t.title} · {STATUS_LABEL[t.status]}{moved ? ' · branch moved' : ''}</span> : null}</button>
-          {!col && t.id !== S.taskId ? <button className="beside" title="Open side by side" aria-label={`Open beside: ${t.title}`} onClick={e => { e.stopPropagation(); openBeside(t.id); emit() }}><Icon n="panel" s={12} /></button> : null}</div> })}</div>)
-      : col ? null : <div className="state" style={{ padding: '24px 12px' }}><p style={{ fontSize: 12 }}>{S.filter ? `No task matches "${S.filter}".` : 'No conversations yet. Each one is an agent working on something, with everything it touches.'}</p></div>}</div>
-    <div className="sbar-f">{S.freshWs ? <><span className="sp" /><span className="lbl">{plural(list.length, 'conversation')}</span></> : col ? <button className="ibtn sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'archived' } })} aria-label="Archived tasks" title="Archived tasks"><Icon n="archive" s={12} /></button>
-      : <><button className="btn ghost sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'archived' } })}><Icon n="archive" s={12} /><span className="lbl">Archived · 14</span></button><span className="sp" /><span className="lbl">{plural(list.length, 'conversation')}</span></>}</div></aside>
-}
-MENUS.proj = () => <><MI check={!S.projFilter} label="All projects" onClick={() => { S.projFilter = null }} />{Object.values(D.projects).map(p => <MI key={p.id} check={S.projFilter === p.id} label={p.name} hint={p.stack} onClick={() => { S.projFilter = p.id }} />)}<hr /><MI icon="plus" label="Add project…" onClick={() => { S.overlay = { type: 'dlg', id: 'addproject' } }} /></>
+export { ChatSidebar as Sidebar } from './Sidebars'
 
 export function EmptyHome () {
   const nt = (text: string) => run(() => { S.overlay = { type: 'newtask', text } })
@@ -98,11 +80,12 @@ export function TaskHeader ({ t, cell }: { t: Task; cell?: number }) {
   const rpOn = S.w === 900 ? S.rp900 : S.rp
   return <header className="th"><div className="th-top"><span className={'sg ' + t.status} aria-hidden="true" /><h1 tabIndex={-1}>{t.title}</h1>
     <div className="hdr-acts">
+      {t.id !== 'quick' ? <button className="btn sm tt-b" onClick={run(() => { if (S.tt === t.id) { S.tt = undefined; S.ttAt = undefined } else { S.tt = t.id; S.ttAt = undefined; S.tab = 'conv'; if (cell == null) S.taskId = t.id } })} aria-pressed={S.tt === t.id} title="Time travel in this conversation (Ctrl H)"><Icon n="scrub" s={12} />History</button> : null}
       <button className="ibtn" onClick={run(() => { const s = scState(t); s.open = !s.open; syncScreen(); if (s.open) setTimeout(() => document.getElementById('sc-' + t.id)?.focus(), 0) })} aria-pressed={!!S.sideChat[t.id]?.open} title="Side chat: ask about this task without changing it (Ctrl .)" aria-label="Side chat"><Icon n="copy" /></button>
       <button className="ibtn" onClick={run(() => { if (S.w === 900) S.rp900 = !S.rp900; else S.rp = !S.rp })} aria-pressed={rpOn} title={rpOn ? 'Hide the task panel' : 'Show the task panel'} aria-label="Task panel"><Icon n="panel" /></button>
       <button className="ibtn" onClick={menuBtn('convact')} aria-haspopup="menu" aria-label="More actions" aria-expanded={S.menu?.id === 'convact'}><Icon n="more" /></button>
       {cell != null ? <button className="ibtn" aria-label={`Close "${t.title}" on this side`} title="Close this side" onClick={e => { e.stopPropagation(); closeCell(cell) }}><Icon n="x" /></button> : null}</div></div>
-    <div className="th-sub">{later ? <><Av p="claude" size="s16" /><Av p="codex" size="s16" />2 agents</> : <><Av p={t.prov} size="s16" />{prov(t.prov).name} · {t.model}</>}<span>·</span><span>{p.name}</span><span>·</span><span className="num">{t.mins} min</span><span>·</span><span className="num" title={t.costEst ? 'Codex doesn\'t report cost; estimated from tokens' : 'Reported by Claude Code'}>{t.costEst ? '≈ ' : ''}{money(t.cost)}</span></div>
+    <div className="th-sub">{later ? <><Av p="claude" size="s16" /><Av p="codex" size="s16" />2 agents</> : <><Av p={t.prov} size="s16" />{prov(t.prov).name} · {t.model}</>}<span>·</span>{(() => { const w = wsFor(t.project, TASK_WT[t.id]); return w ? <span className="wschip" style={{ ['--wsc' as string]: `var(--ws-${wsColor(w)})` }} title={w.path}><span className="wsdot" />{wsName(w)}</span> : <span>{p.name}</span> })()}<span>·</span><span className="num">{t.mins} min</span><span>·</span><span className="num" title={t.costEst ? 'Codex doesn\'t report cost; estimated from tokens' : 'Reported by Claude Code'}>{t.costEst ? '≈ ' : ''}{money(t.cost)}</span></div>
     <NowLine t={t} /></header>
 }
 MENUS.convact = () => { const t = cur(); return <><MI icon="pencil" label="Rename" sc="/rename" onClick={() => { S.overlay = { type: 'dlg', id: 'rename' } }} /><MI icon="pin" label={t.pinned ? 'Unpin' : 'Pin to the top'} onClick={() => { t.pinned = !t.pinned; toast(t.pinned ? `Pinned ${t.key}` : `Unpinned ${t.key}`) }} /><MI icon="users" label="Delegate to a teammate…" onClick={() => { S.overlay = { type: 'dlg', id: 'delegate' } }} /><MI icon="plug" label="MCP servers…" onClick={() => { S.overlay = { type: 'dlg', id: 'mcp' } }} /><hr />
@@ -116,11 +99,13 @@ export function Conversation ({ t, empty }: { t: Task; empty?: React.ReactNode }
   const items = S.conv[t.id] || []; const past = S.past[t.id]
   let ck = -1
   const running = t.status === 'run'
+  const tt = S.tt === t.id ? (S.ttAt ?? items.length - 1) : null
   return <div className="conv-wrap">
+    {S.tt === t.id ? <TimeBar t={t} /> : null}
     {past != null ? <div className="past-banner"><Icon n="history" s={12} /><span>Viewing checkpoint {past} · {D.checkpoints[t.id]?.[past]?.at}. Later messages are dimmed; files on disk are unchanged.</span><span className="sp" />
       <button className="btn sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'restore', ck: past } })}>Restore files…</button><button className="btn sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'branch', ck: past } })}><Icon n="fork" s={12} />Branch from here</button><button className="btn sm pri" onClick={run(() => { delete S.past[t.id] })}>Back to now <Kbd>L</Kbd></button></div> : null}
     <div className={'conv' + (S.bigText ? ' big' : '')} role="log" aria-label="Conversation" ref={el => { if (el && el.dataset.tid !== t.id) { el.dataset.tid = t.id; delete el.dataset.seen; setTimeout(() => { el.scrollTop = el.scrollHeight }, 60) } pinBottom(el) }}><div className="conv-in">
-      {!items.length && empty ? empty : null}{items.map((it, i) => { if (it.ck != null) ck = it.ck; const dim = past != null && (it.ck != null ? it.ck > past : ck > past); return <div key={i} className={dim ? 'inpast' : undefined} style={{ display: 'contents' }}><Item t={t} it={it} i={i} /></div> })}
+      {!items.length && empty ? empty : null}{items.map((it, i) => { if (it.ck != null) ck = it.ck; const dim = (tt != null && i > tt) || (past != null && (it.ck != null ? it.ck > past : ck > past)); return <div key={i} className={dim ? 'inpast' : undefined} style={{ display: 'contents' }}><Item t={t} it={it} i={i} /></div> })}
       {t.status === 'idle' ? <div className="turn" style={{ color: 'var(--warning-fg)' }}><Icon n="warn" s={12} />Interrupted. The work so far is kept; send a message to continue.</div> : null}
     </div></div><Composer t={t} /></div>
 }
@@ -282,7 +267,6 @@ function ToolGroup ({ t, rows, k }: { t: Task; rows: ToolRow[]; k: string }) {
     {open ? <div className="trs">{rows.map((r, j) => <ToolRowView key={j} r={r} k={`${k}:${j}`} />)}</div> : null}</div>
 }
 
-MENUS.sgroup = () => <><div className="mg">Group conversations</div><MI check={S.sideGroup === 'status'} label="By status" hint="Needs you first (new in 1.5.0)" onClick={() => { S.sideGroup = 'status' }} /><MI check={S.sideGroup === 'project'} label="By project" hint="As in 1.4" onClick={() => { S.sideGroup = 'project' }} /></>
 
 /** OxeChat keeps two conversations side by side (ThreadGrid): fixed cells, both full views; focus never reorders. */
 export function ChatArea () {

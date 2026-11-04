@@ -54,7 +54,7 @@ says, for each screen:
 |---|---|---|---|
 | Title bar, menus, status bar | `Navigation/AppMenuBar`, `appMenus.ts`, the mode switch, `Workspace/AppStatusBar`, `UsageStatus` | Mode switch restyle; status bar drift ("· moved") | A; the drift mark in D |
 | `#first-run` | `Onboarding` | The three-step checklist with CLI detection and sign-in waiting; "New conversation" disabled until an agent is ready | A (CLI detection exists) |
-| `#home-empty`, `#sidebar-rail` | `ThreadSidebar`, `Sidebar/*` | Group by status (by project stays one click away); one line per row; a sibling "open beside" button (`thread-row-action`) | A |
+| `#home-empty`, `#sidebar-rail` | `ThreadSidebar` (unchanged structure) | Status glyph and drift glyph on rows; the project group's line takes the workspace color; a sibling "open beside" button (`thread-row-action`). No regrouping | A; the color with T85 |
 | `#chat` (conversation) | `ThreadView`, `ThreadTimeline*`, `ThreadMessageRow`, `ThreadReasoning`, `ThreadPlan`, `ThreadSubagentActivity`, `ThreadRequestCard`, `ThreadHistoricalQuestions`, `ThreadPromptQueue`, `ThreadComposerForm` | Tool groups as one summary line (T58-b), the NowLine, the question pager in the footer (C-02), the command card | A; queued "Steer with this / Send now" B (T76); "Always allow" F (T74); background card F (T77) |
 | `#chat-split` | `ThreadGrid` | Fixed cells; both full views; activate on click/focus, never on mousedown; a switcher at 900 px | A |
 | `#chat-tools` | `Workbench/panelCatalog.ts`, `WorkbenchPanelMenu`, `Editor/*`, `WebPreview/*`, `GitHub/*`, `Linear/*`, `Scripts/*`, `Search/*`, `Worktree/*`, `Background/*` | "+ Tool" opens `ToolPanel` beside the conversation via `Splitter` (≥ 320 px, maximize) | A |
@@ -66,14 +66,18 @@ says, for each screen:
 | `#task-queries` | OxeQuery activity (T63) | — | A |
 | `#task-requests`, `#mode-post-activity` | `OxePost/*` | — | E (T64) |
 | `#task-details`, `#side-chat` | `ThreadSessionPanel` (T58 §7a), `side/ThreadSideChat` (T60) | — | A |
-| `#mode-code` | `Grid/*` (`WorkspaceSplitGrid`, `layouts.ts`, `splitRoom.ts`, `PaneMenu`, `PanePhoneWrite`), `Sidebar/WorkspaceGroup`, `PaneSessionRow`, `AgentSessions/PaneResume`, `PaneBranchBadge` | Focus with tabs; the layout grows with panes (no silent hiding); "+ Terminal ▾"; the new-pane dialog (project + worktree); the dock | A; "changed since" warning B (T73) |
+| `#mode-code` | `Grid/*` (`WorkspaceSplitGrid`, `layouts.ts`, `splitRoom.ts`, `PaneMenu`, `PanePhoneWrite`), `Sidebar/Sidebar` and `WorkspaceGroup` (unchanged structure), `PaneSessionRow`, `AgentSessions/PaneResume`, `PaneBranchBadge`, `Workspace/NewWorkspaceModal` | Focus with tabs; the layout grows with panes (no silent hiding); "+ Terminal ▾"; the new-pane dialog (project + worktree); the dock | A; "changed since" warning B (T73) |
 | `#mode-query` (+ activity) | `OxeQuery/*` | Connection picker, query tabs, the colored editor, typed result columns, the agent line | A; the activity line's counts E (U12-be) |
 | `#mode-post` | `OxePost/*` | Request bar with method colors and URL variables; Pretty/Raw; status chip | A; the agent line E (T64) |
 | `#mode-pod` | `OxePod/*` | Grouped by stack, the Folder column, logs below | A; "This conversation's folder" C (Compose working_dir) |
 | `#settings-*` | `SettingsCenter`, `AppearanceSettings`, `KeyboardSettings`, `ToolsSettings`, `DevicesSettings`, `DevicesPairing`, `PolicySettings`, `AgentActivitySettings`, `AutomationsSettings`, `UpdatePreferences`, `ExternalEditorSetting`, `SeenSitesSetting` | U2/U8 rows; apply at once; undo toasts on the risky list | A (U2, U8); `#settings-activity` E (U12-be); collection access E (T64) |
 | `#dialogs` | All 1.4 dialogs | U1 contract (U5a/b/c) | A |
 | `#foundations` | `DesignSystem` page | The token tables come from the token file | A |
-| `#later-multi`, `#later-watch` | — | Later (full B): needs a Task entity | not in 1.5.0 |
+| `#agora` (T82) | `Approvals/*`, `ApprovalDialog`, the S7.1 agents read model | A new top-level view: needs-you cards, then rows grouped by workspace; Steer reuses the composer's queue; Stop reuses the confirm | after S7.1 (1.4.2) |
+| `#history` (T83) | Checkpoints, `rewind.*`, Fork | The scrubber band over the conversation; Restore = rewind + "Also restore files"; Branch = new worktree from the checkpoint commit | needs BE-2-2's checkpoint per turn + per other checkout (C/D) |
+| `#command-bar` (T84) | `CommandPalette` | Prefix parsing (`@`, `/`, `open`, `?`); every result shows its fallback and shortcut | A (no new powers) |
+| Identity (T85) | Mandacaru tokens, Lucide | `--ws-1…8` palette (AA both themes), workspace color in workspace settings, own mode icons, 750 display weight, reduced-motion off switch | C4 token PR |
+| `#later-multi`, `#later-watch` | — | Later (full B): needs a Task entity. `#later-watch` is superseded by Agora | not in 1.5.0 |
 
 ## Token diff: Mandacaru today → 1.5 (contract C4)
 

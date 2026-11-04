@@ -39,7 +39,7 @@ Every capability the app has today, and where it is in the 1.5.0 playground. Bui
 
 | Capability | 1.4 (where) | 1.5.0 (where) | Status |
 |---|---|---|---|
-| Conversation list by project | `ThreadSidebar` | Sidebar "Conversations"; filter icon → By status (default, new) or By project (1.4) | changed |
+| Conversation list by project | `ThreadSidebar` | Sidebar "Conversations" exactly as 1.4: Add project, filter (/), Pinned, Projects → project groups with sections, "New conversation in <project>", the project menu, Archived. Status shows only as the row glyph (round 4: the "group by status" default is reverted) | kept |
 | New conversation Ctrl+Alt+N | `thread.new`, `ThreadDialogs` | Ctrl Alt N, File › New conversation, + in the sidebar (`#new-task`) | kept |
 | Next / previous conversation | `thread.next/previous` | Not wired in the playground | kept (not shown) |
 | Two conversations side by side | `ThreadGrid` (primary + secondary) | `#chat-split`: open beside from a row's hover button; click a side to focus it | kept |
@@ -82,8 +82,8 @@ Every capability the app has today, and where it is in the 1.5.0 playground. Bui
 
 | Capability | 1.4 (where) | 1.5.0 (where) | Status |
 |---|---|---|---|
-| Workspace / project / pane sidebar | `Sidebar/WorkspaceGroup`, `PaneSessionRow` | OxeCode sidebar: projects → panes with provider, status and branch badge (`#mode-code`) | kept |
-| Sessions to resume | `AgentSessions/PaneResume` | Sidebar › Sessions you can resume | kept |
+| Workspace / project / pane sidebar | `Sidebar/Sidebar`, `WorkspaceGroup`, `PaneSessionRow` | OxeCode sidebar exactly as 1.4: Workspaces header with New workspace, Delegated work and Files & commands; Filter workspaces (/); one card per workspace (a repository or one of its worktrees) with grip, activity dot, terminals chevron and options gear; the card's terminals under it; Toggle all; Open panels. The grid shows the active workspace's panes (`#mode-code`) | kept |
+| Sessions to resume | `AgentSessions/PaneResume` | OxeCode › the history button beside Agent (it was a sidebar list in round 3; the sidebar is 1.4's again) | kept |
 | Layouts 1×1 … 4×4 | `Grid/layouts.ts` | Layout menu with the same presets, plus Focus with tabs | kept + new |
 | Resizable splits | `WorkspaceSplitGrid` | Drag or arrow-key the gutters | kept |
 | Pane maximize Ctrl+Shift+Enter | `pane.maximize` | Pane header button and Ctrl Shift Enter | kept |
@@ -165,3 +165,36 @@ None. Nothing that exists in 1.4 is removed. Two screens are tagged *later (full
 - No task keys: lite B has no task entity, so conversations are named by title.
 
 **Visual baselines:** the dark accent change (sun → caatinga) means every dark-mode visual baseline is re-shot in 1.5.0 (FRONTEND, once per batch on main).
+
+## Round 4: the user's radical decisions (04/11)
+
+The user asked for radical decisions with one fixed constraint: "the way to add a workspace in OxeCode and OxeChat
+must not change; I work by worktree and need the workspace in the same structure". They chose all four options.
+The TECH LEAD's guardrails are T82–T85.
+
+**Fixed: the sidebars are 1.4's.** Both rows above are back to *kept*. The New workspace dialog is 1.4's
+`NewWorkspaceModal` ("Create new workspace": folder, layout, agents with slots, default shells). Remove workspace and
+Remove project use 1.4's wording. What 1.5.0 adds sits on top of that structure: status glyphs on rows, the drift
+glyph, and the workspace color.
+
+| Capability | 1.4 (where) | 1.5.0 (where) | Status | Guardrail |
+|---|---|---|---|---|
+| Agora: every agent in every workspace and mode, needs-you first, then by workspace; steer, approve, stop in place | Notifications, the approval queue, each pane | `#agora`, title bar › Agora, Ctrl 0, `/agora` | new (T82) | Data is the S7.1 agents read model (#514/#531): id, provider, model, surface, workspace, title, tone, started, last activity, pending request. No invented fields. Deny is focused first; irreversible goes through the impact preview and hold; Stop asks first. Rendered only while open. 20+ agents stay readable: one 34 px row each, groups fold, finished ones fold. |
+| Time travel per conversation | File checkpoints, Rewind to here, Fork | `#history`, the History button in the header, Ctrl H, `/history` | new (T83) | Files exist only at checkpoints (one per user turn plus one per other checkout); the knob snaps files to them and shows "transcript only" in between. Restore is today's rewind (set aside, Redo until the next message, "Also restore files"). Branch makes a new worktree from the checkpoint's commit. The note lists what can't go back every time. |
+| One command bar | Command palette (Ctrl K) | Title bar › "Ask, run or go to…", Ctrl K; `#command-bar` | changed (T84) | A front for existing actions: `@Claude`/`@Codex` = new conversation or delegate; `/approve` opens the same impact preview and hold, from the window only (never MCP); `/deny`, `/steer`, `/stop` (asks), `/new`, `/history`, `/agora`, `/terminal`, `/theme`; `open <name>` for connections, workspaces, conversations, containers. Each result names its button fallback ("Also: …") and shortcut; `?` lists them all. Plain search works as before. |
+| Workspace color | — | Workspace options (gear) › Color; carried to the card, its pane headers, the conversation header, Agora and the status bar | new (T85) | Stored in the workspace's settings; the user picks it; default from a fixed palette of 8 (`--ws-1…8`) that reaches AA text contrast on the surface in both themes (lowest 5.12:1 light, 6.59:1 dark). |
+| Our own icons for the modes, Agora and time travel | Lucide | Title bar mode switch, Agora, History | new (T85) | Drawn on the same 24 px grid and stroke; not copied from a set. |
+| Bolder display type | Bricolage Grotesque 600–700 | Bricolage Grotesque 750 for titles and the sidebar headers | changed (T85) | OFL. |
+| Motion only on state changes | Three durations | A status glyph scales in when it changes to "needs you"; nothing loops except the title-bar ring | changed (T85) | All animation and transition is off under `prefers-reduced-motion`. |
+| Watch running tasks (later, full B) | — | Superseded by Agora | changed | Agora needs no Task entity. |
+
+**Dark accent (C4):** keep caatinga `#49a072` as the one accent in dark, as in rounds 1–3. The workspace colors take
+over the job the old sun accent did for telling places apart, and the sun stays free to mean "needs you". This goes
+into the C4 token PR with the `--ws-*` palette, so the dark-mode baselines are re-shot once for both.
+
+**Fixes found while building round 4:**
+- The title-bar pill's `.needs` rule leaked onto the status glyph and stretched it into an oval.
+- Closing a dialog and pressing Ctrl K at once could pull focus out of the new overlay; focus now returns only when nothing else opened.
+
+**Checked:** the full sweep (53 screens, light and dark, 1440 and 900, every gallery dialog: no overflow, no console
+errors) and 43 scripted checks (the 17 HML scenario checks plus 26 for round 4), all passing.

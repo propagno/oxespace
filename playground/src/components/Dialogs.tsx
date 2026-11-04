@@ -3,7 +3,7 @@ import { D } from '../mock/data'
 import { S, emit, run, cur, plural, toast, task, prov } from '../state/store'
 import { Highlight } from './Tools'
 import { goScreen } from '../screens/registry'
-import { Icon } from './ui'
+import { Icon, Av } from './ui'
 import type { DialogSpec } from './Overlays'
 
 const text = (s: string) => <p style={{ color: 'var(--text-secondary)' }}>{s}</p>
@@ -40,10 +40,13 @@ export const EXTRA_DIALOGS: Record<string, () => DialogSpec> = {
   addproject: () => ({ size: 'md', icon: 'folder', title: 'Add a project', body: () => <>
     <div className="field"><label htmlFor="ap-path">Folder</label><div className="row"><input className="input mono" id="ap-path" defaultValue="~/code/cajui/cajui-docs" /><button className="btn" onClick={run(() => toast('Opens the system folder picker'))}>Browse…</button></div><span className="muted" style={{ fontSize: 12 }}>A git repository. OXESpace reads its branches and scripts.</span></div></>,
     primary: { label: 'Add project', act: () => toast('Added cajui-docs') } }),
-  newws: () => ({ size: 'md', icon: 'plus', title: 'New workspace', body: () => <>
-    <div className="field"><label htmlFor="nw-name">Name</label><input className="input" id="nw-name" placeholder="Personal" /></div>
-    <div className="field"><label htmlFor="nw-path">Folder</label><div className="row"><input className="input mono" id="nw-path" defaultValue="~/code" /><button className="btn" onClick={run(() => toast('Opens the system folder picker'))}>Browse…</button></div></div></>,
-    primary: { label: 'Create workspace', act: () => toast('Created the workspace (simulated)') } }),
+  newws: () => { const lay = S.nwLayout || 'one'; const ag = S.nwAgents || {}; const total = lay === 'one' ? 1 : lay === 'side' ? 2 : 4; const filled = Object.values(ag).reduce((a: number, b) => a + (b as number), 0)
+    return { size: 'md', icon: 'plus', title: 'Create new workspace', body: () => <>
+    <p style={{ color: 'var(--text-secondary)' }}>Pick a folder, a layout and, if you want, agents.</p>
+    <div className="field"><label htmlFor="nw-path">Workspace folder path</label><div className="row"><input className="input mono" id="nw-path" defaultValue="~/.oxespace/worktrees/cajui-api/t147" /><button className="btn" onClick={run(() => toast('Opens the system folder picker'))}>Choose a project folder</button></div><span className="muted" style={{ fontSize: 12 }}>A repository or one of its worktrees. Each worktree is its own workspace, with its own terminals.</span></div>
+    <div className="field"><span className="lbl">Layout</span><div className="chips" role="radiogroup" aria-label="Layout">{([['one', 'One terminal'], ['side', 'Side by side'], ['grid', '2×2 grid']] as const).map(([k, l]) => <button key={k} className="chip" role="radio" aria-checked={lay === k} aria-pressed={lay === k} onClick={run(() => { S.nwLayout = k })}>{l}</button>)}</div></div>
+    <div className="field"><span className="lbl">Agents <span className="muted">· {filled}/{total} slots filled</span></span><div className="row">{(['claude', 'codex'] as const).map(a => <span key={a} className="row" style={{ gap: 4 }}><Av p={a} /><span style={{ fontSize: 13 }}>{a === 'claude' ? 'Claude Code' : 'Codex'}</span><button className="ibtn sm" aria-label={`Remove one ${a === 'claude' ? 'Claude Code' : 'Codex'}`} disabled={!ag[a]} onClick={run(() => { ag[a] = (ag[a] || 1) - 1; S.nwAgents = ag })}><Icon n="min" s={12} /></button><span className="mono">{ag[a] || 0}</span><button className="ibtn sm" aria-label={`Add ${a === 'claude' ? 'Claude Code' : 'Codex'}`} disabled={filled >= total} onClick={run(() => { ag[a] = (ag[a] || 0) + 1; S.nwAgents = ag })}><Icon n="plus" s={12} /></button></span>)}</div><span className="muted" style={{ fontSize: 12 }}>{total - filled === 1 ? '1 default shell' : `${total - filled} default shells`}</span></div></>,
+    primary: { label: 'Create workspace', act: () => { S.nwLayout = undefined; S.nwAgents = undefined; toast('Created the workspace cajui-api · t147 (simulated)') } } } },
   newconn: () => ({ size: 'md', icon: 'db', title: 'New connection', body: () => <>
     <div className="row" style={{ alignItems: 'start' }}><div className="field" style={{ flex: 1 }}><label htmlFor="nc-name">Name</label><input className="input" id="nc-name" placeholder="billing-staging" /></div><div className="field" style={{ width: 170 }}><label htmlFor="nc-eng">Database</label><select className="sel" id="nc-eng"><option>Postgres</option><option>MySQL</option><option>SQLite</option><option>SQL Server</option><option>ClickHouse</option></select></div></div>
     <div className="row"><div className="field" style={{ flex: 1 }}><label htmlFor="nc-host">Host</label><input className="input mono" id="nc-host" defaultValue="staging-db.cajui.internal" /></div><div className="field" style={{ width: 90 }}><label htmlFor="nc-port">Port</label><input className="input mono" id="nc-port" defaultValue="5432" /></div></div>

@@ -5,6 +5,7 @@ import { Icon, Av, Kbd } from './ui'
 import type { DialogSpec } from './Overlays'
 import { KEYS } from './Settings'
 import { addPane, focusedPlace } from './Modes'
+import { agents, stopAgent } from './Agora'
 
 const p = (s: string) => <p style={{ color: 'var(--text-secondary)' }}>{s}</p>
 function QR () { // a stand-in pairing code, drawn from a fixed pattern
@@ -16,6 +17,8 @@ function QR () { // a stand-in pairing code, drawn from a fixed pattern
 }
 
 export const MORE_DIALOGS: Record<string, () => DialogSpec> = {
+  agstop: () => { const a = agents().find(x => x.id === S.agStop); return { size: 'sm', icon: 'stop', title: `Stop "${a?.title}"?`, body: () => p('The agent stops after the command it is running. The work so far, its files and its checkpoints are kept; send a message to continue.'), safeFirst: true, primary: { label: 'Stop the agent', danger: true, act: stopAgent } } },
+  removeproj: () => { const pr = D.projects[S.projCtx || 'api']; return { size: 'sm', icon: 'trash', title: 'Remove this project?', body: () => p(`Remove "${pr.name}" from the OxeChat sidebar? Its conversations, files and OxeCode workspaces remain. Restore this project individually from Removed projects or add its folder again.`), safeFirst: true, primary: { label: 'Remove project', danger: true, act: () => { (S.removedProj ||= []).push(pr.id); toast(`Removed ${pr.name} from the sidebar`, { undo: () => { S.removedProj = S.removedProj!.filter((x: string) => x !== pr.id); emit() } }) } } } },
   newpane: () => { const kind = S.overlay!.text; const d = focusedPlace(); const sel = (S.npSel ||= { project: d.project, wt: d.wt })
     return { size: 'sm', icon: kind === 'agent' ? 'sparkle' : 'term', title: kind === 'agent' ? 'New agent pane' : 'New terminal', body: () => <>
       <div className="field"><label htmlFor="np-p">Project</label><select className="sel" id="np-p" value={sel.project} onChange={e => { sel.project = e.target.value; sel.wt = 'main'; emit() }}><option>cajui-api</option><option>cajui-web</option></select></div>

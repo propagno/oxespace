@@ -17,6 +17,7 @@ import { QueryMode, PostMode, PodMode } from './components/Modes2'
 import { SettingsView } from './components/Settings'
 import { Foundations } from './components/Foundations'
 import { DialogGallery } from './components/Catalog'
+import { Agora } from './components/Agora'
 
 const GROUPS = Array.from(new Set(SCREENS.map(s => s.group)))
 const tagLabel = (s: { tag: string }) => s.tag === 'later' ? 'later' : '1.5.0'
@@ -44,6 +45,7 @@ function Body () {
   const a = S.area
   const wb = (main: React.ReactNode, side = false) => <div className={'wb' + (side ? (S.sbCol ? ' sb-col' : '') : ' sb-none')}>{side ? <Sidebar /> : null}<main className="main">{main}</main></div>
   if (a === 'firstrun') return wb(<FirstRun />)
+  if (a === 'agora') return wb(<Agora />)
   if (a === 'task') return wb(S.emptyWs ? <EmptyHome /> : S.view === 'empty' ? <EmptyHome /> : <ChatArea />, true)
   if (a === 'later-multi' || a === 'later-watch') return wb(<Later />, true)
   if (a === 'queue') return wb(S.view === 'loading' ? <StateBlock kind="loading" /> : <QueueView />)
@@ -94,6 +96,8 @@ function useKeys () {
       if (mod && e.shiftKey && e.key.toLowerCase() === 'a') { e.preventDefault(); goScreen('queue'); return }
       if (mod && e.shiftKey && (e.key === '|' || e.key === '\\' || e.key === '_' || e.key === '-') && S.area === 'mode' && S.mode2 === 'code') { e.preventDefault(); split(e.key === '_' || e.key === '-'); emit(); return }
       if (mod && e.shiftKey && e.key === 'Enter' && S.area === 'mode' && S.mode2 === 'code') { e.preventDefault(); codeMaxToggle(); emit(); return }
+      if (mod && !e.shiftKey && e.key.toLowerCase() === 'h' && S.area === 'task') { e.preventDefault(); const t = cur(); if (t && t.id !== 'quick') { S.tt = S.tt === t.id ? undefined : t.id; S.ttAt = undefined; S.tab = 'conv'; emit() } return }
+      if (mod && !e.shiftKey && e.key === '0') { e.preventDefault(); goScreen('agora'); return }
       if (mod && !e.shiftKey && e.key.toLowerCase() === 'e') { e.preventDefault(); if (S.area === 'mode' && S.mode2 === 'code') S.codeDock = S.codeDock === 'files' ? undefined : 'files'; else if (S.area === 'task') { const t = cur(); S.dockTool[t.id] = 'files'; const o = S.dockOpen[t.id] || []; if (!o.includes('files')) S.dockOpen[t.id] = o.concat('files') } emit(); return }
       if (e.key === 'Escape') { if (S.menu || S.notif) { S.menu = null; S.notif = false; emit() } else if (S.overlay) closeOverlay(); return }
       if (typing || mod || e.altKey) return

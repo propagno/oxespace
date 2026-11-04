@@ -58,7 +58,10 @@ export const D = (function () {
       { you: 'Charges created twice when the mobile app retries on a timeout. Make POST /charges idempotent with the Idempotency-Key header. Keep the API response the same.', at: '13:58', files: ['incident-2211.md'] },
       { tools: [['read', 'Read', 'src/charges/create.ts', '146 lines'], ['read', 'Read', 'incident-2211.md', '41 lines'], ['read', 'Search', '"Idempotency-Key" in src/', '0 matches'], ['read', 'Read', 'src/db/schema/charges.sql', '64 lines']] },
       { agent: 'Plan: store each key with a hash of the request body for 24 h. A retry with the same key and body returns the first response; the same key with a different body gets <code>409 Conflict</code>. The check and the insert run in one transaction so two parallel retries can\'t both create a charge.', at: '14:02' },
+      { you: 'Go. 24 h is right. A replay must return the first response with the same status code.', at: '14:03' },
       { tools: [['edit', 'Create', 'migrations/0042_idempotency_keys.sql', '+14'], ['edit', 'Create', 'src/charges/idempotency.ts', '+64'], ['edit', 'Edit', 'src/charges/create.ts', '+38 −12'], ['run', 'Shell', 'npm run db:migrate', 'exit 0 · 1 migration']] },
+      { agent: 'Done: the migration, the key store and the check in <code>create.ts</code>. A replay returns the stored body and status.', at: '14:19' },
+      { you: 'Add a test where two retries with the same key arrive at the same time.', at: '14:20' },
       { tools: [['edit', 'Create', 'test/charges/create.idempotency.test.ts', '+51'], ['fail', 'Shell', 'npm test -- charges', '1 failed · 23 passed', 'FAIL test/charges/create.idempotency.test.ts\n  ✕ parallel retries create one charge (412 ms)\n    Expected: 1\n    Received: 2'], ['read', 'Read', 'src/charges/idempotency.ts', 'lines 20–48'], ['edit', 'Edit', 'src/charges/idempotency.ts', '+6 −2', 'Lock the key row with SELECT … FOR UPDATE before checking it.']] },
       { agent: 'The parallel test caught a race: both retries read "no key yet" before either inserted it. I now lock the key row with <code>SELECT … FOR UPDATE</code> inside the transaction. Running the suite again.', at: '14:40' },
       { tools: [['run', 'Shell', 'npm test -- charges', 'running', '', true]] }
@@ -116,7 +119,9 @@ export const D = (function () {
 
   const checkpoints: Record<string, Checkpoint[]> = {
     t142: [
-      { n: 0, at: '13:58', label: 'Charges created twice when the mobile app retries on a ti…', files: 0 }
+      { n: 0, at: '13:58', label: 'Charges created twice when the mobile app retries on a ti…', files: 0 },
+      { n: 1, at: '14:03', label: 'Go. 24 h is right. A replay must return the first respons…', files: 0 },
+      { n: 2, at: '14:20', label: 'Add a test where two retries with the same key arrive at…', files: 3 }
     ],
     t143: [{ n: 0, at: '14:05', label: 'The monthly invoice report on staging takes about 40 s fo…', files: 0 }],
     t144: [{ n: 0, at: '14:11', label: 'Test our Pix webhook handler against the PSP sandbox. Use…', files: 0 }]
