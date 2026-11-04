@@ -334,6 +334,8 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, () => pendingRequests)
   // B1.2: a side chat answers each message with a fixed reply and its usage, and is gone once closed.
   const sides = new Map<string, string>()
+  // Specs read how many copies main still holds (T60: hiding keeps the copy, discarding drops it).
+  ;(globalThis as Record<string, unknown>).__oxeSideChats = sides
   ipcMain.handle(IPC_CHANNELS.thread.sideOpen, (_event: IpcMainInvokeEvent, id: unknown): ThreadSideOpenResult => {
     if (typeof id !== 'string' || !id) throw new Error('thread.invalidInput')
     if (process.env.OXESPACE_E2E_SIDE_UNAVAILABLE === '1') return { ok: false, message: mainMessage('thread.side.unavailable', {}) }

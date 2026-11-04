@@ -37,9 +37,9 @@ test('secondary Buttons keep their border and fill at rest in every view, light 
     await page.getByTestId('wizard-layout-card-1').click()
     await page.getByTestId('wizard-launch-btn').click()
 
-    // The reported case: OxeQuery with no connection offers "Add connection" in its sidebar.
+    // The reported case: OxeQuery with no connection offers "New connection" in its sidebar (Q-01: one name for it).
     await openView(page, 'data')
-    const add = page.getByRole('button', { name: 'Add connection', exact: true })
+    const add = page.getByRole('region', { name: 'Connections' }).getByText('New connection', { exact: true })
     await expect(add).toBeVisible()
 
     const report: Record<string, unknown[]> = {}

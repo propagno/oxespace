@@ -36,7 +36,7 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): ReactEl
   const change = (patch: Partial<OxeQueryPreferences>): void => { setSaved(false); setValue(current => current ? { ...current, ...patch } : current) }
 
   return <Dialog className="oq-scope" title={t('preferences.title')} description={t('preferences.description')} size="md" onClose={onClose} closeLabel={t('common.close')} testId="oxequery-preferences"
-    footer={<><Button variant="ghost" onClick={onClose}>{t('common.close')}</Button><Button variant="primary" loading={busy} disabled={!value} onClick={() => void save()}>{t('common.save')}</Button></>}>
+    footer={<><Button variant="ghost" onClick={onClose}>{t('common.cancel')}</Button><Button variant="primary" loading={busy} disabled={!value} onClick={() => void save()}>{t('common.save')}</Button></>}>
     {error && <ErrorState compact title={t(value ? 'preferences.saveFailed' : 'preferences.loadFailed')} message={error} />}
     {!value && !error ? <LoadingState label={t('preferences.loading')} /> : value && <div className="oq-preferences">
       <Select label={t('preferences.history')} hint={t('preferences.historyHint')} value={String(value.historyLimit)}

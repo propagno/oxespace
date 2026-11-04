@@ -166,8 +166,12 @@
 
 /* The prompt of the turn being read, kept at the top edge once it has scrolled away. */
 .thread-sticky-prompt-anchor { position: sticky; top: 0; z-index: calc(var(--layer-raised) + 1); height: 0; }
+/* C-08: while the prompt sticks, an opaque band the pill's height sits behind it, so the row scrolling under it never
+   shows through or around it. The anchor stays zero-height (no jump while scrolling); scroll-padding-top keeps a focused
+   control below it. */
+.thread-sticky-prompt-anchor:has(.thread-sticky-prompt)::before { content: ''; position: absolute; top: 0; right: 0; left: 0; height: 36px; background: var(--surface-base); }
 /* Prefixed: `.thread-view button` would otherwise strip the strip's border and fill, and the text under it showed through. */
-.thread-view .thread-sticky-prompt { position: absolute; top: 4px; right: 0; left: 0; display: flex; align-items: center; gap: 8px; max-width: 100%; min-height: 28px; padding: 0 10px; border: 1px solid var(--border-subtle, var(--border-default)); border-radius: var(--radius-md); background: var(--surface-raised); box-shadow: var(--shadow-sm, 0 1px 3px rgb(0 0 0 / 0.08)); color: var(--text-secondary); font: inherit; font-size: var(--fs-xs); text-align: left; cursor: pointer; }
+.thread-view .thread-sticky-prompt { position: absolute; top: 4px; right: 0; left: 0; display: flex; align-items: center; gap: 8px; max-width: 100%; min-height: 28px; padding: 0 10px; border: 1px solid var(--border-subtle, var(--border-default)); border-radius: var(--radius-md); background: var(--surface-base); box-shadow: var(--shadow-sm, 0 1px 3px rgb(0 0 0 / 0.08)); color: var(--text-secondary); font: inherit; font-size: var(--fs-xs); text-align: left; cursor: pointer; }
 .thread-view .thread-sticky-prompt span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-view .thread-sticky-prompt:hover { color: var(--text-primary); background: var(--surface-raised); border-color: var(--border-default); }
 .thread-view .thread-sticky-prompt:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
