@@ -223,7 +223,7 @@
       "quiet": "Sem saída há {{time}}",
       "queued": "Aguardando envio ({{n}})",
       "queuedMore": "e mais {{n}}",
-      "binary": "Arquivo binário",
+      "noLines": "Sem mudança de linha",
       "diffCut": "O restante desta diferença está no computador.",
       "seconds": "{{seconds}} s",
       "minutes": "{{minutes}} min",

@@ -10,6 +10,9 @@ import androidx.compose.ui.Modifier
 import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
 import com.android.resources.NightMode
+import com.oxespace.mobile.protocol.RemoteQueuedPreview
+import com.oxespace.mobile.protocol.RemoteToolDiff
+import com.oxespace.mobile.protocol.RemoteToolDiffFile
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeSpace
 import com.oxespace.mobile.ui.theme.OxeTheme
@@ -19,8 +22,9 @@ import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 
 /**
- * CCR #509's additions to the conversation screen (draft, fake data), each alone: the turn timer working and quiet, the
- * queued messages, and a tool step's diff with a binary file and a cut patch. Light and dark, English and pt-BR.
+ * CCR #509's additions to the conversation screen, each alone, on the generated C5 types: the turn timer working and
+ * quiet, the queued messages, and a tool step's diff with a 0/0 file (binary) and a cut patch. Light and dark, English
+ * and pt-BR.
  */
 @RunWith(Parameterized::class)
 class ConversationExtrasSnapshotTest(private val night: Boolean, private val locale: String) {
@@ -53,12 +57,12 @@ class ConversationExtrasSnapshotTest(private val night: Boolean, private val loc
         shot("timer-working") { TurnTimer(TurnClock(turnElapsedMs = 185_000, quietMs = 20_000, receivedAt = NOW)) }
         shot("timer-quiet") { TurnTimer(TurnClock(turnElapsedMs = 720_000, quietMs = 250_000, receivedAt = NOW)) }
         shot("queued") {
-            QueuedPreview(listOf(QueuedMessage("q1", "Also add a test for the expired session"), QueuedMessage("q2", "And update the changelog when you're done", truncated = true)), queued = 3)
+            QueuedPreview(listOf(RemoteQueuedPreview("q1", "Also add a test for the expired session"), RemoteQueuedPreview("q2", "And update the changelog when you're done", truncated = true)), queued = 3)
         }
         shot("diff") {
             ToolDiffView(
-                ToolDiff(
-                    files = listOf(ToolDiffFile("src/auth/session.ts", 12, 3), ToolDiffFile("src/auth/session.test.ts", 40, 0), ToolDiffFile("assets/logo.png", 0, 0, binary = true)),
+                RemoteToolDiff(
+                    files = listOf(RemoteToolDiffFile("src/auth/session.ts", 12, 3), RemoteToolDiffFile("src/auth/session.test.ts", 40, 0), RemoteToolDiffFile("assets/logo.png", 0, 0)),
                     patch = "@@ -10,3 +10,4 @@\n-  if (expires < now) return null\n+  // seconds, not milliseconds\n+  if (expires * 1000 < now) return null\n   return session",
                     truncated = true,
                 ),
