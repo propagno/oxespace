@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState, type ComponentType, type M
 import type { OpenInRequest } from '../../lib/openIn'
 import { i18n } from '../../i18n'
 import { toast } from '../../ui'
+import { scheduleIdle } from '../../lib/preloadSchedule'
 
 type ViewProps = { request: OpenInRequest; point: { x: number; y: number }; onClose(): void; returnFocus(): HTMLElement | null; openInOxespace?: () => void; folder?: boolean; copyOnly?: boolean; externalClickHint?: boolean }
 
@@ -21,6 +22,18 @@ function MenuUnavailable({ onClose }: ViewProps): null {
     onClose()
   }, [onClose])
   return null
+}
+
+/**
+ * The editors are read once the window is idle after a path surface first shows, not at launch and not on the first
+ * right click: that menu then opens at once with its final rows (FL-11). Once per window; a failure is left to the
+ * menu, which reads them again.
+ */
+let prefetched = false
+function prefetchOpenInTargets(): void {
+  if (prefetched) return
+  prefetched = true
+  scheduleIdle(() => { void import('../../lib/openIn').then(({ useOpenInStore }) => useOpenInStore.getState().refresh()).catch(() => undefined) }, 5_000)
 }
 
 /** Where a context menu opens: the pointer, or for Shift+F10 / the menu key (no pointer) the element's corner. */
@@ -49,6 +62,8 @@ export function usePathMenu(request: OpenInRequest | null, options: { openInOxes
 } {
   const [point, setPoint] = useState<{ x: number; y: number } | null>(null)
   const owner = useRef<HTMLElement | null>(null)
+  const hasRequest = request !== null
+  useEffect(() => { if (hasRequest) prefetchOpenInTargets() }, [hasRequest])
   const onContextMenu = (event: MouseEvent): void => {
     if (!request) return
     event.preventDefault()

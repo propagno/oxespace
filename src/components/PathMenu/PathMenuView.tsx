@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 import { AnchoredMenu } from '../../ui'
-import { useOpenInTargets, type OpenInRequest } from '../../lib/openIn'
+import { useSettledOpenInTargets, type OpenInRequest } from '../../lib/openIn'
 import { pathMenuEntries, pathMenuLabel } from '../../lib/pathMenu'
 
 /**
@@ -19,8 +19,10 @@ export default function PathMenuView({ request, point, onClose, returnFocus, ope
   folder?: boolean
   copyOnly?: boolean
   externalClickHint?: boolean
-}): ReactElement {
-  const targets = useOpenInTargets()
+}): ReactElement | null {
+  // The rows are fixed when the menu opens: it opens once the editors are known (FL-11).
+  const targets = useSettledOpenInTargets()
+  if (targets === undefined) return null
   return <span style={{ position: 'fixed', left: point.x, top: point.y, width: 0, height: 0 }}>
     <AnchoredMenu open onOpenChange={open => { if (!open) onClose() }} side="bottom" label={pathMenuLabel(request.relativePath)} returnFocus={returnFocus}
       items={pathMenuEntries({ request, targets, platform: window.oxe?.app?.platform ?? 'linux', openInOxespace, folder, copyOnly, externalClickHint })} />
@@ -28,8 +30,10 @@ export default function PathMenuView({ request, point, onClose, returnFocus, ope
 }
 
 /** The path menu's items at the end of the editor tab menu (a menu of plain buttons), in the same order. */
-export function TabPathItems({ request, close }: { request: OpenInRequest; close(): void }): ReactElement {
-  const targets = useOpenInTargets()
+export function TabPathItems({ request, close }: { request: OpenInRequest; close(): void }): ReactElement | null {
+  // Added together once the editors are known, at the end of the tab menu: nothing above them moves (FL-11).
+  const targets = useSettledOpenInTargets()
+  if (targets === undefined) return null
   const entries = pathMenuEntries({ request, targets, platform: window.oxe?.app?.platform ?? 'linux' })
   return <>
     <hr role="separator" className="ws-group-context-menu-separator" />

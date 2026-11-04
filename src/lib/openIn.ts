@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { create } from 'zustand'
 import { messageFromError } from '../../shared/messages'
 import type { OpenInEditorId, OpenInTarget, OpenInTargets } from '../../shared/types/open-in'
@@ -41,6 +41,30 @@ export function useOpenInTargets(): OpenInTargets | null {
     window.addEventListener('focus', () => { void useOpenInStore.getState().refresh() })
   }, [])
   return targets
+}
+
+/** How long a menu waits for the first list of editors before it opens without them (FL-11). */
+export const OPEN_IN_SETTLE_MS = 400
+
+/**
+ * The editors a menu shows, fixed for as long as it is open, or `undefined` while it should not open yet (FL-11). The
+ * first list comes from a scan of PATH in main, slow on Windows: a menu opened before it arrived used to get its editor
+ * rows inserted above "Copy relative path" a moment later, so a quick click landed on an editor. Now the menu waits for
+ * that list (OPEN_IN_SETTLE_MS at most, then opens without editors) and keeps it; a list read again on window focus
+ * reaches the next menu, never the open one.
+ */
+export function useSettledOpenInTargets(): OpenInTargets | null | undefined {
+  const live = useOpenInTargets()
+  const [held, setHeld] = useState(live)
+  const [late, setLate] = useState(false)
+  // The first list to arrive in time is kept, set while rendering so the menu never paints without it.
+  if (!held && live && !late) setHeld(live)
+  useEffect(() => {
+    if (held || late) return
+    const timer = setTimeout(() => setLate(true), OPEN_IN_SETTLE_MS)
+    return () => clearTimeout(timer)
+  }, [held, late])
+  return held ?? (late ? null : undefined)
 }
 
 /** The editor `Ctrl/Cmd+Shift+click` and the first menu item use: the chosen one if installed, else the first found. */

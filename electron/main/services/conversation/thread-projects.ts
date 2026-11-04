@@ -1,11 +1,12 @@
 import { basename } from 'node:path'
 import { realpath } from 'node:fs/promises'
-import { existsSync } from 'node:fs'
+import { existsSync, realpathSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../../db'
 import type { ThreadProjectCatalog, ThreadProjectSummary } from '../../../../shared/types/thread'
 import { projectIdentity } from '../memory/memory-project.service'
 import { firstPolicyRead } from '../policy/first-read'
+import { staysLocal } from '../git-common-dir'
 
 interface ProjectRow { id: string; identity: string; root_path: string; display_name: string; hidden: number }
 interface ContextRow { project_id: string; root_path: string }
@@ -45,10 +46,26 @@ export class ThreadProjectService {
   context(projectId: string, rootPath?: string): { projectId: string; rootPath: string } {
     const row = this.db.prepare('SELECT id, root_path FROM thread_projects WHERE id = ? AND hidden = 0').get(projectId) as { id: string; root_path: string } | undefined
     if (!row) throw Error('OxeChat project is unavailable. Restore or add the project first.')
-    const selected = rootPath ?? row.root_path
-    if (!this.db.prepare('SELECT 1 FROM thread_project_contexts WHERE project_id = ? AND root_path = ?').get(projectId, selected)) throw Error('Directory does not belong to this Thread project')
+    const selected = rootPath === undefined ? row.root_path : this.registeredRoot(projectId, rootPath)
+    if (!selected) throw Error('Directory does not belong to this Thread project')
     if (!existsSync(selected)) throw Error('Project directory is unavailable. Relink the project before starting a conversation.')
     return { projectId, rootPath: selected }
+  }
+
+  /**
+   * The registered spelling of `rootPath` for this project, or null. Roots are stored as their real path (`add`,
+   * `relink`), so another spelling of the same folder (a Windows 8.3 name like `RUNNER~1`, a link in the path) is
+   * resolved with the native realpath, which expands both, and looked up again. A UNC or device path is never resolved
+   * here: it would touch the network for a path the window sent; it matches only as stored.
+   */
+  private registeredRoot(projectId: string, rootPath: string): string | null {
+    const registered = (path: string) => !!this.db.prepare('SELECT 1 FROM thread_project_contexts WHERE project_id = ? AND root_path = ?').get(projectId, path)
+    if (registered(rootPath)) return rootPath
+    // A link inside the path may lead to a share: realpath would follow it to the network (BACKEND #524).
+    if (/^[\\/]{2}/.test(rootPath) || !staysLocal(rootPath)) return null
+    let canonical: string
+    try { canonical = realpathSync.native(rootPath) } catch { return null }
+    return canonical !== rootPath && registered(canonical) ? canonical : null
   }
 
   /** Registers another checkout of the project (a worktree created for a conversation). */

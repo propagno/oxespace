@@ -24,7 +24,7 @@ policy (`tool.use` rules of the policy store) applies by tool name to every tool
 
 | Covered | Excluded | Planned | Forbidden | Total |
 |---|---|---|---|---|
-| 37 | 30 | 2 | 15 | 84 |
+| 37 | 30 | 2 | 20 | 89 |
 
 The registry has 89 tools: 66 single-purpose tools and 23 domain tools with 88 actions, so the
 manifest declares 154 tool-or-action entries.
@@ -39,6 +39,7 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `thread.access` | Thread permission rules and auto-approval of reads |
 | `delegation.authorize` | `delegation.configure`, `delegation.configureTarget`, `delegation.adopt` |
 | `web_preview.access` | `browserPreview.setAccess` (external sites) |
+| `code.resume_bypass` | `terminal.resumeBypass`, `terminal.setResumeBypass` (T54: whether a Claude session that skipped permissions resumes that way; only the person turns it on, in Settings › Terminal) |
 | `git.repo_hook_approval` | `github.getRepoConfig`, `github.approveRepoHook` |
 | `accounts.sign_in` | `agentAccount.*` |
 | `linear.token` | `linear.setApiKey`, `linear.clearApiKey` |
@@ -131,6 +132,7 @@ before. Code panes receive the whole registry.
 | `code.local_input` | Clipboard and voice | Excluded: The person's own input devices. |
 | `web_preview.use` | Open, drive and capture the Web Preview | **read**: `oxespace_capture_web_preview`<br>**write**: `oxespace_preview_interact`<br>**confirm**: `oxespace_open_web_preview` (a local http(s) URL runs as write; see below) |
 | `web_preview.access` | Let the preview reach external sites | **Forbidden**: Raises access. |
+| `code.resume_bypass` | Resume Claude sessions that skipped permissions that way | **Forbidden**: Raises access: only the person turns it on. |
 | `git.read` | Status, branch, diffs, files at a ref, checkpoints | **read**: `oxespace_git#status`, `oxespace_git#branch`, `oxespace_git#diff_summary`, `oxespace_git#diff`, `oxespace_git#file_at_ref`, `oxespace_git#checkpoints` |
 | `git.change` | Stage, commit, branch, fetch, pull, push, checkpoints | **write**: `oxespace_git_change#stage`, `oxespace_git_change#stage_all`, `oxespace_git_change#unstage`, `oxespace_git_change#commit`, `oxespace_git_change#create_branch`, `oxespace_git_change#fetch`, `oxespace_git_change#pull`, `oxespace_git_change#create_checkpoint`<br>**confirm**: `oxespace_git_change#checkout`, `oxespace_git_change#push`, `oxespace_git_change#restore_checkpoint`, `oxespace_git_change#delete_checkpoint` |
 | `git.commit_message` | Generate a commit message | Excluded: Asks an AI provider on the person's behalf; an agent writes its own message. |

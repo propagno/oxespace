@@ -31,6 +31,8 @@ import { humanizeError } from './utils/humanizeError'
 // Modals/overlays are user-triggered and infrequent — lazy-load them so they're not in the first-paint bundle.
 /** The palette's and menu bar's command lists, loaded after the first frame (T52). */
 const loadCommandContributors = () => import('./commands/CommandContributors')
+/** The activity center's producers, loaded after the first frame. */
+const loadActivitySources = () => import('./app/ActivitySources')
 const AgentConfigModal = lazy(() => import('./components/Agents/AgentConfigModal').then((m) => ({ default: m.AgentConfigModal })))
 const DesignSystemPage = lazy(() => import('./components/DesignSystem/DesignSystemPage').then((m) => ({ default: m.DesignSystemPage })))
 const DelegatedWorkDialog = lazy(() => import('./components/Delegation/DelegatedWorkDialog').then(m => ({ default: m.DelegatedWorkDialog })))
@@ -72,13 +74,11 @@ import { selectWorkspacesToEvict } from './components/Terminal/webglBudget'
 import { useSettingsStore, VISITED_WORKSPACES_CAP_DEFAULT } from './store/settings.store'
 import { useIntegrationStore } from './store/integration.store'
 import { useWorktreeStore } from './store/worktree.store'
-import { useActivitySources } from './hooks/useActivitySources'
 import { useAgentHookStatus } from './hooks/useAgentHookStatus'
-import { THREAD_NOTIFICATION_PANE_PREFIX } from './hooks/useThreadAttention'
+import { QUOTA_NOTIFICATION_PANE_PREFIX, THREAD_NOTIFICATION_PANE_PREFIX } from './hooks/notificationPrefixes'
 import { useThreadShortcuts } from './hooks/useThreadShortcuts'
 import { setKeyboardView, useKeybindings, type AppView } from './keyboard/keybindings'
 import { projectTeam } from './app/projectTeam'
-import { QUOTA_NOTIFICATION_PANE_PREFIX } from './hooks/useQuotaAlerts'
 import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZE_MAX } from './store/terminal-prefs.store'
 
 /** macOS keeps its native application menu; Windows/Linux draw it in the title bar. */
@@ -468,7 +468,8 @@ export function App(): ReactElement {
     })
   }, [])
 
-  useActivitySources(applicationView)
+  // The activity center's producers load right after the first frame (renderer entry headroom, after T52).
+  const activitySources = useDeferredModule(loadActivitySources, () => t('deferred.activityMissing', { ns: 'common' }))
   useAgentHookStatus()
 
   // Clicking a notification focuses the originating pane (window focus + restore
@@ -772,6 +773,7 @@ export function App(): ReactElement {
     <ThemeProvider themeId={applicationView !== 'code' ? undefined : activeWorkspace?.themeId} density={applicationView !== 'code' ? undefined : activeWorkspace?.uiDensity}>
       <TooltipProvider>
       <TitleTooltips />
+      {activitySources && <activitySources.ActivitySources applicationView={applicationView} />}
       {commandContributors && <><commandContributors.CodeCommandContributor {...codeCommandContext} /><commandContributors.ThreadCommandContributor {...threadCommandContext} /></>}
       <main className={`app-shell${applicationView === 'thread' ? ' thread-shell' : isDataView(applicationView) ? ' oq-shell' : isSidebarCollapsed ? ' sidebar-collapsed' : ''}`} style={applicationView !== 'code' ? { '--thread-sidebar-width': `${isSidebarCollapsed ? 48 : codeSidebarWidth}px` } as CSSProperties : { '--sidebar-w': `${codeSidebarWidth}px` } as CSSProperties}>
       <header className={cx('workbench-titlebar', titleBar.bar)} aria-label={t('app.workbench')}>
