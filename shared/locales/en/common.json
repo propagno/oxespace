@@ -1,8 +1,18 @@
 {
   "workspaceColor": {
     "label": "Workspace color",
+    "open": "Workspace color…",
     "auto": "Automatic color",
-    "slot": "Color {{number}}"
+    "swatch": {
+      "1": "Caatinga",
+      "2": "Sertão",
+      "3": "Açude",
+      "4": "Juazeiro",
+      "5": "Xique-xique",
+      "6": "Barro",
+      "7": "Fim de tarde",
+      "8": "Pedra"
+    }
   },
   "deferred": {
     "partMissing": "Some commands may be missing from the palette and the menus until it loads. The rest of OXESpace keeps working.",
