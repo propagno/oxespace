@@ -169,7 +169,11 @@ test.describe('1.4.3 gate', () => {
       note(`desktop pane tail: ${JSON.stringify(desk)}`)
       const latest = Math.max(0, ...[...text.matchAll(/compat line (\d+)/g)].map(m => Number(m[1])))
       note(`replay: ${frames.length + 1} frames, ${text.length} chars of terminal text, latest "compat line ${latest}"`)
-      expect.soft(latest, 'the replay alone reaches the end of the busy output').toBe(1500)
+      // 1.4.2 baseline: the ring replay is EMPTY for output written before the subscribe (runs 41915926840, 41917109909),
+      // which is the problem P4 fixes with the snapshot. An old phone keeps today's behaviour: recorded, not asserted.
+      note(`old phone replay text reaches line ${latest} of 1500 (1.4.2 baseline: 0)`)
+      expect.soft(frames.every(f => f.type === 'snapshot' || f.type === 'event'), 'only snapshot/event frames reach an old phone').toBe(true)
+      expect.soft(frames.every(f => typeof (f.data as { data?: unknown } | undefined)?.data === 'string'), 'every frame keeps data.data as a string (what a 1.4.2 phone reads)').toBe(true)
       // Then live output reaches the old phone as events.
       await write(process.platform === 'win32' ? 'Write-Host HML-COMPAT-LIVE\r' : 'echo HML-COMPAT-LIVE\r')
       const live = await framesUntil(socket, f => typeof (f.data as { data?: unknown } | undefined)?.data === 'string' && ((f.data as { data: string }).data).includes('HML-COMPAT-LIVE'), 10_000)
@@ -194,7 +198,8 @@ test.describe('1.4.3 gate', () => {
     note(`rules at start: ${rules() || '(none)'}`)
     note(`set Public → ${category('Public')}`)
     // FRONTEND (#632): the check is hidden in a dev build; the e2e build needs a test switch honoured only unpackaged.
-    const profile = realProfile('hml-p1', process.env.HML_P1_SWITCH ? { [process.env.HML_P1_SWITCH]: '1' } : {})
+    // BACKEND (#629): OXESPACE_E2E_FIREWALL_CHECK=1 shows the check in an unpackaged build only.
+    const profile = realProfile('hml-p1', { OXESPACE_E2E_FIREWALL_CHECK: '1' })
     const { app, page } = await launchReal(profile)
     try {
       await app.evaluate(({ dialog }) => { dialog.showMessageBox = (() => Promise.resolve({ response: 0, checkboxChecked: false })) as typeof dialog.showMessageBox })
