@@ -3,7 +3,8 @@ import { memo, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { useShallow } from 'zustand/react/shallow'
 import { selectIntegrationsForWorkspace, useIntegrationStore } from '../../store/integration.store'
-import { ConfirmDialog } from '../../ui'
+import { ConfirmDialog, SwatchPicker } from '../../ui'
+import { WORKSPACE_COLORS, workspaceColorAttrs } from '../../../shared/workspace-color'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
 import { RichText } from '../../i18n/RichText'
@@ -67,6 +68,7 @@ function WorkspaceGroupComponent({
   // the menu triggers both. Menu coordinates are absolute viewport pixels so
   // the popup can escape the sidebar's overflow:hidden.
   const { t } = useTranslation('code')
+  const { t: tc } = useTranslation('common')
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   const [renaming, setRenaming] = useState(false)
   const [draftName, setDraftName] = useState(workspace.name)
@@ -155,7 +157,7 @@ function WorkspaceGroupComponent({
   return (
     <div
       className={`ws-group${isActive ? ' active' : ''}${isDragging ? ' dragging' : ''}${dropClass}`}
-      data-testid="sidebar-workspace-item"
+      data-testid="sidebar-workspace-item" {...workspaceColorAttrs(workspace)}
       draggable={Boolean(onDragStart) && !renaming}
       onDragStart={(event) => {
         if (!onDragStart || renaming) return
@@ -319,6 +321,16 @@ function WorkspaceGroupComponent({
             }
             setMenu(null)
           }}>{direction === 'up' ? <ArrowUp size={12} aria-hidden="true" /> : <ArrowDown size={12} aria-hidden="true" />}{t(direction === 'up' ? 'sidebar.moveUp' : 'sidebar.moveDown')}</button>)}
+          {/* A8: the workspace color, saved through workspace:update-settings; Automatic clears it to the id's color. */}
+          <div role="separator" className="ws-group-context-separator" />
+          <div className="ws-group-color-picker">
+            <SwatchPicker
+              label={tc('workspaceColor.label')}
+              value={workspace.color === null ? '' : String(workspace.color)}
+              options={[{ value: '', label: tc('workspaceColor.auto') }, ...WORKSPACE_COLORS.map(n => ({ value: String(n), label: tc('workspaceColor.slot', { number: n }), color: `var(--ws-${n})` }))]}
+              onChange={value => { setMenu(null); void updateSettings({ workspaceId: workspace.id, color: value === '' ? null : Number(value) }) }}
+            />
+          </div>
           {/* G-08: the destructive item stands apart. */}
           <div role="separator" className="ws-group-context-separator" />
           <button
