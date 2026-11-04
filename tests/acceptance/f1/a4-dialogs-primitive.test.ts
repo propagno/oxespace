@@ -34,10 +34,11 @@ describe('A4 · every dialog is the U1 primitive', () => {
     expect(restyled.map(path => relative(ROOT, path))).toEqual([])
   })
 
-  test('every file that renders <Dialog> takes it from ui/Dialog (the src/ui barrel), never a local copy', () => {
+  // CR-04 (spec gap): ui/Overlay is the same primitive as the barrel; some lazy views import it directly to stay off the barrel.
+  test('every file that renders <Dialog> takes it from ui/Dialog (the src/ui barrel or ui/Overlay), never a local copy', () => {
     const local = files.filter(path => {
       const source = readFileSync(path, 'utf8')
-      return /<Dialog\b/.test(source) && !/import\s*\{[^}]*\bDialog\b[^}]*\}\s*from\s*['"][./]*ui['"]/.test(source)
+      return /<Dialog\b/.test(source) && !/import\s*\{[^}]*\bDialog\b[^}]*\}\s*from\s*['"][./]*ui(\/Overlay)?['"]/.test(source)
     })
     expect(local.map(path => relative(ROOT, path))).toEqual([])
   })
