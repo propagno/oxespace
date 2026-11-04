@@ -120,6 +120,67 @@ test.describe('A36 startup failure screen, beyond the default case', () => {
   })
 })
 
+test.describe('A8 workspace color, stored (#605)', () => {
+  type Ws = { id: string; name: string; color?: number | null }
+  const api = <T>(page: Page, fn: 'list' | 'updateSettings', arg?: unknown) => page.evaluate(async ([f, a]) => {
+    const ws = (window as unknown as { oxe: { workspace: Record<string, (x?: unknown) => Promise<unknown>> } }).oxe.workspace
+    try { return { ok: true, value: await ws[f as string](a) } } catch (error) { return { ok: false, value: String(error instanceof Error ? error.message : error) } }
+  }, [fn, arg] as const) as Promise<{ ok: boolean; value: T | string }>
+
+  test('a color is kept, bad values are refused, and it survives a restart', async ({}, info) => {
+    test.setTimeout(180_000)
+    const profile = realProfile('hml-a8')
+    const notes: string[] = []
+    let { app, page } = await launchReal(profile)
+    try {
+      await openRepo(page, profile.repo)
+      const listed = await api<Ws[]>(page, 'list')
+      const ws = (listed.value as Ws[])[0]
+      notes.push(`new workspace color: ${JSON.stringify(ws.color)} (nothing chosen yet)`)
+      expect.soft(ws.color ?? null, 'a new workspace has no stored color').toBeNull()
+
+      const set3 = await api<Ws>(page, 'updateSettings', { workspaceId: ws.id, color: 3 })
+      notes.push(`set 3 → ${set3.ok ? JSON.stringify((set3.value as Ws).color) : set3.value}`)
+      expect.soft(set3.ok && (set3.value as Ws).color, 'color 3 is stored').toBe(3)
+
+      for (const bad of [0, 9, -1, 3.5, '3', 'red', true]) {
+        const r = await api<Ws>(page, 'updateSettings', { workspaceId: ws.id, color: bad })
+        notes.push(`set ${JSON.stringify(bad)} → ${r.ok ? 'ACCEPTED ' + JSON.stringify((r.value as Ws).color) : 'refused: ' + String(r.value).slice(0, 120)}`)
+        expect.soft(r.ok, `color ${JSON.stringify(bad)} is refused`).toBe(false)
+      }
+      const after = ((await api<Ws[]>(page, 'list')).value as Ws[]).find(w => w.id === ws.id)
+      expect.soft(after?.color, 'a refused value leaves the stored color as it was').toBe(3)
+
+      // A name change alone leaves the color alone (undefined = leave as is).
+      const renamed = await api<Ws>(page, 'updateSettings', { workspaceId: ws.id, name: 'renamed by HML' })
+      notes.push(`rename only → color ${renamed.ok ? JSON.stringify((renamed.value as Ws).color) : renamed.value}`)
+      expect.soft(renamed.ok && (renamed.value as Ws).color, 'a rename keeps the color').toBe(3)
+
+      // Restart on the same profile.
+      await quitReal(app)
+      ;({ app, page } = await launchReal(profile))
+      const again = ((await api<Ws[]>(page, 'list')).value as Ws[]).find(w => w.id === ws.id)
+      notes.push(`after restart: ${JSON.stringify(again?.color)}`)
+      expect.soft(again?.color, 'the color survives a restart').toBe(3)
+
+      const cleared = await api<Ws>(page, 'updateSettings', { workspaceId: ws.id, color: null })
+      notes.push(`clear → ${cleared.ok ? JSON.stringify((cleared.value as Ws).color) : cleared.value}`)
+      expect.soft(cleared.ok && (cleared.value as Ws).color, 'null clears the color').toBeNull()
+      const dataWs = await page.evaluate(() => [...new Set([...document.querySelectorAll('[data-ws]')].map(e => e.getAttribute('data-ws')))])
+      notes.push(`data-ws on the page: ${JSON.stringify(dataWs)} (the surfaces come with #610)`)
+      // Unknown workspace id.
+      const ghost = await api<Ws>(page, 'updateSettings', { workspaceId: 'no-such-workspace', color: 2 })
+      notes.push(`unknown workspace → ${ghost.ok ? 'ACCEPTED' : 'refused: ' + String(ghost.value).slice(0, 120)}`)
+      expect.soft(ghost.ok, 'an unknown workspace id is refused').toBe(false)
+    } finally {
+      info.annotations.push({ type: 'a8', description: notes.join('\n') })
+      writeFileSync(info.outputPath('a8-report.txt'), notes.join('\n'))
+      await quitReal(app)
+      rmSync(profile.root, { recursive: true, force: true })
+    }
+  })
+})
+
 test.describe('C4 tokens on the real app', () => {
   for (const locale of ['en-US', 'pt-BR']) {
     test(`themes, selected row, focus and 900x620 · ${locale}`, async ({}, info) => {
