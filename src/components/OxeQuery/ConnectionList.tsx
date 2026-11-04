@@ -15,8 +15,10 @@ export function ConnectionList({ activeTab }: { activeTab: string }): ReactEleme
   const { t } = useTranslation('oxequery')
   const connections = useOxeQueryStore(state => state.connections)
   const connectionsError = useOxeQueryStore(state => state.connectionsError)
-  const [search, setSearch] = useState('')
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
+  // Kept in the store: collapsing the sidebar unmounts this list, and its folded sections and search came back reset (T61).
+  const search = useOxeQueryStore(state => state.connectionSearch), setSearch = useOxeQueryStore(state => state.setConnectionSearch)
+  const folded = useOxeQueryStore(state => state.foldedSections)
+  const collapsed = useMemo(() => new Set(folded), [folded])
   const [failure, setFailure] = useState('')
   const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string; ephemeral: boolean } | null>(null)
   const sections = useMemo(() => organize(connections, search), [connections, search])
@@ -30,7 +32,7 @@ export function ConnectionList({ activeTab }: { activeTab: string }): ReactEleme
     setPendingDelete(null)
     try { await oq('connections.delete', { id }); store().forgetConnection(id) } catch (cause) { setFailure(errorMessage(cause)) }
   }
-  const toggleSection = (id: string): void => setCollapsed(current => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next })
+  const toggleSection = (id: string): void => store().toggleSection(id)
 
   const row = (connection: OxeQueryConnection, section: string): ReactElement => <div key={`${section}:${connection.id}`} className="oq-connection-row">
     <button type="button" className="oq-nav-item" aria-current={activeTab === `connection:${connection.id}` ? 'page' : undefined}
@@ -61,7 +63,7 @@ export function ConnectionList({ activeTab }: { activeTab: string }): ReactEleme
     {pendingDelete && <ConfirmDialog danger title={t('connections.deleteTitle', { name: pendingDelete.name })} confirmLabel={t('common.delete')} cancelLabel={t('common.cancel')}
       description={t('connections.deleteDescription')}
       onCancel={() => setPendingDelete(null)} onConfirm={() => void remove(pendingDelete.id)} />}
-    {connections.length === 0 && !connectionsError && <EmptyState compact title={t('connections.emptyTitle')} actions={<Button size="sm" onClick={() => store().openDialog(null)}>{t('connections.add')}</Button>}>{t('connections.emptyText')}</EmptyState>}
+    {connections.length === 0 && !connectionsError && <EmptyState compact title={t('connections.emptyTitle')} actions={<Button size="sm" onClick={() => store().openDialog(null)}>{t('connections.new')}</Button>}>{t('connections.emptyText')}</EmptyState>}
     {search.trim() && sections.length === 0 && <p className="oq-muted" role="status">{t('common.noMatch', { text: search.trim() })}</p>}
     {sections.map(section => {
       const headed = sections.length > 1 || section.id === 'results' || section.id.startsWith('group:')

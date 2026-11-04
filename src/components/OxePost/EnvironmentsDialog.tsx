@@ -73,7 +73,7 @@ export function EnvironmentsDialog({ onClose }: { onClose: () => void }): ReactE
     footer={<>
       {saved && <Button variant="danger" disabled={busy} onClick={() => setConfirmDelete(true)}>{t('env.delete')}</Button>}
       <span className={styles.spacer} />
-      <Button variant="secondary" onClick={onClose}>{t('common.close')}</Button>
+      <Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
       <Button variant="primary" loading={busy} disabled={!form.name.trim() || !dirty} onClick={() => void save()}>{t('env.save')}</Button>
     </>}>
     <div className={styles.envLayout}>

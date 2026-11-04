@@ -1,5 +1,5 @@
 import { useState, type RefObject } from 'react'
-import { ChevronDown, Maximize2, Minimize2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Maximize2, Minimize2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ErrorState } from '../../ui'
 import type { ThreadRequest, ThreadSnapshot } from '../../../shared/types/thread'
@@ -32,10 +32,12 @@ export function ThreadDockRequests({ snapshot, pendingRequests, pending, action 
   const toggleExpanded = () => { const next = !expanded; setExpanded(next); try { localStorage.setItem(EXPANDED_KEY, next ? '1' : '0') } catch { /* not remembered */ } }
   return <>
     {pendingRequests.length > 0 && <div className="thread-pending-requests-bar">
-      <span>{pendingRequests.length === 1 ? pendingRequests[0].title || t('requests.waiting') : t('requests.waitingMany', { count: pendingRequests.length })}</span>
+      {/* One request is named by its own card; repeating its title here said it twice (T67, DESIGN #568 C-01). */}
+      {pendingRequests.length > 1 && <span>{t('requests.waitingMany', { count: pendingRequests.length })}</span>}
       <span className="thread-pending-requests-actions">
-        {!hidden && <button type="button" aria-pressed={expanded} title={expanded ? t('requests.shrinkTitle') : t('requests.expandTitle')} onClick={toggleExpanded}>{expanded ? <Minimize2 size={13} aria-hidden="true" /> : <Maximize2 size={13} aria-hidden="true" />}{expanded ? t('requests.shrink') : t('requests.expand')}</button>}
-        <button type="button" aria-expanded={!hidden} aria-controls={listId} title={hidden ? t('requests.showTitle') : t('requests.hideTitle')} onClick={() => setHiddenKey(hidden ? null : requestKey)}>{hidden ? t('requests.show') : t('requests.hide')}<ChevronDown size={14} aria-hidden="true" /></button>
+        {/* Icon buttons: the word is their name, the tooltip says what they do. */}
+        {!hidden && <button type="button" className="thread-pending-requests-icon" aria-pressed={expanded} aria-label={expanded ? t('requests.shrink') : t('requests.expand')} title={expanded ? t('requests.shrinkTitle') : t('requests.expandTitle')} onClick={toggleExpanded}>{expanded ? <Minimize2 size={13} aria-hidden="true" /> : <Maximize2 size={13} aria-hidden="true" />}</button>}
+        <button type="button" className="thread-pending-requests-icon" aria-expanded={!hidden} aria-controls={listId} aria-label={hidden ? t('requests.show') : t('requests.hide')} title={hidden ? t('requests.showTitle') : t('requests.hideTitle')} onClick={() => setHiddenKey(hidden ? null : requestKey)}>{hidden ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}</button>
       </span>
     </div>}
     {pendingRequests.length > 0 && <section id={listId} className="thread-pending-requests" aria-label={t('requests.label')} hidden={hidden} data-expanded={expanded || undefined}>

@@ -32,7 +32,7 @@
 .thread-resume-all { justify-self: start; }
 .thread-resume-native-label { display: grid; gap: 6px; min-width: 0; flex: 1; color: var(--text-secondary); font-size: var(--fs-xs); }
 .thread-resume-native-label input { width: 100%; }
-.thread-view { --thread-canvas-max: 1100px; --thread-prose-max: 1000px; container-type: inline-size; flex: 1; display: grid; grid-template-rows: var(--chrome-h) minmax(0, 1fr) auto; height: 100%; min-height: 0; min-width: 0; width: 100%; overflow: hidden; background: var(--surface-canvas); color: var(--text-primary); }
+.thread-view { --thread-canvas-max: 1100px; --thread-prose-max: 1000px; container-type: size; flex: 1; display: grid; grid-template-rows: var(--chrome-h) minmax(0, 1fr) auto; height: 100%; min-height: 0; min-width: 0; width: 100%; overflow: hidden; background: var(--surface-canvas); color: var(--text-primary); }
 .thread-heading { display: flex; align-items: center; gap: 14px; min-width: 0; padding: 0 var(--chrome-inset); border-bottom: 1px solid var(--border-default); }
 .thread-heading-identity, .thread-heading-actions { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .thread-heading-identity { flex: 1; overflow: hidden; }
@@ -157,9 +157,13 @@
 .thread-approval-exact pre { max-height: 260px; color: var(--text-primary); white-space: pre-wrap; overflow-wrap: anywhere; }
 /* The pending dock caps the card and scrolls its middle (DESIGN, RC): the exact command is capped too, so the agent's
    reason under it stays in reach, and a fade at the bottom says there is more while there is. */
-.thread-pending-requests .thread-approval-exact pre { max-height: 140px; }
+/* T67 (DESIGN #568 C-01): in the dock the command is never in a scroll of its own. The card grows instead (see
+   --request-cap below) and, past its cap, the details scroll as one; "Copy exact text" stays in view at their top. */
+.thread-pending-requests .thread-approval-exact { overflow: clip; }
+.thread-pending-requests .thread-approval-exact pre { max-height: none; overflow: visible; }
+.thread-pending-requests .thread-approval-exact > .thread-approval-preview-heading { position: sticky; top: -14px; z-index: var(--layer-raised); background: var(--surface-canvas); }
 .thread-approval-content[data-more-below] { mask-image: linear-gradient(to bottom, currentColor calc(100% - 28px), transparent); }
-.thread-approval-exact > button { display: inline-flex; align-items: center; gap: 5px; margin: 0 0 8px 8px; padding: 5px 8px; font-size: var(--fs-2xs); }
+.thread-approval-exact > .thread-approval-preview-heading > button { display: inline-flex; flex: none; align-items: center; gap: 5px; margin-left: auto; padding: 5px 8px; font-size: var(--fs-2xs); }
 /* The agent's own words: the same dashed, sunken box as the approval modal's agent block. */
 .thread-approval-agent { min-width: 0; overflow: hidden; border: 1px dashed var(--border-strong); border-radius: var(--radius-md); background: var(--surface-sunken); }
 .thread-approval-agent pre { max-height: 160px; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -249,11 +253,16 @@
 .thread-pending-requests { --request-cap: clamp(260px, 32vh, 360px); max-height: var(--request-cap); min-height: 0; overflow-y: auto; overflow-x: hidden; flex-shrink: 1; }
 .thread-pending-requests[hidden] { display: none; }
 .thread-pending-requests[data-expanded='true'] { --request-cap: min(72vh, 860px); }
+/* An approval may take up to 60% of the conversation's height (T67): what is approved is read whole, and the
+   timeline gives up the room. Questions keep the smaller cap above, so the conversation stays readable beside them. */
+.thread-pending-requests:has(.thread-approval-content) { --request-cap: max(260px, 60cqh); }
+.thread-pending-requests[data-expanded='true']:has(.thread-approval-content) { --request-cap: max(60cqh, min(72vh, 860px)); }
 .thread-pending-requests-actions { display: inline-flex; flex: none; gap: 4px; }
-.thread-pending-requests-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; margin-top: 6px; color: var(--text-secondary); font-size: var(--fs-xs); }
-.thread-pending-requests-bar > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread-pending-requests-bar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-height: 28px; margin-top: 6px; color: var(--text-secondary); font-size: var(--fs-xs); }
+.thread-pending-requests-bar > span:not(.thread-pending-requests-actions) { margin-right: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-pending-requests-bar button { display: inline-flex; flex: none; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); font: inherit; cursor: pointer; }
 .thread-pending-requests-bar button:hover { background: var(--fill-hover); color: var(--text-primary); }
+.thread-pending-requests-bar .thread-pending-requests-icon { justify-content: center; width: 28px; height: 28px; padding: 0; border-color: transparent; }
 .thread-pending-requests-bar button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .thread-pending-requests-bar button[aria-expanded='false'] svg { transform: rotate(180deg); }
 .thread-live-activity-meta { flex-wrap: wrap; margin: 5px 0 0 22px; }
@@ -614,13 +623,6 @@
 .thread-hunk-comment { display: grid; gap: 6px; padding: 6px 8px 8px; }
 .thread-hunk-comment textarea { min-height: 56px; resize: vertical; font: inherit; }
 .thread-hunk-comment button { justify-self: end; }
-.thread-mcp-health { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--border-default); border-radius: 999px; color: var(--text-secondary); background: transparent; font: inherit; font-size: var(--fs-2xs); font-variant-numeric: tabular-nums; cursor: pointer; }
-.thread-mcp-health:hover { color: var(--text-primary); border-color: var(--border-strong); }
-.thread-mcp-health.is-warning { border-color: var(--intent-danger-fg); color: var(--intent-danger-fg); }
-.thread-mcp-health-popover { display: grid; gap: var(--space-3); width: min(360px, calc(100vw - 32px)); max-height: min(60vh, 520px); overflow: auto; font-size: var(--fs-xs); }
-.thread-mcp-health-popover header { display: grid; gap: 2px; }
-.thread-mcp-health-popover header span { color: var(--text-secondary); }
-.thread-mcp-health-popover > button { justify-self: start; }
 .thread-sent-brief { margin-top: 4px; color: var(--text-secondary); font-size: var(--fs-2xs); }
 .thread-sent-brief summary { cursor: pointer; }
 .thread-sent-brief pre { margin: 4px 0 0; padding: 6px 8px; border: 1px solid var(--border-default); border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
