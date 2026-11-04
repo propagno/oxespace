@@ -105,7 +105,12 @@ test.describe('1.4.3 gate', () => {
         : 'for i in $(seq 1 4000); do printf "\\033[32mline %s\\033[0m %s\\n" $i xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx; done\r'
       await page.waitForTimeout(2_000)
       await page.evaluate(([id, data]) => (window as unknown as { oxe: { terminal: { write(i: { paneId: string; data: string }): Promise<void> } } }).oxe.terminal.write({ paneId: id, data }), [paneId, loop] as const)
-      await page.waitForTimeout(6_000)
+      // Wait until the loop is done on the desktop (its last line is in the pane), so "the latest line" is fixed.
+      for (let i = 0; i < 90; i++) {
+        const tail = await page.evaluate((id) => (window as unknown as { oxe: { terminal: { attach(i: { paneId: string }): Promise<{ replay?: string }> } } }).oxe.terminal.attach({ paneId: id }).then(r => (r.replay ?? '').slice(-400)), paneId).catch(() => '')
+        if (/line 4000/.test(tail.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, ''))) { note(`loop finished after ~${i} s`); break }
+        await page.waitForTimeout(1_000)
+      }
       ;({ socket } = await pairStandInPhone(page))
       const asked = Date.now()
       const ack = await socket.ask({ type: 'subscribe', id: 's1', topic: 'terminal', target: paneId })
