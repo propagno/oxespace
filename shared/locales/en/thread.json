@@ -1723,5 +1723,9 @@
     "keep": "Keep",
     "archived": "Conversation archived",
     "restore": "Restore"
+  },
+  "inlinePath": {
+    "notFound": "{{path}} was not found",
+    "looked": "Looked in: {{places}}"
   }
 }
