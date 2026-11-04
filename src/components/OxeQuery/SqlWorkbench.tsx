@@ -32,6 +32,7 @@ import { Select, TextField } from '../../ui/Field'
 import { EmptyState, ErrorState, LoadingState } from '../../ui/Display'
 import { copyText, formatMs, tq } from './catalog'
 import { Splitter } from '../../ui/Splitter'
+import { useOxeQueryStore } from './oxequery.store'
 import { toast } from '../../ui/Toast'
 import { EDITOR_HEIGHT, RESULTS_MIN_HEIGHT, TREE_WIDTH, useHeight, useOxeQueryLayout } from './oxequery-layout.store'
 import { formatNumber } from '../../utils/formatTime'
@@ -321,6 +322,15 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
     const tab = newTab(sql)
     setTabs(current => [...current, tab]); setActiveId(tab.id); setSelectedRow(null); setCell(null)
   }
+  // A query sent from the agent activity opens in a new tab once the saved tabs are back; it is never run from here.
+  const editorRequest = useOxeQueryStore(state => state.editorRequest)
+  useEffect(() => {
+    if (!loaded || editorRequest?.connectionId !== connection.id) return
+    const text = useOxeQueryStore.getState().takeEditorRequest(connection.id)
+    if (text !== null) addTab(text)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- addTab reads the current tabs; the request is the trigger
+  }, [loaded, editorRequest, connection.id])
+
   const closeTab = (id: string): void => {
     if (tabs.length === 1) { patch(id, { outputs: [], outputIndex: 0, browse: null, details: null, explain: null }); replaceText(id, ''); return }
     const index = tabs.findIndex(tab => tab.id === id)
