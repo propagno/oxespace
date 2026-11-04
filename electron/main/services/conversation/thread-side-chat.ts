@@ -4,15 +4,18 @@ import { mainMessage } from '../../../../shared/messages'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../../shared/threadLimits'
 import { MainRefusal } from '../main-refusal'
 
-/** Built-in tools a side chat never gets, on top of plan mode and the read-only tool list: defence in depth. */
+/** Built-in tools a side chat never gets, on top of the read-only tool list: defence in depth. */
 export const SIDE_CHAT_DISALLOWED_TOOLS = ['Bash', 'Edit', 'Write', 'NotebookEdit'] as const
 
 const SIDE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** A side chat runs in read mode: plan, read-only tools, no hooks; whatever asks for approval is declined (see forward). */
+/**
+ * A side chat answers questions in the ordinary mode, not plan mode (T59): read-only access and tools, the
+ * disallowed write tools, no network, no hooks, and whatever asks for approval is declined (see forward).
+ */
 export function sideChatConfiguration(thread: Pick<ConversationThread, 'model' | 'reasoningEffort'>): ThreadConfiguration {
   return { ...(thread.model ? { model: thread.model } : {}), ...(thread.reasoningEffort ? { reasoningEffort: thread.reasoningEffort } : {}),
-    access: 'read-only', mode: 'plan', approvalPolicy: 'on-request', networkAccess: false, hooksEnabled: false }
+    access: 'read-only', mode: 'default', approvalPolicy: 'on-request', networkAccess: false, hooksEnabled: false }
 }
 
 /** What the side chats need from the app. Reading the main conversation is all they get of it: nothing writes to it. */

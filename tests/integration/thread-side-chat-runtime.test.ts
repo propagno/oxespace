@@ -91,7 +91,9 @@ describe('side chat runtime (B1.2)', () => {
     const { args, env, cwd } = hooks.launches[0]
     const line = args.join(' ')
     expect(cwd).toBe(root)
-    expect(line).toContain('--permission-mode plan')
+    // T59: the ordinary mode, never plan, and never one that skips approval.
+    expect(args[args.indexOf('--permission-mode') + 1]).toBe('default')
+    expect(args).not.toContain('--allow-dangerously-skip-permissions')
     expect(line).toContain('--disallowedTools Bash Edit Write NotebookEdit')
     expect(line).toMatch(new RegExp(`--resume ${MAIN} --fork-session --session-id [0-9a-f-]{36}`))
     expect(args).toContain('--strict-mcp-config')

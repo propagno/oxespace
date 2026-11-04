@@ -22,7 +22,7 @@
       "auto": "allowed",
       "approved": "approved",
       "approved-session": "approved (run)",
-      "denied": "declined",
+      "denied": "denied",
       "refused": "refused by policy",
       "pending": "waiting for you"
     },
@@ -30,7 +30,22 @@
     "notRun": "not run",
     "failedCode": "failed ({{code}})",
     "introContainers": "Every container request an AI agent made, and what you decided.",
-    "emptyContainers": "Agents only reach a container when you turn on agent access for a connection to it in OxeQuery. Every request they make appears here, with what you decided."
+    "emptyContainers": "Agents only reach a container when you turn on agent access for a connection to it in OxeQuery. Every request they make appears here, with what you decided.",
+    "detail": {
+      "title": "Agent request",
+      "open": "Show this request in full",
+      "environment": "Environment",
+      "tool": "Tool",
+      "rows": "Rows",
+      "duration": "Duration",
+      "error": "Error",
+      "statement": "Statement",
+      "noStatement": "This request has no statement (it read the schema).",
+      "openInEditor": "Open in editor",
+      "noDataOpen": "The audit keeps what an agent asked and how it ended, never the data it returned. To see the data, open the statement in the editor and run it there. String values show as ? in the audit.",
+      "noData": "The audit keeps what an agent asked and how it ended, never the data it returned. To see the data, run the statement in this connection's editor. String values show as ? in the audit.",
+      "noDataContainers": "The audit keeps what an agent asked and how it ended, never the output it got back."
+    }
   },
   "common": {
     "close": "Close",

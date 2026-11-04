@@ -32,6 +32,13 @@ interface OxeQueryState {
   connectionSearch: string
   /** The New database wizard; in the store so the palette and the welcome page open the same one. */
   newDatabaseOpen: boolean
+  /**
+   * Text to open in a new query tab of a connection's editor (from the agent activity), until that editor takes it.
+   * It is only ever put in the editor: running it is the person's own action.
+   */
+  editorRequest: { connectionId: string; text: string } | null
+  openInEditor(connectionId: string, text: string): boolean
+  takeEditorRequest(connectionId: string): string | null
   refreshConnections(): Promise<void>
   openConnection(connection: OxeQueryConnection): void
   openActivity(): void
@@ -54,8 +61,8 @@ function nextActive(tabs: OxeQueryTab[], closing: string, active: string): strin
   return rest[Math.min(index, rest.length - 1)]?.id ?? ''
 }
 
-export const useOxeQueryStore = create<OxeQueryState>((set) => ({
-  connections: [], connectionsError: null, tabs: [], activeTab: '', dialog: { open: false, editing: null }, preferencesOpen: false, newDatabaseOpen: false, foldedSections: [], connectionSearch: '',
+export const useOxeQueryStore = create<OxeQueryState>((set, get) => ({
+  connections: [], connectionsError: null, tabs: [], activeTab: '', dialog: { open: false, editing: null }, preferencesOpen: false, newDatabaseOpen: false, editorRequest: null, foldedSections: [], connectionSearch: '',
 
   refreshConnections: async () => {
     try { set({ connections: await oq('connections.list', {}), connectionsError: null }) }
@@ -73,6 +80,21 @@ export const useOxeQueryStore = create<OxeQueryState>((set) => ({
   closeTab: id => set(state => ({ tabs: state.tabs.filter(tab => tab.id !== id), activeTab: nextActive(state.tabs, id, state.activeTab) })),
 
   setActiveTab: id => set({ activeTab: id }),
+
+  openInEditor: (connectionId, text) => {
+    const connection = get().connections.find(item => item.id === connectionId)
+    if (!connection) return false
+    get().openConnection(connection)
+    set({ editorRequest: { connectionId, text } })
+    return true
+  },
+
+  takeEditorRequest: connectionId => {
+    const request = get().editorRequest
+    if (!request || request.connectionId !== connectionId) return null
+    set({ editorRequest: null })
+    return request.text
+  },
   openDialog: (editing, draft) => set({ dialog: { open: true, editing: editing ?? null, ...(draft && !editing ? { draft } : {}) } }),
   closeDialog: () => set({ dialog: { open: false, editing: null } }),
   setPreferencesOpen: open => set({ preferencesOpen: open }),
