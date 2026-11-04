@@ -2,7 +2,7 @@ import { useEffect, useRef, type KeyboardEvent, type ReactElement, type ReactNod
 import { Check, ChevronRight, X } from 'lucide-react'
 import { Dialog as RadixDialog, DropdownMenu as RadixMenu, Popover as RadixPopover, Tooltip as RadixTooltip } from 'radix-ui'
 import { i18n } from '../i18n'
-import { IconButton } from './Button'
+import { Button, IconButton } from './Button'
 import { cx } from './cx'
 import { Toaster } from './Toast'
 import styles from './Overlay.module.css'
@@ -10,14 +10,49 @@ import styles from './Overlay.module.css'
 /** Floating layers keep clear of the title bar so they never rise over the window controls. */
 const CHROME_COLLISION = { top: 44, right: 8, bottom: 8, left: 8 }
 
+/** The dialog's main action, at the end of the footer (U1). */
+export interface DialogPrimaryAction {
+  label: string
+  onClick: () => void
+  /** Destructive, or widens what an agent may do: the danger button. */
+  danger?: boolean
+  disabled?: boolean
+  loading?: boolean
+}
+
+/**
+ * The footer contract (U1, X1): `extra` at the start (Test, Copy, a link), then Cancel, then the primary or danger
+ * action at the end. Cancel is always there, always secondary, and says "Cancel" unless a dialog has a reason to differ.
+ */
+export interface DialogActions {
+  primary?: DialogPrimaryAction
+  /** Cancel's words and what it does; defaults to "Cancel" and closing the dialog. */
+  cancel?: {
+    label?: string
+    onClick?: () => void
+    disabled?: boolean
+    /** Start on Cancel even when the body has a field (a confirmation: the safe choice comes first). */
+    focus?: boolean
+    /** Cancel can't act right now (the action is running): it keeps focus and says so, rather than being disabled. */
+    unavailable?: boolean
+  }
+  extra?: ReactNode
+}
+
 export interface DialogProps {
   title: ReactNode
   description?: ReactNode
   onClose: () => void
   children?: ReactNode
-  /** Buttons at the bottom; the primary action goes last. */
+  /**
+   * Hand-built footer, kept for the dialogs U5a/U5b/U5c have not migrated yet. New dialogs use `actions`, which
+   * fixes the order and the focus rule.
+   */
   footer?: ReactNode
-  size?: 'sm' | 'md' | 'lg' | 'xl'
+  /** The footer slots (U1): extra · Cancel · primary. Enter in a single-line field runs the primary. */
+  actions?: DialogActions
+  /** Required (U1): every dialog says how wide it is. sm 420 px, md 560 px, lg 760 px, xl 1040 px. */
+  size: 'sm' | 'md' | 'lg' | 'xl'
   className?: string
   /** Element to focus when the dialog closes; defaults to what had focus before it opened. */
   returnFocusTo?: () => HTMLElement | null
@@ -38,17 +73,39 @@ const usable = (element: HTMLElement): boolean => !element.matches(':disabled, [
 
 /**
  * Where a dialog starts (D-01, one rule for every dialog): what a child already focused (a safe button in a
- * confirmation, an autoFocus field), else the first field of the body, else the first button of the footer, and only
- * when it has neither, the dialog itself. Never the close button: it is first in tab order, and focusing it would open
- * its tooltip, which then eats the first Escape.
+ * confirmation, an autoFocus field), else the first field of the body, else the safe action (Cancel, when the footer
+ * uses the U1 slots), else the first button of the footer, and only when it has none, the dialog itself. Never the
+ * close button: it is first in tab order, and focusing it would open its tooltip, which then eats the first Escape.
  */
 export function focusSurfaceUnlessChosen(event: Event): void {
   const surface = event.currentTarget as HTMLElement | null
   if (!surface || surface.contains(document.activeElement)) return
   event.preventDefault()
   const field = [...surface.querySelectorAll<HTMLElement>(`[data-dialog-body] :is(${FIELD})`)].find(usable)
+  const safe = [...surface.querySelectorAll<HTMLElement>('[data-dialog-footer] [data-dialog-cancel]')].find(usable)
   const action = [...surface.querySelectorAll<HTMLElement>('[data-dialog-footer] :is(button, a[href])')].find(usable)
-  ;(field ?? action ?? surface).focus({ preventScroll: true })
+  ;(field ?? safe ?? action ?? surface).focus({ preventScroll: true })
+}
+
+/**
+ * Enter in a single-line field runs the primary (U1). Not in a text area, not while an input method composes, not
+ * with a modifier, and not when the field handles Enter itself (an open combobox, a field that called preventDefault).
+ */
+function submitsOnEnter(event: KeyboardEvent<HTMLElement>): boolean {
+  if (event.key !== 'Enter' || event.defaultPrevented || event.nativeEvent.isComposing || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return false
+  const target = event.target as HTMLElement
+  if (!(target instanceof HTMLInputElement) || ['button', 'submit', 'reset', 'checkbox', 'radio', 'file', 'color', 'range'].includes(target.type)) return false
+  return target.getAttribute('aria-expanded') !== 'true'
+}
+
+function DialogFooter({ actions, onClose }: { actions: DialogActions; onClose: () => void }): ReactElement {
+  const { primary, cancel, extra } = actions
+  return <footer className={styles.dialogFooter} data-dialog-footer="">
+    {extra ? <div className={styles.dialogExtra} data-align="start">{extra}</div> : null}
+    <Button variant="secondary" data-dialog-cancel="" autoFocus={cancel?.focus} disabled={cancel?.disabled} aria-disabled={cancel?.unavailable || undefined}
+      onClick={cancel?.unavailable ? undefined : cancel?.onClick ?? onClose}>{cancel?.label ?? i18n.t('ui.cancel')}</Button>
+    {primary ? <Button variant={primary.danger ? 'danger' : 'primary'} data-dialog-primary="" loading={primary.loading} disabled={primary.disabled || primary.loading} onClick={primary.onClick}>{primary.label}</Button> : null}
+  </footer>
 }
 
 /**
@@ -64,7 +121,7 @@ function focusOrigin(active: Element | null): HTMLElement | null {
 }
 
 /** A modal dialog: title, optional description, body, and footer actions. Escape and the scrim close it. */
-export function Dialog({ title, description, onClose, children, footer, size = 'md', className, returnFocusTo, closeLabel = i18n.t('ui.close'), testId, onEscapeKeyDown, toasts = false }: DialogProps): ReactElement {
+export function Dialog({ title, description, onClose, children, footer, actions, size, className, returnFocusTo, closeLabel = i18n.t('ui.close'), testId, onEscapeKeyDown, toasts = false }: DialogProps): ReactElement {
   const previous = useRef(focusOrigin(document.activeElement))
   return <RadixDialog.Root open onOpenChange={open => { if (!open) onClose() }}>
     <RadixDialog.Portal>
@@ -91,8 +148,14 @@ export function Dialog({ title, description, onClose, children, footer, size = '
           </div>
           <IconButton label={closeLabel} icon={<X size={16} />} size="sm" onClick={onClose} />
         </header>
-        {children ? <div className={styles.dialogBody} data-dialog-body="">{children}</div> : null}
-        {footer && <footer className={styles.dialogFooter} data-dialog-footer="">{footer}</footer>}
+        {children ? <div className={styles.dialogBody} data-dialog-body=""
+          onKeyDown={actions?.primary ? event => {
+            const primary = actions.primary!
+            if (!submitsOnEnter(event) || primary.disabled || primary.loading) return
+            event.preventDefault()
+            primary.onClick()
+          } : undefined}>{children}</div> : null}
+        {actions ? <DialogFooter actions={actions} onClose={onClose} /> : footer && <footer className={styles.dialogFooter} data-dialog-footer="">{footer}</footer>}
         {toasts ? <Toaster inModal /> : null}
       </RadixDialog.Content>
     </RadixDialog.Portal>
