@@ -9,6 +9,7 @@ import { errorMessage, oq } from './client'
 import { groupSaved } from './library-folders'
 import { Button, IconButton } from '../../ui/Button'
 import { Popover } from '../../ui/Overlay'
+import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { toast } from '../../ui/Toast'
 import { formatDateTime } from '../../utils/formatTime'
 
@@ -25,6 +26,7 @@ export function LibraryMenu({ connection, currentSql, refreshKey, onPick, descri
   const { t } = useTranslation('oxequery')
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<'saved' | 'history'>('saved')
+  const [confirmClear, setConfirmClear] = useState(false)
   const [saved, setSaved] = useState<SavedQuery[]>([])
   const [history, setHistory] = useState<QueryHistoryItem[]>([])
   const [name, setName] = useState('')
@@ -83,8 +85,12 @@ export function LibraryMenu({ connection, currentSql, refreshKey, onPick, descri
             <code>{describe(item.sql).slice(0, 90)}</code>
             <small>{item.ok ? [item.rows === null || item.rows === undefined ? t('activity.rowsUnknown') : t('common.rows', { count: item.rows, formatted: formatNumber(item.rows) }), item.durationMs === null || item.durationMs === undefined ? '' : formatMs(item.durationMs)].filter(Boolean).join(' · ') : t('common.failed')} · {formatDateTime(item.ranAt)}</small>
           </button></li>)}</ul>
-        {history.length === 0 ? <EmptyState compact title={t('library.noHistory')} /> : <Button size="sm" onClick={() => void clear()}>{t('library.clearHistory')}</Button>}
+        {history.length === 0 ? <EmptyState compact title={t('library.noHistory')} /> : <Button size="sm" onClick={() => setConfirmClear(true)}>{t('library.clearHistory')}</Button>}
       </>}
     </div>
+    {/* U2: clearing the history can't be undone, so it asks first (Cancel focused). */}
+    {confirmClear ? <ConfirmDialog danger title={t('library.clearHistoryTitle', { name: connection.name })} description={t('library.clearHistoryBody')}
+      confirmLabel={t('library.clearHistory')} cancelLabel={t('common.cancel')} onCancel={() => setConfirmClear(false)}
+      onConfirm={() => { setConfirmClear(false); void clear() }} /> : null}
   </Popover>
 }

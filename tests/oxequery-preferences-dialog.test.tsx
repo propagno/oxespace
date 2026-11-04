@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { PreferencesDialog } from '../src/components/OxeQuery/PreferencesDialog'
+import { Toaster, useToasts } from '../src/ui/Toast'
 import { installFakeOxeQuery, type FakeOxeQuery } from './helpers/oxequery-api'
 import type { OxeQueryPreferences } from '../shared/types/oxequery'
 
@@ -14,7 +15,7 @@ beforeEach(() => {
   api = installFakeOxeQuery()
   api.on('preferences.get', preferences)
 })
-afterEach(() => cleanup())
+afterEach(() => { cleanup(); useToasts.setState({ items: [] }) })
 
 const group = async (name: string): Promise<HTMLElement> => within(await screen.findByRole('dialog', { name: 'OxeQuery settings' })).getByRole('group', { name })
 
@@ -53,5 +54,25 @@ describe('OxeQuery settings: limits by environment', () => {
     expect(labels).toContain('30 seconds')
     expect(labels).toContain('5 minutes')
     expect(labels).toContain('No limit')
+  })
+})
+
+describe('U2: keeping less, or giving agents more, offers Undo', () => {
+  it('a shorter history says so, and Undo saves what was there', async () => {
+    api.on('preferences.set', (input: Record<string, unknown>) => ({ ...preferences, ...input }))
+    render(<><Toaster /><PreferencesDialog onClose={() => undefined} /></>)
+    fireEvent.change(await screen.findByRole('combobox', { name: /Statements kept per connection/ }), { target: { value: '100' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Undo' }))
+    await waitFor(() => expect(api.callsOf('preferences.set').at(-1)).toMatchObject({ historyLimit: 200 }))
+  })
+
+  it('a longer history needs no Undo', async () => {
+    api.on('preferences.set', (input: Record<string, unknown>) => ({ ...preferences, ...input }))
+    render(<><Toaster /><PreferencesDialog onClose={() => undefined} /></>)
+    fireEvent.change(await screen.findByRole('combobox', { name: /Statements kept per connection/ }), { target: { value: '500' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(api.callsOf('preferences.set')).toHaveLength(1))
+    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull()
   })
 })

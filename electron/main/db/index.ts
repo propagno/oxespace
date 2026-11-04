@@ -67,7 +67,8 @@ function openAndMigrate(databasePath: string): AppDatabase {
     // lose every workspace. Only when an existing DB is actually behind.
     const fromVersion = db.pragma('user_version', { simple: true }) as number
     if (fromVersion > LATEST_DB_VERSION) {
-      throw new Error('This database was created by a newer OXESpace version. Open it with that version; downgrade migration is not supported.')
+      // T87: marked, so startup shows its own screen for it (startup-failure.ts) instead of an empty app.
+      throw Object.assign(new Error('This database was created by a newer OXESpace version. Open it with that version; downgrade migration is not supported.'), { newerSchema: true, fromVersion, latest: LATEST_DB_VERSION })
     }
     if (fromVersion > 0 && fromVersion < LATEST_DB_VERSION) {
       backupBeforeMigration(db, databasePath, fromVersion)

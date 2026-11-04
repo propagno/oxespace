@@ -301,6 +301,7 @@
     "translucent": "translucent",
     "globalDefaults": "<strong>Global</strong> defaults. Workspaces can override them.",
     "resumeBypass": "Resume sessions with permissions skipped, when the session was",
+    "resumeBypassOn": "Resumed sessions now skip permission prompts when they did before",
     "resumeBypassHint": "A Claude Code session started with its permission prompts skipped resumes the same way after a restart or Restore session. Off: it resumes asking for permission."
   },
   "hooks": {
@@ -530,6 +531,7 @@
   "agentConfig": {
     "promptRequired": "Skill prompt is required",
     "saveFailed": "Failed to save agent profile",
+    "commandChanged": "{{name}} now starts with the new command",
     "commandRequired": "Command is required",
     "deleteFailed": "Failed to delete agent profile",
     "deleteTitle": "Delete this agent profile?",
@@ -558,7 +560,8 @@
       "hint": "Off by default. When on, OXESpace listens only on private network addresses, over an encrypted connection that only paired phones can use.",
       "listening": "Listening on {{addresses}}, port {{port}}",
       "off": "Off. No port is open.",
-      "failed": "Could not change the phone connection: {{error}}"
+      "failed": "Could not change the phone connection: {{error}}",
+      "on": "Phones can now connect to this computer"
     },
     "firewall": {
       "title": "Before phones can connect",
