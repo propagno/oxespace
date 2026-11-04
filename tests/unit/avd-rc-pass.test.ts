@@ -85,14 +85,20 @@ function fakeSdk() {
   return { sdk, bin }
 }
 
+/**
+ * A pass on the fake device starts a few dozen sh and adb processes. Git Bash on the Windows runners takes 8–18 s for
+ * that, past vitest's 5 s default, so these tests get their own budget.
+ */
+const FAKE_RUN_MS = 50_000
+
 function runFake(phase: string, extra: Record<string, string>) {
   const { sdk, bin } = fakeSdk()
   const env = { PATH: `${bin}${delimiter}${process.env.PATH ?? ''}`, RC_ROOT: join(root, 'rc'), OUT: join(root, 'out'), RC_FAKE_FREE_MB: '5000', ANDROID_SDK_ROOT: sdk, ...extra }
-  return spawnSync('sh', [join('scripts', 'android', 'avd-rc-pass.sh'), phase], { env, encoding: 'utf8', timeout: 20_000 })
+  return spawnSync('sh', [join('scripts', 'android', 'avd-rc-pass.sh'), phase], { env, encoding: 'utf8', timeout: FAKE_RUN_MS })
 }
 const taps = () => readFileSync(join(root, 'adb.log'), 'utf8').split('\n').filter(line => line.startsWith('shell input tap '))
 
-describe.runIf(hasSh)('avd-rc-pass.sh steps on a fake device', () => {
+describe.runIf(hasSh)('avd-rc-pass.sh steps on a fake device', { timeout: FAKE_RUN_MS + 10_000 }, () => {
   it('tapid taps the permission button by its id, where tap Allow would hit the dialog title', () => {
     writeFileSync(join(root, 'steps.txt'), 'tap Allow\ntapid permission_allow_button\ntapid? not_on_screen\n')
     const result = runFake('script', { STEPS: join(root, 'steps.txt') })
