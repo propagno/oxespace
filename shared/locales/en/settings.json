@@ -561,7 +561,7 @@
       "failed": "Could not change the phone connection: {{error}}"
     },
     "network": {
-      "publicTitle": "Windows calls this network Public, so phones can’t reach this computer",
+      "publicTitle": "Windows calls “{{network}}” a Public network, so phones can’t reach this computer",
       "publicBody": "Mark this Wi-Fi as Private in Windows Settings › Network & internet › Wi-Fi › this network › Network profile type. Or allow OXESpace on public networks in Windows Defender Firewall › Allow an app through the firewall. Only do that on a network you trust."
     },
     "firewall": {

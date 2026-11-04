@@ -586,7 +586,7 @@
       "failed": "Não foi possível mudar a conexão com o celular: {{error}}"
     },
     "network": {
-      "publicTitle": "O Windows considera esta rede Pública, então os celulares não alcançam este computador",
+      "publicTitle": "O Windows considera “{{network}}” uma rede Pública, então os celulares não alcançam este computador",
       "publicBody": "Marque este Wi-Fi como Privado em Configurações do Windows › Rede e Internet › Wi-Fi › esta rede › Tipo de perfil de rede. Ou permita o OXESpace em redes públicas no Firewall do Windows Defender › Permitir um aplicativo pelo firewall. Faça isso só em uma rede confiável."
     },
     "firewall": {

@@ -25,9 +25,6 @@ interface RemoteState {
 
 export const remoteApi = (): RemoteApi | undefined => window.oxe?.remote
 
-/** `pairingPrompt` reads the prompt already waiting (BACKEND, T86); a build without it starts from `remote:changed` alone. */
-type WithPrompt = RemoteApi & { pairingPrompt?: () => Promise<RemotePairingPrompt | null> }
-
 export const useRemoteStore = create<RemoteState>((set) => ({
   status: null,
   devices: null,
@@ -42,11 +39,12 @@ export const useRemoteStore = create<RemoteState>((set) => ({
   failed: (message) => set({ failure: message }),
   clearFailure: () => set({ failure: null }),
   reload: async () => {
-    const api = remoteApi() as WithPrompt | undefined
+    const api = remoteApi()
     if (!api) return
     try {
-      const [status, devices, pairing] = await Promise.all([api.status(), api.devices(), api.pairingPrompt?.() ?? Promise.resolve(undefined)])
-      set(state => ({ status, devices, loadError: null, pairing: pairing === undefined ? state.pairing : pairing }))
+      const [status, devices] = await Promise.all([api.status(), api.devices()])
+      // The status carries the question waiting for the person (T86), so a window that opens or reloads shows it too.
+      set({ status, devices, loadError: null, pairing: status.pendingPairing ?? null })
     } catch (cause) {
       set({ loadError: cause instanceof Error ? cause.message : String(cause) })
     }

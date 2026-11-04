@@ -15,7 +15,7 @@ import { REMOTE_DEFAULT_DESKTOP_NAME, type RemoteChange, type RemoteDevice, type
 const FP = '0123456789abcdef'.repeat(4)
 const CODE = 'AbCdEfGhIjKlMnOpQrStUv'
 
-function fakeRemote(options: { status?: Partial<RemoteGatewayStatus> & { networkProfile?: string }; devices?: RemoteDevice[]; waiting?: RemoteChange['pairing'] } = {}) {
+function fakeRemote(options: { status?: Partial<RemoteGatewayStatus>; devices?: RemoteDevice[] } = {}) {
   let status: RemoteGatewayStatus = { enabled: false, desktopName: REMOTE_DEFAULT_DESKTOP_NAME, listening: null, fingerprint: null, devices: 0, maxDevices: REMOTE_LIMITS.maxDevices, phoneWritePanes: [], ...options.status }
   let devices = options.devices ?? []
   const listeners = new Set<(change: RemoteChange) => void>()
@@ -27,7 +27,6 @@ function fakeRemote(options: { status?: Partial<RemoteGatewayStatus> & { network
     devices: vi.fn(async () => devices),
     onChanged: vi.fn((listener: (change: RemoteChange) => void) => { listeners.add(listener); return () => { listeners.delete(listener) } }),
     onPairingFailed: vi.fn((listener: (message: MainMessage) => void) => { failures.add(listener); return () => { failures.delete(listener) } }),
-    ...(options.waiting !== undefined ? { pairingPrompt: vi.fn(async () => options.waiting) } : {}),
     setEnabled: vi.fn(async ({ enabled }: { enabled: boolean }) => {
       status = { ...status, enabled, listening: enabled ? { addresses: ['192.168.0.10'], port: 47321 } : null, fingerprint: FP }
       return status
@@ -289,9 +288,21 @@ describe('T86: a phone asking to pair reaches the person wherever they are', () 
   })
 
   it('a prompt already waiting when the window starts shows too', async () => {
-    fakeRemote({ status: listening, waiting: prompt })
+    fakeRemote({ status: { ...listening, pendingPairing: prompt } })
     render(<RemotePairingHost />)
     expect(await screen.findByRole('dialog', { name: 'Pair Galaxy S25?' })).toBeInTheDocument()
+  })
+
+  it('no phone reached this computer before the code lapsed: Devices says so (no-contact)', async () => {
+    const { fail } = fakeRemote({ status: listening })
+    render(<DevicesSettings />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Show pairing code' }))
+    await screen.findByTestId('devices-pairing-qr')
+    const message: MainMessage = { code: 'remote.pairing.failed', params: { reason: 'no-contact' } }
+    fail(message)
+    expect(await screen.findByText(formatMainMessage(message))).toBeInTheDocument()
+    expect(formatMainMessage(message)).not.toMatch(/remote\.pairing/)
+    expect(screen.queryByTestId('devices-pairing-qr')).toBeNull()
   })
 
   it('a failed attempt says why in Devices and stops the code', async () => {
@@ -318,15 +329,15 @@ describe('T86: a phone asking to pair reaches the person wherever they are', () 
   })
 
   it('on a Public network, Devices says phones are blocked and how to fix it', async () => {
-    fakeRemote({ status: { ...listening, networkProfile: 'public' } })
+    fakeRemote({ status: { ...listening, network: { interfaceName: 'Casa 5G', category: 'public' } } })
     render(<DevicesSettings />)
     const notice = await screen.findByTestId('devices-network-public')
-    expect(notice).toHaveTextContent('Windows calls this network Public')
+    expect(notice).toHaveTextContent('Windows calls “Casa 5G” a Public network')
     expect(notice).toHaveTextContent('Network profile type')
   })
 
   it('on a Private network, there is no such notice', async () => {
-    fakeRemote({ status: { ...listening, networkProfile: 'private' } })
+    fakeRemote({ status: { ...listening, network: { interfaceName: 'Casa 5G', category: 'private' } } })
     render(<DevicesSettings />)
     await screen.findByTestId('devices-gateway-state')
     expect(screen.queryByTestId('devices-network-public')).toBeNull()

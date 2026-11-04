@@ -58,8 +58,6 @@ export function DevicesSettings(): ReactElement {
   const full = devices.length >= status.maxDevices
   const blockedReason = !listening ? t('devices.pairing.needsGateway') : full ? t('devices.pairing.full', { max: status.maxDevices }) : null
   const windows = window.oxe?.app?.platform === 'win32'
-  // BACKEND reports the network profile on Windows (T86); absent elsewhere and in older builds.
-  const networkProfile = (status as typeof status & { networkProfile?: 'public' | 'private' | 'domain' | 'unknown' }).networkProfile
 
   return <section className="settings-general" data-testid="devices-settings">
     <h2>{t('devices.title')}</h2>
@@ -72,7 +70,7 @@ export function DevicesSettings(): ReactElement {
             ? t('devices.gateway.listening', { addresses: status.listening.addresses.join(', '), port: status.listening.port }) : t('devices.gateway.off')}</p>
           {status.error ? <div data-testid="devices-gateway-error"><ErrorState compact title={formatMainMessage(status.error)} /></div> : null}
           {/* T86: on a network Windows calls Public, its firewall blocks phones and nothing tells the person why. */}
-          {listening && networkProfile === 'public' ? <div data-testid="devices-network-public"><Notice intent="warning" title={t('devices.network.publicTitle')}>
+          {listening && status.network?.category === 'public' ? <div data-testid="devices-network-public"><Notice intent="warning" title={t('devices.network.publicTitle', { network: status.network.interfaceName })}>
             <p>{t('devices.network.publicBody')}</p></Notice></div> : null}
           {toggleError ? <ErrorState compact title={toggleError} /> : null}
         </div>
