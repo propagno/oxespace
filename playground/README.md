@@ -17,6 +17,45 @@ npm run preview    # serves dist/ on http://localhost:5198
 Nothing talks to a model, a database or the network. The only external load is the Google Fonts stylesheet; without
 it the fonts fall back to Segoe UI and Consolas.
 
+## Start here: the 1.5.0 story in 10 stops
+
+Open each link after `http://localhost:5199/`. It takes about 15 minutes. The panel on the right of each screen says
+what to try; Reset in the top bar puts the mock data back.
+
+1. **`#mode-code`: your terminals, as today.**
+   - The sidebar lists projects and panes, each with its branch. `mig-prd` shows as moved because a terminal switched
+     that worktree.
+   - **+ Terminal** opens at once where the focused pane is; its chevron asks for another project or worktree.
+   - Drag a divider, right-click it for the divider menu, or drag a pane header to move the pane.
+2. **`#chat`: one OxeChat conversation, end to end.** Claude has two questions for you. Answer them (the pager is in
+   the footer). Then it asks to run `npm test`: Deny, Allow once, or Always allow with Claude's own rule. After the
+   tests it asks to `git push`, and Always allow isn't offered for that. Expand "Thought for 14 s" and the Explore
+   agent along the way.
+3. **`#chat-split`: two conversations side by side.** Click or Tab into either side; nothing reorders. Close one with
+   its ✕.
+4. **`#chat-tools`: tools beside the conversation.** Files, Browser, and Git with GitHub and Linear open in a panel you
+   can drag wider or maximize. The conversation never goes away.
+5. **`#task-approval` › Changes tab: when a terminal moved your branch.**
+   - The now line says "moved to mig-prd".
+   - The Changes tab shows what the conversation changed, against where it started.
+   - Switch back is refused because the worktree is dirty. Dismiss splits "changed by the task" from "changed by the
+     branch switch".
+6. **`#approve-sql`: approving with the impact in front of you.**
+   - Rows before → after, where it runs, and whether it can be undone.
+   - Snapshot, then approve: OXESpace keeps the copy.
+   - Hold Approve for 1.2 s, or use Approve without holding… and its checkbox. Deny is the default.
+7. **`#queue`: everything waiting, in one place.** The first request is focused: press D or A. The questions from
+   stop 2 appear here too.
+8. **`#mode-query`, then `#mode-post` and `#mode-pod`: the other modes, each a familiar tool.** The one line at the
+   top says what agents did there; "See what agents did" opens the detail.
+9. **`#settings-approvals`, then `#settings-devices`: what agents and phones may do.** Risky changes apply at once
+   with an undo. The phone page says exactly what a phone can and can't approve.
+10. **`#foundations`: the reference.** Every Mandacaru 1.5 token in light and dark, type, space, motion, icons, and
+    the primitives in their states.
+
+Switch **Frame** to 900 × 620 and **Theme** to Dark at any stop; every screen works in all four combinations.
+`#first-run` shows the app with nothing set up.
+
 ## Using it
 
 - The bar on top picks the **screen**, the **frame** (1440 × 900 or 900 × 620), the **theme** and the **state** (live,

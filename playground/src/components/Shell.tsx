@@ -21,7 +21,7 @@ export function TitleBar () {
     <div className="tb-r">
       <button className="cmdk sm" onClick={run(() => { S.overlay = { type: 'pal', query: '', sel: 0 } })} aria-label="Search (Ctrl K)"><Icon n="search" /><span>Search</span><Kbd>Ctrl K</Kbd></button>
       <button className={'needs' + (n ? '' : ' zero')} onClick={() => goScreen('queue')} title="Approvals waiting for you (Ctrl Shift A)">{n ? <span className="sun live" /> : <Icon n="check" s={12} />}{n ? `${n} need${n === 1 ? 's' : ''} you` : 'Nothing waiting'}</button>
-      <button className="ibtn" onClick={e => { e.stopPropagation(); S.notif = !S.notif; S.menu = null; emit() }} aria-label="Notifications" aria-expanded={S.notif} style={{ position: 'relative' }}><Icon n="bell" />{unread ? <span className="badge" style={{ position: 'absolute', top: 0, right: -2 }}>{unread}</span> : null}</button>
+      <button className="ibtn" onClick={e => { e.stopPropagation(); S.notif = !S.notif; S.menu = null; emit() }} aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'} aria-expanded={S.notif} style={{ position: 'relative' }}><Icon n="bell" />{unread ? <span className="badge" style={{ position: 'absolute', top: 0, right: -2 }}>{unread}</span> : null}</button>
       <button className="ibtn" onClick={() => goScreen('settings-general')} aria-label="Settings (Ctrl ,)" title="Settings (Ctrl ,)"><Icon n="gear" /></button>
       <div className="wc" aria-hidden="true"><span><Icon n="min" s={12} /></span><span><Icon n="max" s={12} /></span><span><Icon n="x" s={12} /></span></div>
     </div></header>
@@ -34,7 +34,7 @@ MENUS.m_tools = () => <><MI icon="plug" label="MCP servers" onClick={dlgOpen('mc
 MENUS.m_help = () => <><MI icon="keyboard" label="Keyboard shortcuts" sc="?" onClick={dlgOpen('shortcuts')} /><MI icon="warn" label="Report a problem…" onClick={dlgOpen('report')} /><MI icon="refresh" label="Check for updates" onClick={() => toast('You\'re on the latest version, 1.5.0')} /><hr /><MI icon="info" label="About OXESpace" onClick={dlgOpen('about')} /></>
 MENUS.ws = () => <><div className="mg">Workspace</div><MI check label={D.company.name} hint="3 projects · ~/code/cajui" /><MI check={false} label="Personal" hint="1 project" onClick={() => toastSoonLocal('Switching workspaces reloads the window in the app.')} /><hr />
   <MI icon="plus" label="New workspace…" onClick={() => { S.overlay = { type: 'dlg', id: 'newws' } }} /><MI icon="gear" label="Workspace settings" onClick={() => goScreen('settings-ws-projects')} /><hr /><MI icon="trash" dz label="Remove workspace…" onClick={() => { S.overlay = { type: 'dlg', id: 'removews' } }} /></>
-import { toast } from '../state/store'
+import { toast, resolve } from '../state/store'
 const toastSoonLocal = (m: string) => toast(m)
 
 export function StatusBar () {
@@ -43,7 +43,7 @@ export function StatusBar () {
   if (S.area === 'firstrun') return <footer className="sb"><span>Nothing set up yet</span><span className="sp" /><span>OXESpace 1.5.0</span></footer>
   return <footer className="sb"><span><Icon n="branch" s={12} /> <b>{t && t.id === 't143' ? 'mig-prd' : t ? t.branch : 'main'}</b>{t && t.id === 't143' ? <span className="moved-sb" title="This conversation started on oxe/t143-invoice-report; the worktree's branch changed">moved</span> : null}</span><span className="hide-n">{t ? D.projects[t.project].name : 'cajui-api'}</span>
     <span><span className="sdot on" /> {plural(running, 'agent')} working</span><span className="sp" />
-    <button className="usage-sb" onClick={run(() => { S.overlay = { type: 'dlg', id: 'usage' } })} title="Usage by provider"><span className="pdot claude" />Claude 41%<span className="ubar"><i style={{ width: '41%' }} /></span><span className="pdot codex" />Codex 18%<span className="ubar"><i style={{ width: '18%' }} /></span></button><span>OXESpace 1.5.0</span></footer>
+    {S.freshWs ? null : <button className="usage-sb" onClick={run(() => { S.overlay = { type: 'dlg', id: 'usage' } })} title="Usage by provider"><span className="pdot claude" />Claude 41%<span className="ubar"><i style={{ width: '41%' }} /></span><span className="pdot codex" />Codex 18%<span className="ubar"><i style={{ width: '18%' }} /></span></button>}<span>OXESpace 1.5.0</span></footer>
 }
 
 const RAIL: [string, string, string][] = [['tasks', 'chat', 'OxeChat: tasks and threads'], ['code', 'term', 'OxeCode'], ['query', 'query', 'OxeQuery'], ['post', 'net', 'OxePost'], ['pod', 'box', 'OxePod']]
@@ -83,5 +83,6 @@ export function MenuLayer () {
 export function Toasts () {
   return <div className="toasts" aria-live="polite">{S.toasts.map(t => <div key={t.id} className={'toast ' + (t.kind || '')} role="status">{t.kind === 'attn' ? <span className="sun live" /> : null}<span>{t.text}</span>
     {t.undo ? <button className="btn sm" onClick={run(() => { t.undo!(); S.toasts = S.toasts.filter(x => x.id !== t.id) })}><Icon n="undo" s={12} />Undo</button> : null}
-    {t.go ? <button className="btn sm" onClick={() => { S.toasts = S.toasts.filter(x => x.id !== t.id); goScreen(t.go!) }}>Open</button> : null}</div>)}</div>
+    {t.go ? <button className="btn sm" onClick={() => { S.toasts = S.toasts.filter(x => x.id !== t.id); goScreen(t.go!) }}>Open</button> : null}
+    {t.ap && !S.resolved[t.ap] ? (D.approvals[t.ap].irreversible ? <button className="btn sm" onClick={run(() => { S.toasts = S.toasts.filter(x => x.id !== t.id); S.overlay = { type: 'approve', id: t.ap } })}>See impact</button> : <><button className="btn sm" onClick={run(() => { S.toasts = S.toasts.filter(x => x.id !== t.id); resolve(t.ap!, 'deny') })}>Deny</button><button className="btn sm" onClick={run(() => { S.toasts = S.toasts.filter(x => x.id !== t.id); resolve(t.ap!, 'ok') })}>Allow</button></>) : null}</div>)}</div>
 }

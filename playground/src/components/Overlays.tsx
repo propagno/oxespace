@@ -26,7 +26,7 @@ export function Dialog ({ spec }: { spec: DialogSpec }) {
   }, [spec.title])
   return <div className="ov center" onMouseDown={e => { if (e.target === e.currentTarget) closeOverlay() }}>
     <div className={'dlg ' + spec.size} role="dialog" aria-modal="true" aria-labelledby="dlg-title" ref={ref}
-      onKeyDown={e => { if (e.key === 'Tab') { const f = Array.from(ref.current!.querySelectorAll<HTMLElement>('button:not([disabled]), input, textarea, select, [tabindex="0"]')); if (!f.length) return; const i = f.indexOf(document.activeElement as HTMLElement); if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus() } else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus() } } }}>
+      onKeyDown={e => { const tg = e.target as HTMLElement; if (e.key === 'Enter' && /INPUT|SELECT/.test(tg.tagName) && (tg as HTMLInputElement).type !== 'checkbox' && spec.primary && !spec.primary.disabled) { e.preventDefault(); spec.primary.act(); if (S.overlay) closeOverlay(); else emit(); return } if (e.key === 'Tab') { const f = Array.from(ref.current!.querySelectorAll<HTMLElement>('button:not([disabled]), input, textarea, select, [tabindex="0"]')); if (!f.length) return; const i = f.indexOf(document.activeElement as HTMLElement); if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus() } else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus() } } }}>
       <div className="dlg-h">{spec.icon ? <Icon n={spec.icon} s={16} /> : null}<h2 id="dlg-title">{spec.title}</h2><button className="ibtn" onClick={closeOverlay} aria-label="Close" title="Close (Esc)"><Icon n="x" /></button></div>
       <div className="dlg-b">{spec.body()}</div>
       {spec.noFooter ? null : <div className="dlg-f">{spec.extra}<span className="sp" />
@@ -53,8 +53,8 @@ function NewTask () {
   const text = o.text || ''
   return <Dialog spec={{ size: 'md', title: 'New conversation', icon: 'plus', body: () => <>
     <div className="field"><label htmlFor="nt-text">What should the agent do?</label><textarea className="input" id="nt-text" rows={4} value={text} placeholder="Describe the outcome you want, e.g. Add CSV export to the statements page" onChange={e => { o.text = e.target.value; emit() }} onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && text.trim()) { e.preventDefault(); startTask(text); emit() } }} /></div>
-    <div className="row" style={{ alignItems: 'start' }}><div className="field" style={{ flex: 1 }}><label htmlFor="nt-proj">Project</label><select className="sel" id="nt-proj" value={nt.project} onChange={e => { nt.project = e.target.value; emit() }}>{Object.values(D.projects).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
-      <div className="field" style={{ flex: 1 }}><label htmlFor="nt-agent">Agent and model</label><select className="sel" id="nt-agent" value={nt.prov + '|' + nt.model} onChange={e => { const [p, m] = e.target.value.split('|'); nt.prov = p; nt.model = m; emit() }}>{Object.values(D.providers).flatMap(p => p.models.map(m => <option key={p.id + m} value={p.id + '|' + m}>{p.name} · {m}</option>))}</select></div></div>
+    <div className="row" style={{ alignItems: 'start' }}><div className="field" style={{ flex: 1 }}><label htmlFor="nt-proj">Project</label><select className="sel" id="nt-proj" value={nt.project} onChange={e => { nt.project = e.target.value; emit() }}>{Object.values(D.projects).filter(p => !S.freshWs || p.id === 'api').map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+      <div className="field" style={{ flex: 1 }}><label htmlFor="nt-agent">Agent and model</label><select className="sel" id="nt-agent" value={nt.prov + '|' + nt.model} onChange={e => { const [p, m] = e.target.value.split('|'); nt.prov = p; nt.model = m; emit() }}>{Object.values(D.providers).flatMap(p => p.models.map(m => { const off = S.freshWs && p.id === 'codex'; return <option key={p.id + m} value={p.id + '|' + m} disabled={off}>{p.name} · {m}{off ? ' (not installed)' : ''}</option> }))}</select></div></div>
     <div className="field"><label>What it may do</label><div className="chips">{([['read', 'Read only', 'eye'], ['edit', 'Can edit', 'pencil'], ['full', 'Full access', 'shieldx']] as const).map(([k, l, i]) => <button key={k} className={'chip' + (k === 'full' ? ' dz' : '')} aria-pressed={nt.access === k} onClick={run(() => { nt.access = k })}><Icon n={i} s={12} />{l}</button>)}</div>
       {nt.access === 'full' ? <div className="callout danger"><Icon n="warn" /><span>Full access runs commands, writes to databases and calls networks without asking. Use it only in a throwaway environment.</span></div> : null}</div>
     <label className="row" style={{ fontSize: 13 }}><input type="checkbox" checked={nt.worktree} onChange={e => { nt.worktree = e.target.checked; emit() }} /> Work in its own branch and worktree <span className="muted">· oxe/t146-…</span></label></>,
@@ -79,7 +79,7 @@ function palItems (): PalItem[] {
   const it: PalItem[] = [{ g: 'Actions', icon: 'plus', label: 'New conversation', k: 'N', act: () => { S.overlay = { type: 'newtask', text: '' } } }]
   S.queue.filter(q => !S.resolved[q]).forEach(q => it.push({ g: 'Actions', icon: 'shield', label: 'Review: ' + D.approvals[q].title, sub: task(D.approvals[q].task)!.title, act: () => { S.overlay = { type: 'approve', id: q } } }))
   it.push({ g: 'Actions', icon: 'copy', label: 'Open the side chat', k: 'Ctrl .', act: () => { S.overlay = null; const t = cur(); if (t) { scState(t).open = true } } })
-  S.tasks.filter(t => t.id !== 'quick' && t.id !== S.taskId).forEach(t => it.push({ g: 'Open beside', icon: 'panel', label: t.title, sub: 'side by side', act: () => { S.area = 'task'; S.cellA = S.taskId; S.split2 = t.id; S.taskId = t.id } }))
+  S.tasks.filter(t => t.id !== 'quick' && t.id !== S.taskId).forEach(t => it.push({ g: 'Open beside', icon: 'panel', label: `Open beside: ${t.title}`, act: () => { S.area = 'task'; S.cellA = S.taskId; S.split2 = t.id; S.taskId = t.id } }))
   S.tasks.filter(t => t.id !== 'quick').forEach(t => it.push({ g: 'Conversations', icon: 'list', label: t.title, sub: t.model, act: () => openTask(t.id) }))
   D.queries.forEach(q => it.push({ g: 'Made by agents', icon: 'db', label: q.sql.split('\n')[0], sub: `${q.conn} · ${q.at.slice(0, 5)}`, act: () => { if (task(q.task)) S.taskId = q.task; S.q.sel = q.id; S.tab = 'queries'; goScreen('task-current') } }))
   Object.values(D.requests).filter(r => r.task).forEach(r => it.push({ g: 'Made by agents', icon: 'net', label: `${r.method} ${r.name}`, sub: `${task(r.task!)!.key} · ${r.at}`, act: () => { S.taskId = r.task!; S.post.req = r.id; S.tab = 'requests'; goScreen('task-current') } }))
@@ -92,7 +92,7 @@ function palItems (): PalItem[] {
 }
 function Palette () {
   const o = S.overlay!; const q = (o.query || '').toLowerCase()
-  const items = palItems().filter(i => !q || (i.label + ' ' + (i.sub || '')).toLowerCase().includes(q)).slice(0, 40)
+  const items = palItems().filter(i => !q || (i.g + ' ' + i.label + ' ' + (i.sub || '')).toLowerCase().includes(q)).slice(0, 40)
   const sel = Math.min(o.sel || 0, Math.max(0, items.length - 1))
   const pick = (i: PalItem) => { S.overlay = null; i.act(); emit() }
   let lastG = ''

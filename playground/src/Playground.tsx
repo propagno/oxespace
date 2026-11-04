@@ -6,8 +6,8 @@ import { SCREENS, goScreen, syncScreen, resetAll } from './screens/registry'
 import { TitleBar, StatusBar, Rail, Notifications, MenuLayer, Toasts, railGo } from './components/Shell'
 import { Sidebar, EmptyHome, ChatArea } from './components/Task'
 import { goMode, MODES } from './components/Shell'
-import { codeMaxToggle } from './components/Modes'
-import { QueueView, startHold, cancelHold } from './components/Tools'
+import { codeMaxToggle, split } from './components/Modes'
+import { QueueView, startHold, cancelHold, refocus } from './components/Tools'
 import { OverlayLayer, closeOverlay, rememberFocus } from './components/Overlays'
 import { Icon, StateBlock } from './components/ui'
 import { Later } from './components/Later'
@@ -29,9 +29,9 @@ function FirstRun () {
     <div className="stack" style={{ gap: 10 }}><h1 tabIndex={-1} id="fr-h">Agents that work in your code, and show you every step</h1><p className="lead">Three steps. Nothing is uploaded; your code stays on this computer.</p></div>
     {step(1, !!fr.folder, !fr.folder, 'Open a project folder', fr.folder ? <span className="mono">~/code/cajui/cajui-api · git, branch main</span> : 'A git repository on this computer.', fr.folder ? null : <button className="btn pri" onClick={run(() => { fr.folder = true; setTimeout(() => document.getElementById('fr-h')?.focus(), 0); toast('Opened ~/code/cajui/cajui-api') })}><Icon n="folder" s={12} />Choose folder…</button>)}
     {step(2, ready, !!fr.folder && !ready, 'Connect an agent', <div className="agents-chk">
-      <div><span className="pdot claude" /><b>Claude Code</b>{fr.claude === 'ready' ? <span className="res ok">Ready · Opus 5.5</span> : fr.claude === 'checking' ? <span className="muted"><span className="spin" style={{ display: 'inline-block', verticalAlign: -2 }} /> Checking…</span> : <><span className="muted">Found 2.4.1 on PATH · not signed in</span><button className="btn sm" disabled={!fr.folder} onClick={run(() => { fr.claude = 'checking'; setTimeout(() => { fr.claude = 'ready'; emit() }, 900) })}>Sign in</button></>}</div>
-      <div><span className="pdot codex" /><b>Codex</b><span className="muted">Not found on PATH</span><button className="btn sm ghost" disabled={!fr.folder} onClick={run(() => toast('npm install -g @openai/codex, then come back'))}>How to install</button></div></div>)}
-    {step(3, false, ready, 'Start your first conversation', ready ? 'Describe what you want done; the agent works in its own branch.' : 'Available once an agent is ready.', <button className="btn pri" disabled={!ready} title={ready ? undefined : 'Connect an agent first'} onClick={run(() => { S.area = 'task'; S.emptyWs = true; S.overlay = { type: 'newtask', text: '' } })}><Icon n="plus" s={12} />New conversation</button>)}
+      <div><span className="pdot claude" /><b>Claude Code</b>{fr.claude === 'ready' ? <span className="res ok">Ready · Opus 5.5</span> : fr.claude === 'checking' ? <><span className="muted">Waiting for sign-in in your browser…</span><button className="btn sm ghost" onClick={run(() => { fr.claude = 'found' })}>Cancel</button><button className="btn sm" onClick={run(() => { fr.claude = 'ready'; setTimeout(() => document.getElementById('fr-h')?.focus(), 0) })}>Simulate: signed in</button></> : <><span className="muted">Found 2.4.1 on PATH · not signed in</span><button className="btn sm" disabled={!fr.folder} onClick={run(() => { fr.claude = 'checking'; toast('Opened the Claude sign-in page in your browser') })}>Sign in</button></>}</div>
+      <div><span className="pdot codex" /><b>Codex</b><span className="muted">Not found on PATH</span><button className="btn sm ghost" onClick={run(() => toast('Install with npm install -g @openai/codex, then come back here'))}>How to install</button></div></div>)}
+    {step(3, false, ready, 'Start your first conversation', ready ? 'Describe what you want done; the agent works in its own branch.' : 'Available once an agent is ready.', <button className="btn pri" disabled={!ready} title={ready ? undefined : 'Connect an agent first'} onClick={run(() => { S.freshWs = true; S.tasks = S.tasks.filter(x => x.id === 'quick'); S.queue = []; S.extraNotifs = []; D.notifications.forEach(n => { S.notifRead[n.id] = true }); S.area = 'task'; S.emptyWs = true; S.overlay = { type: 'newtask', text: '' } })}><Icon n="plus" s={12} />New conversation</button>)}
     <div className="stack"><div className="slabel">Or open a mode on its own</div><div className="tiles">
       {([['code', 'term', 'k-shell', 'OxeCode', 'Terminals and agent CLIs in panes'], ['query', 'db', 'k-db', 'OxeQuery', 'Postgres, MySQL, SQLite, ClickHouse'], ['pod', 'box', 'k-box', 'OxePod', 'Containers and compose stacks'], ['post', 'net', 'k-net', 'OxePost', 'HTTP requests and collections']] as const).map(([v, i, k, n, d]) => <button key={v} className={'tile ' + k} onClick={() => railGo(v)}><b><Icon n={i} />{n}</b>{d}</button>)}</div></div></div></div>
 }
@@ -92,13 +92,14 @@ function useKeys () {
       if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'n') { e.preventDefault(); rememberFocus(); S.overlay = { type: 'newtask', text: '' }; emit(); return }
       if (mod && e.shiftKey && e.key.toLowerCase() === 't') { e.preventDefault(); S.overlay = { type: 'dlg', id: 'team' }; emit(); return }
       if (mod && e.shiftKey && e.key.toLowerCase() === 'a') { e.preventDefault(); goScreen('queue'); return }
+      if (mod && e.shiftKey && (e.key === '|' || e.key === '\\' || e.key === '_' || e.key === '-') && S.area === 'mode' && S.mode2 === 'code') { e.preventDefault(); split(e.key === '_' || e.key === '-'); emit(); return }
       if (mod && e.shiftKey && e.key === 'Enter' && S.area === 'mode' && S.mode2 === 'code') { e.preventDefault(); codeMaxToggle(); emit(); return }
       if (mod && !e.shiftKey && e.key.toLowerCase() === 'e') { e.preventDefault(); if (S.area === 'mode' && S.mode2 === 'code') S.codeDock = S.codeDock === 'files' ? undefined : 'files'; else if (S.area === 'task') { const t = cur(); S.dockTool[t.id] = 'files'; const o = S.dockOpen[t.id] || []; if (!o.includes('files')) S.dockOpen[t.id] = o.concat('files') } emit(); return }
       if (e.key === 'Escape') { if (S.menu || S.notif) { S.menu = null; S.notif = false; emit() } else if (S.overlay) closeOverlay(); return }
       if (typing || mod || e.altKey) return
       const k = e.key.toLowerCase()
       if (ap && !e.repeat) {
-        if (k === 'd') { resolve(ap, 'deny'); emit(); return }
+        if (k === 'd') { resolve(ap, 'deny'); emit(); refocus(); return }
         if (k === 's' && D.approvals[ap].snapshot) { resolve(ap, 'snap'); emit(); return }
         if (k === 'a') { if (D.approvals[ap].irreversible) startHold(ap); else { resolve(ap, 'ok'); emit() } return }
       }

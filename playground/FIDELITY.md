@@ -88,7 +88,7 @@ Every capability the app has today, and where it is in the 1.5.0 playground. Bui
 | Resizable splits | `WorkspaceSplitGrid` | Drag or arrow-key the gutters | kept |
 | Pane maximize Ctrl+Shift+Enter | `pane.maximize` | Pane header button and Ctrl Shift Enter | kept |
 | Pane menu (RTK, Caveman, Semantic, restart, close) | `Grid/PaneMenu`, `TerminalFocusMenuItems` | ⋯ on every pane, with hint lines (K-02) | kept |
-| Phone writes to a pane | `PanePhoneWrite` | Pane ⋯ › Let my phone write here | kept |
+| Phone writes to a pane | `PanePhoneWrite` | Pane ⋯ › Allow typing from the phone (toggle, badge) | kept |
 | Branch per pane | `PaneBranchBadge` | Badge in the pane header and sidebar; "moved" warning when a terminal switched it | changed |
 | Restart terminal Ctrl+R | `terminal.restart` | Pane ⋯ › Restart | kept |
 | Files Ctrl+E, Changes Ctrl+Shift+D, Browser Ctrl+Shift+B | `code.files/changes/browser` | Dock buttons in the OxeCode header; Ctrl E | kept |

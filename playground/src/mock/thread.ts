@@ -30,6 +30,8 @@ export const T147_CONV: ConvItem[] = [
   { ask: 'q147' }
 ]
 
+export const T147_CHECKPOINTS = [{ n: 0, at: '14:46', label: 'Add POST /charges/:id/refunds for Pix devolução. Partial…', files: 0 }, { n: 1, at: '14:51', label: '14:51 · in cajui-ops', files: 1 }]
+
 export const QUESTIONS = {
   q147: [
     { q: 'A refund request is larger than what is left on the charge. What should happen?', multi: false, opts: [['Reject it with 422', 'The merchant sends a new request with the right amount. Recommended.'], ['Refund what is left', 'Silently lower the amount to the remainder.'], ['Ask the merchant to confirm', 'Return 409 with the remainder; they resend with confirm=true.']] },

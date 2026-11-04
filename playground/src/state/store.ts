@@ -2,14 +2,15 @@
    Simple on purpose: the playground is a reference for looks and flows, not for app architecture. */
 import { useSyncExternalStore } from 'react'
 import { D } from '../mock/data'
-import { T147, T147_CONV } from '../mock/thread'
+import { T147, T147_CONV, T147_CHECKPOINTS } from '../mock/thread'
 import { T147_CHANGES } from '../mock/locations'
 D.changes.t147 = T147_CHANGES
+D.checkpoints.t147 = T147_CHECKPOINTS
 import type { Access, ConvItem, Task } from '../mock/types'
 
 export type Area = 'task' | 'queue' | 'firstrun' | 'mode' | 'settings' | 'found' | 'dialogs' | 'chat' | 'later-watch' | 'later-multi'
 export type Mode2 = 'code' | 'query' | 'post' | 'pod'
-export interface Toast { id: number; text: string; kind?: 'attn' | 'err'; undo?: () => void; go?: string }
+export interface Toast { id: number; text: string; kind?: 'attn' | 'err'; undo?: () => void; go?: string; ap?: string }
 export interface MenuState { id: string; x: number; y: number; r: number; top: number; pop?: boolean }
 export interface Overlay { type: string; id?: string; ck?: number | string; text?: string; q?: string; r?: string; c?: string; sel?: number; query?: string }
 export interface Cmp { mode: 'plan' | 'agent'; model: string; effort: string; access: Access; pend: Partial<Record<'model' | 'effort' | 'access', boolean>> }
@@ -38,7 +39,7 @@ function fresh () {
     emptyWs: false, holding: null as string | null, bigText: false, verbose: false, queueSel: 0, tick: 0, running: { t142: 72, t147: 18 } as Record<string, number>,
     q: { conn: 'billing-staging', tab: 'editor', sel: 'q4', act: null as string | null, sql: undefined as string | undefined, qtab: 0 as number | undefined, untitled: '' as string | undefined }, tFilter: '' as string | undefined, qRunning: false, qRan: false,
     post: { col: 'pix', req: 'r1', tab: 'body', raw: false as boolean | undefined, body: {} as Record<string, string> | undefined, env: 'sandbox' as string | undefined, activity: false, newReq: null as null | { name: string; method: string; url: string; status?: number; ms?: number; size?: string; resBody: string }, sending: false, sentNew: false },
-    pod: { sel: 'api', tab: 'logs' }, filter: '', renameTo: '', npSel: undefined as { project: string; wt: string } | undefined, wbRO: undefined as string | undefined, fr: { folder: false, claude: 'found', codex: 'missing' } as { folder: boolean; claude: string; codex: string }, hunkNote: {} as Record<string, string> | undefined, changesView: 'all' as string | undefined, irrevOk: false as boolean | undefined, cellA: null as string | null, cellTab: {} as Record<string, string>, dockTool: {} as Record<string, string>, dockOpen: {} as Record<string, string[]>, chatDockW: undefined as number | undefined, chatDockMax: false, codeRfr: undefined as number[] | undefined, dragPane: null as number | null, dragOver: null as number | null, gutterCtx: undefined as { row: boolean; j: number } | undefined, codeDockW: undefined as number | undefined, dockCollapsed: false as boolean | undefined, driftDismissed: {} as Record<string, boolean> | undefined, phoneTyping: [] as string[] | undefined, pairStep: 0 as number | undefined, pathOpen: {} as Record<string, string> | undefined, codeFr: undefined as number[] | undefined, codeMax: null as number | null, codeDock: undefined as string | undefined, wbFile: undefined as string | undefined, wbTabs: undefined as string[] | undefined, wbEdits: {} as Record<string, string> | undefined, wbUrl: undefined as string | undefined, wbSearch: undefined as string | undefined, wbSem: false as boolean | undefined, split2: null as string | null, extraTabs: {} as Record<string, string[]>, sideGroup: 'status' as 'status' | 'project', answers: {} as Record<string, string[]> | undefined, bgState: {} as Record<string, string> | undefined, queued: { t147: ['Also write every refund to the audit table'] } as Record<string, string[]>, fdPulse: 0 as number | undefined, connAgent: {} as Record<string, string> | undefined, colAgent: {} as Record<string, string> | undefined, kFilter: '' as string | undefined, keys: {} as Record<string, string> | undefined, unpaired: [] as string[] | undefined, removedProj: [] as string[] | undefined, actSrc: 'all' as string | undefined, sFilter: '' as string | undefined, podAgent: false as boolean | undefined, ncEnv: 'staging' as string | undefined, impPick: 0 as number | undefined, rp900: false, finishPick: 0,
+    pod: { sel: 'api', tab: 'logs' }, filter: '', renameTo: '', freshWs: false, renaming: null as string | null, devNames: {} as Record<string, string>, npSel: undefined as { project: string; wt: string } | undefined, wbRO: undefined as string | undefined, fr: { folder: false, claude: 'found', codex: 'missing' } as { folder: boolean; claude: string; codex: string }, hunkNote: {} as Record<string, string> | undefined, changesView: 'all' as string | undefined, irrevOk: false as boolean | undefined, cellA: null as string | null, cellTab: {} as Record<string, string>, dockTool: {} as Record<string, string>, dockOpen: {} as Record<string, string[]>, chatDockW: undefined as number | undefined, chatDockMax: false, codeRfr: undefined as number[] | undefined, dragPane: null as number | null, dragOver: null as number | null, gutterCtx: undefined as { row: boolean; j: number } | undefined, codeDockW: undefined as number | undefined, dockCollapsed: false as boolean | undefined, driftDismissed: {} as Record<string, boolean> | undefined, phoneTyping: [] as string[] | undefined, pairStep: 0 as number | undefined, pathOpen: {} as Record<string, string> | undefined, codeFr: undefined as number[] | undefined, codeMax: null as number | null, codeDock: undefined as string | undefined, wbFile: undefined as string | undefined, wbTabs: undefined as string[] | undefined, wbEdits: {} as Record<string, string> | undefined, wbUrl: undefined as string | undefined, wbSearch: undefined as string | undefined, wbSem: false as boolean | undefined, split2: null as string | null, extraTabs: {} as Record<string, string[]>, sideGroup: 'status' as 'status' | 'project', answers: {} as Record<string, string[]> | undefined, bgState: {} as Record<string, string> | undefined, queued: { t147: ['Also write every refund to the audit table'] } as Record<string, string[]>, fdPulse: 0 as number | undefined, connAgent: {} as Record<string, string> | undefined, colAgent: {} as Record<string, string> | undefined, kFilter: '' as string | undefined, keys: {} as Record<string, string> | undefined, unpaired: [] as string[] | undefined, removedProj: [] as string[] | undefined, actSrc: 'all' as string | undefined, sFilter: '' as string | undefined, podAgent: false as boolean | undefined, ncEnv: 'staging' as string | undefined, impPick: 0 as number | undefined, rp900: false, finishPick: 0,
     newTask: null as null | { project: string; prov: string; model: string; access: string; worktree: boolean }, code: { focus: 0 }, codePanes: null as null | (import('../mock/types').Term & { tag?: string; branch?: string; prov?: string; moved?: string; project?: string })[], codeWt: 1 as number | undefined, codeLayout: 'grid' as string | undefined, codeDraft: {} as Record<string, string> | undefined, set: clone(SETTINGS_DEFAULT), quickBusy: false, ckExtra: {} as Record<string, number>
   }
 }
@@ -70,7 +71,7 @@ let toastN = 0
 export function toast (text: string, opts: Partial<Toast> = {}) {
   const t: Toast = Object.assign({ id: ++toastN, text }, opts)
   S.toasts.push(t); if (S.toasts.length > 3) S.toasts.shift()
-  setTimeout(() => { S.toasts = S.toasts.filter(x => x.id !== t.id); emit() }, opts.undo ? 6000 : 3800)
+  setTimeout(() => { S.toasts = S.toasts.filter(x => x.id !== t.id); emit() }, opts.ap ? 12000 : opts.undo ? 6000 : 3800)
 }
 
 /* Menus open below their trigger, in frame coordinates (the frame is scaled to fit the stage). */
@@ -144,6 +145,7 @@ export function sendMsg (t: Task) {
   cmpState(t).pend = {}; S.drafts[t.id] = ''
   S.conv[t.id] = S.conv[t.id] || []
   S.conv[t.id].push({ you: text, at: stamp() })
+  const cks = D.checkpoints[t.id]; if (cks && t.id !== 'quick') cks.push({ n: cks.length, at: stamp(), label: text.length > 58 ? text.slice(0, 58) + '…' : text, files: t.counts.changes })
   if (t.status === 'run') { toast(`Queued. ${t.model} reads it after the current step.`); return }
   if (t.status === 'needs' && t.gate && !S.resolved[t.gate]) resolve(t.gate, 'deny', true)
   const back = t.id === 't142' ? 'run' : t.id === 'quick' ? 'done' : 'review'
@@ -163,13 +165,13 @@ const T142_STEPS: (() => void)[] = [
   () => { const c = S.conv.t142; const last = c[c.length - 1]; if (last.tools) { last.tools[last.tools.length - 1] = ['run', 'Shell', 'npm test -- charges', '24 passed · 4.2 s'] } },
   () => { S.conv.t142.push({ agent: 'All 24 tests pass, including two parallel retries hitting the same key. Next I\'ll check the 409 path and the 24 h expiry.', at: '14:43' }) },
   () => { S.conv.t142.push({ tools: [['edit', 'Edit', 'test/charges/create.idempotency.test.ts', '+18'], ['run', 'Shell', 'npm test -- charges', '26 passed · 4.4 s'], ['read', 'Read', 'src/jobs/cleanup.ts', '40 lines'], ['edit', 'Edit', 'src/jobs/cleanup.ts', '+6 −0']] }) },
-  () => { addCheckpoint(cur().id === 't142' ? cur() : task('t142') as Task, 'All 24 tests pass, including two parallel retries hitting the…'); const t = task('t142') as Task; t.counts.changes = 5 },
+  () => { const t = task('t142'); if (t) t.counts.changes = 5 },
   () => {
     S.conv.t142.push({ agent: 'Done: same key and body replays the first response, a reused key with a different body gets 409, and keys expire after 24 h. I want to push the branch and open a pull request.', at: '14:46' })
     raisePush()
     const n = { id: 'n9', kind: 'attn', task: 't142', text: 'Needs you: <b>Push oxe/t142-idempotent-charges</b> · Claude · Make charge creation idempotent', at: '14:46' }
     S.extraNotifs = [n].concat(S.extraNotifs)
-    toast('Needs you: Push oxe/t142-idempotent-charges · Claude', { kind: 'attn', go: 'task-push' })
+    if (S.taskId !== 't142' || S.area !== 'task') toast('Needs you: Push oxe/t142-idempotent-charges · Claude', { kind: 'attn', ap: 'ap_push' })
   }
 ]
 export function tick () {

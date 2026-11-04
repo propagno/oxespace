@@ -49,7 +49,7 @@ export function CodeEditor ({ value, onChange, lang, label, placeholder, readOnl
 export function CodeBlock ({ code, lang, title, numbers }: { code: string; lang: Lang; title?: string; numbers?: boolean }) {
   const ls = code.split('\n')
   return <div className="cblk"><div className="cblk-h"><span className="mono">{title || lang}</span><span className="sp" /><button className="ibtn sm" aria-label="Copy code" title="Copy" onClick={() => { toast('Copied'); emit() }}><Icon n="copy" s={12} /></button></div>
-    <pre className={'cblk-b' + (numbers ? ' num' : '')}>{numbers ? ls.map((l, i) => <span key={i} className="ln"><i>{i + 1}</i>{tokens(l, lang)}{'\n'}</span>) : tokens(code, lang)}</pre></div>
+    <pre className={'cblk-b' + (numbers ? ' num' : '')} tabIndex={0} role="region" aria-label={`Code: ${title || lang}`}>{numbers ? ls.map((l, i) => <span key={i} className="ln"><i>{i + 1}</i>{tokens(l, lang)}{'\n'}</span>) : tokens(code, lang)}</pre></div>
 }
 /** A JSON response viewer: pretty or raw. */
 export function prettyJson (s: string) { try { return JSON.stringify(JSON.parse(s), null, 2) } catch { return s } }
