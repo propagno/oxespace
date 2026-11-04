@@ -31,8 +31,8 @@ export function describeStartupFailure(error: unknown, databasePath: string): St
 }
 
 /**
- * The window's three channels for this state. `startupFailure` is registered on every launch (null when the start
- * was fine), so the window can always ask; the other two exist only after a failure and take no input: the folder
+ * The window's channels for this state. `startupFailure` is registered on every launch (null when the start
+ * was fine), so the window can always ask; the others exist only after a failure and take no input: the folder
  * opened is main's own, never one the window names.
  */
 export function registerStartupFailureIpc(failure: StartupFailure | null): void {
@@ -44,4 +44,6 @@ export function registerStartupFailureIpc(failure: StartupFailure | null): void 
     if (opened) await shell.openPath(dirname(failure.databasePath))
   })
   ipcMain.handle(IPC_CHANNELS.app.quitAfterStartupFailure, () => { app.quit() })
+  // A locked database may be free now (another OXESpace finished closing): start again from scratch.
+  ipcMain.handle(IPC_CHANNELS.app.relaunchAfterStartupFailure, () => { app.relaunch(); app.quit() })
 }

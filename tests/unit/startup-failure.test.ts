@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { join } from 'node:path'
 
-vi.mock('electron', () => ({ app: { quit: vi.fn() }, ipcMain: { handle: vi.fn() }, shell: { openPath: vi.fn(async () => '') } }))
+vi.mock('electron', () => ({ app: { quit: vi.fn(), relaunch: vi.fn() }, ipcMain: { handle: vi.fn() }, shell: { openPath: vi.fn(async () => '') } }))
 
 describe('T87 startup failure', () => {
   it('names each kind of failure from what better-sqlite3 or the migration runner threw', async () => {
@@ -34,12 +34,16 @@ describe('T87 startup failure', () => {
     handle.mockClear()
     const failure = { code: 'newer-schema' as const, message: 'm', backupsPath: join('p', 'db-backups'), databasePath: join('p', 'oxespace.sqlite3') }
     registerStartupFailureIpc(failure)
-    expect(handle.mock.calls.map(call => call[0])).toEqual(['app:startup-failure', 'app:open-backups-folder', 'app:quit-after-startup-failure'])
+    expect(handle.mock.calls.map(call => call[0])).toEqual(['app:startup-failure', 'app:open-backups-folder', 'app:quit-after-startup-failure', 'app:relaunch-after-startup-failure'])
     const answer = handle.mock.calls[0][1] as () => unknown
     expect(answer()).toEqual(failure)
     // The folder is main's own; when there is no backups folder yet, the data folder opens instead.
     vi.mocked(electron.shell.openPath).mockResolvedValueOnce('not found')
     await (handle.mock.calls[1][1] as () => Promise<void>)()
     expect(vi.mocked(electron.shell.openPath).mock.calls.map(call => call[0])).toEqual([failure.backupsPath, 'p'])
+    // Try again (a locked database): relaunch, then quit this instance.
+    await (handle.mock.calls[3][1] as () => void)()
+    expect(vi.mocked(electron.app.relaunch)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(electron.app.quit)).toHaveBeenCalledTimes(1)
   })
 })

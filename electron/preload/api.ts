@@ -183,6 +183,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       startupFailure: () => ipc.invoke(IPC_CHANNELS.app.startupFailure) as Promise<import('../../shared/types/app').StartupFailure | null>,
       openBackupsFolder: () => ipc.invoke(IPC_CHANNELS.app.openBackupsFolder) as Promise<void>,
       quitAfterStartupFailure: () => ipc.invoke(IPC_CHANNELS.app.quitAfterStartupFailure) as Promise<void>,
+      relaunchAfterStartupFailure: () => ipc.invoke(IPC_CHANNELS.app.relaunchAfterStartupFailure) as Promise<void>,
       getUpdateState: () => ipc.invoke(IPC_CHANNELS.app.getUpdateState) as Promise<import('../../shared/types/updater').AppUpdateState>,
       setAppearance: (mode) => ipc.invoke(IPC_CHANNELS.app.setAppearance, mode) as Promise<'light' | 'dark'>,
       setLanguage: (language) => ipc.invoke(IPC_CHANNELS.app.setLanguage, language) as Promise<void>,

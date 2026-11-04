@@ -99,7 +99,8 @@ export const IPC_CHANNELS = {
     /** B18: a project file in a detected editor or its folder; the editors found; the preferred one. */
     openIn: 'app:open-in', openInTargets: 'app:open-in-targets', setOpenInPreference: 'app:set-open-in-preference',
     /** T87: the database could not be opened; the window's blocking screen and its two actions. */
-    startupFailure: 'app:startup-failure', openBackupsFolder: 'app:open-backups-folder', quitAfterStartupFailure: 'app:quit-after-startup-failure'
+    startupFailure: 'app:startup-failure', openBackupsFolder: 'app:open-backups-folder', quitAfterStartupFailure: 'app:quit-after-startup-failure',
+    relaunchAfterStartupFailure: 'app:relaunch-after-startup-failure'
   },
   rtk: {
     getStatus: 'rtk:get-status',

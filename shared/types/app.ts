@@ -50,6 +50,8 @@ export interface AppInfoApi {
   openBackupsFolder?(): Promise<void>
   /** T87, only after a startup failure: quits the app. */
   quitAfterStartupFailure?(): Promise<void>
+  /** T87, only after a startup failure: starts the app again (offered for a locked database). */
+  relaunchAfterStartupFailure?(): Promise<void>
   /** Whether the computer has a network route right now. */
   connectivity?(): Promise<AppConnectivity>
   /** Sent when connectivity changes. */
