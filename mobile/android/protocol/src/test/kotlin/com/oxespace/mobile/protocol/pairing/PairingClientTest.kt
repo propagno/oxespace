@@ -100,7 +100,8 @@ class PairingClientTest {
         val port = server.port
         server.close()
         var sent = false
-        assertEquals(PairOutcome.Unreachable, client.pair(PairingQr("127.0.0.1", port, "a".repeat(64), code, null), "Pixel 8", "PUBKEY") { sent = true })
+        // Nothing listens on the port: the OS refuses the connection.
+        assertEquals(PairOutcome.Unreachable(ConnectFailure.REFUSED), client.pair(PairingQr("127.0.0.1", port, "a".repeat(64), code, null), "Pixel 8", "PUBKEY") { sent = true })
         // Nothing reached a desktop, so the phone must not say the desktop is asking.
         assertFalse(sent)
     }

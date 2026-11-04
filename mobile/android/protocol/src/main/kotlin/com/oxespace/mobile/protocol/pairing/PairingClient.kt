@@ -25,10 +25,13 @@ sealed interface PairOutcome {
     /** The certificate isn't the one in the QR: someone else answered at that address. Nothing was sent. */
     data object PinMismatch : PairOutcome
     /**
-     * No answer. The desktop may be off, on another network, or have its gateway turned off. Or the computer's firewall
-     * drops the connection: Windows does that by default on a network it files as Public.
+     * The connection failed before the desktop answered; [failure] says how.
+     * - Android may refuse it on the phone (local network access off).
+     * - The computer may refuse it.
+     * - It may time out: Windows Firewall drops it on a Wi-Fi it files as Public.
+     * - There may be no route.
      */
-    data object Unreachable : PairOutcome
+    data class Unreachable(val failure: ConnectFailure) : PairOutcome
     /** An answer that doesn't follow the contract. */
     data object Protocol : PairOutcome
 }
@@ -80,8 +83,8 @@ class PairingClient(
             PairOutcome.Protocol
         } catch (_: IllegalArgumentException) {
             PairOutcome.Protocol
-        } catch (_: IOException) {
-            PairOutcome.Unreachable
+        } catch (error: IOException) {
+            PairOutcome.Unreachable(ConnectFailure.of(error))
         }
     }
 

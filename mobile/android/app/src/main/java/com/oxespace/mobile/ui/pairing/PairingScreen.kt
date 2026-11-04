@@ -195,6 +195,9 @@ private fun failureText(failure: PairingFailure): Int = when (failure) {
     PairingFailure.LOCKED -> R.string.pairing_failed_locked
     PairingFailure.TOO_MANY_DEVICES -> R.string.pairing_failed_too_many_devices
     PairingFailure.WRONG_CERTIFICATE -> R.string.pairing_failed_wrong_certificate
+    PairingFailure.LOCAL_NETWORK_BLOCKED -> R.string.pairing_failed_local_network_blocked
+    PairingFailure.REFUSED_BY_COMPUTER -> R.string.pairing_failed_refused_by_computer
+    PairingFailure.TIMED_OUT -> R.string.pairing_failed_timed_out
     PairingFailure.UNREACHABLE -> R.string.pairing_failed_unreachable
     PairingFailure.PROTOCOL -> R.string.pairing_failed_protocol
     PairingFailure.RESERVED_NAME -> R.string.pairing_failed_reserved_name

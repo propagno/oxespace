@@ -1,6 +1,7 @@
 package com.oxespace.mobile.pairing
 
 import com.oxespace.mobile.protocol.RemotePairingErrorCode
+import com.oxespace.mobile.protocol.pairing.ConnectFailure
 import com.oxespace.mobile.protocol.pairing.PairOutcome
 import com.oxespace.mobile.protocol.pairing.PairingQr
 import com.oxespace.mobile.protocol.pairing.PairingQrProblem
@@ -19,7 +20,15 @@ import kotlinx.coroutines.withContext
 
 /** Why pairing ended without a paired desktop; each has its own words and next step on screen. */
 enum class PairingFailure {
-    CODE_EXPIRED, CODE_USED, CODE_INVALID, REFUSED_ON_DESKTOP, LOCKED, TOO_MANY_DEVICES, WRONG_CERTIFICATE, UNREACHABLE, PROTOCOL,
+    CODE_EXPIRED, CODE_USED, CODE_INVALID, REFUSED_ON_DESKTOP, LOCKED, TOO_MANY_DEVICES, WRONG_CERTIFICATE, PROTOCOL,
+    /** Android refused the connection on the phone: local network access is off for OXESpace. */
+    LOCAL_NETWORK_BLOCKED,
+    /** Something on the computer refused the connection: a third-party firewall, or the gateway is off. */
+    REFUSED_BY_COMPUTER,
+    /** No answer in time: usually a firewall that drops (Windows on a Public Wi-Fi), or another network. */
+    TIMED_OUT,
+    /** No route to the computer: another Wi-Fi, a VPN, mobile data. */
+    UNREACHABLE,
     /** The phone's name is one only OXESpace may speak as; the person renames the phone in Android's settings. */
     RESERVED_NAME,
 }
@@ -122,7 +131,12 @@ class PairingFlow(
             RemotePairingErrorCode.RESERVED_NAME -> PairingFailure.RESERVED_NAME
         }
         PairOutcome.PinMismatch -> PairingFailure.WRONG_CERTIFICATE
-        PairOutcome.Unreachable -> PairingFailure.UNREACHABLE
+        is PairOutcome.Unreachable -> when (outcome.failure) {
+            ConnectFailure.BLOCKED_ON_PHONE -> PairingFailure.LOCAL_NETWORK_BLOCKED
+            ConnectFailure.REFUSED -> PairingFailure.REFUSED_BY_COMPUTER
+            ConnectFailure.TIMED_OUT -> PairingFailure.TIMED_OUT
+            ConnectFailure.NO_ROUTE -> PairingFailure.UNREACHABLE
+        }
         PairOutcome.Protocol -> PairingFailure.PROTOCOL
         is PairOutcome.Paired -> error("not a failure")
     }
