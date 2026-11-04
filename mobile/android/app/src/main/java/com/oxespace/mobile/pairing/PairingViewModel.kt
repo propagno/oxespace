@@ -5,6 +5,7 @@ import android.os.Build
 import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.oxespace.mobile.notify.SessionService
 import com.oxespace.mobile.protocol.pairing.PairingClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +20,8 @@ class PairingViewModel(application: Application) : AndroidViewModel(application)
         keysFor = { alias -> AndroidKeystoreDeviceKeys(application, alias) },
         store = PreferencesPairedDesktopStore(application),
         deviceName = deviceName(application),
+        // The app is on screen while pairing, so the foreground service may start here.
+        onPaired = { SessionService.start(application) },
     )
 
     val state: StateFlow<PairingState> = flow.state

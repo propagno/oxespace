@@ -66,6 +66,13 @@ class PairingFlow(
     private val store: PairedDesktopStore,
     private val deviceName: String,
     private val newAlias: () -> String = { "oxespace-device-${UUID.randomUUID()}" },
+    /**
+     * Runs once the desktop accepted and the pairing is saved: the session starts here, not when the person taps Done.
+     * The desktop removes a pairing that doesn't sign in within 2 minutes. In 1.4.2 only Done started the session, so
+     * Back, Home, or a slow tap left the new pairing unused. The desktop then removed it, and the phone's next sign-in
+     * read "OXESpace removed this phone".
+     */
+    private val onPaired: () -> Unit = {},
 ) {
     private val mutableState = MutableStateFlow<PairingState>(PairingState.Scanning)
     val state: StateFlow<PairingState> = mutableState.asStateFlow()
@@ -109,6 +116,7 @@ class PairingFlow(
                 is PairOutcome.Paired -> {
                     val desktop = PairedDesktop(outcome.response.deviceId, qr.host, qr.port, qr.fingerprint, qr.desktopName, alias)
                     withContext(io) { store.save(desktop) }
+                    onPaired()
                     PairingState.Paired(desktop)
                 }
                 else -> {
