@@ -100,7 +100,7 @@ class VtScreen(private val capacity: Int = 256 * 1024) {
 
     fun reset() {
         main = mutableListOf(Line()); alt = null; top = 0; row = 0; col = 0; style = 0
-        savedMain = null; saved = null; chars = 1; pending.setLength(0); version++
+        savedMain = null; saved = null; chars = 1; pending.setLength(0); rows = 0; version++
     }
 
     /** The lines to show: the alternate screen while a full-screen program has it, else the main screen with its scrollback. */
@@ -150,6 +150,18 @@ class VtScreen(private val capacity: Int = 256 * 1024) {
 
     private fun ensureRow(target: Int) {
         while (lines.size <= target) { lines.add(Line()); if (alt == null) chars++ }
+        // With the pane's height known, the screen is its last [rows] lines and everything above is scrollback, as in
+        // a real terminal; absolute moves (CUP) then land where the desktop's emulator put them.
+        if (alt == null && rows > 0) top = maxOf(top, main.size - rows)
+    }
+
+    /** The pane's height, from the desktop's snapshot (P4). 0, the default, keeps the screen top where clears put it. */
+    private var rows = 0
+
+    /** A fresh screen of [rows] lines, before a snapshot is fed (P4). The width stays unbounded until wrapping lands. */
+    fun reset(rows: Int) {
+        reset()
+        this.rows = rows.coerceAtLeast(0)
     }
 
     /** The index just past the escape sequence starting at [start], or -1 when the chunk ends inside it. */
