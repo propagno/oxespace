@@ -113,7 +113,7 @@ export function AgentConfigModal({
   }
 
   return (
-    <Dialog
+    <Dialog size="md"
       title={isNew ? t('providers.newCustomAgent') : t('agentConfig.configure')}
       description={isCustom ? t('agentConfig.customDescription') : t('agentConfig.description')}
       onClose={onClose}

@@ -106,6 +106,27 @@ describe('design lint', () => {
     it('hand-made empty-state classes do not grow; use <EmptyState>', () => {
       expect(count(tsx, /className="[^"]*-empty\b[^"]*"/g)).toBeLessThanOrEqual(0)
     })
+    it('dialogs restyled with className do not grow; the box is the primitive\'s, its size is `size` (U1)', () => {
+      // Each <Dialog …> tag is read to its end, skipping what is inside braces, so an arrow in a prop does not end it.
+      const restyled = tsx.flatMap(path => {
+        const source = readFileSync(path, 'utf8')
+        return [...source.matchAll(/<Dialog\b/g)].flatMap(match => {
+          let depth = 0, quote: string | null = null, attributes = ''
+          for (let index = match.index + '<Dialog'.length; index < source.length; index++) {
+            const char = source[index]
+            if (quote) { if (char === quote && source[index - 1] !== '\\') quote = null; continue }
+            if (char === '"' || char === "'" || char === '`') { quote = char; continue }
+            if (char === '{') depth++
+            else if (char === '}') depth--
+            else if (char === '>' && depth === 0) break
+            else if (depth === 0) attributes += char
+          }
+          return /\sclassName=/.test(attributes) ? [relative(ROOT, path)] : []
+        })
+      })
+      // U5a/U5b/U5c move these to the primitive; lower the number as they go.
+      expect(restyled.length).toBeLessThanOrEqual(27)
+    })
     it('raw <button> outside the primitives does not grow; use <Button> or <IconButton> (FE-M-03)', () => {
       expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(513)
     })
