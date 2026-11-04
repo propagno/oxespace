@@ -36,7 +36,7 @@ commit ─▶ pull request ─▶ CI and Release (PR)          first red ≈ 3 m
 | `android-emulator.yml` | dispatch | Instrumented tests on an emulator. |
 | `acceptance.yml` | dispatch | `e2e/acceptance` specs. They are written before the feature, so red is expected until the item lands. |
 | `visual-regression.yml` | push to main | Screenshot comparison of the anchor surfaces. |
-| `visual-baselines.yml` | dispatch | Regenerates the baselines, once per batch on main, not per PR. |
+| `visual-baselines.yml` | dispatch | Regenerates the baselines, once per batch on main, not per PR, then verifies them in the same job. A verify failure right after a green regeneration means a capture that is not stable, not a stale baseline: rerun the job once and report the shot to the visuals owner (`code-changes-diff` is a known case). |
 | `release.yml` | dispatch | Redirect only: forwards to `ci.yml` with `publish_release=true`. Not for a stable release: the `release` environment accepts only tags (see below). |
 
 Useful dispatches of `ci.yml`, all from the branch chosen in **Use workflow from**:
