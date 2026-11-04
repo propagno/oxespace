@@ -1,0 +1,26 @@
+/*
+ * 1.5.0 A8 · Workspace color. A workspace surface carries data-ws="1".."8" (workspaceColorAttrs in
+ * shared/workspace-color.ts); this sheet maps the slot to the --ws-N / --ws-N-fg tokens and reads nothing else.
+ * The tokens themselves live with the design tokens (Mandacaru 1.5 roles).
+ */
+[data-ws="1"] { --ws: var(--ws-1); --ws-fg: var(--ws-1-fg); }
+[data-ws="2"] { --ws: var(--ws-2); --ws-fg: var(--ws-2-fg); }
+[data-ws="3"] { --ws: var(--ws-3); --ws-fg: var(--ws-3-fg); }
+[data-ws="4"] { --ws: var(--ws-4); --ws-fg: var(--ws-4-fg); }
+[data-ws="5"] { --ws: var(--ws-5); --ws-fg: var(--ws-5-fg); }
+[data-ws="6"] { --ws: var(--ws-6); --ws-fg: var(--ws-6-fg); }
+[data-ws="7"] { --ws: var(--ws-7); --ws-fg: var(--ws-7-fg); }
+[data-ws="8"] { --ws: var(--ws-8); --ws-fg: var(--ws-8-fg); }
+
+/* OxeCode workspace card: a color strip on the leading edge. */
+.ws-group[data-ws] > .ws-group-header { box-shadow: inset 3px 0 0 var(--ws, transparent); }
+
+/* Pane header: the same strip, kept when the pane is active. */
+.pane-container > .pane-header[data-ws] { box-shadow: inset 3px 0 0 var(--ws, transparent); }
+
+/* Conversation header: the project folder icon takes the workspace color. */
+.thread-heading[data-ws] .thread-heading-context > svg { color: var(--ws, currentColor); }
+
+/* The picker in the workspace menu: the menu's full-width item style must not stretch the swatches. */
+.ws-group-color-picker { padding: 4px 6px; }
+.ws-group-context-menu .ws-group-color-picker button { width: 24px; height: 24px; min-height: 24px; padding: 0; }

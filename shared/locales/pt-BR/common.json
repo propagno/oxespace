@@ -1,4 +1,9 @@
 {
+  "workspaceColor": {
+    "label": "Cor do workspace",
+    "auto": "Cor automática",
+    "slot": "Cor {{number}}"
+  },
   "deferred": {
     "partMissing": "Alguns comandos podem faltar na paleta e nos menus até carregar. O resto do OXESpace continua funcionando.",
     "activityMissing": "A atividade e as notificações podem não se atualizar até carregar. O resto do OXESpace continua funcionando."
