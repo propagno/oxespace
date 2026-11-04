@@ -165,6 +165,13 @@ cannot read count as red). The run summary says `held: main red since <sha> (<ru
 get no comment. The one exception is a car labelled **`fix-main`** by a maintainer or an admin: it goes
 first, through the same checks as any car, and the train removes `fix-main` after merging it.
 
+**Batches of docs and tests.** When the car at the head of the queue changes only docs and tests, the train
+takes it and up to four more such cars, merges them on `train/batch-N` from `main` and runs CI there once. Green,
+it posts `CI result` (description `batch train/batch-N`) on each member's tested head and merges them in order,
+each only while `main` is still the commit the batch expects. Anything else ends the batch, and its members go
+one by one, labelled `no-batch`. The repository variable `MERGE_TRAIN_BATCHES=false` turns batches off. The file
+list and every rule are in [ci-cd.md](ci-cd.md#batches-of-docs-and-tests).
+
 **GITHUB_TOKEN.** The train uses the workflow's built-in token, and what that token does starts no
 usable workflow run: a merge fires no `push` run on `main`, and a branch update's `pull_request` runs only
 wait for an approval nobody gives (they end `action_required` with no jobs, because the approval gate comes
