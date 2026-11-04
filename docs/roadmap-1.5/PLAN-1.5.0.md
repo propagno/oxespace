@@ -19,7 +19,7 @@ Para cada fase F1…F8, o ciclo é:
 runtime program start --phase Fn
   → /oxe-plan: PLAN.json da fase + testes de aceite congelados (escritos antes, fora do escopo das tarefas)
   → oxe-cc plan lint --dry-verify
-  → runtime execute --checkpoint-commits --budget-turns N --budget-usd X   (executor claude -p; uma worktree por tarefa)
+  → runtime execute --checkpoint-commits   (executor claude -p; uma worktree por tarefa; sem teto em dólar)
   → runtime verify   (testes congelados + phase_gates do repo)
   → PR(s) pelo trem (na-fila) → runtime ci --attach <run da main>
   → runtime dossier + handoff "O que a próxima fase deve saber"
@@ -174,27 +174,23 @@ Testes congelados: contraste de tokens (A1); ratchet ≤ 22 (A2); migração e s
 | F8-T6 | Compatibilidade do celular (A41): APK 1.4.1 ↔ desktop 1.5.0 e APK 1.5.0 ↔ desktop 1.4.1; pareamento real em rede real, incluindo a Pública (celular do usuário, ≥ 1,5 GB livres); `android-release` verde, com sha256 e apksigner conferidos | M | MOBILE/HML/Coordenador | T5 |
 | F8-T7 | Corte (A39):<br>• trem vazio e run **concluído** da main verde no commit da tag;<br>• nenhum flake com 2 falhas em 3 runs;<br>• baselines depois do último PR de UI;<br>• PR de versão (package/lock + `1.5.0.md` en/pt-BR) pelo trem;<br>• strings das notas conferidas em `shared/locales`;<br>• SECURITY de F5-T5/T6 e F6-T3 nos PRs;<br>• limites conhecidos escritos a partir da HML.<br>**A tag sai com o OK do usuário.** | S | Coordenador | T1 e T2 (ou adiamento registrado), T3–T6 |
 
-## 3. Orçamento e custo (decisão do usuário)
+## 3. Custo (decisão do usuário, 04/11)
 
-O executor do OXE roda `claude -p` na conta do usuário, que é paga. Proposta de teto por fase, cobrando o ledger do OXE entre execuções:
+"Não precisa colocar o teto de orçamento, vamos fazer a implementação com qualidade e excelência, o valor final é o produto funcional."
 
-| Fase | Tarefas OXE | Teto de turnos | Teto US$ |
-|---|---|---|---|
-| F1 | 10 (3 externas) | 300 | 40 |
-| F2 | 8 | 260 | 35 |
-| F3 | 10 | 320 | 45 |
-| F4 | 9 | 300 | 40 |
-| F5 | 7 | 260 | 40 |
-| F6 | 5 | 200 | 30 |
-| F7 | 4 | 160 | 25 |
-| F8 | 7 | 160 | 20 |
-| **Total** | **60** | **1.960** | **275** |
-
-Ao bater o teto, o runtime emite `BudgetExhausted` e para. Só continua com um novo OK, nunca com reset silencioso. Nenhuma execução começa sem o OK do usuário para o teto da fase.
+- **Sem teto em dólar** para o executor do OXE. O `budget` do PLAN.json só serve de proteção contra laço: turnos altos o bastante para nunca parar uma fase saudável. A régua de suspeita (duas falhas idênticas) continua parando a tarefa.
+- **O gasto continua medido:** o ledger do OXE (`.oxe/runs/<run>.budget.json`) e o `runtime scorecard` por fase. O coordenador reporta ao usuário a cada fase.
+- **A régua é a qualidade:**
+  - testes congelados;
+  - os gates do repositório em toda fase;
+  - as revisões SECURITY onde marcadas;
+  - HML por fase;
+  - A1–A41.
+- **Critério de pronto:** uma tarefa só conta como pronta quando funciona de fato no app, nunca quando o turno acaba.
 
 ## 4. Pré-condições antes da F1
 
 1. **Node da máquina:** 22.17.1, abaixo de `^22.22.2 || ^24.15`, que é o que as dependências pedem. Atualizar o Node (recomendado) ou aceitar `project_env_check: warn` com dono. Sem isso, o `npm ci` remove o `better-sqlite3` em silêncio (OXB).
 2. **Memória:** execução pesada só com ≥ 1 GB livre e o lock; o AVD pede ≥ 4 GB.
 3. **#577 na main:** o playground vira a referência visual do repositório.
-4. **OK do usuário** para o orçamento da F1.
+4. Sem teto de orçamento (decisão do usuário); o gasto é reportado por fase.

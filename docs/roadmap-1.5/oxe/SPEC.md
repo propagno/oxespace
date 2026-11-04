@@ -170,7 +170,7 @@ Entregar a 1.5.0 do OXESpace: o redesign aprovado no playground (direção B lev
 - **Node:** as dependências pedem `^22.22.2 || ^24.15`, e a máquina tem 22.17.1 (OXB). É preciso atualizar o Node antes de qualquer execução local, ou usar `project_env_check: warn` com dono.
 - **Postgres/Mongo de teste** para o T75: o CI já tem os jobs de testes ao vivo do OxeQuery.
 - **AVD** para o celular: o emulador precisa de ≥ 4 GB livres.
-- **Execução pelo OXE (claude -p):** é paga. Só com orçamento aprovado pelo usuário, por fase.
+- **Execução pelo OXE (claude -p):** aprovada pelo usuário sem teto em dólar; o gasto é medido e reportado por fase.
 
 ## Conteúdo e fluxos obrigatórios
 
