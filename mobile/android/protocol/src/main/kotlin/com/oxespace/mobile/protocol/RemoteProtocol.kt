@@ -728,6 +728,12 @@ data class RemoteThreadHistoryArgs(
     val beforeSeq: Long,
 )
 
+/**
+ * The timeline items the phone shows. Left out on purpose: location and cwd, session ids, context usage, turn cost,
+ * CLI commands, model pickers, configuration, absolute file paths, message context paths and attachment names.
+ * Turn-diff file paths come only inside a tool step's `diff`, project-relative, with a bounded, redacted patch.
+ * `delta` events are folded into the message they extend, so the phone gets the whole text.
+ */
 @Serializable
 sealed interface RemoteThreadItem {
     @Serializable

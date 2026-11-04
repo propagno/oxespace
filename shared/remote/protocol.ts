@@ -446,11 +446,6 @@ export interface RemoteThreadsEvent { upsert?: RemoteThreadSummary[]; removed?: 
 
 // ---- thread: one conversation (target = thread id) ----------------------------------------------------------------
 /**
- * The timeline items the phone shows. Left out on purpose: location and cwd, session ids, context usage, turn cost,
- * CLI commands, model pickers, configuration, turn-diff file paths, message context paths and attachment names.
- * `delta` events are folded into the message they extend, so the phone gets the whole text.
- */
-/**
  * What a tool step changed (CCR #509 §3): paths relative to the project (any outside it is dropped), at most
  * `REMOTE_DIFF_LIMITS.files` files, and a unified `patch` of at most `REMOTE_DIFF_LIMITS.patchBytes`, cut at a hunk
  * boundary and redacted like tool output. A binary file is listed with zero counts and no patch.
@@ -461,6 +456,12 @@ export interface RemoteToolDiffFile { path: string; additions: number; deletions
 export interface RemoteQueuedPreview { id: string; text: string; truncated?: boolean }
 export const REMOTE_DIFF_LIMITS = { files: 20, patchBytes: 8_192 } as const
 export const REMOTE_QUEUE_PREVIEW = { items: 5, text: 200 } as const
+/**
+ * The timeline items the phone shows. Left out on purpose: location and cwd, session ids, context usage, turn cost,
+ * CLI commands, model pickers, configuration, absolute file paths, message context paths and attachment names.
+ * Turn-diff file paths come only inside a tool step's `diff`, project-relative, with a bounded, redacted patch.
+ * `delta` events are folded into the message they extend, so the phone gets the whole text.
+ */
 export type RemoteThreadItem =
   | { type: 'message'; id: string; role: 'user' | 'assistant'; text: string; truncated?: boolean; attachments?: number }
   | { type: 'reasoning'; id: string; text: string; truncated?: boolean; completed: boolean }

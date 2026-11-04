@@ -90,13 +90,52 @@ describe('a tool step\'s diff (§3)', () => {
     expect(result.diff?.patch).not.toContain(OTHER)
     expect(result.redacted).toBeGreaterThan(0)
   })
+  const own = (name: string, text: string) => `diff --git a/${name} b/${name}\n--- a/${name}\n+++ b/${name}\n${text.slice(text.indexOf('@@ '))}`
   test(`the patch fits ${REMOTE_DIFF_LIMITS.patchBytes} bytes, cut at a file or hunk boundary, with truncated`, () => {
     patches.a = hunk('a.ts', 60)
     patches.b = hunk('b.ts', 60)
     const result = toToolDiff([file('a.ts', { artifactId: 'a' }), file('b.ts', { artifactId: 'b' })], [ROOT], patchOf)
     expect(Buffer.byteLength(result.diff!.patch!)).toBeLessThanOrEqual(REMOTE_DIFF_LIMITS.patchBytes)
-    expect(result.diff!.patch).toBe(patches.a)
+    expect(result.diff!.patch).toBe(own('a.ts', patches.a))
     expect(result.diff!.truncated).toBe(true)
+  })
+  test('SECURITY H1: a tool-input artifact (Claude Edit/Write JSON) is never sent as a patch', () => {
+    patches.json = JSON.stringify({ file_path: '/work/cajui/config.ts', old_string: 'password = ""', new_string: 'password = "hunter2hunter2"', api_key: 'plainsecretvalue123' })
+    let reads = 0
+    const result = toToolDiff([file('config.ts', { artifactId: 'json', source: 'tool-input' })], [ROOT], id => { reads += 1; return patches[id] })
+    expect(result.diff).toEqual({ files: [{ path: 'config.ts', additions: 3, deletions: 1 }] })
+    expect(reads).toBe(0)
+  })
+  test('SECURITY L2: header lines come from the checked path, never from the evidence (--no-index, spaces, absolute)', () => {
+    patches.h = `diff --git a/home/eduardo/secret/y.txt b/home/eduardo/secret/y.txt\n--- "a/C:/Users/John Doe/secret/y.txt"\n+++ "b/C:/Users/John Doe/secret/y.txt"\n@@ -1 +1 @@\n-a\n+b\n`
+    const patch = toToolDiff([file('src/y.txt', { artifactId: 'h' })], [ROOT], patchOf).diff!.patch!
+    expect(patch).toBe('diff --git a/src/y.txt b/src/y.txt\n--- a/src/y.txt\n+++ b/src/y.txt\n@@ -1 +1 @@\n-a\n+b\n')
+    expect(patch).not.toMatch(/eduardo|Doe|secret/)
+  })
+  test('SECURITY L1: key material (a marker, or a run of base64 lines) sends no patch for that file', () => {
+    const body = Array.from({ length: 3 }, () => `+${'A'.repeat(64)}`).join('\n')
+    patches.k1 = `@@ -0,0 +1,3 @@\n${body}\n`
+    patches.k2 = '@@ -0,0 +1 @@\n+-----BEGIN OPENSSH PRIVATE KEY-----\n'
+    for (const id of ['k1', 'k2']) expect(toToolDiff([file('id', { artifactId: id })], [ROOT], patchOf).diff).not.toHaveProperty('patch')
+  })
+  test('evidence describing more than one file, or with no hunk, sends no patch', () => {
+    patches.multi = `${hunk('a.ts', 1)}${hunk('b.ts', 1)}`
+    patches.none = 'diff --git a/x b/x\nindex 1..2\n'
+    for (const id of ['multi', 'none']) expect(toToolDiff([file('a.ts', { artifactId: id })], [ROOT], patchOf).diff).not.toHaveProperty('patch')
+  })
+  test('SECURITY M1: reading stops once the item has enough evidence', () => {
+    for (let i = 0; i < 20; i++) patches[`r${i}`] = hunk(`r${i}.ts`, 200)
+    let reads = 0
+    const result = toToolDiff(Array.from({ length: 20 }, (_, i) => file(`r${i}.ts`, { artifactId: `r${i}` })), [ROOT], id => { reads += 1; return patches[id] })
+    expect(result.diff!.files).toHaveLength(20)
+    expect(reads).toBeLessThanOrEqual(2)
+    expect(Buffer.byteLength(result.diff!.patch ?? '')).toBeLessThanOrEqual(REMOTE_DIFF_LIMITS.patchBytes)
+  })
+  test('SECURITY L3: a path with control characters or over 512 bytes is dropped; multibyte patches stay under the byte cap', () => {
+    expect(toToolDiff([file('a\u0007b.ts'), file(`${'é'.repeat(300)}.ts`)], [ROOT]).diff).toBeUndefined()
+    patches.mb = `@@ -0,0 +1,400 @@\n${Array.from({ length: 400 }, () => `+${'ção'.repeat(10)}`).join('\n')}\n@@ -500 +500 @@\n+fim\n`
+    const patch = toToolDiff([file('mb.ts', { artifactId: 'mb' })], [ROOT], patchOf).diff
+    expect(Buffer.byteLength(patch?.patch ?? '')).toBeLessThanOrEqual(REMOTE_DIFF_LIMITS.patchBytes)
   })
   test('a first hunk larger than the cap sends no patch at all, never half a hunk', () => {
     patches.big = hunk('big.ts', 400)
@@ -130,5 +169,12 @@ describe('a tool step\'s diff (§3)', () => {
     const fitted = fitItem(item, 1_000) as Extract<RemoteThreadItem, { type: 'tool' }>
     expect(fitted.diff).toEqual({ files: [{ path: 'a.ts', additions: 1, deletions: 0 }], truncated: true })
     expect(fitted.output).toBe('o'.repeat(100))
+  })
+  test('SECURITY L3: a file list over the budget is halved, never the frame lost', () => {
+    const files = Array.from({ length: 20 }, (_, i) => ({ path: `${i}-${'ç'.repeat(250)}.ts`, additions: 1, deletions: 0 }))
+    const fitted = fitItem({ type: 'tool', id: 'x', name: 'Edit', state: 'completed', detail: 'edit', diff: { files } }, 4_000) as Extract<RemoteThreadItem, { type: 'tool' }>
+    expect(Buffer.byteLength(JSON.stringify(fitted))).toBeLessThanOrEqual(4_000)
+    expect(fitted.diff?.truncated).toBe(true)
+    expect(fitted.diff!.files.length).toBeGreaterThan(0)
   })
 })

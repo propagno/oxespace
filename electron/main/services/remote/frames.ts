@@ -44,7 +44,9 @@ export function fitItem(item: RemoteThreadItem, budget = FRAME_BUDGET - 2048): R
   let value = item
   for (let round = 0; round < 24 && byteSize(value) > budget; round += 1) {
     if ((value.type === 'message' || value.type === 'reasoning') && value.text.length) value = { ...value, text: cut(value.text, Math.floor(value.text.length / 2)).text, truncated: true }
-    else if (value.type === 'tool' && value.diff?.patch) value = { ...value, diff: { ...value.diff, patch: undefined, truncated: true } }
+    else if (value.type === 'tool' && value.diff?.patch) value = { ...value, diff: { files: value.diff.files, truncated: true } }
+    // The file list goes before any text only when it is the larger part (SECURITY L3 on #585: long multibyte paths).
+    else if (value.type === 'tool' && value.diff && value.diff.files.length > 1 && byteSize(value.diff.files) > Buffer.byteLength(value.output ?? '') + Buffer.byteLength(value.detail)) value = { ...value, diff: { files: value.diff.files.slice(0, Math.ceil(value.diff.files.length / 2)), truncated: true } }
     else if (value.type === 'tool' && (value.output?.length ?? 0) > value.detail.length) value = { ...value, output: cut(value.output!, Math.floor(value.output!.length / 2)).text, outputTruncated: true }
     else if (value.type === 'tool' && value.detail.length) value = { ...value, detail: cut(value.detail, Math.floor(value.detail.length / 2)).text }
     else if (value.type === 'plan' && value.steps.length) value = { ...value, steps: value.steps.slice(0, Math.floor(value.steps.length / 2)) }
