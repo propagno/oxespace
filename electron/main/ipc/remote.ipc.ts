@@ -44,7 +44,7 @@ export function registerRemoteIpc(db: AppDatabase, hosts?: { threads: Promise<Re
     noInput(async gateway => {
       const listening = gateway.status().listening
       const module = await import('../services/remote/windows-firewall')
-      return run(module, listening?.port ?? null, listening?.addresses[0], { platform: process.platform, isPackaged: app.isPackaged, executablePath: process.execPath, systemRoot: process.env.SystemRoot })
+      return run(module, listening?.port ?? null, listening?.addresses[0], { platform: process.platform, enabled: module.firewallCheckEnabled(process.env, app.isPackaged), executablePath: process.execPath, systemRoot: process.env.SystemRoot })
     })
   handle(IPC_CHANNELS.remote.firewallStatus, firewall((module, port, address, env) => module.inspectFirewall(port, address, env)))
   handle(IPC_CHANNELS.remote.firewallRepair, firewall((module, port, address, env) => module.repairFirewall(port, address, env)))

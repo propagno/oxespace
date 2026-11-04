@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, test } from 'vitest'
 import {
-  FIREWALL_RULE_NAME, inspectFirewall, quotePowerShellLiteral, repairCommand, repairFirewall, undoCommand, undoFirewall, type FirewallEnvironment
+  FIREWALL_RULE_NAME, firewallCheckEnabled, inspectFirewall, quotePowerShellLiteral, repairCommand, repairFirewall, undoCommand, undoFirewall, type FirewallEnvironment
 } from '../../electron/main/services/remote/windows-firewall'
 
 /** 1.4.3 P1 · TECH LEAD's four rules: the rule is scoped (program, TCP port, Private only), elevation is UAC and never
@@ -14,7 +14,7 @@ const PORT = 47321
 function stub(answers: Array<string | Error>): { env: FirewallEnvironment; scripts: string[] } {
   const scripts: string[] = []
   const env: FirewallEnvironment = {
-    platform: 'win32', isPackaged: true, executablePath: EXE, systemRoot: 'C:\\Windows',
+    platform: 'win32', enabled: true, executablePath: EXE, systemRoot: 'C:\\Windows',
     runPowerShell: async script => {
       scripts.push(script)
       const next = answers.shift()
@@ -57,7 +57,7 @@ describe('rule 1: the rule is scoped to this program, TCP, the gateway port and 
   })
 
   test('not on Windows, not packaged (a transient dev path), or no port: unsupported, and PowerShell never runs', async () => {
-    for (const [patch, port] of [[{ platform: 'linux' as const }, PORT], [{ isPackaged: false }, PORT], [{}, null], [{}, 70_000]] as const) {
+    for (const [patch, port] of [[{ platform: 'linux' as const }, PORT], [{ enabled: false }, PORT], [{}, null], [{}, 70_000]] as const) {
       const { env, scripts } = stub([])
       Object.assign(env, patch)
       expect(await inspectFirewall(port, undefined, env)).toEqual({ supported: false })
@@ -130,6 +130,16 @@ describe('rule 4: Undo removes only our rule, by its fixed name', () => {
   test('undo is verified: a rule still there afterwards is not-verified', async () => {
     expect(await undoFirewall(PORT, undefined, stub([JSON.stringify({ launched: true, exitCode: 0 }), inspected({ ownRulePresent: true })]).env))
       .toMatchObject({ ok: false, reason: 'not-verified' })
+  })
+})
+
+describe('the CI test switch', () => {
+  test('OXESPACE_E2E_FIREWALL_CHECK=1 enables an unpackaged run only; a packaged build ignores the switch either way', () => {
+    expect(firewallCheckEnabled({}, false)).toBe(false)
+    expect(firewallCheckEnabled({ OXESPACE_E2E_FIREWALL_CHECK: '1' }, false)).toBe(true)
+    expect(firewallCheckEnabled({ OXESPACE_E2E_FIREWALL_CHECK: 'true' }, false)).toBe(false)
+    // Packaged: always the real check, the switch changes nothing (set, unset or anything else).
+    for (const env of [{}, { OXESPACE_E2E_FIREWALL_CHECK: '1' }, { OXESPACE_E2E_FIREWALL_CHECK: '0' }]) expect(firewallCheckEnabled(env, true)).toBe(true)
   })
 })
 
