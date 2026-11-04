@@ -120,9 +120,11 @@ const paletteInput = (page: Page): Locator => page.getByPlaceholder('Search file
 
 async function openPalette(page: Page): Promise<void> {
   for (let attempt = 0; attempt < 3 && !(await paletteInput(page).isVisible()); attempt++) {
-    // The Code sidebar has a button; the other views use the shortcut.
+    // The Code sidebar has a button; the other views use the shortcut. Right after a command switches the mode, the
+    // Code view stays on screen until the next view has loaded (F7.2), so the button can be visible and then gone:
+    // a bounded click lets the next attempt take the shortcut instead of waiting 30 s on a detached button (FL-13).
     const button = page.getByRole('button', { name: 'Files & commands' }).first()
-    if (await button.isVisible()) await button.click()
+    if (await button.isVisible()) await button.click({ timeout: 2_000 }).catch(() => undefined)
     else { await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur()); await page.keyboard.press('Control+k') }
     await paletteInput(page).waitFor({ timeout: 2_000 }).catch(() => undefined)
   }
