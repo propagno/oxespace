@@ -51,6 +51,7 @@ interface WorkspaceRow {
   worktree_panel_expanded: number
   worktree_panel_width_percent: number
   sort_order: number | null
+  color: number | null
 }
 
 interface PaneRow {
@@ -174,7 +175,7 @@ export class WorkspaceService {
           github_panel_visible, github_panel_expanded, github_panel_width_percent, github_active_tab,
           background_panel_visible, background_panel_expanded, background_panel_width_percent,
           worktree_panel_visible, worktree_panel_expanded, worktree_panel_width_percent,
-          sort_order
+          sort_order, color
          FROM workspaces
          /* sort_order is the user-managed drag order (nulls go last); we
             tie-break on created_at so newly added workspaces still appear
@@ -195,7 +196,7 @@ export class WorkspaceService {
           github_panel_visible, github_panel_expanded, github_panel_width_percent, github_active_tab,
           background_panel_visible, background_panel_expanded, background_panel_width_percent,
           worktree_panel_visible, worktree_panel_expanded, worktree_panel_width_percent,
-          sort_order
+          sort_order, color
          FROM workspaces
          WHERE id = ?`
       )
@@ -484,6 +485,7 @@ export class WorkspaceService {
                default_shell_profile_id = @defaultShellProfileId,
                layout = @layout,
                layout_preset = @layoutPreset,
+               color = @color,
                updated_at = datetime('now')
            WHERE id = @workspaceId`
         )
@@ -494,7 +496,8 @@ export class WorkspaceService {
           uiDensity: input.uiDensity ?? current.uiDensity,
           defaultShellProfileId: nextShellProfileId,
           layout: nextLayout,
-          layoutPreset: nextPreset
+          layoutPreset: nextPreset,
+          color: input.color === undefined ? current.color : input.color
         })
 
       for (const pane of panesToRemove) {
@@ -619,6 +622,7 @@ export class WorkspaceService {
       defaultShellProfileId: row.default_shell_profile_id,
       autoStart: row.auto_start === 1,
       isActive: row.is_active === 1,
+      color: row.color ?? null,
       editorVisible: row.editor_visible === 1,
       editorExpanded: row.editor_expanded === 1,
       editorWidthPercent: row.editor_width_percent || 40,

@@ -212,6 +212,43 @@ class DesktopSessionControllerTest {
         assertEquals(1, h.links.first().closed)
     }
 
+    /**
+     * 1.4.1 on a real phone (S23 Ultra, Android 16). The app opened unpaired and its welcome screen started the
+     * controller. The person paired, and start() came again and returned at once because it was already running. The
+     * phone stayed on the welcome screen and never opened a session; the desktop showed it paired and never seen.
+     * The G5 emulator pass missed it: there the pairing link arrived at launch, and the session started again on a
+     * network change before anything was checked.
+     */
+    @Test
+    fun aPairingDuringThisRunConnectsOnTheNextStart() = runTest {
+        val h = harness(desktop = null)
+        h.controller.start()
+        assertEquals(DesktopStatus.Unpaired(), h.controller.status.value)
+        assertTrue(h.links.isEmpty())
+
+        h.store.desktop = paired // what PairingFlow saves once the desktop accepts
+        h.controller.start()
+        assertEquals(DesktopStatus.Connecting(paired), h.controller.status.value)
+        assertEquals(1, h.links.size)
+        assertEquals(1, h.link.connected)
+
+        h.link.state.value = SessionState.Ready("Studio")
+        assertTrue(h.controller.status.value is DesktopStatus.Connected)
+        h.controller.start()
+        assertEquals("a start while connected opens nothing more", 1, h.links.size)
+    }
+
+    @Test
+    fun aStartDuringARetryWaitDoesNotSkipTheWait() = runTest {
+        val h = harness()
+        h.controller.start()
+        h.link.state.value = SessionState.Ended(SessionEnd.CLOSED)
+        assertTrue(h.controller.status.value is DesktopStatus.Unreachable)
+        // The app coming back to the foreground calls start(); the backoff stays the backoff (Try now is retry()).
+        h.controller.start()
+        assertEquals(1, h.links.size)
+    }
+
     @Test
     fun unpairingDeletesTheKeyAndThePairing() = runTest {
         val h = harness()

@@ -57,7 +57,9 @@ test('workspace settings navigation and responsive visual review', async () => {
             el.scrollTop += summary.getBoundingClientRect().top - el.getBoundingClientRect().top - 16
           })
           await modal.screenshot({ path: info.outputPath(`${width}-Launch-summary.png`) })
-          await modal.getByRole('button', { name: 'Discard changes', exact: true }).click()
+          // U2: the shell applied at once, and it is on the risky list, so its toast offers Undo; Undo puts it back.
+          await page.locator('[data-toast]').getByRole('button', { name: 'Undo' }).first().click()
+          await expect(modal.getByRole('radio', { name: 'Codex', exact: true })).not.toBeChecked()
         }
         await modal.locator('.ws-settings-main').evaluate(el => { el.scrollTop = el.scrollHeight })
       }

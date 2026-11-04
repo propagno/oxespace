@@ -588,8 +588,26 @@ async function startBatch(api, queue, { log, actions }) {
   return true
 }
 
+/**
+ * Merges one member pinned to its tested head; returns the merge commit's SHA. A 5xx is not an answer: GitHub may
+ * have merged anyway, so the PR is read again first (merged: its merge commit), and otherwise the merge is tried
+ * once more, only while main is still the expected commit and the head unchanged (batch-46 got a 500 on 04/11).
+ */
+export async function mergeMember(api, member, expected, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))) {
+  try {
+    return (await api.merge(member.number, member.sha))?.sha
+  } catch (error) {
+    if (!(error?.status >= 500)) throw error
+    await sleep(5000)
+    const pr = await api.getPull(member.number)
+    if (pr?.merged && pr.mergeCommitSha) return pr.mergeCommitSha
+    if (!pr || pr.state !== 'open' || pr.headSha !== member.sha || (await api.mainSha()) !== expected) throw error
+    return (await api.merge(member.number, member.sha))?.sha
+  }
+}
+
 /** One step of the batch on its branch: wait, give up, or merge the members. */
-async function driveBatch(api, batch, queue, { now, timeoutMinutes, log, actions }) {
+async function driveBatch(api, batch, queue, { now, timeoutMinutes, log, actions, sleep }) {
   const { branch, members } = batch
   const record = (type, message) => {
     actions.push({ type, message })
@@ -660,7 +678,7 @@ async function driveBatch(api, batch, queue, { now, timeoutMinutes, log, actions
     await api.postStatus(m.sha, { state: 'success', context: 'CI result', description: `batch ${branch}`, targetUrl: url })
     let sha
     try {
-      sha = (await api.merge(m.number, m.sha))?.sha
+      sha = await mergeMember(api, m, expected, sleep)
     } catch (error) {
       await sendBack(rest, `GitHub refused the merge of #${m.number} (${refusal(error)})`, true)
       break
@@ -681,11 +699,11 @@ async function driveBatch(api, batch, queue, { now, timeoutMinutes, log, actions
 }
 
 /** Drives an open batch, or builds one; true when the batch took this run. */
-export async function runBatch(api, queue, { now, timeoutMinutes, log, actions, canStart }) {
+export async function runBatch(api, queue, { now, timeoutMinutes, log, actions, canStart, sleep }) {
   for (const ref of await api.listBatchRefs()) {
     const batch = await readBatch(api, ref.name, ref.sha)
     if (!batch) continue
-    await driveBatch(api, batch, queue, { now, timeoutMinutes, log, actions })
+    await driveBatch(api, batch, queue, { now, timeoutMinutes, log, actions, sleep })
     return true
   }
   if (!canStart || queue.length < 2) return false
@@ -808,7 +826,7 @@ export async function runTrain(
   const health = holdWhenMainRed && queue.length ? mainHealth(await api.mainRuns().catch(() => null)) : { green: true }
   // One thing under test at a time: an open batch takes the run, and a new one starts only from a green main
   // with the queue's first car batchable.
-  if (batches && (await runBatch(api, queue, { now, timeoutMinutes, log, actions, canStart: health.green }))) return actions
+  if (batches && (await runBatch(api, queue, { now, timeoutMinutes, log, actions, canStart: health.green, sleep }))) return actions
   const fixRoles = new Map()
   const fixer = async () => {
     for (const entry of queue) {
@@ -984,6 +1002,8 @@ export function createGitHubApi({ token, repo, base = 'main', fetchImpl = global
         headRef: pr.head.ref,
         mergeable: pr.mergeable,
         mergeableState: pr.mergeable_state,
+        merged: pr.merged === true,
+        mergeCommitSha: pr.merged === true ? (pr.merge_commit_sha ?? null) : null,
         changedFiles: pr.changed_files ?? null,
       }
     },

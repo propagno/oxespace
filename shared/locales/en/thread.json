@@ -1015,6 +1015,8 @@
     "unavailable": "Permission rules are not available in this build.",
     "readOnly": "Read-only commands",
     "autoReads": "Approve read-only commands automatically",
+    "autoReadsOn": "Reads are now approved without asking",
+    "allowAdded": "Agents may now run “{{pattern}}” without asking",
     "autoReadsHint": "Commands such as ls, cat, grep, find, git status, git log and git diff are approved without asking when they only read files inside the project. OXESpace's own lookups (code search, callers, impact, project context and its other read-only tools) are approved too. A command that reads outside the project, writes a file, runs another program or uses the network still asks. Rules you saved keep working whether this is on or off.",
     "rules": "Rules",
     "rulesHint": "OXESpace answers the agent's approval prompts with these rules. Allow rules approve only when every command in a line, or every file, is covered; deny rules decline. Anything else still asks you. A denied MCP tool is also removed from the agent's tools when its next session starts.",
