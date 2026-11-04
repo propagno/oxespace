@@ -53,7 +53,7 @@ export function StatusExplainDialog({ paneId, display, onClose }: { paneId: stri
     : reading.kind === 'unavailable' ? tc('paneMenu.explain.unavailable')
       : reading.kind === 'failed' ? tc('paneMenu.explain.failed')
         : !explain?.state ? tc('paneMenu.explain.none') : null
-  return <Dialog className="desktop-details-dialog" title={tc('paneMenu.whyStatus')} description={tc('paneMenu.explain.description')} onClose={onClose} testId="status-explain-dialog">
+  return <Dialog size="md" className="desktop-details-dialog" title={tc('paneMenu.whyStatus')} description={tc('paneMenu.explain.description')} onClose={onClose} testId="status-explain-dialog">
     <DetailList rows={explainRows(display, explain)} />
     {note && <p className="terminal-session-identity-note" data-testid="status-explain-note">{note}</p>}
     {explain && <details className="terminal-technical-details"><summary>{tc('paneMenu.explain.technical')}</summary><pre className="status-explain-raw">{JSON.stringify(explain, null, 2)}</pre></details>}

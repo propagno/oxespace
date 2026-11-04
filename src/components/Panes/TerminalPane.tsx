@@ -458,7 +458,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           ) : null}
         </div>
       </div>
-      {restoreOpen && <Dialog className="terminal-restore-dialog" title={tc('terminalPane.restoreTitle')} description={tc('terminalPane.restoreDescription', { agent: agentCreditsProvider === 'claude' ? 'Claude' : 'Codex' })} onClose={() => { if (!restoreBusy) setRestoreOpen(false) }}>
+      {restoreOpen && <Dialog size="md" className="terminal-restore-dialog" title={tc('terminalPane.restoreTitle')} description={tc('terminalPane.restoreDescription', { agent: agentCreditsProvider === 'claude' ? 'Claude' : 'Codex' })} onClose={() => { if (!restoreBusy) setRestoreOpen(false) }}>
         <label>{tc('terminalPane.searchSessions')}<TextField aria-label={tc('terminalPane.searchSaved')} value={restoreQuery} onChange={event => setRestoreQuery(event.target.value)} placeholder={tc('terminalPane.searchPlaceholder')} /></label>
         {restoreError && <ErrorState compact title={tc('terminalPane.resumeFailed')} message={restoreError} />}
         <div className="terminal-restore-list">
