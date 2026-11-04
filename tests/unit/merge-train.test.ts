@@ -439,11 +439,7 @@ describe('running the train against a fake API', () => {
   })
 
   it('deletes a merged batch PR’s train/batch-N branch, and no other head branch', async () => {
-    const api = fakeApi([
-      { number: 1, labeledAt: '2026-10-31T09:00:00Z', pr: { headRef: 'train/batch-7' } },
-      { number: 2, labeledAt: '2026-10-31T10:00:00Z', pr: { headRef: 'train/batch-D' } },
-      { number: 3, labeledAt: '2026-10-31T11:00:00Z', pr: { headRef: 'feat/x' } },
-    ])
+    const api = fakeApi(['train/batch-7', 'train/batch-D', 'feat/x'].map((headRef, i) => ({ number: i + 1, labeledAt: `2026-10-31T1${i}:00:00Z`, pr: { headRef } })))
     const deleted: string[] = []
     Object.assign(api, { deleteRef: async (name: string) => void deleted.push(name) })
     await runTrain(api, { now: NOW, sleep: noSleep })
