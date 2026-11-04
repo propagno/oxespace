@@ -84,7 +84,7 @@ MENUS.convact = () => { const t = cur(); return <><MI icon="pencil" label="Renam
   <MI icon="trash" dz label="Delete…" sc="/delete" onClick={() => { S.overlay = { type: 'dlg', id: 'deletetask' } }} /></> }
 
 /* ---------------------------------------------------------------- conversation (T58 §2) */
-export function Conversation ({ t, header }: { t: Task; header?: boolean }) {
+export function Conversation ({ t, empty }: { t: Task; empty?: React.ReactNode }) {
   const items = S.conv[t.id] || []; const past = S.past[t.id]
   let ck = -1
   const running = t.status === 'run'
@@ -92,9 +92,9 @@ export function Conversation ({ t, header }: { t: Task; header?: boolean }) {
     {past != null ? <div className="past-banner"><Icon n="history" s={12} /><span>Viewing checkpoint {past} · {D.checkpoints[t.id]?.[past]?.at}. Later messages are dimmed; files on disk are unchanged.</span><span className="sp" />
       <button className="btn sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'restore', ck: past } })}>Restore files…</button><button className="btn sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'branch', ck: past } })}><Icon n="fork" s={12} />Branch from here</button><button className="btn sm pri" onClick={run(() => { delete S.past[t.id] })}>Back to now <Kbd>L</Kbd></button></div> : null}
     <div className={'conv' + (S.bigText ? ' big' : '')} role="log" aria-label="Conversation" ref={pinBottom}><div className="conv-in">
-      {items.map((it, i) => { if (it.ck != null) ck = it.ck; const dim = past != null && (it.ck != null ? it.ck > past : ck > past); return <div key={i} className={dim ? 'inpast' : undefined} style={{ display: 'contents' }}><Item t={t} it={it} i={i} /></div> })}
+      {!items.length && empty ? empty : null}{items.map((it, i) => { if (it.ck != null) ck = it.ck; const dim = past != null && (it.ck != null ? it.ck > past : ck > past); return <div key={i} className={dim ? 'inpast' : undefined} style={{ display: 'contents' }}><Item t={t} it={it} i={i} /></div> })}
       {t.status === 'idle' ? <div className="turn" style={{ color: 'var(--warning-fg)' }}><Icon n="warn" s={12} />Interrupted. The work so far is kept; send a message to continue.</div> : null}
-    </div></div>{header ? null : null}<Composer t={t} /></div>
+    </div></div><Composer t={t} /></div>
 }
 /** Keep a log pinned to the bottom unless the reader scrolled up. */
 export function pinBottom (el: HTMLElement | null) {
@@ -154,7 +154,7 @@ export function Composer ({ t }: { t: Task }) {
       placeholder={running ? 'Steer: the agent reads this after its current step' : t.status === 'needs' ? 'Answer, or tell the agent what to do instead' : 'Ask, or type / for commands'}
       onChange={e => { S.drafts[t.id] = e.target.value; emit() }} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(t); emit() } }} />
       <div className="strip"><button className="ibtn" onClick={menuBtn('slash')} title="Commands (/)" aria-label="Commands"><Icon n="slash" /></button><button className="ibtn" onClick={() => toastSoon('In the app this opens the file picker; attachments show as chips in the bubble.')} title="Add files" aria-label="Add files"><Icon n="plus" /></button>
-        <div className="segm" role="group" aria-label="Mode"><button className="plan" aria-pressed={c.mode === 'plan'} onClick={run(() => { c.mode = 'plan' })} title="Plan: nothing changes until you agree">Plan</button><button aria-pressed={c.mode === 'agent'} onClick={run(() => { c.mode = 'agent' })}>Agent</button></div>
+        {t.id === 'quick' ? null : <div className="segm" role="group" aria-label="Mode"><button className="plan" aria-pressed={c.mode === 'plan'} onClick={run(() => { c.mode = 'plan' })} title="Plan: nothing changes until you agree">Plan</button><button aria-pressed={c.mode === 'agent'} onClick={run(() => { c.mode = 'agent' })}>Agent</button></div>}
         <Chips t={t} c={c} /><span className="sp" /><Ring pct={t.ctx[0]} />
         {running ? <><button className="ibtn" onClick={run(() => { if (!draft.trim()) { toast('Type a note first; the agent reads it after its current step.'); return } S.conv[t.id].push({ you: draft, at: '14:43' }); S.drafts[t.id] = ''; toast(`Steer sent. ${t.model} reads it between steps.`) })} title="Steer now (Ctrl Enter)" aria-label="Steer"><Icon n="compass" /></button>
           <button className="stopb" onClick={run(() => { t.status = 'idle'; t.now = 'Stopped by you'; toast(`Stopped ${t.key}. The work so far is kept.`) })} title="Stop (Esc Esc)" aria-label="Stop"><Icon n="stop" /></button></> : null}

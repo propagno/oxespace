@@ -9,6 +9,7 @@ import { QueueView, startHold, cancelHold } from './components/Tools'
 import { OverlayLayer, closeOverlay, rememberFocus } from './components/Overlays'
 import { Icon, StateBlock } from './components/ui'
 import { Later } from './components/Later'
+import { QuickChat, CodeMode } from './components/Modes'
 
 const GROUPS = Array.from(new Set(SCREENS.map(s => s.group)))
 const tagLabel = (s: { tag: string; stage?: number }) => s.stage ? 'next push' : s.tag === 'later' ? 'later' : '1.5.0'
@@ -35,6 +36,8 @@ function Body () {
   if (a === 'task') return wb(S.emptyWs ? <EmptyHome /> : S.view === 'empty' ? <EmptyHome /> : <TaskView />, true)
   if (a === 'later-multi' || a === 'later-watch') return wb(<Later />, true)
   if (a === 'queue') return wb(S.view === 'loading' ? <StateBlock kind="loading" /> : <QueueView />)
+  if (a === 'chat') return wb(<QuickChat />)
+  if (a === 'mode' && S.mode2 === 'code') return wb(<CodeMode />)
   return wb(<NextPush />)
 }
 

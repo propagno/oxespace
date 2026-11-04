@@ -21,19 +21,22 @@ export const SETTINGS_DEFAULT = {
 }
 
 const clone = <T,>(o: T): T => JSON.parse(JSON.stringify(o))
+/** OxeChat on its own: a read-only conversation with no project. It never shows in the task list. */
+const QUICK: Task = { id: 'quick', key: 'Chat', title: 'Quick chat', project: 'api', prov: 'claude', model: 'Opus 5.5', effort: 'Medium', access: 'read', status: 'done', branch: 'no project', worktree: false, started: '14:30', mins: 1, cost: 0.02, ctx: [3, '6k', '200k'], counts: { terminal: 0, queries: 0, requests: 0, containers: 0, changes: 0, pr: 0 }, now: 'Answered' }
+const QUICK_CONV: ConvItem[] = [{ you: 'What’s the Pix rule for refunds after 90 days?', at: '14:30' }, { agent: 'A Pix refund (<i>devolução</i>) can be requested up to <b>90 days</b> after the original payment. After that the payer’s bank rejects it, so you send a new Pix to the customer instead. Partial refunds count against the same 90-day window.', at: '14:30' }]
 function fresh () {
   return {
     area: 'task' as Area, taskId: 't143', tab: 'conv', mode2: 'query' as Mode2, page: 'general',
     sbCol: false, rp: true, rpTab: 'overview' as 'overview' | 'details', sideChat: {} as Record<string, SideChat>, menu: null as MenuState | null,
     notif: false, overlay: null as Overlay | null, toasts: [] as Toast[], projFilter: null as string | null,
-    tasks: clone(D.tasks) as Task[], conv: clone(D.conv) as Record<string, ConvItem[]>, resolved: {} as Record<string, string>, queue: ['ap_sql', 'ap_down'],
+    tasks: clone(D.tasks).concat([QUICK]) as Task[], conv: Object.assign(clone(D.conv), { quick: clone(QUICK_CONV) }) as Record<string, ConvItem[]>, resolved: {} as Record<string, string>, queue: ['ap_sql', 'ap_down'],
     open: {} as Record<string, boolean>, disc: { ctx: true, tools: true } as Record<string, boolean>, past: {} as Record<string, number>,
     cmp: {} as Record<string, Cmp>, drafts: {} as Record<string, string>, notifRead: {} as Record<string, boolean>, extraNotifs: [] as typeof D.notifications,
     emptyWs: false, holding: null as string | null, bigText: false, verbose: false, queueSel: 0, tick: 0, running: { t142: 72 } as Record<string, number>,
     q: { conn: 'billing-staging', tab: 'editor', sel: 'q4', act: null as string | null }, qRunning: false,
     post: { col: 'pix', req: 'r1', tab: 'body', activity: false, newReq: null as null | { name: string; method: string; url: string; status?: number; ms?: number; size?: string; resBody: string }, sending: false, sentNew: false },
     pod: { sel: 'api', tab: 'logs' }, filter: '', renameTo: '', rp900: false, finishPick: 0,
-    newTask: null as null | { project: string; prov: string; model: string; access: string; worktree: boolean }, code: { focus: 0 }, set: clone(SETTINGS_DEFAULT), quickBusy: false, ckExtra: {} as Record<string, number>
+    newTask: null as null | { project: string; prov: string; model: string; access: string; worktree: boolean }, code: { focus: 0 }, codePanes: null as null | import('../mock/types').Term[], codeWt: 1 as number | undefined, codeLayout: 'grid' as string | undefined, codeDraft: {} as Record<string, string> | undefined, set: clone(SETTINGS_DEFAULT), quickBusy: false, ckExtra: {} as Record<string, number>
   }
 }
 export type AppState = ReturnType<typeof fresh> & {
@@ -52,7 +55,7 @@ export const run = (fn: () => void) => () => { fn(); emit() }
 
 /* ------------------------------------------------------------------ helpers */
 export const task = (id: string) => S.tasks.find(t => t.id === id)
-export const cur = () => task(S.taskId) as Task
+export const cur = () => task(S.area === 'chat' ? 'quick' : S.taskId) as Task
 export const prov = (id: string) => D.providers[id]
 export const H = () => (S.w === 900 ? 620 : 900)
 export const plural = (n: number, one: string, many?: string) => `${n.toLocaleString('en')} ${n === 1 ? one : (many || one + 's')}`
@@ -122,7 +125,13 @@ export function raisePush () {
 }
 
 /* ------------------------------------------------------------------ conversation */
-function replyFor (text: string) {
+const QUICK_ANSWERS: [RegExp, string][] = [
+  [/idempot/i, 'An idempotency key lets a client retry a request safely. The client sends a unique key with the request; the server stores the key with the first response, and any retry with the same key gets that stored response instead of doing the work again.<br><br>Two details matter: store a hash of the request body, so the same key with a different body is rejected (409), and make the check and the write one transaction, so two parallel retries can’t both run.'],
+  [/postgres|pg ?1[67]/i, 'For a payments API the main 17 gains are faster vacuum on big tables, better JSON functions and incremental backups. The catch is the upgrade itself: a data directory from 16 needs <code>pg_upgrade</code> or a dump and restore.'],
+  [/status update|release/i, 'Here’s a draft:<br><br><b>Release 2026.11.3 moves to Thursday.</b> The idempotency fix for charges needs one more day of testing on staging. Nothing changes for merchants until then; the current version stays live.']
+]
+function replyFor (text: string, quick = false) {
+  if (quick) { const hit = QUICK_ANSWERS.find(([r]) => r.test(text)); return hit ? hit[1] : 'Good question. In short: it depends on your setup, and I can’t see your code from a quick chat. Turn this into a task and I’ll look at the project.' }
   if (/test/i.test(text)) return 'Sure. I\'ll add a case for that and run the suite again before I touch anything else.'
   if (/stop|wait|pause/i.test(text)) return 'Okay, I\'ve paused here. Nothing else will run until you say so.'
   return 'Got it. I\'ll take that into account in the next step and tell you what I changed.'
@@ -136,7 +145,7 @@ export function sendMsg (t: Task) {
   if (t.status === 'needs' && t.gate && !S.resolved[t.gate]) resolve(t.gate, 'deny', true)
   const back = t.id === 't142' ? 'run' : t.id === 'quick' ? 'done' : 'review'
   t.status = 'run'; t.now = 'Reading your message'; S.running[t.id] = 0
-  setTimeout(() => { S.conv[t.id].push({ agent: replyFor(text), at: stamp() }); t.status = back; t.now = back === 'run' ? 'Running the charges tests' : 'Waiting for your next message'; emit() }, 1600)
+  setTimeout(() => { S.conv[t.id].push({ agent: replyFor(text, t.id === 'quick'), at: stamp() }); t.status = back; t.now = back === 'run' ? 'Running the charges tests' : 'Waiting for your next message'; emit() }, 1600)
 }
 export function addCheckpoint (t: Task, label: string) {
   const cks = D.checkpoints[t.id] || (D.checkpoints[t.id] = [{ n: 0, at: t.started, label: 'Task started', files: 0 }])
