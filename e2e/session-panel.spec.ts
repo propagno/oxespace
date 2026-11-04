@@ -169,3 +169,35 @@ test('Conversation details shows the session, compacts, and reorders its section
     await app.close()
   }
 })
+
+// T57: the panel's host clips its content, so the last sections were out of reach of the wheel and the keyboard
+// (scrollIntoViewIfNeeded above still reached them, by scrolling the clipped box). A person scrolls with the wheel.
+for (const [label, width, height] of [['narrow', 900, 620], ['wide', 1440, 760]] as const) {
+  test(`Conversation details scrolls to its last section with the wheel (${label} window)`, async () => {
+    test.setTimeout(120_000)
+    const { app, page, workspaceRoot } = await launchApp()
+    try {
+      await resizeWindow(app, width, height)
+      await installThreadFixtures(app, workspaceRoot)
+      await openDemoWorkspace(page, workspaceRoot)
+      await registerThreadProject(app, page, workspaceRoot)
+      await openThreadWithState(app, page, workspaceRoot, 'conversation')
+      await stubCommands(app)
+      await applySession(app, workspaceRoot)
+      await openPanel(page)
+      const panel = page.getByTestId('thread-session-panel')
+      const last = panel.locator('li[data-section]').last()
+      // Enough content to scroll at this size, or the check below proves nothing.
+      expect(await panel.evaluate(element => element.scrollHeight > element.clientHeight + 40)).toBe(true)
+      await expect(last).not.toBeInViewport({ ratio: 1 })
+      await panel.locator('h3').first().hover()
+      await expect(async () => {
+        await page.mouse.wheel(0, 400)
+        await expect(last).toBeInViewport({ ratio: 1, timeout: 500 })
+      }).toPass({ timeout: 10_000 })
+      expect(await panel.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
+    } finally {
+      await app.close()
+    }
+  })
+}

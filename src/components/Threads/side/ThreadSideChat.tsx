@@ -1,15 +1,15 @@
-import { X } from 'lucide-react'
+import { MoreHorizontal, X } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { messageKey, messageValues } from '../../../../shared/messages'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../../shared/threadLimits'
 import { formatNumber } from '../../../utils/formatTime'
-import { Badge, Button, ErrorState, IconButton, TextArea } from '../../../ui'
+import { Badge, Button, ConfirmDialog, ErrorState, IconButton, Menu, TextArea } from '../../../ui'
 import { shortcutLabel } from '../../../keyboard/keybindings'
 import { formatThreadCost } from '../threadCost'
 import { compactTokens } from '../ThreadUsagePanel'
-import { SIDE_SEND_FAILED, type SideChatCost } from './sideChatModel'
-import { useSideChat } from './useSideChat'
+import { initialSideChat, SIDE_SEND_FAILED, type SideChatCost } from './sideChatModel'
+import { discardSideChat, ensureSideChat, sendSideChat, sideChatHasAnswers, useSideChatStore } from './sideChatStore'
 import styles from './ThreadSideChat.module.css'
 
 /** What the side chat has cost so far: the price when the provider reports one, the tokens always. */
@@ -31,16 +31,23 @@ export function sideQuestionProblem(text: string): 'nul' | 'tooLong' | null {
   return null
 }
 
+const OPENING = initialSideChat()
+
 /**
  * The side chat drawer (B1.2, Ctrl+.): questions about this conversation, answered by a read-only copy of its session.
- * Nothing asked here reaches the conversation; the copy is thrown away when the drawer closes. Its cost is always in
- * view, since the copy runs on the person's account like the conversation does.
+ * Nothing asked here reaches the conversation. The copy lives in sideChatStore (T60): ✕, Mod+. and another
+ * conversation tab only hide the drawer; "Discard and close…" throws the copy away. Esc gives the focus back to the
+ * conversation's composer. Its cost is always in view, since the copy runs on the person's account.
  */
-export function ThreadSideChat({ threadId, onClose }: { threadId: string; onClose: () => void }): ReactElement {
+export function ThreadSideChat({ threadId, onClose, onLeave }: { threadId: string; onClose: () => void; onLeave: () => void }): ReactElement {
   const { t } = useTranslation('thread')
   const { t: tMain, i18n } = useTranslation('main')
   const tm = tMain as unknown as (key: string, values: Record<string, string>) => string
-  const { state, send } = useSideChat(threadId)
+  const state = useSideChatStore(store => store.chats[threadId]) ?? OPENING
+  useEffect(() => { ensureSideChat(threadId) }, [threadId])
+  const [confirming, setConfirming] = useState(false)
+  const actions = useRef<HTMLButtonElement>(null)
+  const discard = (): void => { setConfirming(false); void discardSideChat(threadId); onClose() }
   const [draft, setDraftState] = useState(() => drafts.get(threadId) ?? '')
   const setDraft = (value: string): void => {
     if (value) drafts.set(threadId, value)
@@ -57,7 +64,7 @@ export function ThreadSideChat({ threadId, onClose }: { threadId: string; onClos
 
   const submit = (): void => {
     if (!ready || !draft.trim() || problem) return
-    void send(draft)
+    void sendSideChat(threadId, draft)
     setDraft('')
   }
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
@@ -66,12 +73,17 @@ export function ThreadSideChat({ threadId, onClose }: { threadId: string; onClos
   const costLabel = sideChatCostLabel(state.cost, t as unknown as (key: string, values?: Record<string, unknown>) => string)
 
   return <aside className={styles.drawer} aria-label={t('side.region')} data-testid="thread-side-chat" data-side-id={state.sideId ?? undefined}
-    onKeyDown={event => { if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); onClose() } }}>
+    onKeyDown={event => {
+      // The menu and the confirmation are portalled: their Esc closes them and bubbles here through React, not the DOM.
+      if (event.key === 'Escape' && !event.defaultPrevented && event.currentTarget.contains(event.target as Node)) { event.preventDefault(); onLeave() }
+    }}>
     <header className={styles.header}>
       <div className={styles.title}>
         <h2>{t('side.title')}</h2>
         <Badge>{t('side.readOnly')}</Badge>
       </div>
+      <Menu label={t('side.actions')} align="end" items={[{ label: t('side.discard'), onSelect: () => { if (sideChatHasAnswers(state)) setConfirming(true); else discard() } }]}
+        trigger={<IconButton ref={actions} label={t('side.actions')} icon={<MoreHorizontal size={14} />} data-testid="thread-side-chat-actions" />} />
       <IconButton label={t('side.close', { shortcut: shortcutLabel('thread.sideChat') })} icon={<X size={14} />} onClick={onClose} data-testid="thread-side-chat-close" />
     </header>
     <p className={styles.note}>{t('side.note')}</p>
@@ -96,5 +108,7 @@ export function ThreadSideChat({ threadId, onClose }: { threadId: string; onClos
         onChange={event => setDraft(event.target.value)} onKeyDown={onKeyDown} data-testid="thread-side-chat-input" />
       <Button type="submit" variant="primary" size="sm" disabled={!ready || !draft.trim() || problem !== null} loading={state.busy}>{t('side.send')}</Button>
     </form>
+    {confirming && <ConfirmDialog title={t('side.discardTitle')} description={t('side.discardBody')} confirmLabel={t('side.discardConfirm')} cancelLabel={t('side.keep')} danger
+      returnFocusTo={() => actions.current} onCancel={() => setConfirming(false)} onConfirm={discard} />}
   </aside>
 }
