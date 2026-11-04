@@ -232,7 +232,6 @@ test.describe('1.4.3 gate', () => {
       if (await again.count()) await again.first().click(); else await remote(page, 'startPairing').catch(() => undefined)
       await expect.soft(check, 'no-rule title').toContainText("Windows Firewall doesn't let phones in yet", { timeout: 15_000 })
       await expect.soft(check, 'the exact rule is shown before consent').toContainText('Adds one rule: OXESpace.exe, TCP 47321, Private networks only.')
-      await expect.soft(check, 'the UAC line').toContainText('Windows will ask for permission. Nothing changes if you say No.')
       await page.screenshot({ path: info.outputPath('p1-2-private-no-rule.png') })
 
       // 3. Consent: the dialog with the exact command, then Allow.
@@ -242,6 +241,12 @@ test.describe('1.4.3 gate', () => {
       const command = await page.getByTestId('devices-firewall-command').innerText().catch(() => '(no command shown)')
       note(`command shown: ${command}`)
       expect.soft(command, 'the exact PowerShell line is shown').toMatch(/New-NetFirewallRule/)
+      // The UAC line sits in the consent dialog, with the exact rule.
+      await expect.soft(dlg, 'the UAC line').toContainText('Windows will ask for permission. Nothing changes if you say No.')
+      await expect.soft(dlg, 'the rule in the dialog').toContainText('TCP 47321, Private networks only')
+      await page.waitForTimeout(800) // past the open animation, so the shot shows the settled dialog
+      const panelBg = await dlg.evaluate((el) => { let n: HTMLElement | null = el as HTMLElement; while (n) { const s = getComputedStyle(n); if (s.backgroundColor && !/rgba\(.*,\s*0\)$/.test(s.backgroundColor)) return `${s.backgroundColor} opacity=${s.opacity}`; n = n.parentElement } return 'none' })
+      note(`consent dialog background after the animation: ${panelBg}`)
       await page.screenshot({ path: info.outputPath('p1-3-consent.png') })
       await dlg.getByRole('button', { name: 'Allow', exact: true }).click()
       await page.waitForTimeout(5_000)
