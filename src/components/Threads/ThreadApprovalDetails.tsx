@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { extractCdPrefix, presentInlineScript } from '../../../shared/commandPresenters'
 import { i18n } from '../../i18n'
 import { ThreadMarkdown } from './ThreadMarkdown'
+import { useMoreBelow } from '../../hooks/useMoreBelow'
 
 /** A readable preview is deliberately separate from the exact command being approved. */
 export function approvalCommandPreview(command: string): { runner: string; preview: string; target?: string; writesFiles: boolean; directory?: string } {
@@ -25,6 +26,8 @@ export function approvalCommandPreview(command: string): { runner: string; previ
 export function ThreadApprovalDetails({ command, cwd, reason, fileChanges = false, toolName }: { command: string; cwd?: string; reason?: string; fileChanges?: boolean; toolName?: string }) {
   const { t } = useTranslation('thread')
   const [copied, setCopied] = useState(false)
+  // In the pending dock the card is capped and this part scrolls: a fade says the reason is still below (DESIGN, RC).
+  const [scroller, moreBelow] = useMoreBelow<HTMLDivElement>()
   const display = approvalCommandPreview(command)
   const isPlan = toolName === 'ExitPlanMode'
   const isToolRequest = Boolean(toolName && toolName !== 'Bash' && toolName !== 'Write' && toolName !== 'Edit' && toolName !== 'MultiEdit')
@@ -44,7 +47,7 @@ export function ThreadApprovalDetails({ command, cwd, reason, fileChanges = fals
   const preview = (structured ?? display.preview).trim()
   const showPreview = Boolean(plan) || (preview.length > 0 && preview !== exact)
   const where = cwd ?? display.directory
-  return <div className="thread-approval-content">
+  return <div ref={scroller} className="thread-approval-content" data-more-below={moreBelow || undefined}>
     <div className="thread-approval-intent">{isToolRequest ? <Wrench size={16} /> : display.writesFiles || fileChanges ? <FilePenLine size={16} /> : <TerminalSquare size={16} />}<div><strong>{summary}</strong><span>{isToolRequest ? t('approvalDetails.toolRequest') : fileChanges ? t('approvalDetails.fileChanges') : display.runner}{where ? ` · ${where}` : ''}</span></div></div>
     {/* The exact text being approved, open from the start: what runs is never behind a click. */}
     {exact && <section className="thread-approval-exact" aria-label={t('approvalDetails.exact')} data-testid="approval-exact">
