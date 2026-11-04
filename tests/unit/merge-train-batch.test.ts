@@ -338,6 +338,29 @@ describe('driving a batch', () => {
     expect(api.refs.has('train/batch-1')).toBe(false)
   })
 
+  it('a cancelled or skipped run never counts as green', async () => {
+    for (const conclusion of ['cancelled', 'skipped', 'neutral', 'timed_out']) {
+      const api = await built()
+      finishCi(api, conclusion, 'success')
+      await step(api)
+      expect(kinds(api, 'postStatus', 'merge'), conclusion).toEqual([])
+    }
+  })
+
+  it('re-checks the files at merge time: a member that now changes app code gets no status', async () => {
+    const pulls = { 1: docs(1, 'a'), 2: docs(2, 'b') }
+    const api = await built(pulls)
+    finishCi(api)
+    pulls[2].files = ['docs/notes-2.md', 'src/App.tsx']
+    await step(api)
+    expect(kinds(api, 'postStatus', 'merge')).toEqual([
+      ['postStatus', head('a'), expect.objectContaining({ description: 'batch train/batch-1' })],
+      ['merge', 1, head('a')],
+    ])
+    expect(kinds(api, 'addLabel')).toEqual([['addLabel', 2, NO_BATCH_LABEL]])
+    expect(api.comments.get(2)!.at(-1)!.body).toMatch(/changes src\/App\.tsx, outside docs and tests/)
+  })
+
   it('a green run without a passing CI result is not green', async () => {
     const api = await built()
     finishCi(api, 'success', 'failure')

@@ -650,6 +650,13 @@ async function driveBatch(api, batch, queue, { now, timeoutMinutes, log, actions
       await sendBack(rest, `#${m.number} has a new head or was closed before its merge`, true)
       break
     }
+    // The file rule again, at merge time: never a status on a head that changes anything outside docs and tests.
+    const files = await api.listFiles(m.number)
+    const outside = !Array.isArray(files) || !files.length || files.length >= BATCH_MAX_FILES || (pr.changedFiles != null && files.length !== pr.changedFiles) ? 'its file list is incomplete' : files.find((path) => !isBatchPath(path))
+    if (outside) {
+      await sendBack(rest, `#${m.number} ${outside === 'its file list is incomplete' ? outside : `changes ${cleanName(outside)}`}, outside docs and tests`, true)
+      break
+    }
     await api.postStatus(m.sha, { state: 'success', context: 'CI result', description: `batch ${branch}`, targetUrl: url })
     let sha
     try {
