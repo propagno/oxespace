@@ -4,7 +4,7 @@
 import type { ConvItem, Task } from './types'
 
 export const T147: Task = {
-  id: 't147', key: 'T-147', title: 'Add a Pix refund endpoint', project: 'api', prov: 'claude', model: 'Opus 5.5', effort: 'High', access: 'edit',
+  id: 't147', key: 'Add a Pix refund endpoint', title: 'Add a Pix refund endpoint', project: 'api', prov: 'claude', model: 'Opus 5.5', effort: 'High', access: 'edit',
   status: 'needs', branch: 'oxe/t147-pix-refunds', worktree: true, started: '14:46', mins: 9, cost: 0.61, ctx: [38, '76k', '200k'],
   counts: { terminal: 0, queries: 0, requests: 0, containers: 0, changes: 5, pr: 0 }, now: 'Waiting for your answer: 2 questions', gate: null, ask: 'q147'
 }

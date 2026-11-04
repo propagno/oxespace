@@ -115,7 +115,7 @@ export function ReqDetail ({ r, inTask }: { r: Req; inTask?: boolean }) {
 export function ImpactBody ({ ap }: { ap: Approval }) {
   const t = task(ap.task)!; const isDb = ap.kind === 'db'
   return <div className="imp">
-    <div className="imp-h"><Av p={t.prov} size="lg" /><div style={{ minWidth: 0 }}><h3>{ap.title}</h3><p>{prov(t.prov).name} · {t.key} {t.title}</p></div></div>
+    <div className="imp-h"><Av p={t.prov} size="lg" /><div style={{ minWidth: 0 }}><h3>{ap.title}</h3><p>{prov(t.prov).name} · {t.title}</p></div></div>
     <p style={{ color: 'var(--text-secondary)' }}>{ap.why}</p>
     <div className="imp-facts"><div><small>Where it runs</small><strong>{ap.where}</strong><small>{ap.whereSub}</small></div><div><small>Affects</small><strong>{ap.rows}</strong><small>{ap.rowsSub}</small></div>
       <div><small>Can it be undone?</small><strong className={ap.irreversible ? 'irrev' : 'rev'}>{ap.irreversible ? 'No' : 'Yes'}</strong><small>{ap.undoSub}</small></div><div><small>Risk</small><strong>{{ high: 'High', medium: 'Medium', low: 'Low' }[ap.risk]}</strong><small>{ap.risk === 'high' ? 'Writes shared data' : ap.risk === 'medium' ? 'Deletes local data' : 'Reversible, remote'}</small></div></div>
@@ -123,7 +123,8 @@ export function ImpactBody ({ ap }: { ap: Approval }) {
       <tbody>{ap.sample.map((r, i) => <tr key={i}>{r.map((v, j) => Array.isArray(v) ? <td key={j} className="chg"><s>{v[0]}</s>{v[1]}</td> : <td key={j}>{v}</td>)}</tr>)}</tbody></table></div></div> : null}
     <div><div className="slabel" style={{ marginBottom: 6 }}>{isDb ? 'SQL' : 'Command'} <span className="n">exactly what runs</span></div><pre className="code"><Highlight s={ap.sql} lang={ap.lang} /></pre></div>
     {ap.irreversible ? <div className="callout danger"><Icon n="warn" /><span><b>This can't be undone.</b> {ap.snapshot ? 'Take a snapshot first, or hold Approve for 1.2 s.' : 'Hold Approve for 1.2 s to confirm.'}</span></div> : <div className="callout ok"><Icon n="undo" /><span>{ap.undoSub} if you change your mind.</span></div>}
-    {ap.snapshot ? <div className="callout info"><Icon n="db" /><span><b>Snapshot, then approve:</b> {ap.snapshot}</span></div> : null}</div>
+    {ap.snapshot ? <div className="callout info"><Icon n="db" /><span><b>Snapshot, then approve:</b> {ap.snapshot}</span></div> : null}
+    <p className="phone-note"><Icon n="phone" s={12} />{ap.kind === 'db' ? 'Database writes are answered only at this computer; the phone shows "answer on the computer".' : ap.irreversible ? 'On the phone this is Critical: Allow unlocks after 2 s, then a fingerprint.' : 'On the phone: Allow after a fingerprint.'}</p></div>
 }
 /** Hold-to-confirm: pointer or the A key, 1.2 s. Releasing early cancels. */
 let holdTimer: ReturnType<typeof setTimeout> | null = null
@@ -143,12 +144,12 @@ export function QueueView () {
   const sel = pend[Math.min(S.queueSel, pend.length - 1)]
   return <div className="qv"><div className="qv-l"><header><h1>Approvals</h1><p className="muted" style={{ fontSize: 12 }}>{pend.length ? `${plural(pend.length, 'request')} waiting · J and K move · D denies` : 'Nothing is waiting for you.'}</p></header>
     <div className="scroll"><div className="lst">{pend.map((q, i) => { const ap = D.approvals[q], t = task(ap.task)!
-      return <button key={q} className="qi" onClick={run(() => { S.queueSel = i })} aria-current={q === sel}><span className="sun live" style={{ marginTop: 5 }} /><span className="t trunc">{ap.title}</span><span className="s"><Av p={t.prov} size="s16" />{t.key} · {ap.irreversible ? <span style={{ color: 'var(--danger-fg)' }}>can't be undone</span> : 'can be undone'}</span></button> })}
+      return <button key={q} className="qi" onClick={run(() => { S.queueSel = i })} aria-current={q === sel}><span className="sun live" style={{ marginTop: 5 }} /><span className="t trunc">{ap.title}</span><span className="s"><Av p={t.prov} size="s16" /><span className="trunc">{t.title}</span> · {ap.irreversible ? <span style={{ color: 'var(--danger-fg)' }}>can't be undone</span> : 'can be undone'}</span></button> })}
       {done.length ? <><div className="tg">Decided today</div>{done.map(q => <div key={q} className="qi" style={{ opacity: .75 }}><span style={{ color: S.resolved[q] === 'deny' ? 'var(--danger)' : 'var(--success)' }}><Icon n={S.resolved[q] === 'deny' ? 'x' : 'check'} s={12} /></span><span className="t trunc" style={{ fontWeight: 500 }}>{D.approvals[q].title}</span><span className="s">{S.resolved[q] === 'deny' ? 'Denied' : S.resolved[q] === 'snap' ? 'Snapshot, then approved' : 'Approved'} by you</span></div>)}</> : null}</div></div>
     <div className="dlg-f"><button className="btn sm ghost" onClick={() => goScreen('settings-approvals')}><Icon n="gear" s={12} />Approval rules</button></div></div>
     <div className="qv-r">{sel ? <><ImpactBody ap={D.approvals[sel]} /><div className="imp-act" style={{ marginTop: 16, maxWidth: 880 }}><ImpactActions ap={D.approvals[sel]} /></div>
       <p className="muted" style={{ fontSize: 12, marginTop: 10 }}><button className="lk" onClick={() => { S.taskId = D.approvals[sel].task; S.tab = 'conv'; goScreen('task-current') }}>Open the task</button> to see the conversation around it.</p></>
-      : <StateBlock kind="empty" icon="check" title="All clear" text="When an agent asks to do something outside its permissions, it waits here and on its task. Your phone gets it too when it's paired." />}</div></div>
+      : <StateBlock kind="empty" icon="check" title="All clear" text="When an agent asks to do something outside its permissions, it waits here and on its task. Your phone gets it too when it's paired and on the same Wi-Fi; database writes are answered only here." />}</div></div>
 }
 export { syncScreen }
 
@@ -158,7 +159,7 @@ export { syncScreen }
 export function placesFor (t: Task): Place[] {
   const ps = PLACES[t.id]
   const wt: Place = { id: 'w', kind: t.worktree ? 'worktree' : 'main', path: t.worktree ? `~/.oxespace/worktrees/${D.projects[t.project].name}/${t.id}` : D.projects[t.project].path, branch: t.branch, base: '9bb5339', head: `${t.branch} @ 5c0e9b1`, files: [] }
-  return (ps || [wt]).map(pl => pl.kind === 'outside' ? pl : Object.assign({}, pl, { files: D.changes[t.id] || [] }))
+  return (ps || [wt]).map(pl => pl.kind === 'outside' || pl.kind === 'checkout' ? pl : Object.assign({}, pl, { files: D.changes[t.id] || [] }))
 }
 function ChangesTab ({ t }: { t: Task }) {
   const places = placesFor(t).filter(p => p.files.length)
@@ -167,11 +168,12 @@ function ChangesTab ({ t }: { t: Task }) {
   return <div className="pane"><div className="pane-h"><h3>{plural(all.length, 'file')} changed</h3><span className="num" style={{ color: 'var(--success-fg)' }}>+{add}</span><span className="num" style={{ color: 'var(--danger-fg)' }}>−{del}</span><span className="muted">{places.length > 1 ? `in ${places.length} places` : ''}</span><span className="sp" />
     <button className="btn sm" onClick={run(() => toast('Asked the agent to review its own changes'))}>Ask for a review</button><button className="btn sm pri" onClick={run(() => { S.overlay = { type: 'dlg', id: 'finish' } })}>Finish the worktree…</button></div>
     <div className="scroll"><div className="stack" style={{ padding: '12px 16px', gap: 16 }}>{places.map(pl => <section key={pl.id} className="place">
-      <header className="place-h"><span className={'place-k ' + pl.kind}><Icon n={pl.kind === 'outside' ? 'folder' : 'branch'} s={12} />{pl.kind === 'worktree' ? 'Task worktree' : pl.kind === 'main' ? 'Main checkout' : 'Outside the repository'}</span>
+      <header className="place-h"><span className={'place-k ' + pl.kind}><Icon n={pl.kind === 'outside' ? 'folder' : pl.kind === 'checkout' ? 'layers' : 'branch'} s={12} />{pl.kind === 'worktree' ? 'Task worktree' : pl.kind === 'main' ? 'Main checkout' : pl.kind === 'checkout' ? 'Another checkout' : 'Outside the repository'}</span>
         {pl.branch ? <span className="mono">{pl.branch}</span> : null}<span className="mono muted trunc">{pl.path}</span><span className="sp" />
         {pl.base ? <span className="muted" title="The commit this checkout was on when the task first touched it">against <span className="mono">{pl.base}</span>, where the task started</span> : <span className="muted">Not a git checkout: files as the agent wrote them</span>}
         {pl.kind !== 'outside' ? <button className="btn sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'discard' } })}>Discard…</button> : <button className="btn sm" onClick={run(() => toast(`Opened ${pl.path} in the file manager`))}>Open folder</button>}</header>
-      {pl.drift ? <div className="callout warn drift"><Icon n="branch" /><div><b>This worktree is on another branch now.</b> At {pl.drift.at} {pl.drift.by} switched it from <span className="mono">{pl.drift.from}</span> to <span className="mono">{pl.drift.to}</span>. The changes below are still the task's, compared with where it started; nothing was lost.
-        <div className="row" style={{ marginTop: 8 }}><button className="btn sm" onClick={run(() => toast('Switched the worktree back to oxe/t143-invoice-report'))}>Switch back to {pl.branch}</button><button className="btn sm" onClick={run(() => { S.tab = 'terminal' })}>Open that terminal</button><button className="btn sm" onClick={run(() => toast('The task now follows mig-prd. Its changes are compared with a12f0c4'))}>Follow the new branch</button></div></div></div> : null}
-      {pl.files.map(f => <DiffFile key={f.path} f={f} />)}</section>)}</div></div></div>
+      {pl.drift && !S.driftDismissed?.[t.id + pl.id] ? <div className="callout warn drift"><Icon n="branch" /><div><b>This worktree is on another branch now.</b> At {pl.drift.at} it moved from <span className="mono">{pl.drift.from}</span> to <span className="mono">{pl.drift.to}</span>{pl.drift.pane ? <>, probably from your terminal "{pl.drift.pane}"</> : null}. The changes below are the task's, compared with where it started.{pl.drift.kept ? ` Its commits are still on ${pl.branch}.` : ''}
+        <div className="row" style={{ marginTop: 8, flexWrap: 'wrap' }}><button className="btn sm" disabled={pl.drift.dirty} title={pl.drift.dirty ? 'This worktree has uncommitted changes; commit or move them first' : undefined} onClick={run(() => toast(`Switched the worktree back to ${pl.branch}`))}>Switch back to {pl.branch}</button><button className="btn sm" onClick={run(() => toast('This conversation now follows mig-prd. Its changes are compared with a12f0c4'))}>Follow the new branch</button>{pl.drift.pane ? <button className="btn sm" onClick={run(() => { S.tab = 'terminal' })}>Open that terminal</button> : null}<button className="btn sm ghost" onClick={run(() => { (S.driftDismissed ||= {})[t.id + pl.id] = true })}>Dismiss</button></div>
+        {pl.drift.dirty ? <p style={{ fontSize: 12, marginTop: 6 }}>Switch back is off: this worktree has uncommitted changes; commit or move them first.</p> : null}</div></div> : null}
+      {pl.drift && S.driftDismissed?.[t.id + pl.id] ? <><div className="slabel">Changed by the task</div>{pl.files.map(f => <DiffFile key={f.path} f={f} />)}<div className="slabel">Changed by the branch switch <span className="n">{pl.drift.from.split(' @ ')[0]} → {pl.drift.to.split(' @ ')[0]}</span></div>{pl.drift.switchFiles.map(f => <DiffFile key={f.path} f={f} />)}</> : pl.files.map(f => <DiffFile key={f.path} f={f} />)}</section>)}</div></div></div>
 }

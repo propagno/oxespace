@@ -51,7 +51,7 @@ export const D = (function () {
       { tools: [['run', 'Query', 'billing-staging · EXPLAIN ANALYZE … invoice_items', '38.2 s · seq scan', 'Seq Scan on invoice_items (cost=0.00..48211.20 rows=1902114)\n  Filter: (invoice_id = $1)\n  Rows Removed by Filter: 1901930\nPlanning Time: 0.21 ms\nExecution Time: 29.7 ms   × 1,284 calls'], ['read', 'Query', 'billing-staging · indexes on invoice_items', '1 row'], ['run', 'Shell', 'npm run report:invoice -- --month 2026-03', 'exit 0 · 40.6 s']] },
       { agent: 'Two problems:<ol><li><b>N+1 queries.</b> Items are loaded per invoice inside a loop.</li><li><b>No index on <code>invoice_items.invoice_id</code>.</b> Each of those queries scans 1.9 M rows.</li></ol>I changed the report to load all items in one query and added a migration with the index. Locally the report now takes <b>1.3 s</b>.', at: '14:21' },
       { tools: [['edit', 'Edit', 'src/reports/invoice-report.ts', '+24 −31'], ['edit', 'Create', 'migrations/0043_invoice_items_invoice_id_idx.sql', '+3'], ['run', 'Shell', 'npm test -- reports', '14 passed · 3.1 s'], ['fail', 'Shell', 'npm run lint', '1 error', 'src/reports/invoice-report.ts:58:9  error  \'items\' is never reassigned. Use \'const\'  prefer-const'], ['edit', 'Edit', 'src/reports/invoice-report.ts', '+1 −1'], ['run', 'Shell', 'npm run lint', 'exit 0']] },
-      { ck: 3, at: '14:29', label: 'Report fixed, tests pass' },
+      { ck: 3, at: '14:29', label: 'Two problems: N+1 queries. Items are loaded per invoice i…' },
       { agent: 'While checking March I found 1,284 invoices on staging still marked <code>status = \'open\'</code> although their charges settled. The report counts them as unpaid. I want to mark them <code>paid</code> so staging matches production before you compare the numbers.', at: '14:38' },
       { gate: 'ap_sql' }
     ],
@@ -59,9 +59,9 @@ export const D = (function () {
       { you: 'Charges created twice when the mobile app retries on a timeout. Make POST /charges idempotent with the Idempotency-Key header. Keep the API response the same.', at: '13:58', files: ['incident-2211.md'] },
       { tools: [['read', 'Read', 'src/charges/create.ts', '146 lines'], ['read', 'Read', 'incident-2211.md', '41 lines'], ['read', 'Search', '"Idempotency-Key" in src/', '0 matches'], ['read', 'Read', 'src/db/schema/charges.sql', '64 lines']] },
       { agent: 'Plan: store each key with a hash of the request body for 24 h. A retry with the same key and body returns the first response; the same key with a different body gets <code>409 Conflict</code>. The check and the insert run in one transaction so two parallel retries can\'t both create a charge.', at: '14:02' },
-      { ck: 1, at: '14:04', label: 'Plan agreed' },
+      { ck: 1, at: '14:04', label: 'Plan: store each key with a hash of the request body for 2…' },
       { tools: [['edit', 'Create', 'migrations/0042_idempotency_keys.sql', '+14'], ['edit', 'Create', 'src/charges/idempotency.ts', '+64'], ['edit', 'Edit', 'src/charges/create.ts', '+38 −12'], ['run', 'Shell', 'npm run db:migrate', 'exit 0 · 1 migration']] },
-      { ck: 2, at: '14:25', label: 'Idempotency store and migration' },
+      { ck: 2, at: '14:25', label: 'Plan: store each key with a hash of the request body for 2…' },
       { tools: [['edit', 'Create', 'test/charges/create.idempotency.test.ts', '+51'], ['fail', 'Shell', 'npm test -- charges', '1 failed · 23 passed', 'FAIL test/charges/create.idempotency.test.ts\n  ✕ parallel retries create one charge (412 ms)\n    Expected: 1\n    Received: 2'], ['read', 'Read', 'src/charges/idempotency.ts', 'lines 20–48'], ['edit', 'Edit', 'src/charges/idempotency.ts', '+6 −2', 'Lock the key row with SELECT … FOR UPDATE before checking it.']] },
       { agent: 'The parallel test caught a race: both retries read "no key yet" before either inserted it. I now lock the key row with <code>SELECT … FOR UPDATE</code> inside the transaction. Running the suite again.', at: '14:40' },
       { tools: [['run', 'Shell', 'npm test -- charges', 'running', '', true]] }
@@ -103,11 +103,11 @@ export const D = (function () {
       sql: 'UPDATE invoices i\n   SET status = \'paid\', paid_at = c.settled_at\n  FROM charges c\n WHERE c.invoice_id = i.id\n   AND c.status = \'settled\'\n   AND i.status = \'open\'\n   AND i.issued_at >= \'2026-03-01\'\n   AND i.issued_at <  \'2026-04-01\';',
       cols: ['id', 'customer', 'amount', 'status', 'paid_at'],
       sample: [['inv_8F2KQ', 'Padaria Boa Vista', 'R$ 1.240,00', ['open', 'paid'], ['—', '2026-03-04 10:12']], ['inv_8F2KR', 'Ótica Central', 'R$ 389,90', ['open', 'paid'], ['—', '2026-03-04 11:47']], ['inv_8F2M1', 'Studio Pilates Lis', 'R$ 2.100,00', ['open', 'paid'], ['—', '2026-03-05 09:03']], ['inv_8F2M7', 'Mercadinho São José', 'R$ 76,40', ['open', 'paid'], ['—', '2026-03-05 16:20']], ['inv_8F2N2', 'Clínica Sorriso', 'R$ 950,00', ['open', 'paid'], ['—', '2026-03-06 08:31']]],
-      snapshot: 'Copies the 1,284 rows to invoices_backup_t143 first (about 2 s). You can restore them from the task\'s History.' },
+      snapshot: 'OXESpace copies the 1,284 rows into its own snapshot store first (about 2 s), not into your database. Restore them from Checkpoints.' },
     ap_down: { id: 'ap_down', task: 't144', kind: 'box', title: 'Remove the pix-mock-data volume', verb: 'Run docker compose down -v',
       why: 'Sonnet wants to rerun the webhook tests from an empty mock database.',
       where: 'Local Docker', whereSub: 'cajui-api compose stack', rows: '3 + 1', rowsSub: 'containers + volume', undo: false, undoSub: 'Volume data is deleted', irreversible: true, risk: 'medium',
-      sql: 'docker compose -f docker-compose.yml down -v\n# stops api, postgres, pix-mock\n# deletes volume pix-mock-data (312 MB, 1,906 recorded webhooks)',
+      sql: 'docker compose -f docker-compose.yml down -v\n# stops api, postgres, pix-mock\n# deletes volume pix-mock-data',
       lang: 'shell', snapshot: null },
     ap_push: { id: 'ap_push', task: 't142', kind: 'net', title: 'Push oxe/t142-idempotent-charges to origin', verb: 'Run git push',
       why: 'Opus finished the change and wants to open a pull request.',
@@ -117,13 +117,13 @@ export const D = (function () {
 
   const checkpoints: Record<string, Checkpoint[]> = {
     t142: [
-      { n: 0, at: '13:58', label: 'Task started', files: 0 },
-      { n: 1, at: '14:04', label: 'Plan agreed', files: 0 },
-      { n: 2, at: '14:25', label: 'Idempotency store and migration', files: 3 },
-      { n: 3, at: '14:40', label: 'Race fixed with a row lock', files: 4 }
+      { n: 0, at: '13:58', label: 'Charges created twice when the mobile app retries on a ti…', files: 0 },
+      { n: 1, at: '14:04', label: 'Plan: store each key with a hash of the request body for 2…', files: 0 },
+      { n: 2, at: '14:25', label: 'Plan: store each key with a hash of the request body for 2…', files: 3 },
+      { n: 3, at: '14:40', label: 'The parallel test caught a race: both retries read "no key…', files: 4 }
     ],
-    t143: [{ n: 0, at: '14:05', label: 'Task started', files: 0 }, { n: 1, at: '14:12', label: 'Cause found', files: 0 }, { n: 2, at: '14:21', label: 'N+1 removed', files: 1 }, { n: 3, at: '14:29', label: 'Report fixed, tests pass', files: 2 }],
-    t144: [{ n: 0, at: '14:11', label: 'Task started', files: 0 }, { n: 1, at: '14:19', label: 'Happy path works', files: 0 }, { n: 2, at: '14:31', label: 'Signature check fixed', files: 1 }]
+    t143: [{ n: 0, at: '14:05', label: 'The monthly invoice report on staging takes about 40 s fo…', files: 0 }, { n: 1, at: '14:12', label: 'The report runs one query per invoice to load its items, s…', files: 0 }, { n: 2, at: '14:21', label: 'Two problems: N+1 queries. Items are loaded per invoice i…', files: 1 }, { n: 3, at: '14:29', label: 'Two problems: N+1 queries. Items are loaded per invoice i…', files: 2 }],
+    t144: [{ n: 0, at: '14:11', label: 'Test our Pix webhook handler against the PSP sandbox. Use…', files: 0 }, { n: 1, at: '14:19', label: 'Happy path works: the sandbox charge settles and our hand…', files: 0 }, { n: 2, at: '14:31', label: 'A missing signature header crashed the handler with a 50…', files: 1 }]
   }
 
   /* OxeQuery */
@@ -224,9 +224,9 @@ export const D = (function () {
   }
 
   const notifications: Notice[] = [
-    { id: 'n1', kind: 'attn', task: 't143', text: '<b>Codex</b> needs you on T-143: update 1,284 invoices on billing-staging', at: '14:38' },
-    { id: 'n2', kind: 'attn', task: 't144', text: '<b>Claude</b> needs you on T-144: remove the pix-mock-data volume', at: '14:36' },
-    { id: 'n3', kind: 'err', task: 't145', text: '<b>Codex</b> stopped on T-145: postgres-17 exited with code 1', at: '13:42' },
+    { id: 'n1', kind: 'attn', task: 't143', text: 'Needs you: <b>Update 1,284 invoices on billing-staging</b> · Codex · Find why the monthly invoice report takes 40 s', at: '14:38' },
+    { id: 'n2', kind: 'attn', task: 't144', text: 'Needs you: <b>Remove the pix-mock-data volume</b> · Claude · Test Pix webhooks against the sandbox', at: '14:36' },
+    { id: 'n3', kind: 'err', task: 't145', text: 'Failed: <b>Move docker-compose to Postgres 17</b> · postgres-17 exited with code 1', at: '13:42' },
     { id: 'n4', kind: 'ok', task: 't141', text: 'Checks passed on <b>#318</b> Add CSV export to the statements page', at: '12:19' },
     { id: 'n5', kind: 'ok', task: 't139', text: '<b>#315</b> was merged by Rafael Moura', at: '10:04' }
   ]
@@ -235,7 +235,7 @@ export const D = (function () {
     { name: 'oxespace', desc: 'OXESpace tools: panes, scripts, code search', status: 'ok', tools: 17, builtin: true },
     { name: 'github', desc: 'Issues, pull requests and checks', status: 'ok', tools: 26 },
     { name: 'linear', desc: 'Issues and cycles for the Cajuí team', status: 'ok', tools: 12 },
-    { name: 'sentry', desc: 'Errors and releases', status: 'err', tools: 0, err: 'Token expired on 01/11' },
+    { name: 'sentry', desc: 'Errors and releases', status: 'err', tools: 0, err: 'Needs sign-in again' },
     { name: 'figma', desc: 'Read frames and variables', status: 'off', tools: 8 }
   ]
   const skills = [

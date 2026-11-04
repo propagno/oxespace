@@ -20,8 +20,8 @@ const clone = <T,>(o: T): T => JSON.parse(JSON.stringify(o))
 function initCode (): CPane[] {
   if (!S.codePanes) S.codePanes = [
     Object.assign(clone(D.terms.t142[1]), { branch: 'oxe/t142-idempotent-charges', project: 'cajui-api' }),
-    Object.assign(clone(D.terms.t142[0]), { tag: 'T-142', prov: 'claude', branch: 'oxe/t142-idempotent-charges', project: 'cajui-api' }),
-    Object.assign(clone(D.terms.t143[0]), { tag: 'T-143', prov: 'codex', branch: 'mig-prd', moved: 'oxe/t143-invoice-report', project: 'cajui-api' }),
+    Object.assign(clone(D.terms.t142[0]), { tag: 'Make charge creation idempotent', prov: 'claude', branch: 'oxe/t142-idempotent-charges', project: 'cajui-api' }),
+    Object.assign(clone(D.terms.t143[0]), { tag: 'Find why the monthly invoice report takes 40 s', prov: 'codex', branch: 'mig-prd', moved: 'oxe/t143-invoice-report', project: 'cajui-api' }),
     { id: 'kc', name: 'claude', shell: 'claude', cwd: '~/code/cajui/cajui-web', by: 'you', prov: 'claude', branch: 'main', project: 'cajui-web', lines: [['', '╭─ Claude Code ──────────────────────────────╮'], ['', '│ Opus 5.5 · ~/code/cajui/cajui-web           │'], ['', '╰────────────────────────────────────────────╯'], ['', ''], ['', '> Where do we format BRL amounts?'], ['', ''], ['', '● lib/money.ts:12  formatBRL(cents) uses Intl.NumberFormat("pt-BR")'], ['dim', '  Used by 14 components; the statements export has its own copy.']] }
   ] as CPane[]
   return S.codePanes as CPane[]
@@ -34,7 +34,8 @@ export function CodeMode () {
   const empty = S.view === 'empty' || !panes.length
   const layout = S.codeLayout && !['grid', 'rows', 'cols', 'one'].includes(S.codeLayout) ? S.codeLayout : '2x2'
   const max = S.codeMax != null && panes[S.codeMax] ? S.codeMax : null
-  const focusTabs = layout === 'focus'
+  const tooMany = S.w === 900 && panes.length > 4 && layout !== '1x1'
+  const focusTabs = layout === 'focus' || tooMany
   const [rows, cols] = focusTabs ? [1, 1] : (LAYOUTS.find(l => l[0] === layout) || LAYOUTS[3]).slice(1) as [number, number]
   const c = Math.min(cols, S.w === 900 ? 2 : cols)
   const fr = (S.codeFr && S.codeFr.length === c ? S.codeFr : Array(c).fill(1)) as number[]
@@ -43,24 +44,25 @@ export function CodeMode () {
   return <div className="mode-split code-split">
     <aside className="mode-side ws-side" aria-label="Workspace"><div className="mside-h"><b>{D.company.name}</b><span className="sp" /><button className="ibtn sm" title="New terminal" aria-label="New terminal" onClick={run(addTerm)}><Icon n="plus" s={12} /></button></div>
       <div className="scroll"><div className="lst">{['cajui-api', 'cajui-web'].map(pr => <div key={pr}><div className="tg"><Icon n="folder" s={12} /><span>{pr}</span><span className="n">{panes.filter(p => (p.project || 'cajui-api') === pr).length}</span></div>
-        {panes.map((p, i) => (p.project || 'cajui-api') !== pr ? null : <button key={p.id + i} className="psr" aria-current={S.code.focus === i} onClick={run(() => { S.code.focus = i; if (max != null) S.codeMax = i })}>
+        {panes.map((p, i) => (p.project || 'cajui-api') !== pr ? null : <button key={p.id + i} className="psr one" aria-current={S.code.focus === i} onClick={run(() => { S.code.focus = i; if (max != null) S.codeMax = i })}>
           <span className={'sdot ' + (p.by === 'agent' ? 'on' : 'off')} /><span className="psr-n">{p.prov ? <span className={'pdot ' + p.prov} /> : <Icon n="term" s={12} />}<span className="trunc">{p.name}</span>{p.tag ? <span className="mono muted">{p.tag}</span> : null}</span>
           <span className={'bb' + (p.moved ? ' moved' : '')} title={p.moved ? `Was ${p.moved}` : undefined}><Icon n="branch" s={12} /><span className="trunc">{p.branch || 'main'}</span></span></button>)}</div>)}
         <div className="tg"><Icon n="history" s={12} /><span>Sessions you can resume</span></div>{SESSIONS.map(([pv, m, ti, at]) => <div key={ti} className="psr ro"><span className={'pdot ' + pv} /><span className="psr-n"><span className="trunc">{ti}</span></span><button className="btn sm" onClick={run(() => resume(pv, m, ti, at))}>Resume</button><span className="psr-s">{m} · {at}</span></div>)}</div></div>
       <div className="mside-f"><button className="btn sm ghost" onClick={run(() => { S.overlay = { type: 'dlg', id: 'newws' } })}><Icon n="plus" s={12} />New workspace</button></div></aside>
-    <div className={'mode code' + (focusTabs && panes.length > 1 && max == null ? ' tabs' : '')}>
+    <div className={'mode code' + (focusTabs && panes.length > 1 && max == null ? (tooMany ? ' tabs fit' : ' tabs') : '')}>
       <div className="mode-h"><span style={{ color: 'var(--k-shell)' }}><Icon n="term" s={16} /></span><h2 className="mt">OxeCode</h2><span className="muted" style={{ fontSize: 12 }}>{panes.length === 1 ? '1 pane' : `${panes.length} panes`}</span><span className="sp" />
         <button className="btn sm" onClick={run(addTerm)}><Icon n="plus" s={12} />Terminal</button><button className="btn sm" onClick={run(addAgent)}><Icon n="sparkle" s={12} />Agent</button>
         <button className="btn sm" onClick={menuBtn('codelayout')} aria-haspopup="menu"><Icon n="grid" s={12} />{focusTabs ? 'Focus' : layout.replace('x', ' × ')}</button><span className="vsep" />
         {([['files', 'file', 'Files (Ctrl E)'], ['changes', 'diff', 'Changes (Ctrl Shift D)'], ['browser', 'globe', 'Browser (Ctrl Shift B)']] as const).map(([id, ic, l]) => <button key={id} className="ibtn" aria-pressed={dock === id} title={l} aria-label={l} onClick={run(() => { S.codeDock = dock === id ? undefined : id })}><Icon n={ic} /></button>)}</div>
+      {tooMany && max == null ? <div className="fitnote"><Icon n="info" s={12} />{panes.length} panes don't fit at this width, so they show one at a time. Widen the window for the {layout.replace('x', ' × ')} grid.</div> : null}
       {focusTabs && panes.length > 1 && max == null ? <div className="ptabs" role="tablist" aria-label="Terminals">{panes.map((k, i) => <button key={k.id + i} role="tab" aria-selected={S.code.focus === i} onClick={run(() => { S.code.focus = i })}><Icon n={k.prov ? 'sparkle' : 'term'} s={12} />{k.name}{k.by === 'agent' ? <span className="dot" style={{ color: 'var(--accent)' }} /> : null}</button>)}</div> : null}
       <div className="code-body" style={{ gridTemplateColumns: dock ? 'minmax(0,1fr) 440px' : 'minmax(0,1fr)' }}>
         {empty ? <StateBlock kind="empty" icon="term" title="No terminals open" text="Open a terminal in a project or a task's worktree. Agent CLIs run here too."><button className="btn pri" onClick={run(addTerm)}><Icon n="plus" s={12} />New terminal</button><button className="btn" onClick={run(addAgent)}><Icon n="sparkle" s={12} />Start Claude Code</button></StateBlock>
           : <div className="panes rs" style={{ gridTemplateColumns: max != null || focusTabs ? 'minmax(0,1fr)' : fr.map(f => `minmax(0,${f}fr)`).join(' '), gridAutoRows: 'minmax(0,1fr)' }}>
             {shown.map(k => { const i = panes.indexOf(k)
               return <div key={k.id + i} className={S.code.focus === i ? 'focus' : ''} onMouseDown={() => { if (S.code.focus !== i) { S.code.focus = i; emit() } }}>
-                <div className="th-pane">{k.prov ? <span className={'pdot ' + k.prov} /> : <Icon n="term" s={12} />}<b>{k.name}</b>{k.tag ? <span className="pill neutral" style={{ height: 18 }}>{k.tag}</span> : null}
-                  <span className={'bb' + (k.moved ? ' moved' : '')} title={k.moved ? `This worktree was on ${k.moved}; a terminal switched it` : 'Branch of this pane\'s checkout'}><Icon n="branch" s={12} /><span className="trunc">{k.branch || 'main'}</span>{k.moved ? <Icon n="warn" s={12} /> : null}</span><span className="sp" />
+                <div className="th-pane">{k.prov ? <span className={'pdot ' + k.prov} /> : <Icon n="term" s={12} />}<b>{k.name}</b>{k.tag ? <span className="pill neutral" style={{ height: 18 }}>{k.tag}</span> : null}{(S.phoneTyping || []).includes(k.name) ? <span className="pill needs" style={{ height: 18 }} title="A paired phone can type in this terminal. Turn it off in the ⋯ menu."><Icon n="phone" s={12} />Phone</span> : null}
+                  <span className={'bb' + (k.moved ? ' moved' : '')} title={k.moved ? `This pane started on ${k.moved}; the branch has changed since` : 'Branch of this pane\'s checkout'}><Icon n="branch" s={12} /><span className="trunc">{k.branch || 'main'}</span>{k.moved ? <Icon n="warn" s={12} /> : null}</span><span className="sp" />
                   <span className="muted" style={{ fontSize: 11 }}>{k.by === 'agent' ? 'Running' : 'Idle'}</span>
                   <button className="ibtn sm" title={max === i ? 'Restore (Ctrl Shift Enter)' : 'Maximize (Ctrl Shift Enter)'} aria-label="Maximize pane" onClick={run(() => { S.codeMax = max === i ? null : i })}><Icon n={max === i ? 'min' : 'max'} s={12} /></button>
                   <button className="ibtn sm" onClick={e => { S.code.focus = i; menuBtn('codepane')(e) }} aria-label={`Actions for ${k.name}`}><Icon n="more" s={12} /></button></div>
@@ -87,6 +89,6 @@ function addAgent () { const p = initCode(); p.push({ id: 'a' + Date.now(), name
 MENUS.codelayout = () => { const l = S.codeLayout || '2x2'; return <><div className="mg">Layout</div>{LAYOUTS.map(([id, r, c]) => <MI key={id} check={l === id} label={`${r} × ${c}`} hint={r * c === 1 ? 'One pane' : `Up to ${r * c} panes`} onClick={() => { S.codeLayout = id; S.codeFr = undefined; S.codeMax = null }} />)}<hr /><MI check={l === 'focus'} label="Focus with tabs" hint="New in 1.5.0: one pane big, the others as tabs" onClick={() => { S.codeLayout = 'focus'; S.codeMax = null }} /></> }
 MENUS.codepane = () => { const p = initCode(); const k = p[S.code.focus]; return <><MI icon="copy" label="Copy output" onClick={() => toast('Copied the output')} /><MI icon="history" label="Clear" onClick={() => { if (k) k.lines = [] }} /><MI icon="refresh" label="Restart" sc="Ctrl R" onClick={() => toast(`Restarted ${k?.name}`)} /><MI icon="max" label="Maximize" sc="Ctrl Shift Enter" onClick={() => { S.codeMax = S.code.focus }} /><hr /><div className="mg">Output savers</div>
   <MI check label="RTK" hint="Compress command output" /><MI check={false} label="Caveman" hint="Shorter agent replies" /><MI check label="Semantic" hint="Search code by meaning" /><hr />
-  <MI icon="phone" label="Let my phone write here" hint="The paired phone can type in this pane" onClick={() => toast('Your phone can type in this pane until you close it')} /><hr />
+  <MI check={(S.phoneTyping || []).includes(k?.name)} label="Allow typing from the phone" hint="Turns off when OXESpace restarts" onClick={() => { const l = S.phoneTyping || []; const onNow = l.includes(k.name); S.phoneTyping = onNow ? l.filter(x => x !== k.name) : l.concat(k.name); toast(onNow ? 'Your phone can no longer type here' : 'Your phone can type here until you turn it off or restart OXESpace') }} /><hr />
   <MI icon="x" dz label="Close terminal" dis={k?.by === 'agent'} title={k?.by === 'agent' ? 'An agent is using this terminal; stop the task first' : undefined} onClick={() => { const name = k.name; p.splice(S.code.focus, 1); S.code.focus = Math.max(0, S.code.focus - 1); toast(`Closed ${name}`) }} /></> }
 export function codeMaxToggle () { S.codeMax = S.codeMax != null ? null : S.code.focus }

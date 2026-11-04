@@ -58,7 +58,7 @@ function QueryActivity ({ conn }: { conn: string }) {
   return <div className="scroll"><table className="ctable act-t"><thead><tr><th>When</th><th>Agent</th><th>Task</th><th>Statement</th><th className="r">Rows</th><th>Result</th></tr></thead>
     <tbody>{qs.map(q => { const pend = q.status === 'pending' && !S.resolved.ap_sql
       return <tr key={q.id} className="click" tabIndex={0} onClick={run(() => { S.overlay = { type: 'dlg', id: 'qrow', q: q.id } })} onKeyDown={e => { if (e.key === 'Enter') { S.overlay = { type: 'dlg', id: 'qrow', q: q.id }; emit() } }}>
-        <td className="mono">{q.at.slice(-8, -3) || q.at}</td><td><Av p={q.by} size="s16" /></td><td className="mono">{task(q.task)?.key || 'T-138'}</td><td className="mono stmt">{q.sql.split('\n')[0]}</td><td className="mono r">{q.rows.toLocaleString('en')}</td>
+        <td className="mono">{q.at.slice(-8, -3) || q.at}</td><td><Av p={q.by} size="s16" /></td><td className="ttl">{task(q.task)?.title || 'Explain the settlement batch job'}</td><td className="mono stmt">{q.sql.split('\n')[0]}</td><td className="mono r">{q.rows.toLocaleString('en')}</td>
         <td>{q.status === 'ok' ? <span className="res ok">Ran</span> : pend ? <span className="res attn">Waiting for you</span> : q.status === 'pending' ? <span className="res ok">{S.resolved.ap_sql === 'deny' ? 'Denied by you' : 'Ran after approval'}</span> : <span className="res dz">Not allowed</span>}</td></tr> })}</tbody></table></div>
 }
 
@@ -97,7 +97,7 @@ function send () { S.post.sending = true; setTimeout(() => { S.post.sending = fa
 function PostActivity () {
   const rs = Object.values(D.requests).filter(x => x.task)
   return <div className="scroll"><table className="ctable act-t"><thead><tr><th>When</th><th>Agent</th><th>Task</th><th>Request</th><th>Result</th><th className="r">Time</th></tr></thead>
-    <tbody>{rs.map(x => <tr key={x.id} className="click" tabIndex={0} onClick={run(() => { S.overlay = { type: 'dlg', id: 'prow', r: x.id } })}><td className="mono">{x.at?.slice(0, 5)}</td><td><Av p={x.by!} size="s16" /></td><td className="mono">{task(x.task!)?.key}</td><td><span className={'meth ' + x.method}>{x.method}</span> {x.name}</td>
+    <tbody>{rs.map(x => <tr key={x.id} className="click" tabIndex={0} onClick={run(() => { S.overlay = { type: 'dlg', id: 'prow', r: x.id } })}><td className="mono">{x.at?.slice(0, 5)}</td><td><Av p={x.by!} size="s16" /></td><td className="ttl">{task(x.task!)?.title}</td><td><span className={'meth ' + x.method}>{x.method}</span> {x.name}</td>
       <td>{x.blocked ? <span className="res dz">Blocked</span> : <Status s={x.status} />}</td><td className="mono r">{x.ms ? x.ms + ' ms' : '—'}</td></tr>)}</tbody></table></div>
 }
 
@@ -110,10 +110,10 @@ export function PodMode () {
   const byAgent = D.containers.filter(x => x.task)
   return <div className="mode pod">
     <ModeTitle icon="box" k="k-box" title="OxePod"><span className="muted" style={{ fontSize: 12 }}>{D.containers.filter(x => x.status === 'running').length} running · {D.containers.filter(x => x.status !== 'running').length} stopped</span><span className="sp" /><button className="btn sm" onClick={run(() => toast('Opens docker-compose.yml from a project'))}><Icon n="plus" s={12} />Start a stack</button></ModeTitle>
-    <AgentLine who={['claude', 'codex']} open={!!S.podAgent} onOpen={() => { S.podAgent = !S.podAgent }} text={<>Agents started {plural(byAgent.length, 'container')} for 3 tasks</>} waiting={S.resolved.ap_down ? undefined : 'T-144 wants to remove a volume'} />
-    <div className="scroll pod-list"><table className="ctable"><thead><tr><th style={{ width: 20 }} /><th>Name</th><th>Image</th><th>Status</th><th>Ports</th><th className="r">CPU</th><th className="r">Memory</th><th>Started by</th></tr></thead>
+    <AgentLine who={['claude', 'codex']} open={!!S.podAgent} onOpen={() => { S.podAgent = !S.podAgent }} text={<>{plural(byAgent.length, 'container')} run in the folders of 3 conversations</>} waiting={S.resolved.ap_down ? undefined : 'T-144 wants to remove a volume'} />
+    <div className="scroll pod-list"><table className="ctable"><thead><tr><th style={{ width: 20 }} /><th>Name</th><th>Image</th><th>Status</th><th>Ports</th><th className="r">CPU</th><th className="r">Memory</th><th>Folder</th></tr></thead>
       {stacks.map(s => <tbody key={s}><tr className="grp"><td colSpan={8}>{s}</td></tr>{D.containers.filter(x => x.stack === s && (!S.podAgent || x.task)).map(x => <tr key={x.id} className="click" aria-selected={x.id === c.id} tabIndex={0} onClick={run(() => { S.pod.sel = x.id })}>
-        <td><span className={'sdot ' + (x.status === 'running' ? 'on' : 'bad')} /></td><td><b>{x.name}</b></td><td className="mono">{x.image}</td><td>{x.status === 'running' ? 'Up ' + x.up : <span className="dz-t">{x.up}</span>}</td><td className="mono">{x.ports}</td><td className="mono r">{x.cpu}</td><td className="mono r">{x.mem}</td><td>{x.task ? <span className="mono">{task(x.task)?.key}</span> : 'You'}</td></tr>)}</tbody>)}</table></div>
+        <td><span className={'sdot ' + (x.status === 'running' ? 'on' : 'bad')} /></td><td><b>{x.name}</b></td><td className="mono">{x.image}</td><td>{x.status === 'running' ? 'Up ' + x.up : <span className="dz-t">{x.up}</span>}</td><td className="mono">{x.ports}</td><td className="mono r">{x.cpu}</td><td className="mono r">{x.mem}</td><td className="ttl">{x.task ? <span title={`Compose working_dir is a place of "${task(x.task)?.title}"`}>This conversation's folder · {task(x.task)?.title}</span> : <span className="muted">Started outside OXESpace</span>}</td></tr>)}</tbody>)}</table></div>
     <div className="pod-detail"><div className="pane-h"><span className={'sdot ' + (c.status === 'running' ? 'on' : 'bad')} /><h3>{c.name}</h3><span className="muted mono" style={{ fontSize: 11 }}>{c.image}</span><span className="sp" />
       {c.status === 'running' ? <button className="btn sm" onClick={run(() => { c.status = 'exited'; c.up = 'Exited (0) just now'; toast(`Stopped ${c.name}`, { undo: () => { c.status = 'running'; c.up = 'just now'; emit() } }) })}><Icon n="stop" s={12} />Stop</button>
         : <button className="btn sm" onClick={run(() => { c.status = 'running'; c.up = 'just now'; toast(`Started ${c.name}`) })}><Icon n="play" s={12} />Start</button>}

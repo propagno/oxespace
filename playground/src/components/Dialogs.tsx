@@ -58,14 +58,14 @@ export const EXTRA_DIALOGS: Record<string, () => DialogSpec> = {
     primary: { label: 'Save', act: () => toast('Saved the limits') } }),
   qrow: () => { const q = D.queries.find(x => x.id === S.overlay!.q)!; const t = task(q.task); const pend = q.status === 'pending' && !S.resolved.ap_sql
     return { size: 'lg', icon: 'db', title: `${q.kind === 'read' ? 'Query' : q.kind === 'ddl' ? 'Schema change' : 'Write'} by ${prov(q.by).name}`, body: () => <>
-      <dl className="kv"><dt>Task</dt><dd>{t ? `${t.key} · ${t.title}` : 'T-138 · Explain the settlement batch job'}</dd><dt>Connection</dt><dd>{q.conn}</dd><dt>When</dt><dd>{q.at}</dd><dt>Result</dt><dd>{q.status === 'ok' ? `${plural(q.rows, 'row')} in ${q.ms} ms` : pend ? 'Waiting for your approval' : q.status === 'denied' ? 'Not run: ' + q.note : S.resolved.ap_sql === 'deny' ? 'Denied by you' : '1,284 rows changed in 3.4 s'}</dd></dl>
+      <dl className="kv"><dt>Task</dt><dd>{t ? t.title : 'Explain the settlement batch job'}</dd><dt>Connection</dt><dd>{q.conn}</dd><dt>When</dt><dd>{q.at}</dd><dt>Result</dt><dd>{q.status === 'ok' ? `${plural(q.rows, 'row')} in ${q.ms} ms` : pend ? 'Waiting for your approval' : q.status === 'denied' ? 'Not run: ' + q.note : S.resolved.ap_sql === 'deny' ? 'Denied by you' : '1,284 rows changed in 3.4 s'}</dd></dl>
       <pre className="code"><Highlight s={q.sql} /></pre>
       {q.cols.length ? <div className="tbl-wrap"><table className="grid-t"><thead><tr>{q.cols.map(c => <th key={c}>{c}</th>)}</tr></thead><tbody>{q.data.map((r, i) => <tr key={i}>{r.map((v, j) => <td key={j}>{v}</td>)}</tr>)}</tbody></table></div> : null}</>,
       extra: t ? <button className="btn ghost" onClick={() => { S.overlay = null; S.taskId = q.task; S.tab = 'conv'; goScreen('task-current') }}>Open the task</button> : undefined,
       primary: pend ? { label: 'See impact', act: () => { setTimeout(() => { S.overlay = { type: 'approve', id: 'ap_sql' }; emit() }, 0) } } : undefined } },
   prow: () => { const r = D.requests[S.overlay!.r!]; const t = task(r.task!)
     return { size: 'lg', icon: 'net', title: `${r.method} ${r.name}`, body: () => <>
-      <dl className="kv"><dt>Task</dt><dd>{t?.key} · {t?.title}</dd><dt>Agent</dt><dd>{prov(r.by!).name}</dd><dt>When</dt><dd>{r.at}</dd><dt>Result</dt><dd>{r.blocked ? 'Blocked by policy before sending' : `${r.status} in ${r.ms} ms · ${r.size}`}</dd></dl>
+      <dl className="kv"><dt>Task</dt><dd>{t?.title}</dd><dt>Agent</dt><dd>{prov(r.by!).name}</dd><dt>When</dt><dd>{r.at}</dd><dt>Result</dt><dd>{r.blocked ? 'Blocked by policy before sending' : `${r.status} in ${r.ms} ms · ${r.size}`}</dd></dl>
       <pre className="code">{r.method} {r.url}{'\n'}{r.headers.map(h => h.join(': ')).join('\n')}{r.reqBody ? '\n\n' + r.reqBody : ''}</pre>
       {r.resBody ? <pre className="code">{r.resBody}</pre> : null}</>,
       extra: t ? <button className="btn ghost" onClick={() => { S.overlay = null; S.taskId = r.task!; S.post.req = r.id; S.tab = 'requests'; goScreen('task-current') }}>Open the task</button> : undefined } },

@@ -64,7 +64,7 @@ export function Notifications () {
   return <div className="notif" role="dialog" aria-label="Notifications" onClick={e => e.stopPropagation()}>
     <div className="notif-h"><h3>Notifications</h3><button className="btn ghost sm" onClick={run(() => { D.notifications.forEach(n => { S.notifRead[n.id] = true }); S.extraNotifs = []; toast('All notifications marked read') })}>Mark all read</button><button className="ibtn sm" onClick={run(() => { S.notif = false })} aria-label="Close"><Icon n="x" /></button></div>
     <div className="notif-l">{list.map(n => <button key={n.id} className={`ni ${n.kind}${S.notifRead[n.id] ? ' read' : ''}`} onClick={() => { S.notif = false; S.notifRead[n.id] = true; S.taskId = n.task; S.tab = 'conv'; S.area = 'task'; syncScreen(); emit() }}><i /><Html html={n.text} /><span className="m-time">{n.at}</span></button>)}</div>
-    <div className="dlg-f"><span className="muted" style={{ fontSize: 12 }}>Approvals also reach your phone when it's paired.</span><span className="sp" /><button className="btn sm" onClick={() => { S.notif = false; S.page = 'notifications'; goScreen('settings-notifications') }}>Notification settings</button></div></div>
+    <div className="dlg-f"><span className="muted" style={{ fontSize: 12 }}>Needs you, Finished and Failed also reach your phone when it's paired and on the same Wi-Fi.</span><span className="sp" /><button className="btn sm" onClick={() => { S.notif = false; S.page = 'notifications'; goScreen('settings-notifications') }}>Notification settings</button></div></div>
 }
 
 export function MenuLayer () {

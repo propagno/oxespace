@@ -18,7 +18,7 @@ export interface SideChat { open: boolean; msgs: { q?: string; a?: string; busy?
 export const SETTINGS_DEFAULT = {
   theme: 'system', density: 'comfortable', textSize: 14, lang: 'en', startup: 'last', autoApproveReads: true, bypassResume: false, network: 'ask', retention: '90',
   notifyApprovals: true, notifyDone: true, notifySound: false, termFont: 13, termCursor: 'bar', shell: 'bash', scrollback: 10000, sendTelemetry: false, crashReports: true,
-  defaultAgent: 'claude', editor: 'code', memoryOn: false, claudeModel: 'Opus 5.5', claudeEffort: 'High', codexModel: 'GPT-5 Codex', defaultAccess: 'edit', worktreeDefault: true,
+  defaultAgent: 'claude', phoneOn: true, editor: 'code', memoryOn: false, claudeModel: 'Opus 5.5', claudeEffort: 'High', codexModel: 'GPT-5 Codex', defaultAccess: 'edit', worktreeDefault: true,
   mcpOn: { github: true, linear: true, sentry: true, figma: false } as Record<string, boolean>,
   skillOn: { 'pix-rules': true, migrations: true, 'release-notes': false, pdf: true } as Record<string, boolean>
 }
@@ -32,13 +32,13 @@ function fresh () {
     area: 'task' as Area, taskId: 't143', tab: 'conv', mode2: 'query' as Mode2, page: 'general',
     sbCol: false, rp: false, rpTab: 'overview' as 'overview' | 'details', sideChat: {} as Record<string, SideChat>, menu: null as MenuState | null,
     notif: false, overlay: null as Overlay | null, toasts: [] as Toast[], projFilter: null as string | null,
-    tasks: [clone(T147)].concat(clone(D.tasks), [QUICK]) as Task[], conv: Object.assign(clone(D.conv), { quick: clone(QUICK_CONV), t147: clone(T147_CONV) }) as Record<string, ConvItem[]>, resolved: {} as Record<string, string>, queue: ['ap_sql', 'ap_down'],
+    tasks: ([clone(T147)].concat(clone(D.tasks), [QUICK]) as Task[]).map(t => Object.assign(t, { key: t.title })), conv: Object.assign(clone(D.conv), { quick: clone(QUICK_CONV), t147: clone(T147_CONV) }) as Record<string, ConvItem[]>, resolved: {} as Record<string, string>, queue: ['ap_sql', 'ap_down'],
     open: {} as Record<string, boolean>, disc: { ctx: true, tools: true } as Record<string, boolean>, past: {} as Record<string, number>,
     cmp: {} as Record<string, Cmp>, drafts: {} as Record<string, string>, notifRead: {} as Record<string, boolean>, extraNotifs: [] as typeof D.notifications,
     emptyWs: false, holding: null as string | null, bigText: false, verbose: false, queueSel: 0, tick: 0, running: { t142: 72, t147: 18 } as Record<string, number>,
     q: { conn: 'billing-staging', tab: 'editor', sel: 'q4', act: null as string | null, sql: undefined as string | undefined, qtab: 0 as number | undefined, untitled: '' as string | undefined }, tFilter: '' as string | undefined, qRunning: false, qRan: false,
     post: { col: 'pix', req: 'r1', tab: 'body', raw: false as boolean | undefined, body: {} as Record<string, string> | undefined, env: 'sandbox' as string | undefined, activity: false, newReq: null as null | { name: string; method: string; url: string; status?: number; ms?: number; size?: string; resBody: string }, sending: false, sentNew: false },
-    pod: { sel: 'api', tab: 'logs' }, filter: '', renameTo: '', pathOpen: {} as Record<string, string> | undefined, codeFr: undefined as number[] | undefined, codeMax: null as number | null, codeDock: undefined as string | undefined, wbFile: undefined as string | undefined, wbTabs: undefined as string[] | undefined, wbEdits: {} as Record<string, string> | undefined, wbUrl: undefined as string | undefined, wbSearch: undefined as string | undefined, wbSem: false as boolean | undefined, split2: null as string | null, extraTabs: {} as Record<string, string[]>, sideGroup: 'status' as 'status' | 'project', answers: {} as Record<string, string[]> | undefined, bgState: {} as Record<string, string> | undefined, queued: { t147: ['Also write every refund to the audit table'] } as Record<string, string[]>, fdPulse: 0 as number | undefined, connAgent: {} as Record<string, string> | undefined, colAgent: {} as Record<string, string> | undefined, kFilter: '' as string | undefined, keys: {} as Record<string, string> | undefined, unpaired: [] as string[] | undefined, removedProj: [] as string[] | undefined, actSrc: 'all' as string | undefined, sFilter: '' as string | undefined, podAgent: false as boolean | undefined, ncEnv: 'staging' as string | undefined, impPick: 0 as number | undefined, rp900: false, finishPick: 0,
+    pod: { sel: 'api', tab: 'logs' }, filter: '', renameTo: '', driftDismissed: {} as Record<string, boolean> | undefined, phoneTyping: [] as string[] | undefined, pairStep: 0 as number | undefined, pathOpen: {} as Record<string, string> | undefined, codeFr: undefined as number[] | undefined, codeMax: null as number | null, codeDock: undefined as string | undefined, wbFile: undefined as string | undefined, wbTabs: undefined as string[] | undefined, wbEdits: {} as Record<string, string> | undefined, wbUrl: undefined as string | undefined, wbSearch: undefined as string | undefined, wbSem: false as boolean | undefined, split2: null as string | null, extraTabs: {} as Record<string, string[]>, sideGroup: 'status' as 'status' | 'project', answers: {} as Record<string, string[]> | undefined, bgState: {} as Record<string, string> | undefined, queued: { t147: ['Also write every refund to the audit table'] } as Record<string, string[]>, fdPulse: 0 as number | undefined, connAgent: {} as Record<string, string> | undefined, colAgent: {} as Record<string, string> | undefined, kFilter: '' as string | undefined, keys: {} as Record<string, string> | undefined, unpaired: [] as string[] | undefined, removedProj: [] as string[] | undefined, actSrc: 'all' as string | undefined, sFilter: '' as string | undefined, podAgent: false as boolean | undefined, ncEnv: 'staging' as string | undefined, impPick: 0 as number | undefined, rp900: false, finishPick: 0,
     newTask: null as null | { project: string; prov: string; model: string; access: string; worktree: boolean }, code: { focus: 0 }, codePanes: null as null | (import('../mock/types').Term & { tag?: string; branch?: string; prov?: string; moved?: string; project?: string })[], codeWt: 1 as number | undefined, codeLayout: 'grid' as string | undefined, codeDraft: {} as Record<string, string> | undefined, set: clone(SETTINGS_DEFAULT), quickBusy: false, ckExtra: {} as Record<string, number>
   }
 }
@@ -103,7 +103,7 @@ export function resolve (id: string, how: 'ok' | 'deny' | 'snap', quiet = false)
   t.gate = null; t.status = 'run'; t.now = how === 'deny' ? 'Taking another approach' : 'Continuing'
   const msg = how === 'deny'
     ? (id === 'ap_sql' ? 'Understood. I won\'t touch the invoices. I\'ll compare the report against production by treating settled charges as paid in the query instead.' : id === 'ap_push' ? 'Okay, the branch stays local. Tell me when you want it pushed.' : 'Okay, I\'ll keep the volume and reset the mock with its admin API instead.')
-    : how === 'snap' ? 'Snapshot saved as <code>invoices_backup_t143</code> (1,284 rows). Update done: 1,284 rows changed. The report now matches production: R$ 1.284.902,15 for March.'
+    : how === 'snap' ? 'Snapshot of the 1,284 rows saved in OXESpace (restore it from Checkpoints). Update done: 1,284 rows changed. The report now matches production: R$ 1.284.902,15 for March.'
       : (id === 'ap_sql' ? 'Update done: 1,284 rows changed. The report now matches production: R$ 1.284.902,15 for March.' : id === 'ap_push' ? 'Pushed. I opened <b>pull request #321</b>; checks are running.' : 'Volume removed. Rerunning the webhook tests from an empty database.')
   setTimeout(() => {
     if (!S.resolved[id]) return
@@ -163,13 +163,13 @@ const T142_STEPS: (() => void)[] = [
   () => { const c = S.conv.t142; const last = c[c.length - 1]; if (last.tools) { last.tools[last.tools.length - 1] = ['run', 'Shell', 'npm test -- charges', '24 passed · 4.2 s'] } },
   () => { S.conv.t142.push({ agent: 'All 24 tests pass, including two parallel retries hitting the same key. Next I\'ll check the 409 path and the 24 h expiry.', at: '14:43' }) },
   () => { S.conv.t142.push({ tools: [['edit', 'Edit', 'test/charges/create.idempotency.test.ts', '+18'], ['run', 'Shell', 'npm test -- charges', '26 passed · 4.4 s'], ['read', 'Read', 'src/jobs/cleanup.ts', '40 lines'], ['edit', 'Edit', 'src/jobs/cleanup.ts', '+6 −0']] }) },
-  () => { addCheckpoint(cur().id === 't142' ? cur() : task('t142') as Task, 'Conflicts and expiry covered'); const t = task('t142') as Task; t.counts.changes = 5 },
+  () => { addCheckpoint(cur().id === 't142' ? cur() : task('t142') as Task, 'All 24 tests pass, including two parallel retries hitting the…'); const t = task('t142') as Task; t.counts.changes = 5 },
   () => {
     S.conv.t142.push({ agent: 'Done: same key and body replays the first response, a reused key with a different body gets 409, and keys expire after 24 h. I want to push the branch and open a pull request.', at: '14:46' })
     raisePush()
-    const n = { id: 'n9', kind: 'attn', task: 't142', text: '<b>Claude</b> needs you on T-142: push oxe/t142-idempotent-charges', at: '14:46' }
+    const n = { id: 'n9', kind: 'attn', task: 't142', text: 'Needs you: <b>Push oxe/t142-idempotent-charges</b> · Claude · Make charge creation idempotent', at: '14:46' }
     S.extraNotifs = [n].concat(S.extraNotifs)
-    toast('Claude needs you on T-142: push the branch', { kind: 'attn', go: 'task-push' })
+    toast('Needs you: Push oxe/t142-idempotent-charges · Claude', { kind: 'attn', go: 'task-push' })
   }
 ]
 export function tick () {

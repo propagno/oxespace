@@ -51,7 +51,7 @@ function ApproveDialog ({ id }: { id: string }) {
 function NewTask () {
   const o = S.overlay!; const nt = (S.newTask ||= { project: 'api', prov: 'claude', model: 'Opus 5.5', access: 'edit', worktree: true })
   const text = o.text || ''
-  return <Dialog spec={{ size: 'md', title: 'New task', icon: 'plus', body: () => <>
+  return <Dialog spec={{ size: 'md', title: 'New conversation', icon: 'plus', body: () => <>
     <div className="field"><label htmlFor="nt-text">What should the agent do?</label><textarea className="input" id="nt-text" rows={4} value={text} placeholder="Describe the outcome you want, e.g. Add CSV export to the statements page" onChange={e => { o.text = e.target.value; emit() }} /></div>
     <div className="row" style={{ alignItems: 'start' }}><div className="field" style={{ flex: 1 }}><label htmlFor="nt-proj">Project</label><select className="sel" id="nt-proj" value={nt.project} onChange={e => { nt.project = e.target.value; emit() }}>{Object.values(D.projects).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
       <div className="field" style={{ flex: 1 }}><label htmlFor="nt-agent">Agent and model</label><select className="sel" id="nt-agent" value={nt.prov + '|' + nt.model} onChange={e => { const [p, m] = e.target.value.split('|'); nt.prov = p; nt.model = m; emit() }}>{Object.values(D.providers).flatMap(p => p.models.map(m => <option key={p.id + m} value={p.id + '|' + m}>{p.name} · {m}</option>))}</select></div></div>
@@ -59,7 +59,7 @@ function NewTask () {
       {nt.access === 'full' ? <div className="callout danger"><Icon n="warn" /><span>Full access runs commands, writes to databases and calls networks without asking. Use it only in a throwaway environment.</span></div> : null}</div>
     <label className="row" style={{ fontSize: 13 }}><input type="checkbox" checked={nt.worktree} onChange={e => { nt.worktree = e.target.checked; emit() }} /> Work in its own branch and worktree <span className="muted">· oxe/t146-…</span></label></>,
     extra: <span className="muted" style={{ fontSize: 12 }}><Kbd>Ctrl Enter</Kbd> to start</span>,
-    primary: { label: 'Start task', disabled: !text.trim(), act: () => startTask(text) } }} />
+    primary: { label: 'Start', disabled: !text.trim(), act: () => startTask(text) } }} />
 }
 export function startTask (text: string) {
   const nt = S.newTask!; const id = 't146'; const n = S.tasks.filter(t => t.id.startsWith('t146')).length
@@ -75,10 +75,10 @@ export function startTask (text: string) {
 /* ---------------------------------------------------------------- command palette */
 interface PalItem { g: string; icon: string; label: string; sub?: string; k?: string; act: () => void }
 function palItems (): PalItem[] {
-  const it: PalItem[] = [{ g: 'Actions', icon: 'plus', label: 'New task', k: 'N', act: () => { S.overlay = { type: 'newtask', text: '' } } }]
-  S.queue.filter(q => !S.resolved[q]).forEach(q => it.push({ g: 'Actions', icon: 'shield', label: 'Review: ' + D.approvals[q].title, sub: task(D.approvals[q].task)!.key, act: () => { S.overlay = { type: 'approve', id: q } } }))
+  const it: PalItem[] = [{ g: 'Actions', icon: 'plus', label: 'New conversation', k: 'N', act: () => { S.overlay = { type: 'newtask', text: '' } } }]
+  S.queue.filter(q => !S.resolved[q]).forEach(q => it.push({ g: 'Actions', icon: 'shield', label: 'Review: ' + D.approvals[q].title, sub: task(D.approvals[q].task)!.title, act: () => { S.overlay = { type: 'approve', id: q } } }))
   it.push({ g: 'Actions', icon: 'copy', label: 'Open the side chat', k: 'Ctrl .', act: () => { S.overlay = null; const t = cur(); if (t) { scState(t).open = true } } })
-  S.tasks.filter(t => t.id !== 'quick').forEach(t => it.push({ g: 'Tasks', icon: 'list', label: t.title, sub: `${t.key} · ${t.model}`, act: () => openTask(t.id) }))
+  S.tasks.filter(t => t.id !== 'quick').forEach(t => it.push({ g: 'Tasks', icon: 'list', label: t.title, sub: t.model, act: () => openTask(t.id) }))
   D.queries.forEach(q => it.push({ g: 'Made by agents', icon: 'db', label: q.sql.split('\n')[0], sub: `${q.conn} · ${q.at.slice(0, 5)}`, act: () => { if (task(q.task)) S.taskId = q.task; S.q.sel = q.id; S.tab = 'queries'; goScreen('task-current') } }))
   Object.values(D.requests).filter(r => r.task).forEach(r => it.push({ g: 'Made by agents', icon: 'net', label: `${r.method} ${r.name}`, sub: `${task(r.task!)!.key} · ${r.at}`, act: () => { S.taskId = r.task!; S.post.req = r.id; S.tab = 'requests'; goScreen('task-current') } }))
   ;([['code', 'term', 'OxeCode'], ['query', 'db', 'OxeQuery'], ['post', 'net', 'OxePost'], ['pod', 'box', 'OxePod'], ['chat', 'chat', 'Quick chat (no project)']] as const).forEach(([v, i, l]) => it.push({ g: 'Modes', icon: i, label: 'Open ' + l, act: () => { S.overlay = null; railGo(v) } }))
@@ -100,7 +100,7 @@ function Palette () {
         onChange={e => { o.query = e.target.value; o.sel = 0; emit() }} onKeyDown={e => { if (e.key === 'ArrowDown') { e.preventDefault(); o.sel = Math.min(items.length - 1, sel + 1); emit() } if (e.key === 'ArrowUp') { e.preventDefault(); o.sel = Math.max(0, sel - 1); emit() } if (e.key === 'Enter' && items[sel]) { e.preventDefault(); pick(items[sel]) } }} /><Kbd>Esc</Kbd></div>
       <div className="pal-list" id="pal-list" role="listbox">{items.length ? items.map((i, n) => { const head = i.g !== lastG ? (lastG = i.g, <div className="pal-g" key={'g' + n}>{i.g}</div>) : null
         return [head, <button key={n} id={'pal-' + n} role="option" className="pal-i" aria-selected={n === sel} onMouseEnter={() => { o.sel = n; emit() }} onClick={() => pick(i)}><span className="ico"><Icon n={i.icon} /></span><span className="trunc">{i.label}{i.sub ? <span className="muted">{i.sub}</span> : null}</span>{i.k ? <Kbd>{i.k}</Kbd> : <span />}</button>] })
-        : <div className="state" style={{ padding: 24 }}><p>Nothing matches "{o.query}". Try a task key like T-143, a table name, or a mode.</p></div>}</div>
+        : <div className="state" style={{ padding: 24 }}><p>Nothing matches "{o.query}". Try a word from a title, a table name, or a mode.</p></div>}</div>
       <div className="pal-f"><span><Kbd>↑↓</Kbd> move</span><span><Kbd>Enter</Kbd> open</span><span><Kbd>Esc</Kbd> close</span><span className="sp" /><span>{plural(items.length, 'result')}</span></div></div></div>
 }
 
@@ -108,7 +108,7 @@ function Palette () {
 const conf = (title: string, text: ReactNode, label: string, act: () => void, danger = true, icon = 'warn'): DialogSpec => ({ size: 'sm', icon, title, body: () => <p style={{ color: 'var(--text-secondary)' }}>{text}</p>, safeFirst: true, primary: { label, danger, act } })
 export const DIALOGS: Record<string, () => DialogSpec> = {
   rename: () => { const t = cur(); return { size: 'sm', title: 'Rename task', icon: 'pencil', body: () => <div className="field"><label htmlFor="rn">Name</label><input className="input" id="rn" defaultValue={t.title} onChange={e => { S.renameTo = e.target.value }} /></div>, primary: { label: 'Rename', act: () => { if (S.renameTo?.trim()) { t.title = S.renameTo.trim(); toast('Renamed') } } } } },
-  deletetask: () => { const t = cur(); return conf(`Delete ${t.key}?`, <>The conversation, its checkpoints and its side chat are deleted. The branch <span className="mono">{t.branch}</span> and its commits stay in git. This can't be undone.</>, 'Delete task', () => { S.tasks = S.tasks.filter(x => x !== t); S.taskId = S.tasks[0].id; toast(`Deleted ${t.key}`) }, true, 'trash') },
+  deletetask: () => { const t = cur(); return conf(`Delete "${t.title}"?`, <>The conversation, its checkpoints and its side chat are deleted. The branch <span className="mono">{t.branch}</span> and its commits stay in git. This can't be undone.</>, 'Delete task', () => { S.tasks = S.tasks.filter(x => x !== t); S.taskId = S.tasks[0].id; toast(`Deleted ${t.key}`) }, true, 'trash') },
   restore: () => { const t = cur(); const ck = S.overlay!.ck as number; const c = (D.checkpoints[t.id] || [])[ck]; return { size: 'md', icon: 'undo', title: `Restore files to checkpoint ${ck}?`, body: () => <><p style={{ color: 'var(--text-secondary)' }}>The worktree goes back to "{c?.label}" ({c?.at}). The conversation stays as it is.</p>
     <div className="callout ok"><Icon n="history" /><span>A checkpoint of the current files is made first, so you can come back.</span></div><div className="callout warn"><Icon n="warn" /><span>Only files go back. Queries, requests and container changes already happened and stay.</span></div></>, primary: { label: 'Restore files', act: () => { delete S.past[t.id]; toast(`Files restored to checkpoint ${ck}`, { undo: () => { toast('Back to the files you had') } }) } } } },
   branch: () => { const t = cur(); const ck = S.overlay!.ck; return { size: 'md', icon: 'fork', title: ck === 'message' ? 'Branch from this message' : `Branch from checkpoint ${ck}`, body: () => <><p style={{ color: 'var(--text-secondary)' }}>A new task starts with the conversation up to that point and a new worktree from the same files. {t.key} keeps running untouched.</p>

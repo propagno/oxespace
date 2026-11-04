@@ -45,13 +45,15 @@ export function RichItem ({ t, it, i }: { t: Task; it: ConvItem; i: number }) {
 /** A command the agent wants to run. Deny is the default; "Always allow" is scoped and shown in Settings. */
 function CmdCard ({ t, it }: { t: Task; it: ConvItem }) {
   const c = it.cmd!
-  if (c.state !== 'pending') return <div className="rich note"><Icon n="shell" s={12} /><span><span className="mono">{c.cmd}</span> · {c.state === 'always' ? `you allowed "${c.cmd.split(' ').slice(0, 2).join(' ')} *" in this workspace` : c.state === 'deny' ? 'you denied it' : 'you allowed it once'} · {c.at}</span></div>
+  if (c.state !== 'pending') return <div className="rich note"><Icon n="shell" s={12} /><span><span className="mono">{c.cmd}</span> · {c.state === 'always' ? `you allowed Bash(${c.cmd.split(' ').slice(0, 2).join(' ')}:*) in this project` : c.state === 'deny' ? 'you denied it' : 'you allowed it once'} · {c.at}</span></div>
   const decide = (how: string) => run(() => decideCmd(t, how))
+  const risky = /^(git push|curl|wget|rm |docker (compose )?down|psql|npm publish)/.test(c.cmd)
+  const rule = risky ? null : t.prov === 'claude' ? `Bash(${c.cmd.split(' ').slice(0, 2).join(' ')}:*) in this project` : 'for this session'
   return <div className="rich card attn ask" role="region" aria-label="Command waiting for your approval" id={'ask-' + t.id}>
     <div className="card-h"><span className="sun live" /><b>Claude wants to run a command</b></div>
     <pre className="cblk-b cmdl"><span className="tk-pun">$ </span><Hl s={c.cmd} lang="shell" /></pre>
     <p className="muted" style={{ fontSize: 12 }}>{c.why} · in <span className="mono">{c.cwd}</span></p>
-    <div className="row"><button className="btn" autoFocus onClick={decide('deny')}>Deny <Kbd>D</Kbd></button><span className="sp" /><button className="btn" onClick={decide('always')}>Always allow <span className="mono">{c.cmd.split(' ').slice(0, 2).join(' ')} *</span></button><button className="btn pri" onClick={decide('once')}>Allow once <kbd className="k">A</kbd></button></div></div>
+    <div className="row"><button className="btn" autoFocus onClick={decide('deny')}>Deny <Kbd>D</Kbd></button><span className="sp" />{rule ? <button className="btn" title={t.prov === 'claude' ? 'Claude Code\'s project permission rule, saved in .claude/settings.local.json' : 'Codex allows it until this session ends'} onClick={decide('always')}>Always allow <span className="mono">{rule}</span></button> : <span className="muted" style={{ fontSize: 12 }}>Always allow isn't offered for commands that push, delete or use the network.</span>}<button className="btn pri" onClick={decide('once')}>Allow once <kbd className="k">A</kbd></button></div></div>
 }
 
 /** AskUserQuestion: one question per page, the pager in the footer (C-02), Answer enabled once each has a choice. */
@@ -86,6 +88,7 @@ function afterCmd (t: Task, how: string) {
       { summary: { text: 'POST /charges/:id/refunds is in. Over-the-limit requests get 422, and merchants are notified on each event you picked. 9 tests pass. The queued note about the audit table is next.', files: [['migrations/0044_refunds.sql', 16, 0], ['src/refunds/create.ts', 75, 1], ['src/charges/routes.ts', 3, 0], ['test/refunds/create.test.ts', 88, 0]] } })
     t.status = 'review'; t.now = 'Ready: 4 files, 9 tests pass'; t.counts.changes = 4; emit()
   }, 2200)
+  if (how !== 'deny' && !S.conv[t.id].some(x => x.cmd && x.cmd.cmd.startsWith('git push'))) setTimeout(() => { S.conv[t.id].push({ cmd: { cmd: 'git push -u origin oxe/t147-pix-refunds', cwd: 'cajui-api (worktree)', why: 'Push the branch so I can open a pull request.', state: 'pending', at: '' } }); t.status = 'needs'; t.ask = 'cmd'; t.now = 'Needs you: push oxe/t147-pix-refunds'; emit() }, 3200)
 }
 
 /** Decide the pending command (buttons, the now line, or the D / A keys). */
