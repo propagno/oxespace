@@ -28,6 +28,9 @@ import com.oxespace.mobile.session.SessionViewModel
 import com.oxespace.mobile.ui.AddressDialog
 import com.oxespace.mobile.ui.CaptureForHomologation
 import com.oxespace.mobile.ui.HomeScreen
+import com.oxespace.mobile.ui.LocalNetworkAccess
+import com.oxespace.mobile.ui.LocalNetworkGate
+import com.oxespace.mobile.ui.LocalNetworkScreen
 import com.oxespace.mobile.ui.live.AskForNotifications
 import com.oxespace.mobile.ui.live.LiveHome
 import com.oxespace.mobile.ui.live.RequestScreen
@@ -79,8 +82,11 @@ class MainActivity : ComponentActivity() {
                     is DesktopStatus.OffNetwork -> current.desktop.takeIf { wasConnected }
                     else -> null
                 }
+                // Android 17: without local network access no connection to the computer can even start.
+                var localNetworkOk by remember { mutableStateOf(LocalNetworkAccess.granted(applicationContext)) }
                 when {
                     showPairing -> Pairing(onDone = { showPairing = false; session.start() }, onBack = { showPairing = false })
+                    status !is DesktopStatus.Unpaired && !localNetworkOk -> LocalNetworkScreen(onGranted = { localNetworkOk = true; session.retry() })
                     liveDesktop != null -> Live(liveDesktop, status)
                     else -> HomeScreen(
                         status = status,
@@ -105,7 +111,8 @@ class MainActivity : ComponentActivity() {
             state = state,
             onScanAgain = pairing::scanAgain,
             onDone = onDone,
-            camera = { modifier -> CameraWithPermission(stringResource(R.string.pairing_camera_description), pairing::onScanned, modifier) },
+            // Local network access first: scanning a code the phone then can't send anywhere helps no one.
+            camera = { modifier -> LocalNetworkGate { CameraWithPermission(stringResource(R.string.pairing_camera_description), pairing::onScanned, modifier) } },
         )
     }
 

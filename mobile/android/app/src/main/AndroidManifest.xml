@@ -4,6 +4,9 @@
 
     <!-- Talks to the paired desktop on the local network only, over pinned TLS. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Android 17's local network protection: without it a socket to the desktop's LAN address fails on the phone
+         (EPERM). Asked for at runtime before the QR scan and before the session connects (LocalNetworkAccess). -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <!-- Reads the pairing QR; frames are decoded on the phone and never stored or sent. -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
