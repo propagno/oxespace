@@ -39,7 +39,7 @@ export function ReportProblem({ onClose }: { onClose: () => void }): ReactElemen
   return <Dialog title={t('report.title')} description={t('report.description')} onClose={onClose} size="lg" testId="report-problem"
     footer={<>
       <Button variant="secondary" onClick={() => void copy()} disabled={!ready}>{t('report.copy')}</Button>
-      <Button onClick={open} disabled={!ready || !draft.title.trim()}>{t('report.open')}</Button>
+      <Button variant="primary" onClick={open} disabled={!ready || !draft.title.trim()}>{t('report.open')}</Button>
     </>}>
     {state.phase === 'loading' && <p className={styles.status} role="status">{t('report.loading')}</p>}
     {state.phase === 'failed' && <ErrorState title={t('report.failed')} retryLabel={t('report.retry')}

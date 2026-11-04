@@ -4,6 +4,7 @@ import { i18n } from '../../i18n'
 import type { PostEnvironmentView, PostRequest, PostRequestEntry, PostResponse } from '../../../shared/oxepost/types'
 import { PostError, messageOf, post } from './client'
 import { registerUnsavedSource } from '../../lib/unsavedWork'
+import { toast } from '../../ui/Toast'
 
 export type PostDialog = 'import' | 'environments' | null
 export interface SendFailure { code: string; message: string }
@@ -35,7 +36,13 @@ interface PostState {
   load(workspaceId: string | null): Promise<void>
   open(path: string | null, force?: boolean): Promise<void>
   cancelOpen(): void
+  /** Clears the editor to an unsaved blank request (after a delete). */
   newRequest(): void
+  /**
+   * "New request": saves a blank request as a file of the workspace (the folder is made if missing), lists it and
+   * opens it with its name selected. A failure is always shown, never silent.
+   */
+  create(): Promise<string | null>
   edit(patch: Partial<PostRequest>): void
   save(): Promise<string | null>
   remove(): Promise<void>
@@ -50,6 +57,15 @@ interface PostState {
 let loadToken = 0
 let sendToken = 0
 const snapshot = (request: PostRequest): string => serializeRequest(request)
+/** Puts the cursor in the editor's name field with the name selected, so a new request is named by typing. */
+function focusName(): void {
+  if (typeof document === 'undefined') return
+  window.requestAnimationFrame(() => {
+    const field = document.querySelector<HTMLInputElement>('[data-post-name]')
+    field?.focus()
+    field?.select()
+  })
+}
 /**
  * A blank request named in the language on screen. The name lives in the common catalog, not OxePost's own: the store
  * is created when this module loads, which can be before OxePost's catalog has been fetched.
@@ -80,7 +96,7 @@ export const useOxePostStore = create<PostState>((set, get) => ({
     const state = get()
     if (!force && snapshot(state.draft) !== state.baseline) { set({ pendingOpen: path }); return }
     set({ pendingOpen: undefined })
-    if (path === null) { get().newRequest(); return }
+    if (path === null) { await get().create(); return }
     try {
       const request = await post('read', { workspaceId: state.workspaceId, path })
       set({ selected: path, draft: request, baseline: snapshot(request), response: null, failure: null })
@@ -92,6 +108,26 @@ export const useOxePostStore = create<PostState>((set, get) => ({
   cancelOpen: () => set({ pendingOpen: undefined }),
 
   newRequest: () => set({ selected: null, draft: blankRequest(), baseline: snapshot(blankRequest()), response: null, failure: null, pendingOpen: undefined }),
+
+  create: async () => {
+    const { workspaceId } = get()
+    const failed = (message: string): null => {
+      toast({ title: i18n.t('postCommands.createFailed', { ns: 'common' }), description: message, intent: 'danger' })
+      return null
+    }
+    if (!workspaceId) return failed(i18n.t('postCommands.noProject', { ns: 'common' }))
+    const draft = blankRequest()
+    try {
+      const { path } = await post('save', { workspaceId, path: null, request: draft, folder: '' })
+      if (get().workspaceId !== workspaceId) return path
+      set({ selected: path, draft, baseline: snapshot(draft), response: null, failure: null, pendingOpen: undefined })
+      await get().load(workspaceId)
+      focusName()
+      return path
+    } catch (error) {
+      return failed(messageOf(error))
+    }
+  },
 
   edit: patch => set(state => ({ draft: { ...state.draft, ...patch } })),
 

@@ -21,7 +21,9 @@ const budgets = [
   { label: 'main process entry', dir: 'out/main', match: /^index\.js$/, max: 620 * 1024 },
   { label: 'preload entry', dir: 'out/preload', match: /^index\.cjs$/, max: 40 * 1024 },
   // 320 KiB since the renderer is minified (2026-10): the entry went from 474 kB readable to 246 kB.
-  { label: 'renderer entry', dir: 'out/renderer/assets', match: /^index-.*\.js$/, max: 320 * 1024 },
+  // 299 KiB since #534 (2026-11-03) took the entry to 275 kB: with the 5% headroom, anything past 284 kB fails, the
+  // entry's target. The ceiling only ever goes down; new weight in the entry is lazy-loaded instead.
+  { label: 'renderer entry', dir: 'out/renderer/assets', match: /^index-.*\.js$/, max: 299 * 1024 },
   { label: 'renderer base CSS', dir: 'out/renderer/assets', match: /^index-.*\.css$/, max: 500 * 1024 },
   // OxeQuery loads on demand; its worker bundles pg, mongodb and ssh2, so it has its own ceiling.
   // 1.6 MiB since the main process is minified (2026-10-30): the worker went from 2.5 MB to 1.4 MB.

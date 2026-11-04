@@ -39,9 +39,10 @@ function Card({ title, meta, testId, children, footer }: { title: string; meta?:
   </section>
 }
 
+/** `title` is the provider's name: a signed-in account is that provider's (Codex's quota was labelled "Claude account"). */
 function ProviderCard({ title, snapshot }: { title: string; snapshot: AgentCreditsSnapshot | null }): ReactElement {
   const { t } = useTranslation()
-  const source = snapshot?.source === 'oauth' ? t('usage.source.oauth') : snapshot?.source === 'local-session' ? t('usage.source.local') : t('usage.source.account')
+  const source = snapshot?.source === 'oauth' ? t('usage.source.oauth', { provider: title }) : snapshot?.source === 'local-session' ? t('usage.source.local') : t('usage.source.account')
   const checked = snapshot?.observedAtMs ? ` · ${t('usage.checked', { time: formatDateTime(snapshot.observedAtMs, { hour: '2-digit', minute: '2-digit' }) })}` : ''
   return <Card title={title} testId={`usage-card-${title.toLowerCase()}`}
     meta={snapshot?.stale ? <Badge intent="warning">{t('usage.lastKnown')}</Badge> : snapshot?.planLabel ? <Badge>{snapshot.planLabel}</Badge> : <Badge>{t('usage.subscription')}</Badge>}

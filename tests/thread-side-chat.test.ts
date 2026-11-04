@@ -104,12 +104,14 @@ const roots: string[] = []
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))) })
 
 describe('side chat: Claude launch', () => {
-  it('forks the session in plan mode with write tools disallowed and only read tools', async () => {
+  it('forks the session in the default mode, never plan (T59), with write tools disallowed and only read tools', async () => {
     const f = claudeFixture()
     await f.adapter.start({ rootPath: '/project', nativeSessionId: MAIN, ...sideChatConfiguration(thread()) }, () => {})
     await f.adapter.send('What did it decide?')
     const args = f.launches[0].args
-    expect(args.join(' ')).toContain('--permission-mode plan')
+    expect(args[args.indexOf('--permission-mode') + 1]).toBe('default')
+    expect(args).not.toContain('plan')
+    expect(args).not.toContain('--allow-dangerously-skip-permissions')
     expect(args.join(' ')).toContain('--disallowedTools Bash Edit Write NotebookEdit')
     expect(args.join(' ')).toContain(`--resume ${MAIN} --fork-session --session-id ${FORK}`)
     expect(args[args.indexOf('--tools') + 1]).toBe('Read,Glob,Grep,AskUserQuestion')
@@ -139,6 +141,30 @@ describe('side chat: Claude launch', () => {
     expect(f.launches[0].args).not.toContain('--fork-session')
     expect(f.launches[0].args).not.toContain('--disallowedTools')
     await f.adapter.dispose()
+  })
+
+  it('T59: out of plan mode, Edit, Write and Bash still never run: each is declined and never shown', async () => {
+    const f = claudeFixture()
+    const s = sideFixture()
+    vi.mocked(s.host.connect).mockResolvedValueOnce(f.adapter)
+    const opened = await s.chats.open('thread-A', s.emit)
+    if (!opened.ok) throw Error('expected a side chat')
+    await s.chats.send(opened.side.sideId, 'Fix the typo in README')
+    const args = f.launches[0].args
+    expect(args[args.indexOf('--permission-mode') + 1]).toBe('default')
+    expect(args[args.indexOf('--tools') + 1]).toBe('Read,Glob,Grep,AskUserQuestion')
+    expect(args.slice(args.indexOf('--disallowedTools') + 1, args.indexOf('--disallowedTools') + 5)).toEqual(['Bash', 'Edit', 'Write', 'NotebookEdit'])
+    expect(args).toEqual(expect.arrayContaining(['--fork-session', '--strict-mcp-config']))
+    expect(args).not.toContain('--allow-dangerously-skip-permissions')
+    expect(args[args.indexOf('--settings') + 1]).toContain('"disableAllHooks":true')
+    const asks = [['edit', 'Edit', { file_path: '/project/README.md', old_string: 'teh', new_string: 'the' }], ['write', 'Write', { file_path: '/project/new.txt', content: 'x' }], ['bash', 'Bash', { command: 'rm -rf build' }]] as const
+    for (const [id, tool, input] of asks) f.emit(0, { type: 'control_request', request_id: id, request: { subtype: 'can_use_tool', tool_name: tool, input } })
+    await vi.waitFor(() => expect(f.launches[0].writes.filter(write => write.type === 'control_response')).toHaveLength(3))
+    for (const [id] of asks) {
+      expect(f.launches[0].writes).toContainEqual({ type: 'control_response', response: { subtype: 'success', request_id: id, response: { behavior: 'deny', message: 'A side chat is read-only.' } } })
+    }
+    expect(s.events.some(event => ['request', 'approval', 'approval-resolved', 'request-resolved'].includes(event.event.type))).toBe(false)
+    await s.chats.stop()
   })
 })
 
@@ -236,6 +262,18 @@ describe('side chat: Codex fork', () => {
     await f.adapter.dispose()
   })
 
+  it('T59: a turn starts without the plan collaboration mode, on the same read-only sandbox and approval policy', async () => {
+    const f = codexFixture(() => ({ result: { thread: { id: 'fork-A', ephemeral: true }, approvalPolicy: 'on-request' } }), { platform: 'darwin' })
+    await start(f.adapter, 'native-A')
+    await f.adapter.send('What did it decide?')
+    const fork = f.requests.find(request => request.method === 'thread/fork')!.params
+    expect(fork).toMatchObject({ sandbox: 'read-only', approvalPolicy: 'on-request' })
+    const turn = f.requests.find(request => request.method === 'turn/start')!.params
+    expect(turn).not.toHaveProperty('collaborationMode')
+    expect(JSON.stringify(turn)).not.toContain('"plan"')
+    await f.adapter.dispose()
+  })
+
   it('refuses to open on Windows when the app-server does not report the untrusted policy back', async () => {
     for (const reported of ['on-request', undefined]) {
       const f = codexFixture(() => ({ result: { thread: { id: 'fork-A', ephemeral: true }, ...(reported ? { approvalPolicy: reported } : {}) } }), { platform: 'win32' })
@@ -297,7 +335,7 @@ describe('side chat service', () => {
     if (!opened.ok) throw Error('expected a side chat')
     expect(opened.side).toMatchObject({ threadId: 'thread-A', provider: 'claude', readOnly: true })
     const adapter = s.adapters[0]
-    expect(vi.mocked(adapter.start).mock.calls[0][0]).toMatchObject({ nativeSessionId: MAIN, access: 'read-only', mode: 'plan', hooksEnabled: false })
+    expect(vi.mocked(adapter.start).mock.calls[0][0]).toMatchObject({ nativeSessionId: MAIN, access: 'read-only', mode: 'default', hooksEnabled: false })
     await s.chats.send(opened.side.sideId, 'Why?')
     adapter.emit({ type: 'message', id: 'm', role: 'assistant', text: 'Because.' })
     adapter.emit({ type: 'turn-cost', usd: 0.01, inputTokens: 10, outputTokens: 5 } as ThreadEvent)

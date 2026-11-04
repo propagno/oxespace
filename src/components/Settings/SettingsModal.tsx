@@ -14,7 +14,7 @@ import { useAgentStore } from '../../store/agent.store'
 import { useSettingsStore } from '../../store/settings.store'
 import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
-import { Button, EmptyState, Notice, SegmentedControl, Switch, Select } from '../../ui'
+import { applyWithUndo, Button, EmptyState, Notice, SegmentedControl, Switch, Select } from '../../ui'
 import { UpdatePreferences } from './UpdatePreferences'
 import { humanizeError } from '../../utils/humanizeError'
 
@@ -746,7 +746,11 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
     return () => { live = false }
   }, [])
   const changeResumeBypass = (next: boolean): void => {
-    void window.oxe?.terminal?.setResumeBypass?.(next).then(setResumeBypass, () => undefined)
+    const set = window.oxe?.terminal?.setResumeBypass
+    if (!set) return
+    // U2: turning the bypass on widens what a resumed agent may do, so it applies at once with Undo.
+    if (next) void applyWithUndo({ apply: () => set(true).then(setResumeBypass), undo: () => set(false).then(setResumeBypass), done: t('terminal.resumeBypassOn') })
+    else void set(false).then(setResumeBypass, () => undefined)
   }
   return (
     <section className="settings-modal-content" aria-labelledby="settings-terminal-title">

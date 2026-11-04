@@ -286,6 +286,14 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-activity-table th, .oq-activity-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border-default); vertical-align: top; }
 .oq-activity-table code { display: block; opacity: 0.75; max-width: 520px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .oq-activity-table tr[data-decision="denied"] .oq-decision, .oq-activity-table tr[data-decision="refused"] .oq-decision { color: var(--intent-danger-solid); }
+.oq-activity-table tbody tr { cursor: pointer; }
+.oq-activity-table tbody tr:hover { background: var(--surface-hover, rgba(127, 127, 127, 0.08)); }
+.oq-activity-table tbody tr:focus-visible { outline: 2px solid var(--focus-ring, var(--accent-solid)); outline-offset: -2px; }
+.oq-activity-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px 16px; margin: 0 0 12px; }
+.oq-activity-facts dt { font-size: 11px; opacity: 0.7; }
+.oq-activity-facts dd { margin: 0; overflow-wrap: anywhere; }
+.oq-activity-detail-heading { font-size: 12px; margin: 0 0 6px; }
+.oq-activity-statement { margin: 0 0 12px; padding: 10px 12px; max-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; border: 1px solid var(--border-default); border-radius: 6px; }
 
 /* ---- Container resources and stats --------------------------------------- */
 

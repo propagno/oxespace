@@ -64,10 +64,13 @@ export function KeyboardSettings(): ReactElement {
               <span className={styles.actions}>
                 <KeyChords chords={chordsFor(id)} />
                 {binding.fixed ? <span className={styles.fixed}>{t('keyboard.fixed')}</span> : <>
-                <Button size="sm" variant="ghost" aria-pressed={active} aria-label={t('keyboard.changeLabel', { name })}
+                <Button size="sm" variant="ghost" className={styles.rowAction} data-shown={active || undefined} aria-pressed={active} aria-label={t('keyboard.changeLabel', { name })}
                   onClick={() => setCapturing(active ? null : id)}>{active ? t('keyboard.pressKeys') : t('keyboard.change')}</Button>
-                <Button size="sm" variant="ghost" disabled={!isOverridden(id)} aria-label={t('keyboard.resetLabel', { name })} onClick={() => setOverride(id, null)}>{t('keyboard.reset')}</Button>
-                <Button size="sm" variant="ghost" disabled={chordsFor(id).length === 0} aria-label={t('keyboard.offLabel', { name })} onClick={() => setOverride(id, [])}>{t('keyboard.off')}</Button>
+                {/* S-04: Reset only for a shortcut that differs from its default; the empty cell keeps the columns. */}
+                {isOverridden(id)
+                  ? <Button size="sm" variant="ghost" className={styles.rowAction} aria-label={t('keyboard.resetLabel', { name })} onClick={() => setOverride(id, null)}>{t('keyboard.reset')}</Button>
+                  : <span aria-hidden="true" />}
+                <Button size="sm" variant="ghost" className={styles.rowAction} disabled={chordsFor(id).length === 0} aria-label={t('keyboard.offLabel', { name })} onClick={() => setOverride(id, [])}>{t('keyboard.off')}</Button>
                 </>}
               </span>
             </li>

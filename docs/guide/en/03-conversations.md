@@ -83,7 +83,9 @@ The side chat answers questions about a conversation without touching it.
 
 - OXESpace keeps the sections, and they're the same after a restart.
 - Deleting a section never deletes a conversation.
-- The side chat sends nothing to the main conversation, and the copy is thrown away when you close it.
+- The side chat sends nothing to the main conversation. Hiding it (✕ or `Ctrl+.`) or switching conversations keeps
+  the copy and its answers; it is thrown away with **⋯ › Discard and close…**, when the conversation is archived or
+  deleted, or when the window closes.
 - Deleting a conversation keeps the provider session and the project files.
 <!-- 1.4.1, with B1.4: "The project coordinator never answers a request or an approval." -->
 
@@ -94,8 +96,8 @@ The side chat answers questions about a conversation without touching it.
 - **"This section no longer exists."** It was deleted elsewhere; the list updates.
 - **"Could not update the sections."** Try again. If it keeps happening, report it from **Report a problem…** (the menu button beside the logo › **Help**, or the command palette).
 - **"The side chat could not open. Try again."** Close the drawer and open it again with `Ctrl+.`.
-- **"The question did not reach the side chat. Close it and open it again."** The copy stopped: close and reopen the
-  side chat. The main conversation isn't affected.
+- **"The question did not reach the side chat. Discard it and open it again."** The copy stopped: use **⋯ › Discard
+  and close…**, then open the side chat again. The main conversation isn't affected.
 
 <!-- TO FILL with the slices still to come (#227, #298). -->
 

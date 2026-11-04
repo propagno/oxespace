@@ -44,14 +44,16 @@
   display: grid;
   place-items: center;
   border-radius: var(--radius-full);
-  background: var(--intent-warning-solid);
-  color: var(--text-on-solid);
+  /* C-12: white on the warning solid was 3.56:1 at 11 px; warning fg on warning bg is 5.7:1 light, 9:1 dark. */
+  border: 1px solid var(--intent-warning-fg);
+  background: var(--intent-warning-bg);
+  color: var(--intent-warning-fg);
   font-size: var(--text-2xs);
   font-weight: var(--weight-semibold);
   line-height: 1;
   pointer-events: none;
 }
-.badgeFailed { background: var(--intent-danger-solid); }
+.badgeFailed { border-color: var(--intent-danger-fg); background: var(--intent-danger-bg); color: var(--intent-danger-fg); }
 
 /* Agents are busy and nothing needs you: a small breathing dot. */
 .working { position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); pointer-events: none; --pulse-opacity: 0.35; animation: global(oxe-pulse) var(--duration-pulse) var(--ease-standard) infinite; }

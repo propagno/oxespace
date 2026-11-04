@@ -326,6 +326,7 @@
     "translucent": "translúcido",
     "globalDefaults": "Padrões <strong>globais</strong>. Cada workspace pode mudá-los.",
     "resumeBypass": "Retomar sessões com as permissões ignoradas quando a sessão estava assim",
+    "resumeBypassOn": "Sessões retomadas agora pulam os pedidos de permissão quando já pulavam antes",
     "resumeBypassHint": "Uma sessão do Claude Code iniciada ignorando os pedidos de permissão é retomada do mesmo jeito depois de reiniciar ou de Restaurar sessão. Desligado: ela é retomada pedindo permissão."
   },
   "hooks": {
@@ -555,6 +556,7 @@
   "agentConfig": {
     "promptRequired": "O prompt da skill é obrigatório",
     "saveFailed": "Falha ao salvar o perfil do agente",
+    "commandChanged": "{{name}} agora inicia com o novo comando",
     "commandRequired": "O comando é obrigatório",
     "deleteFailed": "Falha ao excluir o perfil do agente",
     "deleteTitle": "Excluir este perfil de agente?",
@@ -583,7 +585,8 @@
       "hint": "Desligada por padrão. Ligada, o OXESpace escuta só em endereços de rede privada, por uma conexão criptografada que só celulares pareados podem usar.",
       "listening": "Escutando em {{addresses}}, porta {{port}}",
       "off": "Desligada. Nenhuma porta aberta.",
-      "failed": "Não foi possível mudar a conexão com o celular: {{error}}"
+      "failed": "Não foi possível mudar a conexão com o celular: {{error}}",
+      "on": "Celulares agora podem se conectar a este computador"
     },
     "firewall": {
       "title": "Antes de os celulares se conectarem",

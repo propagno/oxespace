@@ -2,7 +2,7 @@ import { useEffect, useRef, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { HardDrive, RefreshCw, Search, ShieldCheck } from 'lucide-react'
 import type { ContainerEngine } from '../../../shared/types/oxepod'
-import { NavigationRail, SidebarActions, SidebarFooter, type RailAction } from '../Navigation/NavigationChrome'
+import { NavigationRail, RailItems, SidebarActions, SidebarFooter, type RailAction } from '../Navigation/NavigationChrome'
 import { useUIStore } from '../../store/ui.store'
 import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH, SIDEBAR_RESIZE_STEP, SIDEBAR_WIDTH, useNavigationPrefs } from '../../store/navigation-prefs.store'
 import { useKeybindings, shortcutLabel } from '../../keyboard/keybindings'
@@ -36,7 +36,13 @@ export function OxePodSidebar(): ReactElement {
   const resources: RailAction = { id: 'resources', label: t('resources.label'), icon: HardDrive, onClick: () => useOxePodStore.getState().show('resources') }
   const groups = groupContainers(containers, filter)
   return <aside className={cx('thread-navigation', styles.sidebar, collapsed && 'thread-navigation-collapsed')} aria-label={t('sidebar.label')}>
-    {collapsed && <NavigationRail mode="pods" primary={[refresh]} context={resources} onToggle={toggleCollapse} />}
+    {collapsed && <NavigationRail mode="pods" primary={[refresh]} context={resources} onToggle={toggleCollapse}>
+      <RailItems label={t('sidebar.label')} items={groups.flatMap(group => group.containers).map(container => {
+        const state = KNOWN_STATES.has(container.state) ? t(`state.${container.state}` as 'state.running') : container.state
+        return { id: container.id, label: `${container.name} · ${state}`, current: view === 'container' && selected === container.id,
+          mark: <StatusDot status={stateStatus(container.state)} label={state} />, onSelect: () => useOxePodStore.getState().select(container.id) }
+      })} />
+    </NavigationRail>}
     {!collapsed && <div className={styles.sidebarContent}>
       <header className={styles.sidebarHeader}><strong>OxePod</strong><SidebarActions actions={[refresh]} /></header>
       <EngineSwitch />
