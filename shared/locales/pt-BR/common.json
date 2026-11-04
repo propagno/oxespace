@@ -196,6 +196,8 @@
     "newRequest": { "detail": "Salva em .oxespace/requests" },
     "import": { "detail": "Vira arquivos de requisição" },
     "environments": { "detail": "Variáveis e segredos" },
+    "createFailed": "Não foi possível criar a requisição",
+    "noProject": "Abra um projeto primeiro: as requisições ficam na pasta .oxespace/requests dele.",
     "defaultName": "Nova requisição"
   },
   "podsCommands": {
@@ -434,7 +436,7 @@
     "week": "Semana atual",
     "used": "{{percent}}% usado",
     "source": {
-      "oauth": "Conta do Claude",
+      "oauth": "Conta do {{provider}}",
       "local": "Última sessão local do Codex",
       "account": "Cota da conta inteira"
     },

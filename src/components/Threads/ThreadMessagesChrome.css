@@ -1,14 +1,15 @@
-/* Conversation in the reference pattern: your question is a neutral card the width of the reading column,
-   answers follow without a repeated agent name, and turns are separated by space, not lines. */
+/* Conversation in the reference pattern: answers follow without a repeated agent name, and turns are separated by
+   space, not lines. Your messages stay a bubble on the right, as in 1.3.3 (T57: the full-width card of V1c read as the
+   agent's text; the user asked for the bubble back). */
 .thread-view .thread-message-user {
-  width: 100%;
-  max-width: var(--thread-prose-max);
-  margin-left: 0;
+  width: fit-content;
+  max-width: min(82%, 800px);
+  margin-left: auto;
   margin-right: 0;
   padding: 10px 14px;
   border: 0;
-  border-radius: var(--radius-md);
-  background: var(--fill-hover);
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg);
+  background: var(--accent-soft);
 }
 .thread-view .thread-message-user > :is(.thread-markdown, .thread-long-prompt) { color: var(--text-primary); font-weight: var(--weight-medium); }
 
