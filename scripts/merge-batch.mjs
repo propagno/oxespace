@@ -75,7 +75,7 @@ export function selectBatch(queue, pulls, { max = DEFAULT_MAX, exclude = [], inc
   const skipped = []
   ordered.forEach((entry, index) => {
     const pr = pulls.get(entry.number)
-    let reason = null
+    let reason
     if (index === 0 && !includeHead) reason = 'first car (the train may be testing it)'
     else if (exclude.includes(entry.number)) reason = 'excluded'
     else if (!pr) reason = 'not found'
