@@ -40,25 +40,28 @@ async function pairStandInPhone(page: Page): Promise<{ socket: TestSocket; targe
     w.oxe.remote.onChanged(c => { if (c.pairing) w.__prompt = c.pairing })
   })
   const status = await remote<Record<string, unknown>>(page, 'setEnabled', { enabled: true })
-  note(`gateway: listening=${String(status.listening)} error=${String(status.error ?? '')}`)
+  note(`gateway: ${JSON.stringify(status).slice(0, 400)}`)
   const offer = await remote<{ uri: string }>(page, 'startPairing')
   const parsed = readPairingUri(offer.uri)
   if (!parsed.ok) throw new Error('the pairing URI did not parse: ' + offer.uri.slice(0, 80))
   const qr = parsed.qr
-  const target: Target = { host: '127.0.0.1', port: qr.port, fp: qr.fp }
+  // The gateway listens on the address it advertises (the LAN one), as a real phone would reach it.
+  const target: Target = { host: qr.host, port: qr.port, fp: qr.fp }
   note(`offer: host=${qr.host} port=${qr.port}`)
   const keys = generateKeyPairSync('ec', { namedCurve: 'prime256v1' })
   const publicKey = keys.publicKey.export({ format: 'der', type: 'spki' }).toString('base64url')
   // The person answers on the desktop when the prompt shows (accept: same device, codes compared by the person).
+  let stop = false
   const answering = (async () => {
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 60 && !stop; i++) {
       const prompt = await page.evaluate(() => (window as unknown as { __prompt: { promptId: string } | null }).__prompt)
       if (prompt) { await remote(page, 'answerPairing', { promptId: prompt.promptId, accept: true }); return true }
-      await page.waitForTimeout(250)
+      await new Promise(r => setTimeout(r, 250))
     }
     return false
-  })()
+  })().catch(e => `answer failed: ${(e as Error).message.split('\n')[0]}`)
   const res = await request({ host: target.host, port: target.port, fp: target.fp }, { body: JSON.stringify({ code: qr.code, deviceName: 'HML stand-in', publicKey }) })
+    .catch(e => { stop = true; throw new Error(`pair POST to ${target.host}:${target.port} failed: ${(e as Error).message}`) })
   const answered = await answering
   note(`pair POST: ${res.status} (desktop answered: ${answered})`)
   const body = res.body as { accessToken?: string; deviceId?: string }
