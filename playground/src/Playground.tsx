@@ -17,7 +17,7 @@ import { QueryMode, PostMode, PodMode } from './components/Modes2'
 import { SettingsView } from './components/Settings'
 import { Foundations } from './components/Foundations'
 import { DialogGallery } from './components/Catalog'
-import { Agora } from './components/Agora'
+import { Agora, agoraKey } from './components/Agora'
 
 const GROUPS = Array.from(new Set(SCREENS.map(s => s.group)))
 const tagLabel = (s: { tag: string }) => s.tag === 'later' ? 'later' : '1.5.0'
@@ -97,7 +97,7 @@ function useKeys () {
       if (mod && e.shiftKey && (e.key === '|' || e.key === '\\' || e.key === '_' || e.key === '-') && S.area === 'mode' && S.mode2 === 'code') { e.preventDefault(); split(e.key === '_' || e.key === '-'); emit(); return }
       if (mod && e.shiftKey && e.key === 'Enter' && S.area === 'mode' && S.mode2 === 'code') { e.preventDefault(); codeMaxToggle(); emit(); return }
       if (mod && !e.shiftKey && e.key.toLowerCase() === 'h' && S.area === 'task') { e.preventDefault(); const t = cur(); if (t && t.id !== 'quick') { S.tt = S.tt === t.id ? undefined : t.id; S.ttAt = undefined; S.tab = 'conv'; emit() } return }
-      if (mod && !e.shiftKey && e.key === '0') { e.preventDefault(); goScreen('agora'); return }
+      if (mod && e.shiftKey && e.key.toLowerCase() === 'g') { e.preventDefault(); goScreen('agora'); return } // Ctrl+0 stays the terminal's font reset (1.4)
       if (mod && !e.shiftKey && e.key.toLowerCase() === 'e') { e.preventDefault(); if (S.area === 'mode' && S.mode2 === 'code') S.codeDock = S.codeDock === 'files' ? undefined : 'files'; else if (S.area === 'task') { const t = cur(); S.dockTool[t.id] = 'files'; const o = S.dockOpen[t.id] || []; if (!o.includes('files')) S.dockOpen[t.id] = o.concat('files') } emit(); return }
       if (e.key === 'Escape') { if (S.menu || S.notif) { S.menu = null; S.notif = false; emit() } else if (S.overlay) closeOverlay(); return }
       if (typing || mod || e.altKey) return
@@ -108,6 +108,7 @@ function useKeys () {
         if (k === 'a') { if (D.approvals[ap].irreversible) startHold(ap); else { resolve(ap, 'ok'); emit() } return }
       }
       if (S.overlay) return
+      if (S.area === 'agora' && (k === 'd' || k === 'a') && !e.repeat && agoraKey(k)) return
       if (S.area === 'task' && cur()?.ask === 'cmd' && (k === 'd' || k === 'a')) { decideCmd(cur(), k === 'd' ? 'deny' : 'once'); emit(); return }
       if (S.area === 'queue' && (k === 'j' || k === 'k')) { const n = S.queue.filter(q => !S.resolved[q]).length; S.queueSel = Math.max(0, Math.min(n - 1, S.queueSel + (k === 'j' ? 1 : -1))); emit(); return }
       if (e.key === '?') { S.overlay = { type: 'dlg', id: 'shortcuts' }; emit(); return }

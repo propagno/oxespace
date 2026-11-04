@@ -64,7 +64,8 @@ Switch **Frame** to 900 × 620 and **Theme** to Dark at any stop; every screen w
 The user chose all four; the workspace structure stayed 1.4's (see FIDELITY.md › Round 4).
 
 - **`#agora`: every agent, right now** (T82). Needs-you first, then every workspace in its color. Deny, See impact,
-  Steer and Stop work in place. Ctrl 0 from anywhere.
+  Steer and Stop work in place; on a focused card, D denies and A allows (or opens the impact preview). Ctrl Shift G
+  from anywhere.
 - **`#history`: time travel in a conversation** (T83). Scrub the transcript; files snap to checkpoints; restore or
   branch into a new worktree. What can't go back is always listed.
 - **`#command-bar`: one bar** (T84). `@Codex …`, `/approve`, `open billing-staging`, `?` for every command.

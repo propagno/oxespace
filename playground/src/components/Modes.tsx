@@ -2,6 +2,7 @@
    layout presets (Grid/layouts.ts), resizable splits, pane maximize, a branch badge on every pane, and the
    Files / Changes / Browser dock. New in 1.5.0: Focus with tabs, and a warning when a terminal's branch moved. */
 import { CodeSidebar, curWs, wsName, wsColor } from './Sidebars'
+import { ensureWorkspace } from '../mock/workspaces'
 import { D } from '../mock/data'
 import type { Term } from '../mock/types'
 import { S, emit, run, toast } from '../state/store'
@@ -56,7 +57,7 @@ export function CodeMode () {
   return <div className="mode-split code-split">
     <CodeSidebar panesOf={panesOf} onPane={(ws, i) => { S.ws = ws; S.code.focus = i; if (S.codeMax != null) S.codeMax = i }} />
     <div className={'mode code' + (focusTabs && panes.length > 1 && max == null ? (tooMany ? ' tabs fit' : ' tabs') : '')}>
-      <div className="mode-h"><span style={{ color: 'var(--k-shell)' }}><Icon n="term" s={16} /></span><h2 className="mt">OxeCode</h2><span className="wschip" style={{ ['--wsc' as string]: `var(--ws-${wsColor(curWs())})` }}><span className="wsdot" />{wsName(curWs())}</span><span className="muted" style={{ fontSize: 12 }}>{panes.length === 1 ? '1 pane' : `${panes.length} panes`}</span><span className="sp" />
+      <div className="mode-h"><span style={{ color: 'var(--k-shell)' }}><Icon n="term" s={16} /></span><h2 className="mt">OxeCode</h2><span className="wschip" data-ws={wsColor(curWs())}><span className="wsdot" />{wsName(curWs())}</span><span className="muted" style={{ fontSize: 12 }}>{panes.length === 1 ? '1 pane' : `${panes.length} panes`}</span><span className="sp" />
         <span className="splitbtn"><button className="btn sm" title="New terminal where the focused pane is" onClick={run(() => { const d = focusedPlace(); addPane('term', d.project, d.wt) })}><Icon n="plus" s={12} />Terminal</button><button className="btn sm" aria-label="New terminal in…" title="New terminal in…" onClick={run(() => { S.overlay = { type: 'dlg', id: 'newpane', text: 'term' } })}><Icon n="down" s={12} /></button></span><span className="splitbtn"><button className="btn sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'newpane', text: 'agent' } })}><Icon n="sparkle" s={12} />Agent</button><button className="btn sm" aria-label="Resume an agent session…" title="Resume an agent session…" onClick={menuBtn('resume')}><Icon n="history" s={12} /></button></span>
         <button className="btn sm" onClick={menuBtn('codelayout')} aria-haspopup="menu"><Icon n="grid" s={12} />{focusTabs ? 'Focus' : layout.replace('x', ' × ')}</button><span className="vsep" />
         {([['files', 'file', 'Files (Ctrl E)'], ['changes', 'diff', 'Changes (Ctrl Shift D)'], ['browser', 'globe', 'Browser (Ctrl Shift B)'], ['worktrees', 'layers', 'Worktrees']] as const).map(([id, ic, l]) => <button key={id} className="ibtn" aria-pressed={dock === id} title={l} aria-label={l} onClick={run(() => { S.codeDock = dock === id ? undefined : id })}><Icon n={ic} /></button>)}</div>
@@ -66,7 +67,7 @@ export function CodeMode () {
         {empty ? <StateBlock kind="empty" icon="term" title="No terminals open" text="Open a terminal in a project or a task's worktree. Agent CLIs run here too."><button className="btn pri" onClick={run(addTerm)}><Icon n="plus" s={12} />New terminal</button><button className="btn" onClick={run(addAgent)}><Icon n="sparkle" s={12} />Start Claude Code</button></StateBlock>
           : <div className="panes rs" style={{ gridTemplateColumns: max != null || focusTabs ? 'minmax(0,1fr)' : fr.map(f => `minmax(0,${f}fr)`).join(' '), gridTemplateRows: max != null || focusTabs ? 'minmax(0,1fr)' : rfr.map(f => `minmax(0,${f}fr)`).join(' ') }}>
             {shown.map(k => { const i = panes.indexOf(k)
-              return <div key={k.id + i} hidden={!visible(i)} style={{ ['--wsc' as string]: `var(--ws-${wsColor(curWs())})` }} className={'wsp ' + (S.code.focus === i ? 'focus' : '') + (S.dragOver === i ? ' dropt' : '')} onMouseDown={() => { if (S.code.focus !== i) { S.code.focus = i; emit() } }}
+              return <div key={k.id + i} hidden={!visible(i)} data-ws={wsColor(curWs())} className={'wsp ' + (S.code.focus === i ? 'focus' : '') + (S.dragOver === i ? ' dropt' : '')} onMouseDown={() => { if (S.code.focus !== i) { S.code.focus = i; emit() } }}
                 onDragOver={e => { if (S.dragPane != null && S.dragPane !== i) { e.preventDefault(); if (S.dragOver !== i) { S.dragOver = i; emit() } } }} onDragLeave={() => { S.dragOver = null; emit() }}
                 onDrop={e => { e.preventDefault(); const from = S.dragPane; S.dragPane = null; S.dragOver = null; if (from == null || from === i) { emit(); return } const a = panes[from]; panes[from] = panes[i]; panes[i] = a; S.code.focus = i; toast(`Moved ${a.name}`); emit() }}>
                 <div className="th-pane" draggable onDragStart={e => { S.dragPane = i; e.dataTransfer.effectAllowed = 'move'; emit() }} onDragEnd={() => { S.dragPane = null; S.dragOver = null; emit() }} title="Drag to move this pane">{k.prov ? <span className={'pdot ' + k.prov} /> : <Icon n="term" s={12} />}<b><span className="pj">{k.project || 'cajui-api'} · </span>{k.name}</b><span className="wtn" title={k.cwd}>{/worktrees/.test(k.cwd) ? k.cwd.split('/').pop() : 'main checkout'}</span>{k.tag ? <span className="pill neutral" style={{ height: 18 }}>{k.tag}</span> : null}{(S.phoneTyping || []).includes(k.name) ? <span className="pill needs" style={{ height: 18 }} title="A paired phone can type in this terminal. Turn it off in the ⋯ menu."><Icon n="phone" s={12} />Phone</span> : null}
@@ -124,6 +125,11 @@ function DockBar ({ dock }: { dock: string }) {
 }
 
 export function addPane (kind: string, project: string, wt: string) {
+  // 1.4: each worktree is its own workspace card. A terminal in another place goes to that place's card, made if needed.
+  const pid = Object.values(D.projects).find(x => x.name === project)?.id || 'api'
+  const [w, made] = ensureWorkspace(pid, project, wt)
+  if (w.id !== S.ws) { S.ws = w.id; S.codeMax = null; (S.wsOpen ||= {})[w.id] = true }
+  if (made) toast(`Opened ${w.name} as a workspace, as New workspace does`)
   const p = initCode(); const cwd = wt === 'main' ? `~/code/cajui/${project}` : `~/.oxespace/worktrees/${project}/${wt}`
   if (kind === 'agent') p.push({ id: 'a' + Date.now(), name: 'claude', shell: 'claude', prov: 'claude', cwd, by: 'you', branch: wt === 'main' ? 'main' : 'oxe/' + wt, project, lines: [['', '╭─ Claude Code ──────────────────────────────╮'], ['', `│ Opus 5.5 · ${cwd.slice(0, 33).padEnd(33)}│`], ['', '╰────────────────────────────────────────────╯'], ['dim', '> Ask Claude Code anything about this project']] })
   else p.push({ id: 'n' + Date.now(), name: 'bash', shell: 'bash', cwd, by: 'you', branch: wt === 'main' ? 'main' : 'oxe/' + wt, project, lines: [] })

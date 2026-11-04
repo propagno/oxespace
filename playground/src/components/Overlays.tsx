@@ -13,6 +13,7 @@ import { railGo } from './Shell'
 import { EXTRA_DIALOGS } from './Dialogs'
 import { MORE_DIALOGS } from './Catalog'
 import { TT_DIALOGS } from './TimeTravel'
+import { canSteer } from './Agora'
 
 export interface DialogSpec { size: 'sm' | 'md' | 'lg' | 'xl'; title: ReactNode; icon?: string; body: () => ReactNode; primary?: { label: string; danger?: boolean; act: () => void; disabled?: boolean }; extra?: ReactNode; cancel?: string; safeFirst?: boolean; noFooter?: boolean }
 
@@ -89,7 +90,7 @@ export const COMMANDS: [string, string, string, string, string][] = [
   ['/stop', 'Stop the current agent (asks first)', 'Stop in Agora or the conversation', 'Esc Esc', 'stop'],
   ['/new', 'New conversation', '+ in the project group', 'N', 'plus'],
   ['/history', 'Time travel in this conversation', 'History in the conversation header', 'Ctrl H', 'scrub'],
-  ['/agora', 'Every agent, right now', 'Agora in the title bar', 'Ctrl 0', 'agora'],
+  ['/agora', 'Every agent, right now', 'Agora in the title bar', 'Ctrl Shift G', 'agora'],
   ['/terminal', 'New terminal where the focused pane is', '+ Terminal in OxeCode', 'Ctrl Shift `', 'term'],
   ['/theme', 'Switch light and dark', 'Settings › Appearance', '', 'sun']
 ]
@@ -123,7 +124,7 @@ function cmdItems (raw: string): PalItem[] | null {
         ? { g: 'Review a request · impact preview first', icon: a.irreversible ? 'shieldx' : 'shield', label: a.title, sub: `${task(a.task)!.title}${a.irreversible ? ' · can\'t be undone: you hold to approve' : ''}`, k, also, act: () => { S.overlay = { type: 'approve', id: a.id } } }
         : { g: 'Deny a request', icon: 'shieldx', label: `Deny: ${a.title}`, sub: task(a.task)!.title, k, also, act: () => resolve(a.id, 'deny') })
     }
-    if (c === '/steer') return t && t.id !== 'quick' ? [{ g: 'Steer', icon: 'send', label: rest ? `Tell "${t.title}": ${rest}` : `Type what to tell "${t.title}"`, sub: t.status === 'run' ? 'Read after the current step' : 'Sent now', k, also, act: () => { if (rest) { S.drafts[t.id] = rest; sendMsg(t) } else setTimeout(() => document.querySelector<HTMLElement>('.composer textarea')?.focus(), 30) } }] : [{ g: 'Steer', icon: 'info', label: 'Open a conversation first', sub: 'Or steer any agent from Agora', act: () => {} }]
+    if (c === '/steer') return t && t.id !== 'quick' ? [{ g: 'Steer', icon: 'send', label: rest ? `Tell "${t.title}": ${rest}` : `Type what to tell "${t.title}"`, sub: t.status === 'run' ? (canSteer(t) ? 'Read after the current step' : 'Queued until the current turn ends') : 'Sent now', k, also, act: () => { if (rest) { S.drafts[t.id] = rest; sendMsg(t) } else setTimeout(() => document.querySelector<HTMLElement>('.composer textarea')?.focus(), 30) } }] : [{ g: 'Steer', icon: 'info', label: 'Open a conversation first', sub: 'Or steer any agent from Agora', act: () => {} }]
     if (c === '/stop') return t && t.status === 'run' ? [{ g: 'Stop', icon: 'stop', label: `Stop "${t.title}"…`, sub: 'Asks first; the work so far is kept', k, also, act: () => { S.agStop = t.id; S.overlay = { type: 'dlg', id: 'agstop' } } }] : [{ g: 'Stop', icon: 'info', label: 'The current conversation isn\'t running', sub: 'Stop any agent from Agora', act: () => {} }]
     if (c === '/new') return [{ g: 'New', icon: 'plus', label: rest ? `New conversation: "${rest}"` : 'New conversation…', k, also, act: () => { S.overlay = { type: 'newtask', text: rest } } }]
     if (c === '/history') return t && t.id !== 'quick' ? [{ g: 'Time travel', icon: 'scrub', label: `History of "${t.title}"`, k, also, act: () => { S.tt = t.id; S.tab = 'conv' } }] : [{ g: 'Time travel', icon: 'info', label: 'Open a conversation first', act: () => {} }]
@@ -146,7 +147,7 @@ function palItems (): PalItem[] {
   const it: PalItem[] = [{ g: 'Actions', icon: 'plus', label: 'New conversation', k: 'N', act: () => { S.overlay = { type: 'newtask', text: '' } } }]
   S.queue.filter(q => !S.resolved[q]).forEach(q => it.push({ g: 'Actions', icon: 'shield', label: 'Review: ' + D.approvals[q].title, sub: task(D.approvals[q].task)!.title, act: () => { S.overlay = { type: 'approve', id: q } } }))
   it.push({ g: 'Actions', icon: 'copy', label: 'Open the side chat', k: 'Ctrl .', act: () => { S.overlay = null; const t = cur(); if (t) { scState(t).open = true } } })
-  it.push({ g: 'Go to', icon: 'agora', label: 'Agora: every agent, right now', k: 'Ctrl 0', act: () => goScreen('agora') })
+  it.push({ g: 'Go to', icon: 'agora', label: 'Agora: every agent, right now', k: 'Ctrl Shift G', act: () => goScreen('agora') })
   S.tasks.filter(t => t.id !== 'quick' && t.id !== S.taskId).forEach(t => it.push({ g: 'Open beside', icon: 'panel', label: `Open beside: ${t.title}`, act: () => { S.area = 'task'; S.cellA = S.taskId; S.split2 = t.id; S.taskId = t.id } }))
   S.tasks.filter(t => t.id !== 'quick').forEach(t => it.push({ g: 'Conversations', icon: 'list', label: t.title, sub: t.model, act: () => openTask(t.id) }))
   D.queries.forEach(q => it.push({ g: 'Made by agents', icon: 'db', label: q.sql.split('\n')[0], sub: `${q.conn} · ${q.at.slice(0, 5)}`, act: () => { if (task(q.task)) S.taskId = q.task; S.q.sel = q.id; S.tab = 'queries'; goScreen('task-current') } }))
@@ -159,21 +160,36 @@ function palItems (): PalItem[] {
   return it
 }
 const HINTS: [string, string][] = [['@Codex write tests for the Pix webhook', 'start or delegate'], ['/approve', 'review what is waiting'], ['open billing-staging', 'go anywhere'], ['?', 'every command and its shortcut']]
+/** Exact and leading title matches rank first ("find why" opens the conversation, not its request's review). */
+function rank (items: PalItem[], q: string): PalItem[] {
+  if (!q) return items
+  const best = items.filter(i => i.g === 'Conversations' && (i.label.toLowerCase() === q || i.label.toLowerCase().startsWith(q))).map(i => ({ ...i, g: 'Best match' }))
+  return best.length ? best.concat(items.filter(i => !(i.g === 'Conversations' && best.some(b => b.label === i.label)))) : items
+}
+let liveTimer: ReturnType<typeof setTimeout> | null = null
+/** The combobox pattern: options only inside the listbox (in labelled groups), none of them tabbable; activedescendant
+    and aria-expanded only while there are options; a polite, debounced count. */
 function Palette () {
-  const o = S.overlay!; const q = (o.query || '').toLowerCase()
+  const o = S.overlay!; const q = (o.query || '').toLowerCase().trim()
   const cmd = cmdItems(o.query || '')
-  const items = cmd ?? palItems().filter(i => !q || (i.g + ' ' + i.label + ' ' + (i.sub || '')).toLowerCase().includes(q)).slice(0, 40)
+  const items = cmd ?? rank(palItems().filter(i => !q || (i.g + ' ' + i.label + ' ' + (i.sub || '')).toLowerCase().includes(q)), q).slice(0, 40)
   const sel = Math.min(o.sel || 0, Math.max(0, items.length - 1))
   const pick = (i: PalItem) => { S.overlay = null; i.act(); emit() }
-  let lastG = ''
+  const groups: [string, [PalItem, number][]][] = []
+  items.forEach((it, n) => { const g = groups[groups.length - 1]; if (g && g[0] === it.g) g[1].push([it, n]); else groups.push([it.g, [[it, n]]]) })
+  const say = items.length ? plural(items.length, 'result') : `No match for "${o.query}"`
+  if (liveTimer) clearTimeout(liveTimer)
+  liveTimer = setTimeout(() => { const el = document.getElementById('pal-live'); if (el && el.textContent !== say) el.textContent = say }, 300)
   return <div className="ov" onMouseDown={e => { if (e.target === e.currentTarget) closeOverlay() }}>
     <div className="pal" role="dialog" aria-modal="true" aria-label="Command bar">
-      <div className="pal-in"><Icon n="search" s={16} /><input autoFocus id="pal-q" value={o.query || ''} placeholder="Ask, run or go to: @agent, /command, open …, or search" aria-label="Command bar" role="combobox" aria-expanded="true" aria-controls="pal-list" aria-activedescendant={'pal-' + sel}
+      <div className="pal-in"><Icon n="search" s={16} /><input autoFocus id="pal-q" value={o.query || ''} placeholder="Ask, run or go to: @agent, /command, open …, or search" aria-label="Command bar" role="combobox" aria-autocomplete="list" aria-expanded={items.length > 0} aria-controls="pal-list" aria-activedescendant={items.length ? 'pal-' + sel : undefined}
         onChange={e => { o.query = e.target.value; o.sel = 0; emit() }} onKeyDown={e => { if (e.key === 'ArrowDown') { e.preventDefault(); o.sel = Math.min(items.length - 1, sel + 1); emit() } if (e.key === 'ArrowUp') { e.preventDefault(); o.sel = Math.max(0, sel - 1); emit() } if (e.key === 'Enter' && items[sel]) { e.preventDefault(); pick(items[sel]) } }} /><Kbd>Esc</Kbd></div>
-      <div className="pal-list" id="pal-list" role="listbox">{!o.query ? <div className="pal-hints" aria-label="Try">{HINTS.map(([h, d]) => <button key={h} onClick={() => { o.query = h; o.sel = 0; emit(); document.getElementById('pal-q')?.focus() }}><code>{h}</code><span>{d}</span></button>)}</div> : null}{items.length ? items.map((i, n) => { const head = i.g !== lastG ? (lastG = i.g, <div className="pal-g" key={'g' + n}>{i.g}</div>) : null
-        return [head, <button key={n} id={'pal-' + n} role="option" className="pal-i" aria-selected={n === sel} onMouseEnter={() => { o.sel = n; emit() }} onClick={() => pick(i)}><span className="ico"><Icon n={i.icon} /></span><span className="trunc">{i.label}{i.sub ? <span className="muted">{i.sub}</span> : null}{i.also ? <span className="also">Also: {i.also}</span> : null}</span>{i.k ? <Kbd>{i.k}</Kbd> : <span />}</button>] })
-        : <div className="state" style={{ padding: 24 }}><p>Nothing matches "{o.query}". Try a word from a title, a table name, or a mode.</p></div>}</div>
-      <div className="pal-f"><span><Kbd>↑↓</Kbd> move</span><span><Kbd>Enter</Kbd> open</span><span><Kbd>Esc</Kbd> close</span><span><Kbd>@</Kbd> agent <Kbd>/</Kbd> command <Kbd>?</Kbd> all</span><span className="sp" /><span>{plural(items.length, 'result')}</span></div></div></div>
+      {!o.query ? <div className="pal-hints" role="group" aria-label="Try">{HINTS.map(([h, d]) => <button key={h} tabIndex={-1} onClick={() => { o.query = h; o.sel = 0; emit(); document.getElementById('pal-q')?.focus() }}><code>{h}</code><span>{d}</span></button>)}</div> : null}
+      <div className="pal-list" id="pal-list" role="listbox" aria-label="Results">{groups.map(([g, list], gi) => <div key={g + gi} role="group" aria-labelledby={'palg-' + gi}>
+        <div className="pal-g" id={'palg-' + gi} role="presentation">{g}</div>
+        {list.map(([i, n]) => <div key={n} id={'pal-' + n} role="option" className="pal-i" aria-selected={n === sel} onMouseEnter={() => { o.sel = n; emit() }} onMouseDown={e => e.preventDefault()} onClick={() => pick(i)}><span className="ico"><Icon n={i.icon} /></span><span className="trunc">{i.label}{i.sub ? <span className="muted">{i.sub}</span> : null}{i.also ? <span className="also">Also: {i.also}</span> : null}</span>{i.k ? <Kbd>{i.k}</Kbd> : <span />}</div>)}</div>)}</div>
+      {!items.length ? <div className="state" style={{ padding: 24 }}><p>Nothing matches "{o.query}". Try a word from a title, a table name, or a mode.</p></div> : null}
+      <div className="pal-f"><span><Kbd>↑↓</Kbd> move</span><span><Kbd>Enter</Kbd> open</span><span><Kbd>Esc</Kbd> close</span><span><Kbd>@</Kbd> agent <Kbd>/</Kbd> command <Kbd>?</Kbd> all</span><span className="sp" /><span aria-hidden="true">{plural(items.length, 'result')}</span><span id="pal-live" className="sr" role="status" aria-live="polite" /></div></div></div>
 }
 
 /* ---------------------------------------------------------------- stage-1 dialogs */

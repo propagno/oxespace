@@ -130,7 +130,7 @@ export function ImpactBody ({ ap }: { ap: Approval }) {
 }
 /** Hold-to-confirm: pointer or the A key, 1.2 s. Releasing early cancels. */
 let holdTimer: ReturnType<typeof setTimeout> | null = null
-export function refocus () { setTimeout(() => { const el = document.querySelector<HTMLElement>('.qv .qi[aria-current="true"], .qv .qi, .nowline, .th h1'); el?.focus() }, 30) }
+export function refocus () { setTimeout(() => { const el = document.querySelector<HTMLElement>('.ag-need, .ag-needs-none, .qv .qi[aria-current="true"], .qv .qi, .nowline, .th h1'); el?.focus() }, 30) }
 export function startHold (id: string) { if (S.holding === id) return; S.holding = id; emit(); holdTimer = setTimeout(() => { holdTimer = null; resolve(id, 'ok'); emit(); refocus() }, 1200) }
 export function cancelHold () { if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; S.holding = null; emit() } }
 export function ImpactActions ({ ap }: { ap: Approval }) {

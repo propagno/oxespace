@@ -73,11 +73,28 @@ says, for each screen:
 | `#settings-*` | `SettingsCenter`, `AppearanceSettings`, `KeyboardSettings`, `ToolsSettings`, `DevicesSettings`, `DevicesPairing`, `PolicySettings`, `AgentActivitySettings`, `AutomationsSettings`, `UpdatePreferences`, `ExternalEditorSetting`, `SeenSitesSetting` | U2/U8 rows; apply at once; undo toasts on the risky list | A (U2, U8); `#settings-activity` E (U12-be); collection access E (T64) |
 | `#dialogs` | All 1.4 dialogs | U1 contract (U5a/b/c) | A |
 | `#foundations` | `DesignSystem` page | The token tables come from the token file | A |
-| `#agora` (T82) | `Approvals/*`, `ApprovalDialog`, the S7.1 agents read model | A new top-level view: needs-you cards, then rows grouped by workspace; Steer reuses the composer's queue; Stop reuses the confirm | after S7.1 (1.4.2) |
+| `#agora` (T82) | `Approvals/*`, `ApprovalDialog`, the S7.1 agents read model | A new top-level view: needs-you cards (D/A on the focused card), then rows grouped by workspace, in the 7 S7.1 states; Steer reuses the composer's queue; Stop reuses the confirm (conversations only) | wave B (S7.1 on main); the activity line needs T90 |
 | `#history` (T83) | Checkpoints, `rewind.*`, Fork | The scrubber band over the conversation; Restore = rewind + "Also restore files"; Branch = new worktree from the checkpoint commit | needs BE-2-2's checkpoint per turn + per other checkout (C/D) |
 | `#command-bar` (T84) | `CommandPalette` | Prefix parsing (`@`, `/`, `open`, `?`); every result shows its fallback and shortcut | A (no new powers) |
-| Identity (T85) | Mandacaru tokens, Lucide | `--ws-1…8` palette (AA both themes), workspace color in workspace settings, own mode icons, 750 display weight, reduced-motion off switch | C4 token PR |
+| Identity (T85) | Mandacaru tokens, Lucide | `--ws-1…8` palette and `--ws-N-fg` chip text (AA both themes), `workspaces.color` column via workspace:update-settings, own mode icons, 750 display weight, reduced-motion off switch | C4 token PR; the column is the first 1.5.0 migration |
 | `#later-multi`, `#later-watch` | — | Later (full B): needs a Task entity. `#later-watch` is superseded by Agora | not in 1.5.0 |
+
+## Build notes for round 4 (FRONTEND)
+
+- **Agora** mounts only while open. Rows are keyed by agent id and subscribe per agent, so one agent's change repaints
+  its row, not the list. Virtualize the per-workspace lists past about 60 agents.
+  Finished rows use `seenAt` and `agents:mark-seen`: finished since you last looked stays open, the rest folds
+  under "Show N finished" (the playground folds all of them).
+- **Scrubber:** move the knob with a CSS variable; compute "files since" and "can't go back" when the knob settles
+  (about 150 ms idle) or from a per-checkpoint index; draw the transcript ticks as one gradient; keep elements only
+  for checkpoints and events, and never as nested controls inside the slider.
+- **Icons** ship one module per icon, so a screen pulls in only what it draws; never one `PATHS` map in the entry.
+- **Identity** is CSS on a `data-ws` attribute (`[data-ws="N"]` sets `--wsc` and `--wsc-fg`), not a JS color map.
+- **Lazy:** Agora (a route chunk), history (inside the thread chunk, on first open), the command bar's parser,
+  sources and results (behind its first open), and the icons.
+- **Entry budget:** this round lands at 282–286 kB against the 284 kB target. PRs that touch the entry (title bar,
+  sidebar rows, pane headers) go first and are measured on CI; the next lever is the `SlashOverlay` / `CommandMenu`
+  preload.
 
 ## Token diff: Mandacaru today → 1.5 (contract C4)
 

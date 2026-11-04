@@ -5,6 +5,13 @@ import { Highlight } from './Tools'
 import { goScreen } from '../screens/registry'
 import { Icon, Av } from './ui'
 import type { DialogSpec } from './Overlays'
+import type { ReactNode } from 'react'
+import { WORKSPACES, ensureWorkspace } from '../mock/workspaces'
+import { panesOf } from './Modes'
+
+const NW_PRESETS: [number, number, number][] = [[1, 1, 1], [2, 2, 1], [4, 2, 2], [6, 3, 2], [8, 4, 2], [10, 5, 2], [12, 4, 3], [14, 7, 2], [16, 4, 4]] // panes, cols, rows (1.4 LAYOUT_PRESETS)
+/** 1.4's agent profiles on Windows, in its order (the shell chip comes first). */
+const NW_AGENTS: [string, string][] = [['claude', 'Claude'], ['copilot', 'Copilot'], ['codex', 'Codex'], ['antigravity', 'Antigravity'], ['cursor', 'Cursor'], ['grok', 'Grok CLI']]
 
 const text = (s: string) => <p style={{ color: 'var(--text-secondary)' }}>{s}</p>
 export const EXTRA_DIALOGS: Record<string, () => DialogSpec> = {
@@ -37,16 +44,41 @@ export const EXTRA_DIALOGS: Record<string, () => DialogSpec> = {
     <div className="chips" role="radiogroup">{['Open a pull request', 'Merge into main locally', 'Keep the branch, remove the worktree'].map((l, i) => <button key={l} className="chip" role="radio" aria-pressed={(S.finishPick ?? 0) === i} aria-checked={(S.finishPick ?? 0) === i} onClick={run(() => { S.finishPick = i })}>{l}</button>)}</div>
     <div className="callout info"><Icon n="info" /><span>The worktree folder is removed after this. The branch and its commits stay.</span></div></>,
     primary: { label: 'Finish', act: () => { if ((S.finishPick ?? 0) === 0) { S.tab = 'pr' } else toast('Worktree finished') } } } },
-  addproject: () => ({ size: 'md', icon: 'folder', title: 'Add a project', body: () => <>
-    <div className="field"><label htmlFor="ap-path">Folder</label><div className="row"><input className="input mono" id="ap-path" defaultValue="~/code/cajui/cajui-docs" /><button className="btn" onClick={run(() => toast('Opens the system folder picker'))}>Browse…</button></div><span className="muted" style={{ fontSize: 12 }}>A git repository. OXESpace reads its branches and scripts.</span></div></>,
-    primary: { label: 'Add project', act: () => toast('Added cajui-docs') } }),
-  newws: () => { const lay = S.nwLayout || 'one'; const ag = S.nwAgents || {}; const total = lay === 'one' ? 1 : lay === 'side' ? 2 : 4; const filled = Object.values(ag).reduce((a: number, b) => a + (b as number), 0)
-    return { size: 'md', icon: 'plus', title: 'Create new workspace', body: () => <>
-    <p style={{ color: 'var(--text-secondary)' }}>Pick a folder, a layout and, if you want, agents.</p>
-    <div className="field"><label htmlFor="nw-path">Workspace folder path</label><div className="row"><input className="input mono" id="nw-path" defaultValue="~/.oxespace/worktrees/cajui-api/t147" /><button className="btn" onClick={run(() => toast('Opens the system folder picker'))}>Choose a project folder</button></div><span className="muted" style={{ fontSize: 12 }}>A repository or one of its worktrees. Each worktree is its own workspace, with its own terminals.</span></div>
-    <div className="field"><span className="lbl">Layout</span><div className="chips" role="radiogroup" aria-label="Layout">{([['one', 'One terminal'], ['side', 'Side by side'], ['grid', '2×2 grid']] as const).map(([k, l]) => <button key={k} className="chip" role="radio" aria-checked={lay === k} aria-pressed={lay === k} onClick={run(() => { S.nwLayout = k })}>{l}</button>)}</div></div>
-    <div className="field"><span className="lbl">Agents <span className="muted">· {filled}/{total} slots filled</span></span><div className="row">{(['claude', 'codex'] as const).map(a => <span key={a} className="row" style={{ gap: 4 }}><Av p={a} /><span style={{ fontSize: 13 }}>{a === 'claude' ? 'Claude Code' : 'Codex'}</span><button className="ibtn sm" aria-label={`Remove one ${a === 'claude' ? 'Claude Code' : 'Codex'}`} disabled={!ag[a]} onClick={run(() => { ag[a] = (ag[a] || 1) - 1; S.nwAgents = ag })}><Icon n="min" s={12} /></button><span className="mono">{ag[a] || 0}</span><button className="ibtn sm" aria-label={`Add ${a === 'claude' ? 'Claude Code' : 'Codex'}`} disabled={filled >= total} onClick={run(() => { ag[a] = (ag[a] || 0) + 1; S.nwAgents = ag })}><Icon n="plus" s={12} /></button></span>)}</div><span className="muted" style={{ fontSize: 12 }}>{total - filled === 1 ? '1 default shell' : `${total - filled} default shells`}</span></div></>,
-    primary: { label: 'Create workspace', act: () => { S.nwLayout = undefined; S.nwAgents = undefined; toast('Created the workspace cajui-api · t147 (simulated)') } } } },
+  // 1.4's Add project: an empty "Project folder path" and Browse; nothing prefilled.
+  addproject: () => ({ size: 'md', icon: 'folder', title: 'Add project', body: () => <>
+    <div className="field"><label htmlFor="ap-path">Project folder path</label><div className="row"><input className="input mono" id="ap-path" placeholder="C:/projects/my-app" value={S.apPath || ''} onChange={e => { S.apPath = e.target.value; emit() }} /><button className="btn" onClick={run(() => { S.apPath = '~/code/cajui/cajui-docs'; toast('The system folder picker opens here; the playground picks cajui-docs') })}><Icon n="folder" s={12} />Browse</button></div></div></>,
+    primary: { label: 'Add project', disabled: !(S.apPath || '').trim(), act: () => { toast(`Added ${(S.apPath || '').trim().split('/').pop()}`); S.apPath = undefined } } }),
+  // 1.4's NewWorkspaceModal, exactly (the user's fixed constraint): folder (empty, Browse), layouts 1–16 with a
+  // preview, the shell chip and every agent profile with ± and the slot counter, Clear selection, and "Open existing
+  // workspace" when the folder already has one. Create makes the card with its panes and selects it.
+  newws: () => { const nw = (S.nw ||= { path: '', layout: 4, agents: {}, shell: 0 }); const path = nw.path.trim()
+    const existing = path ? WORKSPACES.filter(w => w.path === path && !S.wsGone?.includes(w.id)) : []
+    const filled = Object.values(nw.agents).reduce((a, b) => a + b, 0) + nw.shell; const remaining = Math.max(0, nw.layout - filled); const full = filled >= nw.layout
+    const base = path ? path.split(/[\\/]/).filter(Boolean).pop() : null
+    const chip = (id: string, name: string, icon: ReactNode, count: number, inc: () => void, dec: () => void) => <div key={id} className={'nw-chip' + (count ? ' selected' : '')}>
+      <button type="button" className="nw-chip-b" onClick={run(inc)} disabled={!count && full} aria-label={`Add ${name}`}>{icon}<span>{name}</span></button>
+      <span className="nw-chip-c" aria-live="polite"><button type="button" className="ibtn sm" onClick={run(dec)} disabled={count <= 0} aria-label={`Remove one ${name}`}><Icon n="min" s={12} /></button><span className="mono">{count}</span><button type="button" className="ibtn sm" onClick={run(inc)} disabled={full} aria-label={`Add another ${name}`}><Icon n="plus" s={12} /></button></span></div>
+    return { size: 'lg', icon: 'plus', extra: !path ? <span className="muted" style={{ fontSize: 12 }}>Choose a folder to continue.</span> : undefined, title: existing.length ? 'Open existing workspace' : 'Create new workspace', body: () => <>
+      <p style={{ color: 'var(--text-secondary)' }}>{existing.length ? 'Choose the workspace to continue where you left off.' : 'Pick a folder, a layout and, if you want, agents.'}</p>
+      <section className="nw-sec"><div className="nw-st">Folder</div><div className={'nw-zone' + (path ? ' has' : '')}><span className="nw-zi" aria-hidden="true"><Icon n={path ? 'check' : 'folder'} s={16} /></span>
+        <div className="nw-zm">{path ? <span className="nw-zn">{base}</span> : <span className="nw-zp">Choose a project folder</span>}<input className="input mono" placeholder="C:/projects/my-app" value={nw.path} aria-label="Workspace folder path" spellCheck={false} onChange={e => { nw.path = e.target.value; emit() }} /></div>
+        <button className="btn" onClick={run(() => { nw.path = '~/.oxespace/worktrees/cajui-api/t147'; toast('The system folder picker opens here; the playground picks a worktree folder') })}><Icon n="folder" s={12} />Browse</button></div></section>
+      {existing.length ? <section className="nw-sec"><div className="nw-st">Already open in OxeCode</div><p className="muted">This folder already has a workspace. Opening it keeps its terminals and layout.</p></section> : <>
+        <section className="nw-sec"><div className="nw-st">Layout</div><div className="nw-lay" role="radiogroup" aria-label="Layout preset">{NW_PRESETS.map(([n, c, r]) => <button key={n} role="radio" aria-checked={nw.layout === n} title={n === 1 ? 'One terminal' : n === 2 ? 'Side by side' : `${r}×${c} grid`} className={'nw-lc' + (nw.layout === n ? ' selected' : '')} onClick={run(() => { nw.layout = n })}>
+          <span className="nw-pv" style={{ gridTemplateColumns: `repeat(${c}, 1fr)`, gridTemplateRows: `repeat(${r}, 1fr)` }} aria-hidden="true">{Array.from({ length: n }, (_, i) => <i key={i} />)}</span><span>{n === 1 ? '1 pane' : `${n} panes`}</span></button>)}</div></section>
+        <section className="nw-sec"><div className="nw-st"><span>Agents</span><span className="nw-badge">{filled}/{nw.layout} slots filled</span>{remaining ? <span className="nw-badge muted">{remaining === 1 ? '1 default shell' : `${remaining} default shells`}</span> : null}</div>
+          <div className="nw-chips">{chip('shell', 'PowerShell', <Icon n="term" s={12} />, nw.shell, () => { if (!full) nw.shell++ }, () => { nw.shell = Math.max(0, nw.shell - 1) })}
+            {NW_AGENTS.map(([id, name]) => chip(id, name, id === 'claude' || id === 'codex' ? <Av p={id} size="s16" /> : <span className="nw-ai" aria-hidden="true">{name[0]}</span>, nw.agents[id] || 0, () => { if (!full) nw.agents[id] = (nw.agents[id] || 0) + 1 }, () => { nw.agents[id] = Math.max(0, (nw.agents[id] || 0) - 1) }))}</div>
+          {filled ? <button className="btn ghost sm nw-clear" onClick={run(() => { nw.agents = {}; nw.shell = 0 })}>Clear selection</button> : null}</section></>}</>,
+      primary: { label: existing.length ? 'Open workspace' : 'Create workspace', disabled: !path, act: () => {
+        if (existing.length) { S.ws = existing[0].id; S.area = 'mode'; S.mode2 = 'code'; S.nw = undefined; return }
+        const m = /worktrees\/([^/]+)\/([^/]+)$/.exec(path) || /code\/cajui\/([^/]+)$/.exec(path); const proj = m && Object.values(D.projects).find(x => x.name === m[1])
+        if (!proj) { toast(`Created the workspace ${base} (simulated: the playground only knows the cajui folders)`); S.nw = undefined; return }
+        const [w] = ensureWorkspace(proj.id, proj.name, m![2] || 'main'); const panes = panesOf(w.id); const slots: [string, string][] = []
+        NW_AGENTS.forEach(([id, name]) => { for (let i = 0; i < (nw.agents[id] || 0); i++) slots.push([id, name]) })
+        for (let i = 0; i < nw.layout; i++) { const a = slots[i]; panes.push({ id: 'nw' + Date.now() + i, name: a ? a[0] : 'pwsh', shell: a ? a[0] : 'pwsh', prov: a && (a[0] === 'claude' || a[0] === 'codex') ? a[0] : undefined, cwd: w.path, by: 'you', branch: w.branch, project: proj.name, lines: a ? [['dim', `${a[1]} started in ${w.path}`]] : [] }) }
+        S.ws = w.id; S.code.focus = 0; S.codeLayout = ({ 1: '1x1', 2: '1x2', 4: '2x2', 6: '2x3', 8: '2x4', 10: '2x5', 12: '3x4', 14: '2x7', 16: '4x4' } as Record<number, string>)[nw.layout]; S.area = 'mode'; S.mode2 = 'code'; (S.wsOpen ||= {})[w.id] = true
+        toast(`Created ${w.name} with ${nw.layout === 1 ? '1 terminal' : nw.layout + ' terminals'}`); S.nw = undefined } } } },
   newconn: () => ({ size: 'md', icon: 'db', title: 'New connection', body: () => <>
     <div className="row" style={{ alignItems: 'start' }}><div className="field" style={{ flex: 1 }}><label htmlFor="nc-name">Name</label><input className="input" id="nc-name" placeholder="billing-staging" /></div><div className="field" style={{ width: 170 }}><label htmlFor="nc-eng">Database</label><select className="sel" id="nc-eng"><option>Postgres</option><option>MySQL</option><option>SQLite</option><option>SQL Server</option><option>ClickHouse</option></select></div></div>
     <div className="row"><div className="field" style={{ flex: 1 }}><label htmlFor="nc-host">Host</label><input className="input mono" id="nc-host" defaultValue="staging-db.cajui.internal" /></div><div className="field" style={{ width: 90 }}><label htmlFor="nc-port">Port</label><input className="input mono" id="nc-port" defaultValue="5432" /></div></div>

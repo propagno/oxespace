@@ -29,7 +29,7 @@ export interface Approval {
   rows: string; rowsSub: string; undo: boolean; undoSub: string; irreversible: boolean; risk: 'high' | 'medium' | 'low'
   sql: string; lang?: 'shell'; cols?: string[]; sample?: (string | [string, string])[][]; snapshot: string | null
 }
-export interface Checkpoint { n: number; at: string; label: string; files: number }
+export interface Checkpoint { n: number; at: string; label: string; files: number ; state?: 'ok' | 'failed' }
 export interface Connection { id: string; name: string; engine: string; env: string; host: string; db: string; agent: string; status: string; tables: number }
 export interface Query { id: string; task: string; by: ProviderId; conn: string; at: string; ms: number; rows: number; kind: string; status: string; sql: string; cols: string[]; data: string[][]; note?: string }
 export interface Collection { id: string; name: string; agent: string; reqs: string[] }

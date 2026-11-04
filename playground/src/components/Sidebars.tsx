@@ -35,7 +35,7 @@ export function ChatSidebar () {
   const shut = S.projShut || {}
   return <aside className={'sbar' + (col ? ' col' : '') + (S.chatCompact ? ' compact' : '')} aria-label="OxeChat sidebar">
     <div className="sbar-h"><h2>Conversations</h2>
-      <button className="ibtn" onClick={run(() => { S.overlay = { type: 'dlg', id: 'addproject' } })} title="Add project" aria-label="Add project"><Icon n="folder" /></button>
+      <button className="ibtn" onClick={run(() => { S.apPath = undefined; S.overlay = { type: 'dlg', id: 'addproject' } })} title="Add project" aria-label="Add project"><Icon n="folder" /></button>
       <button className="ibtn" onClick={run(() => { S.chatCompact = !S.chatCompact })} aria-pressed={!!S.chatCompact} title={S.chatCompact ? 'Use comfortable spacing' : 'Use compact spacing'} aria-label="Compact conversation list"><Icon n="list" /></button>
       <button className="ibtn" onClick={run(() => { S.sbCol = !S.sbCol; syncScreen() })} title={`${col ? 'Expand' : 'Collapse'} the sidebar (Ctrl B)`} aria-label={`${col ? 'Expand' : 'Collapse'} the sidebar`}><Icon n="sidebar" /></button></div>
     <div className="sbar-tools"><label className="search"><Icon n="search" s={12} /><input id="tsearch" placeholder="Filter conversations" aria-label="Filter conversations" value={S.filter || ''} onChange={e => { S.filter = e.target.value; emit() }} /><Kbd>/</Kbd></label></div>
@@ -48,7 +48,7 @@ export function ChatSidebar () {
             const inSec = new Set(secs.flatMap(s => s[1].map(t => t.id))); const rest = ts.filter(t => !inSec.has(t.id))
             const more = S.projMore?.[p.id]; const shown = more ? rest : rest.slice(0, SHOW)
             const needs = ts.filter(t => t.status === 'needs').length
-            return <div key={p.id} className="pg" style={{ ['--wsc' as string]: `var(--ws-${projColor(p.id)})` }}>
+            return <div key={p.id} className="pg" data-ws={projColor(p.id)}>
               <div className="pg-h"><button className="pg-t" aria-expanded={open} onClick={run(() => { (S.projShut ||= {})[p.id] = open })}><Icon n={open ? 'down' : 'right'} s={12} /><span className="wsdot" aria-hidden="true" /><span className="trunc">{p.name}</span>{!open && needs ? <span className="sg needs" title={`${needs} need you`} /> : null}<span className="n">{ts.length}</span></button>
                 <button className="ibtn sm" title={`New conversation in ${p.name}`} aria-label={`New conversation in ${p.name}`} onClick={run(() => { S.overlay = { type: 'newtask', text: '' }; S.newTask = { project: p.id, prov: 'claude', model: 'Opus 5.5', access: 'edit', worktree: true } })}><Icon n="plus" s={12} /></button>
                 <button className="ibtn sm" aria-label={`${p.name} project actions`} title="Project actions" onClick={e => { S.projCtx = p.id; menuBtn('projact')(e) }}><Icon n="more" s={12} /></button></div>
@@ -57,7 +57,7 @@ export function ChatSidebar () {
                 {shown.map(t => <ConvRow key={t.id} t={t} col={false} />)}
                 {rest.length > shown.length ? <button className="more-b" onClick={run(() => { (S.projMore ||= {})[p.id] = true })}>Show {rest.length - shown.length} more</button> : null}
                 {!ts.length ? <p className="pg-e">{q ? 'No conversations found.' : 'No conversations yet.'}</p> : null}</div> : null}</div> })}
-          {!projects.length ? <div className="state" style={{ padding: '24px 12px' }}><p style={{ fontSize: 12 }}>Add a project to start a conversation.</p><button className="btn sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'addproject' } })}><Icon n="folder" s={12} />Add project</button></div> : null}
+          {!projects.length ? <div className="state" style={{ padding: '24px 12px' }}><p style={{ fontSize: 12 }}>Add a project to start a conversation.</p><button className="btn sm" onClick={run(() => { S.apPath = undefined; S.overlay = { type: 'dlg', id: 'addproject' } })}><Icon n="folder" s={12} />Add project</button></div> : null}
         </section>
         {q && !all.length ? <div className="state" style={{ padding: '24px 12px' }}><p style={{ fontSize: 12 }}>No conversations found.</p></div> : null}</>}
     </div>
@@ -83,13 +83,13 @@ export function CodeSidebar ({ panesOf, onPane }: { panesOf: (id: string) => { i
   const exp = S.wsOpen || {}
   return <aside className="mode-side ws-side ws14" aria-label="Workspaces">
     <div className="mside-h"><b>Workspaces</b><span className="sp" />
-      <button className="ibtn sm" title="New workspace" aria-label="New workspace" data-testid="btn-new-workspace" onClick={run(() => { S.overlay = { type: 'dlg', id: 'newws' } })}><Icon n="plus" s={12} /></button>
+      <button className="ibtn sm" title="New workspace" aria-label="New workspace" data-testid="btn-new-workspace" onClick={run(() => { S.nw = undefined; S.overlay = { type: 'dlg', id: 'newws' } })}><Icon n="plus" s={12} /></button>
       <button className="ibtn sm" title="Delegated work" aria-label="Delegated work" onClick={run(() => { S.overlay = { type: 'dlg', id: 'delegated' } })}><Icon n="layers" s={12} /></button>
       <button className="ibtn sm" title="Files & commands (Ctrl P)" aria-label="Files & commands" onClick={run(() => { S.overlay = { type: 'pal', query: '', sel: 0 } })}><Icon n="search" s={12} /></button></div>
     <div className="sbar-tools"><label className="search"><Icon n="search" s={12} /><input placeholder="Filter workspaces" aria-label="Filter workspaces" value={S.wsFilter || ''} onChange={e => { S.wsFilter = e.target.value; emit() }} /><Kbd>/</Kbd></label></div>
     <div className="scroll"><div className="sh"><span>Workspaces</span><span className="sp" /><button className="ibtn sm" aria-label="Toggle all workspace terminals" title="Toggle all workspace terminals" onClick={run(() => { const anyOpen = list.some(w => exp[w.id] ?? w.id === S.ws); S.wsOpen = Object.fromEntries(list.map(w => [w.id, !anyOpen])) })}><Icon n="down" s={12} /></button></div>
       <nav className="wsl" aria-label="Workspaces">{list.length ? list.map(w => { const panes = panesOf(w.id); const active = w.id === S.ws; const open = !!q || (exp[w.id] ?? active); const tone = dominant(panes)
-        return <section key={w.id} className={'wsc' + (active ? ' active' : '') + (S.wsDragOver === w.id ? ' dropt' : '')} style={{ ['--wsc' as string]: `var(--ws-${wsColor(w)})` }}
+        return <section key={w.id} className={'wsc' + (active ? ' active' : '') + (S.wsDragOver === w.id ? ' dropt' : '')} data-ws={wsColor(w)}
           onDragOver={e => { if (S.wsDrag && S.wsDrag !== w.id) { e.preventDefault(); if (S.wsDragOver !== w.id) { S.wsDragOver = w.id; emit() } } }}
           onDrop={e => { e.preventDefault(); const from = S.wsDrag; S.wsDrag = undefined; S.wsDragOver = undefined; if (!from || from === w.id) { emit(); return } const o = wsList().map(x => x.id).filter(x => x !== from); o.splice(o.indexOf(w.id), 0, from); S.wsOrder = o; emit() }}>
           <div className="wsc-h" draggable onDragStart={() => { S.wsDrag = w.id }} onDragEnd={() => { S.wsDrag = undefined; S.wsDragOver = undefined; emit() }} onContextMenu={e => { e.preventDefault(); S.wsCtx = w.id; menuBtn('wsopts')(e) }}>
@@ -103,7 +103,7 @@ export function CodeSidebar ({ panesOf, onPane }: { panesOf: (id: string) => { i
               <span className={'adot ' + tn} aria-hidden="true" /><span className="psr-n">{k.prov ? <span className={'pdot ' + k.prov} /> : <Icon n="term" s={12} />}<span className="trunc">{k.tag || k.name}</span></span>
               {k.moved || (k.branch && k.branch !== w.branch) ? <span className={'bb' + (k.moved ? ' moved' : '')} title={k.moved ? `Started on ${k.moved}; the branch has changed since` : 'This pane is on another branch'}>{k.moved ? <Icon n="warn" s={12} /> : <Icon n="branch" s={12} />}<span className="trunc">{k.branch}</span></span> : <span />}
               <span className="psr-s">{k.tag ? `${k.name} · ` : ''}{TONE_LABEL[tn]}</span><span className="sr">, {TONE_LABEL[tn]}{k.moved ? ', branch moved' : ''}</span></button> })}</div> : null}
-        </section> }) : <div className="state" style={{ padding: '24px 12px' }}><p style={{ fontSize: 12 }}>{q ? 'No matching workspaces.' : 'No workspaces yet.'}</p>{q ? null : <button className="btn sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'newws' } })}><Icon n="plus" s={12} />New workspace</button>}</div>}</nav></div>
+        </section> }) : <div className="state" style={{ padding: '24px 12px' }}><p style={{ fontSize: 12 }}>{q ? 'No matching workspaces.' : 'No workspaces yet.'}</p>{q ? null : <button className="btn sm" onClick={run(() => { S.nw = undefined; S.overlay = { type: 'dlg', id: 'newws' } })}><Icon n="plus" s={12} />New workspace</button>}</div>}</nav></div>
     <div className="mside-f"><button className="btn sm ghost" onClick={menuBtn('panels')}><Icon n="grid" s={12} />Open panels</button></div></aside>
 }
 MENUS.wsopts = () => { const w = WORKSPACES.find(x => x.id === S.wsCtx) || curWs(); const o = wsList(); const i = o.indexOf(w); const move = (d: number) => { const ids = o.map(x => x.id); ids.splice(i, 1); ids.splice(i + d, 0, w.id); S.wsOrder = ids }

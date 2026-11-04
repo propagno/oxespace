@@ -13,6 +13,18 @@ export const WORKSPACES: Workspace[] = [
   { id: 'w-web', name: 'cajui-web', path: '~/code/cajui/cajui-web', project: 'web', branch: 'main', color: 4 },
   { id: 'w-infra', name: 'cajui-infra', path: '~/code/cajui/cajui-infra', project: 'infra', branch: 'main', color: 6 }
 ]
+const BASE = WORKSPACES.length
+/** Reset puts the list back to the seeded five. */
+export function resetWorkspaces () { WORKSPACES.splice(BASE) }
+/** 1.4: a folder with no card gets one, as New workspace would make it. Used when a terminal opens in another worktree. */
+export function ensureWorkspace (project: string, projectName: string, wt: string): [Workspace, boolean] {
+  const hit = WORKSPACES.find(w => w.project === project && (wt === 'main' ? !w.wt : w.wt === wt)); if (hit) return [hit, false]
+  const used = new Set(WORKSPACES.map(w => w.color)); const color = [1, 2, 3, 4, 5, 6, 7, 8].find(c => !used.has(c)) ?? (WORKSPACES.length % 8) + 1
+  const w: Workspace = wt === 'main'
+    ? { id: 'w-' + project, name: projectName, path: `~/code/cajui/${projectName}`, project, branch: 'main', color }
+    : { id: `w-${project}-${wt}`, name: `${projectName} · ${wt}`, path: `~/.oxespace/worktrees/${projectName}/${wt}`, project, branch: 'oxe/' + wt, wt, color }
+  WORKSPACES.push(w); return [w, true]
+}
 /** The workspace a project or worktree lives in, for carrying its color into OxeChat, Agora and the status bar. */
 export function wsFor (project: string, wt?: string | null): Workspace | undefined {
   return WORKSPACES.find(w => w.project === project && (wt ? w.wt === wt : !w.wt)) || WORKSPACES.find(w => w.project === project && !w.wt)
