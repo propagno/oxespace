@@ -462,7 +462,7 @@ describe('GitHub API adapter', () => {
       return { ok: true, status: 204, json: async () => null, text: async () => '', headers: { get: () => '' } }
     }
     const api = createGitHubApi({ token: 't', repo: 'o/r', fetchImpl })
-    expect(await api.listQueue()).toEqual([{ number: 9, labeledAt: 'T2', labeledBy: 'maintainer', fixMain: false, fixMainBy: null }])
+    expect(await api.listQueue()).toEqual([{ number: 9, labeledAt: 'T2', labeledBy: 'maintainer', fixMain: false, fixMainBy: null, noBatch: false }])
     await api.merge(9, HEAD)
     expect(calls.at(-1)).toEqual(['PUT', 'https://api.github.com/repos/o/r/pulls/9/merge', { merge_method: 'merge', sha: HEAD }])
     await api.removeLabel(9)
@@ -964,7 +964,7 @@ describe('merge-train workflow', () => {
 
   it('asks for only what it uses', () => {
     expect(workflow.permissions).toEqual({})
-    expect(workflow.jobs.train.permissions).toEqual({ contents: 'write', 'pull-requests': 'write', checks: 'read', actions: 'write' })
+    expect(workflow.jobs.train.permissions).toEqual({ contents: 'write', 'pull-requests': 'write', checks: 'read', actions: 'write', statuses: 'write' })
   })
 
   it('is woken by the end of a CI run it dispatched, and waits for that run to complete first', () => {

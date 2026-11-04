@@ -18,7 +18,7 @@ export function ShortcutGuide({ view, onClose }: { view: AppView; onClose: () =>
   const customize = (): void => { onClose(); useUIStore.getState().openSettingsPage('keyboard') }
   // A pane can send F6 to its program (mc, htop, tig); the toggle is then its way out. Only while the toggle has a key.
   const toggle = shortcutLabel('terminal.tabMovesFocus')
-  return <Dialog title={t('keys.guide.title')} description={t('keys.guide.description', { view: VIEW_NAMES[view] })} onClose={onClose} testId="shortcut-guide"
+  return <Dialog size="md" title={t('keys.guide.title')} description={t('keys.guide.description', { view: VIEW_NAMES[view] })} onClose={onClose} testId="shortcut-guide"
     footer={<Button onClick={customize}>{t('keys.guide.customize')}</Button>}>
     <div className={styles.guide}>
       {bindingsForView(view).map(group => <section key={group.scope} className={styles.group} aria-labelledby={`shortcut-group-${group.scope}`}>

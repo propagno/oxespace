@@ -57,7 +57,7 @@ export function AboutDialog({ onClose }: { onClose: () => void }): ReactElement 
     [t('about.system'), `${PLATFORMS[about.platform] ?? about.platform} ${about.osRelease} · ${about.arch}`]
   ] : []
 
-  return <Dialog title={t('about.title')} onClose={onClose} testId="about-dialog"
+  return <Dialog size="md" title={t('about.title')} onClose={onClose} testId="about-dialog"
     footer={<>
       <Button data-align="start" icon={<Bug size={14} aria-hidden="true" />} onClick={() => { onClose(); requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_REPORT_PROBLEM_EVENT))) }}>{t('about.report')}</Button>
       {about && <Button icon={<Copy size={14} aria-hidden="true" />} onClick={() => void copyText(aboutText(about), t('about.details'), t('about.detailsCopied'))}>{t('about.copy')}</Button>}

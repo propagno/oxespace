@@ -70,12 +70,30 @@ can no longer cancel the ready run.
 
 ### Batches of docs and tests
 
-The train merges one PR at a time. To move several queued PRs that change only documentation or test code in one CI
-run, a maintainer runs `node scripts/merge-batch.mjs --dry-run` (prints the batch), then without `--dry-run`. With their
-own `gh` login, it builds `train/batch-N` from main with each PR merged in, opens the batch PR labelled `na-fila`, and
-takes the members out of the queue; each closes as merged when the batch lands. It skips the queue's first car, drafts,
-forks and PRs labelled `fix-main` or `no-batch`. If a batch fails, close it and relabel its members. (The train itself
-cannot open pull requests: GitHub Actions is not allowed to, and that setting stays off.)
+When the queue's first car changes only docs and tests, the train batches it on its own (`runBatch` in
+`scripts/merge-train.mjs`). Batchable files: `docs/**`, Markdown outside `.github/` and the app's code, `tests/**`,
+and spec files under `e2e/`. Never `.github/**`, `package*.json`, `scripts/**`, a Playwright or Vitest config,
+`electron/`, `src/`, `shared/` or an `android/` folder.
+
+1. **Build.** From a green main, the train takes the first car and up to four more batchable cars in queue order. It
+   leaves out drafts, forks, conflicts, changes requested, `fix-main` and `no-batch`. It creates `train/batch-N` at
+   main and merges each head into it (commit `merge-train batch N: #<pr> <head sha>`), then dispatches `ci.yml` on
+   the branch. A member that conflicts with an earlier one stays out. With fewer than two members, nothing is built.
+2. **Wait.** Nothing else moves while a batch is open. The branch is the batch's whole state.
+3. **Green.** For each member in order, the train first checks that main is the commit the batch expects: its base,
+   then the merge just made. It posts the `CI result` status on the member's exact tested head (description
+   `batch train/batch-N`, link to the batch run) and merges that head. main ends with the tested tree.
+4. **Anything else ends the batch** and deletes `train/batch-N`.
+   - CI red, never started, or past the timeout; main moved; a merge refused: the members left are labelled
+     `no-batch` and go one by one. Remove the label to let a PR batch again.
+   - A member closed, unlabelled or given a new head: the others go back unlabelled and may batch again.
+
+`MERGE_TRAIN_BATCHES=false` (repository variable) turns batches off. To see what the train would do without changing
+anything: `GITHUB_TOKEN=$(gh auth token) GITHUB_REPOSITORY=<owner/name> node scripts/merge-train.mjs --dry-run`.
+
+`scripts/merge-batch.mjs` is the manual fallback, with the same file list. A maintainer runs it with their own `gh`
+login: `--dry-run` prints the batch; without it, the script opens a batch PR labelled `na-fila` and takes the members
+out of the queue. If that batch fails, close it and relabel its members.
 
 ## Running the checks locally
 
