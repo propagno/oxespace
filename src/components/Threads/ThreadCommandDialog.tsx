@@ -66,14 +66,15 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
       onCancel={onClose} onConfirm={() => void action(async () => { await runCommand(confirm.command); onClose() })} />
   }
 
-  const footer = panel.surface === 'rename'
-    ? <><Button onClick={onClose}>{t('common.cancel')}</Button><Button type="submit" form="thread-rename-form" variant="primary" loading={pending} disabled={!canRename}>{t('commandDialog.rename')}</Button></>
-    : !panel.surface && output && panel.externalUrl ? <Button onClick={() => void openExternalLink(panel.externalUrl!, { source: 'app' })}>{t('commandDialog.openBrowser')}</Button>
-    : !panel.surface && output && panel.text ? <Button onClick={() => void navigator.clipboard.writeText(panel.text!).catch(() => onError(t('commandDialog.copyFailed')))}>{t('commandDialog.copy')}</Button>
+  // U1 footer: extra · Cancel · primary. Output panels keep their one action as an extra, beside Close.
+  const actions = panel.surface === 'rename'
+    ? { cancel: { label: t('common.cancel') }, primary: { label: t('commandDialog.rename'), loading: pending, disabled: !canRename, onClick: () => (document.getElementById('thread-rename-form') as HTMLFormElement | null)?.requestSubmit() } }
+    : !panel.surface && output && panel.externalUrl ? { cancel: { label: t('common.close') }, extra: <Button onClick={() => void openExternalLink(panel.externalUrl!, { source: 'app' })}>{t('commandDialog.openBrowser')}</Button> }
+    : !panel.surface && output && panel.text ? { cancel: { label: t('common.close') }, extra: <Button onClick={() => void navigator.clipboard.writeText(panel.text!).catch(() => onError(t('commandDialog.copyFailed')))}>{t('commandDialog.copy')}</Button> }
     : undefined
 
   return <Dialog closeLabel={t('common.close')} size={panel.surface === 'sessions' || panel.surface === 'events' || panel.surface === 'spending' ? 'lg' : 'md'}
-    title={panel.surface === 'sessions' ? t('commandDialog.resume') : panel.title === 'Conversation status' ? t('commandDialog.statusTitle') : panel.title || t('commandDialog.conversation')} description={panel.surface && DESCRIBED.has(panel.surface) ? t(`commandDialog.surface.${panel.surface as 'rename'}`) : undefined} onClose={onClose} footer={footer}><div className="thread-command-body">
+    title={panel.surface === 'sessions' ? t('commandDialog.resume') : panel.title === 'Conversation status' ? t('commandDialog.statusTitle') : panel.title || t('commandDialog.conversation')} description={panel.surface && DESCRIBED.has(panel.surface) ? t(`commandDialog.surface.${panel.surface as 'rename'}`) : undefined} onClose={onClose} actions={actions}><div className="thread-command-body">
     {error && <ErrorState compact title={error} />}
     {panel.surface === 'rename' ? <form id="thread-rename-form" className="thread-command-form" onSubmit={event => { event.preventDefault(); if (!canRename) return; void action(async () => { await runCommand(`/rename ${rename.trim()}`); onClose() }) }}>
       <label>{t('commandDialog.name')}<TextField aria-label={t('commandDialog.name')} value={rename} maxLength={120} autoFocus onFocus={event => event.currentTarget.select()} onChange={event => setRename(event.target.value)} /></label>
