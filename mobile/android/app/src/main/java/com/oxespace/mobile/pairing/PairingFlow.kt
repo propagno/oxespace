@@ -2,6 +2,7 @@ package com.oxespace.mobile.pairing
 
 import com.oxespace.mobile.protocol.RemotePairingErrorCode
 import com.oxespace.mobile.protocol.pairing.ConnectFailure
+import com.oxespace.mobile.protocol.session.SessionEnd
 import com.oxespace.mobile.protocol.pairing.PairOutcome
 import com.oxespace.mobile.protocol.pairing.PairingQr
 import com.oxespace.mobile.protocol.pairing.PairingQrProblem
@@ -73,6 +74,8 @@ class PairingFlow(
      * read "OXESpace removed this phone".
      */
     private val onPaired: () -> Unit = {},
+    /** P3: signs in once with the new identity before the pairing is saved. Tests answer it directly. */
+    private val probe: PairingProbe = PairingProbe { _, _ -> ProbeResult.Ok },
 ) {
     private val mutableState = MutableStateFlow<PairingState>(PairingState.Scanning)
     val state: StateFlow<PairingState> = mutableState.asStateFlow()
@@ -115,9 +118,20 @@ class PairingFlow(
             mutableState.value = when (outcome) {
                 is PairOutcome.Paired -> {
                     val desktop = PairedDesktop(outcome.response.deviceId, qr.host, qr.port, qr.fingerprint, qr.desktopName, alias)
-                    withContext(io) { store.save(desktop) }
-                    onPaired()
-                    PairingState.Paired(desktop)
+                    // P3: accepted is not reachable. Sign in once with the new identity before saving or saying
+                    // "Paired", so a phone that can't keep a session says why now, not later as "removed".
+                    mutableState.value = PairingState.Contacting(qr.desktopName)
+                    when (val probed = probe.probe(desktop, keys)) {
+                        ProbeResult.Ok -> {
+                            withContext(io) { store.save(desktop) }
+                            onPaired()
+                            PairingState.Paired(desktop)
+                        }
+                        else -> {
+                            withContext(io) { keys.delete() }
+                            PairingState.Failed(failureOfProbe(probed))
+                        }
+                    }
                 }
                 else -> {
                     withContext(io) { keys.delete() }
@@ -125,6 +139,16 @@ class PairingFlow(
                 }
             }
         }
+    }
+
+    private fun failureOfProbe(result: ProbeResult): PairingFailure = when (result) {
+        ProbeResult.TimedOut -> PairingFailure.TIMED_OUT
+        ProbeResult.Closed -> PairingFailure.UNREACHABLE
+        is ProbeResult.Refused -> when (result.end) {
+            SessionEnd.UNSUPPORTED_VERSION, SessionEnd.PROTOCOL -> PairingFailure.PROTOCOL
+            else -> PairingFailure.REFUSED_ON_DESKTOP
+        }
+        ProbeResult.Ok -> error("not a failure")
     }
 
     private fun failureOf(outcome: PairOutcome): PairingFailure = when (outcome) {
