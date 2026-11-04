@@ -1,6 +1,7 @@
 import type { ReactElement, SVGProps } from 'react'
 
-// Mandacaru own icon (T85): History (time travel), a clock face with a rewind arrow. 24 px grid, 2 px stroke.
+// Mandacaru own icon (T85, CR-02): History (time travel) as a scrubber, a track with ticks and a filled handle. Not a clock.
+// Approved drawing from playground icons.ts @718ddfcf, 24 px grid, 2 px stroke.
 type Props = SVGProps<SVGSVGElement> & { size?: number; title?: string }
 
 export function HistoryIcon({ size = 24, title, ...rest }: Props): ReactElement {
@@ -20,9 +21,9 @@ export function HistoryIcon({ size = 24, title, ...rest }: Props): ReactElement 
       {...rest}
     >
       {title ? <title>{title}</title> : null}
-      <path d="M4 12a8 8 0 1 0 2.3-5.6" />
-      <path d="M4 4v4h4" />
-      <path d="M12 8v4l3 2" />
+      <path d="M3 12h18" />
+      <path d="M5 9v6M9 10v4M15 10v4M19 9v6" />
+      <circle cx="12" cy="12" r="2.5" fill="currentColor" />
     </svg>
   )
 }

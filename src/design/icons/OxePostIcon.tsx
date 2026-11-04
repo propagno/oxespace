@@ -1,6 +1,7 @@
 import type { ReactElement, SVGProps } from 'react'
 
-// Mandacaru own icon (T85): OxePost mode, a request arrow hitting an endpoint. 24 px grid, 2 px stroke.
+// Mandacaru own icon (T85, CR-02): OxePost mode, a request leaving a source as an arrow.
+// Approved drawing from playground icons.ts @718ddfcf, 24 px grid, 2 px stroke.
 type Props = SVGProps<SVGSVGElement> & { size?: number; title?: string }
 
 export function OxePostIcon({ size = 24, title, ...rest }: Props): ReactElement {
@@ -20,9 +21,9 @@ export function OxePostIcon({ size = 24, title, ...rest }: Props): ReactElement 
       {...rest}
     >
       {title ? <title>{title}</title> : null}
-      <path d="M4 12h11" />
-      <path d="M11 7l5 5-5 5" />
-      <path d="M20 5v14" />
+      <circle cx="9" cy="12" r="5" />
+      <path d="M14 12h7M18 9l3 3-3 3" />
+      <path d="M9 9.5v5" />
     </svg>
   )
 }
