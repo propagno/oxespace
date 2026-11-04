@@ -144,6 +144,17 @@ Answers:
 | Follow the new branch | Sets the base to the drift's `to` and keeps the drift record with `answer: 'followed'`. | None: no repository change. |
 | Dismiss | Keeps the base. The diff keeps comparing with it, and the files the branch switch changed show as a separate "changed outside this task" group (§2.6). | None. |
 
+**The copy on the drift card** (round 1) follows the facts:
+
+- the author is named as "probably your terminal X", or left out when no pane is in that place;
+- "nothing was lost" is said only when the task's commits are still reachable from `base.branch`, which is checked
+  with `git branch --contains`;
+- the task's uncommitted files the switch carried along show in the "changed by the branch switch" group, not as the
+  task's.
+
+Each place's **Discard…** restores that root's checkpoints of this thread, newest first, using the existing
+all-or-nothing restore with its conflict check. An `outside` place has no Discard (§2.5).
+
 Switch back is a write the person makes from the UI, not the agent, so it uses the person's existing git IPC path,
 not MCP. No new MCP capability is needed. The `mcp-coverage` entry for the new channels is `excluded` (§4.1).
 
@@ -182,7 +193,7 @@ type ThreadPathResolution =
   | { kind: 'found'; path: string; placeId: string | null; via: ThreadPathStep }
   | { kind: 'ambiguous'; candidates: { path: string; placeId: string | null; via: ThreadPathStep }[] }  // the UI asks
   | { kind: 'missing'; looked: { step: ThreadPathStep; path: string }[] }                                 // the UI says where it looked
-type ThreadPathStep = 'absolute' | 'turn-cwd' | 'checkout-root' | 'task-worktree' | 'project-root' | 'sibling-worktree'
+type ThreadPathStep = 'absolute' | 'turn-cwd' | 'checkout-root' | 'task-worktree' | 'project-root' | 'task-place' | 'sibling-worktree'
 ```
 
 The order, as asked:
@@ -193,12 +204,17 @@ The order, as asked:
 4. **The task worktree:** a `worktree` place of the task, newest first.
 5. **The project root:** `thread.rootPath`. For an owned worktree this is the worktree itself, and
    `ownedWorktree.projectRoot` is tried right after it.
-6. **Sibling worktrees:** `git worktree list --porcelain` of the project's repository, at most 16 entries, cached
+6. **The task's other places:** its `checkout` and `outside` places, newest write first. This is how a bare
+   `ROTEIRO.md` opens from the outside folder the agent last wrote in. Round 1 added it: the playground's
+   `#chat` path chips needed it.
+7. **Sibling worktrees:** `git worktree list --porcelain` of the project's repository, at most 16 entries, cached
    for 30 s per repository.
 
-- Steps 2 to 5 stop at the first hit.
-- Step 6 runs only when 1 to 5 missed. It is the only step that can return `ambiguous`: two sibling worktrees with
-  the same relative path.
+- Steps 2 to 6 stop at the first hit.
+- Step 7 runs only when 1 to 6 missed. Steps 6 and 7 are the only ones that can return `ambiguous`: two places, or
+  two sibling worktrees, with the same relative path.
+- **"Find file…"** in the UI is a bounded name search over the same places and sibling worktrees: file names only, at
+  most 2000 entries per root, and depth 12. It never searches "recent folders" or the whole disk.
 - A path that walks out of its base (`..`) or through a link out (`staysLocal`) is refused at that step and listed
   in `looked` with that step, so the person can see why.
 - No file content is read: only `lstat` and `stat`.
@@ -296,8 +312,19 @@ PRAGMA user_version = 93;
 
 | Gap | Proposal | Data exists? | Migration | IPC |
 |---|---|---|---|---|
-| **Terminal tab:** a task's terminals are those whose cwd is the task's worktree | A pane belongs to a task when its launch directory (`pane_root_path`), or the `SessionLocation` its agent hook last reported, is inside one of the task's `worktree`/`root` places. This is computed in main, not stored. Plain shells that `cd` later are not seen (no shell cwd tracking, §1). That limit should be stated in the tab's empty state. | Yes: launch dir plus hook location. | No | `thread:panes` → `{ paneId, title, workspaceId, via: 'launch' \| 'agent-location' }[]`. Read, `excluded`. |
-| **The U12 containers source carries the thread id** | Container actions and logs are audited in `oxequery_audit` (`agent-gateway.ts` `containerAction`). `actor` is the execution label (`thread:<id>`, `pane:<id>`), or `agent` when unverified. U12-be derives `ownerKind` and `ownerId` from that label in its read model, so no migration is needed. Only verified callers have one, and unverified rows show "agent". If U12-be prefers a column, an `owner_kind`/`owner_id` ADD COLUMN on `oxequery_audit` and `agent_action_audit` goes in U12-be's own migration, not here. | Yes, in the label. | No (or U12-be's) | Through U12-be's single query with `source: 'containers'` and an `ownerId` filter. |
+| **Terminal tab:** a task's terminals are those whose cwd is the task's worktree | A pane belongs to a task when its launch directory (`pane_root_path`), or the `SessionLocation` its agent hook last reported, is inside one of the task's `worktree`/`root` places. This is computed in main, not stored.
+
+- **Plain shells that `cd` later**, round 1:
+  - **(a)** A passive scan of the PTY stream in main for the cwd reports shells already send: OSC 7 `file://`, VS Code's
+    OSC 633 `P;Cwd=`, Windows Terminal's OSC 9;9 and iTerm2's OSC 1337 `CurrentDir=`.
+    - Each value is validated like a reported `cwd`, giving `via: 'shell-osc'`.
+    - Cost: one `indexOf` per chunk.
+    - Size S, and it can ride with this work.
+  - **(b)** Fish and configured Starship or oh-my-posh send these sequences today. Plain bash, PowerShell, cmd and Git
+    Bash do not. For those, an opt-in integration (Settings › Terminal, default off) wraps the prompt of the shells
+    OXESpace launches, never replacing the user's own prompt. That is 1.5.x, size M.
+  - The tab's empty state says which applies. | Yes: launch dir plus hook location. | No | `thread:panes` → `{ paneId, title, workspaceId, via: 'launch' \| 'agent-location' \| 'shell-osc' }[]`. Read, `excluded`. |
+| **The U12 containers source carries the thread id** | Most containers an agent starts come from a shell `docker compose up`, not from the MCP tool, so they are in no audit table. They are matched by Compose's own working directory: OxePod already reads `workingDir`, from the `com.docker.compose.project.working_dir` label. A container whose working directory is inside one of the task's places belongs to that task (`via: 'compose-dir'`), which lets OxePod say who started each. In addition, container actions and logs are audited in `oxequery_audit` (`agent-gateway.ts` `containerAction`). `actor` is the execution label (`thread:<id>`, `pane:<id>`), or `agent` when unverified. U12-be derives `ownerKind` and `ownerId` from that label in its read model, so no migration is needed. Only verified callers have one, and unverified rows show "agent". If U12-be prefers a column, an `owner_kind`/`owner_id` ADD COLUMN on `oxequery_audit` and `agent_action_audit` goes in U12-be's own migration, not here. | Yes, in the label. | No (or U12-be's) | Through U12-be's single query with `source: 'containers'` and an `ownerId` filter. |
 | **The PR tab reads checks and reviewers** | `review.service.ts` already runs `gh pr view --json …statusCheckRollup,reviewDecision` and `pr-status.ts` parses the rollup. Add `reviewRequests,latestReviews` to that field list and return them. The PR is found by the task worktree's branch (`ownedWorktree.branch`) through the same call. The finish flow (`ThreadWorktreeFinishDialog`) is unchanged. | Mostly: checks yes, reviewers one more field. | No | Reuses the GitHub review channel with `rootPath` = the task worktree. No new channel. |
 
 ## 7. Tests
@@ -331,8 +358,9 @@ Unit tests, all with temp-dir repositories and no live providers:
 6. **Path resolver:**
    - every step is hit in order;
    - the first hit wins;
-   - step 6 runs only after 1 to 5 miss;
-   - two sibling worktrees give `ambiguous`;
+   - step 7 runs only after 1 to 6 miss;
+   - a bare name opens from the outside place the agent last wrote in (step 6);
+   - two sibling worktrees, or two places, give `ambiguous`;
    - none gives `missing`, with every step and path listed;
    - a `..` escape is refused at its step.
 7. **Contract tests:**
