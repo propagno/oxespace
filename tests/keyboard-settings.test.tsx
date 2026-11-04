@@ -26,6 +26,14 @@ describe('Settings › Keyboard', () => {
     await userEvent.click(within(row('code.files')).getByRole('button', { name: 'Reset shortcut for Files' }))
     expect(useSettingsStore.getState().keybindingOverrides).toEqual({})
     expect(within(row('code.files')).queryByText(/Also used by/)).toBeNull()
+    // S-04: back at its default, the row offers no Reset.
+    expect(within(row('code.files')).queryByRole('button', { name: 'Reset shortcut for Files' })).toBeNull()
+  })
+
+  it('offers Reset only for a shortcut that differs from its default (S-04)', () => {
+    render(<KeyboardSettings />)
+    expect(within(row('code.changes')).queryByRole('button', { name: /^Reset shortcut/ })).toBeNull()
+    expect(within(row('code.changes')).getByRole('button', { name: /^Change shortcut/ })).toBeInTheDocument()
   })
 
   it('cancels a capture with Escape and can turn a shortcut off', async () => {
