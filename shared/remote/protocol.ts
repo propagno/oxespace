@@ -450,10 +450,21 @@ export interface RemoteThreadsEvent { upsert?: RemoteThreadSummary[]; removed?: 
  * CLI commands, model pickers, configuration, turn-diff file paths, message context paths and attachment names.
  * `delta` events are folded into the message they extend, so the phone gets the whole text.
  */
+/**
+ * What a tool step changed (CCR #509 §3): paths relative to the project (any outside it is dropped), at most
+ * `REMOTE_DIFF_LIMITS.files` files, and a unified `patch` of at most `REMOTE_DIFF_LIMITS.patchBytes`, cut at a hunk
+ * boundary and redacted like tool output. A binary file is listed with zero counts and no patch.
+ */
+export interface RemoteToolDiff { files: RemoteToolDiffFile[]; patch?: string; truncated?: boolean }
+export interface RemoteToolDiffFile { path: string; additions: number; deletions: number }
+/** A message waiting in the conversation's queue (CCR #509 §4), in send order. */
+export interface RemoteQueuedPreview { id: string; text: string; truncated?: boolean }
+export const REMOTE_DIFF_LIMITS = { files: 20, patchBytes: 8_192 } as const
+export const REMOTE_QUEUE_PREVIEW = { items: 5, text: 200 } as const
 export type RemoteThreadItem =
   | { type: 'message'; id: string; role: 'user' | 'assistant'; text: string; truncated?: boolean; attachments?: number }
   | { type: 'reasoning'; id: string; text: string; truncated?: boolean; completed: boolean }
-  | { type: 'tool'; id: string; name: string; state: 'running' | 'completed' | 'failed' | 'unknown'; detail: string; output?: string; outputTruncated?: boolean; exitCode?: number; filesChanged?: number; interrupted?: boolean; redacted?: number }
+  | { type: 'tool'; id: string; name: string; state: 'running' | 'completed' | 'failed' | 'unknown'; detail: string; output?: string; outputTruncated?: boolean; exitCode?: number; filesChanged?: number; interrupted?: boolean; redacted?: number; diff?: RemoteToolDiff }
   | { type: 'plan'; id: string; steps: { label: string; status: 'pending' | 'inProgress' | 'completed' }[] }
   | { type: 'request'; id: string; requestId: string; kind: 'approval' | 'question' | 'permissions' | 'elicitation' | 'tool'; title: string; state: 'pending' | 'resolved' | 'cancelled' | 'expired' }
   | { type: 'subagent'; id: string; state: 'running' | 'completed' | 'failed' | 'interrupted' | 'unknown'; agents: number }
@@ -464,6 +475,12 @@ export interface RemoteThreadHeader extends RemoteThreadSummary {
   queued: number
   /** Whether the provider can take a message while a turn runs. */
   canSteer: boolean
+  /** While `status` is running or approval: how long the current turn has run, measured when this was built (CCR #509 §1). */
+  turnElapsedMs?: number
+  /** While a turn runs: time since the provider last sent anything (CCR #509 §2). */
+  quietMs?: number
+  /** The first `REMOTE_QUEUE_PREVIEW.items` queued messages, each cut to `REMOTE_QUEUE_PREVIEW.text` characters (CCR #509 §4). */
+  queuedPreview?: RemoteQueuedPreview[]
 }
 /** Snapshot: the newest page; `thread.history` asks for older ones. */
 export interface RemoteThreadSnapshot { thread: RemoteThreadHeader; items: { seq: number; item: RemoteThreadItem }[]; hasMore: boolean }
