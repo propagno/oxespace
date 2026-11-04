@@ -48,12 +48,18 @@ describe('applyWithUndo', () => {
 })
 
 describe('Toaster inside a modal', () => {
-  it('while a modal hosts the stack, the root one steps aside, and comes back when it closes', async () => {
-    const { rerender } = render(<><div data-testid="root"><Toaster /></div><div data-testid="modal"><Toaster inModal /></div></>)
+  it('the newest modal host has the stack; the root and older hosts step aside until it closes', async () => {
+    const view = (modals: number) => <><div data-testid="root"><Toaster /></div>
+      {modals > 0 ? <div data-testid="outer"><Toaster inModal /></div> : null}
+      {modals > 1 ? <div data-testid="inner"><Toaster inModal /></div> : null}</>
+    const { rerender } = render(view(2))
     act(() => { useToasts.getState().push({ title: 'Saved' }) })
-    await waitFor(() => expect(screen.getByTestId('modal')).toHaveTextContent('Saved'))
+    await waitFor(() => expect(screen.getByTestId('inner')).toHaveTextContent('Saved'))
+    expect(screen.getByTestId('outer')).not.toHaveTextContent('Saved')
     expect(screen.getByTestId('root')).not.toHaveTextContent('Saved')
-    rerender(<div data-testid="root"><Toaster /></div>)
+    rerender(view(1))
+    await waitFor(() => expect(screen.getByTestId('outer')).toHaveTextContent('Saved'))
+    rerender(view(0))
     await waitFor(() => expect(screen.getByTestId('root')).toHaveTextContent('Saved'))
   })
 })

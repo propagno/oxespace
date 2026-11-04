@@ -95,26 +95,31 @@ export function preloadToastStack(ready: () => void): () => void {
   return () => { live = false; clearTimeout(timer) }
 }
 
-/** How many open modals host the stack (U2). A modal hides everything outside it and blocks its pointer events. */
-const useToastHosts = create<{ hosts: number }>(() => ({ hosts: 0 }))
+/**
+ * The open modals that host the stack, oldest first (U2). A modal hides everything outside it from assistive tech and
+ * blocks its pointer events (Radix) or makes it inert, so a toast's Undo outside it could not be reached.
+ */
+const useToastHosts = create<{ hosts: number[] }>(() => ({ hosts: [] }))
+let nextHost = 1
 
 /**
  * Mount once near the root of the app. The stack mounts at idle after the first paint, or at once when a toast
  * comes first: toasts raised before then (boot errors) wait in the store and show, and are announced, when it mounts.
  *
- * A modal whose own changes raise toasts with an action (Settings: Undo, U2) mounts one more with `inModal`. While it
- * is open the stack lives inside it, where its buttons can be reached, and the root one steps aside.
+ * Every modal primitive (Dialog, ModalSurface, ToolPanel) mounts one more with `inModal`. While any is open the stack
+ * lives in the newest one, where its buttons can be reached, and the others step aside.
  */
 export function Toaster({ inModal = false }: { inModal?: boolean } = {}): ReactElement | null {
   const waiting = useToasts(state => state.items.length > 0)
-  const hosted = useToastHosts(state => state.hosts > 0)
+  const [host] = useState(() => (inModal ? nextHost++ : 0))
+  const active = useToastHosts(state => state.hosts.at(-1) ?? 0)
   const [preloaded, setPreloaded] = useState(false)
   useEffect(() => preloadToastStack(() => setPreloaded(true)), [])
   useEffect(() => {
-    if (!inModal) return
-    useToastHosts.setState(state => ({ hosts: state.hosts + 1 }))
-    return () => useToastHosts.setState(state => ({ hosts: state.hosts - 1 }))
-  }, [inModal])
-  if (hosted && !inModal) return null
+    if (!host) return
+    useToastHosts.setState(state => ({ hosts: [...state.hosts, host] }))
+    return () => useToastHosts.setState(state => ({ hosts: state.hosts.filter(id => id !== host) }))
+  }, [host])
+  if (active !== host) return null
   return preloaded || waiting ? <Suspense fallback={null}><ToastStack /></Suspense> : null
 }

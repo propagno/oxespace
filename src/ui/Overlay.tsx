@@ -4,6 +4,7 @@ import { Dialog as RadixDialog, DropdownMenu as RadixMenu, Popover as RadixPopov
 import { i18n } from '../i18n'
 import { IconButton } from './Button'
 import { cx } from './cx'
+import { Toaster } from './Toast'
 import styles from './Overlay.module.css'
 
 /** Floating layers keep clear of the title bar so they never rise over the window controls. */
@@ -25,6 +26,11 @@ export interface DialogProps {
   testId?: string
   /** Called before Escape closes the dialog; preventDefault keeps it open (e.g. an Escape typed somewhere else). */
   onEscapeKeyDown?: (event: globalThis.KeyboardEvent) => void
+  /**
+   * Toasts show inside this dialog while it is open (U2): for a dialog whose own changes offer Undo, which a toast
+   * outside a modal can't reach. Off by default: a notice about something else stays apart from the dialog (R5).
+   */
+  toasts?: boolean
 }
 
 const FIELD = 'input:not([type="hidden"]), select, textarea, [contenteditable="true"], [role="textbox"], [role="combobox"]'
@@ -58,7 +64,7 @@ function focusOrigin(active: Element | null): HTMLElement | null {
 }
 
 /** A modal dialog: title, optional description, body, and footer actions. Escape and the scrim close it. */
-export function Dialog({ title, description, onClose, children, footer, size = 'md', className, returnFocusTo, closeLabel = i18n.t('ui.close'), testId, onEscapeKeyDown }: DialogProps): ReactElement {
+export function Dialog({ title, description, onClose, children, footer, size = 'md', className, returnFocusTo, closeLabel = i18n.t('ui.close'), testId, onEscapeKeyDown, toasts = false }: DialogProps): ReactElement {
   const previous = useRef(focusOrigin(document.activeElement))
   return <RadixDialog.Root open onOpenChange={open => { if (!open) onClose() }}>
     <RadixDialog.Portal>
@@ -87,6 +93,7 @@ export function Dialog({ title, description, onClose, children, footer, size = '
         </header>
         {children ? <div className={styles.dialogBody} data-dialog-body="">{children}</div> : null}
         {footer && <footer className={styles.dialogFooter} data-dialog-footer="">{footer}</footer>}
+        {toasts ? <Toaster inModal /> : null}
       </RadixDialog.Content>
     </RadixDialog.Portal>
   </RadixDialog.Root>

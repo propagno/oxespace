@@ -1698,6 +1698,7 @@
     "search": "Search MCP servers",
     "searchPlaceholder": "Search connections",
     "installedNote": "Your agents connect to these servers themselves: Claude Code and Copilot CLI through <strong>.mcp.json</strong> at the workspace root, Codex through its launch settings. Test checks that a server answers; whether the agent connected shows next to it in an OxeChat conversation. Restart the agent session to pick up changes.",
+    "catalogAdded": "{{name}} is on: agents can use its tools",
     "add": "Add MCP server",
     "importOpen": "Import from Claude Desktop, Cursor or Windsurf",
     "views": "MCP servers view",

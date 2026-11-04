@@ -2,7 +2,7 @@ import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, Keyboard, 
 import { Suspense, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
-import { EmptyState, Skeleton, TextField, Toaster } from '../../ui'
+import { EmptyState, Skeleton, TextField } from '../../ui'
 import type { SettingsModalProps, SettingsSection } from './SettingsModal'
 import { SETTINGS_PAGES } from '../Workspace/workspaceSettingsPages'
 import { ErrorBoundary } from '../common/ErrorBoundary'
@@ -92,7 +92,7 @@ export function SettingsCenter(props: SettingsModalProps & {
     : appPages.map(p => ({ ...p, label: t(`center.pages.${p.id}.label`), hint: t(`center.pages.${p.id}.hint`) }))
   const filtered = pages.filter(p => `${p.label} ${p.hint}`.toLowerCase().includes(query.toLowerCase()))
   return <ModalRoot open onOpenChange={open => { if (!open) close() }}>
-    <ModalSurface className="settings-center" style={{ '--settings-navigation-width': `${navigationWidth}px` } as CSSProperties} scrimClassName="settings-center-overlay" aria-describedby={undefined}
+    <ModalSurface className="settings-center" style={{ '--settings-navigation-width': `${navigationWidth}px` } as CSSProperties} scrimClassName="settings-center-overlay" toasts aria-describedby={undefined}
       onCloseAutoFocus={event => { if (returnPane.current) { event.preventDefault(); requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('oxe:focus-pane', { detail: { paneId: returnPane.current } }))) } }}
       onPointerDownOutside={event => event.preventDefault()}>
       <aside className="settings-center-nav">
@@ -148,8 +148,6 @@ export function SettingsCenter(props: SettingsModalProps & {
             : destination.page === 'general' ? <GeneralSettings /> : destination.page === 'policy' ? <PolicySettings workspaceId={scopeWorkspace?.id} /> : destination.page === 'keyboard' ? <KeyboardSettings /> : destination.page === 'devices' ? <DevicesSettings /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
         </Suspense></ErrorBoundary></div>
       </main>
-      {/* U2: Undo toasts from a setting must be reachable while Settings, a modal, is open. */}
-      <Toaster inModal />
     </ModalSurface>
   </ModalRoot>
 }

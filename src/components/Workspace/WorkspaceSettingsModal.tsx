@@ -13,7 +13,7 @@ import { useResolvedTerminalPrefs, useTerminalPrefsStore, type TerminalCursorSty
 import './WorkspaceSettingsModal.css'
 import { DefaultShellSettings } from './DefaultShellSettings'
 import { useSharedProjectMemory } from '../../hooks/useSharedProjectMemory'
-import { applyWithUndo, Button, ErrorState, Select, Toaster } from '../../ui'
+import { applyWithUndo, Button, ErrorState, Select } from '../../ui'
 import { formatNumber } from '../../utils/formatTime'
 import { humanizeError } from '../../utils/humanizeError'
 import { useTranslation } from 'react-i18next'
@@ -224,7 +224,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onClose, onOp
       </>
   if (embedded) return <div className="workspace-settings-modal-v2 settings-workspace-content">{content}</div>
   return <ModalRoot open onOpenChange={(next) => { if (!next) onClose() }}>
-    <ModalSurface className="modal workspace-settings-modal-v2 modal-dialog-surface">{content}<Toaster inModal /></ModalSurface>
+    <ModalSurface toasts className="modal workspace-settings-modal-v2 modal-dialog-surface">{content}</ModalSurface>
   </ModalRoot>
 }
 
