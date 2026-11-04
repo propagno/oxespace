@@ -6,22 +6,28 @@ import { DevicesSettings, FIREWALL_EXPLAINED_KEY } from '../src/components/Setti
 import { PhoneWriteBadge, PhoneWriteMenuItem, usePhoneWrite } from '../src/components/Grid/PanePhoneWrite'
 import { changeLanguage } from '../src/i18n'
 import { formatMainMessage } from '../src/i18n/mainMessage'
-import { useRemoteStore } from '../src/store/remote.store'
+import { resetRemoteFollowForTests, useRemoteStore } from '../src/store/remote.store'
+import { RemotePairingHost } from '../src/components/Remote/RemotePairingHost'
+import type { MainMessage } from '../shared/messages'
 import { pairingUri, REMOTE_FORBIDDEN, REMOTE_LIMITS } from '../shared/remote/protocol'
 import { REMOTE_DEFAULT_DESKTOP_NAME, type RemoteChange, type RemoteDevice, type RemoteGatewayStatus } from '../shared/types/remote'
 
 const FP = '0123456789abcdef'.repeat(4)
 const CODE = 'AbCdEfGhIjKlMnOpQrStUv'
 
-function fakeRemote(options: { status?: Partial<RemoteGatewayStatus>; devices?: RemoteDevice[] } = {}) {
+function fakeRemote(options: { status?: Partial<RemoteGatewayStatus> & { networkProfile?: string }; devices?: RemoteDevice[]; waiting?: RemoteChange['pairing'] } = {}) {
   let status: RemoteGatewayStatus = { enabled: false, desktopName: REMOTE_DEFAULT_DESKTOP_NAME, listening: null, fingerprint: null, devices: 0, maxDevices: REMOTE_LIMITS.maxDevices, phoneWritePanes: [], ...options.status }
   let devices = options.devices ?? []
   const listeners = new Set<(change: RemoteChange) => void>()
   const emit = (change: RemoteChange): void => { act(() => { for (const listener of listeners) listener(change) }) }
+  const failures = new Set<(message: MainMessage) => void>()
+  const fail = (message: MainMessage): void => { act(() => { for (const listener of failures) listener(message) }) }
   const api = {
     status: vi.fn(async () => status),
     devices: vi.fn(async () => devices),
     onChanged: vi.fn((listener: (change: RemoteChange) => void) => { listeners.add(listener); return () => { listeners.delete(listener) } }),
+    onPairingFailed: vi.fn((listener: (message: MainMessage) => void) => { failures.add(listener); return () => { failures.delete(listener) } }),
+    ...(options.waiting !== undefined ? { pairingPrompt: vi.fn(async () => options.waiting) } : {}),
     setEnabled: vi.fn(async ({ enabled }: { enabled: boolean }) => {
       status = { ...status, enabled, listening: enabled ? { addresses: ['192.168.0.10'], port: 47321 } : null, fingerprint: FP }
       return status
@@ -38,14 +44,19 @@ function fakeRemote(options: { status?: Partial<RemoteGatewayStatus>; devices?: 
     })
   }
   ;(window as unknown as { oxe: unknown }).oxe = { remote: api, app: { platform: 'win32' } }
-  return { api, emit }
+  return { api, emit, fail }
 }
 
 const pixel: RemoteDevice = { deviceId: 'device-1', name: 'Pixel 8', pairedAt: Date.UTC(2026, 9, 1), lastSeenAt: Date.UTC(2026, 9, 29), connected: true }
 const gatewaySwitch = (): HTMLElement => screen.getByRole('switch', { name: 'Let phones on this network connect' })
 
-beforeEach(() => { useRemoteStore.setState({ status: null, devices: null, pairing: null, loadError: null }); localStorage.clear() })
-afterEach(async () => { cleanup(); delete (window as { oxe?: unknown }).oxe; await changeLanguage('en') })
+beforeEach(() => {
+  useRemoteStore.setState({ status: null, devices: null, pairing: null, failure: null, loadError: null }); localStorage.clear(); resetRemoteFollowForTests()
+  // The app follows the gateway at idle (T86); here idle is now.
+  vi.stubGlobal('requestIdleCallback', (run: () => void) => { run(); return 1 })
+  vi.stubGlobal('cancelIdleCallback', () => undefined)
+})
+afterEach(async () => { cleanup(); vi.unstubAllGlobals(); delete (window as { oxe?: unknown }).oxe; await changeLanguage('en') })
 
 describe('Settings › Devices', () => {
   it('starts with the phone connection off and pairing unavailable', async () => {
@@ -87,7 +98,7 @@ describe('Settings › Devices', () => {
 
   it('shows the QR (QR only, no address or code to type), then asks to confirm the phone by its code', async () => {
     const { api, emit } = fakeRemote({ status: { enabled: true, listening: { addresses: ['192.168.0.10'], port: 47321 }, fingerprint: FP } })
-    render(<DevicesSettings />)
+    render(<><RemotePairingHost /><DevicesSettings /></>)
     await userEvent.click(await screen.findByRole('button', { name: 'Show pairing code' }))
     const qr = await screen.findByRole('img', { name: "Pairing QR code. Point the phone's camera at the code." })
     expect(qr.querySelector('path')?.getAttribute('d')).toMatch(/^M\d+ \d+h1v1h-1z/)
@@ -102,7 +113,7 @@ describe('Settings › Devices', () => {
     expect(screen.getByText(/Expires in [12]:\d\d/)).toBeInTheDocument()
 
     emit({ pairing: { promptId: 'p1', deviceName: 'Pixel 8 Pro', verification: '28T5CY', expiresAt: Date.now() + 60_000 } })
-    const prompt = screen.getByRole('dialog', { name: 'Pair Pixel 8 Pro?' })
+    const prompt = await screen.findByRole('dialog', { name: 'Pair Pixel 8 Pro?' })
     expect(within(prompt).getByTestId('devices-pairing-verification')).toHaveTextContent('28T5CY')
     // The code was used by this attempt: it leaves the screen.
     expect(screen.queryByTestId('devices-pairing-qr')).toBeNull()
@@ -126,10 +137,10 @@ describe('Settings › Devices', () => {
 
   it('refuses a phone whose code does not match', async () => {
     const { api, emit } = fakeRemote({ status: { enabled: true, listening: { addresses: ['192.168.0.10'], port: 47321 } } })
-    render(<DevicesSettings />)
+    render(<><RemotePairingHost /><DevicesSettings /></>)
     await screen.findByRole('button', { name: 'Show pairing code' })
     emit({ pairing: { promptId: 'p2', deviceName: 'Unknown', verification: 'ZZZZZZ', expiresAt: Date.now() + 60_000 } })
-    await userEvent.click(within(screen.getByRole('dialog', { name: 'Pair Unknown?' })).getByRole('button', { name: 'Refuse' }))
+    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Pair Unknown?' })).getByRole('button', { name: 'Refuse' }))
     expect(api.answerPairing).toHaveBeenCalledWith({ promptId: 'p2', accept: false })
   })
 
@@ -258,5 +269,66 @@ describe('Allow typing from the phone (pane)', () => {
     await userEvent.click(screen.getByRole('menuitemcheckbox'))
     expect(api.setPhoneWrite).toHaveBeenLastCalledWith({ paneId: 'pane-a', allowed: false })
     await waitFor(() => expect(screen.queryByTestId('pane-phone-write')).toBeNull())
+  })
+})
+
+describe('T86: a phone asking to pair reaches the person wherever they are', () => {
+  const listening = { enabled: true, listening: { addresses: ['192.168.0.10'], port: 47321 }, fingerprint: FP }
+  const prompt = { promptId: 'p9', deviceName: 'Galaxy S25', verification: 'Q7W2K9', expiresAt: Date.now() + 60_000 }
+
+  it('shows "Pair <phone>?" while Settings is closed, and answers it there', async () => {
+    const { api, emit } = fakeRemote({ status: listening })
+    render(<RemotePairingHost />)
+    await waitFor(() => expect(api.onChanged).toHaveBeenCalled())
+    emit({ pairing: prompt })
+    const dialog = await screen.findByRole('dialog', { name: 'Pair Galaxy S25?' })
+    expect(within(dialog).getByTestId('devices-pairing-verification')).toHaveTextContent('Q7W2K9')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Pair' }))
+    expect(api.answerPairing).toHaveBeenCalledWith({ promptId: 'p9', accept: true })
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Pair Galaxy S25?' })).toBeNull())
+  })
+
+  it('a prompt already waiting when the window starts shows too', async () => {
+    fakeRemote({ status: listening, waiting: prompt })
+    render(<RemotePairingHost />)
+    expect(await screen.findByRole('dialog', { name: 'Pair Galaxy S25?' })).toBeInTheDocument()
+  })
+
+  it('a failed attempt says why in Devices and stops the code', async () => {
+    const { fail } = fakeRemote({ status: listening })
+    render(<DevicesSettings />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Show pairing code' }))
+    await screen.findByTestId('devices-pairing-qr')
+    const message: MainMessage = { code: 'remote.pairing.failed', params: { reason: 'peer-closed' } }
+    fail(message)
+    expect(await screen.findByText(formatMainMessage(message))).toBeInTheDocument()
+    expect(screen.queryByTestId('devices-pairing-qr')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Show pairing code' })).toBeEnabled()
+  })
+
+  it('leaving Devices while a phone is asking keeps its claim; leaving without one still withdraws the code', async () => {
+    const { api, emit } = fakeRemote({ status: listening })
+    const { unmount } = render(<><RemotePairingHost /><DevicesSettings /></>)
+    await userEvent.click(await screen.findByRole('button', { name: 'Show pairing code' }))
+    await screen.findByTestId('devices-pairing-qr')
+    emit({ pairing: prompt })
+    await screen.findByRole('dialog', { name: 'Pair Galaxy S25?' })
+    unmount()
+    expect(api.cancelPairing).not.toHaveBeenCalled()
+  })
+
+  it('on a Public network, Devices says phones are blocked and how to fix it', async () => {
+    fakeRemote({ status: { ...listening, networkProfile: 'public' } })
+    render(<DevicesSettings />)
+    const notice = await screen.findByTestId('devices-network-public')
+    expect(notice).toHaveTextContent('Windows calls this network Public')
+    expect(notice).toHaveTextContent('Network profile type')
+  })
+
+  it('on a Private network, there is no such notice', async () => {
+    fakeRemote({ status: { ...listening, networkProfile: 'private' } })
+    render(<DevicesSettings />)
+    await screen.findByTestId('devices-gateway-state')
+    expect(screen.queryByTestId('devices-network-public')).toBeNull()
   })
 })

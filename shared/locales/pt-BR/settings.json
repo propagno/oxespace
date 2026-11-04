@@ -585,10 +585,14 @@
       "off": "Desligada. Nenhuma porta aberta.",
       "failed": "Não foi possível mudar a conexão com o celular: {{error}}"
     },
+    "network": {
+      "publicTitle": "O Windows considera esta rede Pública, então os celulares não alcançam este computador",
+      "publicBody": "Marque este Wi-Fi como Privado em Configurações do Windows › Rede e Internet › Wi-Fi › esta rede › Tipo de perfil de rede. Ou permita o OXESpace em redes públicas no Firewall do Windows Defender › Permitir um aplicativo pelo firewall. Faça isso só em uma rede confiável."
+    },
     "firewall": {
       "title": "Antes de os celulares se conectarem",
       "windowsAsk": "O Windows vai perguntar se o OXESpace pode aceitar conexões. Permita em redes privadas, como o Wi-Fi de casa ou do escritório.",
-      "windowsPublic": "Redes públicas podem ficar desmarcadas: o celular e este computador conversam só pela sua rede local.",
+      "windowsPublic": "Se o Windows considera seu Wi-Fi uma rede Pública, ele bloqueia os celulares mesmo que você permita o OXESpace em redes privadas. Marque o Wi-Fi de casa ou do escritório como Privado, ou permita o OXESpace também em redes públicas.",
       "otherAsk": "O sistema pode perguntar se o OXESpace pode aceitar conexões de entrada. Permita para que celulares da sua rede alcancem este computador.",
       "internet": "Nada fica exposto à internet. O OXESpace escuta só em endereços de rede privada, e só celulares que você parear aqui podem usar a conexão.",
       "later": "Se você recusar, os celulares não alcançam este computador. Dá para mudar a resposta depois nas configurações de firewall do sistema.",

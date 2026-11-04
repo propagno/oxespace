@@ -3,7 +3,8 @@ import { QrCode } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { readPairingUri } from '../../../shared/remote/protocol'
 import type { RemotePairingOffer } from '../../../shared/types/remote'
-import { Button, Dialog, ErrorState, Panel, toast } from '../../ui'
+import { Button, ErrorState, Notice, Panel } from '../../ui'
+import { formatMainMessage } from '../../i18n/mainMessage'
 import { remoteApi, useRemoteStore } from '../../store/remote.store'
 import { encodeQr, qrPath } from '../../utils/qrCode'
 import styles from './DevicesSettings.module.css'
@@ -18,26 +19,26 @@ const remaining = (ms: number): string => {
 }
 
 /**
- * Shows a one-time pairing code as a QR, with the certificate fingerprint the phone checks, and
- * asks the person to confirm the phone that answers it. Leaving the page withdraws the code.
- * TODO(CCR F9-1): show `remote:pairing-failed` (MainMessage remote.pairing.failed, reason invalid | expired | refused |
- * limit | peer-closed) as a Notice here and stop waiting; today a failed attempt never reaches the window, and a phone
- * that hangs up mid-pairing (peer-closed) must not leave the code spinning.
+ * Shows a one-time pairing code as a QR, with the certificate fingerprint the phone checks. The phone that answers it is
+ * confirmed in "Pair <phone>?", which the app shows wherever the person is (T86, src/components/Remote). Leaving the page
+ * withdraws the code, unless a phone is already asking.
+ * F9-1: a failed attempt (`remote:pairing-failed`) says why here, and the code stops waiting.
  */
 export function DevicesPairing({ canPair, blockedReason }: { canPair: boolean; blockedReason: string | null }): ReactElement {
   const { t } = useTranslation('settings')
-  const prompt = useRemoteStore(state => state.pairing)
+  const failure = useRemoteStore(state => state.failure)
   const [offer, setOffer] = useState<RemotePairingOffer | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [now, setNow] = useState(() => Date.now())
-  const [answering, setAnswering] = useState(false)
-  const [answerError, setAnswerError] = useState('')
   const offerRef = useRef<RemotePairingOffer | null>(null)
   const captionId = useId()
 
   useEffect(() => { offerRef.current = offer }, [offer])
-  useEffect(() => () => { if (offerRef.current) void remoteApi()?.cancelPairing().catch(() => undefined) }, [])
+  // Leaving withdraws the code, but not while a phone is mid-claim: its "Pair <phone>?" is waiting for the person (T86).
+  useEffect(() => () => {
+    if (offerRef.current && !useRemoteStore.getState().pairing) void remoteApi()?.cancelPairing().catch(() => undefined)
+  }, [])
   useEffect(() => {
     if (!offer) return
     const timer = window.setInterval(() => setNow(Date.now()), 1000)
@@ -45,7 +46,8 @@ export function DevicesPairing({ canPair, blockedReason }: { canPair: boolean; b
   }, [offer])
   // A code is good for one attempt: once a phone answers it, it leaves the screen. Turning the connection off withdraws it.
   useEffect(() => useRemoteStore.subscribe((state, previous) => {
-    if ((state.pairing && !previous.pairing) || (previous.status?.enabled && !state.status?.enabled)) setOffer(null)
+    // A failed attempt ends the code too (F9-1): the phone has to start again with a new one.
+    if ((state.pairing && !previous.pairing) || (previous.status?.enabled && !state.status?.enabled) || (state.failure && state.failure !== previous.failure)) setOffer(null)
   }), [])
 
   const parsed = useMemo(() => offer ? readPairingUri(offer.uri) : null, [offer])
@@ -59,28 +61,19 @@ export function DevicesPairing({ canPair, blockedReason }: { canPair: boolean; b
   const start = async (): Promise<void> => {
     const api = remoteApi()
     if (!api) return
-    setBusy(true); setError('')
+    setBusy(true); setError(''); useRemoteStore.getState().clearFailure()
     try { const next = await api.startPairing(); setNow(Date.now()); setOffer(next) } catch (cause) { setError(t('devices.pairing.failed', { error: errorText(cause) })) } finally { setBusy(false) }
   }
   const cancel = async (): Promise<void> => {
     setOffer(null)
     try { await remoteApi()?.cancelPairing() } catch { /* The code expires on its own. */ }
   }
-  const answer = async (accept: boolean): Promise<void> => {
-    if (!prompt) return
-    setAnswering(true); setAnswerError('')
-    try {
-      await remoteApi()?.answerPairing({ promptId: prompt.promptId, accept })
-      if (accept) toast({ title: t('devices.pairing.prompt.paired', { device: prompt.deviceName }), intent: 'success' })
-      useRemoteStore.getState().apply({ pairing: null })
-    } catch (cause) { setAnswerError(t('devices.pairing.prompt.failed', { error: errorText(cause) })) } finally { setAnswering(false) }
-  }
-
   return <Panel title={t('devices.pairing.title')} label={t('devices.pairing.title')}>
     <div className={styles.stack}>
       <p className={styles.meta}>{t('devices.pairing.hint')}</p>
       {blockedReason ? <p className={styles.meta}>{blockedReason}</p> : null}
       {error ? <ErrorState compact title={error} /> : null}
+      {failure ? <Notice intent="warning" title={formatMainMessage(failure)} /> : null}
       {offer && parsed && !parsed.ok ? <ErrorState compact title={t('devices.pairing.unreadable')} /> : null}
       {offer && parsed?.ok && path ? <div className={styles.offer} data-testid="devices-pairing-offer">
         {expired ? <p className={styles.note} role="status">{t('devices.pairing.expired')}</p>
@@ -102,15 +95,5 @@ export function DevicesPairing({ canPair, blockedReason }: { canPair: boolean; b
         {offer ? <Button onClick={() => void cancel()}>{t('devices.pairing.cancel')}</Button> : null}
       </div>
     </div>
-    {prompt ? <Dialog title={t('devices.pairing.prompt.title', { device: prompt.deviceName })} description={t('devices.pairing.prompt.description')} size="sm"
-      testId="devices-pairing-prompt" onClose={() => { if (!answering) void answer(false) }}
-      footer={<>
-        <Button autoFocus disabled={answering} onClick={() => void answer(false)}>{t('devices.pairing.prompt.refuse')}</Button>
-        <Button variant="primary" loading={answering} disabled={answering} onClick={() => void answer(true)}>{t('devices.pairing.prompt.accept')}</Button>
-      </>}>
-      <p className={styles.meta}>{t('devices.pairing.prompt.codeLabel')}</p>
-      <p className={styles.verification} data-testid="devices-pairing-verification">{prompt.verification}</p>
-      {answerError ? <ErrorState compact title={answerError} /> : null}
-    </Dialog> : null}
   </Panel>
 }

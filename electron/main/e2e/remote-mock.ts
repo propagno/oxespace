@@ -45,6 +45,11 @@ export function registerRemoteMock(): void {
     return device
   }
 
+  // T86: a spec raises a phone's request at any moment, with Settings closed or open (app.evaluate on the main side).
+  ;(globalThis as { __oxeRemoteAskToPair?: (deviceName?: string) => void }).__oxeRemoteAskToPair = (deviceName = 'Pixel 8 Pro') => {
+    prompt = { promptId: `prompt-${Date.now()}`, deviceName, verification: '28T5CY', expiresAt: Date.now() + 60_000 }
+    changed({ pairing: prompt })
+  }
   ipcMain.handle(IPC_CHANNELS.remote.status, () => status())
   ipcMain.handle(IPC_CHANNELS.remote.devices, () => devices)
   ipcMain.handle(IPC_CHANNELS.remote.setEnabled, (_event, input: { enabled?: unknown; port?: unknown }) => {
