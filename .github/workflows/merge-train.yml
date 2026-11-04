@@ -48,12 +48,14 @@ jobs:
     # Only the train's label starts a run from a pull request event.
     if: ${{ github.event_name != 'pull_request_target' || github.event.label.name == 'na-fila' }}
     runs-on: ubuntu-24.04
-    # update-branch and merge, labels and comments, and dispatching CI; checks are only read.
+    # update-branch and merge, labels and comments, and dispatching CI; checks are only read. statuses: the
+    # "CI result" status a batch posts on each member's tested head (scripts/merge-train.mjs, batches).
     permissions:
       contents: write
       pull-requests: write
       checks: read
       actions: write
+      statuses: write
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -89,4 +91,6 @@ jobs:
           # Hold every car but a fix-main one while main has no green completed CI run (scripts/merge-train.mjs,
           # mainHealth). Off unless the repository variable is "true": main can be red for a known, tracked reason.
           MERGE_TRAIN_HOLD_WHEN_MAIN_RED: ${{ vars.MERGE_TRAIN_HOLD_WHEN_MAIN_RED || 'false' }}
+          # Batches of docs- and tests-only cars (merge-train.mjs, runBatch). On unless the variable is "false".
+          MERGE_TRAIN_BATCHES: ${{ vars.MERGE_TRAIN_BATCHES || 'true' }}
         run: node scripts/merge-train.mjs

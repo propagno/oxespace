@@ -190,7 +190,7 @@ describe('the GitHub calls behind the hold', () => {
       return { ...respond([{ number: 9, pull_request: {}, labels: [{ name: LABEL }, { name: FIX_MAIN_LABEL }] }]), status: 200 }
     }
     const api = createGitHubApi({ token: 't', repo: 'o/r', fetchImpl })
-    expect(await api.listQueue()).toEqual([{ number: 9, labeledAt: '2026-11-01T10:00:00Z', labeledBy: 'dev', fixMain: true, fixMainBy: 'owner' }])
+    expect(await api.listQueue()).toEqual([{ number: 9, labeledAt: '2026-11-01T10:00:00Z', labeledBy: 'dev', fixMain: true, fixMainBy: 'owner', noBatch: false }])
     await expect(api.removeLabel(9, FIX_MAIN_LABEL)).resolves.toBeUndefined()
     await expect(api.removeLabel(9, 'bug')).rejects.toThrow(/not a train label/)
   })

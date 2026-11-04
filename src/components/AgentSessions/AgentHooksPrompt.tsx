@@ -18,7 +18,7 @@ export function AgentHooksPrompt({ agent }: { agent: AgentHookAgent }): ReactEle
     setBusy(true)
     void answerHooksAndSay(choice).finally(() => setBusy(false))
   }
-  return <Dialog title={t('agentResume.hooks.title', { agent: name })} description={t('agentResume.hooks.body', { agent: name, folder: agent === 'codex' ? '~/.codex' : '~/.claude' })}
+  return <Dialog size="md" title={t('agentResume.hooks.title', { agent: name })} description={t('agentResume.hooks.body', { agent: name, folder: agent === 'codex' ? '~/.codex' : '~/.claude' })}
     onClose={() => answer('notNow')} testId="agent-hooks-prompt"
     footer={<>
       <Button variant="ghost" disabled={busy} onClick={() => answer('never')}>{t('agentResume.hooks.never')}</Button>

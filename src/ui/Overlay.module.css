@@ -35,6 +35,8 @@
 .dialogFooter { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-3) var(--space-5); border-top: 1px solid var(--border-subtle); }
 /* A secondary action (Delete, Preview) sits at the start of the footer, away from the primary one. */
 .dialogFooter > [data-align='start'] { margin-right: auto; }
+/* U1: the footer's `extra` slot holds one or more secondary actions at the start. */
+.dialogExtra { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 
 /* Floating surfaces: popover, menus, tooltip */
 .floating {
