@@ -344,3 +344,29 @@ describe('connection', () => {
     expect(mentionsForbidden(deep)).toBe(true)
   })
 })
+
+describe('network profile and route (1.4.1 pairing)', () => {
+  test('Get-NetConnectionProfile lines map to categories, by name or number; anything else is left out', async () => {
+    const { parseConnectionProfiles } = await import('../../electron/main/services/remote/network-profile')
+    const found = parseConnectionProfiles('Wi-Fi\tPublic\r\nEthernet 2\tPrivate\nCorp\tDomainAuthenticated\nOld\t1\nOdd\tSomething\n\n\tPublic\n')
+    expect([...found]).toEqual([['wi-fi', 'public'], ['ethernet 2', 'private'], ['corp', 'domain'], ['old', 'private']])
+  })
+  test('off Windows, or when PowerShell fails, nothing is read and nothing is known', async () => {
+    const { networkCategories } = await import('../../electron/main/services/remote/network-profile')
+    let ran = 0
+    expect((await networkCategories('linux', async () => { ran += 1; return 'Wi-Fi\tPublic' })).size).toBe(0)
+    expect(ran).toBe(0)
+    expect((await networkCategories('win32', async () => { throw new Error('blocked') })).size).toBe(0)
+    expect([...await networkCategories('win32', async () => 'Wi-Fi\tPublic')]).toEqual([['wi-fi', 'public']])
+  })
+  test('virtual adapters rank after the LAN one; the default route address goes first', async () => {
+    const { preferRoute } = await import('../../electron/main/services/remote/network')
+    const entry = (address: string) => ({ address, family: 'IPv4' as const, internal: false, netmask: '255.255.255.0', mac: '00:00:00:00:00:00', cidr: `${address}/24` })
+    const found = listenAddresses({ 'vEthernet (WSL)': [entry('172.20.0.1')], 'Wi-Fi': [entry('192.168.0.10')], 'VirtualBox Host-Only Network': [entry('192.168.56.1')] })
+    expect(found.map(item => item.address)).toEqual(['192.168.0.10', '172.20.0.1', '192.168.56.1'])
+    expect(found[0]).not.toHaveProperty('virtual')
+    expect(preferRoute(found, '192.168.56.1').map(item => item.address)).toEqual(['192.168.56.1', '192.168.0.10', '172.20.0.1'])
+    expect(preferRoute(found, null)).toEqual(found)
+    expect(preferRoute(found, '10.9.9.9')).toEqual(found)
+  })
+})

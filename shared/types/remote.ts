@@ -32,7 +32,17 @@ export interface RemoteGatewayStatus {
    * firewall's question before the first time only.
    */
   listenedBefore: boolean
+  /**
+   * Windows' network profile of the interface the QR names, when it could be read (Windows only, read only). On
+   * `public` the system firewall drops a phone's request unless a rule allows OXESpace, so pairing never arrives.
+   */
+  network?: { interfaceName: string; category: RemoteNetworkCategory }
+  /** The pairing question waiting for the person, so a window that opens or reloads can show it. */
+  pendingPairing?: RemotePairingPrompt
 }
+
+/** Windows' NetworkCategory of a connection profile. */
+export type RemoteNetworkCategory = 'public' | 'private' | 'domain'
 
 /** A paired phone. No address and no key. */
 export interface RemoteDevice {
@@ -65,10 +75,12 @@ export interface RemotePairingOffer {
 /**
  * Why a phone's pairing attempt failed, as `remote.pairing.failed` carries it: a wrong, reused or forged code or request
  * (`invalid`), a code or question that ran out of time (`expired`), the person said no or cancelled on this desktop
- * (`refused`), the device limit (`limit`), the phone hung up while the question was on screen (`peer-closed`), or the
- * phone gave itself a name only the app may speak as (`reserved-name`; `reservedNameIn` in shared/approval-rules.ts).
+ * (`refused`), the device limit (`limit`), the phone hung up while the question was on screen (`peer-closed`), the
+ * phone gave itself a name only the app may speak as (`reserved-name`; `reservedNameIn` in shared/approval-rules.ts),
+ * or the code expired without any phone reaching this computer (`no-contact`: a firewall, a Public network profile,
+ * or another network).
  */
-export const REMOTE_PAIRING_FAILURE_REASONS = ['invalid', 'expired', 'refused', 'limit', 'peer-closed', 'reserved-name'] as const
+export const REMOTE_PAIRING_FAILURE_REASONS = ['invalid', 'expired', 'refused', 'limit', 'peer-closed', 'reserved-name', 'no-contact'] as const
 export type RemotePairingFailureReason = typeof REMOTE_PAIRING_FAILURE_REASONS[number]
 
 export interface RemoteChange {
