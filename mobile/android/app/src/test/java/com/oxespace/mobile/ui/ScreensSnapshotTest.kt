@@ -95,6 +95,9 @@ class ScreensSnapshotTest(private val night: Boolean, private val locale: String
         shot("thread-working") { ThreadScreen("t-1", Samples.working(), commands, Samples.presence, connected = true) {} }
         shot("thread-finished") { ThreadScreen("t-1", Samples.finished(), commands, Samples.presence, connected = true) {} }
         shot("thread-loading") { ThreadScreen("t-1", Samples.timeline(loaded = false), commands, Samples.presence, connected = true, knownTitle = "Fix the login redirect", skeletonAfterMs = 0) {} }
+        // T100: a long conversation opens on its last message.
+        shot("thread-long") { ThreadScreen("t-1", Samples.long(), commands, Samples.presence, connected = true) {} }
+        shot("latest-chip") { com.oxespace.mobile.ui.live.LatestChip {} }
     }
 
     @Test
