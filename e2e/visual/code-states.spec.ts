@@ -25,6 +25,9 @@ async function openTool(page: Page, name: RegExp): Promise<void> {
  */
 async function monacoDiffSettled(page: Page, editor: Locator): Promise<void> {
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
+  // FL-15 again (Windows, after #586): the fallback font's layout can hold still long enough to pass the poll below.
+  // MonacoDiff marks its container once it has measured the loaded font and laid out again; wait for that first.
+  await expect.poll(() => editor.evaluate(root => !!root.closest('[data-fonts-measured="true"]')), { timeout: 10_000 }).toBe(true)
   const geometry = (): Promise<string> => editor.evaluate(root => {
     const boxes = [...root.querySelectorAll('.margin, .lines-content, .view-lines, .line-numbers')].slice(0, 12)
       .map(element => { const box = element.getBoundingClientRect(); return `${Math.round(box.left)}:${Math.round(box.width)}` })
