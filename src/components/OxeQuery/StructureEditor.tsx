@@ -164,14 +164,14 @@ export function StructureEditor({ connection, schema, table, onClose, onChanged 
         {note && <p role="status" className={styles.ok}>{note}</p>}
       </>
 
-  return <Dialog className="oq-scope" title={creating ? t('tree.newTableIn', { schema }) : `${schema}.${table}`} description={creating ? t('structure.createDescription') : t('structure.editDescription')} closeLabel={t('common.close')}
+  return <Dialog title={creating ? t('tree.newTableIn', { schema }) : `${schema}.${table}`} description={creating ? t('structure.createDescription') : t('structure.editDescription')} closeLabel={t('common.close')}
     size="xl" onClose={onClose} testId="structure-editor"
     footer={<>
       <Button variant="ghost" onClick={onClose}>{t('common.close')}</Button>
       {plan && <Button variant={plan.value.destructive ? 'danger' : 'primary'} loading={busy} disabled={readOnly || (needsConfirm && !confirmed)} onClick={() => void apply()}>{plan.label}</Button>}
       {!plan && !loadError && <Button variant="primary" loading={busy} disabled={readOnly || !pending || problems.length > 0} onClick={() => void reviewDraft()}>{t('structure.reviewSql')}</Button>}
     </>}>
-    {readOnly && <p role="note" className={styles.note}>{t('structure.readOnly')}</p>}
-    {body}
+    <div className="oq-scope">{readOnly && <p role="note" className={styles.note}>{t('structure.readOnly')}</p>}
+    {body}</div>
   </Dialog>
 }
