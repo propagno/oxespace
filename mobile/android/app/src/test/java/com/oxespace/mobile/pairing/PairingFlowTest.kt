@@ -43,10 +43,12 @@ class PairingFlowTest {
         override fun clear() { saved = null }
     }
 
-    private class Harness(scope: TestScope, deviceName: String = "Pixel 8", answer: (PairingQr, String, String) -> PairOutcome) {
+    private class Harness(scope: TestScope, deviceName: String = "Pixel 8", probe: ProbeResult = ProbeResult.Ok, answer: (PairingQr, String, String) -> PairOutcome) {
         val keys = mutableMapOf<String, FakeKeys>()
         val store = FakeStore()
         val calls = mutableListOf<Triple<PairingQr, String, String>>()
+        /** How many times the flow asked for the session to start, and what was saved by then. */
+        val started = mutableListOf<PairedDesktop?>()
         /** What the phone showed right after the request reached the desktop. */
         val sentStates = mutableListOf<PairingState>()
         val flow: PairingFlow = PairingFlow(
@@ -66,6 +68,8 @@ class PairingFlowTest {
             store = store,
             deviceName = deviceName,
             newAlias = { "alias-${keys.size + 1}" },
+            onPaired = { started += store.saved },
+            probe = { _, _ -> probe },
         )
     }
 
@@ -119,6 +123,73 @@ class PairingFlowTest {
         harness.flow.scanAgain()
         assertEquals(PairingState.Contacting("Studio"), harness.flow.state.value)
         advanceUntilIdle()
+    }
+
+    /**
+     * 1.4.2 on a real phone: only Done started the session. Back, Home or a slow tap left the new pairing unused past
+     * the desktop's 2 minutes, and the next sign-in read "OXESpace removed this phone". The session now starts once
+     * the pairing is saved, whatever the person taps.
+     */
+    /**
+     * P3: the desktop accepted, but the phone can't sign in with the new identity. Nothing is saved, nothing starts,
+     * the key is deleted, and the person reads why now, instead of "removed this phone" later.
+     */
+    /** P3 review: backing out while the probe runs (the screen's scope is cancelled) deletes the key and saves nothing. */
+    @Test
+    fun backingOutMidProbeLeavesNoKeyBehind() = runTest {
+        val keys = mutableMapOf<String, FakeKeys>()
+        val store = FakeStore()
+        val screen = kotlinx.coroutines.Job()
+        val flow = PairingFlow(
+            scope = TestScope(StandardTestDispatcher(testScheduler) + screen),
+            io = StandardTestDispatcher(testScheduler),
+            pairer = { _, _, _, onSent -> onSent(); PairOutcome.Paired(RemotePairResponse("dev-9", "tok", 900_000)) },
+            keysFor = { alias -> keys.getOrPut(alias) { FakeKeys() } },
+            store = store,
+            deviceName = "Pixel 8",
+            newAlias = { "alias-1" },
+            probe = { _, _ -> kotlinx.coroutines.awaitCancellation() },
+        )
+        flow.onScanned(uri)
+        advanceUntilIdle()
+        assertEquals(PairingState.Contacting("Studio"), flow.state.value)
+        screen.cancel()
+        advanceUntilIdle()
+        assertTrue(keys.getValue("alias-1").deleted)
+        assertNull(store.saved)
+    }
+
+    @Test
+    fun aPairingThatCantSignInIsNotSaved() = runTest {
+        val cases = mapOf(ProbeResult.TimedOut to PairingFailure.TIMED_OUT, ProbeResult.Closed to PairingFailure.UNREACHABLE,
+            ProbeResult.Refused(com.oxespace.mobile.protocol.session.SessionEnd.UNAUTHENTICATED) to PairingFailure.REFUSED_ON_DESKTOP,
+            ProbeResult.Refused(com.oxespace.mobile.protocol.session.SessionEnd.PROTOCOL) to PairingFailure.PROTOCOL)
+        for ((result, failure) in cases) {
+            val harness = Harness(this, probe = result) { _, _, _ -> PairOutcome.Paired(RemotePairResponse("dev-9", "tok", 900_000)) }
+            harness.flow.onScanned(uri)
+            advanceUntilIdle()
+            assertEquals(result.toString(), PairingState.Failed(failure), harness.flow.state.value)
+            assertNull(harness.store.saved)
+            assertTrue(harness.started.isEmpty())
+            assertTrue(harness.keys.getValue("alias-1").deleted)
+        }
+    }
+
+    @Test
+    fun startsTheSessionAsSoonAsThePairingIsSaved() = runTest {
+        val harness = Harness(this) { _, _, _ -> PairOutcome.Paired(RemotePairResponse("dev-9", "tok", 900_000)) }
+        harness.flow.onScanned(uri)
+        advanceUntilIdle()
+        // Once, and only after the new pairing is in the store, so the session signs in as dev-9.
+        assertEquals(listOf("dev-9"), harness.started.map { it?.deviceId })
+    }
+
+    @Test
+    fun aFailedPairingStartsNothing() = runTest {
+        val harness = Harness(this) { _, _, _ -> PairOutcome.Refused(RemotePairingErrorCode.PAIRING_REFUSED) }
+        harness.flow.onScanned(uri)
+        advanceUntilIdle()
+        assertTrue(harness.started.isEmpty())
     }
 
     @Test

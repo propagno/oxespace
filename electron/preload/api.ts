@@ -332,7 +332,10 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       revoke: input => ipc.invoke(IPC_CHANNELS.remote.revoke, input) as Promise<void>,
       rename: input => ipc.invoke(IPC_CHANNELS.remote.rename, input) as Promise<import('../../shared/types/remote').RemoteDevice>,
       setDesktopName: input => ipc.invoke(IPC_CHANNELS.remote.setDesktopName, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
-      setPhoneWrite: input => ipc.invoke(IPC_CHANNELS.remote.setPhoneWrite, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>
+      setPhoneWrite: input => ipc.invoke(IPC_CHANNELS.remote.setPhoneWrite, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
+      firewallStatus: () => ipc.invoke(IPC_CHANNELS.remote.firewallStatus) as Promise<import('../../shared/types/remote').RemoteFirewallStatus>,
+      firewallRepair: () => ipc.invoke(IPC_CHANNELS.remote.firewallRepair) as Promise<import('../../shared/types/remote').RemoteFirewallChange>,
+      firewallUndo: () => ipc.invoke(IPC_CHANNELS.remote.firewallUndo) as Promise<import('../../shared/types/remote').RemoteFirewallChange>
     },
     automations: {
       list: () => ipc.invoke(IPC_CHANNELS.automations.list) as Promise<import('../../shared/types/automation').Automation[]>,

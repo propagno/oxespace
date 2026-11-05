@@ -6,6 +6,7 @@ import { Button, Dialog, ErrorState, LoadingState, Notice, Panel, Switch, TextFi
 import { i18n } from '../../i18n'
 import { formatMainMessage } from '../../i18n/mainMessage'
 import { remoteApi, useRemoteGateway, useRemoteStore } from '../../store/remote.store'
+import { DevicesFirewall } from './DevicesFirewall'
 import { DevicesList } from './DevicesList'
 import { DevicesPairing } from './DevicesPairing'
 import styles from './DevicesSettings.module.css'
@@ -41,6 +42,8 @@ export function DevicesSettings(): ReactElement {
   const [toggling, setToggling] = useState(false)
   const [toggleError, setToggleError] = useState('')
   const [firewallOpen, setFirewallOpen] = useState(false)
+  // Bumped each time a pairing code shows, so the firewall check reads again at the moment a phone needs to get in.
+  const [pairingRound, setPairingRound] = useState(0)
 
   if (!remoteApi()) return <section className="settings-general" data-testid="devices-settings"><h2>{t('devices.title')}</h2><ErrorState compact title={t('devices.unavailable')} /></section>
   if (loadError && !status) return <section className="settings-general" data-testid="devices-settings"><h2>{t('devices.title')}</h2>
@@ -74,14 +77,16 @@ export function DevicesSettings(): ReactElement {
           <p className={styles.meta} data-testid="devices-gateway-state">{listening && status.listening
             ? t('devices.gateway.listening', { addresses: status.listening.addresses.join(', '), port: status.listening.port }) : t('devices.gateway.off')}</p>
           {status.error ? <div data-testid="devices-gateway-error"><ErrorState compact title={formatMainMessage(status.error)} /></div> : null}
-          {/* T86: on a network Windows calls Public, its firewall blocks phones and nothing tells the person why. */}
-          {listening && status.network?.category === 'public' ? <div data-testid="devices-network-public"><Notice intent="warning" title={t('devices.network.publicTitle', { network: status.network.interfaceName })}>
-            <p>{t('devices.network.publicBody')}</p></Notice></div> : null}
           {toggleError ? <ErrorState compact title={toggleError} /> : null}
+          {/* T86: on a network Windows calls Public, its firewall blocks phones. P1's firewall check says so when it runs;
+              this Notice is its fallback, so one problem gives one alert. */}
+          <DevicesFirewall listening={!!listening} pairingKey={String(pairingRound)}
+            publicFallback={status.network?.category === 'public' ? <div data-testid="devices-network-public"><Notice intent="warning" title={t('devices.network.publicTitle', { network: status.network.interfaceName })}>
+              <p>{t('devices.network.publicBody')}</p></Notice></div> : null} />
         </div>
       </Panel>
       <DesktopName current={status.desktopName} />
-      <DevicesPairing canPair={!blockedReason} blockedReason={blockedReason} />
+      <DevicesPairing canPair={!blockedReason} blockedReason={blockedReason} onOffer={() => setPairingRound(round => round + 1)} />
       <DevicesList devices={devices} maxDevices={status.maxDevices} />
       <PhoneTyping panes={status.phoneWritePanes} />
       <Panel title={t('devices.scope.title')} label={t('devices.scope.title')}>

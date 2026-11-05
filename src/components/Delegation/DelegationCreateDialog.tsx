@@ -99,7 +99,7 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
     } catch (cause) { setError(humanizeError(cause)) }
     finally { setLoading(false) }
   }
-  return <Dialog className="delegation-create-dialog" size="xl" title={t('delegate.title')} description={t('delegate.description')} onClose={() => { if (!loading) onClose() }}
+  return <Dialog size="xl" title={t('delegate.title')} description={t('delegate.description')} onClose={() => { if (!loading) onClose() }}
     footer={<>
       <Button variant="ghost" loading={loading} disabled={loading || !objective.trim() || (strategy !== 'generated' && !branch.trim())} onClick={() => void inspect()}>{t('delegate.preview')}</Button>
       <Button disabled={loading} onClick={onClose}>{t('ui.cancel', { ns: 'common' })}</Button>

@@ -24,7 +24,9 @@ const remaining = (ms: number): string => {
  * withdraws the code, unless a phone is already asking.
  * F9-1: a failed attempt (`remote:pairing-failed`) says why here, and the code stops waiting.
  */
-export function DevicesPairing({ canPair, blockedReason }: { canPair: boolean; blockedReason: string | null }): ReactElement {
+export function DevicesPairing({ canPair, blockedReason, onOffer }: { canPair: boolean; blockedReason: string | null
+  /** A pairing code is on screen: the firewall check reads again (1.4.3 P1). */
+  onOffer?: () => void }): ReactElement {
   const { t } = useTranslation('settings')
   const failure = useRemoteStore(state => state.failure)
   const [offer, setOffer] = useState<RemotePairingOffer | null>(null)
@@ -62,7 +64,7 @@ export function DevicesPairing({ canPair, blockedReason }: { canPair: boolean; b
     const api = remoteApi()
     if (!api) return
     setBusy(true); setError(''); useRemoteStore.getState().clearFailure()
-    try { const next = await api.startPairing(); setNow(Date.now()); setOffer(next) } catch (cause) { setError(t('devices.pairing.failed', { error: errorText(cause) })) } finally { setBusy(false) }
+    try { const next = await api.startPairing(); setNow(Date.now()); setOffer(next); onOffer?.() } catch (cause) { setError(t('devices.pairing.failed', { error: errorText(cause) })) } finally { setBusy(false) }
   }
   const cancel = async (): Promise<void> => {
     setOffer(null)
