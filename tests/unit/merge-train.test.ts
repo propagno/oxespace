@@ -438,6 +438,15 @@ describe('running the train against a fake API', () => {
     expect(actions.map((a: { type: string }) => a.type)).toEqual(['merge', 'update'])
   })
 
+  it('deletes a merged batch PR’s train/batch-N branch, and no other head branch', async () => {
+    const api = fakeApi(['train/batch-7', 'train/batch-D', 'feat/x'].map((headRef, i) => ({ number: i + 1, labeledAt: `2026-10-31T1${i}:00:00Z`, pr: { headRef } })))
+    const deleted: string[] = []
+    Object.assign(api, { deleteRef: async (name: string) => void deleted.push(name) })
+    await runTrain(api, { now: NOW, sleep: noSleep })
+    expect(api.writes.filter(([w]) => w === 'merge').map(([, n]) => n)).toEqual([1, 2, 3])
+    expect(deleted).toEqual(['train/batch-7'])
+  })
+
   it('takes a PR out when GitHub refuses the merge of a workflow change', async () => {
     const api = fakeApi([{ number: 8, labeledAt: '2026-10-31T09:00:00Z' }])
     api.merge = async () => {
