@@ -31,7 +31,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -62,16 +61,26 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oxespace.mobile.protocol.live.CommandApi
 import com.oxespace.mobile.protocol.live.CommandResult
 import com.oxespace.mobile.protocol.live.TerminalBuffer
+import com.oxespace.mobile.protocol.live.VtLine
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.TextUnit
 import com.oxespace.mobile.protocol.RemotePane
 import com.oxespace.mobile.protocol.RemoteTerminalWriteArgs
 import com.oxespace.mobile.R
@@ -81,7 +90,6 @@ import com.oxespace.mobile.approval.PresenceGate
 import com.oxespace.mobile.approval.PresenceReason
 import com.oxespace.mobile.session.Watched
 import com.oxespace.mobile.ui.SecureScreen
-import com.oxespace.mobile.ui.terminal.Ansi
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeColors
 import com.oxespace.mobile.ui.theme.OxeSpace
@@ -95,10 +103,17 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
     SecureScreen()
     val tick by watched.changes.collectAsStateWithLifecycle()
     val colors = Oxe.colors
-    val text = remember(tick, colors) { colored(watched.store.output, colors) }
+    // The screen, not the raw stream (T97): unchanged lines come back as the same objects, so the list skips them.
+    val lines = remember(tick) { watched.store.lines() }
     val redacted = watched.store.redacted
-    val vertical = rememberScrollState()
-    LaunchedEffect(tick) { vertical.scrollTo(vertical.maxValue) }
+    val list = rememberLazyListState()
+    // Follow the newest line only while the person is at the bottom. Scrolling up to read stops it; back at the
+    // bottom, it starts again.
+    var follow by remember { mutableStateOf(true) }
+    LaunchedEffect(list) {
+        snapshotFlow { list.isScrollInProgress }.collect { scrolling -> if (!scrolling) follow = !list.canScrollForward }
+    }
+    LaunchedEffect(tick) { if (follow && lines.isNotEmpty()) list.scrollToItem(lines.lastIndex) }
     // The desktop's redactor holds output up to 250 ms, so a first snapshot can be empty while the pane runs:
     // say "loading" for a second before "no output yet".
     var settling by remember { mutableStateOf(true) }
@@ -158,17 +173,10 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
                     modifier = Modifier.padding(horizontal = OxeSpace.space3, vertical = OxeSpace.space2),
                 )
             }
-            if (text.isEmpty()) {
+            if (lines.all { it.text.isEmpty() }) {
                 Text(stringResource(if (watched.loaded && !settling) R.string.terminal_empty else R.string.live_loading), color = colors.textSecondary, modifier = Modifier.padding(OxeSpace.space3))
             } else {
-                Text(
-                    text,
-                    fontFamily = OxeFonts.mono,
-                    fontSize = size.sp.sp,
-                    color = colors.textPrimary,
-                    softWrap = false,
-                    modifier = Modifier.verticalScroll(vertical).horizontalScroll(rememberScrollState()).padding(OxeSpace.space3),
-                )
+                TerminalLines(lines, list, size.sp.sp, colors)
             }
         }
     }
@@ -194,10 +202,38 @@ private fun ansiColor(colors: OxeColors, index: Int): Color = when (index) {
     else -> colors.ansiBrightWhite
 }
 
-private fun colored(output: String, colors: OxeColors): AnnotatedString = buildAnnotatedString {
-    for (span in Ansi.parse(output)) {
-        val color = span.color?.let { ansiColor(colors, it) } ?: Color.Unspecified
-        withStyle(SpanStyle(color = color, fontWeight = if (span.bold) FontWeight.Bold else null)) { append(span.text) }
+/**
+ * The screen's lines, only the visible ones composed (a long session stays cheap). The lines don't wrap: the list is
+ * as wide as the longest line in the monospaced font, and scrolls sideways inside the screen.
+ */
+@Composable
+private fun TerminalLines(lines: List<VtLine>, list: LazyListState, fontSize: TextUnit, colors: OxeColors) {
+    val style = TextStyle(fontFamily = OxeFonts.mono, fontSize = fontSize, color = colors.textPrimary)
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val charWidth = remember(fontSize, density) { measurer.measure("0", style).size.width }
+    val longest = remember(lines) { lines.maxOfOrNull { it.text.length } ?: 0 }
+    val padding = OxeSpace.space3
+    BoxWithConstraints(Modifier.fillMaxSize().horizontalScroll(rememberScrollState())) {
+        val content = with(density) { (charWidth * longest).toDp() } + padding * 2
+        LazyColumn(
+            state = list,
+            contentPadding = PaddingValues(padding),
+            modifier = Modifier.fillMaxHeight().width(maxOf(content, maxWidth)),
+        ) {
+            items(lines.size) { index ->
+                val line = lines[index]
+                Text(remember(line, colors) { colored(line, colors) }, style = style, softWrap = false, maxLines = 1)
+            }
+        }
+    }
+}
+
+internal fun colored(line: VtLine, colors: OxeColors): AnnotatedString = buildAnnotatedString {
+    append(line.text)
+    for (run in line.runs) {
+        if (run.color == null && !run.bold) continue
+        addStyle(SpanStyle(color = run.color?.let { ansiColor(colors, it) } ?: Color.Unspecified, fontWeight = if (run.bold) FontWeight.Bold else null), run.start, run.end)
     }
 }
 

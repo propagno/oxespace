@@ -127,7 +127,7 @@ export function registerE2eMockIpcHandlers(): void {
       backgroundPanelWidthPercent: 28,
       worktreePanelVisible: false,
       worktreePanelExpanded: false,
-      worktreePanelWidthPercent: 36,
+      worktreePanelWidthPercent: 36, color: null,
       panes: []
     }
     workspace.panes = createMockPanes(workspace.id, layout)

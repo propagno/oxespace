@@ -12,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -27,7 +28,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -151,17 +152,24 @@ fun ThreadScreen(
     val receivedAt = remember(tick) { readClock() }
     var openTurns by rememberSaveable(threadId) { mutableStateOf(setOf<String>()) }
     val rows = remember(tick, openTurns, running) { timelineRows(entries.map { it.item }, running, openTurns) }
-    val list = rememberLazyListState()
+    // Created already on the last item once the conversation is loaded, so even the first frame shows the end. A list
+    // created at the top and scrolled afterwards flashed the oldest messages first.
+    val itemCount = rows.size + (if (timeline.hasMore && entries.isNotEmpty()) 1 else 0) + (if (timeline.skipped > 0) 1 else 0)
+    val list = remember(threadId, watched.loaded) { LazyListState(firstVisibleItemIndex = (itemCount - 1).coerceAtLeast(0)) }
     val scope = rememberCoroutineScope()
     var loadingOlder by remember { mutableStateOf(false) }
     var stopping by rememberSaveable { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<Int?>(null) }
-    // Follow the newest row while the person is at the bottom.
-    LaunchedEffect(rows.size) {
-        if (rows.isNotEmpty() && (list.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) >= list.layoutInfo.totalItemsCount - 3) {
-            list.animateScrollToItem(list.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1)
-        }
+    // A conversation opens at its latest message and follows new ones (T100). In 1.4.2 it opened at the top and
+    // followed only from near the bottom. Scrolling up to read stops following; "Latest" or scrolling back down
+    // starts it again. Pinned until the person scrolls, so a late snapshot or a growing reply still lands at the end.
+    var follow by rememberSaveable(threadId) { mutableStateOf(true) }
+    LaunchedEffect(list) {
+        snapshotFlow { list.isScrollInProgress }.collect { scrolling -> if (!scrolling) follow = !list.canScrollForward }
+    }
+    LaunchedEffect(rows.size, rows.lastOrNull(), watched.loaded) {
+        if (follow && rows.isNotEmpty()) list.scrollToItem(list.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1)
     }
     if (stopping) {
         StopTurnDialog(
@@ -222,8 +230,9 @@ fun ThreadScreen(
             ConversationSkeleton(Modifier.padding(padding), skeletonAfterMs)
             return@Scaffold
         }
+        Box(Modifier.fillMaxSize().padding(padding)) {
         LazyColumn(
-            Modifier.fillMaxSize().padding(padding),
+            Modifier.fillMaxSize(),
             state = list,
             contentPadding = PaddingValues(horizontal = OxeSpace.space4, vertical = OxeSpace.space3),
             verticalArrangement = Arrangement.spacedBy(OxeSpace.space3),
@@ -262,6 +271,22 @@ fun ThreadScreen(
                 }
             }
         }
+        // Scrolled up while the conversation goes on: one tap back to the newest message, as on the desktop.
+        if (!follow && list.canScrollForward) {
+            LatestChip(Modifier.align(Alignment.BottomCenter).padding(bottom = OxeSpace.space3)) {
+                follow = true
+                scope.launch { list.animateScrollToItem(list.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1) }
+            }
+        }
+        }
+    }
+}
+
+/** "Latest ↓": back to the newest message. */
+@Composable
+internal fun LatestChip(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    androidx.compose.material3.FilledTonalButton(onClick = onClick, modifier = modifier.heightIn(min = 48.dp)) {
+        Text(stringResource(R.string.thread_latest))
     }
 }
 

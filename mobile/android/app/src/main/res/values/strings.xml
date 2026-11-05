@@ -249,6 +249,7 @@
         <item quantity="one">made %1$d search</item>
         <item quantity="other">made %1$d searches</item>
     </plurals>
+    <string name="thread_latest">Latest ↓</string>
     <string name="thread_loading">Loading the conversation</string>
     <string name="thread_load_older">Load earlier</string>
     <string name="thread_marker_cancelled">The request was withdrawn</string>

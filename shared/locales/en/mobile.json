@@ -147,6 +147,7 @@
     "unknownItems_one": "{{count}} item from a newer OXESpace isn't shown.",
     "unknownItems_other": "{{count}} items from a newer OXESpace aren't shown.",
     "loadOlder": "Load earlier",
+    "latest": "Latest ↓",
     "respond": "Respond",
     "answerLabel": "Agent's answer",
     "copy": "Copy",
