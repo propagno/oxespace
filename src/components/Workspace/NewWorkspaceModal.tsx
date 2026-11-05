@@ -172,7 +172,6 @@ export function NewWorkspaceModal({
   return (
     <Dialog
       size="lg"
-      className="new-workspace-modal-v2"
       title={selectedExisting ? t('newWorkspace.openTitle') : t('newWorkspace.createTitle')}
       description={selectedExisting ? t('newWorkspace.openDescription') : t('newWorkspace.createDescription')}
       onClose={closeAndRestoreFocus}

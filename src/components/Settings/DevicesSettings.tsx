@@ -6,6 +6,7 @@ import { Button, Dialog, ErrorState, LoadingState, Panel, Switch, TextField, toa
 import { i18n } from '../../i18n'
 import { formatMainMessage } from '../../i18n/mainMessage'
 import { remoteApi, useRemoteGateway, useRemoteStore } from '../../store/remote.store'
+import { DevicesFirewall } from './DevicesFirewall'
 import { DevicesList } from './DevicesList'
 import { DevicesPairing } from './DevicesPairing'
 import styles from './DevicesSettings.module.css'
@@ -41,6 +42,8 @@ export function DevicesSettings(): ReactElement {
   const [toggling, setToggling] = useState(false)
   const [toggleError, setToggleError] = useState('')
   const [firewallOpen, setFirewallOpen] = useState(false)
+  // Bumped each time a pairing code shows, so the firewall check reads again at the moment a phone needs to get in.
+  const [pairingRound, setPairingRound] = useState(0)
 
   if (!remoteApi()) return <section className="settings-general" data-testid="devices-settings"><h2>{t('devices.title')}</h2><ErrorState compact title={t('devices.unavailable')} /></section>
   if (loadError && !status) return <section className="settings-general" data-testid="devices-settings"><h2>{t('devices.title')}</h2>
@@ -75,10 +78,11 @@ export function DevicesSettings(): ReactElement {
             ? t('devices.gateway.listening', { addresses: status.listening.addresses.join(', '), port: status.listening.port }) : t('devices.gateway.off')}</p>
           {status.error ? <div data-testid="devices-gateway-error"><ErrorState compact title={formatMainMessage(status.error)} /></div> : null}
           {toggleError ? <ErrorState compact title={toggleError} /> : null}
+          <DevicesFirewall listening={!!listening} pairingKey={String(pairingRound)} />
         </div>
       </Panel>
       <DesktopName current={status.desktopName} />
-      <DevicesPairing canPair={!blockedReason} blockedReason={blockedReason} />
+      <DevicesPairing canPair={!blockedReason} blockedReason={blockedReason} onOffer={() => setPairingRound(round => round + 1)} />
       <DevicesList devices={devices} maxDevices={status.maxDevices} />
       <PhoneTyping panes={status.phoneWritePanes} />
       <Panel title={t('devices.scope.title')} label={t('devices.scope.title')}>
