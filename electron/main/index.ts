@@ -13,7 +13,7 @@ import { writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { openDatabase } from './db/index'
+import { openDatabase, resolveAppDatabasePath } from './db/index'
 import { registerAgentIpc } from './ipc/agent.ipc'
 import { registerFileSystemIpc } from './ipc/file-system.ipc'
 import { registerMcpToolsIpc } from './ipc/mcp-tools.ipc'
@@ -160,10 +160,14 @@ async function registerIpcHandlers(): Promise<() => void> {
     db = openDatabase()
   } catch (error) {
     log.error('Native startup failed', error)
-    registerNativeFailureIpcHandlers(toMessage(error))
+    // T87: one blocking screen with the reason, and no other handler behind it (startup-failure.ts).
+    const { describeStartupFailure, registerStartupFailureIpc } = await import('./startup-failure')
+    registerStartupFailureIpc(describeStartupFailure(error, resolveAppDatabasePath()))
     ipcRegistered = true
     return noop
   }
+  // The window asks before it renders; a normal start answers that nothing failed.
+  ipcMain.handle(IPC_CHANNELS.app.startupFailure, () => null)
 
   // Shared Project Memory ships off: no service, no settings page, no oxespace_memory_* tools until the flag is on.
   configureExperimentalFeatures(app.getPath('userData'))
@@ -582,137 +586,6 @@ async function registerIpcHandlers(): Promise<() => void> {
 
 /** Live RPC bus handle, closed on app shutdown. */
 let rpcServer: RpcServerHandle | null = null
-
-function registerNativeFailureIpcHandlers(message: string): void {
-  const shellProfiles: ShellProfile[] = fallbackShellProfiles()
-  const fail = (): never => {
-    throw new Error(`Native runtime unavailable: ${message}`)
-  }
-
-  ipcMain.handle(IPC_CHANNELS.workspace.list, () => [])
-  ipcMain.handle(IPC_CHANNELS.workspace.shellProfiles, () => shellProfiles)
-  ipcMain.handle(IPC_CHANNELS.workspace.create, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.setActive, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.delete, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.closePane, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.splitPane, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.updatePaneType, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.updateEditorState, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.updateReviewState, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.updateGitHubState, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.updateSettings, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.pickFolder, async (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-    const result = await dialog.showOpenDialog(win, { properties: ['openDirectory'] })
-    return result.canceled ? null : result.filePaths[0] ?? null
-  })
-  ipcMain.handle(IPC_CHANNELS.terminal.start, fail)
-  ipcMain.handle(IPC_CHANNELS.terminal.write, fail)
-  ipcMain.handle(IPC_CHANNELS.terminal.resize, fail)
-  ipcMain.handle(IPC_CHANNELS.terminal.stop, fail)
-  ipcMain.handle(IPC_CHANNELS.terminal.restart, fail)
-  ipcMain.handle(IPC_CHANNELS.terminal.attach, fail)
-  ipcMain.handle(IPC_CHANNELS.terminal.detach, fail)
-  ipcMain.handle(IPC_CHANNELS.terminal.status, fail)
-  ipcMain.handle(IPC_CHANNELS.notifications.notify, () => false)
-  ipcMain.handle(IPC_CHANNELS.oxe.detect, () => ({ installed: false, version: null }))
-  ipcMain.handle(IPC_CHANNELS.oxe.status, () => ({ installed: false, version: null, isOxeProject: false, status: null, error: null }))
-  ipcMain.handle(IPC_CHANNELS.oxe.openDashboard, () => ({ ok: false, error: null }))
-  ipcMain.handle(IPC_CHANNELS.agent.list, () => [])
-  ipcMain.handle(IPC_CHANNELS.agent.discover, () => [])
-  ipcMain.handle(IPC_CHANNELS.agent.getReadiness, () => [])
-  ipcMain.handle(IPC_CHANNELS.agent.create, fail)
-  ipcMain.handle(IPC_CHANNELS.agent.update, fail)
-  ipcMain.handle(IPC_CHANNELS.agent.delete, fail)
-  ipcMain.handle(IPC_CHANNELS.tasks.list, () => [])
-  ipcMain.handle(IPC_CHANNELS.tasks.create, fail)
-  ipcMain.handle(IPC_CHANNELS.tasks.update, fail)
-  ipcMain.handle(IPC_CHANNELS.tasks.delete, fail)
-  ipcMain.handle(IPC_CHANNELS.tasks.reorder, fail)
-  ipcMain.handle(IPC_CHANNELS.tasks.run, fail)
-  ipcMain.handle(IPC_CHANNELS.tasks.verify, fail)
-  ipcMain.handle(IPC_CHANNELS.tasks.executions, () => [])
-  ipcMain.handle(IPC_CHANNELS.fs.listTree, fail)
-  ipcMain.handle(IPC_CHANNELS.fs.readFile, fail)
-  ipcMain.handle(IPC_CHANNELS.fs.writeFile, fail)
-  ipcMain.handle(IPC_CHANNELS.fs.watchFile, fail)
-  ipcMain.handle(IPC_CHANNELS.fs.unwatchFile, fail)
-  for (const channel of Object.values(IPC_CHANNELS.github)) {
-    ipcMain.handle(channel, fail)
-  }
-  ipcMain.handle(IPC_CHANNELS.integration.listGroups, () => [])
-  ipcMain.handle(IPC_CHANNELS.integration.createGroup, fail)
-  ipcMain.handle(IPC_CHANNELS.integration.updateGroup, fail)
-  ipcMain.handle(IPC_CHANNELS.integration.deleteGroup, fail)
-  ipcMain.handle(IPC_CHANNELS.integration.addMember, fail)
-  ipcMain.handle(IPC_CHANNELS.integration.updateMember, fail)
-  ipcMain.handle(IPC_CHANNELS.integration.removeMember, fail)
-  ipcMain.handle(IPC_CHANNELS.integration.attachSession, fail)
-  ipcMain.handle(IPC_CHANNELS.integration.listHandoffs, () => [])
-  ipcMain.handle(IPC_CHANNELS.integration.createHandoff, fail)
-  ipcMain.handle(IPC_CHANNELS.integration.updateHandoff, fail)
-  ipcMain.handle(IPC_CHANNELS.integration.buildContext, fail)
-  // Wave 2-6 channels — degrade gracefully so the renderer doesn't spam
-  // "No handler registered" errors when native startup failed. Listing channels
-  // return empty data; mutating channels throw via `fail` so the user sees the
-  // root cause in any action they try.
-  ipcMain.handle(IPC_CHANNELS.background.list, () => [])
-  ipcMain.handle(IPC_CHANNELS.background.start, fail)
-  ipcMain.handle(IPC_CHANNELS.background.stop, fail)
-  ipcMain.handle(IPC_CHANNELS.background.remove, fail)
-  ipcMain.handle(IPC_CHANNELS.background.getOutput, () => ({ jobId: '', startSequence: 0, lines: [] }))
-  ipcMain.handle(IPC_CHANNELS.session.list, () => [])
-  ipcMain.handle(IPC_CHANNELS.session.fork, fail)
-  ipcMain.handle(IPC_CHANNELS.session.delete, fail)
-  ipcMain.handle(IPC_CHANNELS.skill.list, () => [])
-  ipcMain.handle(IPC_CHANNELS.skill.get, () => null)
-  ipcMain.handle(IPC_CHANNELS.skill.invoke, fail)
-  ipcMain.handle(IPC_CHANNELS.skill.create, fail)
-  ipcMain.handle(IPC_CHANNELS.mcp.list, () => [])
-  ipcMain.handle(IPC_CHANNELS.mcp.create, fail)
-  ipcMain.handle(IPC_CHANNELS.mcp.update, fail)
-  ipcMain.handle(IPC_CHANNELS.mcp.delete, fail)
-  ipcMain.handle(IPC_CHANNELS.mcp.start, fail)
-  ipcMain.handle(IPC_CHANNELS.mcp.test, fail)
-  ipcMain.handle(IPC_CHANNELS.mcp.stop, fail)
-  ipcMain.handle(IPC_CHANNELS.mcp.callTool, fail)
-  if ('setTrust' in IPC_CHANNELS.mcp) {
-    ipcMain.handle((IPC_CHANNELS.mcp as Record<string, string>).setTrust, fail)
-  }
-  ipcMain.handle(IPC_CHANNELS.mcpInternal.getStatus, () => ({
-    running: false,
-    port: null,
-    bridgePath: null,
-    serverRowId: null,
-    lastError: 'native startup failed',
-    uptimeMs: 0,
-    toolCount: 0,
-    tools: []
-  }))
-  ipcMain.handle(IPC_CHANNELS.mcpInternal.regenerateToken, fail)
-  ipcMain.handle(IPC_CHANNELS.semantic.getStatus, () => ({ enabled: false, workerReady: false, indexing: false, count: 0, lastError: 'native startup failed', mode: 'auto', coverage: { lexicalDocuments: 0, lastIndexedAt: null, byCategory: { source: 0, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null }))
-  ipcMain.handle(IPC_CHANNELS.semantic.setEnabled, () => ({ enabled: false, workerReady: false, indexing: false, count: 0, lastError: 'native startup failed', mode: 'auto', coverage: { lexicalDocuments: 0, lastIndexedAt: null, byCategory: { source: 0, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null }))
-  ipcMain.handle(IPC_CHANNELS.semantic.setMode, () => ({ enabled: false, workerReady: false, indexing: false, count: 0, lastError: 'native startup failed', mode: 'auto', coverage: { lexicalDocuments: 0, lastIndexedAt: null, byCategory: { source: 0, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null }))
-  ipcMain.handle(IPC_CHANNELS.semantic.getLogs, () => [])
-  ipcMain.handle(IPC_CHANNELS.diagnostics.getSnapshot, () => ({
-    generatedAt: Date.now(), appVersion: app.getVersion(), platform: process.platform, arch: process.arch,
-    nodeVersion: process.versions.node, electronVersion: process.versions.electron ?? 'unknown', workspaceCount: 0,
-    checks: [{ id: 'native', label: 'Native runtime', tone: 'error', detail: message }]
-  }))
-  ipcMain.handle(IPC_CHANNELS.diagnostics.exportReport, () => null)
-  ipcMain.handle(IPC_CHANNELS.oxeContext.buildPaneManifest, () => '')
-  ipcMain.handle(IPC_CHANNELS.workspace.updateBackgroundState, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.updateWorktreeState, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.reorder, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.setPaneAgent, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.setPaneRootPath, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.updatePaneName, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.createGitHubTerminalPane, fail)
-  ipcMain.handle(IPC_CHANNELS.tasks.onVerifyOutput, () => undefined)
-  ipcMain.handle(IPC_CHANNELS.tasks.addDependency, fail)
-  ipcMain.handle(IPC_CHANNELS.tasks.removeDependency, fail)
-  ipcMain.handle(IPC_CHANNELS.tasks.getReady, () => [])
-}
 
 async function registerRtkIpc(): Promise<void> {
   const { getRtkService } = await import('./services/rtk.service')

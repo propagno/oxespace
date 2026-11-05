@@ -27,7 +27,7 @@ export interface RemoteWorkspaceRow { id: string; name: string; rootPath: string
 export interface RemoteJobRow { id: string; workspaceId: string; label: string; status: BackgroundJobStatus; exitCode: number | null; startedAt: number; finishedAt: number | null }
 export interface RemoteDelegationRow { id: string; workspaceId: string; objective: string; state: string; error?: string; branch?: string; destinationThreadId?: string; updatedAt: number }
 export interface RemotePendingRow { thread: ConversationThread; request: ThreadRequest }
-export interface RemoteTerminalRead { session: string; seq: number; data: string; truncated: boolean }
+export interface RemoteTerminalRead { session: string; seq: number; data: string; truncated: boolean; /** The pane's size, for the P4 screen snapshot. */ cols?: number; rows?: number }
 export type RemoteRespondOutcome = { ok: true; resolution: string } | { ok: false; refusal: ThreadPendingRefusal }
 
 export interface RemoteDesktop {

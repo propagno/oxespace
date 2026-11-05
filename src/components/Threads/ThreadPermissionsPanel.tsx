@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import type { ThreadAuditEntry, ThreadPermissionRule } from '../../../shared/types/thread'
 import { useTranslation } from 'react-i18next'
-import { Checkbox, EmptyState, ErrorState, Select, TextField, LoadingState } from '../../ui'
+import { Checkbox, EmptyState, ErrorState, Select, TextField, LoadingState, toast } from '../../ui'
+import { i18n } from '../../i18n'
 import { humanizeError } from '../../utils/humanizeError'
 import { formatDateTime } from '../../utils/formatTime'
 
@@ -43,7 +44,13 @@ export default function ThreadPermissionsPanel({ threadId }: { threadId: string 
     {error && <ErrorState compact title={error} />}
     {autoReads !== null && api.setAutoApproveReads && <section>
       <h3>{t('permissions.readOnly')}</h3>
-      <Checkbox checked={autoReads} disabled={busy} label={t('permissions.autoReads')} onChange={event => void run(() => api.setAutoApproveReads!(event.target.checked))} />
+      <Checkbox checked={autoReads} disabled={busy} label={t('permissions.autoReads')} onChange={event => {
+        const on = event.target.checked
+        // U2: approving reads without asking widens what agents do unattended; turning it on offers Undo.
+        void run(() => api.setAutoApproveReads!(on)).then(() => {
+          if (on) toast({ title: t('permissions.autoReadsOn'), intent: 'info', action: { label: i18n.t('ui.undo'), run: () => void run(() => api.setAutoApproveReads!(false)) } })
+        })
+      }} />
       <p>{t('permissions.autoReadsHint')}</p>
     </section>}
     <section>
@@ -58,7 +65,13 @@ export default function ThreadPermissionsPanel({ threadId }: { threadId: string 
           <button type="button" aria-label={t('permissions.remove', { pattern: rule.pattern })} title={t('permissions.removeTitle')} disabled={busy} onClick={() => void run(() => api.removePermissionRule!(threadId, rule.id))}><Trash2 size={14} /></button>
         </li>)}
       </ul>}
-      <form className="thread-permissions-add" onSubmit={event => { event.preventDefault(); void run(async () => { await api.addPermissionRule!(threadId, { kind, pattern, decision, scope: global ? 'global' : 'project' }); setPattern('') }) }}>
+      <form className="thread-permissions-add" onSubmit={event => { event.preventDefault(); void run(async () => {
+        const added = await api.addPermissionRule!(threadId, { kind, pattern, decision, scope: global ? 'global' : 'project' })
+        setPattern('')
+        // U2: an allow rule widens what agents do without asking; Undo removes it again.
+        const id = added?.id
+        if (decision === 'allow' && id && api.removePermissionRule) toast({ title: t('permissions.allowAdded', { pattern }), intent: 'info', action: { label: i18n.t('ui.undo'), run: () => void run(() => api.removePermissionRule!(threadId, id)) } })
+      }) }}>
         <Select aria-label={t('permissions.decision')} value={decision} onChange={event => setDecision(event.target.value as ThreadPermissionRule['decision'])}><option value="allow">{t('permissions.allow')}</option><option value="deny">{t('permissions.deny')}</option></Select>
         <Select aria-label={t('permissions.kindLabel')} value={kind} onChange={event => setKind(event.target.value as ThreadPermissionRule['kind'])}><option value="command">{t('permissions.kind.command')}</option><option value="path">{t('permissions.kind.path')}</option><option value="tool">{t('permissions.kind.tool')}</option></Select>
         <TextField aria-label={t('permissions.pattern')} value={pattern} maxLength={500} placeholder={PLACEHOLDER[kind]} onChange={event => setPattern(event.target.value)} />

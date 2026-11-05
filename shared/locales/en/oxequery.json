@@ -246,6 +246,10 @@
     "agentRead": "Read — agents may ask to read, each request needs your approval",
     "agentWrite": "Read and write — every change needs your approval",
     "agentProd": "Agents can never write to a production connection.",
+    "agentsWidened": {
+      "read": "Agents can now ask to read {{name}}",
+      "write": "Agents can now ask to read and change {{name}}"
+    },
     "keepalive": "Keep-alive (seconds)",
     "keepaliveHint": "0 turns it off",
     "mask": "Names agents must not see",
@@ -296,7 +300,9 @@
     "namePlaceholder": "Save as… (Folder/Name)",
     "noneSaved": "Nothing saved yet.",
     "noHistory": "Statements you run appear here.",
-    "clearHistory": "Clear history"
+    "clearHistory": "Clear history",
+    "clearHistoryTitle": "Clear the query history of {{name}}?",
+    "clearHistoryBody": "Every query run on this connection leaves the history. Saved queries stay. This can’t be undone."
   },
   "plan": {
     "on": "on {{relation}}",
@@ -669,6 +675,7 @@
     "loading": "Loading preferences…",
     "loadFailed": "The settings could not be read",
     "saveFailed": "The settings could not be saved",
+    "riskySaved": "OxeQuery settings saved: it keeps less, or agents may be given more",
     "history": "Statements kept per connection",
     "historyHint": "The query history under Library. Older statements are dropped.",
     "audit": "Keep the agent audit log for",

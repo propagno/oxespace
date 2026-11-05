@@ -93,10 +93,10 @@ export function ServerPanel({ connection, onClose }: { connection: OxeQueryConne
     </div>
   </div>
 
-  return <Dialog className="oq-scope" title={t('server.title', { name: connection.name })} description={t('server.description')} size="lg" onClose={onClose} closeLabel={t('common.close')} testId="server-panel"
+  return <Dialog title={t('server.title', { name: connection.name })} description={t('server.description')} size="lg" onClose={onClose} closeLabel={t('common.close')} testId="server-panel"
     footer={<Button variant="ghost" onClick={onClose}>{t('common.close')}</Button>}>
-    {error && <ErrorState compact title={t('server.failed')} message={error} />}
+    <div className="oq-scope">{error && <ErrorState compact title={t('server.failed')} message={error} />}
     {!databases && !error ? <LoadingState label={t('server.loading')} />
-      : databases && <Tabs<TabId> label={t('server.tabs')} value={tab} onChange={setTab} tabs={[{ value: 'databases', label: t('server.databases'), content: databasesTab }, { value: 'roles', label: t('server.roles'), content: rolesTab }]} />}
+      : databases && <Tabs<TabId> label={t('server.tabs')} value={tab} onChange={setTab} tabs={[{ value: 'databases', label: t('server.databases'), content: databasesTab }, { value: 'roles', label: t('server.roles'), content: rolesTab }]} />}</div>
   </Dialog>
 }

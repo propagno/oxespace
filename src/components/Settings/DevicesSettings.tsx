@@ -3,8 +3,10 @@ import { useTranslation } from 'react-i18next'
 import { REMOTE_COMMANDS, REMOTE_FORBIDDEN, REMOTE_SUBSCRIPTIONS, type RemoteCommand, type RemoteForbidden } from '../../../shared/remote/protocol'
 import { REMOTE_DEFAULT_DESKTOP_NAME, REMOTE_MAX_DESKTOP_NAME_LENGTH } from '../../../shared/types/remote'
 import { Button, Dialog, ErrorState, LoadingState, Panel, Switch, TextField, toast } from '../../ui'
+import { i18n } from '../../i18n'
 import { formatMainMessage } from '../../i18n/mainMessage'
 import { remoteApi, useRemoteGateway, useRemoteStore } from '../../store/remote.store'
+import { DevicesFirewall } from './DevicesFirewall'
 import { DevicesList } from './DevicesList'
 import { DevicesPairing } from './DevicesPairing'
 import styles from './DevicesSettings.module.css'
@@ -41,15 +43,21 @@ export function DevicesSettings(): ReactElement {
   const [toggling, setToggling] = useState(false)
   const [toggleError, setToggleError] = useState('')
   const [firewallOpen, setFirewallOpen] = useState(false)
+  // Bumped each time a pairing code shows, so the firewall check reads again at the moment a phone needs to get in.
+  const [pairingRound, setPairingRound] = useState(0)
 
   if (!remoteApi()) return <section className="settings-general" data-testid="devices-settings"><h2>{t('devices.title')}</h2><ErrorState compact title={t('devices.unavailable')} /></section>
   if (loadError && !status) return <section className="settings-general" data-testid="devices-settings"><h2>{t('devices.title')}</h2>
     <ErrorState compact title={t('devices.loadFailed')} detail={loadError} onRetry={() => void useRemoteStore.getState().reload()} /></section>
   if (!status || !devices) return <section className="settings-general" data-testid="devices-settings"><h2>{t('devices.title')}</h2><LoadingState /></section>
 
-  const setEnabled = async (enabled: boolean): Promise<void> => {
+  const setEnabled = async (enabled: boolean, undoable = true): Promise<void> => {
     setToggling(true); setToggleError('')
-    try { useRemoteStore.getState().apply({ status: await remoteApi()!.setEnabled({ enabled }) }) } catch (cause) { setToggleError(t('devices.gateway.failed', { error: errorText(cause) })) } finally { setToggling(false) }
+    try {
+      useRemoteStore.getState().apply({ status: await remoteApi()!.setEnabled({ enabled }) })
+      // U2: letting phones reach this computer widens who can act here; turning it on offers Undo.
+      if (enabled && undoable) toast({ title: t('devices.gateway.on'), intent: 'info', action: { label: i18n.t('ui.undo'), run: () => void setEnabled(false, false) } })
+    } catch (cause) { setToggleError(t('devices.gateway.failed', { error: errorText(cause) })) } finally { setToggling(false) }
   }
   const onToggle = (enabled: boolean): void => {
     if (enabled && !firewallExplained()) { setFirewallOpen(true); return }
@@ -71,10 +79,11 @@ export function DevicesSettings(): ReactElement {
             ? t('devices.gateway.listening', { addresses: status.listening.addresses.join(', '), port: status.listening.port }) : t('devices.gateway.off')}</p>
           {status.error ? <div data-testid="devices-gateway-error"><ErrorState compact title={formatMainMessage(status.error)} /></div> : null}
           {toggleError ? <ErrorState compact title={toggleError} /> : null}
+          <DevicesFirewall listening={!!listening} pairingKey={String(pairingRound)} />
         </div>
       </Panel>
       <DesktopName current={status.desktopName} />
-      <DevicesPairing canPair={!blockedReason} blockedReason={blockedReason} />
+      <DevicesPairing canPair={!blockedReason} blockedReason={blockedReason} onOffer={() => setPairingRound(round => round + 1)} />
       <DevicesList devices={devices} maxDevices={status.maxDevices} />
       <PhoneTyping panes={status.phoneWritePanes} />
       <Panel title={t('devices.scope.title')} label={t('devices.scope.title')}>
