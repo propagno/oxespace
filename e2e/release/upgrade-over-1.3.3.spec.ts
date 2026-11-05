@@ -310,7 +310,9 @@ test('G4 install over 1.3.3: verify the uninstall', async () => {
   expect.soft(result.installDirGone, 'the program is removed').toBe(true)
   for (const [i, gone] of result.shortcutsGone.entries()) expect.soft(gone, `shortcut removed: ${SHORTCUTS[i]}`).toBe(true)
   expect.soft(result.dataKept, 'the person\'s database is kept (deleteAppDataOnUninstall is off)').toBe(true)
-  expect.soft(result.backupsKept, 'the backups are kept').toBe(true)
+  // Backups exist only when the upgrade migrated something; two releases on one schema make none to keep.
+  const upgrade = existsSync(join(STATE, 'verify-upgrade.json')) ? JSON.parse(readFileSync(join(STATE, 'verify-upgrade.json'), 'utf8')) as { backups?: string[] } : {}
+  if ((upgrade.backups ?? []).length > 0) expect.soft(result.backupsKept, 'the backups are kept').toBe(true)
   writeFileSync(join(STATE, 'verify-uninstall.json'), JSON.stringify(result, null, 2))
   console.log('G4-UNINSTALL', JSON.stringify(result))
 })
