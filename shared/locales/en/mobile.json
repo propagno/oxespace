@@ -46,6 +46,8 @@
       "publicHost": "This code points outside your local network. OXESpace only pairs on the same Wi-Fi.",
       "malformed": "This code can't be read. Show a new one on your computer and try again."
     },
+    "contactingTitle": "Contacting {{desktop}}…",
+    "contactingBody": "Reaching your computer over the Wi-Fi. Once it has the request, it asks you to confirm and this phone shows the code to compare.",
     "waitingTitle": "Confirm on your computer",
     "waitingBody": "{{desktop}} is asking whether to pair with this phone. Accept only if it shows this code:",
     "verificationDescription": "Verification code {{code}}",
@@ -61,9 +63,12 @@
       "locked": "Too many pairing attempts. Wait 2 minutes and try again.",
       "tooManyDevices": "Your computer already has 5 paired devices. Remove one in Settings › Devices first.",
       "wrongCertificate": "Another device answered at that address, not your computer. Nothing was sent. Check that you're on your own Wi-Fi.",
-      "unreachable": "Couldn't reach your computer. Check that it's on, on the same Wi-Fi, and that the phone connection is on in Settings › Devices.",
+      "unreachable": "This phone has no route to your computer. Check that it's on the same Wi-Fi as the computer, not on mobile data, and that no VPN is on.",
       "protocol": "Your computer answered in a way this app doesn't understand. Update the app or OXESpace on your computer.",
-      "reservedName": "This phone's name uses a name reserved for OXESpace itself, so your computer won't accept it. Rename the phone in Android Settings › About phone, then scan again."
+      "reservedName": "This phone's name uses a name reserved for OXESpace itself, so your computer won't accept it. Rename the phone in Android Settings › About phone, then scan again.",
+      "localNetworkBlocked": "Android blocked this phone from reaching your computer: local network access is off for OXESpace. Turn it on in the app's settings (Permissions), then scan again.",
+      "refusedByComputer": "Your computer refused the connection. Check that the phone connection is on in Settings › Devices. If a third-party firewall such as McAfee or Norton is installed, allow OXESpace in it too: it can refuse connections even when Windows Firewall allows them.",
+      "timedOut": "Your computer didn't answer, so it never got the request. On Windows, the firewall blocks the phone when the Wi-Fi is set to Public: set the network to Private, or allow OXESpace through the firewall. Also check that both are on the same Wi-Fi."
     }
   },
   "live": {
@@ -142,6 +147,7 @@
     "unknownItems_one": "{{count}} item from a newer OXESpace isn't shown.",
     "unknownItems_other": "{{count}} items from a newer OXESpace aren't shown.",
     "loadOlder": "Load earlier",
+    "latest": "Latest ↓",
     "respond": "Respond",
     "answerLabel": "Agent's answer",
     "copy": "Copy",
@@ -332,5 +338,12 @@
       "offNetwork": "Waiting for Wi-Fi to reach {{desktop}}",
       "stopped": "Can't stay connected to {{desktop}}. Open the app."
     }
+  },
+  "localNetwork": {
+    "title": "Local network access",
+    "needed": "OXESpace talks to your computer directly over your Wi-Fi, so Android asks whether it may use the local network. It connects only to the computer you pair with, never to other devices.",
+    "allow": "Allow local network access",
+    "denied": "Local network access is off for OXESpace, so Android blocks every connection to your computer. Turn on \"Local network access\" for OXESpace in the app's settings (Permissions), then come back.",
+    "openSettings": "Open app settings"
   }
 }
