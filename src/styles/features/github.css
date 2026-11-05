@@ -754,7 +754,7 @@
 
 .github-filter-tab.active {
   border-color: color-mix(in srgb, var(--brand) 30%, transparent);
-  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  background: var(--fill-selected);
   color: var(--brand-light, var(--text-accent));
 }
 

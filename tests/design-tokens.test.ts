@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { contrast, oklchToHex, over } from '../src/design/tokens/color'
 import { moreContrastTokens, tokensCss } from '../src/design/tokens/css'
 import { generateScale, SCALE_SPECS } from '../src/design/tokens/palette'
-import { colorRoles } from '../src/design/tokens/semantic'
+import { colorRoles, WORKSPACE_TINT } from '../src/design/tokens/semantic'
 
 const MODES = ['light', 'dark'] as const
 
@@ -81,8 +81,36 @@ describe('design tokens', () => {
       it('separates the warning from the accent', () => {
         expect(roles['intent-warning-solid']).not.toBe(roles.accent)
         // A warning must not read as the accent: their hues sit at least 15° apart.
-        const accentHue = (mode === 'light' ? SCALE_SPECS.caatinga : SCALE_SPECS.sun).hue
-        expect(Math.abs(SCALE_SPECS.warning.hue - accentHue)).toBeGreaterThanOrEqual(15)
+        // 1.5 (C4): the accent is caatinga in both modes.
+        expect(Math.abs(SCALE_SPECS.warning.hue - SCALE_SPECS.caatinga.hue)).toBeGreaterThanOrEqual(15)
+      })
+
+      it('1.5: "needs you" (attn) stands apart from the accent and reads on every surface', () => {
+        expect(roles.attn).not.toBe(roles.accent)
+        for (const surface of surfaces) expect.soft(contrast(roles.attn, roles[surface]), `attn on ${surface}`).toBeGreaterThanOrEqual(3)
+        expect(contrast(roles['attn-fg'], roles['attn-bg'])).toBeGreaterThanOrEqual(4.5)
+        expect(contrast(roles['attn-fg'], roles['surface-raised'])).toBeGreaterThanOrEqual(4.5)
+      })
+
+      it('1.5: resource kinds and syntax colors are AA where they are read', () => {
+        for (const name of ['file', 'db', 'box', 'net', 'shell']) {
+          expect.soft(contrast(roles[`k-${name}-fg`], roles[`k-${name}-bg`]), `k-${name}-fg on its tint`).toBeGreaterThanOrEqual(4.5)
+          expect.soft(contrast(roles[`k-${name}`], roles['surface-base']), `k-${name} mark`).toBeGreaterThanOrEqual(3)
+        }
+        for (const role of ['syn-kw', 'syn-str', 'syn-num', 'syn-fn', 'syn-type', 'syn-key', 'syn-cm', 'syn-pun', 'syn-var']) {
+          for (const surface of ['surface-base', 'surface-sunken', 'surface-raised']) expect.soft(contrast(roles[role], roles[surface]), `${role} on ${surface}`).toBeGreaterThanOrEqual(4.5)
+        }
+        expect(contrast(roles['syn-var'], roles['syn-var-bg'])).toBeGreaterThanOrEqual(4.5)
+        expect(contrast(roles['term-fg'], roles['term-bg'])).toBeGreaterThanOrEqual(7)
+      })
+
+      it('1.5: each workspace color marks at 3:1, and its text reads on its own tint (T85)', () => {
+        for (let n = 1; n <= 8; n++) {
+          const tint = over(roles[`ws-${n}`], WORKSPACE_TINT[mode], roles['surface-base'])
+          expect.soft(contrast(roles[`ws-${n}`], roles['surface-base']), `ws-${n} mark`).toBeGreaterThanOrEqual(3)
+          expect.soft(contrast(roles[`ws-${n}-fg`], tint), `ws-${n}-fg on its tint`).toBeGreaterThanOrEqual(4.5)
+          expect.soft(contrast(roles[`ws-${n}-fg`], roles['fill-selected']), `ws-${n}-fg on a selected row`).toBeGreaterThanOrEqual(4.5)
+        }
       })
     })
   }

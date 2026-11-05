@@ -53,7 +53,7 @@ export function ProviderSessionFinder({ workspaceId, rootPath, onClose }: { work
     } catch { setError(t('sessions.copyFailed')) }
   }
 
-  return <Dialog className="desktop-provider-sessions-dialog" size="lg" title={t('sessions.title')} description={t('sessions.description')} onClose={onClose}>
+  return <Dialog size="lg" title={t('sessions.title')} description={t('sessions.description')} onClose={onClose}>
     <p className="terminal-session-identity-note">{t('sessions.identityNote')}</p>
     <label className="desktop-provider-session-search"><Search size={14} aria-hidden="true" /><TextField type="search" aria-label={t('sessions.search')} placeholder={t('sessions.searchPlaceholder')} value={query} onChange={event => setQuery(event.target.value)} /></label>
     {error && <Notice intent="danger">{error}</Notice>}

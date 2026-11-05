@@ -60,6 +60,7 @@ class SessionCore(context: Context) {
 
     fun start() = controller.start()
     fun retry() = controller.retry()
+    fun resume() = controller.resume()
     fun setManualHost(host: String): Boolean = controller.setManualHost(host)
 
     /** The person chose Disconnect: no session until the app is opened again. */
