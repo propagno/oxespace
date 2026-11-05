@@ -230,7 +230,12 @@ jobs:
           # The backup of the release installed first, whatever its schema (v77 for 1.3.3). Two releases on the same
           # schema migrate nothing, so there is no backup: then the data is already what the old release can open.
           $backup = Get-ChildItem "$userData\db-backups" -Filter "oxespace-v$($seed.dbVersion)-*.sqlite3" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-          if (-not $backup) { Write-Host "No db-backups\oxespace-v$($seed.dbVersion)-*.sqlite3: same schema on both releases, nothing to restore"; exit 0 }
+          if (-not $backup) {
+            # Skip only for the reason the upgrade check recorded; a moved schema with no backup is a failure here too.
+            $up = Get-Content -Raw "$env:OXESPACE_UPGRADE_STATE\verify-upgrade.json" | ConvertFrom-Json
+            if (-not $up.noMigration) { throw "Schema moved but no db-backups\oxespace-v$($seed.dbVersion)-*.sqlite3 in $userData" }
+            Write-Host "No db-backups\oxespace-v$($seed.dbVersion)-*.sqlite3: $($up.noMigration)"; exit 0
+          }
           foreach ($suffix in '', '-wal', '-shm') { Remove-Item -LiteralPath "$userData\oxespace.sqlite3$suffix" -Force -ErrorAction SilentlyContinue }
           Copy-Item -LiteralPath $backup.FullName -Destination "$userData\oxespace.sqlite3"
           Write-Host "Restored $($backup.Name) to $userData\oxespace.sqlite3"
@@ -484,7 +489,13 @@ jobs:
           pkill -f AppImage || true
           from=$(node -p "require(process.env.OXESPACE_UPGRADE_STATE + '/seed.json').dbVersion")
           backup=$(ls -t "$data"/db-backups/oxespace-v"$from"-*.sqlite3 2>/dev/null | head -1 || true)
-          if [ -z "$backup" ]; then echo "No oxespace-v$from backup: same schema on both releases, nothing to restore"; exit 0; fi
+          if [ -z "$backup" ]; then
+            # Skip only for the reason the upgrade check recorded; a moved schema with no backup is a failure here too.
+            if ! node -e "process.exit(require(process.env.OXESPACE_UPGRADE_STATE + '/verify-upgrade.json').noMigration ? 0 : 1)"; then
+              echo "::error::Schema moved but no oxespace-v$from backup in $data/db-backups"; exit 1
+            fi
+            echo "No oxespace-v$from backup: same schema on both releases, nothing to restore"; exit 0
+          fi
           rm -f "$data/oxespace.sqlite3" "$data/oxespace.sqlite3-wal" "$data/oxespace.sqlite3-shm"
           cp "$backup" "$data/oxespace.sqlite3"
           echo "Restored $(basename "$backup") to $data/oxespace.sqlite3"
