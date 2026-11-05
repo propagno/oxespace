@@ -86,6 +86,11 @@
     <string name="live_tabs_tasks">Tasks</string>
     <string name="live_tabs_terminals">Terminals</string>
     <string name="live_tabs_threads">Conversations</string>
+    <string name="local_network_allow">Allow local network access</string>
+    <string name="local_network_denied">Local network access is off for OXESpace, so Android blocks every connection to your computer. Turn on \"Local network access\" for OXESpace in the app\'s settings (Permissions), then come back.</string>
+    <string name="local_network_needed">OXESpace talks to your computer directly over your Wi-Fi, so Android asks whether it may use the local network. It connects only to the computer you pair with, never to other devices.</string>
+    <string name="local_network_open_settings">Open app settings</string>
+    <string name="local_network_title">Local network access</string>
     <string name="notify_channel_done">Finished</string>
     <string name="notify_channel_failed">Failed</string>
     <string name="notify_channel_needs_you">Needs you</string>
@@ -106,16 +111,21 @@
     <string name="pairing_camera_denied">Camera access is off for OXESpace. Turn it on in the phone\'s settings to scan the pairing code.</string>
     <string name="pairing_camera_description">Camera view for scanning the pairing code</string>
     <string name="pairing_camera_needed">The camera reads the pairing code on your computer\'s screen. Nothing it sees leaves the phone.</string>
+    <string name="pairing_contacting_body">Reaching your computer over the Wi-Fi. Once it has the request, it asks you to confirm and this phone shows the code to compare.</string>
+    <string name="pairing_contacting_title">Contacting %1$s…</string>
     <string name="pairing_done">Done</string>
     <string name="pairing_failed_code_expired">The code expired. Show a new one on your computer and scan it within 2 minutes.</string>
     <string name="pairing_failed_code_invalid">That code wasn\'t accepted. Show a new one on your computer and scan it again.</string>
     <string name="pairing_failed_code_used">That code was already used. Show a new one on your computer.</string>
+    <string name="pairing_failed_local_network_blocked">Android blocked this phone from reaching your computer: local network access is off for OXESpace. Turn it on in the app\'s settings (Permissions), then scan again.</string>
     <string name="pairing_failed_locked">Too many pairing attempts. Wait 2 minutes and try again.</string>
     <string name="pairing_failed_protocol">Your computer answered in a way this app doesn\'t understand. Update the app or OXESpace on your computer.</string>
+    <string name="pairing_failed_refused_by_computer">Your computer refused the connection. Check that the phone connection is on in Settings › Devices. If a third-party firewall such as McAfee or Norton is installed, allow OXESpace in it too: it can refuse connections even when Windows Firewall allows them.</string>
     <string name="pairing_failed_refused_on_desktop">Pairing was declined on the computer.</string>
     <string name="pairing_failed_reserved_name">This phone\'s name uses a name reserved for OXESpace itself, so your computer won\'t accept it. Rename the phone in Android Settings › About phone, then scan again.</string>
+    <string name="pairing_failed_timed_out">Your computer didn\'t answer, so it never got the request. On Windows, the firewall blocks the phone when the Wi-Fi is set to Public: set the network to Private, or allow OXESpace through the firewall. Also check that both are on the same Wi-Fi.</string>
     <string name="pairing_failed_too_many_devices">Your computer already has 5 paired devices. Remove one in Settings › Devices first.</string>
-    <string name="pairing_failed_unreachable">Couldn\'t reach your computer. Check that it\'s on, on the same Wi-Fi, and that the phone connection is on in Settings › Devices.</string>
+    <string name="pairing_failed_unreachable">This phone has no route to your computer. Check that it\'s on the same Wi-Fi as the computer, not on mobile data, and that no VPN is on.</string>
     <string name="pairing_failed_wrong_certificate">Another device answered at that address, not your computer. Nothing was sent. Check that you\'re on your own Wi-Fi.</string>
     <string name="pairing_instructions">On your computer, open OXESpace › Settings › Devices, turn on the phone connection, and point the camera at the code shown there.</string>
     <string name="pairing_open_settings">Open settings</string>
@@ -230,6 +240,7 @@
         <item quantity="one">made %1$d search</item>
         <item quantity="other">made %1$d searches</item>
     </plurals>
+    <string name="thread_latest">Latest ↓</string>
     <string name="thread_loading">Loading the conversation</string>
     <string name="thread_load_older">Load earlier</string>
     <string name="thread_marker_cancelled">The request was withdrawn</string>

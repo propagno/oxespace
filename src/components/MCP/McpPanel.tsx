@@ -1,6 +1,6 @@
 import { Activity, ChevronDown, ChevronRight, Circle, CircleDot, KeyRound, Plus, PlugZap, RotateCw, Search, ShieldAlert, ShieldCheck, Square, Trash2, Wrench, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
-import { ToolPanel, Button, ConfirmDialog, EmptyState, ErrorState, TextField, Select, TextArea } from '../../ui'
+import { ToolPanel, Button, ConfirmDialog, EmptyState, ErrorState, TextField, Select, TextArea, toast } from '../../ui'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
 
@@ -119,6 +119,8 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
       const config = catalogConfig(entry)
       const created = await createServer({ workspaceId, name: entry.id, transport: config.transport, config, enabled: true, trusted: true })
       void testServer(created.id).catch(() => undefined) // progress and errors show on the row
+      // U2: a server turned on gives agents new tools; one click added it, so Undo takes it out again.
+      toast({ title: t('mcp.catalogAdded', { name: entry.id }), intent: 'info', action: { label: i18n.t('ui.undo'), run: () => void removeServer(created.id).catch(() => undefined) } })
     } catch { /* error captured in store */ } finally { setCatalogBusyId(null) }
   }
 
@@ -167,6 +169,7 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
 
   return (
     <ToolPanel
+      toasts
       className={`mcp-panel${view === 'catalog' ? ' is-catalog' : ''}`}
       label={t('tools.mcp.label')} onClose={onClose}>
       <header className="mcp-panel-header">

@@ -140,6 +140,49 @@ class DesktopSessionControllerTest {
         assertEquals(DesktopStatus.Unreachable(paired, 1_000), h.controller.status.value)
     }
 
+    /**
+     * P6 review: after a revoke, `running` is false, but the pairing and key are already gone. Coming back to the
+     * foreground opens nothing and keeps "removed this phone" on screen; it never signs in again as a revoked phone.
+     * The same holds for "Other version" and "Not accepted": they're running with no retry pending, so resume() leaves
+     * them alone.
+     */
+    @Test
+    fun comingBackAfterARevokeOpensNothing() = runTest {
+        val h = harness()
+        h.controller.start()
+        h.link.state.value = SessionState.Ended(SessionEnd.REVOKED)
+        val removed = h.controller.status.value
+        h.controller.resume()
+        h.controller.resume()
+        advanceTimeBy(120_000); runCurrent()
+        assertEquals(1, h.links.size)
+        assertEquals(removed, h.controller.status.value)
+
+        val other = harness()
+        other.controller.start()
+        other.link.state.value = SessionState.Ended(SessionEnd.UNSUPPORTED_VERSION)
+        other.controller.resume()
+        assertEquals("an incompatible desktop isn't redialled by a foreground", 1, other.links.size)
+    }
+
+    /** P6: back in the foreground, a retry waiting out its backoff goes now; a live session is left alone. */
+    @Test
+    fun comingBackToTheForegroundSkipsAPendingWait() = runTest {
+        val h = harness()
+        h.controller.start()
+        h.link.state.value = SessionState.Ended(SessionEnd.CLOSED)
+        assertTrue(h.controller.status.value is DesktopStatus.Unreachable)
+        h.controller.resume()
+        assertEquals(2, h.links.size)
+        assertEquals(DesktopStatus.Connecting(paired), h.controller.status.value)
+        advanceTimeBy(60_000); runCurrent()
+        assertEquals("the skipped wait doesn't connect again", 2, h.links.size)
+
+        h.link.state.value = SessionState.Ready(null)
+        h.controller.resume()
+        assertEquals("a live session is left alone", 2, h.links.size)
+    }
+
     @Test
     fun tryingNowSkipsTheWait() = runTest {
         val h = harness()
@@ -210,6 +253,66 @@ class DesktopSessionControllerTest {
         assertEquals("192.168.1.50", h.store.desktop!!.manualHost)
         assertEquals(listOf("192.168.0.12", "192.168.1.50"), h.link.target.hosts)
         assertEquals(1, h.links.first().closed)
+    }
+
+    /**
+     * 1.4.1 on a real phone (S23 Ultra, Android 16). The app opened unpaired and its welcome screen started the
+     * controller. The person paired, and start() came again and returned at once because it was already running. The
+     * phone stayed on the welcome screen and never opened a session; the desktop showed it paired and never seen.
+     * The G5 emulator pass missed it: there the pairing link arrived at launch, and the session started again on a
+     * network change before anything was checked.
+     */
+    @Test
+    fun aPairingDuringThisRunConnectsOnTheNextStart() = runTest {
+        val h = harness(desktop = null)
+        h.controller.start()
+        assertEquals(DesktopStatus.Unpaired(), h.controller.status.value)
+        assertTrue(h.links.isEmpty())
+
+        h.store.desktop = paired // what PairingFlow saves once the desktop accepts
+        h.controller.start()
+        assertEquals(DesktopStatus.Connecting(paired), h.controller.status.value)
+        assertEquals(1, h.links.size)
+        assertEquals(1, h.link.connected)
+
+        h.link.state.value = SessionState.Ready("Studio")
+        assertTrue(h.controller.status.value is DesktopStatus.Connected)
+        h.controller.start()
+        assertEquals("a start while connected opens nothing more", 1, h.links.size)
+    }
+
+    @Test
+    fun aStartDuringARetryWaitDoesNotSkipTheWait() = runTest {
+        val h = harness()
+        h.controller.start()
+        h.link.state.value = SessionState.Ended(SessionEnd.CLOSED)
+        assertTrue(h.controller.status.value is DesktopStatus.Unreachable)
+        // The app coming back to the foreground calls start(); the backoff stays the backoff (Try now is retry()).
+        h.controller.start()
+        assertEquals(1, h.links.size)
+    }
+
+    /**
+     * The TECH LEAD's hypothesis (b) for the 1.4.2 "removed this phone" report: does a session after a re-pair still
+     * sign in with the old identity? It doesn't. connect() reads the store each time, and REVOKED clears the record,
+     * the key and the controller's running state.
+     */
+    @Test
+    fun afterARevokedPairingANewPairingSignsInWithTheNewIdentity() = runTest {
+        val h = harness()
+        h.controller.start()
+        assertEquals("dev-1", h.link.target.deviceId)
+        h.link.state.value = SessionState.Ended(SessionEnd.REVOKED)
+        assertEquals(DesktopStatus.Unpaired(revokedFrom = "Studio", revoked = true), h.controller.status.value)
+        assertNull(h.store.desktop)
+        assertTrue(h.keys.deleted)
+
+        val fresh = paired.copy(deviceId = "dev-2", keyAlias = "alias-2")
+        h.store.desktop = fresh // the new pairing, saved by PairingFlow
+        h.controller.start()
+        assertEquals(2, h.links.size)
+        assertEquals("dev-2", h.link.target.deviceId)
+        assertEquals(DesktopStatus.Connecting(fresh), h.controller.status.value)
     }
 
     @Test
