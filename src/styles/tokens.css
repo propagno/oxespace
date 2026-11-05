@@ -89,7 +89,8 @@
   --nav-radius: var(--radius-sm);
   --surface-radius: var(--radius-md);
   /* Selection is neutral; the accent is kept for focus, the brand and the main action. */
-  --nav-selected: var(--fill-pressed);
+  /* U4 (X7): a selected row, tab, list item or tree node reads the one selection role. */
+  --nav-selected: var(--fill-selected);
   --nav-hover: var(--fill-hover);
   --sidebar-w:        280px;
   --sidebar-w-collapsed: var(--rail-w);

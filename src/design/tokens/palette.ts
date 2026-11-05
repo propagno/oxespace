@@ -44,15 +44,21 @@ export function generateScale(spec: ScaleSpec, mode: Mode): Scale {
 export const SCALE_SPECS = {
   /** Green-tinted grey for surfaces, borders and text. */
   neutral: { hue: 155, chroma: 0.034, solid: { light: 0.6, dark: 0.56 } },
-  /** Caatinga green: the light-mode accent and the brand mark. */
+  /** Caatinga green: the accent in both modes (1.5, C4) and the brand mark. */
   caatinga: { hue: 158, chroma: 0.11, solid: { light: 0.47, dark: 0.64 } },
-  /** Sertão sun: the dark-mode accent. */
+  /** Sertão sun: "needs you" (attn) in both modes since 1.5; it is no longer an accent. */
   sun: { hue: 72, chroma: 0.15, solid: { light: 0.72, dark: 0.79 } },
   success: { hue: 148, chroma: 0.14, solid: { light: 0.54, dark: 0.7 } },
   /** Orange rather than ochre, so a warning never reads as the dark-mode accent. */
   warning: { hue: 52, chroma: 0.16, solid: { light: 0.64, dark: 0.72 } },
   danger: { hue: 25, chroma: 0.19, solid: { light: 0.55, dark: 0.66 } },
-  info: { hue: 245, chroma: 0.13, solid: { light: 0.54, dark: 0.7 } }
+  info: { hue: 245, chroma: 0.13, solid: { light: 0.54, dark: 0.7 } },
+  // 1.5 (C4): hues for resource kinds (databases, containers, requests), syntax and workspace identity. They mark what
+  // something is, never a state, so they sit apart from the intents.
+  violet: { hue: 295, chroma: 0.13, solid: { light: 0.54, dark: 0.7 } },
+  teal: { hue: 200, chroma: 0.11, solid: { light: 0.52, dark: 0.72 } },
+  rose: { hue: 345, chroma: 0.15, solid: { light: 0.54, dark: 0.72 } },
+  olive: { hue: 118, chroma: 0.12, solid: { light: 0.52, dark: 0.76 } }
 } satisfies Record<string, ScaleSpec>
 
 export type ScaleName = keyof typeof SCALE_SPECS

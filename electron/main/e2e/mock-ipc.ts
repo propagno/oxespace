@@ -332,6 +332,8 @@ export function registerE2eMockIpcHandlers(): void {
   // Pending requests across conversations, seeded per run with a JSON list of summaries. An answer is accepted once,
   // for the listed generation, exactly as the registry does.
   // A new profile has no conversation projects yet; the real catalog answers an empty one, never nothing.
+  // T87: the window asks before it renders; under the mocks the start never failed.
+  ipcMain.handle(IPC_CHANNELS.app.startupFailure, () => null)
   ipcMain.handle(IPC_CHANNELS.thread.projects, (): ThreadProjectCatalog => ({ projects: [], unavailable: [] }))
   const pendingRequests: ThreadPendingRequestSummary[] = JSON.parse(process.env.OXESPACE_E2E_PENDING_REQUESTS || '[]')
   ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, () => pendingRequests)
