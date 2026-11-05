@@ -379,7 +379,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
       {/* F32: the status-hooks question for this pane's agent, without taking the terminal's focus. */}
       {isTerminalPane && <PaneHooksNotice paneId={pane.id} />}
       <PaneContent pane={pane} workspaceId={workspace.id} workspaceRootPath={workspace.rootPath} autoStart={autoStart} />
-      {detailsOpen && <Dialog size="md" className="desktop-details-dialog" title={tc('paneMenu.detailsTitle')} description={tc('paneMenu.detailsDescription')} onClose={() => setDetailsOpen(false)}>
+      {detailsOpen && <Dialog size="md" title={tc('paneMenu.detailsTitle')} description={tc('paneMenu.detailsDescription')} onClose={() => setDetailsOpen(false)}>
         {/* F32: the native session main resumed or recorded; the note on finding it only when there is none. */}
         {sessionDetails?.agentSession && <AgentSessionDetails session={sessionDetails.agentSession} resume={sessionDetails.agentResume} />}
         {(!sessionDetails?.agentSession || sessionDetails.agentSession.source === 'notFound') && <p className="terminal-session-identity-note">{tc('paneMenu.identityNote')}</p>}

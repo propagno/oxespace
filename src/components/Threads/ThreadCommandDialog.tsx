@@ -66,14 +66,15 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
       onCancel={onClose} onConfirm={() => void action(async () => { await runCommand(confirm.command); onClose() })} />
   }
 
-  const footer = panel.surface === 'rename'
-    ? <><Button onClick={onClose}>{t('common.cancel')}</Button><Button type="submit" form="thread-rename-form" variant="primary" loading={pending} disabled={!canRename}>{t('commandDialog.rename')}</Button></>
-    : !panel.surface && output && panel.externalUrl ? <Button onClick={() => void openExternalLink(panel.externalUrl!, { source: 'app' })}>{t('commandDialog.openBrowser')}</Button>
-    : !panel.surface && output && panel.text ? <Button onClick={() => void navigator.clipboard.writeText(panel.text!).catch(() => onError(t('commandDialog.copyFailed')))}>{t('commandDialog.copy')}</Button>
+  // U1 footer: extra · Cancel · primary. Output panels keep their one action as an extra, beside Close.
+  const actions = panel.surface === 'rename'
+    ? { cancel: { label: t('common.cancel') }, primary: { label: t('commandDialog.rename'), loading: pending, disabled: !canRename, onClick: () => (document.getElementById('thread-rename-form') as HTMLFormElement | null)?.requestSubmit() } }
+    : !panel.surface && output && panel.externalUrl ? { cancel: { label: t('common.close') }, extra: <Button onClick={() => void openExternalLink(panel.externalUrl!, { source: 'app' })}>{t('commandDialog.openBrowser')}</Button> }
+    : !panel.surface && output && panel.text ? { cancel: { label: t('common.close') }, extra: <Button onClick={() => void navigator.clipboard.writeText(panel.text!).catch(() => onError(t('commandDialog.copyFailed')))}>{t('commandDialog.copy')}</Button> }
     : undefined
 
-  return <Dialog closeLabel={t('common.close')} className={`thread-command-dialog${panel.surface === 'sessions' ? ' thread-resume-dialog' : ''}`} size={panel.surface === 'sessions' || panel.surface === 'events' || panel.surface === 'spending' ? 'lg' : 'md'}
-    title={panel.surface === 'sessions' ? t('commandDialog.resume') : panel.title === 'Conversation status' ? t('commandDialog.statusTitle') : panel.title || t('commandDialog.conversation')} description={panel.surface && DESCRIBED.has(panel.surface) ? t(`commandDialog.surface.${panel.surface as 'rename'}`) : undefined} onClose={onClose} footer={footer}>
+  return <Dialog closeLabel={t('common.close')} size={panel.surface === 'sessions' || panel.surface === 'events' || panel.surface === 'spending' ? 'lg' : 'md'}
+    title={panel.surface === 'sessions' ? t('commandDialog.resume') : panel.title === 'Conversation status' ? t('commandDialog.statusTitle') : panel.title || t('commandDialog.conversation')} description={panel.surface && DESCRIBED.has(panel.surface) ? t(`commandDialog.surface.${panel.surface as 'rename'}`) : undefined} onClose={onClose} actions={actions}><div className="thread-command-body">
     {error && <ErrorState compact title={error} />}
     {panel.surface === 'rename' ? <form id="thread-rename-form" className="thread-command-form" onSubmit={event => { event.preventDefault(); if (!canRename) return; void action(async () => { await runCommand(`/rename ${rename.trim()}`); onClose() }) }}>
       <label>{t('commandDialog.name')}<TextField aria-label={t('commandDialog.name')} value={rename} maxLength={120} autoFocus onFocus={event => event.currentTarget.select()} onChange={event => setRename(event.target.value)} /></label>
@@ -111,6 +112,6 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
         <p className="terminal-session-identity-note">{t('commandDialog.statusNote')}</p>
         <DetailList rows={Object.entries(STATUS_ROWS).flatMap(([label, key]) => panel.rows!.filter(row => row.label === label).map(row => ({ ...row, label: t(`commandDialog.statusRow.${key as 'provider'}`) })))} />
         <details className="terminal-technical-details"><summary>{t('commandDialog.internal')}</summary><DetailList rows={Object.entries(INTERNAL_ROWS).flatMap(([label, key]) => panel.rows!.filter(row => row.label === label).map(row => ({ ...row, label: t(`commandDialog.statusRow.${key as 'provider'}`) })))} /></details>
-      </div> : panel.rows && (panel.rows.length && panel.rows.every(row => !row.id) ? <DetailList rows={panel.rows} /> : <div className="thread-panel-list">{panel.rows.length ? panel.rows.map((row, index) => row.id ? <button type="button" key={index} disabled={pending} onClick={() => void action(async () => { onClose(); await runCommand(row.id!) })}><strong>{row.label}</strong>{row.detail && <span>{row.detail}</span>}</button> : <div key={index}><strong>{row.label}</strong><span>{row.detail}</span></div>) : <EmptyState compact title={t('commandDialog.noItems')} />}</div>)}</>}
+      </div> : panel.rows && (panel.rows.length && panel.rows.every(row => !row.id) ? <DetailList rows={panel.rows} /> : <div className="thread-panel-list">{panel.rows.length ? panel.rows.map((row, index) => row.id ? <button type="button" key={index} disabled={pending} onClick={() => void action(async () => { onClose(); await runCommand(row.id!) })}><strong>{row.label}</strong>{row.detail && <span>{row.detail}</span>}</button> : <div key={index}><strong>{row.label}</strong><span>{row.detail}</span></div>) : <EmptyState compact title={t('commandDialog.noItems')} />}</div>)}</>}</div>
   </Dialog>
 }

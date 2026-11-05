@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Plus, X } from 'lucide-react'
 import { isSensitiveName } from '../../../shared/oxepost/redact'
 import type { PostEnvironmentView } from '../../../shared/oxepost/types'
-import { Badge, Button, ConfirmDialog, Dialog, ErrorState, IconButton, Switch, TextField, toast } from '../../ui'
+import { Badge, Button, ConfirmDialog, Dialog, ErrorState, IconButton, Notice, Switch, TextField, toast } from '../../ui'
 import { messageOf, post } from './client'
 import { EXAMPLE } from './examples'
 import { useOxePostStore } from './oxepost.store'
@@ -102,7 +102,7 @@ export function EnvironmentsDialog({ onClose }: { onClose: () => void }): ReactE
         <p className={styles.hint}>{t('env.variablesHint', { example: '{{baseUrl}}' })}</p>
 
         <h3 className={styles.sectionTitle}>{t('env.secrets')}</h3>
-        {secretsProblem && <ErrorState compact title={t('env.noVault')} message={secretsProblem} />}
+        {secretsProblem && <Notice intent="warning" title={t('env.noVault')}>{secretsProblem}</Notice>}
         <ul className={styles.rows} aria-label={t('env.secrets')}>
           {form.secrets.map(name => {
             const isSaved = !!saved?.secrets.includes(name)
