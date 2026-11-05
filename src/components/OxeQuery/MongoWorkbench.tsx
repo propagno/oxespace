@@ -261,7 +261,7 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
             {!connection.readOnly && mode === 'find' && <button type="button" onClick={() => setBulk(true)}>{t('mongo.changeMany')}</button>}
           </div>
           <MongoInsights connection={connection} database={target.database} collection={target.collection} />
-          {editing && <Dialog className="oq-scope" size="lg" closeLabel={t('common.close')} onClose={() => { if (!writing) { setEditing(null); setConfirm(null); setWriteError('') } }}
+          {editing && <Dialog size="lg" closeLabel={t('common.close')} onClose={() => { if (!writing) { setEditing(null); setConfirm(null); setWriteError('') } }}
             title={editing.mode === 'delete' ? t('mongo.deleteTitle') : editing.original === null ? t('mongo.newDocument') : t('mongo.editDocument')}
             description={editing.mode === 'delete' ? t('mongo.deleteDescription') : t('mongo.ejsonDescription')}
             footer={<>
@@ -269,9 +269,9 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
               <Button variant={editing.mode === 'delete' ? 'danger' : 'primary'} loading={writing} onClick={() => void write(false)}>
                 {editing.mode === 'delete' ? t('common.delete') : editing.original === null ? t('mongo.insert') : t('common.save')}</Button>
             </>}>
-            {editing.mode === 'edit' && <TextArea mono aria-label={t('mongo.documentEjson')} spellCheck={false} rows={14} value={editing.text} onChange={event => setEditing({ ...editing, text: event.target.value })} />}
+            <div className="oq-scope">{editing.mode === 'edit' && <TextArea mono aria-label={t('mongo.documentEjson')} spellCheck={false} rows={14} value={editing.text} onChange={event => setEditing({ ...editing, text: event.target.value })} />}
             {editing.mode === 'delete' && <pre className="oq-doc-preview">{prettyDocument(editing.original ?? '')}</pre>}
-            {writeError && <ErrorState compact title={t('mongo.writeFailed')} message={writeError} />}
+            {writeError && <ErrorState compact title={t('mongo.writeFailed')} message={writeError} />}</div>
             {confirm && <ConfirmDialog danger title={t('mongo.confirmTitle')} confirmLabel={t('common.confirm')} cancelLabel={t('common.cancel')} busy={writing}
               confirmDisabled={confirm.typed && !nameMatches(typedName, connection.name)}
               description={connection.environment === 'prod' ? t('workbench.confirm.production') : t('mongo.confirmCheck')}
