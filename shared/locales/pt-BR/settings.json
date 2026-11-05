@@ -597,6 +597,45 @@
       "later": "Se você recusar, os celulares não alcançam este computador. Dá para mudar a resposta depois nas configurações de firewall do sistema.",
       "confirm": "Ligar"
     },
+    "firewallCheck": {
+      "rule": "OXESpace.exe, TCP {{port}}, só redes privadas",
+      "blocked": {
+        "title": "Uma regra do firewall bloqueia o OXESpace",
+        "text": "Uma regra de bloqueio no Firewall do Windows Defender impede que celulares cheguem a este computador, e ela vence qualquer regra de permissão. O OXESpace nunca a remove: fale com a sua TI ou remova-a no Firewall do Windows Defender."
+      },
+      "public": {
+        "title": "Esta rede é Pública, e o Windows bloqueia celulares",
+        "text": "O Windows não deixa dispositivos entrarem em redes Públicas. Se esta é a Wi-Fi da sua casa ou do escritório, mude-a para Privada: Configurações do Windows › Rede e Internet › Wi-Fi › esta rede › Rede privada. O OXESpace não muda isso por você."
+      },
+      "noRule": {
+        "title": "O Firewall do Windows ainda não deixa celulares entrarem",
+        "text": "Nenhuma regra do firewall deixa o OXESpace aceitar conexões de celulares nesta rede."
+      },
+      "noInspection": "O OXESpace não conseguiu ler as configurações do firewall, então isto é uma estimativa. Permitir continua seguro.",
+      "ok": "Celulares conseguem chegar a este computador: {{rule}}.",
+      "checkAgain": "Verificar de novo",
+      "uac": "O Windows vai pedir permissão. Nada muda se você disser Não.",
+      "command": "O que é executado:",
+      "repair": {
+        "action": "Permitir em redes privadas",
+        "adds": "Adiciona uma regra: {{rule}}.",
+        "confirmTitle": "Permitir celulares em redes privadas?",
+        "explain": "O OXESpace adiciona uma regra ao Firewall do Windows, \"{{name}}\": {{rule}}. Você pode removê-la aqui depois.",
+        "confirm": "Permitir",
+        "done": "Verificado: celulares já conseguem chegar a este computador em redes privadas",
+        "notVerified": "Não foi possível verificar a regra. Verifique de novo ou adicione-a no Firewall do Windows Defender.",
+        "failed": "Não foi possível adicionar a regra"
+      },
+      "undo": {
+        "action": "Remover a regra",
+        "confirmTitle": "Remover a regra do firewall?",
+        "explain": "O OXESpace remove só a regra que adicionou, \"{{name}}\" ({{rule}}). Celulares não chegarão a este computador até ela ser permitida de novo.",
+        "confirm": "Remover",
+        "done": "Verificado: a regra do firewall foi removida",
+        "notVerified": "Não foi possível verificar a remoção. Verifique de novo.",
+        "failed": "Não foi possível remover a regra"
+      }
+    },
     "name": {
       "title": "Nome deste computador",
       "label": "Nome que os celulares veem",

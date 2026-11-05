@@ -652,11 +652,11 @@ export class TerminalManager {
   }
 
   /** Output after `seq` in the ring, without attaching. `session` changes when the pane's process is replaced. */
-  readSince(paneId: string, seq: number): { session: string; seq: number; data: string; truncated: boolean } | null {
+  readSince(paneId: string, seq: number): { session: string; seq: number; data: string; truncated: boolean; cols: number; rows: number } | null {
     const session = this.sessions.get(paneId)
     if (!session) return null
     session.outputBatcher.flush()
-    return { session: session.sessionId, seq: session.ring.seq, ...session.ring.since(seq) }
+    return { session: session.sessionId, seq: session.ring.seq, cols: session.cols, rows: session.rows, ...session.ring.since(seq) }
   }
 
   /** Unbind the view. The process keeps running and its output keeps accruing. */
