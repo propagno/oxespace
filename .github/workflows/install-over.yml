@@ -15,9 +15,9 @@ on:
   workflow_dispatch:
     inputs:
       candidate_version:
-        description: Version stamped on the candidate installer (package.json on main may still say the last stable)
+        description: Version stamped on the candidate installer. The default sits above every release, so the candidate never finds an update to fetch (1.4.0-rc.0 under the published 1.4.2 made its updater log errors)
         required: false
-        default: "1.4.0-rc.0"
+        default: "99.0.0-ci.0"
         type: string
       from_tag:
         description: Release installed first
@@ -46,7 +46,7 @@ jobs:
     timeout-minutes: 60
     env:
       FROM_TAG: ${{ inputs.from_tag || 'v1.3.3' }}
-      CANDIDATE_VERSION: ${{ inputs.candidate_version || '1.4.0-rc.0' }}
+      CANDIDATE_VERSION: ${{ inputs.candidate_version || '99.0.0-ci.0' }}
       OXESPACE_UPGRADE_STATE: ${{ github.workspace }}\upgrade-state
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -288,7 +288,7 @@ jobs:
         kind: [deb, appimage]
     env:
       FROM_TAG: ${{ inputs.from_tag || 'v1.3.3' }}
-      CANDIDATE_VERSION: ${{ inputs.candidate_version || '1.4.0-rc.0' }}
+      CANDIDATE_VERSION: ${{ inputs.candidate_version || '99.0.0-ci.0' }}
       OXESPACE_UPGRADE_STATE: ${{ github.workspace }}/upgrade-state
       OXESPACE_INSTALL_KIND: ${{ matrix.kind }}
       APPIMAGE_EXTRACT_AND_RUN: "1"

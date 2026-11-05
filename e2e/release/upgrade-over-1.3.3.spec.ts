@@ -99,12 +99,16 @@ async function launchInstalled(): Promise<{ app: Installed; page: Page | null }>
   const port = 9300 + Math.floor(Math.random() * 500)
   const proc = spawn(EXE, [...LAUNCH_ARGS, `--remote-debugging-port=${port}`, '--remote-debugging-address=127.0.0.1'],
     { env: { ...process.env as Record<string, string>, ...LAUNCH_ENV, OXESPACE_DISABLE_SINGLE_INSTANCE: '1' }, stdio: 'ignore' })
-  const exited = new Promise<number | null>(resolve => proc.once('exit', code => resolve(code)))
+  // A spawn failure (no such file: e.g. a release with no AppImage) arrives as an 'error' event: turn it into a thrown
+  // launch error the callers record, as electron.launch's rejection was.
+  let spawnError: Error | undefined
+  const exited = new Promise<number | null>(resolve => { proc.once('exit', code => resolve(code)); proc.once('error', e => { spawnError = e; resolve(null) }) })
   let browser: Browser | undefined
-  for (let i = 0; i < 90 && !browser && proc.exitCode === null; i++) {
+  for (let i = 0; i < 90 && !browser && proc.exitCode === null && !spawnError; i++) {
     await new Promise(resolve => setTimeout(resolve, 1_000))
     browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`).catch(() => undefined)
   }
+  if (spawnError) throw new Error(`could not start ${EXE}: ${spawnError.message}`)
   if (!browser) throw new Error(`no DevTools endpoint on ${port} (exit ${proc.exitCode})`)
   let page: Page | null = null
   for (let i = 0; i < 60 && !page; i++) {
