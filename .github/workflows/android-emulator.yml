@@ -65,6 +65,13 @@ jobs:
           if grep -qE "^ *system-images[;/]android-${LEVEL//./\\.}[;/]google_apis[;/]x86_64[[:space:]]" <<< "$listing"; then
             echo "level=$LEVEL" >> "$GITHUB_OUTPUT"
             echo "available=true" >> "$GITHUB_OUTPUT"
+            # API 37's image did not finish booting in 600 s on 2 cores (adb stayed "device offline", run
+            # 41905637065): from 37 on, the emulator gets the runner's 4 cores, 4 GB and 15 minutes.
+            if [[ "${LEVEL%%.*}" -ge 37 ]]; then
+              { echo "cores=4"; echo "ram=4096M"; echo "boot-timeout=900"; } >> "$GITHUB_OUTPUT"
+            else
+              { echo "cores=2"; echo "ram="; echo "boot-timeout=600"; } >> "$GITHUB_OUTPUT"
+            fi
             echo "Emulator API level $LEVEL ($image)"
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
@@ -95,6 +102,9 @@ jobs:
           api-level: ${{ steps.sdk.outputs.level }}
           target: google_apis
           arch: x86_64
+          cores: ${{ steps.sdk.outputs.cores }}
+          ram-size: ${{ steps.sdk.outputs.ram }}
+          emulator-boot-timeout: ${{ steps.sdk.outputs.boot-timeout }}
           disk-size: 4096M
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
