@@ -292,6 +292,29 @@ class DesktopSessionControllerTest {
         assertEquals(1, h.links.size)
     }
 
+    /**
+     * The TECH LEAD's hypothesis (b) for the 1.4.2 "removed this phone" report: does a session after a re-pair still
+     * sign in with the old identity? It doesn't. connect() reads the store each time, and REVOKED clears the record,
+     * the key and the controller's running state.
+     */
+    @Test
+    fun afterARevokedPairingANewPairingSignsInWithTheNewIdentity() = runTest {
+        val h = harness()
+        h.controller.start()
+        assertEquals("dev-1", h.link.target.deviceId)
+        h.link.state.value = SessionState.Ended(SessionEnd.REVOKED)
+        assertEquals(DesktopStatus.Unpaired(revokedFrom = "Studio", revoked = true), h.controller.status.value)
+        assertNull(h.store.desktop)
+        assertTrue(h.keys.deleted)
+
+        val fresh = paired.copy(deviceId = "dev-2", keyAlias = "alias-2")
+        h.store.desktop = fresh // the new pairing, saved by PairingFlow
+        h.controller.start()
+        assertEquals(2, h.links.size)
+        assertEquals("dev-2", h.link.target.deviceId)
+        assertEquals(DesktopStatus.Connecting(fresh), h.controller.status.value)
+    }
+
     @Test
     fun unpairingDeletesTheKeyAndThePairing() = runTest {
         val h = harness()
