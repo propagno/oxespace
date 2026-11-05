@@ -40,8 +40,9 @@ permissions:
 
 jobs:
   windows:
+    # DIAG branch only: off.
     name: Install over ${{ inputs.from_tag || 'v1.3.3' }} (windows-x64)
-    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+    if: false
     runs-on: windows-2022
     timeout-minutes: 60
     env:
@@ -285,7 +286,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        kind: [deb, appimage]
+        kind: [appimage]
     env:
       FROM_TAG: ${{ inputs.from_tag || 'v1.3.3' }}
       CANDIDATE_VERSION: ${{ inputs.candidate_version || '99.0.0-ci.0' }}
@@ -474,6 +475,25 @@ jobs:
           else
             echo "OXESPACE_EXECUTABLE=$FROM_FILE" >> "$GITHUB_ENV"
           fi
+
+      - name: "DIAG HML-R-1: why spawning the previous AppImage fails"
+        if: env.OXESPACE_INSTALL_KIND == 'appimage'
+        continue-on-error: true
+        run: |
+          set -x
+          pwd; id; echo "TMPDIR=${TMPDIR:-unset}"; df -h /tmp "$RUNNER_TEMP" | cat
+          ls -la "$RUNNER_TEMP/from" || true
+          file "$FROM_FILE" || true
+          sha256sum "$FROM_FILE" || true
+          grep -F "$(basename "$FROM_FILE")" "$RUNNER_TEMP/from/SHA256SUMS.txt" || true
+          readelf -l "$FROM_FILE" 2>&1 | grep -iE "interp|requesting" || true
+          ls -la /tmp | head -40
+          ls -d /tmp/appimage_extracted_* /tmp/.mount_* 2>/dev/null || true
+          node -e "const c=require('child_process').spawn(process.env.FROM_FILE,['--appimage-version'],{stdio:'inherit'});c.on('error',e=>console.log('NODE SPAWN ERROR',e.code,e.syscall,e.path));c.on('exit',x=>console.log('NODE EXIT',x))" || true
+          sudo apt-get install -y strace >/dev/null 2>&1 || true
+          strace -f -e trace=execve,openat -o /tmp/hml-r-1.strace timeout 60 "$FROM_FILE" --no-sandbox --version || echo "exit=$?"
+          grep -E "execve|ENOENT" /tmp/hml-r-1.strace | grep -vE "\.so|locale|gconv|/proc/|/sys/" | head -60 || true
+          mkdir -p upgrade-state/diag && cp /tmp/hml-r-1.strace upgrade-state/diag/ 2>/dev/null || true
 
       - name: "Rollback: the previous release refuses the upgraded database"
         run: xvfb-run -a npx playwright test -c playwright.tools.config.ts "$SPEC"

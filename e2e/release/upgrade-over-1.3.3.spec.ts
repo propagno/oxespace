@@ -226,7 +226,8 @@ const sha256 = (file: string) => createHash('sha256').update(readFileSync(file))
 
 test('G8 rollback: 1.3.3 refuses the upgraded database and leaves it untouched', async () => {
   test.skip(STEP !== 'verify-refuse')
-  test.skip(KIND === 'appimage', APPIMAGE_ROLLBACK_SKIP)
+  // DIAG: unskipped
+  test.skip(false, APPIMAGE_ROLLBACK_SKIP)
   test.setTimeout(180_000)
   const seeded = JSON.parse(readFileSync(stateFile(), 'utf8')) as { db: string }
   // The database runs in WAL mode. A candidate that was ended without a clean quit (the job's shipped-exe check stops
@@ -284,7 +285,8 @@ test('G8 rollback: 1.3.3 refuses the upgraded database and leaves it untouched',
 
 test('G8 rollback: 1.3.3 opens the restored v77 backup', async () => {
   test.skip(STEP !== 'verify-rollback')
-  test.skip(KIND === 'appimage', APPIMAGE_ROLLBACK_SKIP)
+  // DIAG: unskipped
+  test.skip(false, APPIMAGE_ROLLBACK_SKIP)
   test.setTimeout(180_000)
   const seeded = JSON.parse(readFileSync(stateFile(), 'utf8')) as { db: string; dbVersion: number }
   const result: Record<string, unknown> = { dbVersion: version(seeded.db) }
