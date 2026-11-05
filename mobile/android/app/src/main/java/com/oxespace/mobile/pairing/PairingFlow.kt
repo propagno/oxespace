@@ -2,6 +2,7 @@ package com.oxespace.mobile.pairing
 
 import com.oxespace.mobile.protocol.RemotePairingErrorCode
 import com.oxespace.mobile.protocol.pairing.ConnectFailure
+import com.oxespace.mobile.protocol.session.SessionEnd
 import com.oxespace.mobile.protocol.pairing.PairOutcome
 import com.oxespace.mobile.protocol.pairing.PairingQr
 import com.oxespace.mobile.protocol.pairing.PairingQrProblem
@@ -10,7 +11,9 @@ import com.oxespace.mobile.protocol.pairing.PairingQrs
 import com.oxespace.mobile.protocol.pairing.PairingVerification
 import com.oxespace.mobile.protocol.pairing.isReservedDeviceName
 import java.util.UUID
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -66,6 +69,15 @@ class PairingFlow(
     private val store: PairedDesktopStore,
     private val deviceName: String,
     private val newAlias: () -> String = { "oxespace-device-${UUID.randomUUID()}" },
+    /**
+     * Runs once the desktop accepted and the pairing is saved: the session starts here, not when the person taps Done.
+     * The desktop removes a pairing that doesn't sign in within 2 minutes. In 1.4.2 only Done started the session, so
+     * Back, Home, or a slow tap left the new pairing unused. The desktop then removed it, and the phone's next sign-in
+     * read "OXESpace removed this phone".
+     */
+    private val onPaired: () -> Unit = {},
+    /** P3: signs in once with the new identity before the pairing is saved. Tests answer it directly. */
+    private val probe: PairingProbe = PairingProbe { _, _ -> ProbeResult.Ok },
 ) {
     private val mutableState = MutableStateFlow<PairingState>(PairingState.Scanning)
     val state: StateFlow<PairingState> = mutableState.asStateFlow()
@@ -108,8 +120,28 @@ class PairingFlow(
             mutableState.value = when (outcome) {
                 is PairOutcome.Paired -> {
                     val desktop = PairedDesktop(outcome.response.deviceId, qr.host, qr.port, qr.fingerprint, qr.desktopName, alias)
-                    withContext(io) { store.save(desktop) }
-                    PairingState.Paired(desktop)
+                    // P3: accepted is not reachable. Sign in once with the new identity before saving or saying
+                    // "Paired", so a phone that can't keep a session says why now, not later as "removed".
+                    mutableState.value = PairingState.Contacting(qr.desktopName)
+                    // Backed out mid-probe (the screen closed): the key is deleted before the cancellation goes on, so
+                    // it never stays behind unsaved.
+                    val probed = try {
+                        probe.probe(desktop, keys)
+                    } catch (cancelled: CancellationException) {
+                        withContext(NonCancellable + io) { keys.delete() }
+                        throw cancelled
+                    }
+                    when (probed) {
+                        ProbeResult.Ok -> {
+                            withContext(io) { store.save(desktop) }
+                            onPaired()
+                            PairingState.Paired(desktop)
+                        }
+                        else -> {
+                            withContext(io) { keys.delete() }
+                            PairingState.Failed(failureOfProbe(probed))
+                        }
+                    }
                 }
                 else -> {
                     withContext(io) { keys.delete() }
@@ -117,6 +149,16 @@ class PairingFlow(
                 }
             }
         }
+    }
+
+    private fun failureOfProbe(result: ProbeResult): PairingFailure = when (result) {
+        ProbeResult.TimedOut -> PairingFailure.TIMED_OUT
+        ProbeResult.Closed -> PairingFailure.UNREACHABLE
+        is ProbeResult.Refused -> when (result.end) {
+            SessionEnd.UNSUPPORTED_VERSION, SessionEnd.PROTOCOL -> PairingFailure.PROTOCOL
+            else -> PairingFailure.REFUSED_ON_DESKTOP
+        }
+        ProbeResult.Ok -> error("not a failure")
     }
 
     private fun failureOf(outcome: PairOutcome): PairingFailure = when (outcome) {
