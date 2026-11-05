@@ -110,10 +110,12 @@ jobs:
           disable-animations: true
           working-directory: mobile/android
           # sys.boot_completed can come before the package service: on API 37 the APK install then failed with
-          # "Can't find service: package" (run 41942234679). Wait up to 5 minutes for it first. The runner runs each
-          # script line on its own, so the wait is one line.
+          # "Can't find service: package" (runs 41942234679, 41945392492). `adb shell cmd ...` exits 0 even then, so
+          # the wait reads `pm path android`, which prints "package:" only once the service answers, and wants it
+          # twice 15 s apart (system_server may still restart). Up to 5 minutes. The runner runs each script line on
+          # its own, so the wait is one line.
           script: |
-            sh -c 'for i in $(seq 1 60); do adb shell cmd package list packages >/dev/null 2>&1 && exit 0; sleep 5; done; echo "::error::the package service never came up"; exit 1'
+            sh -c 'ok=0; for i in $(seq 1 60); do if adb shell pm path android 2>/dev/null | grep -q "^package:"; then ok=$((ok+1)); [ "$ok" -ge 2 ] && echo "package service up" && exit 0; sleep 15; else ok=0; sleep 5; fi; done; echo "::error::the package service never came up"; exit 1'
             ./gradlew --no-daemon connectedDebugAndroidTest
 
       # Gradle's test engine reports BUILD SUCCESSFUL even when it could not install the APK and ran nothing (run
