@@ -109,7 +109,28 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           working-directory: mobile/android
-          script: ./gradlew --no-daemon connectedDebugAndroidTest
+          # sys.boot_completed can come before the package service: on API 37 the APK install then failed with
+          # "Can't find service: package" (run 41942234679). Wait up to 5 minutes for it first. The runner runs each
+          # script line on its own, so the wait is one line.
+          script: |
+            sh -c 'for i in $(seq 1 60); do adb shell cmd package list packages >/dev/null 2>&1 && exit 0; sleep 5; done; echo "::error::the package service never came up"; exit 1'
+            ./gradlew --no-daemon connectedDebugAndroidTest
+
+      # Gradle's test engine reports BUILD SUCCESSFUL even when it could not install the APK and ran nothing (run
+      # 41942234679: "0 tests"). So the results decide: at least one test ran, and no failure other than a test
+      # that skipped itself (AssumptionViolatedException, e.g. ReleaseSmokeTest on a debug build).
+      - name: Require instrumented test results
+        if: steps.sdk.outputs.available == 'true'
+        run: |
+          set -euo pipefail
+          shopt -s globstar nullglob
+          files=(mobile/android/app/build/outputs/androidTest-results/connected/**/TEST-*.xml)
+          if [ ${#files[@]} -eq 0 ]; then echo "::error::no instrumented test result: nothing ran on the emulator"; exit 1; fi
+          tests=$(grep -ho '<testsuite [^>]*' "${files[@]}" | grep -o ' tests="[0-9]*"' | grep -o '[0-9]*' | awk '{s+=$1} END {print s+0}')
+          failures=$(grep -ho '<failure[^>]*>[^<]\{0,120\}' "${files[@]}" | grep -vc 'AssumptionViolatedException' || true)
+          echo "instrumented tests: $tests, real failures: $failures" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$tests" -eq 0 ]; then echo "::error::0 instrumented tests ran"; exit 1; fi
+          if [ "$failures" -gt 0 ]; then echo "::error::$failures instrumented test(s) failed"; exit 1; fi
 
       - name: Keep reports
         if: always()
