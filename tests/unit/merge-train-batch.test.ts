@@ -10,6 +10,8 @@ import {
   dryRunApi,
   isBatchPath,
   nextBatchRef,
+  recentBatchRefs,
+  BATCH_REFS_READ,
   parseBatchMessage,
   runBatch,
   runTrain,
@@ -21,7 +23,7 @@ const BUILT = '2026-11-04T11:50:00Z'
 const RUN_URL = 'https://github.com/o/r/actions/runs/77'
 
 type Commit = { sha: string; message: string; parents: string[]; date: string }
-type Pull = { headSha: string; files: string[]; state?: string; draft?: boolean; mergeable?: boolean | null; headRef?: string }
+type Pull = { headSha: string; files: string[]; state?: string; draft?: boolean; mergeable?: boolean | null; headRef?: string; mergedSha?: string }
 
 /** A fake GitHub with real branches and merge commits, so the batch's state lives where it does on GitHub. */
 function fakeGitHub(pulls: Record<number, Pull>, { queue = Object.keys(pulls).map(Number) }: { queue?: number[] } = {}) {
@@ -67,6 +69,8 @@ function fakeGitHub(pulls: Record<number, Pull>, { queue = Object.keys(pulls).ma
         mergeable: p.mergeable === undefined ? true : p.mergeable,
         mergeableState: 'clean',
         changedFiles: p.files.length,
+        merged: Boolean(p.mergedSha),
+        mergeCommitSha: p.mergedSha ?? null,
       }
     },
     async listFiles(number: number) {
@@ -105,12 +109,18 @@ function fakeGitHub(pulls: Record<number, Pull>, { queue = Object.keys(pulls).ma
       refs.set(name, sha)
       return { sha }
     },
+    // Per call: 'ok' merges; '500' answers 500 without merging; '500-merged' merges and still answers 500.
+    mergeAnswers: [] as Array<'ok' | '500' | '500-merged'>,
     async merge(number: number, head: string) {
       api.beforeMerge(number)
       writes.push(['merge', number, head])
+      const answer = api.mergeAnswers.shift() ?? 'ok'
+      if (answer === '500') throw Object.assign(new Error('PUT merge: 500'), { status: 500 })
       const sha = add(`Merge pull request #${number}`, [refs.get('main')!, head])
       refs.set('main', sha)
       pulls[number].state = 'closed'
+      pulls[number].mergedSha = sha
+      if (answer === '500-merged') throw Object.assign(new Error('PUT merge: 500'), { status: 500 })
       return { sha }
     },
     async postStatus(sha: string, status: Record<string, unknown>) {
@@ -153,7 +163,7 @@ const docs = (n: number, c: string): Pull => ({ headSha: head(c), files: [`docs/
 const step = async (api: ReturnType<typeof fakeGitHub>, now = NOW) => {
   const actions: Array<{ type: string; message: string }> = []
   const log: string[] = []
-  const took = await runBatch(api, api.queue(), { now, timeoutMinutes: 60, log: (l: string) => log.push(l), actions, canStart: true })
+  const took = await runBatch(api, api.queue(), { now, timeoutMinutes: 60, log: (l: string) => log.push(l), actions, canStart: true, sleep: async () => {} })
   return { took, actions, log }
 }
 const batchHead = (api: ReturnType<typeof fakeGitHub>) => api.refs.get('train/batch-1')!
@@ -294,8 +304,8 @@ describe('driving a batch', () => {
       ['merge', 1, head('a')],
       ['postStatus', head('b'), { state: 'success', context: 'CI result', description: 'batch train/batch-1', targetUrl: RUN_URL }],
       ['merge', 2, head('b')],
-      ['dispatch', 'ci.yml', 'main'],
       ['deleteRef', 'train/batch-1'],
+      ['dispatch', 'ci.yml', 'main'],
     ])
     // main is the base plus the members' merges, in the batch's order: the tested tree.
     const top = api.commits.get(api.refs.get('main')!)!
@@ -361,6 +371,45 @@ describe('driving a batch', () => {
     expect(api.comments.get(2)!.at(-1)!.body).toMatch(/changes src\/App\.tsx, outside docs and tests/)
   })
 
+  it('a 500 on a merge is retried once while main and the head are unchanged (batch-46)', async () => {
+    const api = await built()
+    finishCi(api)
+    api.mergeAnswers = ['500', 'ok']
+    const { actions } = await step(api)
+    expect(kinds(api, 'merge')).toEqual([['merge', 1, head('a')], ['merge', 1, head('a')], ['merge', 2, head('b')]])
+    expect(actions.at(-1)!.message).toBe('train/batch-1: merged #1 #2')
+    expect(kinds(api, 'addLabel')).toEqual([])
+  })
+
+  it('a 500 after GitHub did merge counts the merge, and is not merged twice', async () => {
+    const api = await built()
+    finishCi(api)
+    api.mergeAnswers = ['500-merged']
+    const { actions } = await step(api)
+    expect(kinds(api, 'merge')).toEqual([['merge', 1, head('a')], ['merge', 2, head('b')]])
+    expect(actions.at(-1)!.message).toBe('train/batch-1: merged #1 #2')
+  })
+
+  it('two 500s send the members back on their own, nothing merged', async () => {
+    const api = await built()
+    finishCi(api)
+    api.mergeAnswers = ['500', '500']
+    await step(api)
+    expect(kinds(api, 'merge')).toHaveLength(2)
+    expect(api.commits.get(api.refs.get('main')!)!.message).toBe('initial')
+    expect(kinds(api, 'addLabel')).toEqual([['addLabel', 1, NO_BATCH_LABEL], ['addLabel', 2, NO_BATCH_LABEL]])
+  })
+
+  it('a 500 is not retried when main moved meanwhile', async () => {
+    const api = await built()
+    finishCi(api)
+    api.mergeAnswers = ['500']
+    api.beforeMerge = () => api.refs.set('main', head('f'))
+    await step(api)
+    expect(kinds(api, 'merge')).toHaveLength(1)
+    expect(kinds(api, 'addLabel')).toHaveLength(2)
+  })
+
   it('a green run without a passing CI result is not green', async () => {
     const api = await built()
     finishCi(api, 'success', 'failure')
@@ -393,6 +442,47 @@ describe('driving a batch', () => {
     api.refs.set('train/batch-4', sha)
     expect((await step(api)).took).toBe(false)
     expect(api.writes).toEqual([])
+  })
+
+  it('reads only the newest batch branches, and still finds its own batch among dozens of stale ones', async () => {
+    expect(recentBatchRefs([3, 45, 1, 12, 46, 2, 44].map((n) => ({ name: `train/batch-${n}`, sha: 'x' })).concat([{ name: 'train/batch-D', sha: 'x' }]), 3).map((r: { name: string }) => r.name)).toEqual([
+      'train/batch-46',
+      'train/batch-45',
+      'train/batch-44',
+    ])
+    const api = fakeGitHub({ 1: docs(1, 'a'), 2: docs(2, 'b') })
+    const main = api.refs.get('main')!
+    for (let n = 1; n <= 45; n++) {
+      const sha = (1000 + n).toString(16).padStart(40, 'c')
+      api.commits.set(sha, { sha, message: `Merge PR #${n} into batch ${n}`, parents: [main, head('a')], date: BUILT })
+      api.refs.set(`train/batch-${n}`, sha)
+    }
+    let reads = 0
+    const getCommit = api.getCommit
+    api.getCommit = async (sha: string) => {
+      reads++
+      return getCommit(sha)
+    }
+    await step(api)
+    // The new batch is numbered 46, after every branch; building it reads its own commits, not the 45 stale ones.
+    expect(kinds(api, 'createRef')).toEqual([['createRef', 'train/batch-46', main]])
+    reads = 0
+    await step(api)
+    expect(reads).toBeLessThanOrEqual(BATCH_REFS_READ + 3)
+  })
+
+  it('an error half-way through the merges still deletes the branch and dispatches main CI for what merged', async () => {
+    const api = await built()
+    finishCi(api)
+    const post = api.postStatus
+    api.postStatus = async (sha: string, status: Record<string, unknown>) => {
+      if (sha === head('b')) throw Object.assign(new Error('POST statuses: 502'), { status: 502 })
+      return post(sha, status)
+    }
+    await expect(step(api)).rejects.toThrow(/502/)
+    expect(kinds(api, 'merge')).toEqual([['merge', 1, head('a')]])
+    expect(api.refs.has('train/batch-1')).toBe(false)
+    expect(kinds(api, 'dispatch')).toEqual([['dispatch', 'ci.yml', 'main']])
   })
 
   it('runTrain gives the run to the batch and serves no car alongside it', async () => {

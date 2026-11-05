@@ -4,7 +4,8 @@
 #
 #   RC_ROOT=dir OUT=dir APK=path sh scripts/android/avd-rc-pass.sh pair      boot, install, pair through the file protocol
 #   RC_ROOT=dir OUT=dir STEPS=file sh scripts/android/avd-rc-pass.sh script  adb lines from a file, a shot after each
-#     (steps: sleep N | tap Text | tap? Text | type Some text | an adb shell line; RC_TEMP_PIN=pin is cleared at the end)
+#     (steps: sleep N | tap Text | tap? Text | tapid id | tapid? id | type Some text | an adb shell line;
+#     RC_TEMP_PIN=pin is cleared at the end)
 #   RC_ROOT=dir OUT=dir sh scripts/android/avd-rc-pass.sh preflight          only the memory check; no emulator
 #
 # Memory: a phase doesn't boot with less than 4 GB free (about 3 GB for qemu plus the team's 1 GB floor), and stops at
@@ -69,12 +70,20 @@ finish() {
   [ -n "${RC_TEMP_PIN:-}" ] && timeout 20 "$ADB" shell locksettings clear --old "$RC_TEMP_PIN" > /dev/null 2>&1
   timeout 20 "$ADB" emu kill > /dev/null 2>&1
 }
-# Taps the first element whose text or content-desc contains $1 (a fresh UI dump), at the centre of its bounds.
-tap_text() {
+# A host path as adb.exe reads it. With MSYS_NO_PATHCONV on, Git Bash no longer turns /c/Users/... into C:/Users/...
+# for Windows programs, so the script does it; without cygpath (Linux, macOS) the path goes as is.
+host_path() { if command -v cygpath > /dev/null 2>&1; then cygpath -m "$1"; else printf %s "$1"; fi; }
+# Taps the first element of a fresh UI dump that matches, at the centre of its bounds.
+#   text mode: its text or content-desc contains $2, case-insensitive.
+#   id mode: its resource-id is $2 or ends in "id/$2". A permission dialog's Allow is permission_allow_button; the
+#   text "Allow" would hit the dialog's title ("Allow OXESpace to take pictures…") first.
+tap_on() {
   adbt shell uiautomator dump /sdcard/ui.xml > /dev/null 2>&1
   adbt exec-out cat /sdcard/ui.xml > "$OUT/tap.xml" 2>/dev/null
   # awk, not grep -iF: Git Bash's grep aborts on a dump holding a typographic apostrophe ("Don’t allow").
-  bounds=$(tr '>' '\n' < "$OUT/tap.xml" | awk -v k="$(printf %s "$1" | tr 'A-Z' 'a-z')" 'index(tolower($0), k) { print; exit }' | grep -oE 'bounds="\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]"' | head -1)
+  bounds=$(tr '>' '\n' < "$OUT/tap.xml" | awk -v mode="$1" -v k="$(printf %s "$2" | tr 'A-Z' 'a-z')" -v id="$2" '
+    mode == "text" && index(tolower($0), k) { print; exit }
+    mode == "id" && (index($0, "resource-id=\"" id "\"") || index($0, "id/" id "\"")) { print; exit }' | grep -oE 'bounds="\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]"' | head -1)
   [ -n "$bounds" ] || return 1
   set -- $(printf %s "$bounds" | grep -oE '[0-9]+')
   adbt shell input tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 )) > /dev/null 2>&1
@@ -101,7 +110,7 @@ for i in $(seq 1 150); do [ "$(adbt shell getprop sys.boot_completed 2>/dev/null
 case "$PHASE" in
   pair)
     : "${APK:?APK: the debug APK built from the RC commit}"
-    adbt install -r "$APK" > "$OUT/install.log" 2>&1 || { fail "install"; exit 1; }
+    adbt install -r "$(host_path "$APK")" > "$OUT/install.log" 2>&1 || { fail "install"; exit 1; }
     start_app; sleep 6; shot 00-start
     echo "avd=$AVD $OPTIONS" > "$RC_ROOT/avd-ready"
     wait_for pair-link.txt || { fail "pair-link.txt"; exit 1; }
@@ -140,8 +149,10 @@ case "$PHASE" in
       n=$((n + 1))
       case "$line" in
         sleep*) sleep "${line#sleep }" ;;
-        'tap? '*) tap_text "${line#tap? }" || true ;;
-        tap\ *) tap_text "${line#tap }" || { fail "step $n: no '${line#tap }' on screen"; exit 1; } ;;
+        'tap? '*) tap_on text "${line#tap? }" || true ;;
+        tap\ *) tap_on text "${line#tap }" || { fail "step $n: no '${line#tap }' on screen"; exit 1; } ;;
+        'tapid? '*) tap_on id "${line#tapid? }" || true ;;
+        tapid\ *) tap_on id "${line#tapid }" || { fail "step $n: no id '${line#tapid }' on screen"; exit 1; } ;;
         type\ *) adbt shell input text "$(printf %s "${line#type }" | sed 's/ /%s/g')" > /dev/null 2>&1 ;;
         *) adbt shell "$line" > /dev/null 2>&1 ;;
       esac

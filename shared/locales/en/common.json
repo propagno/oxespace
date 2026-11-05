@@ -14,6 +14,30 @@
       "8": "Pedra"
     }
   },
+  "startupFailure": {
+    "newer-schema": {
+      "title": "This data comes from a newer OXESpace",
+      "message": "A newer version of OXESpace updated your data, and this version can't read it. Nothing was deleted. Install the newer version again, or restore the backup it made before updating."
+    },
+    "corrupt": {
+      "title": "OXESpace's data file is damaged",
+      "message": "The database could not be read. Nothing was changed. Restore a backup from the backups folder, or send the details to support."
+    },
+    "locked": {
+      "title": "OXESpace's data is in use",
+      "message": "Another program, or another OXESpace that is still closing, holds the database. Close it and open OXESpace again."
+    },
+    "other": {
+      "title": "OXESpace couldn't open its data",
+      "message": "Nothing was deleted. The details below say why; copy them for a bug report."
+    },
+    "openBackups": "Open the backups folder",
+    "copyDetails": "Copy details",
+    "detailsWhat": "The details",
+    "quit": "Quit",
+    "tryAgain": "Try again",
+    "backupsAt": "Backups are kept in"
+  },
   "deferred": {
     "partMissing": "Some commands may be missing from the palette and the menus until it loads. The rest of OXESpace keeps working.",
     "activityMissing": "Activity and notifications may not update until it loads. The rest of OXESpace keeps working."
@@ -255,6 +279,7 @@
     "tryAgain": "Try again",
     "details": "Details",
     "cancel": "Cancel",
+    "undo": "Undo",
     "close": "Close",
     "dismiss": "Dismiss",
     "toast": {
