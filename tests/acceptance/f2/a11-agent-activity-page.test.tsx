@@ -15,6 +15,8 @@ type Row = {
   tool: string; summary: string; target: string | null; write: boolean
   decision: 'auto' | 'approved' | 'approved-session' | 'denied' | 'refused' | 'pending'
   outcome: 'ok' | 'error' | 'skipped'; durationMs: number | null; errorCode: string | null
+  /** A12: only on a person's access change; its summary is empty and the page words the line. */
+  accessChange?: { from: 'off' | 'read' | 'write'; to: 'off' | 'read' | 'write' }
 }
 const at = Date.UTC(2026, 10, 7, 14, 40)
 const ROWS: Row[] = [
@@ -107,12 +109,14 @@ describe('A11 · Settings › Agent activity is one list from every source', () 
   })
 
   it('names the person\'s own change "You" in the Agent column (A12\'s Access changed)', async () => {
-    const person: Row = { id: 'post:5', source: 'post', at, actor: { kind: 'person', id: null, label: 'person', name: null }, tool: 'post.access', summary: 'Access changed · Pix', target: 'Pix · sandbox', write: true, decision: 'auto', outcome: 'ok', durationMs: null, errorCode: null }
+    const person: Row = { id: 'post:5', source: 'post', at, actor: { kind: 'person', id: null, label: 'person', name: null }, tool: 'post.access', summary: '', accessChange: { from: 'off', to: 'read' }, target: 'Pix', write: false, decision: 'auto', outcome: 'ok', durationMs: null, errorCode: null }
     fake([{ rows: [person], nextCursor: null }])
     render(<AgentActivitySettings />)
     const table = await screen.findByRole('table')
     const agent = within(within(table).getAllByRole('row')[1]).getAllByRole('cell')[1]
     expect(agent.textContent?.trim()).toBe('You')
+    const what = within(within(table).getAllByRole('row')[1]).getAllByRole('cell')[3]
+    expect(what.textContent?.trim()).toBe('Access: Off → Read')
   })
 
   it('names the agent by the name A10 resolves, with a fallback and never the raw thread:/pane: label', async () => {

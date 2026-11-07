@@ -27,7 +27,7 @@ query.
 | 1 | When | `at` | Time today; date and time before today. A `<time dateTime>` with the full date as the title. |
 | 2 | Agent | `actor.name`, else a fallback | A10 resolves `actor.name` in main (the conversation's title, or the pane's display or agent name), so desktop and phone show the same words. When it is `null`: thread → "Closed conversation", pane → "Closed terminal", agent → the provider from `actor.label`, person → **You**. Never the raw `thread:<id>` / `pane:<id>` label. |
 | 3 | Source | `source` | Changes, Databases, Containers, Requests (`post`), with the source's 3 px color mark, never color alone. |
-| 4 | What | `summary` | One line, ellipsis; mono for databases and requests. |
+| 4 | What | `summary`, or the access line | One line, ellipsis; mono for databases and requests. A row with `accessChange: { from, to }` (A12: a person changed an agent's access to an OxePost collection; its `summary` is empty) is localized here, never stored in English: "Access: Off → Read" / "Acesso: Desligado → Leitura", with the levels Off, Read, Write (pt-BR Desligado, Leitura, Escrita). |
 | 5 | Target | `target` | Empty when `null`. |
 | 6 | Result | `decision` + `outcome` + `errorCode` | Section 4. |
 
@@ -80,8 +80,9 @@ Checked in this order:
 4. The Databases toggle sends `sources: ['databases']`; Problems sends `view: 'problems'`; each starts with no cursor.
 5. Load more sends `cursor` = the page's `nextCursor` and appends rows; it is gone when `nextCursor` is null.
 6. Opening a row calls `detail(id)` and shows a dialog named by the row's What.
-8. The Agent column shows `actor.name` when set; with `name` null it shows "You" for a person and "Closed conversation" for a thread, never the raw label.
 7. The source never calls a second list API: no `actionAudit`, no OxeQuery audit list.
+8. The Agent column shows `actor.name` when set; with `name` null it shows "You" for a person and "Closed conversation" for a thread, never the raw label.
+9. A row with `accessChange: { from: 'off', to: 'read' }` and an empty `summary` shows "Access: Off → Read" in What.
 
 ## 7. Questions for review
 
@@ -90,4 +91,4 @@ Checked in this order:
   into What's second line?
 - **HML:** the e2e `agent-activity*.spec` runs on CI with seeded audit rows of the four sources.
 - **BACKEND (answered 07/11):** the preload is `window.oxe.agentActivity.list(query)` / `.detail(id)` (#650 at
-  b8921c1d), `actor.kind` can be `person`, and `actor.name` carries the resolved name (#650 at 46ca7f48; section 3).
+  b8921c1d), `actor.kind` can be `person`, and `actor.name` carries the resolved name, and a person's access change comes as `accessChange: { from, to }` with an empty summary (#650 at 16ea1b9d; section 3).
