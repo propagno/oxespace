@@ -29,6 +29,16 @@ button that starts with a verb: "Add a profile", "New automation", "Clear histor
 invalid mid-typing: the computer name on Devices (UA10: "computer name with Save and Use default"), and the forms
 inside dialogs (custom agent, new automation), which are dialogs, not pages.
 
+**Typed values apply on blur or Enter, and only when valid** (HML-A7-3). A text or number field (font family, font
+size, a custom agent's command, a shell path) applies when it loses focus or on Enter, never per keystroke, and only
+when its value is valid. An invalid value shows the field's own error and is not applied. Escape puts back the applied
+value.
+
+**A change that fails to apply says so in its row** (HML-A7-2). The control goes back to the applied value, and the row
+shows an alert, "Couldn't change <setting>: <reason>", with **Try again**. `SettingRow` takes
+`error?: { message: string; onRetry?: () => void }` and draws it, so every page fails the same way. The reason is the
+main message in the interface language, never a stack trace.
+
 **Loading (U9).** A page that reads from main shows `LoadingState` in the place of its sections. Never a spinner that
 moves the layout, and never empty sections that fill in later. An error is `ErrorState` with Try again in that place.
 
@@ -104,9 +114,23 @@ confirm button repeats the verb ("Delete"). Escape and Cancel change nothing.
 4. No page-level Save: `common.save` / a `.save` key appears in no page file, except `DevicesSettings` (the computer
    name).
 
-Behavior (the toast appears after the change, Undo restores it, Cancel on a confirm changes nothing) is checked by
-the e2e named in SPEC A7, `e2e/settings-*.spec.ts`, which the executor writes. The executor must not edit the frozen
-test.
+`tests/acceptance/f2/a7-settings-behavior.test.tsx` renders the three NEW items and the failure rule, checking what a
+person sees (HML-A7-1):
+
+5. **R10:** Reset all shortcuts empties the overrides, a toast offers Undo, and Undo puts the custom chords back.
+6. **I6:** an automation's Delete opens a dialog naming it, with Cancel focused. Escape keeps it; Delete removes it.
+7. **I7:** "Remove downloaded model" opens a dialog that says a new download is needed, with Cancel focused. Escape
+   keeps the model. `SemanticIndexSetting` moves from `SettingsModal.tsx` to its own module,
+   `src/components/Settings/SemanticIndexSetting.tsx`, so it can be rendered alone (it also shrinks SettingsModal,
+   which is on the file-size baseline).
+8. **HML-A7-2:** `SettingRow` with `error` shows the alert "Couldn't change Font size: <reason>" and a Try again that
+   calls `onRetry`.
+
+**Red today:** the whole file, because `SemanticIndexSetting` isn't its own module yet; and each case on its own, as
+none of the four behaviours exists.
+
+The rest of the behaviour (R1–R9 toasts, the other confirms, typed fields on blur) is checked by the e2e named in SPEC
+A7, `e2e/settings-*.spec.ts`, which the executor writes. The executor must not edit the frozen tests.
 
 ## 6. Questions for review
 
