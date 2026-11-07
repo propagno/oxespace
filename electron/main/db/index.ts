@@ -13,7 +13,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 91
+export const LATEST_DB_VERSION = 93
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 3
 
@@ -67,7 +67,8 @@ function openAndMigrate(databasePath: string): AppDatabase {
     // lose every workspace. Only when an existing DB is actually behind.
     const fromVersion = db.pragma('user_version', { simple: true }) as number
     if (fromVersion > LATEST_DB_VERSION) {
-      throw new Error('This database was created by a newer OXESpace version. Open it with that version; downgrade migration is not supported.')
+      // T87: marked, so startup shows its own screen for it (startup-failure.ts) instead of an empty app.
+      throw Object.assign(new Error('This database was created by a newer OXESpace version. Open it with that version; downgrade migration is not supported.'), { newerSchema: true, fromVersion, latest: LATEST_DB_VERSION })
     }
     if (fromVersion > 0 && fromVersion < LATEST_DB_VERSION) {
       backupBeforeMigration(db, databasePath, fromVersion)
@@ -528,6 +529,8 @@ export function runMigrations(db: AppDatabase): void {
     if (hasColumn(db, 'pane_agent_sessions', 'permission_mode')) db.exec('PRAGMA user_version = 91')
     else db.exec(readMigration('091_pane_session_permission_mode.sql'))
   })()
+  if (startingVersion < 92) db.transaction(() => db.exec(readMigration('092_agent_seen.sql')))()
+  if (startingVersion < 93) db.transaction(() => db.exec(withoutExistingColumns(db, readMigration('093_workspace_color.sql'))))()
 }
 
 /** Rebuild the parent without cascading its children or rewriting their IDs. */

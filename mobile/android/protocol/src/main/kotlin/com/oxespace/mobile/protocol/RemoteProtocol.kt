@@ -66,6 +66,16 @@ object RemoteTextLimits {
     const val OBJECTIVE: Int = 500
 }
 
+object RemoteDiffLimits {
+    const val FILES: Int = 20
+    const val PATCH_BYTES: Int = 8192
+}
+
+object RemoteQueuePreview {
+    const val ITEMS: Int = 5
+    const val TEXT: Int = 200
+}
+
 @Serializable
 enum class RemoteFrameType(val wire: String) {
     @SerialName("hello") HELLO("hello"),
@@ -461,6 +471,33 @@ data class RemoteThreadsEvent(
     val removed: List<String>? = null,
 )
 
+/**
+ * What a tool step changed (CCR #509 §3): paths relative to the project (any outside it is dropped), at most
+ * `REMOTE_DIFF_LIMITS.files` files, and a unified `patch` of at most `REMOTE_DIFF_LIMITS.patchBytes`, cut at a hunk
+ * boundary and redacted like tool output. A binary file is listed with zero counts and no patch.
+ */
+@Serializable
+data class RemoteToolDiff(
+    val files: List<RemoteToolDiffFile>,
+    val patch: String? = null,
+    val truncated: Boolean? = null,
+)
+
+@Serializable
+data class RemoteToolDiffFile(
+    val path: String,
+    val additions: Long,
+    val deletions: Long,
+)
+
+/** A message waiting in the conversation's queue (CCR #509 §4), in send order. */
+@Serializable
+data class RemoteQueuedPreview(
+    val id: String,
+    val text: String,
+    val truncated: Boolean? = null,
+)
+
 @Serializable
 data class RemoteThreadHeader(
     val id: String,
@@ -478,6 +515,12 @@ data class RemoteThreadHeader(
     val queued: Long,
     /** Whether the provider can take a message while a turn runs. */
     val canSteer: Boolean,
+    /** While `status` is running or approval: how long the current turn has run, measured when this was built (CCR #509 §1). */
+    val turnElapsedMs: Long? = null,
+    /** While a turn runs: time since the provider last sent anything (CCR #509 §2). */
+    val quietMs: Long? = null,
+    /** The first `REMOTE_QUEUE_PREVIEW.items` queued messages, each cut to `REMOTE_QUEUE_PREVIEW.text` characters (CCR #509 §4). */
+    val queuedPreview: List<RemoteQueuedPreview>? = null,
 )
 
 /** Snapshot: the newest page; `thread.history` asks for older ones. */
@@ -587,6 +630,24 @@ data class RemoteTerminalData(
     /** The phone was away longer than the ring is deep: clear the view before this. */
     val truncated: Boolean,
     val redacted: Long? = null,
+    /**
+     * 1.4.3 P4: the pane's screen, on the FIRST page of a snapshot only (a page of its own: its `data` is empty), never on
+     * an event. A phone that reads it resets
+     * its view to `cols` × `rows`, feeds `ansi` once and skips that snapshot's `data` pages (the same ring); then it applies
+     * events as before. Absent (an older desktop, or over the frame budget): behave as without it.
+     */
+    val snapshot: RemoteTerminalSnapshot? = null,
+)
+
+/**
+ * xterm's own serialization of the pane's screen: up to 200 rows of scrollback, then the screen, the modes (the
+ * alternate screen when a full-screen app holds it) and the cursor. Built only from text already redacted.
+ */
+@Serializable
+data class RemoteTerminalSnapshot(
+    val ansi: String,
+    val cols: Long,
+    val rows: Long,
 )
 
 /** No command line or cwd: arguments can carry secrets. The label is what the person named it. */
@@ -687,7 +748,8 @@ data class RemoteThreadHistoryArgs(
 
 /**
  * The timeline items the phone shows. Left out on purpose: location and cwd, session ids, context usage, turn cost,
- * CLI commands, model pickers, configuration, turn-diff file paths, message context paths and attachment names.
+ * CLI commands, model pickers, configuration, absolute file paths, message context paths and attachment names.
+ * Turn-diff file paths come only inside a tool step's `diff`, project-relative, with a bounded, redacted patch.
  * `delta` events are folded into the message they extend, so the phone gets the whole text.
  */
 @Serializable
@@ -724,6 +786,7 @@ sealed interface RemoteThreadItem {
         val filesChanged: Long? = null,
         val interrupted: Boolean? = null,
         val redacted: Long? = null,
+        val diff: RemoteToolDiff? = null,
     ) : RemoteThreadItem
 
     @Serializable

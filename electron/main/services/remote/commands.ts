@@ -216,7 +216,7 @@ export class RemoteCommands {
         more = false // A cursor before the start: nothing older.
         break
       }
-      collected.unshift(...threadItems(numbered(page.events, before), roots))
+      collected.unshift(...threadItems(numbered(page.events, before), roots, artifactId => desktop.threadArtifact?.(args.threadId, artifactId)))
       more = page.hasMore && page.events.length > 0
       before -= page.events.length
     }

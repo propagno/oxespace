@@ -68,6 +68,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     excluded: 'A window-only list of the person\'s notifications. The states behind it are read with oxespace_agents list and oxespace_threads list.'
   },
   'code.agent_seen': { label: 'Mark an agent\'s finished turn as seen', excluded: 'An attention marker of the person\'s window.', ipc: ['agentState.markSeen'] },
+  'code.agents_overview': { label: 'The agents overview and what the person has seen (agents:overview, agents:mark-seen, agents:changed)', forbidden: 'The person\'s overview of every agent; only the person marks what they have seen. Agents read the same states with oxespace_agents list, oxespace_threads list and oxespace_work status.', ipc: ['agents.*'] },
   'code.terminal_output': { label: 'Read a pane\'s output', tools: each('oxespace_terminal', 'read', ['output']), ipc: ['terminal.status'] },
   'code.terminal_input': {
     label: 'Start, type into, resize or stop a terminal',
@@ -419,7 +420,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'remote.gateway_admin': {
     label: 'Turn the remote gateway on or off, pair, answer, revoke or rename a phone, name the desktop, let a phone type into a pane',
     forbidden: 'Opens a network surface and grants device access.',
-    ipc: ['remote.setEnabled', 'remote.startPairing', 'remote.cancelPairing', 'remote.answerPairing', 'remote.revoke', 'remote.rename', 'remote.setDesktopName', 'remote.setPhoneWrite']
+    ipc: ['remote.setEnabled', 'remote.startPairing', 'remote.cancelPairing', 'remote.answerPairing', 'remote.revoke', 'remote.rename', 'remote.setDesktopName', 'remote.setPhoneWrite', 'remote.firewallStatus', 'remote.firewallRepair', 'remote.firewallUndo']
   },
   'mcp.tool_rules_admin': { label: 'Choose, per MCP tool, to run it without asking, ask, or block it', forbidden: 'Approvals and access stay with the person.', ipc: ['mcpInternal.setToolRule'] },
   'settings.agent_audit': {

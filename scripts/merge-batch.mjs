@@ -22,7 +22,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { FIX_MAIN_LABEL, isDocsOnlyPath, LABEL, orderQueue } from './merge-train.mjs'
+import { FIX_MAIN_LABEL, isBatchPath, LABEL, orderQueue } from './merge-train.mjs'
 
 export const BATCH_PREFIX = 'train/batch-'
 export const NO_BATCH_LABEL = 'no-batch'
@@ -31,20 +31,11 @@ export const DEFAULT_MAX = 5
 export const MAX_LISTED_FILES = 3000
 export const COMMENT_PREFIX = 'merge-batch:'
 
-/** App code: a Markdown file under these may be bundled or read by the app, so it never rides a batch. */
-const APP_ROOTS = ['src/', 'electron/', 'shared/']
-
 /**
- * A path a batch may carry: documentation (docs/**, .claude/**, or Markdown outside the app's code) or test code
- * (tests/**, e2e/**). Wider than the train's docs-only rule, which decides when CI can be skipped: a batch always
- * runs the full CI, so docs a test reads (README.md, docs/**) are fine here.
+ * A path a batch may carry: the train's own batch allowlist (merge-train.mjs, isBatchPath), so this manual
+ * fallback and the train's automatic batches take exactly the same files.
  */
-export function isBatchablePath(path) {
-  if (typeof path !== 'string' || !path || path.startsWith('/') || path.includes('\\') || path.split('/').includes('..')) return false
-  if (isDocsOnlyPath(path) || path.startsWith('tests/') || path.startsWith('e2e/')) return true
-  if (APP_ROOTS.some((root) => path.startsWith(root))) return false
-  return path.startsWith('docs/') || path.startsWith('.claude/') || path.endsWith('.md')
-}
+export const isBatchablePath = isBatchPath
 
 /**
  * Why a PR may not join a batch, or null when it may.

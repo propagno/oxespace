@@ -37,9 +37,9 @@ export function ThreadProjectSettingsDialog({ project, unavailable, onClose, ret
     finally { setBusy(false) }
   }
   const needsRelink = unavailable || directoryMissing
-  return <Dialog closeLabel={t('common.close')} className="thread-create-dialog thread-project-dialog thread-project-settings" title={t('projectSettings.title', { name: project.displayName })}
+  return <Dialog size="md" closeLabel={t('common.close')} title={t('projectSettings.title', { name: project.displayName })}
     description={t('projectSettings.description')} onClose={onClose} returnFocusTo={returnFocusTo}>
-    <div className="thread-project-settings-body"><div className="thread-create-section"><strong>{t('projectSettings.directory')}</strong><p className="thread-project-current-path" title={project.contexts[0]?.rootPath}>{project.contexts[0]?.rootPath}</p>
+    <div className="thread-project-settings-body thread-create-body thread-project-settings"><div className="thread-create-section"><strong>{t('projectSettings.directory')}</strong><p className="thread-project-current-path" title={project.contexts[0]?.rootPath}>{project.contexts[0]?.rootPath}</p>
       {needsRelink && <ErrorState compact title={t('projectSettings.unavailable')} />}
       <details className="thread-project-relink" open={needsRelink || undefined}><summary>{needsRelink ? t('projectSettings.relinkMissing') : t('projectSettings.change')}</summary>
         <label>{t('projectSettings.newDirectory')}<TextField aria-label={t('projectSettings.newDirectoryLabel')} value={relinkPath} onChange={event => setRelinkPath(event.target.value)} placeholder={t('projectSettings.newDirectoryPlaceholder')} /></label>

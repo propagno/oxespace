@@ -25,7 +25,7 @@ export interface RemoteWorkspaceRow { id: string; name: string; rootPath: string
 export interface RemoteJobRow { id: string; workspaceId: string; label: string; status: BackgroundJobStatus; exitCode: number | null; startedAt: number; finishedAt: number | null }
 export interface RemoteDelegationRow { id: string; workspaceId: string; objective: string; state: string; error?: string; branch?: string; destinationThreadId?: string; updatedAt: number }
 export interface RemotePendingRow { thread: ConversationThread; request: ThreadRequest }
-export interface RemoteTerminalRead { session: string; seq: number; data: string; truncated: boolean }
+export interface RemoteTerminalRead { session: string; seq: number; data: string; truncated: boolean; /** The pane's size, for the P4 screen snapshot. */ cols?: number; rows?: number }
 export type RemoteRespondOutcome = { ok: true; resolution: string } | { ok: false; refusal: ThreadPendingRefusal }
 
 export interface RemoteDesktop {
@@ -38,6 +38,8 @@ export interface RemoteDesktop {
   threadWindow(id: string): ThreadSnapshot
   threadSince(id: string, cursor: ThreadSyncCursor): ThreadDelta
   threadPage(id: string, before: number, limit: number): Promise<ThreadHistoryPage>
+  /** A tool step's file evidence (a unified diff), or undefined when it is gone. Filtered by the topic before sending. */
+  threadArtifact?(id: string, artifactId: string): string | undefined
   /** `'*'` hears every conversation. */
   onThreadChanged(id: string, listener: () => void): () => void
   send(id: string, text: string): Promise<void>
@@ -122,6 +124,7 @@ export function createRemoteDesktop(hosts: RemoteDesktopHosts): RemoteDesktop {
     threadWindow: id => threads.readForRenderer(id),
     threadSince: (id, cursor) => threads.readSinceForRenderer(id, cursor),
     threadPage: (id, before, limit) => threads.historyPage(id, before, limit),
+    threadArtifact(id, artifactId) { try { return history.artifact(id, artifactId).content } catch { return undefined } },
     onThreadChanged: (id, listener) => threads.subscribe(id, () => listener()),
     send: (id, text) => threads.send(id, text),
     steer: (id, text) => threads.steer(id, text),

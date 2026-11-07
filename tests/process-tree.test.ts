@@ -152,9 +152,11 @@ const RUNNER_PS = [
   ' 800  700  700', // npm / vitest main
   ' 900  800  700', // this vitest worker
   '1000    1 1000', // an unrelated daemon, reparented to init
-  '1100  900 1100', // a PTY this process started (setsid)
-  '1101 1100 1100', //   its shell's child
-  '1102 1101 1102', //   a job in a group of its own
+  // The tree the tests end has odd pids: killProcessTree also refuses the real process.pid, and a Windows pid (always a
+  // multiple of 4) once matched a fake 1100 here, so nothing was signalled (FL-16).
+  '1103  900 1103', // a PTY this process started (setsid)
+  '1105 1103 1103', //   its shell's child
+  '1107 1105 1107', //   a job in a group of its own
   '1200  900  700', // a child of ours that stayed in our group
   '1300  900 1300', // a detached child of ours (the conversation transport's agent)
   '1301 1300 1300'  //   its child
@@ -197,12 +199,12 @@ describe('process tree cleanup never reaches beyond the tree it was asked to end
   })
 
   test('a tree this process started: its group and verified descendants only', async () => {
-    expect(planPosixKill(RUNNER_PS, 1100, SELF)).toEqual({ root: 1100, group: true, pids: [1101, 1102] })
+    expect(planPosixKill(RUNNER_PS, 1103, SELF)).toEqual({ root: 1103, group: true, pids: [1105, 1107] })
     const { deps, calls } = recordingKill()
-    await killProcessTree(1100, deps)
+    await killProcessTree(1103, deps)
     const signalled = new Set(calls.map(([pid]) => pid))
-    expect([...signalled].sort((a, b) => a - b)).toEqual([-1100, 1100, 1101, 1102])
-    expect(calls).toContainEqual([1102, 'SIGKILL'])
+    expect([...signalled].sort((a, b) => a - b)).toEqual([-1103, 1103, 1105, 1107])
+    expect(calls).toContainEqual([1107, 'SIGKILL'])
   })
 
   test('a child left in our own group is signalled by pid, never by group', () => {
@@ -271,14 +273,14 @@ describe('process tree cleanup never reaches beyond the tree it was asked to end
   })
 
   test('across every root, no signal ever reaches init, an ancestor, an unrelated process, or a group not verified', async () => {
-    for (const root of [1, 500, 600, 700, 800, 900, 1000, 1100, 1101, 1200, 1300, 4242]) {
+    for (const root of [1, 500, 600, 700, 800, 900, 1000, 1103, 1105, 1200, 1300, 4242]) {
       const { deps, calls } = recordingKill()
       await killProcessTree(root, deps)
       for (const [pid] of calls) {
         expect(Math.abs(pid), `root ${root}`).toBeGreaterThanOrEqual(2)
         expect(ANCESTRY, `root ${root} signalled ${pid}`).not.toContain(Math.abs(pid))
         if (root !== 1000) expect(Math.abs(pid), `root ${root}`).not.toBe(1000)
-        if (pid < 0) expect([-1000, -1100, -1300], `root ${root}`).toContain(pid)
+        if (pid < 0) expect([-1000, -1103, -1300], `root ${root}`).toContain(pid)
       }
     }
   })

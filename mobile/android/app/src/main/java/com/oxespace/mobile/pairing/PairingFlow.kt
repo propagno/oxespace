@@ -1,6 +1,8 @@
 package com.oxespace.mobile.pairing
 
 import com.oxespace.mobile.protocol.RemotePairingErrorCode
+import com.oxespace.mobile.protocol.pairing.ConnectFailure
+import com.oxespace.mobile.protocol.session.SessionEnd
 import com.oxespace.mobile.protocol.pairing.PairOutcome
 import com.oxespace.mobile.protocol.pairing.PairingQr
 import com.oxespace.mobile.protocol.pairing.PairingQrProblem
@@ -9,7 +11,9 @@ import com.oxespace.mobile.protocol.pairing.PairingQrs
 import com.oxespace.mobile.protocol.pairing.PairingVerification
 import com.oxespace.mobile.protocol.pairing.isReservedDeviceName
 import java.util.UUID
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +23,15 @@ import kotlinx.coroutines.withContext
 
 /** Why pairing ended without a paired desktop; each has its own words and next step on screen. */
 enum class PairingFailure {
-    CODE_EXPIRED, CODE_USED, CODE_INVALID, REFUSED_ON_DESKTOP, LOCKED, TOO_MANY_DEVICES, WRONG_CERTIFICATE, UNREACHABLE, PROTOCOL,
+    CODE_EXPIRED, CODE_USED, CODE_INVALID, REFUSED_ON_DESKTOP, LOCKED, TOO_MANY_DEVICES, WRONG_CERTIFICATE, PROTOCOL,
+    /** Android refused the connection on the phone: local network access is off for OXESpace. */
+    LOCAL_NETWORK_BLOCKED,
+    /** Something on the computer refused the connection: a third-party firewall, or the gateway is off. */
+    REFUSED_BY_COMPUTER,
+    /** No answer in time: usually a firewall that drops (Windows on a Public Wi-Fi), or another network. */
+    TIMED_OUT,
+    /** No route to the computer: another Wi-Fi, a VPN, mobile data. */
+    UNREACHABLE,
     /** The phone's name is one only OXESpace may speak as; the person renames the phone in Android's settings. */
     RESERVED_NAME,
 }
@@ -28,7 +40,12 @@ sealed interface PairingState {
     data object Scanning : PairingState
     /** The scanned code can't pair; the camera keeps looking. */
     data class BadCode(val problem: PairingQrProblem) : PairingState
-    /** Waiting for the person to confirm on the desktop, which shows the same [verification]. */
+    /**
+     * Reaching the desktop: from the scan until the request has been sent over the pinned connection. The desktop
+     * can't be asking yet, so the phone shows no code and doesn't say "confirm on your computer".
+     */
+    data class Contacting(val desktopName: String?) : PairingState
+    /** The desktop has the request and asks the person, showing the same [verification]. */
     data class Waiting(val desktopName: String?, val verification: String) : PairingState
     data class Paired(val desktop: PairedDesktop) : PairingState
     data class Failed(val failure: PairingFailure) : PairingState
@@ -36,7 +53,8 @@ sealed interface PairingState {
 
 /** The `/pair` call, behind an interface so tests answer for the desktop. */
 fun interface Pairer {
-    fun pair(qr: PairingQr, deviceName: String, publicKey: String): PairOutcome
+    /** [onSent] runs once the desktop has the request (see PairingClient.pair). */
+    fun pair(qr: PairingQr, deviceName: String, publicKey: String, onSent: () -> Unit): PairOutcome
 }
 
 /**
@@ -51,6 +69,15 @@ class PairingFlow(
     private val store: PairedDesktopStore,
     private val deviceName: String,
     private val newAlias: () -> String = { "oxespace-device-${UUID.randomUUID()}" },
+    /**
+     * Runs once the desktop accepted and the pairing is saved: the session starts here, not when the person taps Done.
+     * The desktop removes a pairing that doesn't sign in within 2 minutes. In 1.4.2 only Done started the session, so
+     * Back, Home, or a slow tap left the new pairing unused. The desktop then removed it, and the phone's next sign-in
+     * read "OXESpace removed this phone".
+     */
+    private val onPaired: () -> Unit = {},
+    /** P3: signs in once with the new identity before the pairing is saved. Tests answer it directly. */
+    private val probe: PairingProbe = PairingProbe { _, _ -> ProbeResult.Ok },
 ) {
     private val mutableState = MutableStateFlow<PairingState>(PairingState.Scanning)
     val state: StateFlow<PairingState> = mutableState.asStateFlow()
@@ -72,22 +99,49 @@ class PairingFlow(
 
     /** Back to the camera after a failure or a bad code. */
     fun scanAgain() {
-        if (mutableState.value !is PairingState.Waiting) mutableState.value = PairingState.Scanning
+        val current = mutableState.value
+        if (current !is PairingState.Waiting && current !is PairingState.Contacting) mutableState.value = PairingState.Scanning
     }
 
     private fun start(qr: PairingQr) {
         val alias = newAlias()
         val keys = keysFor(alias)
-        mutableState.value = PairingState.Waiting(qr.desktopName, verification = "")
+        mutableState.value = PairingState.Contacting(qr.desktopName)
         scope.launch {
             val spki = withContext(io) { keys.publicKeySpki() }
-            mutableState.value = PairingState.Waiting(qr.desktopName, PairingVerification.of(spki))
-            val outcome = withContext(io) { pairer.pair(qr, deviceName, spki.base64Url()) }
+            val verification = PairingVerification.of(spki)
+            // The code shows only once the desktop has the request. Showing it earlier read as "the computer is asking"
+            // while a firewall dropped the connection and nothing ever appeared there (1.4.1, a real phone on Wi-Fi).
+            val outcome = withContext(io) {
+                pairer.pair(qr, deviceName, spki.base64Url()) {
+                    if (mutableState.value is PairingState.Contacting) mutableState.value = PairingState.Waiting(qr.desktopName, verification)
+                }
+            }
             mutableState.value = when (outcome) {
                 is PairOutcome.Paired -> {
                     val desktop = PairedDesktop(outcome.response.deviceId, qr.host, qr.port, qr.fingerprint, qr.desktopName, alias)
-                    withContext(io) { store.save(desktop) }
-                    PairingState.Paired(desktop)
+                    // P3: accepted is not reachable. Sign in once with the new identity before saving or saying
+                    // "Paired", so a phone that can't keep a session says why now, not later as "removed".
+                    mutableState.value = PairingState.Contacting(qr.desktopName)
+                    // Backed out mid-probe (the screen closed): the key is deleted before the cancellation goes on, so
+                    // it never stays behind unsaved.
+                    val probed = try {
+                        probe.probe(desktop, keys)
+                    } catch (cancelled: CancellationException) {
+                        withContext(NonCancellable + io) { keys.delete() }
+                        throw cancelled
+                    }
+                    when (probed) {
+                        ProbeResult.Ok -> {
+                            withContext(io) { store.save(desktop) }
+                            onPaired()
+                            PairingState.Paired(desktop)
+                        }
+                        else -> {
+                            withContext(io) { keys.delete() }
+                            PairingState.Failed(failureOfProbe(probed))
+                        }
+                    }
                 }
                 else -> {
                     withContext(io) { keys.delete() }
@@ -95,6 +149,16 @@ class PairingFlow(
                 }
             }
         }
+    }
+
+    private fun failureOfProbe(result: ProbeResult): PairingFailure = when (result) {
+        ProbeResult.TimedOut -> PairingFailure.TIMED_OUT
+        ProbeResult.Closed -> PairingFailure.UNREACHABLE
+        is ProbeResult.Refused -> when (result.end) {
+            SessionEnd.UNSUPPORTED_VERSION, SessionEnd.PROTOCOL -> PairingFailure.PROTOCOL
+            else -> PairingFailure.REFUSED_ON_DESKTOP
+        }
+        ProbeResult.Ok -> error("not a failure")
     }
 
     private fun failureOf(outcome: PairOutcome): PairingFailure = when (outcome) {
@@ -109,7 +173,12 @@ class PairingFlow(
             RemotePairingErrorCode.RESERVED_NAME -> PairingFailure.RESERVED_NAME
         }
         PairOutcome.PinMismatch -> PairingFailure.WRONG_CERTIFICATE
-        PairOutcome.Unreachable -> PairingFailure.UNREACHABLE
+        is PairOutcome.Unreachable -> when (outcome.failure) {
+            ConnectFailure.BLOCKED_ON_PHONE -> PairingFailure.LOCAL_NETWORK_BLOCKED
+            ConnectFailure.REFUSED -> PairingFailure.REFUSED_BY_COMPUTER
+            ConnectFailure.TIMED_OUT -> PairingFailure.TIMED_OUT
+            ConnectFailure.NO_ROUTE -> PairingFailure.UNREACHABLE
+        }
         PairOutcome.Protocol -> PairingFailure.PROTOCOL
         is PairOutcome.Paired -> error("not a failure")
     }

@@ -11,7 +11,7 @@
 .thread-navigation button:where(:not([class*="_button_"])):focus-visible, .thread-view button:where(:not([class*="_button_"])):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .thread-view button:where(:not([class*="_button_"])):disabled { opacity: .45; cursor: default; }
 /* Match Code's project → child tree while keeping conversation titles primary. */
-.thread-command-dialog .thread-panel-list button span { white-space: pre-line; overflow-wrap: anywhere; }
+.thread-command-body .thread-panel-list button span { white-space: pre-line; overflow-wrap: anywhere; }
 .thread-resume-sections { display: grid; gap: 22px; min-height: 0; overflow-y: auto; padding-right: 8px; }
 .thread-resume-search { display: grid; gap: 6px; color: var(--text-secondary); font-size: var(--fs-xs); }
 .thread-resume-search input { width: 100%; }
@@ -334,10 +334,12 @@
 .thread-connection-notice.is-connected { color: var(--text-muted); }
 .thread-action-error { max-height: 120px; overflow: auto; overflow-wrap: anywhere; }
 /* :where keeps this at the specificity it always had, so the agent cards' own label rule still wins. */
-.thread-create-dialog label:where(:not(:has(> input[type='checkbox']))), .thread-auth-code label { display: grid; gap: 8px; margin: 16px 0; font-size: var(--fs-xs); }
-.thread-create-dialog select, .thread-create-dialog input:not([type='checkbox'], [type='radio']), .thread-auth-code input { min-height: var(--control-h); min-width: 0; width: 100%; padding: 8px 10px; background: var(--surface-raised); color: var(--text-primary); border: 1px solid var(--border-default); border-radius: var(--nav-radius); font: inherit; }
+.thread-create-body label:where(:not(:has(> input[type='checkbox']))), .thread-auth-code label { display: grid; gap: 8px; margin: 16px 0; font-size: var(--fs-xs); }
+.thread-create-body select, .thread-create-body input:not([type='checkbox'], [type='radio']), .thread-auth-code input { min-height: var(--control-h); min-width: 0; width: 100%; padding: 8px 10px; background: var(--surface-raised); color: var(--text-primary); border: 1px solid var(--border-default); border-radius: var(--nav-radius); font: inherit; }
 .thread-project-folder-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
-.thread-create-dialog .thread-dialog-error { color: var(--dot-red); }
+.thread-create-body .thread-dialog-error { color: var(--dot-red); }
+/* Body wrappers of the U1 dialogs carry the scope only; the box and its layout are the primitive's. */
+.thread-accounts-body, .thread-worktree-finish-body, .thread-command-body { display: contents; }
 .thread-account-card { border: 1px solid var(--border-default); border-radius: var(--surface-radius); padding: 16px; margin-bottom: 12px; }
 .thread-account-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .thread-account-heading>div { flex: 1; }
@@ -345,12 +347,12 @@
 .thread-account-heading small, .thread-account-card>small { display: block; font-size: var(--fs-2xs); color: var(--text-muted); }
 .thread-account-card p { margin: 0 0 10px; }
 .thread-account-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.thread-accounts-dialog .thread-account-note { font-size: var(--fs-2xs); margin: 16px 0 0; }
+.thread-accounts-body .thread-account-note { font-size: var(--fs-2xs); margin: 16px 0 0; }
 .thread-auth-code { margin: 0 0 12px; }
 @media (max-width: 1000px) { .thread-heading { padding: 0 16px; gap: 10px; } .thread-heading-context { max-width: 160px; } .thread-reading-column { padding: 16px; } .thread-composer-dock { padding: 0 calc(16px + var(--thread-scrollbar-width, 0px)) 12px 16px; } }
 @media (max-height: 600px) { .thread-composer-dock { padding-bottom: 8px; } .thread-composer { padding: 10px; } .thread-welcome { margin-top: 8px; } .thread-connection-notice { padding-top: 2px; padding-bottom: 4px; min-height: 32px; } }
 
-.thread-create-dialog p, .thread-account-card p, .thread-accounts-dialog p { font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.5; }
+.thread-create-body p, .thread-account-card p, .thread-accounts-body p { font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.5; }
 
 .thread-configuration { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; min-width: 0; }
 .thread-composer .thread-config-trigger { gap: 5px; min-height: 28px; padding: 4px 7px; font-size: var(--fs-xs); color: var(--text-secondary); }
@@ -396,7 +398,7 @@
 .thread-activity-item summary>span:first-of-type { flex: 1; min-width: 0; }
 .thread-activity-item summary small { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .thread-activity-state { flex-shrink: 0; font-size: var(--fs-2xs); padding-right: 6px; }
-.thread-activity-item pre, .thread-command-dialog pre { max-height: 320px; overflow: auto; padding: 12px; background: var(--surface-canvas); border-radius: var(--radius-sm); font-size: var(--fs-xs); white-space: pre-wrap; overflow-wrap: anywhere; }
+.thread-activity-item pre, .thread-command-body pre { max-height: 320px; overflow: auto; padding: 12px; background: var(--surface-canvas); border-radius: var(--radius-sm); font-size: var(--fs-xs); white-space: pre-wrap; overflow-wrap: anywhere; }
 .thread-tool-diagnostic { min-width: 0; max-width: 100%; padding: 2px 6px 10px 21px; }
 .thread-tool-diagnostic pre { box-sizing: border-box; max-width: 100%; max-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; padding: 10px; border-radius: var(--radius-sm); background: var(--surface-canvas); }
 .thread-tool-diagnostic>p { margin: 7px 0; color: var(--text-secondary); line-height: 1.45; }
@@ -421,8 +423,8 @@
 .thread-panel-list>button { display: grid; gap: 3px; }
 .thread-panel-list>div { display: flex; justify-content: space-between; gap: 16px; }
 .thread-panel-list span { color: var(--text-muted); overflow-wrap: anywhere; }
-.thread-command-dialog form { display: flex; gap: 8px; }
-.thread-command-dialog form.thread-command-form { flex-direction: column; gap: var(--space-3); }
+.thread-command-body form { display: flex; gap: 8px; }
+.thread-command-body form.thread-command-form { flex-direction: column; gap: var(--space-3); }
 .thread-command-form label { display: grid; gap: var(--space-1); color: var(--text-secondary); font-size: var(--fs-sm); }
 .thread-command-explanation { margin: 0; color: var(--text-secondary); line-height: 1.5; }
 .thread-command-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
@@ -455,14 +457,14 @@
 .thread-font-arrow { fill: var(--surface-raised); }
 
 /* Dialogs use a clear field hierarchy and compact provider choices. */
-.thread-create-dialog .thread-create-section { display: grid; gap: 8px; margin-top: 22px; }
-.thread-create-dialog .thread-create-section>label, .thread-agent-choice legend { margin: 0; color: var(--text-primary); font-size: var(--fs-xs); font-weight: 600; }
-.thread-create-dialog .thread-create-section>p { margin: 0; color: var(--text-muted); font-size: var(--fs-2xs); }
-.thread-create-dialog .thread-worktree-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
-.thread-create-dialog .thread-worktree-failure { margin-top: 12px; }
-.thread-worktree-finish .thread-worktree-finish-list { margin: 0 0 12px; padding-left: 18px; color: var(--text-primary); font-size: var(--fs-xs); }
-.thread-worktree-finish p { margin: 0; color: var(--text-muted); font-size: var(--fs-2xs); }
-.thread-create-dialog .thread-create-section select { min-height: 40px; padding-inline: 12px; background: var(--surface-canvas); }
+.thread-create-body .thread-create-section { display: grid; gap: 8px; margin-top: 22px; }
+.thread-create-body .thread-create-section>label, .thread-agent-choice legend { margin: 0; color: var(--text-primary); font-size: var(--fs-xs); font-weight: 600; }
+.thread-create-body .thread-create-section>p { margin: 0; color: var(--text-muted); font-size: var(--fs-2xs); }
+.thread-create-body .thread-worktree-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.thread-create-body .thread-worktree-failure { margin-top: 12px; }
+.thread-worktree-finish-body .thread-worktree-finish-list { margin: 0 0 12px; padding-left: 18px; color: var(--text-primary); font-size: var(--fs-xs); }
+.thread-worktree-finish-body p { margin: 0; color: var(--text-muted); font-size: var(--fs-2xs); }
+.thread-create-body .thread-create-section select { min-height: 40px; padding-inline: 12px; background: var(--surface-canvas); }
 .thread-project-settings-body { min-height: 0; overflow-y: auto; padding: 0 4px 4px; }
 .thread-project-settings .thread-create-section { padding-top: 16px; border-top: 1px solid var(--border-default); }
 .thread-project-settings .thread-create-section > strong { color: var(--text-primary); font-size: var(--fs-sm); }
@@ -482,7 +484,7 @@
 .thread-agent-choice { min-width: 0; margin: 22px 0 0; padding: 0; border: 0; }
 .thread-agent-choice legend { margin-bottom: 9px; }
 .thread-agent-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
-.thread-create-dialog .thread-agent-option { position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; margin: 0; padding: 11px; border: 1px solid var(--border-default); border-radius: var(--surface-radius); background: var(--surface-canvas); cursor: pointer; }
+.thread-create-body .thread-agent-option { position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; margin: 0; padding: 11px; border: 1px solid var(--border-default); border-radius: var(--surface-radius); background: var(--surface-canvas); cursor: pointer; }
 .thread-agent-option[data-selected='true'] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--surface-canvas)); }
 .thread-agent-option input { position: absolute; width: 1px; height: 1px; padding: 0; opacity: 0; }
 .thread-agent-option:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -493,11 +495,11 @@
 .thread-agent-option-check { margin-left: auto; flex-shrink: 0; color: var(--accent); }
 @media (max-width: 520px) { .thread-agent-options { grid-template-columns: 1fr; } }
 
-.thread-accounts-dialog .thread-account-card { padding: 15px 16px; margin-bottom: 10px; background: var(--surface-canvas); }
+.thread-accounts-body .thread-account-card { padding: 15px 16px; margin-bottom: 10px; background: var(--surface-canvas); }
 .thread-account-heading { margin-bottom: 9px; }
 .thread-account-heading>.agent-provider-icon { flex: 0 0 28px; }
 .thread-account-heading>div:not(.agent-provider-icon) { flex: 1; min-width: 0; }
-.thread-accounts-dialog .thread-account-note { padding: 10px 12px; margin: 12px 0 0; border: 1px solid var(--border-default); border-radius: var(--nav-radius); color: var(--text-muted); background: var(--surface-canvas); }
+.thread-accounts-body .thread-account-note { padding: 10px 12px; margin: 12px 0 0; border: 1px solid var(--border-default); border-radius: var(--nav-radius); color: var(--text-muted); background: var(--surface-canvas); }
 @media (max-width: 1000px) { .thread-grid.is-split { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(2, minmax(0, 1fr)); } }
 
 .thread-project-selection { display: grid; gap: 8px; min-width: 0; }
@@ -636,10 +638,10 @@
 .thread-welcome-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 
 /* The chosen project reads as a name with its folder underneath, not as two equal lines of body text. */
-.thread-create-dialog .thread-project-selection { gap: 4px; }
-.thread-create-dialog .thread-project-selection > strong { color: var(--text-secondary); font-size: var(--text-xs); font-weight: var(--weight-semibold); }
-.thread-create-dialog .thread-project-selection > span { color: var(--text-primary); font-size: var(--fs-base); font-weight: 600; }
-.thread-create-dialog .thread-project-selection > code { overflow-wrap: anywhere; color: var(--text-secondary); font-size: var(--fs-2xs); }
+.thread-create-body .thread-project-selection { gap: 4px; }
+.thread-create-body .thread-project-selection > strong { color: var(--text-secondary); font-size: var(--text-xs); font-weight: var(--weight-semibold); }
+.thread-create-body .thread-project-selection > span { color: var(--text-primary); font-size: var(--fs-base); font-weight: 600; }
+.thread-create-body .thread-project-selection > code { overflow-wrap: anywhere; color: var(--text-secondary); font-size: var(--fs-2xs); }
 
 
 /* The composer footer reads as three groups: add to the prompt, model and access, then status and send. */

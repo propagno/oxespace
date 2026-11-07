@@ -1,22 +1,58 @@
-import { useEffect, useRef, type KeyboardEvent, type ReactElement, type ReactNode, type SyntheticEvent } from 'react'
+import { useEffect, useId, useRef, type KeyboardEvent, type ReactElement, type ReactNode, type SyntheticEvent } from 'react'
 import { Check, ChevronRight, X } from 'lucide-react'
 import { Dialog as RadixDialog, DropdownMenu as RadixMenu, Popover as RadixPopover, Tooltip as RadixTooltip } from 'radix-ui'
 import { i18n } from '../i18n'
-import { IconButton } from './Button'
+import { Button, IconButton } from './Button'
 import { cx } from './cx'
+import { Toaster } from './Toast'
 import styles from './Overlay.module.css'
 
 /** Floating layers keep clear of the title bar so they never rise over the window controls. */
 const CHROME_COLLISION = { top: 44, right: 8, bottom: 8, left: 8 }
+
+/** The dialog's main action, at the end of the footer (U1). */
+export interface DialogPrimaryAction {
+  label: string
+  onClick: () => void
+  /** Destructive, or widens what an agent may do: the danger button. */
+  danger?: boolean
+  disabled?: boolean
+  loading?: boolean
+}
+
+/**
+ * The footer contract (U1, X1): `extra` at the start (Test, Copy, a link), then Cancel, then the primary or danger
+ * action at the end. Cancel is always there, always secondary, and says "Cancel" unless a dialog has a reason to differ.
+ */
+export interface DialogActions {
+  primary?: DialogPrimaryAction
+  /** Cancel's words and what it does; defaults to "Cancel" and closing the dialog. */
+  cancel?: {
+    label?: string
+    onClick?: () => void
+    disabled?: boolean
+    /** Start on Cancel even when the body has a field (a confirmation: the safe choice comes first). */
+    focus?: boolean
+    /** Cancel can't act right now (the action is running): it keeps focus and says so, rather than being disabled. */
+    unavailable?: boolean
+  }
+  extra?: ReactNode
+}
 
 export interface DialogProps {
   title: ReactNode
   description?: ReactNode
   onClose: () => void
   children?: ReactNode
-  /** Buttons at the bottom; the primary action goes last. */
+  /**
+   * Hand-built footer, kept for the dialogs U5a/U5b/U5c have not migrated yet. New dialogs use `actions`, which
+   * fixes the order and the focus rule.
+   */
   footer?: ReactNode
-  size?: 'sm' | 'md' | 'lg' | 'xl'
+  /** The footer slots (U1): extra · Cancel · primary. Enter in a single-line field runs the primary. */
+  actions?: DialogActions
+  /** Required (U1): every dialog says how wide it is. sm 420 px, md 560 px, lg 760 px, xl 1040 px. */
+  size: 'sm' | 'md' | 'lg' | 'xl'
   className?: string
   /** Element to focus when the dialog closes; defaults to what had focus before it opened. */
   returnFocusTo?: () => HTMLElement | null
@@ -25,6 +61,11 @@ export interface DialogProps {
   testId?: string
   /** Called before Escape closes the dialog; preventDefault keeps it open (e.g. an Escape typed somewhere else). */
   onEscapeKeyDown?: (event: globalThis.KeyboardEvent) => void
+  /**
+   * Toasts show inside this dialog while it is open (U2): for a dialog whose own changes offer Undo, which a toast
+   * outside a modal can't reach. Off by default: a notice about something else stays apart from the dialog (R5).
+   */
+  toasts?: boolean
 }
 
 const FIELD = 'input:not([type="hidden"]), select, textarea, [contenteditable="true"], [role="textbox"], [role="combobox"]'
@@ -32,17 +73,39 @@ const usable = (element: HTMLElement): boolean => !element.matches(':disabled, [
 
 /**
  * Where a dialog starts (D-01, one rule for every dialog): what a child already focused (a safe button in a
- * confirmation, an autoFocus field), else the first field of the body, else the first button of the footer, and only
- * when it has neither, the dialog itself. Never the close button: it is first in tab order, and focusing it would open
- * its tooltip, which then eats the first Escape.
+ * confirmation, an autoFocus field), else the first field of the body, else the safe action (Cancel, when the footer
+ * uses the U1 slots), else the first button of the footer, and only when it has none, the dialog itself. Never the
+ * close button: it is first in tab order, and focusing it would open its tooltip, which then eats the first Escape.
  */
 export function focusSurfaceUnlessChosen(event: Event): void {
   const surface = event.currentTarget as HTMLElement | null
   if (!surface || surface.contains(document.activeElement)) return
   event.preventDefault()
   const field = [...surface.querySelectorAll<HTMLElement>(`[data-dialog-body] :is(${FIELD})`)].find(usable)
+  const safe = [...surface.querySelectorAll<HTMLElement>('[data-dialog-footer] [data-dialog-cancel]')].find(usable)
   const action = [...surface.querySelectorAll<HTMLElement>('[data-dialog-footer] :is(button, a[href])')].find(usable)
-  ;(field ?? action ?? surface).focus({ preventScroll: true })
+  ;(field ?? safe ?? action ?? surface).focus({ preventScroll: true })
+}
+
+/**
+ * Enter in a single-line field runs the primary (U1). Not in a text area, not while an input method composes, not
+ * with a modifier, and not when the field handles Enter itself (an open combobox, a field that called preventDefault).
+ */
+function submitsOnEnter(event: KeyboardEvent<HTMLElement>): boolean {
+  if (event.key !== 'Enter' || event.defaultPrevented || event.nativeEvent.isComposing || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return false
+  const target = event.target as HTMLElement
+  if (!(target instanceof HTMLInputElement) || ['button', 'submit', 'reset', 'checkbox', 'radio', 'file', 'color', 'range'].includes(target.type)) return false
+  return target.getAttribute('aria-expanded') !== 'true'
+}
+
+function DialogFooter({ actions, onClose }: { actions: DialogActions; onClose: () => void }): ReactElement {
+  const { primary, cancel, extra } = actions
+  return <footer className={styles.dialogFooter} data-dialog-footer="">
+    {extra ? <div className={styles.dialogExtra} data-align="start">{extra}</div> : null}
+    <Button variant="secondary" data-dialog-cancel="" autoFocus={cancel?.focus} disabled={cancel?.disabled} aria-disabled={cancel?.unavailable || undefined}
+      onClick={cancel?.unavailable ? undefined : cancel?.onClick ?? onClose}>{cancel?.label ?? i18n.t('ui.cancel')}</Button>
+    {primary ? <Button variant={primary.danger ? 'danger' : 'primary'} data-dialog-primary="" loading={primary.loading} disabled={primary.disabled || primary.loading} onClick={primary.onClick}>{primary.label}</Button> : null}
+  </footer>
 }
 
 /**
@@ -58,7 +121,7 @@ function focusOrigin(active: Element | null): HTMLElement | null {
 }
 
 /** A modal dialog: title, optional description, body, and footer actions. Escape and the scrim close it. */
-export function Dialog({ title, description, onClose, children, footer, size = 'md', className, returnFocusTo, closeLabel = i18n.t('ui.close'), testId, onEscapeKeyDown }: DialogProps): ReactElement {
+export function Dialog({ title, description, onClose, children, footer, actions, size, className, returnFocusTo, closeLabel = i18n.t('ui.close'), testId, onEscapeKeyDown, toasts = false }: DialogProps): ReactElement {
   const previous = useRef(focusOrigin(document.activeElement))
   return <RadixDialog.Root open onOpenChange={open => { if (!open) onClose() }}>
     <RadixDialog.Portal>
@@ -85,8 +148,15 @@ export function Dialog({ title, description, onClose, children, footer, size = '
           </div>
           <IconButton label={closeLabel} icon={<X size={16} />} size="sm" onClick={onClose} />
         </header>
-        {children ? <div className={styles.dialogBody} data-dialog-body="">{children}</div> : null}
-        {footer && <footer className={styles.dialogFooter} data-dialog-footer="">{footer}</footer>}
+        {children ? <div className={styles.dialogBody} data-dialog-body=""
+          onKeyDown={actions?.primary ? event => {
+            const primary = actions.primary!
+            if (!submitsOnEnter(event) || primary.disabled || primary.loading) return
+            event.preventDefault()
+            primary.onClick()
+          } : undefined}>{children}</div> : null}
+        {actions ? <DialogFooter actions={actions} onClose={onClose} /> : footer && <footer className={styles.dialogFooter} data-dialog-footer="">{footer}</footer>}
+        {toasts ? <Toaster inModal /> : null}
       </RadixDialog.Content>
     </RadixDialog.Portal>
   </RadixDialog.Root>
@@ -119,7 +189,8 @@ export interface MenuRadioOption { value: string; label: string; hint?: string; 
 
 export type MenuEntry =
   /** keepOpen: the menu stays open after the choice (steppers such as text size). */
-  | { type?: 'item'; label: string; icon?: ReactNode; shortcut?: string; onSelect: () => void; disabled?: boolean; danger?: boolean; keepOpen?: boolean }
+  /** hint: a second, quieter line under the label that says what the choice does (U7). */
+  | { type?: 'item'; label: string; hint?: string; icon?: ReactNode; shortcut?: string; onSelect: () => void; disabled?: boolean; danger?: boolean; keepOpen?: boolean }
   | { type: 'check'; label: string; checked: boolean; onSelect: () => void; disabled?: boolean }
   /** One choice out of several; the chosen option is checked. */
   | { type: 'radio'; value: string; options: MenuRadioOption[]; onValueChange: (value: string) => void }
@@ -143,9 +214,35 @@ export function withDangerSeparators(items: MenuEntry[]): MenuEntry[] {
   return out
 }
 
-/** The entries of a dropdown menu, shared by Menu and AnchoredMenu. */
+const isDanger = (entry: MenuEntry): boolean => (entry.type === undefined || entry.type === 'item') && Boolean(entry.danger)
+
+/**
+ * The menu order rule (U7): destructive items go last, after exactly one separator, each group keeping its own order.
+ * A menu without destructive items is returned unchanged.
+ */
+export function orderMenuEntries(items: MenuEntry[]): MenuEntry[] {
+  const danger = items.filter(isDanger)
+  if (danger.length === 0) return items
+  // Separators left leading, doubled or trailing in the safe group collapse into the one before the danger group.
+  const safe: MenuEntry[] = []
+  for (const entry of items.filter(item => !isDanger(item))) {
+    if (entry.type === 'separator' && (safe.length === 0 || safe.at(-1)?.type === 'separator')) continue
+    safe.push(entry)
+  }
+  while (safe.at(-1)?.type === 'separator') safe.pop()
+  // A group heading whose items all moved to the danger group heads nothing now: drop it (CR-01).
+  const headed = safe.filter((entry, index) => {
+    if (entry.type !== 'label') return true
+    const next = safe[index + 1]
+    return next !== undefined && next.type !== 'label' && next.type !== 'separator'
+  })
+  while (headed.at(-1)?.type === 'separator') headed.pop()
+  return headed.length > 0 ? [...headed, { type: 'separator' }, ...danger] : danger
+}
+
+/** The entries of a dropdown menu, shared by Menu and AnchoredMenu; every menu follows the U7 order. */
 function menuEntries(entries: MenuEntry[]): ReactNode {
-  const items = withDangerSeparators(entries)
+  const items = withDangerSeparators(orderMenuEntries(entries))
   return items.map((item, index) => {
     if (item.type === 'separator') return <RadixMenu.Separator key={index} className={styles.menuSeparator} />
     if (item.type === 'label') return <RadixMenu.Label key={index} className={styles.menuLabel}>{item.label}</RadixMenu.Label>
@@ -164,10 +261,23 @@ function menuEntries(entries: MenuEntry[]): ReactNode {
     if (item.type === 'check') return <RadixMenu.CheckboxItem key={index} className={styles.menuItem} checked={item.checked} disabled={item.disabled} onSelect={item.onSelect}>
       {item.label}<RadixMenu.ItemIndicator className={styles.menuCheck}><Check size={14} /></RadixMenu.ItemIndicator>
     </RadixMenu.CheckboxItem>
-    return <RadixMenu.Item key={index} className={cx(styles.menuItem, item.danger && styles.danger)} data-danger={item.danger ? 'true' : undefined} disabled={item.disabled} onSelect={event => { if (item.keepOpen) event.preventDefault(); item.onSelect() }}>
-      {item.icon}{item.label}{item.shortcut && <span className={styles.menuShortcut}>{item.shortcut}</span>}
-    </RadixMenu.Item>
+    return <MenuActionItem key={index} item={item} />
   })
+}
+
+type MenuActionEntry = Extract<MenuEntry, { onSelect: () => void; label: string }> & { type?: 'item' }
+
+/**
+ * An action item. With a hint (U7), the label stays the accessible name, the hint is the item's description
+ * (aria-describedby) and typing ahead matches the label only (textValue) (CR-01).
+ */
+function MenuActionItem({ item }: { item: MenuActionEntry }): ReactElement {
+  const hintId = useId()
+  return <RadixMenu.Item className={cx(styles.menuItem, item.danger && styles.danger)} data-danger={item.danger ? 'true' : undefined} disabled={item.disabled}
+    textValue={item.hint ? item.label : undefined} aria-describedby={item.hint ? hintId : undefined}
+    onSelect={event => { if (item.keepOpen) event.preventDefault(); item.onSelect() }}>
+    {item.icon}{item.hint ? <span className={styles.menuHintText}><span>{item.label}</span><small id={hintId} aria-hidden="true">{item.hint}</small></span> : item.label}{item.shortcut && <span className={styles.menuShortcut}>{item.shortcut}</span>}
+  </RadixMenu.Item>
 }
 
 export interface MenuProps {

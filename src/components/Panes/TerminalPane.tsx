@@ -458,14 +458,14 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           ) : null}
         </div>
       </div>
-      {restoreOpen && <Dialog className="terminal-restore-dialog" title={tc('terminalPane.restoreTitle')} description={tc('terminalPane.restoreDescription', { agent: agentCreditsProvider === 'claude' ? 'Claude' : 'Codex' })} onClose={() => { if (!restoreBusy) setRestoreOpen(false) }}>
-        <label>{tc('terminalPane.searchSessions')}<TextField aria-label={tc('terminalPane.searchSaved')} value={restoreQuery} onChange={event => setRestoreQuery(event.target.value)} placeholder={tc('terminalPane.searchPlaceholder')} /></label>
+      {restoreOpen && <Dialog size="md" title={tc('terminalPane.restoreTitle')} description={tc('terminalPane.restoreDescription', { agent: agentCreditsProvider === 'claude' ? 'Claude' : 'Codex' })} onClose={() => { if (!restoreBusy) setRestoreOpen(false) }}>
+        <div className="terminal-restore-dialog"><label>{tc('terminalPane.searchSessions')}<TextField aria-label={tc('terminalPane.searchSaved')} value={restoreQuery} onChange={event => setRestoreQuery(event.target.value)} placeholder={tc('terminalPane.searchPlaceholder')} /></label>
         {restoreError && <ErrorState compact title={tc('terminalPane.resumeFailed')} message={restoreError} />}
         <div className="terminal-restore-list">
           {restoreBusy && !savedSessions.length && <LoadingState label={tc('terminalPane.loadingSessions')} />}
           {!restoreBusy && !savedSessions.length && <EmptyState compact title={tc('terminalPane.noSessions')} />}
           {savedSessions.filter(session => `${session.firstMessagePreview ?? ''} ${session.modelId ?? ''} ${session.sessionId}`.toLowerCase().includes(restoreQuery.toLowerCase())).map(session => <button type="button" key={session.sessionId} disabled={restoreBusy} onClick={() => void restoreSession(session.sessionId)}><strong>{session.firstMessagePreview || tc('terminalPane.session', { agent: agentCreditsProvider })}</strong><span>{formatDateTime(session.lastUpdatedMs)} · {session.modelId || tc('terminalPane.noModel')} · {tc('terminalPane.requests', { count: session.requestCount })}</span><small>{session.sessionId}</small></button>)}
-        </div>
+        </div></div>
       </Dialog>}
     </div>
   )

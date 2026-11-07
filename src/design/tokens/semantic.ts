@@ -1,9 +1,9 @@
 /**
  * Semantic color roles. Components use these names only; a mode decides which
- * scale step fills each role. The accent is caatinga green in light mode and
- * sertão sun in dark mode.
+ * scale step fills each role. Since 1.5 (C4, the user's decision) the accent is
+ * caatinga green in both modes, and the sertão sun means only "needs you" (attn).
  */
-import { oklchToHex } from './color'
+import { contrast, oklchToHex } from './color'
 import { palette, SCALE_SPECS, type Mode, type Scale } from './palette'
 
 export type ColorRoles = Record<string, string>
@@ -14,8 +14,10 @@ const s = (scale: Scale, n: number): string => scale[n - 1]
 export function colorRoles(mode: Mode): ColorRoles {
   const p = palette(mode)
   const n = p.neutral
-  const accent = mode === 'light' ? p.caatinga : p.sun
+  const accent = p.caatinga
   const light = mode === 'light'
+  // The terminal reads the same in both modes (its own theme may override it).
+  const terminal = palette('dark').neutral
   const ink = (l: number) => oklchToHex({ l, c: SCALE_SPECS.neutral.chroma * 0.4, h: SCALE_SPECS.neutral.hue })
   const intent = (name: 'success' | 'warning' | 'danger' | 'info') => ({
     [`intent-${name}-bg`]: s(p[name], 3),
@@ -36,8 +38,9 @@ export function colorRoles(mode: Mode): ColorRoles {
     // Interaction fills on neutral surfaces.
     'fill-hover': light ? s(n, 4) : s(n, 4),
     'fill-pressed': s(n, 5),
-    'fill-selected': light ? s(accent, 4) : s(n, 5),
-    'fill-selected-strong': light ? s(accent, 5) : s(n, 6),
+    // U4 (X7): selection is the accent's tint in both modes, so it is visible in dark too.
+    'fill-selected': s(accent, 4),
+    'fill-selected-strong': light ? s(accent, 5) : s(accent, 7),
     // Text.
     // Three readable levels, set by lightness so each stays AA on every surface.
     'text-primary': ink(light ? 0.24 : 0.95),
@@ -77,9 +80,55 @@ export function colorRoles(mode: Mode): ColorRoles {
     'diff-del-strong': s(p.danger, 5),
     // Terminal colors: hues at readable lightness for the mode; bright variants sit closer to the text.
     ...ansi(light),
+    // 1.5: the terminal surface, the same in both modes.
+    'term-bg': s(terminal, 2),
+    'term-fg': s(terminal, 12),
+    'term-line': s(terminal, 5),
+    // 1.5: "needs you" (approvals, questions, stalled agents), and nothing else. Light darkens the sun so a dot or a
+    // border reaches 3:1.
+    'attn': light ? oklchToHex({ l: 0.6, c: 0.14, h: SCALE_SPECS.sun.hue }) : s(p.sun, 9),
+    'attn-bg': s(p.sun, 3),
+    'attn-border': s(p.sun, 7),
+    'attn-fg': s(p.sun, 11),
+    // 1.5: what a resource is (files, databases, containers, requests, shells) in tabs, chips and activity bars.
+    ...kind('file', p.info), ...kind('db', p.violet), ...kind('box', p.teal), ...kind('net', p.rose), ...kind('shell', n),
+    // 1.5: syntax in editors, code blocks and diffs.
+    'syn-kw': s(p.violet, 11),
+    'syn-str': s(p.success, 11),
+    'syn-num': s(p.rose, 11),
+    'syn-fn': s(p.info, 11),
+    'syn-type': s(p.teal, 11),
+    'syn-key': s(p.sun, 11),
+    'syn-cm': ink(light ? 0.45 : 0.7),
+    'syn-pun': ink(light ? 0.47 : 0.72),
+    'syn-var': s(p.sun, 11),
+    'syn-var-bg': s(p.sun, 3),
+    // 1.5 (T85): workspace identity. The color marks a dot or a border; its -fg is the text on its own tint.
+    ...workspaceColors(p, n, light ? s(n, 1) : s(n, 2)),
     // Scrim behind dialogs.
     'scrim': light ? 'rgba(18, 28, 22, 0.32)' : 'rgba(0, 0, 0, 0.56)'
   }
+}
+
+/** A resource kind: the mark, its tint and text on that tint. */
+function kind(name: string, scale: Scale): ColorRoles {
+  return { [`k-${name}`]: s(scale, 9), [`k-${name}-bg`]: s(scale, 3), [`k-${name}-fg`]: s(scale, 11) }
+}
+
+/** The eight workspace colors (T85), in the order the person picks them. */
+export const WORKSPACE_SCALES = ['caatinga', 'sun', 'info', 'olive', 'violet', 'warning', 'rose', 'neutral'] as const
+/** How much of a workspace's color tints its chip, per mode (color-mix over the surface). */
+export const WORKSPACE_TINT = { light: 0.12, dark: 0.16 } as const
+
+function workspaceColors(p: ReturnType<typeof palette>, n: Scale, surface: string): ColorRoles {
+  const roles: ColorRoles = {}
+  WORKSPACE_SCALES.forEach((name, index) => {
+    const scale = name === 'neutral' ? n : p[name]
+    // The mark is the solid step, or the next one down when a light hue (the sun) would not reach 3:1 on the surface.
+    roles[`ws-${index + 1}`] = [9, 10, 11].map(step => s(scale, step)).find(hex => contrast(hex, surface) >= 3) ?? s(scale, 11)
+    roles[`ws-${index + 1}-fg`] = s(scale, 11)
+  })
+  return roles
 }
 
 const ANSI_HUES = { red: 27, green: 148, yellow: 80, blue: 250, magenta: 330, cyan: 200 } as const

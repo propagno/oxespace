@@ -446,14 +446,26 @@ export interface RemoteThreadsEvent { upsert?: RemoteThreadSummary[]; removed?: 
 
 // ---- thread: one conversation (target = thread id) ----------------------------------------------------------------
 /**
+ * What a tool step changed (CCR #509 §3): paths relative to the project (any outside it is dropped), at most
+ * `REMOTE_DIFF_LIMITS.files` files, and a unified `patch` of at most `REMOTE_DIFF_LIMITS.patchBytes`, cut at a hunk
+ * boundary and redacted like tool output. A binary file is listed with zero counts and no patch.
+ */
+export interface RemoteToolDiff { files: RemoteToolDiffFile[]; patch?: string; truncated?: boolean }
+export interface RemoteToolDiffFile { path: string; additions: number; deletions: number }
+/** A message waiting in the conversation's queue (CCR #509 §4), in send order. */
+export interface RemoteQueuedPreview { id: string; text: string; truncated?: boolean }
+export const REMOTE_DIFF_LIMITS = { files: 20, patchBytes: 8_192 } as const
+export const REMOTE_QUEUE_PREVIEW = { items: 5, text: 200 } as const
+/**
  * The timeline items the phone shows. Left out on purpose: location and cwd, session ids, context usage, turn cost,
- * CLI commands, model pickers, configuration, turn-diff file paths, message context paths and attachment names.
+ * CLI commands, model pickers, configuration, absolute file paths, message context paths and attachment names.
+ * Turn-diff file paths come only inside a tool step's `diff`, project-relative, with a bounded, redacted patch.
  * `delta` events are folded into the message they extend, so the phone gets the whole text.
  */
 export type RemoteThreadItem =
   | { type: 'message'; id: string; role: 'user' | 'assistant'; text: string; truncated?: boolean; attachments?: number }
   | { type: 'reasoning'; id: string; text: string; truncated?: boolean; completed: boolean }
-  | { type: 'tool'; id: string; name: string; state: 'running' | 'completed' | 'failed' | 'unknown'; detail: string; output?: string; outputTruncated?: boolean; exitCode?: number; filesChanged?: number; interrupted?: boolean; redacted?: number }
+  | { type: 'tool'; id: string; name: string; state: 'running' | 'completed' | 'failed' | 'unknown'; detail: string; output?: string; outputTruncated?: boolean; exitCode?: number; filesChanged?: number; interrupted?: boolean; redacted?: number; diff?: RemoteToolDiff }
   | { type: 'plan'; id: string; steps: { label: string; status: 'pending' | 'inProgress' | 'completed' }[] }
   | { type: 'request'; id: string; requestId: string; kind: 'approval' | 'question' | 'permissions' | 'elicitation' | 'tool'; title: string; state: 'pending' | 'resolved' | 'cancelled' | 'expired' }
   | { type: 'subagent'; id: string; state: 'running' | 'completed' | 'failed' | 'interrupted' | 'unknown'; agents: number }
@@ -464,6 +476,12 @@ export interface RemoteThreadHeader extends RemoteThreadSummary {
   queued: number
   /** Whether the provider can take a message while a turn runs. */
   canSteer: boolean
+  /** While `status` is running or approval: how long the current turn has run, measured when this was built (CCR #509 §1). */
+  turnElapsedMs?: number
+  /** While a turn runs: time since the provider last sent anything (CCR #509 §2). */
+  quietMs?: number
+  /** The first `REMOTE_QUEUE_PREVIEW.items` queued messages, each cut to `REMOTE_QUEUE_PREVIEW.text` characters (CCR #509 §4). */
+  queuedPreview?: RemoteQueuedPreview[]
 }
 /** Snapshot: the newest page; `thread.history` asks for older ones. */
 export interface RemoteThreadSnapshot { thread: RemoteThreadHeader; items: { seq: number; item: RemoteThreadItem }[]; hasMore: boolean }
@@ -537,7 +555,19 @@ export interface RemoteTerminalData {
   /** The phone was away longer than the ring is deep: clear the view before this. */
   truncated: boolean
   redacted?: number
+  /**
+   * 1.4.3 P4: the pane's screen, on the FIRST page of a snapshot only (a page of its own: its `data` is empty), never on
+   * an event. A phone that reads it resets
+   * its view to `cols` × `rows`, feeds `ansi` once and skips that snapshot's `data` pages (the same ring); then it applies
+   * events as before. Absent (an older desktop, or over the frame budget): behave as without it.
+   */
+  snapshot?: RemoteTerminalSnapshot
 }
+/**
+ * xterm's own serialization of the pane's screen: up to 200 rows of scrollback, then the screen, the modes (the
+ * alternate screen when a full-screen app holds it) and the cursor. Built only from text already redacted.
+ */
+export interface RemoteTerminalSnapshot { ansi: string; cols: number; rows: number }
 
 // ---- jobs and delegations: snapshot and every event carry the whole list -------------------------------------------
 /** No command line or cwd: arguments can carry secrets. The label is what the person named it. */
