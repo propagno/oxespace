@@ -67,8 +67,10 @@ export function EmptyState({ icon, title, children, actions, compact = false }: 
  * The technical detail stays folded. Compact is a one-line version for lists and small panels; `brand` puts the mark
  * above a failure that takes a whole view or the window, so it reads as OXESpace speaking, not a broken page.
  */
-export function ErrorState({ title, message, detail, onRetry, retryLabel = i18n.t('ui.tryAgain'), actions, compact = false, brand = false, icon, heading, children }: {
+export function ErrorState({ title, message, detail, detailLabel = i18n.t('ui.details'), detailLang, onRetry, retryLabel = i18n.t('ui.tryAgain'), actions, compact = false, brand = false, icon, heading, children }: {
   title: ReactNode; message?: ReactNode; detail?: string; onRetry?: () => void; retryLabel?: string; actions?: ReactNode; compact?: boolean; brand?: boolean
+  /** The folded detail's summary when the generic Details does not say what it is (the startup screen's technical message); `detailLang` is its language when it is not the interface's, for screen readers. */
+  detailLabel?: string; detailLang?: string
   /** What the failure is about (the containers engine, a server), drawn like EmptyState's icon. */
   icon?: ReactNode
   /** How to fix it, when it takes more than Try again: steps or a command, below the message. */
@@ -83,7 +85,7 @@ export function ErrorState({ title, message, detail, onRetry, retryLabel = i18n.
     <Title className={styles.errorTitle}>{title}</Title>
     {message && <p className={styles.errorText}>{message}</p>}
     {children && <div className={styles.errorFix}>{children}</div>}
-    {detail && <details className={styles.errorDetail}><summary>{i18n.t('ui.details')}</summary><code>{detail}</code></details>}
+    {detail && <details className={styles.errorDetail}><summary>{detailLabel}</summary><code lang={detailLang}>{detail}</code></details>}
     {(onRetry || actions) && <div className={styles.errorActions}>
       {onRetry && <button type="button" className={styles.errorRetry} onClick={onRetry}>{retryLabel}</button>}
       {actions}
