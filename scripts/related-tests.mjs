@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * pr:ready's test selector (agents maturity M4): which vitest tests a change needs before na-fila.
  *
