@@ -49,6 +49,8 @@ export interface AgentActivityRow {
   outcome: 'ok' | 'error' | 'skipped'
   durationMs: number | null
   errorCode: string | null
+  /** Only on a person's OxePost access change (A12 `access_from`/`access_to`); the window localizes the line. */
+  accessChange?: { from: 'off' | 'read' | 'write'; to: 'off' | 'read' | 'write' }
 }
 export interface AgentActivityPage { rows: AgentActivityRow[]; nextCursor: string | null }
 ```
@@ -62,7 +64,7 @@ export interface AgentActivityPage { rows: AgentActivityRow[]; nextCursor: strin
   - changes: `<action> · <text>`;
   - databases: the statement text;
   - containers: the action text;
-  - post: `<METHOD> <path>`, where the path is `url_path` up to its first `?` or `#`. The query string never reaches the summary or the target, even though A12 already redacts credential-like values.
+  - post: `<METHOD> <path>`, where the path is `url_path` up to its first `?` or `#`. The query string never reaches the summary or the target, even though A12 already redacts credential-like values. A person's access change (A12, method NULL) has summary `''`, `accessChange: { from, to }`, target `<collection>`, and `write: false`. No English is stored or sent; A11 writes the line.
 
   All are taken from columns that were redacted when written. Main never re-reads anything else.
 - **`write`:**
@@ -109,7 +111,7 @@ export interface AgentActivityQuery {
 
 An unknown or malformed id gives `null`.
 
-`oxepost_audit` columns this model reads (fixed by A12): `id, ts, actor, workspace_id, collection, request_name, environment, method, url_path, status, decision, outcome, duration_ms, error_code, response_excerpt`. The post `target` is `<collection> · <environment>`.
+`oxepost_audit` columns this model reads (fixed by A12): `id, ts, actor, workspace_id, collection, request_name, environment, method, url_path, status, decision, outcome, duration_ms, error_code, response_excerpt, access_from, access_to`. The post `target` is `<collection> · <environment>`, or `<collection>` for an access change.
 
 ## Surface
 
