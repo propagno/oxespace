@@ -71,7 +71,7 @@ export class Harness {
   create(overrides: Partial<RemoteGatewayDeps> = {}): RemoteGateway {
     return new RemoteGateway({
       db: this.db, storage: fakeSafeStorage(), now: () => this.clock, interfaces: () => LOOPBACK, isAllowedAddress: address => address === '127.0.0.1',
-      promptTimeoutMs: 5_000, platform: 'win32',
+      promptTimeoutMs: 5_000, platform: 'win32', networkCategories: async () => new Map(), routeAddress: async () => null,
       broadcast: change => { this.changes.push(change); for (const listener of [...this.listeners]) listener(change) },
       pairingFailed: message => { this.pairingFailures.push(message) },
       ...this.overrides, ...overrides

@@ -161,6 +161,16 @@ describe('Settings agents UI', () => {
     expect(onUseProviderInPane).toHaveBeenCalledWith(profiles[0])
   })
 
+  test('T89: the resume-bypass switch is named by one whole sentence, shown in full', async () => {
+    ;(window as unknown as { oxe: unknown }).oxe = { terminal: { resumeBypass: vi.fn(async () => false), setResumeBypass: vi.fn(async (value: boolean) => value) } }
+    const props = { agentProfiles: profiles, agentReadiness: readiness, isDiscoveringAgents: false, onClose: vi.fn(), onDiscoverAgents: vi.fn(), onConfigureAgent: vi.fn(), onNewCustomAgent: vi.fn() }
+    render(<SettingsContent section="terminal" {...props} />)
+    const name = 'Resume sessions that skipped permission prompts the same way'
+    expect(await screen.findByRole('switch', { name })).toBeInTheDocument()
+    expect(screen.getByText(name)).toBeVisible()
+    delete (window as { oxe?: unknown }).oxe
+  })
+
   test('renders the terminal, notifications and updates sections', () => {
     const props = { agentProfiles: profiles, agentReadiness: readiness, isDiscoveringAgents: false, onClose: vi.fn(), onDiscoverAgents: vi.fn(), onConfigureAgent: vi.fn(), onNewCustomAgent: vi.fn() }
     const view = render(<SettingsContent section="terminal" {...props} />)

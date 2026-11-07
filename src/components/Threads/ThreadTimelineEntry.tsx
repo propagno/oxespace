@@ -51,7 +51,7 @@ async function undoTurnChanges(threadId: string, turnId: string): Promise<void> 
 }
 
 /** One virtual row of the conversation, plus the turn's changes and timing after its last row. */
-export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending, pendingRequests, lastResult, lastMessageId, quickReplies, copiedMessageId, action, runCommand, onCopy, onQuickReply, onQuote, onDraft, onAccounts, onPermissions, onToggleFold, superseded }: {
+export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending, pendingRequests, lastResult, lastMessageId, quickReplies, copiedMessageId, action, runCommand, onCopy, onQuickReply, onQuote, onDraft, onPermissions, onToggleFold, superseded }: {
   row: ThreadTimelineItem
   snapshot: ThreadSnapshot | null
   viewMode: ThreadViewMode
@@ -69,7 +69,6 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
   onQuote: (text: string) => void
   /** Appends text to the composer, e.g. a review comment for the agent. */
   onDraft: (text: string) => void
-  onAccounts?: () => void
   onPermissions: () => void
   /** Opens or closes the folded work of a finished turn. */
   onToggleFold?: (turnId: string) => void
@@ -111,7 +110,7 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
       const unresolved = snapshot?.thread.status === 'approval' && !snapshot.events.some(e => e.type === 'approval-resolved' && e.id === event.id)
       return <details key={key} className="thread-approval" open={Boolean(unresolved)}><summary><AlertCircle size={14} />{event.title}</summary><ThreadApprovalDetails command={event.detail} /* A legacy saved approval carries no structure: read as a command, never from its title (FE-M-11). */ />{unresolved && <div className="thread-approval-actions"><button type="button" disabled={pending} onClick={() => void action(() => api!.approve(snapshot!.thread.id, event.id, 'accept'))}>{t('timeline.approve')}</button><button type="button" disabled={pending} onClick={() => void action(() => api!.approve(snapshot!.thread.id, event.id, 'decline'))}>{t('timeline.decline')}</button></div>}</details>
     }
-    if (event.type === 'completed') return event.status === 'failed' ? <ThreadFailureCard key={key} event={event} latest={event === lastResult} onAccounts={onAccounts} disabled={pending} onCompact={() => void action(() => runCommand('/compact'))} onPermissions={onPermissions} onRetry={(() => {
+    if (event.type === 'completed') return event.status === 'failed' ? <ThreadFailureCard key={key} event={event} latest={event === lastResult} disabled={pending} onCompact={() => void action(() => runCommand('/compact'))} onPermissions={onPermissions} onRetry={(() => {
       const prompt = turnEvents.find(value => value.type === 'message' && value.role === 'user')
       if (prompt?.type !== 'message') return undefined
       // The orchestrator can undo the failed turn's files first; older builds only resend.
