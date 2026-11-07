@@ -212,6 +212,17 @@
       "body": "The agent in “{{title}}” stops what it is doing now. The conversation stays.",
       "confirm": "Stop turn",
       "keep": "Keep running"
+    },
+    "extras": {
+      "working": "Working · {{time}}",
+      "quiet": "No output for {{time}}",
+      "queued": "Waiting to send ({{n}})",
+      "queuedMore": "and {{n}} more",
+      "noLines": "No line changes",
+      "diffCut": "The rest of this diff is on your computer.",
+      "seconds": "{{seconds}} s",
+      "minutes": "{{minutes}} min",
+      "hours": "{{hours}} h"
     }
   },
   "terminal": {

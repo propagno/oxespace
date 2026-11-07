@@ -114,6 +114,10 @@ describe('design lint', () => {
     it('hand-made empty-state classes do not grow; use <EmptyState>', () => {
       expect(count(tsx, /className="[^"]*-empty\b[^"]*"/g)).toBeLessThanOrEqual(0)
     })
+    it('labels are not uppercased by CSS; use <SectionLabel> (U3, X2). The rest go as each area is redesigned', () => {
+      // 63 before U3, which moved the audit's screens (D-03); lower it as areas move, never raise it.
+      expect(count(css, /text-transform:\s*uppercase/g)).toBeLessThanOrEqual(49)
+    })
     it('dialogs restyled with className do not grow; the box is the primitive\'s, its size is `size` (U1)', () => {
       // Each <Dialog …> tag is read to its end, skipping what is inside braces, so an arrow in a prop does not end it.
       const restyled = tsx.flatMap(path => {
