@@ -140,7 +140,7 @@ function runStep(step, env) {
 }
 
 function ciStep(step, sha) {
-  let checkRuns = []
+  let checkRuns
   try {
     const repo = execFileSync('gh', ['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner'], { encoding: 'utf8' }).trim()
     const out = execFileSync('gh', ['api', '--paginate', '--slurp', `repos/${repo}/commits/${sha}/check-runs?per_page=100`], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 })
