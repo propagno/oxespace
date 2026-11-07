@@ -10,9 +10,11 @@ import {
   ciEvidence,
   markerContent,
   markerPath,
+  NETWORK_FAILURE,
   parseArgs,
   runIdOf,
   WORKERS,
+  withNetworkRetry,
   // @ts-expect-error -- a plain ES module script without type declarations
 } from '../../scripts/pr-ready.mjs'
 
@@ -84,6 +86,31 @@ describe('CI as evidence for the whole suite', () => {
   it('records in the marker how the head was proven', () => {
     expect(markerContent({ sha: SHA, at: 't', base: 'origin/main', steps: ['lint'], ciRuns: [71, 72] })).toEqual({ ok: true, sha: SHA, at: 't', evidence: 'ci', runs: [71, 72], base: 'origin/main', steps: ['lint'] })
     expect(markerContent({ sha: SHA, at: 't', base: 'origin/main', steps: ['lint'], ciRuns: null })).toMatchObject({ evidence: 'local', runs: [] })
+  })
+})
+
+describe('an unstable network', () => {
+  const failing = (messages: string[]) => {
+    let calls = 0
+    return { run: () => { const message = messages[calls++]; if (message) throw Object.assign(new Error(message), { stderr: message }); return 'ok' }, calls: () => calls }
+  }
+
+  it('retries a network failure with a doubling wait, then answers', () => {
+    const waits: number[] = []
+    const f = failing(['Post "https://api.github.com/graphql": unexpected EOF', 'HTTP 502 Bad Gateway'])
+    expect(withNetworkRetry(f.run, { sleep: (ms: number) => waits.push(ms) })).toBe('ok')
+    expect(f.calls()).toBe(3)
+    expect(waits).toEqual([3000, 6000])
+  })
+
+  it('gives up after the last try, and never retries a real answer', () => {
+    const f = failing(Array(5).fill('read: connection reset by peer'))
+    expect(() => withNetworkRetry(f.run, { sleep: () => {} })).toThrow(/connection reset/)
+    expect(f.calls()).toBe(5)
+    const auth = failing(['HTTP 401: Bad credentials'])
+    expect(() => withNetworkRetry(auth.run, { sleep: () => {} })).toThrow(/401/)
+    expect(auth.calls()).toBe(1)
+    expect(NETWORK_FAILURE.test('Not Found (HTTP 404)')).toBe(false)
   })
 })
 

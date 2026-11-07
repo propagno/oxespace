@@ -139,14 +139,35 @@ function runStep(step, env) {
   return { ok: result.status === 0, detail: result.error ? result.error.message : `exit ${result.status}` }
 }
 
+/** A network failure, worth another try (the same list as .claude/hooks/net-retry.sh). Anything else is an answer. */
+export const NETWORK_FAILURE = /TLS|SSL|unexpected eof|Connection (was )?reset|connection reset|timed? ?out|Timeout|Could not resolve|resolve host|getaddrinfo|ECONNRESET|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|ECONNREFUSED|HTTP 5\d\d|HTTP 429|502 Bad Gateway|503 Service|504 Gateway|error connecting to api\.github\.com|i\/o timeout/i
+
+/**
+ * Runs `run()` again after a network failure, up to `tries` times with a doubling wait (3 s, then 6, 12, 24): an
+ * unstable network must never turn into "CI not green". Any other failure is thrown at once.
+ */
+export function withNetworkRetry(run, { tries = 5, wait = 3000, sleep = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms), log = () => {} } = {}) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return run()
+    } catch (error) {
+      const text = `${error?.message ?? ''}\n${error?.stderr ?? ''}`
+      if (attempt >= tries || !NETWORK_FAILURE.test(text)) throw error
+      log(`network failure (try ${attempt}/${tries}), retrying in ${wait / 1000}s`)
+      sleep(wait)
+      wait = Math.min(wait * 2, 60_000)
+    }
+  }
+}
+
 function ciStep(step, sha) {
   let checkRuns
+  const gh = args => withNetworkRetry(() => execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] }), { log: line => console.log(`  ${line}`) })
   try {
-    const repo = execFileSync('gh', ['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner'], { encoding: 'utf8' }).trim()
-    const out = execFileSync('gh', ['api', '--paginate', '--slurp', `repos/${repo}/commits/${sha}/check-runs?per_page=100`], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 })
-    checkRuns = JSON.parse(out).flatMap(page => page.check_runs ?? [])
+    const repo = gh(['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner']).trim()
+    checkRuns = JSON.parse(gh(['api', '--paginate', '--slurp', `repos/${repo}/commits/${sha}/check-runs?per_page=100`])).flatMap(page => page.check_runs ?? [])
   } catch (error) {
-    return { ok: false, detail: `could not read CI for ${sha.slice(0, 8)}: ${String(error.message ?? error).split('\n')[0]}` }
+    return { ok: false, detail: `could not read CI for ${sha.slice(0, 8)} (no marker written; run pr:ready again): ${String(error.stderr || error.message || error).split('\n')[0]}` }
   }
   const evidence = ciEvidence(checkRuns, step.args, sha)
   return evidence.ok
