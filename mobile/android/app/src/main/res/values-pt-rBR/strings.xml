@@ -225,6 +225,15 @@
     <string name="thread_doing_read">Lendo %1$s</string>
     <string name="thread_doing_run">Executando %1$s</string>
     <string name="thread_doing_search">Buscando %1$s</string>
+    <string name="thread_extras_diff_cut">O restante desta diferença está no computador.</string>
+    <string name="thread_extras_hours">%1$s h</string>
+    <string name="thread_extras_minutes">%1$s min</string>
+    <string name="thread_extras_no_lines">Sem mudança de linha</string>
+    <string name="thread_extras_queued">Aguardando envio (%1$s)</string>
+    <string name="thread_extras_queued_more">e mais %1$s</string>
+    <string name="thread_extras_quiet">Sem saída há %1$s</string>
+    <string name="thread_extras_seconds">%1$s s</string>
+    <string name="thread_extras_working">Trabalhando · %1$s</string>
     <plurals name="thread_files_changed">
         <item quantity="one">%1$d arquivo alterado</item>
         <item quantity="other">%1$d arquivos alterados</item>
