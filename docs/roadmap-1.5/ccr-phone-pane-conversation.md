@@ -2,7 +2,7 @@
 
 - **Owner:** BACKEND (design). The phone side is MOBILE's (M6 Terminal); the UI is DESIGN's.
 - **Asked by:** the user, via TECH LEAD (07/11).
-- **Status:** feasibility. **Verdict: feasible with what's on main.** No new reader, no new redaction and no new dependency. One additive C5 field and one new command. It goes into the phone-phase inputs (`team/checklists/phone-phase-inputs.md`).
+- **Status:** feasibility. **Verdict: feasible with what's on main.** No new reader, no new redaction and no new dependency. One additive C5 field, one new topic for following it live, and one command for older pages. It goes into the phone-phase inputs (`team/checklists/phone-phase-inputs.md`).
 
 ## Problem
 
@@ -53,7 +53,30 @@ export interface RemotePaneConversationPage {
 }
 ```
 
-- **Command:** `'pane.conversation'` is added to `REMOTE_COMMANDS` / `RemoteCommandArgs`. It counts against the per-device command rate like `thread.history`.
+- **Command:** `'pane.conversation'` is added to `REMOTE_COMMANDS` / `RemoteCommandArgs`, for "Load earlier" (with a `cursor`) and a manual refresh (without one). It counts against the per-device command rate like `thread.history`.
+
+### Following it live (TECH LEAD's decision, 07/11: the user opens the app "para acompanhar")
+
+A new topic, `'paneConversation'`, added to `REMOTE_SUBSCRIPTIONS`, with `target` = the pane id. The phone subscribes while the Conversation view is open.
+
+```ts
+/** snapshot.data: the newest page, the same shape as the command's result. */
+export type RemotePaneConversationSnapshot = RemotePaneConversationPage
+/** event.data: only that something changed; never any content. */
+export interface RemotePaneConversationEvent { changed: true }
+```
+
+- **Snapshot:** the newest page (the same as `pane.conversation` without a cursor), so opening the view is one subscribe. A subscribe to a pane without a conversation, or one the phone can't see, gets `no-conversation`, the same as the command.
+- **Events:** `{ changed: true }` and nothing else, debounced on the trailing edge to **at most one per 2 s per pane**.
+  - It's sent only to the phones subscribed to that pane's `paneConversation`. A phone on the pane's `terminal` topic alone gets nothing.
+  - It fires when the session file grows or is rewritten, and when the pane's recorded session changes (the agent started a new one).
+- **On an event,** the phone fetches the newest page (`pane.conversation` without a cursor) and merges by `item.id`. If the session changed, the fetch shows it: a new first page, or `no-conversation`.
+- **Watching:** one watcher per pane, whatever the number of phones, started by the first subscriber and closed with the last (and on unsubscribe, disconnect or pane close).
+  - It's `fs.watch` on the session file, with a size and mtime check before sending, because `fs.watch` can fire for nothing.
+  - The import goes on the fs-allowlist, or uses an allowlisted module.
+  - The file's path stays in main.
+- **No resume:** `sinceSeq` and `cursor` on this topic are ignored, so a resubscribe gets a fresh snapshot.
+- **Same read rule** as the `terminal` topic. An older desktop refuses the unknown topic, and the phone only subscribes when `RemotePane.conversation` is true.
 - **Error codes,** as inline literals (the #531 rule):
   - `no-conversation`: the pane has no readable session now (none recorded, the file is gone, or Codex without a rollout);
   - `conversation-changed`: the file changed under the cursor, so start again from the newest page. This is `readNativeHistoryPage`'s "Native history changed" error.
@@ -73,12 +96,12 @@ export interface RemotePaneConversationPage {
 - **Page size:** 50 items (`REMOTE_TEXT_LIMITS.threadPage`), also fitted to the frame budget by `fitPage`. The reader's page is up to 250 events, so the desktop keeps the remainder under the same handle and serves it before reading further back.
 - **Item text:** cut to `itemText` (8 000 characters), with `truncated` set, exactly as in threads.
 - **Cost:** a page is at most one reader call (bounded by the reader's own 8 MB I/O and 2 MB payload caps), in the worker, never on the main thread.
-- **No live stream in v1:** the terminal screen is the live view. "Conversation" is opened, refreshed (a page with no cursor), and paged back.
+- **Live, without streaming content:** the `paneConversation` events carry no text. Content only moves through the page reads above, at most one newest-page fetch per event, so at most one every 2 s per pane.
 
 ### What the phone shows (MOBILE, DESIGN to confirm)
 
 - **M6 Terminal,** on a pane with `conversation: true`: a **Screen · Conversation** toggle above the view.
-  - Conversation opens on the newest page and offers "Load earlier" at the top, as in OxeChat. It's read-only; there's no composer, since typing still goes to the terminal through `terminal.write` when allowed.
+  - Conversation subscribes to `paneConversation` (the snapshot is the newest page) and follows it: on each `changed` event it fetches the newest page and merges by id, keeping the scroll position unless the person is at the bottom. It offers "Load earlier" at the top, as in OxeChat. It's read-only; there's no composer, since typing still goes to the terminal through `terminal.write` when allowed.
   - Messages render like OxeChat's user and assistant bubbles. A cut message (`truncated`) says so, as in threads.
   - The header says "From Claude Code's own session" / "From Codex's own session". A refresh control reloads the newest page.
 - **No conversation:** on a pane without `conversation`, there's no toggle; the screen stays as today.
@@ -110,16 +133,21 @@ export interface RemotePaneConversationPage {
    - there are at most 8 per device.
 5. **No spawn:** for Codex without a rollout, no process is started (a spy on the transport), and the result is `no-conversation`.
 6. **Hidden panes:** a pane id not in the phone's workspaces, and an unknown id, both give `no-conversation`.
-7. **Protocol:** `RemotePane.conversation` is optional, the command and both error codes are literal types, and the generated Kotlin has no new enum.
+7. **Protocol:** `RemotePane.conversation` is optional; the command, the topic and both error codes are literal types; the generated Kotlin has no new enum.
+8. **Live, one event:** with a phone subscribed to `paneConversation`, appending to the session file gives exactly one `{ changed: true }` within the 2 s debounce, and a burst of appends still gives one per window.
+9. **Live, only subscribers:** a phone subscribed to the pane's `terminal` topic only, or to another pane's conversation, gets nothing.
+10. **Live, no content:** the event's data is exactly `{ changed: true }`, with no text, path or session id.
+11. **Live, lifetime:** one watcher per pane for two phones; it's closed when the last one unsubscribes or disconnects; a pane's new session sends one `changed`.
 
 **Phone** (MOBILE's JVM tests):
 1. the toggle shows only with `conversation: true`;
 2. "Load earlier" walks pages to `cursor: null` with no duplicate ids;
 3. `conversation-changed` reloads once, then shows the Notice;
-4. a desktop without the field shows no toggle.
+4. a desktop without the field shows no toggle;
+5. a `changed` event triggers one newest-page fetch, merged by id with no duplicates, and the scroll position is kept when not at the bottom.
 
 ## Open questions
 
 - **For DESIGN:** a toggle or a tab? The wording of the header and the Notice.
 - **For MOBILE:** keep the scroll position when switching back to Screen?
-- **For TECH LEAD:** whether a later version adds a live tail. That would be an event on the `terminal` topic when the session file grows, debounced; it's left out of v1 on purpose.
+- **Decided (TECH LEAD, 07/11):** the live tail is in v1, minimal and content-free (§ Following it live).
