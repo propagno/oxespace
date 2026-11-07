@@ -36,6 +36,8 @@ describe('A12 PR 3 · the approval card masks a secret as •••• (NAME)', 
     expect(shown).toContain('•••• (API_KEY)')
     expect(shown).not.toContain('[secret:')
     expect([...box.querySelectorAll('[data-secret]')].map(node => node.getAttribute('data-secret'))).toEqual(['API_KEY'])
+    // A screen reader hears the secret's name, not four bullets.
+    expect(screen.getByLabelText('secret API_KEY, hidden')).toBeInTheDocument()
     // Display only: what main hashed is untouched.
     const stored = useApprovalsStore.getState()
     expect(JSON.stringify(stored)).toContain('[secret:API_KEY]')
@@ -71,15 +73,21 @@ describe('A12 PR 3 · T64 copy in both languages', () => {
       else if (typeof node === 'string') found.push(node)
     }
     walk(JSON.parse(read(`shared/locales/${locale}/post.json`)))
+    // The refusal messages are main messages (C3), written by A12 PR 2 in the main catalog.
+    walk(JSON.parse(read(`shared/locales/${locale}/main.json`)))
     return found.join('\n')
   }
   it.each([
     ['en', ['Agent access…', 'No access (default)', 'Read: agents may ask to send GET requests. Each one needs your approval.',
       'Read and write: every change needs your approval.', 'Agents can never send changes to a production environment.',
-      'Not sent: agents only reach the hosts this collection already uses.', 'Changed since you allowed it', 'Confirm access']],
+      'Not sent: agents only reach the hosts this collection already uses.', 'Changed since you allowed it', 'Confirm access',
+      'Agents can reach:', 'The environment agents used was removed; pick another', 'Agents: paused — changed since you allowed it',
+      'Access was turned off because this folder was recreated (for example by a branch switch). Allow it again in OxePost.']],
     ['pt-BR', ['Acesso de agentes…', 'Sem acesso (padrão)', 'Leitura: agentes podem pedir para enviar requisições GET. Cada uma precisa da sua aprovação.',
       'Leitura e escrita: toda alteração precisa da sua aprovação.', 'Agentes nunca enviam alterações para um ambiente de produção.',
-      'Não enviado: agentes só acessam os hosts que esta coleção já usa.', 'Mudou desde que você permitiu', 'Confirmar acesso']]
+      'Não enviado: agentes só acessam os hosts que esta coleção já usa.', 'Mudou desde que você permitiu', 'Confirmar acesso',
+      'Agentes podem acessar:', 'O ambiente usado pelos agentes foi removido; escolha outro', 'Agentes: pausado — mudou desde que você permitiu',
+      'O acesso foi desligado porque esta pasta foi recriada (por exemplo, numa troca de branch). Permita de novo no OxePost.']]
   ])('%s', (locale, expected) => {
     const all = strings(locale as string)
     for (const text of expected as string[]) expect(all, text).toContain(text)

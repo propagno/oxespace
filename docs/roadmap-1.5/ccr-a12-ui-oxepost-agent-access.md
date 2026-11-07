@@ -16,6 +16,8 @@ OxePost settings", over the person-only `oxePost.call` ops `agentAccessList`, `a
   and generation, never text.
 - **Only for `kind: 'oxepost'`.** In any other kind the agent text is the agent's own words, shown exactly as written,
   so an agent can't make a string look like a masked secret.
+- The marker's accessible name is "secret API_KEY, hidden" (pt-BR "segredo API_KEY, oculto"), so a screen reader
+  never reads four bullets (DESIGN).
 - `NAME` is `[A-Za-z_][A-Za-z0-9_]*` (an OxePost secret name). A bracket that doesn't match stays as text.
 - The lead line, the production badge (danger) and the buttons are T64 §4: Deny is the default, Allow, and Allow for
   this run for reads outside production only.
@@ -36,11 +38,25 @@ OxePost settings", over the person-only `oxePost.call` ops `agentAccessList`, `a
   the warning state, and agents get no access to that folder (main's rule). A grant OXESpace dropped because the folder
   was deleted, recreated or renamed shows in Agent activity as "Access removed: the folder changed" (A11).
 
+- **The environment agents use** (DESIGN gap 1; #653 `environmentId`). Under the choices, a select "Environment agents
+  use", defaulting to the active environment. When `no-environment` applies, a warning Notice says "The environment
+  agents used was removed; pick another" (pt-BR "O ambiente usado pelos agentes foi removido; escolha outro"), and
+  the select takes focus.
+- **What the person agrees to** (DESIGN gap 2; #653 §2b). Below the choices: "Agents can reach:" (pt-BR "Agentes
+  podem acessar:") and the grant's origins (`scheme://host:port`, mono), then the refused-origin rule in words: "Not
+  sent: agents only reach the hosts this collection already uses." They are on screen when the person chooses.
+- **Access that OXESpace turned off** (DESIGN gap 3; #653 §2b `access-dropped`). When the folder's last event is
+  `dropped`, the dialog shows one warning Notice with `oxepost.agent.access-dropped` ("Access was turned off because
+  this folder was recreated (for example by a branch switch). Allow it again in OxePost."), the choices start at No
+  access, and the folder has no badge (one alert).
+- Widening keeps its Undo (DESIGN confirmed: the same rule as A7's R5).
+
 ## 3. The badge
 
 A folder with access shows a 16 px agent icon after its name: `text-muted` for Read, `text-accent` for Read and write.
 Its accessible name and tooltip are OxeQuery's `agentsHint` words ("Agents: read" / "Agents: read and write"). No
-access shows nothing.
+access shows nothing. A changed folder (§2) shows the badge in the warning color, named "Agents: paused — changed
+since you allowed it" (pt-BR "Agentes: pausado — mudou desde que você permitiu").
 
 ## 4. The ceiling in OxePost settings
 
@@ -56,13 +72,15 @@ access shows nothing.
 
 1. **Mask:** an `oxepost` approval whose text holds `[secret:API_KEY]` shows `•••• (API_KEY)` in the agent block and
    never the bracket form. The marker is `data-secret="API_KEY"`, and the stored request text still holds
-   `[secret:API_KEY]`. **Red:** the card draws the text as is.
+   `[secret:API_KEY]`, and the marker's accessible name is "secret API_KEY, hidden". **Red:** the card draws the text
+   as is.
 2. **Only OxePost:** an `action` approval with the same text shows it as written.
 3. **Ops:** the OxePost renderer calls `agentAccessList`, `agentAccessSet`, `agentAccessConfirm` and `agentCeilingSet`, and nothing in
    `src/` passes an agent-access op to anything but `oxePost.call`. **Red:** none exists yet.
 4. **Copy:** T64 §7's strings exist in en and pt-BR in the `post` catalog: Agent access…, No access (default), the Read
    and Read and write explanations, the production line, the refused-origin line, and "Changed since you allowed it" / "Confirm access" (pt-BR "Mudou desde que
-   você permitiu" / "Confirmar acesso"). **Red:** not there yet.
+   você permitiu" / "Confirmar acesso"), "Agents can reach:", the `no-environment` line, the `access-dropped` line
+   (#653's wording, in the `post` or `main` catalog), and the paused badge name. **Red:** not there yet.
 
 Behavior beyond this (the dialog's disabled choices, the Undo on widening, the badge) is checked by the e2e the
 executor writes, `e2e/oxepost-agent-access*.spec.ts`.
