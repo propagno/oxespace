@@ -1,8 +1,9 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import ThreadPermissionsPanel from '../src/components/Threads/ThreadPermissionsPanel'
+import { Toaster, useToasts } from '../src/ui/Toast'
 
-afterEach(() => { cleanup(); delete (window as { oxe?: unknown }).oxe })
+afterEach(() => { cleanup(); useToasts.setState({ items: [] }); delete (window as { oxe?: unknown }).oxe })
 
 function install(initial: boolean) {
   let value = initial
@@ -31,5 +32,25 @@ describe('read-only commands switch', () => {
     render(<ThreadPermissionsPanel threadId="t" />)
     await screen.findByText('Rules')
     expect(screen.queryByText('Read-only commands')).toBeNull()
+  })
+})
+
+describe('U2: widening without asking offers Undo', () => {
+  it('turning on automatic reads says so, and Undo turns it off again', async () => {
+    const set = install(false)
+    render(<><Toaster /><ThreadPermissionsPanel threadId="t" /></>)
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Approve read-only commands automatically' }))
+    await waitFor(() => expect(set).toHaveBeenCalledWith(true))
+    expect(await screen.findByText('Reads are now approved without asking')).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    await waitFor(() => expect(set).toHaveBeenLastCalledWith(false))
+  })
+
+  it('turning automatic reads off shows no Undo', async () => {
+    install(true)
+    render(<><Toaster /><ThreadPermissionsPanel threadId="t" /></>)
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Approve read-only commands automatically' }))
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Approve read-only commands automatically' })).not.toBeChecked())
+    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull()
   })
 })

@@ -163,7 +163,7 @@
   padding: 2px 8px;
 }
 .review-tree-file:hover { background: var(--bg-ws-hover); }
-.review-tree-file.selected { background: var(--bg-pane-active-header); }
+.review-tree-file.selected { background: var(--fill-selected); }
 .review-tree-file.reviewed .review-tree-file-label { color: var(--tx-muted); text-decoration: line-through; }
 .review-tree-checkbox {
   width: 12px;

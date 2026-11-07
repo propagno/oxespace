@@ -60,6 +60,8 @@ export interface Workspace {
   defaultShellProfileId: string
   autoStart: boolean
   isActive: boolean
+  /** Chosen workspace color slot 1–8 (shared/workspace-color.ts); null = derived from the id. */
+  color: number | null
   editorVisible?: boolean
   editorExpanded?: boolean
   editorWidthPercent?: number
@@ -154,4 +156,6 @@ export interface UpdateWorkspaceSettingsInput {
   defaultShellProfileId?: string
   layoutPreset?: WorkspaceLayoutPreset
   applyShellToIdlePanes?: boolean
+  /** Workspace color slot 1–8; null clears it; undefined leaves it as is. */
+  color?: number | null
 }

@@ -30,6 +30,7 @@ const OWN_PACKAGED_CHECK: Record<string, RegExp> = {
   'e2e/agent-state-hook.ts': /e2eAgentStateEnabled\(env[^)]*isPackaged: boolean\)[^{]*\{\s*if \(isPackaged\) return false/,
   'services/browser-preview-security.ts': /packaged = app\.isPackaged\)[^{]*\{\s*if \(packaged \|\| env\.OXESPACE_E2E_GUEST_PROBE !== '1'\) return \{\}/,
   'services/approvals/timeout.ts': /approvalTimeoutMs\(env[^)]*isPackaged: boolean\)[^{]*\{\s*if \(isPackaged\) return APPROVAL_TIMEOUT_MS/,
+  'services/remote/windows-firewall.ts': /firewallCheckEnabled\(env[^)]*isPackaged: boolean\)[^{]*\{\s*if \(isPackaged\) return true/,
 }
 // Every other file in electron/main/e2e is mock layer: it only runs when loaded, and the check below lets nothing
 // outside that folder load one of them except index.ts inside the switch. A new mock (e2e/open-in-mock.ts, #454)
