@@ -34,6 +34,7 @@
     "openBackups": "Open the backups folder",
     "copyDetails": "Copy details",
     "detailsWhat": "The details",
+    "technicalDetail": "Technical message",
     "quit": "Quit",
     "tryAgain": "Try again",
     "backupsAt": "Backups are kept in"
