@@ -1,14 +1,11 @@
-# CCR T98: a screen for the phone's terminal view (1.5.0, phone phase)
+# CCR T98: a screen for the phone's terminal view (record, plus the phone-phase delta)
 
 - **Owner:** BACKEND (design).
-- **Status (07/11):**
-  - **the desktop side is on main:** 1.4.3 P4, commits `121d9212` ("the terminal's screen on subscribe") and `255f3970` (TECH LEAD's must-fix from #634);
-  - **what's left is the phone consumer** (MOBILE). MOBILE's VT model, T97, is also on main (#637, the release twin of #622).
-- **This revision** replaces the first draft's `screen: { cols, rows, cursor, alternate, lines, scrollback }`. TECH LEAD asked for the P4 shape, `{ ansi, cols, rows }`. Nothing new is designed here; this CCR states the contract the phone phase builds against.
-
-## Problem
-
-A phone that opens a pane mid-session has no screen state. Cursor moves, clears and TUI redraws land on an empty grid. T97 gave the phone a VT model, and P4 gave the desktop a starting screen. The phone still ignores it (on origin/main, `mobile/android/app/src/main` doesn't read `snapshot`).
+- **Status (07/11): shipped in v1.4.3**, as 1.4.3 P4, on both sides:
+  - **desktop:** `121d9212` "the terminal's screen on subscribe", and `255f3970`, TECH LEAD's must-fix from #634;
+  - **phone:** `a8b13b2b` "P4 a terminal opens on the desktop's own screen" (MOBILE's #639, landed via #644). It's in the protocol module, `mobile/android/protocol/src/main/kotlin/com/oxespace/mobile/protocol/live/TerminalBuffer.kt`.
+- **This revision** replaces the first draft's `screen: { cols, rows, cursor, alternate, lines, scrollback }` with the shipped shape, `{ ansi, cols, rows }`. It records what exists and keeps only the two items that are not done (§ Phone phase).
+- **Correction:** an earlier revision of this PR said the phone doesn't read `snapshot`. That search covered only `app/src/main`, so it was wrong; MOBILE and TECH LEAD pointed this out, with evidence.
 
 ## Protocol (on main, `shared/remote/protocol.ts`)
 
@@ -24,50 +21,44 @@ export interface RemoteTerminalData {
 export interface RemoteTerminalSnapshot { ansi: string; cols: number; rows: number }
 ```
 
-- **Additive:** an older phone ignores the field (`ignoreUnknownKeys = true`) and reads `data` as before. Kotlin already has it in `RemoteProtocol.kt`, with no enum.
-- **Colours are in:** `ansi` keeps SGR. The first draft's "colours out of v1" no longer applies.
+- **Additive:** an older phone ignores the field (`ignoreUnknownKeys = true`). There's no enum in Kotlin.
+- **Colours:** `ansi` keeps SGR.
 
-## How main builds it (on main, `electron/main/services/remote/terminal-snapshot.ts`)
+## Desktop (on main, `electron/main/services/remote/terminal-snapshot.ts`)
 
 - **Once per subscription** (subscribe, or a resubscribe with an unknown cursor), never per event.
   - The ring text the topic already releases (redacted, paths scrubbed, `escapeSafeCut`, `TerminalWindow.takeAll`, after `flushMs`) is replayed into a short-lived `@xterm/headless` Terminal at the pane's size.
-  - Then `@xterm/addon-serialize` 0.13.0 serializes it, and the Terminal is disposed.
-- **Sizes:** clamped to 500 × 200. Scrollback steps 200 → 50 → 0 to fit the frame budget. When even the screen alone doesn't fit, the field is left out.
-- **Second redaction layer:** the rendered text is redacted again (a secret printed in two colours, or split by the wrap). If that finds anything, the snapshot falls back to the plain redacted rows, losing colours, with the cursor kept.
+  - `@xterm/addon-serialize` 0.13.0 serializes it, and the Terminal is disposed.
+- **Sizes:** clamped to 500 × 200. Scrollback steps 200 → 50 → 0 to fit the frame budget. The field is left out only when the screen alone doesn't fit.
+- **Second redaction layer:** the rendered text is redacted again (a two-colour secret, or one split by the wrap). If that finds anything, it falls back to the plain redacted rows, with the cursor kept.
+- **Tests:** `tests/unit/remote-terminal-snapshot.test.ts` (12 cases) and `tests/integration/remote-subscribe-script.native.test.ts` (end to end over `scripts/remote-subscribe.mts`).
 
-## The phone's side (MOBILE, phone phase)
+## Phone (on main, protocol module)
 
-On a terminal snapshot whose first page has `snapshot`:
-1. Reset the `VtScreen` to `cols` × `rows`.
-2. Feed `ansi` once.
-3. Skip that snapshot's remaining `data` pages; they're the same ring.
-4. Apply events as today.
+- **`TerminalBuffer.onSnapshot`:**
+  - the first page's `snapshot` gives `screen.reset(snapshot.rows)` and then `screen.feed(snapshot.ansi)`;
+  - that snapshot's `data` pages are skipped, while their `redacted` is still counted;
+  - without `snapshot`, it reads the ring as before.
+- **`VtScreen.reset(rows)`:** the screen is the last `rows` lines, so a CUP lands on the screen.
+- **Tests:** `mobile/android/protocol/src/test/kotlin/com/oxespace/mobile/protocol/live/TerminalSnapshotTest.kt` covers scrollback plus the cursor, the alternate screen, and no snapshot.
 
-Without `snapshot` (an older desktop, or over the budget), behave as today.
+## Phone phase: what is NOT done
 
-Resizing the phone's view reflows nothing on the desktop; the view scales or scrolls the grid.
-
-## Tests
-
-**On main already (desktop):** `tests/unit/remote-terminal-snapshot.test.ts` covers:
-- the escape-safe cut;
-- the split OSC;
-- the replay and serialize;
-- the alternate screen;
-- the 200-row cap and size clamps;
-- a two-colour secret and a wrap-split secret;
-- dispose, including on failure;
-- the page of its own;
-- the 200/50/0 step-down;
-- the plain fallback.
-
-`tests/integration/remote-subscribe-script.native.test.ts` covers it end to end over `scripts/remote-subscribe.mts`.
-
-**To freeze for the phone phase (MOBILE's JVM tests):**
-1. A first snapshot page with `snapshot` resets the grid to its size, and the `ansi` from a TUI fixture (alternate screen, cursor, colours) renders the expected rows.
-2. The snapshot's `data` pages are skipped after `snapshot`, so there's no double content. The next event applies on top.
-3. Without `snapshot`, the view is exactly as today (T97's tests unchanged).
-4. An unknown future field next to `snapshot` is ignored.
+1. **The grid's width.**
+   - Today `VtScreen` is unbounded in width and ignores `cols`, so a full-screen TUI drawn for 120 columns wraps or overflows differently on the phone.
+   - The phone phase fixes the grid to `cols` (wrapping at `cols`, as xterm did on the desktop) and gives the view a horizontal pan instead of reflowing.
+   - **Frozen tests (MOBILE, JVM):**
+     - a `cols` = 120 snapshot of a TUI frame keeps every row at 120 cells, and the CUP column lands where the desktop put it;
+     - a line longer than `cols` wraps at `cols`;
+     - a later event's resize (when the topic carries one) resets to the new size.
+2. **Not sending the replay pages a phone will skip.**
+   - Today the desktop sends the snapshot's `data` pages next to `snapshot` (the whole ring, up to about 345 KB a subscribe), and a phone that read `snapshot` throws them away.
+   - **Proposed:** a capability flag in the subscribe (the phone says it reads `snapshot`). The desktop then sends `snapshot` plus only the `redacted` count, with no ring pages.
+   - The older phone keeps getting the pages.
+   - This is a C5 protocol change: an additive optional field, with a literal type and no new enum (the #531 rule), plus `npm run android:generate`.
+   - **Frozen tests:**
+     - desktop: with the flag, no `data` page follows `snapshot`, and `redacted` is still reported; without it, it's as today;
+     - phone: it sends the flag, and it renders the same from `snapshot` alone.
 
 ## Out of scope
 
