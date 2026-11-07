@@ -37,7 +37,7 @@ export interface AgentActivityRow {
   at: number
   /** Parsed from the audit `actor` label: `thread:<id>`, `pane:<id>`, exactly `person` (a person's own change, such as A12's
    *  "Access changed" row) is `person`, anything else is `agent`; id is null except for thread and pane. */
-  actor: { kind: 'thread' | 'pane' | 'agent' | 'person'; id: string | null; label: string; name: string | null }
+  actor: { kind: 'thread' | 'pane' | 'agent' | 'person' | 'app'; id: string | null; label: string; name: string | null; gone: boolean }
   tool: string
   /** One line, already redacted where it was written; cut to 200 characters here. */
   summary: string
@@ -50,7 +50,7 @@ export interface AgentActivityRow {
   durationMs: number | null
   errorCode: string | null
   /** Only on a person's OxePost access change (A12 `access_from`/`access_to`); the window localizes the line. */
-  accessChange?: { from: 'off' | 'read' | 'write'; to: 'off' | 'read' | 'write' }
+  accessChange?: { from: 'off' | 'read' | 'write'; to: 'off' | 'read' | 'write'; event: 'set' | 'confirm' | 'dropped' }
 }
 export interface AgentActivityPage { rows: AgentActivityRow[]; nextCursor: string | null }
 ```
@@ -59,7 +59,9 @@ export interface AgentActivityPage { rows: AgentActivityRow[]; nextCursor: strin
   - a thread: `readThreadTitle(json_extract(data_json, '$.title'))` from `conversation_threads`, the same function the Agents read model uses;
   - a pane: `COALESCE(display_name, agent_name)` from `panes`.
 
-  It's `null` when the thread or pane is gone, the value is empty, or the actor is `agent`/`person`, and it's cut to 120 characters. The lookup is batched: at most one query per kind per page (`WHERE id IN (…)` over the page's ids), never one per row. `label` stays the raw audit label.
+  It's `null` when the thread or pane is gone, when the value is empty, and for `agent`/`person`/`app`. It's cut to 120 characters.
+- **`actor.gone`** (HML-A10-1) is true only for a thread or pane whose row no longer exists. A live, unnamed pane has `name: null, gone: false`, so A11 can tell "Terminal" from "Closed terminal". It's always false for the other kinds.
+- **The `oxespace` label** (A12's `dropped` access rows: OXESpace removed a grant whose folder is gone) is kind `app`. The lookup is batched: at most one query per kind per page (`WHERE id IN (…)` over the page's ids), never one per row. `label` stays the raw audit label.
 - **`summary`:**
   - changes: `<action> · <text>`;
   - databases: the statement text;
@@ -80,6 +82,7 @@ export interface AgentActivityQuery {
   sources?: AgentActivitySource[]          // default: all four; an empty list is refused
   view?: 'all' | 'writes' | 'problems'     // problems = outcome 'error' or decision 'denied' | 'refused'
   actor?: { kind: 'thread' | 'pane'; id: string }
+  connection?: string                      // an OxeQuery connection id: databases/containers rows of that connection only (HML-A10-2)
   since?: number; until?: number           // ms, inclusive since / exclusive until
   limit?: number                           // default 50, clamped to 1..200
   cursor?: string                          // from the previous page's nextCursor
@@ -122,7 +125,15 @@ An unknown or malformed id gives `null`.
 
 - **Input checks:** sources must come from the list; `view` from its three values; the actor kind must be `thread` or `pane`, with an id of at most 200 characters; `since`/`until` finite; the limit is clamped; the cursor is at most 200 characters.
 - **Preload:** `window.oxe.agentActivity.list(query)` and `window.oxe.agentActivity.detail(id)`, the same group and key names as `IPC_CHANNELS.agentActivity`.
-- **Old channels stay** (`mcpInternal.actionAudit`, OxeQuery's audit list) until U12's page uses the new one. Then FE removes their callers, and they can go in 1.5.x.
+- **`connection` filter** (HML-A10-2):
+  - `sources` may then hold only `databases` and `containers`; any other source is refused (`invalid`), and the default is those two;
+  - each subquery uses `INDEXED BY idx_oxequery_audit_connection` (070's `(connection_id, ts DESC)`) instead of the ts index;
+  - the id is at most 200 characters.
+- **Callers move, they don't disappear** (HML-A10-2):
+  - OxeQuery's own Agent activity (`ActivityPanel` / `ActivityDetail`, shipped in 1.4.1) moves to `agentActivity.list({ connection: <open connection id> })` and `agentActivity.detail(id)`;
+  - Settings › Agent activity (A11) moves to the unfiltered list.
+
+  Only when both have moved are the old channels (`mcpInternal.actionAudit`, OxeQuery's audit list) removed, in 1.5.x. A10's PR moves the OxeQuery panel itself, so 1.4.1's panel keeps working through the change.
 - **Service:** `electron/main/services/agent-activity/read-model.ts`, `class AgentActivity { constructor(db, now?); list(query): AgentActivityPage; listStatement(query): { sql: string; params: unknown[] }; detail(id): AgentActivityDetail | null }`, plus `parseAgentActivityQuery(raw)` for the IPC input. It reads only. No migration.
 
 ## Caps
@@ -155,7 +166,8 @@ It writes rows straight into the four tables of an in-memory database (migration
    - `IPC_CHANNELS.agentActivity.list` / `.detail` exist with those names;
    - exactly one mcp-coverage capability claims each, and it is `excluded`;
    - `electron/preload/api.ts` exposes `agentActivity: { list, detail }` on those channels (a static check; FE's A11 test fakes exactly that).
-8. **Actor names:** a thread's title and a pane's display name are resolved; a gone actor has `name: null`.
+8. **Actor names:** a thread's title and a pane's display name are resolved. A gone actor has `name: null, gone: true`; a live unnamed pane or thread has `name: null, gone: false`; `oxespace` is kind `app`.
+10. **Connection filter:** only that connection's databases and containers rows come back. Another source with `connection` is refused. The plan reads `oxequery_audit` through `idx_oxequery_audit_connection`.
 9. **No query string in post rows:** a post row whose path had `?token=…` keeps the `?` and the token out of the summary and the target.
 
 ## Out of scope

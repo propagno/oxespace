@@ -21,9 +21,9 @@ function change(db: AppDatabase, ts: number, o: Partial<{ actor: string; tool: s
   db.prepare('INSERT INTO agent_action_audit (ts, actor, workspace_id, tool, action, level, text, decision, outcome, duration_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 5)')
     .run(ts, o.actor ?? 'thread:t1', o.workspace ?? 'w1', o.tool ?? 'oxespace_git_change', o.action ?? 'commit', o.level ?? 'write', o.text ?? 'commit -m fix', o.decision ?? 'approved', o.outcome ?? 'ok')
 }
-function query(db: AppDatabase, ts: number, o: Partial<{ actor: string; tool: string; text: string; decision: string; outcome: string; error: string | null }> = {}): void {
-  db.prepare("INSERT INTO oxequery_audit (ts, actor, connection_name, engine, environment, tool, text, decision, outcome, error_code) VALUES (?, ?, 'shop', 'postgres', 'dev', ?, ?, ?, ?, ?)")
-    .run(ts, o.actor ?? 'pane:p1', o.tool ?? 'oxespace_db_query', o.text ?? 'SELECT 1', o.decision ?? 'auto', o.outcome ?? 'ok', o.error ?? null)
+function query(db: AppDatabase, ts: number, o: Partial<{ actor: string; tool: string; text: string; decision: string; outcome: string; error: string | null; connection: string }> = {}): void {
+  db.prepare("INSERT INTO oxequery_audit (ts, actor, connection_id, connection_name, engine, environment, tool, text, decision, outcome, error_code) VALUES (?, ?, ?, 'shop', 'postgres', 'dev', ?, ?, ?, ?, ?)")
+    .run(ts, o.actor ?? 'pane:p1', o.connection ?? 'c-shop', o.tool ?? 'oxespace_db_query', o.text ?? 'SELECT 1', o.decision ?? 'auto', o.outcome ?? 'ok', o.error ?? null)
 }
 function post(db: AppDatabase, ts: number, o: Partial<{ actor: string; method: string; path: string; decision: string; outcome: string }> = {}): void {
   db.prepare("INSERT INTO oxepost_audit (ts, actor, workspace_id, collection, request_name, environment, method, url_path, status, decision, outcome, duration_ms) VALUES (?, ?, 'w1', 'billing', 'Create invoice', 'staging', ?, ?, 200, ?, ?, 12)")
@@ -65,10 +65,13 @@ describe('A10 · one Agent activity read model', () => {
     expect(rows[2]).toMatchObject({ actor: { kind: 'thread', id: 't2' }, summary: 'restart web', write: true })
     expect(rows[3]).toMatchObject({ actor: { kind: 'agent', id: null, label: 'agent' }, summary: 'POST /invoices', target: 'billing · staging', write: true })
     expect(new Set(rows.map(row => row.id)).size).toBe(4)
-    db.prepare("INSERT INTO oxepost_audit (ts, actor, workspace_id, collection, access_from, access_to, decision, outcome) VALUES (5, 'person', 'w1', 'billing', 'off', 'read', 'auto', 'ok')").run()
+    db.prepare("INSERT INTO oxepost_audit (ts, actor, workspace_id, collection, access_from, access_to, access_event, decision, outcome) VALUES (5, 'person', 'w1', 'billing', 'off', 'read', 'set', 'auto', 'ok')").run()
+    db.prepare("INSERT INTO oxepost_audit (ts, actor, workspace_id, collection, access_from, access_to, access_event, decision, outcome) VALUES (4, 'oxespace', 'w1', 'billing', 'read', 'off', 'dropped', 'auto', 'ok')").run()
+    const dropped = new AgentActivity(db).list({ sources: ['post'] }).rows[2]
+    expect(dropped).toMatchObject({ actor: { kind: 'app', id: null, label: 'oxespace', name: null, gone: false }, accessChange: { from: 'read', to: 'off', event: 'dropped' } })
     const person = new AgentActivity(db).list({ sources: ['post'] }).rows[1]
-    expect(person.actor).toEqual({ kind: 'person', id: null, label: 'person', name: null })
-    expect(person).toMatchObject({ summary: '', accessChange: { from: 'off', to: 'read' }, target: 'billing', write: false })
+    expect(person.actor).toEqual({ kind: 'person', id: null, label: 'person', name: null, gone: false })
+    expect(person).toMatchObject({ summary: '', accessChange: { from: 'off', to: 'read', event: 'set' }, target: 'billing', write: false })
     expect(rows[3]).not.toHaveProperty('accessChange')
     for (const row of rows) expect(row.id.startsWith(`${row.source}:`)).toBe(true)
   })
@@ -184,11 +187,25 @@ describe('A10 · one Agent activity read model', () => {
     db.pragma('foreign_keys = OFF')
     db.prepare("INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES ('w1', 'W', '/w', '{}', 'sp')").run()
     db.prepare("INSERT INTO conversation_threads (id, workspace_id, thread_project_id, data_json) VALUES ('t1', 'w1', 'tp', ?), ('t3', 'w1', 'tp', ?)").run(JSON.stringify({ id: 't1', title: 'Fix the login' }), JSON.stringify({ id: 't3', title: 'New thread' }))
-    db.prepare("INSERT INTO panes (id, workspace_id, row_index, column_index) VALUES ('p1', 'w1', 0, 0)").run()
+    db.prepare("INSERT INTO panes (id, workspace_id, row_index, column_index) VALUES ('p1', 'w1', 0, 0), ('p2', 'w1', 0, 1)").run()
     db.prepare("UPDATE panes SET display_name = 'API server' WHERE id = 'p1'").run()
-    change(db, 40, { actor: 'thread:t1' }); change(db, 30, { actor: 'pane:p1' }); change(db, 20, { actor: 'thread:gone' }); change(db, 10, { actor: 'thread:t3' })
-    const names = new AgentActivity(db).list({}).rows.map(row => [row.actor.label, row.actor.name])
-    expect(names).toEqual([['thread:t1', 'Fix the login'], ['pane:p1', 'API server'], ['thread:gone', null], ['thread:t3', null]])
+    change(db, 40, { actor: 'thread:t1' }); change(db, 30, { actor: 'pane:p1' }); change(db, 20, { actor: 'thread:gone' }); change(db, 10, { actor: 'thread:t3' }); change(db, 5, { actor: 'pane:p2' }); change(db, 3, { actor: 'pane:gone' })
+    const names = new AgentActivity(db).list({}).rows.map(row => [row.actor.label, row.actor.name, row.actor.gone])
+    expect(names).toEqual([['thread:t1', 'Fix the login', false], ['pane:p1', 'API server', false], ['thread:gone', null, true], ['thread:t3', null, false], ['pane:p2', null, false], ['pane:gone', null, true]])
+  })
+
+  test('the connection filter returns one OxeQuery connection\'s rows, through its connection index', () => {
+    const db = open()
+    query(db, 30, { connection: 'c-shop' }); query(db, 20, { connection: 'c-other' }); query(db, 10, { connection: 'c-shop', tool: 'oxespace_container_action' }); change(db, 25)
+    const model = new AgentActivity(db)
+    expect(walk(model, { connection: 'c-shop' }).map(row => [row.at, row.source])).toEqual([[30, 'databases'], [10, 'containers']])
+    expect(walk(model, { connection: 'c-shop', sources: ['databases'] }).map(row => row.at)).toEqual([30])
+    expect(() => parseAgentActivityQuery({ connection: 'c-shop', sources: ['changes'] })).toThrow()
+    expect(() => parseAgentActivityQuery({ connection: 'c'.repeat(201) })).toThrow()
+    db.exec('ANALYZE')
+    const { sql, params } = model.listStatement({ connection: 'c-shop', limit: 3 })
+    const plan = (db.prepare(`EXPLAIN QUERY PLAN ${sql}`).all(...params) as Array<{ detail: string }>).map(row => row.detail)
+    expect(plan.filter(line => /oxequery_audit/.test(line)).every(line => /USING (COVERING )?INDEX idx_oxequery_audit_connection\b/.test(line)), plan.join('\n')).toBe(true)
   })
 
   test('a post row never shows the query string in its summary or target', () => {
