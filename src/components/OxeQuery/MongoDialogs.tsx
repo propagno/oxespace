@@ -54,11 +54,13 @@ export function BulkPanel({ connection, database, collection, filter, onClose, o
     } finally { setBusy(false) }
   }
 
-  return <Dialog className="oq-scope" title={t('bulk.title', { collection })} description={t('bulk.description')} closeLabel={t('common.close')} size="lg" onClose={onClose} testId="mongo-bulk"
-    footer={<><Button variant="ghost" onClick={onClose}>{t('common.close')}</Button>
-      <Button variant="secondary" loading={busy} disabled={problem !== null} onClick={() => void count()}>{t('bulk.count')}</Button>
-      <Button variant={op === 'deleteMany' ? 'danger' : 'primary'} loading={busy} disabled={counted === null || counted === 0 || !confirmed || connection.readOnly} onClick={() => void apply()}>
-        {op === 'deleteMany' ? t('bulk.deleteDocuments') : t('bulk.updateDocuments')}</Button></>}>
+  return <Dialog title={t('bulk.title', { collection })} description={t('bulk.description')} closeLabel={t('common.close')} size="lg" onClose={onClose} testId="mongo-bulk"
+    actions={{
+      extra: <Button variant="secondary" loading={busy} disabled={problem !== null} onClick={() => void count()}>{t('bulk.count')}</Button>,
+      cancel: { label: t('common.close') },
+      primary: { label: op === 'deleteMany' ? t('bulk.deleteDocuments') : t('bulk.updateDocuments'), danger: op === 'deleteMany', loading: busy,
+        disabled: counted === null || counted === 0 || !confirmed || connection.readOnly, onClick: () => void apply() }
+    }}>
     <div className={styles.form}>
       <Select label={t('bulk.operation')} value={op} onChange={event => { setOp(event.target.value as typeof op); reset() }} options={[{ value: 'updateMany', label: t('bulk.updateMany') }, { value: 'deleteMany', label: t('bulk.deleteMany') }]} />
       <TextArea mono label={t('mongo.filter')} rows={3} value={where} error={jsonProblem(where, 'object') ?? undefined} onChange={event => { setWhere(event.target.value); reset() }} />
@@ -102,10 +104,12 @@ export function CollectionDialog({ connection, mode, onClose, onDone }: { connec
   }
 
   const title = mode.kind === 'create' ? t('mongo.newCollectionIn', { database: mode.database }) : mode.kind === 'rename' ? t('mongo.renameNamed', { name: mode.collection }) : t('mongo.dropNamed', { name: mode.collection })
-  return <Dialog className="oq-scope" title={title} size="sm" onClose={onClose} closeLabel={t('common.close')} testId="mongo-collection"
-    footer={<><Button variant="ghost" onClick={onClose}>{t('common.cancel')}</Button>
-      <Button variant={mode.kind === 'drop' ? 'danger' : 'primary'} loading={busy} disabled={connection.readOnly || (mode.kind !== 'drop' && !name.trim()) || (mode.kind === 'drop' && !confirmed)} onClick={() => void submit()}>
-        {mode.kind === 'create' ? t('common.create') : mode.kind === 'rename' ? t('common.rename') : t('collection.drop')}</Button></>}>
+  return <Dialog title={title} size="sm" onClose={onClose} closeLabel={t('common.close')} testId="mongo-collection"
+    actions={{
+      cancel: { label: t('common.cancel') },
+      primary: { label: mode.kind === 'create' ? t('common.create') : mode.kind === 'rename' ? t('common.rename') : t('collection.drop'), danger: mode.kind === 'drop', loading: busy,
+        disabled: connection.readOnly || (mode.kind !== 'drop' && !name.trim()) || (mode.kind === 'drop' && !confirmed), onClick: () => void submit() }
+    }}>
     <div className={styles.form}>
       {mode.kind !== 'drop' && <TextField mono autoFocus label={mode.kind === 'create' ? t('server.column.name') : t('collection.newName')} value={name} onChange={event => setName(event.target.value)} />}
       {mode.kind === 'create' && <>

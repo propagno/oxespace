@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import {
   readRemoteFrame, REMOTE_FORBIDDEN, REMOTE_LIMITS, REMOTE_PROTOCOL_VERSION, REMOTE_SUBSCRIPTIONS,
-  type RemoteAuthFrame, type RemoteAuthResult, type RemoteCommandFrame, type RemoteErrorCode, type RemoteFrame,
+  type RemoteAuthFrame, type RemoteAuthResult, type RemoteCommandFrame, type RemoteErrorCode, type RemoteErrorReason, type RemoteFrame,
   type RemoteSubscribeFrame, type RemoteSubscription, type RemoteUnsubscribeFrame
 } from '../../../../shared/remote/protocol'
 import { WS_CLOSE } from './websocket'
@@ -19,7 +19,7 @@ import { WS_CLOSE } from './websocket'
 /** The keys a subscribe frame may carry: exactly RemoteSubscribeFrame's, C5 (a contract test reads them from protocol.ts). */
 export const SUBSCRIBE_FRAME_KEYS = ['type', 'id', 'topic', 'target', 'sinceSeq', 'cursor'] as const
 
-export type AuthOutcome = { ok: true; deviceId: string; expiresAt: number; result: RemoteAuthResult } | { ok: false; code: RemoteErrorCode }
+export type AuthOutcome = { ok: true; deviceId: string; expiresAt: number; result: RemoteAuthResult } | { ok: false; code: RemoteErrorCode; reason?: RemoteErrorReason }
 
 export interface RemoteTopicFrame {
   kind: 'snapshot' | 'event'
@@ -196,7 +196,7 @@ export class RemoteConnection {
         typeof refresh.deviceId !== 'string' || typeof refresh.nonce !== 'string' || typeof refresh.signature !== 'string') return this.fail('malformed', id)
     }
     const outcome = this.host.authenticate(frame, this.challenge, this.address)
-    if (!outcome.ok) return this.fail(outcome.code, id)
+    if (!outcome.ok) return this.fail(outcome.code, id, outcome.reason)
     // One connection, one device: a token of another device does not switch it.
     if (this.deviceId && this.deviceId !== outcome.deviceId) return this.fail('forbidden', id)
     this.deviceId = outcome.deviceId
@@ -294,13 +294,13 @@ export class RemoteConnection {
     return this.framesInWindow <= MAX_FRAMES_PER_MINUTE
   }
 
-  private error(code: RemoteErrorCode, id?: string): void {
-    this.send({ type: 'error', ...(id ? { id } : {}), code })
+  private error(code: RemoteErrorCode, id?: string, reason?: RemoteErrorReason): void {
+    this.send({ type: 'error', ...(id ? { id } : {}), code, ...(reason ? { reason } : {}) })
   }
 
   /** Answers, then closes: used for anything that ends the connection. */
-  private fail(code: RemoteErrorCode, id?: string): void {
-    this.error(code, id)
+  private fail(code: RemoteErrorCode, id?: string, reason?: RemoteErrorReason): void {
+    this.error(code, id, reason)
     this.close(code === 'unsupported-version' ? WS_CLOSE.normal : WS_CLOSE.policy)
   }
 
