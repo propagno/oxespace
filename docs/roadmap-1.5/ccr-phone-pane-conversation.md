@@ -101,7 +101,15 @@ export interface RemotePaneConversationEvent { changed: true }
 ### What the phone shows (MOBILE, DESIGN to confirm)
 
 - **M6 Terminal,** on a pane with `conversation: true`: a **Screen · Conversation** toggle above the view.
-  - Conversation subscribes to `paneConversation` (the snapshot is the newest page) and follows it: on each `changed` event it fetches the newest page and merges by id, keeping the scroll position unless the person is at the bottom. It offers "Load earlier" at the top, as in OxeChat. It's read-only; there's no composer, since typing still goes to the terminal through `terminal.write` when allowed.
+  - Conversation subscribes to `paneConversation` (the snapshot is the newest page) and follows it. It offers "Load earlier" at the top, as in OxeChat.
+  - **On each `changed` event** it fetches the newest page and merges it (MOBILE's M5):
+    - an item whose id it already holds **replaces** the held one in place, because a live agent message grows under the same `native:<uuid>`, exactly as thread items do;
+    - new ids append;
+    - **no overlap:** if the newest page shares no id with what's held (more than a page of new items, for example after a reconnect), the held items are replaced by that page and "Load earlier" walks back from there, so there's no silent hole.
+  - **Coalescing:** while a fetch is in flight, further `changed` events queue at most one more fetch. Each fetch is a `pane.conversation` command against the per-device command rate.
+  - **Order** is the page order, never `seq` across pages (`seq` is page-local).
+  - **Scroll:** a pure `follow(atBottom)` decision, as in T100: at the bottom it follows new items, otherwise it never jumps. The scrolling itself is UI.
+  - **Switching views** (MOBILE): each view keeps its own position while that terminal is open. Conversation keeps its scroll and loaded pages; Screen keeps its follow-the-bottom state (T97). Leaving the terminal resets both.
   - Messages render like OxeChat's user and assistant bubbles. A cut message (`truncated`) says so, as in threads.
   - The header says "From Claude Code's own session" / "From Codex's own session". A refresh control reloads the newest page.
 - **No conversation:** on a pane without `conversation`, there's no toggle; the screen stays as today.
@@ -140,14 +148,18 @@ export interface RemotePaneConversationEvent { changed: true }
 11. **Live, lifetime:** one watcher per pane for two phones; it's closed when the last one unsubscribes or disconnects; a pane's new session sends one `changed`.
 
 **Phone** (MOBILE's JVM tests):
-1. the toggle shows only with `conversation: true`;
-2. "Load earlier" walks pages to `cursor: null` with no duplicate ids;
+1. `conversation: true` → the toggle shows; `conversation: false` → none;
+2. "Load earlier" walks pages to `cursor: null` with no duplicate ids, and the held list is in the asserted order (page order, oldest first), never sorted by `seq` across pages;
 3. `conversation-changed` reloads once, then shows the Notice;
-4. a desktop without the field shows no toggle;
-5. a `changed` event triggers one newest-page fetch, merged by id with no duplicates, and the scroll position is kept when not at the bottom.
+4. the field absent (an older desktop) → no toggle;
+5. a `changed` event fetches the newest page:
+   - items with a known id replace the held ones in place, and new ids append, with no duplicates;
+   - while a fetch is in flight, further `changed` events queue at most one more fetch;
+6. **no overlap:** a newest page that shares no id with the held items replaces them, and "Load earlier" then walks back from that page;
+7. `follow(atBottom)`: not at the bottom → no jump; at the bottom → follow.
 
 ## Open questions
 
 - **For DESIGN:** a toggle or a tab? The wording of the header and the Notice.
-- **For MOBILE:** keep the scroll position when switching back to Screen?
+- **Answered (MOBILE, 07/11):** switching views keeps each view's own position while the terminal is open (§ What the phone shows).
 - **Decided (TECH LEAD, 07/11):** the live tail is in v1, minimal and content-free (§ Following it live).
