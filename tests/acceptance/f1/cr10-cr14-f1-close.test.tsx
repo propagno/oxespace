@@ -15,7 +15,8 @@ import { ErrorState } from '../../../src/ui'
 
 const ROOT = join(__dirname, '..', '..', '..')
 const read = (path: string): string => readFileSync(join(ROOT, path), 'utf8')
-const json = (path: string): Record<string, any> => JSON.parse(read(path))
+type Locale = { startupFailure: { technicalDetail?: unknown } } & Record<string, unknown>
+const json = (path: string): Locale => JSON.parse(read(path)) as Locale
 
 describe('CR-10 · the sign-in card has no dead onAccounts prop', () => {
   test.each(['src/components/Threads/ThreadFailureCard.tsx', 'src/components/Threads/ThreadTimelineEntry.tsx'])('%s no longer takes or passes onAccounts', path => {
