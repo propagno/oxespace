@@ -629,6 +629,7 @@
     "refused": "Pairing was declined on this computer.",
     "limit": "The phone could not pair: this computer already has the maximum number of devices.",
     "peer-closed": "The phone stopped pairing before you answered. Show a new code to try again.",
-    "reserved-name": "The phone gave itself a name only OXESpace may use. Rename it on the phone and try again."
+    "reserved-name": "The phone gave itself a name only OXESpace may use. Rename it on the phone and try again.",
+    "no-contact": "The code expired and no phone reached this computer. Check that the phone is on the same network, and that this network is Private or the firewall allows OXESpace."
   }
 }

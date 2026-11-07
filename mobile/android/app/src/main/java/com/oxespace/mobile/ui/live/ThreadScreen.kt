@@ -147,6 +147,9 @@ fun ThreadScreen(
     val header = timeline.header
     val entries = remember(tick) { timeline.items }
     val running = header?.status == "running"
+    // The desktop's elapsed times are as of this update; the phone counts on from when it arrived.
+    val readClock = LocalClock.current
+    val receivedAt = remember(tick) { readClock() }
     var openTurns by rememberSaveable(threadId) { mutableStateOf(setOf<String>()) }
     val rows = remember(tick, openTurns, running) { timelineRows(entries.map { it.item }, running, openTurns) }
     // Created already on the last item once the conversation is loaded, so even the first frame shows the end. A list
@@ -187,6 +190,7 @@ fun ThreadScreen(
                     Column {
                         Text(title.orEmpty(), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() })
                         header?.let { StateLine(it.status, it.updatedAt, it.provider) }
+                        turnClockOf(header, receivedAt)?.let { TurnTimer(it) }
                     }
                 },
                 navigationIcon = {
@@ -207,6 +211,7 @@ fun ThreadScreen(
         bottomBar = {
             Column(Modifier.background(Oxe.colors.surfaceCanvas).navigationBarsPadding().imePadding().padding(horizontal = OxeSpace.space3, vertical = OxeSpace.space2), verticalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
                 message?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.intentWarningFg, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
+                header?.let { QueuedPreview(it.queuedPreview, it.queued) }
                 pending.firstOrNull()?.let { RequestBar(it, more = pending.size - 1, enabled = connected) { onOpenRequest(it.requestId) } }
                 Composer(
                     threadId = threadId,
@@ -427,12 +432,15 @@ fun CodeBlock(text: String) {
 private fun StepRow(tool: RemoteThreadItem.Tool, indent: Boolean = false) {
     var open by rememberSaveable(tool.id) { mutableStateOf(false) }
     val output = tool.output?.takeIf { it.isNotEmpty() }
+    // The diff opens with the output, behind the same tap, inside this screen that already blocks screenshots.
+    val diff = tool.diff?.takeIf { it.files.isNotEmpty() || !it.patch.isNullOrEmpty() }
+    val opens = output != null || diff != null
     val kind = stepKind(tool.name)
     val count = tool.filesChanged?.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.thread_files_changed, it.toInt(), it.toInt()) }
     Column {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 40.dp)
-                .then(if (output != null) Modifier.clickable(role = Role.Button) { open = !open }.semantics { stateDescription = if (open) "expanded" else "collapsed" } else Modifier)
+                .then(if (opens) Modifier.clickable(role = Role.Button) { open = !open }.semantics { stateDescription = if (open) "expanded" else "collapsed" } else Modifier)
                 .padding(start = if (indent) 26.dp else 0.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2),
@@ -453,13 +461,14 @@ private fun StepRow(tool: RemoteThreadItem.Tool, indent: Boolean = false) {
                 modifier = Modifier.weight(1f),
             )
             count?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textMuted) }
-            if (output != null) Chevron(open)
+            if (opens) Chevron(open)
         }
         tool.redacted?.takeIf { it > 0 }?.let {
             Text(pluralStringResource(R.plurals.terminal_redacted, it.toInt(), it.toInt()), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textMuted, modifier = Modifier.padding(start = 26.dp))
         }
         // What is shown is what Copiar copies: hidden characters written out, never obeyed.
         if (open && output != null) Box(Modifier.padding(start = 26.dp)) { CodeBlock(showHidden(output)) }
+        if (open && diff != null) ToolDiffView(diff, Modifier.padding(start = 26.dp, top = OxeSpace.space2))
     }
 }
 

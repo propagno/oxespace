@@ -423,6 +423,13 @@ data class RemoteErrorFrame(
     /** The frame it answers, when it had one. */
     val id: String? = null,
     val code: RemoteErrorCode,
+    /**
+     * Why, when the code alone would mislead (T96). Added, never required: a phone that does not know it reads the code
+     * as before. `pairing-lapsed` goes with `revoked`: the pairing was never used before its window passed, so the phone
+     * says to pair again instead of "removed". A literal word, not an enum, so Kotlin reads it as text and a word added
+     * later never breaks an older phone (the #531 rule).
+     */
+    val reason: String? = null,
     /** Milliseconds before retrying, for `rate-limited`. */
     val retryAfterMs: Long? = null,
 ) : RemoteFrame

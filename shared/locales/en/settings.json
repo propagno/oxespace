@@ -300,7 +300,7 @@
     "opacity": "Background opacity",
     "translucent": "translucent",
     "globalDefaults": "<strong>Global</strong> defaults. Workspaces can override them.",
-    "resumeBypass": "Resume sessions with permissions skipped, when the session was",
+    "resumeBypass": "Resume sessions that skipped permission prompts the same way",
     "resumeBypassOn": "Resumed sessions now skip permission prompts when they did before",
     "resumeBypassHint": "A Claude Code session started with its permission prompts skipped resumes the same way after a restart or Restore session. Off: it resumes asking for permission."
   },
@@ -563,10 +563,14 @@
       "failed": "Could not change the phone connection: {{error}}",
       "on": "Phones can now connect to this computer"
     },
+    "network": {
+      "publicTitle": "Windows calls “{{network}}” a Public network, so phones can’t reach this computer",
+      "publicBody": "Mark this Wi-Fi as Private in Windows Settings › Network & internet › Wi-Fi › this network › Network profile type. Or allow OXESpace on public networks in Windows Defender Firewall › Allow an app through the firewall. Only do that on a network you trust."
+    },
     "firewall": {
       "title": "Before phones can connect",
       "windowsAsk": "Windows will ask whether OXESpace may accept connections. Allow it on private networks, such as your home or office Wi-Fi.",
-      "windowsPublic": "Public networks can stay unchecked: the phone and this computer talk only over your local network.",
+      "windowsPublic": "If Windows calls your Wi-Fi a Public network, it blocks phones even when you allow OXESpace on private networks. Mark your home or office Wi-Fi as Private, or allow OXESpace on public networks too.",
       "otherAsk": "Your system may ask whether OXESpace may accept incoming connections. Allow it so phones on your network can reach this computer.",
       "internet": "Nothing is exposed to the internet. OXESpace listens only on private network addresses, and only phones you pair here can use the connection.",
       "later": "If you refuse, phones cannot reach this computer. You can change the answer later in the firewall settings of your system.",
