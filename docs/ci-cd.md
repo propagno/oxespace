@@ -95,6 +95,14 @@ anything: `GITHUB_TOKEN=$(gh auth token) GITHUB_REPOSITORY=<owner/name> node scr
 login: `--dry-run` prints the batch; without it, the script opens a batch PR labelled `na-fila` and takes the members
 out of the queue. If that batch fails, close it and relabel its members.
 
+## Before na-fila: `npm run pr:ready`
+
+No PR is labelled `na-fila` without a green `npm run pr:ready` on its exact head. A hook (`.claude/hooks/pr-ready-gate.mjs`) checks for the marker it writes, `.claude/pr-ready/<HEAD sha>.json` in the main checkout.
+
+- **The checks:** lint and typecheck; the gate tests every PR passes (design-lint, fs-allowlist); and the tests related to the change (`scripts/related-tests.mjs`). Vitest runs under Electron's ABI with 2 workers. When the protocol, the design tokens or a `mobile` catalog changes, `tests/android-generated.test.ts` checks that the committed Kotlin matches (`android:generate --check`).
+- **Whole suite:** when a change touches every test (`package.json`, the vitest or TypeScript config, the test setup), the PR's CI unit jobs, green on that head, stand for the whole suite. It doesn't fit in local memory. `--full` runs it locally anyway.
+- **Clean tree:** the working tree must be clean, since the marker vouches for HEAD. `--dry-run` prints the plan; `--base <ref>` changes the base.
+
 ## Running the checks locally
 
 The machine running the team is memory-starved: prefer CI for anything heavy, and run heavy local jobs one at a
