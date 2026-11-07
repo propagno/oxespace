@@ -28,13 +28,14 @@ export function StartupFailureScreen({ failure }: { failure: StartupFailure }): 
     <h1 className={styles.visuallyHidden}>OXESpace</h1>
     <ErrorState brand heading={2} title={t(`common:startupFailure.${failure.code}.title`)}
       message={t(`common:startupFailure.${failure.code}.message`)} detail={failure.message}
+      detailLabel={t('common:startupFailure.technicalDetail')} detailLang="en"
       actions={<>
         {failure.code === 'locked'
           ? <Button variant="primary" onClick={() => { void app?.relaunchAfterStartupFailure?.() }}>{t('common:startupFailure.tryAgain')}</Button>
           : <Button variant="primary" loading={opening} onClick={openBackups}>{t('common:startupFailure.openBackups')}</Button>}
         {failure.code === 'locked' && <Button loading={opening} onClick={openBackups}>{t('common:startupFailure.openBackups')}</Button>}
         <Button onClick={() => { void copyText(startupFailureDetails(failure, app?.version ?? ''), t('common:startupFailure.detailsWhat')) }}>{t('common:startupFailure.copyDetails')}</Button>
-        <Button variant="ghost" onClick={() => { void app?.quitAfterStartupFailure?.() }}>{t('common:startupFailure.quit')}</Button>
+        <Button onClick={() => { void app?.quitAfterStartupFailure?.() }}>{t('common:startupFailure.quit')}</Button>
       </>}>
       <p className={styles.where}>{t('common:startupFailure.backupsAt')} <code>{failure.backupsPath}</code></p>
     </ErrorState>
