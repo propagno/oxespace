@@ -631,6 +631,7 @@
     "refused": "O pareamento foi recusado neste computador.",
     "limit": "O celular não conseguiu parear: este computador já tem o número máximo de dispositivos.",
     "peer-closed": "O celular desistiu do pareamento antes da sua resposta. Mostre um novo código para tentar de novo.",
-    "reserved-name": "O celular se deu um nome que só o OXESpace pode usar. Renomeie-o no celular e tente de novo."
+    "reserved-name": "O celular se deu um nome que só o OXESpace pode usar. Renomeie-o no celular e tente de novo.",
+    "no-contact": "O código expirou e nenhum celular chegou a este computador. Confira se o celular está na mesma rede e se esta rede é Particular ou se o firewall permite o OXESpace."
   }
 }
