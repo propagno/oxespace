@@ -11,17 +11,17 @@ import { AgentActivitySettings } from '../../../src/components/Settings/AgentAct
 
 type Row = {
   id: string; source: 'changes' | 'databases' | 'containers' | 'post'; at: number
-  actor: { kind: 'thread' | 'pane' | 'agent' | 'person'; id: string | null; label: string }
+  actor: { kind: 'thread' | 'pane' | 'agent' | 'person'; id: string | null; label: string; name: string | null }
   tool: string; summary: string; target: string | null; write: boolean
   decision: 'auto' | 'approved' | 'approved-session' | 'denied' | 'refused' | 'pending'
   outcome: 'ok' | 'error' | 'skipped'; durationMs: number | null; errorCode: string | null
 }
 const at = Date.UTC(2026, 10, 7, 14, 40)
 const ROWS: Row[] = [
-  { id: 'changes:7', source: 'changes', at, actor: { kind: 'thread', id: 't1', label: 'Claude · Make charge creation idempotent' }, tool: 'oxespace_workspace_change', summary: 'rename · cajui-api', target: 'cajui-api', write: true, decision: 'auto', outcome: 'ok', durationMs: 40, errorCode: null },
-  { id: 'databases:3', source: 'databases', at: at - 60_000, actor: { kind: 'pane', id: 'p2', label: 'Codex · t142' }, tool: 'oxespace_db_execute', summary: 'DELETE FROM pix_mock_data', target: 'cajui-dev', write: true, decision: 'denied', outcome: 'skipped', durationMs: null, errorCode: null },
-  { id: 'containers:9', source: 'containers', at: at - 120_000, actor: { kind: 'agent', id: null, label: 'claude' }, tool: 'oxespace_container_action', summary: 'restart api', target: 'api', write: true, decision: 'approved', outcome: 'error', durationMs: 5000, errorCode: 'E_TIMEOUT' },
-  { id: 'post:2', source: 'post', at: at - 180_000, actor: { kind: 'thread', id: 't1', label: 'Claude · Make charge creation idempotent' }, tool: 'oxespace_post_send', summary: 'POST /pix/charges', target: 'Pix · sandbox', write: true, decision: 'pending', outcome: 'skipped', durationMs: null, errorCode: null }
+  { id: 'changes:7', source: 'changes', at, actor: { kind: 'thread', id: 't1', label: 'thread:t1', name: 'Make charge creation idempotent' }, tool: 'oxespace_workspace_change', summary: 'rename · cajui-api', target: 'cajui-api', write: true, decision: 'auto', outcome: 'ok', durationMs: 40, errorCode: null },
+  { id: 'databases:3', source: 'databases', at: at - 60_000, actor: { kind: 'pane', id: 'p2', label: 'pane:p2', name: null }, tool: 'oxespace_db_execute', summary: 'DELETE FROM pix_mock_data', target: 'cajui-dev', write: true, decision: 'denied', outcome: 'skipped', durationMs: null, errorCode: null },
+  { id: 'containers:9', source: 'containers', at: at - 120_000, actor: { kind: 'agent', id: null, label: 'claude', name: null }, tool: 'oxespace_container_action', summary: 'restart api', target: 'api', write: true, decision: 'approved', outcome: 'error', durationMs: 5000, errorCode: 'E_TIMEOUT' },
+  { id: 'post:2', source: 'post', at: at - 180_000, actor: { kind: 'thread', id: 't1', label: 'thread:t1', name: 'Make charge creation idempotent' }, tool: 'oxespace_post_send', summary: 'POST /pix/charges', target: 'Pix · sandbox', write: true, decision: 'pending', outcome: 'skipped', durationMs: null, errorCode: null }
 ]
 
 function fake(pages: Array<{ rows: Row[]; nextCursor: string | null }> = [{ rows: ROWS, nextCursor: null }]) {
@@ -107,12 +107,24 @@ describe('A11 · Settings › Agent activity is one list from every source', () 
   })
 
   it('names the person\'s own change "You" in the Agent column (A12\'s Access changed)', async () => {
-    const person: Row = { id: 'post:5', source: 'post', at, actor: { kind: 'person', id: null, label: 'person' }, tool: 'post.access', summary: 'Access changed · Pix', target: 'Pix · sandbox', write: true, decision: 'auto', outcome: 'ok', durationMs: null, errorCode: null }
+    const person: Row = { id: 'post:5', source: 'post', at, actor: { kind: 'person', id: null, label: 'person', name: null }, tool: 'post.access', summary: 'Access changed · Pix', target: 'Pix · sandbox', write: true, decision: 'auto', outcome: 'ok', durationMs: null, errorCode: null }
     fake([{ rows: [person], nextCursor: null }])
     render(<AgentActivitySettings />)
     const table = await screen.findByRole('table')
     const agent = within(within(table).getAllByRole('row')[1]).getAllByRole('cell')[1]
     expect(agent.textContent?.trim()).toBe('You')
+  })
+
+  it('names the agent by the name A10 resolves, with a fallback and never the raw thread:/pane: label', async () => {
+    fake()
+    render(<AgentActivitySettings />)
+    const table = await screen.findByRole('table')
+    const agents = within(table).getAllByRole('row').slice(1).map(row => within(row).getAllByRole('cell')[1].textContent?.trim() ?? '')
+    expect(agents[0]).toBe('Make charge creation idempotent')
+    expect(agents[1]).toBe('Closed terminal')
+    expect(agents[2]).toMatch(/claude/i)
+    expect(agents[3]).toBe('Make charge creation idempotent')
+    for (const agent of agents) expect(agent).not.toMatch(/^(thread|pane):/)
   })
 
   it('never reads a second list to merge: no old audit channels in the page', () => {
