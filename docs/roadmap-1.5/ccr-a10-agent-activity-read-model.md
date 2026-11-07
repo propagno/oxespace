@@ -88,7 +88,14 @@ export interface AgentActivityQuery {
 
 ## Detail
 
-`detail(id)` returns the full audit row of its own table: the T63 modal's fields, already redacted where they were written. For post, it adds the masked response excerpt, up to 4 KB (A12). An unknown id gives `null`.
+`detail(id)` returns the full audit row of its own table, with its columns in camelCase plus `source`: the T63 modal's fields, already redacted where they were written.
+- changes: `workspaceId, tool, action, level, text, textHash, decision, outcome, durationMs, errorCode`;
+- databases and containers: `connectionName, engine, environment, tool, text, textHash, rowCount, …`;
+- post: `collection, requestName, environment, method, urlPath, status, …`, plus the masked response excerpt, up to 4 KB (A12).
+
+An unknown or malformed id gives `null`.
+
+`oxepost_audit` columns this model reads (fixed by A12): `id, ts, actor, workspace_id, collection, request_name, environment, method, url_path, status, decision, outcome, duration_ms, error_code, response_excerpt`. The post `target` is `<collection> · <environment>`.
 
 ## Surface
 
@@ -128,8 +135,7 @@ It writes rows straight into the four tables of an in-memory database (migration
 6. **Detail:** by id, and `null` for an unknown id.
 7. **Surface:**
    - `IPC_CHANNELS.agentActivity.list` / `.detail` exist with those names;
-   - mcp-coverage claims both as `excluded`;
-   - no MCP tool name contains `activity`.
+   - exactly one mcp-coverage capability claims each, and it is `excluded`.
 
 ## Out of scope
 
