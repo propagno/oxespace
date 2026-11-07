@@ -224,6 +224,17 @@
       "body": "O agente em “{{title}}” para o que está fazendo agora. A conversa continua.",
       "confirm": "Parar turno",
       "keep": "Deixar rodando"
+    },
+    "extras": {
+      "working": "Trabalhando · {{time}}",
+      "quiet": "Sem saída há {{time}}",
+      "queued": "Aguardando envio ({{n}})",
+      "queuedMore": "e mais {{n}}",
+      "noLines": "Sem mudança de linha",
+      "diffCut": "O restante desta diferença está no computador.",
+      "seconds": "{{seconds}} s",
+      "minutes": "{{minutes}} min",
+      "hours": "{{hours}} h"
     }
   },
   "terminal": {
