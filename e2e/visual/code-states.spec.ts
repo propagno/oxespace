@@ -29,6 +29,9 @@ async function monacoDiffSettled(page: Page, editor: Locator): Promise<void> {
   // FL-15 again (Windows, after #586): the fallback font's layout can hold still long enough to pass the poll below.
   // MonacoDiff marks its container once it has measured the loaded font and laid out again; wait for that first.
   await expect.poll(() => editor.evaluate(root => !!root.closest('[data-fonts-measured="true"]')), { timeout: 10_000 }).toBe(true)
+  // FL-15 on Linux: the two passes drew the gutter in two fonts. The shot needs IBM Plex Mono itself loaded, not only
+  // the mark; the CI images ship the font through @fontsource, so this holds on both runners.
+  await expect.poll(() => page.evaluate(() => [...document.fonts].some(face => face.family.replace(/^['"]|['"]$/g, '') === 'IBM Plex Mono' && face.status === 'loaded')), { timeout: 10_000 }).toBe(true)
   const geometry = (): Promise<string> => editor.evaluate(root => {
     const boxes = [...root.querySelectorAll('.margin, .lines-content, .view-lines, .line-numbers')].slice(0, 12)
       .map(element => { const box = element.getBoundingClientRect(); return `${Math.round(box.left)}:${Math.round(box.width)}` })
