@@ -95,7 +95,19 @@ Junto entram T79 (cwd por OSC), T73 (branch por painel) e as lacunas do §6: pai
 - OxeQuery (A5), OxePod (A3), OxePost (A4) e o primeiro uso (A1) com conexão de agente real.
 - A6 e A7.
 
-## Fase 8 — Endurecimento e release
+## Fase 8 — Celular (OxeMobile)
+
+**Requisitos:** R14
+**Critérios de aceite:** A42, A43, A44, A45, A46, A47
+**Escopo:**
+
+- As telas do celular no design aprovado (#627), mantendo as regras de segurança da 1.4.
+- A aba Agentes (M7), mandar instrução durante o trabalho, e os pedidos cortados.
+- O terminal com largura fixa em `cols`, e a capacidade que corta as páginas de histórico.
+- A conversa do CLI no celular (#658).
+- Entradas: `team/checklists/phone-parity-1.4.md`, `team/checklists/phone-phase-inputs.md`, #623, #658.
+
+## Fase 9 — Endurecimento e release
 
 **Requisitos:** R13
 **Critérios de aceite:** A37, A38, A39, A40, A41
