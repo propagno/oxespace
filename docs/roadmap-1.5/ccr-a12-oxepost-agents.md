@@ -13,8 +13,8 @@
 | PR | What | Who |
 |---|---|---|
 | 1 | Migration **094** (`oxepost_agent_access`, `oxepost_agent_ceiling`, `oxepost_audit`), plus `electron/main/services/oxepost/agent-access.ts` (person-only reads and writes) and `oxepost/audit.ts` | executor |
-| 2 | `electron/main/services/oxepost/agent-gateway.ts` plus the MCP domain tool `oxespace_post`, the approval kind `oxepost`, and mcp-coverage | executor |
-| 3 | The UI: the folder's "Agent access…" dialog, the badge, the ceiling in OxePost settings | executor (FE reviews) |
+| 2 | `oxepost/agent-gateway.ts`, `oxepost/address-policy.ts` and `oxepost/secret-forms.ts`; the MCP domain tool `oxespace_post`; the approval kind `oxepost`; mcp-coverage. **Also:** `'oxepost.approve'` in `REMOTE_FORBIDDEN` (`shared/remote/protocol.ts`) and its `'oxepost.approve': 'oxepostApprove'` entry in `DevicesSettings.tsx` `FORBIDDEN_KEYS` (a `satisfies Record<RemoteForbidden, string>`, so typecheck fails without it), plus `devices.scope.forbidden.oxepostApprove` in en and pt-BR, plus the `npm run android:generate` output (RemoteProtocol.kt only). **Decision for TECH LEAD:** `undici` becomes a direct dependency at the version already in the tree (7.30.1, transitive today), and the gateway uses that package's own `fetch` and `Agent` together, never Node's global `fetch` with an npm `Agent`. | executor |
+| 3 | The UI: the folder's "Agent access…" dialog, the badge, the ceiling in OxePost settings, and the approval card drawing `[secret:NAME]` as `•••• (NAME)`. FE writes a small CCR with its frozen render test (display only; the approved text and its hash are unchanged). | executor (FE reviews) |
 
 The migration takes main's highest number plus 1 when PR 1 is written. Today that's 094 (main's highest is `093_workspace_color.sql`). If another migration lands first, renumber; the gap guard refuses gaps.
 
@@ -54,7 +54,9 @@ CREATE TABLE IF NOT EXISTS oxepost_audit (
   outcome TEXT NOT NULL,               -- ok | error | skipped
   duration_ms INTEGER,
   error_code TEXT,
-  response_excerpt TEXT                -- failures only: ≤ 4096 bytes, masked; NULL otherwise and for binary bodies
+  response_excerpt TEXT,               -- failures only: ≤ 4096 bytes, masked; NULL otherwise and for binary bodies
+  access_from TEXT,                    -- access changes only (actor 'person'): off | read | write
+  access_to TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_oxepost_audit_ts ON oxepost_audit(ts DESC);
 CREATE TRIGGER IF NOT EXISTS oxepost_audit_no_update BEFORE UPDATE ON oxepost_audit
@@ -63,7 +65,7 @@ BEGIN SELECT RAISE(ABORT, 'oxepost_audit is append-only'); END;
 
 - **Retention:** 90 days, pruned with the other audits (`AUDIT_RETENTION_DAYS`).
 - **Effective access** = the lower of the collection's access and the ceiling for the chosen environment's kind. In a production environment a write is refused whatever the setting.
-- **An access change** writes an `oxepost_audit` row: actor `person`, method `''`, url_path `Access: <old> → <new>`, decision `auto`, outcome `ok`. That's DESIGN's "Access changed" line. A10 reads it as actor kind `person`.
+- **An access change** writes an `oxepost_audit` row: actor `person`, `access_from`/`access_to` set, method and url_path NULL, decision `auto`, outcome `ok`. That's DESIGN's "Access changed" line. The columns are structured so the window localizes the line (FE's M5 ask); no English is stored. A10 reads the row as actor kind `person`, with `accessChange: { from, to }`.
 - **Decided here:** the access is keyed on the workspace and the folder name, not stored in `.oxespace/requests`. A file in the repo could be committed by anyone; a person's grant must not come from a clone.
 
 ## 3. The agent tool: `oxespace_post` (domain tool)
@@ -83,7 +85,13 @@ BEGIN SELECT RAISE(ABORT, 'oxepost_audit is append-only'); END;
   - `body`: ≤ 1 MB;
   - `url`: ≤ 2048.
 - **`variables`** may only set a name the request uses that is not one of the environment's secrets (else `invalid`), and it never overrides a secret.
-- **`headers`** may not carry auth: `Authorization`, `Proxy-Authorization`, `Cookie`, or any name `isSensitiveName` flags, gives `invalid`. The saved request's own auth and headers are kept as saved.
+- **No secret in agent text** (SECURITY must-fix 1): in a new request's `url`, in agent `headers` and in `body`, a placeholder that names one of the environment's secrets gives `invalid` before anything else. The match is case-insensitive and allows whitespace inside the braces, so it is looser than the resolver on purpose. Placeholders for ordinary variables stay allowed. `variables` values may not contain `{{` at all. Otherwise an agent could have the secret filled into a request it wrote, then echoed or stored by the same origin. A saved request's own placeholders are the person's and keep working.
+- **Agent headers** (SECURITY must-fix 3) give `invalid` when the name is any of:
+  - auth: `Authorization`, `Proxy-Authorization`, `Cookie`, or any name `isSensitiveName` flags;
+  - routing: `Host`, `Forwarded`, `X-Forwarded-*`, `X-Real-IP`, `X-Original-URL`, `X-Rewrite-URL`;
+  - hop-by-hop and framing: `Connection`, `Keep-Alive`, `Proxy-Connection`, `TE`, `Trailer`, `Transfer-Encoding`, `Upgrade`, `Content-Length`.
+
+  A name that isn't an RFC 7230 token, or a name or value with CR, LF or NUL, is also `invalid`. The saved request's own auth and headers are kept as saved.
 
 ## 4. Policy, in this order (first match wins)
 
@@ -105,11 +113,37 @@ Each step that refuses writes an audit row with `decision: 'refused'`, `outcome:
 | 12 | time limit 20 s | `timeout` | — |
 
 - **Decided here (step 10):** the check runs in the connection's `lookup`, through an undici `Agent` whose `connect.lookup` wraps `dns.lookup` and checks every address, so a DNS rebind between the check and the connect fails. The gateway takes `lookup` as a dependency so tests can inject it.
+  - **All addresses:** every address in the answer is checked, `all: true`, and one blocked address refuses the request (no "pick the good one").
+- **Blocked ranges** (SECURITY must-fix 4): `isBlockedAddress(ip)` in `oxepost/address-policy.ts`, from Node's `net.BlockList`.
+  - IPv4:
+    - `0.0.0.0/8`, `10/8`, `100.64/10` (CGNAT), `127/8`;
+    - `169.254/16` (link-local and cloud metadata);
+    - `172.16/12`, `192.0.0/24`, `192.168/16`, `198.18/15`;
+    - `224/4`, `240/4`, `255.255.255.255`.
+  - IPv6:
+    - `::`, `::1`;
+    - `fc00::/7`, `fe80::/10`, `ff00::/8`.
+  - **Embedded IPv4** is checked by its IPv4 address, against the IPv4 list:
+    - IPv4-mapped `::ffff:0:0/96`, in both dotted and hex form;
+    - NAT64 `64:ff9b::/96`.
+  - Anything that doesn't parse as an IP is blocked.
+- **Transport** (TECH LEAD's pins):
+  - The gateway makes **one** undici `Agent` of its own, through `makeDispatcher({ connect: { lookup, rejectUnauthorized: true } })` (a dependency, defaulting to `new Agent(options)`), and passes it as `dispatcher` on every send.
+  - It never uses the global dispatcher, `ProxyAgent` or `EnvHttpProxyAgent`, so `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY` have no effect: a direct connection only.
+  - `rejectUnauthorized: true` is explicit, so `NODE_TLS_REJECT_UNAUTHORIZED=0` can't turn certificate checks off. There's no per-collection override.
+  - `redirect: 'manual'`.
 
 ## 5. Secrets
 
 - **Values are filled in main,** at send time only, from `SecretStore.values(root, environmentId)`.
-- **Mask:** the existing `maskValues`, which writes `[secret:NAME]`; the approval card draws it as `•••• (NAME)` (DESIGN §4). It applies to:
+- **Mask:** `maskSecretForms(text, secrets)` in `oxepost/secret-forms.ts`, built on the existing `maskValues` label `[secret:NAME]`; the approval card draws the label as `•••• (NAME)` (DESIGN §4).
+  - **Forms masked** (SECURITY must-fix 2), each of a value of 4 or more characters, longest first:
+    - the plain value;
+    - URL-encoded: `encodeURIComponent`, and the form encoding with `+` for spaces, matched case-insensitively on the `%XX` hex;
+    - base64: standard, standard without padding, and base64url;
+    - JSON-escaped: `JSON.stringify(value).slice(1, -1)`.
+  - **Known limit (residual risk, §9):** base64 of a secret that sits inside a larger base64 blob at an offset not divisible by 3 isn't a substring of any form, so it isn't caught. The origin pin (§4 step 6) and the no-secret-in-agent-text rule (§3) are what keep that case from being agent-driven.
+  - It applies to:
   - the approval text;
   - the response URL, headers and body returned to the agent;
   - the audit `url_path` and `response_excerpt`;
@@ -182,7 +216,20 @@ It uses an in-memory database, a temp request tree (`RequestStore`), a fake secr
 12. **Failure excerpt:** a 500 whose body echoes the secret leaves a masked `response_excerpt` of at most 4096 bytes.
 13. **`requests`** lists variable and secret names, and its JSON has no variable or secret value.
 14. **Logs:** nothing the `log` dependency received contains a secret value.
-15. **Access change:** `setAgentAccess` writes the `person` audit row. An agent's `handle` can't reach it.
+15. **Access change:** `setAgentAccess` writes the `person` audit row with `access_from`/`access_to`. An agent's `handle` can't reach it.
+15b. **Person-only ops** (FE's M5 ask):
+    - through `OxePostService.call`, `agentCeilingSet` refuses production → write;
+    - `agentAccessSet` refuses an unknown access and records the person row;
+    - `agentAccessList` lists the collection;
+    - a lowered ordinary ceiling caps a write collection to read for agents;
+    - none of the three is an MCP tool.
+S1. **No secret in agent text:** a secret placeholder in a new request's URL, an agent header or the body, and `{{` in a variables value, give `invalid`. A saved request's own secret still works.
+S2. **Encoded forms:** the plain, URL, form, base64 (padded, unpadded, url) and JSON-escaped forms of a secret that needs escaping and padding never reach the result (body, URL, headers) or the audit (url_path, excerpt).
+S3. **Agent headers:** every routing, hop-by-hop, framing and auth name, and any CR/LF/NUL in a name or value, gives `invalid`. An ordinary `X-Request-Id` is sent.
+S4. **Blocked ranges:** the table of blocked and allowed addresses, including mapped and NAT64 forms. A DNS answer with one blocked address among public ones is refused, and so is a mapped loopback.
+P1. **No proxy, TLS verified:** with `HTTPS_PROXY`/`HTTP_PROXY` set and `NODE_TLS_REJECT_UNAUTHORIZED=0`:
+    - one dispatcher is made per gateway, with `connect.rejectUnauthorized: true`, a `connect.lookup`, and no proxy option;
+    - every fetch gets that dispatcher.
 16. **Surface:**
     - the mcp-coverage entries of §7;
     - `oxepost.agent_access` is forbidden;
@@ -200,6 +247,11 @@ It uses an in-memory database, a temp request tree (`RequestStore`), a fake secr
 | A grant coming from a repo file | §2 "decided here" |
 | The phone answering | §6, `REMOTE_FORBIDDEN` |
 | Response size, prompt injection | 64 KB cap plus the untrusted notice (§3) |
+| Secret reflection through an agent-written request | §3 "No secret in agent text", test S1 |
+| Encoded secrets in a response | §5 forms, test S2; residual: offset base64 inside a larger blob |
+| Header smuggling and routing (Host, X-Forwarded-*, CRLF) | §3 agent headers, test S3 |
+| Metadata, CGNAT, mapped IPv6 | §4 blocked ranges, test S4 |
+| Proxy and TLS downgrade from the environment | §4 transport, test P1 |
 
 ## Out of scope
 
