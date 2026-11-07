@@ -6,7 +6,7 @@
 /* Shortcut guide */
 .guide { display: grid; gap: var(--space-4); }
 .group { display: grid; gap: var(--space-1); }
-.groupTitle { margin: 0; font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.groupTitle { margin: 0; font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--text-secondary); }
 .list { display: grid; margin: 0; padding: 0; list-style: none; }
 .row {
   display: flex;
