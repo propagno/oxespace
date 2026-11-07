@@ -97,7 +97,10 @@ export const IPC_CHANNELS = {
     /** The main window's only way out to the system browser or mail app. */
     openExternal: 'app:open-external',
     /** B18: a project file in a detected editor or its folder; the editors found; the preferred one. */
-    openIn: 'app:open-in', openInTargets: 'app:open-in-targets', setOpenInPreference: 'app:set-open-in-preference'
+    openIn: 'app:open-in', openInTargets: 'app:open-in-targets', setOpenInPreference: 'app:set-open-in-preference',
+    /** T87: the database could not be opened; the window's blocking screen and its two actions. */
+    startupFailure: 'app:startup-failure', openBackupsFolder: 'app:open-backups-folder', quitAfterStartupFailure: 'app:quit-after-startup-failure',
+    relaunchAfterStartupFailure: 'app:relaunch-after-startup-failure'
   },
   rtk: {
     getStatus: 'rtk:get-status',
@@ -216,7 +219,8 @@ export const IPC_CHANNELS = {
   remote: {
     status: 'remote:status', devices: 'remote:devices', changed: 'remote:changed', setEnabled: 'remote:set-enabled', startPairing: 'remote:start-pairing',
     cancelPairing: 'remote:cancel-pairing', answerPairing: 'remote:answer-pairing', revoke: 'remote:revoke', rename: 'remote:rename',
-    setDesktopName: 'remote:set-desktop-name', setPhoneWrite: 'remote:set-phone-write', pairingFailed: 'remote:pairing-failed'
+    setDesktopName: 'remote:set-desktop-name', setPhoneWrite: 'remote:set-phone-write', pairingFailed: 'remote:pairing-failed',
+    firewallStatus: 'remote:firewall-status', firewallRepair: 'remote:firewall-repair', firewallUndo: 'remote:firewall-undo'
   },
   oxePost: { call: 'oxePost:call' },
   automations: {

@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Locator, type Page } from '@playwright/test'
 import { launchApp, resizeWindow, type Appearance } from '../helpers/launch'
 import { seedGitRepo } from '../helpers/seed'
 import { expectSurface } from '../helpers/visual'
@@ -16,6 +16,30 @@ async function openWorkspace(page: Page, repo: string, layoutCard: 1 | 2 | 4): P
 async function openTool(page: Page, name: RegExp): Promise<void> {
   await page.getByTestId('btn-open-tools').click()
   await page.getByRole('menu', { name: 'Panels' }).getByRole('menuitemcheckbox', { name }).click()
+}
+
+/**
+ * FL-15: Monaco sizes the line-number gutter from the digit width it measures, and measures again once the mono web
+ * font has loaded. The update pass and the verify pass of one job caught the two layouts (the text 16 px apart), so
+ * the shot waits for the fonts, then for the editor's geometry and line count to hold still over three polls.
+ */
+async function monacoDiffSettled(page: Page, editor: Locator): Promise<void> {
+  await page.evaluate(() => document.fonts.ready.then(() => undefined))
+  // FL-15 again (Windows, after #586): the fallback font's layout can hold still long enough to pass the poll below.
+  // MonacoDiff marks its container once it has measured the loaded font and laid out again; wait for that first.
+  await expect.poll(() => editor.evaluate(root => !!root.closest('[data-fonts-measured="true"]')), { timeout: 10_000 }).toBe(true)
+  const geometry = (): Promise<string> => editor.evaluate(root => {
+    const boxes = [...root.querySelectorAll('.margin, .lines-content, .view-lines, .line-numbers')].slice(0, 12)
+      .map(element => { const box = element.getBoundingClientRect(); return `${Math.round(box.left)}:${Math.round(box.width)}` })
+    return `${boxes.join(',')}|${root.querySelectorAll('.view-line').length}`
+  })
+  let last = '', still = 0
+  await expect.poll(async () => {
+    const now = await geometry()
+    still = now === last ? still + 1 : 0
+    last = now
+    return still
+  }, { intervals: [150], timeout: 10_000 }).toBeGreaterThanOrEqual(3)
 }
 
 // Terminals are hidden by expectSurface. The temp path and the sidebar age ("Just now" depends
@@ -56,6 +80,7 @@ for (const theme of THEMES) {
       // go with focus, so a style rule (which also covers elements Monaco adds later) hides them.
       await expect(panel.locator('.monaco-diff-editor .decorationsOverviewRuler').first()).toBeAttached()
       await page.addStyleTag({ content: '.monaco-diff-editor :is(.cursors-layer, .current-line, .decorationsOverviewRuler, .diffOverview){visibility:hidden!important}' })
+      await monacoDiffSettled(page, panel.locator('.monaco-diff-editor').first())
       await expectSurface(page, `code-changes-diff-${theme}`, { hide: liveMasks(page) })
 
       await openTool(page, /^Commit & pull request$/)

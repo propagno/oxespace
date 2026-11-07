@@ -51,7 +51,7 @@
   transition: opacity var(--duration-fast) var(--ease-out), scale var(--duration-fast) var(--ease-out);
 }
 .popover { padding: var(--space-3); }
-.menu { padding: var(--space-1); display: grid; gap: 1px; max-height: var(--radix-dropdown-menu-content-available-height, 70vh); overflow: auto; }
+.menu { min-width: 200px; max-width: min(320px, calc(100vw - 16px)); padding: var(--space-1); display: grid; gap: 1px; max-height: var(--radix-dropdown-menu-content-available-height, 70vh); overflow: auto; }
 .menuItem {
   display: flex;
   align-items: center;
@@ -72,7 +72,7 @@
 .menuItem svg { flex: none; color: var(--text-secondary); }
 .menuItem.danger svg { color: inherit; }
 .menuShortcut { margin-left: auto; padding-left: var(--space-4); font-size: var(--text-xs); color: var(--text-muted); }
-.menuLabel { padding: var(--space-2) var(--space-2) var(--space-1); font-size: var(--text-2xs); font-weight: var(--weight-semibold); letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+.menuLabel { padding: var(--space-2) var(--space-2) var(--space-1); font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--text-secondary); }
 .menuSeparator { height: 1px; margin: var(--space-1) 0; background: var(--border-subtle); }
 .menuCheck { margin-left: auto; color: var(--accent); }
 
@@ -105,6 +105,9 @@
 }
 .menuRadioText { display: grid; gap: 1px; min-width: 0; }
 .menuRadioText small { color: var(--text-secondary); font-size: var(--text-2xs); }
+/* U7: an item's hint line, quieter, under the label; a long one wraps inside the 320 px menu. */
+.menuHintText { display: grid; gap: 1px; min-width: 0; padding-block: var(--space-1); }
+.menuHintText small { color: var(--text-secondary); font-size: var(--text-2xs); line-height: var(--leading-snug); }
 /* Rich labels: a live value (text size) or a shortcut next to the group name. */
 .menuLabel output { margin-left: var(--space-1); color: var(--text-primary); font-weight: var(--weight-semibold); }
 .menuLabel kbd { margin-left: var(--space-1); font: inherit; }

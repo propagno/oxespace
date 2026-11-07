@@ -51,12 +51,12 @@ export function NewThreadDialog({ initialProjectId, initialRootPath, onClose }: 
   }
   const advice = failure ? threadWorktreeFailureAdvice(failure.code) : null
   const filteredProjects = unique.map((context, index) => ({ context, index })).filter(({ context }) => `${context.projectName} ${context.rootPath}`.toLowerCase().includes(projectQuery.toLowerCase()))
-  return <Dialog size="md" closeLabel={t('common.close')} className="thread-create-dialog" title={t('dialogs.newTitle')} description={t('dialogs.newDescription')} onClose={() => { if (!pending) onClose() }}
-    footer={<>
-      <Button disabled={pending} onClick={onClose}>{t('common.cancel')}</Button>
-      <Button variant="primary" type="submit" form="new-thread-form" disabled={!unique[choice] || pending || !window.oxe?.thread}>{pending ? t('dialogs.creating') : t('dialogs.create')}</Button>
-    </>}>
-    <form id="new-thread-form" onSubmit={e => { e.preventDefault(); void create(inWorktree) }}><div className="thread-create-section thread-project-selection"><strong>{t('dialogs.project')}</strong><span>{unique[choice]?.projectName ?? t('dialogs.noProject')}</span><code>{unique[choice]?.rootPath}</code>{unique.length > 1 && <Button variant="link" size="sm" className="thread-project-change" aria-expanded={choosingProject} onClick={() => setChoosingProject(value => !value)}>{t('dialogs.changeProject')}</Button>}{choosingProject && <fieldset className="thread-project-options"><legend>{t('dialogs.chooseProject')}</legend><TextField aria-label={t('dialogs.filterProjects')} value={projectQuery} onChange={event => setProjectQuery(event.target.value)} />{filteredProjects.map(({ context, index }) => <label key={context.rootPath}><input type="radio" name="thread-project" checked={choice === index} onChange={() => { setChoice(index); setChoosingProject(false) }} /><span>{context.projectName}<small>{context.rootPath}</small></span></label>)}{!filteredProjects.length && <EmptyState compact title={t('dialogs.noProjectMatch')} />}</fieldset>}<p>{t('dialogs.projectHint')}</p></div>
+  return <Dialog size="md" closeLabel={t('common.close')} title={t('dialogs.newTitle')} description={t('dialogs.newDescription')} onClose={() => { if (!pending) onClose() }}
+    actions={{
+      cancel: { label: t('common.cancel'), disabled: pending },
+      primary: { label: pending ? t('dialogs.creating') : t('dialogs.create'), disabled: !unique[choice] || pending || !window.oxe?.thread, onClick: () => (document.getElementById('new-thread-form') as HTMLFormElement | null)?.requestSubmit() }
+    }}>
+    <form id="new-thread-form" className="thread-create-body" onSubmit={e => { e.preventDefault(); void create(inWorktree) }}><div className="thread-create-section thread-project-selection"><strong>{t('dialogs.project')}</strong><span>{unique[choice]?.projectName ?? t('dialogs.noProject')}</span><code>{unique[choice]?.rootPath}</code>{unique.length > 1 && <Button variant="link" size="sm" className="thread-project-change" aria-expanded={choosingProject} onClick={() => setChoosingProject(value => !value)}>{t('dialogs.changeProject')}</Button>}{choosingProject && <fieldset className="thread-project-options"><legend>{t('dialogs.chooseProject')}</legend><TextField aria-label={t('dialogs.filterProjects')} value={projectQuery} onChange={event => setProjectQuery(event.target.value)} />{filteredProjects.map(({ context, index }) => <label key={context.rootPath}><input type="radio" name="thread-project" checked={choice === index} onChange={() => { setChoice(index); setChoosingProject(false) }} /><span>{context.projectName}<small>{context.rootPath}</small></span></label>)}{!filteredProjects.length && <EmptyState compact title={t('dialogs.noProjectMatch')} />}</fieldset>}<p>{t('dialogs.projectHint')}</p></div>
       <fieldset className="thread-agent-choice"><legend>{t('dialogs.agent')}</legend><div className="thread-agent-options">{(['claude', 'codex'] as const).map(id => <label key={id} className="thread-agent-option" data-selected={provider === id}><input type="radio" name="thread-provider" value={id} checked={provider === id} onChange={() => setProvider(id)} /><span className="thread-agent-option-icon"><AgentProviderIcon provider={id} size={20} /></span><span><strong>{id === 'claude' ? 'Claude Code' : 'Codex'}</strong><small>{id === 'claude' ? t('accounts.claudePlan') : t('accounts.codexPlan')}</small></span>{provider === id && <Check size={14} className="thread-agent-option-check" />}</label>)}</div></fieldset>
       <div className="thread-create-section thread-worktree-choice">
         <Checkbox label={t('dialogs.inWorktree')} checked={inWorktree} onChange={event => { setChosenWorktree(event.target.checked); setFailure(null) }} disabled={pending} />
@@ -90,6 +90,7 @@ export function AddThreadProjectDialog({ onPickFolder, onAdd, onClose }: {
   const [pending, setPending] = useState(false)
   const [picking, setPicking] = useState(false)
   const submit = async () => {
+    if (pending) return
     const normalized = rootPath.trim()
     if (!normalized) { setError(t('dialogs.chooseFolder')); return }
     setPending(true); setError('')
@@ -97,12 +98,12 @@ export function AddThreadProjectDialog({ onPickFolder, onAdd, onClose }: {
     catch (cause) { setError(humanizeError(cause, t('dialogs.addFailed'))) }
     finally { setPending(false) }
   }
-  return <Dialog size="md" closeLabel={t('common.close')} className="thread-create-dialog thread-project-dialog" title={t('dialogs.addTitle')} description={t('dialogs.addDescription')} onClose={() => { if (!pending && !picking) onClose() }}
-    footer={<>
-      <Button disabled={pending || picking} onClick={onClose}>{t('common.cancel')}</Button>
-      <Button variant="primary" type="submit" form="add-thread-project-form" disabled={pending || picking || !rootPath.trim()}>{pending ? t('dialogs.adding') : t('dialogs.add')}</Button>
-    </>}>
-    <form id="add-thread-project-form" onSubmit={event => { event.preventDefault(); void submit() }}>
+  return <Dialog size="md" closeLabel={t('common.close')} title={t('dialogs.addTitle')} description={t('dialogs.addDescription')} onClose={() => { if (!pending && !picking) onClose() }}
+    actions={{
+      cancel: { label: t('common.cancel'), disabled: pending || picking },
+      primary: { label: pending ? t('dialogs.adding') : t('dialogs.add'), disabled: pending || picking || !rootPath.trim(), onClick: () => (document.getElementById('add-thread-project-form') as HTMLFormElement | null)?.requestSubmit() }
+    }}>
+    <form id="add-thread-project-form" className="thread-create-body" onSubmit={event => { event.preventDefault(); void submit() }}>
       <label>{t('dialogs.folder')}
         <span className="thread-project-folder-field">
           <TextField aria-label={t('dialogs.folderPath')} value={rootPath} placeholder={EXAMPLE_FOLDER} onChange={event => setRootPath(event.target.value)} autoFocus />

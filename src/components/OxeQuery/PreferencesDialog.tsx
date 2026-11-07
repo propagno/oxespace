@@ -1,7 +1,8 @@
-import { useEffect, useState, type ReactElement } from 'react'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AgentAccess, ConnectionEnvironment, EnvironmentLimit, OxeQueryPreferences } from '../../../shared/types/oxequery'
-import { Button, Dialog, ErrorState, Select, LoadingState } from '../../ui'
+import { Dialog, ErrorState, Select, LoadingState, toast } from '../../ui'
+import { i18n } from '../../i18n'
 import { errorMessage, oq } from './client'
 import { formatNumber } from '../../utils/formatTime'
 
@@ -13,6 +14,13 @@ const TIMEOUT_CEILINGS_MS = [5000, 10_000, 30_000, 60_000, 300_000, 900_000, 3_6
 /** `none` is the select's way of saying "leave the connection's own value". */
 const asValue = (value: number | null): string => value === null ? 'none' : String(value)
 const fromValue = (value: string): number | null => value === 'none' ? null : Number(value)
+const ACCESS: AgentAccess[] = ['off', 'read', 'write']
+/** Keeps less than before, or lets agents be given more on some kind of environment. */
+function riskier(before: OxeQueryPreferences, after: OxeQueryPreferences): boolean {
+  if (after.historyLimit < before.historyLimit || after.auditRetentionDays < before.auditRetentionDays) return true
+  return (Object.keys(after.agentCeiling) as Array<keyof OxeQueryPreferences['agentCeiling']>)
+    .some(environment => ACCESS.indexOf(after.agentCeiling[environment]) > ACCESS.indexOf(before.agentCeiling[environment]))
+}
 
 /** OxeQuery's own settings: how long things are kept, and how much an agent may be given by kind of environment. */
 export function PreferencesDialog({ onClose }: { onClose: () => void }): ReactElement {
@@ -21,22 +29,33 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): ReactEl
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
   const [busy, setBusy] = useState(false)
+  // What is saved now: Undo puts it back.
+  const stored = useRef<OxeQueryPreferences | null>(null)
 
   useEffect(() => {
     let alive = true
-    oq('preferences.get', {}).then(result => { if (alive) setValue(result) }, cause => { if (alive) setError(errorMessage(cause)) })
+    oq('preferences.get', {}).then(result => { if (alive) { stored.current = result; setValue(result) } }, cause => { if (alive) setError(errorMessage(cause)) })
     return () => { alive = false }
   }, [])
 
   const save = async (): Promise<void> => {
     if (!value) return
     setBusy(true); setError(''); setSaved(false)
-    try { setValue(await oq('preferences.set', value)); setSaved(true) } catch (cause) { setError(errorMessage(cause)) } finally { setBusy(false) }
+    const before = stored.current
+    try {
+      const next = await oq('preferences.set', value)
+      stored.current = next; setValue(next); setSaved(true)
+      // U2: keeping less (history, the audit) can lose data, and a higher ceiling widens what agents may be given:
+      // either says so, with Undo to what was saved.
+      if (before && riskier(before, next)) toast({ title: t('preferences.riskySaved'), intent: 'info', action: { label: i18n.t('ui.undo'), run: () => {
+        void oq('preferences.set', before).then(result => { stored.current = result; setValue(result) }, () => undefined)
+      } } })
+    } catch (cause) { setError(errorMessage(cause)) } finally { setBusy(false) }
   }
   const change = (patch: Partial<OxeQueryPreferences>): void => { setSaved(false); setValue(current => current ? { ...current, ...patch } : current) }
 
-  return <Dialog className="oq-scope" title={t('preferences.title')} description={t('preferences.description')} size="md" onClose={onClose} closeLabel={t('common.close')} testId="oxequery-preferences"
-    footer={<><Button variant="ghost" onClick={onClose}>{t('common.cancel')}</Button><Button variant="primary" loading={busy} disabled={!value} onClick={() => void save()}>{t('common.save')}</Button></>}>
+  return <Dialog toasts title={t('preferences.title')} description={t('preferences.description')} size="md" onClose={onClose} closeLabel={t('common.close')} testId="oxequery-preferences"
+    actions={{ cancel: { label: t('common.cancel') }, primary: { label: t('common.save'), loading: busy, disabled: !value, onClick: () => void save() } }}>
     {error && <ErrorState compact title={t(value ? 'preferences.saveFailed' : 'preferences.loadFailed')} message={error} />}
     {!value && !error ? <LoadingState label={t('preferences.loading')} /> : value && <div className="oq-preferences">
       <Select label={t('preferences.history')} hint={t('preferences.historyHint')} value={String(value.historyLimit)}

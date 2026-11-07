@@ -52,16 +52,17 @@ export const REMOTE_FRAME_TYPES = ['hello', 'auth', 'subscribe', 'unsubscribe', 
 export type RemoteFrameType = typeof REMOTE_FRAME_TYPES[number]
 
 /** What the phone can watch. Terminal output is read-only slices of the pane's ring buffer, by sequence. */
-export const REMOTE_SUBSCRIPTIONS = ['workspaces', 'threads', 'thread', 'pendingRequests', 'terminal', 'jobs', 'delegations'] as const
+export const REMOTE_SUBSCRIPTIONS = ['workspaces', 'threads', 'thread', 'pendingRequests', 'terminal', 'jobs', 'delegations', 'agents'] as const
 export type RemoteSubscription = typeof REMOTE_SUBSCRIPTIONS[number]
 
 /**
  * What the phone can do. `thread.respondRequest` answers a Thread request by id and generation (B1.1) after biometric
  * confirmation on the phone; `terminal.write` works only on a pane the person marked "allow from phone" on the desktop;
- * `thread.history` reads older items of a conversation. Every command counts toward `REMOTE_LIMITS.commandsPerMinute`
+ * `thread.history` reads older items of a conversation; `agent.markSeen` records that the person looked at an agent
+ * (S7.1). Every command counts toward `REMOTE_LIMITS.commandsPerMinute`
  * and is recorded in the desktop's audit with the device id.
  */
-export const REMOTE_COMMANDS = ['thread.send', 'thread.steer', 'thread.interrupt', 'thread.respondRequest', 'terminal.write', 'thread.history'] as const
+export const REMOTE_COMMANDS = ['thread.send', 'thread.steer', 'thread.interrupt', 'thread.respondRequest', 'terminal.write', 'thread.history', 'agent.markSeen'] as const
 export type RemoteCommand = typeof REMOTE_COMMANDS[number]
 
 /** Never a command, a subscription or an argument of the remote protocol. */
@@ -188,9 +189,17 @@ export interface RemoteErrorFrame extends FrameBase<'error'> {
   /** The frame it answers, when it had one. */
   id?: string
   code: RemoteErrorCode
+  /**
+   * Why, when the code alone would mislead (T96). Added, never required: a phone that does not know it reads the code
+   * as before. `pairing-lapsed` goes with `revoked`: the pairing was never used before its window passed, so the phone
+   * says to pair again instead of "removed". A literal word, not an enum, so Kotlin reads it as text and a word added
+   * later never breaks an older phone (the #531 rule).
+   */
+  reason?: 'pairing-lapsed'
   /** Milliseconds before retrying, for `rate-limited`. */
   retryAfterMs?: number
 }
+export type RemoteErrorReason = NonNullable<RemoteErrorFrame['reason']>
 
 export type RemoteFrame =
   | RemoteHelloFrame
@@ -446,14 +455,26 @@ export interface RemoteThreadsEvent { upsert?: RemoteThreadSummary[]; removed?: 
 
 // ---- thread: one conversation (target = thread id) ----------------------------------------------------------------
 /**
+ * What a tool step changed (CCR #509 §3): paths relative to the project (any outside it is dropped), at most
+ * `REMOTE_DIFF_LIMITS.files` files, and a unified `patch` of at most `REMOTE_DIFF_LIMITS.patchBytes`, cut at a hunk
+ * boundary and redacted like tool output. A binary file is listed with zero counts and no patch.
+ */
+export interface RemoteToolDiff { files: RemoteToolDiffFile[]; patch?: string; truncated?: boolean }
+export interface RemoteToolDiffFile { path: string; additions: number; deletions: number }
+/** A message waiting in the conversation's queue (CCR #509 §4), in send order. */
+export interface RemoteQueuedPreview { id: string; text: string; truncated?: boolean }
+export const REMOTE_DIFF_LIMITS = { files: 20, patchBytes: 8_192 } as const
+export const REMOTE_QUEUE_PREVIEW = { items: 5, text: 200 } as const
+/**
  * The timeline items the phone shows. Left out on purpose: location and cwd, session ids, context usage, turn cost,
- * CLI commands, model pickers, configuration, turn-diff file paths, message context paths and attachment names.
+ * CLI commands, model pickers, configuration, absolute file paths, message context paths and attachment names.
+ * Turn-diff file paths come only inside a tool step's `diff`, project-relative, with a bounded, redacted patch.
  * `delta` events are folded into the message they extend, so the phone gets the whole text.
  */
 export type RemoteThreadItem =
   | { type: 'message'; id: string; role: 'user' | 'assistant'; text: string; truncated?: boolean; attachments?: number }
   | { type: 'reasoning'; id: string; text: string; truncated?: boolean; completed: boolean }
-  | { type: 'tool'; id: string; name: string; state: 'running' | 'completed' | 'failed' | 'unknown'; detail: string; output?: string; outputTruncated?: boolean; exitCode?: number; filesChanged?: number; interrupted?: boolean; redacted?: number }
+  | { type: 'tool'; id: string; name: string; state: 'running' | 'completed' | 'failed' | 'unknown'; detail: string; output?: string; outputTruncated?: boolean; exitCode?: number; filesChanged?: number; interrupted?: boolean; redacted?: number; diff?: RemoteToolDiff }
   | { type: 'plan'; id: string; steps: { label: string; status: 'pending' | 'inProgress' | 'completed' }[] }
   | { type: 'request'; id: string; requestId: string; kind: 'approval' | 'question' | 'permissions' | 'elicitation' | 'tool'; title: string; state: 'pending' | 'resolved' | 'cancelled' | 'expired' }
   | { type: 'subagent'; id: string; state: 'running' | 'completed' | 'failed' | 'interrupted' | 'unknown'; agents: number }
@@ -464,6 +485,12 @@ export interface RemoteThreadHeader extends RemoteThreadSummary {
   queued: number
   /** Whether the provider can take a message while a turn runs. */
   canSteer: boolean
+  /** While `status` is running or approval: how long the current turn has run, measured when this was built (CCR #509 §1). */
+  turnElapsedMs?: number
+  /** While a turn runs: time since the provider last sent anything (CCR #509 §2). */
+  quietMs?: number
+  /** The first `REMOTE_QUEUE_PREVIEW.items` queued messages, each cut to `REMOTE_QUEUE_PREVIEW.text` characters (CCR #509 §4). */
+  queuedPreview?: RemoteQueuedPreview[]
 }
 /** Snapshot: the newest page; `thread.history` asks for older ones. */
 export interface RemoteThreadSnapshot { thread: RemoteThreadHeader; items: { seq: number; item: RemoteThreadItem }[]; hasMore: boolean }
@@ -537,7 +564,19 @@ export interface RemoteTerminalData {
   /** The phone was away longer than the ring is deep: clear the view before this. */
   truncated: boolean
   redacted?: number
+  /**
+   * 1.4.3 P4: the pane's screen, on the FIRST page of a snapshot only (a page of its own: its `data` is empty), never on
+   * an event. A phone that reads it resets
+   * its view to `cols` × `rows`, feeds `ansi` once and skips that snapshot's `data` pages (the same ring); then it applies
+   * events as before. Absent (an older desktop, or over the frame budget): behave as without it.
+   */
+  snapshot?: RemoteTerminalSnapshot
 }
+/**
+ * xterm's own serialization of the pane's screen: up to 200 rows of scrollback, then the screen, the modes (the
+ * alternate screen when a full-screen app holds it) and the cursor. Built only from text already redacted.
+ */
+export interface RemoteTerminalSnapshot { ansi: string; cols: number; rows: number }
 
 // ---- jobs and delegations: snapshot and every event carry the whole list -------------------------------------------
 /** No command line or cwd: arguments can carry secrets. The label is what the person named it. */
@@ -546,6 +585,65 @@ export interface RemoteJobsData { jobs: RemoteJob[] }
 /** No path, cwd, base commit, evidence, context or handoff; the objective cut to `REMOTE_TEXT_LIMITS.objective`. */
 export interface RemoteDelegation { id: string; workspaceId: string; objective: string; state: string; error?: string; branch?: string; destinationThreadId?: string; updatedAt: number }
 export interface RemoteDelegationsData { delegations: RemoteDelegation[] }
+
+// ---- agents: every agent in the seven states (S7.1, CCR #513 §6) ----------------------------------------------------
+/** The desktop's seven states, in precedence order (shared/types/agents.ts AGENT_STATES; a test keeps them equal). */
+export const REMOTE_AGENT_STATES = ['needs-you', 'failed', 'working', 'finished', 'idle', 'stopped', 'unknown'] as const
+export type RemoteAgentState = typeof REMOTE_AGENT_STATES[number]
+/** `thread` is a conversation; the phone says "Conversation". */
+export const REMOTE_AGENT_KINDS = ['pane', 'thread', 'delegation', 'work'] as const
+export type RemoteAgentKind = typeof REMOTE_AGENT_KINDS[number]
+/** Each source answers on its own; one listed here could not be read, and the others still show. */
+export const REMOTE_AGENT_SOURCES = ['panes', 'threads', 'delegations', 'work'] as const
+export type RemoteAgentSource = typeof REMOTE_AGENT_SOURCES[number]
+/*
+ * On the wire, kind, state and source are written out as words, not as the lists above: the phone reads them as text
+ * (like `RemoteThreadSummary.status`), so a value a newer desktop adds still reads. An unknown state shows as
+ * `unknown`, a row of an unknown kind is skipped, an unknown source ignored (MOBILE review of #531). A test keeps these
+ * words equal to the lists.
+ */
+
+/** The oldest pending request of an agent: main-built, never the agent's own text. */
+export interface RemoteAgentRequest {
+  requestId: string
+  /** Main's words in English: the fallback when the phone has no words for `titleCode`. */
+  title: string
+  /** The same title as a C3 code and its parameters, for the phone to word in its own language (DESIGN H1). */
+  titleCode: string
+  titleParams: Record<string, unknown>
+  /** The four risk words, never colours (DESIGN FINDING M); null when nothing assessed it (a pane's own prompt). */
+  risk: RemoteApprovalRisk | null
+  /** False when only the desktop can answer it (a pane's own prompt): the phone says "Answer on the computer". */
+  answerable: boolean
+}
+
+/**
+ * One agent, already mapped to the seven states: the phone never re-implements the mapping. Never carries a path, a
+ * worktree, a session id or a cost.
+ */
+export interface RemoteAgentRow {
+  kind: 'pane' | 'thread' | 'delegation' | 'work'
+  /** The source's own id; for a conversation, the thread id the phone opens it with. */
+  id: string
+  /**
+   * Higher on every change of this row. One counter for all rows, seeded from the clock at start; a restart always
+   * begins with a snapshot. The phone keeps the highest `rev` per key, removed keys included, and applies an upsert or
+   * a removal only when its `rev` is higher; a snapshot replaces everything it holds.
+   */
+  rev: number
+  state: 'needs-you' | 'failed' | 'working' | 'finished' | 'idle' | 'stopped' | 'unknown'
+  provider: 'claude' | 'codex' | 'other'
+  title: string
+  since: number
+  request?: RemoteAgentRequest
+  /** While `needs-you`: when the phone may nudge (the desktop's needs-you timer, S7.2). Not sent before S7.2. */
+  nudgeAfterMs?: number
+}
+export interface RemoteAgentKey { kind: 'pane' | 'thread' | 'delegation' | 'work'; id: string; rev: number }
+/** Snapshot: every row, in pages if needed. */
+export interface RemoteAgentsSnapshot { rows: RemoteAgentRow[]; unavailable: ('panes' | 'threads' | 'delegations' | 'work')[] }
+/** Event: what changed, and what left (with the `rev` at which it left). */
+export interface RemoteAgentsEvent { upsert?: RemoteAgentRow[]; removed?: RemoteAgentKey[]; unavailable: ('panes' | 'threads' | 'delegations' | 'work')[] }
 
 // ---- commands: args, and ack.result -------------------------------------------------------------------------------
 /**
@@ -570,6 +668,11 @@ export interface RemoteRespondRequestResult { resolution: string }
 export interface RemoteTerminalWriteArgs { paneId: string; data: string }
 /** Older items of a conversation, for scrolling back. `ack.result` is a `RemoteThreadSnapshot` page. */
 export interface RemoteThreadHistoryArgs { threadId: string; beforeSeq: number }
+/**
+ * The person looked at this agent on the phone. Idempotent; an unknown key is `ok`, so it never tells whether a key
+ * exists.
+ */
+export interface RemoteAgentMarkSeenArgs { kind: RemoteAgentKind; id: string }
 
 /** The args each command takes. */
 export interface RemoteCommandArgs {
@@ -579,4 +682,5 @@ export interface RemoteCommandArgs {
   'thread.respondRequest': RemoteRespondRequestArgs
   'terminal.write': RemoteTerminalWriteArgs
   'thread.history': RemoteThreadHistoryArgs
+  'agent.markSeen': RemoteAgentMarkSeenArgs
 }

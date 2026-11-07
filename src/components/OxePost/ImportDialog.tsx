@@ -47,10 +47,10 @@ export function ImportDialog({ onClose }: { onClose: () => void }): ReactElement
 
   const count = parsed.value?.requests.length ?? 0
   return <Dialog title={t('import.title')} description={t('import.description')} size="lg" onClose={onClose} closeLabel={t('common.close')}
-    footer={<>
-      <Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
-      <Button variant="primary" loading={busy} disabled={count === 0} onClick={() => void run()}>{t('import.run', { count })}</Button>
-    </>}>
+    actions={{
+      cancel: { label: t('common.cancel') },
+      primary: { label: t('import.run', { count }), loading: busy, disabled: count === 0, onClick: () => void run() }
+    }}>
     <div className={styles.dialogStack}>
       <SegmentedControl label={t('import.kind')} value={kind} onChange={next => { setKind(next); setFailure('') }} options={[{ value: 'curl', label: 'cURL' }, { value: 'openapi', label: 'OpenAPI 3' }]} />
       <TextArea mono className={styles.importArea} aria-label={t('import.source')} placeholder={kind === 'curl' ? t('import.curlPlaceholder') : t('import.openapiPlaceholder')} spellCheck={false} value={text} onChange={event => setText(event.target.value)} />

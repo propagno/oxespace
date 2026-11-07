@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactElement, type ReactNode } from 'react'
+import { useRef, useState, type FormEvent, type ReactElement, type ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { ErrorState, Notice } from '../../ui/Display'
 import { formatMs } from './catalog'
@@ -10,8 +10,12 @@ import { buildConnectionUrl, parseConnectionUrl } from './connection-url'
 import { useShallow } from 'zustand/react/shallow'
 import { useOxeQueryStore, type ConnectionDraft } from './oxequery.store'
 import { Button } from '../../ui/Button'
-import { Dialog } from '../../ui/Overlay'
+import { Dialog } from '../../ui'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
+import { toast } from '../../ui/Toast'
+import { i18n } from '../../i18n'
+
+const ACCESS_ORDER: AgentAccess[] = ['off', 'read', 'write']
 import { FieldError, Select, SegmentedControl, SwatchPicker, Switch } from '../../ui/Field'
 import { splitHostInput } from '../../../shared/oxequeryHost'
 
@@ -125,6 +129,7 @@ function ConnectionForm({ editing, draft }: { editing: OxeQueryConnection | null
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [outcome, setOutcome] = useState<Outcome>(null)
+  const formRef = useRef<HTMLFormElement>(null)
 
   const applyUrl = (text: string): void => {
     setUrl(text)
@@ -183,10 +188,18 @@ function ConnectionForm({ editing, draft }: { editing: OxeQueryConnection | null
     event.preventDefault()
     setBusy(true); setError('')
     try {
+      const sent = input()
       const saved = await save()
       await useOxeQueryStore.getState().refreshConnections()
       useOxeQueryStore.getState().closeDialog()
       useOxeQueryStore.getState().openConnection(saved)
+      // U2: more agent access on a connection widens what agents may do; it says so, with Undo to what it was.
+      const before = editing?.agentAccess ?? 'off'
+      if (ACCESS_ORDER.indexOf(agentAccess) > ACCESS_ORDER.indexOf(before)) {
+        toast({ title: agentAccess === 'write' ? t('form.agentsWidened.write', { name: saved.name }) : t('form.agentsWidened.read', { name: saved.name }), intent: 'info', action: { label: i18n.t('ui.undo'), run: () => {
+          void oq('connections.save', { ...sent, id: saved.id, agentAccess: before }).then(() => useOxeQueryStore.getState().refreshConnections(), () => undefined)
+        } } })
+      }
     } catch (cause) { setError(errorMessage(cause)) } finally { setBusy(false) }
   }
 
@@ -236,15 +249,18 @@ function ConnectionForm({ editing, draft }: { editing: OxeQueryConnection | null
 
   const title = editing ? t('form.editTitle') : t('connections.new')
   const description = editing?.containerRef ? t('form.fromContainer', { name: editing.containerRef }) : draft?.containerRef ? t('form.fromContainerDraft', { name: draft.containerRef }) : t('form.description')
-  return <Dialog className="oq-scope" title={title} description={description} size="lg" closeLabel={t('common.close')} onClose={() => { if (!busy) close() }}
-    footer={<>
-      <Button loading={busy} onClick={() => void check()}>{t('form.test')}</Button>
-      {!editing && <Button disabled={busy} onClick={() => void connectOnce()} title={t('form.connectOnceTitle')}>{t('form.connectOnce')}</Button>}
-      <span className="oq-spacer" />
-      <Button disabled={busy} onClick={close}>{t('common.cancel')}</Button>
-      <Button type="submit" form="oq-connection-form" variant="primary" disabled={busy}>{editing ? t('common.save') : t('form.saveOpen')}</Button>
-    </>}>
-    <form id="oq-connection-form" className="oq-dialog-form" onSubmit={event => void submit(event)}>
+  return <Dialog title={title} description={description} size="lg" closeLabel={t('common.close')} onClose={() => { if (!busy) close() }}
+    actions={{
+      // Test and Connect without saving stay at the start of the footer as secondary buttons (U1 extra slot), never in a menu.
+      extra: <>
+        <Button variant="secondary" loading={busy} onClick={() => void check()}>{t('form.test')}</Button>
+        {!editing && <Button variant="secondary" disabled={busy} onClick={() => void connectOnce()} title={t('form.connectOnceTitle')}>{t('form.connectOnce')}</Button>}
+      </>,
+      cancel: { label: t('common.cancel'), disabled: busy },
+      // The form submits itself, so the browser still checks the required fields.
+      primary: { label: editing ? t('common.save') : t('form.saveOpen'), disabled: busy, onClick: () => formRef.current?.requestSubmit() }
+    }}>
+    <form ref={formRef} id="oq-connection-form" className="oq-scope oq-dialog-form" onSubmit={event => void submit(event)}>
       {!editing && <section className="oq-engines" role="radiogroup" aria-label={t('newDatabase.engine')}>
         {ENGINES.map(({ id, name: label, Icon }) => <button key={id} type="button" role="radio" aria-checked={engine === id} className="oq-engine" data-selected={engine === id} onClick={() => chooseEngine(id)}>
           <Icon size={18} aria-hidden="true" /><span><strong>{label}</strong><small>{t(`form.engineHint.${id}`)}</small></span>{engine === id && <Check size={14} className="oq-engine-check" aria-hidden="true" />}</button>)}

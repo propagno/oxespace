@@ -1,5 +1,5 @@
-import { _electron as electron, expect, test } from '@playwright/test'
-import { execFileSync } from 'node:child_process'
+import { chromium, expect, test, type Browser, type Page } from '@playwright/test'
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -62,6 +62,8 @@ function latestMigration(): number {
   return Math.max(...numbers)
 }
 const EXPECT_DB = process.env.OXESPACE_EXPECT_DB_VERSION ? Number(process.env.OXESPACE_EXPECT_DB_VERSION) : latestMigration()
+/** The release installed first (the job's FROM_TAG), e.g. 1.3.3 or 1.4.2. */
+const FROM_VERSION = (process.env.FROM_TAG ?? 'v1.3.3').replace(/^v/, '')
 
 test.skip(STEP === '' || process.env.GITHUB_ACTIONS !== 'true', 'runs only inside the release upgrade job on a CI runner')
 
@@ -85,43 +87,69 @@ const version = (file: string) => read(file, db => (db.prepare('PRAGMA user_vers
 const workspaceRoots = (file: string) => read(file, db => (db.prepare('SELECT root_path FROM workspaces').all() as Array<{ root_path: string }>).map(r => r.root_path))
 const stateFile = () => join(STATE, 'seed.json')
 
-/** Opens the installed app on its own userData (no test database), with native dialogs counted and held. */
-async function openInstalled() {
-  const app = await electron.launch({ executablePath: EXE, args: LAUNCH_ARGS, env: { ...process.env as Record<string, string>, ...LAUNCH_ENV, OXESPACE_DISABLE_SINGLE_INSTANCE: '1' } })
-  await app.evaluate(({ dialog }) => {
-    const g = globalThis as Record<string, unknown>; g.upNative = 0
-    dialog.showMessageBox = (() => { g.upNative = (g.upNative as number) + 1; return new Promise(() => undefined) }) as typeof dialog.showMessageBox
-    dialog.showMessageBoxSync = (() => { g.upNative = (g.upNative as number) + 1; return 0 }) as typeof dialog.showMessageBoxSync
-    dialog.showErrorBox = (() => { g.upNative = (g.upNative as number) + 1 }) as typeof dialog.showErrorBox
-  })
-  const page = await app.firstWindow()
+/**
+ * The installed app, driven over the Chromium DevTools protocol. Since 1.4.0 the packaged app ships the B13 fuse
+ * enableNodeCliInspectArguments=false, so Playwright's electron.launch (which needs --inspect) cannot attach to any
+ * installed build >= 1.4.0 (install-over run 41938132300 timed out on all three kinds). --remote-debugging-port is a
+ * Chromium switch the fuse leaves alone: the renderer is reachable, the main process is not. So native dialogs can no
+ * longer be stubbed or counted here; the checks read what the window shows instead.
+ */
+interface Installed { proc: ChildProcess; browser: Browser; exited: Promise<number | null> }
+async function launchInstalled(): Promise<{ app: Installed; page: Page | null }> {
+  const port = 9300 + Math.floor(Math.random() * 500)
+  const proc = spawn(EXE, [...LAUNCH_ARGS, `--remote-debugging-port=${port}`, '--remote-debugging-address=127.0.0.1'],
+    { env: { ...process.env as Record<string, string>, ...LAUNCH_ENV, OXESPACE_DISABLE_SINGLE_INSTANCE: '1' }, stdio: 'ignore' })
+  // A spawn failure (no such file: e.g. a release with no AppImage) arrives as an 'error' event: turn it into a thrown
+  // launch error the callers record, as electron.launch's rejection was.
+  let spawnError: Error | undefined
+  const exited = new Promise<number | null>(resolve => { proc.once('exit', code => resolve(code)); proc.once('error', e => { spawnError = e; resolve(null) }) })
+  let browser: Browser | undefined
+  for (let i = 0; i < 90 && !browser && proc.exitCode === null && !spawnError; i++) {
+    await new Promise(resolve => setTimeout(resolve, 1_000))
+    browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`).catch(() => undefined)
+  }
+  if (spawnError) throw new Error(`could not start ${EXE}: ${spawnError.message}`)
+  if (!browser) throw new Error(`no DevTools endpoint on ${port} (exit ${proc.exitCode})`)
+  let page: Page | null = null
+  for (let i = 0; i < 60 && !page; i++) {
+    page = browser.contexts().flatMap(c => c.pages()).find(p => !p.url().startsWith('devtools')) ?? null
+    if (!page) await new Promise(resolve => setTimeout(resolve, 500))
+  }
+  return { app: { proc, browser, exited }, page }
+}
+/** Opens the installed app on its own userData (no test database) and waits for the main window. */
+async function openInstalled(): Promise<{ app: Installed; page: Page }> {
+  const { app, page } = await launchInstalled()
+  if (!page) throw new Error('the installed app opened no window')
   await page.getByTestId('btn-new-workspace').first().waitFor({ timeout: 60_000 })
   return { app, page }
 }
-/**
- * Quits the installed app and releases Playwright's handle within 15 s: app.exit, then close, then the process tree.
- * A handle left open made the worker wait 5 min at teardown (run 41315768133) after every check had passed.
- */
-async function close(app: Awaited<ReturnType<typeof electron.launch>>): Promise<void> {
-  const proc = app.process()
-  await app.evaluate(({ app }) => app.exit(0)).catch(() => undefined)
-  await Promise.race([app.close().catch(() => undefined), new Promise(resolve => setTimeout(resolve, 10_000))])
-  if (proc.exitCode === null && proc.pid) { try { execFileSync('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' }) } catch { /* already gone */ } }
-  await new Promise(resolve => setTimeout(resolve, 1_000))
+/** The version the installed build reports (its preload's window.oxe.app.version). */
+const versionOf = (page: Page) => page.evaluate(() => (window as unknown as { oxe: { app: { version: string } } }).oxe.app.version)
+/** Ends the installed app and its process tree. */
+async function close(app: Installed): Promise<void> {
+  await app.browser.close().catch(() => undefined)
+  if (app.proc.exitCode === null && app.proc.pid) {
+    try {
+      if (process.platform === 'win32') execFileSync('taskkill', ['/PID', String(app.proc.pid), '/T', '/F'], { stdio: 'ignore' })
+      else process.kill(app.proc.pid, 'SIGKILL')
+    } catch { /* already gone */ }
+  }
+  await new Promise(resolve => setTimeout(resolve, 1_500))
 }
 
 test('G4 install over 1.3.3: seed', async () => {
   test.skip(STEP !== 'seed')
   test.setTimeout(240_000)
   mkdirSync(STATE, { recursive: true })
-  expect(existsSync(EXE), `1.3.3 is installed at ${EXE}`).toBe(true)
+  expect(existsSync(EXE), `${FROM_VERSION} is installed at ${EXE}`).toBe(true)
   const repo = join(STATE, 'repo-seeded'); mkdirSync(repo, { recursive: true })
   execFileSync('git', ['init', '-q'], { cwd: repo })
   const { app, page } = await openInstalled()
   let installed: string
   try {
-    installed = await app.evaluate(({ app }) => app.getVersion())
-    expect(installed, 'the installed build is 1.3.3').toBe('1.3.3')
+    installed = await versionOf(page)
+    expect(installed, `the installed build is ${FROM_VERSION}`).toBe(FROM_VERSION)
     await page.getByTestId('btn-new-workspace').first().click()
     await page.getByTestId('wizard-dir-input').fill(repo)
     await page.getByTestId('wizard-launch-btn').click()
@@ -131,8 +159,9 @@ test('G4 install over 1.3.3: seed', async () => {
   const db = dbPath()
   expect(existsSync(db), `1.3.3 wrote its database at ${db}`).toBe(true)
   const seeded = { installed, userData: userData(), db, dbVersion: version(db), roots: workspaceRoots(db) }
-  expect(seeded.dbVersion, '1.3.3 database version').toBe(77)
-  expect(seeded.roots.some(r => r.toLowerCase().includes('repo-seeded')), 'the workspace is in the 1.3.3 database').toBe(true)
+  if (FROM_VERSION === '1.3.3') expect(seeded.dbVersion, '1.3.3 database version').toBe(77)
+  expect(seeded.dbVersion, `the ${FROM_VERSION} database is a real schema`).toBeGreaterThan(0)
+  expect(seeded.roots.some(r => r.toLowerCase().includes('repo-seeded')), `the workspace is in the ${FROM_VERSION} database`).toBe(true)
   writeFileSync(stateFile(), JSON.stringify(seeded, null, 2))
   console.log('G4-SEED', JSON.stringify(seeded))
 })
@@ -140,8 +169,8 @@ test('G4 install over 1.3.3: seed', async () => {
 test('G4 install over 1.3.3: verify the upgrade', async () => {
   test.skip(STEP !== 'verify-upgrade')
   test.setTimeout(240_000)
-  const seeded = JSON.parse(readFileSync(stateFile(), 'utf8')) as { userData: string; db: string; roots: string[] }
-  const result: Record<string, unknown> = {}
+  const seeded = JSON.parse(readFileSync(stateFile(), 'utf8')) as { userData: string; db: string; roots: string[]; dbVersion: number }
+  const result: Record<string, unknown> = { fromDbVersion: seeded.dbVersion }
   expect(existsSync(EXE), 'the new build is installed in the same folder').toBe(true)
   for (const lnk of SHORTCUTS) expect.soft(existsSync(lnk), `shortcut ${lnk}`).toBe(true)
   if (KIND === 'deb') {
@@ -152,14 +181,15 @@ test('G4 install over 1.3.3: verify the upgrade', async () => {
   }
   const { app, page } = await openInstalled()
   try {
-    result.version = await app.evaluate(({ app }) => app.getVersion())
-    if (process.env.OXESPACE_EXPECT_VERSION) expect.soft(result.version, 'the installed build is main\'s').toBe(process.env.OXESPACE_EXPECT_VERSION)
-    // main's package.json still says 1.3.3: the job builds with the RC version and passes it in OXESPACE_EXPECT_VERSION.
+    result.version = await versionOf(page)
+    if (process.env.OXESPACE_EXPECT_VERSION) expect.soft(result.version, 'the installed build is the candidate').toBe(process.env.OXESPACE_EXPECT_VERSION)
     result.workspaces = await page.evaluate('window.oxe.workspace.list().then(l => l.map(w => w.rootPath))')
-    expect.soft(JSON.stringify(result.workspaces), 'the 1.3.3 workspace opens in the new build').toContain('repo-seeded')
+    expect.soft(JSON.stringify(result.workspaces), `the ${FROM_VERSION} workspace opens in the new build`).toContain('repo-seeded')
     await page.waitForTimeout(3_000)
-    result.nativeDialogs = await app.evaluate(() => (globalThis as Record<string, unknown>).upNative)
-    expect.soft(result.nativeDialogs, 'no native dialog (no upgrade error box)').toBe(0)
+    // Over CDP the main process (and its dialogs) is out of reach: the window must be the normal app, not a failure.
+    result.startupFailure = await page.getByTestId('startup-failure').count()
+    expect.soft(result.startupFailure, 'no startup failure screen').toBe(0)
+    result.screen = (await page.locator('body').innerText()).replace(/\s+/g, ' ').slice(0, 300)
   } finally { await close(app) }
   expect.soft(userData(), 'the same userData folder').toBe(seeded.userData)
   result.dbVersion = version(seeded.db)
@@ -168,13 +198,19 @@ test('G4 install over 1.3.3: verify the upgrade', async () => {
   expect.soft(result.integrity, 'integrity_check').toBe('ok')
   expect.soft(workspaceRoots(seeded.db).some(r => r.toLowerCase().includes('repo-seeded')), 'the workspace row survived the migration').toBe(true)
   const backups = join(seeded.userData, 'db-backups')
-  const v77 = existsSync(backups) ? readdirSync(backups).filter(f => /^oxespace-v77-.*\.sqlite3$/.test(f)) : []
-  result.backups = v77
-  expect.soft(v77.length, 'a pre-upgrade backup of the v77 database exists').toBeGreaterThan(0)
-  if (v77[0]) {
-    const backup = join(backups, v77[0])
-    expect.soft(version(backup), 'the backup is the v77 database').toBe(77)
-    expect.soft(workspaceRoots(backup).some(r => r.toLowerCase().includes('repo-seeded')), 'the backup holds the workspace').toBe(true)
+  const from = seeded.dbVersion
+  const old = existsSync(backups) ? readdirSync(backups).filter(f => new RegExp(`^oxespace-v${from}-.*\\.sqlite3$`).test(f)) : []
+  result.backups = existsSync(backups) ? readdirSync(backups) : []
+  if (from < EXPECT_DB) {
+    expect.soft(old.length, `a pre-upgrade backup of the v${from} database exists`).toBeGreaterThan(0)
+    if (old[0]) {
+      const backup = join(backups, old[0])
+      expect.soft(version(backup), `the backup is the v${from} database`).toBe(from)
+      expect.soft(workspaceRoots(backup).some(r => r.toLowerCase().includes('repo-seeded')), 'the backup holds the workspace').toBe(true)
+    }
+  } else {
+    // Same schema on both sides (no migration between the two releases): nothing to back up, and nothing migrated.
+    result.noMigration = `v${from} = v${EXPECT_DB}: no upgrade ran, so no backup is expected`
   }
   writeFileSync(join(STATE, 'verify-upgrade.json'), JSON.stringify(result, null, 2))
   console.log('G4-UPGRADE', JSON.stringify(result))
@@ -200,23 +236,17 @@ test('G8 rollback: 1.3.3 refuses the upgraded database and leaves it untouched',
   const result: Record<string, unknown> = { dbVersionBefore: version(seeded.db), shaBefore: before, walCheckpointedBytes: walBefore }
   // Whatever 1.3.3 does with a newer database: a dialog (recorded, held), an error, or an exit. The start may already
   // have shown its dialog before the stub is in place; the bytes are the check either way.
-  let app: Awaited<ReturnType<typeof electron.launch>> | null = null
+  let app: Installed | null = null
   try {
-    app = await electron.launch({ executablePath: EXE, args: LAUNCH_ARGS, env: { ...process.env as Record<string, string>, ...LAUNCH_ENV, OXESPACE_DISABLE_SINGLE_INSTANCE: '1' }, timeout: 60_000 })
-    const exited = new Promise<number | null>(resolve => app!.process().once('exit', code => resolve(code)))
-    await app.evaluate(({ dialog }) => {
-      const g = globalThis as Record<string, unknown>; g.upSeen = []
-      const seen = (kind: string, a: unknown, b?: unknown) => { (g.upSeen as unknown[]).push({ kind, a: JSON.stringify(a).slice(0, 400), b: b === undefined ? undefined : JSON.stringify(b).slice(0, 400) }) }
-      dialog.showMessageBox = ((w: unknown, o?: unknown) => { seen('messageBox', o ?? w); return new Promise(() => undefined) }) as typeof dialog.showMessageBox
-      dialog.showMessageBoxSync = ((w: unknown, o?: unknown) => { seen('messageBoxSync', o ?? w); return 0 }) as typeof dialog.showMessageBoxSync
-      dialog.showErrorBox = ((title: string, content: string) => { seen('errorBox', title, content) }) as typeof dialog.showErrorBox
-    }).catch(e => { result.stubError = String(e).slice(0, 200) })
-    result.version = await app.evaluate(({ app }) => app.getVersion()).catch(() => null)
-    const settled = await Promise.race([exited.then(code => ({ exited: true, code })), new Promise<{ exited: false }>(r => setTimeout(() => r({ exited: false }), 20_000))])
+    const launched = await launchInstalled()
+    app = launched.app
+    const page = launched.page
+    await page?.waitForTimeout(8_000)
+    result.version = page ? await versionOf(page).catch(() => null) : null
+    const settled = await Promise.race([app.exited.then(code => ({ exited: true, code })), new Promise<{ exited: false }>(r => setTimeout(() => r({ exited: false }), 12_000))])
     result.exit = settled
-    result.dialogs = await app.evaluate(() => (globalThis as Record<string, unknown>).upSeen).catch(() => null)
-    result.windows = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(w => w.getTitle())).catch(() => null)
-    const page = app.windows()[0]
+    result.dialogs = 'not observable over CDP (main process out of reach since the 1.4.0 fuse)'
+    result.startupFailure = page ? await page.getByTestId('startup-failure').count().catch(() => null) : null
     result.screen = page ? (await page.locator('body').innerText().catch(() => '')).slice(0, 600) : null
     if (page) await page.screenshot({ path: join(STATE, 'verify-refuse.png') }).catch(() => undefined)
   } catch (e) { result.launchError = String(e).slice(0, 300) } finally {
@@ -230,33 +260,40 @@ test('G8 rollback: 1.3.3 refuses the upgraded database and leaves it untouched',
     .filter(name => tablesBefore[name] !== tablesAfter[name]).map(name => [name, { before: tablesBefore[name] ?? null, after: tablesAfter[name] ?? null }]))
   writeFileSync(join(STATE, 'verify-refuse.json'), JSON.stringify(result, null, 2))
   console.log('G8-REFUSE', JSON.stringify(result))
-  expect(result.version ?? '1.3.3', 'the build started is 1.3.3').toBe('1.3.3')
+  const seededDb = (JSON.parse(readFileSync(stateFile(), 'utf8')) as { dbVersion: number }).dbVersion
+  expect(result.version ?? FROM_VERSION, `the build started is ${FROM_VERSION}`).toBe(FROM_VERSION)
   expect(result.dbVersionBefore, 'the database was upgraded before this step').toBe(EXPECT_DB)
-  expect(result.shaAfter, '1.3.3 leaves the upgraded database byte-identical').toBe(before)
-  const refused = (Array.isArray(result.dialogs) && result.dialogs.length > 0) || (result.exit as { exited: boolean } | undefined)?.exited === true
-    || !!result.launchError || !/repo-seeded/.test(String(result.screen ?? ''))
-  expect.soft(refused, '1.3.3 refuses the newer database (dialog, error or exit), it does not open the workspace').toBe(true)
+  if (seededDb === EXPECT_DB) {
+    // Same schema on both releases: going back is not a downgrade of the data, so nothing should be refused.
+    result.sameSchema = true
+    expect.soft(result.startupFailure ?? 0, `${FROM_VERSION} opens the same-schema data without a failure screen`).toBe(0)
+    return
+  }
+  expect(result.shaAfter, `${FROM_VERSION} leaves the upgraded database byte-identical`).toBe(before)
+  const refused = (result.exit as { exited: boolean } | undefined)?.exited === true || !!result.launchError
+    || (Number(result.startupFailure) > 0) || !/repo-seeded/.test(String(result.screen ?? ''))
+  expect.soft(refused, `${FROM_VERSION} refuses the newer database (failure screen, error or exit), it does not open the workspace`).toBe(true)
 })
 
 test('G8 rollback: 1.3.3 opens the restored v77 backup', async () => {
   test.skip(STEP !== 'verify-rollback')
   test.setTimeout(180_000)
-  const seeded = JSON.parse(readFileSync(stateFile(), 'utf8')) as { db: string }
+  const seeded = JSON.parse(readFileSync(stateFile(), 'utf8')) as { db: string; dbVersion: number }
   const result: Record<string, unknown> = { dbVersion: version(seeded.db) }
-  expect(result.dbVersion, 'the restored database is v77').toBe(77)
+  expect(result.dbVersion, `the restored database is v${seeded.dbVersion}`).toBe(seeded.dbVersion)
   const { app, page } = await openInstalled()
   try {
-    result.version = await app.evaluate(({ app }) => app.getVersion())
-    expect.soft(result.version, 'the rolled-back build').toBe(process.env.OXESPACE_EXPECT_VERSION ?? '1.3.3')
+    result.version = await versionOf(page)
+    expect.soft(result.version, 'the rolled-back build').toBe(process.env.OXESPACE_EXPECT_VERSION ?? FROM_VERSION)
     result.workspaces = await page.evaluate('window.oxe.workspace.list().then(l => l.map(w => w.rootPath))')
-    expect.soft(JSON.stringify(result.workspaces), 'the seeded workspace opens in 1.3.3 again').toContain('repo-seeded')
+    expect.soft(JSON.stringify(result.workspaces), `the seeded workspace opens in ${FROM_VERSION} again`).toContain('repo-seeded')
     await page.waitForTimeout(3_000)
-    result.nativeDialogs = await app.evaluate(() => (globalThis as Record<string, unknown>).upNative)
-    expect.soft(result.nativeDialogs, 'no native dialog').toBe(0)
+    result.startupFailure = await page.getByTestId('startup-failure').count()
+    expect.soft(result.startupFailure, 'no startup failure screen').toBe(0)
   } finally { await close(app) }
   result.dbVersionAfter = version(seeded.db)
   result.integrity = read(seeded.db, db => (db.prepare('PRAGMA integrity_check').get() as { integrity_check: string }).integrity_check)
-  expect.soft(result.dbVersionAfter, '1.3.3 keeps it at v77').toBe(77)
+  expect.soft(result.dbVersionAfter, `${FROM_VERSION} keeps it at v${seeded.dbVersion}`).toBe(seeded.dbVersion)
   expect.soft(result.integrity, 'integrity_check').toBe('ok')
   expect.soft(workspaceRoots(seeded.db).some(r => r.toLowerCase().includes('repo-seeded')), 'the workspace row is there').toBe(true)
   writeFileSync(join(STATE, 'verify-rollback.json'), JSON.stringify(result, null, 2))
@@ -277,7 +314,9 @@ test('G4 install over 1.3.3: verify the uninstall', async () => {
   expect.soft(result.installDirGone, 'the program is removed').toBe(true)
   for (const [i, gone] of result.shortcutsGone.entries()) expect.soft(gone, `shortcut removed: ${SHORTCUTS[i]}`).toBe(true)
   expect.soft(result.dataKept, 'the person\'s database is kept (deleteAppDataOnUninstall is off)').toBe(true)
-  expect.soft(result.backupsKept, 'the backups are kept').toBe(true)
+  // Backups exist only when the upgrade migrated something; two releases on one schema make none to keep.
+  const upgrade = existsSync(join(STATE, 'verify-upgrade.json')) ? JSON.parse(readFileSync(join(STATE, 'verify-upgrade.json'), 'utf8')) as { backups?: string[] } : {}
+  if ((upgrade.backups ?? []).length > 0) expect.soft(result.backupsKept, 'the backups are kept').toBe(true)
   writeFileSync(join(STATE, 'verify-uninstall.json'), JSON.stringify(result, null, 2))
   console.log('G4-UNINSTALL', JSON.stringify(result))
 })

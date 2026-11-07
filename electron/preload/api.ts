@@ -180,6 +180,10 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       platform: process.platform,
       // The main process passes app.getLocale() as an argument: a sandboxed preload cannot call app APIs.
       locale: process.argv.find(arg => arg.startsWith('--oxe-locale='))?.slice('--oxe-locale='.length) ?? '',
+      startupFailure: () => ipc.invoke(IPC_CHANNELS.app.startupFailure) as Promise<import('../../shared/types/app').StartupFailure | null>,
+      openBackupsFolder: () => ipc.invoke(IPC_CHANNELS.app.openBackupsFolder) as Promise<void>,
+      quitAfterStartupFailure: () => ipc.invoke(IPC_CHANNELS.app.quitAfterStartupFailure) as Promise<void>,
+      relaunchAfterStartupFailure: () => ipc.invoke(IPC_CHANNELS.app.relaunchAfterStartupFailure) as Promise<void>,
       getUpdateState: () => ipc.invoke(IPC_CHANNELS.app.getUpdateState) as Promise<import('../../shared/types/updater').AppUpdateState>,
       setAppearance: (mode) => ipc.invoke(IPC_CHANNELS.app.setAppearance, mode) as Promise<'light' | 'dark'>,
       setLanguage: (language) => ipc.invoke(IPC_CHANNELS.app.setLanguage, language) as Promise<void>,
@@ -328,7 +332,10 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       revoke: input => ipc.invoke(IPC_CHANNELS.remote.revoke, input) as Promise<void>,
       rename: input => ipc.invoke(IPC_CHANNELS.remote.rename, input) as Promise<import('../../shared/types/remote').RemoteDevice>,
       setDesktopName: input => ipc.invoke(IPC_CHANNELS.remote.setDesktopName, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
-      setPhoneWrite: input => ipc.invoke(IPC_CHANNELS.remote.setPhoneWrite, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>
+      setPhoneWrite: input => ipc.invoke(IPC_CHANNELS.remote.setPhoneWrite, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
+      firewallStatus: () => ipc.invoke(IPC_CHANNELS.remote.firewallStatus) as Promise<import('../../shared/types/remote').RemoteFirewallStatus>,
+      firewallRepair: () => ipc.invoke(IPC_CHANNELS.remote.firewallRepair) as Promise<import('../../shared/types/remote').RemoteFirewallChange>,
+      firewallUndo: () => ipc.invoke(IPC_CHANNELS.remote.firewallUndo) as Promise<import('../../shared/types/remote').RemoteFirewallChange>
     },
     automations: {
       list: () => ipc.invoke(IPC_CHANNELS.automations.list) as Promise<import('../../shared/types/automation').Automation[]>,

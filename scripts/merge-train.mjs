@@ -588,8 +588,26 @@ async function startBatch(api, queue, { log, actions }) {
   return true
 }
 
+/**
+ * Merges one member pinned to its tested head; returns the merge commit's SHA. A 5xx is not an answer: GitHub may
+ * have merged anyway, so the PR is read again first (merged: its merge commit), and otherwise the merge is tried
+ * once more, only while main is still the expected commit and the head unchanged (batch-46 got a 500 on 04/11).
+ */
+export async function mergeMember(api, member, expected, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))) {
+  try {
+    return (await api.merge(member.number, member.sha))?.sha
+  } catch (error) {
+    if (!(error?.status >= 500)) throw error
+    await sleep(5000)
+    const pr = await api.getPull(member.number)
+    if (pr?.merged && pr.mergeCommitSha) return pr.mergeCommitSha
+    if (!pr || pr.state !== 'open' || pr.headSha !== member.sha || (await api.mainSha()) !== expected) throw error
+    return (await api.merge(member.number, member.sha))?.sha
+  }
+}
+
 /** One step of the batch on its branch: wait, give up, or merge the members. */
-async function driveBatch(api, batch, queue, { now, timeoutMinutes, log, actions }) {
+async function driveBatch(api, batch, queue, { now, timeoutMinutes, log, actions, sleep }) {
   const { branch, members } = batch
   const record = (type, message) => {
     actions.push({ type, message })
@@ -635,57 +653,80 @@ async function driveBatch(api, batch, queue, { now, timeoutMinutes, log, actions
     return giveUp(`the batch's ${CI_WORKFLOW} ended ${cleanName(run.conclusion ?? 'without a result')}${result ? `, CI result ${cleanName(result.conclusion ?? 'pending')}` : ', no CI result'}${link}`, members, true)
   }
 
-  // Green: merge in the batch's order, each only on the main the batch expects.
+  // Green: merge in the batch's order, each only on the main the batch expects. The branch is deleted however this
+  // ends, an error thrown half-way included (#567 condition 4): the members left keep na-fila and are served again.
   let expected = batch.base
   const merged = []
-  for (const [i, m] of members.entries()) {
-    const rest = members.slice(i)
-    const main = await api.mainSha()
-    if (main !== expected) {
-      await sendBack(rest, `main moved to ${short(main)} while ${short(expected)} was expected, so the tested tree no longer applies`, true)
-      break
+  try {
+    for (const [i, m] of members.entries()) {
+      const rest = members.slice(i)
+      const main = await api.mainSha()
+      if (main !== expected) {
+        await sendBack(rest, `main moved to ${short(main)} while ${short(expected)} was expected, so the tested tree no longer applies`, true)
+        break
+      }
+      const pr = await api.getPull(m.number)
+      if (!pr || pr.state !== 'open' || pr.headSha !== m.sha) {
+        await sendBack(rest, `#${m.number} has a new head or was closed before its merge`, true)
+        break
+      }
+      // The file rule again, at merge time: never a status on a head that changes anything outside docs and tests.
+      const files = await api.listFiles(m.number)
+      const outside = !Array.isArray(files) || !files.length || files.length >= BATCH_MAX_FILES || (pr.changedFiles != null && files.length !== pr.changedFiles) ? 'its file list is incomplete' : files.find((path) => !isBatchPath(path))
+      if (outside) {
+        await sendBack(rest, `#${m.number} ${outside === 'its file list is incomplete' ? outside : `changes ${cleanName(outside)}`}, outside docs and tests`, true)
+        break
+      }
+      await api.postStatus(m.sha, { state: 'success', context: 'CI result', description: `batch ${branch}`, targetUrl: url })
+      let sha
+      try {
+        sha = await mergeMember(api, m, expected, sleep)
+      } catch (error) {
+        await sendBack(rest, `GitHub refused the merge of #${m.number} (${refusal(error)})`, true)
+        break
+      }
+      merged.push(m)
+      await upsertComment(api, m.number, renderComment(`merged ${short(m.sha)} in ${branch}: tested with ${members.map((x) => `#${x.number}`).join(' ')} on ${short(batch.head)}${link}.`, null))
+      // The merge must sit right on the expected main: a push between the check and the merge stops the rest.
+      const commit = sha ? await api.getCommit(sha) : null
+      if (!commit || commit.parents[0] !== expected) {
+        await sendBack(members.slice(i + 1), `the merge of #${m.number} did not land on ${short(expected)}`, true)
+        break
+      }
+      expected = sha
     }
-    const pr = await api.getPull(m.number)
-    if (!pr || pr.state !== 'open' || pr.headSha !== m.sha) {
-      await sendBack(rest, `#${m.number} has a new head or was closed before its merge`, true)
-      break
-    }
-    // The file rule again, at merge time: never a status on a head that changes anything outside docs and tests.
-    const files = await api.listFiles(m.number)
-    const outside = !Array.isArray(files) || !files.length || files.length >= BATCH_MAX_FILES || (pr.changedFiles != null && files.length !== pr.changedFiles) ? 'its file list is incomplete' : files.find((path) => !isBatchPath(path))
-    if (outside) {
-      await sendBack(rest, `#${m.number} ${outside === 'its file list is incomplete' ? outside : `changes ${cleanName(outside)}`}, outside docs and tests`, true)
-      break
-    }
-    await api.postStatus(m.sha, { state: 'success', context: 'CI result', description: `batch ${branch}`, targetUrl: url })
-    let sha
+  } finally {
     try {
-      sha = (await api.merge(m.number, m.sha))?.sha
-    } catch (error) {
-      await sendBack(rest, `GitHub refused the merge of #${m.number} (${refusal(error)})`, true)
-      break
+      await api.deleteRef(branch)
+    } finally {
+      if (merged.length) await api.dispatchWorkflow('ci.yml', 'main')
     }
-    merged.push(m)
-    await upsertComment(api, m.number, renderComment(`merged ${short(m.sha)} in ${branch}: tested with ${members.map((x) => `#${x.number}`).join(' ')} on ${short(batch.head)}${link}.`, null))
-    // The merge must sit right on the expected main: a push between the check and the merge stops the rest.
-    const commit = sha ? await api.getCommit(sha) : null
-    if (!commit || commit.parents[0] !== expected) {
-      await sendBack(members.slice(i + 1), `the merge of #${m.number} did not land on ${short(expected)}`, true)
-      break
-    }
-    expected = sha
   }
-  if (merged.length) await api.dispatchWorkflow('ci.yml', 'main')
-  await api.deleteRef(branch)
   record('batch-end', `${branch}: merged ${merged.map((m) => `#${m.number}`).join(' ') || 'nothing'}${merged.length < members.length ? `; ${members.length - merged.length} back on their own` : ''}`)
 }
 
+/** How many of the highest-numbered train/batch-N branches are read to find the train's open batch. */
+export const BATCH_REFS_READ = 5
+
+/**
+ * The batch branches worth reading, newest first: the train's own batch is always numbered after every batch
+ * branch that existed when it was built, so it is among the highest numbers. Old manual-batch branches left on
+ * origin (59 on 04/11) are then never read, one commit each, on every run.
+ */
+export function recentBatchRefs(refs, n = BATCH_REFS_READ) {
+  const number = (ref) => Number(BATCH_REF_RE.exec(ref.name)?.[1] ?? -1)
+  return refs
+    .filter((ref) => number(ref) >= 0)
+    .sort((a, b) => number(b) - number(a))
+    .slice(0, n)
+}
+
 /** Drives an open batch, or builds one; true when the batch took this run. */
-export async function runBatch(api, queue, { now, timeoutMinutes, log, actions, canStart }) {
-  for (const ref of await api.listBatchRefs()) {
+export async function runBatch(api, queue, { now, timeoutMinutes, log, actions, canStart, sleep }) {
+  for (const ref of recentBatchRefs(await api.listBatchRefs())) {
     const batch = await readBatch(api, ref.name, ref.sha)
     if (!batch) continue
-    await driveBatch(api, batch, queue, { now, timeoutMinutes, log, actions })
+    await driveBatch(api, batch, queue, { now, timeoutMinutes, log, actions, sleep })
     return true
   }
   if (!canStart || queue.length < 2) return false
@@ -808,7 +849,7 @@ export async function runTrain(
   const health = holdWhenMainRed && queue.length ? mainHealth(await api.mainRuns().catch(() => null)) : { green: true }
   // One thing under test at a time: an open batch takes the run, and a new one starts only from a green main
   // with the queue's first car batchable.
-  if (batches && (await runBatch(api, queue, { now, timeoutMinutes, log, actions, canStart: health.green }))) return actions
+  if (batches && (await runBatch(api, queue, { now, timeoutMinutes, log, actions, canStart: health.green, sleep }))) return actions
   const fixRoles = new Map()
   const fixer = async () => {
     for (const entry of queue) {
@@ -897,6 +938,11 @@ export async function runTrain(
       await upsertComment(api, entry.number, renderComment(action.message, null))
       // A merge by GITHUB_TOKEN starts no push run on main, so main's CI is dispatched here.
       await api.dispatchWorkflow('ci.yml', 'main')
+      // A merged batch PR (merge-batch.mjs) leaves its train/batch-N branch behind, and the repository does not
+      // delete head branches: the train removes it, as its own batches do (#567 condition 4). Never a fork's.
+      if (!input.pr.isFork && /^train\/batch-\d+$/.test(String(input.pr.headRef ?? ''))) {
+        await api.deleteRef?.(input.pr.headRef).catch((error) => log(`#${entry.number}: ${input.pr.headRef} not deleted (${cleanName(String(error?.message ?? error))})`))
+      }
       // The fix-main label covers one merge: a later push to that PR does not jump a held queue again.
       if (entry.fixMain) await api.removeLabel(entry.number, FIX_MAIN_LABEL)
       drop(entry)
@@ -984,6 +1030,8 @@ export function createGitHubApi({ token, repo, base = 'main', fetchImpl = global
         headRef: pr.head.ref,
         mergeable: pr.mergeable,
         mergeableState: pr.mergeable_state,
+        merged: pr.merged === true,
+        mergeCommitSha: pr.merged === true ? (pr.merge_commit_sha ?? null) : null,
         changedFiles: pr.changed_files ?? null,
       }
     },

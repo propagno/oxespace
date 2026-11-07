@@ -440,11 +440,9 @@
 /* Only the kicker: a button's own <span> in the header's actions kept its case (S-07: "REFRESH"). */
 .settings-modal-brand span,
 .settings-content-header .settings-content-kicker {
-  color: var(--tx-secondary);
-  font-size: var(--fs-2xs);
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
 }
 
 .settings-modal-brand strong {
@@ -505,7 +503,7 @@
 }
 
 .settings-nav-item.active {
-  background: var(--surface-canvas);
+  background: var(--fill-selected);
   color: var(--tx-primary);
   box-shadow: inset 0 0 0 1px var(--ov-2);
 }
@@ -947,11 +945,9 @@
 
 .settings-form-group-title {
   margin: 0;
-  color: var(--tx-secondary);
-  font-size: var(--fs-2xs);
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
 }
 
 .settings-field {
@@ -1734,7 +1730,7 @@
 
 .slash-overlay-item.active {
   /* Quiet selected state — no teal border halo. */
-  background: var(--surface-active);
+  background: var(--fill-selected);
   border-color: transparent;
 }
 
@@ -1971,10 +1967,8 @@
 }
 .diagnostics-env > div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .diagnostics-env dt {
-  color: var(--tx-muted);
-  font-size: var(--fs-2xs);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
 }
 .diagnostics-env dd {
   margin: 0;
