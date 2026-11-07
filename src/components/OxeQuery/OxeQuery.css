@@ -440,7 +440,8 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 
 /* ── Control foundation ────────────────────────────────────────────────────
    One look for every control in OxeQuery, the same as src/ui (24 px dense height, --border-strong, --fill-hover).
-   Dialogs render in a portal, outside .oq-view, so the scope is .oq-view and .oq-scope (put on dialog content).
+   Dialogs render in a portal, outside .oq-view, so the scope is .oq-view and .oq-scope. .oq-scope goes on a wrapper
+   inside the dialog body, never on the dialog: the box, header and footer are the U1 primitive's (U5b).
    The base uses :where(), so every more specific rule above (tabs, tree rows, chips, links) still wins. */
 :where(.oq-view, .oq-scope) :where(button) {
   display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--control-sm); padding: 0 var(--space-2);
