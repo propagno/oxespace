@@ -11,7 +11,7 @@ import { AgentActivitySettings } from '../../../src/components/Settings/AgentAct
 
 type Row = {
   id: string; source: 'changes' | 'databases' | 'containers' | 'post'; at: number
-  actor: { kind: 'thread' | 'pane' | 'agent'; id: string | null; label: string }
+  actor: { kind: 'thread' | 'pane' | 'agent' | 'person'; id: string | null; label: string }
   tool: string; summary: string; target: string | null; write: boolean
   decision: 'auto' | 'approved' | 'approved-session' | 'denied' | 'refused' | 'pending'
   outcome: 'ok' | 'error' | 'skipped'; durationMs: number | null; errorCode: string | null
@@ -104,6 +104,15 @@ describe('A11 · Settings › Agent activity is one list from every source', () 
     await user.click(within(table).getAllByRole('row')[2])
     await waitFor(() => expect(api.detail).toHaveBeenCalledWith('databases:3'))
     expect(await screen.findByRole('dialog', { name: 'DELETE FROM pix_mock_data' })).toBeInTheDocument()
+  })
+
+  it('names the person\'s own change "You" in the Agent column (A12\'s Access changed)', async () => {
+    const person: Row = { id: 'post:5', source: 'post', at, actor: { kind: 'person', id: null, label: 'person' }, tool: 'post.access', summary: 'Access changed · Pix', target: 'Pix · sandbox', write: true, decision: 'auto', outcome: 'ok', durationMs: null, errorCode: null }
+    fake([{ rows: [person], nextCursor: null }])
+    render(<AgentActivitySettings />)
+    const table = await screen.findByRole('table')
+    const agent = within(within(table).getAllByRole('row')[1]).getAllByRole('cell')[1]
+    expect(agent.textContent?.trim()).toBe('You')
   })
 
   it('never reads a second list to merge: no old audit channels in the page', () => {
