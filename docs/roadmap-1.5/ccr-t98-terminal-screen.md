@@ -48,16 +48,18 @@ export interface RemoteTerminalSnapshot { ansi: string; cols: number; rows: numb
    - Today `VtScreen` is unbounded in width and ignores `cols`, so a full-screen TUI drawn for 120 columns wraps or overflows differently on the phone.
    - The phone phase fixes the grid to `cols` (wrapping at `cols`, as xterm did on the desktop) and gives the view a horizontal pan instead of reflowing.
    - **Frozen tests (MOBILE, JVM):**
-     - a `cols` = 120 snapshot of a TUI frame keeps every row at 120 cells, and the CUP column lands where the desktop put it;
-     - a line longer than `cols` wraps at `cols`;
-     - a later event's resize (when the topic carries one) resets to the new size.
+     - for a `cols` = 120 snapshot of a TUI frame, no row of `lines()` / `text()` is longer than `cols`, the grid's width is `cols`, and the CUP column lands where the desktop put it. `VtScreen` trims trailing blanks, so a row's text may be shorter than `cols` (MOBILE's M5 wording);
+     - a line longer than `cols` wraps at `cols`.
+   - **Not frozen here:** a resize on a later event. No event carries a size today, so nothing could drive such a test. It comes with its own CCR if the desktop ever adds a resize field.
 2. **Not sending the replay pages a phone will skip.**
    - Today the desktop sends the snapshot's `data` pages next to `snapshot` (the whole ring, up to about 345 KB a subscribe), and a phone that read `snapshot` throws them away.
-   - **Proposed:** a capability flag in the subscribe (the phone says it reads `snapshot`). The desktop then sends `snapshot` plus only the `redacted` count, with no ring pages.
+   - **Proposed:** a capability flag in the subscribe (the phone says it reads `snapshot`). The desktop then sends only the `snapshot` page, with no ring pages. That page carries the snapshot's `redacted` count; the phone already sums `redacted` over a snapshot's pages, so one page works unchanged.
+   - **Fallback:** when the flag is set but the snapshot can't be built (the headless build throws, returns null, or doesn't fit even with no scrollback), the desktop sends the ring pages as today. A flagged phone never gets an empty terminal.
    - The older phone keeps getting the pages.
    - This is a C5 protocol change: an additive optional field, with a literal type and no new enum (the #531 rule), plus `npm run android:generate`.
    - **Frozen tests:**
-     - desktop: with the flag, no `data` page follows `snapshot`, and `redacted` is still reported; without it, it's as today;
+     - desktop: with the flag, no `data` page follows `snapshot`, and that page's `redacted` equals the ring's count; without it, it's as today;
+     - desktop fallback: with the flag set and the build failing (a throwing serializer, a null result, or over the budget), the ring pages are sent as today, with no `snapshot`;
      - phone: it sends the flag, and it renders the same from `snapshot` alone.
 
 ## Out of scope
