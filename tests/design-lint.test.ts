@@ -10,6 +10,14 @@ import { describe, expect, it } from 'vitest'
  * Legacy stylesheets join this check as they are migrated.
  */
 const ROOT = join(__dirname, '..')
+/**
+ * U4: selected states that still set their own background instead of reading var(--fill-selected) (see the test). 44
+ * when U4 landed; C4 moved 22 of them and routed --nav-selected to the role. The 22 left are pressed toggle buttons,
+ * editor tabs, the focused pane's header and combined hover rules. This number may only go down.
+ */
+const LIMIT_SELECTED = 22
+/** CR-15: the only background a [data-ws] selected rule may set besides --fill-selected, a tint of the workspace color (--ws). */
+const WORKSPACE_TINT = /^color-mix\(\s*in\s+srgb\s*,\s*var\(--ws\)\s+\d+%\s*,\s*transparent\s*\)$/
 
 function files(dir: string, match: (path: string) => boolean): string[] {
   return readdirSync(dir).flatMap(name => {
@@ -105,6 +113,46 @@ describe('design lint', () => {
     })
     it('hand-made empty-state classes do not grow; use <EmptyState>', () => {
       expect(count(tsx, /className="[^"]*-empty\b[^"]*"/g)).toBeLessThanOrEqual(0)
+    })
+    it('dialogs restyled with className do not grow; the box is the primitive\'s, its size is `size` (U1)', () => {
+      // Each <Dialog …> tag is read to its end, skipping what is inside braces, so an arrow in a prop does not end it.
+      const restyled = tsx.flatMap(path => {
+        const source = readFileSync(path, 'utf8')
+        return [...source.matchAll(/<Dialog\b/g)].flatMap(match => {
+          let depth = 0, quote: string | null = null, attributes = ''
+          for (let index = match.index + '<Dialog'.length; index < source.length; index++) {
+            const char = source[index]
+            if (quote) { if (char === quote && source[index - 1] !== '\\') quote = null; continue }
+            if (char === '"' || char === "'" || char === '`') { quote = char; continue }
+            if (char === '{') depth++
+            else if (char === '}') depth--
+            else if (char === '>' && depth === 0) break
+            else if (depth === 0) attributes += char
+          }
+          return /\sclassName=/.test(attributes) ? [relative(ROOT, path)] : []
+        })
+      })
+      // U5a/U5b/U5c move these to the primitive; lower the number as they go.
+      expect(restyled.length).toBeLessThanOrEqual(27)
+    })
+    it('a selected row, tab, list item or tree node reads var(--fill-selected) (U4, X7); the others do not grow', () => {
+      // Selection, by selector: aria-selected, aria-current, a checked input, data-state active, .selected, .is-selected,
+      // .active. Not counted: an indicator drawn by a pseudo-element, forced-colors mode, and a status shown in an
+      // intent color (a filter of failed runs is not a selection). Lower the number as areas move; never raise it.
+      const SELECTED = /\[aria-selected=['"]?true['"]?\]|\[aria-current(=['"]?(page|true)['"]?)?\]|\[data-state=['"]?(active|checked|on)['"]?\]|\.(?:is-)?selected(?![\w-])|\.(?:is-)?active(?![\w-])|:checked/
+      const own = css.filter(path => !/forced-colors\.css$/.test(path)).flatMap(path => {
+        const source = readFileSync(path, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+        return [...source.matchAll(/([^{}]+)\{([^}]*)\}/g)].flatMap(([, selector, body]) => {
+          if (!SELECTED.test(selector) || /::?(?:before|after)(?![\w-])/.test(selector)) return []
+          const background = /(?:^|;)\s*background(?:-color)?\s*:\s*([^;]+)/.exec(body)?.[1].trim()
+          if (!background || /var\(--(fill-selected|nav-selected)/.test(background) || /--intent-|^(transparent|none|inherit)$/.test(background)) return []
+          // CR-15: the active workspace card's tint of its own color (CR-05) is a sanctioned selection, but only as
+          // color-mix(in srgb, var(--ws) N%, transparent) on a selector whose every part carries [data-ws].
+          const sanctionedTint = WORKSPACE_TINT.test(background) && selector.split(',').every(part => /\[data-ws\]/.test(part))
+          return sanctionedTint ? [] : [`${relative(ROOT, path)} ${selector.trim()}`]
+        })
+      })
+      expect(own.length).toBeLessThanOrEqual(LIMIT_SELECTED)
     })
     it('raw <button> outside the primitives does not grow; use <Button> or <IconButton> (FE-M-03)', () => {
       expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(513)

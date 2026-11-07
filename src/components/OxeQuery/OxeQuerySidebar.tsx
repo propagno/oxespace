@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, RefreshCw, Settings, ShieldCheck } from 'lucide-react'
-import { NavigationRail, SidebarActions, SidebarFooter, type RailAction } from '../Navigation/NavigationChrome'
+import { NavigationRail, RailItems, SidebarActions, SidebarFooter, type RailAction } from '../Navigation/NavigationChrome'
 import { useUIStore } from '../../store/ui.store'
 import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH, SIDEBAR_RESIZE_STEP, SIDEBAR_WIDTH, useNavigationPrefs } from '../../store/navigation-prefs.store'
 import { Splitter } from '../../ui/Splitter'
@@ -21,6 +21,7 @@ export function OxeQuerySidebar(): ReactElement {
   const width = useNavigationPrefs(state => state.width), setWidth = useNavigationPrefs(state => state.setWidth)
   const toggleCollapse = useUIStore(state => state.toggleSidebar)
   const activeTab = useOxeQueryStore(state => state.activeTab)
+  const connections = useOxeQueryStore(state => state.connections)
   const settings = useOxeQueryStore(state => state.preferencesOpen)
   const setSettings = useOxeQueryStore(state => state.setPreferencesOpen)
   useEffect(() => { void useOxeQueryStore.getState().refreshConnections() }, [])
@@ -28,7 +29,10 @@ export function OxeQuerySidebar(): ReactElement {
   const railPrimary: RailAction[] = [{ id: 'new-connection', label: t('connections.new'), icon: Plus, onClick: () => useOxeQueryStore.getState().openDialog(null) }]
   const railContext: RailAction = { id: 'refresh', label: t('sidebar.refresh'), ariaLabel: t('sidebar.refresh'), icon: RefreshCw, onClick: () => { void useOxeQueryStore.getState().refreshConnections() } }
   return <aside className={`thread-navigation oq-sidebar${collapsed ? ' thread-navigation-collapsed' : ''}`} aria-label={t('sidebar.label')}>
-    {collapsed && <NavigationRail mode="data" primary={railPrimary} context={railContext} onToggle={toggleCollapse} />}
+    {collapsed && <NavigationRail mode="data" primary={railPrimary} context={railContext} onToggle={toggleCollapse}>
+      <RailItems label={t('connections.title')} items={connections.map(connection => ({ id: connection.id, label: connection.name, current: activeTab === `connection:${connection.id}`,
+        onSelect: () => useOxeQueryStore.getState().openConnection(connection) }))} />
+    </NavigationRail>}
     {!collapsed && <div className="oq-sidebar-content">
       <header><strong>OxeQuery</strong><SidebarActions actions={railPrimary} /><button type="button" className="oq-icon" data-oq-action="settings" aria-label={t('sidebar.settings')} title={t('sidebar.settings')} onClick={() => setSettings(true)}><Settings size={13} aria-hidden="true" /></button></header>
       <ConnectionList activeTab={activeTab} />

@@ -438,6 +438,15 @@ describe('running the train against a fake API', () => {
     expect(actions.map((a: { type: string }) => a.type)).toEqual(['merge', 'update'])
   })
 
+  it('deletes a merged batch PR’s train/batch-N branch, and no other head branch', async () => {
+    const api = fakeApi(['train/batch-7', 'train/batch-D', 'feat/x'].map((headRef, i) => ({ number: i + 1, labeledAt: `2026-10-31T1${i}:00:00Z`, pr: { headRef } })))
+    const deleted: string[] = []
+    Object.assign(api, { deleteRef: async (name: string) => void deleted.push(name) })
+    await runTrain(api, { now: NOW, sleep: noSleep })
+    expect(api.writes.filter(([w]) => w === 'merge').map(([, n]) => n)).toEqual([1, 2, 3])
+    expect(deleted).toEqual(['train/batch-7'])
+  })
+
   it('takes a PR out when GitHub refuses the merge of a workflow change', async () => {
     const api = fakeApi([{ number: 8, labeledAt: '2026-10-31T09:00:00Z' }])
     api.merge = async () => {
@@ -462,7 +471,7 @@ describe('GitHub API adapter', () => {
       return { ok: true, status: 204, json: async () => null, text: async () => '', headers: { get: () => '' } }
     }
     const api = createGitHubApi({ token: 't', repo: 'o/r', fetchImpl })
-    expect(await api.listQueue()).toEqual([{ number: 9, labeledAt: 'T2', labeledBy: 'maintainer', fixMain: false, fixMainBy: null }])
+    expect(await api.listQueue()).toEqual([{ number: 9, labeledAt: 'T2', labeledBy: 'maintainer', fixMain: false, fixMainBy: null, noBatch: false }])
     await api.merge(9, HEAD)
     expect(calls.at(-1)).toEqual(['PUT', 'https://api.github.com/repos/o/r/pulls/9/merge', { merge_method: 'merge', sha: HEAD }])
     await api.removeLabel(9)
@@ -964,7 +973,7 @@ describe('merge-train workflow', () => {
 
   it('asks for only what it uses', () => {
     expect(workflow.permissions).toEqual({})
-    expect(workflow.jobs.train.permissions).toEqual({ contents: 'write', 'pull-requests': 'write', checks: 'read', actions: 'write' })
+    expect(workflow.jobs.train.permissions).toEqual({ contents: 'write', 'pull-requests': 'write', checks: 'read', actions: 'write', statuses: 'write' })
   })
 
   it('is woken by the end of a CI run it dispatched, and waits for that run to complete first', () => {

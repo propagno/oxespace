@@ -1,0 +1,24 @@
+{
+  "name": "oxespace-playground",
+  "private": true,
+  "version": "1.5.0-design",
+  "description": "OXESpace 1.5.0 visual playground (Direction B) with mock data. Not part of the app build.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "4.7.0",
+    "typescript": "5.9.3",
+    "vite": "6.4.4"
+  }
+}

@@ -55,6 +55,8 @@ describe('ActivityCenter', () => {
     await screen.findByTestId('activity-center')
     fireEvent.click(screen.getByRole('button', { name: 'Mark all as read' }))
     expect(screen.queryByTestId('activity-count')).toBeNull()
+    // T52: the palette's commands load after the first frame, with the command contributors; the palette waits for them.
+    await import('../src/commands/CommandContributors')
     expect(renderHook(() => useContributedCommands()).result.current.map(command => command.id)).toEqual(expect.arrayContaining(['activity.open', 'activity.markAllRead']))
   })
 })

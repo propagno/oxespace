@@ -1,9 +1,10 @@
-import { ArrowDown, ArrowUp, Check, ChevronDown, GripVertical, Network, Pencil, Settings, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, ChevronDown, GripVertical, Network, Palette, Pencil, Settings, Trash2, X } from 'lucide-react'
 import { memo, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { useShallow } from 'zustand/react/shallow'
 import { selectIntegrationsForWorkspace, useIntegrationStore } from '../../store/integration.store'
-import { ConfirmDialog } from '../../ui'
+import { ConfirmDialog, Dialog, SwatchPicker } from '../../ui'
+import { WORKSPACE_COLORS, workspaceColorAttrs } from '../../../shared/workspace-color'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
 import { RichText } from '../../i18n/RichText'
@@ -67,10 +68,14 @@ function WorkspaceGroupComponent({
   // the menu triggers both. Menu coordinates are absolute viewport pixels so
   // the popup can escape the sidebar's overflow:hidden.
   const { t } = useTranslation('code')
+  const { t: tc } = useTranslation('common')
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   const [renaming, setRenaming] = useState(false)
   const [draftName, setDraftName] = useState(workspace.name)
   const [confirmRemove, setConfirmRemove] = useState(false)
+  // CR-07: the color picker is a dialog the menu opens; focus goes back to the options gear.
+  const [colorOpen, setColorOpen] = useState(false)
+  const settingsButtonRef = useRef<HTMLButtonElement | null>(null)
   const renameInputRef = useRef<HTMLInputElement | null>(null)
   // Guards commitRename so the blur-on-unmount that fires when we close the
   // input doesn't trigger a second async update with the same draft value.
@@ -155,7 +160,7 @@ function WorkspaceGroupComponent({
   return (
     <div
       className={`ws-group${isActive ? ' active' : ''}${isDragging ? ' dragging' : ''}${dropClass}`}
-      data-testid="sidebar-workspace-item"
+      data-testid="sidebar-workspace-item" {...workspaceColorAttrs(workspace)}
       draggable={Boolean(onDragStart) && !renaming}
       onDragStart={(event) => {
         if (!onDragStart || renaming) return
@@ -280,6 +285,7 @@ function WorkspaceGroupComponent({
               title={t('sidebar.options')}
               aria-label={t('sidebar.optionsLabel')}
               onClick={handleContextMenu}
+              ref={settingsButtonRef}
               data-testid="ws-group-settings-btn"
             >
               <Settings size={14} aria-hidden="true" />
@@ -319,6 +325,14 @@ function WorkspaceGroupComponent({
             }
             setMenu(null)
           }}>{direction === 'up' ? <ArrowUp size={12} aria-hidden="true" /> : <ArrowDown size={12} aria-hidden="true" />}{t(direction === 'up' ? 'sidebar.moveUp' : 'sidebar.moveDown')}</button>)}
+          {/* A8 / CR-07: the color picker is a dialog this item opens, so no radiogroup sits inside role=menu. */}
+          <div role="separator" className="ws-group-context-separator" />
+          <button type="button" role="menuitem" onClick={() => { setMenu(null); setColorOpen(true) }}>
+            <Palette size={12} aria-hidden="true" />
+            {tc('workspaceColor.open')}
+          </button>
+          {/* G-08: the destructive item stands apart. */}
+          <div role="separator" className="ws-group-context-separator" />
           <button
             type="button"
             role="menuitem"
@@ -329,6 +343,15 @@ function WorkspaceGroupComponent({
             {t('sidebar.remove')}
           </button>
         </div>
+      ) : null}
+
+      {colorOpen ? (
+        <WorkspaceColorDialog
+          workspace={workspace}
+          returnFocusTo={() => settingsButtonRef.current}
+          onClose={() => setColorOpen(false)}
+          onChoose={color => { setColorOpen(false); void updateSettings({ workspaceId: workspace.id, color }) }}
+        />
       ) : null}
 
       {confirmRemove ? (
@@ -382,4 +405,25 @@ function activitySummary(a: WorkspaceActivity): string {
     .filter(state => a.counts[state]).map(state => i18n.t(`sidebar.activity.${state}`, { ns: 'code', count: a.counts[state] }))
   const agents = i18n.t('sidebar.activity.agents', { ns: 'code', count: a.total })
   return parts.length ? `${agents} · ${parts.join(', ')}` : agents
+}
+
+/**
+ * A8 / CR-07: the eight palette swatches and Automatic, in a dialog the workspace menu opens, so no radiogroup sits
+ * inside role=menu. The choice is saved through workspace:update-settings; Automatic clears it to the id's color.
+ */
+function WorkspaceColorDialog({ workspace, onClose, onChoose, returnFocusTo }: {
+  workspace: Workspace
+  onClose: () => void
+  onChoose: (color: number | null) => void
+  returnFocusTo: () => HTMLElement | null
+}): ReactElement {
+  const { t: tc } = useTranslation('common')
+  return <Dialog title={tc('workspaceColor.label')} size="sm" onClose={onClose} returnFocusTo={returnFocusTo} testId="workspace-color-dialog">
+    <SwatchPicker
+      label={tc('workspaceColor.label')}
+      value={workspace.color === null ? '' : String(workspace.color)}
+      options={[{ value: '', label: tc('workspaceColor.auto') }, ...WORKSPACE_COLORS.map(n => ({ value: String(n), label: tc(`workspaceColor.swatch.${n}`), color: `var(--ws-${n})` }))]}
+      onChange={value => onChoose(value === '' ? null : Number(value))}
+    />
+  </Dialog>
 }

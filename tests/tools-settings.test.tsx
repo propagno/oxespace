@@ -76,6 +76,8 @@ describe('Settings › Tools', () => {
     expect(within(data).queryByText('On demand', { selector: 'span' })).toBeNull()
     for (const radio of within(data).getAllByRole('radio')) expect(radio).toBeDisabled()
     expect(within(data).getByText('Fix oxe.yaml to change this mode.')).toBeVisible()
+    // HML FINDING L on #426: nothing reads as chosen while the mode in force is not known.
+    for (const radio of within(data).getAllByRole('radio')) expect(radio).toHaveAttribute('aria-checked', 'false')
     expect(api.setToolGroupMode).not.toHaveBeenCalled()
   })
 
@@ -85,6 +87,8 @@ describe('Settings › Tools', () => {
     const data = await panel('Data')
     expect(within(data).getByText('Off', { selector: 'span' })).toBeVisible()
     for (const radio of within(data).getAllByRole('radio')) expect(radio).toBeDisabled()
+    // With effectiveFrom the control shows the mode in force.
+    expect(within(data).getByRole('radio', { name: 'Off' })).toHaveAttribute('aria-checked', 'true')
   })
 
   it('once the file is fixed, Reload reads it, the warning goes and that is announced politely (DESIGN on #426)', async () => {
@@ -186,6 +190,18 @@ describe('Settings › Tools', () => {
     expect(within(others).getByText('github · delete_repository')).toBeVisible()
     expect(within(others).getByRole('combobox', { name: 'Rule for delete_repository' })).toBeDisabled()
     expect(within(others).getByText('Set in your user policy; change it there.')).toBeVisible()
+  })
+
+  it('T53: an auto-approved read says why, offers running or blocking, and is not counted as a rule set', async () => {
+    mount({ rules: [{ server: 'oxespace-delegation', tool: 'oxespace_code_search', decision: 'allow', source: 'reads', editable: true, allowedDecisions: ['allow', 'deny'], confirmLevel: false, scope: 'oxechat' }] })
+    const core = await panel('Core tools')
+    fireEvent.click(await within(core).findByText('Rules per tool · 0 set'))
+    const row = within(core).getByRole('combobox', { name: 'Rule for oxespace_code_search' })
+    expect(row).toHaveValue('allow')
+    expect(within(row).getByRole('option', { name: 'Run without asking' })).toBeInTheDocument()
+    expect(within(row).getByRole('option', { name: 'Block' })).toBeInTheDocument()
+    expect(within(row).queryByRole('option', { name: 'Ask me' })).toBeNull()
+    expect(screen.getByText(`A read-only lookup, allowed by "Approve read-only commands automatically" in a conversation's Permissions. Turn that off to be asked.`)).toBeVisible()
   })
 
   it('shows the organization policy about tools read only, without project rules', async () => {

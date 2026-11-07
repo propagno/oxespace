@@ -67,9 +67,17 @@ class DesktopSessionController(
 
     private fun initial(): DesktopStatus = store.load()?.let { DesktopStatus.Connecting(it) } ?: DesktopStatus.Unpaired()
 
-    /** Keeps the paired desktop connected until [stop]. */
+    /**
+     * Keeps the paired desktop connected until [stop]. A second call while running connects if nothing is under way.
+     * The app starts the controller unpaired on its welcome screen. After a pairing in the same run, start() is the
+     * only nudge it gets. In 1.4.1 it returned at once, so a freshly paired phone stayed on the welcome screen and
+     * never opened a session until the app was force-stopped.
+     */
     fun start() {
-        if (running) return
+        if (running) {
+            if (link == null && retryJob == null) connect()
+            return
+        }
         running = true
         networkJob = scope.launch {
             onLan.collect { lan -> if (lan) onLanBack() else onLanLost() }
@@ -82,6 +90,18 @@ class DesktopSessionController(
         networkJob?.cancel()
         networkJob = null
         drop()
+    }
+
+    /**
+     * The app came back to the foreground (P6, Orca issue #5049): a retry waiting out its backoff, up to a minute,
+     * goes now. A live or connecting session is left alone; one that isn't running starts.
+     */
+    fun resume() {
+        if (!running) return start()
+        if (link == null && retryJob != null) {
+            attempt = 0
+            connect()
+        }
     }
 
     /** The person asked to try now: forget the wait and connect. */

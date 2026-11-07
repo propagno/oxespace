@@ -32,7 +32,26 @@ export interface AppAbout {
 }
 
 /** The `app` API members of these contracts, next to the update ones in `ipc.ts`. */
+/** T87: why the database could not be opened at startup. */
+export type StartupFailureCode = 'newer-schema' | 'corrupt' | 'locked' | 'other'
+export interface StartupFailure {
+  code: StartupFailureCode
+  /** The error's own words, clipped; shown under "Details" and copied with "Copy details". */
+  message: string
+  /** Where the pre-migration backups are kept (`db-backups` next to the database). */
+  backupsPath: string
+  databasePath: string
+}
+
 export interface AppInfoApi {
+  /** T87: the startup failure, or null when the app started normally. Asked before the window renders. */
+  startupFailure?(): Promise<StartupFailure | null>
+  /** T87, only after a startup failure: opens the backups folder (or the data folder when there is none yet). */
+  openBackupsFolder?(): Promise<void>
+  /** T87, only after a startup failure: quits the app. */
+  quitAfterStartupFailure?(): Promise<void>
+  /** T87, only after a startup failure: starts the app again (offered for a locked database). */
+  relaunchAfterStartupFailure?(): Promise<void>
   /** Whether the computer has a network route right now. */
   connectivity?(): Promise<AppConnectivity>
   /** Sent when connectivity changes. */
@@ -44,6 +63,16 @@ export interface AppInfoApi {
    * journalled by its reason) unless it is an http(s) or mailto: URL of at most 2,048 characters without credentials.
    */
   openExternal?(url: string): Promise<{ opened: boolean }>
+  /**
+   * B18: opens a file of an open workspace in a detected editor, at the line, or shows it in its folder. Rejects with
+   * a C3 `app.openIn.*` code: outside the workspace (links followed), gone, an unknown target, an editor no longer
+   * installed, or a launch that failed.
+   */
+  openIn?(input: import('./open-in').OpenInInput): Promise<void>
+  /** B18: the editors installed now and the person's preferred one. */
+  openInTargets?(): Promise<import('./open-in').OpenInTargets>
+  /** B18: saves the preferred editor (Settings › Geral › Editor externo); resolves to the targets in effect. */
+  setOpenInPreference?(preference: import('./open-in').OpenInPreference): Promise<import('./open-in').OpenInTargets>
   /** Sent when the window is about to close or the app to quit (F26): answer with `answerClose`. */
   onCloseRequested?(listener: (request: CloseRequest) => void): () => void
   /** The window's answer to a `CloseRequest`. */

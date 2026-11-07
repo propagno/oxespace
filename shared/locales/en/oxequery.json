@@ -22,7 +22,7 @@
       "auto": "allowed",
       "approved": "approved",
       "approved-session": "approved (run)",
-      "denied": "declined",
+      "denied": "denied",
       "refused": "refused by policy",
       "pending": "waiting for you"
     },
@@ -30,7 +30,22 @@
     "notRun": "not run",
     "failedCode": "failed ({{code}})",
     "introContainers": "Every container request an AI agent made, and what you decided.",
-    "emptyContainers": "Agents only reach a container when you turn on agent access for a connection to it in OxeQuery. Every request they make appears here, with what you decided."
+    "emptyContainers": "Agents only reach a container when you turn on agent access for a connection to it in OxeQuery. Every request they make appears here, with what you decided.",
+    "detail": {
+      "title": "Agent request",
+      "open": "Show this request in full",
+      "environment": "Environment",
+      "tool": "Tool",
+      "rows": "Rows",
+      "duration": "Duration",
+      "error": "Error",
+      "statement": "Statement",
+      "noStatement": "This request has no statement (it read the schema).",
+      "openInEditor": "Open in editor",
+      "noDataOpen": "The audit keeps what an agent asked and how it ended, never the data it returned. To see the data, open the statement in the editor and run it there. String values show as ? in the audit.",
+      "noData": "The audit keeps what an agent asked and how it ended, never the data it returned. To see the data, run the statement in this connection's editor. String values show as ? in the audit.",
+      "noDataContainers": "The audit keeps what an agent asked and how it ended, never the output it got back."
+    }
   },
   "common": {
     "close": "Close",
@@ -77,7 +92,6 @@
   "connections": {
     "title": "Connections",
     "new": "New connection",
-    "add": "Add connection",
     "notSaved": "not saved",
     "favorite": "Favorite {{name}}",
     "unfavorite": "Unfavorite {{name}}",
@@ -232,6 +246,10 @@
     "agentRead": "Read — agents may ask to read, each request needs your approval",
     "agentWrite": "Read and write — every change needs your approval",
     "agentProd": "Agents can never write to a production connection.",
+    "agentsWidened": {
+      "read": "Agents can now ask to read {{name}}",
+      "write": "Agents can now ask to read and change {{name}}"
+    },
     "keepalive": "Keep-alive (seconds)",
     "keepaliveHint": "0 turns it off",
     "mask": "Names agents must not see",
@@ -282,7 +300,9 @@
     "namePlaceholder": "Save as… (Folder/Name)",
     "noneSaved": "Nothing saved yet.",
     "noHistory": "Statements you run appear here.",
-    "clearHistory": "Clear history"
+    "clearHistory": "Clear history",
+    "clearHistoryTitle": "Clear the query history of {{name}}?",
+    "clearHistoryBody": "Every query run on this connection leaves the history. Saved queries stay. This can’t be undone."
   },
   "plan": {
     "on": "on {{relation}}",
@@ -655,6 +675,7 @@
     "loading": "Loading preferences…",
     "loadFailed": "The settings could not be read",
     "saveFailed": "The settings could not be saved",
+    "riskySaved": "OxeQuery settings saved: it keeps less, or agents may be given more",
     "history": "Statements kept per connection",
     "historyHint": "The query history under Library. Older statements are dropped.",
     "audit": "Keep the agent audit log for",

@@ -1,8 +1,9 @@
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { claudeSettingsPickModel, codexConfigPicksModel, detectModelOverride } from '../electron/main/services/conversation/thread-model-override'
+import { removeTempDir } from './helpers/removeTempDir'
 
 describe('model override detection', () => {
   let root = ''
@@ -11,7 +12,7 @@ describe('model override detection', () => {
     root = await mkdtemp(join(tmpdir(), 'oxe-model-root-'))
     home = await mkdtemp(join(tmpdir(), 'oxe-model-home-'))
   })
-  afterEach(async () => { await rm(root, { recursive: true, force: true }); await rm(home, { recursive: true, force: true }) })
+  afterEach(async () => { removeTempDir(root); removeTempDir(home) })
 
   it('reads Claude model choices from settings and env', () => {
     expect(claudeSettingsPickModel('{"model":"opus"}')).toBe(true)

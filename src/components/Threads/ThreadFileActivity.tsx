@@ -10,6 +10,8 @@ import { changeSummary, threadChanges, turnChanges, type ThreadChangeEntry } fro
 import { ThreadHunkReview } from './ThreadHunkReview'
 import { humanizeError } from '../../utils/humanizeError'
 import { relativeTurnPath } from '../../../shared/threadFilePath'
+import { usePathMenu, WithPathMenu } from '../PathMenu/usePathMenu'
+import { conversationPathMenu } from '../PathMenu/conversationPathMenu'
 
 /** A changed file's path relative to its checkout, with the checkout named when it is not the conversation's root. */
 export function TurnPath({ path, roots }: { path: string; roots: Array<string | null | undefined> }) {
@@ -18,17 +20,24 @@ export function TurnPath({ path, roots }: { path: string; roots: Array<string | 
 }
 
 /** `root` is the conversation's own checkout; `roots` are others it worked in, such as a worktree. */
-export function ThreadFileActivity({ event, root, roots = [], threadId, onOpen }: { event: Extract<ThreadEvent, { type: 'tool' }>; root: string; roots?: Array<string | null | undefined>; threadId: string; onOpen(entry: ThreadChangeEntry): void }) {
+export function ThreadFileActivity({ event, root, roots = [], threadId, workspaceId, onOpen }: { event: Extract<ThreadEvent, { type: 'tool' }>; root: string; roots?: Array<string | null | undefined>; threadId: string; workspaceId?: string; onOpen(entry: ThreadChangeEntry): void }) {
+  return <div className="thread-file-activity">{threadChanges([event]).map(entry => <FileActivityRow key={entry.key} entry={entry} root={root} roots={roots} threadId={threadId} workspaceId={workspaceId} onOpen={onOpen} />)}{event.state === 'failed' && event.output && <ErrorState compact title={event.output} />}</div>
+}
+
+/** One changed file: click opens it in OXESpace; right click or Shift+F10 opens the path menu (F33), for files in the project. */
+function FileActivityRow({ entry, root, roots, threadId, workspaceId, onOpen }: { entry: ThreadChangeEntry; root: string; roots: Array<string | null | undefined>; threadId: string; workspaceId?: string; onOpen(entry: ThreadChangeEntry): void }) {
   const { t } = useTranslation('thread')
-  const [expanded, setExpanded] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState(false)
   const verb = (file: ThreadChangeEntry['file']): string => t(`files.verb.${file.state === 'failed' || file.state === 'running' || file.state === 'unknown' ? file.state
     : file.source === 'tool-input' ? 'toolInput' : file.source === 'working-tree-observation' ? 'observed' : file.kind === 'add' || file.kind === 'delete' || file.kind === 'rename' ? file.kind : 'update'}`)
-  return <div className="thread-file-activity">{threadChanges([event]).map(entry => <div key={entry.key}><div className="thread-file-operation"><button type="button" className="thread-file-entry" onClick={() => onOpen(entry)} title={entry.file.path}>
+  const target = conversationPathMenu(entry.file.path, workspaceId, root, roots)
+  const { menu, onContextMenu } = usePathMenu(target?.request ?? null, { openInOxespace: target?.copyOnly ? undefined : () => onOpen(entry), copyOnly: target?.copyOnly })
+  return <div><div className="thread-file-operation"><button type="button" className="thread-file-entry" onClick={() => onOpen(entry)} onContextMenu={onContextMenu} title={entry.file.path}>
     <FileCode2 size={14} /><span className="thread-file-verb">{verb(entry.file)}</span>
     <TurnPath path={entry.file.path} roots={[root, ...roots]} /><FileStats file={entry.file} />
-  </button>{entry.file.artifactId && <button type="button" className="thread-file-expand" aria-label={t('files.expand', { path: relativeTurnPath(entry.file.path, [root, ...roots]).label })} aria-expanded={expanded === entry.key} onClick={() => setExpanded(value => value === entry.key ? null : entry.key)}><ChevronRight size={12} /></button>}</div>
-    {expanded === entry.key && <ThreadInlineEvidence threadId={threadId} artifactId={entry.file.artifactId!} />}
-  </div>)}{event.state === 'failed' && event.output && <ErrorState compact title={event.output} />}</div>
+  </button>{menu}{entry.file.artifactId && <button type="button" className="thread-file-expand" aria-label={t('files.expand', { path: relativeTurnPath(entry.file.path, [root, ...roots]).label })} aria-expanded={expanded} onClick={() => setExpanded(value => !value)}><ChevronRight size={12} /></button>}</div>
+    {expanded && <ThreadInlineEvidence threadId={threadId} artifactId={entry.file.artifactId!} />}
+  </div>
 }
 
 function ThreadInlineEvidence({ threadId, artifactId }: { threadId: string; artifactId: string }) {
@@ -56,7 +65,7 @@ const relativeKey = (path: string, roots: Array<string | null | undefined>): str
   return roots.some(root => root && /^[a-z]:[\\/]/i.test(root)) ? label.toLowerCase() : label
 }
 
-export function ThreadTurnChanges({ events, root, roots = [], onOpen, onViewChanges, onUndo, loadFileStates, onUndoFile, loadHunks, onUndoHunk, onComment }: { events: ThreadEvent[]; root: string; roots?: Array<string | null | undefined>; onOpen(entry: ThreadChangeEntry): void; onViewChanges?(): void; onUndo?(): Promise<void>; loadFileStates?(): Promise<ThreadTurnFileStatus[]>; onUndoFile?(path: string): Promise<void>; loadHunks?(path: string): Promise<ThreadFileHunk[]>; onUndoHunk?(path: string, hunkId: string): Promise<void>; onComment?(text: string): void }) {
+export function ThreadTurnChanges({ events, root, roots = [], workspaceId, onOpen, onViewChanges, onUndo, loadFileStates, onUndoFile, loadHunks, onUndoHunk, onComment }: { events: ThreadEvent[]; root: string; roots?: Array<string | null | undefined>; workspaceId?: string; onOpen(entry: ThreadChangeEntry): void; onViewChanges?(): void; onUndo?(): Promise<void>; loadFileStates?(): Promise<ThreadTurnFileStatus[]>; onUndoFile?(path: string): Promise<void>; loadHunks?(path: string): Promise<ThreadFileHunk[]>; onUndoHunk?(path: string, hunkId: string): Promise<void>; onComment?(text: string): void }) {
   const { t } = useTranslation('thread')
   const [showAll, setShowAll] = useState(false)
   const [undo, setUndo] = useState<'idle' | 'confirm' | 'working'>('idle')
@@ -102,7 +111,9 @@ export function ThreadTurnChanges({ events, root, roots = [], onOpen, onViewChan
       const status = fileStates[relativeKey(entry.file.path, allRoots)]
       const label = relativeTurnPath(entry.file.path, allRoots).label
       return <div key={entry.key} className="thread-change-file">
-        <button type="button" onClick={() => onOpen(entry)} title={entry.file.path}><span className="thread-change-file-name"><TurnPath path={entry.file.path} roots={allRoots} /></span>{entries.filter(value => value.file.path === entry.file.path).length === 1 && <FileStats file={entry.file} />}</button>
+        {/* F33: the path menu on a changed file of the conversation's project. */}
+        <WithPathMenu {...(() => { const target = conversationPathMenu(entry.file.path, workspaceId, root, allRoots); return { request: target?.request ?? null, copyOnly: target?.copyOnly } })()} openInOxespace={() => onOpen(entry)}
+          render={onContextMenu => <button type="button" onClick={() => onOpen(entry)} onContextMenu={onContextMenu} title={entry.file.path}><span className="thread-change-file-name"><TurnPath path={entry.file.path} roots={allRoots} /></span>{entries.filter(value => value.file.path === entry.file.path).length === 1 && <FileStats file={entry.file} />}</button>} />
         {status?.state === 'reverted' && <span className="thread-change-file-state">{t('files.reverted')}</span>}
         {status?.state === 'modified' && <span className="thread-change-file-state" title={t('files.editedLaterTitle')}>{t('files.editedLater')}</span>}
         {status?.state === 'pending' && onUndoFile && <button type="button" className="thread-change-view" disabled={undoingFile !== null || undo === 'working'} aria-label={t('files.undoFileLabel', { path: label })} onClick={() => {

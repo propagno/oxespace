@@ -5,6 +5,7 @@ import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { recordThreadVisualAudit } from './helpers/thread-visual-audit'
+import { pressUntilValueChanges } from './helpers/pressUntilValueChanges'
 
 test('Thread UI preserves Code terminals and renders a structured conversation', async () => {
   test.setTimeout(120000)
@@ -116,8 +117,6 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
         { name: 'compact', description: 'Summarize conversation context', source: 'claude' },
         ...Array.from({ length: 45 }, (_, index) => ({ name: `skill-${index}`, description: `Project skill ${index}`, source: 'claude' }))
       ] } })
-      ipcMain.removeHandler('voice:get-model-status')
-      ipcMain.handle('voice:get-model-status', (_event, size) => ({ size, ready: true, path: '/fixture/voice', engineReady: true }))
       ipcMain.handle('thread:projects', () => ({ projects: [], unavailable: [] }))
       const accounts = new Map<string, Record<string, unknown>>()
       let copiedText = ''
@@ -285,30 +284,12 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(grid).toBeVisible()
     const codeInput = page.locator('.terminal-pane .xterm-helper-textarea').first()
     await expect(page.getByTestId('terminal-status-label').first()).toHaveText('running')
-    await page.evaluate(() => {
-      const media = navigator.mediaDevices
-      ;(globalThis as Record<string, unknown>).originalGetUserMedia = media.getUserMedia
-      media.getUserMedia = async () => { throw new DOMException('The user aborted a request.', 'AbortError') }
-    })
+    // F34: the former voice shortcut does nothing in the app any more; no voice overlay or button appears.
     await codeInput.focus()
     await page.keyboard.press('Control+Shift+v')
-    await expect(page.getByText('Microphone request was canceled. Try again.')).toBeVisible()
-    await page.screenshot({ path: 'test-results/voice-error-dismissible.png' })
-    await page.getByRole('button', { name: 'Close voice input' }).click()
     await expect(page.locator('.oxe-voice-hud')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /voice|dictation|microphone/i })).toHaveCount(0)
     await expect(codeInput).toBeFocused()
-    await page.keyboard.press('Control+Shift+v')
-    await expect(page.locator('.oxe-voice-hud.error')).toBeVisible()
-    await page.getByRole('button', { name: 'Close voice input' }).click()
-    await expect(page.locator('.oxe-voice-hud')).toHaveCount(0)
-    await page.keyboard.press('Control+Shift+v')
-    await expect(page.locator('.oxe-voice-hud.error')).toBeVisible()
-    await page.getByRole('button', { name: 'Close voice input' }).click()
-    await expect(page.locator('.oxe-voice-hud')).toHaveCount(0)
-    await page.evaluate(() => {
-      navigator.mediaDevices.getUserMedia = (globalThis as Record<string, unknown>).originalGetUserMedia as typeof navigator.mediaDevices.getUserMedia
-      delete (globalThis as Record<string, unknown>).originalGetUserMedia
-    })
     const terminalCount = await page.locator('.xterm').count()
     const nav = page.getByRole('navigation', { name: 'Application view' })
     await expect(page.locator('.workbench-titlebar').getByRole('navigation', { name: 'Application view' })).toBeVisible()
@@ -327,7 +308,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     const codeSidebar = page.locator('.sidebar')
     const resize = codeSidebar.getByRole('separator', { name: 'Sidebar width', exact: true })
     for (const [key, presses, width] of [['ArrowLeft', 20, 240], ['ArrowRight', 15, 360], ['ArrowLeft', 10, 280]] as const) {
-      for (let index = 0; index < presses; index++) await resize.press(key)
+      // FL-09: each press checked to its exact step; a press that does not land is recorded and pressed again (≤2).
+      await pressUntilValueChanges(resize, key, presses, { step: 8, label: `Sidebar width ${key}×${presses}→${width}` })
       await expect(resize).toHaveAttribute('aria-valuenow', String(width))
       await expect.poll(() => page.evaluate(() => Math.round(document.querySelector('.workspace-surface')!.getBoundingClientRect().left - document.querySelector('.sidebar')!.getBoundingClientRect().right))).toBe(8) // --frame-gap
       await expect(codeSidebar.getByRole('button', { name: 'Open settings', exact: true })).toBeVisible()
@@ -457,10 +439,10 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(message).toBeVisible()
     await modelPicker.getByRole('button', { name: /Native model Native catalog model/ }).click()
     await message.fill('Keep this draft')
-    await page.getByRole('button', { name: 'Select effort', exact: true }).click()
+    await page.getByRole('button', { name: /^Effort: / }).click()
     await page.getByRole('button', { name: 'High', exact: true }).click()
     await expect(message).toHaveValue('Keep this draft')
-    await expect(page.getByRole('button', { name: 'Select effort', exact: true })).toContainText('High')
+    await expect(page.getByRole('button', { name: /^Effort: / })).toContainText('High')
     const threadBounds = await page.locator('.thread-view').boundingBox()
     expect(threadBounds!.height).toBeLessThanOrEqual(600)
     await page.screenshot({ path: 'test-results/thread-model-picker-900.png' })
@@ -477,8 +459,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(accessDialog.getByRole('button', { name: 'Apply access', exact: true })).toBeInViewport()
     await page.screenshot({ path: 'test-results/thread-access-dialog.png' })
     await accessDialog.getByRole('button', { name: 'Apply access', exact: true }).click()
-    await expect(page.getByRole('button', { name: 'Permissions', exact: true })).toContainText('Workspace access')
-    await expect(page.getByRole('button', { name: 'Permissions', exact: true })).toBeFocused()
+    await expect(page.getByRole('button', { name: /^Permissions: / })).toContainText('Can edit')
+    await expect(page.getByRole('button', { name: /^Permissions: / })).toBeFocused()
     await expect(page.locator('.thread-timeline')).toHaveCount(1)
     await expect(page.locator('.thread-composer textarea')).toHaveCount(1)
     await expect(page.locator('.thread-navigation')).toBeVisible()
@@ -680,7 +662,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     expect(runningActions.gap).toBeGreaterThanOrEqual(0)
     expect(runningActions.gap).toBeLessThanOrEqual(12)
     expect(runningActions.rightInset).toBeLessThanOrEqual(12)
-    expect(runningActions.stopWidth).toBe(28)
+    // T57: Stop is a labelled pill, wider than the round Send, and its word is on screen.
+    expect(runningActions.stopWidth).toBeGreaterThan(28)
+    await expect(page.locator('.thread-stop')).toContainText('Stop')
     expect(runningActions.sendWidth).toBe(28)
     await expectReadingAnchor()
     await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Unsent draft')

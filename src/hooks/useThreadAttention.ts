@@ -7,8 +7,8 @@ import { useThreadStore } from '../store/thread.store'
 import { displayThreadTitle } from '../components/Threads/threadTitle'
 import { decideThreadAttention, threadAttentionText, type ThreadAttentionKind } from '../utils/threadAttention'
 
-/** Prefix that routes a notification click to a thread instead of a terminal pane. */
-export const THREAD_NOTIFICATION_PANE_PREFIX = 'thread:'
+import { THREAD_NOTIFICATION_PANE_PREFIX } from './notificationPrefixes'
+export { THREAD_NOTIFICATION_PANE_PREFIX }
 
 const SETTLE_MS = 300
 

@@ -5,6 +5,7 @@ import { chmodSync, closeSync, fsyncSync, mkdirSync, openSync, readFileSync, rea
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { recordIncident } from '../services/diagnostics/incident-sink'
+import { testDatabasePath } from '../test-switches'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -12,15 +13,15 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 89
+export const LATEST_DB_VERSION = 93
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 3
 
 export type AppDatabase = DatabaseHandle
 
 export function resolveAppDatabasePath(): string {
-  if (process.env.OXESPACE_DB_PATH) return process.env.OXESPACE_DB_PATH
-  return join(app.getPath('userData'), 'oxespace.sqlite3')
+  // T50: a packaged build ignores the test database path (test-switches.ts).
+  return testDatabasePath(process.env, app.isPackaged) ?? join(app.getPath('userData'), 'oxespace.sqlite3')
 }
 
 /** Retry the open on TRANSIENT errors (a stale instance or antivirus briefly
@@ -66,7 +67,8 @@ function openAndMigrate(databasePath: string): AppDatabase {
     // lose every workspace. Only when an existing DB is actually behind.
     const fromVersion = db.pragma('user_version', { simple: true }) as number
     if (fromVersion > LATEST_DB_VERSION) {
-      throw new Error('This database was created by a newer OXESpace version. Open it with that version; downgrade migration is not supported.')
+      // T87: marked, so startup shows its own screen for it (startup-failure.ts) instead of an empty app.
+      throw Object.assign(new Error('This database was created by a newer OXESpace version. Open it with that version; downgrade migration is not supported.'), { newerSchema: true, fromVersion, latest: LATEST_DB_VERSION })
     }
     if (fromVersion > 0 && fromVersion < LATEST_DB_VERSION) {
       backupBeforeMigration(db, databasePath, fromVersion)
@@ -521,6 +523,14 @@ export function runMigrations(db: AppDatabase): void {
   if (startingVersion < 87) db.transaction(() => db.exec(readMigration('087_activity_entries.sql')))()
   if (startingVersion < 88) db.transaction(() => db.exec(readMigration('088_remote_devices.sql')))()
   if (startingVersion < 89) db.transaction(() => db.exec(withoutExistingColumns(db, readMigration('089_remote_gateway_listened.sql'))))()
+  if (startingVersion < 90) db.transaction(() => db.exec(readMigration('090_accepted_project_config.sql')))()
+  // An ADD COLUMN cannot run twice: a database that already has it (replayed from an older user_version) only moves on.
+  if (startingVersion < 91) db.transaction(() => {
+    if (hasColumn(db, 'pane_agent_sessions', 'permission_mode')) db.exec('PRAGMA user_version = 91')
+    else db.exec(readMigration('091_pane_session_permission_mode.sql'))
+  })()
+  if (startingVersion < 92) db.transaction(() => db.exec(readMigration('092_agent_seen.sql')))()
+  if (startingVersion < 93) db.transaction(() => db.exec(withoutExistingColumns(db, readMigration('093_workspace_color.sql'))))()
 }
 
 /** Rebuild the parent without cascading its children or rewriting their IDs. */

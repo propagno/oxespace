@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { ConversationThread, ThreadConfiguration, ThreadModelCatalog, ThreadSnapshot } from '../../../shared/types/thread'
 import { ConfirmDialog, EmptyState, ErrorState, LoadingState, Popover, Spinner, TextField } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
+import { modelChipName } from './threadModelName'
 
 export function ThreadConfigurationBar({ thread, onConfigured, onError, openControl, onControlClosed }: {
   thread: ConversationThread; onConfigured: (snapshot: ThreadSnapshot) => void; onError: (message: string) => void
@@ -42,9 +43,14 @@ export function ThreadConfigurationBar({ thread, onConfigured, onError, openCont
     } catch (error) { if (identity.current === id) onError(humanizeError(error, t('config.applyFailed'))) }
     finally { if (identity.current === id) setSaving(false) }
   }
-  const selector = (kind: string, label: string, text: string, children: React.ReactNode, disabled = false, badge?: string, Icon?: LucideIcon) => <Popover open={opened === kind} onOpenChange={open => { if (open) setOpened(kind); else if (!proposedAccess && !proposedNetwork && !proposedNever && !proposedHooks) close() }}
+  // T57 / T58 §4: each control is a chip that names its value ("Model: Opus 5.5"); a change waiting for the next
+  // message has a dashed border and says so in its tooltip.
+  const pendingChange = Boolean(thread.pendingConfiguration)
+  const selector = (kind: 'model' | 'effort' | 'permissions', label: string, text: string, children: React.ReactNode, disabled = false, badge?: string, Icon?: LucideIcon) => <Popover open={opened === kind} onOpenChange={open => { if (open) setOpened(kind); else if (!proposedAccess && !proposedNetwork && !proposedNever && !proposedHooks) close() }}
     side="top" sideOffset={10} label={label} className="thread-config-popover"
-    trigger={<button ref={kind === 'permissions' ? accessTrigger : undefined} type="button" className={`thread-config-trigger${kind === 'permissions' ? ' is-permissions' : ''}${Icon ? ' is-icon' : ''}`} aria-label={Icon ? label : `${label}: ${text}`} disabled={saving || disabled} title={Icon ? `${label}: ${text}` : text}>{Icon && <Icon size={14} aria-hidden="true" />}<span className={Icon ? 'sr-only' : undefined}>{text}</span>{badge && <i className="thread-config-badge">{badge}</i>}{saving ? <Spinner size="sm" label={t('config.saving')} /> : <ChevronDown size={12} />}</button>}>
+    trigger={<button ref={kind === 'permissions' ? accessTrigger : undefined} type="button" className={`thread-config-trigger thread-chip is-${kind}`} data-access={kind === 'permissions' ? desired.access ?? 'read-only' : undefined} data-pending={pendingChange || undefined}
+      aria-label={`${t(`config.chip.${kind}`)}: ${text}`} disabled={saving || disabled} title={pendingChange ? `${t(`config.chip.${kind}`)}: ${text} · ${t('config.chip.pending')}` : `${t(`config.chip.${kind}`)}: ${text}`}>
+      {kind === 'model' ? <i className="thread-chip-dot" data-provider={thread.provider} aria-hidden="true" /> : Icon && <Icon size={14} aria-hidden="true" />}<span className="thread-chip-text">{text}</span>{badge && <i className="thread-config-badge">{badge}</i>}{saving ? <Spinner size="sm" label={t('config.saving')} /> : <ChevronDown size={12} />}</button>}>
       <header>{label}{kind !== 'permissions' && <button type="button" aria-label={t('config.refreshModels')} onClick={() => setRefresh(value => value + 1)} disabled={loading}><RefreshCw size={14} /></button>}</header><div className="thread-config-scroll">{children}</div>
   </Popover>
   const planning = desired.mode === 'plan'
@@ -55,12 +61,12 @@ export function ThreadConfigurationBar({ thread, onConfigured, onError, openCont
       <button type="button" aria-pressed={planning} disabled={saving} onClick={() => setMode(true)}>{t('config.plan')}</button>
       <button type="button" aria-pressed={!planning} disabled={saving} onClick={() => setMode(false)}>{t('config.agent')}</button>
     </div>
-    {selector('model', t('config.selectModel'), model?.label ?? desired.model ?? (loading ? t('config.loadingModels') : catalog.defaultKnown === false ? t('config.providerDefault') : t('config.selectModel')), <>
+    {selector('model', t('config.selectModel'), modelChipName({ chosen: desired.model, catalog, reported: thread.contextReport?.model }) ?? (loading ? t('config.loadingModels') : t('config.providerDefault')), <>
       {catalog.models.length > 8 && <TextField aria-label={t('config.filterModels')} placeholder={t('config.searchModels')} value={query} onChange={event => setQuery(event.target.value)} />}
       {error ? <ErrorState compact title={error} onRetry={() => setRefresh(value => value + 1)} retryLabel={t('common.tryAgain')} /> : loading ? <LoadingState label={t('config.loadingModels')} /> : !catalog.models.length ? <EmptyState compact title={t('config.noModels')} /> :<div className="thread-config-options">{catalog.models.filter(value => `${value.label} ${value.id}`.toLowerCase().includes(query.toLowerCase())).map(value => <button type="button" key={value.id} aria-pressed={modelId === value.id} onClick={() => void apply({ model: value.id, ...(effort && value.efforts.includes(effort) ? { reasoningEffort: effort } : value.defaultEffort ? { reasoningEffort: value.defaultEffort } : {}) })}><span><strong>{value.label}</strong>{' '}<small>{value.description}</small></span>{modelId === value.id && <Check size={14} />}</button>)}</div>}
     </>)}
     {selector('effort', t('config.selectEffort'), effort ? effort[0].toUpperCase() + effort.slice(1) : t('config.automatic'), <div className="thread-config-options">{effortOptions.map(value => <button type="button" key={value} aria-pressed={effort === value} onClick={() => void apply({ ...(model ? { model: model.id } : {}), reasoningEffort: value })}><span>{value[0].toUpperCase() + value.slice(1)}</span>{effort === value && <Check size={14} />}</button>)}</div>, !effortOptions.length, undefined, Gauge)}
-    {selector('permissions', t('config.permissions'), desired.access === 'full-access' ? t('config.fullAccess') : desired.access === 'workspace-write' ? thread.provider === 'claude' ? t('config.nativePermissions') : t('config.workspaceAccess') : t('config.readOnly'), <div className="thread-config-options">
+    {selector('permissions', t('config.permissions'), desired.access === 'full-access' ? t('config.fullAccess') : desired.access === 'workspace-write' ? t('config.chip.canEdit') : t('config.readOnly'), <div className="thread-config-options">
       <p className="thread-access-directory" title={thread.rootPath}>{thread.rootPath}</p>
       <p className="thread-config-section-label">{t('config.access')}</p>
       <button type="button" aria-pressed={desired.access === 'read-only' || !desired.access} onClick={() => void apply({ access: 'read-only', networkAccess: false, hooksEnabled: false })}><span><strong>{t('config.readOnly')}</strong><small>{thread.provider === 'claude' ? t('config.readOnlyClaude') : t('config.readOnlyCodex')}</small></span>{(!desired.access || desired.access === 'read-only') && <Check size={14} />}</button>

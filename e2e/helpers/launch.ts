@@ -1,4 +1,4 @@
-import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test'
+import { _electron as electron, expect, type ElectronApplication, type Page } from '@playwright/test'
 import { mkdirSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -118,6 +118,46 @@ export async function resizeWindow(app: ElectronApplication, width: number, heig
     win.setSize(w, h)
     win.center()
   }, [width, height])
+}
+
+/**
+ * Lays the window out `width` CSS px wide whatever the screen: CI screens can be narrower than asked (the window is
+ * clamped), so the page is zoomed out to fit. The app applies its own interface scale once React mounts
+ * (ThemeProvider → setUiScale), which would put a zoom set any earlier back to 100%: this waits for the shell to be
+ * drawn, zooms, and returns only once the shell really lays out at that width.
+ */
+export async function layoutAtWidth(app: ElectronApplication, page: Page, width: number, height: number): Promise<void> {
+  await resizeWindow(app, width, height)
+  await page.locator('.app-shell').waitFor({ state: 'visible' })
+  const shellWidth = (): Promise<number> => page.locator('.app-shell').evaluate(node => Math.round(node.getBoundingClientRect().width))
+  await expect.poll(async () => {
+    await app.evaluate(({ BrowserWindow }, wanted) => {
+      const win = BrowserWindow.getAllWindows()[0]
+      const factor = Math.min(1, win.getContentBounds().width / wanted)
+      if (Math.abs(win.webContents.getZoomFactor() - factor) > 0.001) win.webContents.setZoomFactor(factor)
+    }, width)
+    return Math.abs(await shellWidth() - width) <= 2
+  }, { message: `the shell lays out ${width} CSS px wide`, timeout: 10_000 }).toBe(true)
+}
+
+/** Diagnostics for a layout-dependent failure: zoom, window, shell, split grid and pane widths, and visible toasts. */
+export async function layoutDiag(app: ElectronApplication, page: Page): Promise<string> {
+  const win = await app.evaluate(({ BrowserWindow }) => {
+    const window = BrowserWindow.getAllWindows()[0]
+    return { zoom: window.webContents.getZoomFactor(), content: window.getContentBounds(), maximized: window.isMaximized(), fullScreen: window.isFullScreen() }
+  })
+  const dom = await page.evaluate(() => {
+    const width = (selector: string): number[] => [...document.querySelectorAll(selector)].map(node => Math.round(node.getBoundingClientRect().width))
+    return {
+      inner: `${window.innerWidth}x${window.innerHeight}`, dpr: window.devicePixelRatio, shell: width('.app-shell'), sidebar: width('aside.sidebar'),
+      grids: width('.workspace-host:not(.workspace-host-hidden) .workspace-split-grid'), panes: width('[data-testid="pane-container"]'),
+      surface: width('section.workspace-surface'),
+      sidePanels: [...document.querySelectorAll('.workspace-host:not(.workspace-host-hidden) [data-testid$="-panel"]')].map(node => `${node.getAttribute('data-testid')}=${Math.round(node.getBoundingClientRect().width)}`),
+      panelTabs: [...document.querySelectorAll('.workspace-host:not(.workspace-host-hidden) .workspace-panel-stack-tablist [role="tab"]')].map(node => node.textContent ?? ''),
+      toasts: [...document.querySelectorAll('[role=status],[role=alert]')].map(node => (node.textContent ?? '').slice(0, 120)).filter(Boolean)
+    }
+  })
+  return JSON.stringify({ ...win, ...dom })
 }
 
 /** Creates the demo workspace through the wizard, the same path a user takes. */

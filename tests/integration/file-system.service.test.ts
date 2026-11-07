@@ -1,8 +1,9 @@
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { FileSystemService, MAX_TEXT_FILE_BYTES } from '../../electron/main/services/file-system.service'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const testWindows = process.platform === 'win32' ? test : test.skip
 
@@ -27,7 +28,7 @@ describe('FileSystemService', () => {
 
   afterEach(async () => {
     service.closeAll()
-    await rm(rootPath, { recursive: true, force: true })
+    removeTempDir(rootPath)
   })
 
   test('lists workspace tree and excludes generated directories', async () => {
@@ -95,7 +96,7 @@ describe('FileSystemService', () => {
         relativePath: 'linked-outside/secret.txt'
       })).rejects.toThrow('resolves outside')
     } finally {
-      await rm(outside, { recursive: true, force: true })
+      removeTempDir(outside)
     }
   })
 

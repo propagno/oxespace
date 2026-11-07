@@ -1,5 +1,12 @@
 package com.oxespace.mobile.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import com.oxespace.mobile.approval.Presence
 import com.oxespace.mobile.approval.PresenceCheck
 import com.oxespace.mobile.approval.PresenceGate
@@ -12,6 +19,9 @@ import com.oxespace.mobile.protocol.live.TerminalBuffer
 import com.oxespace.mobile.protocol.live.ThreadTimeline
 import com.oxespace.mobile.session.LiveRepository
 import com.oxespace.mobile.session.Watched
+import com.oxespace.mobile.ui.theme.Oxe
+import com.oxespace.mobile.ui.theme.OxeSpace
+import kotlinx.serialization.json.JsonPrimitive
 
 /** Data the screenshots show: what a real desktop would send, through the same stores the app uses. */
 object Samples {
@@ -48,7 +58,7 @@ object Samples {
     private fun requestJson(risky: Boolean) = if (risky) {
         """{"threadId":"t-1","workspaceId":"w-1","threadTitle":"Fix the login redirect","requestId":"r-1","generation":3,"kind":"approval",
         "title":"Delete the build output","command":"rm -rf dist build","cwd":".","toolName":"Bash","paths":["dist/","build/"],
-        "reason":"The old bundle breaks the redirect test","risk":"red","warnings":["Deletes files outside the change set"],"redacted":1,
+        "reason":"The old bundle breaks the redirect test","risk":"critical","warnings":["Deletes files outside the change set"],"redacted":1,
         "decisions":["accept","decline"],"answerable":true,"createdAt":1}"""
     } else {
         """{"threadId":"t-1","workspaceId":"w-1","threadTitle":"Fix the login redirect","requestId":"r-2","generation":3,"kind":"question",
@@ -70,6 +80,57 @@ object Samples {
             {"seq":6,"item":{"type":"request","id":"q-1","requestId":"r-1","kind":"approval","title":"Delete the build output","state":"pending"}}]}""")))
     }
 
+    /** T100: a conversation longer than the screen; it must open on its last message, not its first. */
+    fun long() = Watched(ThreadTimeline()).apply {
+        val idle = header.replace("\"status\":\"running\"", "\"status\":\"idle\"").replace("\"pendingRequests\":1", "\"pendingRequests\":0")
+        val items = (1..24).joinToString(",") { n ->
+            val role = if (n % 2 == 1) "user" else "assistant"
+            val text = if (n == 24) "The last message: the expiry check is fixed and the test passes." else "Message $n of the conversation."
+            """{"seq":$n,"item":{"type":"message","id":"m$n","role":"$role","text":"$text"}}"""
+        }
+        onSnapshot(listOf(json("""{"thread":$idle,"hasMore":false,"items":[$items]}""")))
+    }
+
+    /** M10: a working turn with folded reads, a running command, and an earlier finished turn behind its bar. */
+    fun working() = Watched(ThreadTimeline()).apply {
+        onSnapshot(listOf(json("""{"thread":$header,"hasMore":false,"items":[
+            {"seq":1,"item":{"type":"message","id":"u0","role":"user","text":"Why does the login redirect loop?"}},
+            {"seq":2,"item":{"type":"tool","id":"a1","name":"Read","state":"completed","detail":"src/auth/middleware.ts"}},
+            {"seq":3,"item":{"type":"message","id":"a2","role":"assistant","text":"The middleware reads the **old cookie** after a refresh, so `isExpired` is always true."}},
+            {"seq":4,"item":{"type":"completed","id":"c0","status":"completed"}},
+            {"seq":5,"item":{"type":"message","id":"u1","role":"user","text":"Fix it and add a test."}},
+            {"seq":6,"item":{"type":"tool","id":"b1","name":"Read","state":"completed","detail":"src/auth/session.ts"}},
+            {"seq":7,"item":{"type":"tool","id":"b2","name":"Grep","state":"completed","detail":"isExpired src/"}},
+            {"seq":8,"item":{"type":"tool","id":"b3","name":"Edit","state":"completed","detail":"src/auth/session.ts","filesChanged":1}},
+            {"seq":9,"item":{"type":"tool","id":"b4","name":"Bash","state":"running","detail":"npm test -- auth"}}]}""")))
+    }
+
+    /** M10: a finished turn: collapsed steps, and the final answer as the one card, with a code block. */
+    fun finished() = Watched(ThreadTimeline()).apply {
+        val idle = header.replace("\"status\":\"running\"", "\"status\":\"idle\"").replace("\"pendingRequests\":1", "\"pendingRequests\":0")
+        onSnapshot(listOf(json("""{"thread":$idle,"hasMore":false,"items":[
+            {"seq":1,"item":{"type":"message","id":"u1","role":"user","text":"Fix the login redirect and add a test."}},
+            {"seq":2,"item":{"type":"tool","id":"b1","name":"Read","state":"completed","detail":"src/auth/session.ts"}},
+            {"seq":3,"item":{"type":"tool","id":"b2","name":"Edit","state":"completed","detail":"src/auth/session.ts"}},
+            {"seq":4,"item":{"type":"tool","id":"b3","name":"Bash","state":"completed","detail":"npm test -- auth","output":"Tests: 12 passed"}},
+            {"seq":5,"item":{"type":"message","id":"a9","role":"assistant","text":"The expiry check compared **seconds** with **milliseconds**. I fixed `isExpired` and added a regression test:
+
+```
+npm test -- auth   # 12 passed
+```"}},
+            {"seq":6,"item":{"type":"completed","id":"c1","status":"completed"}}]}""")))
+    }
+
+    /** Every risk wire value the phone may meet: the four levels, the older shell colours and a level added later. */
+    val riskWires = listOf("low", "medium", "high", "critical", "green", "orange", "red", "catastrophic")
+
+    @Composable
+    fun RiskLevels(line: @Composable (String) -> Unit) {
+        Column(Modifier.fillMaxWidth().background(Oxe.colors.surfaceBase).padding(OxeSpace.space4), verticalArrangement = Arrangement.spacedBy(OxeSpace.space3)) {
+            riskWires.forEach { line(it) }
+        }
+    }
+
     /** Three minutes after the sample requests were made, so "há 3 min" in every shot, whatever the day. */
     val clock: () -> Long = { 1 + 3 * 60_000L }
 
@@ -80,6 +141,24 @@ object Samples {
     })
     val pane = RemotePane("p-2", "npm run dev", "terminal", phoneWrite = true)
     val readOnlyPane = RemotePane("p-3", "zsh", "terminal", phoneWrite = false)
+
+    /**
+     * Claude Code's Ink TUI as its PTY writes it: each frame erases the last (ESC[2K, ESC[1A, ESC[G) and draws anew.
+     * Built here, not captured from anyone's terminal. 1.4.2 showed this as a black screen with a lone ">" (T97).
+     */
+    fun claudeTerminal() = Watched(TerminalBuffer()).apply {
+        val esc = "\u001B"
+        fun frame(previous: Int, text: String) = buildString {
+            for (i in 0 until previous) { append("$esc[2K"); if (i < previous - 1) append("$esc[1A") }
+            if (previous > 0) append("$esc[G")
+            append(text.replace("\n", "\r\n")).append("\r\n")
+        }
+        val box = "╭─────────────────────────────╮\n│ > add a test for the expiry │\n╰─────────────────────────────╯\n  esc to interrupt"
+        val first = "$esc[38;2;215;119;87m✻$esc[39m Thinking…\n$box"
+        val second = "$esc[1m●$esc[22m Read $esc[1msrc/auth/session.ts$esc[22m\n$esc[38;2;215;119;87m✻$esc[39m Writing tests… (8s)\n$box"
+        val data = "$ claude\r\n" + frame(0, first) + frame(first.split('\n').size + 1, second)
+        onSnapshot(listOf(json("""{"data":${JsonPrimitive(data)},"truncated":false}""")))
+    }
 
     fun terminal(loaded: Boolean = true) = Watched(TerminalBuffer()).apply {
         if (!loaded) return@apply

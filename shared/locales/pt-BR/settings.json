@@ -47,10 +47,6 @@
         "label": "Teclado",
         "hint": "Atalhos e combinações de teclas"
       },
-      "voice": {
-        "label": "Voz",
-        "hint": "Microfone e transcrição local"
-      },
       "notifications": {
         "label": "Notificações",
         "hint": "Alertas e sons"
@@ -94,6 +90,12 @@
       "cleared_one": "{{count}} site esquecido",
       "cleared_other": "{{count}} sites esquecidos",
       "cleared_many": "{{count}} sites esquecidos"
+    },
+    "externalEditor": {
+      "label": "Editor externo",
+      "hint": "O \"Abrir em…\" mostra este editor primeiro, e Ctrl+Shift+clique num caminho em um terminal abre o arquivo nele.",
+      "none": "Nenhum editor externo foi encontrado neste computador (VS Code, Cursor ou Zed).",
+      "auto": "Automático"
     }
   },
   "appearance": {
@@ -296,34 +298,6 @@
     "usage": "Buscas dos agentes até agora: {{without}} sem o índice, {{with}} com ele (contadas só nesta máquina).",
     "changeFailed": "Não foi possível mudar o índice semântico."
   },
-  "voice": {
-    "kicker": "OXEVoice · transcrição local",
-    "title": "Voz",
-    "description": "Dite com transcrição local e os atalhos que você preferir.",
-    "model": "Modelo",
-    "models": {
-      "tiny": "Tiny — o mais rápido, menos preciso (~75 MB)",
-      "base": "Base — equilibrado (~142 MB)",
-      "small": "Small — mais preciso, mais lento (~466 MB)"
-    },
-    "shortcut": "Atalho para falar",
-    "pressKeys": "Pressione as teclas…",
-    "capture": "Capturar",
-    "captureHint": "Pressione o atalho, ou Esc para cancelar",
-    "engine": "Motor",
-    "available": "disponível",
-    "unavailable": "indisponível",
-    "modelName": "Modelo «{{size}}»",
-    "modelReady": "pronto",
-    "downloadingPercent": "baixando… {{percent}}%",
-    "notDownloaded": "não baixado",
-    "engineMissing": "A entrada por voz precisa do motor whisper.cpp, que esta versão traz só para Windows. O download do modelo começa quando o motor estiver disponível neste sistema.",
-    "downloading": "Baixando…",
-    "download": "Baixar o modelo",
-    "readyLine": "Modelo pronto para falar com o atalho",
-    "downloadFailed": "Não foi possível baixar o modelo.",
-    "callout": "Reconhecimento local (whisper.cpp), em <strong>português do Brasil</strong>. Segure o atalho para falar; toque no microfone para falar sem segurar."
-  },
   "terminal": {
     "title": "Terminal",
     "description": "Defina a fonte, o cursor e o comportamento padrão de todos os workspaces. Os ajustes de cada workspace continuam independentes.",
@@ -350,7 +324,10 @@
     "lines": "{{lines}} linhas",
     "opacity": "Opacidade do fundo",
     "translucent": "translúcido",
-    "globalDefaults": "Padrões <strong>globais</strong>. Cada workspace pode mudá-los."
+    "globalDefaults": "Padrões <strong>globais</strong>. Cada workspace pode mudá-los.",
+    "resumeBypass": "Retomar sessões com as permissões ignoradas quando a sessão estava assim",
+    "resumeBypassOn": "Sessões retomadas agora pulam os pedidos de permissão quando já pulavam antes",
+    "resumeBypassHint": "Uma sessão do Claude Code iniciada ignorando os pedidos de permissão é retomada do mesmo jeito depois de reiniciar ou de Restaurar sessão. Desligado: ela é retomada pedindo permissão."
   },
   "hooks": {
     "title": "Hooks de status dos agentes",
@@ -579,6 +556,7 @@
   "agentConfig": {
     "promptRequired": "O prompt da skill é obrigatório",
     "saveFailed": "Falha ao salvar o perfil do agente",
+    "commandChanged": "{{name}} agora inicia com o novo comando",
     "commandRequired": "O comando é obrigatório",
     "deleteFailed": "Falha ao excluir o perfil do agente",
     "deleteTitle": "Excluir este perfil de agente?",
@@ -607,7 +585,8 @@
       "hint": "Desligada por padrão. Ligada, o OXESpace escuta só em endereços de rede privada, por uma conexão criptografada que só celulares pareados podem usar.",
       "listening": "Escutando em {{addresses}}, porta {{port}}",
       "off": "Desligada. Nenhuma porta aberta.",
-      "failed": "Não foi possível mudar a conexão com o celular: {{error}}"
+      "failed": "Não foi possível mudar a conexão com o celular: {{error}}",
+      "on": "Celulares agora podem se conectar a este computador"
     },
     "firewall": {
       "title": "Antes de os celulares se conectarem",
@@ -617,6 +596,45 @@
       "internet": "Nada fica exposto à internet. O OXESpace escuta só em endereços de rede privada, e só celulares que você parear aqui podem usar a conexão.",
       "later": "Se você recusar, os celulares não alcançam este computador. Dá para mudar a resposta depois nas configurações de firewall do sistema.",
       "confirm": "Ligar"
+    },
+    "firewallCheck": {
+      "rule": "OXESpace.exe, TCP {{port}}, só redes privadas",
+      "blocked": {
+        "title": "Uma regra do firewall bloqueia o OXESpace",
+        "text": "Uma regra de bloqueio no Firewall do Windows Defender impede que celulares cheguem a este computador, e ela vence qualquer regra de permissão. O OXESpace nunca a remove: fale com a sua TI ou remova-a no Firewall do Windows Defender."
+      },
+      "public": {
+        "title": "Esta rede é Pública, e o Windows bloqueia celulares",
+        "text": "O Windows não deixa dispositivos entrarem em redes Públicas. Se esta é a Wi-Fi da sua casa ou do escritório, mude-a para Privada: Configurações do Windows › Rede e Internet › Wi-Fi › esta rede › Rede privada. O OXESpace não muda isso por você."
+      },
+      "noRule": {
+        "title": "O Firewall do Windows ainda não deixa celulares entrarem",
+        "text": "Nenhuma regra do firewall deixa o OXESpace aceitar conexões de celulares nesta rede."
+      },
+      "noInspection": "O OXESpace não conseguiu ler as configurações do firewall, então isto é uma estimativa. Permitir continua seguro.",
+      "ok": "Celulares conseguem chegar a este computador: {{rule}}.",
+      "checkAgain": "Verificar de novo",
+      "uac": "O Windows vai pedir permissão. Nada muda se você disser Não.",
+      "command": "O que é executado:",
+      "repair": {
+        "action": "Permitir em redes privadas",
+        "adds": "Adiciona uma regra: {{rule}}.",
+        "confirmTitle": "Permitir celulares em redes privadas?",
+        "explain": "O OXESpace adiciona uma regra ao Firewall do Windows, \"{{name}}\": {{rule}}. Você pode removê-la aqui depois.",
+        "confirm": "Permitir",
+        "done": "Verificado: celulares já conseguem chegar a este computador em redes privadas",
+        "notVerified": "Não foi possível verificar a regra. Verifique de novo ou adicione-a no Firewall do Windows Defender.",
+        "failed": "Não foi possível adicionar a regra"
+      },
+      "undo": {
+        "action": "Remover a regra",
+        "confirmTitle": "Remover a regra do firewall?",
+        "explain": "O OXESpace remove só a regra que adicionou, \"{{name}}\" ({{rule}}). Celulares não chegarão a este computador até ela ser permitida de novo.",
+        "confirm": "Remover",
+        "done": "Verificado: a regra do firewall foi removida",
+        "notVerified": "Não foi possível verificar a remoção. Verifique de novo.",
+        "failed": "Não foi possível remover a regra"
+      }
     },
     "name": {
       "title": "Nome deste computador",
@@ -694,7 +712,8 @@
         "pendingRequests": "Ver pedidos esperando por você",
         "terminal": "Ver a saída dos terminais (só leitura)",
         "jobs": "Ver tarefas em segundo plano",
-        "delegations": "Ver delegações"
+        "delegations": "Ver delegações",
+        "agents": "Ver todos os agentes e o que precisa de você"
       },
       "commands": {
         "threadSend": "Enviar uma mensagem a uma conversa",
@@ -702,7 +721,8 @@
         "threadInterrupt": "Parar um turno em andamento",
         "threadRespondRequest": "Aceitar ou recusar um pedido de conversa, depois de confirmar no celular com digital ou rosto",
         "terminalWrite": "Digitar em um terminal que você permitiu aqui",
-        "threadHistory": "Ler mensagens mais antigas"
+        "threadHistory": "Ler mensagens mais antigas",
+        "agentMarkSeen": "Marcar um agente como visto"
       },
       "forbidden": {
         "oxequeryApprove": "Aprovar mudanças do OxeQuery",
@@ -828,7 +848,8 @@
       },
       "source": {
         "user": "Definida na sua política de usuário; mude por lá.",
-        "managed": "Definida pela sua organização; não pode ser mudada aqui."
+        "managed": "Definida pela sua organização; não pode ser mudada aqui.",
+        "reads": "Uma consulta somente leitura, permitida por \"Aprovar comandos somente leitura automaticamente\" nas Permissões de uma conversa. Desligue isso para ser perguntado."
       },
       "confirmLevel": "Sempre pergunta: esta ferramenta faz coisas que você confirma a cada vez.",
       "saved": "{{tool}}: {{decision}}.",

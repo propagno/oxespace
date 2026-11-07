@@ -1,5 +1,5 @@
 import { execFileSync, spawn } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
@@ -8,6 +8,7 @@ import { AgentHookInstaller, STATUS_HOOK_FILE } from '../../electron/main/servic
 import { AgentHookServer } from '../../electron/main/services/agent-hooks/server'
 import { resolveSessionLocation } from '../../electron/main/services/git-common-dir'
 import type { AgentHookLocationEvent, AgentHookStatusEvent } from '../../shared/types/agent-hooks'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const HOOK_SCRIPT = join(process.cwd(), 'resources', 'agent-hooks', STATUS_HOOK_FILE)
 
@@ -85,6 +86,22 @@ describe('AgentHookServer', () => {
     ])
   })
 
+  test('T54: the permission mode comes only from a Claude SessionStart, and only as one of its four words', async () => {
+    const deliver = (agent: string, payload: Record<string, unknown>) => post({ executionId: 'exec', token: 'secret', workspaceId: 'ws', agent, payload })
+    await deliver('claude-code', { hook_event_name: 'SessionStart', source: 'startup', session_id: 's1', permission_mode: 'bypassPermissions' })
+    await deliver('claude-code', { hook_event_name: 'UserPromptSubmit', session_id: 's1', permission_mode: 'plan' })
+    await deliver('claude-code', { hook_event_name: 'SessionStart', source: 'startup', session_id: 's2', permission_mode: 'everything' })
+    await deliver('codex', { hook_event_name: 'SessionStart', session_id: 's3', permission_mode: 'bypassPermissions' })
+    // A /clear or /resume inside Claude reports the mode it has now, not the one it started in (SECURITY L1 on #552).
+    await deliver('claude-code', { hook_event_name: 'SessionStart', source: 'clear', session_id: 's4', permission_mode: 'acceptEdits' })
+    await deliver('claude-code', { hook_event_name: 'SessionStart', source: 'resume', session_id: 's1', permission_mode: 'plan' })
+    expect(events.map(event => [event.event, event.sessionId, event.permissionMode])).toEqual([
+      ['SessionStart', 's1', 'bypassPermissions'], ['UserPromptSubmit', 's1', undefined], ['SessionStart', 's2', undefined], ['SessionStart', 's3', undefined],
+      ['SessionStart', 's4', undefined], ['SessionStart', 's1', undefined]
+    ])
+    expect(events.filter(event => event.permissionMode === undefined).every(event => !('permissionMode' in event))).toBe(true)
+  })
+
   test('rejects bad credentials and never emits', async () => {
     expect(await post({ executionId: 'exec', token: 'nope', workspaceId: 'ws', agent: 'codex', payload: { hook_event_name: 'Stop' } })).toBe(403)
     expect(events).toHaveLength(0)
@@ -140,8 +157,8 @@ describe('AgentHookServer', () => {
       expect(locations).toHaveLength(4)
     } finally {
       located.stop()
-      rmSync(tree, { recursive: true, force: true })
-      rmSync(repo, { recursive: true, force: true })
+      removeTempDir(tree)
+      removeTempDir(repo)
     }
   })
 
@@ -196,7 +213,7 @@ describe('AgentHookInstaller', () => {
     codexPath = join(home, 'codex', 'hooks.json')
   })
   afterEach(() => {
-    try { rmSync(home, { recursive: true, force: true }) } catch { /* temp */ }
+    try { removeTempDir(home) } catch { /* temp */ }
   })
 
   const make = (version: string | null = '2.1.100'): AgentHookInstaller =>

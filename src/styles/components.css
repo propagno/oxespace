@@ -437,8 +437,9 @@
   min-width: 0;
 }
 
+/* Only the kicker: a button's own <span> in the header's actions kept its case (S-07: "REFRESH"). */
 .settings-modal-brand span,
-.settings-content-header span {
+.settings-content-header .settings-content-kicker {
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 700;
@@ -504,7 +505,7 @@
 }
 
 .settings-nav-item.active {
-  background: var(--surface-canvas);
+  background: var(--fill-selected);
   color: var(--tx-primary);
   box-shadow: inset 0 0 0 1px var(--ov-2);
 }
@@ -982,8 +983,7 @@
 }
 
 .settings-field select,
-.settings-field input[type='text'],
-.settings-hotkey-row input {
+.settings-field input[type='text'] {
   padding: 8px 10px;
   border: 1px solid var(--ov-3);
   border-radius: var(--radius-md);
@@ -993,8 +993,7 @@
 }
 
 .settings-field select:focus,
-.settings-field input[type='text']:focus,
-.settings-hotkey-row input:focus {
+.settings-field input[type='text']:focus {
   border-color: color-mix(in srgb, var(--brand) 45%, transparent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 14%, transparent);
 }
@@ -1007,17 +1006,6 @@
 .settings-field input:disabled {
   opacity: 0.65;
   cursor: not-allowed;
-}
-
-.settings-hotkey-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.settings-hotkey-row input {
-  flex: 1;
-  min-width: 0;
 }
 
 .settings-toggle-row {
@@ -1077,29 +1065,6 @@
   font-size: var(--fs-xs);
 }
 
-.settings-status-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-  padding: var(--space-lg);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--bd-base);
-  background: var(--bg-elevated);
-}
-
-.settings-status-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  font-size: var(--fs-xs);
-}
-
-.settings-status-row strong {
-  color: var(--tx-primary);
-  font-weight: 600;
-}
-
 .settings-status-pill {
   display: inline-flex;
   align-items: center;
@@ -1134,15 +1099,6 @@
   color: var(--tx-muted);
   background: var(--ov-1);
   border-color: var(--ov-2);
-}
-
-.settings-status-ok-line {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--intent-success-fg);
-  font-size: var(--fs-xs);
-  font-weight: 600;
 }
 
 .settings-progress {
@@ -1778,7 +1734,7 @@
 
 .slash-overlay-item.active {
   /* Quiet selected state — no teal border halo. */
-  background: var(--surface-active);
+  background: var(--fill-selected);
   border-color: transparent;
 }
 

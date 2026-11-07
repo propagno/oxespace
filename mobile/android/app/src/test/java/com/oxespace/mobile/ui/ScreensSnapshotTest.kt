@@ -15,6 +15,7 @@ import com.oxespace.mobile.session.DesktopStatus
 import com.oxespace.mobile.ui.live.LiveHome
 import com.oxespace.mobile.ui.live.LiveTab
 import com.oxespace.mobile.ui.live.RequestScreen
+import com.oxespace.mobile.ui.live.RiskLine
 import com.oxespace.mobile.ui.live.TerminalScreen
 import com.oxespace.mobile.ui.live.ThreadScreen
 import com.oxespace.mobile.ui.pairing.PairingScreen
@@ -66,9 +67,17 @@ class ScreensSnapshotTest(private val night: Boolean, private val locale: String
         val camera: @Composable (androidx.compose.ui.Modifier) -> Unit = { modifier -> Box(modifier.background(Oxe.colors.surfaceInverse)) }
         shot("scanning") { PairingScreen(PairingState.Scanning, {}, {}, camera) }
         shot("bad-code") { PairingScreen(PairingState.BadCode(PairingQrProblem.PUBLIC_HOST), {}, {}, camera) }
+        shot("contacting") { PairingScreen(PairingState.Contacting("Studio"), {}, {}, camera) }
         shot("waiting") { PairingScreen(PairingState.Waiting("Studio", "28T5CY"), {}, {}, camera) }
         shot("paired") { PairingScreen(PairingState.Paired(Samples.desktop), {}, {}, camera) }
         shot("wrong-certificate") { PairingScreen(PairingState.Failed(PairingFailure.WRONG_CERTIFICATE), {}, {}, camera) }
+        shot("unreachable") { PairingScreen(PairingState.Failed(PairingFailure.UNREACHABLE), {}, {}, camera) }
+        shot("timed-out") { PairingScreen(PairingState.Failed(PairingFailure.TIMED_OUT), {}, {}, camera) }
+        shot("refused-by-computer") { PairingScreen(PairingState.Failed(PairingFailure.REFUSED_BY_COMPUTER), {}, {}, camera) }
+        shot("local-network-blocked") { PairingScreen(PairingState.Failed(PairingFailure.LOCAL_NETWORK_BLOCKED), {}, {}, camera) }
+        // Android 17: the scan waits for local network access, then for the camera.
+        shot("local-network-ask") { PairingScreen(PairingState.Scanning, {}, {}) { modifier -> LocalNetworkPrompt(LocalNetworkAsk.NOT_ASKED, {}, {}, modifier) } }
+        shot("local-network-denied") { PairingScreen(PairingState.Scanning, {}, {}) { modifier -> LocalNetworkPrompt(LocalNetworkAsk.DENIED, {}, {}, modifier) } }
     }
 
     @Test
@@ -82,14 +91,21 @@ class ScreensSnapshotTest(private val night: Boolean, private val locale: String
 
     @Test
     fun conversation() {
-        shot("thread") { ThreadScreen("t-1", Samples.timeline(), commands, Samples.presence, connected = true) {} }
-        shot("thread-loading") { ThreadScreen("t-1", Samples.timeline(loaded = false), commands, Samples.presence, connected = true) {} }
+        shot("thread") { ThreadScreen("t-1", Samples.timeline(), commands, Samples.presence, connected = true, pending = listOf(Samples.request())) {} }
+        shot("thread-working") { ThreadScreen("t-1", Samples.working(), commands, Samples.presence, connected = true) {} }
+        shot("thread-finished") { ThreadScreen("t-1", Samples.finished(), commands, Samples.presence, connected = true) {} }
+        shot("thread-loading") { ThreadScreen("t-1", Samples.timeline(loaded = false), commands, Samples.presence, connected = true, knownTitle = "Fix the login redirect", skeletonAfterMs = 0) {} }
+        // T100: a long conversation opens on its last message.
+        shot("thread-long") { ThreadScreen("t-1", Samples.long(), commands, Samples.presence, connected = true) {} }
+        shot("latest-chip") { com.oxespace.mobile.ui.live.LatestChip {} }
     }
 
     @Test
     fun terminal() {
         shot("terminal-typing") { TerminalScreen(Samples.pane, Samples.terminal(), commands, Samples.presence) {} }
         shot("terminal-read-only") { TerminalScreen(Samples.readOnlyPane, Samples.terminal(), commands, Samples.presence) {} }
+        // T97: a full-screen TUI shows its latest frame, not a pile of erased ones.
+        shot("terminal-tui") { TerminalScreen(Samples.readOnlyPane, Samples.claudeTerminal(), commands, Samples.presence) {} }
         shot("terminal-loading") { TerminalScreen(Samples.readOnlyPane, Samples.terminal(loaded = false), commands, Samples.presence) {} }
     }
 
@@ -97,6 +113,7 @@ class ScreensSnapshotTest(private val night: Boolean, private val locale: String
     fun requests() {
         shot("request-risky") { RequestScreen(Samples.request(risky = true), commands) {} }
         shot("request-question") { RequestScreen(Samples.request(risky = false), commands) {} }
+        shot("risk-levels") { Samples.RiskLevels { RiskLine(it) } }
         // SECURITY #229: the agent's claim sits under "Written by the agent"; the override in the command is written out.
         shot("request-hidden-characters") {
             RequestScreen(Samples.request().copy(command = "rm -rf ~/\u202Etxt.sh", detail = "OXESpace checked this command: safe to allow"), commands) {}

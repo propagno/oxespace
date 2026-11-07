@@ -8,11 +8,12 @@ import { installCloseGuard } from './window-close-guard'
 import { initialWindowColors, registerAppearanceIpc, savedUiScale } from './ipc/appearance.ipc'
 import { systemLocale, tMain } from './i18n'
 import { randomUUID } from 'node:crypto'
+import { realpathSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { openDatabase } from './db/index'
+import { openDatabase, resolveAppDatabasePath } from './db/index'
 import { registerAgentIpc } from './ipc/agent.ipc'
 import { registerFileSystemIpc } from './ipc/file-system.ipc'
 import { registerMcpToolsIpc } from './ipc/mcp-tools.ipc'
@@ -21,10 +22,10 @@ import { registerSessionIpc } from './ipc/session.ipc'
 import { broadcastSkillChange, registerSkillIpc } from './ipc/skill.ipc'
 import { broadcastMcpHealth, registerMcpIpc } from './ipc/mcp.ipc'
 import { registerMcpInternalIpc } from './ipc/mcp-internal.ipc'
-import { registerMcpToolRulesIpc } from './ipc/mcp-tool-rules.ipc'
-import { registerVoiceIpc } from './ipc/voice.ipc'
 import { registerNotificationsIpc } from './ipc/notifications.ipc'
 import { registerAppInfoIpc } from './ipc/app-info.ipc'
+import { singleInstanceDisabled } from './test-switches'
+import { e2eMocksEnabled } from './e2e/e2e-mode'
 import { registerClipboardTextIpc } from './ipc/clipboard.ipc'
 import { registerOxeIpc } from './ipc/oxe.ipc'
 import { registerCopilotIpc } from './ipc/copilot.ipc'
@@ -64,7 +65,7 @@ import { fallbackShellProfiles } from './services/shell-profile.defaults'
 import { guardMainWindowLinks, isLoopbackHttpUrl } from './utils/external-open'
 import { applyLoginShellPath } from './utils/login-shell-path'
 import { securePreviewGuest, securePreviewSession, WEB_PREVIEW_PARTITION_PREFIX } from './services/browser-preview-security'
-import { registerBrowserPreviewIpc } from './services/browser-preview.service'
+import { registerBrowserPreviewIpc } from './ipc/browser-preview.ipc'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
 import type { ShellProfile } from '../../shared/types/workspace'
 import { redactLogMessage } from './services/log-redaction'
@@ -138,7 +139,8 @@ async function registerIpcHandlers(): Promise<() => void> {
   void registerRtkIpc()
   registerBrowserPreviewIpc()
 
-  if (process.env.OXESPACE_E2E_MOCK_NATIVE === '1') {
+  // T48: never in a packaged build, whatever the environment says (e2e/e2e-mode.ts).
+  if (e2eMocksEnabled(process.env, app.isPackaged)) {
     if (process.env.OXESPACE_E2E_PREVIEW_SERVICE) {
       const { PreviewAutomation } = await import('./services/documentation/preview-automation')
       ;(globalThis as typeof globalThis & { preview: InstanceType<typeof PreviewAutomation> }).preview = new PreviewAutomation()
@@ -158,10 +160,14 @@ async function registerIpcHandlers(): Promise<() => void> {
     db = openDatabase()
   } catch (error) {
     log.error('Native startup failed', error)
-    registerNativeFailureIpcHandlers(toMessage(error))
+    // T87: one blocking screen with the reason, and no other handler behind it (startup-failure.ts).
+    const { describeStartupFailure, registerStartupFailureIpc } = await import('./startup-failure')
+    registerStartupFailureIpc(describeStartupFailure(error, resolveAppDatabasePath()))
     ipcRegistered = true
     return noop
   }
+  // The window asks before it renders; a normal start answers that nothing failed.
+  ipcMain.handle(IPC_CHANNELS.app.startupFailure, () => null)
 
   // Shared Project Memory ships off: no service, no settings page, no oxespace_memory_* tools until the flag is on.
   configureExperimentalFeatures(app.getPath('userData'))
@@ -173,9 +179,9 @@ async function registerIpcHandlers(): Promise<() => void> {
   registerMemoryIpc(memoryService)
   registerAgentHooksIpc(app.getPath('userData'))
   // What each pane's agent is doing (working, blocked, done...), from its hooks and its screen.
-  const [{ AgentStateService }, { loadManifests }, { BUNDLED_MANIFESTS }, { registerAgentStateIpc, broadcastAgentState }] = await Promise.all([
+  const [{ AgentStateService }, { loadManifests }, { BUNDLED_MANIFESTS }, { registerAgentStateIpc, broadcastAgentState }, { notifyAgentsChanged, onAgentsChanged }] = await Promise.all([
     import('./services/agent-state/agent-state.service'), import('./services/agent-state/manifest'),
-    import('./services/agent-state/bundled-manifests'), import('./ipc/agent-state.ipc')
+    import('./services/agent-state/bundled-manifests'), import('./ipc/agent-state.ipc'), import('./services/agents/agents-notifier')
   ])
   const agentManifests = loadManifests(BUNDLED_MANIFESTS, join(app.getPath('userData'), 'agent-detection'))
   for (const warning of agentManifests.warnings) log.warn(`[agent-state] ${warning}`)
@@ -183,10 +189,17 @@ async function registerIpcHandlers(): Promise<() => void> {
   let terminalForHistory: { peek(paneId: string): { data: string } | null } | undefined
   const agentState = new AgentStateService({
     manifests: () => agentManifests.manifests,
-    emit: broadcastAgentState,
+    emit: event => { broadcastAgentState(event); notifyAgentsChanged() },
     history: paneId => terminalForHistory?.peek(paneId)?.data ?? null
   })
   registerAgentStateIpc(agentState)
+  // S7.1: every agent in one overview (panes, conversations, delegations, work runs), for the window and later the phone.
+  const [{ AgentsReadModel }, { registerAgentsIpc }, { ThreadHistory }, { englishText }] = await Promise.all([
+    import('./services/agents/agents-read-model'), import('./ipc/agents.ipc'), import('./services/conversation/thread-history'), import('./agent-text')
+  ])
+  const agentThreadHistory = new ThreadHistory(db)
+  const agentsModel = new AgentsReadModel({ db, panes: () => agentState.list(), threadRequests: () => agentThreadHistory.pendingRequestsAll(), markPaneSeen: paneId => agentState.markSeen(paneId) })
+  registerAgentsIpc(agentsModel)
   const { PaneAgentSessions } = await import('./services/agent-state/pane-sessions')
   const paneAgentSessions = new PaneAgentSessions(db)
   // Agents' own lifecycle hooks report here. Deliveries authenticate with the
@@ -206,7 +219,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       agentState.hook(event.paneId, hookAgent, event.state)
       // Remember the native session so the pane can reopen it after a restart; an ended session is forgotten.
       if (event.state === 'ended') paneAgentSessions.clear(event.paneId)
-      else if (event.sessionId) paneAgentSessions.record(event.paneId, hookAgent, event.sessionId)
+      else if (event.sessionId) paneAgentSessions.record(event.paneId, hookAgent, event.sessionId, 'hook', event.permissionMode)
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send(IPC_CHANNELS.agentHooks.onStatus, event)
       }
@@ -337,7 +350,9 @@ async function registerIpcHandlers(): Promise<() => void> {
     observed: thread => delegatedThreadObserver.current?.(thread),
     bridge: join(app.getPath('userData'), 'bin', 'oxespace-mcp.cjs'),
     prepare: async thread => {
-      const meta = db.prepare('SELECT port, token FROM internal_mcp_meta LIMIT 1').get() as { port: number; token: string } | undefined
+      // The internal MCP starts after first paint: a conversation sent in the first seconds waits for it (bounded).
+      const { waitForInternalMcp } = await import('./mcp-internal/ready')
+      const meta = await waitForInternalMcp(() => db.prepare('SELECT port, token FROM internal_mcp_meta LIMIT 1').get() as { port: number; token: string } | undefined)
       if (!meta) throw Error('Internal MCP is still starting. Retry shortly.')
       const nativeHooks = thread.hooksEnabled === true && (thread.access === 'workspace-write' || thread.access === 'full-access')
       const memory = await memoryService.prepareLaunch({ paneId: `thread:${thread.id}`, workspaceId: thread.workspaceId, cwd: thread.rootPath,
@@ -370,9 +385,24 @@ async function registerIpcHandlers(): Promise<() => void> {
     timer.unref?.()
     return filePath
   })
-  registerVoiceIpc()
   registerNotificationsIpc()
-  registerRemoteIpc(db, { threads: threadManager.manager, terminals: terminalManager, agentState }); app.once('before-quit', registerAppInfoIpc(db))
+  registerRemoteIpc(db, {
+    threads: threadManager.manager, terminals: terminalManager, agentState,
+    // S7.1: the phone's `agents` topic; a mark from the phone reaches the window too.
+    agents: {
+      overview: () => agentsModel.overview(),
+      // Only an agent the overview lists: a phone cannot push the person's real marks out of the store with made-up
+      // keys (SECURITY #531 L2). The answer is ok either way; the phone already sees every row.
+      markSeen: key => {
+        const { kind, id } = (key ?? {}) as { kind?: unknown; id?: unknown }
+        if (!agentsModel.overview().agents.some(row => row.kind === kind && row.id === id)) return false
+        const ok = agentsModel.markSeen(key)
+        if (ok) notifyAgentsChanged()
+        return ok
+      },
+      onChanged: onAgentsChanged, text: englishText
+    }
+  }); app.once('before-quit', registerAppInfoIpc(db))
   registerCopilotIpc()
   const creditsService = registerAgentCreditsIpc()
   const contextUsageService = registerContextUsageIpc()
@@ -387,7 +417,6 @@ async function registerIpcHandlers(): Promise<() => void> {
   const internalMcpGithub = new GitHubService(db)
   internalMcpGithub.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
   const internalMcpGit = new GitService()
-  registerMcpToolRulesIpc(db, fileSystemService, mcpManager) // Settings › Tools, per tool (B7.3)
   const codeGraphService = new CodeGraphService(db)
   const delegationAgents = new AgentService(db)
   const launcher = new AgentLaunchService(terminalManager, () => delegationAgents.list(), app.getPath('userData'))
@@ -405,6 +434,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     launch: task => launcher.launch(task), stop: paneId => terminalManager.stop({ paneId }),
     changed: (workspaceId, taskId) => {
       for (const window of BrowserWindow.getAllWindows()) window.webContents.send(IPC_CHANNELS.delegation.changed, { workspaceId, taskId })
+      notifyAgentsChanged()
     },
     enrich: async task => {
       let memory = ''
@@ -474,7 +504,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   registerMcpInternalIpc(internalMcp)
   registerDiagnosticsIpc(db, internalMcp, { terminals: terminalManager, mcp: mcpManager })
-  registerPolicyIpc(id => internalMcpWorkspaceServ.get(id)?.rootPath)
+  await registerPolicyIpc(id => internalMcpWorkspaceServ.get(id)?.rootPath, { db, files: fileSystemService, servers: mcpManager, executions })
   // OXESpace context manifest — prepended to the agent's initial prompt on pane spawn so the CLI knows the
   // workspace state without calling any MCP tool. Read shortcut; MCP is still the action path (see oxe-context.service.ts).
   registerOxeContextIpc({
@@ -556,140 +586,6 @@ async function registerIpcHandlers(): Promise<() => void> {
 
 /** Live RPC bus handle, closed on app shutdown. */
 let rpcServer: RpcServerHandle | null = null
-
-function registerNativeFailureIpcHandlers(message: string): void {
-  const shellProfiles: ShellProfile[] = fallbackShellProfiles()
-  const fail = (): never => {
-    throw new Error(`Native runtime unavailable: ${message}`)
-  }
-
-  ipcMain.handle(IPC_CHANNELS.workspace.list, () => [])
-  ipcMain.handle(IPC_CHANNELS.workspace.shellProfiles, () => shellProfiles)
-  ipcMain.handle(IPC_CHANNELS.workspace.create, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.setActive, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.delete, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.closePane, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.splitPane, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.updatePaneType, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.updateEditorState, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.updateReviewState, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.updateGitHubState, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.updateSettings, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.pickFolder, async (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-    const result = await dialog.showOpenDialog(win, { properties: ['openDirectory'] })
-    return result.canceled ? null : result.filePaths[0] ?? null
-  })
-  ipcMain.handle(IPC_CHANNELS.terminal.start, fail)
-  ipcMain.handle(IPC_CHANNELS.terminal.write, fail)
-  ipcMain.handle(IPC_CHANNELS.terminal.resize, fail)
-  ipcMain.handle(IPC_CHANNELS.terminal.stop, fail)
-  ipcMain.handle(IPC_CHANNELS.terminal.restart, fail)
-  ipcMain.handle(IPC_CHANNELS.terminal.attach, fail)
-  ipcMain.handle(IPC_CHANNELS.terminal.detach, fail)
-  ipcMain.handle(IPC_CHANNELS.terminal.status, fail)
-  ipcMain.handle(IPC_CHANNELS.voice.transcribe, fail)
-  ipcMain.handle(IPC_CHANNELS.voice.getModelStatus, () => ({ size: 'base', ready: false, path: '', engineReady: false }))
-  ipcMain.handle(IPC_CHANNELS.voice.ensureModel, fail)
-  ipcMain.handle(IPC_CHANNELS.notifications.notify, () => false)
-  ipcMain.handle(IPC_CHANNELS.oxe.detect, () => ({ installed: false, version: null }))
-  ipcMain.handle(IPC_CHANNELS.oxe.status, () => ({ installed: false, version: null, isOxeProject: false, status: null, error: null }))
-  ipcMain.handle(IPC_CHANNELS.oxe.openDashboard, () => ({ ok: false, error: null }))
-  ipcMain.handle(IPC_CHANNELS.agent.list, () => [])
-  ipcMain.handle(IPC_CHANNELS.agent.discover, () => [])
-  ipcMain.handle(IPC_CHANNELS.agent.getReadiness, () => [])
-  ipcMain.handle(IPC_CHANNELS.agent.create, fail)
-  ipcMain.handle(IPC_CHANNELS.agent.update, fail)
-  ipcMain.handle(IPC_CHANNELS.agent.delete, fail)
-  ipcMain.handle(IPC_CHANNELS.tasks.list, () => [])
-  ipcMain.handle(IPC_CHANNELS.tasks.create, fail)
-  ipcMain.handle(IPC_CHANNELS.tasks.update, fail)
-  ipcMain.handle(IPC_CHANNELS.tasks.delete, fail)
-  ipcMain.handle(IPC_CHANNELS.tasks.reorder, fail)
-  ipcMain.handle(IPC_CHANNELS.tasks.run, fail)
-  ipcMain.handle(IPC_CHANNELS.tasks.verify, fail)
-  ipcMain.handle(IPC_CHANNELS.tasks.executions, () => [])
-  ipcMain.handle(IPC_CHANNELS.fs.listTree, fail)
-  ipcMain.handle(IPC_CHANNELS.fs.readFile, fail)
-  ipcMain.handle(IPC_CHANNELS.fs.writeFile, fail)
-  ipcMain.handle(IPC_CHANNELS.fs.watchFile, fail)
-  ipcMain.handle(IPC_CHANNELS.fs.unwatchFile, fail)
-  for (const channel of Object.values(IPC_CHANNELS.github)) {
-    ipcMain.handle(channel, fail)
-  }
-  ipcMain.handle(IPC_CHANNELS.integration.listGroups, () => [])
-  ipcMain.handle(IPC_CHANNELS.integration.createGroup, fail)
-  ipcMain.handle(IPC_CHANNELS.integration.updateGroup, fail)
-  ipcMain.handle(IPC_CHANNELS.integration.deleteGroup, fail)
-  ipcMain.handle(IPC_CHANNELS.integration.addMember, fail)
-  ipcMain.handle(IPC_CHANNELS.integration.updateMember, fail)
-  ipcMain.handle(IPC_CHANNELS.integration.removeMember, fail)
-  ipcMain.handle(IPC_CHANNELS.integration.attachSession, fail)
-  ipcMain.handle(IPC_CHANNELS.integration.listHandoffs, () => [])
-  ipcMain.handle(IPC_CHANNELS.integration.createHandoff, fail)
-  ipcMain.handle(IPC_CHANNELS.integration.updateHandoff, fail)
-  ipcMain.handle(IPC_CHANNELS.integration.buildContext, fail)
-  // Wave 2-6 channels — degrade gracefully so the renderer doesn't spam
-  // "No handler registered" errors when native startup failed. Listing channels
-  // return empty data; mutating channels throw via `fail` so the user sees the
-  // root cause in any action they try.
-  ipcMain.handle(IPC_CHANNELS.background.list, () => [])
-  ipcMain.handle(IPC_CHANNELS.background.start, fail)
-  ipcMain.handle(IPC_CHANNELS.background.stop, fail)
-  ipcMain.handle(IPC_CHANNELS.background.remove, fail)
-  ipcMain.handle(IPC_CHANNELS.background.getOutput, () => ({ jobId: '', startSequence: 0, lines: [] }))
-  ipcMain.handle(IPC_CHANNELS.session.list, () => [])
-  ipcMain.handle(IPC_CHANNELS.session.fork, fail)
-  ipcMain.handle(IPC_CHANNELS.session.delete, fail)
-  ipcMain.handle(IPC_CHANNELS.skill.list, () => [])
-  ipcMain.handle(IPC_CHANNELS.skill.get, () => null)
-  ipcMain.handle(IPC_CHANNELS.skill.invoke, fail)
-  ipcMain.handle(IPC_CHANNELS.skill.create, fail)
-  ipcMain.handle(IPC_CHANNELS.mcp.list, () => [])
-  ipcMain.handle(IPC_CHANNELS.mcp.create, fail)
-  ipcMain.handle(IPC_CHANNELS.mcp.update, fail)
-  ipcMain.handle(IPC_CHANNELS.mcp.delete, fail)
-  ipcMain.handle(IPC_CHANNELS.mcp.start, fail)
-  ipcMain.handle(IPC_CHANNELS.mcp.test, fail)
-  ipcMain.handle(IPC_CHANNELS.mcp.stop, fail)
-  ipcMain.handle(IPC_CHANNELS.mcp.callTool, fail)
-  if ('setTrust' in IPC_CHANNELS.mcp) {
-    ipcMain.handle((IPC_CHANNELS.mcp as Record<string, string>).setTrust, fail)
-  }
-  ipcMain.handle(IPC_CHANNELS.mcpInternal.getStatus, () => ({
-    running: false,
-    port: null,
-    bridgePath: null,
-    serverRowId: null,
-    lastError: 'native startup failed',
-    uptimeMs: 0,
-    toolCount: 0,
-    tools: []
-  }))
-  ipcMain.handle(IPC_CHANNELS.mcpInternal.regenerateToken, fail)
-  ipcMain.handle(IPC_CHANNELS.semantic.getStatus, () => ({ enabled: false, workerReady: false, indexing: false, count: 0, lastError: 'native startup failed', mode: 'auto', coverage: { lexicalDocuments: 0, lastIndexedAt: null, byCategory: { source: 0, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null }))
-  ipcMain.handle(IPC_CHANNELS.semantic.setEnabled, () => ({ enabled: false, workerReady: false, indexing: false, count: 0, lastError: 'native startup failed', mode: 'auto', coverage: { lexicalDocuments: 0, lastIndexedAt: null, byCategory: { source: 0, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null }))
-  ipcMain.handle(IPC_CHANNELS.semantic.setMode, () => ({ enabled: false, workerReady: false, indexing: false, count: 0, lastError: 'native startup failed', mode: 'auto', coverage: { lexicalDocuments: 0, lastIndexedAt: null, byCategory: { source: 0, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null }))
-  ipcMain.handle(IPC_CHANNELS.semantic.getLogs, () => [])
-  ipcMain.handle(IPC_CHANNELS.diagnostics.getSnapshot, () => ({
-    generatedAt: Date.now(), appVersion: app.getVersion(), platform: process.platform, arch: process.arch,
-    nodeVersion: process.versions.node, electronVersion: process.versions.electron ?? 'unknown', workspaceCount: 0,
-    checks: [{ id: 'native', label: 'Native runtime', tone: 'error', detail: message }]
-  }))
-  ipcMain.handle(IPC_CHANNELS.diagnostics.exportReport, () => null)
-  ipcMain.handle(IPC_CHANNELS.oxeContext.buildPaneManifest, () => '')
-  ipcMain.handle(IPC_CHANNELS.workspace.updateBackgroundState, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.updateWorktreeState, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.reorder, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.setPaneAgent, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.setPaneRootPath, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.updatePaneName, fail)
-  ipcMain.handle(IPC_CHANNELS.workspace.createGitHubTerminalPane, fail)
-  ipcMain.handle(IPC_CHANNELS.tasks.onVerifyOutput, () => undefined)
-  ipcMain.handle(IPC_CHANNELS.tasks.addDependency, fail)
-  ipcMain.handle(IPC_CHANNELS.tasks.removeDependency, fail)
-  ipcMain.handle(IPC_CHANNELS.tasks.getReady, () => [])
-}
 
 async function registerRtkIpc(): Promise<void> {
   const { getRtkService } = await import('./services/rtk.service')
@@ -805,10 +701,10 @@ function createMainWindow(): BrowserWindow {
     securePreviewGuest(guestWebContents)
   })
 
-  // `media` allows microphone for OXEVoice. `clipboard-read` / `clipboard-sanitized-write`
-  // allow terminal Ctrl+V paste, which reads via navigator.clipboard.readText(). A
-  // media-only handler silently denied clipboard-read, which is what broke paste.
-  const ALLOWED_PERMISSIONS = new Set(['media', 'clipboard-read', 'clipboard-sanitized-write'])
+  // `clipboard-read` / `clipboard-sanitized-write` allow terminal Ctrl+V paste, which reads via navigator.clipboard.readText(). A
+  // handler without them silently denied clipboard-read, which is what broke paste. No `media`: nothing in the window
+  // uses the microphone or camera since OXEVoice left (B21), so a request for them is denied.
+  const ALLOWED_PERMISSIONS = new Set(['clipboard-read', 'clipboard-sanitized-write'])
   mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback, details) => {
     const isMainWindow = webContents === mainWindow.webContents
     const isMainFrame = details.isMainFrame !== false
@@ -900,7 +796,14 @@ function createMainWindow(): BrowserWindow {
   return mainWindow
 }
 
-const gotLock = process.env.OXESPACE_DISABLE_SINGLE_INSTANCE === '1' || app.requestSingleInstanceLock()
+// T50: a packaged build allows a second instance only on its own --user-data-dir (test-switches.ts).
+const gotLock = singleInstanceDisabled({
+  env: process.env,
+  isPackaged: app.isPackaged,
+  userDataDirSwitch: app.commandLine.getSwitchValue('user-data-dir'),
+  defaultUserData: () => join(app.getPath('appData'), app.getName()),
+  realpath: realpathSync.native,
+}) || app.requestSingleInstanceLock()
 
 if (!gotLock) {
   app.quit()

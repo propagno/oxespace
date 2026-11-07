@@ -146,7 +146,7 @@ for (const theme of THEMES) {
         await page.keyboard.press('Escape')
         await expect(dialog()).toHaveCount(0, { timeout: 5_000 }).catch(() => undefined)
       }
-      await dialogScan('team', () => page.getByRole('button', { name: 'Team', exact: true }).click(), () => page.getByRole('dialog', { name: 'Team', exact: true }))
+      await dialogScan('team', () => page.keyboard.press('Control+Shift+T'), () => page.getByRole('dialog', { name: 'Project team', exact: true }))
       await dialogScan('delegated-work', () => page.getByRole('button', { name: 'Delegated work', exact: true }).click(), () => page.getByRole('dialog', { name: 'Delegated work', exact: true }))
       await dialogScan('worktree-removal', async () => {
         await openTool(page, /^Worktrees$/)
@@ -286,7 +286,7 @@ for (const theme of THEMES) {
         await page.getByRole('menuitem', { name: 'Delegate work' }).click()
       }, () => page.getByRole('dialog', { name: 'Delegate work' }))
       await dialogScan('thread-confirm-full-access', async () => {
-        await page.getByRole('button', { name: 'Permissions', exact: true }).click()
+        await page.getByRole('button', { name: /^Permissions: / }).click()
         await page.locator('.thread-config-popover').getByRole('button', { name: /Full access/ }).click()
       }, () => page.getByRole('dialog', { name: 'Allow expanded access?' }))
     } finally {

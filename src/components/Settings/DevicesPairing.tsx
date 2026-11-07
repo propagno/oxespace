@@ -24,7 +24,9 @@ const remaining = (ms: number): string => {
  * limit | peer-closed) as a Notice here and stop waiting; today a failed attempt never reaches the window, and a phone
  * that hangs up mid-pairing (peer-closed) must not leave the code spinning.
  */
-export function DevicesPairing({ canPair, blockedReason }: { canPair: boolean; blockedReason: string | null }): ReactElement {
+export function DevicesPairing({ canPair, blockedReason, onOffer }: { canPair: boolean; blockedReason: string | null
+  /** A pairing code is on screen: the firewall check reads again (1.4.3 P1). */
+  onOffer?: () => void }): ReactElement {
   const { t } = useTranslation('settings')
   const prompt = useRemoteStore(state => state.pairing)
   const [offer, setOffer] = useState<RemotePairingOffer | null>(null)
@@ -60,7 +62,7 @@ export function DevicesPairing({ canPair, blockedReason }: { canPair: boolean; b
     const api = remoteApi()
     if (!api) return
     setBusy(true); setError('')
-    try { const next = await api.startPairing(); setNow(Date.now()); setOffer(next) } catch (cause) { setError(t('devices.pairing.failed', { error: errorText(cause) })) } finally { setBusy(false) }
+    try { const next = await api.startPairing(); setNow(Date.now()); setOffer(next); onOffer?.() } catch (cause) { setError(t('devices.pairing.failed', { error: errorText(cause) })) } finally { setBusy(false) }
   }
   const cancel = async (): Promise<void> => {
     setOffer(null)

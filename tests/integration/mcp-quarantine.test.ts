@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -11,6 +11,7 @@ vi.mock('node:os', async importOriginal => ({ ...(await importOriginal<typeof im
 import { openInMemoryDatabase } from '../../electron/main/db/index'
 import { McpManager } from '../../electron/main/services/mcp.service'
 import type { McpServerHealthEvent, McpToolDescriptor } from '../../shared/types/mcp'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 const SERVER = resolve('tests/fixtures/mcp-fake-server.cjs')
 const root = mkdtempSync(join(tmpdir(), 'oxe-quarantine-ws-'))
@@ -33,7 +34,7 @@ function setup() {
 }
 
 beforeEach(() => say(tool('read'), tool('write')))
-afterAll(() => { for (const dir of [root, home]) { try { rmSync(dir, { recursive: true, force: true }) } catch { /* a stopped server may still hold the folder on Windows */ } } })
+afterAll(() => { for (const dir of [root, home]) { try { removeTempDir(dir) } catch { /* a stopped server may still hold the folder on Windows */ } } })
 
 describe('an MCP server whose tools change after it was trusted', () => {
   test('is remembered on the first test and passes while nothing changes', async () => {

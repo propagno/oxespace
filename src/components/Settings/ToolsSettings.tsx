@@ -7,7 +7,10 @@ import {
   MCP_TOOL_GROUP_MODES, type ConfigurableMcpToolGroup, type McpToolCost, type McpToolDecision, type McpToolGroupInfo,
   type McpToolGroupMode, type McpToolGroupsReport, type McpToolRule
 } from '../../../shared/types/mcp-tools'
-import { Badge, Button, ConfirmDialog, EmptyState, ErrorState, LoadingState, Notice, Panel, SegmentedControl, Select, type Intent } from '../../ui'
+import { Badge, Button, ConfirmDialog, EmptyState, ErrorState, LoadingState, Notice, Panel, SegmentedControl, Select, toast, type Intent } from '../../ui'
+import { i18n } from '../../i18n'
+
+const tc = i18n.getFixedT(null, 'common')
 import { formatNumber } from '../../utils/formatTime'
 import { humanizeError } from '../../utils/humanizeError'
 import { claudeFixedCost, decisionsFor, organizationToolRules, OXESPACE_SERVER, otherServerRules, ruleFor } from './toolsModel'
@@ -27,7 +30,7 @@ const costText = (t: T, value: McpToolCost): string => t('tools.cost.value', { t
 function RuleRow({ rule, busy, onChoose }: { rule: McpToolRule; busy: boolean; onChoose: (rule: McpToolRule, decision: McpToolDecision) => void }): ReactElement {
   const { t } = useTranslation('settings')
   const choices = decisionsFor(rule)
-  const note = rule.source === 'user' || rule.source === 'managed' ? t(`tools.rules.source.${rule.source}`)
+  const note = rule.source === 'user' || rule.source === 'managed' || rule.source === 'reads' ? t(`tools.rules.source.${rule.source}`)
     : !choices.includes('allow') ? t('tools.rules.confirmLevel')
       : rule.scope ? t(`tools.rules.scope.${rule.scope}`) : ''
   return <li className={styles.rule}>
@@ -59,7 +62,8 @@ function GroupPanel({ group, rules, busy, unread = false, locked = false, onMode
   const name = groupName(t, group.id)
   const fixed = claudeFixedCost(group)
   const groupRules = rules ? group.tools.map(tool => ruleFor(rules, OXESPACE_SERVER, tool)) : []
-  const ruled = groupRules.filter(rule => rule.decision !== 'ask').length
+  // A row nobody set (asking by default, or a read "Auto-approve reads" allows) is not counted as set.
+  const ruled = groupRules.filter(rule => rule.source !== 'default' && rule.source !== 'reads').length
   const off = group.mode === 'off'
   return <Panel className={styles.group} label={name} title={name} actions={<>
     {unread && group.configurable ? <Badge intent="warning">{t('tools.invalidYaml.modeUnread')}</Badge> : <>
@@ -74,7 +78,8 @@ function GroupPanel({ group, rules, busy, unread = false, locked = false, onMode
       <div><dt>{t('tools.cost.codex')}</dt><dd>{off ? t('tools.cost.notOffered') : t('tools.cost.codexValue', { cost: costText(t, group.cost.codex.loaded) })}</dd></div>
     </dl>
     {group.configurable && <div className={styles.mode}>
-      <SegmentedControl label={t('tools.modeLabel', { group: name })} value={group.mode}
+      {/* A mode that could not be read is not shown as chosen: the control would claim one other than the one in force. */}
+      <SegmentedControl label={t('tools.modeLabel', { group: name })} value={unread ? null : group.mode}
         options={MCP_TOOL_GROUP_MODES.map(mode => ({ value: mode, label: modeName(t, mode) }))}
         onChange={mode => onMode(group.id as ConfigurableMcpToolGroup, mode)} disabled={busy || locked} />
       <p className={styles.hint}>{locked ? t('tools.invalidYaml.modeLocked', { file: OXE_YAML }) : t(`tools.modeHints.${group.mode}`)}</p>
@@ -132,28 +137,39 @@ export function ToolsSettings({ rootPath, workspaceId }: { rootPath: string; wor
   const groupsProblem = window.oxe?.mcpInternal?.toolGroups ? groupsError : missing
   const rulesProblem = window.oxe?.mcpInternal?.toolRules ? rulesError : missing
 
-  const setMode = async (group: ConfigurableMcpToolGroup, mode: McpToolGroupMode): Promise<void> => {
+  // U2: a change that widens what agents get (a group offered sooner, or a tool run without asking once confirmed) says so,
+  // and its toast offers Undo, which puts back what was there. Narrowing needs no undo.
+  const setMode = async (group: ConfigurableMcpToolGroup, mode: McpToolGroupMode, undoable = true): Promise<void> => {
     const api = window.oxe.mcpInternal
-    if (busy || !api.setToolGroupMode || report?.groups.find(item => item.id === group)?.mode === mode) return
+    const before = report?.groups.find(item => item.id === group)?.mode
+    if (busy || !api.setToolGroupMode || before === mode) return
     setBusy(true); setActionError(null); setStatus('')
     try {
       setReport(await api.setToolGroupMode({ rootPath, group, mode }))
       setStatus(t('tools.modeSaved', { group: groupName(t, group), mode: modeName(t, mode) }))
+      if (undoable && before && MCP_TOOL_GROUP_MODES.indexOf(mode) < MCP_TOOL_GROUP_MODES.indexOf(before)) {
+        toast({ title: t('tools.modeSaved', { group: groupName(t, group), mode: modeName(t, mode) }), intent: 'info', action: { label: tc('ui.undo'), run: () => void setMode(group, before, false) } })
+      }
     } catch (cause) { setActionError({ title: t('tools.modeFailed'), message: humanizeError(cause) }) }
     finally { setBusy(false) }
   }
 
-  const applyRule = async (rule: McpToolRule, decision: McpToolDecision): Promise<void> => {
+  const applyRule = async (rule: McpToolRule, decision: McpToolDecision, undoable = true): Promise<void> => {
     const api = window.oxe.mcpInternal
     if (busy || !api.setToolRule || rule.decision === decision) return
     setBusy(true); setActionError(null); setStatus('')
     try {
       setRules(await api.setToolRule({ rootPath, server: rule.server, tool: rule.tool, decision }))
       setStatus(t('tools.rules.saved', { tool: rule.tool, decision: decisionName(t, decision) }))
+      // Running without asking widens what agents do unattended: it says so, with Undo back to what the rule was.
+      if (undoable && decision === 'allow') {
+        toast({ title: t('tools.rules.saved', { tool: rule.tool, decision: decisionName(t, decision) }), intent: 'info', action: { label: tc('ui.undo'), run: () => void applyRule({ ...rule, decision }, rule.decision, false) } })
+      }
     } catch (cause) { setActionError({ title: t('tools.rules.failed'), message: humanizeError(cause) }) }
     finally { setBusy(false) }
   }
-  // Running without asking widens what agents do unattended, so it is confirmed first; asking and blocking are not.
+  // Running without asking widens what agents do unattended, so it is confirmed first, then offers Undo; asking and
+  // blocking are neither.
   const chooseRule = (rule: McpToolRule, decision: McpToolDecision): void => {
     if (decision === 'allow') setConfirmAllow(rule)
     else void applyRule(rule, decision)

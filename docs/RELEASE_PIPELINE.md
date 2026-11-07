@@ -5,7 +5,11 @@ OXESpace uses a **single GitHub Actions workflow** — **CI and Release**
 typecheck, tests, build and E2E have succeeded on the same commit.
 
 The workflow uses the repository's built-in GitHub Actions token and needs no
-release secrets or protected Environment configuration.
+release secrets. The **release** job runs in the `release` environment, whose required
+reviewer is the release owner: everything is built and verified first, then the
+run waits for **Review deployments → Approve** on its page before it tags and
+publishes. The environment must exist with that reviewer before this job is merged
+(a missing environment would be created without protection).
 
 ## Jobs
 
@@ -52,14 +56,17 @@ them, fix the session plan in `electron/main/services/conversation/tool-groups.t
 
 The push to `main` runs CI once more on the merged commit.
 
-### 3. Actions → CI and Release → Run workflow, from `main`
+### 3. Push the tag `vX.Y.Z` on that commit of `main`
 
-| Field in the dialog | What to set |
-|---------------------|-------------|
-| **Use workflow from** | `main` |
-| **branch** (optional input) | Leave **empty** |
-| **publish_release** | `true` |
-| **tag** | Leave empty → uses `v{package.json version}` |
+The release owner tags the candidate commit and pushes the tag; that push starts the release run (`Publish vX.Y.Z`):
+
+```sh
+git tag vX.Y.Z <candidate sha>
+git push origin vX.Y.Z
+```
+
+The `release` environment accepts only `v*` tags: a **Run workflow** dispatch with **publish_release** from `main`
+builds, then stops at the publish job. Use the tag.
 
 Rules the pipeline enforces:
 
@@ -88,9 +95,9 @@ Each run says what it is, in the Actions list:
 ```text
 build (typecheck → test → build → e2e)
    │
-   ├─ publish_release=false  → stop (green CI only)
+   ├─ no release (PR, push to main, dispatch)  → stop (green CI only)
    │
-   └─ publish_release=true
+   └─ tag push vX.Y.Z (release environment: waits for approval)
          → dist + SBOM + checksums
          → create tag vX.Y.Z on the verified SHA (if missing)
          → draft GitHub Release + assets
@@ -157,6 +164,13 @@ skipped counts as not passed.
 cannot read count as red). The run summary says `held: main red since <sha> (<run>)`, and the waiting cars
 get no comment. The one exception is a car labelled **`fix-main`** by a maintainer or an admin: it goes
 first, through the same checks as any car, and the train removes `fix-main` after merging it.
+
+**Batches of docs and tests.** When the car at the head of the queue changes only docs and tests, the train
+takes it and up to four more such cars, merges them on `train/batch-N` from `main` and runs CI there once. Green,
+it posts `CI result` (description `batch train/batch-N`) on each member's tested head and merges them in order,
+each only while `main` is still the commit the batch expects. Anything else ends the batch, and its members go
+one by one, labelled `no-batch`. The repository variable `MERGE_TRAIN_BATCHES=false` turns batches off. The file
+list and every rule are in [ci-cd.md](ci-cd.md#batches-of-docs-and-tests).
 
 **GITHUB_TOKEN.** The train uses the workflow's built-in token, and what that token does starts no
 usable workflow run: a merge fires no `push` run on `main`, and a branch update's `pull_request` runs only
@@ -256,8 +270,8 @@ otherwise GitHub generates notes using the categories in `.github/release.yml`.
    first) and known limitations.
 3. **Run the readiness checklist** in
    [the stable-readiness study](audits/2026-10-11-stable-readiness.md).
-4. **Release** with the recommended pattern above (commit → push → Run workflow
-   with `publish_release=true`), then confirm the green run and the live release.
+4. **Release** with the recommended pattern above (commit → merge to `main` → push the tag
+   `vX.Y.Z` on that commit), approve the run's deployment, then confirm the green run and the live release.
 
 What users see:
 
@@ -300,4 +314,5 @@ success path.
 - The workflow file must exist on the branch selected in **Use workflow from**
   (usually keep `ci.yml` in sync on `main` and feature branches).
 - A thin **Release (redirect)** workflow only forwards old bookmarks to this
-  pipeline with `publish_release=true`.
+  pipeline with `publish_release=true`; for a stable release that stops at the `release` environment, which
+  accepts only tags.

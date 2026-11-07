@@ -1,0 +1,12 @@
+{
+  "source": "playground/src/components/icons.ts (#577 @ 718ddfcf), approved by the user 04/11",
+  "icons": {
+    "OxeCodeIcon": "<rect x=\"3\" y=\"4\" width=\"18\" height=\"16\" rx=\"3\"/><path d=\"m7 10 3 2-3 2M12.5 15H16\"/><path d=\"M17 4V2.5\"/>",
+    "OxeChatIcon": "<path d=\"M4 5h16v11H11l-5 4v-4H4z\"/><path d=\"M12 9v4M12 11h-2.5V9.5M12 10.5h2.5V9\"/>",
+    "OxeQueryIcon": "<ellipse cx=\"12\" cy=\"5.5\" rx=\"7\" ry=\"2.5\"/><path d=\"M5 5.5v13c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-13\"/><path d=\"M12 11v6M12 13.5H9.5V12\"/>",
+    "OxePodIcon": "<path d=\"m12 3 8 4.5v9L12 21l-8-4.5v-9z\"/><path d=\"M4 7.5 12 12l8-4.5M12 12v9\"/><path d=\"M8 5.2 7 3.6M16 5.2l1-1.6\"/>",
+    "OxePostIcon": "<circle cx=\"9\" cy=\"12\" r=\"5\"/><path d=\"M14 12h7M18 9l3 3-3 3\"/><path d=\"M9 9.5v5\"/>",
+    "AgoraIcon": "<path d=\"M3 19a9 9 0 0 1 18 0\"/><path d=\"M6.5 19a5.5 5.5 0 0 1 11 0\"/><circle cx=\"12\" cy=\"17.5\" r=\"1.5\"/><path d=\"M12 4v4M5.6 6.6l1.8 1.8M18.4 6.6l-1.8 1.8\"/>",
+    "HistoryIcon": "<path d=\"M3 12h18\"/><path d=\"M5 9v6M9 10v4M15 10v4M19 9v6\"/><circle cx=\"12\" cy=\"12\" r=\"2.5\" fill=\"currentColor\"/>"
+  }
+}

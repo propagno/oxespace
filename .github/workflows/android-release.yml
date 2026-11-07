@@ -1,8 +1,9 @@
 name: Android release
 # Builds the companion app's release APK, starts the minified build on an emulator, then signs the APK with the
 # project's key, checks the signature, attests the APK's provenance, and attaches the APK and its SHA-256 to the GitHub
-# release (never replacing one already there). Runs when a release is published (the desktop's "CI and Release"
-# pipeline publishes it) or by hand on an existing vX.Y.Z tag.
+# release (never replacing one already there). The desktop's "CI and Release" pipeline starts it on the tag right after
+# it publishes (a dispatch: a release published with GITHUB_TOKEN fires no `release` event). It also runs when a
+# person publishes a release, or by hand on an existing vX.Y.Z tag.
 #
 # Two jobs, so the key is never near third-party build or test code (SECURITY #231):
 # - `build`: no secrets, read-only. Unsigned release APK, lint, unit tests, the minified smoke test on an emulator.
@@ -67,7 +68,7 @@ jobs:
           log-accepted-android-sdk-licenses: false
           packages: platform-tools platforms;android-37.0 build-tools;36.0.0
 
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           cache-read-only: true
 
@@ -76,8 +77,10 @@ jobs:
         run: echo "ANDROID_VERSION_NAME=${TAG#v}" >> "$GITHUB_ENV"
 
       # No signing secrets exist in this job, so Gradle builds the release APK unsigned.
+      # Since AGP 9, unit tests exist only for the tested build type (debug), so testReleaseUnitTest was gone and the
+      # v1.4.0 run failed here: the flag brings back the release unit tests, which run against the release build.
       - name: Build the unsigned release APK
-        run: ./gradlew --no-daemon lint testReleaseUnitTest :protocol:test assembleRelease
+        run: ./gradlew --no-daemon -Pandroid.onlyEnableUnitTestForTheTestedBuildType=false lint testReleaseUnitTest :protocol:test assembleRelease
 
       # MB-M-03: the build R8 shrank, started on an emulator before anything is signed or published. The `minified`
       # build type is the release build with the debug key, so ReleaseSmokeTest installs beside it: the app starts and
@@ -106,7 +109,7 @@ jobs:
           # proves nothing: require that they all ran.
           script: |
             ./gradlew --no-daemon -Poxespace.testBuildType=minified connectedMinifiedAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.oxespace.mobile.ReleaseSmokeTest
-            grep -Eq 'tests="[2-9]' app/build/outputs/androidTest-results/connected/minified/*.xml || { echo "::error::ReleaseSmokeTest did not run"; exit 1; }
+            grep -Eq 'tests="[3-9]' app/build/outputs/androidTest-results/connected/minified/*.xml || { echo "::error::ReleaseSmokeTest did not run"; exit 1; }
             grep -Eq 'skipped="0"' app/build/outputs/androidTest-results/connected/minified/*.xml || { echo "::error::ReleaseSmokeTest skipped tests"; exit 1; }
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

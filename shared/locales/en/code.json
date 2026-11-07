@@ -16,8 +16,10 @@
   },
   "tools": {
     "team": {
-      "label": "Team",
-      "detail": "Project roles and agent inboxes"
+      "label": "Project team",
+      "detail": "Project roles and agent inboxes",
+      "menu": "Project team…",
+      "keywords": "equipe, time, papéis, coordenadora, membros, caixa de entrada"
     },
     "integration": {
       "label": "Multi-repo coordination",
@@ -107,11 +109,10 @@
     "unsaved": "Unsaved",
     "saved": "Saved",
     "unsavedChanges": "Unsaved changes",
-    "dictation": "Dictation",
-    "dictationTitle": "Tap to start or stop dictation. Hold to talk.",
     "loadingPreview": "Loading preview…",
     "loadingEditor": "Loading the editor…",
     "openFailed": "Could not open the file",
+    "saveFailed": "Could not save {{name}}",
     "previewFailed": "Could not show the preview",
     "readFailed": "Could not read the file.",
     "unexpected": "The editor ran into an unexpected error.",
@@ -803,7 +804,9 @@
     "boundary": "this pane",
     "splitRefused": {
       "title": "This pane cannot be split here",
-      "hint": "Every place in this layout is taken. Choose a larger layout, or turn on the split layout to add panes freely."
+      "hint": "Every place in this layout is taken. Choose a larger layout, or turn on the split layout to add panes freely.",
+      "tooNarrow": "Each half would be narrower than {{width}} px. Close another pane, or make the window wider.",
+      "tooShort": "Each half would be shorter than {{height}} px. Close another pane, or make the window taller."
     },
     "attention": {
       "blocked": "Needs your approval or answer",
@@ -1164,6 +1167,7 @@
         }
       },
       "saveFailed": "Could not save the workspace settings",
+      "shellApplied": "The default shell is now {{name}}",
       "close": "Close workspace settings",
       "sections": "Workspace settings sections",
       "navLabel": "WORKSPACE",
@@ -1174,13 +1178,13 @@
       "layout": "Layout",
       "layoutPreset": "Layout preset",
       "preview": "Preview",
-      "terminalNote": "Terminal appearance applies right away. Use Save workspace settings to apply your default shell.",
+      "terminalNote": "Terminal appearance and the default shell apply right away.",
       "saved": "Workspace settings saved",
       "footer": {
         "memory": "Memory changes use Apply memory settings above.",
         "delegation": "Delegation changes apply right away.",
         "tools": "Tool modes and rules are saved in the project right away.",
-        "default": "Save applies density, layout and default shell. Mode applies right away."
+        "default": "Changes apply right away."
       },
       "discard": "Discard changes",
       "closeButton": "Close",
@@ -1694,6 +1698,7 @@
     "search": "Search MCP servers",
     "searchPlaceholder": "Search connections",
     "installedNote": "Your agents connect to these servers themselves: Claude Code and Copilot CLI through <strong>.mcp.json</strong> at the workspace root, Codex through its launch settings. Test checks that a server answers; whether the agent connected shows next to it in an OxeChat conversation. Restart the agent session to pick up changes.",
+    "catalogAdded": "{{name}} is on: agents can use its tools",
     "add": "Add MCP server",
     "importOpen": "Import from Claude Desktop, Cursor or Windsurf",
     "views": "MCP servers view",
@@ -1828,7 +1833,7 @@
     "packDoneWorkspace_other": "{{count}} SDLC skills installed in this workspace.",
     "packDoneUser_one": "{{count}} SDLC skill installed for the user.",
     "packDoneUser_other": "{{count}} SDLC skills installed for the user.",
-    "title": "Agent skills",
+    "title": "Skills",
     "total_one": "{{count}} total",
     "total_other": "{{count}} total",
     "packTitleWorkspace": "Install the recommended SDLC skills in this workspace",
@@ -1876,6 +1881,45 @@
       "create": "Create skill"
     }
   },
+  "agentResume": {
+    "details": {
+      "label": "Agent session",
+      "source": "Source",
+      "sources": {
+        "launch": "Set when OXESpace started the agent",
+        "hook": "Reported by the agent’s status hook",
+        "recorded": "Remembered from an earlier run"
+      },
+      "state": "Last start",
+      "resumed": "Resumed when the pane started",
+      "startedFresh": "Started fresh, as you chose",
+      "savedNotResumed": "Saved session not resumed: {{reason}}",
+      "copy": "Copy resume command",
+      "command": "Resume command",
+      "copied": "Resume command copied"
+    },
+    "resumedChip": "Session resumed",
+    "resumedTitle": "Resumed the earlier {{agent}} session",
+    "notResumedChip": "Not resumed",
+    "notResumedTitle": "The earlier {{agent}} session was not resumed: {{reason}}",
+    "notResumedNotice": "{{pane}}: the earlier session was not resumed",
+    "notResumedMany_one": "{{count}} pane did not resume its earlier session",
+    "notResumedMany_other": "{{count}} panes did not resume their earlier session",
+    "enableMenu": "Enable resume after a crash…",
+    "startFresh": "Start fresh",
+    "startFreshTitle": "Start this {{agent}} pane fresh?",
+    "startFreshBody": "{{agent}} restarts here in a new session, and what it is doing now stops. The earlier session stays on disk, but this pane will not come back to it.",
+    "startFreshFailed": "Could not restart the pane.",
+    "hooks": {
+      "title": "Let {{agent}} panes come back after a crash?",
+      "body": "OXESpace's status hooks let each pane record which {{agent}} session it runs, so reopening the app resumes it. Installing them adds a few entries to your {{agent}} settings in {{folder}}; you can remove them in Settings › Notifications.",
+      "install": "Install",
+      "notNow": "Not now",
+      "never": "Don't ask again",
+      "installed": "{{agent}} panes now record their sessions",
+      "failed": "Could not install the {{agent}} hooks"
+    }
+  },
   "paneMenu": {
     "phoneWrite": "Allow typing from the phone",
     "phoneWriteBadge": "Phone can type",
@@ -1891,6 +1935,11 @@
       "hook": "Last hook report",
       "screen": "Screen rule",
       "fallback": "Screen fallback",
+      "screenMatched": "The screen shows a known state of this agent: {{state}}",
+      "fallbacks": {
+        "default_known_agent_idle_fallback": "Nothing on the screen matched a known state of this agent, so it is shown as idle.",
+        "other": "Nothing on the screen matched a known state, so the status comes from other signals."
+      },
       "pendingIdle": "Confirming that it stopped",
       "none": "OXESpace has no lifecycle report for this pane, so its status is estimated from terminal activity.",
       "unavailable": "The status explanation is not available in this build.",
@@ -1976,6 +2025,9 @@
     },
     "tools": "Toggle pane tools",
     "restoreOpen": "Restore provider session…",
+    "rtkHint": "Compresses command output",
+    "cavemanHint": "Short, technical replies",
+    "semanticHint": "Search the code by meaning",
     "rtkTitle": "Compress the command output agents read. Applies when the terminal next starts.",
     "cavemanTitle": "Ask the agent for short, technical replies. Applies when the terminal next starts.",
     "semanticTitle": "Index this workspace so agents can search it by meaning.",

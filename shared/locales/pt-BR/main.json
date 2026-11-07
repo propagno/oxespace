@@ -38,6 +38,11 @@
     }
   },
   "messages": {
+    "delegation": {
+      "requester": {
+        "live": "A conversa que delegou esta tarefa ainda está rodando; só ela pode controlar a tarefa."
+      }
+    },
     "mcp": {
       "quarantine": {
         "changed": "A descrição ou as entradas de {{tools}} mudaram depois que você confiou no servidor.",
@@ -124,6 +129,15 @@
     "app": {
       "connectivity": {
         "offline": "Sem conexão de rede."
+      },
+      "openIn": {
+        "outsideRoot": "Daqui só abrem arquivos e pastas que estão dentro do projeto.",
+        "notFound": "{{path}} não existe mais.",
+        "notAFile": "Daqui o {{editor}} só abre arquivos, não pastas.",
+        "unknownTarget": "O OXESpace não abre arquivos desse jeito.",
+        "editorMissing": "O {{editor}} não foi encontrado. Escolha outro editor.",
+        "launchFailed": "Não foi possível abrir no {{editor}}.",
+        "revealFailed": "Não foi possível mostrar o arquivo na pasta."
       }
     },
     "ipc": {
@@ -151,6 +165,12 @@
       "certificate": {
         "failed": "Não foi possível criar o certificado da conexão nem lê-lo do armazenamento seguro."
       },
+      "keyring": {
+        "missing": "A conexão com o celular fica desligada porque nenhum chaveiro do sistema foi encontrado para proteger a chave dela. Inicie o GNOME Keyring ou o KWallet e reinicie o OXESpace. Se um deles já estiver rodando (comum no i3 ou no sway), inicie o OXESpace com `--password-store=gnome-libsecret`."
+      },
+      "storage": {
+        "unavailable": "A conexão com o celular fica desligada porque o armazenamento seguro não está disponível neste sistema, então a chave dela não pode ser guardada."
+      },
       "pairing": {
         "failed": "$t(remotePairingFailure.{{reason}})",
         "limit": "Este computador já tem {{max}} dispositivos pareados. Remova um antes de parear outro."
@@ -177,10 +197,40 @@
       }
     },
     "worktree": {
+      "created": "Worktree criado em {{path}} (branch {{branch}}).",
+      "createdFrom": "Worktree criado em {{path}} (branch {{branch}} a partir de {{base}}).",
+      "setup": {
+        "notApproved": "O hook de setup do oxe.yaml não foi aprovado e não rodou.",
+        "complete": "Hook de setup concluído.",
+        "failed": "O hook de setup terminou com o código {{exitCode}}.",
+        "unverified": "O hook de setup não terminou de um jeito que dê para conferir."
+      },
       "cleanup": {
         "notRemovable": "Este não é um worktree removível deste repositório.",
         "blocked": "Bloqueado: {{reasons}}.",
         "needsConfirmation": "Precisa de confirmação: {{reasons}}."
+      },
+      "copyFiles": {
+        "copied": "{{count}} arquivos listados em worktree.copyFiles foram copiados.",
+        "outsideRepo": "Padrões do worktree.copyFiles recusados, porque são relativos ao repositório e não podem usar .. nem .git: {{patterns}}.",
+        "overLimit": "O worktree.copyFiles encontrou {{files}} arquivos ({{megabytes}} MB), acima do limite de {{maxFiles}} arquivos ou {{maxMegabytes}} MB. Nada foi copiado; o worktree foi criado.",
+        "tooComplex": "Padrões do worktree.copyFiles recusados, porque têm pastas ou ** demais para comparar com segurança: {{patterns}}.",
+        "excludeReserved": "Padrões do worktree.copyFiles que começam com ! ficam reservados para excluir arquivos numa versão futura, e nada foi copiado para eles: {{patterns}}.",
+        "ignoreCheckFailed": "O Git não conseguiu dizer quais arquivos ignora no worktree novo, então nada do worktree.copyFiles foi copiado.",
+        "notIgnored": "Não copiados, porque o Git não os ignora no worktree novo e eles poderiam ir para um commit: {{paths}}.",
+        "searchTooLarge": "O worktree.copyFiles percorreu mais de {{limit}} itens sem terminar. Nada foi copiado; o worktree foi criado. Use padrões mais específicos.",
+        "notOverwritten": "Já estavam no worktree novo e ficaram como estão: {{paths}}.",
+        "notFollowed": "Não copiados, por serem links ou levarem para fora do repositório ou do worktree: {{paths}}.",
+        "failed": "Não foi possível copiar: {{paths}}."
+      },
+      "removed": "Worktree removido de {{path}}.",
+      "archive": {
+        "notApproved": "O hook de archive do oxe.yaml não foi aprovado e foi pulado.",
+        "failedDismissed": "O hook de archive do oxe.yaml falhou, e o worktree foi removido mesmo assim."
+      },
+      "branch": {
+        "deleted": "Branch {{branch}} apagada.",
+        "kept": "Branch {{branch}} mantida: tem commits que não foram mesclados."
       }
     },
     "github": {
@@ -190,7 +240,17 @@
     },
     "git": {
       "base": {
-        "unresolved": "Não foi possível resolver a base “{{base}}”, e o repositório não tem commits."
+        "unresolved": "Não foi possível resolver a base “{{base}}”, e o repositório não tem commits.",
+        "maybeStale": "A base pode estar desatualizada. Isto foi criado a partir da sua cópia local de {{branch}}, sem um fetch antes."
+      },
+      "fetch": {
+        "needsPerson": "O agente precisa da versão mais recente da branch remota, mas agentes não acessam a rede pelo Git. Faça o fetch você mesmo no painel Git ou no terminal e depois deixe o agente continuar."
+      },
+      "person": {
+        "refused": "O OXESpace não executa Git com acesso à rede neste repositório porque as configurações dele (.git/config) definem {{keys}}. Rode o comando no terminal."
+      },
+      "hooks": {
+        "skipped": "Os hooks do Git não rodam nas ações feitas por aqui. Push, troca de branch e criação de worktree pelo OXESpace não executam os hooks do repositório. Se o seu fluxo depende deles, faça esses passos no terminal."
       }
     },
     "oxe": {
@@ -268,7 +328,11 @@
         "agent": "Pedido de um agente",
         "oxequery": "OxeQuery · pedido de um agente",
         "previewAutomation": "Ação do agente no navegador",
-        "crash": "O OXESpace encontrou um erro inesperado"
+        "crash": "O OXESpace encontrou um erro inesperado",
+        "policyChange": "As regras do projeto mudaram fora do OXESpace",
+        "policyChangeUser": "Suas regras mudaram fora do OXESpace",
+        "policyChangeManaged": "As regras da organização mudaram neste computador",
+        "policyFirstSight": "Revise as regras deste projeto antes de valerem"
       },
       "summary": {
         "mcpConfirm": "Quer executar {{tool}} › {{action}} em {{target}}",
@@ -285,7 +349,17 @@
           "scroll": "Quer rolar a página no Navegador",
           "other": "Quer {{action}} no Navegador"
         },
-        "crash": "O app continua funcionando, mas seu estado não é mais garantido. Reinicie para ficar seguro."
+        "crash": "O app continua funcionando, mas seu estado não é mais garantido. Reinicie para ficar seguro.",
+        "policyChange": {
+          "widened": "{{file}} agora permite mais do que as regras que você aceitou. Até você decidir, as regras aceitas continuam valendo.",
+          "deleted": "{{file}} foi excluído. Permitir remove as regras deste arquivo. Até você decidir, as regras aceitas continuam valendo.",
+          "invalid": "{{file}} tem um erro, então não pode ser aplicado. As regras aceitas continuam valendo.",
+          "tooLarge": "{{file}} passa de {{max}}, então não pode ser aplicado. As regras aceitas continuam valendo.",
+          "worktree": "A worktree {{worktree}} tem o próprio {{file}}, que permite mais do que as regras que você aceitou para este projeto. Até você decidir, as regras aceitas valem lá também.",
+          "partial": "{{file}} mudou fora do OXESpace. As regras mais rígidas já valem; as que permitem mais esperam por você."
+        },
+        "policyFirstSight": "É a primeira vez que o OXESpace lê estas regras, e elas permitem mais do que o padrão do OXESpace. Até você decidir, só vale o que elas negam.",
+        "policyFirstSightLost": "É a primeira vez que o OXESpace lê estas regras, e o arquivo no disco tirou restrições que a versão commitada tem. Até você decidir, valem as restrições commitadas."
       },
       "requester": {
         "pane": "{{agent}} · painel {{pane}}",
@@ -302,7 +376,8 @@
         "allowSessionReads": "Permitir leituras nesta conexão nesta execução",
         "closeTab": "Fechar aba",
         "restart": "Reiniciar",
-        "keepWorking": "Continuar trabalhando"
+        "keepWorking": "Continuar trabalhando",
+        "allowPolicy": "Permitir as novas regras"
       },
       "note": {
         "sql": {
@@ -354,6 +429,43 @@
         "nativeCriticalDenyOnly": "Esta alteração é crítica, e o diálogo do sistema não consegue segurar o Permitir, então aqui ela só pode ser negada. Abra o OXESpace para aprovar.",
         "preview": {
           "notLocal": "Esta página não está no localhost. Ela pode carregar qualquer coisa e vê o que for digitado nela."
+        },
+        "policy": {
+          "denyRemoved": "− Deixa de ser negado: {{rule}}",
+          "allowAdded": "+ Passa a ser permitido: {{rule}}",
+          "groupRaised": "↑ Ferramentas de {{group}}: {{from}} → {{to}}",
+          "ruleEdited": "~ Alterada: {{from}} → {{to}}",
+          "denyAdded": {
+            "applied": "+ Passa a ser negado: {{rule}} (já vale)",
+            "waiting": "+ Passa a ser negado: {{rule}}"
+          },
+          "allowRemoved": {
+            "applied": "− Deixa de ser permitido: {{rule}} (já vale)",
+            "waiting": "− Deixa de ser permitido: {{rule}}"
+          },
+          "groupLowered": "↓ Ferramentas de {{group}}: {{from}} → {{to}}",
+          "reordered": "~ A ordem de {{count}} regras mudou, e a última regra que se aplica decide",
+          "more": "e mais {{count}} alterações no arquivo abaixo",
+          "notSplit": "Esta alteração não pode ser separada em partes mais rígidas e mais amplas, então nada dela vale até você decidir.",
+          "stillAccepted": "Negar mantém as regras que você aceitou. O OXESpace não altera o arquivo.",
+          "allowEffect": "Permitir aplica o arquivo inteiro como está agora.",
+          "noText": "O arquivo não existe mais.",
+          "problem": "Erro: {{problem}}",
+          "usable": "Os agentes passariam a poder usar: {{tools}}",
+          "committed": "O arquivo é igual à versão commitada no Git.",
+          "uncommitted": "O arquivo é diferente da versão commitada no Git.",
+          "liveSessions": "{{count}} sessões de agente deste projeto estavam rodando quando a mudança foi detectada.",
+          "managedNotProtected": "Qualquer pessoa neste computador pode gravar na pasta de política da organização, então você também confirma as mudanças nela.",
+          "reordered_one": "~ A ordem de {{count}} regra mudou, e a última regra que se aplica decide",
+          "reordered_many": "~ A ordem de {{count}} regras mudou, e a última regra que se aplica decide",
+          "reordered_other": "~ A ordem de {{count}} regras mudou, e a última regra que se aplica decide",
+          "usableMore": "Os agentes passariam a poder usar: {{tools}} e mais {{more}}",
+          "liveSessions_one": "{{count}} sessão de agente deste projeto estava rodando quando a mudança foi detectada.",
+          "liveSessions_many": "{{count}} sessões de agente deste projeto estavam rodando quando a mudança foi detectada.",
+          "liveSessions_other": "{{count}} sessões de agente deste projeto estavam rodando quando a mudança foi detectada.",
+          "committedDeny": "− Continua negado: {{rule}}. O arquivo no disco tirou esta regra, mas a versão commitada a mantém, então ela continua valendo.",
+          "committedOff": "↓ As ferramentas de {{group}} continuam desligadas. O arquivo no disco as religou, mas a versão commitada as mantém desligadas.",
+          "matchesBranch": "Igual a `origin/{{branch}}`."
         }
       },
       "unavailable": "Não foi possível mostrar a aprovação no app, então ela abriu num diálogo do sistema.",
@@ -375,6 +487,9 @@
       },
       "notify": {
         "waiting": "OXESpace: aprovação aguardando"
+      },
+      "textLabel": {
+        "policyChange": "Conteúdo do arquivo"
       }
     },
     "notify": {
@@ -400,10 +515,22 @@
         "blocked": "A política da sua organização não permite este agente aqui, então a sessão não foi retomada.",
         "disabled": "Retomar sessões de agente está desligado nas Configurações.",
         "startedFresh": "Este painel foi reiniciado com uma sessão nova; a anterior não volta mais.",
-        "failedToLoad": "O agente não conseguiu carregar a sessão anterior e fechou, então este painel iniciou uma nova."
+        "failedToLoad": "O agente não conseguiu carregar a sessão anterior e fechou, então este painel iniciou uma nova.",
+        "bypassWithheld": "Retomada sem ignorar as permissões, como a sessão estava. Para retomar assim, ative em Configurações › Terminal."
       },
       "session": {
         "notFound": "Este agente ainda não informou a sessão. Ela aparece depois da primeira resposta do agente, ou antes, com os hooks de status ligados (Configurações › Notificações)."
+      },
+      "request": {
+        "approval": "Aguardando sua aprovação",
+        "question": "Fazendo uma pergunta",
+        "permissions": "Pedindo mais permissões",
+        "elicitation": "Pedindo detalhes",
+        "tool": "Aguardando uma ferramenta que você executa",
+        "pane": "Aguardando o prompt no painel"
+      },
+      "source": {
+        "unavailable": "Não foi possível ler {{source}} agora; os outros agentes continuam aparecendo."
       }
     },
     "incident": {
@@ -446,6 +573,9 @@
         "closeUnanswered": "A janela não respondeu a um fechamento ou saída em 3 segundos; o app seguiu em frente.",
         "closeRendererGone": "A janela parou enquanto um fechamento ou saída esperava por ela; o app seguiu em frente.",
         "closeGuardFailed": "A verificação antes de fechar falhou; o app fechou sem perguntar à janela."
+      },
+      "policy": {
+        "changedOutside": "Um arquivo de política mudou fora do OXESpace e esperou uma resposta."
       }
     },
     "diagnostics": {
@@ -476,6 +606,22 @@
         "notFound": "A pasta {{path}} não existe. Crie a pasta ou escolha outra.",
         "notDirectory": "{{path}} é um arquivo, não uma pasta. Escolha uma pasta.",
         "unreadable": "O OXESpace não consegue abrir a pasta {{path}}. Confira as permissões ou escolha outra pasta."
+      }
+    },
+    "policy": {
+      "narrowed": "As regras do projeto ficaram mais rígidas: {{file}} mudou fora do OXESpace, e as novas regras já valem.",
+      "result": {
+        "kept": "As regras aceitas continuam valendo.",
+        "applied": "As novas regras estão valendo."
+      },
+      "change": {
+        "pending": "Uma alteração nas regras deste projeto está esperando sua resposta. Responda antes de mudar esta configuração.",
+        "baseChanged": "As regras mudaram de novo desde que isto apareceu. O pedido volta com a versão atual.",
+        "notPending": "Esta alteração nas regras não está mais esperando sua resposta.",
+        "notApplicable": "Este arquivo não pode ser aplicado como está. Corrija o arquivo ou mantenha as regras aceitas."
+      },
+      "firstSight": {
+        "enforced": "Esperando sua revisão: só valem as regras que negam, e os grupos de ferramentas ficam no máximo sob demanda."
       }
     }
   },

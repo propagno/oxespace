@@ -1,7 +1,6 @@
-import { useState, type FormEvent, type ReactElement } from 'react'
+import { useRef, useState, type FormEvent, type ReactElement } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { Button } from '../../ui/Button'
-import { Dialog } from '../../ui/Overlay'
+import { Dialog } from '../../ui'
 import { Notice } from '../../ui/Display'
 import { SegmentedControl } from '../../ui/Field'
 import { errorMessage, oq } from './client'
@@ -22,6 +21,7 @@ export function NewDatabaseDialog({ onClose }: { onClose: () => void }): ReactEl
   const [port, setPort] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const formRef = useRef<HTMLFormElement>(null)
 
   const submit = async (event: FormEvent): Promise<void> => {
     event.preventDefault()
@@ -34,13 +34,14 @@ export function NewDatabaseDialog({ onClose }: { onClose: () => void }): ReactEl
     } catch (cause) { setError(errorMessage(cause)) } finally { setBusy(false) }
   }
 
-  return <Dialog className="oq-scope" title={t('newDatabase.title')} size="md" closeLabel={t('common.close')} onClose={() => { if (!busy) onClose() }}
+  return <Dialog title={t('newDatabase.title')} size="md" closeLabel={t('common.close')} onClose={() => { if (!busy) onClose() }}
     description={<Trans t={t} i18nKey="newDatabase.description" components={{ code: <code /> }} />}
-    footer={<>
-      <Button disabled={busy} onClick={onClose}>{t('common.cancel')}</Button>
-      <Button type="submit" form="oq-new-database-form" variant="primary" disabled={busy || !name.trim()} loading={busy}>{busy ? t('newDatabase.creating') : t('newDatabase.create')}</Button>
-    </>}>
-    <form id="oq-new-database-form" className="oq-dialog-form" onSubmit={event => void submit(event)}>
+    actions={{
+      cancel: { label: t('common.cancel'), disabled: busy },
+      // The form submits itself, so the browser still checks the required fields.
+      primary: { label: busy ? t('newDatabase.creating') : t('newDatabase.create'), loading: busy, disabled: !name.trim(), onClick: () => formRef.current?.requestSubmit() }
+    }}>
+    <form ref={formRef} id="oq-new-database-form" className="oq-scope oq-dialog-form" onSubmit={event => void submit(event)}>
       <SegmentedControl label={t('newDatabase.engine')} className="oq-engine-choice" value={kind} onChange={value => { setKind(value); setTag(value === 'postgres' ? '17' : '8') }}
         options={ENGINES.map(({ id, name }) => ({ value: id, label: name }))} />
       <label>{t('newDatabase.name')}<input value={name} onChange={event => setName(event.target.value)} placeholder={kind === 'postgres' ? 'pg-app' : 'mongo-app'} required autoFocus /></label>

@@ -80,16 +80,25 @@ test('dividers and the file tree work without dragging', async () => {
     await page.locator('[cmdk-item][data-value="cmd-tool-editor"]').click()
     const file = page.locator('.editor-browser-file', { hasText: 'notes.md' })
     await file.click({ button: 'right' })
-    const pathMenu = page.getByRole('menu', { name: 'Path of notes.md' })
+    // F33: the shared path menu, named by its path.
+    const pathMenu = page.getByRole('menu', { name: 'Actions for notes.md' })
+    // FL-11: the menu opens with its final rows, the three fake editors among them, and keeps them; check that before
+    // clicking, so a row moving under the click shows up here, not as a wrong action.
+    await expect(pathMenu.getByRole('menuitem', { name: /^Open in (VS Code|Cursor|Zed)/ })).toHaveCount(3)
     await pathMenu.getByRole('menuitem', { name: 'Copy relative path' }).click()
-    await expect(page.getByText('Path copied')).toBeVisible()
+    await expect(page.getByText('Relative path copied')).toBeVisible()
 
     // The conversations sidebar has the same divider.
     // Ctrl+2 opens the conversations mode, whatever it is called on screen.
     await page.keyboard.press('Control+2')
     const threadSidebar = page.getByRole('separator', { name: /sidebar width/i })
-    await click(page, threadSidebar)
-    await expect(page.getByRole('menu', { name: /: size options$/ })).toBeVisible()
+    // F7.2: the current view stays until the conversations' chunk is in, so the divider appears at the commit, and the
+    // sidebar's frame can be replaced by the sidebar once more as it loads: click again until its menu opens.
+    await expect(threadSidebar).toBeVisible()
+    await expect(async () => {
+      await click(page, threadSidebar)
+      await expect(page.getByRole('menu', { name: /: size options$/ })).toBeVisible({ timeout: 1_000 })
+    }).toPass({ timeout: 10_000 })
     expect(consoleErrors.filter(line => line.startsWith('pageerror:'))).toEqual([])
   } finally {
     await app.close()

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve as resolvePath } from 'node:path'
 import { conversationCommand, interactiveConversationCommand } from '../electron/main/services/conversation/process-transport'
 import { MainRefusal } from '../electron/main/services/main-refusal'
+import { removeTempDir } from './helpers/removeTempDir'
 
 const id = '11111111-1111-4111-8111-111111111111'
 const args = ['resume', id, '--no-alt-screen']
@@ -34,7 +35,7 @@ function refusalCode(run: () => unknown): string | undefined {
   return undefined
 }
 
-afterEach(async () => { for (const folder of folders.splice(0)) await rm(folder, { recursive: true, force: true }) })
+afterEach(async () => { for (const folder of folders.splice(0)) removeTempDir(folder) })
 
 describe('native conversation command resolution (B13: never the app binary as Node)', () => {
   it('resolves an npm Windows shim to the vendored native binary and drops ELECTRON_RUN_AS_NODE', async () => {

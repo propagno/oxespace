@@ -227,7 +227,8 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
     }
     try {
       threadProjects.addContext(context.projectId, created.rootPath)
-      const ownedWorktree = { path: created.rootPath, branch: created.branch, projectRoot: context.rootPath, baseSha: created.baseSha, createdAt: Date.now() }
+      // What creating it reported goes with the conversation: the dialog closes as soon as it opens.
+      const ownedWorktree = { path: created.rootPath, branch: created.branch, projectRoot: context.rootPath, baseSha: created.baseSha, createdAt: Date.now(), ...(created.notices ? { notices: created.notices.slice(0, 20) } : {}) }
       return await service.create({ workspaceId: `thread:${context.projectId}`, projectId: context.projectId, rootPath: created.rootPath, provider: value.provider, ownedWorktree })
     } catch (error) {
       threadProjects.removeContext(context.projectId, created.rootPath)
@@ -309,6 +310,10 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
   ipcMain.handle(IPC_CHANNELS.thread.pin, (event, id: unknown, pinned: unknown) => {
     if (typeof pinned !== 'boolean') throw new Error('Invalid pin input')
     return manager.then(service => service.pin(string(id), pinned))
+  })
+  ipcMain.handle(IPC_CHANNELS.thread.keepAfterPr, (event, id: unknown, prNumber: unknown) => {
+    if (typeof prNumber !== 'number' || !Number.isSafeInteger(prNumber) || prNumber <= 0) throw new Error('Invalid pull request number')
+    return manager.then(service => service.keepAfterPr(string(id), prNumber))
   })
   registerThreadWorktreeIpc({ db, manager, threadProjects, worktrees, id: string })
   registerThreadSectionsIpc({ db })

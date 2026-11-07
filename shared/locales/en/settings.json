@@ -47,10 +47,6 @@
         "label": "Keyboard",
         "hint": "Shortcuts and key bindings"
       },
-      "voice": {
-        "label": "Voice",
-        "hint": "Microphone and local transcription"
-      },
       "notifications": {
         "label": "Notifications",
         "hint": "Alerts and sounds"
@@ -92,6 +88,12 @@
       "clear": "Clear sites you've opened",
       "cleared_one": "Forgot {{count}} site",
       "cleared_other": "Forgot {{count}} sites"
+    },
+    "externalEditor": {
+      "label": "External editor",
+      "hint": "\"Open in…\" lists it first, and Ctrl+Shift+click on a path in a terminal opens it.",
+      "none": "No external editor was found on this computer (VS Code, Cursor or Zed).",
+      "auto": "Automatic"
     }
   },
   "appearance": {
@@ -271,34 +273,6 @@
     "usage": "Agent searches so far: {{without}} without the index, {{with}} with it (counted on this machine only).",
     "changeFailed": "Could not change the semantic index."
   },
-  "voice": {
-    "kicker": "OXEVoice · local STT",
-    "title": "Voice",
-    "description": "Dictate with local transcription and your preferred shortcuts.",
-    "model": "Model",
-    "models": {
-      "tiny": "Tiny — fastest, least accurate (~75 MB)",
-      "base": "Base — balanced (~142 MB)",
-      "small": "Small — more accurate, slower (~466 MB)"
-    },
-    "shortcut": "Push-to-talk shortcut",
-    "pressKeys": "Press keys…",
-    "capture": "Capture",
-    "captureHint": "Press the shortcut, or Esc to cancel",
-    "engine": "Engine",
-    "available": "available",
-    "unavailable": "unavailable",
-    "modelName": "Model «{{size}}»",
-    "modelReady": "ready",
-    "downloadingPercent": "downloading… {{percent}}%",
-    "notDownloaded": "not downloaded",
-    "engineMissing": "Voice input needs the whisper.cpp engine, which this version ships for Windows only. The model download starts once the engine is available on this system.",
-    "downloading": "Downloading…",
-    "download": "Download model",
-    "readyLine": "Model ready for push-to-talk",
-    "downloadFailed": "Failed to download model.",
-    "callout": "Local recognition (whisper.cpp), <strong>Brazilian Portuguese</strong>. Hold the shortcut to speak; tap the mic for hands-free."
-  },
   "terminal": {
     "title": "Terminal",
     "description": "Set the default font, cursor and behavior for every workspace. Workspace overrides remain independent.",
@@ -325,7 +299,10 @@
     "lines": "{{lines}} lines",
     "opacity": "Background opacity",
     "translucent": "translucent",
-    "globalDefaults": "<strong>Global</strong> defaults. Workspaces can override them."
+    "globalDefaults": "<strong>Global</strong> defaults. Workspaces can override them.",
+    "resumeBypass": "Resume sessions with permissions skipped, when the session was",
+    "resumeBypassOn": "Resumed sessions now skip permission prompts when they did before",
+    "resumeBypassHint": "A Claude Code session started with its permission prompts skipped resumes the same way after a restart or Restore session. Off: it resumes asking for permission."
   },
   "hooks": {
     "title": "Agent status hooks",
@@ -554,6 +531,7 @@
   "agentConfig": {
     "promptRequired": "Skill prompt is required",
     "saveFailed": "Failed to save agent profile",
+    "commandChanged": "{{name}} now starts with the new command",
     "commandRequired": "Command is required",
     "deleteFailed": "Failed to delete agent profile",
     "deleteTitle": "Delete this agent profile?",
@@ -582,7 +560,8 @@
       "hint": "Off by default. When on, OXESpace listens only on private network addresses, over an encrypted connection that only paired phones can use.",
       "listening": "Listening on {{addresses}}, port {{port}}",
       "off": "Off. No port is open.",
-      "failed": "Could not change the phone connection: {{error}}"
+      "failed": "Could not change the phone connection: {{error}}",
+      "on": "Phones can now connect to this computer"
     },
     "firewall": {
       "title": "Before phones can connect",
@@ -592,6 +571,45 @@
       "internet": "Nothing is exposed to the internet. OXESpace listens only on private network addresses, and only phones you pair here can use the connection.",
       "later": "If you refuse, phones cannot reach this computer. You can change the answer later in the firewall settings of your system.",
       "confirm": "Turn on"
+    },
+    "firewallCheck": {
+      "rule": "OXESpace.exe, TCP {{port}}, Private networks only",
+      "blocked": {
+        "title": "A firewall rule blocks OXESpace",
+        "text": "A Block rule in Windows Defender Firewall stops phones from reaching this computer, and it wins over any Allow rule. OXESpace never removes it: ask your IT, or remove it in Windows Defender Firewall."
+      },
+      "public": {
+        "title": "This network is Public, so Windows blocks phones",
+        "text": "Windows keeps devices out on Public networks. If this is your home or office Wi-Fi, set it to Private: Windows Settings › Network & internet › Wi-Fi › this network › Private network. OXESpace doesn't change it for you."
+      },
+      "noRule": {
+        "title": "Windows Firewall doesn't let phones in yet",
+        "text": "No firewall rule lets OXESpace accept connections from phones on this network."
+      },
+      "noInspection": "OXESpace couldn't read the firewall settings, so this is a guess. Allowing it is still safe.",
+      "ok": "Phones can reach this computer: {{rule}}.",
+      "checkAgain": "Check again",
+      "uac": "Windows will ask for permission. Nothing changes if you say No.",
+      "command": "What runs:",
+      "repair": {
+        "action": "Allow on private networks",
+        "adds": "Adds one rule: {{rule}}.",
+        "confirmTitle": "Allow phones on private networks?",
+        "explain": "OXESpace adds one Windows Firewall rule, \"{{name}}\": {{rule}}. You can remove it here later.",
+        "confirm": "Allow",
+        "done": "Verified: phones can now reach this computer on private networks",
+        "notVerified": "The rule could not be verified. Check again, or add it in Windows Defender Firewall.",
+        "failed": "The rule couldn't be added"
+      },
+      "undo": {
+        "action": "Remove the rule",
+        "confirmTitle": "Remove the firewall rule?",
+        "explain": "OXESpace removes only the rule it added, \"{{name}}\" ({{rule}}). Phones won't reach this computer until it is allowed again.",
+        "confirm": "Remove",
+        "done": "Verified: the firewall rule is removed",
+        "notVerified": "The removal could not be verified. Check again.",
+        "failed": "The rule couldn't be removed"
+      }
     },
     "name": {
       "title": "Name of this computer",
@@ -669,7 +687,8 @@
         "pendingRequests": "See requests waiting for you",
         "terminal": "Watch terminal output (read only)",
         "jobs": "See background jobs",
-        "delegations": "See delegations"
+        "delegations": "See delegations",
+        "agents": "See every agent and what needs you"
       },
       "commands": {
         "threadSend": "Send a message to a conversation",
@@ -677,7 +696,8 @@
         "threadInterrupt": "Stop a running turn",
         "threadRespondRequest": "Accept or decline a conversation request, after confirming on the phone with fingerprint or face",
         "terminalWrite": "Type in a terminal you allowed here",
-        "threadHistory": "Read older messages"
+        "threadHistory": "Read older messages",
+        "agentMarkSeen": "Mark an agent as seen"
       },
       "forbidden": {
         "oxequeryApprove": "Approve OxeQuery changes",
@@ -801,7 +821,8 @@
       },
       "source": {
         "user": "Set in your user policy; change it there.",
-        "managed": "Set by your organization; it cannot be changed here."
+        "managed": "Set by your organization; it cannot be changed here.",
+        "reads": "A read-only lookup, allowed by \"Approve read-only commands automatically\" in a conversation's Permissions. Turn that off to be asked."
       },
       "confirmLevel": "Always asks: this tool can do things you confirm each time.",
       "saved": "{{tool}}: {{decision}}.",

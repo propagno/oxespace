@@ -355,9 +355,9 @@
     "mention": "Mention a file",
     "steer": "Steer active turn",
     "steerTitle": "Send guidance to the active turn",
-    "voice": "Voice input",
     "stop": "Stop turn",
     "stopTitle": "Stop turn · Esc",
+    "stopShort": "Stop",
     "queue": "Queue follow-up",
     "queueTitle": "Queue follow-up · Enter",
     "send": "Send",
@@ -379,6 +379,13 @@
     "selectModel": "Select model",
     "loadingModels": "Loading models…",
     "providerDefault": "Provider default",
+    "chip": {
+      "model": "Model",
+      "effort": "Effort",
+      "permissions": "Permissions",
+      "canEdit": "Can edit",
+      "pending": "Applies to the next message"
+    },
     "filterModels": "Filter models",
     "searchModels": "Search models…",
     "noModels": "No models available.",
@@ -871,20 +878,6 @@
     "ok": "Starts when tested now ({{message}}). Start a new conversation to load it.",
     "again": "Test again"
   },
-  "mcpHealth": {
-    "stoppedLabel": "MCP servers stopped while the conversation is idle; they start again with your next message",
-    "unavailable_one": "{{count}} MCP server unavailable, {{connected}} connected",
-    "unavailable_other": "{{count}} MCP servers unavailable, {{connected}} connected",
-    "connected_one": "{{count}} MCP server connected",
-    "connected_other": "{{count}} MCP servers connected",
-    "title": "MCP servers",
-    "chip": "MCP · {{value}}",
-    "chipStopped": "stopped",
-    "chipFailed": "{{count}} failed",
-    "stoppedBody": "Stopped while the conversation is idle. This is the list from its last session; your next message starts them again.",
-    "reportedBody": "As this conversation's session reported them when it started.",
-    "open": "Open connections"
-  },
   "mcpList": {
     "failed": {
       "title": "Failed to start",
@@ -1022,7 +1015,9 @@
     "unavailable": "Permission rules are not available in this build.",
     "readOnly": "Read-only commands",
     "autoReads": "Approve read-only commands automatically",
-    "autoReadsHint": "Commands such as ls, cat, grep, find, git status, git log and git diff are approved without asking when they only read files inside the project. A command that reads outside the project, writes a file, runs another program or uses the network still asks. Rules you saved keep working whether this is on or off.",
+    "autoReadsOn": "Reads are now approved without asking",
+    "allowAdded": "Agents may now run “{{pattern}}” without asking",
+    "autoReadsHint": "Commands such as ls, cat, grep, find, git status, git log and git diff are approved without asking when they only read files inside the project. OXESpace's own lookups (code search, callers, impact, project context and its other read-only tools) are approved too. A command that reads outside the project, writes a file, runs another program or uses the network still asks. Rules you saved keep working whether this is on or off.",
     "rules": "Rules",
     "rulesHint": "OXESpace answers the agent's approval prompts with these rules. Allow rules approve only when every command in a line, or every file, is covered; deny rules decline. Anything else still asks you. A denied MCP tool is also removed from the agent's tools when its next session starts.",
     "loading": "Loading rules…",
@@ -1146,13 +1141,13 @@
     "always": "Always allow {{labels}}",
     "cancel": "Cancel",
     "decline": "Decline",
+    "deny": "Deny",
     "holdWaiting": "Critical risk: Approve is available in {{seconds}} s. Read the command first.",
     "holdReady": "Approve is available. Enter does not approve a critical command; use Space or click.",
     "guarded": "Agent-steering file",
     "guardedHint": "This changes a file that steers agents (instructions, MCP settings, hooks). Only a person approves it, each time; it is never remembered."
   },
   "requests": {
-    "waiting": "The agent is waiting for your answer",
     "waitingMany": "{{count}} requests are waiting for your answer",
     "shrinkTitle": "Give the room back to the conversation",
     "expandTitle": "Give the request more room to read its options",
@@ -1445,7 +1440,7 @@
   },
   "status": {
     "running": "Running",
-    "attention": "Needs input",
+    "attention": "Needs you",
     "failed": "Failed",
     "interrupted": "Interrupted",
     "background": "Background",
@@ -1519,7 +1514,7 @@
     "restartUndo": "Restart the updated application to undo changes.",
     "noCheckpoint": "No restorable checkpoint exists for this turn.",
     "approve": "Approve",
-    "decline": "Decline",
+    "decline": "Deny",
     "usageUnavailable": "Usage unavailable",
     "interrupted": "Interrupted",
     "noPublicMessages": "No public messages in this section. Continue loading earlier messages if available."
@@ -1695,7 +1690,7 @@
     "title": "Side chat",
     "region": "Side chat",
     "readOnly": "Read-only copy",
-    "note": "Ask about this conversation without changing it. Nothing asked here reaches the conversation, and the copy is thrown away when you close it.",
+    "note": "Ask about this conversation without changing it. Nothing asked here reaches the conversation. The copy stays while you switch conversations; it is thrown away when you discard it or archive the conversation.",
     "costLabel": "Cost so far:",
     "noCostYet": "nothing yet",
     "messages": "Side chat messages",
@@ -1706,13 +1701,32 @@
     "thinking": "The copy is answering…",
     "working": "The copy is answering: {{activity}}",
     "openFailed": "The side chat could not open. Try again.",
-    "sendFailed": "The question did not reach the side chat. Close it and open it again.",
+    "sendFailed": "The question did not reach the side chat. Discard it and open it again.",
     "turnFailed": "The answer failed.",
     "ask": "Ask the side chat",
     "placeholder": "Ask about this conversation…",
     "send": "Ask",
-    "close": "Close side chat ({{shortcut}})",
+    "nul": "The question has a null character, which cannot be sent. Remove it and try again.",
+    "close": "Hide side chat ({{shortcut}})",
     "openMenu": "Side chat",
-    "closeMenu": "Close side chat"
+    "closeMenu": "Hide side chat",
+    "actions": "Side chat actions",
+    "discard": "Discard and close…",
+    "discardTitle": "Discard this side chat?",
+    "discardBody": "Its answers are lost. The conversation itself does not change.",
+    "discardConfirm": "Discard",
+    "keep": "Keep"
+  },
+  "prArchive": {
+    "merged": "Pull request #{{number}} was merged",
+    "closed": "Pull request #{{number}} was closed",
+    "description": "This conversation will be archived. You can restore it from Archived in the sidebar.",
+    "keep": "Keep",
+    "archived": "Conversation archived",
+    "restore": "Restore"
+  },
+  "inlinePath": {
+    "notFound": "{{path}} was not found",
+    "looked": "Looked in: {{places}}"
   }
 }

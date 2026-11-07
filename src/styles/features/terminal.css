@@ -1,4 +1,4 @@
-/* Terminal pane, terminal search, voice HUD and voice settings. Split out of the former features.css; imported in order from styles.css. */
+/* Terminal pane and terminal search. Split out of the former features.css; imported in order from styles.css. */
 
 /* ─── Terminal pane ─────────────────────────────────────────────────────── */
 .terminal-pane {
@@ -164,7 +164,7 @@
   right: 0;
   bottom: calc(100% + 4px);
   z-index: var(--layer-dropdown);
-  min-width: 168px;
+  min-width: 232px;
   padding: 4px;
   border-radius: var(--radius-md);
   border: 1px solid var(--ov-3);
@@ -204,6 +204,16 @@
 
 .statusbar-more-label {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* K-02: what RTK, Caveman and Semantic do, under each name. */
+.statusbar-more-hint {
+  color: var(--tx-secondary);
+  font-size: var(--fs-2xs);
+  font-weight: 400;
 }
 
 .statusbar-more-check {
@@ -330,12 +340,6 @@
 .statusbar-chip.copilot-credits-chip.tone-idle,
 .statusbar-chip.agent-credits-chip.tone-idle { opacity: 0.7; text-transform: capitalize; }
 
-.voice-chip:hover:not(:disabled) {
-  color: var(--text-primary);
-  background: var(--intent-info-bg);
-  border-color: var(--intent-info-border);
-}
-
 /* MCP servers chip in the pane statusbar — tells the user how many MCPs
    the agent CLI in this pane can see via .mcp.json. Click opens the panel. */
 .mcp-chip {
@@ -397,101 +401,6 @@
   flex-shrink: 0;
 }
 
-.oxe-voice-hud {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
-  z-index: calc(var(--layer-raised) + 2);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  max-width: min(520px, calc(100% - 24px));
-  padding: 8px 10px;
-  border: 1px solid var(--intent-info-border);
-  border-radius: var(--radius-sm);
-  background: var(--scrim);
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
-  line-height: 1.35;
-  box-shadow: var(--elevation-3);
-  pointer-events: none;
-}
-
-.oxe-voice-hud.error {
-  color: var(--intent-danger-fg);
-  border-color: var(--intent-danger-border);
-}
-
-.oxe-voice-dismiss {
-  pointer-events: auto;
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 24px;
-  height: 24px;
-  margin-left: auto;
-  padding: 0;
-  color: inherit;
-  border: 0;
-  border-radius: var(--radius-xs);
-  background: transparent;
-  cursor: pointer;
-}
-.oxe-voice-dismiss:hover { background: var(--ov-3); }
-.oxe-voice-dismiss:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-
-.oxe-voice-pulse {
-  width: 7px;
-  height: 7px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: var(--intent-info-solid);
-  box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.16);
-}
-
-.oxe-voice-hud.listening .oxe-voice-pulse,
-.oxe-voice-hud.downloading .oxe-voice-pulse {
-  --pulse-scale: 0.8;
-  --pulse-opacity: 0.65;
-  animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite;
-}
-
-.oxe-voice-pulse.spin {
-  animation: oxe-spin var(--duration-spin) var(--ease-linear) infinite;
-  border-radius: 50%;
-  background: transparent;
-  border: 2px solid var(--intent-info-border);
-  border-top-color: var(--intent-info-solid);
-  box-shadow: none;
-}
-
-.oxe-voice-hud.error .oxe-voice-pulse {
-  background: var(--intent-danger-solid);
-  box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.14);
-}
-
-/* Live mic level meter (5 bars driven by inline scaleY from the hook). */
-.oxe-voice-meter {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  height: 14px;
-  flex: 0 0 auto;
-}
-
-.oxe-voice-bar {
-  width: 3px;
-  height: 14px;
-  border-radius: var(--radius-xs);
-  background: var(--intent-info-solid);
-  transform-origin: center;
-  transform: scaleY(0.18);
-  transition: transform var(--duration-fast) var(--ease-linear);
-}
-
-/* Voice settings section */
 /* Settings form primitives live in components.css (Agent Settings modal). */
 
 .ws-terminal-overrides {

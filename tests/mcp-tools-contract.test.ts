@@ -47,7 +47,8 @@ describe('Settings › Tools contract (F10)', () => {
   })
 
   it('names why a tool rule is refused with a typed code the window can test (B7.3 CCR)', () => {
-    expect(MCP_TOOL_RULE_REFUSAL_CODES).toEqual(['mcp.toolRule.confirmLevel', 'mcp.toolRule.locked', 'mcp.toolRule.invalidPolicy'])
+    // B7.4 adds the pending-change refusal and the replace check's (setToolRule writes with replaceFile).
+    expect(MCP_TOOL_RULE_REFUSAL_CODES).toEqual(['mcp.toolRule.confirmLevel', 'mcp.toolRule.locked', 'mcp.toolRule.invalidPolicy', 'policy.change.pending', 'project.file.changedMeanwhile'])
     for (const code of MCP_TOOL_RULE_REFUSAL_CODES) expect(isMcpToolRuleRefusal(new Error(code).message), code).toBe(true)
     for (const other of ['Invalid MCP tool', 'mcp.quarantine.added', undefined, null]) expect(isMcpToolRuleRefusal(other)).toBe(false)
   })

@@ -31,8 +31,9 @@ export function explainRows(display: Pick<PaneDisplayState, 'statusLabel' | 'ori
     rows.push({ label: tc('paneMenu.explain.since'), detail: formatDateTime(explain.state.since) })
   }
   if (explain?.hook) rows.push({ label: tc('paneMenu.explain.hook'), detail: `${lifecycleName(explain.hook.state)} · ${formatDateTime(explain.hook.at)}` })
-  if (explain?.screen?.matchedRule) rows.push({ label: tc('paneMenu.explain.screen'), detail: `${explain.screen.matchedRule.id} · ${lifecycleName(explain.screen.state)}` })
-  else if (explain?.screen?.fallbackReason) rows.push({ label: tc('paneMenu.explain.fallback'), detail: explain.screen.fallbackReason })
+  // Rule ids and fallback codes are main's; they stay under "Technical details", the rows say them in words.
+  if (explain?.screen?.matchedRule) rows.push({ label: tc('paneMenu.explain.screen'), detail: tc('paneMenu.explain.screenMatched', { state: lifecycleName(explain.screen.state) }) })
+  else if (explain?.screen?.fallbackReason) rows.push({ label: tc('paneMenu.explain.fallback'), detail: tc(`paneMenu.explain.fallbacks.${explain.screen.fallbackReason}`, { defaultValue: tc('paneMenu.explain.fallbacks.other') }) })
   if (explain?.pendingIdle) rows.push({ label: tc('paneMenu.explain.pendingIdle'), detail: tc('paneMenu.explain.yes') })
   return rows
 }
@@ -52,7 +53,7 @@ export function StatusExplainDialog({ paneId, display, onClose }: { paneId: stri
     : reading.kind === 'unavailable' ? tc('paneMenu.explain.unavailable')
       : reading.kind === 'failed' ? tc('paneMenu.explain.failed')
         : !explain?.state ? tc('paneMenu.explain.none') : null
-  return <Dialog className="desktop-details-dialog" title={tc('paneMenu.whyStatus')} description={tc('paneMenu.explain.description')} onClose={onClose} testId="status-explain-dialog">
+  return <Dialog size="md" title={tc('paneMenu.whyStatus')} description={tc('paneMenu.explain.description')} onClose={onClose} testId="status-explain-dialog">
     <DetailList rows={explainRows(display, explain)} />
     {note && <p className="terminal-session-identity-note" data-testid="status-explain-note">{note}</p>}
     {explain && <details className="terminal-technical-details"><summary>{tc('paneMenu.explain.technical')}</summary><pre className="status-explain-raw">{JSON.stringify(explain, null, 2)}</pre></details>}

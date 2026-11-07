@@ -8,6 +8,16 @@ export interface ToastInput {
   action?: { label: string; run: () => void }
   /** Milliseconds before it closes on its own, overriding the reading-time rule; 0 keeps it until dismissed. */
   duration?: number
+  /**
+   * Runs only when the person closes the toast (its ✕ or Escape). Never when its time runs out or its action runs:
+   * a declined offer is told apart from one that was not seen (T40).
+   */
+  onDismiss?: () => void
+  /**
+   * Runs only when its time runs out while shown: never when the person closes it, its action runs, or the code that
+   * raised it takes it down (dismissToast). The timer counts only while the toast is not paused (T40).
+   */
+  onTimeout?: () => void
 }
 export interface ToastItem extends ToastInput {
   id: number
@@ -86,12 +96,30 @@ export function preloadToastStack(ready: () => void): () => void {
 }
 
 /**
+ * The open modals that host the stack, oldest first (U2). A modal hides everything outside it from assistive tech and
+ * blocks its pointer events (Radix) or makes it inert, so a toast's Undo outside it could not be reached.
+ */
+const useToastHosts = create<{ hosts: number[] }>(() => ({ hosts: [] }))
+let nextHost = 1
+
+/**
  * Mount once near the root of the app. The stack mounts at idle after the first paint, or at once when a toast
  * comes first: toasts raised before then (boot errors) wait in the store and show, and are announced, when it mounts.
+ *
+ * Every modal primitive (Dialog, ModalSurface, ToolPanel) mounts one more with `inModal`. While any is open the stack
+ * lives in the newest one, where its buttons can be reached, and the others step aside.
  */
-export function Toaster(): ReactElement | null {
+export function Toaster({ inModal = false }: { inModal?: boolean } = {}): ReactElement | null {
   const waiting = useToasts(state => state.items.length > 0)
+  const [host] = useState(() => (inModal ? nextHost++ : 0))
+  const active = useToastHosts(state => state.hosts.at(-1) ?? 0)
   const [preloaded, setPreloaded] = useState(false)
   useEffect(() => preloadToastStack(() => setPreloaded(true)), [])
+  useEffect(() => {
+    if (!host) return
+    useToastHosts.setState(state => ({ hosts: [...state.hosts, host] }))
+    return () => useToastHosts.setState(state => ({ hosts: state.hosts.filter(id => id !== host) }))
+  }, [host])
+  if (active !== host) return null
   return preloaded || waiting ? <Suspense fallback={null}><ToastStack /></Suspense> : null
 }

@@ -1,5 +1,5 @@
 /* Composer footer in the reference pattern:
-   [Plan | Agent] [/ +] · model · effort · permission ············ status · stop · voice · send */
+   [Plan | Agent] [/ +] · model · effort · permission ············ status · stop · send */
 .thread-composer footer { gap: 6px; }
 .thread-composer footer .thread-mode-toggle { order: -1; }
 .thread-composer footer .thread-config-trigger.is-permissions { margin-left: 0; }
@@ -11,8 +11,26 @@
 .thread-composer .thread-mode-toggle button[aria-pressed='true'] { background: var(--fill-pressed); color: var(--text-primary); }
 .thread-composer .thread-mode-toggle button:hover:not([aria-pressed='true']) { color: var(--text-primary); background: transparent; }
 
-/* Effort and permission show an icon and a chevron; the value is in the tooltip and the accessible name. */
-.thread-composer .thread-config-trigger.is-icon { gap: 2px; padding: 4px 6px; color: var(--text-secondary); }
+/* Model, effort and permissions as chips that name their value (T57, T58 §4): 24 px, round, 12 px text. Only the
+   permissions chip carries intent color, by risk. A change for the next message has a dashed border. */
+.thread-composer { container: thread-composer / inline-size; }
+.thread-composer .thread-config-trigger.thread-chip { flex: 0 1 auto; min-width: 0; min-height: 24px; height: 24px; gap: 4px; padding: 0 8px; border: 1px solid transparent; border-radius: var(--radius-pill); background: var(--fill-hover); color: var(--text-secondary); font-size: var(--fs-xs); font-weight: var(--weight-medium); }
+.thread-composer .thread-chip.is-model { color: var(--text-primary); }
+.thread-composer .thread-chip > svg { flex: none; }
+.thread-composer .thread-chip .thread-chip-text { max-width: 18ch; }
+.thread-chip-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
+.thread-chip-dot[data-provider='claude'] { background: var(--provider-claude); }
+.thread-chip-dot[data-provider='codex'] { background: var(--provider-codex); }
+.thread-composer .thread-chip.is-permissions { flex-shrink: 0; }
+.thread-composer .thread-chip.is-permissions[data-access='read-only'] { background: var(--intent-info-bg); color: var(--intent-info-fg); }
+.thread-composer .thread-chip.is-permissions[data-access='workspace-write'] { background: var(--accent-soft); color: var(--text-accent); }
+.thread-composer .thread-chip.is-permissions[data-access='full-access'] { background: var(--intent-danger-bg); color: var(--intent-danger-fg); border-color: var(--intent-danger-border); }
+.thread-composer .thread-chip[data-pending] { border-style: dashed; border-color: currentColor; }
+.thread-composer .thread-mode-toggle button[aria-pressed='true']:first-child { background: var(--intent-warning-bg); color: var(--intent-warning-fg); }
+/* Narrow (T58 §5): effort and permissions keep the icon and color, the text moves to the tooltip and the name; under
+   420 px the model keeps its dot and 10 characters. The permissions chip never hides. */
+@container thread-composer (max-width: 559px) { .thread-composer .thread-chip:is(.is-effort, .is-permissions) .thread-chip-text { display: none; } }
+@container thread-composer (max-width: 419px) { .thread-composer .thread-chip.is-model .thread-chip-text { max-width: 10ch; } }
 .thread-composer .thread-config-trigger[data-state='open'] { outline: 1px solid var(--focus-ring); outline-offset: 0; }
 
 /* One line per option, as in a menu. The explanation stays for screen readers. */
@@ -20,9 +38,9 @@
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
 
-/* Round actions on the right: voice is the light orb, send takes the accent only when there is something to send. */
-.thread-composer footer :is(.thread-send, .thread-stop, .thread-voice) { flex: 0 0 28px; width: 28px; height: 28px; padding: 0; justify-content: center; border-radius: 50%; }
-.thread-composer footer .thread-voice { background: var(--text-primary); color: var(--surface-base); }
-.thread-composer footer .thread-voice:hover { background: var(--text-secondary); }
-.thread-composer footer .thread-voice:disabled { opacity: .4; }
+/* Round actions on the right: send takes the accent only when there is something to send. */
+.thread-composer footer .thread-send { flex: 0 0 28px; width: 28px; height: 28px; padding: 0; justify-content: center; border-radius: 50%; }
+/* Stop while a turn runs (T57): a pill with its word, in the danger color, that never shrinks out of the footer. */
+.thread-composer footer .thread-stop { flex: none; width: auto; height: 28px; gap: 6px; padding: 0 12px; justify-content: center; border: 1px solid var(--intent-danger-border); border-radius: var(--radius-pill); background: var(--intent-danger-bg); color: var(--intent-danger-fg); font-size: var(--fs-xs); font-weight: var(--weight-medium); }
+.thread-composer footer .thread-stop:hover:not(:disabled) { background: color-mix(in srgb, var(--intent-danger-fg) 14%, var(--intent-danger-bg)); color: var(--intent-danger-fg); }
 .thread-composer footer .thread-send:disabled { background: var(--fill-pressed); color: var(--text-muted); opacity: 1; }

@@ -15,34 +15,29 @@ async function setup(onSave = vi.fn(async () => {})) {
   await screen.findByRole('radio', { name: /Compact/ }, { timeout: 10_000 })
   return { onSave, onClose }
 }
-test('scope navigation protects drafts and supports discard without saving', async () => {
-  const { onSave } = await setup()
+// U2 (S-01): workspace settings apply at once, so there is no draft to protect and no "Save your changes?" guard.
+test('a workspace change applies at once and leaving needs no confirmation', async () => {
+  const { onSave, onClose } = await setup()
   fireEvent.click(screen.getByRole('radio', { name: /Compact/ }))
+  await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 'ws', uiDensity: 'compact', applyShellToIdlePanes: false })))
+  expect(await screen.findByRole('status')).toHaveTextContent('Workspace settings saved')
+  // Only what changed: an unchanged layout sent along can rebuild the panes and their terminals.
+  expect(onSave.mock.calls[0][0]).not.toHaveProperty('layoutPreset')
+  expect(screen.queryByRole('button', { name: 'Save workspace settings' })).toBeNull()
   fireEvent.click(screen.getByRole('group', { name: 'Settings scope' }).querySelector('button')!)
-  expect(screen.getByRole('dialog', { name: 'Save your changes?' })).toBeVisible()
-  fireEvent.click(screen.getByRole('button', { name: 'Stay', exact: true }))
-  expect(screen.getByRole('radio', { name: /Compact/ })).toHaveAttribute('aria-checked', 'true')
-  fireEvent.click(screen.getByRole('group', { name: 'Settings scope' }).querySelector('button')!)
-  fireEvent.click(screen.getByRole('button', { name: 'Discard', exact: true }))
-  expect(screen.getByRole('heading', { name: 'Appearance' })).toBeVisible()
-  expect(onSave).not.toHaveBeenCalled()
-})
-test('failed save does not leave the workspace or dismiss the guard', async () => {
-  const { onClose } = await setup(vi.fn(async () => { throw new Error('Save failed') }))
-  fireEvent.click(screen.getByRole('radio', { name: /Compact/ }))
+  expect(screen.queryByRole('dialog', { name: 'Save your changes?' })).toBeNull()
+  expect(await screen.findByRole('heading', { name: 'Appearance' })).toBeVisible()
   fireEvent.click(screen.getByRole('button', { name: 'Back to work' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Save and continue' }))
-  await waitFor(() => expect(screen.getByRole('alert', { hidden: true })).toHaveTextContent('Save failed'))
-  expect(onClose).not.toHaveBeenCalled()
-  expect(screen.getByRole('dialog', { name: 'Save your changes?' })).toBeVisible()
+  expect(onClose).toHaveBeenCalled()
 })
 
-test('saving workspace appearance confirms that settings were persisted', async () => {
-  const { onSave } = await setup()
+test('a change that fails to apply comes back and says why, without leaving', async () => {
+  const { onClose } = await setup(vi.fn(async () => { throw new Error('Save failed') }))
   fireEvent.click(screen.getByRole('radio', { name: /Compact/ }))
-  fireEvent.click(screen.getByRole('button', { name: 'Save workspace settings' }))
-  await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 'ws', uiDensity: 'compact' })))
-  expect(await screen.findByRole('status')).toHaveTextContent('Workspace settings saved')
+  await waitFor(() => expect(screen.getByRole('alert', { hidden: true })).toHaveTextContent('Save failed'))
+  expect(screen.getByRole('radio', { name: /Compact/ })).toHaveAttribute('aria-checked', 'false')
+  expect(screen.getByRole('radio', { name: /Comfortable/ })).toHaveAttribute('aria-checked', 'true')
+  expect(onClose).not.toHaveBeenCalled()
 })
 
 test('explicit initial page overrides the last visited workspace destination', async () => {
@@ -52,6 +47,24 @@ test('explicit initial page overrides the last visited workspace destination', a
   expect(screen.getByRole('group', { name: 'Settings scope' }).querySelector('button')).toHaveAttribute('aria-pressed', 'true')
   expect(await screen.findByRole('heading', { name: 'Agents' })).toBeVisible()
   expect(screen.queryByRole('button', {name:/^Agents CLI discovery/})).toBeNull()
+})
+
+test('F34: Settings has no Voice page, and a link to it lands on the first page', async () => {
+  const props = { workspaces: [workspace], shellProfiles: [], onSave: vi.fn(), onClose: vi.fn(), agentProfiles: [], agentReadiness: [], isDiscoveringAgents: false, onDiscoverAgents: vi.fn(), onConfigureAgent: vi.fn(), onNewCustomAgent: vi.fn() }
+  const firstPageCurrent = async () => {
+    const nav = screen.getByRole('navigation', { name: 'Settings categories' })
+    expect(within(nav).queryByRole('button', { name: /^(Voice|Voz)\b/ })).toBeNull()
+    expect(within(nav).getByRole('button', { name: /^General/ })).toHaveAttribute('aria-current', 'page')
+    expect(await screen.findByRole('heading', { name: 'General' }, { timeout: 10_000 })).toBeVisible()
+  }
+  // An old deep link (palette entry, activity row) that still names the page.
+  render(<SettingsCenter {...props} initialPage={'voice' as never} />)
+  await firstPageCurrent()
+  cleanup()
+  // The destination remembered from a session that had the page.
+  localStorage.setItem('oxe.settings.destination', JSON.stringify({ scope: 'application', page: 'voice' }))
+  render(<SettingsCenter {...props} />)
+  await firstPageCurrent()
 })
 
 test('Agents is a page of application settings, not only a first-run shortcut', async () => {

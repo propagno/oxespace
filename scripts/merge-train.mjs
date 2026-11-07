@@ -416,6 +416,340 @@ export function step(input) {
   return { type: 'merge', message: `merged ${short(head)}, ${upToDate}.`, state: null, expectedHead: head }
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// Batches (TECH LEAD go on #567). When the queue's first car changes only docs and tests, the train takes it and
+// up to BATCH_MAX - 1 more such cars, merges their heads into train/batch-N (one merge commit each, made from main
+// at that moment) and runs CI on that branch. No batch PR: the train's token cannot open one. Green, it posts
+// "CI result" (description "batch train/batch-N", link to the batch run) on each member's exact tested head and
+// merges the members in the batch's order, each only while main is still the commit the batch expects (its base,
+// then the merge just made), so main ends with the tested tree. Anything else ends the batch: the branch is
+// deleted and the members go on their own, labelled no-batch when the batch itself failed.
+// The batch's state is its branch: each commit is "merge-train batch N: #<pr> <head sha>" with that head as its
+// second parent; the first commit that is not one is the base. Nothing else is stored.
+// ---------------------------------------------------------------------------------------------------------------
+
+export const BATCH_PREFIX = 'train/batch-'
+export const NO_BATCH_LABEL = 'no-batch'
+export const BATCH_MAX = 5
+/** A batch whose CI has not started this long after it was built is given up. */
+export const BATCH_START_MS = 15 * 60_000
+/** GitHub lists at most 3000 files of a pull request; a longer list is never batched. */
+export const BATCH_MAX_FILES = 3000
+const BATCH_REF_RE = /^train\/batch-(\d+)$/
+const BATCH_MESSAGE_RE = /^merge-train batch (\d+): #(\d+) ([0-9a-f]{40})$/
+const FORBIDDEN_ROOTS = new Set(['.github', 'src', 'electron', 'shared', 'scripts'])
+
+/**
+ * A path a batch may carry (TECH LEAD's list): docs/**, Markdown anywhere outside .github and the app's code,
+ * tests/**, and spec files under e2e/. Never .github/**, package*.json, scripts/**, a Playwright or Vitest
+ * config, electron/, src/, shared/ or anything under an android/ folder.
+ */
+export function isBatchPath(path) {
+  if (typeof path !== 'string' || !path || path.startsWith('/') || path.includes('\\')) return false
+  const parts = path.split('/')
+  if (parts.some((part) => part === '' || part === '.' || part === '..')) return false
+  if (FORBIDDEN_ROOTS.has(parts[0]) || parts.includes('android')) return false
+  const file = parts[parts.length - 1]
+  if (/^package(-lock)?\.json$/.test(file) || /^(playwright|vitest)\b.*\.config\.[cm]?[jt]s$/.test(file)) return false
+  if (parts[0] === 'docs' || parts[0] === 'tests') return true
+  if (parts[0] === 'e2e') return /\.spec\.[cm]?[jt]sx?$/.test(file)
+  return file.endsWith('.md')
+}
+
+/** The commit message of a member's merge into the batch branch. */
+export const batchMessage = (number, pr, sha) => `merge-train batch ${number}: #${pr} ${sha}`
+
+/** { number, sha } from a batch merge commit's message, or null (also for another batch's number). */
+export function parseBatchMessage(message, number) {
+  const m = BATCH_MESSAGE_RE.exec(String(message ?? '').split('\n')[0])
+  if (!m || Number(m[1]) !== number) return null
+  return { number: Number(m[2]), sha: m[3] }
+}
+
+/** The next batch number after every train/batch-N branch. */
+export function nextBatchRef(names) {
+  let max = 0
+  for (const name of names) {
+    const m = BATCH_REF_RE.exec(String(name))
+    if (m) max = Math.max(max, Number(m[1]))
+  }
+  return max + 1
+}
+
+/**
+ * Why a PR may not join a batch, or null. pr is getPull's, plus files (the list) and the queue entry's flags.
+ */
+export function batchRefusal({ pr, entry, files, labelerAllowed, changesRequested }) {
+  if (!pr || pr.state !== 'open') return 'not open'
+  if (labelerAllowed !== true) return 'labelled by someone without write access'
+  if (entry.fixMain) return FIX_MAIN_LABEL
+  if (entry.noBatch) return NO_BATCH_LABEL
+  if (pr.draft) return 'draft'
+  if (pr.isFork) return 'from a fork'
+  if (String(pr.headRef ?? '').startsWith(BATCH_PREFIX)) return 'is a batch'
+  if (pr.mergeable === false || pr.mergeableState === 'dirty') return 'conflicts with main'
+  if (pr.mergeable == null) return 'mergeability unknown'
+  if (changesRequested) return 'changes requested'
+  if (!Array.isArray(files) || files.length === 0) return 'no file list'
+  if (files.length >= BATCH_MAX_FILES || (pr.changedFiles != null && files.length !== pr.changedFiles)) return 'file list incomplete'
+  const other = files.find((path) => !isBatchPath(path))
+  return other ? `changes ${cleanName(other)}` : null
+}
+
+/** A batch's state from its branch head, or null when the branch is not one of the train's batches. */
+export async function readBatch(api, name, headSha) {
+  const ref = BATCH_REF_RE.exec(name)
+  if (!ref) return null
+  const number = Number(ref[1])
+  const members = []
+  let sha = headSha
+  let createdAt = null
+  for (let i = 0; i <= BATCH_MAX; i++) {
+    const commit = await api.getCommit(sha)
+    createdAt ??= commit.date
+    const parsed = parseBatchMessage(commit.message, number)
+    if (!parsed) {
+      if (members.length < 2 || new Set(members.map((m) => m.number)).size !== members.length) return null
+      return { branch: name, number, head: headSha, base: sha, createdAt, members: members.reverse() }
+    }
+    if (commit.parents.length !== 2 || commit.parents[1] !== parsed.sha) return null
+    members.push(parsed)
+    sha = commit.parents[0]
+  }
+  return null
+}
+
+/** Builds a batch from the queue's head when it qualifies; null leaves the run to the serial train. */
+async function startBatch(api, queue, { log, actions }) {
+  const members = []
+  for (const entry of queue) {
+    if (members.length >= BATCH_MAX) break
+    const pr = await api.getPull(entry.number)
+    // The queue's first car decides: when it cannot ride a batch, the train serves it on its own first.
+    const files = pr && pr.state === 'open' ? await api.listFiles(entry.number) : null
+    const quick = batchRefusal({ pr, entry, files, labelerAllowed: true, changesRequested: false })
+    let reason = quick
+    if (!reason) {
+      const [role, changesRequested] = await Promise.all([
+        entry.labeledBy ? api.collaboratorRole(entry.labeledBy).catch(() => null) : null,
+        api.changesRequested(entry.number),
+      ])
+      reason = batchRefusal({ pr, entry, files, labelerAllowed: LABELER_ROLES.has(role), changesRequested })
+    }
+    if (reason) {
+      if (!members.length) return false
+      log(`batch: #${entry.number} stays out (${reason})`)
+      continue
+    }
+    members.push({ number: entry.number, sha: pr.headSha })
+  }
+  if (members.length < 2) return false
+
+  const number = nextBatchRef((await api.listBatchRefs()).map((r) => r.name))
+  const branch = `${BATCH_PREFIX}${number}`
+  const base = await api.mainSha()
+  await api.createRef(branch, base)
+  const merged = []
+  for (const member of members) {
+    try {
+      const done = await api.mergeInto(branch, member.sha, batchMessage(number, member.number, member.sha))
+      if (done) merged.push(member)
+      else log(`batch: #${member.number} left out (its head is already on main)`)
+    } catch (error) {
+      if (error?.status !== 409) {
+        await api.deleteRef(branch)
+        throw error
+      }
+      log(`batch: #${member.number} left out (it conflicts with an earlier member)`)
+    }
+  }
+  if (api.dryRun) {
+    const plan = merged.map((m) => `post "CI result" on ${short(m.sha)} and merge #${m.number} pinned to it, only while main is the expected commit`).join('; then ')
+    const message = `would build ${branch} from main ${short(base)} with ${merged.map((m) => `#${m.number}`).join(' ')}, dispatch ${CI_WORKFLOW} on it, and when green: ${plan}; then delete ${branch}.`
+    actions.push({ type: 'batch', message })
+    log(`batch: ${message}`)
+    return true
+  }
+  const head = merged.length >= 2 ? await api.branchSha(branch) : null
+  const read = head ? await readBatch(api, branch, head) : null
+  if (!read || read.base !== base || read.members.length !== merged.length) {
+    await api.deleteRef(branch)
+    log(`batch: ${branch} not built (${merged.length} member(s) merged); serving the queue one by one`)
+    return false
+  }
+  await api.dispatchWorkflow('ci.yml', branch)
+  const list = merged.map((m) => `#${m.number}`).join(' ')
+  const message = `built ${branch} from main ${short(base)} with ${list} (docs and tests only); started ${CI_WORKFLOW} on ${short(head)}.`
+  actions.push({ type: 'batch', message })
+  log(`batch: ${message}`)
+  for (const m of merged) {
+    await upsertComment(api, m.number, renderComment(`riding ${branch} with ${list}: CI runs on the batch, and this PR merges on head ${short(m.sha)} once it is green.`, null))
+  }
+  return true
+}
+
+/**
+ * Merges one member pinned to its tested head; returns the merge commit's SHA. A 5xx is not an answer: GitHub may
+ * have merged anyway, so the PR is read again first (merged: its merge commit), and otherwise the merge is tried
+ * once more, only while main is still the expected commit and the head unchanged (batch-46 got a 500 on 04/11).
+ */
+export async function mergeMember(api, member, expected, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))) {
+  try {
+    return (await api.merge(member.number, member.sha))?.sha
+  } catch (error) {
+    if (!(error?.status >= 500)) throw error
+    await sleep(5000)
+    const pr = await api.getPull(member.number)
+    if (pr?.merged && pr.mergeCommitSha) return pr.mergeCommitSha
+    if (!pr || pr.state !== 'open' || pr.headSha !== member.sha || (await api.mainSha()) !== expected) throw error
+    return (await api.merge(member.number, member.sha))?.sha
+  }
+}
+
+/** One step of the batch on its branch: wait, give up, or merge the members. */
+async function driveBatch(api, batch, queue, { now, timeoutMinutes, log, actions, sleep }) {
+  const { branch, members } = batch
+  const record = (type, message) => {
+    actions.push({ type, message })
+    log(`batch: ${message}`)
+  }
+  const sendBack = async (rest, why, noBatch) => {
+    for (const m of rest) {
+      const tail = noBatch ? ` It goes on its own now (labelled ${NO_BATCH_LABEL}; remove the label to let it batch again).` : ' It goes on its own or in a later batch.'
+      await upsertComment(api, m.number, renderComment(`left ${branch}: ${why}.${tail}`, null))
+      if (noBatch) await api.addLabel(m.number, NO_BATCH_LABEL)
+    }
+  }
+  const giveUp = async (why, rest, noBatch) => {
+    await sendBack(rest, why, noBatch)
+    await api.deleteRef(branch)
+    record('batch-end', `${branch} given up: ${why}`)
+  }
+
+  // Every member still queued, open and on the head the batch tested; otherwise the batch is rebuilt later.
+  const queued = new Set(queue.map((e) => e.number))
+  for (const m of members) {
+    const pr = await api.getPull(m.number)
+    if (!queued.has(m.number) || !pr || pr.state !== 'open' || pr.headSha !== m.sha) {
+      return giveUp(`#${m.number} changed since the batch was built (left the queue, closed, or a new head)`, members.filter((x) => x.number !== m.number), false)
+    }
+  }
+
+  const age = now - time(batch.createdAt)
+  const runs = (await api.listRuns(batch.head)).filter((r) => r.name === CI_WORKFLOW && !UNTESTED_RUN_CONCLUSIONS.has(r.conclusion))
+  const run = latestByName(runs)[0]
+  if (!run) {
+    if (age > BATCH_START_MS) return giveUp(`${CI_WORKFLOW} never started on ${short(batch.head)}`, members, true)
+    return record('batch-wait', `${branch}: waiting for ${CI_WORKFLOW} to start on ${short(batch.head)}`)
+  }
+  const url = cleanLink(run.htmlUrl)
+  const link = url ? ` (${url})` : ''
+  if (run.status !== 'completed') {
+    if (age > timeoutMinutes * 60_000) return giveUp(`${CI_WORKFLOW} ran more than ${timeoutMinutes} minutes${link}`, members, true)
+    return record('batch-wait', `${branch}: ${CI_WORKFLOW} still running on ${short(batch.head)}${link}`)
+  }
+  const result = latestByName((await api.listChecks(batch.head)).filter((c) => c.name === 'CI result'))[0]
+  if (run.conclusion !== 'success' || result?.status !== 'completed' || result?.conclusion !== 'success') {
+    return giveUp(`the batch's ${CI_WORKFLOW} ended ${cleanName(run.conclusion ?? 'without a result')}${result ? `, CI result ${cleanName(result.conclusion ?? 'pending')}` : ', no CI result'}${link}`, members, true)
+  }
+
+  // Green: merge in the batch's order, each only on the main the batch expects. The branch is deleted however this
+  // ends, an error thrown half-way included (#567 condition 4): the members left keep na-fila and are served again.
+  let expected = batch.base
+  const merged = []
+  try {
+    for (const [i, m] of members.entries()) {
+      const rest = members.slice(i)
+      const main = await api.mainSha()
+      if (main !== expected) {
+        await sendBack(rest, `main moved to ${short(main)} while ${short(expected)} was expected, so the tested tree no longer applies`, true)
+        break
+      }
+      const pr = await api.getPull(m.number)
+      if (!pr || pr.state !== 'open' || pr.headSha !== m.sha) {
+        await sendBack(rest, `#${m.number} has a new head or was closed before its merge`, true)
+        break
+      }
+      // The file rule again, at merge time: never a status on a head that changes anything outside docs and tests.
+      const files = await api.listFiles(m.number)
+      const outside = !Array.isArray(files) || !files.length || files.length >= BATCH_MAX_FILES || (pr.changedFiles != null && files.length !== pr.changedFiles) ? 'its file list is incomplete' : files.find((path) => !isBatchPath(path))
+      if (outside) {
+        await sendBack(rest, `#${m.number} ${outside === 'its file list is incomplete' ? outside : `changes ${cleanName(outside)}`}, outside docs and tests`, true)
+        break
+      }
+      await api.postStatus(m.sha, { state: 'success', context: 'CI result', description: `batch ${branch}`, targetUrl: url })
+      let sha
+      try {
+        sha = await mergeMember(api, m, expected, sleep)
+      } catch (error) {
+        await sendBack(rest, `GitHub refused the merge of #${m.number} (${refusal(error)})`, true)
+        break
+      }
+      merged.push(m)
+      await upsertComment(api, m.number, renderComment(`merged ${short(m.sha)} in ${branch}: tested with ${members.map((x) => `#${x.number}`).join(' ')} on ${short(batch.head)}${link}.`, null))
+      // The merge must sit right on the expected main: a push between the check and the merge stops the rest.
+      const commit = sha ? await api.getCommit(sha) : null
+      if (!commit || commit.parents[0] !== expected) {
+        await sendBack(members.slice(i + 1), `the merge of #${m.number} did not land on ${short(expected)}`, true)
+        break
+      }
+      expected = sha
+    }
+  } finally {
+    try {
+      await api.deleteRef(branch)
+    } finally {
+      if (merged.length) await api.dispatchWorkflow('ci.yml', 'main')
+    }
+  }
+  record('batch-end', `${branch}: merged ${merged.map((m) => `#${m.number}`).join(' ') || 'nothing'}${merged.length < members.length ? `; ${members.length - merged.length} back on their own` : ''}`)
+}
+
+/** How many of the highest-numbered train/batch-N branches are read to find the train's open batch. */
+export const BATCH_REFS_READ = 5
+
+/**
+ * The batch branches worth reading, newest first: the train's own batch is always numbered after every batch
+ * branch that existed when it was built, so it is among the highest numbers. Old manual-batch branches left on
+ * origin (59 on 04/11) are then never read, one commit each, on every run.
+ */
+export function recentBatchRefs(refs, n = BATCH_REFS_READ) {
+  const number = (ref) => Number(BATCH_REF_RE.exec(ref.name)?.[1] ?? -1)
+  return refs
+    .filter((ref) => number(ref) >= 0)
+    .sort((a, b) => number(b) - number(a))
+    .slice(0, n)
+}
+
+/** Drives an open batch, or builds one; true when the batch took this run. */
+export async function runBatch(api, queue, { now, timeoutMinutes, log, actions, canStart, sleep }) {
+  for (const ref of recentBatchRefs(await api.listBatchRefs())) {
+    const batch = await readBatch(api, ref.name, ref.sha)
+    if (!batch) continue
+    await driveBatch(api, batch, queue, { now, timeoutMinutes, log, actions, sleep })
+    return true
+  }
+  if (!canStart || queue.length < 2) return false
+  return startBatch(api, queue, { log, actions })
+}
+
+/** Writes the train would make, logged and not made: for a dry run with a real token. */
+export const WRITE_METHODS = ['createComment', 'updateComment', 'removeLabel', 'addLabel', 'updateBranch', 'cancelRun', 'merge', 'dispatchWorkflow', 'createRef', 'deleteRef', 'mergeInto', 'postStatus']
+export function dryRunApi(api, log) {
+  const fake = { createRef: null, mergeInto: { sha: '0'.repeat(40) }, merge: { sha: '0'.repeat(40) } }
+  return new Proxy(api, {
+    get(target, key) {
+      if (key === 'dryRun') return true
+      if (!WRITE_METHODS.includes(key)) return target[key]
+      return async (...args) => {
+        log(`[dry run] ${String(key)} ${JSON.stringify(args).slice(0, 400)}`)
+        if (key === 'createComment') return { id: 0, body: args[1] }
+        return fake[key] ?? null
+      }
+    },
+  })
+}
+
 /** The train's own comments: written with a workflow token (`byTrain`, see `listComments`), starting with the prefix. */
 const trainComments = (comments) => comments.filter((c) => c.byTrain === true && typeof c.body === 'string' && c.body.startsWith(PREFIX))
 
@@ -491,6 +825,8 @@ export async function runTrain(
     repo = null,
     base = 'main',
     holdWhenMainRed = false,
+    // Off by default (and in the unit tests' fake API); main() turns it on unless MERGE_TRAIN_BATCHES is "false".
+    batches = false,
   } = {},
 ) {
   const queue = orderQueue(await api.listQueue())
@@ -511,6 +847,9 @@ export async function runTrain(
   // While main is red (and the hold is on), only a car labelled fix-main by a maintainer moves, oldest first;
   // the others keep their place and get no comment: the hold is one line in the train's run summary.
   const health = holdWhenMainRed && queue.length ? mainHealth(await api.mainRuns().catch(() => null)) : { green: true }
+  // One thing under test at a time: an open batch takes the run, and a new one starts only from a green main
+  // with the queue's first car batchable.
+  if (batches && (await runBatch(api, queue, { now, timeoutMinutes, log, actions, canStart: health.green, sleep }))) return actions
   const fixRoles = new Map()
   const fixer = async () => {
     for (const entry of queue) {
@@ -599,6 +938,11 @@ export async function runTrain(
       await upsertComment(api, entry.number, renderComment(action.message, null))
       // A merge by GITHUB_TOKEN starts no push run on main, so main's CI is dispatched here.
       await api.dispatchWorkflow('ci.yml', 'main')
+      // A merged batch PR (merge-batch.mjs) leaves its train/batch-N branch behind, and the repository does not
+      // delete head branches: the train removes it, as its own batches do (#567 condition 4). Never a fork's.
+      if (!input.pr.isFork && /^train\/batch-\d+$/.test(String(input.pr.headRef ?? ''))) {
+        await api.deleteRef?.(input.pr.headRef).catch((error) => log(`#${entry.number}: ${input.pr.headRef} not deleted (${cleanName(String(error?.message ?? error))})`))
+      }
       // The fix-main label covers one merge: a later push to that PR does not jump a held queue again.
       if (entry.fixMain) await api.removeLabel(entry.number, FIX_MAIN_LABEL)
       drop(entry)
@@ -655,12 +999,14 @@ export function createGitHubApi({ token, repo, base = 'main', fetchImpl = global
         const events = await paginate(`${r}/issues/${issue.number}/events?per_page=100`)
         const lastLabeled = (name) => events.filter((e) => e.event === 'labeled' && e.label?.name === name).at(-1)
         const last = lastLabeled(LABEL)
-        const fixMain = (issue.labels ?? []).some((l) => (typeof l === 'string' ? l : l?.name) === FIX_MAIN_LABEL)
+        const labelNames = (issue.labels ?? []).map((l) => (typeof l === 'string' ? l : l?.name))
+        const fixMain = labelNames.includes(FIX_MAIN_LABEL)
         entries.push({
           number: issue.number,
           labeledAt: last?.created_at ?? null,
           labeledBy: last?.actor?.login ?? null,
           fixMain,
+          noBatch: labelNames.includes(NO_BATCH_LABEL),
           // Who added fix-main last: only a maintainer's or an admin's label lets a car through a hold.
           fixMainBy: fixMain ? (lastLabeled(FIX_MAIN_LABEL)?.actor?.login ?? null) : null,
         })
@@ -684,7 +1030,53 @@ export function createGitHubApi({ token, repo, base = 'main', fetchImpl = global
         headRef: pr.head.ref,
         mergeable: pr.mergeable,
         mergeableState: pr.mergeable_state,
+        merged: pr.merged === true,
+        mergeCommitSha: pr.merged === true ? (pr.merge_commit_sha ?? null) : null,
+        changedFiles: pr.changed_files ?? null,
       }
+    },
+    async listFiles(number) {
+      return (await paginate(`${r}/pulls/${number}/files?per_page=100`)).map((f) => f.filename)
+    },
+    async listBatchRefs() {
+      const { data } = await request('GET', `${r}/git/matching-refs/heads/${BATCH_PREFIX}`)
+      return (data ?? []).map((ref) => ({ name: ref.ref.replace(/^refs\/heads\//, ''), sha: ref.object?.sha })).filter((ref) => BATCH_REF_RE.test(ref.name))
+    },
+    async getCommit(sha) {
+      if (!isSha(sha)) throw new Error('not a commit sha')
+      const { data } = await request('GET', `${r}/git/commits/${sha}`)
+      return { sha: data.sha, message: data.message, parents: (data.parents ?? []).map((p) => p.sha), date: data.committer?.date ?? null }
+    },
+    async branchSha(name) {
+      return (await request('GET', `${r}/git/ref/heads/${name.split('/').map(encodeURIComponent).join('/')}`)).data.object.sha
+    },
+    async mainSha() {
+      return (await request('GET', `${r}/git/ref/heads/${encodeURIComponent(base)}`)).data.object.sha
+    },
+    async createRef(name, sha) {
+      if (!BATCH_REF_RE.test(name) || !isSha(sha)) throw new Error(`refusing to create ${cleanName(name)}: not a batch branch`)
+      await request('POST', `${r}/git/refs`, { ref: `refs/heads/${name}`, sha })
+    },
+    async deleteRef(name) {
+      if (!BATCH_REF_RE.test(name)) throw new Error(`refusing to delete ${cleanName(name)}: not a batch branch`)
+      try {
+        await request('DELETE', `${r}/git/refs/heads/${name}`)
+      } catch (error) {
+        if (error.status !== 404 && error.status !== 422) throw error
+      }
+    },
+    async mergeInto(name, sha, message) {
+      // A merge commit into the batch branch; 204 (null) when the head is already in it.
+      if (!BATCH_REF_RE.test(name) || !isSha(sha)) throw new Error(`refusing to merge into ${cleanName(name)}: not a batch branch`)
+      return (await request('POST', `${r}/merges`, { base: name, head: sha, commit_message: message })).data
+    },
+    async postStatus(sha, { state, context, description, targetUrl }) {
+      if (!isSha(sha) || context !== 'CI result' || state !== 'success') throw new Error('refusing to post that status')
+      await request('POST', `${r}/statuses/${sha}`, { state, context, description, ...(targetUrl ? { target_url: targetUrl } : {}) })
+    },
+    async addLabel(number, label) {
+      if (label !== NO_BATCH_LABEL) throw new Error(`refusing to add ${cleanName(label)}: not a train label`)
+      await request('POST', `${r}/issues/${number}/labels`, { labels: [label] })
     },
     async behindBy(sha) {
       return (await request('GET', `${r}/compare/${base}...${sha}`)).data.behind_by
@@ -766,7 +1158,7 @@ export function createGitHubApi({ token, repo, base = 'main', fetchImpl = global
       }
     },
     async mainRuns() {
-      // main's own ci.yml runs: pushes and the train's "Full check · main" dispatches, never a packaged smoke or
+      // main's own ci.yml runs: pushes and the train's "Full check Â· main" dispatches, never a packaged smoke or
       // a publish, or a dispatch that built another branch (testsItsOwnHead).
       const { data } = await request('GET', `${r}/actions/workflows/ci.yml/runs?branch=${encodeURIComponent(base)}&per_page=30`)
       return data.workflow_runs
@@ -850,7 +1242,7 @@ export function createGitHubApi({ token, repo, base = 'main', fetchImpl = global
     },
     async merge(number, sha) {
       // `sha` makes GitHub refuse the merge if the head moved since the green run.
-      await request('PUT', `${r}/pulls/${number}/merge`, { merge_method: 'merge', sha })
+      return (await request('PUT', `${r}/pulls/${number}/merge`, { merge_method: 'merge', sha })).data
     },
     async dispatchWorkflow(file, ref) {
       if (!DISPATCHABLE_WORKFLOWS.includes(file)) throw new Error(`refusing to dispatch ${cleanName(file)}: not a train workflow`)
@@ -867,7 +1259,13 @@ async function main() {
   const timeoutMinutes = Number.isFinite(minutes) && minutes > 0 ? minutes : DEFAULT_TIMEOUT_MINUTES
   // Off unless the repository variable turns it on (merge-train.yml): main can be red for a known reason.
   const holdWhenMainRed = process.env.MERGE_TRAIN_HOLD_WHEN_MAIN_RED === 'true'
-  const actions = await runTrain(createGitHubApi({ token, repo }), { timeoutMinutes, repo, holdWhenMainRed, log: (line) => console.log(line) })
+  // Batches of docs- and tests-only cars: on unless the repository variable MERGE_TRAIN_BATCHES is "false".
+  const batches = process.env.MERGE_TRAIN_BATCHES !== 'false'
+  // --dry-run (or MERGE_TRAIN_DRY_RUN=true): reads with the token, logs every write instead of making it.
+  const dryRun = process.argv.includes('--dry-run') || process.env.MERGE_TRAIN_DRY_RUN === 'true'
+  const log = (line) => console.log(line)
+  const api = dryRun ? dryRunApi(createGitHubApi({ token, repo }), log) : createGitHubApi({ token, repo })
+  const actions = await runTrain(api, { timeoutMinutes, repo, holdWhenMainRed, batches, log, ...(dryRun ? { headPolls: 0 } : {}) })
   const summary = process.env.GITHUB_STEP_SUMMARY
   if (summary) {
     const lines = actions.map((a) => `- ${a.number ? `#${a.number} ` : ''}**${a.type}**: ${a.message}`)

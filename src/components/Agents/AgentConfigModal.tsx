@@ -3,7 +3,8 @@ import { type FormEvent, type ReactElement, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
 import { BUILTIN_PROVIDERS, type UpdateAgentProfileInput } from '../../../shared/types/agent'
-import { Button, ConfirmDialog, Dialog, IconButton, Notice, TextField, Select, TextArea } from '../../ui'
+import { Button, ConfirmDialog, Dialog, IconButton, Notice, TextField, Select, TextArea, toast } from '../../ui'
+import { i18n } from '../../i18n'
 import { humanizeError } from '../../utils/humanizeError'
 
 const PROVIDER_LABEL: Record<(typeof BUILTIN_PROVIDERS)[number], string> = {
@@ -88,6 +89,11 @@ export function AgentConfigModal({
         command: nextCommand
       })
       onClose()
+      // U2: the command an agent starts with is on the risky list; a changed one says so, with Undo to the old one.
+      if (!isNew && nextCommand !== profile.command) {
+        const before = { name: profile.name, command: profile.command }
+        toast({ title: t('agentConfig.commandChanged', { name: name.trim() || profile.name }), intent: 'info', action: { label: i18n.t('ui.undo'), run: () => void onSave(profile.agentProfileId, before).catch(() => undefined) } })
+      }
     } catch (err) {
       setSubmitError(humanizeError(err, t('agentConfig.saveFailed')))
     } finally {
@@ -113,7 +119,7 @@ export function AgentConfigModal({
   }
 
   return (
-    <Dialog
+    <Dialog size="md"
       title={isNew ? t('providers.newCustomAgent') : t('agentConfig.configure')}
       description={isCustom ? t('agentConfig.customDescription') : t('agentConfig.description')}
       onClose={onClose}

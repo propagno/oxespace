@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { expect, it } from 'vitest'
 import { ClaudeConversationAdapter } from '../../electron/main/services/conversation/claude-conversation'
 import { AgentProcessTransport } from '../../electron/main/services/conversation/process-transport'
 import type { ThreadEvent } from '../../shared/types/thread'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 // Explicit opt-in: two real model turns, using the installed account. Only a
 // synthetic native transcript is persisted; no account configuration is changed.
@@ -52,6 +53,6 @@ it.skipIf(process.env.OXESPACE_CLAUDE_SESSION_SMOKE !== '1')('Claude resumes a s
     expect(launches[1]).toEqual(expect.arrayContaining(['--resume', first.nativeSessionId]))
   } finally {
     await Promise.all(adapters.map(adapter => adapter.dispose()))
-    await rm(resolved, { recursive: true, force: true })
+    removeTempDir(resolved)
   }
 }, 140_000)

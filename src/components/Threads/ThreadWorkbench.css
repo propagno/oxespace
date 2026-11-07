@@ -6,7 +6,7 @@
 .thread-file-activity { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; max-width: 100%; gap: 2px; margin: 2px 0; }
 .thread-file-activity > div { min-width: 0; max-width: 100%; }
 .thread-file-operation { display: flex; align-items: center; min-width: 0; }
-.thread-file-operation > .thread-file-entry { min-width: 0; }
+.thread-file-operation > .thread-file-entry { min-width: 0; position: relative; }
 .thread-file-error { margin: 4px 8px 0 30px; color: var(--dot-red); font-size: var(--fs-2xs); line-height: 1.5; overflow-wrap: anywhere; }
 .thread-view .thread-file-expand { min-width: 28px; min-height: 28px; flex-shrink: 0; padding: 6px; color: var(--text-muted); }
 .thread-file-expand[aria-expanded="true"] svg { transform: rotate(90deg); }
@@ -166,8 +166,12 @@
 
 /* The prompt of the turn being read, kept at the top edge once it has scrolled away. */
 .thread-sticky-prompt-anchor { position: sticky; top: 0; z-index: calc(var(--layer-raised) + 1); height: 0; }
+/* C-08: while the prompt sticks, an opaque band the pill's height sits behind it, so the row scrolling under it never
+   shows through or around it. The anchor stays zero-height (no jump while scrolling); scroll-padding-top keeps a focused
+   control below it. */
+.thread-sticky-prompt-anchor:has(.thread-sticky-prompt)::before { content: ''; position: absolute; top: 0; right: 0; left: 0; height: 36px; background: var(--surface-base); }
 /* Prefixed: `.thread-view button` would otherwise strip the strip's border and fill, and the text under it showed through. */
-.thread-view .thread-sticky-prompt { position: absolute; top: 4px; right: 0; left: 0; display: flex; align-items: center; gap: 8px; max-width: 100%; min-height: 28px; padding: 0 10px; border: 1px solid var(--border-subtle, var(--border-default)); border-radius: var(--radius-md); background: var(--surface-raised); box-shadow: var(--shadow-sm, 0 1px 3px rgb(0 0 0 / 0.08)); color: var(--text-secondary); font: inherit; font-size: var(--fs-xs); text-align: left; cursor: pointer; }
+.thread-view .thread-sticky-prompt { position: absolute; top: 4px; right: 0; left: 0; display: flex; align-items: center; gap: 8px; max-width: 100%; min-height: 28px; padding: 0 10px; border: 1px solid var(--border-subtle, var(--border-default)); border-radius: var(--radius-md); background: var(--surface-base); box-shadow: var(--shadow-sm, 0 1px 3px rgb(0 0 0 / 0.08)); color: var(--text-secondary); font: inherit; font-size: var(--fs-xs); text-align: left; cursor: pointer; }
 .thread-view .thread-sticky-prompt span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-view .thread-sticky-prompt:hover { color: var(--text-primary); background: var(--surface-raised); border-color: var(--border-default); }
 .thread-view .thread-sticky-prompt:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -216,7 +220,7 @@
 .thread-turn-review-files { flex: none; max-height: 40%; margin: 0; padding: 4px; overflow: auto; list-style: none; border-bottom: 1px solid var(--border-subtle, var(--border-default)); }
 .thread-turn-review-files button { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 28px; padding: 0 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); font: inherit; text-align: left; cursor: pointer; }
 .thread-turn-review-files button:hover { background: var(--nav-hover); color: var(--text-primary); }
-.thread-turn-review-files button[aria-current='true'] { background: var(--accent-soft); color: var(--text-primary); }
+.thread-turn-review-files button[aria-current='true'] { background: var(--fill-selected); color: var(--text-primary); }
 .thread-turn-review-files button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 .thread-turn-review-files .thread-change-file-name { flex: 1; }
 .thread-turn-review-diff { flex: 1; min-height: 0; padding: 4px 12px 12px; overflow: auto; }

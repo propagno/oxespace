@@ -46,6 +46,8 @@
       "publicHost": "This code points outside your local network. OXESpace only pairs on the same Wi-Fi.",
       "malformed": "This code can't be read. Show a new one on your computer and try again."
     },
+    "contactingTitle": "Contacting {{desktop}}…",
+    "contactingBody": "Reaching your computer over the Wi-Fi. Once it has the request, it asks you to confirm and this phone shows the code to compare.",
     "waitingTitle": "Confirm on your computer",
     "waitingBody": "{{desktop}} is asking whether to pair with this phone. Accept only if it shows this code:",
     "verificationDescription": "Verification code {{code}}",
@@ -61,9 +63,12 @@
       "locked": "Too many pairing attempts. Wait 2 minutes and try again.",
       "tooManyDevices": "Your computer already has 5 paired devices. Remove one in Settings › Devices first.",
       "wrongCertificate": "Another device answered at that address, not your computer. Nothing was sent. Check that you're on your own Wi-Fi.",
-      "unreachable": "Couldn't reach your computer. Check that it's on, on the same Wi-Fi, and that the phone connection is on in Settings › Devices.",
+      "unreachable": "This phone has no route to your computer. Check that it's on the same Wi-Fi as the computer, not on mobile data, and that no VPN is on.",
       "protocol": "Your computer answered in a way this app doesn't understand. Update the app or OXESpace on your computer.",
-      "reservedName": "This phone's name uses a name reserved for OXESpace itself, so your computer won't accept it. Rename the phone in Android Settings › About phone, then scan again."
+      "reservedName": "This phone's name uses a name reserved for OXESpace itself, so your computer won't accept it. Rename the phone in Android Settings › About phone, then scan again.",
+      "localNetworkBlocked": "Android blocked this phone from reaching your computer: local network access is off for OXESpace. Turn it on in the app's settings (Permissions), then scan again.",
+      "refusedByComputer": "Your computer refused the connection. Check that the phone connection is on in Settings › Devices. If a third-party firewall such as McAfee or Norton is installed, allow OXESpace in it too: it can refuse connections even when Windows Firewall allows them.",
+      "timedOut": "Your computer didn't answer, so it never got the request. On Windows, the firewall blocks the phone when the Wi-Fi is set to Public: set the network to Private, or allow OXESpace through the firewall. Also check that both are on the same Wi-Fi."
     }
   },
   "live": {
@@ -110,7 +115,7 @@
       "unknown": "Not confirmed"
     },
     "readOnly": "Read-only",
-    "phoneWrite": "Phone can type",
+    "phoneWrite": "You can type here",
     "age": {
       "now": "just now",
       "minutes": "{{minutes}} min ago",
@@ -119,9 +124,6 @@
     }
   },
   "thread": {
-    "you": "You",
-    "agent": "Agent",
-    "reasoning": "Thinking",
     "tool": {
       "running": "Running",
       "completed": "Done",
@@ -130,8 +132,6 @@
     },
     "filesChanged_one": "{{count}} file changed",
     "filesChanged_other": "{{count}} files changed",
-    "plan": "Plan",
-    "request": "Request: {{title}}",
     "requestState": {
       "pending": "Needs you",
       "resolved": "answered",
@@ -146,44 +146,127 @@
     "truncated": "Shortened on the phone; the full text is on the computer.",
     "unknownItems_one": "{{count}} item from a newer OXESpace isn't shown.",
     "unknownItems_other": "{{count}} items from a newer OXESpace aren't shown.",
-    "showOutput": "Show output",
-    "hideOutput": "Hide output",
     "loadOlder": "Load earlier",
-    "respond": "Respond"
+    "latest": "Latest ↓",
+    "respond": "Respond",
+    "answerLabel": "Agent's answer",
+    "copy": "Copy",
+    "copied": "Copied",
+    "marker": {
+      "pending": "Request waiting for your answer ↓",
+      "resolved": "Answered",
+      "cancelled": "The request was withdrawn",
+      "expired": "The request expired"
+    },
+    "analyzing": "Analysing the request",
+    "verb": {
+      "read": "Read",
+      "run": "Ran",
+      "edit": "Edited",
+      "create": "Created",
+      "search": "Searched",
+      "other": "Used"
+    },
+    "doing": {
+      "read": "Reading {{target}}",
+      "run": "Running {{target}}",
+      "edit": "Editing {{target}}",
+      "create": "Creating {{target}}",
+      "search": "Searching {{target}}",
+      "other": "Using {{target}}"
+    },
+    "group": {
+      "read_one": "read {{count}} file",
+      "read_other": "read {{count}} files",
+      "run_one": "ran {{count}} command",
+      "run_other": "ran {{count}} commands",
+      "search_one": "made {{count}} search",
+      "search_other": "made {{count}} searches",
+      "other_one": "used {{count}} tool",
+      "other_other": "used {{count}} tools"
+    },
+    "steps_one": "{{count}} step",
+    "steps_other": "{{count}} steps",
+    "turn": {
+      "completed": "Worked · {{steps}}",
+      "interrupted": "Stopped · {{steps}}",
+      "failed": "Failed · {{steps}}",
+      "working": "Working · {{steps}}"
+    },
+    "planProgress": "Plan · {{done}} of {{total}}",
+    "loading": "Loading the conversation",
+    "stopTurn": "Stop the turn",
+    "youSaid": "You: {{text}}",
+    "state": {
+      "working": "Working",
+      "needsYou": "Needs you",
+      "failed": "Failed",
+      "stopped": "Stopped",
+      "idle": "Idle"
+    },
+    "moreRequests_one": "+{{count}} more",
+    "moreRequests_other": "+{{count}} more",
+    "answerOnComputer": "Answer on the computer",
+    "stop": {
+      "title": "Stop this turn?",
+      "body": "The agent in “{{title}}” stops what it is doing now. The conversation stays.",
+      "confirm": "Stop turn",
+      "keep": "Keep running"
+    }
   },
   "terminal": {
     "redacted_one": "{{count}} secret value hidden by your computer.",
     "redacted_other": "{{count}} secret values hidden by your computer.",
-    "empty": "No output yet."
+    "empty": "No output yet.",
+    "paste": "Paste",
+    "key": {
+      "up": "Up arrow",
+      "down": "Down arrow",
+      "left": "Left arrow",
+      "right": "Right arrow"
+    },
+    "textSize": "Text size",
+    "size": {
+      "small": "Small",
+      "medium": "Medium",
+      "large": "Large"
+    },
+    "pasteLines_one": "This text has {{count}} line. Send it?",
+    "pasteLines_other": "This text has {{count}} lines, and each runs as typed. Send them all?",
+    "hiddenShown": "Hidden characters are now shown in the field. Check it and send again.",
+    "cancel": "Cancel"
   },
   "approval": {
     "prompt": {
-      "accept": "Approve this request",
-      "decline": "Decline this request",
+      "accept": "Allow this request once",
+      "decline": "Deny this request",
       "cancel": "Cancel this request",
       "answer": "Send these answers"
     }
   },
   "request": {
     "title": "Request",
-    "from": "From the conversation “{{conversation}}”",
-    "command": "Command",
-    "cwd": "Folder",
     "paths": "Files it would change",
     "reason": "Why",
-    "warnings": "Worth a second look",
     "tool": "Tool",
     "risk": {
-      "green": "Only reads",
-      "orange": "Changes something",
-      "red": "Deletes, escalates or publishes"
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "critical": "Critical"
+    },
+    "riskMeaning": {
+      "low": "Only reads",
+      "medium": "Changes something",
+      "high": "Deletes, escalates access or publishes",
+      "critical": "Can't be undone, or affects production"
     },
     "decision": {
       "accept": "Allow once",
       "decline": "Deny",
       "cancel": "Cancel request"
     },
-    "declineReason": "Reason, told to the agent (optional)",
+    "declineReason": "Reason for the agent (optional)",
     "sendAnswers": "Send answers",
     "desktopOnly": "Only your computer can answer this one. Open OXESpace there.",
     "truncated": "Part of this request didn't fit on the phone. The full text is only on your computer, so from here you can only decline it.",
@@ -198,9 +281,20 @@
       "rateLimited": "Too many actions in a minute. Try again shortly.",
       "other": "Your computer didn't accept the answer."
     },
-    "riskSpoken": "Risk: {{risk}}",
+    "riskBadge": "Risk: {{risk}}",
     "fromAgent": "Written by the agent",
-    "desktopOnlyTitle": "Answer on the computer"
+    "desktopOnlyTitle": "Answer on the computer",
+    "by": "Requested by",
+    "where": "Where",
+    "notVerified": "OXESpace hasn't checked this text.",
+    "allowBiometric": "Allowing asks for your fingerprint.",
+    "hold": "Critical risk: Allow becomes available in 2 s.",
+    "projectFolder": "project folder",
+    "kind": {
+      "agent": "Request from an agent",
+      "question": "The agent's question",
+      "permissions": "Permission request"
+    }
   },
   "action": {
     "offline": "Not connected to your computer. Nothing was sent.",
@@ -211,8 +305,7 @@
   "composer": {
     "placeholder": "Message the agent",
     "send": "Send",
-    "steer": "Steer",
-    "stop": "Stop"
+    "steer": "Steer"
   },
   "terminalInput": {
     "placeholder": "Type in this terminal",
@@ -245,5 +338,12 @@
       "offNetwork": "Waiting for Wi-Fi to reach {{desktop}}",
       "stopped": "Can't stay connected to {{desktop}}. Open the app."
     }
+  },
+  "localNetwork": {
+    "title": "Local network access",
+    "needed": "OXESpace talks to your computer directly over your Wi-Fi, so Android asks whether it may use the local network. It connects only to the computer you pair with, never to other devices.",
+    "allow": "Allow local network access",
+    "denied": "Local network access is off for OXESpace, so Android blocks every connection to your computer. Turn on \"Local network access\" for OXESpace in the app's settings (Permissions), then come back.",
+    "openSettings": "Open app settings"
   }
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactElement } from 'react'
+import { SKELETON_AFTER_MS } from '../../app/viewSwitch'
 import { useTranslation } from 'react-i18next'
 import { FilePlus2, KeyRound, RefreshCw, Search, Upload } from 'lucide-react'
 import { NavigationRail, SidebarActions, SidebarFooter, type RailAction } from '../Navigation/NavigationChrome'
@@ -46,7 +47,7 @@ export function OxePostSidebar(): ReactElement {
         {shortcutLabel('oxepost.filter') && <Kbd>{shortcutLabel('oxepost.filter')}</Kbd>}
       </label>
       <div className={styles.groups}>
-        {loading && entries.length === 0 && <Skeleton lines={4} label={t('sidebar.loading')} />}
+        {loading && entries.length === 0 && <Skeleton lines={4} label={t('sidebar.loading')} delay={SKELETON_AFTER_MS} />}
         {groups.map(group => <section key={group.folder} aria-label={group.folder ? t('sidebar.folder', { name: group.folder }) : t('sidebar.root')}>
           {group.folder && <h3 className={styles.groupTitle}>{group.folder}</h3>}
           {group.entries.map(entry => <button key={entry.path} type="button" className={styles.row} aria-current={selected === entry.path ? 'page' : undefined} title={entry.problem ?? entry.path}

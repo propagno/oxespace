@@ -30,8 +30,11 @@ import { registerMcpToolsMock } from './mcp-tools-mock'
 import { registerDiagnosticsMock } from './diagnostics-mock'
 import { registerRemoteMock } from './remote-mock'
 import { registerActivityMock } from './activity-mock'
+import { registerAgentsMock } from './agents-mock'
 import { registerThreadSectionsMock } from './thread-sections-mock'
 import { registerOpenExternalMock } from './open-external-mock'
+import { registerAgentHooksMock } from './agent-hooks-mock'
+import { registerOpenInMock } from './open-in-mock'
 import { installMcpFixture } from './mcp-fixture'
 import { registerApprovalsMock } from './approvals-mock'
 import { registerApprovalsIpc } from '../ipc/approvals.ipc'
@@ -48,10 +51,11 @@ import type { GitCompareMode } from '../../../shared/types/git'
 import type { PaneAgentResume } from '../../../shared/types/ipc'
 import { planSplit } from '../../../shared/workspace-split'
 import type { AppAbout, AppConnectivity } from '../../../shared/types/app'
-import type { ThreadPendingRefusal, ThreadPendingRequestSummary, ThreadPendingResponseInput, ThreadPendingResponseResult, ThreadProjectCatalog, ThreadSideOpenResult } from '../../../shared/types/thread'
+import type { ThreadPendingRefusal, ThreadPendingRequestSummary, ThreadPendingResponseInput, ThreadPendingResponseResult, ThreadProjectCatalog } from '../../../shared/types/thread'
 import { version as packageVersion } from '../../../package.json'
 import { mainMessage } from '../../../shared/messages'
 import { requestOutcome } from '../../../shared/threadRequestOutcome'
+import { registerE2eSideChat } from './side-chat-mock'
 
 export function registerE2eMockIpcHandlers(): void {
   const shellProfiles: ShellProfile[] = fallbackShellProfiles()
@@ -62,8 +66,10 @@ export function registerE2eMockIpcHandlers(): void {
   registerDiagnosticsMock()
   registerRemoteMock()
   registerActivityMock()
+  registerAgentsMock()
   registerThreadSectionsMock(id => workspaces.some(workspace => workspace.id === id))
   registerOpenExternalMock()
+  registerAgentHooksMock()
   // Never in a packaged build: the gate is inside, on app.isPackaged (see mcp-fixture.ts).
   installMcpFixture(ipcMain, process.env, app.isPackaged)
   // The preview spec drives the real PreviewAutomation, which asks the real approval center: the window must answer
@@ -121,7 +127,7 @@ export function registerE2eMockIpcHandlers(): void {
       backgroundPanelWidthPercent: 28,
       worktreePanelVisible: false,
       worktreePanelExpanded: false,
-      worktreePanelWidthPercent: 36,
+      worktreePanelWidthPercent: 36, color: null,
       panes: []
     }
     workspace.panes = createMockPanes(workspace.id, layout)
@@ -283,7 +289,10 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.diagnostics.exportReport, () => null)
   ipcMain.handle(IPC_CHANNELS.diagnostics.buildIssueReport, () => ({ title: '[Bug] ', diagnosticLines: 2, body: ['## What happened', '', '## Environment', '', '- OXESpace: ' + packageVersion, '- System: E2E mock', ''].join('\n') }))
   ipcMain.handle(IPC_CHANNELS.diagnostics.recordFirstAnswer, () => undefined)
-  ipcMain.handle(IPC_CHANNELS.policy.get, () => ({ sources: [], problems: [], locations: [{ layer: 'user', path: 'policy.json' }] }))
+  ipcMain.handle(IPC_CHANNELS.policy.get, () => ({ sources: [], problems: [], locations: [{ layer: 'user', path: 'policy.json' }], changes: [] }))
+  // B7.4: nothing is pending in the mock, so an answer finds no change (the window shows the C3 refusal).
+  ipcMain.handle(IPC_CHANNELS.policy.acceptChange, () => { throw new Error('policy.change.notPending') })
+  ipcMain.handle(IPC_CHANNELS.policy.reviewChange, () => { throw new Error('policy.change.notPending') })
   ipcMain.handle(IPC_CHANNELS.terminal.start, (_event: IpcMainInvokeEvent, input: { paneId: string }) => {
     for (const window of BrowserWindow.getAllWindows()) {
       window.webContents.send(IPC_CHANNELS.terminal.onData, { paneId: input.paneId, data: 'PS> ' })
@@ -309,9 +318,6 @@ export function registerE2eMockIpcHandlers(): void {
     const seeded = (globalThis as { __oxeAgentResume?: Record<string, PaneAgentResume> }).__oxeAgentResume?.[String(paneId)]
     return { running: false, seq: 0, altScreen: false, ...(seeded ? { agentResume: seeded } : {}) }
   })
-  ipcMain.handle(IPC_CHANNELS.voice.transcribe, () => ({ text: '', durationMs: 0 }))
-  ipcMain.handle(IPC_CHANNELS.voice.getModelStatus, () => ({ size: 'base', ready: false, path: '', engineReady: false }))
-  ipcMain.handle(IPC_CHANNELS.voice.ensureModel, () => ({ size: 'base', ready: false, path: '', engineReady: false }))
   ipcMain.handle(IPC_CHANNELS.notifications.notify, () => false)
   // Offline is opted into per run, so a spec can check the offline state without unplugging the runner.
   ipcMain.handle(IPC_CHANNELS.app.connectivity, (): AppConnectivity => process.env.OXESPACE_E2E_OFFLINE === '1'
@@ -326,23 +332,13 @@ export function registerE2eMockIpcHandlers(): void {
   // Pending requests across conversations, seeded per run with a JSON list of summaries. An answer is accepted once,
   // for the listed generation, exactly as the registry does.
   // A new profile has no conversation projects yet; the real catalog answers an empty one, never nothing.
+  // T87: the window asks before it renders; under the mocks the start never failed.
+  ipcMain.handle(IPC_CHANNELS.app.startupFailure, () => null)
   ipcMain.handle(IPC_CHANNELS.thread.projects, (): ThreadProjectCatalog => ({ projects: [], unavailable: [] }))
   const pendingRequests: ThreadPendingRequestSummary[] = JSON.parse(process.env.OXESPACE_E2E_PENDING_REQUESTS || '[]')
   ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, () => pendingRequests)
-  // B1.2: a side chat answers each message with a fixed reply and its usage, and is gone once closed.
-  const sides = new Map<string, string>()
-  ipcMain.handle(IPC_CHANNELS.thread.sideOpen, (_event: IpcMainInvokeEvent, id: unknown): ThreadSideOpenResult => {
-    if (typeof id !== 'string' || !id) throw new Error('thread.invalidInput')
-    if (process.env.OXESPACE_E2E_SIDE_UNAVAILABLE === '1') return { ok: false, message: mainMessage('thread.side.unavailable', {}) }
-    const sideId = randomUUID()
-    sides.set(sideId, id)
-    return { ok: true, side: { sideId, threadId: id, provider: 'claude', readOnly: true } }
-  })
-  ipcMain.handle(IPC_CHANNELS.thread.sideSend, (event: IpcMainInvokeEvent, sideId: unknown, text: unknown) => {
-    if (typeof sideId !== 'string' || !sides.has(sideId) || typeof text !== 'string' || !text.trim()) throw new Error('thread.side.invalidInput')
-    event.sender.send(IPC_CHANNELS.thread.onSideEvent, { sideId, event: { type: 'message', id: randomUUID(), role: 'assistant', text: 'E2E side chat reply.' } })
-  })
-  ipcMain.handle(IPC_CHANNELS.thread.sideClose, (_event: IpcMainInvokeEvent, sideId: unknown) => { if (typeof sideId === 'string') sides.delete(sideId) })
+  // B1.2: the real side chat service over a provider stand-in (see side-chat-mock.ts).
+  registerE2eSideChat(ipcMain)
   ipcMain.handle(IPC_CHANNELS.thread.respondPending, (_event: IpcMainInvokeEvent, input: ThreadPendingResponseInput): ThreadPendingResponseResult => {
     const index = pendingRequests.findIndex(request => request.threadId === input.threadId && request.requestId === input.requestId)
     const refuse = (refusal: ThreadPendingRefusal): ThreadPendingResponseResult => ({ ok: false, refusal, message: mainMessage(`thread.request.${refusal}`, {}) })
@@ -370,10 +366,13 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.tasks.executions, () => [])
   // The file system service needs no native module, so e2e gets the real one —
   // that is what makes the editor, file browser and rich previews testable.
-  const mockFileSystemService = new FileSystemService((workspaceId, requestedRoot) => {
+  const mockWorkspaceRoot = (workspaceId: string, requestedRoot: string): string | null => {
     const root = workspaces.find((workspace) => workspace.id === workspaceId)?.rootPath
     return root ? worktreeOrWorkspaceRoot(root, requestedRoot) : null
-  })
+  }
+  const mockFileSystemService = new FileSystemService(mockWorkspaceRoot)
+  // B18: the real path checks against the same roots, with fake editors that record what main would start.
+  registerOpenInMock(mockWorkspaceRoot)
   ipcMain.handle(IPC_CHANNELS.fs.listTree, (_event: IpcMainInvokeEvent, input: unknown) =>
     mockFileSystemService.listTree(input as Parameters<FileSystemService['listTree']>[0])
   )

@@ -3,7 +3,6 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { SessionSummary } from '../../../shared/types/session'
 import type { WorkspacePane } from '../../../shared/types/workspace'
-import { useOxeVoice } from '../../hooks/useOxeVoice'
 import { useAgentStore } from '../../store/agent.store'
 import { findMemberForPane, useIntegrationStore } from '../../store/integration.store'
 
@@ -16,7 +15,6 @@ const CopilotCreditsStatus = lazy(() => import('../Terminal/CopilotCreditsStatus
 const AgentCreditsStatus = lazy(() => import('../Terminal/AgentCreditsStatus').then(module => ({ default: module.AgentCreditsStatus })))
 const ContextUsageStatus = lazy(() => import('../Terminal/ContextUsageStatus').then(module => ({ default: module.ContextUsageStatus })))
 import { ErrorBoundary } from '../common/ErrorBoundary'
-import { VoiceHudSlot } from '../Voice/VoiceHudSlot'
 
 import { Dialog, EmptyState, ErrorState, LoadingState, TextField } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
@@ -46,7 +44,6 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
   const setTerminalOverride = useTerminalPrefsStore((s) => s.setOverride)
   const terminalPrefs = useResolvedTerminalPrefs(workspaceId)
   const isRunning = state.status === 'running' || state.status === 'starting'
-  const canUseVoice = state.status === 'running'
   // Copilot panes get the account-wide AI-Credits indicator in their status bar.
   const isCopilotPane = useMemo(() => {
     const profile = allProfiles.find((p) => p.agentProfileId === pane.agentProfileId)
@@ -72,49 +69,6 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
   }, [allProfiles, pane.agentProfileId])
   const typedCommandRef = useRef('')
   const effectiveRootPath = pane.rootPath ?? workspaceRootPath
-  const insertVoiceText = useCallback((text: string): void => {
-    window.dispatchEvent(new CustomEvent('oxe:terminal-insert-text', {
-      detail: { paneId: pane.id, text }
-    }))
-  }, [pane.id])
-  const voice = useOxeVoice({ enabled: canUseVoice, onFinalText: insertVoiceText })
-  const isVoiceActive = voice.status === 'listening' || voice.status === 'transcribing'
-
-  // Mic chip gestures: a quick tap toggles hands-free mode; press-and-hold is
-  // push-to-talk (record while held, transcribe on release).
-  const holdTimerRef = useRef<number | null>(null)
-  const holdingRef = useRef(false)
-  const HOLD_THRESHOLD_MS = 220
-  const onVoicePointerDown = useCallback((): void => {
-    if (!canUseVoice || !voice.isSupported) return
-    holdingRef.current = false
-    holdTimerRef.current = window.setTimeout(() => {
-      holdingRef.current = true
-      voice.startHold()
-    }, HOLD_THRESHOLD_MS)
-  }, [canUseVoice, voice])
-  const onVoicePointerEnd = useCallback((): void => {
-    if (holdTimerRef.current !== null) {
-      clearTimeout(holdTimerRef.current)
-      holdTimerRef.current = null
-    }
-    if (holdingRef.current) {
-      holdingRef.current = false
-      voice.endHold()
-    } else {
-      voice.toggle()
-    }
-  }, [voice])
-  const onVoicePointerCancel = useCallback((): void => {
-    if (holdTimerRef.current !== null) {
-      clearTimeout(holdTimerRef.current)
-      holdTimerRef.current = null
-    }
-    if (holdingRef.current) {
-      holdingRef.current = false
-      voice.endHold()
-    }
-  }, [voice])
 
   const resolveAgentInfo = useCallback((): { command: string | undefined; initialPrompt: string | undefined } => {
     const pending = consumePendingCommand(pane.id)
@@ -332,24 +286,6 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     return () => window.removeEventListener('oxe:terminal-new-session', handler)
   }, [pane.id, getStatus, restart, start])
 
-  useEffect(() => {
-    const forThisPane = (e: Event): boolean => {
-      const { paneId: targetId } = (e as CustomEvent<{ paneId: string }>).detail
-      return targetId === pane.id && canUseVoice && voice.isSupported
-    }
-    const onToggle = (e: Event): void => { if (forThisPane(e)) voice.toggle() }
-    const onHoldStart = (e: Event): void => { if (forThisPane(e)) voice.startHold() }
-    const onHoldEnd = (e: Event): void => { if (forThisPane(e)) voice.endHold() }
-    window.addEventListener('oxe:terminal-toggle-voice', onToggle)
-    window.addEventListener('oxe:terminal-voice-hold-start', onHoldStart)
-    window.addEventListener('oxe:terminal-voice-hold-end', onHoldEnd)
-    return () => {
-      window.removeEventListener('oxe:terminal-toggle-voice', onToggle)
-      window.removeEventListener('oxe:terminal-voice-hold-start', onHoldStart)
-      window.removeEventListener('oxe:terminal-voice-hold-end', onHoldEnd)
-    }
-  }, [canUseVoice, pane.id, voice])
-
   const statusDotClass = state.status === 'running' ? 'green'
     : state.status === 'starting' ? 'yellow'
     : state.status === 'error' ? 'red'
@@ -431,7 +367,6 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
             }}
           />
           </ErrorBoundary>
-          <VoiceHudSlot status={voice.status} error={voice.error} level={voice.level} modelProgress={voice.modelProgress} onDismiss={voice.dismiss} />
         </div>
       ) : (
         <div className="terminal-idle">
@@ -486,7 +421,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
                 }}
               >
                 <Zap size={12} aria-hidden="true" />
-                <span className="statusbar-more-label">RTK</span>
+                <span className="statusbar-more-label">RTK<small className="statusbar-more-hint">{tc('terminalPane.rtkHint')}</small></span>
                 {terminalPrefs.rtkHookEnabled ? <Check size={12} className="statusbar-more-check" aria-hidden="true" /> : null}
               </button>
               <button
@@ -500,7 +435,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
                 }}
               >
                 <Bone size={12} aria-hidden="true" />
-                <span className="statusbar-more-label">Caveman</span>
+                <span className="statusbar-more-label">Caveman<small className="statusbar-more-hint">{tc('terminalPane.cavemanHint')}</small></span>
                 {terminalPrefs.cavemanModeEnabled ? <Check size={12} className="statusbar-more-check" aria-hidden="true" /> : null}
               </button>
               <button
@@ -516,21 +451,21 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
                 }}
               >
                 <Brain size={12} aria-hidden="true" />
-                <span className="statusbar-more-label">{tc('workspace.systems.semantic')}</span>
+                <span className="statusbar-more-label">{tc('workspace.systems.semantic')}<small className="statusbar-more-hint">{tc('terminalPane.semanticHint')}</small></span>
                 {terminalPrefs.semanticSearchEnabled ? <Check size={12} className="statusbar-more-check" aria-hidden="true" /> : null}
               </button>
             </div>
           ) : null}
         </div>
       </div>
-      {restoreOpen && <Dialog className="terminal-restore-dialog" title={tc('terminalPane.restoreTitle')} description={tc('terminalPane.restoreDescription', { agent: agentCreditsProvider === 'claude' ? 'Claude' : 'Codex' })} onClose={() => { if (!restoreBusy) setRestoreOpen(false) }}>
-        <label>{tc('terminalPane.searchSessions')}<TextField aria-label={tc('terminalPane.searchSaved')} value={restoreQuery} onChange={event => setRestoreQuery(event.target.value)} placeholder={tc('terminalPane.searchPlaceholder')} /></label>
+      {restoreOpen && <Dialog size="md" title={tc('terminalPane.restoreTitle')} description={tc('terminalPane.restoreDescription', { agent: agentCreditsProvider === 'claude' ? 'Claude' : 'Codex' })} onClose={() => { if (!restoreBusy) setRestoreOpen(false) }}>
+        <div className="terminal-restore-dialog"><label>{tc('terminalPane.searchSessions')}<TextField aria-label={tc('terminalPane.searchSaved')} value={restoreQuery} onChange={event => setRestoreQuery(event.target.value)} placeholder={tc('terminalPane.searchPlaceholder')} /></label>
         {restoreError && <ErrorState compact title={tc('terminalPane.resumeFailed')} message={restoreError} />}
         <div className="terminal-restore-list">
           {restoreBusy && !savedSessions.length && <LoadingState label={tc('terminalPane.loadingSessions')} />}
           {!restoreBusy && !savedSessions.length && <EmptyState compact title={tc('terminalPane.noSessions')} />}
           {savedSessions.filter(session => `${session.firstMessagePreview ?? ''} ${session.modelId ?? ''} ${session.sessionId}`.toLowerCase().includes(restoreQuery.toLowerCase())).map(session => <button type="button" key={session.sessionId} disabled={restoreBusy} onClick={() => void restoreSession(session.sessionId)}><strong>{session.firstMessagePreview || tc('terminalPane.session', { agent: agentCreditsProvider })}</strong><span>{formatDateTime(session.lastUpdatedMs)} · {session.modelId || tc('terminalPane.noModel')} · {tc('terminalPane.requests', { count: session.requestCount })}</span><small>{session.sessionId}</small></button>)}
-        </div>
+        </div></div>
       </Dialog>}
     </div>
   )
