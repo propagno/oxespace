@@ -1,6 +1,8 @@
 // Frozen acceptance test for 1.5.0 A10 (OXE program, phase F2). Written by the planner; the executor must not edit it.
 // Spec: docs/roadmap-1.5/ccr-a10-agent-activity-read-model.md. Needs A12 PR 1 (oxepost_audit).
 // Runs under Electron's Node ABI: npm run test:electron -- tests/acceptance/f2/a10-agent-activity-read-model.test.ts
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { afterEach, describe, expect, test } from 'vitest'
 import { openInMemoryDatabase, type AppDatabase } from '../../../electron/main/db/index'
 import { AgentActivity, parseAgentActivityQuery } from '../../../electron/main/services/agent-activity/read-model'
@@ -64,7 +66,7 @@ describe('A10 · one Agent activity read model', () => {
     expect(rows[3]).toMatchObject({ actor: { kind: 'agent', id: null, label: 'agent' }, summary: 'POST /invoices', target: 'billing · staging', write: true })
     expect(new Set(rows.map(row => row.id)).size).toBe(4)
     post(db, 5, { actor: 'person' })
-    expect(new AgentActivity(db).list({ sources: ['post'] }).rows[1].actor).toEqual({ kind: 'person', id: null, label: 'person' })
+    expect(new AgentActivity(db).list({ sources: ['post'] }).rows[1].actor).toEqual({ kind: 'person', id: null, label: 'person', name: null })
     for (const row of rows) expect(row.id.startsWith(`${row.source}:`)).toBe(true)
   })
 
@@ -172,6 +174,33 @@ describe('A10 · one Agent activity read model', () => {
       }
       expect(plan.filter(line => /^SCAN \w+( AS \w+)?$/.test(line) && !/^SCAN (\(|subquery|unionop)/i.test(line)), plan.join('\n')).toEqual([])
     }
+  })
+
+  test('actor names are resolved at read time: thread title, pane display name, null when gone or unnamed', () => {
+    const db = open()
+    db.pragma('foreign_keys = OFF')
+    db.prepare("INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES ('w1', 'W', '/w', '{}', 'sp')").run()
+    db.prepare("INSERT INTO conversation_threads (id, workspace_id, thread_project_id, data_json) VALUES ('t1', 'w1', 'tp', ?), ('t3', 'w1', 'tp', ?)").run(JSON.stringify({ id: 't1', title: 'Fix the login' }), JSON.stringify({ id: 't3', title: 'New thread' }))
+    db.prepare("INSERT INTO panes (id, workspace_id, row_index, column_index) VALUES ('p1', 'w1', 0, 0)").run()
+    db.prepare("UPDATE panes SET display_name = 'API server' WHERE id = 'p1'").run()
+    change(db, 40, { actor: 'thread:t1' }); change(db, 30, { actor: 'pane:p1' }); change(db, 20, { actor: 'thread:gone' }); change(db, 10, { actor: 'thread:t3' })
+    const names = new AgentActivity(db).list({}).rows.map(row => [row.actor.label, row.actor.name])
+    expect(names).toEqual([['thread:t1', 'Fix the login'], ['pane:p1', 'API server'], ['thread:gone', null], ['thread:t3', null]])
+  })
+
+  test('a post row never shows the query string in its summary or target', () => {
+    const db = open()
+    post(db, 10, { path: '/invoices?token=abcd1234efgh&page=2' })
+    const [row] = new AgentActivity(db).list({}).rows
+    expect(row.summary).toBe('GET /invoices')
+    expect(`${row.summary} ${row.target}`).not.toMatch(/\?|token|abcd1234efgh/)
+  })
+
+  test('the preload exposes agentActivity.list and .detail on those channels', () => {
+    const preload = readFileSync(join(__dirname, '../../../electron/preload/api.ts'), 'utf8')
+    const block = /agentActivity:\s*\{([\s\S]*?)\n\s*\}/.exec(preload)?.[1] ?? ''
+    expect(block, 'agentActivity group in electron/preload/api.ts').toMatch(/\blist:[\s\S]*IPC_CHANNELS\.agentActivity\.list\b/)
+    expect(block).toMatch(/\bdetail:[\s\S]*IPC_CHANNELS\.agentActivity\.detail\b/)
   })
 
   test('the IPC channels exist and are excluded from MCP', () => {

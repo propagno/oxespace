@@ -37,7 +37,7 @@ export interface AgentActivityRow {
   at: number
   /** Parsed from the audit `actor` label: `thread:<id>`, `pane:<id>`, exactly `person` (a person's own change, such as A12's
    *  "Access changed" row) is `person`, anything else is `agent`; id is null except for thread and pane. */
-  actor: { kind: 'thread' | 'pane' | 'agent' | 'person'; id: string | null; label: string }
+  actor: { kind: 'thread' | 'pane' | 'agent' | 'person'; id: string | null; label: string; name: string | null }
   tool: string
   /** One line, already redacted where it was written; cut to 200 characters here. */
   summary: string
@@ -53,11 +53,16 @@ export interface AgentActivityRow {
 export interface AgentActivityPage { rows: AgentActivityRow[]; nextCursor: string | null }
 ```
 
+- **`actor.name`** (FE's M5 ask) is resolved in main at read time, so the desktop and the phone show the same words:
+  - a thread: `readThreadTitle(json_extract(data_json, '$.title'))` from `conversation_threads`, the same function the Agents read model uses;
+  - a pane: `COALESCE(display_name, agent_name)` from `panes`.
+
+  It's `null` when the thread or pane is gone, the value is empty, or the actor is `agent`/`person`, and it's cut to 120 characters. The lookup is batched: at most one query per kind per page (`WHERE id IN (…)` over the page's ids), never one per row. `label` stays the raw audit label.
 - **`summary`:**
   - changes: `<action> · <text>`;
   - databases: the statement text;
   - containers: the action text;
-  - post: `<METHOD> <path>`.
+  - post: `<METHOD> <path>`, where the path is `url_path` up to its first `?` or `#`. The query string never reaches the summary or the target, even though A12 already redacts credential-like values.
 
   All are taken from columns that were redacted when written. Main never re-reads anything else.
 - **`write`:**
@@ -146,7 +151,10 @@ It writes rows straight into the four tables of an in-memory database (migration
 6b. **Query plan:** for a first page and for a cursor page, with all four sources, `EXPLAIN QUERY PLAN` of `listStatement` reads each table through its `ts` index and has no bare `SCAN`.
 7. **Surface:**
    - `IPC_CHANNELS.agentActivity.list` / `.detail` exist with those names;
-   - exactly one mcp-coverage capability claims each, and it is `excluded`.
+   - exactly one mcp-coverage capability claims each, and it is `excluded`;
+   - `electron/preload/api.ts` exposes `agentActivity: { list, detail }` on those channels (a static check; FE's A11 test fakes exactly that).
+8. **Actor names:** a thread's title and a pane's display name are resolved; a gone actor has `name: null`.
+9. **No query string in post rows:** a post row whose path had `?token=…` keeps the `?` and the token out of the summary and the target.
 
 ## Out of scope
 
