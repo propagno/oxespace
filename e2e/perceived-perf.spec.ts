@@ -64,17 +64,36 @@ const PLATFORM_WARM_BASELINE_MS: Record<Platform, Record<string, number>> = {
   linux: { 'OxeCode (Code)': 28, 'OxeChat (Thread)': 30, OxeQuery: 24.5, OxePod: 23, OxePost: 21.5, 'Settings · Agents': 27.5, 'Settings · Appearance': 32 },
   windows: { 'OxeCode (Code)': 37.5, 'OxeChat (Thread)': 33, OxeQuery: 26, OxePod: 23.5, OxePost: 22.5, 'Settings · Agents': 28, 'Settings · Appearance': 34 }
 }
+/**
+ * Cold first content, per platform (FL-21 cold, TECH LEAD 07/11): the same 10 samples per OS as the warm table. The
+ * phase-1 cold budgets (335–344 ms) were set before F7 made cold fast (about 150 ms for OxeChat, about 50 for the rest),
+ * so they could not catch a regression. Variance check before tightening: the p90 of the 10 samples (nearest rank) sits
+ * under the new limit for every surface on both OSes, so no surface needed a p90 + one frame limit. The one sample over
+ * its limit in the window (OxeChat windows 183 against 170.7) is the 1-in-10 the gate's confirm round absorbs.
+ * Appearance cold went up since phase 1 (29 → 34 / 35.5) and is rebased like the rest.
+ *
+ *   surface                 linux median/p90/limit   windows median/p90/limit
+ *   OxeCode (Code)           48.5 / 51  / 65.2        54.5 / 58  / 71.2
+ *   OxeChat (Thread)        148.5 / 153 / 165.2       154  / 166 / 170.7
+ *   OxeQuery                 53   / 54  / 69.7        53   / 66  / 69.7
+ *   OxePod                   50.5 / 52  / 67.2        53   / 55  / 69.7
+ *   OxePost                  42.5 / 44  / 59.2        45.5 / 58  / 62.2
+ *   Settings · Agents        36   / 38  / 52.7        39   / 41  / 55.7
+ *   Settings · Appearance    34   / 35  / 50.7        35.5 / 37  / 52.2
+ */
+const PLATFORM_COLD_BASELINE_MS: Record<Platform, Record<string, number>> = {
+  linux: { 'OxeCode (Code)': 48.5, 'OxeChat (Thread)': 148.5, OxeQuery: 53, OxePod: 50.5, OxePost: 42.5, 'Settings · Agents': 36, 'Settings · Appearance': 34 },
+  windows: { 'OxeCode (Code)': 54.5, 'OxeChat (Thread)': 154, OxeQuery: 53, OxePod: 53, OxePost: 45.5, 'Settings · Agents': 39, 'Settings · Appearance': 35.5 }
+}
 /** A surface much slower on windows than on linux is a finding to explain, not a baseline to accept (FL-21). */
 const MAX_WINDOWS_TO_LINUX = 1.5
-/** The surfaces whose windows warm baseline is more than 1.5× linux's; the gate fails while any is listed. */
-function platformRatioOffenders(table: Record<Platform, Record<string, number>> = PLATFORM_WARM_BASELINE_MS): string[] {
+/** The surfaces whose windows baseline is more than 1.5× linux's, in one phase's table; the gate fails while any is listed. */
+function platformRatioOffenders(table: Record<Platform, Record<string, number>> = PLATFORM_WARM_BASELINE_MS, phase = 'warm'): string[] {
   return Object.keys(table.linux).filter(name => table.windows[name] !== undefined && table.windows[name] / table.linux[name] > MAX_WINDOWS_TO_LINUX)
-    .map(name => `${name} warm: windows ${table.windows[name]} ms is ${(table.windows[name] / table.linux[name]).toFixed(2)}× linux ${table.linux[name]} ms (over ${MAX_WINDOWS_TO_LINUX}×; explain why in the PR before raising it)`)
+    .map(name => `${name} ${phase}: windows ${table.windows[name]} ms is ${(table.windows[name] / table.linux[name]).toFixed(2)}× linux ${table.linux[name]} ms (over ${MAX_WINDOWS_TO_LINUX}×; explain why in the PR before raising it)`)
 }
 const CONTENT_BASELINE_MS: Record<'cold' | 'warm', Record<string, number>> = {
-  // OxeCode cold rebased onto current main (74 ms measured on main without this branch, 2026-10-31; was 60 on the
-  // older main the phase-1 baseline used): the Code path is not this branch's, the gate keeps it from getting worse.
-  cold: { 'OxeCode (Code)': 74, 'OxeChat (Thread)': 335, OxeQuery: 335, OxePod: 341, OxePost: 336, 'Settings · Agents': 344, 'Settings · Appearance': 29 },
+  cold: PLATFORM_COLD_BASELINE_MS[PLATFORM],
   warm: PLATFORM_WARM_BASELINE_MS[PLATFORM]
 }
 const contentLimit = (baseline: number): number => Math.max(baseline * 1.1, baseline + 16.7)
@@ -430,9 +449,10 @@ async function measureRound(): Promise<void> {
   reportAll()
 }
 
-test('perceived performance: windows warm baselines stay within 1.5× of linux', () => {
+test('perceived performance: windows baselines stay within 1.5× of linux', () => {
   // FL-21's guard: a platform gap this large is a finding to explain in the PR, not a baseline to accept quietly.
   expect(platformRatioOffenders(), 'warm baselines over the windows/linux limit').toEqual([])
+  expect(platformRatioOffenders(PLATFORM_COLD_BASELINE_MS, 'cold'), 'cold baselines over the windows/linux limit').toEqual([])
   expect(platformRatioOffenders({ linux: { probe: 20 }, windows: { probe: 31 } })).toHaveLength(1)
 })
 
