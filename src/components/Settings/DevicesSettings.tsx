@@ -2,7 +2,7 @@ import { useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { REMOTE_COMMANDS, REMOTE_FORBIDDEN, REMOTE_SUBSCRIPTIONS, type RemoteCommand, type RemoteForbidden } from '../../../shared/remote/protocol'
 import { REMOTE_DEFAULT_DESKTOP_NAME, REMOTE_MAX_DESKTOP_NAME_LENGTH } from '../../../shared/types/remote'
-import { Button, Dialog, ErrorState, LoadingState, Panel, Switch, TextField, toast } from '../../ui'
+import { Button, Dialog, ErrorState, LoadingState, Notice, Panel, Switch, TextField, toast } from '../../ui'
 import { i18n } from '../../i18n'
 import { formatMainMessage } from '../../i18n/mainMessage'
 import { remoteApi, useRemoteGateway, useRemoteStore } from '../../store/remote.store'
@@ -79,7 +79,11 @@ export function DevicesSettings(): ReactElement {
             ? t('devices.gateway.listening', { addresses: status.listening.addresses.join(', '), port: status.listening.port }) : t('devices.gateway.off')}</p>
           {status.error ? <div data-testid="devices-gateway-error"><ErrorState compact title={formatMainMessage(status.error)} /></div> : null}
           {toggleError ? <ErrorState compact title={toggleError} /> : null}
-          <DevicesFirewall listening={!!listening} pairingKey={String(pairingRound)} />
+          {/* T86: on a network Windows calls Public, its firewall blocks phones. P1's firewall check says so when it runs;
+              this Notice is its fallback, so one problem gives one alert. */}
+          <DevicesFirewall listening={!!listening} pairingKey={String(pairingRound)}
+            publicFallback={status.network?.category === 'public' ? <div data-testid="devices-network-public"><Notice intent="warning" title={t('devices.network.publicTitle', { network: status.network.interfaceName })}>
+              <p>{t('devices.network.publicBody')}</p></Notice></div> : null} />
         </div>
       </Panel>
       <DesktopName current={status.desktopName} />

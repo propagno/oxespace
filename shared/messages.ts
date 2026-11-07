@@ -384,7 +384,7 @@ export interface MessageParams {
   /** No secure storage at all on this system: the connection's private key cannot be kept, so it stays off. */
   'remote.storage.unavailable': Record<string, never>
   /** A phone's pairing attempt failed. Never carries the phone's key, address, name or any identifier. */
-  'remote.pairing.failed': { reason: 'invalid' | 'expired' | 'refused' | 'limit' | 'peer-closed' | 'reserved-name' }
+  'remote.pairing.failed': { reason: 'invalid' | 'expired' | 'refused' | 'limit' | 'peer-closed' | 'reserved-name' | 'no-contact' }
   /** A pairing code was asked for while the gateway is off. */
   'remote.gateway.offline': Record<string, never>
   /** Pairing another phone would pass the device limit. */

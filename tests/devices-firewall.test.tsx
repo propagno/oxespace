@@ -148,4 +148,34 @@ describe('1.4.3 P1 · the firewall check', () => {
     rerender(<DevicesFirewall listening pairingKey="1" />)
     await waitFor(() => expect(api.firewallStatus).toHaveBeenCalledTimes(2))
   })
+
+  // T86 × P1: the gateway's Public-network Notice is only the fallback of this check (one alert per problem).
+  const fallback = <div data-testid="t86-public" role="alert">Windows calls “Wi-Fi” a Public network</div>
+
+  it('shows T86\'s Public Notice when the check can\'t speak: no firewall methods, or supported: false', async () => {
+    fake(base, {}, false)
+    render(<DevicesFirewall listening publicFallback={fallback} />)
+    expect(screen.getByTestId('t86-public')).toBeInTheDocument()
+    cleanup()
+
+    const api = fake({ supported: false })
+    render(<DevicesFirewall listening publicFallback={fallback} />)
+    await waitFor(() => expect(api.firewallStatus).toHaveBeenCalled())
+    expect(await screen.findByTestId('t86-public')).toBeInTheDocument()
+  })
+
+  it('on a Public network with the check running, shows only the check\'s Notice', async () => {
+    fake({ ...base, networkCategory: 'public' })
+    render(<DevicesFirewall listening publicFallback={fallback} />)
+    expect(await screen.findByRole('alert')).toHaveTextContent('This network is Public, so Windows blocks phones')
+    expect(screen.queryByTestId('t86-public')).toBeNull()
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
+  })
+
+  it('shows neither before the check answers, so the fallback never flashes', () => {
+    const api = fake({ ...base, networkCategory: 'public' })
+    api.firewallStatus.mockReturnValue(new Promise(() => undefined))
+    const { container } = render(<DevicesFirewall listening publicFallback={fallback} />)
+    expect(container).toBeEmptyDOMElement()
+  })
 })
