@@ -62,12 +62,6 @@ function latestMigration(): number {
   return Math.max(...numbers)
 }
 const EXPECT_DB = process.env.OXESPACE_EXPECT_DB_VERSION ? Number(process.env.OXESPACE_EXPECT_DB_VERSION) : latestMigration()
-/**
- * HML-R-1 (follow-up for 1.5.0's A40): on the AppImage leg, the previous release's AppImage starts at seed but spawning
- * the same file again for the rollback steps fails with ENOENT (run 41943450784). That path has never been green: the
- * last run before the CDP port (41471770772) never reached these steps. The deb and Windows rollbacks run.
- */
-const APPIMAGE_ROLLBACK_SKIP = 'HML-R-1: the AppImage rollback from the previous release has never run green (ENOENT spawning it again); follow-up for 1.5.0 A40'
 /** The release installed first (the job's FROM_TAG), e.g. 1.3.3 or 1.4.2. */
 const FROM_VERSION = (process.env.FROM_TAG ?? 'v1.3.3').replace(/^v/, '')
 
@@ -226,7 +220,6 @@ const sha256 = (file: string) => createHash('sha256').update(readFileSync(file))
 
 test('G8 rollback: 1.3.3 refuses the upgraded database and leaves it untouched', async () => {
   test.skip(STEP !== 'verify-refuse')
-  test.skip(KIND === 'appimage', APPIMAGE_ROLLBACK_SKIP)
   test.setTimeout(180_000)
   const seeded = JSON.parse(readFileSync(stateFile(), 'utf8')) as { db: string }
   // The database runs in WAL mode. A candidate that was ended without a clean quit (the job's shipped-exe check stops
@@ -284,7 +277,6 @@ test('G8 rollback: 1.3.3 refuses the upgraded database and leaves it untouched',
 
 test('G8 rollback: 1.3.3 opens the restored v77 backup', async () => {
   test.skip(STEP !== 'verify-rollback')
-  test.skip(KIND === 'appimage', APPIMAGE_ROLLBACK_SKIP)
   test.setTimeout(180_000)
   const seeded = JSON.parse(readFileSync(stateFile(), 'utf8')) as { db: string; dbVersion: number }
   const result: Record<string, unknown> = { dbVersion: version(seeded.db) }

@@ -544,7 +544,7 @@
 /* Permissions popover: sections, switch row and compact trigger badge. */
 .thread-config-badge { padding: 1px 6px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--dot-yellow) 16%, transparent); color: var(--dot-yellow); font-style: normal; font-size: var(--fs-2xs); white-space: nowrap; }
 .thread-config-popover .thread-access-directory { margin: 2px 0 6px; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--text-muted); }
-.thread-config-popover .thread-config-section-label { margin: 8px 0 2px; padding: 0 8px; font-size: var(--fs-2xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); }
+.thread-config-popover .thread-config-section-label { margin: 8px 0 2px; padding: 0 8px; font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--text-secondary); }
 .thread-config-popover .thread-config-hint { margin: 8px 0 2px; padding: 8px; border-top: 1px solid var(--border-default); font-size: var(--fs-2xs); color: var(--text-muted); }
 .thread-config-popover .thread-config-switch { width: 100%; justify-content: space-between; }
 .thread-config-switch strong, .thread-config-switch small { display: block; }
@@ -639,7 +639,7 @@
 
 /* The chosen project reads as a name with its folder underneath, not as two equal lines of body text. */
 .thread-create-body .thread-project-selection { gap: 4px; }
-.thread-create-body .thread-project-selection > strong { color: var(--text-muted); font-size: var(--fs-2xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.thread-create-body .thread-project-selection > strong { color: var(--text-secondary); font-size: var(--text-xs); font-weight: var(--weight-semibold); }
 .thread-create-body .thread-project-selection > span { color: var(--text-primary); font-size: var(--fs-base); font-weight: 600; }
 .thread-create-body .thread-project-selection > code { overflow-wrap: anywhere; color: var(--text-secondary); font-size: var(--fs-2xs); }
 

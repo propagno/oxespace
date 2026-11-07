@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { Button } from '../../ui/Button'
-import { Dialog } from '../../ui/Overlay'
+import { Dialog } from '../../ui'
 import { Upload } from 'lucide-react'
 import type { ImportConflict, ImportPreview, ImportReadOptions, ImportResult, ImportTarget, OxeQueryConnection } from '../../../shared/types/oxequery'
 import { OxeQueryClientError, errorMessage, oq } from './client'
@@ -81,12 +81,13 @@ export function ImportButton({ connection, target, onImported }: { connection: O
   return <>
     <button type="button" disabled={busy !== ''} onClick={() => void choose()}><Upload size={13} aria-hidden="true" />{t('common.import')}</button>
     {error && !preview && <ErrorState compact title={t('import.failed')} message={error} />}
-    {preview && <Dialog className="oq-scope" title={t('import.title', { destination })} size="lg" closeLabel={t('common.close')} onClose={() => { if (busy === '') close() }}
-      footer={<>
-        <Button onClick={close}>{t('common.close')}</Button>
-        <Button disabled={busy !== '' || mapped === 0} onClick={() => void run(true)}>{t('import.dryRun')}</Button>
-        <Button variant="primary" disabled={busy !== '' || mapped === 0} onClick={() => void run(false)}>{t('common.import')}</Button>
-      </>}>
+    {preview && <Dialog title={t('import.title', { destination })} size="lg" closeLabel={t('common.close')} onClose={() => { if (busy === '') close() }}
+      actions={{
+        extra: <Button variant="secondary" disabled={busy !== '' || mapped === 0} onClick={() => void run(true)}>{t('import.dryRun')}</Button>,
+        cancel: { label: t('common.close'), onClick: close },
+        primary: { label: t('common.import'), disabled: busy !== '' || mapped === 0, onClick: () => void run(false) }
+      }}>
+      <div className="oq-scope">
         <p className="oq-muted">{preview.fileName} · {preview.format.toUpperCase()} · {formatBytes(preview.bytes)}</p>
 
         {preview.format === 'csv' && <fieldset className="oq-import-options">
@@ -110,7 +111,8 @@ export function ImportButton({ connection, target, onImported }: { connection: O
                 <option value="">{t('import.skip')}</option>
                 {preview.targetColumns.filter(column => !column.generated).map(column => <option key={column.name} value={column.name}>{column.name} ({column.type})</option>)}
               </Select>
-              : <input aria-label={t('import.fieldFor', { field })} value={mapping[field] ?? ''} placeholder={t('import.skip')} onChange={event => setMapping(current => ({ ...current, [field]: event.target.value }))} />}</td>
+              // Enter in a field name never imports for real: the import stays a deliberate click.
+              : <input aria-label={t('import.fieldFor', { field })} value={mapping[field] ?? ''} placeholder={t('import.skip')} onKeyDown={event => { if (event.key === 'Enter') event.preventDefault() }} onChange={event => setMapping(current => ({ ...current, [field]: event.target.value }))} />}</td>
           </tr>)}</tbody>
         </table>
         {target.kind === 'table' && <fieldset className="oq-import-options">
@@ -141,6 +143,7 @@ export function ImportButton({ connection, target, onImported }: { connection: O
           onCancel={() => setConfirm(null)} onConfirm={() => void run(false, true)}>
           <ul>{confirm.map(item => <li key={item}>{item}</li>)}</ul>
         </ConfirmDialog>}
+      </div>
     </Dialog>}
   </>
 }

@@ -55,12 +55,21 @@ export default function MonacoDiff({ original, modified, language, path, review 
       relabelFolds(dom)
       // FL-15: Monaco measures its font's character widths once. When the mono web font was still loading, the
       // line-number gutter and the cursor kept the fallback font's widths (the diff sat 16 px off, launch to launch).
-      // Load that font and measure again once it is in.
+      // Load that font and measure again once it is in, then lay the diff out again with the new widths. The container
+      // says when that is done (data-fonts-measured): a fallback layout can hold still for a while, so "stopped moving"
+      // alone doesn't mean measured (FL-15 came back on the Windows runner after #586).
       let measuring = true
+      dom.removeAttribute('data-fonts-measured')
       const family = getComputedStyle(dom).getPropertyValue('--font-mono').trim()
-      void Promise.resolve(family ? document.fonts?.load(`13px ${family}`) : undefined)
+      const measured = (): void => {
+        if (!measuring) return
+        monaco.editor.remeasureFonts()
+        editor.layout()
+        dom.setAttribute('data-fonts-measured', 'true')
+      }
+      void Promise.resolve(family ? document.fonts?.load(`12px ${family}`) : undefined)
         .then(() => document.fonts?.ready)
-        .then(() => { if (measuring) monaco.editor.remeasureFonts() }, () => undefined)
+        .then(measured, measured)
       cleanup.current.push(() => { measuring = false })
       const comments = attachLineComments(editor, monaco, {
         comments: () => latest.current?.comments ?? [],

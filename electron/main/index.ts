@@ -179,7 +179,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   registerMemoryIpc(memoryService)
   registerAgentHooksIpc(app.getPath('userData'))
   // What each pane's agent is doing (working, blocked, done...), from its hooks and its screen.
-  const [{ AgentStateService }, { loadManifests }, { BUNDLED_MANIFESTS }, { registerAgentStateIpc, broadcastAgentState }, { notifyAgentsChanged }] = await Promise.all([
+  const [{ AgentStateService }, { loadManifests }, { BUNDLED_MANIFESTS }, { registerAgentStateIpc, broadcastAgentState }, { notifyAgentsChanged, onAgentsChanged }] = await Promise.all([
     import('./services/agent-state/agent-state.service'), import('./services/agent-state/manifest'),
     import('./services/agent-state/bundled-manifests'), import('./ipc/agent-state.ipc'), import('./services/agents/agents-notifier')
   ])
@@ -194,11 +194,12 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   registerAgentStateIpc(agentState)
   // S7.1: every agent in one overview (panes, conversations, delegations, work runs), for the window and later the phone.
-  const [{ AgentsReadModel }, { registerAgentsIpc }, { ThreadHistory }] = await Promise.all([
-    import('./services/agents/agents-read-model'), import('./ipc/agents.ipc'), import('./services/conversation/thread-history')
+  const [{ AgentsReadModel }, { registerAgentsIpc }, { ThreadHistory }, { englishText }] = await Promise.all([
+    import('./services/agents/agents-read-model'), import('./ipc/agents.ipc'), import('./services/conversation/thread-history'), import('./agent-text')
   ])
   const agentThreadHistory = new ThreadHistory(db)
-  registerAgentsIpc(new AgentsReadModel({ db, panes: () => agentState.list(), threadRequests: () => agentThreadHistory.pendingRequestsAll(), markPaneSeen: paneId => agentState.markSeen(paneId) }))
+  const agentsModel = new AgentsReadModel({ db, panes: () => agentState.list(), threadRequests: () => agentThreadHistory.pendingRequestsAll(), markPaneSeen: paneId => agentState.markSeen(paneId) })
+  registerAgentsIpc(agentsModel)
   const { PaneAgentSessions } = await import('./services/agent-state/pane-sessions')
   const paneAgentSessions = new PaneAgentSessions(db)
   // Agents' own lifecycle hooks report here. Deliveries authenticate with the
@@ -385,7 +386,23 @@ async function registerIpcHandlers(): Promise<() => void> {
     return filePath
   })
   registerNotificationsIpc()
-  registerRemoteIpc(db, { threads: threadManager.manager, terminals: terminalManager, agentState }); app.once('before-quit', registerAppInfoIpc(db))
+  registerRemoteIpc(db, {
+    threads: threadManager.manager, terminals: terminalManager, agentState,
+    // S7.1: the phone's `agents` topic; a mark from the phone reaches the window too.
+    agents: {
+      overview: () => agentsModel.overview(),
+      // Only an agent the overview lists: a phone cannot push the person's real marks out of the store with made-up
+      // keys (SECURITY #531 L2). The answer is ok either way; the phone already sees every row.
+      markSeen: key => {
+        const { kind, id } = (key ?? {}) as { kind?: unknown; id?: unknown }
+        if (!agentsModel.overview().agents.some(row => row.kind === kind && row.id === id)) return false
+        const ok = agentsModel.markSeen(key)
+        if (ok) notifyAgentsChanged()
+        return ok
+      },
+      onChanged: onAgentsChanged, text: englishText
+    }
+  }); app.once('before-quit', registerAppInfoIpc(db))
   registerCopilotIpc()
   const creditsService = registerAgentCreditsIpc()
   const contextUsageService = registerContextUsageIpc()

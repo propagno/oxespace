@@ -330,6 +330,11 @@ jobs:
           actual=$(sha256sum "$RUNNER_TEMP/from/$file" | awk '{print $1}')
           [ -n "$expected" ] && [ "$expected" = "$actual" ] || { echo "::error::checksum mismatch for $file: $actual, published $expected"; exit 1; }
           chmod +x "$RUNNER_TEMP/from/$file"
+          # HML-R-1: the old AppImage updates itself while it runs at seed (electron-updater writes the newer release
+          # beside it and deletes the running file, as it does for users), so by the rollback it is gone and spawning
+          # it fails with ENOENT (run 41945131431). A pristine copy is kept to bring it back, like apt does for the deb.
+          mkdir -p "$RUNNER_TEMP/from-pristine" && cp "$RUNNER_TEMP/from/$file" "$RUNNER_TEMP/from-pristine/$file"
+          echo "FROM_PRISTINE=$RUNNER_TEMP/from-pristine/$file" >> "$GITHUB_ENV"
           echo "FROM_FILE=$RUNNER_TEMP/from/$file" >> "$GITHUB_ENV"
           echo "FROM_VERSION=$version" >> "$GITHUB_ENV"
 
@@ -472,6 +477,9 @@ jobs:
           if [ "$OXESPACE_INSTALL_KIND" = deb ]; then
             sudo apt-get install -y --allow-downgrades "$FROM_FILE"
           else
+            # The previous AppImage, back as it was published (it replaced itself with a newer release at seed).
+            ls -l "$RUNNER_TEMP/from"
+            install -m 0755 "$FROM_PRISTINE" "$FROM_FILE"
             echo "OXESPACE_EXECUTABLE=$FROM_FILE" >> "$GITHUB_ENV"
           fi
 
@@ -487,6 +495,8 @@ jobs:
           data=$(node -p "require(process.env.OXESPACE_UPGRADE_STATE + '/seed.json').userData")
           pkill -f /opt/OXESpace/oxespace || true
           pkill -f AppImage || true
+          # The refuse step ran the old AppImage again, which may have replaced itself again: bring it back first.
+          if [ "$OXESPACE_INSTALL_KIND" = appimage ]; then install -m 0755 "$FROM_PRISTINE" "$FROM_FILE"; fi
           from=$(node -p "require(process.env.OXESPACE_UPGRADE_STATE + '/seed.json').dbVersion")
           backup=$(ls -t "$data"/db-backups/oxespace-v"$from"-*.sqlite3 2>/dev/null | head -1 || true)
           if [ -z "$backup" ]; then

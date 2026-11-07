@@ -1,12 +1,13 @@
 import { createHash } from 'node:crypto'
 import {
-  REMOTE_PROTOCOL_VERSION, REMOTE_TEXT_LIMITS,
+  REMOTE_AGENT_SOURCES, REMOTE_PROTOCOL_VERSION, REMOTE_TEXT_LIMITS,
+  type RemoteAgentKey, type RemoteAgentKind, type RemoteAgentRow, type RemoteAgentSource, type RemoteAgentsEvent, type RemoteAgentsSnapshot,
   type RemoteSubscription, type RemoteTerminalData, type RemoteTerminalSnapshot, type RemoteThreadHeader, type RemoteThreadItem, type RemoteThreadSnapshot
 } from '../../../../shared/remote/protocol'
 import type { ConversationThread, ThreadEvent, ThreadSyncCursor } from '../../../../shared/types/thread'
 import type { RemoteTopicFrame, RemoteTopicSource } from './connection'
 import type { RemoteDesktop } from './desktop'
-import { toDelegation, toJob, toPendingRequest, toThreadHeader, toThreadItem, toThreadSummary, toWorkspace } from './filters'
+import { toDelegation, toJob, toPendingRequest, toRemoteAgent, toThreadHeader, toThreadItem, toThreadSummary, toWorkspace } from './filters'
 import { fitItem, FRAME_BUDGET, pageList, splitText } from './frames'
 import { clean, TerminalWindow } from './text'
 import { buildTerminalSnapshot } from './terminal-snapshot'
@@ -40,6 +41,8 @@ export interface TopicOptions {
   debounceMs?: number
   /** How long terminal output carried for redaction may wait for the next batch. */
   flushMs?: number
+  /** The clock the agents' revisions are seeded from. */
+  now?: () => number
 }
 
 type Emit = (frame: RemoteTopicFrame) => void
@@ -357,6 +360,124 @@ class TerminalTopic implements RemoteTopicSource {
   }
 }
 
+// ---- Agents (S7.1, CCR #513 §6) -------------------------------------------------------------------------------------
+
+const agentKey = (row: { kind: string; id: string }): string => `${row.kind}:${row.id}`
+/** Removed keys the gateway remembers, so a phone that resumes still gets each removal with the `rev` it left at. */
+const AGENT_TOMBSTONES = 2_000
+
+/**
+ * The `rev` of every agent row, one book per gateway so every phone sees the same numbers. One counter for all rows,
+ * seeded from the clock (milliseconds × 1000), so a restart starts above the last run unless the clock went back; a
+ * restart sends a fresh snapshot anyway (cursors live in memory), which replaces what the phone holds; a row gets the next value when
+ * what the phone sees of it changes, and a removed row gets one when it leaves.
+ */
+export class AgentRevisions {
+  private counter: number
+  private readonly rows = new Map<string, { json: string; rev: number }>()
+  private readonly gone = new Map<string, number>()
+
+  constructor(now: number) { this.counter = Math.floor(now) * 1000 }
+
+  /** Gives every row its `rev`, and a tombstone to each row that left since the last call. */
+  update(rows: RemoteAgentRow[]): RemoteAgentRow[] {
+    const seen = new Set<string>()
+    const out = rows.map(row => {
+      const key = agentKey(row)
+      seen.add(key)
+      const json = JSON.stringify({ ...row, rev: 0 })
+      const known = this.rows.get(key)
+      if (known && known.json === json) return { ...row, rev: known.rev }
+      const rev = ++this.counter
+      this.rows.set(key, { json, rev })
+      this.gone.delete(key)
+      return { ...row, rev }
+    })
+    for (const key of [...this.rows.keys()]) if (!seen.has(key)) { this.rows.delete(key); this.bury(key) }
+    return out
+  }
+
+  /** The `rev` at which `key` left; a key the book no longer remembers gets a new one. */
+  removedAt(key: string): number {
+    return this.gone.get(key) ?? this.bury(key)
+  }
+
+  private bury(key: string): number {
+    const rev = ++this.counter
+    this.gone.delete(key)
+    this.gone.set(key, rev)
+    while (this.gone.size > AGENT_TOMBSTONES) this.gone.delete(this.gone.keys().next().value!)
+    return rev
+  }
+}
+
+/** Which kind of row each source reads. */
+const SOURCE_KIND: Record<RemoteAgentSource, RemoteAgentRow['kind']> = { panes: 'pane', threads: 'thread', delegations: 'delegation', work: 'work' }
+
+class AgentsTopic implements RemoteTopicSource {
+  private readonly states = new Map<string, Map<string, number>>()
+  private readonly lastRows = new Map<RemoteAgentRow['kind'], RemoteAgentRow[]>()
+
+  constructor(private readonly desktop: RemoteDesktop, private readonly revisions: AgentRevisions, private readonly pollMs: number, private readonly debounceMs: number) {}
+
+  private capture(): { cursor: string; rows: RemoteAgentRow[]; byKey: Map<string, number>; unavailable: RemoteAgentSource[] } {
+    const overview = this.desktop.agents()
+    const roots = this.desktop.roots()
+    const shown = new Map(this.desktop.pendingRequests().map(row => {
+      const request = toPendingRequest(row, roots)
+      return [`${request.threadId}\u0000${request.requestId}`, request] as const
+    }))
+    const unavailable = REMOTE_AGENT_SOURCES.filter(source => !overview.sources[source]?.ok)
+    const fresh = overview.agents.map(row => toRemoteAgent(row, 0, roots, message => this.desktop.messageText(message), (threadId, requestId) => shown.get(`${threadId}\u0000${requestId}`)))
+    // A source that could not be read keeps its last rows, named in `unavailable`: a failure never reads as "gone"
+    // (SECURITY #531 L5, §5.7).
+    for (const source of REMOTE_AGENT_SOURCES) {
+      const kind = SOURCE_KIND[source]
+      if (unavailable.includes(source)) fresh.push(...(this.lastRows.get(kind) ?? []))
+      else this.lastRows.set(kind, fresh.filter(row => row.kind === kind))
+    }
+    const rows = this.revisions.update(fresh)
+    const byKey = new Map(rows.map(row => [agentKey(row), row.rev]))
+    const cursor = `a.${digest(JSON.stringify([[...byKey], unavailable]))}`
+    this.states.delete(cursor)
+    this.states.set(cursor, byKey)
+    while (this.states.size > REMEMBERED_STATES) this.states.delete(this.states.keys().next().value!)
+    return { cursor, rows, byKey, unavailable }
+  }
+
+  open(request: Request, emit: Emit): { close(): void } | null {
+    if (request.target !== undefined) return null
+    const stream = new Stream(emit, REMOTE_PROTOCOL_VERSION)
+    let sent = request.cursor ? this.states.get(request.cursor) : undefined
+    let sentCursor = sent ? request.cursor : undefined
+    const push = (): void => {
+      const state = this.capture()
+      if (sent && state.cursor === sentCursor) return
+      const { unavailable } = state
+      if (!sent) {
+        stream.snapshot(pageList(state.rows, chunk => ({ rows: chunk, unavailable } satisfies RemoteAgentsSnapshot)), state.cursor)
+      } else {
+        const before = sent
+        const upsert = state.rows.filter(row => before.get(agentKey(row)) !== row.rev)
+        const removed: RemoteAgentKey[] = [...before.keys()].filter(key => !state.byKey.has(key)).map(key => {
+          const split = key.indexOf(':')
+          return { kind: key.slice(0, split) as RemoteAgentKind, id: key.slice(split + 1), rev: this.revisions.removedAt(key) }
+        })
+        const pages = pageList(upsert, chunk => ({ ...(chunk.length ? { upsert: chunk } : {}), unavailable } satisfies RemoteAgentsEvent))
+        if (removed.length) pages[pages.length - 1] = { ...(pages[pages.length - 1] as object), removed }
+        stream.events(pages, state.cursor)
+      }
+      sent = state.byKey
+      sentCursor = state.cursor
+    }
+    push()
+    const trigger = debounced(() => { try { push() } catch { /* the next change tries again */ } }, this.debounceMs)
+    // Pushed by every source; the poll only catches what a source forgot to announce.
+    const stop = polled(this.pollMs * 5, listener => this.desktop.onAgentsChanged(listener))(() => trigger.fire())
+    return { close() { trigger.cancel(); stop() } }
+  }
+}
+
 // ---- All of them --------------------------------------------------------------------------------------------------
 
 export function isCursor(value: unknown): value is string {
@@ -398,6 +519,7 @@ export function createTopics(options: TopicOptions): Record<RemoteSubscription, 
     delegations: new ListTopic({
       code: 'd', field: 'delegations', id: item => item.id, watch: polled(pollMs),
       read: () => { const roots = desktop.roots(); return desktop.delegations().map(row => toDelegation(row, roots)) }
-    }, debounceMs)
+    }, debounceMs),
+    agents: new AgentsTopic(desktop, new AgentRevisions((options.now ?? Date.now)()), pollMs, debounceMs)
   }
 }
