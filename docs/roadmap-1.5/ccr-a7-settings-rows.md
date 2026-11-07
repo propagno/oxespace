@@ -24,9 +24,12 @@ Every page in scope renders: `<h2>` page title, a short intro, then one `Setting
 `SettingRow`s. A row is label + description on the left, the control on the right (`control`), or a `wide` row for
 lists and editors. A section's add or bulk action (U10) sits in the section's `actions` slot, as a secondary `sm`
 button that starts with a verb: "Add a profile", "New automation", "Clear history…" (an ellipsis when it asks first).
+**Page titles, section headings and row labels are in sentence case** (U3, #592): never uppercased by CSS or written in
+capitals, so a new section can't bring capitals back.
 
 **Changes apply at once.** No page-level Save. The only Save kept is where the value is typed text that would be
-invalid mid-typing: the computer name on Devices (UA10: "computer name with Save and Use default"), and the forms
+invalid mid-typing: the computer name on Devices, which keeps **both Save and Use default** next to it (UA10, the 1.4
+parity and the playground; the "no page-level Save" rule doesn't drop either), and the forms
 inside dialogs (custom agent, new automation), which are dialogs, not pages.
 
 **Typed values apply on blur or Enter, and only when valid** (HML-A7-3). A text or number field (font family, font
@@ -52,8 +55,8 @@ moves the layout, and never empty sections that fill in later. An error is `Erro
 | Terminal | `SettingsModal.tsx` (terminal) | Look · Shells and agent commands · Resuming |
 | Keyboard | `KeyboardSettings.tsx` | Shortcuts (one row per chord; "Reset all" in the section actions) |
 | Notifications | `SettingsModal.tsx` (notifications) | On this computer |
-| Updates | `SettingsModal.tsx` (updates), `UpdatePreferences.tsx` | Updates · Bundled tools |
-| Tools | `ToolsSettings.tsx` | Modes · Rules · Policy |
+| Updates | `SettingsModal.tsx` (updates), `UpdatePreferences.tsx` | Updates · Bundled tools (with a one-line description of what's bundled) |
+| Tools | `ToolsSettings.tsx` | Modes · Rules · **Workspace policy**: what the workspace policy does to tool modes, with a link "Edit in Workspace › Policy" (DESIGN: never a second section called just "Policy") |
 | Automations | `AutomationsSettings.tsx` | Automations ("New automation" in actions) |
 | Policy (workspace) | `PolicySettings.tsx` | Policy file · Rules |
 | Devices | `DevicesSettings.tsx` | Phone connection · Name of this computer · Paired phones · Typing in terminals · What a phone can do |
@@ -136,6 +139,6 @@ and the row shows "Couldn't change Default shell: <reason>" with Try again. The 
 
 ## 6. Questions for review
 
-- **DESIGN:** the section names in section 2 come from the playground; confirm them for pages the playground does not
-  show (Updates › Bundled tools, Tools › Policy).
+- **DESIGN (answered 07/11, approve):** Updates › Bundled tools confirmed; Tools › Policy becomes "Workspace policy",
+  with a link to Workspace › Policy; Save and Use default both stay on the computer name; headings in sentence case.
 - **HML:** R1–R10 and I1–I7 are the black-box list for the settings pass.
