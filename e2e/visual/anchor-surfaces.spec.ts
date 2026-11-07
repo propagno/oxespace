@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, openDemoWorkspace, resizeWindow, type Appearance } from '../helpers/launch'
+import { launchApp, openDemoWorkspace, pinWorkspaceColor, resizeWindow, type Appearance } from '../helpers/launch'
 import { expectSurface } from '../helpers/visual'
 
 // Anchor surfaces get the full theme x viewport matrix; everything else in the
@@ -20,6 +20,7 @@ for (const theme of THEMES) {
         await expectSurface(page, `empty-${theme}-${viewport.name}`)
 
         await openDemoWorkspace(page, workspaceRoot)
+        await pinWorkspaceColor(page)
         // Relative times ("Just now"), the random temp path and terminal
         // output change between runs. Terminals are hidden by expectSurface.
         await expectSurface(page, `workspace-${theme}-${viewport.name}`, {
@@ -55,6 +56,7 @@ for (const variant of VARIANTS) {
       await page.waitForSelector('[data-testid="btn-new-workspace"]')
       await expectSurface(page, `empty-light-desktop-${variant.name}`)
       await openDemoWorkspace(page, workspaceRoot)
+      await pinWorkspaceColor(page)
       await expectSurface(page, `workspace-light-desktop-${variant.name}`, {
         hide: [page.locator('.pane-row-time'), page.locator('.app-statusbar [class*="path"]')]
       })
@@ -78,6 +80,7 @@ for (const theme of THEMES) {
     try {
       await resizeWindow(app, 1280, 800)
       await openDemoWorkspace(page, workspaceRoot)
+      await pinWorkspaceColor(page)
       await page.emulateMedia({ forcedColors: 'active' })
       await page.getByRole('button', { name: 'Open settings', exact: true }).click()
       const settings = page.getByRole('dialog', { name: 'Settings', exact: true })

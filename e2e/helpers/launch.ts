@@ -167,3 +167,37 @@ export async function openDemoWorkspace(page: Page, workspaceRoot: string): Prom
   await page.getByTestId('wizard-launch-btn').click()
   await page.waitForSelector('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]', { timeout: 10_000 })
 }
+
+/**
+ * FL-19: a workspace's color, until a person picks one, comes from a hash of its id (A8), and every launch makes a new
+ * random id, so the visual specs drew a different color in generate and in verify. This picks the `color`-th swatch
+ * (1–8) for the `index`-th workspace card through the workspace menu, the same path a person takes, so the shots are
+ * stable. The hash itself is right for people and stays as it is. Focus goes back to the page, so no focus ring is shot.
+ *
+ * Right after a workspace is created, a snapshot of it from main's create flow can still be on its way. Arriving after
+ * the color change, it puts the old color back (seen in run 42398614689: the card kept its hashed color while one test
+ * in the same run kept the pin). So the color must hold for a moment before this returns, and the pick is tried again
+ * if it was undone.
+ */
+export async function pinWorkspaceColor(page: Page, color = 1, index = 0): Promise<void> {
+  const card = page.getByTestId('sidebar-workspace-item').nth(index)
+  const held = async (): Promise<boolean> => {
+    try {
+      await expect(card).toHaveAttribute('data-ws', String(color), { timeout: 5_000 })
+      await page.waitForTimeout(1_000)
+      return await card.getAttribute('data-ws') === String(color)
+    } catch { return false }
+  }
+  for (let attempt = 1; ; attempt++) {
+    await card.getByTestId('ws-group-settings-btn').click()
+    await page.getByRole('menuitem', { name: /^(Workspace color|Cor do workspace)…$/ }).click()
+    const dialog = page.getByTestId('workspace-color-dialog')
+    // The first radio is Automatic (the hash); the swatches follow in order.
+    const swatch = dialog.getByRole('radio').nth(color)
+    await swatch.click()
+    await expect(dialog).toBeHidden()
+    if (await held()) break
+    if (attempt === 3) await expect(card, `the workspace color stays ${color} after 3 picks`).toHaveAttribute('data-ws', String(color))
+  }
+  await page.evaluate(() => { (document.activeElement as HTMLElement | null)?.blur() })
+}
