@@ -1,0 +1,31 @@
+/*
+ * 1.5.0 A8 · Workspace color. A workspace surface carries data-ws="1".."8" (workspaceColorAttrs in
+ * shared/workspace-color.ts); this sheet maps the slot to the --ws-N / --ws-N-fg tokens and reads nothing else.
+ * The tokens themselves live with the design tokens (Mandacaru 1.5 roles). Fidelity: the approved playground (CR-05).
+ */
+[data-ws="1"] { --ws: var(--ws-1); --ws-fg: var(--ws-1-fg); }
+[data-ws="2"] { --ws: var(--ws-2); --ws-fg: var(--ws-2-fg); }
+[data-ws="3"] { --ws: var(--ws-3); --ws-fg: var(--ws-3-fg); }
+[data-ws="4"] { --ws: var(--ws-4); --ws-fg: var(--ws-4-fg); }
+[data-ws="5"] { --ws: var(--ws-5); --ws-fg: var(--ws-5-fg); }
+[data-ws="6"] { --ws: var(--ws-6); --ws-fg: var(--ws-6-fg); }
+[data-ws="7"] { --ws: var(--ws-7); --ws-fg: var(--ws-7-fg); }
+[data-ws="8"] { --ws: var(--ws-8); --ws-fg: var(--ws-8-fg); }
+
+/* OxeCode workspace card: the strip runs the whole card, terminals included. */
+.ws-group[data-ws] { box-shadow: inset 3px 0 0 var(--ws); border-radius: var(--radius-sm); }
+
+/* The active card: its name in --ws-fg on a 6% tint of the workspace color. */
+.ws-group.active[data-ws] > .ws-group-header,
+.ws-group.active[data-ws] > .ws-group-header:hover { background: color-mix(in srgb, var(--ws) 6%, transparent); border-color: transparent; }
+.ws-group.active[data-ws] > .ws-group-header .ws-group-name { color: var(--ws-fg); }
+
+/* Pane header: a 2 px top line, 70% while the pane is not focused, full when it is. */
+.pane-container > .pane-header[data-ws] { box-shadow: inset 0 2px 0 color-mix(in srgb, var(--ws) 70%, transparent); }
+.pane-container.active > .pane-header[data-ws],
+.pane-container:focus-within > .pane-header[data-ws] { box-shadow: inset 0 2px 0 var(--ws); }
+
+/* Conversation header: the workspace chip, its name in --ws-fg on the tint. */
+.thread-heading[data-ws] .thread-heading-context { color: var(--ws-fg); background: color-mix(in srgb, var(--ws) 6%, transparent); padding: 2px 8px; border-radius: var(--radius-sm); }
+.thread-heading[data-ws] .thread-heading-context strong,
+.thread-heading[data-ws] .thread-heading-context > svg { color: var(--ws-fg); }
