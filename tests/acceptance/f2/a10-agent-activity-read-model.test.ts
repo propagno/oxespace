@@ -63,6 +63,8 @@ describe('A10 · one Agent activity read model', () => {
     expect(rows[2]).toMatchObject({ actor: { kind: 'thread', id: 't2' }, summary: 'restart web', write: true })
     expect(rows[3]).toMatchObject({ actor: { kind: 'agent', id: null, label: 'agent' }, summary: 'POST /invoices', target: 'billing · staging', write: true })
     expect(new Set(rows.map(row => row.id)).size).toBe(4)
+    post(db, 5, { actor: 'person' })
+    expect(new AgentActivity(db).list({ sources: ['post'] }).rows[1].actor).toEqual({ kind: 'person', id: null, label: 'person' })
     for (const row of rows) expect(row.id.startsWith(`${row.source}:`)).toBe(true)
   })
 

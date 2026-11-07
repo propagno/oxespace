@@ -35,8 +35,9 @@ export interface AgentActivityRow {
   source: AgentActivitySource
   /** ms since epoch, the audit row's ts. */
   at: number
-  /** Parsed from the audit `actor` label: `thread:<id>`, `pane:<id>`, anything else is `agent` with no id. */
-  actor: { kind: 'thread' | 'pane' | 'agent'; id: string | null; label: string }
+  /** Parsed from the audit `actor` label: `thread:<id>`, `pane:<id>`, exactly `person` (a person's own change, such as A12's
+   *  "Access changed" row) is `person`, anything else is `agent`; id is null except for thread and pane. */
+  actor: { kind: 'thread' | 'pane' | 'agent' | 'person'; id: string | null; label: string }
   tool: string
   /** One line, already redacted where it was written; cut to 200 characters here. */
   summary: string
@@ -105,6 +106,7 @@ An unknown or malformed id gives `null`.
 | `agent-activity:detail` (`IPC_CHANNELS.agentActivity.detail`) | `id: string` | the row's detail or `null` | **excluded** |
 
 - **Input checks:** sources must come from the list; `view` from its three values; the actor kind must be `thread` or `pane`, with an id of at most 200 characters; `since`/`until` finite; the limit is clamped; the cursor is at most 200 characters.
+- **Preload:** `window.oxe.agentActivity.list(query)` and `window.oxe.agentActivity.detail(id)`, the same group and key names as `IPC_CHANNELS.agentActivity`.
 - **Old channels stay** (`mcpInternal.actionAudit`, OxeQuery's audit list) until U12's page uses the new one. Then FE removes their callers, and they can go in 1.5.x.
 - **Service:** `electron/main/services/agent-activity/read-model.ts`, `class AgentActivity { constructor(db, now?); list(query): AgentActivityPage; detail(id): AgentActivityDetail | null }`, plus `parseAgentActivityQuery(raw)` for the IPC input. It reads only. No migration.
 
