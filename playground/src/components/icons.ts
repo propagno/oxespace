@@ -52,3 +52,14 @@ Object.assign(PATHS, {
   'm-post': '<circle cx="9" cy="12" r="5"/><path d="M14 12h7M18 9l3 3-3 3"/><path d="M9 9.5v5"/>',
   scrub: '<path d="M3 12h18"/><path d="M5 9v6M9 10v4M15 10v4M19 9v6"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/>'
 })
+
+/* Phone section (OxeMobile 1.5): a few more of our own, same grid and stroke. */
+Object.assign(PATHS, {
+  wifi: '<path d="M2 8.8a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19.5" r="1" fill="currentColor"/>',
+  'wifi-off': '<path d="M2 8.8a15 15 0 0 1 6-3.3M22 8.8a15 15 0 0 0-9.6-3.8M5 12.5a10 10 0 0 1 4-2.3M19 12.5a10 10 0 0 0-3-2M8.5 16a5 5 0 0 1 7 0M3 3l18 18"/>',
+  monitor: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  qr: '<path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z"/><path d="M14 14h2v2h-2zM18 14h2M14 18h2M18 18h2v2M16 16h2v2"/>',
+  fingerprint: '<path d="M7 10a5 5 0 0 1 10 0v2M5 13v-3a7 7 0 0 1 14 0M12 10v4a6 6 0 0 0 1.5 4M9 11v3a9 9 0 0 0 1.4 4.8M15 13v1.5a8 8 0 0 0 .6 3"/>',
+  battery: '<rect x="3" y="7" width="16" height="10" rx="2"/><path d="M21 11v2"/><rect x="5" y="9" width="10" height="6" rx="1" fill="currentColor" stroke="none"/>',
+  signal: '<path d="M4 20v-3M9 20v-7M14 20v-11M19 20V4"/>'
+})

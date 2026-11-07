@@ -18,6 +18,7 @@ import { SettingsView } from './components/Settings'
 import { Foundations } from './components/Foundations'
 import { DialogGallery } from './components/Catalog'
 import { Agora, agoraKey } from './components/Agora'
+import { PhoneStage } from './components/Phone'
 
 const GROUPS = Array.from(new Set(SCREENS.map(s => s.group)))
 const tagLabel = (s: { tag: string }) => s.tag === 'later' ? 'later' : '1.5.0'
@@ -145,5 +146,5 @@ export function Playground () {
         <button className="pg-ib" aria-label="Next screen" onClick={() => goScreen(SCREENS[(idx + 1) % SCREENS.length].id)}>›</button></div>
       {seg('Frame', 'w', [[1440, '1440 × 900'], [900, '900 × 620']])}{seg('Theme', 'mode', [['light', 'Light'], ['dark', 'Dark']])}{seg('State', 'view', [['live', 'Live'], ['loading', 'Loading'], ['empty', 'Empty'], ['error', 'Error']])}
       <div className="pg-group"><div className="seg"><button aria-pressed={S.paused} onClick={run(() => { S.paused = !S.paused })}>{S.paused ? 'Resume' : 'Pause'}</button><button onClick={resetAll}>Reset</button></div></div></header>
-    <main className="pg-main"><section className="stage" ref={stage} aria-label="App preview"><div className="frame-wrap" style={{ width: S.w * S.scale, height: H() * S.scale }}><App /><div className="frame-cap">{S.w} × {H()} · {S.mode} · shown at {Math.round(S.scale * 100)}%</div></div></section><Side /></main></div>
+    <main className="pg-main"><section className="stage" ref={stage} aria-label="App preview">{S.area === 'phone' ? <PhoneStage /> : null}<div className="frame-wrap" hidden={S.area === 'phone'} style={{ width: S.w * S.scale, height: H() * S.scale }}><App /><div className="frame-cap">{S.w} × {H()} · {S.mode} · shown at {Math.round(S.scale * 100)}%</div></div></section><Side /></main></div>
 }
