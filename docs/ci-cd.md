@@ -33,7 +33,7 @@ commit ─▶ pull request ─▶ CI and Release (PR)          first red ≈ 3 m
 | `memory-compatibility.yml` | PR (memory paths), called by `ci.yml` | AI Memory contract against pinned upstream versions. |
 | `provider-contract.yml` | PR (provider paths), schedule | Claude/Codex CLI contract (no paid calls). |
 | `android.yml` | PR, push, dispatch | Android lint, unit tests and build. |
-| `android-emulator.yml` | dispatch | Instrumented tests on an emulator. |
+| `android-emulator.yml` | dispatch | Instrumented tests on an emulator (`api-level` input, default 36). From 37 the SDK names levels `37.0`, `37.1`…: `37` means `37.0`. A level with no Google APIs x86_64 image is skipped with a notice, not failed. |
 | `acceptance.yml` | dispatch | `e2e/acceptance` specs. They are written before the feature, so red is expected until the item lands. |
 | `visual-regression.yml` | push to main | Screenshot comparison of the anchor surfaces. |
 | `visual-baselines.yml` | dispatch | Regenerates the baselines, once per batch on main, not per PR, then verifies them in the same job. A verify failure right after a green regeneration means a capture that is not stable, not a stale baseline: rerun the job once and report the shot to the visuals owner (`code-changes-diff` is a known case). |
