@@ -72,7 +72,7 @@ export function ThreadUsageDetails({ usage, provider }: { usage: ThreadUsage; pr
 
 export function ThreadFailureCard({ event, latest, refreshUsage, onRetry, hasChanges, onCompact, onPermissions, disabled }: {
   event: Extract<ThreadEvent, { type: 'completed' }>; latest: boolean
-  refreshUsage?: () => Promise<ThreadUsage>; onAccounts?: () => void
+  refreshUsage?: () => Promise<ThreadUsage>
   /** Sends the turn again; `restoreFiles` undoes this turn's file changes first. */
   onRetry?: (restoreFiles: boolean) => void
   /** The failed turn changed files: retrying offers to undo them first, so the attempts do not pile up. */
