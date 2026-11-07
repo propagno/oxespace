@@ -80,11 +80,19 @@ export interface AgentActivityQuery {
 ```
 
 - **Order:** newest first, a total order: `at DESC`, then the source in the order above, then the row id DESC. Two rows with the same `at` always come out in the same order.
-- **One SQL query:** a `UNION ALL` over the selected sources, with each source's filter pushed into its own `SELECT`.
-  - `ORDER BY ts DESC, src ASC, id DESC LIMIT limit + 1`; the extra row only tells whether there is a next page.
-  - Keyset pagination: `WHERE (ts < ?) OR (ts = ? AND (src > ? OR (src = ? AND id < ?)))`. No OFFSET.
+- **One SQL statement, bounded per source** (TECH LEAD's must-fix on #650): each selected source is its own subquery, `SELECT … FROM <table> WHERE <source filter> AND <keyset> ORDER BY ts DESC, id DESC LIMIT limit + 1`. The outer `UNION ALL … ORDER BY ts DESC, src ASC, id DESC LIMIT limit + 1` then merges at most 4 × (limit + 1) rows. SQLite never sorts a whole table. The extra row only tells whether there is a next page.
+  - **Keyset per source,** from the cursor `(at, srcIndex, id)` (no OFFSET). The source index is a constant inside each subquery, so:
+    - a source before the cursor's: `ts < at`;
+    - the cursor's own source: `ts < at OR (ts = at AND id < id)`;
+    - a source after it: `ts <= at`.
+  - **Each subquery names its index:** `FROM <table> INDEXED BY idx_<table>_ts`. Prototyped on 07/11 against migrations 070/078 plus the A12 table, under Electron's SQLite:
+    - without it, after `ANALYZE` on a small table, the planner chose `SCAN oxequery_audit` plus `USE TEMP B-TREE FOR ORDER BY` (a whole-table sort) for the first page and for filtered pages;
+    - with it, every page is `SCAN|SEARCH <table> USING [COVERING] INDEX idx_<table>_ts`.
+
+    The remaining `USE TEMP B-TREE FOR LAST TERM OF ORDER BY` sorts only the `id` tie-break inside one `ts` value, which is allowed. A `(ts DESC, id DESC)` index would remove it but needs a migration; not in A10.
+  - **`listStatement(query)` returns `{ sql, params }`.** It is the exact statement `list` runs, so the frozen test can `EXPLAIN QUERY PLAN` it. Every source table must be read through its `ts` index (`SCAN|SEARCH <table> USING [COVERING] INDEX idx_<table>_ts`), with no bare `SCAN <table>`. A temp B-tree for the outer merge is allowed.
 - **Cursor:** base64url of `v1:<at>:<source index>:<id>`. An unknown, malformed or foreign cursor is refused (`invalid`), never treated as "start".
-- **Stability:** a page read while new rows arrive never repeats or skips a row. Rows are append-only (each table has a no-update trigger), and new rows only ever land before the first cursor.
+- **Stability:** paging never repeats or skips a row that existed when paging started. Rows are append-only (each table has a no-update trigger). A row written later can show up in a later page only if its `ts` falls behind the cursor (the wall clock stepped back); it never displaces an earlier row.
 - **Retention:** the same 90 days as today's audits. `since` older than that just returns nothing.
 
 ## Detail
@@ -108,7 +116,7 @@ An unknown or malformed id gives `null`.
 - **Input checks:** sources must come from the list; `view` from its three values; the actor kind must be `thread` or `pane`, with an id of at most 200 characters; `since`/`until` finite; the limit is clamped; the cursor is at most 200 characters.
 - **Preload:** `window.oxe.agentActivity.list(query)` and `window.oxe.agentActivity.detail(id)`, the same group and key names as `IPC_CHANNELS.agentActivity`.
 - **Old channels stay** (`mcpInternal.actionAudit`, OxeQuery's audit list) until U12's page uses the new one. Then FE removes their callers, and they can go in 1.5.x.
-- **Service:** `electron/main/services/agent-activity/read-model.ts`, `class AgentActivity { constructor(db, now?); list(query): AgentActivityPage; detail(id): AgentActivityDetail | null }`, plus `parseAgentActivityQuery(raw)` for the IPC input. It reads only. No migration.
+- **Service:** `electron/main/services/agent-activity/read-model.ts`, `class AgentActivity { constructor(db, now?); list(query): AgentActivityPage; listStatement(query): { sql: string; params: unknown[] }; detail(id): AgentActivityDetail | null }`, plus `parseAgentActivityQuery(raw)` for the IPC input. It reads only. No migration.
 
 ## Caps
 
@@ -135,6 +143,7 @@ It writes rows straight into the four tables of an in-memory database (migration
    - `since`/`until`.
 5. **Refusals and clamps:** an empty `sources`, an unknown source or view, and a bad cursor are refused. The limit clamps to 1..200 and the summary is cut to 200.
 6. **Detail:** by id, and `null` for an unknown id.
+6b. **Query plan:** for a first page and for a cursor page, with all four sources, `EXPLAIN QUERY PLAN` of `listStatement` reads each table through its `ts` index and has no bare `SCAN`.
 7. **Surface:**
    - `IPC_CHANNELS.agentActivity.list` / `.detail` exist with those names;
    - exactly one mcp-coverage capability claims each, and it is `excluded`.

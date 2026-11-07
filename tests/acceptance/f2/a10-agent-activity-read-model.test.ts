@@ -157,6 +157,23 @@ describe('A10 · one Agent activity read model', () => {
     expect(model.detail('nope')).toBeNull()
   })
 
+  test('every page reads each source through its ts index, never a full scan or a whole-table sort', () => {
+    const db = open()
+    for (let i = 0; i < 10; i++) { change(db, i); query(db, i); query(db, i, { tool: 'oxespace_container_action' }); post(db, i) }
+    db.exec('ANALYZE')
+    const model = new AgentActivity(db)
+    const cursor = model.list({ limit: 3 }).nextCursor ?? undefined
+    expect(cursor).toBeDefined()
+    for (const q of [{ limit: 3 }, { limit: 3, cursor }, { limit: 3, cursor, view: 'problems' as const, actor: { kind: 'thread' as const, id: 't1' } }]) {
+      const { sql, params } = model.listStatement(q)
+      const plan = (db.prepare(`EXPLAIN QUERY PLAN ${sql}`).all(...params) as Array<{ detail: string }>).map(row => row.detail)
+      for (const table of ['agent_action_audit', 'oxequery_audit', 'oxepost_audit']) {
+        expect(plan.some(line => new RegExp(`^(SCAN|SEARCH) ${table}( AS \\w+)? USING (COVERING )?INDEX idx_${table}_ts\\b`).test(line)), `${table} via its ts index:\n${plan.join('\n')}`).toBe(true)
+      }
+      expect(plan.filter(line => /^SCAN \w+( AS \w+)?$/.test(line) && !/^SCAN (\(|subquery|unionop)/i.test(line)), plan.join('\n')).toEqual([])
+    }
+  })
+
   test('the IPC channels exist and are excluded from MCP', () => {
     expect(IPC_CHANNELS.agentActivity.list).toBe('agent-activity:list')
     expect(IPC_CHANNELS.agentActivity.detail).toBe('agent-activity:detail')
