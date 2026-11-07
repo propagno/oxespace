@@ -30,6 +30,11 @@ OxePost settings", over the person-only `oxePost.call` ops `agentAccessList`, `a
   rule). Narrowing doesn't toast.
 - The tree reads the current access through `agentAccessList`, one call when the tree loads and again after a change.
   The renderer never stores access itself.
+- **Changed since you allowed it** (A12 #653 at 8145df66). When `agentAccessList` marks a folder `changed: true` (its
+  requests changed after access was given), the dialog shows a warning Notice, "Changed since you allowed it", above
+  the choices, and a primary **Confirm access** that calls `agentAccessConfirm`. Until it is confirmed, the badge shows
+  the warning state, and agents get no access to that folder (main's rule). A grant OXESpace dropped because the folder
+  was deleted, recreated or renamed shows in Agent activity as "Access removed: the folder changed" (A11).
 
 ## 3. The badge
 
@@ -53,10 +58,11 @@ access shows nothing.
    never the bracket form. The marker is `data-secret="API_KEY"`, and the stored request text still holds
    `[secret:API_KEY]`. **Red:** the card draws the text as is.
 2. **Only OxePost:** an `action` approval with the same text shows it as written.
-3. **Ops:** the OxePost renderer calls `agentAccessList`, `agentAccessSet` and `agentCeilingSet`, and nothing in
+3. **Ops:** the OxePost renderer calls `agentAccessList`, `agentAccessSet`, `agentAccessConfirm` and `agentCeilingSet`, and nothing in
    `src/` passes an agent-access op to anything but `oxePost.call`. **Red:** none exists yet.
 4. **Copy:** T64 §7's strings exist in en and pt-BR in the `post` catalog: Agent access…, No access (default), the Read
-   and Read and write explanations, the production line, the refused-origin line. **Red:** not there yet.
+   and Read and write explanations, the production line, the refused-origin line, and "Changed since you allowed it" / "Confirm access" (pt-BR "Mudou desde que
+   você permitiu" / "Confirmar acesso"). **Red:** not there yet.
 
 Behavior beyond this (the dialog's disabled choices, the Undo on widening, the badge) is checked by the e2e the
 executor writes, `e2e/oxepost-agent-access*.spec.ts`.

@@ -59,7 +59,7 @@ function sources(dir: string): string[] {
 describe('A12 PR 3 · the OxePost renderer uses the person-only ops', () => {
   it('lists, sets and caps agent access through oxePost.call', () => {
     const post = sources('src/components/OxePost').map(read).join('\n')
-    for (const op of ['agentAccessList', 'agentAccessSet', 'agentCeilingSet']) expect(post, op).toContain(op)
+    for (const op of ['agentAccessList', 'agentAccessSet', 'agentAccessConfirm', 'agentCeilingSet']) expect(post, op).toContain(op)
   })
 })
 
@@ -76,10 +76,10 @@ describe('A12 PR 3 · T64 copy in both languages', () => {
   it.each([
     ['en', ['Agent access…', 'No access (default)', 'Read: agents may ask to send GET requests. Each one needs your approval.',
       'Read and write: every change needs your approval.', 'Agents can never send changes to a production environment.',
-      'Not sent: agents only reach the hosts this collection already uses.']],
+      'Not sent: agents only reach the hosts this collection already uses.', 'Changed since you allowed it', 'Confirm access']],
     ['pt-BR', ['Acesso de agentes…', 'Sem acesso (padrão)', 'Leitura: agentes podem pedir para enviar requisições GET. Cada uma precisa da sua aprovação.',
       'Leitura e escrita: toda alteração precisa da sua aprovação.', 'Agentes nunca enviam alterações para um ambiente de produção.',
-      'Não enviado: agentes só acessam os hosts que esta coleção já usa.']]
+      'Não enviado: agentes só acessam os hosts que esta coleção já usa.', 'Mudou desde que você permitiu', 'Confirmar acesso']]
   ])('%s', (locale, expected) => {
     const all = strings(locale as string)
     for (const text of expected as string[]) expect(all, text).toContain(text)
