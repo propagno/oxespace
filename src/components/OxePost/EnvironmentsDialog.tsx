@@ -70,12 +70,11 @@ export function EnvironmentsDialog({ onClose }: { onClose: () => void }): ReactE
   const dirty = !saved || JSON.stringify(form) !== JSON.stringify(fromEnvironment(saved))
 
   return <Dialog title={t('env.title')} description={t('env.description')} size="lg" onClose={onClose} closeLabel={t('common.close')}
-    footer={<>
-      {saved && <Button variant="danger" disabled={busy} onClick={() => setConfirmDelete(true)}>{t('env.delete')}</Button>}
-      <span className={styles.spacer} />
-      <Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
-      <Button variant="primary" loading={busy} disabled={!form.name.trim() || !dirty} onClick={() => void save()}>{t('env.save')}</Button>
-    </>}>
+    actions={{
+      extra: saved ? <Button variant="danger" disabled={busy} onClick={() => setConfirmDelete(true)}>{t('env.delete')}</Button> : undefined,
+      cancel: { label: t('common.cancel') },
+      primary: { label: t('env.save'), loading: busy, disabled: !form.name.trim() || !dirty, onClick: () => void save() }
+    }}>
     <div className={styles.envLayout}>
       <nav className={styles.envList} aria-label={t('env.list')}>
         {environments.map(env => <button key={env.id} type="button" className={styles.row} aria-current={form.id === env.id ? 'page' : undefined} onClick={() => switchTo(fromEnvironment(env))}>
