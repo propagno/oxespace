@@ -1,4 +1,4 @@
-import { Button, EmptyState, ErrorState, Spinner } from '../../ui'
+import { Button, EmptyState, ErrorState, Notice, Spinner } from '../../ui'
 import { useRef, useState } from 'react'
 import { AlertCircle, ChevronDown, RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -70,7 +70,7 @@ export function ThreadUsageDetails({ usage, provider }: { usage: ThreadUsage; pr
   </section>
 }
 
-export function ThreadFailureCard({ event, latest, refreshUsage, onAccounts, onRetry, hasChanges, onCompact, onPermissions, disabled }: {
+export function ThreadFailureCard({ event, latest, refreshUsage, onRetry, hasChanges, onCompact, onPermissions, disabled }: {
   event: Extract<ThreadEvent, { type: 'completed' }>; latest: boolean
   refreshUsage?: () => Promise<ThreadUsage>; onAccounts?: () => void
   /** Sends the turn again; `restoreFiles` undoes this turn's file changes first. */
@@ -108,7 +108,9 @@ export function ThreadFailureCard({ event, latest, refreshUsage, onAccounts, onR
   return <details className="thread-turn-error thread-failure-card" open={latest}>
     <summary><AlertCircle size={14} /><strong>{title}</strong>{failure && <time dateTime={new Date(failure.occurredAt).toISOString()}>{usageTime(failure.occurredAt)}</time>}<ChevronDown size={14} /></summary>
     <div className="thread-failure-body">
-      <p>{code === 'session-busy' ? t('failure.sessionBusy') : failure ? failureMessage(failure) : (code === 'authentication' ? t('failure.reconnect') : event.error ?? t('failure.couldNotFinish'))}</p>
+      {code === 'authentication'
+        ? <Notice intent="danger">{failure ? failureMessage(failure) : t('failure.reconnect')}</Notice>
+        : <p>{code === 'session-busy' ? t('failure.sessionBusy') : failure ? failureMessage(failure) : event.error ?? t('failure.couldNotFinish')}</p>}
       {failure?.detail && <pre className="thread-failure-diagnostic" aria-label={t('failure.diagnostic')}>{failure.detail}</pre>}
       {(failure?.providerCode || failure?.httpStatus) && <div className="thread-failure-codes">{failure.providerCode && <code>{failure.providerCode}</code>}{failure.httpStatus && <code>HTTP {failure.httpStatus}</code>}</div>}
       {usage && <ThreadUsageDetails usage={usage} />}

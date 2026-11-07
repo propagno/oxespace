@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Plus, X } from 'lucide-react'
 import { isSensitiveName } from '../../../shared/oxepost/redact'
 import type { PostEnvironmentView } from '../../../shared/oxepost/types'
-import { Badge, Button, ConfirmDialog, Dialog, ErrorState, IconButton, Switch, TextField, toast } from '../../ui'
+import { Badge, Button, ConfirmDialog, Dialog, ErrorState, IconButton, Notice, Switch, TextField, toast } from '../../ui'
 import { messageOf, post } from './client'
 import { EXAMPLE } from './examples'
 import { useOxePostStore } from './oxepost.store'
@@ -70,12 +70,11 @@ export function EnvironmentsDialog({ onClose }: { onClose: () => void }): ReactE
   const dirty = !saved || JSON.stringify(form) !== JSON.stringify(fromEnvironment(saved))
 
   return <Dialog title={t('env.title')} description={t('env.description')} size="lg" onClose={onClose} closeLabel={t('common.close')}
-    footer={<>
-      {saved && <Button variant="danger" disabled={busy} onClick={() => setConfirmDelete(true)}>{t('env.delete')}</Button>}
-      <span className={styles.spacer} />
-      <Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
-      <Button variant="primary" loading={busy} disabled={!form.name.trim() || !dirty} onClick={() => void save()}>{t('env.save')}</Button>
-    </>}>
+    actions={{
+      extra: saved ? <Button variant="danger" disabled={busy} onClick={() => setConfirmDelete(true)}>{t('env.delete')}</Button> : undefined,
+      cancel: { label: t('common.cancel') },
+      primary: { label: t('env.save'), loading: busy, disabled: !form.name.trim() || !dirty, onClick: () => void save() }
+    }}>
     <div className={styles.envLayout}>
       <nav className={styles.envList} aria-label={t('env.list')}>
         {environments.map(env => <button key={env.id} type="button" className={styles.row} aria-current={form.id === env.id ? 'page' : undefined} onClick={() => switchTo(fromEnvironment(env))}>
@@ -102,7 +101,7 @@ export function EnvironmentsDialog({ onClose }: { onClose: () => void }): ReactE
         <p className={styles.hint}>{t('env.variablesHint', { example: '{{baseUrl}}' })}</p>
 
         <h3 className={styles.sectionTitle}>{t('env.secrets')}</h3>
-        {secretsProblem && <ErrorState compact title={t('env.noVault')} message={secretsProblem} />}
+        {secretsProblem && <Notice intent="warning" title={t('env.noVault')}>{secretsProblem}</Notice>}
         <ul className={styles.rows} aria-label={t('env.secrets')}>
           {form.secrets.map(name => {
             const isSaved = !!saved?.secrets.includes(name)
