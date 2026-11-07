@@ -19,6 +19,7 @@
     <string name="home_body">Pareie este celular com o OXESpace no seu computador, na mesma Wi-Fi, para acompanhar e responder suas sessões.</string>
     <string name="home_cancel">Cancelar</string>
     <string name="home_enter_address">Informar o endereço do computador</string>
+    <string name="home_lapsed">Este pareamento expirou antes de o celular se conectar. Pareie de novo.</string>
     <string name="home_open_wifi">Abrir configurações de Wi-Fi</string>
     <string name="home_pair">Parear com o computador</string>
     <string name="home_paired_body">Este celular acompanha e responde suas sessões em %1$s enquanto os dois estiverem na mesma rede.</string>
