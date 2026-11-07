@@ -8,20 +8,21 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AgentActivitySettings } from '../../../src/components/Settings/AgentActivitySettings'
+import { changeLanguage } from '../../../src/i18n'
 
 type Row = {
   id: string; source: 'changes' | 'databases' | 'containers' | 'post'; at: number
-  actor: { kind: 'thread' | 'pane' | 'agent' | 'person'; id: string | null; label: string; name: string | null }
+  actor: { kind: 'thread' | 'pane' | 'agent' | 'person' | 'app'; id: string | null; label: string; name: string | null; gone?: boolean }
   tool: string; summary: string; target: string | null; write: boolean
   decision: 'auto' | 'approved' | 'approved-session' | 'denied' | 'refused' | 'pending'
   outcome: 'ok' | 'error' | 'skipped'; durationMs: number | null; errorCode: string | null
   /** A12: only on a person's access change; its summary is empty and the page words the line. */
-  accessChange?: { from: 'off' | 'read' | 'write'; to: 'off' | 'read' | 'write' }
+  accessChange?: { event?: 'set' | 'confirm' | 'dropped'; from: 'off' | 'read' | 'write'; to: 'off' | 'read' | 'write' }
 }
 const at = Date.UTC(2026, 10, 7, 14, 40)
 const ROWS: Row[] = [
   { id: 'changes:7', source: 'changes', at, actor: { kind: 'thread', id: 't1', label: 'thread:t1', name: 'Make charge creation idempotent' }, tool: 'oxespace_workspace_change', summary: 'rename · cajui-api', target: 'cajui-api', write: true, decision: 'auto', outcome: 'ok', durationMs: 40, errorCode: null },
-  { id: 'databases:3', source: 'databases', at: at - 60_000, actor: { kind: 'pane', id: 'p2', label: 'pane:p2', name: null }, tool: 'oxespace_db_execute', summary: 'DELETE FROM pix_mock_data', target: 'cajui-dev', write: true, decision: 'denied', outcome: 'skipped', durationMs: null, errorCode: null },
+  { id: 'databases:3', source: 'databases', at: at - 60_000, actor: { kind: 'pane', id: 'p2', label: 'pane:p2', name: null, gone: false }, tool: 'oxespace_db_execute', summary: 'DELETE FROM pix_mock_data', target: 'cajui-dev', write: true, decision: 'denied', outcome: 'skipped', durationMs: null, errorCode: null },
   { id: 'containers:9', source: 'containers', at: at - 120_000, actor: { kind: 'agent', id: null, label: 'claude', name: null }, tool: 'oxespace_container_action', summary: 'restart api', target: 'api', write: true, decision: 'approved', outcome: 'error', durationMs: 5000, errorCode: 'E_TIMEOUT' },
   { id: 'post:2', source: 'post', at: at - 180_000, actor: { kind: 'thread', id: 't1', label: 'thread:t1', name: 'Make charge creation idempotent' }, tool: 'oxespace_post_send', summary: 'POST /pix/charges', target: 'Pix · sandbox', write: true, decision: 'pending', outcome: 'skipped', durationMs: null, errorCode: null }
 ]
@@ -68,7 +69,9 @@ describe('A11 · Settings › Agent activity is one list from every source', () 
     render(<AgentActivitySettings />)
     const table = await screen.findByRole('table')
     const results = within(table).getAllByRole('row').slice(1).map(row => within(row).getAllByRole('cell')[5].textContent?.trim())
-    expect(results).toEqual(['Done', 'Denied', 'Failed · E_TIMEOUT', 'Waiting for you'])
+    expect(results).toEqual(['Done', 'Denied', 'Failed · timed out', 'Waiting for you'])
+    // The raw code belongs to the detail, never the row.
+    expect(table.textContent).not.toContain('E_TIMEOUT')
   })
 
   it('filters on the server: a source and a view each start again from the first page', async () => {
@@ -109,7 +112,7 @@ describe('A11 · Settings › Agent activity is one list from every source', () 
   })
 
   it('names the person\'s own change "You" in the Agent column (A12\'s Access changed)', async () => {
-    const person: Row = { id: 'post:5', source: 'post', at, actor: { kind: 'person', id: null, label: 'person', name: null }, tool: 'post.access', summary: '', accessChange: { from: 'off', to: 'read' }, target: 'Pix', write: false, decision: 'auto', outcome: 'ok', durationMs: null, errorCode: null }
+    const person: Row = { id: 'post:5', source: 'post', at, actor: { kind: 'person', id: null, label: 'person', name: null }, tool: 'post.access', summary: '', accessChange: { event: 'set', from: 'off', to: 'read' }, target: 'Pix', write: false, decision: 'auto', outcome: 'ok', durationMs: null, errorCode: null }
     fake([{ rows: [person], nextCursor: null }])
     render(<AgentActivitySettings />)
     const table = await screen.findByRole('table')
@@ -119,16 +122,69 @@ describe('A11 · Settings › Agent activity is one list from every source', () 
     expect(what.textContent?.trim()).toBe('Access: Off → Read')
   })
 
+  it('says closed only when A10 says gone, names OXESpace itself, and words every access event', async () => {
+    const base = { source: 'post' as const, at, tool: 'post.access', summary: '', target: 'Pix', write: false, decision: 'auto' as const, outcome: 'ok' as const, durationMs: null, errorCode: null }
+    fake([{ rows: [
+      { ...base, id: 'changes:11', source: 'changes', summary: 'commit', actor: { kind: 'thread', id: 't9', label: 'thread:t9', name: null, gone: true } },
+      { ...base, id: 'post:6', actor: { kind: 'app', id: null, label: 'oxespace', name: null }, accessChange: { event: 'dropped', from: 'write', to: 'off' } },
+      { ...base, id: 'post:7', actor: { kind: 'person', id: null, label: 'person', name: null }, accessChange: { event: 'confirm', from: 'write', to: 'write' } }
+    ], nextCursor: null }])
+    render(<AgentActivitySettings />)
+    const table = await screen.findByRole('table')
+    const cells = within(table).getAllByRole('row').slice(1).map(row => within(row).getAllByRole('cell').map(cell => cell.textContent?.trim()))
+    expect(cells.map(row => row[1])).toEqual(['Closed conversation', 'OXESpace', 'You'])
+    expect(cells[1][3]).toBe('Access removed: the folder changed')
+    expect(cells[2][3]).toBe('Access confirmed: Write')
+  })
+
   it('names the agent by the name A10 resolves, with a fallback and never the raw thread:/pane: label', async () => {
     fake()
     render(<AgentActivitySettings />)
     const table = await screen.findByRole('table')
     const agents = within(table).getAllByRole('row').slice(1).map(row => within(row).getAllByRole('cell')[1].textContent?.trim() ?? '')
     expect(agents[0]).toBe('Make charge creation idempotent')
-    expect(agents[1]).toBe('Closed terminal')
+    // A10's null name means gone or never named; the fallback claims neither.
+    expect(agents[1]).toBe('Terminal')
     expect(agents[2]).toMatch(/claude/i)
     expect(agents[3]).toBe('Make charge creation idempotent')
     for (const agent of agents) expect(agent).not.toMatch(/^(thread|pane):/)
+  })
+
+  it('opens a row from the keyboard and gives focus back to it when the detail closes', async () => {
+    fake()
+    const user = userEvent.setup()
+    render(<AgentActivitySettings />)
+    const table = await screen.findByRole('table')
+    const row = within(table).getAllByRole('row')[2]
+    row.focus()
+    expect(row).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(await screen.findByRole('dialog', { name: 'DELETE FROM pix_mock_data' })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await waitFor(() => expect(within(screen.getByRole('table')).getAllByRole('row')[2]).toHaveFocus())
+  })
+
+  it('a pending entry is never a dead end: its detail opens the conversation that asked', async () => {
+    fake()
+    const user = userEvent.setup()
+    render(<AgentActivitySettings />)
+    const table = await screen.findByRole('table')
+    await user.click(within(table).getAllByRole('row')[4])
+    const dialog = await screen.findByRole('dialog', { name: 'POST /pix/charges' })
+    expect(within(dialog).getByRole('button', { name: 'Open the conversation' })).toBeInTheDocument()
+  })
+
+  it('speaks pt-BR: the six headers and the result words', async () => {
+    await changeLanguage('pt-BR')
+    try {
+      fake()
+      render(<AgentActivitySettings />)
+      const table = await screen.findByRole('table')
+      expect(within(table).getAllByRole('columnheader').map(header => header.textContent?.trim()))
+        .toEqual(['Quando', 'Agente', 'Origem', 'O quê', 'Alvo', 'Resultado'])
+      expect(within(within(table).getAllByRole('row')[2]).getAllByRole('cell')[5].textContent?.trim()).toBe('Negado')
+    } finally { await changeLanguage('en') }
   })
 
   it('never reads a second list to merge: no old audit channels in the page', () => {
@@ -136,5 +192,15 @@ describe('A11 · Settings › Agent activity is one list from every source', () 
     expect(source).not.toMatch(/actionAudit\s*\(/)
     expect(source).not.toMatch(/oxequery[\s\S]{0,40}audit/i)
     expect(source).toMatch(/agentActivity\??\.list/)
+  })
+
+  it('OxeQuery and OxePod keep their in-mode activity, moved onto the same read model with their own source', () => {
+    const read = (path: string): string => readFileSync(join(__dirname, '..', '..', '..', path), 'utf8')
+    const panel = read('src/components/OxeQuery/ActivityPanel.tsx')
+    expect(panel).toMatch(/agentActivity\??\.list/)
+    expect(read('src/components/OxeQuery/ActivityDetail.tsx')).toMatch(/agentActivity\??\.detail/)
+    for (const path of ['src/components/OxeQuery/ActivityPanel.tsx', 'src/components/OxeQuery/ActivityDetail.tsx', 'src/components/OxePod/OxePodView.tsx']) {
+      expect(read(path), path).not.toMatch(/['"]audit\.list['"]/)
+    }
   })
 })

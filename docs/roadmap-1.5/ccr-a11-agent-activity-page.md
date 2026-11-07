@@ -20,14 +20,21 @@ in the order they come (A10 orders them: `at` DESC, then source, then id DESC). 
 OxeQuery audit list, and never sorts or concatenates rows from two calls, except appending the next page of the same
 query.
 
+**The in-mode panels move; they don't go away** (HML-A11-1). OxeQuery's Agent activity panel and detail
+(`OxeQuery/ActivityPanel.tsx`, `ActivityDetail.tsx`, 1.4.1 T63), which OxePod also uses with `scope="containers"`,
+keep their place and their look but read the same model. A10's own PR moves the panel to
+`agentActivity.list({ connection })` (BACKEND, 07/11); OxePod's use reads `sources: ['containers']`, and the detail
+reads `agentActivity.detail(id)`. Once both have moved, no renderer file calls `oq('audit.list')`, and the old channel
+can go.
+
 ## 3. Columns (the same for every source)
 
 | # | Column (en) | From the row | Notes |
 |---|---|---|---|
 | 1 | When | `at` | Time today; date and time before today. A `<time dateTime>` with the full date as the title. |
-| 2 | Agent | `actor.name`, else a fallback | A10 resolves `actor.name` in main (the conversation's title, or the pane's display or agent name), so desktop and phone show the same words. When it is `null`: thread → "Closed conversation", pane → "Closed terminal", agent → the provider from `actor.label`, person → **You**. Never the raw `thread:<id>` / `pane:<id>` label. |
+| 2 | Agent | `actor.name`, else a fallback | A10 resolves `actor.name` in main (the conversation's title, or the pane's display or agent name), so desktop and phone show the same words. When it is `null`: with `actor.gone` true, thread → "Closed conversation", pane → "Closed terminal"; with `gone` false (alive but never named), thread → "Conversation", pane → "Terminal"; agent → the provider from `actor.label`; person → **You**; app (OXESpace itself, e.g. a grant it dropped) → **OXESpace** (HML-A11-2, A10 at 0db81e81). Never the raw `thread:<id>` / `pane:<id>` label. |
 | 3 | Source | `source` | Changes, Databases, Containers, Requests (`post`), with the source's 3 px color mark, never color alone. |
-| 4 | What | `summary`, or the access line | One line, ellipsis; mono for databases and requests. A row with `accessChange: { from, to }` (A12: a person changed an agent's access to an OxePost collection; its `summary` is empty) is localized here, never stored in English: "Access: Off → Read" / "Acesso: Desligado → Leitura", with the levels Off, Read, Write (pt-BR Desligado, Leitura, Escrita). |
+| 4 | What | `summary`, or the access line | One line, ellipsis; mono for databases and requests. A row with `accessChange: { from, to }` (A12: a person changed an agent's access to an OxePost collection; its `summary` is empty) is localized here, never stored in English, by `accessChange.event`: `set` → "Access: Off → Read" / "Acesso: Desligado → Leitura"; `confirm` → "Access confirmed: Write" / "Acesso confirmado: Escrita"; `dropped` → "Access removed: the folder changed" / "Acesso removido: a pasta mudou". Levels Off, Read, Write (pt-BR Desligado, Leitura, Escrita). |
 | 5 | Target | `target` | Empty when `null`. |
 | 6 | Result | `decision` + `outcome` + `errorCode` | Section 4. |
 
@@ -45,10 +52,13 @@ Checked in this order:
 | `decision` `pending` | Waiting for you | attn |
 | `decision` `denied` | Denied | warning |
 | `decision` `refused` | Refused by the policy | warning |
-| `outcome` `error` | Failed (`errorCode` after it when set: "Failed · E_TIMEOUT") | danger |
+| `outcome` `error` | Failed, with the reason in words when the code is known: `timeout`/`E_TIMEOUT` → "Failed · timed out", `denied-by-db`/`EPERM` → "Failed · not allowed", otherwise "Failed". The raw `errorCode` is in the detail, never the row (HML-A11-5). | danger |
 | `outcome` `skipped` | Skipped | neutral |
 | `decision` `approved` / `approved-session` | Approved | success |
 | `decision` `auto` | Done | success |
+
+pt-BR: Aguardando você, Negado, Recusado pela política, Falhou (· tempo esgotado, · sem permissão), Ignorado, Aprovado,
+Concluído. Column headers pt-BR: Quando, Agente, Origem, O quê, Alvo, Resultado.
 
 ## 5. Filters, pages and detail
 
@@ -62,6 +72,14 @@ Checked in this order:
   What, then: When, Agent, Source, Target, Tool, Decision, Outcome, Duration, Error code, and the source's own fields
   from the detail (for post, the masked response excerpt in a `<pre>`). A `null` detail shows "This entry is no longer
   kept" in the dialog.
+  - **Refused by the policy:** the detail names the rule that refused it when the detail carries one (OxeQuery's
+    refusal rule, OxePost's `origin` / `prod-write` codes in words). Otherwise it says "Refused by the policy file"
+    (HML-A11-5).
+  - **Waiting for you is never a dead end** (HML-A11-3). A pending row's dialog has a primary action: "Open the
+    conversation" when `actor.kind` is `thread` (it opens that conversation), else "Open the queue" (the approvals
+    queue).
+  - **Keyboard:** Tab reaches a row, Enter opens its detail, and Escape or Close returns focus to that row
+    (HML-A11-4).
 - **States (U9):** `LoadingState` in the table's place while the first page loads. Empty: an `EmptyState`, "Agents
   haven't done anything here yet", or with a filter, "Nothing matches these filters". Error: `ErrorState` with Try
   again.
@@ -76,13 +94,19 @@ Checked in this order:
 1. One `list` call on open, with no `sources` and `view: 'all'`. `mcpInternal.actionAudit` is never called (the fake
    has none). **Red today:** the page calls `actionAudit`.
 2. A table with the six column headers of section 3, and four rows in the order `list` returned them.
-3. The result words of section 4 for the fake rows (Done, Denied, Failed · E_TIMEOUT, Waiting for you).
+3. The result words of section 4 for the fake rows (Done, Denied, Failed · timed out, Waiting for you), with no raw
+   error code in the row.
 4. The Databases toggle sends `sources: ['databases']`; Problems sends `view: 'problems'`; each starts with no cursor.
 5. Load more sends `cursor` = the page's `nextCursor` and appends rows; it is gone when `nextCursor` is null.
 6. Opening a row calls `detail(id)` and shows a dialog named by the row's What.
 7. The source never calls a second list API: no `actionAudit`, no OxeQuery audit list.
-8. The Agent column shows `actor.name` when set; with `name` null it shows "You" for a person and "Closed conversation" for a thread, never the raw label.
-9. A row with `accessChange: { from: 'off', to: 'read' }` and an empty `summary` shows "Access: Off → Read" in What.
+8. The Agent column shows `actor.name` when set; with `name` null it shows "You" for a person, "Terminal" for a live pane, "Closed conversation" for a gone thread and "OXESpace" for the app, never the raw label.
+9. Access lines by event: `set` off → read shows "Access: Off → Read"; `confirm` shows "Access confirmed: Write"; `dropped` shows "Access removed: the folder changed".
+10. Keyboard: focus a row, Enter opens the detail, Escape returns focus to that row.
+11. pt-BR: the six headers and a Result word ("Negado").
+12. A pending row's detail offers "Open the conversation" for a thread actor.
+13. The in-mode panel reads `agentActivity.list` and the detail `agentActivity.detail`, and neither (nor OxePod)
+    calls `audit.list`.
 
 ## 7. Questions for review
 
