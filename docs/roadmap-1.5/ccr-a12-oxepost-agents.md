@@ -27,6 +27,10 @@ CREATE TABLE IF NOT EXISTS oxepost_agent_access (
   collection TEXT NOT NULL,
   access TEXT NOT NULL CHECK (access IN ('off', 'read', 'write')),
   environment_id TEXT,                 -- the environment the person chose for agents; NULL = none chosen, send refused
+  folder_identity TEXT NOT NULL,       -- the folder itself at grant time: '<dev>:<ino>:<birthtimeMs>' from fs.stat (bigint)
+  origins_json TEXT NOT NULL,          -- the sorted origins of the saved requests the person saw, resolved in that environment
+  fingerprint TEXT NOT NULL,           -- sha256 of the sorted (relative path, method, origin) of those saved requests
+  confirmed_at INTEGER NOT NULL,       -- when the person last set or re-confirmed this snapshot
   updated_at INTEGER NOT NULL,
   PRIMARY KEY (workspace_id, collection)
 );
@@ -55,8 +59,9 @@ CREATE TABLE IF NOT EXISTS oxepost_audit (
   duration_ms INTEGER,
   error_code TEXT,
   response_excerpt TEXT,               -- failures only: ≤ 4096 bytes, masked; NULL otherwise and for binary bodies
-  access_from TEXT,                    -- access changes only (actor 'person'): off | read | write
-  access_to TEXT
+  access_from TEXT,                    -- access rows only: off | read | write
+  access_to TEXT,
+  access_event TEXT CHECK (access_event IS NULL OR access_event IN ('set', 'confirm', 'dropped'))
 );
 CREATE INDEX IF NOT EXISTS idx_oxepost_audit_ts ON oxepost_audit(ts DESC);
 CREATE TRIGGER IF NOT EXISTS oxepost_audit_no_update BEFORE UPDATE ON oxepost_audit
@@ -65,14 +70,43 @@ BEGIN SELECT RAISE(ABORT, 'oxepost_audit is append-only'); END;
 
 - **Retention:** 90 days, pruned with the other audits (`AUDIT_RETENTION_DAYS`).
 - **Effective access** = the lower of the collection's access and the ceiling for the chosen environment's kind. In a production environment a write is refused whatever the setting.
-- **An access change** writes an `oxepost_audit` row: actor `person`, `access_from`/`access_to` set, method and url_path NULL, decision `auto`, outcome `ok`. That's DESIGN's "Access changed" line. The columns are structured so the window localizes the line (FE's M5 ask); no English is stored. A10 reads the row as actor kind `person`, with `accessChange: { from, to }`.
-- **Decided here:** the access is keyed on the workspace and the folder name, not stored in `.oxespace/requests`. A file in the repo could be committed by anyone; a person's grant must not come from a clone.
+- **An access row** in `oxepost_audit` has `access_from`/`access_to`/`access_event` set, method and url_path NULL, decision `auto`, outcome `ok`. The columns are structured so the window localizes the line (FE's M5 ask); no English is stored. A10 reads these rows as `accessChange: { from, to, event }`.
+  - `set`: a person changes access (actor `person`). That's DESIGN's "Access changed" line.
+  - `confirm`: a person re-confirms a changed collection (actor `person`).
+  - `dropped`: OXESpace removes a grant whose folder is gone or isn't the same folder (actor `oxespace`, A10 kind `app`).
+- **Decided here:** the grant lives in the DB, not in `.oxespace/requests`. A file in the repo could be committed by anyone; a person's grant must not come from a clone.
+
+### 2b. A grant is a snapshot of what the person saw (TECH LEAD's amendment; HML-A12-2, HML-A12-3)
+
+The files under `.oxespace/requests` are the repo's: anyone with a commit can add a request or replace a folder. A grant therefore never trusts the current files to say what the person allowed.
+
+- **At grant and at re-confirm,** `setAgentAccess` / `confirmAgentAccess` read the collection in the chosen environment and store:
+  - `folder_identity`;
+  - `origins_json`, the origins the person saw;
+  - `fingerprint`, over the sorted (relative path, method, origin) of the saved requests;
+  - `confirmed_at`.
+
+  The dialog shows those origins.
+- **The origin pin (§4 step 7) uses `origins_json`,** never the current files. A saved request added later on a new host is refused there (`origin`), even though it's saved.
+- **The same folder:** at every list and send, the folder must exist and its `folder_identity` must match.
+  - Otherwise the row is dropped (an `access_event: 'dropped'` audit row) and the collection is `off`. So a deleted folder, or one recreated under the same name, starts at `off`.
+  - A rename gives a new name with no row, so it's `off` too. The person grants it again, deliberately. A grant never follows a name.
+  - Decided over "move on rename" because nothing proves a renamed folder is the one the person granted; a folder's name is just a file path anyone can change.
+  - **Identity limit:** on Windows (NTFS) a recreated folder gets a new file index and birth time (checked 07/11). On a Linux filesystem without birth times, the identity falls back to `dev:ino`, and a reused inode is caught only by the fingerprint, which still refuses writes and keeps reads to the snapshot's origins.
+- **A changed collection** (the fingerprint differs, the folder identity is the same):
+  - a **write** is refused with `access-changed`;
+  - a **read** keeps working, but only to origins already in `origins_json`;
+  - `requests` marks the collection `changed: true`, and the dialog shows "Changed since you allowed it" with a **Confirm access** button (`agentAccessConfirm`), which stores a new snapshot and is audited `confirm`.
+- **The environment** (HML-A12-3):
+  - It's referenced by its id, which is stable across a rename (`saveEnvironment` keeps the id it's given), so a renamed environment keeps the grant. The snapshot's origins were resolved with its variables then; a changed `host` variable only shows up as a changed fingerprint.
+  - A deleted environment gives `no-environment` until the person picks another. The dialog says "The environment agents used was removed; pick another".
+  - `production` is read at send time, so turning it on applies the production ceiling and the no-write rule at once.
 
 ## 3. The agent tool: `oxespace_post` (domain tool)
 
 | Action | Level | Input | Output |
 |---|---|---|---|
-| `requests` | read | `workspace?` (defaults to the caller's) | `{ collections: [...] }`, one entry per enabled collection: `{ collection, access, environment: { name, production } \| null, requests: [{ path, name, method, url }], variables: string[], secrets: string[] }`. `url` is the saved template with `{{names}}` unresolved. Names only, never values. |
+| `requests` | read | `workspace?` (defaults to the caller's) | `{ collections: [...] }`, one entry per enabled collection: `{ collection, access, changed, environment: { name, production } \| null, requests: [{ path, name, method, url }], variables: string[], secrets: string[] }`. `url` is the saved template with `{{names}}` unresolved. Names only, never values. |
 | `send` | confirm | `workspace?`, `collection`, then either `path` (a saved request) or `method` + `url` (a new request); optional `variables: Record<string,string>`, `headers: [{name, value}]`, `body` | `{ status, statusText, ms, size, headers, body, truncated, binary, contentType, url }`, all masked (§5), body capped at 64 KB for the agent, behind the untrusted-output notice |
 
 - **An HTTP error status is a result, not a refusal:** a 4xx or 5xx response is returned to the agent, and its audit row has `outcome: 'error'`, `error_code: 'http-<status>'`, and the masked `response_excerpt`. A network, TLS or timeout failure throws with `SendError`'s code (`network`, `tls`, `timeout`), and its message is masked.
@@ -99,20 +133,23 @@ Each step that refuses writes an audit row with `decision: 'refused'`, `outcome:
 
 | # | Check | Code | Message the agent gets |
 |---|---|---|---|
-| 1 | rate: 30 calls a minute per execution (OxeQuery's `RATE_PER_MINUTE`) | `rate-limit` | — |
-| 2 | collection exists and effective access is not `off` | `access-off` | Agent access to "<collection>" is off. A person can turn it on in OxePost. |
-| 3 | an environment is chosen for the collection | `no-environment` | — |
-| 4 | method is GET/HEAD/OPTIONS, or access is `write` | `access-read-only` | — |
+| 1 | rate: 30 calls a minute per execution (OxeQuery's `RATE_PER_MINUTE`) | `rate-limit` | Too many requests from this run; try again in a minute. |
+| 2 | collection exists, its row exists, the folder is the same (§2b: identity), and effective access is not `off` | `access-off` | Agent access to "<collection>" is off. A person can turn it on in OxePost. |
+| 3 | an environment is chosen for the collection, and it still exists | `no-environment` | Agents can't send from "<collection>" until a person picks an environment for them in Agent access. |
+| 4 | method is GET/HEAD/OPTIONS, or access is `write` | `access-read-only` | Agent access to "<collection>" is read only, so it can't send <METHOD>. |
 | 5 | not a write to a production environment | `prod-write` | Agents can never send changes to a production environment. |
-| 6 | origin (scheme+host+port, after variables) is one of the collection's saved requests' origins in that environment | `origin` | Not sent: agents only reach the hosts this collection already uses. |
-| 7 | every secret the request uses is set | `secret-missing` | The secret {{NAME}} is not set in <environment>. |
-| 8 | the approval (§6) | `denied` / `approval-pending` / the broker's refusal | OxeQuery's wording |
-| 9 | one call at a time per collection | `busy` | — |
-| 10 | at connect: each resolved IP is not private, loopback or link-local, unless the allowed origin's host is itself literally one (`localhost`, `*.localhost`, or a private, loopback or link-local IP literal). A public name that resolves to a private address is always refused, saved or not. | `private-address` | — |
-| 11 | redirects: manual, at most 5, each hop re-runs 6 and 10, never https → http | `redirect` | — |
-| 12 | time limit 20 s | `timeout` | — |
+| 6 | a write needs an unchanged collection (the fingerprint matches; §2b) | `access-changed` | This collection changed since access was given. Confirm access again in OxePost. |
+| 7 | origin (scheme+host+port, after variables) is in the grant's `origins_json`, never read from the current files | `origin` | Not sent: agents only reach the hosts this collection already used when access was given. |
+| 8 | every secret the request uses is set | `secret-missing` | The secret {{NAME}} is not set in <environment>. |
+| 9 | the approval (§6) | `denied` / `approval-pending` / the broker's refusal | OxeQuery's wording |
+| 10 | one call at a time per collection | `busy` | Another request from this collection is still running. |
+| 11 | at connect: each resolved IP is not blocked, unless the allowed origin's host is itself literally one (`localhost`, `*.localhost`, or a blocked IP literal). A public name that resolves to a blocked address is always refused, saved or not. | `private-address` | Not sent: <host> points to a private address, which agents can't reach. |
+| 12 | redirects: manual, at most 5, each hop re-runs 7 and 11, never https → http | `redirect` | Not sent: the server redirected to <origin>, which agents can't reach. |
+| 13 | time limit 20 s | `timeout` | No answer from <host> in 20 s. |
 
-- **Decided here (step 10):** the check runs in the connection's `lookup`, through an undici `Agent` whose `connect.lookup` wraps `dns.lookup` and checks every address, so a DNS rebind between the check and the connect fails. The gateway takes `lookup` as a dependency so tests can inject it.
+- **Messages** (HML-A12-1): the agent gets the English sentence above. The audit stores only the code, and A11 words it in en and pt-BR from `oxepost.agent.<code>` message codes (C3), written by PR 2 in both locales. `OXEPOST_AGENT_REFUSALS` (exported by `agent-access.ts`) lists every code. The frozen test pins the list and the wording of `no-environment`, `access-read-only`, `private-address` and `access-changed`.
+
+- **Decided here (step 11):** the check runs in the connection's `lookup`, through an undici `Agent` whose `connect.lookup` wraps `dns.lookup` and checks every address, so a DNS rebind between the check and the connect fails. The gateway takes `lookup` as a dependency so tests can inject it.
   - **All addresses:** every address in the answer is checked, `all: true`, and one blocked address refuses the request (no "pick the good one").
 - **Blocked ranges** (SECURITY must-fix 4): `isBlockedAddress(ip)` in `oxepost/address-policy.ts`, from Node's `net.BlockList`.
   - IPv4:
@@ -142,7 +179,7 @@ Each step that refuses writes an audit row with `decision: 'refused'`, `outcome:
     - URL-encoded: `encodeURIComponent`, and the form encoding with `+` for spaces, matched case-insensitively on the `%XX` hex;
     - base64: standard, standard without padding, and base64url;
     - JSON-escaped: `JSON.stringify(value).slice(1, -1)`.
-  - **Known limit (residual risk, §9):** base64 of a secret that sits inside a larger base64 blob at an offset not divisible by 3 isn't a substring of any form, so it isn't caught. The origin pin (§4 step 6) and the no-secret-in-agent-text rule (§3) are what keep that case from being agent-driven.
+  - **Known limit (residual risk, §9):** base64 of a secret that sits inside a larger base64 blob at an offset not divisible by 3 isn't a substring of any form, so it isn't caught. The origin pin (§4 step 7) and the no-secret-in-agent-text rule (§3) are what keep that case from being agent-driven.
   - It applies to:
   - the approval text;
   - the response URL, headers and body returned to the agent;
@@ -174,7 +211,7 @@ Each step that refuses writes an audit row with `decision: 'refused'`, `outcome:
 
 ## 7. Surface
 
-- **IPC (person-only, never MCP):** `oxePost.call` gets the ops `agentAccessList`, `agentAccessSet` and `agentCeilingSet`. FE uses them in PR 3.
+- **IPC (person-only, never MCP):** `oxePost.call` gets the ops `agentAccessList`, `agentAccessSet`, `agentAccessConfirm` and `agentCeilingSet`. FE uses them in PR 3 (#654). Person-only signatures in `agent-access.ts`: `setAgentAccess(db, { workspaceId, root, collection, access, environmentId })` and `confirmAgentAccess(db, { workspaceId, root, collection })`, both async (they read the collection to take the snapshot), plus `setAgentCeiling(db, kind, access)`.
 - **mcp-coverage:**
   - `oxepost.all` (planned H8) splits into:
     - `oxepost.agent_send` with tools `{ 'oxespace_post#requests': 'read', 'oxespace_post#send': 'confirm' }`;
@@ -230,6 +267,28 @@ S4. **Blocked ranges:** the table of blocked and allowed addresses, including ma
 P1. **No proxy, TLS verified:** with `HTTPS_PROXY`/`HTTP_PROXY` set and `NODE_TLS_REJECT_UNAUTHORIZED=0`:
     - one dispatcher is made per gateway, with `connect.rejectUnauthorized: true`, a `connect.lookup`, and no proxy option;
     - every fetch gets that dispatcher.
+N1. **Snapshot origins:** a saved request added after the grant, on a new host, gives `origin`. So does a new agent request there.
+N2. **Changed collection:**
+    - a write gives `access-changed`;
+    - a read to an old origin still works;
+    - `requests` says `changed: true`;
+    - `confirmAgentAccess` restores writes and is audited `confirm`.
+N3. **Same folder:** a folder deleted and recreated under the same name gives `access-off`, its row is dropped, and that's audited `dropped`. A renamed folder gives `access-off` under both names.
+N4. **Environment:**
+    - a renamed environment (same id) keeps the grant;
+    - turning `production` on makes a POST `prod-write` at once;
+    - a deleted environment gives `no-environment` with its message.
+N5. **Messages:** `OXEPOST_AGENT_REFUSALS` lists every code, and the wording of `no-environment`, `access-read-only`, `private-address` and `access-changed` is pinned.
+
+**Real network (HML-A12-4, M10):** the frozen tests fake `fetch` and `lookup`, which proves the contract but not the wire. HML writes a CI acceptance spec on the real app once PR 2 is on a branch (BACKEND tells HML when):
+- a local server on the runner, and a collection whose saved origin is `http://localhost:<port>`;
+- a stand-in agent through the internal MCP;
+- (1) an approved GET returns 200, and the server saw the real secret;
+- (2) a 302 to another origin gives `redirect` after one hop at the server;
+- (3) a hostname resolving to 127.0.0.1 with no saved origin of its own gives `private-address`, and the server sees nothing;
+- (4) with `HTTP_PROXY` at a dead port, the send still reaches the server directly.
+
+It runs on CI (`acceptance.yml`), and A12 isn't done until it's green.
 16. **Surface:**
     - the mcp-coverage entries of §7;
     - `oxepost.agent_access` is forbidden;
@@ -240,8 +299,8 @@ P1. **No proxy, TLS verified:** with `HTTPS_PROXY`/`HTTP_PROXY` set and `NODE_TL
 
 | Topic | Where |
 |---|---|
-| SSRF and DNS rebinding | §4 steps 6, 10, 11 |
-| Exfiltration through a new request | §4 step 6: origins are only the saved ones, and the agent can't add a saved request |
+| SSRF and DNS rebinding | §4 steps 7, 11, 12 |
+| Exfiltration through a new request, or a committed one | §4 step 7: origins are the grant-time snapshot (§2b), so neither the agent nor a pulled commit can widen them |
 | Secrets in the result, approval, audit and logs | §5, tests 3, 12, 13, 14 |
 | Auth smuggling through headers or variables | §3, test 11 |
 | A grant coming from a repo file | §2 "decided here" |
@@ -252,6 +311,8 @@ P1. **No proxy, TLS verified:** with `HTTPS_PROXY`/`HTTP_PROXY` set and `NODE_TL
 | Header smuggling and routing (Host, X-Forwarded-*, CRLF) | §3 agent headers, test S3 |
 | Metadata, CGNAT, mapped IPv6 | §4 blocked ranges, test S4 |
 | Proxy and TLS downgrade from the environment | §4 transport, test P1 |
+| A pulled commit widening origins, or a folder replaced under the same name | §2b snapshot (origins, fingerprint, folder identity), tests N1–N3 |
+| The wire really behaving as the fakes say | HML's real-network acceptance spec (§8) |
 
 ## Out of scope
 

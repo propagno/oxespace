@@ -2,14 +2,14 @@
 // Spec: docs/roadmap-1.5/ccr-a12-oxepost-agents.md (product: docs/design/t64-oxepost-agent-access.md).
 // No network, no vault, no user files: a temp request tree, fake secrets, broker, fetch and DNS.
 // Runs under Electron's Node ABI: npm run test:electron -- tests/acceptance/f2/a12-oxepost-agents.test.ts
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, renameSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { openInMemoryDatabase, type AppDatabase } from '../../../electron/main/db/index'
 import { RequestStore } from '../../../electron/main/services/oxepost/store'
 import { OxePostAgentGateway } from '../../../electron/main/services/oxepost/agent-gateway'
-import { setAgentAccess, setAgentCeiling } from '../../../electron/main/services/oxepost/agent-access'
+import { OXEPOST_AGENT_REFUSALS, confirmAgentAccess, setAgentAccess, setAgentCeiling } from '../../../electron/main/services/oxepost/agent-access'
 import { isBlockedAddress } from '../../../electron/main/services/oxepost/address-policy'
 import { OxePostService } from '../../../electron/main/services/oxepost/service'
 import type { ApprovalRequest, ApprovalState } from '../../../electron/main/services/agent-actions/approval-broker'
@@ -23,6 +23,7 @@ const actor = { key: 'exec-1', label: 'thread:t1' }
 let root: string
 let db: AppDatabase
 let paths: Record<string, string>
+let store: RequestStore
 let asked: Array<Omit<ApprovalRequest, 'id' | 'hash' | 'expiresAt'> & { scope: string }>
 let answer: ApprovalState
 let fetched: Array<{ url: string; init: RequestInit }>
@@ -35,7 +36,7 @@ const request = (o: Partial<PostRequest> & Pick<PostRequest, 'name' | 'method' |
 beforeEach(async () => {
   root = mkdtempSync(join(tmpdir(), 'oxepost-a12-'))
   db = openInMemoryDatabase()
-  const store = new RequestStore(root)
+  store = new RequestStore(root)
   await store.saveEnvironment({ name: 'Staging', production: false, variables: { host: 'https://api.example.com', page: '1' }, secrets: ['API_KEY'] })
   await store.saveEnvironment({ name: 'Production', production: true, variables: { host: 'https://api.example.com', page: '1' }, secrets: ['API_KEY'] })
   await store.saveEnvironment({ name: 'QA', production: false, variables: { host: 'https://api.example.com', page: '1' }, secrets: ['API_KEY'] })
@@ -66,7 +67,9 @@ function gatewayDeps() {
 afterEach(() => { db.close(); rmSync(root, { recursive: true, force: true }) })
 
 const send = (args: Record<string, unknown>) => gateway.handle('oxespace_post', { action: 'send', workspace: 'w1', collection: 'billing', ...args }, actor)
-const grant = (collection: string, access: 'off' | 'read' | 'write', environmentId: string | null = 'staging') => setAgentAccess(db, { workspaceId: 'w1', collection, access, environmentId })
+const grant = (collection: string, access: 'off' | 'read' | 'write', environmentId: string | null = 'staging') => setAgentAccess(db, { workspaceId: 'w1', root, collection, access, environmentId })
+const folder = (name: string) => join(root, '.oxespace', 'requests', name)
+const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 /** The agent rows; a person's access changes are checked on their own. */
 const audit = () => db.prepare("SELECT * FROM oxepost_audit WHERE actor <> 'person' ORDER BY id").all() as Array<Record<string, unknown>>
 const header = (init: RequestInit, name: string) => new Headers(init.headers).get(name)
@@ -74,8 +77,8 @@ const header = (init: RequestInit, name: string) => new Headers(init.headers).ge
 describe('A12 · storage (migration)', () => {
   test('three tables; the audit is append-only; production can never be given write', () => {
     const columns = (table: string) => (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map(column => column.name)
-    expect(columns('oxepost_agent_access')).toEqual(expect.arrayContaining(['workspace_id', 'collection', 'access', 'environment_id', 'updated_at']))
-    expect(columns('oxepost_audit')).toEqual(expect.arrayContaining(['id', 'ts', 'actor', 'workspace_id', 'collection', 'request_name', 'environment', 'method', 'url_path', 'status', 'text_hash', 'decision', 'outcome', 'duration_ms', 'error_code', 'response_excerpt', 'access_from', 'access_to']))
+    expect(columns('oxepost_agent_access')).toEqual(expect.arrayContaining(['workspace_id', 'collection', 'access', 'environment_id', 'folder_identity', 'origins_json', 'fingerprint', 'confirmed_at', 'updated_at']))
+    expect(columns('oxepost_audit')).toEqual(expect.arrayContaining(['id', 'ts', 'actor', 'workspace_id', 'collection', 'request_name', 'environment', 'method', 'url_path', 'status', 'text_hash', 'decision', 'outcome', 'duration_ms', 'error_code', 'response_excerpt', 'access_from', 'access_to', 'access_event']))
     expect(db.prepare('SELECT kind, access FROM oxepost_agent_ceiling ORDER BY kind').all()).toEqual([{ kind: 'ordinary', access: 'write' }, { kind: 'production', access: 'read' }])
     expect(() => db.prepare("UPDATE oxepost_agent_ceiling SET access = 'write' WHERE kind = 'production'").run()).toThrow()
     expect(() => setAgentCeiling(db, 'production', 'write')).toThrow()
@@ -95,7 +98,7 @@ describe('A12 · agents send OxePost requests', () => {
   })
 
   test('requests lists names of variables and secrets, never a value', async () => {
-    grant('billing', 'read')
+    await grant('billing', 'read')
     const result = await gateway.handle('oxespace_post', { action: 'requests', workspace: 'w1' }, actor) as { collections: Array<Record<string, unknown>> }
     expect(result.collections).toEqual([expect.objectContaining({ collection: 'billing', access: 'read', environment: { name: 'Staging', production: false }, variables: expect.arrayContaining(['host', 'page']), secrets: ['API_KEY'] })])
     expect((result.collections[0].requests as Array<Record<string, unknown>>).map(item => [item.name, item.method, item.url])).toEqual(expect.arrayContaining([['List invoices', 'GET', '{{host}}/invoices?page={{page}}'], ['Create invoice', 'POST', '{{host}}/invoices']]))
@@ -104,7 +107,7 @@ describe('A12 · agents send OxePost requests', () => {
   })
 
   test('read access, GET: asks with the secret masked; the fetch gets the value; the result and the audit never show it', async () => {
-    grant('billing', 'read')
+    await grant('billing', 'read')
     const result = await send({ path: paths.list }) as { status: number; headers: Array<{ name: string; value: string }>; body: string; url: string }
     expect(asked).toHaveLength(1)
     expect(asked[0]).toMatchObject({ kind: 'oxepost', risk: 'read', actor: 'thread:t1', tool: 'oxespace_post', scope: 'oxepost:w1:billing' })
@@ -125,13 +128,13 @@ describe('A12 · agents send OxePost requests', () => {
   })
 
   test('read access refuses a POST without asking or fetching', async () => {
-    grant('billing', 'read')
+    await grant('billing', 'read')
     await expect(send({ path: paths.create })).rejects.toMatchObject({ code: 'access-read-only' })
     expect(asked).toEqual([]); expect(fetched).toEqual([])
   })
 
   test('write access: a POST asks as a write; denied and pending send nothing', async () => {
-    grant('billing', 'write')
+    await grant('billing', 'write')
     answer = { state: 'denied' }
     await expect(send({ path: paths.create })).rejects.toMatchObject({ code: 'denied' })
     expect(asked[0]).toMatchObject({ kind: 'oxepost', risk: 'write' })
@@ -147,7 +150,7 @@ describe('A12 · agents send OxePost requests', () => {
   })
 
   test('production: a write is refused by policy without asking; a read asks with the production flag', async () => {
-    grant('billing', 'write', 'production')
+    await grant('billing', 'write', 'production')
     await expect(send({ path: paths.create })).rejects.toMatchObject({ code: 'prod-write' })
     expect(asked).toEqual([]); expect(fetched).toEqual([])
     await send({ path: paths.list })
@@ -156,7 +159,7 @@ describe('A12 · agents send OxePost requests', () => {
   })
 
   test('a new request reaches only the origins the collection already uses', async () => {
-    grant('billing', 'read')
+    await grant('billing', 'read')
     await expect(send({ method: 'GET', url: 'https://evil.example.net/steal' })).rejects.toMatchObject({ code: 'origin' })
     await expect(send({ method: 'GET', url: 'http://api.example.com/invoices' })).rejects.toMatchObject({ code: 'origin' })
     expect(asked).toEqual([]); expect(fetched).toEqual([])
@@ -166,16 +169,16 @@ describe('A12 · agents send OxePost requests', () => {
   })
 
   test('a public origin that resolves to a private address is refused; a saved localhost origin is sent', async () => {
-    grant('billing', 'read', 'rebind')
+    await grant('billing', 'read', 'rebind')
     await expect(send({ path: paths.list })).rejects.toMatchObject({ code: 'private-address' })
     expect(fetched).toEqual([])
-    grant('local', 'read', 'staging')
+    await grant('local', 'read', 'staging')
     await gateway.handle('oxespace_post', { action: 'send', workspace: 'w1', collection: 'local', path: paths.health }, actor)
     expect(fetched.map(item => item.url)).toEqual(['http://localhost:3000/health'])
   })
 
   test('a redirect to another origin is not followed', async () => {
-    grant('billing', 'read')
+    await grant('billing', 'read')
     reply = () => new Response(null, { status: 302, headers: { location: 'https://evil.example.net/x' } })
     await expect(send({ path: paths.list })).rejects.toMatchObject({ code: 'redirect' })
     expect(fetched).toHaveLength(1)
@@ -183,13 +186,13 @@ describe('A12 · agents send OxePost requests', () => {
   })
 
   test('a secret that is not set fails before sending, naming the secret and the environment', async () => {
-    grant('billing', 'read', 'qa')
+    await grant('billing', 'read', 'qa')
     await expect(send({ path: paths.list })).rejects.toMatchObject({ code: 'secret-missing', message: expect.stringMatching(/\{\{API_KEY\}\}[\s\S]*QA/) })
     expect(asked).toEqual([]); expect(fetched).toEqual([])
   })
 
   test('arguments cannot set a secret, carry auth, or reach an action that does not exist', async () => {
-    grant('billing', 'write')
+    await grant('billing', 'write')
     await expect(send({ path: paths.list, variables: { API_KEY: 'mine' } })).rejects.toMatchObject({ code: 'invalid' })
     await expect(send({ method: 'GET', url: 'https://api.example.com/x', headers: [{ name: 'Authorization', value: 'Bearer abc' }] })).rejects.toMatchObject({ code: 'invalid' })
     await expect(send({ method: 'GET', url: 'https://api.example.com/x', headers: [{ name: 'Cookie', value: 'a=b' }] })).rejects.toMatchObject({ code: 'invalid' })
@@ -201,7 +204,7 @@ describe('A12 · agents send OxePost requests', () => {
   })
 
   test('SECURITY 1: an agent-authored request cannot name a secret anywhere, so a secret is never reflected or stored', async () => {
-    grant('billing', 'write')
+    await grant('billing', 'write')
     const attempts: Array<Record<string, unknown>> = [
       { method: 'GET', url: 'https://api.example.com/echo?k={{API_KEY}}' },
       { method: 'GET', url: 'https://api.example.com/echo', headers: [{ name: 'X-Note', value: 'k={{ API_KEY }}' }] },
@@ -217,7 +220,7 @@ describe('A12 · agents send OxePost requests', () => {
   })
 
   test('SECURITY 2: masking covers the encoded forms of a secret in the result and the audit', async () => {
-    grant('billing', 'read')
+    await grant('billing', 'read')
     // A secret that needs escaping, encodes with '+', '/' or padding, and has a non-ASCII character.
     const odd = String.raw`pa"ss/+ wÿörd\n?-77!`
     expect(Buffer.from(odd).toString('base64')).toMatch(/[+/].*=$/)
@@ -245,7 +248,7 @@ describe('A12 · agents send OxePost requests', () => {
   })
 
   test('SECURITY 3: an agent cannot set routing, proxy or hop-by-hop headers, or smuggle a line break', async () => {
-    grant('billing', 'write')
+    await grant('billing', 'write')
     const names = ['Host', 'Forwarded', 'X-Forwarded-For', 'X-Forwarded-Host', 'X-Forwarded-Proto', 'X-Real-IP', 'X-Original-URL', 'X-Rewrite-URL',
       'Connection', 'Keep-Alive', 'Proxy-Connection', 'Proxy-Authorization', 'TE', 'Trailer', 'Transfer-Encoding', 'Upgrade', 'Content-Length',
       'Authorization', 'Cookie', 'X-Api-Key', 'X-Ok\r\nX-Evil', 'X-Ok\nX-Evil', 'X-Nul\0']
@@ -271,7 +274,7 @@ describe('A12 · agents send OxePost requests', () => {
   })
 
   test('SECURITY 4b: every resolved address is checked, and one bad address in the answer is enough to refuse', async () => {
-    grant('billing', 'read')
+    await grant('billing', 'read')
     gateway = new OxePostAgentGateway({ ...gatewayDeps(), lookup: async () => ['93.184.216.34', '169.254.169.254'] })
     await expect(send({ path: paths.list })).rejects.toMatchObject({ code: 'private-address' })
     gateway = new OxePostAgentGateway({ ...gatewayDeps(), lookup: async () => ['::ffff:127.0.0.1'] })
@@ -280,7 +283,7 @@ describe('A12 · agents send OxePost requests', () => {
   })
 
   test('PIN: its own direct connection, never a proxy from the environment, and TLS always verified', async () => {
-    grant('billing', 'read')
+    await grant('billing', 'read')
     const made: Array<Record<string, any>> = []
     const marker = { kind: 'gateway-dispatcher' }
     const saved = { HTTPS_PROXY: process.env.HTTPS_PROXY, HTTP_PROXY: process.env.HTTP_PROXY, NODE_TLS_REJECT_UNAUTHORIZED: process.env.NODE_TLS_REJECT_UNAUTHORIZED }
@@ -300,7 +303,7 @@ describe('A12 · agents send OxePost requests', () => {
   })
 
   test('a failed response keeps a masked excerpt of at most 4 KB in the audit', async () => {
-    grant('billing', 'read')
+    await grant('billing', 'read')
     reply = () => new Response(`boom ${SECRET} ${'x'.repeat(10_000)}`, { status: 500, headers: { 'content-type': 'text/plain' } })
     const result = await send({ path: paths.list }) as { status: number }
     expect(result.status).toBe(500)
@@ -313,7 +316,7 @@ describe('A12 · agents send OxePost requests', () => {
   })
 
   test('no log line carries a secret value', async () => {
-    grant('billing', 'write')
+    await grant('billing', 'write')
     await send({ path: paths.list })
     reply = () => { throw Object.assign(new TypeError('fetch failed'), { cause: { code: 'ECONNRESET', message: `reset while sending ${SECRET}` } }) }
     await expect(send({ path: paths.create })).rejects.toBeTruthy()
@@ -321,12 +324,81 @@ describe('A12 · agents send OxePost requests', () => {
     expect(JSON.stringify(audit())).not.toContain(SECRET)
   })
 
-  test('an access change is a person\'s audited action', () => {
-    grant('billing', 'read')
-    grant('billing', 'write')
+  test('an access change is a person\'s audited action', async () => {
+    await grant('billing', 'read')
+    await grant('billing', 'write')
     const rows = db.prepare("SELECT * FROM oxepost_audit WHERE actor = 'person' ORDER BY id").all() as Array<Record<string, unknown>>
-    expect(rows.map(row => [row.collection, row.access_from, row.access_to, row.method, row.url_path, row.decision, row.outcome]))
-      .toEqual([['billing', 'off', 'read', null, null, 'auto', 'ok'], ['billing', 'read', 'write', null, null, 'auto', 'ok']])
+    expect(rows.map(row => [row.collection, row.access_from, row.access_to, row.access_event, row.method, row.url_path, row.decision, row.outcome]))
+      .toEqual([['billing', 'off', 'read', 'set', null, null, 'auto', 'ok'], ['billing', 'read', 'write', 'set', null, null, 'auto', 'ok']])
+  })
+
+  // ---- the grant is a snapshot of what the person saw (TECH LEAD's amendment + HML-A12-2/3) ----------------------
+
+  test('SNAPSHOT: a saved request added later on a new host does not widen where agents may send', async () => {
+    await grant('billing', 'write')
+    await store.save(undefined, request({ name: 'Leak', method: 'POST', url: 'https://collector.example.org/in', body: '{}' }), 'billing')
+    await expect(send({ path: 'billing/leak.http' })).rejects.toMatchObject({ code: 'origin' })
+    await expect(send({ method: 'GET', url: 'https://collector.example.org/x' })).rejects.toMatchObject({ code: 'origin' })
+    expect(asked).toEqual([]); expect(fetched).toEqual([])
+  })
+
+  test('SNAPSHOT: a changed collection keeps reads to the origins already allowed and refuses writes until re-confirmed', async () => {
+    await grant('billing', 'write')
+    await store.save(undefined, request({ name: 'Extra', method: 'GET', url: '{{host}}/extra' }), 'billing')
+    await expect(send({ path: paths.create })).rejects.toMatchObject({ code: 'access-changed', message: expect.stringMatching(/changed since access was given/i) })
+    expect(fetched).toEqual([])
+    await send({ path: paths.list })
+    expect(fetched).toHaveLength(1)
+    const listed = await gateway.handle('oxespace_post', { action: 'requests', workspace: 'w1' }, actor) as { collections: Array<Record<string, unknown>> }
+    expect(listed.collections[0]).toMatchObject({ collection: 'billing', changed: true })
+    await confirmAgentAccess(db, { workspaceId: 'w1', root, collection: 'billing' })
+    await send({ path: paths.create })
+    expect(fetched).toHaveLength(2)
+    const confirm = db.prepare("SELECT access_from, access_to, access_event FROM oxepost_audit WHERE actor = 'person' AND access_event = 'confirm'").all()
+    expect(confirm).toEqual([{ access_from: 'write', access_to: 'write', access_event: 'confirm' }])
+  })
+
+  test('SNAPSHOT: a folder deleted and recreated under the same name starts at off, and its row is dropped', async () => {
+    await grant('billing', 'write')
+    rmSync(folder('billing'), { recursive: true, force: true })
+    await pause(30)
+    paths.list = await store.save(undefined, request({ name: 'List invoices', method: 'GET', url: '{{host}}/invoices?page={{page}}', headers: [{ name: 'X-Trace', value: '{{API_KEY}}', enabled: true }] }), 'billing')
+    await expect(send({ path: paths.list })).rejects.toMatchObject({ code: 'access-off' })
+    expect(asked).toEqual([]); expect(fetched).toEqual([])
+    expect(db.prepare("SELECT COUNT(*) AS n FROM oxepost_agent_access WHERE collection = 'billing'").get()).toEqual({ n: 0 })
+    expect(db.prepare("SELECT access_event FROM oxepost_audit WHERE actor <> 'thread:t1' AND access_event = 'dropped'").all()).toHaveLength(1)
+  })
+
+  test('SNAPSHOT: a renamed folder does not carry its grant, and a folder that copies another\'s requests gets nothing', async () => {
+    await grant('billing', 'write')
+    renameSync(folder('billing'), folder('billing2'))
+    await expect(gateway.handle('oxespace_post', { action: 'send', workspace: 'w1', collection: 'billing2', path: 'billing2/list-invoices.http' }, actor)).rejects.toMatchObject({ code: 'access-off' })
+    await expect(send({ path: 'billing/list-invoices.http' })).rejects.toMatchObject({ code: 'access-off' })
+    expect(fetched).toEqual([])
+  })
+
+  test('ENVIRONMENT: a rename keeps the grant (stable id); a deleted environment refuses with no-environment; turning production on applies at once', async () => {
+    await grant('billing', 'write')
+    await store.saveEnvironment({ name: 'Staging EU', production: false, variables: { host: 'https://api.example.com', page: '1' }, secrets: ['API_KEY'] }, 'staging')
+    await send({ path: paths.create })
+    expect(fetched).toHaveLength(1)
+    await store.saveEnvironment({ name: 'Staging EU', production: true, variables: { host: 'https://api.example.com', page: '1' }, secrets: ['API_KEY'] }, 'staging')
+    await expect(send({ path: paths.create })).rejects.toMatchObject({ code: 'prod-write' })
+    await store.deleteEnvironment('staging')
+    await expect(send({ path: paths.list })).rejects.toMatchObject({ code: 'no-environment', message: expect.stringMatching(/picks an environment/i) })
+    expect(fetched).toHaveLength(1)
+  })
+
+  test('MESSAGES: every refusal tells the person what to change (HML-A12-1)', async () => {
+    await grant('billing', 'read', null)
+    await expect(send({ path: paths.list })).rejects.toMatchObject({ code: 'no-environment', message: expect.stringMatching(/Agents can't send from "billing" until a person picks an environment/) })
+    await grant('billing', 'read', 'staging')
+    await expect(send({ path: paths.create })).rejects.toMatchObject({ code: 'access-read-only', message: expect.stringMatching(/Agent access to "billing" is read only, so it can't send POST/) })
+    await grant('billing', 'read', 'rebind')
+    await expect(send({ path: paths.list })).rejects.toMatchObject({ code: 'private-address', message: expect.stringMatching(/rebind\.example\.com points to a private address/) })
+    for (const code of ['rate-limit', 'no-environment', 'access-read-only', 'busy', 'private-address', 'redirect', 'timeout', 'access-changed', 'access-off', 'prod-write', 'origin', 'secret-missing']) {
+      expect(OXEPOST_AGENT_REFUSALS, code).toContain(code)
+    }
   })
 
   test('the person-only oxePost.call ops: list and set access, refuse a production write ceiling, and record the change', async () => {
@@ -341,6 +413,8 @@ describe('A12 · agents send OxePost requests', () => {
     expect(db.prepare("SELECT access_from, access_to FROM oxepost_audit WHERE actor = 'person'").all()).toEqual([{ access_from: 'off', access_to: 'write' }])
     // The ordinary ceiling is now read: a write collection is capped to read for agents.
     await expect(send({ path: paths.create })).rejects.toMatchObject({ code: 'access-read-only' })
+    expect(await service.call('agentAccessConfirm', { workspaceId: 'w1', collection: 'billing' })).toMatchObject({ ok: true })
+    expect(db.prepare("SELECT access_event FROM oxepost_audit WHERE actor = 'person' ORDER BY id").all()).toEqual([{ access_event: 'set' }, { access_event: 'confirm' }])
   })
 })
 
