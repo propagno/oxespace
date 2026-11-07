@@ -1,5 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
-import { launchApp, resizeWindow, type Appearance } from '../helpers/launch'
+import { launchApp, pinWorkspaceColor, resizeWindow, type Appearance } from '../helpers/launch'
 import { seedGitRepo } from '../helpers/seed'
 import { expectSurface } from '../helpers/visual'
 
@@ -11,6 +11,7 @@ async function openWorkspace(page: Page, repo: string, layoutCard: 1 | 2 | 4): P
   await page.getByTestId(`wizard-layout-card-${layoutCard}`).click()
   await page.getByTestId('wizard-launch-btn').click()
   await expect(page.getByTestId('terminal-pane')).toHaveCount(layoutCard)
+  await pinWorkspaceColor(page)
 }
 
 async function openTool(page: Page, name: RegExp): Promise<void> {

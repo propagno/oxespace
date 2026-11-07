@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { launchApp, openDemoWorkspace, resizeWindow, type Appearance } from '../helpers/launch'
+import { launchApp, openDemoWorkspace, pinWorkspaceColor, resizeWindow, type Appearance } from '../helpers/launch'
 import { connectFromContainer, containerRow, openView } from '../helpers/oxepod'
 import { expectSurface } from '../helpers/visual'
 
@@ -27,6 +27,7 @@ for (const theme of THEMES) {
     try {
       await resizeWindow(app, 1280, 800)
       await openDemoWorkspace(page, workspaceRoot)
+      await pinWorkspaceColor(page)
       const shot = (name: string, target?: Locator, extraMask: Locator[] = []): Promise<void> => settle(page).then(() => expectSurface(page, `${name}-${theme}`, { target, mask: [...volatile(page), ...extraMask] }))
 
       // Containers live in the OxePod mode (#161): the list is its sidebar, the work area holds the open container,
@@ -90,6 +91,7 @@ for (const theme of THEMES) {
     try {
       await resizeWindow(app, 1280, 800)
       await openDemoWorkspace(page, workspaceRoot)
+      await pinWorkspaceColor(page)
       // A database container becomes a connection from OxePod (#161), which then opens it in OxeQuery.
       await connectFromContainer(page, 'pg-dev')
       const view = page.locator('.oq-view')
@@ -155,6 +157,7 @@ for (const theme of THEMES) {
     try {
       await resizeWindow(app, 1280, 800)
       await openDemoWorkspace(page, workspaceRoot)
+      await pinWorkspaceColor(page)
       await connectFromContainer(page, 'mongo-dev')
       const view = page.locator('.oq-view')
       await view.waitFor()
