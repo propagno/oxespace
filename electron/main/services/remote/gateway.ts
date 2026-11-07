@@ -13,7 +13,7 @@ import {
   type RemoteAuthFrame, type RemoteCommand, type RemotePairingErrorCode, type RemotePairResponse, type RemoteSubscription
 } from '../../../../shared/remote/protocol'
 import {
-  REMOTE_DEFAULT_DESKTOP_NAME, REMOTE_MIN_PORT, type RemoteChange, type RemoteDevice, type RemoteGatewayStatus, type RemotePairingFailureReason, type RemotePairingOffer
+  REMOTE_DEFAULT_DESKTOP_NAME, REMOTE_MIN_PORT, type RemoteChange, type RemoteDevice, type RemoteGatewayStatus, type RemoteNetworkCategory, type RemotePairingFailureReason, type RemotePairingOffer
 } from '../../../../shared/types/remote'
 import { createSecretCipher, type SafeStorageLike } from '../oxequery/secret-cipher'
 import { certificateFingerprint, createGatewayCertificate, decodeKeyDer, encodeKeyDer, readCertificateDer, readPrivateKeyDer } from './certificate'
@@ -23,7 +23,8 @@ import type { RemoteDesktop } from './desktop'
 import {
   cleanDeviceName, deviceNameProblem, deviceNotFound, parseAnswerPairingInput, parseDesktopNameInput, parseDeviceId, parseDeviceInput, parseRenameInput, parseSetEnabledInput, parseSetPhoneWriteInput
 } from './inputs'
-import { isPrivateAddress, listenAddresses, peerAddress, type ListenAddress } from './network'
+import { isPrivateAddress, listenAddresses, peerAddress, preferRoute, type ListenAddress } from './network'
+import { defaultRouteAddress, interfaceOf, networkCategories } from './network-profile'
 import { PAIRING_PROMPT_TIMEOUT_MS, PairingDesk } from './pairing'
 import { RemoteStore, TooManyDevicesError, type DeviceRecord } from './store'
 import { createTopics } from './topics'
@@ -65,6 +66,12 @@ export interface RemoteGatewayDeps {
   /** Which interface addresses may be listened on; private ones only, unless a test says otherwise. */
   isAllowedAddress?: (address: string) => boolean
   promptTimeoutMs?: number
+  /** Windows' network category per interface alias (lower case); a read-only PowerShell query by default. */
+  networkCategories?: () => Promise<Map<string, RemoteNetworkCategory>>
+  /** How long a shown code is watched for `no-contact`; until it expires by default (tests shorten it). */
+  offerWatchMs?: number
+  /** The local address of the default route, for the QR; a UDP socket that sends nothing by default. */
+  routeAddress?: () => Promise<string | null>
   /** B9.2: how long a pairing may go unused; `UNUSED_PAIRING_TTL_MS` by default (tests shorten it). */
   unusedPairingTtlMs?: number
   /** What phones may watch and do (M4, M5). Without it no topic has data and every command is `forbidden`. */
@@ -124,6 +131,10 @@ export class RemoteGateway implements ConnectionHost {
   private readonly lastSeenWrite = new Map<string, number>()
   private authAudits = { windowStart: 0, count: 0 }
   private pairingFailuresShown = { windowStart: 0, count: 0 }
+  /** The network profile of the interface the QR names, read when the gateway starts and when a code is shown. */
+  private network: RemoteGatewayStatus['network']
+  /** The code on screen: whether any request reached the pairing path while it was shown, and when it lapses. */
+  private offerWatch: { contacted: boolean; timer: ReturnType<typeof setTimeout> } | null = null
   /** Panes the person let phones type into: in memory only, so off on every launch, and never set by a phone or MCP. */
   private readonly phoneWritePanes = new Set<string>()
   /** B9.2: devices paired on this launch that have not signed in yet, and when they lapse. In memory only. */
@@ -175,6 +186,8 @@ export class RemoteGateway implements ConnectionHost {
       maxDevices: REMOTE_LIMITS.maxDevices,
       phoneWritePanes: [...this.phoneWritePanes].sort(),
       listenedBefore: settings.listenedBefore,
+      ...(running && this.network ? { network: this.network } : {}),
+      ...(this.pairing.current() ? { pendingPairing: this.pairing.current()! } : {}),
       ...(this.error ? { error: this.error } : {})
     }
   }
@@ -200,6 +213,7 @@ export class RemoteGateway implements ConnectionHost {
             if (port < REMOTE_MIN_PORT) throw new GatewayStartError(mainMessage('remote.port.privileged', { port }))
             this.running = await this.start(port)
             this.error = undefined
+            this.refreshNetwork()
             this.store.savePort(port)
             this.store.markListened()
             this.store.audit({ action: 'enable', outcome: 'ok', detail: `port ${port}` })
@@ -223,12 +237,60 @@ export class RemoteGateway implements ConnectionHost {
     }
     const { code, expiresAt } = this.pairing.start()
     this.store.audit({ action: 'pairing-start', outcome: 'ok' })
+    this.watchOffer(expiresAt)
+    // The profile can change while the gateway runs (another Wi-Fi); read it again, then tell the window.
+    this.refreshNetwork()
     const host = running.addresses[0].address
     return { uri: pairingUri({ v: REMOTE_PROTOCOL_VERSION, host, port: running.port, fp: running.fingerprint, code, name: this.desktopName }), expiresAt }
   }
 
   cancelPairing(): void {
+    this.stopOfferWatch()
     if (this.pairing.cancel()) this.store.audit({ action: 'pairing-cancel', outcome: 'ok' })
+  }
+
+  /**
+   * A code that lapses without any request reaching the pairing path tells the window `no-contact`: the phone never got
+   * here (a firewall, a Public network, another network). Without it the person sees nothing happen.
+   */
+  private watchOffer(expiresAt: number): void {
+    this.stopOfferWatch()
+    const timer = setTimeout(() => {
+      const watch = this.offerWatch
+      this.offerWatch = null
+      if (watch && !watch.contacted && this.running) this.tellPairingFailed('no-contact')
+    }, this.deps.offerWatchMs ?? Math.max(0, expiresAt - this.now()))
+    timer.unref?.()
+    this.offerWatch = { contacted: false, timer }
+  }
+
+  private stopOfferWatch(): void {
+    if (this.offerWatch) clearTimeout(this.offerWatch.timer)
+    this.offerWatch = null
+  }
+
+  /**
+   * Reads the network profile in the background, then tells the window. Never awaited: a slow or failing read
+   * (PowerShell can take seconds) never delays switching the gateway on or showing a code.
+   */
+  private refreshNetwork(): void {
+    const running = this.running
+    void this.readNetwork().then(() => {
+      if (this.running !== running) return
+      try { this.deps.broadcast({ status: this.status() }) } catch { /* a closed window */ }
+    }, () => undefined)
+  }
+
+  /** Reads the network profile of the interface the QR names. Never throws, never changes anything. */
+  private async readNetwork(): Promise<void> {
+    const running = this.running
+    if (!running) { this.network = undefined; return }
+    const interfaces = (this.deps.interfaces ?? networkInterfaces)()
+    const name = interfaceOf(running.addresses[0].address, interfaces)
+    const categories = await (this.deps.networkCategories ?? (() => networkCategories(this.deps.platform ?? process.platform)))().catch(() => new Map<string, RemoteNetworkCategory>())
+    const category = name ? categories.get(name.toLowerCase()) : undefined
+    if (this.running !== running) return
+    this.network = name && category ? { interfaceName: name, category } : undefined
   }
 
   answerPairing(value: unknown): void {
@@ -309,7 +371,8 @@ export class RemoteGateway implements ConnectionHost {
 
   private async start(port: number): Promise<Running> {
     const material = this.material()
-    const addresses = listenAddresses((this.deps.interfaces ?? networkInterfaces)(), this.deps.isAllowedAddress ?? isPrivateAddress)
+    const route = await (this.deps.routeAddress ?? defaultRouteAddress)().catch(() => null)
+    const addresses = preferRoute(listenAddresses((this.deps.interfaces ?? networkInterfaces)(), this.deps.isAllowedAddress ?? isPrivateAddress), route)
     if (!addresses.length) throw new GatewayStartError(mainMessage('remote.network.noPrivateInterface', {}))
     const servers: https.Server[] = [], bound: ListenAddress[] = []
     for (const address of addresses) {
@@ -386,6 +449,8 @@ export class RemoteGateway implements ConnectionHost {
   private async shutdown(reason: 'person' | 'restart' | 'quit'): Promise<void> {
     const running = this.running
     this.running = null
+    this.network = undefined
+    this.stopOfferWatch()
     this.pairing.reset()
     if (!running) return
     for (const connection of this.connections) { connection.close(WS_CLOSE.goingAway); connection.closed() }
@@ -404,6 +469,8 @@ export class RemoteGateway implements ConnectionHost {
     const running = this.running
     if (!running) return json(res, 503, { code: 'not-found' })
     if (req.url !== REMOTE_PAIRING_PATH) return json(res, 404, { code: 'not-found' })
+    // Something reached the pairing path while a code was shown: whatever happens next, it is not `no-contact`.
+    if (this.offerWatch) this.offerWatch.contacted = true
     if (req.method !== 'POST') return json(res, 405, { code: 'malformed' })
     const address = peerAddress(req.socket.remoteAddress)
     if (!this.pairing.attempt(address)) {
