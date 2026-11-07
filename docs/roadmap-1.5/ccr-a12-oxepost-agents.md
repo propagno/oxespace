@@ -89,7 +89,10 @@ The files under `.oxespace/requests` are the repo's: anyone with a commit can ad
   The dialog shows those origins.
 - **The origin pin (§4 step 7) uses `origins_json`,** never the current files. A saved request added later on a new host is refused there (`origin`), even though it's saved.
 - **The same folder:** at every list and send, the folder must exist and its `folder_identity` must match.
-  - Otherwise the row is dropped (an `access_event: 'dropped'` audit row) and the collection is `off`. So a deleted folder, or one recreated under the same name, starts at `off`.
+  - Otherwise the row is dropped and the collection is `off`. The `access_event: 'dropped'` audit row carries the reason in `error_code`: `folder-recreated` (same name, another folder) or `folder-missing` (gone or renamed away).
+  - **The person is told why** (TECH LEAD): a branch switch, a clone or a worktree can recreate a folder, and access must not vanish silently.
+    - Until the person sets access again, an agent send to that collection gives `access-dropped`, not `access-off`.
+    - The dialog and A11 show the message `oxepost.agent.access-dropped`, en: "Access was turned off because this folder was recreated (for example by a branch switch). Allow it again in OxePost."; pt-BR: "O acesso foi desligado porque esta pasta foi recriada (por exemplo, numa troca de branch). Permita de novo no OxePost." So a deleted folder, or one recreated under the same name, starts at `off`.
   - A rename gives a new name with no row, so it's `off` too. The person grants it again, deliberately. A grant never follows a name.
   - Decided over "move on rename" because nothing proves a renamed folder is the one the person granted; a folder's name is just a file path anyone can change.
   - **Identity limit:** on Windows (NTFS) a recreated folder gets a new file index and birth time (checked 07/11). On a Linux filesystem without birth times, the identity falls back to `dev:ino`, and a reused inode is caught only by the fingerprint, which still refuses writes and keeps reads to the snapshot's origins.
@@ -134,7 +137,7 @@ Each step that refuses writes an audit row with `decision: 'refused'`, `outcome:
 | # | Check | Code | Message the agent gets |
 |---|---|---|---|
 | 1 | rate: 30 calls a minute per execution (OxeQuery's `RATE_PER_MINUTE`) | `rate-limit` | Too many requests from this run; try again in a minute. |
-| 2 | collection exists, its row exists, the folder is the same (§2b: identity), and effective access is not `off` | `access-off` | Agent access to "<collection>" is off. A person can turn it on in OxePost. |
+| 2 | collection exists, its row exists, the folder is the same (§2b: identity), and effective access is not `off` | `access-off`, or `access-dropped` when its last access row is `dropped` | Agent access to "<collection>" is off. A person can turn it on in OxePost. / Access was turned off because this folder was recreated (for example by a branch switch). Allow it again in OxePost. |
 | 3 | an environment is chosen for the collection, and it still exists | `no-environment` | Agents can't send from "<collection>" until a person picks an environment for them in Agent access. |
 | 4 | method is GET/HEAD/OPTIONS, or access is `write` | `access-read-only` | Agent access to "<collection>" is read only, so it can't send <METHOD>. |
 | 5 | not a write to a production environment | `prod-write` | Agents can never send changes to a production environment. |
@@ -147,7 +150,7 @@ Each step that refuses writes an audit row with `decision: 'refused'`, `outcome:
 | 12 | redirects: manual, at most 5, each hop re-runs 7 and 11, never https → http | `redirect` | Not sent: the server redirected to <origin>, which agents can't reach. |
 | 13 | time limit 20 s | `timeout` | No answer from <host> in 20 s. |
 
-- **Messages** (HML-A12-1): the agent gets the English sentence above. The audit stores only the code, and A11 words it in en and pt-BR from `oxepost.agent.<code>` message codes (C3), written by PR 2 in both locales. `OXEPOST_AGENT_REFUSALS` (exported by `agent-access.ts`) lists every code. The frozen test pins the list and the wording of `no-environment`, `access-read-only`, `private-address` and `access-changed`.
+- **Messages** (HML-A12-1): the agent gets the English sentence above. The audit stores only the code, and A11 words it in en and pt-BR from `oxepost.agent.<code>` message codes (C3), written by PR 2 in both locales. `OXEPOST_AGENT_REFUSALS` (exported by `agent-access.ts`) lists every code. The frozen test pins the list and the wording of `no-environment`, `access-read-only`, `private-address`, `access-changed` and `access-dropped`.
 
 - **Decided here (step 11):** the check runs in the connection's `lookup`, through an undici `Agent` whose `connect.lookup` wraps `dns.lookup` and checks every address, so a DNS rebind between the check and the connect fails. The gateway takes `lookup` as a dependency so tests can inject it.
   - **All addresses:** every address in the answer is checked, `all: true`, and one blocked address refuses the request (no "pick the good one").
@@ -273,7 +276,9 @@ N2. **Changed collection:**
     - a read to an old origin still works;
     - `requests` says `changed: true`;
     - `confirmAgentAccess` restores writes and is audited `confirm`.
-N3. **Same folder:** a folder deleted and recreated under the same name gives `access-off`, its row is dropped, and that's audited `dropped`. A renamed folder gives `access-off` under both names.
+N3. **Same folder:**
+    - a folder deleted and recreated under the same name gives `access-dropped` with its message, its row is dropped, and it's audited `dropped` with `error_code: 'folder-recreated'`;
+    - a renamed folder gives `access-dropped` (`folder-missing`) under the old name and `access-off` under the new one.
 N4. **Environment:**
     - a renamed environment (same id) keeps the grant;
     - turning `production` on makes a POST `prod-write` at once;
@@ -286,7 +291,8 @@ N5. **Messages:** `OXEPOST_AGENT_REFUSALS` lists every code, and the wording of 
 - (1) an approved GET returns 200, and the server saw the real secret;
 - (2) a 302 to another origin gives `redirect` after one hop at the server;
 - (3) a hostname resolving to 127.0.0.1 with no saved origin of its own gives `private-address`, and the server sees nothing;
-- (4) with `HTTP_PROXY` at a dead port, the send still reaches the server directly.
+- (4) with `HTTP_PROXY` at a dead port, the send still reaches the server directly;
+- (5) a saved request added on a new host after the grant is refused, and the server on that host sees nothing (TECH LEAD's case; N1 is its unit form).
 
 It runs on CI (`acceptance.yml`), and A12 isn't done until it's green.
 16. **Surface:**

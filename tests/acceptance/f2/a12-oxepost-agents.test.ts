@@ -363,17 +363,21 @@ describe('A12 · agents send OxePost requests', () => {
     rmSync(folder('billing'), { recursive: true, force: true })
     await pause(30)
     paths.list = await store.save(undefined, request({ name: 'List invoices', method: 'GET', url: '{{host}}/invoices?page={{page}}', headers: [{ name: 'X-Trace', value: '{{API_KEY}}', enabled: true }] }), 'billing')
-    await expect(send({ path: paths.list })).rejects.toMatchObject({ code: 'access-off' })
+    await expect(send({ path: paths.list })).rejects.toMatchObject({ code: 'access-dropped', message: expect.stringMatching(/Access was turned off because this folder was recreated \(for example by a branch switch\)\. Allow it again in OxePost\./) })
     expect(asked).toEqual([]); expect(fetched).toEqual([])
     expect(db.prepare("SELECT COUNT(*) AS n FROM oxepost_agent_access WHERE collection = 'billing'").get()).toEqual({ n: 0 })
-    expect(db.prepare("SELECT access_event FROM oxepost_audit WHERE actor <> 'thread:t1' AND access_event = 'dropped'").all()).toHaveLength(1)
+    expect(db.prepare("SELECT actor, access_from, access_to, error_code FROM oxepost_audit WHERE access_event = 'dropped'").all()).toEqual([{ actor: 'oxespace', access_from: 'write', access_to: 'off', error_code: 'folder-recreated' }])
+    await grant('billing', 'read')
+    await send({ path: paths.list })
+    expect(fetched).toHaveLength(1)
   })
 
   test('SNAPSHOT: a renamed folder does not carry its grant, and a folder that copies another\'s requests gets nothing', async () => {
     await grant('billing', 'write')
     renameSync(folder('billing'), folder('billing2'))
     await expect(gateway.handle('oxespace_post', { action: 'send', workspace: 'w1', collection: 'billing2', path: 'billing2/list-invoices.http' }, actor)).rejects.toMatchObject({ code: 'access-off' })
-    await expect(send({ path: 'billing/list-invoices.http' })).rejects.toMatchObject({ code: 'access-off' })
+    await expect(send({ path: 'billing/list-invoices.http' })).rejects.toMatchObject({ code: 'access-dropped' })
+    expect(db.prepare("SELECT error_code FROM oxepost_audit WHERE access_event = 'dropped'").all()).toEqual([{ error_code: 'folder-missing' }])
     expect(fetched).toEqual([])
   })
 
@@ -396,7 +400,7 @@ describe('A12 · agents send OxePost requests', () => {
     await expect(send({ path: paths.create })).rejects.toMatchObject({ code: 'access-read-only', message: expect.stringMatching(/Agent access to "billing" is read only, so it can't send POST/) })
     await grant('billing', 'read', 'rebind')
     await expect(send({ path: paths.list })).rejects.toMatchObject({ code: 'private-address', message: expect.stringMatching(/rebind\.example\.com points to a private address/) })
-    for (const code of ['rate-limit', 'no-environment', 'access-read-only', 'busy', 'private-address', 'redirect', 'timeout', 'access-changed', 'access-off', 'prod-write', 'origin', 'secret-missing']) {
+    for (const code of ['rate-limit', 'no-environment', 'access-read-only', 'busy', 'private-address', 'redirect', 'timeout', 'access-changed', 'access-dropped', 'access-off', 'prod-write', 'origin', 'secret-missing']) {
       expect(OXEPOST_AGENT_REFUSALS, code).toContain(code)
     }
   })
