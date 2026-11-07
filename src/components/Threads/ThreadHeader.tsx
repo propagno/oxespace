@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Menu, type MenuEntry } from '../../ui'
 import type { ConversationThread } from '../../../shared/types/thread'
 import type { Workspace } from '../../../shared/types/workspace'
+import { workspaceColorAttrs } from '../../../shared/workspace-color'
 import { THREAD_FONT_DEFAULT, THREAD_FONT_MAX, THREAD_FONT_MIN, useThreadPrefs } from '../../store/thread-prefs.store'
 import { THREAD_VIEW_MODES, useThreadViewModeStore, type ThreadViewMode } from '../../store/thread-view-mode.store'
 import type { ThreadPanel } from '../../store/thread-workbench.store'
@@ -48,7 +49,7 @@ export function ThreadHeader({ thread, workspace, branch, pending, running, acti
   const outside = observed && !observed.sameRepository ? observed.cwd : null
   // The conversation was started in a worktree of its own: its branch is shown even before Git answers.
   const owned = thread?.ownedWorktree
-  return <header className="thread-heading"><div className="thread-heading-identity"><span className="thread-heading-context" data-moved={moved ? 'true' : undefined} title={moved ? t('header.movedTitle', { checkout: thread!.observedLocation!.checkoutRoot, root: thread!.rootPath }) : outside ? t('header.outsideTitle', { root: thread!.rootPath, cwd: outside }) : thread?.rootPath ?? workspace?.rootPath}><Folder size={13} aria-hidden="true" /><strong>{workspace?.name ?? t('header.yourProjects')}</strong>{(branch ?? owned?.branch) && <span className="thread-heading-branch"><GitBranch size={11} aria-hidden="true" />{branch ?? owned?.branch}</span>}{(moved || owned) && <span className="thread-heading-worktree" title={owned ? t('header.ownedTitle', { branch: owned.branch, root: owned.projectRoot }) : undefined}>{t('header.worktree')}</span>}</span><h1>{thread?.title ?? t('header.projectConversations')}</h1>
+  return <header className="thread-heading" {...(workspace ? workspaceColorAttrs(workspace) : {})}><div className="thread-heading-identity"><span className="thread-heading-context" data-moved={moved ? 'true' : undefined} title={moved ? t('header.movedTitle', { checkout: thread!.observedLocation!.checkoutRoot, root: thread!.rootPath }) : outside ? t('header.outsideTitle', { root: thread!.rootPath, cwd: outside }) : thread?.rootPath ?? workspace?.rootPath}><Folder size={13} aria-hidden="true" /><strong>{workspace?.name ?? t('header.yourProjects')}</strong>{(branch ?? owned?.branch) && <span className="thread-heading-branch"><GitBranch size={11} aria-hidden="true" />{branch ?? owned?.branch}</span>}{(moved || owned) && <span className="thread-heading-worktree" title={owned ? t('header.ownedTitle', { branch: owned.branch, root: owned.projectRoot }) : undefined}>{t('header.worktree')}</span>}</span><h1>{thread?.title ?? t('header.projectConversations')}</h1>
     {thread && <ThreadConversationActions thread={thread} disabled={pending} onCommand={onCommand} onExport={onExport} onImport={onImport} />}</div>
     <div className="thread-heading-actions">
     {thread && THREAD_BAR_PANELS.map(id => <WorkbenchPanelToggle key={id} className="thread-review-trigger thread-panel-toggle" item={{ id, label: threadPanelLabel(id), title: threadPanelTitle(id), active: activePanel === THREAD_PANEL[id], onToggle: () => onTogglePanel(THREAD_PANEL[id]) }} />)}
