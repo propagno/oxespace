@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AgentAccess, ConnectionEnvironment, EnvironmentLimit, OxeQueryPreferences } from '../../../shared/types/oxequery'
-import { Button, Dialog, ErrorState, Select, LoadingState, toast } from '../../ui'
+import { Dialog, ErrorState, Select, LoadingState, toast } from '../../ui'
 import { i18n } from '../../i18n'
 import { errorMessage, oq } from './client'
 import { formatNumber } from '../../utils/formatTime'
@@ -54,8 +54,8 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): ReactEl
   }
   const change = (patch: Partial<OxeQueryPreferences>): void => { setSaved(false); setValue(current => current ? { ...current, ...patch } : current) }
 
-  return <Dialog toasts className="oq-scope" title={t('preferences.title')} description={t('preferences.description')} size="md" onClose={onClose} closeLabel={t('common.close')} testId="oxequery-preferences"
-    footer={<><Button variant="ghost" onClick={onClose}>{t('common.cancel')}</Button><Button variant="primary" loading={busy} disabled={!value} onClick={() => void save()}>{t('common.save')}</Button></>}>
+  return <Dialog toasts title={t('preferences.title')} description={t('preferences.description')} size="md" onClose={onClose} closeLabel={t('common.close')} testId="oxequery-preferences"
+    actions={{ cancel: { label: t('common.cancel') }, primary: { label: t('common.save'), loading: busy, disabled: !value, onClick: () => void save() } }}>
     {error && <ErrorState compact title={t(value ? 'preferences.saveFailed' : 'preferences.loadFailed')} message={error} />}
     {!value && !error ? <LoadingState label={t('preferences.loading')} /> : value && <div className="oq-preferences">
       <Select label={t('preferences.history')} hint={t('preferences.historyHint')} value={String(value.historyLimit)}
