@@ -300,7 +300,7 @@
     "opacity": "Background opacity",
     "translucent": "translucent",
     "globalDefaults": "<strong>Global</strong> defaults. Workspaces can override them.",
-    "resumeBypass": "Resume sessions with permissions skipped, when the session was",
+    "resumeBypass": "Resume sessions that skipped permission prompts the same way",
     "resumeBypassOn": "Resumed sessions now skip permission prompts when they did before",
     "resumeBypassHint": "A Claude Code session started with its permission prompts skipped resumes the same way after a restart or Restore session. Off: it resumes asking for permission."
   },
