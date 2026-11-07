@@ -41,6 +41,8 @@ const control = (name: string): HTMLElement =>
   screen.queryByRole('radio', { name }) ?? screen.queryByRole('tab', { name }) ?? screen.getByRole('button', { name })
 
 afterEach(() => { cleanup(); delete (window as { oxe?: unknown }).oxe })
+/** The row's What: its button's text (the summary or the access line); Target is a separate line under it. */
+const whatOf = (row: HTMLElement): string => within(within(row).getAllByRole('cell')[3]).getByRole('button').textContent?.trim() ?? ''
 
 describe('A11 · Settings › Agent activity is one list from every source', () => {
   it('asks the read model once for everything, and never the old lists', async () => {
@@ -53,14 +55,16 @@ describe('A11 · Settings › Agent activity is one list from every source', () 
     expect(query.cursor).toBeUndefined()
   })
 
-  it('shows one table with the same six columns for every source, in the order the read model gave', async () => {
+  it('shows one table with the same five columns for every source, in the order the read model gave', async () => {
     fake()
     render(<AgentActivitySettings />)
     const table = await screen.findByRole('table')
     expect(within(table).getAllByRole('columnheader').map(header => header.textContent?.trim()))
-      .toEqual(['When', 'Agent', 'Source', 'What', 'Target', 'Result'])
+      .toEqual(['When', 'Agent', 'Source', 'What', 'Result'])
     const rows = within(table).getAllByRole('row').slice(1)
-    expect(rows.map(row => within(row).getAllByRole('cell')[3].textContent)).toEqual(ROWS.map(row => row.summary))
+    expect(rows.map(whatOf)).toEqual(ROWS.map(row => row.summary))
+    // DESIGN: five columns; Target is the second line of What, not a column.
+    expect(within(rows[1]).getAllByRole('cell')[3].textContent).toContain('cajui-dev')
     expect(rows.map(row => within(row).getAllByRole('cell')[2].textContent)).toEqual(['Changes', 'Databases', 'Containers', 'Requests'])
   })
 
@@ -68,7 +72,7 @@ describe('A11 · Settings › Agent activity is one list from every source', () 
     fake()
     render(<AgentActivitySettings />)
     const table = await screen.findByRole('table')
-    const results = within(table).getAllByRole('row').slice(1).map(row => within(row).getAllByRole('cell')[5].textContent?.trim())
+    const results = within(table).getAllByRole('row').slice(1).map(row => within(row).getAllByRole('cell')[4].textContent?.trim())
     expect(results).toEqual(['Done', 'Denied', 'Failed · timed out', 'Waiting for you'])
     // The raw code belongs to the detail, never the row.
     expect(table.textContent).not.toContain('E_TIMEOUT')
@@ -118,8 +122,7 @@ describe('A11 · Settings › Agent activity is one list from every source', () 
     const table = await screen.findByRole('table')
     const agent = within(within(table).getAllByRole('row')[1]).getAllByRole('cell')[1]
     expect(agent.textContent?.trim()).toBe('You')
-    const what = within(within(table).getAllByRole('row')[1]).getAllByRole('cell')[3]
-    expect(what.textContent?.trim()).toBe('Access: Off → Read')
+    expect(whatOf(within(table).getAllByRole('row')[1])).toBe('Access: Off → Read')
   })
 
   it('says closed only when A10 says gone, names OXESpace itself, and words every access event', async () => {
@@ -133,8 +136,9 @@ describe('A11 · Settings › Agent activity is one list from every source', () 
     const table = await screen.findByRole('table')
     const cells = within(table).getAllByRole('row').slice(1).map(row => within(row).getAllByRole('cell').map(cell => cell.textContent?.trim()))
     expect(cells.map(row => row[1])).toEqual(['Closed conversation', 'OXESpace', 'You'])
-    expect(cells[1][3]).toBe('Access removed: the folder changed')
-    expect(cells[2][3]).toBe('Access confirmed: Write')
+    const rows = within(table).getAllByRole('row').slice(1)
+    expect(whatOf(rows[1])).toBe('Access removed: the folder changed')
+    expect(whatOf(rows[2])).toBe('Access confirmed: Write')
   })
 
   it('names the agent by the name A10 resolves, with a fallback and never the raw thread:/pane: label', async () => {
@@ -150,19 +154,22 @@ describe('A11 · Settings › Agent activity is one list from every source', () 
     for (const agent of agents) expect(agent).not.toMatch(/^(thread|pane):/)
   })
 
-  it('opens a row from the keyboard and gives focus back to it when the detail closes', async () => {
+  it('one tab stop per row: Tab reaches the What button, Enter opens the detail, Escape gives focus back', async () => {
     fake()
     const user = userEvent.setup()
     render(<AgentActivitySettings />)
     const table = await screen.findByRole('table')
-    const row = within(table).getAllByRole('row')[2]
-    row.focus()
-    expect(row).toHaveFocus()
+    const rows = within(table).getAllByRole('row').slice(1)
+    // DESIGN: the row itself is not a tab stop, so a page of 50 is 50 stops, not 100.
+    for (const row of rows) expect(row).not.toHaveAttribute('tabindex')
+    const what = within(within(rows[1]).getAllByRole('cell')[3]).getByRole('button')
+    what.focus()
+    expect(what).toHaveFocus()
     await user.keyboard('{Enter}')
     expect(await screen.findByRole('dialog', { name: 'DELETE FROM pix_mock_data' })).toBeInTheDocument()
     await user.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    await waitFor(() => expect(within(screen.getByRole('table')).getAllByRole('row')[2]).toHaveFocus())
+    await waitFor(() => expect(within(within(within(screen.getByRole('table')).getAllByRole('row')[2]).getAllByRole('cell')[3]).getByRole('button')).toHaveFocus())
   })
 
   it('a pending entry is never a dead end: its detail opens the conversation that asked', async () => {
@@ -182,8 +189,8 @@ describe('A11 · Settings › Agent activity is one list from every source', () 
       render(<AgentActivitySettings />)
       const table = await screen.findByRole('table')
       expect(within(table).getAllByRole('columnheader').map(header => header.textContent?.trim()))
-        .toEqual(['Quando', 'Agente', 'Origem', 'O quê', 'Alvo', 'Resultado'])
-      expect(within(within(table).getAllByRole('row')[2]).getAllByRole('cell')[5].textContent?.trim()).toBe('Negado')
+        .toEqual(['Quando', 'Agente', 'Origem', 'O quê', 'Resultado'])
+      expect(within(within(table).getAllByRole('row')[2]).getAllByRole('cell')[4].textContent?.trim()).toBe('Negado')
     } finally { await changeLanguage('en') }
   })
 
