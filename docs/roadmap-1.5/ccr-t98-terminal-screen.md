@@ -1,104 +1,75 @@
 # CCR T98: a screen for the phone's terminal view (1.5.0, phone phase)
 
-- **Owner:** BACKEND (design). The OXE executor builds it from the phone phase's PLAN.json.
-- **Status:** accepted by TECH LEAD on 04/11. MOBILE's side is T97 (#622, `VtScreen`).
+- **Owner:** BACKEND (design).
+- **Status (07/11):**
+  - **the desktop side is on main:** 1.4.3 P4, commits `121d9212` ("the terminal's screen on subscribe") and `255f3970` (TECH LEAD's must-fix from #634);
+  - **what's left is the phone consumer** (MOBILE). MOBILE's VT model, T97, is also on main (#637, the release twin of #622).
+- **This revision** replaces the first draft's `screen: { cols, rows, cursor, alternate, lines, scrollback }`. TECH LEAD asked for the P4 shape, `{ ansi, cols, rows }`. Nothing new is designed here; this CCR states the contract the phone phase builds against.
 
 ## Problem
 
-The `terminal` topic sends the pane's ring as raw text, already redacted (`TerminalWindow` in `services/remote/text.ts`, with a held tail so a secret split across two batches is still caught). A phone that opens a pane mid-session has no screen state: cursor moves, clears and TUI redraws land on an empty grid, and the view is garbage. T97 gives the phone a VT model. This CCR gives it a starting screen.
+A phone that opens a pane mid-session has no screen state. Cursor moves, clears and TUI redraws land on an empty grid. T97 gave the phone a VT model, and P4 gave the desktop a starting screen. The phone still ignores it (on origin/main, `mobile/android/app/src/main` doesn't read `snapshot`).
 
-## Protocol (`shared/remote/protocol.ts`): additive, literal types only
+## Protocol (on main, `shared/remote/protocol.ts`)
 
 ```ts
 export interface RemoteTerminalData {
   data: string
   truncated: boolean
   redacted?: number
-  /** T98: the screen as it is now, on the LAST snapshot page only. Never on events. Absent when over budget. */
-  screen?: RemoteTerminalScreen
+  /** 1.4.3 P4: on the FIRST page of a snapshot only (a page of its own: its `data` is empty), never on an event. */
+  snapshot?: RemoteTerminalSnapshot
 }
-export interface RemoteTerminalScreen {
-  cols: number
-  rows: number
-  /** Zero-based, inside the viewport. */
-  cursor: { x: number; y: number }
-  /** True when a full-screen app (vim, less, a TUI) holds the alternate screen. */
-  alternate: boolean
-  /** The viewport, top to bottom, `rows` entries, each the line's text with trailing spaces trimmed. */
-  lines: string[]
-  /** Plain rows above the viewport (the main screen's, also when `alternate`), oldest first; at most 200. */
-  scrollback?: string[]
-}
+/** xterm's own serialization: up to 200 rows of scrollback, then the screen, the modes (alternate screen) and the cursor. */
+export interface RemoteTerminalSnapshot { ansi: string; cols: number; rows: number }
 ```
 
-- `data` stays exactly as it is, so older phones are unchanged.
-- Events stay raw `data`: the phone applies them on top of the seeded screen.
-- No enum is added. Kotlin gets plain fields (the #531 rule). Run `npm run android:generate` and commit `RemoteProtocol.kt` only, reverting line-ending churn.
-- Colors are out of v1. If added later, they come as per-row runs `runs?: { start: number; end: number; fg: number | null; bold: boolean }[]` (fg 0–15), matching MOBILE's `VtRun`, never as per-cell objects.
+- **Additive:** an older phone ignores the field (`ignoreUnknownKeys = true`) and reads `data` as before. Kotlin already has it in `RemoteProtocol.kt`, with no enum.
+- **Colours are in:** `ansi` keeps SGR. The first draft's "colours out of v1" no longer applies.
 
-## How main builds it, per snapshot only
+## How main builds it (on main, `electron/main/services/remote/terminal-snapshot.ts`)
 
-Snapshots happen on subscribe and on a resubscribe with an unknown cursor. Never per event.
+- **Once per subscription** (subscribe, or a resubscribe with an unknown cursor), never per event.
+  - The ring text the topic already releases (redacted, paths scrubbed, `escapeSafeCut`, `TerminalWindow.takeAll`, after `flushMs`) is replayed into a short-lived `@xterm/headless` Terminal at the pane's size.
+  - Then `@xterm/addon-serialize` 0.13.0 serializes it, and the Terminal is disposed.
+- **Sizes:** clamped to 500 × 200. Scrollback steps 200 → 50 → 0 to fit the frame budget. When even the screen alone doesn't fit, the field is left out.
+- **Second redaction layer:** the rendered text is redacted again (a secret printed in two colours, or split by the wrap). If that finds anything, the snapshot falls back to the plain redacted rows, losing colours, with the cursor kept.
 
-- **Agent panes** have a `PaneScreen` (`agent-state/screen.ts`, `@xterm/headless`, scrollback 200). Read its buffer: `buffer.active` lines, `cursorX`/`cursorY`, and `buffer.active.type === 'alternate'`. There is no extra parsing.
-- **Every other pane:** replay the ring into a short-lived `@xterm/headless` Terminal at the pane's cols and rows (scrollback 200), read it the same way, then `dispose()` it. The ring is at most 256 KiB (`DEFAULT_RING_CAPACITY_BYTES`).
-  - A wrapped ring can miss earlier mode state, such as an alt-screen enter before the ring's start. That is accepted: the phone corrects itself on the next redraw.
-- **Line text:** `line.translateToString(true)`. A wrapped row (`isWrapped`) stays its own row in `lines`.
-- `@xterm/headless` is default-imported (see the agent-runtime note).
-- **No new dependency:** no `@xterm/addon-serialize` in v1.
+## The phone's side (MOBILE, phone phase)
 
-## Redaction, two layers (SECURITY review required)
+On a terminal snapshot whose first page has `snapshot`:
+1. Reset the `VtScreen` to `cols` × `rows`.
+2. Feed `ansi` once.
+3. Skip that snapshot's remaining `data` pages; they're the same ring.
+4. Apply events as today.
 
-1. **Before the replay:** only text that went through the same `clean()` as `data` (redaction plus path scrub, `REMOTE_TEXT_LIMITS`-free) is written into the replay Terminal. What is on screen never held a secret in clear.
-   - `PaneScreen` is fed raw bytes by the agent-state engine, so for agent panes layer 2 is the only layer. The frozen tests must cover that case explicitly.
-2. **After:** `scrollback` and `lines` are joined in order, with wrapped rows joined without a newline so a secret broken by the wrap is whole again. The text then goes through `redactCounted` and `scrubPaths`, and is split back into the same rows.
-   - A row that changes length stays a row; the phone renders text, not cells.
-   - The count is added to the page's `redacted`.
+Without `snapshot` (an older desktop, or over the budget), behave as today.
 
-## Caps
+Resizing the phone's view reflows nothing on the desktop; the view scales or scrolls the grid.
 
-| Limit | Value |
-|---|---|
-| Viewport | at most 200 columns × 80 rows. A larger pane is cut to its last 80 rows and first 200 columns, and `cols` / `rows` report the cut size. |
-| `scrollback` | at most 200 rows |
-| The whole `screen` | must fit `REMOTE_TEXT_LIMITS.terminalChunk` (32 000 characters) and the frame budget with the page's `data` |
+## Tests
 
-Over the budget, drop in this order:
-1. `scrollback`, oldest first;
-2. then the whole `screen`.
+**On main already (desktop):** `tests/unit/remote-terminal-snapshot.test.ts` covers:
+- the escape-safe cut;
+- the split OSC;
+- the replay and serialize;
+- the alternate screen;
+- the 200-row cap and size clamps;
+- a two-colour secret and a wrap-split secret;
+- dispose, including on failure;
+- the page of its own;
+- the 200/50/0 step-down;
+- the plain fallback.
 
-`data` is never dropped for `screen`.
+`tests/integration/remote-subscribe-script.native.test.ts` covers it end to end over `scripts/remote-subscribe.mts`.
 
-## Cost
-
-- Agent panes: nothing beyond reading the buffer.
-- Other panes: one replay of at most 256 KiB per snapshot, and only for a pane a phone opens. The phone watches one pane at a time.
-- No emulator is kept for shells, so N open panes cost nothing until one is watched.
-
-## Tests to freeze (acceptance)
-
-1. **Protocol:**
-   - `RemoteTerminalData.screen` is optional;
-   - `RemoteTerminalScreen` has exactly the fields above, with literal types;
-   - the generated Kotlin has `screen` as a nullable data class, and no new enum.
-2. **Seeding:**
-   - a ring with `printf 'a\nb'`, a CUP move and a clear gives the expected `lines`, `cursor` and `alternate: false`;
-   - `\x1b[?1049h` plus a frame gives `alternate: true`, with the main screen's rows in `scrollback`.
-3. **Snapshot only:** `screen` is on the last snapshot page and never on an event frame.
-4. **Redaction layer 1:** a key in the ring never appears in `lines` or `scrollback` (shell pane).
-5. **Redaction layer 2:**
-   - an agent pane whose `PaneScreen` holds a key in clear gets it redacted in `lines`, and the page's `redacted` counts it;
-   - a key split across a wrapped row is caught.
-6. **Paths:** an absolute path outside the roots on screen is scrubbed, exactly as in `data`.
-7. **Caps:**
-   - a 300 × 120 pane is cut to 200 × 80;
-   - 500 scrollback rows are cut to 200;
-   - over the frame budget, scrollback goes first, then `screen`, while `data` is still sent.
-8. **Lifetime:** the replay Terminal is disposed after each snapshot (no growth over 50 snapshots), and no emulator exists for an unwatched shell pane.
-9. **Older phone:** a snapshot without `screen` (old desktop) and an event are handled as today. This is MOBILE's T97 test; listed here for the plan.
+**To freeze for the phone phase (MOBILE's JVM tests):**
+1. A first snapshot page with `snapshot` resets the grid to its size, and the `ansi` from a TUI fixture (alternate screen, cursor, colours) renders the expected rows.
+2. The snapshot's `data` pages are skipped after `snapshot`, so there's no double content. The next event applies on top.
+3. Without `snapshot`, the view is exactly as today (T97's tests unchanged).
+4. An unknown future field next to `snapshot` is ignored.
 
 ## Out of scope
 
-- Colors / runs (v2).
-- Scrollback beyond 200 rows (the phone feeds `data` first for history, then lays `screen` over the viewport).
 - Any write path: the terminal topic stays read-only.
+- Scrollback beyond what `ansi` carries (200 rows at most).
