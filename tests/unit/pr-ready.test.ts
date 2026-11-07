@@ -8,8 +8,10 @@ import {
   checkEnv,
   CI_UNIT_JOBS,
   ciEvidence,
+  markerContent,
   markerPath,
   parseArgs,
+  runIdOf,
   WORKERS,
   // @ts-expect-error -- a plain ES module script without type declarations
 } from '../../scripts/pr-ready.mjs'
@@ -51,10 +53,14 @@ describe('pr:ready steps', () => {
 })
 
 describe('CI as evidence for the whole suite', () => {
-  const run = (name: string, over: Record<string, unknown> = {}) => ({ name, status: 'completed', conclusion: 'success', started_at: '2026-11-07T10:00:00Z', ...over })
+  const run = (name: string, over: Record<string, unknown> = {}) => ({
+    name, status: 'completed', conclusion: 'success', started_at: '2026-11-07T10:00:00Z', head_sha: SHA,
+    details_url: `https://github.com/o/r/actions/runs/${name.includes('windows') ? 72 : 71}/job/9`, ...over,
+  })
 
-  it('needs every unit job completed and green on the head', () => {
-    expect(ciEvidence(CI_UNIT_JOBS.map((n: string) => run(n)))).toEqual({ ok: true, missing: [] })
+  it('needs every unit job completed and green on the head, and names the runs that prove it', () => {
+    expect(ciEvidence(CI_UNIT_JOBS.map((n: string) => run(n)), CI_UNIT_JOBS, SHA)).toEqual({ ok: true, missing: [], runs: [71, 72] })
+    expect(ciEvidence(CI_UNIT_JOBS.map((n: string) => run(n, { details_url: 'https://github.com/o/r/actions/runs/70/job/1' }))).runs).toEqual([70])
     expect(ciEvidence([run(CI_UNIT_JOBS[0])]).ok).toBe(false)
     expect(ciEvidence([run(CI_UNIT_JOBS[0]), run(CI_UNIT_JOBS[1], { status: 'in_progress', conclusion: null })]).missing).toEqual([`${CI_UNIT_JOBS[1]}: still in_progress`])
     expect(ciEvidence([run(CI_UNIT_JOBS[0]), run(CI_UNIT_JOBS[1], { conclusion: 'skipped' })]).ok).toBe(false)
@@ -65,6 +71,19 @@ describe('CI as evidence for the whole suite', () => {
     const [linux, windows] = CI_UNIT_JOBS
     expect(ciEvidence([run(linux), run(windows, { conclusion: 'failure', started_at: '2026-11-07T09:00:00Z' }), run(windows, { started_at: '2026-11-07T11:00:00Z' })]).ok).toBe(true)
     expect(ciEvidence([run(linux), run(windows, { started_at: '2026-11-07T09:00:00Z' }), run(windows, { conclusion: 'failure', started_at: '2026-11-07T11:00:00Z' })]).ok).toBe(false)
+  })
+
+  it('counts only runs on this exact sha, and only runs it can point to', () => {
+    const [linux, windows] = CI_UNIT_JOBS
+    expect(ciEvidence([run(linux), run(windows, { head_sha: 'b'.repeat(40) })], CI_UNIT_JOBS, SHA).missing).toEqual([`${windows}: not run on this head`])
+    expect(ciEvidence([run(linux), run(windows, { details_url: 'https://example.com/x' })]).missing).toEqual([`${windows}: no Actions run to point to`])
+    expect(runIdOf({ html_url: 'https://github.com/o/r/actions/runs/123/job/4' })).toBe(123)
+    expect(runIdOf({})).toBeNull()
+  })
+
+  it('records in the marker how the head was proven', () => {
+    expect(markerContent({ sha: SHA, at: 't', base: 'origin/main', steps: ['lint'], ciRuns: [71, 72] })).toEqual({ ok: true, sha: SHA, at: 't', evidence: 'ci', runs: [71, 72], base: 'origin/main', steps: ['lint'] })
+    expect(markerContent({ sha: SHA, at: 't', base: 'origin/main', steps: ['lint'], ciRuns: null })).toMatchObject({ evidence: 'local', runs: [] })
   })
 })
 

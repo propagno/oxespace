@@ -61,24 +61,37 @@ export function buildSteps({ files, related, base = 'origin/main', full = false 
   return steps
 }
 
+/** The Actions run id behind a check run, from its details or html link (".../actions/runs/<id>/job/..."). */
+export const runIdOf = (checkRun) => Number(/\/actions\/runs\/(\d+)/.exec(String(checkRun?.details_url ?? checkRun?.html_url ?? ''))?.[1]) || null
+
 /**
  * Whether CI stands for the whole suite on `sha`: every job in `jobs` has a completed, successful check run there
- * (the latest one per name). `checkRuns`: [{ name, status, conclusion, started_at }].
+ * (the latest one per name), traceable to its Actions run. `checkRuns`: [{ name, status, conclusion, started_at,
+ * head_sha, details_url }], read from GitHub for that sha. Returns the run ids that prove it.
  */
-export function ciEvidence(checkRuns, jobs = CI_UNIT_JOBS) {
+export function ciEvidence(checkRuns, jobs = CI_UNIT_JOBS, sha = null) {
   const latest = new Map()
   for (const run of checkRuns ?? []) {
+    if (sha && run.head_sha && run.head_sha !== sha) continue
     const known = latest.get(run.name)
     if (!known || String(run.started_at ?? '') >= String(known.started_at ?? '')) latest.set(run.name, run)
   }
   const missing = []
+  const runs = []
   for (const job of jobs) {
     const run = latest.get(job)
     if (!run) missing.push(`${job}: not run on this head`)
     else if (run.status !== 'completed') missing.push(`${job}: still ${run.status}`)
     else if (run.conclusion !== 'success') missing.push(`${job}: ${run.conclusion}`)
+    else if (!runIdOf(run)) missing.push(`${job}: no Actions run to point to`)
+    else runs.push(runIdOf(run))
   }
-  return { ok: missing.length === 0, missing }
+  return missing.length ? { ok: false, missing, runs: [] } : { ok: true, missing, runs: [...new Set(runs)] }
+}
+
+/** The marker's content: how the head was proven, and for CI the runs that prove it (TECH LEAD's condition 1). */
+export function markerContent({ sha, at, base, steps, ciRuns }) {
+  return { ok: true, sha, at, evidence: ciRuns ? 'ci' : 'local', runs: ciRuns ?? [], base, steps }
 }
 
 /** The marker the gate reads: <main checkout>/.claude/pr-ready/<sha>.json. `commonDir` is git's common dir. */
@@ -135,8 +148,10 @@ function ciStep(step, sha) {
   } catch (error) {
     return { ok: false, detail: `could not read CI for ${sha.slice(0, 8)}: ${String(error.message ?? error).split('\n')[0]}` }
   }
-  const evidence = ciEvidence(checkRuns, step.args)
-  return { ok: evidence.ok, detail: evidence.ok ? `CI green on ${sha.slice(0, 8)}` : `${evidence.missing.join('; ')}. Push, wait for CI, or run with --full` }
+  const evidence = ciEvidence(checkRuns, step.args, sha)
+  return evidence.ok
+    ? { ok: true, runs: evidence.runs, detail: `CI green on ${sha.slice(0, 8)}: run(s) ${evidence.runs.join(', ')}` }
+    : { ok: false, detail: `${evidence.missing.join('; ')}. Push, wait for CI, or run with --full` }
 }
 
 function main(argv) {
@@ -175,8 +190,11 @@ function main(argv) {
     console.log(`pr:ready FAILED for ${sha.slice(0, 8)}: no marker written.`)
     return 1
   }
+  // The CI step, when there is one, is the last step: its conclusions were read from GitHub just now, never cached.
+  const ciRuns = results.find(result => result.runs)?.runs ?? null
   mkdirSync(dirname(marker), { recursive: true })
-  writeFileSync(marker, `${JSON.stringify({ ok: true, sha, at: new Date().toISOString(), base: options.base, steps: results.map(r => r.name) }, null, 2)}\n`)
+  const content = markerContent({ sha, at: new Date().toISOString(), base: options.base, steps: results.map(r => r.name), ciRuns })
+  writeFileSync(marker, `${JSON.stringify(content, null, 2)}\n`)
   console.log(`pr:ready OK for ${sha.slice(0, 8)}: wrote ${marker}`)
   return 0
 }
