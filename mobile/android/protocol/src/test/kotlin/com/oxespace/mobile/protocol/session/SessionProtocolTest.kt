@@ -112,6 +112,21 @@ class SessionProtocolTest {
     }
 
     @Test
+    fun aLapsedPairingEndsAsLapsedAndAnUnknownReasonStaysRevoked() {
+        // T96: `revoked` with reason `pairing-lapsed` (a pairing never used in its window) reads as its own end.
+        val lapsed = session().apply { onOpen() }
+        lapsed.onFrame(RemoteHelloFrame(versions = listOf(1L), challenge = challenge))
+        lapsed.onFrame(RemoteErrorFrame(code = RemoteErrorCode.REVOKED, reason = "pairing-lapsed"))
+        assertEquals(SessionState.Ended(SessionEnd.PAIRING_LAPSED), lapsed.state)
+        assertNull(tokens.token)
+        // A reason this phone doesn't know yet changes nothing: plain revoked.
+        val other = session().apply { onOpen() }
+        other.onFrame(RemoteHelloFrame(versions = listOf(1L), challenge = challenge))
+        other.onFrame(RemoteErrorFrame(code = RemoteErrorCode.REVOKED, reason = "something-newer"))
+        assertEquals(SessionState.Ended(SessionEnd.REVOKED), other.state)
+    }
+
+    @Test
     fun endsForGoodWhenThePhoneIsRevoked() {
         tokens.token = AccessToken("tok-1", clock + 600_000)
         val session = session().apply { onOpen() }

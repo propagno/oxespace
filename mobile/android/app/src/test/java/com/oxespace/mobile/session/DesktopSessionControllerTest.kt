@@ -210,6 +210,16 @@ class DesktopSessionControllerTest {
     }
 
     @Test
+    fun aLapsedPairingIsForgottenLikeARevokedOneAndSaysSo() = runTest {
+        val h = harness()
+        h.controller.start()
+        h.link.state.value = SessionState.Ended(SessionEnd.PAIRING_LAPSED)
+        assertEquals(DesktopStatus.Unpaired(revokedFrom = "Studio", revoked = true, lapsed = true), h.controller.status.value)
+        assertTrue(h.keys.deleted)
+        assertNull(h.store.desktop)
+    }
+
+    @Test
     fun forgetsEverythingWhenTheDesktopRevokesThePhoneAndNeverRetries() = runTest {
         val h = harness()
         h.controller.start()

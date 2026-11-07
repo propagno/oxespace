@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 /** What the home screen and the persistent notification say about the paired desktop. */
 sealed interface DesktopStatus {
     /** Nothing paired. [revokedFrom] names the desktop that just removed this phone, to say so once. */
-    data class Unpaired(val revokedFrom: String? = null, val revoked: Boolean = false) : DesktopStatus
+    data class Unpaired(val revokedFrom: String? = null, val revoked: Boolean = false, val lapsed: Boolean = false) : DesktopStatus
     data class Connecting(val desktop: PairedDesktop) : DesktopStatus
     data class Connected(val desktop: PairedDesktop, val desktopName: String?) : DesktopStatus
     /** A live session dropped (desktop asleep, Wi-Fi blip): trying again right away. */
@@ -192,13 +192,13 @@ class DesktopSessionController(
                 watcher = null
                 link = null
                 when (state.reason) {
-                    SessionEnd.REVOKED -> {
+                    SessionEnd.REVOKED, SessionEnd.PAIRING_LAPSED -> {
                         running = false
                         networkJob?.cancel()
                         keys.delete()
                         store.clear()
                         tokens.token = null
-                        mutableStatus.value = DesktopStatus.Unpaired(revokedFrom = desktop.desktopName, revoked = true)
+                        mutableStatus.value = DesktopStatus.Unpaired(revokedFrom = desktop.desktopName, revoked = true, lapsed = state.reason == SessionEnd.PAIRING_LAPSED)
                     }
                     SessionEnd.UNSUPPORTED_VERSION, SessionEnd.PROTOCOL -> mutableStatus.value = DesktopStatus.Incompatible(desktop)
                     SessionEnd.UNAUTHENTICATED -> mutableStatus.value = DesktopStatus.NotAccepted(desktop)
