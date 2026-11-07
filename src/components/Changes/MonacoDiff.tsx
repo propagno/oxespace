@@ -58,19 +58,33 @@ export default function MonacoDiff({ original, modified, language, path, review 
       // Load that font and measure again once it is in, then lay the diff out again with the new widths. The container
       // says when that is done (data-fonts-measured): a fallback layout can hold still for a while, so "stopped moving"
       // alone doesn't mean measured (FL-15 came back on the Windows runner after #586).
+      // On Linux it came back again: `fonts.load` can resolve before the font's @font-face rules are even registered
+      // (nothing to load yet), so the mark went up while the gutter still used the fallback's digits. Now the mark waits
+      // until a face of the first family in --font-mono is actually loaded (up to 5 s; then it goes up anyway, so a
+      // missing font never blocks), and any later font load measures again.
       let measuring = true
       dom.removeAttribute('data-fonts-measured')
       const family = getComputedStyle(dom).getPropertyValue('--font-mono').trim()
-      const measured = (): void => {
+      const primary = family.split(',')[0]?.trim().replace(/^['"]|['"]$/g, '') ?? ''
+      const remeasure = (): void => {
         if (!measuring) return
         monaco.editor.remeasureFonts()
         editor.layout()
+      }
+      const faceLoaded = (): boolean => !primary || !document.fonts
+        || [...document.fonts].some(face => face.family.replace(/^['"]|['"]$/g, '') === primary && face.status === 'loaded')
+      const started = Date.now()
+      const settle = (): void => {
+        if (!measuring) return
+        if (!faceLoaded() && Date.now() - started < 5000) { window.setTimeout(settle, 50); return }
+        remeasure()
         dom.setAttribute('data-fonts-measured', 'true')
       }
-      void Promise.resolve(family ? document.fonts?.load(`12px ${family}`) : undefined)
+      void Promise.resolve(primary ? document.fonts?.load(`12px "${primary}"`) : undefined)
         .then(() => document.fonts?.ready)
-        .then(measured, measured)
-      cleanup.current.push(() => { measuring = false })
+        .then(settle, settle)
+      document.fonts?.addEventListener('loadingdone', remeasure)
+      cleanup.current.push(() => { measuring = false; document.fonts?.removeEventListener('loadingdone', remeasure) })
       const comments = attachLineComments(editor, monaco, {
         comments: () => latest.current?.comments ?? [],
         add: (side, lineNo, lineContent, body) => latest.current?.onAdd(side, lineNo, lineContent, body),
