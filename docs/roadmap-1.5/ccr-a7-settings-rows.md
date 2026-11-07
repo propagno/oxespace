@@ -130,7 +130,9 @@ person sees (HML-A7-1):
 none of the four behaviours exists.
 
 The rest of the behaviour (R1–R9 toasts, the other confirms, typed fields on blur) is checked by the e2e named in SPEC
-A7, `e2e/settings-*.spec.ts`, which the executor writes. The executor must not edit the frozen tests.
+A7, `e2e/settings-*.spec.ts`, which the executor writes. It must include the revert that the primitive test can't see
+(HML, re-check): with the main mock refusing R9's default-shell change, the shell picker shows the stored shell again,
+and the row shows "Couldn't change Default shell: <reason>" with Try again. The executor must not edit the frozen tests.
 
 ## 6. Questions for review
 
