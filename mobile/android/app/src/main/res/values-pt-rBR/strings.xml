@@ -251,6 +251,7 @@
         <item quantity="other">fez %1$d buscas</item>
         <item quantity="many">fez %1$d buscas</item>
     </plurals>
+    <string name="thread_latest">Mais recentes ↓</string>
     <string name="thread_loading">Carregando a conversa</string>
     <string name="thread_load_older">Carregar anteriores</string>
     <string name="thread_marker_cancelled">O pedido foi retirado</string>

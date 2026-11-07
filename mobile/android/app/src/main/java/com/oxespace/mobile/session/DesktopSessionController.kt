@@ -92,6 +92,18 @@ class DesktopSessionController(
         drop()
     }
 
+    /**
+     * The app came back to the foreground (P6, Orca issue #5049): a retry waiting out its backoff, up to a minute,
+     * goes now. A live or connecting session is left alone; one that isn't running starts.
+     */
+    fun resume() {
+        if (!running) return start()
+        if (link == null && retryJob != null) {
+            attempt = 0
+            connect()
+        }
+    }
+
     /** The person asked to try now: forget the wait and connect. */
     fun retry() {
         if (!running) return start()

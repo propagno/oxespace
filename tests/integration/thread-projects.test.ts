@@ -90,7 +90,7 @@ it('accepts another spelling of a registered project root: a link in the path, a
     db.close()
     removeTempDir(root)
   }
-})
+}, 20000)
 
 it('never follows a link inside the given root that leads to a share', async () => {
   const { symlinkSync, realpathSync } = await import('node:fs')

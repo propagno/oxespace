@@ -1,4 +1,19 @@
 {
+  "workspaceColor": {
+    "label": "Workspace color",
+    "open": "Workspace color…",
+    "auto": "Automatic color",
+    "swatch": {
+      "1": "Caatinga",
+      "2": "Sertão",
+      "3": "Açude",
+      "4": "Juazeiro",
+      "5": "Xique-xique",
+      "6": "Barro",
+      "7": "Fim de tarde",
+      "8": "Pedra"
+    }
+  },
   "startupFailure": {
     "newer-schema": {
       "title": "This data comes from a newer OXESpace",

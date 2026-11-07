@@ -24,6 +24,8 @@ import { applyMotion, resolveMotion, savedMotion } from './design/motion'
 // Layer order and the base reset load before every other stylesheet.
 import './styles/reset.css'
 import './styles.css'
+// Workspace color (A8): [data-ws] maps to the --ws tokens.
+import './design/workspace-color.css'
 import '@xyflow/react/dist/style.css'
 
 // Crashes nothing caught reach the incident journal, as names and a stack hash only.

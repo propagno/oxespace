@@ -153,6 +153,7 @@
     "unknownItems_other": "{{count}} itens de um OXESpace mais novo não aparecem.",
     "unknownItems_many": "{{count}} itens de um OXESpace mais novo não aparecem.",
     "loadOlder": "Carregar anteriores",
+    "latest": "Mais recentes ↓",
     "respond": "Responder",
     "answerLabel": "Resposta do agente",
     "copy": "Copiar",
