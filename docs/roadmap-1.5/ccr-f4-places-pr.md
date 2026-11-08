@@ -6,7 +6,7 @@ Owner: BACKEND. Status: frozen tests for review (M5: HML tests, DESIGN shapes, F
 - **Builds on:**
   - `docs/roadmap-1.5/ccr-t71-task-places.md` (the T71 design, approved for lite B). That document's model, sources, base, drift, resolver, IPC and tests stand. This CCR pins what it left open and adds §6's items.
   - DESIGN's `.claude/roadmap-1.4/team/plans/1.5.0-f4-design.md`, section "Data each screen needs from main".
-- **Frozen tests:** `tests/acceptance/f4/` (132 tests in 13 files, plus `fixtures/thread-fixture.ts`). Per TECH LEAD's rigor rule (08/11), each test exercises real code, and every "nothing happens" case first shows that something does, so a stub fails. The one source assertion is marked: no file-system write input takes a place id.
+- **Frozen tests:** `tests/acceptance/f4/` (140 tests in 14 files, plus `fixtures/thread-fixture.ts`). Per TECH LEAD's rigor rule (08/11), each test exercises real code, and every "nothing happens" case first shows that something does, so a stub fails. The one source assertion is marked: no file-system write input takes a place id.
 - **Tasks:** `.claude/roadmap-1.4/team/plans/f4-tasks-BACKEND.json`, 12 tasks with the IMPLEMENTATION-PACK fields.
 
 No live provider, no user home and no user data: every test runs on temp-dir repositories, a fake provider adapter and fake `gh`/`az` CLIs.
@@ -322,3 +322,23 @@ The tool stays: creating and removing a worktree with the person's confirmation 
 - **No `force`:** it is dropped from the schema and from the approval text.
 - **Audit:** each call writes one `agent_action_audit` row through AgentActions, refusals included, and no `person_action_audit` row.
 - **Frozen in** a63 ("the agent tool…"), through the real registered tool and its approval door.
+
+## A14 Undo, Restore and Discard per place (TECH LEAD on HML-705-1, 08/11)
+
+| Call | Result |
+|---|---|
+| `placeUndo(threadId, placeId, { path, hunk?, seenMtime })` | `{ ok: true, restoreToken } \| { ok: false, refusal }` |
+| `placeRestore(threadId, restoreToken)` | `{ ok: true } \| { ok: false, refusal }` |
+| `placeDiscard(threadId, placeId, { confirmed? })` | `{ ok: true } \| { ok: false, refusal }` |
+
+`hunk` is the hunk's `header` from `placeDiff`, and `seenMtime` is that file's `mtime` from the same read.
+
+SECURITY conditions:
+1. **Git places inside the workspace roots only.** An outside place gives `thread.place.outside`.
+2. **Safe git only.** The reverse patch is applied with `git apply --reverse`, through an argument array with no shell. There is never a `reset --hard` or a `clean`. Only files the task wrote are touched; any other file gives `thread.place.notTask`. Discard removes a file the task created by unlinking that path only.
+3. **The restore data stays in memory.** The token is single use, bound to its thread and place, and dropped at the next turn and after 10 minutes (`thread.place.restoreGone`). The data is never in the database or the audit.
+4. **Stale reads change nothing.** A file whose mtime changed since the diff, or whose hunk is gone, gives `thread.place.stale`.
+5. **Person-only.** The three channels are forbidden in MCP coverage and are in the S1 reach table. Each call writes one `person_action_audit` row (`place-undo`, `place-restore`, `place-discard`), with no content.
+6. **Discard needs `confirmed: true`.** Without it, the answer is `thread.place.confirm`.
+
+These are frozen in `a14-place-undo.native.test.ts` and `f4-security-reach`, as task F4-P12.

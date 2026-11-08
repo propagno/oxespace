@@ -16,7 +16,10 @@ import { IPC_CHANNELS } from '../../../shared/types/ipc'
 const PRIVILEGED = [
   { op: 'Switch back', methods: ['answerPlaceDrift', 'switchPlaceBack'], ipc: 'thread.placeDriftAnswer', words: /place[_-]?drift|switch[_-]?back/i },
   { op: 'Read an outside file', methods: ['readPlaceFile'], ipc: 'thread.placeRead', words: /place[_-]?read/i },
-  { op: 'Worktrees panel Remove and branch delete', methods: ['WorktreesPanel'], ipc: 'worktreesPanel.remove', words: /worktrees?[_-]?panel/i }
+  { op: 'Worktrees panel Remove and branch delete', methods: ['WorktreesPanel'], ipc: 'worktreesPanel.remove', words: /worktrees?[_-]?panel/i },
+  { op: 'Undo a place file or hunk', methods: ['placeUndo'], ipc: 'thread.placeUndo', words: /place[_-]?undo/i },
+  { op: 'Restore an undone place file', methods: ['placeRestore'], ipc: 'thread.placeRestore', words: /place[_-]?restore/i },
+  { op: 'Discard a place', methods: ['placeDiscard'], ipc: 'thread.placeDiscard', words: /place[_-]?discard/i }
 ] as const
 
 const ROOT = process.cwd()
@@ -44,7 +47,7 @@ describe('F4 · S1: person-only operations are out of every agent path', () => {
   })
 
   test('S1: the drift answer and place-read are forbidden (never planned as tools); the panel channels exist for the window only', () => {
-    for (const ipc of ['thread.placeDriftAnswer', 'thread.placeRead']) {
+    for (const ipc of ['thread.placeDriftAnswer', 'thread.placeRead', 'thread.placeUndo', 'thread.placeRestore', 'thread.placeDiscard']) {
       const [claim] = Object.values(MCP_COVERAGE).filter(capability => capability.ipc?.includes(ipc))
       expect(claim, ipc).toHaveProperty('forbidden')
     }
@@ -75,10 +78,13 @@ describe('F4 · S1: person-only operations are out of every agent path', () => {
 
   test('S1 / S3: the modules that run git or a CLI for these operations never ask for a shell', () => {
     // rigor: source-assertion — "never a shell" is a property of every spawn site, including error paths no test reaches.
-    for (const file of ['electron/main/services/pull-request/pr-provider.ts', 'electron/main/services/github/worktrees-panel.ts', 'electron/main/services/conversation/thread-place-drift.ts']) {
+    for (const file of ['electron/main/services/pull-request/pr-provider.ts', 'electron/main/services/github/worktrees-panel.ts', 'electron/main/services/conversation/thread-place-drift.ts', 'electron/main/services/conversation/thread-place-undo.ts']) {
       const text = readFileSync(join(ROOT, file), 'utf8')
       expect(text, file).not.toMatch(/shell\s*:\s*true/)
       expect(text, file).not.toMatch(/\bexec(Sync)?\s*\(/)
     }
+    // Undo and Discard revert only what the task changed: never a hard reset or a clean (TECH LEAD condition 2).
+    const undo = readFileSync(join(ROOT, 'electron/main/services/conversation/thread-place-undo.ts'), 'utf8')
+    expect(undo).not.toMatch(/['"]reset['"]|--hard|['"]clean['"]/)
   })
 })

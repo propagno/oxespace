@@ -29,7 +29,10 @@ describe('F4 · contract', () => {
       placesChanged: 'thread:places-changed',
       panes: 'thread:panes',
       collisions: 'thread:collisions',
-      agentSummary: 'thread:agent-summary'
+      agentSummary: 'thread:agent-summary',
+      placeUndo: 'thread:place-undo',
+      placeRestore: 'thread:place-restore',
+      placeDiscard: 'thread:place-discard'
     })
     // The old single-root diff stays one release for Code mode's review panel.
     expect(IPC_CHANNELS.thread.projectDiff).toBe('thread:project-diff')
@@ -53,6 +56,9 @@ describe('F4 · contract', () => {
     await thread.panes('t1')
     await thread.collisions('t1')
     await thread.agentSummary('t1')
+    await thread.placeUndo('t1', 'p1', { path: 'a.txt', hunk: '@@ -1 +1 @@', seenMtime: 5 })
+    await thread.placeRestore('t1', 'token')
+    await thread.placeDiscard('t1', 'p1', { confirmed: true })
     const other = api as unknown as Record<string, Record<string, (...args: unknown[]) => unknown>>
     await other.pullRequest.state({ rootPath: '/r', branch: 'agent-fix' })
     await other.worktreesPanel.list({ rootPath: '/r' })
@@ -60,7 +66,9 @@ describe('F4 · contract', () => {
     expect(invoke.mock.calls).toEqual([
       [IPC_CHANNELS.thread.places, 't1'], [IPC_CHANNELS.thread.placeDiff, 't1', 'p1'], [IPC_CHANNELS.thread.resolvePath, 't1', 'src/x.ts', { turnId: 'turn-1' }],
       [IPC_CHANNELS.thread.placeDriftAnswer, 't1', 'p1', 'followed'], [IPC_CHANNELS.thread.placeRead, 't1', 'p1', 'ROTEIRO.md'], [IPC_CHANNELS.thread.panes, 't1'],
-      [IPC_CHANNELS.thread.collisions, 't1'], [IPC_CHANNELS.thread.agentSummary, 't1'], [IPC_CHANNELS.pullRequest.state, { rootPath: '/r', branch: 'agent-fix' }],
+      [IPC_CHANNELS.thread.collisions, 't1'], [IPC_CHANNELS.thread.agentSummary, 't1'],
+      [IPC_CHANNELS.thread.placeUndo, 't1', 'p1', { path: 'a.txt', hunk: '@@ -1 +1 @@', seenMtime: 5 }], [IPC_CHANNELS.thread.placeRestore, 't1', 'token'],
+      [IPC_CHANNELS.thread.placeDiscard, 't1', 'p1', { confirmed: true }], [IPC_CHANNELS.pullRequest.state, { rootPath: '/r', branch: 'agent-fix' }],
       [IPC_CHANNELS.worktreesPanel.list, { rootPath: '/r' }], [IPC_CHANNELS.worktreesPanel.remove, { rootPath: '/r', path: '/r-tree', deleteBranch: false }]
     ])
     const listener = vi.fn()
@@ -74,7 +82,7 @@ describe('F4 · contract', () => {
   })
 
   test('F4: MCP coverage: place-read and the drift answer are forbidden; the read models are excluded', () => {
-    for (const key of ['thread.placeRead', 'thread.placeDriftAnswer']) {
+    for (const key of ['thread.placeRead', 'thread.placeDriftAnswer', 'thread.placeUndo', 'thread.placeRestore', 'thread.placeDiscard']) {
       const found = claims(key)
       expect(found, key).toHaveLength(1)
       expect(found[0], key).toHaveProperty('forbidden')
@@ -88,7 +96,8 @@ describe('F4 · contract', () => {
 
   test('F4: the C3 refusal codes are in the catalog of main codes', () => {
     for (const code of ['thread.place.dirty', 'thread.place.detached', 'thread.place.gone', 'thread.place.noDrift', 'thread.place.notEvidence', 'thread.place.outside', 'worktree.remove.dirty', 'worktree.remove.notFound', 'worktree.remove.unmergedBranch',
-      'thread.place.busy', 'thread.place.branchGone', 'worktree.remove.busy', 'worktree.remove.failed', 'worktree.remove.locked', 'worktree.remove.defaultBranch', 'worktree.remove.branchInUse']) {
+      'thread.place.busy', 'thread.place.branchGone', 'worktree.remove.busy', 'worktree.remove.failed', 'worktree.remove.locked', 'worktree.remove.defaultBranch', 'worktree.remove.branchInUse',
+      'thread.place.stale', 'thread.place.notTask', 'thread.place.restoreGone', 'thread.place.confirm']) {
       expect(MESSAGE_CODES as readonly string[]).toContain(code)
     }
   })
