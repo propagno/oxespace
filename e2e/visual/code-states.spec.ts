@@ -32,6 +32,9 @@ async function monacoDiffSettled(page: Page, editor: Locator): Promise<void> {
   // FL-15 on Linux: the two passes drew the gutter in two fonts. The shot needs IBM Plex Mono itself loaded, not only
   // the mark; the CI images ship the font through @fontsource, so this holds on both runners.
   await expect.poll(() => page.evaluate(() => [...document.fonts].some(face => face.family.replace(/^['"]|['"]$/g, '') === 'IBM Plex Mono' && face.status === 'loaded')), { timeout: 10_000 }).toBe(true)
+  // FL-15 on windows (42443679631, its [FL-15-DIAG] line): the failing shot had .glyph-margin=729+0, the line comments'
+  // lane not laid out yet, so the whole diff sat 16 px left. MonacoDiff now starts with it on; this guards the shot.
+  await expect.poll(() => editor.evaluate(root => Math.round(root.querySelector('.glyph-margin')?.getBoundingClientRect().width ?? 0)), { timeout: 10_000 }).toBeGreaterThan(0)
   const geometry = (): Promise<string> => editor.evaluate(root => {
     const boxes = [...root.querySelectorAll('.margin, .lines-content, .view-lines, .line-numbers')].slice(0, 12)
       .map(element => { const box = element.getBoundingClientRect(); return `${Math.round(box.left)}:${Math.round(box.width)}` })
@@ -136,7 +139,14 @@ for (const theme of THEMES) {
       await expectSurface(page, `code-four-terminals-${theme}`, { hide: liveMasks(page) })
 
       await openTool(page, /^Changes$/)
-      await expect(page.getByTestId('changes-panel')).toBeVisible()
+      const changes = page.getByTestId('changes-panel')
+      await expect(changes).toBeVisible()
+      // FL-23 (windows 42443679631): one pass shot the panel still on "Loading changes…" with its spinner, the other the
+      // settled empty state. Shoot only once the empty state is in and nothing is loading.
+      await expect(changes.getByText('No changes', { exact: true })).toBeVisible()
+      await expect(changes.getByText('Loading changes…')).toHaveCount(0)
+      // While a load runs (the first one, or the 10 s poll) the refresh button is a disabled spinner.
+      await expect(changes.getByRole('button', { name: 'Refresh changes' })).toBeEnabled()
       await expectSurface(page, `code-changes-empty-${theme}`, { hide: liveMasks(page) })
 
       expect(consoleErrors).toEqual([])
