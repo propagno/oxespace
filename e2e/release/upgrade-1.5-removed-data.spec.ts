@@ -74,6 +74,8 @@ function hashTree(dir: string): Record<string, string> {
   walk(dir)
   return out
 }
+/** The person's OxePost files only: 1.5 adds its own .oxespace/.gitignore and mcp-managed.json beside them (run 42530607493). */
+const requestsOnly = (tree: Record<string, string>) => Object.fromEntries(Object.entries(tree).filter(([path]) => path.startsWith('requests/')))
 const exportFiles = () => existsSync(exportsDir()) ? readdirSync(exportsDir()).filter(f => /^1\.5-removed-.*\.json$/.test(f)) : []
 
 interface Installed { proc: ChildProcess; browser: Browser }
@@ -279,7 +281,7 @@ test('A40 install 1.5.0 over it: the band, the dialog and the export', async () 
   expect.soft(existsSync(exportsDir()) ? readdirSync(exportsDir()).filter(f => f.endsWith('.tmp')) : [], 'no temp file left').toEqual([])
   // Nothing of the person's was touched.
   if (seeded.secretsSha) expect.soft(existsSync(secretsPath()) ? sha256(secretsPath()) : null, 'oxepost-secrets.json byte-identical').toBe(seeded.secretsSha)
-  expect.soft(hashTree(join(seeded.repo, '.oxespace')), 'the request files byte-identical').toEqual(seeded.requestFiles)
+  expect.soft(requestsOnly(hashTree(join(seeded.repo, '.oxespace'))), 'the request files byte-identical').toEqual(requestsOnly(seeded.requestFiles))
   // And a secret value is nowhere in userData outside the encrypted file (logs included).
   const leaks: string[] = []
   const scan = (d: string) => { for (const name of readdirSync(d)) { const p = join(d, name); const st = statSync(p); if (st.isDirectory()) { if (!/Cache|GPUCache|Code Cache|blob_storage/.test(name)) scan(p) } else if (st.size < 20_000_000 && readFileSync(p).includes(MARK.secretValue)) leaks.push(relative(userData(), p)) } }
@@ -307,6 +309,6 @@ test('A40 a second start of 1.5.0: no band, nothing new, nothing touched', async
   } finally { await close(app) }
   expect.soft(exportFiles(), 'no second export file').toEqual(before)
   if (seeded.secretsSha) expect.soft(sha256(secretsPath()), 'oxepost-secrets.json still identical').toBe(seeded.secretsSha)
-  expect.soft(hashTree(join(seeded.repo, '.oxespace')), 'the request files still identical').toEqual(seeded.requestFiles)
+  expect.soft(requestsOnly(hashTree(join(seeded.repo, '.oxespace'))), 'the request files still identical').toEqual(requestsOnly(seeded.requestFiles))
   flush('verify-relaunch', result)
 })
