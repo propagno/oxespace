@@ -50,6 +50,8 @@ export interface RemotePaneConversationPage {
   items: { seq: number; item: RemoteThreadItem }[]
   /** Opaque, for "Load earlier"; null when this is the oldest page. */
   cursor: string | null
+  /** Bumps when the pane's recorded session changes (a new conversation, e.g. /clear). Never the session id itself. */
+  epoch: number
 }
 ```
 
@@ -67,7 +69,7 @@ export interface RemotePaneConversationEvent { changed: true }
 ```
 
 - **Snapshot:** the newest page (the same as `pane.conversation` without a cursor), so opening the view is one subscribe. A subscribe to a pane without a conversation, or one the phone can't see, gets `no-conversation`, the same as the command.
-- **Events:** `{ changed: true }` and nothing else, debounced on the trailing edge to **at most one per 2 s per pane**.
+- **Events:** `{ changed: true }` and nothing else, **throttled to at most one per 2 s per pane, with a 2 s max-wait** (HML-658-2). A burst gives one event at the end of its window, and a steady stream of appends gives one every 2 s, never none (a plain trailing debounce would starve while the agent keeps writing).
   - It's sent only to the phones subscribed to that pane's `paneConversation`. A phone on the pane's `terminal` topic alone gets nothing.
   - It fires when the session file grows or is rewritten, and when the pane's recorded session changes (the agent started a new one).
 - **On an event,** the phone fetches the newest page (`pane.conversation` without a cursor) and merges by `item.id`. If the session changed, the fetch shows it: a new first page, or `no-conversation`.
@@ -79,7 +81,13 @@ export interface RemotePaneConversationEvent { changed: true }
 - **Same read rule** as the `terminal` topic. An older desktop refuses the unknown topic, and the phone only subscribes when `RemotePane.conversation` is true.
 - **Error codes,** as inline literals (the #531 rule):
   - `no-conversation`: the pane has no readable session now (none recorded, the file is gone, or Codex without a rollout);
-  - `conversation-changed`: the file changed under the cursor, so start again from the newest page. This is `readNativeHistoryPage`'s "Native history changed" error.
+  - `conversation-changed`: the file was **rewritten or truncated** under the cursor, so start again from the newest page. This is `readNativeHistoryPage`'s "Native history changed" error.
+  - **An append is not a change** (HML-658-1). A working agent appends every few seconds, and "Load earlier" must keep working while the person follows it. `readNativeHistoryPage` already keeps an older cursor valid on an append (checked on main 07/11):
+    - the identity is unchanged;
+    - the size is ≥ the cursor's;
+    - the fingerprint covers the first and last 64 KB of the cursor's own size, which an append doesn't touch;
+    - the mtime check applies only when the size is unchanged.
+    So the desktop must not add its own stricter check.
   - An unknown pane, or one the phone can't see, gives the same `no-conversation`, so it never tells whether a pane exists.
 - **Older desktop:** no `conversation` field means no toggle on the phone. **Older phone:** ignores the field (`ignoreUnknownKeys`).
 
@@ -127,7 +135,8 @@ export interface RemotePaneConversationEvent { changed: true }
   - Messages render like OxeChat's user and assistant bubbles. A cut message (`truncated`) says so, as in threads.
   - The header says "From Claude Code's own session" / "From Codex's own session". A refresh control reloads the newest page.
 - **No conversation:** on a pane without `conversation`, there's no toggle; the screen stays as today.
-  - If the field disappears while open (the agent exited, or a new session started), Conversation shows a Notice: "This terminal's conversation isn't available any more. The screen is still live."
+  - If the field disappears while open (the agent exited and no session is readable), Conversation shows a Notice: "This terminal's conversation isn't available any more. The screen is still live."
+  - **A new session is not "unavailable"** (HML-658-4). When a page's `epoch` differs from the held one (the agent started a new conversation, e.g. `/clear`), the held items are replaced by the new page and an inline Notice says "The agent started a new conversation" (pt-BR "O agente começou uma nova conversa"; DESIGN may adjust). The view already shows the new conversation, so there's no button.
   - `no-conversation` gives the same Notice.
   - `conversation-changed` reloads from the newest page once, then shows the Notice if it fails again.
 
@@ -150,27 +159,47 @@ export interface RemotePaneConversationEvent { changed: true }
 4. **Cursor:**
    - the handle is opaque and carries no path or size;
    - one from another device or pane gives `conversation-changed`;
-   - an appended or rewritten file under the cursor gives `conversation-changed`;
+   - a rewritten file under the cursor gives `conversation-changed`;
+4b. **Append keeps the cursor** (HML-658-1): take page 1, append 20 messages, then "Load earlier" to `cursor: null`. Every original message comes back once, with no repeated or skipped id, and no `conversation-changed`.
+4c. **Truncate:** a file truncated below the cursor's size gives `conversation-changed`.
    - a handle expires after 10 minutes;
    - there are at most 8 per device.
 5. **No spawn:** for Codex without a rollout, no process is started (a spy on the transport), and the result is `no-conversation`.
 6. **Hidden panes:** a pane id not in the phone's workspaces, and an unknown id, both give `no-conversation`.
 7. **Protocol:** `RemotePane.conversation` is optional; the command, the topic and both error codes are literal types; the generated Kotlin has no new enum.
-8. **Live, one event:** with a phone subscribed to `paneConversation`, appending to the session file gives exactly one `{ changed: true }` within the 2 s debounce, and a burst of appends still gives one per window.
+8. **Live, events:**
+   - with a phone subscribed to `paneConversation`, one append gives exactly one `{ changed: true }` within 2 s, and a burst still gives one per window;
+   - **no starvation:** appends every 200 ms for 30 s (fake timers) give 14–16 events, never 0.
 9. **Live, only subscribers:** a phone subscribed to the pane's `terminal` topic only, or to another pane's conversation, gets nothing.
 10. **Live, no content:** the event's data is exactly `{ changed: true }`, with no text, path or session id.
-11. **Live, lifetime:** one watcher per pane for two phones; it's closed when the last one unsubscribes or disconnects; a pane's new session sends one `changed`.
+11. **Live, lifetime:** one watcher per pane for two phones; it's closed when the last one unsubscribes or disconnects; a pane's new session sends one `changed`, and the next page has a higher `epoch`.
 
 **Phone** (MOBILE's JVM tests):
 1. `conversation: true` → the toggle shows; `conversation: false` → none;
 2. "Load earlier" walks pages to `cursor: null` with no duplicate ids, and the held list is in the asserted order (page order, oldest first), never sorted by `seq` across pages;
-3. `conversation-changed` reloads once, then shows the Notice;
+3. `conversation-changed` (a rewrite or truncate) reloads once, then shows the Notice; a page with a new `epoch` replaces the held items and shows "The agent started a new conversation", never the unavailable Notice;
 4. the field absent (an older desktop) → no toggle;
 5. a `changed` event fetches the newest page:
    - items with a known id replace the held ones in place, and new ids append, with no duplicates;
    - while a fetch is in flight, further `changed` events queue at most one more fetch;
 6. **no overlap:** a newest page that shares no id with the held items replaces them, and "Load earlier" then walks back from that page;
 7. `follow(atBottom)`: not at the bottom → no jump; at the bottom → follow.
+
+## Done includes a real-app run (HML-658-3, M10)
+
+The fakes prove the contract, not the wire. "Done" includes HML's CI acceptance spec on windows-2022, on the real app with R143's stand-in phone (`scripts/remote-subscribe.mts`):
+- the flag and the snapshot;
+- busy appends give one `changed` per window, merged by id;
+- "Load earlier" works while the agent is busy;
+- a planted secret is redacted, and no path appears in any frame;
+- a phone on the terminal topic only gets nothing.
+
+**How the pane gets a recorded session with no paid agent:** BACKEND's recommendation is the hook path, as the S7.1 acceptance spec (#441) does:
+- launch the app with a temp `CLAUDE_CONFIG_DIR`;
+- write a fixture `projects/<encoded cwd>/<uuid>.jsonl` there;
+- from inside the pane's own terminal, post a Claude SessionStart with that `session_id` to the real hook server, with the pane's execution credentials.
+
+That records the session exactly as Claude Code would. The appends are then plain writes to the fixture file. No `claude` binary is needed.
 
 ## Open questions
 
