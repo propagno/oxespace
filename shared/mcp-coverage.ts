@@ -423,6 +423,11 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['remote.setEnabled', 'remote.startPairing', 'remote.cancelPairing', 'remote.answerPairing', 'remote.revoke', 'remote.rename', 'remote.setDesktopName', 'remote.setPhoneWrite', 'remote.firewallStatus', 'remote.firewallRepair', 'remote.firewallUndo']
   },
   'mcp.tool_rules_admin': { label: 'Choose, per MCP tool, to run it without asking, ask, or block it', forbidden: 'Approvals and access stay with the person.', ipc: ['mcpInternal.setToolRule'] },
+  'settings.data_export': {
+    label: 'The one-time export of the features removed in 1.5, its notice, and opening the file',
+    excluded: 'The person\'s own data, saved once for them; opening the file or exporting again is theirs.',
+    ipc: ['dataExport.*']
+  },
   'settings.agent_audit': {
     label: 'Audit of agent actions; internal MCP status',
     excluded: 'The person\'s review of what agents did. OxeQuery\'s trail is oxespace_db_activity.',
