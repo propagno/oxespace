@@ -130,4 +130,4 @@ The three tasks are independent of each other and of F4, so they can run in para
 - Audit action `phone-hidden`, with outcome `on` or `off`, written only when the setting changes.
 - IPC `remote:set-phone-hidden`, under `remote.gateway_admin`, which is forbidden in MCP. It is never a phone command.
 
-**Frozen in** `cr34-pane-hidden.native.test.ts`.
+**Frozen in** `cr34-pane-hidden.native.test.ts` (through the gateway) and `cr34-agents-topic.test.ts`. The second uses `createTopics` with a fake desktop: a hidden pane's agent row never reaches the phone, in the snapshot or in an event, and comes back when shown.
