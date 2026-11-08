@@ -153,6 +153,8 @@ enum class RemoteErrorCode(val wire: String) {
     @SerialName("not-pending") NOT_PENDING("not-pending"),
     @SerialName("stale-generation") STALE_GENERATION("stale-generation"),
     @SerialName("pane-not-shared") PANE_NOT_SHARED("pane-not-shared"),
+    @SerialName("no-conversation") NO_CONVERSATION("no-conversation"),
+    @SerialName("conversation-changed") CONVERSATION_CHANGED("conversation-changed"),
     @SerialName("internal") INTERNAL("internal"),
     ;
 
@@ -916,6 +918,16 @@ data class RemotePaneConversationPage(
         val item: RemoteThreadItem,
     )
 }
+
+/**
+ * 1.5.0 F10 (BE-A46-c5, #706): a `paneConversation` event. It says only that the conversation changed, never what: the
+ * phone reads the newest page again with `pane.conversation`. At most one per two seconds. With `conversation-changed`,
+ * `RemoteErrorFrame.reason` may say `new-session` (another session) or `rewritten` (the session file was rewritten or cut).
+ */
+@Serializable
+data class RemotePaneConversationEvent(
+    val changed: Boolean,
+)
 
 /**
  * The timeline items the phone shows. Left out on purpose: location and cwd, session ids, context usage, turn cost,
