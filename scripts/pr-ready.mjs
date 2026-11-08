@@ -23,7 +23,8 @@
  *
  * A checkout with no node_modules (a worktree that shares none) cannot run eslint or tsc. There, and only there, lint and
  * typecheck are proven by the PR's CI "Quick checks" job, completed with success on this exact head; the marker then
- * records `lint: "ci:<run id>"` (TECH LEAD, 08/11). A checkout that has node_modules always runs them locally, even
+ * records `lint: "ci:<run id>"`; the gate and related tests likewise come from both CI "Unit and integration tests" jobs
+ * on this exact head, recorded as `tests: "ci:<linux job>,<windows job>"` (TECH LEAD, 08/11). A checkout that has node_modules always runs them locally, even
  * when they fail for a missing package or config.
  *
  * The marker vouches for HEAD, so the working tree must be clean: an uncommitted change would be checked but not
@@ -100,6 +101,10 @@ export function buildSteps({ files, related, base = 'origin/main', full = false,
       : { name: 'whole vitest suite: the PR\'s CI unit jobs on this head', kind: 'ci', args: CI_UNIT_JOBS })
     return steps
   }
+  if (!nodeModules) {
+    steps.push({ name: "gate and related tests: the PR's CI unit jobs on this head (no local node_modules)", kind: 'ci-tests', args: CI_UNIT_JOBS })
+    return steps
+  }
   const gates = new Set([...ALWAYS_TESTS, ...related.extra])
   if (files.some(file => ANDROID_INPUTS.some(pattern => pattern.test(file)))) gates.add(ANDROID_GENERATED_TEST)
   steps.push({ name: 'gate and read-from-disk tests', kind: 'vitest', args: [...[...gates].sort(), WORKERS] })
@@ -124,15 +129,19 @@ export function ciEvidence(checkRuns, jobs = CI_UNIT_JOBS, sha = null) {
   }
   const missing = []
   const runs = []
+  const jobIds = []
   for (const job of jobs) {
     const run = latest.get(job)
     if (!run) missing.push(`${job}: not run on this head`)
     else if (run.status !== 'completed') missing.push(`${job}: still ${run.status}`)
     else if (run.conclusion !== 'success') missing.push(`${job}: ${run.conclusion}`)
     else if (!runIdOf(run)) missing.push(`${job}: no Actions run to point to`)
-    else runs.push(runIdOf(run))
+    else {
+      runs.push(runIdOf(run))
+      jobIds.push(run.id ?? runIdOf(run))
+    }
   }
-  return missing.length ? { ok: false, missing, runs: [] } : { ok: true, missing, runs: [...new Set(runs)] }
+  return missing.length ? { ok: false, missing, runs: [], jobs: [] } : { ok: true, missing, runs: [...new Set(runs)], jobs: jobIds }
 }
 
 /**
@@ -161,8 +170,8 @@ export function visualEvidence(runs, platforms, sha) {
  * The marker's content: how the head was proven, and the runs that prove it. `evidence`: 'local' (the checks ran
  * here), 'ci' (the PR's CI unit jobs) or 'images' (visual-baselines.yml). `runs`: the Actions run ids, for ci and images.
  */
-export function markerContent({ sha, at, base, steps, evidence = 'local', runs = [], lint = null }) {
-  return { ok: true, sha, at, evidence, runs, base, steps, ...(lint ? { lint } : {}) }
+export function markerContent({ sha, at, base, steps, evidence = 'local', runs = [], lint = null, tests = null }) {
+  return { ok: true, sha, at, evidence, runs, base, steps, ...(lint ? { lint } : {}), ...(tests ? { tests } : {}) }
 }
 
 /** The marker the gate reads: <main checkout>/.claude/pr-ready/<sha>.json. `commonDir` is git's common dir. */
@@ -253,6 +262,24 @@ function ciLintStep(step, sha) {
     : { ok: false, detail: `${evidence.missing.join('; ')}. Push and wait for CI, or run pr:ready where node_modules is installed` }
 }
 
+/**
+ * The gate and related tests from CI, for a checkout with no node_modules: both "Unit and integration tests" jobs
+ * completed with success on this exact head (a job in progress, skipped or cancelled does not count). `tests` names
+ * the two jobs, linux then windows.
+ */
+function ciTestsStep(step, sha) {
+  let checkRuns
+  try {
+    checkRuns = checkRunsOf(sha)
+  } catch (error) {
+    return readFailed('CI', sha, error)
+  }
+  const evidence = ciEvidence(checkRuns, step.args, sha)
+  return evidence.ok
+    ? { ok: true, tests: `ci:${evidence.jobs.join(',')}`, detail: `CI unit jobs green on ${sha.slice(0, 8)}: job(s) ${evidence.jobs.join(', ')}` }
+    : { ok: false, detail: `${evidence.missing.join('; ')}. Push and wait for CI, or run pr:ready where node_modules is installed` }
+}
+
 function ciStep(step, sha) {
   let checkRuns
   try {
@@ -306,7 +333,7 @@ function main(argv) {
   const results = []
   for (const step of steps) {
     console.log(`\n=== pr:ready: ${step.name}`)
-    const result = step.kind === 'ci' ? ciStep(step, sha) : step.kind === 'ci-lint' ? ciLintStep(step, sha) : step.kind === 'visual' ? visualStep(step, sha) : runStep(step, env)
+    const result = step.kind === 'ci' ? ciStep(step, sha) : step.kind === 'ci-lint' ? ciLintStep(step, sha) : step.kind === 'ci-tests' ? ciTestsStep(step, sha) : step.kind === 'visual' ? visualStep(step, sha) : runStep(step, env)
     results.push({ name: step.name, ...result })
     if (!result.ok) break
   }
@@ -320,7 +347,7 @@ function main(argv) {
   // A GitHub step, when there is one, is the last step: its conclusions were read just now, never cached.
   const proof = results.find(result => result.evidence)
   mkdirSync(dirname(marker), { recursive: true })
-  const content = markerContent({ sha, at: new Date().toISOString(), base: options.base, steps: results.map(r => r.name), evidence: proof?.evidence ?? 'local', runs: proof?.runs ?? [], lint: results.find(result => result.lint)?.lint })
+  const content = markerContent({ sha, at: new Date().toISOString(), base: options.base, steps: results.map(r => r.name), evidence: proof?.evidence ?? 'local', runs: proof?.runs ?? [], lint: results.find(result => result.lint)?.lint, tests: results.find(result => result.tests)?.tests })
   writeFileSync(marker, `${JSON.stringify(content, null, 2)}\n`)
   console.log(`pr:ready OK for ${sha.slice(0, 8)}: wrote ${marker}`)
   // The same verdict where GitHub (and the merge train) can read it: a `pr:ready` commit status on this exact sha.
@@ -335,7 +362,7 @@ export const STATUS_CONTEXT = 'pr:ready'
 /** The status body for a marker: success, the evidence kind and its runs in the description (GitHub caps it at 140). */
 export function statusBody(content, repo) {
   const runs = content.runs ?? []
-  const description = `${content.evidence}${runs.length ? `: run ${runs.join(', ')}` : `: ${content.steps.length} local step(s)`}${content.lint ? ` · lint ${content.lint}` : ''}`.slice(0, 140)
+  const description = `${content.evidence}${runs.length ? `: run ${runs.join(', ')}` : `: ${content.steps.length} local step(s)`}${content.lint ? ` · lint ${content.lint}` : ''}${content.tests ? ` · tests ${content.tests}` : ''}`.slice(0, 140)
   const body = { state: 'success', context: STATUS_CONTEXT, description }
   if (runs.length && repo) body.target_url = `https://github.com/${repo}/actions/runs/${runs[0]}`
   return body
