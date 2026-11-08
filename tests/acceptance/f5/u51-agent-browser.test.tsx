@@ -1,8 +1,9 @@
 // Frozen acceptance test for 1.5.0 A49 and A50 on screen (DESIGN U5.1, OXE program, phase F5, task FE-B1). Written by the
 // planner; the executor must not edit it. Spec: .claude/roadmap-1.4/team/plans/1.5.0-f5-design.md (U5.1).
-// Contract (agreed with BACKEND for F5): the existing window.oxe.browserPreview.onEvent stream gains
-// { type: 'grant', grant | null }, { type: 'agent-action', phase, action: { id, kind, label, field?, masked?, at }, result? },
-// { type: 'console', row: { level, message, source, line, at } }, { type: 'network', row: { method, url, status, type, ms, at } }
+// Contract (BACKEND #711 @ ac13dfec, §Contract): the existing window.oxe.browserPreview.onEvent stream gains
+// { type: 'grant', grant | null }, { type: 'agent-action', phase, action: { id, kind, label, value?, at }, result? } (a fill reads
+// "label: value", value already •••• for a password), { type: 'console', row: { level: 'error'|'warning'|'info', message, source,
+// line }, at } and { type: 'network', row: { method, url, status, type, ms }, at }
 // and { type: 'broker', attached, devToolsOpen }, each with ownerKey and tabId; browserPreview.revokeGrant({ ownerKey, tabId }).
 // Main masks console text and query values before they arrive. The renderer parts:
 // - AgentBrowserChrome({ ownerKey, tabId, agentName }) in src/components/WebPreview/AgentBrowserChrome.tsx (the agent strip,
@@ -72,13 +73,12 @@ describe('U5.1 · the agent browser', () => {
     await renderChrome()
     emit(grant('http://localhost:3002', 'session'))
     emit(action('a1', 'navigate', '/statements'))
-    emit(action('a2', 'fill', 'March', { field: 'Month' }))
-    emit(action('a3', 'fill', 'hunter2', { field: 'Password', masked: true }))
+    emit(action('a2', 'fill', 'Month', { value: 'March' }))
+    emit(action('a3', 'fill', 'Password', { value: '••••' }))
     emit({ type: 'agent-action', phase: 'before', action: { id: 'a4', kind: 'click', label: 'Download CSV', at: 2 } })
     const strip = await screen.findByRole('list', { name: 'What the agent did' })
     const steps = within(strip).getAllByRole('listitem').map(item => item.textContent?.trim())
     expect(steps).toEqual(['Opened /statements', 'Month: March', 'Password: ••••', 'Clicked Download CSV'])
-    expect(document.body.textContent).not.toContain('hunter2')
     expect(within(strip).getAllByRole('listitem').at(-1)).toHaveAttribute('aria-current', 'step')
   })
 
@@ -89,8 +89,8 @@ describe('U5.1 · the agent browser', () => {
     expect(consoleChip).toHaveAttribute('aria-pressed', 'false')
     await userEvent.click(consoleChip)
     expect(await screen.findByText('Nothing logged yet.')).toBeInTheDocument()
-    emit({ type: 'console', row: { level: 'error', message: 'Failed to load token=•••', source: 'app.js', line: 42, at: 1 } })
-    emit({ type: 'console', row: { level: 'warning', message: 'Deprecated API', source: 'app.js', line: 7, at: 2 } })
+    emit({ type: 'console', row: { level: 'error', message: 'Failed to load token=•••', source: 'app.js', line: 42 }, at: 1 })
+    emit({ type: 'console', row: { level: 'warning', message: 'Deprecated API', source: 'app.js', line: 7 }, at: 2 })
     expect(await screen.findByText(/Failed to load token=•••/)).toBeInTheDocument()
     expect(screen.getByText(/app\.js:42/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^Console/ })).toHaveAttribute('aria-pressed', 'true')
@@ -101,7 +101,7 @@ describe('U5.1 · the agent browser', () => {
     const { emit } = mockPreview()
     await renderChrome()
     await userEvent.click(screen.getByRole('button', { name: /^Network/ }))
-    emit({ type: 'network', row: { method: 'GET', url: 'http://localhost:3002/api/statements?month=•••&token=•••', status: 200, type: 'fetch', ms: 84, at: 1 } })
+    emit({ type: 'network', row: { method: 'GET', url: 'http://localhost:3002/api/statements?month=•••&token=•••', status: 200, type: 'fetch', ms: 84 }, at: 1 })
     expect(await screen.findByText(/token=•••/)).toBeInTheDocument()
     expect(screen.getByText('GET')).toBeInTheDocument()
     expect(screen.getByText('200')).toBeInTheDocument()

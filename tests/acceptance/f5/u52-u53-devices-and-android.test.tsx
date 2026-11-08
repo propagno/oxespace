@@ -1,12 +1,13 @@
 // Frozen acceptance test for 1.5.0 A51 and A52 on screen (DESIGN U5.2 and U5.3, OXE program, phase F5, tasks FE-B2 and
 // FE-B3). Written by the planner; the executor must not edit it. Spec: .claude/roadmap-1.4/team/plans/1.5.0-f5-design.md.
-// Contract (agreed with BACKEND for F5):
-// - shared/device-presets.ts exports DEVICE_PRESETS [{ id, name, width, height, dpr, ua, touch, kind: 'phone' | 'tablet' }];
+// Contract (BACKEND #711 @ ac13dfec, §Contract):
+// - shared/preview-devices.ts exports PREVIEW_DEVICES (desktop first, with null width and height; then pixel-8, iphone-15,
+//   galaxy-s23, ipad-mini, each { id, name, width, height, dpr, ua, touch }) and emulationFor(device, rotated);
 //   window.oxe.browserPreview.setDevice({ ownerKey, tabId, deviceId | null, rotated }).
 // - window.oxe.android.{ status() → { adb: 'missing' | 'ok', devices: [{ serial, name, kind, api?, state, agentsCanSee }],
-//   avds }, onChanged(cb), connect(serial), disconnect(serial), onFrame(cb({ serial, width, height, data })), tap({ serial,
-//   x, y }), swipe(...), key(...), rotate(serial), screenshot(serial) → { path, name }, setAgentsCanSee({ serial, value }),
-//   startEmulator(avd) }.
+//   avds }, onChanged(cb), connect({ serial }), disconnect({ serial }), onFrame(cb({ serial, width, height, data })),
+//   tap({ serial, x, y }), swipe(...), key(...), rotate({ serial }), screenshot({ serial }) → { path, name },
+//   setAgentsCanSee({ serial, value }), startEmulator(avd) }.
 // The renderer parts: DeviceMenu({ ownerKey, tabId, deviceId, rotated }) and fitDeviceFrame(device, rotated, panel) in
 // src/components/WebPreview/DeviceMenu.tsx; AndroidPanel() in src/components/Android/AndroidPanel.tsx.
 import { existsSync } from 'node:fs'
@@ -16,7 +17,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
-type Device = { id: string; name: string; width: number; height: number; dpr: number; ua: string; touch: boolean; kind: string }
+type Device = { id: string; name: string; width: number | null; height: number | null; dpr: number; ua: string; touch: boolean }
 async function load<T>(rel: string): Promise<T> {
   const file = ['.tsx', '.ts'].map(ext => join(process.cwd(), `${rel}${ext}`)).find(candidate => existsSync(candidate))
   if (!file) throw new Error(`${rel} does not exist yet`)
@@ -26,8 +27,10 @@ async function load<T>(rel: string): Promise<T> {
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 describe('U5.2 · device emulation', () => {
-  test('the shared presets are Pixel 8, iPhone 15, Galaxy S23 and iPad mini at their CSS sizes, with touch', async () => {
-    const { DEVICE_PRESETS } = await load<{ DEVICE_PRESETS: Device[] }>('shared/device-presets')
+  test('the shared presets are Desktop, then Pixel 8, iPhone 15, Galaxy S23 and iPad mini at their CSS sizes, with touch', async () => {
+    const { PREVIEW_DEVICES } = await load<{ PREVIEW_DEVICES: Device[] }>('shared/preview-devices')
+    expect(PREVIEW_DEVICES[0]).toMatchObject({ id: 'desktop', width: null, height: null })
+    const DEVICE_PRESETS = PREVIEW_DEVICES.slice(1)
     expect(DEVICE_PRESETS.map(device => [device.name, device.width, device.height, device.touch])).toEqual([
       ['Pixel 8', 412, 915, true], ['iPhone 15', 393, 852, true], ['Galaxy S23', 360, 780, true], ['iPad mini', 744, 1133, true]
     ])
@@ -54,14 +57,15 @@ describe('U5.2 · device emulation', () => {
   })
 
   test('the device frame scales to fit and never overflows the dock at 900 × 620', async () => {
-    const { DEVICE_PRESETS } = await load<{ DEVICE_PRESETS: Device[] }>('shared/device-presets')
+    const { PREVIEW_DEVICES } = await load<{ PREVIEW_DEVICES: Device[] }>('shared/preview-devices')
+    const DEVICE_PRESETS = PREVIEW_DEVICES.filter(device => device.id !== 'desktop')
     const { fitDeviceFrame } = await load<{ fitDeviceFrame: (device: Device, rotated: boolean, panel: { width: number; height: number }) => { scale: number; width: number; height: number; radius: number } }>('src/components/WebPreview/DeviceMenu')
     for (const device of DEVICE_PRESETS) for (const rotated of [false, true]) {
       const frame = fitDeviceFrame(device, rotated, { width: 420, height: 560 })
       expect(frame.width).toBeLessThanOrEqual(420)
       expect(frame.height).toBeLessThanOrEqual(560)
       expect(frame.scale).toBeGreaterThan(0)
-      expect(frame.radius).toBe(device.kind === 'tablet' ? 20 : 28)
+      expect(frame.radius).toBe(device.id === 'ipad-mini' ? 20 : 28)
     }
   })
 })
@@ -102,7 +106,7 @@ describe('U5.3 · the Android mirror', () => {
     const main = mockAndroid({ adb: 'ok', devices: [pixel], avds: ['Pixel_8_API_36'] })
     await renderPanel()
     expect(await screen.findByRole('button', { name: /Pixel 8 · Emulator · API 36/ })).toBeInTheDocument()
-    await waitFor(() => expect(main.android.connect).toHaveBeenCalledWith('emulator-5554'))
+    await waitFor(() => expect(main.android.connect).toHaveBeenCalledWith({ serial: 'emulator-5554' }))
     main.frame()
     expect(await screen.findByText('Live')).toBeInTheDocument()
     expect(screen.getByRole('img', { name: 'Pixel 8 screen, live' })).toBeInTheDocument()
@@ -119,7 +123,7 @@ describe('U5.3 · the Android mirror', () => {
     await waitFor(() => expect(main.android.tap).toHaveBeenCalledTimes(1))
     expect(main.android.tap).toHaveBeenCalledWith({ serial: 'emulator-5554', x: 540, y: 1200 })
     await userEvent.click(screen.getByRole('button', { name: 'Rotate' }))
-    expect(main.android.rotate).toHaveBeenCalledWith('emulator-5554')
+    expect(main.android.rotate).toHaveBeenCalledWith({ serial: 'emulator-5554' })
     await userEvent.click(screen.getByRole('button', { name: 'Screenshot' }))
     expect(await screen.findByText('Saved screenshot-14-42.png')).toBeInTheDocument()
   })
