@@ -13,8 +13,8 @@ import { CACTUS } from './icons'
 import { PC, THREADS, REQUESTS, QUESTIONS, AGENTS, AWORD, TERMINALS, JOBS, VT_ROWS, VT_COLS, type PThread, type PRequest, type AState, type Risk } from '../mock/phone'
 
 /* ------------------------------------------------------------------ state */
-export interface PhoneState { scr: string; st: string; tab: string; req: string; qi: number; qa: Record<number, string[]>; hold: number; bio: '' | 'ask' | 'ok'; bioAct: 'allow' | 'deny' | 'send'; answered: string; answeredHow: 'allow' | 'deny' | 'send' | ''; draft: string; steers: string[]; termDraft: string; fit: boolean; unpairAsk: boolean; themes: 'both' | 'one'; notif: Record<string, boolean>; appearance: string }
-export const PH0 = (): PhoneState => ({ scr: 'home', st: 'unpaired', tab: 'threads', req: 'r-vol', qi: 0, qa: {}, hold: 0, bio: '', bioAct: 'allow', answered: '', answeredHow: '', draft: '', steers: [], termDraft: '', fit: false, unpairAsk: false, themes: 'both', notif: { needs: true, done: true, failed: true }, appearance: 'system' })
+export interface PhoneState { scr: string; st: string; tab: string; req: string; qi: number; qa: Record<number, string[]>; hold: number; bio: '' | 'ask' | 'ok'; bioAct: 'allow' | 'deny' | 'send'; answered: string; answeredHow: 'allow' | 'deny' | 'send' | ''; draft: string; steers: string[]; termDraft: string; tview: 'conv' | 'screen'; fit: boolean; unpairAsk: boolean; themes: 'both' | 'one'; notif: Record<string, boolean>; appearance: string }
+export const PH0 = (): PhoneState => ({ scr: 'home', st: 'unpaired', tab: 'threads', req: 'r-vol', qi: 0, qa: {}, hold: 0, bio: '', bioAct: 'allow', answered: '', answeredHow: '', draft: '', steers: [], termDraft: '', tview: 'conv', fit: false, unpairAsk: false, themes: 'both', notif: { needs: true, done: true, failed: true }, appearance: 'system' })
 const P = () => (S.ph ||= PH0()) as PhoneState
 /** Each screen's states, in the order of the 1.4.2 goldens (plus the new ones). */
 export const PHONE_STATES: Record<string, [string, string][]> = {
@@ -23,12 +23,12 @@ export const PHONE_STATES: Record<string, [string, string][]> = {
   live: [['threads', 'Conversations'], ['needs', 'Needs you'], ['agents', 'Agents'], ['terminals', 'Terminals'], ['tasks', 'Tasks'], ['empty', 'Empty'], ['reconnecting', 'Reconnecting']],
   thread: [['thread', 'Needs you'], ['working', 'Working'], ['finished', 'Finished'], ['loading', 'Loading']],
   request: [['r-vol', 'Critical (2 s, biometric)'], ['r-hid', 'Hidden characters'], ['r-q', 'Questions'], ['r-sql', 'Answer on the computer'], ['r-cut', 'Cut short (deny only)'], ['r-cutq', 'Cut-short question'], ['gone', 'No longer waiting'], ['levels', 'Risk levels']],
-  terminal: [['typing', 'You can type'], ['read-only', 'Read-only'], ['loading', 'Loading']],
+  terminal: [['typing', 'You can type'], ['read-only', 'Read-only'], ['loading', 'Loading'], ['conversation', 'Agent conversation'], ['conv-new', 'New while scrolled up'], ['conv-gone', 'Conversation gone']],
   settings: [['settings', 'Settings']]
 }
 /** Every action inside the phone re-renders and keeps the playground's hash in step. */
 const run = (fn: () => void) => () => { fn(); syncScreen(); emit() }
-export function phoneGo (scr: string, st?: string) { const p = P(); p.scr = scr; p.st = st || PHONE_STATES[scr][0][0]; if (scr === 'live') p.tab = ['empty', 'reconnecting'].includes(p.st) ? 'threads' : p.st; if (scr === 'request' && !['gone', 'levels'].includes(p.st)) p.req = p.st; p.hold = 0; p.bio = ''; p.answered = ''; p.answeredHow = ''; p.qi = 0; p.unpairAsk = false; p.steers = []; p.draft = '' }
+export function phoneGo (scr: string, st?: string) { const p = P(); p.scr = scr; p.st = st || PHONE_STATES[scr][0][0]; if (scr === 'live') p.tab = ['empty', 'reconnecting'].includes(p.st) ? 'threads' : p.st; if (scr === 'request' && !['gone', 'levels'].includes(p.st)) p.req = p.st; p.hold = 0; p.bio = ''; p.answered = ''; p.answeredHow = ''; p.qi = 0; p.unpairAsk = false; p.steers = []; p.draft = ''; p.tview = 'conv' }
 
 /* ------------------------------------------------------------------ building blocks */
 const Mark = ({ size = 28 }: { size?: number }) => <span className="m-mark" style={{ width: size, height: size }} aria-hidden="true"><svg viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: CACTUS }} /></span>
@@ -220,15 +220,50 @@ const RO_ROWS: [string, string][][] = [
   [['│ ', 'm'], ['  Answer on the computer: database writes are answered there.', 'm']],
   [['╰──────────────────────────────────────────────────────────────────────────╯', 'm']]
 ]
+/** #658: a Claude Code pane's own session, read only, beside its screen (ACs M6.11–M6.14). */
+const CC_ROWS: [string, string][][] = [
+  [['╭─ ', 'm'], ['Claude Code', 'w'], [' ─────────────────────────────────────────────────────────────╮', 'm']],
+  [['│ ', 'm'], ['> Use Redis for the limit; we run 3 instances.', 'w']],
+  [['│ ', 'm'], ['● ', 'g'], ['Update(src/middleware/rateLimit.ts)', '']],
+  [['│ ', 'm'], ['  ⎿ ', 'm'], ['Updated with 18 additions and 9 removals', 'm']],
+  [['│ ', 'm'], ['● ', 'g'], ['Bash(npm test -- rate-limit)', '']],
+  [['│ ', 'm'], ['  ⎿ ', 'm'], ['Running… ', 'y'], ['(0:41)', 'm']],
+  [['│ ', 'm'], ['✻ Thinking… ', 'y'], ['esc to interrupt', 'm']],
+  [['╰──────────────────────────────────────────────────────────────────────────╯', 'm']],
+  [['  > ', 'm']]
+]
+function TermConversation () {
+  const p = P(); const up = p.st === 'conv-new'
+  return <><div className="m-tconv" role="region" aria-label="Claude Code's conversation" tabIndex={0}><div className="m-conv">
+    {up ? <button className="m-loadmore">Load earlier</button> : null}
+    {up ? <><div className="m-you">Charges are created twice when the app retries. Make POST /charges idempotent.</div>
+      <div className="m-agent"><Av p="claude" /><div>Done. Each key is stored with a hash of the body, and a second request with the same key gets the first answer back.</div></div></> : null}
+    <div className="m-you">Add rate limiting to POST /charges: 10 a minute per API key.</div>
+    <button className="m-steps-sum"><Icon n="check" s={12} />5 steps · read 4 files, ran 1 command<Icon n="right" s={12} /></button>
+    <div className="m-agent"><Av p="claude" /><div>I added a token bucket in <code>middleware/rateLimit.ts</code>. Over the limit, the API answers 429 with <code>Retry-After</code>.</div></div>
+    {up ? null : <><div className="m-you">Use Redis for the limit; we run 3 instances.</div>
+      <button className="m-steps-sum"><Icon n="check" s={12} />2 steps · edited 1 file, ran 1 command<Icon n="right" s={12} /></button>
+      <div className="m-agent"><Av p="claude" /><div>The bucket now lives in Redis, updated by one atomic script, so the 3 instances share it. Running the rate-limit tests.</div></div></>}
+  </div></div>
+    {up ? <button className="m-latest" aria-label="3 new messages, go to latest" onClick={run(() => { p.st = 'conversation' })}>3 new · Latest<Icon n="down" s={12} /></button> : null}</>
+}
 function Terminal () {
-  const p = P(); const st = p.st; const typing = st === 'typing'
-  const rows = typing ? VT_ROWS : RO_ROWS
-  return <div className="m-scr m-term-scr"><AppBar back={() => phoneGo('live', 'terminals')} title={typing ? 'npm run dev' : 'Codex'} sub={<span className="m-rs"><WsChip name={typing ? 'cajui-api · t142' : 'cajui-api · t143'} /><span className="mono" title="From the pane's snapshot (cols × rows)">{VT_COLS}×24</span>{typing ? <span className="m-type"><Icon n="keyboard" s={12} />You can type</span> : <span className="m-ro"><Icon n="eye" s={12} />Read-only</span>}</span>} right={<button className="m-ib" aria-label={p.fit ? 'Text size: actual size' : 'Text size: fit the width'} aria-pressed={p.fit} title="Fit the width" onClick={run(() => { p.fit = !p.fit })}><Icon n="type" s={16} /></button>} />
-    <div className={'m-vt' + (p.fit ? ' fit' : '')}>{st === 'loading' ? <div className="m-vt-load"><span className="m-spin" aria-hidden="true" />Connecting to the pane…</div> : <>
+  const p = P(); const st = p.st; const conv = st.startsWith('conv'); const gone = st === 'conv-gone'
+  const view = conv ? p.tview : 'screen'; const typing = st === 'typing' || conv
+  const rows = conv ? CC_ROWS : typing ? VT_ROWS : RO_ROWS
+  const name = conv ? 'Claude Code' : typing ? 'npm run dev' : 'Codex'
+  return <div className="m-scr m-term-scr"><AppBar back={() => phoneGo('live', 'terminals')} title={name} sub={<span className="m-rs"><WsChip name={conv ? 'cajui-api · t144' : typing ? 'cajui-api · t142' : 'cajui-api · t143'} />{view === 'screen' ? <span className="mono" title="From the pane's snapshot (cols × rows)">{VT_COLS}×24</span> : null}{typing ? <span className="m-type"><Icon n="keyboard" s={12} />You can type</span> : <span className="m-ro"><Icon n="eye" s={12} />Read-only</span>}</span>} right={view === 'screen' ? <button className="m-ib" aria-label={p.fit ? 'Text size: actual size' : 'Text size: fit the width'} aria-pressed={p.fit} title="Fit the width" onClick={run(() => { p.fit = !p.fit })}><Icon n="type" s={16} /></button> : undefined} />
+    {conv && !gone ? <div className="m-tview"><div className="m-seg two" role="radiogroup" aria-label="View">{([['screen', 'Screen'], ['conv', 'Conversation']] as const).map(([k, l]) => <button key={k} role="radio" aria-checked={p.tview === k} onClick={run(() => { p.tview = k })}>{l}</button>)}</div>
+      {view === 'conv' ? <p className="m-vcap">Claude Code's conversation · read only{st === 'conversation' ? <span className="m-live"><i aria-hidden="true" />Live</span> : null}</p> : null}</div> : null}
+    {view === 'conv' && gone ? <div className="m-body m-pad"><Notice intent="info" icon="info" title="This terminal's conversation isn't available any more." actions={<Btn onClick={run(() => { p.tview = 'screen' })}>Show the screen</Btn>}>The screen is still live.</Notice></div>
+      : view === 'conv' ? <TermConversation />
+      : <div className={'m-vt' + (p.fit ? ' fit' : '')}>{st === 'loading' ? <div className="m-vt-load"><span className="m-spin" aria-hidden="true" />Connecting to the pane…</div> : <>
       <div className="m-vt-note"><Icon n="eye" s={12} />1 secret value hidden by your computer</div>
-      <div className="m-vt-pan" role="region" aria-label={`Terminal screen, ${VT_COLS} columns by 24 rows. Swipe sideways to pan.`} tabIndex={0}><div className="m-vt-grid" style={{ ['--cols' as string]: VT_COLS }}>{rows.map((row, i) => <div key={i} className="m-vt-row">{row.map(([s, c], j) => <span key={j} className={'v-' + c}>{s}</span>)}{typing && i === rows.length - 1 ? <><span className="v-g">marina@desktop</span>:<span className="v-b">~/cajui-api/t142</span>$ {p.termDraft}<span className="m-cursor" /></> : null}</div>)}</div></div>
-      {p.fit ? null : <div className="m-vt-more" aria-hidden="true"><Icon n="right" s={12} />{VT_COLS} cols · swipe to pan</div>}</>}</div>
-    {typing ? <div className="m-keys-wrap"><div className="m-keyrow"><div className="m-keys" id="m-keys" role="toolbar" aria-label="Terminal keys">{['Esc', 'Tab', '⇧Tab', 'Ctrl', 'Ctrl C', '↑', '↓', '←', '→', '|', '~', '/'].map(k => <button key={k} className="m-key">{k}</button>)}</div><button className="m-keymore" aria-label="More keys" aria-controls="m-keys" title="More keys" onClick={e => { const row = (e.currentTarget.previousElementSibling as HTMLElement); row.scrollBy({ left: row.scrollLeft + row.clientWidth >= row.scrollWidth - 4 ? -row.scrollWidth : 160, behavior: 'smooth' }) }}><Icon n="right" s={16} /></button></div>
+      <div className="m-vt-pan" role="region" aria-label={`Terminal screen, ${VT_COLS} columns by 24 rows. Swipe sideways to pan.`} tabIndex={0}><div className="m-vt-grid" style={{ ['--cols' as string]: VT_COLS }}>{rows.map((row, i) => <div key={i} className="m-vt-row">{row.map(([s, c], j) => <span key={j} className={'v-' + c}>{s}</span>)}{st === 'typing' && i === rows.length - 1 ? <><span className="v-g">marina@desktop</span>:<span className="v-b">~/cajui-api/t142</span>$ {p.termDraft}<span className="m-cursor" /></> : null}</div>)}</div></div>
+      {p.fit ? null : <div className="m-vt-more" aria-hidden="true"><Icon n="right" s={12} />{VT_COLS} cols · swipe to pan</div>}</>}</div>}
+    {view === 'conv' && !gone ? <button className="m-typehint" onClick={run(() => { p.tview = 'screen' })}><Icon n="keyboard" s={16} /><span>Type on the Screen view</span><Icon n="right" s={12} /></button>
+      : view === 'conv' ? null
+      : typing ? <div className="m-keys-wrap"><div className="m-keyrow"><div className="m-keys" id="m-keys" role="toolbar" aria-label="Terminal keys">{['Esc', 'Tab', '⇧Tab', 'Ctrl', 'Ctrl C', '↑', '↓', '←', '→', '|', '~', '/'].map(k => <button key={k} className="m-key">{k}</button>)}</div><button className="m-keymore" aria-label="More keys" aria-controls="m-keys" title="More keys" onClick={e => { const row = (e.currentTarget.previousElementSibling as HTMLElement); row.scrollBy({ left: row.scrollLeft + row.clientWidth >= row.scrollWidth - 4 ? -row.scrollWidth : 160, behavior: 'smooth' }) }}><Icon n="right" s={16} /></button></div>
       <div className="m-tin"><span className="mono">$</span><input className="mono" aria-label="Type in this terminal" placeholder="Type here; Enter sends" value={p.termDraft} onChange={e => { p.termDraft = e.target.value; emit() }} /><button className="m-send" aria-label="Send to the terminal" disabled={!p.termDraft}><Icon n="send" s={16} /></button></div></div>
       : st === 'read-only' ? <div className="m-vt-foot"><Icon n="lock" s={12} />{PC.name} doesn't let this phone type here. Turn it on in the pane's menu on the computer.</div> : null}</div>
 }
