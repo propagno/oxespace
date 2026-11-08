@@ -28,10 +28,21 @@ class CriticalDelayAllowTest {
 
     @Test
     fun onEveryOtherRiskAllowIsEnabledAtOnce() {
-        for (risk in listOf(null, "low", "medium", "high", "unknown-new-level")) {
+        // High is irreversible but has no hold (DESIGN, F7 from HML-F7-1): its sheet says "No undo." instead.
+        for (risk in listOf(null, "low", "medium", "high", "green", "orange")) {
             val state = criticalAllowState(risk, 0)
             assertTrue("$risk", state.enabled)
             assertEquals("$risk", 1f, state.progress, 0f)
+        }
+    }
+
+    @Test
+    fun aLevelThePhoneReadsAsCriticalHoldsLikeCritical() {
+        // riskLevel reads an older desktop's "red", and a level added later, as critical, the strongest badge (#354).
+        // A request badged Critical never gets an Allow without the hold.
+        for (risk in listOf("red", "unknown-new-level")) {
+            assertFalse("$risk", criticalAllowState(risk, 1_999).enabled)
+            assertTrue("$risk", criticalAllowState(risk, 2_000).enabled)
         }
     }
 

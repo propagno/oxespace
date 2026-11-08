@@ -17,7 +17,8 @@ class RemoteWorkspaceColorTest {
     @Test
     fun aWorkspaceWithAColourDecodesIt() {
         val decoded = RemoteFrames.json.decodeFromString(RemoteWorkspacesData.serializer(), withColor)
-        assertEquals(4, decoded.workspaces.single().color)
+        // A protocol number is a Kotlin Long (android:generate), so the slot is compared as one.
+        assertEquals(4L, decoded.workspaces.single().color)
     }
 
     @Test
