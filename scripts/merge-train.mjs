@@ -36,12 +36,12 @@ export const STATE_MARKER = 'merge-train-state'
 export const TRAIN_JOB_NAME = 'Merge train step'
 export const CI_WORKFLOW = 'CI and Release'
 /** Workflows whose run on the head must be finished before the PR can merge (when they ran for it). */
-export const WATCHED_WORKFLOWS = [CI_WORKFLOW, 'Accessibility scan (axe)', 'Memory compatibility', 'Android']
+export const WATCHED_WORKFLOWS = [CI_WORKFLOW, 'Accessibility scan (axe)', 'Android']
 /**
  * Workflows the train dispatches on a branch it updated, because a GITHUB_TOKEN push starts none of them.
  * ci.yml always; the others only when they ran on the head before the update.
  */
-export const DISPATCHABLE_WORKFLOWS = ['ci.yml', 'a11y-axe.yml', 'memory-compatibility.yml', 'android.yml']
+export const DISPATCHABLE_WORKFLOWS = ['ci.yml', 'a11y-axe.yml', 'android.yml']
 /**
  * Workflow names by file. GitHub's run `name` is the run-name when a workflow sets one (ci.yml titles its runs
  * "PR #N · …" and "Full check · <ref>"), so a run is identified by its workflow file, never by that name.
@@ -49,7 +49,6 @@ export const DISPATCHABLE_WORKFLOWS = ['ci.yml', 'a11y-axe.yml', 'memory-compati
 export const WORKFLOW_NAME_BY_FILE = {
   'ci.yml': CI_WORKFLOW,
   'a11y-axe.yml': 'Accessibility scan (axe)',
-  'memory-compatibility.yml': 'Memory compatibility',
   'android.yml': 'Android',
   'provider-contract.yml': 'Provider contract',
 }
@@ -337,6 +336,12 @@ export function step(input) {
   if (pr.labelerAllowed !== true) {
     const who = pr.labeledBy ? cleanName(pr.labeledBy) : 'an unknown account'
     return unlabel(`the ${LABEL} label was added by ${who}, who has no write access to this repository.`)
+  }
+  // A head pushed after the label must have passed pr:ready too (prReadyCheck); the train's own updates are exempt.
+  const ready = input.prReady
+  if (ready?.required) {
+    if (ready.ok === null) return wait(`the ${PR_READY_CONTEXT} status of ${short(ready.sha)} could not be read`)
+    if (!ready.ok) return unlabel(`${short(ready.sha)} was pushed after the label and has no green ${PR_READY_CONTEXT}. Run \`npm run pr:ready\` on it and label it again.`)
   }
   if (pr.draft) return unlabel('the pull request is a draft. Mark it ready and label it again.')
   if (pr.isFork) return unlabel('the train only merges branches of this repository.')
@@ -773,9 +778,37 @@ function refusal(error) {
 }
 
 /** Everything `step` needs about one PR, read through the api. */
+/** The commit status `npm run pr:ready` posts on a head that passed it (scripts/pr-ready.mjs). */
+export const PR_READY_CONTEXT = 'pr:ready'
+
+/** A merge commit the train made to bring a car up to date (updateBranch): its first parent is the car's own head. */
+export function isTrainUpdate(commit) {
+  const message = String(commit?.message ?? '')
+  return commit?.parents?.length === 2 && /^Merge branch '/.test(message) && message.includes(SKIP_CI_NOTE)
+}
+
+/**
+ * Whether the car's head must carry a green pr:ready, and whether it does (TECH LEAD's (b), 08/11). The local hook
+ * checks pr:ready when the label is added, so only a head pushed AFTER the label needs the commit status here:
+ * the author's newest commit (the train's own update merges skipped) dated after the labelling. Batch PRs and
+ * commits from before the label are not checked. Returns { required, ok (true | false | null when unreadable), sha }.
+ */
+export async function prReadyCheck(api, pr, labeledAt) {
+  if (!api.getCommit || !api.commitStatuses || !labeledAt) return { required: false }
+  if (String(pr.headRef ?? '').startsWith(BATCH_PREFIX)) return { required: false }
+  let commit = await api.getCommit(pr.headSha)
+  for (let hop = 0; hop < 10 && isTrainUpdate(commit); hop++) commit = await api.getCommit(commit.parents[0])
+  if (!commit?.date || time(commit.date) <= time(labeledAt)) return { required: false, sha: commit?.sha ?? pr.headSha }
+  const statuses = (await api.commitStatuses(commit.sha)).filter(s => s.context === PR_READY_CONTEXT)
+  const latest = statuses.sort((a, b) => time(b.createdAt) - time(a.createdAt))[0]
+  return { required: true, ok: latest?.state === 'success', sha: commit.sha }
+}
+
 export async function loadInput(api, entry, { now, timeoutMinutes }) {
   const pr = await api.getPull(entry.number)
   if (!pr || pr.state !== 'open') return null
+  // Unreadable (a network error) means wait, never a merge and never a drop.
+  const prReady = await prReadyCheck(api, pr, entry.labeledAt ?? null).catch(() => ({ required: true, ok: null, sha: pr.headSha }))
   const [behindBy, changesRequested, runs, checks, requiredChecks, comments, labelerRole] = await Promise.all([
     api.behindBy(pr.headSha),
     api.changesRequested(entry.number),
@@ -804,6 +837,7 @@ export async function loadInput(api, entry, { now, timeoutMinutes }) {
     trainRequiredChecks: TRAIN_REQUIRED_CHECKS,
     requiredChecks,
     trainState: parseTrainState(own[own.length - 1]?.body, now),
+    prReady,
     now,
     timeoutMinutes,
   }
@@ -1046,6 +1080,10 @@ export function createGitHubApi({ token, repo, base = 'main', fetchImpl = global
       if (!isSha(sha)) throw new Error('not a commit sha')
       const { data } = await request('GET', `${r}/git/commits/${sha}`)
       return { sha: data.sha, message: data.message, parents: (data.parents ?? []).map((p) => p.sha), date: data.committer?.date ?? null }
+    },
+    async commitStatuses(sha) {
+      if (!isSha(sha)) throw new Error('not a commit sha')
+      return (await paginate(`${r}/commits/${sha}/statuses?per_page=100`)).map((s) => ({ context: s.context, state: s.state, createdAt: s.created_at }))
     },
     async branchSha(name) {
       return (await request('GET', `${r}/git/ref/heads/${name.split('/').map(encodeURIComponent).join('/')}`)).data.object.sha

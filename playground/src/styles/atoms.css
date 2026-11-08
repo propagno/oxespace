@@ -64,7 +64,7 @@ kbd.k { font: 11px/16px var(--f-mono); padding: 0 5px; border-radius: 4px; borde
 .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
 .dot.pulse { animation: dotp 1.6s ease-in-out infinite; }
 @keyframes dotp { 50% { opacity: .35 } }
-.av { width: 20px; height: 20px; border-radius: 6px; display: inline-grid; place-items: center; color: #fff; font: 700 10px/1 var(--f-ui); flex: none; }
+.av { width: 20px; height: 20px; border-radius: 6px; display: inline-grid; place-items: center; color: var(--text-on-provider); font: 700 10px/1 var(--f-ui); flex: none; }
 .av.claude { background: var(--prov-claude); } .av.codex { background: var(--prov-codex); }
 .av.lg { width: 28px; height: 28px; border-radius: 8px; font-size: 12px; }
 .kchip { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 7px; border-radius: 6px; font-size: 12px; white-space: nowrap; border: 0; }

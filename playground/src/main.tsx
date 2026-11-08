@@ -5,6 +5,8 @@ import './design/mandacaru-1.5.css'
 import './styles/atoms.css'
 import './styles/b.css'
 import './styles/c.css'
+import './styles/phone.css'
+import './styles/cockpit.css'
 import { Playground } from './Playground'
 
 createRoot(document.getElementById('root')!).render(<StrictMode><Playground /></StrictMode>)
