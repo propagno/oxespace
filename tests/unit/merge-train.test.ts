@@ -219,7 +219,7 @@ describe('merge train step', () => {
     const early = step(input({ runs: [], checks: [], trainState: { head: HEAD, since: iso(NOW - 1000), labeledAt } }))
     expect(early.type).toBe('wait')
     const late = step(input({ runs: [], checks: [], trainState: { head: HEAD, since: iso(NOW - DISPATCH_GRACE_MS), labeledAt } }))
-    expect(late).toMatchObject({ type: 'dispatch', dispatch: ['ci.yml', 'a11y-axe.yml', 'memory-compatibility.yml', 'android.yml'], state: { dispatchedFor: HEAD } })
+    expect(late).toMatchObject({ type: 'dispatch', dispatch: ['ci.yml', 'a11y-axe.yml', 'android.yml'], state: { dispatchedFor: HEAD } })
     const again = step(input({ runs: [], checks: [], trainState: late.state }))
     expect(again.type).toBe('wait')
   })
@@ -506,7 +506,7 @@ describe('security (review of #318)', () => {
     expect(parseTrainState(body, NOW)?.dispatch).toEqual(['ci.yml'])
     const trainState = { head: HEAD, since: iso(NOW - DISPATCH_GRACE_MS), labeledAt, dispatch: ['../../x?', 'release.yml'] }
     // Nothing allowed is left, so the fallback dispatches the fixed four (#375 L4), never the forged entries.
-    expect(step(input({ runs: [], checks: [], trainState })).dispatch).toEqual(['ci.yml', 'a11y-axe.yml', 'memory-compatibility.yml', 'android.yml'])
+    expect(step(input({ runs: [], checks: [], trainState })).dispatch).toEqual(['ci.yml', 'a11y-axe.yml', 'android.yml'])
     const urls: string[] = []
     const fetchImpl = async (url: string) => {
       urls.push(url)
@@ -873,9 +873,9 @@ describe('#375 security fixes', () => {
     }
   })
 
-  it('L4: with no runs at all on the head and no update of its own, the train dispatches all four workflows', () => {
+  it('L4: with no runs at all on the head and no update of its own, the train dispatches every dispatchable workflow', () => {
     const trainState = { head: HEAD, since: iso(NOW - DISPATCH_GRACE_MS), labeledAt: pr().labeledAt }
-    expect(step(input({ runs: [], checks: [], trainState })).dispatch).toEqual(['ci.yml', 'a11y-axe.yml', 'memory-compatibility.yml', 'android.yml'])
+    expect(step(input({ runs: [], checks: [], trainState })).dispatch).toEqual(['ci.yml', 'a11y-axe.yml', 'android.yml'])
   })
 
   it('L4: an Android run on the head is a gate like the others', () => {

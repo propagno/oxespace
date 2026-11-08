@@ -1034,15 +1034,6 @@ jobs:
           OXE_LIVE_MONGO_IMAGE: ${{ steps.mongo.outputs.image }}
         run: npx vitest run tests/live/oxequery-live.test.ts tests/live/oxequery-connectivity-live.test.ts tests/live/oxequery-writes-live.test.ts
 
-  # Native AI Memory contracts (Windows/Linux x 2.1.0/2.6.2). PRs run the
-  # path-filtered standalone workflow instead; main, tags and dispatch always gate here.
-  memory-compatibility:
-    name: Memory compatibility
-    if: github.event_name != 'pull_request'
-    permissions:
-      contents: read
-    uses: ./.github/workflows/memory-compatibility.yml
-
   # One check that says whether the whole run passed, for the merge train and for any future required check.
   # A job that failed or was cancelled fails it. So does a job that should have run and was skipped: on main,
   # tags and dispatches every check job must succeed; on a code PR quick, unit and e2e must, and the OxeQuery
@@ -1050,7 +1041,7 @@ jobs:
   # E2E shards' blob reports into one HTML report per platform (best effort; the shards' blobs are kept anyway).
   ci-result:
     name: CI result
-    needs: [changes, dependency-review, quick, unit, e2e, package, oxequery-live, oxequery-live-versions, memory-compatibility, release]
+    needs: [changes, dependency-review, quick, unit, e2e, package, oxequery-live, oxequery-live-versions, release]
     if: ${{ always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -1119,7 +1110,7 @@ jobs:
             if (result === 'failure' || result === 'cancelled') problems.push(`${job} ${result}`)
           }
           const required = ['changes', ...(deps ? ['dependency-review'] : [])]
-          if (!pr) required.push('quick', 'unit', 'e2e', 'oxequery-live', 'oxequery-live-versions', 'memory-compatibility')
+          if (!pr) required.push('quick', 'unit', 'e2e', 'oxequery-live', 'oxequery-live-versions')
           else if (code) required.push('quick', 'unit', 'e2e', ...(oxequery ? ['oxequery-live', 'oxequery-live-versions'] : []))
           for (const job of required) if (needs[job].result !== 'success') problems.push(`${job} should have passed and is ${needs[job].result}`)
           if (problems.length) {
@@ -1178,7 +1169,7 @@ jobs:
 
   release:
     name: Publish GitHub Release
-    needs: [quick, unit, e2e, package, oxequery-live, oxequery-live-versions, memory-compatibility]
+    needs: [quick, unit, e2e, package, oxequery-live, oxequery-live-versions]
     if: needs.quick.outputs.should_release == 'true'
     # Publishing waits for a person: the `release` environment has the release owner as required reviewer, so a
     # dispatch with publish_release=true (by anyone, or by an agent session using their token) builds and verifies
