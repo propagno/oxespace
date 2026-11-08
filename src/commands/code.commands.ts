@@ -33,7 +33,7 @@ export interface CodeCommandContext {
 /** The palette group of each workspace tool (docs/design/commands.md). */
 const TOOL_CATEGORY: Record<ToolId, CommandCategory> = {
   team: 'Agents', integration: 'Workspace', github: 'Git', worktrees: 'Git', scripts: 'View', search: 'View', 'web-preview': 'View', background: 'View',
-  slash: 'Terminal', mcp: 'Agents', skills: 'Agents', semantic: 'Agents', editor: 'View', review: 'View'
+  slash: 'Terminal', mcp: 'Agents', semantic: 'Agents', editor: 'View', review: 'View'
 }
 
 const updateSettings = (input: Parameters<ReturnType<typeof useWorkspaceStore.getState>['updateSettings']>[0]): void => {
@@ -70,7 +70,7 @@ export function buildCodeCommands(ctx: CodeCommandContext): ContributedCommand[]
       detail: tool.id === 'team' && !ctx.hasTeamTarget && ctx.teamUnavailable ? ctx.teamUnavailable : tool.detail,
       icon: tool.icon,
       shortcut: tool.keybinding,
-      disabled: tool.id === 'team' ? !ctx.hasTeamTarget : tool.id === 'slash' ? !activePane : !['mcp', 'skills', 'semantic'].includes(tool.id) && !activeWorkspace,
+      disabled: tool.id === 'team' ? !ctx.hasTeamTarget : tool.id === 'slash' ? !activePane : !['mcp', 'semantic'].includes(tool.id) && !activeWorkspace,
       run: toolRun(tool.id)
     })),
 
