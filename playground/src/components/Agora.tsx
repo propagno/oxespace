@@ -123,7 +123,7 @@ export function Agora () {
             {!showDone && done.length ? <button className="more-b" onClick={run(() => { (S.agDone ||= {})[w.id] = true })}>Show {plural(done.length, 'finished agent')}</button> : null}</>}</section> })}
       {!groups.length ? <div className="state" style={{ padding: 40 }}><p>No agents match this filter.</p></div> : null}
     </div>
-    <footer className="ag-f muted"><span>The agents read model (S7.1), in the phone's words. Requests from MCP never show Allow here: they wait in their conversation.</span><span className="sp" /><span><Kbd>Ctrl Shift G</Kbd> opens Agora</span></footer></div>
+    <footer className="ag-f muted"><span>MCP requests are answered in their conversation.</span><span className="sp" /><span><Kbd>Ctrl Shift G</Kbd> opens Agora</span></footer></div>
 }
 export const agoraBadge = () => needsN()
 export function stopAgent () { const a = agents().find(x => x.id === S.agStop); if (!a) return; if (a.t) { a.t.status = 'idle'; a.t.now = 'Stopped by you. The work so far is kept.' } toast(`Stopped "${a.title}"`) }
