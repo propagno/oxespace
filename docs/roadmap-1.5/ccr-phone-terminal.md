@@ -44,17 +44,24 @@
 
 ## T-P3.2 The snapshot capability flag (A45, phone side)
 
-- **Files:** `.../protocol/live/SubscriptionHub.kt`, which sends the flag on the `terminal` subscribe using BACKEND's
-  generated field.
+- **Files:** `.../protocol/live/SubscriptionHub.kt`, which sends `snapshotOnly` (BACKEND's BE-A45-flag, #706) on the
+  `terminal` subscribe, **only to a desktop that advertised it.**
+- **Correction (08/11, found reviewing #706):**
+  - An earlier revision said a desktop that doesn't know the flag ignores it. It doesn't: `connection.ts:215` refuses a
+    subscribe with any unknown key as `malformed`.
+  - So a phone that always sent the flag would get no terminal from any desktop released before F10.
+  - The phone sends it only when the session's hello lists the feature. That's BACKEND's `features?: string[]` with
+    `"terminal.snapshotOnly"`, proposed on #706; the name is to be confirmed there.
 - **Behaviour:**
-  - **With the flag,** the desktop sends `snapshot` with `redacted` and no ring pages. The phone renders the same as
-    today.
-  - **A desktop that doesn't know the flag** sends the pages, and the phone skips them as today.
+  - **An advertising desktop, with the flag:** it sends `snapshot` with `redacted` and no ring pages, and the phone
+    renders the same as today.
+  - **A desktop that doesn't advertise it:** no flag is sent. It sends the pages, and the phone skips them as today.
   - **A desktop that fails to build the snapshot** falls back to pages with no snapshot, and the phone reads the ring.
     That's #623's frozen desktop fallback.
 - **Frozen tests:**
-  - `.../protocol/live/SubscriptionHubTest.kt` (new or extended): a `terminal` subscribe carries the flag; other topics
-    don't;
+  - `.../protocol/live/SubscriptionHubTest.kt` (new or extended):
+    - with the feature advertised, a `terminal` subscribe carries the flag and other topics don't;
+    - without it, no subscribe carries the flag.
   - `TerminalSnapshotTest`: a single snapshot page with `redacted` renders, and the count is kept.
 
 ## T-P3.3 The CLI conversation on the phone (A46, phone side, #658)
