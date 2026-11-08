@@ -95,6 +95,12 @@ jobs:
         working-directory: mobile/android
         run: ./gradlew --no-daemon assembleDebug assembleDebugAndroidTest
 
+      - name: The emulator's DMA features (diag)
+        if: steps.sdk.outputs.available == 'true'
+        run: |
+          grep -E 'Pkg.Revision' "$ANDROID_HOME/emulator/source.properties" || true
+          grep -inE -B2 'dma|colorbuffer' "$ANDROID_HOME/emulator/lib/advancedFeatures.ini" || true
+
       - name: Run instrumented tests
         if: steps.sdk.outputs.available == 'true'
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
@@ -106,7 +112,7 @@ jobs:
           ram-size: ${{ steps.sdk.outputs.ram }}
           emulator-boot-timeout: ${{ steps.sdk.outputs.boot-timeout }}
           disk-size: 4096M
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader_indirect -feature -GLDMA,-GLDMA2 -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           working-directory: mobile/android
           # sys.boot_completed can come before the package service: on API 37 the APK install then failed with
