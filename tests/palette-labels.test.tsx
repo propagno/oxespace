@@ -76,7 +76,8 @@ describe('command palette labels', () => {
       const pattern = new RegExp(`^(${categories.map(escape).join('|')}): (\\S+)`)
       const commands = paletteCommands()
       // 89 since F34 took OXEVoice out (its toggle and its settings page); Devices came with the phone (#384).
-      expect(commands.length).toBeGreaterThanOrEqual(89)
+      // 88 since R12 took the skills manager out (tool-skills).
+      expect(commands.length).toBeGreaterThanOrEqual(88)
       const wrong: string[] = []
       for (const command of commands) {
         const match = pattern.exec(command.label)
