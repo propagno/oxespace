@@ -139,6 +139,24 @@ phones show the reference.
 - **One status word per conversation:** the S7.1 words. An idle conversation whose last turn completed reads Finished,
   the same as in Agents.
 
+## A terminal agent's conversation (#658, ACs M6.11–M6.14)
+
+Terminal states **Agent conversation**, **New while scrolled up** and **Conversation gone** (`#phone-terminal`).
+
+- **Only on a pane with `conversation: true`.** Under the app bar, a full-width `SingleChoiceSegmentedButtonRow`
+  named "View": **Screen · Conversation** (pt-BR **Tela · Conversa**). It opens on Conversation, and the choice is kept
+  per pane while the terminal is open. A pane without the field shows no control.
+- **Caption:** "Claude Code's conversation · read only" (or Codex's), with **Live** while following.
+- **Body:** M4's components (the user bubble, agent text with its avatar, tool calls folded into the steps chip).
+  "Load earlier" at the top, as in OxeChat. Pull to refresh, no header button.
+- **No input on Conversation.** The key row and input show only on Screen. Conversation ends with the tappable line
+  "Type on the Screen view", which switches to Screen. "You can type" stays in the app bar in both views.
+- **Scrolled up:** the position is kept. The chip **"3 new · Latest ↓"** (screen reader: "3 new messages, go to
+  latest") counts only new ids. A message growing under the same id doesn't count. After a gap it says just
+  "Latest ↓". Tapping it scrolls down and resumes following.
+- **`no-conversation` / gone:** the info Notice "This terminal's conversation isn't available any more. The screen is
+  still live." with **Show the screen**. The control goes away.
+
 ## What not to copy from the playground
 
 - The device frame, the status bar and the gesture bar.
