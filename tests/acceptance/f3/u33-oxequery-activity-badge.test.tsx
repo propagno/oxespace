@@ -87,4 +87,18 @@ describe("U3.3 · OxeQuery's agent activity badge", () => {
     expect(screen.queryByRole('button', { name: /agent actions? today/ })).toBeNull()
     expect(container.textContent).toBe('')
   })
+
+  test('one action reads in the singular, in en and pt-BR', async () => {
+    mockActivity({ today: 1, waiting: false })
+    await renderBadge()
+    expect(await screen.findByRole('button', { name: /^1 agent action today/ })).toBeInTheDocument()
+    cleanup()
+    const { changeLanguage } = await import('../../../src/i18n')
+    await changeLanguage('pt-BR')
+    try {
+      mockActivity({ today: 1, waiting: false })
+      await renderBadge()
+      expect(await screen.findByRole('button', { name: /^1 ação de agente hoje/ })).toBeInTheDocument()
+    } finally { await changeLanguage('en') }
+  })
 })

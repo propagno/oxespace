@@ -190,4 +190,17 @@ describe('U3.1 · Settings › Agent activity, one list from every source', () =
     await waitFor(() => expect(api.list.mock.calls.length).toBe(calls + 1))
     expect(api.list.mock.calls.at(-1)?.[0]).not.toHaveProperty('sources', ['databases'])
   })
+
+  test('the arrow keys move between rows', async () => {
+    mockActivity(() => ({ rows: FOUR, cursor: null, failedSources: [] }))
+    await renderPage()
+    await waitFor(() => expect(tableRows()).toHaveLength(4))
+    tableRows()[0].focus()
+    fireEvent.keyDown(tableRows()[0], { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(tableRows()[1])
+    fireEvent.keyDown(tableRows()[1], { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(tableRows()[2])
+    fireEvent.keyDown(tableRows()[2], { key: 'ArrowUp' })
+    expect(document.activeElement).toBe(tableRows()[1])
+  })
 })

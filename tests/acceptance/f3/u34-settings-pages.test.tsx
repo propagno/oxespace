@@ -5,9 +5,19 @@
 // pages are SETTINGS_PAGES (src/components/Workspace/workspaceSettingsPages.ts).
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { afterEach, describe, expect, test } from 'vitest'
 
 type Page = { id: string; label: string; hint?: string }
+
+// Modules this task creates load at run time, so a missing one fails its own checks, not the whole file.
+async function load<T>(rel: string): Promise<T> {
+  const file = ['.tsx', '.ts'].map(ext => join(process.cwd(), `${rel}${ext}`)).find(candidate => existsSync(candidate))
+  if (!file) throw new Error(`${rel} does not exist yet`)
+  return import(/* @vite-ignore */ pathToFileURL(file).href) as Promise<T>
+}
 
 afterEach(() => { cleanup(); localStorage.clear() })
 
@@ -54,5 +64,26 @@ describe('U3.4 · Settings after the removals', () => {
     const { KEYBINDINGS } = await import('../../../src/keyboard/keybindings')
     expect(KEYBINDINGS.map(binding => binding.id as string).filter(id => /^(team\.|view\.pods$|view\.post$|oxepod\.|oxepost\.)/.test(id))).toEqual([])
     expect(KEYBINDINGS.filter(binding => (binding.chords as readonly string[]).includes('Mod+Shift+T')).map(binding => binding.id)).toEqual([])
+  })
+
+  // U3.4b: every row that widens what agents can do applies at once, shows the undo toast, and Undo restores the value
+  // before it. The rows are the registry the Settings pages build them from (#649's risk list R1–R10; R5 is OxeQuery's
+  // connection dialog and has its own test). Each entry's widen() goes through the same applyWithUndo the row's control
+  // calls, and read() returns the value the row shows.
+  const RISKY = ['R1', 'R2', 'R3', 'R4', 'R6', 'R7', 'R8', 'R9', 'R10'] as const
+  test.each(RISKY)('risky row %s shows the undo toast, and Undo restores the value before it', async id => {
+    // Every call to main resolves; what the row shows is its own applied state.
+    const deep = (): unknown => new Proxy(async () => undefined, { get: (_target, key) => key === 'then' ? undefined : deep() })
+    Object.assign(window, { oxe: deep() })
+    const { RISKY_SETTING_ROWS } = await load<{ RISKY_SETTING_ROWS: ReadonlyArray<{ id: string; label: string; read(): unknown | Promise<unknown>; widen(): Promise<void> }> }>('src/components/Settings/riskyRows')
+    const row = RISKY_SETTING_ROWS.find(entry => entry.id === id)
+    expect(row, `${id} is in the registry`).toBeTruthy()
+    const { Toaster } = await import('../../../src/ui/Toast')
+    render(<Toaster />)
+    const before = await row!.read()
+    await act(async () => { await row!.widen() })
+    expect(await row!.read()).not.toEqual(before)
+    await userEvent.click(await screen.findByRole('button', { name: 'Undo' }))
+    await waitFor(async () => expect(await row!.read()).toEqual(before))
   })
 })

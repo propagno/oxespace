@@ -132,5 +132,39 @@ describe('U3.2 · the HTTP calls panel and the Network tab', () => {
     await renderPanel()
     expect(await screen.findByText("Couldn't read the HTTP log")).toBeInTheDocument()
   })
-})
 
+  test("conversation X's Network tab shows only X's call, and Agent activity's HTTP chip shows both", async () => {
+    const x = call(10, { actor: { kind: 'thread', id: 't-x', name: 'Conversation X', gone: false }, pathTemplate: '/v1/x' })
+    const y = call(11, { actor: { kind: 'thread', id: 't-y', name: 'Conversation Y', gone: false }, pathTemplate: '/v1/y' })
+    const list = mockAudit(query => {
+      const rows = [x, y].filter(item => !query.actor || query.actor === `thread:${(item.actor as { id: string }).id}`)
+      return { rows, cursor: null, hosts: [{ host: 'api.stripe.test', count: rows.length, production: false }] }
+    })
+    const { ThreadNetworkPanel } = await load<{ ThreadNetworkPanel: (props: { threadId: string; workspaceId: string }) => JSX.Element }>('src/components/Threads/ThreadNetworkPanel')
+    render(<ThreadNetworkPanel threadId="t-x" workspaceId="ws-1" />)
+    expect(await screen.findByRole('button', { name: /^POST \/v1\/x/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^POST \/v1\/y/ })).toBeNull()
+    expect(list.mock.calls.every(([query]) => query.actor === 'thread:t-x')).toBe(true)
+    cleanup()
+    const activityRow = (item: Row) => ({ id: `h${item.id}`, source: 'http', at: item.at, actor: item.actor, agent: 'claude-code', workspaceId: 'ws-1', summary: `POST api.stripe.test${item.pathTemplate}`, target: 'api.stripe.test', write: true, decision: 'auto', outcome: 'ok', errorCode: null, detailRef: `h${item.id}`, status: 201 })
+    const activity = { list: vi.fn(async () => ({ rows: [activityRow(x), activityRow(y)], cursor: null, failedSources: [] })), detail: vi.fn(async () => null), badge: vi.fn(async () => ({ today: 0, waiting: false })) }
+    Object.assign(window, { oxe: { ...(window as unknown as { oxe?: object }).oxe, agentActivity: activity } })
+    const { AgentActivitySettings } = await import('../../../src/components/Settings/AgentActivitySettings')
+    render(<AgentActivitySettings />)
+    await userEvent.click(await screen.findByRole('button', { name: /^HTTP/ }))
+    await waitFor(() => expect(activity.list.mock.calls.at(-1)?.[0]).toMatchObject({ sources: ['http'] }))
+    expect(await screen.findByText('POST api.stripe.test/v1/x')).toBeInTheDocument()
+    expect(screen.getByText('POST api.stripe.test/v1/y')).toBeInTheDocument()
+  })
+
+  test("the detail's Open the conversation opens that conversation", async () => {
+    mockAudit()
+    const { useThreadStore } = await import('../../../src/store/thread.store')
+    const select = vi.fn(async () => undefined)
+    useThreadStore.setState({ select } as never)
+    await renderPanel()
+    await userEvent.click(await screen.findByRole('button', { name: /^POST \/v1\/charges\/:id/ }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Open the conversation' }))
+    await waitFor(() => expect(select).toHaveBeenCalledWith('t-1'))
+  })
+})
