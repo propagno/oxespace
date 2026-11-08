@@ -156,6 +156,24 @@
 - **Network:** these screens show nothing new from the network. HML's stand-in phone (R143) plus
   `scripts/remote-subscribe.mts` drive the pairing, request and conversation paths against a real gateway, on the step
   counts in the parity checklist.
+- **The limit, written down:** the CI stand-in phone talks to the gateway's LAN IP on the same runner. That's not
+  loopback, but there's no Wi-Fi hop either. Real Wi-Fi loss is checked only on the user's S23, and that check is the
+  user's.
+- **N1 reconnect:** the stand-in's socket is killed mid-stream and resumed after 5 s. No lost or duplicated messages,
+  no duplicate approval, and the screen shows "reconnecting" and then recovers. This is the stand-in step
+  `screens-reconnect`, plus `LiveRepository`'s replay of the followed subscriptions.
+- **N2 latency:** one stand-in case runs through a test-side proxy adding 300 ms ± 200 ms. Steps and badges still
+  settle, with no timeout a slow Wi-Fi would trip.
+- **N3 P1:** on the Windows Public profile the gateway shows the firewall notice, not a silent failure (R143).
+- **Safe answers** (frozen, as **new** `.../ui/live/RequestAnswerTest.kt`, plus stand-in steps):
+  - **The desktop answers first.** Then the phone taps Approve, and the desktop returns `not-pending`. The phone shows
+    "Already answered on the computer", and nothing is sent twice.
+  - **A request that arrives while the phone is offline** shows on reconnect, from the replayed snapshot, and can be
+    answered exactly once.
+  - **A double tap is one answer.** The second tap is ignored while the first is in flight, and the `clientId` is the
+    same if it's ever resent.
+  - **Deny's biometric is cancelled or unavailable:** no answer is sent. This uses a biometric stub on the stand-in,
+    and the S23 check is the user's.
 - **On a real phone:** the user's S23 checks that the biometric sheet appears for Deny.
 
 ## Out of scope
