@@ -14,7 +14,7 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { changeLanguage } from '../../../src/i18n'
@@ -189,4 +189,20 @@ describe('U8.3 · The command bar', () => {
     await waitFor(() => expect(options().length).toBeGreaterThan(0))
     for (const option of options()) expect(option.textContent).toMatch(/Também: /)
   })
+
+  test('a skill with no agent pane focused asks to focus one first, and nothing runs', async () => {
+    const { input, skill } = await renderBar({ ...CONTEXT, pane: { id: 'p-shell', agent: false } })
+    await userEvent.type(input, '/skill pix-rules{Enter}')
+    expect(await screen.findByText('Focus a conversation or an agent pane first.')).toBeInTheDocument()
+    expect(skill.invoke).not.toHaveBeenCalled()
+  })
+
+  test('text with a control character is refused with its line, and nothing runs', async () => {
+    const { input, skill } = await renderBar()
+    fireEvent.change(input, { target: { value: '/skill pix-rules x\u0003' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(await screen.findByText('Remove the control characters from the text.')).toBeInTheDocument()
+    expect(skill.invoke).not.toHaveBeenCalled()
+  })
+
 })

@@ -100,7 +100,7 @@ describe('U8.1 · Agora, the start screen', () => {
     const [publish, test1, question] = cards()
     expect(labels(publish)).toEqual(['Deny', 'See impact'])
     expect(labels(test1)).toEqual(['Deny', 'Allow'])
-    expect(labels(question)[0]).toBe('Answer')
+    expect(labels(question)).toEqual(['Answer'])
   })
 
   test('D on the focused card denies in one step, and focus goes to the next card, then to Nothing needs you', async () => {

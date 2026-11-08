@@ -212,7 +212,7 @@ describe('U8.2 · Time travel', () => {
     mockMain()
     const { knob } = await renderBar()
     expect(await screen.findByText(/^3 arquivos às /)).toBeInTheDocument()
-    expect(screen.getByText(/^Não dá para voltar, pelo menos: 1 escritas? em banco, 1 push \(só esta conversa\)\.$/)).toBeInTheDocument()
+    expect(screen.getByText('Não dá para voltar, pelo menos: 1 escrita em banco, 1 push (só esta conversa).')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^Restaurar para/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^Ramificar numa nova worktree/ })).toBeInTheDocument()
     press(knob, 'Home')
@@ -243,7 +243,7 @@ describe('U8.2 · Time travel', () => {
   test("past three kinds the note ends with and more, the full list in its tooltip; with nothing it says so", async () => {
     mockMain({ ...TIMELINE, cantGoBack: { dbWrites: 3, pushes: 2, containers: 4, commands: 0, httpWrites: 1, scope: 'conversation' } })
     await renderBar()
-    const note = await screen.findByText(/^Can't go back, at least: 4 containers removed, 3 database writes, 2 pushes,? and more \(this conversation only\)\.$/)
+    const note = await screen.findByText("Can't go back, at least: 4 containers removed, 3 database writes, 2 pushes and more (this conversation only).")
     const tip = note.getAttribute('title') ?? note.closest('[title]')?.getAttribute('title') ?? document.getElementById(note.getAttribute('aria-describedby') ?? '')?.textContent ?? ''
     expect(tip).toMatch(/1 external write/)
     cleanup()
@@ -257,6 +257,27 @@ describe('U8.2 · Time travel', () => {
     mockMain({ ...TIMELINE, cantGoBack: { dbWrites: 0, pushes: 0, containers: 0, commands: 2, httpWrites: 1, scope: 'conversation' } })
     await renderBar()
     expect(await screen.findByText("Can't go back, at least: 2 other irreversible commands, 1 external write (this conversation only).")).toBeInTheDocument()
+  })
+
+
+  test.each([
+    ['thread.branch.pathExists', { path: '/repo/shop-from-1441' }, 'A folder already exists at /repo/shop-from-1441. Pick another branch name.'],
+    ['thread.branch.baseGone', {}, "The commit this checkpoint started from is gone, so it can't be branched."],
+    ['thread.branch.notGit', {}, "This conversation's folder isn't a git repository, so it can't be branched."],
+    ['thread.branch.sessionGone', {}, "Claude's session for this conversation is gone, so the branch can't continue it."],
+    ['thread.branch.failed', { step: 'restore' }, "Couldn't copy the checkpoint's files into the new worktree; nothing was kept."],
+    ['thread.branch.failed', { step: 'register' }, "Couldn't add the new worktree as a workspace; nothing was kept."],
+    ['thread.branch.failed', { step: 'fork' }, "Claude couldn't continue the session from that moment; nothing was kept."],
+    ['thread.branch.failed', { step: 'conversation' }, "Couldn't open the new conversation; nothing was kept."]
+  ])('the Branch refusal %s %j reads its exact line inside the open dialog', async (code, params, line) => {
+    mockMain(TIMELINE, { ok: false, refusal: { code, params } })
+    const props = await renderBar()
+    await screen.findByText(/^3 files at /)
+    await userEvent.click(branch())
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Branch' }))
+    expect(await within(dialog).findByText(line as string)).toBeInTheDocument()
+    expect(props.onBranched).not.toHaveBeenCalled()
   })
 
 })
