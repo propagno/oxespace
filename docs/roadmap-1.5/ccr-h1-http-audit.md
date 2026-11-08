@@ -53,9 +53,47 @@
 
 `AgentHookServer` gains `httpAudit?: { ingest(input) }`. For every authenticated event, after `mapHookEvent`, it calls the audit inside a try/catch, so a failing audit never touches the pane status. `index.ts` wires `HttpAuditLog` in.
 
-## H1-5 — The Codex rollout fallback (deferred)
+## SECURITY rules (TECH LEAD S1–S7, HML-695-1..3), all frozen
 
-It's in the plan, but it isn't frozen here: it needs a real Codex rollout fixture to read `exec`/`shell` calls from. The store already freezes the rule that a rollout row of a `tool_use_id` the hook stored is ignored. A follow-up CCR adds the reader with its fixture.
+`parse.ts` also exports:
+- `redactCommand(command, shell)` — the text the store keeps before the 512 cut;
+- `isSensitiveHeaderName(name)`;
+- `HTTP_CALLS_MAX` = 50, the most calls read from one command.
+
+The shell is chosen by `tool_name`: `PowerShell` → powershell, otherwise bash.
+
+**What is never kept, in any column, list row or detail:**
+1. **S1 — body values:**
+   - curl `-d`/`--data`/`--data-raw`/`--data-binary`/`--data-urlencode`/`--json`;
+   - curl `-F`, including `@file` paths;
+   - HTTPie `field=value` and `field:=json`;
+   - Invoke-* `-Body`.
+   Only `has_body` and `body_bytes` are kept.
+2. **S2 — credential flags:**
+   - curl `-u`/`--user`, `--oauth2-bearer`, `-b`/`--cookie`, `-E` cert:pass, `--proxy-user`;
+   - wget `--password`, `--http-password`, `--header` values;
+   - HTTPie `-a` and `Header:value` items;
+   - Invoke-* `-Credential`, `-Token`, and `-Headers @{…}` values.
+   In `command_redacted` each value becomes `••••`.
+3. **S3 — URL userinfo:** `https://user:pass@host` keeps the host; the userinfo leaves the host and the command.
+4. **S4 — secrets in the path:** a path segment of ≥ 20 characters of `[A-Za-z0-9_\-:.]` that mixes letters and digits becomes `:secret`, in `path_template` and in `command_redacted`. This covers Slack webhooks, Telegram bot tokens and keys in the path. Numbers, UUIDs and long hex stay `:id`.
+5. **S5 — stdout and stderr reach no table:** `hook-pipeline.ts` exports `hookServerOptionsFor({ db, authenticate, onStatus, onLocation?, now? })`, the one place that builds the hook server's options and every database write on the hook path. `index.ts` must use it. The frozen test scans every table after an event.
+6. **S6 — inline environment secrets:** `NAME=value cmd` and `export NAME=value && …` values are masked.
+7. **S7 — sensitive header names:** Authorization, Proxy-Authorization, Cookie and Set-Cookie, plus any name containing token, secret, key, auth, session, signature, password or credential, case-insensitive.
+
+**HML-695-2/3:**
+- **Wrappers:** `sudo`, `env`, `time`, `command` and `timeout`, and `bash -c`/`sh -c`, are read through.
+- **A variable URL** (`curl "$API_URL/x"`) never throws; its host is null or the literal.
+- **Windows:** `curl.exe`, and the PowerShell aliases `iwr` and `irm`.
+
+## H1-5 — The Codex rollout fallback (in F3, TECH LEAD 08/11)
+
+`electron/main/services/http-audit/codex-rollout.ts` exports `ingestCodexRollout(log, { file, paneId, workspaceId, sessionId })` → rows added, and it never throws.
+- **Reads** `response_item` lines of `function_call` named `shell` (`arguments.command`, an argv; a `bash -lc` script is unwrapped) and of `local_shell_call` (`action.command`).
+- **Pairs** each call with its `function_call_output` by `call_id`: the status comes from the output text, and the duration from `metadata.duration_seconds`.
+- **Stores** with `source: 'rollout'` and `agent: 'codex'`, under the same masking. The `tool_use_id` is the call_id, so neither a re-read nor a call the hook already stored adds a row.
+- **The frozen fixture is synthetic,** written from Codex's published rollout shape; no live Codex run.
+- **When it runs:** after a Codex turn in a pane, using the rollout path the pane's recorded session points to (`findCodexRollout`, as native-session-history does).
 
 ## H2-data — The HTTP calls panel and the Network tab
 
