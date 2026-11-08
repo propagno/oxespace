@@ -6,6 +6,7 @@ import {
   CI_UNIT_JOBS,
   ciEvidence,
   markerContent,
+  markerEvidence,
   npmInstalled,
   statusBody,
   // @ts-expect-error -- a plain ES module script without type declarations
@@ -73,6 +74,22 @@ describe('lint and typecheck from CI, only with no local node_modules (TECH LEAD
     expect(ciEvidence([run({ head_sha: 'b'.repeat(40) })], [CI_LINT_JOB], SHA).missing).toEqual([`${CI_LINT_JOB}: not run on this head`])
     expect(ciEvidence([run({ status: 'in_progress', conclusion: null })], [CI_LINT_JOB], SHA).ok).toBe(false)
     expect(ciEvidence([run(), run({ conclusion: 'failure', started_at: '2026-11-08T11:00:00Z' })], [CI_LINT_JOB], SHA).missing).toEqual([`${CI_LINT_JOB}: failure`])
+  })
+
+  it('says "ci" when every step came from CI, and "local" as soon as one step ran here', () => {
+    const lint = { ok: true, lint: 'ci:91', ciRuns: [91] }
+    const tests = { ok: true, tests: 'ci:801,802', ciRuns: [90] }
+    expect(markerEvidence([lint, tests])).toEqual({ evidence: 'ci', runs: [91, 90] })
+    expect(markerEvidence([{ ok: true }, { ok: true }])).toEqual({ evidence: 'local', runs: [] })
+    expect(markerEvidence([lint, { ok: true }])).toEqual({ evidence: 'local', runs: [] })
+    // A GitHub step's own evidence wins: the packages and images paths are unchanged.
+    expect(markerEvidence([lint, { ok: true, evidence: 'ci', runs: [71] }])).toEqual({ evidence: 'ci', runs: [71] })
+    expect(markerEvidence([{ ok: true, evidence: 'images', runs: [81, 82] }])).toEqual({ evidence: 'images', runs: [81, 82] })
+    expect(markerEvidence([])).toEqual({ evidence: 'local', runs: [] })
+    const marker = markerContent({ sha: SHA, at: 't', base: 'origin/main', steps: ['quick', 'tests'], ...markerEvidence([lint, tests]), lint: 'ci:91', tests: 'ci:801,802' })
+    expect(statusBody(marker, 'o/r')).toEqual({
+      state: 'success', context: 'pr:ready', description: 'ci: run 91, 90 · lint ci:91 · tests ci:801,802', target_url: 'https://github.com/o/r/actions/runs/91',
+    })
   })
 
   it('records lint: "ci:<run id>" in the marker and the status, and nothing when lint ran here', () => {

@@ -174,6 +174,18 @@ export function markerContent({ sha, at, base, steps, evidence = 'local', runs =
   return { ok: true, sha, at, evidence, runs, base, steps, ...(lint ? { lint } : {}), ...(tests ? { tests } : {}) }
 }
 
+/**
+ * How the head was proven, from the passed steps: a GitHub step's own evidence when there is one (ci or images);
+ * otherwise "ci" when every step came from CI (no local node_modules: lint and tests from the PR's jobs), with
+ * those Actions runs; otherwise "local".
+ */
+export function markerEvidence(results) {
+  const proof = results.find(result => result.evidence)
+  if (proof) return { evidence: proof.evidence, runs: proof.runs ?? [] }
+  const fromCi = results.length > 0 && results.every(result => result.ciRuns)
+  return fromCi ? { evidence: 'ci', runs: [...new Set(results.flatMap(result => result.ciRuns))] } : { evidence: 'local', runs: [] }
+}
+
 /** The marker the gate reads: <main checkout>/.claude/pr-ready/<sha>.json. `commonDir` is git's common dir. */
 export function markerPath(commonDir, sha) {
   if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error(`not a commit sha: ${sha}`)
@@ -258,7 +270,7 @@ function ciLintStep(step, sha) {
   }
   const evidence = ciEvidence(checkRuns, step.args, sha)
   return evidence.ok
-    ? { ok: true, lint: `ci:${evidence.runs[0]}`, detail: `${CI_LINT_JOB} green on ${sha.slice(0, 8)}: run ${evidence.runs[0]}` }
+    ? { ok: true, lint: `ci:${evidence.runs[0]}`, ciRuns: evidence.runs, detail: `${CI_LINT_JOB} green on ${sha.slice(0, 8)}: run ${evidence.runs[0]}` }
     : { ok: false, detail: `${evidence.missing.join('; ')}. Push and wait for CI, or run pr:ready where node_modules is installed` }
 }
 
@@ -276,7 +288,7 @@ function ciTestsStep(step, sha) {
   }
   const evidence = ciEvidence(checkRuns, step.args, sha)
   return evidence.ok
-    ? { ok: true, tests: `ci:${evidence.jobs.join(',')}`, detail: `CI unit jobs green on ${sha.slice(0, 8)}: job(s) ${evidence.jobs.join(', ')}` }
+    ? { ok: true, tests: `ci:${evidence.jobs.join(',')}`, ciRuns: evidence.runs, detail: `CI unit jobs green on ${sha.slice(0, 8)}: job(s) ${evidence.jobs.join(', ')}` }
     : { ok: false, detail: `${evidence.missing.join('; ')}. Push and wait for CI, or run pr:ready where node_modules is installed` }
 }
 
@@ -345,9 +357,8 @@ function main(argv) {
     return 1
   }
   // A GitHub step, when there is one, is the last step: its conclusions were read just now, never cached.
-  const proof = results.find(result => result.evidence)
   mkdirSync(dirname(marker), { recursive: true })
-  const content = markerContent({ sha, at: new Date().toISOString(), base: options.base, steps: results.map(r => r.name), evidence: proof?.evidence ?? 'local', runs: proof?.runs ?? [], lint: results.find(result => result.lint)?.lint, tests: results.find(result => result.tests)?.tests })
+  const content = markerContent({ sha, at: new Date().toISOString(), base: options.base, steps: results.map(r => r.name), ...markerEvidence(results), lint: results.find(result => result.lint)?.lint, tests: results.find(result => result.tests)?.tests })
   writeFileSync(marker, `${JSON.stringify(content, null, 2)}\n`)
   console.log(`pr:ready OK for ${sha.slice(0, 8)}: wrote ${marker}`)
   // The same verdict where GitHub (and the merge train) can read it: a `pr:ready` commit status on this exact sha.
