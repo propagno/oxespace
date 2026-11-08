@@ -310,12 +310,13 @@ describe('A12 · agents send OxePost requests', () => {
 
   test('PIN: its own direct connection, never a proxy from the environment, and TLS always verified', async () => {
     await grant('billing', 'read')
-    const made: Array<Record<string, any>> = []
+    interface DispatcherOptions { connect: { lookup?: unknown; rejectUnauthorized?: unknown }; [key: string]: unknown }
+    const made: DispatcherOptions[] = []
     const marker = { kind: 'gateway-dispatcher' }
     const saved = { HTTPS_PROXY: process.env.HTTPS_PROXY, HTTP_PROXY: process.env.HTTP_PROXY, NODE_TLS_REJECT_UNAUTHORIZED: process.env.NODE_TLS_REJECT_UNAUTHORIZED }
     process.env.HTTPS_PROXY = 'http://proxy.invalid:3128'; process.env.HTTP_PROXY = 'http://proxy.invalid:3128'; process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
     try {
-      gateway = new OxePostAgentGateway({ ...gatewayDeps(), makeDispatcher: (options: Record<string, any>) => { made.push(options); return marker } })
+      gateway = new OxePostAgentGateway({ ...gatewayDeps(), makeDispatcher: (options: DispatcherOptions) => { made.push(options); return marker } })
       await send({ path: paths.list })
       await send({ path: paths.list })
     } finally {
