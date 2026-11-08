@@ -1,4 +1,4 @@
-import { Zap, Server, Activity, Brain, ChevronDown } from 'lucide-react'
+import { Server, Activity, Brain, ChevronDown } from 'lucide-react'
 import { Github } from '../Brand/GithubIcon'
 import { useState, useEffect, useCallback, useRef, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
@@ -6,7 +6,6 @@ import type { SemanticStatus } from '../../../shared/types/ipc'
 import { summarizeSemanticStatus } from '../Semantic/semanticStatusSummary'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore } from '../../store/terminal-prefs.store'
 import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
-import { useUpdaterStore } from '../../store/updater.store'
 import { humanizeError } from '../../utils/humanizeError'
 import { i18n } from '../../i18n'
 
@@ -18,14 +17,12 @@ interface IntegrationsStatusChipsProps {
 }
 
 /**
- * Interactive Status Chips for integrations (GitHub, MCP, RTK, Caveman, Semantic).
+ * Interactive Status Chips for integrations (GitHub, MCP, Caveman, Semantic).
  * Displayed in the top toolbar to give a glanceable health check of system services.
  */
 export function IntegrationsStatusChips({ workspace, isActive = true }: IntegrationsStatusChipsProps): ReactElement {
   const terminalPrefs = useResolvedTerminalPrefs(workspace.id)
   const setOverride = useTerminalPrefsStore((s) => s.setOverride)
-  const rtkActive = terminalPrefs.rtkHookEnabled
-  const rtk = useUpdaterStore((s) => s.rtk)
   const cavemanActive = terminalPrefs.cavemanModeEnabled
   const semanticEnabled = terminalPrefs.semanticSearchEnabled
   const semanticMode = terminalPrefs.semanticSearchMode
@@ -140,10 +137,10 @@ export function IntegrationsStatusChips({ workspace, isActive = true }: Integrat
     : tc('workspace.systems.semanticTitle', { label: semanticSummary.label }) + (semanticSummary.tone === 'ready' ? ` · ${tc('workspace.systems.mode', { mode: semanticStatus?.mode ?? semanticMode })}` : '')
 
   const semanticHealthy = semanticEnabled && !semanticStatus?.lastError
-  const activeCount = Number(githubStatus?.loggedIn === true) + Number(totalRunningMcp > 0) + Number(rtkActive) + Number(cavemanActive) + Number(semanticHealthy)
-  const attentionCount = Number(rtk.updateAvailable) + Number(Boolean(semanticStatus?.lastError))
+  const activeCount = Number(githubStatus?.loggedIn === true) + Number(totalRunningMcp > 0) + Number(cavemanActive) + Number(semanticHealthy)
+  const attentionCount = Number(Boolean(semanticStatus?.lastError))
   const overallTone = attentionCount > 0 ? 'attention' : activeCount > 0 ? 'healthy' : 'idle'
-  const countText = attentionCount > 0 ? tc('workspace.systems.alerts', { count: attentionCount }) : `${activeCount}/5`
+  const countText = attentionCount > 0 ? tc('workspace.systems.alerts', { count: attentionCount }) : `${activeCount}/4`
 
   return (
     <div className="workspace-integrations" ref={menuRef}>
@@ -172,13 +169,6 @@ export function IntegrationsStatusChips({ workspace, isActive = true }: Integrat
 
           <IntegrationRow icon={<Github size={14} />} label="GitHub" detail={githubStatus?.loggedIn ? tc('github.settings.connected') : githubStatus ? tc('workspace.systems.disconnected') : tc('workspace.systems.checking')} active={githubStatus?.loggedIn === true} />
           <IntegrationRow icon={<Server size={14} />} label="MCP" detail={tc('workspace.systems.mcp', { count: totalRunningMcp })} active={totalRunningMcp > 0} />
-          <IntegrationRow
-            icon={<Zap size={14} />}
-            label="RTK"
-            detail={rtk.updateAvailable ? tc('workspace.systems.update', { version: rtk.latestVersion }) : rtkActive ? `${tc('workspace.systems.on')}${rtk.version ? ` · ${rtk.version}` : ''}` : tc('workspace.systems.off')}
-            active={rtkActive}
-            attention={rtk.updateAvailable}
-          />
           <IntegrationRow icon={<Activity size={14} />} label="Caveman" detail={cavemanActive ? tc('workspace.systems.on') : tc('workspace.systems.off')} active={cavemanActive} />
 
           <button

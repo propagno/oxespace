@@ -527,17 +527,6 @@
       "releases": "Open releases",
       "install": "Restart and install"
     },
-    "rtk": {
-      "title": "RTK update",
-      "updatingLabel": "RTK updating",
-      "availableLabel": "RTK update {{version}} available",
-      "updating": "RTK {{version}} updating",
-      "available": "RTK {{version}} available",
-      "installed": "Installed {{version}} · token saver sidecar.",
-      "unknown": "unknown (legacy)",
-      "updatingButton": "Updating…",
-      "update": "Update RTK"
-    },
     "activity": {
       "available": "OXESpace {{version}} is available",
       "availableDetail": "Open the update to download it.",

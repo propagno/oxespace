@@ -6,7 +6,6 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { openInMemoryDatabase, type AppDatabase } from '../../electron/main/db/index'
 import { WorkspaceService } from '../../electron/main/services/workspace.service'
-import { RtkService } from '../../electron/main/services/rtk.service'
 import { TerminalManager } from '../../electron/main/services/terminal.service'
 import { PaneAgentSessions } from '../../electron/main/services/agent-state/pane-sessions'
 import { encodeClaudeProjectPath } from '../../electron/main/services/usage/claude-project-path'
@@ -22,7 +21,6 @@ let root: string
 let roots: { claudeProjects: string; codexSessions: string }
 
 beforeEach(() => {
-  vi.spyOn(RtkService.prototype, 'ensureRtk').mockResolvedValue('/test/rtk/bin')
   dir = mkdtempSync(join(tmpdir(), 'oxe-b17-'))
   root = join(dir, 'repo')
   mkdirSync(root)
@@ -67,7 +65,7 @@ describe('root causes', () => {
     const pane = ws.panes[0]
     const first = run(db)
     try {
-      await first.terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
+      await first.terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', resumeAgent: true })
       const [, args] = first.pty.spawn.mock.calls.at(-1)!
       expect(args.slice(0, 1)).toEqual(['--session-id'])
       const assigned = args[1]
@@ -76,7 +74,7 @@ describe('root causes', () => {
       claudeTranscript(assigned)
       first.terminals.stopAll()
       const second = run(db)
-      await second.terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
+      await second.terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', resumeAgent: true })
       expect(second.pty.spawn).toHaveBeenLastCalledWith('claude', ['--resume', assigned], expect.objectContaining({ cwd: root }))
       expect(second.terminals.status(pane.id).agentResume).toEqual({ outcome: 'resumed', agent: 'claude', sessionId: assigned })
       second.terminals.stopAll()
@@ -91,7 +89,7 @@ describe('root causes', () => {
     new PaneAgentSessions(db).record(pane.id, 'claude', A)
     const { pty, terminals } = run(db)
     try {
-      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', resumeAgent: true })
       const [file, args] = pty.spawn.mock.calls.at(-1)!
       expect(file).toBe('claude')
       expect(args).not.toContain('--resume')
@@ -109,7 +107,7 @@ describe('root causes', () => {
     codexRollout(B)
     const { pty, terminals } = run(db)
     try {
-      await terminals.start({ workspaceId: ws.id, paneId: pane.id, disableRtk: true, resumeAgent: true })
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, resumeAgent: true })
       expect(pty.spawn).toHaveBeenLastCalledWith('codex', ['resume', B, '--no-alt-screen'], expect.anything())
       pty.instances.at(-1)!.emitData('$ ')
       await vi.advanceTimersByTimeAsync(1_000)
@@ -128,10 +126,10 @@ describe('root causes', () => {
     claudeTranscript(A)
     const { pty, terminals } = run(db)
     try {
-      await terminals.start({ workspaceId: ws.id, paneId: other.id, agentCommand: 'codex', disableRtk: true, resumeAgent: true })
+      await terminals.start({ workspaceId: ws.id, paneId: other.id, agentCommand: 'codex', resumeAgent: true })
       expect(pty.spawn).toHaveBeenLastCalledWith('codex', [], expect.anything())
       expect(terminals.status(other.id).agentResume).toMatchObject({ outcome: 'notResumed', message: { code: 'agents.resume.otherAgent' } })
-      await terminals.start({ workspaceId: ws.id, paneId: custom.id, agentCommand: 'claude', agentArgs: ['--model', 'x'], disableRtk: true, resumeAgent: true })
+      await terminals.start({ workspaceId: ws.id, paneId: custom.id, agentCommand: 'claude', agentArgs: ['--model', 'x'], resumeAgent: true })
       expect(terminals.status(custom.id).agentResume).toMatchObject({ outcome: 'notResumed', message: { code: 'agents.resume.launchOverride' } })
     } finally { terminals.stopAll(); db.close() }
   })
@@ -146,7 +144,7 @@ describe('root causes', () => {
     claudeTranscript(A, realpathSync.native(root))
     const { pty, terminals } = run(db)
     try {
-      await terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
+      await terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, agentCommand: 'claude', resumeAgent: true })
       expect(pty.spawn).toHaveBeenLastCalledWith('claude', ['--resume', A], expect.objectContaining({ cwd: alias }))
       expect(terminals.status(ws.panes[0].id).agentResume).toEqual({ outcome: 'resumed', agent: 'claude', sessionId: A })
     } finally { terminals.stopAll(); db.close() }
@@ -158,7 +156,7 @@ describe('root causes', () => {
     new PaneAgentSessions(db).record(ws.panes[0].id, 'claude', 'abc-123')
     const { pty, terminals } = run(db)
     try {
-      await terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
+      await terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, agentCommand: 'claude', resumeAgent: true })
       expect(pty.spawn.mock.calls.at(-1)![1]).not.toContain('--resume')
       expect(terminals.status(ws.panes[0].id).agentResume).toEqual({ outcome: 'nothingRecorded' })
     } finally { terminals.stopAll(); db.close() }
@@ -173,12 +171,12 @@ describe('what the window reads per pane (terminal.status agentResume)', () => {
     claudeTranscript(A)
     const { pty, terminals } = run(db)
     try {
-      await terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, agentCommand: 'claude --model opus', disableRtk: true, resumeAgent: true })
+      await terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, agentCommand: 'claude --model opus', resumeAgent: true })
       expect(pty.spawn).toHaveBeenLastCalledWith('claude', ['--model', 'opus', '--resume', A], expect.anything())
       expect(terminals.status(ws.panes[0].id).agentResume).toEqual({ outcome: 'resumed', agent: 'claude', sessionId: A })
       // A later start in the same run is the person's choice: fresh, and the status of the first start stays.
       terminals.stop({ paneId: ws.panes[0].id })
-      await terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
+      await terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, agentCommand: 'claude', resumeAgent: true })
       expect(pty.spawn.mock.calls.at(-1)![1]).not.toContain('--resume')
       expect(terminals.status(ws.panes[0].id).agentResume).toEqual({ outcome: 'resumed', agent: 'claude', sessionId: A })
     } finally { terminals.stopAll(); db.close() }
@@ -191,7 +189,7 @@ describe('what the window reads per pane (terminal.status agentResume)', () => {
     claudeTranscript(A)
     const { terminals } = run(db)
     try {
-      await terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, agentCommand: 'claude', disableRtk: true })
+      await terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, agentCommand: 'claude' })
       expect(terminals.status(ws.panes[0].id).agentResume).toEqual({ outcome: 'notResumed', agent: 'claude', sessionId: A, message: { code: 'agents.resume.disabled', params: {} } })
     } finally { terminals.stopAll(); db.close() }
   })
@@ -202,7 +200,7 @@ describe('what the window reads per pane (terminal.status agentResume)', () => {
     const { terminals } = run(db)
     try {
       expect(terminals.status(ws.panes[0].id).agentResume).toBeUndefined()
-      await terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, disableRtk: true, resumeAgent: true })
+      await terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, resumeAgent: true })
       expect(terminals.status(ws.panes[0].id).agentResume).toEqual({ outcome: 'nothingRecorded' })
     } finally { terminals.stopAll(); db.close() }
   })
@@ -214,7 +212,7 @@ describe('Terminal details: the agent session a pane is in (terminal.status agen
     const pane = workspace(db).panes[0]
     const { terminals, pty } = run(db)
     try {
-      await terminals.start({ workspaceId: pane.workspaceId, paneId: pane.id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
+      await terminals.start({ workspaceId: pane.workspaceId, paneId: pane.id, agentCommand: 'claude', resumeAgent: true })
       const assigned = pty.spawn.mock.calls.at(-1)![1][1]
       expect(terminals.status(pane.id).agentSession).toEqual({ agent: 'claude', sessionId: assigned, source: 'launch', resumeCommand: `claude --resume ${assigned}` })
     } finally { terminals.stopAll() }
@@ -228,7 +226,7 @@ describe('Terminal details: the agent session a pane is in (terminal.status agen
     claudeTranscript(A)
     const { terminals } = run(db)
     try {
-      await terminals.start({ workspaceId: left.workspaceId, paneId: left.id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
+      await terminals.start({ workspaceId: left.workspaceId, paneId: left.id, agentCommand: 'claude', resumeAgent: true })
       expect(terminals.status(left.id).agentSession).toMatchObject({ sessionId: A, source: 'launch', resumeCommand: `claude --resume ${A}` })
       // Not started in this run: still the session recorded for the pane.
       expect(terminals.status(right.id).agentSession).toEqual({ agent: 'codex', sessionId: B, source: 'recorded', resumeCommand: `codex resume ${B} --no-alt-screen` })
@@ -240,7 +238,7 @@ describe('Terminal details: the agent session a pane is in (terminal.status agen
     const pane = workspace(db).panes[0]
     const { terminals, sessions } = run(db)
     try {
-      await terminals.start({ workspaceId: pane.workspaceId, paneId: pane.id, agentCommand: 'codex', disableRtk: true, resumeAgent: true })
+      await terminals.start({ workspaceId: pane.workspaceId, paneId: pane.id, agentCommand: 'codex', resumeAgent: true })
       sessions.record(pane.id, 'codex', B)
       expect(terminals.status(pane.id).agentSession).toMatchObject({ agent: 'codex', sessionId: B, source: 'hook' })
     } finally { terminals.stopAll() }
@@ -251,7 +249,7 @@ describe('Terminal details: the agent session a pane is in (terminal.status agen
     const [agent, shell] = workspace(db, '1x2').panes
     const { terminals } = run(db)
     try {
-      await terminals.start({ workspaceId: agent.workspaceId, paneId: agent.id, agentCommand: 'codex', disableRtk: true, resumeAgent: true })
+      await terminals.start({ workspaceId: agent.workspaceId, paneId: agent.id, agentCommand: 'codex', resumeAgent: true })
       expect(terminals.status(agent.id).agentSession).toEqual({ source: 'notFound', message: { code: 'agents.session.notFound', params: {} } })
       // A pane with no agent running and no session recorded: nothing to show.
       expect(terminals.status(shell.id).agentSession).toBeUndefined()
@@ -270,7 +268,7 @@ describe('restart (terminal.restart)', () => {
     claudeTranscript(A)
     const first = run(db)
     try {
-      await first.terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
+      await first.terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', resumeAgent: true })
       expect(first.pty.spawn).toHaveBeenLastCalledWith('claude', ['--resume', A], expect.anything())
       await first.terminals.restart({ paneId: pane.id, resume: false })
       const [file, args] = first.pty.spawn.mock.calls.at(-1)!
@@ -286,7 +284,7 @@ describe('restart (terminal.restart)', () => {
       first.terminals.stopAll()
       // The app crashes; the next run goes back to the fresh session, never to A.
       const second = run(db)
-      await second.terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
+      await second.terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', resumeAgent: true })
       expect(second.pty.spawn).toHaveBeenLastCalledWith('claude', ['--resume', fresh], expect.anything())
       second.terminals.stopAll()
     } finally { db.close() }
@@ -300,7 +298,7 @@ describe('restart (terminal.restart)', () => {
     const { terminals } = run(db)
     try {
       // Codex gets no session id from main, so this pane has nothing recorded.
-      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'codex', disableRtk: true, resumeAgent: true })
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'codex', resumeAgent: true })
       await terminals.restart({ paneId: pane.id, resume: false })
       expect(terminals.status(pane.id).agentResume).toEqual({ outcome: 'nothingRecorded' })
       expect(recorded(db, other.id)).toEqual({ session_id: B })
@@ -315,7 +313,7 @@ describe('restart (terminal.restart)', () => {
     codexRollout(B)
     const { pty, terminals } = run(db)
     try {
-      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'codex', disableRtk: true, resumeAgent: true })
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'codex', resumeAgent: true })
       await terminals.restart({ paneId: pane.id })
       expect(pty.spawn).toHaveBeenCalledTimes(2)
       expect(pty.spawn).toHaveBeenLastCalledWith('codex', ['resume', B, '--no-alt-screen'], expect.anything())
@@ -338,7 +336,7 @@ describe('a resume that cannot load (exits within RESUME_LOAD_MS)', () => {
     claudeTranscript(A)
     const first = run(db)
     try {
-      await first.terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
+      await first.terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', resumeAgent: true })
       expect(first.pty.spawn).toHaveBeenLastCalledWith('claude', ['--resume', A], expect.anything())
       clock += RESUME_LOAD_MS - 1
       first.pty.instances.at(-1)!.emitExit(1)
@@ -361,7 +359,7 @@ describe('a resume that cannot load (exits within RESUME_LOAD_MS)', () => {
       first.terminals.stopAll()
       // And after a crash, the next run goes back to it too.
       const second = run(db)
-      await second.terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
+      await second.terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', resumeAgent: true })
       expect(second.pty.spawn).toHaveBeenLastCalledWith('claude', ['--resume', fresh], expect.anything())
       second.terminals.stopAll()
     } finally { db.close() }
@@ -375,7 +373,7 @@ describe('a resume that cannot load (exits within RESUME_LOAD_MS)', () => {
     codexRollout(B)
     const { pty, terminals } = run(db)
     try {
-      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'codex', disableRtk: true, resumeAgent: true })
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'codex', resumeAgent: true })
       clock += RESUME_LOAD_MS
       pty.instances.at(-1)!.emitExit(0)
       expect(recorded(db, pane.id)).toEqual({ session_id: B })
@@ -391,7 +389,7 @@ describe('a resume that cannot load (exits within RESUME_LOAD_MS)', () => {
     const pane = ws.panes[0]
     const { pty, terminals } = run(db)
     try {
-      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', resumeAgent: true })
       const assigned = pty.spawn.mock.calls.at(-1)![1][1]
       pty.instances.at(-1)!.emitExit(1)
       expect(recorded(db, pane.id)).toEqual({ session_id: assigned })
@@ -415,7 +413,7 @@ describe('T54 · the permission mode a Claude session started in comes back with
     try {
       // Off (the default): no escalation, and the pane says it resumed asking, pointing at the setting.
       expect(first.terminals.resumeBypass()).toBe(false)
-      await first.terminals.start({ workspaceId: ws.id, paneId: pane.id, disableRtk: true, resumeAgent: true })
+      await first.terminals.start({ workspaceId: ws.id, paneId: pane.id, resumeAgent: true })
       expect(first.pty.spawn).toHaveBeenLastCalledWith('claude', ['--resume', C], expect.objectContaining({ cwd: root }))
       expect(first.terminals.status(pane.id).agentResume).toEqual({ outcome: 'resumed', agent: 'claude', sessionId: C, note: { code: 'agents.resume.bypassWithheld', params: {} } })
     } finally { first.terminals.stopAll() }
@@ -423,7 +421,7 @@ describe('T54 · the permission mode a Claude session started in comes back with
     try {
       // On: it comes back as it was, with no note.
       expect(second.terminals.setResumeBypass(true)).toBe(true)
-      await second.terminals.start({ workspaceId: ws.id, paneId: pane.id, disableRtk: true, resumeAgent: true })
+      await second.terminals.start({ workspaceId: ws.id, paneId: pane.id, resumeAgent: true })
       expect(second.pty.spawn).toHaveBeenLastCalledWith('claude', ['--dangerously-skip-permissions', '--resume', C], expect.objectContaining({ cwd: root }))
       expect(second.terminals.status(pane.id).agentResume).toEqual({ outcome: 'resumed', agent: 'claude', sessionId: C })
     } finally { second.terminals.stopAll(); db.close() }
@@ -436,12 +434,12 @@ describe('T54 · the permission mode a Claude session started in comes back with
     const { sessions, pty, terminals } = run(db)
     sessions.record(pane.id, 'claude', C, 'hook', 'bypassPermissions')
     try {
-      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', agentArgs: ['--resume', C], disableRtk: true })
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', agentArgs: ['--resume', C] })
       expect(pty.spawn).toHaveBeenLastCalledWith('claude', ['--resume', C], expect.anything())
       expect(terminals.status(pane.id).agentResume).toMatchObject({ outcome: 'resumed', note: { code: 'agents.resume.bypassWithheld' } })
       terminals.stopAll()
       terminals.setResumeBypass(true)
-      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', agentArgs: ['--resume', C], disableRtk: true })
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', agentArgs: ['--resume', C] })
       expect(pty.spawn).toHaveBeenLastCalledWith('claude', ['--dangerously-skip-permissions', '--resume', C], expect.anything())
     } finally { terminals.stopAll(); db.close() }
   })
@@ -455,7 +453,7 @@ describe('T54 · the permission mode a Claude session started in comes back with
       claudeTranscript(C)
       const { pty, terminals } = run(db)
       try {
-        await terminals.start({ workspaceId: ws.id, paneId: pane.id, disableRtk: true, resumeAgent: true })
+        await terminals.start({ workspaceId: ws.id, paneId: pane.id, resumeAgent: true })
         expect(pty.spawn, String(mode)).toHaveBeenLastCalledWith('claude', [...flags, '--resume', C], expect.anything())
       } finally { terminals.stopAll(); db.close() }
     }
@@ -469,7 +467,7 @@ describe('T54 · the permission mode a Claude session started in comes back with
     claudeTranscript(C)
     const { pty, terminals } = run(db)
     try {
-      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude --permission-mode plan', disableRtk: true, resumeAgent: true })
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude --permission-mode plan', resumeAgent: true })
       expect(pty.spawn).toHaveBeenLastCalledWith('claude', ['--permission-mode', 'plan', '--resume', C], expect.anything())
     } finally { terminals.stopAll(); db.close() }
   })
@@ -481,10 +479,10 @@ describe('T54 · the permission mode a Claude session started in comes back with
     const { sessions, pty, terminals } = run(db)
     sessions.record(pane.id, 'claude', C, 'hook', 'acceptEdits')
     try {
-      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', agentArgs: ['--resume', C], disableRtk: true })
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', agentArgs: ['--resume', C] })
       expect(pty.spawn).toHaveBeenLastCalledWith('claude', ['--permission-mode', 'acceptEdits', '--resume', C], expect.anything())
       terminals.stopAll()
-      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', agentArgs: ['--resume', A], disableRtk: true })
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'claude', agentArgs: ['--resume', A] })
       expect(pty.spawn).toHaveBeenLastCalledWith('claude', ['--resume', A], expect.anything())
     } finally { terminals.stopAll(); db.close() }
   })
@@ -497,7 +495,7 @@ describe('T54 · the permission mode a Claude session started in comes back with
     sessions.record(pane.id, 'claude', C, 'hook', 'bypassPermissions')
     terminals.setResumeBypass(true)
     try {
-      await terminals.start({ workspaceId: ws.id, paneId: pane.id, launch: { executable: 'claude', args: ['--resume', C] }, disableRtk: true })
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, launch: { executable: 'claude', args: ['--resume', C] } })
       expect(pty.spawn.mock.calls.at(-1)![1]).not.toContain('--dangerously-skip-permissions')
     } finally { terminals.stopAll(); db.close() }
   })
@@ -531,7 +529,7 @@ describe('what survives the crash', () => {
     claudeTranscript(A)
     const { pty, terminals } = run(db)
     try {
-      await terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, agentCommand: 'claude', disableRtk: true, resumeAgent: true })
+      await terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, agentCommand: 'claude', resumeAgent: true })
       expect(pty.spawn).toHaveBeenLastCalledWith('claude', ['--resume', A], expect.anything())
     } finally { terminals.stopAll(); db.close() }
   })
@@ -541,9 +539,9 @@ describe('what survives the crash', () => {
     const ws = workspace(db, '1x2')
     const { pty, terminals } = run(db)
     try {
-      await terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, agentCommand: 'claude --continue', disableRtk: true })
+      await terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, agentCommand: 'claude --continue' })
       expect(pty.spawn).toHaveBeenLastCalledWith('claude', ['--continue'], expect.anything())
-      await terminals.start({ workspaceId: ws.id, paneId: ws.panes[1].id, agentCommand: 'claude -p hello', disableRtk: true })
+      await terminals.start({ workspaceId: ws.id, paneId: ws.panes[1].id, agentCommand: 'claude -p hello' })
       expect(pty.spawn).toHaveBeenLastCalledWith('claude', ['-p', 'hello'], expect.anything())
       expect(db.prepare('SELECT COUNT(*) AS n FROM pane_agent_sessions').get()).toEqual({ n: 0 })
     } finally { terminals.stopAll(); db.close() }

@@ -535,17 +535,6 @@
       "releases": "Abrir as versões",
       "install": "Reiniciar e instalar"
     },
-    "rtk": {
-      "title": "Atualização do RTK",
-      "updatingLabel": "RTK atualizando",
-      "availableLabel": "Atualização {{version}} do RTK disponível",
-      "updating": "RTK {{version}} atualizando",
-      "available": "RTK {{version}} disponível",
-      "installed": "Instalado: {{version}} · auxiliar que economiza tokens.",
-      "unknown": "desconhecida (legado)",
-      "updatingButton": "Atualizando…",
-      "update": "Atualizar o RTK"
-    },
     "activity": {
       "available": "OXESpace {{version}} está disponível",
       "availableDetail": "Abra a atualização para baixá-la.",
