@@ -42,6 +42,6 @@ describe('F11 · contract', () => {
   })
 
   test('A68: the proxy\'s failed start is a C3 code', () => {
-    for (const code of ['hostsProxy.portInUse', 'hostsProxy.failed']) expect(MESSAGE_CODES as readonly string[], code).toContain(code)
+    for (const code of ['hostsProxy.portInUse', 'hostsProxy.failed', 'hostsProxy.userProxy']) expect(MESSAGE_CODES as readonly string[], code).toContain(code)
   })
 })

@@ -1,6 +1,6 @@
 # CCR: F11 backend — the usage count, the outgoing hosts proxy, what ships, the build diary (1.5.0)
 
-Owner: BACKEND. Status: frozen tests for review (M5: HML, DESIGN, FE; SECURITY: TECH LEAD for the proxy).
+Owner: BACKEND. Status: frozen tests; TECH LEAD (SECURITY S1–S6) and DESIGN approved; HML 724-1..5 in.
 
 **Criteria:**
 - **With backend work:** A65 (N7), A68 (H4), A39 and A41 (what ships, as guards) and A66 (N8).
@@ -12,12 +12,12 @@ Owner: BACKEND. Status: frozen tests for review (M5: HML, DESIGN, FE; SECURITY: 
 
 **Contract:** DESIGN's `1.5.0-f11-design.md` "Data each screen needs", with FRONTEND's names (08/11).
 
-**Frozen tests:** `tests/acceptance/f11/`: 18 tests in 4 files.
+**Frozen tests:** `tests/acceptance/f11/`: 25 tests in 4 files.
 
 | File | Tests | Runs on |
 |---|---|---|
 | `a65-usage-count.native.test.ts` | 5 | Electron's Node, a migrated DB, an injected clock, fetch watched |
-| `a68-hosts-proxy.native.test.ts` | 6 | Electron's Node, real loopback sockets |
+| `a68-hosts-proxy.native.test.ts` | 13 | Electron's Node, real loopback sockets |
 | `a39-release.test.ts` | 4 | Node, the builder config and the diary pages as data |
 | `f11-contract.test.ts` | 3 | Node |
 
@@ -40,23 +40,43 @@ Owner: BACKEND. Status: frozen tests for review (M5: HML, DESIGN, FE; SECURITY: 
 
 **Nothing is sent:** there are no network calls, and the test watches `fetch`.
 
-## A68 · The outgoing hosts proxy (SECURITY)
+## A68 · The outgoing hosts proxy (SECURITY: TECH LEAD S1–S6, HML 724-1..5)
 
-**Off by default.** When on, it listens on 127.0.0.1 only.
+**Off by default.**
 
-**What reaches agents:** agents started from then on get `HTTP(S)_PROXY` with a per-origin credential, so each connection is attributed to its conversation. A pane, or a connection without credentials, is "Outside a conversation". Agents that are already running are unchanged.
+**Each agent start gets its own credential.** `grant(origin)` → `{ env, revoke }`.
+- It sets `HTTP_PROXY`, `HTTPS_PROXY` and their lowercase forms, carrying a random secret that's kept in memory only.
+- It also sets `NO_PROXY` and `no_proxy`: the person's own entries plus `localhost`, `127.0.0.1` and `::1`, so OXESpace's own servers never go through it.
+- The agent revokes the credential when it ends.
 
-**CONNECT:** it logs host and port, then answers 200 and splices both sockets without reading or changing a byte. There's no certificate and no TLS interception.
+**S1 · Not an open proxy.** No credential, a wrong one or a revoked one gets 407, and nothing is forwarded.
 
-**Plain HTTP:** it's forwarded, and logged by host and port.
+**S2 · Loopback only.** It binds 127.0.0.1 (or ::1) on a random port. A non-loopback interface can't connect.
 
-**It never blocks.** An unreachable target answers 502 and is still logged.
+**S3 · It never strands agents.**
+- A crashed listener comes back on the same port within 2 s.
+- If that port was taken meanwhile, the state is failed with `hostsProxy.portInUse { port }`, and Try again takes it back.
+- Turning it off grants no new credentials, but it keeps serving the ones already granted as a silent pass-through (it logs nothing more) until the last one is revoked. Then it stops.
 
-**Never stored, anywhere:** a path, a query, a header or a body. The test dumps every table to check.
+**S4 · The person's own proxy is never silently replaced.** If the person's environment already has a proxy variable, the state is failed with `hostsProxy.userProxy`, and nothing is granted.
 
-**Failure is a state.** A port that's taken, or any other failure, gives `state: failed` with `reason` (C3 `hostsProxy.portInUse { port }` or `hostsProxy.failed`). Agents then get no proxy environment, and `retry()` starts it again.
+**S5 · Limits.**
+- An idle timeout, by default at least 10 minutes (for WebSocket, SSE and streamed responses).
+- A cap on concurrent connections: past it, the answer is 503.
+- Bodies are streamed, never buffered. A 64 MiB upload keeps memory growth under 32 MiB.
 
-**The data:** `status()` → `{ enabled, state, reason?, hosts: [{ host, port, count, lastSeen, firstSeen, conversationId?, conversationTitle? }] }`, newest first. Also `setEnabled`, `clear`, `retry` and `envFor`.
+**S6 · Retention and audit.** The list keeps 90 days and at most a row cap. On, off and clear are audited in `person_action_audit` without content.
+
+**What it does with traffic:**
+- **CONNECT** is spliced byte for byte: no certificate, no TLS interception.
+- **Plain HTTP** is streamed with `Proxy-Authorization` and `Proxy-Connection` removed, and everything else unchanged (HML 724-1).
+- It never blocks a host. An unreachable target answers 502 and is still logged.
+
+**Never stored or logged,** in the DB or the logger: a path, a query, a header value, a body or a credential (HML 724-2).
+
+**A row** is keyed by (host, port, conversation): `{ host, port, count, lastSeen, firstSeen, conversationId?, conversationTitle? }`.
+
+**For DESIGN's copy (HML):** Node's built-in fetch, ws clients and ssh/git@ ignore HTTP_PROXY. The panel should say "programs that use HTTP_PROXY", so the list isn't read as everything.
 
 ## A39–A41 · What ships (guards)
 
@@ -84,7 +104,7 @@ It's written at F11's close, from the OXE ledger, the scorecard, the sign-off fi
 
 **MCP:** both groups are forbidden (they're the person's settings). They're never in `REMOTE_COMMANDS`.
 
-**C3 codes:** `hostsProxy.portInUse`, `hostsProxy.failed`.
+**C3 codes:** `hostsProxy.portInUse`, `hostsProxy.failed`, `hostsProxy.userProxy`.
 
 ## SECURITY (TECH LEAD)
 
