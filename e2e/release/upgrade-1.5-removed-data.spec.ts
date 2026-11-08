@@ -154,7 +154,7 @@ test('A40 1.4.3 with removed-feature data: seed', async () => {
     // R15/R14: the person last worked in OxePost; 1.4.3 remembers the view and 1.5.0 must open OxeCode instead.
     await page.locator('button[data-app-mode="post"]').first().click({ timeout: 5_000 }).catch(() => undefined)
     await page.waitForTimeout(1_000)
-    seeded.lastView = await page.locator('button[data-app-mode][aria-pressed="true"]').getAttribute('data-app-mode').catch(() => null)
+    seeded.lastView = await page.locator('button[data-app-mode][aria-pressed="true"]').getAttribute('data-app-mode', { timeout: 5_000 }).catch(() => null)
     await page.waitForTimeout(3_000)
   } finally { await close(app) }
   // AI Memory: one note, as 1.4.3's own tables hold it.
@@ -186,7 +186,7 @@ test('A40 install 1.5.0 over it: the band, the dialog and the export', async () 
   const { app, page } = await openInstalled()
   try {
     result.version = await versionOf(page)
-    result.openedIn = await page.locator('button[data-app-mode][aria-pressed="true"]').getAttribute('data-app-mode').catch(() => null)
+    result.openedIn = await page.locator('button[data-app-mode][aria-pressed="true"]').getAttribute('data-app-mode', { timeout: 5_000 }).catch(() => null)
     expect.soft(result.openedIn, `a remembered ${(seeded as { lastView?: string }).lastView ?? 'post'} view opens OxeCode`).toBe('code')
     expect.soft(await page.locator('button[data-app-mode]').evaluateAll(b => b.map(x => x.getAttribute('data-app-mode'))), 'three modes').toEqual(['code', 'thread', 'data'])
     if (process.env.OXESPACE_EXPECT_VERSION) expect.soft(result.version, 'the candidate is installed').toBe(process.env.OXESPACE_EXPECT_VERSION)
@@ -202,10 +202,10 @@ test('A40 install 1.5.0 over it: the band, the dialog and the export', async () 
 
     // The band: one, under the title bar, announced politely, saying the data was saved.
     await expect.soft(band(page), 'one band').toHaveCount(1, { timeout: 15_000 })
-    result.bandText = (await band(page).first().innerText().catch(() => '')).replace(/\s+/g, ' ')
+    result.bandText = (await band(page).first().innerText({ timeout: 2_000 }).catch(() => '')).replace(/\s+/g, ' ')
     expect.soft(String(result.bandText), 'the band says the data was saved').toContain(BAND_SAVED.en)
     expect.soft(String(result.bandText), 'not the failure wording').not.toContain(BAND_NOT_SAVED)
-    expect.soft(await band(page).first().getAttribute('aria-live').catch(() => null) ?? 'polite', 'announced politely').toBe('polite')
+    expect.soft(await band(page).first().getAttribute('aria-live', { timeout: 2_000 }).catch(() => null) ?? 'polite', 'announced politely').toBe('polite')
     expect.soft(await page.getByRole('dialog').count(), 'not a modal: no dialog on start').toBe(0)
     await page.screenshot({ path: join(STATE, 'a40-band.png') }).catch(() => undefined)
     // Without a band there is nothing to open: the dialog checks then fail fast instead of waiting out the test.
@@ -222,7 +222,7 @@ test('A40 install 1.5.0 over it: the band, the dialog and the export', async () 
     if (reached) await page.keyboard.press('Enter'); else if (hasBand) await band(page).getByRole('button', { name: 'See what changed' }).click({ timeout: 5_000 }).catch(() => undefined)
     const dialog = page.getByRole('dialog', { name: 'What changed in 1.5' })
     await expect.soft(dialog, 'the dialog opens').toBeVisible({ timeout: hasBand ? 10_000 : 1_000 })
-    const dialogText = (await dialog.innerText().catch(() => '')).replace(/\s+/g, ' ')
+    const dialogText = (await dialog.innerText({ timeout: 2_000 }).catch(() => '')).replace(/\s+/g, ' ')
     result.dialogText = dialogText.slice(0, 1500)
     for (const row of ROWS) expect.soft(dialogText, `row ${row}`).toMatch(row)
     const fileName = state?.file?.split(/[\\/]/).pop() ?? '(none)'
