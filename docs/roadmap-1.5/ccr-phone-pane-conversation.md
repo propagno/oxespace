@@ -134,10 +134,10 @@ export interface RemotePaneConversationEvent { changed: true }
   - **Scroll:** a pure `follow(atBottom)` decision, as in T100: at the bottom it follows new items, otherwise it never jumps. The scrolling itself is UI.
   - **Switching views** (MOBILE): each view keeps its own position while that terminal is open. Conversation keeps its scroll and loaded pages; Screen keeps its follow-the-bottom state (T97). Leaving the terminal resets both.
   - Messages render like OxeChat's user and assistant bubbles. A cut message (`truncated`) says so, as in threads.
-  - The header says "From Claude Code's own session" / "From Codex's own session". A refresh control reloads the newest page.
+  - The caption under the control says "Claude Code's conversation · read only" / "Codex's conversation · read only", with a **Live** mark while following. **Pull to refresh** reloads the newest page.
 - **No conversation:** on a pane without `conversation`, there's no toggle; the screen stays as today.
   - If the field disappears while open (the agent exited and no session is readable), Conversation shows a Notice: "This terminal's conversation isn't available any more. The screen is still live."
-  - **A new session is not "unavailable"** (HML-658-4). When a page's `epoch` differs from the held one (the agent started a new conversation, e.g. `/clear`), the held items are replaced by the new page and an inline Notice says "The agent started a new conversation" (pt-BR "O agente começou uma nova conversa"; DESIGN may adjust). The view already shows the new conversation, so there's no button.
+  - **A new session is not "unavailable"** (HML-658-4). When a page's `epoch` differs from the held one (the agent started a new conversation, e.g. `/clear`), the held items are replaced by the new page and an **inline marker line** (not a Notice card; DESIGN, AC M6.15) says "The agent started a new conversation" (pt-BR "O agente começou uma nova conversa"; DESIGN may adjust). The view already shows the new conversation, so there's no button.
   - `no-conversation` gives the same Notice.
   - `conversation-changed` reloads from the newest page once, then shows the Notice if it fails again.
 
@@ -180,7 +180,7 @@ export interface RemotePaneConversationEvent { changed: true }
 1. `conversation: true` → the toggle shows; `conversation: false` → none;
 2. "Load earlier" walks pages to `cursor: null` with no duplicate ids, and the held list is in the asserted order (page order, oldest first), never sorted by `seq` across pages;
 3. `conversation-changed`:
-   - `reason: 'new-session'`, or a page whose `epoch` differs from the held one: load the newest page, replace the held items, and show the inline "The agent started a new conversation", never the unavailable Notice;
+   - `reason: 'new-session'`, or a page whose `epoch` differs from the held one: load the newest page, replace the held items, and show the inline marker line "The agent started a new conversation", never the unavailable Notice;
    - `reason: 'rewritten'` (or no or unknown reason): reload once, then show the unavailable Notice if it fails again;
 4. the field absent (an older desktop) → no toggle;
 5. a `changed` event fetches the newest page:
@@ -207,6 +207,6 @@ That records the session exactly as Claude Code would. The appends are then plai
 
 ## Open questions
 
-- **For DESIGN:** a toggle or a tab? The wording of the header and the Notice.
+- **Answered (DESIGN, 07/11):** a segmented control, not tabs, with the copy in DESIGN's review on #658 (ACs M6.11–M6.15).
 - **Answered (MOBILE, 07/11):** switching views keeps each view's own position while the terminal is open (§ What the phone shows).
 - **Decided (TECH LEAD, 07/11):** the live tail is in v1, minimal and content-free (§ Following it live).
