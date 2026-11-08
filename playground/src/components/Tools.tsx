@@ -7,7 +7,7 @@ import { S, emit, run, task, prov, plural, toast, resolve, raisePush } from '../
 import { Icon, Av, Kbd, MI, menuBtn, StateBlock, toastSoon } from './ui'
 import { MENUS, railGo } from './Shell'
 import { syncScreen, goScreen } from '../screens/registry'
-import { HttpPanel, ContainersPanel, PrSummary } from './Cockpit'
+import { HttpPanel, ContainersPanel, PrSummary, AzurePrTab } from './Cockpit'
 
 /* ---------------------------------------------------------------- shared pieces */
 const KW = /\b(UPDATE|SET|FROM|WHERE|AND|SELECT|JOIN|ON|LIMIT|GROUP BY|EXPLAIN|ANALYZE|CREATE|TABLE|INDEX|CONCURRENTLY|PRIMARY|KEY|NOT|NULL|DEFAULT|IS|IN|AS|ANY|count|now)\b/
@@ -56,9 +56,10 @@ export function ToolTab ({ t, tab }: { t: Task; tab: string }) {
 }
 
 function PrTab ({ t }: { t: Task }) {
+  if (S.prAzure) return <AzurePrTab tid={t.id} />
   const pr = t.pr ? D.prs[t.pr] : null
   if (pr) return <div className="scroll"><div className="detail" style={{ maxWidth: 860, padding: '18px 20px' }}>
-    <div className="row"><Icon n="pr" s={16} /><h3>{pr.title} <span className="muted">#{pr.n}</span></h3></div>
+    <div className="row"><Icon n="pr" s={16} /><h3>{pr.title} <span className="muted">#{pr.n}</span></h3><span className="sp" /><span className="prov-chip">GitHub</span></div>
     <div className="row" style={{ fontSize: 12, flexWrap: 'wrap' }}><span className={'pill ' + (pr.state === 'merged' ? 'done' : 'run')}>{pr.state === 'merged' ? 'Merged' : 'Open'}</span><span className="mono">{pr.head}</span><Icon n="right" s={12} /><span className="mono">{pr.base}</span><span className="muted">{plural(pr.commits, 'commit')} · {plural(pr.files, 'file')} · <span style={{ color: 'var(--success-fg)' }}>+{pr.add}</span> <span style={{ color: 'var(--danger-fg)' }}>−{pr.del}</span></span></div>
     <div className="ssec"><div className="ssec-h"><h2>Checks</h2><span className="muted" style={{ fontSize: 12 }}>{pr.checks.filter(c => c[1] === 'pass').length} of {pr.checks.length} passed</span></div>{pr.checks.map(([n, s, d]) => <div key={n} className="srow" style={{ padding: '8px 16px' }}><div className="row">{s === 'pass' ? <span style={{ color: 'var(--success)' }}><Icon n="check" /></span> : <span className="spin" />}<span>{n}</span></div><span className="num muted">{d}</span></div>)}</div>
     <div className="ssec"><div className="ssec-h"><h2>Reviewers</h2></div>{pr.reviewers.map(([n, s]) => <div key={n} className="srow" style={{ padding: '8px 16px' }}><span>{n}</span><span className={'pill ' + (s === 'approved' ? 'done' : 'neutral')}>{s === 'approved' ? 'Approved' : 'Review requested'}</span></div>)}</div>

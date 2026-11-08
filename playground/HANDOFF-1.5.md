@@ -38,6 +38,8 @@ below disagree, this one wins.
 | `#os-notification` | A system notification for a request; it opens, never approves | Electron `Notification` | N6 |
 | `#task-pr` | "What the agent did" summary for the PR description | activity read model | N5 |
 | `#task-running` | Collision chip in the header: another conversation edits the same file | T72 places | N3 |
+| `#task-pr-azure` | The Pull request tab for an Azure DevOps (cloud) remote: pipelines and policies as checks, reviewers with their vote, `AB#` work item, Complete; State › Error shows "Install the Azure CLI". `#task-pr` shows a GitHub chip | a PR provider: `gh` today, `az repos`/`az pipelines` added, picked from the remote URL | G1, G2 |
+| `#code-rail` | OxeCode sidebar collapsed: one button per workspace in its color, the sun when one needs you. Same button and place as OxeChat (right of the title open, top of the rail collapsed); Ctrl B in both | the 1.4 sidebar | T61 |
 
 **Gone from the playground:** the OxePost and OxePod modes (now panels), the OxeQuery "what agents ran" view (a badge
 opens Agent activity), side chat, `/approve` (the bar has `/pending` and `/skill`), "Snapshot, then approve" (the SQL

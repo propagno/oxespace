@@ -74,7 +74,7 @@ function Side () {
     {s.desc ? <p>{s.desc}</p> : null}
     {s.plan.length ? <div><h3 className="side-h">Plan items</h3><div className="pg-plan">{s.plan.map(p => <span key={p}>{p}</span>)}</div></div> : null}
     {s.tries.length ? <div><h3 className="side-h">Try it</h3><ul className="pg-try">{s.tries.map(t => <li key={t}>{t}</li>)}</ul></div> : null}
-    <div><h3 className="side-h">Keyboard</h3><div className="keys"><kbd>Ctrl K</kbd><span>Command palette</span><kbd>N</kbd><span>New task</span><kbd>Ctrl B</kbd><span>Collapse the task list</span><kbd>D</kbd><span>Deny (the default)</span><kbd>A</kbd><span>Approve; hold when irreversible</span><kbd>J K</kbd><span>Move in the approval queue</span><kbd>L</kbd><span>Back to now from a checkpoint</span><kbd>Esc</kbd><span>Close</span></div></div>
+    <div><h3 className="side-h">Keyboard</h3><div className="keys"><kbd>Ctrl K</kbd><span>Command palette</span><kbd>N</kbd><span>New task</span><kbd>Ctrl B</kbd><span>Collapse the sidebar</span><kbd>D</kbd><span>Deny (the default)</span><kbd>A</kbd><span>Approve; hold when irreversible</span><kbd>J K</kbd><span>Move in the approval queue</span><kbd>L</kbd><span>Back to now from a checkpoint</span><kbd>Esc</kbd><span>Close</span></div></div>
     <div className="idx"><h3 className="side-h">All screens <small>{SCREENS.length}</small></h3>{GROUPS.map(g => <div key={g}><h4>{g}</h4><ul>{SCREENS.filter(x => x.group === g).map(x => <li key={x.id}><button aria-current={x.id === S.screen} onClick={() => goScreen(x.id)}><span>{x.name}</span><span className={'pg-tag ' + tagClass(x)}>{tagLabel(x)}</span></button></li>)}</ul></div>)}</div>
     <details><summary className="side-h">What changes in Mandacaru 1.5</summary><table className="toks"><tbody>{D.tokenChanges.map(t => <tr key={t.tok}><td>{t.sw.map(c => <span key={c} className="sw" style={{ background: c }} />)}{t.tok}</td><td>{t.what}</td></tr>)}</tbody></table></details>
     <p className="pg-note">1.5.0, the cockpit: see, control, audit and recover what agents do. It opens on Agora. OxePost and OxePod are panels now; mature tools are integrated, not rebuilt. Mock data for a fictional company; nothing talks to a model, a database or the network.</p></aside>
@@ -87,7 +87,7 @@ function useKeys () {
       const ap = S.overlay?.type === 'approve' ? S.overlay.id : S.area === 'queue' && !S.overlay ? S.queue.filter(q => !S.resolved[q])[Math.min(S.queueSel, S.queue.filter(q => !S.resolved[q]).length - 1)] : null
       const mod = e.ctrlKey || e.metaKey
       if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); rememberFocus(); S.overlay = { type: 'pal', query: '', sel: 0 }; emit(); return }
-      if (mod && e.key.toLowerCase() === 'b') { e.preventDefault(); S.sbCol = !S.sbCol; syncScreen(); emit(); return }
+      if (mod && e.key.toLowerCase() === 'b') { e.preventDefault(); if (S.area === 'mode' && S.mode2 === 'code') S.codeSbCol = !S.codeSbCol; else S.sbCol = !S.sbCol; syncScreen(); emit(); return }
       if (mod && e.key === ',') { e.preventDefault(); goScreen('settings-general'); return }
       if (mod && !e.shiftKey && !e.altKey && /^[1-3]$/.test(e.key)) { e.preventDefault(); goMode(MODES[+e.key - 1][0]); return }
       if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'n') { e.preventDefault(); rememberFocus(); S.overlay = { type: 'newtask', text: '' }; emit(); return }

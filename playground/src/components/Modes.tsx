@@ -55,7 +55,7 @@ export function CodeMode () {
   const visible = (i: number) => max != null ? i === max : focusTabs ? i === Math.min(S.code.focus, panes.length - 1) : i < rows * cols
   const shown = panes
   const dock = S.codeDock as string | undefined
-  return <div className="mode-split code-split">
+  return <div className={'mode-split code-split' + (S.codeSbCol ? ' sb-col' : '')}>
     <CodeSidebar panesOf={panesOf} onPane={(ws, i) => { S.ws = ws; S.code.focus = i; if (S.codeMax != null) S.codeMax = i }} />
     <div className={'mode code' + (focusTabs && panes.length > 1 && max == null ? (tooMany ? ' tabs fit' : ' tabs') : '')}>
       <div className="mode-h"><span style={{ color: 'var(--k-shell)' }}><Icon n="term" s={16} /></span><h2 className="mt">OxeCode</h2><span className="wschip" data-ws={wsColor(curWs())}><span className="wsdot" />{wsName(curWs())}</span><span className="muted" style={{ fontSize: 12 }}>{panes.length === 1 ? '1 pane' : `${panes.length} panes`}</span><span className="sp" />

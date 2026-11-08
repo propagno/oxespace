@@ -162,7 +162,24 @@ export function PrSummary ({ tid }: { tid: string }) {
   if (qs.length) rows.push(['db', <>{qs.length} database statements</>])
   if (calls.length) rows.push(['net', <>{calls.length} HTTP calls{calls.some(c => c.prod) ? ', 1 to production' : ''}</>])
   if (cs.length) rows.push(['box', <>{cs.length} containers started</>])
-  rows.push(['shield', <>{Object.keys(S.resolved).length || 1} approvals by you</>])
+  const nAp = Object.keys(S.resolved).length || 1
+  rows.push(['shield', <>{nAp} approval{nAp === 1 ? '' : 's'} by you</>])
   return <section className="prsum" aria-label="What the agent did"><div className="row"><b>What the agent did</b><span className="sp" /><button className="btn sm" onClick={run(() => toast('Added the summary to the description'))}><Icon n="copy" s={12} />Add to description</button></div>
     <ul>{rows.map(([ic, txt], i) => <li key={i}><Icon n={ic} s={12} />{txt}</li>)}</ul></section>
+}
+
+/* ================================================================ G1: the PR tab for an Azure DevOps remote (same layout as GitHub) */
+const AZ_CHECKS: [string, string, string][] = [['cajui-api-ci · build 2026.11.8.3', 'pass', '4 min'], ['cajui-api-ci · tests', 'pass', '6 min'], ['Policy · 2 reviewers', 'wait', '1 of 2'], ['Policy · linked work item', 'pass', 'AB#4521']]
+const AZ_REVIEWERS: [string, string][] = [['Rafael Moura', 'Approved'], ['Júlia Prado', 'Waiting for author'], ['Payments team', 'No vote']]
+export function AzurePrTab ({ tid }: { tid: string }) {
+  const t = task(tid); if (!t) return null
+  if (S.view === 'error') return <StateBlock kind="error" title="Install the Azure CLI" text="Then run az login. OXESpace uses your sign-in."><button className="btn" onClick={run(() => toast('Opens learn.microsoft.com/cli/azure in your browser'))}><Icon n="ext" s={12} />How to install</button></StateBlock>
+  const vote = (v: string) => v === 'Approved' ? 'done' : v === 'Waiting for author' ? 'needs' : 'neutral'
+  return <div className="scroll"><div className="detail" style={{ maxWidth: 860, padding: '18px 20px' }}>
+    <div className="row"><Icon n="pr" s={16} /><h3>{t.title} <span className="muted">!4521</span></h3><span className="sp" /><span className="prov-chip az">Azure DevOps</span></div>
+    <div className="row" style={{ fontSize: 12, flexWrap: 'wrap' }}><span className="pill run">Active</span><span className="mono">{t.branch}</span><Icon n="right" s={12} /><span className="mono">main</span><span className="muted mono">cajui / Payments / cajui-api</span><span className="wi">AB#4521</span></div>
+    <div className="ssec"><div className="ssec-h"><h2>Pipelines and policies</h2><span className="muted" style={{ fontSize: 12 }}>3 of 4 passed</span></div>{AZ_CHECKS.map(([n, s, d]) => <div key={n} className="srow" style={{ padding: '8px 16px' }}><div className="row">{s === 'pass' ? <span style={{ color: 'var(--success)' }}><Icon n="check" /></span> : <span className="spin" />}<span>{n}</span></div><span className="num muted">{d}</span></div>)}</div>
+    <div className="ssec"><div className="ssec-h"><h2>Reviewers</h2></div>{AZ_REVIEWERS.map(([n, v]) => <div key={n} className="srow" style={{ padding: '8px 16px' }}><span>{n}</span><span className={'pill ' + vote(v)}>{v}</span></div>)}</div>
+    <PrSummary tid={tid} />
+    <div className="row"><button className="btn" onClick={run(() => toast('Opens dev.azure.com/cajui/Payments/_git/cajui-api/pullrequest/4521'))}><Icon n="ext" s={12} />Open in Azure DevOps</button><button className="btn" onClick={run(() => toast('The agent reads the review threads and answers in the conversation'))}>Address review comments</button><span className="sp" /><button className="btn pri" disabled title="Complete happens in Azure DevOps once the policies pass">Complete</button></div></div></div>
 }

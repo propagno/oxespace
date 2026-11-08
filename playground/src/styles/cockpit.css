@@ -117,3 +117,17 @@
 /* .app input sets color: inherit; the terminal input keeps the terminal text color */
 .app .tin { color: var(--term-fg); }
 .app .tin::placeholder { color: var(--term-dim); }
+
+/* G1: which provider a PR lives on, and the Azure work item link */
+.prov-chip { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; border: 1px solid var(--border-default); font: 600 11.5px var(--f-ui); color: var(--text-secondary); }
+.prov-chip.az { border-color: var(--info-border); background: var(--info-bg); color: var(--info-fg); }
+.wi { font: 600 11.5px var(--f-mono); color: var(--info-fg); }
+
+/* OxeCode, sidebar collapsed: a rail with one button per workspace, as OxeChat's collapsed list */
+.code-split.sb-col, .app.w900 .code-split.sb-col { grid-template-columns: 52px minmax(0, 1fr); }
+.ws-rail { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 0; min-height: 0; }
+.ws-rail-l { display: grid; gap: 6px; align-content: start; flex: 1; min-height: 0; overflow: auto; padding: 2px; }
+.ws-rail-i { position: relative; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; border: 1px solid var(--border-subtle); background: var(--surface-base); cursor: pointer; }
+.ws-rail-i.active { border-color: var(--border-strong); background: var(--fill-selected, var(--accent-soft)); }
+.ws-rail-i .wsdot { width: 12px; height: 12px; }
+.ws-rail-i .sg { position: absolute; top: -3px; right: -3px; }
