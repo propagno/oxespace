@@ -969,11 +969,15 @@ jobs:
         run: npx electron-vite build
 
       - name: Pull the images the tests use
+        env:
+          ENGINE: ${{ matrix.engine }}
         run: |
-          ${{ matrix.engine }} --version
-          ${{ matrix.engine }} pull docker.io/library/postgres:16-alpine
-          ${{ matrix.engine }} pull docker.io/library/mongo:7
-          ${{ matrix.engine }} pull docker.io/library/alpine:3.20
+          # A registry 5xx on one blob is a passing outage (FL-01): each image gets 4 tries, 15, 30 then 45 s apart.
+          pull() { for try in 1 2 3 4; do "$ENGINE" pull "$1" && return 0; [ "$try" -lt 4 ] && { echo "::warning::$ENGINE pull $1 failed (try $try/4), retrying in $((15 * try)) s"; sleep $((15 * try)); }; done; echo "::error::$ENGINE pull $1 failed 4 times"; return 1; }
+          "$ENGINE" --version
+          pull docker.io/library/postgres:16-alpine
+          pull docker.io/library/mongo:7
+          pull docker.io/library/alpine:3.20
 
       - name: Live tests
         env:
@@ -1047,10 +1051,13 @@ jobs:
 
       - name: Pull the images the tests use
         run: |
-          docker pull docker.io/library/postgres:${{ matrix.pg }}
-          docker pull ${{ steps.mongo.outputs.image }}
-          docker pull docker.io/library/postgres:16-alpine
-          docker pull docker.io/library/alpine:3.20
+          ENGINE=docker
+          # A registry 5xx on one blob is a passing outage (FL-01): each image gets 4 tries, 15, 30 then 45 s apart.
+          pull() { for try in 1 2 3 4; do "$ENGINE" pull "$1" && return 0; [ "$try" -lt 4 ] && { echo "::warning::$ENGINE pull $1 failed (try $try/4), retrying in $((15 * try)) s"; sleep $((15 * try)); }; done; echo "::error::$ENGINE pull $1 failed 4 times"; return 1; }
+          pull docker.io/library/postgres:${{ matrix.pg }}
+          pull ${{ steps.mongo.outputs.image }}
+          pull docker.io/library/postgres:16-alpine
+          pull docker.io/library/alpine:3.20
 
       - name: Live tests
         env:
