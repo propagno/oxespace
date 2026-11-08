@@ -95,7 +95,8 @@ fun HomeScreen(
 private fun Unpaired(status: DesktopStatus.Unpaired, onPair: () -> Unit) {
     if (status.revoked) {
         Text(
-            stringResource(R.string.home_revoked, status.revokedFrom ?: stringResource(R.string.home_unknown_desktop)),
+            // T96: a pairing that lapsed unused isn't "removed"; the desktop says so and the phone asks to pair again.
+            if (status.lapsed) stringResource(R.string.home_lapsed) else stringResource(R.string.home_revoked, status.revokedFrom ?: stringResource(R.string.home_unknown_desktop)),
             style = MaterialTheme.typography.bodyLarge,
             color = Oxe.colors.intentWarningFg,
             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },

@@ -80,6 +80,7 @@ import { useThreadShortcuts } from './hooks/useThreadShortcuts'
 import { setKeyboardView, useKeybindings, type AppView } from './keyboard/keybindings'
 import { projectTeam } from './app/projectTeam'
 import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZE_MAX } from './store/terminal-prefs.store'
+import { RemotePairingHost } from './components/Remote/RemotePairingHost'
 
 /** macOS keeps its native application menu; Windows/Linux draw it in the title bar. */
 // Like the palette, the menu bar waits for the command lists (T52) so it never opens short.
@@ -1065,6 +1066,8 @@ export function App(): ReactElement {
       </Suspense>
       </ErrorBoundary>
       </main>
+      {/* T86: a phone asking to pair is answered wherever the person is. */}
+      <RemotePairingHost />
       <Toaster />
       </TooltipProvider>
     </ThemeProvider>

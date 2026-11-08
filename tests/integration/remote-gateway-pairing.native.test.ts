@@ -410,6 +410,91 @@ describe('remote gateway: what the window is told (CCR F9)', () => {
     return told
   }
 
+  test('1.4.1 pairing: a code that lapses with no phone reaching this computer tells the window no-contact, once', async () => {
+    const h = harness({ offerWatchMs: 60 })
+    await h.enable()
+    const mark = h.pairingFailures.length
+    h.offer()
+    await vi.waitFor(() => expect(toldSince(h, mark)).toEqual([failed('no-contact')]))
+    await new Promise(resolve => setTimeout(resolve, 120))
+    expect(toldSince(h, mark)).toEqual([failed('no-contact')])
+  })
+
+  test('1.4.1 pairing: no no-contact when a request reached the pairing path, when the code was cancelled, or after switching off', async () => {
+    const h = harness({ offerWatchMs: 150 })
+    const target = await h.enable()
+    let mark = h.pairingFailures.length
+    h.offer()
+    await request(target, { body: 'not json' })
+    await new Promise(resolve => setTimeout(resolve, 250))
+    expect(toldSince(h, mark)).toEqual([failed('invalid')])
+    mark = h.pairingFailures.length
+    h.offer()
+    h.gateway.cancelPairing()
+    await new Promise(resolve => setTimeout(resolve, 250))
+    expect(toldSince(h, mark)).toEqual([])
+    h.offer()
+    await h.gateway.setEnabled({ enabled: false })
+    await new Promise(resolve => setTimeout(resolve, 250))
+    expect(toldSince(h, mark)).toEqual([])
+  })
+
+  test('1.4.1 pairing: status says which network profile the QR\'s interface is on; read only, and absent when unknown or off', async () => {
+    const reads: string[] = []
+    const h = harness({ networkCategories: async () => { reads.push('read'); return new Map([['lo', 'public' as const]]) } })
+    await h.enable()
+    // Read in the background, then broadcast to the window.
+    await vi.waitFor(() => expect(h.gateway.status().network).toEqual({ interfaceName: 'lo', category: 'public' }))
+    await vi.waitFor(() => expect(h.changes.some(change => change.status?.network?.category === 'public')).toBe(true))
+    h.offer()
+    await vi.waitFor(() => expect(reads.length).toBe(2))
+    await h.gateway.setEnabled({ enabled: false })
+    expect(h.gateway.status()).not.toHaveProperty('network')
+    const unknown = harness({ networkCategories: async () => { throw new Error('no PowerShell') } })
+    await unknown.enable()
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(unknown.gateway.status()).not.toHaveProperty('network')
+  })
+
+  test('1.4.1 pairing: a profile read that hangs never delays switching on or showing a code', async () => {
+    let release: (value: Map<string, 'private'>) => void = () => {}
+    const h = harness({ networkCategories: () => new Promise(resolve => { release = resolve }) })
+    const started = Date.now()
+    await h.enable()
+    h.offer()
+    expect(Date.now() - started).toBeLessThan(2_000)
+    expect(h.gateway.status()).not.toHaveProperty('network')
+    release(new Map([['lo', 'private']]))
+    await vi.waitFor(() => expect(h.gateway.status().network?.category).toBe('private'))
+  })
+
+  test('1.4.1 pairing: the question waiting for the person is in status, so a reloaded window can show it', async () => {
+    const h = harness({ promptTimeoutMs: 2_000 })
+    const target = await h.enable()
+    const qr = h.offer()
+    const waiting = h.nextPrompt()
+    const pairing = request(target, { body: JSON.stringify({ code: qr.code, deviceName: 'Pixel 8', publicKey: newPhone().publicKey }) })
+    const prompt = await waiting
+    expect(h.gateway.status().pendingPairing).toEqual(prompt)
+    h.gateway.answerPairing({ promptId: prompt.promptId, accept: false })
+    await pairing
+    expect(h.gateway.status()).not.toHaveProperty('pendingPairing')
+  })
+
+  test('1.4.1 pairing: the QR names the address the default route leaves from, not the first adapter listed', async () => {
+    const interfaces = () => ({ 'vEthernet (WSL)': [{ ...LOOPBACK.lo[0], address: '127.0.0.2', cidr: '127.0.0.2/8' }], 'Wi-Fi': [{ ...LOOPBACK.lo[0] }] })
+    const allowed = (address: string) => address === '127.0.0.1' || address === '127.0.0.2'
+    // No route known: the virtual adapter listed first still ranks after the LAN one.
+    const ranked = harness({ interfaces, isAllowedAddress: allowed })
+    await ranked.enable()
+    expect(ranked.offer().host).toBe('127.0.0.1')
+    // The route decides when it is known, whatever the names say.
+    const routed = harness({ interfaces, isAllowedAddress: allowed, routeAddress: async () => '127.0.0.2' })
+    await routed.enable()
+    expect(routed.offer().host).toBe('127.0.0.2')
+    expect(routed.gateway.status().listening?.addresses[0]).toBe('127.0.0.2')
+  })
+
   test('every failed pairing reaches the window once, with its reason only; a paired phone sends nothing', async () => {
     const h = harness({ promptTimeoutMs: 300 })
     const target = await h.enable()

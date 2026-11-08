@@ -3,7 +3,7 @@ import type { AppDatabase } from '../db'
 import type { MainMessage } from '../../../shared/messages'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { RemoteChange } from '../../../shared/types/remote'
-import type { RemoteAgentStateHost, RemoteTerminalHost, RemoteThreadHost } from '../services/remote/desktop'
+import type { RemoteAgentStateHost, RemoteAgentsHost, RemoteTerminalHost, RemoteThreadHost } from '../services/remote/desktop'
 import type { RemoteGateway } from '../services/remote/gateway'
 import { parseNoInput } from '../services/remote/inputs'
 
@@ -13,7 +13,7 @@ import { parseNoInput } from '../services/remote/inputs'
  * it, and it starts off on every launch. `hosts` are what phones may watch and do (M4, M5); the gateway gets only
  * the narrow view of them in `services/remote/desktop`.
  */
-export function registerRemoteIpc(db: AppDatabase, hosts?: { threads: Promise<RemoteThreadHost>; terminals: RemoteTerminalHost; agentState: RemoteAgentStateHost }): void {
+export function registerRemoteIpc(db: AppDatabase, hosts?: { threads: Promise<RemoteThreadHost>; terminals: RemoteTerminalHost; agentState: RemoteAgentStateHost; agents?: RemoteAgentsHost }): void {
   let gateway: Promise<RemoteGateway> | null = null
   const send = (channel: string, payload: unknown) => {
     for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(channel, payload)
@@ -21,7 +21,7 @@ export function registerRemoteIpc(db: AppDatabase, hosts?: { threads: Promise<Re
   const broadcast = (change: RemoteChange) => send(IPC_CHANNELS.remote.changed, change)
   const pairingFailed = (message: MainMessage) => send(IPC_CHANNELS.remote.pairingFailed, message)
   const load = () => gateway ??= Promise.all([import('../services/remote/gateway'), import('../services/remote/desktop'), hosts?.threads]).then(([{ RemoteGateway }, { createRemoteDesktop }, threads]) =>
-    new RemoteGateway({ db, storage: safeStorage, broadcast, pairingFailed, ...(hosts && threads ? { desktop: createRemoteDesktop({ db, threads, terminals: hosts.terminals, agentState: hosts.agentState }) } : {}) }))
+    new RemoteGateway({ db, storage: safeStorage, broadcast, pairingFailed, ...(hosts && threads ? { desktop: createRemoteDesktop({ db, threads, terminals: hosts.terminals, agentState: hosts.agentState, agents: hosts.agents }) } : {}) }))
   const handle = (channel: string, run: (gateway: RemoteGateway, input: unknown) => unknown) => {
     ipcMain.handle(channel, async (_event: IpcMainInvokeEvent, input: unknown) => {
       return run(await load(), input)
@@ -39,6 +39,16 @@ export function registerRemoteIpc(db: AppDatabase, hosts?: { threads: Promise<Re
   handle(IPC_CHANNELS.remote.rename, (gateway, input) => gateway.rename(input))
   handle(IPC_CHANNELS.remote.setDesktopName, (gateway, input) => gateway.setDesktopName(input))
   handle(IPC_CHANNELS.remote.setPhoneWrite, (gateway, input) => gateway.setPhoneWrite(input))
+  // 1.4.3 P1: the firewall check reads the port and the QR's address from the gateway; the module loads on first use.
+  const firewall = (run: (module: typeof import('../services/remote/windows-firewall'), port: number | null, address: string | undefined, env: import('../services/remote/windows-firewall').FirewallEnvironment) => unknown) =>
+    noInput(async gateway => {
+      const listening = gateway.status().listening
+      const module = await import('../services/remote/windows-firewall')
+      return run(module, listening?.port ?? null, listening?.addresses[0], { platform: process.platform, enabled: module.firewallCheckEnabled(process.env, app.isPackaged), executablePath: process.execPath, systemRoot: process.env.SystemRoot })
+    })
+  handle(IPC_CHANNELS.remote.firewallStatus, firewall((module, port, address, env) => module.inspectFirewall(port, address, env)))
+  handle(IPC_CHANNELS.remote.firewallRepair, firewall((module, port, address, env) => module.repairFirewall(port, address, env)))
+  handle(IPC_CHANNELS.remote.firewallUndo, firewall((module, port, address, env) => module.undoFirewall(port, address, env)))
 
   app.on('before-quit', () => { void gateway?.then(loaded => loaded.stop()) })
 }

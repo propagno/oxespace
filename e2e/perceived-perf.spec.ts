@@ -49,11 +49,62 @@ const BLANK_GOAL_MS = 100
  * The gate fails a surface whose median first content exceeds its baseline by more than 10%, or by more than one
  * frame (16.7 ms) for the warm numbers, which are a frame or two and would otherwise fail on frame rounding alone.
  */
+type Platform = 'linux' | 'windows'
+const PLATFORM: Platform = process.platform === 'win32' ? 'windows' : 'linux'
+/**
+ * Warm first content, per platform (FL-21, 07/11). The phase-1 warm figures above were one number for every OS and
+ * were never measured on CI: the v1.4.2 and v1.4.3 tag runs (41896646517, 41943954501), before any 1.5.0 code, already
+ * read OxeChat warm at 32–36 ms on windows and 20–32 ms on linux, against the 22 ms baseline. These are the medians of
+ * the first-round [RESULT] "content" value of every E2E job per OS on main's CI, runs 42408774338, 42411081871,
+ * 42413366602, 42416423013 and 42419199026 (n=10 per OS). SRE's read of the same window (42397720054, 42400648752,
+ * 42406086815, 42408774338, 42411081871, 42413366602, 42416423013, 42419199026) agrees. The limit is unchanged:
+ * baseline + one frame. Rebase only from CI medians like these, never from a local run.
+ */
+const PLATFORM_WARM_BASELINE_MS: Record<Platform, Record<string, number>> = {
+  linux: { 'OxeCode (Code)': 28, 'OxeChat (Thread)': 30, OxeQuery: 24.5, OxePod: 23, OxePost: 21.5, 'Settings · Agents': 27.5, 'Settings · Appearance': 32 },
+  windows: { 'OxeCode (Code)': 37.5, 'OxeChat (Thread)': 33, OxeQuery: 26, OxePod: 23.5, OxePost: 22.5, 'Settings · Agents': 28, 'Settings · Appearance': 34 }
+}
+/**
+ * Cold first content, per platform: the p90 of 16 samples per OS (FL-26, TECH LEAD 08/11), not the median. The phase-1
+ * cold budgets (335–344 ms) were set before F7 made cold fast (about 150 ms for OxeChat, about 50 for the rest), so they
+ * could not catch a regression. #668 rebased them to the median of 10 samples, which cold's spread can't hold: with 16
+ * samples, 4 windows OxeChat cold runs were over its limit. Cold varies far more than warm (OxeChat linux 96–157, windows
+ * 99–183), so the base is the p90 and the tolerance is unchanged; warm stays on the median.
+ *
+ * Samples: the round-1 [RESULT] content median (5 launches) of both E2E shards per OS on main's ci.yml runs 42419199026,
+ * 42416423013, 42413366602, 42411081871, 42408774338, 42406086815, 42400648752 and 42397720054 (n=16 per OS);
+ * p90 = statistics.quantiles(n=10, method='inclusive')[8], rounded (SRE). Over the limit in those 16: none, except one
+ * windows OxeChat sample (183 against 182.7), which the gate's confirm round absorbs.
+ *
+ * OxeChat cold only: the p95 of 42 samples per OS (FL-26 again, TECH LEAD 08/11). Main 82723908 (run 42461266242) went
+ * red on linux, 177 and 173 against 170.7. With the 16 above and 26 since (21 completed main ci.yml runs from 42421922116
+ * to 42461266242, two shards each, listed in the PR), OxeChat cold is the one surface with a long tail: linux 90–177
+ * (median 132.5, p90 157, p95 161.8), windows 99–183 (median 157, p90 166, p95 174.8). Every other surface keeps its p90
+ * with 0/42 over. p95 = statistics.quantiles(n=100, method='inclusive')[94], rounded; 0/42 over the new limits.
+ *
+ *   surface                 linux p90 → limit   windows p90 → limit   win/lin
+ *   OxeCode (Code)             52 → 68.7           58 → 74.7          1.12
+ *   OxeChat (Thread), p95     162 → 178.7         175 → 192.5         1.08
+ *   OxeQuery                   54 → 70.7           66 → 82.7          1.22
+ *   OxePod                     52 → 68.7           55 → 71.7          1.06
+ *   OxePost                    44 → 60.7           52 → 68.7          1.18
+ *   Settings · Agents          38 → 54.7           41 → 57.7          1.08
+ *   Settings · Appearance      35 → 51.7           37 → 53.7          1.06
+ */
+const PLATFORM_COLD_BASELINE_MS: Record<Platform, Record<string, number>> = {
+  linux: { 'OxeCode (Code)': 52, 'OxeChat (Thread)': 162, OxeQuery: 54, OxePod: 52, OxePost: 44, 'Settings · Agents': 38, 'Settings · Appearance': 35 },
+  windows: { 'OxeCode (Code)': 58, 'OxeChat (Thread)': 175, OxeQuery: 66, OxePod: 55, OxePost: 52, 'Settings · Agents': 41, 'Settings · Appearance': 37 }
+}
+/** A surface much slower on windows than on linux is a finding to explain, not a baseline to accept (FL-21). */
+const MAX_WINDOWS_TO_LINUX = 1.5
+/** The surfaces whose windows baseline is more than 1.5× linux's, in one phase's table; the gate fails while any is listed. */
+function platformRatioOffenders(table: Record<Platform, Record<string, number>> = PLATFORM_WARM_BASELINE_MS, phase = 'warm'): string[] {
+  return Object.keys(table.linux).filter(name => table.windows[name] !== undefined && table.windows[name] / table.linux[name] > MAX_WINDOWS_TO_LINUX)
+    .map(name => `${name} ${phase}: windows ${table.windows[name]} ms is ${(table.windows[name] / table.linux[name]).toFixed(2)}× linux ${table.linux[name]} ms (over ${MAX_WINDOWS_TO_LINUX}×; explain why in the PR before raising it)`)
+}
 const CONTENT_BASELINE_MS: Record<'cold' | 'warm', Record<string, number>> = {
-  // OxeCode cold rebased onto current main (74 ms measured on main without this branch, 2026-10-31; was 60 on the
-  // older main the phase-1 baseline used): the Code path is not this branch's, the gate keeps it from getting worse.
-  cold: { 'OxeCode (Code)': 74, 'OxeChat (Thread)': 335, OxeQuery: 335, OxePod: 341, OxePost: 336, 'Settings · Agents': 344, 'Settings · Appearance': 29 },
-  warm: { 'OxeCode (Code)': 35, 'OxeChat (Thread)': 22, OxeQuery: 22, OxePod: 14, OxePost: 20, 'Settings · Agents': 26, 'Settings · Appearance': 26 }
+  cold: PLATFORM_COLD_BASELINE_MS[PLATFORM],
+  warm: PLATFORM_WARM_BASELINE_MS[PLATFORM]
 }
 const contentLimit = (baseline: number): number => Math.max(baseline * 1.1, baseline + 16.7)
 const CAPTURE = process.env.OXESPACE_PERF_SHOTS !== '0'
@@ -407,6 +458,13 @@ async function measureRound(): Promise<void> {
   }
   reportAll()
 }
+
+test('perceived performance: windows baselines stay within 1.5× of linux', () => {
+  // FL-21's guard: a platform gap this large is a finding to explain in the PR, not a baseline to accept quietly.
+  expect(platformRatioOffenders(), 'warm baselines over the windows/linux limit').toEqual([])
+  expect(platformRatioOffenders(PLATFORM_COLD_BASELINE_MS, 'cold'), 'cold baselines over the windows/linux limit').toEqual([])
+  expect(platformRatioOffenders({ linux: { probe: 20 }, windows: { probe: 31 } })).toHaveLength(1)
+})
 
 test('perceived performance: first feedback, first content and blank time per surface', async () => {
   // A packaged_smoke_only dispatch proves the packaged binary; PR and main runs keep this gate (ci.yml).

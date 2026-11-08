@@ -55,13 +55,36 @@ export default function MonacoDiff({ original, modified, language, path, review 
       relabelFolds(dom)
       // FL-15: Monaco measures its font's character widths once. When the mono web font was still loading, the
       // line-number gutter and the cursor kept the fallback font's widths (the diff sat 16 px off, launch to launch).
-      // Load that font and measure again once it is in.
+      // Load that font and measure again once it is in, then lay the diff out again with the new widths. The container
+      // says when that is done (data-fonts-measured): a fallback layout can hold still for a while, so "stopped moving"
+      // alone doesn't mean measured (FL-15 came back on the Windows runner after #586).
+      // On Linux it came back again: `fonts.load` can resolve before the font's @font-face rules are even registered
+      // (nothing to load yet), so the mark went up while the gutter still used the fallback's digits. Now the mark waits
+      // until a face of the first family in --font-mono is actually loaded (up to 5 s; then it goes up anyway, so a
+      // missing font never blocks), and any later font load measures again.
       let measuring = true
+      dom.removeAttribute('data-fonts-measured')
       const family = getComputedStyle(dom).getPropertyValue('--font-mono').trim()
-      void Promise.resolve(family ? document.fonts?.load(`13px ${family}`) : undefined)
+      const primary = family.split(',')[0]?.trim().replace(/^['"]|['"]$/g, '') ?? ''
+      const remeasure = (): void => {
+        if (!measuring) return
+        monaco.editor.remeasureFonts()
+        editor.layout()
+      }
+      const faceLoaded = (): boolean => !primary || !document.fonts
+        || [...document.fonts].some(face => face.family.replace(/^['"]|['"]$/g, '') === primary && face.status === 'loaded')
+      const started = Date.now()
+      const settle = (): void => {
+        if (!measuring) return
+        if (!faceLoaded() && Date.now() - started < 5000) { window.setTimeout(settle, 50); return }
+        remeasure()
+        dom.setAttribute('data-fonts-measured', 'true')
+      }
+      void Promise.resolve(primary ? document.fonts?.load(`12px "${primary}"`) : undefined)
         .then(() => document.fonts?.ready)
-        .then(() => { if (measuring) monaco.editor.remeasureFonts() }, () => undefined)
-      cleanup.current.push(() => { measuring = false })
+        .then(settle, settle)
+      document.fonts?.addEventListener('loadingdone', remeasure)
+      cleanup.current.push(() => { measuring = false; document.fonts?.removeEventListener('loadingdone', remeasure) })
       const comments = attachLineComments(editor, monaco, {
         comments: () => latest.current?.comments ?? [],
         add: (side, lineNo, lineContent, body) => latest.current?.onAdd(side, lineNo, lineContent, body),
@@ -73,6 +96,10 @@ export default function MonacoDiff({ original, modified, language, path, review 
     options={{
       readOnly: true,
       originalEditable: false,
+      // The line comments (diffLineComments) draw in the glyph margin. Turning it on only after mount gave the first
+      // layout no lane, then a 16 px jump of the whole diff when it arrived (FL-15, caught by its diagnostic in windows
+      // run 42443679631). With it on from the start, the first layout is the final one.
+      glyphMargin: true,
       renderSideBySide: true,
       automaticLayout: true,
       renderOverviewRuler: false,

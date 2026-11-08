@@ -219,7 +219,7 @@ describe('merge train step', () => {
     const early = step(input({ runs: [], checks: [], trainState: { head: HEAD, since: iso(NOW - 1000), labeledAt } }))
     expect(early.type).toBe('wait')
     const late = step(input({ runs: [], checks: [], trainState: { head: HEAD, since: iso(NOW - DISPATCH_GRACE_MS), labeledAt } }))
-    expect(late).toMatchObject({ type: 'dispatch', dispatch: ['ci.yml', 'a11y-axe.yml', 'memory-compatibility.yml', 'android.yml'], state: { dispatchedFor: HEAD } })
+    expect(late).toMatchObject({ type: 'dispatch', dispatch: ['ci.yml', 'a11y-axe.yml', 'android.yml'], state: { dispatchedFor: HEAD } })
     const again = step(input({ runs: [], checks: [], trainState: late.state }))
     expect(again.type).toBe('wait')
   })
@@ -438,6 +438,15 @@ describe('running the train against a fake API', () => {
     expect(actions.map((a: { type: string }) => a.type)).toEqual(['merge', 'update'])
   })
 
+  it('deletes a merged batch PR’s train/batch-N branch, and no other head branch', async () => {
+    const api = fakeApi(['train/batch-7', 'train/batch-D', 'feat/x'].map((headRef, i) => ({ number: i + 1, labeledAt: `2026-10-31T1${i}:00:00Z`, pr: { headRef } })))
+    const deleted: string[] = []
+    Object.assign(api, { deleteRef: async (name: string) => void deleted.push(name) })
+    await runTrain(api, { now: NOW, sleep: noSleep })
+    expect(api.writes.filter(([w]) => w === 'merge').map(([, n]) => n)).toEqual([1, 2, 3])
+    expect(deleted).toEqual(['train/batch-7'])
+  })
+
   it('takes a PR out when GitHub refuses the merge of a workflow change', async () => {
     const api = fakeApi([{ number: 8, labeledAt: '2026-10-31T09:00:00Z' }])
     api.merge = async () => {
@@ -497,7 +506,7 @@ describe('security (review of #318)', () => {
     expect(parseTrainState(body, NOW)?.dispatch).toEqual(['ci.yml'])
     const trainState = { head: HEAD, since: iso(NOW - DISPATCH_GRACE_MS), labeledAt, dispatch: ['../../x?', 'release.yml'] }
     // Nothing allowed is left, so the fallback dispatches the fixed four (#375 L4), never the forged entries.
-    expect(step(input({ runs: [], checks: [], trainState })).dispatch).toEqual(['ci.yml', 'a11y-axe.yml', 'memory-compatibility.yml', 'android.yml'])
+    expect(step(input({ runs: [], checks: [], trainState })).dispatch).toEqual(['ci.yml', 'a11y-axe.yml', 'android.yml'])
     const urls: string[] = []
     const fetchImpl = async (url: string) => {
       urls.push(url)
@@ -864,9 +873,9 @@ describe('#375 security fixes', () => {
     }
   })
 
-  it('L4: with no runs at all on the head and no update of its own, the train dispatches all four workflows', () => {
+  it('L4: with no runs at all on the head and no update of its own, the train dispatches every dispatchable workflow', () => {
     const trainState = { head: HEAD, since: iso(NOW - DISPATCH_GRACE_MS), labeledAt: pr().labeledAt }
-    expect(step(input({ runs: [], checks: [], trainState })).dispatch).toEqual(['ci.yml', 'a11y-axe.yml', 'memory-compatibility.yml', 'android.yml'])
+    expect(step(input({ runs: [], checks: [], trainState })).dispatch).toEqual(['ci.yml', 'a11y-axe.yml', 'android.yml'])
   })
 
   it('L4: an Android run on the head is a gate like the others', () => {

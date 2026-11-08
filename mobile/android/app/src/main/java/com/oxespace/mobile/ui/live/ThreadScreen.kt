@@ -12,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -27,7 +28,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -146,19 +147,29 @@ fun ThreadScreen(
     val header = timeline.header
     val entries = remember(tick) { timeline.items }
     val running = header?.status == "running"
+    // The desktop's elapsed times are as of this update; the phone counts on from when it arrived.
+    val readClock = LocalClock.current
+    val receivedAt = remember(tick) { readClock() }
     var openTurns by rememberSaveable(threadId) { mutableStateOf(setOf<String>()) }
     val rows = remember(tick, openTurns, running) { timelineRows(entries.map { it.item }, running, openTurns) }
-    val list = rememberLazyListState()
+    // Created already on the last item once the conversation is loaded, so even the first frame shows the end. A list
+    // created at the top and scrolled afterwards flashed the oldest messages first.
+    val itemCount = rows.size + (if (timeline.hasMore && entries.isNotEmpty()) 1 else 0) + (if (timeline.skipped > 0) 1 else 0)
+    val list = remember(threadId, watched.loaded) { LazyListState(firstVisibleItemIndex = (itemCount - 1).coerceAtLeast(0)) }
     val scope = rememberCoroutineScope()
     var loadingOlder by remember { mutableStateOf(false) }
     var stopping by rememberSaveable { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<Int?>(null) }
-    // Follow the newest row while the person is at the bottom.
-    LaunchedEffect(rows.size) {
-        if (rows.isNotEmpty() && (list.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) >= list.layoutInfo.totalItemsCount - 3) {
-            list.animateScrollToItem(list.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1)
-        }
+    // A conversation opens at its latest message and follows new ones (T100). In 1.4.2 it opened at the top and
+    // followed only from near the bottom. Scrolling up to read stops following; "Latest" or scrolling back down
+    // starts it again. Pinned until the person scrolls, so a late snapshot or a growing reply still lands at the end.
+    var follow by rememberSaveable(threadId) { mutableStateOf(true) }
+    LaunchedEffect(list) {
+        snapshotFlow { list.isScrollInProgress }.collect { scrolling -> if (!scrolling) follow = !list.canScrollForward }
+    }
+    LaunchedEffect(rows.size, rows.lastOrNull(), watched.loaded) {
+        if (follow && rows.isNotEmpty()) list.scrollToItem(list.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1)
     }
     if (stopping) {
         StopTurnDialog(
@@ -179,6 +190,7 @@ fun ThreadScreen(
                     Column {
                         Text(title.orEmpty(), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() })
                         header?.let { StateLine(it.status, it.updatedAt, it.provider) }
+                        turnClockOf(header, receivedAt)?.let { TurnTimer(it) }
                     }
                 },
                 navigationIcon = {
@@ -199,6 +211,7 @@ fun ThreadScreen(
         bottomBar = {
             Column(Modifier.background(Oxe.colors.surfaceCanvas).navigationBarsPadding().imePadding().padding(horizontal = OxeSpace.space3, vertical = OxeSpace.space2), verticalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
                 message?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.intentWarningFg, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
+                header?.let { QueuedPreview(it.queuedPreview, it.queued) }
                 pending.firstOrNull()?.let { RequestBar(it, more = pending.size - 1, enabled = connected) { onOpenRequest(it.requestId) } }
                 Composer(
                     threadId = threadId,
@@ -217,8 +230,9 @@ fun ThreadScreen(
             ConversationSkeleton(Modifier.padding(padding), skeletonAfterMs)
             return@Scaffold
         }
+        Box(Modifier.fillMaxSize().padding(padding)) {
         LazyColumn(
-            Modifier.fillMaxSize().padding(padding),
+            Modifier.fillMaxSize(),
             state = list,
             contentPadding = PaddingValues(horizontal = OxeSpace.space4, vertical = OxeSpace.space3),
             verticalArrangement = Arrangement.spacedBy(OxeSpace.space3),
@@ -257,6 +271,22 @@ fun ThreadScreen(
                 }
             }
         }
+        // Scrolled up while the conversation goes on: one tap back to the newest message, as on the desktop.
+        if (!follow && list.canScrollForward) {
+            LatestChip(Modifier.align(Alignment.BottomCenter).padding(bottom = OxeSpace.space3)) {
+                follow = true
+                scope.launch { list.animateScrollToItem(list.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1) }
+            }
+        }
+        }
+    }
+}
+
+/** "Latest ↓": back to the newest message. */
+@Composable
+internal fun LatestChip(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    androidx.compose.material3.FilledTonalButton(onClick = onClick, modifier = modifier.heightIn(min = 48.dp)) {
+        Text(stringResource(R.string.thread_latest))
     }
 }
 
@@ -402,12 +432,15 @@ fun CodeBlock(text: String) {
 private fun StepRow(tool: RemoteThreadItem.Tool, indent: Boolean = false) {
     var open by rememberSaveable(tool.id) { mutableStateOf(false) }
     val output = tool.output?.takeIf { it.isNotEmpty() }
+    // The diff opens with the output, behind the same tap, inside this screen that already blocks screenshots.
+    val diff = tool.diff?.takeIf { it.files.isNotEmpty() || !it.patch.isNullOrEmpty() }
+    val opens = output != null || diff != null
     val kind = stepKind(tool.name)
     val count = tool.filesChanged?.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.thread_files_changed, it.toInt(), it.toInt()) }
     Column {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 40.dp)
-                .then(if (output != null) Modifier.clickable(role = Role.Button) { open = !open }.semantics { stateDescription = if (open) "expanded" else "collapsed" } else Modifier)
+                .then(if (opens) Modifier.clickable(role = Role.Button) { open = !open }.semantics { stateDescription = if (open) "expanded" else "collapsed" } else Modifier)
                 .padding(start = if (indent) 26.dp else 0.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2),
@@ -428,13 +461,14 @@ private fun StepRow(tool: RemoteThreadItem.Tool, indent: Boolean = false) {
                 modifier = Modifier.weight(1f),
             )
             count?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textMuted) }
-            if (output != null) Chevron(open)
+            if (opens) Chevron(open)
         }
         tool.redacted?.takeIf { it > 0 }?.let {
             Text(pluralStringResource(R.plurals.terminal_redacted, it.toInt(), it.toInt()), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textMuted, modifier = Modifier.padding(start = 26.dp))
         }
         // What is shown is what Copiar copies: hidden characters written out, never obeyed.
         if (open && output != null) Box(Modifier.padding(start = 26.dp)) { CodeBlock(showHidden(output)) }
+        if (open && diff != null) ToolDiffView(diff, Modifier.padding(start = 26.dp, top = OxeSpace.space2))
     }
 }
 

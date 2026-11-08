@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { freezeClock, launchApp, openDemoWorkspace, resizeWindow, type Appearance } from '../helpers/launch'
+import { freezeClock, launchApp, openDemoWorkspace, pinWorkspaceColor, resizeWindow, type Appearance } from '../helpers/launch'
 import { installThreadFixtures, openThreadWithState, registerThreadProject, setThreadState, THREAD_STATES, type ThreadStateName } from '../helpers/thread-fixtures'
 import { expectSurface } from '../helpers/visual'
 
@@ -19,6 +19,7 @@ for (const theme of THEMES) {
       await resizeWindow(app, 1280, 800)
       await installThreadFixtures(app, workspaceRoot)
       await openDemoWorkspace(page, workspaceRoot)
+      await pinWorkspaceColor(page)
       await registerThreadProject(app, page, workspaceRoot)
       await openThreadWithState(app, page, workspaceRoot, STATES[0])
 
