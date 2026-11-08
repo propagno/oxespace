@@ -59,10 +59,11 @@ It's in the plan, but it isn't frozen here: it needs a real Codex rollout fixtur
 
 ## H2-data — The HTTP calls panel and the Network tab
 
-`HttpAuditLog.list({ workspaceId, view?: 'all' | 'errors' | 'flagged', filter?, cursor?, limit? })` → `{ rows, cursor, hosts: [{ host, count, production }] }`.
+`HttpAuditLog.list({ workspaceId, actor?, view?: 'all' | 'errors' | 'flagged', filter?, cursor?, limit? })` → `{ rows, cursor, hosts: [{ host, count, production }] }`.
 - **Paging:** 50 newest first.
 - **Errors:** no status, or 400 and up.
-- **Flagged:** production or `insecure`.
+- **Flagged:** production, `insecure` (shown as "TLS not checked") or `plain_http_external` (shown as "Not encrypted"); DESIGN M5.
+- **actor:** the Network tab's filter to one conversation or pane (`pane:<id>` | `thread:<id>`, at most 200 characters), applied in main, summary included (DESIGN M5).
 - **filter:** matches host or path, case-insensitively.
 - **production** is computed at read time by `deps.isProductionHost(workspaceId, host)`, which `index.ts` builds from the workspace Policy and the OxeQuery production connections. No new setting.
 - **IPC:** `http-audit:list`, excluded from MCP.
