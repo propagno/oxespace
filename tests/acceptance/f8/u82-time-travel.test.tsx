@@ -252,4 +252,11 @@ describe('U8.2 · Time travel', () => {
     expect(await screen.findByText('Nothing irreversible so far (this conversation only).')).toBeInTheDocument()
   })
 
+
+  test("other irreversible commands and external writes read with their own words when they are in the top three", async () => {
+    mockMain({ ...TIMELINE, cantGoBack: { dbWrites: 0, pushes: 0, containers: 0, commands: 2, httpWrites: 1, scope: 'conversation' } })
+    await renderBar()
+    expect(await screen.findByText("Can't go back, at least: 2 other irreversible commands, 1 external write (this conversation only).")).toBeInTheDocument()
+  })
+
 })
