@@ -45,10 +45,13 @@ describe('Claude plan label, part 1: a cached plan is never stated as fact', () 
     expect(JSON.stringify(snapshot)).not.toContain(TOKEN)
   })
 
-  test('without the user\'s OK, nothing but the usage endpoint is called', async () => {
+  test('only Anthropic\'s usage endpoint and, at most once, its profile endpoint are called', async () => {
+    // Part 2 (approved 08/11) adds the profile read; this part must hold before and after it.
     const service = new ClaudeCreditsService(credentials({ subscriptionType: 'max' }))
     await service.getCredits(true); await service.getCredits(true)
-    expect(calls).toEqual([USAGE, USAGE])
+    expect(calls.filter(url => url === USAGE)).toHaveLength(2)
+    expect(calls.filter(url => url !== USAGE).every(url => url === 'https://api.anthropic.com/api/oauth/profile')).toBe(true)
+    expect(calls.filter(url => url !== USAGE).length).toBeLessThanOrEqual(1)
   })
 
   test('an unknown cached value shows nothing rather than a guess', async () => {
