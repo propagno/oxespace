@@ -63,5 +63,9 @@ describe('H1-5 · the Codex rollout fallback', () => {
   test('H1-5: a missing or unreadable rollout adds nothing and never throws', async () => {
     const log = new HttpAuditLog(db, () => 1)
     await expect(ingestCodexRollout(log, { file: join(dir, 'missing.jsonl'), ...target })).resolves.toBe(0)
+    // A folder in place of the file is unreadable as a rollout.
+    await expect(ingestCodexRollout(log, { file: dir, ...target })).resolves.toBe(0)
+    // The path is live: a real rollout with the same target does add its calls.
+    expect(await ingestCodexRollout(log, { file: rollout(), ...target })).toBeGreaterThan(0)
   })
 })

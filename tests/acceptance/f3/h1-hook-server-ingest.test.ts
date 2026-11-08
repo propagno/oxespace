@@ -39,15 +39,22 @@ describe('A59 · the hook server feeds the HTTP audit', () => {
     expect(await post(port, { ...delivery({ hook_event_name: 'PostToolUse' }), token: 'wrong' })).toBe(403)
     await settle()
     expect(ingested).toEqual([])
+    // The path is live: the same event with the right token does reach it.
+    await post(port, delivery({ hook_event_name: 'PostToolUse', session_id: 'sess-1' }))
+    await settle()
+    expect(ingested).toHaveLength(1)
   })
 
   test('A59: a throwing audit never breaks the pane status, and the server keeps working', async () => {
     const statuses: AgentHookStatusEvent[] = []
-    server = new AgentHookServer({ authenticate, onStatus: event => { statuses.push(event) }, httpAudit: { ingest: () => { throw new Error('disk full') } } })
+    let calls = 0
+    server = new AgentHookServer({ authenticate, onStatus: event => { statuses.push(event) }, httpAudit: { ingest: () => { calls++; throw new Error('disk full') } } })
     const port = await server.start()
     await post(port, delivery({ hook_event_name: 'UserPromptSubmit', session_id: 'sess-1' }))
     await post(port, delivery({ hook_event_name: 'Stop', session_id: 'sess-1' }))
     await settle()
+    // The audit was really called, and threw, for both events.
+    expect(calls).toBe(2)
     expect(statuses.map(status => status.state)).toEqual(['working', 'done'])
   })
 })
