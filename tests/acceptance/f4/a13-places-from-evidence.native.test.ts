@@ -1,6 +1,8 @@
 // Frozen acceptance test for 1.5.0 A13 (OXE program, phase F4): a conversation records its places (checkout, worktree,
 // outside folder) from tool evidence, with a base per place captured at first touch, up to 32 places + 16 outside.
-// Written by the planner; the executor must not edit it.
+// Written by the planner; the executor must not edit it. v2 (CR, TECH LEAD 08/11): a repository whose top level is the
+// home folder (or a drive or filesystem root) is outside; the fixture sets GIT_CEILING_DIRECTORIES so the result is the
+// same on every machine.
 // Spec: docs/roadmap-1.5/ccr-f4-places-pr.md §A13 (builds on ccr-t71-task-places.md §2.1–§2.3, §5) and DESIGN's
 // 1.5.0-f4-design.md "Data each screen needs" (Places).
 // Runs under Electron's Node ABI: npm run test:electron -- tests/acceptance/f4/a13-places-from-evidence.native.test.ts
@@ -79,6 +81,33 @@ describe('A13 · places from evidence', () => {
     expect(new Set(places.map(place => place.id)).size).toBe(places.length)
     const again = await f.manager.places(f.id)
     expect(again.places.map(place => place.id).sort()).toEqual(places.map(place => place.id).sort())
+  })
+
+  test('A13 v2: a repository whose top level is the home folder is outside, never a checkout; the same repository when it is not the home folder is a checkout', async () => {
+    // A home folder that is itself a git repository (a dotfile repo), with the project inside it.
+    const dir = sandbox()
+    const home = repository(dir, 'home')
+    const repo = repository(home, 'repo')
+    const notes = join(home, 'notes')
+    // Injected as the home folder: a write there is outside, and its whole folder is never diffed as a checkout.
+    const asHome = threadFixture(repo, { homeDir: home })
+    await turn(asHome)
+    write(join(notes, 'ROTEIRO.md'), '# r\n')
+    asHome.wrote([join(notes, 'ROTEIRO.md')])
+    await complete(asHome)
+    const homePlaces = (await asHome.manager.places(asHome.id)).places
+    expect(at(homePlaces, repo)?.kind).toBe('root')
+    expect(homePlaces.some(place => same(place.path, home))).toBe(false)
+    expect(at(homePlaces, notes)).toMatchObject({ kind: 'outside', base: null })
+    // The same layout with another folder as home: the parent repository is a checkout, as git says.
+    const elsewhere = threadFixture(repo, { homeDir: sandbox('oxe-f4-home-') })
+    await turn(elsewhere)
+    write(join(notes, 'ROTEIRO2.md'), '# r\n')
+    elsewhere.wrote([join(notes, 'ROTEIRO2.md')])
+    await complete(elsewhere)
+    const places = (await elsewhere.manager.places(elsewhere.id)).places
+    expect(at(places, home)).toMatchObject({ kind: 'checkout', files: ['notes/ROTEIRO2.md'] })
+    expect(places.some(place => place.kind === 'outside')).toBe(false)
   })
 
   test('A13: a path named only in the agent\'s message text never creates a place', async () => {

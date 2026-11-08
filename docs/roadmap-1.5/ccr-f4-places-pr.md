@@ -30,6 +30,13 @@ No live provider, no user home and no user data: every test runs on temp-dir rep
 
 `ThreadManager.places(id): Promise<ThreadPlaces>`.
 
+**v2 (CR, TECH LEAD 08/11): the home folder is never a checkout.**
+- A repository whose top level is the user's home folder counts as outside for place classification, never as a checkout or a place. This uses `os.homedir()`, resolved with realpath and case-folded on Windows and macOS.
+- The same holds for a repository whose top level is a drive or filesystem root.
+- Why: with a dotfile repository in the home folder, an agent's write outside the projects would otherwise become a "checkout" place that diffs the person's whole home folder. That's wrong, and a privacy risk.
+- `ThreadManager.configurePlaces({ homeDir })` overrides the home folder; tests use it with a temp folder.
+- The fixture sets `GIT_CEILING_DIRECTORIES` to the sandbox's parent, so a repository around the temp folder never leaks into a test.
+
 - **Evidence:**
   - `location` events;
   - `tool` and `turn-diff` file changes (`path`, `previousPath`);

@@ -20,6 +20,11 @@ export const git = (cwd: string, ...args: string[]): string => execFileSync('git
 export function sandbox(prefix = 'oxe-f4-'): string {
   const dir = realpathSync.native(mkdtempSync(join(tmpdir(), prefix)))
   cleanup.push(() => removeTempDir(dir))
+  // A13 v2 (CR, 08/11): git never looks above the sandbox's parent, so a repository the machine has around the temp
+  // folder (a dotfile repo in the home folder, say) never turns "outside" into a checkout. main inherits this env.
+  const ceiling = process.env.GIT_CEILING_DIRECTORIES
+  process.env.GIT_CEILING_DIRECTORIES = dirname(dir)
+  cleanup.push(() => { if (ceiling === undefined) delete process.env.GIT_CEILING_DIRECTORIES; else process.env.GIT_CEILING_DIRECTORIES = ceiling })
   return dir
 }
 
@@ -40,7 +45,8 @@ export function write(path: string, text: string): void { mkdirSync(dirname(path
 
 export interface PaneSource { paneId: string; title: string; workspaceId: string; launchDir: string; agentCwd?: string | null; shellCwd?: string | null; agent?: boolean }
 
-export function threadFixture(root: string) {
+/** `homeDir` (A13 v2) stands in for os.homedir() in place classification; it never points at the real home. */
+export function threadFixture(root: string, options: { homeDir?: string } = {}) {
   const db: AppDatabase = openInMemoryDatabase()
   cleanup.push(() => db.close())
   db.prepare("INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES ('A', 'A', ?, '1x1', 'builtin-claude')").run(root)
@@ -56,6 +62,7 @@ export function threadFixture(root: string) {
   cleanup.push(() => manager.stop())
   const panes: PaneSource[] = []
   manager.configurePanes(() => panes)
+  if (options.homeDir !== undefined) manager.configurePlaces({ homeDir: options.homeDir })
   // A conversation's title comes from its first message (thread-title.ts), so tests name them by what they send.
   const create = (rootPath = root): string => manager.create({ workspaceId: 'A', projectId: 'project-A', rootPath, provider: 'claude' }).thread.id
   const id = create()
