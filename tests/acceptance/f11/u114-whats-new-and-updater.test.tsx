@@ -4,6 +4,9 @@
 // - WhatsNewDialog({ onClose(), onOpen(target: 'browser' | 'approvals' | 'httpCalls' | 'timeTravel') }) in
 //   src/components/Updates/WhatsNewDialog.tsx (U1 md, four rows, one Open each);
 // - the Help menu item help.whats-new (MENU_ACTION_IDS, src/components/Navigation/appMenus.ts);
+// - useWhatsNew (zustand: { open, show(), close() }) and WhatsNewHost() in src/components/Updates/whatsNew.tsx: the dialog
+//   opens only when asked (Help, About, or the F2 band's dialog link "See what's new"), never by itself;
+// - on an upgrade F2's RemovedFeaturesBand (window.oxe.dataExport.state(), #678) stays the only band (HML-725-1);
 // - updateChipView(state: AppUpdateState, context: { criticalHold: boolean }) → { label, actions: string[] } | null in
 //   src/components/Updates/updateChip.ts, the four states' copy, and null while a critical approval holds (F7).
 // The release notes, installers, the downgrade screen and the phone (U11.4a, c, d; A40; A41) are DESIGN's and HML's
@@ -87,4 +90,32 @@ describe("U11.4 · What's new and the updater", () => {
     expect(view(state({ status: 'downloaded' }), { criticalHold: false })).toEqual({ label: 'Reinicie para atualizar', actions: ['Reiniciar agora', 'Depois'] })
     expect(view(state({ status: 'downloading', progress: 7 }), { criticalHold: false })?.label).toBe('Baixando 1.5.0… 7%')
   })
+
+  test("an upgraded profile gets one band only: F2's band, whose dialog links What's new, and no second band after it is dismissed", async () => {
+    const dataExport = {
+      state: vi.fn(async () => ({ upgrade: true, file: null, exportedAt: null, shownNotice: false, error: null, removed: [] })),
+      markNoticeShown: vi.fn(async () => undefined), exportAgain: vi.fn(async () => ({ file: null })), open: vi.fn(async () => undefined), reveal: vi.fn(async () => undefined)
+    }
+    Object.assign(window, { oxe: { ...(window as unknown as { oxe?: object }).oxe, dataExport } })
+    const { RemovedFeaturesBand } = await load<{ RemovedFeaturesBand: () => JSX.Element }>('src/components/Updates/RemovedFeaturesBand')
+    const { WhatsNewHost } = await load<{ WhatsNewHost: () => JSX.Element }>('src/components/Updates/whatsNew')
+    const { Toaster } = await import('../../../src/ui/Toast')
+    render(<><RemovedFeaturesBand /><WhatsNewHost /><Toaster /></>)
+    expect(await screen.findByText(/OXESpace 1\.5 removed some features\./)).toBeInTheDocument()
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.queryAllByText(/What's new/)).toEqual([])
+    await userEvent.click(screen.getByRole('button', { name: 'See what changed' }))
+    const changed = await screen.findByRole('dialog', { name: 'What changed in 1.5' })
+    await userEvent.click(within(changed).getByText("See what's new").closest('a, button') as HTMLElement)
+    expect(await screen.findByRole('dialog', { name: "What's new in 1.5" })).toBeInTheDocument()
+    cleanup()
+    dataExport.state.mockResolvedValue({ upgrade: true, file: null, exportedAt: null, shownNotice: true, error: null, removed: [] })
+    render(<><RemovedFeaturesBand /><WhatsNewHost /><Toaster /></>)
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(screen.queryByText(/OXESpace 1\.5 removed some features\./)).toBeNull()
+    expect(screen.queryAllByText(/What's new/)).toEqual([])
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
 })
