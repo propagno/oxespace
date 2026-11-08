@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import type { ToolEntry } from './tool-registry'
-import { projectIdentity } from '../services/memory/memory-project.service'
+import { projectIdentity } from '../services/project-identity'
 import { execGit } from '../utils/safe-git'
 import { CONFIGURABLE_MCP_TOOL_GROUPS as TOOL_GROUP_NAMES } from '../../../shared/types/mcp-tools'
 

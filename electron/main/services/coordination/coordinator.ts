@@ -3,7 +3,7 @@ import type { DelegationTask, DelegationTarget } from '../../../../shared/types/
 import type { CoordinationAction } from '../../../../shared/types/coordination'
 import type { AgentExecution, ExecutionRegistry } from '../execution-registry'
 import type { WorkspaceService } from '../workspace.service'
-import { projectIdentity } from '../memory/memory-project.service'
+import { projectIdentity } from '../project-identity'
 import { CoordinationAuthorization } from './authorization'
 import { registerLocalRepository } from './workspace-resolver'
 import { ThreadProjectService } from '../conversation/thread-projects'
