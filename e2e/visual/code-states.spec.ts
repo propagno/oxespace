@@ -1,5 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
-import { launchApp, resizeWindow, type Appearance } from '../helpers/launch'
+import { launchApp, pinWorkspaceColor, resizeWindow, type Appearance } from '../helpers/launch'
 import { seedGitRepo } from '../helpers/seed'
 import { expectSurface } from '../helpers/visual'
 
@@ -11,6 +11,7 @@ async function openWorkspace(page: Page, repo: string, layoutCard: 1 | 2 | 4): P
   await page.getByTestId(`wizard-layout-card-${layoutCard}`).click()
   await page.getByTestId('wizard-launch-btn').click()
   await expect(page.getByTestId('terminal-pane')).toHaveCount(layoutCard)
+  await pinWorkspaceColor(page)
 }
 
 async function openTool(page: Page, name: RegExp): Promise<void> {
@@ -25,6 +26,12 @@ async function openTool(page: Page, name: RegExp): Promise<void> {
  */
 async function monacoDiffSettled(page: Page, editor: Locator): Promise<void> {
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
+  // FL-15 again (Windows, after #586): the fallback font's layout can hold still long enough to pass the poll below.
+  // MonacoDiff marks its container once it has measured the loaded font and laid out again; wait for that first.
+  await expect.poll(() => editor.evaluate(root => !!root.closest('[data-fonts-measured="true"]')), { timeout: 10_000 }).toBe(true)
+  // FL-15 on Linux: the two passes drew the gutter in two fonts. The shot needs IBM Plex Mono itself loaded, not only
+  // the mark; the CI images ship the font through @fontsource, so this holds on both runners.
+  await expect.poll(() => page.evaluate(() => [...document.fonts].some(face => face.family.replace(/^['"]|['"]$/g, '') === 'IBM Plex Mono' && face.status === 'loaded')), { timeout: 10_000 }).toBe(true)
   const geometry = (): Promise<string> => editor.evaluate(root => {
     const boxes = [...root.querySelectorAll('.margin, .lines-content, .view-lines, .line-numbers')].slice(0, 12)
       .map(element => { const box = element.getBoundingClientRect(); return `${Math.round(box.left)}:${Math.round(box.width)}` })
@@ -37,6 +44,25 @@ async function monacoDiffSettled(page: Page, editor: Locator): Promise<void> {
     last = now
     return still
   }, { intervals: [150], timeout: 10_000 }).toBeGreaterThanOrEqual(3)
+  // FL-15 diagnostic (windows, run 42426690630): with the same font in both passes, the whole inline diff still sat a
+  // few px apart. One line per shot, so the generate and verify logs of a failing run show which number differs.
+  const diag = await editor.evaluate(root => {
+    const box = (selector: string): string => {
+      const element = root.querySelector(selector)
+      if (!element) return `${selector}=none`
+      const rect = element.getBoundingClientRect()
+      return `${selector}=${Math.round(rect.left)}+${Math.round(rect.width)}`
+    }
+    const numbers = root.querySelector('.line-numbers')
+    return [
+      `dpr=${window.devicePixelRatio}`, `inner=${window.innerWidth}x${window.innerHeight}`, `zoom=${getComputedStyle(document.documentElement).zoom}`,
+      `editor=${Math.round(root.getBoundingClientRect().left)}+${Math.round(root.getBoundingClientRect().width)}`,
+      `font=${numbers ? getComputedStyle(numbers).fontFamily.split(',')[0] : 'none'}`,
+      box('.editor.original'), box('.editor.modified'), box('.margin'), box('.glyph-margin'), box('.line-numbers'), box('.lines-content'),
+      `inline=${root.querySelector('.monaco-diff-editor.side-by-side') ? 'no' : 'yes'}`
+    ].join(' ')
+  })
+  console.log(`[FL-15-DIAG] ${diag}`)
 }
 
 // Terminals are hidden by expectSurface. The temp path and the sidebar age ("Just now" depends

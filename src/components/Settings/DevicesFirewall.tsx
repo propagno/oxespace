@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useState, type ReactElement, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, ConfirmDialog, Notice, toast } from '../../ui'
 import styles from './DevicesSettings.module.css'
@@ -48,9 +48,16 @@ export function firewallProblem(status: Checked): FirewallProblem {
  * shows). Hidden off Windows, in development builds, while the connection is off, and on a Domain network (IT's rules).
  * Allow and Remove show the exact rule and command first; Windows then asks for permission (UAC).
  */
-export function DevicesFirewall({ listening, pairingKey }: { listening: boolean; pairingKey?: string | null }): ReactElement | null {
+export function DevicesFirewall({ listening, pairingKey, publicFallback }: { listening: boolean; pairingKey?: string | null
+  /**
+   * T86's Public-network Notice (from the gateway status), shown only when this check can't speak: an app without the
+   * firewall methods, a read that failed, or `supported: false`. When the check runs it names the Public network itself,
+   * so the person sees one alert for one problem.
+   */
+  publicFallback?: ReactNode }): ReactElement | null {
   const { t } = useTranslation('settings')
-  const [status, setStatus] = useState<FirewallStatus | null>(null)
+  // undefined: not read yet (nothing shows, so the fallback never flashes before the check answers); null: no check.
+  const [status, setStatus] = useState<FirewallStatus | null | undefined>(firewallApi().firewallStatus ? undefined : null)
   const [confirming, setConfirming] = useState<'repair' | 'undo' | null>(null)
   const [busy, setBusy] = useState(false)
   const [checking, setChecking] = useState(false)
@@ -72,7 +79,9 @@ export function DevicesFirewall({ listening, pairingKey }: { listening: boolean;
     return () => { live = false }
   }, [listening, pairingKey])
 
-  if (!listening || !status?.supported || status.networkCategory === 'domain') return null
+  if (!listening || status === undefined) return null
+  if (!status?.supported) return publicFallback ? <>{publicFallback}</> : null
+  if (status.networkCategory === 'domain') return null
   const problem = firewallProblem(status)
   const api = firewallApi()
   const canRepair = problem === 'noRule' && !!api.firewallRepair

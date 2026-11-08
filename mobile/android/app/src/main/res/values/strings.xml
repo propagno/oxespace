@@ -19,6 +19,7 @@
     <string name="home_body">Pair this phone with OXESpace on your computer, on the same Wi-Fi, to follow and answer your sessions.</string>
     <string name="home_cancel">Cancel</string>
     <string name="home_enter_address">Enter the computer\'s address</string>
+    <string name="home_lapsed">This pairing expired before the phone connected. Pair again.</string>
     <string name="home_open_wifi">Open Wi-Fi settings</string>
     <string name="home_pair">Pair with your computer</string>
     <string name="home_paired_body">This phone can follow and answer your sessions on %1$s while both are on the same network.</string>
@@ -220,6 +221,15 @@
     <string name="thread_doing_read">Reading %1$s</string>
     <string name="thread_doing_run">Running %1$s</string>
     <string name="thread_doing_search">Searching %1$s</string>
+    <string name="thread_extras_diff_cut">The rest of this diff is on your computer.</string>
+    <string name="thread_extras_hours">%1$s h</string>
+    <string name="thread_extras_minutes">%1$s min</string>
+    <string name="thread_extras_no_lines">No line changes</string>
+    <string name="thread_extras_queued">Waiting to send (%1$s)</string>
+    <string name="thread_extras_queued_more">and %1$s more</string>
+    <string name="thread_extras_quiet">No output for %1$s</string>
+    <string name="thread_extras_seconds">%1$s s</string>
+    <string name="thread_extras_working">Working · %1$s</string>
     <plurals name="thread_files_changed">
         <item quantity="one">%1$d file changed</item>
         <item quantity="other">%1$d files changed</item>
