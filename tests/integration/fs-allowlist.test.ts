@@ -30,8 +30,13 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/memory/memory-runtime.ts',
   'electron/main/services/memory/memory.service.ts',
   'electron/main/services/memory/agent-memory-adapter.ts',
-  'electron/main/services/memory/memory-project.service.ts',
   'electron/main/services/memory/memory-marker.ts',
+  // Project identity (R0a, out of memory): realpath of the folder and of its Git common dir only. Never reads or
+  // writes file contents.
+  'electron/main/services/project-identity.ts',
+  // Owner-only JSON (R0a, out of memory): reads and writes, by temp file and rename (mode 0600), the app's own config
+  // files its callers name (agent hook configs, memory runtime files); never a path from the renderer.
+  'electron/main/services/private-json.ts',
   // Memory upgrade transaction (journal, snapshot, candidate): fixed children of
   // the application's private memory runtime directory; never workspace paths.
   'electron/main/services/memory/memory-migration.ts',

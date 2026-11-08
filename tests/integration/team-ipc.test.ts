@@ -4,7 +4,7 @@ import { registerTeamIpc } from '../../electron/main/ipc/team.ipc'
 
 const hooks = vi.hoisted(() => ({ handlers: new Map<string, (...args: unknown[]) => unknown>(), identify: vi.fn(async () => '/same/git'), window: vi.fn(() => ({})) }))
 vi.mock('electron', () => ({ app: { getPath: () => '' }, BrowserWindow: { fromWebContents: hooks.window }, ipcMain: { handle: (name: string, handler: (...args: unknown[]) => unknown) => hooks.handlers.set(name, handler) } }))
-vi.mock('../../electron/main/services/memory/memory-project.service', () => ({ projectIdentity: hooks.identify }))
+vi.mock('../../electron/main/services/project-identity', () => ({ projectIdentity: hooks.identify }))
 const databases: AppDatabase[] = []
 afterEach(() => { databases.splice(0).forEach(db => db.close()); hooks.handlers.clear(); hooks.identify.mockReset(); hooks.identify.mockResolvedValue('/same/git'); hooks.window.mockReset(); hooks.window.mockReturnValue({}) })
 function fixture() {

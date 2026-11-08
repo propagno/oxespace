@@ -4,7 +4,7 @@ import { existsSync, realpathSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../../db'
 import type { ThreadProjectCatalog, ThreadProjectSummary } from '../../../../shared/types/thread'
-import { projectIdentity } from '../memory/memory-project.service'
+import { projectIdentity } from '../project-identity'
 import { firstPolicyRead } from '../policy/first-read'
 import { staysLocal } from '../git-common-dir'
 
