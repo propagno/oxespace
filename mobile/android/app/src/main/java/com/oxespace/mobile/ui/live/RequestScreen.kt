@@ -115,7 +115,7 @@ fun RequestScreen(
                     AnswerBlock.NOT_OFFERED -> R.string.request_refused_other
                     AnswerBlock.NOT_CONFIRMED -> R.string.request_not_confirmed
                     AnswerBlock.TRUNCATED -> R.string.request_truncated
-                    AnswerBlock.IN_FLIGHT, AnswerBlock.ALREADY_ANSWERED -> TODO("F10 A44")
+                    AnswerBlock.IN_FLIGHT -> message; AnswerBlock.ALREADY_ANSWERED -> R.string.request_refused_not_pending
                 }
                 is AnswerOutcome.Sent -> answerMessage(outcome.result)
             }
@@ -143,7 +143,7 @@ fun RequestScreen(
             // What the person needs first: whether they can answer here at all.
             if (!request.answerable) DesktopOnlyNotice()
             Text(requestTitle(request), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
-            request.risk?.let { RiskLine(it) }
+            request.risk?.let { RiskLine(it) }; riskNote(request)?.let { Text(stringResource(it), style = MaterialTheme.typography.bodyMedium, color = Oxe.colors.intentDangerFg) }
             // The facts, as label/value rows: nothing read-only looks like an input (M10 §6).
             Facts(
                 listOfNotNull(
@@ -253,10 +253,10 @@ fun RequestScreen(
                 )
             }
             // At critical risk Allow waits the desktop's hold before it can be pressed (APPROVAL_CRITICAL_ALLOW_DELAY_MS).
-            val critical = request.risk?.let { riskLevel(it) } == RemoteApprovalRisk.CRITICAL
+            val hold = com.oxespace.mobile.approval.allowHoldMs(request); val critical = hold > 0L
             // Keyed on the generation and the level too: a request raised to critical takes the hold again.
             var held by remember(request.requestId, request.generation, critical) { mutableStateOf(critical) }
-            LaunchedEffect(request.requestId, request.generation, critical) { if (critical) { delay(CRITICAL_HOLD_MS); held = false } }
+            LaunchedEffect(request.requestId, request.generation, critical) { if (critical) { delay(hold); held = false } }
             for ((decision, leads) in decisionLayout(decisions, request.risk)) {
                 val label = stringResource(
                     when (decision) {
@@ -377,8 +377,8 @@ private val KNOWN_DECISIONS = setOf("accept", "decline", "cancel")
 private const val TITLE_MAX = 200
 private const val QUESTION_MAX = 500
 private const val PROVIDER_MAX = 40
-/** The desktop's hold on Allow at critical risk (shared/types/approvals APPROVAL_CRITICAL_ALLOW_DELAY_MS). */
-private const val CRITICAL_HOLD_MS = 2_000L
+
+// The critical hold is allowHoldMs (approval/RequestResponder.kt), shared with CriticalDelayAllow.
 
 // ---- 1.5.0 F10 API skeleton (A44), no behaviour; MOB-A44 replaces the TODOs. Tests: RequestActionsTest, RequestRiskNoteTest. ----
 
@@ -387,8 +387,17 @@ data class RequestAction(val decision: String, val enabled: Boolean)
 
 /** The actions a request gets: decisionLayout's order, Deny only when truncated, none when only the desktop answers. */
 @Suppress("UNUSED_PARAMETER")
-fun requestActions(request: RemotePendingRequest, elapsedMs: Long): List<RequestAction> = TODO("F10 A44")
+fun requestActions(request: RemotePendingRequest, elapsedMs: Long): List<RequestAction> {
+    if (!request.answerable) return emptyList()
+    val truncated = request.truncated == true
+    // A truncated question is answered on the desktop only; a truncated approval can only be denied here.
+    if (truncated && request.kind == "question") return emptyList()
+    val decisions = if (truncated) request.decisions.filter { it == "decline" } else request.decisions
+    val allow = com.oxespace.mobile.ui.components.criticalAllowState(request.risk, elapsedMs).enabled
+    return decisionLayout(decisions, request.risk).map { (decision, _) -> RequestAction(decision, enabled = decision != "accept" || allow) }
+}
 
 /** The line under the risk chip: "No undo." on a high request (F7, DESIGN), nothing otherwise. */
 @Suppress("UNUSED_PARAMETER")
-fun riskNote(request: RemotePendingRequest): Int? = TODO("F10 A44")
+fun riskNote(request: RemotePendingRequest): Int? =
+    request.risk?.takeIf { riskLevel(it) == RemoteApprovalRisk.HIGH }?.let { R.string.request_no_undo }
