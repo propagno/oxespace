@@ -9,6 +9,7 @@ import { riskFromShell } from '../../../../shared/approval-rules'
 import type { AgentRow } from '../../../../shared/types/agents'
 import type { MainMessage } from '../../../../shared/messages'
 import { toToolDiff } from './tool-diff'
+import { workspaceColorIndex } from '../../../../shared/workspace-color'
 
 /**
  * Desktop data to C5 payloads. Each mapper names what it keeps; anything not named here (absolute paths, cwd, native
@@ -26,6 +27,8 @@ const text = (value: string | undefined, roots: readonly string[], limit: number
 export function toWorkspace(row: RemoteWorkspaceRow, phoneWrite: ReadonlySet<string>, roots: readonly string[], conversation?: (paneId: string) => boolean): RemoteWorkspace {
   return {
     id: row.id, name: text(row.name, roots, TITLE) || 'Workspace', active: row.active,
+    // 1.5.0 A67 (#693): the slot the desktop shows, chosen or derived from the id; always 1–8.
+    color: workspaceColorIndex({ id: row.id, color: row.color ?? null }),
     panes: row.panes.map((pane): RemotePane => {
       const agent = pane.agent
       return {
