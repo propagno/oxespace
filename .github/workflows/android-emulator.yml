@@ -115,8 +115,9 @@ jobs:
           # twice 15 s apart (system_server may still restart). Up to 5 minutes. The runner runs each script line on
           # its own, so the wait is one line.
           script: |
+            sh -c 'nohup adb logcat -b all -v threadtime > /tmp/logcat-all.txt 2>&1 &'
             sh -c 'ok=0; for i in $(seq 1 60); do if adb shell pm path android 2>/dev/null | grep -q "^package:"; then ok=$((ok+1)); [ "$ok" -ge 2 ] && echo "package service up" && exit 0; sleep 15; else ok=0; sleep 5; fi; done; echo "::error::the package service never came up"; exit 1'
-            ./gradlew --no-daemon connectedDebugAndroidTest
+            sh -c './gradlew --no-daemon connectedDebugAndroidTest; rc=$?; adb logcat -d -b crash -v threadtime > /tmp/logcat-crash.txt 2>&1; adb shell getprop > /tmp/getprop.txt 2>&1; adb shell dumpsys activity processes > /tmp/processes.txt 2>&1; exit $rc'
 
       # Gradle's test engine reports BUILD SUCCESSFUL even when it could not install the APK and ran nothing (run
       # 41942234679: "0 tests"). So the results decide: at least one test ran, and no failure other than a test
@@ -142,5 +143,9 @@ jobs:
           path: |
             mobile/android/app/build/reports/androidTests/
             mobile/android/app/build/outputs/androidTest-results/
+            /tmp/logcat-all.txt
+            /tmp/logcat-crash.txt
+            /tmp/getprop.txt
+            /tmp/processes.txt
           if-no-files-found: ignore
           retention-days: 14
