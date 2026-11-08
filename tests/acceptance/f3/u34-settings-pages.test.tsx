@@ -71,6 +71,12 @@ describe('U3.4 · Settings after the removals', () => {
   // connection dialog and has its own test). Each entry's widen() goes through the same applyWithUndo the row's control
   // calls, and read() returns the value the row shows.
   const RISKY = ['R1', 'R2', 'R3', 'R4', 'R6', 'R7', 'R8', 'R9', 'R10'] as const
+  test('the risky-row registry holds exactly the rows the undo test covers', async () => {
+    const { RISKY_SETTING_ROWS } = await load<{ RISKY_SETTING_ROWS: ReadonlyArray<{ id: string; label: string }> }>('src/components/Settings/riskyRows')
+    // A row added to the registry later must be added here too, so none skips the undo check (R5 is OxeQuery's own).
+    expect([...RISKY_SETTING_ROWS.map(row => row.id), 'R5'].sort()).toEqual(['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'R8', 'R9', 'R10'].sort())
+    for (const row of RISKY_SETTING_ROWS) expect(row.label.trim().length, `${row.id} has a label`).toBeGreaterThan(0)
+  })
   test.each(RISKY)('risky row %s shows the undo toast, and Undo restores the value before it', async id => {
     // Every call to main resolves; what the row shows is its own applied state.
     const deep = (): unknown => new Proxy(async () => undefined, { get: (_target, key) => key === 'then' ? undefined : deep() })
