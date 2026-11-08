@@ -83,7 +83,7 @@ describe('U4.6 · the Pull request tab, GitHub and Azure DevOps', () => {
   test('no CLI and signed out keep the tab, with each provider’s words', async () => {
     const cases: Array<[string, string, RegExp]> = [
       ['github', 'missing', /Install the GitHub CLI/], ['azure', 'missing', /Install the Azure CLI/],
-      ['github', 'signed-out', /gh auth login/], ['azure', 'signed-out', /az login/]
+      ['github', 'signed-out', /Sign in with gh auth login/], ['azure', 'signed-out', /Sign in with az login/]
     ]
     for (const [provider, cli, words] of cases) {
       mockMain({ provider, cli, pr: null })
@@ -133,4 +133,27 @@ describe('U4.6 · the Pull request tab, GitHub and Azure DevOps', () => {
       cleanup()
     }
   })
+
+  test('a summary source main could not read leaves one muted line under the list', async () => {
+    mockMain({ provider: 'github', cli: 'ok', pr: null }, { ...SUMMARY, databases: null, failedSources: ['databases'] })
+    await renderTab()
+    const section = (await screen.findByRole('heading', { name: 'What the agent did' })).closest('section') as HTMLElement
+    expect(await within(section).findByText("Some sources couldn't be read.")).toBeInTheDocument()
+    expect(within(section).getAllByText("Some sources couldn't be read.")).toHaveLength(1)
+    expect(within(section).getByText(/4 files/)).toBeInTheDocument()
+  })
+
+  test("Azure DevOps' words read in pt-BR", async () => {
+    const { changeLanguage } = await import('../../../src/i18n')
+    await changeLanguage('pt-BR')
+    try {
+      mockMain({ provider: 'azure', cli: 'ok', pr: { ...PR.azure, state: 'merged' } })
+      await renderTab()
+      expect(await screen.findByRole('heading', { name: 'Pipelines e políticas' })).toBeInTheDocument()
+      expect(screen.getByText('Aguardando o autor')).toBeInTheDocument()
+      expect(screen.getByText('Concluído')).toBeInTheDocument()
+      expect(screen.getByText('Não se aplica')).toBeInTheDocument()
+    } finally { await changeLanguage('en') }
+  })
+
 })

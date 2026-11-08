@@ -7,7 +7,9 @@
 // - thread.placeDiff(threadId, placeId) → { place, groups: { task: GitDiff, branchSwitch?: GitDiff } } for a git place, or
 //   { place, groups: { written: [{ path, kind, additions?, deletions? }] } } for an outside one.
 // - thread.placeDriftAnswer(threadId, placeId, 'switched-back'|'followed'|'dismissed').
-// The tab is PlacesChanges({ threadId }) in src/components/Threads/PlacesChanges.tsx.
+// - thread.placeUndo(threadId, placeId, { path, hunk?, seenMtime }) → { ok, restoreToken } | { ok: false, refusal };
+//   thread.placeRestore(threadId, restoreToken); thread.placeDiscard(threadId, placeId, { confirmed }) (#704 @ ec1b7284).
+// The tab is PlacesChanges({ threadId }) in src/components/Threads/PlacesChanges.tsx; each drift card carries data-drift-card.
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -35,6 +37,9 @@ function mockMain(places: Row[], diffs: Record<string, unknown>, capped = false)
     places: vi.fn(async () => ({ places, capped })),
     placeDiff: vi.fn(async (_threadId: string, placeId: string) => diffs[placeId]),
     placeDriftAnswer: vi.fn(async (_threadId: string, placeId: string) => ({ ok: true, place: places.find(item => item.id === placeId) })),
+    placeUndo: vi.fn(async (): Promise<Row> => ({ ok: true, restoreToken: 'tok-1' })),
+    placeRestore: vi.fn(async (): Promise<Row> => ({ ok: true })),
+    placeDiscard: vi.fn(async (): Promise<Row> => ({ ok: true })),
     onPlacesChanged: vi.fn(() => () => undefined)
   }
   Object.assign(window, { oxe: { ...(window as unknown as { oxe?: object }).oxe, thread, app: { platform: 'win32', openIn: vi.fn(async () => undefined), openInTargets: async () => ({ editors: [], preferred: 'auto' }) } } })
@@ -99,6 +104,46 @@ describe('U4.1 · Changes, grouped by place', () => {
     await renderTab()
     expect(await screen.findByText('No changes. Files the agent writes show up here, by where it wrote them.')).toBeInTheDocument()
   })
+
+  test('Undo file asks main to revert that file in that place, and the toast Undo restores it', async () => {
+    const thread = mockMain(THREE, THREE_DIFFS)
+    const { Toaster } = await import('../../../src/ui/Toast')
+    render(<Toaster />)
+    await renderTab()
+    await screen.findByText('src/app.ts')
+    await userEvent.click(within(section('Task worktree')).getByRole('button', { name: /Undo file/ }))
+    await waitFor(() => expect(thread.placeUndo).toHaveBeenCalledWith('t-1', 'pl-tree', { path: 'src/app.ts', seenMtime: 1 }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Undo' }))
+    await waitFor(() => expect(thread.placeRestore).toHaveBeenCalledWith('t-1', 'tok-1'))
+  })
+
+  test('Undo hunk asks main to revert only that hunk, and the toast Undo restores it', async () => {
+    const thread = mockMain(THREE, THREE_DIFFS)
+    const { Toaster } = await import('../../../src/ui/Toast')
+    render(<Toaster />)
+    await renderTab()
+    await screen.findByText('src/app.ts')
+    await userEvent.click(within(section('Task worktree')).getAllByRole('button', { name: /Undo hunk/ })[0])
+    await waitFor(() => expect(thread.placeUndo).toHaveBeenCalledWith('t-1', 'pl-tree', { path: 'src/app.ts', hunk: '@@ -1,3 +1,5 @@', seenMtime: 1 }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Undo' }))
+    await waitFor(() => expect(thread.placeRestore).toHaveBeenCalledWith('t-1', 'tok-1'))
+  })
+
+  test('Discard sends confirmed only after its dialog, and a stale undo reads the diff again', async () => {
+    const thread = mockMain(THREE, THREE_DIFFS)
+    await renderTab()
+    await screen.findByText('src/app.ts')
+    await userEvent.click(within(section('Task worktree')).getByRole('button', { name: /^Discard/ }))
+    expect(thread.placeDiscard).not.toHaveBeenCalled()
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: /^Discard/ }))
+    await waitFor(() => expect(thread.placeDiscard).toHaveBeenCalledWith('t-1', 'pl-tree', { confirmed: true }))
+    const reads = thread.placeDiff.mock.calls.filter(([, placeId]) => placeId === 'pl-tree').length
+    thread.placeUndo.mockResolvedValueOnce({ ok: false, refusal: { code: 'thread.place.stale', params: {} } })
+    await userEvent.click(within(section('Task worktree')).getByRole('button', { name: /Undo file/ }))
+    await waitFor(() => expect(thread.placeDiff.mock.calls.filter(([, placeId]) => placeId === 'pl-tree').length).toBeGreaterThan(reads))
+  })
+
 })
 
 describe('U4.2 · branch drift', () => {
@@ -171,4 +216,29 @@ describe('U4.2 · branch drift', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: /^Switch back/ }))
     await waitFor(() => expect(thread.placeDriftAnswer).toHaveBeenCalledWith('t-1', 'pl-tree', 'switched-back'))
   })
+
+  test("after Dismiss the card goes away and stays away once main reports it dismissed, and another place's card stays", async () => {
+    const two = [place('pl-tree', 'worktree', '/repo-trees/agent-fix', { drift: drift() }), place('pl-other', 'checkout', '/work/other', { drift: drift({ to: { branch: 'release', commit: 'bbb222' } }) })]
+    const diffs = {
+      'pl-tree': { place: two[0], groups: { task: diff([file('src/app.ts')]), branchSwitch: diff([]) } },
+      'pl-other': { place: two[1], groups: { task: diff([file('src/x.ts')]), branchSwitch: diff([]) } }
+    }
+    const listeners: Array<(event: unknown) => void> = []
+    const thread = mockMain(two, diffs)
+    thread.onPlacesChanged.mockImplementation(((listener: (event: unknown) => void) => { listeners.push(listener); return () => undefined }) as never)
+    await renderTab()
+    expect(await screen.findAllByText('This worktree is on another branch now.')).toHaveLength(2)
+    const treeCard = within(section('Task worktree')).getByText('This worktree is on another branch now.').closest('[data-drift-card]') as HTMLElement
+    await userEvent.click(within(treeCard).getByRole('button', { name: 'Dismiss' }))
+    await waitFor(() => expect(thread.placeDriftAnswer).toHaveBeenCalledWith('t-1', 'pl-tree', 'dismissed'))
+    // Main now reports the tree's drift as answered; the place re-renders.
+    two[0] = { ...two[0], drift: drift({ answer: 'dismissed' }) }
+    thread.places.mockImplementation(async () => ({ places: two, capped: false }))
+    for (const listener of listeners) listener({ threadId: 't-1' })
+    await waitFor(() => expect(within(section('Task worktree')).queryByText('This worktree is on another branch now.')).toBeNull())
+    expect(within(section('Another checkout')).getByText('This worktree is on another branch now.')).toBeInTheDocument()
+    // Dismissed keeps the two lists apart.
+    expect(within(section('Task worktree')).getByRole('heading', { name: 'Changed by the task' })).toBeInTheDocument()
+  })
+
 })
