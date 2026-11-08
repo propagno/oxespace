@@ -98,7 +98,21 @@ export interface RemotePaneConversationEvent { changed: true }
 - **Cost:** a page is at most one reader call (bounded by the reader's own 8 MB I/O and 2 MB payload caps), in the worker, never on the main thread.
 - **Live, without streaming content:** the `paneConversation` events carry no text. Content only moves through the page reads above, at most one newest-page fetch per event, so at most one every 2 s per pane.
 
-### What the phone shows (MOBILE, DESIGN to confirm)
+### What the phone shows (MOBILE; DESIGN decided 07/11, #658 review, ACs M6.11–M6.14)
+
+> **DESIGN's decisions** (review on #658; picture in the phone playground #627, `#phone-terminal`):
+> - **The control:** a **segmented control**, *Screen · Conversation* (pt-BR *Tela · Conversa*). It's M3 `SingleChoiceSegmentedButtonRow`, full width, 48 dp, under the app bar, as a radio group named "View".
+> - **Default view:** **Conversation** on a pane that has one; Screen is one tap away.
+> - **Caption:** "Claude Code's conversation · read only" / "Codex's conversation · read only", plus a **Live** mark while following.
+> - **New items while scrolled up:** T100's **Latest** chip with a count of new ids only ("3 new · Latest ↓"). A message growing in place doesn't count. After a gap, the chip shows no count.
+> - **Refresh:** pull to refresh, not a header button.
+> - **Input:** the key row and input show only on Screen. Conversation shows a tappable "Type on the Screen view" hint on a pane the phone may type in.
+> - **The Notice** has the action **Show the screen**.
+> - Copy in en and pt-BR is in DESIGN's review.
+>
+> **Correction for v1:** the reader sends text messages only (user and assistant), so Conversation has **no tool or step items**. M4's "steps" chip doesn't apply here; it shows plain bubbles.
+>
+> Where the bullets below differ, DESIGN's decisions win.
 
 - **M6 Terminal,** on a pane with `conversation: true`: a **Screen · Conversation** toggle above the view.
   - Conversation subscribes to `paneConversation` (the snapshot is the newest page) and follows it. It offers "Load earlier" at the top, as in OxeChat.
