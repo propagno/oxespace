@@ -41,6 +41,7 @@
 - **Append-only:** a no-update trigger, like 070/078.
 - **`UNIQUE (tool_use_id, call_index)`:** one command can hold several calls. The plan's `tool_use_id UNIQUE` can't hold those; this keeps its point, no duplicate between the hook and the rollout.
 - **Indexes:** `(ts DESC)` and `(workspace_id, ts DESC)`.
+- **Also in 094 (H1-6, TECH LEAD 08/11):** `ALTER TABLE agent_action_audit ADD COLUMN` `path TEXT`, `line INTEGER`, `added INTEGER` and `removed INTEGER`, all nullable. Existing rows and writers are unchanged.
 
 **`electron/main/services/http-audit/store.ts`, `HttpAuditLog(db, now?, deps?)`:**
 - `ingest({ paneId, workspaceId, agent, sessionId, at, record, source? })` → rows added. It never throws.
@@ -52,6 +53,38 @@
 ## H1-4 — The hook server feeds the audit
 
 `AgentHookServer` gains `httpAudit?: { ingest(input) }`. For every authenticated event, after `mapHookEvent`, it calls the audit inside a try/catch, so a failing audit never touches the pane status. `index.ts` wires `HttpAuditLog` in.
+
+**The window is told when a tool's output was cut** (A58, TECH LEAD G-d, 08/11). `AgentHookStatusEvent` gains two optional fields, set only on a `PostToolUse` whose `tool_response.truncated` is `true`:
+- `toolUseId?: string`;
+- `output?: { truncated: true; keptBytes: number; totalBytes?: number }`.
+
+Main validates what the forwarder sent:
+- `keptBytes` must be a non-negative safe integer, else it reads 0;
+- a `totalBytes` that isn't one is left out, as past the 8 MiB limit.
+
+An uncut result has no `output` field. This is the event the window already receives from the hook path, so the conversation row can say the output was cut.
+
+## H1-6 — What an agent's edit changed (TECH LEAD G-b, 08/11)
+
+`electron/main/services/agent-hooks/edit-capture.ts`:
+- `summarizeEdits(record)` → `Array<{ tool, path, line: number | null, added: number | null, removed: number | null }>`, from a `PostToolUse` or `PostToolUseFailure`:
+  - **Claude `Edit`, `MultiEdit`, `Write`:**
+    - With `tool_response.structuredPatch`, `added` and `removed` count its `+` and `-` lines, summed over the hunks. `line` is the first changed line: `newStart` plus the context lines before the first change, the smallest across hunks.
+    - Without one, the counts come from `old_string`/`new_string` (or each `edits[]` item) after trimming the common leading and trailing lines, and `line` is null.
+    - A `Write` with `type: 'create'` counts its content lines as added, from line 1.
+  - **`NotebookEdit`:** the path, with the counts of `new_source`, and null where unknown.
+  - **Codex `apply_patch`:** one row per `*** Update File:`, `*** Add File:` or `*** Delete File:` section, counting its `+`/`-` lines, with `line` null.
+  - **Anything else gives `[]`:** other tools, `PreToolUse`, or no path.
+- **The path** goes through the command redaction (`redactSecrets`, which covers a userinfo or a token in it) and is cut to 1024 characters.
+- **Never kept:** a diff body, file content, `originalFile`, or the old and new strings.
+- **Storage:** `hookServerOptionsFor` wires it beside the HTTP audit. Each summary becomes one `agent_action_audit` row:
+  - `actor` = `pane:<id>`, plus `workspace_id` and `tool`;
+  - `action` = `edit`, `level` = `write`, `decision` = `hook`;
+  - `outcome` = `ok`, or `error` on `PostToolUseFailure`;
+  - `text` = the redacted path, plus `path`, `line`, `added` and `removed`.
+- **A10's changes rows** carry `path`, `line`, `added` and `removed` when the row is an edit.
+
+**Frozen in** `h1-edit-capture.native.test.ts`: the pure counts, the real hook server into an in-memory database, and a sweep that finds no body marker in any table.
 
 ## SECURITY rules (TECH LEAD S1–S7, HML-695-1..3), all frozen
 
@@ -117,6 +150,8 @@ This supersedes #650's F2 design, where the post source is gone.
 - **Paging:** each source runs its own bounded statement (`INDEXED BY` its ts index, `LIMIT` the page plus 1), and main merges the results by `(at desc, source order, id desc)`. That gives pages of 50 with an opaque cursor.
 - **Partial failure:** a source whose statement throws is listed in `failedSources`, and the rest come back. This is DESIGN's partial-failure Notice.
 - **Row:** `{ id, source, at, actor { kind, id, name, gone }, agent, workspaceId, summary, target, write, decision, outcome, errorCode, detailRef }`. The renderer maps decision and outcome to its own chips.
+  - **http rows** also carry `status: number | null`, for the window's status chip (TECH LEAD G-a).
+  - **changes rows that are edits** (H1-6) also carry `path`, `line`, `added` and `removed`.
   - An http row reads `METHOD host/path_template`, targets the host, and is a write unless GET/HEAD/OPTIONS. A status of 400 or more is outcome `error`.
 - **`detail(id)`** returns the stored fields, plus `production` for http.
 - **Query:** `{ sources?, agent?, workspaceId?, since?, until?, view?, actor?, connection?, cursor?, limit? }`.
@@ -129,6 +164,23 @@ This supersedes #650's F2 design, where the post source is gone.
 - **today:** this connection's databases and containers rows since local midnight.
 - **waiting:** an approval pending for that connection right now (`deps.pendingFor`, from the approval center).
 
+## Renderer-facing names (FE ask, 08/11)
+
+- **Preload:**
+  - `window.oxe.httpAudit.list(query)`;
+  - `window.oxe.agentActivity.{ list(query), detail(id), badge({ connectionId }) }`.
+- **`shared/types/http-audit.ts`:**
+  - `HttpAuditQuery` and `HttpAuditPage` (`{ rows, cursor, hosts }`);
+  - `HttpAuditRow` = `{ id, at, actor { kind, id, name, gone }, workspaceId, agent, sourceKind: 'hook' | 'rollout', tool, method, scheme, host, port, pathTemplate, queryKeys, headerNames, hasBody, bodyBytes, status, durationMs, insecure, plainHttpExternal, commandRedacted, outputTruncated, production }`;
+  - a sensitive header name arrives as the stored string `•••• (NAME)`.
+- **`shared/types/agent-activity.ts`:**
+  - `AgentActivitySource`, `AgentActivityQuery`, `AgentActivityRow`;
+  - `AgentActivityPage` = `{ rows, cursor, failedSources }`;
+  - `AgentActivityDetail`: a union on `source` with the stored columns (databases and containers from `oxequery_audit`, changes from `agent_action_audit` with the H1-6 fields, http as `HttpAuditRow`).
+- **Fields that don't exist:**
+  - no image, ports or folder on a containers detail (OxePod has those);
+  - no diff body on a change.
+
 ## Frozen tests
 
 - `h1-forwarder.test.ts`
@@ -137,5 +189,6 @@ This supersedes #650's F2 design, where the post source is gone.
 - `h1-hook-server-ingest.test.ts`
 - `h2-http-list.native.test.ts`
 - `a10-agent-activity.native.test.ts`
+- `h1-edit-capture.native.test.ts` (H1-6, 08/11)
 
 All are lint-clean and red for the right reason. The checks that pass today (a small event unchanged, an unauthenticated event refused, a throwing audit leaving the status intact) are behaviour that must stay.

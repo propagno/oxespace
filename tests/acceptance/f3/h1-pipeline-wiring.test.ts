@@ -1,6 +1,7 @@
 // Frozen acceptance test for 1.5.0 A59 (OXE program, phase F3, item H1), TECH LEAD's SECURITY condition on #695: the app
 // really builds the hook server through hookServerOptionsFor, and nothing else writes hook events to the database.
 // Written by the planner; the executor must not edit it. Static checks only.
+// rigor: source-assertion — the criterion is structural (which modules construct the server and write the table), which no runtime call can show.
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'

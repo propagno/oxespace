@@ -3,9 +3,8 @@
 // Written by the planner; the executor must not edit it. Supersedes #650's F2 test (the post source is gone).
 // Spec: docs/roadmap-1.5/ccr-h1-http-audit.md §A10 and DESIGN's 1.5.0-f3-design.md "Data each screen needs".
 // Runs under Electron's Node ABI: npm run test:electron -- tests/acceptance/f3/a10-agent-activity.native.test.ts
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
-import { afterEach, describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
+import { createOxeApi, type PreloadIpc } from '../../../electron/preload/api'
 import { openInMemoryDatabase, type AppDatabase } from '../../../electron/main/db/index'
 import { AgentActivity, parseAgentActivityQuery } from '../../../electron/main/services/agent-activity/read-model'
 import { AGENT_ACTIVITY_SOURCES, type AgentActivityQuery, type AgentActivityRow } from '../../../shared/types/agent-activity'
@@ -65,6 +64,15 @@ describe('A10 · one Agent activity read model, four sources', () => {
     call(db, 3, { status: 503 }); call(db, 2, { status: null }); call(db, 1, { status: 204 })
     const rows = walk(new AgentActivity(db, deps()), { sources: ['http'], view: 'problems' })
     expect(rows.map(row => [row.at, row.outcome])).toEqual([[3, 'error']])
+  })
+
+  test('A10: an http row carries its status for the window\'s chip, null when no response was seen (TECH LEAD G-a)', () => {
+    const db = database()
+    call(db, 3, { status: 503 }); call(db, 2, { status: null }); call(db, 1, { status: 201 })
+    change(db, 4)
+    const rows = walk(new AgentActivity(db, deps()), {})
+    expect(rows.filter(row => row.source === 'http').map(row => [row.at, row.status])).toEqual([[3, 503], [2, null], [1, 201]])
+    expect(rows.find(row => row.source === 'changes')).not.toHaveProperty('status')
   })
 
   test('A10: pages of 50 by default, every row once and in order, with a cursor', () => {
@@ -139,14 +147,22 @@ describe('R18 · the activity badge of a connection', () => {
 })
 
 describe('A10 · surface', () => {
-  test('A10: agent-activity list, detail and badge are IPC channels, preloaded, and excluded from MCP', () => {
+  test('A10: agent-activity list, detail and badge are IPC channels, excluded from MCP', () => {
     expect(IPC_CHANNELS.agentActivity).toEqual({ list: 'agent-activity:list', detail: 'agent-activity:detail', badge: 'agent-activity:badge' })
     for (const channel of ['agentActivity.list', 'agentActivity.detail', 'agentActivity.badge']) {
       const claims = Object.values(MCP_COVERAGE).filter(capability => capability.ipc?.includes(channel) || capability.ipc?.includes('agentActivity.*'))
       expect(claims, channel).toHaveLength(1)
       expect(claims[0]).toHaveProperty('excluded')
     }
-    const preload = readFileSync(join(process.cwd(), 'electron/preload/api.ts'), 'utf8')
-    for (const key of ['list', 'detail', 'badge']) expect(preload).toMatch(new RegExp(`IPC_CHANNELS\\.agentActivity\\.${key}\\b`))
+  })
+
+  test('A10: the preload API calls each channel with what the window passes', async () => {
+    const invoke = vi.fn().mockResolvedValue(undefined)
+    const api = createOxeApi({ invoke, on: vi.fn(), removeListener: vi.fn() } as PreloadIpc)
+    const query = { sources: ['http' as const], limit: 10 }
+    await api.agentActivity.list(query)
+    await api.agentActivity.detail('http:1')
+    await api.agentActivity.badge({ connectionId: 'c-shop' })
+    expect(invoke.mock.calls).toEqual([[IPC_CHANNELS.agentActivity.list, query], [IPC_CHANNELS.agentActivity.detail, 'http:1'], [IPC_CHANNELS.agentActivity.badge, { connectionId: 'c-shop' }]])
   })
 })

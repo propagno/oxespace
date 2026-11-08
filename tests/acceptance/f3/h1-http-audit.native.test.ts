@@ -28,6 +28,17 @@ describe('A59 · agent_http_audit', () => {
     } finally { db.close() }
   })
 
+  test('H1-6: migration 094 also gives agent_action_audit the edit columns path, line, added and removed, nullable', () => {
+    const db = openInMemoryDatabase()
+    try {
+      const columns = db.prepare('PRAGMA table_info(agent_action_audit)').all() as Array<{ name: string; notnull: number }>
+      for (const name of ['path', 'line', 'added', 'removed']) expect(columns.find(column => column.name === name), name).toMatchObject({ notnull: 0 })
+      // The existing rows and writers are untouched: a row without them still inserts.
+      db.prepare("INSERT INTO agent_action_audit (ts, actor, workspace_id, tool, action, level, text, decision, outcome) VALUES (1, 'thread:t1', 'ws-1', 'oxespace_git_change', 'commit', 'write', 'commit', 'approved', 'ok')").run()
+      expect(db.prepare('SELECT path, line, added, removed FROM agent_action_audit').get()).toEqual({ path: null, line: null, added: null, removed: null })
+    } finally { db.close() }
+  })
+
   test('A59: a curl call is stored masked: no header value, no query value, no stdout, and a redacted command of at most 512 characters', () => {
     const db = openInMemoryDatabase()
     try {

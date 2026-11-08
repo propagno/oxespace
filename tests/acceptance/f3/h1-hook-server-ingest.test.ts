@@ -51,3 +51,33 @@ describe('A59 · the hook server feeds the HTTP audit', () => {
     expect(statuses.map(status => status.state)).toEqual(['working', 'done'])
   })
 })
+
+describe('A58 · the window is told when a tool’s output was cut (TECH LEAD G-d)', () => {
+  async function statusesFor(records: Record<string, unknown>[]): Promise<AgentHookStatusEvent[]> {
+    const statuses: AgentHookStatusEvent[] = []
+    server = new AgentHookServer({ authenticate, onStatus: event => { statuses.push(event) } })
+    const port = await server.start()
+    for (const record of records) await post(port, delivery(record))
+    await settle()
+    return statuses
+  }
+
+  test('A58: a PostToolUse whose result the forwarder shrank carries { truncated, keptBytes, totalBytes } and its tool use id', async () => {
+    const [status] = await statusesFor([{ hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_use_id: 'toolu_big', session_id: 'sess-1', tool_response: { stdoutHead: 'x', stderrHead: '', interrupted: false, truncated: true, keptBytes: 4096, totalBytes: 5242880 } }])
+    expect(status).toMatchObject({ event: 'PostToolUse', toolUseId: 'toolu_big', output: { truncated: true, keptBytes: 4096, totalBytes: 5242880 } })
+  })
+
+  test('A58: past the 8 MiB limit there is no totalBytes; an uncut result has no output field at all', async () => {
+    const [cut, whole] = await statusesFor([
+      { hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_use_id: 'toolu_huge', session_id: 'sess-1', tool_response: { truncated: true, keptBytes: 0 } },
+      { hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_use_id: 'toolu_small', session_id: 'sess-1', tool_response: { stdoutHead: 'ok', stderrHead: '', interrupted: false, truncated: false, keptBytes: 2, totalBytes: 2 } }
+    ])
+    expect(cut.output).toEqual({ truncated: true, keptBytes: 0 })
+    expect(whole).not.toHaveProperty('output')
+  })
+
+  test('A58: a keptBytes that is not a sane count reads 0, and such a totalBytes is left out', async () => {
+    const [status] = await statusesFor([{ hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_use_id: 'toolu_bad', session_id: 'sess-1', tool_response: { truncated: true, keptBytes: -5, totalBytes: '9e99' } }])
+    expect(status.output).toEqual({ truncated: true, keptBytes: 0 })
+  })
+})
