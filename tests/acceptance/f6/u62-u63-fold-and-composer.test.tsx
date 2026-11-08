@@ -5,7 +5,8 @@
 // refuses with thread.steer.unavailable; Send now is the existing thread.sendQueuedNow(threadId, itemId). The renderer parts:
 // - foldSummaryText(summary) in src/components/Threads/foldSummaryText.ts (the words);
 // - ToolRowView({ row }) in src/components/Threads/ToolRowView.tsx (one row: kind bar, accessible kind, time on focus);
-// - composerHints({ status, canSteer }) in src/components/Threads/composerModel.ts → { placeholder, steer, sendNow };
+// - composerHints({ status, canSteer }) → { placeholder, steer, sendNow } and modelChipState({ active, next }) → { pending, note }
+//   in src/components/Threads/composerModel.ts;
 // - QueuedMessageRow({ threadId, item, canSteer, working }) in src/components/Threads/QueuedMessageRow.tsx.
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
@@ -109,4 +110,42 @@ describe('U6.3 · the composer', () => {
     render(<QueuedMessageRow threadId="t-1" item={{ id: 'q-1', text: 'x' }} canSteer working={false} />)
     expect(screen.queryByRole('button', { name: 'Steer with this' })).toBeNull()
   })
+
+  test('a model change is marked pending with "Applies to the next message" and clears once that message is sent', async () => {
+    const { modelChipState } = await load<{ modelChipState: (state: { active: string; next: string | null }) => { pending: boolean; note: string | null } }>('src/components/Threads/composerModel')
+    expect(modelChipState({ active: 'claude-opus-5-5', next: null })).toEqual({ pending: false, note: null })
+    expect(modelChipState({ active: 'claude-opus-5-5', next: 'claude-sonnet-5-5' })).toEqual({ pending: true, note: 'Applies to the next message' })
+    // After the send, main reports the new model as active and the choice is no longer pending.
+    expect(modelChipState({ active: 'claude-sonnet-5-5', next: 'claude-sonnet-5-5' })).toEqual({ pending: false, note: null })
+    await changeLanguage('pt-BR')
+    expect(modelChipState({ active: 'a', next: 'b' }).note).toBe('Vale a partir da próxima mensagem')
+  })
+
+
+  test('the chips are Plan or Agent, model, effort and access with no MCP chip, reachable by Tab, and a model menu returns focus', async () => {
+    const { ComposerChips } = await load<{ ComposerChips: (props: { mode: string; model: string; models: string[]; nextModel: string | null; effort?: string; efforts?: string[]; access: string; onChange: (change: Record<string, unknown>) => void }) => JSX.Element }>('src/components/Threads/ComposerChips')
+    const onChange = vi.fn()
+    const { rerender } = render(<ComposerChips mode="agent" model="claude-opus-5-5" models={['claude-opus-5-5', 'claude-sonnet-5-5']} nextModel={null} effort="high" efforts={['low', 'medium', 'high']} access="edit" onChange={onChange} />)
+    expect(document.body.textContent).not.toMatch(/\bMCP\b/)
+    const chips = screen.getAllByRole('button')
+    expect(chips.length).toBeGreaterThanOrEqual(4)
+    await userEvent.tab()
+    expect(chips).toContain(document.activeElement)
+    const model = screen.getByRole('button', { name: /claude-opus-5-5/ })
+    model.focus()
+    await userEvent.keyboard('{Enter}')
+    expect(await screen.findByRole('menu')).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+    expect(model).toHaveFocus()
+    await userEvent.click(model)
+    await userEvent.click(await screen.findByRole('menuitemradio', { name: /claude-sonnet-5-5/ }))
+    expect(onChange).toHaveBeenCalledWith({ model: 'claude-sonnet-5-5' })
+    await waitFor(() => expect(screen.getByRole('button', { name: /claude-opus-5-5|claude-sonnet-5-5/ })).toHaveFocus())
+    rerender(<ComposerChips mode="agent" model="claude-opus-5-5" models={['claude-opus-5-5', 'claude-sonnet-5-5']} nextModel="claude-sonnet-5-5" effort="high" efforts={['low', 'medium', 'high']} access="edit" onChange={onChange} />)
+    expect(screen.getByText('Applies to the next message')).toBeInTheDocument()
+    rerender(<ComposerChips mode="agent" model="claude-sonnet-5-5" models={['claude-opus-5-5', 'claude-sonnet-5-5']} nextModel={null} effort="high" efforts={['low', 'medium', 'high']} access="edit" onChange={onChange} />)
+    expect(screen.queryByText('Applies to the next message')).toBeNull()
+  })
+
 })

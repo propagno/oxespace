@@ -3,7 +3,7 @@
 // Contract (BACKEND #709 @ 7000ab74): activity = { kind: 'needs-you'|'question'|'working'|'paused'|'error'|'ready'|'done',
 // at, text?, verb?, since?, count?, requestId?, reason? }, worded by the window; window.oxe.thread.toolTabs(threadId) →
 // [{ tab, count }], pushed by thread.onToolTabsChanged. The renderer parts:
-// - NowLine({ activity, agent, onAction }) in src/components/Threads/NowLine.tsx;
+// - NowLine({ activity, agent, irreversible?, hasPullRequest?, onAction }) in src/components/Threads/NowLine.tsx;
 // - ThreadSubline({ provider, model, workspace, branch, moved, access, startedAt }) in src/components/Threads/ThreadSubline.tsx;
 // - ThreadToolTabs({ threadId }) in src/components/Threads/ThreadToolTabs.tsx;
 // - THREAD_MORE_ACTIONS, the ⋯ menu's items in order, in src/components/Threads/threadMoreActions.ts.
@@ -20,11 +20,11 @@ async function load<T>(rel: string): Promise<T> {
   if (!file) throw new Error(`${rel} does not exist yet`)
   return import(/* @vite-ignore */ pathToFileURL(file).href) as Promise<T>
 }
-type NowLineModule = { NowLine: (props: { activity: Activity; agent: string; onAction: (action: string) => void }) => JSX.Element }
-async function renderNowLine(activity: Activity) {
+type NowLineModule = { NowLine: (props: { activity: Activity; agent: string; irreversible?: boolean; hasPullRequest?: boolean; onAction: (action: string) => void }) => JSX.Element }
+async function renderNowLine(activity: Activity, extra: { irreversible?: boolean; hasPullRequest?: boolean } = {}) {
   const { NowLine } = await load<NowLineModule>('src/components/Threads/NowLine')
   const onAction = vi.fn()
-  render(<NowLine activity={activity} agent="Claude" onAction={onAction} />)
+  render(<NowLine activity={activity} agent="Claude" {...extra} onAction={onAction} />)
   return onAction
 }
 const line = (): string => (screen.getByRole('status').textContent ?? '').replace(/\s+/g, ' ').trim()
@@ -104,4 +104,47 @@ describe('U6.1 · the header as a task', () => {
     ])
     expect(THREAD_MORE_ACTIONS.map(action => action.label).join(' ')).not.toMatch(/teammate|colega/i)
   })
+
+  test("there is one tab strip: F4's tabs are gone, and Changes, Terminal and Pull request fill in through ThreadToolTabs", async () => {
+    // F4 (FE-P7) built ThreadTabs and visibleThreadTabs; F6 replaces them with ThreadToolTabs (TECH LEAD 08/11), so only one
+    // strip can render: the old modules no longer resolve.
+    await expect(load('src/components/Threads/ThreadTabs')).rejects.toThrow(/does not exist yet/)
+    await expect(load('src/components/Threads/threadTabs')).rejects.toThrow(/does not exist yet/)
+    const listeners: Array<(event: unknown) => void> = []
+    let tabs: Array<{ tab: string; count: number | null }> = [{ tab: 'conversation', count: null }]
+    const thread = { toolTabs: vi.fn(async () => tabs), onToolTabsChanged: vi.fn((listener: (event: unknown) => void) => { listeners.push(listener); return () => undefined }) }
+    Object.assign(window, { oxe: { ...(window as unknown as { oxe?: object }).oxe, thread } })
+    const { ThreadToolTabs } = await load<{ ThreadToolTabs: (props: { threadId: string }) => JSX.Element }>('src/components/Threads/ThreadToolTabs')
+    render(<ThreadToolTabs threadId="t-1" />)
+    expect(await screen.findByRole('tab', { name: /Conversation/ })).toBeInTheDocument()
+    expect(screen.getAllByRole('tablist')).toHaveLength(1)
+    expect(screen.queryByRole('tab', { name: /Changes|Terminal|Pull request/ })).toBeNull()
+    // F4's fill-in rule holds: a tab appears once main counts something for it.
+    tabs = [{ tab: 'conversation', count: null }, { tab: 'terminal', count: 1 }, { tab: 'changes', count: 3 }, { tab: 'pullRequest', count: 1 }]
+    act(() => { for (const listener of listeners) listener({ threadId: 't-1' }) })
+    expect(await screen.findByRole('tab', { name: /Pull request/ })).toBeInTheDocument()
+    expect(screen.getAllByRole('tab').map(tab => tab.textContent?.replace(/d+/g, '').trim())).toEqual(['Conversation', 'Terminal', 'Changes', 'Pull request'])
+    expect(screen.getAllByRole('tablist')).toHaveLength(1)
+  })
+
+
+  test('an irreversible request reads Deny then See impact, and Ready offers Open pull request only with a PR', async () => {
+    await renderNowLine({ kind: 'needs-you', at: 1, text: 'drop the orders table', requestId: 'r9' }, { irreversible: true })
+    expect(actions()).toEqual(['Deny', 'See impact'])
+    cleanup()
+    await renderNowLine({ kind: 'ready', at: 1, text: '3 files changed' }, { hasPullRequest: true })
+    expect(actions()).toEqual(['Open pull request'])
+    cleanup()
+    await renderNowLine({ kind: 'ready', at: 1, text: '3 files changed' }, { hasPullRequest: false })
+    expect(actions()).toEqual([])
+  })
+
+  test('there is no side chat: no menu action for it, and Ctrl . is bound to nothing', async () => {
+    const { THREAD_MORE_ACTIONS } = await load<{ THREAD_MORE_ACTIONS: ReadonlyArray<{ id: string; label: string }> }>('src/components/Threads/threadMoreActions')
+    expect(THREAD_MORE_ACTIONS.map(action => `${action.id} ${action.label}`).join(' ')).not.toMatch(/side ?chat|conversa lateral/i)
+    const { KEYBINDINGS } = await import('../../../src/keyboard/keybindings')
+    expect(KEYBINDINGS.filter(binding => (binding.chords as readonly string[]).includes('Mod+.')).map(binding => binding.id)).toEqual([])
+    expect(KEYBINDINGS.map(binding => binding.id as string).filter(id => /side/i.test(id))).toEqual([])
+  })
+
 })

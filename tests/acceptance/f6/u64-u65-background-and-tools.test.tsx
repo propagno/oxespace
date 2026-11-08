@@ -86,4 +86,32 @@ describe('U6.5 · tools beside the conversation', () => {
     expect(clampToolPanelWidth(1300, 1400)).toBeLessThanOrEqual(1400 - 360)
     expect(clampToolPanelWidth(1300, 1400)).toBeGreaterThanOrEqual(320)
   })
+
+  test('with two cells, the close on the inactive right side closes it in one click without activating it first', async () => {
+    const { useThreadStore } = await import('../../../src/store/thread.store')
+    useThreadStore.setState({ selectedId: 't-1', secondaryId: 't-2', activeCell: 'primary' } as never)
+    const { ThreadCellClose } = await load<{ ThreadCellClose: (props: { cell: 'primary' | 'secondary' }) => JSX.Element }>('src/components/Threads/ThreadCellClose')
+    render(<ThreadCellClose cell="secondary" />)
+    await userEvent.click(screen.getByRole('button', { name: /^Close/ }))
+    expect(useThreadStore.getState().secondaryId).toBeNull()
+    expect(useThreadStore.getState().selectedId).toBe('t-1')
+  })
+
+  test('the tool panel splitter resizes with the arrow keys and holds the 320 px floor', async () => {
+    const { ToolPanelSplitter } = await load<{ ToolPanelSplitter: (props: { width: number; available: number; onChange: (width: number) => void }) => JSX.Element }>('src/components/Threads/threadToolPanels')
+    let width = 336
+    const onChange = vi.fn((next: number) => { width = next })
+    const { rerender } = render(<ToolPanelSplitter width={width} available={1400} onChange={onChange} />)
+    const separator = screen.getByRole('separator')
+    expect(separator).toHaveAttribute('aria-valuenow', '336')
+    expect(separator).toHaveAttribute('aria-valuemin', '320')
+    separator.focus()
+    await userEvent.keyboard('{ArrowLeft}')
+    expect(onChange).toHaveBeenCalled()
+    rerender(<ToolPanelSplitter width={width} available={1400} onChange={onChange} />)
+    for (let step = 0; step < 6; step++) { await userEvent.keyboard('{ArrowRight}'); rerender(<ToolPanelSplitter width={width} available={1400} onChange={onChange} />) }
+    for (let step = 0; step < 6; step++) { await userEvent.keyboard('{ArrowLeft}'); rerender(<ToolPanelSplitter width={width} available={1400} onChange={onChange} />) }
+    expect(Math.min(...onChange.mock.calls.map(([next]) => next as number))).toBeGreaterThanOrEqual(320)
+  })
+
 })

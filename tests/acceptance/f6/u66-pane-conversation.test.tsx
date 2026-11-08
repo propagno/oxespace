@@ -5,12 +5,13 @@
 // { agent, title?, items: [{ seq, item: RemoteThreadItem }] (oldest first), cursor | null, epoch } or { error:
 // 'no-conversation' | 'conversation-changed', reason? }. Dedupe by item.id; a new epoch is a new session; a newest page that
 // shares no id with what is held is a gap. The renderer parts, in src/components/Panes/:
-// - PaneConversationSwitch({ paneId, view, onView }) (the header's two icons, only when has(paneId));
+// - PaneConversationSwitch({ paneId }) (the header's two icons, only when has(paneId)); the choice lives in
+//   usePaneConversationView (src/store/pane-conversation-view.store.ts), kept per pane while the pane is open;
 // - PaneConversationView({ paneId, onShowScreen, onTypeInTerminal }) (the read-only reader).
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { changeLanguage } from '../../../src/i18n'
@@ -40,7 +41,7 @@ function mockMain(o: { has?: boolean; pages?: Page[] } = {}) {
   return { api, changed: () => act(() => { for (const listener of listeners) listener({ paneId: 'p-1' }) }) }
 }
 type Panes = {
-  PaneConversationSwitch: (props: { paneId: string; view: 'terminal' | 'conversation'; onView: (view: 'terminal' | 'conversation') => void }) => JSX.Element | null
+  PaneConversationSwitch: (props: { paneId: string }) => JSX.Element | null
   PaneConversationView: (props: { paneId: string; onShowScreen: () => void; onTypeInTerminal: () => void }) => JSX.Element
 }
 async function renderView() {
@@ -56,16 +57,15 @@ describe("U6.6 · a terminal agent's conversation on the desktop", () => {
   test('the switch shows only for a pane main has a conversation for, with Terminal as the default', async () => {
     const main = mockMain({ has: true })
     const { PaneConversationSwitch } = await load<Panes>('src/components/Panes/PaneConversationSwitch')
-    const onView = vi.fn()
-    render(<PaneConversationSwitch paneId="p-1" view="terminal" onView={onView} />)
+    render(<PaneConversationSwitch paneId="p-1" />)
     const terminal = await screen.findByRole('button', { name: 'Terminal' })
     expect(terminal).toHaveAttribute('aria-pressed', 'true')
     expect(main.api.has).toHaveBeenCalledWith('p-1')
     await userEvent.click(screen.getByRole('button', { name: 'Conversation' }))
-    expect(onView).toHaveBeenCalledWith('conversation')
+    expect(screen.getByRole('button', { name: 'Conversation' })).toHaveAttribute('aria-pressed', 'true')
     cleanup()
     mockMain({ has: false })
-    const { container } = render(<PaneConversationSwitch paneId="p-1" view="terminal" onView={onView} />)
+    const { container } = render(<PaneConversationSwitch paneId="p-9" />)
     await new Promise(resolve => setTimeout(resolve, 30))
     expect(screen.queryByRole('button', { name: 'Conversation' })).toBeNull()
     expect(container.textContent).toBe('')
@@ -125,4 +125,17 @@ describe("U6.6 · a terminal agent's conversation on the desktop", () => {
     expect(screen.getByRole('button', { name: 'Carregar anteriores' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Digite no terminal' })).toBeInTheDocument()
   })
+
+  test('the choice is kept per pane: A on Conversation, B still on Terminal, and A again on Conversation after switching away and back', async () => {
+    mockMain({ has: true })
+    const { PaneConversationSwitch } = await load<Panes>('src/components/Panes/PaneConversationSwitch')
+    const a = render(<PaneConversationSwitch paneId="p-a" />)
+    await userEvent.click(await within(a.container).findByRole('button', { name: 'Conversation' }))
+    const b = render(<PaneConversationSwitch paneId="p-b" />)
+    expect(await within(b.container).findByRole('button', { name: 'Terminal' })).toHaveAttribute('aria-pressed', 'true')
+    a.unmount()
+    const again = render(<PaneConversationSwitch paneId="p-a" />)
+    expect(await within(again.container).findByRole('button', { name: 'Conversation' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
 })
