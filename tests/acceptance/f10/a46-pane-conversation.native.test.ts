@@ -15,6 +15,23 @@ import { PANE_CONVERSATION_LIMITS, PaneConversations } from '../../../electron/m
 import { REMOTE_TEXT_LIMITS, type RemotePaneConversationPage } from '../../../shared/remote/protocol'
 import { removeTempDir } from '../../helpers/removeTempDir'
 
+/** Bytes the session reader really reads (HML-706-2): a pass-through count over every opened file handle. */
+const io = vi.hoisted(() => ({ bytes: 0 }))
+vi.mock('node:fs/promises', async importOriginal => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>()
+  const open: typeof actual.open = async (...args: Parameters<typeof actual.open>) => {
+    const handle = await actual.open(...args)
+    const read = handle.read.bind(handle) as (...input: unknown[]) => Promise<{ bytesRead: number }>
+    ;(handle as unknown as { read: (...input: unknown[]) => Promise<{ bytesRead: number }> }).read = async (...input: unknown[]) => {
+      const result = await read(...input)
+      io.bytes += result.bytesRead
+      return result
+    }
+    return handle
+  }
+  return { ...actual, open, default: { ...actual, open } }
+})
+
 const cleanup: Array<() => void> = []
 afterEach(() => { vi.useRealTimers(); for (const step of cleanup.splice(0).reverse()) { try { step() } catch { /* temp */ } } })
 
@@ -275,4 +292,47 @@ describe('BE-A46 · the live signal (tests 8, 11)', () => {
     offSecond()
     expect(f.watchers.every(entry => entry.closed)).toBe(true)
   })
+})
+
+describe('BE-A46 · HML 706 (a streaming writer, a large session)', () => {
+  const partialOf = (uuid: string, cwd: string) => {
+    const whole = JSON.stringify({ type: 'assistant', uuid, sessionId: '', cwd, message: { content: `message ${uuid}` } })
+    return { head: whole.slice(0, Math.floor(whole.length / 2)), tail: whole.slice(Math.floor(whole.length / 2)) }
+  }
+
+  test('HML-706-1: a half-written last line is left out without an error; once completed it appears exactly once, and Load earlier never repeats it', async () => {
+    const f = fixture()
+    f.sessions.record('p1', 'claude', ID_A, 'hook'); f.write(ID_A, many(60))
+    const line = partialOf('late', f.repo)
+    appendFileSync(f.file(ID_A), line.head)
+    const first = await page(f, 'dev-1', { paneId: 'p1' })
+    expect(ids(first).at(-1)).toBe('native:m59')
+    expect(ids(first)).not.toContain('native:late')
+    // The writer finishes the line.
+    appendFileSync(f.file(ID_A), `${line.tail}\n`)
+    const newest = await page(f, 'dev-1', { paneId: 'p1' })
+    expect(ids(newest).filter(id => id === 'native:late')).toHaveLength(1)
+    expect(new Set(ids(newest)).size).toBe(newest.items.length)
+    const earlier = await page(f, 'dev-1', { paneId: 'p1', cursor: first.cursor! })
+    expect(ids(earlier)).not.toContain('native:late')
+    expect([...ids(earlier), ...ids(first)]).toEqual(many(60).map(([uuid]) => `native:${uuid}`))
+  })
+
+  test('HML-706-2: a 50 MB session: the newest page and each Load earlier read a bounded part of the file, never the whole', async () => {
+    const f = fixture()
+    f.sessions.record('p1', 'claude', ID_A, 'hook')
+    const filler = 'x'.repeat(400)
+    const count = Math.ceil((50 * 1024 * 1024) / 520)
+    f.write(ID_A, Array.from({ length: count }, (_, index) => [`big${index}`, 'assistant', `${index} ${filler}`] as [string, 'assistant', string]))
+    const LIMIT = 9 * 1024 * 1024
+    io.bytes = 0
+    const newest = await page(f, 'dev-1', { paneId: 'p1' })
+    expect(ids(newest).at(-1)).toBe(`native:big${count - 1}`)
+    expect(io.bytes).toBeGreaterThan(0)
+    expect(io.bytes).toBeLessThanOrEqual(LIMIT)
+    io.bytes = 0
+    const earlier = await page(f, 'dev-1', { paneId: 'p1', cursor: newest.cursor! })
+    expect(earlier.items.length).toBeGreaterThan(0)
+    expect(io.bytes).toBeLessThanOrEqual(LIMIT)
+  }, 120_000)
 })

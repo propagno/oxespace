@@ -98,3 +98,36 @@ This is `ccr-a67-workspace-color.md` (#693).
 ## Order
 
 The three tasks are independent of each other and of F4, so they can run in parallel. MOBILE-A45, MOBILE-A46 and MOBILE-A67 each wait for theirs.
+
+## M5 changes (08/11)
+
+**MOBILE F1, approved by TECH LEAD.**
+- The desktop's hello, sent from the server to the phone, gains `features?: string[]` with `"terminal.snapshotOnly"` and `"pane.conversation"`. The client hello stays strict.
+- The phone sends `snapshotOnly`, and subscribes to `paneConversation`, only when the hello listed the feature. A 1.4.x desktop refuses any unknown subscribe key with `malformed`, so the phone must check first.
+- Frozen in a45.
+
+**HML-706-1.** A last line without its newline (a writer mid-append) is left out, with no error. Once it is complete it appears exactly once, and Load earlier never repeats it.
+
+**HML-706-2.** On a 50 MB session, the newest page and each Load earlier read at most 9 MiB, the reader's 8 MB cap plus slack. This is counted by a pass-through spy on file reads.
+
+**HML-706-3 (a pane kept off the phone)** becomes BE-CR34 below.
+
+## BE-CR34: Show on phone, per pane (TECH LEAD on HML-F10-1)
+
+**The setting**
+- `RemoteGateway.setPhoneHidden({ paneId, hidden })` returns `RemoteGatewayStatus`, which gains `phoneHiddenPanes: string[]`.
+- Every pane is shown by default.
+- It is stored in migration 096 (`remote_hidden_panes`; re-check the number before execute) and lasts across restarts.
+
+**Hiding a pane**
+- It also turns typing from the phone off. Typing can't be turned on for a hidden pane.
+- The pane leaves the workspaces topic.
+- A terminal subscribe gets the same error an unknown pane gets.
+- `pane.conversation` and the `paneConversation` topic answer `no-conversation`.
+- An open stream ends with `{ type: 'error', code: 'not-found', subscription, reason: 'pane-hidden' }`. These two additive fields on `RemoteErrorFrame` let the phone show DESIGN's Notice.
+
+**Guards**
+- Audit action `phone-hidden`, with outcome `on` or `off`, written only when the setting changes.
+- IPC `remote:set-phone-hidden`, under `remote.gateway_admin`, which is forbidden in MCP. It is never a phone command.
+
+**Frozen in** `cr34-pane-hidden.native.test.ts`.

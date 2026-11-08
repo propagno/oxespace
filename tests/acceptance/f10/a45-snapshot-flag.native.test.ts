@@ -7,6 +7,7 @@
 // Runs under Electron's Node ABI: npm run test:electron -- tests/acceptance/f10/a45-snapshot-flag.native.test.ts
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import type { RemoteTerminalData } from '../../../shared/remote/protocol'
+import { TestSocket } from '../../helpers/remote-client'
 import type { Harness } from '../../helpers/remote-gateway-harness'
 import { away, collect, ended, phoneWithDesktop, signIn, subscribeOnly, terminalUntil, type Frame } from '../../helpers/remote-session'
 
@@ -36,6 +37,18 @@ async function pane() {
     desk.terminals.print('p1', RING)
   })
 }
+
+describe('BE-A45-flag · the desktop says what it supports (MOBILE F1, TECH LEAD 08/11)', () => {
+  test('BE-A45: the desktop\'s hello lists terminal.snapshotOnly and pane.conversation, so a phone sends the flag only to a desktop that reads it', async () => {
+    const phone = await pane()
+    const socket = await TestSocket.connect(phone.target)
+    const hello = await socket.ask({ type: 'hello', versions: [1] })
+    expect(hello).toMatchObject({ type: 'hello' })
+    expect(hello.features).toEqual(expect.arrayContaining(['terminal.snapshotOnly', 'pane.conversation']))
+    expect((hello.features as unknown[]).every(feature => typeof feature === 'string')).toBe(true)
+    socket.close()
+  })
+})
 
 describe('BE-A45-flag · the snapshot capability flag on the terminal subscribe', () => {
   test('BE-A45: with the flag only the snapshot page is sent; without it the ring pages follow as today', async () => {
