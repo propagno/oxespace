@@ -32,16 +32,20 @@ function bashCall(id: string, command: string, stdout: string, stderr = '') {
   ]
 }
 
+const readExits = (dir: string) => { try { return readFileSync(join(dir, 'exits.log'), 'utf8') } catch { return '' } }
+
 /** Writes each event to a file outside the profile and pipes it, in order, through the real hook script in the pane. */
 async function sendThroughPane(page: Page, events: unknown[], dir: string, agent: 'claude' | 'codex' = 'claude'): Promise<void> {
   const files = events.map((event, i) => { const f = join(dir, `ev-${Date.now()}-${i}.json`); writeFileSync(f, typeof event === 'string' ? event : JSON.stringify(event)); return f })
   await page.locator('.xterm').first().click()
   for (const f of files) {
-    await page.keyboard.type(`node '${HOOK}' ${agent} < '${f}'; echo HML-HOOK-EXIT=$?`)
+    await page.keyboard.type(`node '${HOOK}' ${agent} < '${f}'; echo HML-HOOK-EXIT=$? >> '${join(dir, 'exits.log')}'`)
     await page.keyboard.press('Enter')
     await page.waitForTimeout(400)
   }
-  await page.waitForTimeout(1_500)
+  // Every event has run when its exit line is in the log (a 9 MiB pipe takes a moment).
+  await expect.poll(() => readExits(dir).split('\n').filter(Boolean).length, { timeout: 30_000 }).toBeGreaterThanOrEqual(files.length).catch(() => undefined)
+  await page.waitForTimeout(1_000)
 }
 const terminalText = (page: Page) => page.locator('.xterm-rows').first().innerText().catch(() => '')
 const bodyText = async (page: Page) => (await page.locator('body').innerText()).replace(/\s+/g, ' ')
@@ -85,7 +89,7 @@ test.describe('F3 · the agents\' HTTP calls, captured by the real hook in a rea
         ...bashCall('toolu_hml_3', `curl -s https://deploy:${SEED.userinfo}@api.hml-f3.test/v1/deploys/550e8400-e29b-41d4-a716-446655440000`, '{"ok":true}'),
         ...bashCall('toolu_hml_4', 'git status && npm test', 'nothing to commit')
       ], events)
-      const term = await terminalText(page)
+      const term = readExits(events)
       const exits = [...term.matchAll(/HML-HOOK-EXIT=(\d+)/g)].map(m => m[1])
       note(`hook exits: ${JSON.stringify(exits)}`)
       expect.soft(exits.length, 'every event went through the hook').toBeGreaterThanOrEqual(8)
@@ -169,7 +173,7 @@ test.describe('F3 · the agents\' HTTP calls, captured by the real hook in a rea
         ...bashCall('toolu_hml_huge', 'curl -s https://files.hml-f3.test/huge', huge),
         '{"hook_event_name":"PostToolUse","tool_name":"Bash", broken'
       ], events)
-      const term = await terminalText(page)
+      const term = readExits(events)
       const exits = [...term.matchAll(/HML-HOOK-EXIT=(\d+)/g)].map(m => m[1])
       note(`hook exits: ${JSON.stringify(exits)}`)
       expect.soft(exits.length >= 5 && exits.every(e => e === '0'), 'the hook exits 0 on 6 MiB, 9 MiB and a broken event').toBe(true)
