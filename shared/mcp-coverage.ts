@@ -303,15 +303,6 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['memory.configure', 'memory.install', 'memory.rollback', 'memory.setupAgents', 'memory.notes', 'memory.noteUpdate', 'memory.noteDelete', 'memory.export', 'memory.reset']
   },
 
-  // ---- documentation ------------------------------------------------------------------------
-  'documentation.use': {
-    label: 'Documentation captures and exports',
-    tools: {
-      oxespace_documentation_create: 'write', oxespace_documentation_list: 'read', oxespace_documentation_get: 'read', oxespace_documentation_checkpoint: 'write',
-      oxespace_documentation_capture: 'write', oxespace_documentation_image: 'write', oxespace_documentation_export: 'write'
-    }
-  },
-
   // ---- OxeQuery (databases) and OxePod (containers) -------------------------------------------
   'oxequery.read': {
     label: 'Connections, schemas, read queries, plans, activity',

@@ -20,7 +20,7 @@ function report(dataMode: McpToolGroupMode = 'off'): McpToolGroupsReport {
       group('core', 'always', ['oxespace_capabilities', 'oxespace_code_search']),
       group('orchestration', 'on-demand', ['oxespace_delegate_task']),
       group('data', dataMode, ['oxespace_db_connections', 'oxespace_db_execute'], dataMode === 'off' ? { source: 'project' } : { source: 'project' }),
-      group('docs', 'always', ['oxespace_documentation_get']),
+      group('docs', 'always', ['oxespace_open_web_preview']),
       group('app', 'on-demand', ['oxespace_git']),
       group('team', 'always', ['oxespace_team_status']),
       group('worker', 'always', ['oxespace_work_status']),

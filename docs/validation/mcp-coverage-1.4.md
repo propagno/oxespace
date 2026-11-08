@@ -24,10 +24,10 @@ policy (`tool.use` rules of the policy store) applies by tool name to every tool
 
 | Covered | Excluded | Planned | Forbidden | Total |
 |---|---|---|---|---|
-| 37 | 31 | 2 | 20 | 90 |
+| 36 | 31 | 2 | 20 | 89 |
 
-The registry has 89 tools: 66 single-purpose tools and 23 domain tools with 88 actions, so the
-manifest declares 154 tool-or-action entries.
+The registry has 82 tools: 59 single-purpose tools and 23 domain tools with 88 actions, so the
+manifest declares 147 tool-or-action entries.
 
 ## Forbidden, never a tool
 
@@ -161,7 +161,6 @@ before. Code panes receive the whole registry.
 | `work.plans` | Work plans: plan, status, result, message, cancel | **read**: `oxespace_work_status`, `oxespace_work_result`<br>**write**: `oxespace_work_plan`, `oxespace_work_message`, `oxespace_work_cancel` |
 | `memory.use` | Project memory: search, remember, sessions, handoffs | **read**: `oxespace_memory_search`, `oxespace_memory_sessions`, `oxespace_memory_handoffs`, `oxespace_memory_diagnostics`<br>**write**: `oxespace_memory_remember`, `oxespace_memory_accept_handoff` |
 | `memory.admin` | Install, configure or roll back memory; wire it into agents | Excluded: Memory is the person's opt-in. |
-| `documentation.use` | Documentation captures and exports | **read**: `oxespace_documentation_list`, `oxespace_documentation_get`<br>**write**: `oxespace_documentation_create`, `oxespace_documentation_checkpoint`, `oxespace_documentation_capture`, `oxespace_documentation_image`, `oxespace_documentation_export` |
 | `oxequery.read` | Connections, schemas, read queries, plans, activity | **read**: `oxespace_db_connections`, `oxespace_db_describe`, `oxespace_db_explain`, `oxespace_db_activity`<br>**confirm**: `oxespace_db_query`, `oxespace_mongo_find`, `oxespace_mongo_aggregate` |
 | `oxequery.write` | Change data or schema | **confirm**: `oxespace_db_execute`, `oxespace_mongo_write` |
 | `oxequery.saved_queries` | Saved queries, history, import and export of data | Excluded: The person's notebook and bulk data moves; agents run one approved statement at a time. |
