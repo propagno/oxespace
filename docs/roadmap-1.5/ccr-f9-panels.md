@@ -1,6 +1,6 @@
 # CCR: F9 backend — the Containers panel, provider parity and main's copy (1.5.0)
 
-Owner: BACKEND. Status: frozen tests for review (M5: HML, DESIGN, FE; TECH LEAD).
+Owner: BACKEND. Status: frozen tests; TECH LEAD (with the reach condition) and DESIGN approved; HML 721-1..4 in.
 
 **Criteria:**
 - **With backend work:** A34 (the Containers panel), A64 (provider parity) and A69 (main's copy).
@@ -8,11 +8,11 @@ Owner: BACKEND. Status: frozen tests for review (M5: HML, DESIGN, FE; TECH LEAD)
 
 **Contract:** DESIGN's `1.5.0-f9-design.md` "Data each screen needs", with FRONTEND's names as agreed on 08/11.
 
-**Frozen tests:** `tests/acceptance/f9/`: 11 tests in 4 files.
+**Frozen tests:** `tests/acceptance/f9/`: 15 tests in 4 files.
 
 | File | Tests | Runs on |
 |---|---|---|
-| `a34-containers-panel.native.test.ts` | 4 | Electron's Node: the real OxePodService over a fake engine host, and a migrated DB |
+| `a34-containers-panel.native.test.ts` | 8 | Electron's Node: the real OxePodService and AgentGateway over a fake engine host, and a migrated DB |
 | `a64-provider-parity.test.ts` | 3 | Node |
 | `a69-main-copy.test.ts` | 2 | Node: the locale data files |
 | `f9-contract.test.ts` | 2 | Node: the real oxePod IPC and service |
@@ -33,14 +33,33 @@ Owner: BACKEND. Status: frozen tests for review (M5: HML, DESIGN, FE; TECH LEAD)
 **`startedBy`** is one of:
 - `{ kind: conversation, conversationId, title, provider }`;
 - `{ kind: person }`, which shows as "You";
-- null, for unknown (started outside OXESpace).
+- null, for unknown: "Outside OXESpace" (DESIGN). It never reads "You".
 
-The latest start wins. The sources are:
+**Docker's clock decides (HML 721-3/4).** A source counts for a container only when the container's own `StartedAt` falls inside that source's window, from 5 s before it began to 60 s after it ended (or now, while it runs). Among the matches, the latest wins.
+- If nothing matches, the answer is null. That covers a restart from Docker Desktop or another shell, and a start before OXESpace.
+- A foreground `compose up` that never ends, or ends with 130 or 143, still started its containers.
+- A command that failed before the start falls outside its own window.
+
+**The sources:**
 1. **The person,** who started, restarted, or ran compose up/start/restart through OXESpace. It's recorded in `container_starts` (migration 100, main's highest + 1 at execute), without content.
 2. **The agents' container audit:** `oxespace_container_action` rows for start or restart, with outcome ok.
-3. **A conversation's own successful commands:**
-   - `docker compose up/start/restart` matches the stack. The project is `-p`, else `COMPOSE_PROJECT_NAME`, else the conversation's folder name, normalised the way compose does it.
-   - `docker run --name` matches that container.
+3. **A conversation's own commands,** after an optional `sudo` or env prefix (HML 721-2):
+   - compose: `docker compose`, `docker-compose`, `podman compose` or `podman-compose`, with up, start or restart;
+   - run: `docker|podman run` or `container run`, with `--name x` or `--name=x`;
+   - start: `docker|podman start` or `restart <name>`.
+
+**A stack is matched by its own labels, never by guessing its name (HML 721-1).**
+- The command's resolved folder is the conversation's root, then each `cd` in the line, then `--project-directory`, else the folder of the first `-f` file.
+- It must equal the container's `com.docker.compose.project.working_dir` (or a `config_files` folder), compared as paths.
+- `-p`, when given, must also equal the project label.
+
+This handles `-f infra/…`, a `name:` key, a `.env` project name, a `cd`, and a same-named folder elsewhere.
+
+**Reach (SECURITY, TECH LEAD).** The rows carry other conversations' titles, so `containers.panel` is the window's only:
+- it isn't in `TOOL_REGISTRY` or the agents' seam;
+- it's forbidden in `MCP_COVERAGE` (`oxePod.containers.panel`);
+- it's not in `REMOTE_COMMANDS`;
+- the agents' `oxespace_containers_list` and `containers.list` never carry `startedBy` or a title.
 
 **Unchanged:**
 - the actions: start/stop/restart, remove, and stop the stack;
