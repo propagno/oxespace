@@ -6,7 +6,7 @@ Owner: BACKEND. Status: frozen tests for review (M5: HML tests, DESIGN shapes, F
 
 **Contract:** DESIGN's `.claude/roadmap-1.4/team/plans/1.5.0-f5-design.md`, section "Data each screen needs". FRONTEND's renderer-facing names were agreed on 08/11 (see §Contract).
 
-**Frozen tests:** `tests/acceptance/f5/`: 35 tests in 5 files.
+**Frozen tests:** `tests/acceptance/f5/`: 52 tests in 5 files.
 
 **Tasks:** `.claude/roadmap-1.4/team/plans/f5-tasks-BACKEND.json`: 5 tasks with the pack fields.
 
@@ -92,3 +92,38 @@ The review surface:
 - no agent input path.
 
 Each one has a refusal or masking test.
+
+## TECH LEAD's SECURITY conditions S1–S6, all frozen
+
+| | Rule | Where |
+|---|---|---|
+| S1 | A page-driven move from a granted local page to an external origin (redirect, meta refresh, script) asks like an agent navigate (`checkNavigation`). A new window is a new preview session with no grant (`openedFrom`). An external iframe is judged by its own origin (`frameUrl`). | a49 |
+| S2 | A grant is bound to the session and the exact origin (scheme, host, port), and ends with the session (`endSession`). | a49 |
+| S3 | `devices.adb(args)` is the one door to adb, with an allowlist (devices, getprop, wm size, screencap, and the person's tap, swipe and keyevent). connect, tcpip, install, uninstall, push, pull, root, reboot, forward, input text and any other shell are refused before spawn. | a52 |
+| S4 | An agent screenshot goes only to the caller: no file left, and no image in the audit. | a52 |
+| S5 | A WebSocket is one connection row. Frames, handshake headers, EventSource messages and stream chunks are never kept. | a50 |
+| S6 | `person_action_audit` gets one row per grant answer (`preview-grant`, origin only), End (`preview-end`) and Agents-can-see change (`android-agents-can-see`), with no content. Those actions are added to F4-P1's CHECK list for migration 095. | a49, a52 |
+
+## HML M5 (711-1 to 711-8)
+
+**The agent browser (a49):**
+- **711-1:** each action is judged on the page's current URL, so a page that left by itself asks again.
+- **711-2:** the loopback spellings, decided:
+  - `localhost`, `*.localhost`, 127/8 and `[::1]`, written plainly, get a session grant;
+  - `127.1`, `0x7f000001`, `[::ffff:127.0.0.1]`, `LOCALHOST` and `localhost.` ask every time.
+
+**The network drawer (a50):**
+- **711-3:** a redirect chain is one row per hop.
+- **711-4:** a `data:` URL shows as `data:<mime>` and a `blob:` URL as `blob:`, with no content.
+- **711-5:** ExtraInfo events and unknown request ids are ignored, and a failed load says `failed: canceled | error`.
+
+**The Android mirror (a52):**
+- **711-6:** the device list reads real adb output, including the daemon lines, CRLF, `no permissions`, the offline, recovery, sideload and authorizing states, and wireless serials (kind `wifi`).
+- **711-7:** `wm size` prefers the Override size, so taps scale to it.
+- **711-8:** the screenshot bytes are kept exactly.
+
+## DESIGN M5
+
+- Each `status()` device gains `stream: idle | connecting | live`, agreed with FRONTEND.
+- `status()` gains `avds` (from `emulator -list-avds`, a list-only runner).
+- `offline`, or a device that left the list, is shown as Lost by the window.

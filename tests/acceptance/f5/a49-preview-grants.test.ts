@@ -93,3 +93,95 @@ describe('A49 · who may act on the page', () => {
     expect(ask).not.toHaveBeenCalled()
   })
 })
+
+describe('A49 · SECURITY S1, S2, S6 (TECH LEAD on #711)', () => {
+  test('S1: a page-driven move from a granted local page to an external origin asks like an agent navigate: a redirect, a meta refresh, a script location', async () => {
+    const { model, ask } = grants()
+    await model.authorize({ previewSessionId: 'ps1', url: 'http://localhost:3000/', action: 'click', ask })
+    for (const cause of ['redirect', 'meta-refresh', 'script'] as const) {
+      expect(await model.checkNavigation({ previewSessionId: 'ps1', from: 'http://localhost:3000/', to: 'https://evil.example/', cause, ask })).toBe(true)
+    }
+    expect(ask).toHaveBeenCalledTimes(4)
+    expect(ask.mock.calls.slice(1).every(call => call[0].scope === 'action' && call[0].url === 'https://evil.example/')).toBe(true)
+    // A local-to-local redirect in the granted origin asks nothing; a denied external move is refused.
+    expect(await model.checkNavigation({ previewSessionId: 'ps1', from: 'http://localhost:3000/', to: 'http://localhost:3000/next', cause: 'redirect', ask })).toBe(true)
+    expect(ask).toHaveBeenCalledTimes(4)
+    const denied = grants(false)
+    expect(await denied.model.checkNavigation({ previewSessionId: 'ps1', from: 'http://localhost:3000/', to: 'https://evil.example/', cause: 'redirect', ask: denied.ask })).toBe(false)
+  })
+
+  test('S1: a new window (window.open or target=_blank) is a new preview session: it never inherits the opener\'s grant', async () => {
+    const { model, ask } = grants()
+    await model.authorize({ previewSessionId: 'ps1', url: 'http://localhost:3000/', action: 'click', ask })
+    const child = model.openedFrom('ps1')
+    expect(child).not.toBe('ps1')
+    expect(model.list(child)).toEqual([])
+    await model.authorize({ previewSessionId: child, url: 'http://localhost:3000/', action: 'click', ask })
+    expect(ask).toHaveBeenCalledTimes(2)
+  })
+
+  test('S1: an action inside an external iframe is judged by the frame\'s origin, never by the granted top page', async () => {
+    const { model, ask } = grants()
+    await model.authorize({ previewSessionId: 'ps1', url: 'http://localhost:3000/', action: 'click', ask })
+    for (let index = 0; index < 2; index++) await model.authorize({ previewSessionId: 'ps1', url: 'http://localhost:3000/', frameUrl: 'https://payments.example/widget', action: 'fill', ask })
+    expect(ask).toHaveBeenCalledTimes(3)
+    expect(ask.mock.calls.slice(1).every(call => call[0].origin === 'https://payments.example' && call[0].scope === 'action')).toBe(true)
+  })
+
+  test('S2: a grant is bound to the session and the exact origin (scheme, host and port), and ends with the session', async () => {
+    const { model, ask } = grants()
+    await model.authorize({ previewSessionId: 'ps1', url: 'http://localhost:3000/', action: 'click', ask })
+    for (const url of ['http://localhost:5173/', 'https://localhost:3000/', 'http://127.0.0.1:3000/']) await model.authorize({ previewSessionId: 'ps1', url, action: 'click', ask })
+    expect(ask).toHaveBeenCalledTimes(4)
+    await model.authorize({ previewSessionId: 'ps2', url: 'http://localhost:3000/', action: 'click', ask })
+    expect(ask).toHaveBeenCalledTimes(5)
+    model.endSession('ps1')
+    expect(model.list('ps1')).toEqual([])
+    expect(model.list('ps2')).toHaveLength(1)
+  })
+
+  test('S6: every grant answer and End write one audit row, with no URL path, query or page content', async () => {
+    const rows: Array<Record<string, unknown>> = []
+    const model = new PreviewGrants({ now: () => 1000, audit: { record: entry => { rows.push(entry) } } })
+    await model.authorize({ previewSessionId: 'ps1', url: 'http://localhost:3000/secret-path?token=abc', action: 'click', ask: async () => true })
+    await model.authorize({ previewSessionId: 'ps1', url: 'https://example.org/a?b=c', action: 'click', ask: async () => false })
+    model.revoke('ps1')
+    expect(rows).toEqual([
+      { action: 'preview-grant', target: 'http://localhost:3000', outcome: 'ok' },
+      { action: 'preview-grant', target: 'https://example.org', outcome: 'refused' },
+      { action: 'preview-end', target: 'ps1', outcome: 'ok' }
+    ])
+    expect(JSON.stringify(rows)).not.toMatch(/secret-path|token|abc|b=c/)
+  })
+})
+
+describe('A49 · HML 711', () => {
+  test('HML-711-1: a granted local page that left by itself (a 302 to an SSO, a location set by the page) is judged on its current URL: the next action asks with scope action', async () => {
+    const { model, ask } = grants()
+    await model.authorize({ previewSessionId: 'ps1', url: 'http://localhost:3000/', action: 'click', ask })
+    // The page is now on the SSO; the grant for localhost does not follow it.
+    await model.authorize({ previewSessionId: 'ps1', url: 'https://sso.example/login', action: 'fill', ask })
+    await model.authorize({ previewSessionId: 'ps1', url: 'https://sso.example/login', action: 'click', ask })
+    expect(ask).toHaveBeenCalledTimes(3)
+    expect(ask.mock.calls.slice(1).every(call => call[0].scope === 'action' && call[0].origin === 'https://sso.example')).toBe(true)
+  })
+
+  test('HML-711-2: the loopback forms, decided: plain localhost, *.localhost, 127/8 and [::1] are a session grant; any other spelling asks every time', async () => {
+    const session = ['http://localhost:3000/', 'http://app.localhost:3000/', 'http://127.0.0.1:3000/', 'http://127.0.0.2:3000/', 'http://[::1]:3000/']
+    const perAction = ['http://127.1:3000/', 'http://0x7f000001:3000/', 'http://[::ffff:127.0.0.1]:3000/', 'http://LOCALHOST:3000/', 'http://localhost.:3000/']
+    for (const url of session) {
+      const { model, ask } = grants()
+      await model.authorize({ previewSessionId: 'ps1', url, action: 'click', ask })
+      await model.authorize({ previewSessionId: 'ps1', url, action: 'click', ask })
+      expect(ask, url).toHaveBeenCalledTimes(1)
+      expect(ask.mock.calls[0][0].scope, url).toBe('session')
+    }
+    for (const url of perAction) {
+      const { model, ask } = grants()
+      await model.authorize({ previewSessionId: 'ps1', url, action: 'click', ask })
+      await model.authorize({ previewSessionId: 'ps1', url, action: 'click', ask })
+      expect(ask, url).toHaveBeenCalledTimes(2)
+      expect(ask.mock.calls.every(call => call[0].scope === 'action'), url).toBe(true)
+    }
+  })
+})
