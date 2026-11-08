@@ -59,8 +59,13 @@ describe('BE-CR34 · Show on phone', () => {
     const stream = await subscribeOnly(socket, 'terminal', { target: 'p1' })
     await terminalUntil(socket, stream, text => text.includes('secret build output'))
     phone.h.gateway.setPhoneHidden({ paneId: 'p1', hidden: true })
-    const [end] = await collect(socket, frame => frame.type === 'error')
+    const frames = await collect(socket, frame => frame.type === 'error')
+    const end = frames.at(-1)!
     expect(end).toMatchObject({ type: 'error', code: 'not-found', subscription: stream, reason: 'pane-hidden' })
+    // Before it, one last event clears the screen, so a phone that predates the end frame shows nothing of the pane.
+    const clear = frames.at(-2)
+    expect(clear).toMatchObject({ type: 'event', subscription: stream })
+    expect((clear!.data as { data: string }).data).toBe('\u001b[2J\u001b[3J\u001b[H')
     phone.desk.terminals.print('p1', 'after hiding\r\n')
     await new Promise(resolve => setTimeout(resolve, 400))
     expect(socket.frames.filter(frame => frame.subscription === stream)).toEqual([])
