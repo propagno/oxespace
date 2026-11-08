@@ -43,7 +43,38 @@ export const WORKERS = '--maxWorkers=2'
  * The steps for a change. `files`: changed paths. `related`: the selector's plan ({ all, changed, extra }).
  * Each step is { name, kind: 'npm' | 'vitest' | 'ci', args }.
  */
+/** The visual suite's baselines: e2e/visual/__screenshots__/<linux|win32>/…png. */
+const VISUAL_BASELINE = /^e2e\/visual\/__screenshots__\/(linux|win32)\/.+\.png$/
+/** Other committed snapshot images (Android goldens and the like): no workflow regenerates them, so CI decides. */
+const OTHER_SNAPSHOT = /(^|\/)(__screenshots__|__snapshots__|snapshots)\/.+\.png$/
+const PACKAGE_FILE = /(^|\/)package(-lock)?\.json$/
+export const VISUAL_WORKFLOW = 'visual-baselines.yml'
+
+/**
+ * What kind of change this is, which decides how it is proven (TECH LEAD, 07/11):
+ * - 'images': only visual baselines; a green visual-baselines.yml run on this sha, for each platform touched;
+ * - 'packages': only package.json / package-lock.json files, or only other snapshot images; the PR's own CI;
+ * - 'code': anything else; the local checks.
+ * Neither of the first two needs node_modules.
+ */
+export function classifyChange(files) {
+  if (files.length && files.every(file => VISUAL_BASELINE.test(file))) return 'images'
+  if (files.length && files.every(file => PACKAGE_FILE.test(file) || OTHER_SNAPSHOT.test(file))) return 'packages'
+  return 'code'
+}
+
+/** The platforms whose visual baselines a change touches, as visual-baselines.yml names them. */
+export function visualPlatforms(files) {
+  return [...new Set(files.map(file => VISUAL_BASELINE.exec(file)?.[1]).filter(Boolean).map(dir => (dir === 'win32' ? 'windows' : dir)))].sort()
+}
+
 export function buildSteps({ files, related, base = 'origin/main', full = false }) {
+  const kind = classifyChange(files)
+  if (kind === 'images') {
+    const platforms = visualPlatforms(files)
+    return [{ name: `visual-baselines.yml green on this head (${platforms.join(', ')})`, kind: 'visual', args: platforms }]
+  }
+  if (kind === 'packages') return [{ name: 'packages only: the PR\'s CI unit jobs on this head', kind: 'ci', args: CI_UNIT_JOBS }]
   const steps = [
     { name: 'lint (file sizes, eslint)', kind: 'npm', args: ['lint'] },
     { name: 'typecheck', kind: 'npm', args: ['typecheck'] }
@@ -89,9 +120,34 @@ export function ciEvidence(checkRuns, jobs = CI_UNIT_JOBS, sha = null) {
   return missing.length ? { ok: false, missing, runs: [] } : { ok: true, missing, runs: [...new Set(runs)] }
 }
 
-/** The marker's content: how the head was proven, and for CI the runs that prove it (TECH LEAD's condition 1). */
-export function markerContent({ sha, at, base, steps, ciRuns }) {
-  return { ok: true, sha, at, evidence: ciRuns ? 'ci' : 'local', runs: ciRuns ?? [], base, steps }
+/**
+ * Whether visual-baselines.yml proves `sha` for every platform in `platforms`: the latest run per platform on that
+ * exact sha completed with success (its generate and both stable verifies passed). `runs`: the workflow's runs,
+ * [{ id, head_sha, status, conclusion, display_title, created_at }]; the platform is in the run title
+ * ("Visual baselines · <platform> · <ref>").
+ */
+export function visualEvidence(runs, platforms, sha) {
+  const missing = []
+  const ids = []
+  for (const platform of platforms) {
+    const mine = (runs ?? [])
+      .filter(run => run.head_sha === sha && String(run.display_title ?? '').startsWith(`Visual baselines · ${platform} ·`))
+      .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')))
+    const run = mine[0]
+    if (!run) missing.push(`${platform}: no ${VISUAL_WORKFLOW} run on this head (dispatch it with platform=${platform} on the PR branch)`)
+    else if (run.status !== 'completed') missing.push(`${platform}: run ${run.id} still ${run.status}`)
+    else if (run.conclusion !== 'success') missing.push(`${platform}: run ${run.id} ${run.conclusion}`)
+    else ids.push(run.id)
+  }
+  return missing.length ? { ok: false, missing, runs: [] } : { ok: true, missing, runs: ids }
+}
+
+/**
+ * The marker's content: how the head was proven, and the runs that prove it. `evidence`: 'local' (the checks ran
+ * here), 'ci' (the PR's CI unit jobs) or 'images' (visual-baselines.yml). `runs`: the Actions run ids, for ci and images.
+ */
+export function markerContent({ sha, at, base, steps, evidence = 'local', runs = [] }) {
+  return { ok: true, sha, at, evidence, runs, base, steps }
 }
 
 /** The marker the gate reads: <main checkout>/.claude/pr-ready/<sha>.json. `commonDir` is git's common dir. */
@@ -160,19 +216,35 @@ export function withNetworkRetry(run, { tries = 5, wait = 3000, sleep = ms => At
   }
 }
 
+const gh = args => withNetworkRetry(() => execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] }), { log: line => console.log(`  ${line}`) })
+const readFailed = (what, sha, error) => ({ ok: false, detail: `could not read ${what} for ${sha.slice(0, 8)} (no marker written; run pr:ready again): ${String(error.stderr || error.message || error).split('\n')[0]}` })
+
 function ciStep(step, sha) {
   let checkRuns
-  const gh = args => withNetworkRetry(() => execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] }), { log: line => console.log(`  ${line}`) })
   try {
     const repo = gh(['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner']).trim()
     checkRuns = JSON.parse(gh(['api', '--paginate', '--slurp', `repos/${repo}/commits/${sha}/check-runs?per_page=100`])).flatMap(page => page.check_runs ?? [])
   } catch (error) {
-    return { ok: false, detail: `could not read CI for ${sha.slice(0, 8)} (no marker written; run pr:ready again): ${String(error.stderr || error.message || error).split('\n')[0]}` }
+    return readFailed('CI', sha, error)
   }
   const evidence = ciEvidence(checkRuns, step.args, sha)
   return evidence.ok
-    ? { ok: true, runs: evidence.runs, detail: `CI green on ${sha.slice(0, 8)}: run(s) ${evidence.runs.join(', ')}` }
+    ? { ok: true, evidence: 'ci', runs: evidence.runs, detail: `CI green on ${sha.slice(0, 8)}: run(s) ${evidence.runs.join(', ')}` }
     : { ok: false, detail: `${evidence.missing.join('; ')}. Push, wait for CI, or run with --full` }
+}
+
+function visualStep(step, sha) {
+  let runs
+  try {
+    const repo = gh(['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner']).trim()
+    runs = JSON.parse(gh(['api', '--paginate', '--slurp', `repos/${repo}/actions/workflows/${VISUAL_WORKFLOW}/runs?head_sha=${sha}&per_page=100`])).flatMap(page => page.workflow_runs ?? [])
+  } catch (error) {
+    return readFailed(VISUAL_WORKFLOW, sha, error)
+  }
+  const evidence = visualEvidence(runs, step.args, sha)
+  return evidence.ok
+    ? { ok: true, evidence: 'images', runs: evidence.runs, detail: `${VISUAL_WORKFLOW} green on ${sha.slice(0, 8)}: run(s) ${evidence.runs.join(', ')}` }
+    : { ok: false, detail: evidence.missing.join('; ') }
 }
 
 function main(argv) {
@@ -200,7 +272,7 @@ function main(argv) {
   const results = []
   for (const step of steps) {
     console.log(`\n=== pr:ready: ${step.name}`)
-    const result = step.kind === 'ci' ? ciStep(step, sha) : runStep(step, env)
+    const result = step.kind === 'ci' ? ciStep(step, sha) : step.kind === 'visual' ? visualStep(step, sha) : runStep(step, env)
     results.push({ name: step.name, ...result })
     if (!result.ok) break
   }
@@ -211,10 +283,10 @@ function main(argv) {
     console.log(`pr:ready FAILED for ${sha.slice(0, 8)}: no marker written.`)
     return 1
   }
-  // The CI step, when there is one, is the last step: its conclusions were read from GitHub just now, never cached.
-  const ciRuns = results.find(result => result.runs)?.runs ?? null
+  // A GitHub step, when there is one, is the last step: its conclusions were read just now, never cached.
+  const proof = results.find(result => result.evidence)
   mkdirSync(dirname(marker), { recursive: true })
-  const content = markerContent({ sha, at: new Date().toISOString(), base: options.base, steps: results.map(r => r.name), ciRuns })
+  const content = markerContent({ sha, at: new Date().toISOString(), base: options.base, steps: results.map(r => r.name), evidence: proof?.evidence ?? 'local', runs: proof?.runs ?? [] })
   writeFileSync(marker, `${JSON.stringify(content, null, 2)}\n`)
   console.log(`pr:ready OK for ${sha.slice(0, 8)}: wrote ${marker}`)
   return 0

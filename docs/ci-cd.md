@@ -101,6 +101,9 @@ No PR is labelled `na-fila` without a green `npm run pr:ready` on its exact head
 
 - **The checks:** lint and typecheck; the gate tests every PR passes (design-lint, fs-allowlist); and the tests related to the change (`scripts/related-tests.mjs`). Vitest runs under Electron's ABI with 2 workers. When the protocol, the design tokens or a `mobile` catalog changes, `tests/android-generated.test.ts` checks that the committed Kotlin matches (`android:generate --check`).
 - **Whole suite:** when a change touches every test (`package.json`, the vitest or TypeScript config, the test setup), the PR's CI unit jobs, green on that head, stand for the whole suite. It doesn't fit in local memory. `--full` runs it locally anyway.
+- **Changes that need no `node_modules`:**
+  - **Images only** (visual baselines under `e2e/visual/__screenshots__/{linux,win32}/`): proven by a green `visual-baselines.yml` run on that exact head, one per platform touched. Dispatch it on the PR branch first. The marker says `evidence: "images"`.
+  - **Packages only** (`package.json` / `package-lock.json`, at the root or in `playground/`), or other snapshot images: proven by the PR's CI unit jobs, with no local step. The marker says `evidence: "ci"`.
 - **Clean tree:** the working tree must be clean, since the marker vouches for HEAD. `--dry-run` prints the plan; `--base <ref>` changes the base.
 
 ## Running the checks locally
