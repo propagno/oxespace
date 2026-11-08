@@ -76,9 +76,15 @@ const PLATFORM_WARM_BASELINE_MS: Record<Platform, Record<string, number>> = {
  * p90 = statistics.quantiles(n=10, method='inclusive')[8], rounded (SRE). Over the limit in those 16: none, except one
  * windows OxeChat sample (183 against 182.7), which the gate's confirm round absorbs.
  *
+ * OxeChat cold only: the p95 of 42 samples per OS (FL-26 again, TECH LEAD 08/11). Main 82723908 (run 42461266242) went
+ * red on linux, 177 and 173 against 170.7. With the 16 above and 26 since (21 completed main ci.yml runs from 42421922116
+ * to 42461266242, two shards each, listed in the PR), OxeChat cold is the one surface with a long tail: linux 90–177
+ * (median 132.5, p90 157, p95 161.8), windows 99–183 (median 157, p90 166, p95 174.8). Every other surface keeps its p90
+ * with 0/42 over. p95 = statistics.quantiles(n=100, method='inclusive')[94], rounded; 0/42 over the new limits.
+ *
  *   surface                 linux p90 → limit   windows p90 → limit   win/lin
  *   OxeCode (Code)             52 → 68.7           58 → 74.7          1.12
- *   OxeChat (Thread)          154 → 170.7         166 → 182.7         1.08
+ *   OxeChat (Thread), p95     162 → 178.7         175 → 192.5         1.08
  *   OxeQuery                   54 → 70.7           66 → 82.7          1.22
  *   OxePod                     52 → 68.7           55 → 71.7          1.06
  *   OxePost                    44 → 60.7           52 → 68.7          1.18
@@ -86,8 +92,8 @@ const PLATFORM_WARM_BASELINE_MS: Record<Platform, Record<string, number>> = {
  *   Settings · Appearance      35 → 51.7           37 → 53.7          1.06
  */
 const PLATFORM_COLD_BASELINE_MS: Record<Platform, Record<string, number>> = {
-  linux: { 'OxeCode (Code)': 52, 'OxeChat (Thread)': 154, OxeQuery: 54, OxePod: 52, OxePost: 44, 'Settings · Agents': 38, 'Settings · Appearance': 35 },
-  windows: { 'OxeCode (Code)': 58, 'OxeChat (Thread)': 166, OxeQuery: 66, OxePod: 55, OxePost: 52, 'Settings · Agents': 41, 'Settings · Appearance': 37 }
+  linux: { 'OxeCode (Code)': 52, 'OxeChat (Thread)': 162, OxeQuery: 54, OxePod: 52, OxePost: 44, 'Settings · Agents': 38, 'Settings · Appearance': 35 },
+  windows: { 'OxeCode (Code)': 58, 'OxeChat (Thread)': 175, OxeQuery: 66, OxePod: 55, OxePost: 52, 'Settings · Agents': 41, 'Settings · Appearance': 37 }
 }
 /** A surface much slower on windows than on linux is a finding to explain, not a baseline to accept (FL-21). */
 const MAX_WINDOWS_TO_LINUX = 1.5
