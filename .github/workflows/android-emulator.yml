@@ -101,6 +101,7 @@ jobs:
         with:
           api-level: ${{ steps.sdk.outputs.level }}
           target: google_apis
+          channel: canary
           arch: x86_64
           cores: ${{ steps.sdk.outputs.cores }}
           ram-size: ${{ steps.sdk.outputs.ram }}
@@ -115,6 +116,7 @@ jobs:
           # twice 15 s apart (system_server may still restart). Up to 5 minutes. The runner runs each script line on
           # its own, so the wait is one line.
           script: |
+            sh -c '$ANDROID_HOME/emulator/emulator -version | head -2'
             sh -c 'nohup adb logcat -b all -v threadtime > /tmp/logcat-all.txt 2>&1 &'
             sh -c 'ok=0; for i in $(seq 1 60); do if adb shell pm path android 2>/dev/null | grep -q "^package:"; then ok=$((ok+1)); [ "$ok" -ge 2 ] && echo "package service up" && exit 0; sleep 15; else ok=0; sleep 5; fi; done; echo "::error::the package service never came up"; exit 1'
             sh -c './gradlew --no-daemon connectedDebugAndroidTest; rc=$?; adb logcat -d -b crash -v threadtime > /tmp/logcat-crash.txt 2>&1; adb shell getprop > /tmp/getprop.txt 2>&1; adb shell dumpsys activity processes > /tmp/processes.txt 2>&1; exit $rc'
