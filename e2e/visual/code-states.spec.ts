@@ -136,7 +136,14 @@ for (const theme of THEMES) {
       await expectSurface(page, `code-four-terminals-${theme}`, { hide: liveMasks(page) })
 
       await openTool(page, /^Changes$/)
-      await expect(page.getByTestId('changes-panel')).toBeVisible()
+      const changes = page.getByTestId('changes-panel')
+      await expect(changes).toBeVisible()
+      // FL-23 (windows 42443679631): one pass shot the panel still on "Loading changes…" with its spinner, the other the
+      // settled empty state. Shoot only once the empty state is in and nothing is loading.
+      await expect(changes.getByText('No changes', { exact: true })).toBeVisible()
+      await expect(changes.getByText('Loading changes…')).toHaveCount(0)
+      // While a load runs (the first one, or the 10 s poll) the refresh button is a disabled spinner.
+      await expect(changes.getByRole('button', { name: 'Refresh changes' })).toBeEnabled()
       await expectSurface(page, `code-changes-empty-${theme}`, { hide: liveMasks(page) })
 
       expect(consoleErrors).toEqual([])
