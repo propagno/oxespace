@@ -10,6 +10,14 @@ import type { ContainerSummary, OxePodErrorInfo, OxePodEvent } from '../../../sh
 
 type Input = Record<string, unknown>
 
+/**
+ * When a running fake container started: two hours before the frozen clock of the E2E renderer (FIXED_NOW in
+ * e2e/helpers/launch.ts, 2026-10-14 12:00 UTC; main can't import from e2e/). It used to be `Date.now() - 2 h` on the
+ * real clock, so the About panel's "Started" text, and with it the width of its mask, changed between the generate
+ * and verify passes of the visual baselines (FL-22).
+ */
+const STARTED_AT = Date.UTC(2026, 9, 14, 10, 0, 0)
+
 /** The containers of the fake engine; actions change them in place. */
 export const mockContainers: ContainerSummary[] = [
   { id: 'c1', name: 'pg-dev', image: 'postgres:16', state: 'running', status: 'Up 2 hours', ports: [{ hostIp: '0.0.0.0', hostPort: 5432, containerPort: 5432, protocol: 'tcp' }], labels: { 'com.docker.compose.project': 'shop' } },
@@ -50,7 +58,7 @@ export function registerOxePodMock(): void {
       case 'containers.inspect': {
         const target = containers.find(container => container.id === input.id)
         if (!target) return fail('not-found', 'That container no longer exists.')
-        return ok({ id: target.id, name: target.name, image: target.image, state: target.state, command: 'docker-entrypoint.sh', startedAt: Date.now() - 2 * 3_600_000, environment: [{ name: 'POSTGRES_USER', value: 'app' }, { name: 'POSTGRES_PASSWORD' }, { name: 'PGDATA', value: '/var/lib/postgresql/data' }], mounts: [{ source: '/var/lib/docker/volumes/pg-data/_data', destination: '/var/lib/postgresql/data', volume: 'pg-data' }], networks: ['bridge'], ports: target.ports, restartPolicy: 'always' })
+        return ok({ id: target.id, name: target.name, image: target.image, state: target.state, command: 'docker-entrypoint.sh', startedAt: STARTED_AT, environment: [{ name: 'POSTGRES_USER', value: 'app' }, { name: 'POSTGRES_PASSWORD' }, { name: 'PGDATA', value: '/var/lib/postgresql/data' }], mounts: [{ source: '/var/lib/docker/volumes/pg-data/_data', destination: '/var/lib/postgresql/data', volume: 'pg-data' }], networks: ['bridge'], ports: target.ports, restartPolicy: 'always' })
       }
       case 'containers.exec': return ok({ exitCode: 0, stdout: `hello from ${String(input.id)}\n`, stderr: '', truncated: false, timedOut: false })
       case 'containers.logsStart': {
