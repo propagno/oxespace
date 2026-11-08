@@ -2,7 +2,8 @@
 // planner; the executor must not edit it. Spec: .claude/roadmap-1.4/team/plans/1.5.0-f8-design.md (U8.2).
 // Contract (BACKEND #717 §A30): window.oxe.thread.timeline(threadId) → { checkpoints[{ id, n, at, label, files, checkout,
 // failed?, turnId }], cantGoBack { dbWrites, pushes, containers }, canBranch, branchRefusal? } (turnId, canBranch and
-// branchRefusal are FRONTEND's adds on #717); Restore is today's thread.rewind(threadId, turnId, { restoreFiles });
+// branchRefusal are FRONTEND's adds on #717); Restore is thread.rewind(threadId, turnId, { restoreFiles, confirmed? }), which rejects with C3
+// thread.restore.foreignChanges when the person changed those files since; asking again with confirmed: true restores over them;
 // thread.branchFromCheckpoint(threadId, checkpointId, { branch }) → { ok: true, threadId, workspaceId, worktreePath } |
 // { ok: false, refusal: { code, params } }; branchNameFor(title, at) from shared/branch-name prefills the name.
 // The renderer part: TimeTravelBar({ threadId, title, agent, onBranched(result), onClose() }) in
@@ -15,6 +16,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { changeLanguage } from '../../../src/i18n'
+import { MAIN_MESSAGE_ERROR_TAG } from '../../../shared/messages'
 
 type Row = Record<string, unknown>
 async function load<T>(rel: string): Promise<T> {
@@ -32,7 +34,7 @@ const TIMELINE = {
     { id: 'cp-2', n: 2, at: at(14, 20), label: 'Write its tests', files: ['tests/pix.test.ts'], checkout: '/repo/shop', turnId: 'turn-2' },
     { id: 'cp-3', n: 3, at: at(14, 41), label: 'Fix the signature', files: ['src/pix.ts', 'src/sign.ts', 'src/env.ts'], checkout: '/repo/shop', turnId: 'turn-3' }
   ],
-  cantGoBack: { dbWrites: 1, pushes: 1, containers: 0 },
+  cantGoBack: { dbWrites: 1, pushes: 1, containers: 0, commands: 0, httpWrites: 0, scope: 'conversation' },
   canBranch: true
 }
 function mockMain(timeline: Row = TIMELINE, branch: Row = { ok: true, threadId: 't-new', workspaceId: 'ws-new', worktreePath: '/repo/shop-from-1403' }) {
@@ -108,10 +110,10 @@ describe('U8.2 · Time travel', () => {
     for (const button of [restore(), branch()]) expect(button.getAttribute('title') ?? button.getAttribute('aria-description') ?? document.getElementById(button.getAttribute('aria-describedby') ?? '')?.textContent).toMatch(/Transcript only between checkpoints/)
   })
 
-  test("the can't-go-back note is always there with the audits' counts, and it cannot be dismissed", async () => {
+  test("the can't-go-back note is always there with the audits' non-zero counts, for this conversation only, and it cannot be dismissed", async () => {
     mockMain()
     const { knob } = await renderBar()
-    const note = await screen.findByText(/^Can't go back, at least: 1 database writes?, 1 push(es)?, 0 containers\.$/)
+    const note = await screen.findByText("Can't go back, at least: 1 database write, 1 push (this conversation only).")
     expect(note.closest('[role="note"], p, div')!.querySelector('button')).toBeNull()
     press(knob, 'Home')
     expect(screen.getByText(/^Can't go back, at least:/)).toBeInTheDocument()
@@ -159,14 +161,30 @@ describe('U8.2 · Time travel', () => {
     await waitFor(() => expect(props.onBranched).toHaveBeenCalledWith(expect.objectContaining({ ok: true, threadId: 't-new', workspaceId: 'ws-new' })))
   })
 
-  test('a refused branch says why and opens nothing', async () => {
-    mockMain(TIMELINE, { ok: false, refusal: { code: 'thread.branch.exists', params: { branch: 'oxe/pix' } } })
+  test('a refused branch says why inside the dialog, which stays open, and opens nothing; a taken folder moves focus to the name', async () => {
+    mockMain(TIMELINE, { ok: false, refusal: { code: 'thread.branch.pathExists', params: { path: '/repo/shop-from-1441' } } })
     const props = await renderBar()
     await screen.findByText(/^3 files at /)
     await userEvent.click(branch())
-    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Branch' }))
-    await waitFor(() => expect(within(screen.getByRole('dialog')).getByRole('alert')).toBeInTheDocument())
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Branch' }))
+    expect(await within(dialog).findByText('A folder already exists at /repo/shop-from-1441. Pick another branch name.')).toBeInTheDocument()
+    expect(within(dialog).getByRole('textbox')).toHaveFocus()
     expect(props.onBranched).not.toHaveBeenCalled()
+  })
+
+  test('a branch that failed at a step says nothing was kept and offers Try again with the same name', async () => {
+    const thread = mockMain(TIMELINE, { ok: false, refusal: { code: 'thread.branch.failed', params: { step: 'restore' } } })
+    await renderBar()
+    await screen.findByText(/^3 files at /)
+    await userEvent.click(branch())
+    const dialog = await screen.findByRole('dialog')
+    const name = (within(dialog).getByRole('textbox') as HTMLInputElement).value
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Branch' }))
+    expect(await within(dialog).findByText("Couldn't copy the checkpoint's files into the new worktree; nothing was kept.")).toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(thread.branchFromCheckpoint).toHaveBeenCalledTimes(2))
+    expect(thread.branchFromCheckpoint).toHaveBeenLastCalledWith('t-1', 'cp-3', { branch: name })
   })
 
   test("a failed checkpoint is transcript only, with Restore and Branch disabled", async () => {
@@ -194,11 +212,44 @@ describe('U8.2 · Time travel', () => {
     mockMain()
     const { knob } = await renderBar()
     expect(await screen.findByText(/^3 arquivos às /)).toBeInTheDocument()
-    expect(screen.getByText(/^Não dá para voltar, pelo menos: 1 escritas? em banco, 1 push(es)?, 0 contêineres\.$/)).toBeInTheDocument()
+    expect(screen.getByText(/^Não dá para voltar, pelo menos: 1 escritas? em banco, 1 push \(só esta conversa\)\.$/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^Restaurar para/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^Ramificar numa nova worktree/ })).toBeInTheDocument()
     press(knob, 'Home')
     press(knob, 'ArrowRight')
     expect(await screen.findByText('Só a conversa entre checkpoints')).toBeInTheDocument()
   })
+
+  test("a restore over the person's own edits asks once more, and only then restores over them", async () => {
+    const thread = mockMain()
+    thread.rewind.mockRejectedValueOnce(new Error(`foreign changes${MAIN_MESSAGE_ERROR_TAG}${JSON.stringify({ code: 'thread.restore.foreignChanges', params: { count: 2, files: ['src/pix.ts', 'src/routes.ts'] } })}`))
+    const { knob } = await renderBar()
+    await screen.findByText(/^3 files at /)
+    press(knob, 'Home')
+    await userEvent.click(restore())
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Restore' }))
+    expect(thread.rewind).toHaveBeenCalledWith('t-1', 'turn-1', { restoreFiles: true })
+    const again = await screen.findByRole('alertdialog', { name: /^Files changed since / })
+    expect(thread.rewind).toHaveBeenCalledTimes(1)
+    expect(within(again).getByText('2 files changed outside this conversation. Restoring overwrites them; Redo brings your version back.')).toBeInTheDocument()
+    expect(within(again).getByText('src/pix.ts')).toBeInTheDocument()
+    expect(within(again).getByText('src/routes.ts')).toBeInTheDocument()
+    expect(within(again).getByRole('button', { name: 'Cancel' })).toHaveFocus()
+    await userEvent.click(within(again).getByRole('button', { name: 'Restore over them' }))
+    await waitFor(() => expect(thread.rewind).toHaveBeenLastCalledWith('t-1', 'turn-1', { restoreFiles: true, confirmed: true }))
+  })
+
+
+  test("past three kinds the note ends with and more, the full list in its tooltip; with nothing it says so", async () => {
+    mockMain({ ...TIMELINE, cantGoBack: { dbWrites: 3, pushes: 2, containers: 4, commands: 0, httpWrites: 1, scope: 'conversation' } })
+    await renderBar()
+    const note = await screen.findByText(/^Can't go back, at least: 4 containers removed, 3 database writes, 2 pushes,? and more \(this conversation only\)\.$/)
+    const tip = note.getAttribute('title') ?? note.closest('[title]')?.getAttribute('title') ?? document.getElementById(note.getAttribute('aria-describedby') ?? '')?.textContent ?? ''
+    expect(tip).toMatch(/1 external write/)
+    cleanup()
+    mockMain({ ...TIMELINE, cantGoBack: { dbWrites: 0, pushes: 0, containers: 0, commands: 0, httpWrites: 0, scope: 'conversation' } })
+    await renderBar()
+    expect(await screen.findByText('Nothing irreversible so far (this conversation only).')).toBeInTheDocument()
+  })
+
 })
