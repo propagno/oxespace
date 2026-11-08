@@ -111,7 +111,14 @@
   - **"Answer on <computer>"** names no kind (MOB-1-5).
 - **Frozen tests:**
   - `ScreensSnapshotTest.requests`: risky, the critical delay at 0 % and 100 %, hidden characters, question, desktop-only,
-    gone, risk levels, and **truncated plus truncated-question (new)**;
+    gone, risk levels, **truncated plus truncated-question (new)**, and **high irreversible (new)** next to critical;
+  - **High vs critical (F7, DESIGN from HML-F7-1):**
+    - critical is unchanged: the Critical chip and Allow held 2 s with the ring;
+    - high shows the High chip and the line "No undo." / "Sem desfazer.", with Allow enabled at once, then the
+      biometric;
+    - a DB write, high or critical, stays "Answer on {computer}";
+    - frozen as `RequestRiskNoteTest` and `CriticalDelayAllowTest` (#700). A level the phone reads as critical (an older
+      desktop's "red", or a level added later) holds like critical.
   - `RequestResponderTest`: unchanged, pins S1, S3 and S5;
   - **new** `.../ui/live/RequestActionsTest.kt`, the actions a request gets:
     - a truncated request offers only Deny;
