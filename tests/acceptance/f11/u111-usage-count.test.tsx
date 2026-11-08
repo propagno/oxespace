@@ -1,7 +1,7 @@
 // Frozen acceptance test for 1.5.0 A65 / N7 on screen (DESIGN U11.1, OXE program, phase F11, task FE-A65). Written by
 // the planner; the executor must not edit it. Spec: .claude/roadmap-1.4/team/plans/1.5.0-f11-design.md (U11.1 and the
 // 08/11 update).
-// Contract (BACKEND #724 @ ec177327): window.oxe.featureUsage { state() → { enabled, since, rows: [{ feature, uses, lastUsed }] },
+// Contract (BACKEND #724 @ 2560473b): window.oxe.featureUsage { state() → { enabled, since, rows: [{ feature, uses, lastUsed }] },
 // setEnabled({ enabled, clear? }), export() → { path } | null, clear(), record(feature), onChanged(cb) }; FEATURE_USAGE_KEYS in
 // shared/feature-usage.ts. The renderer part: UsageSettings() in src/components/Settings/UsageSettings.tsx, the "Usage on
 // this computer" section of Settings › Data and privacy. U11.1c (themes, 900 × 620, axe) is the e2e run.

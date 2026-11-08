@@ -1,8 +1,8 @@
 // Frozen acceptance test for 1.5.0 A68 / H4 on screen (DESIGN U11.3, OXE program, phase F11, task FE-A68). Written by
 // the planner; the executor must not edit it. Spec: .claude/roadmap-1.4/team/plans/1.5.0-f11-design.md (U11.3 and the
 // 08/11 update).
-// Contract (BACKEND #724 @ ec177327): window.oxe.hostsProxy { state() → { enabled, state: 'running' | 'stopped' | 'failed',
-// reason?: MainMessage (hostsProxy.portInUse { port } | hostsProxy.failed), hosts: [{ host, port, count, lastSeen, firstSeen,
+// Contract (BACKEND #724 @ 2560473b): window.oxe.hostsProxy { state() → { enabled, state: 'running' | 'stopped' | 'failed',
+// reason?: MainMessage (hostsProxy.portInUse { port } | hostsProxy.userProxy | hostsProxy.failed), hosts: [{ host, port, count, lastSeen, firstSeen,
 // conversationId?, conversationTitle? }] }, setEnabled(on), clear(), retry(), onChanged(cb) }. The renderer part:
 // HostsProxySettings({ onOpenConversation(id) }) in src/components/Settings/HostsProxySettings.tsx, the "Outgoing
 // connections" section at the end of Settings › Agent activity. U11.3a's live curl and U11.3c (themes, axe) are e2e.
@@ -52,11 +52,11 @@ const rowOf = (host: string) => screen.getByText(host).closest('tr, [role="row"]
 afterEach(async () => { cleanup(); await changeLanguage('en') })
 
 describe('U11.3 · Outgoing hosts proxy', () => {
-  test('off by default, with the help line that only hosts are logged', async () => {
+  test('off by default, with the help line that it logs hosts for programs that use HTTP_PROXY', async () => {
     mockMain({ enabled: false, state: 'stopped', hosts: [] })
     const { toggle } = await renderSection()
     expect(toggle).toHaveAttribute('aria-checked', 'false')
-    expect(screen.getByText('Only hosts are logged. Paths, headers and bodies never are.')).toBeInTheDocument()
+    expect(screen.getByText('Logs hosts for programs that use HTTP_PROXY. Never paths, headers or bodies.')).toBeInTheDocument()
     expect(screen.queryByRole('table')).toBeNull()
   })
 
@@ -65,7 +65,16 @@ describe('U11.3 · Outgoing hosts proxy', () => {
     const { toggle } = await renderSection()
     await userEvent.click(toggle)
     expect(main.setEnabled).toHaveBeenCalledWith(true)
-    expect(await screen.findByText('Applies to agents started from now on. Some tools ignore proxy settings, so the list can miss hosts.')).toBeInTheDocument()
+    expect(await screen.findByText("Applies to new agents' programs that use HTTP_PROXY. Some, like ssh or Node's fetch, skip it.")).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  test('turning it off says logging stopped and running agents keep working, never a dialog', async () => {
+    const main = mockMain()
+    const { toggle } = await renderSection()
+    await userEvent.click(toggle)
+    expect(main.setEnabled).toHaveBeenCalledWith(false)
+    expect(await screen.findByText('Logging stopped. Agents already running keep working until they end.')).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
@@ -116,7 +125,8 @@ describe('U11.3 · Outgoing hosts proxy', () => {
 
   test.each([
     [{ code: 'hostsProxy.portInUse', params: { port: 8899 } }, "The hosts proxy couldn't start: port 8899 is in use. Agents run without it."],
-    [{ code: 'hostsProxy.failed', params: {} }, "The hosts proxy couldn't start. Agents run without it."]
+    [{ code: 'hostsProxy.failed', params: {} }, "The hosts proxy couldn't start. Agents run without it."],
+    [{ code: 'hostsProxy.userProxy', params: {} }, "You already have a proxy set, so OXESpace won't replace it. Agents run without the hosts log."]
   ])('a proxy that could not start shows one Notice (%j) with Try again', async (reason, line) => {
     const main = mockMain({ enabled: true, state: 'failed', reason, hosts: [] })
     await renderSection()
@@ -133,5 +143,6 @@ describe('U11.3 · Outgoing hosts proxy', () => {
     expect(await screen.findByRole('switch', { name: 'Registrar os hosts aos quais os agentes se conectam' })).toBeInTheDocument()
     expect(screen.getByText('O proxy de hosts não iniciou: a porta 8899 está em uso. Os agentes rodam sem ele.')).toBeInTheDocument()
     expect(screen.getByText('Fora de uma conversa')).toBeInTheDocument()
+    expect(screen.getByText('Registra hosts de programas que usam HTTP_PROXY. Nunca caminhos, cabeçalhos ou corpos.')).toBeInTheDocument()
   })
 })
