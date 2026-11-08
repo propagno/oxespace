@@ -39,33 +39,31 @@ test('R15/G5: OxeQuery connects to a running postgres container without the OxeP
     const dialog = page.getByRole('dialog').last()
     await expect(dialog, 'the New connection dialog opens').toBeVisible({ timeout: 10_000 })
 
-    // The picker: any control whose accessible name speaks of a running container.
-    const picker = dialog.getByRole('button', { name: /container|contêiner/i })
-      .or(dialog.getByRole('tab', { name: /container|contêiner/i }))
-      .or(dialog.getByRole('radio', { name: /container|contêiner/i }))
-      .or(dialog.getByRole('combobox', { name: /container|contêiner/i })).first()
+    // The picker (FE-G5, #696): the radio "From a running container", then the select labelled Container, whose
+    // options read "<name> · <engine> · port <n>". Found by role and label, never by the wider copy.
+    const picker = dialog.getByRole('radio', { name: /running container|contêiner em execução/i }).first()
     const hasPicker = await picker.count()
     note(`picker in New connection: ${hasPicker > 0}`)
     expect(hasPicker, 'OxeQuery › New connection offers "From a running container" (G5)').toBeGreaterThan(0)
     await picker.click()
-    // The container the job started, listed by its name.
-    const entry = page.getByRole('option', { name: new RegExp(NAME) })
-      .or(page.getByRole('button', { name: new RegExp(NAME) }))
-      .or(page.getByRole('menuitem', { name: new RegExp(NAME) })).first()
-    await expect(entry, `the running container ${NAME} is listed`).toBeVisible({ timeout: 20_000 })
-    await entry.click()
+    const select = dialog.getByLabel(/^(Container|Contêiner)$/).first()
+    await expect.poll(async () => (await select.locator('option').allInnerTexts()).join(' | '), { timeout: 20_000, message: `the running container ${NAME} is listed` }).toContain(NAME)
+    const options = await select.locator('option').allInnerTexts()
+    note(`container options: ${JSON.stringify(options)}`)
+    expect.soft(options.find(o => o.includes(NAME)) ?? '', 'listed as name · engine · port').toMatch(new RegExp(`${NAME} · PostgreSQL · port ${PORT}`))
+    await select.selectOption({ label: options.find(o => o.includes(NAME)) as string })
 
-    // Host and port are filled from the container; the password is the person's to type.
-    const form = page.getByRole('dialog').filter({ has: page.locator('input[type="password"]') }).last()
-    await expect(form, 'the connection form is filled in from the container').toBeVisible({ timeout: 10_000 })
-    const values = await form.locator('input:not([type="password"])').evaluateAll(inputs => inputs.map(i => (i as HTMLInputElement).value))
-    note(`form values (no password): ${JSON.stringify(values)}`)
-    expect.soft(values.some(v => /^(127\.0\.0\.1|localhost)$/.test(v)), 'the host is filled in').toBe(true)
-    expect.soft(values.includes(PORT) || values.some(v => v.includes(`:${PORT}`)), 'the mapped port is filled in').toBe(true)
-    const password = form.locator('input[type="password"]').first()
+    // Host and port are filled from the container; the password is the person's to type, and it has the focus.
+    const password = dialog.getByLabel(/^(Password|Senha)$/).first()
+    await expect.soft(dialog.getByLabel(/^(Port|Porta)$/).first(), 'the mapped port is filled in').toHaveValue(PORT, { timeout: 10_000 })
+    const host = await dialog.getByLabel(/^Host$/).first().inputValue().catch(() => '')
+    note(`host: ${host}`)
+    expect.soft(host, 'the host is filled in').toMatch(/^(127\.0\.0\.1|localhost)$/)
     expect.soft(await password.inputValue(), 'the password is not filled in for the person').toBe('')
+    await expect.soft(password, 'the empty password has the focus').toBeFocused()
     await password.fill(PASSWORD)
     await password.press('Enter')
+    if (await dialog.isVisible().catch(() => false)) await dialog.getByRole('button', { name: /^(Save and open|Salvar e abrir)$/ }).click({ timeout: 5_000 }).catch(() => undefined)
 
     // Connected: its tab opens, and a query returns a row.
     await expect(page.getByRole('tab', { name: new RegExp(NAME) }).first(), 'the connection opens').toBeVisible({ timeout: 30_000 })
