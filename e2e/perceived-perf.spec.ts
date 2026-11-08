@@ -65,25 +65,29 @@ const PLATFORM_WARM_BASELINE_MS: Record<Platform, Record<string, number>> = {
   windows: { 'OxeCode (Code)': 37.5, 'OxeChat (Thread)': 33, OxeQuery: 26, OxePod: 23.5, OxePost: 22.5, 'Settings · Agents': 28, 'Settings · Appearance': 34 }
 }
 /**
- * Cold first content, per platform (FL-21 cold, TECH LEAD 07/11): the same 10 samples per OS as the warm table. The
- * phase-1 cold budgets (335–344 ms) were set before F7 made cold fast (about 150 ms for OxeChat, about 50 for the rest),
- * so they could not catch a regression. Variance check before tightening: the p90 of the 10 samples (nearest rank) sits
- * under the new limit for every surface on both OSes, so no surface needed a p90 + one frame limit. The one sample over
- * its limit in the window (OxeChat windows 183 against 170.7) is the 1-in-10 the gate's confirm round absorbs.
- * Appearance cold went up since phase 1 (29 → 34 / 35.5) and is rebased like the rest.
+ * Cold first content, per platform: the p90 of 16 samples per OS (FL-26, TECH LEAD 08/11), not the median. The phase-1
+ * cold budgets (335–344 ms) were set before F7 made cold fast (about 150 ms for OxeChat, about 50 for the rest), so they
+ * could not catch a regression. #668 rebased them to the median of 10 samples, which cold's spread can't hold: with 16
+ * samples, 4 windows OxeChat cold runs were over its limit. Cold varies far more than warm (OxeChat linux 96–157, windows
+ * 99–183), so the base is the p90 and the tolerance is unchanged; warm stays on the median.
  *
- *   surface                 linux median/p90/limit   windows median/p90/limit
- *   OxeCode (Code)           48.5 / 51  / 65.2        54.5 / 58  / 71.2
- *   OxeChat (Thread)        148.5 / 153 / 165.2       154  / 166 / 170.7
- *   OxeQuery                 53   / 54  / 69.7        53   / 66  / 69.7
- *   OxePod                   50.5 / 52  / 67.2        53   / 55  / 69.7
- *   OxePost                  42.5 / 44  / 59.2        45.5 / 58  / 62.2
- *   Settings · Agents        36   / 38  / 52.7        39   / 41  / 55.7
- *   Settings · Appearance    34   / 35  / 50.7        35.5 / 37  / 52.2
+ * Samples: the round-1 [RESULT] content median (5 launches) of both E2E shards per OS on main's ci.yml runs 42419199026,
+ * 42416423013, 42413366602, 42411081871, 42408774338, 42406086815, 42400648752 and 42397720054 (n=16 per OS);
+ * p90 = statistics.quantiles(n=10, method='inclusive')[8], rounded (SRE). Over the limit in those 16: none, except one
+ * windows OxeChat sample (183 against 182.7), which the gate's confirm round absorbs.
+ *
+ *   surface                 linux p90 → limit   windows p90 → limit   win/lin
+ *   OxeCode (Code)             52 → 68.7           58 → 74.7          1.12
+ *   OxeChat (Thread)          154 → 170.7         166 → 182.7         1.08
+ *   OxeQuery                   54 → 70.7           66 → 82.7          1.22
+ *   OxePod                     52 → 68.7           55 → 71.7          1.06
+ *   OxePost                    44 → 60.7           52 → 68.7          1.18
+ *   Settings · Agents          38 → 54.7           41 → 57.7          1.08
+ *   Settings · Appearance      35 → 51.7           37 → 53.7          1.06
  */
 const PLATFORM_COLD_BASELINE_MS: Record<Platform, Record<string, number>> = {
-  linux: { 'OxeCode (Code)': 48.5, 'OxeChat (Thread)': 148.5, OxeQuery: 53, OxePod: 50.5, OxePost: 42.5, 'Settings · Agents': 36, 'Settings · Appearance': 34 },
-  windows: { 'OxeCode (Code)': 54.5, 'OxeChat (Thread)': 154, OxeQuery: 53, OxePod: 53, OxePost: 45.5, 'Settings · Agents': 39, 'Settings · Appearance': 35.5 }
+  linux: { 'OxeCode (Code)': 52, 'OxeChat (Thread)': 154, OxeQuery: 54, OxePod: 52, OxePost: 44, 'Settings · Agents': 38, 'Settings · Appearance': 35 },
+  windows: { 'OxeCode (Code)': 58, 'OxeChat (Thread)': 166, OxeQuery: 66, OxePod: 55, OxePost: 52, 'Settings · Agents': 41, 'Settings · Appearance': 37 }
 }
 /** A surface much slower on windows than on linux is a finding to explain, not a baseline to accept (FL-21). */
 const MAX_WINDOWS_TO_LINUX = 1.5
