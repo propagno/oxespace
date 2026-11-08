@@ -151,6 +151,21 @@ describe('preload api', () => {
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.github.connectRepository, { workspaceId: 'workspace-1', rootPath: 'C:/repo', fullName: 'org/repo' })
   })
 
+  test('R0b: exposes the removed-features export without the window sending a path', async () => {
+    const ipc = createFakeIpc(), api = createOxeApi(ipc)
+    await api.dataExport.state()
+    await api.dataExport.markNoticeShown()
+    await api.dataExport.exportAgain()
+    await api.dataExport.open()
+    await api.dataExport.reveal()
+    expect(ipc.invoke).toHaveBeenNthCalledWith(1, IPC_CHANNELS.dataExport.state)
+    expect(ipc.invoke).toHaveBeenNthCalledWith(2, IPC_CHANNELS.dataExport.markNoticeShown)
+    expect(ipc.invoke).toHaveBeenNthCalledWith(3, IPC_CHANNELS.dataExport.exportAgain)
+    expect(ipc.invoke).toHaveBeenNthCalledWith(4, IPC_CHANNELS.dataExport.open)
+    expect(ipc.invoke).toHaveBeenNthCalledWith(5, IPC_CHANNELS.dataExport.reveal)
+    expect(ipc.invoke).toHaveBeenCalledTimes(5)
+  })
+
   test('returns unsubscribe functions for terminal and task listeners', () => {
     const ipc = createFakeIpc()
     const api = createOxeApi(ipc)

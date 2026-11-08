@@ -30,6 +30,16 @@ describe('ipc contracts', () => {
     expect(IPC_CHANNELS.semantic.getLogs).toBe('semantic:get-logs')
   })
 
+  test('R0b: uses stable data export channel names', () => {
+    expect(IPC_CHANNELS.dataExport).toEqual({
+      state: 'data-export:state',
+      markNoticeShown: 'data-export:mark-notice-shown',
+      exportAgain: 'data-export:export-again',
+      open: 'data-export:open',
+      reveal: 'data-export:reveal'
+    })
+  })
+
   test('uses stable 1.4 contract channel names', () => {
     expect(IPC_CHANNELS.app.connectivity).toBe('app:connectivity')
     expect(IPC_CHANNELS.app.onConnectivity).toBe('app:connectivity-changed')

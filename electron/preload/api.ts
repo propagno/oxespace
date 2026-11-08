@@ -519,6 +519,14 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       actionAudit: (limit) => ipc.invoke(IPC_CHANNELS.mcpInternal.actionAudit, limit) as Promise<import('../../shared/types/mcp-internal').AgentActionEntry[]>,
       exportAudit: () => ipc.invoke(IPC_CHANNELS.mcpInternal.exportAudit) as Promise<string | null>
     },
+    // R0b: no argument crosses: main picks the newest export file itself.
+    dataExport: {
+      state: () => ipc.invoke(IPC_CHANNELS.dataExport.state) as Promise<import('../../shared/types/ipc').DataExportState>,
+      markNoticeShown: () => ipc.invoke(IPC_CHANNELS.dataExport.markNoticeShown) as Promise<void>,
+      exportAgain: () => ipc.invoke(IPC_CHANNELS.dataExport.exportAgain) as Promise<{ file: string | null }>,
+      open: () => ipc.invoke(IPC_CHANNELS.dataExport.open) as Promise<void>,
+      reveal: () => ipc.invoke(IPC_CHANNELS.dataExport.reveal) as Promise<void>
+    },
     browserPreview: {
       session: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.session, input) as Promise<import('../../shared/types/browser-preview').BrowserPreviewSessionState>,
       mount: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.mount, input) as Promise<import('../../shared/types/browser-preview').BrowserPreviewMountResult>,
