@@ -95,6 +95,8 @@ export const REMOTE_ERROR_CODES = [
   'not-pending',
   'stale-generation',
   'pane-not-shared',
+  'no-conversation',
+  'conversation-changed',
   'internal'
 ] as const
 export type RemoteErrorCode = typeof REMOTE_ERROR_CODES[number]
@@ -207,7 +209,7 @@ export interface RemoteErrorFrame extends FrameBase<'error'> {
    * says to pair again instead of "removed". A literal word, not an enum, so Kotlin reads it as text and a word added
    * later never breaks an older phone (the #531 rule).
    */
-  reason?: 'pairing-lapsed'
+  reason?: 'pairing-lapsed' | 'new-session' | 'rewritten'
   /** Milliseconds before retrying, for `rate-limited`. */
   retryAfterMs?: number
 }
@@ -705,6 +707,13 @@ export interface RemotePaneConversationPage {
   cursor: string | null
   epoch: number
 }
+
+/**
+ * 1.5.0 F10 (BE-A46-c5, #706): a `paneConversation` event. It says only that the conversation changed, never what: the
+ * phone reads the newest page again with `pane.conversation`. At most one per two seconds. With `conversation-changed`,
+ * `RemoteErrorFrame.reason` may say `new-session` (another session) or `rewritten` (the session file was rewritten or cut).
+ */
+export interface RemotePaneConversationEvent { changed: true }
 
 /** The args each command takes. */
 export interface RemoteCommandArgs {

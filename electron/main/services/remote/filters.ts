@@ -23,7 +23,7 @@ const text = (value: string | undefined, roots: readonly string[], limit: number
 
 // ---- workspaces ---------------------------------------------------------------------------------------------------
 
-export function toWorkspace(row: RemoteWorkspaceRow, phoneWrite: ReadonlySet<string>, roots: readonly string[]): RemoteWorkspace {
+export function toWorkspace(row: RemoteWorkspaceRow, phoneWrite: ReadonlySet<string>, roots: readonly string[], conversation?: (paneId: string) => boolean): RemoteWorkspace {
   return {
     id: row.id, name: text(row.name, roots, TITLE) || 'Workspace', active: row.active,
     panes: row.panes.map((pane): RemotePane => {
@@ -34,7 +34,9 @@ export function toWorkspace(row: RemoteWorkspaceRow, phoneWrite: ReadonlySet<str
         kind: pane.type !== 'terminal' ? 'other' : agent || pane.agentName ? 'agent' : 'terminal',
         ...(agent ? { agent: text(agent, roots, 64) } : {}),
         ...(pane.agentState ? { agentState: pane.agentState } : {}),
-        phoneWrite: phoneWrite.has(pane.id)
+        phoneWrite: phoneWrite.has(pane.id),
+        // BE-A46-c5: only the flag; the conversation itself is read with `pane.conversation`.
+        ...(conversation?.(pane.id) ? { conversation: true } : {})
       }
     })
   }
