@@ -24,7 +24,6 @@ export interface TerminalPrefs {
   scrollback: number
   /** 1 = opaque card. Below 1 the terminal surface goes translucent (blur behind). */
   backgroundOpacity: number
-  rtkHookEnabled: boolean
   cavemanModeEnabled: boolean
   semanticSearchEnabled: boolean
   semanticSearchMode: SemanticSearchMode
@@ -54,10 +53,9 @@ export const TERMINAL_PREFS_DEFAULTS: TerminalPrefs = {
   // in Settings raises it for whoever wants more.
   scrollback: 10_000,
   backgroundOpacity: 1,
-  // RTK, Caveman and Semantic are opt-in developer features — off by default so
-  // a fresh workspace does no extra token transforms or background indexing.
+  // Caveman and Semantic are opt-in developer features — off by default so a
+  // fresh workspace does no extra prompt transforms or background indexing.
   // The user enables them via the toolbar chips when wanted.
-  rtkHookEnabled: false,
   cavemanModeEnabled: false,
   semanticSearchEnabled: false,
   semanticSearchMode: 'auto',
@@ -66,6 +64,19 @@ export const TERMINAL_PREFS_DEFAULTS: TerminalPrefs = {
 
 export const FONT_SIZE_MIN = 8
 export const FONT_SIZE_MAX = 32
+
+/**
+ * Only the preferences this version knows. A key an older version saved for a feature that was since removed is
+ * dropped, so it never comes back through the persisted state.
+ */
+function knownPrefs(value: unknown): Partial<TerminalPrefs> {
+  const known: Record<string, unknown> = {}
+  if (!value || typeof value !== 'object') return known as Partial<TerminalPrefs>
+  for (const key of Object.keys(TERMINAL_PREFS_DEFAULTS)) {
+    if (key in value) known[key] = (value as Record<string, unknown>)[key]
+  }
+  return known as Partial<TerminalPrefs>
+}
 
 interface TerminalPrefsState {
   global: TerminalPrefs
@@ -104,16 +115,15 @@ export const useTerminalPrefsStore = create<TerminalPrefsState>()(
     {
       name: 'oxe-terminal-prefs',
       version: 8,
-      // v2: RTK/Caveman/Semantic became opt-in (off by default). Existing users
-      // have a persisted `global` from when RTK/Semantic defaulted to ON, and
-      // `merge` spreads persisted over defaults — so without this migration the
-      // old always-on values would stick. Reset those two flags once (in the
-      // global default and in any per-workspace override) so a fresh workspace
-      // starts with them off; the user re-enables per workspace via the chips.
+      // v2: Semantic became opt-in (off by default). Existing users have a
+      // persisted `global` from when it defaulted to ON, and `merge` spreads
+      // persisted over defaults — so without this migration the old always-on
+      // value would stick. Reset that flag once (in the global default and in
+      // any per-workspace override) so a fresh workspace starts with it off;
+      // the user re-enables it per workspace via the chips.
       migrate: (persisted) => {
         const p = (persisted ?? {}) as Partial<TerminalPrefsState>
         const global = { ...TERMINAL_PREFS_DEFAULTS, ...(p.global ?? {}) }
-        global.rtkHookEnabled = false
         global.semanticSearchEnabled = false
         // v3 (chat-like terminal): roll the new soft look forward ONLY for users
         // who never customized these — preserve deliberate choices. Anyone still
@@ -135,7 +145,6 @@ export const useTerminalPrefsStore = create<TerminalPrefsState>()(
         const overrides: Record<string, Partial<TerminalPrefs>> = {}
         for (const [ws, ov] of Object.entries(p.overrides ?? {})) {
           const next = { ...(ov as Partial<TerminalPrefs>) }
-          delete next.rtkHookEnabled
           delete next.semanticSearchEnabled
           if (next.scrollback === 100_000 || next.scrollback === 50_000) next.scrollback = TERMINAL_PREFS_DEFAULTS.scrollback
           if (Object.keys(next).length > 0) overrides[ws] = next
@@ -143,13 +152,19 @@ export const useTerminalPrefsStore = create<TerminalPrefsState>()(
         return { ...p, global, overrides }
       },
       // Merge persisted partials over defaults so a new pref key added in a
-      // future version still has a value for users with older saved state.
+      // future version still has a value for users with older saved state, and a
+      // key this version no longer has is dropped (an override left empty goes too).
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<TerminalPrefsState>
+        const overrides: Record<string, Partial<TerminalPrefs>> = {}
+        for (const [ws, ov] of Object.entries(p.overrides ?? {})) {
+          const next = knownPrefs(ov)
+          if (Object.keys(next).length > 0) overrides[ws] = next
+        }
         return {
           ...current,
-          global: { ...TERMINAL_PREFS_DEFAULTS, ...(p.global ?? {}) },
-          overrides: p.overrides ?? {}
+          global: { ...TERMINAL_PREFS_DEFAULTS, ...knownPrefs(p.global) },
+          overrides
         }
       }
     }

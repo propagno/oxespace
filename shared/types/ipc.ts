@@ -102,11 +102,6 @@ export const IPC_CHANNELS = {
     startupFailure: 'app:startup-failure', openBackupsFolder: 'app:open-backups-folder', quitAfterStartupFailure: 'app:quit-after-startup-failure',
     relaunchAfterStartupFailure: 'app:relaunch-after-startup-failure'
   },
-  rtk: {
-    getStatus: 'rtk:get-status',
-    checkForUpdate: 'rtk:check-for-update',
-    updateToLatest: 'rtk:update-to-latest'
-  },
   workspace: {
     list: 'workspace:list',
     create: 'workspace:create',
@@ -687,12 +682,6 @@ export interface AppUpdateApi {
   setUiScale?(factor: number): Promise<number>
 }
 
-export interface RtkApi {
-  getStatus(): Promise<import('./updater').RtkUpdateState>
-  checkForUpdate(): Promise<import('./updater').RtkUpdateState>
-  updateToLatest(): Promise<import('./updater').RtkUpdateState>
-}
-
 export interface OxeApi {
   team?: import('./team').TeamApi
   agentAccount?: import('./agentAuth').AgentAccountApi
@@ -706,7 +695,6 @@ export interface OxeApi {
     /** The operating system's locale (Electron's app.getLocale()), which picks the default interface language. */
     locale: string
   } & AppUpdateApi & import('./app').AppInfoApi
-  rtk: RtkApi
   workspace: WorkspaceApi
   terminal: TerminalApi
   agent: AgentApi
