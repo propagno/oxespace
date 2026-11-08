@@ -15,6 +15,12 @@ describe('R13 · Work folds into Delegation', () => {
     expect(ALIASES.filter(name => !new RegExp(`['"\`]${name}['"\`]`).test(text))).toEqual([])
   })
 
+  test('R13: a delegation task carries its dependencies, with each one\'s state for "Waits for" and "Blocked"', () => {
+    const types = readFileSync(join(ROOT, 'shared/types/delegation.ts'), 'utf8')
+    expect(types).toMatch(/\bdependsOn\??\s*:\s*string\[\]/)
+    expect(types).toMatch(/\bdependencies\??\s*:\s*(Array<\{|\{)[^}]*\bid\s*:\s*string[^}]*\bobjective\s*:\s*string[^}]*\bstate\s*:\s*DelegationState/)
+  })
+
   test('R13: the phone protocol still knows the work kind, so an older phone keeps decoding', () => {
     const protocol = readFileSync(join(ROOT, 'shared/remote/protocol.ts'), 'utf8')
     const kinds = /REMOTE_AGENT_KINDS\s*=\s*\[([^\]]*)\]/.exec(protocol)?.[1] ?? ''

@@ -1,7 +1,7 @@
 // Frozen acceptance test for the 1.5.0 cockpit item R0b (OXE program, phase F2): the one-time export of the removed
 // features' data. Written by the planner; the executor must not edit it. Temp folders and an in-memory database only.
 // Runs under Electron's Node ABI: npm run test:electron -- tests/acceptance/f2/r0b-removed-features-export.native.test.ts
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import Database from 'better-sqlite3'
@@ -46,7 +46,7 @@ describe('R0b · the one-time export of the removed features\' data', () => {
     expect(result.created).toBe(true)
     expect(exports()).toEqual(['1.5-removed-1700000000000.json'])
     expect(result.path).toBe(join(userData, 'exports', '1.5-removed-1700000000000.json'))
-    const data = JSON.parse(readFileSync(result.path, 'utf8')) as { sections: Record<string, unknown> }
+    const data = JSON.parse(readFileSync(result.path!, 'utf8')) as { sections: Record<string, unknown> }
     expect(Object.keys(data.sections).sort()).toEqual(['automations', 'memories', 'oxepostCollections'])
     const text = JSON.stringify(data)
     expect(text).toContain('list-invoices.http')
@@ -57,10 +57,37 @@ describe('R0b · the one-time export of the removed features\' data', () => {
     expect(text).toContain('"r1"')
   })
 
-  test('never exports a secret value: only secret names', async () => {
+  test('never exports a secret value: only secret names, with a note that the secrets stay in OXESpace', async () => {
     automations()
     const result = await exportRemovedFeatures({ db, userData, workspaceRoots: () => [root], now: () => 1 })
-    expect(readFileSync(result.path, 'utf8')).not.toContain(SECRET)
+    const text = readFileSync(result.path!, 'utf8')
+    expect(text).not.toContain(SECRET)
+    const data = JSON.parse(text) as { secretsNote?: unknown }
+    expect(typeof data.secretsNote).toBe('string')
+    expect(String(data.secretsNote).length).toBeGreaterThan(0)
+  })
+
+  test('HML-678-1: the user\'s secrets file and request files are byte-identical after the export', async () => {
+    automations()
+    const watched = [join(userData, 'oxepost-secrets.json'), join(root, '.oxespace', 'requests', 'billing', 'list-invoices.http'), join(root, '.oxespace', 'requests', 'environments', 'staging.json')]
+    const before = watched.map(file => readFileSync(file))
+    await exportRemovedFeatures({ db, userData, workspaceRoots: () => [root], now: () => 2 })
+    await exportRemovedFeatures({ db, userData, workspaceRoots: () => [root], now: () => 3, force: true })
+    watched.forEach((file, index) => expect(readFileSync(file).equals(before[index]), file).toBe(true))
+  })
+
+  test('HML-678-2: an unwritable exports folder leaves no partial file, reports the error, and is retried next time', async () => {
+    writeFileSync(join(userData, 'exports'), 'a file where the folder should be')
+    const deps = { db, userData, workspaceRoots: () => [root] }
+    const failed = await exportRemovedFeatures({ ...deps, now: () => 80 })
+    expect(failed).toMatchObject({ path: null, created: false })
+    expect(typeof failed.error).toBe('string')
+    expect(removedFeaturesState(deps)).toMatchObject({ file: null, exportedAt: null, error: expect.any(String) })
+    expect(readdirSync(userData).filter(name => /1\.5-removed-|\.tmp$/.test(name))).toEqual([])
+    rmSync(join(userData, 'exports'))
+    const retried = await exportRemovedFeatures({ ...deps, now: () => 90 })
+    expect(retried).toMatchObject({ path: join(userData, 'exports', '1.5-removed-90.json'), created: true })
+    expect(removedFeaturesState(deps)).toMatchObject({ file: retried.path, error: null })
   })
 
   test('runs once: a second call writes nothing and returns the existing file', async () => {
@@ -72,12 +99,12 @@ describe('R0b · the one-time export of the removed features\' data', () => {
 
   test('FE-R0b\'s state: the file and whether the notice was shown, then the notice marked once', async () => {
     const deps = { db, userData, workspaceRoots: () => [root] }
-    expect(removedFeaturesState(deps)).toMatchObject({ file: null, shownNotice: false })
+    expect(removedFeaturesState(deps)).toMatchObject({ file: null, exportedAt: null, shownNotice: false })
     const first = await exportRemovedFeatures({ ...deps, now: () => 30 })
-    expect(removedFeaturesState(deps)).toMatchObject({ file: first.path, shownNotice: false })
+    expect(removedFeaturesState(deps)).toMatchObject({ file: first.path, exportedAt: new Date(30).toISOString(), shownNotice: false })
     markRemovedFeaturesNoticeShown(userData)
     markRemovedFeaturesNoticeShown(userData)
-    expect(removedFeaturesState(deps)).toMatchObject({ file: first.path, shownNotice: true })
+    expect(removedFeaturesState(deps)).toMatchObject({ file: first.path, exportedAt: new Date(30).toISOString(), shownNotice: true })
   })
 
   test('FE-R0b\'s state lists only the removed features this install used, as ids and booleans, with no content', () => {
@@ -114,10 +141,19 @@ describe('R0b · the one-time export of the removed features\' data', () => {
     expect(IPC_CHANNELS.dataExport).toEqual({ state: 'data-export:state', markNoticeShown: 'data-export:mark-notice-shown', exportAgain: 'data-export:export-again' })
   })
 
+  test('with nothing to save, no file is written, the state says so, and it is not retried', async () => {
+    db.exec('DELETE FROM memory_projects')
+    const deps = { db, userData, workspaceRoots: () => [join(base, 'no-such-repo')] }
+    expect(await exportRemovedFeatures({ ...deps, now: () => 60 })).toEqual({ path: null, created: false })
+    expect(await exportRemovedFeatures({ ...deps, now: () => 70 })).toEqual({ path: null, created: false })
+    expect(removedFeaturesState(deps)).toMatchObject({ file: null, exportedAt: null, removed: [] })
+    expect(existsSync(join(userData, 'exports')) ? exports() : []).toEqual([])
+  })
+
   test('a missing table, folder or automations file is an empty section, never an error', async () => {
     db.exec('DROP TABLE IF EXISTS memory_note_uses; DROP TABLE IF EXISTS memory_notes')
     const result = await exportRemovedFeatures({ db, userData, workspaceRoots: () => [join(base, 'no-such-repo')], now: () => 5 })
-    const data = JSON.parse(readFileSync(result.path, 'utf8')) as { sections: Record<string, unknown> }
+    const data = JSON.parse(readFileSync(result.path!, 'utf8')) as { sections: Record<string, unknown> }
     expect(data.sections).toMatchObject({ automations: expect.anything(), memories: expect.anything(), oxepostCollections: expect.anything() })
     expect(JSON.stringify(data.sections.automations)).not.toContain('Nightly tests')
   })

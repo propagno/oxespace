@@ -139,7 +139,7 @@ for (const item of ITEMS) {
   ]
   const suites = [...new Set([...files.filter(file => /^(tests|e2e)\/.*\.(test|spec)\.tsx?$/.test(file) && !(item.gone ?? []).includes(file)), ...governance])].sort()
   const frozen = item.custom && !item.gone && !item.imports ? [] : [testFile(item)]
-  const extraFrozen = { R0b: ['tests/acceptance/f2/r0b-removed-features-export.native.test.ts'], R5: ['tests/acceptance/f2/r5-v58-upgrade.native.test.ts'], R0d: ['tests/acceptance/f2/r0d-delegation-enrich.test.ts'], R3: ['tests/acceptance/f2/r3-mcp-instructions.test.ts'], R13: ['tests/acceptance/f2/r13-work-aliases.test.ts'], 'R15-be': ['tests/acceptance/f2/r15-oxepod-backend-kept.test.ts'], 'R11-be': ['tests/acceptance/f2/r11-be-no-write-file.test.ts'] }[item.id] ?? []
+  const extraFrozen = { R0b: ['tests/acceptance/f2/r0b-removed-features-export.native.test.ts'], R5: ['tests/acceptance/f2/r5-v58-upgrade.native.test.ts'], R0d: ['tests/acceptance/f2/r0d-delegation-enrich.test.ts'], R3: ['tests/acceptance/f2/r3-mcp-instructions.test.ts'], R13: ['tests/acceptance/f2/r13-work-aliases.test.ts'], 'R15-be': ['tests/acceptance/f2/r15-oxepod-backend-kept.test.ts'], 'R11-be': ['tests/acceptance/f2/r11-be-no-write-file.test.ts'], 'R14-be': ['tests/acceptance/f2/r14-be-user-files-kept.test.ts'] }[item.id] ?? []
   const run = file => file.includes('.native.') || /migrations|db-|oxepost-service|automations\.test|team-ipc/.test(file) ? `npm run test:electron -- ${file}` : `npx vitest run ${file}`
   const verify = [...frozen, ...extraFrozen].map(run).concat(suites.filter(file => file.startsWith('tests/')).map(run))
   tasks.push({
