@@ -12,7 +12,7 @@ apps read.
 
 ```
 commit ─▶ pull request ─▶ CI and Release (PR)          first red ≈ 3 min (quick), full ≈ 25–40 min
-                          + Accessibility (axe), Memory compatibility, Android, Provider contract (by path)
+                          + Accessibility (axe), Android, Provider contract (by path)
        ─▶ label na-fila ─▶ Merge train                  updates the PR with main, dispatches CI on that head,
                                                         merges when every check is green, one PR at a time
        ─▶ main ─▶ CI and Release (push)                 everything runs, including the OxeQuery live matrices
@@ -30,7 +30,6 @@ commit ─▶ pull request ─▶ CI and Release (PR)          first red ≈ 3 m
 | `ci.yml` — CI and Release | PR, push to main, `v*.*.*` tag, dispatch | The single pipeline: quick checks, unit (Windows + Linux), E2E (3 shards per OS), perf gate, live DB tests, packaging and release, and the dependency review when a manifest, lockfile or workflow changes (a high or critical advisory fails it). `CI result` is the one check for the run, and the one branch protection requires. A dispatched run (the merge train's) also posts it as a commit status on the commit it tested, since GitHub does not count a `workflow_dispatch` check run toward a pull request's required checks. See [RELEASE_PIPELINE.md](RELEASE_PIPELINE.md#jobs). |
 | `merge-train.yml` | `na-fila` label, workflow_run, schedule, dispatch | Merges PRs one at a time ([RELEASE_PIPELINE.md#merge-train](RELEASE_PIPELINE.md#merge-train)). PRs that change `.github/workflows/**` can't be merged by its token and are merged by hand. |
 | `a11y-axe.yml` | PR, push, dispatch | axe scan of the screens. |
-| `memory-compatibility.yml` | PR (memory paths), called by `ci.yml` | AI Memory contract against pinned upstream versions. |
 | `provider-contract.yml` | PR (provider paths), schedule | Claude/Codex CLI contract (no paid calls). |
 | `android.yml` | PR, push, dispatch | Android lint, unit tests and build. |
 | `android-emulator.yml` | dispatch | Instrumented tests on an emulator (`api-level` input, default 36). From 37 the SDK names levels `37.0`, `37.1`…: `37` means `37.0`. A level with no Google APIs x86_64 image is skipped with a notice, not failed. |
@@ -61,7 +60,7 @@ publishes. Its last step starts `android-release.yml` on the tag (a release publ
 
 ### Draft pull requests
 
-A push to a draft runs nothing: CI, axe and Memory compatibility skip, and `CI result` is skipped. Marking the PR
+A push to a draft runs nothing: CI and axe skip, and `CI result` is skipped. Marking the PR
 ready for review starts the full run. **Mark it ready first, then push**, or push again once it is ready. If you push
 and run `gh pr ready` at once, GitHub can handle the ready event before the push: the full run then tests the head
 from *before* that push, and the new head has only the skipped run. The merge train requires a `CI result` that
@@ -104,6 +103,7 @@ No PR is labelled `na-fila` without a green `npm run pr:ready` on its exact head
 - **Changes that need no `node_modules`:**
   - **Images only** (visual baselines under `e2e/visual/__screenshots__/{linux,win32}/`): proven by a green `visual-baselines.yml` run on that exact head, one per platform touched. Dispatch it on the PR branch first. The marker says `evidence: "images"`.
   - **Packages only** (`package.json` / `package-lock.json`, at the root or in `playground/`), or other snapshot images: proven by the PR's CI unit jobs, with no local step. The marker says `evidence: "ci"`.
+- **The `pr:ready` commit status:** on green, `pr:ready` also posts a `pr:ready` success status on that exact sha (the evidence kind and its runs), so GitHub and the merge train can see that the head passed. The head must be pushed first; otherwise the marker stays local and `pr:ready` exits 1, saying so. `pr:ready` is **not** a required check in branch protection: the train's batch branches and its update-branch merges never carry it.
 - **Clean tree:** the working tree must be clean, since the marker vouches for HEAD. `--dry-run` prints the plan; `--base <ref>` changes the base.
 
 ## Running the checks locally
