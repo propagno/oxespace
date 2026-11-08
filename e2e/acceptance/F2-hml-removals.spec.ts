@@ -30,21 +30,28 @@ const leftovers = (labels: string[]) => labels.map(l => l.replace(/\s+/g, ' ').t
 
 async function menuLabels(page: Page): Promise<string[]> {
   const labels: string[] = []
-  const top = page.getByRole('button', { name: /^(Application menu|Menu do aplicativo)$/ })
-  if (await top.count()) { await top.first().click(); await page.waitForTimeout(300) }
-  // Each top-level menu (File, Edit, View, Tools, Help): open, read its items and submenus, close.
-  const bar = page.getByRole('menubar').first()
-  const menus = (await bar.count()) ? bar.getByRole('menuitem') : page.getByRole('menuitem')
-  const count = await menus.count()
-  for (let i = 0; i < count; i++) {
-    const item = menus.nth(i)
-    labels.push((await item.innerText().catch(() => '')).trim())
-    await item.click().catch(() => undefined); await page.waitForTimeout(200)
-    labels.push(...(await page.getByRole('menuitem').allInnerTexts().catch(() => [])))
-    await page.keyboard.press('Escape')
-  }
+  const top = page.getByRole('button', { name: /^(Application menu|Menu do aplicativo)$/ }).first()
+  const hasTop = (await top.count()) > 0
+  // The app menu closes on Escape, so it is opened again before each top-level entry; every click is bounded, so a
+  // detached item is a skipped entry, never a hung test (baseline run 42484708486 hung on menuitem.nth(4)).
+  const open = async () => { if (hasTop) { await top.click({ timeout: 3_000 }).catch(() => undefined); await page.waitForTimeout(300) } }
+  const scope = () => { const bar = page.getByRole('menubar').first(); return bar }
+  await open()
+  const barCount = await scope().count()
+  const entries = barCount ? await scope().getByRole('menuitem').allInnerTexts() : await page.getByRole('menuitem').allInnerTexts()
+  labels.push(...entries)
   await page.keyboard.press('Escape')
-  return [...new Set(labels.filter(Boolean))]
+  for (const entry of entries.map(e => e.trim()).filter(Boolean).slice(0, 20)) {
+    await open()
+    const item = page.getByRole('menuitem', { name: entry, exact: true }).first()
+    if (!(await item.count())) { await page.keyboard.press('Escape'); continue }
+    // A submenu opens on hover or click; read whatever is shown, then close.
+    await item.hover({ timeout: 3_000 }).catch(() => undefined); await page.waitForTimeout(200)
+    await item.click({ timeout: 3_000 }).catch(() => undefined); await page.waitForTimeout(200)
+    labels.push(...(await page.getByRole('menuitem').allInnerTexts().catch(() => [])))
+    await page.keyboard.press('Escape'); await page.keyboard.press('Escape')
+  }
+  return [...new Set(labels.map(l => l.trim()).filter(Boolean))]
 }
 
 test.describe('F2 · (c) no removed feature is left behind in the interface', () => {
@@ -99,14 +106,14 @@ test.describe('F2 · (c) no removed feature is left behind in the interface', ()
         expect.soft(leftovers(categories), 'no Settings page for a removed feature').toEqual([])
         const keyboard = page.getByRole('button', { name: /^(Keyboard|Teclado)/ }).first()
         if (await keyboard.count()) {
-          await keyboard.click(); await page.waitForTimeout(800)
+          await keyboard.click({ timeout: 5_000 }).catch(() => undefined); await page.waitForTimeout(800)
           const text = (await page.locator('body').innerText()).split('\n')
           note(`keyboard leftovers: ${JSON.stringify(leftovers(text))}`)
           expect.soft(leftovers(text), 'Keyboard settings list no removed command').toEqual([])
         }
         const data = page.getByRole('button', { name: /^(Data|Dados)/ }).first()
         if (await data.count()) {
-          await data.click(); await page.waitForTimeout(800)
+          await data.click({ timeout: 5_000 }).catch(() => undefined); await page.waitForTimeout(800)
           const page_ = (await page.locator('body').innerText()).replace(/\s+/g, ' ')
           note(`Settings › Data has Removed in 1.5: ${/Removed in 1\.5|Removidos na 1\.5/i.test(page_)}`)
           expect.soft(page_, 'Settings › Data can export the removed data again').toMatch(/Export removed data|Exportar dados removidos/i)
@@ -117,7 +124,7 @@ test.describe('F2 · (c) no removed feature is left behind in the interface', ()
         await mode(page, 'code'); await page.waitForTimeout(600)
         const more = page.getByRole('button', { name: /More panels|Mais painéis|Open panels|Abrir painéis/ }).first()
         if (await more.count()) {
-          await more.click(); await page.waitForTimeout(500)
+          await more.click({ timeout: 5_000 }).catch(() => undefined); await page.waitForTimeout(500)
           const tools = await page.getByRole('menuitem').allInnerTexts().catch(() => [])
           note(`tools: ${JSON.stringify(tools.map(t => t.trim()))}`)
           expect.soft(leftovers(tools), 'the tool catalog offers no removed tool').toEqual([])
@@ -127,7 +134,7 @@ test.describe('F2 · (c) no removed feature is left behind in the interface', ()
         // The terminal pane menu: RTK, Semantic and the Teams entry are gone.
         const paneMenu = page.getByRole('button', { name: /More pane actions|Mais ações do painel/ }).first()
         if (await paneMenu.count()) {
-          await paneMenu.click(); await page.waitForTimeout(400)
+          await paneMenu.click({ timeout: 5_000 }).catch(() => undefined); await page.waitForTimeout(400)
           const items = await page.getByRole('menuitem').allInnerTexts().catch(() => [])
           note(`pane menu: ${JSON.stringify(items.map(t => t.trim()))}`)
           expect.soft(leftovers(items), 'the terminal menu offers no removed feature').toEqual([])
