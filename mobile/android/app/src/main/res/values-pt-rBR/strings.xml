@@ -13,6 +13,7 @@
     <string name="composer_placeholder">Mensagem para o agente</string>
     <string name="composer_send">Enviar</string>
     <string name="composer_steer">Orientar</string>
+    <string name="composer_steer_finished_before">O agente terminou antes de a sua instrução chegar. Nada foi enviado.</string>
     <string name="home_address_hint">O endereço do computador na sua Wi-Fi, por exemplo 192.168.0.12. O OXESpace mostra em Configurações › Dispositivos.</string>
     <string name="home_address_invalid">Use o endereço do computador na sua rede local, como 192.168.0.12.</string>
     <string name="home_address_title">Endereço do computador</string>
@@ -55,6 +56,7 @@
     <string name="live_agent_state_working">Trabalhando</string>
     <string name="live_back">Voltar</string>
     <string name="live_delegations">Delegações</string>
+    <string name="live_delegation_state_unknown">Não confirmado</string>
     <string name="live_empty_requests">Nada esperando por você.</string>
     <string name="live_empty_tasks">Nenhuma tarefa em segundo plano nem delegação.</string>
     <string name="live_empty_terminals">Nenhum terminal aberto.</string>
@@ -164,6 +166,7 @@
     <string name="request_kind_question">Pergunta do agente</string>
     <string name="request_not_confirmed">Não enviado: a confirmação neste celular foi cancelada.</string>
     <string name="request_not_verified">O OXESpace não verificou este texto.</string>
+    <string name="request_no_undo">Sem desfazer.</string>
     <string name="request_paths">Arquivos que ele alteraria</string>
     <string name="request_project_folder">pasta do projeto</string>
     <string name="request_reason">Por quê</string>
@@ -189,6 +192,8 @@
     <string name="request_where">Onde</string>
     <string name="terminal_cancel">Cancelar</string>
     <string name="terminal_empty">Ainda sem saída.</string>
+    <string name="terminal_hidden_back">Voltar aos terminais</string>
+    <string name="terminal_hidden_on_desktop">Este terminal foi ocultado do celular em %1$s.</string>
     <string name="terminal_hidden_shown">Caracteres ocultos foram mostrados no campo. Confira e envie de novo.</string>
     <string name="terminal_key_down">Seta para baixo</string>
     <string name="terminal_key_left">Seta para a esquerda</string>

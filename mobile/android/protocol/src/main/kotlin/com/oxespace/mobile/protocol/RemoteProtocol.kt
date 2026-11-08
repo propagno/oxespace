@@ -105,6 +105,7 @@ enum class RemoteSubscription(val wire: String) {
     @SerialName("jobs") JOBS("jobs"),
     @SerialName("delegations") DELEGATIONS("delegations"),
     @SerialName("agents") AGENTS("agents"),
+    @SerialName("paneConversation") PANE_CONVERSATION("paneConversation"),
     ;
 
     companion object {
@@ -128,6 +129,7 @@ enum class RemoteCommand(val wire: String) {
     @SerialName("terminal.write") TERMINAL_WRITE("terminal.write"),
     @SerialName("thread.history") THREAD_HISTORY("thread.history"),
     @SerialName("agent.markSeen") AGENT_MARK_SEEN("agent.markSeen"),
+    @SerialName("pane.conversation") PANE_CONVERSATION("pane.conversation"),
     ;
 
     companion object {
@@ -357,6 +359,11 @@ data class RemoteSubscribeFrame(
      * sequence of a terminal). The phone never reads it; an unknown or expired one gets a fresh snapshot.
      */
     val cursor: String? = null,
+    /**
+     * 1.5.0 F10 (BE-A45-flag, #706): a terminal snapshot as its one screen page, without the ring pages. Sent only to a
+     * desktop whose hello listed "terminal.snapshotOnly"; an older desktop refuses an unknown key as malformed.
+     */
+    val snapshotOnly: Boolean? = null,
 ) : RemoteFrame
 
 @Serializable
@@ -422,6 +429,8 @@ data class RemoteAckFrame(
 data class RemoteErrorFrame(
     /** The frame it answers, when it had one. */
     val id: String? = null,
+    /** 1.5.0 F10 (CR-34, #706): the open stream this ends, e.g. a pane hidden from the phone (`reason: 'pane-hidden'`). */
+    val subscription: String? = null,
     val code: RemoteErrorCode,
     /**
      * Why, when the code alone would mislead (T96). Added, never required: a phone that does not know it reads the code
@@ -483,6 +492,8 @@ data class RemotePane(
      * off again when the app restarts, and never changed by the phone or an MCP tool.
      */
     val phoneWrite: Boolean,
+    /** 1.5.0 F10 (BE-A46-c5, #658/#706): the pane's agent has a conversation the phone can read with `pane.conversation`. */
+    val conversation: Boolean? = null,
 )
 
 @Serializable
@@ -491,6 +502,8 @@ data class RemoteWorkspace(
     val name: String,
     val active: Boolean,
     val panes: List<RemotePane>,
+    /** 1.5.0 A67 (#693): the colour slot the desktop shows (1–8), chosen or derived (shared/workspace-color.ts). */
+    val color: Long? = null,
 )
 
 @Serializable
@@ -870,6 +883,13 @@ data class RemoteThreadHistoryArgs(
 data class RemoteAgentMarkSeenArgs(
     val kind: RemoteAgentKind,
     val id: String,
+)
+
+/** 1.5.0 F10 (BE-A46-c5, #706): a page of a pane's agent conversation, newest first; `cursor` for "Load earlier". */
+@Serializable
+data class RemotePaneConversationArgs(
+    val paneId: String,
+    val cursor: String? = null,
 )
 
 /**

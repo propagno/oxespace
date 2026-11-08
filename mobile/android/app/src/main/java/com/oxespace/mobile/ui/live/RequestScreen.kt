@@ -115,6 +115,7 @@ fun RequestScreen(
                     AnswerBlock.NOT_OFFERED -> R.string.request_refused_other
                     AnswerBlock.NOT_CONFIRMED -> R.string.request_not_confirmed
                     AnswerBlock.TRUNCATED -> R.string.request_truncated
+                    AnswerBlock.IN_FLIGHT, AnswerBlock.ALREADY_ANSWERED -> TODO("F10 A44")
                 }
                 is AnswerOutcome.Sent -> answerMessage(outcome.result)
             }
@@ -378,3 +379,16 @@ private const val QUESTION_MAX = 500
 private const val PROVIDER_MAX = 40
 /** The desktop's hold on Allow at critical risk (shared/types/approvals APPROVAL_CRITICAL_ALLOW_DELAY_MS). */
 private const val CRITICAL_HOLD_MS = 2_000L
+
+// ---- 1.5.0 F10 API skeleton (A44), no behaviour; MOB-A44 replaces the TODOs. Tests: RequestActionsTest, RequestRiskNoteTest. ----
+
+/** One button a request offers, and whether it can be pressed yet. */
+data class RequestAction(val decision: String, val enabled: Boolean)
+
+/** The actions a request gets: decisionLayout's order, Deny only when truncated, none when only the desktop answers. */
+@Suppress("UNUSED_PARAMETER")
+fun requestActions(request: RemotePendingRequest, elapsedMs: Long): List<RequestAction> = TODO("F10 A44")
+
+/** The line under the risk chip: "No undo." on a high request (F7, DESIGN), nothing otherwise. */
+@Suppress("UNUSED_PARAMETER")
+fun riskNote(request: RemotePendingRequest): Int? = TODO("F10 A44")

@@ -63,3 +63,25 @@ fun answerMessage(result: CommandResult): Int = when (result) {
         else -> R.string.request_refused_other
     }
 }
+
+// ---- 1.5.0 F10 API skeleton (A47), no behaviour; MOB-A47 replaces the TODOs. Test: ComposerModeTest. ----
+
+enum class ComposerControl { STOP, STEER, SEND }
+
+/** The composer's controls, and whether Send shows "Queued until the current step ends". */
+data class ComposerMode(val controls: List<ComposerControl>, val queuedPlaceholder: Boolean)
+
+@Suppress("UNUSED_PARAMETER")
+fun composerMode(running: Boolean, canSteer: Boolean): ComposerMode = TODO("F10 A47")
+
+/** What to tell the person after a steer; a `forbidden` refusal is "the agent finished before". */
+@Suppress("UNUSED_PARAMETER")
+fun steerMessage(result: CommandResult): Int? = TODO("F10 A47")
+
+/** The message to resend after a reconnection, or null: only one whose fate is unknown. */
+@Suppress("UNUSED_PARAMETER")
+fun unsentAfter(result: CommandResult, outgoing: Outgoing): Outgoing? = TODO("F10 A47")
+
+/** The field keeps its text unless the message went through. */
+@Suppress("UNUSED_PARAMETER")
+fun keepsText(result: CommandResult): Boolean = TODO("F10 A47")
