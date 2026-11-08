@@ -32,6 +32,9 @@ async function monacoDiffSettled(page: Page, editor: Locator): Promise<void> {
   // FL-15 on Linux: the two passes drew the gutter in two fonts. The shot needs IBM Plex Mono itself loaded, not only
   // the mark; the CI images ship the font through @fontsource, so this holds on both runners.
   await expect.poll(() => page.evaluate(() => [...document.fonts].some(face => face.family.replace(/^['"]|['"]$/g, '') === 'IBM Plex Mono' && face.status === 'loaded')), { timeout: 10_000 }).toBe(true)
+  // FL-15 on windows (42443679631, its [FL-15-DIAG] line): the failing shot had .glyph-margin=729+0, the line comments'
+  // lane not laid out yet, so the whole diff sat 16 px left. MonacoDiff now starts with it on; this guards the shot.
+  await expect.poll(() => editor.evaluate(root => Math.round(root.querySelector('.glyph-margin')?.getBoundingClientRect().width ?? 0)), { timeout: 10_000 }).toBeGreaterThan(0)
   const geometry = (): Promise<string> => editor.evaluate(root => {
     const boxes = [...root.querySelectorAll('.margin, .lines-content, .view-lines, .line-numbers')].slice(0, 12)
       .map(element => { const box = element.getBoundingClientRect(); return `${Math.round(box.left)}:${Math.round(box.width)}` })
