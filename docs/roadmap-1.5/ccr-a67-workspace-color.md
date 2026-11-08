@@ -63,25 +63,30 @@ export interface RemoteWorkspace {
 
 ## Frozen tests
 
-Every test must pass `npx eslint <file>` before its M5 review.
+Every test must pass `npx eslint <file>` before its M5 review. They're written, in draft #699 (`test/a67-frozen`).
 
 **Desktop:**
-- **new** `tests/unit/remote-workspace-color.test.ts`:
+- **new** `tests/acceptance/f10/a67-workspace-color-mapper.test.ts`:
   1. a row with `color: 3` maps to `color: 3`;
   2. a row with `color: null` maps to `workspaceColorIndex({ id, color: null })`, the same slot the renderer shows,
      for three fixed ids;
-  3. every mapped `color` is an integer between 1 and 8, for 200 random ids;
-  4. nothing else in the mapped workspace changes (the `toWorkspace` keys are exactly `id, name, active, panes,
+  3. the colour depends only on the id and the stored slot, so another name gives the same colour;
+  4. every mapped `color` is an integer between 1 and 8, for 200 seeded ids;
+  5. nothing else in the mapped workspace changes (the `toWorkspace` keys are exactly `id, name, active, panes,
      color`).
-- `tests/integration/remote-gateway-topics.native.test.ts`, the `workspaces` case:
-  - the snapshot's expected workspace gains `color` (`ws1`'s derived slot, computed with `workspaceColorIndex` in the
-    test, never a literal);
-  - **new step:** `UPDATE workspaces SET color = 5 WHERE id = 'ws1'` produces an event whose workspace has `color: 5`.
+- **new** `tests/acceptance/f10/a67-workspace-color-gateway.native.test.ts`, over the production desktop adapter:
+  - the `workspaces` snapshot carries `ws1`'s derived slot, computed with `workspaceColorIndex` in the test, never a
+    literal;
+  - `UPDATE workspaces SET color = 5` produces an event whose workspace has `color: 5`;
+  - `SET color = NULL` produces an event with the derived slot again;
+  - the ids and their order are the same in every frame.
+  - `tests/integration/remote-gateway-topics.native.test.ts`'s `toEqual` on the snapshot gains `color` in T-A67.1. It
+    isn't a frozen file.
 - `tests/android-generated.test.ts`: the committed generated Kotlin matches `protocol.ts` after
   `npm run android:generate`.
 
 **Phone (JVM):**
-- `mobile/android/protocol/src/test/kotlin/com/oxespace/mobile/protocol/RemoteProtocolTest.kt`, new cases:
+- **new** `mobile/android/protocol/src/test/kotlin/com/oxespace/mobile/protocol/RemoteWorkspaceColorTest.kt`:
   1. a `workspaces` snapshot with `"color": 4` decodes to `color = 4`;
   2. the same payload without `color` decodes to `color = null`; this is an older desktop;
   3. an APK without the field keeps working. A frame from this desktop, with `color` and another unknown field, decodes
