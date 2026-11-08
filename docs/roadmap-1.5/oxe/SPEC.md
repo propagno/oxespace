@@ -199,7 +199,7 @@ Entregar a 1.5.0 do OXESpace: o redesign aprovado no playground (direção B lev
 | A63 | N9: o painel de worktrees lista a conversa dona, o branch, se foi mergeado (regra do A60, provedor primeiro) e o uso de disco; Remover recusa com mudanças não commitadas e confirma antes de apagar o branch. | integração + e2e |
 | A64 | N10: um recurso que um provedor não suporta aparece como "Indisponível no Codex" (ou no provedor em questão), nunca some. | unit + e2e com Claude e Codex |
 | A65 | N7: a contagem de uso local vem desligada, conta só neste computador e não envia nada. | unit + teste de rede (nenhuma chamada) |
-| A66 | N8: o diário de construção registra, por tarefa, o que o agente fez, a partir das fontes já auditadas, sem guardar corpos nem segredos. | unit + integração |
+| A66 | N8: o diário de construção é um entregável de processo: por fase, o custo, os CRs e as lições vindos do ledger e do scorecard do OXE, publicados em docs/build-diary/<fase>.md e linkados nas notas da versão. Não é código do app. | unit + integração |
 | A67 | N11: a cor do workspace chega ao celular por um campo C5 aditivo (android:generate), e um APK sem o campo continua funcionando. | testes de protocolo + JVM |
 | A68 | H4: um proxy opcional, desligado por padrão, registra só o host de cada conexão de saída dos agentes, nunca caminho, cabeçalho ou corpo. | integração + revisão SECURITY |
 | A69 | Nenhum bloco de texto visível com mais de 20 palavras nas telas novas do cockpit. | e2e de comprimento de texto (a regra do cockshots.cjs, congelada) |
