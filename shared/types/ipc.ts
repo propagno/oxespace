@@ -393,6 +393,14 @@ export const IPC_CHANNELS = {
     actionAudit: 'mcp-internal:action-audit',
     exportAudit: 'mcp-internal:export-audit'
   },
+  // R0b: the one-time export of the removed features' data. The window never sends a path.
+  dataExport: {
+    state: 'data-export:state',
+    markNoticeShown: 'data-export:mark-notice-shown',
+    exportAgain: 'data-export:export-again',
+    open: 'data-export:open',
+    reveal: 'data-export:reveal'
+  },
   browserPreview: {
     session: 'browser-preview:session',
     mount: 'browser-preview:mount',
@@ -735,6 +743,7 @@ export interface OxeApi {
   semantic: SemanticApi
   diagnostics: import('./diagnostics').DiagnosticsApi
   policy: import('../policy').PolicyApi
+  dataExport: DataExportApi
 }
 
 export interface McpInternalApi {
@@ -748,6 +757,39 @@ export interface McpInternalApi {
   actionAudit(limit?: number): Promise<import('./mcp-internal').AgentActionEntry[]>
   /** Saves every audit entry still kept as JSON lines; the path, or null when the person cancels. */
   exportAudit(): Promise<string | null>
+}
+
+/** R0b: the features removed in 1.5.0 whose data the one-time export saves or names. */
+export type RemovedFeatureId = 'codegraph' | 'semantic' | 'rtk' | 'memory' | 'linear' | 'teams' | 'automations' | 'docs' | 'oxepost' | 'oxepod' | 'work'
+
+/** Whether this install used a removed feature; only booleans leave main. */
+export interface RemovedFeatureUse {
+  id: RemovedFeatureId
+  hadData: boolean
+  hadSettings: boolean
+}
+
+/** What the notice band and Settings › Data show about the one-time export. */
+export interface DataExportState {
+  /** The newest export file, or null when none was written. */
+  file: string | null
+  exportedAt: string | null
+  shownNotice: boolean
+  /** True when the database before the first 1.5.0 start was a 1.4 one (versions 1–91). */
+  upgrade: boolean
+  /** The last failure of this app run, or null. */
+  error: string | null
+  removed: RemovedFeatureUse[]
+}
+
+/** R0b: the window never sends a path; open and reveal act on the newest export file and do nothing without one. */
+export interface DataExportApi {
+  state(): Promise<DataExportState>
+  markNoticeShown(): Promise<void>
+  /** Writes a new export file; its path, or null when it could not be written. */
+  exportAgain(): Promise<{ file: string | null }>
+  open(): Promise<void>
+  reveal(): Promise<void>
 }
 
 export interface OxeContextApi {

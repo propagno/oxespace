@@ -214,6 +214,11 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/storage-retention.ts',
   // The audit export is written only to a path returned by Electron's native save dialog.
   'electron/main/ipc/mcp-internal.ipc.ts',
+  // R0b: the one-time export of the removed features' data. Writes only <userData>/exports/1.5-removed-<ts>.json
+  // (flag 'wx', mode 0600) and <userData>/exports/state.json, and lists that folder for the newest export; it stats
+  // the removed features' fixed files under <userData> and under the known workspace roots' .oxe/.oxespace folders.
+  // Never a path from the renderer, never source file contents.
+  'electron/main/services/data-export/removed-features-export.ts',
   // Portable conversation packages are read/written only at a path returned
   // by Electron's native open/save dialogs; package validation remains in the
   // Thread portable service and imported content is inert.
