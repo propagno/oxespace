@@ -194,6 +194,15 @@ Entregar a 1.5.0 do OXESpace: o redesign aprovado no playground (direção B lev
 | A58 | O encaminhador de hooks não perde o evento quando a saída passa de 1 MiB: um comando com 5 MiB de saída ainda chega com o status (truncado, marcado). | integração com 5 MiB |
 | A59 | H1: a captura das chamadas HTTP dos agentes é append-only, mascara segredos e credenciais na URL e nos cabeçalhos, não guarda corpos, e tem retenção de 90 dias. | integração + revisão SECURITY |
 | A60 | G1/G2: a aba Pull request, os checks, os revisores e o merge funcionam igual para um remoto GitHub e um Azure DevOps (nuvem), detectados pela URL do remoto. A detecção de merge usa o provedor primeiro; git branch --merged só como reserva, marcada como incapaz de ver squash. Sem `az`, a aba diz como instalar. | unit dos adaptadores com CLI falsa + e2e |
+| A61 | As barras laterais do OxeCode e do OxeChat recolhem e expandem com o mesmo botão, no mesmo lugar, e com Ctrl B; recolhida, cada workspace é um botão na sua cor, com o sol quando algum precisa de você. | unit + e2e nos dois modos |
+| A62 | N5: a aba Pull request mostra "O que o agente fez" (arquivos, instruções em banco, chamadas HTTP, containers, aprovações) com "Adicionar à descrição", para GitHub e Azure DevOps. | unit + e2e com os dois provedores falsos |
+| A63 | N9: o painel de worktrees lista a conversa dona, o branch, se foi mergeado (regra do A60, provedor primeiro) e o uso de disco; Remover recusa com mudanças não commitadas e confirma antes de apagar o branch. | integração + e2e |
+| A64 | N10: um recurso que um provedor não suporta aparece como "Indisponível no Codex" (ou no provedor em questão), nunca some. | unit + e2e com Claude e Codex |
+| A65 | N7: a contagem de uso local vem desligada, conta só neste computador e não envia nada. | unit + teste de rede (nenhuma chamada) |
+| A66 | N8: o diário de construção é um entregável de processo: por fase, o custo, os CRs e as lições vindos do ledger e do scorecard do OXE, publicados em docs/build-diary/<fase>.md e linkados nas notas da versão. Não é código do app. | unit + integração |
+| A67 | N11: a cor do workspace chega ao celular por um campo C5 aditivo (android:generate), e um APK sem o campo continua funcionando. | testes de protocolo + JVM |
+| A68 | H4: um proxy opcional, desligado por padrão, registra só o host de cada conexão de saída dos agentes, nunca caminho, cabeçalho ou corpo. | integração + revisão SECURITY |
+| A69 | Nenhum bloco de texto visível com mais de 20 palavras nas telas novas do cockpit. | e2e de comprimento de texto (a regra do cockshots.cjs, congelada) |
 
 ## Setup externo e pré-condições
 
