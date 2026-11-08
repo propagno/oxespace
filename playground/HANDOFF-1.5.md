@@ -17,6 +17,43 @@ says, for each screen:
 - Each screen ships in the earliest wave its backend allows.
 - Until then it falls back to today's behaviour, never to an invented one.
 
+## 1.5.0 is the cockpit (user, 08/11)
+
+OXESpace is the cockpit for building software with agents: see, control, audit and recover what they do. Mature tools are
+integrated, not rebuilt. The plan is `team/plans/1.5.0-cockpit-direction.md`. Where this section and older sections
+below disagree, this one wins.
+
+**New screens** (group "See" and the others):
+
+| Hash | What | Reuses | Backlog |
+|---|---|---|---|
+| `#agora` | The start screen (App.tsx starts on Agora, not OxeCode) | `AgentsReadModel` (S7.1) | N1 |
+| `#browser` | The agent browser: the agent's last action highlighted, a strip of its steps, Console and Network on demand, "This session" on localhost, "Asks each time" elsewhere | `WebPreviewPanel`, `preview-automation`, a debugger broker | B1 |
+| `#browser-device` | Real device emulation: size, pixel ratio, touch, user agent, rotation | `enableDeviceEmulation` | B2 |
+| `#android` | Android emulator or USB phone, live; "Agents can see" per device | Tango + scrcpy-server (MIT, Apache-2.0) | B3 |
+| `#http` | The agents' curl, wget and HTTPie calls, by host; Errors and Flagged filters; detail without bodies or secrets | agent-hooks (already receives the Bash command) | H1, H2 |
+| `#containers` | The OxePod mode as a dock panel: who started each container, logs, actions, "Connect in OxeQuery" | the oxepod backend | P1 |
+| `#pane-conversation` | Terminal or Conversation on an agent pane (icon switch in the pane header) | `NativeSessionReader`, #658 | N2 |
+| `#settings-permissions` | What agents can do: always-allowed commands, databases, HTTP hosts, the fixed rules; all revocable | Policy, OxeQuery access | N4, T74 |
+| `#os-notification` | A system notification for a request; it opens, never approves | Electron `Notification` | N6 |
+| `#task-pr` | "What the agent did" summary for the PR description | activity read model | N5 |
+| `#task-running` | Collision chip in the header: another conversation edits the same file | T72 places | N3 |
+
+**Gone from the playground:** the OxePost and OxePod modes (now panels), the OxeQuery "what agents ran" view (a badge
+opens Agent activity), side chat, `/approve` (the bar has `/pending` and `/skill`), "Snapshot, then approve" (the SQL
+preview reads with a SELECT), the cost in the conversation header, Memory, Automations, Teams, Linear, semantic search,
+the RTK and Semantic pane hints, and editing in Files (read only; every diff hunk has Open in editor).
+
+**Parity notes (FE's `checklists/desktop-parity-1.4.md` §5):**
+- "Open in editor" lands on the line, from Files and from every diff hunk.
+- Skills stay as a read-only list (Settings › MCP servers and skills) and run with `/skill` or `/name`.
+- Automations, memory notes and OxePost collections are exported once, with their history (Settings › Data and
+  privacy › Exports). Files in `.oxespace/requests` stay on disk.
+- Containers keep logs, start/stop/restart, a shell and "Connect in OxeQuery".
+
+**Copy rule for every new screen:** no paragraph of explanation, at most one line of help, labels of up to three
+words, one alert per problem. The playground check fails any visible text block over 20 words.
+
 ## `src/ui` primitives: kept, extended, new
 
 | Primitive | 1.5.0 | Notes |

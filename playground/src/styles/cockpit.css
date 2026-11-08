@@ -1,0 +1,119 @@
+/* 1.5.0 cockpit: the agent browser, device emulation, the Android mirror, HTTP calls, containers, a pane's
+   conversation and the smaller pieces. Tokens only; the mock site and the mock app keep their own brand colors,
+   because they are someone else's product shown inside the frame. */
+
+/* ---------------------------------------------------------------- agent browser */
+.abr { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto auto; min-height: 0; height: 100%; position: relative; }
+.abr > .state { grid-row: 2 / -1; }
+.abr .bbar .btn .down { margin-left: 2px; }
+.abr-who { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 10px; border-bottom: 1px solid var(--border-subtle); background: var(--accent-soft); font-size: 12.5px; color: var(--text-primary); }
+.abr-who .trunc { min-width: 0; }
+.abr-view { overflow: auto; padding: 16px; background: var(--surface-sunken); min-height: 0; }
+.abr-view.dev { display: grid; place-items: center; }
+.devf { position: relative; padding: 10px; border-radius: 28px; background: var(--term-bg); box-shadow: var(--e2); flex: none; }
+.devf.phone { border-radius: 34px; }
+.devs { transform-origin: top left; border-radius: 18px; overflow: hidden; background: #fff; }
+.devs .site { border-radius: 0; box-shadow: none; min-height: 100%; }
+.site.narrow .site-h { gap: 10px; padding: 10px 12px; }
+.site.narrow .site-b { padding: 12px; }
+.site-cards { display: grid; gap: 8px; margin-top: 12px; }
+.site-cards > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 8px; }
+.site-cards small { color: #6b7280; }
+.site-btn.hl { position: relative; outline: 2px solid var(--accent); outline-offset: 3px; }
+.site-btn.hl::after { content: attr(data-agent); position: absolute; right: calc(100% + 10px); top: 50%; transform: translateY(-50%); white-space: nowrap; padding: 2px 6px; border-radius: 6px; background: var(--accent); color: var(--text-on-accent); font: 600 11px var(--f-ui); }
+@media (prefers-reduced-motion: no-preference) { .site-btn.hl { animation: hlpulse 1.6s ease-in-out infinite; } }
+@keyframes hlpulse { 50% { outline-offset: 6px; } }
+.abr-foot { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 10px; border-top: 1px solid var(--border-subtle); background: var(--surface-base); font-size: 12px; min-width: 0; }
+.abr-steps { display: flex; gap: 6px; margin: 0; padding: 0; list-style: none; overflow-x: auto; min-width: 0; scrollbar-width: none; }
+.abr-steps li { display: inline-flex; align-items: center; gap: 4px; flex: none; padding: 2px 8px; border-radius: 999px; background: var(--surface-sunken); color: var(--text-secondary); }
+.abr-steps li.now { background: var(--accent-soft); color: var(--text-accent); font-weight: 600; }
+.dbtn { height: 26px; flex: none; }
+.dbtn .n { margin-left: 4px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; display: inline-grid; place-items: center; font-size: 10.5px; }
+.dbtn .n.dz { background: var(--danger); color: var(--text-on-solid); }
+.abr-drawer { max-height: 38%; overflow: auto; border-top: 1px solid var(--border-default); background: var(--surface-base); }
+.cline { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--border-subtle); font-size: 12px; }
+.cline.err { color: var(--danger-fg); background: var(--danger-bg); }
+.cline.warn { color: var(--warning-fg); }
+.cline.info { color: var(--text-secondary); }
+
+/* ---------------------------------------------------------------- Android mirror */
+.andr { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; height: 100%; }
+.andr .bbar .muted { font-size: 11px; margin-left: 2px; }
+.live-dot { display: inline-flex; align-items: center; gap: 5px; font: 600 11.5px var(--f-ui); color: var(--success-fg); }
+.live-dot i { width: 7px; height: 7px; border-radius: 50%; background: var(--success); }
+.andr-see { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+.andr-view { display: grid; place-items: center; overflow: auto; padding: 16px; background: var(--surface-sunken); }
+.app-m { display: grid; grid-template-rows: auto auto auto minmax(0, 1fr) auto auto; height: 100%; background: #f6f8f7; color: #16201a; font: 15px system-ui, sans-serif; }
+.app-st { display: flex; padding: 10px 18px 4px; font-size: 12px; color: #4b5563; }
+.app-h { display: flex; align-items: center; justify-content: space-between; padding: 8px 18px 12px; }
+.app-h b { font-size: 20px; }
+.app-bal { margin: 0 14px; padding: 16px; border-radius: 16px; background: #14532d; color: #e7f5ec; display: grid; gap: 2px; }
+.app-bal b { font-size: 26px; } .app-bal small, .app-bal span { font-size: 12px; opacity: .85; }
+.app-l { display: grid; align-content: start; gap: 2px; padding: 14px; }
+.app-l > div { display: flex; justify-content: space-between; gap: 8px; padding: 12px 6px; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+.app-nav { display: flex; justify-content: space-around; padding: 10px 0; border-top: 1px solid #e5e7eb; font-size: 12px; color: #4b5563; }
+.app-gest { justify-self: center; width: 110px; height: 4px; margin: 6px 0 8px; border-radius: 2px; background: #9ca3af; }
+
+/* ---------------------------------------------------------------- HTTP calls */
+.http { display: grid; grid-template-columns: minmax(0, 1fr); min-height: 0; height: 100%; }
+.http.sel { grid-template-rows: minmax(0, 1fr) auto; }
+.http-l { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.http-bar { display: flex; gap: 8px; align-items: center; padding: 8px 10px; border-bottom: 1px solid var(--border-subtle); }
+.http-g { border-bottom: 1px solid var(--border-subtle); }
+.http-gh { display: flex; align-items: center; gap: 8px; padding: 8px 12px 4px; font-size: 12px; }
+.http-gh .muted { margin-left: auto; }
+.http-r { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto auto 16px 40px; gap: 8px; align-items: center; width: 100%; min-height: 32px; padding: 4px 12px; border: 0; background: transparent; color: var(--text-primary); text-align: left; font-size: 12px; cursor: pointer; }
+.http-r:hover { background: var(--surface-hover, var(--surface-sunken)); }
+.http-r[aria-current="true"] { background: var(--accent-soft); }
+.http-r .st, .http-d .st { justify-self: end; }
+.http-d { display: grid; gap: 8px; padding: 12px; border-top: 1px solid var(--border-default); background: var(--surface-base); max-height: 62%; overflow: auto; font-size: 12.5px; }
+.http-d .code { margin: 0; white-space: pre-wrap; word-break: break-all; }
+.http-d .row b { min-width: 0; }
+
+/* ---------------------------------------------------------------- containers panel */
+.cpan { display: grid; grid-template-rows: minmax(0, 45%) minmax(0, 1fr); min-height: 0; height: 100%; }
+.cpan-l { border-bottom: 1px solid var(--border-default); }
+.cpan-r { display: grid; grid-template-columns: 10px minmax(0, auto) minmax(0, 1fr); gap: 8px; align-items: center; width: 100%; min-height: 32px; padding: 4px 12px; border: 0; background: transparent; color: var(--text-primary); text-align: left; font-size: 12.5px; cursor: pointer; }
+.cpan-r[aria-current="true"] { background: var(--accent-soft); }
+.cpan-r .by { display: inline-flex; gap: 6px; align-items: center; justify-self: end; min-width: 0; max-width: 100%; color: var(--text-secondary); font-size: 12px; }
+.cpan-r > .muted { justify-self: end; font-size: 12px; }
+.cpan-d { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+
+/* ---------------------------------------------------------------- a pane's conversation, and its switch */
+.pv-seg { display: inline-flex; padding: 2px; gap: 2px; border-radius: 7px; background: var(--surface-sunken); }
+.pv-seg button { height: 22px; width: 26px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 5px; background: transparent; color: var(--text-secondary); font: 600 11px var(--f-ui); cursor: pointer; }
+.pv-seg button[aria-checked="true"] { background: var(--surface-raised); color: var(--text-primary); box-shadow: var(--e1); }
+.pconv { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 0; background: var(--surface-canvas, var(--surface-base)); }
+.pconv-cap { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; border-bottom: 1px solid var(--border-subtle); font-size: 11.5px; color: var(--text-secondary); }
+.pconv-l { overflow: auto; display: grid; align-content: start; gap: 10px; padding: 12px; font-size: 13px; }
+.pconv-l .m-you { justify-self: end; max-width: 86%; }
+.pconv-l .m-ag { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 8px; }
+.pconv-type { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 12px; border: 0; border-top: 1px solid var(--border-subtle); background: var(--surface-base); color: var(--text-accent); font: 600 12px var(--f-ui); text-align: left; cursor: pointer; }
+.pconv-type > svg:last-child { margin-left: auto; }
+
+/* ---------------------------------------------------------------- smaller pieces */
+.mode-top { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 12px; border-bottom: 1px solid var(--border-subtle); }
+.act-badge { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 13px; border: 1px solid var(--border-default); background: var(--surface-base); color: var(--text-secondary); font: 500 12px var(--f-ui); cursor: pointer; }
+.act-badge.attn { border-color: var(--attn-border); background: var(--attn-bg); color: var(--attn-fg); }
+.collide { display: inline-flex; align-items: center; gap: 4px; height: 22px; margin-left: 6px; padding: 0 8px; border-radius: 11px; border: 1px solid var(--warning-border); background: var(--warning-bg); color: var(--warning-fg); font: 500 11.5px var(--f-ui); cursor: pointer; }
+.os-toast { position: absolute; right: 12px; bottom: 40px; z-index: 60; width: 320px; display: grid; gap: 8px; padding: 12px; border-radius: 10px; background: var(--surface-raised); border: 1px solid var(--border-default); box-shadow: var(--e3, var(--e2)); font-size: 13px; }
+.os-toast p { margin: 0; color: var(--text-secondary); }
+.os-toast p b { color: var(--text-primary); }
+.os-toast .btn { justify-self: start; }
+.os-ic { width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center; background: var(--accent); color: var(--text-on-accent); font: 700 11px var(--f-display); }
+.prsum { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--surface-base); }
+.prsum ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 13px; color: var(--text-secondary); }
+.prsum li { display: flex; align-items: center; gap: 8px; }
+
+/* the dock and the panes use mono for terminals; these panels are UI */
+.abr, .andr, .http, .cpan, .pconv, .act-badge, .collide, .prsum { font-family: var(--f-ui); }
+.abr .mono, .http .mono, .http-gh b, .http-d .code { font-family: var(--f-mono); }
+
+/* 900 px: the dock buttons of OxeCode stay in one row */
+.w900 .code > .mode-h .ibtn { width: 26px; min-width: 26px; }
+.w900 .code > .mode-h { gap: 4px; }
+.qtabs-row { display: flex; align-items: center; min-width: 0; border-bottom: 1px solid var(--border-subtle); }
+.qtabs-row > .qtabs { flex: 1; min-width: 0; border-bottom: 0; }
+/* .app input sets color: inherit; the terminal input keeps the terminal text color */
+.app .tin { color: var(--term-fg); }
+.app .tin::placeholder { color: var(--term-dim); }

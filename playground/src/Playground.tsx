@@ -13,7 +13,8 @@ import { Icon, StateBlock } from './components/ui'
 import { Later } from './components/Later'
 import { CodeMode } from './components/Modes'
 import { decideCmd } from './components/Thread'
-import { QueryMode, PostMode, PodMode } from './components/Modes2'
+import { QueryMode } from './components/Modes2'
+import { OsToast } from './components/Cockpit'
 import { SettingsView } from './components/Settings'
 import { Foundations } from './components/Foundations'
 import { DialogGallery } from './components/Catalog'
@@ -35,7 +36,7 @@ function FirstRun () {
       <div><span className="pdot codex" /><b>Codex</b><span className="muted">Not found on PATH</span><button className="btn sm ghost" onClick={run(() => toast('Install with npm install -g @openai/codex, then come back here'))}>How to install</button></div></div>)}
     {step(3, false, ready, 'Start your first conversation', ready ? 'Describe what you want done; the agent works in its own branch.' : 'Available once an agent is ready.', <button className="btn pri" disabled={!ready} title={ready ? undefined : 'Connect an agent first'} onClick={run(() => { S.freshWs = true; S.tasks = S.tasks.filter(x => x.id === 'quick'); S.queue = []; S.extraNotifs = []; D.notifications.forEach(n => { S.notifRead[n.id] = true }); S.area = 'task'; S.emptyWs = true; S.overlay = { type: 'newtask', text: '' } })}><Icon n="plus" s={12} />New conversation</button>)}
     <div className="stack"><div className="slabel">Or open a mode on its own</div><div className="tiles">
-      {([['code', 'term', 'k-shell', 'OxeCode', 'Terminals and agent CLIs in panes'], ['query', 'db', 'k-db', 'OxeQuery', 'Postgres, MySQL, SQLite, ClickHouse'], ['pod', 'box', 'k-box', 'OxePod', 'Containers and compose stacks'], ['post', 'net', 'k-net', 'OxePost', 'HTTP requests and collections']] as const).map(([v, i, k, n, d]) => <button key={v} className={'tile ' + k} onClick={() => railGo(v)}><b><Icon n={i} />{n}</b>{d}</button>)}</div></div></div></div>
+      {([['code', 'term', 'k-shell', 'OxeCode', 'Terminals and agent CLIs in panes'], ['query', 'db', 'k-db', 'OxeQuery', 'Postgres, MySQL, SQLite, ClickHouse']] as const).map(([v, i, k, n, d]) => <button key={v} className={'tile ' + k} onClick={() => railGo(v)}><b><Icon n={i} />{n}</b>{d}</button>)}</div></div></div></div>
 }
 function NextPush () {
   const s = SCREENS.find(x => x.id === S.screen)
@@ -52,8 +53,6 @@ function Body () {
   if (a === 'queue') return wb(S.view === 'loading' ? <StateBlock kind="loading" /> : <QueueView />)
   if (a === 'mode' && S.mode2 === 'code') return wb(<CodeMode />)
   if (a === 'mode' && S.mode2 === 'query') return wb(<QueryMode />)
-  if (a === 'mode' && S.mode2 === 'post') return wb(<PostMode />)
-  if (a === 'mode' && S.mode2 === 'pod') return wb(<PodMode />)
   if (a === 'settings') return wb(<SettingsView />)
   if (a === 'found') return wb(<Foundations />)
   if (a === 'dialogs') return wb(<DialogGallery />)
@@ -65,7 +64,7 @@ function App () {
   useLayoutEffect(() => { setAppEl(ref.current) })
   return <div ref={ref} className={'app' + (S.w === 900 ? ' w900' : '')} data-mode={S.mode} style={{ width: S.w, height: H(), transform: `scale(${S.scale})` }}
     onClick={() => { if (S.menu || S.notif) { S.menu = null; S.notif = false; emit() } }}>
-    <TitleBar /><Body /><StatusBar /><Notifications /><OverlayLayer /><MenuLayer /><Toasts /></div>
+    <TitleBar /><Body /><StatusBar /><Notifications /><OverlayLayer /><MenuLayer /><Toasts /><OsToast /></div>
 }
 
 function Side () {
@@ -75,10 +74,10 @@ function Side () {
     {s.desc ? <p>{s.desc}</p> : null}
     {s.plan.length ? <div><h3 className="side-h">Plan items</h3><div className="pg-plan">{s.plan.map(p => <span key={p}>{p}</span>)}</div></div> : null}
     {s.tries.length ? <div><h3 className="side-h">Try it</h3><ul className="pg-try">{s.tries.map(t => <li key={t}>{t}</li>)}</ul></div> : null}
-    <div><h3 className="side-h">Keyboard</h3><div className="keys"><kbd>Ctrl K</kbd><span>Command palette</span><kbd>N</kbd><span>New task</span><kbd>Ctrl .</kbd><span>Side chat</span><kbd>Ctrl B</kbd><span>Collapse the task list</span><kbd>D</kbd><span>Deny (the default)</span><kbd>A</kbd><span>Approve; hold when irreversible</span><kbd>S</kbd><span>Snapshot, then approve</span><kbd>J K</kbd><span>Move in the approval queue</span><kbd>L</kbd><span>Back to now from a checkpoint</span><kbd>Esc</kbd><span>Close</span></div></div>
+    <div><h3 className="side-h">Keyboard</h3><div className="keys"><kbd>Ctrl K</kbd><span>Command palette</span><kbd>N</kbd><span>New task</span><kbd>Ctrl B</kbd><span>Collapse the task list</span><kbd>D</kbd><span>Deny (the default)</span><kbd>A</kbd><span>Approve; hold when irreversible</span><kbd>J K</kbd><span>Move in the approval queue</span><kbd>L</kbd><span>Back to now from a checkpoint</span><kbd>Esc</kbd><span>Close</span></div></div>
     <div className="idx"><h3 className="side-h">All screens <small>{SCREENS.length}</small></h3>{GROUPS.map(g => <div key={g}><h4>{g}</h4><ul>{SCREENS.filter(x => x.group === g).map(x => <li key={x.id}><button aria-current={x.id === S.screen} onClick={() => goScreen(x.id)}><span>{x.name}</span><span className={'pg-tag ' + tagClass(x)}>{tagLabel(x)}</span></button></li>)}</ul></div>)}</div>
     <details><summary className="side-h">What changes in Mandacaru 1.5</summary><table className="toks"><tbody>{D.tokenChanges.map(t => <tr key={t.tok}><td>{t.sw.map(c => <span key={c} className="sw" style={{ background: c }} />)}{t.tok}</td><td>{t.what}</td></tr>)}</tbody></table></details>
-    <p className="pg-note">1.5.0 is lite B: one task is one conversation, and its tabs come from that conversation's agent activity (U12, T63, T64). No new Task entity and no Android protocol change. Screens tagged "later" need the full Task entity. Mock data for a fictional company; nothing talks to a model, a database or the network.</p></aside>
+    <p className="pg-note">1.5.0, the cockpit: see, control, audit and recover what agents do. It opens on Agora. OxePost and OxePod are panels now; mature tools are integrated, not rebuilt. Mock data for a fictional company; nothing talks to a model, a database or the network.</p></aside>
 }
 
 function useKeys () {
@@ -88,12 +87,10 @@ function useKeys () {
       const ap = S.overlay?.type === 'approve' ? S.overlay.id : S.area === 'queue' && !S.overlay ? S.queue.filter(q => !S.resolved[q])[Math.min(S.queueSel, S.queue.filter(q => !S.resolved[q]).length - 1)] : null
       const mod = e.ctrlKey || e.metaKey
       if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); rememberFocus(); S.overlay = { type: 'pal', query: '', sel: 0 }; emit(); return }
-      if (mod && e.key === '.') { e.preventDefault(); if (S.area === 'task') { const t = cur(); const sc = S.sideChat[t.id] || null; if (sc) sc.open = !sc.open; else { S.sideChat[t.id] = { open: true, msgs: [], draft: '', model: t.prov === 'claude' ? 'Sonnet 5.5' : t.model, effort: 'Medium' } } syncScreen(); emit() } return }
       if (mod && e.key.toLowerCase() === 'b') { e.preventDefault(); S.sbCol = !S.sbCol; syncScreen(); emit(); return }
       if (mod && e.key === ',') { e.preventDefault(); goScreen('settings-general'); return }
-      if (mod && !e.shiftKey && !e.altKey && /^[1-5]$/.test(e.key)) { e.preventDefault(); goMode(MODES[+e.key - 1][0]); return }
+      if (mod && !e.shiftKey && !e.altKey && /^[1-3]$/.test(e.key)) { e.preventDefault(); goMode(MODES[+e.key - 1][0]); return }
       if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'n') { e.preventDefault(); rememberFocus(); S.overlay = { type: 'newtask', text: '' }; emit(); return }
-      if (mod && e.shiftKey && e.key.toLowerCase() === 't') { e.preventDefault(); S.overlay = { type: 'dlg', id: 'team' }; emit(); return }
       if (mod && e.shiftKey && e.key.toLowerCase() === 'a') { e.preventDefault(); goScreen('queue'); return }
       if (mod && e.shiftKey && (e.key === '|' || e.key === '\\' || e.key === '_' || e.key === '-') && S.area === 'mode' && S.mode2 === 'code') { e.preventDefault(); split(e.key === '_' || e.key === '-'); emit(); return }
       if (mod && e.shiftKey && e.key === 'Enter' && S.area === 'mode' && S.mode2 === 'code') { e.preventDefault(); codeMaxToggle(); emit(); return }
@@ -105,7 +102,6 @@ function useKeys () {
       const k = e.key.toLowerCase()
       if (ap && !e.repeat) {
         if (k === 'd') { resolve(ap, 'deny'); emit(); refocus(); return }
-        if (k === 's' && D.approvals[ap].snapshot) { resolve(ap, 'snap'); emit(); return }
         if (k === 'a') { if (D.approvals[ap].irreversible) startHold(ap); else { resolve(ap, 'ok'); emit() } return }
       }
       if (S.overlay) return
@@ -133,7 +129,7 @@ export function Playground () {
     const ro = new ResizeObserver(fit); ro.observe(el); fit(); return () => ro.disconnect()
   }, [S.w])
   useEffect(() => {
-    const h = location.hash.slice(1); goScreen(SCREENS.some(s => s.id === h) ? h : 'task-approval')
+    const h = location.hash.slice(1); goScreen(SCREENS.some(s => s.id === h) ? h : 'agora')
     const onHash = () => { const id = location.hash.slice(1); if (id !== S.screen && SCREENS.some(s => s.id === id)) goScreen(id) }
     window.addEventListener('hashchange', onHash); return () => window.removeEventListener('hashchange', onHash)
   }, [])
