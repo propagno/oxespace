@@ -82,6 +82,7 @@ export interface RemotePaneConversationEvent { changed: true }
 - **Error codes,** as inline literals (the #531 rule):
   - `no-conversation`: the pane has no readable session now (none recorded, the file is gone, or Codex without a rollout);
   - `conversation-changed`: the file was **rewritten or truncated** under the cursor, so start again from the newest page. This is `readNativeHistoryPage`'s "Native history changed" error.
+    - It carries an optional `reason?: 'new-session' | 'rewritten'` (MOBILE's M5; inline literals, no enum). `new-session` means the handle belongs to a session the pane no longer has (the agent started a new one); `rewritten` means a rewrite or truncate. An unknown or absent reason reads as `rewritten`.
   - **An append is not a change** (HML-658-1). A working agent appends every few seconds, and "Load earlier" must keep working while the person follows it. `readNativeHistoryPage` already keeps an older cursor valid on an append (checked on main 07/11):
     - the identity is unchanged;
     - the size is ≥ the cursor's;
@@ -97,7 +98,7 @@ export interface RemotePaneConversationEvent { changed: true }
 - the handle is 32 random base64url characters;
 - the map holds at most 8 handles per device, the oldest dropped first;
 - each handle lives 10 minutes and is cleared when the device disconnects;
-- a handle is bound to its device, pane and session: used for another pane, another session (the agent started a new one), or another device, it gives `conversation-changed`.
+- a handle is bound to its device, pane and session: used for another pane, another session (the agent started a new one), or another device, it gives `conversation-changed`. A handle whose session is no longer the pane's gives `reason: 'new-session'`; a rewrite or truncate under it gives `reason: 'rewritten'`.
 
 ### Paging and caps
 
@@ -161,7 +162,8 @@ export interface RemotePaneConversationEvent { changed: true }
    - one from another device or pane gives `conversation-changed`;
    - a rewritten file under the cursor gives `conversation-changed`;
 4b. **Append keeps the cursor** (HML-658-1): take page 1, append 20 messages, then "Load earlier" to `cursor: null`. Every original message comes back once, with no repeated or skipped id, and no `conversation-changed`.
-4c. **Truncate:** a file truncated below the cursor's size gives `conversation-changed`.
+4c. **Truncate:** a file truncated below the cursor's size gives `conversation-changed` with `reason: 'rewritten'`.
+4d. **New session:** after the pane's recorded session changes, "Load earlier" with an old handle gives `conversation-changed` with `reason: 'new-session'`, and the next newest page has a higher `epoch`.
    - a handle expires after 10 minutes;
    - there are at most 8 per device.
 5. **No spawn:** for Codex without a rollout, no process is started (a spy on the transport), and the result is `no-conversation`.
@@ -177,7 +179,9 @@ export interface RemotePaneConversationEvent { changed: true }
 **Phone** (MOBILE's JVM tests):
 1. `conversation: true` → the toggle shows; `conversation: false` → none;
 2. "Load earlier" walks pages to `cursor: null` with no duplicate ids, and the held list is in the asserted order (page order, oldest first), never sorted by `seq` across pages;
-3. `conversation-changed` (a rewrite or truncate) reloads once, then shows the Notice; a page with a new `epoch` replaces the held items and shows "The agent started a new conversation", never the unavailable Notice;
+3. `conversation-changed`:
+   - `reason: 'new-session'`, or a page whose `epoch` differs from the held one: load the newest page, replace the held items, and show the inline "The agent started a new conversation", never the unavailable Notice;
+   - `reason: 'rewritten'` (or no or unknown reason): reload once, then show the unavailable Notice if it fails again;
 4. the field absent (an older desktop) → no toggle;
 5. a `changed` event fetches the newest page:
    - items with a known id replace the held ones in place, and new ids append, with no duplicates;
