@@ -9,16 +9,15 @@ OxePost settings", over the person-only `oxePost.call` ops `agentAccessList`, `a
 
 ## 1. The approval card draws a secret as `•••• (NAME)`
 
-- Main sends the approval text with each secret already masked as `[secret:NAME]` (A12 §5). That text is what the
-  hash covers, and the renderer never changes it.
-- The card draws each `[secret:NAME]` as a marker, `•••• (NAME)`: one `<span data-secret="NAME">`, like the hidden-
-  character markers. It's display only. `request.agentText.text` stays byte-identical, and the answer carries the id
-  and generation, never text.
-- **Only for `kind: 'oxepost'`.** In any other kind the agent text is the agent's own words, shown exactly as written,
-  so an agent can't make a string look like a masked secret.
+- **The card draws from spans, never by parsing text** (HML-654-3, A12 #653 §6 at 22d0c55f). An `oxepost` approval
+  carries `textSpans: Array<{ kind: 'text' | 'secret'; value: string }>`. A `text` span is drawn verbatim (through the
+  hidden-character markers, as today). A `secret` span is a marker, `•••• (NAME)`: one `<span data-secret="NAME">`.
+- Nothing ever matches `[secret:` in text. An agent can type that literal, and it must show as typed. The hashed
+  `text` writes an agent's literal as `[[secret:`, so the card never renders from `text` for this kind. The answer
+  carries the id and generation, never text, so the hash is untouched.
+- **Only for `kind: 'oxepost'`.** In any other kind the agent text is the agent's own words, shown exactly as written.
 - The marker's accessible name is "secret API_KEY, hidden" (pt-BR "segredo API_KEY, oculto"), so a screen reader
   never reads four bullets (DESIGN).
-- `NAME` is `[A-Za-z_][A-Za-z0-9_]*` (an OxePost secret name). A bracket that doesn't match stays as text.
 - The lead line, the production badge (danger) and the buttons are T64 §4: Deny is the default, Allow, and Allow for
   this run for reads outside production only.
 
@@ -83,10 +82,10 @@ since you allowed it" (pt-BR "Agentes: pausado — mudou desde que você permiti
 
 `tests/acceptance/f2/a12-ui-oxepost-agent-access.test.tsx`:
 
-1. **Mask:** an `oxepost` approval whose text holds `[secret:API_KEY]` shows `•••• (API_KEY)` in the agent block and
-   never the bracket form. The marker is `data-secret="API_KEY"`, and the stored request text still holds
-   `[secret:API_KEY]`, and the marker's accessible name is "secret API_KEY, hidden" (pt-BR "segredo API_KEY, oculto",
-   HML-654-4). **Red:** the card draws the text as is.
+1. **Mask, from spans:** an `oxepost` approval with a `secret` span `API_KEY` shows `•••• (API_KEY)` (marker
+   `data-secret="API_KEY"`, spoken "secret API_KEY, hidden", pt-BR "segredo API_KEY, oculto"). A `text` span holding
+   the literal `[secret:API_KEY]` shows that literal, with no marker and never the hashed `[[secret:` form.
+   **Red:** the card draws the text as is.
 2. **Only OxePost:** an `action` approval with the same text shows it as written.
 3. **Ops:** the OxePost renderer calls `agentAccessList`, `agentAccessSet`, `agentAccessConfirm` and `agentCeilingSet`, and nothing in
    `src/` passes an agent-access op to anything but `oxePost.call`. **Red:** none exists yet.

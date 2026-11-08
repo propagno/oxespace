@@ -30,18 +30,34 @@ const show = async (partial: MockRequestInput): Promise<HTMLElement> => {
   return screen.getByTestId('approval-agent-text')
 }
 
-describe('A12 PR 3 · the approval card masks a secret as •••• (NAME)', () => {
-  it('an OxePost approval draws [secret:API_KEY] as a marker and keeps the text it was given', async () => {
-    const box = await show({ id: 'post-1', kind: 'oxepost' as never, risk: 'low', agentText: TEXT })
+// HML-654-3 (A12 #653 §6 at 22d0c55f): an OxePost approval carries `textSpans`, and the card draws from them, never by
+// matching "[secret:" in text, which an agent can type. The hashed `text` writes such a literal as "[[secret:".
+const SPANS = [
+  { kind: 'text', value: 'GET https://api.example.com/invoices?page=1\nX-Trace: ' },
+  { kind: 'secret', value: 'API_KEY' },
+  { kind: 'text', value: '\n\n' }
+]
+const HASHED = 'GET https://api.example.com/invoices?page=1\nX-Trace: [secret:API_KEY]\n\n'
+
+describe('A12 PR 3 · the approval card draws a secret span as •••• (NAME)', () => {
+  it('a secret span is a marker named by the secret; the text spans are drawn verbatim', async () => {
+    const box = await show({ id: 'post-1', kind: 'oxepost' as never, risk: 'low', agentText: HASHED, textSpans: SPANS } as never)
     const shown = box.textContent ?? ''
-    expect(shown).toContain('•••• (API_KEY)')
+    expect(shown).toContain('X-Trace: •••• (API_KEY)')
     expect(shown).not.toContain('[secret:')
     expect([...box.querySelectorAll('[data-secret]')].map(node => node.getAttribute('data-secret'))).toEqual(['API_KEY'])
     // A screen reader hears the secret's name, not four bullets.
     expect(screen.getByLabelText('secret API_KEY, hidden')).toBeInTheDocument()
-    // Display only: what main hashed is untouched.
-    const stored = useApprovalsStore.getState()
-    expect(JSON.stringify(stored)).toContain('[secret:API_KEY]')
+  })
+
+  it('a literal "[secret:API_KEY]" the agent typed stays a literal: no marker, and never the hashed "[[secret:" form', async () => {
+    const spans = [{ kind: 'text', value: 'POST https://api.example.com/notes\n\n{"note":"[secret:API_KEY]"}' }]
+    const box = await show({ id: 'post-3', kind: 'oxepost' as never, risk: 'low', agentText: 'POST https://api.example.com/notes\n\n{"note":"[[secret:API_KEY]"}', textSpans: spans } as never)
+    const shown = box.textContent ?? ''
+    expect(shown).toContain('{"note":"[secret:API_KEY]"}')
+    expect(shown).not.toContain('[[secret:')
+    expect(shown).not.toContain('••••')
+    expect(box.querySelector('[data-secret]')).toBeNull()
   })
 
   it('another kind shows the agent\'s words as written, so a lookalike is never drawn as a masked secret', async () => {
@@ -53,7 +69,7 @@ describe('A12 PR 3 · the approval card masks a secret as •••• (NAME)', 
   it('the marker is spoken in the interface language (pt-BR: "segredo API_KEY, oculto")', async () => {
     await changeLanguage('pt-BR')
     try {
-      await show({ id: 'post-2', kind: 'oxepost' as never, risk: 'low', agentText: TEXT })
+      await show({ id: 'post-2', kind: 'oxepost' as never, risk: 'low', agentText: HASHED, textSpans: SPANS } as never)
       expect(screen.getByLabelText('segredo API_KEY, oculto')).toBeInTheDocument()
     } finally { await changeLanguage('en') }
   })
