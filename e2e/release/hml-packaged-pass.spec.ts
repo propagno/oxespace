@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright'
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -35,7 +35,11 @@ const SAME_IN_BOTH = /^(OXESpace|OxeCode|OxeChat|OxeQuery|Claude( Code)?|Codex|G
 
 interface Finding { combo: string; surface: string; kind: string; detail: string }
 const findings: Finding[] = []
-const enTexts = new Map<string, Set<string>>()
+/** The en run's texts per surface, kept in a file: Playwright restarts the worker after a failed test, so a Map in
+ *  memory would be empty by the time pt-BR runs. */
+const EN_FILE = join(tmpdir(), `hml-pass-en-texts-${process.env.GITHUB_RUN_ID ?? 'local'}.json`)
+const readEn = (): Record<string, string[]> => { try { return JSON.parse(readFileSync(EN_FILE, 'utf8')) as Record<string, string[]> } catch { return {} } }
+const saveEn = (key: string, texts: Set<string>) => { const all = readEn(); all[key] = [...texts]; writeFileSync(EN_FILE, JSON.stringify(all)) }
 
 function cleanEnv(locale: Locale): Record<string, string> {
   const env = Object.fromEntries(Object.entries(process.env).filter(([k, v]) => v !== undefined && !/^(OXESPACE_|AI_MEMORY_)/i.test(k))) as Record<string, string>
@@ -107,9 +111,10 @@ async function inspect(page: Page, combo: string, surface: string, locale: Local
   for (const k of seen.keys) add('i18n-key', k)
   const texts = new Set(seen.texts)
   const key = `${combo.replace(/^(en-US|pt-BR)/, '')}|${surface}`
-  if (locale === 'en-US') enTexts.set(key, texts)
+  if (locale === 'en-US') saveEn(key, texts)
   else {
-    const en = enTexts.get(key)
+    const enList = readEn()[key]
+    const en = enList ? new Set(enList) : undefined
     if (en) for (const t of texts) if (en.has(t) && t.split(' ').length >= 2 && /[a-z]{3}/.test(t) && !SAME_IN_BOTH.test(t)) add('untranslated', t)
   }
   const axe = await new AxeBuilder({ page }).disableRules(['region']).analyze().catch(e => ({ violations: [{ id: 'axe-failed', impact: 'serious', nodes: [{ target: [String(e).slice(0, 100)] }] }] }))
@@ -137,8 +142,6 @@ async function inspect(page: Page, combo: string, surface: string, locale: Local
 
 const combos: Array<{ locale: Locale; theme: Theme; size: Size }> = []
 for (const locale of ['en-US', 'pt-BR'] as Locale[]) for (const theme of ['light', 'dark'] as Theme[]) for (const size of SIZES) combos.push({ locale, theme, size })
-
-test.describe.configure({ mode: 'serial' })
 
 for (const { locale, theme, size } of combos) {
   const combo = `${locale}-${theme}-${size.label}`
@@ -187,8 +190,6 @@ for (const { locale, theme, size } of combos) {
       await quit(app)
       const mine = findings.slice(before)
       writeFileSync(join(test.info().outputPath(), 'findings.json'), JSON.stringify(mine, null, 2))
-      const all = test.info().outputPath('..', 'hml-findings-all.json')
-      if (existsSync(join(all, '..'))) writeFileSync(all, JSON.stringify(findings, null, 2))
       const byKind = mine.reduce<Record<string, number>>((acc, f) => { acc[f.kind] = (acc[f.kind] ?? 0) + 1; return acc }, {})
       console.log('HML-FINDINGS', combo, JSON.stringify(byKind))
       test.info().annotations.push({ type: 'findings', description: JSON.stringify(byKind) })
