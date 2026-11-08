@@ -1,4 +1,6 @@
-// Frozen acceptance test for 1.5.0 A9 (T85 icons, OXE phase F1). The executor must not edit it.
+// Frozen acceptance test for 1.5.0 A9 (T85 icons, OXE phase F1), version 2. The executor must not edit it.
+// Version 2 (CR, TECH LEAD 08/11): OxePost left the app in F2 (R14), so its icon is no longer part of the set; nothing
+// else changed.
 // The Mandacaru icon set ships one module per icon (tree-shakable), never one big path map. The entry budget itself is the
 // `bundle` phase gate (npm run verify:bundle, entry ≤ 284 kB).
 import { readFileSync, readdirSync } from 'node:fs'
@@ -14,7 +16,7 @@ describe('A9 · own icons as one module per icon', () => {
 
   test('the set covers the modes, Agora and History', () => {
     expect(typeof OxeCodeIcon).toBe('function')
-    for (const name of ['OxeCodeIcon', 'OxeChatIcon', 'OxeQueryIcon', 'OxePodIcon', 'OxePostIcon', 'AgoraIcon', 'HistoryIcon']) {
+    for (const name of ['OxeCodeIcon', 'OxeChatIcon', 'OxeQueryIcon', 'OxePodIcon', 'AgoraIcon', 'HistoryIcon']) {
       expect(modules).toContain(`${name}.tsx`)
     }
   })
