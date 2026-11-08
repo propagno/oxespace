@@ -94,8 +94,16 @@ Every test must pass `npx eslint <file>` before its M5 review.
 
 - **On the stand-in phone (R143), against a real gateway:**
   - the workspaces list shows each workspace's colour equal to the desktop's;
-  - changing a colour on the desktop changes it on the stand-in within one poll.
+  - changing a colour on the desktop changes it on the stand-in within one poll;
+  - resetting a colour to "not chosen" shows the **derived** slot (`workspaceColorIndex`) within one poll, not
+    neutral. That's where a drift between the two sides would show;
+  - a colour change neither reorders nor rescrolls the list: the same ids, in the same order, before and after the
+    event.
+- **Colour is never the only signal:** the chip always shows the workspace name. `ComponentsSnapshotTest` asserts the
+  name is present on every chip, in light and dark.
 - **An older APK:** the v1.4.3 stand-in subscribes to this desktop and lists the workspaces as before.
+- **An older desktop (optional):** the new APK against a 1.4.3 desktop on the stand-in shows neutral chips and no
+  error. JVM case 2 covers the decode; this covers the screen.
 - **Busy case:** none. The field is one integer per workspace and adds no traffic.
 
 ## Out of scope
