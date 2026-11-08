@@ -57,6 +57,11 @@ describe('U4.8 · tabs that fill in', () => {
     render(<ThreadTabs threadId="t-1" />)
     expect(await screen.findByRole('tab', { name: 'Conversation' })).toBeInTheDocument()
     expect(screen.queryByRole('tab', { name: 'Containers' })).toBeNull()
+    // A Compose project in a folder that only shares the prefix (/repo-other) is not this conversation's.
+    containers = [{ id: 'k0', name: 'other-db-1', image: 'postgres:16', state: 'running', status: 'Up', ports: [], labels: { 'com.docker.compose.project.working_dir': '/repo-other', 'com.docker.compose.project': 'other' } }]
+    act(() => { for (const listener of podListeners) listener({ type: 'containers-changed' }) })
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(screen.queryByRole('tab', { name: 'Containers' })).toBeNull()
     // A Compose project whose working folder is one of this conversation's places starts.
     containers = [{ id: 'k1', name: 'repo-db-1', image: 'postgres:16', state: 'running', status: 'Up', ports: [], labels: { 'com.docker.compose.project.working_dir': '/repo', 'com.docker.compose.project': 'repo' } }]
     act(() => { for (const listener of podListeners) listener({ type: 'containers-changed' }) })

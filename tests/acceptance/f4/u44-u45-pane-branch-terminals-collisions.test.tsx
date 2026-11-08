@@ -57,7 +57,7 @@ describe('U4.4 · the pane branch and terminals in the task', () => {
 
   test("a pane whose cwd enters a place joins the Terminal tab under Yours, and leaves it when the cwd leaves, with no toast", async () => {
     const yours = { paneId: 'p-9', title: 'zsh · repo', workspaceId: 'ws-1', placeId: 'pl-1', via: 'shell-osc', group: 'yours' }
-    const agent = { paneId: 'p-1', title: 'Claude', workspaceId: 'ws-1', placeId: 'pl-1', via: 'hook', group: 'agent' }
+    const agent = { paneId: 'p-1', title: 'Claude', workspaceId: 'ws-1', placeId: 'pl-1', via: 'agent-location', group: 'agent' }
     const main = mockMain({ panes: [[agent], [agent, yours], [agent]] })
     const { ThreadTerminalTab } = await load<{ ThreadTerminalTab: (props: { threadId: string }) => JSX.Element }>('src/components/Threads/ThreadTerminalTab')
     const { Toaster } = await import('../../../src/ui/Toast')
