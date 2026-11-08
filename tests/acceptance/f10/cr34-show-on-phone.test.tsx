@@ -127,4 +127,32 @@ describe('CR-34 · Show on phone, on the desktop', () => {
     await renderMark()
     expect(await screen.findByRole('img', { name: 'Oculto do celular' })).toBeInTheDocument()
   })
+
+  test('a hide main refuses leaves the item as main has it, shown, with an error saying so', async () => {
+    const remote = mockRemote(status())
+    remote.setPhoneHidden.mockRejectedValueOnce(new Error('The phone gateway could not save the change.'))
+    const { Toaster } = await import('../../../src/ui/Toast')
+    render(<Toaster />)
+    await renderMenu()
+    const show = await screen.findByRole('menuitemcheckbox', { name: /Show on phone/ })
+    await userEvent.click(show)
+    await waitFor(() => expect(remote.setPhoneHidden).toHaveBeenCalledWith({ paneId: 'p-1', hidden: true }))
+    expect(await screen.findByText(/The phone gateway could not save the change./)).toBeInTheDocument()
+    expect(screen.getByRole('menuitemcheckbox', { name: /Show on phone/ })).toHaveAttribute('aria-checked', 'true')
+    expect(useRemoteStore.getState().status).toMatchObject({ phoneHiddenPanes: [] })
+  })
+
+  test('Space and Enter toggle Show on phone from the open menu', async () => {
+    const remote = mockRemote(status())
+    await renderMenu()
+    const show = await screen.findByRole('menuitemcheckbox', { name: /Show on phone/ })
+    show.focus()
+    await userEvent.keyboard(' ')
+    await waitFor(() => expect(remote.setPhoneHidden).toHaveBeenLastCalledWith({ paneId: 'p-1', hidden: true }))
+    await waitFor(() => expect(screen.getByRole('menuitemcheckbox', { name: /Show on phone/ })).toHaveAttribute('aria-checked', 'false'))
+    screen.getByRole('menuitemcheckbox', { name: /Show on phone/ }).focus()
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(remote.setPhoneHidden).toHaveBeenLastCalledWith({ paneId: 'p-1', hidden: false }))
+  })
+
 })
