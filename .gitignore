@@ -37,3 +37,6 @@ coverage/
 
 # Extracted at test time by the upgrade rehearsal
 tests/.upgrade-mirror/
+
+# TypeScript incremental build state (tsc --incremental, task gates)
+*.tsbuildinfo
