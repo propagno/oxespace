@@ -17,7 +17,7 @@ import { discoverScripts } from '../services/scripts-discovery.service'
 import type { ToolContext } from './tool-registry'
 import { errorResult, textResult } from './tool-registry'
 import { requirePreviewExecution } from './preview-scope'
-import { savePreviewCapture } from '../services/documentation/preview-capture-store'
+import { savePreviewCapture } from '../services/browser-preview/preview-capture-store'
 import { semanticProjects } from '../services/semantic-projects'
 import { mainMessage } from '../../../shared/messages'
 
