@@ -37,7 +37,8 @@
     to the partial Notice.
   - **Order:** state precedence, then longest in that state, then kind and id.
   - **Chips (M7.7):** single-select and horizontally scrolling, 48 dp, each with its count: **All · Needs you · Working
-    · Failed · Finished.** Idle, Stopped and Not confirmed show under All only.
+    · Failed · Finished.** Idle, Stopped and Not confirmed show under All only. "Needs you" uses `attn` on its count
+    badge only; the chip itself and every other chip use the neutral chip tokens.
   - **Taps:** a conversation with an answerable request goes to that request; anything else opens its source.
   - **`agent.markSeen {kind, id}`:** only when a **Finished** row is opened.
   - **Never shown:** paths, worktrees, session ids, cost.
@@ -69,22 +70,41 @@
     arrives.
   - **Stop** keeps its confirm dialog: 3 taps, per the parity checklist.
   - **Presence (S8)** still applies, with the 5-minute window.
-  - **Not working, or `canSteer` false:** the 1.4 composer, Send only.
+  - **Working without `canSteer`:** Stop · text · Send, with the placeholder "Queued until the current step ends". The
+    sent text shows a "queued" line under it until the next item arrives.
+  - **Not working:** the 1.4 composer, Send only.
+  - **The agent finishes between the tap and the send:** the desktop refuses the steer (`forbidden`, from
+    `commands.ts`, when the thread is no longer running). The phone shows "The agent finished before your instruction
+    arrived. Nothing was sent." and keeps the text in the field. It never re-sends it as a queued message.
 - **Frozen tests:**
   - **new** `.../ui/live/ComposerModeTest.kt`, a pure function from status and `canSteer` to the controls:
     - working + canSteer → Stop + Steer;
-    - working without canSteer → Stop, and Send queues;
+    - working without canSteer → Stop, Send, and the "Queued until the current step ends" placeholder;
     - idle → Send;
-  - `ScreensSnapshotTest.conversation`: working with the steer composer, and the "read after the current step" line;
-  - `TimelineTest`: the pending-steer line clears when a newer item arrives.
+    - a steer refused with `forbidden` → the "finished before" message, the text kept, nothing re-sent;
+  - `ScreensSnapshotTest.conversation`: working with the steer composer and the "read after the current step" line;
+    working without canSteer, with the queued placeholder and the "queued" line;
+  - `TimelineTest`: the pending-steer and queued lines clear when a newer item arrives.
 
 ## Field question (M10, HML)
 
+The CI stand-in phone talks to the gateway's LAN IP on the same runner: not loopback, but no Wi-Fi hop either. Real
+Wi-Fi loss is checked only on the user's S23, and that check is the user's.
 - **On the stand-in phone (R143), against a real gateway:**
   - the Agents tab shows the desktop's agents, and opening a finished one clears its badge on the desktop;
-  - a steer while a stand-in agent works is received after its current step.
-- **Busy case:** many agents changing state at once. The store's `rev` rules keep the list stable; HML checks that it
-  doesn't jump.
+  - a steer while a stand-in agent works is received after its current step;
+  - a steer sent just after the agent finishes is refused, and nothing reaches a later turn.
+- **N1 reconnect:** the stand-in's socket is killed mid-stream and resumed after 5 s. No lost or duplicated rows, and
+  the screen shows "reconnecting" and then recovers. Frozen as `AgentsStoreTest` "a resubscribe snapshot replaces
+  all", plus the stand-in step `agents-reconnect`.
+- **N2 latency:** one stand-in case runs through a test-side proxy adding 300 ms ± 200 ms. Badges and chip counts
+  settle, with no timeout a slow Wi-Fi would trip.
+- **N3 P1:** on the Windows Public profile the gateway shows the firewall notice, not a silent failure (R143).
+- **Two phones mark seen at once:** two stand-in phones send `agent.markSeen` for the same finished row. Both end with
+  one consistent badge; the call is idempotent.
+- **No jumps, with a number:** 20 agents and 10 state changes per second for 30 s. Over every snapshot, the list
+  stays in the stated order and no row moves unless its own sort key changed. Frozen as `AgentsStoreTest` "under
+  churn only rows whose key changed move", a seeded pure-JVM run asserted over the snapshots, not by eye.
 
 ## Out of scope
 
