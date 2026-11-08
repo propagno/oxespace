@@ -96,6 +96,10 @@ export default function MonacoDiff({ original, modified, language, path, review 
     options={{
       readOnly: true,
       originalEditable: false,
+      // The line comments (diffLineComments) draw in the glyph margin. Turning it on only after mount gave the first
+      // layout no lane, then a 16 px jump of the whole diff when it arrived (FL-15, caught by its diagnostic in windows
+      // run 42443679631). With it on from the start, the first layout is the final one.
+      glyphMargin: true,
       renderSideBySide: true,
       automaticLayout: true,
       renderOverviewRuler: false,
