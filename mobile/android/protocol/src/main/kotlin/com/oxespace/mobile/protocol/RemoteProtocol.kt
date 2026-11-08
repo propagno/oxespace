@@ -322,6 +322,11 @@ data class RemoteHelloFrame(
     val desktopName: String? = null,
     /** Set by the gateway: 32 random bytes, base64url, new for every connection; a refresh signs it as its `nonce`. */
     val challenge: String? = null,
+    /**
+     * Set by the gateway (1.5.0 F10): what this desktop supports beyond the version, e.g. "terminal.snapshotOnly" and
+     * "pane.conversation". The phone uses a feature only when it is listed; a client hello never carries it.
+     */
+    val features: List<String>? = null,
 ) : RemoteFrame
 
 /**
@@ -891,6 +896,26 @@ data class RemotePaneConversationArgs(
     val paneId: String,
     val cursor: String? = null,
 )
+
+/**
+ * 1.5.0 F10 (BE-A46-c5, #706): what `pane.conversation` gives (`ack.result`) and the `paneConversation` snapshot. `items`
+ * go oldest to newest within the page, each id stable; `cursor` asks for the page before it, null at the oldest; `epoch`
+ * grows when the pane's agent starts a new session. `agent` is the manifest id (claude, codex…), text, never an enum.
+ */
+@Serializable
+data class RemotePaneConversationPage(
+    val agent: String,
+    val title: String? = null,
+    val items: List<Item>,
+    val cursor: String?,
+    val epoch: Long,
+) {
+    @Serializable
+    data class Item(
+        val seq: Long,
+        val item: RemoteThreadItem,
+    )
+}
 
 /**
  * The timeline items the phone shows. Left out on purpose: location and cwd, session ids, context usage, turn cost,

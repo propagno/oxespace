@@ -263,6 +263,8 @@ class TerminalTopic implements RemoteTopicSource {
     const head = desktop.terminal(paneId, Number.MAX_SAFE_INTEGER)
     if (!head) return null
     const stream = new Stream(emit, REMOTE_PROTOCOL_VERSION)
+    /** BE-A45-flag: only the screen page when it can be built; otherwise the ring pages as before. */
+    const snapshotOnly = request.snapshotOnly === true
     const window = new TerminalWindow(text => { const filtered = clean(text, desktop.roots(), Number.MAX_SAFE_INTEGER); return { text: filtered.text, redacted: filtered.redacted } })
     let session = digest(head.session)
     let read = 0
@@ -332,6 +334,15 @@ class TerminalTopic implements RemoteTopicSource {
     }
     /** The screen on a first page of its own (its second-layer redactions counted there), then the ring's pages. */
     const releaseWithScreen = (out: { text: string; redacted: number }, built: { snapshot: RemoteTerminalSnapshot; redacted: number }): void => {
+      if (snapshotOnly) {
+        // 1.5.0 F10 BE-A45-flag: the phone reads the screen, so it is the one page; it carries the redactions of the
+        // ring it stands for plus the second layer's.
+        const redacted = out.redacted + built.redacted
+        const only: RemoteTerminalData = { data: '', truncated: false, ...(redacted ? { redacted } : {}), snapshot: built.snapshot }
+        stream.snapshot([only], `${session}:${sent()}`)
+        holdTimer()
+        return
+      }
       const screen: RemoteTerminalData = { data: '', truncated: false, ...(built.redacted ? { redacted: built.redacted } : {}), snapshot: built.snapshot }
       stream.snapshot([screen, ...pieces(out, false)], `${session}:${sent()}`)
       holdTimer()
