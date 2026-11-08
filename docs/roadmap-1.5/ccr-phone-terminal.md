@@ -34,11 +34,11 @@
     - `termAnsi*` colours, the same in both themes.
 - **Without a snapshot** (an older desktop): no `cols` is known, so the width stays unbounded, as in 1.4.3.
 - **Frozen tests,** from #623:
-  - `.../protocol/live/VtScreenTest.kt`, new cases:
+  - **new** `.../protocol/live/VtScreenColsTest.kt` (written, in draft #700), with these cases and the wide-character and alt-screen ones:
     - no row of `lines()` or `text()` is longer than `cols`, and the grid width is `cols` (trailing blanks trim);
     - the CUP column lands where the desktop put it, with `cols = 120`;
     - a line longer than `cols` wraps at `cols`;
-  - `.../protocol/live/TerminalSnapshotTest.kt`, new case: a snapshot with `cols = 80` makes an 80-wide grid; no
+  - in the same file: a snapshot with `cols = 80` makes an 80-wide grid; no
     snapshot leaves it unbounded;
   - `ScreensSnapshotTest.terminal`: an 80-column TUI on a narrow phone with the pan hint, plus fit-the-width.
 
@@ -90,7 +90,7 @@
   - `.../session/LiveRepository.kt`: the `paneConversation` stream and the `pane.conversation` command.
   - The strings.
 - **Frozen tests,** #658's phone list:
-  - **new** `.../protocol/live/PaneConversationTest.kt`:
+  - **new** `.../protocol/live/PaneConversationTest.kt` (written, in draft #700):
     1. toggle: `conversation` true shows it, false hides it;
     2. Load earlier walks to `cursor: null` in page order with no duplicate ids;
     3. `rewritten` reloads once, then the Notice; `new-session` or a new `epoch` replaces the items and shows the line;
