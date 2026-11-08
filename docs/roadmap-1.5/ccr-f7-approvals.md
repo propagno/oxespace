@@ -6,7 +6,7 @@ Owner: BACKEND. Status: frozen tests for review (M5: HML, DESIGN, FE; SECURITY: 
 
 **Contract:** DESIGN's `1.5.0-f7-design.md` "Data each screen needs". FRONTEND's names were agreed on 08/11.
 
-**Frozen tests:** `tests/acceptance/f7/`: 36 tests in 6 files.
+**Frozen tests:** `tests/acceptance/f7/`: 46 tests in 6 files.
 
 **Tasks:** `.claude/roadmap-1.4/team/plans/f7-tasks-BACKEND.json`: 6 tasks with the pack fields.
 
@@ -93,3 +93,35 @@ The review surface:
 - revocation with undo;
 - host blocking;
 - a notification with no Allow.
+
+## Changes after review (08/11), all frozen
+
+**TECH LEAD's SECURITY conditions**
+- **S1:** Always allow is never offered for a prefix that can run arbitrary code. The reason kinds are:
+  - `code`: interpreters and launchers (node, python, bash, npx, dlx, make, docker run/exec, env, xargs, `./x`), inline code, and any PowerShell-tool request;
+  - `elevation`: sudo and the like;
+  - `broad`: a bare tool with no subcommand;
+  - `compound` (DESIGN) and `redirect`.
+
+  The rule is exactly the offered prefix. Env, `timeout` and `time` prefixes are looked through. Script runners carry `runsProjectCode` and `definedIn` (HML).
+- **S2:** the rule is written only to `<project>/.claude/settings.local.json`:
+  - the real path is checked, and a link or junction out of the project is refused;
+  - the write is atomic and keeps every other key;
+  - invalid JSON is refused and left untouched.
+- **S3:** provenance lives in OXESpace's database (migration 098, `always_allow_rules`), so a hand-written identical rule is never removed.
+- **S4:** the DB preview runs read-only with a 5 s timeout. A timeout gives `failed: timeout`. Secret-named columns are masked in the sample.
+- **S5:** the notification body is only the pane and the risk word (`notify.requestBody`).
+- **ask-write:** "Read, ask before writing" is the existing `write`. `agent_access` stays exactly off | read | write.
+
+**HML-F7-1, decided by TECH LEAD**
+- `critical` only for production DB writes, any push, destructive commands, writes outside the checkpointed places, and shell redirections.
+- A non-production DB write is `high` and irreversible.
+
+**HML's must-fixes**
+- **714-2:** the full never-offered lists.
+- **714-4/5:** the SQL and Mongo refusals and translations, pure functions allowed, and `;` inside a string or comment treated as text.
+- **714-6:** an edit outside the project, or a redirection, is critical.
+
+**FRONTEND**
+- New push `approvals.openRequest`.
+- `alwaysAllow` only writes the rule; the window then answers accept.

@@ -12,7 +12,7 @@ const claims = (key: string) => Object.values(MCP_COVERAGE).filter(capability =>
 
 describe('F7 · contract', () => {
   test('F7: the approvals channels gain preview and alwaysAllow; What agents can do is its own namespace', () => {
-    expect(IPC_CHANNELS.approvals).toMatchObject({ preview: 'approvals:preview', alwaysAllow: 'approvals:always-allow' })
+    expect(IPC_CHANNELS.approvals).toMatchObject({ preview: 'approvals:preview', alwaysAllow: 'approvals:always-allow', openRequest: 'approvals:open-request' })
     expect(IPC_CHANNELS.agentPermissions).toEqual({
       list: 'agent-permissions:list', revokeRule: 'agent-permissions:revoke-rule', setDatabaseAccess: 'agent-permissions:set-database-access',
       setHostAccess: 'agent-permissions:set-host-access', undo: 'agent-permissions:undo', changed: 'agent-permissions:changed'
@@ -31,12 +31,14 @@ describe('F7 · contract', () => {
     await api.agentPermissions.setHostAccess({ workspaceId: 'ws1', host: 'api.example.com', access: 'blocked' })
     await api.agentPermissions.undo('tok')
     api.agentPermissions.onChanged(() => undefined)
+    api.approvals.onOpenRequest(() => undefined)
     expect(invoke.mock.calls).toEqual([
       [IPC_CHANNELS.approvals.preview, 'r1'], [IPC_CHANNELS.approvals.alwaysAllow, 'r1'], [IPC_CHANNELS.agentPermissions.list, { workspaceId: 'ws1' }],
       [IPC_CHANNELS.agentPermissions.revokeRule, 'rule-1'], [IPC_CHANNELS.agentPermissions.setDatabaseAccess, { id: 'c-dev', access: 'read' }],
       [IPC_CHANNELS.agentPermissions.setHostAccess, { workspaceId: 'ws1', host: 'api.example.com', access: 'blocked' }], [IPC_CHANNELS.agentPermissions.undo, 'tok']
     ])
     expect(on).toHaveBeenCalledWith(IPC_CHANNELS.agentPermissions.changed, expect.any(Function))
+    expect(on).toHaveBeenCalledWith(IPC_CHANNELS.approvals.openRequest, expect.any(Function))
   })
 
   test('F7: MCP coverage: Always allow, the preview and every permissions control are forbidden to agents', () => {
@@ -48,7 +50,8 @@ describe('F7 · contract', () => {
   })
 
   test('F7: the C3 codes', () => {
-    for (const code of ['permissions.production.readOnly', 'permissions.policy.readOnly', 'notify.agentNeedsYou', 'notify.requestsNeedYou', 'approvals.alwaysAllow.notOffered']) {
+    for (const code of ['permissions.production.readOnly', 'permissions.policy.readOnly', 'permissions.access.invalid', 'notify.agentNeedsYou', 'notify.requestsNeedYou', 'notify.requestBody',
+      'approvals.alwaysAllow.notOffered', 'approvals.alwaysAllow.invalidSettings', 'approvals.alwaysAllow.outsideProject']) {
       expect(MESSAGE_CODES as readonly string[], code).toContain(code)
     }
   })

@@ -7,7 +7,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import { ApprovalNotifier } from '../../../electron/main/services/approvals/approval-notifier'
 
 afterEach(() => { vi.useRealTimers() })
-interface Shown { title: { code: string; params: Record<string, unknown> }; body: string; actions: string[]; onAction: (action: string) => void; closed: boolean }
+interface Shown { title: { code: string; params: Record<string, unknown> }; body: { code: string; params: Record<string, unknown> }; actions: string[]; onAction: (action: string) => void; closed: boolean }
 function setup(focused = false, enabled = true) {
   vi.useFakeTimers()
   const shown: Shown[] = []
@@ -20,16 +20,17 @@ function setup(focused = false, enabled = true) {
   const visible = () => shown.filter(entry => !entry.closed)
   return { notifier, shown, visible, opened, focus }
 }
-const request = (id: string, title = 'run npm publish') => ({ requestId: id, threadId: 't1', agent: 'Claude', title })
+const request = (id: string, title = 'run npm publish --token sk-ant-zzz in /home/dev/shop') => ({ requestId: id, threadId: 't1', agent: 'Claude', pane: 'Build', risk: 'critical' as const, title })
 
 describe('A56 · the system notification', () => {
-  test('A56: an unfocused window gets a notification at once, with only Open; the body is the title, cut at 80', () => {
+  test('A56 / S5: an unfocused window gets a notification at once, with only Open; the body is only the pane and the risk word, never the command, path, SQL or URL', () => {
     const { notifier, visible } = setup()
-    notifier.pending(request('r1', 'x'.repeat(200)))
+    notifier.pending(request('r1'))
     expect(visible()).toHaveLength(1)
     expect(visible()[0].actions).toEqual(['open'])
-    expect(visible()[0].body.length).toBeLessThanOrEqual(80)
     expect(visible()[0].title).toEqual({ code: 'notify.agentNeedsYou', params: { agent: 'Claude' } })
+    expect(visible()[0].body).toEqual({ code: 'notify.requestBody', params: { pane: 'Build', risk: 'critical' } })
+    expect(JSON.stringify(visible())).not.toMatch(/npm publish|sk-ant|\/home\/dev/)
     expect(JSON.stringify(visible())).not.toMatch(/allow|approve/i)
   })
 

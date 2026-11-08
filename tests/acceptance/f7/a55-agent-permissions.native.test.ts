@@ -4,24 +4,29 @@
 // is refused for the next agent call, and ask makes it ask. Temp project folders only.
 // Written by the planner; the executor must not edit it.
 // CCR: docs/roadmap-1.5/ccr-f7-approvals.md §A55; DESIGN 1.5.0-f7-design.md U7.4.
+// Runs under Electron's Node ABI: npm run test:electron -- tests/acceptance/f7/a55-agent-permissions.native.test.ts
 import { mkdtempSync, readFileSync, realpathSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, test } from 'vitest'
+import { openInMemoryDatabase, type AppDatabase } from '../../../electron/main/db/index'
 import { AgentPermissions } from '../../../electron/main/services/approvals/agent-permissions'
 import { AlwaysAllow } from '../../../electron/main/services/approvals/always-allow'
+import { AGENT_ACCESS_LEVELS } from '../../../shared/types/oxequery'
 import type { ThreadRequest } from '../../../shared/types/thread'
 import { removeTempDir } from '../../helpers/removeTempDir'
 
 const temps: string[] = []
-afterEach(() => { for (const dir of temps.splice(0)) { try { removeTempDir(dir) } catch { /* temp */ } } })
+const dbs: AppDatabase[] = []
+afterEach(() => { for (const db of dbs.splice(0)) db.close(); for (const dir of temps.splice(0)) { try { removeTempDir(dir) } catch { /* temp */ } } })
 const command = (text: string): ThreadRequest => ({ id: 'r1', nativeId: 'n1', nativeMethod: 'm', kind: 'approval', title: text, toolName: 'Bash', command: text, generation: 1, createdAt: 1, state: 'pending' }) as ThreadRequest
 
 function setup() {
   const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'oxe-f7-perm-')))
   temps.push(root)
-  const allow = new AlwaysAllow({ projectRoot: () => root })
-  const databases = new Map([['c-dev', { id: 'c-dev', name: 'shop', env: 'dev', access: 'read' }], ['c-prod', { id: 'c-prod', name: 'shop-prod', env: 'production', access: 'read' }]])
+  const db = openInMemoryDatabase(); dbs.push(db)
+  const allow = new AlwaysAllow({ projectRoot: () => root, db })
+  const databases = new Map<string, { id: string; name: string; env: string; access: string }>([['c-dev', { id: 'c-dev', name: 'shop', env: 'dev', access: 'read' }], ['c-prod', { id: 'c-prod', name: 'shop-prod', env: 'production', access: 'read' }]])
   const hosts = new Map<string, 'allowed' | 'ask' | 'blocked'>()
   const permissions = new AgentPermissions({
     alwaysAllow: allow,
@@ -71,9 +76,9 @@ describe('A55 · what agents can do', () => {
     expect(databases.get('c-dev')!.access).toBe('write')
     permissions.undo(widened.undoToken!)
     expect(databases.get('c-dev')!.access).toBe('read')
-    for (const access of ['write', 'ask-write'] as const) expect(permissions.setDatabaseAccess({ id: 'c-prod', access }), access).toEqual({ ok: false, code: 'permissions.production.readOnly' })
+    expect(permissions.setDatabaseAccess({ id: 'c-prod', access: 'write' })).toEqual({ ok: false, code: 'permissions.production.readOnly' })
     expect(databases.get('c-prod')!.access).toBe('read')
-    expect(permissions.setDatabaseAccess({ id: 'c-prod', access: 'none' })).toMatchObject({ ok: true })
+    expect(permissions.setDatabaseAccess({ id: 'c-prod', access: 'off' })).toMatchObject({ ok: true })
   })
 
   test('A55 / U7.4d: a host set to blocked is refused for the next agent call; ask makes it ask; allowed lets it through', () => {
@@ -86,6 +91,13 @@ describe('A55 · what agents can do', () => {
     // A Policy deny always wins, whatever the page says.
     permissions.setHostAccess({ workspaceId: 'ws1', host: 'pay.bank.example', access: 'allowed' })
     expect(permissions.hostDecision({ workspaceId: 'ws1', host: 'pay.bank.example' })).toBe('deny')
+  })
+
+  test('A55 (TECH LEAD): "Read, ask before writing" is the existing write, which already asks: agent access stays exactly off, read and write', () => {
+    expect(AGENT_ACCESS_LEVELS).toEqual(['off', 'read', 'write'])
+    const { permissions, databases } = setup()
+    expect(permissions.setDatabaseAccess({ id: 'c-dev', access: 'ask-write' as never })).toEqual({ ok: false, code: 'permissions.access.invalid' })
+    expect(databases.get('c-dev')!.access).toBe('read')
   })
 
   test('A55: Policy rows are read only: they cannot be revoked or changed from the page', () => {
