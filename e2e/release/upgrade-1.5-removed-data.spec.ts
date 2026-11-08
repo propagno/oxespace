@@ -151,6 +151,10 @@ test('A40 1.4.3 with removed-feature data: seed', async () => {
     }), [MARK.automationName, repo] as const)
     expect(automation.enabled, 'the seeded automation is disabled').toBe(false)
     seeded.automationId = automation.id
+    // R15/R14: the person last worked in OxePost; 1.4.3 remembers the view and 1.5.0 must open OxeCode instead.
+    await page.locator('button[data-app-mode="post"]').first().click({ timeout: 5_000 }).catch(() => undefined)
+    await page.waitForTimeout(1_000)
+    seeded.lastView = await page.locator('button[data-app-mode][aria-pressed="true"]').getAttribute('data-app-mode').catch(() => null)
     await page.waitForTimeout(3_000)
   } finally { await close(app) }
   // AI Memory: one note, as 1.4.3's own tables hold it.
@@ -182,6 +186,9 @@ test('A40 install 1.5.0 over it: the band, the dialog and the export', async () 
   const { app, page } = await openInstalled()
   try {
     result.version = await versionOf(page)
+    result.openedIn = await page.locator('button[data-app-mode][aria-pressed="true"]').getAttribute('data-app-mode').catch(() => null)
+    expect.soft(result.openedIn, `a remembered ${(seeded as { lastView?: string }).lastView ?? 'post'} view opens OxeCode`).toBe('code')
+    expect.soft(await page.locator('button[data-app-mode]').evaluateAll(b => b.map(x => x.getAttribute('data-app-mode'))), 'three modes').toEqual(['code', 'thread', 'data'])
     if (process.env.OXESPACE_EXPECT_VERSION) expect.soft(result.version, 'the candidate is installed').toBe(process.env.OXESPACE_EXPECT_VERSION)
     // The export runs after the window shows: give it time, as a person would read the screen.
     await expect.poll(async () => (await exportState(page))?.file ?? (await exportState(page))?.error ?? null, { timeout: 60_000, message: 'the export ran' }).not.toBeNull()

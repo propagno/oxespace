@@ -118,7 +118,18 @@ test.describe('F2 · (c) no removed feature is left behind in the interface', ()
           note(`Settings › Data has Removed in 1.5: ${/Removed in 1\.5|Removidos na 1\.5/i.test(page_)}`)
           expect.soft(page_, 'Settings › Data can export the removed data again').toMatch(/Export removed data|Exportar dados removidos/i)
         }
+        const updates = page.getByRole('button', { name: /^(Updates|Atualizações)/ }).first()
+        if (await updates.count()) {
+          await updates.click({ timeout: 5_000 }).catch(() => undefined); await page.waitForTimeout(800)
+          const text = (await page.locator('body').innerText()).split('\n')
+          note(`updates leftovers: ${JSON.stringify(leftovers(text))}`)
+          expect.soft(leftovers(text), 'Settings › Updates has no RTK card (R4)').toEqual([])
+        }
         await page.keyboard.press('Escape'); await page.waitForTimeout(400)
+        // The title bar and status bar chips (R4 RTK, R2 Semantic): nothing names a removed feature.
+        const chrome = (await page.locator('header, [role="banner"], [data-testid*="status"]').allInnerTexts().catch(() => [] as string[])).flatMap(t => t.split('\n'))
+        note(`title/status bar leftovers: ${JSON.stringify(leftovers(chrome))}`)
+        expect.soft(leftovers(chrome), 'no RTK or Semantic chip in the title or status bar').toEqual([])
 
         // The tool catalog ("+ Tool" / More panels) in OxeCode.
         await mode(page, 'code'); await page.waitForTimeout(600)
@@ -189,6 +200,37 @@ test.describe('F2 · (a) what people still need has a home', () => {
       expect.soft(String(name), '/work opens Delegated work').toMatch(/Delegated work|Trabalho delegado/i)
       await page.screenshot({ path: info.outputPath('f2-work.png') })
     } finally { flush(info, 'f2-work'); await quitReal(app) }
+  })
+  test('R12 skills stay: a read-only list in Settings › Tools, and Ctrl+/ still lists and runs them', async ({}, info) => {
+    test.setTimeout(150_000)
+    const profile = realProfile('hml-f2-skills')
+    mkdirSync(join(profile.repo, '.oxe', 'skills'), { recursive: true })
+    writeFileSync(join(profile.repo, '.oxe', 'skills', 'hml-tidy.md'), '---\nname: hml-tidy\ndescription: HML tidies imports\nagents: [claude, codex]\n---\n\nTidy the imports.\n')
+    const { app, page } = await launchReal(profile)
+    try {
+      await openRepo(page, profile.repo)
+      // The terminal pane's command bar: the skill is listed with its description, so nobody types it from memory.
+      await page.locator('.xterm').first().click().catch(() => undefined)
+      await page.keyboard.press('Control+/'); await page.waitForTimeout(800)
+      const bar = (await page.locator('body').innerText()).replace(/\s+/g, ' ')
+      note(`Ctrl+/ lists hml-tidy: ${bar.includes('hml-tidy')}; with its description: ${bar.includes('HML tidies imports')}`)
+      expect.soft(bar, 'the command bar lists the skill').toContain('hml-tidy')
+      expect.soft(bar, 'with its description').toContain('HML tidies imports')
+      await page.keyboard.press('Escape'); await page.waitForTimeout(300)
+      // Settings › Tools: the list is there, read-only: no switch, no create, no install.
+      await page.keyboard.press('Control+,'); await page.waitForTimeout(1000)
+      await page.getByRole('button', { name: /^(Tools|Ferramentas)/ }).first().click({ timeout: 5_000 }).catch(() => undefined); await page.waitForTimeout(800)
+      const row = page.getByText('hml-tidy', { exact: true }).first()
+      const listed = await row.count()
+      note(`Settings › Tools lists hml-tidy: ${listed > 0}`)
+      expect.soft(listed, 'Settings › Tools lists the skill').toBeGreaterThan(0)
+      const controls = await page.getByRole('button', { name: /^(New skill|Create skill|Install skill|Nova skill|Criar skill|Instalar skill)/i }).count()
+      const switches = listed ? await row.locator('xpath=ancestor::*[self::li or @role="row" or @role="listitem"][1]').getByRole('switch').count().catch(() => 0) : 0
+      note(`skill controls: create/install ${controls}, switches on the row ${switches}`)
+      expect.soft(controls, 'no create or install for skills').toBe(0)
+      expect.soft(switches, 'no switch on a skill row').toBe(0)
+      await page.screenshot({ path: info.outputPath('f2-skills.png') })
+    } finally { flush(info, 'f2-skills'); await quitReal(app) }
   })
 })
 
