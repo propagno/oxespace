@@ -6,6 +6,7 @@ import {
   ANDROID_GENERATED_TEST,
   buildSteps,
   checkEnv,
+  classifyChange,
   CI_UNIT_JOBS,
   ciEvidence,
   markerContent,
@@ -13,6 +14,8 @@ import {
   NETWORK_FAILURE,
   parseArgs,
   runIdOf,
+  visualEvidence,
+  visualPlatforms,
   WORKERS,
   withNetworkRetry,
   // @ts-expect-error -- a plain ES module script without type declarations
@@ -46,10 +49,10 @@ describe('pr:ready steps', () => {
   })
 
   it('takes the PR\'s CI as the whole suite, or runs it locally with --full', () => {
-    const ci: Step[] = buildSteps({ files: ['package.json'], related: plan({ all: true }) })
+    const ci: Step[] = buildSteps({ files: ['vitest.config.ts'], related: plan({ all: true }) })
     expect(ci.map(s => s.kind)).toEqual(['npm', 'npm', 'ci'])
     expect(ci[2].args).toEqual(CI_UNIT_JOBS)
-    const full: Step[] = buildSteps({ files: ['package.json'], related: plan({ all: true }), full: true })
+    const full: Step[] = buildSteps({ files: ['vitest.config.ts'], related: plan({ all: true }), full: true })
     expect(full[2]).toEqual({ name: expect.stringContaining('--full'), kind: 'vitest', args: [WORKERS] })
   })
 })
@@ -84,8 +87,41 @@ describe('CI as evidence for the whole suite', () => {
   })
 
   it('records in the marker how the head was proven', () => {
-    expect(markerContent({ sha: SHA, at: 't', base: 'origin/main', steps: ['lint'], ciRuns: [71, 72] })).toEqual({ ok: true, sha: SHA, at: 't', evidence: 'ci', runs: [71, 72], base: 'origin/main', steps: ['lint'] })
-    expect(markerContent({ sha: SHA, at: 't', base: 'origin/main', steps: ['lint'], ciRuns: null })).toMatchObject({ evidence: 'local', runs: [] })
+    expect(markerContent({ sha: SHA, at: 't', base: 'origin/main', steps: ['ci'], evidence: 'ci', runs: [71] })).toEqual({ ok: true, sha: SHA, at: 't', evidence: 'ci', runs: [71], base: 'origin/main', steps: ['ci'] })
+    expect(markerContent({ sha: SHA, at: 't', base: 'origin/main', steps: ['visual'], evidence: 'images', runs: [81, 82] })).toMatchObject({ evidence: 'images', runs: [81, 82] })
+    expect(markerContent({ sha: SHA, at: 't', base: 'origin/main', steps: ['lint'] })).toMatchObject({ evidence: 'local', runs: [] })
+  })
+})
+
+describe('changes that need no node_modules (TECH LEAD, 07/11)', () => {
+  const win = (f: string) => `e2e/visual/__screenshots__/win32/${f}.png`
+  const lin = (f: string) => `e2e/visual/__screenshots__/linux/${f}.png`
+
+  it('tells images, packages and code apart', () => {
+    expect(classifyChange([win('a/x'), lin('b/y')])).toBe('images')
+    expect(classifyChange(['package.json', 'package-lock.json'])).toBe('packages')
+    expect(classifyChange(['playground/package.json', 'playground/package-lock.json'])).toBe('packages')
+    expect(classifyChange(['mobile/android/app/src/test/snapshots/images/a.png'])).toBe('packages')
+    // A screenshot of a platform the workflow doesn't know is an "other snapshot": CI decides.
+    expect(classifyChange(['e2e/visual/__screenshots__/darwin/a.png'])).toBe('packages')
+    for (const files of [[win('a/x'), 'src/App.tsx'], [win('a/x'), 'e2e/visual/code-states.spec.ts'], ['package.json', 'scripts/x.mjs'], ['e2e/visual/__screenshots__/win32/notes.md'], []])
+      expect(classifyChange(files), files.join(',')).toBe('code')
+    expect(visualPlatforms([win('a/x'), win('b/y'), lin('c/z')])).toEqual(['linux', 'windows'])
+  })
+
+  it('proves images with visual-baselines.yml and packages with CI, with no local step', () => {
+    expect(buildSteps({ files: [win('a/x')], related: plan() })).toEqual([{ name: expect.stringContaining('(windows)'), kind: 'visual', args: ['windows'] }])
+    expect(buildSteps({ files: ['playground/package-lock.json'], related: plan({ all: true }) })).toEqual([{ name: expect.stringContaining('packages only'), kind: 'ci', args: CI_UNIT_JOBS }])
+  })
+
+  it('needs a green visual-baselines run on this exact sha for every platform touched', () => {
+    const run = (id: number, platform: string, over: Record<string, unknown> = {}) => ({ id, head_sha: SHA, status: 'completed', conclusion: 'success', display_title: `Visual baselines · ${platform} · test/x`, created_at: '2026-11-07T10:00:00Z', ...over })
+    expect(visualEvidence([run(1, 'linux'), run(2, 'windows')], ['linux', 'windows'], SHA)).toEqual({ ok: true, missing: [], runs: [1, 2] })
+    expect(visualEvidence([run(1, 'linux')], ['linux', 'windows'], SHA).missing).toEqual([expect.stringMatching(/^windows: no visual-baselines\.yml run on this head/)])
+    expect(visualEvidence([run(1, 'windows', { head_sha: 'b'.repeat(40) })], ['windows'], SHA).ok).toBe(false)
+    expect(visualEvidence([run(1, 'windows', { status: 'in_progress', conclusion: null })], ['windows'], SHA).missing).toEqual(['windows: run 1 still in_progress'])
+    // The latest run of a platform decides: a later failure is not hidden by an earlier pass.
+    expect(visualEvidence([run(1, 'windows'), run(2, 'windows', { conclusion: 'failure', created_at: '2026-11-07T11:00:00Z' })], ['windows'], SHA).missing).toEqual(['windows: run 2 failure'])
   })
 })
 
