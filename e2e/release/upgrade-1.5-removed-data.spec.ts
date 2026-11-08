@@ -208,17 +208,20 @@ test('A40 install 1.5.0 over it: the band, the dialog and the export', async () 
     expect.soft(await band(page).first().getAttribute('aria-live').catch(() => null) ?? 'polite', 'announced politely').toBe('polite')
     expect.soft(await page.getByRole('dialog').count(), 'not a modal: no dialog on start').toBe(0)
     await page.screenshot({ path: join(STATE, 'a40-band.png') }).catch(() => undefined)
+    // Without a band there is nothing to open: the dialog checks then fail fast instead of waiting out the test.
+    const hasBand = (await band(page).count()) > 0
+    result.hasBand = hasBand
 
     // Keyboard only: Tab reaches See what changed, Enter opens the dialog.
     let reached = false
-    for (let i = 0; i < 40 && !reached; i++) {
+    for (let i = 0; i < 40 && !reached && hasBand; i++) {
       await page.keyboard.press('Tab')
       reached = await page.evaluate(() => /See what changed/.test(document.activeElement?.textContent ?? ''))
     }
     expect.soft(reached, 'Tab reaches See what changed').toBe(true)
-    if (reached) await page.keyboard.press('Enter'); else await band(page).getByRole('button', { name: 'See what changed' }).click()
+    if (reached) await page.keyboard.press('Enter'); else if (hasBand) await band(page).getByRole('button', { name: 'See what changed' }).click({ timeout: 5_000 }).catch(() => undefined)
     const dialog = page.getByRole('dialog', { name: 'What changed in 1.5' })
-    await expect.soft(dialog, 'the dialog opens').toBeVisible({ timeout: 10_000 })
+    await expect.soft(dialog, 'the dialog opens').toBeVisible({ timeout: hasBand ? 10_000 : 1_000 })
     const dialogText = (await dialog.innerText().catch(() => '')).replace(/\s+/g, ' ')
     result.dialogText = dialogText.slice(0, 1500)
     for (const row of ROWS) expect.soft(dialogText, `row ${row}`).toMatch(row)
