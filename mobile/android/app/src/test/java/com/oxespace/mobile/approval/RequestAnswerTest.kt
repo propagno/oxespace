@@ -5,6 +5,7 @@ import com.oxespace.mobile.protocol.RemotePendingRequest
 import com.oxespace.mobile.protocol.RemoteRespondRequestArgs
 import com.oxespace.mobile.protocol.live.CommandResult
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -18,6 +19,7 @@ import org.junit.Test
  * CCR: docs/roadmap-1.5/ccr-phone-screens.md (#688), the safe answers HML asked for in M10. `RequestResponder`'s 1.4
  * rules stay in RequestResponderTest; this adds what a busy desktop and a hurried thumb can do to one answer.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class RequestAnswerTest {
     private val request = RemotePendingRequest(
         threadId = "t-1", workspaceId = "w", threadTitle = "Fix login", requestId = "r-1", generation = 4,
