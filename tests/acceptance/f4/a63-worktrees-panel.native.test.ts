@@ -16,6 +16,12 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { openInMemoryDatabase, type AppDatabase } from '../../../electron/main/db/index'
 import { GhExec, type SpawnAsyncFn } from '../../../electron/main/services/github/gh-exec'
 import { PersonActionAudit } from '../../../electron/main/services/person-action-audit'
+import { findTool } from '../../../electron/main/mcp-internal/tool-registry'
+import { WorktreeEventBus } from '../../../electron/main/mcp-internal/worktree-event-bus'
+import { ActionAudit } from '../../../electron/main/services/agent-actions/action-audit'
+import { AgentActions } from '../../../electron/main/services/agent-actions/agent-actions'
+import { ExecutionRegistry } from '../../../electron/main/services/execution-registry'
+import { WorkspaceService } from '../../../electron/main/services/workspace.service'
 import { GitHubRepositoryService } from '../../../electron/main/services/github/repository.service'
 import { WorktreesPanel, type WorktreeOwner } from '../../../electron/main/services/github/worktrees-panel'
 import { RepoHookTrust } from '../../../electron/main/services/repo-config/trust'
@@ -321,5 +327,65 @@ describe('A63 · SECURITY and HML guards on Remove', () => {
     expect(same(rows[1].target, tree)).toBe(true)
     expect(rows[2].target).toBe('audited')
     expect(JSON.stringify(db.prepare('SELECT * FROM person_action_audit').all())).not.toContain('CONTENT-MARKER-S5')
+  })
+})
+
+describe('A63 · the agent tool oxespace_remove_worktree goes through the same guarded removal (TECH LEAD)', () => {
+  /** Calls the real registered tool through its approval door, as an authenticated pane agent the person approves. */
+  async function callTool(args: Record<string, unknown>): Promise<{ ok: boolean; code?: string }> {
+    db.prepare("INSERT OR IGNORE INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES ('A', 'A', ?, '1x1', 'builtin-claude')").run(root)
+    const executions = new ExecutionRegistry()
+    const env = executions.register({ paneId: 'p-agent', workspaceId: 'A', cwd: root })
+    const tool = findTool('oxespace_remove_worktree')
+    if (!tool) throw new Error('the tool is gone')
+    const ctx = {
+      workspaceId: 'A', executionId: env.OXESPACE_EXECUTION_ID, executionToken: env.OXESPACE_EXECUTION_TOKEN, executions,
+      workspaceServ: new WorkspaceService(db), worktree: new WorktreeEventBus(), worktreesPanel: panel,
+      agentActions: new AgentActions({ broker: { require: async () => ({ state: 'approved', via: 'once' }) } as never, audit: new ActionAudit(db) }),
+      // The old direct path must not be used any more: it would bypass the guards.
+      github: new Proxy({}, { get: () => () => { throw new Error('the tool reached github.removeWorktree directly') } })
+    }
+    const result = await tool.handler(args, ctx as never)
+    const text = result.content.map(part => ('text' in part ? part.text : '')).join('')
+    const parsed = JSON.parse(text) as { ok?: boolean; code?: string }
+    return { ok: result.isError !== true && parsed.ok !== false, code: parsed.code }
+  }
+  const agentRows = () => db.prepare("SELECT outcome, error_code FROM agent_action_audit WHERE tool = 'oxespace_remove_worktree' ORDER BY id").all() as Array<{ outcome: string; error_code: string | null }>
+
+  test('A63: the tool refuses dirty (even with force), busy, locked, the main checkout and a path that is no worktree, exactly like the panel', async () => {
+    const dirty = await add('agent-dirty'); writeFileSync(join(dirty, 'wip.txt'), 'x')
+    const busyTree = await add('agent-busy'); busy.set(busyTree, 'turn')
+    const locked = await add('agent-locked'); git(root, 'worktree', 'lock', '--reason', 'kept', locked)
+    const elsewhere = join(sandbox, 'agent-elsewhere'); mkdirSync(elsewhere)
+    const cases: Array<[Record<string, unknown>, string]> = [
+      [{ path: dirty, force: true }, 'worktree.remove.dirty'],
+      [{ path: busyTree }, 'worktree.remove.busy'],
+      [{ path: locked }, 'worktree.remove.locked'],
+      [{ path: root }, 'worktree.remove.notFound'],
+      [{ path: elsewhere }, 'worktree.remove.notFound']
+    ]
+    for (const [args, code] of cases) expect(await callTool(args), String(args.path)).toEqual({ ok: false, code })
+    for (const path of [dirty, busyTree, locked, elsewhere]) expect(existsSync(path), path).toBe(true)
+    expect(existsSync(join(dirty, 'wip.txt'))).toBe(true)
+    expect(existsSync(join(root, 'a.txt'))).toBe(true)
+  })
+
+  test('A63: the tool removes a clean worktree and never deletes its branch, whatever the arguments', async () => {
+    const merged = await add('agent-merged')
+    providerMerged.set('agent-merged', 11)
+    const result = await callTool({ path: merged, force: true, deleteBranch: true, confirmUnmerged: true })
+    expect(existsSync(merged)).toBe(false)
+    expect(result.ok).toBe(true)
+    expect(branches()).toContain('agent-merged')
+    expect(spawned.some(call => call.args.includes('branch') && call.args.some(arg => /^-[dD]$/.test(arg)))).toBe(false)
+  })
+
+  test('A63: each tool call writes one agent_action_audit row, refusals included, and none in the person audit', async () => {
+    const dirty = await add('agent-audit-dirty'); writeFileSync(join(dirty, 'wip.txt'), 'x')
+    const clean = await add('agent-audit-clean')
+    await callTool({ path: dirty })
+    await callTool({ path: clean })
+    expect(agentRows().map(row => [row.outcome, row.error_code])).toEqual([['error', 'worktree.remove.dirty'], ['ok', null]])
+    expect(audit().filter(row => row.actor === 'person')).toEqual([])
   })
 })

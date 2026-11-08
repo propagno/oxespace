@@ -6,7 +6,7 @@ Owner: BACKEND. Status: frozen tests for review (M5: HML tests, DESIGN shapes, F
 - **Builds on:**
   - `docs/roadmap-1.5/ccr-t71-task-places.md` (the T71 design, approved for lite B). That document's model, sources, base, drift, resolver, IPC and tests stand. This CCR pins what it left open and adds §6's items.
   - DESIGN's `.claude/roadmap-1.4/team/plans/1.5.0-f4-design.md`, section "Data each screen needs from main".
-- **Frozen tests:** `tests/acceptance/f4/` (129 tests in 13 files, plus `fixtures/thread-fixture.ts`). Per TECH LEAD's rigor rule (08/11), each test exercises real code, and every "nothing happens" case first shows that something does, so a stub fails. The one source assertion is marked: no file-system write input takes a place id.
+- **Frozen tests:** `tests/acceptance/f4/` (132 tests in 13 files, plus `fixtures/thread-fixture.ts`). Per TECH LEAD's rigor rule (08/11), each test exercises real code, and every "nothing happens" case first shows that something does, so a stub fails. The one source assertion is marked: no file-system write input takes a place id.
 - **Tasks:** `.claude/roadmap-1.4/team/plans/f4-tasks-BACKEND.json`, 12 tasks with the IMPLEMENTATION-PACK fields.
 
 No live provider, no user home and no user data: every test runs on temp-dir repositories, a fake provider adapter and fake `gh`/`az` CLIs.
@@ -312,3 +312,13 @@ New C3 codes: `thread.place.busy`, `thread.place.branchGone { branch }`, `worktr
 **What runs in parallel:** P6 and P9 are independent of the places chain, and P4, P5 and P8 run in parallel after P1.
 
 **What waits for F3:** P10 needs F3's `read-model.ts`, so it waits for F3's A10 task.
+
+## The agent tool `oxespace_remove_worktree` (TECH LEAD, 08/11)
+
+The tool stays: creating and removing a worktree with the person's confirmation is a real agent flow. It goes through the same guarded removal as the panel.
+- **The handler** calls `worktreesPanel.removeForAgent({ rootPath, path })`, never `github.removeWorktree` directly.
+- **Refusals:** dirty, busy, locked, the main checkout on its real path, and a path that is not a worktree, all exactly like the panel.
+- **No branch delete,** whatever the arguments.
+- **No `force`:** it is dropped from the schema and from the approval text.
+- **Audit:** each call writes one `agent_action_audit` row through AgentActions, refusals included, and no `person_action_audit` row.
+- **Frozen in** a63 ("the agent tool…"), through the real registered tool and its approval door.
