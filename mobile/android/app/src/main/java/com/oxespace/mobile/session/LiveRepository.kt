@@ -73,6 +73,10 @@ class LiveRepository(val streams: LiveStreams = LiveStreams()) {
         streams.follow(RemoteSubscription.TERMINAL, paneId, watched) to watched
     }
 
+    /** 1.5.0 F10 skeleton (A46): follows a pane agent's conversation while its view is open. MOB-A46 replaces the TODO. */
+    @Suppress("UNUSED_PARAMETER")
+    fun openPaneConversation(paneId: String): com.oxespace.mobile.protocol.live.PaneConversation = TODO("F10 A46")
+
     fun closeThread(threadId: String) = close("thread:$threadId")
     fun closeTerminal(paneId: String) = close("terminal:$paneId")
 

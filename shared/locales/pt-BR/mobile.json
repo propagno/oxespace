@@ -125,6 +125,9 @@
       "minutes": "há {{minutes}} min",
       "hours": "há {{hours}} h",
       "days": "há {{days}} d"
+    },
+    "delegationState": {
+      "unknown": "Não confirmado"
     }
   },
   "thread": {
@@ -259,7 +262,9 @@
     "pasteLines_other": "Este texto tem {{count}} linhas, e cada uma roda como digitada. Enviar todas?",
     "pasteLines_many": "Este texto tem {{count}} linhas, e cada uma roda como digitada. Enviar todas?",
     "hiddenShown": "Caracteres ocultos foram mostrados no campo. Confira e envie de novo.",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "hiddenOnDesktop": "Este terminal foi ocultado do celular em {{computer}}.",
+    "hiddenBack": "Voltar aos terminais"
   },
   "approval": {
     "prompt": {
@@ -319,7 +324,8 @@
       "agent": "Pedido de um agente",
       "question": "Pergunta do agente",
       "permissions": "Pedido de permissão"
-    }
+    },
+    "noUndo": "Sem desfazer."
   },
   "action": {
     "offline": "Sem conexão com o computador. Nada foi enviado.",
@@ -330,7 +336,8 @@
   "composer": {
     "placeholder": "Mensagem para o agente",
     "send": "Enviar",
-    "steer": "Orientar"
+    "steer": "Orientar",
+    "steerFinishedBefore": "O agente terminou antes de a sua instrução chegar. Nada foi enviado."
   },
   "terminalInput": {
     "placeholder": "Digite neste terminal",
