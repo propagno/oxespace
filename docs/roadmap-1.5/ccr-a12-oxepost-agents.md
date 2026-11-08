@@ -220,7 +220,26 @@ Each step that refuses writes an audit row with `decision: 'refused'`, `outcome:
 
 ## 7. Surface
 
-- **IPC (person-only, never MCP):** `oxePost.call` gets the ops `agentAccessList`, `agentAccessSet`, `agentAccessConfirm` and `agentCeilingSet`. FE uses them in PR 3 (#654). Person-only signatures in `agent-access.ts`: `setAgentAccess(db, { workspaceId, root, collection, access, environmentId })` and `confirmAgentAccess(db, { workspaceId, root, collection })`, both async (they read the collection to take the snapshot), plus `setAgentCeiling(db, kind, access)`.
+- **IPC (person-only, never MCP):** `oxePost.call` gets the ops `agentAccessList`, `agentAccessSet`, `agentAccessConfirm` and `agentCeilingSet`. FE uses them in PR 3 (#654). **Return shapes,** frozen on both sides: here, and in #654's dialog test.
+
+  ```ts
+  type AgentAccess = 'off' | 'read' | 'write'
+  interface AgentAccessRow {
+    collection: string              // a top-level folder name; '' is "Ungrouped"
+    access: AgentAccess             // the person's setting (the ceiling caps it for agents; the dialog shows both)
+    environmentId: string | null
+    changed: boolean                // the fingerprint differs from the grant's (§2b)
+    lastEvent: 'set' | 'confirm' | 'dropped' | null   // the latest access row in oxepost_audit for this collection
+    origins: string[]               // origins_json; [] when off
+  }
+  // agentAccessList({ workspaceId }) → { collections: AgentAccessRow[], ceilings: { ordinary: AgentAccess, production: 'off' | 'read' } }
+  //   one row per top-level folder that exists now; a folder with no grant is access 'off' (lastEvent can still be 'dropped').
+  // agentAccessSet({ workspaceId, collection, access, environmentId }) → AgentAccessRow (the updated one)
+  // agentAccessConfirm({ workspaceId, collection }) → AgentAccessRow
+  // agentCeilingSet({ kind: 'ordinary' | 'production', access }) → { ordinary, production }
+  ```
+
+  Every op that names a collection takes `workspaceId`, like every other `oxePost.call` op. Person-only signatures in `agent-access.ts`: `setAgentAccess(db, { workspaceId, root, collection, access, environmentId })` and `confirmAgentAccess(db, { workspaceId, root, collection })`, both async (they read the collection to take the snapshot), plus `setAgentCeiling(db, kind, access)`.
 - **mcp-coverage:**
   - `oxepost.all` (planned H8) splits into:
     - `oxepost.agent_send` with tools `{ 'oxespace_post#requests': 'read', 'oxespace_post#send': 'confirm' }`;

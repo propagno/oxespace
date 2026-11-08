@@ -435,15 +435,16 @@ describe('A12 · agents send OxePost requests', () => {
     const vault = { available: () => true, problem: () => null, encrypt: (value: string) => Buffer.from(value), decrypt: (value: Buffer) => value.toString() }
     const service = new OxePostService({ rootOf: workspace => (workspace === 'w1' ? root : undefined), vault, secretsFile: join(root, 'secrets.bin'), db })
     expect(await service.call('agentCeilingSet', { kind: 'production', access: 'write' })).toMatchObject({ ok: false })
-    expect(await service.call('agentCeilingSet', { kind: 'ordinary', access: 'read' })).toMatchObject({ ok: true })
-    expect(await service.call('agentAccessSet', { workspaceId: 'w1', collection: 'billing', access: 'write', environmentId: 'staging' })).toMatchObject({ ok: true })
+    expect(await service.call('agentCeilingSet', { kind: 'ordinary', access: 'read' })).toMatchObject({ ok: true, value: { ordinary: 'read', production: 'read' } })
+    const row = { collection: 'billing', access: 'write', environmentId: 'staging', changed: false, lastEvent: 'set', origins: ['https://api.example.com'] }
+    expect(await service.call('agentAccessSet', { workspaceId: 'w1', collection: 'billing', access: 'write', environmentId: 'staging' })).toEqual({ ok: true, value: row })
     expect(await service.call('agentAccessSet', { workspaceId: 'w1', collection: 'billing', access: 'everything', environmentId: 'staging' })).toMatchObject({ ok: false })
     const listed = await service.call('agentAccessList', { workspaceId: 'w1' }) as { ok: true; value: unknown }
-    expect(JSON.stringify(listed.value)).toContain('billing')
+    expect(listed.value).toEqual({ collections: expect.arrayContaining([row, expect.objectContaining({ collection: 'local', access: 'off', environmentId: null, changed: false, lastEvent: null, origins: [] })]), ceilings: { ordinary: 'read', production: 'read' } })
     expect(db.prepare("SELECT access_from, access_to FROM oxepost_audit WHERE actor = 'person'").all()).toEqual([{ access_from: 'off', access_to: 'write' }])
     // The ordinary ceiling is now read: a write collection is capped to read for agents.
     await expect(send({ path: paths.create })).rejects.toMatchObject({ code: 'access-read-only' })
-    expect(await service.call('agentAccessConfirm', { workspaceId: 'w1', collection: 'billing' })).toMatchObject({ ok: true })
+    expect(await service.call('agentAccessConfirm', { workspaceId: 'w1', collection: 'billing' })).toEqual({ ok: true, value: { ...row, lastEvent: 'confirm' } })
     expect(db.prepare("SELECT access_event FROM oxepost_audit WHERE actor = 'person' ORDER BY id").all()).toEqual([{ access_event: 'set' }, { access_event: 'confirm' }])
   })
 })
