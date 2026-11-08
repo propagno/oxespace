@@ -71,13 +71,16 @@
     - `follow(atBottom)`.
   - `.../ui/live/PaneConversationView.kt`: text bubbles only in v1, with Load earlier and pull to refresh.
 - **The view, as DESIGN pinned it (M6.11–M6.15, #627 @ 41ec3265):**
-  - **Caption:** the agent's name and the conversation title, with the **Live** marker while the topic is subscribed.
+  - **Caption:** "Claude Code's conversation · read only" / "Conversa do Claude Code · somente leitura" (the agent's
+    name filled in), with the **Live** marker while the topic is subscribed.
   - **No input on Conversation.** In its place, the line "Type on the Screen view". Typing stays on the Screen view.
   - **The Latest chip:** "N new · Latest ↓" when the new ids are known. After a gap (a no-overlap reset or a new
     epoch) it reads "Latest ↓" with no count.
-  - **A new session** is a marker line across the list ("New conversation"), not a card.
-  - **Unavailable:** a Notice "This conversation isn't available any more" with the action **Show the screen**, which
-    switches to Screen.
+  - **A new session** is a marker line across the list, "The agent started a new conversation" / "O agente começou uma
+    nova conversa", not a card.
+  - **Unavailable:** a Notice "This terminal's conversation isn't available any more. The screen is still live." / "A
+    conversa deste terminal não está mais disponível. A tela continua ao vivo.", with the action **Show the screen**,
+    which switches to Screen.
   - **The key row** on Screen keeps Esc · Tab · ↑ · ↓ · Ctrl, with **More keys** for the rest (c116b61c).
   - **A hidden secret** in a message shows the desktop's `[hidden]` with the note "Hidden on the computer", never the
     value.
