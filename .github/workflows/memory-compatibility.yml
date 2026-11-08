@@ -63,6 +63,14 @@ jobs:
       - run: npm rebuild electron better-sqlite3
       - name: Durable queue and Thread capture regressions
         run: node scripts/test-electron.mjs tests/unit/memory-outbox.test.ts tests/integration/memory-service.test.ts tests/integration/memory-thread-environment.test.ts --maxWorkers=1
+      # The release archive, cached by OS, version and its pinned sha256: a GitHub release-download outage (a 504
+      # failed 3 of 4 jobs on #684, run 42468920041) no longer fails the job once it is cached. The checksum is still
+      # checked after a restore, so a cache can never stand in for a different archive.
+      - name: Cache the ai-memory release archive
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ai-memory-archive
+          key: ai-memory-${{ runner.os }}-${{ matrix.version }}-${{ matrix.sha256 }}
       - name: Verify archive and run every native contract
         shell: pwsh
         env:
@@ -74,9 +82,20 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           $memoryFixture = Join-Path $env:RUNNER_TEMP ('memory-' + $env:MEMORY_VERSION)
           New-Item -ItemType Directory -Path $memoryFixture -Force | Out-Null
-          $memoryArchive = Join-Path $memoryFixture $env:MEMORY_ASSET
-          Invoke-WebRequest -Uri "https://github.com/akitaonrails/ai-memory/releases/download/v$env:MEMORY_VERSION/$env:MEMORY_ASSET" -OutFile $memoryArchive -TimeoutSec 120
-          if ((Get-FileHash -LiteralPath $memoryArchive -Algorithm SHA256).Hash -ine $env:MEMORY_ARCHIVE_SHA256) { throw 'Archive checksum mismatch' }
+          # The archive lives in the cached folder; it is extracted into the fixture, which is not cached.
+          $archiveDir = Join-Path $env:RUNNER_TEMP 'ai-memory-archive'
+          New-Item -ItemType Directory -Path $archiveDir -Force | Out-Null
+          $memoryArchive = Join-Path $archiveDir $env:MEMORY_ASSET
+          if (Test-Path -LiteralPath $memoryArchive) {
+            Write-Host "Using the cached $env:MEMORY_ASSET for $env:MEMORY_VERSION"
+          } else {
+            Invoke-WebRequest -Uri "https://github.com/akitaonrails/ai-memory/releases/download/v$env:MEMORY_VERSION/$env:MEMORY_ASSET" -OutFile $memoryArchive -TimeoutSec 120
+          }
+          # Always checked, cached or downloaded; a bad file is removed so it is never cached.
+          if ((Get-FileHash -LiteralPath $memoryArchive -Algorithm SHA256).Hash -ine $env:MEMORY_ARCHIVE_SHA256) {
+            Remove-Item -LiteralPath $memoryArchive -Force
+            throw 'Archive checksum mismatch'
+          }
           if ($IsWindows) {
             Expand-Archive -LiteralPath $memoryArchive -DestinationPath $memoryFixture
             $memoryBinary = Join-Path $memoryFixture 'ai-memory.exe'
