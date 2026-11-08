@@ -31,7 +31,8 @@ function sources(dir: string): string[] {
 }
 
 describe('F4 · S1: person-only operations are out of every agent path', () => {
-  test.each(PRIVILEGED)('S1: $op is no MCP tool: not in the registry, not found by name, and its channel is forbidden or excluded with no tools', ({ methods, ipc, words }) => {
+  test('S1: no person-only operation is an MCP tool: not in the registry, not found by name, and its channel is forbidden or excluded with no tools', () => {
+    for (const { op, methods, ipc, words } of PRIVILEGED) {
     // Every registered tool, active or not, by name and description.
     for (const entry of TOOL_REGISTRY) {
       const { name, description } = entry.descriptor
@@ -42,8 +43,9 @@ describe('F4 · S1: person-only operations are out of every agent path', () => {
     for (const guess of ['oxespace_place_read', 'oxespace_thread_place_read', 'oxespace_place_drift_answer', 'oxespace_switch_back', 'oxespace_worktrees_panel']) expect(findTool(guess), guess).toBeNull()
     const claims = Object.values(MCP_COVERAGE).filter(capability => capability.ipc?.includes(ipc) || capability.ipc?.includes(`${ipc.split('.')[0]}.*`))
     expect(claims, ipc).toHaveLength(1)
-    expect('tools' in claims[0], ipc).toBe(false)
-    expect('forbidden' in claims[0] || 'excluded' in claims[0], ipc).toBe(true)
+    expect('tools' in claims[0], `${op}: ${ipc}`).toBe(false)
+    expect('forbidden' in claims[0] || 'excluded' in claims[0], `${op}: ${ipc}`).toBe(true)
+    }
   })
 
   test('S1: the drift answer and place-read are forbidden (never planned as tools); the panel channels exist for the window only', () => {
