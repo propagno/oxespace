@@ -1,11 +1,12 @@
 // Frozen acceptance test for 1.5.0 F4 (OXE program): the contract around places, the resolver, panes, collisions, the
 // pull request provider and the worktrees panel. IPC channels and preload, MCP coverage (place-read and the drift answer
-// forbidden), the C3 codes, and migration 095.
+// forbidden) and the C3 codes. Migration 095 is exercised on a real database in a13.
 // Written by the planner; the executor must not edit it.
 // Spec: docs/roadmap-1.5/ccr-f4-places-pr.md §Contract.
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
+import { createOxeApi, type PreloadIpc } from '../../../electron/preload/api'
 import { MESSAGE_CODES } from '../../../shared/messages'
 import { MCP_COVERAGE } from '../../../shared/mcp-coverage'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
@@ -39,14 +40,36 @@ describe('F4 · contract', () => {
     expect(IPC_CHANNELS.worktreesPanel).toEqual({ list: 'worktrees-panel:list', remove: 'worktrees-panel:remove' })
   })
 
-  test('F4: the preload exposes every new channel through IPC_CHANNELS, and no write channel takes a place id', () => {
-    const preload = text('electron/preload/api.ts')
-    for (const key of ['places', 'placeDiff', 'resolvePath', 'placeDriftAnswer', 'placeRead', 'placesChanged', 'panes', 'collisions', 'agentSummary']) {
-      expect(preload).toMatch(new RegExp(`IPC_CHANNELS\\.thread\\.${key}\\b`))
-    }
-    expect(preload).toMatch(/IPC_CHANNELS\.pullRequest\.state\b/)
-    expect(preload).toMatch(/IPC_CHANNELS\.worktreesPanel\.(list|remove)\b/)
-    // Outside files are read only: the file-system write inputs know nothing of places.
+  test('F4: the preload API calls each new channel with what the window passes', async () => {
+    const invoke = vi.fn().mockResolvedValue(undefined)
+    const on = vi.fn()
+    const api = createOxeApi({ invoke, on, removeListener: vi.fn() } as PreloadIpc)
+    const thread = api.thread as unknown as Record<string, (...args: unknown[]) => unknown>
+    await thread.places('t1')
+    await thread.placeDiff('t1', 'p1')
+    await thread.resolvePath('t1', 'src/x.ts', { turnId: 'turn-1' })
+    await thread.placeDriftAnswer('t1', 'p1', 'followed')
+    await thread.placeRead('t1', 'p1', 'ROTEIRO.md')
+    await thread.panes('t1')
+    await thread.collisions('t1')
+    await thread.agentSummary('t1')
+    const other = api as unknown as Record<string, Record<string, (...args: unknown[]) => unknown>>
+    await other.pullRequest.state({ rootPath: '/r', branch: 'agent-fix' })
+    await other.worktreesPanel.list({ rootPath: '/r' })
+    await other.worktreesPanel.remove({ rootPath: '/r', path: '/r-tree', deleteBranch: false })
+    expect(invoke.mock.calls).toEqual([
+      [IPC_CHANNELS.thread.places, 't1'], [IPC_CHANNELS.thread.placeDiff, 't1', 'p1'], [IPC_CHANNELS.thread.resolvePath, 't1', 'src/x.ts', { turnId: 'turn-1' }],
+      [IPC_CHANNELS.thread.placeDriftAnswer, 't1', 'p1', 'followed'], [IPC_CHANNELS.thread.placeRead, 't1', 'p1', 'ROTEIRO.md'], [IPC_CHANNELS.thread.panes, 't1'],
+      [IPC_CHANNELS.thread.collisions, 't1'], [IPC_CHANNELS.thread.agentSummary, 't1'], [IPC_CHANNELS.pullRequest.state, { rootPath: '/r', branch: 'agent-fix' }],
+      [IPC_CHANNELS.worktreesPanel.list, { rootPath: '/r' }], [IPC_CHANNELS.worktreesPanel.remove, { rootPath: '/r', path: '/r-tree', deleteBranch: false }]
+    ])
+    const listener = vi.fn()
+    thread.onPlacesChanged(listener)
+    expect(on).toHaveBeenCalledWith(IPC_CHANNELS.thread.placesChanged, expect.any(Function))
+  })
+
+  test('F4: no file-system write input takes a place id: outside files stay read only', () => {
+    // rigor: source-assertion — the criterion is the absence of a write path, which no call can show; the input types are the surface.
     expect(text('shared/types/filesystem.ts')).not.toMatch(/placeId/)
   })
 
@@ -69,13 +92,4 @@ describe('F4 · contract', () => {
     }
   })
 
-  test('F4: migration 095 adds the place tables only, after H1\'s 094', () => {
-    const path = 'electron/main/db/migrations/095_thread_places.sql'
-    expect(existsSync(join(repo, path))).toBe(true)
-    const sql = text(path)
-    for (const table of ['thread_places', 'thread_place_writes', 'thread_turn_cwd']) expect(sql).toMatch(new RegExp(`CREATE TABLE IF NOT EXISTS ${table}\\b`))
-    expect(sql).toMatch(/PRAGMA user_version = 95;/)
-    expect(sql).not.toMatch(/\b(DROP|ALTER)\s+TABLE\b/i)
-    expect(sql).toMatch(/kind IN \('root', 'worktree', 'checkout', 'outside'\)/)
-  })
 })

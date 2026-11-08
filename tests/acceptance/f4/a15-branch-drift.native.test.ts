@@ -53,8 +53,12 @@ describe('A15 · branch drift', () => {
   })
 
   test('A15: the task\'s own commit on the same branch is not drift', async () => {
-    const { repo, f } = await touched({ taskFile: 'committed' })
-    expect(at((await f.manager.places(f.id)).places, repo).drift).toBeNull()
+    const { repo, base, f } = await touched({ taskFile: 'committed' })
+    const place = at((await f.manager.places(f.id)).places, repo)
+    expect(place.base?.commit).toBe(base)
+    expect(place.current?.commit).toBe(head(repo))
+    expect(place.current?.commit).not.toBe(base)
+    expect(place.drift).toBeNull()
     expect(drifts(f)).toHaveLength(0)
   })
 
@@ -74,7 +78,10 @@ describe('A15 · branch drift', () => {
     git(repo, 'switch', '-q', 'other')
     f.emit({ type: 'tool', id: 'sh-1', name: 'Bash', state: 'completed', detail: 'git switch other', exitCode: 0 })
     await complete(f)
-    expect(at((await f.manager.places(f.id)).places, repo).drift).toBeNull()
+    const place = at((await f.manager.places(f.id)).places, repo)
+    expect(place.current?.branch).toBe('other')
+    expect(place.base?.branch).toBe('main')
+    expect(place.drift).toBeNull()
   })
 
   test('A15: drift is seen at a turn\'s begin and end, without opening Changes', async () => {

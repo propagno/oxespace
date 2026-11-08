@@ -45,7 +45,10 @@ describe('A18 · the task\'s Terminal tab', () => {
 
   test('A18: a pane whose shell cd\'d out of the places leaves the tab; its launch folder no longer counts', async () => {
     const { tree, far, f } = await task()
-    f.panes.push({ paneId: 'p1', title: 'shell', workspaceId: 'A', launchDir: tree, shellCwd: far, agent: false })
+    const pane: { paneId: string; title: string; workspaceId: string; launchDir: string; shellCwd?: string; agent: boolean } = { paneId: 'p1', title: 'shell', workspaceId: 'A', launchDir: tree, agent: false }
+    f.panes.push(pane)
+    expect((await f.manager.panes(f.id)).map(entry => entry.paneId)).toEqual(['p1'])
+    pane.shellCwd = far
     expect(await f.manager.panes(f.id)).toEqual([])
   })
 

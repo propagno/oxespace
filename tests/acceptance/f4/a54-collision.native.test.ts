@@ -40,13 +40,21 @@ describe('A54 · collision warning', () => {
   })
 
   test('A54: a different checkout of the same repository does not collide', async () => {
-    const { f, first, second } = await two({ secondIn: 'worktree' })
+    const { repo, f, first, second } = await two({ secondIn: 'worktree' })
     expect(await f.manager.collisions(first)).toEqual([])
+    expect(await f.manager.collisions(second)).toEqual([])
+    // A third conversation in the main checkout collides with the first, and still not with the worktree one.
+    const third = f.create(repo)
+    await turn(f, 'Third', third, 2)
+    write(join(repo, 'src', 'x.ts'), 'x by three\n'); f.wrote([join(repo, 'src', 'x.ts')], { kind: 'update', adapter: 2 })
+    await complete(f, 2)
+    expect((await f.manager.collisions(first)).flatMap(collision => collision.others.map(other => other.conversationId))).toEqual([third])
     expect(await f.manager.collisions(second)).toEqual([])
   })
 
   test('A54: undoing the file clears both sides', async () => {
     const { repo, f, first, second } = await two()
+    expect(await f.manager.collisions(first)).toHaveLength(1)
     git(repo, 'checkout', '--', 'src/x.ts')
     expect(await f.manager.collisions(first)).toEqual([])
     expect(await f.manager.collisions(second)).toEqual([])
@@ -54,6 +62,7 @@ describe('A54 · collision warning', () => {
 
   test('A54: committing the file clears both sides', async () => {
     const { repo, f, first, second } = await two()
+    expect(await f.manager.collisions(second)).toHaveLength(1)
     git(repo, 'commit', '-qam', 'both')
     expect(await f.manager.collisions(first)).toEqual([])
     expect(await f.manager.collisions(second)).toEqual([])
@@ -70,6 +79,7 @@ describe('A54 · collision warning', () => {
 
   test('A54: an archived conversation no longer collides', async () => {
     const { f, first, second } = await two()
+    expect(await f.manager.collisions(first)).toHaveLength(1)
     // Archiving is the /archive command, as the sidebar and the MCP tool run it.
     await f.manager.command(second, '/archive confirm')
     expect(await f.manager.collisions(first)).toEqual([])

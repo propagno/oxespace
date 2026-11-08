@@ -51,9 +51,9 @@ describe('A62 · what the agent did', () => {
 
   test('A62: another conversation\'s rows and the person\'s own panes never count', () => {
     const db = database()
-    query(db, 'thread:t2'); call(db, 'pane:p-mine', 'api.dev.example')
+    query(db, 'thread:t2'); call(db, 'pane:p-mine', 'api.dev.example'); query(db, 'thread:t1')
     expect(threadAgentSummary({ activity: model(db), threadId: 't1', agentPaneIds: [], files: 0, events: [] })).toEqual({
-      files: 0, databases: 0, http: 0, httpProduction: 0, containers: 0, approvals: 0, failedSources: []
+      files: 0, databases: 1, http: 0, httpProduction: 0, containers: 0, approvals: 0, failedSources: []
     })
   })
 

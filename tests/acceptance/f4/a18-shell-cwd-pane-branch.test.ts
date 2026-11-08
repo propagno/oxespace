@@ -62,6 +62,8 @@ describe('A18 · shell cwd from OSC sequences', () => {
     expect(scanner.push(`${ESC}]633;P;Cwd=\\\\server\\share\\x${BEL}`)).toBeNull()
     expect(scanner.push(`${ESC}]1337;CurrentDir=${local}\u0000x${BEL}`)).toBeNull()
     expect(scanner.push(`${ESC}]1337;CurrentDir=${resolve(local)}${'a'.repeat(4100)}${BEL}`)).toBeNull()
+    // The same scanner still reads a valid value afterwards.
+    expect(scanner.push(`${ESC}]1337;CurrentDir=${local}${BEL}`)).toBe(resolve(local))
   })
 
   test('A18: an unterminated sequence never grows the pending buffer past its cap', () => {
@@ -111,6 +113,7 @@ describe('A18 · each pane\'s branch', () => {
     mkdirSync(join(plain, 'sub'))
     const tracker = new PaneBranchTracker()
     expect(await tracker.track('p2', join(plain, 'sub'))).toEqual({ branch: null, startedOn: null, switched: false })
+    expect(await tracker.track('p4', repo())).toEqual({ branch: 'main', startedOn: 'main', switched: false })
     const dir = repo()
     execFileSync('git', ['switch', '-q', '--detach'], { cwd: dir })
     expect(await tracker.track('p3', dir)).toEqual({ branch: null, startedOn: null, switched: false })

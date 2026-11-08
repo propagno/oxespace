@@ -139,6 +139,7 @@ describe('A16 · one path resolver', () => {
     write(join(dir, 'secret.txt'), 's\n')
     const result = await f.manager.resolvePath(f.id, '../../secret.txt')
     expect(result.kind).toBe('missing')
+    if (result.kind === 'missing') expect(result.looked.map(entry => entry.step)).toContain('turn-cwd')
   })
 
   test('A16: input is bounded: more than 4096 characters or a NUL is refused', async () => {
@@ -150,7 +151,7 @@ describe('A16 · one path resolver', () => {
   test('A16: resolving a path never creates a place', async () => {
     const { side, f } = await layout()
     const before = (await f.manager.places(f.id)).places.length
-    await f.manager.resolvePath(f.id, 'only-in-side.txt')
+    expect((await f.manager.resolvePath(f.id, 'only-in-side.txt')).kind).toBe('found')
     const after = await f.manager.places(f.id)
     expect(after.places).toHaveLength(before)
     expect(after.places.some(place => same(place.path, side))).toBe(false)

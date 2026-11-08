@@ -21,6 +21,19 @@ describe('A13 · places from evidence', () => {
     expect(THREAD_PLACE_LIMITS).toEqual({ places: 32, outside: 16 })
   })
 
+  test('A13: migration 095 gives the place tables, with the kinds checked, on a fresh database', () => {
+    const f = threadFixture(repository(sandbox()))
+    expect(f.db.pragma('user_version', { simple: true })).toBeGreaterThanOrEqual(95)
+    const tables = (f.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as Array<{ name: string }>).map(row => row.name)
+    expect(tables).toEqual(expect.arrayContaining(['thread_places', 'thread_place_writes', 'thread_turn_cwd']))
+    const insert = f.db.prepare("INSERT INTO thread_places (thread_id, id, kind, path, first_seen_at) VALUES (?, ?, ?, '/x', 1)")
+    expect(() => insert.run(f.id, 'bad', 'elsewhere')).toThrow()
+    insert.run(f.id, 'ok', 'outside')
+    // Places go with their conversation.
+    f.db.prepare('DELETE FROM conversation_threads WHERE id = ?').run(f.id)
+    expect(f.db.prepare('SELECT COUNT(*) AS n FROM thread_places').get()).toEqual({ n: 0 })
+  })
+
   test('A13: the root is a place even before any evidence; it is created lazily on the first read', async () => {
     const dir = sandbox()
     const repo = repository(dir)
@@ -69,12 +82,16 @@ describe('A13 · places from evidence', () => {
     const dir = sandbox()
     const repo = repository(dir)
     const other = repository(dir, 'other')
+    const third = repository(dir, 'third')
     const f = threadFixture(repo)
     await turn(f)
     f.said(`I changed ${join(other, 'a.txt')} and ${join(dir, 'elsewhere', 'b.md')}`)
+    f.wrote([join(third, 'a.txt')], { kind: 'update' })
     await complete(f)
     const { places, refused } = await f.manager.places(f.id)
-    expect(places.map(place => place.kind)).toEqual(['root'])
+    expect(places.map(place => place.kind).sort()).toEqual(['checkout', 'root'])
+    expect(places.some(place => same(place.path, third))).toBe(true)
+    expect(places.some(place => same(place.path, other))).toBe(false)
     expect(refused).toBe(0)
   })
 

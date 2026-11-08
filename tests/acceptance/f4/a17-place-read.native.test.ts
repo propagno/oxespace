@@ -51,7 +51,8 @@ describe('A17 · read-only files outside the repository', () => {
   })
 
   test('A17: fs:read-file still refuses the same path: nothing widens the workspace roots', async () => {
-    const { f, outside } = await outsidePlace()
+    const { f, outside, place } = await outsidePlace()
+    expect(await f.manager.readPlaceFile(f.id, place.id, 'ROTEIRO.md')).toMatchObject({ content: '# roteiro\n' })
     const fs = new FileSystemService(workspaceRootResolver(f.db))
     await expect(fs.readFile({ workspaceId: 'A', rootPath: outside, relativePath: 'ROTEIRO.md' })).rejects.toThrow()
   })
@@ -60,10 +61,14 @@ describe('A17 · read-only files outside the repository', () => {
     const dir = sandbox()
     const repo = repository(dir)
     const said = join(dir, 'said'); mkdirSync(said); write(join(said, 'x.md'), 'x\n')
+    const wrote = join(dir, 'wrote'); mkdirSync(wrote); write(join(wrote, 'y.md'), 'y\n')
     const f = threadFixture(repo)
     await turn(f)
     f.said(`See ${join(said, 'x.md')}`)
+    f.wrote([join(wrote, 'y.md')])
     await complete(f)
+    const real = at((await f.manager.places(f.id)).places, wrote)
+    expect(await f.manager.readPlaceFile(f.id, real.id, 'y.md')).toMatchObject({ content: 'y\n', readOnly: true })
     const resolution = await f.manager.resolvePath(f.id, join(said, 'x.md'))
     // The resolver may point at it for display, but there is no place behind it.
     if (resolution.kind === 'found') expect(resolution.placeId).toBeNull()
