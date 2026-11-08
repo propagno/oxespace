@@ -948,6 +948,19 @@ jobs:
       - name: Install dependencies without lifecycle scripts
         run: npm ci --ignore-scripts
 
+      - name: Electron version
+        id: electron
+        shell: bash
+        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # The live tests fetch the Electron zip through @electron/get; a release-download 504 failed both jobs on main
+      # 81a6bbac (run 42466635314). Same cache as unit, e2e and package.
+      - name: Cache the Electron download
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.os == 'Windows' && '~/AppData/Local/electron/Cache' || '~/.cache/electron' }}
+          key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
+
       - name: Build native modules for Node
         run: npm run rebuild:native:node
 
@@ -998,6 +1011,19 @@ jobs:
 
       - name: Install dependencies without lifecycle scripts
         run: npm ci --ignore-scripts
+
+      - name: Electron version
+        id: electron
+        shell: bash
+        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # The live tests fetch the Electron zip through @electron/get; a release-download 504 failed both jobs on main
+      # 81a6bbac (run 42466635314). Same cache as unit, e2e and package.
+      - name: Cache the Electron download
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.os == 'Windows' && '~/AppData/Local/electron/Cache' || '~/.cache/electron' }}
+          key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
 
       - name: Build native modules for Node
         run: npm run rebuild:native:node
