@@ -37,10 +37,10 @@ Cada fase termina com estes gates do repositório:
 
 **Requisitos:** R4, R2, R17
 **Critérios de aceite:** A10, A11, A12, A7, A58, A59
-**Escopo:**
+**Escopo:** Captura H1 e H2: painel de chamadas HTTP, aba Rede e a fonte http da atividade dos agentes; o selo R18; Settings (A58, A59).
 
 - O read model U12-be com `source` e a página única de atividade (U12).
-- O OxePost para agentes, T64: ferramenta, acesso por coleção, aprovação e auditoria, com revisão SECURITY.
+- H1, captura das chamadas HTTP dos agentes (A58, A59), e H2: painel de chamadas HTTP, aba Rede e a fonte `http`; o selo R18; com revisão SECURITY.
 - As páginas de Settings em U8, mais U9 e U10.
 
 ## Fase 4 — Worktrees, lugares por tarefa e Pull request (GitHub + Azure DevOps)
@@ -101,10 +101,10 @@ Junto entram T79 (cwd por OSC), T73 (branch por painel) e as lacunas do §6: pai
 
 **Requisitos:** R11
 **Critérios de aceite:** A32, A33, A34, A61, A64, A69
-**Escopo:**
+**Escopo:** Painéis no lugar dos modos (A34): painel de Containers (P1) e painel HTTP; fidelidade à 1.4 (A61, A64, A69).
 
 - OxeCode: laterais e NewWorkspaceModal idênticos à 1.4.1, cartões com painéis, divisão completa, presets 1–16, dock e A2.
-- OxeQuery (A5), OxePod (A3), OxePost (A4) e o primeiro uso (A1) com conexão de agente real.
+- OxeQuery (A5), os painéis de Containers (P1) e HTTP, sem modos (A34), e o primeiro uso (A1) com conexão de agente real.
 - A6 e A7.
 
 ## Fase 10 — Celular (OxeMobile)

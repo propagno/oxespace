@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "roadmap_ref": ".oxe/ROADMAP.md",
-  "active_phase": "F1",
+  "active_phase": "F2",
   "phases": [
     {
       "id": "F1",
@@ -24,14 +24,14 @@
         "A6"
       ],
       "scope": "- Fechar na main o que já está em voo: o pareamento (#594/#601 com #595), T87 (#597), T88/T89 (#602), FL-16 (#600), S7.1 (#441), C5 (#526) e a aba Agents (#521). Entram como tarefas com `blocked_by` externo.",
-      "status": "verifying",
-      "plan_ref": null,
+      "status": "closed",
+      "plan_ref": ".oxe/PLAN.md",
       "run_id": "oxe-run-mw28b0n9-3s0gda",
       "started_at": "2026-11-04T13:45:07.953Z",
-      "closed_at": null,
-      "closed_commit": null,
-      "regression_ref": null,
-      "interfaces_ref": null,
+      "closed_at": "2026-11-08T06:49:50.414Z",
+      "closed_commit": "828a7826aff775affd7c35272df68d2e6430e291",
+      "regression_ref": ".oxe/program/regression/F1.json",
+      "interfaces_ref": ".oxe/program/interfaces/F1.json",
       "base_commit": "c1223d2148ae8980be5b61a1e5a5442eea702952"
     },
     {
@@ -45,14 +45,15 @@
         "A57"
       ],
       "scope": "R0a-R0d (módulos neutros, exportação única, mover preview-automation, delegação sem memória/CodeGraph), depois R1-R15 em paralelo onde o escopo for disjunto; spikes B3 Tango, broker CDP, fork de sessão e onde o T74 grava",
-      "status": "pending",
+      "status": "planning",
       "plan_ref": null,
       "run_id": null,
-      "started_at": null,
+      "started_at": "2026-11-08T07:32:22.680Z",
       "closed_at": null,
       "closed_commit": null,
       "regression_ref": null,
-      "interfaces_ref": null
+      "interfaces_ref": null,
+      "base_commit": "ff053248bd827b21821fc4f22d63e23d59112d4d"
     },
     {
       "id": "F3",
@@ -70,7 +71,7 @@
         "A58",
         "A59"
       ],
-      "scope": "- O read model U12-be com `source` e a página única de atividade (U12).",
+      "scope": "Captura H1 e H2: painel de chamadas HTTP, aba Rede e a fonte http da atividade dos agentes; o selo R18; Settings (A58, A59).",
       "status": "pending",
       "plan_ref": null,
       "run_id": null,
@@ -219,7 +220,7 @@
         "A64",
         "A69"
       ],
-      "scope": "- OxeCode: laterais e NewWorkspaceModal idênticos à 1.4.1, cartões com painéis, divisão completa, presets 1–16, dock e A2.",
+      "scope": "Painéis no lugar dos modos (A34): painel de Containers (P1) e painel HTTP; fidelidade à 1.4 (A61, A64, A69).",
       "status": "pending",
       "plan_ref": null,
       "run_id": null,
@@ -284,5 +285,5 @@
     }
   ],
   "created_at": "2026-11-04T13:38:46.309Z",
-  "updated_at": "2026-11-08T06:17:54.466Z"
+  "updated_at": "2026-11-08T13:21:36.933Z"
 }
