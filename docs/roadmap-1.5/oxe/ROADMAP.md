@@ -46,7 +46,7 @@ Cada fase termina com estes gates do repositório:
 ## Fase 4 — Worktrees, lugares por tarefa e Pull request (GitHub + Azure DevOps)
 
 **Requisitos:** R5, R17
-**Critérios de aceite:** A13, A14, A15, A16, A17, A18, A54, A60
+**Critérios de aceite:** A13, A14, A15, A16, A17, A18, A54, A60, A62, A63
 **Escopo:** T72 PR1–PR4 conforme o CCR #580:
 
 - modelo de lugares e base por lugar;
@@ -100,7 +100,7 @@ Junto entram T79 (cwd por OSC), T73 (branch por painel) e as lacunas do §6: pai
 ## Fase 9 — Painéis e fidelidade à 1.4
 
 **Requisitos:** R11
-**Critérios de aceite:** A32, A33, A34
+**Critérios de aceite:** A32, A33, A34, A61, A64, A69
 **Escopo:**
 
 - OxeCode: laterais e NewWorkspaceModal idênticos à 1.4.1, cartões com painéis, divisão completa, presets 1–16, dock e A2.
@@ -110,7 +110,7 @@ Junto entram T79 (cwd por OSC), T73 (branch por painel) e as lacunas do §6: pai
 ## Fase 10 — Celular (OxeMobile)
 
 **Requisitos:** R14
-**Critérios de aceite:** A42, A43, A44, A45, A46, A47
+**Critérios de aceite:** A42, A43, A44, A45, A46, A47, A67
 **Escopo:**
 
 - As telas do celular no design aprovado (#627), mantendo as regras de segurança da 1.4.
@@ -121,8 +121,8 @@ Junto entram T79 (cwd por OSC), T73 (branch por painel) e as lacunas do §6: pai
 
 ## Fase 11 — Endurecimento e release
 
-**Requisitos:** R13
-**Critérios de aceite:** A37, A38, A39, A40, A41, A3
+**Requisitos:** R13, R17
+**Critérios de aceite:** A37, A38, A39, A40, A41, A3, A65, A66, A68
 **Escopo:**
 
 - xterm 6 com os addons e o bench; vite 8 só se houver suporte oficial.
