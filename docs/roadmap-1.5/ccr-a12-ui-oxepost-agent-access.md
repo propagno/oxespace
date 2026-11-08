@@ -38,8 +38,10 @@ OxePost settings", over the person-only `oxePost.call` ops `agentAccessList`, `a
   the warning state, and agents get no access to that folder (main's rule). A grant OXESpace dropped because the folder
   was deleted, recreated or renamed shows in Agent activity as "Access removed: the folder changed" (A11).
 
-- **The environment agents use** (DESIGN gap 1; #653 `environmentId`). Under the choices, a select "Environment agents
-  use", defaulting to the active environment. When `no-environment` applies, a warning Notice says "The environment
+- **The environment agents use** (DESIGN gap 1; #653 `environmentId`). Under the choices, a native select (ui `Select`)
+  labelled "Environment agents use". It shows the grant's `environmentId`; with none, it defaults to the active
+  environment **only when that one isn't production** (HML-654-2). Otherwise it starts empty and a choice above No
+  access needs one. When `no-environment` applies, a warning Notice says "The environment
   agents used was removed; pick another" (pt-BR "O ambiente usado pelos agentes foi removido; escolha outro"), and
   the select takes focus.
 - **What the person agrees to** (DESIGN gap 2; #653 §2b). Below the choices: "Agents can reach:" (pt-BR "Agentes
@@ -50,6 +52,17 @@ OxePost settings", over the person-only `oxePost.call` ops `agentAccessList`, `a
   this folder was recreated (for example by a branch switch). Allow it again in OxePost."), the choices start at No
   access, and the folder has no badge (one alert).
 - Widening keeps its Undo (DESIGN confirmed: the same rule as A7's R5).
+
+**The renderer contract** (frozen by the dialog test, §5). BACKEND's PR 2 returns these shapes from `oxePost.call`:
+- `agentAccessList({})` → `{ collections: Row[], ceilings: { ordinary: Access, production: Access } }`, where
+  `Row = { collection, access: 'off' | 'read' | 'write', environmentId: string | null, changed: boolean,
+  lastEvent: 'set' | 'confirm' | 'dropped' | null, origins: string[] }` (origins from the grant's `origins_json`).
+- `agentAccessSet({ collection, access, environmentId })` and `agentAccessConfirm({ collection })` → the updated `Row`.
+
+The components, in `src/components/OxePost/AgentAccessDialog.tsx`:
+- `AgentAccessDialog({ collection, environments, activeEnvironmentId, onClose })`. `environments` is the `list` op's
+  `PostEnvironmentView[]`; the dialog reads its own row through `agentAccessList` when it opens.
+- `AgentAccessBadge({ access, changed })`, which renders nothing for `off`.
 
 ## 3. The badge
 
@@ -72,8 +85,8 @@ since you allowed it" (pt-BR "Agentes: pausado — mudou desde que você permiti
 
 1. **Mask:** an `oxepost` approval whose text holds `[secret:API_KEY]` shows `•••• (API_KEY)` in the agent block and
    never the bracket form. The marker is `data-secret="API_KEY"`, and the stored request text still holds
-   `[secret:API_KEY]`, and the marker's accessible name is "secret API_KEY, hidden". **Red:** the card draws the text
-   as is.
+   `[secret:API_KEY]`, and the marker's accessible name is "secret API_KEY, hidden" (pt-BR "segredo API_KEY, oculto",
+   HML-654-4). **Red:** the card draws the text as is.
 2. **Only OxePost:** an `action` approval with the same text shows it as written.
 3. **Ops:** the OxePost renderer calls `agentAccessList`, `agentAccessSet`, `agentAccessConfirm` and `agentCeilingSet`, and nothing in
    `src/` passes an agent-access op to anything but `oxePost.call`. **Red:** none exists yet.
@@ -82,8 +95,21 @@ since you allowed it" (pt-BR "Agentes: pausado — mudou desde que você permiti
    você permitiu" / "Confirmar acesso"), "Agents can reach:", the `no-environment` line, the `access-dropped` line
    (#653's wording, in the `post` or `main` catalog), and the paused badge name. **Red:** not there yet.
 
-Behavior beyond this (the dialog's disabled choices, the Undo on widening, the badge) is checked by the e2e the
-executor writes, `e2e/oxepost-agent-access*.spec.ts`.
+`tests/acceptance/f2/a12-ui-agent-access-dialog.test.tsx` renders the dialog and the badge against a fake
+`oxePost.call` with the ops above (HML-654-1):
+
+5. **(e)** "Agents can reach:" and the grant's origins are on screen before any choice.
+6. **(a)** With production active, the select doesn't preselect it. Choosing production disables "Read and write" and
+   shows "Agents can never send changes to a production environment."
+7. **(b)** Read and write calls `agentAccessSet` with the chosen environment, a toast offers Undo, and Undo calls
+   `agentAccessSet` with `off`.
+8. **(c)** `changed: true` shows the "Changed since you allowed it" Notice, and its Confirm access calls
+   `agentAccessConfirm`.
+9. **(d)** `lastEvent: 'dropped'` shows the access-dropped line and starts at No access.
+10. **Badge:** "Agents: paused — changed since you allowed it" when changed; "Agents: read and write"; nothing for off.
+
+**Red today:** the whole file, as `AgentAccessDialog.tsx` doesn't exist yet. The e2e the executor writes
+(`e2e/oxepost-agent-access*.spec.ts`) adds the real tree and the approval card in pt-BR.
 
 ## 6. Questions for review
 

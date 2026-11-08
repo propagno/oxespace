@@ -9,6 +9,7 @@ import { installApprovalsMock, type ApprovalsMockHook, type MockRequestInput } f
 import { resetApprovalsBoot } from '../../../src/components/Approvals/approvalsBoot'
 import { useApprovalsStore } from '../../../src/components/Approvals/approvals.store'
 import { ApprovalCenter } from '../../../src/components/Approvals/ApprovalCenter'
+import { changeLanguage } from '../../../src/i18n'
 
 const ROOT = join(__dirname, '..', '..', '..')
 const read = (path: string): string => readFileSync(join(ROOT, path), 'utf8')
@@ -47,6 +48,14 @@ describe('A12 PR 3 · the approval card masks a secret as •••• (NAME)', 
     const box = await show({ id: 'act-1', kind: 'action', risk: 'low', agentText: TEXT })
     expect(box.textContent).toContain('[secret:API_KEY]')
     expect(box.querySelector('[data-secret]')).toBeNull()
+  })
+
+  it('the marker is spoken in the interface language (pt-BR: "segredo API_KEY, oculto")', async () => {
+    await changeLanguage('pt-BR')
+    try {
+      await show({ id: 'post-2', kind: 'oxepost' as never, risk: 'low', agentText: TEXT })
+      expect(screen.getByLabelText('segredo API_KEY, oculto')).toBeInTheDocument()
+    } finally { await changeLanguage('en') }
   })
 })
 
