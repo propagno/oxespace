@@ -33,7 +33,7 @@ const keys = (items: Array<{ kind: string; id: string }> | undefined) => (items 
 
 describe('CR-34 · the agents topic keeps a hidden pane off the phone', () => {
   test('CR-34: a hidden pane\'s row is not in the snapshot; the other pane and the conversation are', () => {
-    const { frames, handle } = open(() => [row({ id: 'p1' }), row({ id: 'p2', title: 'Shell' }), row({ kind: 'thread', id: 't1', mode: 'thread' })], new Set(['p1']))
+    const { frames, handle } = open(() => [row({ id: 'p1' }), row({ id: 'p2', title: 'Shell' }), row({ kind: 'thread', id: 't1', mode: 'thread', title: 'Chat' })], new Set(['p1']))
     const snapshot = frames[0].data as RemoteAgentsSnapshot
     expect(keys(snapshot.rows)).toEqual(['pane:p2', 'thread:t1'])
     expect(JSON.stringify(snapshot)).not.toContain('Build')
