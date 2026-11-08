@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { openInMemoryDatabase, type AppDatabase } from '../../../electron/main/db/index'
-import { exportRemovedFeatures, markRemovedFeaturesNoticeShown, removedFeaturesState } from '../../../electron/main/services/data-export/removed-features-export'
+import { FIRST_1_5_0_DB_VERSION, exportRemovedFeatures, markRemovedFeaturesNoticeShown, removedFeaturesState } from '../../../electron/main/services/data-export/removed-features-export'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 
 const SECRET = 'SECRET-VALUE-never-exported-123'
@@ -137,8 +137,25 @@ describe('R0b · the one-time export of the removed features\' data', () => {
     expect(first.path).not.toBe(again.path)
   })
 
-  test('the IPC channels for FE-R0b: state, markNoticeShown and exportAgain', () => {
-    expect(IPC_CHANNELS.dataExport).toEqual({ state: 'data-export:state', markNoticeShown: 'data-export:mark-notice-shown', exportAgain: 'data-export:export-again' })
+  test('the IPC channels for FE-R0b: state, markNoticeShown, exportAgain, open and reveal', () => {
+    expect(IPC_CHANNELS.dataExport).toEqual({
+      state: 'data-export:state', markNoticeShown: 'data-export:mark-notice-shown', exportAgain: 'data-export:export-again',
+      open: 'data-export:open', reveal: 'data-export:reveal'
+    })
+  })
+
+  test('FE-R0b\'s upgrade flag: true for a 1.4 database (version 1–91 before the first 1.5.0 start), false for a fresh install, and it sticks', async () => {
+    expect(FIRST_1_5_0_DB_VERSION).toBe(92)
+    const upgraded = { db, userData, workspaceRoots: () => [root] }
+    await exportRemovedFeatures({ ...upgraded, previousDbVersion: 91, now: () => 100 })
+    expect(removedFeaturesState(upgraded).upgrade).toBe(true)
+    // A later start, after the migrations ran, still reports the upgrade until the person dismissed it.
+    await exportRemovedFeatures({ ...upgraded, previousDbVersion: 93, now: () => 110 })
+    expect(removedFeaturesState(upgraded).upgrade).toBe(true)
+
+    const fresh = join(base, 'fresh-userData'); mkdirSync(fresh)
+    await exportRemovedFeatures({ db, userData: fresh, workspaceRoots: () => [], previousDbVersion: 0, now: () => 120 })
+    expect(removedFeaturesState({ db, userData: fresh, workspaceRoots: () => [] }).upgrade).toBe(false)
   })
 
   test('with nothing to save, no file is written, the state says so, and it is not retried', async () => {

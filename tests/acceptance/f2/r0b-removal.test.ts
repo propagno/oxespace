@@ -28,7 +28,7 @@ const APP = sources(['electron', 'src', 'shared', 'resources'], GONE)
 
 describe("R0b · One-time export of the removed features' data to <userData>/exports/1.5-removed-<ts>.json, plus the Settings › Data button", () => {
   test("R0b: the moved or new modules exist and export their names", () => {
-    const modules: Record<string, string[]> = {"electron/main/services/data-export/removed-features-export.ts":["exportRemovedFeatures","removedFeaturesState","markRemovedFeaturesNoticeShown"]}
+    const modules: Record<string, string[]> = {"electron/main/services/data-export/removed-features-export.ts":["exportRemovedFeatures","removedFeaturesState","markRemovedFeaturesNoticeShown","FIRST_1_5_0_DB_VERSION"]}
     for (const [path, names] of Object.entries(modules)) {
       expect(existsSync(join(ROOT, path)), path).toBe(true)
       const text = read(path)
