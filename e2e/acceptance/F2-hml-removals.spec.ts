@@ -55,7 +55,8 @@ async function menuLabels(page: Page): Promise<string[]> {
 }
 
 test.describe('F2 · (c) no removed feature is left behind in the interface', () => {
-  test('the mode switch lists OxeCode, OxeChat and OxeQuery, and the old OxePod/OxePost chords do nothing', async ({}, info) => {
+  test('the mode switch lists OxeCode, OxeChat and OxeQuery, and the old OxePod/OxePost chords do nothing', async () => {
+    const info = test.info()
     test.setTimeout(150_000)
     const profile = realProfile('hml-f2-modes')
     const { app, page } = await launchReal(profile)
@@ -76,7 +77,8 @@ test.describe('F2 · (c) no removed feature is left behind in the interface', ()
   })
 
   for (const locale of ['en-US', 'pt-BR']) {
-    test(`menus, palette, Settings, tools, Keyboard and the terminal menu name no removed feature · ${locale}`, async ({}, info) => {
+    test(`menus, palette, Settings, tools, Keyboard and the terminal menu name no removed feature · ${locale}`, async () => {
+    const info = test.info()
       test.setTimeout(240_000)
       const profile = realProfile(`hml-f2-labels-${locale}`, { OXESPACE_LOCALE: locale })
       const { app, page } = await launchReal(profile)
@@ -158,7 +160,8 @@ test.describe('F2 · (c) no removed feature is left behind in the interface', ()
 })
 
 test.describe('F2 · (a) what people still need has a home', () => {
-  test('files open read-only with Open in editor, and no Save; Ctrl+S changes nothing on disk', async ({}, info) => {
+  test('files open read-only with Open in editor, and no Save; Ctrl+S changes nothing on disk', async () => {
+    const info = test.info()
     test.setTimeout(150_000)
     const profile = realProfile('hml-f2-viewer')
     mkdirSync(join(profile.repo, 'src'), { recursive: true })
@@ -183,7 +186,8 @@ test.describe('F2 · (a) what people still need has a home', () => {
     } finally { flush(info, 'f2-viewer'); await quitReal(app) }
   })
 
-  test('/work in a conversation opens Delegated work', async ({}, info) => {
+  test('/work in a conversation opens Delegated work', async () => {
+    const info = test.info()
     test.setTimeout(150_000)
     const profile = realProfile('hml-f2-work')
     const { app, page } = await launchReal(profile)
@@ -201,7 +205,8 @@ test.describe('F2 · (a) what people still need has a home', () => {
       await page.screenshot({ path: info.outputPath('f2-work.png') })
     } finally { flush(info, 'f2-work'); await quitReal(app) }
   })
-  test('R12 skills stay: a read-only list in Settings › Tools, and Ctrl+/ still lists and runs them', async ({}, info) => {
+  test('R12 skills stay: a read-only list in Settings › Tools, and Ctrl+/ still lists and runs them', async () => {
+    const info = test.info()
     test.setTimeout(150_000)
     const profile = realProfile('hml-f2-skills')
     mkdirSync(join(profile.repo, '.oxe', 'skills'), { recursive: true })
@@ -235,7 +240,8 @@ test.describe('F2 · (a) what people still need has a home', () => {
 })
 
 test.describe('F2 · (b) removed features\' data', () => {
-  test('a fresh install never shows the "what changed" band, and Settings › Data says nothing needed saving', async ({}, info) => {
+  test('a fresh install never shows the "what changed" band, and Settings › Data says nothing needed saving', async () => {
+    const info = test.info()
     test.setTimeout(150_000)
     const profile = realProfile('hml-f2-fresh')
     const { app, page } = await launchReal(profile)

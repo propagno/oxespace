@@ -1,0 +1,125 @@
+name: Acceptance with containers
+run-name: Acceptance with containers · ${{ inputs.product_ref || github.head_ref || github.ref_name }}
+
+# HML · 1.5.0 F2 R15 + G5 (TECH LEAD 08/11): with the OxePod mode gone, OxeQuery still connects to a database
+# container. A Linux runner has Docker: the job starts postgres bound to 127.0.0.1 with a generated password, then runs
+# e2e/acceptance/R15-oxequery-container.spec.ts on the real app (no e2e doubles). No account, no paid run.
+#
+# Like the visual job it doesn't run on every push: on demand, and on a pull request that touches the container or
+# OxeQuery paths. It never publishes anything and has read-only permissions.
+
+on:
+  workflow_dispatch:
+    inputs:
+      product_ref:
+        description: Branch or tag to test (empty = "Use workflow from")
+        required: false
+        type: string
+  pull_request:
+    paths:
+      - electron/main/services/oxepod/**
+      - electron/main/ipc/oxepod*
+      - shared/types/oxepod.ts
+      - src/components/OxeQuery/**
+      - src/components/OxePod/**
+      - e2e/acceptance/R15-oxequery-container.spec.ts
+      - .github/workflows/acceptance-containers.yml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  postgres:
+    name: OxeQuery from a postgres container (linux)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.product_ref || github.ref }}
+          persist-credentials: false
+
+      - name: Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          package-manager-cache: false
+
+      - name: Linux system dependencies
+        run: |
+          sudo apt-get update
+          alsa=libasound2t64; apt-cache show "$alsa" >/dev/null 2>&1 || alsa=libasound2
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" \
+            libxshmfence1 libnotify4
+
+      - name: Start postgres bound to 127.0.0.1
+        id: pg
+        shell: bash
+        run: |
+          set -euo pipefail
+          password="$(openssl rand -hex 16)"
+          echo "::add-mask::$password"
+          name=hml-r15-pg
+          docker run -d --name "$name" -e POSTGRES_PASSWORD="$password" -p 127.0.0.1::5432 postgres:16-alpine >/dev/null
+          port="$(docker port "$name" 5432/tcp | head -1 | sed 's/.*://')"
+          for i in $(seq 1 60); do docker exec "$name" pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done
+          docker exec "$name" pg_isready -U postgres
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+          echo "password=$password" >> "$GITHUB_OUTPUT"
+          echo "postgres $name on 127.0.0.1:$port"
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Electron version
+        id: electron
+        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the Electron download
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/electron
+          key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
+
+      - name: Install the pinned Electron runtime
+        run: npm rebuild electron
+
+      - name: Build the app under test
+        run: npm run build
+
+      - name: Prepare native modules for Electron
+        run: npm run fix:native
+
+      - name: No live OXESpace env reaches the run
+        shell: bash
+        run: |
+          if env | cut -d= -f1 | grep -Ei '^(OXESPACE_(MCP_|EXECUTION_|AGENT_HOOK_|WORKSPACE_ID$|MEMORY_RUN(_ID)?$|PANE_BRIDGE$)|AI_MEMORY_)'; then
+            echo "::error::live OXESpace variables are set on the runner"; exit 1
+          fi
+
+      - name: Run the spec
+        shell: bash
+        env:
+          HML_PG_CONTAINER: ${{ steps.pg.outputs.name }}
+          HML_PG_PORT: ${{ steps.pg.outputs.port }}
+          HML_PG_PASSWORD: ${{ steps.pg.outputs.password }}
+        run: bash scripts/run-with-xvfb.sh npx playwright test -c playwright.acceptance.config.ts e2e/acceptance/R15-oxequery-container.spec.ts --trace retain-on-failure
+
+      - name: Container log
+        if: always()
+        run: docker logs hml-r15-pg 2>&1 | tail -40 || true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: acceptance-containers-${{ github.run_id }}
+          if-no-files-found: ignore
+          retention-days: 7
+          path: test-results/
