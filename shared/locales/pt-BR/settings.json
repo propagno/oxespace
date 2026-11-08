@@ -717,7 +717,8 @@
         "terminal": "Ver a saída dos terminais (só leitura)",
         "jobs": "Ver tarefas em segundo plano",
         "delegations": "Ver delegações",
-        "agents": "Ver todos os agentes e o que precisa de você"
+        "agents": "Ver todos os agentes e o que precisa de você",
+        "paneConversation": "Ler a conversa de um agente no terminal (só leitura)"
       },
       "commands": {
         "threadSend": "Enviar uma mensagem a uma conversa",
@@ -726,7 +727,8 @@
         "threadRespondRequest": "Aceitar ou recusar um pedido de conversa, depois de confirmar no celular com digital ou rosto",
         "terminalWrite": "Digitar em um terminal que você permitiu aqui",
         "threadHistory": "Ler mensagens mais antigas",
-        "agentMarkSeen": "Marcar um agente como visto"
+        "agentMarkSeen": "Marcar um agente como visto",
+        "paneConversation": "Ler mensagens mais antigas de um agente no terminal"
       },
       "forbidden": {
         "oxequeryApprove": "Aprovar mudanças do OxeQuery",
