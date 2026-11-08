@@ -191,7 +191,7 @@ test('A40 install 1.5.0 over it: the band, the dialog and the export', async () 
     expect.soft(await page.locator('button[data-app-mode]').evaluateAll(b => b.map(x => x.getAttribute('data-app-mode'))), 'three modes').toEqual(['code', 'thread', 'data'])
     if (process.env.OXESPACE_EXPECT_VERSION) expect.soft(result.version, 'the candidate is installed').toBe(process.env.OXESPACE_EXPECT_VERSION)
     // The export runs after the window shows: give it time, as a person would read the screen.
-    await expect.poll(async () => (await exportState(page))?.file ?? (await exportState(page))?.error ?? null, { timeout: 60_000, message: 'the export ran' }).not.toBeNull()
+    await expect.poll(async () => (await exportState(page))?.file ?? (await exportState(page))?.error ?? null, { timeout: 60_000, message: 'the export ran' }).not.toBeNull().catch((e: unknown) => { result.exportRan = String(e).slice(0, 200); expect.soft(false, 'the export ran').toBe(true) })
     const state = await exportState(page)
     result.state = state && { ...state, file: state.file ? state.file.split(/[\\/]/).pop() : null }
     expect.soft(state?.upgrade, 'an upgrade from 1.4.3 is recognised').toBe(true)
@@ -250,7 +250,8 @@ test('A40 install 1.5.0 over it: the band, the dialog and the export', async () 
     // Dismiss: the band goes and the choice is kept.
     await band(page).getByRole('button', { name: 'Dismiss' }).click({ timeout: 10_000 }).catch(() => undefined)
     await expect.soft(band(page), 'Dismiss hides the band').toHaveCount(0, { timeout: 5_000 })
-    await expect.poll(async () => (await exportState(page))?.shownNotice, { timeout: 10_000, message: 'the dismissal is remembered' }).toBe(true)
+    // Soft, like the rest of the window checks: a missing band must not stop the export-file checks below.
+    await expect.poll(async () => (await exportState(page))?.shownNotice, { timeout: 10_000, message: 'the dismissal is remembered' }).toBe(true).catch((e: unknown) => { result.dismissal = String(e).slice(0, 200); expect.soft(false, 'the dismissal is remembered').toBe(true) })
     result.automationsInUi = await page.getByText(MARK.automationName).count()
     expect.soft(result.automationsInUi, 'the removed automation is not shown anywhere').toBe(0)
   } finally { await close(app) }
