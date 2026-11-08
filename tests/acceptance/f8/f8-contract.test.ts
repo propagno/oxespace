@@ -7,6 +7,7 @@ import { branchNameFor } from '../../../shared/branch-name'
 import { createOxeApi, type PreloadIpc } from '../../../electron/preload/api'
 import { MESSAGE_CODES } from '../../../shared/messages'
 import { MCP_COVERAGE } from '../../../shared/mcp-coverage'
+import { REMOTE_COMMANDS } from '../../../shared/remote/protocol'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 
 const claims = (key: string) => Object.values(MCP_COVERAGE).filter(capability => capability.ipc?.includes(key) || capability.ipc?.includes(`${key.split('.')[0]}.*`))
@@ -43,6 +44,20 @@ describe('F8 · contract', () => {
   })
 
   test('A30: the C3 codes for branching', () => {
-    for (const code of ['thread.branch.unsupported', 'thread.branch.checkpointGone', 'thread.branch.checkpointFailed', 'thread.branch.exists']) expect(MESSAGE_CODES as readonly string[], code).toContain(code)
+    for (const code of ['thread.branch.unsupported', 'thread.branch.checkpointGone', 'thread.branch.checkpointFailed', 'thread.branch.exists',
+      'thread.branch.pathExists', 'thread.branch.baseGone', 'thread.branch.notGit', 'thread.branch.sessionGone', 'thread.branch.failed',
+      ]) expect(MESSAGE_CODES as readonly string[], code).toContain(code)
+  })
+
+  test('A30 (SECURITY): Restore and Branch are a person\'s: forbidden to agents over MCP, and never a phone command', () => {
+    // The path is live: these channels exist, and the phone does have commands.
+    expect(IPC_CHANNELS.thread).toMatchObject({ rewind: 'thread:rewind', redoRewind: 'thread:redo-rewind' })
+    expect(REMOTE_COMMANDS.length).toBeGreaterThan(0)
+    for (const key of ['thread.rewind', 'thread.redoRewind', 'thread.branchFromCheckpoint']) {
+      const claimed = claims(key)
+      expect(claimed, key).toHaveLength(1)
+      expect(claimed[0], key).toHaveProperty('forbidden')
+      expect(REMOTE_COMMANDS as readonly string[], key).not.toContain(key)
+    }
   })
 })
