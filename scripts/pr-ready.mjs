@@ -21,11 +21,16 @@
  * is needed and it does not fit in this machine's memory. pr:ready then takes the PR's own CI as the evidence: both
  * "Unit and integration tests" jobs must have passed on this exact head. --full runs it locally instead.
  *
+ * A checkout with no node_modules (a worktree that shares none) cannot run eslint or tsc. There, and only there, lint and
+ * typecheck are proven by the PR's CI "Quick checks" job, completed with success on this exact head; the marker then
+ * records `lint: "ci:<run id>"` (TECH LEAD, 08/11). A checkout that has node_modules always runs them locally, even
+ * when they fail for a missing package or config.
+ *
  * The marker vouches for HEAD, so the working tree must be clean: an uncommitted change would be checked but not
  * pushed. The live app's OXESPACE_* and AI_MEMORY_* variables are dropped from every check's environment.
  */
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { changedFiles, planRelatedTests } from './related-tests.mjs'
@@ -37,6 +42,14 @@ export const ANDROID_GENERATED_TEST = 'tests/android-generated.test.ts'
 const ANDROID_INPUTS = [/^shared\/remote\/protocol\.ts$/, /^src\/design\/tokens\//, /^shared\/locales\/[^/]+\/mobile\.json$/, /^scripts\/android\//]
 /** The CI jobs that stand for the whole suite on a head. */
 export const CI_UNIT_JOBS = ['Unit and integration tests (linux-x64)', 'Unit and integration tests (windows-x64)']
+/**
+ * Whether npm installed this checkout's dependencies: npm writes node_modules/.package-lock.json on every install. A
+ * node_modules folder holding only a tool's cache (.vite) is not an install.
+ */
+export const npmInstalled = (root, exists = existsSync) => exists(join(root, 'node_modules', '.package-lock.json'))
+
+/** The CI job that runs `npm run typecheck` and `npm run lint` (ci.yml quick). */
+export const CI_LINT_JOB = 'Quick checks (linux-x64)'
 export const WORKERS = '--maxWorkers=2'
 
 /**
@@ -68,17 +81,19 @@ export function visualPlatforms(files) {
   return [...new Set(files.map(file => VISUAL_BASELINE.exec(file)?.[1]).filter(Boolean).map(dir => (dir === 'win32' ? 'windows' : dir)))].sort()
 }
 
-export function buildSteps({ files, related, base = 'origin/main', full = false }) {
+export function buildSteps({ files, related, base = 'origin/main', full = false, nodeModules = true }) {
   const kind = classifyChange(files)
   if (kind === 'images') {
     const platforms = visualPlatforms(files)
     return [{ name: `visual-baselines.yml green on this head (${platforms.join(', ')})`, kind: 'visual', args: platforms }]
   }
   if (kind === 'packages') return [{ name: 'packages only: the PR\'s CI unit jobs on this head', kind: 'ci', args: CI_UNIT_JOBS }]
-  const steps = [
-    { name: 'lint (file sizes, eslint)', kind: 'npm', args: ['lint'] },
-    { name: 'typecheck', kind: 'npm', args: ['typecheck'] }
-  ]
+  const steps = nodeModules
+    ? [
+        { name: 'lint (file sizes, eslint)', kind: 'npm', args: ['lint'] },
+        { name: 'typecheck', kind: 'npm', args: ['typecheck'] }
+      ]
+    : [{ name: `lint and typecheck: the PR's CI "${CI_LINT_JOB}" on this head (no local node_modules)`, kind: 'ci-lint', args: [CI_LINT_JOB] }]
   if (related.all) {
     steps.push(full
       ? { name: 'whole vitest suite (--full)', kind: 'vitest', args: [WORKERS] }
@@ -146,8 +161,8 @@ export function visualEvidence(runs, platforms, sha) {
  * The marker's content: how the head was proven, and the runs that prove it. `evidence`: 'local' (the checks ran
  * here), 'ci' (the PR's CI unit jobs) or 'images' (visual-baselines.yml). `runs`: the Actions run ids, for ci and images.
  */
-export function markerContent({ sha, at, base, steps, evidence = 'local', runs = [] }) {
-  return { ok: true, sha, at, evidence, runs, base, steps }
+export function markerContent({ sha, at, base, steps, evidence = 'local', runs = [], lint = null }) {
+  return { ok: true, sha, at, evidence, runs, base, steps, ...(lint ? { lint } : {}) }
 }
 
 /** The marker the gate reads: <main checkout>/.claude/pr-ready/<sha>.json. `commonDir` is git's common dir. */
@@ -219,11 +234,29 @@ export function withNetworkRetry(run, { tries = 5, wait = 3000, sleep = ms => At
 const gh = args => withNetworkRetry(() => execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] }), { log: line => console.log(`  ${line}`) })
 const readFailed = (what, sha, error) => ({ ok: false, detail: `could not read ${what} for ${sha.slice(0, 8)} (no marker written; run pr:ready again): ${String(error.stderr || error.message || error).split('\n')[0]}` })
 
+function checkRunsOf(sha) {
+  const repo = gh(['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner']).trim()
+  return JSON.parse(gh(['api', '--paginate', '--slurp', `repos/${repo}/commits/${sha}/check-runs?per_page=100`])).flatMap(page => page.check_runs ?? [])
+}
+
+/** Lint and typecheck from CI, for a checkout with no node_modules: the Quick checks job on this exact head. */
+function ciLintStep(step, sha) {
+  let checkRuns
+  try {
+    checkRuns = checkRunsOf(sha)
+  } catch (error) {
+    return readFailed('CI', sha, error)
+  }
+  const evidence = ciEvidence(checkRuns, step.args, sha)
+  return evidence.ok
+    ? { ok: true, lint: `ci:${evidence.runs[0]}`, detail: `${CI_LINT_JOB} green on ${sha.slice(0, 8)}: run ${evidence.runs[0]}` }
+    : { ok: false, detail: `${evidence.missing.join('; ')}. Push and wait for CI, or run pr:ready where node_modules is installed` }
+}
+
 function ciStep(step, sha) {
   let checkRuns
   try {
-    const repo = gh(['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner']).trim()
-    checkRuns = JSON.parse(gh(['api', '--paginate', '--slurp', `repos/${repo}/commits/${sha}/check-runs?per_page=100`])).flatMap(page => page.check_runs ?? [])
+    checkRuns = checkRunsOf(sha)
   } catch (error) {
     return readFailed('CI', sha, error)
   }
@@ -259,7 +292,8 @@ function main(argv) {
   const marker = markerPath(isAbsolute(commonDir) ? commonDir : resolve(commonDir), sha)
   const files = changedFiles(options.base)
   const related = planRelatedTests(files)
-  const steps = buildSteps({ files, related, base: options.base, full: options.full })
+  const nodeModules = npmInstalled(git(['rev-parse', '--show-toplevel']))
+  const steps = buildSteps({ files, related, base: options.base, full: options.full, nodeModules })
 
   console.log(`pr:ready for ${sha.slice(0, 8)} (${files.length} file(s) changed since ${options.base}):`)
   for (const step of steps) console.log(`  - ${step.name}${step.kind === 'vitest' ? `: ${step.args.join(' ')}` : ''}`)
@@ -272,7 +306,7 @@ function main(argv) {
   const results = []
   for (const step of steps) {
     console.log(`\n=== pr:ready: ${step.name}`)
-    const result = step.kind === 'ci' ? ciStep(step, sha) : step.kind === 'visual' ? visualStep(step, sha) : runStep(step, env)
+    const result = step.kind === 'ci' ? ciStep(step, sha) : step.kind === 'ci-lint' ? ciLintStep(step, sha) : step.kind === 'visual' ? visualStep(step, sha) : runStep(step, env)
     results.push({ name: step.name, ...result })
     if (!result.ok) break
   }
@@ -286,7 +320,7 @@ function main(argv) {
   // A GitHub step, when there is one, is the last step: its conclusions were read just now, never cached.
   const proof = results.find(result => result.evidence)
   mkdirSync(dirname(marker), { recursive: true })
-  const content = markerContent({ sha, at: new Date().toISOString(), base: options.base, steps: results.map(r => r.name), evidence: proof?.evidence ?? 'local', runs: proof?.runs ?? [] })
+  const content = markerContent({ sha, at: new Date().toISOString(), base: options.base, steps: results.map(r => r.name), evidence: proof?.evidence ?? 'local', runs: proof?.runs ?? [], lint: results.find(result => result.lint)?.lint })
   writeFileSync(marker, `${JSON.stringify(content, null, 2)}\n`)
   console.log(`pr:ready OK for ${sha.slice(0, 8)}: wrote ${marker}`)
   // The same verdict where GitHub (and the merge train) can read it: a `pr:ready` commit status on this exact sha.
@@ -301,7 +335,7 @@ export const STATUS_CONTEXT = 'pr:ready'
 /** The status body for a marker: success, the evidence kind and its runs in the description (GitHub caps it at 140). */
 export function statusBody(content, repo) {
   const runs = content.runs ?? []
-  const description = `${content.evidence}${runs.length ? `: run ${runs.join(', ')}` : `: ${content.steps.length} local step(s)`}`.slice(0, 140)
+  const description = `${content.evidence}${runs.length ? `: run ${runs.join(', ')}` : `: ${content.steps.length} local step(s)`}${content.lint ? ` · lint ${content.lint}` : ''}`.slice(0, 140)
   const body = { state: 'success', context: STATUS_CONTEXT, description }
   if (runs.length && repo) body.target_url = `https://github.com/${repo}/actions/runs/${runs[0]}`
   return body
