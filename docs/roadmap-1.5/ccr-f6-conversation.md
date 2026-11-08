@@ -88,3 +88,23 @@ Each shell is `{ id, command, startedBy, state: running | stopped | unknown, exi
 - N10: F9 (A64).
 - Impact preview: F7.
 - The side chat: removed.
+
+## HML M5 changes (709-1 to 709-5, 08/11)
+
+**709-1: re-evaluation without events.** `watchBackground({ source, onChange })` keeps one timer at the earliest timeout among running shells. It pushes `thread:background-changed` when the timer fires, and `thread:background` then reads unknown. It re-arms on each signal, and keeps no timer when nothing runs. Frozen with fake timers.
+
+**709-2: unknown is not final.** A later running goes back to running, and a later completed goes to stopped.
+
+**709-3: ordering and dead processes.**
+- Subagent events gain `signalAt` (the adapter's emit time), and the newest `signalAt` wins over arrival order, so a replayed running loses.
+- A future `signalAt` is read as now.
+- An OXESpace job with `alive: false` is stopped.
+
+**709-4 and 709-5: more tool names.**
+- WebSearch is http.
+- PowerShell, BashOutput, KillShell and Codex's exec_command, write_stdin, local_shell and unified_exec are run.
+- read_file, list_dir and grep_files are read.
+- update_plan, Task, ExitPlanMode, AskUserQuestion and Skill are other.
+- OXESpace tools go by family after the server prefix (`mcp__s__t`, `s.t`) is removed: `oxespace_db_*` and `oxespace_mongo_*` are query, `oxespace_container*` is container.
+
+**DESIGN:** queries, HTTP and containers join the fold line. That is the window's wording; `foldSummary` already counts them.

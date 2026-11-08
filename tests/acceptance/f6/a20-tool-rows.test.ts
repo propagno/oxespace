@@ -33,6 +33,23 @@ describe('A20 · one row per tool call', () => {
     for (const [name, over, kind] of cases) expect(toolRow(tool(name, over), ROOT).kind, name).toBe(kind)
   })
 
+  test('HML-709-4: Claude\'s WebSearch is http and PowerShell (its shell on Windows) is run, so a Windows turn never reads other', () => {
+    expect(toolRow(tool('WebSearch', { detail: 'electron 38 release' }), ROOT).kind).toBe('http')
+    expect(toolRow(tool('PowerShell', { detail: 'Get-ChildItem' }), ROOT)).toMatchObject({ kind: 'run', target: 'Get-ChildItem' })
+  })
+
+  test('HML-709-5: background shell control, Codex shells and reads, OXESpace families after normalising server prefixes, and the frozen others', () => {
+    const cases: Array<[string, string]> = [
+      ['BashOutput', 'run'], ['KillShell', 'run'],
+      ['exec_command', 'run'], ['write_stdin', 'run'], ['local_shell', 'run'], ['unified_exec', 'run'],
+      ['read_file', 'read'], ['list_dir', 'read'], ['grep_files', 'read'],
+      ['update_plan', 'other'], ['Task', 'other'], ['ExitPlanMode', 'other'], ['AskUserQuestion', 'other'], ['Skill', 'other'],
+      ['oxespace_mongo_find', 'query'], ['mcp__oxespace-delegation__oxespace_mongo_aggregate', 'query'], ['oxespace-delegation.oxespace_db_query', 'query'],
+      ['oxespace-delegation.oxespace_container_logs', 'container'], ['mcp__oxespace-delegation__oxespace_container_action', 'container']
+    ]
+    for (const [name, kind] of cases) expect(toolRow(tool(name), ROOT).kind, name).toBe(kind)
+  })
+
   test('A20: a row carries its target relative to the project, the time it started, and its meta', () => {
     const edit = toolRow(tool('Edit', { files: [file(join(ROOT, 'src', 'login.ts'), 'update', { additions: 12, deletions: 3 })], startedAt: 4242 }), ROOT)
     expect(edit).toMatchObject({ kind: 'edit', verb: 'edit', at: 4242, failed: false, running: false })
