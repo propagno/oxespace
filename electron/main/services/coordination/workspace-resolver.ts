@@ -1,6 +1,6 @@
 import { realpath } from 'node:fs/promises'
 import type { WorkspaceService } from '../workspace.service'
-import { projectIdentity } from '../memory/memory-project.service'
+import { projectIdentity } from '../project-identity'
 import { isAbsolute } from 'node:path'
 import { execGit } from '../../utils/safe-git'
 

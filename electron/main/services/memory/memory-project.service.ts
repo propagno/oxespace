@@ -1,37 +1,14 @@
 import { randomUUID } from 'node:crypto'
-import { realpath } from 'node:fs/promises'
-import { basename, dirname, resolve } from 'node:path'
+import { basename, dirname } from 'node:path'
 import type { AppDatabase } from '../../db'
 import type { MemoryContext, MemorySettings } from '../../../../shared/types/memory'
 import { integrationBlocked } from '../policy'
-import { execGit } from '../../utils/safe-git'
+import { projectIdentity } from '../project-identity'
+
+// The identity probe moved to ../project-identity (R0a); the retry helper stays reachable here for its unit test.
+export { retryIdentityProbe } from '../project-identity'
 
 export const DEFAULT_MEMORY_SETTINGS: MemorySettings = { enabled: false, automaticCapture: false, automaticContext: false }
-
-export async function retryIdentityProbe<T>(probe: () => Promise<T>): Promise<T> {
-  try { return await probe() }
-  catch (error) {
-    const failure = error as { killed?: boolean; code?: string }
-    if (failure?.killed || failure?.code === 'ETIMEDOUT') return probe()
-    throw error
-  }
-}
-
-export async function projectIdentity(cwd: string): Promise<string> {
-  const root = await realpath(cwd)
-  let identity = root
-  try {
-    const probe = () => execGit(root, ['rev-parse', '--path-format=absolute', '--git-common-dir'], { timeout: 2000 })
-    // A heavily loaded Windows host can delay process startup beyond the
-    // bounded probe. Retry one timeout only; never convert it into a new identity.
-    const result = await retryIdentityProbe(probe)
-    identity = await realpath(resolve(root, result.stdout.trim()))
-  } catch (error) {
-    // Timeouts, missing Git and permission errors must not mint a second identity.
-    if (!String((error as { stderr?: string }).stderr).includes('not a git repository')) throw error
-  }
-  return process.platform === 'win32' ? identity.replace(/\\/g, '/').toLowerCase() : identity
-}
 
 export class MemoryProjectService {
   constructor(private readonly db: AppDatabase) {}
