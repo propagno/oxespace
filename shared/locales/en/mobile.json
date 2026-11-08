@@ -19,6 +19,7 @@
       "retryIn_other": "Trying again in {{count}} seconds."
     },
     "revoked": "{{desktop}} removed this phone. Pair again to reconnect.",
+    "lapsed": "This pairing expired before the phone connected. Pair again.",
     "retry": "Try again",
     "enterAddress": "Enter the computer's address",
     "addressTitle": "Computer's address",
@@ -147,6 +148,7 @@
     "unknownItems_one": "{{count}} item from a newer OXESpace isn't shown.",
     "unknownItems_other": "{{count}} items from a newer OXESpace aren't shown.",
     "loadOlder": "Load earlier",
+    "latest": "Latest ↓",
     "respond": "Respond",
     "answerLabel": "Agent's answer",
     "copy": "Copy",
@@ -211,6 +213,17 @@
       "body": "The agent in “{{title}}” stops what it is doing now. The conversation stays.",
       "confirm": "Stop turn",
       "keep": "Keep running"
+    },
+    "extras": {
+      "working": "Working · {{time}}",
+      "quiet": "No output for {{time}}",
+      "queued": "Waiting to send ({{n}})",
+      "queuedMore": "and {{n}} more",
+      "noLines": "No line changes",
+      "diffCut": "The rest of this diff is on your computer.",
+      "seconds": "{{seconds}} s",
+      "minutes": "{{minutes}} min",
+      "hours": "{{hours}} h"
     }
   },
   "terminal": {

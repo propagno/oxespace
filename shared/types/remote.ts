@@ -32,7 +32,17 @@ export interface RemoteGatewayStatus {
    * firewall's question before the first time only.
    */
   listenedBefore: boolean
+  /**
+   * Windows' network profile of the interface the QR names, when it could be read (Windows only, read only). On
+   * `public` the system firewall drops a phone's request unless a rule allows OXESpace, so pairing never arrives.
+   */
+  network?: { interfaceName: string; category: RemoteNetworkCategory }
+  /** The pairing question waiting for the person, so a window that opens or reloads can show it. */
+  pendingPairing?: RemotePairingPrompt
 }
+
+/** Windows' NetworkCategory of a connection profile. */
+export type RemoteNetworkCategory = 'public' | 'private' | 'domain'
 
 /** A paired phone. No address and no key. */
 export interface RemoteDevice {
@@ -65,11 +75,47 @@ export interface RemotePairingOffer {
 /**
  * Why a phone's pairing attempt failed, as `remote.pairing.failed` carries it: a wrong, reused or forged code or request
  * (`invalid`), a code or question that ran out of time (`expired`), the person said no or cancelled on this desktop
- * (`refused`), the device limit (`limit`), the phone hung up while the question was on screen (`peer-closed`), or the
- * phone gave itself a name only the app may speak as (`reserved-name`; `reservedNameIn` in shared/approval-rules.ts).
+ * (`refused`), the device limit (`limit`), the phone hung up while the question was on screen (`peer-closed`), the
+ * phone gave itself a name only the app may speak as (`reserved-name`; `reservedNameIn` in shared/approval-rules.ts),
+ * or the code expired without any phone reaching this computer (`no-contact`: a firewall, a Public network profile,
+ * or another network).
  */
-export const REMOTE_PAIRING_FAILURE_REASONS = ['invalid', 'expired', 'refused', 'limit', 'peer-closed', 'reserved-name'] as const
+export const REMOTE_PAIRING_FAILURE_REASONS = ['invalid', 'expired', 'refused', 'limit', 'peer-closed', 'reserved-name', 'no-contact'] as const
 export type RemotePairingFailureReason = typeof REMOTE_PAIRING_FAILURE_REASONS[number]
+
+/** 1.4.3 P1: Windows' network category of the interface the QR names, as the firewall check reads it. */
+export type RemoteFirewallNetwork = 'public' | 'private' | 'domain' | 'unknown'
+
+/**
+ * 1.4.3 P1 · Whether Windows lets a phone reach the gateway. Read only; `supported: false` off Windows, in a development
+ * build, or while the gateway is off. The two commands are exactly what Repair and Undo run, for the window to show
+ * before the person confirms.
+ */
+export type RemoteFirewallStatus =
+  | { supported: false }
+  | {
+    supported: true
+    port: number
+    /** The rule's display name in Windows Firewall ("OXESpace phone pairing"). */
+    ruleName: string
+    repairCommand: string
+    undoCommand: string
+    /** False when PowerShell or policy prevented the read: everything below is then a guess and Repair stays offered. */
+    inspectionAvailable: boolean
+    /** An enabled inbound Allow rule for this OXESpace.exe and port, on the Private profile, reaching the LAN. */
+    ruleAllowed: boolean
+    /** An inbound Block rule for this program and port, which wins over any Allow. Repair never removes it. */
+    blockingRuleDetected: boolean
+    /** The rule OXESpace added (by its fixed name) exists: Undo can remove it. */
+    ownRulePresent: boolean
+    privateFirewallEnabled: boolean
+    networkCategory: RemoteFirewallNetwork
+  }
+
+/** A repair or an undo, done only when a fresh inspection confirms it. `cancelled`: the person said No at the UAC prompt. */
+export type RemoteFirewallChange =
+  | { ok: true; status: RemoteFirewallStatus }
+  | { ok: false; reason: 'unsupported' | 'cancelled' | 'failed' | 'not-verified'; status?: RemoteFirewallStatus }
 
 export interface RemoteChange {
   status?: RemoteGatewayStatus
@@ -107,4 +153,10 @@ export interface RemoteApi {
   setDesktopName(input: { name: string | null }): Promise<RemoteGatewayStatus>
   /** Lets a phone type into one pane, or stops it. Off by default and again when the app restarts. */
   setPhoneWrite(input: { paneId: string; allowed: boolean }): Promise<RemoteGatewayStatus>
+  /** 1.4.3 P1: whether Windows lets a phone reach the gateway (read only, no elevation). */
+  firewallStatus?(): Promise<RemoteFirewallStatus>
+  /** 1.4.3 P1: adds the one Private-only rule for this OXESpace.exe and port, through UAC (never silent). */
+  firewallRepair?(): Promise<RemoteFirewallChange>
+  /** 1.4.3 P1: removes only the rule OXESpace added, by its fixed name, through UAC. */
+  firewallUndo?(): Promise<RemoteFirewallChange>
 }

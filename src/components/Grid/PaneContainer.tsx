@@ -5,6 +5,7 @@ import type { TerminalStatusResult } from '../../../shared/types/ipc'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
+import { workspaceColorAttrs } from '../../../shared/workspace-color'
 import { derivePaneDisplayState, resolvePaneIdentity } from '../../utils/paneDisplay'
 import { AgentSessionDetails, EnableResumeMenuItem, PaneHooksNotice, PaneResumeMarker, StartFreshMenuItem, usePaneResume } from '../AgentSessions/PaneResume'
 import { PaneContent } from '../Panes/PaneContent'
@@ -181,7 +182,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
 
   return (
     <section className={`pane-container${isActive ? ' active' : ''}`} data-testid="pane-container" data-pane-id={pane.id} data-tone={display.statusTone} tabIndex={-1} onFocus={() => onActivate?.(pane.id)} onPointerDown={() => onActivate?.(pane.id)}>
-      <header className="pane-header">
+      <header className="pane-header" {...workspaceColorAttrs(workspace)}>
         <div className="pane-header-left">
           <span className={`pane-status-dot ${statusClass(pane.status)} activity-${display.statusTone}${display.statusEstimated ? ' is-estimated' : ''}`} aria-hidden="true" title={statusText} data-testid="pane-status-dot" data-origin={display.statusOrigin ?? undefined} />
           <span className="sr-only" data-testid="pane-status-text">{statusText}</span>
@@ -379,7 +380,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
       {/* F32: the status-hooks question for this pane's agent, without taking the terminal's focus. */}
       {isTerminalPane && <PaneHooksNotice paneId={pane.id} />}
       <PaneContent pane={pane} workspaceId={workspace.id} workspaceRootPath={workspace.rootPath} autoStart={autoStart} />
-      {detailsOpen && <Dialog size="md" className="desktop-details-dialog" title={tc('paneMenu.detailsTitle')} description={tc('paneMenu.detailsDescription')} onClose={() => setDetailsOpen(false)}>
+      {detailsOpen && <Dialog size="md" title={tc('paneMenu.detailsTitle')} description={tc('paneMenu.detailsDescription')} onClose={() => setDetailsOpen(false)}>
         {/* F32: the native session main resumed or recorded; the note on finding it only when there is none. */}
         {sessionDetails?.agentSession && <AgentSessionDetails session={sessionDetails.agentSession} resume={sessionDetails.agentResume} />}
         {(!sessionDetails?.agentSession || sessionDetails.agentSession.source === 'notFound') && <p className="terminal-session-identity-note">{tc('paneMenu.identityNote')}</p>}

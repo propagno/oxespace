@@ -50,7 +50,7 @@ export function DelegatedWorkDialog({ workspaces, workspaceId, focusTaskId, orig
   }
   const filtered = tasks.filter(task => `${task.id} ${task.objective} ${task.branch} ${task.state} ${task.nativeSession?.nativeSessionId ?? ''}`.toLowerCase().includes(query.toLowerCase()))
   if (creating && origin) return <DelegationCreateDialog workspaceId={workspaceId} origin={origin} onClose={() => setCreating(false)} />
-  return <><Dialog className="delegated-work-dialog" size="lg" title={t('delegated.title')} description={t('delegated.description')} onClose={onClose}>
+  return <><Dialog size="lg" title={t('delegated.title')} description={t('delegated.description')} onClose={onClose}>
     <div className="delegated-work-toolbar">
       <Select aria-label={t('delegated.project')} value={selectedWorkspace} onChange={event => setSelectedWorkspace(event.target.value)}>{workspaces.map(workspace => <option value={workspace.id} key={workspace.id}>{workspace.name}</option>)}</Select>
       <label><Search size={14} /><TextField aria-label={t('delegated.search')} placeholder={t('delegated.searchPlaceholder')} value={query} onChange={event => setQuery(event.target.value)} /></label>

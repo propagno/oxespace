@@ -112,6 +112,13 @@ Entregar a 1.5.0 do OXESpace: o redesign aprovado no playground (direção B lev
   - vite 8 só se o electron-vite suportar oficialmente;
   - homologação no app real, orçamentos (bundle, perf e memória), axe e notas de versão.
 
+- **R14** — Celular (OxeMobile) no design aprovado da 1.5.0 (#627, aprovado pelo usuário em 04/11):
+  - todas as telas M1–M8 na identidade Mandacaru, nos dois temas, mantendo as regras de segurança da 1.4 (`team/checklists/phone-parity-1.4.md`, S1–S12);
+  - a aba Agentes (S7.4/M7) no tópico `agents` real, com chips por estado;
+  - mandar instrução a uma conversa em andamento pelo celular;
+  - o terminal com largura fixa em `cols` e rolagem horizontal, sem reenviar o histórico a quem lê o snapshot (sobras do T98, #623);
+  - a conversa de um CLI de agente rodando num terminal (#658), paginada e ao vivo, só leitura.
+
 ### Fora do escopo (não objetivos)
 
 - A B completa: uma entidade Tarefa com várias conversas e agentes, que exige mudar o protocolo. Fica para depois da 1.5.0.
@@ -130,7 +137,7 @@ Entregar a 1.5.0 do OXESpace: o redesign aprovado no playground (direção B lev
 | A5 | O Callout (info/warning/danger) existe e é usado em Contas, Ambientes, falha de login no OxeChat e Policy. | unit + e2e de smoke |
 | A6 | Os menus seguem a U7: largura 200–320, grupos em sentence case, destrutivo por último e divisão acima de 12 itens. | `design-lint` regra de menu + unit |
 | A7 | As páginas de Settings usam SettingRow/Section (U8): aplicam na hora, com toast de desfazer nos itens da lista de risco e confirmação no que é irreversível. | `tests/settings-*.test.tsx`; e2e de settings |
-| A8 | A cor do workspace fica em `workspaces.color` (1–8, nula = hash estável) via `workspace:update-settings`, é editável no menu do workspace e aparece em cartões, cabeçalhos de painel, cabeçalho da conversa, Agora e barra de status. | integração da migração + unit do renderer + e2e |
+| A8 | A cor do workspace fica em `workspaces.color` (1–8, nula = hash estável) via `workspace:update-settings`, é editável no menu do workspace e aparece em cartões, cabeçalhos de painel, cabeçalho da conversa, Agora e barra de status.<br>• v2 (CR-15): o cartão ativo com a tinta da cor do workspace (color-mix de var(--ws) num seletor [data-ws]) é uma seleção aceita pela regra U4; o limite de seleções fora do --fill-selected não sobe. | integração da migração + unit do renderer + e2e |
 | A9 | Os ícones próprios são módulos por ícone, e a entrada do renderer fica ≤ 284 kB. | `verify:bundle` (orçamento) |
 | A10 | O read model de atividade expõe `source` (changes/databases/containers/post) com paginação e filtros no servidor, e o renderer nunca junta listas. | unit + integração do serviço |
 | A11 | Settings › Atividade dos agentes lista todas as fontes com as mesmas colunas, filtros e modal de detalhe (T63). | e2e `agent-activity*.spec` |
@@ -162,8 +169,14 @@ Entregar a 1.5.0 do OXESpace: o redesign aprovado no playground (direção B lev
 | A37 | xterm 6 com headless e todos os addons, e o bench do terminal dentro do orçamento. O vite 8 só entra se o electron-vite o suportar oficialmente; caso contrário, fica registrado como adiado. | `bench:terminal`; `verify:bundle` |
 | A38 | Homologação final no app empacotado: os 6 cenários da HML e os 3 da rodada 4 com passos ≤ 1.4.1, nenhum major aberto e axe limpo nas telas novas. | relatório HML `docs/validation/homologacao-1.5.md`; sign-off do usuário |
 | A39 | **Condições de corte da release.** Todas precisam valer ao mesmo tempo:<br>• trem vazio e um run **concluído** da CI da main verde no commit exato da tag;<br>• nenhum flake com 2 falhas nos últimos 3 runs da main;<br>• baselines refeitas depois do último PR de UI;<br>• PR de versão (package.json/lock + `1.5.0.md` en/pt-BR) passando pelo trem;<br>• toda string de UI citada nas notas conferida em `shared/locales`;<br>• revisões SECURITY de F5-T5/T6 e F6-T3 registradas nos PRs;<br>• seção de limites conhecidos escrita a partir dos achados da HML no app empacotado. | `runtime ci --attach`; checklist do coordenador em `docs/releases/1.5.0.md` |
-| A40 | **Atualização e volta no app empacotado.**<br>• Partindo da 1.4.1 com dados, a atualização automática (latest.yml) leva à 1.5.0, roda todas as migrações da 1.5.0 e cria o backup vNN sem perder dados.<br>• Voltar à 1.4.1 mostra a tela T87, nunca um app vazio.<br>• O `candidate_version` do `install-over.yml` está em 1.5.0. | HML no app empacotado; `install-over.yml` |
+| A40 | **Atualização e volta no app empacotado.**<br>• Partindo da última 1.4.x publicada (hoje 1.4.3) com dados, a atualização automática (latest.yml) leva à 1.5.0, roda todas as migrações da 1.5.0 e cria o backup vNN sem perder dados.<br>• Voltar à 1.4.1 mostra a tela T87, nunca um app vazio.<br>• O `candidate_version` do `install-over.yml` está em 1.5.0.<br>• Depois da publicação, uma verificação baixa os instaladores PUBLICADOS da 1.5.0 (não um build do código da tag) e faz o install-over com eles; o sha256 confere com o publicado.<br>• HML-R-1: os passos de recusa e volta do AppImage (G8) rodam verdes, sem ser pulados (hoje dão ENOENT ao relançar o AppImage anterior). | HML no app empacotado; `install-over.yml` |
 | A41 | **Compatibilidade do celular** (o C5 muda o protocolo).<br>• APK 1.4.1 com desktop 1.5.0, e APK 1.5.0 com desktop 1.4.1: cada par recusa de forma limpa ou continua funcionando.<br>• Pareamento com celular real numa rede real, incluindo o perfil Público.<br>• O run `android-release` fica verde, com sha256 e digest do apksigner conferidos contra as notas. | HML + MOBILE com o celular do usuário; coordenador |
+| A42 | **Telas do celular no design aprovado.** As telas M1–M8 usam os tokens e componentes do #627 nos temas claro e escuro, com os goldens de snapshot regravados. As regras S1–S12 do checklist de paridade com a 1.4 continuam valendo, e cada uma tem um teste que a fixa. | testes JVM + goldens de snapshot; checklist de paridade |
+| A43 | **A aba Agentes (M7).** Lê o tópico `agents` real, com os chips Todos · Precisa de você · Trabalhando · Falhou · Concluído (DESIGN, M7.7). `markSeen` vale só para as linhas concluídas. Sem dados de mentira. | testes JVM + goldens; `android-emulator` API 36 |
+| A44 | **Respostas seguras.** Toda resposta, Recusar incluída, passa pela biometria. Um pedido cortado só pode ser recusado e tem golden próprio. O crítico espera 2 s. | testes JVM + goldens |
+| A45 | **Terminal.** A grade tem exatamente `cols` de largura, com rolagem horizontal e um aviso de que dá para arrastar; nada é cortado sem avisar. Um celular que lê `snapshot` anuncia isso e deixa de receber as páginas de histórico (C5 aditivo + `android:generate`). | testes de protocolo + JVM; spec R143 com o celular simulado |
+| A46 | **A conversa do CLI no celular (#658).** Num terminal cujo agente tem sessão conhecida, o celular mostra a conversa (só texto, mascarada como nas threads), em páginas de 50 com "Carregar anteriores". Um aviso sem conteúdo, no máximo 1 a cada 2 s, faz o celular buscar o que é novo. Um pedido do celular nunca inicia um processo. | integração no desktop + JVM; spec com o celular simulado na CI |
+| A47 | **Instrução durante o trabalho pelo celular.** Com o agente Trabalhando, o campo mostra Parar (secundário) · texto · Enviar a instrução. Enter também envia, e a linha "lida depois do passo atual" aparece na conversa. | testes JVM + goldens; spec com o celular simulado |
 
 ## Setup externo e pré-condições
 
