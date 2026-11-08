@@ -1,6 +1,6 @@
 import type { AppDatabase } from '../../db'
 import type { AgentExecution, ExecutionOwner, ExecutionRegistry } from '../execution-registry'
-import { projectIdentity } from '../memory/memory-project.service'
+import { projectIdentity } from '../project-identity'
 import { TeamRepository } from './team-repository'
 
 /** A saved surface is a navigation hint, not an authorization credential.

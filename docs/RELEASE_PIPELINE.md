@@ -165,6 +165,13 @@ cannot read count as red). The run summary says `held: main red since <sha> (<ru
 get no comment. The one exception is a car labelled **`fix-main`** by a maintainer or an admin: it goes
 first, through the same checks as any car, and the train removes `fix-main` after merging it.
 
+**Release hold.** While any open issue or PR carries the label **`release-hold`** (a release, or a gate being
+run on `main`), the train makes no move at all: no merge, branch update, dispatch or batch, `fix-main` included.
+The run summary says `held by release-hold: #<n> (<title>)`, and the cars keep their `na-fila` labels, so the
+queue goes on in the same order once the label comes off (the 10-minute schedule picks that up). If the label
+cannot be read, the train holds as well and reads it again on the next run. Put the label on the release PR or a
+tracking issue when the release starts, and take it off when the release is published.
+
 **Batches of docs and tests.** When the car at the head of the queue changes only docs and tests, the train
 takes it and up to four more such cars, merges them on `train/batch-N` from `main` and runs CI there once. Green,
 it posts `CI result` (description `batch train/batch-N`) on each member's tested head and merges them in order,
