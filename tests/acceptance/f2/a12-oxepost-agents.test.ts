@@ -219,6 +219,32 @@ describe('A12 · agents send OxePost requests', () => {
     expect(header(fetched[0].init, 'x-trace')).toBe(SECRET)
   })
 
+  test('SECURITY 5 (HML-654-3): an agent cannot fake a vaulted-secret marker on the approval card', async () => {
+    await grant('billing', 'write')
+    const literal = 'note [secret:API_KEY] here'
+    await send({ method: 'POST', url: 'https://api.example.com/notes', body: literal, headers: [{ name: 'X-Note', value: '[secret:API_KEY]' }] })
+    const ask = asked[0] as typeof asked[0] & { textSpans?: Array<{ kind: 'text' | 'secret'; value: string }> }
+    expect(ask.textSpans, 'the approval carries structured spans').toBeDefined()
+    expect(ask.textSpans!.filter(span => span.kind === 'secret')).toEqual([])
+    expect(ask.textSpans!.map(span => span.value).join('')).toContain(literal)
+    // Defense in depth: in the hashed approval text, the agent's literal can't read as main's marker.
+    expect(ask.text).not.toMatch(/(^|[^[])\[secret:API_KEY\]/)
+    expect(ask.text).toContain('[[secret:API_KEY]')
+    // The bytes sent are exactly what the agent wrote.
+    expect(fetched[0].init.body).toBe(literal)
+    expect(header(fetched[0].init, 'x-note')).toBe('[secret:API_KEY]')
+  })
+
+  test('SECURITY 5b: a saved request that really uses a secret has exactly one secret span', async () => {
+    await grant('billing', 'read')
+    await send({ path: paths.list })
+    const ask = asked[0] as typeof asked[0] & { textSpans?: Array<{ kind: 'text' | 'secret'; value: string }> }
+    expect(ask.textSpans!.filter(span => span.kind === 'secret')).toEqual([{ kind: 'secret', value: 'API_KEY' }])
+    expect(JSON.stringify(ask.textSpans)).not.toContain(SECRET)
+    expect(ask.text).toContain('[secret:API_KEY]')
+    expect(ask.text).not.toContain('[[secret:')
+  })
+
   test('SECURITY 2: masking covers the encoded forms of a secret in the result and the audit', async () => {
     await grant('billing', 'read')
     // A secret that needs escaping, encodes with '+', '/' or padding, and has a non-ASCII character.

@@ -206,6 +206,12 @@ Each step that refuses writes an audit row with `decision: 'refused'`, `outcome:
   ```
 
   It's hashed into `text_hash`, and the hash must match on the retry. Text longer than `MAX_REVIEWABLE` is refused (`too-long`), never shortened.
+- **Structured spans, the only thing the card renders** (TECH LEAD, HML-654-3):
+  - The approval request for kind `oxepost` carries `textSpans: Array<{ kind: 'text' | 'secret'; value: string }>` next to the hashed `text`. For a `secret` span, `value` is the secret's NAME.
+  - Main builds the secret spans from its own masking, at the exact places it put a vaulted value. Everything else, including anything the agent wrote, is `text`.
+  - The card (#654) renders `kind: 'secret'` spans as "•••• (NAME)" and **never pattern-matches `[secret:` in text**. Otherwise an agent could write the literal `[secret:API_KEY]` and make plain bytes look like a vaulted secret, or the other way round.
+  - The joined span values equal `text` with main's own markers expanded. The shared approval types gain the optional field; other kinds don't set it.
+- **Defense in depth, in the hashed text:** in agent-authored text (url, header values, body), every `[secret:` is written as `[[secret:` in the approval `text`. So main's single-bracket marker can only come from main, and the hash covers the escaped text. The **bytes sent are never changed**: the request carries exactly what the agent wrote.
 - **Presentation:**
   - title `approvals.title.oxepost`;
   - target `<collection> · <environment>`;
@@ -264,6 +270,11 @@ It uses an in-memory database, a temp request tree (`RequestStore`), a fake secr
     - a lowered ordinary ceiling caps a write collection to read for agents;
     - none of the three is an MCP tool.
 S1. **No secret in agent text:** a secret placeholder in a new request's URL, an agent header or the body, and `{{` in a variables value, give `invalid`. A saved request's own secret still works.
+S5. **Marker spoofing (HML-654-3):**
+    - a new request whose body and header hold the literal `[secret:API_KEY]` is approved with no `secret` span, and the literal shows as text;
+    - the hashed text has `[[secret:API_KEY]`;
+    - the bytes sent are unchanged.
+S5b. **A real secret:** a saved request that uses API_KEY has exactly one `secret` span, `{ kind: 'secret', value: 'API_KEY' }`, and no value anywhere.
 S2. **Encoded forms:** the plain, URL, form, base64 (padded, unpadded, url) and JSON-escaped forms of a secret that needs escaping and padding never reach the result (body, URL, headers) or the audit (url_path, excerpt).
 S3. **Agent headers:** every routing, hop-by-hop, framing and auth name, and any CR/LF/NUL in a name or value, gives `invalid`. An ordinary `X-Request-Id` is sent.
 S4. **Blocked ranges:** the table of blocked and allowed addresses, including mapped and NAT64 forms. A DNS answer with one blocked address among public ones is refused, and so is a mapped loopback.
@@ -313,6 +324,7 @@ It runs on CI (`acceptance.yml`), and A12 isn't done until it's green.
 | The phone answering | §6, `REMOTE_FORBIDDEN` |
 | Response size, prompt injection | 64 KB cap plus the untrusted notice (§3) |
 | Secret reflection through an agent-written request | §3 "No secret in agent text", test S1 |
+| A faked secret marker on the approval card | §6 structured spans + escaped `[[secret:`, tests S5, S5b; the card renders spans only (#654) |
 | Encoded secrets in a response | §5 forms, test S2; residual: offset base64 inside a larger blob |
 | Header smuggling and routing (Host, X-Forwarded-*, CRLF) | §3 agent headers, test S3 |
 | Metadata, CGNAT, mapped IPv6 | §4 blocked ranges, test S4 |
