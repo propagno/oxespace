@@ -69,8 +69,18 @@
     - `conversation-changed`: `rewritten` reloads once, then the Notice; `new-session` behaves as an epoch change;
     - fetch coalescing: at most one more queued while one is in flight;
     - `follow(atBottom)`.
-  - `.../ui/live/PaneConversationView.kt`: text bubbles only in v1, with Load earlier, the Latest chip counting new ids,
-    and pull to refresh.
+  - `.../ui/live/PaneConversationView.kt`: text bubbles only in v1, with Load earlier and pull to refresh.
+- **The view, as DESIGN pinned it (M6.11–M6.15, #627 @ 41ec3265):**
+  - **Caption:** the agent's name and the conversation title, with the **Live** marker while the topic is subscribed.
+  - **No input on Conversation.** In its place, the line "Type on the Screen view". Typing stays on the Screen view.
+  - **The Latest chip:** "N new · Latest ↓" when the new ids are known. After a gap (a no-overlap reset or a new
+    epoch) it reads "Latest ↓" with no count.
+  - **A new session** is a marker line across the list ("New conversation"), not a card.
+  - **Unavailable:** a Notice "This conversation isn't available any more" with the action **Show the screen**, which
+    switches to Screen.
+  - **The key row** on Screen keeps Esc · Tab · ↑ · ↓ · Ctrl, with **More keys** for the rest (c116b61c).
+  - **A hidden secret** in a message shows the desktop's `[hidden]` with the note "Hidden on the computer", never the
+    value.
 - **Changed files:**
   - `.../ui/live/TerminalScreen.kt`: a **Screen · Conversation** segmented control, shown only when
     `pane.conversation == true`. Conversation is the default (DESIGN, M6.11–M6.14).
@@ -85,18 +95,46 @@
     5. a `changed` event makes one newest-page fetch, coalesced, replacing known ids in place and appending new ones;
     6. no overlap replaces the held items and Load earlier walks back from there;
     7. `follow(atBottom)`: not at the bottom means no jump;
-  - `ScreensSnapshotTest.terminal`: Conversation with bubbles, Load earlier, the Latest chip, the new-conversation line,
-    and the unavailable Notice;
+  - `ScreensSnapshotTest.terminal`, one snapshot per pinned state, in en/pt-BR × light/dark:
+    - Conversation with the caption and Live, bubbles, Load earlier, and "Type on the Screen view" with no input;
+    - the Latest chip "3 new · Latest ↓", and "Latest ↓" after a gap;
+    - the new-conversation marker line;
+    - the unavailable Notice with Show the screen;
+    - Screen with the key row and More keys open;
+    - a message with `[hidden]` and the "Hidden on the computer" note;
+  - **new** `.../ui/live/PaneConversationStringsTest.kt`: every string above exists in en and pt-BR, and the
+    unavailable Notice's action switches to Screen;
   - **emulator (API 36):** new `androidTest/.../ui/PaneConversationOnDeviceTest.kt`, against the in-test fake gateway:
     subscribe, snapshot, then `changed`, which makes one fetch and a merged list.
 
 ## Field question (M10, HML)
 
+- **The limit, written down:** the CI stand-in phone talks to the gateway's LAN IP on the same runner. That's not
+  loopback, but there's no Wi-Fi hop either. Real Wi-Fi loss is checked only on the user's S23, and that check is the
+  user's.
 - **Busy terminal:** `scripts/remote-subscribe.mts` against a desktop pane running a full-screen TUI at 120 columns.
   - The phone grid is 120 wide and pans.
-  - A busy Claude Code session on the desktop shows its conversation on the phone, live, at most one fetch per 2 s.
+  - A busy Claude Code session on the desktop shows its conversation on the phone, live.
   - No process is ever started by the phone (#658 test 5).
-- **Real network:** R143's stand-in phone over the LAN, not loopback.
+- **Throughput:** the TUI pane writes about 1 MB/s for 30 s while the stand-in subscribes.
+  - The desktop pane stays responsive: keystroke echo under 100 ms.
+  - The gateway's memory stays bounded.
+  - The phone gets coalesced frames, and its final screen equals the desktop buffer's last `rows` lines.
+- **Resize and the grid's edges:**
+  - A resize from 120 to 80 cols mid-stream follows on the phone, through the next snapshot's `cols`.
+  - An alt-screen enter and exit, and wide characters (CJK and emoji) at the 120-col edge, keep the grid aligned.
+  - Frozen as new `VtScreenTest` cases: a wide character at the last column, and an alt-screen exit at `cols`.
+- **At most one fetch per 2 s, counted:** the stand-in counts its `pane.conversation` requests over 60 s of a busy
+  session.
+- **Redaction and paging:** a secret in the conversation reaches the phone as `[hidden]`. A long transcript pages to
+  `cursor: null` with no duplicates, as in #658.
+- **N1 reconnect:** the stand-in's socket is killed mid-stream and resumed after 5 s. No lost or duplicated lines or
+  messages, and the screen shows "reconnecting" and then recovers.
+  - Frozen as `PaneConversationTest` test 6 (no overlap replaces the held items), plus the stand-in step
+    `terminal-reconnect`.
+- **N2 latency:** one stand-in case runs through a test-side proxy adding 300 ms ± 200 ms. The grid and the
+  conversation settle, with no timeout a slow Wi-Fi would trip.
+- **N3 P1:** on the Windows Public profile the gateway shows the firewall notice, not a silent failure (R143).
 
 ## Out of scope
 
