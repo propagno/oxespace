@@ -210,7 +210,7 @@ Each step that refuses writes an audit row with `decision: 'refused'`, `outcome:
   - The approval request for kind `oxepost` carries `textSpans: Array<{ kind: 'text' | 'secret'; value: string }>` next to the hashed `text`. For a `secret` span, `value` is the secret's NAME.
   - Main builds the secret spans from its own masking, at the exact places it put a vaulted value. Everything else, including anything the agent wrote, is `text`.
   - The card (#654) renders `kind: 'secret'` spans as "•••• (NAME)" and **never pattern-matches `[secret:` in text**. Otherwise an agent could write the literal `[secret:API_KEY]` and make plain bytes look like a vaulted secret, or the other way round.
-  - The joined span values equal `text` with main's own markers expanded. The shared approval types gain the optional field; other kinds don't set it.
+  - The joined span values equal `text` with main's own markers expanded. **Where it lives:** the broker's `ApprovalRequest.textSpans` in main, passed through unchanged by the approval center to the renderer's `ApprovalRequest` in `shared/types/approvals.ts` **at the top level, next to `agentText`** (`request.textSpans`), never nested in `agentText`. It's optional; other kinds don't set it. #654's card test reads it there.
 - **Defense in depth, in the hashed text:** in agent-authored text (url, header values, body), every `[secret:` is written as `[[secret:` in the approval `text`. So main's single-bracket marker can only come from main, and the hash covers the escaped text. The **bytes sent are never changed**: the request carries exactly what the agent wrote.
 - **Presentation:**
   - title `approvals.title.oxepost`;
