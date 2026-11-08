@@ -14,7 +14,7 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { changeLanguage } from '../../../src/i18n'
@@ -79,4 +79,16 @@ describe('U9.5 · First run', () => {
     const start = screen.getByRole('button', { name: 'Nova conversa' })
     expect(start.getAttribute('title') ?? start.getAttribute('aria-description') ?? document.getElementById(start.getAttribute('aria-describedby') ?? '')?.textContent).toBe('Conecte um agente primeiro')
   })
+
+  test('when the agent becomes ready after sign-in, focus goes to the next step, not nowhere', async () => {
+    const { FirstRun } = await load<{ FirstRun: (props: Row) => JSX.Element }>('src/components/Onboarding/FirstRun')
+    const props = { folder: '/repo/shop', onOpenFolder: vi.fn(), onSignIn: vi.fn(), onCancelSignIn: vi.fn(), onNewConversation: vi.fn(), onOpenMode: vi.fn() }
+    const view = render(<FirstRun {...props} agents={[{ provider: 'claude', status: 'signing-in' }]} />)
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    view.rerender(<FirstRun {...props} agents={[{ provider: 'claude', status: 'ready', model: 'Opus 5.5' }]} />)
+    const heading = screen.getByRole('heading', { name: 'Start your first conversation' })
+    const start = screen.getByRole('button', { name: 'New conversation' })
+    await waitFor(() => expect([heading, start]).toContain(document.activeElement))
+  })
+
 })
