@@ -77,7 +77,11 @@ The shell is chosen by `tool_name`: `PowerShell` → powershell, otherwise bash.
    In `command_redacted` each value becomes `••••`.
 3. **S3 — URL userinfo:** `https://user:pass@host` keeps the host; the userinfo leaves the host and the command.
 4. **S4 — secrets in the path:** a path segment of ≥ 20 characters of `[A-Za-z0-9_\-:.]` that mixes letters and digits becomes `:secret`, in `path_template` and in `command_redacted`. This covers Slack webhooks, Telegram bot tokens and keys in the path. Numbers, UUIDs and long hex stay `:id`.
-5. **S5 — stdout and stderr reach no table:** `hook-pipeline.ts` exports `hookServerOptionsFor({ db, authenticate, onStatus, onLocation?, now? })`, the one place that builds the hook server's options and every database write on the hook path. `index.ts` must use it. The frozen test scans every table after an event.
+5. **S5 — stdout and stderr reach no table:** `hook-pipeline.ts` exports `hookServerOptionsFor({ db, authenticate, onStatus, onLocation?, now? })`, the one place that builds the hook server's options and every database write on the hook path. `index.ts` must use it, and `h1-pipeline-wiring.test.ts` freezes that (TECH LEAD's condition):
+   - every `new AgentHookServer(` in electron/main takes `hookServerOptionsFor(`;
+   - only `http-audit/store.ts` inserts into `agent_http_audit`;
+   - only the pipeline and the rollout reader call `.ingest(`, so the server's `httpAudit` option is a structural interface, not `HttpAuditLog`.
+   The sweep scans every table after an event.
 6. **S6 — inline environment secrets:** `NAME=value cmd` and `export NAME=value && …` values are masked.
 7. **S7 — sensitive header names:** Authorization, Proxy-Authorization, Cookie and Set-Cookie, plus any name containing token, secret, key, auth, session, signature, password or credential, case-insensitive.
 
