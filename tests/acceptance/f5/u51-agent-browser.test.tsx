@@ -132,4 +132,57 @@ describe('U5.1 · the agent browser', () => {
     expect(screen.getByText('Esta sessão')).toBeInTheDocument()
     expect(screen.getByText('Clicou em Download CSV')).toBeInTheDocument()
   })
+
+  test("with the browser's DevTools open, the panel says the agent can't capture until they close", async () => {
+    const { emit } = mockPreview()
+    await renderChrome()
+    emit({ type: 'broker', attached: true, devToolsOpen: true })
+    expect(await screen.findByText("Close the browser's DevTools to let the agent capture.")).toBeInTheDocument()
+    emit({ type: 'broker', attached: true, devToolsOpen: false })
+    await waitFor(() => expect(screen.queryByText("Close the browser's DevTools to let the agent capture.")).toBeNull())
+  })
+
+
+  const previewRequest = (preview: Record<string, unknown>) => ({
+    id: 'req-1', nativeId: 'n-1', nativeMethod: 'preview:authorize', kind: 'approval', title: 'Use the browser', generation: 1, createdAt: 1,
+    state: 'pending', availableDecisions: ['accept', 'decline'], preview
+  })
+  async function renderCard(preview: Record<string, unknown>) {
+    const { ThreadRequestCard } = await import('../../../src/components/Threads/ThreadRequestCard')
+    const onRespond = vi.fn(async () => undefined)
+    render(<ThreadRequestCard request={previewRequest(preview) as never} disabled={false} onRespond={onRespond} conversationId="t-1" />)
+    return onRespond
+  }
+
+  test('a localhost preview approval names the action and covers this preview session, with Deny first', async () => {
+    await renderCard({ origin: 'http://localhost:3002', scope: 'session', action: { kind: 'click', label: 'Download CSV' } })
+    expect(await screen.findByText(/wants to use the browser/)).toBeInTheDocument()
+    expect(screen.getByText('Click "Download CSV" on http://localhost:3002')).toBeInTheDocument()
+    expect(screen.getByText('Allows this preview session on http://localhost:3002, until you end it.')).toBeInTheDocument()
+    const buttons = screen.getAllByRole('button').filter(button => /Deny|Allow/.test(button.textContent ?? ''))
+    expect(buttons.map(button => button.textContent?.trim())).toEqual(['Deny', 'Allow for this session'])
+  }, 30_000)
+
+  test('any other origin allows only this action, a fill names its field and never its value, and leaving localhost says it always asks', async () => {
+    await renderCard({ origin: 'https://example.org', scope: 'action', action: { kind: 'fill', label: 'Password' } })
+    expect(await screen.findByText('Fill "Password" on https://example.org')).toBeInTheDocument()
+    expect(screen.getByText('Allows only this action.')).toBeInTheDocument()
+    const buttons = screen.getAllByRole('button').filter(button => /Deny|Allow/.test(button.textContent ?? ''))
+    expect(buttons.map(button => button.textContent?.trim())).toEqual(['Deny', 'Allow once'])
+    expect(document.body.textContent).not.toMatch(/hunter2|••••/)
+    cleanup()
+    await renderCard({ origin: 'http://localhost:3002', scope: 'action', action: { kind: 'navigate', label: 'Pay', target: 'https://pay.example.com/checkout' } })
+    expect(await screen.findByText('Open https://pay.example.com/checkout')).toBeInTheDocument()
+    expect(screen.getByText('Leaving localhost always asks.')).toBeInTheDocument()
+  }, 30_000)
+
+  test('the preview approval card reads in pt-BR', async () => {
+    await changeLanguage('pt-BR')
+    await renderCard({ origin: 'http://localhost:3002', scope: 'session', action: { kind: 'scroll', label: '' } })
+    expect(await screen.findByText(/quer usar o navegador/)).toBeInTheDocument()
+    expect(screen.getByText('Rolar em http://localhost:3002')).toBeInTheDocument()
+    expect(screen.getByText('Libera esta sessão de prévia em http://localhost:3002, até você encerrar.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Permitir nesta sessão' })).toBeInTheDocument()
+  }, 30_000)
+
 })

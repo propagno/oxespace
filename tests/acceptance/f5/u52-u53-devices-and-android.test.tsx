@@ -5,7 +5,7 @@
 //   galaxy-s23, ipad-mini, each { id, name, width, height, dpr, ua, touch }) and emulationFor(device, rotated);
 //   window.oxe.browserPreview.setDevice({ ownerKey, tabId, deviceId | null, rotated }).
 // - window.oxe.android.{ status() → { adb: 'missing' | 'ok', devices: [{ serial, name, kind, api?, state, agentsCanSee }],
-//   avds }, onChanged(cb), connect({ serial }), disconnect({ serial }), onFrame(cb({ serial, width, height, data })),
+//   avds } (each device also carries stream: 'idle' | 'connecting' | 'live', main's stream state), onChanged(cb), connect({ serial }), disconnect({ serial }), onFrame(cb({ serial, width, height, data })),
 //   tap({ serial, x, y }), swipe(...), key(...), rotate({ serial }), screenshot({ serial }) → { path, name },
 //   setAgentsCanSee({ serial, value }), startEmulator(avd) }.
 // The renderer parts: DeviceMenu({ ownerKey, tabId, deviceId, rotated }) and fitDeviceFrame(device, rotated, panel) in
@@ -72,7 +72,7 @@ describe('U5.2 · device emulation', () => {
 
 describe('U5.3 · the Android mirror', () => {
   type Status = Record<string, unknown>
-  const pixel = { serial: 'emulator-5554', name: 'Pixel 8', kind: 'emulator', api: 36, state: 'device', agentsCanSee: false }
+  const pixel = { serial: 'emulator-5554', name: 'Pixel 8', kind: 'emulator', api: 36, state: 'device', agentsCanSee: false, stream: 'live' }
   function mockAndroid(status: Status) {
     let current = status
     const frames: Array<(frame: Record<string, unknown>) => void> = []
@@ -102,7 +102,7 @@ describe('U5.3 · the Android mirror', () => {
     render(<><AndroidPanel /><Toaster /></>)
   }
 
-  test('a connected device shows its name, Live while frames arrive, and a canvas named for it', async () => {
+  test('a connected device shows its name, Live while main streams it, and a canvas named for it', async () => {
     const main = mockAndroid({ adb: 'ok', devices: [pixel], avds: ['Pixel_8_API_36'] })
     await renderPanel()
     expect(await screen.findByRole('button', { name: /Pixel 8 · Emulator · API 36/ })).toBeInTheDocument()
@@ -138,12 +138,14 @@ describe('U5.3 · the Android mirror', () => {
     expect(await screen.findByText('Agents can take screenshots of this device')).toBeInTheDocument()
   })
 
-  test('the five states read with their copy and action', async () => {
+  test('every state reads with its copy and action', async () => {
     const cases: Array<[Status, RegExp, string | null]> = [
       [{ adb: 'missing', devices: [], avds: [] }, /Android tools not found/, 'How to install'],
       [{ adb: 'ok', devices: [], avds: ['Pixel_8_API_36'] }, /No Android device/, 'Start the Pixel 8 emulator'],
       [{ adb: 'ok', devices: [{ ...pixel, name: 'Galaxy S23', kind: 'usb', state: 'offline' }], avds: [] }, /Lost Galaxy S23/, 'Reconnect'],
-      [{ adb: 'ok', devices: [{ ...pixel, kind: 'usb', state: 'unauthorized' }], avds: [] }, /Allow USB debugging on the phone/, null]
+      [{ adb: 'ok', devices: [{ ...pixel, kind: 'usb', state: 'unauthorized' }], avds: [] }, /USB debugging wasn't allowed/, 'Reconnect'],
+      [{ adb: 'ok', devices: [{ ...pixel, kind: 'usb', state: 'authorizing' }], avds: [] }, /Waiting for Pixel 8/, null],
+      [{ adb: 'ok', devices: [{ ...pixel, kind: 'usb', state: 'no-permissions' }], avds: [] }, /Can't access Pixel 8/, 'How to set it up']
     ]
     for (const [status, copy, action] of cases) {
       mockAndroid(status)
@@ -152,10 +154,14 @@ describe('U5.3 · the Android mirror', () => {
       if (action) expect(screen.getByRole('button', { name: action })).toBeInTheDocument()
       cleanup()
     }
-    const main = mockAndroid({ adb: 'ok', devices: [pixel], avds: [] })
-    main.android.connect.mockImplementation(() => new Promise(() => undefined))
+    // Connecting comes from main's stream state, not from the connect call: it shows even after connect resolved.
+    const main = mockAndroid({ adb: 'ok', devices: [{ ...pixel, stream: 'connecting' }], avds: [] })
     await renderPanel()
     expect(await screen.findByText('Connecting to Pixel 8…')).toBeInTheDocument()
+    expect(screen.queryByText('Live')).toBeNull()
+    main.change({ adb: 'ok', devices: [{ ...pixel, stream: 'live' }], avds: [] })
+    main.frame()
+    expect(await screen.findByText('Live')).toBeInTheDocument()
   })
 
   test('agents have no input path: the MCP tools include the device screenshot and no tap, swipe or key', async () => {
@@ -164,4 +170,47 @@ describe('U5.3 · the Android mirror', () => {
     expect(entries).toMatch(/oxespace_device_screenshot/)
     expect(entries).not.toMatch(/android[:.](tap|swipe|key)|oxespace_device_(tap|swipe|key|type|input)/)
   })
+
+  test('a connected phone that leaves the list, such as an unplugged USB cable, shows Lost with its name and Reconnect', async () => {
+    const galaxy = { serial: 'R5CT1', name: 'Galaxy S23', kind: 'usb', state: 'device', agentsCanSee: false, stream: 'live' }
+    const main = mockAndroid({ adb: 'ok', devices: [galaxy], avds: [] })
+    await renderPanel()
+    expect(await screen.findByRole('button', { name: /Galaxy S23 · USB/ })).toBeInTheDocument()
+    main.change({ adb: 'ok', devices: [], avds: [] })
+    expect(await screen.findByText(/Lost Galaxy S23/)).toBeInTheDocument()
+    expect(screen.getByText('The cable was unplugged or USB debugging turned off.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Reconnect' })).toBeInTheDocument()
+  })
+
+
+  test('"Agents can see" belongs to each device: turning it on for one leaves the other off', async () => {
+    const galaxy = { serial: 'R5CT1', name: 'Galaxy S23', kind: 'usb', state: 'device', agentsCanSee: false, stream: 'live' }
+    const main = mockAndroid({ adb: 'ok', devices: [pixel, galaxy], avds: [] })
+    main.android.setAgentsCanSee.mockImplementation(async ({ serial, value }: { serial: string; value: boolean }) => {
+      main.change({ adb: 'ok', devices: [{ ...pixel, agentsCanSee: serial === pixel.serial ? value : pixel.agentsCanSee }, galaxy], avds: [] })
+    })
+    await renderPanel()
+    await userEvent.click(await screen.findByRole('switch', { name: 'Agents can see' }))
+    expect(main.android.setAgentsCanSee).toHaveBeenCalledWith({ serial: 'emulator-5554', value: true })
+    await waitFor(() => expect(screen.getByRole('switch', { name: 'Agents can see' })).toHaveAttribute('aria-checked', 'true'))
+    await userEvent.click(screen.getByRole('button', { name: /Pixel 8 · Emulator · API 36/ }))
+    await userEvent.click(await screen.findByRole('menuitemradio', { name: /Galaxy S23 · USB/ }))
+    await waitFor(() => expect(main.android.connect).toHaveBeenCalledWith({ serial: 'R5CT1' }))
+    expect(await screen.findByRole('switch', { name: 'Agents can see' })).toHaveAttribute('aria-checked', 'false')
+    expect(main.android.setAgentsCanSee).toHaveBeenCalledTimes(1)
+  })
+
+
+  test('waiting on the phone says to tap Allow with no button, and no-permissions offers the udev help and Reconnect', async () => {
+    mockAndroid({ adb: 'ok', devices: [{ ...pixel, kind: 'usb', state: 'authorizing' }], avds: [] })
+    await renderPanel()
+    expect(await screen.findByText("Tap Allow on the phone's screen.")).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Reconnect|How to/ })).toBeNull()
+    cleanup()
+    mockAndroid({ adb: 'ok', devices: [{ ...pixel, kind: 'usb', state: 'no-permissions' }], avds: [] })
+    await renderPanel()
+    expect(await screen.findByText('Linux needs a udev rule for this phone. Add it, then reconnect.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Reconnect' })).toBeInTheDocument()
+  })
+
 })
