@@ -289,7 +289,36 @@ function main(argv) {
   const content = markerContent({ sha, at: new Date().toISOString(), base: options.base, steps: results.map(r => r.name), evidence: proof?.evidence ?? 'local', runs: proof?.runs ?? [] })
   writeFileSync(marker, `${JSON.stringify(content, null, 2)}\n`)
   console.log(`pr:ready OK for ${sha.slice(0, 8)}: wrote ${marker}`)
-  return 0
+  // The same verdict where GitHub (and the merge train) can read it: a `pr:ready` commit status on this exact sha.
+  const posted = postStatus(sha, content)
+  console.log(posted.ok ? `posted the ${STATUS_CONTEXT} status on ${sha.slice(0, 8)}` : `pr:ready: the ${STATUS_CONTEXT} status was NOT posted (${posted.detail}). The local marker stands; run pr:ready again once the head is pushed.`)
+  return posted.ok ? 0 : 1
+}
+
+/** The commit status pr:ready posts, so the merge train can tell a head that passed it from one that did not. */
+export const STATUS_CONTEXT = 'pr:ready'
+
+/** The status body for a marker: success, the evidence kind and its runs in the description (GitHub caps it at 140). */
+export function statusBody(content, repo) {
+  const runs = content.runs ?? []
+  const description = `${content.evidence}${runs.length ? `: run ${runs.join(', ')}` : `: ${content.steps.length} local step(s)`}`.slice(0, 140)
+  const body = { state: 'success', context: STATUS_CONTEXT, description }
+  if (runs.length && repo) body.target_url = `https://github.com/${repo}/actions/runs/${runs[0]}`
+  return body
+}
+
+function postStatus(sha, content) {
+  try {
+    const repo = gh(['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner']).trim()
+    const body = statusBody(content, repo)
+    const args = ['api', '-X', 'POST', `repos/${repo}/statuses/${sha}`]
+    for (const [key, value] of Object.entries(body)) args.push('-f', `${key}=${value}`)
+    gh(args)
+    return { ok: true }
+  } catch (error) {
+    const text = String(error.stderr || error.message || error)
+    return { ok: false, detail: /422|No commit found/i.test(text) ? `${sha.slice(0, 8)} is not on GitHub yet: push it first` : text.split('\n')[0] }
+  }
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {

@@ -14,6 +14,8 @@ import {
   NETWORK_FAILURE,
   parseArgs,
   runIdOf,
+  STATUS_CONTEXT,
+  statusBody,
   visualEvidence,
   visualPlatforms,
   WORKERS,
@@ -147,6 +149,24 @@ describe('an unstable network', () => {
     expect(() => withNetworkRetry(auth.run, { sleep: () => {} })).toThrow(/401/)
     expect(auth.calls()).toBe(1)
     expect(NETWORK_FAILURE.test('Not Found (HTTP 404)')).toBe(false)
+  })
+})
+
+describe('the pr:ready commit status (TECH LEAD (b), 08/11)', () => {
+  const content = (over: Record<string, unknown> = {}) => ({ ok: true, sha: SHA, at: 't', evidence: 'local', runs: [] as number[], base: 'origin/main', steps: ['lint', 'typecheck', 'gates'], ...over })
+
+  it('is a success on the pr:ready context, saying how the head was proven', () => {
+    expect(STATUS_CONTEXT).toBe('pr:ready')
+    expect(statusBody(content(), 'o/r')).toEqual({ state: 'success', context: 'pr:ready', description: 'local: 3 local step(s)' })
+    expect(statusBody(content({ evidence: 'images', runs: [81, 82] }), 'o/r')).toEqual({
+      state: 'success', context: 'pr:ready', description: 'images: run 81, 82', target_url: 'https://github.com/o/r/actions/runs/81',
+    })
+    expect(statusBody(content({ evidence: 'ci', runs: [71] }), 'o/r').target_url).toBe('https://github.com/o/r/actions/runs/71')
+  })
+
+  it('keeps the description within GitHub\'s 140 characters', () => {
+    const body = statusBody(content({ evidence: 'ci', runs: Array.from({ length: 30 }, (_, i) => 42000000000 + i) }), 'o/r')
+    expect(body.description.length).toBeLessThanOrEqual(140)
   })
 })
 
