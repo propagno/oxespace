@@ -363,6 +363,8 @@ export const IPC_CHANNELS = {
     listConnectedRepositories: 'github:list-connected-repositories',
     connectRepository: 'github:connect-repository'
   },
+  /** A60: the Pull request tab, GitHub or Azure DevOps in one shape. */
+  pullRequest: { state: 'pull-request:state' },
   integration: {
     listGroups: 'integration:list-groups',
     createGroup: 'integration:create-group',
@@ -716,6 +718,7 @@ export interface OxeApi {
   search: SearchApi
   linear: LinearApi
   github: GitHubApi
+  pullRequest?: import('./pull-request').PullRequestApi
   integration: IntegrationApi
   clipboard: ClipboardApi
   notifications: NotificationsApi

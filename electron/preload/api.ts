@@ -447,6 +447,9 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       listConnectedRepositories: (input) => ipc.invoke(IPC_CHANNELS.github.listConnectedRepositories, input) as Promise<GitHubConnectedRepository[]>,
       connectRepository: (input) => ipc.invoke(IPC_CHANNELS.github.connectRepository, input) as Promise<GitHubConnectedRepository>
     },
+    pullRequest: {
+      state: (input) => ipc.invoke(IPC_CHANNELS.pullRequest.state, input) as Promise<import('../../shared/types/pull-request').PullRequestState>
+    },
     integration: {
       listGroups: (input) => ipc.invoke(IPC_CHANNELS.integration.listGroups, input ?? {}) as Promise<import('../../shared/types/integration').IntegrationGroup[]>,
       createGroup: (input) => ipc.invoke(IPC_CHANNELS.integration.createGroup, input) as Promise<import('../../shared/types/integration').IntegrationGroup>,

@@ -297,17 +297,19 @@ async function registerIpcHandlers(): Promise<() => void> {
   const [
     { registerGitIpc }, { registerSearchIpc }, { registerGitHubIpc },
     { registerLinearIpc }, { registerIntegrationIpc }, { registerRemoteIpc },
-    { GitHubService }, { GitService }, { CodeGraphService }
+    { GitHubService }, { GitService }, { CodeGraphService }, { registerPullRequestIpc }
   ] = await Promise.all([
     import('./ipc/git.ipc'), import('./ipc/search.ipc'), import('./ipc/github.ipc'),
     import('./ipc/linear.ipc'), import('./ipc/integration.ipc'), import('./ipc/remote.ipc'),
-    import('./services/github.service'), import('./services/git.service'), import('./services/codegraph.service')
+    import('./services/github.service'), import('./services/git.service'), import('./services/codegraph.service'),
+    import('./ipc/pull-request.ipc')
   ])
   const gitService = registerGitIpc()
   registerSearchIpc()
   // Agents search with their own instance: a new search cancels the previous one of the same service.
   const agentSearch = new SearchService()
   const gitHubService = registerGitHubIpc(db)
+  registerPullRequestIpc()
   gitHubService.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
   // Scheduled automations, from their own chunk; a store that cannot open or code that cannot load leaves them off.
   const automationService = await startAutomations(join(app.getPath('userData'), 'automations.sqlite3'), {

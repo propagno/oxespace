@@ -182,6 +182,11 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     excluded: 'An account-level link the person makes and confirms in the GitHub panel.',
     ipc: ['github.listConnectedRepositories', 'github.connectRepository']
   },
+  'code.pull_request': {
+    label: 'The Pull request tab: a branch\'s pull request on GitHub or Azure DevOps',
+    excluded: 'The person\'s window. Agents read pull requests with oxespace_github.',
+    ipc: ['pullRequest.state']
+  },
 
   // ---- search ---------------------------------------------------------------------
   'search.text': { label: 'Exact text search and the file list', tools: each('oxespace_search', 'read', ['text', 'files']), ipc: ['search.run', 'search.cancel', 'search.listFiles'] },
