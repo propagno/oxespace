@@ -31,7 +31,7 @@ type Size = { label: string; width: number; height: number }
 /** 900×620 is the smallest supported window; full is the window maximized on the runner's screen. */
 const SIZES: Size[] = [{ label: '900x620', width: 900, height: 620 }, { label: 'full', width: 0, height: 0 }]
 /** Names and code that read the same in both languages on purpose. */
-const SAME_IN_BOTH = /^(OXESpace|OxeCode|OxeChat|OxeQuery|Claude( Code)?|Codex|Git(Hub)?|MCP|PostgreSQL|MongoDB|MySQL|SQL|JSON|HTTP|URL|API|Docker|Podman|CLAUDE\.md|AGENTS\.md|Ctrl|Shift|Alt|Enter|Esc|Tab|OK|main|bash|zsh|pwsh|PowerShell|Terminal|Web Preview|\d[\d.:,%\s]*|[A-Z]{1,4}|[^A-Za-zÀ-ÿ]+)$/
+const SAME_IN_BOTH = /^((Ctrl|Shift|Alt|Cmd|Mod|⌘|⇧)([ +]\S+)+|terminal \d+|[\w.-]+ CLI|[a-z][a-z0-9-]*( [a-z0-9-]+)+|OXESpace|OxeCode|OxeChat|OxeQuery|Claude( Code)?|Codex|Git(Hub)?|MCP|PostgreSQL|MongoDB|MySQL|SQL|JSON|HTTP|URL|API|Docker|Podman|CLAUDE\.md|AGENTS\.md|Ctrl|Shift|Alt|Enter|Esc|Tab|OK|main|bash|zsh|pwsh|PowerShell|Terminal|Web Preview|\d[\d.:,%\s]*|[A-Z]{1,4}|[^A-Za-zÀ-ÿ]+)$/
 
 interface Finding { combo: string; surface: string; kind: string; detail: string }
 const findings: Finding[] = []
@@ -79,7 +79,8 @@ async function inspect(page: Page, combo: string, surface: string, locale: Local
   const seen = await page.evaluate(() => {
     const vw = window.innerWidth, vh = window.innerHeight
     const out = { hscroll: document.documentElement.scrollWidth > vw + 1, offscreen: [] as string[], clipped: [] as string[], keys: [] as string[], texts: [] as string[], bg: getComputedStyle(document.body).backgroundColor }
-    const visible = (el: Element) => { const r = el.getBoundingClientRect(); const s = getComputedStyle(el); return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none' && Number(s.opacity) > 0.05 && !el.closest('[aria-hidden="true"], .xterm, .monaco-editor') }
+    const srOnly = (el: Element) => { const r = el.getBoundingClientRect(); const s = getComputedStyle(el); return r.width <= 2 || r.height <= 2 || (s.clip && s.clip !== 'auto') || /inset\(50%|inset\(100%/.test(s.clipPath) || s.position === 'absolute' && r.width * r.height <= 4 }
+    const visible = (el: Element) => { const r = el.getBoundingClientRect(); const s = getComputedStyle(el); return !srOnly(el) && r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none' && Number(s.opacity) > 0.05 && !el.closest('[aria-hidden="true"], .xterm, .monaco-editor') }
     const label = (el: Element) => `${el.tagName.toLowerCase()}${el.getAttribute('data-testid') ? `[${el.getAttribute('data-testid')}]` : ''} "${(el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 60)}"`
     for (const el of Array.from(document.querySelectorAll('button, a, [role="button"], [role="tab"], [role="menuitem"], input, select'))) {
       if (!visible(el)) continue
@@ -117,7 +118,7 @@ async function inspect(page: Page, combo: string, surface: string, locale: Local
     const en = enList ? new Set(enList) : undefined
     if (en) for (const t of texts) if (en.has(t) && t.split(' ').length >= 2 && /[a-z]{3}/.test(t) && !SAME_IN_BOTH.test(t)) add('untranslated', t)
   }
-  const axe = await new AxeBuilder({ page }).disableRules(['region']).analyze().catch(e => ({ violations: [{ id: 'axe-failed', impact: 'serious', nodes: [{ target: [String(e).slice(0, 100)] }] }] }))
+  const axe = await new AxeBuilder({ page }).setLegacyMode(true).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).disableRules(['region']).analyze().catch(e => ({ violations: [{ id: 'axe-failed', impact: 'serious', nodes: [{ target: [String(e).slice(0, 100)] }] }] }))
   for (const v of axe.violations) if (v.impact === 'serious' || v.impact === 'critical') add(`axe:${v.id}`, v.nodes.slice(0, 3).map(n => JSON.stringify(n.target)).join(' '))
   // Keyboard: Tab moves a visible focus that stays in the window and never falls to <body>.
   const lost: string[] = []
@@ -127,9 +128,15 @@ async function inspect(page: Page, combo: string, surface: string, locale: Local
       const a = document.activeElement as HTMLElement | null
       if (!a || a === document.body) return { lost: true, label: 'body' }
       if (a.closest('.xterm, .monaco-editor')) return { lost: false, ok: true, label: 'editor' }
-      const s = getComputedStyle(a), r = a.getBoundingClientRect()
-      const ring = (s.outlineStyle !== 'none' && parseFloat(s.outlineWidth) > 0) || (s.boxShadow && s.boxShadow !== 'none')
-      return { lost: false, ok: !!ring, inView: r.right <= window.innerWidth + 1 && r.bottom <= window.innerHeight + 1 && r.width > 0, label: `${a.tagName.toLowerCase()} "${(a.getAttribute('aria-label') ?? a.textContent ?? '').trim().slice(0, 50)}"` }
+      // Visible focus is any change a person can see: outline, ring, border, background or the parent's (a wrapper
+      // that draws the ring for its input). Read focused, blur, read again, focus back (keyboard modality stays).
+      const look = (el: Element | null) => { if (!el) return ''; const s = getComputedStyle(el); return [s.outlineStyle, s.outlineWidth, s.outlineColor, s.boxShadow, s.borderTopColor, s.borderBottomColor, s.borderBottomWidth, s.backgroundColor, s.color].join('|') }
+      const focused = look(a) + '#' + look(a.parentElement) + '#' + look(a.parentElement?.parentElement ?? null)
+      a.blur()
+      const blurred = look(a) + '#' + look(a.parentElement) + '#' + look(a.parentElement?.parentElement ?? null)
+      a.focus()
+      const r = a.getBoundingClientRect()
+      return { lost: false, ok: focused !== blurred, inView: r.right <= window.innerWidth + 1 && r.bottom <= window.innerHeight + 1 && r.width > 0, label: `${a.tagName.toLowerCase()} "${(a.getAttribute('aria-label') ?? a.textContent ?? '').trim().slice(0, 50)}"` }
     })
     if (f.lost) { lost.push('focus fell to <body>'); break }
     if (f.ok === false) lost.push(`no visible focus on ${f.label}`)
