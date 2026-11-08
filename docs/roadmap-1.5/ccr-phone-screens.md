@@ -5,7 +5,8 @@
 - **Phase:** Fase 10, Celular, in `docs/roadmap-1.5/oxe/ROADMAP.md`.
 - **Status:** draft. DESIGN reviews the UI, and HML reviews the field question (M10), before any execute.
 - **Inputs:**
-  - the approved design #627 @ c8ada4a1 (`playground/HANDOFF-MOBILE.md`, `MOBILE-AUDIT.md`, `src/components/Phone.tsx`);
+  - the approved design #627 @ 41ec3265 (`playground/HANDOFF-MOBILE.md`, `MOBILE-AUDIT.md`, `src/components/Phone.tsx`).
+    It includes c116b61c "More keys" and #658's conversation view; c8ada4a1 was the approval point.
   - `team/plans/1.5.0-mobile-acceptance.md` (MG1–MG10, M1–M8, MX);
   - `team/checklists/phone-parity-1.4.md` (S1–S12, the step counts);
   - the round-1/2 reviews in `team/reviews/1.5-mobile/`.
@@ -21,6 +22,10 @@
   - `SessionPairingProbe`;
   - `DesktopSessionController`.
 - **Colours come only from `OxeTokens.kt`,** generated from the desktop tokens (MG3). No hex in Compose.
+- **The sun (`attn*`) means "needs you" only** (MG4): the needs-you glyph, badge and question chip. It's never used for
+  an error, a warning or a failure. Those are `intentDanger*` / `intentWarning*` inside a Notice.
+  - Frozen as **new** `.../ui/theme/AttnUsageTest.kt`. It scans `ui/**/*.kt` and fails if `attn` appears next to a
+    failure, error or warning state, or in `Notice`'s danger/warning intents.
 - **Every control is at least 48 × 48 dp** (MG8), and text scales with the system font size (MG7).
 - **Goldens:** re-recorded once, at the end of the batch, in en/pt-BR × light/dark.
 - **No paid runs.** The emulator runs on CI (`android-emulator.yml`, API 36 and 37).
@@ -69,7 +74,8 @@
 - **Files:** `ui/HomeScreen.kt` and `MainActivity.kt` (routing only), plus the strings in `shared/locales/{en,pt-BR}/mobile.json` and `npm run android:generate`.
 - **States,** all from the parity list:
   - unpaired, connecting (skeleton), unreachable ("Trying again in N s" with a ring), offline, incompatible;
-  - revoked, and **lapsed (T96)** as its own danger Notice;
+  - **revoked** as a **danger** Notice;
+  - **lapsed (T96)** as a **warning** Notice with the clock icon: the pairing expired, nobody removed the phone;
   - NotAccepted;
   - "Enter the computer's address" under **Can't connect?**.
 - **Frozen tests:**
