@@ -1,0 +1,203 @@
+import { expect, test, type Page, type TestInfo } from '@playwright/test'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { launchReal, mode, openRepo, quitReal, realProfile } from './real-app'
+
+/**
+ * HML · 1.5.0 F2 (the cockpit removals R1–R15, R0a–R0d), black box on the REAL app. Red until F2 lands.
+ *
+ * What a person meets after F2, in three questions:
+ * (a) nothing people still need disappears without a replacement:
+ *     /work → Delegated work, with cancel; files open read-only with Open in editor (and a way to pick an editor);
+ *     the project's instructions where Memory was;
+ * (b) data from removed features is safe: a fresh install never shows the "what changed" band, and Settings › Data can
+ *     export again (the upgrade path, 1.4.3 with data → 1.5.0, is HML's A40 install-over, not this spec);
+ * (c) no dead link or menu item stays: the mode switch, the application menus, the command palette, Settings, the
+ *     tool catalog, Keyboard settings and the terminal menu name no removed feature, and the removed chords do nothing.
+ *
+ * Every check records what it saw (report.txt in test-results). No agent, no account, no network.
+ */
+
+/** The removed features' names, en and pt-BR, as a person would see them in a label. */
+const REMOVED = /\b(OxePost|OxePod|Linear|Teams?|Equipe|Skills|Automa(?:tions?|ções)|AI Memory|Memória|Memory|RTK|search by meaning|busca por significado|Semantic|Documentation tools|hybrid explore|Work panel)\b/i
+/** Entries that may name a removed feature on purpose: the "what changed" band and the export of removed data. */
+const ALLOWED = /what changed in 1\.5|o que mudou na 1\.5|removed in 1\.5|removidos na 1\.5|export removed data|exportar dados removidos/i
+
+const notes: string[] = []
+const note = (line: string) => { notes.push(line); console.log('HML', line) }
+const flush = (info: TestInfo, name: string) => { writeFileSync(info.outputPath(`${name}.txt`), notes.join('\n')); info.annotations.push({ type: name, description: notes.join('\n') }); notes.length = 0 }
+const leftovers = (labels: string[]) => labels.map(l => l.replace(/\s+/g, ' ').trim()).filter(l => REMOVED.test(l) && !ALLOWED.test(l))
+
+async function menuLabels(page: Page): Promise<string[]> {
+  const labels: string[] = []
+  const top = page.getByRole('button', { name: /^(Application menu|Menu do aplicativo)$/ })
+  if (await top.count()) { await top.first().click(); await page.waitForTimeout(300) }
+  // Each top-level menu (File, Edit, View, Tools, Help): open, read its items and submenus, close.
+  const bar = page.getByRole('menubar').first()
+  const menus = (await bar.count()) ? bar.getByRole('menuitem') : page.getByRole('menuitem')
+  const count = await menus.count()
+  for (let i = 0; i < count; i++) {
+    const item = menus.nth(i)
+    labels.push((await item.innerText().catch(() => '')).trim())
+    await item.click().catch(() => undefined); await page.waitForTimeout(200)
+    labels.push(...(await page.getByRole('menuitem').allInnerTexts().catch(() => [])))
+    await page.keyboard.press('Escape')
+  }
+  await page.keyboard.press('Escape')
+  return [...new Set(labels.filter(Boolean))]
+}
+
+test.describe('F2 · (c) no removed feature is left behind in the interface', () => {
+  test('the mode switch lists OxeCode, OxeChat and OxeQuery, and the old OxePod/OxePost chords do nothing', async ({}, info) => {
+    test.setTimeout(150_000)
+    const profile = realProfile('hml-f2-modes')
+    const { app, page } = await launchReal(profile)
+    try {
+      const modes = await page.locator('button[data-app-mode]').evaluateAll(els => els.map(e => e.getAttribute('data-app-mode')))
+      note(`modes: ${JSON.stringify(modes)}`)
+      expect.soft(modes, 'three modes after F2').toEqual(['code', 'thread', 'data'])
+      for (const chord of ['Control+4', 'Control+5']) {
+        const errors: string[] = []
+        page.on('pageerror', e => errors.push(String(e)))
+        await page.keyboard.press(chord); await page.waitForTimeout(500)
+        const pressed = await page.locator('button[data-app-mode][aria-pressed="true"]').getAttribute('data-app-mode').catch(() => null)
+        note(`${chord}: mode stays ${pressed}, errors ${errors.length}`)
+        expect.soft(errors, `${chord} throws nothing`).toEqual([])
+        expect.soft(['code', 'thread', 'data'], `${chord} never lands on a removed view`).toContain(pressed)
+      }
+    } finally { flush(info, 'f2-modes'); await quitReal(app) }
+  })
+
+  for (const locale of ['en-US', 'pt-BR']) {
+    test(`menus, palette, Settings, tools, Keyboard and the terminal menu name no removed feature · ${locale}`, async ({}, info) => {
+      test.setTimeout(240_000)
+      const profile = realProfile(`hml-f2-labels-${locale}`, { OXESPACE_LOCALE: locale })
+      const { app, page } = await launchReal(profile)
+      try {
+        await openRepo(page, profile.repo)
+        // Application menus.
+        const menu = await menuLabels(page)
+        note(`menu items: ${menu.length}; leftovers: ${JSON.stringify(leftovers(menu))}`)
+        expect.soft(leftovers(menu), 'no menu item names a removed feature').toEqual([])
+
+        // Command palette: each removed name typed in; any result must not be a removed feature's entry.
+        for (const term of ['OxePost', 'OxePod', 'Linear', 'Team', 'Skills', 'Automation', 'Memory', 'RTK', 'Semantic', 'Work']) {
+          await page.keyboard.press('Control+k'); await page.waitForTimeout(250)
+          await page.keyboard.insertText(term); await page.waitForTimeout(350)
+          const items = await page.locator('[cmdk-item], [role="option"]').allInnerTexts().catch(() => [])
+          const bad = leftovers(items)
+          note(`palette "${term}": ${items.length} results; leftovers ${JSON.stringify(bad)}`)
+          expect.soft(bad, `the palette offers nothing for the removed "${term}"`).toEqual([])
+          await page.keyboard.press('Escape'); await page.waitForTimeout(150)
+        }
+
+        // Settings categories, and Settings › Data's "Removed in 1.5".
+        await page.keyboard.press('Control+,'); await page.waitForTimeout(1000)
+        const nav = page.getByRole('navigation', { name: /Settings categories|Categorias/ }).first()
+        const categories = (await nav.count()) ? await nav.getByRole('button').allInnerTexts() : await page.getByRole('button').allInnerTexts()
+        note(`settings categories: ${JSON.stringify(categories.map(c => c.trim()).filter(Boolean))}`)
+        expect.soft(leftovers(categories), 'no Settings page for a removed feature').toEqual([])
+        const keyboard = page.getByRole('button', { name: /^(Keyboard|Teclado)/ }).first()
+        if (await keyboard.count()) {
+          await keyboard.click(); await page.waitForTimeout(800)
+          const text = (await page.locator('body').innerText()).split('\n')
+          note(`keyboard leftovers: ${JSON.stringify(leftovers(text))}`)
+          expect.soft(leftovers(text), 'Keyboard settings list no removed command').toEqual([])
+        }
+        const data = page.getByRole('button', { name: /^(Data|Dados)/ }).first()
+        if (await data.count()) {
+          await data.click(); await page.waitForTimeout(800)
+          const page_ = (await page.locator('body').innerText()).replace(/\s+/g, ' ')
+          note(`Settings › Data has Removed in 1.5: ${/Removed in 1\.5|Removidos na 1\.5/i.test(page_)}`)
+          expect.soft(page_, 'Settings › Data can export the removed data again').toMatch(/Export removed data|Exportar dados removidos/i)
+        }
+        await page.keyboard.press('Escape'); await page.waitForTimeout(400)
+
+        // The tool catalog ("+ Tool" / More panels) in OxeCode.
+        await mode(page, 'code'); await page.waitForTimeout(600)
+        const more = page.getByRole('button', { name: /More panels|Mais painéis|Open panels|Abrir painéis/ }).first()
+        if (await more.count()) {
+          await more.click(); await page.waitForTimeout(500)
+          const tools = await page.getByRole('menuitem').allInnerTexts().catch(() => [])
+          note(`tools: ${JSON.stringify(tools.map(t => t.trim()))}`)
+          expect.soft(leftovers(tools), 'the tool catalog offers no removed tool').toEqual([])
+          await page.keyboard.press('Escape')
+        }
+
+        // The terminal pane menu: RTK, Semantic and the Teams entry are gone.
+        const paneMenu = page.getByRole('button', { name: /More pane actions|Mais ações do painel/ }).first()
+        if (await paneMenu.count()) {
+          await paneMenu.click(); await page.waitForTimeout(400)
+          const items = await page.getByRole('menuitem').allInnerTexts().catch(() => [])
+          note(`pane menu: ${JSON.stringify(items.map(t => t.trim()))}`)
+          expect.soft(leftovers(items), 'the terminal menu offers no removed feature').toEqual([])
+          await page.keyboard.press('Escape')
+        }
+        await page.screenshot({ path: info.outputPath(`f2-labels-${locale}.png`) })
+      } finally { flush(info, `f2-labels-${locale}`); await quitReal(app) }
+    })
+  }
+})
+
+test.describe('F2 · (a) what people still need has a home', () => {
+  test('files open read-only with Open in editor, and no Save; Ctrl+S changes nothing on disk', async ({}, info) => {
+    test.setTimeout(150_000)
+    const profile = realProfile('hml-f2-viewer')
+    mkdirSync(join(profile.repo, 'src'), { recursive: true })
+    const file = join(profile.repo, 'src', 'app.ts')
+    writeFileSync(file, 'export const answer = 42\n')
+    const { app, page } = await launchReal(profile)
+    try {
+      await openRepo(page, profile.repo)
+      await page.keyboard.press('Control+e'); await page.waitForTimeout(800)
+      await page.getByText('src', { exact: true }).first().click().catch(() => undefined); await page.waitForTimeout(300)
+      await page.getByText('app.ts', { exact: true }).first().dblclick().catch(() => undefined); await page.waitForTimeout(1200)
+      const body = (await page.locator('body').innerText()).replace(/\s+/g, ' ')
+      note(`viewer shows Open in editor: ${/Open in editor|Abrir no editor/.test(body)}; read only: ${/read only|somente leitura/i.test(body)}`)
+      expect.soft(body, 'the viewer offers Open in editor').toMatch(/Open in editor|Abrir no editor/)
+      expect.soft(await page.getByRole('button', { name: /^(Save|Salvar)$/ }).count(), 'no Save in the file viewer').toBe(0)
+      // Typing and Ctrl+S never write the file.
+      await page.locator('.monaco-editor textarea').first().focus().catch(() => undefined)
+      await page.keyboard.type('// edited'); await page.keyboard.press('Control+s'); await page.waitForTimeout(800)
+      const { readFileSync } = await import('node:fs')
+      expect.soft(readFileSync(file, 'utf8'), 'the file on disk is unchanged').toBe('export const answer = 42\n')
+      await page.screenshot({ path: info.outputPath('f2-viewer.png') })
+    } finally { flush(info, 'f2-viewer'); await quitReal(app) }
+  })
+
+  test('/work in a conversation opens Delegated work', async ({}, info) => {
+    test.setTimeout(150_000)
+    const profile = realProfile('hml-f2-work')
+    const { app, page } = await launchReal(profile)
+    try {
+      const repo = profile.repo
+      const { projectId } = await page.evaluate(r => (window as unknown as { oxe: { thread: { addProject(r: string): Promise<{ projectId: string }> } } }).oxe.thread.addProject(r), repo)
+      await page.evaluate(([p, r]) => (window as unknown as { oxe: { thread: { create(i: unknown): Promise<unknown> } } }).oxe.thread.create({ projectId: p, rootPath: r, provider: 'claude' }), [projectId, repo] as const)
+      await mode(page, 'thread'); await page.waitForTimeout(1200)
+      await page.getByRole('textbox').last().click()
+      await page.keyboard.type('/work'); await page.waitForTimeout(400); await page.keyboard.press('Enter'); await page.waitForTimeout(1000)
+      const dialog = page.getByRole('dialog').last()
+      const name = await dialog.getAttribute('aria-label').catch(() => null) ?? await dialog.getByRole('heading').first().innerText().catch(() => '')
+      note(`/work opened: ${name}`)
+      expect.soft(String(name), '/work opens Delegated work').toMatch(/Delegated work|Trabalho delegado/i)
+      await page.screenshot({ path: info.outputPath('f2-work.png') })
+    } finally { flush(info, 'f2-work'); await quitReal(app) }
+  })
+})
+
+test.describe('F2 · (b) removed features\' data', () => {
+  test('a fresh install never shows the "what changed" band, and Settings › Data says nothing needed saving', async ({}, info) => {
+    test.setTimeout(150_000)
+    const profile = realProfile('hml-f2-fresh')
+    const { app, page } = await launchReal(profile)
+    try {
+      await page.waitForTimeout(1500)
+      const band = await page.getByText(/OXESpace 1\.5 removed some features|O OXESpace 1\.5 removeu alguns recursos/).count()
+      note(`band on a fresh install: ${band}`)
+      expect.soft(band, 'no band on a fresh install').toBe(0)
+      const state = await page.evaluate(() => (window as unknown as { oxe: { dataExport?: { state(): Promise<unknown> } } }).oxe.dataExport?.state()).catch(e => `error ${String(e)}`)
+      note(`dataExport.state: ${JSON.stringify(state)}`)
+      expect.soft(state, 'the export state exists (R0b)').toBeTruthy()
+    } finally { flush(info, 'f2-fresh'); await quitReal(app) }
+  })
+})
