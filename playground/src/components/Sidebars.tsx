@@ -35,8 +35,8 @@ export function ChatSidebar () {
   const shut = S.projShut || {}
   return <aside className={'sbar' + (col ? ' col' : '') + (S.chatCompact ? ' compact' : '')} aria-label="OxeChat sidebar">
     <div className="sbar-h"><h2>Conversations</h2>
-      <button className="ibtn" onClick={run(() => { S.apPath = undefined; S.overlay = { type: 'dlg', id: 'addproject' } })} title="Add project" aria-label="Add project"><Icon n="folder" /></button>
-      <button className="ibtn" onClick={run(() => { S.chatCompact = !S.chatCompact })} aria-pressed={!!S.chatCompact} title={S.chatCompact ? 'Use comfortable spacing' : 'Use compact spacing'} aria-label="Compact conversation list"><Icon n="list" /></button>
+      {col ? null : <><button className="ibtn" onClick={run(() => { S.apPath = undefined; S.overlay = { type: 'dlg', id: 'addproject' } })} title="Add project" aria-label="Add project"><Icon n="folder" /></button>
+      <button className="ibtn" onClick={run(() => { S.chatCompact = !S.chatCompact })} aria-pressed={!!S.chatCompact} title={S.chatCompact ? 'Use comfortable spacing' : 'Use compact spacing'} aria-label="Compact conversation list"><Icon n="list" /></button></>}
       <button className="ibtn" onClick={run(() => { S.sbCol = !S.sbCol; syncScreen() })} title={`${col ? 'Expand' : 'Collapse'} the sidebar (Ctrl B)`} aria-label={`${col ? 'Expand' : 'Collapse'} the sidebar`}><Icon n="sidebar" /></button></div>
     <div className="sbar-tools"><label className="search"><Icon n="search" s={12} /><input id="tsearch" placeholder="Filter conversations" aria-label="Filter conversations" value={S.filter || ''} onChange={e => { S.filter = e.target.value; emit() }} /><Kbd>/</Kbd></label></div>
     <div className="sbar-l">
@@ -64,7 +64,7 @@ export function ChatSidebar () {
     <div className="sbar-f">{S.freshWs ? <><span className="sp" /><span className="lbl">{plural(all.length, 'conversation')}</span></> : col ? <button className="ibtn sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'archived' } })} aria-label="Archived" title="Archived"><Icon n="archive" s={12} /></button>
       : <><button className="btn ghost sm" onClick={run(() => { S.overlay = { type: 'dlg', id: 'archived' } })}><Icon n="archive" s={12} /><span className="lbl">Archived · 14</span></button><span className="sp" /><span className="lbl">{plural(all.length, 'conversation')}</span></>}</div></aside>
 }
-MENUS.projact = () => { const p = D.projects[S.projCtx || 'api']; return <><MI icon="plus" label={`New conversation in ${p.name}`} onClick={() => { S.overlay = { type: 'newtask', text: '' }; S.newTask = { project: p.id, prov: 'claude', model: 'Opus 5.5', access: 'edit', worktree: true } }} /><MI icon="gear" label="Project settings" onClick={() => goScreen('settings-ws-projects')} /><MI icon="list" label="New section…" onClick={() => toast(`Sections group ${p.name}'s conversations under a name`)} /><MI icon="users" label="Team" onClick={() => { S.overlay = { type: 'dlg', id: 'team' } }} /><MI icon="term" label="Open in OxeCode" onClick={() => { const w = WORKSPACES.find(x => x.project === p.id && !x.wt); if (w) S.ws = w.id; S.area = 'mode'; S.mode2 = 'code'; syncScreen() }} /><hr /><MI icon="trash" dz label="Remove project…" onClick={() => { S.overlay = { type: 'dlg', id: 'removeproj' } }} /></> }
+MENUS.projact = () => { const p = D.projects[S.projCtx || 'api']; return <><MI icon="plus" label={`New conversation in ${p.name}`} onClick={() => { S.overlay = { type: 'newtask', text: '' }; S.newTask = { project: p.id, prov: 'claude', model: 'Opus 5.5', access: 'edit', worktree: true } }} /><MI icon="gear" label="Project settings" onClick={() => goScreen('settings-ws-projects')} /><MI icon="list" label="New section…" onClick={() => toast(`Sections group ${p.name}'s conversations under a name`)} /><MI icon="term" label="Open in OxeCode" onClick={() => { const w = WORKSPACES.find(x => x.project === p.id && !x.wt); if (w) S.ws = w.id; S.area = 'mode'; S.mode2 = 'code'; syncScreen() }} /><hr /><MI icon="trash" dz label="Remove project…" onClick={() => { S.overlay = { type: 'dlg', id: 'removeproj' } }} /></> }
 
 /* ================================================================ OxeCode */
 type Tone = 'needs-decision' | 'thinking' | 'awaiting' | 'idle' | 'error' | 'exited'
@@ -81,11 +81,17 @@ export function CodeSidebar ({ panesOf, onPane }: { panesOf: (id: string) => { i
   const q = (S.wsFilter || '').toLowerCase()
   const list = wsList().filter(w => !q || (wsName(w) + ' ' + w.path).toLowerCase().includes(q) || panesOf(w.id).some(k => (k.name + ' ' + (k.tag || '')).toLowerCase().includes(q)))
   const exp = S.wsOpen || {}
+  if (S.codeSbCol) return <aside className="mode-side ws-rail" aria-label="Workspaces">
+    <button className="ibtn" onClick={run(() => { S.codeSbCol = false; syncScreen() })} title="Expand the sidebar (Ctrl B)" aria-label="Expand the sidebar"><Icon n="sidebar" /></button>
+    <nav className="ws-rail-l" aria-label="Workspaces">{wsList().map(w => { const tone = dominant(panesOf(w.id)); const active = w.id === S.ws
+      return <button key={w.id} className={'ws-rail-i' + (active ? ' active' : '')} data-ws={wsColor(w)} aria-current={active ? 'page' : undefined} title={wsName(w)} aria-label={wsName(w) + (tone === 'needs-decision' ? ', needs your decision' : '')} onClick={run(() => { S.ws = w.id; S.codeMax = null })}><span className="wsdot" />{tone === 'needs-decision' ? <span className="sg needs" /> : null}</button> })}</nav>
+    <button className="ibtn" title="New workspace" aria-label="New workspace" onClick={run(() => { S.nw = undefined; S.overlay = { type: 'dlg', id: 'newws' } })}><Icon n="plus" /></button></aside>
   return <aside className="mode-side ws-side ws14" aria-label="Workspaces">
     <div className="mside-h"><b>Workspaces</b><span className="sp" />
       <button className="ibtn sm" title="New workspace" aria-label="New workspace" data-testid="btn-new-workspace" onClick={run(() => { S.nw = undefined; S.overlay = { type: 'dlg', id: 'newws' } })}><Icon n="plus" s={12} /></button>
       <button className="ibtn sm" title="Delegated work" aria-label="Delegated work" onClick={run(() => { S.overlay = { type: 'dlg', id: 'delegated' } })}><Icon n="layers" s={12} /></button>
-      <button className="ibtn sm" title="Files & commands (Ctrl P)" aria-label="Files & commands" onClick={run(() => { S.overlay = { type: 'pal', query: '', sel: 0 } })}><Icon n="search" s={12} /></button></div>
+      <button className="ibtn sm" title="Files & commands (Ctrl P)" aria-label="Files & commands" onClick={run(() => { S.overlay = { type: 'pal', query: '', sel: 0 } })}><Icon n="search" s={12} /></button>
+      <button className="ibtn sm" title="Collapse the sidebar (Ctrl B)" aria-label="Collapse the sidebar" onClick={run(() => { S.codeSbCol = true; syncScreen() })}><Icon n="sidebar" s={12} /></button></div>
     <div className="sbar-tools"><label className="search"><Icon n="search" s={12} /><input placeholder="Filter workspaces" aria-label="Filter workspaces" value={S.wsFilter || ''} onChange={e => { S.wsFilter = e.target.value; emit() }} /><Kbd>/</Kbd></label></div>
     <div className="scroll"><div className="sh"><span>Workspaces</span><span className="sp" /><button className="ibtn sm" aria-label="Toggle all workspace terminals" title="Toggle all workspace terminals" onClick={run(() => { const anyOpen = list.some(w => exp[w.id] ?? w.id === S.ws); S.wsOpen = Object.fromEntries(list.map(w => [w.id, !anyOpen])) })}><Icon n="down" s={12} /></button></div>
       <nav className="wsl" aria-label="Workspaces">{list.length ? list.map(w => { const panes = panesOf(w.id); const active = w.id === S.ws; const open = !!q || (exp[w.id] ?? active); const tone = dominant(panes)

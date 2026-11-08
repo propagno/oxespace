@@ -13,6 +13,28 @@ Every capability the app has today, and where it is in the 1.5.0 playground. Bui
   - *dropped-ask-user*: proposed for removal, waiting for the user.
 - **Where:** the screen's URL hash in the playground, then what to click.
 
+## 1.5.0 cockpit changes (user, 08/11)
+
+Decided by the user, so they are not *dropped-ask-user*. The rows further down that say otherwise are superseded.
+
+| 1.4 capability | Status | Where |
+|---|---|---|
+| OxePod mode | changed | `#containers`, the dock panel; task tab Containers |
+| OxePost mode (build and send requests) | dropped by the user | `#http` audits agents' calls; collections exported (Settings › Data and privacy) |
+| Side chat | dropped by the user | — |
+| Cost in the conversation header | dropped by the user | Usage dialog and Details |
+| AI Memory | dropped by the user | the CLIs' own `CLAUDE.md` / `AGENTS.md`; notes exported |
+| Automations | dropped by the user | the CLIs' scheduled routines; exported with history |
+| Teams | dropped by the user | Delegated work stays |
+| Linear panel | dropped by the user | Linear's MCP server |
+| Semantic search, RTK, CodeGraph inside the app | dropped by the user | the agents' own search; MCP servers |
+| Editing in Files | changed | read only; Open in editor from files and diff hunks |
+| Skills manager | changed | read-only list; `/skill` in the bar |
+| "Snapshot, then approve" | changed | the SQL preview reads with a SELECT |
+| `/approve` | dropped by the user | the request card and the toast |
+| OxeQuery "what agents ran" | moved | a badge that opens Agent activity |
+| Start screen | changed | Agora |
+
 ## Shell and navigation
 
 | Capability | 1.4 (where) | 1.5.0 (where) | Status |
