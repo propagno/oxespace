@@ -104,6 +104,7 @@ No PR is labelled `na-fila` without a green `npm run pr:ready` on its exact head
 - **Changes that need no `node_modules`:**
   - **Images only** (visual baselines under `e2e/visual/__screenshots__/{linux,win32}/`): proven by a green `visual-baselines.yml` run on that exact head, one per platform touched. Dispatch it on the PR branch first. The marker says `evidence: "images"`.
   - **Packages only** (`package.json` / `package-lock.json`, at the root or in `playground/`), or other snapshot images: proven by the PR's CI unit jobs, with no local step. The marker says `evidence: "ci"`.
+- **The `pr:ready` commit status:** on green, `pr:ready` also posts a `pr:ready` success status on that exact sha (the evidence kind and its runs), so GitHub and the merge train can see that the head passed. The head must be pushed first; otherwise the marker stays local and `pr:ready` exits 1, saying so. `pr:ready` is **not** a required check in branch protection: the train's batch branches and its update-branch merges never carry it.
 - **Clean tree:** the working tree must be clean, since the marker vouches for HEAD. `--dry-run` prints the plan; `--base <ref>` changes the base.
 
 ## Running the checks locally
