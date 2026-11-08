@@ -364,30 +364,6 @@
       "ask": "Downloaded updates install when you restart.",
       "auto": "Downloads in the background. Restart to apply."
     },
-    "rtk": {
-      "installedNoVersion": "installed (no version file)",
-      "notInstalledVersion": "not installed",
-      "pill": {
-        "error": "Error",
-        "checking": "Checking",
-        "updating": "Updating",
-        "updateAvailable": "Update available",
-        "upToDate": "Up to date",
-        "notInstalled": "Not installed"
-      },
-      "status": {
-        "checking": "Checking GitHub…",
-        "updating": "Updating…",
-        "available": "Update available: {{version}}",
-        "latest": "Latest {{version}} · up to date",
-        "dev": "Works in dev — check or install the sidecar anytime",
-        "notChecked": "Not checked yet"
-      },
-      "check": "Check RTK",
-      "update": "Update RTK",
-      "install": "Install RTK",
-      "hint": "Sidecar binary. Updates independently of OXESpace."
-    },
     "bundled": {
       "group": "Included with OXESpace",
       "title": "Built-in tools",
@@ -720,6 +696,18 @@
     }
   },
   "tools": {
+    "skillsList": {
+      "title": "Skills",
+      "intro": "Markdown prompts agents can run: yours in ~/.oxe/skills and the project's in .oxe/skills, which win on a shared name. Run one from the command bar (/).",
+      "loading": "Reading the skills…",
+      "loadFailed": "Could not read the skills",
+      "empty": "No skills yet",
+      "noDescription": "No description",
+      "scope": {
+        "workspace": "Workspace",
+        "user": "User"
+      }
+    },
     "title": "Tools",
     "intro": "The groups of OXESpace MCP tools that agents in this project are offered, how each group is offered and what it costs. Agents that start after a change get it. Modes are saved in the project's file:",
     "reload": "Reload",
@@ -747,6 +735,7 @@
       "notOffered": "Not offered"
     },
     "sections": {
+      "mcpAndSkills": "MCP servers and skills",
       "project": "Groups this project chooses",
       "role": "Groups that follow the role",
       "roleIntro": "These come with what a conversation or terminal is: a team member, a delegated task, or an agent in an OxeCode terminal. They cannot be changed here."
