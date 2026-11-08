@@ -147,7 +147,8 @@ Terminal states **Agent conversation**, **New while scrolled up** and **Conversa
   named "View": **Screen · Conversation** (pt-BR **Tela · Conversa**). It opens on Conversation, and the choice is kept
   per pane while the terminal is open. A pane without the field shows no control.
 - **Caption:** "Claude Code's conversation · read only" (or Codex's), with **Live** while following.
-- **Body:** M4's components (the user bubble, agent text with its avatar, tool calls folded into the steps chip).
+- **Body:** text messages only. v1's reader keeps only the user's and the assistant's text, so there are no tool or
+  step items: M4's user bubble and agent text with its avatar, never the steps chip.
   "Load earlier" at the top, as in OxeChat. Pull to refresh, no header button.
 - **No input on Conversation.** The key row and input show only on Screen. Conversation ends with the tappable line
   "Type on the Screen view", which switches to Screen. "You can type" stays in the app bar in both views.

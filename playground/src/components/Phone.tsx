@@ -239,10 +239,8 @@ function TermConversation () {
     {up ? <><div className="m-you">Charges are created twice when the app retries. Make POST /charges idempotent.</div>
       <div className="m-agent"><Av p="claude" /><div>Done. Each key is stored with a hash of the body, and a second request with the same key gets the first answer back.</div></div></> : null}
     <div className="m-you">Add rate limiting to POST /charges: 10 a minute per API key.</div>
-    <button className="m-steps-sum"><Icon n="check" s={12} />5 steps · read 4 files, ran 1 command<Icon n="right" s={12} /></button>
     <div className="m-agent"><Av p="claude" /><div>I added a token bucket in <code>middleware/rateLimit.ts</code>. Over the limit, the API answers 429 with <code>Retry-After</code>.</div></div>
     {up ? null : <><div className="m-you">Use Redis for the limit; we run 3 instances.</div>
-      <button className="m-steps-sum"><Icon n="check" s={12} />2 steps · edited 1 file, ran 1 command<Icon n="right" s={12} /></button>
       <div className="m-agent"><Av p="claude" /><div>The bucket now lives in Redis, updated by one atomic script, so the 3 instances share it. Running the rate-limit tests.</div></div></>}
   </div></div>
     {up ? <button className="m-latest" aria-label="3 new messages, go to latest" onClick={run(() => { p.st = 'conversation' })}>3 new · Latest<Icon n="down" s={12} /></button> : null}</>
