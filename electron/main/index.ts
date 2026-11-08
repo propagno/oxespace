@@ -134,11 +134,10 @@ async function registerIpcHandlers(): Promise<() => void> {
     log.info(`[main] PATH recovered from login shell: +${recoveredPath.join(', ')}`)
   }
 
-  // App update + RTK sidecar IPC are always registered (even on native failure
-  // / e2e mocks below) so Settings and the update banner keep working.
+  // App update IPC is always registered (even on native failure / e2e mocks
+  // below) so Settings and the update indicator keep working.
   registerAppUpdateIpc()
   registerAppearanceIpc()
-  void registerRtkIpc()
   registerBrowserPreviewIpc()
 
   // T48: never in a packaged build, whatever the environment says (e2e/e2e-mode.ts).
@@ -582,21 +581,6 @@ async function registerIpcHandlers(): Promise<() => void> {
 
 /** Live RPC bus handle, closed on app shutdown. */
 let rpcServer: RpcServerHandle | null = null
-
-async function registerRtkIpc(): Promise<void> {
-  const { getRtkService } = await import('./services/rtk.service')
-  const rtk = getRtkService(app.getPath('userData'))
-  ipcMain.handle(IPC_CHANNELS.rtk.getStatus, () => rtk.getStatus())
-  ipcMain.handle(IPC_CHANNELS.rtk.checkForUpdate, () => rtk.checkForUpdate(true))
-  ipcMain.handle(IPC_CHANNELS.rtk.updateToLatest, async () => {
-    try {
-      return await rtk.updateToLatest()
-    } catch (err) {
-      // Surface structured status with error rather than rejecting — UI can show it.
-      return rtk.getStatus()
-    }
-  })
-}
 
 /** Protocol of a URL, or empty when it cannot be parsed. */
 function safeProtocol(value: string | undefined): string {
