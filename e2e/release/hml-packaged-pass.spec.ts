@@ -31,7 +31,7 @@ type Size = { label: string; width: number; height: number }
 /** 900×620 is the smallest supported window; full is the window maximized on the runner's screen. */
 const SIZES: Size[] = [{ label: '900x620', width: 900, height: 620 }, { label: 'full', width: 0, height: 0 }]
 /** Names and code that read the same in both languages on purpose. */
-const SAME_IN_BOTH = /^((Ctrl|Shift|Alt|Cmd|Mod|⌘|⇧)([ +]\S+)+|terminal \d+|[\w.-]+ CLI|[a-z][a-z0-9-]*( [a-z0-9-]+)+|OXESpace|OxeCode|OxeChat|OxeQuery|Claude( Code)?|Codex|Git(Hub)?|MCP|PostgreSQL|MongoDB|MySQL|SQL|JSON|HTTP|URL|API|Docker|Podman|CLAUDE\.md|AGENTS\.md|Ctrl|Shift|Alt|Enter|Esc|Tab|OK|main|bash|zsh|pwsh|PowerShell|Terminal|Web Preview|\d[\d.:,%\s]*|[A-Z]{1,4}|[^A-Za-zÀ-ÿ]+)$/
+const SAME_IN_BOTH = /^((Ctrl|Shift|Alt|Cmd|Mod|⌘|⇧)([ +]\S+)+|[Tt]erminal \d+|[\w.-]+ CLI|[a-z][a-z0-9-]*( [a-z0-9-]+)+|OXESpace|OxeCode|OxeChat|OxeQuery|Claude( Code)?|Codex|Git(Hub)?|MCP|PostgreSQL|MongoDB|MySQL|SQL|JSON|HTTP|URL|API|Docker|Podman|CLAUDE\.md|AGENTS\.md|Ctrl|Shift|Alt|Enter|Esc|Tab|OK|main|bash|zsh|pwsh|PowerShell|Terminal|Web Preview|\d[\d.:,%\s]*|[A-Z]{1,4}|[^A-Za-zÀ-ÿ]+)$/
 
 interface Finding { combo: string; surface: string; kind: string; detail: string }
 const findings: Finding[] = []
@@ -128,6 +128,10 @@ async function inspect(page: Page, combo: string, surface: string, locale: Local
       const a = document.activeElement as HTMLElement | null
       if (!a || a === document.body) return { lost: true, label: 'body' }
       if (a.closest('.xterm, .monaco-editor')) return { lost: false, ok: true, label: 'editor' }
+      // A menu, listbox or dialog container holds focus while its items show it (opened by pointer, no item yet);
+      // an item shows it by data-highlighted / aria-selected, as Radix and listboxes do.
+      if (/^(menu|menubar|listbox|dialog|alertdialog|tree|grid)$/.test(a.getAttribute('role') ?? '')) return { lost: false, ok: true, inView: true, label: 'container' }
+      if (a.hasAttribute('data-highlighted') || a.getAttribute('aria-selected') === 'true') return { lost: false, ok: true, inView: true, label: 'highlighted' }
       // Visible focus is any change a person can see: outline, ring, border, background or the parent's (a wrapper
       // that draws the ring for its input). Read focused, blur, read again, focus back (keyboard modality stays).
       const look = (el: Element | null) => { if (!el) return ''; const s = getComputedStyle(el); return [s.outlineStyle, s.outlineWidth, s.outlineColor, s.boxShadow, s.borderTopColor, s.borderBottomColor, s.borderBottomWidth, s.backgroundColor, s.color].join('|') }
