@@ -13,7 +13,7 @@
   --diff-add-bg:#e4f6e6; --diff-add-strong:#c8ebcb; --diff-del-bg:#ffebe9; --diff-del-strong:#ffd4cf;
   --scrim: rgba(18, 28, 22, 0.32);
   /* 1.5: the sun means "needs you" in both modes */
-  --attn:#b87300; --attn-bg:#fdeddb; --attn-border:#ebbb81; --attn-fg:#845500;
+  --attn:#af7100; --attn-bg:#fdeddb; --attn-border:#ebbb81; --attn-fg:#845500;
   /* 1.5: resource kinds (bars, chips, timeline marks) */
   --k-file:#1174b4; --k-file-bg:#e4f2ff; --k-file-fg:#18659b;
   --k-db:#7860b5; --k-db-bg:#f1edff; --k-db-fg:#665299;
@@ -22,9 +22,13 @@
   --k-shell:#555d57; --k-shell-bg:#edf1ee; --k-shell-fg:#404742;
   /* 1.5: syntax roles for editors, code blocks and diffs */
   /* 1.5: terminal surface (same in both modes) and stacking */
-  --term-bg:#0f1411; --term-fg:#d7e3da; --term-line:#26302a; --z-dock:50; --z-overlay:300; --z-menu:380; --z-toast:400;
+  --term-bg:#131714; --term-fg:#e7efe9; --term-line:#26302a; --z-dock:50; --z-overlay:300; --z-menu:380; --z-toast:400;
   --syn-kw:#6b4fb0; --syn-str:#237236; --syn-num:#a83f7f; --syn-fn:#18659b; --syn-type:#00727a; --syn-key:#8a4b00; --syn-cm:#5a635c; --syn-pun:#555d57; --syn-var-bg:#fdeddb; --syn-var:#845500;
   --prov-claude:#c2643f; --prov-codex:#10a37f;
+  /* Ink on the sun and on the provider colors: dark in both themes (AA: 4.58:1 on --attn light, 9.4:1 dark; 5.98:1 on Codex, 4.73:1 on Claude). */
+  --text-on-attn:#1a1205; --text-on-provider:#0d100e;
+  /* The terminal ANSI roles, independent of the theme: the terminal is term-bg in both (≥ 6:1 on it). */
+  --term-green:#6cc093; --term-blue:#7cb8ea; --term-yellow:#f0b467; --term-red:#f08080; --term-dim:#8b968e; --term-bright:#f4f8f5; --term-cursor:#e7efe9; --term-hidden:#a9b3ac; --term-chip:rgb(255 255 255 / .07);
   --e1: 0 1px 2px rgba(18,32,24,.06); --e2: 0 2px 6px rgba(18,32,24,.08), 0 1px 2px rgba(18,32,24,.05);
   --e3: 0 8px 24px rgba(18,32,24,.12), 0 2px 6px rgba(18,32,24,.06); --e4: 0 16px 48px rgba(18,32,24,.18), 0 4px 12px rgba(18,32,24,.08);
   --ease: cubic-bezier(0.2, 0, 0, 1); --ease-out: cubic-bezier(0.22, 1, 0.36, 1); --ease-emph: cubic-bezier(0.3, 0, 0, 1.2);
@@ -34,7 +38,7 @@
 .app[data-mode="dark"] {
   --surface-canvas:#0d100e; --surface-sunken:#0c110e; --surface-chrome:#131714; --surface-base:#131714; --surface-raised:#1b201c; --surface-overlay:#212723; --surface-inverse:#e7efe9;
   --fill-hover:#212723; --fill-pressed:#27302a; --fill-selected:#122c1e; --fill-selected-strong:#1e5137;
-  --text-primary:#e8f1ea; --text-secondary:#c4cdc7; --text-muted:#9ea7a1; --text-disabled:#4f6054; --text-on-accent:#06120b; --text-on-solid:#0d100e; --text-accent:#91d2ac; --text-link:#88c8fe;
+  --text-primary:#e8f1ea; --text-secondary:#c4cdc7; --text-muted:#9ea7a1; --text-disabled:#4f6054; --text-on-accent:#08110c; --text-on-solid:#0d100e; --text-accent:#91d2ac; --text-link:#88c8fe;
   --border-subtle:#27302a; --border-default:#303a33; --border-strong:#3c4940;
   /* 1.5: dark accent moves from sun to caatinga, so the sun is free to mean "needs you" */
   --accent:#49a072; --accent-hover:#5eaf82; --accent-soft:#102318; --accent-soft-hover:#122c1e; --accent-border:#1e5137;

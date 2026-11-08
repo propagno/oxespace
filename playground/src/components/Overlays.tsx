@@ -4,7 +4,8 @@ import { WORKSPACES } from '../mock/workspaces'
 import { wsName, wsList } from '../state/ws'
 import { useEffect, useRef, type ReactNode } from 'react'
 import { D } from '../mock/data'
-import { S, emit, run, cur, task, prov, plural, toast, scState, cmpState, resolve, sendMsg } from '../state/store'
+import { S, emit, run, cur, task, prov, plural, toast, cmpState, resolve, sendMsg } from '../state/store'
+import { CALLS } from './Cockpit'
 import { Icon, Av, Kbd } from './ui'
 import { ImpactBody, ImpactActions } from './Tools'
 import { openTask } from './Task'
@@ -79,12 +80,13 @@ export function startTask (text: string) {
 
 /* ---------------------------------------------------------------- T84 · the command bar
    A front for actions that already exist, with no new powers. "@Agent …" starts or delegates a conversation, as today.
-   "/approve" works only here in the window (never over MCP) and opens the same impact preview and hold.
+   Approving is never a typed command: it happens on the request card or the toast, with Deny focused.
    Every command names its button fallback ("Also: …") and its shortcut; "?" lists them all. */
 interface PalItem { g: string; icon: string; label: string; sub?: string; k?: string; also?: string; act: () => void }
 export const COMMANDS: [string, string, string, string, string][] = [
   // [command, what it does, button fallback, shortcut, icon]
-  ['/approve', 'Review a waiting request: impact preview, then Allow or hold', 'See impact on the request card', 'A', 'shield'],
+  ['/pending', 'Go to what is waiting for you', 'Needs you in the title bar', 'Ctrl Shift A', 'shield'],
+  ['/skill', 'Run a skill in this conversation', '/ in the composer', '', 'book'],
   ['/deny', 'Deny a waiting request', 'Deny on the request card', 'D', 'shieldx'],
   ['/steer', 'Tell the current agent something; it reads it after the current step', 'The composer', 'Enter', 'send'],
   ['/stop', 'Stop the current agent (asks first)', 'Stop in Agora or the conversation', 'Esc Esc', 'stop'],
@@ -117,12 +119,12 @@ function cmdItems (raw: string): PalItem[] | null {
     const exact = COMMANDS.find(([c]) => c === cmd.toLowerCase())
     if (!exact) { const known = COMMANDS.filter(([c]) => c.startsWith(cmd.toLowerCase())); return known.length ? known.map(([c, d, also, k, i]) => ({ g: 'Commands', icon: i, label: c, sub: d, k, also, act: fill(c) })) : [{ g: 'Commands', icon: 'warn', label: `No command "${cmd}"`, sub: 'Type ? to see every command', act: () => {} }] }
     const [c, , also, k] = exact; const t = S.area === 'task' ? cur() : undefined
-    if (c === '/approve' || c === '/deny') {
+    if (c === '/pending') return [{ g: 'Go to', icon: 'shield', label: 'What is waiting for you', k, also, act: () => goScreen('queue') }]
+    if (c === '/skill') return D.skills.filter(x => !rest || x.name.includes(rest)).map(x => ({ g: 'Skills', icon: 'book', label: '/' + x.name, sub: x.desc, also, act: () => toast(`Ran /${x.name} in the conversation`) }))
+    if (c === '/deny') {
       const ps = pending().filter(a => !rest || (a.title + ' ' + task(a.task)!.title).toLowerCase().includes(rest.toLowerCase()))
       if (!ps.length) return [{ g: 'Waiting', icon: 'check', label: 'Nothing waiting', act: () => {} }]
-      return ps.map(a => c === '/approve'
-        ? { g: 'Review a request · impact preview first', icon: a.irreversible ? 'shieldx' : 'shield', label: a.title, sub: `${task(a.task)!.title}${a.irreversible ? ' · can\'t be undone: you hold to approve' : ''}`, k, also, act: () => { S.overlay = { type: 'approve', id: a.id } } }
-        : { g: 'Deny a request', icon: 'shieldx', label: `Deny: ${a.title}`, sub: task(a.task)!.title, k, also, act: () => resolve(a.id, 'deny') })
+      return ps.map(a => ({ g: 'Deny a request', icon: 'shieldx', label: `Deny: ${a.title}`, sub: task(a.task)!.title, k, also, act: () => resolve(a.id, 'deny') }))
     }
     if (c === '/steer') return t && t.id !== 'quick' ? [{ g: 'Steer', icon: 'send', label: rest ? `Tell "${t.title}": ${rest}` : `Type what to tell "${t.title}"`, sub: t.status === 'run' ? (canSteer(t) ? 'Read after the current step' : 'Queued until the current turn ends') : 'Sent now', k, also, act: () => { if (rest) { S.drafts[t.id] = rest; sendMsg(t) } else setTimeout(() => document.querySelector<HTMLElement>('.composer textarea')?.focus(), 30) } }] : [{ g: 'Steer', icon: 'info', label: 'Open a conversation first', sub: 'Or steer any agent from Agora', act: () => {} }]
     if (c === '/stop') return t && t.status === 'run' ? [{ g: 'Stop', icon: 'stop', label: `Stop "${t.title}"…`, sub: 'Asks first; the work so far is kept', k, also, act: () => { S.agStop = t.id; S.overlay = { type: 'dlg', id: 'agstop' } } }] : [{ g: 'Stop', icon: 'info', label: 'The current conversation isn\'t running', sub: 'Stop any agent from Agora', act: () => {} }]
@@ -138,7 +140,7 @@ function cmdItems (raw: string): PalItem[] | null {
     D.connections.filter(c => c.name.toLowerCase().includes(w)).forEach(c => out.push({ g: 'Open', icon: 'm-query', label: `${c.name} in OxeQuery`, sub: `${c.engine} · ${c.env}`, also: 'The connection list in OxeQuery', act: () => { S.q.conn = c.id; railGo('query') } }))
     WORKSPACES.filter(x => x.name.toLowerCase().includes(w) || x.path.toLowerCase().includes(w)).forEach(x => out.push({ g: 'Open', icon: 'm-code', label: `${x.name} in OxeCode`, sub: x.path, also: 'Its card in the OxeCode sidebar', act: () => { S.ws = x.id; railGo('code') } }))
     S.tasks.filter(t => t.id !== 'quick' && t.title.toLowerCase().includes(w)).forEach(t => out.push({ g: 'Open', icon: 'm-chat', label: t.title, sub: 'Conversation', also: 'Its row in the OxeChat sidebar', act: () => openTask(t.id) }))
-    D.containers.filter(c => c.name.toLowerCase().includes(w)).forEach(c => out.push({ g: 'Open', icon: 'm-pod', label: `${c.name} in OxePod`, sub: c.image, act: () => { S.pod.sel = c.id; railGo('pod') } }))
+    D.containers.filter(c => c.name.toLowerCase().includes(w)).forEach(c => out.push({ g: 'Open', icon: 'box', label: `${c.name} in Containers`, sub: c.image, act: () => { S.pod.sel = c.id; S.codeDock = 'containers'; railGo('code') } }))
     return out.length ? out : [{ g: 'Open', icon: 'info', label: `Nothing called "${m[2]}"`, sub: 'Open finds connections, workspaces, conversations and containers', act: () => {} }]
   }
   return null
@@ -146,20 +148,20 @@ function cmdItems (raw: string): PalItem[] | null {
 function palItems (): PalItem[] {
   const it: PalItem[] = [{ g: 'Actions', icon: 'plus', label: 'New conversation', k: 'N', act: () => { S.overlay = { type: 'newtask', text: '' } } }]
   S.queue.filter(q => !S.resolved[q]).forEach(q => it.push({ g: 'Actions', icon: 'shield', label: 'Review: ' + D.approvals[q].title, sub: task(D.approvals[q].task)!.title, act: () => { S.overlay = { type: 'approve', id: q } } }))
-  it.push({ g: 'Actions', icon: 'copy', label: 'Open the side chat', k: 'Ctrl .', act: () => { S.overlay = null; const t = cur(); if (t) { scState(t).open = true } } })
   it.push({ g: 'Go to', icon: 'agora', label: 'Agora: every agent, right now', k: 'Ctrl Shift G', act: () => goScreen('agora') })
   S.tasks.filter(t => t.id !== 'quick' && t.id !== S.taskId).forEach(t => it.push({ g: 'Open beside', icon: 'panel', label: `Open beside: ${t.title}`, act: () => { S.area = 'task'; S.cellA = S.taskId; S.split2 = t.id; S.taskId = t.id } }))
   S.tasks.filter(t => t.id !== 'quick').forEach(t => it.push({ g: 'Conversations', icon: 'list', label: t.title, sub: t.model, act: () => openTask(t.id) }))
   D.queries.forEach(q => it.push({ g: 'Made by agents', icon: 'db', label: q.sql.split('\n')[0], sub: `${q.conn} · ${q.at.slice(0, 5)}`, act: () => { if (task(q.task)) S.taskId = q.task; S.q.sel = q.id; S.tab = 'queries'; goScreen('task-current') } }))
-  Object.values(D.requests).filter(r => r.task).forEach(r => it.push({ g: 'Made by agents', icon: 'net', label: `${r.method} ${r.name}`, sub: `${task(r.task!)!.key} · ${r.at}`, act: () => { S.taskId = r.task!; S.post.req = r.id; S.tab = 'requests'; goScreen('task-current') } }))
-  ;([['code', 'm-code', 'OxeCode'], ['query', 'm-query', 'OxeQuery'], ['pod', 'm-pod', 'OxePod'], ['post', 'm-post', 'OxePost'], ['chat', 'm-chat', 'Quick chat (no project)']] as const).forEach(([v, i, l]) => it.push({ g: 'Modes', icon: i, label: 'Open ' + l, act: () => { S.overlay = null; railGo(v) } }))
+  CALLS.forEach(c => it.push({ g: 'Made by agents', icon: 'net', label: `${c.m} ${c.host}${c.path}`, sub: `${task(c.t)?.key || c.t} · ${c.at}`, act: () => { S.http.sel = c.id; S.codeDock = 'http'; railGo('code') } }))
+  ;([['browser', 'globe', 'Browser'], ['android', 'phone', 'Android device'], ['http', 'net', 'HTTP calls'], ['containers', 'box', 'Containers']] as const).forEach(([v, i, l]) => it.push({ g: 'Panels', icon: i, label: 'Open ' + l, act: () => { S.overlay = null; S.codeDock = v; railGo('code') } }))
+  ;([['code', 'm-code', 'OxeCode'], ['query', 'm-query', 'OxeQuery'], ['chat', 'm-chat', 'Quick chat (no project)']] as const).forEach(([v, i, l]) => it.push({ g: 'Modes', icon: i, label: 'Open ' + l, act: () => { S.overlay = null; railGo(v) } }))
   it.push({ g: 'Go to', icon: 'shield', label: 'Approvals', act: () => goScreen('queue') })
   it.push({ g: 'Go to', icon: 'gear', label: 'Settings', k: 'Ctrl ,', act: () => goScreen('settings-general') })
   it.push({ g: 'Go to', icon: 'palette', label: 'Foundations: tokens and components', act: () => goScreen('foundations') })
   it.push({ g: 'View', icon: S.mode === 'dark' ? 'sun' : 'moon', label: S.mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode', act: () => { S.mode = S.mode === 'dark' ? 'light' : 'dark' } })
   return it
 }
-const HINTS: [string, string][] = [['@Codex write tests for the Pix webhook', 'start or delegate'], ['/approve', 'review what is waiting'], ['open billing-staging', 'go anywhere'], ['?', 'every command and its shortcut']]
+const HINTS: [string, string][] = [['@Codex write tests for the Pix webhook', 'start or delegate'], ['/skill pix-rules', 'run a skill'], ['open billing-staging', 'go anywhere'], ['?', 'every command and its shortcut']]
 /** Exact and leading title matches rank first ("find why" opens the conversation, not its request's review). */
 function rank (items: PalItem[], q: string): PalItem[] {
   if (!q) return items
@@ -195,13 +197,12 @@ function Palette () {
 const conf = (title: string, text: ReactNode, label: string, act: () => void, danger = true, icon = 'warn'): DialogSpec => ({ size: 'sm', icon, title, body: () => <p style={{ color: 'var(--text-secondary)' }}>{text}</p>, safeFirst: true, primary: { label, danger, act } })
 export const DIALOGS: Record<string, () => DialogSpec> = {
   rename: () => { const t = cur(); return { size: 'sm', title: 'Rename task', icon: 'pencil', body: () => <div className="field"><label htmlFor="rn">Name</label><input className="input" id="rn" defaultValue={t.title} onChange={e => { S.renameTo = e.target.value }} /></div>, primary: { label: 'Rename', act: () => { if (S.renameTo?.trim()) { t.title = S.renameTo.trim(); toast('Renamed') } } } } },
-  deletetask: () => { const t = cur(); return conf(`Delete "${t.title}"?`, <>The conversation, its checkpoints and its side chat are deleted. The branch <span className="mono">{t.branch}</span> and its commits stay in git. This can't be undone.</>, 'Delete task', () => { S.tasks = S.tasks.filter(x => x !== t); S.taskId = S.tasks[0].id; toast(`Deleted ${t.key}`) }, true, 'trash') },
+  deletetask: () => { const t = cur(); return conf(`Delete "${t.title}"?`, <>The conversation and its checkpoints are deleted. The branch <span className="mono">{t.branch}</span> and its commits stay in git. This can't be undone.</>, 'Delete task', () => { S.tasks = S.tasks.filter(x => x !== t); S.taskId = S.tasks[0].id; toast(`Deleted ${t.key}`) }, true, 'trash') },
   restore: () => { const t = cur(); const ck = S.overlay!.ck as number; const c = (D.checkpoints[t.id] || [])[ck]; return { size: 'md', icon: 'undo', title: `Restore files to checkpoint ${ck}?`, body: () => <><p style={{ color: 'var(--text-secondary)' }}>The worktree goes back to "{c?.label}" ({c?.at}). The conversation stays as it is.</p>
     <div className="callout ok"><Icon n="history" /><span>A checkpoint of the current files is made first, so you can come back.</span></div><div className="callout warn"><Icon n="warn" /><span>Only files go back. Queries, requests and container changes already happened and stay.</span></div></>, primary: { label: 'Restore files', act: () => { delete S.past[t.id]; toast(`Files restored to checkpoint ${ck}`, { undo: () => { toast('Back to the files you had') } }) } } } },
   branch: () => { const t = cur(); const ck = S.overlay!.ck; return { size: 'md', icon: 'fork', title: ck === 'message' ? 'Branch from this message' : `Branch from checkpoint ${ck}`, body: () => <><p style={{ color: 'var(--text-secondary)' }}>A new task starts with the conversation up to that point and a new worktree from the same files. {t.key} keeps running untouched.</p>
     <div className="field"><label htmlFor="br-n">New task name</label><input className="input" id="br-n" defaultValue={t.title + ' (try 2)'} /></div>{t.prov === 'codex' ? <div className="callout info"><Icon n="info" /><span>Codex forks its session and rolls back the later turns.</span></div> : null}</>, primary: { label: 'Create branch', act: () => toast(`Branched ${t.key}. The new task appears under Running.`) } } },
   fullaccess: () => conf('Give full access?', <>{prov(cur().prov).name} will run commands, write to databases and call any network without asking you, until you change it back. Use it only in a throwaway environment.</>, 'Give full access', () => { const c = cmpState(cur()); c.access = 'full'; c.pend.access = true }, true, 'shieldx'),
-  scdiscard: () => ({ size: 'sm', icon: 'trash', title: 'Discard the side chat?', body: () => <p style={{ color: 'var(--text-secondary)' }}>Its answers will be gone. The conversation isn't affected.</p>, cancel: 'Keep', safeFirst: true, primary: { label: 'Discard', danger: true, act: () => { const s = scState(cur()); s.open = false; s.msgs = [] } } }),
   discard: () => conf('Discard all changes?', <>Every change in <span className="mono">{cur().branch}</span> that isn't committed is thrown away. The checkpoints stay, so you can restore one later.</>, 'Discard changes', () => toast('Changes discarded'), true, 'trash'),
   removews: () => { const w = WORKSPACES.find(x => x.id === S.wsCtx) || WORKSPACES[0]; return conf('Remove workspace?', <><b>{wsName(w)}</b> leaves the sidebar. The folder on disk is not touched; you can add it again with New workspace.</>, 'Remove workspace', () => { (S.wsGone ||= []).push(w.id); if (S.ws === w.id) S.ws = wsList()[0]?.id || ''; toast(`Removed ${wsName(w)}`, { undo: () => { S.wsGone = S.wsGone!.filter(x => x !== w.id); emit() } }) }, true, 'trash') },
   ...EXTRA_DIALOGS,
