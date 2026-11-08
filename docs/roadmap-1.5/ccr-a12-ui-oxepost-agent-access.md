@@ -53,13 +53,19 @@ OxePost settings", over the person-only `oxePost.call` ops `agentAccessList`, `a
 - Widening keeps its Undo (DESIGN confirmed: the same rule as A7's R5).
 
 **The renderer contract** (frozen by the dialog test, §5). BACKEND's PR 2 returns these shapes from `oxePost.call`:
-- `agentAccessList({})` → `{ collections: Row[], ceilings: { ordinary: Access, production: Access } }`, where
+- `agentAccessList({ workspaceId })` → `{ collections: Row[], ceilings: { ordinary: Access, production: Access } }`, where
   `Row = { collection, access: 'off' | 'read' | 'write', environmentId: string | null, changed: boolean,
-  lastEvent: 'set' | 'confirm' | 'dropped' | null, origins: string[] }` (origins from the grant's `origins_json`).
-- `agentAccessSet({ collection, access, environmentId })` and `agentAccessConfirm({ collection })` → the updated `Row`.
+  lastEvent: 'set' | 'confirm' | 'dropped' | null, origins: string[] }` (origins from the grant's `origins_json`). One row
+  per top-level folder that exists now: a folder with no grant is `off` with `origins: []`, and its `lastEvent` can
+  still be `dropped` (from the audit). `access` is the person's setting; the ceiling caps it for agents, and the
+  dialog shows both.
+- `agentAccessSet({ workspaceId, collection, access, environmentId })` and `agentAccessConfirm({ workspaceId,
+  collection })` → the updated `Row`.
+- `agentCeilingSet({ kind, access })` → `{ ordinary, production }`, the same object as the list's `ceilings`.
+- These match A12 #653 §7 at 5e6efe71, which asserts them with `toEqual`.
 
 The components, in `src/components/OxePost/AgentAccessDialog.tsx`:
-- `AgentAccessDialog({ collection, environments, activeEnvironmentId, onClose })`. `environments` is the `list` op's
+- `AgentAccessDialog({ workspaceId, collection, environments, activeEnvironmentId, onClose })`. `environments` is the `list` op's
   `PostEnvironmentView[]`; the dialog reads its own row through `agentAccessList` when it opens.
 - `AgentAccessBadge({ access, changed })`, which renders nothing for `off`.
 

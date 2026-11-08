@@ -18,7 +18,7 @@ const row = (o: Partial<Row> = {}): Row => ({ collection: 'billing', access: 'of
 function fake(initial: Row) {
   let current = initial
   const call = vi.fn(async (op: string, input: Record<string, unknown>) => {
-    if (op === 'agentAccessList') return { ok: true, value: { collections: [current], ceilings: { ordinary: 'write', production: 'read' } } }
+    if (op === 'agentAccessList') { expect(input).toMatchObject({ workspaceId: 'w1' }); return { ok: true, value: { collections: [current], ceilings: { ordinary: 'write', production: 'read' } } } }
     if (op === 'agentAccessSet') { current = { ...current, access: input.access as Access, environmentId: (input.environmentId as string | null) ?? current.environmentId, changed: false, lastEvent: 'set' }; return { ok: true, value: current } }
     if (op === 'agentAccessConfirm') { current = { ...current, changed: false, lastEvent: 'confirm' }; return { ok: true, value: current } }
     return { ok: false, error: { code: 'invalid', message: op } }
@@ -27,7 +27,7 @@ function fake(initial: Row) {
   return call
 }
 const open = (activeEnvironmentId: string | null = 'staging') =>
-  render(<><AgentAccessDialog collection="billing" environments={ENVIRONMENTS as never} activeEnvironmentId={activeEnvironmentId} onClose={vi.fn()} /><Toaster /></>)
+  render(<><AgentAccessDialog workspaceId="w1" collection="billing" environments={ENVIRONMENTS as never} activeEnvironmentId={activeEnvironmentId} onClose={vi.fn()} /><Toaster /></>)
 const choice = (name: RegExp) => screen.getByRole('radio', { name })
 
 afterEach(() => { cleanup(); delete (window as { oxe?: unknown }).oxe })
@@ -57,9 +57,9 @@ describe('A12 PR 3 · the Agent access dialog', () => {
     const user = userEvent.setup()
     open()
     await user.click(await screen.findByRole('radio', { name: /^Read and write/ }))
-    await waitFor(() => expect(call).toHaveBeenCalledWith('agentAccessSet', expect.objectContaining({ collection: 'billing', access: 'write', environmentId: 'staging' })))
+    await waitFor(() => expect(call).toHaveBeenCalledWith('agentAccessSet', expect.objectContaining({ workspaceId: 'w1', collection: 'billing', access: 'write', environmentId: 'staging' })))
     await user.click(await screen.findByRole('button', { name: 'Undo' }))
-    await waitFor(() => expect(call).toHaveBeenLastCalledWith('agentAccessSet', expect.objectContaining({ collection: 'billing', access: 'off' })))
+    await waitFor(() => expect(call).toHaveBeenLastCalledWith('agentAccessSet', expect.objectContaining({ workspaceId: 'w1', collection: 'billing', access: 'off' })))
   })
 
   it('(c) a changed collection says so, and Confirm access confirms it', async () => {
@@ -69,7 +69,7 @@ describe('A12 PR 3 · the Agent access dialog', () => {
     const notice = (await screen.findByText('Changed since you allowed it')).closest('[role="alert"], [role="status"]') as HTMLElement
     expect(notice).not.toBeNull()
     await user.click(within(notice).getByRole('button', { name: 'Confirm access' }))
-    await waitFor(() => expect(call).toHaveBeenCalledWith('agentAccessConfirm', expect.objectContaining({ collection: 'billing' })))
+    await waitFor(() => expect(call).toHaveBeenCalledWith('agentAccessConfirm', expect.objectContaining({ workspaceId: 'w1', collection: 'billing' })))
   })
 
   it('(d) access OXESpace dropped shows one Notice and starts at No access', async () => {
