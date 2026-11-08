@@ -17,7 +17,7 @@ import { WS_CLOSE } from './websocket'
  */
 
 /** The keys a subscribe frame may carry: exactly RemoteSubscribeFrame's, C5 (a contract test reads them from protocol.ts). */
-export const SUBSCRIBE_FRAME_KEYS = ['type', 'id', 'topic', 'target', 'sinceSeq', 'cursor'] as const
+export const SUBSCRIBE_FRAME_KEYS = ['type', 'id', 'topic', 'target', 'sinceSeq', 'cursor', 'snapshotOnly'] as const
 
 export type AuthOutcome = { ok: true; deviceId: string; expiresAt: number; result: RemoteAuthResult } | { ok: false; code: RemoteErrorCode; reason?: RemoteErrorReason }
 
@@ -215,7 +215,9 @@ export class RemoteConnection {
     if (!id || !hasOnlyKeys(frame, SUBSCRIBE_FRAME_KEYS) || typeof frame.topic !== 'string' ||
       (frame.target !== undefined && (typeof frame.target !== 'string' || !TARGET.test(frame.target))) ||
       (frame.cursor !== undefined && (typeof frame.cursor !== 'string' || !CURSOR.test(frame.cursor))) ||
-      (frame.sinceSeq !== undefined && (!Number.isSafeInteger(frame.sinceSeq) || frame.sinceSeq < 0))) return this.error('malformed', id)
+      (frame.sinceSeq !== undefined && (!Number.isSafeInteger(frame.sinceSeq) || frame.sinceSeq < 0)) ||
+      // 1.5.0 F10 skeleton: read strictly and otherwise ignored; BE-A45-flag (#706) sends the one screen page for it.
+      (frame.snapshotOnly !== undefined && typeof frame.snapshotOnly !== 'boolean')) return this.error('malformed', id)
     if (!this.session(id)) return
     if (FORBIDDEN.has(frame.topic)) return this.error('forbidden', id)
     if (!(REMOTE_SUBSCRIPTIONS as readonly string[]).includes(frame.topic)) return this.error('not-found', id)
