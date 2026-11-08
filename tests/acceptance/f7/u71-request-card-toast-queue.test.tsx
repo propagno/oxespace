@@ -6,7 +6,9 @@
 // - ApprovalToast({ request, agent, onRespond, onSeeImpact, onClose }) in src/components/Approvals/ApprovalToast.tsx: 12 s,
 //   held while hovered or focused, polite, and it waits while a modal dialog is open;
 // - ApprovalQueue({ items: [{ request, agent, conversation }], decided: [{ id, title, agent, outcome }], onRespond(id, response),
-//   onSeeImpact(id) }) in src/components/Approvals/ApprovalQueue.tsx; Ctrl Shift A opens it (keybinding approvals.queue).
+//   }) in src/components/Approvals/ApprovalQueue.tsx, with the selected request's ImpactPreview on its right (DESIGN M5 on
+//   #716: A is the 1.2 s hold on a critical one, focuses Approve on a high irreversible one, approves a reversible one);
+//   Ctrl Shift A opens it (keybinding approvals.queue).
 // U7.1a's step counts across the app are the e2e approvals-anywhere.spec; these pin each door's own steps.
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
@@ -24,6 +26,7 @@ async function load<T>(rel: string): Promise<T> {
 }
 
 const REVERSIBLE = { why: 'Runs the unit tests before the commit.', where: 'shop', whereSub: 'web', affects: { count: 2, unit: 'files' }, reversible: true, undoHow: 'checkpoint', risk: 'low', kind: 'file', text: 'apply_patch src/a.ts src/b.ts', lang: 'diff' }
+const HIGH_DB = { why: 'Clears old carts.', where: 'shop', whereSub: 'dev', affects: { count: 3, unit: 'rows' }, reversible: false, risk: 'high', kind: 'db', text: 'DELETE FROM carts WHERE id < 4', lang: 'sql' }
 const IRREVERSIBLE = { why: 'Publishes the package.', where: 'shop', affects: { count: 1, unit: 'resources' }, reversible: false, risk: 'critical', kind: 'push', text: 'npm publish', lang: 'shell' }
 const request = (id: string, impact: Props, title = 'Edit two files', createdAt = 1) => ({
   id, nativeId: `n-${id}`, nativeMethod: 'can_use_tool:Bash', kind: 'approval', title, toolName: 'Bash', command: impact.text,
@@ -167,20 +170,21 @@ describe('U7.1 · A request comes to you', () => {
   async function renderQueue() {
     const { ApprovalQueue } = await load<{ ApprovalQueue: (props: Props) => JSX.Element }>('src/components/Approvals/ApprovalQueue')
     const items = [
+      { request: request('r3', HIGH_DB, 'Delete old carts', 30), agent: 'Claude', conversation: 'Cleanup' },
       { request: request('r2', IRREVERSIBLE, 'Run npm publish', 20), agent: 'Codex', conversation: 'Release' },
       { request: request('r1', REVERSIBLE, 'Edit two files', 10), agent: 'Claude', conversation: 'Checkout' }
     ]
+    Object.assign(window, { oxe: { ...(window as unknown as { oxe?: object }).oxe, approvals: { preview: vi.fn(async () => ({ status: 'ok', count: 3, sample: { cols: ['id'], rows: [[1], [2], [3]] } })) } } })
     const decided = [{ id: 'r0', title: 'Run npm test', agent: 'Claude', outcome: 'approved' }]
     const onRespond = vi.fn(async () => undefined)
-    const onSeeImpact = vi.fn()
-    render(<ApprovalQueue items={items} decided={decided} onRespond={onRespond} onSeeImpact={onSeeImpact} />)
-    return { onRespond, onSeeImpact }
+    render(<ApprovalQueue items={items} decided={decided} onRespond={onRespond} />)
+    return { onRespond }
   }
 
   test('the queue lists every pending request oldest first, with Decided today below and read only', async () => {
     await renderQueue()
     const pending = await screen.findAllByRole('option')
-    expect(pending.map(option => within(option).getByText(/Edit two files|Run npm publish/).textContent)).toEqual(['Edit two files', 'Run npm publish'])
+    expect(pending.map(option => within(option).getByText(/Edit two files|Run npm publish|Delete old carts/).textContent)).toEqual(['Edit two files', 'Run npm publish', 'Delete old carts'])
     const decided = screen.getByRole('region', { name: 'Decided today' })
     expect(within(decided).getByText('Run npm test')).toBeInTheDocument()
     expect(within(decided).queryAllByRole('button')).toEqual([])
@@ -201,14 +205,34 @@ describe('U7.1 · A request comes to you', () => {
     expect(queue.onRespond).toHaveBeenCalledWith('r1', { decision: 'accept' })
   })
 
-  test('in the queue A on an irreversible request never approves at once: it opens its preview for the hold', async () => {
+  test('in the queue A on a critical request is the 1.2 s hold: a short press approves nothing', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date', 'performance', 'requestAnimationFrame', 'cancelAnimationFrame'] })
+    const queue = await renderQueue()
+    const list = screen.getByRole('listbox')
+    act(() => { list.focus(); fireEvent.keyDown(list, { key: 'j' }); fireEvent.keyUp(list, { key: 'j' }) })
+    expect(screen.getAllByRole('option')[1]).toHaveAttribute('aria-selected', 'true')
+    act(() => { fireEvent.keyDown(document.activeElement ?? list, { key: 'a' }) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(300) })
+    act(() => { fireEvent.keyUp(document.activeElement ?? list, { key: 'a' }) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000) })
+    expect(queue.onRespond).not.toHaveBeenCalled()
+    act(() => { fireEvent.keyDown(document.activeElement ?? list, { key: 'a' }) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_250) })
+    expect(queue.onRespond).toHaveBeenCalledWith('r2', { decision: 'accept' })
+  })
+
+  test('in the queue A on a high, irreversible request focuses Approve; only Enter or a click then approves', async () => {
     const queue = await renderQueue()
     const list = await screen.findByRole('listbox')
     list.focus()
-    await userEvent.keyboard('j')
+    await userEvent.keyboard('jj')
+    expect(screen.getAllByRole('option')[2]).toHaveAttribute('aria-selected', 'true')
     await userEvent.keyboard('a')
-    expect(queue.onRespond).not.toHaveBeenCalledWith('r2', { decision: 'accept' })
-    expect(queue.onSeeImpact).toHaveBeenCalledWith('r2')
+    expect(queue.onRespond).not.toHaveBeenCalled()
+    const approve = await screen.findByRole('button', { name: /^Approve/ })
+    expect(approve).toHaveFocus()
+    await userEvent.keyboard('{Enter}')
+    expect(queue.onRespond).toHaveBeenCalledWith('r3', { decision: 'accept' })
   })
 
   test('Ctrl Shift A opens the queue, and no other shortcut takes the chord', async () => {

@@ -104,7 +104,7 @@ describe('U7.3 · Always allow, with the provider rule', () => {
     ['elevation', 'sudo npm test', "Always allow isn't offered for commands that run as administrator."],
     ['broad', 'npm', "Always allow isn't offered for a rule this broad. Allow it once instead."],
     ['redirect', 'npm test > out.txt', "Always allow isn't offered for commands that redirect output into files."]
-  ])('a %s command gets no Always allow, and the reason line takes its place', { timeout: 30_000 }, async (reasonKind, text, line) => {
+  ])('a command refused as %s gets no Always allow, and the reason line takes its place', { timeout: 30_000 }, async (reasonKind, text, line) => {
     mockMain()
     await renderCard({ offered: false, reasonKind }, text)
     expect(await screen.findByText(line)).toBeInTheDocument()

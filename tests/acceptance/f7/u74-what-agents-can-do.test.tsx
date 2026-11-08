@@ -166,4 +166,21 @@ describe('U7.4 · What agents can do', () => {
     expect(await screen.findByText('Do policy.yaml')).toBeInTheDocument()
     expect(screen.getByText('Agentes nunca escrevem em produção.')).toBeInTheDocument()
   })
+
+  test('Approvals and safety no longer shows a Databases section or any per-connection access control', async () => {
+    const deep = (): unknown => new Proxy(async () => undefined, { get: (_target, key) => key === 'then' ? undefined : deep() })
+    Object.assign(window, { oxe: deep() })
+    const center = await import('../../../src/components/Settings/SettingsCenter') as unknown as { APPLICATION_SETTINGS_PAGES: readonly Page[]; SettingsCenter: (props: Record<string, unknown>) => JSX.Element }
+    const page = center.APPLICATION_SETTINGS_PAGES.find(entry => entry.label === 'Approvals and safety')
+    expect(page, 'the Approvals and safety page').toBeTruthy()
+    render(<center.SettingsCenter initialPage={page!.id} workspaces={[]} shellProfiles={[]} onSave={vi.fn()} onClose={vi.fn()}
+      agentProfiles={[]} agentReadiness={[]} isDiscoveringAgents={false} onDiscoverAgents={vi.fn()} onConfigureAgent={vi.fn()} onNewCustomAgent={vi.fn()} />)
+    const heading = await screen.findByRole('heading', { name: 'Approvals and safety' }, { timeout: 10_000 })
+    const pageBody = (heading.closest('section') ?? document.body) as HTMLElement
+    expect(within(pageBody).queryByRole('heading', { name: /^Databases$/ })).toBeNull()
+    expect(within(pageBody).queryByRole('region', { name: /^Databases$/ })).toBeNull()
+    expect(within(pageBody).queryAllByRole('option').map(option => option.textContent)).not.toContain('Read, ask before writing')
+    expect(pageBody.textContent).not.toMatch(/Read, ask before writing|Read and write/)
+  }, 30_000)
+
 })
