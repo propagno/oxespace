@@ -65,7 +65,9 @@ class SubscriptionHub(private val send: (RemoteFrame) -> Unit, private val newId
     }
 
     /** The session is authenticated: (re)subscribe every followed stream from where it stopped. */
-    fun onConnected() {
+    // 1.5.0 F10 skeleton (A45): [features] is the hello's list ("terminal.snapshotOnly"…); MOB-A45 uses it.
+    @Suppress("UNUSED_PARAMETER")
+    fun onConnected(features: Set<String> = emptySet()) {
         connected = true
         faulted = false
         followed.forEach { it.fruitlessResumes = 0 }

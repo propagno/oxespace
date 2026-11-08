@@ -19,6 +19,10 @@ enum class AnswerBlock {
     NOT_CONFIRMED,
     /** The phone wasn't shown all of the request: it can only be declined here, and a question only on the desktop. */
     TRUNCATED,
+    /** 1.5.0 A44: an answer to this request is already on its way (a second tap). */
+    IN_FLIGHT,
+    /** 1.5.0 A44: this phone already answered this request's generation. */
+    ALREADY_ANSWERED,
 }
 
 sealed interface AnswerOutcome {
@@ -57,3 +61,16 @@ class RequestResponder(
         return AnswerOutcome.Sent(respond(args))
     }
 }
+
+// ---- 1.5.0 F10 API skeleton (A44), no behaviour; MOB-A44 replaces the TODOs. Tests: RequestAnswerTest. ----
+
+/** What the screen tells the person after an answer the desktop no longer wanted. */
+enum class AnswerNotice { ALREADY_ANSWERED }
+
+/** `not-pending` or `stale-generation` from the desktop: the request was already answered elsewhere. */
+@Suppress("UNUSED_PARAMETER")
+fun answerNotice(outcome: AnswerOutcome): AnswerNotice? = TODO("F10 A44")
+
+/** How long Allow waits before it can be pressed: the desktop's 2 s hold at critical, nothing otherwise. */
+@Suppress("UNUSED_PARAMETER")
+fun allowHoldMs(request: RemotePendingRequest): Long = TODO("F10 A44")

@@ -13,6 +13,7 @@
     <string name="composer_placeholder">Message the agent</string>
     <string name="composer_send">Send</string>
     <string name="composer_steer">Steer</string>
+    <string name="composer_steer_finished_before">The agent finished before your instruction arrived. Nothing was sent.</string>
     <string name="home_address_hint">The computer\'s address on your Wi-Fi, for example 192.168.0.12. OXESpace shows it in Settings › Devices.</string>
     <string name="home_address_invalid">Use the computer\'s address on your local network, like 192.168.0.12.</string>
     <string name="home_address_title">Computer\'s address</string>
@@ -54,6 +55,7 @@
     <string name="live_agent_state_working">Working</string>
     <string name="live_back">Back</string>
     <string name="live_delegations">Delegations</string>
+    <string name="live_delegation_state_unknown">Not confirmed</string>
     <string name="live_empty_requests">Nothing waiting for you.</string>
     <string name="live_empty_tasks">No background jobs or delegations.</string>
     <string name="live_empty_terminals">No open terminals.</string>
@@ -161,6 +163,7 @@
     <string name="request_kind_question">The agent\'s question</string>
     <string name="request_not_confirmed">Not sent: the confirmation on this phone was cancelled.</string>
     <string name="request_not_verified">OXESpace hasn\'t checked this text.</string>
+    <string name="request_no_undo">No undo.</string>
     <string name="request_paths">Files it would change</string>
     <string name="request_project_folder">project folder</string>
     <string name="request_reason">Why</string>
@@ -186,6 +189,8 @@
     <string name="request_where">Where</string>
     <string name="terminal_cancel">Cancel</string>
     <string name="terminal_empty">No output yet.</string>
+    <string name="terminal_hidden_back">Back to terminals</string>
+    <string name="terminal_hidden_on_desktop">This terminal was hidden from the phone on %1$s.</string>
     <string name="terminal_hidden_shown">Hidden characters are now shown in the field. Check it and send again.</string>
     <string name="terminal_key_down">Down arrow</string>
     <string name="terminal_key_left">Left arrow</string>
