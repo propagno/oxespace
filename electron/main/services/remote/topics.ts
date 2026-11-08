@@ -33,6 +33,8 @@ const CURSOR = /^[A-Za-z0-9._:-]{1,200}$/
 export interface TopicOptions {
   desktop: RemoteDesktop
   phoneWrite(): ReadonlySet<string>
+  /** BE-A46-c5: whether a pane's agent has a conversation the phone can read (the workspaces flag). */
+  paneConversation?: (paneId: string) => boolean
   /** Called when something only the gateway knows changes the workspaces list (a pane's phone write). */
   onWorkspacesChanged(listener: () => void): () => void
   /** How often lists the desktop does not announce are read again. */
@@ -511,7 +513,7 @@ export function createTopics(options: TopicOptions): Omit<Record<RemoteSubscript
   return {
     workspaces: new ListTopic({
       code: 'w', field: 'workspaces', id: item => item.id, watch: polled(pollMs, options.onWorkspacesChanged),
-      read: () => { const roots = desktop.roots(), phoneWrite = options.phoneWrite(); return desktop.workspaces().map(row => toWorkspace(row, phoneWrite, roots)) }
+      read: () => { const roots = desktop.roots(), phoneWrite = options.phoneWrite(); return desktop.workspaces().map(row => toWorkspace(row, phoneWrite, roots, options.paneConversation)) }
     }, debounceMs),
     threads: new ListTopic({
       code: 't', field: 'threads', id: item => item.id, diff: true, watch: anyThread,
