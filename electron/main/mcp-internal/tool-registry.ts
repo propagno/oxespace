@@ -28,7 +28,6 @@ import { MEMORY_TOOLS } from './memory-tool-handlers'
 import { DELEGATION_TOOLS } from './delegation-tools'
 import { TEAM_TOOLS } from './team-tools'
 import { automationTools } from './automation-tools'
-import { DOCUMENTATION_TOOLS } from './documentation-tools'
 import { THREAD_HANDOFF_TOOLS } from './thread-handoff-tools'
 import { OXEQUERY_TOOLS } from './oxequery-tools'
 import { CODE_GRAPH_TOOLS } from './code-graph-tools'
@@ -45,7 +44,8 @@ export interface ToolContext {
   captureRoot?: string
   db?: import('../db').AppDatabase
   threads?: Promise<import('../services/conversation/thread-manager').ThreadManager>
-  documentation?: () => Promise<ReturnType<typeof import('../services/documentation/runtime').createDocumentationRuntime>>
+  /** The browser preview automation (services/browser-preview, R0c). The field keeps its name: local-rpc-server passes it through. */
+  documentation?: () => Promise<{ preview: import('../services/browser-preview/preview-automation').PreviewAutomation }>
   delegation?: import('../services/delegation.service').DelegationService
   team?: import('../services/coordination/team-access').TeamAccess
   executions?: import('../services/execution-registry').ExecutionRegistry
@@ -83,7 +83,6 @@ export interface ToolEntry {
 }
 
 export const TOOL_REGISTRY: ToolEntry[] = [
-  ...DOCUMENTATION_TOOLS,
   ...automationTools(() => TOOL_REGISTRY),
   ...MEMORY_TOOLS,
   ...DELEGATION_TOOLS,
@@ -256,6 +255,28 @@ export const TOOL_REGISTRY: ToolEntry[] = [
     },
     requiresWorkspace: true,
     handler: handlers.captureWebPreview
+  },
+  {
+    descriptor: {
+      name: 'oxespace_preview_interact',
+      description: 'Inspect, diagnose and manage the opted-in browser session. Page mutations need consent and expectedUrl.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          action: { enum: ['inspect', 'status', 'console', 'network', 'tabs', 'newTab', 'selectTab', 'closeTab', 'click', 'fill', 'navigate', 'wait', 'scroll'] },
+          expectedUrl: { type: 'string' },
+          selector: { type: 'string' },
+          text: { type: 'string' },
+          url: { type: 'string' },
+          tabId: { type: 'string' },
+          deltaY: { type: 'number', minimum: -2000, maximum: 2000 }
+        },
+        required: ['action'],
+        additionalProperties: false
+      }
+    },
+    requiresWorkspace: true,
+    handler: handlers.previewInteract
   },
   {
     descriptor: {

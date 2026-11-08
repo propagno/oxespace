@@ -94,7 +94,7 @@ describe('B10 · no native dialog while an app window exists', () => {
   })
 
   it('preview automation reaches the person only through the approval center', () => {
-    const source = readFileSync('electron/main/services/documentation/preview-automation.ts', 'utf8')
+    const source = readFileSync('electron/main/services/browser-preview/preview-automation.ts', 'utf8')
     expect(source).not.toMatch(/showMessageBox/)
     expect(source.match(/approvalCenter\.ask\(previewDraft\(/g)).toHaveLength(2)
   })
