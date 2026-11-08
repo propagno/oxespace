@@ -300,7 +300,8 @@ describe('workspace fs allowlist', () => {
     }
 
     expect(offenders).toEqual([])
-  })
+    // FL-25: it walks the whole electron/ tree; under pr:ready (Electron ABI, 2 workers) that once passed 5 s.
+  }, 20_000)
 })
 
 async function listFiles(directory: string): Promise<string[]> {
@@ -308,6 +309,8 @@ async function listFiles(directory: string): Promise<string[]> {
   const files = await Promise.all(
     entries.map((entry) => {
       const fullPath = join(directory, entry.name)
+      // Vendored code is skipped by the test anyway (`/vendor/`); not walking it saves most of the time (FL-25).
+      if (entry.isDirectory() && entry.name === 'vendor') return []
       return entry.isDirectory() ? listFiles(fullPath) : [fullPath]
     })
   )
