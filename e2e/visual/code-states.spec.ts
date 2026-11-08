@@ -44,6 +44,25 @@ async function monacoDiffSettled(page: Page, editor: Locator): Promise<void> {
     last = now
     return still
   }, { intervals: [150], timeout: 10_000 }).toBeGreaterThanOrEqual(3)
+  // FL-15 diagnostic (windows, run 42426690630): with the same font in both passes, the whole inline diff still sat a
+  // few px apart. One line per shot, so the generate and verify logs of a failing run show which number differs.
+  const diag = await editor.evaluate(root => {
+    const box = (selector: string): string => {
+      const element = root.querySelector(selector)
+      if (!element) return `${selector}=none`
+      const rect = element.getBoundingClientRect()
+      return `${selector}=${Math.round(rect.left)}+${Math.round(rect.width)}`
+    }
+    const numbers = root.querySelector('.line-numbers')
+    return [
+      `dpr=${window.devicePixelRatio}`, `inner=${window.innerWidth}x${window.innerHeight}`, `zoom=${getComputedStyle(document.documentElement).zoom}`,
+      `editor=${Math.round(root.getBoundingClientRect().left)}+${Math.round(root.getBoundingClientRect().width)}`,
+      `font=${numbers ? getComputedStyle(numbers).fontFamily.split(',')[0] : 'none'}`,
+      box('.editor.original'), box('.editor.modified'), box('.margin'), box('.glyph-margin'), box('.line-numbers'), box('.lines-content'),
+      `inline=${root.querySelector('.monaco-diff-editor.side-by-side') ? 'no' : 'yes'}`
+    ].join(' ')
+  })
+  console.log(`[FL-15-DIAG] ${diag}`)
 }
 
 // Terminals are hidden by expectSurface. The temp path and the sidebar age ("Just now" depends
