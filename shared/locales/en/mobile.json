@@ -122,6 +122,9 @@
       "minutes": "{{minutes}} min ago",
       "hours": "{{hours}} h ago",
       "days": "{{days}} d ago"
+    },
+    "delegationState": {
+      "unknown": "Not confirmed"
     }
   },
   "thread": {
@@ -246,7 +249,9 @@
     "pasteLines_one": "This text has {{count}} line. Send it?",
     "pasteLines_other": "This text has {{count}} lines, and each runs as typed. Send them all?",
     "hiddenShown": "Hidden characters are now shown in the field. Check it and send again.",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "hiddenOnDesktop": "This terminal was hidden from the phone on {{computer}}.",
+    "hiddenBack": "Back to terminals"
   },
   "approval": {
     "prompt": {
@@ -306,7 +311,8 @@
       "agent": "Request from an agent",
       "question": "The agent's question",
       "permissions": "Permission request"
-    }
+    },
+    "noUndo": "No undo."
   },
   "action": {
     "offline": "Not connected to your computer. Nothing was sent.",
@@ -317,7 +323,8 @@
   "composer": {
     "placeholder": "Message the agent",
     "send": "Send",
-    "steer": "Steer"
+    "steer": "Steer",
+    "steerFinishedBefore": "The agent finished before your instruction arrived. Nothing was sent."
   },
   "terminalInput": {
     "placeholder": "Type in this terminal",

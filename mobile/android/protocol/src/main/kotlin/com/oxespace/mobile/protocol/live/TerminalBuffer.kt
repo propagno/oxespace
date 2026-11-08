@@ -20,6 +20,12 @@ class TerminalBuffer(capacity: Int = 256 * 1024) : StreamListener {
     /** The lines to draw; unchanged lines are the same objects as last time, so a list can skip them. */
     fun lines(): List<VtLine> = synchronized(this) { screen.lines() }
 
+    /** 1.5.0 F10 skeleton (A45): the desktop's width from its snapshot; null without one (an older desktop). */
+    val cols: Int? get() = TODO("F10 A45")
+
+    /** 1.5.0 F10 skeleton (CR-34): the desktop hid this pane from the phone; nothing of it stays on screen. */
+    val hiddenOnDesktop: Boolean get() = TODO("F10 CR34")
+
     var redacted: Long = 0
         private set
     /** Changes whenever the output does, so a view knows to redraw. */

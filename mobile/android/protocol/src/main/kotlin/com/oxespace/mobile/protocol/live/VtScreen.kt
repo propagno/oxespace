@@ -159,6 +159,12 @@ class VtScreen(private val capacity: Int = 256 * 1024) {
     private var rows = 0
 
     /** A fresh screen of [rows] lines, before a snapshot is fed (P4). The width stays unbounded until wrapping lands. */
+    /** 1.5.0 F10 skeleton (A45): the grid exactly [cols] wide, wrapping and clamping as xterm does. MOB-A45 replaces the TODO. */
+    @Suppress("UNUSED_PARAMETER")
+    fun reset(cols: Int, rows: Int) {
+        TODO("F10 A45")
+    }
+
     fun reset(rows: Int) {
         reset()
         this.rows = rows.coerceAtLeast(0)

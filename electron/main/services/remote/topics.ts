@@ -484,7 +484,11 @@ export function isCursor(value: unknown): value is string {
   return typeof value === 'string' && CURSOR.test(value)
 }
 
-export function createTopics(options: TopicOptions): Record<RemoteSubscription, RemoteTopicSource> {
+/**
+ * Every topic but `paneConversation`, which F10's BE-A46-c5 adds (#706). Until then a subscribe to it finds no source and
+ * gets `not-found`, as before the topic existed.
+ */
+export function createTopics(options: TopicOptions): Omit<Record<RemoteSubscription, RemoteTopicSource>, 'paneConversation'> {
   const { desktop } = options
   const pollMs = options.pollMs ?? 2_000, debounceMs = options.debounceMs ?? 150, flushMs = options.flushMs ?? 250
   const anyThread = (listener: () => void) => desktop.onThreadChanged('*', listener)
