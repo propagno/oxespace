@@ -26,7 +26,6 @@ on:
       - "shared/remote/**"
       - ".github/workflows/ci.yml"
       - ".github/workflows/android.yml"
-      - ".github/workflows/memory-compatibility.yml"
       - ".github/workflows/provider-contract.yml"
       - ".github/workflows/release.yml"
       - ".github/workflows/visual-baselines.yml"

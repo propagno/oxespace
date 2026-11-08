@@ -177,7 +177,7 @@ usable workflow run: a merge fires no `push` run on `main`, and a branch update'
 wait for an approval nobody gives (they end `action_required` with no jobs, because the approval gate comes
 before any job's `if:`). So the train makes its branch update a merge commit whose message carries
 `[skip ci]`, which keeps GitHub from creating those `push`/`pull_request` runs at all, and it dispatches
-`ci.yml` itself, on the updated branch (with `a11y-axe.yml`, `memory-compatibility.yml` or `android.yml` when
+`ci.yml` itself, on the updated branch (with `a11y-axe.yml` or `android.yml` when
 they had run on the PR) and on `main` after each merge. `[skip ci]` never touches a dispatched run, and it
 only applies while that merge commit is the PR's head: a person's next push runs CI as usual. A run that
 ended `action_required` or with every job skipped never stands for CI on a head.
@@ -198,9 +198,9 @@ the head the train replaced, not tied to another PR, and started either by the P
 train's own dispatch. It never cancels a run on the current head or a later push, on `main`, of another PR, a
 person's manual dispatch (Full check, Packaged smoke, publish), a push or tag run, or any other workflow.
 
-When a head has no runs at all (an author's own `[skip ci]`), the train dispatches all four workflows (`ci.yml`,
-`a11y-axe.yml`, `memory-compatibility.yml`, `android.yml`), and an `Android` run on the head gates the merge
-like CI, axe and memory compatibility. The update itself is check-then-act (read the head, then merge `main`
+When a head has no runs at all (an author's own `[skip ci]`), the train dispatches all three workflows (`ci.yml`,
+`a11y-axe.yml`, `android.yml`), and an `Android` run on the head gates the merge
+like CI and axe. The update itself is check-then-act (read the head, then merge `main`
 into the branch by name); a push in that window only gets `main` merged on top of it, which changes the head
 and sends it through CI again, so this is accepted while batches are of size 1. The same token may not push a
 change to `.github/workflows`: when GitHub refuses a merge (or a branch update) for that, the PR leaves the
