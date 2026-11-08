@@ -14,6 +14,7 @@ const SCRIPTS_GONE = [
   'scripts/semantic-eval.mjs',
   'scripts/semantic-lab.mjs',
   'scripts/semantic-quality-gate.mjs',
+  'scripts/slim-pack-deps.mjs',
   'scripts/hybrid-eval.ts',
   'scripts/decision-quality-eval.ts',
   'scripts/token-reduction-bench.mjs',
@@ -45,9 +46,10 @@ describe('R-deps · the final F2 dependency PR', () => {
     expect(SCRIPTS_GONE.filter(path => existsSync(join(ROOT, path)))).toEqual([])
   })
 
-  test('R-deps: electron-builder.yml, slim-pack-deps.mjs and the workflows no longer name transformers, ONNX or sharp', () => {
-    const files = ['electron-builder.yml', 'scripts/slim-pack-deps.mjs', '.github/workflows/ci.yml', '.github/workflows/install-over.yml']
-    expect(files.filter(file => existsSync(join(ROOT, file)) && NO_MENTION.test(read(file)))).toEqual([])
+  test('R-deps: electron-builder.yml and the workflows no longer name transformers, ONNX, sharp or the slim step', () => {
+    const files = ['electron-builder.yml', '.github/workflows/ci.yml', '.github/workflows/install-over.yml']
+    expect(files.filter(file => NO_MENTION.test(read(file)))).toEqual([])
+    expect([...files, 'package.json'].filter(file => /slim-pack-deps|slim:pack/.test(read(file)))).toEqual([])
   })
 
   test('R-deps: bundled-dependencies.mjs no longer lists codegraph, and file-size-baseline.json lists only files that exist', () => {
