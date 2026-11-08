@@ -2,7 +2,9 @@
 
 - **Owner:** BACKEND.
 - **Reported by:** the user, via TECH LEAD (08/11): the usage popover says "Claude · Pro" on an Ultra plan.
-- **Frozen test:** `tests/acceptance/bugs/claude-plan-label.test.ts`. It's red today, because `PROFILE_URL`, `planSource` and `shared/agent-plan.ts` don't exist.
+- **Frozen tests, in two parts (TECH LEAD, 08/11):**
+  - **Part 1, ships now:** `tests/acceptance/bugs/claude-plan-label.test.ts`, the safe fallback (§3a). It's red today because `shared/agent-plan.ts` and `planSource` don't exist.
+  - **Part 2, waits for the user's OK:** `tests/acceptance/bugs/claude-plan-label-live.test.ts`, the live profile (§3b). It's in no plan until then, and **nothing that calls the profile endpoint is built or run.**
 - **Needs before the execute:**
   1. the user's OK to call one more Anthropic OAuth endpoint (§2);
   2. the user's run of the probe (§2), to confirm the live field's name and the "Ultra" value.
@@ -45,6 +47,17 @@
 
 ## 3. The design
 
+### 3a. Ships now: the safe fallback (no new endpoint)
+
+- **Snapshot:** `planSource: 'sign-in' | null` (plus `'live'` later, in 3b). `planLabel` is a display name or null.
+- **Display names:** `claudePlanName`'s fixed map (below). An unknown value gives null.
+- **The renderer:** `planChip` → "Pro (do login)" with the tooltip.
+- **Only the usage endpoint is called,** exactly as today. Part 1 checks that nothing else is.
+
+### 3b. After the user's OK: the live plan
+
+What follows, the live source and its ordering, is part 2. Shared pieces (the map, `planChip`) are part 1.
+
 - **Plan source order:**
   1. **live** (the profile, or a plan field in the usage response if the probe finds one);
   2. **sign-in** (the cached `subscriptionType`), shown as possibly stale;
@@ -62,7 +75,9 @@
   - Null gives no plan chip; the provider name alone is shown.
 - **Privacy:** the snapshot carries the display name only. No token, email or id from the profile is kept or logged.
 
-## Frozen test (`tests/acceptance/bugs/claude-plan-label.test.ts`, vitest, no native modules)
+## Frozen tests (vitest, no native modules)
+
+**Part 1** (`claude-plan-label.test.ts`, ships now) covers 3, 5 (cached), 7, and "only the usage endpoint is called". **Part 2** (`claude-plan-label-live.test.ts`, waits for the OK) covers 1, 2, 4, 5 (live) and 6.
 
 It uses a temp credentials file and a stubbed `fetch`, never the user's files or the network:
 1. **Endpoints:** both URLs are `api.anthropic.com`, and every call goes there; the token never appears in the snapshot.
