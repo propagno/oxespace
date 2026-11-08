@@ -60,17 +60,26 @@ describe('CR-34 · the agents topic keeps a hidden pane off the phone', () => {
     handle.close()
   })
 
-  test('CR-34: shown again, the pane\'s row comes back with its current state', async () => {
+  test('CR-34: shown again, the pane\'s row comes back with its current state, not the one it had when hidden', async () => {
     vi.useFakeTimers()
-    const hidden = new Set(['p1'])
-    const { frames, handle, changed } = open(() => [row({ id: 'p1', state: 'blocked' }), row({ id: 'p2', title: 'Shell' })], hidden)
-    expect(keys((frames[0].data as RemoteAgentsSnapshot).rows)).toEqual(['pane:p2'])
+    const hidden = new Set<string>()
+    let state: AgentRow['state'] = 'working'
+    const { frames, handle, changed } = open(() => [row({ id: 'p1', state }), row({ id: 'p2', title: 'Shell' })], hidden)
+    expect((frames[0].data as RemoteAgentsSnapshot).rows.find(item => item.id === 'p1')).toMatchObject({ state: 'working' })
+    hidden.add('p1')
+    changed()
+    await vi.advanceTimersByTimeAsync(20)
+    expect(keys((frames.at(-1)!.data as RemoteAgentsEvent).removed)).toEqual(['pane:p1'])
+    // It finishes while hidden: nothing of that is sent.
+    state = 'finished'
+    changed()
+    await vi.advanceTimersByTimeAsync(20)
     hidden.delete('p1')
     changed()
     await vi.advanceTimersByTimeAsync(20)
     const back = frames.at(-1)!.data as RemoteAgentsEvent
     expect(keys(back.upsert)).toContain('pane:p1')
-    expect(back.upsert?.find(item => item.id === 'p1')).toMatchObject({ kind: 'pane', id: 'p1' })
+    expect(back.upsert?.find(item => item.id === 'p1')).toMatchObject({ kind: 'pane', id: 'p1', state: 'finished' })
     handle.close()
   })
 })
