@@ -6,7 +6,7 @@ Owner: BACKEND. Status: frozen tests for review (M5: HML tests, DESIGN shapes, F
 - **Builds on:**
   - `docs/roadmap-1.5/ccr-t71-task-places.md` (the T71 design, approved for lite B). That document's model, sources, base, drift, resolver, IPC and tests stand. This CCR pins what it left open and adds §6's items.
   - DESIGN's `.claude/roadmap-1.4/team/plans/1.5.0-f4-design.md`, section "Data each screen needs from main".
-- **Frozen tests:** `tests/acceptance/f4/` (101 tests in 12 files, plus `fixtures/thread-fixture.ts`). Per TECH LEAD's rigor rule (08/11), each test exercises real code, and every "nothing happens" case first shows that something does, so a stub fails. The one source assertion is marked: no file-system write input takes a place id.
+- **Frozen tests:** `tests/acceptance/f4/` (129 tests in 13 files, plus `fixtures/thread-fixture.ts`). Per TECH LEAD's rigor rule (08/11), each test exercises real code, and every "nothing happens" case first shows that something does, so a stub fails. The one source assertion is marked: no file-system write input takes a place id.
 - **Tasks:** `.claude/roadmap-1.4/team/plans/f4-tasks-BACKEND.json`, 12 tasks with the IMPLEMENTATION-PACK fields.
 
 No live provider, no user home and no user data: every test runs on temp-dir repositories, a fake provider adapter and fake `gh`/`az` CLIs.
@@ -261,6 +261,36 @@ The surface:
 - branch deletion (A63).
 
 Each one has a refusal test in the frozen set.
+
+**TECH LEAD's conditions (SECURITY review of ba183e14), all frozen:**
+
+| | Rule | Where |
+|---|---|---|
+| S1 | Switch back, the panel's Remove and branch delete, and place-read are reachable only from the window's IPC. They are no MCP tool, internal RPC method or phone command, and no agent-facing module (mcp-internal, remote, agent-hooks, the OxeQuery agent gateway) names or calls them. | `f4-security-reach.native.test.ts` |
+| S2 | UNC and `//server`, `\\?\` and `\\.\`, drive-relative `C:foo`, reserved device names in any segment and any case, backslash or mixed-case escapes, and a junction out (even to another place) are refused with `thread.place.outside` (A17), and never resolve (A16), on every platform. | a16, a17 |
+| S3 | `isSafeBranchName` (`electron/main/utils/git-ref-name.ts`) follows git's ref rules; an unsafe name throws before any CLI. `gh` gets the branch after `--`, `az` only as an option value, and `git branch -d -- <name>`. No shell anywhere. | a60, a63, reach |
+| S4 | A branch is never deleted when it is the default branch, checked out in another worktree, or remote (no push, no `branch -r`), even with `confirmUnmerged`. | a63 |
+| S5 | `person_action_audit` (095, append-only) gets one row per place read, Switch back, worktree Remove and branch delete, refusals included: who, thread, place, path or branch, outcome and code. It never holds file content. | a13, a15, a17, a63 |
+
+## HML M5 (704-1 to 704-7), all frozen
+
+- **704-1:** any HEAD move inside this conversation's running shell tool is its own: `gh pr checkout`, `git fetch && git switch -c`, `cd && git checkout -b`, `bash -c`. The same move after the tool completed is drift.
+- **704-2:** files the task left uncommitted, carried by a person's switch, stay in `groups.task`, also after Follow.
+- **704-3:** Switch back during the conversation's turn gives `thread.place.busy`, and works after the turn ends.
+- **704-4:**
+  - a rebase or bisect in progress is no drift;
+  - a fast-forward is no drift;
+  - a deleted base branch gives `thread.place.branchGone { branch }`.
+- **704-5:** the main checkout is guarded on its real path (a trailing separator, case, a `..` walk, a link or junction to main or to a worktree).
+- **704-6:**
+  - a pane inside, or the conversation mid-turn, gives `worktree.remove.busy { reason }`;
+  - a git failure such as EBUSY gives `worktree.remove.failed` with the row kept.
+- **704-7:**
+  - a locked worktree gives `worktree.remove.locked { reason }`;
+  - a missing one is listed with `missing: true` and pruned by Remove;
+  - a branch checked out elsewhere gives `worktree.remove.branchInUse`.
+
+New C3 codes: `thread.place.busy`, `thread.place.branchGone { branch }`, `worktree.remove.busy { reason }`, `worktree.remove.failed`, `worktree.remove.locked { reason }`, `worktree.remove.defaultBranch { branch }`, `worktree.remove.branchInUse { branch }`.
 
 ## Tasks
 

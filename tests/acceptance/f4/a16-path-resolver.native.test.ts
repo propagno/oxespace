@@ -157,3 +157,13 @@ describe('A16 · one path resolver', () => {
     expect(after.places.some(place => same(place.path, side))).toBe(false)
   })
 })
+
+describe('A16 · SECURITY S2 (Windows paths)', () => {
+  test('S2: device, UNC, drive-relative and reserved-name forms never resolve, while the plain absolute path does', async () => {
+    const { repo, f } = await layout()
+    const plain = join(repo, 'a.txt')
+    expect((await f.manager.resolvePath(f.id, plain)).kind).toBe('found')
+    const forms = [`\\\\?\\${plain}`, `\\\\.\\${plain}`, '\\\\server\\share\\a.txt', '//server/share/a.txt', 'C:a.txt', 'CON', 'nul', 'COM1', 'aux.txt', 'IN-CWD.TXT\\..\\..\\..\\a.txt']
+    for (const raw of forms) expect((await f.manager.resolvePath(f.id, raw)).kind, raw).not.toBe('found')
+  })
+})

@@ -110,3 +110,40 @@ describe('A17 · read-only files outside the repository', () => {
     await expect(f.manager.readPlaceFile(f.id, place.id, 'pipe')).rejects.toThrow()
   })
 })
+
+describe('A17 · SECURITY S2 (Windows paths) and S5 (audit)', () => {
+  test('S2: UNC, \\\\?\\ and \\\\.\\ prefixes, drive-relative paths, reserved device names and mixed-case escapes are refused with thread.place.outside', async () => {
+    const { dir, f, place } = await outsidePlace()
+    write(join(dir, 'secret.txt'), 'secret\n')
+    // The sibling success: a plain name in the same place reads.
+    expect(await f.manager.readPlaceFile(f.id, place.id, 'ROTEIRO.md')).toMatchObject({ readOnly: true })
+    const forms = [
+      '\\\\server\\share\\x.txt', '//server/share/x.txt', '\\\\?\\C:\\x.txt', '\\\\.\\COM1', 'C:foo.txt', 'c:ROTEIRO.md',
+      'CON', 'nul', 'COM1', 'lpt9', 'aux.txt', 'deep/CON', 'NUL.md',
+      'DEEP\\..\\..\\secret.txt', 'Deep/../../SECRET.txt', 'deep\\..\\..\\secret.txt'
+    ]
+    for (const relative of forms) expect(await code(f.manager.readPlaceFile(f.id, place.id, relative)), relative).toBe('thread.place.outside')
+  })
+
+  test('S2: a junction inside the folder that points out of it is refused, even when its target is another place of this thread', async () => {
+    const { dir, f, place, outside } = await outsidePlace()
+    const other = join(dir, 'other-notes'); mkdirSync(other); write(join(other, 'n.md'), 'n\n')
+    await turn(f, 'Again')
+    f.wrote([join(other, 'n.md')])
+    await complete(f)
+    symlinkSync(other, join(outside, 'to-other'), 'junction')
+    expect(await code(f.manager.readPlaceFile(f.id, place.id, 'to-other/n.md'))).toBe('thread.place.outside')
+  })
+
+  test('S5: every place read writes one audit row (who, place, path, outcome), refusals included, with no file content', async () => {
+    const { f, place } = await outsidePlace()
+    await f.manager.readPlaceFile(f.id, place.id, 'ROTEIRO.md')
+    await f.manager.readPlaceFile(f.id, place.id, '../escape.txt').catch(() => null)
+    const rows = f.db.prepare('SELECT actor, action, thread_id, place_id, target, outcome, code FROM person_action_audit ORDER BY id').all()
+    expect(rows).toEqual([
+      { actor: 'person', action: 'place-read', thread_id: f.id, place_id: place.id, target: 'ROTEIRO.md', outcome: 'ok', code: null },
+      { actor: 'person', action: 'place-read', thread_id: f.id, place_id: place.id, target: '../escape.txt', outcome: 'refused', code: 'thread.place.outside' }
+    ])
+    expect(JSON.stringify(f.db.prepare('SELECT * FROM person_action_audit').all())).not.toContain('# roteiro')
+  })
+})

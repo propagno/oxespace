@@ -1,17 +1,21 @@
 // Frozen acceptance test for 1.5.0 A63 / N9 (OXE program, phase F4): the Worktrees panel lists each worktree's owning
 // conversation, branch, merged state (A60's rule: the provider first, git as the fallback), changed files, disk use and
 // last activity, merged first then oldest first. Remove refuses uncommitted changes, never forces, and deletes the
-// branch only when asked (an unmerged one only when that was confirmed too).
+// branch only when asked (an unmerged one only when that was confirmed too). SECURITY (TECH LEAD S3–S5) and HML 704-5..7:
+// the main checkout is guarded on its real path; a busy, locked or missing worktree is handled; the default branch, a
+// branch checked out anywhere and any remote branch are never deleted; every git call is an argument array with -- before
+// positionals and no shell; each Remove and branch delete writes one audit row.
 // Written by the planner; the executor must not edit it. Real git in temp dirs; the provider is a fake.
 // Spec: docs/roadmap-1.5/ccr-f4-places-pr.md §A63 and DESIGN's 1.5.0-f4-design.md U4.7 (Worktrees).
 // Runs under Electron's Node ABI: npm run test:electron -- tests/acceptance/f4/a63-worktrees-panel.native.test.ts
-import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs'
+import { execFileSync, spawn } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { openInMemoryDatabase } from '../../../electron/main/db/index'
-import { GhExec } from '../../../electron/main/services/github/gh-exec'
+import { openInMemoryDatabase, type AppDatabase } from '../../../electron/main/db/index'
+import { GhExec, type SpawnAsyncFn } from '../../../electron/main/services/github/gh-exec'
+import { PersonActionAudit } from '../../../electron/main/services/person-action-audit'
 import { GitHubRepositoryService } from '../../../electron/main/services/github/repository.service'
 import { WorktreesPanel, type WorktreeOwner } from '../../../electron/main/services/github/worktrees-panel'
 import { RepoHookTrust } from '../../../electron/main/services/repo-config/trust'
@@ -30,15 +34,40 @@ let owners: WorktreeOwner[]
 let providerMerged: Map<string, number>
 let providerAvailable: boolean
 let panel: WorktreesPanel
+let db: AppDatabase
+/** Why a worktree is busy, per path (a pane inside it, or its conversation mid-turn), as main's activity source says. */
+let busy: Map<string, 'pane' | 'turn'>
+/** Every process the panel's GhExec ran: command, arguments, and whether a shell was asked for. */
+let spawned: Array<{ command: string; args: string[]; shell: boolean }>
+/** When set, the next worktree removal fails the way a Windows file lock does. */
+let failNextRemove: boolean
+
+/** A real spawner (no shell, an argument array) that records every call. */
+const recording: SpawnAsyncFn = (command, args, options) => {
+  spawned.push({ command, args, shell: options.shell === true })
+  return new Promise(resolve => {
+    const child = spawn(command, args, { cwd: options.cwd, env: options.env, shell: false, windowsHide: true })
+    let stdout = ''; let stderr = ''
+    child.stdout.on('data', chunk => { stdout += chunk })
+    child.stderr.on('data', chunk => { stderr += chunk })
+    child.on('error', error => resolve({ stdout, stderr, status: null, error }))
+    child.on('close', status => resolve({ stdout, stderr, status }))
+    if (options.input !== undefined) child.stdin.end(options.input); else child.stdin.end()
+  })
+}
 
 beforeEach(() => {
   sandbox = realpathSync.native(mkdtempSync(join(tmpdir(), 'oxe-f4-wt-')))
   root = join(sandbox, 'main'); mkdirSync(root)
   git(root, 'init', '-q', '-b', 'main'); git(root, 'config', 'user.email', 't@t.t'); git(root, 'config', 'user.name', 't'); git(root, 'config', 'commit.gpgsign', 'false')
   writeFileSync(join(root, 'a.txt'), 'a'); git(root, 'add', '.'); git(root, 'commit', '-qm', 'init')
-  const gh = new GhExec({})
+  spawned = []
+  busy = new Map()
+  failNextRemove = false
+  db = openInMemoryDatabase()
+  const gh = new GhExec({ spawnCommand: recording })
   repo = new GitHubRepositoryService(gh)
-  repo.configureWorktreeLifecycle({ trust: new RepoHookTrust(openInMemoryDatabase()) })
+  repo.configureWorktreeLifecycle({ trust: new RepoHookTrust(db) })
   owners = []
   providerMerged = new Map()
   providerAvailable = true
@@ -50,10 +79,16 @@ beforeEach(() => {
         ? (providerMerged.has(branch) ? { by: 'provider' as const, value: true, prNumber: providerMerged.get(branch) } : { by: 'provider' as const, value: false })
         : { by: 'git' as const, value: (await gh.git(['merge-base', '--is-ancestor', branch, 'main'], root)).status === 0 }
     },
-    removeWorktree: input => repo.removeWorktree(input)
+    removeWorktree: input => {
+      if (failNextRemove) { failNextRemove = false; return Promise.reject(new Error("EBUSY: resource busy or locked, rmdir 'node_modules'")) }
+      return repo.removeWorktree(input)
+    },
+    busy: path => [...busy].find(([entry]) => same(entry, path))?.[1] ?? null,
+    audit: new PersonActionAudit(db)
   })
 })
-afterEach(() => { try { removeTempDir(sandbox) } catch { /* temp */ } })
+afterEach(() => { try { db.close() } catch { /* closed */ } try { removeTempDir(sandbox) } catch { /* temp */ } })
+const audit = () => db.prepare('SELECT actor, action, target, outcome, code FROM person_action_audit ORDER BY id').all() as Array<{ actor: string; action: string; target: string; outcome: string; code: string | null }>
 
 const add = async (name: string): Promise<string> => {
   const path = join(sandbox, name)
@@ -167,5 +202,124 @@ describe('A63 · the Worktrees panel', () => {
       expect(result).toEqual({ ok: false, refusal: { code: 'worktree.remove.notFound', params: {} } })
     }
     expect(existsSync(elsewhere)).toBe(true)
+    expect(existsSync(join(root, 'a.txt'))).toBe(true)
+    expect(git(root, 'rev-parse', '--is-inside-work-tree').trim()).toBe('true')
+  })
+})
+
+describe('A63 · SECURITY and HML guards on Remove', () => {
+  const refusal = async (input: Parameters<WorktreesPanel['remove']>[0]) => {
+    const result = await panel.remove(input).catch((cause: unknown) => ({ ok: false as const, refusal: messageFromError(cause) }))
+    return result.ok ? null : result.refusal
+  }
+
+  test('HML 704-5: the main checkout is refused on its real path: a trailing separator, another case, a .. walk, and a link or junction to it', async () => {
+    const tree = await add('kept-tree')
+    const linkToMain = join(sandbox, 'link-to-main'); symlinkSync(root, linkToMain, 'junction')
+    const linkToTree = join(sandbox, 'link-to-tree'); symlinkSync(tree, linkToTree, 'junction')
+    const forms = [`${root}${process.platform === 'win32' ? '\\' : '/'}`, join(root, 'sub', '..'), linkToMain, linkToTree]
+    if (process.platform === 'win32') forms.push(root.toUpperCase(), root.toLowerCase())
+    for (const path of forms) {
+      expect(await refusal({ rootPath: root, path, deleteBranch: true, confirmUnmerged: true }), path).toEqual({ code: 'worktree.remove.notFound', params: {} })
+    }
+    expect(existsSync(join(root, 'a.txt'))).toBe(true)
+    expect(existsSync(tree)).toBe(true)
+    expect(branches()).toEqual(expect.arrayContaining(['main', 'kept-tree']))
+  })
+
+  test('HML 704-6: a pane inside the worktree, or its conversation mid-turn, refuses with worktree.remove.busy and removes nothing', async () => {
+    const tree = await add('busy-tree')
+    busy.set(tree, 'pane')
+    expect(await refusal({ rootPath: root, path: tree, deleteBranch: true })).toEqual({ code: 'worktree.remove.busy', params: { reason: 'pane' } })
+    busy.set(tree, 'turn')
+    expect(await refusal({ rootPath: root, path: tree, deleteBranch: true })).toEqual({ code: 'worktree.remove.busy', params: { reason: 'turn' } })
+    expect(existsSync(tree)).toBe(true)
+    busy.delete(tree)
+    expect(await panel.remove({ rootPath: root, path: tree, deleteBranch: false })).toEqual({ ok: true, branchDeleted: false })
+  })
+
+  test('HML 704-6: a git failure mid-remove (a Windows lock) is a refusal, not a throw, and the row stays listed', async () => {
+    const tree = await add('locked-by-os')
+    failNextRemove = true
+    const result = await panel.remove({ rootPath: root, path: tree, deleteBranch: true })
+    expect(result).toEqual({ ok: false, refusal: { code: 'worktree.remove.failed', params: {} } })
+    expect((await panel.list({ rootPath: root })).some(entry => same(entry.path, tree))).toBe(true)
+    expect(branches()).toContain('locked-by-os')
+  })
+
+  test('HML 704-7: a locked worktree is refused with its reason; a missing one is listed as missing and Remove prunes it', async () => {
+    const locked = await add('locked')
+    git(root, 'worktree', 'lock', '--reason', 'on a USB disk', locked)
+    expect(await refusal({ rootPath: root, path: locked, deleteBranch: false })).toEqual({ code: 'worktree.remove.locked', params: { reason: 'on a USB disk' } })
+    expect(existsSync(locked)).toBe(true)
+    const gone = await add('gone')
+    rmSync(gone, { recursive: true, force: true })
+    expect(await row(gone)).toMatchObject({ missing: true })
+    expect(await panel.remove({ rootPath: root, path: gone, deleteBranch: false })).toEqual({ ok: true, branchDeleted: false })
+    expect(git(root, 'worktree', 'list', '--porcelain')).not.toContain('gone')
+  })
+
+  test('S4: the default branch is never deleted, even confirmed', async () => {
+    git(root, 'switch', '-q', '-c', 'elsewhere')
+    const onMain = join(sandbox, 'on-main')
+    git(root, 'worktree', 'add', '-q', onMain, 'main')
+    expect(await refusal({ rootPath: root, path: onMain, deleteBranch: true, confirmUnmerged: true })).toEqual({ code: 'worktree.remove.defaultBranch', params: { branch: 'main' } })
+    expect(existsSync(onMain)).toBe(true)
+    expect(branches()).toContain('main')
+  })
+
+  test('S4 / HML 704-7: a branch checked out in another worktree is never deleted, even confirmed', async () => {
+    const first = await add('shared')
+    const second = join(sandbox, 'shared-again')
+    git(root, 'worktree', 'add', '-q', '-f', second, 'shared')
+    expect(await refusal({ rootPath: root, path: first, deleteBranch: true, confirmUnmerged: true })).toEqual({ code: 'worktree.remove.branchInUse', params: { branch: 'shared' } })
+    expect(existsSync(first)).toBe(true)
+    expect(branches()).toContain('shared')
+  })
+
+  test('S4: deleting a pushed branch removes only the local ref: the remote branch and its tracking ref stay', async () => {
+    const bare = join(sandbox, 'remote.git')
+    git(sandbox, 'init', '-q', '--bare', bare)
+    git(root, 'remote', 'add', 'origin', bare)
+    const tree = await add('pushed')
+    git(tree, 'push', '-q', '-u', 'origin', 'pushed')
+    providerMerged.set('pushed', 3)
+    expect(await panel.remove({ rootPath: root, path: tree, deleteBranch: true })).toEqual({ ok: true, branchDeleted: true })
+    expect(branches()).not.toContain('pushed')
+    expect(git(root, 'ls-remote', '--heads', 'origin', 'pushed')).toContain('refs/heads/pushed')
+    expect(git(root, 'branch', '-r')).toContain('origin/pushed')
+    expect(spawned.some(call => call.args.includes('push') || (call.args.includes('branch') && call.args.includes('-r') && call.args.some(arg => /^-[dD]$/.test(arg))))).toBe(false)
+  })
+
+  test('S3: every git call is an argument array without a shell, and the branch delete puts -- before the name', async () => {
+    const tree = await add('dashed')
+    providerMerged.set('dashed', 8)
+    spawned = []
+    await panel.list({ rootPath: root })
+    expect(await panel.remove({ rootPath: root, path: tree, deleteBranch: true })).toEqual({ ok: true, branchDeleted: true })
+    expect(spawned.length).toBeGreaterThan(0)
+    expect(spawned.filter(call => call.shell)).toEqual([])
+    const deletes = spawned.filter(call => call.args.includes('branch') && call.args.some(arg => /^-[dD]$/.test(arg)))
+    expect(deletes).toHaveLength(1)
+    const args = deletes[0].args
+    expect(args.indexOf('--')).toBeGreaterThan(-1)
+    expect(args.indexOf('--')).toBeLessThan(args.indexOf('dashed'))
+  })
+
+  test('S5: each Remove and branch delete writes one audit row, refusals included, with no file content', async () => {
+    const tree = await add('audited')
+    writeFileSync(join(tree, 'secret-notes.txt'), 'CONTENT-MARKER-S5')
+    expect(await refusal({ rootPath: root, path: tree, deleteBranch: true })).toEqual({ code: 'worktree.remove.dirty', params: { count: 1 } })
+    rmSync(join(tree, 'secret-notes.txt'))
+    providerMerged.set('audited', 4)
+    expect(await panel.remove({ rootPath: root, path: tree, deleteBranch: true })).toEqual({ ok: true, branchDeleted: true })
+    const rows = audit()
+    expect(rows.map(entry => [entry.action, entry.outcome, entry.code])).toEqual([
+      ['worktree-remove', 'refused', 'worktree.remove.dirty'], ['worktree-remove', 'ok', null], ['branch-delete', 'ok', null]
+    ])
+    expect(rows.every(entry => entry.actor === 'person')).toBe(true)
+    expect(same(rows[1].target, tree)).toBe(true)
+    expect(rows[2].target).toBe('audited')
+    expect(JSON.stringify(db.prepare('SELECT * FROM person_action_audit').all())).not.toContain('CONTENT-MARKER-S5')
   })
 })

@@ -87,7 +87,8 @@ describe('F4 · contract', () => {
   })
 
   test('F4: the C3 refusal codes are in the catalog of main codes', () => {
-    for (const code of ['thread.place.dirty', 'thread.place.detached', 'thread.place.gone', 'thread.place.noDrift', 'thread.place.notEvidence', 'thread.place.outside', 'worktree.remove.dirty', 'worktree.remove.notFound', 'worktree.remove.unmergedBranch']) {
+    for (const code of ['thread.place.dirty', 'thread.place.detached', 'thread.place.gone', 'thread.place.noDrift', 'thread.place.notEvidence', 'thread.place.outside', 'worktree.remove.dirty', 'worktree.remove.notFound', 'worktree.remove.unmergedBranch',
+      'thread.place.busy', 'thread.place.branchGone', 'worktree.remove.busy', 'worktree.remove.failed', 'worktree.remove.locked', 'worktree.remove.defaultBranch', 'worktree.remove.branchInUse']) {
       expect(MESSAGE_CODES as readonly string[]).toContain(code)
     }
   })

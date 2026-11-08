@@ -5,6 +5,7 @@
 // Spec: docs/roadmap-1.5/ccr-f4-places-pr.md §A60 and DESIGN's 1.5.0-f4-design.md U4.6 (PR provider).
 import { describe, expect, test } from 'vitest'
 import { detectPrProvider, PullRequestProvider, type PrCliRunner } from '../../../electron/main/services/pull-request/pr-provider'
+import { isSafeBranchName } from '../../../electron/main/utils/git-ref-name'
 
 interface Call { command: 'gh' | 'az'; args: string[]; cwd: string }
 type Reply = { status: number | null; stdout: string; stderr: string; missing?: boolean }
@@ -166,5 +167,38 @@ describe('A60 · merged: the provider first, git only as the fallback', () => {
     expect(await provider(GITHUB, fakeCli({ gh: 'missing' }), true).merged({ rootPath: '/r', branch: 'agent-fix', base: 'main' })).toEqual({ by: 'git', value: true })
     expect(await provider(AZURE, fakeCli({ az: 'signed-out' }), false).merged({ rootPath: '/r', branch: 'agent-fix', base: 'main' })).toEqual({ by: 'git', value: false })
     expect(await provider('https://gitlab.com/a/b.git', fakeCli(), true).merged({ rootPath: '/r', branch: 'agent-fix', base: 'main' })).toEqual({ by: 'git', value: true })
+  })
+})
+
+describe('A60 · SECURITY S3 (branch names)', () => {
+  const BAD = ['', '-x', '--web', 'a..b', 'a@{1}', '@', 'a~1', 'a^', 'a:b', 'a?', 'a*', 'a[b', 'a\\b', 'a b', 'a\u0001b', 'a\u007fb', 'a.lock', 'a/b.lock', 'a.', '/a', 'a/', 'a//b', '.a', 'a/.b']
+  const GOOD = ['main', 'feature/x-1', 'release/1.5.0', 'user.name/fix_2', 'agent-fix', 'refs-like/a/b/c']
+
+  test('S3: git ref rules: the unsafe names are refused and the ordinary ones pass', () => {
+    for (const name of BAD) expect(isSafeBranchName(name), JSON.stringify(name)).toBe(false)
+    for (const name of GOOD) expect(isSafeBranchName(name), name).toBe(true)
+  })
+
+  test('S3: state and merged refuse every unsafe name before any CLI runs, for both providers', async () => {
+    for (const remote of [GITHUB, AZURE]) {
+      const cli = fakeCli({ ghPr, azPrs: [azPr] })
+      for (const name of BAD) {
+        await expect(provider(remote, cli).state({ rootPath: '/r', branch: name }), name).rejects.toThrow()
+        await expect(provider(remote, cli).merged({ rootPath: '/r', branch: name, base: 'main' }), name).rejects.toThrow()
+      }
+      expect(cli.calls.filter(call => !call.args.includes('--version') && call.args[0] !== 'auth' && call.args[0] !== 'account')).toEqual([])
+    }
+  })
+
+  test('S3: the branch reaches gh after -- (a positional), and az only as an option value', async () => {
+    const gh = fakeCli({ ghPr })
+    await provider(GITHUB, gh).state({ rootPath: '/r', branch: 'agent-fix' })
+    const view = gh.calls.find(call => call.args[0] === 'pr' && call.args[1] === 'view')
+    expect(view?.args.indexOf('--')).toBeGreaterThan(-1)
+    expect(view?.args.indexOf('--')).toBeLessThan(view?.args.indexOf('agent-fix') ?? -1)
+    const az = fakeCli({ azPrs: [azPr] })
+    await provider(AZURE, az).state({ rootPath: '/r', branch: 'agent-fix' })
+    const list = az.calls.find(call => call.args.join(' ').startsWith('repos pr list'))
+    expect(list?.args[(list?.args.indexOf('--source-branch') ?? -2) + 1]).toBe('refs/heads/agent-fix')
   })
 })
