@@ -22,7 +22,7 @@ export type McpCapability =
   | Base & { forbidden: string }
 
 /** The user's standing rule: these never become MCP tools. Each must be a `forbidden` capability. */
-export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'linear.token', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'git.repo_hook_approval', 'remote.gateway_admin', 'approvals.admin', 'mcp_internal.tool_groups_admin', 'app.open_external', 'mcp.tool_rules_admin', 'policy.accept_change', 'app.open_in', 'code.resume_bypass'] as const
+export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'git.repo_hook_approval', 'remote.gateway_admin', 'approvals.admin', 'mcp_internal.tool_groups_admin', 'app.open_external', 'mcp.tool_rules_admin', 'policy.accept_change', 'app.open_in', 'code.resume_bypass'] as const
 
 /** No tool name or domain action may look like one of these. */
 export const FORBIDDEN_NAME = /approv|permission|access|sign_?in|log_?in|log_?out|token|secret|credential|password|api_?key|trust|host_?key/i
@@ -94,8 +94,8 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'code.background_cleanup': { label: 'Remove a finished job from the list', excluded: 'Tidies the person\'s list; nothing for an agent to gain.', ipc: ['background.remove'] },
   'code.worktrees': {
     label: 'Git worktrees',
-    tools: { oxespace_list_worktrees: 'read', oxespace_create_worktree: 'write', oxespace_remove_worktree: 'confirm', ...each('oxespace_workspace_change', 'write', ['worktree_for_linear_issue']) },
-    ipc: ['github.listWorktrees', 'github.createWorktree', 'github.removeWorktree', 'github.resolveWorktreeBase', 'github.getWorktreeStatus', 'linear.createWorktreeFromIssue']
+    tools: { oxespace_list_worktrees: 'read', oxespace_create_worktree: 'write', oxespace_remove_worktree: 'confirm' },
+    ipc: ['github.listWorktrees', 'github.createWorktree', 'github.removeWorktree', 'github.resolveWorktreeBase', 'github.getWorktreeStatus']
   },
   'code.worktree_cleanup': {
     label: 'Bulk worktree cleanup',
@@ -334,18 +334,13 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['oxePod.call']
   },
 
-  // ---- skills, automations, MCP servers, Linear --------------------------------------------
+  // ---- skills, MCP servers --------------------------------------------------
   'skills.use': {
     label: 'Skills: list, read, add',
     tools: { ...each('oxespace_skills', 'read', ['list', 'get']), ...each('oxespace_skills_change', 'confirm', ['create']) },
     ipc: ['skill.list', 'skill.get', 'skill.create']
   },
   'skills.invoke': { label: 'Invoke a skill in a pane', excluded: 'Types the skill into a terminal. Agents read its body with oxespace_skills get.', ipc: ['skill.invoke'] },
-  'automations.use': {
-    label: 'Scheduled automations',
-    tools: { ...each('oxespace_automations', 'read', ['list', 'runs']), ...each('oxespace_automations_change', 'write', ['disable']), ...each('oxespace_automations_change', 'confirm', ['create', 'enable', 'run_now', 'remove']) },
-    ipc: ['automations.list', 'automations.runs', 'automations.create', 'automations.setEnabled', 'automations.remove', 'automations.runNow']
-  },
   'mcp.servers': {
     label: 'MCP servers: list, health, start, stop',
     tools: { ...each('oxespace_mcp_servers', 'read', ['list']), ...each('oxespace_mcp_servers_change', 'confirm', ['start']), ...each('oxespace_mcp_servers_change', 'write', ['stop']) },
@@ -357,8 +352,6 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['mcp.create', 'mcp.update', 'mcp.delete', 'mcp.discover', 'mcp.importDiscovered', 'mcp.openSignIn']
   },
   'mcp.call_tool': { label: 'Call another server\'s tool from the app', excluded: 'Agents reach those servers through their own MCP client, as the person trusted them.', ipc: ['mcp.callTool'] },
-  'linear.read': { label: 'Linear issues', tools: each('oxespace_linear', 'read', ['status', 'teams', 'issues', 'issue']), ipc: ['linear.getStatus', 'linear.listTeams', 'linear.listIssues', 'linear.getIssue'] },
-  'linear.token': { label: 'Linear API key', forbidden: 'A token.', ipc: ['linear.setApiKey', 'linear.clearApiKey'] },
 
   // ---- usage, settings, accounts ---------------------------------------------------------
   'usage.read': {

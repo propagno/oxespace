@@ -416,7 +416,7 @@
   },
   "activity": {
     "title": "Agent activity",
-    "hint": "What agents changed through OXESpace (commits, pushes, pull requests, conversations, tasks, skills, automations) and what you decided. Database and container requests are listed in OxeQuery.",
+    "hint": "What agents changed through OXESpace (commits, pushes, pull requests, conversations, tasks, skills) and what you decided. Database and container requests are listed in OxeQuery.",
     "decisions": {
       "auto": "ran",
       "approved": "you approved",
@@ -431,62 +431,6 @@
     "savedAudit": "Saved the audit to {{path}}",
     "refresh": "Refresh activity",
     "export": "Export the audit (JSONL)"
-  },
-  "automations": {
-    "title": "Scheduled automations",
-    "callout": "Runs an agent with a prompt in a <strong>new worktree</strong> at the chosen time, with no terminal open. The app must be running; missed times are skipped, not run later.",
-    "status": {
-      "pending": "queued",
-      "running": "running",
-      "completed": "completed",
-      "failed": "failed",
-      "dispatch_failed": "could not create the worktree",
-      "skipped_precheck": "skipped (pre-check)",
-      "skipped_missed": "skipped (missed time)",
-      "skipped_busy": "skipped (previous run still active)"
-    },
-    "schedule": {
-      "interval": "every {{minutes}} min",
-      "daily": "every day at {{time}}",
-      "weekly": "{{days}} at {{time}}",
-      "cron": "cron {{expression}}"
-    },
-    "empty": "No automations yet.",
-    "next": "next: {{time}}",
-    "last": "Last: {{status}}",
-    "neverRan": "Has not run yet.",
-    "runNow": "Run now",
-    "runNamed": "Run {{name}} now",
-    "enable": "Enable",
-    "disable": "Disable",
-    "active": "Active",
-    "paused": "Paused",
-    "delete": "Delete",
-    "deleteNamed": "Delete {{name}}",
-    "form": {
-      "name": "Name",
-      "namePlaceholder": "Nightly review",
-      "repository": "Repository",
-      "select": "Select…",
-      "agent": "Agent",
-      "prompt": "Prompt",
-      "frequency": "Frequency",
-      "interval": "Every N minutes",
-      "daily": "Daily",
-      "weekly": "Weekly",
-      "cron": "Cron",
-      "minutes": "Minutes (min. 5)",
-      "time": "Time",
-      "days": "Days of the week",
-      "expression": "Expression (minute hour day month weekday)",
-      "precheck": "Pre-check (optional)",
-      "precheckHint": "Command run at the repository root; the run only continues if it exits with code 0.",
-      "extraArgs": "Extra agent arguments (optional)",
-      "extraArgsHint": "There is no interactive approval, so the agent only uses what these arguments allow.",
-      "create": "Create automation",
-      "cancel": "Cancel"
-    },
-    "new": "New automation"
   },
   "keyboard": {
     "title": "Keyboard",
@@ -760,7 +704,7 @@
       },
       "app": {
         "name": "App",
-        "description": "Git, GitHub, conversations, skills, automations, Linear, MCP servers, search and usage. Pushes, pull requests and releases are approved by you."
+        "description": "Git, GitHub, conversations, skills, MCP servers, search and usage. Pushes, pull requests and releases are approved by you."
       },
       "team": {
         "name": "Team",

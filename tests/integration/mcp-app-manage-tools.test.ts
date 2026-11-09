@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
-import type { ToolContext } from '../../electron/main/mcp-internal/tool-registry'
+import { discoveryTools, type ToolContext } from '../../electron/main/mcp-internal/tool-registry'
+import { ExecutionRegistry } from '../../electron/main/services/execution-registry'
 import { APP_MANAGE_TOOLS, APP_MANAGE_TOOL_NAMES } from '../../electron/main/mcp-internal/app-manage-tools'
 import { AgentActions } from '../../electron/main/services/agent-actions/agent-actions'
 import { ApprovalBroker, type ApprovalDecision, type ApprovalRequest } from '../../electron/main/services/agent-actions/approval-broker'
@@ -50,29 +51,6 @@ describe('oxespace_skills_change', () => {
   })
 })
 
-describe('oxespace_automations_change', () => {
-  const existing = [{ id: 'a1', name: 'Nightly', rootPath: '/repo', agent: 'claude', prompt: 'Fix flaky tests', schedule: { kind: 'daily', hour: 2, minute: 0 } }, { id: 'a2', name: 'Other', rootPath: '/elsewhere', agent: 'codex', prompt: 'x', schedule: { kind: 'interval', everyMinutes: 60 } }]
-  const make = () => ({ list: vi.fn(() => existing), create: vi.fn(input => input), setEnabled: vi.fn(), remove: vi.fn(), runNow: vi.fn(), runs: vi.fn() })
-
-  it('schedules in this project only, ignores extra CLI arguments and shows prompt and schedule', async () => {
-    const service = make()
-    const { asked, ctx } = setup({ automations: () => service } as never)
-    const result = await call('oxespace_automations_change', { action: 'create', name: 'Deps', prompt: 'Update deps', agent: 'codex', schedule: { kind: 'weekly', days: [1], hour: 9, minute: 30 }, rootPath: '/etc', extraArgs: '--dangerously-bypass-approvals-and-sandbox' }, ctx)
-    expect(result).toMatchObject({ ok: true, result: { rootPath: '/repo', extraArgs: '' } })
-    expect(asked[0].text).toBe('codex in /repo, on days 1 (0 = Sunday) at 09:30\n\nUpdate deps')
-  })
-
-  it('turns off without asking, asks to turn on, and refuses another project\'s automation', async () => {
-    const service = make()
-    const { asked, ctx } = setup({ automations: () => service } as never)
-    expect(await call('oxespace_automations_change', { action: 'disable', automationId: 'a1' }, ctx)).toMatchObject({ ok: true })
-    expect(asked).toHaveLength(0)
-    expect(await call('oxespace_automations_change', { action: 'enable', automationId: 'a1' }, ctx)).toMatchObject({ ok: true })
-    expect(asked[0].text).toBe('claude, every day at 02:00\n\nFix flaky tests')
-    expect(await call('oxespace_automations_change', { action: 'run_now', automationId: 'a2' }, ctx)).toMatchObject({ ok: false, code: 'not-found' })
-  })
-})
-
 describe('oxespace_workspace_change', () => {
   it('notifies, and reindexes only a Code workspace', async () => {
     const notify = vi.fn(() => true)
@@ -111,5 +89,61 @@ describe('oxespace_mcp_servers_change', () => {
     expect(await call('oxespace_mcp_servers_change', { action: 'stop', serverId: 's0' }, ctx)).toMatchObject({ ok: false, code: 'not-found' })
     expect(await call('oxespace_mcp_servers_change', { action: 'stop', serverId: 's1' }, ctx)).toMatchObject({ ok: true })
     expect(mcpServers.start).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('discovery tools (R8 moved them from automation-tools.ts into tool-registry.ts)', () => {
+  const tools = discoveryTools(() => tools)
+  const registry = new ExecutionRegistry()
+  const env = registry.register({ paneId: 'pane', workspaceId: 'workspace', cwd: '/checkout' })
+  const context = { executions: registry, executionId: env.OXESPACE_EXECUTION_ID,
+    executionToken: env.OXESPACE_EXECUTION_TOKEN, workspaceId: 'workspace',
+    workspaceServ: { get: () => ({ panes: [{ id: 'pane' }] }) } } as unknown as ToolContext
+  it('discovers tools without memory and does not disclose execution tokens', async () => {
+    const result = await tools[0].handler({}, context)
+    const serialized = JSON.stringify(result)
+    expect(result.isError).toBeUndefined()
+    expect(serialized).toContain('oxespace_execution_context')
+    expect(serialized).not.toContain(env.OXESPACE_EXECUTION_TOKEN)
+  })
+  it('rejects foreign workspace and argument overrides', async () => {
+    expect((await tools[0].handler({}, { ...context, workspaceId: 'foreign' })).isError).toBe(true)
+    expect((await tools[0].handler({ workspaceId: 'foreign' }, context)).isError).toBe(true)
+  })
+  it('unbound memory is not reported as captured data', async () => {
+    const result = await tools[2].handler({}, context)
+    expect(JSON.stringify(result)).toContain('not_observable')
+    expect(JSON.stringify(result)).toContain('unbound')
+  })
+  it('revoked executions cannot discover capabilities', async () => {
+    const executions = new ExecutionRegistry()
+    const credentials = executions.register({ paneId: 'pane', workspaceId: 'workspace', cwd: '/checkout' })
+    executions.end('pane')
+    const result = await tools[0].handler({}, { ...context, executions,
+      executionId: credentials.OXESPACE_EXECUTION_ID, executionToken: credentials.OXESPACE_EXECUTION_TOKEN })
+    expect(result.isError).toBe(true)
+    expect(JSON.stringify(result)).toContain('EXECUTION_REQUIRED')
+  })
+})
+
+// Homologation check-182: a caller the bridge does not answer for got "ok" for any group, nonsense included.
+describe('oxespace_tools_enable on the server', () => {
+  const enable = discoveryTools(() => []).find(tool => tool.descriptor.name === 'oxespace_tools_enable')!
+  const body = async (args: unknown) => {
+    const result = await enable.handler(args as never, {} as never)
+    return { isError: (result as { isError?: boolean }).isError === true, ...JSON.parse((result as { content: Array<{ text: string }> }).content[0].text) }
+  }
+
+  it('refuses anything that is not one known group, with a code', async () => {
+    for (const args of [undefined, {}, { group: 7 }, { group: 'data', extra: 1 }, []]) {
+      expect(await body(args), JSON.stringify(args)).toMatchObject({ isError: true, status: 'error', error: { code: 'INVALID_ARGUMENTS' } })
+    }
+    for (const group of ['search', 'no-such-group', '../../etc', 'team']) {
+      expect(await body({ group }), group).toMatchObject({ isError: true, status: 'error', error: { code: 'GROUP_UNAVAILABLE' } })
+    }
+  })
+
+  it('a known group says there is nothing to turn on here, without claiming success for it', async () => {
+    expect(await body({ group: 'data' })).toMatchObject({ isError: false, status: 'ok', data: { enabled: [] } })
   })
 })

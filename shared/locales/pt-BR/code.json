@@ -2439,37 +2439,6 @@
       "results_many": "{{count}} resultados · ≈{{tokens}} tokens · ≈{{saved}}% economizados · {{ms}}ms"
     }
   },
-  "linear": {
-    "title": "Issues do Linear",
-    "refresh": "Atualizar issues",
-    "disconnect": "Desconectar",
-    "close": "Fechar o Linear",
-    "connectTitle": "Conectar o Linear",
-    "keyBefore": "Crie uma chave de API pessoal em",
-    "keyAfter": "e cole abaixo. Ela é criptografada com o chaveiro do sistema e fica no processo principal.",
-    "connecting": "Conectando…",
-    "connect": "Conectar",
-    "unencrypted": "Uma versão anterior salvou esta chave sem criptografia. Desconecte e conecte de novo quando a criptografia do sistema estiver disponível.",
-    "scopes": {
-      "assigned": "Atribuídas a mim",
-      "created": "Criadas por mim",
-      "team": "Equipe"
-    },
-    "filterTeam": "Filtrar por equipe",
-    "allTeams": "Todas as equipes",
-    "done": "Concluídas",
-    "filter": "Filtrar issues…",
-    "loading": "Carregando issues…",
-    "empty": "Nenhuma issue corresponde a este filtro.",
-    "worktreeTitle": "git worktree em {{branch}}",
-    "creating": "Criando…",
-    "worktree": "Worktree",
-    "open": "Abrir {{id}} no Linear",
-    "connected": "Conectado como {{name}}.",
-    "user": "usuário do Linear",
-    "disconnected": "Linear desconectado.",
-    "unexpected": "Erro inesperado do Linear"
-  },
   "sessions": {
     "loadFailed": "Não foi possível carregar todas as sessões. Verifique se o Codex e o Claude estão instalados.",
     "copyFailed": "Não foi possível copiar o ID da sessão.",
