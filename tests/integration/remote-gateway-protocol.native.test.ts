@@ -44,7 +44,7 @@ describe('remote gateway: hello and auth', () => {
     expect(isHelloChallenge(first.challenge) && isHelloChallenge(second.challenge)).toBe(true)
     expect(first.challenge).not.toBe(second.challenge)
     const socket = await TestSocket.connect(p.target)
-    expect(await socket.ask({ type: 'hello', versions: [1] })).toEqual({ type: 'hello', versions: [1], desktopName: 'OXESpace', challenge: expect.any(String) })
+    expect(await socket.ask({ type: 'hello', versions: [1] })).toEqual({ type: 'hello', versions: [1], desktopName: 'OXESpace', challenge: expect.any(String), features: ['terminal.snapshotOnly', 'pane.conversation'] })
 
     const old = await TestSocket.connect(p.target)
     expect(await old.ask({ type: 'hello', versions: [7, 8] })).toEqual({ type: 'error', code: 'unsupported-version' })
@@ -494,7 +494,11 @@ describe('remote gateway: no internal token ever crosses it', () => {
   test('the gateway\'s code imports nothing that holds internal tokens', () => {
     const root = resolve(__dirname, '../../electron/main/services/remote')
     // thread-history: M4's pending-requests topic reads conversations from the database; it holds no token.
-    const allowed = [/^shared\//, /^electron\/main\/services\/remote\//, /^electron\/main\/db(\/index)?$/, /^electron\/main\/services\/oxequery\/secret-cipher$/, /^electron\/main\/services\/oxequery\/connection-store$/, /^electron\/main\/services\/conversation\/thread-history$/, /^electron\/main\/ipc\/main-message-error$/]
+    // pane-sessions: A46's pane conversation finds a pane's agent session in the database; it holds no token.
+    // native-session-files: A46 locates the agent's session files with fs, os and path; it holds no token.
+    // native-history-page: A46 pages the session history from those files; it holds no token.
+    // claude-project-path: A46 maps a workspace root to Claude's project folder with path and crypto; it holds no token.
+    const allowed = [/^shared\//, /^electron\/main\/services\/remote\//, /^electron\/main\/db(\/index)?$/, /^electron\/main\/services\/oxequery\/secret-cipher$/, /^electron\/main\/services\/oxequery\/connection-store$/, /^electron\/main\/services\/conversation\/thread-history$/, /^electron\/main\/ipc\/main-message-error$/, /^electron\/main\/services\/agent-state\/pane-sessions$/, /^electron\/main\/services\/agent-state\/native-session-files$/, /^electron\/main\/services\/conversation\/native-history-page$/, /^electron\/main\/services\/usage\/claude-project-path$/]
     const repo = resolve(__dirname, '../..')
     const seen = new Set<string>()
     const visit = (file: string) => {

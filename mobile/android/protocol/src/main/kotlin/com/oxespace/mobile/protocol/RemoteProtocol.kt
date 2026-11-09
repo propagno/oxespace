@@ -153,6 +153,8 @@ enum class RemoteErrorCode(val wire: String) {
     @SerialName("not-pending") NOT_PENDING("not-pending"),
     @SerialName("stale-generation") STALE_GENERATION("stale-generation"),
     @SerialName("pane-not-shared") PANE_NOT_SHARED("pane-not-shared"),
+    @SerialName("no-conversation") NO_CONVERSATION("no-conversation"),
+    @SerialName("conversation-changed") CONVERSATION_CHANGED("conversation-changed"),
     @SerialName("internal") INTERNAL("internal"),
     ;
 
@@ -322,6 +324,11 @@ data class RemoteHelloFrame(
     val desktopName: String? = null,
     /** Set by the gateway: 32 random bytes, base64url, new for every connection; a refresh signs it as its `nonce`. */
     val challenge: String? = null,
+    /**
+     * Set by the gateway (1.5.0 F10): what this desktop supports beyond the version, e.g. "terminal.snapshotOnly" and
+     * "pane.conversation". The phone uses a feature only when it is listed; a client hello never carries it.
+     */
+    val features: List<String>? = null,
 ) : RemoteFrame
 
 /**
@@ -890,6 +897,36 @@ data class RemoteAgentMarkSeenArgs(
 data class RemotePaneConversationArgs(
     val paneId: String,
     val cursor: String? = null,
+)
+
+/**
+ * 1.5.0 F10 (BE-A46-c5, #706): what `pane.conversation` gives (`ack.result`) and the `paneConversation` snapshot. `items`
+ * go oldest to newest within the page, each id stable; `cursor` asks for the page before it, null at the oldest; `epoch`
+ * grows when the pane's agent starts a new session. `agent` is the manifest id (claude, codex…), text, never an enum.
+ */
+@Serializable
+data class RemotePaneConversationPage(
+    val agent: String,
+    val title: String? = null,
+    val items: List<Item>,
+    val cursor: String?,
+    val epoch: Long,
+) {
+    @Serializable
+    data class Item(
+        val seq: Long,
+        val item: RemoteThreadItem,
+    )
+}
+
+/**
+ * 1.5.0 F10 (BE-A46-c5, #706): a `paneConversation` event. It says only that the conversation changed, never what: the
+ * phone reads the newest page again with `pane.conversation`. At most one per two seconds. With `conversation-changed`,
+ * `RemoteErrorFrame.reason` may say `new-session` (another session) or `rewritten` (the session file was rewritten or cut).
+ */
+@Serializable
+data class RemotePaneConversationEvent(
+    val changed: Boolean,
 )
 
 /**
