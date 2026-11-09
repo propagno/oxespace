@@ -218,6 +218,26 @@ test('F10 M10: a busy terminal agent\'s conversation reaches the phone, paged, r
     note(`new session: epoch ${first.epoch} → ${fresh?.epoch}, items ${fresh?.items?.length}`)
     expect.soft(fresh?.epoch, 'a new session has a higher epoch').toBeGreaterThan(first.epoch)
     expect.soft(fresh?.items?.map(e => bare(e.item.id)), 'the new session\'s messages').toEqual(['n0'])
+    // CR-34: the person hides the pane from the phone while it streams. The stream ends with pane-hidden, the pane is
+    // gone for the phone, and shown again it reads. Only where the desktop has the switch (F10's branch, #706 / #707).
+    const hasHide = await page.evaluate(() => typeof (window as unknown as { oxe: { remote: { setPhoneHidden?: unknown } } }).oxe.remote.setPhoneHidden === 'function')
+    note(`desktop has Show on phone: ${hasHide}`)
+    if (hasHide) {
+      socket.send({ type: 'subscribe', id: 'pc2', topic: 'paneConversation', target: paneId })
+      await drain(socket, 1_500)
+      await remote(page, 'setPhoneHidden', { paneId, hidden: true })
+      const hidFrames = await drain(socket, 3_000)
+      const ended = hidFrames.find(f => f.type === 'error' && f.reason === 'pane-hidden')
+      note(`after hiding: ${JSON.stringify(hidFrames.map(f => [f.type, f.code ?? '', f.reason ?? '']))}`)
+      expect.soft(ended, 'the open stream ends with pane-hidden').toBeTruthy()
+      const whileHidden = await command(socket, 'pane.conversation', { paneId })
+      expect.soft(whileHidden, 'a hidden pane has no conversation').toMatchObject({ type: 'error', code: 'no-conversation' })
+      expect.soft(JSON.stringify(hidFrames.filter(f => f.type === 'event')).includes('a new conversation'), 'nothing of it arrives after hiding').toBe(false)
+      await remote(page, 'setPhoneHidden', { paneId, hidden: false })
+      await page.waitForTimeout(1_000)
+      const shown = await command(socket, 'pane.conversation', { paneId })
+      expect.soft(shown.type, 'shown again, it reads').toBe('ack')
+    }
     await page.screenshot({ path: test.info().outputPath('f10-desktop.png') }).catch(() => undefined)
   } finally {
     socket?.close()
