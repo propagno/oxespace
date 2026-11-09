@@ -52,7 +52,7 @@ object Samples {
         jobs.onSnapshot(listOf(json("""{"jobs":[
             {"id":"j-1","workspaceId":"w-1","label":"Dev server","status":"running","exitCode":null,"startedAt":1,"finishedAt":null},
             {"id":"j-2","workspaceId":"w-1","label":"Unit tests","status":"failed","exitCode":1,"startedAt":1,"finishedAt":2}]}""")))
-        delegations.onSnapshot(listOf(json("""{"delegations":[{"id":"d-1","workspaceId":"w-1","objective":"Review the pairing contract and list gaps","state":"running","branch":"review/pairing","updatedAt":3}]}""")))
+        delegations.onSnapshot(listOf(json("""{"delegations":[{"id":"d-1","workspaceId":"w-1","objective":"Review the pairing contract and list gaps","state":"accepted","branch":"review/pairing","updatedAt":3}]}""")))
     }
 
     private fun requestJson(risky: Boolean) = if (risky) {
