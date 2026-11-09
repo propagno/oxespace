@@ -102,7 +102,7 @@ Each one has a refusal or masking test.
 | S3 | `devices.adb(args)` is the one door to adb, with an allowlist (devices, getprop, wm size, screencap, and the person's tap, swipe and keyevent). connect, tcpip, install, uninstall, push, pull, root, reboot, forward, input text and any other shell are refused before spawn. | a52 |
 | S4 | An agent screenshot goes only to the caller: no file left, and no image in the audit. | a52 |
 | S5 | A WebSocket is one connection row. Frames, handshake headers, EventSource messages and stream chunks are never kept. | a50 |
-| S6 | `person_action_audit` gets one row per grant answer (`preview-grant`, origin only), End (`preview-end`) and Agents-can-see change (`android-agents-can-see`), with no content. F5 adds those actions in its own migration (097 today: a table rebuild keeping the rows and the trigger; task F5-AUDIT), because F4 is already executing with 095 as frozen. | a49, a52 |
+| S6 | `person_action_audit` gets one row per grant answer (`preview-grant`, origin only), End (`preview-end`) and Agents-can-see change (`android-agents-can-see`), with no content. F5 adds those actions in its own migration (the next free number when F5 is planned, after F4's 094 thread_places: a table rebuild keeping the rows and the trigger; task F5-AUDIT). Numbers follow merge order (TECH LEAD 09/11). | a49, a52 |
 
 ## HML M5 (711-1 to 711-8)
 
