@@ -88,6 +88,16 @@ export interface ThreadCollision {
   checkoutId: string
   others: { conversationId: string; title: string }[]
 }
+/** FE-P9 (thread:agent-summary): what the agent did in this conversation; null is a source main could not read, named in failedSources. */
+export interface ThreadAgentSummary {
+  files: number | null
+  databases: number | null
+  http: number | null
+  httpProduction: number | null
+  containers: number | null
+  approvals: number | null
+  failedSources: string[]
+}
 /** One conversation's written-and-dirty files in one checkout, the input of the collision intersection. */
 export interface ThreadDirtyWrites {
   conversationId: string

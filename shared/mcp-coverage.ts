@@ -266,6 +266,16 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     forbidden: 'Raises access.',
     ipc: ['thread.permissionRules', 'thread.addPermissionRule', 'thread.removePermissionRule', 'thread.autoApproveReads', 'thread.setAutoApproveReads']
   },
+  'thread.places': {
+    label: 'A conversation\'s places, their diffs, path links, panes, collisions and agent summary (F4)',
+    excluded: 'The person\'s window: read models of where a conversation worked. Agents read their own checkout with oxespace_git.',
+    ipc: ['thread.places', 'thread.placeDiff', 'thread.resolvePath', 'thread.panes', 'thread.collisions', 'thread.agentSummary', 'thread.placesChanged']
+  },
+  'thread.place_actions': {
+    label: 'Answer a branch drift; undo, restore or discard a place\'s changes; read a file of a place (F4)',
+    forbidden: 'Person-only (A14 Undo, A15): they change or restore files and branches for the person; the place read reaches outside the workspace roots (A17).',
+    ipc: ['thread.placeRead', 'thread.placeDriftAnswer', 'thread.placeUndo', 'thread.placeRestore', 'thread.placeDiscard']
+  },
   'thread.session_admin': {
     label: 'Fork, delete, clean up or search CLI sessions',
     excluded: 'Deletes or copies the person\'s CLI history across projects. Agents search with oxespace_memory_search, scoped to the project.',
