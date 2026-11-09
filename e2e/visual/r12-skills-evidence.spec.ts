@@ -35,7 +35,7 @@ for (const theme of THEMES) {
   test(`R12 skills list with skills — ${theme}`, async () => {
     test.setTimeout(180_000)
     const home = seededHome(true)
-    const { app, page, workspaceRoot } = await launchApp({ appearance: theme, env: { HOME: home, USERPROFILE: home } })
+    const { app, page, workspaceRoot } = await launchApp({ appearance: theme, env: { HOME: home, USERPROFILE: home, OXESPACE_E2E_MOCK_NATIVE: '0' } })
     try {
       mkdirSync(join(workspaceRoot, '.oxe', 'skills'), { recursive: true })
       writeFileSync(join(workspaceRoot, '.oxe', 'skills', 'pix-rules.md'), '---\nname: pix-rules\ndescription: Checks a change against the Pix rules.\nagents: [claude]\n---\nCheck the rules.\n')
@@ -43,7 +43,7 @@ for (const theme of THEMES) {
       // The skill store reads once; a reload makes it read with the workspace open and both files in place.
       await page.reload()
       await page.waitForSelector('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]', { timeout: 20_000 })
-      console.log('skill.list', JSON.stringify(await page.evaluate(async () => (await window.oxe.skill.list()).map(skill => [skill.name, skill.source]))))
+      console.log('skill.list', JSON.stringify(await page.evaluate(async root => (await window.oxe.skill.list({ workspaceRootPath: root } as never)).map(skill => [skill.name, skill.source]), workspaceRoot)))
       for (const [width, height] of SIZES) {
         await resizeWindow(app, width, height)
         const { settings, skills } = await openSkills(page)
@@ -63,7 +63,7 @@ for (const theme of THEMES) {
 test('R12 skills list empty — light', async () => {
   test.setTimeout(120_000)
   const home = seededHome(false)
-  const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', env: { HOME: home, USERPROFILE: home } })
+  const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', env: { HOME: home, USERPROFILE: home, OXESPACE_E2E_MOCK_NATIVE: '0' } })
   try {
     await openDemoWorkspace(page, workspaceRoot)
     await resizeWindow(app, 1440, 900)
