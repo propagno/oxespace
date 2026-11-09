@@ -77,7 +77,8 @@
       "threads": "Conversations",
       "requests": "Requests",
       "terminals": "Terminals",
-      "tasks": "Tasks"
+      "tasks": "Tasks",
+      "agents": "Agents"
     },
     "requestsBadge_one": "{{count}} request waiting",
     "requestsBadge_other": "{{count}} requests waiting",
@@ -125,6 +126,13 @@
     },
     "delegationState": {
       "unknown": "Not confirmed"
+    },
+    "agentsChip": {
+      "all": "All",
+      "needsYou": "Needs you",
+      "working": "Working",
+      "failed": "Failed",
+      "finished": "Finished"
     }
   },
   "thread": {
@@ -251,7 +259,10 @@
     "hiddenShown": "Hidden characters are now shown in the field. Check it and send again.",
     "cancel": "Cancel",
     "hiddenOnDesktop": "This terminal was hidden from the phone on {{computer}}.",
-    "hiddenBack": "Back to terminals"
+    "hiddenBack": "Back to terminals",
+    "panHint": "{{cols}} cols · swipe to pan",
+    "fitWidth": "Fit the width",
+    "typeOnScreen": "Type on the Screen view"
   },
   "approval": {
     "prompt": {
@@ -324,7 +335,10 @@
     "placeholder": "Message the agent",
     "send": "Send",
     "steer": "Steer",
-    "steerFinishedBefore": "The agent finished before your instruction arrived. Nothing was sent."
+    "steerFinishedBefore": "The agent finished before your instruction arrived. Nothing was sent.",
+    "queuedPlaceholder": "Queued until the current step ends",
+    "readAfterStep": "read after the current step",
+    "queuedLine": "queued"
   },
   "terminalInput": {
     "placeholder": "Type in this terminal",
