@@ -86,6 +86,7 @@ jobs:
       code: ${{ steps.classify.outputs.code }}
       oxequery: ${{ steps.classify.outputs.oxequery }}
       deps: ${{ steps.classify.outputs.deps }}
+      nondoc: ${{ steps.classify.outputs.nondoc }}
       base: ${{ steps.classify.outputs.base }}
       sha: ${{ steps.commit.outputs.sha }}
     steps:
@@ -139,20 +140,26 @@ jobs:
             if [ "$(echo "$compare" | jq .ahead)" != "0" ]; then
               base=$(echo "$compare" | jq -r .base)
               # The compare API lists at most 300 files: past that, review rather than guess.
-              if [ "$(echo "$compare" | jq '.files | length')" -ge 300 ] || echo "$compare" | jq -r '.files[]' | grep -Eq "$manifests"; then deps=true; fi
+              if [ "$(echo "$compare" | jq '.files | length')" -ge 300 ] || grep -Eq "$manifests" <<<"$(echo "$compare" | jq -r '.files[]')"; then deps=true; fi
             fi
             echo "deps=$deps" >> "$GITHUB_OUTPUT"; echo "base=$base" >> "$GITHUB_OUTPUT"
             echo "not a pull request: everything runs; dependency review: $deps"; exit 0
           fi
           files=$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename')
           echo "$files" | sed 's/^/  /'
+          # Every grep reads a here-string, never `echo "$files" | grep -q`: grep -q exits on its first match, echo then
+          # dies of SIGPIPE on a long list, and pipefail turned the match into false (#747: code=false on a code PR,
+          # every test skipped, CI result green).
           code=false; oxequery=false
-          if echo "$files" | grep -Eqv '^(docs/|\.claude/|.*\.md$)'; then code=true; fi
-          if echo "$files" | grep -Eq '^(electron/main/services/(oxequery|oxepod)/|electron/main/workers/[^/]*oxequery|shared/[^/]*oxequery|shared/types/[^/]*oxequery|shared/(sqlText|mongoQueryText)\.ts$|tests/live/|tests/([^/]+/)?[^/]*oxequery|scripts/[^/]*oxequery|\.github/workflows/ci\.yml$)'; then oxequery=true; fi
+          if grep -Eqv '^(docs/|\.claude/|.*\.md$)' <<<"$files"; then code=true; fi
+          # Counted apart from the test above, so CI result can refuse a skip that the file list contradicts.
+          nondoc=$(grep -Evc '^(docs/|\.claude/|.*\.md$)' <<<"$files" || true)
+          echo "nondoc=$nondoc" >> "$GITHUB_OUTPUT"
+          if grep -Eq '^(electron/main/services/(oxequery|oxepod)/|electron/main/workers/[^/]*oxequery|shared/[^/]*oxequery|shared/types/[^/]*oxequery|shared/(sqlText|mongoQueryText)\.ts$|tests/live/|tests/([^/]+/)?[^/]*oxequery|scripts/[^/]*oxequery|\.github/workflows/ci\.yml$)' <<<"$files"; then oxequery=true; fi
           echo "code=$code" >> "$GITHUB_OUTPUT"; echo "oxequery=$oxequery" >> "$GITHUB_OUTPUT"
-          deps=false; if echo "$files" | grep -Eq "$manifests"; then deps=true; fi
+          deps=false; if grep -Eq "$manifests" <<<"$files"; then deps=true; fi
           echo "deps=$deps" >> "$GITHUB_OUTPUT"
-          echo "code=$code oxequery=$oxequery deps=$deps"
+          echo "code=$code oxequery=$oxequery deps=$deps (files: $(wc -l <<<"$files"), not docs: $nondoc)"
 
   # Supply chain gate (SRE-08, docs/ci-cd.md): a change that adds or changes a dependency is checked against the
   # GitHub Advisory Database before it merges. It looks only at what the change brings, so an advisory already on
@@ -1297,6 +1304,10 @@ jobs:
             console.log(`${job}: ${result}`)
             if (result === 'failure' || result === 'cancelled') problems.push(`${job} ${result}`)
           }
+          // A pull request classified as docs-only skips every test: refuse that when the classifier also counted
+          // files outside docs/, .claude/ and *.md (#747, a SIGPIPE turned code=true into false).
+          const nondoc = Number(needs.changes.outputs?.nondoc ?? '0')
+          if (pr && !code && nondoc > 0) problems.push(`changes said docs-only (code=false) but counted ${nondoc} file(s) outside docs/, .claude/ and *.md`)
           const required = ['changes', ...(deps ? ['dependency-review'] : [])]
           if (!pr) required.push('quick', 'unit', 'e2e', 'oxequery-live', 'oxequery-live-versions')
           else if (code) required.push('quick', 'unit', 'e2e', ...(oxequery ? ['oxequery-live', 'oxequery-live-versions'] : []))
