@@ -46,12 +46,19 @@ async function command(socket: TestSocket, name: string, args: unknown): Promise
   }
   throw new Error(`no answer to ${name}`)
 }
+/**
+ * The frames that arrive within `ms`. TestSocket.next keeps a timed-out waiter, which then swallows the next frame
+ * (run 42564950867 lost an ack that way), so no read here may time out: after the wait, an idempotent marker command
+ * (markSeen of a key that doesn't exist, which the gateway acks without saying whether it exists) closes the window.
+ */
 async function drain(socket: TestSocket, ms: number): Promise<Frame[]> {
+  await new Promise(r => setTimeout(r, ms))
+  const marker = `m${++counter}`
+  socket.send({ type: 'command', id: marker, command: 'agent.markSeen', args: { kind: 'pane', id: 'hml-marker' } })
   const all: Frame[] = [...side.splice(0)]
-  const end = Date.now() + ms
-  while (Date.now() < end) {
-    const frame = await socket.next(Math.max(1, end - Date.now())).catch(() => null)
-    if (!frame) break
+  for (let i = 0; i < 500; i++) {
+    const frame = await socket.next(15_000)
+    if (frame.id === marker) break
     all.push(frame)
   }
   return all
