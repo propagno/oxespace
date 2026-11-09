@@ -23,6 +23,9 @@ android {
     // Instrumented tests run on debug; the release workflow passes -Poxespace.testBuildType=minified to run the
     // release smoke test against the build R8 shrank.
     testBuildType = providers.gradleProperty("oxespace.testBuildType").getOrElse("debug")
+    // CR-F10-9: a test marked @ReleaseOnly checks the shipped build only; the debug connected run leaves it out, since
+    // AGP reports its skipped assumption as a failure there.
+    if (testBuildType == "debug") defaultConfig.testInstrumentationRunnerArguments["notAnnotation"] = "com.oxespace.mobile.ReleaseOnly"
 
     // The release workflow builds unsigned and signs with apksigner in its own job (RELEASING.md). A local signed build
     // is possible with all four variables set; with any of them missing the release APK is simply unsigned.
