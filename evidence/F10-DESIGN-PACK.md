@@ -1,7 +1,7 @@
 # F10 close: the phone for DESIGN (A70)
 
-Goldens at `oxe/f10-plan` @ `e233a0d8` (CR-A42b re-record, then CR-F10-7/8/9; emulator gate run 42583379081: 32/32).
-Every image is the committed golden, read from this branch (it is `e233a0d8` plus this file). Evidence only: never merged.
+Goldens at `oxe/f10-plan` @ `9edfbdf5` (CR-A42b re-record, then CR-F10-7/8/9; T27 CR-A42b-2 on top).
+Every image is the committed golden, read from this branch (it is `9edfbdf5` plus this file). Evidence only: never merged.
 
 ## Components
 
@@ -101,10 +101,12 @@ Accessibility (font scale): <img src="../mobile/android/app/src/test/snapshots/i
 
 ## Terminal (M6)
 
-> **Design call 1:** the key row is SECONDARY OxeButtons (raised + border, 48 dp). The keys lose Plex Mono: OxeButton sets its own label style. **Design call 3:** the hidden pane and the unavailable conversation are INFO Notices with one action (Back / Show the screen); no golden shows them yet (see delta).
+> **Design call 1 (ruled ✅, T27):** SECONDARY 48 dp keys with Plex Mono labels and an edge fade. **Design call 3:** the hidden pane and the unavailable conversation are INFO Notices with one action (Back / Show the screen); now with goldens (terminal-hidden, terminal-conversation-unavailable).
 
 | State | en · light | en · dark | pt-BR · light | pt-BR · dark |
 |---|---|---|---|---|
+| `terminal-conversation-unavailable` | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_terminal%5Ben-false%5D_terminal-conversation-unavailable.png" width="180"> | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_terminal%5Ben-true%5D_terminal-conversation-unavailable.png" width="180"> | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_terminal%5Bpt-rBR-false%5D_terminal-conversation-unavailable.png" width="180"> | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_terminal%5Bpt-rBR-true%5D_terminal-conversation-unavailable.png" width="180"> |
+| `terminal-hidden` | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_terminal%5Ben-false%5D_terminal-hidden.png" width="180"> | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_terminal%5Ben-true%5D_terminal-hidden.png" width="180"> | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_terminal%5Bpt-rBR-false%5D_terminal-hidden.png" width="180"> | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_terminal%5Bpt-rBR-true%5D_terminal-hidden.png" width="180"> |
 | `terminal-loading` | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_terminal%5Ben-false%5D_terminal-loading.png" width="180"> | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_terminal%5Ben-true%5D_terminal-loading.png" width="180"> | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_terminal%5Bpt-rBR-false%5D_terminal-loading.png" width="180"> | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_terminal%5Bpt-rBR-true%5D_terminal-loading.png" width="180"> |
 | `terminal-read-only` | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_terminal%5Ben-false%5D_terminal-read-only.png" width="180"> | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_terminal%5Ben-true%5D_terminal-read-only.png" width="180"> | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_terminal%5Bpt-rBR-false%5D_terminal-read-only.png" width="180"> | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_terminal%5Bpt-rBR-true%5D_terminal-read-only.png" width="180"> |
 | `terminal-tui` | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_terminal%5Ben-false%5D_terminal-tui.png" width="180"> | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_terminal%5Ben-true%5D_terminal-tui.png" width="180"> | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_terminal%5Bpt-rBR-false%5D_terminal-tui.png" width="180"> | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_terminal%5Bpt-rBR-true%5D_terminal-tui.png" width="180"> |
@@ -112,18 +114,18 @@ Accessibility (font scale): <img src="../mobile/android/app/src/test/snapshots/i
 
 ## Settings (M8)
 
-_No golden: ScreensSnapshotTest has no Settings case (see delta)._
+| State | en · light | en · dark | pt-BR · light | pt-BR · dark |
+|---|---|---|---|---|
+| `settings` | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_settings%5Ben-false%5D_settings.png" width="180"> | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_settings%5Ben-true%5D_settings.png" width="180"> | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_settings%5Bpt-rBR-false%5D_settings.png" width="180"> | <img src="../mobile/android/app/src/test/snapshots/images/com.oxespace.mobile.ui_ScreensSnapshotTest_settings%5Bpt-rBR-true%5D_settings.png" width="180"> |
 
 ## Delta against #627 HANDOFF-MOBILE.md
 
 | Screen | Where it departs |
 |---|---|
-| Home | No computer card and no connecting skeleton (T-P1.3); the 1.4 layout with a Notice per problem. No OxeMark tile on the hero. |
-| Pairing | No PairingStepper, Viewfinder or CodeBoxes (T-P1.4); the 1.4 layout with a Notice per failure (bad code WARNING, failed DANGER). |
-| Live | Rows keep the text status: no StatusGlyph or ProviderAvatar (T-P1.5), and no WorkspaceChip on any row (T-P1.6; the component exists, unused). Empty lists are EmptyState. |
-| Agents | StatusGlyph + ProviderAvatar rows and the five chips are built (CR-A43). Matches the handoff's flat list. |
-| Conversation | No NowBanner, GateCard or StepsSummary. Problems are WARNING Notices; Respond and Steer are OxeButtons. |
-| Request | No RiskChip (RiskLine is used). No CriticalDelayAllow ring: Allow is a disabled SECONDARY OxeButton plus the "becomes available in 2 s" caption (the hold itself is correct and proven on device). "No undo." uses noticeIcon(WARNING). Desktop-only and truncated are WARNING Notices. |
-| Terminal | The View control is two TextButtons, not the SingleChoiceSegmentedButtonRow; it opens on Screen, not Conversation. No edge fade on the key row. No golden of the hidden-pane or unavailable-conversation Notice. |
-| Settings | Built (theme + one switch per notification kind, from the live app bar menu), but with Material RadioButton and Switch rows, not Segmented / OxeSwitch / SettingsRow. **No golden at all**: ScreensSnapshotTest has no Settings case. |
-| Icons | ic_threads, ic_requests, ic_terminal and ic_tasks are not replaced by OxeChat / OxeCode / Agora. |
+| Home | Built (T27): OxeMark on the hero and the paired app bar, the computer card, a steady skeleton while connecting. |
+| Pairing | Built (T27): PairingStepper (a failure marks its step), Viewfinder (warning guides on a wrong code, a steady scan line), CodeBoxes 3 + 3. |
+| Live | Built (T27): StatusGlyph, ProviderAvatar and WorkspaceChip on rows; Terminals under the workspace chip; the #606 tab icons (Tasks uses a clock: #606 has no Tasks icon). The Needs-you badge is now attnBg/attnFg instead of the error red (MG4). |
+| Conversation | Built (T27): NowBanner, GateCard (Deny through the same biometric gate as the Request screen; Review only when the request can’t be denied here), StepsSummary, the 22 dp avatar. The card heading is the app’s own words, never the agent’s. |
+| Request | Built (T27): RiskChip with its icon, kept in the glossary §6 colours (critical never looks like high) rather than the handoff table’s per-level intents: **please confirm**. CriticalDelayAllow with the 2 s ring and "in N s". |
+| Terminal | Built (T27): the View is the Segmented row, opening on Conversation per pane; mono keys with the edge fade. |
+| Settings | Built (T27): Segmented theme, SettingsRow + OxeSwitch per notification kind. Golden added. |
