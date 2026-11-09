@@ -1,3 +1,5 @@
+// v2 — CR-38 (CR-F2-3): the paths and / now render as <code> inside these lines, so each line is matched by its whole
+// visible text (one block, code included) instead of a single text node. The words and every check are v1's.
 // Frozen acceptance test for CR-36 (OXE program, phase F2, task T5, criterion A69): DESIGN's CR-F2-1 and CR-F2-2 on #727,
 // the R12 skills list copy. Written by the planner; the executor must not edit it.
 // It renders the real SkillsList (src/components/Settings/SkillsList.tsx) over the real skill store and reads what a
@@ -9,6 +11,9 @@ import { afterEach, describe, expect, test } from 'vitest'
 import { changeLanguage } from '../../../src/i18n'
 
 const words = (text: string): number => text.trim().split(/\s+/).filter(Boolean).length
+const flat = (text: string | null): string => (text ?? '').replace(/\s+/g, ' ').trim()
+// The smallest element whose visible text is exactly this line (it may hold <code> children).
+const blockWith = (text: string): HTMLElement => screen.getByText((_content, element) => element !== null && element.tagName !== 'CODE' && flat(element.textContent) === text && [...element.children].every(child => flat(child.textContent) !== text))
 
 async function renderEmptyList(): Promise<void> {
   Object.assign(window, { oxe: { ...(window as unknown as { oxe?: object }).oxe, skill: { list: async () => [] } } })
@@ -27,7 +32,7 @@ describe('CR-36 · the skills list copy (CR-F2-1, CR-F2-2)', () => {
   ])('the intro is DESIGN\'s line of 20 words or fewer (%s)', async (language, intro) => {
     await changeLanguage(language)
     await renderEmptyList()
-    const shown = screen.getByText(intro)
+    const shown = blockWith(intro)
     expect(words(shown.textContent ?? '')).toBeLessThanOrEqual(20)
   }, 30_000)
 
@@ -38,7 +43,7 @@ describe('CR-36 · the skills list copy (CR-F2-1, CR-F2-2)', () => {
     await changeLanguage(language)
     await renderEmptyList()
     expect(screen.getByText(title)).toBeInTheDocument()
-    expect(screen.getByText(body)).toBeInTheDocument()
+    expect(blockWith(body)).toBeInTheDocument()
     expect(screen.queryAllByRole('button')).toEqual([])
   }, 30_000)
 })
