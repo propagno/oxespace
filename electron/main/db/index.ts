@@ -13,7 +13,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 93
+export const LATEST_DB_VERSION = 94
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 3
 
@@ -531,6 +531,8 @@ export function runMigrations(db: AppDatabase): void {
   })()
   if (startingVersion < 92) db.transaction(() => db.exec(readMigration('092_agent_seen.sql')))()
   if (startingVersion < 93) db.transaction(() => db.exec(withoutExistingColumns(db, readMigration('093_workspace_color.sql'))))()
+  // Migration numbers follow merge order (TECH LEAD 09/11). 094 only adds tables (F4 places, person_action_audit).
+  if (startingVersion < 94) db.transaction(() => db.exec(readMigration('094_thread_places.sql')))()
 }
 
 /** Rebuild the parent without cascading its children or rewriting their IDs. */

@@ -1730,5 +1730,44 @@
   "inlinePath": {
     "notFound": "{{path}} was not found",
     "looked": "Looked in: {{places}}"
+  },
+  "pathLink": {
+    "which": "Which one?",
+    "candidate": "{{place}} · {{path}}",
+    "missing": "{{path}} wasn't found. Looked in, in order:",
+    "lookedAt": "{{path}} ({{step}})",
+    "more_one": "and {{count}} more",
+    "more_other": "and {{count}} more",
+    "findFile": "Find file…",
+    "askAgent": "Ask the agent",
+    "askDraft": "I couldn't open {{path}}. Where is it?",
+    "failed": "Could not look up {{path}}. Try again.",
+    "kind": {
+      "root": "Main checkout",
+      "worktree": "Task worktree",
+      "checkout": "Other repository",
+      "outside": "Outside folder",
+      "sibling": "Sibling worktree",
+      "place": "Another place"
+    },
+    "step": {
+      "absolute": "the path as written",
+      "turnCwd": "the turn's folder",
+      "checkoutRoot": "its checkout",
+      "taskWorktree": "the task worktree",
+      "projectRoot": "the project root",
+      "taskPlace": "a place the task wrote in",
+      "siblingWorktree": "a sibling worktree"
+    }
+  },
+  "outsideFile": {
+    "band": "Read only · outside the repository · {{path}}",
+    "bandCheckout": "Read only · another repository · {{path}}",
+    "label": "{{path}}, read only",
+    "copyPath": "Copy path",
+    "path": "Path",
+    "pathCopied": "Path copied",
+    "loading": "Opening {{path}}…",
+    "failed": "Could not open {{path}}."
   }
 }

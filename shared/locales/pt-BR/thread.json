@@ -1777,5 +1777,45 @@
   "inlinePath": {
     "notFound": "{{path}} não foi encontrado",
     "looked": "Procurado em: {{places}}"
+  },
+  "pathLink": {
+    "which": "Qual deles?",
+    "candidate": "{{place}} · {{path}}",
+    "missing": "{{path}} não foi encontrado. Procurado, nesta ordem, em:",
+    "lookedAt": "{{path}} ({{step}})",
+    "more_one": "e mais {{count}}",
+    "more_many": "e mais {{count}}",
+    "more_other": "e mais {{count}}",
+    "findFile": "Encontrar arquivo…",
+    "askAgent": "Perguntar ao agente",
+    "askDraft": "Não consegui abrir {{path}}. Onde ele está?",
+    "failed": "Não foi possível procurar {{path}}. Tente de novo.",
+    "kind": {
+      "root": "Checkout principal",
+      "worktree": "Worktree da tarefa",
+      "checkout": "Outro repositório",
+      "outside": "Pasta externa",
+      "sibling": "Worktree irmão",
+      "place": "Outro lugar"
+    },
+    "step": {
+      "absolute": "o caminho como foi escrito",
+      "turnCwd": "a pasta do turno",
+      "checkoutRoot": "o checkout dela",
+      "taskWorktree": "o worktree da tarefa",
+      "projectRoot": "a raiz do projeto",
+      "taskPlace": "um lugar onde a tarefa escreveu",
+      "siblingWorktree": "um worktree irmão"
+    }
+  },
+  "outsideFile": {
+    "band": "Somente leitura · fora do repositório · {{path}}",
+    "bandCheckout": "Somente leitura · outro repositório · {{path}}",
+    "label": "{{path}}, somente leitura",
+    "copyPath": "Copiar caminho",
+    "path": "Caminho",
+    "pathCopied": "Caminho copiado",
+    "loading": "Abrindo {{path}}…",
+    "failed": "Não foi possível abrir {{path}}."
   }
 }
