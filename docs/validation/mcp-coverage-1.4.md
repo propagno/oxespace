@@ -47,7 +47,7 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `oxequery.secrets` | OxeQuery connection credentials, SSH host keys, connection export/import |
 | `mcp.server_trust` | `mcp.create`, `update`, `delete`, `discover`, `importDiscovered`, `openSignIn` |
 | `mcp_internal.tool_groups_admin` | `mcpInternal.setToolGroupMode` |
-| `remote.gateway_admin` | `remote.setEnabled`, `startPairing`, `cancelPairing`, `answerPairing`, `revoke`, `rename`, `setDesktopName`, `setPhoneWrite` |
+| `remote.gateway_admin` | `remote.setEnabled`, `startPairing`, `cancelPairing`, `answerPairing`, `revoke`, `rename`, `setDesktopName`, `setPhoneWrite`, `setPhoneHidden` (CR-34: the person keeps a pane off the phone) |
 | `approvals.admin` | `approvals.list`, `respond`, `ack`, `unavailable`, `history` (B10: the app's own approval modal) |
 | `thread.sections` | `thread.sections`, `thread.saveSections` (F13, for 1.4: the person's own organization of the conversation list) |
 | `app.open_external` | `app.openExternal` (the window's only way to open a link outside the app, after the person confirmed its host) |
