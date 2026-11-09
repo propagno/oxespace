@@ -86,6 +86,13 @@ jobs:
         env:
           OXESPACE_UPGRADE_STEP: seed
 
+      # A40 / HML-RM-4 (1.5.0 F2): from a 1.4.x release only, seed what 1.5 removes (OxePost, AI Memory, Automations).
+      - name: "Seed: data of the features 1.5 removes"
+        if: startsWith(env.FROM_TAG, 'v1.4')
+        run: npx playwright test -c playwright.tools.config.ts e2e/release/upgrade-1.5-removed-data.spec.ts
+        env:
+          OXESPACE_UPGRADE_STEP: seed-removed
+
       - name: Electron version
         id: electron
         shell: bash
@@ -144,6 +151,19 @@ jobs:
         env:
           OXESPACE_UPGRADE_STEP: verify-upgrade
           OXESPACE_EXPECT_VERSION: ${{ env.CANDIDATE_VERSION }}
+
+      - name: "Removed features: the band, the dialog and the export"
+        if: startsWith(env.FROM_TAG, 'v1.4')
+        run: npx playwright test -c playwright.tools.config.ts e2e/release/upgrade-1.5-removed-data.spec.ts
+        env:
+          OXESPACE_UPGRADE_STEP: verify-removed
+          OXESPACE_EXPECT_VERSION: ${{ env.CANDIDATE_VERSION }}
+
+      - name: "Removed features: a second start shows no band"
+        if: startsWith(env.FROM_TAG, 'v1.4')
+        run: npx playwright test -c playwright.tools.config.ts e2e/release/upgrade-1.5-removed-data.spec.ts
+        env:
+          OXESPACE_UPGRADE_STEP: verify-relaunch
 
       # The exe exactly as the installer shipped it (every fuse as configured, --inspect off), started the way a person
       # starts it, without Playwright, on the upgraded profile: it must still be running after 20 s. Its main.log is
