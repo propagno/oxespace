@@ -154,7 +154,9 @@
     "agentsPartial": {
       "title": "Some agents aren't listed",
       "text": "The computer couldn't read every source this time. The list fills in when it can."
-    }
+    },
+    "menuSettings": "Settings",
+    "emptyTitle": "Nothing here yet"
   },
   "thread": {
     "tool": {
@@ -411,5 +413,21 @@
     "allow": "Allow local network access",
     "denied": "Local network access is off for OXESpace, so Android blocks every connection to your computer. Turn on \"Local network access\" for OXESpace in the app's settings (Permissions), then come back.",
     "openSettings": "Open app settings"
+  },
+  "settings": {
+    "title": "Settings",
+    "back": "Back",
+    "theme": {
+      "title": "Theme",
+      "system": "Same as the phone",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "alerts": {
+      "title": "Notifications",
+      "needsYou": "An agent needs you",
+      "done": "A task finished",
+      "failed": "A task failed"
+    }
   }
 }

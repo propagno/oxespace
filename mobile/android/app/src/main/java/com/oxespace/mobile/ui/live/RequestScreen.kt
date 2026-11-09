@@ -28,15 +28,19 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.size
+import com.oxespace.mobile.ui.components.Notice
+import com.oxespace.mobile.ui.components.NoticeIntent
+import com.oxespace.mobile.ui.components.OxeButton
+import com.oxespace.mobile.ui.components.OxeButtonKind
+import com.oxespace.mobile.ui.components.noticeIcon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -186,10 +190,10 @@ fun RequestScreen(
 
             val truncated = request.truncated == true
             if (truncated) {
-                Text(
-                    stringResource(if (request.kind == "question") R.string.request_truncated_question else R.string.request_truncated),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Oxe.colors.intentWarningFg,
+                Notice(
+                    NoticeIntent.WARNING,
+                    title = stringResource(if (request.kind == "question") R.string.request_truncated_question else R.string.request_truncated),
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                 )
             }
             // A truncated question is answered on the desktop only: nothing to pick or send here.
@@ -247,11 +251,12 @@ fun RequestScreen(
             }
             if (questions.isNotEmpty()) {
                 val complete = questions.all { question -> question.required != true || chosen[question.id].orEmpty().isNotEmpty() }
-                Button(
+                OxeButton(
+                    stringResource(R.string.request_send_answers),
                     onClick = { answer(null, chosen.mapValues { it.value.toList() }.filterValues { it.isNotEmpty() }) },
                     enabled = !busy && complete,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = Target),
-                ) { Text(stringResource(R.string.request_send_answers)) }
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
 
             // The only box on the screen that looks editable.
@@ -279,11 +284,13 @@ fun RequestScreen(
                 )
                 val enabled = !busy && action.enabled
                 // The lead is the accent's filled button; Deny is never danger red: it is the safe answer (§6).
-                if (leads[decision] == true) {
-                    Button(onClick = { answer(decision, null) }, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = Target)) { Text(label) }
-                } else {
-                    OutlinedButton(onClick = { answer(decision, null) }, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = Target)) { Text(label) }
-                }
+                OxeButton(
+                    label,
+                    onClick = { answer(decision, null) },
+                    enabled = enabled,
+                    modifier = Modifier.fillMaxWidth(),
+                    kind = if (leads[decision] == true) OxeButtonKind.PRIMARY else OxeButtonKind.SECONDARY,
+                )
             }
             if ("accept" in decisions) {
                 Text(
@@ -323,7 +330,7 @@ private fun NoUndoLine(text: Int) {
         horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2),
         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
     ) {
-        Text("\u26A0", style = MaterialTheme.typography.bodyMedium, color = Oxe.colors.intentWarningFg, modifier = Modifier.clearAndSetSemantics {})
+        Icon(noticeIcon(NoticeIntent.WARNING), contentDescription = null, tint = Oxe.colors.intentWarningFg, modifier = Modifier.size(16.dp))
         Text(stringResource(text), style = MaterialTheme.typography.bodyMedium, color = Oxe.colors.intentWarningFg)
     }
 }
@@ -331,17 +338,12 @@ private fun NoUndoLine(text: Int) {
 /** On top of a request only the computer can answer: the person learns it before reading the details. */
 @Composable
 private fun DesktopOnlyNotice() {
-    Column(
-        Modifier.fillMaxWidth()
-            .background(Oxe.colors.intentWarningBg, RoundedCornerShape(OxeRadius.md))
-            .border(1.dp, Oxe.colors.intentWarningBorder, RoundedCornerShape(OxeRadius.md))
-            .padding(OxeSpace.space3)
-            .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
-        verticalArrangement = Arrangement.spacedBy(OxeSpace.space1),
-    ) {
-        Text(stringResource(R.string.request_desktop_only_title), style = MaterialTheme.typography.titleSmall, color = Oxe.colors.intentWarningFg)
-        Text(stringResource(R.string.request_desktop_only), style = MaterialTheme.typography.bodyMedium)
-    }
+    Notice(
+        NoticeIntent.WARNING,
+        title = stringResource(R.string.request_desktop_only_title),
+        text = stringResource(R.string.request_desktop_only),
+        modifier = Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+    )
 }
 
 

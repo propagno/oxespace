@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.platform.LocalClipboard
@@ -31,7 +30,11 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.Button
+import com.oxespace.mobile.ui.components.Notice
+import com.oxespace.mobile.ui.components.NoticeAction
+import com.oxespace.mobile.ui.components.NoticeIntent
+import com.oxespace.mobile.ui.components.OxeButton
+import com.oxespace.mobile.ui.components.OxeButtonKind
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -374,7 +377,7 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
         Modifier.fillMaxWidth().background(Oxe.colors.surfaceChrome).navigationBarsPadding().imePadding().padding(OxeSpace.space3),
         verticalArrangement = Arrangement.spacedBy(OxeSpace.space2),
     ) {
-        message?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.intentWarningFg, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
+        message?.let { Notice(NoticeIntent.WARNING, title = stringResource(it), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
         val clipboard = LocalClipboard.current
         KeyRow(
             enabled = !busy,
@@ -405,7 +408,8 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
                 textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = OxeFonts.mono),
                 modifier = Modifier.weight(1f),
             )
-            Button(
+            OxeButton(
+                stringResource(R.string.terminal_input_send),
                 onClick = {
                     // SECURITY #386: hidden characters are shown, not sent; several lines ask first. This covers Colar and
                     // the keyboard's own paste alike.
@@ -416,8 +420,7 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
                     }
                 },
                 enabled = !busy && text.isNotEmpty(),
-                modifier = Modifier.heightIn(min = 48.dp),
-            ) { Text(stringResource(R.string.terminal_input_send)) }
+            )
         }
     }
 }
@@ -430,11 +433,14 @@ private fun LockedInput(presence: Presence?, onConfirm: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(OxeSpace.space2),
     ) {
         val why = if (presence == Presence.NO_SCREEN_LOCK) R.string.presence_no_screen_lock else R.string.presence_locked
-        Text(stringResource(why), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.intentWarningFg, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
         // While the first prompt is up there is nothing to press; without a screen lock pressing would change nothing.
-        if (presence == Presence.NOT_CONFIRMED) {
-            Button(onClick = onConfirm, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.presence_confirm)) }
-        }
+        val confirm = stringResource(R.string.presence_confirm)
+        Notice(
+            NoticeIntent.WARNING,
+            title = stringResource(why),
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            actions = if (presence == Presence.NOT_CONFIRMED) listOf(NoticeAction(confirm, onConfirm)) else emptyList(),
+        )
     }
 }
 
@@ -459,16 +465,15 @@ private fun KeyRow(enabled: Boolean, onKey: (TerminalKey) -> Unit, onPaste: () -
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
         for (key in TerminalKey.entries) {
             val spoken = keyName(key)?.let { stringResource(it) }
-            OutlinedButton(
+            OxeButton(
+                key.label,
                 onClick = { onKey(key) },
                 enabled = enabled,
-                contentPadding = PaddingValues(horizontal = OxeSpace.space3),
-                modifier = Modifier.heightIn(min = 48.dp).then(if (spoken != null) Modifier.semantics { contentDescription = spoken } else Modifier),
-            ) { Text(key.label, fontFamily = OxeFonts.mono) }
+                kind = OxeButtonKind.SECONDARY,
+                modifier = if (spoken != null) Modifier.semantics { contentDescription = spoken } else Modifier,
+            )
         }
-        OutlinedButton(onClick = onPaste, contentPadding = PaddingValues(horizontal = OxeSpace.space3), modifier = Modifier.heightIn(min = 48.dp)) {
-            Text(stringResource(R.string.terminal_paste))
-        }
+        OxeButton(stringResource(R.string.terminal_paste), onClick = onPaste, kind = OxeButtonKind.SECONDARY)
     }
 }
 

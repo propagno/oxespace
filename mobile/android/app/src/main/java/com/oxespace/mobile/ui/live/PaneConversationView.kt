@@ -13,7 +13,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.Button
+import com.oxespace.mobile.ui.components.Notice
+import com.oxespace.mobile.ui.components.NoticeAction
+import com.oxespace.mobile.ui.components.NoticeIntent
+import com.oxespace.mobile.ui.components.OxeButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,17 +50,12 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun HiddenOnDesktopNotice(computer: String?, onBack: () -> Unit) {
     val name = computer ?: stringResource(R.string.home_unknown_desktop)
-    Column(
-        Modifier.fillMaxWidth().padding(OxeSpace.space3),
-        verticalArrangement = Arrangement.spacedBy(OxeSpace.space2),
-    ) {
-        Text(
-            stringResource(R.string.terminal_hidden_on_desktop, displaySafe(name, 200)),
-            color = Oxe.colors.textSecondary,
-            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-        )
-        Button(onClick = onBack, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.terminal_hidden_back)) }
-    }
+    Notice(
+        NoticeIntent.INFO,
+        title = stringResource(R.string.terminal_hidden_on_desktop, displaySafe(name, 200)),
+        modifier = Modifier.padding(OxeSpace.space3).semantics { liveRegion = LiveRegionMode.Polite },
+        actions = listOf(NoticeAction(stringResource(R.string.terminal_hidden_back), onBack)),
+    )
 }
 
 /**
@@ -90,17 +88,12 @@ fun PaneConversationView(
     when {
         // CR-34: hidden is its own Notice, not "unavailable" (that one offers Show the screen, which is gone too).
         state.hiddenOnDesktop -> HiddenOnDesktopNotice(computer, onBack ?: onShowScreen)
-        state.unavailable -> Column(
-            Modifier.fillMaxWidth().padding(OxeSpace.space3),
-            verticalArrangement = Arrangement.spacedBy(OxeSpace.space2),
-        ) {
-            Text(
-                stringResource(R.string.terminal_conversation_unavailable),
-                color = colors.textSecondary,
-                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-            )
-            Button(onClick = onShowScreen, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.terminal_conversation_show_screen)) }
-        }
+        state.unavailable -> Notice(
+            NoticeIntent.INFO,
+            title = stringResource(R.string.terminal_conversation_unavailable),
+            modifier = Modifier.padding(OxeSpace.space3).semantics { liveRegion = LiveRegionMode.Polite },
+            actions = listOf(NoticeAction(stringResource(R.string.terminal_conversation_show_screen), onShowScreen)),
+        )
         state.items.isEmpty() -> Text(stringResource(R.string.terminal_conversation_empty), color = colors.textSecondary, modifier = Modifier.padding(OxeSpace.space3))
         else -> Box(Modifier.fillMaxSize()) {
             LazyColumn(
@@ -128,20 +121,17 @@ fun PaneConversationView(
                 }
             }
             if (!atBottom && state.newCount != 0) {
-                Button(
+                // After a gap the count is unknown: the chip says there is something newer, without a number.
+                val count = state.newCount
+                OxeButton(
+                    if (count == null) stringResource(R.string.terminal_conversation_latest_no_count)
+                    else pluralStringResource(R.plurals.terminal_conversation_latest, count, count),
                     onClick = {
                         scope.launch { list.scrollToItem(maxOf(0, list.layoutInfo.totalItemsCount - 1)) }
                         conversation.seen()
                     },
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(OxeSpace.space3).heightIn(min = 48.dp),
-                ) {
-                    // After a gap the count is unknown: the chip says there is something newer, without a number.
-                    val count = state.newCount
-                    Text(
-                        if (count == null) stringResource(R.string.terminal_conversation_latest_no_count)
-                        else pluralStringResource(R.plurals.terminal_conversation_latest, count, count),
-                    )
-                }
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(OxeSpace.space3),
+                )
             }
         }
     }
