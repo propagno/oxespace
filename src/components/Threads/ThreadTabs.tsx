@@ -27,10 +27,10 @@ function bridge(): ThreadTabsBridge | undefined {
 
 const WORKING_DIR = 'com.docker.compose.project.working_dir'
 const EMPTY: ThreadTabsState = { changedFiles: 0, panes: 0, composePlace: false, httpCalls: 0, pullRequest: false, done: false }
-const TAB_KEY: Record<ThreadTabId, string> = {
+const TAB_KEY = {
   conversation: 'threadTabs.conversation', changes: 'threadTabs.changes', terminal: 'threadTabs.terminal',
   containers: 'threadTabs.containers', network: 'threadTabs.network', 'pull-request': 'threadTabs.pullRequest'
-}
+} as const satisfies Record<ThreadTabId, string>
 
 async function safe<T>(read: (() => Promise<T>) | undefined): Promise<T | undefined> {
   if (!read) return undefined
