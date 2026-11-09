@@ -286,7 +286,11 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/oxepost/store.ts',
   // OxePost secrets: one encrypted file under <userData> (safeStorage; refused where only obfuscation exists), mode 0600,
   // written by temp file and rename. No workspace path is read or written, and no value is ever returned to the page.
-  'electron/main/services/oxepost/secrets.ts'
+  'electron/main/services/oxepost/secrets.ts',
+  // BE-A46-c5 (1.5.0 F10): a terminal agent's own conversation for the phone. Stats, reads and watches only the one
+  // native session file the pane's recorded session names (Claude's <claudeHome>/projects/<cwd>/<id>.jsonl or Codex's
+  // rollout), and lists only Codex's sessions/<year>/<month>/<day> folders to find it. Never a path from the phone.
+  'electron/main/services/remote/pane-conversation.ts'
 ])
 
 describe('workspace fs allowlist', () => {
