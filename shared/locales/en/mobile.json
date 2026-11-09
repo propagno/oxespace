@@ -287,7 +287,10 @@
       "newConversation": "The agent started a new conversation",
       "unavailable": "This terminal's conversation isn't available any more. The screen is still live.",
       "showScreen": "Show the screen",
-      "empty": "No messages yet."
+      "empty": "No messages yet.",
+      "latest_one": "{{count}} new message ↓",
+      "latest_other": "{{count}} new messages ↓",
+      "latestNoCount": "New messages ↓"
     },
     "hiddenBack": "Back to terminals",
     "panHint": "{{cols}} cols · swipe to pan",

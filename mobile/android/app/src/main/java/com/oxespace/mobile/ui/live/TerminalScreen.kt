@@ -124,6 +124,13 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
     val context = LocalContext.current
     var size by remember { mutableStateOf(terminalTextSize(readTextSize(context))) }
     var sizeMenu by remember { mutableStateOf(false) }
+    // A46: Screen · Conversation, only when the desktop says the pane's agent has a conversation; it opens on
+    // Conversation (DESIGN M6.11), read only.
+    val offersConversation = conversation != null && showsConversationToggle(pane)
+    var showingConversation by rememberSaveable(pane.id) { mutableStateOf(true) }
+    val reading = offersConversation && showingConversation
+    // Each view keeps its own scroll while the terminal is open: both list states live here, not in the views.
+    val conversationList = rememberLazyListState()
     LaunchedEffect(watched.loaded) {
         if (watched.loaded) {
             delay(EMPTY_GRACE_MS)
@@ -166,16 +173,13 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
                 },
             )
         },
-        bottomBar = { if (pane.phoneWrite && !hidden) TerminalInput(pane.id, commands, presence) },
+        bottomBar = { if (pane.phoneWrite && !hidden && !reading) TerminalInput(pane.id, commands, presence) },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).background(colors.surfaceSunken)) {
             if (hidden) {
                 HiddenOnDesktopNotice(computer, onBack)
                 return@Column
             }
-            // A46: Screen · Conversation, only when the desktop says the pane's agent has a conversation.
-            val offersConversation = conversation != null && showsConversationToggle(pane)
-            var showingConversation by rememberSaveable(pane.id) { mutableStateOf(false) }
             if (offersConversation) {
                 Row(Modifier.padding(horizontal = OxeSpace.space3), horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2), verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = { showingConversation = false }, modifier = Modifier.heightIn(min = 48.dp)) {
@@ -192,10 +196,18 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
                         color = colors.textMuted,
                         modifier = Modifier.padding(horizontal = OxeSpace.space3),
                     )
+                    // Read only: no input here; typing goes on the Screen view.
+                    Text(
+                        stringResource(R.string.terminal_type_on_screen),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.textSecondary,
+                        modifier = Modifier.padding(horizontal = OxeSpace.space3, vertical = OxeSpace.space1),
+                    )
                 }
             }
-            if (offersConversation && showingConversation) {
-                PaneConversationView(conversation, onShowScreen = { showingConversation = false }, computer = computer, onBack = onBack)
+            val shownConversation = conversation?.takeIf { reading }
+            if (shownConversation != null) {
+                PaneConversationView(shownConversation, onShowScreen = { showingConversation = false }, computer = computer, onBack = onBack, list = conversationList)
             } else if (redacted > 0) {
                 Text(
                     pluralStringResource(R.plurals.terminal_redacted, redacted.toInt(), redacted.toInt()),
@@ -204,7 +216,7 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
                     modifier = Modifier.padding(horizontal = OxeSpace.space3, vertical = OxeSpace.space2),
                 )
             }
-            if (offersConversation && showingConversation) {
+            if (reading) {
                 // The conversation view above takes the space.
             } else if (lines.all { it.text.isEmpty() }) {
                 Text(stringResource(if (watched.loaded && !settling) R.string.terminal_empty else R.string.live_loading), color = colors.textSecondary, modifier = Modifier.padding(OxeSpace.space3))

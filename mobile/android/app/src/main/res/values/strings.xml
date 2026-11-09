@@ -215,6 +215,11 @@
     <string name="terminal_conversation_caption">%1$s\'s conversation · read only</string>
     <string name="terminal_conversation_conversation">Conversation</string>
     <string name="terminal_conversation_empty">No messages yet.</string>
+    <plurals name="terminal_conversation_latest">
+        <item quantity="one">%1$d new message ↓</item>
+        <item quantity="other">%1$d new messages ↓</item>
+    </plurals>
+    <string name="terminal_conversation_latest_no_count">New messages ↓</string>
     <string name="terminal_conversation_new_conversation">The agent started a new conversation</string>
     <string name="terminal_conversation_screen">Screen</string>
     <string name="terminal_conversation_show_screen">Show the screen</string>

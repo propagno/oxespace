@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -64,10 +66,16 @@ internal fun HiddenOnDesktopNotice(computer: String?, onBack: () -> Unit) {
  * with Show the screen when the conversation can't be read any more.
  */
 @Composable
-fun PaneConversationView(conversation: PaneConversation, onShowScreen: () -> Unit, computer: String? = null, onBack: (() -> Unit)? = null) {
+fun PaneConversationView(
+    conversation: PaneConversation,
+    onShowScreen: () -> Unit,
+    computer: String? = null,
+    onBack: (() -> Unit)? = null,
+    // Hoisted by the terminal so the conversation keeps its scroll while the person looks at the screen.
+    list: LazyListState = rememberLazyListState(),
+) {
     val state by conversation.state.collectAsStateWithLifecycle()
     val colors = Oxe.colors
-    val list = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var atBottom by remember { mutableStateOf(true) }
     LaunchedEffect(list) {
@@ -126,7 +134,14 @@ fun PaneConversationView(conversation: PaneConversation, onShowScreen: () -> Uni
                         conversation.seen()
                     },
                     modifier = Modifier.align(Alignment.BottomCenter).padding(OxeSpace.space3).heightIn(min = 48.dp),
-                ) { Text(stringResource(R.string.thread_latest)) }
+                ) {
+                    // After a gap the count is unknown: the chip says there is something newer, without a number.
+                    val count = state.newCount
+                    Text(
+                        if (count == null) stringResource(R.string.terminal_conversation_latest_no_count)
+                        else pluralStringResource(R.plurals.terminal_conversation_latest, count, count),
+                    )
+                }
             }
         }
     }

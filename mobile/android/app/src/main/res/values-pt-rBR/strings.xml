@@ -218,6 +218,12 @@
     <string name="terminal_conversation_caption">Conversa do %1$s · somente leitura</string>
     <string name="terminal_conversation_conversation">Conversa</string>
     <string name="terminal_conversation_empty">Nenhuma mensagem ainda.</string>
+    <plurals name="terminal_conversation_latest">
+        <item quantity="one">%1$d mensagem nova ↓</item>
+        <item quantity="other">%1$d mensagens novas ↓</item>
+        <item quantity="many">%1$d mensagens novas ↓</item>
+    </plurals>
+    <string name="terminal_conversation_latest_no_count">Mensagens novas ↓</string>
     <string name="terminal_conversation_new_conversation">O agente começou uma nova conversa</string>
     <string name="terminal_conversation_screen">Tela</string>
     <string name="terminal_conversation_show_screen">Mostrar a tela</string>
