@@ -3,7 +3,8 @@ import { isAbsolute } from 'node:path'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { PullRequestStateInput } from '../../../shared/types/pull-request'
 import { GhExec } from '../services/github/gh-exec'
-import { createPrCliRunner, PullRequestProvider } from '../services/pull-request/pr-provider'
+import { createPrCliRunner } from '../services/pull-request/pr-cli-runner'
+import { PullRequestProvider } from '../services/pull-request/pr-provider'
 
 /** `pull-request:state` input: an absolute project root and a branch (its safety is the provider's S3 check). */
 export function parsePullRequestStateInput(value: unknown): PullRequestStateInput {
@@ -17,7 +18,7 @@ export function parsePullRequestStateInput(value: unknown): PullRequestStateInpu
 /** The app's provider: remote and merge-base through safe git, gh and az through the PR CLI runner. */
 export function createPullRequestProvider(exec = new GhExec()): PullRequestProvider {
   return new PullRequestProvider({
-    run: createPrCliRunner(),
+    run: createPrCliRunner(exec),
     remoteUrl: async (rootPath) => {
       const names = (await exec.tryGit(['remote'], rootPath)).split(/\r?\n/).map(name => name.trim()).filter(name => name && !name.startsWith('-'))
       const name = names.includes('origin') ? 'origin' : names[0]

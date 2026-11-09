@@ -332,6 +332,20 @@ export class GhExec {
   }
 
   /**
+   * gh for the pull request provider (A60): runGh's rules (the repository's config read first, a key a person's network
+   * git would refuse refuses gh too, its commands neutralized for gh's git), but the exit status is returned, never
+   * thrown, so the provider tells "signed out" and "no pull request" apart; a gh that is not installed is `missing`.
+   */
+  async ghCommand(args: string[], cwd: string, timeout = 60_000): Promise<{ status: number | null; stdout: string; stderr: string; missing?: boolean }> {
+    const entries = await readCommandKeys(cwd, ghEnv(), 'git', undefined, this.configReader)
+    const refused = refusedKeys(entries)
+    if (refused.length) throw new PersonGitRefused(refused, 'github-panel:gh')
+    const result = await this.spawnCommand('gh', args, { cwd, shell: false, timeout, windowsHide: true, env: ghEnv(process.env, neutralizeRepositoryCommands(entries, cwd)) })
+    if ((result.error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') return { status: null, stdout: '', stderr: '', missing: true }
+    return { status: result.status, stdout: result.stdout, stderr: result.stderr || result.error?.message || '' }
+  }
+
+  /**
    * gh and its helpers (where.exe), with safe-git's gh environment; `env` may not set `GIT_*`. Git goes through git()
    * or runPersonGit(), never here.
    */

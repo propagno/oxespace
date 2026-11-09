@@ -7,8 +7,6 @@
  * - SECURITY S3: every branch name is checked (utils/git-ref-name.ts) before any CLI runs; gh gets it after `--`,
  *   az only as the value of `--source-branch`. Never a shell.
  */
-import { spawn } from 'node:child_process'
-import { dirname, join } from 'node:path'
 import type {
   PrCheckState,
   PrCliState,
@@ -25,11 +23,12 @@ import type {
   PullRequestWorkItem
 } from '../../../../shared/types/pull-request'
 import { isSafeBranchName } from '../../utils/git-ref-name'
-import { ghEnv, neutralizeRepositoryCommands, readCommandKeys } from '../../utils/safe-git'
-import { PersonGitRefused, refusedKeys } from '../../utils/safe-git-person'
 import { sanitizeError } from '../github/parsers'
 
-export type PrCliRunner = (command: 'gh' | 'az', args: string[], cwd: string) => Promise<{ status: number | null; stdout: string; stderr: string; missing?: boolean }>
+export type PrCli = 'gh' | 'az'
+
+/** The CLIs the provider asks; the app's runner (pr-cli-runner.ts) starts them, gh through GhExec and safe-git's rules. */
+export type PrCliRunner = (command: PrCli, args: string[], cwd: string) => Promise<{ status: number | null; stdout: string; stderr: string; missing?: boolean }>
 
 export interface PullRequestProviderOptions {
   run: PrCliRunner
@@ -38,6 +37,9 @@ export interface PullRequestProviderOptions {
   /** git's own answer: the branch is an ancestor of the base. Blind to squash merges. */
   gitMerged: (input: PullRequestMergedInput) => Promise<boolean>
 }
+
+const GITHUB_CLI: PrCli = 'gh'
+const AZURE_CLI: PrCli = 'az'
 
 // ---- the remote ---------------------------------------------------------------------
 
@@ -263,14 +265,14 @@ export class PullRequestProvider {
 
   private async cliState(provider: 'github' | 'azure', cwd: string): Promise<PrCliState> {
     const reply = provider === 'github'
-      ? await this.options.run('gh', ['auth', 'status'], cwd)
-      : await this.options.run('az', ['account', 'show', '--output', 'json'], cwd)
+      ? await this.options.run(GITHUB_CLI, ['auth', 'status'], cwd)
+      : await this.options.run(AZURE_CLI, ['account', 'show', '--output', 'json'], cwd)
     if (reply.missing) return 'missing'
     return reply.status === 0 ? 'ok' : 'signed-out'
   }
 
   private async githubPr(input: PullRequestStateInput): Promise<PullRequestInfo | null> {
-    const reply = await this.options.run('gh', ['pr', 'view', '--json', GH_FIELDS, '--', input.branch], input.rootPath)
+    const reply = await this.options.run(GITHUB_CLI, ['pr', 'view', '--json', GH_FIELDS, '--', input.branch], input.rootPath)
     if (reply.status !== 0) {
       if (/no (open )?pull requests? found/i.test(reply.stderr)) return null
       throw cliError(reply, 'Could not read the pull request.')
@@ -280,7 +282,7 @@ export class PullRequestProvider {
 
   /** The merged PR's number, null for none, undefined when gh could not answer. */
   private async githubMerged(input: PullRequestMergedInput): Promise<number | null | undefined> {
-    const reply = await this.options.run('gh', ['pr', 'list', '--state', 'merged', '--json', 'number', '--limit', '1', '--head', input.branch], input.rootPath)
+    const reply = await this.options.run(GITHUB_CLI, ['pr', 'list', '--state', 'merged', '--json', 'number', '--limit', '1', '--head', input.branch], input.rootPath)
     if (reply.status !== 0) return undefined
     const list = parseJson(reply.stdout)
     if (!Array.isArray(list)) return undefined
@@ -288,7 +290,7 @@ export class PullRequestProvider {
   }
 
   private azureList(repo: AzureRepo, branch: string, status: 'all' | 'completed', cwd: string) {
-    return this.options.run('az', ['repos', 'pr', 'list', '--org', repo.orgUrl, '--project', repo.project, '--repository', repo.repository,
+    return this.options.run(AZURE_CLI, ['repos', 'pr', 'list', '--org', repo.orgUrl, '--project', repo.project, '--repository', repo.repository,
       '--source-branch', `refs/heads/${branch}`, '--status', status, '--output', 'json'], cwd)
   }
 
@@ -302,8 +304,8 @@ export class PullRequestProvider {
     if (!pr || !number) return null
     const byId = ['--id', String(number), '--org', repo.orgUrl, '--output', 'json']
     const [policies, items] = await Promise.all([
-      this.options.run('az', ['repos', 'pr', 'policy', 'list', ...byId], input.rootPath),
-      this.options.run('az', ['repos', 'pr', 'work-item', 'list', ...byId], input.rootPath)
+      this.options.run(AZURE_CLI, ['repos', 'pr', 'policy', 'list', ...byId], input.rootPath),
+      this.options.run(AZURE_CLI, ['repos', 'pr', 'work-item', 'list', ...byId], input.rootPath)
     ])
     const workItems: PullRequestWorkItem[] = []
     for (const item of items.status === 0 ? arr(parseJson(items.stdout)) : []) {
@@ -340,66 +342,5 @@ export class PullRequestProvider {
     const ref = `refs/heads/${input.branch}`
     const done = arr(list).find(pr => azureState(pr.status) === 'merged' && (pr.sourceRefName === undefined || pr.sourceRefName === ref))
     return done ? positiveInt(done.pullRequestId) : null
-  }
-}
-
-// ---- the real runner ------------------------------------------------------------------
-
-const CLI_TIMEOUT = 60_000
-const OUTPUT_CAP = 8 * 1024 * 1024
-
-function spawnCli(command: string, args: string[], cwd: string, env: NodeJS.ProcessEnv): ReturnType<PrCliRunner> {
-  return new Promise((resolve) => {
-    let stdout = ''
-    let stderr = ''
-    let settled = false
-    const finish = (result: Awaited<ReturnType<PrCliRunner>>): void => {
-      if (settled) return
-      settled = true
-      clearTimeout(timer)
-      resolve(result)
-    }
-    const child = spawn(command, args, { cwd, env, shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
-    const timer = setTimeout(() => {
-      try { child.kill() } catch { /* already gone */ }
-      finish({ status: null, stdout, stderr: stderr || `${command} timed out.` })
-    }, CLI_TIMEOUT)
-    child.stdout?.setEncoding('utf8')
-    child.stderr?.setEncoding('utf8')
-    child.stdout?.on('data', (chunk: string) => { if (stdout.length < OUTPUT_CAP) stdout += chunk })
-    child.stderr?.on('data', (chunk: string) => { if (stderr.length < OUTPUT_CAP) stderr += chunk })
-    child.on('error', (error: NodeJS.ErrnoException) => finish(error.code === 'ENOENT'
-      ? { status: null, stdout: '', stderr: '', missing: true }
-      : { status: null, stdout, stderr: error.message }))
-    child.on('close', (code) => finish({ status: code, stdout, stderr }))
-  })
-}
-
-/**
- * On Windows az is az.cmd, which only a shell runs. Its MSI install runs `<CLI2>\python.exe -IBm azure.cli`, so that is
- * what runs here, without a shell; any other install reads as missing.
- */
-async function azureOnWindows(cwd: string, env: NodeJS.ProcessEnv): Promise<string | null> {
-  const where = await spawnCli('where.exe', ['az'], cwd, env)
-  if (where.status !== 0) return null
-  const script = where.stdout.split(/\r?\n/).map(line => line.trim()).find(line => /[\\/]wbin[\\/]az\.cmd$/i.test(line))
-  return script ? join(dirname(dirname(script)), 'python.exe') : null
-}
-
-/** gh with GhExec's rules (the repository's config read first, its commands neutralized for gh's git); az likewise. */
-export function createPrCliRunner(): PrCliRunner {
-  return async (command, args, cwd) => {
-    if (command === 'gh') {
-      const base = ghEnv()
-      const entries = await readCommandKeys(cwd, base, 'git')
-      const refused = refusedKeys(entries)
-      if (refused.length) throw new PersonGitRefused(refused, 'github-panel:gh')
-      return spawnCli('gh', args, cwd, ghEnv(process.env, neutralizeRepositoryCommands(entries, cwd)))
-    }
-    const env = ghEnv()
-    if (process.platform !== 'win32') return spawnCli('az', args, cwd, env)
-    const python = await azureOnWindows(cwd, env)
-    if (!python) return { status: null, stdout: '', stderr: '', missing: true }
-    return spawnCli(python, ['-IBm', 'azure.cli', ...args], cwd, { ...env, AZ_INSTALLER: 'MSI' })
   }
 }
