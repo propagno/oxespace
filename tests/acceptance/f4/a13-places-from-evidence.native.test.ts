@@ -23,9 +23,10 @@ describe('A13 · places from evidence', () => {
     expect(THREAD_PLACE_LIMITS).toEqual({ places: 32, outside: 16 })
   })
 
-  test('A13: migration 095 gives the place tables, with the kinds checked, on a fresh database', () => {
+  test('A13: migration 094 gives the place tables, with the kinds checked, on a fresh database', () => {
     const f = threadFixture(repository(sandbox()))
-    expect(f.db.pragma('user_version', { simple: true })).toBeGreaterThanOrEqual(95)
+    // v3 (CR-F4-1, TECH LEAD 09/11): migrations follow merge order, and F4's thread_places is 094.
+    expect(f.db.pragma('user_version', { simple: true })).toBeGreaterThanOrEqual(94)
     const tables = (f.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as Array<{ name: string }>).map(row => row.name)
     expect(tables).toEqual(expect.arrayContaining(['thread_places', 'thread_place_writes', 'thread_turn_cwd', 'person_action_audit']))
     f.db.prepare("INSERT INTO person_action_audit (ts, actor, action, target, outcome) VALUES (1, 'person', 'place-read', 'x.md', 'ok')").run()

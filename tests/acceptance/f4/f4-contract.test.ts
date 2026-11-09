@@ -1,6 +1,6 @@
 // Frozen acceptance test for 1.5.0 F4 (OXE program): the contract around places, the resolver, panes, collisions, the
 // pull request provider and the worktrees panel. IPC channels and preload, MCP coverage (place-read and the drift answer
-// forbidden) and the C3 codes. Migration 095 is exercised on a real database in a13.
+// forbidden) and the C3 codes. Migration 094 (thread_places) is exercised on a real database in a13.
 // Written by the planner; the executor must not edit it.
 // Spec: docs/roadmap-1.5/ccr-f4-places-pr.md §Contract.
 import { readFileSync } from 'node:fs'

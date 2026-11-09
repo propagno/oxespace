@@ -15,7 +15,7 @@ No live provider, no user home and no user data: every test runs on temp-dir rep
 
 | Point | T71 | Here | Why |
 |---|---|---|---|
-| Migration | 093 | **095** (`095_thread_places.sql`) | 093 is the workspace colour and H1 holds 094. Re-check main's highest + 1 before execute. |
+| Migration | 093 | **094** (`094_thread_places.sql`, CR-F4-1) | Migrations follow merge order (TECH LEAD 09/11): F4 is closest to main, so it takes 094; H1 and the later phases take the next free number when they are planned. |
 | Caps | 32 places, plus 16 outside | 32 non-outside places (the root included) **plus** 16 outside: 48 at most, then `capped: true` | SPEC A13 says "até 32 lugares + 16 pastas de fora". |
 | `places()` result | `ThreadPlace[]` | `ThreadPlaces = { places, capped, refused }` | DESIGN asked for the `capped` flag. `refused` counts paths refused by the link, UNC, `..` and missing checks. |
 | `ThreadPlace` | id, kind, path, firstSeenAt, base, current, drift, writes | the same, plus `files: string[]` (written paths, relative) | DESIGN's `files[]`. |
@@ -59,7 +59,7 @@ No live provider, no user home and no user data: every test runs on temp-dir rep
 - **`current`** is read on each call and never stored.
 - **Storage:** places survive a restart, in `thread_places`, `thread_place_writes` and `thread_turn_cwd`.
 
-Migration 095 only adds those tables, as T71 §5 describes, with `PRAGMA user_version = 95`. a13 checks it on a real database: the tables exist, the kind CHECK holds, and a place goes with its conversation.
+Migration 094 (CR-F4-1; it was 095) only adds those tables, as T71 §5 describes, with `PRAGMA user_version = 94`. a13 checks it on a real database: the tables exist, the kind CHECK holds, and a place goes with its conversation.
 
 ## A14 · Changes per place
 
@@ -277,7 +277,7 @@ Each one has a refusal test in the frozen set.
 | S2 | UNC and `//server`, `\\?\` and `\\.\`, drive-relative `C:foo`, reserved device names in any segment and any case, backslash or mixed-case escapes, and a junction out (even to another place) are refused with `thread.place.outside` (A17), and never resolve (A16), on every platform. | a16, a17 |
 | S3 | `isSafeBranchName` (`electron/main/utils/git-ref-name.ts`) follows git's ref rules; an unsafe name throws before any CLI. `gh` gets the branch after `--`, `az` only as an option value, and `git branch -d -- <name>`. No shell anywhere. | a60, a63, reach |
 | S4 | A branch is never deleted when it is the default branch, checked out in another worktree, or remote (no push, no `branch -r`), even with `confirmUnmerged`. | a63 |
-| S5 | `person_action_audit` (095, append-only) gets one row per place read, Switch back, worktree Remove and branch delete, refusals included: who, thread, place, path or branch, outcome and code. It never holds file content. | a13, a15, a17, a63 |
+| S5 | `person_action_audit` (094, append-only) gets one row per place read, Switch back, worktree Remove and branch delete, refusals included: who, thread, place, path or branch, outcome and code. It never holds file content. | a13, a15, a17, a63 |
 
 ## HML M5 (704-1 to 704-7), all frozen
 
@@ -303,7 +303,7 @@ New C3 codes: `thread.place.busy`, `thread.place.branchGone { branch }`, `worktr
 
 | Task | Criteria | Depends on | Size |
 |---|---|---|---|
-| F4-P1 places, migration 095 | A13 | — | L |
+| F4-P1 places, migration 094 (CR-F4-1) | A13 | — | L |
 | F4-P2 diff per place | A14 | P1 | M |
 | F4-P3 drift and answers | A15 | P2 | L |
 | F4-P4 resolver | A16 | P1 | M |
