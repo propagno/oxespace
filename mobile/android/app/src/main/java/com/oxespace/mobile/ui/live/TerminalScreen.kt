@@ -1,5 +1,10 @@
 package com.oxespace.mobile.ui.live
 
+import com.oxespace.mobile.ui.components.Segmented
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.material3.AlertDialog
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.onClick
@@ -187,12 +192,13 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
             }
             if (offersConversation) {
                 Row(Modifier.padding(horizontal = OxeSpace.space3), horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2), verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { showingConversation = false }, modifier = Modifier.heightIn(min = 48.dp)) {
-                        Text(stringResource(R.string.terminal_conversation_screen), color = if (!showingConversation) colors.textPrimary else colors.textMuted)
-                    }
-                    TextButton(onClick = { showingConversation = true }, modifier = Modifier.heightIn(min = 48.dp)) {
-                        Text(stringResource(R.string.terminal_conversation_conversation), color = if (showingConversation) colors.textPrimary else colors.textMuted)
-                    }
+                    // CR-A42b-2 (M6): the View is a segmented row, Screen · Conversation.
+                    Segmented(
+                        options = listOf(stringResource(R.string.terminal_conversation_screen), stringResource(R.string.terminal_conversation_conversation)),
+                        selected = if (showingConversation) 1 else 0,
+                        onSelect = { showingConversation = it == 1 },
+                        modifier = Modifier.weight(1f).padding(vertical = OxeSpace.space2),
+                    )
                 }
                 if (showingConversation) {
                     Text(
@@ -462,18 +468,41 @@ internal fun unsentText(pieces: List<String>, sent: Int): String = pieces.drop(s
 /** Esc, Tab, ⇧Tab, Ctrl+C, the arrows and Colar: the keys a phone keyboard lacks (M11), 48 dp each, scrolling sideways. */
 @Composable
 private fun KeyRow(enabled: Boolean, onKey: (TerminalKey) -> Unit, onPaste: () -> Unit) {
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
-        for (key in TerminalKey.entries) {
-            val spoken = keyName(key)?.let { stringResource(it) }
-            OxeButton(
-                key.label,
-                onClick = { onKey(key) },
-                enabled = enabled,
-                kind = OxeButtonKind.SECONDARY,
-                modifier = if (spoken != null) Modifier.semantics { contentDescription = spoken } else Modifier,
-            )
+    // CR-A42b-2 (DESIGN #744): SECONDARY 48 dp keys with Plex Mono labels (terminal = mono), and an edge fade on each
+    // side the row can still scroll to, so a cut key never looks like the last one.
+    val scroll = rememberScrollState()
+    val chrome = Oxe.colors.surfaceChrome
+    Box(
+        Modifier.fillMaxWidth().drawWithContent {
+            drawContent()
+            val fade = 24.dp.toPx()
+            val clear = chrome.copy(alpha = 0f)
+            if (scroll.value > 0) {
+                drawRect(Brush.horizontalGradient(listOf(chrome, clear), startX = 0f, endX = fade), size = Size(fade, size.height))
+            }
+            if (scroll.value < scroll.maxValue) {
+                drawRect(
+                    Brush.horizontalGradient(listOf(clear, chrome), startX = size.width - fade, endX = size.width),
+                    topLeft = Offset(size.width - fade, 0f),
+                    size = Size(fade, size.height),
+                )
+            }
+        },
+    ) {
+        Row(Modifier.fillMaxWidth().horizontalScroll(scroll), horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
+            for (key in TerminalKey.entries) {
+                val spoken = keyName(key)?.let { stringResource(it) }
+                OxeButton(
+                    key.label,
+                    onClick = { onKey(key) },
+                    enabled = enabled,
+                    kind = OxeButtonKind.SECONDARY,
+                    fontFamily = OxeFonts.mono,
+                    modifier = if (spoken != null) Modifier.semantics { contentDescription = spoken } else Modifier,
+                )
+            }
+            OxeButton(stringResource(R.string.terminal_paste), onClick = onPaste, kind = OxeButtonKind.SECONDARY)
         }
-        OxeButton(stringResource(R.string.terminal_paste), onClick = onPaste, kind = OxeButtonKind.SECONDARY)
     }
 }
 

@@ -31,7 +31,8 @@
     "unpairConfirm": {
       "title": "Unpair from {{desktop}}?",
       "body": "This phone forgets {{desktop}} and the key it used with it. To come back, pair again with the QR in Settings › Devices on the computer."
-    }
+    },
+    "cardProblem": "Not connected"
   },
   "pairing": {
     "title": "Pair with your computer",
@@ -70,6 +71,12 @@
       "localNetworkBlocked": "Android blocked this phone from reaching your computer: local network access is off for OXESpace. Turn it on in the app's settings (Permissions), then scan again.",
       "refusedByComputer": "Your computer refused the connection. Check that the phone connection is on in Settings › Devices. If a third-party firewall such as McAfee or Norton is installed, allow OXESpace in it too: it can refuse connections even when Windows Firewall allows them.",
       "timedOut": "Your computer didn't answer, so it never got the request. On Windows, the firewall blocks the phone when the Wi-Fi is set to Public: set the network to Private, or allow OXESpace through the firewall. Also check that both are on the same Wi-Fi."
+    },
+    "step": {
+      "scan": "Scan",
+      "connect": "Connect",
+      "confirm": "Confirm",
+      "done": "Done"
     }
   },
   "live": {
@@ -183,7 +190,6 @@
     "unknownItems_other": "{{count}} items from a newer OXESpace aren't shown.",
     "loadOlder": "Load earlier",
     "latest": "Latest ↓",
-    "respond": "Respond",
     "answerLabel": "Agent's answer",
     "copy": "Copy",
     "copied": "Copied",
@@ -241,7 +247,6 @@
     },
     "moreRequests_one": "+{{count}} more",
     "moreRequests_other": "+{{count}} more",
-    "answerOnComputer": "Answer on the computer",
     "stop": {
       "title": "Stop this turn?",
       "body": "The agent in “{{title}}” stops what it is doing now. The conversation stays.",
@@ -258,7 +263,9 @@
       "seconds": "{{seconds}} s",
       "minutes": "{{minutes}} min",
       "hours": "{{hours}} h"
-    }
+    },
+    "nowNeedsYou": "Needs you: {{title}}",
+    "review": "Review"
   },
   "terminal": {
     "redacted_one": "{{count}} secret value hidden by your computer.",
@@ -358,7 +365,8 @@
       "question": "The agent's question",
       "permissions": "Permission request"
     },
-    "noUndo": "No undo."
+    "noUndo": "No undo.",
+    "allowIn": "in {{seconds}} s"
   },
   "action": {
     "offline": "Not connected to your computer. Nothing was sent.",

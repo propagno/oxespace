@@ -22,6 +22,7 @@
     <string name="home_address_title">Computer\'s address</string>
     <string name="home_body">Pair this phone with OXESpace on your computer, on the same Wi-Fi, to follow and answer your sessions.</string>
     <string name="home_cancel">Cancel</string>
+    <string name="home_card_problem">Not connected</string>
     <string name="home_enter_address">Enter the computer\'s address</string>
     <string name="home_lapsed">This pairing expired before the phone connected. Pair again.</string>
     <string name="home_open_wifi">Open Wi-Fi settings</string>
@@ -161,6 +162,10 @@
     <string name="pairing_paired_body">This phone is now paired with %1$s.</string>
     <string name="pairing_paired_title">Paired</string>
     <string name="pairing_scan_again">Scan again</string>
+    <string name="pairing_step_confirm">Confirm</string>
+    <string name="pairing_step_connect">Connect</string>
+    <string name="pairing_step_done">Done</string>
+    <string name="pairing_step_scan">Scan</string>
     <string name="pairing_title">Pair with your computer</string>
     <string name="pairing_verification_description">Verification code %1$s</string>
     <string name="pairing_waiting_body">%1$s is asking whether to pair with this phone. Accept only if it shows this code:</string>
@@ -173,6 +178,7 @@
     <string name="presence_type">Confirm it’s you to type into this terminal</string>
     <string name="presence_window">Good for 5 minutes on this phone.</string>
     <string name="request_allow_biometric">Allowing asks for your fingerprint.</string>
+    <string name="request_allow_in">in %1$s s</string>
     <string name="request_answered">Answered.</string>
     <string name="request_by">Requested by</string>
     <string name="request_decision_accept">Allow once</string>
@@ -265,7 +271,6 @@
     <string name="terminal_input_send">Send</string>
     <string name="thread_analyzing">Analysing the request</string>
     <string name="thread_answer_label">Agent\'s answer</string>
-    <string name="thread_answer_on_computer">Answer on the computer</string>
     <string name="thread_completed_completed">Turn finished</string>
     <string name="thread_completed_failed">Turn failed</string>
     <string name="thread_completed_interrupted">Turn interrupted</string>
@@ -317,12 +322,13 @@
         <item quantity="one">+%1$d more</item>
         <item quantity="other">+%1$d more</item>
     </plurals>
+    <string name="thread_now_needs_you">Needs you: %1$s</string>
     <string name="thread_plan_progress">Plan · %1$s of %2$s</string>
     <string name="thread_request_state_cancelled">cancelled</string>
     <string name="thread_request_state_expired">expired</string>
     <string name="thread_request_state_pending">Needs you</string>
     <string name="thread_request_state_resolved">answered</string>
-    <string name="thread_respond">Respond</string>
+    <string name="thread_review">Review</string>
     <string name="thread_state_failed">Failed</string>
     <string name="thread_state_idle">Idle</string>
     <string name="thread_state_needs_you">Needs you</string>
