@@ -29,10 +29,14 @@ import { buildTerminalSnapshot } from './terminal-snapshot'
 const THREAD_SCHEMA_VERSION = 2
 const REMEMBERED_STATES = 32
 const CURSOR = /^[A-Za-z0-9._:-]{1,200}$/
+/** No pane hidden from the phone. */
+const NONE: ReadonlySet<string> = new Set<string>()
 
 export interface TopicOptions {
   desktop: RemoteDesktop
   phoneWrite(): ReadonlySet<string>
+  /** CR-34: panes kept off the phone entirely: never in the workspaces or agents topics. None when absent. */
+  phoneHidden?(): ReadonlySet<string>
   /** BE-A46-c5: whether a pane's agent has a conversation the phone can read (the workspaces flag). */
   paneConversation?: (paneId: string) => boolean
   /** Called when something only the gateway knows changes the workspaces list (a pane's phone write). */
@@ -431,7 +435,13 @@ class AgentsTopic implements RemoteTopicSource {
   private readonly states = new Map<string, Map<string, number>>()
   private readonly lastRows = new Map<RemoteAgentRow['kind'], RemoteAgentRow[]>()
 
-  constructor(private readonly desktop: RemoteDesktop, private readonly revisions: AgentRevisions, private readonly pollMs: number, private readonly debounceMs: number) {}
+  constructor(
+    private readonly desktop: RemoteDesktop, private readonly revisions: AgentRevisions, private readonly pollMs: number, private readonly debounceMs: number,
+    /** CR-34: panes kept off the phone; their rows never reach it, in a snapshot or an event. */
+    private readonly hidden: () => ReadonlySet<string> = () => NONE,
+    /** What only the gateway knows changed (a pane hidden or shown): read again now, not at the next poll. */
+    private readonly gatewayChanged?: (listener: () => void) => () => void
+  ) {}
 
   private capture(): { cursor: string; rows: RemoteAgentRow[]; byKey: Map<string, number>; unavailable: RemoteAgentSource[] } {
     const overview = this.desktop.agents()
@@ -441,12 +451,14 @@ class AgentsTopic implements RemoteTopicSource {
       return [`${request.threadId}\u0000${request.requestId}`, request] as const
     }))
     const unavailable = REMOTE_AGENT_SOURCES.filter(source => !overview.sources[source]?.ok)
-    const fresh = overview.agents.map(row => toRemoteAgent(row, 0, roots, message => this.desktop.messageText(message), (threadId, requestId) => shown.get(`${threadId}\u0000${requestId}`)))
+    const hidden = this.hidden()
+    const visible = (row: { kind: string; id: string }): boolean => !(row.kind === 'pane' && hidden.has(row.id))
+    const fresh = overview.agents.filter(visible).map(row => toRemoteAgent(row, 0, roots, message => this.desktop.messageText(message), (threadId, requestId) => shown.get(`${threadId}\u0000${requestId}`)))
     // A source that could not be read keeps its last rows, named in `unavailable`: a failure never reads as "gone"
     // (SECURITY #531 L5, §5.7).
     for (const source of REMOTE_AGENT_SOURCES) {
       const kind = SOURCE_KIND[source]
-      if (unavailable.includes(source)) fresh.push(...(this.lastRows.get(kind) ?? []))
+      if (unavailable.includes(source)) fresh.push(...(this.lastRows.get(kind) ?? []).filter(visible))
       else this.lastRows.set(kind, fresh.filter(row => row.kind === kind))
     }
     const rows = this.revisions.update(fresh)
@@ -486,7 +498,10 @@ class AgentsTopic implements RemoteTopicSource {
     push()
     const trigger = debounced(() => { try { push() } catch { /* the next change tries again */ } }, this.debounceMs)
     // Pushed by every source; the poll only catches what a source forgot to announce.
-    const stop = polled(this.pollMs * 5, listener => this.desktop.onAgentsChanged(listener))(() => trigger.fire())
+    const stop = polled(this.pollMs * 5, listener => {
+      const desk = this.desktop.onAgentsChanged(listener), gateway = this.gatewayChanged?.(listener)
+      return () => { desk(); gateway?.() }
+    })(() => trigger.fire())
     return { close() { trigger.cancel(); stop() } }
   }
 }
@@ -503,6 +518,7 @@ export function isCursor(value: unknown): value is string {
  */
 export function createTopics(options: TopicOptions): Omit<Record<RemoteSubscription, RemoteTopicSource>, 'paneConversation'> {
   const { desktop } = options
+  const phoneHidden = (): ReadonlySet<string> => options.phoneHidden?.() ?? NONE
   const pollMs = options.pollMs ?? 2_000, debounceMs = options.debounceMs ?? 150, flushMs = options.flushMs ?? 250
   const anyThread = (listener: () => void) => desktop.onThreadChanged('*', listener)
   const pendingByThread = () => {
@@ -513,7 +529,11 @@ export function createTopics(options: TopicOptions): Omit<Record<RemoteSubscript
   return {
     workspaces: new ListTopic({
       code: 'w', field: 'workspaces', id: item => item.id, watch: polled(pollMs, options.onWorkspacesChanged),
-      read: () => { const roots = desktop.roots(), phoneWrite = options.phoneWrite(); return desktop.workspaces().map(row => toWorkspace(row, phoneWrite, roots, options.paneConversation)) }
+      read: () => {
+        const roots = desktop.roots(), phoneWrite = options.phoneWrite(), hidden = phoneHidden()
+        // CR-34: a hidden pane is not in the list at all, for every subscriber.
+        return desktop.workspaces().map(row => toWorkspace(hidden.size ? { ...row, panes: row.panes.filter(pane => !hidden.has(pane.id)) } : row, phoneWrite, roots, options.paneConversation))
+      }
     }, debounceMs),
     threads: new ListTopic({
       code: 't', field: 'threads', id: item => item.id, diff: true, watch: anyThread,
@@ -537,6 +557,6 @@ export function createTopics(options: TopicOptions): Omit<Record<RemoteSubscript
       code: 'd', field: 'delegations', id: item => item.id, watch: polled(pollMs),
       read: () => { const roots = desktop.roots(); return desktop.delegations().map(row => toDelegation(row, roots)) }
     }, debounceMs),
-    agents: new AgentsTopic(desktop, new AgentRevisions((options.now ?? Date.now)()), pollMs, debounceMs)
+    agents: new AgentsTopic(desktop, new AgentRevisions((options.now ?? Date.now)()), pollMs, debounceMs, phoneHidden, options.onWorkspacesChanged)
   }
 }

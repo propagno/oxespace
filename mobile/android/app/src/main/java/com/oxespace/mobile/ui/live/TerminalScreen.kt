@@ -1,5 +1,10 @@
 package com.oxespace.mobile.ui.live
 
+import com.oxespace.mobile.ui.components.Segmented
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.material3.AlertDialog
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.onClick
@@ -12,7 +17,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.platform.LocalClipboard
@@ -31,7 +35,11 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.Button
+import com.oxespace.mobile.ui.components.Notice
+import com.oxespace.mobile.ui.components.NoticeAction
+import com.oxespace.mobile.ui.components.NoticeIntent
+import com.oxespace.mobile.ui.components.OxeButton
+import com.oxespace.mobile.ui.components.OxeButtonKind
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -69,6 +77,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oxespace.mobile.protocol.live.CommandApi
 import com.oxespace.mobile.protocol.live.CommandResult
 import com.oxespace.mobile.protocol.live.TerminalBuffer
+import com.oxespace.mobile.protocol.live.PaneConversation
+import com.oxespace.mobile.protocol.live.showsConversationToggle
 import com.oxespace.mobile.protocol.live.VtLine
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -99,9 +109,13 @@ import kotlinx.coroutines.launch
 /** A pane's output, read-only, in the desktop's terminal colors; follows the newest line. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands: CommandApi, presence: PresenceGate, onBack: () -> Unit) {
+fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands: CommandApi, presence: PresenceGate, conversation: PaneConversation? = null, computer: String? = null, onBack: () -> Unit) {
     SecureScreen()
     val tick by watched.changes.collectAsStateWithLifecycle()
+    // CR-34: the desktop hid this pane from the phone; nothing of it stays, the title and last frame included.
+    // The conversation can be ended as hidden on its own stream; either one hides the whole pane.
+    val conversationHidden = conversation?.let { it.state.collectAsStateWithLifecycle().value.hiddenOnDesktop } ?: false
+    val hidden = remember(tick) { watched.store.hiddenOnDesktop } || conversationHidden
     val colors = Oxe.colors
     // The screen, not the raw stream (T97): unchanged lines come back as the same objects, so the list skips them.
     val lines = remember(tick) { watched.store.lines() }
@@ -120,6 +134,13 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
     val context = LocalContext.current
     var size by remember { mutableStateOf(terminalTextSize(readTextSize(context))) }
     var sizeMenu by remember { mutableStateOf(false) }
+    // A46: Screen · Conversation, only when the desktop says the pane's agent has a conversation; it opens on
+    // Conversation (DESIGN M6.11), read only.
+    val offersConversation = conversation != null && showsConversationToggle(pane)
+    var showingConversation by rememberSaveable(pane.id) { mutableStateOf(true) }
+    val reading = offersConversation && showingConversation
+    // Each view keeps its own scroll while the terminal is open: both list states live here, not in the views.
+    val conversationList = rememberLazyListState()
     LaunchedEffect(watched.loaded) {
         if (watched.loaded) {
             delay(EMPTY_GRACE_MS)
@@ -130,7 +151,9 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
+                    // CR-F10-10 / CR-34: a hidden pane keeps its privacy; the app bar says only "Terminal".
+                    if (hidden) Text(stringResource(R.string.terminal_hidden_title), style = MaterialTheme.typography.titleMedium, maxLines = 1, modifier = Modifier.semantics { heading() })
+                    if (!hidden) Column {
                         Text(displaySafe(pane.title, 200), style = MaterialTheme.typography.titleMedium, maxLines = 1, modifier = Modifier.semantics { heading() })
                         Text(
                             stringResource(if (pane.phoneWrite) R.string.live_phone_write else R.string.live_read_only),
@@ -143,7 +166,7 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
                     IconButton(onClick = onBack) { Icon(ImageVector.vectorResource(R.drawable.ic_back), contentDescription = stringResource(R.string.live_back)) }
                 },
                 actions = {
-                    Box {
+                    if (!hidden) Box {
                         val label = stringResource(R.string.terminal_text_size)
                         TextButton(
                             onClick = { sizeMenu = true },
@@ -162,10 +185,43 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
                 },
             )
         },
-        bottomBar = { if (pane.phoneWrite) TerminalInput(pane.id, commands, presence) },
+        bottomBar = { if (pane.phoneWrite && !hidden && !reading) TerminalInput(pane.id, commands, presence) },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).background(colors.surfaceSunken)) {
-            if (redacted > 0) {
+            if (hidden) {
+                HiddenOnDesktopNotice(computer, onBack)
+                return@Column
+            }
+            if (offersConversation) {
+                Row(Modifier.padding(horizontal = OxeSpace.space3), horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2), verticalAlignment = Alignment.CenterVertically) {
+                    // CR-A42b-2 (M6): the View is a segmented row, Screen · Conversation.
+                    Segmented(
+                        options = listOf(stringResource(R.string.terminal_conversation_screen), stringResource(R.string.terminal_conversation_conversation)),
+                        selected = if (showingConversation) 1 else 0,
+                        onSelect = { showingConversation = it == 1 },
+                        modifier = Modifier.weight(1f).padding(vertical = OxeSpace.space2),
+                    )
+                }
+                if (showingConversation) {
+                    Text(
+                        stringResource(R.string.terminal_conversation_caption, displaySafe(pane.agent ?: pane.title, 200)),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.textMuted,
+                        modifier = Modifier.padding(horizontal = OxeSpace.space3),
+                    )
+                    // Read only: no input here; typing goes on the Screen view.
+                    Text(
+                        stringResource(R.string.terminal_type_on_screen),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.textSecondary,
+                        modifier = Modifier.padding(horizontal = OxeSpace.space3, vertical = OxeSpace.space1),
+                    )
+                }
+            }
+            val shownConversation = conversation?.takeIf { reading }
+            if (shownConversation != null) {
+                PaneConversationView(shownConversation, onShowScreen = { showingConversation = false }, computer = computer, onBack = onBack, list = conversationList)
+            } else if (redacted > 0) {
                 Text(
                     pluralStringResource(R.plurals.terminal_redacted, redacted.toInt(), redacted.toInt()),
                     style = MaterialTheme.typography.labelMedium,
@@ -173,10 +229,12 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
                     modifier = Modifier.padding(horizontal = OxeSpace.space3, vertical = OxeSpace.space2),
                 )
             }
-            if (lines.all { it.text.isEmpty() }) {
+            if (reading) {
+                // The conversation view above takes the space.
+            } else if (lines.all { it.text.isEmpty() }) {
                 Text(stringResource(if (watched.loaded && !settling) R.string.terminal_empty else R.string.live_loading), color = colors.textSecondary, modifier = Modifier.padding(OxeSpace.space3))
             } else {
-                TerminalLines(lines, list, size.sp.sp, colors)
+                TerminalLines(lines, watched.store.cols, list, size.sp.sp, colors)
             }
         }
     }
@@ -207,23 +265,54 @@ private fun ansiColor(colors: OxeColors, index: Int): Color = when (index) {
  * as wide as the longest line in the monospaced font, and scrolls sideways inside the screen.
  */
 @Composable
-private fun TerminalLines(lines: List<VtLine>, list: LazyListState, fontSize: TextUnit, colors: OxeColors) {
-    val style = TextStyle(fontFamily = OxeFonts.mono, fontSize = fontSize, color = colors.textPrimary)
+private fun TerminalLines(lines: List<VtLine>, cols: Int?, list: LazyListState, fontSize: TextUnit, colors: OxeColors) {
+    val base = TextStyle(fontFamily = OxeFonts.mono, fontSize = fontSize, color = colors.textPrimary)
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
-    val charWidth = remember(fontSize, density) { measurer.measure("0", style).size.width }
-    val longest = remember(lines) { lines.maxOfOrNull { it.text.length } ?: 0 }
+    val charWidth = remember(fontSize, density) { measurer.measure("0", base).size.width }
+    // A45: with the desktop's width known the grid is exactly that wide and pans sideways on a narrow phone;
+    // without it (an older desktop) it is as wide as the longest line, as in 1.4.3.
+    val longest = remember(lines, cols) { cols ?: (lines.maxOfOrNull { it.text.length } ?: 0) }
     val padding = OxeSpace.space3
-    BoxWithConstraints(Modifier.fillMaxSize().horizontalScroll(rememberScrollState())) {
-        val content = with(density) { (charWidth * longest).toDp() } + padding * 2
-        LazyColumn(
-            state = list,
-            contentPadding = PaddingValues(padding),
-            modifier = Modifier.fillMaxHeight().width(maxOf(content, maxWidth)),
-        ) {
-            items(lines.size) { index ->
-                val line = lines[index]
-                Text(remember(line, colors) { colored(line, colors) }, style = style, softWrap = false, maxLines = 1)
+    // CR-A45 (T-P3.1): nothing is clipped silently. A grid wider than the view says it pans, and offers to fit the width.
+    var fit by rememberSaveable { mutableStateOf(false) }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val view = maxWidth
+        val grid = with(density) { (charWidth * longest).toDp() }
+        val wider = grid + padding * 2 > view
+        val fitted = fit && wider && grid.value > 0f
+        val scale = if (fitted) ((view - padding * 2) / grid).coerceIn(0.1f, 1f) else 1f
+        val style = if (fitted) base.copy(fontSize = fontSize * scale) else base
+        val content = if (fitted) view else grid + padding * 2
+        Column(Modifier.fillMaxSize()) {
+            if (wider) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = OxeSpace.space3),
+                    horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        if (fitted) "" else stringResource(R.string.terminal_pan_hint, longest.toString()),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.textMuted,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = { fit = !fit }, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Text(stringResource(R.string.terminal_fit_width), color = if (fitted) colors.textPrimary else colors.textMuted)
+                    }
+                }
+            }
+            Box(Modifier.weight(1f).fillMaxWidth().then(if (fitted) Modifier else Modifier.horizontalScroll(rememberScrollState()))) {
+                LazyColumn(
+                    state = list,
+                    contentPadding = PaddingValues(padding),
+                    modifier = Modifier.fillMaxHeight().width(maxOf(content, view)),
+                ) {
+                    items(lines.size) { index ->
+                        val line = lines[index]
+                        Text(remember(line, colors) { colored(line, colors) }, style = style, softWrap = false, maxLines = 1)
+                    }
+                }
             }
         }
     }
@@ -296,7 +385,7 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
         Modifier.fillMaxWidth().background(Oxe.colors.surfaceChrome).navigationBarsPadding().imePadding().padding(OxeSpace.space3),
         verticalArrangement = Arrangement.spacedBy(OxeSpace.space2),
     ) {
-        message?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.intentWarningFg, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
+        message?.let { Notice(NoticeIntent.WARNING, title = stringResource(it), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
         val clipboard = LocalClipboard.current
         KeyRow(
             enabled = !busy,
@@ -327,7 +416,8 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
                 textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = OxeFonts.mono),
                 modifier = Modifier.weight(1f),
             )
-            Button(
+            OxeButton(
+                stringResource(R.string.terminal_input_send),
                 onClick = {
                     // SECURITY #386: hidden characters are shown, not sent; several lines ask first. This covers Colar and
                     // the keyboard's own paste alike.
@@ -338,8 +428,7 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
                     }
                 },
                 enabled = !busy && text.isNotEmpty(),
-                modifier = Modifier.heightIn(min = 48.dp),
-            ) { Text(stringResource(R.string.terminal_input_send)) }
+            )
         }
     }
 }
@@ -352,11 +441,14 @@ private fun LockedInput(presence: Presence?, onConfirm: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(OxeSpace.space2),
     ) {
         val why = if (presence == Presence.NO_SCREEN_LOCK) R.string.presence_no_screen_lock else R.string.presence_locked
-        Text(stringResource(why), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.intentWarningFg, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
         // While the first prompt is up there is nothing to press; without a screen lock pressing would change nothing.
-        if (presence == Presence.NOT_CONFIRMED) {
-            Button(onClick = onConfirm, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.presence_confirm)) }
-        }
+        val confirm = stringResource(R.string.presence_confirm)
+        Notice(
+            NoticeIntent.WARNING,
+            title = stringResource(why),
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            actions = if (presence == Presence.NOT_CONFIRMED) listOf(NoticeAction(confirm, onConfirm)) else emptyList(),
+        )
     }
 }
 
@@ -378,18 +470,40 @@ internal fun unsentText(pieces: List<String>, sent: Int): String = pieces.drop(s
 /** Esc, Tab, ⇧Tab, Ctrl+C, the arrows and Colar: the keys a phone keyboard lacks (M11), 48 dp each, scrolling sideways. */
 @Composable
 private fun KeyRow(enabled: Boolean, onKey: (TerminalKey) -> Unit, onPaste: () -> Unit) {
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
-        for (key in TerminalKey.entries) {
-            val spoken = keyName(key)?.let { stringResource(it) }
-            OutlinedButton(
-                onClick = { onKey(key) },
-                enabled = enabled,
-                contentPadding = PaddingValues(horizontal = OxeSpace.space3),
-                modifier = Modifier.heightIn(min = 48.dp).then(if (spoken != null) Modifier.semantics { contentDescription = spoken } else Modifier),
-            ) { Text(key.label, fontFamily = OxeFonts.mono) }
-        }
-        OutlinedButton(onClick = onPaste, contentPadding = PaddingValues(horizontal = OxeSpace.space3), modifier = Modifier.heightIn(min = 48.dp)) {
-            Text(stringResource(R.string.terminal_paste))
+    // CR-A42b-2 (DESIGN #744): SECONDARY 48 dp keys with Plex Mono labels (terminal = mono), and an edge fade on each
+    // side the row can still scroll to, so a cut key never looks like the last one.
+    val scroll = rememberScrollState()
+    val chrome = Oxe.colors.surfaceChrome
+    Box(
+        Modifier.fillMaxWidth().drawWithContent {
+            drawContent()
+            val fade = 24.dp.toPx()
+            val clear = chrome.copy(alpha = 0f)
+            if (scroll.value > 0) {
+                drawRect(Brush.horizontalGradient(listOf(chrome, clear), startX = 0f, endX = fade), size = Size(fade, size.height))
+            }
+            if (scroll.value < scroll.maxValue) {
+                drawRect(
+                    Brush.horizontalGradient(listOf(clear, chrome), startX = size.width - fade, endX = size.width),
+                    topLeft = Offset(size.width - fade, 0f),
+                    size = Size(fade, size.height),
+                )
+            }
+        },
+    ) {
+        Row(Modifier.fillMaxWidth().horizontalScroll(scroll), horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
+            for (key in TerminalKey.entries) {
+                val spoken = keyName(key)?.let { stringResource(it) }
+                OxeButton(
+                    key.label,
+                    onClick = { onKey(key) },
+                    enabled = enabled,
+                    kind = OxeButtonKind.SECONDARY,
+                    fontFamily = OxeFonts.mono,
+                    modifier = if (spoken != null) Modifier.semantics { contentDescription = spoken } else Modifier,
+                )
+            }
+            OxeButton(stringResource(R.string.terminal_paste), onClick = onPaste, kind = OxeButtonKind.SECONDARY)
         }
     }
 }

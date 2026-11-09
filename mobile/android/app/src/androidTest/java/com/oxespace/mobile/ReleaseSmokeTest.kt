@@ -47,6 +47,7 @@ class ReleaseSmokeTest {
     }
 
     @Test
+    @ReleaseOnly
     fun theShippedBuildIgnoresAPairingLinkHandedOverAdb() {
         // On debug this is the homologation path; what matters is the build that ships.
         assumeFalse(BuildConfig.DEBUG)
