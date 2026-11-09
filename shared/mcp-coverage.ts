@@ -303,15 +303,6 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['memory.configure', 'memory.install', 'memory.rollback', 'memory.setupAgents', 'memory.notes', 'memory.noteUpdate', 'memory.noteDelete', 'memory.export', 'memory.reset']
   },
 
-  // ---- documentation ------------------------------------------------------------------------
-  'documentation.use': {
-    label: 'Documentation captures and exports',
-    tools: {
-      oxespace_documentation_create: 'write', oxespace_documentation_list: 'read', oxespace_documentation_get: 'read', oxespace_documentation_checkpoint: 'write',
-      oxespace_documentation_capture: 'write', oxespace_documentation_image: 'write', oxespace_documentation_export: 'write'
-    }
-  },
-
   // ---- OxeQuery (databases) and OxePod (containers) -------------------------------------------
   'oxequery.read': {
     label: 'Connections, schemas, read queries, plans, activity',
@@ -385,7 +376,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'settings.app': {
     label: 'Appearance, UI scale, app updates, RTK, agent hooks',
     excluded: 'The person\'s app maintenance; installing hooks writes into the agents\' own configuration.',
-    ipc: ['app.*', 'rtk.*', 'agentHooks.*', 'mcpInternal.toolGroups', 'mcpInternal.toolRules']
+    ipc: ['app.*', 'agentHooks.*', 'mcpInternal.toolGroups', 'mcpInternal.toolRules']
   },
   'app.open_external': {
     label: 'Open a link in the system browser or mail app',

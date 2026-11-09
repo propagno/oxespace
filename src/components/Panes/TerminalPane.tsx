@@ -1,4 +1,4 @@
-import { Bone, Brain, Check, History, MoreHorizontal, Play, Zap } from 'lucide-react'
+import { Bone, Brain, Check, History, MoreHorizontal, Play } from 'lucide-react'
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { SessionSummary } from '../../../shared/types/session'
@@ -164,7 +164,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         p = p ? `${CAVEMAN_PROMPT}\n\n${p}` : CAVEMAN_PROMPT
       }
 
-      await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand, initialPrompt: p, disableRtk: !terminalPrefs.rtkHookEnabled, resumeAgent: !explicitRetry && terminalPrefs.resumeAgentSessions !== false })
+      await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand, initialPrompt: p, resumeAgent: !explicitRetry && terminalPrefs.resumeAgentSessions !== false })
       setStatus(pane.id, 'running')
     } catch (error) {
       setStatus(pane.id, 'error', toMessage(error))
@@ -313,12 +313,11 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       const command = allProfiles.find(profile => profile.agentProfileId === pane.agentProfileId)?.command || agentCreditsProvider
       await window.oxe.terminal.stop({ paneId: pane.id })
       await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand: command,
-        agentArgs: agentCreditsProvider === 'claude' ? ['--resume', sessionId] : ['resume', sessionId, '--no-alt-screen'],
-        disableRtk: !terminalPrefs.rtkHookEnabled })
+        agentArgs: agentCreditsProvider === 'claude' ? ['--resume', sessionId] : ['resume', sessionId, '--no-alt-screen'] })
       setStatus(pane.id, 'running'); setRestoreOpen(false)
     } catch (cause) { setStatus(pane.id, 'error', humanizeError(cause, tc('terminalPane.resumeFailed'))); setRestoreError(humanizeError(cause, tc('terminalPane.resumeFailed'))) }
     finally { setRestoreBusy(false) }
-  }, [agentCreditsProvider, allProfiles, pane.agentProfileId, pane.id, setStatus, terminalPrefs.rtkHookEnabled, workspaceId])
+  }, [agentCreditsProvider, allProfiles, pane.agentProfileId, pane.id, setStatus, workspaceId])
   const moreRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -401,7 +400,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
             className={`statusbar-icon-btn${moreOpen ? ' open' : ''}`}
             aria-label={tc('terminalPane.tools')}
             aria-expanded={moreOpen}
-            title="RTK · Caveman · Semantic"
+            title={tc('terminalPane.tools')}
             data-testid="btn-terminal-more"
             onClick={() => setMoreOpen((v) => !v)}
           >
@@ -410,20 +409,6 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
           {moreOpen ? (
             <div className="statusbar-more-menu" role="menu" data-testid="terminal-more-menu">
               {agentCreditsProvider && <button type="button" role="menuitem" onClick={() => void openRestore()}><History size={12} aria-hidden="true" /><span className="statusbar-more-label">{tc('terminalPane.restoreOpen')}</span></button>}
-              <button
-                type="button"
-                role="menuitemcheckbox"
-                aria-checked={terminalPrefs.rtkHookEnabled}
-                data-testid="menu-toggle-rtk"
-                title={tc('terminalPane.rtkTitle')}
-                onClick={() => {
-                  setTerminalOverride(workspaceId, 'rtkHookEnabled', !terminalPrefs.rtkHookEnabled)
-                }}
-              >
-                <Zap size={12} aria-hidden="true" />
-                <span className="statusbar-more-label">RTK<small className="statusbar-more-hint">{tc('terminalPane.rtkHint')}</small></span>
-                {terminalPrefs.rtkHookEnabled ? <Check size={12} className="statusbar-more-check" aria-hidden="true" /> : null}
-              </button>
               <button
                 type="button"
                 role="menuitemcheckbox"

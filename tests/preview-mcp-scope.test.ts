@@ -1,7 +1,6 @@
 import { describe, expect, test, vi } from 'vitest'
 import { ExecutionRegistry } from '../electron/main/services/execution-registry'
 import { findTool } from '../electron/main/mcp-internal/tool-registry'
-import { handleDocumentation } from '../electron/main/mcp-internal/documentation-handler'
 import type { ToolContext } from '../electron/main/mcp-internal/tool-registry'
 import { AgentActions } from '../electron/main/services/agent-actions/agent-actions'
 import { ApprovalBroker, type ApprovalDecision, type ApprovalPrompter, type ApprovalRequest } from '../electron/main/services/agent-actions/approval-broker'
@@ -41,7 +40,7 @@ describe('Web Preview MCP execution scope', () => {
     const {ctx} = context({kind:'thread',id:'thread-a'},'thread:project-a',false)
     const run = vi.fn().mockResolvedValue({sessionId:'browser-session'})
     ctx.documentation = async () => ({preview:{run}}) as never
-    const result = await handleDocumentation({name:'oxespace_preview_interact',properties:{action:{}},required:['action']},{action:'status'},ctx)
+    const result = await findTool('oxespace_preview_interact')!.handler({action:'status'},ctx)
     expect(result.isError).not.toBe(true)
     expect(run).toHaveBeenCalledWith('thread:project-a',{action:'status'},expect.any(Function),{kind:'thread',id:'thread-a'})
   })

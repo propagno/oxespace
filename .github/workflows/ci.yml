@@ -613,11 +613,18 @@ jobs:
           retention-days: 7
           path: blob-report
 
+      # A budget miss on one runner can be that runner's slow minute (flakes.md FL-04, FL-24): outside a publishing
+      # run the gate does not fail this job. Its outcome is recorded below, and perf-recheck runs the same gate once
+      # on a fresh runner; ci-result fails when that second run fails too. A publishing run keeps the hard gate.
       - name: E2E performance gate (Linux)
+        id: perf_linux
         if: runner.os == 'Linux' && matrix.shard == 3 && needs.quick.outputs.packaged_smoke != 'true'
+        continue-on-error: ${{ needs.quick.outputs.should_release != 'true' }}
         env:
           OXESPACE_PERF_GATE: "1"
-        run: bash scripts/run-with-xvfb.sh npm run bench:ui
+        run: |
+          set -o pipefail
+          bash scripts/run-with-xvfb.sh npm run bench:ui 2>&1 | tee perf-gate.log
 
       # Same budgets on the platform that actually ships today. Baselined on an
       # idle host at 15/15 with the tightest headroom on boot
@@ -625,14 +632,35 @@ jobs:
       # budgets from the container. Both legs are hard gates, so a budget miss
       # is a finding on one platform even when the other still fits.
       - name: E2E performance gate (Windows)
+        id: perf_windows
         if: runner.os == 'Windows' && matrix.shard == 3 && needs.quick.outputs.packaged_smoke != 'true'
-        shell: pwsh
+        continue-on-error: ${{ needs.quick.outputs.should_release != 'true' }}
+        shell: bash
         env:
           OXESPACE_PERF_GATE: "1"
         run: |
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          npm run bench:ui
+          set -o pipefail
+          npm run bench:ui 2>&1 | tee perf-gate.log
+
+      # What the gate measured and whether it passed, for perf-plan and perf-recheck.
+      - name: Record the performance gate
+        if: ${{ !cancelled() && matrix.shard == 3 && needs.quick.outputs.packaged_smoke != 'true' && needs.quick.outputs.should_release != 'true' }}
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.perf_linux.outcome || steps.perf_windows.outcome || 'skipped' }}
+        run: |
+          mkdir -p perf-gate
+          printf '{"label":"%s","os":"%s","outcome":"%s"}\n' "${{ matrix.label }}" "${{ matrix.os }}" "$OUTCOME" > perf-gate/outcome.json
+          grep -aE '\[(RESULT|CONFIRM)\]|exceeded' perf-gate.log > perf-gate/results.txt 2>/dev/null || true
+          echo "performance gate on ${{ matrix.label }}: $OUTCOME"
+
+      - name: Upload the performance gate record
+        if: ${{ !cancelled() && matrix.shard == 3 && needs.quick.outputs.packaged_smoke != 'true' && needs.quick.outputs.should_release != 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: perf-gate-${{ matrix.label }}
+          retention-days: 7
+          path: perf-gate
 
       # Performance regression visibility. Informational for now (the CPU
       # micro-benchmarks are deterministic); promote to a hard gate once we
@@ -642,6 +670,133 @@ jobs:
         if: matrix.shard == 3 && needs.quick.outputs.should_release != 'true' && needs.quick.outputs.packaged_smoke != 'true'
         continue-on-error: true
         run: npx vitest bench --run tests/bench/hotpaths.bench.ts
+
+  # Which platforms' performance gate failed in e2e: those run it once more on a fresh runner.
+  perf-plan:
+    name: Performance gate recheck plan
+    needs: [quick, e2e]
+    if: ${{ !cancelled() && needs.e2e.result == 'success' && needs.quick.outputs.should_release != 'true' && needs.quick.outputs.packaged_smoke != 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      recheck: ${{ steps.plan.outputs.recheck }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: perf-gate-*
+          path: perf-gate
+      - name: Plan
+        id: plan
+        run: |
+          node - <<'EOF'
+          const { readdirSync, readFileSync, appendFileSync, existsSync } = require('node:fs')
+          const records = existsSync('perf-gate') ? readdirSync('perf-gate').map(dir => JSON.parse(readFileSync(`perf-gate/${dir}/outcome.json`, 'utf8'))) : []
+          for (const record of records) console.log(`${record.label}: ${record.outcome}`)
+          // Both platforms must have recorded the gate; a missing record is a failure, never a pass.
+          for (const label of ['linux-x64', 'windows-x64']) if (!records.some(record => record.label === label)) {
+            console.log(`::error::no performance gate record for ${label}`)
+            process.exit(1)
+          }
+          const recheck = records.filter(record => record.outcome === 'failure').map(({ label, os }) => ({ label, os }))
+          appendFileSync(process.env.GITHUB_OUTPUT, `recheck=${JSON.stringify(recheck)}\n`)
+          console.log(recheck.length ? `recheck on a fresh runner: ${recheck.map(r => r.label).join(', ')}` : 'every performance gate passed')
+          EOF
+
+  # The performance gate once more, on a fresh runner, for a platform whose gate failed in e2e. The first run's
+  # numbers are printed before the second's, so the run log holds both.
+  perf-recheck:
+    name: Performance gate recheck (${{ matrix.label }})
+    needs: [changes, quick, perf-plan]
+    if: ${{ !cancelled() && needs.perf-plan.result == 'success' && needs.perf-plan.outputs.recheck != '[]' }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.perf-plan.outputs.recheck) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.changes.outputs.sha }}
+
+      - name: Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          alsa=libasound2t64; apt-cache show "$alsa" >/dev/null 2>&1 || alsa=libasound2
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" \
+            libxshmfence1 libnotify4
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Electron version
+        id: electron
+        shell: bash
+        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the Electron download
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.os == 'Windows' && '~/AppData/Local/electron/Cache' || '~/.cache/electron' }}
+          key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
+
+      - name: Install the pinned Electron runtime
+        run: npm rebuild electron
+
+      - name: Build renderer and main process
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          npm run rebuild:native:node
+          npm run build
+
+      - name: Prepare and verify native modules for Electron
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          npm run fix:native
+          npm run verify:native
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: perf-gate-${{ matrix.label }}
+          path: first-run
+
+      - name: The first run's numbers
+        shell: bash
+        run: |
+          echo "### Performance gate, first run (${{ matrix.label }}, failed)" | tee -a "$GITHUB_STEP_SUMMARY"
+          sed 's/^/    /' first-run/results.txt | tee -a "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Performance gate, second run (fresh runner)
+        shell: bash
+        env:
+          OXESPACE_PERF_GATE: "1"
+        run: |
+          set -o pipefail
+          if [ "$RUNNER_OS" = Linux ]; then run=(bash scripts/run-with-xvfb.sh npm run bench:ui); else run=(npm run bench:ui); fi
+          status=0
+          "${run[@]}" 2>&1 | tee perf-gate.log || status=$?
+          {
+            echo "### Performance gate, second run (${{ matrix.label }}, fresh runner): $([ "$status" = 0 ] && echo passed || echo FAILED)"
+            grep -aE '\[(RESULT|CONFIRM)\]|exceeded' perf-gate.log | sed 's/^/    /' || true
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" != 0 ]; then echo "::error title=Performance gate::failed on two runners (${{ matrix.label }}): a real regression until the per-OS trend says otherwise (flakes.md FL-21)"; exit 1; fi
+          echo "::notice title=Performance gate::the first run failed on one runner and the second passed on a fresh one (${{ matrix.label }}): runner noise, see FL-04"
 
   # The axe scan of the screens (docs/validation/a11y-axe-2026-10-14.md), on Linux and Windows. It was a workflow of
   # its own until 09/11; inside this one its result is part of CI result, and a change that cannot affect what the
@@ -1172,7 +1327,7 @@ jobs:
   # E2E shards' blob reports into one HTML report per platform (best effort; the shards' blobs are kept anyway).
   ci-result:
     name: CI result
-    needs: [changes, dependency-review, quick, unit, e2e, a11y, package, oxequery-live, oxequery-live-versions, release]
+    needs: [changes, dependency-review, quick, unit, e2e, a11y, perf-plan, perf-recheck, package, oxequery-live, oxequery-live-versions, release]
     if: ${{ always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -1246,6 +1401,13 @@ jobs:
           else if (code) required.push('quick', 'unit', 'e2e', ...(oxequery ? ['oxequery-live', 'oxequery-live-versions'] : []))
           if (pr && a11y) required.push('a11y')
           for (const job of required) if (needs[job].result !== 'success') problems.push(`${job} should have passed and is ${needs[job].result}`)
+          // The performance gate is soft in e2e outside a publishing run: perf-plan must have read it, and a recheck
+          // it planned must have passed on its fresh runner.
+          const publishing = needs.quick.outputs?.should_release === 'true' || needs.quick.outputs?.packaged_smoke === 'true'
+          if (needs.e2e.result === 'success' && !publishing) {
+            if (needs['perf-plan'].result !== 'success') problems.push(`perf-plan should have passed and is ${needs['perf-plan'].result}`)
+            else if ((needs['perf-plan'].outputs?.recheck ?? '[]') !== '[]' && needs['perf-recheck'].result !== 'success') problems.push(`perf-recheck should have passed and is ${needs['perf-recheck'].result}`)
+          }
           if (problems.length) {
             console.log(`::error title=CI failed::${[...new Set(problems)].join('; ')}`)
             process.exit(1)
