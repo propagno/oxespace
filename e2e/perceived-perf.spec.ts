@@ -448,7 +448,8 @@ function gateChecks(round: Results): Check[] {
  * (OxeChat cold 371 against 368.5 on #308) was a 40-minute rerun of the whole job, while a real regression fails
  * both rounds. The limits stay as they are; locally a run is judged on its one round, as before.
  */
-// CI runs this spec both in the E2E step (CI=true) and in the performance gate step (OXESPACE_PERF_GATE=1).
+// CI runs this spec in the performance gate step (OXESPACE_PERF_GATE=1, npm run bench:ui) only: playwright.config.ts
+// leaves it out of the E2E smoke, and ci.yml's perf-recheck measures it again on a fresh runner when the gate fails.
 const CONFIRM = (process.env.CI === 'true' || process.env.OXESPACE_PERF_GATE === '1') && process.env.OXESPACE_PERF_CONFIRM !== '0'
 
 

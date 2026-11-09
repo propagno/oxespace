@@ -20,6 +20,9 @@ export default defineConfig({
   testIgnore: [
     '**/perf-benchmark.spec.ts',
     '**/memory-footprint.spec.ts',
+    // The performance gate (bench:ui) measures it on every PR and main run, with a recheck on a fresh runner when it
+    // fails (ci.yml perf-recheck); measured here too, a slow runner turned the smoke run red with no recheck.
+    '**/perceived-perf.spec.ts',
     '**/browser-preview-performance.spec.ts',
     '**/screenshots.spec.ts',
     // Pixel-regression suite has its own config and per-platform baselines.
