@@ -18,6 +18,7 @@ import com.oxespace.mobile.protocol.live.delegationsStore
 import com.oxespace.mobile.protocol.live.jobsStore
 import com.oxespace.mobile.protocol.live.pendingRequestsStore
 import com.oxespace.mobile.protocol.live.workspacesStore
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -131,14 +132,20 @@ class LiveRepository(val streams: LiveStreams = LiveStreams()) {
 
     fun closePaneConversation(paneId: String) = synchronized(conversations) { conversations.remove(paneId)?.let { streams.unfollow(it.first) } }
 
-    /**
-     * OXB (T13 scope gap): `pane.conversation` has no public send path. CommandApi's and LiveStreams' `run` are
-     * private and Commands.kt is outside T13, so until a CommandApi.paneConversation lands a fetch reads as
-     * no-conversation (the Notice, with Show the screen).
-     */
-    @Suppress("UNUSED_PARAMETER")
+    /** CR-F10-7: a fetch is the `pane.conversation` command, newest page without a cursor, older with one. */
     private suspend fun paneConversationFetch(paneId: String, cursor: String?): com.oxespace.mobile.protocol.live.ConversationFetch =
-        com.oxespace.mobile.protocol.live.ConversationFetch.NoConversation
+        com.oxespace.mobile.protocol.live.conversationFetchOf(
+            streams.commands.paneConversation(com.oxespace.mobile.protocol.RemotePaneConversationArgs(paneId, cursor)),
+        )
+
+    /**
+     * CR-F10-7 (A43): tells the desktop the person looked at a finished agent (`agent.markSeen { kind, id }`). Fire and
+     * forget: a refusal or a drop changes nothing on the phone, the next `agents` event says what the desktop holds.
+     */
+    fun markAgentSeen(key: com.oxespace.mobile.agents.AgentKey) {
+        val kind = com.oxespace.mobile.protocol.RemoteAgentKind.entries.firstOrNull { it.wire == key.kind } ?: return
+        conversationScope.launch { streams.commands.markSeen(com.oxespace.mobile.protocol.RemoteAgentMarkSeenArgs(kind, key.id)) }
+    }
 
     fun closeThread(threadId: String) = close("thread:$threadId")
     fun closeTerminal(paneId: String) = close("terminal:$paneId")

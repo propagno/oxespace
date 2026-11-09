@@ -223,6 +223,19 @@ fun RemotePaneConversationPage.toConversationPage(): ConversationPage = Conversa
     epoch = epoch,
 )
 
+/**
+ * 1.5.0 F10 CR-F10-7: a `pane.conversation` command's outcome as the store reads it. A page is a page;
+ * `conversation-changed` reloads (its reason picks how); anything else (no conversation, refused, offline, no answer,
+ * an answer that isn't a page) is the Notice with Show the screen.
+ */
+fun conversationFetchOf(result: CommandResult): ConversationFetch = when (result) {
+    is CommandResult.Done -> conversationPageOf(result.result)?.let { ConversationFetch.Page(it) } ?: ConversationFetch.NoConversation
+    is CommandResult.Refused ->
+        if (result.code == com.oxespace.mobile.protocol.RemoteErrorCode.CONVERSATION_CHANGED) ConversationFetch.Changed(result.reason)
+        else ConversationFetch.NoConversation
+    CommandResult.Offline, CommandResult.NoAnswer -> ConversationFetch.NoConversation
+}
+
 /** Decodes a `pane.conversation` answer (`ack.result`); null when it isn't a page. */
 fun conversationPageOf(data: JsonElement?): ConversationPage? = data?.let {
     try {
