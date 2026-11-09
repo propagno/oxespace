@@ -57,39 +57,6 @@ import { mainMessage } from '../../../shared/messages'
 import { requestOutcome } from '../../../shared/threadRequestOutcome'
 import { registerE2eSideChat } from './side-chat-mock'
 
-/**
- * CR-34 "Show on phone" for the remote double (remote-mock.ts keeps the rest): every status it returns lists the hidden
- * panes, hiding a pane turns typing from the phone off, and a hidden pane can't be allowed typing.
- */
-function registerRemoteMockWithPhoneHidden(): void {
-  type Listener = (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown
-  const hidden = new Set<string>()
-  const handlers = new Map<string, Listener>()
-  const handle = ipcMain.handle.bind(ipcMain)
-  ipcMain.handle = ((channel: string, listener: Listener) => { handlers.set(channel, listener) }) as typeof ipcMain.handle
-  try { registerRemoteMock() } finally { ipcMain.handle = handle }
-  const withHidden = (value: unknown): unknown =>
-    value && typeof value === 'object' && 'phoneWritePanes' in value ? { ...value, phoneHiddenPanes: [...hidden].sort() } : value
-  const status = async (event: IpcMainInvokeEvent): Promise<unknown> => withHidden(await handlers.get(IPC_CHANNELS.remote.status)?.(event))
-  for (const [channel, listener] of handlers) {
-    ipcMain.handle(channel, async (event, ...args: unknown[]) => {
-      const input = args[0] as { paneId?: unknown; allowed?: unknown } | undefined
-      if (channel === IPC_CHANNELS.remote.setPhoneWrite && input?.allowed === true && typeof input.paneId === 'string' && hidden.has(input.paneId)) return status(event)
-      return withHidden(await listener(event, ...args))
-    })
-  }
-  ipcMain.handle(IPC_CHANNELS.remote.setPhoneHidden, async (event, input: { paneId?: unknown; hidden?: unknown }) => {
-    if (typeof input?.paneId !== 'string' || !input.paneId || typeof input.hidden !== 'boolean') throw new Error('Invalid pane input')
-    if (input.hidden) {
-      hidden.add(input.paneId)
-      await handlers.get(IPC_CHANNELS.remote.setPhoneWrite)?.(event, { paneId: input.paneId, allowed: false })
-    } else hidden.delete(input.paneId)
-    const next = await status(event)
-    for (const window of BrowserWindow.getAllWindows()) window.webContents.send(IPC_CHANNELS.remote.changed, { status: next })
-    return next
-  })
-}
-
 export function registerE2eMockIpcHandlers(): void {
   const shellProfiles: ShellProfile[] = fallbackShellProfiles()
   const workspaces: Workspace[] = []
@@ -97,7 +64,7 @@ export function registerE2eMockIpcHandlers(): void {
   registerOxePodMock()
   registerMcpToolsMock()
   registerDiagnosticsMock()
-  registerRemoteMockWithPhoneHidden()
+  registerRemoteMock()
   registerActivityMock()
   registerAgentsMock()
   registerThreadSectionsMock(id => workspaces.some(workspace => workspace.id === id))
