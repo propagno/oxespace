@@ -620,7 +620,7 @@ jobs:
           OXESPACE_PERF_GATE: "1"
         run: |
           set -o pipefail
-          bash scripts/run-with-xvfb.sh npm run bench:ui 2>&1 | tee perf-gate.log
+          echo '[RESULT] diag: forced first-run failure' | tee perf-gate.log; exit 1
 
       # Same budgets on the platform that actually ships today. Baselined on an
       # idle host at 15/15 with the tightest headroom on boot
