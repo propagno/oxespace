@@ -11,6 +11,9 @@
     <string name="approval_prompt_cancel">Cancel this request</string>
     <string name="approval_prompt_decline">Deny this request</string>
     <string name="composer_placeholder">Message the agent</string>
+    <string name="composer_queued_line">queued</string>
+    <string name="composer_queued_placeholder">Queued until the current step ends</string>
+    <string name="composer_read_after_step">read after the current step</string>
     <string name="composer_send">Send</string>
     <string name="composer_steer">Steer</string>
     <string name="composer_steer_finished_before">The agent finished before your instruction arrived. Nothing was sent.</string>
@@ -48,6 +51,11 @@
     <string name="live_age_hours">%1$s h ago</string>
     <string name="live_age_minutes">%1$s min ago</string>
     <string name="live_age_now">just now</string>
+    <string name="live_agents_chip_all">All</string>
+    <string name="live_agents_chip_failed">Failed</string>
+    <string name="live_agents_chip_finished">Finished</string>
+    <string name="live_agents_chip_needs_you">Needs you</string>
+    <string name="live_agents_chip_working">Working</string>
     <string name="live_agent_state_blocked">Needs you</string>
     <string name="live_agent_state_done">Finished</string>
     <string name="live_agent_state_idle">Idle</string>
@@ -85,6 +93,7 @@
     <string name="live_status_idle">Idle</string>
     <string name="live_status_interrupted">Stopped</string>
     <string name="live_status_running">Working</string>
+    <string name="live_tabs_agents">Agents</string>
     <string name="live_tabs_requests">Requests</string>
     <string name="live_tabs_tasks">Tasks</string>
     <string name="live_tabs_terminals">Terminals</string>
@@ -139,6 +148,17 @@
     <string name="pairing_verification_description">Verification code %1$s</string>
     <string name="pairing_waiting_body">%1$s is asking whether to pair with this phone. Accept only if it shows this code:</string>
     <string name="pairing_waiting_title">Confirm on your computer</string>
+    <string name="pane_conversation_caption">%1$s’s conversation · read only</string>
+    <string name="pane_conversation_conversation">Conversation</string>
+    <string name="pane_conversation_latest">%1$s new · Latest ↓</string>
+    <string name="pane_conversation_latest_no_count">Latest ↓</string>
+    <string name="pane_conversation_live">Live</string>
+    <string name="pane_conversation_load_earlier">Load earlier</string>
+    <string name="pane_conversation_new_session">The agent started a new conversation</string>
+    <string name="pane_conversation_screen">Screen</string>
+    <string name="pane_conversation_show_screen">Show the screen</string>
+    <string name="pane_conversation_type_on_screen">Type on the Screen view</string>
+    <string name="pane_conversation_unavailable">This terminal’s conversation isn’t available any more. The screen is still live.</string>
     <string name="presence_confirm">Confirm it’s you</string>
     <string name="presence_locked">Confirm it’s you before typing into this terminal.</string>
     <string name="presence_no_screen_lock">Set a screen lock on this phone to send from it. Nothing was sent.</string>
@@ -189,6 +209,7 @@
     <string name="request_where">Where</string>
     <string name="terminal_cancel">Cancel</string>
     <string name="terminal_empty">No output yet.</string>
+    <string name="terminal_fit_width">Fit the width</string>
     <string name="terminal_hidden_back">Back to terminals</string>
     <string name="terminal_hidden_on_desktop">This terminal was hidden from the phone on %1$s.</string>
     <string name="terminal_hidden_shown">Hidden characters are now shown in the field. Check it and send again.</string>
@@ -196,6 +217,7 @@
     <string name="terminal_key_left">Left arrow</string>
     <string name="terminal_key_right">Right arrow</string>
     <string name="terminal_key_up">Up arrow</string>
+    <string name="terminal_pan_hint">%1$s cols · swipe to pan</string>
     <string name="terminal_paste">Paste</string>
     <plurals name="terminal_paste_lines">
         <item quantity="one">This text has %1$d line. Send it?</item>

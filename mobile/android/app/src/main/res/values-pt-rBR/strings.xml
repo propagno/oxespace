@@ -11,6 +11,9 @@
     <string name="approval_prompt_cancel">Cancelar este pedido</string>
     <string name="approval_prompt_decline">Negar este pedido</string>
     <string name="composer_placeholder">Mensagem para o agente</string>
+    <string name="composer_queued_line">na fila</string>
+    <string name="composer_queued_placeholder">Na fila até o passo atual terminar</string>
+    <string name="composer_read_after_step">lida depois do passo atual</string>
     <string name="composer_send">Enviar</string>
     <string name="composer_steer">Orientar</string>
     <string name="composer_steer_finished_before">O agente terminou antes de a sua instrução chegar. Nada foi enviado.</string>
@@ -49,6 +52,11 @@
     <string name="live_age_hours">há %1$s h</string>
     <string name="live_age_minutes">há %1$s min</string>
     <string name="live_age_now">agora</string>
+    <string name="live_agents_chip_all">Todos</string>
+    <string name="live_agents_chip_failed">Falhou</string>
+    <string name="live_agents_chip_finished">Concluído</string>
+    <string name="live_agents_chip_needs_you">Precisa de você</string>
+    <string name="live_agents_chip_working">Trabalhando</string>
     <string name="live_agent_state_blocked">Precisa de você</string>
     <string name="live_agent_state_done">Terminou</string>
     <string name="live_agent_state_idle">Ocioso</string>
@@ -88,6 +96,7 @@
     <string name="live_status_idle">Ocioso</string>
     <string name="live_status_interrupted">Interrompido</string>
     <string name="live_status_running">Trabalhando</string>
+    <string name="live_tabs_agents">Agentes</string>
     <string name="live_tabs_requests">Pedidos</string>
     <string name="live_tabs_tasks">Tarefas</string>
     <string name="live_tabs_terminals">Terminais</string>
@@ -142,6 +151,17 @@
     <string name="pairing_verification_description">Código de verificação %1$s</string>
     <string name="pairing_waiting_body">%1$s está perguntando se pode parear com este celular. Aceite só se aparecer este código:</string>
     <string name="pairing_waiting_title">Confirme no computador</string>
+    <string name="pane_conversation_caption">Conversa do %1$s · somente leitura</string>
+    <string name="pane_conversation_conversation">Conversa</string>
+    <string name="pane_conversation_latest">%1$s novas · Mais recentes ↓</string>
+    <string name="pane_conversation_latest_no_count">Mais recentes ↓</string>
+    <string name="pane_conversation_live">Ao vivo</string>
+    <string name="pane_conversation_load_earlier">Carregar anteriores</string>
+    <string name="pane_conversation_new_session">O agente começou uma nova conversa</string>
+    <string name="pane_conversation_screen">Tela</string>
+    <string name="pane_conversation_show_screen">Mostrar a tela</string>
+    <string name="pane_conversation_type_on_screen">Digite na visão Tela</string>
+    <string name="pane_conversation_unavailable">A conversa deste terminal não está mais disponível. A tela continua ao vivo.</string>
     <string name="presence_confirm">Confirmar que sou eu</string>
     <string name="presence_locked">Confirme que é você antes de digitar neste terminal.</string>
     <string name="presence_no_screen_lock">Defina um bloqueio de tela neste celular para enviar por ele. Nada foi enviado.</string>
@@ -192,6 +212,7 @@
     <string name="request_where">Onde</string>
     <string name="terminal_cancel">Cancelar</string>
     <string name="terminal_empty">Ainda sem saída.</string>
+    <string name="terminal_fit_width">Ajustar à largura</string>
     <string name="terminal_hidden_back">Voltar aos terminais</string>
     <string name="terminal_hidden_on_desktop">Este terminal foi ocultado do celular em %1$s.</string>
     <string name="terminal_hidden_shown">Caracteres ocultos foram mostrados no campo. Confira e envie de novo.</string>
@@ -199,6 +220,7 @@
     <string name="terminal_key_left">Seta para a esquerda</string>
     <string name="terminal_key_right">Seta para a direita</string>
     <string name="terminal_key_up">Seta para cima</string>
+    <string name="terminal_pan_hint">%1$s colunas · arraste para os lados</string>
     <string name="terminal_paste">Colar</string>
     <plurals name="terminal_paste_lines">
         <item quantity="one">Este texto tem %1$d linha. Enviar?</item>

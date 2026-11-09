@@ -78,7 +78,8 @@
       "threads": "Conversas",
       "requests": "Pedidos",
       "terminals": "Terminais",
-      "tasks": "Tarefas"
+      "tasks": "Tarefas",
+      "agents": "Agentes"
     },
     "requestsBadge_one": "{{count}} pedido esperando",
     "requestsBadge_other": "{{count}} pedidos esperando",
@@ -128,6 +129,13 @@
     },
     "delegationState": {
       "unknown": "Não confirmado"
+    },
+    "agentsChip": {
+      "all": "Todos",
+      "needsYou": "Precisa de você",
+      "working": "Trabalhando",
+      "failed": "Falhou",
+      "finished": "Concluído"
     }
   },
   "thread": {
@@ -264,7 +272,9 @@
     "hiddenShown": "Caracteres ocultos foram mostrados no campo. Confira e envie de novo.",
     "cancel": "Cancelar",
     "hiddenOnDesktop": "Este terminal foi ocultado do celular em {{computer}}.",
-    "hiddenBack": "Voltar aos terminais"
+    "hiddenBack": "Voltar aos terminais",
+    "panHint": "{{cols}} colunas · arraste para os lados",
+    "fitWidth": "Ajustar à largura"
   },
   "approval": {
     "prompt": {
@@ -337,7 +347,10 @@
     "placeholder": "Mensagem para o agente",
     "send": "Enviar",
     "steer": "Orientar",
-    "steerFinishedBefore": "O agente terminou antes de a sua instrução chegar. Nada foi enviado."
+    "steerFinishedBefore": "O agente terminou antes de a sua instrução chegar. Nada foi enviado.",
+    "queuedPlaceholder": "Na fila até o passo atual terminar",
+    "readAfterStep": "lida depois do passo atual",
+    "queuedLine": "na fila"
   },
   "terminalInput": {
     "placeholder": "Digite neste terminal",
@@ -377,5 +390,18 @@
     "allow": "Permitir acesso à rede local",
     "denied": "O acesso à rede local está desligado para o OXESpace, então o Android bloqueia toda conexão com o computador. Ligue \"Acesso à rede local\" para o OXESpace nas configurações do app (Permissões) e volte.",
     "openSettings": "Abrir configurações do app"
+  },
+  "paneConversation": {
+    "screen": "Tela",
+    "conversation": "Conversa",
+    "caption": "Conversa do {{agent}} · somente leitura",
+    "live": "Ao vivo",
+    "typeOnScreen": "Digite na visão Tela",
+    "newSession": "O agente começou uma nova conversa",
+    "unavailable": "A conversa deste terminal não está mais disponível. A tela continua ao vivo.",
+    "showScreen": "Mostrar a tela",
+    "latest": "{{n}} novas · Mais recentes ↓",
+    "latestNoCount": "Mais recentes ↓",
+    "loadEarlier": "Carregar anteriores"
   }
 }
