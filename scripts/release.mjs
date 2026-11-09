@@ -7,6 +7,8 @@
  *   npm run release -- pick       <version> <sha>...         cherry-pick -x onto release/<version>
  *   npm run release -- trial      <version>                  merge/release-<version>-into-main + main's jobs on it
  *   npm run release -- tag        <version>                  tag v<version> on the release head
+ *   npm run release -- status|tag <version> --from-main      the same for a release cut from main (1.5.0): main's
+ *                                                            head, its package.json, its notes and its CI
  *   npm run release -- approve    <version>                  approve the `release`, then `android-release` deployment
  *   npm run release -- verify-apk <version>                  the published APK: sha256, signer, version
  *
@@ -126,7 +128,7 @@ export function ciVerdict(runs, sha) {
  */
 export function tagFindings(parsed, state) {
   const findings = []
-  if (!state.head) findings.push(`${releaseBranch(parsed.version)} is not on origin`)
+  if (!state.head) findings.push(`${state.source ?? releaseBranch(parsed.version)} is not on origin`)
   if (state.tagExists) findings.push(`${tagOf(parsed.version)} already exists: a published tag is never moved`)
   if (state.packageVersion !== parsed.version) findings.push(`package.json on the release head says ${state.packageVersion ?? '(none)'}, not ${parsed.version}`)
   for (const note of [`docs/releases/${parsed.version}.md`, `docs/releases/${parsed.version}.pt-BR.md`]) {
@@ -145,18 +147,20 @@ export function approvals(pending, tagSha) {
 }
 
 export function parseArgs(argv) {
-  const args = { step: argv[0], version: null, from: null, shas: [], run: false }
+  const args = { step: argv[0], version: null, from: null, fromMain: false, shas: [], run: false }
   const rest = argv.slice(1)
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i]
     if (arg === '--run') args.run = true
     else if (arg === '--from') args.from = rest[++i]
+    else if (arg === '--from-main') args.fromMain = true
     else if (arg.startsWith('--')) throw new Error(`unknown option ${arg}`)
     else if (!args.version) args.version = arg
     else args.shas.push(arg)
   }
   if (!STEPS[args.step]) throw new Error(`the step is one of: ${Object.keys(STEPS).join(', ')}`)
   if (!args.version) throw new Error('give the version, X.Y.Z')
+  if (args.fromMain && !['status', 'tag'].includes(args.step)) throw new Error('--from-main goes with status or tag')
   return args
 }
 
@@ -198,16 +202,22 @@ function runsOn(io, repo, sha) {
   return JSON.parse(io.gh(['api', `repos/${repo}/actions/runs?head_sha=${sha}&per_page=100`, '--jq', '.workflow_runs'])) ?? []
 }
 
-function tagState(io, parsed) {
-  const branch = releaseBranch(parsed.version)
-  io.git(['fetch', '--quiet', 'origin', 'main', branch])
+/**
+ * The tag's conditions on the release head: release/<version>'s, or with `fromMain` main's own head (a release cut
+ * from main, as 1.5.0 is). Either way the same checks: the version in package.json, both notes, a green completed
+ * ci.yml run on that exact commit, the commit on main, and no such tag yet.
+ */
+function tagState(io, parsed, fromMain = false) {
+  const branch = fromMain ? 'main' : releaseBranch(parsed.version)
+  io.git(['fetch', '--quiet', 'origin', ...(fromMain ? ['main'] : ['main', branch])])
   const head = io.tryGit(['rev-parse', `origin/${branch}`])
-  if (!head) return { head: null }
+  if (!head) return { head: null, source: branch }
   const repo = io.repo()
   let packageVersion = null
   try { packageVersion = JSON.parse(io.git(['show', `${head}:package.json`])).version } catch { /* reported as missing */ }
   return {
     head,
+    source: branch,
     onMain: io.tryGit(['merge-base', '--is-ancestor', head, 'origin/main']) !== null,
     tagExists: Boolean(tagCommit(io, tagOf(parsed.version))),
     packageVersion,
@@ -218,15 +228,15 @@ function tagState(io, parsed) {
 
 // ---- steps ----------------------------------------------------------------------------------------------------
 
-function status(io, parsed) {
-  const state = tagState(io, parsed)
+function status(io, parsed, fromMain = false) {
+  const state = tagState(io, parsed, fromMain)
   const tag = tagOf(parsed.version)
-  io.log(`${releaseBranch(parsed.version)}: ${state.head ?? '(not on origin)'}`)
+  io.log(`${state.source}: ${state.head ?? '(not on origin)'}`)
   if (!state.head) return 1
   io.log(`on main: ${state.onMain ? 'yes' : 'no'} · CI: ${state.ci.run ? `${state.ci.run} ${state.ci.ok ? 'success' : 'not passed'}` : 'none completed'} · ${tag}: ${state.tagExists ? 'exists' : 'not yet'}`)
   const findings = state.tagExists ? [] : tagFindings(parsed, state)
   for (const finding of findings) io.log(`  - ${finding}`)
-  if (!state.tagExists && findings.length === 0) io.log(`ready to tag: npm run release -- tag ${parsed.version} --run`)
+  if (!state.tagExists && findings.length === 0) io.log(`ready to tag: npm run release -- tag ${parsed.version}${fromMain ? ' --from-main' : ''} --run`)
   return 0
 }
 
@@ -317,8 +327,8 @@ function trial(io, parsed) {
   return 0
 }
 
-function tag(io, parsed) {
-  const state = tagState(io, parsed)
+function tag(io, parsed, fromMain = false) {
+  const state = tagState(io, parsed, fromMain)
   const findings = tagFindings(parsed, state)
   for (const finding of findings) io.log(`not yet: ${finding}`)
   if (findings.length) return 1
@@ -395,11 +405,11 @@ function verifyApk(io, parsed) {
 }
 
 const STEPS = {
-  status: (io, args) => status(io, parseVersion(args.version)),
+  status: (io, args) => status(io, parseVersion(args.version), args.fromMain),
   cut: (io, args) => cut(io, parseVersion(args.version), args.from),
   pick: (io, args) => pick(io, parseVersion(args.version), args.shas),
   trial: (io, args) => trial(io, parseVersion(args.version)),
-  tag: (io, args) => tag(io, parseVersion(args.version)),
+  tag: (io, args) => tag(io, parseVersion(args.version), args.fromMain),
   approve: (io, args) => approve(io, parseVersion(args.version)),
   'verify-apk': (io, args) => verifyApk(io, parseVersion(args.version)),
 }
