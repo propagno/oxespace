@@ -3,6 +3,11 @@ import { describe, expect, it } from 'vitest'
 import {
   BATCH_START_MS,
   CI_WORKFLOW,
+  CODE_BATCH_MAX,
+  LABEL,
+  TRAIN_REQUIRED_CHECKS,
+  codeBatchRefusal,
+  step as trainStep,
   NO_BATCH_LABEL,
   batchMessage,
   batchRefusal,
@@ -42,6 +47,7 @@ function fakeGitHub(pulls: Record<number, Pull>, { queue = Object.keys(pulls).ma
   const comments = new Map<number, Array<{ id: number; body: string; byTrain: boolean }>>()
   const runs = new Map<string, Array<Record<string, unknown>>>()
   const checks = new Map<string, Array<Record<string, unknown>>>()
+  const statuses = new Map<string, Array<Record<string, unknown>>>()
   const conflicts = new Set<string>()
   let commentId = 1
   const api = {
@@ -50,6 +56,7 @@ function fakeGitHub(pulls: Record<number, Pull>, { queue = Object.keys(pulls).ma
     commits,
     runs,
     checks,
+    statuses,
     conflicts,
     comments,
     beforeMerge: (_n: number) => {},
@@ -138,6 +145,9 @@ function fakeGitHub(pulls: Record<number, Pull>, { queue = Object.keys(pulls).ma
     async listChecks(sha: string) {
       return checks.get(sha) ?? []
     },
+    async commitStatuses(sha: string) {
+      return statuses.get(sha) ?? []
+    },
     async listComments(number: number) {
       return comments.get(number) ?? []
     },
@@ -196,7 +206,8 @@ describe('batch paths (TECH LEAD allowlist)', () => {
 describe('batch bookkeeping', () => {
   it('reads back only its own batch number, and numbers after every batch branch', () => {
     const sha = head('a')
-    expect(parseBatchMessage(batchMessage(4, 12, sha), 4)).toEqual({ number: 12, sha })
+    expect(parseBatchMessage(batchMessage(4, 12, sha), 4)).toEqual({ number: 12, sha, code: false })
+    expect(parseBatchMessage(batchMessage(4, 12, sha, true), 4)).toEqual({ number: 12, sha, code: true })
     expect(parseBatchMessage(batchMessage(4, 12, sha), 5)).toBeNull()
     expect(parseBatchMessage('Merge PR #12 into batch 4', 4)).toBeNull()
     expect(nextBatchRef(['train/batch-3', 'train/batch-12', 'train/batch-D', 'main'])).toBe(13)
@@ -520,5 +531,123 @@ describe('batch API guards', () => {
       ['POST', 'https://api.github.com/repos/o/r/merges', { base: 'train/batch-2', head: 'b'.repeat(40), commit_message: `merge-train batch 2: #5 ${'b'.repeat(40)}` }],
       ['POST', 'https://api.github.com/repos/o/r/issues/5/labels', { labels: [NO_BATCH_LABEL] }],
     ])
+  })
+})
+
+/** A ready head for a code batch: a green pr:ready status and a green CI result of its own. */
+const markReady = (api: ReturnType<typeof fakeGitHub>, ...shas: string[]) => {
+  for (const sha of shas) {
+    api.statuses.set(sha, [{ context: 'pr:ready', state: 'success', createdAt: '2026-11-04T11:00:00Z' }])
+    api.checks.set(sha, [{ name: 'CI result', headSha: sha, status: 'completed', conclusion: 'success' }])
+  }
+}
+const code = (c: string, ...files: string[]): Pull => ({ headSha: head(c), files })
+
+describe('code batches (TECH LEAD, user OK on 09/11)', () => {
+  it('green: three ready code PRs ride one batch, CI runs once on their merge with main, and each merges in order with its own merge commit', async () => {
+    const api = fakeGitHub({ 1: code('a', 'src/a.ts'), 2: code('b', 'electron/main/b.ts'), 3: code('c', 'scripts/c.mjs', 'tests/unit/c.test.ts'), 4: code('d', 'shared/d.ts') })
+    markReady(api, head('a'), head('b'), head('c'), head('d'))
+    const base = api.refs.get('main')!
+    const built = await step(api)
+    expect(CODE_BATCH_MAX).toBe(3)
+    expect(kinds(api, 'mergeInto', 'dispatch')).toEqual([
+      ['mergeInto', 'train/batch-1', head('a')], ['mergeInto', 'train/batch-1', head('b')], ['mergeInto', 'train/batch-1', head('c')],
+      ['dispatch', 'ci.yml', 'train/batch-1'],
+    ])
+    expect(built.actions[0].message).toMatch(/with #1 #2 #3 \(code: each ready, no file in common\)/)
+    expect(api.commits.get(batchHead(api))!.message).toBe(`merge-train batch 1: #3 ${head('c')} code`)
+    api.writes.length = 0
+    finishCi(api)
+    const { actions } = await step(api)
+    expect(kinds(api, 'merge')).toEqual([['merge', 1, head('a')], ['merge', 2, head('b')], ['merge', 3, head('c')]])
+    // main = base + one merge commit per member, in the batch's order.
+    let top = api.commits.get(api.refs.get('main')!)!
+    const order: string[] = []
+    while (top.sha !== base) {
+      order.unshift(top.parents[1])
+      top = api.commits.get(top.parents[0])!
+    }
+    expect(order).toEqual([head('a'), head('b'), head('c')])
+    expect(actions.at(-1)!.message).toBe('train/batch-1: merged #1 #2 #3')
+  })
+
+  it('red: one broken PR in a batch of three sends all three back to run alone; the broken one leaves the queue, the other two merge', async () => {
+    const api = fakeGitHub({ 1: code('a', 'src/a.ts'), 2: code('b', 'src/b.ts'), 3: code('c', 'src/c.ts') })
+    markReady(api, head('a'), head('b'), head('c'))
+    await step(api)
+    api.writes.length = 0
+    finishCi(api, 'failure')
+    await step(api)
+    expect(kinds(api, 'merge', 'postStatus')).toEqual([])
+    expect(kinds(api, 'addLabel')).toEqual([['addLabel', 1, NO_BATCH_LABEL], ['addLabel', 2, NO_BATCH_LABEL], ['addLabel', 3, NO_BATCH_LABEL]])
+    // Labelled no-batch, they never batch again: the serial train serves each on its own CI.
+    expect((await step(api)).took).toBe(false)
+    const alone = (n: number, conclusion: string) => {
+      const sha = head('abc'[n - 1])
+      return trainStep({
+        pr: { number: n, state: 'open', draft: false, isFork: false, headSha: sha, headRef: `topic-${n}`, mergeable: true, mergeableState: 'clean', changesRequested: false, labeledAt: '2026-11-04T10:00:00Z', labeledBy: 'maintainer', labelerAllowed: true },
+        behindBy: 0,
+        runs: [{ name: CI_WORKFLOW, path: '.github/workflows/ci.yml', headSha: sha, status: 'completed', conclusion, createdAt: '2026-11-04T12:10:00Z' }],
+        checks: [{ name: 'CI result', headSha: sha, status: 'completed', conclusion }],
+        trainRequiredChecks: TRAIN_REQUIRED_CHECKS,
+        requiredChecks: [],
+        trainState: null,
+        now: NOW + 3_600_000,
+        timeoutMinutes: 60,
+      })
+    }
+    expect(alone(1, 'success').type).toBe('merge')
+    const broken = alone(2, 'failure')
+    expect(broken.type).toBe('unlabel')
+    expect(broken.message).toMatch(/CI result/)
+    expect(alone(3, 'success').type).toBe('merge')
+    expect(LABEL).toBe('na-fila')
+  })
+
+  it('never puts two PRs that touch the same file in one batch, nor two migrations, nor a workflow or an unready PR', async () => {
+    const api = fakeGitHub({
+      1: code('a', 'src/a.ts', 'electron/main/db/migrations/094_x.sql'),
+      2: code('b', 'src/a.ts'),
+      3: code('c', 'electron/main/db/migrations/095_y.sql'),
+      4: code('d', '.github/workflows/ci.yml'),
+      5: code('e', 'src/e.ts'),
+      6: code('f', 'src/f.ts'),
+    })
+    markReady(api, head('a'), head('b'), head('c'), head('d'), head('f'))
+    const { log } = await step(api)
+    expect(kinds(api, 'mergeInto')).toEqual([['mergeInto', 'train/batch-1', head('a')], ['mergeInto', 'train/batch-1', head('f')]])
+    expect(log).toEqual(expect.arrayContaining([
+      'batch: #2 stays out (shares src/a.ts with #1)',
+      'batch: #3 stays out (adds a migration, and so does #1)',
+      'batch: #4 stays out (changes .github/workflows/ci.yml (a workflow PR is merged by a person))',
+      'batch: #5 stays out (no green pr:ready on its head)',
+    ]))
+  })
+
+  it('names why a code PR stays out', () => {
+    const pr = { state: 'open', draft: false, isFork: false, headRef: 'topic-1', mergeable: true, mergeableState: 'clean', changedFiles: 1 }
+    const entry = { fixMain: false, noBatch: false }
+    const ok = { prReady: true, ciGreen: true }
+    const refuse = (files: string[], ready = ok, members: Array<{ number: number; files: string[] }> = []) =>
+      codeBatchRefusal({ pr: { ...pr, changedFiles: files.length }, entry, files, labelerAllowed: true, changesRequested: false, ready, members })
+    expect(refuse(['src/a.ts'])).toBeNull()
+    expect(refuse(['src/a.ts'], { prReady: true, ciGreen: false })).toBe('CI result is not green on its head')
+    expect(refuse(['src/a.ts'], { prReady: false, ciGreen: true })).toBe('no green pr:ready on its head')
+    expect(refuse(['.github/workflows/x.yml'])).toMatch(/^changes \.github\/workflows\/x\.yml/)
+    expect(refuse(['src/a.ts'], ok, [{ number: 7, files: ['src/a.ts'] }])).toBe('shares src/a.ts with #7')
+    expect(refuse(['electron/main/db/migrations/096_z.sql'], ok, [{ number: 7, files: ['electron/main/db/migrations/095_y.sql'] }])).toBe('adds a migration, and so does #7')
+  })
+
+  it('re-checks the files at merge time: a code member that now changes a workflow gets no status', async () => {
+    const pulls: Record<number, Pull> = { 1: code('a', 'src/a.ts'), 2: code('b', 'src/b.ts') }
+    const api = fakeGitHub(pulls)
+    markReady(api, head('a'), head('b'))
+    await step(api)
+    pulls[1].files = ['src/a.ts', '.github/workflows/ci.yml']
+    api.writes.length = 0
+    finishCi(api)
+    await step(api)
+    expect(kinds(api, 'postStatus', 'merge')).toEqual([])
+    expect(api.comments.get(1)!.at(-1)!.body).toMatch(/changes \.github\/workflows\/ci\.yml, a workflow/)
   })
 })

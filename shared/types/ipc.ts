@@ -102,11 +102,6 @@ export const IPC_CHANNELS = {
     startupFailure: 'app:startup-failure', openBackupsFolder: 'app:open-backups-folder', quitAfterStartupFailure: 'app:quit-after-startup-failure',
     relaunchAfterStartupFailure: 'app:relaunch-after-startup-failure'
   },
-  rtk: {
-    getStatus: 'rtk:get-status',
-    checkForUpdate: 'rtk:check-for-update',
-    updateToLatest: 'rtk:update-to-latest'
-  },
   workspace: {
     list: 'workspace:list',
     create: 'workspace:create',
@@ -147,6 +142,9 @@ export const IPC_CHANNELS = {
     // T54 · Settings › Terminal: a session that skipped permissions resumes that way only with this on.
     resumeBypass: 'terminal:resume-bypass',
     setResumeBypass: 'terminal:set-resume-bypass',
+    // A18 (T73) · The pane's branch and where it started, for the pane header; read, then pushed on change.
+    branch: 'terminal:branch',
+    branchChanged: 'terminal:branch-changed',
     onData: 'terminal:data',
     onExit: 'terminal:exit',
     onActivity: 'terminal:activity'
@@ -197,15 +195,6 @@ export const IPC_CHANNELS = {
     cancel: 'search:cancel',
     listFiles: 'search:list-files'
   },
-  linear: {
-    getStatus: 'linear:get-status',
-    setApiKey: 'linear:set-api-key',
-    clearApiKey: 'linear:clear-api-key',
-    listTeams: 'linear:list-teams',
-    listIssues: 'linear:list-issues',
-    getIssue: 'linear:get-issue',
-    createWorktreeFromIssue: 'linear:worktree-from-issue'
-  },
   clipboard: {
     saveImageToTemp: 'clipboard:save-image-to-temp',
     readText: 'clipboard:read-text',
@@ -223,15 +212,6 @@ export const IPC_CHANNELS = {
     firewallStatus: 'remote:firewall-status', firewallRepair: 'remote:firewall-repair', firewallUndo: 'remote:firewall-undo'
   },
   oxePost: { call: 'oxePost:call' },
-  automations: {
-    list: 'automations:list',
-    create: 'automations:create',
-    setEnabled: 'automations:set-enabled',
-    remove: 'automations:remove',
-    runNow: 'automations:run-now',
-    runs: 'automations:runs',
-    onChange: 'automations:on-change'
-  },
   agentHooks: {
     status: 'agent-hooks:status',
     install: 'agent-hooks:install',
@@ -363,6 +343,8 @@ export const IPC_CHANNELS = {
     listConnectedRepositories: 'github:list-connected-repositories',
     connectRepository: 'github:connect-repository'
   },
+  /** A60: the Pull request tab, GitHub or Azure DevOps in one shape. */
+  pullRequest: { state: 'pull-request:state' },
   integration: {
     listGroups: 'integration:list-groups',
     createGroup: 'integration:create-group',
@@ -392,6 +374,14 @@ export const IPC_CHANNELS = {
     onWorktreeChanged: 'mcp-internal:on-worktree-changed',
     actionAudit: 'mcp-internal:action-audit',
     exportAudit: 'mcp-internal:export-audit'
+  },
+  // R0b: the one-time export of the removed features' data. The window never sends a path.
+  dataExport: {
+    state: 'data-export:state',
+    markNoticeShown: 'data-export:mark-notice-shown',
+    exportAgain: 'data-export:export-again',
+    open: 'data-export:open',
+    reveal: 'data-export:reveal'
   },
   browserPreview: {
     session: 'browser-preview:session',
@@ -472,7 +462,21 @@ export interface WorkspaceApi {
   createGitHubTerminalPane(workspaceId: string): Promise<{ id: string }>
 }
 
+/** A18 (T73) · A pane's branch, the branch it started on, and whether it switched; null branches outside a repository or detached. */
+export interface TerminalPaneBranch {
+  branch: string | null
+  startedOn: string | null
+  switched: boolean
+}
+
+export interface TerminalBranchChangedEvent extends TerminalPaneBranch {
+  paneId: string
+}
+
 export interface TerminalApi {
+  /** A18 · The pane's branch now; null for a pane that is not tracked. */
+  branch?(paneId: string): Promise<TerminalPaneBranch | null>
+  onBranchChanged?(paneId: string, listener: (event: TerminalBranchChangedEvent) => void): () => void
   start(input: TerminalStartInput): Promise<void>
   /** T54 · Whether a Claude session that skipped permissions resumes that way. Off by default. */
   resumeBypass?(): Promise<boolean>
@@ -529,18 +533,6 @@ export interface SearchApi {
   run(input: import('./search').SearchInput): Promise<import('./search').SearchResult>
   cancel(): Promise<void>
   listFiles(input: import('./search').SearchFilesInput): Promise<import('./search').SearchFilesResult>
-}
-
-export interface LinearApi {
-  getStatus(): Promise<import('./linear').LinearStatus>
-  setApiKey(input: import('./linear').LinearSetApiKeyInput): Promise<import('./linear').LinearStatus>
-  clearApiKey(): Promise<void>
-  listTeams(): Promise<import('./linear').LinearTeam[]>
-  listIssues(input: import('./linear').LinearListIssuesInput): Promise<import('./linear').LinearIssue[]>
-  getIssue(input: { issueId: string }): Promise<import('./linear').LinearIssue>
-  createWorktreeFromIssue(
-    input: import('./linear').LinearWorktreeFromIssueInput
-  ): Promise<import('./linear').LinearWorktreeFromIssueResult>
 }
 
 export interface GitHubApi {
@@ -606,16 +598,6 @@ export interface AgentNotificationPayload {
   icon?: import('./app').NotificationIcon
 }
 
-export interface AutomationsApi {
-  list(): Promise<import('./automation').Automation[]>
-  create(input: import('./automation').AutomationInput): Promise<import('./automation').Automation>
-  setEnabled(input: { id: string; enabled: boolean }): Promise<import('./automation').Automation>
-  remove(id: string): Promise<void>
-  runNow(id: string): Promise<import('./automation').AutomationRun | null>
-  runs(id: string): Promise<import('./automation').AutomationRun[]>
-  onChange(listener: (event: { automationId: string; run: import('./automation').AutomationRun | null }) => void): () => void
-}
-
 export interface AgentHooksApi {
   status(): Promise<import('./agent-hooks').AgentHooksStatus[]>
   install(agent: import('./agent-hooks').AgentHookAgent): Promise<import('./agent-hooks').AgentHooksStatus>
@@ -679,12 +661,6 @@ export interface AppUpdateApi {
   setUiScale?(factor: number): Promise<number>
 }
 
-export interface RtkApi {
-  getStatus(): Promise<import('./updater').RtkUpdateState>
-  checkForUpdate(): Promise<import('./updater').RtkUpdateState>
-  updateToLatest(): Promise<import('./updater').RtkUpdateState>
-}
-
 export interface OxeApi {
   team?: import('./team').TeamApi
   agentAccount?: import('./agentAuth').AgentAccountApi
@@ -698,7 +674,6 @@ export interface OxeApi {
     /** The operating system's locale (Electron's app.getLocale()), which picks the default interface language. */
     locale: string
   } & AppUpdateApi & import('./app').AppInfoApi
-  rtk: RtkApi
   workspace: WorkspaceApi
   terminal: TerminalApi
   agent: AgentApi
@@ -706,15 +681,14 @@ export interface OxeApi {
   fs: FileSystemApi
   git: GitApi
   search: SearchApi
-  linear: LinearApi
   github: GitHubApi
+  pullRequest?: import('./pull-request').PullRequestApi
   integration: IntegrationApi
   clipboard: ClipboardApi
   notifications: NotificationsApi
   approvals?: import('./approvals').ApprovalsApi
   activity?: import('./activity').ActivityApi
   agentHooks: AgentHooksApi
-  automations: AutomationsApi
   oxeQuery: import('./oxequery').OxeQueryApi
   oxePod: import('./oxepod').OxePodApi
   remote?: import('./remote').RemoteApi
@@ -735,6 +709,7 @@ export interface OxeApi {
   semantic: SemanticApi
   diagnostics: import('./diagnostics').DiagnosticsApi
   policy: import('../policy').PolicyApi
+  dataExport: DataExportApi
 }
 
 export interface McpInternalApi {
@@ -748,6 +723,39 @@ export interface McpInternalApi {
   actionAudit(limit?: number): Promise<import('./mcp-internal').AgentActionEntry[]>
   /** Saves every audit entry still kept as JSON lines; the path, or null when the person cancels. */
   exportAudit(): Promise<string | null>
+}
+
+/** R0b: the features removed in 1.5.0 whose data the one-time export saves or names. */
+export type RemovedFeatureId = 'codegraph' | 'semantic' | 'rtk' | 'memory' | 'linear' | 'teams' | 'automations' | 'docs' | 'oxepost' | 'oxepod' | 'work'
+
+/** Whether this install used a removed feature; only booleans leave main. */
+export interface RemovedFeatureUse {
+  id: RemovedFeatureId
+  hadData: boolean
+  hadSettings: boolean
+}
+
+/** What the notice band and Settings › Data show about the one-time export. */
+export interface DataExportState {
+  /** The newest export file, or null when none was written. */
+  file: string | null
+  exportedAt: string | null
+  shownNotice: boolean
+  /** True when the database before the first 1.5.0 start was a 1.4 one (versions 1–91). */
+  upgrade: boolean
+  /** The last failure of this app run, or null. */
+  error: string | null
+  removed: RemovedFeatureUse[]
+}
+
+/** R0b: the window never sends a path; open and reveal act on the newest export file and do nothing without one. */
+export interface DataExportApi {
+  state(): Promise<DataExportState>
+  markNoticeShown(): Promise<void>
+  /** Writes a new export file; its path, or null when it could not be written. */
+  exportAgain(): Promise<{ file: string | null }>
+  open(): Promise<void>
+  reveal(): Promise<void>
 }
 
 export interface OxeContextApi {

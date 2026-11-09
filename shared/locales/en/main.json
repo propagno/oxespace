@@ -112,6 +112,16 @@
       },
       "invalidInput": "This conversation request could not be read.",
       "notFound": "This conversation no longer exists.",
+      "place": {
+        "gone": "This place is no longer part of the conversation. Reload the list of places.",
+        "notEvidence": "Only folders where a tool of this conversation wrote can be opened here.",
+        "outside": "This path leads outside the place, so it cannot be opened.",
+        "noDrift": "This place has no branch change to answer. Reload the list of places.",
+        "busy": "Wait for this conversation's turn to end before switching the branch back.",
+        "dirty": "This checkout has uncommitted changes, so the branch was not switched back. Commit them or set them aside first.",
+        "detached": "The task started without a branch (a detached HEAD), so there is no branch to switch back to.",
+        "branchGone": "The branch \"{{branch}}\" no longer exists, so it cannot be switched back to."
+      },
       "sections": {
         "invalid": "These sections could not be saved. Reload the list and try again.",
         "tooMany": "A workspace has at most {{sections}} sections and {{assignments}} conversations placed in them.",

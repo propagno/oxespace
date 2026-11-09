@@ -8,7 +8,6 @@ import { homedir } from 'node:os'
 import { basename, delimiter, extname, join } from 'node:path'
 import type { AppDatabase } from '../db/index'
 import { terminatePty } from '../utils/process-tree'
-import { getRtkService, type RtkService } from './rtk.service'
 import { PtyInputQueue } from './pty-input-queue'
 import { PtyOutputBatcher } from './pty-output-batcher'
 import { PtyRingBuffer } from './pty-ring-buffer'
@@ -18,8 +17,10 @@ import { resumeBypassAllowed, setResumeBypassAllowed } from './agent-state/resum
 import { bypassWithheld, claudeSessionToAssign, failedToLoadStatus, permissionModeArgs, planPaneResume, RESUME_LOAD_MS, startedFreshStatus } from './agent-state/pane-resume'
 import { nativeSessionExists, type NativeSessionRoots } from './agent-state/native-session-files'
 import { PtyModeTracker } from './pty-mode-tracker'
+import { ShellCwdScanner } from './terminal/shell-cwd'
+import { PaneBranchTracker, samePaneBranch } from './terminal/pane-branch'
 import { DA1_CARRY_MS, DA1_REPLY, Da1Filter, stripDa1 } from './pty-da1'
-import type { TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume, PaneAgentSession } from '../../../shared/types/ipc'
+import type { TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume, PaneAgentSession, TerminalBranchChangedEvent, TerminalPaneBranch } from '../../../shared/types/ipc'
 import { assertProviderAllowed, inheritedEnvironment } from './policy'
 import { recordIncident } from './diagnostics/incident-sink'
 
@@ -38,6 +39,8 @@ interface TerminalManagerOptions {
   userDataPath?: string
   emitData?: (event: TerminalDataEvent) => void
   emitExit?: (event: TerminalExitEvent) => void
+  /** A18 (T73) · A pane's branch changed (the pane header's "switched from"). */
+  emitBranchChanged?: (event: TerminalBranchChangedEvent) => void
   emitActivity?: (event: TerminalActivityEvent) => void
   ringCapacityBytes?: number
   prepareLaunch?: (input: { paneId: string; workspaceId: string; cwd: string; signal: AbortSignal }) => Promise<Record<string, string>>
@@ -85,7 +88,6 @@ interface TerminalSession {
   workspaceId: string
   pty: IPty
   agentCommand?: string
-  disableRtk?: boolean
   /** Whether the start that made this process wanted the agent's session back (a restart asks the same). */
   resumeAgent?: boolean
   /** B17 · The native session this process was started to resume, if any. */
@@ -136,8 +138,6 @@ const EXITED_SESSION_TTL_MS = 30 * 60 * 1000
 const MAX_LIVE_PTYS = 24
 /** A session must be quiet this long before it is considered reclaimable. */
 const RECLAIM_IDLE_MS = 30_000
-/** How long a terminal waits for RTK to be ready before it starts without it. */
-const RTK_START_BUDGET_MS = 3_000
 
 interface TerminalLaunchContextRow {
   pane_root_path: string | null
@@ -168,7 +168,7 @@ export class TerminalManager {
   /** B17 · Panes whose resumed process exited within RESUME_LOAD_MS: their next start is fresh (failedToLoad). */
   private readonly failedResumes = new Map<string, { agent: 'claude' | 'codex'; sessionId: string }>()
   /** How each pane last started, so a restart can bring back a pane whose process exited by itself. */
-  private readonly lastStarts = new Map<string, Pick<TerminalSession, 'workspaceId' | 'agentCommand' | 'disableRtk' | 'cols' | 'rows' | 'resumeAgent'>>()
+  private readonly lastStarts = new Map<string, Pick<TerminalSession, 'workspaceId' | 'agentCommand' | 'cols' | 'rows' | 'resumeAgent'>>()
   private readonly sessions = new Map<string, TerminalSession>()
   private readonly pty: PtyModule
   private readonly launchContextStatement: ReturnType<AppDatabase['prepare']>
@@ -178,10 +178,14 @@ export class TerminalManager {
   private readonly emitData: (event: TerminalDataEvent) => void
   private readonly emitExit: (event: TerminalExitEvent) => void
   private readonly emitActivity: (event: TerminalActivityEvent) => void
-  private readonly rtkService: RtkService
   private readonly ringCapacityBytes?: number
   private readonly exitedSessions = new Map<string, ExitedSession>()
   private readonly outputListeners = new Set<(paneId: string) => void>()
+  /** A18 (T79) · Each pane's passive shell cwd, read from OSC 7/633/9;9/1337 in its output. */
+  private readonly shellCwds = new Map<string, { scanner: ShellCwdScanner; cwd: string | null }>()
+  /** A18 (T73) · Each pane's branch and the branch it started on. */
+  private readonly branches = new PaneBranchTracker()
+  private readonly emitBranchChanged: (event: TerminalBranchChangedEvent) => void
 
   constructor(private readonly db: AppDatabase, options: TerminalManagerOptions = {}) {
     this.prepareLaunch = options.prepareLaunch
@@ -221,12 +225,8 @@ export class TerminalManager {
     this.emitData = options.emitData ?? (() => undefined)
     this.emitExit = options.emitExit ?? (() => undefined)
     this.emitActivity = options.emitActivity ?? (() => undefined)
+    this.emitBranchChanged = options.emitBranchChanged ?? (() => undefined)
     this.ringCapacityBytes = options.ringCapacityBytes
-
-    // In production, app.getPath is available via electron.
-    // In tests, we pass userDataPath explicitly to avoid depending on electron.app.
-    const userDataPath = options.userDataPath ?? require('electron').app?.getPath('userData') ?? ''
-    this.rtkService = getRtkService(userDataPath)
   }
 
   async start(input: ManagedTerminalStart): Promise<void> {
@@ -368,26 +368,6 @@ export class TerminalManager {
       }
     }
     
-    if (!input.disableRtk) {
-      // The first launch downloads RTK. A slow or stalled connection must not hold the
-      // shell back: after the budget the terminal starts without it (the download goes on
-      // in the background and the next terminal picks it up).
-      let budget: ReturnType<typeof setTimeout> | undefined
-      try {
-        const rtkBin = await Promise.race([
-          this.rtkService.ensureRtk(),
-          new Promise<null>((resolveBudget) => { budget = setTimeout(() => resolveBudget(null), RTK_START_BUDGET_MS) })
-        ])
-        if (rtkBin) finalEnv = { ...finalEnv, PATH: `${rtkBin}${delimiter}${finalEnv.PATH ?? ''}` }
-      } catch (err) {
-        // Fall back gracefully if download fails
-      } finally {
-        if (budget) clearTimeout(budget)
-      }
-    } else {
-      finalEnv = { ...finalEnv, RTK_DISABLED: '1' }
-    }
-
     // An app started with ELECTRON_RUN_AS_NODE must not hand it to its shells: any Electron CLI run there (code) breaks.
     for (const key of Object.keys(finalEnv)) if (key.toUpperCase() === 'ELECTRON_RUN_AS_NODE') delete finalEnv[key]
 
@@ -424,7 +404,7 @@ export class TerminalManager {
     this.exitedSessions.delete(input.paneId)
     this.reclaimIdleSession()
 
-    this.lastStarts.set(input.paneId, { workspaceId: input.workspaceId, agentCommand: input.agentCommand, disableRtk: input.disableRtk, cols, rows, resumeAgent: input.resumeAgent })
+    this.lastStarts.set(input.paneId, { workspaceId: input.workspaceId, agentCommand: input.agentCommand, cols, rows, resumeAgent: input.resumeAgent })
     this.sessions.set(input.paneId, {
       sessionId: randomUUID(),
       launchDirectory: cwd,
@@ -434,7 +414,6 @@ export class TerminalManager {
       workspaceId: input.workspaceId,
       pty: ptyProcess,
       agentCommand: input.agentCommand,
-      disableRtk: input.disableRtk,
       resumeAgent: input.resumeAgent,
       resumed,
       inputQueue: new PtyInputQueue(ptyProcess),
@@ -457,6 +436,7 @@ export class TerminalManager {
     // yet positions absolutely from row 1. The view may already hold a line ("Idle"), so the first screen landed one row
     // off. Start every Windows session from the same clean, homed screen the system ConPTY gave.
     if (this.platform === 'win32') this.sessions.get(input.paneId)?.outputBatcher.push(CONPTY_START_SCREEN)
+    this.trackBranch(input.paneId, cwd)
     this.observer?.start(input.paneId, input.workspaceId, cols, rows, input.launch ? [input.launch.executable, ...input.launch.args].join(' ') : agentCommand ?? executable)
     ptyProcess.onData((data) => {
       const session = this.sessions.get(input.paneId)
@@ -477,6 +457,7 @@ export class TerminalManager {
       }
       this.sessions.delete(input.paneId)
       this.notifyLaunchExit(input.paneId)
+      this.forgetBranch(input.paneId)
       this.observer?.exit(input.paneId)
       this.emitExit({ paneId: input.paneId, exitCode })
     })
@@ -551,6 +532,15 @@ export class TerminalManager {
    *   two replies.
    */
   private receive(session: TerminalSession, chunk: string): void {
+    // A18 (T79) · One indexOf per chunk while nothing is pending; a new cwd moves the pane's branch.
+    const shell = this.shellCwds.get(session.paneId)
+    if (shell) {
+      const cwd = shell.scanner.push(chunk)
+      if (cwd && cwd !== shell.cwd) {
+        shell.cwd = cwd
+        void this.refreshBranch(session.paneId, cwd)
+      }
+    }
     const { data, answered } = session.da1.filter(chunk, !session.viewAttached)
     for (let i = 0; i < answered; i++) void session.inputQueue.enqueue(DA1_REPLY)
     if (data) session.outputBatcher.push(data)
@@ -683,7 +673,42 @@ export class TerminalManager {
 
   setResumeBypass(enabled: boolean): boolean { return setResumeBypassAllowed(this.db, enabled) }
 
+  /** A18 (T73) · The pane's branch, read again (terminal focus); null for a pane with no terminal. */
+  async branch(paneId: string): Promise<TerminalPaneBranch | null> {
+    if (!this.branches.isTracked(paneId)) return this.branches.get(paneId)
+    return this.refreshBranch(paneId)
+  }
+
+  /** A18 (T79) · The cwd the pane's shell last reported (OSC), or null. */
+  shellCwd(paneId: string): string | null {
+    return this.shellCwds.get(paneId)?.cwd ?? null
+  }
+
+  private trackBranch(paneId: string, cwd: string): void {
+    this.shellCwds.set(paneId, { scanner: new ShellCwdScanner(this.platform), cwd: null })
+    void this.branches.track(paneId, cwd).then(view => {
+      if (this.branches.isTracked(paneId)) this.emitBranchChanged({ paneId, ...view })
+    }).catch(() => undefined)
+  }
+
+  private async refreshBranch(paneId: string, cwd?: string): Promise<TerminalPaneBranch | null> {
+    const before = this.branches.get(paneId)
+    try {
+      const after = await this.branches.refresh(paneId, cwd)
+      if (after && !samePaneBranch(before, after)) this.emitBranchChanged({ paneId, ...after })
+      return after
+    } catch {
+      return before
+    }
+  }
+
+  private forgetBranch(paneId: string): void {
+    this.shellCwds.delete(paneId)
+    this.branches.forget(paneId)
+  }
+
   status(paneId: string): TerminalStatusResult {
+    if (this.branches.isTracked(paneId)) void this.refreshBranch(paneId)
     const session = this.sessions.get(paneId)
     const resumed = this.agentResumes.get(paneId)
     const agentResume = resumed ? { agentResume: resumed } : {}
@@ -772,6 +797,7 @@ export class TerminalManager {
     this.sessions.delete(input.paneId)
     this.notifyLaunchExit(input.paneId)
     this.observer?.exit(input.paneId)
+    this.forgetBranch(input.paneId)
     // An explicit stop is not a crash to be explained on return.
     this.exitedSessions.delete(input.paneId)
   }
@@ -783,7 +809,7 @@ export class TerminalManager {
     // A pane whose process exited by itself restarts as it last started; a pane that was stopped stays stopped.
     const session = this.sessions.get(input.paneId) ?? (this.takeExited(input.paneId) ? this.lastStarts.get(input.paneId) : undefined)
     if (!session) return
-    const { workspaceId, agentCommand, disableRtk, cols, rows, resumeAgent } = session
+    const { workspaceId, agentCommand, cols, rows, resumeAgent } = session
     // B17 · `resume: false` starts fresh and forgets the session, so a later crash does not bring it back. A fresh
     // Claude then gets a new session id of main's, recorded as the pane's session.
     let fresh: PaneAgentResume | undefined
@@ -794,7 +820,7 @@ export class TerminalManager {
     this.stop(input)
     // A fresh process gets a fresh ring: replaying the old shell's output over
     // the new one would show history that no longer belongs to it.
-    await this.start({ paneId: input.paneId, workspaceId, agentCommand, disableRtk, cols, rows, resumeAgent: fresh ? undefined : resumeAgent, resumeAgain: !fresh })
+    await this.start({ paneId: input.paneId, workspaceId, agentCommand, cols, rows, resumeAgent: fresh ? undefined : resumeAgent, resumeAgain: !fresh })
     if (fresh) this.agentResumes.set(input.paneId, fresh)
   }
 

@@ -1,7 +1,7 @@
 import type { AppDatabase } from '../../db'
 import type { DelegationSessionContext } from '../../../../shared/types/delegation'
 import type { ConversationThread, ThreadEvent } from '../../../../shared/types/thread'
-import { projectIdentity } from '../memory/memory-project.service'
+import { projectIdentity } from '../project-identity'
 import { ThreadHistory } from '../conversation/thread-history'
 import { readThreadTitle } from '../conversation/thread-title'
 

@@ -30,7 +30,9 @@ class LiveStreams(
     fun unfollow(stream: Followed) = synchronized(lock) { hub.unfollow(stream) }
 
     /** A session is ready: frames go out through [send] and every stream (re)subscribes. */
-    fun attach(send: (RemoteFrame) -> Unit) = synchronized(lock) {
+    // 1.5.0 F10 skeleton (A45): [features] is the session hello's list, passed to the hub; MOB-A45 wires it.
+    @Suppress("UNUSED_PARAMETER")
+    fun attach(features: Set<String> = emptySet(), send: (RemoteFrame) -> Unit) = synchronized(lock) {
         transport = send
         hub.onConnected()
     }

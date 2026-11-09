@@ -5,7 +5,8 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { promisify } from 'node:util'
 import type { MemoryContext, MemorySession, MemorySettings } from '../../../../shared/types/memory'
-import { MemoryRuntime, memoryEnvironment, readJson, writePrivateJson } from './memory-runtime'
+import { MemoryRuntime, memoryEnvironment } from './memory-runtime'
+import { readJson, writePrivateJson } from '../private-json'
 
 const exec = promisify(execFile)
 const adapters = [

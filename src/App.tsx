@@ -45,9 +45,7 @@ const SlashOverlay = lazy(() => import('./components/SlashOverlay/SlashOverlay')
 const CommandMenu = lazy(() => Promise.all([import('./components/CommandMenu/CommandMenu'), loadCommandContributors()]).then(([m]) => ({ default: m.CommandMenu })))
 const UsageModal = lazy(() => import('./components/Usage/UsageModal').then(m => ({ default: m.UsageModal })))
 const McpPanel = lazy(() => import('./components/MCP/McpPanel').then((m) => ({ default: m.McpPanel })))
-const LinearPanel = lazy(() => import('./components/Linear/LinearPanel').then((m) => ({ default: m.LinearPanel })))
 const SemanticActivityPanel = lazy(() => import('./components/Semantic/SemanticActivityPanel').then((m) => ({ default: m.SemanticActivityPanel })))
-const SkillsBrowser = lazy(() => import('./components/Skills/SkillsBrowser').then((m) => ({ default: m.SkillsBrowser })))
 import { useBackgroundStore } from './store/background.store'
 import { useMcpStore } from './store/mcp.store'
 import { useSkillStore } from './store/skill.store'
@@ -171,8 +169,6 @@ export function App(): ReactElement {
     isWorkspaceSettingsOpen,
     slashOverlayPaneId,
     isMcpPanelOpen,
-    isLinearPanelOpen,
-    isSkillsBrowserOpen,
     isScriptsPanelOpen,
     webPreviewOpenByWorkspace,
     isIntegrationPanelOpen,
@@ -180,10 +176,6 @@ export function App(): ReactElement {
     closeSlashOverlay,
     openMcpPanel,
     closeMcpPanel,
-    openLinearPanel,
-    closeLinearPanel,
-    openSkillsBrowser,
-    closeSkillsBrowser,
     openScriptsPanel,
     closeScriptsPanel,
     isSearchPanelOpen,
@@ -215,8 +207,6 @@ export function App(): ReactElement {
     isWorkspaceSettingsOpen: state.isWorkspaceSettingsOpen,
     slashOverlayPaneId: state.slashOverlayPaneId,
     isMcpPanelOpen: state.isMcpPanelOpen,
-    isLinearPanelOpen: state.isLinearPanelOpen,
-    isSkillsBrowserOpen: state.isSkillsBrowserOpen,
     isScriptsPanelOpen: state.isScriptsPanelOpen,
     webPreviewOpenByWorkspace: state.webPreviewOpenByWorkspace,
     isIntegrationPanelOpen: state.isIntegrationPanelOpen,
@@ -224,10 +214,6 @@ export function App(): ReactElement {
     closeSlashOverlay: state.closeSlashOverlay,
     openMcpPanel: state.openMcpPanel,
     closeMcpPanel: state.closeMcpPanel,
-    openLinearPanel: state.openLinearPanel,
-    closeLinearPanel: state.closeLinearPanel,
-    openSkillsBrowser: state.openSkillsBrowser,
-    closeSkillsBrowser: state.closeSkillsBrowser,
     openScriptsPanel: state.openScriptsPanel,
     closeScriptsPanel: state.closeScriptsPanel,
     isSearchPanelOpen: state.isSearchPanelOpen,
@@ -674,7 +660,7 @@ export function App(): ReactElement {
 
   const toolHandlers: Partial<Record<ToolId, () => void>> = {
     integration: openIntegrationPanel, github: toggleGitHubPanel, worktrees: toggleWorktreePanel, scripts: toggleScriptsPanel, search: toggleSearchPanel,
-    'web-preview': toggleWebPreviewPanel, background: toggleBackgroundPanel, mcp: openMcpPanel, skills: openSkillsBrowser, semantic: () => setSemanticActivityOpen(true),
+    'web-preview': toggleWebPreviewPanel, background: toggleBackgroundPanel, mcp: openMcpPanel, semantic: () => setSemanticActivityOpen(true),
     editor: toggleEditor, review: toggleReviewPanel, team: team.open, slash: () => { if (activePane) openSlashOverlay(activePane.id) }
   }
 
@@ -921,42 +907,11 @@ export function App(): ReactElement {
           onExecute={dispatchSlashCommand}
         />
       ) : null}
-      {isLinearPanelOpen ? (
-        <Suspense fallback={null}>
-          <LinearPanel
-            workspaceId={activeWorkspace?.id ?? null}
-            rootPath={activeWorkspace?.rootPath ?? null}
-            onClose={closeLinearPanel}
-          />
-        </Suspense>
-      ) : null}
       {isMcpPanelOpen ? (
         <McpPanel
           workspaceId={applicationView === 'thread' ? threadSnapshot?.thread.workspaceId ?? null : activeWorkspace?.id ?? null}
           conversationServers={applicationView === 'thread' ? threadSnapshot?.thread.mcpServers?.servers : undefined}
           onClose={closeMcpPanel}
-        />
-      ) : null}
-      {isSkillsBrowserOpen ? (
-        <SkillsBrowser
-          workspaceId={activeWorkspace?.id ?? null}
-          workspaceRootPath={activeWorkspace?.rootPath ?? null}
-          activePaneId={activePane?.type === 'terminal' ? activePane.id : null}
-          onOpenEditor={(relativePath) => {
-            if (!activeWorkspace) return
-            void updateEditorState({
-              workspaceId: activeWorkspace.id,
-              editorVisible: true,
-              editorExpanded: false,
-              editorWidthPercent: activeWorkspace.editorWidthPercent ?? 40
-            })
-            void useEditorStore.getState().openFile({
-              workspaceId: activeWorkspace.id,
-              rootPath: activeWorkspace.rootPath,
-              relativePath
-            })
-          }}
-          onClose={closeSkillsBrowser}
         />
       ) : null}
       {/* Workspace settings asked for from another view (the palette shows Code first) mount once Code is shown, so they

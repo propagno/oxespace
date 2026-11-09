@@ -2,14 +2,13 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { scanSurface } from './helpers/a11y'
-import { runPaletteCommand } from './helpers/panels'
 
 /**
  * Skill headers are read as YAML by the real main process: a block list of agents and a folded description
  * load, and a skill whose header is not valid YAML (an unquoted colon) still loads the way it always did.
+ * R12 took the Skills dialog out of the renderer; the list the main process returns is what is checked.
  */
-test('skills with YAML headers load in the Skills dialog', async () => {
+test('skills with YAML headers load in the main process', async () => {
   test.setTimeout(120_000)
   const root = mkdtempSync(join(tmpdir(), 'oxe-skills-e2e-'))
   const home = join(root, 'home')
@@ -36,14 +35,6 @@ test('skills with YAML headers load in the Skills dialog', async () => {
       { name: 'ship-it', description: 'Build the release and publish it.', agents: ['claude', 'codex'], category: 'release' },
       { name: 'legacy-note', description: 'use for: quick notes', agents: ['claude'], category: undefined }
     ]))
-
-    await runPaletteCommand(page, 'Skills')
-    const dialog = page.getByRole('dialog', { name: 'Skills' })
-    await expect(dialog).toBeVisible()
-    await expect(dialog.getByText('/ship-it', { exact: true })).toBeVisible()
-    await expect(dialog.getByText('/legacy-note', { exact: true })).toBeVisible()
-    const violations = await scanSurface(page, 'skills', { exclude: ['.ws-group-header'] })
-    expect(violations.filter(item => item.impact === 'critical' || item.impact === 'serious'), JSON.stringify(violations, null, 2)).toEqual([])
   } finally {
     await app.close()
   }

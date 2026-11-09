@@ -24,4 +24,5 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.okhttp.tls)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

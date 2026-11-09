@@ -25,7 +25,7 @@ const rememberFirewallExplained = (): void => { try { localStorage.setItem(FIREW
 const COMMAND_KEYS = {
   'thread.send': 'threadSend', 'thread.steer': 'threadSteer', 'thread.interrupt': 'threadInterrupt',
   'thread.respondRequest': 'threadRespondRequest', 'terminal.write': 'terminalWrite', 'thread.history': 'threadHistory',
-  'agent.markSeen': 'agentMarkSeen'
+  'agent.markSeen': 'agentMarkSeen', 'pane.conversation': 'paneConversation'
 } as const satisfies Record<RemoteCommand, string>
 const FORBIDDEN_KEYS = {
   'oxequery.approve': 'oxequeryApprove', 'mcp.confirm': 'mcpConfirm', 'mcp.trust': 'mcpTrust', 'accounts.signIn': 'accountsSignIn',

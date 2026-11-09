@@ -24,10 +24,10 @@ policy (`tool.use` rules of the policy store) applies by tool name to every tool
 
 | Covered | Excluded | Planned | Forbidden | Total |
 |---|---|---|---|---|
-| 37 | 30 | 2 | 20 | 89 |
+| 36 | 31 | 2 | 20 | 89 |
 
-The registry has 89 tools: 66 single-purpose tools and 23 domain tools with 88 actions, so the
-manifest declares 154 tool-or-action entries.
+The registry has 82 tools: 59 single-purpose tools and 23 domain tools with 88 actions, so the
+manifest declares 147 tool-or-action entries.
 
 ## Forbidden, never a tool
 
@@ -42,7 +42,6 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `code.resume_bypass` | `terminal.resumeBypass`, `terminal.setResumeBypass` (T54: whether a Claude session that skipped permissions resumes that way; only the person turns it on, in Settings › Terminal) |
 | `git.repo_hook_approval` | `github.getRepoConfig`, `github.approveRepoHook` |
 | `accounts.sign_in` | `agentAccount.*` |
-| `linear.token` | `linear.setApiKey`, `linear.clearApiKey` |
 | `mcp_internal.token` | `mcpInternal.regenerateToken` |
 | `oxequery.secrets` | OxeQuery connection credentials, SSH host keys, connection export/import |
 | `mcp.server_trust` | `mcp.create`, `update`, `delete`, `discover`, `importDiscovered`, `openSignIn` |
@@ -117,12 +116,13 @@ before. Code panes receive the whole registry.
 | `code.agent_seen` | Mark an agent's finished turn as seen | Excluded: An attention marker of the person's window. |
 | `code.terminal_output` | Read a pane's output | **read**: `oxespace_terminal#output` |
 | `code.terminal_input` | Start, type into, resize or stop a terminal | Excluded: Free key input into another terminal. Agents prompt agents with oxespace_agents_change prompt, which refuses one waiting for an approval. |
+| `code.pane_branch` | A pane's branch and the branch it started on (switched from) | Excluded: The person's pane header. Agents read the branch with oxespace_git branch. |
 | `code.agent_profiles` | Agent profiles an agent can delegate to | **read**: `oxespace_list_agents` |
 | `code.agent_profiles_admin` | Create, edit, delete or discover agent profiles | Excluded: A profile chooses an executable and arguments that run on this machine; the person edits it. |
 | `code.scripts` | Project scripts | **read**: `oxespace_list_scripts`<br>**write**: `oxespace_run_script` |
 | `code.background_jobs` | Background jobs | **read**: `oxespace_list_background_jobs`, `oxespace_get_job_output`<br>**write**: `oxespace_stop_background_job` |
 | `code.background_cleanup` | Remove a finished job from the list | Excluded: Tidies the person's list; nothing for an agent to gain. |
-| `code.worktrees` | Git worktrees | **read**: `oxespace_list_worktrees`<br>**write**: `oxespace_create_worktree`, `oxespace_workspace_change#worktree_for_linear_issue`<br>**confirm**: `oxespace_remove_worktree` |
+| `code.worktrees` | Git worktrees | **read**: `oxespace_list_worktrees`<br>**write**: `oxespace_create_worktree`<br>**confirm**: `oxespace_remove_worktree` |
 | `code.worktree_cleanup` | Bulk worktree cleanup | Excluded: Deletes many worktrees at once. Agents remove one at a time, approved by a person. |
 | `code.tasks` | Task board | **read**: `oxespace_tasks#list`, `oxespace_tasks#ready`, `oxespace_tasks#executions`<br>**write**: `oxespace_tasks_change#create`, `oxespace_tasks_change#update`, `oxespace_tasks_change#reorder`, `oxespace_tasks_change#add_dependency`, `oxespace_tasks_change#remove_dependency`<br>**confirm**: `oxespace_tasks_change#verify`, `oxespace_tasks_change#delete` |
 | `code.task_run` | Start a task in an agent's terminal | Excluded: Types the task into another agent's terminal. |
@@ -141,6 +141,7 @@ before. Code panes receive the whole registry.
 | `github.read` | Pull requests, CI runs and logs, commits, releases | **read**: `oxespace_github#status`, `oxespace_github#branches`, `oxespace_github#pull_requests`, `oxespace_github#pull_request_status`, `oxespace_github#commits`, `oxespace_github#commit`, `oxespace_github#releases`, `oxespace_github#workflows`, `oxespace_github#runs`, `oxespace_github#run`, `oxespace_github#run_logs` |
 | `github.change` | Open pull requests, auto-merge, releases, run workflows | **confirm**: `oxespace_github_change#create_pull_request`, `oxespace_github_change#set_auto_merge`, `oxespace_github_change#create_release`, `oxespace_github_change#run_workflow`, `oxespace_github_change#rerun` |
 | `github.connected_repositories` | Connect a GitHub repository to a workspace | Excluded: An account-level link the person makes and confirms in the GitHub panel. |
+| `code.pull_request` | The Pull request tab: a branch's pull request on GitHub or Azure DevOps | Excluded: The person's window. Agents read pull requests with oxespace_github. |
 | `search.text` | Exact text search and the file list | **read**: `oxespace_search#text`, `oxespace_search#files` |
 | `search.code` | Semantic, structural and hybrid code retrieval; post-diff quality check | **read**: `oxespace_semantic_search`, `oxespace_hybrid_explore`, `oxespace_quality_check`, `oxespace_code_search`, `oxespace_code_callers`, `oxespace_code_callees`, `oxespace_code_impact`, `oxespace_code_node`, `oxespace_code_status`, `oxespace_settings#semantic`<br>**write**: `oxespace_workspace_change#reindex` |
 | `search.semantic_admin` | Turn semantic search on or off; download, import or remove the vector model | Excluded: Changes disk use and what is indexed; the person decides in Settings. |
@@ -161,7 +162,6 @@ before. Code panes receive the whole registry.
 | `work.plans` | Work plans: plan, status, result, message, cancel | **read**: `oxespace_work_status`, `oxespace_work_result`<br>**write**: `oxespace_work_plan`, `oxespace_work_message`, `oxespace_work_cancel` |
 | `memory.use` | Project memory: search, remember, sessions, handoffs | **read**: `oxespace_memory_search`, `oxespace_memory_sessions`, `oxespace_memory_handoffs`, `oxespace_memory_diagnostics`<br>**write**: `oxespace_memory_remember`, `oxespace_memory_accept_handoff` |
 | `memory.admin` | Install, configure or roll back memory; wire it into agents | Excluded: Memory is the person's opt-in. |
-| `documentation.use` | Documentation captures and exports | **read**: `oxespace_documentation_list`, `oxespace_documentation_get`<br>**write**: `oxespace_documentation_create`, `oxespace_documentation_checkpoint`, `oxespace_documentation_capture`, `oxespace_documentation_image`, `oxespace_documentation_export` |
 | `oxequery.read` | Connections, schemas, read queries, plans, activity | **read**: `oxespace_db_connections`, `oxespace_db_describe`, `oxespace_db_explain`, `oxespace_db_activity`<br>**confirm**: `oxespace_db_query`, `oxespace_mongo_find`, `oxespace_mongo_aggregate` |
 | `oxequery.write` | Change data or schema | **confirm**: `oxespace_db_execute`, `oxespace_mongo_write` |
 | `oxequery.saved_queries` | Saved queries, history, import and export of data | Excluded: The person's notebook and bulk data moves; agents run one approved statement at a time. |
@@ -170,12 +170,9 @@ before. Code panes receive the whole registry.
 | `containers.resources` | Images, volumes, networks, compose, exec and shell, stats, database containers | Planned (P7): OxePod shows them to the person; tools for them come with P7. Removing a container and cleaning up are the person's confirmed actions in OxePod and are not tools. A container's environment reaches the page redacted and never an agent. |
 | `skills.use` | Skills: list, read, add | **read**: `oxespace_skills#list`, `oxespace_skills#get`<br>**confirm**: `oxespace_skills_change#create` |
 | `skills.invoke` | Invoke a skill in a pane | Excluded: Types the skill into a terminal. Agents read its body with oxespace_skills get. |
-| `automations.use` | Scheduled automations | **read**: `oxespace_automations#list`, `oxespace_automations#runs`<br>**write**: `oxespace_automations_change#disable`<br>**confirm**: `oxespace_automations_change#create`, `oxespace_automations_change#enable`, `oxespace_automations_change#run_now`, `oxespace_automations_change#remove` |
 | `mcp.servers` | MCP servers: list, health, start, stop | **read**: `oxespace_mcp_servers#list`<br>**write**: `oxespace_mcp_servers_change#stop`<br>**confirm**: `oxespace_mcp_servers_change#start` |
 | `mcp.server_trust` | Add, edit, import, trust (also again after a quarantine) or sign in to MCP servers | **Forbidden**: MCP server trust, including trusting a quarantined server again; commands, environment and headers carry secrets. An agent can only read that a server is quarantined (oxespace_mcp_servers#list). |
 | `mcp.call_tool` | Call another server's tool from the app | Excluded: Agents reach those servers through their own MCP client, as the person trusted them. |
-| `linear.read` | Linear issues | **read**: `oxespace_linear#status`, `oxespace_linear#teams`, `oxespace_linear#issues`, `oxespace_linear#issue` |
-| `linear.token` | Linear API key | **Forbidden**: A token. |
 | `usage.read` | Context window and plan allowance | **read**: `oxespace_usage#context`, `oxespace_usage#credits` |
 | `usage.copilot` | GitHub Copilot allowance | Excluded: No agent OXESpace starts runs on Copilot; the panel is for Copilot panes. |
 | `settings.policy` | Organization policy in force | **read**: `oxespace_settings#policy` |
@@ -188,6 +185,7 @@ before. Code panes receive the whole registry.
 | `remote.devices_read` | Remote gateway status and paired phones | Excluded: The person's devices, shown in Settings › Devices; agents have no use for them. |
 | `remote.gateway_admin` | Turn the remote gateway on or off, pair, answer, revoke or rename a phone, name the desktop, let a phone type into a pane | **Forbidden**: Opens a network surface and grants device access. |
 | `mcp.tool_rules_admin` | Choose, per MCP tool, to run it without asking, ask, or block it | **Forbidden**: Approvals and access stay with the person. |
+| `settings.data_export` | The one-time export of the features removed in 1.5, its notice, and opening the file | Excluded: The person's own data, saved once for them; opening the file or exporting again is theirs. |
 | `settings.agent_audit` | Audit of agent actions; internal MCP status | Excluded: The person's review of what agents did. OxeQuery's trail is oxespace_db_activity. |
 | `mcp_internal.token` | Regenerate the internal MCP token | **Forbidden**: A token. |
 | `accounts.sign_in` | Sign in or out of Claude, Codex and other accounts | **Forbidden**: Sign-in and tokens. |

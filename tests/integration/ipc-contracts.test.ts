@@ -15,19 +15,26 @@ import {
 } from '../../electron/main/ipc/validation'
 
 describe('ipc contracts', () => {
-  test('uses stable app update and rtk channel names', () => {
+  test('uses stable app update and semantic channel names', () => {
     expect(IPC_CHANNELS.app.getUpdateState).toBe('app:get-update-state')
     expect(IPC_CHANNELS.app.checkForUpdates).toBe('app:check-for-updates')
     expect(IPC_CHANNELS.app.quitAndInstall).toBe('app:quit-and-install')
     expect(IPC_CHANNELS.app.onUpdateState).toBe('app:update-state')
-    expect(IPC_CHANNELS.rtk.getStatus).toBe('rtk:get-status')
-    expect(IPC_CHANNELS.rtk.checkForUpdate).toBe('rtk:check-for-update')
-    expect(IPC_CHANNELS.rtk.updateToLatest).toBe('rtk:update-to-latest')
     expect(IPC_CHANNELS.semantic.getStatus).toBe('semantic:get-status')
     expect(IPC_CHANNELS.semantic.setEnabled).toBe('semantic:set-enabled')
     expect(IPC_CHANNELS.semantic.setMode).toBe('semantic:set-mode')
     expect(IPC_CHANNELS.semantic.reindex).toBe('semantic:reindex')
     expect(IPC_CHANNELS.semantic.getLogs).toBe('semantic:get-logs')
+  })
+
+  test('R0b: uses stable data export channel names', () => {
+    expect(IPC_CHANNELS.dataExport).toEqual({
+      state: 'data-export:state',
+      markNoticeShown: 'data-export:mark-notice-shown',
+      exportAgain: 'data-export:export-again',
+      open: 'data-export:open',
+      reveal: 'data-export:reveal'
+    })
   })
 
   test('uses stable 1.4 contract channel names', () => {

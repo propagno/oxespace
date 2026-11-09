@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { MainMessage } from '../shared/messages'
 import { changeLanguage } from '../src/i18n'
 import { WorktreeCreationNotices, worktreeNoticeIntent, worktreeNoticesIntent } from '../src/components/Worktree/WorktreeCreationNotices'
-import { useLinearStore } from '../src/store/linear.store'
 
 /** CCR (B19 FINDING L): createWorktree's C3 notices are worded by the window, where the worktree is created. */
 
@@ -54,28 +53,5 @@ describe('WorktreeCreationNotices', () => {
   it('shows nothing without notices', () => {
     const { container } = render(<WorktreeCreationNotices notices={[]} onDismiss={() => {}} />)
     expect(container.innerHTML).toBe('')
-  })
-})
-
-describe('Linear: a worktree from an issue', () => {
-  const stub = (result: unknown) => {
-    ;(window as unknown as { oxe: unknown }).oxe = { linear: { createWorktreeFromIssue: vi.fn(async () => result) } }
-  }
-
-  it('keeps the C3 notices, not main\'s English text', async () => {
-    stub({ ok: true, message: 'Worktree created at /repo-wt.', branch: 'b', worktreePath: '/repo-wt', messageCode: created, notices: [created, copied] })
-    await useLinearStore.getState().createWorktree({ workspaceId: 'w', rootPath: '/repo', issueId: 'i' })
-    expect(useLinearStore.getState()).toMatchObject({ worktreeNotices: [created, copied], notice: null })
-    useLinearStore.getState().clearNotice()
-    expect(useLinearStore.getState().worktreeNotices).toBeNull()
-  })
-
-  it('falls back to the code alone, then to the text from a main without codes', async () => {
-    stub({ ok: true, message: 'Worktree created.', branch: 'b', worktreePath: '/repo-wt', messageCode: created })
-    await useLinearStore.getState().createWorktree({ workspaceId: 'w', rootPath: '/repo', issueId: 'i' })
-    expect(useLinearStore.getState().worktreeNotices).toEqual([created])
-    stub({ ok: true, message: 'Worktree created.', branch: 'b', worktreePath: '/repo-wt' })
-    await useLinearStore.getState().createWorktree({ workspaceId: 'w', rootPath: '/repo', issueId: 'i' })
-    expect(useLinearStore.getState()).toMatchObject({ worktreeNotices: null, notice: 'Worktree created.' })
   })
 })

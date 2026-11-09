@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  1.5.0 F10 API skeleton: strings the frozen tests reference before the app uses them. Each MOB-* task that puts its
+  string on screen removes it from this list, and the file goes with the last one.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@string/composer_steer_finished_before,@string/live_delegation_state_unknown,@string/terminal_hidden_on_desktop,@string/terminal_hidden_back,@string/request_no_undo,@string/live_tabs_agents,@string/live_agents_chip_all,@string/live_agents_chip_needs_you,@string/live_agents_chip_working,@string/live_agents_chip_failed,@string/live_agents_chip_finished,@string/terminal_pan_hint,@string/terminal_fit_width,@string/composer_queued_placeholder,@string/composer_read_after_step,@string/composer_queued_line,@string/terminal_type_on_screen" />

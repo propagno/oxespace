@@ -78,7 +78,8 @@
       "threads": "Conversas",
       "requests": "Pedidos",
       "terminals": "Terminais",
-      "tasks": "Tarefas"
+      "tasks": "Tarefas",
+      "agents": "Agentes"
     },
     "requestsBadge_one": "{{count}} pedido esperando",
     "requestsBadge_other": "{{count}} pedidos esperando",
@@ -125,6 +126,16 @@
       "minutes": "há {{minutes}} min",
       "hours": "há {{hours}} h",
       "days": "há {{days}} d"
+    },
+    "delegationState": {
+      "unknown": "Não confirmado"
+    },
+    "agentsChip": {
+      "all": "Todos",
+      "needsYou": "Precisa de você",
+      "working": "Trabalhando",
+      "failed": "Falhou",
+      "finished": "Concluído"
     }
   },
   "thread": {
@@ -259,7 +270,12 @@
     "pasteLines_other": "Este texto tem {{count}} linhas, e cada uma roda como digitada. Enviar todas?",
     "pasteLines_many": "Este texto tem {{count}} linhas, e cada uma roda como digitada. Enviar todas?",
     "hiddenShown": "Caracteres ocultos foram mostrados no campo. Confira e envie de novo.",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "hiddenOnDesktop": "Este terminal foi ocultado do celular em {{computer}}.",
+    "hiddenBack": "Voltar aos terminais",
+    "panHint": "{{cols}} colunas · arraste para os lados",
+    "fitWidth": "Ajustar à largura",
+    "typeOnScreen": "Digite na visão Tela"
   },
   "approval": {
     "prompt": {
@@ -319,7 +335,8 @@
       "agent": "Pedido de um agente",
       "question": "Pergunta do agente",
       "permissions": "Pedido de permissão"
-    }
+    },
+    "noUndo": "Sem desfazer."
   },
   "action": {
     "offline": "Sem conexão com o computador. Nada foi enviado.",
@@ -330,7 +347,11 @@
   "composer": {
     "placeholder": "Mensagem para o agente",
     "send": "Enviar",
-    "steer": "Orientar"
+    "steer": "Orientar",
+    "steerFinishedBefore": "O agente terminou antes de a sua instrução chegar. Nada foi enviado.",
+    "queuedPlaceholder": "Na fila até o passo atual terminar",
+    "readAfterStep": "lida depois do passo atual",
+    "queuedLine": "na fila"
   },
   "terminalInput": {
     "placeholder": "Digite neste terminal",

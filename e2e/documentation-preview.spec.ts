@@ -4,7 +4,7 @@ import { createServer } from 'node:http'
 import { existsSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { PreviewAutomation, PreviewRequest, ScreenshotOptions } from '../electron/main/services/documentation/preview-automation'
+import type { PreviewAutomation, PreviewRequest, ScreenshotOptions } from '../electron/main/services/browser-preview/preview-automation'
 import { togglePanel } from './helpers/panels'
 
 test('documentation uses the real guest, confirms actions and masks capture inputs', async () => {

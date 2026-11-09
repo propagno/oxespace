@@ -77,7 +77,8 @@
       "threads": "Conversations",
       "requests": "Requests",
       "terminals": "Terminals",
-      "tasks": "Tasks"
+      "tasks": "Tasks",
+      "agents": "Agents"
     },
     "requestsBadge_one": "{{count}} request waiting",
     "requestsBadge_other": "{{count}} requests waiting",
@@ -122,6 +123,16 @@
       "minutes": "{{minutes}} min ago",
       "hours": "{{hours}} h ago",
       "days": "{{days}} d ago"
+    },
+    "delegationState": {
+      "unknown": "Not confirmed"
+    },
+    "agentsChip": {
+      "all": "All",
+      "needsYou": "Needs you",
+      "working": "Working",
+      "failed": "Failed",
+      "finished": "Finished"
     }
   },
   "thread": {
@@ -246,7 +257,12 @@
     "pasteLines_one": "This text has {{count}} line. Send it?",
     "pasteLines_other": "This text has {{count}} lines, and each runs as typed. Send them all?",
     "hiddenShown": "Hidden characters are now shown in the field. Check it and send again.",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "hiddenOnDesktop": "This terminal was hidden from the phone on {{computer}}.",
+    "hiddenBack": "Back to terminals",
+    "panHint": "{{cols}} cols · swipe to pan",
+    "fitWidth": "Fit the width",
+    "typeOnScreen": "Type on the Screen view"
   },
   "approval": {
     "prompt": {
@@ -306,7 +322,8 @@
       "agent": "Request from an agent",
       "question": "The agent's question",
       "permissions": "Permission request"
-    }
+    },
+    "noUndo": "No undo."
   },
   "action": {
     "offline": "Not connected to your computer. Nothing was sent.",
@@ -317,7 +334,11 @@
   "composer": {
     "placeholder": "Message the agent",
     "send": "Send",
-    "steer": "Steer"
+    "steer": "Steer",
+    "steerFinishedBefore": "The agent finished before your instruction arrived. Nothing was sent.",
+    "queuedPlaceholder": "Queued until the current step ends",
+    "readAfterStep": "read after the current step",
+    "queuedLine": "queued"
   },
   "terminalInput": {
     "placeholder": "Type in this terminal",

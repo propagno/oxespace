@@ -1,4 +1,4 @@
-import { Activity, Columns2, FilePlus2, Grid2x2, LayoutDashboard, ListTodo, Maximize, Palette, RotateCw, Sliders, Split, StopCircle } from 'lucide-react'
+import { Activity, Columns2, FilePlus2, Grid2x2, LayoutDashboard, Maximize, Palette, RotateCw, Sliders, Split, StopCircle } from 'lucide-react'
 import type { Workspace, WorkspacePane } from '../../shared/types/workspace'
 import { TOOL_CATALOG, type ToolId } from '../components/Workspace/toolCatalog'
 import { LAYOUT_PRESETS, WORKSPACE_DENSITIES } from '../components/Workspace/workspaceOptions'
@@ -33,7 +33,7 @@ export interface CodeCommandContext {
 /** The palette group of each workspace tool (docs/design/commands.md). */
 const TOOL_CATEGORY: Record<ToolId, CommandCategory> = {
   team: 'Agents', integration: 'Workspace', github: 'Git', worktrees: 'Git', scripts: 'View', search: 'View', 'web-preview': 'View', background: 'View',
-  slash: 'Terminal', mcp: 'Agents', skills: 'Agents', semantic: 'Agents', editor: 'View', review: 'View'
+  slash: 'Terminal', mcp: 'Agents', semantic: 'Agents', editor: 'View', review: 'View'
 }
 
 const updateSettings = (input: Parameters<ReturnType<typeof useWorkspaceStore.getState>['updateSettings']>[0]): void => {
@@ -70,11 +70,10 @@ export function buildCodeCommands(ctx: CodeCommandContext): ContributedCommand[]
       detail: tool.id === 'team' && !ctx.hasTeamTarget && ctx.teamUnavailable ? ctx.teamUnavailable : tool.detail,
       icon: tool.icon,
       shortcut: tool.keybinding,
-      disabled: tool.id === 'team' ? !ctx.hasTeamTarget : tool.id === 'slash' ? !activePane : !['mcp', 'skills', 'semantic'].includes(tool.id) && !activeWorkspace,
+      disabled: tool.id === 'team' ? !ctx.hasTeamTarget : tool.id === 'slash' ? !activePane : !['mcp', 'semantic'].includes(tool.id) && !activeWorkspace,
       run: toolRun(tool.id)
     })),
 
-    { id: 'open-linear', ...text('Workspace', 'open-linear', { keywords: ['linear', 'issue', 'ticket', 'board', 'worktree'] }), detail: tCommand('code.linearDetail'), icon: ListTodo, run: ui.openLinearPanel },
     { id: 'open-usage', ...text('Agents', 'open-usage', { keywords: ['usage', 'quota', 'credits', 'rate', 'limit', 'tokens'] }), detail: tCommand('code.usageDetail'), icon: Activity, run: () => useUIStore.getState().openUsage() },
     { id: 'design-system', ...text('View', 'design-system'), detail: tCommand('code.designSystemDetail'), icon: Palette, run: ctx.openDesignSystem },
 
