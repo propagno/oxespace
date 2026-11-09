@@ -151,17 +151,6 @@
     <string name="pairing_verification_description">Código de verificação %1$s</string>
     <string name="pairing_waiting_body">%1$s está perguntando se pode parear com este celular. Aceite só se aparecer este código:</string>
     <string name="pairing_waiting_title">Confirme no computador</string>
-    <string name="pane_conversation_caption">Conversa do %1$s · somente leitura</string>
-    <string name="pane_conversation_conversation">Conversa</string>
-    <string name="pane_conversation_latest">%1$s novas · Mais recentes ↓</string>
-    <string name="pane_conversation_latest_no_count">Mais recentes ↓</string>
-    <string name="pane_conversation_live">Ao vivo</string>
-    <string name="pane_conversation_load_earlier">Carregar anteriores</string>
-    <string name="pane_conversation_new_session">O agente começou uma nova conversa</string>
-    <string name="pane_conversation_screen">Tela</string>
-    <string name="pane_conversation_show_screen">Mostrar a tela</string>
-    <string name="pane_conversation_type_on_screen">Digite na visão Tela</string>
-    <string name="pane_conversation_unavailable">A conversa deste terminal não está mais disponível. A tela continua ao vivo.</string>
     <string name="presence_confirm">Confirmar que sou eu</string>
     <string name="presence_locked">Confirme que é você antes de digitar neste terminal.</string>
     <string name="presence_no_screen_lock">Defina um bloqueio de tela neste celular para enviar por ele. Nada foi enviado.</string>
@@ -236,6 +225,7 @@
     <string name="terminal_size_medium">Médio</string>
     <string name="terminal_size_small">Pequeno</string>
     <string name="terminal_text_size">Tamanho do texto</string>
+    <string name="terminal_type_on_screen">Digite na visão Tela</string>
     <string name="terminal_input_not_shared">A digitação pelo celular está desligada neste terminal. No computador, ligue “Permitir digitar pelo celular” no menu ⋯ do terminal.</string>
     <string name="terminal_input_placeholder">Digite neste terminal</string>
     <string name="terminal_input_send">Enviar</string>

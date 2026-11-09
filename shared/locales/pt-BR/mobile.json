@@ -274,7 +274,8 @@
     "hiddenOnDesktop": "Este terminal foi ocultado do celular em {{computer}}.",
     "hiddenBack": "Voltar aos terminais",
     "panHint": "{{cols}} colunas · arraste para os lados",
-    "fitWidth": "Ajustar à largura"
+    "fitWidth": "Ajustar à largura",
+    "typeOnScreen": "Digite na visão Tela"
   },
   "approval": {
     "prompt": {
@@ -390,18 +391,5 @@
     "allow": "Permitir acesso à rede local",
     "denied": "O acesso à rede local está desligado para o OXESpace, então o Android bloqueia toda conexão com o computador. Ligue \"Acesso à rede local\" para o OXESpace nas configurações do app (Permissões) e volte.",
     "openSettings": "Abrir configurações do app"
-  },
-  "paneConversation": {
-    "screen": "Tela",
-    "conversation": "Conversa",
-    "caption": "Conversa do {{agent}} · somente leitura",
-    "live": "Ao vivo",
-    "typeOnScreen": "Digite na visão Tela",
-    "newSession": "O agente começou uma nova conversa",
-    "unavailable": "A conversa deste terminal não está mais disponível. A tela continua ao vivo.",
-    "showScreen": "Mostrar a tela",
-    "latest": "{{n}} novas · Mais recentes ↓",
-    "latestNoCount": "Mais recentes ↓",
-    "loadEarlier": "Carregar anteriores"
   }
 }

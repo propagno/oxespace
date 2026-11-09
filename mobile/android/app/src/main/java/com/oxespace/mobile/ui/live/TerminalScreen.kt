@@ -99,17 +99,7 @@ import kotlinx.coroutines.launch
 /** A pane's output, read-only, in the desktop's terminal colors; follows the newest line. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TerminalScreen(
-    pane: RemotePane,
-    watched: Watched<TerminalBuffer>,
-    commands: CommandApi,
-    presence: PresenceGate,
-    // 1.5.0 F10 UI skeleton, unused until their CR tasks: the pane agent's conversation (CR-A46) and the computer's
-    // name for the hidden-pane Notice (CR-CR34). Before onBack, so callers keep their trailing lambda.
-    @Suppress("UNUSED_PARAMETER") conversation: com.oxespace.mobile.protocol.live.PaneConversation? = null,
-    @Suppress("UNUSED_PARAMETER") desktopName: String? = null,
-    onBack: () -> Unit,
-) {
+fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands: CommandApi, presence: PresenceGate, onBack: () -> Unit) {
     SecureScreen()
     val tick by watched.changes.collectAsStateWithLifecycle()
     val colors = Oxe.colors

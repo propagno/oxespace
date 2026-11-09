@@ -148,17 +148,6 @@
     <string name="pairing_verification_description">Verification code %1$s</string>
     <string name="pairing_waiting_body">%1$s is asking whether to pair with this phone. Accept only if it shows this code:</string>
     <string name="pairing_waiting_title">Confirm on your computer</string>
-    <string name="pane_conversation_caption">%1$s’s conversation · read only</string>
-    <string name="pane_conversation_conversation">Conversation</string>
-    <string name="pane_conversation_latest">%1$s new · Latest ↓</string>
-    <string name="pane_conversation_latest_no_count">Latest ↓</string>
-    <string name="pane_conversation_live">Live</string>
-    <string name="pane_conversation_load_earlier">Load earlier</string>
-    <string name="pane_conversation_new_session">The agent started a new conversation</string>
-    <string name="pane_conversation_screen">Screen</string>
-    <string name="pane_conversation_show_screen">Show the screen</string>
-    <string name="pane_conversation_type_on_screen">Type on the Screen view</string>
-    <string name="pane_conversation_unavailable">This terminal’s conversation isn’t available any more. The screen is still live.</string>
     <string name="presence_confirm">Confirm it’s you</string>
     <string name="presence_locked">Confirm it’s you before typing into this terminal.</string>
     <string name="presence_no_screen_lock">Set a screen lock on this phone to send from it. Nothing was sent.</string>
@@ -231,6 +220,7 @@
     <string name="terminal_size_medium">Medium</string>
     <string name="terminal_size_small">Small</string>
     <string name="terminal_text_size">Text size</string>
+    <string name="terminal_type_on_screen">Type on the Screen view</string>
     <string name="terminal_input_not_shared">Typing from the phone is off for this terminal. On your computer, turn on “Allow typing from the phone” in the terminal’s ⋯ menu.</string>
     <string name="terminal_input_placeholder">Type in this terminal</string>
     <string name="terminal_input_send">Send</string>
