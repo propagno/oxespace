@@ -37,6 +37,7 @@ import { useUIStore } from '../../store/ui.store'
 import { CONVERSATION_MIN_WIDTH, REVIEW_MIN_WIDTH, useThreadWorkbenchStore, type ThreadPanel } from '../../store/thread-workbench.store'
 import { authText, ThreadMessageBody } from './ThreadMessageRow'
 import { ThreadHeader } from './ThreadHeader'
+import { ThreadTabStrip } from './ThreadTabStrip'
 import { useThreadShortcuts } from './useThreadShortcuts'
 import { ThreadFindBar } from './ThreadFindBar'
 import { ThreadAnnouncer } from './ThreadAnnouncer'
@@ -311,6 +312,8 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
       onExport={snapshot && api?.exportPortable ? () => void action(async () => { const path = await api.exportPortable!(snapshot.thread.id); if (path) setPanel({ kind: 'panel', title: t('view.exported'), text: path }) }) : undefined}
       onImport={snapshot && api?.importPortable ? () => { setPending(true); setError(''); void api.importPortable!(snapshot.thread.id).then(imported => { if (imported) useThreadStore.getState().adopt(imported) }).catch(cause => setError(humanizeError(cause, t('view.importFailed')))).finally(() => setPending(false)) } : undefined}
       onDelegate={() => setDelegationOpen(true)} sideChatOpen={sideChatOpen} onSideChat={toggleSideChat} onPin={() => { if (snapshot) void action(() => api!.pin(snapshot.thread.id, !snapshot.thread.pinned)) }} />
+    {snapshot && <ThreadTabStrip key={snapshot.thread.id} threadId={snapshot.thread.id} rootPath={threadWorkingRoot(snapshot.thread)} branch={branch?.branch ?? undefined}
+      onOpen={tab => { if (tab === 'changes') useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'changes' }) }} />}
     {finding && <ThreadFindBar rows={timelineRows} scrollRoot={timeline} scrollTo={scrollTo} onClose={() => { setFinding(false); requestAnimationFrame(() => textarea.current?.focus()) }} />}
     <div ref={timeline} className="thread-timeline" role="region" tabIndex={0} aria-label={t('view.history')} {...scroll.timelineProps}>
       <div ref={scroll.content} className="thread-reading-column">

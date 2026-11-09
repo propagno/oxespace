@@ -539,6 +539,16 @@
 .thread-terminal-dot[data-status='running'] { background: var(--dot-green); }
 .thread-terminal-dot[data-status='starting'] { background: var(--dot-yellow); }
 .thread-terminal-dot[data-status='error'] { background: var(--dot-red); }
+/* The conversation's tabs (U4.8) under the header, and the panel a Terminal or Pull request tab opens. */
+.thread-tabs { display: flex; flex: none; gap: 2px; padding: 0 12px; border-bottom: 1px solid var(--border-default); overflow-x: auto; scrollbar-width: none; }
+.thread-tabs [role='tab'] { display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: var(--nav-radius); color: var(--text-secondary); font-size: var(--fs-xs); white-space: nowrap; cursor: pointer; }
+.thread-tabs [role='tab']:hover { background: var(--nav-hover); color: var(--text-primary); }
+.thread-tabs [role='tab'][aria-selected='true'] { background: var(--fill-selected); color: var(--text-primary); }
+.thread-tab-panel { flex: none; max-height: 45%; overflow: auto; padding: 8px 12px; border-bottom: 1px solid var(--border-default); }
+.thread-terminal-group h3 { margin: 4px 0; font-size: var(--fs-xs); color: var(--text-secondary); }
+.thread-terminal-group ul { margin: 0 0 8px; padding: 0; list-style: none; }
+/* The collision chips (U4.5) sit in the header, in warning tone. */
+.collision-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; color: var(--intent-warning-fg); }
 .thread-project-terminal-content { flex: 1; min-height: 0; position: relative; }
 
 /* Permissions popover: sections, switch row and compact trigger badge. */

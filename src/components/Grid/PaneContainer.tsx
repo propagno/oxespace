@@ -10,7 +10,7 @@ import { derivePaneDisplayState, resolvePaneIdentity } from '../../utils/paneDis
 import { AgentSessionDetails, EnableResumeMenuItem, PaneHooksNotice, PaneResumeMarker, StartFreshMenuItem, usePaneResume } from '../AgentSessions/PaneResume'
 import { PaneContent } from '../Panes/PaneContent'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
-import { PaneBranchBadge } from '../Workspace/PaneBranchBadge'
+import { PaneBranchBadge } from '../Panes/PaneBranchBadge'
 import { Button, Dialog } from '../../ui'
 import paneMenu from './PaneMenu.module.css'
 import { paneMenuPlacement, statusBarFloor, type PaneMenuPlacement } from './paneMenuPlacement'
@@ -201,7 +201,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
           </span>
           {needsDecision && <span className="pane-decision-chip" title={display.attentionReason ? `${display.attentionReason} · ${statusText}` : statusText} data-testid="pane-decision-chip" aria-hidden="true">{display.statusLabel}</span>}
           <span className="pane-header-divider" aria-hidden="true">/</span>
-          {isTerminalPane && <PaneBranchBadge workspace={workspace} pane={pane} />}
+          {isTerminalPane && <PaneBranchBadge paneId={pane.id} />}
           {isTerminalPane && <PanePhoneHeaderMark paneId={pane.id} />}
           {isTerminalPane && resume && <PaneResumeMarker paneId={pane.id} outcome={resume} />}
           {renaming ? (

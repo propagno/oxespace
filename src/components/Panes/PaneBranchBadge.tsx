@@ -15,7 +15,16 @@ interface PaneBranchEvent extends PaneBranchState {
 
 interface PaneBranchBridge {
   branch?: (paneId: string) => Promise<PaneBranchState | null | undefined>
-  onBranchChanged?: (listener: (event: PaneBranchEvent) => void) => () => void
+  // The preload takes (paneId, listener) (shared/types/ipc.ts TerminalApi); BACKEND #704's contract named (listener).
+  onBranchChanged?: ((paneId: string, listener: (event: PaneBranchEvent) => void) => () => void)
+    | ((listener: (event: PaneBranchEvent) => void) => () => void)
+}
+
+function subscribe(api: PaneBranchBridge | undefined, paneId: string, listener: (event: PaneBranchEvent) => void): (() => void) | undefined {
+  const on = api?.onBranchChanged
+  if (!on) return undefined
+  if (on.length >= 2) return (on as (id: string, fn: (event: PaneBranchEvent) => void) => () => void)(paneId, listener)
+  return (on as (fn: (event: PaneBranchEvent) => void) => () => void)(listener)
 }
 
 function bridge(): PaneBranchBridge | undefined {
@@ -33,7 +42,7 @@ export function PaneBranchBadge(props: { paneId: string }): ReactElement | null 
     let alive = true
     setState(null)
     void api?.branch?.(paneId).then(value => { if (alive && value) setState(value) }, () => undefined)
-    const off = api?.onBranchChanged?.(event => {
+    const off = subscribe(api, paneId, event => {
       if (!alive || !event || event.paneId !== paneId) return
       setState({ branch: event.branch, startedOn: event.startedOn, switched: event.switched })
     })
