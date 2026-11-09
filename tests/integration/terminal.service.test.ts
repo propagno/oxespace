@@ -1,18 +1,14 @@
 import { randomUUID } from 'node:crypto'
 import { ThreadProjectService } from '../../electron/main/services/conversation/thread-projects'
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openInMemoryDatabase } from '../../electron/main/db/index'
 import { WorkspaceService } from '../../electron/main/services/workspace.service'
-import { RtkService } from '../../electron/main/services/rtk.service'
 import { __resetExecutableCacheForTests, TerminalManager, resolveExecutable } from '../../electron/main/services/terminal.service'
 import { removeTempDir } from '../helpers/removeTempDir'
 
-// Starting a terminal waits a few seconds for RTK, which the real service downloads from GitHub. No test here may
-// depend on the network or that wait: one that started two terminals hit its 5 s timeout on a slow Windows runner.
-beforeEach(() => { vi.spyOn(RtkService.prototype, 'ensureRtk').mockResolvedValue('/test/rtk/bin') })
 afterEach(() => { vi.restoreAllMocks() })
 
 describe('TerminalManager', () => {
@@ -25,7 +21,7 @@ describe('TerminalManager', () => {
       const project = await projects.add(root)
       const thread = { id: randomUUID(), workspaceId: `thread:${project.projectId}`, projectId: project.projectId, rootPath: projects.context(project.projectId).rootPath }
       db.prepare('INSERT INTO conversation_threads (id, workspace_id, thread_project_id, data_json) VALUES (?, ?, ?, ?)').run(thread.id, thread.workspaceId, thread.projectId, JSON.stringify(thread))
-      const input = { workspaceId: thread.workspaceId, paneId: `thread-shell:${thread.id}:1`, disableRtk: true }
+      const input = { workspaceId: thread.workspaceId, paneId: `thread-shell:${thread.id}:1` }
       await expect(manager.start({ ...input, workspaceId: 'other' })).rejects.toThrow('owner is unavailable')
       await expect(manager.start({ ...input, agentCommand: 'claude' })).rejects.toThrow('interactive shell')
       await manager.start(input)
@@ -46,7 +42,7 @@ describe('TerminalManager', () => {
     const manager = new TerminalManager(db, { pty, platform: 'linux', oxeQueryShell: paneId => registered.get(paneId),
       executionEnvironment: () => { throw Error('container shells must not receive workspace execution credentials') },
       prepareLaunch: async () => { throw Error('container shells must not run launch integrations') } })
-    const input = { workspaceId: 'oxequery', paneId: 'oxequery-shell:11111111-1111-4111-8111-111111111111', disableRtk: true }
+    const input = { workspaceId: 'oxequery', paneId: 'oxequery-shell:11111111-1111-4111-8111-111111111111' }
     try {
       await expect(manager.start({ ...input, agentCommand: 'rm -rf /' })).rejects.toThrow('registered command only')
       await expect(manager.start({ ...input, launch: { executable: 'sh', args: ['-c', 'id'] } })).rejects.toThrow('registered command only')
@@ -66,7 +62,7 @@ describe('TerminalManager', () => {
     const manager = new TerminalManager(db, { pty, platform: 'linux' })
     try {
       const id = '11111111-1111-4111-8111-111111111111'
-      await manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id, agentCommand: 'codex', agentArgs: ['resume', id, '--no-alt-screen'], disableRtk: true })
+      await manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id, agentCommand: 'codex', agentArgs: ['resume', id, '--no-alt-screen'] })
       expect(pty.spawn).toHaveBeenCalledWith('codex', ['resume', id, '--no-alt-screen'], expect.anything())
     } finally { manager.stopAll(); db.close() }
   })
@@ -77,7 +73,7 @@ describe('TerminalManager', () => {
       const pty = createFakePtyModule()
       const manager = new TerminalManager(db, { pty, platform })
       try {
-        await manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id, agentCommand: 'codex', disableRtk: true })
+        await manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id, agentCommand: 'codex' })
         expect((pty.spawn.mock.calls[0][2] as { useConptyDll?: boolean }).useConptyDll).toBe(expected)
       } finally { manager.stopAll(); db.close() }
     }
@@ -88,7 +84,7 @@ describe('TerminalManager', () => {
     const pty = createFakePtyModule()
     const manager = new TerminalManager(db, { pty, platform: 'linux', env: { PATH: '/bin', ELECTRON_RUN_AS_NODE: '1', electron_run_as_node: '1', KEEP: 'yes' } })
     try {
-      await manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id, agentCommand: 'my-agent', disableRtk: true })
+      await manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id, agentCommand: 'my-agent' })
       const env = (pty.spawn.mock.calls[0][2] as { env: Record<string, string> }).env
       expect(Object.keys(env).filter(key => key.toUpperCase() === 'ELECTRON_RUN_AS_NODE')).toEqual([])
       expect(env.KEEP).toBe('yes')
@@ -104,25 +100,23 @@ describe('TerminalManager', () => {
     pty.spawn.mockImplementationOnce(() => { throw new Error('ENOENT /home/person/bin/claude') })
     const manager = new TerminalManager(db, { pty, platform: 'linux' })
     try {
-      await expect(manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id, agentCommand: 'claude --model x', disableRtk: true })).rejects.toThrow('Unable to start agent')
+      await expect(manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id, agentCommand: 'claude --model x' })).rejects.toThrow('Unable to start agent')
       await vi.waitFor(() => expect(recorded).toEqual([['incident.agent.startFailed', incidentSubject('claude')]]))
     } finally { manager.stopAll(); db.close(); connectIncidentJournal(null) }
   })
   // The native session resume of a pane (B17) is tested in pane-resume.test.ts.
-  test('a stalled RTK download does not hold the first terminal back', async () => {
+  test('a terminal starts with the PATH it was given: nothing is prepended and no RTK variable is set (R4)', async () => {
     const db = openInMemoryDatabase()
     const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layout: '1x1', autoStart: false })
     const pty = createFakePtyModule()
-    const ensure = vi.spyOn(RtkService.prototype, 'ensureRtk').mockImplementation(() => new Promise<string>(() => undefined))
-    const manager = new TerminalManager(db, { pty, platform: 'linux' })
+    const manager = new TerminalManager(db, { pty, platform: 'linux', env: { PATH: '/usr/bin:/bin' } })
     try {
-      const started = Date.now()
       await manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id, agentCommand: 'codex' })
-      expect(Date.now() - started).toBeLessThan(8000)
-      expect(pty.spawn).toHaveBeenCalledTimes(1)
-      expect(ensure).toHaveBeenCalled()
-    } finally { ensure.mockRestore(); manager.stopAll(); db.close() }
-  }, 15_000)
+      const env = (pty.spawn.mock.calls[0][2] as { env: Record<string, string> }).env
+      expect(env.PATH).toBe('/usr/bin:/bin')
+      expect(Object.keys(env).filter(key => /^RTK/i.test(key))).toEqual([])
+    } finally { manager.stopAll(); db.close() }
+  })
 
   test('managed launches preserve structured arguments and refuse a missing worktree fallback', async () => {
     const root = mkdtempSync(join(tmpdir(), 'oxe-managed-launch-'))
@@ -132,7 +126,7 @@ describe('TerminalManager', () => {
     const pty = createFakePtyModule()
     const manager = new TerminalManager(db, { pty, platform: 'linux', isManagedPane: () => true,
       executionEnvironment: () => ({ OXESPACE_EXECUTION_ID: 'independent-execution' }) })
-    const input = { workspaceId: ws.id, paneId: ws.panes[0].id, disableRtk: true }
+    const input = { workspaceId: ws.id, paneId: ws.panes[0].id }
     try {
       await expect(manager.start(input)).rejects.toThrow('managed by its task')
       const args = ['--', 'A prompt with spaces, quotes " and $ characters']
@@ -152,7 +146,7 @@ describe('TerminalManager', () => {
     const pty = createFakePtyModule()
     const env = { PATH: '/bin', ANTHROPIC_API_KEY: 'a', OPENAI_API_KEY: 'o', GITHUB_TOKEN: 'g', AWS_ACCESS_KEY_ID: 'k' }
     const manager = new TerminalManager(db, { pty, platform: 'linux', env })
-    const input = { workspaceId: workspace.id, paneId: workspace.panes[0].id, disableRtk: true }
+    const input = { workspaceId: workspace.id, paneId: workspace.panes[0].id }
     try {
       await manager.start({ ...input, agentCommand: 'claude' })
       const claudeEnv = pty.spawn.mock.calls.at(-1)![2].env as Record<string, string>
@@ -170,7 +164,7 @@ describe('TerminalManager', () => {
     const manager = new TerminalManager(db, { pty, platform: 'linux', prepareLaunch: () => new Promise(() => {}),
       onLaunchExit: () => { throw new Error('Optional cleanup unavailable') } })
     try {
-      const input = { workspaceId: workspace.id, paneId: workspace.panes[0].id, disableRtk: true }
+      const input = { workspaceId: workspace.id, paneId: workspace.panes[0].id }
       const starting = manager.start(input)
       manager.stop(input)
       await starting
@@ -183,7 +177,7 @@ describe('TerminalManager', () => {
     const pty = createFakePtyModule()
     const manager = new TerminalManager(db, { pty, platform: 'linux', prepareLaunch: async () => { throw new Error('AI Memory unavailable') } })
     try {
-      const input = { workspaceId: workspace.id, paneId: workspace.panes[0].id, disableRtk: true }
+      const input = { workspaceId: workspace.id, paneId: workspace.panes[0].id }
       await manager.start(input)
       expect(manager.hasSession(input.paneId)).toBe(true)
       await manager.restart(input)

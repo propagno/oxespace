@@ -8,7 +8,6 @@ import { homedir } from 'node:os'
 import { basename, delimiter, extname, join } from 'node:path'
 import type { AppDatabase } from '../db/index'
 import { terminatePty } from '../utils/process-tree'
-import { getRtkService, type RtkService } from './rtk.service'
 import { PtyInputQueue } from './pty-input-queue'
 import { PtyOutputBatcher } from './pty-output-batcher'
 import { PtyRingBuffer } from './pty-ring-buffer'
@@ -85,7 +84,6 @@ interface TerminalSession {
   workspaceId: string
   pty: IPty
   agentCommand?: string
-  disableRtk?: boolean
   /** Whether the start that made this process wanted the agent's session back (a restart asks the same). */
   resumeAgent?: boolean
   /** B17 · The native session this process was started to resume, if any. */
@@ -136,8 +134,6 @@ const EXITED_SESSION_TTL_MS = 30 * 60 * 1000
 const MAX_LIVE_PTYS = 24
 /** A session must be quiet this long before it is considered reclaimable. */
 const RECLAIM_IDLE_MS = 30_000
-/** How long a terminal waits for RTK to be ready before it starts without it. */
-const RTK_START_BUDGET_MS = 3_000
 
 interface TerminalLaunchContextRow {
   pane_root_path: string | null
@@ -168,7 +164,7 @@ export class TerminalManager {
   /** B17 · Panes whose resumed process exited within RESUME_LOAD_MS: their next start is fresh (failedToLoad). */
   private readonly failedResumes = new Map<string, { agent: 'claude' | 'codex'; sessionId: string }>()
   /** How each pane last started, so a restart can bring back a pane whose process exited by itself. */
-  private readonly lastStarts = new Map<string, Pick<TerminalSession, 'workspaceId' | 'agentCommand' | 'disableRtk' | 'cols' | 'rows' | 'resumeAgent'>>()
+  private readonly lastStarts = new Map<string, Pick<TerminalSession, 'workspaceId' | 'agentCommand' | 'cols' | 'rows' | 'resumeAgent'>>()
   private readonly sessions = new Map<string, TerminalSession>()
   private readonly pty: PtyModule
   private readonly launchContextStatement: ReturnType<AppDatabase['prepare']>
@@ -178,7 +174,6 @@ export class TerminalManager {
   private readonly emitData: (event: TerminalDataEvent) => void
   private readonly emitExit: (event: TerminalExitEvent) => void
   private readonly emitActivity: (event: TerminalActivityEvent) => void
-  private readonly rtkService: RtkService
   private readonly ringCapacityBytes?: number
   private readonly exitedSessions = new Map<string, ExitedSession>()
   private readonly outputListeners = new Set<(paneId: string) => void>()
@@ -222,11 +217,6 @@ export class TerminalManager {
     this.emitExit = options.emitExit ?? (() => undefined)
     this.emitActivity = options.emitActivity ?? (() => undefined)
     this.ringCapacityBytes = options.ringCapacityBytes
-
-    // In production, app.getPath is available via electron.
-    // In tests, we pass userDataPath explicitly to avoid depending on electron.app.
-    const userDataPath = options.userDataPath ?? require('electron').app?.getPath('userData') ?? ''
-    this.rtkService = getRtkService(userDataPath)
   }
 
   async start(input: ManagedTerminalStart): Promise<void> {
@@ -368,26 +358,6 @@ export class TerminalManager {
       }
     }
     
-    if (!input.disableRtk) {
-      // The first launch downloads RTK. A slow or stalled connection must not hold the
-      // shell back: after the budget the terminal starts without it (the download goes on
-      // in the background and the next terminal picks it up).
-      let budget: ReturnType<typeof setTimeout> | undefined
-      try {
-        const rtkBin = await Promise.race([
-          this.rtkService.ensureRtk(),
-          new Promise<null>((resolveBudget) => { budget = setTimeout(() => resolveBudget(null), RTK_START_BUDGET_MS) })
-        ])
-        if (rtkBin) finalEnv = { ...finalEnv, PATH: `${rtkBin}${delimiter}${finalEnv.PATH ?? ''}` }
-      } catch (err) {
-        // Fall back gracefully if download fails
-      } finally {
-        if (budget) clearTimeout(budget)
-      }
-    } else {
-      finalEnv = { ...finalEnv, RTK_DISABLED: '1' }
-    }
-
     // An app started with ELECTRON_RUN_AS_NODE must not hand it to its shells: any Electron CLI run there (code) breaks.
     for (const key of Object.keys(finalEnv)) if (key.toUpperCase() === 'ELECTRON_RUN_AS_NODE') delete finalEnv[key]
 
@@ -424,7 +394,7 @@ export class TerminalManager {
     this.exitedSessions.delete(input.paneId)
     this.reclaimIdleSession()
 
-    this.lastStarts.set(input.paneId, { workspaceId: input.workspaceId, agentCommand: input.agentCommand, disableRtk: input.disableRtk, cols, rows, resumeAgent: input.resumeAgent })
+    this.lastStarts.set(input.paneId, { workspaceId: input.workspaceId, agentCommand: input.agentCommand, cols, rows, resumeAgent: input.resumeAgent })
     this.sessions.set(input.paneId, {
       sessionId: randomUUID(),
       launchDirectory: cwd,
@@ -434,7 +404,6 @@ export class TerminalManager {
       workspaceId: input.workspaceId,
       pty: ptyProcess,
       agentCommand: input.agentCommand,
-      disableRtk: input.disableRtk,
       resumeAgent: input.resumeAgent,
       resumed,
       inputQueue: new PtyInputQueue(ptyProcess),
@@ -783,7 +752,7 @@ export class TerminalManager {
     // A pane whose process exited by itself restarts as it last started; a pane that was stopped stays stopped.
     const session = this.sessions.get(input.paneId) ?? (this.takeExited(input.paneId) ? this.lastStarts.get(input.paneId) : undefined)
     if (!session) return
-    const { workspaceId, agentCommand, disableRtk, cols, rows, resumeAgent } = session
+    const { workspaceId, agentCommand, cols, rows, resumeAgent } = session
     // B17 · `resume: false` starts fresh and forgets the session, so a later crash does not bring it back. A fresh
     // Claude then gets a new session id of main's, recorded as the pane's session.
     let fresh: PaneAgentResume | undefined
@@ -794,7 +763,7 @@ export class TerminalManager {
     this.stop(input)
     // A fresh process gets a fresh ring: replaying the old shell's output over
     // the new one would show history that no longer belongs to it.
-    await this.start({ paneId: input.paneId, workspaceId, agentCommand, disableRtk, cols, rows, resumeAgent: fresh ? undefined : resumeAgent, resumeAgain: !fresh })
+    await this.start({ paneId: input.paneId, workspaceId, agentCommand, cols, rows, resumeAgent: fresh ? undefined : resumeAgent, resumeAgain: !fresh })
     if (fresh) this.agentResumes.set(input.paneId, fresh)
   }
 

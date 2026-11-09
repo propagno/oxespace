@@ -89,7 +89,7 @@ const BRIDGE_DEST_DIR = 'bin'
 const BRIDGE_DEST_FILE = 'oxespace-mcp.cjs'
 
 export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandle {
-  let documentation: Promise<ReturnType<typeof import('../services/documentation/runtime').createDocumentationRuntime>> | undefined
+  let browserPreview: Promise<{ preview: import('../services/browser-preview/preview-automation').PreviewAutomation }> | undefined
   const webPreview = new WebPreviewBus()
   const worktree = new WorktreeEventBus()
   const actionAudit = new ActionAudit(deps.db)
@@ -100,7 +100,8 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
     toolOutputRoot,
     captureRoot: join(app.getPath('userData'), 'web-preview-captures'),
     db: deps.db, threads: deps.threads,
-    documentation: () => documentation ??= import('../services/documentation/runtime').then(module => module.createDocumentationRuntime(deps.db, join(app.getPath('userData'), 'documentation'))).catch(error => { documentation = undefined; throw error }),
+    // Browser preview automation for oxespace_preview_interact and the capture tool (R9: the documentation runtime is gone).
+    documentation: () => browserPreview ??= import('../services/browser-preview/preview-automation').then(module => ({ preview: new module.PreviewAutomation() })).catch(error => { browserPreview = undefined; throw error }),
     delegation: deps.delegation, executions: deps.executions, delegationAgents: deps.delegationAgents, team: deps.team,
     memory: deps.memory,
     oxeQuery: deps.oxeQuery,

@@ -7,4 +7,8 @@ describe('tool catalogue', () => {
     expect(new Set(TOOL_CATALOG.map(tool => tool.label)).size).toBe(TOOL_CATALOG.length)
     for (const tool of TOOL_CATALOG) expect(TOOL_GROUPS).toContain(tool.group)
   })
+
+  it('has no Skills tool: skills are listed in Settings and run from the command bar (R12)', () => {
+    expect(TOOL_CATALOG.map(tool => tool.id as string)).not.toContain('skills')
+  })
 })
