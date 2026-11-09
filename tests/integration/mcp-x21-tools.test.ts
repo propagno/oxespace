@@ -154,7 +154,10 @@ describe('workspace tools behind the policy door', () => {
     expect(declined.asked[0].notes).toContainEqual({ code: 'approvals.note.worktree.forceDiscards', params: {} })
     expect(declined.ctx.github.removeWorktree).not.toHaveBeenCalled()
     const approved = setup()
+    // A63: once approved, the removal goes through the Worktrees panel guard (never forced, the branch kept).
+    const remove = vi.fn(async () => ({ ok: true as const }))
+    Object.assign(approved.ctx, { worktreesPanel: { remove } })
     await call('oxespace_remove_worktree', { path: '../wt' }, approved.ctx)
-    expect(approved.ctx.github.removeWorktree).toHaveBeenCalledWith({ rootPath: '/repo', path: '../wt', force: false })
+    expect(remove).toHaveBeenCalledWith({ rootPath: '/repo', path: '../wt', deleteBranch: false, via: 'agent' })
   })
 })

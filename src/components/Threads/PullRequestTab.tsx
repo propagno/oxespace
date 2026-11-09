@@ -110,7 +110,7 @@ function PullRequestCard({ provider, pr }: { provider: PrProvider; pr: PullReque
         <p className="pr-tab-title">{pr.title}</p>
         <p className="pr-tab-muted">{t('prTab.branches', { head: pr.head, base: pr.base })}</p>
         {pr.workItems.length > 0 && <ul className="pr-tab-inline" aria-label={t('prTab.workItems')}>
-          {pr.workItems.map(item => <li key={item.id}><a href={item.url} target="_blank" rel="noreferrer" onClick={event => { event.preventDefault(); openExternal(item.url) }}>{workItemLabel(item.id)}</a></li>)}
+          {pr.workItems.map(item => <li key={item.id}><a href={item.url} onClick={event => { event.preventDefault(); openExternal(item.url) }}>{workItemLabel(item.id)}</a></li>)}
         </ul>}
       </section>
       <section className="pr-tab-section">
