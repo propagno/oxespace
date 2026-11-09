@@ -47,6 +47,23 @@ describe('ipc contracts', () => {
     expect(IPC_CHANNELS.thread.respondPending).toBe('thread:respond-pending')
   })
 
+  test('CR-F4-7: uses stable place channel names (ccr-f4-places-pr.md §Contract, §A14 Undo)', () => {
+    expect(IPC_CHANNELS.thread).toMatchObject({
+      places: 'thread:places',
+      placeDiff: 'thread:place-diff',
+      placeRead: 'thread:place-read',
+      resolvePath: 'thread:resolve-path',
+      placeDriftAnswer: 'thread:place-drift-answer',
+      placeUndo: 'thread:place-undo',
+      placeRestore: 'thread:place-restore',
+      placeDiscard: 'thread:place-discard',
+      panes: 'thread:panes',
+      collisions: 'thread:collisions',
+      agentSummary: 'thread:agent-summary',
+      placesChanged: 'thread:places-changed'
+    })
+  })
+
   test('uses stable workspace and terminal channel names', () => {
     expect(IPC_CHANNELS.workspace.create).toBe('workspace:create')
     expect(IPC_CHANNELS.workspace.shellProfiles).toBe('workspace:shell-profiles')
