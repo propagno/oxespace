@@ -65,7 +65,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
   const [capturing, setCapturing] = useState(false)
   const [allowExternal, setAllowExternal] = useState(false)
   const externalPageBlocked = Boolean(url && !normalizePreviewUrl(url, allowExternal))
-  const [agentDocumentation, setAgentDocumentation] = useState(false)
+  const [agentAutomation, setAgentAutomation] = useState(false)
   const [consentOpen, setConsentOpen] = useState(false)
   // #3 Design Mode: pick an element in the previewed page and hand it to an agent.
   const [designMode, setDesignMode] = useState(false)
@@ -108,7 +108,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
       if (event.ownerKey !== previewKey) return
       if (event.type === 'session' && event.session) { applySession(event.session); return }
       // Main took agent access away (T43): show it off; turning it on asks the person again.
-      if (event.type === 'access') { if (event.agentAccess === false) setAgentDocumentation(false); return }
+      if (event.type === 'access') { if (event.agentAccess === false) setAgentAutomation(false); return }
       if (event.type === 'navigation' && event.url) updateTab(event.tabId, tab => ({...tab,draftUrl:event.url!,url:event.url!,error:null,canGoBack:event.canGoBack === true,canGoForward:event.canGoForward === true}))
       if (event.type === 'loading') updateTab(event.tabId, tab => ({...tab,loading:event.loading === true,error:event.loading ? null : tab.error}))
       if (event.type === 'failed') updateTab(event.tabId, tab => ({...tab,loading:false,error:event.message ?? tc('preview.pageFailed')}))
@@ -142,9 +142,9 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
 
   useEffect(() => {
     // Main answers what applies (T43): if it says off, the toggle shows off, and turning it on asks the person again.
-    for (const tab of tabs) if (tab.url) void window.oxe.browserPreview.setAccess({ownerKey:previewKey,tabId:tab.id,agentAccess:agentDocumentation,allowExternal})
-      .then(result => { if (agentDocumentation && result?.agentAccess === false) setAgentDocumentation(false) }).catch(() => {})
-  }, [tabs, previewKey, agentDocumentation, allowExternal])
+    for (const tab of tabs) if (tab.url) void window.oxe.browserPreview.setAccess({ownerKey:previewKey,tabId:tab.id,agentAccess:agentAutomation,allowExternal})
+      .then(result => { if (agentAutomation && result?.agentAccess === false) setAgentAutomation(false) }).catch(() => {})
+  }, [tabs, previewKey, agentAutomation, allowExternal])
 
   const toggleDesignMode = useCallback((): void => {
     if (!url || !guestReady) {
@@ -289,17 +289,17 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
         onConfirm={() => {
           // The one grant main accepts (T43): the effect's re-sends below can keep or lower access, never raise it.
           void window.oxe.browserPreview.setAccess({ownerKey:previewKey,tabId:activeTabId,agentAccess:true,allowExternal,grant:true}).catch(() => {})
-          setAgentDocumentation(true); setConsentOpen(false)
+          setAgentAutomation(true); setConsentOpen(false)
         }}
         description={t('preview.access.body')} />}
       <div className="web-preview-agent-access">
         <label className="web-preview-external-toggle" title={t('preview.access.toggleTitle')}>
-          <input type="checkbox" aria-label={t('preview.access.toggleLabel')} checked={agentDocumentation} onChange={event => {
-            if (!event.currentTarget.checked) { setAgentDocumentation(false); return }
+          <input type="checkbox" aria-label={t('preview.access.toggleLabel')} checked={agentAutomation} onChange={event => {
+            if (!event.currentTarget.checked) { setAgentAutomation(false); return }
             setConsentOpen(true)
           }} />{t('preview.access.toggle')}
         </label>
-        <span>{agentDocumentation ? t('preview.access.on') : t('preview.access.off')}</span>
+        <span>{agentAutomation ? t('preview.access.on') : t('preview.access.off')}</span>
       </div>
 
       <div className="web-preview-stage" aria-busy={loading}>
@@ -316,7 +316,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
                 <span>{viewportConfig.width ? t('preview.viewport.size', { name: t(`preview.viewport.${viewport}`), width: viewportConfig.width }) : t(`preview.viewport.${viewport}`)}</span>
                 <code>{url}</code>
               </div>
-              <NativePreviewHost key={tab.id} mount={{ownerKey:previewKey,workspaceId:workspace.id,threadId,tabId:tab.id,url:tab.url,allowExternal,agentAccess:agentDocumentation}} active={tab.id === activeTabId} zoom={zoom} />
+              <NativePreviewHost key={tab.id} mount={{ownerKey:previewKey,workspaceId:workspace.id,threadId,tabId:tab.id,url:tab.url,allowExternal,agentAccess:agentAutomation}} active={tab.id === activeTabId} zoom={zoom} />
             </div>
           </div>)}
         {(!url || externalPageBlocked || pageError) && (
@@ -345,11 +345,11 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
   )
 
   if (embedded) {
-    return <div className="web-preview-panel web-preview-panel-embedded" data-browser-owner={previewKey} data-agent-automation={String(agentDocumentation)}>{content}</div>
+    return <div className="web-preview-panel web-preview-panel-embedded" data-browser-owner={previewKey} data-agent-automation={String(agentAutomation)}>{content}</div>
   }
 
   return (
-    <ToolPanel className="web-preview-panel" label={t('panels.browser')} data-browser-owner={previewKey} data-agent-automation={String(agentDocumentation)} onEscape={() => { if (designMode) setDesignMode(false); else onClose() }} onClose={onClose}>
+    <ToolPanel className="web-preview-panel" label={t('panels.browser')} data-browser-owner={previewKey} data-agent-automation={String(agentAutomation)} onEscape={() => { if (designMode) setDesignMode(false); else onClose() }} onClose={onClose}>
       {content}
     </ToolPanel>
   )

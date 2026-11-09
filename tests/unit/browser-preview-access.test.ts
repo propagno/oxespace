@@ -34,7 +34,7 @@ vi.mock('../../electron/main/i18n', () => ({ tMain: (key: string) => key }))
 vi.mock('../../electron/main/services/approvals', () => ({ approvalCenter: { ask: vi.fn() } }))
 
 const { BrowserPreviewService, browserPreviewService } = await import('../../electron/main/services/browser-preview.service')
-const { PreviewAutomation } = await import('../../electron/main/services/documentation/preview-automation')
+const { PreviewAutomation } = await import('../../electron/main/services/browser-preview/preview-automation')
 
 const window = win as never
 const OWNER = 'w1'

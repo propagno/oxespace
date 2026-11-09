@@ -43,10 +43,8 @@ export const THREAD_TOOL_GROUPS = {
   data: ['oxespace_db_connections', 'oxespace_db_describe', 'oxespace_db_query', 'oxespace_mongo_find', 'oxespace_mongo_aggregate',
     'oxespace_db_execute', 'oxespace_mongo_write', 'oxespace_containers_list', 'oxespace_container_logs', 'oxespace_container_action',
     'oxespace_db_explain', 'oxespace_db_activity'],
-  /** Web previews and documentation captures. */
-  docs: ['oxespace_open_web_preview', 'oxespace_capture_web_preview', 'oxespace_preview_interact',
-    'oxespace_documentation_create', 'oxespace_documentation_get', 'oxespace_documentation_list', 'oxespace_documentation_capture',
-    'oxespace_documentation_checkpoint', 'oxespace_documentation_image', 'oxespace_documentation_export'],
+  /** Web previews: open, capture and drive the opted-in browser session. */
+  docs: ['oxespace_open_web_preview', 'oxespace_capture_web_preview', 'oxespace_preview_interact'],
   /** The app itself: Git, GitHub, Threads, skills, automations, Linear, MCP servers, search and usage.
    * Changes: each action is recorded; pushes, pull requests, releases and the like are approved by a person. */
   app: ['oxespace_git', 'oxespace_github', 'oxespace_threads', 'oxespace_skills', 'oxespace_automations', 'oxespace_linear',

@@ -78,7 +78,8 @@
       "threads": "Conversas",
       "requests": "Pedidos",
       "terminals": "Terminais",
-      "tasks": "Tarefas"
+      "tasks": "Tarefas",
+      "agents": "Agentes"
     },
     "requestsBadge_one": "{{count}} pedido esperando",
     "requestsBadge_other": "{{count}} pedidos esperando",
@@ -128,6 +129,13 @@
     },
     "delegationState": {
       "unknown": "Não confirmado"
+    },
+    "agentsChip": {
+      "all": "Todos",
+      "needsYou": "Precisa de você",
+      "working": "Trabalhando",
+      "failed": "Falhou",
+      "finished": "Concluído"
     }
   },
   "thread": {
@@ -264,7 +272,10 @@
     "hiddenShown": "Caracteres ocultos foram mostrados no campo. Confira e envie de novo.",
     "cancel": "Cancelar",
     "hiddenOnDesktop": "Este terminal foi ocultado do celular em {{computer}}.",
-    "hiddenBack": "Voltar aos terminais"
+    "hiddenBack": "Voltar aos terminais",
+    "panHint": "{{cols}} colunas · arraste para os lados",
+    "fitWidth": "Ajustar à largura",
+    "typeOnScreen": "Digite na visão Tela"
   },
   "approval": {
     "prompt": {
@@ -337,7 +348,10 @@
     "placeholder": "Mensagem para o agente",
     "send": "Enviar",
     "steer": "Orientar",
-    "steerFinishedBefore": "O agente terminou antes de a sua instrução chegar. Nada foi enviado."
+    "steerFinishedBefore": "O agente terminou antes de a sua instrução chegar. Nada foi enviado.",
+    "queuedPlaceholder": "Na fila até o passo atual terminar",
+    "readAfterStep": "lida depois do passo atual",
+    "queuedLine": "na fila"
   },
   "terminalInput": {
     "placeholder": "Digite neste terminal",

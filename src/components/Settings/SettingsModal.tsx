@@ -1,4 +1,4 @@
-import { ArrowUpCircle, Activity, Bell, Bot, Check, ChevronDown, ChevronRight, Download, ExternalLink, Package, Play, Plus, RefreshCw, Settings2, SquareTerminal, Palette, X, Zap } from 'lucide-react'
+import { ArrowUpCircle, Activity, Bell, Bot, Check, ChevronDown, ChevronRight, Download, ExternalLink, Package, Play, Plus, RefreshCw, Settings2, SquareTerminal, Palette, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { RichText } from '../../i18n/RichText'; import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
 import { AppearanceSettings } from './AppearanceSettings'
@@ -1030,14 +1030,11 @@ function NotificationsSettingsSection({ onClose }: { onClose: () => void }): Rea
 
 function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
   const app = useUpdaterStore((s) => s.app)
-  const rtk = useUpdaterStore((s) => s.rtk)
   const bootstrap = useUpdaterStore((s) => s.bootstrap)
   const checkAppUpdates = useUpdaterStore((s) => s.checkAppUpdates)
   const quitAndInstall = useUpdaterStore((s) => s.quitAndInstall)
   const downloadAppUpdate = useUpdaterStore((s) => s.downloadAppUpdate)
   const setUpdatePreferences = useUpdaterStore((s) => s.setUpdatePreferences)
-  const checkRtk = useUpdaterStore((s) => s.checkRtk)
-  const updateRtk = useUpdaterStore((s) => s.updateRtk)
   const { t } = useTranslation('settings')
 
   useEffect(() => {
@@ -1175,56 +1172,6 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
             <p className="settings-update-hint">
               {t(manualInstall ? 'updates.hint.manual' : asksToDownload ? 'updates.hint.ask' : 'updates.hint.auto')}
             </p>
-          </article>
-
-          <article className="settings-update-card" data-testid="settings-rtk-update">
-            <div className="settings-update-card-head">
-              <span className="settings-update-icon rtk" aria-hidden="true">
-                <Zap size={16} />
-              </span>
-              <div>
-                <strong>RTK</strong>
-                <span>{rtk.installed ? (rtk.version ?? t('updates.rtk.installedNoVersion')) : t('updates.rtk.notInstalledVersion')}</span>
-              </div>
-              <span className={`settings-status-pill ${rtk.error ? 'err' : rtk.checking || rtk.updating ? 'muted' : rtk.updateAvailable ? 'warn' : rtk.installed ? 'ok' : 'muted'}`}>
-                {t(rtk.error ? 'updates.rtk.pill.error' : rtk.checking ? 'updates.rtk.pill.checking' : rtk.updating ? 'updates.rtk.pill.updating' : rtk.updateAvailable ? 'updates.rtk.pill.updateAvailable' : rtk.installed ? 'updates.rtk.pill.upToDate' : 'updates.rtk.pill.notInstalled')}
-              </span>
-            </div>
-            <p className="settings-update-status">
-              {rtk.checking
-                ? t('updates.rtk.status.checking')
-                : rtk.updating
-                  ? t('updates.rtk.status.updating')
-                  : rtk.updateAvailable
-                    ? t('updates.rtk.status.available', { version: rtk.latestVersion })
-                    : rtk.latestVersion
-                      ? t('updates.rtk.status.latest', { version: rtk.latestVersion })
-                      : isDevBuild
-                        ? t('updates.rtk.status.dev')
-                        : t('updates.rtk.status.notChecked')}
-            </p>
-            {rtk.error ? <p className="settings-error">{rtk.error}</p> : null}
-            <div className="settings-update-actions">
-              <Button
-                variant="ghost"
-                disabled={rtk.checking || rtk.updating}
-                onClick={() => void checkRtk()}
-                data-testid="btn-check-rtk"
-              >
-                <RefreshCw size={14} aria-hidden="true" />
-                {t('updates.rtk.check')}
-              </Button>
-              <Button
-                variant="primary"
-                disabled={rtk.checking || rtk.updating || (!rtk.updateAvailable && rtk.installed)}
-                onClick={() => void updateRtk()}
-                data-testid="btn-update-rtk"
-              >
-                <Download size={14} aria-hidden="true" />
-                {rtk.installed ? t('updates.rtk.update') : t('updates.rtk.install')}
-              </Button>
-            </div>
-            <p className="settings-update-hint">{t('updates.rtk.hint')}</p>
           </article>
 
         </div>
