@@ -179,6 +179,16 @@ each only while `main` is still the commit the batch expects. Anything else ends
 one by one, labelled `no-batch`. The repository variable `MERGE_TRAIN_BATCHES=false` turns batches off. The file
 list and every rule are in [ci-cd.md](ci-cd.md#batches-of-docs-and-tests).
 
+**Batches of code** (user OK on 09/11). When the first car changes code, the train takes it and up to two more cars
+that are each **ready** (the latest `pr:ready` status and the latest `CI result` on their own head both passed) and
+**independent**: no file in common with an earlier member, at most one member with a file under
+`electron/main/db/migrations/` (the order guard, #730), and none that changes `.github/`, since only a person
+merges a workflow change. A car that fails a rule stays out with the reason in the run log; the batch is built
+from those that pass, and needs two. Its commits end in ` code`, which keeps the kind for the merge-time check
+(a member that changes a workflow by then gets no status). Green, the members merge in order, each with its own
+merge commit, as above. Red, each member goes back on its own with `no-batch`: the serial train tests it alone, the
+one that breaks leaves the queue with its comment, and the others merge.
+
 **GITHUB_TOKEN.** The train uses the workflow's built-in token, and what that token does starts no
 usable workflow run: a merge fires no `push` run on `main`, and a branch update's `pull_request` runs only
 wait for an approval nobody gives (they end `action_required` with no jobs, because the approval gate comes
