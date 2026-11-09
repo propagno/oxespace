@@ -1,7 +1,7 @@
 # F10 close: the phone for DESIGN (A70)
 
-Goldens at `oxe/f10-plan` @ `233b4396` (CR-A42b re-record, then CR-F10-7/8/9; T27 CR-A42b-2 on top).
-Every image is the committed golden, read from this branch (it is `233b4396` plus this file). Evidence only: never merged.
+Goldens at `oxe/f10-plan` @ `ca7010d5` (CR-A42b re-record, then CR-F10-7/8/9; T27 CR-A42b-2 on top).
+Every image is the committed golden, read from this branch (it is `ca7010d5` plus this file). Evidence only: never merged.
 
 ## Components
 
@@ -122,9 +122,5 @@ Accessibility (font scale): <img src="../mobile/android/app/src/test/snapshots/i
 
 | Screen | Where it departs |
 |---|---|
-| Request | T28 (your CR 1): RiskChip and RiskLine on the intent scale: Low success, Medium info, High warning, Critical solid danger, each with its icon (risk-levels, request-risky). |
-| Conversation | T28 (your CR 2, SPEC A47): while working the field reads “Steer: read after the current step”, the button “Send”, and Stop has the danger tint (thread-working). |
-| Agents | T28 (your CR 3): while loading, the skeleton and no counts on the chips (live-agents shows the loaded state; the loading state has no golden of its own). |
-| Terminal | T28 (your CR 4, TECH LEAD ruling): a hidden terminal’s app bar reads “Terminal”: a neutral title, never the pane’s name, because CR-34 is a privacy rule (terminal-hidden). |
-| Risk levels golden | T28 (your test note): drawn on the screen’s canvas, not the grey frame. |
-| Tasks icon | The clock, as you approved. |
+| Skeleton (CR-F10-10e) | The loading bars draw in borderDefault: 1.37:1 light and 1.62:1 dark against the canvas (were 1.07 and 1.00). Re-recorded: live-agents, home connecting, conversation thread-loading. |
+| Passed in your re-walk of 233b4396 | RiskChip intent scale, the A47 composer, the neutral “Terminal” title, the risk-levels canvas. |
