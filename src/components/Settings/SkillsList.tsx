@@ -30,6 +30,6 @@ export function SkillsList(): ReactElement {
             <span className={styles.ruleNote}>{skill.description || t('tools.skillsList.noDescription')}</span>
           </li>)}
         </ul>
-          : <EmptyState compact title={t('tools.skillsList.empty')} />}
+          : <EmptyState compact title={t('tools.skillsList.empty')}>{t('tools.skillsList.emptyBody')}</EmptyState>}
   </Panel>
 }

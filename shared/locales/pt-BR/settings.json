@@ -721,10 +721,11 @@
   "tools": {
     "skillsList": {
       "title": "Skills",
-      "intro": "Prompts em Markdown que os agentes podem executar: os seus em ~/.oxe/skills e os do projeto em .oxe/skills, que valem quando o nome se repete. Execute uma skill pela barra de comandos (/).",
+      "intro": "Prompts Markdown de ~/.oxe/skills e do .oxe/skills do projeto, que vence se o nome se repete. Rode com /.",
       "loading": "Lendo as skills…",
       "loadFailed": "Não foi possível ler as skills",
       "empty": "Nenhuma skill ainda",
+      "emptyBody": "Adicione um arquivo Markdown em .oxe/skills no projeto.",
       "noDescription": "Sem descrição",
       "scope": {
         "workspace": "Workspace",
