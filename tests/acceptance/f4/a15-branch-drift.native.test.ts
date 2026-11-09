@@ -4,14 +4,15 @@
 // conversation's own running shell tool is its own; carried files stay the task's; Switch back waits for the turn; a
 // rebase or bisect in progress is no drift; a gone base branch is a refusal; a fast-forward is no drift. TECH LEAD S5:
 // every Switch back writes one audit row.
-// Written by the planner; the executor must not edit it. SECURITY: Switch back is a git write from the UI.
+// Written by the planner; the executor must not edit it. SECURITY: Switch back is a git write from the UI. v2 (CR-F4-2,
+// 09/11): no fixed sleeps against background drift work; tests wait on the in-order queue or poll the events.
 // Spec: docs/roadmap-1.5/ccr-f4-places-pr.md §A15 (ccr-t71-task-places.md §2.4, §4.1 thread:place-drift-answer, §4.2).
 // Runs under Electron's Node ABI: npm run test:electron -- tests/acceptance/f4/a15-branch-drift.native.test.ts
 import { join } from 'node:path'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import type { ThreadEvent } from '../../../shared/types/thread'
 import type { ThreadPlace } from '../../../shared/types/thread-places'
-import { complete, git, repository, runCleanup, same, sandbox, settle, threadFixture, turn, write } from './fixtures/thread-fixture'
+import { complete, git, repository, runCleanup, same, sandbox, settle, threadFixture, turn, until, write } from './fixtures/thread-fixture'
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 })
 afterEach(runCleanup)
@@ -92,6 +93,10 @@ describe('A15 · branch drift', () => {
     git(repo, 'switch', '-q', 'other')
     await turn(f, 'Next')
     await complete(f)
+    // v2 (CR-F4-2): the turn-end read runs in the background, so wait for it (10 s at most) without asking for the
+    // places or a diff, which would be a read point of their own; then it is still one event, not repeated.
+    await until(() => drifts(f).length > 0, 'the drift seen at the turn\'s end')
+    await settle(300)
     expect(drifts(f)).toHaveLength(1)
   })
 
@@ -203,7 +208,9 @@ describe('A15 · HML 704 and SECURITY S5', () => {
       const { repo, f } = await touched({ taskFile: 'committed' })
       await turn(f, 'Move')
       f.emit({ type: 'tool', id: 'sh-own', name: 'Bash', state: 'running', detail: command })
-      await settle(150)
+      // v2 (CR-F4-2): wait until OXESpace has taken in the tool's start; drift work runs in the order it was asked,
+      // so a places() read returns only after it. A fixed sleep raced it when several phases ran at once.
+      await f.manager.places(f.id)
       git(repo, 'switch', '-q', '-c', `moved-${Date.now()}`)
       f.emit({ type: 'tool', id: 'sh-own', name: 'Bash', state: 'completed', detail: command, exitCode: 0 })
       await complete(f)
@@ -218,7 +225,8 @@ describe('A15 · HML 704 and SECURITY S5', () => {
     await turn(f, 'Move')
     f.emit({ type: 'tool', id: 'sh-done', name: 'Bash', state: 'running', detail: 'ls' })
     f.emit({ type: 'tool', id: 'sh-done', name: 'Bash', state: 'completed', detail: 'ls', exitCode: 0 })
-    await settle(150)
+    // v2 (CR-F4-2): the tool has ended for OXESpace (its bookkeeping ran) before the person switches.
+    await f.manager.places(f.id)
     git(repo, 'switch', '-q', 'other')
     await complete(f)
     expect(at((await f.manager.places(f.id)).places, repo).drift).toMatchObject({ to: { branch: 'other' } })
