@@ -1,0 +1,43 @@
+name: FE evidence · R12 skills list shots
+# EVIDENCE ONLY, never merged: screenshots of R12's read-only skills list for DESIGN's sign-off on #727.
+on:
+  push:
+    branches: [test/fe-r12-skills-shots]
+
+permissions:
+  contents: read
+
+jobs:
+  shots:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Linux system dependencies
+        run: |
+          sudo apt-get update
+          alsa=libasound2t64; apt-cache show "$alsa" >/dev/null 2>&1 || alsa=libasound2
+          sudo apt-get install -y --no-install-recommends xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1 libnotify4
+      - run: npm ci --ignore-scripts
+      - name: Build
+        run: npm run build
+      - name: Native modules
+        run: |
+          npm run fix:native
+          npm run verify:native
+      - name: Shots
+        run: bash scripts/run-with-xvfb.sh npx playwright test --config playwright.visual.config.ts r12-skills-evidence
+      - name: Upload the shots
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: r12-skills-shots
+          retention-days: 14
+          path: test-results/**/*.png
