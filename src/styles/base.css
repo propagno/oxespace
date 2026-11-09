@@ -63,3 +63,6 @@ body {
   transition: none !important;
 }
 
+
+/* DIAG (never merged): a visible change so visual-regression shows its informative path on a PR. */
+body { outline: 6px solid #ff00ff; outline-offset: -6px; }
