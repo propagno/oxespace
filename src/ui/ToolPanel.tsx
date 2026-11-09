@@ -17,7 +17,7 @@ export interface ToolPanelProps extends Omit<HTMLAttributes<HTMLElement>, 'role'
 }
 
 /**
- * A full-height tool panel over the workspace (Connections, Skills, Scripts, Linear, Semantic, Web Preview).
+ * A full-height tool panel over the workspace (Connections, Skills, Scripts, Semantic, Web Preview).
  * One scrim, one layer and one focus behavior for all of them; the panel brings its own layout through `className`.
  * Dialogs opened from inside a panel sit above it.
  */

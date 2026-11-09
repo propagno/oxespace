@@ -1,7 +1,7 @@
 import type { ToolEntry } from './tool-registry'
 import { codeWorkspace, domainTool, int, parsed, service, str, bool, type ActionScope, type Args } from './domain-tool'
 import { ActionRefused } from '../services/agent-actions/agent-actions'
-import { parseLinearListIssuesInput, parseSearchInput } from '../ipc/validation'
+import { parseSearchInput } from '../ipc/validation'
 import { threadReadout } from './thread-handoff-tools'
 import { stripAnsi } from '../utils/strip-ansi'
 import { maskLogLine } from '../services/oxequery/agent-output'
@@ -155,25 +155,6 @@ export const APP_READ_TOOLS: ToolEntry[] = [
         return skill
       }
     }
-  }),
-
-  domainTool('oxespace_automations', 'Scheduled automations (agent runs on a timer) and their history.', {
-    list: { level: 'read', description: 'Automations with schedule, agent and next run.', run: async (_a, _s, ctx) => { const automations = service(ctx, 'automations')(); if (!automations) throw new ActionRefused('Automations are unavailable.', 'unavailable'); return automations.list() } },
-    runs: {
-      level: 'read', description: 'Past runs of one automation.', properties: { automationId: { type: 'string', maxLength: 200 } }, required: ['automationId'],
-      run: async (args, _s, ctx) => { const automations = service(ctx, 'automations')(); if (!automations) throw new ActionRefused('Automations are unavailable.', 'unavailable'); return automations.runs(str(args, 'automationId', 200)!) }
-    }
-  }),
-
-  domainTool('oxespace_linear', `Linear issues, when the person connected Linear in OXESpace. ${UNTRUSTED}`, {
-    status: { level: 'read', description: 'Whether Linear is connected, and as whom.', run: (_a, _s, ctx) => service(ctx, 'linear').getStatus() },
-    teams: { level: 'read', description: 'Teams.', run: (_a, _s, ctx) => service(ctx, 'linear').listTeams() },
-    issues: {
-      level: 'read', description: 'Issues assigned to the person, created by them, or of a team.',
-      properties: { scope: { type: 'string', enum: ['assigned', 'created', 'team'], description: 'Default assigned.' }, teamId: { type: 'string', maxLength: 200 }, query: { type: 'string', maxLength: 500 }, includeCompleted: { type: 'boolean' } },
-      run: (args, _s, ctx) => service(ctx, 'linear').listIssues(parsed(() => parseLinearListIssuesInput({ scope: args.scope ?? 'assigned', teamId: args.teamId, query: args.query, includeCompleted: args.includeCompleted })))
-    },
-    issue: { level: 'read', description: 'One issue with its description.', properties: { issueId: { type: 'string', maxLength: 200 } }, required: ['issueId'], run: (args, _s, ctx) => service(ctx, 'linear').getIssue(str(args, 'issueId', 200)!) }
   }),
 
   domainTool('oxespace_terminal', `Read what the terminals of your Code workspace printed. ${UNTRUSTED} Secrets that look like passwords or tokens are masked.`, {

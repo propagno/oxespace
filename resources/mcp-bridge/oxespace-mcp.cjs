@@ -66,7 +66,7 @@ const READ_ONLY_TOOLS = new Set([
   'oxespace_memory_diagnostics', 'oxespace_delegation_status', 'oxespace_delegation_result',
   'oxespace_delegation_inbox', 'oxespace_delegation_targets', 'oxespace_delegation_preflight',
   'oxespace_git',
-  'oxespace_github', 'oxespace_threads', 'oxespace_tasks', 'oxespace_skills', 'oxespace_automations', 'oxespace_linear',
+  'oxespace_github', 'oxespace_threads', 'oxespace_tasks', 'oxespace_skills',
   'oxespace_terminal', 'oxespace_mcp_servers', 'oxespace_search', 'oxespace_usage', 'oxespace_settings', 'oxespace_integration',
   'oxespace_diagnostics'
 ])

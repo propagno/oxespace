@@ -27,7 +27,10 @@ import type { SemanticService } from '../services/semantic.service'
 import { MEMORY_TOOLS } from './memory-tool-handlers'
 import { DELEGATION_TOOLS } from './delegation-tools'
 import { TEAM_TOOLS } from './team-tools'
-import { automationTools } from './automation-tools'
+import { createHash, randomUUID } from 'node:crypto'
+import { projectIdentity } from '../services/project-identity'
+import { execGit } from '../utils/safe-git'
+import { CONFIGURABLE_MCP_TOOL_GROUPS as TOOL_GROUP_NAMES } from '../../../shared/types/mcp-tools'
 import { THREAD_HANDOFF_TOOLS } from './thread-handoff-tools'
 import { OXEQUERY_TOOLS } from './oxequery-tools'
 import { CODE_GRAPH_TOOLS } from './code-graph-tools'
@@ -82,8 +85,118 @@ export interface ToolEntry {
   outputLimit?: number
 }
 
+/** What each optional group is for, as oxespace_capabilities tells an agent. */
+const TOOL_GROUP_PURPOSES = {
+  orchestration: 'start other agents and conversations, delegate and follow Work runs',
+  data: 'databases and containers through OxeQuery; every data read and change is approved by a person',
+  docs: 'web previews and documentation captures',
+  app: 'Git, GitHub, conversations, skills, MCP servers, search, usage and settings'
+}
+
+/**
+ * Turns a tool group on for this session. The OXESpace bridge of a conversation answers it, since it owns the
+ * session's tool list; reaching the server means this session has nothing left to turn on.
+ */
+const toolsEnable: ToolEntry = {
+  descriptor: {
+    name: 'oxespace_tools_enable',
+    description: 'Turn on a group of OXESpace tools for this session: orchestration, data, docs, app, or code (a Code terminal\'s worktrees, tasks, agents and integrations). Read-only: it changes which tools you see, not what they may do; groups the project turned off stay off.',
+    inputSchema: { type: 'object', properties: { group: { type: 'string', enum: [...TOOL_GROUP_NAMES, 'code'] } }, required: ['group'], additionalProperties: false },
+    // True: it changes nothing outside the session; each tool it lists keeps its own level and approval.
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
+  },
+  requiresWorkspace: false,
+  // The bridge answers this when it owns the session's groups. Reaching the server means a direct caller or a bridge
+  // with nothing to turn on: refuse what is not a group, the same codes as the bridge, never an "ok" for nonsense.
+  handler: async args => {
+    const reply = (body: Record<string, unknown>, isError = false) => ({
+      content: [{ type: 'text' as const, text: JSON.stringify({ schemaVersion: 1, ...body }) }], ...(isError ? { isError: true } : {})
+    })
+    const group = args && typeof args === 'object' && !Array.isArray(args) && Object.keys(args).length === 1 ? (args as { group?: unknown }).group : undefined
+    if (typeof group !== 'string') return reply({ status: 'error', error: { code: 'INVALID_ARGUMENTS', message: 'Pass { "group": "<name>" }.', retryable: false } }, true)
+    if (![...TOOL_GROUP_NAMES, 'code'].includes(group)) {
+      return reply({ status: 'error', error: { code: 'GROUP_UNAVAILABLE', message: `Unknown group "${group.slice(0, 40)}". Groups: ${[...TOOL_GROUP_NAMES, 'code'].join(', ')}.`, retryable: false } }, true)
+    }
+    return reply({ status: 'ok', data: { enabled: [], note: 'Nothing to turn on here: this caller already lists every OXESpace tool it can use.' } })
+  }
+}
+
+/** Discovery is read-only and authenticated independently of optional memory. R8 moved it here when automation-tools.ts left. */
+export function discoveryTools(catalogue: () => ToolEntry[]): ToolEntry[] {
+  // Discovery first, in the order agents and tests know; the group switch B7.2 adds comes last.
+  return [...['oxespace_capabilities', 'oxespace_execution_context', 'oxespace_memory_diagnostics'].map((name): ToolEntry => ({
+    descriptor: { name, description: name === 'oxespace_capabilities'
+      ? 'Discover registered OXESpace tools and execution requirements. Availability is not authorization.'
+      : name === 'oxespace_execution_context'
+        ? 'Read your authenticated launch workspace, pane and Git checkout. Does not infer your shell current directory.'
+        : 'Inspect memory binding and observed hook metadata. A received hook does not prove native persistence or consolidation.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false } },
+    requiresWorkspace: true,
+    handler: async (args, ctx) => {
+      const requestId = randomUUID()
+      const reply = (status: string, data: unknown, isError = false) => ({ content: [{ type: 'text' as const,
+        text: JSON.stringify({ schemaVersion: 1, requestId, status, ...(isError ? { error: data } : { data }) }) }], ...(isError ? { isError: true } : {}) })
+      if (args !== undefined && (!args || typeof args !== 'object' || Array.isArray(args) || Object.keys(args).length)) {
+        return reply('error', { code: 'INVALID_ARGUMENTS', message: 'This tool takes an empty object.', retryable: false }, true)
+      }
+      let execution
+      try { execution = ctx.executions?.authenticate(ctx.executionId, ctx.executionToken, ctx.workspaceId) }
+      catch { /* Never return credential-bearing errors. */ }
+      if (!execution) return reply('error', { code: 'EXECUTION_REQUIRED', message: 'Open a new OXESpace agent terminal.', retryable: false }, true)
+      const workspace = ctx.workspaceServ.get(execution.workspaceId)
+      const pane = workspace?.panes.find(p => p.id === execution.paneId)
+      if (execution.owner.kind === 'pane' && !pane) return reply('error', { code: 'PANE_UNAVAILABLE', message: 'The execution pane no longer exists.', retryable: false }, true)
+      if (name === 'oxespace_capabilities') return reply('ok', {
+        tools: catalogue().map(t => ({ name: t.descriptor.name, requiresWorkspace: t.requiresWorkspace })),
+        workspaceId: execution.workspaceId,
+        memoryBound: Boolean(ctx.memory && ctx.memoryRunId),
+        delegationServiceAvailable: Boolean(ctx.delegation),
+        // Discovery must not wait for filesystem identity or Git on a busy host.
+        // Delegation preflight performs the detailed check when requested.
+        delegation: { status: ctx.delegation ? 'available' : 'unavailable', details: 'Use oxespace_delegation_preflight for project eligibility.' },
+        policy: 'Every action revalidates scope, ownership and project opt-in. Listed tools may require additional setup.',
+        limits: { concurrentDelegationsPerProject: 4, recursiveDelegation: false },
+        // A conversation is offered only some groups; say how to get the others.
+        ...(execution.owner.kind === 'thread' ? { threadToolGroups: {
+          offered: 'core tools, plus team or delegation/work tools when this conversation has that role, plus each group the project does not turn off',
+          groups: TOOL_GROUP_PURPOSES,
+          enable: 'With tool search, search for the tool you need. Otherwise call oxespace_tools_enable with the group; sessionToolGroups lists what can still be turned on. A group the project turns off stays off.'
+        } } : {})
+      })
+      if (name === 'oxespace_memory_diagnostics') {
+        if (!ctx.memory || !ctx.memoryRunId) return reply('ok', { binding: 'unbound', suggestedAction: 'Enable/configure memory and open a new terminal.', nativePersistence: 'not_observable', consolidation: 'not_observable' })
+        try {
+          const observations = ctx.memory.observations(ctx.memoryRunId, execution.workspaceId, execution.paneId)
+          const context = await ctx.memory.contextForRun(ctx.memoryRunId, execution.workspaceId)
+          const health = await ctx.memory.manager.run(context, provider => provider.health())
+          return reply('ok', { binding: 'bound', projectId: context.projectId,
+            settings: ctx.memory.projects.settings(context.projectId),
+            runtime: health.status === 'ok' ? health.value.status : health.status,
+            runtimeError: health.status === 'ok' ? health.value.errorCode : undefined,
+            pipeline: health.status === 'ok' ? health.value.pipeline : undefined,
+            observations, providerReplies: ctx.memory.manager.observations(context.projectId),
+            nativePersistence: 'not_observable', consolidation: 'not_observable', spool: 'not_observable' })
+        } catch { return reply('error', { code: 'MEMORY_BINDING_UNAVAILABLE', message: 'Memory binding cannot be verified. Terminal execution can continue.', retryable: true }, true) }
+      }
+      let git: unknown = { status: 'unavailable' }
+      let repositoryIdentity: string | null = null
+      try {
+        repositoryIdentity = `local-project-sha256:${createHash('sha256').update(await projectIdentity(execution.cwd)).digest('hex')}`
+        const result = await execGit(execution.cwd, ['rev-parse', '--abbrev-ref', 'HEAD'], { timeout: 2000, maxBuffer: 8192 })
+        const head = await execGit(execution.cwd, ['rev-parse', '--verify', 'HEAD'], { timeout: 2000, maxBuffer: 8192 })
+        git = { status: 'ok', branch: result.stdout.trim(), head: head.stdout.trim(), sampledAt: Date.now() }
+      } catch { /* A non-Git or unavailable checkout still has execution context. */ }
+      return reply('ok', { surface: execution.owner.kind === 'thread' ? 'thread' : 'code', workspaceId: execution.owner.kind === 'pane' ? execution.workspaceId : null,
+        threadId: execution.owner.kind === 'thread' ? execution.owner.id : null, paneId: pane?.id ?? null, executionId: execution.id,
+        repositoryIdentity,
+        launchCwd: execution.cwd, currentShellCwd: 'unknown', agentProfileId: pane?.agentProfileId ?? null,
+        originPaneId: pane?.originPaneId ?? null, git })
+    }
+  })), toolsEnable]
+}
+
 export const TOOL_REGISTRY: ToolEntry[] = [
-  ...automationTools(() => TOOL_REGISTRY),
+  ...discoveryTools(() => TOOL_REGISTRY),
   ...MEMORY_TOOLS,
   ...DELEGATION_TOOLS,
   ...TEAM_TOOLS,

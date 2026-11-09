@@ -289,18 +289,6 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       cancel: () => ipc.invoke(IPC_CHANNELS.search.cancel) as Promise<void>,
       listFiles: (input) => ipc.invoke(IPC_CHANNELS.search.listFiles, input) as Promise<import('../../shared/types/search').SearchFilesResult>
     },
-    linear: {
-      getStatus: () => ipc.invoke(IPC_CHANNELS.linear.getStatus) as Promise<import('../../shared/types/linear').LinearStatus>,
-      setApiKey: (input) => ipc.invoke(IPC_CHANNELS.linear.setApiKey, input) as Promise<import('../../shared/types/linear').LinearStatus>,
-      clearApiKey: () => ipc.invoke(IPC_CHANNELS.linear.clearApiKey) as Promise<void>,
-      listTeams: () => ipc.invoke(IPC_CHANNELS.linear.listTeams) as Promise<import('../../shared/types/linear').LinearTeam[]>,
-      listIssues: (input) => ipc.invoke(IPC_CHANNELS.linear.listIssues, input) as Promise<import('../../shared/types/linear').LinearIssue[]>,
-      getIssue: (input) => ipc.invoke(IPC_CHANNELS.linear.getIssue, input) as Promise<import('../../shared/types/linear').LinearIssue>,
-      createWorktreeFromIssue: (input) =>
-        ipc.invoke(IPC_CHANNELS.linear.createWorktreeFromIssue, input) as Promise<
-          import('../../shared/types/linear').LinearWorktreeFromIssueResult
-        >
-    },
     clipboard: {
       saveImageToTemp: () => ipc.invoke(IPC_CHANNELS.clipboard.saveImageToTemp) as Promise<string | null>,
       readText: () => ipc.invoke(IPC_CHANNELS.clipboard.readText) as Promise<string>,
@@ -331,16 +319,6 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       firewallStatus: () => ipc.invoke(IPC_CHANNELS.remote.firewallStatus) as Promise<import('../../shared/types/remote').RemoteFirewallStatus>,
       firewallRepair: () => ipc.invoke(IPC_CHANNELS.remote.firewallRepair) as Promise<import('../../shared/types/remote').RemoteFirewallChange>,
       firewallUndo: () => ipc.invoke(IPC_CHANNELS.remote.firewallUndo) as Promise<import('../../shared/types/remote').RemoteFirewallChange>
-    },
-    automations: {
-      list: () => ipc.invoke(IPC_CHANNELS.automations.list) as Promise<import('../../shared/types/automation').Automation[]>,
-      create: (input) => ipc.invoke(IPC_CHANNELS.automations.create, input) as Promise<import('../../shared/types/automation').Automation>,
-      setEnabled: (input) => ipc.invoke(IPC_CHANNELS.automations.setEnabled, input) as Promise<import('../../shared/types/automation').Automation>,
-      remove: (id) => ipc.invoke(IPC_CHANNELS.automations.remove, id) as Promise<void>,
-      runNow: (id) => ipc.invoke(IPC_CHANNELS.automations.runNow, id) as Promise<import('../../shared/types/automation').AutomationRun | null>,
-      runs: (id) => ipc.invoke(IPC_CHANNELS.automations.runs, id) as Promise<import('../../shared/types/automation').AutomationRun[]>,
-      onChange: (listener) =>
-        subscribe<{ automationId: string; run: import('../../shared/types/automation').AutomationRun | null }>(ipc, IPC_CHANNELS.automations.onChange, listener)
     },
     agentHooks: {
       status: () => ipc.invoke(IPC_CHANNELS.agentHooks.status) as Promise<import('../../shared/types/agent-hooks').AgentHooksStatus[]>,

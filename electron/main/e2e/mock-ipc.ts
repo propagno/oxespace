@@ -397,21 +397,6 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.fs.unwatchFile, (_event: IpcMainInvokeEvent, input: { watchId: string }) => {
     mockFileSystemService.unwatchFile(input.watchId)
   })
-  ipcMain.handle(IPC_CHANNELS.linear.getStatus, () => ({
-    connected: false, encrypted: false, viewerName: null, viewerEmail: null, organization: null, error: null
-  }))
-  ipcMain.handle(IPC_CHANNELS.linear.setApiKey, () => {
-    throw new Error('Linear is not available in E2E mock mode')
-  })
-  ipcMain.handle(IPC_CHANNELS.linear.clearApiKey, () => undefined)
-  ipcMain.handle(IPC_CHANNELS.linear.listTeams, () => [])
-  ipcMain.handle(IPC_CHANNELS.linear.listIssues, () => [])
-  ipcMain.handle(IPC_CHANNELS.linear.getIssue, () => {
-    throw new Error('Linear is not available in E2E mock mode')
-  })
-  ipcMain.handle(IPC_CHANNELS.linear.createWorktreeFromIssue, () => {
-    throw new Error('Linear is not available in E2E mock mode')
-  })
   // Fixed by default so screenshots do not depend on the branch; a spec that checks branches asks for real git.
   ipcMain.handle(IPC_CHANNELS.git.getBranch, (_event: IpcMainInvokeEvent, input: { rootPath: string }) =>
     process.env.OXESPACE_E2E_REAL_GIT_BRANCH === '1' ? new GitService().getBranch(input.rootPath)
