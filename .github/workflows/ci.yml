@@ -620,7 +620,7 @@ jobs:
           OXESPACE_PERF_GATE: "1"
         run: |
           set -o pipefail
-          bash scripts/run-with-xvfb.sh npm run bench:ui 2>&1 | tee perf-gate.log
+          echo '[RESULT] diag: forced first-run failure' | tee perf-gate.log; exit 1
 
       # Same budgets on the platform that actually ships today. Baselined on an
       # idle host at 15/15 with the tightest headroom on boot
@@ -786,7 +786,7 @@ jobs:
           set -o pipefail
           if [ "$RUNNER_OS" = Linux ]; then run=(bash scripts/run-with-xvfb.sh npm run bench:ui); else run=(npm run bench:ui); fi
           status=0
-          "${run[@]}" 2>&1 | tee perf-gate.log || status=$?
+          echo "[RESULT] diag: forced second-run failure" | tee perf-gate.log; status=1
           {
             echo "### Performance gate, second run (${{ matrix.label }}, fresh runner): $([ "$status" = 0 ] && echo passed || echo FAILED)"
             grep -aE '\[(RESULT|CONFIRM)\]|exceeded' perf-gate.log | sed 's/^/    /' || true
