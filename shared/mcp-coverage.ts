@@ -412,9 +412,9 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   },
   'remote.devices_read': { label: 'Remote gateway status and paired phones', excluded: 'The person\'s devices, shown in Settings › Devices; agents have no use for them.', ipc: ['remote.status', 'remote.devices'] },
   'remote.gateway_admin': {
-    label: 'Turn the remote gateway on or off, pair, answer, revoke or rename a phone, name the desktop, let a phone type into a pane',
+    label: 'Turn the remote gateway on or off, pair, answer, revoke or rename a phone, name the desktop, let a phone type into a pane, keep a pane off the phone',
     forbidden: 'Opens a network surface and grants device access.',
-    ipc: ['remote.setEnabled', 'remote.startPairing', 'remote.cancelPairing', 'remote.answerPairing', 'remote.revoke', 'remote.rename', 'remote.setDesktopName', 'remote.setPhoneWrite', 'remote.firewallStatus', 'remote.firewallRepair', 'remote.firewallUndo']
+    ipc: ['remote.setEnabled', 'remote.startPairing', 'remote.cancelPairing', 'remote.answerPairing', 'remote.revoke', 'remote.rename', 'remote.setDesktopName', 'remote.setPhoneWrite', 'remote.setPhoneHidden', 'remote.firewallStatus', 'remote.firewallRepair', 'remote.firewallUndo']
   },
   'mcp.tool_rules_admin': { label: 'Choose, per MCP tool, to run it without asking, ask, or block it', forbidden: 'Approvals and access stay with the person.', ipc: ['mcpInternal.setToolRule'] },
   'settings.data_export': {

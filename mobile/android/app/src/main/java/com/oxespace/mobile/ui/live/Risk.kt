@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -58,13 +59,16 @@ fun riskMeaning(level: RemoteApprovalRisk): String = stringResource(
 
 private data class BadgeStyle(val background: Color, val border: Color, val text: Color, val bold: Boolean)
 
-/** Glossary §6: low neutral, medium warning, high danger soft, critical danger solid, so critical never looks like high. */
+/**
+ * The intent scale of M5 / HANDOFF-MOBILE (DESIGN #744, CR-F10-10): low success, medium info, high warning, critical
+ * solid danger. Critical stays the only solid badge, so it never looks like high.
+ */
 @Composable
 private fun badgeStyle(level: RemoteApprovalRisk): BadgeStyle = with(Oxe.colors) {
     when (level) {
-        RemoteApprovalRisk.LOW -> BadgeStyle(fillHover, borderSubtle, textSecondary, bold = false)
-        RemoteApprovalRisk.MEDIUM -> BadgeStyle(intentWarningBg, intentWarningBorder, intentWarningFg, bold = false)
-        RemoteApprovalRisk.HIGH -> BadgeStyle(intentDangerBg, intentDangerBorder, intentDangerFg, bold = false)
+        RemoteApprovalRisk.LOW -> BadgeStyle(intentSuccessBg, intentSuccessBorder, intentSuccessFg, bold = false)
+        RemoteApprovalRisk.MEDIUM -> BadgeStyle(intentInfoBg, intentInfoBorder, intentInfoFg, bold = false)
+        RemoteApprovalRisk.HIGH -> BadgeStyle(intentWarningBg, intentWarningBorder, intentWarningFg, bold = false)
         RemoteApprovalRisk.CRITICAL -> BadgeStyle(intentDangerSolid, intentDangerSolid, textOnSolid, bold = true)
     }
 }
@@ -98,5 +102,33 @@ fun RiskLine(wire: String, modifier: Modifier = Modifier) {
                 .padding(horizontal = OxeSpace.space2, vertical = 2.dp),
         )
         Text(meaning, style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary)
+    }
+}
+
+/**
+ * CR-A42b-2 (M5, #627 HANDOFF-MOBILE "RiskChip"): the level as a chip with its icon, on the intent scale above. The
+ * word is in the chip, so colour never carries it alone.
+ */
+@Composable
+fun RiskChip(level: RemoteApprovalRisk, modifier: Modifier = Modifier) {
+    val style = badgeStyle(level)
+    val badge = stringResource(R.string.request_risk_badge, riskWord(level))
+    val icon = when (level) {
+        RemoteApprovalRisk.LOW -> com.oxespace.mobile.ui.components.noticeIcon(com.oxespace.mobile.ui.components.NoticeIntent.SUCCESS)
+        RemoteApprovalRisk.MEDIUM -> com.oxespace.mobile.ui.components.noticeIcon(com.oxespace.mobile.ui.components.NoticeIntent.INFO)
+        RemoteApprovalRisk.HIGH -> com.oxespace.mobile.ui.components.noticeIcon(com.oxespace.mobile.ui.components.NoticeIntent.WARNING)
+        RemoteApprovalRisk.CRITICAL -> com.oxespace.mobile.ui.components.noticeIcon(com.oxespace.mobile.ui.components.NoticeIntent.DANGER)
+    }
+    androidx.compose.foundation.layout.Row(
+        modifier
+            .background(style.background, RoundedCornerShape(OxeRadius.sm))
+            .border(1.dp, style.border, RoundedCornerShape(OxeRadius.sm))
+            .padding(horizontal = OxeSpace.space2, vertical = 2.dp)
+            .clearAndSetSemantics { contentDescription = badge },
+        horizontalArrangement = Arrangement.spacedBy(OxeSpace.space1),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        androidx.compose.material3.Icon(icon, contentDescription = null, tint = style.text, modifier = Modifier.size(14.dp))
+        Text(badge, style = MaterialTheme.typography.labelMedium, fontWeight = if (style.bold) FontWeight.Bold else null, color = style.text)
     }
 }

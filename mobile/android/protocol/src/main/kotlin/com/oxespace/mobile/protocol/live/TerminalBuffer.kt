@@ -1,5 +1,6 @@
 package com.oxespace.mobile.protocol.live
 
+import com.oxespace.mobile.protocol.RemoteErrorCode
 import com.oxespace.mobile.protocol.RemoteFrames
 import com.oxespace.mobile.protocol.RemoteTerminalData
 import kotlinx.serialization.SerializationException
@@ -20,11 +21,18 @@ class TerminalBuffer(capacity: Int = 256 * 1024) : StreamListener {
     /** The lines to draw; unchanged lines are the same objects as last time, so a list can skip them. */
     fun lines(): List<VtLine> = synchronized(this) { screen.lines() }
 
-    /** 1.5.0 F10 skeleton (A45): the desktop's width from its snapshot; null without one (an older desktop). */
-    val cols: Int? get() = TODO("F10 A45")
+    private var width: Int? = null
 
-    /** 1.5.0 F10 skeleton (CR-34): the desktop hid this pane from the phone; nothing of it stays on screen. */
-    val hiddenOnDesktop: Boolean get() = TODO("F10 CR34")
+    /**
+     * The desktop's width from its latest snapshot (A45): the grid is exactly this wide and the view pans across it.
+     * Null without one (an older desktop, or a ring over the frame budget): the width stays unbounded, as in 1.4.3.
+     */
+    val cols: Int? get() = synchronized(this) { width }
+
+    private var hidden = false
+
+    /** CR-34: the desktop hid this pane from the phone ("Show on phone" off); nothing of it stays on screen. */
+    val hiddenOnDesktop: Boolean get() = synchronized(this) { hidden }
 
     var redacted: Long = 0
         private set
@@ -34,18 +42,23 @@ class TerminalBuffer(capacity: Int = 256 * 1024) : StreamListener {
 
     override fun onSnapshot(pages: List<JsonElement>) {
         synchronized(this) {
+            if (hidden) return
             redacted = 0
             val chunks = pages.mapNotNull(::read)
             val snapshot = chunks.firstOrNull()?.snapshot
             if (snapshot != null) {
                 // P4: the desktop's own emulator, serialized: scrollback, screen, modes and cursor, already redacted.
-                // Fed once at the pane's height. That snapshot's data pages are the same ring, so they are skipped.
-                screen.reset(snapshot.rows.toInt())
+                // Fed once at the pane's size (A45: its columns too, so a resize on the desktop follows with the next
+                // snapshot). That snapshot's data pages are the same ring, so they are skipped.
+                val cols = snapshot.cols.coerceIn(0, Int.MAX_VALUE.toLong()).toInt()
+                width = cols.takeIf { it > 0 }
+                screen.reset(cols, snapshot.rows.coerceIn(0, Int.MAX_VALUE.toLong()).toInt())
                 screen.feed(snapshot.ansi)
                 chunks.forEach { redacted += it.redacted ?: 0 }
             } else {
-                // A 1.4.2 desktop, or a screen over the frame budget: the ring, as before.
-                screen.reset()
+                // A 1.4.2 desktop, or a screen over the frame budget: the ring, as before, at no known width.
+                width = null
+                screen.reset(0, 0)
                 chunks.forEach { apply(it, clearFirst = false) }
             }
             version++
@@ -55,8 +68,21 @@ class TerminalBuffer(capacity: Int = 256 * 1024) : StreamListener {
     override fun onEvent(data: JsonElement) {
         val chunk = read(data) ?: return
         synchronized(this) {
+            if (hidden) return
             // The phone was away longer than the ring is deep: what it holds no longer joins up with what follows.
             apply(chunk, clearFirst = chunk.truncated)
+            version++
+        }
+    }
+
+    /** CR-34: a pane hidden from the phone clears the screen, the last frame included; any other end is a refusal. */
+    override fun onEnded(code: RemoteErrorCode, reason: String?) {
+        if (reason != PANE_HIDDEN_REASON) return onRefused(code)
+        synchronized(this) {
+            hidden = true
+            width = null
+            redacted = 0
+            screen.reset(0, 0)
             version++
         }
     }

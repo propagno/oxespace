@@ -23,7 +23,8 @@ export interface RemotePaneRow {
   agent?: string
   agentState?: AgentLifecycleState
 }
-export interface RemoteWorkspaceRow { id: string; name: string; rootPath: string; active: boolean; panes: RemotePaneRow[] }
+/** `color` is the stored slot (1.5.0 A8), or null when none was chosen; the mapper sends the stored or derived slot (A67). */
+export interface RemoteWorkspaceRow { id: string; name: string; rootPath: string; active: boolean; panes: RemotePaneRow[]; color: number | null }
 export interface RemoteJobRow { id: string; workspaceId: string; label: string; status: BackgroundJobStatus; exitCode: number | null; startedAt: number; finishedAt: number | null }
 export interface RemoteDelegationRow { id: string; workspaceId: string; objective: string; state: string; error?: string; branch?: string; destinationThreadId?: string; updatedAt: number }
 export interface RemotePendingRow { thread: ConversationThread; request: ThreadRequest }
@@ -131,9 +132,9 @@ export function createRemoteDesktop(hosts: RemoteDesktopHosts): RemoteDesktop {
       const panes = db.prepare(`SELECT p.id, p.workspace_id, p.type, p.display_name, p.agent_name, s.name AS shell_name FROM panes p
         LEFT JOIN workspaces w ON w.id = p.workspace_id LEFT JOIN shell_profiles s ON s.id = COALESCE(p.shell_profile_id, w.default_shell_profile_id)
         ORDER BY p.workspace_id, p.row_index, p.column_index`).all() as Array<{ id: string; workspace_id: string; type: string; display_name: string | null; agent_name: string | null; shell_name: string | null }>
-      return (db.prepare('SELECT id, name, root_path, is_active FROM workspaces ORDER BY created_at, id LIMIT ?').all(LIST_LIMIT) as Array<{ id: string; name: string; root_path: string; is_active: number }>)
+      return (db.prepare('SELECT id, name, root_path, is_active, color FROM workspaces ORDER BY created_at, id LIMIT ?').all(LIST_LIMIT) as Array<{ id: string; name: string; root_path: string; is_active: number; color: number | null }>)
         .map(row => ({
-          id: row.id, name: row.name, rootPath: row.root_path, active: row.is_active === 1,
+          id: row.id, name: row.name, rootPath: row.root_path, active: row.is_active === 1, color: row.color ?? null,
           panes: panes.filter(pane => pane.workspace_id === row.id).map(pane => {
             const state = states.get(pane.id)
             return { id: pane.id, type: pane.type, displayName: pane.display_name, agentName: pane.agent_name, shellName: pane.shell_name, ...(state ? { agent: state.agent, agentState: state.state } : {}) }

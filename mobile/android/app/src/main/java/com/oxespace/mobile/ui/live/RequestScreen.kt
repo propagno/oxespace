@@ -28,15 +28,20 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.size
+import com.oxespace.mobile.ui.components.Notice
+import com.oxespace.mobile.ui.components.NoticeIntent
+import com.oxespace.mobile.ui.components.OxeButton
+import com.oxespace.mobile.ui.components.OxeButtonKind
+import com.oxespace.mobile.ui.components.noticeIcon
+import com.oxespace.mobile.ui.components.CriticalDelayAllow
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -55,6 +60,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -115,7 +121,7 @@ fun RequestScreen(
                     AnswerBlock.NOT_OFFERED -> R.string.request_refused_other
                     AnswerBlock.NOT_CONFIRMED -> R.string.request_not_confirmed
                     AnswerBlock.TRUNCATED -> R.string.request_truncated
-                    AnswerBlock.IN_FLIGHT, AnswerBlock.ALREADY_ANSWERED -> TODO("F10 A44")
+                    AnswerBlock.IN_FLIGHT -> message; AnswerBlock.ALREADY_ANSWERED -> R.string.request_refused_not_pending
                 }
                 is AnswerOutcome.Sent -> answerMessage(outcome.result)
             }
@@ -143,7 +149,15 @@ fun RequestScreen(
             // What the person needs first: whether they can answer here at all.
             if (!request.answerable) DesktopOnlyNotice()
             Text(requestTitle(request), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
-            request.risk?.let { RiskLine(it) }
+            // CR-A42b-2 (M5): the RiskChip in the header, then what the level means.
+            request.risk?.let { wire ->
+                val level = riskLevel(wire)
+                Row(horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    RiskChip(level)
+                    Text(riskMeaning(level), style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary)
+                }
+            }
+            riskNote(request)?.let { NoUndoLine(it) }
             // The facts, as label/value rows: nothing read-only looks like an input (M10 §6).
             Facts(
                 listOfNotNull(
@@ -185,10 +199,10 @@ fun RequestScreen(
 
             val truncated = request.truncated == true
             if (truncated) {
-                Text(
-                    stringResource(if (request.kind == "question") R.string.request_truncated_question else R.string.request_truncated),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Oxe.colors.intentWarningFg,
+                Notice(
+                    NoticeIntent.WARNING,
+                    title = stringResource(if (request.kind == "question") R.string.request_truncated_question else R.string.request_truncated),
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                 )
             }
             // A truncated question is answered on the desktop only: nothing to pick or send here.
@@ -196,7 +210,17 @@ fun RequestScreen(
 
             val questions = if (truncated) emptyList() else request.questions.orEmpty()
             // Never an approval for what the phone wasn't shown in full, even if the desktop offered one.
-            val decisions = if (truncated) request.decisions.filter { it == "decline" || it == "cancel" } else request.decisions
+            // Allow at critical risk waits the desktop's hold (APPROVAL_CRITICAL_ALLOW_DELAY_MS); keyed on the generation
+            // and the hold, so a request raised to critical takes the hold again.
+            val hold = com.oxespace.mobile.approval.allowHoldMs(request)
+            var elapsed by remember(request.requestId, request.generation, hold) { mutableStateOf(0L) }
+            LaunchedEffect(request.requestId, request.generation, hold) { if (hold > 0L) { delay(hold); elapsed = hold } }
+            // CR-F10-3: the buttons are exactly requestActions (which decisions, and whether Allow can be pressed yet);
+            // a truncated request offers Deny only. Busy goes on top. The decline field and the hold caption follow them.
+            val actions = requestActions(request, elapsed)
+            val decisions = actions.map { it.decision }
+            val leads = decisionLayout(decisions, request.risk).toMap()
+            val held = actions.any { it.decision == "accept" && !it.enabled }
             for (question in questions) {
                 Text(displaySafe(question.header ?: question.question, QUESTION_MAX), style = MaterialTheme.typography.titleSmall, modifier = Modifier.semantics { heading() })
                 if (question.header != null) Text(displaySafeBlock(question.question, QUESTION_MAX), style = MaterialTheme.typography.bodyMedium)
@@ -236,11 +260,12 @@ fun RequestScreen(
             }
             if (questions.isNotEmpty()) {
                 val complete = questions.all { question -> question.required != true || chosen[question.id].orEmpty().isNotEmpty() }
-                Button(
+                OxeButton(
+                    stringResource(R.string.request_send_answers),
                     onClick = { answer(null, chosen.mapValues { it.value.toList() }.filterValues { it.isNotEmpty() }) },
                     enabled = !busy && complete,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = Target),
-                ) { Text(stringResource(R.string.request_send_answers)) }
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
 
             // The only box on the screen that looks editable.
@@ -252,12 +277,13 @@ fun RequestScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            // At critical risk Allow waits the desktop's hold before it can be pressed (APPROVAL_CRITICAL_ALLOW_DELAY_MS).
-            val critical = request.risk?.let { riskLevel(it) } == RemoteApprovalRisk.CRITICAL
-            // Keyed on the generation and the level too: a request raised to critical takes the hold again.
-            var held by remember(request.requestId, request.generation, critical) { mutableStateOf(critical) }
-            LaunchedEffect(request.requestId, request.generation, critical) { if (critical) { delay(CRITICAL_HOLD_MS); held = false } }
-            for ((decision, leads) in decisionLayout(decisions, request.risk)) {
+
+
+
+
+
+            for (action in actions) {
+                val decision = action.decision
                 val label = stringResource(
                     when (decision) {
                         "accept" -> R.string.request_decision_accept
@@ -265,12 +291,26 @@ fun RequestScreen(
                         else -> R.string.request_decision_cancel
                     },
                 )
-                val enabled = !busy && !(decision == "accept" && held)
+                val enabled = !busy && action.enabled
                 // The lead is the accent's filled button; Deny is never danger red: it is the safe answer (§6).
-                if (leads) {
-                    Button(onClick = { answer(decision, null) }, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = Target)) { Text(label) }
+                if (decision == "accept" && hold > 0L) {
+                    // CR-A42b-2 (M5): Allow at critical risk waits the hold with its ring, then the biometric.
+                    CriticalDelayAllow(
+                        label = label,
+                        countdown = { seconds -> stringResource(R.string.request_allow_in, seconds.toString()) },
+                        holdMs = hold,
+                        enabled = enabled,
+                        onClick = { answer(decision, null) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 } else {
-                    OutlinedButton(onClick = { answer(decision, null) }, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = Target)) { Text(label) }
+                    OxeButton(
+                        label,
+                        onClick = { answer(decision, null) },
+                        enabled = enabled,
+                        modifier = Modifier.fillMaxWidth(),
+                        kind = if (leads[decision] == true) OxeButtonKind.PRIMARY else OxeButtonKind.SECONDARY,
+                    )
                 }
             }
             if ("accept" in decisions) {
@@ -301,20 +341,30 @@ internal fun decisionLayout(decisions: List<String>, risk: String?): List<Pair<S
         .map { it to (it == lead) }
 }
 
+/**
+ * "No undo." under the risk chip (F7, DESIGN, phone high-irreversible): the warning icon and the words in the warning
+ * intent, as a plain line, not a Notice. The icon is decorative; TalkBack reads the words.
+ */
+@Composable
+private fun NoUndoLine(text: Int) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+    ) {
+        Icon(noticeIcon(NoticeIntent.WARNING), contentDescription = null, tint = Oxe.colors.intentWarningFg, modifier = Modifier.size(16.dp))
+        Text(stringResource(text), style = MaterialTheme.typography.bodyMedium, color = Oxe.colors.intentWarningFg)
+    }
+}
+
 /** On top of a request only the computer can answer: the person learns it before reading the details. */
 @Composable
 private fun DesktopOnlyNotice() {
-    Column(
-        Modifier.fillMaxWidth()
-            .background(Oxe.colors.intentWarningBg, RoundedCornerShape(OxeRadius.md))
-            .border(1.dp, Oxe.colors.intentWarningBorder, RoundedCornerShape(OxeRadius.md))
-            .padding(OxeSpace.space3)
-            .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
-        verticalArrangement = Arrangement.spacedBy(OxeSpace.space1),
-    ) {
-        Text(stringResource(R.string.request_desktop_only_title), style = MaterialTheme.typography.titleSmall, color = Oxe.colors.intentWarningFg)
-        Text(stringResource(R.string.request_desktop_only), style = MaterialTheme.typography.bodyMedium)
-    }
+    Notice(
+        NoticeIntent.WARNING,
+        title = stringResource(R.string.request_desktop_only_title),
+        text = stringResource(R.string.request_desktop_only),
+        modifier = Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+    )
 }
 
 
@@ -377,8 +427,8 @@ private val KNOWN_DECISIONS = setOf("accept", "decline", "cancel")
 private const val TITLE_MAX = 200
 private const val QUESTION_MAX = 500
 private const val PROVIDER_MAX = 40
-/** The desktop's hold on Allow at critical risk (shared/types/approvals APPROVAL_CRITICAL_ALLOW_DELAY_MS). */
-private const val CRITICAL_HOLD_MS = 2_000L
+
+// The critical hold is allowHoldMs (approval/RequestResponder.kt), shared with CriticalDelayAllow.
 
 // ---- 1.5.0 F10 API skeleton (A44), no behaviour; MOB-A44 replaces the TODOs. Tests: RequestActionsTest, RequestRiskNoteTest. ----
 
@@ -387,8 +437,17 @@ data class RequestAction(val decision: String, val enabled: Boolean)
 
 /** The actions a request gets: decisionLayout's order, Deny only when truncated, none when only the desktop answers. */
 @Suppress("UNUSED_PARAMETER")
-fun requestActions(request: RemotePendingRequest, elapsedMs: Long): List<RequestAction> = TODO("F10 A44")
+fun requestActions(request: RemotePendingRequest, elapsedMs: Long): List<RequestAction> {
+    if (!request.answerable) return emptyList()
+    val truncated = request.truncated == true
+    // A truncated question is answered on the desktop only; a truncated approval can only be denied here.
+    if (truncated && request.kind == "question") return emptyList()
+    val decisions = if (truncated) request.decisions.filter { it == "decline" } else request.decisions
+    val allow = com.oxespace.mobile.ui.components.criticalAllowState(request.risk, elapsedMs).enabled
+    return decisionLayout(decisions, request.risk).map { (decision, _) -> RequestAction(decision, enabled = decision != "accept" || allow) }
+}
 
 /** The line under the risk chip: "No undo." on a high request (F7, DESIGN), nothing otherwise. */
 @Suppress("UNUSED_PARAMETER")
-fun riskNote(request: RemotePendingRequest): Int? = TODO("F10 A44")
+fun riskNote(request: RemotePendingRequest): Int? =
+    request.risk?.takeIf { riskLevel(it) == RemoteApprovalRisk.HIGH }?.let { R.string.request_no_undo }

@@ -5,6 +5,7 @@ import { received } from '../helpers/remote-client'
 import { addDelegation, addJob, pendingRequest, ROOT } from '../helpers/remote-desktop'
 import type { Harness } from '../helpers/remote-gateway-harness'
 import { away, collect, ended, lastCursor, phoneWithDesktop, quiet, signIn, sleep, subscribe, subscribeOnly, terminalUntil, type Frame } from '../helpers/remote-session'
+import { workspaceColorIndex } from '../../shared/workspace-color'
 
 const harnesses: Harness[] = []
 afterEach(async () => { await Promise.all(harnesses.splice(0).map(value => value.close())) })
@@ -22,7 +23,9 @@ describe('remote topics: snapshot, events, resume by cursor', () => {
       id: 'ws1', name: 'proj', active: true, panes: [
         { id: 'p1', title: 'Build', kind: 'terminal', phoneWrite: false },
         { id: 'p2', title: 'claude', kind: 'agent', agent: 'claude', agentState: 'working', phoneWrite: false }
-      ]
+      ],
+      // 1.5.0 A67 (#693): no colour chosen in the fixture, so the derived slot the desktop shows.
+      color: workspaceColorIndex({ id: 'ws1', color: null })
     }])
     phone.h.gateway.setPhoneWrite({ paneId: 'p1', allowed: true })
     const [event] = await collect(socket, ended)

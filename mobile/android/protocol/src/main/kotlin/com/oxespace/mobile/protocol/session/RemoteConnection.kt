@@ -215,7 +215,7 @@ class RemoteConnection(
         val webSocket = socket
         if (session.state is SessionState.Ready && !streamsAttached && webSocket != null) {
             streamsAttached = true
-            streams?.attach { frame -> webSocket.send(RemoteFrames.write(frame)) }
+            streams?.attach(session.features) { frame -> webSocket.send(RemoteFrames.write(frame)) }
         } else if (session.state is SessionState.Ended && streamsAttached) {
             streamsAttached = false
             streams?.detach()

@@ -25,6 +25,8 @@ export interface RemoteGatewayStatus {
   maxDevices: number
   /** Panes the person allowed the phone to type into. Empty when the app starts. */
   phoneWritePanes: string[]
+  /** CR-34: panes kept off the phone entirely, sorted; persisted per pane. Every pane is shown by default. */
+  phoneHiddenPanes?: string[]
   /** Why it is not listening (port in use, firewall, certificate…), as a code the window translates. */
   error?: MainMessage
   /**
@@ -153,6 +155,8 @@ export interface RemoteApi {
   setDesktopName(input: { name: string | null }): Promise<RemoteGatewayStatus>
   /** Lets a phone type into one pane, or stops it. Off by default and again when the app restarts. */
   setPhoneWrite(input: { paneId: string; allowed: boolean }): Promise<RemoteGatewayStatus>
+  /** CR-34: "Show on phone" for one pane (shown by default). Hiding also stops typing from the phone. Persisted and audited. */
+  setPhoneHidden?(input: { paneId: string; hidden: boolean }): Promise<RemoteGatewayStatus>
   /** 1.4.3 P1: whether Windows lets a phone reach the gateway (read only, no elevation). */
   firewallStatus?(): Promise<RemoteFirewallStatus>
   /** 1.4.3 P1: adds the one Private-only rule for this OXESpace.exe and port, through UAC (never silent). */
