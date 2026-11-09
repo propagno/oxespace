@@ -34,7 +34,7 @@ import org.junit.runner.RunWith
  * `conversation: true` the terminal shows a Screen · Conversation control, opens on Conversation (read only: no input,
  * "Type on the Screen view"), with "Load earlier" while older pages exist. A pane without the field shows no control.
  *
- * Red before CR-A46: TerminalScreen draws only the screen; its `conversation` parameter is unused.
+ * Red before CR-A46: TerminalScreen draws only the screen; it has no Screen · Conversation control.
  */
 @RunWith(AndroidJUnit4::class)
 class PaneConversationViewOnDeviceTest {
@@ -59,11 +59,11 @@ class PaneConversationViewOnDeviceTest {
         compose.setContent { OxeTheme { TerminalScreen(pane.copy(conversation = true), Watched(TerminalBuffer()), commands, presence, conversation = conversation) {} } }
         val res = compose.activity.resources
 
-        compose.onNode(hasText(res.getString(R.string.pane_conversation_screen)) and hasClickAction()).assertExists()
-        compose.onNode(hasText(res.getString(R.string.pane_conversation_conversation)) and hasClickAction()).assertExists()
+        compose.onNode(hasText(res.getString(R.string.terminal_conversation_screen)) and hasClickAction()).assertExists()
+        compose.onNode(hasText(res.getString(R.string.terminal_conversation_conversation)) and hasClickAction()).assertExists()
         compose.onNode(hasText("Fixed, and the tests pass.")).assertExists()
-        compose.onNode(hasText(res.getString(R.string.pane_conversation_type_on_screen))).assertExists()
-        compose.onNode(hasText(res.getString(R.string.pane_conversation_load_earlier)) and hasClickAction()).assertExists()
+        compose.onNode(hasText(res.getString(R.string.terminal_type_on_screen))).assertExists()
+        compose.onNode(hasText(res.getString(R.string.thread_load_older)) and hasClickAction()).assertExists()
         // Read only: Conversation offers no field to type in.
         compose.onNode(hasSetTextAction()).assertDoesNotExist()
     }
@@ -72,6 +72,6 @@ class PaneConversationViewOnDeviceTest {
     fun aPaneWithoutTheFieldShowsNoConversationControl() {
         compose.setContent { OxeTheme { TerminalScreen(pane, Watched(TerminalBuffer()), commands, presence) {} } }
         val res = compose.activity.resources
-        compose.onNode(hasText(res.getString(R.string.pane_conversation_conversation)) and hasClickAction()).assertDoesNotExist()
+        compose.onNode(hasText(res.getString(R.string.terminal_conversation_conversation)) and hasClickAction()).assertDoesNotExist()
     }
 }

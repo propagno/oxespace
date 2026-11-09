@@ -27,7 +27,7 @@ import org.junit.runner.RunWith
  * terminal was hidden from the phone on {computer}." with [Back to terminals], and nothing of the pane stays on screen,
  * the last frame included. The phone's protocol side is PaneHiddenTest; this is the screen.
  *
- * Red before CR-CR34: TerminalScreen keeps drawing the last frame, and its `desktopName` parameter is unused.
+ * Red before CR-CR34: TerminalScreen keeps drawing the last frame, and its `computer` parameter is unused.
  */
 @RunWith(AndroidJUnit4::class)
 class TerminalHiddenOnDeviceTest {
@@ -47,7 +47,7 @@ class TerminalHiddenOnDeviceTest {
         desk.connect()
         desk.settle()
         compose.setContent {
-            OxeTheme { TerminalScreen(RemotePane("p-1", "zsh", "terminal", phoneWrite = false), watched, desk.streams.commands, PresenceGate { _, _ -> Presence.CONFIRMED }, desktopName = "Studio") {} }
+            OxeTheme { TerminalScreen(RemotePane("p-1", "zsh", "terminal", phoneWrite = false), watched, desk.streams.commands, PresenceGate { _, _ -> Presence.CONFIRMED }, computer = "Studio") {} }
         }
         compose.waitUntil(10_000) { compose.onAllNodes(hasText(secret, substring = true)).fetchSemanticsNodes().isNotEmpty() }
 
