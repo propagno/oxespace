@@ -16,11 +16,13 @@ class AgentsViewModel(private val repository: LiveRepository) {
         private set
 
     /**
-     * Opening a row: a finished one is to be marked seen (`agent.markSeen { kind, id }`); every other state sends nothing.
-     * BLOCKED (OXB): CommandApi (protocol/live/Commands.kt, outside this task's write set) has no `markSeen`, and its
-     * constructor and LiveStreams' sender are not reachable from the app, so the command can't be sent from here yet.
+     * Opening a row: a finished one is marked seen (`agent.markSeen { kind, id }`, CR-F10-7); every other state sends
+     * nothing.
      */
     fun open(row: AgentRow) {
-        markSeenOnOpen(row)?.let { pendingMarkSeen = it }
+        markSeenOnOpen(row)?.let {
+            pendingMarkSeen = it
+            repository.markAgentSeen(it)
+        }
     }
 }
