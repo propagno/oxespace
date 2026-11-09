@@ -116,6 +116,7 @@ before. Code panes receive the whole registry.
 | `code.agent_seen` | Mark an agent's finished turn as seen | Excluded: An attention marker of the person's window. |
 | `code.terminal_output` | Read a pane's output | **read**: `oxespace_terminal#output` |
 | `code.terminal_input` | Start, type into, resize or stop a terminal | Excluded: Free key input into another terminal. Agents prompt agents with oxespace_agents_change prompt, which refuses one waiting for an approval. |
+| `code.pane_branch` | A pane's branch and the branch it started on (switched from) | Excluded: The person's pane header. Agents read the branch with oxespace_git branch. |
 | `code.agent_profiles` | Agent profiles an agent can delegate to | **read**: `oxespace_list_agents` |
 | `code.agent_profiles_admin` | Create, edit, delete or discover agent profiles | Excluded: A profile chooses an executable and arguments that run on this machine; the person edits it. |
 | `code.scripts` | Project scripts | **read**: `oxespace_list_scripts`<br>**write**: `oxespace_run_script` |
@@ -140,6 +141,7 @@ before. Code panes receive the whole registry.
 | `github.read` | Pull requests, CI runs and logs, commits, releases | **read**: `oxespace_github#status`, `oxespace_github#branches`, `oxespace_github#pull_requests`, `oxespace_github#pull_request_status`, `oxespace_github#commits`, `oxespace_github#commit`, `oxespace_github#releases`, `oxespace_github#workflows`, `oxespace_github#runs`, `oxespace_github#run`, `oxespace_github#run_logs` |
 | `github.change` | Open pull requests, auto-merge, releases, run workflows | **confirm**: `oxespace_github_change#create_pull_request`, `oxespace_github_change#set_auto_merge`, `oxespace_github_change#create_release`, `oxespace_github_change#run_workflow`, `oxespace_github_change#rerun` |
 | `github.connected_repositories` | Connect a GitHub repository to a workspace | Excluded: An account-level link the person makes and confirms in the GitHub panel. |
+| `code.pull_request` | The Pull request tab: a branch's pull request on GitHub or Azure DevOps | Excluded: The person's window. Agents read pull requests with oxespace_github. |
 | `search.text` | Exact text search and the file list | **read**: `oxespace_search#text`, `oxespace_search#files` |
 | `search.code` | Semantic, structural and hybrid code retrieval; post-diff quality check | **read**: `oxespace_semantic_search`, `oxespace_hybrid_explore`, `oxespace_quality_check`, `oxespace_code_search`, `oxespace_code_callers`, `oxespace_code_callees`, `oxespace_code_impact`, `oxespace_code_node`, `oxespace_code_status`, `oxespace_settings#semantic`<br>**write**: `oxespace_workspace_change#reindex` |
 | `search.semantic_admin` | Turn semantic search on or off; download, import or remove the vector model | Excluded: Changes disk use and what is indexed; the person decides in Settings. |

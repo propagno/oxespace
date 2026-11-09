@@ -28,6 +28,8 @@ import {
   type TaskExecution,
   type TaskVerifyOutputEvent,
   type TerminalActivityEvent,
+  type TerminalBranchChangedEvent,
+  type TerminalPaneBranch,
   type TerminalAttachResult,
   type TerminalDataEvent,
   type TerminalStatusResult,
@@ -47,6 +49,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
   const terminalData = createPaneSubscriber<TerminalDataEvent>(ipc, IPC_CHANNELS.terminal.onData)
   const terminalExit = createPaneSubscriber<TerminalExitEvent>(ipc, IPC_CHANNELS.terminal.onExit)
   const terminalActivity = createPaneSubscriber<TerminalActivityEvent>(ipc, IPC_CHANNELS.terminal.onActivity)
+  const terminalBranch = createPaneSubscriber<TerminalBranchChangedEvent>(ipc, IPC_CHANNELS.terminal.branchChanged)
 
   return {
     agentAccount: {
@@ -241,6 +244,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       setResumeBypass: (enabled) => ipc.invoke(IPC_CHANNELS.terminal.setResumeBypass, enabled) as Promise<boolean>,
       onData: terminalData,
       onExit: terminalExit,
+      branch: (paneId) => ipc.invoke(IPC_CHANNELS.terminal.branch, paneId) as Promise<TerminalPaneBranch | null>,
+      onBranchChanged: terminalBranch,
       onActivity: terminalActivity
     },
     agent: {
@@ -419,6 +424,9 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       deleteCheckpoint: (input) => ipc.invoke(IPC_CHANNELS.github.deleteCheckpoint, input) as Promise<GitHubMessageResult>,
       listConnectedRepositories: (input) => ipc.invoke(IPC_CHANNELS.github.listConnectedRepositories, input) as Promise<GitHubConnectedRepository[]>,
       connectRepository: (input) => ipc.invoke(IPC_CHANNELS.github.connectRepository, input) as Promise<GitHubConnectedRepository>
+    },
+    pullRequest: {
+      state: (input) => ipc.invoke(IPC_CHANNELS.pullRequest.state, input) as Promise<import('../../shared/types/pull-request').PullRequestState>
     },
     integration: {
       listGroups: (input) => ipc.invoke(IPC_CHANNELS.integration.listGroups, input ?? {}) as Promise<import('../../shared/types/integration').IntegrationGroup[]>,

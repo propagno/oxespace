@@ -17,8 +17,10 @@ import { resumeBypassAllowed, setResumeBypassAllowed } from './agent-state/resum
 import { bypassWithheld, claudeSessionToAssign, failedToLoadStatus, permissionModeArgs, planPaneResume, RESUME_LOAD_MS, startedFreshStatus } from './agent-state/pane-resume'
 import { nativeSessionExists, type NativeSessionRoots } from './agent-state/native-session-files'
 import { PtyModeTracker } from './pty-mode-tracker'
+import { ShellCwdScanner } from './terminal/shell-cwd'
+import { PaneBranchTracker, samePaneBranch } from './terminal/pane-branch'
 import { DA1_CARRY_MS, DA1_REPLY, Da1Filter, stripDa1 } from './pty-da1'
-import type { TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume, PaneAgentSession } from '../../../shared/types/ipc'
+import type { TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume, PaneAgentSession, TerminalBranchChangedEvent, TerminalPaneBranch } from '../../../shared/types/ipc'
 import { assertProviderAllowed, inheritedEnvironment } from './policy'
 import { recordIncident } from './diagnostics/incident-sink'
 
@@ -37,6 +39,8 @@ interface TerminalManagerOptions {
   userDataPath?: string
   emitData?: (event: TerminalDataEvent) => void
   emitExit?: (event: TerminalExitEvent) => void
+  /** A18 (T73) · A pane's branch changed (the pane header's "switched from"). */
+  emitBranchChanged?: (event: TerminalBranchChangedEvent) => void
   emitActivity?: (event: TerminalActivityEvent) => void
   ringCapacityBytes?: number
   prepareLaunch?: (input: { paneId: string; workspaceId: string; cwd: string; signal: AbortSignal }) => Promise<Record<string, string>>
@@ -177,6 +181,11 @@ export class TerminalManager {
   private readonly ringCapacityBytes?: number
   private readonly exitedSessions = new Map<string, ExitedSession>()
   private readonly outputListeners = new Set<(paneId: string) => void>()
+  /** A18 (T79) · Each pane's passive shell cwd, read from OSC 7/633/9;9/1337 in its output. */
+  private readonly shellCwds = new Map<string, { scanner: ShellCwdScanner; cwd: string | null }>()
+  /** A18 (T73) · Each pane's branch and the branch it started on. */
+  private readonly branches = new PaneBranchTracker()
+  private readonly emitBranchChanged: (event: TerminalBranchChangedEvent) => void
 
   constructor(private readonly db: AppDatabase, options: TerminalManagerOptions = {}) {
     this.prepareLaunch = options.prepareLaunch
@@ -216,6 +225,7 @@ export class TerminalManager {
     this.emitData = options.emitData ?? (() => undefined)
     this.emitExit = options.emitExit ?? (() => undefined)
     this.emitActivity = options.emitActivity ?? (() => undefined)
+    this.emitBranchChanged = options.emitBranchChanged ?? (() => undefined)
     this.ringCapacityBytes = options.ringCapacityBytes
   }
 
@@ -426,6 +436,7 @@ export class TerminalManager {
     // yet positions absolutely from row 1. The view may already hold a line ("Idle"), so the first screen landed one row
     // off. Start every Windows session from the same clean, homed screen the system ConPTY gave.
     if (this.platform === 'win32') this.sessions.get(input.paneId)?.outputBatcher.push(CONPTY_START_SCREEN)
+    this.trackBranch(input.paneId, cwd)
     this.observer?.start(input.paneId, input.workspaceId, cols, rows, input.launch ? [input.launch.executable, ...input.launch.args].join(' ') : agentCommand ?? executable)
     ptyProcess.onData((data) => {
       const session = this.sessions.get(input.paneId)
@@ -446,6 +457,7 @@ export class TerminalManager {
       }
       this.sessions.delete(input.paneId)
       this.notifyLaunchExit(input.paneId)
+      this.forgetBranch(input.paneId)
       this.observer?.exit(input.paneId)
       this.emitExit({ paneId: input.paneId, exitCode })
     })
@@ -520,6 +532,15 @@ export class TerminalManager {
    *   two replies.
    */
   private receive(session: TerminalSession, chunk: string): void {
+    // A18 (T79) · One indexOf per chunk while nothing is pending; a new cwd moves the pane's branch.
+    const shell = this.shellCwds.get(session.paneId)
+    if (shell) {
+      const cwd = shell.scanner.push(chunk)
+      if (cwd && cwd !== shell.cwd) {
+        shell.cwd = cwd
+        void this.refreshBranch(session.paneId, cwd)
+      }
+    }
     const { data, answered } = session.da1.filter(chunk, !session.viewAttached)
     for (let i = 0; i < answered; i++) void session.inputQueue.enqueue(DA1_REPLY)
     if (data) session.outputBatcher.push(data)
@@ -652,7 +673,42 @@ export class TerminalManager {
 
   setResumeBypass(enabled: boolean): boolean { return setResumeBypassAllowed(this.db, enabled) }
 
+  /** A18 (T73) · The pane's branch, read again (terminal focus); null for a pane with no terminal. */
+  async branch(paneId: string): Promise<TerminalPaneBranch | null> {
+    if (!this.branches.isTracked(paneId)) return this.branches.get(paneId)
+    return this.refreshBranch(paneId)
+  }
+
+  /** A18 (T79) · The cwd the pane's shell last reported (OSC), or null. */
+  shellCwd(paneId: string): string | null {
+    return this.shellCwds.get(paneId)?.cwd ?? null
+  }
+
+  private trackBranch(paneId: string, cwd: string): void {
+    this.shellCwds.set(paneId, { scanner: new ShellCwdScanner(this.platform), cwd: null })
+    void this.branches.track(paneId, cwd).then(view => {
+      if (this.branches.isTracked(paneId)) this.emitBranchChanged({ paneId, ...view })
+    }).catch(() => undefined)
+  }
+
+  private async refreshBranch(paneId: string, cwd?: string): Promise<TerminalPaneBranch | null> {
+    const before = this.branches.get(paneId)
+    try {
+      const after = await this.branches.refresh(paneId, cwd)
+      if (after && !samePaneBranch(before, after)) this.emitBranchChanged({ paneId, ...after })
+      return after
+    } catch {
+      return before
+    }
+  }
+
+  private forgetBranch(paneId: string): void {
+    this.shellCwds.delete(paneId)
+    this.branches.forget(paneId)
+  }
+
   status(paneId: string): TerminalStatusResult {
+    if (this.branches.isTracked(paneId)) void this.refreshBranch(paneId)
     const session = this.sessions.get(paneId)
     const resumed = this.agentResumes.get(paneId)
     const agentResume = resumed ? { agentResume: resumed } : {}
@@ -741,6 +797,7 @@ export class TerminalManager {
     this.sessions.delete(input.paneId)
     this.notifyLaunchExit(input.paneId)
     this.observer?.exit(input.paneId)
+    this.forgetBranch(input.paneId)
     // An explicit stop is not a crash to be explained on return.
     this.exitedSessions.delete(input.paneId)
   }
