@@ -1,6 +1,12 @@
 package com.oxespace.mobile.session
 
+import com.oxespace.mobile.agents.AgentsState
+import com.oxespace.mobile.agents.AgentsStore
+import com.oxespace.mobile.agents.apply
+import com.oxespace.mobile.protocol.RemoteAgentsEvent
+import com.oxespace.mobile.protocol.RemoteAgentsSnapshot
 import com.oxespace.mobile.protocol.RemoteErrorCode
+import com.oxespace.mobile.protocol.RemoteFrames
 import com.oxespace.mobile.protocol.RemoteSubscription
 import com.oxespace.mobile.protocol.live.Followed
 import com.oxespace.mobile.protocol.live.LiveStreams
@@ -15,6 +21,7 @@ import com.oxespace.mobile.protocol.live.workspacesStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonElement
 
 /** A store a screen watches: [changes] ticks after every snapshot or event, and [refused] says why it stopped. */
@@ -50,6 +57,39 @@ class Watched<Store : StreamListener>(val store: Store) : StreamListener {
 }
 
 /**
+ * 1.5.0 A43: the C5 `agents` stream into [AgentsStore]. Snapshot pages are joined in order (rows concatenated, the
+ * unavailable sources united); a frame that doesn't decode is skipped, so one bad frame never breaks the tab.
+ */
+class AgentsFeed(val store: AgentsStore = AgentsStore()) : StreamListener {
+    val state: StateFlow<AgentsState> get() = store.state
+    private val refusal = MutableStateFlow<RemoteErrorCode?>(null)
+    val refused: StateFlow<RemoteErrorCode?> = refusal.asStateFlow()
+
+    override fun onSnapshot(pages: List<JsonElement>) {
+        val decoded = pages.mapNotNull { page -> decode { RemoteFrames.json.decodeFromJsonElement(RemoteAgentsSnapshot.serializer(), page) } }
+        if (decoded.isEmpty() && pages.isNotEmpty()) return
+        store.apply(RemoteAgentsSnapshot(rows = decoded.flatMap { it.rows }, unavailable = decoded.flatMap { it.unavailable }.distinct()))
+    }
+
+    override fun onEvent(data: JsonElement) {
+        decode { RemoteFrames.json.decodeFromJsonElement(RemoteAgentsEvent.serializer(), data) }?.let { store.apply(it) }
+    }
+
+    override fun onRefused(code: RemoteErrorCode) {
+        refusal.value = code
+    }
+
+    private inline fun <T> decode(block: () -> T): T? =
+        try {
+            block()
+        } catch (_: SerializationException) {
+            null
+        } catch (_: IllegalArgumentException) {
+            null
+        }
+}
+
+/**
  * What the phone follows on the paired desktop. The lists are followed for as long as the app runs; a conversation
  * or a terminal only while its screen is open. Streams survive reconnections and resume from their cursors.
  */
@@ -59,6 +99,8 @@ class LiveRepository(val streams: LiveStreams = LiveStreams()) {
     val pendingRequests = pendingRequestsStore().also { streams.follow(RemoteSubscription.PENDING_REQUESTS, listener = it) }
     val jobs = jobsStore().also { streams.follow(RemoteSubscription.JOBS, listener = it) }
     val delegations = delegationsStore().also { streams.follow(RemoteSubscription.DELEGATIONS, listener = it) }
+    /** 1.5.0 A43: the Agents tab's rows, only from the C5 `agents` topic. */
+    val agents = AgentsFeed().also { streams.follow(RemoteSubscription.AGENTS, listener = it) }
 
     private val open = mutableMapOf<String, Pair<Followed, Watched<*>>>()
 
