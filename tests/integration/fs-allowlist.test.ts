@@ -96,7 +96,8 @@ const ALLOWED_FS_IMPORTS = new Set([
   // never writes, and FileSystemService's roots are unchanged.
   'electron/main/services/conversation/thread-place-read.ts',
   // A15 branch drift: existsSync on the paths git names for an operation in progress (rebase-merge, MERGE_HEAD,
-  // BISECT_LOG...). It never reads or writes file content.
+  // BISECT_LOG...); CR-F4-2b readHeadSync stats and reads only git's own .git file, HEAD, commondir, loose refs and
+  // packed-refs, to take a place's HEAD in an event handler. It never reads working-tree content and never writes.
   'electron/main/services/conversation/thread-place-drift.ts',
   // A14 Undo (person-only, SECURITY 08/11): stat for a written file's mtime (the stale check) and, in Discard, lstat +
   // unlink of one file the task created, only when it resolves inside the place. Every other change is git apply

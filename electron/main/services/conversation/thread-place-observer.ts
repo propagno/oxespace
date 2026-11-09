@@ -9,7 +9,7 @@ import { PersonActionAudit } from '../person-action-audit'
 import type { ThreadHistoryWriteOptions } from './thread-history'
 import { placeEvidenceOf, type PlaceTurn, type ThreadPlaceStore } from './thread-places'
 import { threadPanes } from './thread-panes'
-import { headFollows, operationInProgress, readPlaceDrift, sameHead, switchPlaceBack } from './thread-place-drift'
+import { headFollows, operationInProgress, readHeadSync, readPlaceDrift, sameHead, switchPlaceBack } from './thread-place-drift'
 import { readPlaceFile as readPlaceFileFrom } from './thread-place-read'
 import { placeDiff as placeDiffOf } from './thread-place-diff'
 import { parseThreadPathInput, resolveThreadPath, type ThreadPathPlace } from './thread-path-resolver'
@@ -130,12 +130,15 @@ export class ThreadPlaceObserver {
   trackPlaceHeads(id: string, event: ThreadEvent): void {
     if (event.type === 'completed') {
       const open = this.shellTools.get(id)
-      if (open?.size) void this.inDriftQueue(id, async () => {
+      if (open?.size) {
+        // CR-F4-2b: the heads at the turn's end are taken now, in the handler; a later switch is never the conversation's.
+        // The open tools end here too, in the handler, so a read or tool event after this never sees them running.
+        const after = this.headsNow(id)
         const before = new Map<string, ThreadPlaceHead>()
         for (const heads of open.values()) for (const [placeId, head] of heads) if (!before.has(placeId)) before.set(placeId, head)
         open.clear()
-        await this.recordOwnMoves(id, before)
-      }).catch(() => undefined)
+        void this.inDriftQueue(id, () => this.recordOwnMoves(id, before, after)).catch(() => undefined)
+      }
       // A15 read point: the turn's end.
       this.queuePlaceRead(id)
       return
@@ -146,28 +149,47 @@ export class ThreadPlaceObserver {
     const owner = tools
     if (event.state === 'running') {
       if (owner.has(event.id)) return
-      const heads = new Map<string, ThreadPlaceHead>()
+      // CR-F4-2b: the heads before the tool are copied now, in the handler (recordOwnMoves falls back to the base).
+      const heads = new Map<string, ThreadPlaceHead>(this.lastHeads.get(id) ?? [])
       owner.set(event.id, heads)
-      void this.inDriftQueue(id, async () => { for (const [placeId, head] of this.lastHeads.get(id) ?? new Map<string, ThreadPlaceHead>()) heads.set(placeId, head) }).catch(() => undefined)
       return
     }
     const heads = owner.get(event.id)
     if (!heads) return
-    const toolId = event.id
-    void this.inDriftQueue(id, async () => { owner.delete(toolId); await this.recordOwnMoves(id, heads) }).catch(() => undefined)
+    // CR-F4-2b: the heads at the tool's end are taken now, in the handler, not when the queue reaches it; the tool
+    // ends now too, so the turn's end right after it never takes a later switch for this tool's move.
+    const after = this.headsNow(id)
+    owner.delete(event.id)
+    void this.inDriftQueue(id, () => this.recordOwnMoves(id, heads, after)).catch(() => undefined)
   }
 
-  private async recordOwnMoves(id: string, before: Map<string, ThreadPlaceHead>): Promise<void> {
+  /** CR-F4-2b: each known non-outside place's HEAD read now with no subprocess; a place it cannot say is left out. */
+  private headsNow(id: string): Map<string, ThreadPlaceHead> {
+    const heads = new Map<string, ThreadPlaceHead>()
+    let rows: Array<{ id: string; kind: string; path: string }>
+    try { rows = this.deps.db.prepare('SELECT id, kind, path FROM thread_places WHERE thread_id = ?').all(id) as Array<{ id: string; kind: string; path: string }> } catch { return heads }
+    for (const row of rows) {
+      if (row.kind === 'outside') continue
+      const head = readHeadSync(row.path)
+      if (head) heads.set(row.id, head)
+    }
+    return heads
+  }
+
+  private async recordOwnMoves(id: string, before: Map<string, ThreadPlaceHead>, after: Map<string, ThreadPlaceHead>): Promise<void> {
     const { places } = await this.deps.placeStore.list(this.deps.readThread(id))
     const seen = this.headsSeen(id)
     for (const place of places) {
-      if (place.kind === 'outside' || !place.current) continue
+      if (place.kind === 'outside') continue
+      // The HEAD taken when the event was handled; the one read now only when that could not be read.
+      const moved = after.get(place.id) ?? place.current
+      if (!moved) continue
       const prior = before.get(place.id) ?? (place.base ? { branch: place.base.branch, commit: place.base.commit } : null)
-      seen.set(place.id, place.current)
-      if (!prior || sameHead(prior, place.current)) continue
+      seen.set(place.id, moved)
+      if (!prior || sameHead(prior, moved)) continue
       let accepted = this.acceptedHeads.get(id)
       if (!accepted) { accepted = new Map(); this.acceptedHeads.set(id, accepted) }
-      accepted.set(place.id, place.current)
+      accepted.set(place.id, moved)
     }
   }
 
