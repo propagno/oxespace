@@ -61,7 +61,8 @@ class RequestResponder(
         reason: String? = null,
     ): AnswerOutcome {
         // The desktop already offers no accept and makes a truncated question unanswerable; this holds even if it didn't.
-        if (request.truncated == true && ((decision != "decline" && decision != "cancel") || answers != null)) return AnswerOutcome.Blocked(AnswerBlock.TRUNCATED)
+        // CR-F10-3 (TECH LEAD 08/11): a request the phone wasn't shown in full can only be refused: Deny, never Cancel.
+        if (request.truncated == true && (decision != "decline" || answers != null)) return AnswerOutcome.Blocked(AnswerBlock.TRUNCATED)
         if (!request.answerable) return AnswerOutcome.Blocked(AnswerBlock.DESKTOP_ONLY)
         if (decision != null && (decision !in request.decisions || decision == "acceptForSession")) return AnswerOutcome.Blocked(AnswerBlock.NOT_OFFERED)
         if (decision == null && answers.isNullOrEmpty()) return AnswerOutcome.Blocked(AnswerBlock.NOT_OFFERED)

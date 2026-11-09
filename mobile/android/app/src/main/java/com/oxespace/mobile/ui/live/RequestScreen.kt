@@ -55,6 +55,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -143,7 +144,7 @@ fun RequestScreen(
             // What the person needs first: whether they can answer here at all.
             if (!request.answerable) DesktopOnlyNotice()
             Text(requestTitle(request), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
-            request.risk?.let { RiskLine(it) }; riskNote(request)?.let { Text(stringResource(it), style = MaterialTheme.typography.bodyMedium, color = Oxe.colors.intentDangerFg) }
+            request.risk?.let { RiskLine(it) }; riskNote(request)?.let { NoUndoLine(it) }
             // The facts, as label/value rows: nothing read-only looks like an input (M10 §6).
             Facts(
                 listOfNotNull(
@@ -196,7 +197,17 @@ fun RequestScreen(
 
             val questions = if (truncated) emptyList() else request.questions.orEmpty()
             // Never an approval for what the phone wasn't shown in full, even if the desktop offered one.
-            val decisions = if (truncated) request.decisions.filter { it == "decline" || it == "cancel" } else request.decisions
+            // Allow at critical risk waits the desktop's hold (APPROVAL_CRITICAL_ALLOW_DELAY_MS); keyed on the generation
+            // and the hold, so a request raised to critical takes the hold again.
+            val hold = com.oxespace.mobile.approval.allowHoldMs(request)
+            var elapsed by remember(request.requestId, request.generation, hold) { mutableStateOf(0L) }
+            LaunchedEffect(request.requestId, request.generation, hold) { if (hold > 0L) { delay(hold); elapsed = hold } }
+            // CR-F10-3: the buttons are exactly requestActions (which decisions, and whether Allow can be pressed yet);
+            // a truncated request offers Deny only. Busy goes on top. The decline field and the hold caption follow them.
+            val actions = requestActions(request, elapsed)
+            val decisions = actions.map { it.decision }
+            val leads = decisionLayout(decisions, request.risk).toMap()
+            val held = actions.any { it.decision == "accept" && !it.enabled }
             for (question in questions) {
                 Text(displaySafe(question.header ?: question.question, QUESTION_MAX), style = MaterialTheme.typography.titleSmall, modifier = Modifier.semantics { heading() })
                 if (question.header != null) Text(displaySafeBlock(question.question, QUESTION_MAX), style = MaterialTheme.typography.bodyMedium)
@@ -252,12 +263,13 @@ fun RequestScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            // At critical risk Allow waits the desktop's hold before it can be pressed (APPROVAL_CRITICAL_ALLOW_DELAY_MS).
-            val hold = com.oxespace.mobile.approval.allowHoldMs(request); val critical = hold > 0L
-            // Keyed on the generation and the level too: a request raised to critical takes the hold again.
-            var held by remember(request.requestId, request.generation, critical) { mutableStateOf(critical) }
-            LaunchedEffect(request.requestId, request.generation, critical) { if (critical) { delay(hold); held = false } }
-            for ((decision, leads) in decisionLayout(decisions, request.risk)) {
+
+
+
+
+
+            for (action in actions) {
+                val decision = action.decision
                 val label = stringResource(
                     when (decision) {
                         "accept" -> R.string.request_decision_accept
@@ -265,9 +277,9 @@ fun RequestScreen(
                         else -> R.string.request_decision_cancel
                     },
                 )
-                val enabled = !busy && !(decision == "accept" && held)
+                val enabled = !busy && action.enabled
                 // The lead is the accent's filled button; Deny is never danger red: it is the safe answer (§6).
-                if (leads) {
+                if (leads[decision] == true) {
                     Button(onClick = { answer(decision, null) }, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = Target)) { Text(label) }
                 } else {
                     OutlinedButton(onClick = { answer(decision, null) }, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = Target)) { Text(label) }
@@ -299,6 +311,21 @@ internal fun decisionLayout(decisions: List<String>, risk: String?): List<Pair<S
         .filter { it in KNOWN_DECISIONS }
         .sortedBy { when (it) { lead -> 0; "cancel" -> 2; else -> 1 } }
         .map { it to (it == lead) }
+}
+
+/**
+ * "No undo." under the risk chip (F7, DESIGN, phone high-irreversible): the warning icon and the words in the warning
+ * intent, as a plain line, not a Notice. The icon is decorative; TalkBack reads the words.
+ */
+@Composable
+private fun NoUndoLine(text: Int) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+    ) {
+        Text("\u26A0", style = MaterialTheme.typography.bodyMedium, color = Oxe.colors.intentWarningFg, modifier = Modifier.clearAndSetSemantics {})
+        Text(stringResource(text), style = MaterialTheme.typography.bodyMedium, color = Oxe.colors.intentWarningFg)
+    }
 }
 
 /** On top of a request only the computer can answer: the person learns it before reading the details. */
