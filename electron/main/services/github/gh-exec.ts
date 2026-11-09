@@ -43,7 +43,12 @@ export interface SpawnAsyncOptions {
   timeout?: number
   windowsHide?: boolean
   env?: NodeJS.ProcessEnv
+  /** Characters kept per stream; the rest is dropped as it arrives, so a large output never grows memory past it. */
+  maxOutputBytes?: number
 }
+
+/** P9's cap on gh's output for the pull request provider: a large PR diff or log stays bounded (CR-F4-5b). */
+export const GH_OUTPUT_CAP = 8 * 1024 * 1024
 
 interface CheckpointRow {
   id: string
@@ -75,7 +80,7 @@ const DEFAULT_CLI_STATUS: GitHubCliStatus = {
   path: null
 }
 
-function defaultSpawnAsync(command: string, args: string[], options: SpawnAsyncOptions): Promise<SpawnResult> {
+export function defaultSpawnAsync(command: string, args: string[], options: SpawnAsyncOptions): Promise<SpawnResult> {
   return new Promise((resolve) => {
     const spawnOpts: SpawnOptions = {
       cwd: options.cwd,
@@ -99,8 +104,10 @@ function defaultSpawnAsync(command: string, args: string[], options: SpawnAsyncO
 
     child.stdout?.setEncoding('utf8')
     child.stderr?.setEncoding('utf8')
-    child.stdout?.on('data', (chunk: string) => { stdout += chunk })
-    child.stderr?.on('data', (chunk: string) => { stderr += chunk })
+    const cap = options.maxOutputBytes && options.maxOutputBytes > 0 ? options.maxOutputBytes : Infinity
+    const keep = (kept: string, chunk: string): string => kept.length >= cap ? kept : kept + chunk.slice(0, cap - kept.length)
+    child.stdout?.on('data', (chunk: string) => { stdout = keep(stdout, chunk) })
+    child.stderr?.on('data', (chunk: string) => { stderr = keep(stderr, chunk) })
     child.on('error', (err) => finish(null, err))
     child.on('close', (code) => finish(code))
 
@@ -335,12 +342,13 @@ export class GhExec {
    * gh for the pull request provider (A60): runGh's rules (the repository's config read first, a key a person's network
    * git would refuse refuses gh too, its commands neutralized for gh's git), but the exit status is returned, never
    * thrown, so the provider tells "signed out" and "no pull request" apart; a gh that is not installed is `missing`.
+   * Each stream keeps at most GH_OUTPUT_CAP characters, as P9 did.
    */
   async ghCommand(args: string[], cwd: string, timeout = 60_000): Promise<{ status: number | null; stdout: string; stderr: string; missing?: boolean }> {
     const entries = await readCommandKeys(cwd, ghEnv(), 'git', undefined, this.configReader)
     const refused = refusedKeys(entries)
     if (refused.length) throw new PersonGitRefused(refused, 'github-panel:gh')
-    const result = await this.spawnCommand('gh', args, { cwd, shell: false, timeout, windowsHide: true, env: ghEnv(process.env, neutralizeRepositoryCommands(entries, cwd)) })
+    const result = await this.spawnCommand('gh', args, { cwd, shell: false, timeout, windowsHide: true, maxOutputBytes: GH_OUTPUT_CAP, env: ghEnv(process.env, neutralizeRepositoryCommands(entries, cwd)) })
     if ((result.error as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') return { status: null, stdout: '', stderr: '', missing: true }
     return { status: result.status, stdout: result.stdout, stderr: result.stderr || result.error?.message || '' }
   }
