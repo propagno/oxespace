@@ -7,11 +7,22 @@ run-name: Visual regression · ${{ inputs.branch || github.ref_name }}
 # open one, per platform. Someone then fixes the regression, or accepts the change by regenerating the baselines with
 # visual-baselines.yml and reviewing them image by image. Never publishes anything and never commits.
 #
-# On demand only, no push trigger: baselines are regenerated once per batch, not per PR, so between batches every
-# merge to main differed by design. From 18/10 to 01/11 that was 0 green out of 28 push runs and 26 comments on each of
-# #249 and #250 that told nobody anything new (SRE-06, docs/ci-cd.md).
+# On demand it opens or updates an issue per platform, as above. On a pull request that touches the renderer it is
+# informative (TECH LEAD, 09/11): it never fails the PR and never opens an issue; it publishes the side-by-side review
+# of every surface that differs as an artifact and names them in the run summary, so the reviewer (DESIGN) sees the
+# screens a change moves. No push trigger: baselines are regenerated once per batch, not per merge, so between
+# batches every merge to main differed by design (SRE-06, docs/ci-cd.md).
 
 on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "src/**"
+      - "shared/locales/**"
+      - "e2e/visual/**"
+      - "playwright.visual.config.ts"
+      - ".github/workflows/visual-regression.yml"
   workflow_dispatch:
     inputs:
       branch:
@@ -21,7 +32,7 @@ on:
 
 concurrency:
   # One comparison per platform at a time; a newer merge replaces one still waiting.
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -30,6 +41,7 @@ permissions:
 jobs:
   compare:
     name: Compare ${{ matrix.label }} surfaces
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     permissions:
@@ -100,15 +112,17 @@ jobs:
 
       - name: Compare with the baselines
         id: compare
+        # Informative on a pull request: a difference is the evidence the reviewer needs, not a failure.
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
         run: ${{ matrix.run }} npx playwright test --config playwright.visual.config.ts
 
       - name: Side-by-side review
-        if: failure() && steps.compare.outcome == 'failure'
+        if: ${{ !cancelled() && steps.compare.outcome == 'failure' }}
         run: node scripts/visual-review.mjs test-results test-results/visual-review.html
 
       - name: Upload the review
         id: upload
-        if: failure() && steps.compare.outcome == 'failure'
+        if: ${{ !cancelled() && steps.compare.outcome == 'failure' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: visual-review-${{ matrix.label }}
@@ -116,8 +130,24 @@ jobs:
           retention-days: 14
           path: test-results/**
 
+      - name: Surfaces that changed
+        if: ${{ !cancelled() }}
+        env:
+          PLATFORM: ${{ matrix.label }}
+          OUTCOME: ${{ steps.compare.outcome }}
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        run: |
+          count=$(find test-results -name '*-actual.png' 2>/dev/null | wc -l | tr -d ' ')
+          if [ "$OUTCOME" = success ]; then echo "### $PLATFORM: every surface matches its baseline" >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
+          {
+            echo "### $PLATFORM: $count surface(s) differ from the baselines"
+            echo "Side-by-side review (baseline, this change, difference): [visual-review-$PLATFORM]($ARTIFACT_URL), open \`visual-review.html\`."
+            find test-results -name '*-actual.png' | sed 's#.*/\(.*\)-actual.png#- `\1`#' | sort | head -60
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::warning title=Visual differences::$count surface(s) differ on $PLATFORM; see the run summary for the review"
+
       - name: Open or update the issue
-        if: failure() && steps.compare.outcome == 'failure'
+        if: ${{ !cancelled() && steps.compare.outcome == 'failure' && github.event_name != 'pull_request' }}
         env:
           GH_TOKEN: ${{ github.token }}
           PLATFORM: ${{ matrix.label }}

@@ -19,6 +19,7 @@ publishes. The environment must exist with that reviewer before this job is merg
 | **quick** (`linux-x64`) | Unless the PR is docs-only | Plans build vs release → dependency and build-tool audits → notices → Electron support window → typecheck → lint (file-size guard first) → migration-numbering guard → build with bundle budgets. The first red, in about 6 minutes. |
 | **unit** (matrix: `windows-x64`, `linux-x64`) | Same as quick, in parallel with it | Unit and integration tests with coverage (serial, as before); uploads `coverage-summary-<platform>`. |
 | **e2e** (matrix: `windows-x64`, `linux-x64` × shards 1–3) | On a PR, after quick passes; on main, tags and dispatches always | Each shard builds the app (bundle budgets) → native verify → its third of the E2E specs (`--shard=i/3`, weights `PWTEST_SHARD_WEIGHTS=15:7:6`). Shard 1 also runs the upgrade rehearsal and the OxeQuery coverage gate, shard 2 uploads `main-sourcemaps-<platform>` (when the run does not package) and checks the Windows notices, shard 3 runs the performance gate. Every shard keeps `e2e-blob-<platform>-<shard>`, and `e2e-traces-<os>-<shard>` on failure. |
+| **a11y** (matrix: `ubuntu`, `windows`) | On a PR whose files can change what the scan sees (not docs, tests, `mobile/`, the phone protocol or other workflows); on main and dispatches always | The axe scan (`npm run test:a11y`, strict): a critical or serious finding fails it, and with it `CI result`. Keeps `a11y-report-<os>`. Until 09/11 it was its own workflow, `a11y-axe.yml`. |
 | **package** (matrix: `windows-x64`, `linux-x64`) | Only when a release or a packaged smoke was planned, after quick, unit and e2e pass | Builds the planned commit, packages it (NSIS installer; AppImage and `.deb`), runs the packaged-build smoke test, and for a release produces the SBOM, checksums and uploads artifacts. The two legs never cancel each other. |
 | **release** | Only if every job above succeeds **and** a release was planned | Ensures the `vX.Y.Z` tag points at the verified SHA → draft release + assets → re-download verify → publish → **confirm the release is live** (not draft, required assets present). |
 | **CI result** | Every non-draft run, after everything | One check for the whole run: fails when a job failed or was cancelled, or when a job that had to run was skipped. Merges the E2E blob reports into `e2e-report` (one HTML report per platform). |
@@ -184,8 +185,8 @@ usable workflow run: a merge fires no `push` run on `main`, and a branch update'
 wait for an approval nobody gives (they end `action_required` with no jobs, because the approval gate comes
 before any job's `if:`). So the train makes its branch update a merge commit whose message carries
 `[skip ci]`, which keeps GitHub from creating those `push`/`pull_request` runs at all, and it dispatches
-`ci.yml` itself, on the updated branch (with `a11y-axe.yml` or `android.yml` when
-they had run on the PR) and on `main` after each merge. `[skip ci]` never touches a dispatched run, and it
+`ci.yml` itself, on the updated branch (with `android.yml` when
+it had run on the PR; the axe scan is a job of `ci.yml` since 09/11) and on `main` after each merge. `[skip ci]` never touches a dispatched run, and it
 only applies while that merge commit is the PR's head: a person's next push runs CI as usual. A run that
 ended `action_required` or with every job skipped never stands for CI on a head.
 
@@ -205,9 +206,9 @@ the head the train replaced, not tied to another PR, and started either by the P
 train's own dispatch. It never cancels a run on the current head or a later push, on `main`, of another PR, a
 person's manual dispatch (Full check, Packaged smoke, publish), a push or tag run, or any other workflow.
 
-When a head has no runs at all (an author's own `[skip ci]`), the train dispatches all three workflows (`ci.yml`,
-`a11y-axe.yml`, `android.yml`), and an `Android` run on the head gates the merge
-like CI and axe. The update itself is check-then-act (read the head, then merge `main`
+When a head has no runs at all (an author's own `[skip ci]`), the train dispatches both workflows (`ci.yml`,
+`android.yml`), and an `Android` run on the head gates the merge
+like CI. The update itself is check-then-act (read the head, then merge `main`
 into the branch by name); a push in that window only gets `main` merged on top of it, which changes the head
 and sends it through CI again, so this is accepted while batches are of size 1. The same token may not push a
 change to `.github/workflows`: when GitHub refuses a merge (or a branch update) for that, the PR leaves the

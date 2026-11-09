@@ -39,6 +39,9 @@ permissions:
 jobs:
   build:
     name: Lint, unit tests and build
+    # A draft is not ready for review: frozen tests stay red there by design (test/*-frozen). It runs once the PR is
+    # marked ready.
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     defaults:
@@ -80,3 +83,22 @@ jobs:
             mobile/android/app/build/paparazzi/failures/
           if-no-files-found: ignore
           retention-days: 14
+
+      # The phone screens that differ from their goldens, named in the run summary next to the report holding the
+      # images (app/build/paparazzi/failures: the delta of each screen).
+      - name: Screens that changed
+        if: always()
+        working-directory: .
+        shell: bash
+        env:
+          REPORTS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts
+        run: |
+          dir=mobile/android/app/build/paparazzi/failures
+          count=$(find "$dir" -name '*.png' 2>/dev/null | wc -l | tr -d ' ')
+          if [ "$count" = 0 ]; then echo "### Phone screens: none differs from its golden" >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
+          {
+            echo "### Phone screens that changed: $count"
+            echo "The images (golden, new, delta) are in the **android-reports** artifact, folder \`app/build/paparazzi/failures\`: $REPORTS_URL"
+            find "$dir" -name '*.png' -printf '- `%f`\n' | sort | head -60
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::warning title=Phone screens::$count screen(s) differ from their goldens; see the run summary"

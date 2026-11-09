@@ -119,12 +119,12 @@ describe('merge train step', () => {
     const action = step(
       input({
         behindBy: 3,
-        runs: [ciRun(), ciRun({ name: 'Accessibility scan (axe)', path: '.github/workflows/a11y-axe.yml' }), ciRun({ name: 'x', path: '.github/workflows/provider-contract.yml' })],
+        runs: [ciRun(), ciRun({ name: 'Android', path: '.github/workflows/android.yml' }), ciRun({ name: 'x', path: '.github/workflows/provider-contract.yml' })],
       }),
     )
     expect(action.type).toBe('update')
     expect(action.expectedHead).toBe(HEAD)
-    expect(action.dispatch).toEqual(['ci.yml', 'a11y-axe.yml'])
+    expect(action.dispatch).toEqual(['ci.yml', 'android.yml'])
     expect(action.message).toMatch(/3 commits behind/)
   })
 
@@ -140,9 +140,9 @@ describe('merge train step', () => {
     expect(action.message).toMatch(/Windows/)
   })
 
-  it('waits for an axe or memory run on the head to finish too', () => {
-    const runs = [ciRun(), ciRun({ name: 'Accessibility scan (axe)', status: 'in_progress', conclusion: null })]
-    expect(step(input({ runs })).message).toMatch(/Accessibility scan/)
+  it('waits for an Android run on the head to finish too', () => {
+    const runs = [ciRun(), ciRun({ name: 'Android', path: '.github/workflows/android.yml', status: 'in_progress', conclusion: null })]
+    expect(step(input({ runs })).message).toMatch(/Android/)
   })
 
   it('takes a red PR out with the failing job, its link and its first failing step', () => {
@@ -219,7 +219,7 @@ describe('merge train step', () => {
     const early = step(input({ runs: [], checks: [], trainState: { head: HEAD, since: iso(NOW - 1000), labeledAt } }))
     expect(early.type).toBe('wait')
     const late = step(input({ runs: [], checks: [], trainState: { head: HEAD, since: iso(NOW - DISPATCH_GRACE_MS), labeledAt } }))
-    expect(late).toMatchObject({ type: 'dispatch', dispatch: ['ci.yml', 'a11y-axe.yml', 'android.yml'], state: { dispatchedFor: HEAD } })
+    expect(late).toMatchObject({ type: 'dispatch', dispatch: ['ci.yml', 'android.yml'], state: { dispatchedFor: HEAD } })
     const again = step(input({ runs: [], checks: [], trainState: late.state }))
     expect(again.type).toBe('wait')
   })
@@ -505,8 +505,8 @@ describe('security (review of #318)', () => {
     const body = renderComment('waiting: x.', { head: HEAD, since: iso(NOW - 1000), labeledAt, dispatch: ['../../actions/runs/1/approve?', 'ci.yml', 'release.yml'] })
     expect(parseTrainState(body, NOW)?.dispatch).toEqual(['ci.yml'])
     const trainState = { head: HEAD, since: iso(NOW - DISPATCH_GRACE_MS), labeledAt, dispatch: ['../../x?', 'release.yml'] }
-    // Nothing allowed is left, so the fallback dispatches the fixed four (#375 L4), never the forged entries.
-    expect(step(input({ runs: [], checks: [], trainState })).dispatch).toEqual(['ci.yml', 'a11y-axe.yml', 'android.yml'])
+    // Nothing allowed is left, so the fallback dispatches the fixed list (#375 L4), never the forged entries.
+    expect(step(input({ runs: [], checks: [], trainState })).dispatch).toEqual(['ci.yml', 'android.yml'])
     const urls: string[] = []
     const fetchImpl = async (url: string) => {
       urls.push(url)
@@ -643,7 +643,7 @@ describe('superseded runs (homologation follow-up b)', () => {
     const runs = [
       branchRun({ id: 1, status: 'in_progress' }),
       branchRun({ id: 2, status: 'queued', event: 'pull_request', pullRequests: [7] }),
-      branchRun({ id: 3, status: 'waiting', path: '.github/workflows/a11y-axe.yml' }),
+      branchRun({ id: 3, status: 'waiting', path: '.github/workflows/android.yml' }),
     ]
     expect(selectStaleRuns(runs, at)).toEqual([1, 2, 3])
   })
@@ -875,7 +875,7 @@ describe('#375 security fixes', () => {
 
   it('L4: with no runs at all on the head and no update of its own, the train dispatches every dispatchable workflow', () => {
     const trainState = { head: HEAD, since: iso(NOW - DISPATCH_GRACE_MS), labeledAt: pr().labeledAt }
-    expect(step(input({ runs: [], checks: [], trainState })).dispatch).toEqual(['ci.yml', 'a11y-axe.yml', 'android.yml'])
+    expect(step(input({ runs: [], checks: [], trainState })).dispatch).toEqual(['ci.yml', 'android.yml'])
   })
 
   it('L4: an Android run on the head is a gate like the others', () => {

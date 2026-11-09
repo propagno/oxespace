@@ -46,7 +46,6 @@ export const ENVIRONMENTS = ['release', 'android-release']
 export const MAIN_JOBS = [
   { file: 'ci.yml' },
   { file: 'android.yml' },
-  { file: 'a11y-axe.yml' },
   { file: 'visual-regression.yml' },
   { file: 'android-emulator.yml', inputs: { 'api-level': '36' } },
 ]
