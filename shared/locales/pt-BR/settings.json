@@ -276,28 +276,6 @@
     "hint": "Cada conversa aberta do OxeChat mantém um processo de agente e os servidores MCP dele rodando. Encerrar as ociosas libera memória; sua próxima mensagem retoma a mesma sessão. Uma conversa com turno em andamento, pergunta, mensagens na fila, tarefa em segundo plano ou permissão liberada para a sessão continua aberta.",
     "saveFailed": "Não foi possível salvar esta configuração"
   },
-  "semantic": {
-    "title": "Índice semântico (beta)",
-    "searchByMeaning": "Buscar pelo significado",
-    "switchLabel": "Buscar pelo significado com o índice semântico",
-    "downloadLabel": "Download do modelo",
-    "state": {
-      "off": "Desligado. Os agentes buscam por termos exatos (FTS5) e pela estrutura do código (CodeGraph).",
-      "downloadingProgress": "Baixando o modelo… {{loaded}} de {{total}}",
-      "downloading": "Baixando o modelo…",
-      "loading": "Carregando o modelo…",
-      "notInstalled": "Ligado, mas o modelo não está instalado. Baixe-o ou importe de uma pasta.",
-      "error": "O modelo não carregou: {{error}}",
-      "ready": "Pronto. Os agentes também buscam pelo significado; os arquivos são indexados em segundo plano."
-    },
-    "unknownError": "erro desconhecido",
-    "download": "Baixar o modelo (~270 MB)",
-    "import": "Importar de uma pasta…",
-    "remove": "Remover o modelo baixado",
-    "hint": "O modelo ({{model}}) roda nesta máquina e fica na pasta de dados do app, então as atualizações não o baixam de novo. Para importar, escolha uma pasta com config.json, tokenizer.json, tokenizer_config.json e onnx/model_quantized.onnx.",
-    "usage": "Buscas dos agentes até agora: {{without}} sem o índice, {{with}} com ele (contadas só nesta máquina).",
-    "changeFailed": "Não foi possível mudar o índice semântico."
-  },
   "terminal": {
     "title": "Terminal",
     "description": "Defina a fonte, o cursor e o comportamento padrão de todos os workspaces. Os ajustes de cada workspace continuam independentes.",

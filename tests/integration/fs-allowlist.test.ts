@@ -61,9 +61,6 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Stat and one directory open only: confirms that a workspace root is an absolute path to a folder that
   // exists and can be listed, before `workspace:create` writes anything. Reads, lists and writes nothing.
   'electron/main/services/workspace-root.ts',
-  // The optional semantic model and its settings/usage counters under userData/models only; an import copies
-  // the four model files from the folder the user picked in a native dialog. Never touches workspace files.
-  'electron/main/services/semantic-model-store.ts',
   // Preview captures are app-owned PNGs under <userData>/web-preview-captures.
   // The store validates owner and basename and refuses to overwrite a file.
   'electron/main/services/browser-preview/preview-capture-store.ts',
@@ -203,8 +200,6 @@ const ALLOWED_FS_IMPORTS = new Set([
   // under userData/diagnostics and probes executable realpaths, never source files.
   'electron/main/services/runtime-diagnostics.ts',
   'electron/main/ipc/diagnostics.ipc.ts',
-  // The list of Thread projects with semantic search turned on: one JSON file under userData.
-  'electron/main/services/semantic-projects.ts',
   // Deletes only the app's own stale backups and crash dumps under userData (fixed directories, age-based); the live database and WAL are never listed.
   'electron/main/services/storage-retention.ts',
   // The audit export is written only to a path returned by Electron's native save dialog.
@@ -251,11 +246,6 @@ const ALLOWED_FS_IMPORTS = new Set([
   // OXE integration: existsSync(`<root>/.oxe`) to decide onboarding vs status —
   // a read-only project probe, not a workspace file operation.
   'electron/main/services/oxe.service.ts',
-  // Semantic Service: indexes the workspace tree for local embeddings (reads
-  // arbitrary files to embed) and creates the transformers.js model cache under
-  // <userData>/models. Background indexing outside the workspace-scoped
-  // FileSystemService.
-  'electron/main/services/semantic.service.ts',
   // Search Service: Find in Files delegates the actual file reads to the
   // ripgrep child process; its only raw fs use is existsSync to locate the
   // bundled rg binary and validate the search root — a read-only probe.

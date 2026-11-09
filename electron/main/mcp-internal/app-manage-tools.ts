@@ -1,5 +1,5 @@
 import type { ToolContext, ToolEntry } from './tool-registry'
-import { codeWorkspace, domainTool, service, str, type Args } from './domain-tool'
+import { domainTool, service, str, type Args } from './domain-tool'
 import { ActionRefused } from '../services/agent-actions/agent-actions'
 import { NotifyGate } from '../services/approvals/notify-gate'
 import { requesterFor } from '../services/approvals/requester'
@@ -8,7 +8,7 @@ import { mainMessage } from '../../../shared/messages'
 
 /**
  * Phase 4: things that persist (skills) are approved by a person with the full
- * text; small conveniences (a notification, a reindex) run as `write`.
+ * text; small conveniences (a notification) run as `write`.
  */
 
 const SKILLS_CHANGE = domainTool('oxespace_skills_change', 'Add a skill (a reusable prompt every agent here can call). Skills are standing instructions, so a person approves the whole text.', {
@@ -37,7 +37,7 @@ const SKILLS_CHANGE = domainTool('oxespace_skills_change', 'Add a skill (a reusa
 /** One per process: the limit is per execution, across every call of the tool. */
 export const notifyGate = new NotifyGate()
 
-const WORKSPACE_CHANGE = domainTool('oxespace_workspace_change', 'Small workspace actions: tell the person something with a desktop notification, or rebuild the semantic index.', {
+const WORKSPACE_CHANGE = domainTool('oxespace_workspace_change', 'Small workspace actions: tell the person something with a desktop notification.', {
   notify: {
     level: 'write', description: 'Show a desktop notification (for example when a long job ends).',
     properties: { title: { type: 'string', minLength: 1, maxLength: 100 }, body: { type: 'string', maxLength: 500 } }, required: ['title'],
@@ -50,14 +50,6 @@ const WORKSPACE_CHANGE = domainTool('oxespace_workspace_change', 'Small workspac
       const requester = scope.actor.requester ?? (scope.owner ? requesterFor(scope.owner) : undefined)
       if (!requester) throw new ActionRefused('A notification must come from an agent running inside OXESpace.', 'no-execution')
       return { shown: service(ctx, 'notify')(requester, title, body) }
-    }
-  },
-  reindex: {
-    level: 'write', description: 'Rebuild the semantic index of this Code workspace (after large changes).',
-    run: async (_args, scope, ctx) => {
-      const workspaceId = codeWorkspace(scope)
-      const status = ctx.semantic.reindex(workspaceId)
-      return { indexing: status.indexing, enabled: status.enabled }
     }
   }
 })

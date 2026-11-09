@@ -24,10 +24,10 @@ policy (`tool.use` rules of the policy store) applies by tool name to every tool
 
 | Covered | Excluded | Planned | Forbidden | Total |
 |---|---|---|---|---|
-| 36 | 31 | 2 | 20 | 89 |
+| 36 | 30 | 2 | 20 | 88 |
 
-The registry has 82 tools: 59 single-purpose tools and 23 domain tools with 88 actions, so the
-manifest declares 147 tool-or-action entries.
+The registry has 81 tools: 58 single-purpose tools and 23 domain tools with 86 actions, so the
+manifest declares 144 tool-or-action entries.
 
 ## Forbidden, never a tool
 
@@ -78,7 +78,6 @@ Settings › Tools sets, per MCP tool of a project, `allow`, `ask` or `deny` (`e
 |---|---|---|---|
 | `oxespace_settings#workspace` | read | app | The Code workspace's settings (name, root, layout, default shell, auto start, pane count). |
 | `oxespace_settings#policy` | read | app | Organization policy in force for the project (layers, rules, problems). |
-| `oxespace_settings#semantic` | read | app | Semantic index status of the project (no last query text). |
 | `oxespace_integration#groups` | read | Code only | Integration groups the workspace belongs to, with members. |
 | `oxespace_integration#handoffs` | read | Code only | Handoffs of one of those groups; other groups are refused. |
 | `oxespace_threads#native_sessions` | read | app | Claude Code / Codex CLI sessions of the folder (no transcript path). |
@@ -141,8 +140,7 @@ before. Code panes receive the whole registry.
 | `github.change` | Open pull requests, auto-merge, releases, run workflows | **confirm**: `oxespace_github_change#create_pull_request`, `oxespace_github_change#set_auto_merge`, `oxespace_github_change#create_release`, `oxespace_github_change#run_workflow`, `oxespace_github_change#rerun` |
 | `github.connected_repositories` | Connect a GitHub repository to a workspace | Excluded: An account-level link the person makes and confirms in the GitHub panel. |
 | `search.text` | Exact text search and the file list | **read**: `oxespace_search#text`, `oxespace_search#files` |
-| `search.code` | Semantic, structural and hybrid code retrieval; post-diff quality check | **read**: `oxespace_semantic_search`, `oxespace_hybrid_explore`, `oxespace_quality_check`, `oxespace_code_search`, `oxespace_code_callers`, `oxespace_code_callees`, `oxespace_code_impact`, `oxespace_code_node`, `oxespace_code_status`, `oxespace_settings#semantic`<br>**write**: `oxespace_workspace_change#reindex` |
-| `search.semantic_admin` | Turn semantic search on or off; download, import or remove the vector model | Excluded: Changes disk use and what is indexed; the person decides in Settings. |
+| `search.code` | Structural code retrieval and the post-diff quality check | **read**: `oxespace_hybrid_explore`, `oxespace_quality_check`, `oxespace_code_search`, `oxespace_code_callers`, `oxespace_code_callees`, `oxespace_code_impact`, `oxespace_code_node`, `oxespace_code_status` |
 | `editor.files` | Read, write and watch files in the editor | Excluded: Agents read and edit files with their own tools, under their provider's permission prompts; an MCP write would bypass them. Reads: oxespace_git file_at_ref, oxespace_search. |
 | `thread.read` | List and read Threads, their usage, and CLI sessions of the folder | **read**: `oxespace_threads#list`, `oxespace_threads#read`, `oxespace_threads#usage`, `oxespace_threads#native_sessions`, `oxespace_thread_read` |
 | `thread.drive` | Create Threads, send, steer, stop, set the model, rename, archive | **write**: `oxespace_thread_create`, `oxespace_thread_send`<br>**confirm**: `oxespace_threads_change#send`, `oxespace_threads_change#steer`, `oxespace_threads_change#interrupt`, `oxespace_threads_change#configure`, `oxespace_threads_change#rename`, `oxespace_threads_change#archive` |

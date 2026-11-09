@@ -64,8 +64,7 @@ async function start(delegation?: { create: (...args: unknown[]) => Promise<unkn
     fileSystem: new FileSystemService(),
     webPreview: new WebPreviewBus(),
     worktree: new WorktreeEventBus(),
-    // Semantic/codegraph are unused by the RPC smoke tools exercised below.
-    semantic: { isEnabled: () => false, queryDetailed: async () => ({ results: [] }) } as never,
+    // CodeGraph is unused by the RPC smoke tools exercised below.
     codegraph: {} as never
   })
   server.setToken(TOKEN)
@@ -131,14 +130,11 @@ describe('Internal MCP local RPC server', () => {
       const { json } = await postRpc(ctx.port, headers, { jsonrpc: '2.0', id: 90, method: 'tools/call', params: { name, arguments: { query: 'orchestrator' } } })
       return (json as { result: { isError?: boolean; content: Array<{ text: string }> } }).result
     }
-    const semantic = await call('oxespace_semantic_search')
-    expect(semantic.isError).toBeUndefined()
-    expect(semantic.content[0].text).toMatch(/off for this project.*Project settings › Semantic search/)
     const hybrid = await call('oxespace_hybrid_explore')
     expect(hybrid.content[0].text).not.toMatch(/requires a Code workspace/)
     expect(hybrid.content[0].text).toMatch(/Hybrid RAG: Structural AST/)
     // A Thread whose execution cannot be verified is still refused.
-    const { json } = await postRpc(ctx.port, { ...headers, 'x-oxe-execution-token': 'wrong' }, { jsonrpc: '2.0', id: 91, method: 'tools/call', params: { name: 'oxespace_semantic_search', arguments: { query: 'x' } } })
+    const { json } = await postRpc(ctx.port, { ...headers, 'x-oxe-execution-token': 'wrong' }, { jsonrpc: '2.0', id: 91, method: 'tools/call', params: { name: 'oxespace_hybrid_explore', arguments: { query: 'x' } } })
     expect(JSON.stringify(json)).toMatch(/could not be verified/)
   })
 

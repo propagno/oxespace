@@ -251,28 +251,6 @@
     "hint": "Each open OxeChat conversation keeps an agent process and its MCP servers running. Closing idle ones frees memory; your next message resumes the same session. A conversation with a running turn, a question, queued messages, a background task or a permission allowed for the session stays open.",
     "saveFailed": "Could not save this setting"
   },
-  "semantic": {
-    "title": "Semantic index (beta)",
-    "searchByMeaning": "Search by meaning",
-    "switchLabel": "Search by meaning with the semantic index",
-    "downloadLabel": "Model download",
-    "state": {
-      "off": "Off. Agents search with exact terms (FTS5) and code structure (CodeGraph).",
-      "downloadingProgress": "Downloading model… {{loaded}} of {{total}}",
-      "downloading": "Downloading model…",
-      "loading": "Loading the model…",
-      "notInstalled": "On, but the model is not installed. Download it or import it from a folder.",
-      "error": "The model could not load: {{error}}",
-      "ready": "Ready. Agents also search by meaning; files are embedded in the background."
-    },
-    "unknownError": "unknown error",
-    "download": "Download model (~270 MB)",
-    "import": "Import from folder…",
-    "remove": "Remove downloaded model",
-    "hint": "The model ({{model}}) runs on this machine and is kept in the app's data folder, so updates do not download it again. To import, choose a folder with config.json, tokenizer.json, tokenizer_config.json and onnx/model_quantized.onnx.",
-    "usage": "Agent searches so far: {{without}} without the index, {{with}} with it (counted on this machine only).",
-    "changeFailed": "Could not change the semantic index."
-  },
   "terminal": {
     "title": "Terminal",
     "description": "Set the default font, cursor and behavior for every workspace. Workspace overrides remain independent.",

@@ -6,7 +6,6 @@ import { ShellProfileService } from '../services/shell-profile.service'
 import { WorkspaceService } from '../services/workspace.service'
 import { checkWorkspaceRoot, normalizeWorkspaceRoot } from '../services/workspace-root'
 import { parseId, parseSetPaneAgentInput, parseSetPaneRootPathInput, parseSplitPaneInput, parseUpdatePaneNameInput, parseUpdatePaneTypeInput, parseUpdateWorkspaceBackgroundStateInput, parseUpdateWorkspaceEditorStateInput, parseUpdateWorkspaceGitHubStateInput, parseUpdateWorkspaceReviewStateInput, parseUpdateWorkspaceSettingsInput, parseUpdateWorkspaceWorktreeStateInput, parseWorkspaceCreateInput } from './validation'
-import type { SemanticService } from '../services/semantic.service'
 import { acceptedConfig } from '../services/policy'
 import { firstPolicyRead } from '../services/policy/first-read'
 
@@ -27,7 +26,6 @@ export interface WorkspaceIpcServices {
 
 export function registerWorkspaceIpc(
   db: AppDatabase,
-  semanticService: SemanticService,
   lifecycle?: WorkspaceLifecycleController,
   services: WorkspaceIpcServices = {}
 ): void {
@@ -51,24 +49,11 @@ export function registerWorkspaceIpc(
   })
   ipcMain.handle(IPC_CHANNELS.workspace.setActive, (_event, id: unknown) => {
     const workspaceId = parseId(id)
-    const workspace = workspaceService.setActive(workspaceId)
-    // Index the workspace's canonical root for semantic search. Per-pane
-    // rootPath is only an optional worktree override, so the workspace root is
-    // the right tree to watch.
-    if (workspace.rootPath) {
-      // Chokidar's initial crawl can fan out thousands of fs-stat calls. Start
-      // it after the renderer has completed the workspace transition.
-      const timer = setTimeout(() => {
-        semanticService.watchWorkspace(workspaceId, workspace.rootPath)
-      }, 750)
-      timer.unref?.()
-    }
-    return workspace
+    return workspaceService.setActive(workspaceId)
   })
   ipcMain.handle(IPC_CHANNELS.workspace.delete, (_event, id: unknown) => {
     const workspaceId = parseId(id)
     lifecycle?.stopWorkspace(workspaceId)
-    semanticService.unwatchWorkspace(workspaceId)
     // B7.4: a policy change still asked about for this project ends with it (closing a pane never cancels one).
     const root = workspaceService.get(workspaceId)?.rootPath
     workspaceService.delete(workspaceId)

@@ -253,7 +253,7 @@ function approveProjectServersInClaude(workspaceRoot: string, serverNames: strin
 // The internal oxespace MCP's read-only retrieval tools — safe to auto-approve
 // for Copilot execution. Deliberately excludes side-effecting tools (e.g. web
 // preview capture), which the user should still approve interactively.
-const OXESPACE_COPILOT_TOOLS = ['oxespace_hybrid_explore', 'oxespace_semantic_search']
+const OXESPACE_COPILOT_TOOLS = ['oxespace_hybrid_explore']
 
 /**
  * Pre-approve our read-only tools for Copilot CLI so it doesn't prompt on first

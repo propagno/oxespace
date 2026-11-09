@@ -57,10 +57,6 @@
       "label": "MCP servers",
       "detail": "Servers and connectors your agents use"
     },
-    "semantic": {
-      "label": "Semantic index log",
-      "detail": "Local vector index activity"
-    },
     "editor": {
       "label": "Files",
       "detail": "Browse and edit project files"
@@ -1052,24 +1048,15 @@
       "title": "Systems",
       "label": "Integration status",
       "triggerLabel": "Systems {{count}}: integration status",
-      "alerts_one": "{{count}} alert",
-      "alerts_other": "{{count}} alerts",
       "active_one": "{{count}} active",
       "active_other": "{{count}} active",
-      "semanticOff": "Semantic search: off",
-      "semanticTitle": "Semantic: {{label}}",
-      "mode": "{{mode}} mode",
       "disconnected": "Disconnected",
       "checking": "Checking…",
       "mcp_one": "{{count}} for agents",
       "mcp_other": "{{count}} for agents",
       "update": "Update {{version}} available",
       "on": "Active",
-      "off": "Off",
-      "clickOff": "click to turn off",
-      "clickOn": "click to turn on",
-      "semantic": "Semantic",
-      "indexing": "Indexing…"
+      "off": "Off"
     },
     "summary": {
       "agents_one": "agent",
@@ -1960,9 +1947,7 @@
     "tools": "Toggle pane tools",
     "restoreOpen": "Restore provider session…",
     "cavemanHint": "Short, technical replies",
-    "semanticHint": "Search the code by meaning",
     "cavemanTitle": "Ask the agent for short, technical replies. Applies when the terminal next starts.",
-    "semanticTitle": "Index this workspace so agents can search it by meaning.",
     "restoreTitle": "Restore provider session",
     "restoreDescription": "Choose a saved {{agent}} conversation from this directory. The current terminal process closes only after you select one.",
     "searchSessions": "Search sessions",
@@ -2279,87 +2264,6 @@
     "noMatch": "No changes match the current filters.",
     "noDiff": "No diff loaded yet.",
     "select": "Select a file in the tree to view its diff."
-  },
-  "semantic": {
-    "sources": {
-      "both": "exact terms + vector index",
-      "exact": "exact terms"
-    },
-    "vector": {
-      "downloadingProgress": "downloading model {{percent}}%",
-      "downloading": "downloading model…",
-      "loading": "loading vector model…",
-      "notInstalled": "vector model not installed",
-      "error": "vector model error: {{error}}",
-      "unknown": "unknown",
-      "ready": "vector index ready"
-    },
-    "summary": {
-      "off": "off",
-      "starting": "starting…",
-      "error": "error: {{error}}",
-      "indexing_one": "indexing… · {{count}} file",
-      "indexing_other": "indexing… · {{count}} files",
-      "empty": "ready · empty index (waiting for files)",
-      "ready_one": "ready · {{count}} file",
-      "ready_other": "ready · {{count}} files"
-    },
-    "panel": {
-      "log": "Activity log",
-      "noWorkspace": "no active workspace",
-      "disabled": "disabled · enable the Semantic chip",
-      "modelVectors": "exact terms (FTS5) + vectors ({{model}})",
-      "modelExact": "exact terms (FTS5)",
-      "title": "Semantic activity",
-      "reindex": "Reindex workspace",
-      "reindexTitle": "Clear embeddings and re-crawl this workspace",
-      "resume": "Resume",
-      "pause": "Pause",
-      "resumeTitle": "Resume stream",
-      "pauseTitle": "Pause stream",
-      "copy": "Copy logs",
-      "copyTitle": "Copy visible logs",
-      "export": "Export logs",
-      "exportTitle": "Export logs (.log)",
-      "clear": "Clear view",
-      "sources": "Sources:",
-      "localNote": "local · {{note}}",
-      "local": "local · nothing leaves this machine",
-      "mode": "Retrieval mode",
-      "modeLabel": "Semantic retrieval mode",
-      "modes": {
-        "auto": "Auto · intent-aware",
-        "explore": "Explore · token-first",
-        "exhaustive": "Exhaustive · quality-first"
-      },
-      "coverage": "Semantic index coverage",
-      "indexed": "Indexed coverage",
-      "documents_one": "{{count}} searchable document",
-      "documents_other": "{{count}} searchable documents",
-      "categories": "source {{source}} · tests {{tests}} · config {{config}} · docs {{docs}}",
-      "last": "Last retrieval",
-      "confidence": "{{confidence}} confidence · {{mode}}",
-      "confidenceLevel": {
-        "high": "high",
-        "medium": "medium",
-        "low": "low"
-      },
-      "resolved": {
-        "explore": "explore",
-        "exhaustive": "exhaustive"
-      },
-      "expanded": "auto-expanded",
-      "results_one": "{{count}} result · ≈{{tokens}} tokens · ≈{{saved}}% saved · {{ms}}ms",
-      "results_other": "{{count}} results · ≈{{tokens}} tokens · ≈{{saved}}% saved · {{ms}}ms",
-      "capped": "capped",
-      "noQuery": "No query yet",
-      "noQueryHint": "Coverage and token budget appear after retrieval.",
-      "trust": "Explore ranks best-effort. Exhaustive covers the full local index — runtime references may still need verifying.",
-      "levels": "Filter by level",
-      "autoScroll": "Auto-scroll",
-      "lines": "{{visible}} / {{count}} lines",
-      "empty": "No activity yet."
-    }
   },
   "sessions": {
     "loadFailed": "Could not load every session. Check that Codex and Claude are installed.",

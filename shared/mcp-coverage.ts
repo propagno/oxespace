@@ -186,18 +186,11 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   // ---- search ---------------------------------------------------------------------
   'search.text': { label: 'Exact text search and the file list', tools: each('oxespace_search', 'read', ['text', 'files']), ipc: ['search.run', 'search.cancel', 'search.listFiles'] },
   'search.code': {
-    label: 'Semantic, structural and hybrid code retrieval; post-diff quality check',
+    label: 'Structural code retrieval and the post-diff quality check',
     tools: {
-      oxespace_semantic_search: 'read', oxespace_hybrid_explore: 'read', oxespace_quality_check: 'read', oxespace_code_search: 'read', oxespace_code_callers: 'read',
-      oxespace_code_callees: 'read', oxespace_code_impact: 'read', oxespace_code_node: 'read', oxespace_code_status: 'read',
-      ...each('oxespace_settings', 'read', ['semantic']), ...each('oxespace_workspace_change', 'write', ['reindex'])
-    },
-    ipc: ['semantic.query', 'semantic.getStatus', 'semantic.projectStatus', 'semantic.getVectorStatus', 'semantic.getUsage', 'semantic.reindex']
-  },
-  'search.semantic_admin': {
-    label: 'Turn semantic search on or off; download, import or remove the vector model',
-    excluded: 'Changes disk use and what is indexed; the person decides in Settings.',
-    ipc: ['semantic.setEnabled', 'semantic.setProjectEnabled', 'semantic.setMode', 'semantic.setVectorIndex', 'semantic.downloadModel', 'semantic.importModel', 'semantic.removeModel', 'semantic.getLogs']
+      oxespace_hybrid_explore: 'read', oxespace_quality_check: 'read', oxespace_code_search: 'read', oxespace_code_callers: 'read',
+      oxespace_code_callees: 'read', oxespace_code_impact: 'read', oxespace_code_node: 'read', oxespace_code_status: 'read'
+    }
   },
 
   // ---- editor ---------------------------------------------------------------------

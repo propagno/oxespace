@@ -270,17 +270,6 @@ export function registerE2eMockIpcHandlers(): void {
     throw new Error(`Pane ${input.paneId} not found`)
   })
   ipcMain.handle(IPC_CHANNELS.workspace.pickFolder, () => null)
-  ipcMain.handle(IPC_CHANNELS.semantic.getStatus, () => ({ enabled: true, workerReady: false, indexing: false, count: 0, lastError: null, mode: 'auto', coverage: { lexicalDocuments: 0, lastIndexedAt: null, byCategory: { source: 0, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null }))
-  ipcMain.handle(IPC_CHANNELS.semantic.setEnabled, (_event: IpcMainInvokeEvent, input: { enabled: boolean }) => ({ enabled: input?.enabled ?? true, workerReady: false, indexing: false, count: 0, lastError: null, mode: 'auto', coverage: { lexicalDocuments: 0, lastIndexedAt: null, byCategory: { source: 0, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null }))
-  ipcMain.handle(IPC_CHANNELS.semantic.setMode, (_event: IpcMainInvokeEvent, input: { mode?: string }) => ({ enabled: true, workerReady: false, indexing: false, count: 0, lastError: null, mode: input?.mode ?? 'auto', coverage: { lexicalDocuments: 0, lastIndexedAt: null, byCategory: { source: 0, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null }))
-  ipcMain.handle(IPC_CHANNELS.semantic.getLogs, () => [])
-  const semanticProjects = new Set<string>()
-  const projectSemantic = (rootPath: string) => ({ on: semanticProjects.has(rootPath), status: { enabled: semanticProjects.has(rootPath), workerReady: false, indexing: false, count: 0, lastError: null, mode: 'auto', coverage: { lexicalDocuments: semanticProjects.has(rootPath) ? 12 : 0, lastIndexedAt: null, byCategory: { source: 12, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null } })
-  ipcMain.handle(IPC_CHANNELS.semantic.projectStatus, (_event: IpcMainInvokeEvent, rootPath: string) => projectSemantic(rootPath))
-  ipcMain.handle(IPC_CHANNELS.semantic.setProjectEnabled, (_event: IpcMainInvokeEvent, input: { rootPath: string; enabled: boolean }) => {
-    if (input.enabled) semanticProjects.add(input.rootPath); else semanticProjects.delete(input.rootPath)
-    return projectSemantic(input.rootPath)
-  })
   ipcMain.handle(IPC_CHANNELS.diagnostics.getSnapshot, () => ({
     generatedAt: Date.now(), appVersion: packageVersion, platform: process.platform, arch: process.arch,
     nodeVersion: process.versions.node, electronVersion: process.versions.electron ?? 'unknown', workspaceCount: workspaces.length,

@@ -15,16 +15,12 @@ import {
 } from '../../electron/main/ipc/validation'
 
 describe('ipc contracts', () => {
-  test('uses stable app update and semantic channel names', () => {
+  test('uses stable app update channel names, and has no semantic group (R2)', () => {
     expect(IPC_CHANNELS.app.getUpdateState).toBe('app:get-update-state')
     expect(IPC_CHANNELS.app.checkForUpdates).toBe('app:check-for-updates')
     expect(IPC_CHANNELS.app.quitAndInstall).toBe('app:quit-and-install')
     expect(IPC_CHANNELS.app.onUpdateState).toBe('app:update-state')
-    expect(IPC_CHANNELS.semantic.getStatus).toBe('semantic:get-status')
-    expect(IPC_CHANNELS.semantic.setEnabled).toBe('semantic:set-enabled')
-    expect(IPC_CHANNELS.semantic.setMode).toBe('semantic:set-mode')
-    expect(IPC_CHANNELS.semantic.reindex).toBe('semantic:reindex')
-    expect(IPC_CHANNELS.semantic.getLogs).toBe('semantic:get-logs')
+    expect(IPC_CHANNELS).not.toHaveProperty('semantic')
   })
 
   test('R0b: uses stable data export channel names', () => {

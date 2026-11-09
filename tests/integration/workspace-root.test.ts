@@ -12,7 +12,6 @@ import { removeTempDir } from '../helpers/removeTempDir'
 import { openInMemoryDatabase, type AppDatabase } from '../../electron/main/db/index'
 import { WorkspaceService } from '../../electron/main/services/workspace.service'
 import { checkWorkspaceRoot, isFullyQualified, normalizeWorkspaceRoot } from '../../electron/main/services/workspace-root'
-import type { SemanticService } from '../../electron/main/services/semantic.service'
 
 // vi.mock is hoisted above the imports, so the fake it hands out must be hoisted with it.
 const { ipcMain } = await vi.hoisted(async () => {
@@ -41,8 +40,7 @@ describe('workspace root check (B11)', () => {
     for (const channel of ipcMain.channels()) ipcMain.removeHandler(channel)
     db = openInMemoryDatabase()
     scratch = mkdtempSync(join(tmpdir(), 'oxe-ws-root-db-'))
-    const semantic = { watchWorkspace: vi.fn(), unwatchWorkspace: vi.fn() } as unknown as SemanticService
-    registerWorkspaceIpc(db, semantic, undefined, { workspaceService: new WorkspaceService(db) })
+    registerWorkspaceIpc(db, undefined, { workspaceService: new WorkspaceService(db) })
   })
 
   afterEach(() => {

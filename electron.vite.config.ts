@@ -169,12 +169,10 @@ export default defineConfig({
         },
         input: {
           index: resolve(__dirname, 'electron/main/index.ts'),
-          'semantic-worker': resolve(__dirname, 'electron/main/workers/semantic-worker.ts'),
           'native-history-worker': resolve(__dirname, 'electron/main/workers/native-history-worker.ts'),
           'oxequery-worker': resolve(__dirname, 'electron/main/workers/oxequery-worker.ts'),
           // CodeGraph parsing worker — keeps tree-sitter parsing off the main
-          // thread so it doesn't block (and time out) semantic embedding on the
-          // initial index. extraction/index.ts loads it from out/main/parse-worker.js.
+          // thread so it doesn't block the initial index. extraction/index.ts loads it from out/main/parse-worker.js.
           'parse-worker': resolve(__dirname, 'electron/main/vendor/codegraph/extraction/parse-worker.ts')
         }
       }
@@ -263,7 +261,6 @@ export default defineConfig({
             if (id.includes('@xterm')) return 'xterm'
             // Brand marks for the MCP catalog, which loads on demand; the boot path must not carry them.
             if (id.includes('simple-icons')) return 'brand-icons'
-            if (id.includes('@xenova') || id.includes('onnxruntime')) return 'ml'
             // The YAML parser is reached only by the OxePost OpenAPI import, which loads on demand.
             if (id.includes('js-yaml')) return 'yaml'
             // The markdown pipeline (#10) is only reached through the lazy

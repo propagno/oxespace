@@ -1,10 +1,8 @@
-import { Server, Activity, Brain, ChevronDown } from 'lucide-react'
+import { Server, Activity, ChevronDown } from 'lucide-react'
 import { Github } from '../Brand/GithubIcon'
 import { useState, useEffect, useCallback, useRef, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
-import type { SemanticStatus } from '../../../shared/types/ipc'
-import { summarizeSemanticStatus } from '../Semantic/semanticStatusSummary'
-import { useResolvedTerminalPrefs, useTerminalPrefsStore } from '../../store/terminal-prefs.store'
+import { useResolvedTerminalPrefs } from '../../store/terminal-prefs.store'
 import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
 import { humanizeError } from '../../utils/humanizeError'
 import { i18n } from '../../i18n'
@@ -17,15 +15,12 @@ interface IntegrationsStatusChipsProps {
 }
 
 /**
- * Interactive Status Chips for integrations (GitHub, MCP, Caveman, Semantic).
+ * Interactive Status Chips for integrations (GitHub, MCP, Caveman).
  * Displayed in the top toolbar to give a glanceable health check of system services.
  */
 export function IntegrationsStatusChips({ workspace, isActive = true }: IntegrationsStatusChipsProps): ReactElement {
   const terminalPrefs = useResolvedTerminalPrefs(workspace.id)
-  const setOverride = useTerminalPrefsStore((s) => s.setOverride)
   const cavemanActive = terminalPrefs.cavemanModeEnabled
-  const semanticEnabled = terminalPrefs.semanticSearchEnabled
-  const semanticMode = terminalPrefs.semanticSearchMode
 
   const serversSelector = useCallback(selectMcpServers(workspace.id), [workspace.id])
   const servers = useMcpStore(serversSelector) || []
@@ -34,7 +29,6 @@ export function IntegrationsStatusChips({ workspace, isActive = true }: Integrat
 
   const [githubStatus, setGithubStatus] = useState<{ loggedIn: boolean; error?: string } | null>(null)
   const [builtInMcpRunning, setBuiltInMcpRunning] = useState(false)
-  const [semanticStatus, setSemanticStatus] = useState<SemanticStatus | null>(null)
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
 
@@ -82,17 +76,9 @@ export function IntegrationsStatusChips({ workspace, isActive = true }: Integrat
           setBuiltInMcpRunning(false)
         }
       }
-
-      // Check Semantic search service
-      try {
-        const sem = await window.oxe?.semantic?.getStatus(workspace.id)
-        if (mounted) setSemanticStatus(sem ?? null)
-      } catch {
-        if (mounted) setSemanticStatus(null)
-      }
     }
 
-    // Keep process-spawning GitHub checks and semantic/MCP IPC away from the
+    // Keep process-spawning GitHub checks and MCP IPC away from the
     // workspace visibility swap. Cached status remains visible meanwhile.
     const initialTimer = setTimeout(() => {
       void checkStatus()
@@ -105,42 +91,11 @@ export function IntegrationsStatusChips({ workspace, isActive = true }: Integrat
     }
   }, [isActive, workspace.rootPath, workspace.id])
 
-  // Mirror the renderer-persisted preference into the main process so indexing
-  // and the MCP tool honor it (the store is renderer-only; main needs telling).
-  useEffect(() => {
-    if (!isActive) return
-    const timer = setTimeout(() => {
-      void window.oxe?.semantic
-        ?.setEnabled({ workspaceId: workspace.id, enabled: semanticEnabled })
-        .then((status) => setSemanticStatus(status))
-        .catch(() => undefined)
-    }, 350)
-    return () => clearTimeout(timer)
-  }, [isActive, workspace.id, semanticEnabled])
-
-  useEffect(() => {
-    if (!isActive) return
-    const timer = setTimeout(() => {
-      void window.oxe?.semantic?.setMode({ workspaceId: workspace.id, mode: semanticMode }).catch(() => undefined)
-    }, 350)
-    return () => clearTimeout(timer)
-  }, [isActive, workspace.id, semanticMode])
-
   const totalRunningMcp = runningMcpServers + (builtInMcpRunning ? 1 : 0)
 
-  // Derive the Semantic chip's visual state + tooltip. Exact-term search needs no
-  // model; the optional vector index only adds a note while it loads.
-  const semanticSummary = summarizeSemanticStatus(semanticStatus, semanticEnabled)
-  const semanticClass = semanticSummary.tone === 'ready' ? 'activity-thinking' : semanticSummary.tone === 'busy' ? 'activity-awaiting' : 'activity-idle'
-  const semanticTitle = semanticSummary.tone === 'off'
-    ? tc('workspace.systems.semanticOff')
-    : tc('workspace.systems.semanticTitle', { label: semanticSummary.label }) + (semanticSummary.tone === 'ready' ? ` · ${tc('workspace.systems.mode', { mode: semanticStatus?.mode ?? semanticMode })}` : '')
-
-  const semanticHealthy = semanticEnabled && !semanticStatus?.lastError
-  const activeCount = Number(githubStatus?.loggedIn === true) + Number(totalRunningMcp > 0) + Number(cavemanActive) + Number(semanticHealthy)
-  const attentionCount = Number(Boolean(semanticStatus?.lastError))
-  const overallTone = attentionCount > 0 ? 'attention' : activeCount > 0 ? 'healthy' : 'idle'
-  const countText = attentionCount > 0 ? tc('workspace.systems.alerts', { count: attentionCount }) : `${activeCount}/4`
+  const activeCount = Number(githubStatus?.loggedIn === true) + Number(totalRunningMcp > 0) + Number(cavemanActive)
+  const overallTone = activeCount > 0 ? 'healthy' : 'idle'
+  const countText = `${activeCount}/3`
 
   return (
     <div className="workspace-integrations" ref={menuRef}>
@@ -170,23 +125,6 @@ export function IntegrationsStatusChips({ workspace, isActive = true }: Integrat
           <IntegrationRow icon={<Github size={14} />} label="GitHub" detail={githubStatus?.loggedIn ? tc('github.settings.connected') : githubStatus ? tc('workspace.systems.disconnected') : tc('workspace.systems.checking')} active={githubStatus?.loggedIn === true} />
           <IntegrationRow icon={<Server size={14} />} label="MCP" detail={tc('workspace.systems.mcp', { count: totalRunningMcp })} active={totalRunningMcp > 0} />
           <IntegrationRow icon={<Activity size={14} />} label="Caveman" detail={cavemanActive ? tc('workspace.systems.on') : tc('workspace.systems.off')} active={cavemanActive} />
-
-          <button
-            type="button"
-            role="menuitemcheckbox"
-            aria-checked={semanticEnabled}
-            className="workspace-integrations-row is-action"
-            title={`${semanticTitle} (${semanticEnabled ? tc('workspace.systems.clickOff') : tc('workspace.systems.clickOn')})`}
-            onClick={() => setOverride(workspace.id, 'semanticSearchEnabled', !semanticEnabled)}
-            data-testid="chip-semantic"
-          >
-            <span className="workspace-integrations-row-icon"><Brain size={14} aria-hidden="true" /></span>
-            <span className="workspace-integrations-row-copy">
-              <strong>{tc('workspace.systems.semantic')}</strong>
-              <span>{semanticEnabled && semanticStatus?.indexing ? tc('workspace.systems.indexing') : semanticEnabled ? (semanticStatus?.lastError ? tc('pane.status.error') : tc('github.status.files', { count: semanticStatus?.count ?? 0 })) : tc('workspace.systems.off')}</span>
-            </span>
-            <span className={`workspace-integrations-row-dot ${semanticClass}`} aria-hidden="true" />
-          </button>
         </div>
       ) : null}
     </div>

@@ -7,7 +7,6 @@ import type { BackgroundManager } from '../services/background.service'
 import type { FileSystemService } from '../services/file-system.service'
 import type { GitHubWorktreeApi } from '../../../shared/types/github'
 import type { McpManager } from '../services/mcp.service'
-import type { SemanticService } from '../services/semantic.service'
 import type { WorkspaceService } from '../services/workspace.service'
 import type {
   InternalMcpStatus,
@@ -67,7 +66,6 @@ export interface InternalMcpDeps {
   github: GitHubWorktreeApi
   background: BackgroundManager
   fileSystem: FileSystemService
-  semantic: SemanticService
   codegraph: import('../services/codegraph.service').CodeGraphService
 }
 
@@ -113,7 +111,6 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
     github: deps.github,
     background: deps.background,
     fileSystem: deps.fileSystem,
-    semantic: deps.semantic,
     codegraph: deps.codegraph,
     webPreview,
     worktree

@@ -5,15 +5,15 @@ import { launchReal, openRepo, quitReal, realProfile } from './real-app'
 
 /**
  * F34 + B21 · #344 + #453 · OXEVoice is gone, and what it leaves behind is not touched. REAL app, black box:
- * - `<userData>/models` with an OXEVoice model (ggml-*) and a semantic model file: every file keeps its size and time
- *   across two launches;
+ * - `<userData>/models` with an OXEVoice model (ggml-*) and a model file of the former semantic search: every file
+ *   keeps its size and time across two launches (R2 removed semantic search in 1.5.0; nothing opens the folder now);
  * - the one-time notice about voice: logged at the first launch after, not shown again at the next;
- * - semantic search still answers for the project (status, turn on, reindex).
+ * - the renderer has no semantic search API left (R2).
  */
 const oxe = <T>(page: Page, expression: string) => page.evaluate(expression) as Promise<T>
 const toasts = (page: Page) => page.locator('[data-toast]').allInnerTexts().catch(() => [] as string[])
 
-test('F34+B21: the models folder stays as it is; semantic search still works; the voice notice shows once', async () => {
+test('F34+B21: the models folder stays as it is; semantic search is gone; the voice notice shows once', async () => {
   test.setTimeout(240_000)
   const profile = realProfile('f34b21', { OXESPACE_LOCALE: 'en-US' })
   let { app } = await launchReal(profile)
@@ -37,12 +37,7 @@ test('F34+B21: the models folder stays as it is; semantic search still works; th
       out[`toasts${launch}`] = (await toasts(page)).filter(t => /voice|OXEVoice|dictation|ditado/i.test(t))
       if (launch === 1) {
         await openRepo(page, profile.repo)
-        writeFileSync(join(profile.repo, 'hello.ts'), 'export function greetTheHomologation() { return 1 }\n')
-        const workspaceId = await oxe<string>(page, 'window.oxe.workspace.list().then(l => l[0].id)')
-        out.semanticStatus = await oxe(page, `window.oxe.semantic.getStatus(${JSON.stringify(workspaceId)}).then(s => JSON.stringify(s).slice(0, 300), e => 'error: ' + e.message)`)
-        out.semanticOn = await oxe(page, `window.oxe.semantic.setProjectEnabled({ rootPath: ${JSON.stringify(profile.repo)}, enabled: true }).then(s => JSON.stringify(s).slice(0, 300), e => 'error: ' + e.message)`)
-        out.reindex = await oxe(page, `window.oxe.semantic.reindex(${JSON.stringify(workspaceId)}).then(s => JSON.stringify(s).slice(0, 300), e => 'error: ' + e.message)`)
-        out.vector = await oxe(page, 'window.oxe.semantic.getVectorStatus().then(s => JSON.stringify(s).slice(0, 300), e => "error: " + e.message)')
+        out.semanticApi = await oxe<string>(page, 'typeof window.oxe.semantic')
       }
       await quitReal(app)
       out[`after${launch}`] = stamp()
@@ -52,6 +47,6 @@ test('F34+B21: the models folder stays as it is; semantic search still works; th
   }
   expect.soft(out.after1, 'the models folder is unchanged after the first launch').toEqual(out.before)
   expect.soft(out.after2, 'and after the second').toEqual(out.before)
-  for (const key of ['semanticStatus', 'semanticOn', 'reindex', 'vector']) expect.soft(String(out[key]), `semantic ${key} answers`).not.toMatch(/^error/)
+  expect.soft(out.semanticApi, 'R2: the renderer has no semantic search API').toBe('undefined')
   expect.soft((out.toasts2 as string[]).length, 'the voice notice does not come back at the next launch').toBe(0)
 })

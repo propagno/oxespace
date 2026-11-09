@@ -1186,15 +1186,6 @@
     "rewindAndEdit": "Rewind and edit",
     "rewind": "Rewind"
   },
-  "semantic": {
-    "title": "Semantic search",
-    "toggle": "Index this project so agents can search it by meaning",
-    "hint": "The index stays on this computer. Agents still read the files they need; this only helps them find them.",
-    "starting": "Starting the index…",
-    "indexing": "Indexing… {{files}} files so far",
-    "indexed": "{{files}} files indexed",
-    "failed": "Could not change semantic search."
-  },
   "sessionPanel": {
     "sections": {
       "environment": "Environment",

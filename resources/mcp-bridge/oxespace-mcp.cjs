@@ -46,7 +46,7 @@ function stepsAside() {
 const STEPS_ASIDE = stepsAside()
 // Sent once per session in initialize: when these tools beat grep and file reads. Claude's tool search reads it to decide
 // when to look here (S5, docs/design/teardown-s7-s5.md). One line, at most 600 chars; the T8 test reads and measures it.
-const INSTRUCTIONS = 'Prefer these to grep and reading many files: oxespace_hybrid_explore to find where code lives or how a feature works; oxespace_code_impact and oxespace_code_callers before changing a symbol; oxespace_semantic_search for an idea with no exact name. More tools: oxespace_tools_enable or tool search.'
+const INSTRUCTIONS = 'Prefer these to grep and reading many files: oxespace_hybrid_explore to find where code lives or how a feature works; oxespace_code_impact and oxespace_code_callers before changing a symbol. More tools: oxespace_tools_enable or tool search.'
 const allowIndex = process.argv.indexOf('--allowed-tools')
 const allowedTools = allowIndex < 0 ? null : new Set(JSON.parse(process.argv[allowIndex + 1]))
 // Groups this session may turn on with oxespace_tools_enable: { group: [tool, ...] } (B7.2). Off groups are never here.
@@ -60,7 +60,7 @@ const MAX_READ_RETRIES = 2
 const READ_ONLY_TOOLS = new Set([
   'oxespace_ping', 'oxespace_list_workspaces', 'oxespace_list_panes', 'oxespace_list_scripts',
   'oxespace_list_background_jobs', 'oxespace_get_job_output', 'oxespace_list_worktrees',
-  'oxespace_capabilities', 'oxespace_execution_context', 'oxespace_semantic_search',
+  'oxespace_capabilities', 'oxespace_execution_context',
   'oxespace_hybrid_explore', 'oxespace_project_context', 'oxespace_quality_check',
   'oxespace_memory_search', 'oxespace_memory_sessions', 'oxespace_memory_handoffs',
   'oxespace_memory_diagnostics', 'oxespace_delegation_status', 'oxespace_delegation_result',

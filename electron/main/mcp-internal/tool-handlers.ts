@@ -19,7 +19,6 @@ import { errorResult, textResult } from './tool-registry'
 import { requirePreviewExecution } from './preview-scope'
 import { savePreviewCapture } from '../services/browser-preview/preview-capture-store'
 import type { PreviewRequest } from '../services/browser-preview/preview-automation'
-import { semanticProjects } from '../services/semantic-projects'
 import { mainMessage } from '../../../shared/messages'
 
 /**
@@ -101,7 +100,7 @@ async function requireWorkspace(ctx: ToolContext): Promise<{ id: string; rootPat
  *
  * A Code workspace resolves as before. A Thread resolves to the checkout its
  * execution was started in, and borrows the Code workspace with the same root
- * (if the project is also open in Code) so both share one semantic index.
+ * (if the project is also open in Code) so both share one workspace.
  * `workspaceId` is null when no such workspace exists.
  */
 interface ProjectScope { kind: 'code' | 'thread'; rootPath: string; workspaceId: string | null }
@@ -125,14 +124,6 @@ export async function requireProjectScope(ctx: ToolContext): Promise<ProjectScop
   if (ctx.workspaceId?.startsWith('thread:')) throw new Error('This Thread execution could not be verified. Start a new turn and try again.')
   const ws = await requireWorkspace(ctx)
   return { kind: 'code', rootPath: ws.rootPath, workspaceId: ws.id }
-}
-
-const NO_SEMANTIC_INDEX = 'Semantic search is off for this project. The person can turn it on in Thread (the project\'s menu › Project settings › Semantic search) or in Code. Structural search (oxespace_hybrid_explore) works without it.'
-
-/** The semantic index to search: the Code workspace's when it has one on, otherwise the Thread project's when it was turned on. */
-function semanticIndexFor(scope: ProjectScope, ctx: ToolContext): string | null {
-  if (scope.workspaceId && ctx.semantic.isEnabled(scope.workspaceId)) return scope.workspaceId
-  return scope.kind === 'thread' ? semanticProjects(ctx.semantic)?.ensure(scope.rootPath) ?? null : null
 }
 
 async function listWorkspaces(_args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
@@ -307,54 +298,6 @@ async function openWebPreview(args: unknown, ctx: ToolContext): Promise<Internal
     : runGated({ tool: 'oxespace_open_web_preview', level: 'confirm', handler: open, confirm: async () => previewApproval(target) }, args, ctx)
 }
 
-async function semanticSearch(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
-  const scope = await requireProjectScope(ctx)
-  const id = semanticIndexFor(scope, ctx)
-  if (!id) return textResult(scope.kind === 'thread' ? NO_SEMANTIC_INDEX : 'Semantic search is disabled for this workspace.')
-  const input = asRecord(args)
-  const query = expectString(input.query, 'query')
-  const limit = typeof input.limit === 'number' ? input.limit : undefined
-  const mode = input.mode === 'explore' || input.mode === 'exhaustive' || input.mode === 'auto' ? input.mode : undefined
-  const maxTokens = typeof input.maxTokens === 'number' ? input.maxTokens : undefined
-
-  try {
-    const report = await ctx.semantic.queryDetailed(id, query, { limit, mode, maxTokens, caller: 'oxespace_semantic_search' })
-    if (report.results.length === 0) {
-      return textResult('No semantic matches found.')
-    }
-    return textResult(formatSemanticReport(report))
-  } catch (err) {
-    return errorResult(`Semantic search failed: ${err instanceof Error ? err.message : String(err)}`)
-  }
-}
-
-function describeSources(sources: Awaited<ReturnType<ToolContext['semantic']['queryDetailed']>>['sources']): string {
-  if (sources.length === 0) return 'none answered'
-  return sources.map((source) => source === 'vector' ? 'vector index (meaning)' : 'FTS5 (exact repository terms)').join(' + ')
-}
-
-function formatSemanticReport(report: Awaited<ReturnType<ToolContext['semantic']['queryDetailed']>>): string {
-  const header = [
-    `[OXESpace Retrieval] mode=${report.resolvedMode}${report.expanded ? ' (auto-expanded after low confidence)' : ''} · confidence=${report.confidence} · context≈${report.estimatedTokens} tokens · saved≈${report.estimatedSavingsPercent}% vs full matched files · ${report.durationMs}ms`,
-    `Sources: ${describeSources(report.sources)}`,
-    `Coverage: ${report.coverage.indexedFiles} indexed files · ${report.coverage.semanticCandidates} vector candidates · ${report.coverage.lexicalCandidates} lexical candidates${report.coverage.truncated ? ' · OUTPUT CAPPED' : ''}`,
-    report.warning ? `CAUTION: ${report.warning}` : ''
-  ].filter(Boolean).join('\n')
-  const matches = report.results.map((result, index) => {
-    const location = result.lineStart > 0 ? `:${result.lineStart}-${result.lineEnd}` : ''
-    const scores = [
-      result.semanticScore !== null ? `semantic=${result.semanticScore.toFixed(3)}` : '',
-      result.lexicalScore !== null ? `lexical=${result.lexicalScore.toFixed(3)}` : ''
-    ].filter(Boolean).join(', ')
-    return [
-      `${index + 1}. ${result.filePath}${location} [${result.sources.join('+')}${scores ? `; ${scores}` : ''}]`,
-      `   Why: ${result.reasons.join('; ')}`,
-      result.snippet ? `\n${result.snippet}` : ''
-    ].filter(Boolean).join('\n')
-  }).join('\n\n---\n\n')
-  return `${header}\n\n${matches}`
-}
-
 async function qualityCheck(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
   const scope = await requireProjectScope(ctx)
   // File reads go through the workspace-scoped file system, which needs a Code workspace for this root.
@@ -419,30 +362,10 @@ async function hybridExplore(args: unknown, ctx: ToolContext): Promise<InternalM
   const input = asRecord(args) as any
   const query = expectString(input.query, 'query')
   const maxFiles = typeof input.maxFiles === 'number' ? input.maxFiles : 12
-  const mode = input.mode === 'explore' || input.mode === 'exhaustive' || input.mode === 'auto' ? input.mode : undefined
-  const maxTokens = typeof input.maxTokens === 'number' ? input.maxTokens : 4_000
 
   let text = ''
 
-  // 1. Semantic Search — listed as a complementary set (UNION with the
-  //    structural results below). We deliberately DON'T fold these filename
-  //    hints into the CodeGraph query: benchmarking showed query augmentation
-  //    dilutes the structural search and drops recall (50% vs 70% on its own).
-  //    Keeping the two retrievals independent and unioning them is what raises
-  //    recall while staying token-cheap.
-  try {
-    // Structural search below needs only the checkout; the semantic half needs an index.
-    const index = semanticIndexFor(scope, ctx)
-    if (!index) throw new Error('no semantic index for this project')
-    const semanticReport = await ctx.semantic.queryDetailed(index, query, { limit: Math.min(maxFiles, 20), mode, maxTokens, caller: 'oxespace_hybrid_explore' })
-    if (semanticReport.results.length > 0) {
-      text += `${formatSemanticReport(semanticReport)}\n\n`
-    }
-  } catch (err) {
-    console.warn('[Hybrid RAG] Semantic search failed:', err)
-  }
-
-  // 2. CodeGraph Explore — on the PLAIN query (not augmented).
+  // CodeGraph explore on the plain query.
   try {
     const cg = await ctx.codegraph.ensureInstance(ws.rootPath)
     const { ToolHandler } = await import('../vendor/codegraph/mcp/tools')
@@ -504,7 +427,6 @@ export const handlers = {
   openWebPreview,
   captureWebPreview,
   previewInteract,
-  semanticSearch,
   qualityCheck,
   hybridExplore
 }

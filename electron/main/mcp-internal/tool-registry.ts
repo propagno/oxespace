@@ -23,7 +23,6 @@ import type { WorktreeEventBus } from './worktree-event-bus'
  * validator here would force a new dep without observable benefit. Validation
  * happens inline in each handler.
  */
-import type { SemanticService } from '../services/semantic.service'
 import { MEMORY_TOOLS } from './memory-tool-handlers'
 import { DELEGATION_TOOLS } from './delegation-tools'
 import { TEAM_TOOLS } from './team-tools'
@@ -71,7 +70,6 @@ export interface ToolContext {
   github: GitHubWorktreeApi
   background: BackgroundManager
   fileSystem: FileSystemService
-  semantic: SemanticService
   codegraph: import('../services/codegraph.service').CodeGraphService
   webPreview: WebPreviewBus
   worktree: WorktreeEventBus
@@ -393,27 +391,8 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   },
   {
     descriptor: {
-      name: 'oxespace_semantic_search',
-      description: 'Token-budgeted local repository search over exact FTS5 terms (identifiers, strings, tests, config), fused with vector meaning when the optional semantic index is on. The result names the sources that answered. Returns source windows, confidence, coverage and explicit truncation warnings. Use mode=explore for navigation and mode=exhaustive for refactors/completeness-sensitive work.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          query: { type: 'string', description: 'The natural language query to search for.' },
-          limit: { type: 'number', description: 'Maximum number of files to return (default depends on mode).' },
-          mode: { type: 'string', enum: ['auto', 'explore', 'exhaustive'], description: 'Retrieval policy. Auto detects completeness-sensitive intent.' },
-          maxTokens: { type: 'number', description: 'Hard source-context budget (400-20000 estimated tokens).' }
-        },
-        required: ['query'],
-        additionalProperties: false
-      }
-    },
-    requiresWorkspace: true,
-    handler: handlers.semanticSearch
-  },
-  {
-    descriptor: {
       name: 'oxespace_hybrid_explore',
-      description: 'Adaptive repository retrieval for development. Fuses exact FTS5 terms (including tests/config) and structural AST traversal (CodeGraph), plus local vector embeddings when the optional semantic index is on, then returns budgeted verbatim source with confidence and coverage. mode=explore is token-first and ranked best-effort; mode=exhaustive searches the full local lexical index for refactors/renames/completeness-sensitive work. Runtime-only dynamic dispatch and ignored/generated/binary files remain explicitly disclosed.',
+      description: 'Structural repository retrieval for development: traverses the code graph (CodeGraph) for the question or symbol names and returns the matching symbols with their source. Use it to find where code lives or how a feature works.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -424,9 +403,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
           maxFiles: {
             type: 'number',
             description: 'Maximum number of files to include source code from (default: 12)'
-          },
-          mode: { type: 'string', enum: ['auto', 'explore', 'exhaustive'], description: 'Auto, fast exploration, or completeness-sensitive retrieval.' },
-          maxTokens: { type: 'number', description: 'Hard budget for semantic/lexical source windows before structural results.' }
+          }
         },
         required: ['query'],
         additionalProperties: false

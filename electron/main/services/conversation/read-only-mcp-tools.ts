@@ -6,7 +6,7 @@
  */
 export const THREAD_READ_ONLY_MCP_TOOLS = ['oxespace_capabilities', 'oxespace_execution_context', 'oxespace_project_context',
   'oxespace_memory_search', 'oxespace_memory_sessions', 'oxespace_memory_handoffs',
-  'oxespace_semantic_search', 'oxespace_hybrid_explore', 'oxespace_list_agents', 'oxespace_list_workspaces', 'oxespace_git',
+  'oxespace_hybrid_explore', 'oxespace_list_agents', 'oxespace_list_workspaces', 'oxespace_git',
   'oxespace_github', 'oxespace_threads', 'oxespace_skills', 'oxespace_mcp_servers', 'oxespace_search', 'oxespace_usage', 'oxespace_settings', 'oxespace_diagnostics',
   'oxespace_code_search', 'oxespace_code_callers', 'oxespace_code_callees', 'oxespace_code_impact', 'oxespace_code_node', 'oxespace_code_status',
   'oxespace_thread_read', 'oxespace_work_status', 'oxespace_work_result',
@@ -26,7 +26,7 @@ export const OXESPACE_BRIDGE_KEY = 'oxespace-delegation'
 export const AUTO_APPROVED_LOOKUPS = [
   'oxespace_capabilities', 'oxespace_execution_context', 'oxespace_project_context',
   'oxespace_memory_search', 'oxespace_memory_sessions', 'oxespace_memory_handoffs',
-  'oxespace_semantic_search', 'oxespace_hybrid_explore', 'oxespace_search', 'oxespace_git', 'oxespace_threads',
+  'oxespace_hybrid_explore', 'oxespace_search', 'oxespace_git', 'oxespace_threads',
   'oxespace_code_search', 'oxespace_code_callers', 'oxespace_code_callees', 'oxespace_code_impact', 'oxespace_code_node', 'oxespace_code_status',
   'oxespace_thread_read', 'oxespace_work_status', 'oxespace_work_result'
 ] as const satisfies readonly (typeof THREAD_READ_ONLY_MCP_TOOLS)[number][]

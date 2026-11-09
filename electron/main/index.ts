@@ -37,14 +37,11 @@ import { registerOxeContextIpc } from './ipc/oxe-context.ipc'
 import { SkillService } from './services/skill.service'
 import { McpManager } from './services/mcp.service'
 import { WorkspaceService } from './services/workspace.service'
-import { SemanticService } from './services/semantic.service'
-import { SemanticModelStore } from './services/semantic-model-store'
 import { createInternalMcpHandle, type InternalMcpHandle } from './mcp-internal/bootstrap'
 import { startRpcServer, type RpcServerHandle } from './runtime/rpc/server'
 import { registerTaskIpc } from './ipc/task.ipc'
 import { registerTerminalIpc } from './ipc/terminal.ipc'
 import { registerWorkspaceIpc } from './ipc/workspace.ipc'
-import { registerSemanticIpc } from './ipc/semantic.ipc'
 import { installIncidentHooks, registerDiagnosticsIpc } from './ipc/diagnostics.ipc'
 import { registerPolicyIpc } from './ipc/policy.ipc'
 import { BackgroundManager } from './services/background.service'
@@ -270,20 +267,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   
   terminalForHistory = terminalManager
-  // Semantic search service. emitLog broadcasts each activity-log line to every
-  // renderer window so Tools → Semantic Activity can show processing live.
-  const semanticService = new SemanticService(db, {
-    emitLog: (entry) => {
-      for (const window of BrowserWindow.getAllWindows()) {
-        if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.semantic.onLog, entry)
-      }
-    },
-    // Optional embedding model (not in the installer), downloaded or imported on demand.
-    modelStore: new SemanticModelStore(join(app.getPath('userData'), 'models'))
-  })
-
-  registerWorkspaceIpc(db, semanticService, terminalManager)
-  registerSemanticIpc(semanticService)
+  registerWorkspaceIpc(db, terminalManager)
   registerTerminalIpc(terminalManager)
   registerAgentIpc(db)
   const taskService = registerTaskIpc(db, terminalManager)
@@ -467,7 +451,6 @@ async function registerIpcHandlers(): Promise<() => void> {
     github: internalMcpGithub,
     background: backgroundManager,
     fileSystem: fileSystemService,
-    semantic: semanticService,
     codegraph: codeGraphService
   })
   registerMcpInternalIpc(internalMcp)
@@ -524,7 +507,6 @@ async function registerIpcHandlers(): Promise<() => void> {
     skillService.dispose()
     mcpManager.stopAll()
     oxeService.disposeAll()
-    semanticService.destroy()
     // Keep the hook metadata bridge alive for the bounded memory shutdown drain.
     void rpcServer?.stop()
   })

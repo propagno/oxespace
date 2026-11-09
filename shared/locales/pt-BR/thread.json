@@ -1209,15 +1209,6 @@
     "rewindAndEdit": "Retroceder e editar",
     "rewind": "Retroceder"
   },
-  "semantic": {
-    "title": "Busca semântica",
-    "toggle": "Indexar este projeto para os agentes buscarem por significado",
-    "hint": "O índice fica neste computador. Os agentes continuam lendo os arquivos de que precisam; isto só ajuda a encontrá-los.",
-    "starting": "Iniciando o índice…",
-    "indexing": "Indexando… {{files}} arquivos até agora",
-    "indexed": "{{files}} arquivos indexados",
-    "failed": "Não foi possível alterar a busca semântica."
-  },
   "sessionPanel": {
     "sections": {
       "environment": "Ambiente",

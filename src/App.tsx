@@ -45,7 +45,6 @@ const SlashOverlay = lazy(() => import('./components/SlashOverlay/SlashOverlay')
 const CommandMenu = lazy(() => Promise.all([import('./components/CommandMenu/CommandMenu'), loadCommandContributors()]).then(([m]) => ({ default: m.CommandMenu })))
 const UsageModal = lazy(() => import('./components/Usage/UsageModal').then(m => ({ default: m.UsageModal })))
 const McpPanel = lazy(() => import('./components/MCP/McpPanel').then((m) => ({ default: m.McpPanel })))
-const SemanticActivityPanel = lazy(() => import('./components/Semantic/SemanticActivityPanel').then((m) => ({ default: m.SemanticActivityPanel })))
 import { useBackgroundStore } from './store/background.store'
 import { useMcpStore } from './store/mcp.store'
 import { useSkillStore } from './store/skill.store'
@@ -256,7 +255,6 @@ export function App(): ReactElement {
   const [configuredAgent, setConfiguredAgent] = useState<AgentProfile | null>(null)
   const [delegationNotice, setDelegationNotice] = useState<{ workspaceId: string; taskId: string } | null>(null)
   const [isDesignSystemOpen, setDesignSystemOpen] = useState(false)
-  const [isSemanticActivityOpen, setSemanticActivityOpen] = useState(false)
   const [appNotice, setAppNotice] = useState<string | null>(null)
   // Track workspaces that have been visited at least once. Visited workspaces
   // stay mounted (hidden via CSS) so the xterm Terminal instances persist
@@ -660,7 +658,7 @@ export function App(): ReactElement {
 
   const toolHandlers: Partial<Record<ToolId, () => void>> = {
     integration: openIntegrationPanel, github: toggleGitHubPanel, worktrees: toggleWorktreePanel, scripts: toggleScriptsPanel, search: toggleSearchPanel,
-    'web-preview': toggleWebPreviewPanel, background: toggleBackgroundPanel, mcp: openMcpPanel, semantic: () => setSemanticActivityOpen(true),
+    'web-preview': toggleWebPreviewPanel, background: toggleBackgroundPanel, mcp: openMcpPanel,
     editor: toggleEditor, review: toggleReviewPanel, team: team.open, slash: () => { if (activePane) openSlashOverlay(activePane.id) }
   }
 
@@ -981,12 +979,6 @@ export function App(): ReactElement {
         /></Suspense>
       ) : null}
       {isDesignSystemOpen ? <DesignSystemPage onClose={() => { setDesignSystemOpen(false) }} /> : null}
-      {isSemanticActivityOpen ? (
-        <SemanticActivityPanel
-          workspaceId={activeWorkspace?.id ?? null}
-          onClose={() => { setSemanticActivityOpen(false) }}
-        />
-      ) : null}
       {configuredAgent ? (
         <AgentConfigModal
           profile={configuredAgent}

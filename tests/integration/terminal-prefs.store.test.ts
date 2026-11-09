@@ -10,7 +10,7 @@ describe('terminal-prefs opt-in migration (v1 → v2)', () => {
   })
   afterEach(() => localStorage.clear())
 
-  test('resets Semantic to off and drops the removed RTK flag for a user who had them on (the reported bug)', async () => {
+  test('drops the removed RTK and Semantic flags for a user who had them on (the reported bug)', async () => {
     // Simulate the user's saved state from when RTK/Semantic defaulted to ON.
     localStorage.setItem(KEY, JSON.stringify({
       version: 1,
@@ -26,24 +26,24 @@ describe('terminal-prefs opt-in migration (v1 → v2)', () => {
     const { useTerminalPrefsStore } = await import('../../src/store/terminal-prefs.store')
     const s = useTerminalPrefsStore.getState()
 
-    // Global: R4 took RTK out, so its saved flag is dropped; the opt-in flags are forced off…
+    // Global: R4 took RTK out and R2 semantic search, so their saved flags are dropped; Caveman stays off…
     expect(s.global).not.toHaveProperty('rtkHookEnabled')
-    expect(s.global.semanticSearchEnabled).toBe(false)
+    expect(s.global).not.toHaveProperty('semanticSearchEnabled')
     expect(s.global.cavemanModeEnabled).toBe(false)
     // …but unrelated saved prefs are preserved.
     expect(s.global.fontSize).toBe(16)
 
-    // Per-workspace overrides: the opt-in keys are stripped, others kept.
+    // Per-workspace overrides: the removed keys are stripped, others kept.
     expect(s.overrides['ws-on']).toEqual({ fontSize: 18 })
     expect(s.overrides['ws-rtk-only']).toBeUndefined() // only had rtk → dropped
   })
 
-  test('fresh install (no persisted state) starts with Caveman and Semantic off, and no RTK flag', async () => {
+  test('fresh install (no persisted state) starts with Caveman off, and no RTK or Semantic flag', async () => {
     const { useTerminalPrefsStore } = await import('../../src/store/terminal-prefs.store')
     const s = useTerminalPrefsStore.getState()
     expect(s.global).not.toHaveProperty('rtkHookEnabled')
     expect(s.global.cavemanModeEnabled).toBe(false)
-    expect(s.global.semanticSearchEnabled).toBe(false)
+    expect(s.global).not.toHaveProperty('semanticSearchEnabled')
     expect(s.global.fontFamily.split(',')[0]).toBe('Cascadia Mono')
     expect(s.global.fontSize).toBe(16)
     expect(s.global.lineHeight).toBe(1.4)
@@ -59,7 +59,7 @@ describe('terminal-prefs opt-in migration (v1 → v2)', () => {
     const s = useTerminalPrefsStore.getState()
     const resolved = { ...s.global, ...(s.overrides['brand-new-ws'] ?? {}) }
     expect(resolved).not.toHaveProperty('rtkHookEnabled')
-    expect(resolved.semanticSearchEnabled).toBe(false)
+    expect(resolved).not.toHaveProperty('semanticSearchEnabled')
   })
 
   test('rolls the old 100k scrollback default down to the responsive limit', async () => {

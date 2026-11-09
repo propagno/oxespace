@@ -4,7 +4,6 @@ import { RichText } from '../../i18n/RichText'; import { ExternalAnchor } from '
 import { AppearanceSettings } from './AppearanceSettings'
 import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
-import type { SemanticUsage, SemanticVectorStatus } from '../../../shared/types/ipc'
 import type { AgentHookAgent, AgentHooksStatus } from '../../../shared/types/agent-hooks'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { AgentCliOnboarding, openInstallDocs } from '../Onboarding/AgentCliOnboarding'
@@ -516,7 +515,6 @@ function ProvidersSettingsSection({
         </Button>
 
         <IdleConversationsSetting />
-        <SemanticIndexSetting />
       </div>
     </section>
   )
@@ -557,112 +555,6 @@ function IdleConversationsSetting(): ReactElement | null {
         </Select>
         <span className="settings-field-hint">{t('idle.hint')}</span>
       </label>
-      {error && <Notice intent="danger">{error}</Notice>}
-    </div>
-  )
-}
-
-function formatMegabytes(bytes: number): string {
-  return `${Math.round(bytes / (1024 * 1024))} MB`
-}
-
-/**
- * The optional vector index for the agents' repository search tools. Exact-term
- * search (FTS5) and structural search (CodeGraph) work without it; turning it on
- * downloads a ~270 MB embedding model into the app's data folder (it survives
- * updates), or imports one from a folder on networks without internet access.
- */
-function SemanticIndexSetting(): ReactElement | null {
-  const { t } = useTranslation('settings')
-  const api = window.oxe?.semantic
-  const [status, setStatus] = useState<SemanticVectorStatus | null>(null)
-  const [usage, setUsage] = useState<SemanticUsage | null>(null)
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  useEffect(() => {
-    if (!api?.getVectorStatus) return
-    let cancelled = false
-    const tick = (): void => {
-      void api.getVectorStatus().then((next) => { if (!cancelled) setStatus(next) }).catch(() => {})
-    }
-    tick()
-    void api.getUsage?.().then((next) => { if (!cancelled) setUsage(next) }).catch(() => {})
-    // Poll quickly only while something is changing (download / model load).
-    const interval = setInterval(tick, status?.state === 'downloading' || status?.state === 'loading' ? 1000 : 5000)
-    return () => { cancelled = true; clearInterval(interval) }
-  }, [api, status?.state])
-
-  if (!api?.getVectorStatus || !status || !status.available) return null
-
-  const run = async (action: () => Promise<SemanticVectorStatus>): Promise<void> => {
-    setError('')
-    setBusy(true)
-    try { setStatus(await action()) }
-    catch (cause) { setError(humanizeError(cause, t('semantic.changeFailed'))) }
-    finally { setBusy(false) }
-  }
-
-  const progress = status.progress
-  const stateText = status.state === 'off'
-    ? t('semantic.state.off')
-    : status.state === 'downloading'
-      ? (progress ? t('semantic.state.downloadingProgress', { loaded: formatMegabytes(progress.loaded), total: formatMegabytes(progress.total) }) : t('semantic.state.downloading'))
-      : status.state === 'loading'
-        ? t('semantic.state.loading')
-        : status.state === 'not-installed'
-          ? t('semantic.state.notInstalled')
-          : status.state === 'error'
-            ? t('semantic.state.error', { error: status.error ?? t('semantic.unknownError') })
-            : t('semantic.state.ready')
-  const calls = usage
-    ? Object.values(usage.tools).reduce((sum, tool) => ({
-      withVector: sum.withVector + tool.withVector.calls,
-      withoutVector: sum.withoutVector + tool.withoutVector.calls
-    }), { withVector: 0, withoutVector: 0 })
-    : null
-
-  return (
-    <div className="settings-form-group" data-testid="semantic-index-setting">
-      <h3 className="settings-form-group-title">{t('semantic.title')}</h3>
-      <div className="settings-toggle-row">
-        <span>
-          <strong>{t('semantic.searchByMeaning')}</strong>
-          <small data-testid="semantic-index-state">{stateText}</small>
-        </span>
-        <SettingsSwitch
-          checked={status.enabled}
-          onChange={(next) => { if (!busy) void run(() => api.setVectorIndex(next)) }}
-          ariaLabel={t('semantic.switchLabel')}
-        />
-      </div>
-      {status.state === 'downloading' && progress && progress.total > 0 && (
-        <div className="settings-progress" role="progressbar" aria-label={t('semantic.downloadLabel')} aria-valuenow={Math.floor((progress.loaded / progress.total) * 100)} aria-valuemin={0} aria-valuemax={100}>
-          <div className="settings-progress-bar" style={{ width: `${Math.floor((progress.loaded / progress.total) * 100)}%` }} />
-        </div>
-      )}
-      {status.enabled && (status.state === 'not-installed' || status.state === 'error') && (
-        <div className="settings-inline-actions">
-          <Button size="sm" disabled={busy} onClick={() => void run(() => api.downloadModel())} data-testid="btn-semantic-download">
-            <Download size={14} aria-hidden="true" />
-            {t('semantic.download')}
-          </Button>
-          <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(() => api.importModel())} data-testid="btn-semantic-import">
-            {t('semantic.import')}
-          </Button>
-        </div>
-      )}
-      {status.installed && !status.enabled && (
-        <div className="settings-inline-actions">
-          <Button size="sm" variant="ghost" disabled={busy} onClick={() => void run(() => api.removeModel())}>
-            {t('semantic.remove')}
-          </Button>
-        </div>
-      )}
-      <span className="settings-field-hint">
-        {t('semantic.hint', { model: status.modelId })}
-        {calls && (calls.withVector + calls.withoutVector) > 0 && ` ${t('semantic.usage', { without: calls.withoutVector, with: calls.withVector })}`}
-      </span>
       {error && <Notice intent="danger">{error}</Notice>}
     </div>
   )

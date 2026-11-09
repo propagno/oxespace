@@ -62,9 +62,7 @@ export type { GitHubBranch, GitHubCheckpoint, GitHubCliStatus, GitHubCommit, Git
 export type { IntegrationGroup, IntegrationMember, IntegrationHandoff, IntegrationRole, IntegrationSession, IntegrationStatus } from './integration'
 export type { FileSystemApi, FileSystemFileChangedEvent, FileSystemListTreeInput, FileSystemReadBinaryInput, FileSystemReadBinaryResult, FileSystemReadFileInput, FileSystemReadFileResult, FileSystemUnwatchFileInput, FileSystemWatchFileInput, FileSystemWatchFileResult, FileSystemWriteFileInput, FileSystemWriteFileResult, FileTreeNode, FileTreeNodeType } from './filesystem'
 import type { TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalStatusResult, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
-import type { SemanticStatus, SemanticRetrievalSource, SemanticVectorStatus, SemanticUsage, SemanticUsageBucket, SemanticSearchMode, SemanticConfidence, SemanticIndexCoverage, SemanticLastQuery, SemanticLogLevel, SemanticLogEntry, SemanticQueryHit, SemanticApi } from './ipc/semantic'
 export type { TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalStatusResult, PaneAgentResume, PaneAgentSession, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
-export type { SemanticStatus, SemanticRetrievalSource, SemanticVectorStatus, SemanticUsage, SemanticUsageBucket, SemanticSearchMode, SemanticConfidence, SemanticIndexCoverage, SemanticLastQuery, SemanticLogLevel, SemanticLogEntry, SemanticQueryHit, SemanticApi } from './ipc/semantic'
 
 import { AGENTS_CHANNELS } from './ipc/agents'
 export type { AgentsApi } from './ipc/agents'
@@ -396,23 +394,6 @@ export const IPC_CHANNELS = {
   oxeContext: {
     buildPaneManifest: 'oxe-context:build-pane-manifest'
   },
-  semantic: {
-    getStatus: 'semantic:get-status',
-    setEnabled: 'semantic:set-enabled',
-    projectStatus: 'semantic:project-status',
-    setProjectEnabled: 'semantic:set-project-enabled',
-    setMode: 'semantic:set-mode',
-    reindex: 'semantic:reindex',
-    getLogs: 'semantic:get-logs',
-    onLog: 'semantic:log',
-    query: 'semantic:query',
-    getVectorStatus: 'semantic:get-vector-status',
-    setVectorIndex: 'semantic:set-vector-index',
-    downloadModel: 'semantic:download-model',
-    importModel: 'semantic:import-model',
-    removeModel: 'semantic:remove-model',
-    getUsage: 'semantic:get-usage'
-  },
   diagnostics: {
     getSnapshot: 'diagnostics:get-snapshot',
     exportReport: 'diagnostics:export-report',
@@ -686,7 +667,6 @@ export interface OxeApi {
   agents: import('./ipc/agents').AgentsApi
   browserPreview: import('./browser-preview').BrowserPreviewApi
   oxeContext: OxeContextApi
-  semantic: SemanticApi
   diagnostics: import('./diagnostics').DiagnosticsApi
   policy: import('../policy').PolicyApi
   dataExport: DataExportApi
