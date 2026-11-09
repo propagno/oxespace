@@ -85,6 +85,7 @@ jobs:
     outputs:
       code: ${{ steps.classify.outputs.code }}
       oxequery: ${{ steps.classify.outputs.oxequery }}
+      a11y: ${{ steps.classify.outputs.a11y }}
       deps: ${{ steps.classify.outputs.deps }}
       base: ${{ steps.classify.outputs.base }}
       sha: ${{ steps.commit.outputs.sha }}
@@ -133,7 +134,7 @@ jobs:
           # workflow never starts. The base is where the head left main.
           manifests='^(package\.json|package-lock\.json|mobile/.*\.gradle(\.kts)?|mobile/.*libs\.versions\.toml|\.github/workflows/.*)$'
           if [ "$EVENT" != "pull_request" ]; then
-            echo "code=true" >> "$GITHUB_OUTPUT"; echo "oxequery=true" >> "$GITHUB_OUTPUT"
+            echo "code=true" >> "$GITHUB_OUTPUT"; echo "oxequery=true" >> "$GITHUB_OUTPUT"; echo "a11y=true" >> "$GITHUB_OUTPUT"
             deps=false; base=
             compare=$(gh api "repos/$REPO/compare/$DEFAULT_BRANCH...$SHA" --jq '{base: .merge_base_commit.sha, ahead: .ahead_by, files: [.files[]?.filename]}')
             if [ "$(echo "$compare" | jq .ahead)" != "0" ]; then
@@ -146,13 +147,16 @@ jobs:
           fi
           files=$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename')
           echo "$files" | sed 's/^/  /'
-          code=false; oxequery=false
+          code=false; oxequery=false; a11y=false
           if echo "$files" | grep -Eqv '^(docs/|\.claude/|.*\.md$)'; then code=true; fi
+          # What can change what the axe scan sees: not docs, tests, the Android app, the phone protocol or the other
+          # workflows (the a11y-axe.yml paths-ignore it replaces).
+          if echo "$files" | grep -Eqv '^(docs/|\.claude/|.*\.md$|electron/main/.*\.test\.ts$|tests/|mobile/|scripts/android/|shared/remote/|\.github/workflows/(android|provider-contract|visual-baselines|visual-regression)\.yml$)'; then a11y=true; fi
           if echo "$files" | grep -Eq '^(electron/main/services/(oxequery|oxepod)/|electron/main/workers/[^/]*oxequery|shared/[^/]*oxequery|shared/types/[^/]*oxequery|shared/(sqlText|mongoQueryText)\.ts$|tests/live/|tests/([^/]+/)?[^/]*oxequery|scripts/[^/]*oxequery|\.github/workflows/ci\.yml$)'; then oxequery=true; fi
-          echo "code=$code" >> "$GITHUB_OUTPUT"; echo "oxequery=$oxequery" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"; echo "oxequery=$oxequery" >> "$GITHUB_OUTPUT"; echo "a11y=$a11y" >> "$GITHUB_OUTPUT"
           deps=false; if echo "$files" | grep -Eq "$manifests"; then deps=true; fi
           echo "deps=$deps" >> "$GITHUB_OUTPUT"
-          echo "code=$code oxequery=$oxequery deps=$deps"
+          echo "code=$code oxequery=$oxequery a11y=$a11y deps=$deps"
 
   # Supply chain gate (SRE-08, docs/ci-cd.md): a change that adds or changes a dependency is checked against the
   # GitHub Advisory Database before it merges. It looks only at what the change brings, so an advisory already on
@@ -794,6 +798,100 @@ jobs:
           if [ "$status" != 0 ]; then echo "::error title=Performance gate::failed on two runners (${{ matrix.label }}): a real regression until the per-OS trend says otherwise (flakes.md FL-21)"; exit 1; fi
           echo "::notice title=Performance gate::the first run failed on one runner and the second passed on a fresh one (${{ matrix.label }}): runner noise, see FL-04"
 
+  # The axe scan of the screens (docs/validation/a11y-axe-2026-10-14.md), on Linux and Windows. It was a workflow of
+  # its own until 09/11; inside this one its result is part of CI result, and a change that cannot affect what the
+  # scan sees (docs, tests, the Android app, the phone protocol, other workflows) skips it, as its paths-ignore did.
+  a11y:
+    name: axe scan (${{ matrix.label }})
+    needs: [changes]
+    if: ${{ !cancelled() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || needs.changes.outputs.a11y == 'true') }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            label: ubuntu
+          - os: windows-2022
+            label: windows
+    env:
+      OXE_A11Y_REPORT: ${{ github.workspace }}/a11y-report.jsonl
+      OXE_A11Y_STRICT: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.changes.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          # Ubuntu 24.04 renamed libasound2 (64-bit time_t); 22.04 has only the old name.
+          alsa=libasound2t64; apt-cache show "$alsa" >/dev/null 2>&1 || alsa=libasound2
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" \
+            libxshmfence1 libnotify4
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Electron version
+        id: electron
+        shell: bash
+        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # @electron/get keeps the downloaded Electron zip here; npm rebuild electron and fix:native read it, so a
+      # GitHub release-download outage (a 504 on the zip) no longer fails the job once the version is cached.
+      - name: Cache the Electron download
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.os == 'Windows' && '~/AppData/Local/electron/Cache' || '~/.cache/electron' }}
+          key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
+
+      - name: Build
+        run: npm run build
+
+      - name: Prepare and verify native modules for Electron
+        run: |
+          npm run fix:native
+          npm run verify:native
+
+      - name: Scan
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then bash scripts/run-with-xvfb.sh npm run test:a11y; else npm run test:a11y; fi
+
+      - name: Critical and serious findings
+        if: always()
+        shell: bash
+        run: |
+          # The spec only writes the report when it finds something (the first run proved the path works).
+          test -f "$OXE_A11Y_REPORT" || { echo "no report written: the scan found no violations at all"; exit 0; }
+          echo "entries: $(wc -l < "$OXE_A11Y_REPORT")"
+          echo "scan-not-reached: $(grep -c '"rule":"scan-not-reached"' "$OXE_A11Y_REPORT" || true)"
+          bad=$(grep -E '"impact":"(critical|serious)"' "$OXE_A11Y_REPORT" || true)
+          if [ -n "$bad" ]; then echo "$bad" | cut -c1-400; echo "::error::critical or serious accessibility findings"; exit 1; fi
+          echo "no critical or serious findings"
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: a11y-report-${{ matrix.label }}
+          if-no-files-found: ignore
+          retention-days: 14
+          path: a11y-report.jsonl
+
   # Stage 3: only when the plan step says this run packages (a v*.*.* tag, a dispatch with publish_release, or a
   # dispatch with packaged_smoke_only), and only after every check above passed on this commit. It builds the
   # commit quick planned, from scratch, and packages it; the release job publishes what it uploads.
@@ -1229,7 +1327,7 @@ jobs:
   # E2E shards' blob reports into one HTML report per platform (best effort; the shards' blobs are kept anyway).
   ci-result:
     name: CI result
-    needs: [changes, dependency-review, quick, unit, e2e, perf-plan, perf-recheck, package, oxequery-live, oxequery-live-versions, release]
+    needs: [changes, dependency-review, quick, unit, e2e, a11y, perf-plan, perf-recheck, package, oxequery-live, oxequery-live-versions, release]
     if: ${{ always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -1292,14 +1390,16 @@ jobs:
           const code = needs.changes.outputs?.code === 'true'
           const oxequery = needs.changes.outputs?.oxequery === 'true'
           const deps = needs.changes.outputs?.deps === 'true'
+          const a11y = needs.changes.outputs?.a11y === 'true'
           const problems = []
           for (const [job, { result }] of Object.entries(needs)) {
             console.log(`${job}: ${result}`)
             if (result === 'failure' || result === 'cancelled') problems.push(`${job} ${result}`)
           }
           const required = ['changes', ...(deps ? ['dependency-review'] : [])]
-          if (!pr) required.push('quick', 'unit', 'e2e', 'oxequery-live', 'oxequery-live-versions')
+          if (!pr) required.push('quick', 'unit', 'e2e', 'a11y', 'oxequery-live', 'oxequery-live-versions')
           else if (code) required.push('quick', 'unit', 'e2e', ...(oxequery ? ['oxequery-live', 'oxequery-live-versions'] : []))
+          if (pr && a11y) required.push('a11y')
           for (const job of required) if (needs[job].result !== 'success') problems.push(`${job} should have passed and is ${needs[job].result}`)
           // The performance gate is soft in e2e outside a publishing run: perf-plan must have read it, and a recheck
           // it planned must have passed on its fresh runner.

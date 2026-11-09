@@ -26,11 +26,11 @@ describe('run identity: workflow runs by file, jobs by check runs (#358, #337)',
   const respond = (data: unknown) => ({ ok: true, status: 200, json: async () => data, text: async () => '', headers: { get: () => '' } })
   const run = (name: string, file: string, event: string, conclusion: string | null, at: string) => ({ name, display_title: name, path: `.github/workflows/${file}`, event, status: conclusion ? 'completed' : 'in_progress', conclusion, head_sha: HEAD, head_branch: 'be/mcp/off-groups-server', head_repository: { full_name: 'o/r' }, created_at: at, check_suite_id: name.length })
   // The runs on #358's head dc7dc2d: the bot update's unapproved pull_request runs, and the train's dispatches.
-  const raw = (ci: string | null) => [run('Accessibility scan (axe)', 'a11y-axe.yml', 'workflow_dispatch', 'success', '2026-11-01T01:41:41Z'), run('Full check · be/mcp/off-groups-server', 'ci.yml', 'workflow_dispatch', ci, '2026-11-01T01:41:40Z'), run('Accessibility scan (axe)', 'a11y-axe.yml', 'pull_request', 'action_required', '2026-11-01T01:41:38Z'), run('CI and Release', 'ci.yml', 'pull_request', 'action_required', '2026-11-01T01:41:38Z')]
+  const raw = (ci: string | null) => [run('Android', 'android.yml', 'workflow_dispatch', 'success', '2026-11-01T01:41:41Z'), run('Full check · be/mcp/off-groups-server', 'ci.yml', 'workflow_dispatch', ci, '2026-11-01T01:41:40Z'), run('Android', 'android.yml', 'pull_request', 'action_required', '2026-11-01T01:41:38Z'), run('CI and Release', 'ci.yml', 'pull_request', 'action_required', '2026-11-01T01:41:38Z')]
   const listRuns = (ci: string | null) => createGitHubApi({ token: 't', repo: 'o/r', fetchImpl: async () => respond({ workflow_runs: raw(ci) }) }).listRuns(HEAD)
 
   it("the runs list names a ci.yml run by its workflow, whatever its title (PR #N · …, Full check · …)", async () => {
-    expect((await listRuns('success')).map((r: { name: string }) => r.name)).toEqual(['Accessibility scan (axe)', CI_WORKFLOW, 'Accessibility scan (axe)', CI_WORKFLOW])
+    expect((await listRuns('success')).map((r: { name: string }) => r.name)).toEqual(['Android', CI_WORKFLOW, 'Android', CI_WORKFLOW])
   })
 
   it('a green train dispatch next to an unapproved bot run merges; while it runs, the car waits for it', async () => {

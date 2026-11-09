@@ -42,19 +42,18 @@ export const STATE_MARKER = 'merge-train-state'
 export const TRAIN_JOB_NAME = 'Merge train step'
 export const CI_WORKFLOW = 'CI and Release'
 /** Workflows whose run on the head must be finished before the PR can merge (when they ran for it). */
-export const WATCHED_WORKFLOWS = [CI_WORKFLOW, 'Accessibility scan (axe)', 'Android']
+export const WATCHED_WORKFLOWS = [CI_WORKFLOW, 'Android']
 /**
  * Workflows the train dispatches on a branch it updated, because a GITHUB_TOKEN push starts none of them.
  * ci.yml always; the others only when they ran on the head before the update.
  */
-export const DISPATCHABLE_WORKFLOWS = ['ci.yml', 'a11y-axe.yml', 'android.yml']
+export const DISPATCHABLE_WORKFLOWS = ['ci.yml', 'android.yml']
 /**
  * Workflow names by file. GitHub's run `name` is the run-name when a workflow sets one (ci.yml titles its runs
  * "PR #N · …" and "Full check · <ref>"), so a run is identified by its workflow file, never by that name.
  */
 export const WORKFLOW_NAME_BY_FILE = {
   'ci.yml': CI_WORKFLOW,
-  'a11y-axe.yml': 'Accessibility scan (axe)',
   'android.yml': 'Android',
   'provider-contract.yml': 'Provider contract',
 }
