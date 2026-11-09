@@ -72,7 +72,9 @@ fun Skeleton(modifier: Modifier = Modifier, lines: Int = 3) {
         repeat(lines) { i ->
             Box(
                 Modifier.fillMaxWidth(if (i == lines - 1) 0.6f else 1f).height(14.dp)
-                    .background(Oxe.colors.surfaceSunken, RoundedCornerShape(6.dp)),
+                    // CR-F10-10e (DESIGN #744): borderDefault reads against the canvas in both themes (1.37:1 light,
+                    // 1.62:1 dark); surfaceSunken measured 1.07:1 and 1.00:1, so the screen looked empty.
+                    .background(Oxe.colors.borderDefault, RoundedCornerShape(6.dp)),
             )
         }
     }
