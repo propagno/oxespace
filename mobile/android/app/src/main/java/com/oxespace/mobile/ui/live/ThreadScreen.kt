@@ -751,12 +751,20 @@ private fun Composer(
                 OxeButton(
                     text = stopLabel,
                     onClick = onStop,
-                    kind = OxeButtonKind.SECONDARY,
+                    // CR-F10-10 (SPEC A47, DESIGN #744): Stop carries the danger tint.
+                    kind = OxeButtonKind.DANGER,
                     enabled = connected && enabled,
                     modifier = Modifier.semantics { contentDescription = stopLabel },
                 )
             }
-            val placeholder = stringResource(if (mode.queuedPlaceholder) R.string.composer_queued_placeholder else R.string.composer_placeholder)
+            // CR-F10-10 (SPEC A47): while the agent works and can be steered, the field says how the message is read.
+            val placeholder = stringResource(
+                when {
+                    mode.queuedPlaceholder -> R.string.composer_queued_placeholder
+                    ComposerControl.STEER in mode.controls -> R.string.composer_steer_placeholder
+                    else -> R.string.composer_placeholder
+                },
+            )
             BasicTextField(
                 value = text,
                 onValueChange = { value ->

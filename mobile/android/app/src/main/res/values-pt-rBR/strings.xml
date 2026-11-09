@@ -15,8 +15,9 @@
     <string name="composer_queued_placeholder">Na fila até o passo atual terminar</string>
     <string name="composer_read_after_step">lida depois do passo atual</string>
     <string name="composer_send">Enviar</string>
-    <string name="composer_steer">Orientar</string>
+    <string name="composer_steer">Enviar</string>
     <string name="composer_steer_finished_before">O agente terminou antes de a sua instrução chegar. Nada foi enviado.</string>
+    <string name="composer_steer_placeholder">Orientar: lida depois do passo atual</string>
     <string name="home_address_hint">O endereço do computador na sua Wi-Fi, por exemplo 192.168.0.12. O OXESpace mostra em Configurações › Dispositivos.</string>
     <string name="home_address_invalid">Use o endereço do computador na sua rede local, como 192.168.0.12.</string>
     <string name="home_address_title">Endereço do computador</string>
@@ -251,6 +252,7 @@
     <string name="terminal_hidden_back">Voltar aos terminais</string>
     <string name="terminal_hidden_on_desktop">Este terminal foi ocultado do celular em %1$s.</string>
     <string name="terminal_hidden_shown">Caracteres ocultos foram mostrados no campo. Confira e envie de novo.</string>
+    <string name="terminal_hidden_title">Terminal</string>
     <string name="terminal_key_down">Seta para baixo</string>
     <string name="terminal_key_left">Seta para a esquerda</string>
     <string name="terminal_key_right">Seta para a direita</string>

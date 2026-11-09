@@ -304,7 +304,8 @@
     "hiddenBack": "Back to terminals",
     "panHint": "{{cols}} cols · swipe to pan",
     "fitWidth": "Fit the width",
-    "typeOnScreen": "Type on the Screen view"
+    "typeOnScreen": "Type on the Screen view",
+    "hiddenTitle": "Terminal"
   },
   "approval": {
     "prompt": {
@@ -377,11 +378,12 @@
   "composer": {
     "placeholder": "Message the agent",
     "send": "Send",
-    "steer": "Steer",
+    "steer": "Send",
     "steerFinishedBefore": "The agent finished before your instruction arrived. Nothing was sent.",
     "queuedPlaceholder": "Queued until the current step ends",
     "readAfterStep": "read after the current step",
-    "queuedLine": "queued"
+    "queuedLine": "queued",
+    "steerPlaceholder": "Steer: read after the current step"
   },
   "terminalInput": {
     "placeholder": "Type in this terminal",
