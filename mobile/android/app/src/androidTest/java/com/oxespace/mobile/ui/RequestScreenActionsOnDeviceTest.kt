@@ -27,6 +27,10 @@ import org.junit.runner.RunWith
  *
  * Red at T4 (f877342d): on a truncated approval the screen's own filter keeps Deny AND Cancel (RequestScreen.kt:199),
  * while requestActions keeps Deny only (A44: a truncated request can only be refused; parity rule S3).
+ *
+ * v2 (CR-F10-9, TECH LEAD 09/11): with the clock paused, advancing exactly the 2 s hold ends the screen's delay on the
+ * boundary but draws no frame after it, so Allow could never read as enabled (emulator run 42580922209). The clock now
+ * moves one frame past the hold.
  */
 @RunWith(AndroidJUnit4::class)
 class RequestScreenActionsOnDeviceTest {
@@ -78,6 +82,7 @@ class RequestScreenActionsOnDeviceTest {
         compose.onNode(hasText(labels.getValue("decline")) and hasClickAction()).assertIsEnabled()
 
         compose.mainClock.advanceTimeBy(2_000)
+        compose.mainClock.advanceTimeByFrame()
         compose.waitForIdle()
         assertEquals(true, requestActions(critical, elapsedMs = 2_000).single { it.decision == "accept" }.enabled)
         compose.onNode(hasText(labels.getValue("accept")) and hasClickAction()).assertIsEnabled()
