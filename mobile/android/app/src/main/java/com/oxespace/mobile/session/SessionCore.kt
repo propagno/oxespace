@@ -7,6 +7,9 @@ import com.oxespace.mobile.notify.Notifications
 import com.oxespace.mobile.pairing.AndroidKeystoreDeviceKeys
 import com.oxespace.mobile.pairing.PreferencesPairedDesktopStore
 import com.oxespace.mobile.protocol.session.RemoteConnection
+import com.oxespace.mobile.settings.PhonePreferences
+import com.oxespace.mobile.settings.filterAlerts
+import com.oxespace.mobile.ui.settings.SharedPreferenceStore
 import java.util.concurrent.Executors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,6 +30,9 @@ class SessionCore(context: Context) {
     private val alerts = AlertWatcher()
     private val store = PreferencesPairedDesktopStore(app)
 
+    /** The Settings switches, from the file the Settings screen writes; read at each change, so a flip applies to the next alert. */
+    private val prefs = PhonePreferences(SharedPreferenceStore(app.getSharedPreferences("phone-prefs", Context.MODE_PRIVATE)))
+
     val notifications = Notifications(app).also { it.createChannels() }
     val live = LiveRepository()
     private val controller = DesktopSessionController(
@@ -44,10 +50,10 @@ class SessionCore(context: Context) {
 
     init {
         scope.launch {
-            live.pendingRequests.items.collect { requests -> alerts.onRequests(requests).forEach(::notify) }
+            live.pendingRequests.items.collect { requests -> filterAlerts(alerts.onRequests(requests), prefs).forEach(::notify) }
         }
         scope.launch {
-            live.threads.threads.collect { threads -> alerts.onThreads(threads).forEach(::notify) }
+            live.threads.threads.collect { threads -> filterAlerts(alerts.onThreads(threads), prefs).forEach(::notify) }
         }
     }
 

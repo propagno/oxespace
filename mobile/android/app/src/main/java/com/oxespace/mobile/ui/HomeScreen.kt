@@ -15,7 +15,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -23,7 +22,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -49,9 +47,18 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.Alignment
 import com.oxespace.mobile.R
 import com.oxespace.mobile.pairing.PairedDesktop
 import com.oxespace.mobile.session.DesktopStatus
+import com.oxespace.mobile.ui.components.ComputerCard
+import com.oxespace.mobile.ui.components.Notice
+import com.oxespace.mobile.ui.components.OxeMark
+import com.oxespace.mobile.ui.components.Skeleton
+import com.oxespace.mobile.ui.components.NoticeIntent
+import com.oxespace.mobile.ui.components.OxeButton
+import com.oxespace.mobile.ui.components.OxeButtonKind
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeSpace
 import com.oxespace.mobile.ui.theme.OxeTheme
@@ -94,17 +101,18 @@ fun HomeScreen(
 @Composable
 private fun Unpaired(status: DesktopStatus.Unpaired, onPair: () -> Unit) {
     if (status.revoked) {
-        Text(
-            // T96: a pairing that lapsed unused isn't "removed"; the desktop says so and the phone asks to pair again.
-            if (status.lapsed) stringResource(R.string.home_lapsed) else stringResource(R.string.home_revoked, status.revokedFrom ?: stringResource(R.string.home_unknown_desktop)),
-            style = MaterialTheme.typography.bodyLarge,
-            color = Oxe.colors.intentWarningFg,
+        // T96: a pairing that lapsed unused isn't "removed": a warning Notice, while a revoked one is the danger one (#688).
+        Notice(
+            intent = if (status.lapsed) NoticeIntent.WARNING else NoticeIntent.DANGER,
+            title = if (status.lapsed) stringResource(R.string.home_lapsed) else stringResource(R.string.home_revoked, status.revokedFrom ?: stringResource(R.string.home_unknown_desktop)),
             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
         )
     }
+    // CR-A42b-2 (M1): the hero carries the brand mark.
+    OxeMark(size = 64.dp)
     Text(stringResource(R.string.home_title), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
     Text(stringResource(R.string.home_body), style = MaterialTheme.typography.bodyLarge)
-    Button(onClick = onPair, modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget)) { Text(stringResource(R.string.home_pair)) }
+    OxeButton(stringResource(R.string.home_pair), onClick = onPair, modifier = Modifier.fillMaxWidth())
 }
 
 /**
@@ -134,7 +142,12 @@ private fun Paired(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
+                        OxeMark(size = 30.dp)
+                        Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                },
                 actions = {
                     Box {
                         IconButton(onClick = { menu = true }) {
@@ -180,31 +193,32 @@ private fun PairedBody(
         connecting -> stringResource(connectingText, name)
         else -> stringResource(R.string.home_status_connected, name)
     }
-    Text(
-        line,
-        style = MaterialTheme.typography.bodyLarge,
-        color = if (problem != null) Oxe.colors.intentWarningFg else MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-    )
-    if (connecting) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+    // CR-A42b-2 (M1): the computer card says how the phone stands with it; a skeleton while connecting.
+    val state = when {
+        problem != null -> stringResource(R.string.home_card_problem)
+        connecting -> stringResource(connectingText, name)
+        else -> stringResource(R.string.home_status_connected, name)
+    }
+    ComputerCard(name, state, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+    if (connecting) Skeleton(lines = 2)
+    if (problem != null) {
+        // Every problem is a Notice (MG5).
+        Notice(NoticeIntent.WARNING, title = line, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+    }
     if (problem == null && !connecting) Text(stringResource(R.string.home_paired_body, name), style = MaterialTheme.typography.bodyLarge)
     retryInMs?.let {
         val seconds = ((it + 999) / 1_000).toInt()
         Text(pluralStringResource(R.plurals.home_status_retry_in, seconds, seconds), style = MaterialTheme.typography.bodyMedium, color = Oxe.colors.textSecondary)
     }
     if (problem != null && !unpairOnPage) {
-        Button(onClick = onRetry, modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget)) { Text(stringResource(R.string.home_retry)) }
-        if (offerWifi) {
-            OutlinedButton(onClick = onWifi, modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget)) {
-                Text(stringResource(R.string.home_open_wifi))
-            }
-        }
+        OxeButton(stringResource(R.string.home_retry), onClick = onRetry, modifier = Modifier.fillMaxWidth())
+        if (offerWifi) OxeButton(stringResource(R.string.home_open_wifi), onClick = onWifi, modifier = Modifier.fillMaxWidth(), kind = OxeButtonKind.SECONDARY)
         TextButton(onClick = onAddress, modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget)) {
             Text(stringResource(R.string.home_enter_address))
         }
     }
     if (unpairOnPage) {
-        OutlinedButton(onClick = onUnpair, modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget)) { Text(stringResource(R.string.home_unpair)) }
+        OxeButton(stringResource(R.string.home_unpair), onClick = onUnpair, modifier = Modifier.fillMaxWidth(), kind = OxeButtonKind.SECONDARY)
     }
 }
 

@@ -10,14 +10,14 @@ import {
 
 vi.mock('../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
 
-const ACTIONS = ['setEnabled', 'startPairing', 'cancelPairing', 'answerPairing', 'revoke', 'rename', 'setDesktopName', 'setPhoneWrite', 'firewallStatus', 'firewallRepair', 'firewallUndo'] as const
+const ACTIONS = ['setEnabled', 'startPairing', 'cancelPairing', 'answerPairing', 'revoke', 'rename', 'setDesktopName', 'setPhoneWrite', 'setPhoneHidden', 'firewallStatus', 'firewallRepair', 'firewallUndo'] as const
 
 describe('Settings › Devices contract (remote.*)', () => {
   it('uses stable channel names', () => {
     expect(IPC_CHANNELS.remote).toEqual({
       status: 'remote:status', devices: 'remote:devices', changed: 'remote:changed', setEnabled: 'remote:set-enabled', startPairing: 'remote:start-pairing',
       cancelPairing: 'remote:cancel-pairing', answerPairing: 'remote:answer-pairing', revoke: 'remote:revoke', rename: 'remote:rename',
-      setDesktopName: 'remote:set-desktop-name', setPhoneWrite: 'remote:set-phone-write', pairingFailed: 'remote:pairing-failed',
+      setDesktopName: 'remote:set-desktop-name', setPhoneWrite: 'remote:set-phone-write', setPhoneHidden: 'remote:set-phone-hidden', pairingFailed: 'remote:pairing-failed',
       firewallStatus: 'remote:firewall-status', firewallRepair: 'remote:firewall-repair', firewallUndo: 'remote:firewall-undo'
     })
   })
@@ -51,6 +51,7 @@ describe('Settings › Devices contract (remote.*)', () => {
     await remote.rename({ deviceId: 'd', name: 'Phone' })
     await remote.setDesktopName({ name: 'Estudos' })
     await remote.setPhoneWrite({ paneId: 'p1', allowed: true })
+    await remote.setPhoneHidden!({ paneId: 'p1', hidden: true })
     await remote.firewallStatus!()
     await remote.firewallRepair!()
     await remote.firewallUndo!()
@@ -60,12 +61,13 @@ describe('Settings › Devices contract (remote.*)', () => {
       [IPC_CHANNELS.remote.revoke, { deviceId: 'd' }], [IPC_CHANNELS.remote.rename, { deviceId: 'd', name: 'Phone' }],
       [IPC_CHANNELS.remote.setDesktopName, { name: 'Estudos' }],
       [IPC_CHANNELS.remote.setPhoneWrite, { paneId: 'p1', allowed: true }],
+      [IPC_CHANNELS.remote.setPhoneHidden, { paneId: 'p1', hidden: true }],
       // 1.4.3 P1: no input at all; main reads the port and the program itself.
       [IPC_CHANNELS.remote.firewallStatus], [IPC_CHANNELS.remote.firewallRepair], [IPC_CHANNELS.remote.firewallUndo]
     ])
     remote.onChanged(vi.fn())
     expect(ipc.on).toHaveBeenCalledWith(IPC_CHANNELS.remote.changed, expect.any(Function))
-    expect(Object.keys(remote).sort()).toEqual(['answerPairing', 'cancelPairing', 'devices', 'firewallRepair', 'firewallStatus', 'firewallUndo', 'onChanged', 'onPairingFailed', 'rename', 'revoke', 'setDesktopName', 'setEnabled', 'setPhoneWrite', 'startPairing', 'status'])
+    expect(Object.keys(remote).sort()).toEqual(['answerPairing', 'cancelPairing', 'devices', 'firewallRepair', 'firewallStatus', 'firewallUndo', 'onChanged', 'onPairingFailed', 'rename', 'revoke', 'setDesktopName', 'setEnabled', 'setPhoneHidden', 'setPhoneWrite', 'startPairing', 'status'])
   })
 
   it('hands a failed pairing to the window as a C3 message, and stops when unsubscribed', () => {

@@ -1929,6 +1929,11 @@
     "phoneWriteBadge": "Celular pode digitar",
     "phoneWriteBadgeTitle": "Um celular pareado pode digitar neste terminal. Desligue no menu ⋯.",
     "phoneWriteFailed": "Não foi possível mudar a digitação pelo celular",
+    "phoneShow": "Mostrar no celular",
+    "phoneShowHint": "Celulares pareados podem ver este terminal.",
+    "phoneWriteNeedsShow": "Mostre no celular primeiro.",
+    "phoneHiddenMark": "Oculto do celular",
+    "phoneShowFailed": "Não foi possível mudar se o celular mostra este terminal",
     "whyStatus": "Por que este status?",
     "explain": {
       "description": "O que o OXESpace leu para decidir o status deste painel.",

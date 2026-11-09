@@ -209,7 +209,7 @@ export interface RemoteErrorFrame extends FrameBase<'error'> {
    * says to pair again instead of "removed". A literal word, not an enum, so Kotlin reads it as text and a word added
    * later never breaks an older phone (the #531 rule).
    */
-  reason?: 'pairing-lapsed' | 'new-session' | 'rewritten'
+  reason?: 'pairing-lapsed' | 'new-session' | 'rewritten' | 'pane-hidden'
   /** Milliseconds before retrying, for `rate-limited`. */
   retryAfterMs?: number
 }
