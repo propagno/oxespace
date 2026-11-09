@@ -55,6 +55,16 @@ class Watched<Store : StreamListener>(val store: Store) : StreamListener {
     override fun onRefused(code: RemoteErrorCode) {
         refusal.value = code
     }
+
+    /**
+     * CR-F10-8 (CR-34): the desktop ended the stream. The store hears it (a terminal hidden from the phone clears
+     * itself) and the screen re-reads it; only an end that isn't `pane-hidden` is a refusal.
+     */
+    override fun onEnded(code: RemoteErrorCode, reason: String?) {
+        store.onEnded(code, reason)
+        if (reason != com.oxespace.mobile.protocol.live.PANE_HIDDEN_REASON) refusal.value = code
+        tick.value++
+    }
 }
 
 /**
