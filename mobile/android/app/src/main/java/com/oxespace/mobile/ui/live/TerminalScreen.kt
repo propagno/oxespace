@@ -151,6 +151,8 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
         topBar = {
             TopAppBar(
                 title = {
+                    // CR-F10-10 / CR-34: a hidden pane keeps its privacy; the app bar says only "Terminal".
+                    if (hidden) Text(stringResource(R.string.terminal_hidden_title), style = MaterialTheme.typography.titleMedium, maxLines = 1, modifier = Modifier.semantics { heading() })
                     if (!hidden) Column {
                         Text(displaySafe(pane.title, 200), style = MaterialTheme.typography.titleMedium, maxLines = 1, modifier = Modifier.semantics { heading() })
                         Text(

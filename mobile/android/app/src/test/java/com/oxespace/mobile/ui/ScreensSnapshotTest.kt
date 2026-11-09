@@ -1,5 +1,6 @@
 package com.oxespace.mobile.ui
 
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
@@ -137,7 +138,12 @@ class ScreensSnapshotTest(private val night: Boolean, private val locale: String
     fun requests() {
         shot("request-risky") { RequestScreen(Samples.request(risky = true), commands) {} }
         shot("request-question") { RequestScreen(Samples.request(risky = false), commands) {} }
-        shot("risk-levels") { Samples.RiskLevels { RiskLine(it) } }
+        // DESIGN #744: the levels on the screen's own canvas, not the bare grey of the device frame.
+        shot("risk-levels") {
+            androidx.compose.material3.Surface(androidx.compose.ui.Modifier.fillMaxSize(), color = com.oxespace.mobile.ui.theme.Oxe.colors.surfaceCanvas) {
+                Samples.RiskLevels { RiskLine(it) }
+            }
+        }
         // SECURITY #229: the agent's claim sits under "Written by the agent"; the override in the command is written out.
         shot("request-hidden-characters") {
             RequestScreen(Samples.request().copy(command = "rm -rf ~/\u202Etxt.sh", detail = "OXESpace checked this command: safe to allow"), commands) {}
