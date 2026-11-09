@@ -832,9 +832,10 @@ private fun ConversationSkeleton(modifier: Modifier, afterMs: Long) {
         verticalArrangement = Arrangement.spacedBy(OxeSpace.space3),
     ) {
         if (!shown) return@Column
-        Box(Modifier.fillMaxWidth().height(56.dp).background(promptFill(), RoundedCornerShape(OxeRadius.lg)))
+        // CR-F10-10e: the skeleton's own fill, visible in both themes (the same as the Skeleton component).
+        Box(Modifier.fillMaxWidth().height(56.dp).background(Oxe.colors.borderDefault, RoundedCornerShape(OxeRadius.lg)))
         for (fraction in listOf(0.95f, 0.85f, 0.9f, 0.6f)) {
-            Box(Modifier.fillMaxWidth(fraction).height(14.dp).background(promptFill(), RoundedCornerShape(OxeRadius.sm)))
+            Box(Modifier.fillMaxWidth(fraction).height(14.dp).background(Oxe.colors.borderDefault, RoundedCornerShape(OxeRadius.sm)))
         }
         Spacer(Modifier.weight(1f))
     }
