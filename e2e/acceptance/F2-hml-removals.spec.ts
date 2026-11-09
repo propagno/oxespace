@@ -224,7 +224,14 @@ test.describe('F2 · (a) what people still need has a home', () => {
       await page.keyboard.press('Escape'); await page.waitForTimeout(300)
       // Settings › Tools: the list is there, read-only: no switch, no create, no install.
       await page.keyboard.press('Control+,'); await page.waitForTimeout(1000)
-      await page.getByRole('button', { name: /^(Tools|Ferramentas)/ }).first().click({ timeout: 5_000 }).catch(() => undefined); await page.waitForTimeout(800)
+      // F2 keeps the list in the workspace's Settings › Tools; F3 moves it to Application › MCP servers and skills.
+      const appPage = page.getByRole('button', { name: /^(MCP servers and skills|Servidores MCP e skills|Tools|Ferramentas)/ }).first()
+      if (await appPage.count()) await appPage.click({ timeout: 5_000 }).catch(() => undefined)
+      else {
+        await page.getByRole('button', { name: /Current workspace|Workspace atual/ }).first().click({ timeout: 5_000 }).catch(() => undefined); await page.waitForTimeout(600)
+        await page.getByRole('button', { name: /^(Tools|Ferramentas)/ }).first().click({ timeout: 5_000 }).catch(() => undefined)
+      }
+      await page.waitForTimeout(800)
       const row = page.getByText('hml-tidy', { exact: true }).first()
       const listed = await row.count()
       note(`Settings › Tools lists hml-tidy: ${listed > 0}`)
