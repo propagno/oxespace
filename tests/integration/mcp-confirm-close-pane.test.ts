@@ -4,7 +4,7 @@
  * the pane's execution (index.ts) → the internal MCP's ApprovalBroker cancels that execution's asks → the approval center
  * records each one as cancelled and closes its native dialog. The other pane's asks stay.
  */
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import { createFakeIpcMain, type FakeIpcMain } from '../helpers/fake-ipc-main'
 import type { ApprovalRequest } from '../../shared/types/approvals'
 
@@ -16,7 +16,6 @@ vi.mock('electron', () => ({
 
 const { openInMemoryDatabase } = await import('../../electron/main/db/index')
 const { WorkspaceService } = await import('../../electron/main/services/workspace.service')
-const { RtkService } = await import('../../electron/main/services/rtk.service')
 const { TerminalManager } = await import('../../electron/main/services/terminal.service')
 const { registerWorkspaceIpc } = await import('../../electron/main/ipc/workspace.ipc')
 const { ExecutionRegistry } = await import('../../electron/main/services/execution-registry')
@@ -26,7 +25,6 @@ const { AgentActions } = await import('../../electron/main/services/agent-action
 const { ApprovalCenter } = await import('../../electron/main/services/approvals/approval-center')
 const { APP_MANAGE_TOOLS } = await import('../../electron/main/mcp-internal/app-manage-tools')
 
-beforeEach(() => { vi.spyOn(RtkService.prototype, 'ensureRtk').mockResolvedValue('/test/rtk/bin') })
 afterEach(() => { vi.restoreAllMocks() })
 
 function fakePtys() {
@@ -63,8 +61,8 @@ describe('H2 · closing a pane withdraws its pending internal-MCP confirms', () 
     try {
       const workspace = workspaces.create({ rootPath: 'C:/repo', layout: '1x2', autoStart: false })
       const [paneA, paneB] = workspace.panes
-      await terminal.start({ workspaceId: workspace.id, paneId: paneA.id, disableRtk: true })
-      await terminal.start({ workspaceId: workspace.id, paneId: paneB.id, disableRtk: true })
+      await terminal.start({ workspaceId: workspace.id, paneId: paneA.id })
+      await terminal.start({ workspaceId: workspace.id, paneId: paneB.id })
       const [envA, envB] = pty.envs
       expect(envA.OXESPACE_EXECUTION_ID).not.toBe(envB.OXESPACE_EXECUTION_ID)
 

@@ -134,17 +134,16 @@ async function registerIpcHandlers(): Promise<() => void> {
     log.info(`[main] PATH recovered from login shell: +${recoveredPath.join(', ')}`)
   }
 
-  // App update + RTK sidecar IPC are always registered (even on native failure
-  // / e2e mocks below) so Settings and the update banner keep working.
+  // App update IPC is always registered (even on native failure / e2e mocks
+  // below) so Settings and the update indicator keep working.
   registerAppUpdateIpc()
   registerAppearanceIpc()
-  void registerRtkIpc()
   registerBrowserPreviewIpc()
 
   // T48: never in a packaged build, whatever the environment says (e2e/e2e-mode.ts).
   if (e2eMocksEnabled(process.env, app.isPackaged)) {
     if (process.env.OXESPACE_E2E_PREVIEW_SERVICE) {
-      const { PreviewAutomation } = await import('./services/documentation/preview-automation')
+      const { PreviewAutomation } = await import('./services/browser-preview/preview-automation')
       ;(globalThis as typeof globalThis & { preview: InstanceType<typeof PreviewAutomation> }).preview = new PreviewAutomation()
       // The spec revokes agent access from main while an approval modal blocks the window, as it does in the product.
       ;(globalThis as typeof globalThis & { previewService: unknown }).previewService = (await import('./services/browser-preview.service')).browserPreviewService
@@ -442,25 +441,8 @@ async function registerIpcHandlers(): Promise<() => void> {
     changed: (workspaceId, taskId) => {
       for (const window of BrowserWindow.getAllWindows()) window.webContents.send(IPC_CHANNELS.delegation.changed, { workspaceId, taskId })
       notifyAgentsChanged()
-    },
-    enrich: async task => {
-      let memory = ''
-      try {
-        const context = await memoryService.projects.resolve(task.path)
-        const settings = memoryService.effectiveSettings(context.projectId)
-        if (settings.enabled && (task.includeMemory ?? settings.automaticContext)) {
-          const reply = await memoryService.manager.run(context, provider => provider.getRelevantContext({ ...context, audience: 'delegate' }, task.objective))
-          memory = reply.status === 'ok' ? reply.value.text.slice(0,4000) : ''
-        }
-      } catch { /* Optional memory must not block the explicit handoff. */ }
-      let code = ''
-      try {
-        const graph = await codeGraphService.ensureInstance(task.path)
-        const { ToolHandler } = await import('./vendor/codegraph/mcp/tools')
-        code = JSON.stringify(await new ToolHandler(graph as never).execute('codegraph_explore', { query: task.objective, maxFiles: 6 })).slice(0,6000)
-      } catch { /* The explicit handoff remains sufficient to start. */ }
-      return { memory, code }
     }
+    // R0d: no enrich. The delegated agent starts from the explicit handoff, evidence files and selected conversations.
   })
   delegatedThreadObserver.current = thread => delegationService.observeThread(thread)
   registerDelegationIpc(delegationService)
@@ -602,21 +584,6 @@ async function registerIpcHandlers(): Promise<() => void> {
 
 /** Live RPC bus handle, closed on app shutdown. */
 let rpcServer: RpcServerHandle | null = null
-
-async function registerRtkIpc(): Promise<void> {
-  const { getRtkService } = await import('./services/rtk.service')
-  const rtk = getRtkService(app.getPath('userData'))
-  ipcMain.handle(IPC_CHANNELS.rtk.getStatus, () => rtk.getStatus())
-  ipcMain.handle(IPC_CHANNELS.rtk.checkForUpdate, () => rtk.checkForUpdate(true))
-  ipcMain.handle(IPC_CHANNELS.rtk.updateToLatest, async () => {
-    try {
-      return await rtk.updateToLatest()
-    } catch (err) {
-      // Surface structured status with error rather than rejecting — UI can show it.
-      return rtk.getStatus()
-    }
-  })
-}
 
 /** Protocol of a URL, or empty when it cannot be parsed. */
 function safeProtocol(value: string | undefined): string {

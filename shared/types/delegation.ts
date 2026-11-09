@@ -78,7 +78,7 @@ export interface DelegationInput {
   evidenceFiles?: string[]
   /** Explicitly selected saved Thread conversations from the origin project (max 5). */
   sourceThreadIds?: string[]
-  /** Explicit AI Memory inclusion; omitted uses the project's automatic-context preference. */
+  /** R0d: ignored since 1.5.0 (no AI Memory enrichment); kept on the wire for one release so older callers don't fail. */
   includeMemory?: boolean
 }
 export interface DelegationSessionContext {

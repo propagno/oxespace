@@ -1,7 +1,11 @@
 // @vitest-environment node
-import { readdirSync, readFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
+// @ts-expect-error -- a plain ES module script without type declarations
+import { HISTORICAL_GAPS, checkTree, migrationFindings } from '../../scripts/check-migration-order.mjs'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 /**
  * The runner applies a migration when the database's `user_version` is below its number. A PR that merges with a
@@ -15,9 +19,7 @@ const files = readdirSync(folder).filter(name => name.endsWith('.sql')).sort()
 const numberOf = (name: string): number => Number(/^(\d{3})_/.exec(name)?.[1] ?? NaN)
 const latest = Number(/export const LATEST_DB_VERSION = (\d+)/.exec(runner)?.[1] ?? NaN)
 
-/** Numbers that never shipped a file; frozen, so a new gap fails. */
-// 086 skipped: #294 landed 087 before #180 (088).
-const HISTORICAL_GAPS = [16, 17, 59, 81, 84, 86]
+// The frozen historical gaps (16, 17, 59, 81, 84, 86) live in scripts/check-migration-order.mjs.
 /** One number, two files: 046 is split by platform (PowerShell on Windows, POSIX shells elsewhere). */
 const PLATFORM_SPLIT = new Map([[46, ['046_shell_profiles_posix.sql', '046_shell_profiles_win.sql']]])
 /** Frozen history: 001 has set version 2 since before the convention. */
@@ -38,6 +40,11 @@ describe('migration numbering', () => {
     expect(missing).toEqual(HISTORICAL_GAPS)
   })
 
+  it('finds this tree in order: every number below the highest is here, and LATEST_DB_VERSION matches it', () => {
+    // On a failure the finding says which migration to merge first.
+    expect(checkTree('.')).toEqual([])
+  })
+
   it('gives each number one file, but the platform split', () => {
     const byNumber = new Map<number, string[]>()
     for (const name of files) byNumber.set(numberOf(name), [...(byNumber.get(numberOf(name)) ?? []), name])
@@ -56,5 +63,43 @@ describe('migration numbering', () => {
     expect([...new Set(read)].sort()).toEqual(files.filter(name => !APPLIED_INLINE.includes(name)))
     const order = read.map(numberOf)
     expect(order).toEqual([...order].sort((a, b) => a - b))
+  })
+})
+
+/** A checkout with only what the guard reads: the migrations folder and the runner's LATEST_DB_VERSION. */
+describe('the migration order guard, on a tree (1.5.0 reserves 094, 095 and 096)', () => {
+  const roots: string[] = []
+  afterEach(() => { for (const root of roots.splice(0)) removeTempDir(root) })
+  const upTo = (n: number): string[] => Array.from({ length: n }, (_, i) => i + 1).filter(k => !HISTORICAL_GAPS.includes(k)).map(k => `${String(k).padStart(3, '0')}_m${k}.sql`)
+  const tree = (names: string[], latest: number): string => {
+    const root = mkdtempSync(join(tmpdir(), 'oxe-migration-order-'))
+    roots.push(root)
+    mkdirSync(join(root, 'electron', 'main', 'db', 'migrations'), { recursive: true })
+    for (const name of names) writeFileSync(join(root, 'electron', 'main', 'db', 'migrations', name), `PRAGMA user_version = ${Number(name.slice(0, 3))};\n`)
+    writeFileSync(join(root, 'electron', 'main', 'db', 'index.ts'), `export const LATEST_DB_VERSION = ${latest}\n`)
+    return root
+  }
+
+  it('fails a PR that adds 096 over a main that has no 095, and names the one to merge first', () => {
+    const findings = checkTree(tree([...upTo(94), '096_remote_hidden_panes.sql'], 96))
+    expect(findings).toEqual([expect.stringMatching(/^merge 095 first: this tree has 096 but not 095\./)])
+  })
+
+  it('passes the same PR once 095 is on main', () => {
+    expect(checkTree(tree([...upTo(95), '096_remote_hidden_panes.sql'], 96))).toEqual([])
+  })
+
+  it('names every missing number, lowest first', () => {
+    expect(checkTree(tree([...upTo(93), '096_remote_hidden_panes.sql'], 96))[0]).toMatch(/^merge 094, 095 first: this tree has 096 but not 094, 095\./)
+  })
+
+  it('fails when LATEST_DB_VERSION does not match the highest migration, either way', () => {
+    expect(checkTree(tree(upTo(95), 94))).toEqual(['LATEST_DB_VERSION is 94, but the highest migration is 095: set it to 95'])
+    expect(checkTree(tree(upTo(94), 95))).toEqual(['LATEST_DB_VERSION is 95, but the highest migration is 094: set it to 94'])
+  })
+
+  it('keeps the frozen historical gaps, and reports a missing LATEST_DB_VERSION', () => {
+    expect(migrationFindings({ files: upTo(93), latest: 93 })).toEqual([])
+    expect(migrationFindings({ files: upTo(93), latest: Number.NaN })).toEqual(['LATEST_DB_VERSION is missing from electron/main/db/index.ts'])
   })
 })

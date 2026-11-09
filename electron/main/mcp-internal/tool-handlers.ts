@@ -17,7 +17,8 @@ import { discoverScripts } from '../services/scripts-discovery.service'
 import type { ToolContext } from './tool-registry'
 import { errorResult, textResult } from './tool-registry'
 import { requirePreviewExecution } from './preview-scope'
-import { savePreviewCapture } from '../services/documentation/preview-capture-store'
+import { savePreviewCapture } from '../services/browser-preview/preview-capture-store'
+import type { PreviewRequest } from '../services/browser-preview/preview-automation'
 import { semanticProjects } from '../services/semantic-projects'
 import { mainMessage } from '../../../shared/messages'
 
@@ -465,6 +466,30 @@ async function hybridExplore(args: unknown, ctx: ToolContext): Promise<InternalM
   return textResult(text)
 }
 
+const PREVIEW_ACTIONS = ['inspect', 'status', 'console', 'network', 'tabs', 'newTab', 'selectTab', 'closeTab', 'click', 'fill', 'navigate', 'wait', 'scroll']
+const PREVIEW_ARGUMENTS = new Set(['action', 'expectedUrl', 'selector', 'text', 'url', 'tabId', 'deltaY'])
+
+/** oxespace_preview_interact: drives the opted-in browser session. R0c moved its automation to services/browser-preview; R9 keeps it. */
+async function previewInteract(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
+  try {
+    if (!args || typeof args !== 'object' || Array.isArray(args)) throw new Error('Arguments must be an object')
+    const input = args as Record<string, unknown>
+    if (Object.keys(input).some(key => !PREVIEW_ARGUMENTS.has(key))) throw new Error('Invalid preview arguments')
+    if (typeof input.action !== 'string' || !PREVIEW_ACTIONS.includes(input.action)) throw new Error('Invalid preview action')
+    const execution = requirePreviewExecution(ctx)
+    if (!ctx.documentation) throw new Error('Preview service unavailable')
+    const verify = (): void => { ctx.executions!.authenticate(ctx.executionId, ctx.executionToken, ctx.workspaceId) }
+    const service = await ctx.documentation()
+    verify()
+    const result = await service.preview.run(execution.workspaceId, input as unknown as PreviewRequest, verify, execution.owner)
+    return { content: [{ type: 'text', text: JSON.stringify({ schemaVersion: 1, status: 'ok', data: result }) }] }
+  } catch (error) {
+    // Never include fill values, page errors, tokens or stack traces.
+    const message = error instanceof Error && /^(Invalid |Live workspace|Open this workspace|User declined|Preview |Inspect the current|Operation in progress)/.test(error.message) ? error.message : 'Preview action failed. Verify scope, permission, preview and request parameters.'
+    return { isError: true, content: [{ type: 'text', text: JSON.stringify({ schemaVersion: 1, status: 'error', error: { code: 'PREVIEW_ACTION_FAILED', message } }) }] }
+  }
+}
+
 export const handlers = {
   listWorkspaces,
   listPanes,
@@ -478,6 +503,7 @@ export const handlers = {
   getJobOutput,
   openWebPreview,
   captureWebPreview,
+  previewInteract,
   semanticSearch,
   qualityCheck,
   hybridExplore

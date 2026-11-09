@@ -10,7 +10,7 @@ describe('terminal-prefs opt-in migration (v1 → v2)', () => {
   })
   afterEach(() => localStorage.clear())
 
-  test('resets RTK + Semantic to off for a user who had them on (the reported bug)', async () => {
+  test('resets Semantic to off and drops the removed RTK flag for a user who had them on (the reported bug)', async () => {
     // Simulate the user's saved state from when RTK/Semantic defaulted to ON.
     localStorage.setItem(KEY, JSON.stringify({
       version: 1,
@@ -26,8 +26,8 @@ describe('terminal-prefs opt-in migration (v1 → v2)', () => {
     const { useTerminalPrefsStore } = await import('../../src/store/terminal-prefs.store')
     const s = useTerminalPrefsStore.getState()
 
-    // Global: the two opt-in flags are forced off…
-    expect(s.global.rtkHookEnabled).toBe(false)
+    // Global: R4 took RTK out, so its saved flag is dropped; the opt-in flags are forced off…
+    expect(s.global).not.toHaveProperty('rtkHookEnabled')
     expect(s.global.semanticSearchEnabled).toBe(false)
     expect(s.global.cavemanModeEnabled).toBe(false)
     // …but unrelated saved prefs are preserved.
@@ -38,10 +38,10 @@ describe('terminal-prefs opt-in migration (v1 → v2)', () => {
     expect(s.overrides['ws-rtk-only']).toBeUndefined() // only had rtk → dropped
   })
 
-  test('fresh install (no persisted state) starts with all three off', async () => {
+  test('fresh install (no persisted state) starts with Caveman and Semantic off, and no RTK flag', async () => {
     const { useTerminalPrefsStore } = await import('../../src/store/terminal-prefs.store')
     const s = useTerminalPrefsStore.getState()
-    expect(s.global.rtkHookEnabled).toBe(false)
+    expect(s.global).not.toHaveProperty('rtkHookEnabled')
     expect(s.global.cavemanModeEnabled).toBe(false)
     expect(s.global.semanticSearchEnabled).toBe(false)
     expect(s.global.fontFamily.split(',')[0]).toBe('Cascadia Mono')
@@ -58,7 +58,7 @@ describe('terminal-prefs opt-in migration (v1 → v2)', () => {
     const { useTerminalPrefsStore } = await import('../../src/store/terminal-prefs.store')
     const s = useTerminalPrefsStore.getState()
     const resolved = { ...s.global, ...(s.overrides['brand-new-ws'] ?? {}) }
-    expect(resolved.rtkHookEnabled).toBe(false)
+    expect(resolved).not.toHaveProperty('rtkHookEnabled')
     expect(resolved.semanticSearchEnabled).toBe(false)
   })
 
