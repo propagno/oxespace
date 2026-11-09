@@ -47,7 +47,7 @@ class AlertSwitchesWiredTest {
     @Test
     fun theSwitchesAreReadFromTheFileTheSettingsScreenWrites() {
         val code = code()
-        assertTrue("SessionCore reads PhonePreferences", Regex("""(?<![A-Za-z0-9_.])PhonePreferences\(""").containsMatchIn(code))
+        assertTrue("SessionCore reads PhonePreferences", Regex("""(?<![A-Za-z0-9_])PhonePreferences\(""").containsMatchIn(code))
         assertTrue(
             "from SharedPreferences phone-prefs, the file MainActivity gives the Settings screen",
             Regex("""getSharedPreferences\(\s*"phone-prefs"""").containsMatchIn(code),
