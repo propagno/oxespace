@@ -1,19 +1,16 @@
 import { create } from 'zustand'
 import { i18n } from '../i18n'
-import type { AppUpdatePreferences, AppUpdateState, RtkUpdateState } from '../../shared/types/updater'
+import type { AppUpdatePreferences, AppUpdateState } from '../../shared/types/updater'
 import { humanizeError } from '../utils/humanizeError'
 
 interface UpdaterStore {
   app: AppUpdateState
-  rtk: RtkUpdateState
   dismissedVersion: string | null
   bootstrap: () => void
   checkAppUpdates: () => Promise<void>
   quitAndInstall: () => Promise<void>
   downloadAppUpdate: () => Promise<void>
   setUpdatePreferences: (preferences: AppUpdatePreferences) => Promise<void>
-  checkRtk: () => Promise<void>
-  updateRtk: () => Promise<void>
   dismissBanner: () => void
 }
 
@@ -28,23 +25,10 @@ const APP_DEFAULT: AppUpdateState = {
   lastCheckedAt: null
 }
 
-const RTK_DEFAULT: RtkUpdateState = {
-  installed: false,
-  version: null,
-  latestVersion: null,
-  updateAvailable: false,
-  binDir: null,
-  error: null,
-  checking: false,
-  updating: false,
-  lastCheckedAt: null
-}
-
 let unsubApp: (() => void) | null = null
 
 export const useUpdaterStore = create<UpdaterStore>((set, get) => ({
   app: APP_DEFAULT,
-  rtk: RTK_DEFAULT,
   dismissedVersion: null,
 
   bootstrap: () => {
@@ -62,9 +46,6 @@ export const useUpdaterStore = create<UpdaterStore>((set, get) => ({
     }
 
     void api.app.getUpdateState().then((app) => set({ app })).catch(() => undefined)
-    void api.rtk?.getStatus().then((rtk) => set({ rtk })).catch(() => undefined)
-    // Background RTK version check (does not download unless ensureRtk path does).
-    void api.rtk?.checkForUpdate().then((rtk) => set({ rtk })).catch(() => undefined)
 
     unsubApp?.()
     unsubApp = api.app.onUpdateState((app) => set({ app }))
@@ -103,42 +84,6 @@ export const useUpdaterStore = create<UpdaterStore>((set, get) => ({
     const api = window.oxe?.app
     if (!api?.setUpdatePreferences) return
     try { set({ app: await api.setUpdatePreferences(preferences) }) } catch (err) { set({ app: { ...get().app, error: humanizeError(err) } }) }
-  },
-
-  checkRtk: async () => {
-    const api = window.oxe?.rtk
-    if (!api?.checkForUpdate) return
-    set({ rtk: { ...get().rtk, checking: true, error: null } })
-    try {
-      const rtk = await api.checkForUpdate()
-      set({ rtk })
-    } catch (err) {
-      set({
-        rtk: {
-          ...get().rtk,
-          checking: false,
-          error: humanizeError(err)
-        }
-      })
-    }
-  },
-
-  updateRtk: async () => {
-    const api = window.oxe?.rtk
-    if (!api?.updateToLatest) return
-    set({ rtk: { ...get().rtk, updating: true, error: null } })
-    try {
-      const rtk = await api.updateToLatest()
-      set({ rtk })
-    } catch (err) {
-      set({
-        rtk: {
-          ...get().rtk,
-          updating: false,
-          error: humanizeError(err)
-        }
-      })
-    }
   },
 
   dismissBanner: () => {

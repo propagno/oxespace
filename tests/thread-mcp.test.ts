@@ -65,7 +65,7 @@ it('gives a read-only Claude conversation the bridge limited to read-only lookup
   const allowed = JSON.parse(config.mcpServers['oxespace-delegation'].args[2]) as string[]
   expect(allowed).toContain('oxespace_hybrid_explore')
   expect(allowed).toContain('oxespace_memory_search')
-  for (const writer of ['oxespace_memory_remember', 'oxespace_thread_send', 'oxespace_delegate_task', 'oxespace_team_message', 'oxespace_documentation_create', 'oxespace_open_web_preview']) {
+  for (const writer of ['oxespace_memory_remember', 'oxespace_thread_send', 'oxespace_delegate_task', 'oxespace_team_message', 'oxespace_preview_interact', 'oxespace_open_web_preview']) {
     expect(allowed).not.toContain(writer)
   }
 })

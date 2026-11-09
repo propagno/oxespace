@@ -18,12 +18,10 @@ describe('cleanup flows', () => {
     const second = workspaceService.create({ rootPath: 'C:/repo-b', layout: '1x1' })
     const pty = createFakePtyModule()
     const manager = new TerminalManager(db, { pty })
-    // disableRtk: without it each start waits out the RTK download budget (about 3 s, a real network call), and three
-    // starts overran the 5 s timeout on CI (#601, run 41997742660). The other terminal tests already pass it.
 
-    await manager.start({ workspaceId: first.id, paneId: first.panes[0].id, disableRtk: true })
-    await manager.start({ workspaceId: first.id, paneId: first.panes[1].id, disableRtk: true })
-    await manager.start({ workspaceId: second.id, paneId: second.panes[0].id, disableRtk: true })
+    await manager.start({ workspaceId: first.id, paneId: first.panes[0].id })
+    await manager.start({ workspaceId: first.id, paneId: first.panes[1].id })
+    await manager.start({ workspaceId: second.id, paneId: second.panes[0].id })
     manager.stopWorkspace(first.id)
 
     expect(pty.instances[0].kill).toHaveBeenCalled()

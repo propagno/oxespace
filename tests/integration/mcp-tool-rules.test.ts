@@ -70,7 +70,7 @@ describe('Per-tool rules (B7.3)', () => {
     db.prepare('INSERT INTO mcp_servers (id, workspace_id, name, transport, config_json, enabled, trusted, created_at, updated_at, guard_json) VALUES (?, ?, ?, ?, ?, 1, 1, 0, 0, ?)')
       .run('g', null, 'GitHub', 'stdio', '{"transport":"stdio","command":"gh"}', JSON.stringify({ pin: { hash: 'x', at: 0 }, tools: [{ name: 'create_issue', hash: 'h' }], quarantine: null }))
     const rules = await toolRules(deps, root)
-    expect(find(rules, 'oxespace-delegation', 'oxespace_documentation_create')).toEqual({ server: 'oxespace-delegation', tool: 'oxespace_documentation_create', decision: 'ask', source: 'default', editable: true, allowedDecisions: ['allow', 'ask', 'deny'], confirmLevel: false, scope: null })
+    expect(find(rules, 'oxespace-delegation', 'oxespace_preview_interact')).toEqual({ server: 'oxespace-delegation', tool: 'oxespace_preview_interact', decision: 'ask', source: 'default', editable: true, allowedDecisions: ['allow', 'ask', 'deny'], confirmLevel: false, scope: null })
     // T53: a read-only OXESpace lookup is allowed by "Auto-approve reads" (on by default), offering allow or block.
     expect(find(rules, 'oxespace-delegation', 'oxespace_project_context')).toEqual({ server: 'oxespace-delegation', tool: 'oxespace_project_context', decision: 'allow', source: 'reads', editable: true, allowedDecisions: ['allow', 'deny'], confirmLevel: false, scope: 'oxechat' })
     expect(find(rules, 'github', 'create_issue')).toMatchObject({ decision: 'ask', source: 'default' })
@@ -167,7 +167,7 @@ describe('Per-tool rules (B7.3)', () => {
     } as ThreadRequest })
     request('r1', 'mcp__oxespace-delegation__oxespace_code_impact'); await settle()
     request('r2', 'mcp__evil__oxespace_code_impact'); await settle()
-    request('r3', 'mcp__oxespace-delegation__oxespace_documentation_create'); await settle()
+    request('r3', 'mcp__oxespace-delegation__oxespace_preview_interact'); await settle()
     expect(responses).toEqual([{ id: 'r1', response: { decision: 'accept' } }])
     // Off: the same lookup asks, and Settings › Tools shows it as asking by default.
     new ThreadPermissionStore(db).setAutoApproveReads(false)
@@ -291,7 +291,7 @@ describe('Per-tool rules, CCR from FRONTEND (B7.3)', () => {
     userBlock(userData)
     const rules = await toolRules(deps, root)
     expect(find(rules, 'oxespace-delegation', 'oxespace_db_execute')).toMatchObject({ editable: true, confirmLevel: true, allowedDecisions: ['ask', 'deny'] })
-    expect(find(rules, 'oxespace-delegation', 'oxespace_documentation_create')).toMatchObject({ confirmLevel: false, allowedDecisions: ['allow', 'ask', 'deny'] })
+    expect(find(rules, 'oxespace-delegation', 'oxespace_preview_interact')).toMatchObject({ confirmLevel: false, allowedDecisions: ['allow', 'ask', 'deny'] })
     expect(find(rules, 'oxespace-delegation', 'oxespace_project_context')).toMatchObject({ confirmLevel: false, source: 'reads', allowedDecisions: ['allow', 'deny'] })
     expect(find(rules, 'github', 'delete_repository')).toMatchObject({ editable: false, confirmLevel: false, allowedDecisions: [] })
     // Every confirm-level OXESpace tool is marked, and only those; none offers allow.
