@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oxespace.mobile.R
+import com.oxespace.mobile.ui.components.Skeleton
 import com.oxespace.mobile.ui.components.EmptyState
 import com.oxespace.mobile.ui.components.Notice
 import com.oxespace.mobile.ui.components.NoticeIntent
@@ -78,8 +79,9 @@ fun AgentsScreen(
             horizontalArrangement = Arrangement.spacedBy(OxeSpace.space1),
         ) {
             for (chip in AgentFilter.entries) {
-                val count = counts[chip] ?: 0
-                Chip(stringResource(chip.label), count, selected = chip == filter, sun = chip == AgentFilter.NEEDS_YOU && count > 0) { filter = chip }
+                // CR-F10-10: no count until the list has loaded; a "0" there would be a claim.
+                val count = if (state.loaded) counts[chip] ?: 0 else null
+                Chip(stringResource(chip.label), count, selected = chip == filter, sun = chip == AgentFilter.NEEDS_YOU && (count ?: 0) > 0) { filter = chip }
             }
         }
         if (state.unavailable.isNotEmpty()) {
@@ -91,9 +93,8 @@ fun AgentsScreen(
             )
         }
         when {
-            !state.loaded -> Box(Modifier.fillMaxWidth().padding(OxeSpace.space6)) {
-                Text(stringResource(R.string.live_loading), style = MaterialTheme.typography.bodyLarge, color = Oxe.colors.textSecondary)
-            }
+            // CR-F10-10: the skeleton while loading, not a "Carregando…" line.
+            !state.loaded -> Skeleton(Modifier.padding(OxeSpace.space4), lines = 4)
             state.rows.isEmpty() -> EmptyState(
                 title = stringResource(R.string.live_agents_empty_title),
                 text = stringResource(R.string.live_agents_empty_text, desktopName),
@@ -127,7 +128,7 @@ private val AgentFilter.label get() = when (this) {
 
 /** A chip: a 48 dp target around a 32 dp pill with its label and count. [sun] puts the count, and only the count, in attn. */
 @Composable
-private fun Chip(label: String, count: Int, selected: Boolean, sun: Boolean, onClick: () -> Unit) {
+private fun Chip(label: String, count: Int?, selected: Boolean, sun: Boolean, onClick: () -> Unit) {
     val shape = RoundedCornerShape(50)
     Box(
         Modifier
@@ -147,7 +148,7 @@ private fun Chip(label: String, count: Int, selected: Boolean, sun: Boolean, onC
         ) {
             Text(label, style = MaterialTheme.typography.labelLarge, color = Oxe.colors.textPrimary, maxLines = 1)
             val countColor = if (sun) Oxe.colors.attn else Oxe.colors.textSecondary
-            Text("$count", style = MaterialTheme.typography.labelLarge, color = countColor, maxLines = 1)
+            if (count != null) Text("$count", style = MaterialTheme.typography.labelLarge, color = countColor, maxLines = 1)
         }
     }
 }

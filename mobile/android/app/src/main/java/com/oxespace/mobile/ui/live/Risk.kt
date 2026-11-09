@@ -59,13 +59,16 @@ fun riskMeaning(level: RemoteApprovalRisk): String = stringResource(
 
 private data class BadgeStyle(val background: Color, val border: Color, val text: Color, val bold: Boolean)
 
-/** Glossary §6: low neutral, medium warning, high danger soft, critical danger solid, so critical never looks like high. */
+/**
+ * The intent scale of M5 / HANDOFF-MOBILE (DESIGN #744, CR-F10-10): low success, medium info, high warning, critical
+ * solid danger. Critical stays the only solid badge, so it never looks like high.
+ */
 @Composable
 private fun badgeStyle(level: RemoteApprovalRisk): BadgeStyle = with(Oxe.colors) {
     when (level) {
-        RemoteApprovalRisk.LOW -> BadgeStyle(fillHover, borderSubtle, textSecondary, bold = false)
-        RemoteApprovalRisk.MEDIUM -> BadgeStyle(intentWarningBg, intentWarningBorder, intentWarningFg, bold = false)
-        RemoteApprovalRisk.HIGH -> BadgeStyle(intentDangerBg, intentDangerBorder, intentDangerFg, bold = false)
+        RemoteApprovalRisk.LOW -> BadgeStyle(intentSuccessBg, intentSuccessBorder, intentSuccessFg, bold = false)
+        RemoteApprovalRisk.MEDIUM -> BadgeStyle(intentInfoBg, intentInfoBorder, intentInfoFg, bold = false)
+        RemoteApprovalRisk.HIGH -> BadgeStyle(intentWarningBg, intentWarningBorder, intentWarningFg, bold = false)
         RemoteApprovalRisk.CRITICAL -> BadgeStyle(intentDangerSolid, intentDangerSolid, textOnSolid, bold = true)
     }
 }
@@ -103,9 +106,8 @@ fun RiskLine(wire: String, modifier: Modifier = Modifier) {
 }
 
 /**
- * CR-A42b-2 (M5, #627 HANDOFF-MOBILE "RiskChip"): the level as a chip with its icon, in the glossary §6 colours above
- * (DESIGN's rule that critical never looks like high wins over the handoff table's per-level intents). The word is in
- * the chip, so colour never carries it alone.
+ * CR-A42b-2 (M5, #627 HANDOFF-MOBILE "RiskChip"): the level as a chip with its icon, on the intent scale above. The
+ * word is in the chip, so colour never carries it alone.
  */
 @Composable
 fun RiskChip(level: RemoteApprovalRisk, modifier: Modifier = Modifier) {
