@@ -142,6 +142,18 @@
       "working": "Working",
       "failed": "Failed",
       "finished": "Finished"
+    },
+    "agentsEmpty": {
+      "title": "No agents yet",
+      "text": "Conversations, terminals and delegations on {{desktop}} show up here."
+    },
+    "agentsEmptyFilter": {
+      "title": "None in this state",
+      "text": "No agent is in this state right now. All shows every agent."
+    },
+    "agentsPartial": {
+      "title": "Some agents aren't listed",
+      "text": "The computer couldn't read every source this time. The list fills in when it can."
     }
   },
   "thread": {

@@ -56,6 +56,12 @@
     <string name="live_agents_chip_finished">Finished</string>
     <string name="live_agents_chip_needs_you">Needs you</string>
     <string name="live_agents_chip_working">Working</string>
+    <string name="live_agents_empty_text">Conversations, terminals and delegations on %1$s show up here.</string>
+    <string name="live_agents_empty_title">No agents yet</string>
+    <string name="live_agents_empty_filter_text">No agent is in this state right now. All shows every agent.</string>
+    <string name="live_agents_empty_filter_title">None in this state</string>
+    <string name="live_agents_partial_text">The computer couldn\'t read every source this time. The list fills in when it can.</string>
+    <string name="live_agents_partial_title">Some agents aren\'t listed</string>
     <string name="live_agent_state_blocked">Needs you</string>
     <string name="live_agent_state_done">Finished</string>
     <string name="live_agent_state_idle">Idle</string>

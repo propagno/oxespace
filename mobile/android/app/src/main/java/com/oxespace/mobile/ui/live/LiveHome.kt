@@ -33,6 +33,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -54,6 +55,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.oxespace.mobile.agents.AgentTapTarget
+import com.oxespace.mobile.agents.AgentsScreen
+import com.oxespace.mobile.agents.AgentsTabIcon
+import com.oxespace.mobile.agents.AgentsViewModel
 import com.oxespace.mobile.protocol.displaySafe
 import com.oxespace.mobile.protocol.showHidden
 import com.oxespace.mobile.protocol.RemoteDelegation
@@ -71,7 +76,7 @@ import com.oxespace.mobile.ui.theme.OxeSpace
 
 private val Row = 56.dp
 
-enum class LiveTab { THREADS, REQUESTS, TERMINALS, TASKS }
+enum class LiveTab { THREADS, REQUESTS, TERMINALS, TASKS, AGENTS }
 
 /** The connected home: conversations, requests waiting, terminals and background work on the paired desktop. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -155,10 +160,10 @@ fun LiveHome(
                         icon = {
                             if (waiting != null) {
                                 BadgedBox(badge = { Badge(modifier = Modifier.clearAndSetSemantics { }) { Text("${requests.size}") } }) {
-                                    Icon(ImageVector.vectorResource(item.icon), contentDescription = null)
+                                    Icon(item.icon, contentDescription = null)
                                 }
                             } else {
-                                Icon(ImageVector.vectorResource(item.icon), contentDescription = null)
+                                Icon(item.icon, contentDescription = null)
                             }
                         },
                     )
@@ -176,6 +181,20 @@ fun LiveHome(
             }
             LiveTab.TERMINALS -> ListOrEmpty(workspaces.filter { it.panes.isNotEmpty() }, stringResource(R.string.live_empty_terminals), content) { WorkspacePanes(it, onOpenTerminal) }
             LiveTab.TASKS -> Tasks(jobs, delegations, content)
+            LiveTab.AGENTS -> {
+                val agents = remember(live) { AgentsViewModel(live) }
+                AgentsScreen(agents, desktopName, content) { target ->
+                    when (target) {
+                        // A request still pending opens on its own screen; one already gone opens its conversation.
+                        is AgentTapTarget.Request -> requests.firstOrNull { it.requestId == target.requestId }?.let(onOpenRequest) ?: onOpenThread(target.threadId)
+                        is AgentTapTarget.Row -> when (target.key.kind) {
+                            "thread" -> onOpenThread(target.key.id)
+                            "pane" -> workspaces.flatMap { it.panes }.firstOrNull { it.id == target.key.id }?.let(onOpenTerminal)
+                            else -> Unit
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -185,14 +204,17 @@ private val LiveTab.label get() = when (this) {
     LiveTab.REQUESTS -> R.string.live_tabs_requests
     LiveTab.TERMINALS -> R.string.live_tabs_terminals
     LiveTab.TASKS -> R.string.live_tabs_tasks
+    LiveTab.AGENTS -> R.string.live_tabs_agents
 }
 
-private val LiveTab.icon get() = when (this) {
-    LiveTab.THREADS -> R.drawable.ic_threads
-    LiveTab.REQUESTS -> R.drawable.ic_requests
-    LiveTab.TERMINALS -> R.drawable.ic_terminal
-    LiveTab.TASKS -> R.drawable.ic_tasks
-}
+private val LiveTab.icon: ImageVector
+    @Composable get() = when (this) {
+        LiveTab.THREADS -> ImageVector.vectorResource(R.drawable.ic_threads)
+        LiveTab.REQUESTS -> ImageVector.vectorResource(R.drawable.ic_requests)
+        LiveTab.TERMINALS -> ImageVector.vectorResource(R.drawable.ic_terminal)
+        LiveTab.TASKS -> ImageVector.vectorResource(R.drawable.ic_tasks)
+        LiveTab.AGENTS -> AgentsTabIcon
+    }
 
 @Composable
 private fun <T> ListOrEmpty(items: List<T>, empty: String, modifier: Modifier, row: @Composable (T) -> Unit) {
