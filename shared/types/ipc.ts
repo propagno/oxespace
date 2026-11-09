@@ -192,15 +192,6 @@ export const IPC_CHANNELS = {
     cancel: 'search:cancel',
     listFiles: 'search:list-files'
   },
-  linear: {
-    getStatus: 'linear:get-status',
-    setApiKey: 'linear:set-api-key',
-    clearApiKey: 'linear:clear-api-key',
-    listTeams: 'linear:list-teams',
-    listIssues: 'linear:list-issues',
-    getIssue: 'linear:get-issue',
-    createWorktreeFromIssue: 'linear:worktree-from-issue'
-  },
   clipboard: {
     saveImageToTemp: 'clipboard:save-image-to-temp',
     readText: 'clipboard:read-text',
@@ -218,15 +209,6 @@ export const IPC_CHANNELS = {
     firewallStatus: 'remote:firewall-status', firewallRepair: 'remote:firewall-repair', firewallUndo: 'remote:firewall-undo'
   },
   oxePost: { call: 'oxePost:call' },
-  automations: {
-    list: 'automations:list',
-    create: 'automations:create',
-    setEnabled: 'automations:set-enabled',
-    remove: 'automations:remove',
-    runNow: 'automations:run-now',
-    runs: 'automations:runs',
-    onChange: 'automations:on-change'
-  },
   agentHooks: {
     status: 'agent-hooks:status',
     install: 'agent-hooks:install',
@@ -534,18 +516,6 @@ export interface SearchApi {
   listFiles(input: import('./search').SearchFilesInput): Promise<import('./search').SearchFilesResult>
 }
 
-export interface LinearApi {
-  getStatus(): Promise<import('./linear').LinearStatus>
-  setApiKey(input: import('./linear').LinearSetApiKeyInput): Promise<import('./linear').LinearStatus>
-  clearApiKey(): Promise<void>
-  listTeams(): Promise<import('./linear').LinearTeam[]>
-  listIssues(input: import('./linear').LinearListIssuesInput): Promise<import('./linear').LinearIssue[]>
-  getIssue(input: { issueId: string }): Promise<import('./linear').LinearIssue>
-  createWorktreeFromIssue(
-    input: import('./linear').LinearWorktreeFromIssueInput
-  ): Promise<import('./linear').LinearWorktreeFromIssueResult>
-}
-
 export interface GitHubApi {
   getCliStatus(input: GitHubWorkspaceInput): Promise<GitHubCliStatus>
   getWorkspaceStatus(input: GitHubWorkspaceInput): Promise<GitHubWorkspaceStatus>
@@ -607,16 +577,6 @@ export interface AgentNotificationPayload {
   workspaceId: string
   /** What the notification is about; the main process picks the image. Without it, the app icon. */
   icon?: import('./app').NotificationIcon
-}
-
-export interface AutomationsApi {
-  list(): Promise<import('./automation').Automation[]>
-  create(input: import('./automation').AutomationInput): Promise<import('./automation').Automation>
-  setEnabled(input: { id: string; enabled: boolean }): Promise<import('./automation').Automation>
-  remove(id: string): Promise<void>
-  runNow(id: string): Promise<import('./automation').AutomationRun | null>
-  runs(id: string): Promise<import('./automation').AutomationRun[]>
-  onChange(listener: (event: { automationId: string; run: import('./automation').AutomationRun | null }) => void): () => void
 }
 
 export interface AgentHooksApi {
@@ -702,7 +662,6 @@ export interface OxeApi {
   fs: FileSystemApi
   git: GitApi
   search: SearchApi
-  linear: LinearApi
   github: GitHubApi
   integration: IntegrationApi
   clipboard: ClipboardApi
@@ -710,7 +669,6 @@ export interface OxeApi {
   approvals?: import('./approvals').ApprovalsApi
   activity?: import('./activity').ActivityApi
   agentHooks: AgentHooksApi
-  automations: AutomationsApi
   oxeQuery: import('./oxequery').OxeQueryApi
   oxePod: import('./oxepod').OxePodApi
   remote?: import('./remote').RemoteApi

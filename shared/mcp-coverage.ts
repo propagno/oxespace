@@ -94,7 +94,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'code.background_cleanup': { label: 'Remove a finished job from the list', excluded: 'Tidies the person\'s list; nothing for an agent to gain.', ipc: ['background.remove'] },
   'code.worktrees': {
     label: 'Git worktrees',
-    tools: { oxespace_list_worktrees: 'read', oxespace_create_worktree: 'write', oxespace_remove_worktree: 'confirm', ...each('oxespace_workspace_change', 'write', ['worktree_for_linear_issue']) },
+    tools: { oxespace_list_worktrees: 'read', oxespace_create_worktree: 'write', oxespace_remove_worktree: 'confirm' },
     ipc: ['github.listWorktrees', 'github.createWorktree', 'github.removeWorktree', 'github.resolveWorktreeBase', 'github.getWorktreeStatus']
   },
   'code.worktree_cleanup': {
@@ -334,18 +334,13 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['oxePod.call']
   },
 
-  // ---- skills, automations, MCP servers --------------------------------------------------
+  // ---- skills, MCP servers --------------------------------------------------
   'skills.use': {
     label: 'Skills: list, read, add',
     tools: { ...each('oxespace_skills', 'read', ['list', 'get']), ...each('oxespace_skills_change', 'confirm', ['create']) },
     ipc: ['skill.list', 'skill.get', 'skill.create']
   },
   'skills.invoke': { label: 'Invoke a skill in a pane', excluded: 'Types the skill into a terminal. Agents read its body with oxespace_skills get.', ipc: ['skill.invoke'] },
-  'automations.use': {
-    label: 'Scheduled automations',
-    tools: { ...each('oxespace_automations', 'read', ['list', 'runs']), ...each('oxespace_automations_change', 'write', ['disable']), ...each('oxespace_automations_change', 'confirm', ['create', 'enable', 'run_now', 'remove']) },
-    ipc: ['automations.list', 'automations.runs', 'automations.create', 'automations.setEnabled', 'automations.remove', 'automations.runNow']
-  },
   'mcp.servers': {
     label: 'MCP servers: list, health, start, stop',
     tools: { ...each('oxespace_mcp_servers', 'read', ['list']), ...each('oxespace_mcp_servers_change', 'confirm', ['start']), ...each('oxespace_mcp_servers_change', 'write', ['stop']) },

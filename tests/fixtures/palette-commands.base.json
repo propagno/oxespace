@@ -51,7 +51,6 @@
   "tool-semantic": null,
   "tool-editor": "code.files",
   "tool-review": "code.changes",
-  "open-linear": null,
   "balance-pane-layout": null,
   "toggle-split-layout": "code.splitLayout",
   "open-usage": null,

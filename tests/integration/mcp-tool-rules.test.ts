@@ -184,7 +184,7 @@ describe('Per-tool rules (B7.3)', () => {
     const allowed = await setToolRule(deps, { rootPath: root, server: 'oxespace-delegation', tool: 'oxespace_code_impact', decision: 'allow' })
     expect(find(allowed, 'oxespace-delegation', 'oxespace_code_impact')).toMatchObject({ decision: 'allow', source: 'project', allowedDecisions: ['allow', 'deny'] })
     // A lookup not covered keeps all three.
-    expect(find(allowed, 'oxespace-delegation', 'oxespace_linear')).toMatchObject({ decision: 'ask', source: 'default', allowedDecisions: ['allow', 'ask', 'deny'] })
+    expect(find(allowed, 'oxespace-delegation', 'oxespace_mcp_servers')).toMatchObject({ decision: 'ask', source: 'default', allowedDecisions: ['allow', 'ask', 'deny'] })
   })
 
   it('T53: a deny written under the `oxespace` name holds in approvals and in Settings, and changing the row removes it (SECURITY #547 L2)', { timeout: 30_000 }, async () => {

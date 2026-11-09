@@ -441,7 +441,7 @@
   },
   "activity": {
     "title": "Atividade dos agentes",
-    "hint": "O que os agentes mudaram pelo OXESpace (commits, pushes, pull requests, conversas, tarefas, skills, automações) e o que você decidiu. Os pedidos a bancos de dados e contêineres aparecem no OxeQuery.",
+    "hint": "O que os agentes mudaram pelo OXESpace (commits, pushes, pull requests, conversas, tarefas, skills) e o que você decidiu. Os pedidos a bancos de dados e contêineres aparecem no OxeQuery.",
     "decisions": {
       "auto": "executou",
       "approved": "você aprovou",
@@ -456,62 +456,6 @@
     "savedAudit": "Auditoria salva em {{path}}",
     "refresh": "Atualizar a atividade",
     "export": "Exportar a auditoria (JSONL)"
-  },
-  "automations": {
-    "title": "Automações agendadas",
-    "callout": "Roda um agente com um prompt em uma <strong>nova worktree</strong> no horário escolhido, sem abrir terminal. O app precisa estar aberto; horários perdidos são pulados, não rodam depois.",
-    "status": {
-      "pending": "na fila",
-      "running": "rodando",
-      "completed": "concluída",
-      "failed": "falhou",
-      "dispatch_failed": "não foi possível criar a worktree",
-      "skipped_precheck": "pulada (pré-verificação)",
-      "skipped_missed": "pulada (horário perdido)",
-      "skipped_busy": "pulada (a execução anterior ainda está ativa)"
-    },
-    "schedule": {
-      "interval": "a cada {{minutes}} min",
-      "daily": "todo dia às {{time}}",
-      "weekly": "{{days}} às {{time}}",
-      "cron": "cron {{expression}}"
-    },
-    "empty": "Nenhuma automação ainda.",
-    "next": "próxima: {{time}}",
-    "last": "Última: {{status}}",
-    "neverRan": "Ainda não rodou.",
-    "runNow": "Rodar agora",
-    "runNamed": "Rodar {{name}} agora",
-    "enable": "Ativar",
-    "disable": "Pausar",
-    "active": "Ativa",
-    "paused": "Pausada",
-    "delete": "Excluir",
-    "deleteNamed": "Excluir {{name}}",
-    "form": {
-      "name": "Nome",
-      "namePlaceholder": "Revisão noturna",
-      "repository": "Repositório",
-      "select": "Selecione…",
-      "agent": "Agente",
-      "prompt": "Prompt",
-      "frequency": "Frequência",
-      "interval": "A cada N minutos",
-      "daily": "Diária",
-      "weekly": "Semanal",
-      "cron": "Cron",
-      "minutes": "Minutos (mín. 5)",
-      "time": "Horário",
-      "days": "Dias da semana",
-      "expression": "Expressão (minuto hora dia mês dia-da-semana)",
-      "precheck": "Pré-verificação (opcional)",
-      "precheckHint": "Comando rodado na raiz do repositório; a execução só continua se ele sair com código 0.",
-      "extraArgs": "Argumentos extras do agente (opcional)",
-      "extraArgsHint": "Não há aprovação interativa, então o agente só usa o que esses argumentos permitem.",
-      "create": "Criar automação",
-      "cancel": "Cancelar"
-    },
-    "new": "Nova automação"
   },
   "keyboard": {
     "title": "Teclado",
@@ -783,7 +727,7 @@
       },
       "app": {
         "name": "App",
-        "description": "Git, GitHub, conversas, skills, automações, Linear, servidores MCP, busca e uso. Pushes, pull requests e releases são aprovados por você."
+        "description": "Git, GitHub, conversas, skills, servidores MCP, busca e uso. Pushes, pull requests e releases são aprovados por você."
       },
       "team": {
         "name": "Equipe",

@@ -42,7 +42,6 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `code.resume_bypass` | `terminal.resumeBypass`, `terminal.setResumeBypass` (T54: whether a Claude session that skipped permissions resumes that way; only the person turns it on, in Settings › Terminal) |
 | `git.repo_hook_approval` | `github.getRepoConfig`, `github.approveRepoHook` |
 | `accounts.sign_in` | `agentAccount.*` |
-| `linear.token` | `linear.setApiKey`, `linear.clearApiKey` |
 | `mcp_internal.token` | `mcpInternal.regenerateToken` |
 | `oxequery.secrets` | OxeQuery connection credentials, SSH host keys, connection export/import |
 | `mcp.server_trust` | `mcp.create`, `update`, `delete`, `discover`, `importDiscovered`, `openSignIn` |
@@ -122,7 +121,7 @@ before. Code panes receive the whole registry.
 | `code.scripts` | Project scripts | **read**: `oxespace_list_scripts`<br>**write**: `oxespace_run_script` |
 | `code.background_jobs` | Background jobs | **read**: `oxespace_list_background_jobs`, `oxespace_get_job_output`<br>**write**: `oxespace_stop_background_job` |
 | `code.background_cleanup` | Remove a finished job from the list | Excluded: Tidies the person's list; nothing for an agent to gain. |
-| `code.worktrees` | Git worktrees | **read**: `oxespace_list_worktrees`<br>**write**: `oxespace_create_worktree`, `oxespace_workspace_change#worktree_for_linear_issue`<br>**confirm**: `oxespace_remove_worktree` |
+| `code.worktrees` | Git worktrees | **read**: `oxespace_list_worktrees`<br>**write**: `oxespace_create_worktree`<br>**confirm**: `oxespace_remove_worktree` |
 | `code.worktree_cleanup` | Bulk worktree cleanup | Excluded: Deletes many worktrees at once. Agents remove one at a time, approved by a person. |
 | `code.tasks` | Task board | **read**: `oxespace_tasks#list`, `oxespace_tasks#ready`, `oxespace_tasks#executions`<br>**write**: `oxespace_tasks_change#create`, `oxespace_tasks_change#update`, `oxespace_tasks_change#reorder`, `oxespace_tasks_change#add_dependency`, `oxespace_tasks_change#remove_dependency`<br>**confirm**: `oxespace_tasks_change#verify`, `oxespace_tasks_change#delete` |
 | `code.task_run` | Start a task in an agent's terminal | Excluded: Types the task into another agent's terminal. |
@@ -169,12 +168,9 @@ before. Code panes receive the whole registry.
 | `containers.resources` | Images, volumes, networks, compose, exec and shell, stats, database containers | Planned (P7): OxePod shows them to the person; tools for them come with P7. Removing a container and cleaning up are the person's confirmed actions in OxePod and are not tools. A container's environment reaches the page redacted and never an agent. |
 | `skills.use` | Skills: list, read, add | **read**: `oxespace_skills#list`, `oxespace_skills#get`<br>**confirm**: `oxespace_skills_change#create` |
 | `skills.invoke` | Invoke a skill in a pane | Excluded: Types the skill into a terminal. Agents read its body with oxespace_skills get. |
-| `automations.use` | Scheduled automations | **read**: `oxespace_automations#list`, `oxespace_automations#runs`<br>**write**: `oxespace_automations_change#disable`<br>**confirm**: `oxespace_automations_change#create`, `oxespace_automations_change#enable`, `oxespace_automations_change#run_now`, `oxespace_automations_change#remove` |
 | `mcp.servers` | MCP servers: list, health, start, stop | **read**: `oxespace_mcp_servers#list`<br>**write**: `oxespace_mcp_servers_change#stop`<br>**confirm**: `oxespace_mcp_servers_change#start` |
 | `mcp.server_trust` | Add, edit, import, trust (also again after a quarantine) or sign in to MCP servers | **Forbidden**: MCP server trust, including trusting a quarantined server again; commands, environment and headers carry secrets. An agent can only read that a server is quarantined (oxespace_mcp_servers#list). |
 | `mcp.call_tool` | Call another server's tool from the app | Excluded: Agents reach those servers through their own MCP client, as the person trusted them. |
-| `linear.read` | Linear issues | **read**: `oxespace_linear#status`, `oxespace_linear#teams`, `oxespace_linear#issues`, `oxespace_linear#issue` |
-| `linear.token` | Linear API key | **Forbidden**: A token. |
 | `usage.read` | Context window and plan allowance | **read**: `oxespace_usage#context`, `oxespace_usage#credits` |
 | `usage.copilot` | GitHub Copilot allowance | Excluded: No agent OXESpace starts runs on Copilot; the panel is for Copilot panes. |
 | `settings.policy` | Organization policy in force | **read**: `oxespace_settings#policy` |

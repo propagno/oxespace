@@ -59,10 +59,7 @@ import { registerMemoryIpc } from './ipc/memory.ipc'
 import { registerAgentHooksIpc } from './ipc/agent-hooks.ipc'
 import { AgentHookServer } from './services/agent-hooks/server'
 import { resolveSessionLocation } from './services/git-common-dir'
-import { registerAutomationsIpc } from './ipc/automations.ipc'
-import { startAutomations } from './services/automations/startup'
 import { SearchService } from './services/search.service'
-import { runHook } from './services/repo-config/hook-runner'
 import { fallbackShellProfiles } from './services/shell-profile.defaults'
 import { guardMainWindowLinks, isLoopbackHttpUrl } from './utils/external-open'
 import { applyLoginShellPath } from './utils/login-shell-path'
@@ -295,11 +292,11 @@ async function registerIpcHandlers(): Promise<() => void> {
   // not inflate the main entry or block startup parsing.
   const [
     { registerGitIpc }, { registerSearchIpc }, { registerGitHubIpc },
-    { registerLinearIpc }, { registerIntegrationIpc }, { registerRemoteIpc },
+    { registerIntegrationIpc }, { registerRemoteIpc },
     { GitHubService }, { GitService }, { CodeGraphService }
   ] = await Promise.all([
     import('./ipc/git.ipc'), import('./ipc/search.ipc'), import('./ipc/github.ipc'),
-    import('./ipc/linear.ipc'), import('./ipc/integration.ipc'), import('./ipc/remote.ipc'),
+    import('./ipc/integration.ipc'), import('./ipc/remote.ipc'),
     import('./services/github.service'), import('./services/git.service'), import('./services/codegraph.service')
   ])
   const gitService = registerGitIpc()
@@ -308,21 +305,6 @@ async function registerIpcHandlers(): Promise<() => void> {
   const agentSearch = new SearchService()
   const gitHubService = registerGitHubIpc(db)
   gitHubService.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
-  // Scheduled automations, from their own chunk; a store that cannot open or code that cannot load leaves them off.
-  const automationService = await startAutomations(join(app.getPath('userData'), 'automations.sqlite3'), {
-    createWorktree: (input) => gitHubService.createWorktree(input),
-    resolveBaseRef: async (rootPath) => (await gitHubService.resolveWorktreeBase({ workspaceId: '', rootPath })).baseRef,
-    runCommand: runHook,
-    onChange: (event) => {
-      for (const window of BrowserWindow.getAllWindows()) {
-        window.webContents.send(IPC_CHANNELS.automations.onChange, event)
-      }
-    }
-  }, (automations) => {
-    registerAutomationsIpc(automations)
-    app.once('before-quit', () => automations.stop())
-  }, (message, error) => log.warn(message, error))
-  const linearService = registerLinearIpc(db, gitHubService)
   registerIntegrationIpc(db)
   const backgroundManager = new BackgroundManager(db, {
     emitOutput: (event) => {
@@ -467,7 +449,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     oxeQueryError: () => oxeQuery.error,
     git: gitService,
     app: {
-      github: gitHubService, tasks: taskService, skills: skillService, automations: () => automationService, linear: linearService,
+      github: gitHubService, tasks: taskService, skills: skillService,
       terminal: terminalManager, mcpServers: mcpManager, search: agentSearch, contextUsage: contextUsageService, credits: creditsService,
       notify: approvals.showAgentNotice,
       agents: {
