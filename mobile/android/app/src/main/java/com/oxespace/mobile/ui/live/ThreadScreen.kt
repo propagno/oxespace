@@ -110,6 +110,8 @@ import com.oxespace.mobile.protocol.live.CommandResult
 import com.oxespace.mobile.protocol.live.ThreadTimeline
 import com.oxespace.mobile.session.Watched
 import com.oxespace.mobile.ui.SecureScreen
+import com.oxespace.mobile.ui.components.OxeButton
+import com.oxespace.mobile.ui.components.OxeButtonKind
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeCodeStyle
 import com.oxespace.mobile.ui.theme.OxeRadius
@@ -221,6 +223,7 @@ fun ThreadScreen(
                     enabled = watched.loaded,
                     commands = commands,
                     presence = presence,
+                    latestItem = entries.lastOrNull()?.seq,
                     onStop = { stopping = true },
                 )
             }
@@ -646,17 +649,22 @@ private fun Composer(
     enabled: Boolean,
     commands: CommandApi,
     presence: PresenceGate,
+    /** The newest timeline item; the line under a message sent while working stays until it changes. */
+    latestItem: Any?,
     onStop: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val mode = composerMode(running, canSteer)
     var text by rememberSaveable(threadId) { mutableStateOf("") }
+    var sentWhileWorking by remember(threadId) { mutableStateOf<SentWhileWorking?>(null) }
+    LaunchedEffect(latestItem) { if (sentWhileWorking?.latestItem != latestItem) sentWhileWorking = null }
     var clientId by rememberSaveable(threadId) { mutableStateOf(UUID.randomUUID().toString()) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<Int?>(null) }
     var unsentText by rememberSaveable(threadId) { mutableStateOf<String?>(null) }
     var unsentSteer by rememberSaveable(threadId) { mutableStateOf(false) }
     val unsent = unsentText?.let { Outgoing(it, unsentSteer) }
-    val steer = ComposerControl.STEER in composerMode(running, canSteer).controls
+    val steer = ComposerControl.STEER in mode.controls
 
     /** [ask] false for the resend after a reconnection: inside the window it goes, outside it waits for a tap on Send. */
     suspend fun send(outgoing: Outgoing, ask: Boolean = true) {
@@ -673,6 +681,10 @@ private fun Composer(
                 // A refused steer (the turn ended) is never resent: it can't reach a later turn.
                 unsentText = unsentAfter(result, outgoing)?.text
                 unsentSteer = outgoing.steer
+                if (result is CommandResult.Done && running) {
+                    val line = if (outgoing.steer) R.string.composer_read_after_step else R.string.composer_queued_line
+                    sentWhileWorking = SentWhileWorking(outgoing.text, line, latestItem)
+                }
                 if (!keepsText(result)) text = ""
                 clientId = clientIdAfter(result, clientId) { UUID.randomUUID().toString() }
             }
@@ -686,15 +698,33 @@ private fun Composer(
     val typed = text.isNotBlank()
     Column(verticalArrangement = Arrangement.spacedBy(OxeSpace.space1)) {
         message?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.intentWarningFg, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
+        sentWhileWorking?.let { sent ->
+            Column(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }) {
+                Text(displaySafe(sent.text, TARGET_MAX), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(stringResource(sent.line), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textMuted)
+            }
+        }
+        val stops = ComposerControl.STOP in mode.controls
         Row(
             Modifier.fillMaxWidth().heightIn(min = 48.dp)
                 .background(Oxe.colors.surfaceRaised, RoundedCornerShape(24.dp))
                 .border(BorderStroke(1.dp, Oxe.colors.borderDefault), RoundedCornerShape(24.dp))
-                .padding(start = OxeSpace.space4, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                .padding(start = if (stops) 4.dp else OxeSpace.space4, end = 4.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2),
         ) {
-            val placeholder = stringResource(R.string.composer_placeholder)
+            if (stops) {
+                // Stop stays with text typed (secondary), and keeps its confirm dialog.
+                val stopLabel = stringResource(R.string.thread_stop_turn)
+                OxeButton(
+                    text = stopLabel,
+                    onClick = onStop,
+                    kind = OxeButtonKind.SECONDARY,
+                    enabled = connected && enabled,
+                    modifier = Modifier.semantics { contentDescription = stopLabel },
+                )
+            }
+            val placeholder = stringResource(if (mode.queuedPlaceholder) R.string.composer_queued_placeholder else R.string.composer_placeholder)
             BasicTextField(
                 value = text,
                 onValueChange = { value ->
@@ -719,15 +749,9 @@ private fun Composer(
                 },
             )
             when {
-                running && !typed -> FilledIconButton(
-                    onClick = onStop,
-                    enabled = connected && enabled,
-                    colors = IconButtonDefaults.filledIconButtonColors(containerColor = Oxe.colors.accent, contentColor = Oxe.colors.textOnAccent),
-                    modifier = Modifier.size(40.dp),
-                ) { Icon(ImageVector.vectorResource(R.drawable.ic_stop), contentDescription = stringResource(R.string.thread_stop_turn)) }
-                running && steer -> Button(
+                steer -> Button(
                     onClick = { scope.launch { send(outgoingFor(unsent, text, steer)) } },
-                    enabled = !busy && enabled,
+                    enabled = !busy && typed && enabled,
                     modifier = Modifier.heightIn(min = 40.dp),
                 ) { Text(stringResource(R.string.composer_steer)) }
                 else -> FilledIconButton(
@@ -740,6 +764,9 @@ private fun Composer(
         }
     }
 }
+
+/** A message sent while the agent worked, with its line, until [latestItem] changes. */
+private data class SentWhileWorking(val text: String, val line: Int, val latestItem: Any?)
 
 @Composable
 private fun StopTurnDialog(title: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
