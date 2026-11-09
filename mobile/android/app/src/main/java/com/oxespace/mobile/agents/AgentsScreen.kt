@@ -58,20 +58,8 @@ import com.oxespace.mobile.ui.theme.OxeSpace
  * the sun. A tap follows [tapTarget]; opening a finished row marks it seen ([AgentsViewModel.open]).
  */
 
-/** The Agents tab's icon on the 24 grid: a small agent head. Drawn in black; the Icon's tint colours it. */
-val AgentsTabIcon: ImageVector by lazy {
-    val builder = ImageVector.Builder(name = "Agents", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f)
-    for (d in listOf("M5 8h14a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2H5a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2z", "M12 4v4", "M9 13v2", "M15 13v2")) {
-        builder.addPath(
-            pathData = addPathNodes(d),
-            stroke = SolidColor(Color.Black),
-            strokeLineWidth = 2f,
-            strokeLineCap = StrokeCap.Round,
-            strokeLineJoin = StrokeJoin.Round,
-        )
-    }
-    builder.build()
-}
+/** The Agents tab's icon: #606's Agora (CR-A42b-2, #627 HANDOFF-MOBILE "Icons"). */
+val AgentsTabIcon: ImageVector get() = com.oxespace.mobile.ui.icons.OxeIcons.Agora
 
 @Composable
 fun AgentsScreen(

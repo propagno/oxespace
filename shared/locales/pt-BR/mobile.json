@@ -32,7 +32,8 @@
     "unpairConfirm": {
       "title": "Desparear de {{desktop}}?",
       "body": "Este celular esquece {{desktop}} e a chave usada com ele. Para voltar, pareie de novo pelo QR em Configurações › Dispositivos no computador."
-    }
+    },
+    "cardProblem": "Sem conexão"
   },
   "pairing": {
     "title": "Parear com o computador",
@@ -71,6 +72,12 @@
       "localNetworkBlocked": "O Android impediu este celular de falar com o computador: o acesso à rede local está desligado para o OXESpace. Ligue nas configurações do app (Permissões) e escaneie de novo.",
       "refusedByComputer": "O computador recusou a conexão. Confira se a conexão com o celular está ligada em Configurações › Dispositivos. Se houver um firewall de terceiros, como McAfee ou Norton, libere o OXESpace nele também: ele pode recusar conexões mesmo com o Firewall do Windows permitindo.",
       "timedOut": "O computador não respondeu, então não recebeu o pedido. No Windows, o firewall bloqueia o celular quando a Wi-Fi está como Pública: mude a rede para Privada ou libere o OXESpace no firewall. Confira também se os dois estão na mesma Wi-Fi."
+    },
+    "step": {
+      "scan": "Ler",
+      "connect": "Conectar",
+      "confirm": "Confirmar",
+      "done": "Pronto"
     }
   },
   "live": {
@@ -188,7 +195,6 @@
     "unknownItems_many": "{{count}} itens de um OXESpace mais novo não aparecem.",
     "loadOlder": "Carregar anteriores",
     "latest": "Mais recentes ↓",
-    "respond": "Responder",
     "answerLabel": "Resposta do agente",
     "copy": "Copiar",
     "copied": "Copiado",
@@ -252,7 +258,6 @@
     "moreRequests_one": "+{{count}} outro",
     "moreRequests_other": "+{{count}} outros",
     "moreRequests_many": "+{{count}} outros",
-    "answerOnComputer": "Responda no computador",
     "stop": {
       "title": "Parar este turno?",
       "body": "O agente em “{{title}}” para o que está fazendo agora. A conversa continua.",
@@ -269,7 +274,9 @@
       "seconds": "{{seconds}} s",
       "minutes": "{{minutes}} min",
       "hours": "{{hours}} h"
-    }
+    },
+    "nowNeedsYou": "Precisa de você: {{title}}",
+    "review": "Revisar"
   },
   "terminal": {
     "redacted_one": "{{count}} valor secreto escondido pelo seu computador.",
@@ -372,7 +379,8 @@
       "question": "Pergunta do agente",
       "permissions": "Pedido de permissão"
     },
-    "noUndo": "Sem desfazer."
+    "noUndo": "Sem desfazer.",
+    "allowIn": "em {{seconds}} s"
   },
   "action": {
     "offline": "Sem conexão com o computador. Nada foi enviado.",

@@ -90,7 +90,15 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oxespace.mobile.R
+import com.oxespace.mobile.approval.AnswerBlock
+import com.oxespace.mobile.approval.AnswerOutcome
+import com.oxespace.mobile.approval.BiometricApprovalGate
 import com.oxespace.mobile.approval.Gated
+import com.oxespace.mobile.approval.RequestResponder
+import com.oxespace.mobile.ui.components.GateCard
+import com.oxespace.mobile.ui.components.NowBanner
+import com.oxespace.mobile.ui.components.ProviderAvatar
+import com.oxespace.mobile.ui.components.StepsSummary
 import com.oxespace.mobile.approval.PresenceGate
 import com.oxespace.mobile.approval.PresenceReason
 import com.oxespace.mobile.protocol.RemoteLimits
@@ -164,6 +172,25 @@ fun ThreadScreen(
     var stopping by rememberSaveable { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<Int?>(null) }
+    // CR-A42b-2 (M4): Deny on a gate card answers through the same biometric gate as the Request screen (MOB-1-1).
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val responder = remember(context, commands) { RequestResponder(BiometricApprovalGate(context), commands::respondRequest) }
+    var denying by remember { mutableStateOf(false) }
+    fun deny(request: RemotePendingRequest) {
+        denying = true
+        scope.launch {
+            message = when (val outcome = responder.answer(request, "decline", null, null)) {
+                is AnswerOutcome.Blocked -> when (outcome.reason) {
+                    AnswerBlock.NOT_CONFIRMED -> R.string.request_not_confirmed
+                    AnswerBlock.IN_FLIGHT -> message
+                    AnswerBlock.ALREADY_ANSWERED -> R.string.request_refused_not_pending
+                    else -> R.string.request_refused_other
+                }
+                is AnswerOutcome.Sent -> answerMessage(outcome.result)
+            }
+            denying = false
+        }
+    }
     // A conversation opens at its latest message and follows new ones (T100). In 1.4.2 it opened at the top and
     // followed only from near the bottom. Scrolling up to read stops following; "Latest" or scrolling back down
     // starts it again. Pinned until the person scrolls, so a late snapshot or a growing reply still lands at the end.
@@ -188,10 +215,14 @@ fun ThreadScreen(
     Scaffold(
         containerColor = Oxe.colors.surfaceCanvas,
         topBar = {
+            Column {
             TopAppBar(
                 title = {
                     Column {
-                        Text(title.orEmpty(), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() })
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
+                            header?.let { ProviderAvatar(it.provider, size = 22.dp) }
+                            Text(title.orEmpty(), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() })
+                        }
                         header?.let { StateLine(it.status, it.updatedAt, it.provider) }
                         turnClockOf(header, receivedAt)?.let { TurnTimer(it) }
                     }
@@ -210,12 +241,21 @@ fun ThreadScreen(
                     }
                 },
             )
+            // CR-A42b-2 (M4): the now line under the app bar while the conversation waits on the person.
+            pending.firstOrNull()?.let { waiting ->
+                NowBanner(
+                    text = stringResource(R.string.thread_now_needs_you, requestTitle(waiting)) +
+                        (if (pending.size > 1) " " + pluralStringResource(R.plurals.thread_more_requests, pending.size - 1, pending.size - 1) else ""),
+                    review = stringResource(R.string.thread_review),
+                    onReview = { onOpenRequest(waiting.requestId) },
+                )
+            }
+            }
         },
         bottomBar = {
             Column(Modifier.background(Oxe.colors.surfaceCanvas).navigationBarsPadding().imePadding().padding(horizontal = OxeSpace.space3, vertical = OxeSpace.space2), verticalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
                 message?.let { Notice(NoticeIntent.WARNING, title = stringResource(it), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
                 header?.let { QueuedPreview(it.queuedPreview, it.queued) }
-                pending.firstOrNull()?.let { RequestBar(it, more = pending.size - 1, enabled = connected) { onOpenRequest(it.requestId) } }
                 Composer(
                     threadId = threadId,
                     running = running,
@@ -268,7 +308,23 @@ fun ThreadScreen(
                     is TimelineRow.Step -> StepRow(row.tool)
                     is TimelineRow.StepGroup -> StepGroupRow(row.tools)
                     is TimelineRow.Plan -> PlanBlock(row.plan)
-                    is TimelineRow.RequestMarker -> RequestMarker(row.request)
+                    is TimelineRow.RequestMarker -> {
+                        val waiting = pending.firstOrNull { row.request.state == "pending" && it.requestId == row.request.requestId }
+                        if (waiting == null) RequestMarker(row.request) else {
+                            // A truncated or desktop-only request has no Deny here: Review explains why (A44).
+                            val canDeny = waiting.answerable && requestActions(waiting, elapsedMs = Long.MAX_VALUE).any { it.decision == "decline" && it.enabled }
+                            GateCard(
+                                title = requestTitle(waiting),
+                                where = waiting.cwd?.takeIf { it.isNotBlank() && it != "." }?.let { showHidden(it) },
+                                deny = stringResource(R.string.request_decision_decline),
+                                review = stringResource(R.string.thread_review),
+                                denyEnabled = connected && !denying,
+                                onDeny = if (canDeny) ({ deny(waiting) }) else null,
+                                onReview = { onOpenRequest(waiting.requestId) },
+                                risk = { waiting.risk?.let { RiskChip(riskLevel(it)) } },
+                            )
+                        }
+                    }
                     is TimelineRow.TurnBar -> TurnBar(row) { openTurns = if (row.open) openTurns - row.turnId else openTurns + row.turnId }
                     is TimelineRow.Running -> RunningRows(row)
                     is TimelineRow.Subagents -> Text("${toolStateLabel(row.item.state)} · ${row.item.agents}", style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textSecondary)
@@ -482,17 +538,17 @@ private fun StepGroupRow(tools: List<RemoteThreadItem.Tool>) {
     var open by rememberSaveable(tools.first().id) { mutableStateOf(false) }
     val parts = groupCounts(tools).map { (kind, n) -> pluralStringResource(groupRes(kind), n, n) }
     val summary = parts.joinToString(" · ").replaceFirstChar { it.titlecase() }
-    Column {
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 40.dp).clickable(role = Role.Button) { open = !open }
-                .semantics { stateDescription = if (open) "expanded" else "collapsed" },
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2),
-        ) {
-            StepIcon(if (tools.any { it.state == "failed" }) "failed" else "completed")
-            Text(summary, style = MaterialTheme.typography.bodyMedium, color = Oxe.colors.textSecondary, modifier = Modifier.weight(1f))
-            Chevron(open)
-        }
+    val failed = tools.any { it.state == "failed" }
+    Column(verticalArrangement = Arrangement.spacedBy(OxeSpace.space1)) {
+        // CR-A42b-2 (M4): the turn's steps folded into the StepsSummary chip.
+        StepsSummary(
+            summary = pluralStringResource(R.plurals.thread_steps, tools.size, tools.size) + " · " + summary,
+            failed = failed,
+            open = open,
+            onToggle = { open = !open },
+            glyph = { StepIcon(if (failed) "failed" else "completed") },
+            trailing = { Chevron(open) },
+        )
         if (open) tools.forEach { StepRow(it, indent = true) }
     }
 }
@@ -609,31 +665,6 @@ private fun RunningRows(row: TimelineRow.Running) {
 }
 
 // ---- the request bar and the composer --------------------------------------------------------------------------------
-
-/** The waiting request, docked above the composer (§4): risk badge and its one-liner, the title, Responder. */
-@Composable
-private fun RequestBar(request: RemotePendingRequest, more: Int, enabled: Boolean, onRespond: () -> Unit) {
-    Column(
-        Modifier.fillMaxWidth()
-            .background(Oxe.colors.surfaceRaised, RoundedCornerShape(14.dp))
-            .border(1.dp, Oxe.colors.borderSubtle, RoundedCornerShape(14.dp))
-            .padding(horizontal = OxeSpace.space3, vertical = 10.dp)
-            .semantics { liveRegion = LiveRegionMode.Polite },
-        verticalArrangement = Arrangement.spacedBy(OxeSpace.space1),
-    ) {
-        request.risk?.let { RiskLine(it) }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
-            Column(Modifier.weight(1f)) {
-                val suffix = if (more > 0) " " + pluralStringResource(R.plurals.thread_more_requests, more, more) else ""
-                Text(requestTitle(request) + suffix, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
-                if (!request.answerable) Text(stringResource(R.string.thread_answer_on_computer), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textMuted)
-            }
-            if (request.answerable) {
-                OxeButton(stringResource(R.string.thread_respond), onClick = onRespond, enabled = enabled)
-            }
-        }
-    }
-}
 
 /**
  * One raised container with the field and one trailing button (§5): Enviar when idle; while the agent works, Parar

@@ -108,6 +108,29 @@ class ScreensSnapshotTest(private val night: Boolean, private val locale: String
         // T97: a full-screen TUI shows its latest frame, not a pile of erased ones.
         shot("terminal-tui") { TerminalScreen(Samples.readOnlyPane, Samples.claudeTerminal(), commands, Samples.presence) {} }
         shot("terminal-loading") { TerminalScreen(Samples.readOnlyPane, Samples.terminal(loaded = false), commands, Samples.presence) {} }
+        // CR-A42b-2 (DESIGN #744): the pane hidden from the phone, and a conversation that is no longer available.
+        shot("terminal-hidden") {
+            val hidden = Samples.terminal().also { it.onEnded(com.oxespace.mobile.protocol.RemoteErrorCode.NOT_FOUND, com.oxespace.mobile.protocol.live.PANE_HIDDEN_REASON) }
+            TerminalScreen(Samples.readOnlyPane, hidden, commands, Samples.presence, computer = "Studio") {}
+        }
+        shot("terminal-conversation-unavailable") {
+            val gone = com.oxespace.mobile.protocol.live.PaneConversation(kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined)) {
+                com.oxespace.mobile.protocol.live.ConversationFetch.NoConversation
+            }.also { it.onChanged() }
+            TerminalScreen(Samples.readOnlyPane.copy(conversation = true), Samples.terminal(), commands, Samples.presence, conversation = gone, computer = "Studio") {}
+        }
+    }
+
+    @Test
+    fun settings() {
+        // CR-A42b-2 (M8): the phone's Settings, on its defaults and with one notification kind off.
+        val store = object : com.oxespace.mobile.settings.PreferenceStore {
+            val values = mutableMapOf<String, String>()
+            override fun getString(key: String) = values[key]
+            override fun putString(key: String, value: String) { values[key] = value }
+        }
+        val prefs = com.oxespace.mobile.settings.PhonePreferences(store).also { it.setAlertsEnabled(com.oxespace.mobile.notify.AlertKind.DONE, false) }
+        shot("settings") { com.oxespace.mobile.ui.settings.SettingsScreen(prefs) {} }
     }
 
     @Test

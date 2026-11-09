@@ -74,6 +74,10 @@ import com.oxespace.mobile.ui.SecureScreen
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeSpace
 import com.oxespace.mobile.ui.components.EmptyState
+import com.oxespace.mobile.ui.components.ProviderAvatar
+import com.oxespace.mobile.ui.components.StatusGlyph
+import com.oxespace.mobile.ui.components.WorkspaceChip
+import com.oxespace.mobile.ui.icons.OxeIcons
 
 private val Row = 56.dp
 
@@ -163,7 +167,7 @@ fun LiveHome(
                         },
                         icon = {
                             if (waiting != null) {
-                                BadgedBox(badge = { Badge(modifier = Modifier.clearAndSetSemantics { }) { Text("${requests.size}") } }) {
+                                BadgedBox(badge = { Badge(containerColor = Oxe.colors.attnBg, contentColor = Oxe.colors.attnFg, modifier = Modifier.clearAndSetSemantics { }) { Text("${requests.size}") } }) {
                                     Icon(item.icon, contentDescription = null)
                                 }
                             } else {
@@ -213,10 +217,11 @@ private val LiveTab.label get() = when (this) {
 
 private val LiveTab.icon: ImageVector
     @Composable get() = when (this) {
-        LiveTab.THREADS -> ImageVector.vectorResource(R.drawable.ic_threads)
-        LiveTab.REQUESTS -> ImageVector.vectorResource(R.drawable.ic_requests)
-        LiveTab.TERMINALS -> ImageVector.vectorResource(R.drawable.ic_terminal)
-        LiveTab.TASKS -> ImageVector.vectorResource(R.drawable.ic_tasks)
+        // CR-A42b-2 (#627 HANDOFF-MOBILE "Icons"): #606's OxeChat, OxeCode and Agora, the bell for Needs you.
+        LiveTab.THREADS -> OxeIcons.OxeChat
+        LiveTab.REQUESTS -> OxeIcons.Bell
+        LiveTab.TERMINALS -> OxeIcons.OxeCode
+        LiveTab.TASKS -> OxeIcons.Clock
         LiveTab.AGENTS -> AgentsTabIcon
     }
 
@@ -236,13 +241,19 @@ private fun <T> ListOrEmpty(items: List<T>, empty: String, modifier: Modifier, r
 
 @Composable
 private fun ThreadRow(thread: RemoteThreadSummary, workspaces: List<RemoteWorkspace>, onOpen: (String) -> Unit) {
-    val workspace = workspaces.firstOrNull { it.id == thread.workspaceId }?.name
-    Column(
+    val workspace = workspaces.firstOrNull { it.id == thread.workspaceId }
+    // CR-A42b-2 (M3): the glyph says the state at a glance, the avatar who runs it, the chip where.
+    Row(
         Modifier.fillMaxWidth().heightIn(min = Row).clickable(role = Role.Button) { onOpen(thread.id) }.padding(horizontal = OxeSpace.space4, vertical = OxeSpace.space3),
-        verticalArrangement = Arrangement.spacedBy(OxeSpace.space1),
+        horizontalArrangement = Arrangement.spacedBy(OxeSpace.space3),
     ) {
-        Text(thread.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Row(horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
+        StatusGlyph(threadAgentState(thread.status, thread.lastTurnStatus, thread.pendingRequests), Modifier.padding(top = OxeSpace.space1))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(OxeSpace.space1)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2), verticalAlignment = Alignment.CenterVertically) {
+            ProviderAvatar(thread.provider)
+            Text(thread.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2), verticalAlignment = Alignment.CenterVertically) {
             Text(threadStatusLabel(thread.status), style = MaterialTheme.typography.labelMedium, color = threadStatusColor(thread.status))
             if (thread.pendingRequests > 0) {
                 Text(
@@ -251,33 +262,33 @@ private fun ThreadRow(thread: RemoteThreadSummary, workspaces: List<RemoteWorksp
                     color = Oxe.colors.intentWarningFg,
                 )
             }
-            if (workspace != null) Text(workspace, style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (workspace != null) WorkspaceChip(workspace.name, workspace.color?.toInt())
+        }
         }
     }
 }
 
 @Composable
 private fun RequestRow(request: RemotePendingRequest, onOpen: () -> Unit) {
-    Column(
+    Row(
         Modifier.fillMaxWidth().heightIn(min = Row).clickable(role = Role.Button, onClick = onOpen).padding(horizontal = OxeSpace.space4, vertical = OxeSpace.space3),
-        verticalArrangement = Arrangement.spacedBy(OxeSpace.space1),
+        horizontalArrangement = Arrangement.spacedBy(OxeSpace.space3),
     ) {
+    StatusGlyph(com.oxespace.mobile.agents.AgentState.NEEDS_YOU, Modifier.padding(top = OxeSpace.space1))
+    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(OxeSpace.space1)) {
         Text(requestTitle(request), style = MaterialTheme.typography.titleMedium)
         request.risk?.let { RiskLine(it) }
         request.command?.let { Text(showHidden(it), fontFamily = OxeFonts.mono, style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis) }
         Text("${displaySafe(request.threadTitle, 200)} · ${ageLabel(request.createdAt)}", style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary)
+    }
     }
 }
 
 @Composable
 private fun WorkspacePanes(workspace: RemoteWorkspace, onOpen: (RemotePane) -> Unit) {
     Column {
-        Text(
-            workspace.name,
-            style = MaterialTheme.typography.labelLarge,
-            color = Oxe.colors.textSecondary,
-            modifier = Modifier.padding(start = OxeSpace.space4, top = OxeSpace.space3, end = OxeSpace.space4),
-        )
+        // CR-A42b-2 (T-P1.6): Terminals are grouped under their workspace's chip.
+        WorkspaceChip(workspace.name, workspace.color?.toInt(), Modifier.padding(start = OxeSpace.space4, top = OxeSpace.space3, end = OxeSpace.space4))
         for (pane in workspace.panes) {
             Column(
                 Modifier.fillMaxWidth().heightIn(min = Row).clickable(role = Role.Button) { onOpen(pane) }.padding(horizontal = OxeSpace.space4, vertical = OxeSpace.space3),

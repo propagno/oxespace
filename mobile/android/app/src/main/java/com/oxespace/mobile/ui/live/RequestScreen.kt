@@ -39,6 +39,7 @@ import com.oxespace.mobile.ui.components.NoticeIntent
 import com.oxespace.mobile.ui.components.OxeButton
 import com.oxespace.mobile.ui.components.OxeButtonKind
 import com.oxespace.mobile.ui.components.noticeIcon
+import com.oxespace.mobile.ui.components.CriticalDelayAllow
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -148,7 +149,15 @@ fun RequestScreen(
             // What the person needs first: whether they can answer here at all.
             if (!request.answerable) DesktopOnlyNotice()
             Text(requestTitle(request), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
-            request.risk?.let { RiskLine(it) }; riskNote(request)?.let { NoUndoLine(it) }
+            // CR-A42b-2 (M5): the RiskChip in the header, then what the level means.
+            request.risk?.let { wire ->
+                val level = riskLevel(wire)
+                Row(horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    RiskChip(level)
+                    Text(riskMeaning(level), style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary)
+                }
+            }
+            riskNote(request)?.let { NoUndoLine(it) }
             // The facts, as label/value rows: nothing read-only looks like an input (M10 §6).
             Facts(
                 listOfNotNull(
@@ -284,13 +293,25 @@ fun RequestScreen(
                 )
                 val enabled = !busy && action.enabled
                 // The lead is the accent's filled button; Deny is never danger red: it is the safe answer (§6).
-                OxeButton(
-                    label,
-                    onClick = { answer(decision, null) },
-                    enabled = enabled,
-                    modifier = Modifier.fillMaxWidth(),
-                    kind = if (leads[decision] == true) OxeButtonKind.PRIMARY else OxeButtonKind.SECONDARY,
-                )
+                if (decision == "accept" && hold > 0L) {
+                    // CR-A42b-2 (M5): Allow at critical risk waits the hold with its ring, then the biometric.
+                    CriticalDelayAllow(
+                        label = label,
+                        countdown = { seconds -> context.getString(R.string.request_allow_in, seconds) },
+                        holdMs = hold,
+                        enabled = enabled,
+                        onClick = { answer(decision, null) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    OxeButton(
+                        label,
+                        onClick = { answer(decision, null) },
+                        enabled = enabled,
+                        modifier = Modifier.fillMaxWidth(),
+                        kind = if (leads[decision] == true) OxeButtonKind.PRIMARY else OxeButtonKind.SECONDARY,
+                    )
+                }
             }
             if ("accept" in decisions) {
                 Text(
