@@ -203,11 +203,6 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       openInTargets: () => ipc.invoke(IPC_CHANNELS.app.openInTargets) as Promise<import('../../shared/types/open-in').OpenInTargets>,
       setOpenInPreference: (preference) => ipc.invoke(IPC_CHANNELS.app.setOpenInPreference, preference) as Promise<import('../../shared/types/open-in').OpenInTargets>
     },
-    rtk: {
-      getStatus: () => ipc.invoke(IPC_CHANNELS.rtk.getStatus) as Promise<import('../../shared/types/updater').RtkUpdateState>,
-      checkForUpdate: () => ipc.invoke(IPC_CHANNELS.rtk.checkForUpdate) as Promise<import('../../shared/types/updater').RtkUpdateState>,
-      updateToLatest: () => ipc.invoke(IPC_CHANNELS.rtk.updateToLatest) as Promise<import('../../shared/types/updater').RtkUpdateState>
-    },
     workspace: {
       list: () => ipc.invoke(IPC_CHANNELS.workspace.list) as Promise<Workspace[]>,
       onChanged: (listener) => subscribe<Workspace>(ipc, IPC_CHANNELS.workspace.onChanged, listener),

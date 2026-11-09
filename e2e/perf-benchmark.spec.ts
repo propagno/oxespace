@@ -500,7 +500,7 @@ test('repository: Files ↔ Source Control', async () => {
   }
 })
 
-test('modal surfaces: agents, MCP, skills, semantic, workspace settings and usage', async () => {
+test('modal surfaces: agents, MCP, semantic, workspace settings and usage', async () => {
   test.setTimeout(120_000)
   const { app, page, pid } = await launchApp()
   try {
@@ -526,7 +526,6 @@ test('modal surfaces: agents, MCP, skills, semantic, workspace settings and usag
         selector: '[role="dialog"][aria-label="MCP servers"]',
         trigger: () => openConnections(page)
       },
-      fromPalette('Skills', '[role="dialog"][aria-label="Skills"]', 'Skills'),
       fromPalette('Semantic Activity', '[role="dialog"][aria-label="Semantic activity"]', 'Semantic index log'),
       fromPalette('Workspace Settings', '.workspace-settings-modal-v2', 'Workspace settings')
     )

@@ -64,14 +64,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // The optional semantic model and its settings/usage counters under userData/models only; an import copies
   // the four model files from the folder the user picked in a native dialog. Never touches workspace files.
   'electron/main/services/semantic-model-store.ts',
-  // Streams the RTK archive the app itself downloaded to hash it before extraction.
-  'electron/main/services/rtk-checksum.ts',
-  // Documentation owns generated artifacts under userData/documentation only.
-  // Tool callers supply IDs, never filesystem paths or workspace destinations.
-  'electron/main/services/documentation/documentation.service.ts',
   // Preview captures are app-owned PNGs under <userData>/web-preview-captures.
   // The store validates owner and basename and refuses to overwrite a file.
-  'electron/main/services/documentation/preview-capture-store.ts',
+  'electron/main/services/browser-preview/preview-capture-store.ts',
   'electron/main/services/session.service.ts',
   // Conversation transports probe installed executables only. Native history
   // reads UUID-selected ~/.claude session logs, never arbitrary source paths.
@@ -256,12 +251,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   // OXE integration: existsSync(`<root>/.oxe`) to decide onboarding vs status —
   // a read-only project probe, not a workspace file operation.
   'electron/main/services/oxe.service.ts',
-  // RTK Service: downloads rtk.exe to <userData>/bin for token savings.
-  'electron/main/services/rtk.service.ts',
   // Semantic Service: indexes the workspace tree for local embeddings (reads
   // arbitrary files to embed) and creates the transformers.js model cache under
   // <userData>/models. Background indexing outside the workspace-scoped
-  // FileSystemService, like rtk above.
+  // FileSystemService.
   'electron/main/services/semantic.service.ts',
   // Search Service: Find in Files delegates the actual file reads to the
   // ripgrep child process; its only raw fs use is existsSync to locate the
@@ -286,7 +279,11 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/oxepost/store.ts',
   // OxePost secrets: one encrypted file under <userData> (safeStorage; refused where only obfuscation exists), mode 0600,
   // written by temp file and rename. No workspace path is read or written, and no value is ever returned to the page.
-  'electron/main/services/oxepost/secrets.ts'
+  'electron/main/services/oxepost/secrets.ts',
+  // BE-A46-c5 (1.5.0 F10): a terminal agent's own conversation for the phone. Stats, reads and watches only the one
+  // native session file the pane's recorded session names (Claude's <claudeHome>/projects/<cwd>/<id>.jsonl or Codex's
+  // rollout), and lists only Codex's sessions/<year>/<month>/<day> folders to find it. Never a path from the phone.
+  'electron/main/services/remote/pane-conversation.ts'
 ])
 
 describe('workspace fs allowlist', () => {

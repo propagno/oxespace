@@ -1,6 +1,5 @@
 import { BrowserWindow, type WebContents } from 'electron'
 import { createHash, randomUUID } from 'node:crypto'
-import type { CapturedPage } from './documentation.service'
 import { executionSignal, type ExecutionOwner } from '../execution-registry'
 import { browserPreviewService } from '../browser-preview.service'
 import { tMain } from '../../i18n'
@@ -19,6 +18,8 @@ export interface PreviewRequest {
   deltaY?: number
   tabId?: string
 }
+/** One masked preview capture; the same shape the documentation service stored, so it no longer depends on it (R0c). */
+export interface CapturedPage { png: Buffer; pageUrl: string; width: number; height: number; redactionCount: number }
 export interface ScreenshotOptions { mode?: 'viewport' | 'element'; selector?: string; redact?: string[]; highlight?: string[] }
 async function bounded<T>(operation: Promise<T>, timeout = 8000): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined

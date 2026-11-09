@@ -12,15 +12,12 @@ test('Settings stays usable in short windows and renders updater states', async 
   try {
     const page = await app.firstWindow()
     await app.evaluate(({ ipcMain }) => {
-      for (const channel of ['app:get-update-state', 'rtk:get-status', 'rtk:check-for-update', 'agent:list', 'agent:get-readiness', 'agent:compatibility']) ipcMain.removeHandler(channel)
+      for (const channel of ['app:get-update-state', 'agent:list', 'agent:get-readiness', 'agent:compatibility']) ipcMain.removeHandler(channel)
       // A Claude CLI newer than the one the nightly contract check verified.
       ipcMain.handle('agent:list', () => [{ agentProfileId: 'builtin-claude', name: 'Claude Code', provider: 'claude', command: 'claude', commandTemplate: 'claude', isBuiltin: true }])
       ipcMain.handle('agent:get-readiness', () => [{ provider: 'claude', command: 'claude', status: 'ready', version: '2.2.0 (Claude Code)' }])
       ipcMain.handle('agent:compatibility', () => ({ checkedAt: '2026-10-22T06:20:00Z', ok: true, providers: { claude: { ok: true, versions: { 'ubuntu-latest': '2.1.306' } } } }))
       ipcMain.handle('app:get-update-state', () => ({ status: 'disabled', currentVersion: '0.13.0', availableVersion: null, progress: null, error: null, lastCheckedAt: null, preferences: { mode: 'auto', pinnedVersion: null } }))
-      const rtk = { installed: true, version: 'v0.49.0', latestVersion: 'v0.49.0', updateAvailable: false, binDir: null, error: null, checking: false, updating: false, lastCheckedAt: Date.now() }
-      ipcMain.handle('rtk:get-status', () => rtk)
-      ipcMain.handle('rtk:check-for-update', async () => { await new Promise(resolve => setTimeout(resolve, 300)); return rtk })
     })
     await page.getByRole('button', { name: 'Open settings', exact: true }).click()
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
@@ -51,8 +48,9 @@ test('Settings stays usable in short windows and renders updater states', async 
         expect(await scroller.evaluate(el => el.scrollTop)).toBe(0)
         if (id === 'updates') {
           await expect(settings.getByTestId('btn-check-app-updates')).toBeEnabled()
-          await expect(settings.getByTestId('btn-update-rtk')).toBeDisabled()
-          await expect(settings.getByTestId('settings-rtk-update').getByText('Up to date', { exact: true })).toBeVisible()
+          // R4 took RTK out: no RTK card and no update button for it.
+          await expect(settings.getByTestId('settings-rtk-update')).toHaveCount(0)
+          await expect(settings.getByTestId('btn-update-rtk')).toHaveCount(0)
         }
         await settings.screenshot({ path: test.info().outputPath(`${width}-${id}.png`) })
         await scroller.evaluate(el => { el.scrollTop = el.scrollHeight })

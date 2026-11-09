@@ -1,10 +1,10 @@
-import { Activity, Brain, Code2, FileCode2, FolderTree, GitCompareArrows, MonitorPlay, Network, Users, Search, Slash, Sparkles, Wrench, type LucideIcon } from 'lucide-react'
+import { Activity, Brain, Code2, FileCode2, FolderTree, GitCompareArrows, MonitorPlay, Network, Users, Search, Slash, Wrench, type LucideIcon } from 'lucide-react'
 import { Github } from '../Brand/GithubIcon'
 import { i18n } from '../../i18n'
 import type { KeybindingId } from '../../keyboard/keybindings'
 
 export type ToolGroup = 'Project' | 'Development' | 'AI & Agents' | 'System'
-export type ToolId = 'integration' | 'github' | 'worktrees' | 'scripts' | 'search' | 'web-preview' | 'background' | 'slash' | 'mcp' | 'skills' | 'semantic' | 'editor' | 'review' | 'team'
+export type ToolId = 'integration' | 'github' | 'worktrees' | 'scripts' | 'search' | 'web-preview' | 'background' | 'slash' | 'mcp' | 'semantic' | 'editor' | 'review' | 'team'
 
 export interface ToolMeta {
   id: ToolId
@@ -54,7 +54,6 @@ export const TOOL_CATALOG: ToolMeta[] = [
   tool('background', 'Development', Activity, { keywords: ['bg', 'job', 'task'] }),
   tool('slash', 'AI & Agents', Slash, { keybinding: 'terminal.slash', keywords: ['slash', 'command'] }),
   tool('mcp', 'AI & Agents', Wrench, { keywords: ['mcp', 'connections', 'tools'] }),
-  tool('skills', 'AI & Agents', Sparkles, { keywords: ['skill', 'prompt'] }),
   tool('semantic', 'AI & Agents', Brain, { keywords: ['index', 'embedding', 'vector'] }),
   tool('editor', 'System', FileCode2, { keybinding: 'code.files', keywords: ['editor', 'monaco', 'files'] }),
   tool('review', 'System', GitCompareArrows, { keybinding: 'code.changes', keywords: ['review', 'diff', 'changes'] })
