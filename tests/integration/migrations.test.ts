@@ -5,7 +5,7 @@ import { LATEST_DB_VERSION, openInMemoryDatabase, runMigrations } from '../../el
 
 // Literal on purpose: it verifies the migration SQL itself sets this version,
 // independently of the runner's constant. Bump both when adding a migration.
-const EXPECTED_SCHEMA_VERSION = 96
+const EXPECTED_SCHEMA_VERSION = 95
 
 // Migration 046 is platform-split: Windows keeps PowerShell as the neutral
 // built-in shell, every other host is repointed to bash. The assertions below
@@ -232,7 +232,7 @@ describe('migrations', () => {
     db.close()
   })
 
-  test('096 keeps a pane off the phone per pane, and forgets it with the pane', () => {
+  test('095 keeps a pane off the phone per pane, and forgets it with the pane', () => {
     const db = openInMemoryDatabase()
     try {
       db.pragma('foreign_keys = ON')

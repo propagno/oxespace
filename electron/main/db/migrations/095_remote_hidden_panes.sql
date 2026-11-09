@@ -6,4 +6,4 @@ CREATE TABLE IF NOT EXISTS remote_hidden_panes (
   hidden_at INTEGER NOT NULL
 );
 
-PRAGMA user_version = 96;
+PRAGMA user_version = 95;
