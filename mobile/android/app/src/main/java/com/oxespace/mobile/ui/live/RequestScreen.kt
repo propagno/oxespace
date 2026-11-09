@@ -297,7 +297,7 @@ fun RequestScreen(
                     // CR-A42b-2 (M5): Allow at critical risk waits the hold with its ring, then the biometric.
                     CriticalDelayAllow(
                         label = label,
-                        countdown = { seconds -> context.getString(R.string.request_allow_in, seconds) },
+                        countdown = { seconds -> stringResource(R.string.request_allow_in, seconds.toString()) },
                         holdMs = hold,
                         enabled = enabled,
                         onClick = { answer(decision, null) },

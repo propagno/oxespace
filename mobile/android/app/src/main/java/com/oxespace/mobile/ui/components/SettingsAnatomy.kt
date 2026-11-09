@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeSpace
@@ -78,7 +79,7 @@ fun OxeSwitch(checked: Boolean, modifier: Modifier = Modifier) {
                 .border(1.dp, if (checked) colors.accent else colors.borderStrong, CircleShape),
         ) {
             Box(
-                Modifier.offset(x = knob, y = 2.dp).size(22.dp).clip(CircleShape)
+                Modifier.offset { IntOffset(knob.roundToPx(), 2.dp.roundToPx()) }.size(22.dp).clip(CircleShape)
                     .background(if (checked) colors.textOnAccent else colors.textSecondary),
             )
         }

@@ -43,7 +43,7 @@ import com.oxespace.mobile.ui.theme.OxeSpace
 
 /** Where a pairing stands: [current] is the step in progress (0-based); [failed] marks it as the one that failed. */
 @Composable
-fun PairingStepper(labels: List<String>, current: Int, failed: Boolean = false, modifier: Modifier = Modifier) {
+fun PairingStepper(labels: List<String>, current: Int, modifier: Modifier = Modifier, failed: Boolean = false) {
     val colors = Oxe.colors
     val spoken = labels.getOrNull(current)?.let { "${current + 1}/${labels.size}: $it" }.orEmpty()
     Row(

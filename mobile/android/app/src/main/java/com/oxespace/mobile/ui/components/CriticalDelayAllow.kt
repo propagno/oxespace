@@ -55,7 +55,7 @@ fun criticalAllowState(risk: String?, elapsedMs: Long): CriticalAllowState {
  * line: "in 2 s".
  */
 @Composable
-fun CriticalDelayAllow(label: String, countdown: (Int) -> String, holdMs: Long, enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun CriticalDelayAllow(label: String, countdown: @Composable (Int) -> String, holdMs: Long, enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val colors = Oxe.colors
     val progress = remember(holdMs) { Animatable(if (holdMs > 0L) 0f else 1f) }
     LaunchedEffect(holdMs) {

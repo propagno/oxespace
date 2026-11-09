@@ -1,6 +1,7 @@
 package com.oxespace.mobile.ui.settings
 
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -41,7 +42,7 @@ import com.oxespace.mobile.ui.components.SettingsRow
 class SharedPreferenceStore(private val prefs: SharedPreferences) : PreferenceStore {
     override fun getString(key: String): String? = prefs.getString(key, null)
     override fun putString(key: String, value: String) {
-        prefs.edit().putString(key, value).apply()
+        prefs.edit { putString(key, value) }
     }
 }
 

@@ -52,7 +52,7 @@ private fun markVector(stroke: Color, sun: Color): ImageVector = ImageVector.Bui
 
 /** The brand mark in its accent tile; decorative (the screen's title names the app). */
 @Composable
-fun OxeMark(size: Dp = 30.dp, modifier: Modifier = Modifier) {
+fun OxeMark(modifier: Modifier = Modifier, size: Dp = 30.dp) {
     val colors = Oxe.colors
     Box(
         modifier.size(size).background(colors.brandMark, RoundedCornerShape(size * 0.28f)).clearAndSetSemantics {},
