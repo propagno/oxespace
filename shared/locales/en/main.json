@@ -120,7 +120,11 @@
         "busy": "Wait for this conversation's turn to end before switching the branch back.",
         "dirty": "This checkout has uncommitted changes, so the branch was not switched back. Commit them or set them aside first.",
         "detached": "The task started without a branch (a detached HEAD), so there is no branch to switch back to.",
-        "branchGone": "The branch \"{{branch}}\" no longer exists, so it cannot be switched back to."
+        "branchGone": "The branch \"{{branch}}\" no longer exists, so it cannot be switched back to.",
+        "stale": "This file changed after its changes were shown, so nothing was undone. Reload the changes and try again.",
+        "notTask": "This task did not change this file, so it was left as it is.",
+        "restoreGone": "This change can no longer be restored: it was restored already, a new turn began, or ten minutes passed.",
+        "confirm": "Confirm to discard this task's changes in this place."
       },
       "sections": {
         "invalid": "These sections could not be saved. Reload the list and try again.",
@@ -233,6 +237,26 @@
         "notFollowed": "Not copied, because they are links or lead outside the repository or the worktree: {{paths}}.",
         "failed": "Could not be copied: {{paths}}."
       },
+      "remove": {
+
+        "notFound": "This is not a removable worktree of this repository.",
+
+        "busy": "This worktree is in use ({{reason}}). Close its panes or wait for its conversation to finish.",
+
+        "locked": "This worktree is locked: {{reason}}. Unlock it before removing.",
+
+        "dirty": "{{count}} uncommitted changes. Commit or discard them first.",
+
+        "failed": "The worktree could not be removed. It is still listed; try again when nothing is using it.",
+
+        "defaultBranch": "Branch {{branch}} is the default branch and is never deleted.",
+
+        "branchInUse": "Branch {{branch}} is checked out in another worktree and is not deleted.",
+
+        "unmergedBranch": "Branch {{branch}} has unmerged commits. Confirm to delete it anyway."
+
+      },
+
       "removed": "Worktree removed from {{path}}.",
       "archive": {
         "notApproved": "The oxe.yaml archive hook was not approved and was skipped.",

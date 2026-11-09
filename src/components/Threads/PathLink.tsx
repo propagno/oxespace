@@ -63,7 +63,8 @@ export function PathLink({ threadId, raw, turnId }: { threadId: string; raw: str
   const candidateLabel = (places: ThreadPlace[], candidate: Candidate): string => {
     const place = candidate.placeId === null ? undefined : places.find(entry => entry.id === candidate.placeId)
     const path = (place && relativeToPlace(place.path, candidate.path)) ?? withoutLine(raw)
-    return t('pathLink.candidate', { place: kindLabel(place, candidate.placeId), path })
+    const label = candidate.via === 'sibling-worktree' ? t('pathLink.kind.sibling') : kindLabel(place, candidate.placeId)
+    return t('pathLink.candidate', { place: label, path })
   }
 
   const activate = async (): Promise<void> => {

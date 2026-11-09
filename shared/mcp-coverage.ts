@@ -100,7 +100,8 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'code.worktrees': {
     label: 'Git worktrees',
     tools: { oxespace_list_worktrees: 'read', oxespace_create_worktree: 'write', oxespace_remove_worktree: 'confirm' },
-    ipc: ['github.listWorktrees', 'github.createWorktree', 'github.removeWorktree', 'github.resolveWorktreeBase', 'github.getWorktreeStatus']
+    ipc: ['github.listWorktrees', 'github.createWorktree', 'github.removeWorktree', 'github.resolveWorktreeBase', 'github.getWorktreeStatus',
+      'worktreesPanel.list', 'worktreesPanel.remove']
   },
   'code.worktree_cleanup': {
     label: 'Bulk worktree cleanup',

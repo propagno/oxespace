@@ -98,6 +98,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   // A15 branch drift: existsSync on the paths git names for an operation in progress (rebase-merge, MERGE_HEAD,
   // BISECT_LOG...). It never reads or writes file content.
   'electron/main/services/conversation/thread-place-drift.ts',
+  // A14 Undo (person-only, SECURITY 08/11): stat for a written file's mtime (the stale check) and, in Discard, lstat +
+  // unlink of one file the task created, only when it resolves inside the place. Every other change is git apply
+  // through safe git; it never reads file content and never writes anything else.
+  'electron/main/services/conversation/thread-place-undo.ts',
   // Thread project registration only canonicalizes and checks the selected
   // directory; source-file reads and writes remain in FileSystemService.
   'electron/main/services/conversation/thread-projects.ts',
@@ -181,6 +185,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Cleanup scan: stat-only probes of a worktree's own git metadata (HEAD,
   // reflog tail) to estimate idleness. Never reads source files.
   'electron/main/services/github/worktree-cleanup.ts',
+  // A63 Worktrees panel: lstat and readdir only, to tell whether a registered worktree folder is still there and to
+  // add up its disk use (never follows a link or junction, stops after 200k entries). It never reads or writes file
+  // content; removal goes through worktree-removal.ts.
+  'electron/main/services/github/worktrees-panel.ts',
   // Repository identity: reads only `.git` and the `gitdir`/`commondir` pointers of a checkout to tell
   // whether two directories are worktrees of the same repository. Never reads source files.
   'electron/main/services/git-common-dir.ts',

@@ -448,6 +448,8 @@ export function registerE2eMockIpcHandlers(): void {
   })
   ipcMain.handle(IPC_CHANNELS.github.listPullRequests, () => [])
   ipcMain.handle(IPC_CHANNELS.github.getPullRequestStatus, () => null)
+  // FE-P9: the Pull request tab reads main's provider state; the E2E double has no remote, so no provider and no CLI call.
+  ipcMain.handle(IPC_CHANNELS.pullRequest.state, () => ({ provider: 'none', cli: 'ok' }))
   ipcMain.handle(IPC_CHANNELS.github.setPullRequestAutoMerge, () => ({ ok: true, message: 'Auto-merge enabled.' }))
   ipcMain.handle(IPC_CHANNELS.github.listCommits, () => [])
   ipcMain.handle(IPC_CHANNELS.github.listReleases, () => [])

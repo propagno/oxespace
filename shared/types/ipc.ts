@@ -345,6 +345,8 @@ export const IPC_CHANNELS = {
   },
   /** A60: the Pull request tab, GitHub or Azure DevOps in one shape. */
   pullRequest: { state: 'pull-request:state' },
+  /** A63 / N9: the Worktrees panel (list with owner, merged, changed, disk, activity; a guarded Remove). */
+  worktreesPanel: { list: 'worktrees-panel:list', remove: 'worktrees-panel:remove' },
   integration: {
     listGroups: 'integration:list-groups',
     createGroup: 'integration:create-group',
@@ -558,6 +560,10 @@ export interface GitHubApi {
   getRepoConfig(input: { rootPath: string }): Promise<import('./repo-config').RepoConfigSnapshot>
   scanWorktreeCleanup(input: import('./worktree-cleanup').WorktreeCleanupScanInput): Promise<import('./worktree-cleanup').WorktreeCleanupCandidate[]>
   removeWorktreeCleanup(input: import('./worktree-cleanup').WorktreeCleanupRemoveInput): Promise<import('./worktree-cleanup').WorktreeCleanupRemoveResult[]>
+  /** A63: every non-main worktree of a repository, merged first then oldest first. */
+  listWorktreesPanel(input: { rootPath: string }): Promise<import('../../electron/main/services/github/worktrees-panel').WorktreesPanelRow[]>
+  /** A63: the guarded Remove; a refusal comes back as { ok: false, refusal } with a C3 code. */
+  removeWorktreePanel(input: { rootPath: string; path: string; deleteBranch: boolean; confirmUnmerged?: boolean }): Promise<import('../../electron/main/services/github/worktrees-panel').WorktreesPanelRemoveResult>
   /** Approves the hook script whose hash the user was shown; refused if the file changed since. */
   approveRepoHook(input: { rootPath: string; kind: import('./repo-config').RepoHookKind; contentHash: string }): Promise<import('./repo-config').RepoConfigSnapshot>
   listPullRequests(input: GitHubPullRequestListInput): Promise<GitHubPullRequest[]>

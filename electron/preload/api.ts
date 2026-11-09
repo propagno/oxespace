@@ -401,6 +401,10 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
         ipc.invoke(IPC_CHANNELS.github.scanWorktreeCleanup, input) as Promise<import('../../shared/types/worktree-cleanup').WorktreeCleanupCandidate[]>,
       removeWorktreeCleanup: (input) =>
         ipc.invoke(IPC_CHANNELS.github.removeWorktreeCleanup, input) as Promise<import('../../shared/types/worktree-cleanup').WorktreeCleanupRemoveResult[]>,
+      listWorktreesPanel: (input) =>
+        ipc.invoke(IPC_CHANNELS.worktreesPanel.list, input) as Promise<import('../main/services/github/worktrees-panel').WorktreesPanelRow[]>,
+      removeWorktreePanel: (input) =>
+        ipc.invoke(IPC_CHANNELS.worktreesPanel.remove, input) as Promise<import('../main/services/github/worktrees-panel').WorktreesPanelRemoveResult>,
       getRepoConfig: (input) =>
         ipc.invoke(IPC_CHANNELS.github.getRepoConfig, input) as Promise<import('../../shared/types/repo-config').RepoConfigSnapshot>,
       approveRepoHook: (input) =>

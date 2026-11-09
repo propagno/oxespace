@@ -43,8 +43,9 @@ import { hasUnconfirmedTurnTools, recoverPublicTurn } from './thread-result-reco
 import type { NativeStateResult } from './codex-state-reader'
 import { ThreadPlaceStore } from './thread-places'
 import { ThreadPlaceObserver } from './thread-place-observer'
+import { ThreadPlaceActions } from './thread-place-actions'
 import { projectDiffAt } from './thread-place-heads'
-import type { ThreadCollision, ThreadPane, ThreadPaneSource, ThreadPathResolution, ThreadPlace, ThreadPlaceDiff, ThreadPlaceDriftAnswer, ThreadPlaceReadResult, ThreadPlaces } from '../../../../shared/types/thread-places'
+import type { ThreadCollision, ThreadPane, ThreadPaneSource, ThreadPathResolution, ThreadPlace, ThreadPlaceActionResult, ThreadPlaceDiff, ThreadPlaceDriftAnswer, ThreadPlaceReadResult, ThreadPlaces, ThreadPlaceUndoInput, ThreadPlaceUndoResult } from '../../../../shared/types/thread-places'
 import type { MainMessage } from '../../../../shared/messages'
 import { explainMissingFolder, ThreadFolderMissingError } from './thread-worktree'
 
@@ -116,6 +117,7 @@ export class ThreadOrchestrator {
   private readonly placeStore: ThreadPlaceStore
   /** F4 places, drift, place diff and read, cwd, panes and collisions (thread-place-observer.ts). */
   private readonly placeObserver: ThreadPlaceObserver
+  private readonly placeActions = new ThreadPlaceActions(() => this.db, id => this.places(id))
   private paneSource: () => ThreadPaneSource[] = () => []
   private readonly busy = new Set<string>()
   private readonly nativePageLoads = new Map<string, Promise<void>>()
@@ -200,7 +202,11 @@ export class ThreadOrchestrator {
   /** A17 (thread:place-read, forbidden to MCP): one file of a place from tool evidence, read only and audited. */
   readPlaceFile(id: string, placeId: string, relativePath: string): Promise<ThreadPlaceReadResult> { return this.placeObserver.readPlaceFile(id, placeId, relativePath) }
   /** A14: one place's changes against its own base; an outside folder lists what was written. */
-  placeDiff(id: string, placeId: string): Promise<ThreadPlaceDiff> { return this.placeObserver.placeDiff(id, placeId) }
+  placeDiff(id: string, placeId: string): Promise<ThreadPlaceDiff> { return this.placeActions.withMtimes(this.placeObserver.placeDiff(id, placeId)) }
+  /** A14 Undo / Restore / Discard (person-only, never MCP): thread-place-actions.ts, audited per attempt. */
+  placeUndo(id: string, placeId: string, input: ThreadPlaceUndoInput): Promise<ThreadPlaceUndoResult> { return this.placeActions.undo(id, placeId, input) }
+  placeRestore(id: string, token: string): Promise<ThreadPlaceActionResult> { return this.placeActions.restore(id, token) }
+  placeDiscard(id: string, placeId: string, input: { confirmed?: boolean }): Promise<ThreadPlaceActionResult> { return this.placeActions.discard(id, placeId, input) }
   /** A16: where a path the conversation named opens; `turnId` picks that turn's cwd, the default is the newest turn. */
   resolvePath(id: string, raw: string, at: { turnId?: string } = {}): Promise<ThreadPathResolution> { return this.placeObserver.resolvePath(id, raw, at) }
   /** The app's panes, for the places a pane works in; set once the pane registry is up. */
@@ -312,6 +318,7 @@ export class ThreadOrchestrator {
     this.sessionGrants.delete(id)
     this.turns.forget(id)
     this.placeObserver.forget(id)
+    this.placeActions.dropThread(id)
     clearTimeout(this.deltaTimers.get(id)); this.deltaTimers.delete(id); this.deltaBuffers.delete(id)
     this.requests.invalidate(id)
   }
@@ -588,6 +595,8 @@ export class ThreadOrchestrator {
     snapshot.events.push({ type: 'activity', id: `activity:${turnId}:preparing`, phase: 'preparing', at: Date.now() })
     this.save(snapshot, { eventsFrom, operationId: operation.id })
     try {
+      // A14: restore tokens end at the conversation's next turn.
+      this.placeActions.dropThread(id)
       // A15 read point: the turn's begin.
       this.placeObserver.queuePlaceRead(id)
       // Publish the accepted prompt before repository snapshots or agent startup can block the UI.

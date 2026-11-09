@@ -365,6 +365,40 @@
       "confirm_one": "Remover {{count}} e descartar",
       "confirm_many": "Remover {{count}} e descartar",
       "confirm_other": "Remover {{count}} e descartar"
+    },
+    "panel": {
+      "label": "Worktrees deste repositório",
+      "loading": "Carregando os worktrees…",
+      "failed": "Não foi possível listar os worktrees",
+      "col": {
+        "conversation": "Conversa",
+        "branch": "Branch",
+        "state": "Estado",
+        "disk": "Disco",
+        "activity": "Última atividade",
+        "actions": "Ações"
+      },
+      "noConversation": "—",
+      "conversationGone": "{{title}} (removida)",
+      "merged": "Mesclado",
+      "mergedGit": "Mesclado (pelo git; pode não ver squash merges)",
+      "openPr": "PR aberto #{{number}}",
+      "changed_one": "{{count}} alterado",
+      "changed_many": "{{count}} alterados",
+      "changed_other": "{{count}} alterados",
+      "branchChanged": "A branch mudou desde então",
+      "missing": "Pasta ausente",
+      "locked": "Bloqueado",
+      "dirtyReason": "Faça o commit ou descarte as alterações dele antes.",
+      "lockedReason": "O git está com ele bloqueado. Desbloqueie antes.",
+      "remove": "Remover",
+      "removeTitle": "Remover o worktree em {{path}}?",
+      "removeBody": "A pasta dele é apagada. Os commits da branch continuam no repositório, a menos que você apague a branch também.",
+      "deleteBranch": "Apagar também a branch {{branch}}",
+      "unmerged": "Não mesclada: os commits dela ficam só nesta branch.",
+      "removedDeleted": "Worktree removido; branch apagada.",
+      "removedKept": "Worktree removido; a branch continua.",
+      "removedNotDeleted": "Worktree removido; não foi possível apagar a branch, que foi mantida."
     }
   },
   "terminal": {
