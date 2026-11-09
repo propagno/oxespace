@@ -1,7 +1,7 @@
 # F10 close: the phone for DESIGN (A70)
 
-Goldens at `oxe/f10-plan` @ `9edfbdf5` (CR-A42b re-record, then CR-F10-7/8/9; T27 CR-A42b-2 on top).
-Every image is the committed golden, read from this branch (it is `9edfbdf5` plus this file). Evidence only: never merged.
+Goldens at `oxe/f10-plan` @ `233b4396` (CR-A42b re-record, then CR-F10-7/8/9; T27 CR-A42b-2 on top).
+Every image is the committed golden, read from this branch (it is `233b4396` plus this file). Evidence only: never merged.
 
 ## Components
 
@@ -122,10 +122,9 @@ Accessibility (font scale): <img src="../mobile/android/app/src/test/snapshots/i
 
 | Screen | Where it departs |
 |---|---|
-| Home | Built (T27): OxeMark on the hero and the paired app bar, the computer card, a steady skeleton while connecting. |
-| Pairing | Built (T27): PairingStepper (a failure marks its step), Viewfinder (warning guides on a wrong code, a steady scan line), CodeBoxes 3 + 3. |
-| Live | Built (T27): StatusGlyph, ProviderAvatar and WorkspaceChip on rows; Terminals under the workspace chip; the #606 tab icons (Tasks uses a clock: #606 has no Tasks icon). The Needs-you badge is now attnBg/attnFg instead of the error red (MG4). |
-| Conversation | Built (T27): NowBanner, GateCard (Deny through the same biometric gate as the Request screen; Review only when the request can’t be denied here), StepsSummary, the 22 dp avatar. The card heading is the app’s own words, never the agent’s. |
-| Request | Built (T27): RiskChip with its icon, kept in the glossary §6 colours (critical never looks like high) rather than the handoff table’s per-level intents: **please confirm**. CriticalDelayAllow with the 2 s ring and "in N s". |
-| Terminal | Built (T27): the View is the Segmented row, opening on Conversation per pane; mono keys with the edge fade. |
-| Settings | Built (T27): Segmented theme, SettingsRow + OxeSwitch per notification kind. Golden added. |
+| Request | T28 (your CR 1): RiskChip and RiskLine on the intent scale: Low success, Medium info, High warning, Critical solid danger, each with its icon (risk-levels, request-risky). |
+| Conversation | T28 (your CR 2, SPEC A47): while working the field reads “Steer: read after the current step”, the button “Send”, and Stop has the danger tint (thread-working). |
+| Agents | T28 (your CR 3): while loading, the skeleton and no counts on the chips (live-agents shows the loaded state; the loading state has no golden of its own). |
+| Terminal | T28 (your CR 4, TECH LEAD ruling): a hidden terminal’s app bar reads “Terminal”: a neutral title, never the pane’s name, because CR-34 is a privacy rule (terminal-hidden). |
+| Risk levels golden | T28 (your test note): drawn on the screen’s canvas, not the grey frame. |
+| Tasks icon | The clock, as you approved. |
