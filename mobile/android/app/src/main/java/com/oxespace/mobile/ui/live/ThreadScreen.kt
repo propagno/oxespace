@@ -656,7 +656,7 @@ private fun Composer(
     var unsentText by rememberSaveable(threadId) { mutableStateOf<String?>(null) }
     var unsentSteer by rememberSaveable(threadId) { mutableStateOf(false) }
     val unsent = unsentText?.let { Outgoing(it, unsentSteer) }
-    val steer = running && canSteer
+    val steer = ComposerControl.STEER in composerMode(running, canSteer).controls
 
     /** [ask] false for the resend after a reconnection: inside the window it goes, outside it waits for a tap on Send. */
     suspend fun send(outgoing: Outgoing, ask: Boolean = true) {
@@ -669,11 +669,11 @@ private fun Composer(
             is Gated.Blocked -> message = presenceMessage(gated.reason)
             is Gated.Done -> {
                 val result = gated.value
-                message = commandMessage(result)
-                val waiting = result == CommandResult.NoAnswer || result == CommandResult.Offline
-                unsentText = if (waiting) outgoing.text else null
+                message = if (outgoing.steer) steerMessage(result) else commandMessage(result)
+                // A refused steer (the turn ended) is never resent: it can't reach a later turn.
+                unsentText = unsentAfter(result, outgoing)?.text
                 unsentSteer = outgoing.steer
-                if (result is CommandResult.Done) text = ""
+                if (!keepsText(result)) text = ""
                 clientId = clientIdAfter(result, clientId) { UUID.randomUUID().toString() }
             }
         }
