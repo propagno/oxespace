@@ -42,6 +42,8 @@ class Followed internal constructor(val topic: RemoteSubscription, val target: S
 class SubscriptionHub(private val send: (RemoteFrame) -> Unit, private val newId: () -> String) {
     private val followed = mutableListOf<Followed>()
     private var connected = false
+    /** This session's desktop listed "terminal.snapshotOnly" in its hello (A45, F1): only then is the flag sent. */
+    private var snapshotOnly = false
 
     /**
      * The desktop keeps breaking a stream (gaps or interruptions [MAX_FRUITLESS_RESUMES] times in a row with nothing
@@ -65,10 +67,11 @@ class SubscriptionHub(private val send: (RemoteFrame) -> Unit, private val newId
     }
 
     /** The session is authenticated: (re)subscribe every followed stream from where it stopped. */
-    // 1.5.0 F10 skeleton (A45): [features] is the hello's list ("terminal.snapshotOnly"…); MOB-A45 uses it.
-    @Suppress("UNUSED_PARAMETER")
+    // [features] is the hello's list ("terminal.snapshotOnly"…). A desktop released before F10 refuses an unknown
+    // subscribe key as malformed, so the flag goes only to a session that listed it (A45, #706 F1).
     fun onConnected(features: Set<String> = emptySet()) {
         connected = true
+        snapshotOnly = SNAPSHOT_ONLY_FEATURE in features
         faulted = false
         followed.forEach { it.fruitlessResumes = 0 }
         followed.forEach(::subscribe)
@@ -77,6 +80,7 @@ class SubscriptionHub(private val send: (RemoteFrame) -> Unit, private val newId
     /** The connection is gone; names die with it, cursors stay. */
     fun onDisconnected() {
         connected = false
+        snapshotOnly = false
         followed.forEach { it.forget() }
     }
 
@@ -152,7 +156,8 @@ class SubscriptionHub(private val send: (RemoteFrame) -> Unit, private val newId
         stream.forget()
         val id = newId()
         stream.pendingId = id
-        send(RemoteSubscribeFrame(id = id, topic = stream.topic, target = stream.target, cursor = stream.cursor))
+        val flag = if (snapshotOnly && stream.topic == RemoteSubscription.TERMINAL) true else null
+        send(RemoteSubscribeFrame(id = id, topic = stream.topic, target = stream.target, cursor = stream.cursor, snapshotOnly = flag))
     }
 
     private fun Followed.forget() {
@@ -164,5 +169,6 @@ class SubscriptionHub(private val send: (RemoteFrame) -> Unit, private val newId
 
     private companion object {
         const val MAX_FRUITLESS_RESUMES = 3
+        const val SNAPSHOT_ONLY_FEATURE = "terminal.snapshotOnly"
     }
 }

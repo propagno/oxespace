@@ -176,7 +176,7 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
             if (lines.all { it.text.isEmpty() }) {
                 Text(stringResource(if (watched.loaded && !settling) R.string.terminal_empty else R.string.live_loading), color = colors.textSecondary, modifier = Modifier.padding(OxeSpace.space3))
             } else {
-                TerminalLines(lines, list, size.sp.sp, colors)
+                TerminalLines(lines, watched.store.cols, list, size.sp.sp, colors)
             }
         }
     }
@@ -207,12 +207,14 @@ private fun ansiColor(colors: OxeColors, index: Int): Color = when (index) {
  * as wide as the longest line in the monospaced font, and scrolls sideways inside the screen.
  */
 @Composable
-private fun TerminalLines(lines: List<VtLine>, list: LazyListState, fontSize: TextUnit, colors: OxeColors) {
+private fun TerminalLines(lines: List<VtLine>, cols: Int?, list: LazyListState, fontSize: TextUnit, colors: OxeColors) {
     val style = TextStyle(fontFamily = OxeFonts.mono, fontSize = fontSize, color = colors.textPrimary)
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val charWidth = remember(fontSize, density) { measurer.measure("0", style).size.width }
-    val longest = remember(lines) { lines.maxOfOrNull { it.text.length } ?: 0 }
+    // A45: with the desktop's width known the grid is exactly that wide and pans sideways on a narrow phone;
+    // without it (an older desktop) it is as wide as the longest line, as in 1.4.3.
+    val longest = remember(lines, cols) { cols ?: (lines.maxOfOrNull { it.text.length } ?: 0) }
     val padding = OxeSpace.space3
     BoxWithConstraints(Modifier.fillMaxSize().horizontalScroll(rememberScrollState())) {
         val content = with(density) { (charWidth * longest).toDp() } + padding * 2

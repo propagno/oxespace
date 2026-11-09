@@ -69,6 +69,10 @@ class SessionProtocol(
 
     private var challenge: String? = null
     private var desktopName: String? = null
+
+    /** What the desktop's hello listed beyond the version (1.5.0 F10, e.g. "terminal.snapshotOnly"); empty before F10. */
+    var features: Set<String> = emptySet()
+        private set
     private var pendingAuth: String? = null
     private var pendingWithToken = false
 
@@ -113,6 +117,7 @@ class SessionProtocol(
         val nonce = hello.challenge?.takeIf { CHALLENGE.matches(it) } ?: return end(SessionEnd.PROTOCOL)
         challenge = nonce
         desktopName = hello.desktopName
+        features = hello.features.orEmpty().toSet()
         state = SessionState.Authenticating
         val token = tokens.token
         return if (token != null && token.expiresAtMs - now() > reuseMarginMs) {
