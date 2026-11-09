@@ -157,7 +157,9 @@
     "agentsPartial": {
       "title": "Alguns agentes não estão na lista",
       "text": "O computador não conseguiu ler todas as fontes desta vez. A lista se completa quando puder."
-    }
+    },
+    "menuSettings": "Configurações",
+    "emptyTitle": "Nada por aqui ainda"
   },
   "thread": {
     "tool": {
@@ -425,5 +427,21 @@
     "allow": "Permitir acesso à rede local",
     "denied": "O acesso à rede local está desligado para o OXESpace, então o Android bloqueia toda conexão com o computador. Ligue \"Acesso à rede local\" para o OXESpace nas configurações do app (Permissões) e volte.",
     "openSettings": "Abrir configurações do app"
+  },
+  "settings": {
+    "title": "Configurações",
+    "back": "Voltar",
+    "theme": {
+      "title": "Tema",
+      "system": "Igual ao do celular",
+      "light": "Claro",
+      "dark": "Escuro"
+    },
+    "alerts": {
+      "title": "Notificações",
+      "needsYou": "Um agente precisa de você",
+      "done": "Uma tarefa terminou",
+      "failed": "Uma tarefa falhou"
+    }
   }
 }

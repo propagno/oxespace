@@ -73,6 +73,7 @@ import com.oxespace.mobile.session.LiveRepository
 import com.oxespace.mobile.ui.SecureScreen
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeSpace
+import com.oxespace.mobile.ui.components.EmptyState
 
 private val Row = 56.dp
 
@@ -92,6 +93,8 @@ fun LiveHome(
     onEnterAddress: () -> Unit,
     onUnpair: () -> Unit,
     initialTab: LiveTab = LiveTab.THREADS,
+    /** The phone's own Settings (T-P1.7), from the app bar menu. */
+    onSettings: () -> Unit = {},
 ) {
     var tab by rememberSaveable { mutableStateOf(initialTab) }
     val threads by live.threads.threads.collectAsStateWithLifecycle()
@@ -127,6 +130,7 @@ fun LiveHome(
                         }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                             DropdownMenuItem(text = { Text(stringResource(R.string.home_enter_address)) }, onClick = { menu = false; onEnterAddress() })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.live_menu_settings)) }, onClick = { menu = false; onSettings() })
                             DropdownMenuItem(text = { Text(stringResource(R.string.home_unpair)) }, onClick = { menu = false; confirmingUnpair = true })
                         }
                     }
@@ -219,9 +223,7 @@ private val LiveTab.icon: ImageVector
 @Composable
 private fun <T> ListOrEmpty(items: List<T>, empty: String, modifier: Modifier, row: @Composable (T) -> Unit) {
     if (items.isEmpty()) {
-        Box(modifier.padding(OxeSpace.space6), contentAlignment = Alignment.TopStart) {
-            Text(empty, style = MaterialTheme.typography.bodyLarge, color = Oxe.colors.textSecondary)
-        }
+        EmptyState(title = stringResource(R.string.live_empty_title), text = empty, modifier = modifier)
         return
     }
     LazyColumn(modifier, contentPadding = PaddingValues(vertical = OxeSpace.space2)) {
@@ -297,7 +299,7 @@ private fun WorkspacePanes(workspace: RemoteWorkspace, onOpen: (RemotePane) -> U
 @Composable
 private fun Tasks(jobs: List<RemoteJob>, delegations: List<RemoteDelegation>, modifier: Modifier) {
     if (jobs.isEmpty() && delegations.isEmpty()) {
-        Box(modifier.padding(OxeSpace.space6)) { Text(stringResource(R.string.live_empty_tasks), style = MaterialTheme.typography.bodyLarge, color = Oxe.colors.textSecondary) }
+        EmptyState(title = stringResource(R.string.live_empty_title), text = stringResource(R.string.live_empty_tasks), modifier = modifier)
         return
     }
     LazyColumn(modifier, contentPadding = PaddingValues(vertical = OxeSpace.space2)) {

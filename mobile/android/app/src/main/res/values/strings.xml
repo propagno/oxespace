@@ -83,6 +83,7 @@
     <string name="live_empty_tasks">No background jobs or delegations.</string>
     <string name="live_empty_terminals">No open terminals.</string>
     <string name="live_empty_threads">No conversations on %1$s yet.</string>
+    <string name="live_empty_title">Nothing here yet</string>
     <string name="live_exit_code">exit code %1$s</string>
     <string name="live_job_exited">Finished</string>
     <string name="live_job_failed">Failed</string>
@@ -92,6 +93,7 @@
     <string name="live_jobs">Background jobs</string>
     <string name="live_loading">Loading…</string>
     <string name="live_menu">More options</string>
+    <string name="live_menu_settings">Settings</string>
     <string name="live_pane_agent">%1$s · %2$s</string>
     <plurals name="live_pending_count">
         <item quantity="one">Needs you (%1$d)</item>
@@ -211,6 +213,16 @@
     <string name="request_truncated">Part of this request didn\'t fit on the phone. The full text is only on your computer, so from here you can only decline it.</string>
     <string name="request_truncated_question">Part of this question didn\'t fit on the phone. Answer it on your computer, where you can read all of it.</string>
     <string name="request_where">Where</string>
+    <string name="settings_alerts_done">A task finished</string>
+    <string name="settings_alerts_failed">A task failed</string>
+    <string name="settings_alerts_needs_you">An agent needs you</string>
+    <string name="settings_alerts_title">Notifications</string>
+    <string name="settings_back">Back</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_system">Same as the phone</string>
+    <string name="settings_theme_title">Theme</string>
+    <string name="settings_title">Settings</string>
     <string name="terminal_cancel">Cancel</string>
     <string name="terminal_conversation_caption">%1$s\'s conversation · read only</string>
     <string name="terminal_conversation_conversation">Conversation</string>

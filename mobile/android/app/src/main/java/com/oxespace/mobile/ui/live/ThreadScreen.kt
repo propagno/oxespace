@@ -34,7 +34,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -110,6 +109,8 @@ import com.oxespace.mobile.protocol.live.CommandResult
 import com.oxespace.mobile.protocol.live.ThreadTimeline
 import com.oxespace.mobile.session.Watched
 import com.oxespace.mobile.ui.SecureScreen
+import com.oxespace.mobile.ui.components.Notice
+import com.oxespace.mobile.ui.components.NoticeIntent
 import com.oxespace.mobile.ui.components.OxeButton
 import com.oxespace.mobile.ui.components.OxeButtonKind
 import com.oxespace.mobile.ui.theme.Oxe
@@ -212,7 +213,7 @@ fun ThreadScreen(
         },
         bottomBar = {
             Column(Modifier.background(Oxe.colors.surfaceCanvas).navigationBarsPadding().imePadding().padding(horizontal = OxeSpace.space3, vertical = OxeSpace.space2), verticalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
-                message?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.intentWarningFg, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
+                message?.let { Notice(NoticeIntent.WARNING, title = stringResource(it), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
                 header?.let { QueuedPreview(it.queuedPreview, it.queued) }
                 pending.firstOrNull()?.let { RequestBar(it, more = pending.size - 1, enabled = connected) { onOpenRequest(it.requestId) } }
                 Composer(
@@ -628,7 +629,7 @@ private fun RequestBar(request: RemotePendingRequest, more: Int, enabled: Boolea
                 if (!request.answerable) Text(stringResource(R.string.thread_answer_on_computer), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textMuted)
             }
             if (request.answerable) {
-                Button(onClick = onRespond, enabled = enabled, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.thread_respond)) }
+                OxeButton(stringResource(R.string.thread_respond), onClick = onRespond, enabled = enabled)
             }
         }
     }
@@ -697,7 +698,7 @@ private fun Composer(
     }
     val typed = text.isNotBlank()
     Column(verticalArrangement = Arrangement.spacedBy(OxeSpace.space1)) {
-        message?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.intentWarningFg, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
+        message?.let { Notice(NoticeIntent.WARNING, title = stringResource(it), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
         sentWhileWorking?.let { sent ->
             Column(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }) {
                 Text(displaySafe(sent.text, TARGET_MAX), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -749,11 +750,11 @@ private fun Composer(
                 },
             )
             when {
-                steer -> Button(
+                steer -> OxeButton(
+                    stringResource(R.string.composer_steer),
                     onClick = { scope.launch { send(outgoingFor(unsent, text, steer)) } },
                     enabled = !busy && typed && enabled,
-                    modifier = Modifier.heightIn(min = 40.dp),
-                ) { Text(stringResource(R.string.composer_steer)) }
+                )
                 else -> FilledIconButton(
                     onClick = { scope.launch { send(outgoingFor(unsent, text, steer)) } },
                     enabled = !busy && typed && enabled,

@@ -20,11 +20,9 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -58,6 +56,10 @@ import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeRadius
 import com.oxespace.mobile.ui.theme.OxeSpace
 import com.oxespace.mobile.ui.theme.OxeTheme
+import com.oxespace.mobile.ui.components.Notice
+import com.oxespace.mobile.ui.components.NoticeIntent
+import com.oxespace.mobile.ui.components.OxeButton
+import com.oxespace.mobile.ui.components.OxeButtonKind
 
 /** Minimum touch target, for TalkBack and thumbs alike. */
 private val TouchTarget = 48.dp
@@ -79,7 +81,7 @@ fun PairingScreen(state: PairingState, onScanAgain: () -> Unit, onDone: () -> Un
                     action = stringResource(R.string.pairing_done),
                     onAction = onDone,
                 )
-                is PairingState.Failed -> Result(title = null, body = stringResource(failureText(state.failure)), action = stringResource(R.string.pairing_scan_again), onAction = onScanAgain)
+                is PairingState.Failed -> Failure(stringResource(failureText(state.failure)), action = stringResource(R.string.pairing_scan_again), onAction = onScanAgain)
             }
         }
     }
@@ -99,12 +101,8 @@ private fun Scanning(badCode: PairingState.BadCode?, camera: @Composable (Modifi
     val frame = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(OxeRadius.lg))
     camera(frame)
     if (badCode != null) {
-        Text(
-            stringResource(badCodeText(badCode.problem)),
-            style = MaterialTheme.typography.bodyLarge,
-            color = Oxe.colors.intentWarningFg,
-            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-        )
+        // A code that isn't a pairing code is a problem, so it's a Notice (MG5).
+        Notice(NoticeIntent.WARNING, title = stringResource(badCodeText(badCode.problem)), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
     }
 }
 
@@ -148,7 +146,14 @@ private fun Waiting(state: PairingState.Waiting) {
 private fun Result(title: String?, body: String, action: String, onAction: () -> Unit) {
     if (title != null) Title(title)
     Text(body, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
-    Button(onClick = onAction, modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget)) { Text(action) }
+    OxeButton(action, onClick = onAction, modifier = Modifier.fillMaxWidth())
+}
+
+/** A pairing that failed: a danger Notice that says why, with the one way forward. */
+@Composable
+private fun Failure(reason: String, action: String, onAction: () -> Unit) {
+    Notice(NoticeIntent.DANGER, title = reason, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+    OxeButton(action, onClick = onAction, modifier = Modifier.fillMaxWidth())
 }
 
 /** Asks for the camera, then shows it; explains a refusal and offers the system settings. */
@@ -168,14 +173,14 @@ fun CameraWithPermission(description: String, onText: (String) -> Unit, modifier
     Column(verticalArrangement = Arrangement.spacedBy(OxeSpace.space3)) {
         Text(stringResource(if (asked) R.string.pairing_camera_denied else R.string.pairing_camera_needed), style = MaterialTheme.typography.bodyLarge)
         if (asked) {
-            OutlinedButton(
+            OxeButton(
+                stringResource(R.string.pairing_open_settings),
                 onClick = { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))) },
-                modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget),
-            ) { Text(stringResource(R.string.pairing_open_settings)) }
+                modifier = Modifier.fillMaxWidth(),
+                kind = OxeButtonKind.SECONDARY,
+            )
         } else {
-            Button(onClick = { launcher.launch(Manifest.permission.CAMERA) }, modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget)) {
-                Text(stringResource(R.string.pairing_allow_camera))
-            }
+            OxeButton(stringResource(R.string.pairing_allow_camera), onClick = { launcher.launch(Manifest.permission.CAMERA) }, modifier = Modifier.fillMaxWidth())
         }
     }
 }

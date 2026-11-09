@@ -84,6 +84,7 @@
     <string name="live_empty_tasks">Nenhuma tarefa em segundo plano nem delegação.</string>
     <string name="live_empty_terminals">Nenhum terminal aberto.</string>
     <string name="live_empty_threads">Ainda não há conversas em %1$s.</string>
+    <string name="live_empty_title">Nada por aqui ainda</string>
     <string name="live_exit_code">código de saída %1$s</string>
     <string name="live_job_exited">Terminou</string>
     <string name="live_job_failed">Falhou</string>
@@ -93,6 +94,7 @@
     <string name="live_jobs">Tarefas em segundo plano</string>
     <string name="live_loading">Carregando…</string>
     <string name="live_menu">Mais opções</string>
+    <string name="live_menu_settings">Configurações</string>
     <string name="live_pane_agent">%1$s · %2$s</string>
     <plurals name="live_pending_count">
         <item quantity="one">Precisa de você (%1$d)</item>
@@ -214,6 +216,16 @@
     <string name="request_truncated">Parte deste pedido não coube no celular. O texto completo está só no computador, então daqui você só pode recusar.</string>
     <string name="request_truncated_question">Parte desta pergunta não coube no celular. Responda no computador, onde dá para ler tudo.</string>
     <string name="request_where">Onde</string>
+    <string name="settings_alerts_done">Uma tarefa terminou</string>
+    <string name="settings_alerts_failed">Uma tarefa falhou</string>
+    <string name="settings_alerts_needs_you">Um agente precisa de você</string>
+    <string name="settings_alerts_title">Notificações</string>
+    <string name="settings_back">Voltar</string>
+    <string name="settings_theme_dark">Escuro</string>
+    <string name="settings_theme_light">Claro</string>
+    <string name="settings_theme_system">Igual ao do celular</string>
+    <string name="settings_theme_title">Tema</string>
+    <string name="settings_title">Configurações</string>
     <string name="terminal_cancel">Cancelar</string>
     <string name="terminal_conversation_caption">Conversa do %1$s · somente leitura</string>
     <string name="terminal_conversation_conversation">Conversa</string>

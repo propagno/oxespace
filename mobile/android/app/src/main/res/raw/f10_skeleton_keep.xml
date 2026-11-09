@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!--
-  1.5.0 F10 API skeleton: strings the frozen tests reference before the app uses them. Each MOB-* task that puts its
-  string on screen removes it from this list, and the file goes with the last one.
--->
-<resources xmlns:tools="http://schemas.android.com/tools"
-    tools:keep="@string/composer_steer_finished_before,@string/live_delegation_state_unknown,@string/request_no_undo" />
