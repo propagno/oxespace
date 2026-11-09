@@ -95,6 +95,8 @@ export const REMOTE_ERROR_CODES = [
   'not-pending',
   'stale-generation',
   'pane-not-shared',
+  'no-conversation',
+  'conversation-changed',
   'internal'
 ] as const
 export type RemoteErrorCode = typeof REMOTE_ERROR_CODES[number]
@@ -109,6 +111,11 @@ export interface RemoteHelloFrame extends FrameBase<'hello'> {
   desktopName?: string
   /** Set by the gateway: 32 random bytes, base64url, new for every connection; a refresh signs it as its `nonce`. */
   challenge?: string
+  /**
+   * Set by the gateway (1.5.0 F10): what this desktop supports beyond the version, e.g. "terminal.snapshotOnly" and
+   * "pane.conversation". The phone uses a feature only when it is listed; a client hello never carries it.
+   */
+  features?: string[]
 }
 
 /**
@@ -202,7 +209,7 @@ export interface RemoteErrorFrame extends FrameBase<'error'> {
    * says to pair again instead of "removed". A literal word, not an enum, so Kotlin reads it as text and a word added
    * later never breaks an older phone (the #531 rule).
    */
-  reason?: 'pairing-lapsed'
+  reason?: 'pairing-lapsed' | 'new-session' | 'rewritten'
   /** Milliseconds before retrying, for `rate-limited`. */
   retryAfterMs?: number
 }
@@ -688,6 +695,25 @@ export interface RemoteThreadHistoryArgs { threadId: string; beforeSeq: number }
 export interface RemoteAgentMarkSeenArgs { kind: RemoteAgentKind; id: string }
 /** 1.5.0 F10 (BE-A46-c5, #706): a page of a pane's agent conversation, newest first; `cursor` for "Load earlier". */
 export interface RemotePaneConversationArgs { paneId: string; cursor?: string }
+/**
+ * 1.5.0 F10 (BE-A46-c5, #706): what `pane.conversation` gives (`ack.result`) and the `paneConversation` snapshot. `items`
+ * go oldest to newest within the page, each id stable; `cursor` asks for the page before it, null at the oldest; `epoch`
+ * grows when the pane's agent starts a new session. `agent` is the manifest id (claude, codex…), text, never an enum.
+ */
+export interface RemotePaneConversationPage {
+  agent: string
+  title?: string
+  items: { seq: number; item: RemoteThreadItem }[]
+  cursor: string | null
+  epoch: number
+}
+
+/**
+ * 1.5.0 F10 (BE-A46-c5, #706): a `paneConversation` event. It says only that the conversation changed, never what: the
+ * phone reads the newest page again with `pane.conversation`. At most one per two seconds. With `conversation-changed`,
+ * `RemoteErrorFrame.reason` may say `new-session` (another session) or `rewritten` (the session file was rewritten or cut).
+ */
+export interface RemotePaneConversationEvent { changed: true }
 
 /** The args each command takes. */
 export interface RemoteCommandArgs {

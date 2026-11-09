@@ -22,6 +22,8 @@ import { registerSessionIpc } from './ipc/session.ipc'
 import { broadcastSkillChange, registerSkillIpc } from './ipc/skill.ipc'
 import { broadcastMcpHealth, registerMcpIpc } from './ipc/mcp.ipc'
 import { registerMcpInternalIpc } from './ipc/mcp-internal.ipc'
+import { registerDataExportIpc } from './ipc/data-export.ipc'
+import { peekDatabaseVersion } from './services/data-export/removed-features-export'
 import { registerNotificationsIpc } from './ipc/notifications.ipc'
 import { registerAppInfoIpc } from './ipc/app-info.ipc'
 import { singleInstanceDisabled } from './test-switches'
@@ -155,6 +157,8 @@ async function registerIpcHandlers(): Promise<() => void> {
     return noop
   }
 
+  // R0b: the version before this start migrates it, so the export knows a 1.4 upgrade (1–91) from a fresh install (0).
+  const previousDbVersion = peekDatabaseVersion(resolveAppDatabasePath())
   let db: ReturnType<typeof openDatabase>
   try {
     db = openDatabase()
@@ -218,8 +222,11 @@ async function registerIpcHandlers(): Promise<() => void> {
       const hookAgent = event.agent === 'codex' ? 'codex' : 'claude'
       agentState.hook(event.paneId, hookAgent, event.state)
       // Remember the native session so the pane can reopen it after a restart; an ended session is forgotten.
+      const sessionBefore = paneAgentSessions.current(event.paneId)?.sessionId
       if (event.state === 'ended') paneAgentSessions.clear(event.paneId)
       else if (event.sessionId) paneAgentSessions.record(event.paneId, hookAgent, event.sessionId, 'hook', event.permissionMode)
+      // BE-A46-c5: the phone's reader of this pane's conversation hears a new (or ended) session: a higher epoch, one signal.
+      if (paneAgentSessions.current(event.paneId)?.sessionId !== sessionBefore) void import('./services/remote/pane-conversation').then(module => module.announcePaneSession(event.paneId), () => undefined)
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send(IPC_CHANNELS.agentHooks.onStatus, event)
       }
@@ -503,6 +510,13 @@ async function registerIpcHandlers(): Promise<() => void> {
     codegraph: codeGraphService
   })
   registerMcpInternalIpc(internalMcp)
+  // R0b: Settings › Data and the notice band; the first-run export itself starts in the deferred init below.
+  const runDataExport = registerDataExportIpc({
+    db,
+    userData: app.getPath('userData'),
+    workspaceRoots: () => internalMcpWorkspaceServ.list().map(workspace => workspace.rootPath),
+    previousDbVersion
+  })
   registerDiagnosticsIpc(db, internalMcp, { terminals: terminalManager, mcp: mcpManager })
   await registerPolicyIpc(id => internalMcpWorkspaceServ.get(id)?.rootPath, { db, files: fileSystemService, servers: mcpManager, executions })
   // OXESpace context manifest — prepended to the agent's initial prompt on pane spawn so the CLI knows the
@@ -565,6 +579,8 @@ async function registerIpcHandlers(): Promise<() => void> {
     backgroundManager.init()
     void internalMcp.start()
     void memoryService.init()
+    // R0b: the one-time export of the removed features' data, after the window shows; it never throws.
+    void runDataExport()
     // F3 · Local RPC bus (named pipe / unix socket). Out-of-process callers
     // (CLI now, orchestration coordinator later) reach the same services the
     // renderer reaches over IPC. Failure here must not affect the app.

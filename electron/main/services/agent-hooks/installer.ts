@@ -14,7 +14,7 @@ import { copyFile, mkdir, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { AgentHookAgent, AgentHooksStatus } from '../../../../shared/types/agent-hooks'
-import { readJson, writePrivateJson } from '../memory/memory-runtime'
+import { readJson, writePrivateJson } from '../private-json'
 import { claudeEventPlan, codexEventPlan, parseVersion, type HookEventPlan } from './events'
 
 export const STATUS_HOOK_FILE = 'oxespace-status-hook.cjs'

@@ -1,7 +1,7 @@
 import type { AppDatabase } from '../../db'
 import type { CoordinationAction, CoordinationParticipant, CoordinationRole } from '../../../../shared/types/coordination'
 import { ExecutionRegistry, type AgentExecution } from '../execution-registry'
-import { projectIdentity } from '../memory/memory-project.service'
+import { projectIdentity } from '../project-identity'
 
 const allowed: Record<CoordinationRole, readonly CoordinationAction[]> = {
   requester: ['read', 'message', 'control'], executor: ['read', 'message', 'report'], observer: ['read']

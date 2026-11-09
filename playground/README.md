@@ -71,6 +71,16 @@ The user chose all four; the workspace structure stayed 1.4's (see FIDELITY.md �
 - **`#command-bar`: one bar** (T84). `@Codex …`, `/approve`, `open billing-staging`, `?` for every command.
 - **Identity** (T85). Workspace colors, our own mode icons, bolder titles, motion only when state changes.
 
+## Phone (OxeMobile 1.5)
+
+The Android app on the same identity: the group "Phone (OxeMobile)" in the screen list, hashes `#phone-home`,
+`#phone-pair`, `#phone-live`, `#phone-thread`, `#phone-request`, `#phone-terminal` and `#phone-settings`.
+- **States:** the strip above the phones walks every state from the 1.4.2 goldens, plus Agents and Settings, which
+  had none.
+- **Themes:** light and dark side by side by default; "Theme bar" follows the top bar instead.
+- **Rules:** no protocol change, and the safety rules are unchanged.
+- **Docs:** `HANDOFF-MOBILE.md`; the ACs are in the team plans (`1.5.0-mobile-acceptance.md`).
+
 ## Using it
 
 - The bar on top picks the **screen**, the **frame** (1440 × 900 or 900 × 620), the **theme** and the **state** (live,

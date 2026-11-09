@@ -22,6 +22,12 @@ export const LABEL = 'na-fila'
  */
 export const FIX_MAIN_LABEL = 'fix-main'
 export const FIX_MAIN_ROLES = new Set(['admin', 'maintain'])
+/**
+ * While any open issue or PR carries this label (a release or a gate running, agents maturity M6), the train makes
+ * no move at all: no merge, update, dispatch or batch. The cars keep their na-fila labels, so the queue goes on in
+ * the same order once the label comes off; the 10-minute schedule picks that up.
+ */
+export const RELEASE_HOLD_LABEL = 'release-hold'
 /** How many of main's latest completed CI runs are read: main is red when none of them passed. */
 export const MAIN_HEALTH_RUNS = 3
 /**
@@ -878,6 +884,16 @@ export async function runTrain(
     await api.removeLabel(entry.number)
     drop(entry)
   }
+  // A release hold stops everything first. If the label cannot be read, the train holds too: a release outranks a
+  // car, and the next run reads it again.
+  const holds = queue.length && api.releaseHolds ? await api.releaseHolds().catch(() => [{ number: null, title: `the ${RELEASE_HOLD_LABEL} label could not be read` }]) : []
+  if (holds.length) {
+    const by = holds.map((hold) => (hold.number ? `#${hold.number} (${hold.title})` : hold.title)).join('; ')
+    const message = `held by ${RELEASE_HOLD_LABEL}: ${by}. ${queue.length} car(s) keep their place; the train goes on in order once the label comes off.`
+    actions.push({ type: 'hold', message })
+    log(message)
+    return actions
+  }
   // While main is red (and the hold is on), only a car labelled fix-main by a maintainer moves, oldest first;
   // the others keep their place and get no comment: the hold is one line in the train's run summary.
   const health = holdWhenMainRed && queue.length ? mainHealth(await api.mainRuns().catch(() => null)) : { green: true }
@@ -1046,6 +1062,11 @@ export function createGitHubApi({ token, repo, base = 'main', fetchImpl = global
         })
       }
       return entries
+    },
+    /** Open issues and PRs labelled release-hold. */
+    async releaseHolds() {
+      const issues = await paginate(`${r}/issues?state=open&labels=${encodeURIComponent(RELEASE_HOLD_LABEL)}&per_page=100`)
+      return issues.map((issue) => ({ number: issue.number, title: issue.title }))
     },
     async getPull(number) {
       let pr

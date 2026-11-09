@@ -684,7 +684,7 @@
 .qlim .sel { height: 26px; font-size: 12px; }
 .qed { grid-template-rows: auto auto minmax(140px, 40%) auto minmax(0, 1fr); }
 .qres-h { background: var(--surface-base); }
-.rgrid th small { display: block; font: 400 10px var(--f-mono); color: var(--text-disabled); }
+.rgrid th small { display: block; font: 400 10px var(--f-mono); color: var(--text-muted); }
 .rgrid .rn { width: 36px; text-align: right; color: var(--text-disabled); background: var(--surface-base); }
 .rgrid td.r, .rgrid th.r { text-align: right; }
 .rgrid td.null { color: var(--text-disabled); font-style: italic; }

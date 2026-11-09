@@ -1,5 +1,5 @@
 import type { ToolContext, ToolEntry } from './tool-registry'
-import { projectIdentity } from '../services/memory/memory-project.service'
+import { projectIdentity } from '../services/project-identity'
 import type { DocumentationStep } from '../../../shared/types/documentation'
 import type { ScreenshotOptions, PreviewRequest } from '../services/documentation/preview-automation'
 import { requirePreviewExecution } from './preview-scope'

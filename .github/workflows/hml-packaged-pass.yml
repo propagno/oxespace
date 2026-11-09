@@ -1,0 +1,176 @@
+name: HML packaged pass
+run-name: HML packaged pass · ${{ inputs.product_ref || github.head_ref }}
+
+# HML's hard gate for every 1.5.0 phase close and the v1.5.0 tag (user 08/11: "visual totalmente polido, erros na
+# interface não serão admitidos"; SPEC A70). It packages product_ref the way ci.yml does (no installer, nothing
+# published), launches the unpacked app from a copy outside the checkout on a throwaway --user-data-dir, and runs
+# e2e/release/hml-packaged-pass.spec.ts from spec_ref:
+# - every surface, in en and pt-BR, light and dark, at 900x620 and maximized;
+# - checks for errors, overflow, clipped text, raw i18n keys, untranslated pt-BR, axe serious/critical, keyboard focus.
+# findings.json per combination is in the artifact; HML files each finding as HML-Fn-x. On demand, and on a pull
+# request that changes this pass itself (its workflow or spec), so a change to the pass proves itself.
+
+on:
+  workflow_dispatch:
+    inputs:
+      product_ref:
+        description: Branch or tag of the app to package and pass
+        required: true
+        type: string
+      spec_ref:
+        description: Branch holding e2e/release/hml-packaged-pass.spec.ts (default main)
+        required: false
+        default: main
+        type: string
+      os:
+        description: linux, windows or both
+        required: false
+        default: both
+        type: choice
+        options: [both, linux, windows]
+  pull_request:
+    paths:
+      - .github/workflows/hml-packaged-pass.yml
+      - e2e/release/hml-packaged-pass.spec.ts
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.product_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - id: m
+        shell: bash
+        env:
+          OS: ${{ inputs.os || 'both' }}
+          PRODUCT_REF: ${{ inputs.product_ref }}
+          SPEC_REF: ${{ inputs.spec_ref }}
+        run: |
+          set -euo pipefail
+          ref='^[A-Za-z0-9._/-]{1,200}$'
+          for v in "$PRODUCT_REF" "$SPEC_REF"; do
+            [[ -z "$v" ]] && continue
+            if [[ ! "$v" =~ $ref || "$v" == *..* || "$v" == -* ]]; then echo "::error::bad ref $v"; exit 1; fi
+          done
+          linux='{"os":"ubuntu-22.04","label":"linux","flag":"--linux","slim":"linux"}'
+          windows='{"os":"windows-2022","label":"windows","flag":"--win","slim":"win32"}'
+          case "$OS" in linux) m="[$linux]";; windows) m="[$windows]";; *) m="[$linux,$windows]";; esac
+          echo "matrix={\"include\":$m}" >> "$GITHUB_OUTPUT"
+
+  pass:
+    needs: plan
+    name: Pass (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.product_ref || github.ref }}
+          persist-credentials: false
+
+      - name: The pass spec from spec_ref (only that file)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.spec_ref || github.ref }}
+          path: .hml-spec-src
+          persist-credentials: false
+          sparse-checkout: |
+            e2e/release/hml-packaged-pass.spec.ts
+          sparse-checkout-cone-mode: false
+
+      - name: Overlay the spec
+        run: |
+          set -euo pipefail
+          src=.hml-spec-src/e2e/release/hml-packaged-pass.spec.ts
+          test -f "$src" && test ! -L "$src" || { echo "::error::no spec in spec_ref"; exit 1; }
+          mkdir -p e2e/release && cp "$src" e2e/release/ && rm -rf .hml-spec-src
+
+      - name: Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          package-manager-cache: false
+
+      - name: Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          alsa=libasound2t64; apt-cache show "$alsa" >/dev/null 2>&1 || alsa=libasound2
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" \
+            libxshmfence1 libnotify4
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Electron version
+        id: electron
+        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the Electron download
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.os == 'Windows' && '~/AppData/Local/electron/Cache' || '~/.cache/electron' }}
+          key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
+
+      - name: Build
+        run: |
+          npm rebuild electron
+          npm run build
+          npm run fix:native
+
+      - name: Package (unpacked, nothing published)
+        run: |
+          set -euo pipefail
+          node scripts/slim-pack-deps.mjs --platform=${{ matrix.slim }} --arch=x64
+          npx electron-builder ${{ matrix.flag }} --dir --config.npmRebuild=false --publish never
+
+      - name: A test copy outside the checkout, with only the inspect fuse on
+        id: copy
+        run: |
+          set -euo pipefail
+          src="$(ls -d dist/*-unpacked | head -1)"
+          dest="$RUNNER_TEMP/oxespace-pass"
+          rm -rf "$dest"; cp -a "$src" "$dest"
+          if [[ "$RUNNER_OS" == Windows ]]; then exe="$(ls "$dest"/OXESpace*.exe | head -1)"; else exe="$(find "$dest" -maxdepth 1 -type f -perm -u+x -iname 'oxespace*' -print -quit)"; fi
+          test -n "$exe" || { echo "::error::no packaged executable"; exit 1; }
+          npx --no-install @electron/fuses write --app "$exe" EnableNodeCliInspectArguments=on
+          node scripts/check-fuses.mjs --app "$exe" --test-copy-of "$src/$(basename "$exe")"
+          echo "exe=$exe" >> "$GITHUB_OUTPUT"
+
+      - name: No live OXESpace env reaches the run
+        run: |
+          if env | cut -d= -f1 | grep -Ei '^(OXESPACE_|AI_MEMORY_)'; then echo "::error::OXESPACE_/AI_MEMORY_ variables are set on the runner"; exit 1; fi
+
+      - name: Run the pass
+        env:
+          OXESPACE_PACKAGED_EXECUTABLE: ${{ steps.copy.outputs.exe }}
+        run: |
+          set -euo pipefail
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            bash scripts/run-with-xvfb.sh npx playwright test --config playwright.tools.config.ts e2e/release/hml-packaged-pass.spec.ts
+          else
+            npx playwright test --config playwright.tools.config.ts e2e/release/hml-packaged-pass.spec.ts
+          fi
+
+      - name: Upload the pass
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: hml-pass-${{ matrix.label }}-${{ github.run_id }}
+          if-no-files-found: ignore
+          retention-days: 14
+          path: test-results/

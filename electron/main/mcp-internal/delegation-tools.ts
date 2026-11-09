@@ -1,6 +1,6 @@
 import type { ToolEntry } from './tool-registry'
 import type { DelegationInput } from '../../../shared/types/delegation'
-import { projectIdentity } from '../services/memory/memory-project.service'
+import { projectIdentity } from '../services/project-identity'
 const string = { type: 'string', minLength: 1, maxLength: 16000 }
 function tool(name: string, description: string, properties: Record<string, unknown>, required: string[] = []): ToolEntry {
   return { descriptor: { name, description, inputSchema: { type: 'object', properties, required, additionalProperties: false } }, requiresWorkspace: true,

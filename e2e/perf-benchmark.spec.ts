@@ -743,15 +743,48 @@ test('thread: 5,000 events, scroll and streaming append', async () => {
     await composer.focus()
     await composer.evaluate((field) => {
       const samples: number[] = []
-      ;(window as unknown as { __keySamples: number[] }).__keySamples = samples
+      const starts: number[] = []
+      const longTasks: Array<{ at: number; ms: number; source: string }> = []
+      const box = window as unknown as { __keySamples: number[]; __keyStarts: number[]; __keyLongTasks: typeof longTasks; __keyFrom: number }
+      box.__keySamples = samples
+      box.__keyStarts = starts
+      box.__keyLongTasks = longTasks
+      box.__keyFrom = performance.now()
+      // FL-24 diagnostic (#687): what the main thread was doing when a key took ~400 ms to paint.
+      try {
+        new PerformanceObserver(list => {
+          for (const entry of list.getEntries()) {
+            const attribution = (entry as PerformanceEntry & { attribution?: Array<{ containerSrc?: string; containerName?: string; containerType?: string }> }).attribution?.[0]
+            longTasks.push({ at: Math.round(entry.startTime), ms: Math.round(entry.duration), source: attribution?.containerSrc || attribution?.containerName || attribution?.containerType || entry.name })
+          }
+        }).observe({ type: 'longtask', buffered: false })
+      } catch { /* no longtask entries in this build: the line shows none */ }
       field.addEventListener('keydown', () => {
         const started = performance.now()
+        starts.push(Math.round(started))
         requestAnimationFrame(() => requestAnimationFrame(() => samples.push(performance.now() - started)))
       })
     })
     await page.keyboard.type('Check the latest change for regressions', { delay: 40 })
     await page.waitForTimeout(100)
-    report('thread 5k: keystroke→paint', await page.evaluate(() => (window as unknown as { __keySamples: number[] }).__keySamples))
+    const keySamples = await page.evaluate(() => (window as unknown as { __keySamples: number[] }).__keySamples)
+    // FL-24: only when a key was slow, one line with the slow keys, the long tasks and the app's own marks (idle
+    // preload, chunk loads) around the typing window, so a spike on CI names its cause.
+    const keyBudget = PERF_BUDGETS_MS['thread 5k: keystroke→paint']
+    if (keySamples.some(sample => sample > keyBudget)) {
+      const diag = await page.evaluate((budget) => {
+        const box = window as unknown as { __keySamples: number[]; __keyStarts: number[]; __keyLongTasks: Array<{ at: number; ms: number; source: string }>; __keyFrom: number }
+        const to = performance.now()
+        const slow = box.__keySamples.flatMap((ms, index) => ms > budget ? [`${box.__keyStarts[index]}+${Math.round(ms)}`] : [])
+        const marks = performance.getEntriesByType('mark').filter(mark => mark.startTime >= box.__keyFrom - 2000 && mark.startTime <= to).map(mark => `${mark.name}@${Math.round(mark.startTime)}`)
+        const memory = (performance as Performance & { memory?: { usedJSHeapSize: number; totalJSHeapSize: number } }).memory
+        return [`window=${Math.round(box.__keyFrom)}..${Math.round(to)}`, `slow=[${slow.join(' ')}]`,
+          `longtasks=[${box.__keyLongTasks.map(task => `${task.at}+${task.ms}:${task.source}`).join(' ')}]`,
+          `marks=[${marks.join(' ')}]`, memory ? `heap=${Math.round(memory.usedJSHeapSize / 1e6)}/${Math.round(memory.totalJSHeapSize / 1e6)}MB` : 'heap=n/a'].join(' ')
+      }, keyBudget)
+      console.log(`[FL-24-DIAG] ${diag}`)
+    }
+    report('thread 5k: keystroke→paint', keySamples)
     await composer.fill('')
 
     // From the end to the start, 600 px per frame, recording every frame interval. Each step mounts
