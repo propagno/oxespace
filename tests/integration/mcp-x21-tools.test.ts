@@ -6,7 +6,6 @@ import { ApprovalBroker, type ApprovalDecision, type ApprovalRequest } from '../
 import { setPolicyStore } from '../../electron/main/services/policy'
 import type { PolicyStore } from '../../electron/main/services/policy/policy-store'
 
-vi.mock('../../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
 
 const groups = [
   { id: 'g-mine', name: 'Checkout', members: [{ workspaceId: 'ws-1' }] },
@@ -29,7 +28,7 @@ vi.mock('../../electron/main/services/session.service', () => ({ SessionService:
 const WS = { id: 'ws-1', rootPath: '/repo', name: 'repo', isActive: true, layout: '1x2', layoutPreset: 2, themeId: 'midnight', uiDensity: 'compact',
   defaultShellProfileId: 'pwsh', autoStart: false, editorWidthPercent: 40, panes: [{ id: 'p1' }, { id: 'p2' }] }
 
-function setup(options: { decide?: ApprovalDecision; live?: boolean; owner?: { kind: 'pane' | 'thread'; id: string }; workspaceId?: string; app?: unknown; semantic?: unknown; db?: unknown } = {}) {
+function setup(options: { decide?: ApprovalDecision; live?: boolean; owner?: { kind: 'pane' | 'thread'; id: string }; workspaceId?: string; app?: unknown; db?: unknown } = {}) {
   const asked: ApprovalRequest[] = []
   const broker = new ApprovalBroker({ ask: async request => { asked.push(request); return options.decide ?? 'allow-once' } }, Date.now, 50)
   const execution = { id: 'e1', owner: options.owner ?? { kind: 'pane', id: 'p1' }, workspaceId: options.workspaceId ?? WS.id, canonicalRoot: '/repo', cwd: '/repo' }
@@ -37,7 +36,7 @@ function setup(options: { decide?: ApprovalDecision; live?: boolean; owner?: { k
     workspaceId: execution.workspaceId, executionId: 'e1', executionToken: 't',
     workspaceServ: { get: (id: string) => id === WS.id ? WS : null, list: () => [WS] },
     executions: { authenticate: () => { if (options.live === false) throw new Error('none'); return execution } },
-    agentActions: new AgentActions({ broker }), app: options.app, semantic: options.semantic, db: options.db ?? {},
+    agentActions: new AgentActions({ broker }), app: options.app, db: options.db ?? {},
     github: { createWorktree: vi.fn(async () => ({ ok: true })), removeWorktree: vi.fn(async () => ({ ok: true })), resolveWorktreeBase: vi.fn(async () => ({ baseRef: 'origin/main' })) },
     background: { start: vi.fn(() => ({ id: 'job-1', status: 'running' })), list: () => [{ id: 'job-1' }], stop: vi.fn() },
     fileSystem: {}, worktree: { emitChanged: vi.fn() }
@@ -71,14 +70,6 @@ describe('oxespace_settings', () => {
     expect((await call('oxespace_settings', { action: 'policy' }, setup().ctx)).result).toEqual({ sources: [], problems: [] })
   })
 
-  it('reads the semantic index of a workspace or a Thread project, never the last query', async () => {
-    const getStatus = vi.fn(() => ({ enabled: true, indexing: false, count: 3, lastError: null, lastQuery: { query: 'private words' } }))
-    const workspace = await call('oxespace_settings', { action: 'semantic' }, setup({ semantic: { getStatus } }).ctx)
-    expect(getStatus).toHaveBeenLastCalledWith('ws-1')
-    expect(workspace.result).toEqual({ enabled: true, indexing: false, count: 3, lastError: null })
-    await call('oxespace_settings', { action: 'semantic' }, setup({ semantic: { getStatus }, owner: { kind: 'thread', id: 't1' }, workspaceId: 'thread:t1' }).ctx)
-    expect(getStatus).toHaveBeenLastCalledWith(expect.stringMatching(/^project:/))
-  })
 })
 
 describe('oxespace_integration', () => {

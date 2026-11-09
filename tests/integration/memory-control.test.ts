@@ -11,7 +11,6 @@ import { removeTempDir } from '../helpers/removeTempDir'
 
 vi.mock('electron', () => ({ safeStorage: { isEncryptionAvailable: () => true,
   encryptString: (text: string) => Buffer.from(text), decryptString: (value: Buffer) => value.toString() } }))
-vi.mock('../../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
 
 const cleanup: { service: MemoryService; db: AppDatabase; directory: string }[] = []
 afterEach(async () => {

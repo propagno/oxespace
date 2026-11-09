@@ -10,7 +10,6 @@ import {
   MCP_TOOL_GROUP_IDS, MCP_TOOL_GROUP_MODES, type McpToolRule
 } from '../shared/types/mcp-tools'
 
-vi.mock('../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
 
 describe('Settings › Tools contract (F10)', () => {
   it('names the same groups the Thread runtime offers, and the same configurable ones', () => {

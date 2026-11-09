@@ -159,7 +159,6 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
           github: deps.github,
           background: deps.background,
           fileSystem: deps.fileSystem,
-          codegraph: deps.codegraph,
           webPreview: deps.webPreview,
           worktree: deps.worktree
         }

@@ -22,7 +22,6 @@ const ON_DEMAND: Array<{ module: string; loadedBy: string }> = [
   { module: 'electron/main/services/github/parsers.ts', loadedBy: 'ipc/github.ipc.ts, after the first window' },
   { module: 'electron/main/services/github.service.ts', loadedBy: 'index.ts, after the first window' },
   { module: 'electron/main/services/git.service.ts', loadedBy: 'index.ts, after the first window' },
-  { module: 'electron/main/services/codegraph.service.ts', loadedBy: 'index.ts, after the first window' },
   { module: 'electron/main/services/delegation.service.ts', loadedBy: 'index.ts, after the database opens' },
   { module: 'electron/main/services/diagnostics/runtime.ts', loadedBy: 'ipc/diagnostics.ipc.ts, first measurement' },
   { module: 'electron/main/services/diagnostics/zip-writer.ts', loadedBy: 'ipc/diagnostics.ipc.ts, bundle export' },

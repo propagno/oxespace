@@ -5,7 +5,7 @@ import { resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
 const BRIDGE = resolve(__dirname, '..', '..', 'resources', 'mcp-bridge', 'oxespace-mcp.cjs')
-const TOOLS = ['oxespace_capabilities', 'oxespace_tools_enable', 'oxespace_code_search', 'oxespace_db_query', 'oxespace_containers_list', 'oxespace_open_web_preview']
+const TOOLS = ['oxespace_capabilities', 'oxespace_tools_enable', 'oxespace_search', 'oxespace_db_query', 'oxespace_containers_list', 'oxespace_open_web_preview']
 
 /** The OXESpace endpoint the bridge forwards to: every tool exists, and capabilities answers like the app. */
 async function server(): Promise<{ port: number; calls: string[]; close: () => Promise<void> }> {
@@ -68,15 +68,15 @@ describe('turning a tool group on in a session (B7.2)', () => {
   it('adds the group\'s tools, tells the client the list changed once, and answers locally', async () => {
     const endpoint = await server()
     try {
-      const session = bridge(endpoint.port, ['oxespace_capabilities', 'oxespace_tools_enable', 'oxespace_code_search'], { data: ['oxespace_db_query', 'oxespace_containers_list'] })
+      const session = bridge(endpoint.port, ['oxespace_capabilities', 'oxespace_tools_enable', 'oxespace_search'], { data: ['oxespace_db_query', 'oxespace_containers_list'] })
       const init = await session.request('initialize', {})
       expect((init.result as { capabilities: unknown }).capabilities).toEqual({ tools: { listChanged: true } })
-      expect(await session.listed()).toEqual(['oxespace_capabilities', 'oxespace_tools_enable', 'oxespace_code_search'])
+      expect(await session.listed()).toEqual(['oxespace_capabilities', 'oxespace_tools_enable', 'oxespace_search'])
       expect((await session.request('tools/call', { name: 'oxespace_db_query', arguments: {} })).error).toMatchObject({ code: -32602 })
 
       expect(await session.call('oxespace_tools_enable', { group: 'data' })).toMatchObject({ status: 'ok', group: 'data', tools: ['oxespace_db_query', 'oxespace_containers_list'], isError: false })
       expect(session.notifications()).toHaveLength(1)
-      expect(await session.listed()).toEqual(['oxespace_capabilities', 'oxespace_tools_enable', 'oxespace_code_search', 'oxespace_db_query', 'oxespace_containers_list'])
+      expect(await session.listed()).toEqual(['oxespace_capabilities', 'oxespace_tools_enable', 'oxespace_search', 'oxespace_db_query', 'oxespace_containers_list'])
       await session.call('oxespace_tools_enable', { group: 'data' })
       expect(session.notifications()).toHaveLength(1)
       // The enable call never reached the app; the newly offered tool does.
@@ -169,7 +169,7 @@ describe('turning a tool group on in a session (B7.2)', () => {
       const token = randomUUID()
       const aside = bridge(endpoint.port, TOOLS, undefined, { args: ['--project-entry'], env: { OXESPACE_PANE_BRIDGE: token } })
       expect(await aside.listed()).toEqual([])
-      const refused = await aside.request('tools/call', { name: 'oxespace_code_search', arguments: {} })
+      const refused = await aside.request('tools/call', { name: 'oxespace_search', arguments: {} })
       expect(refused.error).toMatchObject({ code: -32602 })
       expect(String((refused.error as { message: string }).message)).toContain('oxespace-delegation')
       expect(endpoint.calls).toEqual([])

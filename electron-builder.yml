@@ -31,7 +31,7 @@ asar: true
 # Electron fuses (B13, BE-M-02), flipped by electron-builder in the packaged binary only; the dev electron binary that
 # tests and scripts run with ELECTRON_RUN_AS_NODE is never touched. scripts/check-fuses.mjs reads them back in CI.
 # - runAsNode off: the app binary cannot be reused as a Node interpreter. Nothing at runtime needs it: OxeChat runs
-#   Codex's native codex.exe, ConPTY's kill no longer forks (useConptyDll), CodeGraph never spawns process.execPath.
+#   Codex's native codex.exe, ConPTY's kill no longer forks (useConptyDll).
 # - enableNodeOptionsEnvironmentVariable off: NODE_OPTIONS cannot inject --require or --inspect into the app.
 # - enableNodeCliInspectArguments off: `--inspect-brk` would hand any local process a debugger in main, which is
 #   arbitrary Node in this binary again. Playwright's _electron.launch needs --inspect, so the packaged E2E turns this
@@ -47,7 +47,7 @@ electronFuses:
 asarUnpack:
   - node_modules/better-sqlite3/**/*
   - node_modules/node-pty/**/*
-  # CodeGraph parses with web-tree-sitter (wasm). The parse worker reads these
+  # Shell parsing (conversation/shell-parse.ts) loads web-tree-sitter's runtime and the bash grammar
   # as real files, which is impossible from inside the asar — keep them unpacked.
   - node_modules/web-tree-sitter/**/*
   - node_modules/tree-sitter-wasms/**/*

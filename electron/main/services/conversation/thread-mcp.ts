@@ -23,9 +23,8 @@ export interface ThreadMcpBindings {
 // conversation gets only the core group, the groups its role needs, and the
 // groups the project turns on with `thread.tools` in oxe.yaml.
 export const THREAD_TOOL_GROUPS = {
-  /** Every conversation: code, search and memory lookups. */
-  core: ['oxespace_capabilities', 'oxespace_project_context', 'oxespace_memory_search', 'oxespace_memory_remember',
-    'oxespace_code_search', 'oxespace_code_callers', 'oxespace_code_callees', 'oxespace_code_impact', 'oxespace_code_node', 'oxespace_code_status'],
+  /** Every conversation: context and memory lookups. */
+  core: ['oxespace_capabilities', 'oxespace_project_context', 'oxespace_memory_search', 'oxespace_memory_remember'],
   /** A team member's conversation. */
   team: ['oxespace_team_status', 'oxespace_team_inbox', 'oxespace_team_message', 'oxespace_team_acknowledge'],
   /** A conversation that runs a delegation or an Agent Work task, or supervises a Work run. */

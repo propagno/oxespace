@@ -9,7 +9,6 @@ import {
   OPTIONAL_THREAD_TOOL_GROUPS, THREAD_MCP_TOOLS, THREAD_TOOL_GROUPS, threadMcpArguments, threadToolList, threadToolRoles, toolSearchEnvironment
 } from '../../electron/main/services/conversation/thread-mcp'
 
-vi.mock('../../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
 
 /** What a provider receives for each tool on every request, measured like Settings › Tools. */
 const definitionChars = (names: readonly string[]): number => toolDefinitionChars(TOOL_REGISTRY, names)
@@ -49,11 +48,11 @@ describe('Thread MCP token budget', () => {
     expect(bridgeTools(threadMcpArguments('claude', ['--print'], '/bridge.cjs', undefined, [], threadToolList()))).toEqual(threadToolList())
     const readOnly = threadMcpArguments('claude', ['--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}'], '/bridge.cjs', undefined, [], threadToolList())
     const lookups = bridgeTools(readOnly)
-    expect(lookups).toContain('oxespace_code_search')
+    expect(lookups).toContain('oxespace_project_context')
     expect(lookups).not.toContain('oxespace_team_inbox')
     expect(lookups).not.toContain('oxespace_memory_remember')
     const codex = threadMcpArguments('codex', ['app-server'], '/bridge.cjs', undefined, [], threadToolList())
-    expect(codex.join(' ')).toContain('oxespace_code_search')
+    expect(codex.join(' ')).toContain('oxespace_project_context')
     expect(codex.join(' ')).not.toContain('oxespace_delegate_task')
   })
 
@@ -84,15 +83,18 @@ describe('Thread MCP token budget', () => {
 describe('tool groups on demand: measured cost (T8)', () => {
   const defaults = projectToolModes(undefined)
   const asClaudeLists = (tools: readonly string[]) => toolNameChars(tools.map(tool => `mcp__oxespace-delegation__${tool}`))
+  // What a 1.3 plain conversation paid for core's definitions, as measured in CI (docs/validation/tool-groups-cost-1.4.md,
+  // "core | 12 | 5,978"). R1 removed the oxespace_code_* tools from core, so today's core is no longer the 1.3 bar the title names.
+  const CORE_1_3_CHARS = 5_978
 
   it('offers Claude every group on demand for less than a 1.3 plain conversation paid for core alone', () => {
     // Measured in a real session (docs/validation/tool-groups-cost-1.4.md): the 72 deferred names cost 1,686 tokens,
     // core's definitions 2,728. Comparing characters keeps the check independent of the tokenizer.
     const conversation = sessionToolPlan(true, {}, defaults)
     expect(new Set(conversation.tools)).toEqual(new Set([...THREAD_TOOL_GROUPS.core, ...OPTIONAL_THREAD_TOOL_GROUPS.flatMap(group => THREAD_TOOL_GROUPS[group])]))
-    expect(asClaudeLists(conversation.tools)).toBeLessThan(definitionChars(THREAD_TOOL_GROUPS.core))
+    expect(asClaudeLists(conversation.tools)).toBeLessThan(CORE_1_3_CHARS)
     const terminal = sessionToolPlan(true, { code: true }, defaults)
-    expect(asClaudeLists(terminal.tools)).toBeLessThan(definitionChars([...THREAD_TOOL_GROUPS.core, ...MCP_TOOL_GROUPS.code]))
+    expect(asClaudeLists(terminal.tools)).toBeLessThan(CORE_1_3_CHARS + definitionChars(MCP_TOOL_GROUPS.code))
   })
 
   it('keeps a conversation without tool search (Claude with auto:N or false) that turns nothing on within today\'s budget', () => {

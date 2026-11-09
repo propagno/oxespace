@@ -18,7 +18,7 @@ export const MEMORY_TOOLS: ToolEntry[] = [
   tool('oxespace_memory_sessions', 'Read recent independent agent sessions for this project.', 'sessions'),
   tool('oxespace_memory_handoffs', 'Read project handoff history without consuming or accepting a handoff.', 'handoffs'),
   tool('oxespace_memory_accept_handoff', 'Explicitly accept ONE handoff offer by its id (list ids with oxespace_memory_handoffs). Consumes that single-use offer and no other; call only when taking over that work.', 'accept', 'handoff_id'),
-  tool('oxespace_project_context', 'Build bounded context from persistent project knowledge and the CodeGraph for this exact checkout. Each source can fail independently.', 'context', 'query')
+  tool('oxespace_project_context', 'Build bounded context from persistent project knowledge for this exact checkout.', 'context', 'query')
 ]
 async function execute(action: Action, args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
   if (!ctx.memory || !ctx.memoryRunId || !ctx.workspaceId) throw new Error('Memory requires an explicitly bound agent execution; active-workspace fallback is forbidden')
@@ -38,21 +38,5 @@ async function execute(action: Action, args: unknown, ctx: ToolContext): Promise
     }
   }, action === 'remember' ? 'write' : action === 'accept' ? undefined : 'read')
   if (action !== 'context') return { content: [{ type: 'text', text: JSON.stringify(result) }], ...(result.status === 'unavailable' ? { isError: true } : {}) }
-  // Code is keyed by checkout, independently of shared project memory.
-  let code: unknown = { status: 'unavailable' }
-  try {
-    let timer: ReturnType<typeof setTimeout> | undefined
-    try {
-      code = await Promise.race([(async () => {
-        const graph = await ctx.codegraph.ensureInstance(context.cwd)
-        const { ToolHandler } = await import('../vendor/codegraph/mcp/tools')
-        const handler = new ToolHandler(graph as never)
-        return handler.execute('codegraph_explore', { query, maxFiles: 6 })
-      })(), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('CodeGraph deadline exceeded')), 3000) })])
-    } finally { if (timer) clearTimeout(timer) }
-  } catch { /* Memory still provides useful partial context. */ }
-  // Truncate the source field, not the JSON envelope (which must remain valid).
-  const codeText = JSON.stringify(code)
-  return { content: [{ type: 'text', text: JSON.stringify({ checkout: context.cwd, memory: result,
-    code: codeText.length > 8000 ? { truncated: true, excerpt: codeText.slice(0, 8000) } : code }) }] }
+  return { content: [{ type: 'text', text: JSON.stringify({ checkout: context.cwd, memory: result }) }] }
 }

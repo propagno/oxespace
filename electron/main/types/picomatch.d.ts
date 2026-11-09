@@ -1,9 +1,9 @@
 /**
  * Minimal ambient declaration for `picomatch`, which ships no types.
  *
- * The vendored CodeGraph resolution code uses it only for glob matching
- * (default import → matcher factory). A precise upstream type isn't needed
- * here, so this keeps the build self-contained without pulling @types/picomatch.
+ * The conversation kernel's permission policy (conversation/kernel/permission-policy.ts) uses it only for
+ * glob matching (default import → matcher factory). A precise upstream type isn't needed here, so this keeps
+ * the build self-contained without pulling @types/picomatch.
  */
 declare module 'picomatch' {
   type Matcher = (test: string) => boolean

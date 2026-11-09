@@ -22,7 +22,6 @@ vi.mock('node:os', async original => {
   const home = make(path.join(os.tmpdir(), 'oxe-tool-groups-home-'))
   return { ...os, homedir: () => home }
 })
-vi.mock('../../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
 
 const roots: string[] = []
 const databases: AppDatabase[] = []

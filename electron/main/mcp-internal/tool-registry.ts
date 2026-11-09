@@ -32,7 +32,6 @@ import { execGit } from '../utils/safe-git'
 import { CONFIGURABLE_MCP_TOOL_GROUPS as TOOL_GROUP_NAMES } from '../../../shared/types/mcp-tools'
 import { THREAD_HANDOFF_TOOLS } from './thread-handoff-tools'
 import { OXEQUERY_TOOLS } from './oxequery-tools'
-import { CODE_GRAPH_TOOLS } from './code-graph-tools'
 import { WORK_TOOLS } from './work-tools'
 import { GIT_TOOLS } from './git-tools'
 import { APP_READ_TOOLS } from './app-read-tools'
@@ -70,7 +69,6 @@ export interface ToolContext {
   github: GitHubWorktreeApi
   background: BackgroundManager
   fileSystem: FileSystemService
-  codegraph: import('../services/codegraph.service').CodeGraphService
   webPreview: WebPreviewBus
   worktree: WorktreeEventBus
 }
@@ -200,7 +198,6 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   ...TEAM_TOOLS,
   ...THREAD_HANDOFF_TOOLS,
   ...OXEQUERY_TOOLS,
-  ...CODE_GRAPH_TOOLS,
   ...WORK_TOOLS,
   ...GIT_TOOLS,
   ...APP_READ_TOOLS,

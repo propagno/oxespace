@@ -186,11 +186,8 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   // ---- search ---------------------------------------------------------------------
   'search.text': { label: 'Exact text search and the file list', tools: each('oxespace_search', 'read', ['text', 'files']), ipc: ['search.run', 'search.cancel', 'search.listFiles'] },
   'search.code': {
-    label: 'Structural code retrieval and the post-diff quality check',
-    tools: {
-      oxespace_quality_check: 'read', oxespace_code_search: 'read', oxespace_code_callers: 'read',
-      oxespace_code_callees: 'read', oxespace_code_impact: 'read', oxespace_code_node: 'read', oxespace_code_status: 'read'
-    }
+    label: 'The post-diff quality check',
+    tools: { oxespace_quality_check: 'read' }
   },
 
   // ---- editor ---------------------------------------------------------------------

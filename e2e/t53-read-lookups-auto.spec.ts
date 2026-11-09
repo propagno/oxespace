@@ -20,9 +20,9 @@ import { launchReal, quitReal, realProfile } from './acceptance/real-app'
  * Linux only: on Windows the app launches only a native executable (`.exe`), and a script stand-in is refused there.
  */
 const SERVER = 'oxespace-delegation'
-const READS = ['oxespace_code_search', 'oxespace_code_callers', 'oxespace_code_impact']
+const READS = ['oxespace_search', 'oxespace_git', 'oxespace_threads']
 const WRITE = 'oxespace_skills_change'
-const OTHER = 'mcp__acme-tools__oxespace_code_search'
+const OTHER = 'mcp__acme-tools__oxespace_search'
 const mcp = (tool: string) => `mcp__${SERVER}__${tool}`
 
 const STAND_IN = String.raw`#!/usr/bin/env node

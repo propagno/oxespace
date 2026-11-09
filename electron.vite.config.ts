@@ -107,25 +107,13 @@ export default defineConfig({
         }
       },
       {
-        name: 'copy-codegraph-assets',
+        // Shell parsing (services/conversation/shell-parse.ts) reads web-tree-sitter's runtime from out/main and the
+        // bash grammar from out/main/wasm. Only those two files: no other grammar is used.
+        name: 'copy-shell-parse-assets',
         closeBundle() {
-          const schemaSrc = resolve(__dirname, 'electron/main/vendor/codegraph/db/schema.sql')
-          if (existsSync(schemaSrc)) {
-            cpSync(schemaSrc, resolve(__dirname, 'out/main/schema.sql'))
-          }
-          const wasmSrc = resolve(__dirname, 'electron/main/vendor/codegraph/extraction/wasm')
-          if (existsSync(wasmSrc)) {
-            cpSync(wasmSrc, resolve(__dirname, 'out/main/wasm'), { recursive: true })
-          }
-          const tsWasmsSrc = resolve(__dirname, 'node_modules/tree-sitter-wasms/out')
-          if (existsSync(tsWasmsSrc)) {
-            cpSync(tsWasmsSrc, resolve(__dirname, 'out/main/wasm'), { recursive: true })
-          }
-          // web-tree-sitter's core runtime wasm — Parser.init()'s locateFile()
-          // resolves it from out/main (assetDir). The filename differs by major:
-          // 0.25.x ships `tree-sitter.wasm`, 0.26.x ships `web-tree-sitter.wasm`.
-          // Copy whichever exists so the worker can load the runtime; without it
-          // grammar loading fails and CodeGraph indexes nothing.
+          const bashGrammar = resolve(__dirname, 'node_modules/tree-sitter-wasms/out/tree-sitter-bash.wasm')
+          if (existsSync(bashGrammar)) cpSync(bashGrammar, resolve(__dirname, 'out/main/wasm/tree-sitter-bash.wasm'))
+          // The runtime's filename differs by major: 0.25.x ships `tree-sitter.wasm`, 0.26.x `web-tree-sitter.wasm`.
           for (const name of ['tree-sitter.wasm', 'web-tree-sitter.wasm']) {
             const coreWasm = resolve(__dirname, 'node_modules/web-tree-sitter', name)
             if (existsSync(coreWasm)) cpSync(coreWasm, resolve(__dirname, 'out/main', name))
@@ -170,10 +158,7 @@ export default defineConfig({
         input: {
           index: resolve(__dirname, 'electron/main/index.ts'),
           'native-history-worker': resolve(__dirname, 'electron/main/workers/native-history-worker.ts'),
-          'oxequery-worker': resolve(__dirname, 'electron/main/workers/oxequery-worker.ts'),
-          // CodeGraph parsing worker — keeps tree-sitter parsing off the main
-          // thread so it doesn't block the initial index. extraction/index.ts loads it from out/main/parse-worker.js.
-          'parse-worker': resolve(__dirname, 'electron/main/vendor/codegraph/extraction/parse-worker.ts')
+          'oxequery-worker': resolve(__dirname, 'electron/main/workers/oxequery-worker.ts')
         }
       }
     }

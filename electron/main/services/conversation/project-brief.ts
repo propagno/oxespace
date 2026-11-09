@@ -1,8 +1,7 @@
 /**
  * A short orientation attached to a conversation's first message: which
  * project and branch, how it is built and tested, which instruction files the
- * CLI already loads, and which OXESpace code tools can answer questions
- * without reading whole files. Bounded, best effort (every source may fail on
+ * CLI already loads. Bounded, best effort (every source may fail on
  * its own) and switched off per project with `thread.brief: false` in oxe.yaml.
  *
  * Reads only package.json and existence of a few manifest files; never file
@@ -52,12 +51,10 @@ export async function projectBrief(rootPath: string, provider: 'claude' | 'codex
     ...(branch.trim() ? [`Branch: ${branch.trim()}${changes ? ` · ${changes} uncommitted change${changes === 1 ? '' : 's'}` : ' · clean'}`] : []),
     ...(stack.length ? [`Stack: ${stack.join(', ')}`] : []),
     ...packageSummary(rootPath),
-    ...(instructions.length ? [`Instruction files you already loaded: ${instructions.slice(0, 8).join(', ')}`] : []),
-    'OXESpace tools for this project: oxespace_code_search / oxespace_code_callers / oxespace_code_callees / oxespace_code_impact (code graph).',
-    '  Prefer them over reading whole files when looking for where or how something works.'
+    ...(instructions.length ? [`Instruction files you already loaded: ${instructions.slice(0, 8).join(', ')}`] : [])
   ]
   let body = lines.join('\n')
-  while (Buffer.byteLength(body) > MAX_BRIEF_BYTES && lines.length > 1) { lines.splice(lines.length - 3, 1); body = lines.join('\n') }
+  while (Buffer.byteLength(body) > MAX_BRIEF_BYTES && lines.length > 1) { lines.splice(lines.length - 1, 1); body = lines.join('\n') }
   return body
 }
 

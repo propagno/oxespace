@@ -80,7 +80,6 @@ export const LOG_MESSAGE_ALLOWLIST = [
   '[updater] error', '[updater] init skipped', '[updater] update available', '[updater] downloaded, ready to install', '[updater] up to date',
   '[updater] quitAndInstall failed', '[updater] could not save preferences', '[updater] autoUpdater export not found',
   '[RtkService] Failed to download or extract RTK', '[RtkService] background update failed', '[RtkService] check failed',
-  '[CodeGraphService] Failed to initialize', '[CodeGraph] Uncaught exception', '[CodeGraph] Unhandled rejection',
   '[oxe-context] buildPaneManifest failed'
 ] as const
 

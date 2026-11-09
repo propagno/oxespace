@@ -1,10 +1,10 @@
 /**
- * Local type override for web-tree-sitter.
+ * Local type override for web-tree-sitter, used by shell parsing (conversation/shell-parse.ts).
  *
  * The upstream types declare children/namedChildren as (Node | null)[],
  * but in practice they never contain null entries. This override uses
  * non-nullable arrays to match native tree-sitter's API and avoid
- * pervasive null-check changes across the extraction pipeline.
+ * pervasive null checks.
  *
  * This file takes precedence over node_modules/web-tree-sitter/web-tree-sitter.d.ts
  * because TypeScript resolves local declarations first.
@@ -180,5 +180,3 @@ declare module 'web-tree-sitter' {
     resetTo(cursor: TreeCursor): void;
   }
 }
-
-

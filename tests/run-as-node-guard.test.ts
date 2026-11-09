@@ -24,11 +24,11 @@ function sources(dir: string): string[] {
 const files = RUNTIME.flatMap(dir => sources(join(root, dir))).map(path => ({ path: relative(root, path).replace(/\\/g, '/'), text: readFileSync(path, 'utf8') }))
 const code = (text: string) => text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:\\])\/\/.*$/gm, '$1')
 
-/** Sites that name process.execPath as a child to spawn, each with the Electron guard that keeps it from running. */
-const GUARDED_EXEC_PATH = new Map([
-  ['electron/main/vendor/codegraph/mcp/index.ts', 'if (process.versions.electron) throw'],
-  ['electron/main/vendor/codegraph/extraction/wasm-runtime-flags.ts', 'if (process.versions.electron) return']
-])
+/**
+ * Sites that name process.execPath as a child to spawn, each with the Electron guard that keeps it from running.
+ * None since R1 removed the vendored CodeGraph, whose daemon and wasm flags were the only two.
+ */
+const GUARDED_EXEC_PATH = new Map<string, string>()
 
 describe('no runtime code runs the app binary as Node (RunAsNode fuse off)', () => {
   it('scans the runtime sources', () => {
@@ -78,11 +78,6 @@ describe('no runtime code runs the app binary as Node (RunAsNode fuse off)', () 
       /\(\s*\n\s*process\.execPath\s*,/.test(code(file.text))).map(file => file.path)
     expect(spawning.sort()).toEqual([...GUARDED_EXEC_PATH.keys()].sort())
     for (const [path, guard] of GUARDED_EXEC_PATH) expect(files.find(file => file.path === path)?.text, path).toContain(guard)
-  })
-
-  it('the app does not bundle the CodeGraph MCP server, whose daemon spawns process.execPath', () => {
-    const index = files.find(file => file.path === 'electron/main/vendor/codegraph/index.ts')!
-    expect(code(index.text)).not.toMatch(/export\s*\{[^}]*\bMCPServer\b/)
   })
 
   it('electron-builder.yml asks for the B13 fuses, and check-fuses.mjs expects the same', () => {

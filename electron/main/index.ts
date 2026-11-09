@@ -277,11 +277,11 @@ async function registerIpcHandlers(): Promise<() => void> {
   const [
     { registerGitIpc }, { registerSearchIpc }, { registerGitHubIpc },
     { registerIntegrationIpc }, { registerRemoteIpc },
-    { GitHubService }, { GitService }, { CodeGraphService }
+    { GitHubService }, { GitService }
   ] = await Promise.all([
     import('./ipc/git.ipc'), import('./ipc/search.ipc'), import('./ipc/github.ipc'),
     import('./ipc/integration.ipc'), import('./ipc/remote.ipc'),
-    import('./services/github.service'), import('./services/git.service'), import('./services/codegraph.service')
+    import('./services/github.service'), import('./services/git.service')
   ])
   const gitService = registerGitIpc()
   registerSearchIpc()
@@ -386,7 +386,6 @@ async function registerIpcHandlers(): Promise<() => void> {
   const internalMcpGithub = new GitHubService(db)
   internalMcpGithub.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
   const internalMcpGit = new GitService()
-  const codeGraphService = new CodeGraphService(db)
   const delegationAgents = new AgentService(db)
   const launcher = new AgentLaunchService(terminalManager, () => delegationAgents.list(), app.getPath('userData'))
   const { ThreadDelegationHost } = await import('./services/delegation/thread-delegation-host')
@@ -450,8 +449,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     workspaceServ: internalMcpWorkspaceServ,
     github: internalMcpGithub,
     background: backgroundManager,
-    fileSystem: fileSystemService,
-    codegraph: codeGraphService
+    fileSystem: fileSystemService
   })
   registerMcpInternalIpc(internalMcp)
   // R0b: Settings › Data and the notice band; the first-run export itself starts in the deferred init below.

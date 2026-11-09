@@ -66,7 +66,6 @@ export interface InternalMcpDeps {
   github: GitHubWorktreeApi
   background: BackgroundManager
   fileSystem: FileSystemService
-  codegraph: import('../services/codegraph.service').CodeGraphService
 }
 
 export interface InternalMcpHandle {
@@ -111,7 +110,6 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
     github: deps.github,
     background: deps.background,
     fileSystem: deps.fileSystem,
-    codegraph: deps.codegraph,
     webPreview,
     worktree
   })

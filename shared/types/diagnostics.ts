@@ -61,10 +61,9 @@ export const DIAGNOSTICS_LIMITS = {
 } as const
 
 /**
- * `oxequery-worker` and `codegraph` are reserved: in 1.4 the OxeQuery worker is a worker thread and CodeGraph runs
- * inside the main process, so both are counted in `main` (the panel says so).
+ * `oxequery-worker` is reserved: the OxeQuery worker is a worker thread, so it is counted in `main` (the panel says so).
  */
-export type DiagnosticsProcessKind = 'main' | 'renderer' | 'gpu' | 'oxequery-worker' | 'codegraph' | 'utility' | 'other'
+export type DiagnosticsProcessKind = 'main' | 'renderer' | 'gpu' | 'oxequery-worker' | 'utility' | 'other'
 
 export interface DiagnosticsProcess {
   kind: DiagnosticsProcessKind
