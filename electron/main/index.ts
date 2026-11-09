@@ -221,8 +221,11 @@ async function registerIpcHandlers(): Promise<() => void> {
       const hookAgent = event.agent === 'codex' ? 'codex' : 'claude'
       agentState.hook(event.paneId, hookAgent, event.state)
       // Remember the native session so the pane can reopen it after a restart; an ended session is forgotten.
+      const sessionBefore = paneAgentSessions.current(event.paneId)?.sessionId
       if (event.state === 'ended') paneAgentSessions.clear(event.paneId)
       else if (event.sessionId) paneAgentSessions.record(event.paneId, hookAgent, event.sessionId, 'hook', event.permissionMode)
+      // BE-A46-c5: the phone's reader of this pane's conversation hears a new (or ended) session: a higher epoch, one signal.
+      if (paneAgentSessions.current(event.paneId)?.sessionId !== sessionBefore) void import('./services/remote/pane-conversation').then(module => module.announcePaneSession(event.paneId), () => undefined)
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send(IPC_CHANNELS.agentHooks.onStatus, event)
       }

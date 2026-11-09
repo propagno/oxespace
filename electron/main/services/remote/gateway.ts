@@ -28,6 +28,7 @@ import { defaultRouteAddress, interfaceOf, networkCategories } from './network-p
 import { PAIRING_PROMPT_TIMEOUT_MS, PairingDesk } from './pairing'
 import { RemoteStore, TooManyDevicesError, type DeviceRecord } from './store'
 import { createTopics } from './topics'
+import { paneConversationsFor, paneConversationTopic, type PaneConversationSource } from './pane-conversation'
 import { AccessTokens, readDevicePublicKey, sameSecret, verifyRefreshSignature } from './tokens'
 import { frameSocket, refuseUpgrade, upgradeRefusal, WS_CLOSE } from './websocket'
 
@@ -84,6 +85,8 @@ export interface RemoteGatewayDeps {
   env?: NodeJS.ProcessEnv
   /** Connection slots, for tests. */
   limits?: { connections?: number; unauthenticatedPerAddress?: number; unauthenticated?: number }
+  /** BE-A46-c5: pane agents' conversations; read from the database's recorded sessions by default (with a desktop). */
+  paneConversations?: PaneConversationSource
 }
 
 interface Running {
@@ -144,6 +147,7 @@ export class RemoteGateway implements ConnectionHost {
   private readonly rateLimitAudited = new Map<string, number>()
   private readonly topics: Partial<Record<RemoteSubscription, RemoteTopicSource>>
   private readonly commands: RemoteCommands | null
+  private readonly conversations: PaneConversationSource | undefined
   /** Signs access tokens. Made at each launch and kept only in memory: a restart ends every access token, never a pairing. */
   private readonly tokenKey = randomBytes(32)
   /** `ws` with compression off and the C5 frame cap; it never listens itself, upgrades are handed to it. */
@@ -156,14 +160,18 @@ export class RemoteGateway implements ConnectionHost {
     // A failing read here must not take the gateway down for the whole run (it is built once, on first use).
     try { this.expireUnusedAtLaunch() } catch { /* the in-memory watch still covers what this launch pairs */ }
     const desktop = deps.desktop
+    const conversations = deps.paneConversations ?? (desktop ? paneConversationsFor(deps.db, () => desktop.roots()) : undefined)
+    this.conversations = conversations
     this.topics = {
       ...(desktop ? createTopics({
         desktop, phoneWrite: () => this.phoneWritePanes, ...deps.topicTiming,
+        ...(conversations ? { paneConversation: (paneId: string) => conversations.has(paneId) } : {}),
         onWorkspacesChanged: listener => { this.workspaceListeners.add(listener); return () => { this.workspaceListeners.delete(listener) } }
       }) : {}),
+      ...(conversations ? { paneConversation: paneConversationTopic(conversations) } : {}),
       ...deps.topics
     }
-    this.commands = desktop ? new RemoteCommands({ desktop, now: this.now, phoneWrite: () => this.phoneWritePanes }) : null
+    this.commands = desktop ? new RemoteCommands({ desktop, now: this.now, phoneWrite: () => this.phoneWritePanes, ...(conversations ? { paneConversations: conversations } : {}) }) : null
   }
 
   readonly now = (): number => (this.deps.now ?? Date.now)()
@@ -558,13 +566,18 @@ export class RemoteGateway implements ConnectionHost {
     // `ws` checks the handshake itself (version, key) and answers 400 to a bad one.
     this.websockets.handleUpgrade(req, socket, head, ws => {
       const connection = new RemoteConnection(address, this)
-      connection.attach(frameSocket(ws))
+      // BE-A46-c5 (test 6): a refused `paneConversation` subscribe reads no-conversation, never not-found.
+      const paneSubscribes = new Set<string>()
+      const framed = frameSocket(ws)
+      connection.attach({ get isOpen() { return framed.isOpen }, close: code => framed.close(code), sendText: text => framed.sendText(paneSubscribeAnswer(text, paneSubscribes)) })
       this.connections.add(connection)
       ;(socket as Socket).setNoDelay?.(true)
       ;(socket as Socket).setKeepAlive?.(true, 30_000)
       ws.on('message', (data, isBinary) => {
         if (isBinary) return connection.close(WS_CLOSE.unsupportedData)
-        connection.receive(Buffer.isBuffer(data) ? data.toString('utf8') : Buffer.concat(data as Buffer[]).toString('utf8'))
+        const text = Buffer.isBuffer(data) ? data.toString('utf8') : Buffer.concat(data as Buffer[]).toString('utf8')
+        notePaneSubscribe(text, paneSubscribes)
+        connection.receive(text)
       })
       // A frame over the cap, bad UTF-8, an unmasked frame: `ws` closes with the matching code by itself.
       ws.on('error', () => { setTimeout(() => ws.terminate(), 500).unref?.() })
@@ -779,10 +792,34 @@ export class RemoteGateway implements ConnectionHost {
 
   closed(connection: RemoteConnection): void {
     this.connections.delete(connection)
+    // BE-A46-c5: a device with no connection left loses its conversation handles.
+    if (connection.deviceId && ![...this.connections].some(other => other.deviceId === connection.deviceId)) this.conversations?.forgetDevice(connection.deviceId)
     if (!connection.deviceId) return
     this.store.touch(connection.deviceId, this.now())
     this.deps.broadcast({ devices: this.devices() })
   }
+}
+
+/** BE-A46-c5: the ids of `paneConversation` subscribes still unanswered on a connection. */
+function notePaneSubscribe(text: string, ids: Set<string>): void {
+  if (text.length > REMOTE_LIMITS.maxFrameBytes || !text.includes('paneConversation')) return
+  try {
+    const frame = JSON.parse(text) as { type?: unknown; topic?: unknown; id?: unknown } | null
+    if (frame?.type === 'subscribe' && frame.topic === 'paneConversation' && typeof frame.id === 'string') {
+      ids.add(frame.id)
+      while (ids.size > 64) ids.delete(ids.values().next().value!)
+    }
+  } catch { /* the connection answers it */ }
+}
+
+/** The answer to one of those subscribes: a `not-found` (unknown pane, no session) is `no-conversation`. */
+function paneSubscribeAnswer(text: string, ids: Set<string>): string {
+  if (!ids.size) return text
+  let frame: { type?: unknown; id?: unknown; code?: unknown } | null
+  try { frame = JSON.parse(text) } catch { return text }
+  if (!frame || typeof frame.id !== 'string' || !ids.has(frame.id)) return text
+  ids.delete(frame.id)
+  return frame.type === 'error' && frame.code === 'not-found' ? JSON.stringify({ ...frame, code: 'no-conversation' }) : text
 }
 
 function closeServer(server: https.Server): Promise<void> {
