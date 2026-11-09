@@ -63,7 +63,7 @@ export async function readPlaceDrift(place: ThreadPlace, context: { taskMovedHea
   if (!moved && base.commit && current.commit && base.commit !== current.commit) moved = !(await isAncestor(place.path, base.commit, current.commit))
   if (!moved) return null
   const by = threadPanes([place], context.panes).map(pane => ({ kind: 'pane' as const, id: pane.paneId, title: pane.title }))
-  let dirty = false
+  let dirty: boolean
   try { dirty = await isDirty(place.path) } catch { dirty = false }
   return {
     from: { branch: base.branch, commit: base.commit }, to: { branch: current.branch, commit: current.commit },
@@ -82,7 +82,7 @@ export async function switchPlaceBack(place: ThreadPlace): Promise<{ ok: true } 
   const branch = place.base.branch
   if (!branch) return refuse('thread.place.detached')
   if (!isSafeBranchName(branch)) throw new Error('Refused an unsafe branch name.')
-  let dirty = true
+  let dirty: boolean
   try { dirty = await isDirty(place.path) } catch { dirty = true }
   if (dirty) return refuse('thread.place.dirty')
   if (!(await branchExists(place.path, branch))) return { ok: false, refusal: mainMessage('thread.place.branchGone', { branch }) }

@@ -58,7 +58,7 @@ export async function placeDiff(place: ThreadPlace, written: ThreadPlaceWrite[])
   else if (place.base) { base = await emptyTree(cwd); label = 'Unborn branch' }
   else {
     // Never touched inside a running turn: no base was captured, so HEAD (or the empty tree) stands in.
-    let head: string | null = null
+    let head: string | null
     try { head = (await run(cwd, ['rev-parse', '--verify', '-q', 'HEAD'])).trim() || null } catch { head = null }
     base = head ?? await emptyTree(cwd); label = head ? 'HEAD' : 'Unborn branch'
   }
