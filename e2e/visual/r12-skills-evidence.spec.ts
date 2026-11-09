@@ -40,6 +40,10 @@ for (const theme of THEMES) {
       mkdirSync(join(workspaceRoot, '.oxe', 'skills'), { recursive: true })
       writeFileSync(join(workspaceRoot, '.oxe', 'skills', 'pix-rules.md'), '---\nname: pix-rules\ndescription: Checks a change against the Pix rules.\nagents: [claude]\n---\nCheck the rules.\n')
       await openDemoWorkspace(page, workspaceRoot)
+      // The skill store reads once; a reload makes it read with the workspace open and both files in place.
+      await page.reload()
+      await page.waitForSelector('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]', { timeout: 20_000 })
+      console.log('skill.list', JSON.stringify(await page.evaluate(async () => (await window.oxe.skill.list()).map(skill => [skill.name, skill.source]))))
       for (const [width, height] of SIZES) {
         await resizeWindow(app, width, height)
         const { settings, skills } = await openSkills(page)
