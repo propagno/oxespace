@@ -241,24 +241,53 @@ private fun ansiColor(colors: OxeColors, index: Int): Color = when (index) {
  */
 @Composable
 private fun TerminalLines(lines: List<VtLine>, cols: Int?, list: LazyListState, fontSize: TextUnit, colors: OxeColors) {
-    val style = TextStyle(fontFamily = OxeFonts.mono, fontSize = fontSize, color = colors.textPrimary)
+    val base = TextStyle(fontFamily = OxeFonts.mono, fontSize = fontSize, color = colors.textPrimary)
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
-    val charWidth = remember(fontSize, density) { measurer.measure("0", style).size.width }
+    val charWidth = remember(fontSize, density) { measurer.measure("0", base).size.width }
     // A45: with the desktop's width known the grid is exactly that wide and pans sideways on a narrow phone;
     // without it (an older desktop) it is as wide as the longest line, as in 1.4.3.
     val longest = remember(lines, cols) { cols ?: (lines.maxOfOrNull { it.text.length } ?: 0) }
     val padding = OxeSpace.space3
-    BoxWithConstraints(Modifier.fillMaxSize().horizontalScroll(rememberScrollState())) {
-        val content = with(density) { (charWidth * longest).toDp() } + padding * 2
-        LazyColumn(
-            state = list,
-            contentPadding = PaddingValues(padding),
-            modifier = Modifier.fillMaxHeight().width(maxOf(content, maxWidth)),
-        ) {
-            items(lines.size) { index ->
-                val line = lines[index]
-                Text(remember(line, colors) { colored(line, colors) }, style = style, softWrap = false, maxLines = 1)
+    // CR-A45 (T-P3.1): nothing is clipped silently. A grid wider than the view says it pans, and offers to fit the width.
+    var fit by rememberSaveable { mutableStateOf(false) }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val view = maxWidth
+        val grid = with(density) { (charWidth * longest).toDp() }
+        val wider = grid + padding * 2 > view
+        val fitted = fit && wider && grid.value > 0f
+        val scale = if (fitted) ((view - padding * 2) / grid).coerceIn(0.1f, 1f) else 1f
+        val style = if (fitted) base.copy(fontSize = fontSize * scale) else base
+        val content = if (fitted) view else grid + padding * 2
+        Column(Modifier.fillMaxSize()) {
+            if (wider) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = OxeSpace.space3),
+                    horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        if (fitted) "" else stringResource(R.string.terminal_pan_hint, longest.toString()),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.textMuted,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = { fit = !fit }, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Text(stringResource(R.string.terminal_fit_width), color = if (fitted) colors.textPrimary else colors.textMuted)
+                    }
+                }
+            }
+            Box(Modifier.weight(1f).fillMaxWidth().then(if (fitted) Modifier else Modifier.horizontalScroll(rememberScrollState()))) {
+                LazyColumn(
+                    state = list,
+                    contentPadding = PaddingValues(padding),
+                    modifier = Modifier.fillMaxHeight().width(maxOf(content, view)),
+                ) {
+                    items(lines.size) { index ->
+                        val line = lines[index]
+                        Text(remember(line, colors) { colored(line, colors) }, style = style, softWrap = false, maxLines = 1)
+                    }
+                }
             }
         }
     }
