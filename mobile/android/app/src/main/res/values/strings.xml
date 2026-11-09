@@ -11,6 +11,9 @@
     <string name="approval_prompt_cancel">Cancel this request</string>
     <string name="approval_prompt_decline">Deny this request</string>
     <string name="composer_placeholder">Message the agent</string>
+    <string name="composer_queued_line">queued</string>
+    <string name="composer_queued_placeholder">Queued until the current step ends</string>
+    <string name="composer_read_after_step">read after the current step</string>
     <string name="composer_send">Send</string>
     <string name="composer_steer">Steer</string>
     <string name="composer_steer_finished_before">The agent finished before your instruction arrived. Nothing was sent.</string>
@@ -48,6 +51,11 @@
     <string name="live_age_hours">%1$s h ago</string>
     <string name="live_age_minutes">%1$s min ago</string>
     <string name="live_age_now">just now</string>
+    <string name="live_agents_chip_all">All</string>
+    <string name="live_agents_chip_failed">Failed</string>
+    <string name="live_agents_chip_finished">Finished</string>
+    <string name="live_agents_chip_needs_you">Needs you</string>
+    <string name="live_agents_chip_working">Working</string>
     <string name="live_agent_state_blocked">Needs you</string>
     <string name="live_agent_state_done">Finished</string>
     <string name="live_agent_state_idle">Idle</string>
@@ -94,6 +102,7 @@
     <string name="live_status_idle">Idle</string>
     <string name="live_status_interrupted">Stopped</string>
     <string name="live_status_running">Working</string>
+    <string name="live_tabs_agents">Agents</string>
     <string name="live_tabs_requests">Requests</string>
     <string name="live_tabs_tasks">Tasks</string>
     <string name="live_tabs_terminals">Terminals</string>
@@ -205,6 +214,7 @@
     <string name="terminal_conversation_show_screen">Show the screen</string>
     <string name="terminal_conversation_unavailable">This terminal\'s conversation isn\'t available any more. The screen is still live.</string>
     <string name="terminal_empty">No output yet.</string>
+    <string name="terminal_fit_width">Fit the width</string>
     <string name="terminal_hidden_back">Back to terminals</string>
     <string name="terminal_hidden_on_desktop">This terminal was hidden from the phone on %1$s.</string>
     <string name="terminal_hidden_shown">Hidden characters are now shown in the field. Check it and send again.</string>
@@ -212,6 +222,7 @@
     <string name="terminal_key_left">Left arrow</string>
     <string name="terminal_key_right">Right arrow</string>
     <string name="terminal_key_up">Up arrow</string>
+    <string name="terminal_pan_hint">%1$s cols · swipe to pan</string>
     <string name="terminal_paste">Paste</string>
     <plurals name="terminal_paste_lines">
         <item quantity="one">This text has %1$d line. Send it?</item>
@@ -225,6 +236,7 @@
     <string name="terminal_size_medium">Medium</string>
     <string name="terminal_size_small">Small</string>
     <string name="terminal_text_size">Text size</string>
+    <string name="terminal_type_on_screen">Type on the Screen view</string>
     <string name="terminal_input_not_shared">Typing from the phone is off for this terminal. On your computer, turn on “Allow typing from the phone” in the terminal’s ⋯ menu.</string>
     <string name="terminal_input_placeholder">Type in this terminal</string>
     <string name="terminal_input_send">Send</string>
