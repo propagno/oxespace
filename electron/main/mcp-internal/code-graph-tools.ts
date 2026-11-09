@@ -11,7 +11,7 @@ const symbol = { type: 'string', description: 'Function, method or class name' }
 const limit = (fallback: number) => ({ type: 'number', description: `Maximum results (default ${fallback})` })
 
 const TOOLS: Array<{ name: string; target: string; description: string; properties: Record<string, unknown>; required?: string[]; allowed: string[] }> = [
-  { name: 'oxespace_code_search', target: 'codegraph_search', description: 'Find symbols by name in this project. Returns locations only; use oxespace_hybrid_explore for source.',
+  { name: 'oxespace_code_search', target: 'codegraph_search', description: 'Find symbols by name in this project. Returns locations only; use oxespace_code_node with includeCode for source.',
     properties: { query: { type: 'string', description: 'Symbol name or part of it' }, kind: { type: 'string', enum: ['function', 'method', 'class', 'interface', 'type', 'variable', 'route', 'component'] }, limit: limit(10) }, required: ['query'], allowed: ['query', 'kind', 'limit'] },
   { name: 'oxespace_code_callers', target: 'codegraph_callers', description: 'Functions that call a symbol in this project.',
     properties: { symbol, limit: limit(20) }, required: ['symbol'], allowed: ['symbol', 'limit'] },

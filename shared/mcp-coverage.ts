@@ -188,7 +188,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'search.code': {
     label: 'Structural code retrieval and the post-diff quality check',
     tools: {
-      oxespace_hybrid_explore: 'read', oxespace_quality_check: 'read', oxespace_code_search: 'read', oxespace_code_callers: 'read',
+      oxespace_quality_check: 'read', oxespace_code_search: 'read', oxespace_code_callers: 'read',
       oxespace_code_callees: 'read', oxespace_code_impact: 'read', oxespace_code_node: 'read', oxespace_code_status: 'read'
     }
   },

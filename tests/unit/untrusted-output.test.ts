@@ -22,7 +22,7 @@ describe('untrusted output fence', () => {
   })
 
   it('leaves ordinary reads exactly as they were', () => {
-    for (const [tool, args] of [['oxespace_search', { action: 'text' }], ['oxespace_hybrid_explore', { query: 'x' }], ['oxespace_git', { action: 'file_at_ref' }], ['oxespace_list_panes', {}]] as const) {
+    for (const [tool, args] of [['oxespace_search', { action: 'text' }], ['oxespace_code_search', { query: 'x' }], ['oxespace_git', { action: 'file_at_ref' }], ['oxespace_list_panes', {}]] as const) {
       const result = text('source code')
       expect(fenceUntrusted(tool, args, result)).toBe(result)
     }

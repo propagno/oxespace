@@ -5,7 +5,7 @@ import { launchReal, quitReal, realProfile } from './acceptance/real-app'
 
 /**
  * T53 (1.4.1, BACKEND + SECURITY) · Black box, REAL app: in an OxeChat conversation, OXESpace's own read-only lookups
- * (code search, callers, impact, hybrid explore…) are answered without the person when the project has no rule and
+ * (code search, callers, impact…) are answered without the person when the project has no rule and
  * "Auto-approve reads" is on; a write tool of the same server still asks; a third-party server with a tool of the same
  * name still asks; with "Auto-approve reads" off the lookups ask again. Found by the S5 recorded task on 97120f9c: every
  * lookup stopped on a per-call approval nobody was there to answer.
@@ -20,7 +20,7 @@ import { launchReal, quitReal, realProfile } from './acceptance/real-app'
  * Linux only: on Windows the app launches only a native executable (`.exe`), and a script stand-in is refused there.
  */
 const SERVER = 'oxespace-delegation'
-const READS = ['oxespace_code_search', 'oxespace_code_callers', 'oxespace_code_impact', 'oxespace_hybrid_explore']
+const READS = ['oxespace_code_search', 'oxespace_code_callers', 'oxespace_code_impact']
 const WRITE = 'oxespace_skills_change'
 const OTHER = 'mcp__acme-tools__oxespace_code_search'
 const mcp = (tool: string) => `mcp__${SERVER}__${tool}`

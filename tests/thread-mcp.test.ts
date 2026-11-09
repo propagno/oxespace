@@ -10,7 +10,7 @@ it('adds the OXESpace bridge while preserving Claude CLI MCP inheritance and per
   const server = JSON.parse(args.at(-1)!).mcpServers['oxespace-delegation']
   expect(server.args[0]).toBe('/bridge.cjs')
   expect(JSON.parse(server.args[2])).toContain('oxespace_memory_search')
-  expect(JSON.parse(server.args[2])).toContain('oxespace_hybrid_explore')
+  expect(JSON.parse(server.args[2])).toContain('oxespace_code_search')
   // Tools that need a Code workspace's panes, scripts, jobs or worktrees are not offered to a Thread.
   for (const codeOnly of ['oxespace_run_script', 'oxespace_list_panes', 'oxespace_list_worktrees', 'oxespace_create_worktree', 'oxespace_remove_worktree', 'oxespace_list_background_jobs']) {
     expect(JSON.parse(server.args[2])).not.toContain(codeOnly)
@@ -63,7 +63,7 @@ it('gives a read-only Claude conversation the bridge limited to read-only lookup
   const config = JSON.parse(result[4]) as { mcpServers: Record<string, { args: string[] }> }
   expect(Object.keys(config.mcpServers)).toEqual(['oxespace-delegation'])
   const allowed = JSON.parse(config.mcpServers['oxespace-delegation'].args[2]) as string[]
-  expect(allowed).toContain('oxespace_hybrid_explore')
+  expect(allowed).toContain('oxespace_code_search')
   expect(allowed).toContain('oxespace_memory_search')
   for (const writer of ['oxespace_memory_remember', 'oxespace_thread_send', 'oxespace_delegate_task', 'oxespace_team_message', 'oxespace_preview_interact', 'oxespace_open_web_preview']) {
     expect(allowed).not.toContain(writer)

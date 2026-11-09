@@ -53,12 +53,11 @@ export async function projectBrief(rootPath: string, provider: 'claude' | 'codex
     ...(stack.length ? [`Stack: ${stack.join(', ')}`] : []),
     ...packageSummary(rootPath),
     ...(instructions.length ? [`Instruction files you already loaded: ${instructions.slice(0, 8).join(', ')}`] : []),
-    'OXESpace tools for this project: oxespace_hybrid_explore (source by meaning and structure, one call),',
-    '  oxespace_code_search / oxespace_code_callers / oxespace_code_callees / oxespace_code_impact (code graph).',
+    'OXESpace tools for this project: oxespace_code_search / oxespace_code_callers / oxespace_code_callees / oxespace_code_impact (code graph).',
     '  Prefer them over reading whole files when looking for where or how something works.'
   ]
   let body = lines.join('\n')
-  while (Buffer.byteLength(body) > MAX_BRIEF_BYTES && lines.length > 1) { lines.splice(lines.length - 4, 1); body = lines.join('\n') }
+  while (Buffer.byteLength(body) > MAX_BRIEF_BYTES && lines.length > 1) { lines.splice(lines.length - 3, 1); body = lines.join('\n') }
   return body
 }
 

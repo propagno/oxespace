@@ -120,16 +120,17 @@ describe('turning a tool group on in a session (B7.2)', () => {
     } finally { await endpoint.close() }
   })
 
-  it('tells the agent when its tools beat grep, once in initialize, and only where those tools are listed (S5)', async () => {
+  it('tells the agent which tools to reach for, once in initialize, and never from a bridge that lists nothing (S5, R3)', async () => {
     const endpoint = await server()
     try {
       const instructions = async (session: ReturnType<typeof bridge>) => ((await session.request('initialize', {})).result as { instructions?: string }).instructions
-      const text = await instructions(bridge(endpoint.port, [...TOOLS, 'oxespace_hybrid_explore']))
-      expect(text).toContain('oxespace_hybrid_explore')
+      const text = await instructions(bridge(endpoint.port, TOOLS))
+      expect(text).toContain('oxespace_tools_enable')
       expect(text!.length).toBeLessThanOrEqual(600)
-      // A plan without the code tools, or a bridge that lists nothing, says nothing about them.
-      expect(await instructions(bridge(endpoint.port, TOOLS))).toBeUndefined()
-      expect(await instructions(bridge(endpoint.port, [...TOOLS, 'oxespace_hybrid_explore'], undefined, { args: ['--project-entry'], env: { OXESPACE_PANE_BRIDGE: randomUUID() } }))).toBeUndefined()
+      // Whatever the plan lists, the instructions stay: they no longer hang on one tool (R3).
+      expect(await instructions(bridge(endpoint.port, ['oxespace_capabilities']))).toBe(text)
+      // A bridge that lists nothing says nothing.
+      expect(await instructions(bridge(endpoint.port, TOOLS, undefined, { args: ['--project-entry'], env: { OXESPACE_PANE_BRIDGE: randomUUID() } }))).toBeUndefined()
     } finally { await endpoint.close() }
   })
 

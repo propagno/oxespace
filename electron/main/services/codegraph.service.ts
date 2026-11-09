@@ -26,7 +26,7 @@ export class CodeGraphService {
     // Opt-in: do NOT index on boot. CodeGraph (like RTK/Caveman/Semantic) is an
     // optional developer feature, so opening a workspace must not trigger a heavy
     // full-repo index. The graph is built lazily on the first
-    // `oxespace_hybrid_explore` call for a workspace (see ensureInstance), and
+    // code tool call (oxespace_code_*) for a workspace (see ensureInstance), and
     // cached in .oxe/codegraph.db thereafter.
   }
 

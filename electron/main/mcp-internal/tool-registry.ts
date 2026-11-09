@@ -391,29 +391,6 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   },
   {
     descriptor: {
-      name: 'oxespace_hybrid_explore',
-      description: 'Structural repository retrieval for development: traverses the code graph (CodeGraph) for the question or symbol names and returns the matching symbols with their source. Use it to find where code lives or how a feature works.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          query: {
-            type: 'string',
-            description: 'Natural language question or symbol names to explore (e.g., "How does authentication work?", "AuthService loginUser").'
-          },
-          maxFiles: {
-            type: 'number',
-            description: 'Maximum number of files to include source code from (default: 12)'
-          }
-        },
-        required: ['query'],
-        additionalProperties: false
-      }
-    },
-    requiresWorkspace: true,
-    handler: handlers.hybridExplore
-  },
-  {
-    descriptor: {
       name: 'oxespace_quality_check',
       description: 'Post-diff quality controller. Maps changed files to unchanged exact-reference consumers, checks test/migration/contract coverage and links acceptance criteria to diff evidence. Run after implementation and before claiming completion; address HIGH findings and pair this heuristic check with the real verification commands.',
       inputSchema: {

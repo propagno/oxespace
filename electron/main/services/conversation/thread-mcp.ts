@@ -25,7 +25,6 @@ export interface ThreadMcpBindings {
 export const THREAD_TOOL_GROUPS = {
   /** Every conversation: code, search and memory lookups. */
   core: ['oxespace_capabilities', 'oxespace_project_context', 'oxespace_memory_search', 'oxespace_memory_remember',
-    'oxespace_hybrid_explore',
     'oxespace_code_search', 'oxespace_code_callers', 'oxespace_code_callees', 'oxespace_code_impact', 'oxespace_code_node', 'oxespace_code_status'],
   /** A team member's conversation. */
   team: ['oxespace_team_status', 'oxespace_team_inbox', 'oxespace_team_message', 'oxespace_team_acknowledge'],

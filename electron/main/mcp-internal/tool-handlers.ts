@@ -356,39 +356,6 @@ async function captureWebPreview(args: unknown, ctx: ToolContext): Promise<Inter
   return { content, isError: false }
 }
 
-async function hybridExplore(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
-  const scope = await requireProjectScope(ctx)
-  const ws = { id: scope.workspaceId, rootPath: scope.rootPath }
-  const input = asRecord(args) as any
-  const query = expectString(input.query, 'query')
-  const maxFiles = typeof input.maxFiles === 'number' ? input.maxFiles : 12
-
-  let text = ''
-
-  // CodeGraph explore on the plain query.
-  try {
-    const cg = await ctx.codegraph.ensureInstance(ws.rootPath)
-    const { ToolHandler } = await import('../vendor/codegraph/mcp/tools')
-    const handler = new ToolHandler(cg as any)
-
-    const cgResult = await handler.execute('codegraph_explore', {
-      query,
-      maxFiles
-    })
-
-    if (cgResult.content && cgResult.content[0] && cgResult.content[0].type === 'text') {
-      text += `[Hybrid RAG: Structural AST (CodeGraph)]\n${cgResult.content[0].text}`
-    } else {
-      text += `[Hybrid RAG: Structural AST (CodeGraph)]\nNo structural results found.`
-    }
-  } catch (err) {
-    console.warn('[Hybrid RAG] CodeGraph explore failed:', err)
-    text += `[Hybrid RAG: Structural AST (CodeGraph)]\nError: ${err instanceof Error ? err.message : String(err)}`
-  }
-
-  return textResult(text)
-}
-
 const PREVIEW_ACTIONS = ['inspect', 'status', 'console', 'network', 'tabs', 'newTab', 'selectTab', 'closeTab', 'click', 'fill', 'navigate', 'wait', 'scroll']
 const PREVIEW_ARGUMENTS = new Set(['action', 'expectedUrl', 'selector', 'text', 'url', 'tabId', 'deltaY'])
 
@@ -427,6 +394,5 @@ export const handlers = {
   openWebPreview,
   captureWebPreview,
   previewInteract,
-  qualityCheck,
-  hybridExplore
+  qualityCheck
 }
