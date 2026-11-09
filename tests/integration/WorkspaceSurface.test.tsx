@@ -170,7 +170,9 @@ describe('WorkspaceSurface', () => {
     await user.click(await screen.findByTestId('workspace-integrations-trigger'))
 
     const menu = screen.getByRole('menu', { name: 'Integration status' })
-    for (const name of ['GitHub', 'MCP', 'RTK', 'Caveman', 'Semantic']) expect(within(menu).getByText(name)).toBeInTheDocument()
+    for (const name of ['GitHub', 'MCP', 'Caveman', 'Semantic']) expect(within(menu).getByText(name)).toBeInTheDocument()
+    // R4 took RTK out: no RTK row.
+    expect(within(menu).queryByText('RTK')).toBeNull()
   })
 
   test('persists expanded and collapsed editor state', async () => {
