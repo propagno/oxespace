@@ -19,7 +19,18 @@ interface StreamListener {
     fun onEvent(data: JsonElement)
     /** `not-found`, `forbidden`, `too-many-subscriptions`…: the stream is no longer followed. */
     fun onRefused(code: RemoteErrorCode) {}
+    /**
+     * CR-34: the desktop ended an open stream (an `error` frame naming it). The stream is no longer followed and is
+     * never asked for again. [reason] is [PANE_HIDDEN_REASON] when the pane was switched off "Show on phone";
+     * anything else reads as a refusal.
+     */
+    fun onEnded(code: RemoteErrorCode, reason: String?) {
+        onRefused(code)
+    }
 }
+
+/** CR-34 (C5, #706): the `reason` of the `error` that ends a stream because its pane was hidden from the phone. */
+const val PANE_HIDDEN_REASON = "pane-hidden"
 
 /** A stream the app asked for; stays followed across reconnections until [SubscriptionHub.unfollow]. */
 class Followed internal constructor(val topic: RemoteSubscription, val target: String?, internal val listener: StreamListener) {
@@ -94,6 +105,13 @@ class SubscriptionHub(private val send: (RemoteFrame) -> Unit, private val newId
         is RemoteErrorFrame -> followed.firstOrNull { frame.id != null && it.pendingId == frame.id }?.let { stream ->
             followed.remove(stream)
             stream.listener.onRefused(frame.code)
+            true
+        } ?: frame.subscription?.let(::streamNamed)?.let { stream ->
+            // CR-34: the desktop ended an open stream. It is gone on its side: no unsubscribe, no retry, no
+            // resubscribe after a reconnect, and frames that still arrive for the name are ignored.
+            followed.remove(stream)
+            stream.forget()
+            stream.listener.onEnded(frame.code, frame.reason)
             true
         } ?: false
         is RemoteSnapshotFrame -> streamNamed(frame.subscription)?.let { onSnapshot(it, frame); true } ?: false

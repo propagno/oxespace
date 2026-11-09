@@ -101,9 +101,11 @@ import kotlinx.coroutines.launch
 /** A pane's output, read-only, in the desktop's terminal colors; follows the newest line. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands: CommandApi, presence: PresenceGate, onBack: () -> Unit, conversation: PaneConversation? = null) {
+fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands: CommandApi, presence: PresenceGate, conversation: PaneConversation? = null, computer: String? = null, onBack: () -> Unit) {
     SecureScreen()
     val tick by watched.changes.collectAsStateWithLifecycle()
+    // CR-34: the desktop hid this pane from the phone; nothing of it stays, the title and last frame included.
+    val hidden = remember(tick) { watched.store.hiddenOnDesktop }
     val colors = Oxe.colors
     // The screen, not the raw stream (T97): unchanged lines come back as the same objects, so the list skips them.
     val lines = remember(tick) { watched.store.lines() }
@@ -132,7 +134,7 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
+                    if (!hidden) Column {
                         Text(displaySafe(pane.title, 200), style = MaterialTheme.typography.titleMedium, maxLines = 1, modifier = Modifier.semantics { heading() })
                         Text(
                             stringResource(if (pane.phoneWrite) R.string.live_phone_write else R.string.live_read_only),
@@ -164,9 +166,13 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
                 },
             )
         },
-        bottomBar = { if (pane.phoneWrite) TerminalInput(pane.id, commands, presence) },
+        bottomBar = { if (pane.phoneWrite && !hidden) TerminalInput(pane.id, commands, presence) },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).background(colors.surfaceSunken)) {
+            if (hidden) {
+                HiddenOnDesktopNotice(computer, onBack)
+                return@Column
+            }
             // A46: Screen · Conversation, only when the desktop says the pane's agent has a conversation.
             val offersConversation = conversation != null && showsConversationToggle(pane)
             var showingConversation by rememberSaveable(pane.id) { mutableStateOf(false) }
@@ -188,8 +194,8 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
                     )
                 }
             }
-            if (offersConversation && showingConversation && conversation != null) {
-                PaneConversationView(conversation, onShowScreen = { showingConversation = false })
+            if (offersConversation && showingConversation) {
+                PaneConversationView(conversation, onShowScreen = { showingConversation = false }, computer = computer, onBack = onBack)
             } else if (redacted > 0) {
                 Text(
                     pluralStringResource(R.plurals.terminal_redacted, redacted.toInt(), redacted.toInt()),

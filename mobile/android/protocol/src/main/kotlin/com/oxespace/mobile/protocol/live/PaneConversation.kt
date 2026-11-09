@@ -258,4 +258,9 @@ class PaneConversationFeed(val conversation: PaneConversation) : StreamListener 
     override fun onRefused(code: RemoteErrorCode) {
         conversation.onChanged()
     }
+
+    /** CR-34: the desktop ended the stream because the pane was hidden from the phone; any other end is a refusal. */
+    override fun onEnded(code: RemoteErrorCode, reason: String?) {
+        if (reason == PANE_HIDDEN_REASON) conversation.onHidden() else onRefused(code)
+    }
 }

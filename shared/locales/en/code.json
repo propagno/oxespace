@@ -1925,6 +1925,11 @@
     "phoneWriteBadge": "Phone can type",
     "phoneWriteBadgeTitle": "A paired phone can type in this terminal. Turn it off in the ⋯ menu.",
     "phoneWriteFailed": "Could not change typing from the phone",
+    "phoneShow": "Show on phone",
+    "phoneShowHint": "Paired phones can see this terminal.",
+    "phoneWriteNeedsShow": "Show it on the phone first.",
+    "phoneHiddenMark": "Hidden from the phone",
+    "phoneShowFailed": "Could not change whether the phone shows this terminal",
     "whyStatus": "Why this status?",
     "explain": {
       "description": "What OXESpace read to decide this pane's status.",

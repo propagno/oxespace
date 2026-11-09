@@ -1,5 +1,6 @@
 package com.oxespace.mobile.protocol.live
 
+import com.oxespace.mobile.protocol.RemoteErrorCode
 import com.oxespace.mobile.protocol.RemoteFrames
 import com.oxespace.mobile.protocol.RemoteTerminalData
 import kotlinx.serialization.SerializationException
@@ -28,8 +29,10 @@ class TerminalBuffer(capacity: Int = 256 * 1024) : StreamListener {
      */
     val cols: Int? get() = synchronized(this) { width }
 
-    /** 1.5.0 F10 skeleton (CR-34): the desktop hid this pane from the phone; nothing of it stays on screen. */
-    val hiddenOnDesktop: Boolean get() = TODO("F10 CR34")
+    private var hidden = false
+
+    /** CR-34: the desktop hid this pane from the phone ("Show on phone" off); nothing of it stays on screen. */
+    val hiddenOnDesktop: Boolean get() = synchronized(this) { hidden }
 
     var redacted: Long = 0
         private set
@@ -39,6 +42,7 @@ class TerminalBuffer(capacity: Int = 256 * 1024) : StreamListener {
 
     override fun onSnapshot(pages: List<JsonElement>) {
         synchronized(this) {
+            if (hidden) return
             redacted = 0
             val chunks = pages.mapNotNull(::read)
             val snapshot = chunks.firstOrNull()?.snapshot
@@ -64,8 +68,21 @@ class TerminalBuffer(capacity: Int = 256 * 1024) : StreamListener {
     override fun onEvent(data: JsonElement) {
         val chunk = read(data) ?: return
         synchronized(this) {
+            if (hidden) return
             // The phone was away longer than the ring is deep: what it holds no longer joins up with what follows.
             apply(chunk, clearFirst = chunk.truncated)
+            version++
+        }
+    }
+
+    /** CR-34: a pane hidden from the phone clears the screen, the last frame included; any other end is a refusal. */
+    override fun onEnded(code: RemoteErrorCode, reason: String?) {
+        if (reason != PANE_HIDDEN_REASON) return onRefused(code)
+        synchronized(this) {
+            hidden = true
+            width = null
+            redacted = 0
+            screen.reset(0, 0)
             version++
         }
     }

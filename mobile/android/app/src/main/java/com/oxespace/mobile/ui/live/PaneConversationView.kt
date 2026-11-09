@@ -32,10 +32,31 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oxespace.mobile.R
+import com.oxespace.mobile.protocol.displaySafe
 import com.oxespace.mobile.protocol.live.PaneConversation
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeSpace
 import kotlinx.coroutines.launch
+
+/**
+ * CR-34 (DESIGN 08/11): the desktop hid this pane from the phone. An info Notice takes the screen's place, names the
+ * computer only (never the pane), and offers one way back.
+ */
+@Composable
+internal fun HiddenOnDesktopNotice(computer: String?, onBack: () -> Unit) {
+    val name = computer ?: stringResource(R.string.home_unknown_desktop)
+    Column(
+        Modifier.fillMaxWidth().padding(OxeSpace.space3),
+        verticalArrangement = Arrangement.spacedBy(OxeSpace.space2),
+    ) {
+        Text(
+            stringResource(R.string.terminal_hidden_on_desktop, displaySafe(name, 200)),
+            color = Oxe.colors.textSecondary,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+        )
+        Button(onClick = onBack, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.terminal_hidden_back)) }
+    }
+}
 
 /**
  * 1.5.0 A46: a terminal agent's own CLI conversation, read only. Load earlier at the top, the marker line when the
@@ -43,7 +64,7 @@ import kotlinx.coroutines.launch
  * with Show the screen when the conversation can't be read any more.
  */
 @Composable
-fun PaneConversationView(conversation: PaneConversation, onShowScreen: () -> Unit) {
+fun PaneConversationView(conversation: PaneConversation, onShowScreen: () -> Unit, computer: String? = null, onBack: (() -> Unit)? = null) {
     val state by conversation.state.collectAsStateWithLifecycle()
     val colors = Oxe.colors
     val list = rememberLazyListState()
@@ -59,6 +80,8 @@ fun PaneConversationView(conversation: PaneConversation, onShowScreen: () -> Uni
         if (conversation.follow(atBottom) && state.items.isNotEmpty()) list.scrollToItem(maxOf(0, list.layoutInfo.totalItemsCount - 1))
     }
     when {
+        // CR-34: hidden is its own Notice, not "unavailable" (that one offers Show the screen, which is gone too).
+        state.hiddenOnDesktop -> HiddenOnDesktopNotice(computer, onBack ?: onShowScreen)
         state.unavailable -> Column(
             Modifier.fillMaxWidth().padding(OxeSpace.space3),
             verticalArrangement = Arrangement.spacedBy(OxeSpace.space2),
