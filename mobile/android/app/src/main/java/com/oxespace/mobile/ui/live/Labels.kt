@@ -106,3 +106,17 @@ fun delegationStateLabel(state: String): Int = when (state) {
     "cancelled" -> R.string.live_delegation_state_cancelled
     else -> R.string.live_delegation_state_unknown
 }
+
+/**
+ * CR-A42b-2: a conversation's state as the row's StatusGlyph draws it, with the S7.1 words: waiting on the person is
+ * Needs you, an idle conversation whose last turn completed is Finished (the same as in Agents).
+ */
+fun threadAgentState(status: String, lastTurnStatus: String?, pendingRequests: Long): com.oxespace.mobile.agents.AgentState = when {
+    status == "approval" || pendingRequests > 0 -> com.oxespace.mobile.agents.AgentState.NEEDS_YOU
+    status == "running" -> com.oxespace.mobile.agents.AgentState.WORKING
+    status == "failed" -> com.oxespace.mobile.agents.AgentState.FAILED
+    status == "interrupted" -> com.oxespace.mobile.agents.AgentState.STOPPED
+    status == "idle" && lastTurnStatus == "completed" -> com.oxespace.mobile.agents.AgentState.FINISHED
+    status == "idle" -> com.oxespace.mobile.agents.AgentState.IDLE
+    else -> com.oxespace.mobile.agents.AgentState.UNKNOWN
+}

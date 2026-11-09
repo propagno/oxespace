@@ -47,10 +47,15 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.Alignment
 import com.oxespace.mobile.R
 import com.oxespace.mobile.pairing.PairedDesktop
 import com.oxespace.mobile.session.DesktopStatus
+import com.oxespace.mobile.ui.components.ComputerCard
 import com.oxespace.mobile.ui.components.Notice
+import com.oxespace.mobile.ui.components.OxeMark
+import com.oxespace.mobile.ui.components.Skeleton
 import com.oxespace.mobile.ui.components.NoticeIntent
 import com.oxespace.mobile.ui.components.OxeButton
 import com.oxespace.mobile.ui.components.OxeButtonKind
@@ -103,6 +108,8 @@ private fun Unpaired(status: DesktopStatus.Unpaired, onPair: () -> Unit) {
             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
         )
     }
+    // CR-A42b-2 (M1): the hero carries the brand mark.
+    OxeMark(size = 64.dp)
     Text(stringResource(R.string.home_title), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
     Text(stringResource(R.string.home_body), style = MaterialTheme.typography.bodyLarge)
     OxeButton(stringResource(R.string.home_pair), onClick = onPair, modifier = Modifier.fillMaxWidth())
@@ -135,7 +142,12 @@ private fun Paired(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
+                        OxeMark(size = 30.dp)
+                        Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                },
                 actions = {
                     Box {
                         IconButton(onClick = { menu = true }) {
@@ -181,13 +193,18 @@ private fun PairedBody(
         connecting -> stringResource(connectingText, name)
         else -> stringResource(R.string.home_status_connected, name)
     }
+    // CR-A42b-2 (M1): the computer card says how the phone stands with it; a skeleton while connecting.
+    val state = when {
+        problem != null -> stringResource(R.string.home_card_problem)
+        connecting -> stringResource(connectingText, name)
+        else -> stringResource(R.string.home_status_connected, name)
+    }
+    ComputerCard(name, state, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+    if (connecting) Skeleton(lines = 2)
     if (problem != null) {
         // Every problem is a Notice (MG5).
         Notice(NoticeIntent.WARNING, title = line, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
-    } else {
-        Text(line, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
     }
-    if (connecting) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
     if (problem == null && !connecting) Text(stringResource(R.string.home_paired_body, name), style = MaterialTheme.typography.bodyLarge)
     retryInMs?.let {
         val seconds = ((it + 999) / 1_000).toInt()

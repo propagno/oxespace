@@ -56,7 +56,10 @@ import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeRadius
 import com.oxespace.mobile.ui.theme.OxeSpace
 import com.oxespace.mobile.ui.theme.OxeTheme
+import com.oxespace.mobile.ui.components.CodeBoxes
 import com.oxespace.mobile.ui.components.Notice
+import com.oxespace.mobile.ui.components.PairingStepper
+import com.oxespace.mobile.ui.components.Viewfinder
 import com.oxespace.mobile.ui.components.NoticeIntent
 import com.oxespace.mobile.ui.components.OxeButton
 import com.oxespace.mobile.ui.components.OxeButtonKind
@@ -71,6 +74,17 @@ fun PairingScreen(state: PairingState, onScanAgain: () -> Unit, onDone: () -> Un
             modifier = Modifier.safeDrawingPadding().verticalScroll(rememberScrollState()).padding(OxeSpace.space6),
             verticalArrangement = Arrangement.spacedBy(OxeSpace.space4),
         ) {
+            // CR-A42b-2 (M2): the four steps above every state; a failure marks the step it happened at.
+            PairingStepper(
+                labels = listOf(
+                    stringResource(R.string.pairing_step_scan),
+                    stringResource(R.string.pairing_step_connect),
+                    stringResource(R.string.pairing_step_confirm),
+                    stringResource(R.string.pairing_step_done),
+                ),
+                current = stepOf(state),
+                failed = state is PairingState.Failed,
+            )
             when (state) {
                 PairingState.Scanning, is PairingState.BadCode -> Scanning(state as? PairingState.BadCode, camera)
                 is PairingState.Contacting -> Contacting(state)
@@ -98,8 +112,8 @@ private fun Scanning(badCode: PairingState.BadCode?, camera: @Composable (Modifi
     SecureScreen()
     Title(stringResource(R.string.pairing_title))
     Text(stringResource(R.string.pairing_instructions), style = MaterialTheme.typography.bodyLarge)
-    val frame = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(OxeRadius.lg))
-    camera(frame)
+    // CR-A42b-2 (M2): the camera in the viewfinder; its guides turn to warning when the last code was wrong.
+    Viewfinder(warning = badCode != null, modifier = Modifier.fillMaxWidth().aspectRatio(1f)) { inside -> camera(inside) }
     if (badCode != null) {
         // A code that isn't a pairing code is a problem, so it's a Notice (MG5).
         Notice(NoticeIntent.WARNING, title = stringResource(badCodeText(badCode.problem)), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
@@ -126,17 +140,9 @@ private fun Waiting(state: PairingState.Waiting) {
         if (state.verification.isEmpty()) {
             CircularProgressIndicator()
         } else {
+            // Read character by character, so "28T5CY" isn't spoken as a word.
             val spoken = stringResource(R.string.pairing_verification_description, state.verification.toList().joinToString(" "))
-            Text(
-                state.verification,
-                fontFamily = OxeFonts.mono,
-                fontSize = 40.sp,
-                letterSpacing = 6.sp,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
-                // Read character by character, so "28T5CY" isn't spoken as a word.
-                modifier = Modifier.clearAndSetSemantics { contentDescription = spoken },
-            )
+            CodeBoxes(state.verification, spoken)
         }
     }
     if (state.verification.isNotEmpty()) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -182,6 +188,19 @@ fun CameraWithPermission(description: String, onText: (String) -> Unit, modifier
         } else {
             OxeButton(stringResource(R.string.pairing_allow_camera), onClick = { launcher.launch(Manifest.permission.CAMERA) }, modifier = Modifier.fillMaxWidth())
         }
+    }
+}
+
+/** Which of the four steps a pairing is at; a failure is placed at the step it happened at. */
+private fun stepOf(state: PairingState): Int = when (state) {
+    PairingState.Scanning, is PairingState.BadCode -> 0
+    is PairingState.Contacting -> 1
+    is PairingState.Waiting -> 2
+    is PairingState.Paired -> 4
+    is PairingState.Failed -> when (state.failure) {
+        PairingFailure.CODE_EXPIRED, PairingFailure.CODE_USED, PairingFailure.CODE_INVALID, PairingFailure.REFUSED_ON_DESKTOP,
+        PairingFailure.TOO_MANY_DEVICES, PairingFailure.RESERVED_NAME, PairingFailure.LOCKED -> 2
+        else -> 1
     }
 }
 

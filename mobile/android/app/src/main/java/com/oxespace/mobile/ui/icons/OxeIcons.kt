@@ -110,4 +110,23 @@ object OxeIcons {
             "M9 6.8a6 6 0 0 1 9 5.2v2",
         )
     }
+
+    /** CR-A42b-2: the Conversations tab, #606's OxeChat (a speech bubble with a cactus inside). */
+    val OxeChat: ImageVector by lazy { strokeIcon("OxeChat", "M4 5h16v11H11l-5 4v-4H4z", "M12 9v4M12 11h-2.5V9.5M12 10.5h2.5V9") }
+
+    /** CR-A42b-2: the Terminals tab, #606's OxeCode (a screen with a prompt). */
+    val OxeCode: ImageVector by lazy {
+        strokeIcon("OxeCode", "M6 4h12a3 3 0 0 1 3 3v10a3 3 0 0 1 -3 3H6a3 3 0 0 1 -3 -3V7a3 3 0 0 1 3 -3z", "M7 10l3 2l-3 2M12.5 15H16", "M17 4V2.5")
+    }
+
+    /** CR-A42b-2: the Agents tab, #606's Agora (the assembly, seen from above). */
+    val Agora: ImageVector by lazy {
+        strokeIcon("Agora", "M3 19a9 9 0 0 1 18 0", "M6.5 19a5.5 5.5 0 0 1 11 0", "M10.5 17.5a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0", "M12 4v4M5.6 6.6l1.8 1.8M18.4 6.6l-1.8 1.8")
+    }
+
+    /** CR-A42b-2: the Requests ("Needs you") tab: the bell, with the sun badge on top of it. */
+    val Bell: ImageVector by lazy { strokeIcon("Bell", "M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3 -2 3 -9", "M10 21h4") }
+
+    /** CR-A42b-2: the Tasks tab (background jobs and delegations): the clock. */
+    val Clock: ImageVector by lazy { strokeIcon("Clock", "M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0", "M12 7v5l3 2") }
 }

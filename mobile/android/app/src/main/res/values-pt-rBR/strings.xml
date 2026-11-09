@@ -22,6 +22,7 @@
     <string name="home_address_title">Endereço do computador</string>
     <string name="home_body">Pareie este celular com o OXESpace no seu computador, na mesma Wi-Fi, para acompanhar e responder suas sessões.</string>
     <string name="home_cancel">Cancelar</string>
+    <string name="home_card_problem">Sem conexão</string>
     <string name="home_enter_address">Informar o endereço do computador</string>
     <string name="home_lapsed">Este pareamento expirou antes de o celular se conectar. Pareie de novo.</string>
     <string name="home_open_wifi">Abrir configurações de Wi-Fi</string>
@@ -164,6 +165,10 @@
     <string name="pairing_paired_body">Este celular agora está pareado com %1$s.</string>
     <string name="pairing_paired_title">Pareado</string>
     <string name="pairing_scan_again">Ler outro código</string>
+    <string name="pairing_step_confirm">Confirmar</string>
+    <string name="pairing_step_connect">Conectar</string>
+    <string name="pairing_step_done">Pronto</string>
+    <string name="pairing_step_scan">Ler</string>
     <string name="pairing_title">Parear com o computador</string>
     <string name="pairing_verification_description">Código de verificação %1$s</string>
     <string name="pairing_waiting_body">%1$s está perguntando se pode parear com este celular. Aceite só se aparecer este código:</string>
@@ -176,6 +181,7 @@
     <string name="presence_type">Confirme que é você para digitar neste terminal</string>
     <string name="presence_window">Vale por 5 minutos neste celular.</string>
     <string name="request_allow_biometric">Permitir pede sua digital.</string>
+    <string name="request_allow_in">em %1$s s</string>
     <string name="request_answered">Respondido.</string>
     <string name="request_by">Pedido por</string>
     <string name="request_decision_accept">Permitir uma vez</string>
@@ -271,7 +277,6 @@
     <string name="terminal_input_send">Enviar</string>
     <string name="thread_analyzing">Analisando o pedido</string>
     <string name="thread_answer_label">Resposta do agente</string>
-    <string name="thread_answer_on_computer">Responda no computador</string>
     <string name="thread_completed_completed">Turno concluído</string>
     <string name="thread_completed_failed">Turno falhou</string>
     <string name="thread_completed_interrupted">Turno interrompido</string>
@@ -329,12 +334,13 @@
         <item quantity="other">+%1$d outros</item>
         <item quantity="many">+%1$d outros</item>
     </plurals>
+    <string name="thread_now_needs_you">Precisa de você: %1$s</string>
     <string name="thread_plan_progress">Plano · %1$s de %2$s</string>
     <string name="thread_request_state_cancelled">cancelado</string>
     <string name="thread_request_state_expired">expirou</string>
     <string name="thread_request_state_pending">Precisa de você</string>
     <string name="thread_request_state_resolved">respondido</string>
-    <string name="thread_respond">Responder</string>
+    <string name="thread_review">Revisar</string>
     <string name="thread_state_failed">Falhou</string>
     <string name="thread_state_idle">Ocioso</string>
     <string name="thread_state_needs_you">Precisa de você</string>
