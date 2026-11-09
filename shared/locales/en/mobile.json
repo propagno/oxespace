@@ -261,7 +261,8 @@
     "hiddenOnDesktop": "This terminal was hidden from the phone on {{computer}}.",
     "hiddenBack": "Back to terminals",
     "panHint": "{{cols}} cols · swipe to pan",
-    "fitWidth": "Fit the width"
+    "fitWidth": "Fit the width",
+    "typeOnScreen": "Type on the Screen view"
   },
   "approval": {
     "prompt": {
@@ -377,18 +378,5 @@
     "allow": "Allow local network access",
     "denied": "Local network access is off for OXESpace, so Android blocks every connection to your computer. Turn on \"Local network access\" for OXESpace in the app's settings (Permissions), then come back.",
     "openSettings": "Open app settings"
-  },
-  "paneConversation": {
-    "screen": "Screen",
-    "conversation": "Conversation",
-    "caption": "{{agent}}’s conversation · read only",
-    "live": "Live",
-    "typeOnScreen": "Type on the Screen view",
-    "newSession": "The agent started a new conversation",
-    "unavailable": "This terminal’s conversation isn’t available any more. The screen is still live.",
-    "showScreen": "Show the screen",
-    "latest": "{{n}} new · Latest ↓",
-    "latestNoCount": "Latest ↓",
-    "loadEarlier": "Load earlier"
   }
 }
