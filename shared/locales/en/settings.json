@@ -698,10 +698,11 @@
   "tools": {
     "skillsList": {
       "title": "Skills",
-      "intro": "Markdown prompts agents can run: yours in ~/.oxe/skills and the project's in .oxe/skills, which win on a shared name. Run one from the command bar (/).",
+      "intro": "Markdown prompts in ~/.oxe/skills and the project's .oxe/skills. The project's wins on a shared name. Run one with /.",
       "loading": "Reading the skills…",
       "loadFailed": "Could not read the skills",
       "empty": "No skills yet",
+      "emptyBody": "Add a Markdown file to .oxe/skills in the project.",
       "noDescription": "No description",
       "scope": {
         "workspace": "Workspace",
