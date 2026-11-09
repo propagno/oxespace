@@ -127,6 +127,15 @@
       "days": "há {{days}} d"
     },
     "delegationState": {
+      "preparing": "Preparando",
+      "starting": "Iniciando",
+      "accepted": "Aceita",
+      "blocked": "Bloqueada",
+      "interrupted": "Interrompida",
+      "failed": "Falhou",
+      "review": "Em revisão",
+      "approved": "Aprovada",
+      "cancelled": "Cancelada",
       "unknown": "Não confirmado"
     }
   },

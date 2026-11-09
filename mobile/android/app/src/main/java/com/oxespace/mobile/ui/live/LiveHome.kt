@@ -292,7 +292,7 @@ private fun Tasks(jobs: List<RemoteJob>, delegations: List<RemoteDelegation>, mo
         items(delegations) { delegation ->
             Column(Modifier.fillMaxWidth().heightIn(min = Row).padding(horizontal = OxeSpace.space4, vertical = OxeSpace.space3)) {
                 Text(delegation.objective, style = MaterialTheme.typography.titleMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                Text(listOfNotNull(delegation.state, delegation.branch, delegation.error).joinToString(" · "), style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary)
+                Text(listOfNotNull(stringResource(delegationStateLabel(delegation.state)), delegation.branch, delegation.error).joinToString(" · "), style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary)
             }
         }
     }

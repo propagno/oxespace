@@ -124,6 +124,15 @@
       "days": "{{days}} d ago"
     },
     "delegationState": {
+      "preparing": "Preparing",
+      "starting": "Starting",
+      "accepted": "Accepted",
+      "blocked": "Blocked",
+      "interrupted": "Stopped",
+      "failed": "Failed",
+      "review": "In review",
+      "approved": "Approved",
+      "cancelled": "Cancelled",
       "unknown": "Not confirmed"
     }
   },

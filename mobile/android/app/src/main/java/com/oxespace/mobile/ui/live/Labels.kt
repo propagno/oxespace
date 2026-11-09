@@ -91,8 +91,18 @@ fun ageLabel(atMs: Long): String {
     }
 }
 
-// ---- 1.5.0 F10 API skeleton (A42, F2 audit G8), no behaviour; MOB-A42 replaces the TODO. Test: DelegationStateLabelTest. ----
+// ---- 1.5.0 F10 A42 (F2 audit G8): every delegation state in the phone's words. Test: DelegationStateLabelTest. ----
 
-/** The words for a delegation's state; one the phone doesn't know reads as live_delegation_state_unknown. */
-@Suppress("UNUSED_PARAMETER")
-fun delegationStateLabel(state: String): Int = TODO("F10 A42")
+/** The words for a delegation's state; one the phone doesn't know reads as live_delegation_state_unknown, never the wire word. */
+fun delegationStateLabel(state: String): Int = when (state) {
+    "preparing" -> R.string.live_delegation_state_preparing
+    "starting" -> R.string.live_delegation_state_starting
+    "accepted" -> R.string.live_delegation_state_accepted
+    "blocked" -> R.string.live_delegation_state_blocked
+    "interrupted" -> R.string.live_delegation_state_interrupted
+    "failed" -> R.string.live_delegation_state_failed
+    "review" -> R.string.live_delegation_state_review
+    "approved" -> R.string.live_delegation_state_approved
+    "cancelled" -> R.string.live_delegation_state_cancelled
+    else -> R.string.live_delegation_state_unknown
+}
