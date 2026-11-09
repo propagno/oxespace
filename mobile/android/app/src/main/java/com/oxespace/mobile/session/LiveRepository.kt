@@ -115,9 +115,30 @@ class LiveRepository(val streams: LiveStreams = LiveStreams()) {
         streams.follow(RemoteSubscription.TERMINAL, paneId, watched) to watched
     }
 
-    /** 1.5.0 F10 skeleton (A46): follows a pane agent's conversation while its view is open. MOB-A46 replaces the TODO. */
+    private val conversationScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
+    private val conversations = mutableMapOf<String, Pair<Followed, com.oxespace.mobile.protocol.live.PaneConversation>>()
+
+    /**
+     * 1.5.0 A46: follows a pane agent's conversation while its view is open; the same pane twice shares the stream.
+     * The snapshot is the newest page; a `changed` event makes the store fetch with `pane.conversation`.
+     */
+    fun openPaneConversation(paneId: String): com.oxespace.mobile.protocol.live.PaneConversation = synchronized(conversations) {
+        conversations.getOrPut(paneId) {
+            val conversation = com.oxespace.mobile.protocol.live.PaneConversation(conversationScope) { cursor -> paneConversationFetch(paneId, cursor) }
+            streams.follow(RemoteSubscription.PANE_CONVERSATION, paneId, com.oxespace.mobile.protocol.live.PaneConversationFeed(conversation)) to conversation
+        }.second
+    }
+
+    fun closePaneConversation(paneId: String) = synchronized(conversations) { conversations.remove(paneId)?.let { streams.unfollow(it.first) } }
+
+    /**
+     * OXB (T13 scope gap): `pane.conversation` has no public send path. CommandApi's and LiveStreams' `run` are
+     * private and Commands.kt is outside T13, so until a CommandApi.paneConversation lands a fetch reads as
+     * no-conversation (the Notice, with Show the screen).
+     */
     @Suppress("UNUSED_PARAMETER")
-    fun openPaneConversation(paneId: String): com.oxespace.mobile.protocol.live.PaneConversation = TODO("F10 A46")
+    private suspend fun paneConversationFetch(paneId: String, cursor: String?): com.oxespace.mobile.protocol.live.ConversationFetch =
+        com.oxespace.mobile.protocol.live.ConversationFetch.NoConversation
 
     fun closeThread(threadId: String) = close("thread:$threadId")
     fun closeTerminal(paneId: String) = close("terminal:$paneId")

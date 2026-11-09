@@ -260,6 +260,15 @@
     "hiddenShown": "Hidden characters are now shown in the field. Check it and send again.",
     "cancel": "Cancel",
     "hiddenOnDesktop": "This terminal was hidden from the phone on {{computer}}.",
+    "conversation": {
+      "screen": "Screen",
+      "conversation": "Conversation",
+      "caption": "{{agent}}'s conversation · read only",
+      "newConversation": "The agent started a new conversation",
+      "unavailable": "This terminal's conversation isn't available any more. The screen is still live.",
+      "showScreen": "Show the screen",
+      "empty": "No messages yet."
+    },
     "hiddenBack": "Back to terminals"
   },
   "approval": {

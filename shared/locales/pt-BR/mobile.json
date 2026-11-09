@@ -273,6 +273,15 @@
     "hiddenShown": "Caracteres ocultos foram mostrados no campo. Confira e envie de novo.",
     "cancel": "Cancelar",
     "hiddenOnDesktop": "Este terminal foi ocultado do celular em {{computer}}.",
+    "conversation": {
+      "screen": "Tela",
+      "conversation": "Conversa",
+      "caption": "Conversa do {{agent}} · somente leitura",
+      "newConversation": "O agente começou uma nova conversa",
+      "unavailable": "A conversa deste terminal não está mais disponível. A tela continua ao vivo.",
+      "showScreen": "Mostrar a tela",
+      "empty": "Nenhuma mensagem ainda."
+    },
     "hiddenBack": "Voltar aos terminais"
   },
   "approval": {
