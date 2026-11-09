@@ -30,6 +30,8 @@ const notes: string[] = []
 const note = (line: string) => { notes.push(line); console.log('HML', line) }
 
 type Frame = Record<string, unknown>
+/** Item ids come as `native:<uuid>` (run 42565406190): compared without the prefix. */
+const bare = (id: string) => id.replace(/^native:/, '')
 type Page_ = { items: Array<{ seq: number; item: { id: string; text?: string } }>; cursor: string | null; epoch: number }
 const remote = <T>(page: Page, fn: string, arg?: unknown) => page.evaluate(([f, a]) => (window as unknown as { oxe: { remote: Record<string, (x?: unknown) => Promise<unknown>> } }).oxe.remote[f as string](a), [fn, arg] as const) as Promise<T>
 
@@ -188,7 +190,7 @@ test('F10 M10: a busy terminal agent\'s conversation reaches the phone, paged, r
     expect.soft(changes.length, 'no starvation: at least one change event per 2 s window').toBeGreaterThanOrEqual(4)
     expect.soft(changes.every(f => JSON.stringify(f.data) === '{"changed":true}'), 'events say only that it changed').toBe(true)
     const after = (await command(socket, 'pane.conversation', { paneId })).result as Page_
-    const liveIds = after.items.map(e => e.item.id).filter(id => id.startsWith('live-'))
+    const liveIds = after.items.map(e => bare(e.item.id)).filter(id => id.startsWith('live-'))
     note(`newest after the appends: ${after.items.length} items, last ${after.items.at(-1)?.item.id}`)
     expect.soft(new Set(after.items.map(e => e.item.id)).size, 'no repeats in a page').toBe(after.items.length)
     expect.soft(liveIds.length, 'the appended messages are there').toBeGreaterThan(0)
@@ -204,7 +206,7 @@ test('F10 M10: a busy terminal agent\'s conversation reaches the phone, paged, r
     append(half.slice(30) + '\n')
     await page.waitForTimeout(2_500)
     const completed = (await command(socket, 'pane.conversation', { paneId })).result as Page_
-    const count = completed.items.filter(e => e.item.id === 'half-1' || JSON.stringify(e.item).includes('half written')).length
+    const count = completed.items.filter(e => bare(e.item.id) === 'half-1' || JSON.stringify(e.item).includes('half written')).length
     expect.soft(count, 'the completed line shows exactly once').toBe(1)
 
     // A new session in the pane: a higher epoch, and its own messages.
@@ -215,7 +217,7 @@ test('F10 M10: a busy terminal agent\'s conversation reaches the phone, paged, r
     const fresh = (await command(socket, 'pane.conversation', { paneId })).result as Page_
     note(`new session: epoch ${first.epoch} → ${fresh?.epoch}, items ${fresh?.items?.length}`)
     expect.soft(fresh?.epoch, 'a new session has a higher epoch').toBeGreaterThan(first.epoch)
-    expect.soft(fresh?.items?.map(e => e.item.id), 'the new session\'s messages').toEqual(['n0'])
+    expect.soft(fresh?.items?.map(e => bare(e.item.id)), 'the new session\'s messages').toEqual(['n0'])
     await page.screenshot({ path: test.info().outputPath('f10-desktop.png') }).catch(() => undefined)
   } finally {
     socket?.close()
