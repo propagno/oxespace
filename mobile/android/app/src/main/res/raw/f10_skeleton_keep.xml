@@ -4,4 +4,4 @@
   string on screen removes it from this list, and the file goes with the last one.
 -->
 <resources xmlns:tools="http://schemas.android.com/tools"
-    tools:keep="@string/composer_steer_finished_before,@string/live_delegation_state_unknown,@string/terminal_hidden_on_desktop,@string/terminal_hidden_back,@string/request_no_undo" />
+    tools:keep="@string/composer_steer_finished_before,@string/live_delegation_state_unknown,@string/request_no_undo" />

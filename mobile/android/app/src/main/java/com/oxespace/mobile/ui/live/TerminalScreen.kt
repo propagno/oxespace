@@ -105,7 +105,9 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
     SecureScreen()
     val tick by watched.changes.collectAsStateWithLifecycle()
     // CR-34: the desktop hid this pane from the phone; nothing of it stays, the title and last frame included.
-    val hidden = remember(tick) { watched.store.hiddenOnDesktop }
+    // The conversation can be ended as hidden on its own stream; either one hides the whole pane.
+    val conversationHidden = conversation?.let { it.state.collectAsStateWithLifecycle().value.hiddenOnDesktop } ?: false
+    val hidden = remember(tick) { watched.store.hiddenOnDesktop } || conversationHidden
     val colors = Oxe.colors
     // The screen, not the raw stream (T97): unchanged lines come back as the same objects, so the list skips them.
     val lines = remember(tick) { watched.store.lines() }
@@ -154,7 +156,7 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
                     IconButton(onClick = onBack) { Icon(ImageVector.vectorResource(R.drawable.ic_back), contentDescription = stringResource(R.string.live_back)) }
                 },
                 actions = {
-                    Box {
+                    if (!hidden) Box {
                         val label = stringResource(R.string.terminal_text_size)
                         TextButton(
                             onClick = { sizeMenu = true },
