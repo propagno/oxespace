@@ -28,7 +28,8 @@ describe('Settings › Devices contract (remote.*)', () => {
     expect(admin.ipc).toEqual(ACTIONS.map(action => `remote.${action}`))
     const read = MCP_COVERAGE['remote.devices_read']
     expect('excluded' in read && !('tools' in read)).toBe(true)
-    expect(TOOL_REGISTRY.map(entry => entry.descriptor.name).filter(name => /remote|device|pair|gateway/i.test(name))).toEqual([])
+    // F5 A52: oxespace_device_screenshot is the local adb read tool; the remote gateway still has none.
+    expect(TOOL_REGISTRY.map(entry => entry.descriptor.name).filter(name => /remote|device|pair|gateway/i.test(name))).toEqual(['oxespace_device_screenshot'])
   })
 
   it('refuses ports the system reserves, and shows phones a chosen name, never the host name', () => {
