@@ -9,10 +9,10 @@ import { chordsCollide, formatChord, matchesChord, parseChord, type ParsedChord 
  * from here, so a shortcut is defined once and shown the same everywhere. Each
  * shortcut's name is `keys.bindings.<id>` in the common catalog (bindingLabel).
  */
-export type KeybindingScope = 'global' | 'code' | 'thread' | 'oxequery' | 'oxepod' | 'terminal'
+export type KeybindingScope = 'global' | 'code' | 'thread' | 'oxequery' | 'terminal'
 /** The application's views: OxeCode (`code`), OxeChat (`thread`), OxeQuery (`data`), OxePod (`pods`) and OxePost (`post`). */
-export type AppView = 'code' | 'thread' | 'data' | 'pods'
-export const APP_VIEWS: readonly AppView[] = ['code', 'thread', 'data', 'pods']
+export type AppView = 'code' | 'thread' | 'data'
+export const APP_VIEWS: readonly AppView[] = ['code', 'thread', 'data']
 
 export interface KeybindingContext {
   view: AppView
@@ -40,7 +40,7 @@ export const inEditor = (target: Element | null): boolean => Boolean(target?.clo
 /** Anywhere a key types text: inputs, text areas, editable content, editors and terminals. */
 export const inTextField = (target: Element | null): boolean => Boolean(target?.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')) || inEditor(target)
 
-export const SCOPE_LABELS: Record<KeybindingScope, string> = { global: 'Everywhere', code: 'OxeCode', terminal: 'Terminal', thread: 'OxeChat', oxequery: 'OxeQuery', oxepod: 'OxePod' }
+export const SCOPE_LABELS: Record<KeybindingScope, string> = { global: 'Everywhere', code: 'OxeCode', terminal: 'Terminal', thread: 'OxeChat', oxequery: 'OxeQuery' }
 
 export const KEYBINDINGS = [
   // Global
@@ -53,7 +53,7 @@ export const KEYBINDINGS = [
   { id: 'view.code', chords: ['Mod+1'], scope: 'global', reservedInTerminal: true },
   { id: 'view.thread', chords: ['Mod+2'], scope: 'global', reservedInTerminal: true },
   { id: 'view.data', chords: ['Mod+3'], scope: 'global', reservedInTerminal: true },
-  { id: 'view.pods', chords: ['Mod+4'], scope: 'global', reservedInTerminal: true },  // The ways out of a terminal (WCAG 2.1.2 No Keyboard Trap): F6 moves between the window's regions, and the
+  // The ways out of a terminal (WCAG 2.1.2 No Keyboard Trap): F6 moves between the window's regions, and the
   // toggle (Ctrl+M, as in VS Code) makes Tab move focus in the focused terminal instead of reaching the shell.
   { id: 'focus.nextRegion', chords: ['F6'], scope: 'global', reservedInTerminal: true, everyTerminal: true, fixed: true },
   { id: 'focus.previousRegion', chords: ['Shift+F6'], scope: 'global', reservedInTerminal: true, everyTerminal: true, fixed: true },
@@ -89,8 +89,6 @@ export const KEYBINDINGS = [
   { id: 'thread.effort', chords: ['Mod+Shift+E'], scope: 'thread' },
   { id: 'thread.sideChat', chords: ['Mod+.'], scope: 'thread' },
 
-  // OxePod
-  { id: 'oxepod.filter', chords: ['/'], scope: 'oxepod', when: context => !inTextField(context.target) },
   // Last, so Ctrl+/ reaches terminal commands first while a terminal pane is active.
   { id: 'help.shortcuts', chords: ['?', 'Mod+/'], scope: 'global', when: context => !inTextField(context.target) }
 ] as const satisfies readonly Keybinding[]
@@ -137,7 +135,7 @@ export function conflictsFor(id: KeybindingId): Keybinding[] {
 
 /** The bindings that listen in a view, grouped by scope in registry order. */
 export function bindingsForView(view: AppView): Array<{ scope: KeybindingScope; bindings: Keybinding[] }> {
-  const scopes: KeybindingScope[] = ['global', 'code', 'terminal', 'thread', 'oxequery', 'oxepod']
+  const scopes: KeybindingScope[] = ['global', 'code', 'terminal', 'thread', 'oxequery']
   return scopes.filter(scope => scopeIsActive(scope, view))
     .map(scope => ({ scope, bindings: (KEYBINDINGS as readonly Keybinding[]).filter(binding => binding.scope === scope) }))
     .filter(group => group.bindings.length > 0)
@@ -165,7 +163,6 @@ export function scopeIsActive(scope: KeybindingScope, view: AppView): boolean {
   if (scope === 'global') return true
   if (scope === 'thread') return view === 'thread'
   if (scope === 'oxequery') return view === 'data'
-  if (scope === 'oxepod') return view === 'pods'
   return view === 'code'
 }
 

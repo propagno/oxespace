@@ -373,9 +373,6 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.fs.readBinary, (_event: IpcMainInvokeEvent, input: unknown) =>
     mockFileSystemService.readBinary(input as Parameters<FileSystemService['readBinary']>[0])
   )
-  ipcMain.handle(IPC_CHANNELS.fs.writeFile, (_event: IpcMainInvokeEvent, input: unknown) =>
-    mockFileSystemService.writeFile(input as Parameters<FileSystemService['writeFile']>[0])
-  )
   ipcMain.handle(IPC_CHANNELS.fs.watchFile, (event: IpcMainInvokeEvent, input: unknown) =>
     mockFileSystemService.watchFile(input as Parameters<FileSystemService['watchFile']>[0], (payload) => {
       event.sender.send(IPC_CHANNELS.fs.onFileChanged, payload)

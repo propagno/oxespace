@@ -164,7 +164,6 @@ export const IPC_CHANNELS = {
     listTree: 'fs:list-tree',
     readFile: 'fs:read-file',
     readBinary: 'fs:read-binary',
-    writeFile: 'fs:write-file',
     watchFile: 'fs:watch-file',
     unwatchFile: 'fs:unwatch-file',
     onFileChanged: 'fs:file-changed'

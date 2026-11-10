@@ -120,28 +120,7 @@ export class FileSystemService {
     }
   }
 
-  async writeFile(input: FileSystemWriteFileInput): Promise<FileSystemWriteFileResult> {
-    const rootPath = await this.authorizeRoot(input.workspaceId, input.rootPath)
-    const filePath = safeJoin(rootPath, input.relativePath)
-    await assertCanonicalInside(rootPath, filePath)
-    const buffer = Buffer.from(input.content, 'utf8')
-    if (buffer.length > MAX_TEXT_FILE_BYTES) {
-      throw new Error('File is larger than 2 MB')
-    }
 
-    const fileStat = await stat(filePath)
-    if (!fileStat.isFile()) {
-      throw new Error('Path is not a file')
-    }
-
-    await writeFile(filePath, input.content, 'utf8')
-    const updatedStat = await stat(filePath)
-    return {
-      relativePath: normalizeRelativePath(input.relativePath),
-      size: updatedStat.size,
-      mtimeMs: updatedStat.mtimeMs
-    }
-  }
 
   /** Creates a file that does not exist yet, under the same root checks as writeFile. Not reachable from the window. */
   async createFile(input: FileSystemWriteFileInput): Promise<FileSystemWriteFileResult> {

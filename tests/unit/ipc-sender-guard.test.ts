@@ -74,7 +74,7 @@ const group = (name: string): string[] => flatten((IPC_CHANNELS as unknown as Re
  * phone gateway's admin, `answerPairing` included) are read from IPC_CHANNELS, so channels added there later are
  * covered as soon as they exist.
  */
-const MUST_BE_GUARDED = [IPC_CHANNELS.terminal.write, IPC_CHANNELS.fs.writeFile, IPC_CHANNELS.mcp.create, ...group('approvals'), ...group('remote')]
+const MUST_BE_GUARDED = [IPC_CHANNELS.terminal.write, IPC_CHANNELS.fs.readFile, IPC_CHANNELS.mcp.create, ...group('approvals'), ...group('remote')]
 
 const refusedWithCode = (promise: Promise<unknown>) => expect(promise).rejects.toMatchObject({ code: IPC_SENDER_REFUSED, message: IPC_SENDER_REFUSED })
 
@@ -120,7 +120,7 @@ describe('the IPC sender guard over the whole channel surface', () => {
 
 describe('the IPC sender guard on the real modules and the Design Mode exception', () => {
   const terminal = { start: vi.fn(), attach: vi.fn(), detach: vi.fn(), write: vi.fn(), resize: vi.fn(), stop: vi.fn(), restart: vi.fn(), status: vi.fn() }
-  const files = { listTree: vi.fn(), readFile: vi.fn(), readBinary: vi.fn(), writeFile: vi.fn(), watchFile: vi.fn(), unwatchFile: vi.fn() }
+  const files = { listTree: vi.fn(), readFile: vi.fn(), readBinary: vi.fn(), watchFile: vi.fn(), unwatchFile: vi.fn() }
   const mcp = { create: vi.fn() }
   const grabbed = vi.fn()
   const cancelled = vi.fn()
@@ -139,32 +139,32 @@ describe('the IPC sender guard on the real modules and the Design Mode exception
     registerMcpIpc(mcp as never)
     ipc.on(DESIGN_MODE_CHANNELS.grab, grabbed)
     ipc.on(DESIGN_MODE_CHANNELS.cancel, cancelled)
-    for (const channel of [IPC_CHANNELS.terminal.write, IPC_CHANNELS.fs.writeFile, IPC_CHANNELS.mcp.create]) {
+    for (const channel of [IPC_CHANNELS.terminal.write, IPC_CHANNELS.fs.readFile, IPC_CHANNELS.mcp.create]) {
       expect((ipc.handlers.get(channel) as unknown as Record<symbol, unknown>)[IPC_GUARDED]).toBe(true)
     }
   })
 
-  it('refuses terminal.write, fs.writeFile and mcp.create from a guest or a subframe before the handler runs', async () => {
+  it('refuses terminal.write, fs.readFile and mcp.create from a guest or a subframe before the handler runs', async () => {
     const write = { paneId: 'pane-1', data: 'rm -rf /\r' }
-    const file = { workspaceId: 'ws', rootPath: '/repo', relativePath: 'a.txt', content: 'x' }
+    const file = { workspaceId: 'ws', rootPath: '/repo', relativePath: 'a.txt' }
     for (const event of [fromStranger, fromStrayWindow, fromPreview, fromPreviewSubframe, fromAppSubframe]) {
       await refusedWithCode(ipc.invoke(IPC_CHANNELS.terminal.write, event, write))
-      await refusedWithCode(ipc.invoke(IPC_CHANNELS.fs.writeFile, event, file))
+      await refusedWithCode(ipc.invoke(IPC_CHANNELS.fs.readFile, event, file))
       await refusedWithCode(ipc.invoke(IPC_CHANNELS.mcp.create, event, { name: 'evil' }))
     }
     expect(terminal.write).not.toHaveBeenCalled()
-    expect(files.writeFile).not.toHaveBeenCalled()
+    expect(files.readFile).not.toHaveBeenCalled()
     expect(mcp.create).not.toHaveBeenCalled()
     expect(hooks.record).toHaveBeenCalledWith('incident.ipc.senderRefused', IPC_CHANNELS.terminal.write)
-    expect(hooks.record).toHaveBeenCalledWith('incident.ipc.senderRefused', IPC_CHANNELS.fs.writeFile)
+    expect(hooks.record).toHaveBeenCalledWith('incident.ipc.senderRefused', IPC_CHANNELS.fs.readFile)
     expect(hooks.record).toHaveBeenCalledWith('incident.ipc.senderRefused', IPC_CHANNELS.mcp.create)
   })
 
   it('answers the main window main frame unchanged', async () => {
     await ipc.invoke(IPC_CHANNELS.terminal.write, fromApp, { paneId: 'pane-1', data: 'ls\r' })
-    await ipc.invoke(IPC_CHANNELS.fs.writeFile, fromApp, { workspaceId: 'ws', rootPath: '/repo', relativePath: 'a.txt', content: 'x' })
+    await ipc.invoke(IPC_CHANNELS.fs.readFile, fromApp, { workspaceId: 'ws', rootPath: '/repo', relativePath: 'a.txt' })
     expect(terminal.write).toHaveBeenCalledWith({ paneId: 'pane-1', data: 'ls\r' })
-    expect(files.writeFile).toHaveBeenCalledWith({ workspaceId: 'ws', rootPath: '/repo', relativePath: 'a.txt', content: 'x' })
+    expect(files.readFile).toHaveBeenCalledWith({ workspaceId: 'ws', rootPath: '/repo', relativePath: 'a.txt' })
     expect(hooks.record).not.toHaveBeenCalled()
   })
 

@@ -93,7 +93,6 @@ describe('App editor close guard', () => {
       fs: {
         listTree: vi.fn(),
         readFile: vi.fn(),
-        writeFile: vi.fn(),
         watchFile: vi.fn(),
         unwatchFile: vi.fn().mockResolvedValue(undefined),
         onFileChanged: vi.fn(() => vi.fn())
@@ -115,13 +114,10 @@ describe('App editor close guard', () => {
             rootPath: 'C:/repo',
             relativePath: 'README.md',
             content: 'dirty',
-            lastSavedContent: 'clean',
             language: 'markdown',
             watchId: 'watch-1',
             isLoading: false,
-            isSaving: false,
             error: null,
-            conflict: null
           }
         }
       },
@@ -142,15 +138,13 @@ describe('App editor close guard', () => {
     expect(useEditorStore.getState().files['workspace-1']).toBeDefined()
   })
 
-  test('dirty workspace close is blocked inline without native confirm', async () => {
+  test('closes workspace cleanly with read-only editor', async () => {
     const user = userEvent.setup()
 
     render(<App />)
     await user.click(await screen.findByRole('button', { name: 'close workspace' }))
 
-    expect(await screen.findByText(/unsaved editor changes/i)).toBeInTheDocument()
-    expect(window.oxe.workspace.delete).not.toHaveBeenCalled()
-    expect(useEditorStore.getState().files['workspace-1']).toBeDefined()
+    expect(window.oxe.workspace.delete).toHaveBeenCalledWith('workspace-1')
   })
 
   test('closes workspace and clears clean editor state', async () => {
@@ -159,7 +153,7 @@ describe('App editor close guard', () => {
       files: {
         ...state.files,
         'workspace-1': {
-          'README.md': { ...state.files['workspace-1']['README.md'], content: 'dirty', lastSavedContent: 'dirty' }
+          'README.md': { ...state.files['workspace-1']['README.md'], content: 'dirty',  }
         }
       }
     }))

@@ -142,7 +142,11 @@
       "keepMine": "Manter minhas edições",
       "local": "Suas edições",
       "external": "No disco"
-    }
+    },
+    "readOnly": "Somente leitura · edite no seu editor",
+    "openInEditor": "Abrir no editor",
+    "noExternalEditor": "Nenhum editor externo encontrado. Escolha um em Configurações › Geral › Editor externo, ou instale o VS Code.",
+    "openExternalEditorSettings": "Editor externo"
   },
   "scripts": {
     "found_one": "{{count}} encontrado",

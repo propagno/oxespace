@@ -140,7 +140,11 @@
       "keepMine": "Keep my edits",
       "local": "Your edits",
       "external": "On disk"
-    }
+    },
+    "readOnly": "Read only · edit in your editor",
+    "openInEditor": "Open in editor",
+    "noExternalEditor": "No external editor found. Pick one in Settings › General › External editor, or install VS Code.",
+    "openExternalEditorSettings": "External editor"
   },
   "scripts": {
     "found_one": "{{count}} found",

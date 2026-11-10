@@ -118,7 +118,7 @@
     "deleteTitle": "Delete “{{name}}”?",
     "deleteDescription": "Its saved password, keys and certificates are removed too. The database itself is not touched.",
     "emptyTitle": "No connections yet",
-    "emptyText": "Add one, or use Connect in OxeQuery on a database container in OxePod.",
+    "emptyText": "Add one, or connect from a running database container.",
     "section": {
       "matches_one": "Matches ({{count}})",
       "matches_other": "Matches ({{count}})",
@@ -263,7 +263,15 @@
     "now": "now: {{fingerprint}}",
     "testFailed": "The connection test failed",
     "fromContainerDraft": "From the container {{name}}: host and port are filled in.",
-    "containerPassword": "Type the password the container was created with. It is kept in the vault; agents never see it."
+    "containerPassword": "Type the password. OxeQuery never reads it from the container.",
+    "source": "Connection source",
+    "sourceDetails": "Enter the details",
+    "sourceContainer": "From a running container",
+    "containerLabel": "Container",
+    "containerSelectPlaceholder": "Choose a container…",
+    "containerPort": "{{name}} · {{engine}} · port {{port}}",
+    "noContainersRunning": "No database container is running.",
+    "dockerNotRunning": "Docker isn't running. Start it to see your containers."
   },
   "grid": {
     "label": "Result",
@@ -1193,8 +1201,8 @@
   },
   "welcome": {
     "title": "Open a database",
-    "text": "Connect to PostgreSQL or MongoDB, or start one in a container. Containers you already run are in OxePod, with a Connect in OxeQuery button.",
-    "textSaved": "Choose a connection on the left, or add one. Containers are in OxePod.",
+    "text": "Connect to PostgreSQL or MongoDB, or start one in a container.",
+    "textSaved": "Choose a connection on the left, or add one.",
     "newDatabase": "New local database",
     "newDatabaseTitle": "Start a PostgreSQL or MongoDB container and connect to it"
   }

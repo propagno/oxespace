@@ -19,8 +19,8 @@ describe('idle preload', () => {
     expect(await preloadTargets('code', big)).toEqual({ targets: ['settings'], viewSkipped: 'no-recent-view' })
     expect((await preloadTargets(null, big)).targets).toEqual(['settings'])
     const { calls, loaders } = fakeLoaders()
-    expect(await runIdlePreload(() => false, { recent: 'pods', env: big, loaders })).toEqual(['pods', 'settings'])
-    expect(calls).toEqual(['pods', 'settings'])
+    expect(await runIdlePreload(() => false, { recent: 'data', env: big, loaders })).toEqual(['data', 'settings'])
+    expect(calls).toEqual(['data', 'settings'])
   })
 
   it('leaves the view out below 8 GB, without deviceMemory, on battery or with a mostly used heap; Settings still loads', async () => {
@@ -58,7 +58,7 @@ describe('idle preload', () => {
 
   it('a failing chunk does not stop the next one', async () => {
     const { calls, loaders } = fakeLoaders()
-    expect(await runIdlePreload(() => false, { recent: 'pods', env: big, loaders: { ...loaders, pods: () => Promise.reject(new Error('offline')) } })).toEqual(['pods', 'settings'])
+    expect(await runIdlePreload(() => false, { recent: 'data', env: big, loaders: { ...loaders, data: () => Promise.reject(new Error('offline')) } })).toEqual(['data', 'settings'])
     expect(calls).toEqual(['settings'])
   })
 

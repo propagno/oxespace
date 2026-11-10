@@ -80,7 +80,6 @@ describe('ipc contracts', () => {
   test('uses stable filesystem channel names', () => {
     expect(IPC_CHANNELS.fs.listTree).toBe('fs:list-tree')
     expect(IPC_CHANNELS.fs.readFile).toBe('fs:read-file')
-    expect(IPC_CHANNELS.fs.writeFile).toBe('fs:write-file')
     expect(IPC_CHANNELS.fs.watchFile).toBe('fs:watch-file')
     expect(IPC_CHANNELS.fs.unwatchFile).toBe('fs:unwatch-file')
     expect(IPC_CHANNELS.fs.onFileChanged).toBe('fs:file-changed')

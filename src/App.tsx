@@ -139,10 +139,7 @@ export function App(): ReactElement {
     updateSettings: state.updateSettings,
     workspaces: state.workspaces
   })))
-  const { clearEditor, hasDirtyEditor } = useEditorStore(useShallow((state) => ({
-    clearEditor: state.clearEditor,
-    hasDirtyEditor: state.hasDirtyEditor
-  })))
+  const clearEditor = useEditorStore((state) => state.clearEditor)
   const getTerminalStatus = useTerminalStore((state) => state.getStatus)
   const setPendingCommand = useTerminalStore((state) => state.setPendingCommand)
   const setActiveTerminalPaneId = useTerminalStore((state) => state.setActivePaneId)
@@ -502,10 +499,6 @@ export function App(): ReactElement {
   }
 
   const handleCloseWorkspace = (workspaceId: string): void => {
-    if (hasDirtyEditor(workspaceId)) {
-      setAppNotice(t('app.notice.unsavedEditor'))
-      return
-    }
     const workspace = workspaces.find((item) => item.id === workspaceId)
     for (const pane of workspace?.panes ?? []) removeTerminalPane(pane.id)
     clearEditor(workspaceId)

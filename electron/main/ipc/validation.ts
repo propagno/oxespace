@@ -367,16 +367,6 @@ export function parseFileSystemReadFileInput(value: unknown) {
   }
 }
 
-export function parseFileSystemWriteFileInput(value: unknown) {
-  const input = expectRecord(value, 'fs:write-file input')
-  return {
-    workspaceId: expectNonEmptyString(input.workspaceId, 'workspaceId'),
-    rootPath: expectNonEmptyString(input.rootPath, 'rootPath'),
-    relativePath: expectString(input.relativePath, 'relativePath'),
-    content: expectString(input.content, 'content')
-  }
-}
-
 export function parseFileSystemWatchFileInput(value: unknown) {
   const input = expectRecord(value, 'fs:watch-file input')
   return {
