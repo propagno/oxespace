@@ -1,3 +1,5 @@
+// v2 — F7 CR: What agents can do. The application page list gains 'What agents can do' right after 'Approvals and safety'
+// (DESIGN 1.5.0-f7-design.md U7.4; TECH LEAD registers the CR as A7 amended to 2). Everything else is v1 unchanged.
 // Frozen acceptance test for 1.5.0 A7 after the removals (DESIGN U3.4, OXE program, phase F3, task FE-A7). Written by the
 // planner; the executor must not edit it. Spec: .claude/roadmap-1.4/team/plans/1.5.0-f3-design.md (U3.4).
 // Contract: src/components/Settings/SettingsCenter.tsx exports APPLICATION_SETTINGS_PAGES (the application pages in order,
@@ -25,7 +27,7 @@ describe('U3.4 · Settings after the removals', () => {
   test("the application pages are listed in DESIGN's order", async () => {
     const { APPLICATION_SETTINGS_PAGES } = await import('../../../src/components/Settings/SettingsCenter') as unknown as { APPLICATION_SETTINGS_PAGES: readonly Page[] }
     expect(APPLICATION_SETTINGS_PAGES.map(page => page.label)).toEqual([
-      'General', 'Appearance', 'Agents', 'Approvals and safety', 'Notifications', 'Keyboard', 'Terminal', 'MCP servers and skills',
+      'General', 'Appearance', 'Agents', 'Approvals and safety', 'What agents can do', 'Notifications', 'Keyboard', 'Terminal', 'MCP servers and skills',
       'Phone and devices', 'Data and privacy', 'Agent activity', 'Diagnostics', 'About'
     ])
   })
