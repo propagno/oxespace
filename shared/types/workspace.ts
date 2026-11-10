@@ -10,7 +10,8 @@ export type UiDensity = 'compact' | 'comfortable'
 /** A workspace's density: 'default' follows the app; the others override it. */
 export type WorkspaceDensity = 'default' | UiDensity
 
-export type PaneType = 'terminal' | 'tasks' | 'editor' | 'review'
+export const PANE_TYPES = ['terminal', 'tasks', 'editor', 'review'] as const
+export type PaneType = typeof PANE_TYPES[number]
 
 export type GitHubPanelTab = import('./github').GitHubPanelTab
 

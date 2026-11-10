@@ -47,6 +47,29 @@ export function resolveAppPage(page: string): AppPage {
   return appPages.find(p => p.id === page)?.id ?? appPages[0].id
 }
 
+export function restoreSettingsDestination(
+  saved: unknown,
+  workspaceIds: readonly string[],
+  allowWorkspaceScope = true
+): SettingsDestination {
+  if (saved && typeof saved === 'object') {
+    const candidate = saved as { scope?: unknown; page?: unknown; workspaceId?: unknown }
+    if (candidate.scope === 'application' && typeof candidate.page === 'string') {
+      return { scope: 'application', page: resolveAppPage(candidate.page) }
+    }
+    if (
+      allowWorkspaceScope &&
+      candidate.scope === 'workspace' &&
+      typeof candidate.workspaceId === 'string' &&
+      workspaceIds.includes(candidate.workspaceId)
+    ) {
+      const page = SETTINGS_PAGES.find(p => p.id === candidate.page)?.id ?? SETTINGS_PAGES[0].id
+      return { scope: 'workspace', workspaceId: candidate.workspaceId, page }
+    }
+  }
+  return { scope: 'application', page: 'appearance' }
+}
+
 export function SettingsCenter(props: SettingsModalProps & {
   workspaces: Workspace[]; initialWorkspaceId?: string; initialPage?: AppPage; shellProfiles: ShellProfile[]; allowWorkspaceScope?: boolean
   onSave: (input: UpdateWorkspaceSettingsInput) => Promise<void>
@@ -56,9 +79,8 @@ export function SettingsCenter(props: SettingsModalProps & {
     if (props.allowWorkspaceScope !== false && props.initialWorkspaceId) return { scope: 'workspace', workspaceId: props.initialWorkspaceId, page: 'appearance' }
     if (props.initialPage) return { scope: 'application', page: resolveAppPage(props.initialPage) }
     try {
-      const saved = JSON.parse(localStorage.getItem('oxe.settings.destination') ?? 'null') as SettingsDestination
-      if (saved?.scope === 'application' && typeof saved.page === 'string') return { scope: 'application', page: resolveAppPage(saved.page) }
-      if (props.allowWorkspaceScope !== false && saved?.scope === 'workspace' && props.workspaces.some(w => w.id === saved.workspaceId) && SETTINGS_PAGES.some(p => p.id === saved.page)) return saved
+      const saved = JSON.parse(localStorage.getItem('oxe.settings.destination') ?? 'null') as unknown
+      return restoreSettingsDestination(saved, props.workspaces.map(w => w.id), props.allowWorkspaceScope !== false)
     } catch { /* Invalid preferences use safe defaults. */ }
     return { scope: 'application', page: 'appearance' }
   })
