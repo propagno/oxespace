@@ -251,13 +251,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['session.fork', 'session.delete', 'session.cleanup', 'session.search']
   },
 
-  // ---- Team, delegation, work -----------------------------------------------------------
-  'team.messaging': {
-    label: 'Team status and messages',
-    tools: { oxespace_team_status: 'read', oxespace_team_inbox: 'read', oxespace_team_message: 'write', oxespace_team_acknowledge: 'write' },
-    ipc: ['team.messages', 'team.send']
-  },
-  'team.admin': { label: 'Add members, pick the coordinator, archive, delivery', excluded: 'The person builds the team.', ipc: ['team.command'] },
+  // ---- Delegation, work -----------------------------------------------------------
   'delegation.use': {
     label: 'Delegate a task and follow it',
     tools: {

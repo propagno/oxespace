@@ -145,9 +145,6 @@
       "activity": {
         "open": "Open activity center"
       },
-      "team": {
-        "open": "Open project team"
-      },
       "code": {
         "changes": "Changes",
         "browser": "Browser",
@@ -228,10 +225,18 @@
     }
   },
   "postCommands": {
-    "open": { "detail": "API requests, environments and cURL" },
-    "newRequest": { "detail": "Saved in .oxespace/requests" },
-    "import": { "detail": "Becomes request files" },
-    "environments": { "detail": "Variables and secrets" },
+    "open": {
+      "detail": "API requests, environments and cURL"
+    },
+    "newRequest": {
+      "detail": "Saved in .oxespace/requests"
+    },
+    "import": {
+      "detail": "Becomes request files"
+    },
+    "environments": {
+      "detail": "Variables and secrets"
+    },
     "createFailed": "Couldn't create the request",
     "noProject": "Open a project first: requests are saved in its .oxespace/requests folder.",
     "defaultName": "New request"
@@ -378,64 +383,6 @@
       "needsTerminal": "Open a workspace with a terminal pane first.",
       "agentFailed": "Failed to start agent in pane"
     }
-  },
-  "team": {
-    "button": {
-      "needsWorkspace": "Open a workspace to open its team",
-      "needsProject": "Select an OxeChat project to open its team",
-      "otherViews": "Team is available in OxeCode and OxeChat"
-    },
-    "roles": {
-      "coordinator": "Coordinator",
-      "project-manager": "Project manager",
-      "product-manager": "Product manager",
-      "developer": "Developer",
-      "reviewer": "Reviewer"
-    },
-    "unavailable": "Team is unavailable in this runtime.",
-    "description": "Persistent roles for this project, shared by OxeCode and OxeChat.",
-    "loading": "Loading team…",
-    "note": "Members are saved independently of sessions. Creating a role does not start an agent. Automatic delivery sends inbox messages to a connected idle OxeChat conversation. It pauses after failure, interruption or restart; OxeCode sessions read their inbox through MCP.",
-    "members": "Team members",
-    "connection": {
-      "idle": "Session connected · idle, a message starts it again",
-      "connected": "Session connected",
-      "disconnected": "Session disconnected · reconnect to authorize MCP",
-      "none": "No session connected"
-    },
-    "messagesFor": "Messages: {{name}}",
-    "messages": "Messages",
-    "connectTitle": "Lets the active session read and send this member's messages through MCP",
-    "connect": "Connect current session",
-    "pauseDelivery": "Pause automatic delivery",
-    "enableDelivery": "Enable automatic delivery",
-    "disconnect": "Disconnect",
-    "makeCoordinator": "Make coordinator",
-    "archive": "Archive",
-    "empty": "No members yet. Add a coordinator or another project role.",
-    "name": "Member name",
-    "namePlaceholder": "e.g. Authentication developer",
-    "role": "Role",
-    "oneCoordinator": "A team has one coordinator. Use Make coordinator on a member to hand the role over.",
-    "saving": "Saving…",
-    "add": "Add member",
-    "you": "You",
-    "archivedMember": "Archived member",
-    "messagesWith": "Messages with {{name}}",
-    "messagesTitle": "Messages · {{name}}",
-    "inboxNote": "Messages remain in the inbox until acknowledged. Automatic delivery, when enabled, submits them to the connected OxeChat conversation after it becomes idle. An uncertain delivery is never automatically repeated.",
-    "loadEarlier": "Load earlier messages",
-    "delivery": {
-      "received": "Receipt confirmed by agent",
-      "submitted": "Submitted to session · receipt not confirmed",
-      "unknown": "Delivery uncertain · check the session before sending again",
-      "dispatching": "Submitting to session…",
-      "saved": "Saved · receipt not confirmed"
-    },
-    "noMessages": "No messages yet.",
-    "limit": "Showing up to 500 messages. Older messages remain saved.",
-    "messageTo": "Message to {{name}}",
-    "send": "Send to inbox"
   },
   "firstRun": {
     "optional": "(optional)",
@@ -697,7 +644,6 @@
       },
       "new-workspace": "New workspace…",
       "workspace-settings": "Workspace settings",
-      "tool-team": "Team | Project team",
       "tool-integration": "Multi-repo coordination",
       "tool-github": "Commit & pull request",
       "tool-worktrees": "Worktrees",

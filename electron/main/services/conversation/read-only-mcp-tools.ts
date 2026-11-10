@@ -8,7 +8,7 @@ export const THREAD_READ_ONLY_MCP_TOOLS = ['oxespace_capabilities', 'oxespace_ex
   'oxespace_list_agents', 'oxespace_list_workspaces', 'oxespace_git',
   'oxespace_github', 'oxespace_threads', 'oxespace_skills', 'oxespace_mcp_servers', 'oxespace_search', 'oxespace_usage', 'oxespace_settings', 'oxespace_diagnostics',
   'oxespace_thread_read', 'oxespace_work_status', 'oxespace_work_result',
-  'oxespace_team_status', 'oxespace_team_inbox', 'oxespace_delegation_status', 'oxespace_delegation_inbox', 'oxespace_delegation_result']
+  'oxespace_delegation_status', 'oxespace_delegation_inbox', 'oxespace_delegation_result']
 
 /** The key OXESpace's own tools have in a conversation (mcp-tool-rules.ts OXESPACE_MCP_SERVER). */
 export const OXESPACE_BRIDGE_KEY = 'oxespace-delegation'

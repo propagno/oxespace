@@ -49,7 +49,6 @@ describe('Thread MCP token budget', () => {
     const readOnly = threadMcpArguments('claude', ['--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}'], '/bridge.cjs', undefined, [], threadToolList())
     const lookups = bridgeTools(readOnly)
     expect(lookups).toContain('oxespace_project_context')
-    expect(lookups).not.toContain('oxespace_team_inbox')
     expect(lookups).not.toContain('oxespace_memory_remember')
     const codex = threadMcpArguments('codex', ['app-server'], '/bridge.cjs', undefined, [], threadToolList())
     expect(codex.join(' ')).toContain('oxespace_project_context')

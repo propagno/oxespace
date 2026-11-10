@@ -26,7 +26,7 @@ export const THREAD_TOOL_GROUPS = {
   /** Every conversation: context lookups. */
   core: ['oxespace_capabilities', 'oxespace_project_context'],
   /** A team member's conversation. */
-  team: ['oxespace_team_status', 'oxespace_team_inbox', 'oxespace_team_message', 'oxespace_team_acknowledge'],
+  team: [],
   /** A conversation that runs a delegation or an Agent Work task, or supervises a Work run. */
   worker: ['oxespace_execution_context', 'oxespace_delegation_context', 'oxespace_delegation_update', 'oxespace_delegation_checkpoint',
     'oxespace_delegation_message', 'oxespace_delegation_inbox', 'oxespace_delegation_acknowledge', 'oxespace_delegation_result',

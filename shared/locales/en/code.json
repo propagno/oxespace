@@ -16,10 +16,7 @@
   },
   "tools": {
     "team": {
-      "label": "Project team",
-      "detail": "Project roles and agent inboxes",
-      "menu": "Project team…",
-      "keywords": "equipe, time, papéis, coordenadora, membros, caixa de entrada"
+      "menu": "Project team…"
     },
     "integration": {
       "label": "Multi-repo coordination",

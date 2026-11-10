@@ -395,21 +395,13 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   delegatedThreadObserver.current = thread => delegationService.observeThread(thread)
   registerDelegationIpc(delegationService)
-  const { registerTeamIpc } = await import('./ipc/team.ipc')
-  const { TeamAccess } = await import('./services/coordination/team-access')
-  const teamAccess = new TeamAccess(db, executions)
-  const { TeamDelivery } = await import('./services/coordination/team-delivery')
-  const teamDelivery = new TeamDelivery(db, teamAccess, { read: async id => (await threadManager.manager).read(id), send: async (id, text) => (await threadManager.manager).send(id, text) })
-  teamDelivery.start()
-  app.on('before-quit', () => teamDelivery.stop())
-  registerTeamIpc(db, teamAccess)
 
   // B10: outside the main entry, but awaited here, so the approval channels exist before the window can ask.
   const approvals = await import('./services/approvals/wiring')
   approvals.wireApprovals({ db, workspaces: () => internalMcpWorkspaceServ.list(), profiles: () => delegationAgents.list() })
   const internalMcp: InternalMcpHandle = createInternalMcpHandle({
     threads: threadManager.manager,
-    delegation: delegationService, executions, team: teamAccess,
+    delegation: delegationService, executions,
     delegationAgents: () => delegationAgents.list().filter(p => ['claude','codex'].includes(p.parentProvider ?? p.provider)).map(p => {
       try { launcher.resolve(p.agentProfileId); return { agentProfileId: p.agentProfileId, name: p.name, supported: true } }
       catch (e) { return { agentProfileId: p.agentProfileId, name: p.name, supported: false, reason: String(e) } }

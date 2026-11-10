@@ -151,8 +151,6 @@ before. Code panes receive the whole registry.
 | `thread.side_chat` | A side chat about a conversation | Excluded: The person's read-only scratch copy of a conversation; agents ask in their own. |
 | `thread.access` | Permission rules and auto-approval | **Forbidden**: Raises access. |
 | `thread.session_admin` | Fork, delete, clean up or search CLI sessions | Excluded: Deletes or copies the person's CLI history across projects. Agents search with oxespace_memory_search, scoped to the project. |
-| `team.messaging` | Team status and messages | **read**: `oxespace_team_status`, `oxespace_team_inbox`<br>**write**: `oxespace_team_message`, `oxespace_team_acknowledge` |
-| `team.admin` | Add members, pick the coordinator, archive, delivery | Excluded: The person builds the team. |
 | `delegation.use` | Delegate a task and follow it | **read**: `oxespace_delegation_targets`, `oxespace_delegation_preflight`, `oxespace_delegation_status`, `oxespace_delegation_inbox`, `oxespace_delegation_result`, `oxespace_delegation_context`<br>**write**: `oxespace_delegate_task`, `oxespace_delegation_control`, `oxespace_delegation_update`, `oxespace_delegation_checkpoint`, `oxespace_delegation_message`, `oxespace_delegation_acknowledge` |
 | `delegation.authorize` | Authorize delegation targets and adopt delegations | **Forbidden**: Raises access: decides where agents may start work. |
 | `work.plans` | Work plans: plan, status, result, message, cancel | **read**: `oxespace_work_status`, `oxespace_work_result`<br>**write**: `oxespace_work_plan`, `oxespace_work_message`, `oxespace_work_cancel` |

@@ -69,7 +69,7 @@ it('gives a read-only Claude conversation the bridge limited to read-only lookup
   expect(allowed).toContain('oxespace_capabilities')
   expect(allowed.some(tool => tool.startsWith('oxespace_code_'))).toBe(false)
   expect(allowed.some(tool => tool.startsWith('oxespace_memory_'))).toBe(false)
-  for (const writer of ['oxespace_memory_remember', 'oxespace_thread_send', 'oxespace_delegate_task', 'oxespace_team_message', 'oxespace_preview_interact', 'oxespace_open_web_preview']) {
+  for (const writer of ['oxespace_memory_remember', 'oxespace_thread_send', 'oxespace_delegate_task', 'oxespace_preview_interact', 'oxespace_open_web_preview']) {
     expect(allowed).not.toContain(writer)
   }
 })

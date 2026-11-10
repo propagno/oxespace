@@ -24,7 +24,6 @@ import type { WorktreeEventBus } from './worktree-event-bus'
  * happens inline in each handler.
  */
 import { DELEGATION_TOOLS } from './delegation-tools'
-import { TEAM_TOOLS } from './team-tools'
 import { createHash, randomUUID } from 'node:crypto'
 import { projectIdentity } from '../services/project-identity'
 import { execGit } from '../utils/safe-git'
@@ -47,7 +46,8 @@ export interface ToolContext {
   /** The browser preview automation (services/browser-preview, R0c). The field keeps its name: local-rpc-server passes it through. */
   documentation?: () => Promise<{ preview: import('../services/browser-preview/preview-automation').PreviewAutomation }>
   delegation?: import('../services/delegation.service').DelegationService
-  team?: import('../services/coordination/team-access').TeamAccess
+  /** R7: the Teams UI and team MCP tools are gone. bootstrap.ts (outside R7's files) still forwards this; nothing here reads it. */
+  team?: unknown
   executions?: import('../services/execution-registry').ExecutionRegistry
   executionId?: string
   executionToken?: string
@@ -217,7 +217,6 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   ...discoveryTools(() => TOOL_REGISTRY),
   projectContext,
   ...DELEGATION_TOOLS,
-  ...TEAM_TOOLS,
   ...THREAD_HANDOFF_TOOLS,
   ...OXEQUERY_TOOLS,
   ...WORK_TOOLS,

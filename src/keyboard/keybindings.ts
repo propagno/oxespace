@@ -49,7 +49,6 @@ export const KEYBINDINGS = [
   { id: 'settings.open', chords: ['Mod+,'], scope: 'global', reservedInTerminal: true },
   { id: 'sidebar.toggle', chords: ['Mod+B'], scope: 'global', reservedInTerminal: true },
   { id: 'activity.open', chords: ['Mod+Shift+A'], scope: 'global', reservedInTerminal: true },
-  { id: 'team.open', chords: ['Mod+Shift+T'], scope: 'global', reservedInTerminal: true },
   // The four views, in the order of the switch in the title bar.
   { id: 'view.code', chords: ['Mod+1'], scope: 'global', reservedInTerminal: true },
   { id: 'view.thread', chords: ['Mod+2'], scope: 'global', reservedInTerminal: true },
@@ -152,9 +151,9 @@ export function bindingsForView(view: AppView): Array<{ scope: KeybindingScope; 
 }
 
 /** The label a menu or tooltip shows, e.g. "Ctrl+Shift+D"; undefined when unbound. */
-export function shortcutLabel(id: KeybindingId | undefined): string | undefined {
-  if (!id) return undefined
-  const [first] = chordsFor(id)
+export function shortcutLabel(id: KeybindingId | (string & {}) | undefined): string | undefined {
+  if (!id || !BY_ID.has(id)) return undefined
+  const [first] = chordsFor(id as KeybindingId)
   return first ? formatChord(first) : undefined
 }
 
