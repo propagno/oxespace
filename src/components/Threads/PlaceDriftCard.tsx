@@ -48,7 +48,7 @@ export function PlaceDriftCard(props: { threadId: string; place: ThreadPlace }):
     }
   }
 
-  return <div className="place-drift" data-drift-card={place.id}>
+  return <div className="place-drift" data-tone="warning" data-drift-card={place.id}>
     <p className="place-drift-title">{t('places.drift.title')}</p>
     <p>{moved}</p>
     <div className="place-drift-actions">

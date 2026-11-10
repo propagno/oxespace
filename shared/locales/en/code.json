@@ -382,7 +382,8 @@
       "unmerged": "Not merged: its commits stay only on this branch.",
       "removedDeleted": "Removed the worktree; branch deleted.",
       "removedKept": "Removed the worktree; the branch stays.",
-      "removedNotDeleted": "Removed the worktree; the branch could not be deleted and is kept."
+      "removedNotDeleted": "Removed the worktree; the branch could not be deleted and is kept.",
+      "removeOpen": "Remove…"
     }
   },
   "terminal": {

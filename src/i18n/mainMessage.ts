@@ -7,5 +7,6 @@ import { currentLanguage, i18n } from './index'
  * writes them.
  */
 export function formatMainMessage(message: MainMessage): string {
-  return (i18n.t as unknown as (key: string, options: object) => string)(messageKey(message.code), { ns: 'main', ...messageValues(message, currentLanguage()) })
+  const count = (message.params as { count?: unknown }).count
+  return (i18n.t as unknown as (key: string, options: object) => string)(messageKey(message.code), { ns: 'main', ...messageValues(message, currentLanguage()), ...(typeof count === 'number' ? { count } : {}) })
 }

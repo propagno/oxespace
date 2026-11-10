@@ -1782,7 +1782,7 @@
     "restored": "Change restored",
     "undoFailed": "Could not undo this change. Try again.",
     "stale": "The file changed since it was shown; the changes were read again.",
-    "discard": "Discard",
+    "discard": "Discard…",
     "discardTitle": "Discard the task's changes in {{place}}?",
     "discardText": "The files the task changed in {{path}} go back to where the task started.",
     "discardConfirm": "Discard changes",
@@ -1812,7 +1812,25 @@
       "switchBackText": "Switch the worktree back to {{branch}}? Your terminal's branch {{to}} stays as it is.",
       "switchBackConfirm": "Switch back",
       "failed": "Could not answer the branch change. Try again."
-    }
+    },
+    "base": "against {{commit}}, where the task started",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} files",
+    "inPlaces_one": "in {{count}} place",
+    "inPlaces_other": "in {{count}} places",
+    "view": {
+      "label": "Show changes",
+      "all": "All changes",
+      "byTurn": "By turn"
+    },
+    "askReview": "Ask for a review",
+    "reviewPrompt": "Review the changes this conversation made, place by place, and tell me what to fix.",
+    "finish": "Finish the worktree…",
+    "comment": "Comment",
+    "commentLabel": "Comment on {{path}} {{hunk}}",
+    "commentSend": "Send to the conversation",
+    "commentPrompt": "About `{{path}}` ({{hunk}}):",
+    "openAt": "Open in editor at line {{line}}"
   },
   "outsideFile": {
     "band": "Read only · outside the repository · {{path}}",
@@ -1934,6 +1952,21 @@
       "containers_other": "{{count}} container actions",
       "approvals_one": "{{count}} approval you gave",
       "approvals_other": "{{count}} approvals you gave"
+    },
+    "form": {
+      "title": "Title",
+      "from": "From",
+      "into": "Into",
+      "draft": "Open as a draft",
+      "submit": "Push and open pull request",
+      "opened": "Pull request opened",
+      "failed": "Couldn't open the pull request. Try again."
+    },
+    "address": "Address review comments",
+    "addressPrompt": "Read the review comments on pull request {{number}} and address them.",
+    "mergeTooltip": {
+      "github": "Merging happens on GitHub after review",
+      "azure": "Complete happens in Azure DevOps once the policies pass"
     }
   }
 }

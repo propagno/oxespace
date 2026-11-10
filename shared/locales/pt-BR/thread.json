@@ -1815,31 +1815,31 @@
       "checkout": "Outro checkout",
       "outside": "Fora do repositório"
     },
-    "summary_one": "Mudanças em {{count}} lugar",
-    "summary_many": "Mudanças em {{count}} lugares",
-    "summary_other": "Mudanças em {{count}} lugares",
+    "summary_one": "Alterações em {{count}} lugar",
+    "summary_many": "Alterações em {{count}} lugares",
+    "summary_other": "Alterações em {{count}} lugares",
     "against": "{{path}} · comparado com {{commit}}, onde a tarefa começou",
     "outsideNote": "Não é um checkout git: arquivos como o agente os escreveu",
     "capped": "Acompanhando os primeiros {{limit}} lugares desta conversa.",
-    "empty": "Nenhuma mudança. Os arquivos que o agente escreve aparecem aqui, pelo lugar onde ele os escreveu.",
-    "loading": "Lendo as mudanças",
-    "failed": "Não foi possível ler as mudanças deste lugar. Tente de novo.",
-    "noFiles": "Nenhuma mudança aqui.",
+    "empty": "Nenhuma alteração. Arquivos que o agente escreve aparecem aqui, pelo lugar onde escreveu.",
+    "loading": "Lendo as alterações",
+    "failed": "Não foi possível ler as alterações deste lugar. Tente de novo.",
+    "noFiles": "Nenhuma alteração aqui.",
     "undoFile": "Desfazer arquivo",
     "undoHunk": "Desfazer trecho",
-    "undone": "Mudança desfeita",
-    "restored": "Mudança restaurada",
-    "undoFailed": "Não foi possível desfazer esta mudança. Tente de novo.",
-    "stale": "O arquivo mudou depois de ser mostrado; as mudanças foram lidas de novo.",
-    "discard": "Descartar",
-    "discardTitle": "Descartar as mudanças da tarefa em {{place}}?",
+    "undone": "Alteração desfeita",
+    "restored": "Alteração restaurada",
+    "undoFailed": "Não foi possível desfazer esta alteração. Tente de novo.",
+    "stale": "O arquivo mudou depois de ser mostrado; as alterações foram lidas de novo.",
+    "discard": "Descartar…",
+    "discardTitle": "Descartar as alterações da tarefa em {{place}}?",
     "discardText": "Os arquivos que a tarefa mudou em {{path}} voltam a como estavam quando a tarefa começou.",
-    "discardConfirm": "Descartar mudanças",
-    "discarded": "Mudanças descartadas",
+    "discardConfirm": "Descartar alterações",
+    "discarded": "Alterações descartadas",
     "openFolder": "Abrir pasta",
     "groups": {
-      "task": "Mudado pela tarefa",
-      "branchSwitch": "Mudado pela troca de branch"
+      "task": "Alterado pela tarefa",
+      "branchSwitch": "Alterado pela troca de branch"
     },
     "drift": {
       "title": "Esta worktree está em outra branch agora.",
@@ -1851,17 +1851,37 @@
       "follow": "Seguir a nova branch",
       "dismiss": "Dispensar",
       "openTerminal": "Abrir aquele terminal",
-      "dirty": "Faça commit ou mova as mudanças não commitadas primeiro.",
+      "dirty": "Faça commit ou mova as alterações primeiro.",
       "detached": "O HEAD está destacado; faça checkout de uma branch primeiro.",
       "busy": "Espere o agente terminar este turno primeiro.",
       "followTitle": "Seguir a nova branch?",
-      "followText": "Seguir {{branch}}? As mudanças da tarefa passam a ser comparadas com {{branch}}.",
+      "followText": "Seguir {{branch}}? As alterações da tarefa passam a ser comparadas com {{branch}}.",
       "followConfirm": "Seguir {{branch}}",
       "switchBackTitle": "Voltar?",
       "switchBackText": "Voltar a worktree para {{branch}}? A branch {{to}} do seu terminal fica como está.",
       "switchBackConfirm": "Voltar",
       "failed": "Não foi possível responder à troca de branch. Tente de novo."
-    }
+    },
+    "base": "comparado com {{commit}}, onde a tarefa começou",
+    "files_one": "{{count}} arquivo",
+    "files_many": "{{count}} arquivos",
+    "files_other": "{{count}} arquivos",
+    "inPlaces_one": "em {{count}} lugar",
+    "inPlaces_many": "em {{count}} lugares",
+    "inPlaces_other": "em {{count}} lugares",
+    "view": {
+      "label": "Mostrar alterações",
+      "all": "Todas as alterações",
+      "byTurn": "Por turno"
+    },
+    "askReview": "Pedir uma revisão",
+    "reviewPrompt": "Revise as alterações que esta conversa fez, lugar por lugar, e diga o que corrigir.",
+    "finish": "Concluir a worktree…",
+    "comment": "Comentar",
+    "commentLabel": "Comentário em {{path}} {{hunk}}",
+    "commentSend": "Enviar para a conversa",
+    "commentPrompt": "Sobre `{{path}}` ({{hunk}}):",
+    "openAt": "Abrir no editor na linha {{line}}"
   },
   "outsideFile": {
     "band": "Somente leitura · fora do repositório · {{path}}",
@@ -1920,7 +1940,7 @@
     "state": {
       "open": "Aberto",
       "draft": "Rascunho",
-      "merged": "Mesclado",
+      "merged": "Mergeado",
       "closed": "Fechado",
       "completed": "Concluído",
       "abandoned": "Abandonado"
@@ -1948,7 +1968,7 @@
     },
     "vote": {
       "approved": "Aprovado",
-      "changesRequested": "Mudanças pedidas",
+      "changesRequested": "Alterações pedidas",
       "commented": "Comentou",
       "reviewRequested": "Revisão pedida",
       "approvedWithSuggestions": "Aprovado com sugestões",
@@ -1961,7 +1981,7 @@
       "azure": "Abrir no Azure DevOps"
     },
     "merge": {
-      "github": "Mesclar",
+      "github": "Fazer merge",
       "azure": "Concluir"
     },
     "description": "Descrição",
@@ -1990,6 +2010,21 @@
       "approvals_one": "{{count}} aprovação sua",
       "approvals_many": "{{count}} aprovações suas",
       "approvals_other": "{{count}} aprovações suas"
+    },
+    "form": {
+      "title": "Título",
+      "from": "De",
+      "into": "Para",
+      "draft": "Abrir como rascunho",
+      "submit": "Enviar e abrir pull request",
+      "opened": "Pull request aberto",
+      "failed": "Não foi possível abrir o pull request. Tente de novo."
+    },
+    "address": "Tratar os comentários da revisão",
+    "addressPrompt": "Leia os comentários da revisão do pull request {{number}} e trate-os.",
+    "mergeTooltip": {
+      "github": "O merge acontece no GitHub depois da revisão",
+      "azure": "A conclusão acontece no Azure DevOps quando as políticas passam"
     }
   }
 }

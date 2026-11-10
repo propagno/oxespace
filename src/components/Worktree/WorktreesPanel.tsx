@@ -84,7 +84,7 @@ function Row({ row, onRemove }: { row: WorktreeRow; onRemove: () => void }): Rea
     <td>{relativeAge(row.lastActivity)}</td>
     <td>
       <Button size="sm" variant="ghost" aria-label={t('worktree.removeLabel', { name })} aria-describedby={reason ? reasonId : undefined}
-        disabled={reason !== null} onClick={onRemove}>{t('worktree.panel.remove')}</Button>
+        disabled={reason !== null} onClick={onRemove}>{t('worktree.panel.removeOpen')}</Button>
       {reason ? <span id={reasonId} className="worktrees-panel-reason">{reason}</span> : null}
     </td>
   </tr>

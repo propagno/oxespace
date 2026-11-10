@@ -28,6 +28,7 @@ export interface PlacesBridge {
   placeRestore?(threadId: string, restoreToken: string): Promise<{ ok: boolean }>
   placeDiscard?(threadId: string, placeId: string, input: { confirmed: boolean }): Promise<{ ok: boolean }>
   onPlacesChanged?(listener: (event: { threadId: string }) => void): () => void
+  collisions?(threadId: string): Promise<Array<{ file: string; others: Array<{ conversationId: string; title: string }> }> | null | undefined>
 }
 
 export function placesBridge(): PlacesBridge | undefined {
@@ -75,6 +76,40 @@ export function switchBackBlock(drift: ThreadPlaceDrift, running: boolean): 'dir
   if (drift.dirty) return 'dirty'
   if (running) return 'busy'
   return null
+}
+
+/** D1/D4: the files, lines and places with changes, for the summary line. A place not read yet counts nothing. */
+export interface PlacesStats { files: number; additions: number; deletions: number; places: number }
+export function placesStats(groups: ReadonlyArray<PlaceGroups | null | undefined>): PlacesStats {
+  const stats: PlacesStats = { files: 0, additions: 0, deletions: 0, places: 0 }
+  for (const group of groups) {
+    if (!group) continue
+    const counts = group.kind === 'written'
+      ? group.written.map(file => [file.additions ?? 0, file.deletions ?? 0] as const)
+      : group.task.files.map(file => [file.additions, file.deletions] as const)
+    if (counts.length === 0) continue
+    stats.places += 1
+    stats.files += counts.length
+    for (const [additions, deletions] of counts) { stats.additions += additions; stats.deletions += deletions }
+  }
+  return stats
+}
+
+/** D1: the first line of a hunk on the new side ("@@ -10,4 +10,6 @@" is 10); a new file starts at 1. */
+export function hunkLine(header: string): number {
+  const match = /\+(\d+)/.exec(header)
+  const line = match ? Number(match[1]) : 1
+  return line > 0 ? line : 1
+}
+
+/** D2: a long path cut in the middle (keeps its first and last segments), so the header stays one line; the full path goes in the tooltip. */
+export function middlePath(path: string, max = 48): string {
+  if (path.length <= max) return path
+  const sep = path.includes('\\') && !path.includes('/') ? '\\' : '/'
+  const parts = path.split(sep)
+  const last = parts.length > 1 ? `${sep}${parts[parts.length - 1]}` : ''
+  const keep = Math.max(1, max - last.length - 1)
+  return `${path.slice(0, keep)}…${last}`
 }
 
 /** The short base commit the place diffs against. */

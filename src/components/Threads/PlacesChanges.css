@@ -1,9 +1,16 @@
 .places-changes { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3); overflow: auto; }
 .places-note { margin: 0; color: var(--text-secondary); }
+.places-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.places-view { display: flex; gap: var(--space-1); }
+.places-view [aria-checked="true"] { background: var(--fill-selected); }
+.places-toolbar-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-left: auto; }
+.places-summary { margin: 0; color: var(--text-secondary); }
 .place-section { display: flex; flex-direction: column; gap: var(--space-2); }
-.place-head { display: flex; align-items: center; gap: var(--space-2); }
-.place-title { margin: 0; flex: 1; font-size: var(--text-sm); }
+.place-head { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.place-title { margin: 0; font-size: var(--text-sm); }
+.place-branch { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .place-sub { margin: 0; color: var(--text-secondary); }
+.place-path { white-space: nowrap; }
 .place-group { display: flex; flex-direction: column; gap: var(--space-1); }
 .place-group-title { margin: 0; font-size: var(--text-sm); }
 .place-files { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
@@ -12,6 +19,9 @@
 .place-file-path { flex: 1; overflow-wrap: anywhere; }
 .place-file-counts { color: var(--text-secondary); }
 .place-hunk-lines { margin: 0; overflow: auto; }
+.place-hunk-line { display: block; }
+.place-comment { display: flex; flex-direction: column; gap: var(--space-1); }
+.place-comment-actions { display: flex; justify-content: flex-end; }
 .place-drift { display: flex; flex-direction: column; gap: var(--space-1); border: 1px solid var(--border-default); border-radius: var(--radius-sm); padding: var(--space-2); }
 .place-drift p { margin: 0; }
 .place-drift-title { font-weight: var(--weight-semibold); }

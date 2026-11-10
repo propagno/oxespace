@@ -77,11 +77,11 @@ export function CollisionChips(props: { threadId: string }): ReactElement | null
       {shown.map(group => {
         const [first, ...rest] = group.files
         return (
-          <Button key={group.conversationId} size="sm" variant="ghost" title={group.title}
+          <Button key={group.conversationId} size="sm" variant="ghost" title={first}
             onClick={() => { void useThreadStore.getState().select(group.conversationId) }}>
             {t('collision.alsoEditedBy', { title: shortTitle(group.title), interpolation: { escapeValue: false } })}
             {': '}
-            {first}
+            <code className="collision-chip-file">{first}</code>
             {rest.length > 0 ? ` ${t('collision.more', { count: rest.length })}` : ''}
           </Button>
         )

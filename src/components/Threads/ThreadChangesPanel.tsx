@@ -39,6 +39,8 @@ export function ThreadChangesPanel({ snapshot, workspace, panel, onClose, onSend
   // U4.1: with main's places bridge, Changes groups the conversation's changes by place; without it, the project diff.
   const bridge = placesBridge()
   const hasPlaces = Boolean(bridge?.places && bridge.placeDiff)
+  const turnIds = snapshot.events.flatMap(event => event.type === 'turn-diff' ? [event.turnId] : [])
+  const lastTurnId = turnIds.length ? turnIds[turnIds.length - 1] : undefined
   const scopedWorkspace = workspace ? { ...workspace, id: snapshot.thread.workspaceId, rootPath: root } : undefined
   const openSearchFile = (relativePath: string) => {
     void useEditorStore.getState().openFile({ workspaceId: snapshot.thread.workspaceId, rootPath: root, relativePath })
@@ -51,7 +53,7 @@ export function ThreadChangesPanel({ snapshot, workspace, panel, onClose, onSend
       <button type="button" aria-label={t('workbench.close')} title={t('common.close')} onClick={onClose}><X size={14} /></button></header>
     {panel === 'session' ? <div className="thread-review-body thread-tool-surface"><ThreadSessionPanel snapshot={snapshot} workspace={workspace} running={snapshot.thread.status === 'running' || snapshot.thread.status === 'approval'} onOpenPanel={setPanel} onCompact={onCompact} /></div>
       : panel === 'changes' && turnId ? <div className="thread-review-body thread-tool-surface"><ThreadTurnReview key={turnId} snapshot={snapshot} turnId={turnId} onShowAll={() => useThreadWorkbenchStore.getState().setView(id, { panel: 'changes', turnId: undefined })} onComment={text => onSendToConversation?.(text)} /></div>
-      : panel === 'changes' && hasPlaces ? <div className="thread-review-body thread-tool-surface"><PlacesChanges threadId={id} /></div>
+      : panel === 'changes' && hasPlaces ? <div className="thread-review-body thread-tool-surface"><PlacesChanges threadId={id} workspaceId={snapshot.thread.workspaceId} onSend={onSendToConversation} onByTurn={lastTurnId ? () => useThreadWorkbenchStore.getState().setView(id, { panel: 'changes', turnId: lastTurnId }) : undefined} /></div>
       : panel === 'changes' ? <div className="thread-review-body thread-tool-surface"><Suspense fallback={<LoadingState label={t('workbench.loadingChanges')} />}><ChangesPanel workspaceId={snapshot.thread.workspaceId} rootPath={root} onSendComments={onSendToConversation ? text => { onSendToConversation(text); return true } : undefined} /></Suspense></div>
       : panel === 'git' ? <div className="thread-review-body thread-tool-surface"><Suspense fallback={<LoadingState label={t('workbench.loadingGit')} />}><GitControlPanel workspaceId={snapshot.thread.workspaceId} rootPath={root} onOpenFile={openSearchFile} draft={() => threadCommitDraft(snapshot)} /></Suspense></div>
       : panel === 'files' ? <div className="thread-review-body thread-tool-surface">{scopedWorkspace ? <Suspense fallback={<LoadingState label={t('workbench.loadingFiles')} />}><EditorPane workspaceId={snapshot.thread.workspaceId} rootPath={root} /></Suspense> : unavailable}</div>
