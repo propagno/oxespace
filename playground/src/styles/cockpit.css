@@ -62,10 +62,10 @@
 .http-g { border-bottom: 1px solid var(--border-subtle); }
 .http-gh { display: flex; align-items: center; gap: 8px; padding: 8px 12px 4px; font-size: 12px; }
 .http-gh .muted { margin-left: auto; }
-.http-r { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto auto 16px 40px; gap: 8px; align-items: center; width: 100%; min-height: 32px; padding: 4px 12px; border: 0; background: transparent; color: var(--text-primary); text-align: left; font-size: 12px; cursor: pointer; }
+.http-r { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto auto 16px 40px; gap: 8px; align-items: center; width: 100%; min-height: 32px; padding: 4px 12px; border: 0; background: transparent; color: var(--text-primary); text-align: left; font-size: 12px; cursor: pointer; transition: background 100ms ease; }
 .http-r:hover { background: var(--surface-hover, var(--surface-sunken)); }
 .http-r[aria-current="true"] { background: var(--accent-soft); }
-.http-r .st, .http-d .st { justify-self: end; }
+.http-r .st, .http-d .st { justify-self: end; font-variant-numeric: tabular-nums; }
 .http-d { display: grid; gap: 8px; padding: 12px; border-top: 1px solid var(--border-default); background: var(--surface-base); max-height: 62%; overflow: auto; font-size: 12.5px; }
 .http-d .code { margin: 0; white-space: pre-wrap; word-break: break-all; }
 .http-d .row b { min-width: 0; }
@@ -73,7 +73,7 @@
 /* ---------------------------------------------------------------- containers panel */
 .cpan { display: grid; grid-template-rows: minmax(0, 45%) minmax(0, 1fr); min-height: 0; height: 100%; }
 .cpan-l { border-bottom: 1px solid var(--border-default); }
-.cpan-r { display: grid; grid-template-columns: 10px minmax(0, auto) minmax(0, 1fr); gap: 8px; align-items: center; width: 100%; min-height: 32px; padding: 4px 12px; border: 0; background: transparent; color: var(--text-primary); text-align: left; font-size: 12.5px; cursor: pointer; }
+.cpan-r { display: grid; grid-template-columns: 10px minmax(0, auto) minmax(0, 1fr); gap: 8px; align-items: center; width: 100%; min-height: 32px; padding: 4px 12px; border: 0; background: transparent; color: var(--text-primary); text-align: left; font-size: 12.5px; cursor: pointer; transition: background 100ms ease; }
 .cpan-r[aria-current="true"] { background: var(--accent-soft); }
 .cpan-r .by { display: inline-flex; gap: 6px; align-items: center; justify-self: end; min-width: 0; max-width: 100%; color: var(--text-secondary); font-size: 12px; }
 .cpan-r > .muted { justify-self: end; font-size: 12px; }
