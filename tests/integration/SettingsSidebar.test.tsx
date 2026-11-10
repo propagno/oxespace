@@ -1,11 +1,10 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
 import type { AgentProfile, AgentReadiness } from '../../shared/types/agent'
 import { AgentConfigModal } from '../../src/components/Agents/AgentConfigModal'
 import { SettingsContent } from '../../src/components/Settings/SettingsModal'
 import { stubOpenExternal } from '../helpers/openExternal'
-import { useUpdaterStore } from '../../src/store/updater.store'
 
 const profiles: AgentProfile[] = [
   {
@@ -161,6 +160,16 @@ describe('Settings agents UI', () => {
     expect(onUseProviderInPane).toHaveBeenCalledWith(profiles[0])
   })
 
+  test('T89: the resume-bypass switch is named by one whole sentence, shown in full', async () => {
+    ;(window as unknown as { oxe: unknown }).oxe = { terminal: { resumeBypass: vi.fn(async () => false), setResumeBypass: vi.fn(async (value: boolean) => value) } }
+    const props = { agentProfiles: profiles, agentReadiness: readiness, isDiscoveringAgents: false, onClose: vi.fn(), onDiscoverAgents: vi.fn(), onConfigureAgent: vi.fn(), onNewCustomAgent: vi.fn() }
+    render(<SettingsContent section="terminal" {...props} />)
+    const name = 'Resume sessions that skipped permission prompts the same way'
+    expect(await screen.findByRole('switch', { name })).toBeInTheDocument()
+    expect(screen.getByText(name)).toBeVisible()
+    delete (window as { oxe?: unknown }).oxe
+  })
+
   test('renders the terminal, notifications and updates sections', () => {
     const props = { agentProfiles: profiles, agentReadiness: readiness, isDiscoveringAgents: false, onClose: vi.fn(), onDiscoverAgents: vi.fn(), onConfigureAgent: vi.fn(), onNewCustomAgent: vi.fn() }
     const view = render(<SettingsContent section="terminal" {...props} />)
@@ -178,16 +187,11 @@ describe('Settings agents UI', () => {
     expect(screen.getByTestId('btn-check-app-updates')).toBeEnabled()
     expect(screen.getByTestId('btn-check-app-updates')).toHaveTextContent(/Check for updates/i)
     expect(screen.getByText(/Development and Linux package installs cannot update in place/)).toBeInTheDocument()
-    expect(screen.getByTestId('settings-rtk-update')).toBeInTheDocument()
-    expect(screen.getByTestId('btn-update-rtk')).toBeInTheDocument()
     expect(screen.getByTestId('settings-bundled-tools')).toBeInTheDocument()
-    const previousRtk = useUpdaterStore.getState().rtk
-    try {
-      act(() => useUpdaterStore.setState({ rtk: { ...previousRtk, installed: false, checking: true, updating: false, updateAvailable: true, error: null } }))
-      expect(screen.getByTestId('btn-update-rtk')).toBeDisabled()
-      expect(screen.getByTestId('btn-check-rtk')).toBeDisabled()
-      expect(within(screen.getByTestId('settings-rtk-update')).getByText('Checking', { exact: true })).toHaveClass('muted')
-    } finally { act(() => useUpdaterStore.setState({ rtk: previousRtk })) }
+    // R4 took RTK out: no RTK card, and no update or check button for it.
+    expect(screen.queryByTestId('settings-rtk-update')).toBeNull()
+    expect(screen.queryByTestId('btn-update-rtk')).toBeNull()
+    expect(screen.queryByTestId('btn-check-rtk')).toBeNull()
   })
 
   test('built-in modal allows command edits without delete or secret fields', async () => {

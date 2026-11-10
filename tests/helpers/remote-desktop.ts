@@ -101,6 +101,8 @@ export class FakeThreads implements RemoteThreadHost {
 
 export class FakeTerminals implements RemoteTerminalHost {
   readonly rings = new Map<string, { session: string; ring: PtyRingBuffer }>()
+  /** P4: a pane's size, when a test sets one (readSince then reports it). */
+  readonly sizes = new Map<string, { cols: number; rows: number }>()
   readonly written: Array<{ paneId: string; data: string }> = []
   private readonly listeners = new Set<(paneId: string) => void>()
 
@@ -113,7 +115,7 @@ export class FakeTerminals implements RemoteTerminalHost {
 
   readSince(paneId: string, seq: number) {
     const entry = this.rings.get(paneId)
-    return entry ? { session: entry.session, seq: entry.ring.seq, ...entry.ring.since(seq) } : null
+    return entry ? { session: entry.session, seq: entry.ring.seq, ...this.sizes.get(paneId), ...entry.ring.since(seq) } : null
   }
   onOutput(listener: (paneId: string) => void): () => void { this.listeners.add(listener); return () => { this.listeners.delete(listener) } }
   hasSession(paneId: string): boolean { return this.rings.has(paneId) }

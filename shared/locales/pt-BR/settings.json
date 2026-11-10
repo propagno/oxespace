@@ -114,7 +114,7 @@
       },
       "dark": {
         "label": "Escuro",
-        "hint": "Superfícies escuras com detalhes em amarelo quente"
+        "hint": "Superfícies escuras com detalhes em verde caatinga"
       }
     },
     "language": {
@@ -325,7 +325,7 @@
     "opacity": "Opacidade do fundo",
     "translucent": "translúcido",
     "globalDefaults": "Padrões <strong>globais</strong>. Cada workspace pode mudá-los.",
-    "resumeBypass": "Retomar sessões com as permissões ignoradas quando a sessão estava assim",
+    "resumeBypass": "Retomar do mesmo jeito as sessões que ignoravam os pedidos de permissão",
     "resumeBypassOn": "Sessões retomadas agora pulam os pedidos de permissão quando já pulavam antes",
     "resumeBypassHint": "Uma sessão do Claude Code iniciada ignorando os pedidos de permissão é retomada do mesmo jeito depois de reiniciar ou de Restaurar sessão. Desligado: ela é retomada pedindo permissão."
   },
@@ -389,30 +389,6 @@
       "ask": "As atualizações baixadas são instaladas quando você reinicia.",
       "auto": "Baixa em segundo plano. Reinicie para aplicar."
     },
-    "rtk": {
-      "installedNoVersion": "instalado (sem arquivo de versão)",
-      "notInstalledVersion": "não instalado",
-      "pill": {
-        "error": "Erro",
-        "checking": "Verificando",
-        "updating": "Atualizando",
-        "updateAvailable": "Atualização disponível",
-        "upToDate": "Atualizado",
-        "notInstalled": "Não instalado"
-      },
-      "status": {
-        "checking": "Verificando no GitHub…",
-        "updating": "Atualizando…",
-        "available": "Atualização disponível: {{version}}",
-        "latest": "Mais recente {{version}} · atualizado",
-        "dev": "Funciona em desenvolvimento — verifique ou instale o sidecar quando quiser",
-        "notChecked": "Ainda não verificado"
-      },
-      "check": "Verificar o RTK",
-      "update": "Atualizar o RTK",
-      "install": "Instalar o RTK",
-      "hint": "Binário à parte. Atualiza independentemente do OXESpace."
-    },
     "bundled": {
       "group": "Incluído no OXESpace",
       "title": "Ferramentas embutidas",
@@ -465,7 +441,7 @@
   },
   "activity": {
     "title": "Atividade dos agentes",
-    "hint": "O que os agentes mudaram pelo OXESpace (commits, pushes, pull requests, conversas, tarefas, skills, automações) e o que você decidiu. Os pedidos a bancos de dados e contêineres aparecem no OxeQuery.",
+    "hint": "O que os agentes mudaram pelo OXESpace (commits, pushes, pull requests, conversas, tarefas, skills) e o que você decidiu. Os pedidos a bancos de dados e contêineres aparecem no OxeQuery.",
     "decisions": {
       "auto": "executou",
       "approved": "você aprovou",
@@ -480,62 +456,6 @@
     "savedAudit": "Auditoria salva em {{path}}",
     "refresh": "Atualizar a atividade",
     "export": "Exportar a auditoria (JSONL)"
-  },
-  "automations": {
-    "title": "Automações agendadas",
-    "callout": "Roda um agente com um prompt em uma <strong>nova worktree</strong> no horário escolhido, sem abrir terminal. O app precisa estar aberto; horários perdidos são pulados, não rodam depois.",
-    "status": {
-      "pending": "na fila",
-      "running": "rodando",
-      "completed": "concluída",
-      "failed": "falhou",
-      "dispatch_failed": "não foi possível criar a worktree",
-      "skipped_precheck": "pulada (pré-verificação)",
-      "skipped_missed": "pulada (horário perdido)",
-      "skipped_busy": "pulada (a execução anterior ainda está ativa)"
-    },
-    "schedule": {
-      "interval": "a cada {{minutes}} min",
-      "daily": "todo dia às {{time}}",
-      "weekly": "{{days}} às {{time}}",
-      "cron": "cron {{expression}}"
-    },
-    "empty": "Nenhuma automação ainda.",
-    "next": "próxima: {{time}}",
-    "last": "Última: {{status}}",
-    "neverRan": "Ainda não rodou.",
-    "runNow": "Rodar agora",
-    "runNamed": "Rodar {{name}} agora",
-    "enable": "Ativar",
-    "disable": "Pausar",
-    "active": "Ativa",
-    "paused": "Pausada",
-    "delete": "Excluir",
-    "deleteNamed": "Excluir {{name}}",
-    "form": {
-      "name": "Nome",
-      "namePlaceholder": "Revisão noturna",
-      "repository": "Repositório",
-      "select": "Selecione…",
-      "agent": "Agente",
-      "prompt": "Prompt",
-      "frequency": "Frequência",
-      "interval": "A cada N minutos",
-      "daily": "Diária",
-      "weekly": "Semanal",
-      "cron": "Cron",
-      "minutes": "Minutos (mín. 5)",
-      "time": "Horário",
-      "days": "Dias da semana",
-      "expression": "Expressão (minuto hora dia mês dia-da-semana)",
-      "precheck": "Pré-verificação (opcional)",
-      "precheckHint": "Comando rodado na raiz do repositório; a execução só continua se ele sair com código 0.",
-      "extraArgs": "Argumentos extras do agente (opcional)",
-      "extraArgsHint": "Não há aprovação interativa, então o agente só usa o que esses argumentos permitem.",
-      "create": "Criar automação",
-      "cancel": "Cancelar"
-    },
-    "new": "Nova automação"
   },
   "keyboard": {
     "title": "Teclado",
@@ -588,14 +508,57 @@
       "failed": "Não foi possível mudar a conexão com o celular: {{error}}",
       "on": "Celulares agora podem se conectar a este computador"
     },
+    "network": {
+      "publicTitle": "O Windows considera “{{network}}” uma rede Pública, então os celulares não alcançam este computador",
+      "publicBody": "Marque este Wi-Fi como Privado em Configurações do Windows › Rede e Internet › Wi-Fi › esta rede › Tipo de perfil de rede. Ou permita o OXESpace em redes públicas no Firewall do Windows Defender › Permitir um aplicativo pelo firewall. Faça isso só em uma rede confiável."
+    },
     "firewall": {
       "title": "Antes de os celulares se conectarem",
       "windowsAsk": "O Windows vai perguntar se o OXESpace pode aceitar conexões. Permita em redes privadas, como o Wi-Fi de casa ou do escritório.",
-      "windowsPublic": "Redes públicas podem ficar desmarcadas: o celular e este computador conversam só pela sua rede local.",
+      "windowsPublic": "Se o Windows considera seu Wi-Fi uma rede Pública, ele bloqueia os celulares mesmo que você permita o OXESpace em redes privadas. Marque o Wi-Fi de casa ou do escritório como Privado, ou permita o OXESpace também em redes públicas.",
       "otherAsk": "O sistema pode perguntar se o OXESpace pode aceitar conexões de entrada. Permita para que celulares da sua rede alcancem este computador.",
       "internet": "Nada fica exposto à internet. O OXESpace escuta só em endereços de rede privada, e só celulares que você parear aqui podem usar a conexão.",
       "later": "Se você recusar, os celulares não alcançam este computador. Dá para mudar a resposta depois nas configurações de firewall do sistema.",
       "confirm": "Ligar"
+    },
+    "firewallCheck": {
+      "rule": "OXESpace.exe, TCP {{port}}, só redes privadas",
+      "blocked": {
+        "title": "Uma regra do firewall bloqueia o OXESpace",
+        "text": "Uma regra de bloqueio no Firewall do Windows Defender impede que celulares cheguem a este computador, e ela vence qualquer regra de permissão. O OXESpace nunca a remove: fale com a sua TI ou remova-a no Firewall do Windows Defender."
+      },
+      "public": {
+        "title": "Esta rede é Pública, e o Windows bloqueia celulares",
+        "text": "O Windows não deixa dispositivos entrarem em redes Públicas. Se esta é a Wi-Fi da sua casa ou do escritório, mude-a para Privada: Configurações do Windows › Rede e Internet › Wi-Fi › esta rede › Rede privada. O OXESpace não muda isso por você."
+      },
+      "noRule": {
+        "title": "O Firewall do Windows ainda não deixa celulares entrarem",
+        "text": "Nenhuma regra do firewall deixa o OXESpace aceitar conexões de celulares nesta rede."
+      },
+      "noInspection": "O OXESpace não conseguiu ler as configurações do firewall, então isto é uma estimativa. Permitir continua seguro.",
+      "ok": "Celulares conseguem chegar a este computador: {{rule}}.",
+      "checkAgain": "Verificar de novo",
+      "uac": "O Windows vai pedir permissão. Nada muda se você disser Não.",
+      "command": "O que é executado:",
+      "repair": {
+        "action": "Permitir em redes privadas",
+        "adds": "Adiciona uma regra: {{rule}}.",
+        "confirmTitle": "Permitir celulares em redes privadas?",
+        "explain": "O OXESpace adiciona uma regra ao Firewall do Windows, \"{{name}}\": {{rule}}. Você pode removê-la aqui depois.",
+        "confirm": "Permitir",
+        "done": "Verificado: celulares já conseguem chegar a este computador em redes privadas",
+        "notVerified": "Não foi possível verificar a regra. Verifique de novo ou adicione-a no Firewall do Windows Defender.",
+        "failed": "Não foi possível adicionar a regra"
+      },
+      "undo": {
+        "action": "Remover a regra",
+        "confirmTitle": "Remover a regra do firewall?",
+        "explain": "O OXESpace remove só a regra que adicionou, \"{{name}}\" ({{rule}}). Celulares não chegarão a este computador até ela ser permitida de novo.",
+        "confirm": "Remover",
+        "done": "Verificado: a regra do firewall foi removida",
+        "notVerified": "Não foi possível verificar a remoção. Verifique de novo.",
+        "failed": "Não foi possível remover a regra"
+      }
     },
     "name": {
       "title": "Nome deste computador",
@@ -673,7 +636,9 @@
         "pendingRequests": "Ver pedidos esperando por você",
         "terminal": "Ver a saída dos terminais (só leitura)",
         "jobs": "Ver tarefas em segundo plano",
-        "delegations": "Ver delegações"
+        "delegations": "Ver delegações",
+        "agents": "Ver todos os agentes e o que precisa de você",
+        "paneConversation": "Ler a conversa de um agente no terminal (só leitura)"
       },
       "commands": {
         "threadSend": "Enviar uma mensagem a uma conversa",
@@ -681,7 +646,9 @@
         "threadInterrupt": "Parar um turno em andamento",
         "threadRespondRequest": "Aceitar ou recusar um pedido de conversa, depois de confirmar no celular com digital ou rosto",
         "terminalWrite": "Digitar em um terminal que você permitiu aqui",
-        "threadHistory": "Ler mensagens mais antigas"
+        "threadHistory": "Ler mensagens mais antigas",
+        "agentMarkSeen": "Marcar um agente como visto",
+        "paneConversation": "Ler mensagens mais antigas de um agente no terminal"
       },
       "forbidden": {
         "oxequeryApprove": "Aprovar mudanças do OxeQuery",
@@ -698,6 +665,19 @@
     }
   },
   "tools": {
+    "skillsList": {
+      "title": "Skills",
+      "intro": "Prompts Markdown de ~/.oxe/skills e do .oxe/skills do projeto, que vence se o nome se repete. Rode com /.",
+      "loading": "Lendo as skills…",
+      "loadFailed": "Não foi possível ler as skills",
+      "empty": "Nenhuma skill ainda",
+      "emptyBody": "Adicione um arquivo Markdown em .oxe/skills no projeto.",
+      "noDescription": "Sem descrição",
+      "scope": {
+        "workspace": "Workspace",
+        "user": "Usuário"
+      }
+    },
     "title": "Ferramentas",
     "intro": "Os grupos de ferramentas MCP do OXESpace oferecidos aos agentes deste projeto, como cada grupo é oferecido e quanto custa. Os agentes que começarem depois de uma mudança já a recebem. Os modos ficam no arquivo do projeto:",
     "reload": "Recarregar",
@@ -725,6 +705,7 @@
       "notOffered": "Não oferecido"
     },
     "sections": {
+      "mcpAndSkills": "Servidores MCP e skills",
       "project": "Grupos que este projeto escolhe",
       "role": "Grupos que seguem o papel",
       "roleIntro": "Estes vêm com o que a conversa ou o terminal é: membro da Equipe do projeto, uma tarefa delegada ou um agente num terminal OxeCode. Não podem ser mudados aqui."
@@ -748,7 +729,7 @@
       },
       "app": {
         "name": "App",
-        "description": "Git, GitHub, conversas, skills, automações, Linear, servidores MCP, busca e uso. Pushes, pull requests e releases são aprovados por você."
+        "description": "Git, GitHub, conversas, skills, servidores MCP, busca e uso. Pushes, pull requests e releases são aprovados por você."
       },
       "team": {
         "name": "Equipe",

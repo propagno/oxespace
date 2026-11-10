@@ -18,6 +18,11 @@ import kotlinx.serialization.SerializationException
 enum class SessionEnd {
     /** The person removed this phone on the desktop: its key and pairing are gone for good. */
     REVOKED,
+    /**
+     * Also `revoked`, but the desktop says why: the pairing was never used before its window passed (T96, reason
+     * `pairing-lapsed`). Its key and pairing are gone the same way; the phone says to pair again, not "removed".
+     */
+    PAIRING_LAPSED,
     /** The desktop speaks another protocol version. */
     UNSUPPORTED_VERSION,
     /** The desktop didn't accept this phone's proof. */
@@ -64,6 +69,10 @@ class SessionProtocol(
 
     private var challenge: String? = null
     private var desktopName: String? = null
+
+    /** What the desktop's hello listed beyond the version (1.5.0 F10, e.g. "terminal.snapshotOnly"); empty before F10. */
+    var features: Set<String> = emptySet()
+        private set
     private var pendingAuth: String? = null
     private var pendingWithToken = false
 
@@ -108,6 +117,7 @@ class SessionProtocol(
         val nonce = hello.challenge?.takeIf { CHALLENGE.matches(it) } ?: return end(SessionEnd.PROTOCOL)
         challenge = nonce
         desktopName = hello.desktopName
+        features = hello.features.orEmpty().toSet()
         state = SessionState.Authenticating
         val token = tokens.token
         return if (token != null && token.expiresAtMs - now() > reuseMarginMs) {
@@ -135,7 +145,7 @@ class SessionProtocol(
     private fun onError(error: RemoteErrorFrame): List<RemoteFrame> {
         if (error.code == RemoteErrorCode.REVOKED) {
             tokens.token = null
-            return end(SessionEnd.REVOKED)
+            return end(if (error.reason == PAIRING_LAPSED_REASON) SessionEnd.PAIRING_LAPSED else SessionEnd.REVOKED)
         }
         if (error.code == RemoteErrorCode.UNSUPPORTED_VERSION) return end(SessionEnd.UNSUPPORTED_VERSION)
         if (error.id == null || error.id != pendingAuth) {
@@ -186,3 +196,6 @@ class SessionProtocol(
         const val RENEW_AHEAD_MS = 3 * 60_000L
     }
 }
+
+/** The error frame's `reason` for a pairing that lapsed unused (T96). */
+const val PAIRING_LAPSED_REASON = "pairing-lapsed"

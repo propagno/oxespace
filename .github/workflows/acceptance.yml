@@ -132,7 +132,9 @@ jobs:
           test -f "$src/$SPEC" || { echo "::error::$SPEC is not in spec_ref"; exit 1; }
           test -f "$src/playwright.acceptance.config.ts" || { echo "::error::spec_ref has no playwright.acceptance.config.ts"; exit 1; }
           # No links: a symlink in spec_ref could point the copy outside these paths.
-          if find "$src/e2e/acceptance" "$src/playwright.acceptance.config.ts" -type l | grep -q .; then echo "::error::spec_ref holds symlinks"; exit 1; fi
+          # Captured, not piped into grep -q: under pipefail, find's SIGPIPE after grep's first match read as no links.
+          links=$(find "$src/e2e/acceptance" "$src/playwright.acceptance.config.ts" -type l)
+          if [ -n "$links" ]; then echo "::error::spec_ref holds symlinks"; exit 1; fi
           rm -rf e2e/acceptance
           mkdir -p e2e/acceptance
           cp -R "$src/e2e/acceptance/." e2e/acceptance/
@@ -159,6 +161,19 @@ jobs:
 
       - name: Install dependencies without lifecycle scripts
         run: npm ci --ignore-scripts
+
+      - name: Electron version
+        id: electron
+        shell: bash
+        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # @electron/get keeps the downloaded Electron zip here; npm rebuild electron and fix:native read it, so a
+      # GitHub release-download outage (a 504 on the zip) no longer fails the job once the version is cached.
+      - name: Cache the Electron download
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.os == 'Windows' && '~/AppData/Local/electron/Cache' || '~/.cache/electron' }}
+          key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
 
       - name: Install the pinned Electron runtime
         run: npm rebuild electron

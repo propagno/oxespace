@@ -533,6 +533,21 @@ describe('Thread workspace UI', () => {
     expect(f.api.send).toHaveBeenCalledOnce()
     expect(f.snapshot.events).toEqual([])
   })
+  it('T88: no agent found says what to do, offers to connect one, and keeps the code under Details', async () => {
+    const f = fixture(), onAccounts = vi.fn()
+    vi.mocked(f.api.send).mockRejectedValueOnce(Error("Error invoking remote method 'thread:send': Error: THREAD_ACCOUNT_UNAVAILABLE: Could not verify the provider account. Check the CLI connection and retry."))
+    render(<ThreadView workspace={f.workspace} onAccounts={onAccounts} />)
+    fireEvent.change(screen.getByRole('textbox', { name: 'Message' }), { target: { value: 'Hello' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('OXESpace couldn’t reach Claude Code or Codex to check your account')
+    expect(alert.querySelector('p')).not.toHaveTextContent('THREAD_ACCOUNT_UNAVAILABLE')
+    expect(within(alert).getByText('Details').closest('details')).toHaveTextContent('THREAD_ACCOUNT_UNAVAILABLE: Could not verify the provider account')
+    fireEvent.click(within(alert).getByRole('button', { name: 'Connect an agent' }))
+    expect(onAccounts).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.getByRole('textbox', { name: 'Message' })).toHaveValue('Hello')
+  })
   it('sends a message to the selected Claude thread', async () => {
     const f = fixture(); render(<ThreadView workspace={f.workspace} />)
 

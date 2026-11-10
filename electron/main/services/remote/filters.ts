@@ -1,12 +1,15 @@
 import {
   REMOTE_QUEUE_PREVIEW, REMOTE_TEXT_LIMITS,
-  type RemoteDelegation, type RemoteJob, type RemotePane, type RemotePendingRequest, type RemoteThreadHeader, type RemoteThreadItem, type RemoteThreadSummary, type RemoteWorkspace
+  type RemoteAgentRow, type RemoteDelegation, type RemoteJob, type RemotePane, type RemotePendingRequest, type RemoteThreadHeader, type RemoteThreadItem, type RemoteThreadSummary, type RemoteWorkspace
 } from '../../../../shared/remote/protocol'
 import type { ConversationThread, ThreadEvent, ThreadRequest, ThreadTurn } from '../../../../shared/types/thread'
 import type { RemoteDelegationRow, RemoteJobRow, RemotePendingRow, RemoteWorkspaceRow } from './desktop'
 import { clean, relativeTo } from './text'
 import { riskFromShell } from '../../../../shared/approval-rules'
+import type { AgentRow } from '../../../../shared/types/agents'
+import type { MainMessage } from '../../../../shared/messages'
 import { toToolDiff } from './tool-diff'
+import { workspaceColorIndex } from '../../../../shared/workspace-color'
 
 /**
  * Desktop data to C5 payloads. Each mapper names what it keeps; anything not named here (absolute paths, cwd, native
@@ -21,9 +24,11 @@ const text = (value: string | undefined, roots: readonly string[], limit: number
 
 // ---- workspaces ---------------------------------------------------------------------------------------------------
 
-export function toWorkspace(row: RemoteWorkspaceRow, phoneWrite: ReadonlySet<string>, roots: readonly string[]): RemoteWorkspace {
+export function toWorkspace(row: RemoteWorkspaceRow, phoneWrite: ReadonlySet<string>, roots: readonly string[], conversation?: (paneId: string) => boolean): RemoteWorkspace {
   return {
     id: row.id, name: text(row.name, roots, TITLE) || 'Workspace', active: row.active,
+    // 1.5.0 A67 (#693): the slot the desktop shows, chosen or derived from the id; always 1–8.
+    color: workspaceColorIndex({ id: row.id, color: row.color ?? null }),
     panes: row.panes.map((pane): RemotePane => {
       const agent = pane.agent
       return {
@@ -32,7 +37,9 @@ export function toWorkspace(row: RemoteWorkspaceRow, phoneWrite: ReadonlySet<str
         kind: pane.type !== 'terminal' ? 'other' : agent || pane.agentName ? 'agent' : 'terminal',
         ...(agent ? { agent: text(agent, roots, 64) } : {}),
         ...(pane.agentState ? { agentState: pane.agentState } : {}),
-        phoneWrite: phoneWrite.has(pane.id)
+        phoneWrite: phoneWrite.has(pane.id),
+        // BE-A46-c5: only the flag; the conversation itself is read with `pane.conversation`.
+        ...(conversation?.(pane.id) ? { conversation: true } : {})
       }
     })
   }
@@ -204,4 +211,41 @@ export function toDelegation(row: RemoteDelegationRow, roots: readonly string[])
     ...(row.destinationThreadId ? { destinationThreadId: row.destinationThreadId } : {}),
     updatedAt: row.updatedAt
   }
+}
+
+/**
+ * S7.1 · One agent for the phone (CCR #513 §6): the state already mapped, the oldest pending request with main's own
+ * title (never the agent's text), and nothing that names a place or an account: no path, worktree, session or cost.
+ */
+export function toRemoteAgent(
+  row: AgentRow, rev: number, roots: readonly string[], words: (message: MainMessage) => string,
+  /** How the phone itself sees a conversation's request (`toPendingRequest`): its risk, and whether it can answer it. */
+  asShown?: (threadId: string, requestId: string) => Pick<RemotePendingRequest, 'risk' | 'answerable'> | undefined
+): RemoteAgentRow {
+  const oldest = [...row.requests].sort((a, b) => a.since - b.since)[0]
+  const shown = oldest && row.kind === 'thread' ? asShown?.(row.id, oldest.requestId) : undefined
+  return {
+    kind: row.kind, id: row.id, rev, state: row.state, provider: row.provider,
+    title: clean(row.title, roots, REMOTE_TEXT_LIMITS.objective).text, since: row.since,
+    ...(oldest ? {
+      request: {
+        requestId: oldest.requestId, title: clean(words(oldest.title), roots, REMOTE_TEXT_LIMITS.detail).text, titleCode: oldest.title.code,
+        titleParams: remoteParams(oldest.title.params, roots),
+        // A conversation's request as the phone's own pending list has it (SECURITY #531 L3, L4); one the phone does
+        // not list is not answerable from it.
+        risk: row.kind === 'thread' ? shown?.risk ?? null : oldest.risk,
+        answerable: row.kind === 'thread' ? shown?.answerable ?? false : oldest.answerable
+      }
+    } : {})
+  }
+}
+
+/** A message's parameters for the phone: strings cleaned like any remote text, numbers kept, anything else dropped. */
+function remoteParams(params: object, roots: readonly string[]): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(params)) {
+    if (typeof value === 'string') out[key] = clean(value, roots, REMOTE_TEXT_LIMITS.detail).text
+    else if (typeof value === 'number' && Number.isFinite(value)) out[key] = value
+  }
+  return out
 }

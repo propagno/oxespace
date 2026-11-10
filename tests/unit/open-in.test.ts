@@ -1,9 +1,10 @@
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NODE_EXECUTABLE } from '../helpers/node-child'
+import { removeTempDir } from '../helpers/removeTempDir'
 
 vi.mock('electron', () => ({ app: { isPackaged: false, getPath: () => tmpdir() } }))
 
@@ -59,7 +60,8 @@ beforeEach(() => {
   failLaunch = false
 })
 
-afterEach(() => rmSync(base, { recursive: true, force: true }))
+// FL-20: the FL-05 helper, with retries. On Windows a just-exited child can still hold the folder (EBUSY).
+afterEach(() => removeTempDir(base))
 
 describe('app:open-in refuses anything outside an open workspace', () => {
   it('refuses a path that climbs out of the root, as written', async () => {
@@ -237,7 +239,9 @@ describe('launchDetached', () => {
     const out = join(base, 'argv.json')
     const tricky = ['a & echo hacked', '$(whoami)', '`id`', '%PATH%', '"quoted" arg', 'x | y']
     const script = 'require("fs").writeFileSync(process.argv[1], JSON.stringify(process.argv.slice(2)))'
-    await launchDetached(NODE_EXECUTABLE, ['-e', script, out, ...tricky], base, process.env)
+    // FL-20: the child's working folder is the system temp folder, never `base`. On Windows a live process locks its
+    // working folder, and this detached child may still be exiting when afterEach removes `base`.
+    await launchDetached(NODE_EXECUTABLE, ['-e', script, out, ...tricky], tmpdir(), process.env)
     for (let waited = 0; !existsSync(out) && waited < 10_000; waited += 50) await new Promise(resolve => setTimeout(resolve, 50))
     expect(JSON.parse(readFileSync(out, 'utf8'))).toEqual(tricky)
   })

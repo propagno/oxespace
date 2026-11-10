@@ -5,7 +5,7 @@ import { LATEST_DB_VERSION, openInMemoryDatabase, runMigrations } from '../../el
 
 // Literal on purpose: it verifies the migration SQL itself sets this version,
 // independently of the runner's constant. Bump both when adding a migration.
-const EXPECTED_SCHEMA_VERSION = 93
+const EXPECTED_SCHEMA_VERSION = 95
 
 // Migration 046 is platform-split: Windows keeps PowerShell as the neutral
 // built-in shell, every other host is repointed to bash. The assertions below
@@ -230,6 +230,21 @@ describe('migrations', () => {
     const cols = (db.prepare("PRAGMA table_info('semantic_embeddings')").all() as Array<{ name: string }>).map((c) => c.name)
     expect(cols).toEqual(expect.arrayContaining(['embedding_blob', 'dim']))
     db.close()
+  })
+
+  test('095 keeps a pane off the phone per pane, and forgets it with the pane', () => {
+    const db = openInMemoryDatabase()
+    try {
+      db.pragma('foreign_keys = ON')
+      db.prepare("INSERT INTO workspaces (id, name, root_path, layout, default_shell_profile_id) VALUES ('ws-h', 'Repo', '/tmp/repo', '1x1', 'builtin-powershell')").run()
+      db.prepare("INSERT INTO panes (id, workspace_id, row_index, column_index, shell_profile_id) VALUES ('pane-h', 'ws-h', 0, 0, 'builtin-powershell')").run()
+      const columns = (db.prepare("PRAGMA table_info('remote_hidden_panes')").all() as Array<{ name: string; pk: number }>)
+      expect(columns.map(column => column.name)).toEqual(['pane_id', 'hidden_at'])
+      db.prepare("INSERT INTO remote_hidden_panes (pane_id, hidden_at) VALUES ('pane-h', 1)").run()
+      expect(() => db.prepare("INSERT INTO remote_hidden_panes (pane_id, hidden_at) VALUES ('pane-none', 1)").run()).toThrow()
+      db.prepare("DELETE FROM panes WHERE id = 'pane-h'").run()
+      expect(db.prepare('SELECT count(*) AS n FROM remote_hidden_panes').get()).toEqual({ n: 0 })
+    } finally { db.close() }
   })
 
   test('the runner constant matches the version the migration SQL sets', () => {

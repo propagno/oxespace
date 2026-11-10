@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import type { DelegationTask } from '../../../../shared/types/delegation'
 import type { GitHubWorktreeApi } from '../../../../shared/types/github'
-import { projectIdentity } from '../memory/memory-project.service'
+import { projectIdentity } from '../project-identity'
 import type { DelegationRepository } from './delegation.repository'
 
 export class DelegationGitProvisioner {

@@ -5,6 +5,7 @@ import type { TerminalStatusResult } from '../../../shared/types/ipc'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
+import { workspaceColorAttrs } from '../../../shared/workspace-color'
 import { derivePaneDisplayState, resolvePaneIdentity } from '../../utils/paneDisplay'
 import { AgentSessionDetails, EnableResumeMenuItem, PaneHooksNotice, PaneResumeMarker, StartFreshMenuItem, usePaneResume } from '../AgentSessions/PaneResume'
 import { PaneContent } from '../Panes/PaneContent'
@@ -16,7 +17,7 @@ import { paneMenuPlacement, statusBarFloor, type PaneMenuPlacement } from './pan
 import { DetailList } from '../Navigation/DetailList'
 import { formatDateTime } from '../../utils/formatTime'
 import { i18n } from '../../i18n'
-import { PhoneWriteBadge, PhoneWriteMenuItem, usePhoneWrite } from './PanePhoneWrite'
+import { PanePhoneHeaderMark, PanePhoneMenuItems } from './PanePhoneWrite'
 
 const tc = i18n.getFixedT(null, 'code')
 const detailRows = (items: string[][]): Array<{ label: string; detail: string }> => items.map(([label, detail]) => ({ label, detail }))
@@ -80,7 +81,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
   const resume = usePaneResume(pane.id, display.title, isTerminalPane && terminalState.status === 'running', resumeAgent, terminalState.agentState)
   const terminalCanMutate = terminalState.status === 'running'
   const terminalCanRestart = terminalState.status !== 'starting'
-  const phoneWrite = usePhoneWrite(pane.id)
+
 
   // Inline rename state for the pane's title. The sidebar no longer exposes
   // per-pane rows, so renaming lives in the header where the user already
@@ -181,7 +182,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
 
   return (
     <section className={`pane-container${isActive ? ' active' : ''}`} data-testid="pane-container" data-pane-id={pane.id} data-tone={display.statusTone} tabIndex={-1} onFocus={() => onActivate?.(pane.id)} onPointerDown={() => onActivate?.(pane.id)}>
-      <header className="pane-header">
+      <header className="pane-header" {...workspaceColorAttrs(workspace)}>
         <div className="pane-header-left">
           <span className={`pane-status-dot ${statusClass(pane.status)} activity-${display.statusTone}${display.statusEstimated ? ' is-estimated' : ''}`} aria-hidden="true" title={statusText} data-testid="pane-status-dot" data-origin={display.statusOrigin ?? undefined} />
           <span className="sr-only" data-testid="pane-status-text">{statusText}</span>
@@ -201,7 +202,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
           {needsDecision && <span className="pane-decision-chip" title={display.attentionReason ? `${display.attentionReason} · ${statusText}` : statusText} data-testid="pane-decision-chip" aria-hidden="true">{display.statusLabel}</span>}
           <span className="pane-header-divider" aria-hidden="true">/</span>
           {isTerminalPane && <PaneBranchBadge workspace={workspace} pane={pane} />}
-          {isTerminalPane && phoneWrite.allowed && <PhoneWriteBadge />}
+          {isTerminalPane && <PanePhoneHeaderMark paneId={pane.id} />}
           {isTerminalPane && resume && <PaneResumeMarker paneId={pane.id} outcome={resume} />}
           {renaming ? (
             <input
@@ -318,7 +319,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                       {tc('paneMenu.newSession')}
                     </button>
                     <Suspense fallback={null}><TerminalFocusMenuItems paneId={pane.id} onDone={() => setMenuOpen(false)} /></Suspense>
-                    {phoneWrite.offered && <PhoneWriteMenuItem paneId={pane.id} allowed={phoneWrite.allowed} onDone={runMenuAction} />}
+                    <PanePhoneMenuItems paneId={pane.id} onDone={runMenuAction} />
                     {isTerminalPane && resumeAgent && <EnableResumeMenuItem agent={resumeAgent} onDone={runMenuAction} />}
                     {isTerminalPane && resume?.outcome === 'resumed' && <StartFreshMenuItem paneId={pane.id} agent={resume.agent} onDone={runMenuAction} />}
                     <div className="pane-actions-popover-sep" aria-hidden="true" />
@@ -379,7 +380,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
       {/* F32: the status-hooks question for this pane's agent, without taking the terminal's focus. */}
       {isTerminalPane && <PaneHooksNotice paneId={pane.id} />}
       <PaneContent pane={pane} workspaceId={workspace.id} workspaceRootPath={workspace.rootPath} autoStart={autoStart} />
-      {detailsOpen && <Dialog size="md" className="desktop-details-dialog" title={tc('paneMenu.detailsTitle')} description={tc('paneMenu.detailsDescription')} onClose={() => setDetailsOpen(false)}>
+      {detailsOpen && <Dialog size="md" title={tc('paneMenu.detailsTitle')} description={tc('paneMenu.detailsDescription')} onClose={() => setDetailsOpen(false)}>
         {/* F32: the native session main resumed or recorded; the note on finding it only when there is none. */}
         {sessionDetails?.agentSession && <AgentSessionDetails session={sessionDetails.agentSession} resume={sessionDetails.agentResume} />}
         {(!sessionDetails?.agentSession || sessionDetails.agentSession.source === 'notFound') && <p className="terminal-session-identity-note">{tc('paneMenu.identityNote')}</p>}

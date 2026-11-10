@@ -104,6 +104,8 @@ enum class RemoteSubscription(val wire: String) {
     @SerialName("terminal") TERMINAL("terminal"),
     @SerialName("jobs") JOBS("jobs"),
     @SerialName("delegations") DELEGATIONS("delegations"),
+    @SerialName("agents") AGENTS("agents"),
+    @SerialName("paneConversation") PANE_CONVERSATION("paneConversation"),
     ;
 
     companion object {
@@ -114,7 +116,8 @@ enum class RemoteSubscription(val wire: String) {
 /**
  * What the phone can do. `thread.respondRequest` answers a Thread request by id and generation (B1.1) after biometric
  * confirmation on the phone; `terminal.write` works only on a pane the person marked "allow from phone" on the desktop;
- * `thread.history` reads older items of a conversation. Every command counts toward `REMOTE_LIMITS.commandsPerMinute`
+ * `thread.history` reads older items of a conversation; `agent.markSeen` records that the person looked at an agent
+ * (S7.1). Every command counts toward `REMOTE_LIMITS.commandsPerMinute`
  * and is recorded in the desktop's audit with the device id.
  */
 @Serializable
@@ -125,6 +128,8 @@ enum class RemoteCommand(val wire: String) {
     @SerialName("thread.respondRequest") THREAD_RESPOND_REQUEST("thread.respondRequest"),
     @SerialName("terminal.write") TERMINAL_WRITE("terminal.write"),
     @SerialName("thread.history") THREAD_HISTORY("thread.history"),
+    @SerialName("agent.markSeen") AGENT_MARK_SEEN("agent.markSeen"),
+    @SerialName("pane.conversation") PANE_CONVERSATION("pane.conversation"),
     ;
 
     companion object {
@@ -148,6 +153,8 @@ enum class RemoteErrorCode(val wire: String) {
     @SerialName("not-pending") NOT_PENDING("not-pending"),
     @SerialName("stale-generation") STALE_GENERATION("stale-generation"),
     @SerialName("pane-not-shared") PANE_NOT_SHARED("pane-not-shared"),
+    @SerialName("no-conversation") NO_CONVERSATION("no-conversation"),
+    @SerialName("conversation-changed") CONVERSATION_CHANGED("conversation-changed"),
     @SerialName("internal") INTERNAL("internal"),
     ;
 
@@ -188,6 +195,51 @@ enum class RemoteApprovalRisk(val wire: String) {
 
     companion object {
         fun fromWire(wire: String): RemoteApprovalRisk? = entries.firstOrNull { it.wire == wire }
+    }
+}
+
+/** The desktop's seven states, in precedence order (shared/types/agents.ts AGENT_STATES; a test keeps them equal). */
+@Serializable
+enum class RemoteAgentState(val wire: String) {
+    @SerialName("needs-you") NEEDS_YOU("needs-you"),
+    @SerialName("failed") FAILED("failed"),
+    @SerialName("working") WORKING("working"),
+    @SerialName("finished") FINISHED("finished"),
+    @SerialName("idle") IDLE("idle"),
+    @SerialName("stopped") STOPPED("stopped"),
+    @SerialName("unknown") UNKNOWN("unknown"),
+    ;
+
+    companion object {
+        fun fromWire(wire: String): RemoteAgentState? = entries.firstOrNull { it.wire == wire }
+    }
+}
+
+/** `thread` is a conversation; the phone says "Conversation". */
+@Serializable
+enum class RemoteAgentKind(val wire: String) {
+    @SerialName("pane") PANE("pane"),
+    @SerialName("thread") THREAD("thread"),
+    @SerialName("delegation") DELEGATION("delegation"),
+    @SerialName("work") WORK("work"),
+    ;
+
+    companion object {
+        fun fromWire(wire: String): RemoteAgentKind? = entries.firstOrNull { it.wire == wire }
+    }
+}
+
+/** Each source answers on its own; one listed here could not be read, and the others still show. */
+@Serializable
+enum class RemoteAgentSource(val wire: String) {
+    @SerialName("panes") PANES("panes"),
+    @SerialName("threads") THREADS("threads"),
+    @SerialName("delegations") DELEGATIONS("delegations"),
+    @SerialName("work") WORK("work"),
+    ;
+
+    companion object {
+        fun fromWire(wire: String): RemoteAgentSource? = entries.firstOrNull { it.wire == wire }
     }
 }
 
@@ -272,6 +324,11 @@ data class RemoteHelloFrame(
     val desktopName: String? = null,
     /** Set by the gateway: 32 random bytes, base64url, new for every connection; a refresh signs it as its `nonce`. */
     val challenge: String? = null,
+    /**
+     * Set by the gateway (1.5.0 F10): what this desktop supports beyond the version, e.g. "terminal.snapshotOnly" and
+     * "pane.conversation". The phone uses a feature only when it is listed; a client hello never carries it.
+     */
+    val features: List<String>? = null,
 ) : RemoteFrame
 
 /**
@@ -309,6 +366,11 @@ data class RemoteSubscribeFrame(
      * sequence of a terminal). The phone never reads it; an unknown or expired one gets a fresh snapshot.
      */
     val cursor: String? = null,
+    /**
+     * 1.5.0 F10 (BE-A45-flag, #706): a terminal snapshot as its one screen page, without the ring pages. Sent only to a
+     * desktop whose hello listed "terminal.snapshotOnly"; an older desktop refuses an unknown key as malformed.
+     */
+    val snapshotOnly: Boolean? = null,
 ) : RemoteFrame
 
 @Serializable
@@ -374,7 +436,16 @@ data class RemoteAckFrame(
 data class RemoteErrorFrame(
     /** The frame it answers, when it had one. */
     val id: String? = null,
+    /** 1.5.0 F10 (CR-34, #706): the open stream this ends, e.g. a pane hidden from the phone (`reason: 'pane-hidden'`). */
+    val subscription: String? = null,
     val code: RemoteErrorCode,
+    /**
+     * Why, when the code alone would mislead (T96). Added, never required: a phone that does not know it reads the code
+     * as before. `pairing-lapsed` goes with `revoked`: the pairing was never used before its window passed, so the phone
+     * says to pair again instead of "removed". A literal word, not an enum, so Kotlin reads it as text and a word added
+     * later never breaks an older phone (the #531 rule).
+     */
+    val reason: String? = null,
     /** Milliseconds before retrying, for `rate-limited`. */
     val retryAfterMs: Long? = null,
 ) : RemoteFrame
@@ -428,6 +499,8 @@ data class RemotePane(
      * off again when the app restarts, and never changed by the phone or an MCP tool.
      */
     val phoneWrite: Boolean,
+    /** 1.5.0 F10 (BE-A46-c5, #658/#706): the pane's agent has a conversation the phone can read with `pane.conversation`. */
+    val conversation: Boolean? = null,
 )
 
 @Serializable
@@ -436,6 +509,8 @@ data class RemoteWorkspace(
     val name: String,
     val active: Boolean,
     val panes: List<RemotePane>,
+    /** 1.5.0 A67 (#693): the colour slot the desktop shows (1–8), chosen or derived (shared/workspace-color.ts). */
+    val color: Long? = null,
 )
 
 @Serializable
@@ -630,6 +705,24 @@ data class RemoteTerminalData(
     /** The phone was away longer than the ring is deep: clear the view before this. */
     val truncated: Boolean,
     val redacted: Long? = null,
+    /**
+     * 1.4.3 P4: the pane's screen, on the FIRST page of a snapshot only (a page of its own: its `data` is empty), never on
+     * an event. A phone that reads it resets
+     * its view to `cols` × `rows`, feeds `ansi` once and skips that snapshot's `data` pages (the same ring); then it applies
+     * events as before. Absent (an older desktop, or over the frame budget): behave as without it.
+     */
+    val snapshot: RemoteTerminalSnapshot? = null,
+)
+
+/**
+ * xterm's own serialization of the pane's screen: up to 200 rows of scrollback, then the screen, the modes (the
+ * alternate screen when a full-screen app holds it) and the cursor. Built only from text already redacted.
+ */
+@Serializable
+data class RemoteTerminalSnapshot(
+    val ansi: String,
+    val cols: Long,
+    val rows: Long,
 )
 
 /** No command line or cwd: arguments can carry secrets. The label is what the person named it. */
@@ -665,6 +758,67 @@ data class RemoteDelegation(
 @Serializable
 data class RemoteDelegationsData(
     val delegations: List<RemoteDelegation>,
+)
+
+/** The oldest pending request of an agent: main-built, never the agent's own text. */
+@Serializable
+data class RemoteAgentRequest(
+    val requestId: String,
+    /** Main's words in English: the fallback when the phone has no words for `titleCode`. */
+    val title: String,
+    /** The same title as a C3 code and its parameters, for the phone to word in its own language (DESIGN H1). */
+    val titleCode: String,
+    val titleParams: JsonObject,
+    /** The four risk words, never colours (DESIGN FINDING M); null when nothing assessed it (a pane's own prompt). */
+    val risk: RemoteApprovalRisk?,
+    /** False when only the desktop can answer it (a pane's own prompt): the phone says "Answer on the computer". */
+    val answerable: Boolean,
+)
+
+/**
+ * One agent, already mapped to the seven states: the phone never re-implements the mapping. Never carries a path, a
+ * worktree, a session id or a cost.
+ */
+@Serializable
+data class RemoteAgentRow(
+    val kind: String,
+    /** The source's own id; for a conversation, the thread id the phone opens it with. */
+    val id: String,
+    /**
+     * Higher on every change of this row. One counter for all rows, seeded from the clock at start; a restart always
+     * begins with a snapshot. The phone keeps the highest `rev` per key, removed keys included, and applies an upsert or
+     * a removal only when its `rev` is higher; a snapshot replaces everything it holds.
+     */
+    val rev: Long,
+    val state: String,
+    val provider: String,
+    val title: String,
+    val since: Long,
+    val request: RemoteAgentRequest? = null,
+    /** While `needs-you`: when the phone may nudge (the desktop's needs-you timer, S7.2). Not sent before S7.2. */
+    val nudgeAfterMs: Long? = null,
+)
+
+@Serializable
+data class RemoteAgentKey(
+    val kind: String,
+    val id: String,
+    val rev: Long,
+)
+
+/** Snapshot: every row, in pages if needed. */
+@Serializable
+data class RemoteAgentsSnapshot(
+    val rows: List<RemoteAgentRow>,
+    val unavailable: List<String>,
+)
+
+/** Event: what changed, and what left (with the `rev` at which it left). */
+@Serializable
+data class RemoteAgentsEvent(
+    val upsert: List<RemoteAgentRow>? = null,
+    val removed: List<RemoteAgentKey>? = null,
+    val unavailable: List<String>,
 )
 
 /**
@@ -726,6 +880,53 @@ data class RemoteTerminalWriteArgs(
 data class RemoteThreadHistoryArgs(
     val threadId: String,
     val beforeSeq: Long,
+)
+
+/**
+ * The person looked at this agent on the phone. Idempotent; an unknown key is `ok`, so it never tells whether a key
+ * exists.
+ */
+@Serializable
+data class RemoteAgentMarkSeenArgs(
+    val kind: RemoteAgentKind,
+    val id: String,
+)
+
+/** 1.5.0 F10 (BE-A46-c5, #706): a page of a pane's agent conversation, newest first; `cursor` for "Load earlier". */
+@Serializable
+data class RemotePaneConversationArgs(
+    val paneId: String,
+    val cursor: String? = null,
+)
+
+/**
+ * 1.5.0 F10 (BE-A46-c5, #706): what `pane.conversation` gives (`ack.result`) and the `paneConversation` snapshot. `items`
+ * go oldest to newest within the page, each id stable; `cursor` asks for the page before it, null at the oldest; `epoch`
+ * grows when the pane's agent starts a new session. `agent` is the manifest id (claude, codex…), text, never an enum.
+ */
+@Serializable
+data class RemotePaneConversationPage(
+    val agent: String,
+    val title: String? = null,
+    val items: List<Item>,
+    val cursor: String?,
+    val epoch: Long,
+) {
+    @Serializable
+    data class Item(
+        val seq: Long,
+        val item: RemoteThreadItem,
+    )
+}
+
+/**
+ * 1.5.0 F10 (BE-A46-c5, #706): a `paneConversation` event. It says only that the conversation changed, never what: the
+ * phone reads the newest page again with `pane.conversation`. At most one per two seconds. With `conversation-changed`,
+ * `RemoteErrorFrame.reason` may say `new-session` (another session) or `rewritten` (the session file was rewritten or cut).
+ */
+@Serializable
+data class RemotePaneConversationEvent(
+    val changed: Boolean,
 )
 
 /**

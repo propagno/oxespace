@@ -44,7 +44,7 @@ describe('remote gateway: hello and auth', () => {
     expect(isHelloChallenge(first.challenge) && isHelloChallenge(second.challenge)).toBe(true)
     expect(first.challenge).not.toBe(second.challenge)
     const socket = await TestSocket.connect(p.target)
-    expect(await socket.ask({ type: 'hello', versions: [1] })).toEqual({ type: 'hello', versions: [1], desktopName: 'OXESpace', challenge: expect.any(String) })
+    expect(await socket.ask({ type: 'hello', versions: [1] })).toEqual({ type: 'hello', versions: [1], desktopName: 'OXESpace', challenge: expect.any(String), features: ['terminal.snapshotOnly', 'pane.conversation'] })
 
     const old = await TestSocket.connect(p.target)
     expect(await old.ask({ type: 'hello', versions: [7, 8] })).toEqual({ type: 'error', code: 'unsupported-version' })
@@ -165,10 +165,10 @@ describe('remote gateway: a pairing nobody uses lapses (B9.2)', () => {
     lapse(p.h)
 
     const byToken = await hello(p.target)
-    expect(await byToken.socket.ask({ type: 'auth', id: 'a', accessToken: p.accessToken })).toEqual({ type: 'error', id: 'a', code: 'revoked' })
+    expect(await byToken.socket.ask({ type: 'auth', id: 'a', accessToken: p.accessToken })).toEqual({ type: 'error', id: 'a', code: 'revoked', reason: 'pairing-lapsed' })
     const byRefresh = await hello(p.target)
     expect(await byRefresh.socket.ask({ type: 'auth', id: 'b', refresh: { deviceId: p.deviceId, nonce: byRefresh.challenge, signature: signRefresh(p.phone, p.target.fp, p.deviceId, byRefresh.challenge) } }))
-      .toEqual({ type: 'error', id: 'b', code: 'revoked' })
+      .toEqual({ type: 'error', id: 'b', code: 'revoked', reason: 'pairing-lapsed' })
 
     expect(p.h.gateway.devices()).toEqual([])
     expect(p.h.gateway.status().devices).toBe(0)
@@ -215,7 +215,7 @@ describe('remote gateway: a pairing nobody uses lapses (B9.2)', () => {
     const target = await p.h.enable()
     const late = await hello(target)
     expect(await late.socket.ask({ type: 'auth', id: 'r', refresh: { deviceId: p.deviceId, nonce: late.challenge, signature: signRefresh(p.phone, target.fp, p.deviceId, late.challenge) } }))
-      .toEqual({ type: 'error', id: 'r', code: 'revoked' })
+      .toEqual({ type: 'error', id: 'r', code: 'revoked', reason: 'pairing-lapsed' })
   })
 
   test('after a crash within its time, the pairing keeps only what is left of it, not a new two minutes', async () => {
@@ -271,7 +271,7 @@ describe('remote gateway: a pairing nobody uses lapses (B9.2)', () => {
     expect(p.h.gateway.devices()).toHaveLength(1)
     lapse(p.h)
     const late = await hello(p.target)
-    expect(await late.socket.ask({ type: 'auth', id: 'a', accessToken: p.accessToken })).toEqual({ type: 'error', id: 'a', code: 'revoked' })
+    expect(await late.socket.ask({ type: 'auth', id: 'a', accessToken: p.accessToken })).toEqual({ type: 'error', id: 'a', code: 'revoked', reason: 'pairing-lapsed' })
     expect(p.h.gateway.devices()).toEqual([])
     failing.mockRestore()
   })
@@ -283,6 +283,52 @@ describe('remote gateway: a pairing nobody uses lapses (B9.2)', () => {
     lapse(p.h)
     expect(p.h.pairingFailures).toEqual([])
     expect(new RemoteStore(p.h.db).auditEntries().some(entry => entry.outcome === 'unused-expired')).toBe(false)
+  })
+
+  test('T96 (v1.4.2 report): the phone signs in late, after the timer already removed the pairing: revoked, with the reason to pair again', async () => {
+    const p = await paired({ unusedPairingTtlMs: 120 })
+    await vi.waitFor(() => expect(p.h.gateway.devices()).toEqual([]), { timeout: 3_000 })
+    const late = await hello(p.target)
+    expect(await late.socket.ask({ type: 'auth', id: 'r', refresh: { deviceId: p.deviceId, nonce: late.challenge, signature: signRefresh(p.phone, p.target.fp, p.deviceId, late.challenge) } }))
+      .toEqual({ type: 'error', id: 'r', code: 'revoked', reason: 'pairing-lapsed' })
+  })
+
+  test('T96: a phone removed after it was used is told plain revoked, with no lapsed reason', async () => {
+    const p = await paired()
+    ;(await signedIn(p)).close()
+    await vi.waitFor(() => expect(p.h.gateway.devices()[0].connected).toBe(false))
+    p.h.gateway.revoke({ deviceId: p.deviceId })
+    const after = await hello(p.target)
+    expect(await after.socket.ask({ type: 'auth', id: 'r', refresh: { deviceId: p.deviceId, nonce: after.challenge, signature: signRefresh(p.phone, p.target.fp, p.deviceId, after.challenge) } }))
+      .toEqual({ type: 'error', id: 'r', code: 'revoked' })
+  })
+
+  test('T96: while the gateway is off the window does not run out; switching it on gives the whole window again', async () => {
+    const p = await paired({ unusedPairingTtlMs: 200 })
+    await p.h.gateway.setEnabled({ enabled: false })
+    // Off for longer than the window, on the clock and on the timers: nothing is removed.
+    p.h.clock += 10 * UNUSED_PAIRING_TTL_MS
+    await new Promise(resolve => setTimeout(resolve, 400))
+    expect(new RemoteStore(p.h.db).device(p.deviceId)?.revoked).toBe(false)
+    expect(p.h.pairingFailures).toEqual([])
+    // On again: the phone signs in within the new window and is kept.
+    const target = await p.h.enable()
+    const back = await hello(target)
+    expect(await back.socket.ask({ type: 'auth', id: 'r', refresh: { deviceId: p.deviceId, nonce: back.challenge, signature: signRefresh(p.phone, target.fp, p.deviceId, back.challenge) } }))
+      .toMatchObject({ type: 'ack', id: 'r' })
+    back.socket.close()
+    await new Promise(resolve => setTimeout(resolve, 400))
+    expect(p.h.gateway.devices()).toEqual([expect.objectContaining({ deviceId: p.deviceId })])
+  })
+
+  test('T96: switched back on, an unused pairing still lapses after the whole window', async () => {
+    const p = await paired({ unusedPairingTtlMs: 200 })
+    await p.h.gateway.setEnabled({ enabled: false })
+    await new Promise(resolve => setTimeout(resolve, 300))
+    await p.h.enable()
+    expect(p.h.gateway.devices()).toHaveLength(1)
+    await vi.waitFor(() => expect(p.h.gateway.devices()).toEqual([]), { timeout: 3_000 })
+    expect(p.h.pairingFailures).toContainEqual({ code: 'remote.pairing.failed', params: { reason: 'expired' } })
   })
 })
 
@@ -448,7 +494,11 @@ describe('remote gateway: no internal token ever crosses it', () => {
   test('the gateway\'s code imports nothing that holds internal tokens', () => {
     const root = resolve(__dirname, '../../electron/main/services/remote')
     // thread-history: M4's pending-requests topic reads conversations from the database; it holds no token.
-    const allowed = [/^shared\//, /^electron\/main\/services\/remote\//, /^electron\/main\/db(\/index)?$/, /^electron\/main\/services\/oxequery\/secret-cipher$/, /^electron\/main\/services\/oxequery\/connection-store$/, /^electron\/main\/services\/conversation\/thread-history$/, /^electron\/main\/ipc\/main-message-error$/]
+    // pane-sessions: A46's pane conversation finds a pane's agent session in the database; it holds no token.
+    // native-session-files: A46 locates the agent's session files with fs, os and path; it holds no token.
+    // native-history-page: A46 pages the session history from those files; it holds no token.
+    // claude-project-path: A46 maps a workspace root to Claude's project folder with path and crypto; it holds no token.
+    const allowed = [/^shared\//, /^electron\/main\/services\/remote\//, /^electron\/main\/db(\/index)?$/, /^electron\/main\/services\/oxequery\/secret-cipher$/, /^electron\/main\/services\/oxequery\/connection-store$/, /^electron\/main\/services\/conversation\/thread-history$/, /^electron\/main\/ipc\/main-message-error$/, /^electron\/main\/services\/agent-state\/pane-sessions$/, /^electron\/main\/services\/agent-state\/native-session-files$/, /^electron\/main\/services\/conversation\/native-history-page$/, /^electron\/main\/services\/usage\/claude-project-path$/]
     const repo = resolve(__dirname, '../..')
     const seen = new Set<string>()
     const visit = (file: string) => {

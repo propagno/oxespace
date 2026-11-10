@@ -227,19 +227,20 @@ describe('TerminalPane', () => {
     expect(useTerminalStore.getState().panes['pane-2']?.hasUnread).toBe(false)
   })
 
-  test('more menu toggles RTK, Caveman and Semantic', async () => {
+  test('more menu toggles Caveman and Semantic', async () => {
     const user = userEvent.setup()
     useTerminalStore.getState().setStatus('pane-1', 'running')
     render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
 
     await user.click(screen.getByTestId('btn-terminal-more'))
     expect(screen.getByTestId('terminal-more-menu')).toBeInTheDocument()
-    expect(screen.getByTestId('menu-toggle-rtk')).toBeInTheDocument()
+    // R4 took RTK out: the menu has no RTK toggle.
+    expect(screen.queryByTestId('menu-toggle-rtk')).toBeNull()
     expect(screen.getByTestId('menu-toggle-caveman')).toBeInTheDocument()
     expect(screen.getByTestId('menu-toggle-semantic')).toBeInTheDocument()
 
-    await user.click(screen.getByTestId('menu-toggle-rtk'))
-    expect(screen.getByTestId('menu-toggle-rtk')).toHaveAttribute('aria-checked', 'true')
+    await user.click(screen.getByTestId('menu-toggle-caveman'))
+    expect(screen.getByTestId('menu-toggle-caveman')).toHaveAttribute('aria-checked', 'true')
   })
 
   test('restores an exact Codex session in the selected pane', async () => {

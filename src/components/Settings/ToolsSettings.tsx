@@ -15,6 +15,7 @@ import { formatNumber } from '../../utils/formatTime'
 import { humanizeError } from '../../utils/humanizeError'
 import { claudeFixedCost, decisionsFor, organizationToolRules, OXESPACE_SERVER, otherServerRules, ruleFor } from './toolsModel'
 import styles from './ToolsSettings.module.css'
+import { SkillsList } from './SkillsList'
 
 /** File, key and product names: the same in every language. */
 const OXE_YAML = 'oxe.yaml', THREAD_TOOLS_KEY = 'thread.tools', CLAUDE = 'Claude', CODEX = 'Codex'
@@ -217,10 +218,12 @@ export function ToolsSettings({ rootPath, workspaceId }: { rootPath: string; wor
           <p className={styles.hint}>{t('tools.sections.roleIntro')}</p>
           <div className={styles.groups}>{byRole.map(group => <GroupPanel key={group.id} group={group} rules={rules} busy={busy} onMode={onMode} onRule={chooseRule} />)}</div>
         </>}
+    <h4 className={styles.sectionTitle}>{t('tools.sections.mcpAndSkills')}</h4>
     {rules && <Panel className={styles.group} label={t('tools.rules.otherTitle')} title={t('tools.rules.otherTitle')}>
       {others.length ? <ul aria-label={t('tools.rules.otherTitle')} className={styles.list}>{others.map(rule => <RuleRow key={`${rule.server}/${rule.tool}`} rule={rule} busy={busy} onChoose={chooseRule} />)}</ul>
         : <EmptyState compact title={t('tools.rules.otherEmpty')} />}
     </Panel>}
+    <SkillsList />
     <Panel className={styles.group} label={t('tools.policy.title')} title={t('tools.policy.title')}>
       <p className={styles.hint}>{t('tools.policy.intro')}</p>
       {policyError ? <ErrorState compact title={t('tools.policy.loadFailed')} message={policyError} />

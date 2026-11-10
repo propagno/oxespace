@@ -112,7 +112,7 @@
       },
       "dark": {
         "label": "Dark",
-        "hint": "Dark surfaces with warm yellow accents"
+        "hint": "Dark surfaces with caatinga green accents"
       }
     },
     "language": {
@@ -300,7 +300,7 @@
     "opacity": "Background opacity",
     "translucent": "translucent",
     "globalDefaults": "<strong>Global</strong> defaults. Workspaces can override them.",
-    "resumeBypass": "Resume sessions with permissions skipped, when the session was",
+    "resumeBypass": "Resume sessions that skipped permission prompts the same way",
     "resumeBypassOn": "Resumed sessions now skip permission prompts when they did before",
     "resumeBypassHint": "A Claude Code session started with its permission prompts skipped resumes the same way after a restart or Restore session. Off: it resumes asking for permission."
   },
@@ -364,30 +364,6 @@
       "ask": "Downloaded updates install when you restart.",
       "auto": "Downloads in the background. Restart to apply."
     },
-    "rtk": {
-      "installedNoVersion": "installed (no version file)",
-      "notInstalledVersion": "not installed",
-      "pill": {
-        "error": "Error",
-        "checking": "Checking",
-        "updating": "Updating",
-        "updateAvailable": "Update available",
-        "upToDate": "Up to date",
-        "notInstalled": "Not installed"
-      },
-      "status": {
-        "checking": "Checking GitHub…",
-        "updating": "Updating…",
-        "available": "Update available: {{version}}",
-        "latest": "Latest {{version}} · up to date",
-        "dev": "Works in dev — check or install the sidecar anytime",
-        "notChecked": "Not checked yet"
-      },
-      "check": "Check RTK",
-      "update": "Update RTK",
-      "install": "Install RTK",
-      "hint": "Sidecar binary. Updates independently of OXESpace."
-    },
     "bundled": {
       "group": "Included with OXESpace",
       "title": "Built-in tools",
@@ -440,7 +416,7 @@
   },
   "activity": {
     "title": "Agent activity",
-    "hint": "What agents changed through OXESpace (commits, pushes, pull requests, conversations, tasks, skills, automations) and what you decided. Database and container requests are listed in OxeQuery.",
+    "hint": "What agents changed through OXESpace (commits, pushes, pull requests, conversations, tasks, skills) and what you decided. Database and container requests are listed in OxeQuery.",
     "decisions": {
       "auto": "ran",
       "approved": "you approved",
@@ -455,62 +431,6 @@
     "savedAudit": "Saved the audit to {{path}}",
     "refresh": "Refresh activity",
     "export": "Export the audit (JSONL)"
-  },
-  "automations": {
-    "title": "Scheduled automations",
-    "callout": "Runs an agent with a prompt in a <strong>new worktree</strong> at the chosen time, with no terminal open. The app must be running; missed times are skipped, not run later.",
-    "status": {
-      "pending": "queued",
-      "running": "running",
-      "completed": "completed",
-      "failed": "failed",
-      "dispatch_failed": "could not create the worktree",
-      "skipped_precheck": "skipped (pre-check)",
-      "skipped_missed": "skipped (missed time)",
-      "skipped_busy": "skipped (previous run still active)"
-    },
-    "schedule": {
-      "interval": "every {{minutes}} min",
-      "daily": "every day at {{time}}",
-      "weekly": "{{days}} at {{time}}",
-      "cron": "cron {{expression}}"
-    },
-    "empty": "No automations yet.",
-    "next": "next: {{time}}",
-    "last": "Last: {{status}}",
-    "neverRan": "Has not run yet.",
-    "runNow": "Run now",
-    "runNamed": "Run {{name}} now",
-    "enable": "Enable",
-    "disable": "Disable",
-    "active": "Active",
-    "paused": "Paused",
-    "delete": "Delete",
-    "deleteNamed": "Delete {{name}}",
-    "form": {
-      "name": "Name",
-      "namePlaceholder": "Nightly review",
-      "repository": "Repository",
-      "select": "Select…",
-      "agent": "Agent",
-      "prompt": "Prompt",
-      "frequency": "Frequency",
-      "interval": "Every N minutes",
-      "daily": "Daily",
-      "weekly": "Weekly",
-      "cron": "Cron",
-      "minutes": "Minutes (min. 5)",
-      "time": "Time",
-      "days": "Days of the week",
-      "expression": "Expression (minute hour day month weekday)",
-      "precheck": "Pre-check (optional)",
-      "precheckHint": "Command run at the repository root; the run only continues if it exits with code 0.",
-      "extraArgs": "Extra agent arguments (optional)",
-      "extraArgsHint": "There is no interactive approval, so the agent only uses what these arguments allow.",
-      "create": "Create automation",
-      "cancel": "Cancel"
-    },
-    "new": "New automation"
   },
   "keyboard": {
     "title": "Keyboard",
@@ -563,14 +483,57 @@
       "failed": "Could not change the phone connection: {{error}}",
       "on": "Phones can now connect to this computer"
     },
+    "network": {
+      "publicTitle": "Windows calls “{{network}}” a Public network, so phones can’t reach this computer",
+      "publicBody": "Mark this Wi-Fi as Private in Windows Settings › Network & internet › Wi-Fi › this network › Network profile type. Or allow OXESpace on public networks in Windows Defender Firewall › Allow an app through the firewall. Only do that on a network you trust."
+    },
     "firewall": {
       "title": "Before phones can connect",
       "windowsAsk": "Windows will ask whether OXESpace may accept connections. Allow it on private networks, such as your home or office Wi-Fi.",
-      "windowsPublic": "Public networks can stay unchecked: the phone and this computer talk only over your local network.",
+      "windowsPublic": "If Windows calls your Wi-Fi a Public network, it blocks phones even when you allow OXESpace on private networks. Mark your home or office Wi-Fi as Private, or allow OXESpace on public networks too.",
       "otherAsk": "Your system may ask whether OXESpace may accept incoming connections. Allow it so phones on your network can reach this computer.",
       "internet": "Nothing is exposed to the internet. OXESpace listens only on private network addresses, and only phones you pair here can use the connection.",
       "later": "If you refuse, phones cannot reach this computer. You can change the answer later in the firewall settings of your system.",
       "confirm": "Turn on"
+    },
+    "firewallCheck": {
+      "rule": "OXESpace.exe, TCP {{port}}, Private networks only",
+      "blocked": {
+        "title": "A firewall rule blocks OXESpace",
+        "text": "A Block rule in Windows Defender Firewall stops phones from reaching this computer, and it wins over any Allow rule. OXESpace never removes it: ask your IT, or remove it in Windows Defender Firewall."
+      },
+      "public": {
+        "title": "This network is Public, so Windows blocks phones",
+        "text": "Windows keeps devices out on Public networks. If this is your home or office Wi-Fi, set it to Private: Windows Settings › Network & internet › Wi-Fi › this network › Private network. OXESpace doesn't change it for you."
+      },
+      "noRule": {
+        "title": "Windows Firewall doesn't let phones in yet",
+        "text": "No firewall rule lets OXESpace accept connections from phones on this network."
+      },
+      "noInspection": "OXESpace couldn't read the firewall settings, so this is a guess. Allowing it is still safe.",
+      "ok": "Phones can reach this computer: {{rule}}.",
+      "checkAgain": "Check again",
+      "uac": "Windows will ask for permission. Nothing changes if you say No.",
+      "command": "What runs:",
+      "repair": {
+        "action": "Allow on private networks",
+        "adds": "Adds one rule: {{rule}}.",
+        "confirmTitle": "Allow phones on private networks?",
+        "explain": "OXESpace adds one Windows Firewall rule, \"{{name}}\": {{rule}}. You can remove it here later.",
+        "confirm": "Allow",
+        "done": "Verified: phones can now reach this computer on private networks",
+        "notVerified": "The rule could not be verified. Check again, or add it in Windows Defender Firewall.",
+        "failed": "The rule couldn't be added"
+      },
+      "undo": {
+        "action": "Remove the rule",
+        "confirmTitle": "Remove the firewall rule?",
+        "explain": "OXESpace removes only the rule it added, \"{{name}}\" ({{rule}}). Phones won't reach this computer until it is allowed again.",
+        "confirm": "Remove",
+        "done": "Verified: the firewall rule is removed",
+        "notVerified": "The removal could not be verified. Check again.",
+        "failed": "The rule couldn't be removed"
+      }
     },
     "name": {
       "title": "Name of this computer",
@@ -648,7 +611,9 @@
         "pendingRequests": "See requests waiting for you",
         "terminal": "Watch terminal output (read only)",
         "jobs": "See background jobs",
-        "delegations": "See delegations"
+        "delegations": "See delegations",
+        "agents": "See every agent and what needs you",
+        "paneConversation": "Read a terminal agent's conversation (read only)"
       },
       "commands": {
         "threadSend": "Send a message to a conversation",
@@ -656,7 +621,9 @@
         "threadInterrupt": "Stop a running turn",
         "threadRespondRequest": "Accept or decline a conversation request, after confirming on the phone with fingerprint or face",
         "terminalWrite": "Type in a terminal you allowed here",
-        "threadHistory": "Read older messages"
+        "threadHistory": "Read older messages",
+        "agentMarkSeen": "Mark an agent as seen",
+        "paneConversation": "Read older messages of a terminal agent"
       },
       "forbidden": {
         "oxequeryApprove": "Approve OxeQuery changes",
@@ -673,6 +640,19 @@
     }
   },
   "tools": {
+    "skillsList": {
+      "title": "Skills",
+      "intro": "Markdown prompts in ~/.oxe/skills and the project's .oxe/skills. The project's wins on a shared name. Run one with /.",
+      "loading": "Reading the skills…",
+      "loadFailed": "Could not read the skills",
+      "empty": "No skills yet",
+      "emptyBody": "Add a Markdown file to .oxe/skills in the project.",
+      "noDescription": "No description",
+      "scope": {
+        "workspace": "Workspace",
+        "user": "User"
+      }
+    },
     "title": "Tools",
     "intro": "The groups of OXESpace MCP tools that agents in this project are offered, how each group is offered and what it costs. Agents that start after a change get it. Modes are saved in the project's file:",
     "reload": "Reload",
@@ -700,6 +680,7 @@
       "notOffered": "Not offered"
     },
     "sections": {
+      "mcpAndSkills": "MCP servers and skills",
       "project": "Groups this project chooses",
       "role": "Groups that follow the role",
       "roleIntro": "These come with what a conversation or terminal is: a team member, a delegated task, or an agent in an OxeCode terminal. They cannot be changed here."
@@ -723,7 +704,7 @@
       },
       "app": {
         "name": "App",
-        "description": "Git, GitHub, conversations, skills, automations, Linear, MCP servers, search and usage. Pushes, pull requests and releases are approved by you."
+        "description": "Git, GitHub, conversations, skills, MCP servers, search and usage. Pushes, pull requests and releases are approved by you."
       },
       "team": {
         "name": "Team",

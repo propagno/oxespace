@@ -1,4 +1,19 @@
 {
+  "workspaceColor": {
+    "label": "Cor do workspace",
+    "open": "Cor do workspace…",
+    "auto": "Cor automática",
+    "swatch": {
+      "1": "Caatinga",
+      "2": "Sertão",
+      "3": "Açude",
+      "4": "Juazeiro",
+      "5": "Xique-xique",
+      "6": "Barro",
+      "7": "Fim de tarde",
+      "8": "Pedra"
+    }
+  },
   "startupFailure": {
     "newer-schema": {
       "title": "Estes dados são de um OXESpace mais novo",
@@ -19,6 +34,7 @@
     "openBackups": "Abrir a pasta de backups",
     "copyDetails": "Copiar detalhes",
     "detailsWhat": "Os detalhes",
+    "technicalDetail": "Mensagem técnica (em inglês)",
     "quit": "Sair",
     "tryAgain": "Tentar de novo",
     "backupsAt": "Os backups ficam em"
@@ -518,17 +534,6 @@
       "background": "Baixando em segundo plano.",
       "releases": "Abrir as versões",
       "install": "Reiniciar e instalar"
-    },
-    "rtk": {
-      "title": "Atualização do RTK",
-      "updatingLabel": "RTK atualizando",
-      "availableLabel": "Atualização {{version}} do RTK disponível",
-      "updating": "RTK {{version}} atualizando",
-      "available": "RTK {{version}} disponível",
-      "installed": "Instalado: {{version}} · auxiliar que economiza tokens.",
-      "unknown": "desconhecida (legado)",
-      "updatingButton": "Atualizando…",
-      "update": "Atualizar o RTK"
     },
     "activity": {
       "available": "OXESpace {{version}} está disponível",

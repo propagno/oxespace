@@ -30,8 +30,13 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/memory/memory-runtime.ts',
   'electron/main/services/memory/memory.service.ts',
   'electron/main/services/memory/agent-memory-adapter.ts',
-  'electron/main/services/memory/memory-project.service.ts',
   'electron/main/services/memory/memory-marker.ts',
+  // Project identity (R0a, out of memory): realpath of the folder and of its Git common dir only. Never reads or
+  // writes file contents.
+  'electron/main/services/project-identity.ts',
+  // Owner-only JSON (R0a, out of memory): reads and writes, by temp file and rename (mode 0600), the app's own config
+  // files its callers name (agent hook configs, memory runtime files); never a path from the renderer.
+  'electron/main/services/private-json.ts',
   // Memory upgrade transaction (journal, snapshot, candidate): fixed children of
   // the application's private memory runtime directory; never workspace paths.
   'electron/main/services/memory/memory-migration.ts',
@@ -59,14 +64,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // The optional semantic model and its settings/usage counters under userData/models only; an import copies
   // the four model files from the folder the user picked in a native dialog. Never touches workspace files.
   'electron/main/services/semantic-model-store.ts',
-  // Streams the RTK archive the app itself downloaded to hash it before extraction.
-  'electron/main/services/rtk-checksum.ts',
-  // Documentation owns generated artifacts under userData/documentation only.
-  // Tool callers supply IDs, never filesystem paths or workspace destinations.
-  'electron/main/services/documentation/documentation.service.ts',
   // Preview captures are app-owned PNGs under <userData>/web-preview-captures.
   // The store validates owner and basename and refuses to overwrite a file.
-  'electron/main/services/documentation/preview-capture-store.ts',
+  'electron/main/services/browser-preview/preview-capture-store.ts',
   'electron/main/services/session.service.ts',
   // Conversation transports probe installed executables only. Native history
   // reads UUID-selected ~/.claude session logs, never arbitrary source paths.
@@ -85,9 +85,25 @@ const ALLOWED_FS_IMPORTS = new Set([
   // they canonicalize the Thread root, reject traversal/symlinks, hash every
   // postimage and restore through temp+rename without destructive Git calls.
   'electron/main/services/conversation/thread-checkpoints.ts',
+  // F4 places (A13): checks that an evidence path's folder exists and walks it
+  // for links (lstat/stat/exists only). It never reads or writes file content.
+  'electron/main/services/conversation/thread-places.ts',
+  // A16 path resolver: lstat only, to tell whether a named path exists under a base and crosses no link. It never
+  // reads or writes file content and never creates a place.
+  'electron/main/services/conversation/thread-path-resolver.ts',
+  // A17 place read (SECURITY S2): read-only, one regular text file under a place from tool evidence. Every component is
+  // lstat'ed and a link is never crossed; realpath containment, O_NOFOLLOW and a dev/ino recheck guard the open. It
+  // never writes, and FileSystemService's roots are unchanged.
+  'electron/main/services/conversation/thread-place-read.ts',
+  // A15 branch drift: existsSync on the paths git names for an operation in progress (rebase-merge, MERGE_HEAD,
+  // BISECT_LOG...). It never reads or writes file content.
+  'electron/main/services/conversation/thread-place-drift.ts',
   // Thread project registration only canonicalizes and checks the selected
   // directory; source-file reads and writes remain in FileSystemService.
   'electron/main/services/conversation/thread-projects.ts',
+  // A18 (T73) pane branch: existsSync on the pane's cwd before asking safe git for its branch. Reads, lists and
+  // writes nothing.
+  'electron/main/services/terminal/pane-branch.ts',
   // @-mention context: reads only files the user named in the prompt, inside
   // the Thread's project (Windows-aware containment, links followed), bounded
   // per file and in total, and only as prompt text. Never writes.
@@ -209,6 +225,11 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/storage-retention.ts',
   // The audit export is written only to a path returned by Electron's native save dialog.
   'electron/main/ipc/mcp-internal.ipc.ts',
+  // R0b: the one-time export of the removed features' data. Writes only <userData>/exports/1.5-removed-<ts>.json
+  // (flag 'wx', mode 0600) and <userData>/exports/state.json, and lists that folder for the newest export; it stats
+  // the removed features' fixed files under <userData> and under the known workspace roots' .oxe/.oxespace folders.
+  // Never a path from the renderer, never source file contents.
+  'electron/main/services/data-export/removed-features-export.ts',
   // Portable conversation packages are read/written only at a path returned
   // by Electron's native open/save dialogs; package validation remains in the
   // Thread portable service and imported content is inert.
@@ -246,12 +267,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   // OXE integration: existsSync(`<root>/.oxe`) to decide onboarding vs status —
   // a read-only project probe, not a workspace file operation.
   'electron/main/services/oxe.service.ts',
-  // RTK Service: downloads rtk.exe to <userData>/bin for token savings.
-  'electron/main/services/rtk.service.ts',
   // Semantic Service: indexes the workspace tree for local embeddings (reads
   // arbitrary files to embed) and creates the transformers.js model cache under
   // <userData>/models. Background indexing outside the workspace-scoped
-  // FileSystemService, like rtk above.
+  // FileSystemService.
   'electron/main/services/semantic.service.ts',
   // Search Service: Find in Files delegates the actual file reads to the
   // ripgrep child process; its only raw fs use is existsSync to locate the
@@ -276,7 +295,11 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/oxepost/store.ts',
   // OxePost secrets: one encrypted file under <userData> (safeStorage; refused where only obfuscation exists), mode 0600,
   // written by temp file and rename. No workspace path is read or written, and no value is ever returned to the page.
-  'electron/main/services/oxepost/secrets.ts'
+  'electron/main/services/oxepost/secrets.ts',
+  // BE-A46-c5 (1.5.0 F10): a terminal agent's own conversation for the phone. Stats, reads and watches only the one
+  // native session file the pane's recorded session names (Claude's <claudeHome>/projects/<cwd>/<id>.jsonl or Codex's
+  // rollout), and lists only Codex's sessions/<year>/<month>/<day> folders to find it. Never a path from the phone.
+  'electron/main/services/remote/pane-conversation.ts'
 ])
 
 describe('workspace fs allowlist', () => {
@@ -300,7 +323,8 @@ describe('workspace fs allowlist', () => {
     }
 
     expect(offenders).toEqual([])
-  })
+    // FL-25: it walks the whole electron/ tree; under pr:ready (Electron ABI, 2 workers) that once passed 5 s.
+  }, 20_000)
 })
 
 async function listFiles(directory: string): Promise<string[]> {
@@ -308,6 +332,8 @@ async function listFiles(directory: string): Promise<string[]> {
   const files = await Promise.all(
     entries.map((entry) => {
       const fullPath = join(directory, entry.name)
+      // Vendored code is skipped by the test anyway (`/vendor/`); not walking it saves most of the time (FL-25).
+      if (entry.isDirectory() && entry.name === 'vendor') return []
       return entry.isDirectory() ? listFiles(fullPath) : [fullPath]
     })
   )

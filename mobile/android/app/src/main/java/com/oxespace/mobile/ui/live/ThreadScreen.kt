@@ -12,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -27,13 +28,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -90,7 +90,15 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oxespace.mobile.R
+import com.oxespace.mobile.approval.AnswerBlock
+import com.oxespace.mobile.approval.AnswerOutcome
+import com.oxespace.mobile.approval.BiometricApprovalGate
 import com.oxespace.mobile.approval.Gated
+import com.oxespace.mobile.approval.RequestResponder
+import com.oxespace.mobile.ui.components.GateCard
+import com.oxespace.mobile.ui.components.NowBanner
+import com.oxespace.mobile.ui.components.ProviderAvatar
+import com.oxespace.mobile.ui.components.StepsSummary
 import com.oxespace.mobile.approval.PresenceGate
 import com.oxespace.mobile.approval.PresenceReason
 import com.oxespace.mobile.protocol.RemoteLimits
@@ -109,6 +117,10 @@ import com.oxespace.mobile.protocol.live.CommandResult
 import com.oxespace.mobile.protocol.live.ThreadTimeline
 import com.oxespace.mobile.session.Watched
 import com.oxespace.mobile.ui.SecureScreen
+import com.oxespace.mobile.ui.components.Notice
+import com.oxespace.mobile.ui.components.NoticeIntent
+import com.oxespace.mobile.ui.components.OxeButton
+import com.oxespace.mobile.ui.components.OxeButtonKind
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeCodeStyle
 import com.oxespace.mobile.ui.theme.OxeRadius
@@ -146,19 +158,48 @@ fun ThreadScreen(
     val header = timeline.header
     val entries = remember(tick) { timeline.items }
     val running = header?.status == "running"
+    // The desktop's elapsed times are as of this update; the phone counts on from when it arrived.
+    val readClock = LocalClock.current
+    val receivedAt = remember(tick) { readClock() }
     var openTurns by rememberSaveable(threadId) { mutableStateOf(setOf<String>()) }
     val rows = remember(tick, openTurns, running) { timelineRows(entries.map { it.item }, running, openTurns) }
-    val list = rememberLazyListState()
+    // Created already on the last item once the conversation is loaded, so even the first frame shows the end. A list
+    // created at the top and scrolled afterwards flashed the oldest messages first.
+    val itemCount = rows.size + (if (timeline.hasMore && entries.isNotEmpty()) 1 else 0) + (if (timeline.skipped > 0) 1 else 0)
+    val list = remember(threadId, watched.loaded) { LazyListState(firstVisibleItemIndex = (itemCount - 1).coerceAtLeast(0)) }
     val scope = rememberCoroutineScope()
     var loadingOlder by remember { mutableStateOf(false) }
     var stopping by rememberSaveable { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<Int?>(null) }
-    // Follow the newest row while the person is at the bottom.
-    LaunchedEffect(rows.size) {
-        if (rows.isNotEmpty() && (list.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) >= list.layoutInfo.totalItemsCount - 3) {
-            list.animateScrollToItem(list.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1)
+    // CR-A42b-2 (M4): Deny on a gate card answers through the same biometric gate as the Request screen (MOB-1-1).
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val responder = remember(context, commands) { RequestResponder(BiometricApprovalGate(context), commands::respondRequest) }
+    var denying by remember { mutableStateOf(false) }
+    fun deny(request: RemotePendingRequest) {
+        denying = true
+        scope.launch {
+            message = when (val outcome = responder.answer(request, "decline", null, null)) {
+                is AnswerOutcome.Blocked -> when (outcome.reason) {
+                    AnswerBlock.NOT_CONFIRMED -> R.string.request_not_confirmed
+                    AnswerBlock.IN_FLIGHT -> message
+                    AnswerBlock.ALREADY_ANSWERED -> R.string.request_refused_not_pending
+                    else -> R.string.request_refused_other
+                }
+                is AnswerOutcome.Sent -> answerMessage(outcome.result)
+            }
+            denying = false
         }
+    }
+    // A conversation opens at its latest message and follows new ones (T100). In 1.4.2 it opened at the top and
+    // followed only from near the bottom. Scrolling up to read stops following; "Latest" or scrolling back down
+    // starts it again. Pinned until the person scrolls, so a late snapshot or a growing reply still lands at the end.
+    var follow by rememberSaveable(threadId) { mutableStateOf(true) }
+    LaunchedEffect(list) {
+        snapshotFlow { list.isScrollInProgress }.collect { scrolling -> if (!scrolling) follow = !list.canScrollForward }
+    }
+    LaunchedEffect(rows.size, rows.lastOrNull(), watched.loaded) {
+        if (follow && rows.isNotEmpty()) list.scrollToItem(list.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1)
     }
     if (stopping) {
         StopTurnDialog(
@@ -174,11 +215,16 @@ fun ThreadScreen(
     Scaffold(
         containerColor = Oxe.colors.surfaceCanvas,
         topBar = {
+            Column {
             TopAppBar(
                 title = {
                     Column {
-                        Text(title.orEmpty(), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() })
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
+                            header?.let { ProviderAvatar(it.provider, size = 22.dp) }
+                            Text(title.orEmpty(), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() })
+                        }
                         header?.let { StateLine(it.status, it.updatedAt, it.provider) }
+                        turnClockOf(header, receivedAt)?.let { TurnTimer(it) }
                     }
                 },
                 navigationIcon = {
@@ -195,11 +241,21 @@ fun ThreadScreen(
                     }
                 },
             )
+            // CR-A42b-2 (M4): the now line under the app bar while the conversation waits on the person.
+            pending.firstOrNull()?.let { waiting ->
+                NowBanner(
+                    text = stringResource(R.string.thread_now_needs_you, requestTitle(waiting)) +
+                        (if (pending.size > 1) " " + pluralStringResource(R.plurals.thread_more_requests, pending.size - 1, pending.size - 1) else ""),
+                    review = stringResource(R.string.thread_review),
+                    onReview = { onOpenRequest(waiting.requestId) },
+                )
+            }
+            }
         },
         bottomBar = {
             Column(Modifier.background(Oxe.colors.surfaceCanvas).navigationBarsPadding().imePadding().padding(horizontal = OxeSpace.space3, vertical = OxeSpace.space2), verticalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
-                message?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.intentWarningFg, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
-                pending.firstOrNull()?.let { RequestBar(it, more = pending.size - 1, enabled = connected) { onOpenRequest(it.requestId) } }
+                message?.let { Notice(NoticeIntent.WARNING, title = stringResource(it), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
+                header?.let { QueuedPreview(it.queuedPreview, it.queued) }
                 Composer(
                     threadId = threadId,
                     running = running,
@@ -208,6 +264,7 @@ fun ThreadScreen(
                     enabled = watched.loaded,
                     commands = commands,
                     presence = presence,
+                    latestItem = entries.lastOrNull()?.seq,
                     onStop = { stopping = true },
                 )
             }
@@ -217,8 +274,9 @@ fun ThreadScreen(
             ConversationSkeleton(Modifier.padding(padding), skeletonAfterMs)
             return@Scaffold
         }
+        Box(Modifier.fillMaxSize().padding(padding)) {
         LazyColumn(
-            Modifier.fillMaxSize().padding(padding),
+            Modifier.fillMaxSize(),
             state = list,
             contentPadding = PaddingValues(horizontal = OxeSpace.space4, vertical = OxeSpace.space3),
             verticalArrangement = Arrangement.spacedBy(OxeSpace.space3),
@@ -250,13 +308,45 @@ fun ThreadScreen(
                     is TimelineRow.Step -> StepRow(row.tool)
                     is TimelineRow.StepGroup -> StepGroupRow(row.tools)
                     is TimelineRow.Plan -> PlanBlock(row.plan)
-                    is TimelineRow.RequestMarker -> RequestMarker(row.request)
+                    is TimelineRow.RequestMarker -> {
+                        val waiting = pending.firstOrNull { row.request.state == "pending" && it.requestId == row.request.requestId }
+                        if (waiting == null) RequestMarker(row.request) else {
+                            // A truncated or desktop-only request has no Deny here: Review explains why (A44).
+                            val canDeny = waiting.answerable && requestActions(waiting, elapsedMs = Long.MAX_VALUE).any { it.decision == "decline" && it.enabled }
+                            GateCard(
+                                title = requestTitle(waiting),
+                                where = waiting.cwd?.takeIf { it.isNotBlank() && it != "." }?.let { showHidden(it) },
+                                deny = stringResource(R.string.request_decision_decline),
+                                review = stringResource(R.string.thread_review),
+                                denyEnabled = connected && !denying,
+                                onDeny = if (canDeny) ({ deny(waiting) }) else null,
+                                onReview = { onOpenRequest(waiting.requestId) },
+                                risk = { waiting.risk?.let { RiskChip(riskLevel(it)) } },
+                            )
+                        }
+                    }
                     is TimelineRow.TurnBar -> TurnBar(row) { openTurns = if (row.open) openTurns - row.turnId else openTurns + row.turnId }
                     is TimelineRow.Running -> RunningRows(row)
                     is TimelineRow.Subagents -> Text("${toolStateLabel(row.item.state)} · ${row.item.agents}", style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textSecondary)
                 }
             }
         }
+        // Scrolled up while the conversation goes on: one tap back to the newest message, as on the desktop.
+        if (!follow && list.canScrollForward) {
+            LatestChip(Modifier.align(Alignment.BottomCenter).padding(bottom = OxeSpace.space3)) {
+                follow = true
+                scope.launch { list.animateScrollToItem(list.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1) }
+            }
+        }
+        }
+    }
+}
+
+/** "Latest ↓": back to the newest message. */
+@Composable
+internal fun LatestChip(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    androidx.compose.material3.FilledTonalButton(onClick = onClick, modifier = modifier.heightIn(min = 48.dp)) {
+        Text(stringResource(R.string.thread_latest))
     }
 }
 
@@ -402,12 +492,15 @@ fun CodeBlock(text: String) {
 private fun StepRow(tool: RemoteThreadItem.Tool, indent: Boolean = false) {
     var open by rememberSaveable(tool.id) { mutableStateOf(false) }
     val output = tool.output?.takeIf { it.isNotEmpty() }
+    // The diff opens with the output, behind the same tap, inside this screen that already blocks screenshots.
+    val diff = tool.diff?.takeIf { it.files.isNotEmpty() || !it.patch.isNullOrEmpty() }
+    val opens = output != null || diff != null
     val kind = stepKind(tool.name)
     val count = tool.filesChanged?.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.thread_files_changed, it.toInt(), it.toInt()) }
     Column {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 40.dp)
-                .then(if (output != null) Modifier.clickable(role = Role.Button) { open = !open }.semantics { stateDescription = if (open) "expanded" else "collapsed" } else Modifier)
+                .then(if (opens) Modifier.clickable(role = Role.Button) { open = !open }.semantics { stateDescription = if (open) "expanded" else "collapsed" } else Modifier)
                 .padding(start = if (indent) 26.dp else 0.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2),
@@ -428,13 +521,14 @@ private fun StepRow(tool: RemoteThreadItem.Tool, indent: Boolean = false) {
                 modifier = Modifier.weight(1f),
             )
             count?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textMuted) }
-            if (output != null) Chevron(open)
+            if (opens) Chevron(open)
         }
         tool.redacted?.takeIf { it > 0 }?.let {
             Text(pluralStringResource(R.plurals.terminal_redacted, it.toInt(), it.toInt()), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textMuted, modifier = Modifier.padding(start = 26.dp))
         }
         // What is shown is what Copiar copies: hidden characters written out, never obeyed.
         if (open && output != null) Box(Modifier.padding(start = 26.dp)) { CodeBlock(showHidden(output)) }
+        if (open && diff != null) ToolDiffView(diff, Modifier.padding(start = 26.dp, top = OxeSpace.space2))
     }
 }
 
@@ -444,17 +538,17 @@ private fun StepGroupRow(tools: List<RemoteThreadItem.Tool>) {
     var open by rememberSaveable(tools.first().id) { mutableStateOf(false) }
     val parts = groupCounts(tools).map { (kind, n) -> pluralStringResource(groupRes(kind), n, n) }
     val summary = parts.joinToString(" · ").replaceFirstChar { it.titlecase() }
-    Column {
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 40.dp).clickable(role = Role.Button) { open = !open }
-                .semantics { stateDescription = if (open) "expanded" else "collapsed" },
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2),
-        ) {
-            StepIcon(if (tools.any { it.state == "failed" }) "failed" else "completed")
-            Text(summary, style = MaterialTheme.typography.bodyMedium, color = Oxe.colors.textSecondary, modifier = Modifier.weight(1f))
-            Chevron(open)
-        }
+    val failed = tools.any { it.state == "failed" }
+    Column(verticalArrangement = Arrangement.spacedBy(OxeSpace.space1)) {
+        // CR-A42b-2 (M4): the turn's steps folded into the StepsSummary chip.
+        StepsSummary(
+            summary = pluralStringResource(R.plurals.thread_steps, tools.size, tools.size) + " · " + summary,
+            failed = failed,
+            open = open,
+            onToggle = { open = !open },
+            glyph = { StepIcon(if (failed) "failed" else "completed") },
+            trailing = { Chevron(open) },
+        )
         if (open) tools.forEach { StepRow(it, indent = true) }
     }
 }
@@ -572,31 +666,6 @@ private fun RunningRows(row: TimelineRow.Running) {
 
 // ---- the request bar and the composer --------------------------------------------------------------------------------
 
-/** The waiting request, docked above the composer (§4): risk badge and its one-liner, the title, Responder. */
-@Composable
-private fun RequestBar(request: RemotePendingRequest, more: Int, enabled: Boolean, onRespond: () -> Unit) {
-    Column(
-        Modifier.fillMaxWidth()
-            .background(Oxe.colors.surfaceRaised, RoundedCornerShape(14.dp))
-            .border(1.dp, Oxe.colors.borderSubtle, RoundedCornerShape(14.dp))
-            .padding(horizontal = OxeSpace.space3, vertical = 10.dp)
-            .semantics { liveRegion = LiveRegionMode.Polite },
-        verticalArrangement = Arrangement.spacedBy(OxeSpace.space1),
-    ) {
-        request.risk?.let { RiskLine(it) }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
-            Column(Modifier.weight(1f)) {
-                val suffix = if (more > 0) " " + pluralStringResource(R.plurals.thread_more_requests, more, more) else ""
-                Text(requestTitle(request) + suffix, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
-                if (!request.answerable) Text(stringResource(R.string.thread_answer_on_computer), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textMuted)
-            }
-            if (request.answerable) {
-                Button(onClick = onRespond, enabled = enabled, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.thread_respond)) }
-            }
-        }
-    }
-}
-
 /**
  * One raised container with the field and one trailing button (§5): Enviar when idle; while the agent works, Parar
  * (a square) with an empty field and Orientar (or Enviar, queued) once text is typed. A message keeps its clientId
@@ -612,17 +681,22 @@ private fun Composer(
     enabled: Boolean,
     commands: CommandApi,
     presence: PresenceGate,
+    /** The newest timeline item; the line under a message sent while working stays until it changes. */
+    latestItem: Any?,
     onStop: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val mode = composerMode(running, canSteer)
     var text by rememberSaveable(threadId) { mutableStateOf("") }
+    var sentWhileWorking by remember(threadId) { mutableStateOf<SentWhileWorking?>(null) }
+    LaunchedEffect(latestItem) { if (sentWhileWorking?.latestItem != latestItem) sentWhileWorking = null }
     var clientId by rememberSaveable(threadId) { mutableStateOf(UUID.randomUUID().toString()) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<Int?>(null) }
     var unsentText by rememberSaveable(threadId) { mutableStateOf<String?>(null) }
     var unsentSteer by rememberSaveable(threadId) { mutableStateOf(false) }
     val unsent = unsentText?.let { Outgoing(it, unsentSteer) }
-    val steer = running && canSteer
+    val steer = ComposerControl.STEER in mode.controls
 
     /** [ask] false for the resend after a reconnection: inside the window it goes, outside it waits for a tap on Send. */
     suspend fun send(outgoing: Outgoing, ask: Boolean = true) {
@@ -635,11 +709,15 @@ private fun Composer(
             is Gated.Blocked -> message = presenceMessage(gated.reason)
             is Gated.Done -> {
                 val result = gated.value
-                message = commandMessage(result)
-                val waiting = result == CommandResult.NoAnswer || result == CommandResult.Offline
-                unsentText = if (waiting) outgoing.text else null
+                message = if (outgoing.steer) steerMessage(result) else commandMessage(result)
+                // A refused steer (the turn ended) is never resent: it can't reach a later turn.
+                unsentText = unsentAfter(result, outgoing)?.text
                 unsentSteer = outgoing.steer
-                if (result is CommandResult.Done) text = ""
+                if (result is CommandResult.Done && running) {
+                    val line = if (outgoing.steer) R.string.composer_read_after_step else R.string.composer_queued_line
+                    sentWhileWorking = SentWhileWorking(outgoing.text, line, latestItem)
+                }
+                if (!keepsText(result)) text = ""
                 clientId = clientIdAfter(result, clientId) { UUID.randomUUID().toString() }
             }
         }
@@ -651,16 +729,42 @@ private fun Composer(
     }
     val typed = text.isNotBlank()
     Column(verticalArrangement = Arrangement.spacedBy(OxeSpace.space1)) {
-        message?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.intentWarningFg, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
+        message?.let { Notice(NoticeIntent.WARNING, title = stringResource(it), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
+        sentWhileWorking?.let { sent ->
+            Column(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }) {
+                Text(displaySafe(sent.text, TARGET_MAX), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(stringResource(sent.line), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textMuted)
+            }
+        }
+        val stops = ComposerControl.STOP in mode.controls
         Row(
             Modifier.fillMaxWidth().heightIn(min = 48.dp)
                 .background(Oxe.colors.surfaceRaised, RoundedCornerShape(24.dp))
                 .border(BorderStroke(1.dp, Oxe.colors.borderDefault), RoundedCornerShape(24.dp))
-                .padding(start = OxeSpace.space4, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                .padding(start = if (stops) 4.dp else OxeSpace.space4, end = 4.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2),
         ) {
-            val placeholder = stringResource(R.string.composer_placeholder)
+            if (stops) {
+                // Stop stays with text typed (secondary), and keeps its confirm dialog.
+                val stopLabel = stringResource(R.string.thread_stop_turn)
+                OxeButton(
+                    text = stopLabel,
+                    onClick = onStop,
+                    // CR-F10-10 (SPEC A47, DESIGN #744): Stop carries the danger tint.
+                    kind = OxeButtonKind.DANGER,
+                    enabled = connected && enabled,
+                    modifier = Modifier.semantics { contentDescription = stopLabel },
+                )
+            }
+            // CR-F10-10 (SPEC A47): while the agent works and can be steered, the field says how the message is read.
+            val placeholder = stringResource(
+                when {
+                    mode.queuedPlaceholder -> R.string.composer_queued_placeholder
+                    ComposerControl.STEER in mode.controls -> R.string.composer_steer_placeholder
+                    else -> R.string.composer_placeholder
+                },
+            )
             BasicTextField(
                 value = text,
                 onValueChange = { value ->
@@ -685,17 +789,11 @@ private fun Composer(
                 },
             )
             when {
-                running && !typed -> FilledIconButton(
-                    onClick = onStop,
-                    enabled = connected && enabled,
-                    colors = IconButtonDefaults.filledIconButtonColors(containerColor = Oxe.colors.accent, contentColor = Oxe.colors.textOnAccent),
-                    modifier = Modifier.size(40.dp),
-                ) { Icon(ImageVector.vectorResource(R.drawable.ic_stop), contentDescription = stringResource(R.string.thread_stop_turn)) }
-                running && steer -> Button(
+                steer -> OxeButton(
+                    stringResource(R.string.composer_steer),
                     onClick = { scope.launch { send(outgoingFor(unsent, text, steer)) } },
-                    enabled = !busy && enabled,
-                    modifier = Modifier.heightIn(min = 40.dp),
-                ) { Text(stringResource(R.string.composer_steer)) }
+                    enabled = !busy && typed && enabled,
+                )
                 else -> FilledIconButton(
                     onClick = { scope.launch { send(outgoingFor(unsent, text, steer)) } },
                     enabled = !busy && typed && enabled,
@@ -706,6 +804,9 @@ private fun Composer(
         }
     }
 }
+
+/** A message sent while the agent worked, with its line, until [latestItem] changes. */
+private data class SentWhileWorking(val text: String, val line: Int, val latestItem: Any?)
 
 @Composable
 private fun StopTurnDialog(title: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
@@ -731,9 +832,10 @@ private fun ConversationSkeleton(modifier: Modifier, afterMs: Long) {
         verticalArrangement = Arrangement.spacedBy(OxeSpace.space3),
     ) {
         if (!shown) return@Column
-        Box(Modifier.fillMaxWidth().height(56.dp).background(promptFill(), RoundedCornerShape(OxeRadius.lg)))
+        // CR-F10-10e: the skeleton's own fill, visible in both themes (the same as the Skeleton component).
+        Box(Modifier.fillMaxWidth().height(56.dp).background(Oxe.colors.borderDefault, RoundedCornerShape(OxeRadius.lg)))
         for (fraction in listOf(0.95f, 0.85f, 0.9f, 0.6f)) {
-            Box(Modifier.fillMaxWidth(fraction).height(14.dp).background(promptFill(), RoundedCornerShape(OxeRadius.sm)))
+            Box(Modifier.fillMaxWidth(fraction).height(14.dp).background(Oxe.colors.borderDefault, RoundedCornerShape(OxeRadius.sm)))
         }
         Spacer(Modifier.weight(1f))
     }

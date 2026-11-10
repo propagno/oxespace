@@ -44,7 +44,7 @@ describe('read tools', () => {
   })
 
   it('say a missing service is unavailable', async () => {
-    expect(await call('oxespace_linear', { action: 'teams' }, ctx({}))).toMatchObject({ ok: false, code: 'unavailable' })
+    expect(await call('oxespace_skills', { action: 'list' }, ctx({}))).toMatchObject({ ok: false, code: 'unavailable' })
   })
 })
 

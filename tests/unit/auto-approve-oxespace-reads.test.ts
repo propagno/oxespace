@@ -48,7 +48,7 @@ describe('OXESpace read-only lookups under "Auto-approve reads"', () => {
   })
 
   it('reads beyond this project, an account or the team still ask, like a shell read outside the folder (SECURITY #547 M1)', () => {
-    const outside = ['oxespace_automations', 'oxespace_linear', 'oxespace_list_workspaces', 'oxespace_list_agents', 'oxespace_github', 'oxespace_skills',
+    const outside = ['oxespace_list_workspaces', 'oxespace_list_agents', 'oxespace_github', 'oxespace_skills',
       'oxespace_mcp_servers', 'oxespace_settings', 'oxespace_usage', 'oxespace_diagnostics', 'oxespace_team_status', 'oxespace_team_inbox',
       'oxespace_delegation_status', 'oxespace_delegation_inbox', 'oxespace_delegation_result']
     // Still lookups a read-only conversation may call, but not approved without asking.

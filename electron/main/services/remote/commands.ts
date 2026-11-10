@@ -1,8 +1,9 @@
 import {
-  REMOTE_LIMITS, REMOTE_TEXT_LIMITS,
-  type RemoteCommand, type RemoteCommandArgs, type RemoteErrorCode, type RemoteRespondRequestArgs, type RemoteThreadSnapshot
+  REMOTE_AGENT_KINDS, REMOTE_LIMITS, REMOTE_TEXT_LIMITS,
+  type RemoteCommand, type RemoteCommandArgs, type RemoteErrorCode, type RemoteErrorReason, type RemoteRespondRequestArgs, type RemoteThreadSnapshot
 } from '../../../../shared/remote/protocol'
 import type { RemoteDesktop } from './desktop'
+import type { PaneConversationSource } from './pane-conversation'
 import { isAnswerable, toPendingRequest, toThreadHeader } from './filters'
 import { fitPage, numbered, threadItems } from './topics'
 
@@ -22,11 +23,13 @@ function failureCode(error: unknown): 'not-found' | 'internal' {
  * `clientIdDedupeMs`: a resend after reconnecting gets the first outcome back and nothing is sent twice.
  */
 
-export type CommandOutcome = { ok: true; result?: unknown } | { ok: false; code: RemoteErrorCode }
+export type CommandOutcome = { ok: true; result?: unknown } | { ok: false; code: RemoteErrorCode; reason?: RemoteErrorReason }
 
 const ID = /^[A-Za-z0-9._:-]{1,200}$/
 const CLIENT_ID = /^[A-Za-z0-9_-]{8,64}$/
 const ANSWER_KEY = /^[A-Za-z0-9_.:-]{1,120}$/
+/** A `pane.conversation` cursor as the phone got it; whether it still holds is the reader's answer. */
+const CONVERSATION_CURSOR = /^[A-Za-z0-9_-]{1,64}$/
 const HISTORY_EVENTS = 200
 const HISTORY_READS = 4
 
@@ -92,6 +95,16 @@ export function parseCommandArgs<C extends RemoteCommand>(command: C, value: unk
       const input = fields(value, ['threadId', 'beforeSeq'])
       return { threadId: id(input.threadId), beforeSeq: integer(input.beforeSeq, Number.MIN_SAFE_INTEGER) } as RemoteCommandArgs[C]
     }
+    case 'pane.conversation': {
+      const input = fields(value, ['paneId'], ['cursor'])
+      if (input.cursor !== undefined && (typeof input.cursor !== 'string' || !CONVERSATION_CURSOR.test(input.cursor))) throw new Malformed()
+      return { paneId: id(input.paneId), ...(input.cursor !== undefined ? { cursor: input.cursor } : {}) } as RemoteCommandArgs[C]
+    }
+    case 'agent.markSeen': {
+      const input = fields(value, ['kind', 'id'])
+      if (typeof input.kind !== 'string' || !(REMOTE_AGENT_KINDS as readonly string[]).includes(input.kind)) throw new Malformed()
+      return { kind: input.kind, id: id(input.id) } as RemoteCommandArgs[C]
+    }
     default:
       throw new Malformed()
   }
@@ -100,7 +113,7 @@ export function parseCommandArgs<C extends RemoteCommand>(command: C, value: unk
 /** A note for the audit trail: the command and what it acted on, never its text or answers. */
 export function auditDetail(command: RemoteCommand, args: unknown): string {
   const input = isPlain(args) ? args : {}
-  const target = [input.threadId, input.requestId, input.paneId].filter(value => typeof value === 'string' && ID.test(value)).join(' ')
+  const target = [input.threadId, input.requestId, input.paneId, command === 'agent.markSeen' ? input.kind : undefined, command === 'agent.markSeen' ? input.id : undefined].filter(value => typeof value === 'string' && ID.test(value)).join(' ')
   return target ? `${command} ${target}` : command
 }
 
@@ -108,6 +121,10 @@ export interface CommandHost {
   desktop: RemoteDesktop
   now(): number
   phoneWrite(): ReadonlySet<string>
+  /** CR-34: panes kept off the phone: no typing and no conversation, whatever else says so. */
+  phoneHidden?(): ReadonlySet<string>
+  /** BE-A46-c5: a pane agent's conversation; without it every `pane.conversation` is `no-conversation`. */
+  paneConversations?: Pick<PaneConversationSource, 'page'>
 }
 
 export class RemoteCommands {
@@ -125,6 +142,9 @@ export class RemoteCommands {
         case 'thread.respondRequest': return await this.respond(args as RemoteCommandArgs['thread.respondRequest'])
         case 'terminal.write': return await this.write(args as RemoteCommandArgs['terminal.write'])
         case 'thread.history': return await this.history(args as RemoteCommandArgs['thread.history'])
+        // Idempotent, and an unknown key is ok too: the answer never tells whether a key exists (CCR #513 §6).
+        case 'agent.markSeen': this.host.desktop.markAgentSeen(args as RemoteCommandArgs['agent.markSeen']); return { ok: true }
+        case 'pane.conversation': return await this.conversation(deviceId, args as RemoteCommandArgs['pane.conversation'])
       }
     } catch (error) {
       return { ok: false, code: failureCode(error) }
@@ -198,8 +218,18 @@ export class RemoteCommands {
   }
 
   private async write(args: RemoteCommandArgs['terminal.write']): Promise<CommandOutcome> {
-    if (!this.host.phoneWrite().has(args.paneId)) return { ok: false, code: 'pane-not-shared' }
+    if (this.host.phoneHidden?.().has(args.paneId) || !this.host.phoneWrite().has(args.paneId)) return { ok: false, code: 'pane-not-shared' }
     return await this.host.desktop.writeTerminal(args.paneId, args.data) ? { ok: true } : { ok: false, code: 'not-found' }
+  }
+
+  /** BE-A46-c5: a page of a pane agent's conversation; an unknown pane or one without a session is `no-conversation`. */
+  private async conversation(deviceId: string, args: RemoteCommandArgs['pane.conversation']): Promise<CommandOutcome> {
+    const source = this.host.paneConversations
+    // CR-34: a pane hidden from the phone has no conversation, the same answer as a pane without one.
+    if (!source || this.host.phoneHidden?.().has(args.paneId)) return { ok: false, code: 'no-conversation' }
+    const result = await source.page(deviceId, args)
+    if ('error' in result) return { ok: false, code: result.error, ...('reason' in result && result.reason ? { reason: result.reason } : {}) }
+    return { ok: true, result }
   }
 
   private async history(args: RemoteCommandArgs['thread.history']): Promise<CommandOutcome> {

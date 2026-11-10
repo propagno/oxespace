@@ -1,12 +1,14 @@
 package com.oxespace.mobile
 
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -39,6 +41,11 @@ import com.oxespace.mobile.ui.live.ThreadScreen
 import com.oxespace.mobile.ui.pairing.CameraWithPermission
 import com.oxespace.mobile.ui.pairing.PairingScreen
 import com.oxespace.mobile.ui.theme.OxeTheme
+import com.oxespace.mobile.settings.PhonePreferences
+import com.oxespace.mobile.settings.ThemeChoice
+import com.oxespace.mobile.settings.darkThemeFor
+import com.oxespace.mobile.ui.settings.SettingsScreen
+import com.oxespace.mobile.ui.settings.SharedPreferenceStore
 
 class MainActivity : ComponentActivity() {
     private val session: SessionViewModel by viewModels()
@@ -50,14 +57,24 @@ class MainActivity : ComponentActivity() {
     /** Debug builds only: a pairing link handed over adb, scanned like a camera frame ([PairLinkForHomologation]). */
     private var pairLink by mutableStateOf<String?>(null)
 
+    /** The phone's own settings (T-P1.7): SharedPreferences `phone-prefs`. */
+    private val phonePrefs by lazy { getSharedPreferences(PHONE_PREFS, MODE_PRIVATE) }
+    private val preferences by lazy { PhonePreferences(SharedPreferenceStore(phonePrefs)) }
+
+    /** The theme the person chose; follows a change made on the Settings screen at once. */
+    private var theme by mutableStateOf(ThemeChoice.SYSTEM)
+    private val themeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> theme = preferences.theme }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        theme = preferences.theme
+        phonePrefs.registerOnSharedPreferenceChangeListener(themeListener)
         enableEdgeToEdge()
         CaptureForHomologation.read(intent.getBooleanExtra(CaptureForHomologation.EXTRA, false))
         readNotificationTap(intent)
         readPairLink(intent)
         setContent {
-            OxeTheme {
+            OxeTheme(darkTheme = darkThemeFor(theme, isSystemInDarkTheme())) {
                 var showPairing by rememberSaveable { mutableStateOf(false) }
                 val status by session.status.collectAsStateWithLifecycle()
                 val link = pairLink
@@ -127,6 +144,7 @@ class MainActivity : ComponentActivity() {
         var requestKey by rememberSaveable { mutableStateOf<String?>(null) }
         val requests by live.pendingRequests.items.collectAsStateWithLifecycle()
         var askingAddress by rememberSaveable { mutableStateOf(false) }
+        var settingsOpen by rememberSaveable { mutableStateOf(false) }
         AskForNotifications()
         // A tapped notification: open its request or conversation, once.
         val tap = opening
@@ -150,6 +168,10 @@ class MainActivity : ComponentActivity() {
         val openPane = paneId?.let { id -> workspaces.flatMap { it.panes }.firstOrNull { it.id == id } }
         val openRequest = requestKey
         when {
+            settingsOpen -> {
+                BackHandler { settingsOpen = false }
+                SettingsScreen(preferences, onBack = { settingsOpen = false })
+            }
             openRequest != null -> {
                 BackHandler { requestKey = null }
                 // The request as it is now; null once answered elsewhere, and the screen says so.
@@ -191,6 +213,7 @@ class MainActivity : ComponentActivity() {
                 onOpenTerminal = { paneId = it.id },
                 onEnterAddress = { askingAddress = true },
                 onUnpair = session::unpair,
+                onSettings = { settingsOpen = true },
             )
         }
         if (askingAddress) AddressDialog(initial = desktop.manualHost.orEmpty(), onSave = session::setManualHost, onDismiss = { askingAddress = false })
@@ -221,5 +244,14 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         session.onHidden()
         super.onStop()
+    }
+
+    override fun onDestroy() {
+        phonePrefs.unregisterOnSharedPreferenceChangeListener(themeListener)
+        super.onDestroy()
+    }
+
+    private companion object {
+        const val PHONE_PREFS = "phone-prefs"
     }
 }

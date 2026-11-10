@@ -8,7 +8,6 @@ vi.mock('electron', () => ({ ipcMain: { handle: (channel: string, handler: (...a
 
 const { IPC_CHANNELS } = await import('../../shared/types/ipc')
 const { registerAppUpdateIpc, startAutoUpdater } = await import('../../electron/main/ipc/app-update.ipc')
-const { startAutomations } = await import('../../electron/main/services/automations/startup')
 
 type Updater = typeof import('../../electron/main/updater')
 
@@ -63,38 +62,5 @@ describe('T44 · the updater loads on its first request', () => {
     const warn = vi.fn()
     await expect(startAutoUpdater(async () => { throw new Error('chunk missing') }, warn)).resolves.toBeUndefined()
     expect(warn).toHaveBeenCalledWith('chunk missing')
-  })
-})
-
-describe('T44 · automations load after the first window', () => {
-  const deps = { createWorktree: vi.fn(), resolveBaseRef: vi.fn(), runCommand: vi.fn(), onChange: vi.fn() } as never
-
-  it('the first start builds the service on its store, registers it and starts it', async () => {
-    const started = vi.fn()
-    const stores: string[] = []
-    class AutomationStore { constructor(path: string) { stores.push(path) } }
-    class AutomationService { constructor(readonly deps: { store: unknown }) {} start = started }
-    const register = vi.fn()
-    const service = await startAutomations('/tmp/automations.sqlite3', deps, register, vi.fn(), async () => [{ AutomationService }, { AutomationStore }] as never)
-    expect(stores).toEqual(['/tmp/automations.sqlite3'])
-    expect(register).toHaveBeenCalledWith(service)
-    expect(started).toHaveBeenCalledTimes(1)
-    expect((service as unknown as { deps: { store: unknown } }).deps.store).toBeInstanceOf(AutomationStore)
-  })
-
-  it('code that cannot load leaves automations off: nothing registers, nothing starts, boot goes on', async () => {
-    const register = vi.fn()
-    const warn = vi.fn()
-    await expect(startAutomations('/tmp/a.sqlite3', deps, register, warn, async () => { throw new Error('chunk missing') })).resolves.toBeUndefined()
-    expect(register).not.toHaveBeenCalled()
-    expect(warn).toHaveBeenCalledWith('Automations unavailable', expect.objectContaining({ message: 'chunk missing' }))
-  })
-
-  it('a store that cannot open leaves them off the same way', async () => {
-    const register = vi.fn()
-    class AutomationStore { constructor() { throw new Error('SQLITE_CANTOPEN') } }
-    class AutomationService { start = vi.fn() }
-    await expect(startAutomations('/tmp/a.sqlite3', deps, register, vi.fn(), async () => [{ AutomationService }, { AutomationStore }] as never)).resolves.toBeUndefined()
-    expect(register).not.toHaveBeenCalled()
   })
 })

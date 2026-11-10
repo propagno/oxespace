@@ -35,7 +35,8 @@ export function AppMenuBar({ context }: { context: AppMenuContext }): ReactEleme
   // Subscribing re-renders the menus, built with i18n.t, when the language changes.
   const { t } = useTranslation()
   const menus = buildAppMenus(context)
-  return <DropdownMenu.Root>
+  // Non-modal (CR-33, HML-F2-1): a modal menu sets aria-hidden on every sibling of its portal, <main> included, while <main> keeps focusable controls (axe aria-hidden-focus). Escape, a click outside and focus return still close it.
+  return <DropdownMenu.Root modal={false}>
     <DropdownMenu.Trigger className="app-menu-button" aria-label={t('nav.applicationMenu')} title={t('nav.menu')}><Menu size={16} aria-hidden="true" /></DropdownMenu.Trigger>
     <DropdownMenu.Portal>
       <DropdownMenu.Content className="app-menu-content" align="start" sideOffset={6}>

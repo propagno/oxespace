@@ -111,14 +111,14 @@ describe('confirmation and remembered hosts', () => {
     expect(seenHosts()).toEqual([])
   })
   it('Open opens, remembers the host, and the next link to it goes straight through', async () => {
-    const first = openExternalLink('https://example.com/a', { source: 'linear' })
+    const first = openExternalLink('https://example.com/a', { source: 'github' })
     await dialog()
     fireEvent.click(screen.getByRole('button', { name: 'Open' }))
     expect(await first).toBe(true)
     expect(open).toHaveBeenCalledWith('https://example.com/a')
     expect(JSON.parse(localStorage.getItem(SEEN_HOSTS_KEY)!)).toEqual(['example.com'])
     await waitFor(() => expect(screen.queryByTestId('external-link-dialog')).toBeNull())
-    expect(await openExternalLink('https://example.com/b', { source: 'linear' })).toBe(true)
+    expect(await openExternalLink('https://example.com/b', { source: 'github' })).toBe(true)
     expect(open).toHaveBeenCalledTimes(2)
   })
   it('misleading text asks even for a remembered host, and shows the text', async () => {

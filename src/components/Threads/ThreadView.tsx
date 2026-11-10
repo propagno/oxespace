@@ -20,7 +20,7 @@ import { ThreadLiveActivity } from './ThreadLiveActivity'
 import { showSideChat, useSideChatStore } from './side/sideChatStore'
 import { threadQuickReplies } from './threadQuickReplies'
 import { createThreadTimelineBuilder, flattenThreadTimeline, foldFinishedTurns, summarizeThreadEvents } from './threadTimelineModel'
-import { humanizeError } from '../../utils/humanizeError'
+import { errorText, humanizeError } from '../../utils/humanizeError'
 
 const EMPTY_FOLDS: ReadonlySet<string> = new Set()
 // Stable empty values, so rows do not get a new prop on every render.
@@ -48,7 +48,7 @@ import { ThreadDockRewind, supersededTurnIds } from './ThreadDockRewind'
 import { ThreadDockChanges } from './ThreadDockChanges'
 import { ThreadPromptNavigator } from './ThreadPromptNavigator'
 import { useThreadScrollAnchor } from './useThreadScrollAnchor'
-import { threadError } from './threadError'
+import { isAccountUnavailable, threadError } from './threadError'
 import { quoteMarkdown } from './threadComposerState'
 import { loadDelegationPanel, loadResumeData, type ThreadPanelState } from './threadCommandPanels'
 
@@ -81,6 +81,8 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const draft = useThreadStore(state => snapshot ? state.drafts[snapshot.thread.id] ?? '' : '')
   const attachments = useThreadStore(state => snapshot ? state.attachments[snapshot.thread.id] ?? NO_ATTACHMENTS : NO_ATTACHMENTS)
   const [error, setError] = useState(''), [pending, setPending] = useState(false)
+  // What the person can't act on (a code from main), shown under Details; cleared with the error.
+  const [errorDetail, setErrorDetail] = useState('')
   const [outgoing, setOutgoing] = useState<{ threadId: string; text: string; attachments: ThreadAttachment[]; knownEvents: Set<string> } | null>(null)
   const [panel, setPanel] = useState<ThreadPanelState | null>(null)
   const panelOpener = useRef<HTMLElement | null>(null)
@@ -189,11 +191,13 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   const action = async (run: () => Promise<unknown>, onSettled?: (success: boolean) => void): Promise<void> => {
     if (actionInFlight.current) return
     actionInFlight.current = true
-    setPending(true); setError('')
+    setPending(true); setError(''); setErrorDetail('')
     let success = false
     try { await run(); if (snapshot) await useThreadStore.getState().refresh(snapshot.thread.id); success = true }
     catch (error) {
       if (String(error).includes('THREAD_AUTH_REQUIRED')) { await useAccountStore.getState().read(context); onAccounts?.(); setError(t('view.connectFirst')) }
+      // T88: no agent found, or its account can't be read: say what to do, keep main's words under Details.
+      else if (isAccountUnavailable(error)) { void useAccountStore.getState().read(context); setError(threadError(error)); setErrorDetail(errorText(error)) }
       else setError(threadError(error))
     } finally { onSettled?.(success); actionInFlight.current = false; setPending(false) }
   }
@@ -317,7 +321,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
         {!snapshot && selectedId && <div className={cx('thread-opening', skeletonStyles.viewSkeleton)} role="status" aria-label={t('view.opening')} data-view-skeleton=""><Skeleton decorative lines={2} /><Skeleton decorative variant="block" /><Skeleton decorative lines={3} /></div>}
         {!snapshot && !selectedId && <div className="thread-welcome"><span className="thread-welcome-mark"><MessageSquarePlus size={26} strokeWidth={1.5} /></span><h2>{selectedId ? t('view.opening') : t('view.welcomeTitle')}</h2><p>{selectedId ? t('view.openingBody') : t('view.welcomeBody')}</p>{!selectedId && <div className="thread-welcome-actions">{onNewThread && <Button variant="primary" icon={<MessageSquarePlus size={14} />} onClick={onNewThread}>{t('view.newConversation')}</Button>}{onAccounts && <Button onClick={onAccounts}>{t('view.providerAccounts')}</Button>}</div>}</div>}
         <ThreadTimelineWindow key={snapshot?.thread.id ?? 'empty'} rows={timelineRows} scrollRef={timeline} followingRef={scroll.following} onViewportUpdateRef={scroll.updateTimelineViewport} scrollToRef={scrollToRow}>{row => <ThreadTimelineEntry row={row} snapshot={snapshot} viewMode={viewMode} running={running} pending={pending} pendingRequests={pendingRequests}
-          lastResult={lastResult} lastMessageId={lastConversationMessage?.id} quickReplies={quickReplies} copiedMessageId={copiedMessageId} action={action} runCommand={runCommand} onAccounts={onAccounts}
+          lastResult={lastResult} lastMessageId={lastConversationMessage?.id} quickReplies={quickReplies} copiedMessageId={copiedMessageId} action={action} runCommand={runCommand}
           onCopy={(id, text) => void copyMessage(id, text)} onPermissions={() => setOpenControl('permissions')} onQuote={text => appendToConversation(quoteMarkdown(text))} onDraft={appendToConversation}
           onQuickReply={value => { useThreadStore.getState().setDraft(snapshot!.thread.id, value); requestAnimationFrame(() => textarea.current?.focus()) }} onToggleFold={toggleFold} superseded={supersededTurns.has(row.turnId)} />}</ThreadTimelineWindow>
         {pendingMessage && <article className="thread-message thread-message-user thread-message-outgoing" aria-label={t('view.sendingMessage')}>{pendingMessage.attachments.length > 0 && <ul className="thread-sent-attachments" aria-label={t('view.attachments')}>{pendingMessage.attachments.map(attachment => <li key={attachment.id} title={attachment.name}><ImageIcon size={14} aria-hidden="true" /><span>{attachment.name}</span><small>{t('view.kilobytes', { size: formatNumber(Math.ceil(attachment.bytes / 1024)) })}</small></li>)}</ul>}<ThreadMessageBody text={pendingMessage.text} role="user" /><small className="thread-message-outgoing-status">{t('view.sending')}</small></article>}
@@ -333,7 +337,9 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
       {snapshot && needsLogin && <div className="thread-connection-notice"><AlertCircle size={14} /><span>{authFailure ? t('view.signIn', { provider: snapshot.thread.provider === 'claude' ? 'Claude Code' : 'Codex' }) : accountMessage(account)}</span><Button size="sm" variant={authFailure && account?.state === 'connected' ? 'secondary' : 'primary'} onClick={onAccounts}>{authFailure ? t('view.reconnect') : t('view.connect')}</Button>{authFailure && lastPrompt?.type === 'message' && <Button size="sm" variant={account?.state === 'connected' && account.method === 'subscription' ? 'primary' : 'secondary'} title={t('view.resendTitle')} disabled={pending || account?.state !== 'connected' || account.method !== 'subscription'} onClick={() => void action(() => api!.send(snapshot.thread.id, lastPrompt.text, lastPrompt.attachments?.map(attachment => attachment.id) ?? []))}>{t('view.retry')}</Button>}</div>}
       {degradedConnection && !needsLogin && <div className="thread-connection-notice is-warning" role="status"><AlertCircle size={14} /><span>{degradedConnection.detail || t('view.connectionUnavailable')}{degradedConnection.nextRetryAt ? ` ${t('view.retryAfter', { time: formatClock(degradedConnection.nextRetryAt, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) })}` : ''}</span></div>}
       {snapshot && blocksThreadInput(snapshot.thread) && <div className="thread-connection-notice"><TerminalSquare size={14} /><span>{t('view.recoverBody')}</span><button type="button" disabled={pending} onClick={() => void action(returnFromCli)}>{t('view.recover')}</button></div>}
-      {(error || !api) && <div className="thread-action-error"><ErrorState compact title={error || t('view.serviceUnavailable')} actions={error && <Button size="sm" variant="ghost" onClick={() => setError('')}>{t('view.dismissError')}</Button>} /></div>}
+      {(error || !api) && <div className="thread-action-error"><ErrorState compact title={error || t('view.serviceUnavailable')} detail={errorDetail || undefined} actions={error && <>
+        {errorDetail && onAccounts ? <Button size="sm" onClick={() => { setError(''); setErrorDetail(''); onAccounts() }}>{t('view.connectAgent')}</Button> : null}
+        <Button size="sm" variant="ghost" onClick={() => { setError(''); setErrorDetail('') }}>{t('view.dismissError')}</Button></>} /></div>}
       {snapshot && <ThreadDockRewind snapshot={snapshot} pending={pending} onRedo={() => void action(async () => {
         const restored = await api!.redoRewind!(snapshot.thread.id)
         useThreadStore.getState().updateSnapshot(restored)

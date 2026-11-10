@@ -1,4 +1,19 @@
 {
+  "workspaceColor": {
+    "label": "Workspace color",
+    "open": "Workspace color…",
+    "auto": "Automatic color",
+    "swatch": {
+      "1": "Caatinga",
+      "2": "Sertão",
+      "3": "Açude",
+      "4": "Juazeiro",
+      "5": "Xique-xique",
+      "6": "Barro",
+      "7": "Fim de tarde",
+      "8": "Pedra"
+    }
+  },
   "startupFailure": {
     "newer-schema": {
       "title": "This data comes from a newer OXESpace",
@@ -19,6 +34,7 @@
     "openBackups": "Open the backups folder",
     "copyDetails": "Copy details",
     "detailsWhat": "The details",
+    "technicalDetail": "Technical message",
     "quit": "Quit",
     "tryAgain": "Try again",
     "backupsAt": "Backups are kept in"
@@ -510,17 +526,6 @@
       "background": "Downloading in the background.",
       "releases": "Open releases",
       "install": "Restart and install"
-    },
-    "rtk": {
-      "title": "RTK update",
-      "updatingLabel": "RTK updating",
-      "availableLabel": "RTK update {{version}} available",
-      "updating": "RTK {{version}} updating",
-      "available": "RTK {{version}} available",
-      "installed": "Installed {{version}} · token saver sidecar.",
-      "unknown": "unknown (legacy)",
-      "updatingButton": "Updating…",
-      "update": "Update RTK"
     },
     "activity": {
       "available": "OXESpace {{version}} is available",

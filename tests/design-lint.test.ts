@@ -16,6 +16,8 @@ const ROOT = join(__dirname, '..')
  * editor tabs, the focused pane's header and combined hover rules. This number may only go down.
  */
 const LIMIT_SELECTED = 22
+/** CR-15: the only background a [data-ws] selected rule may set besides --fill-selected, a tint of the workspace color (--ws). */
+const WORKSPACE_TINT = /^color-mix\(\s*in\s+srgb\s*,\s*var\(--ws\)\s+\d+%\s*,\s*transparent\s*\)$/
 
 function files(dir: string, match: (path: string) => boolean): string[] {
   return readdirSync(dir).flatMap(name => {
@@ -112,6 +114,10 @@ describe('design lint', () => {
     it('hand-made empty-state classes do not grow; use <EmptyState>', () => {
       expect(count(tsx, /className="[^"]*-empty\b[^"]*"/g)).toBeLessThanOrEqual(0)
     })
+    it('labels are not uppercased by CSS; use <SectionLabel> (U3, X2). The rest go as each area is redesigned', () => {
+      // 63 before U3, which moved the audit's screens (D-03); lower it as areas move, never raise it.
+      expect(count(css, /text-transform:\s*uppercase/g)).toBeLessThanOrEqual(49)
+    })
     it('dialogs restyled with className do not grow; the box is the primitive\'s, its size is `size` (U1)', () => {
       // Each <Dialog …> tag is read to its end, skipping what is inside braces, so an arrow in a prop does not end it.
       const restyled = tsx.flatMap(path => {
@@ -144,7 +150,10 @@ describe('design lint', () => {
           if (!SELECTED.test(selector) || /::?(?:before|after)(?![\w-])/.test(selector)) return []
           const background = /(?:^|;)\s*background(?:-color)?\s*:\s*([^;]+)/.exec(body)?.[1].trim()
           if (!background || /var\(--(fill-selected|nav-selected)/.test(background) || /--intent-|^(transparent|none|inherit)$/.test(background)) return []
-          return [`${relative(ROOT, path)} ${selector.trim()}`]
+          // CR-15: the active workspace card's tint of its own color (CR-05) is a sanctioned selection, but only as
+          // color-mix(in srgb, var(--ws) N%, transparent) on a selector whose every part carries [data-ws].
+          const sanctionedTint = WORKSPACE_TINT.test(background) && selector.split(',').every(part => /\[data-ws\]/.test(part))
+          return sanctionedTint ? [] : [`${relative(ROOT, path)} ${selector.trim()}`]
         })
       })
       expect(own.length).toBeLessThanOrEqual(LIMIT_SELECTED)

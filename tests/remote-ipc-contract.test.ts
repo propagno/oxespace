@@ -10,14 +10,15 @@ import {
 
 vi.mock('../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
 
-const ACTIONS = ['setEnabled', 'startPairing', 'cancelPairing', 'answerPairing', 'revoke', 'rename', 'setDesktopName', 'setPhoneWrite'] as const
+const ACTIONS = ['setEnabled', 'startPairing', 'cancelPairing', 'answerPairing', 'revoke', 'rename', 'setDesktopName', 'setPhoneWrite', 'setPhoneHidden', 'firewallStatus', 'firewallRepair', 'firewallUndo'] as const
 
 describe('Settings › Devices contract (remote.*)', () => {
   it('uses stable channel names', () => {
     expect(IPC_CHANNELS.remote).toEqual({
       status: 'remote:status', devices: 'remote:devices', changed: 'remote:changed', setEnabled: 'remote:set-enabled', startPairing: 'remote:start-pairing',
       cancelPairing: 'remote:cancel-pairing', answerPairing: 'remote:answer-pairing', revoke: 'remote:revoke', rename: 'remote:rename',
-      setDesktopName: 'remote:set-desktop-name', setPhoneWrite: 'remote:set-phone-write', pairingFailed: 'remote:pairing-failed'
+      setDesktopName: 'remote:set-desktop-name', setPhoneWrite: 'remote:set-phone-write', setPhoneHidden: 'remote:set-phone-hidden', pairingFailed: 'remote:pairing-failed',
+      firewallStatus: 'remote:firewall-status', firewallRepair: 'remote:firewall-repair', firewallUndo: 'remote:firewall-undo'
     })
   })
 
@@ -50,16 +51,23 @@ describe('Settings › Devices contract (remote.*)', () => {
     await remote.rename({ deviceId: 'd', name: 'Phone' })
     await remote.setDesktopName({ name: 'Estudos' })
     await remote.setPhoneWrite({ paneId: 'p1', allowed: true })
+    await remote.setPhoneHidden!({ paneId: 'p1', hidden: true })
+    await remote.firewallStatus!()
+    await remote.firewallRepair!()
+    await remote.firewallUndo!()
     expect(vi.mocked(ipc.invoke).mock.calls).toEqual([
       [IPC_CHANNELS.remote.status], [IPC_CHANNELS.remote.devices], [IPC_CHANNELS.remote.setEnabled, { enabled: true, port: 47_321 }],
       [IPC_CHANNELS.remote.startPairing], [IPC_CHANNELS.remote.cancelPairing], [IPC_CHANNELS.remote.answerPairing, { promptId: 'p', accept: true }],
       [IPC_CHANNELS.remote.revoke, { deviceId: 'd' }], [IPC_CHANNELS.remote.rename, { deviceId: 'd', name: 'Phone' }],
       [IPC_CHANNELS.remote.setDesktopName, { name: 'Estudos' }],
-      [IPC_CHANNELS.remote.setPhoneWrite, { paneId: 'p1', allowed: true }]
+      [IPC_CHANNELS.remote.setPhoneWrite, { paneId: 'p1', allowed: true }],
+      [IPC_CHANNELS.remote.setPhoneHidden, { paneId: 'p1', hidden: true }],
+      // 1.4.3 P1: no input at all; main reads the port and the program itself.
+      [IPC_CHANNELS.remote.firewallStatus], [IPC_CHANNELS.remote.firewallRepair], [IPC_CHANNELS.remote.firewallUndo]
     ])
     remote.onChanged(vi.fn())
     expect(ipc.on).toHaveBeenCalledWith(IPC_CHANNELS.remote.changed, expect.any(Function))
-    expect(Object.keys(remote).sort()).toEqual(['answerPairing', 'cancelPairing', 'devices', 'onChanged', 'onPairingFailed', 'rename', 'revoke', 'setDesktopName', 'setEnabled', 'setPhoneWrite', 'startPairing', 'status'])
+    expect(Object.keys(remote).sort()).toEqual(['answerPairing', 'cancelPairing', 'devices', 'firewallRepair', 'firewallStatus', 'firewallUndo', 'onChanged', 'onPairingFailed', 'rename', 'revoke', 'setDesktopName', 'setEnabled', 'setPhoneHidden', 'setPhoneWrite', 'startPairing', 'status'])
   })
 
   it('hands a failed pairing to the window as a C3 message, and stops when unsubscribed', () => {
@@ -76,10 +84,10 @@ describe('Settings › Devices contract (remote.*)', () => {
   })
 
   it('names the reasons a pairing can fail for, the same as the message code carries', () => {
-    expect([...REMOTE_PAIRING_FAILURE_REASONS]).toEqual(['invalid', 'expired', 'refused', 'limit', 'peer-closed', 'reserved-name'])
+    expect([...REMOTE_PAIRING_FAILURE_REASONS]).toEqual(['invalid', 'expired', 'refused', 'limit', 'peer-closed', 'reserved-name', 'no-contact'])
     const reasons: Array<MessageParams['remote.pairing.failed']['reason']> = [...REMOTE_PAIRING_FAILURE_REASONS]
     const back: RemotePairingFailureReason[] = reasons
-    expect(back).toHaveLength(6)
+    expect(back).toHaveLength(7)
   })
 
   it('reports whether the gateway ever listened, as part of every status', () => {

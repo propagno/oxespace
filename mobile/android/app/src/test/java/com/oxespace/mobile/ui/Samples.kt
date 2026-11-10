@@ -21,6 +21,7 @@ import com.oxespace.mobile.session.LiveRepository
 import com.oxespace.mobile.session.Watched
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeSpace
+import kotlinx.serialization.json.JsonPrimitive
 
 /** Data the screenshots show: what a real desktop would send, through the same stores the app uses. */
 object Samples {
@@ -51,7 +52,7 @@ object Samples {
         jobs.onSnapshot(listOf(json("""{"jobs":[
             {"id":"j-1","workspaceId":"w-1","label":"Dev server","status":"running","exitCode":null,"startedAt":1,"finishedAt":null},
             {"id":"j-2","workspaceId":"w-1","label":"Unit tests","status":"failed","exitCode":1,"startedAt":1,"finishedAt":2}]}""")))
-        delegations.onSnapshot(listOf(json("""{"delegations":[{"id":"d-1","workspaceId":"w-1","objective":"Review the pairing contract and list gaps","state":"running","branch":"review/pairing","updatedAt":3}]}""")))
+        delegations.onSnapshot(listOf(json("""{"delegations":[{"id":"d-1","workspaceId":"w-1","objective":"Review the pairing contract and list gaps","state":"accepted","branch":"review/pairing","updatedAt":3}]}""")))
     }
 
     private fun requestJson(risky: Boolean) = if (risky) {
@@ -77,6 +78,17 @@ object Samples {
             {"seq":4,"item":{"type":"plan","id":"p1","steps":[{"label":"Read the middleware","status":"completed"},{"label":"Fix the expiry check","status":"inProgress"},{"label":"Add a regression test","status":"pending"}]}},
             {"seq":5,"item":{"type":"message","id":"m2","role":"assistant","text":"The expiry check compared seconds with milliseconds. I fixed it and I'm adding a test now."}},
             {"seq":6,"item":{"type":"request","id":"q-1","requestId":"r-1","kind":"approval","title":"Delete the build output","state":"pending"}}]}""")))
+    }
+
+    /** T100: a conversation longer than the screen; it must open on its last message, not its first. */
+    fun long() = Watched(ThreadTimeline()).apply {
+        val idle = header.replace("\"status\":\"running\"", "\"status\":\"idle\"").replace("\"pendingRequests\":1", "\"pendingRequests\":0")
+        val items = (1..24).joinToString(",") { n ->
+            val role = if (n % 2 == 1) "user" else "assistant"
+            val text = if (n == 24) "The last message: the expiry check is fixed and the test passes." else "Message $n of the conversation."
+            """{"seq":$n,"item":{"type":"message","id":"m$n","role":"$role","text":"$text"}}"""
+        }
+        onSnapshot(listOf(json("""{"thread":$idle,"hasMore":false,"items":[$items]}""")))
     }
 
     /** M10: a working turn with folded reads, a running command, and an earlier finished turn behind its bar. */
@@ -129,6 +141,24 @@ npm test -- auth   # 12 passed
     })
     val pane = RemotePane("p-2", "npm run dev", "terminal", phoneWrite = true)
     val readOnlyPane = RemotePane("p-3", "zsh", "terminal", phoneWrite = false)
+
+    /**
+     * Claude Code's Ink TUI as its PTY writes it: each frame erases the last (ESC[2K, ESC[1A, ESC[G) and draws anew.
+     * Built here, not captured from anyone's terminal. 1.4.2 showed this as a black screen with a lone ">" (T97).
+     */
+    fun claudeTerminal() = Watched(TerminalBuffer()).apply {
+        val esc = "\u001B"
+        fun frame(previous: Int, text: String) = buildString {
+            for (i in 0 until previous) { append("$esc[2K"); if (i < previous - 1) append("$esc[1A") }
+            if (previous > 0) append("$esc[G")
+            append(text.replace("\n", "\r\n")).append("\r\n")
+        }
+        val box = "╭─────────────────────────────╮\n│ > add a test for the expiry │\n╰─────────────────────────────╯\n  esc to interrupt"
+        val first = "$esc[38;2;215;119;87m✻$esc[39m Thinking…\n$box"
+        val second = "$esc[1m●$esc[22m Read $esc[1msrc/auth/session.ts$esc[22m\n$esc[38;2;215;119;87m✻$esc[39m Writing tests… (8s)\n$box"
+        val data = "$ claude\r\n" + frame(0, first) + frame(first.split('\n').size + 1, second)
+        onSnapshot(listOf(json("""{"data":${JsonPrimitive(data)},"truncated":false}""")))
+    }
 
     fun terminal(loaded: Boolean = true) = Watched(TerminalBuffer()).apply {
         if (!loaded) return@apply

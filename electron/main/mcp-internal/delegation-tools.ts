@@ -1,6 +1,6 @@
 import type { ToolEntry } from './tool-registry'
 import type { DelegationInput } from '../../../shared/types/delegation'
-import { projectIdentity } from '../services/memory/memory-project.service'
+import { projectIdentity } from '../services/project-identity'
 const string = { type: 'string', minLength: 1, maxLength: 16000 }
 function tool(name: string, description: string, properties: Record<string, unknown>, required: string[] = []): ToolEntry {
   return { descriptor: { name, description, inputSchema: { type: 'object', properties, required, additionalProperties: false } }, requiresWorkspace: true,
@@ -67,10 +67,10 @@ export const DELEGATION_TOOLS: ToolEntry[] = [
       template:{type:'string',maxLength:240}
     }}, evidenceFiles:{type:'array',maxItems:8,items:{type:'string',maxLength:512}},
     sourceThreadIds:{type:'array',maxItems:5,uniqueItems:true,items:{type:'string',pattern:'^[a-fA-F0-9-]{36}$'},description:'Explicitly selected saved conversations from the origin project. Transfers a bounded public-message snapshot, not full history.'},
-    includeMemory:{type:'boolean',description:'Explicit AI Memory inclusion; omission uses the project automatic-context preference.'}
+    includeMemory:{type:'boolean',description:'Deprecated and ignored since 1.5.0; accepted so older callers do not fail. The handoff, evidence files and selected conversations are the context.'}
   },['key','agentProfileId','objective','handoff','acceptance']),
   tool('oxespace_delegation_status','Read provisioning, acceptance and result state. A running process is not task completion.',{taskId:string},['taskId']),
-  tool('oxespace_delegation_context','Read the task-specific handoff and bounded optional memory/code evidence. Verify historical claims against the checkout.',{taskId:string},['taskId']),
+  tool('oxespace_delegation_context','Read the task-specific handoff, evidence files and selected conversation snapshots. Verify historical claims against the checkout.',{taskId:string},['taskId']),
   tool('oxespace_delegation_update','Delegated agent: acknowledge with accepted, report blocked, or submit result and test evidence with review.',{taskId:string,state:{enum:['accepted','blocked','review'],type:'string'},text:string},['taskId','state','text']),
   tool('oxespace_delegation_checkpoint','Delegated agent: persist an append-only progress checkpoint that survives restart without changing task state.',{taskId:string,text:string},['taskId','text']),
   tool('oxespace_delegation_message','Send a question, answer or clarification to the other participant. Does not type into terminals.',{taskId:string,text:string},['taskId','text']),

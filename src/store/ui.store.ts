@@ -28,8 +28,6 @@ interface UIState {
   isWorkspaceSettingsOpen: boolean
   slashOverlayPaneId: string | null
   isMcpPanelOpen: boolean
-  isLinearPanelOpen: boolean
-  isSkillsBrowserOpen: boolean
   isScriptsPanelOpen: boolean
   isSearchPanelOpen: boolean
   isUsageOpen: boolean
@@ -61,10 +59,6 @@ interface UIState {
   closeSlashOverlay: () => void
   openMcpPanel: () => void
   closeMcpPanel: () => void
-  openLinearPanel: () => void
-  closeLinearPanel: () => void
-  openSkillsBrowser: () => void
-  closeSkillsBrowser: () => void
   openScriptsPanel: () => void
   closeScriptsPanel: () => void
   openSearchPanel: () => void
@@ -95,8 +89,6 @@ export const useUIStore = create<UIState>((set) => ({
   isWorkspaceSettingsOpen: false,
   slashOverlayPaneId: null,
   isMcpPanelOpen: false,
-  isLinearPanelOpen: false,
-  isSkillsBrowserOpen: false,
   isScriptsPanelOpen: false,
   isSearchPanelOpen: false,
   isUsageOpen: false,
@@ -120,10 +112,6 @@ export const useUIStore = create<UIState>((set) => ({
   closeSlashOverlay: () => set({ slashOverlayPaneId: null }),
   openMcpPanel: () => set({ isMcpPanelOpen: true }),
   closeMcpPanel: () => set({ isMcpPanelOpen: false }),
-  openLinearPanel: () => set({ isLinearPanelOpen: true }),
-  closeLinearPanel: () => set({ isLinearPanelOpen: false }),
-  openSkillsBrowser: () => set({ isSkillsBrowserOpen: true }),
-  closeSkillsBrowser: () => set({ isSkillsBrowserOpen: false }),
   openScriptsPanel: () => set({ isScriptsPanelOpen: true }),
   closeScriptsPanel: () => set({ isScriptsPanelOpen: false }),
   openSearchPanel: () => set({ isSearchPanelOpen: true }),

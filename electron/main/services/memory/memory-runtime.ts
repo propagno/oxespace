@@ -301,16 +301,3 @@ export class MemoryRuntime {
     return executable
   }
 }
-
-export async function writePrivateJson(path: string, value: unknown): Promise<void> {
-  const temp = `${path}.${randomBytes(8).toString('hex')}.tmp`
-  await writeFile(temp, JSON.stringify(value, null, 2) + '\n', { mode: 0o600 })
-  await rename(temp, path)
-}
-
-export async function readJson(path: string): Promise<Record<string, unknown>> {
-  try { return JSON.parse(await readFile(path, 'utf8')) } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {}
-    throw error
-  }
-}

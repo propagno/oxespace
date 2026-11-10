@@ -18,7 +18,9 @@ publishes. The environment must exist with that reviewer before this job is merg
 | **changes** | Always (not on a draft PR) | Classifies a PR's files (docs-only, OxeQuery) and resolves the one commit every later job checks out. |
 | **quick** (`linux-x64`) | Unless the PR is docs-only | Plans build vs release → dependency and build-tool audits → notices → Electron support window → typecheck → lint (file-size guard first) → migration-numbering guard → build with bundle budgets. The first red, in about 6 minutes. |
 | **unit** (matrix: `windows-x64`, `linux-x64`) | Same as quick, in parallel with it | Unit and integration tests with coverage (serial, as before); uploads `coverage-summary-<platform>`. |
-| **e2e** (matrix: `windows-x64`, `linux-x64` × shards 1–3) | On a PR, after quick passes; on main, tags and dispatches always | Each shard builds the app (bundle budgets) → native verify → its third of the E2E specs (`--shard=i/3`, weights `PWTEST_SHARD_WEIGHTS=15:7:6`). Shard 1 also runs the upgrade rehearsal and the OxeQuery coverage gate, shard 2 uploads `main-sourcemaps-<platform>` (when the run does not package) and checks the Windows notices, shard 3 runs the performance gate. Every shard keeps `e2e-blob-<platform>-<shard>`, and `e2e-traces-<os>-<shard>` on failure. |
+| **e2e** (matrix: `windows-x64`, `linux-x64` × shards 1–3) | On a PR, after quick passes; on main, tags and dispatches always | Each shard builds the app (bundle budgets) → native verify → its third of the E2E specs (`--shard=i/3`, weights `PWTEST_SHARD_WEIGHTS=15:7:6`). Shard 1 also runs the upgrade rehearsal and the OxeQuery coverage gate, shard 2 uploads `main-sourcemaps-<platform>` (when the run does not package) and checks the Windows notices, shard 3 runs the performance gate. Every shard keeps `e2e-blob-<platform>-<shard>`, and `e2e-traces-<os>-<shard>` on failure. Outside a publishing run the performance gate does not fail the shard: it records `perf-gate-<platform>` (outcome and numbers). |
+| **perf-plan** / **perf-recheck** | After e2e passes, outside a publishing run | `perf-plan` reads both platforms' `perf-gate-<platform>` records; a missing or unreadable record fails it. For each platform whose gate failed, `perf-recheck` runs the same gate (`OXESPACE_PERF_GATE=1 npm run bench:ui`) once on a fresh runner, and the run summary shows both runs' numbers. A slow runner then costs one recheck instead of a red `main` (flakes.md FL-04, FL-24); a gate that fails on both runners fails `CI result`. Before calling such a failure noise or a regression, read the metric's per-OS trend on `main` and the tags (FL-21). A publishing run (tag, `publish_release`) keeps the hard gate in e2e. |
+| **a11y** (matrix: `ubuntu`, `windows`) | On a PR whose files can change what the scan sees (not docs, tests, `mobile/`, the phone protocol or other workflows); on main and dispatches always | The axe scan (`npm run test:a11y`, strict): a critical or serious finding fails it, and with it `CI result`. Keeps `a11y-report-<os>`. Until 09/11 it was its own workflow, `a11y-axe.yml`. |
 | **package** (matrix: `windows-x64`, `linux-x64`) | Only when a release or a packaged smoke was planned, after quick, unit and e2e pass | Builds the planned commit, packages it (NSIS installer; AppImage and `.deb`), runs the packaged-build smoke test, and for a release produces the SBOM, checksums and uploads artifacts. The two legs never cancel each other. |
 | **release** | Only if every job above succeeds **and** a release was planned | Ensures the `vX.Y.Z` tag points at the verified SHA → draft release + assets → re-download verify → publish → **confirm the release is live** (not draft, required assets present). |
 | **CI result** | Every non-draft run, after everything | One check for the whole run: fails when a job failed or was cancelled, or when a job that had to run was skipped. Merges the E2E blob reports into `e2e-report` (one HTML report per platform). |
@@ -165,6 +167,13 @@ cannot read count as red). The run summary says `held: main red since <sha> (<ru
 get no comment. The one exception is a car labelled **`fix-main`** by a maintainer or an admin: it goes
 first, through the same checks as any car, and the train removes `fix-main` after merging it.
 
+**Release hold.** While any open issue or PR carries the label **`release-hold`** (a release, or a gate being
+run on `main`), the train makes no move at all: no merge, branch update, dispatch or batch, `fix-main` included.
+The run summary says `held by release-hold: #<n> (<title>)`, and the cars keep their `na-fila` labels, so the
+queue goes on in the same order once the label comes off (the 10-minute schedule picks that up). If the label
+cannot be read, the train holds as well and reads it again on the next run. Put the label on the release PR or a
+tracking issue when the release starts, and take it off when the release is published.
+
 **Batches of docs and tests.** When the car at the head of the queue changes only docs and tests, the train
 takes it and up to four more such cars, merges them on `train/batch-N` from `main` and runs CI there once. Green,
 it posts `CI result` (description `batch train/batch-N`) on each member's tested head and merges them in order,
@@ -172,13 +181,23 @@ each only while `main` is still the commit the batch expects. Anything else ends
 one by one, labelled `no-batch`. The repository variable `MERGE_TRAIN_BATCHES=false` turns batches off. The file
 list and every rule are in [ci-cd.md](ci-cd.md#batches-of-docs-and-tests).
 
+**Batches of code** (user OK on 09/11). When the first car changes code, the train takes it and up to two more cars
+that are each **ready** (the latest `pr:ready` status and the latest `CI result` on their own head both passed) and
+**independent**: no file in common with an earlier member, at most one member with a file under
+`electron/main/db/migrations/` (the order guard, #730), and none that changes `.github/`, since only a person
+merges a workflow change. A car that fails a rule stays out with the reason in the run log; the batch is built
+from those that pass, and needs two. Its commits end in ` code`, which keeps the kind for the merge-time check
+(a member that changes a workflow by then gets no status). Green, the members merge in order, each with its own
+merge commit, as above. Red, each member goes back on its own with `no-batch`: the serial train tests it alone, the
+one that breaks leaves the queue with its comment, and the others merge.
+
 **GITHUB_TOKEN.** The train uses the workflow's built-in token, and what that token does starts no
 usable workflow run: a merge fires no `push` run on `main`, and a branch update's `pull_request` runs only
 wait for an approval nobody gives (they end `action_required` with no jobs, because the approval gate comes
 before any job's `if:`). So the train makes its branch update a merge commit whose message carries
 `[skip ci]`, which keeps GitHub from creating those `push`/`pull_request` runs at all, and it dispatches
-`ci.yml` itself, on the updated branch (with `a11y-axe.yml`, `memory-compatibility.yml` or `android.yml` when
-they had run on the PR) and on `main` after each merge. `[skip ci]` never touches a dispatched run, and it
+`ci.yml` itself, on the updated branch (with `android.yml` when
+it had run on the PR; the axe scan is a job of `ci.yml` since 09/11) and on `main` after each merge. `[skip ci]` never touches a dispatched run, and it
 only applies while that merge commit is the PR's head: a person's next push runs CI as usual. A run that
 ended `action_required` or with every job skipped never stands for CI on a head.
 
@@ -198,9 +217,9 @@ the head the train replaced, not tied to another PR, and started either by the P
 train's own dispatch. It never cancels a run on the current head or a later push, on `main`, of another PR, a
 person's manual dispatch (Full check, Packaged smoke, publish), a push or tag run, or any other workflow.
 
-When a head has no runs at all (an author's own `[skip ci]`), the train dispatches all four workflows (`ci.yml`,
-`a11y-axe.yml`, `memory-compatibility.yml`, `android.yml`), and an `Android` run on the head gates the merge
-like CI, axe and memory compatibility. The update itself is check-then-act (read the head, then merge `main`
+When a head has no runs at all (an author's own `[skip ci]`), the train dispatches both workflows (`ci.yml`,
+`android.yml`), and an `Android` run on the head gates the merge
+like CI. The update itself is check-then-act (read the head, then merge `main`
 into the branch by name); a push in that window only gets `main` merged on top of it, which changes the head
 and sends it through CI again, so this is accepted while batches are of size 1. The same token may not push a
 change to `.github/workflows`: when GitHub refuses a merge (or a branch update) for that, the PR leaves the

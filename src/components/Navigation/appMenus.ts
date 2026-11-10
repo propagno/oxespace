@@ -33,7 +33,7 @@ const VIEWS: Array<[AppView, string]> = [['code', 'OxeCode'], ['thread', 'OxeCha
 /** Every palette action a menu points to; tests/app-menus.test.ts checks each one exists, so none disappears silently. */
 export const MENU_ACTION_IDS = ['new-workspace', 'workspace-settings', 'toggle-sidebar', 'tool-editor', 'tool-github', 'tool-background',
   'toggle-split-layout', 'balance-pane-layout', 'split-vertical', 'split-horizontal', 'maximize-pane',
-  'tool-mcp', 'tool-skills', 'tool-team', 'open-usage', 'open-linear', 'help.shortcuts', 'help.report-problem', 'help.about', 'settings.diagnostics', 'settings.updates'] as const
+  'tool-mcp', 'tool-team', 'open-usage', 'help.shortcuts', 'help.report-problem', 'help.about', 'settings.diagnostics', 'settings.updates'] as const
 /** Families of actions shown as submenus, by id prefix. */
 export const MENU_ACTION_PREFIXES = ['appearance-', 'density-', 'layout-'] as const
 type MenuActionId = typeof MENU_ACTION_IDS[number]
@@ -119,11 +119,9 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
     {
       id: 'tools', label: t('menu.tools'), items: compact([
         fromAction('tool-mcp'),
-        fromAction('tool-skills'),
         // F35: Team stays reachable with its reason where it can't open.
         explained('tool-team', shortcutLabel('team.open')),
-        fromAction('open-usage'),
-        fromAction('open-linear')
+        fromAction('open-usage')
       ])
     },
     {

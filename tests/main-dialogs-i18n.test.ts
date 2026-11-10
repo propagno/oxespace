@@ -16,7 +16,7 @@ const { setMainLanguage } = await import('../electron/main/i18n')
 const { nativeApproval, NATIVE_TEXT_MAX } = await import('../electron/main/services/approvals/native-approval')
 const { boundAgentText } = await import('../shared/approval-rules')
 const { mainMessage } = await import('../shared/messages')
-const { actionQuestion, previewRequester } = await import('../electron/main/services/documentation/preview-automation')
+const { actionQuestion, previewRequester } = await import('../electron/main/services/browser-preview/preview-automation')
 type Request = import('../shared/types/approvals').ApprovalRequest
 
 /** The system dialog is the approval center's fallback only (B10); it speaks the same C3 codes. */

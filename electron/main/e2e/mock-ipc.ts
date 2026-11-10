@@ -242,9 +242,13 @@ export function registerE2eMockIpcHandlers(): void {
     workspace.worktreePanelWidthPercent = input.worktreePanelWidthPercent ?? workspace.worktreePanelWidthPercent
     return workspace
   })
-  ipcMain.handle(IPC_CHANNELS.workspace.updateSettings, (_event: IpcMainInvokeEvent, input: { workspaceId: string; themeId?: Workspace['themeId']; uiDensity?: Workspace['uiDensity']; defaultShellProfileId?: string; layoutPreset?: WorkspaceLayoutPreset }) => {
+  ipcMain.handle(IPC_CHANNELS.workspace.updateSettings, (_event: IpcMainInvokeEvent, input: { workspaceId: string; name?: string; themeId?: Workspace['themeId']; uiDensity?: Workspace['uiDensity']; defaultShellProfileId?: string; layoutPreset?: WorkspaceLayoutPreset; color?: number | null }) => {
     const workspace = workspaces.find((item) => item.id === input.workspaceId)
     if (!workspace) throw new Error(`Workspace ${input.workspaceId} not found`)
+    // Same rules as WorkspaceService.updateSettings: an empty name keeps the old one; `color` null clears it (A8). Without
+    // these the store's reconcile put the old values back in E2E (FL-19: a picked workspace color never stuck).
+    if (input.name !== undefined) workspace.name = input.name.trim() || workspace.name
+    if (input.color !== undefined) workspace.color = input.color
     workspace.themeId = input.themeId ?? workspace.themeId
     workspace.uiDensity = input.uiDensity ?? workspace.uiDensity
     workspace.defaultShellProfileId = input.defaultShellProfileId ?? workspace.defaultShellProfileId
@@ -392,21 +396,6 @@ export function registerE2eMockIpcHandlers(): void {
   )
   ipcMain.handle(IPC_CHANNELS.fs.unwatchFile, (_event: IpcMainInvokeEvent, input: { watchId: string }) => {
     mockFileSystemService.unwatchFile(input.watchId)
-  })
-  ipcMain.handle(IPC_CHANNELS.linear.getStatus, () => ({
-    connected: false, encrypted: false, viewerName: null, viewerEmail: null, organization: null, error: null
-  }))
-  ipcMain.handle(IPC_CHANNELS.linear.setApiKey, () => {
-    throw new Error('Linear is not available in E2E mock mode')
-  })
-  ipcMain.handle(IPC_CHANNELS.linear.clearApiKey, () => undefined)
-  ipcMain.handle(IPC_CHANNELS.linear.listTeams, () => [])
-  ipcMain.handle(IPC_CHANNELS.linear.listIssues, () => [])
-  ipcMain.handle(IPC_CHANNELS.linear.getIssue, () => {
-    throw new Error('Linear is not available in E2E mock mode')
-  })
-  ipcMain.handle(IPC_CHANNELS.linear.createWorktreeFromIssue, () => {
-    throw new Error('Linear is not available in E2E mock mode')
   })
   // Fixed by default so screenshots do not depend on the branch; a spec that checks branches asks for real git.
   ipcMain.handle(IPC_CHANNELS.git.getBranch, (_event: IpcMainInvokeEvent, input: { rootPath: string }) =>

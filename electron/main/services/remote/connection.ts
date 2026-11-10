@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import {
   readRemoteFrame, REMOTE_FORBIDDEN, REMOTE_LIMITS, REMOTE_PROTOCOL_VERSION, REMOTE_SUBSCRIPTIONS,
-  type RemoteAuthFrame, type RemoteAuthResult, type RemoteCommandFrame, type RemoteErrorCode, type RemoteFrame,
+  type RemoteAuthFrame, type RemoteAuthResult, type RemoteCommandFrame, type RemoteErrorCode, type RemoteErrorReason, type RemoteFrame,
   type RemoteSubscribeFrame, type RemoteSubscription, type RemoteUnsubscribeFrame
 } from '../../../../shared/remote/protocol'
 import { WS_CLOSE } from './websocket'
@@ -17,9 +17,12 @@ import { WS_CLOSE } from './websocket'
  */
 
 /** The keys a subscribe frame may carry: exactly RemoteSubscribeFrame's, C5 (a contract test reads them from protocol.ts). */
-export const SUBSCRIBE_FRAME_KEYS = ['type', 'id', 'topic', 'target', 'sinceSeq', 'cursor'] as const
+export const SUBSCRIBE_FRAME_KEYS = ['type', 'id', 'topic', 'target', 'sinceSeq', 'cursor', 'snapshotOnly'] as const
 
-export type AuthOutcome = { ok: true; deviceId: string; expiresAt: number; result: RemoteAuthResult } | { ok: false; code: RemoteErrorCode }
+/** What this desktop's hello lists beyond the version (1.5.0 F10; MOBILE F1, TECH LEAD 08/11). Server to phone only. */
+export const DESKTOP_FEATURES = ['terminal.snapshotOnly', 'pane.conversation'] as const
+
+export type AuthOutcome = { ok: true; deviceId: string; expiresAt: number; result: RemoteAuthResult } | { ok: false; code: RemoteErrorCode; reason?: RemoteErrorReason }
 
 export interface RemoteTopicFrame {
   kind: 'snapshot' | 'event'
@@ -32,7 +35,8 @@ export interface RemoteTopicFrame {
 
 /** Where a topic's data comes from (M4). `open` returns null when the target does not exist. */
 export interface RemoteTopicSource {
-  open(request: { deviceId: string; target?: string; sinceSeq?: number; cursor?: string }, emit: (frame: RemoteTopicFrame) => void): { close(): void } | null
+  /** `end` (CR-34) ends the open stream: the phone gets an error frame naming it, and nothing more of it. */
+  open(request: { deviceId: string; target?: string; sinceSeq?: number; cursor?: string; snapshotOnly?: boolean }, emit: (frame: RemoteTopicFrame) => void, end?: (code: RemoteErrorCode, reason?: RemoteErrorReason) => void): { close(): void } | null
 }
 
 export type RemoteCommandAnswer = { ok: true; result?: unknown } | { ok: false; code: RemoteErrorCode; retryAfterMs?: number }
@@ -181,7 +185,7 @@ export class RemoteConnection {
       !versions.every(value => Number.isSafeInteger(value) && value > 0)) return this.fail('malformed')
     if (!versions.includes(REMOTE_PROTOCOL_VERSION)) return this.fail('unsupported-version')
     this.state = 'auth'
-    this.send({ type: 'hello', versions: [REMOTE_PROTOCOL_VERSION], desktopName: this.host.desktopName, challenge: this.challenge })
+    this.send({ type: 'hello', versions: [REMOTE_PROTOCOL_VERSION], desktopName: this.host.desktopName, challenge: this.challenge, features: [...DESKTOP_FEATURES] })
   }
 
   private auth(frame: RemoteAuthFrame): void {
@@ -196,7 +200,7 @@ export class RemoteConnection {
         typeof refresh.deviceId !== 'string' || typeof refresh.nonce !== 'string' || typeof refresh.signature !== 'string') return this.fail('malformed', id)
     }
     const outcome = this.host.authenticate(frame, this.challenge, this.address)
-    if (!outcome.ok) return this.fail(outcome.code, id)
+    if (!outcome.ok) return this.fail(outcome.code, id, outcome.reason)
     // One connection, one device: a token of another device does not switch it.
     if (this.deviceId && this.deviceId !== outcome.deviceId) return this.fail('forbidden', id)
     this.deviceId = outcome.deviceId
@@ -215,7 +219,9 @@ export class RemoteConnection {
     if (!id || !hasOnlyKeys(frame, SUBSCRIBE_FRAME_KEYS) || typeof frame.topic !== 'string' ||
       (frame.target !== undefined && (typeof frame.target !== 'string' || !TARGET.test(frame.target))) ||
       (frame.cursor !== undefined && (typeof frame.cursor !== 'string' || !CURSOR.test(frame.cursor))) ||
-      (frame.sinceSeq !== undefined && (!Number.isSafeInteger(frame.sinceSeq) || frame.sinceSeq < 0))) return this.error('malformed', id)
+      (frame.sinceSeq !== undefined && (!Number.isSafeInteger(frame.sinceSeq) || frame.sinceSeq < 0)) ||
+      // 1.5.0 F10 BE-A45-flag (#706): read strictly on every topic; only the terminal uses it (one screen page).
+      (frame.snapshotOnly !== undefined && typeof frame.snapshotOnly !== 'boolean')) return this.error('malformed', id)
     if (!this.session(id)) return
     if (FORBIDDEN.has(frame.topic)) return this.error('forbidden', id)
     if (!(REMOTE_SUBSCRIPTIONS as readonly string[]).includes(frame.topic)) return this.error('not-found', id)
@@ -231,14 +237,25 @@ export class RemoteConnection {
         this.send({ type: data.kind, subscription, seq: data.seq, schemaVersion: data.schemaVersion, data: data.data, ...(data.cursor ? { cursor: data.cursor } : {}), ...(data.page ? { page: data.page } : {}) })
       }
     }
+    // CR-34: a source may end its stream (a pane hidden from the phone); an end while opening waits for the ack too.
+    const ending: { value: { code: RemoteErrorCode; reason?: RemoteErrorReason } | null } = { value: null }
+    const end = (code: RemoteErrorCode, reason?: RemoteErrorReason): void => {
+      if (pending) { ending.value ??= { code, ...(reason ? { reason } : {}) }; return }
+      const held = this.subscriptions.get(subscription)
+      if (!held) return
+      this.subscriptions.delete(subscription)
+      try { held.close() } catch { /* already gone */ }
+      this.send({ type: 'error', subscription, code, ...(reason ? { reason } : {}) })
+    }
     let handle: { close(): void } | null
-    try { handle = source.open({ deviceId: this.deviceId!, ...(frame.target !== undefined ? { target: frame.target } : {}), ...(frame.sinceSeq !== undefined ? { sinceSeq: frame.sinceSeq } : {}), ...(frame.cursor !== undefined ? { cursor: frame.cursor } : {}) }, emit) } catch { return this.error('internal', id) }
+    try { handle = source.open({ deviceId: this.deviceId!, ...(frame.target !== undefined ? { target: frame.target } : {}), ...(frame.sinceSeq !== undefined ? { sinceSeq: frame.sinceSeq } : {}), ...(frame.cursor !== undefined ? { cursor: frame.cursor } : {}), ...(frame.snapshotOnly === true ? { snapshotOnly: true } : {}) }, emit, end) } catch { return this.error('internal', id) }
     if (!handle) return this.error('not-found', id)
     this.subscriptions.set(subscription, handle)
     this.send({ type: 'ack', id, subscription })
     const queued = pending
     pending = null
     for (const data of queued) emit(data)
+    if (ending.value) end(ending.value.code, ending.value.reason)
   }
 
   private unsubscribe(frame: RemoteUnsubscribeFrame): void {
@@ -294,13 +311,13 @@ export class RemoteConnection {
     return this.framesInWindow <= MAX_FRAMES_PER_MINUTE
   }
 
-  private error(code: RemoteErrorCode, id?: string): void {
-    this.send({ type: 'error', ...(id ? { id } : {}), code })
+  private error(code: RemoteErrorCode, id?: string, reason?: RemoteErrorReason): void {
+    this.send({ type: 'error', ...(id ? { id } : {}), code, ...(reason ? { reason } : {}) })
   }
 
   /** Answers, then closes: used for anything that ends the connection. */
-  private fail(code: RemoteErrorCode, id?: string): void {
-    this.error(code, id)
+  private fail(code: RemoteErrorCode, id?: string, reason?: RemoteErrorReason): void {
+    this.error(code, id, reason)
     this.close(code === 'unsupported-version' ? WS_CLOSE.normal : WS_CLOSE.policy)
   }
 

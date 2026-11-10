@@ -51,10 +51,12 @@ describe('the project Team, off the title bar (F35)', () => {
     expect(openable).not.toHaveProperty('unavailable')
   })
 
-  it('reads "Abrir a equipe do projeto…" in the Portuguese Tools menu, next to MCP servers and Skills', async () => {
+  it('reads "Abrir a equipe do projeto…" in the Portuguese Tools menu, next to MCP servers', async () => {
     await changeLanguage('pt-BR')
     const ids = toolsMenu({ hasTeamTarget: true }).map(node => node.id)
-    expect(ids.slice(0, 3)).toEqual(['tool-mcp', 'tool-skills', 'tool-team'])
+    expect(ids.slice(0, 2)).toEqual(['tool-mcp', 'tool-team'])
+    // R12 took the skills manager out; skills live in Settings › MCP servers and skills.
+    expect(ids).not.toContain('tool-skills')
     expect(toolsMenu({ hasTeamTarget: true }).find(node => node.id === 'tool-team')).toMatchObject({ label: 'Abrir a equipe do projeto…' })
   })
 
