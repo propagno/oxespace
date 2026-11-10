@@ -5,6 +5,7 @@ import type { AppDatabase } from '../../db'
 import type { ThreadFileHunk } from '../../../../shared/types/thread'
 import { diffLines, joinLines, revertHunk, splitLines, type LineHunk } from '../../../../shared/lineDiff'
 import { execGit } from '../../utils/safe-git'
+import { canonicalPath } from '../git-common-dir'
 
 const FILE_LIMIT = 2 * 1024 * 1024
 const CHECKPOINT_LIMIT = 32 * 1024 * 1024
@@ -255,6 +256,14 @@ export class ThreadCheckpointService {
   delete(threadId: string, checkpointId: string): void {
     const result = this.db.prepare('DELETE FROM conversation_checkpoints WHERE id = ? AND thread_id = ?').run(checkpointId, threadId)
     if (!result.changes) throw Error('Checkpoint not found')
+  }
+
+  /** The base commit of the checkpoint a turn opened for this checkout, when it opened one (F4 place base). */
+  turnBase(threadId: string, turnId: string, rootPath: string): { commit: string | null } | undefined {
+    const key = canonicalPath(rootPath)
+    const rows = this.db.prepare('SELECT root_path, base_commit FROM conversation_checkpoints WHERE thread_id = ? AND turn_id = ? ORDER BY created_at').all(threadId, turnId) as Array<{ root_path: string; base_commit: string | null }>
+    const row = rows.find(value => canonicalPath(value.root_path) === key)
+    return row ? { commit: row.base_commit } : undefined
   }
 
   /** After a restart no checkpoint can still be capturing: every open one, in every conversation, failed. */

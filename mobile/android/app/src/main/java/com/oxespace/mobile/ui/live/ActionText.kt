@@ -64,24 +64,33 @@ fun answerMessage(result: CommandResult): Int = when (result) {
     }
 }
 
-// ---- 1.5.0 F10 API skeleton (A47), no behaviour; MOB-A47 replaces the TODOs. Test: ComposerModeTest. ----
+// ---- 1.5.0 F10 (A47): the composer while the agent works. Test: ComposerModeTest. ----
 
 enum class ComposerControl { STOP, STEER, SEND }
 
 /** The composer's controls, and whether Send shows "Queued until the current step ends". */
 data class ComposerMode(val controls: List<ComposerControl>, val queuedPlaceholder: Boolean)
 
-@Suppress("UNUSED_PARAMETER")
-fun composerMode(running: Boolean, canSteer: Boolean): ComposerMode = TODO("F10 A47")
+/**
+ * While the agent works the field offers Stop and, when the agent can take an instruction mid-turn, Send the
+ * instruction; when it can't, Send queues the message, with its placeholder. Otherwise it is the 1.4 composer.
+ */
+fun composerMode(running: Boolean, canSteer: Boolean): ComposerMode = when {
+    running && canSteer -> ComposerMode(listOf(ComposerControl.STOP, ComposerControl.STEER), queuedPlaceholder = false)
+    running -> ComposerMode(listOf(ComposerControl.STOP, ComposerControl.SEND), queuedPlaceholder = true)
+    else -> ComposerMode(listOf(ComposerControl.SEND), queuedPlaceholder = false)
+}
 
 /** What to tell the person after a steer; a `forbidden` refusal is "the agent finished before". */
-@Suppress("UNUSED_PARAMETER")
-fun steerMessage(result: CommandResult): Int? = TODO("F10 A47")
+fun steerMessage(result: CommandResult): Int? =
+    if (result is CommandResult.Refused && result.code == RemoteErrorCode.FORBIDDEN) R.string.composer_steer_finished_before
+    else commandMessage(result)
 
 /** The message to resend after a reconnection, or null: only one whose fate is unknown. */
-@Suppress("UNUSED_PARAMETER")
-fun unsentAfter(result: CommandResult, outgoing: Outgoing): Outgoing? = TODO("F10 A47")
+fun unsentAfter(result: CommandResult, outgoing: Outgoing): Outgoing? = when (result) {
+    is CommandResult.Done, is CommandResult.Refused -> null
+    CommandResult.NoAnswer, CommandResult.Offline -> outgoing
+}
 
 /** The field keeps its text unless the message went through. */
-@Suppress("UNUSED_PARAMETER")
-fun keepsText(result: CommandResult): Boolean = TODO("F10 A47")
+fun keepsText(result: CommandResult): Boolean = result !is CommandResult.Done

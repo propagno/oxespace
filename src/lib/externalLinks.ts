@@ -1,5 +1,5 @@
 // The one way the window opens a link outside the app. Every caller (agent and file markdown, terminal links,
-// GitHub, Linear, the web preview and the app's own fixed links) comes through here, so the same rules hold for all:
+// GitHub, the web preview and the app's own fixed links) comes through here, so the same rules hold for all:
 // only http, https and mailto, at most 2,048 characters, no credentials in the URL, and a confirmation that shows the
 // real host when the visible text names another place or the host was never opened before. The main process checks again
 // and is the only one that opens anything (app:open-external): it refuses window.open and every outward navigation.
@@ -7,7 +7,7 @@ import { i18n } from '../i18n'
 import { toast } from '../ui/Toast'
 import { toUnicodeHost } from './punycode'
 
-export type ExternalLinkSource = 'markdown' | 'terminal' | 'github' | 'linear' | 'preview' | 'app'
+export type ExternalLinkSource = 'markdown' | 'terminal' | 'github' | 'preview' | 'app'
 export interface ExternalLinkOptions {
   /** What the person saw and clicked, when it is text (a markdown label, the terminal's match). */
   text?: string

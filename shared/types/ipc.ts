@@ -142,6 +142,9 @@ export const IPC_CHANNELS = {
     // T54 · Settings › Terminal: a session that skipped permissions resumes that way only with this on.
     resumeBypass: 'terminal:resume-bypass',
     setResumeBypass: 'terminal:set-resume-bypass',
+    // A18 (T73) · The pane's branch and where it started, for the pane header; read, then pushed on change.
+    branch: 'terminal:branch',
+    branchChanged: 'terminal:branch-changed',
     onData: 'terminal:data',
     onExit: 'terminal:exit',
     onActivity: 'terminal:activity'
@@ -192,15 +195,6 @@ export const IPC_CHANNELS = {
     cancel: 'search:cancel',
     listFiles: 'search:list-files'
   },
-  linear: {
-    getStatus: 'linear:get-status',
-    setApiKey: 'linear:set-api-key',
-    clearApiKey: 'linear:clear-api-key',
-    listTeams: 'linear:list-teams',
-    listIssues: 'linear:list-issues',
-    getIssue: 'linear:get-issue',
-    createWorktreeFromIssue: 'linear:worktree-from-issue'
-  },
   clipboard: {
     saveImageToTemp: 'clipboard:save-image-to-temp',
     readText: 'clipboard:read-text',
@@ -214,19 +208,10 @@ export const IPC_CHANNELS = {
   remote: {
     status: 'remote:status', devices: 'remote:devices', changed: 'remote:changed', setEnabled: 'remote:set-enabled', startPairing: 'remote:start-pairing',
     cancelPairing: 'remote:cancel-pairing', answerPairing: 'remote:answer-pairing', revoke: 'remote:revoke', rename: 'remote:rename',
-    setDesktopName: 'remote:set-desktop-name', setPhoneWrite: 'remote:set-phone-write', pairingFailed: 'remote:pairing-failed',
+    setDesktopName: 'remote:set-desktop-name', setPhoneWrite: 'remote:set-phone-write', setPhoneHidden: 'remote:set-phone-hidden', pairingFailed: 'remote:pairing-failed',
     firewallStatus: 'remote:firewall-status', firewallRepair: 'remote:firewall-repair', firewallUndo: 'remote:firewall-undo'
   },
   oxePost: { call: 'oxePost:call' },
-  automations: {
-    list: 'automations:list',
-    create: 'automations:create',
-    setEnabled: 'automations:set-enabled',
-    remove: 'automations:remove',
-    runNow: 'automations:run-now',
-    runs: 'automations:runs',
-    onChange: 'automations:on-change'
-  },
   agentHooks: {
     status: 'agent-hooks:status',
     install: 'agent-hooks:install',
@@ -358,6 +343,8 @@ export const IPC_CHANNELS = {
     listConnectedRepositories: 'github:list-connected-repositories',
     connectRepository: 'github:connect-repository'
   },
+  /** A60: the Pull request tab, GitHub or Azure DevOps in one shape. */
+  pullRequest: { state: 'pull-request:state' },
   integration: {
     listGroups: 'integration:list-groups',
     createGroup: 'integration:create-group',
@@ -475,7 +462,21 @@ export interface WorkspaceApi {
   createGitHubTerminalPane(workspaceId: string): Promise<{ id: string }>
 }
 
+/** A18 (T73) · A pane's branch, the branch it started on, and whether it switched; null branches outside a repository or detached. */
+export interface TerminalPaneBranch {
+  branch: string | null
+  startedOn: string | null
+  switched: boolean
+}
+
+export interface TerminalBranchChangedEvent extends TerminalPaneBranch {
+  paneId: string
+}
+
 export interface TerminalApi {
+  /** A18 · The pane's branch now; null for a pane that is not tracked. */
+  branch?(paneId: string): Promise<TerminalPaneBranch | null>
+  onBranchChanged?(paneId: string, listener: (event: TerminalBranchChangedEvent) => void): () => void
   start(input: TerminalStartInput): Promise<void>
   /** T54 · Whether a Claude session that skipped permissions resumes that way. Off by default. */
   resumeBypass?(): Promise<boolean>
@@ -532,18 +533,6 @@ export interface SearchApi {
   run(input: import('./search').SearchInput): Promise<import('./search').SearchResult>
   cancel(): Promise<void>
   listFiles(input: import('./search').SearchFilesInput): Promise<import('./search').SearchFilesResult>
-}
-
-export interface LinearApi {
-  getStatus(): Promise<import('./linear').LinearStatus>
-  setApiKey(input: import('./linear').LinearSetApiKeyInput): Promise<import('./linear').LinearStatus>
-  clearApiKey(): Promise<void>
-  listTeams(): Promise<import('./linear').LinearTeam[]>
-  listIssues(input: import('./linear').LinearListIssuesInput): Promise<import('./linear').LinearIssue[]>
-  getIssue(input: { issueId: string }): Promise<import('./linear').LinearIssue>
-  createWorktreeFromIssue(
-    input: import('./linear').LinearWorktreeFromIssueInput
-  ): Promise<import('./linear').LinearWorktreeFromIssueResult>
 }
 
 export interface GitHubApi {
@@ -607,16 +596,6 @@ export interface AgentNotificationPayload {
   workspaceId: string
   /** What the notification is about; the main process picks the image. Without it, the app icon. */
   icon?: import('./app').NotificationIcon
-}
-
-export interface AutomationsApi {
-  list(): Promise<import('./automation').Automation[]>
-  create(input: import('./automation').AutomationInput): Promise<import('./automation').Automation>
-  setEnabled(input: { id: string; enabled: boolean }): Promise<import('./automation').Automation>
-  remove(id: string): Promise<void>
-  runNow(id: string): Promise<import('./automation').AutomationRun | null>
-  runs(id: string): Promise<import('./automation').AutomationRun[]>
-  onChange(listener: (event: { automationId: string; run: import('./automation').AutomationRun | null }) => void): () => void
 }
 
 export interface AgentHooksApi {
@@ -702,15 +681,14 @@ export interface OxeApi {
   fs: FileSystemApi
   git: GitApi
   search: SearchApi
-  linear: LinearApi
   github: GitHubApi
+  pullRequest?: import('./pull-request').PullRequestApi
   integration: IntegrationApi
   clipboard: ClipboardApi
   notifications: NotificationsApi
   approvals?: import('./approvals').ApprovalsApi
   activity?: import('./activity').ActivityApi
   agentHooks: AgentHooksApi
-  automations: AutomationsApi
   oxeQuery: import('./oxequery').OxeQueryApi
   oxePod: import('./oxepod').OxePodApi
   remote?: import('./remote').RemoteApi

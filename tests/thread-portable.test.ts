@@ -11,6 +11,12 @@ const fixture = (): ThreadSnapshot => ({
 })
 
 describe('Thread portable package', () => {
+  it('roundtrips a place-drift event (F4 A15)', () => {
+    const snapshot = fixture()
+    snapshot.events.push({ type: 'place-drift', placeId: 'p1', from: { branch: 'main', commit: 'a' }, to: { branch: 'other', commit: 'b' }, by: [], certain: false, seenAt: 5 })
+    const service = new ThreadPortableService()
+    expect(service.parse(service.serialize(snapshot, [])).conversation.events.at(-1)).toEqual(snapshot.events.at(-1))
+  })
   it('preserves historical questions and uncertainty in portable and Markdown exports', () => {
     const snapshot = fixture()
     const message = snapshot.events[1]

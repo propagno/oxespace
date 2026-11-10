@@ -32,7 +32,7 @@ function inertOutside(surface: HTMLElement): () => void {
 }
 
 /**
- * Modal behavior for full-height panels that bring their own layout (MCP, Skills, Scripts, Linear,
+ * Modal behavior for full-height panels that bring their own layout (MCP, Skills, Scripts,
  * Semantic, Web Preview): Escape closes, Tab stays inside and only on controls that are shown, the rest of the window
  * is inert, focus moves in on open and back on close. Spread the result on the element that has `role="dialog"`.
  * Listeners are native so a nested Radix dialog rendered in a portal keeps its own Escape; it opens after the panel,

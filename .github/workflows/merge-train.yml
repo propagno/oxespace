@@ -16,7 +16,7 @@ on:
   pull_request_target:
     types: [labeled]
   workflow_run:
-    workflows: ["CI and Release", "Accessibility scan (axe)"]
+    workflows: ["CI and Release"]
     types: [completed]
   # The safety net: a run the events above missed (a slow CI, a wake-up dispatch that failed) is picked up here.
   # A run the train dispatched wakes it through workflow_dispatch instead (ci.yml, job wake-merge-train).

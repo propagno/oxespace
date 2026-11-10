@@ -1,4 +1,4 @@
-/* The pane header's "Phone can type" sign and the ⋯ menu check. */
+/* The pane header's "Phone can type" sign, the "Hidden from the phone" mark, and the ⋯ menu checks and hints. */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -16,3 +16,14 @@
 }
 .label { overflow: hidden; text-overflow: ellipsis; }
 .check { margin-left: auto; color: var(--text-accent); }
+.hiddenMark {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  color: var(--text-muted);
+}
+.hint {
+  padding: 0 var(--space-3) var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+}

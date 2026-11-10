@@ -1,4 +1,4 @@
-import { Activity, Columns2, FilePlus2, Grid2x2, LayoutDashboard, ListTodo, Maximize, Palette, RotateCw, Sliders, Split, StopCircle } from 'lucide-react'
+import { Activity, Columns2, FilePlus2, Grid2x2, LayoutDashboard, Maximize, Palette, RotateCw, Sliders, Split, StopCircle } from 'lucide-react'
 import type { Workspace, WorkspacePane } from '../../shared/types/workspace'
 import { TOOL_CATALOG, type ToolId } from '../components/Workspace/toolCatalog'
 import { LAYOUT_PRESETS, WORKSPACE_DENSITIES } from '../components/Workspace/workspaceOptions'
@@ -74,7 +74,6 @@ export function buildCodeCommands(ctx: CodeCommandContext): ContributedCommand[]
       run: toolRun(tool.id)
     })),
 
-    { id: 'open-linear', ...text('Workspace', 'open-linear', { keywords: ['linear', 'issue', 'ticket', 'board', 'worktree'] }), detail: tCommand('code.linearDetail'), icon: ListTodo, run: ui.openLinearPanel },
     { id: 'open-usage', ...text('Agents', 'open-usage', { keywords: ['usage', 'quota', 'credits', 'rate', 'limit', 'tokens'] }), detail: tCommand('code.usageDetail'), icon: Activity, run: () => useUIStore.getState().openUsage() },
     { id: 'design-system', ...text('View', 'design-system'), detail: tCommand('code.designSystemDetail'), icon: Palette, run: ctx.openDesignSystem },
 

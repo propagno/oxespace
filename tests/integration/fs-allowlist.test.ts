@@ -85,9 +85,25 @@ const ALLOWED_FS_IMPORTS = new Set([
   // they canonicalize the Thread root, reject traversal/symlinks, hash every
   // postimage and restore through temp+rename without destructive Git calls.
   'electron/main/services/conversation/thread-checkpoints.ts',
+  // F4 places (A13): checks that an evidence path's folder exists and walks it
+  // for links (lstat/stat/exists only). It never reads or writes file content.
+  'electron/main/services/conversation/thread-places.ts',
+  // A16 path resolver: lstat only, to tell whether a named path exists under a base and crosses no link. It never
+  // reads or writes file content and never creates a place.
+  'electron/main/services/conversation/thread-path-resolver.ts',
+  // A17 place read (SECURITY S2): read-only, one regular text file under a place from tool evidence. Every component is
+  // lstat'ed and a link is never crossed; realpath containment, O_NOFOLLOW and a dev/ino recheck guard the open. It
+  // never writes, and FileSystemService's roots are unchanged.
+  'electron/main/services/conversation/thread-place-read.ts',
+  // A15 branch drift: existsSync on the paths git names for an operation in progress (rebase-merge, MERGE_HEAD,
+  // BISECT_LOG...). It never reads or writes file content.
+  'electron/main/services/conversation/thread-place-drift.ts',
   // Thread project registration only canonicalizes and checks the selected
   // directory; source-file reads and writes remain in FileSystemService.
   'electron/main/services/conversation/thread-projects.ts',
+  // A18 (T73) pane branch: existsSync on the pane's cwd before asking safe git for its branch. Reads, lists and
+  // writes nothing.
+  'electron/main/services/terminal/pane-branch.ts',
   // @-mention context: reads only files the user named in the prompt, inside
   // the Thread's project (Windows-aware containment, links followed), bounded
   // per file and in total, and only as prompt text. Never writes.

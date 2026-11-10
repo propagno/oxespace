@@ -121,6 +121,8 @@ export interface CommandHost {
   desktop: RemoteDesktop
   now(): number
   phoneWrite(): ReadonlySet<string>
+  /** CR-34: panes kept off the phone: no typing and no conversation, whatever else says so. */
+  phoneHidden?(): ReadonlySet<string>
   /** BE-A46-c5: a pane agent's conversation; without it every `pane.conversation` is `no-conversation`. */
   paneConversations?: Pick<PaneConversationSource, 'page'>
 }
@@ -216,14 +218,15 @@ export class RemoteCommands {
   }
 
   private async write(args: RemoteCommandArgs['terminal.write']): Promise<CommandOutcome> {
-    if (!this.host.phoneWrite().has(args.paneId)) return { ok: false, code: 'pane-not-shared' }
+    if (this.host.phoneHidden?.().has(args.paneId) || !this.host.phoneWrite().has(args.paneId)) return { ok: false, code: 'pane-not-shared' }
     return await this.host.desktop.writeTerminal(args.paneId, args.data) ? { ok: true } : { ok: false, code: 'not-found' }
   }
 
   /** BE-A46-c5: a page of a pane agent's conversation; an unknown pane or one without a session is `no-conversation`. */
   private async conversation(deviceId: string, args: RemoteCommandArgs['pane.conversation']): Promise<CommandOutcome> {
     const source = this.host.paneConversations
-    if (!source) return { ok: false, code: 'no-conversation' }
+    // CR-34: a pane hidden from the phone has no conversation, the same answer as a pane without one.
+    if (!source || this.host.phoneHidden?.().has(args.paneId)) return { ok: false, code: 'no-conversation' }
     const result = await source.page(deviceId, args)
     if ('error' in result) return { ok: false, code: result.error, ...('reason' in result && result.reason ? { reason: result.reason } : {}) }
     return { ok: true, result }

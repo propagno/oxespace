@@ -42,19 +42,18 @@ export const STATE_MARKER = 'merge-train-state'
 export const TRAIN_JOB_NAME = 'Merge train step'
 export const CI_WORKFLOW = 'CI and Release'
 /** Workflows whose run on the head must be finished before the PR can merge (when they ran for it). */
-export const WATCHED_WORKFLOWS = [CI_WORKFLOW, 'Accessibility scan (axe)', 'Android']
+export const WATCHED_WORKFLOWS = [CI_WORKFLOW, 'Android']
 /**
  * Workflows the train dispatches on a branch it updated, because a GITHUB_TOKEN push starts none of them.
  * ci.yml always; the others only when they ran on the head before the update.
  */
-export const DISPATCHABLE_WORKFLOWS = ['ci.yml', 'a11y-axe.yml', 'android.yml']
+export const DISPATCHABLE_WORKFLOWS = ['ci.yml', 'android.yml']
 /**
  * Workflow names by file. GitHub's run `name` is the run-name when a workflow sets one (ci.yml titles its runs
  * "PR #N · …" and "Full check · <ref>"), so a run is identified by its workflow file, never by that name.
  */
 export const WORKFLOW_NAME_BY_FILE = {
   'ci.yml': CI_WORKFLOW,
-  'a11y-axe.yml': 'Accessibility scan (axe)',
   'android.yml': 'Android',
   'provider-contract.yml': 'Provider contract',
 }
@@ -435,19 +434,29 @@ export function step(input) {
 // merges the members in the batch's order, each only while main is still the commit the batch expects (its base,
 // then the merge just made), so main ends with the tested tree. Anything else ends the batch: the branch is
 // deleted and the members go on their own, labelled no-batch when the batch itself failed.
-// The batch's state is its branch: each commit is "merge-train batch N: #<pr> <head sha>" with that head as its
-// second parent; the first commit that is not one is the base. Nothing else is stored.
+// Code batches (TECH LEAD, user OK on 09/11): when the first car changes code, the train takes up to CODE_BATCH_MAX
+// cars that are each ready (a green pr:ready status and a green CI result on their own head) and independent (no
+// file in common, at most one with a migration, none that changes a workflow, which only a person merges). A red
+// code batch sends its members back on their own with no-batch, so each is tested alone: the one that breaks
+// leaves the queue with its comment, the others merge.
+// The batch's state is its branch: each commit is "merge-train batch N: #<pr> <head sha>" (with " code" at the
+// end in a code batch) and has that head as its second parent; the first commit that is not one is the base.
+// Nothing else is stored.
 // ---------------------------------------------------------------------------------------------------------------
 
 export const BATCH_PREFIX = 'train/batch-'
 export const NO_BATCH_LABEL = 'no-batch'
 export const BATCH_MAX = 5
+/** At most this many cars in a code batch. */
+export const CODE_BATCH_MAX = 3
+/** Where migrations live: at most one member of a batch may add or change one (the order guard, #730). */
+export const MIGRATIONS_DIR = 'electron/main/db/migrations/'
 /** A batch whose CI has not started this long after it was built is given up. */
 export const BATCH_START_MS = 15 * 60_000
 /** GitHub lists at most 3000 files of a pull request; a longer list is never batched. */
 export const BATCH_MAX_FILES = 3000
 const BATCH_REF_RE = /^train\/batch-(\d+)$/
-const BATCH_MESSAGE_RE = /^merge-train batch (\d+): #(\d+) ([0-9a-f]{40})$/
+const BATCH_MESSAGE_RE = /^merge-train batch (\d+): #(\d+) ([0-9a-f]{40})( code)?$/
 const FORBIDDEN_ROOTS = new Set(['.github', 'src', 'electron', 'shared', 'scripts'])
 
 /**
@@ -467,14 +476,16 @@ export function isBatchPath(path) {
   return file.endsWith('.md')
 }
 
-/** The commit message of a member's merge into the batch branch. */
-export const batchMessage = (number, pr, sha) => `merge-train batch ${number}: #${pr} ${sha}`
+/** The commit message of a member's merge into the batch branch; a code batch's ends with " code". */
+export function batchMessage(number, pr, sha, code = false) {
+  return `merge-train batch ${number}: #${pr} ${sha}${code ? ' code' : ''}`
+}
 
-/** { number, sha } from a batch merge commit's message, or null (also for another batch's number). */
+/** A member from a batch commit's message, or null when the message is not one of this batch's. */
 export function parseBatchMessage(message, number) {
-  const m = BATCH_MESSAGE_RE.exec(String(message ?? '').split('\n')[0])
-  if (!m || Number(m[1]) !== number) return null
-  return { number: Number(m[2]), sha: m[3] }
+  const match = BATCH_MESSAGE_RE.exec(String(message ?? '').split('\n')[0])
+  if (!match || Number(match[1]) !== number) return null
+  return { number: Number(match[2]), sha: match[3], code: Boolean(match[4]) }
 }
 
 /** The next batch number after every train/batch-N branch. */
@@ -490,7 +501,7 @@ export function nextBatchRef(names) {
 /**
  * Why a PR may not join a batch, or null. pr is getPull's, plus files (the list) and the queue entry's flags.
  */
-export function batchRefusal({ pr, entry, files, labelerAllowed, changesRequested }) {
+export function batchRefusal({ pr, entry, files, labelerAllowed, changesRequested, anyPath = false }) {
   if (!pr || pr.state !== 'open') return 'not open'
   if (labelerAllowed !== true) return 'labelled by someone without write access'
   if (entry.fixMain) return FIX_MAIN_LABEL
@@ -503,8 +514,43 @@ export function batchRefusal({ pr, entry, files, labelerAllowed, changesRequeste
   if (changesRequested) return 'changes requested'
   if (!Array.isArray(files) || files.length === 0) return 'no file list'
   if (files.length >= BATCH_MAX_FILES || (pr.changedFiles != null && files.length !== pr.changedFiles)) return 'file list incomplete'
+  if (anyPath) return null
   const other = files.find((path) => !isBatchPath(path))
   return other ? `changes ${cleanName(other)}` : null
+}
+
+export const isWorkflowPath = (path) => typeof path === 'string' && path.startsWith('.github/')
+export const touchesMigration = (files) => files.some((path) => typeof path === 'string' && path.startsWith(MIGRATIONS_DIR))
+
+/**
+ * Why a PR may not join a code batch beside `members` ([{ number, files }]), or null. `ready`: whether its own head
+ * has a green pr:ready status and a green CI result.
+ */
+export function codeBatchRefusal({ pr, entry, files, labelerAllowed, changesRequested, ready, members = [] }) {
+  const base = batchRefusal({ pr, entry, files, labelerAllowed, changesRequested, anyPath: true })
+  if (base) return base
+  const workflow = files.find(isWorkflowPath)
+  if (workflow) return `changes ${cleanName(workflow)} (a workflow PR is merged by a person)`
+  if (ready?.prReady !== true) return 'no green pr:ready on its head'
+  if (ready?.ciGreen !== true) return 'CI result is not green on its head'
+  for (const member of members) {
+    const shared = files.find((path) => member.files.includes(path))
+    if (shared) return `shares ${cleanName(shared)} with #${member.number}`
+  }
+  if (touchesMigration(files)) {
+    const other = members.find((member) => touchesMigration(member.files))
+    if (other) return `adds a migration, and so does #${other.number}`
+  }
+  return null
+}
+
+/** Whether a head is ready for a code batch: its latest pr:ready status and its latest CI result both passed. */
+export async function readiness(api, sha) {
+  if (!api.commitStatuses || !api.listChecks) return { prReady: false, ciGreen: false }
+  const [statuses, checks] = await Promise.all([api.commitStatuses(sha), api.listChecks(sha)])
+  const prReady = (statuses ?? []).filter((x) => x.context === PR_READY_CONTEXT).sort((a, b) => time(b.createdAt) - time(a.createdAt))[0]
+  const ci = latestByName((checks ?? []).filter((c) => c.name === 'CI result'))[0]
+  return { prReady: prReady?.state === 'success', ciGreen: ci?.status === 'completed' && ci?.conclusion === 'success' }
 }
 
 /** A batch's state from its branch head, or null when the branch is not one of the train's batches. */
@@ -521,7 +567,9 @@ export async function readBatch(api, name, headSha) {
     const parsed = parseBatchMessage(commit.message, number)
     if (!parsed) {
       if (members.length < 2 || new Set(members.map((m) => m.number)).size !== members.length) return null
-      return { branch: name, number, head: headSha, base: sha, createdAt, members: members.reverse() }
+      // One kind per batch: every member's message says code, or none does.
+      if (new Set(members.map((m) => m.code)).size !== 1) return null
+      return { branch: name, number, head: headSha, base: sha, createdAt, code: members[0].code, members: members.reverse() }
     }
     if (commit.parents.length !== 2 || commit.parents[1] !== parsed.sha) return null
     members.push(parsed)
@@ -533,26 +581,31 @@ export async function readBatch(api, name, headSha) {
 /** Builds a batch from the queue's head when it qualifies; null leaves the run to the serial train. */
 async function startBatch(api, queue, { log, actions }) {
   const members = []
+  // The queue's first car decides the kind: docs and tests only, or code.
+  let code = null
   for (const entry of queue) {
-    if (members.length >= BATCH_MAX) break
+    if (members.length >= (code ? CODE_BATCH_MAX : BATCH_MAX)) break
     const pr = await api.getPull(entry.number)
-    // The queue's first car decides: when it cannot ride a batch, the train serves it on its own first.
+    // When the first car cannot ride a batch, the train serves it on its own first.
     const files = pr && pr.state === 'open' ? await api.listFiles(entry.number) : null
-    const quick = batchRefusal({ pr, entry, files, labelerAllowed: true, changesRequested: false })
-    let reason = quick
+    if (code === null) code = Array.isArray(files) && files.length > 0 && !files.every(isBatchPath)
+    const refuse = async (labelerAllowed, changesRequested) => code
+      ? codeBatchRefusal({ pr, entry, files, labelerAllowed, changesRequested, ready: labelerAllowed ? await readiness(api, pr.headSha) : { prReady: true, ciGreen: true }, members })
+      : batchRefusal({ pr, entry, files, labelerAllowed, changesRequested })
+    let reason = await refuse(true, false)
     if (!reason) {
       const [role, changesRequested] = await Promise.all([
         entry.labeledBy ? api.collaboratorRole(entry.labeledBy).catch(() => null) : null,
         api.changesRequested(entry.number),
       ])
-      reason = batchRefusal({ pr, entry, files, labelerAllowed: LABELER_ROLES.has(role), changesRequested })
+      reason = await refuse(LABELER_ROLES.has(role), changesRequested)
     }
     if (reason) {
       if (!members.length) return false
       log(`batch: #${entry.number} stays out (${reason})`)
       continue
     }
-    members.push({ number: entry.number, sha: pr.headSha })
+    members.push({ number: entry.number, sha: pr.headSha, files })
   }
   if (members.length < 2) return false
 
@@ -563,7 +616,7 @@ async function startBatch(api, queue, { log, actions }) {
   const merged = []
   for (const member of members) {
     try {
-      const done = await api.mergeInto(branch, member.sha, batchMessage(number, member.number, member.sha))
+      const done = await api.mergeInto(branch, member.sha, batchMessage(number, member.number, member.sha, code))
       if (done) merged.push(member)
       else log(`batch: #${member.number} left out (its head is already on main)`)
     } catch (error) {
@@ -590,7 +643,7 @@ async function startBatch(api, queue, { log, actions }) {
   }
   await api.dispatchWorkflow('ci.yml', branch)
   const list = merged.map((m) => `#${m.number}`).join(' ')
-  const message = `built ${branch} from main ${short(base)} with ${list} (docs and tests only); started ${CI_WORKFLOW} on ${short(head)}.`
+  const message = `built ${branch} from main ${short(base)} with ${list} (${code ? 'code: each ready, no file in common' : 'docs and tests only'}); started ${CI_WORKFLOW} on ${short(head)}.`
   actions.push({ type: 'batch', message })
   log(`batch: ${message}`)
   for (const m of merged) {
@@ -681,11 +734,12 @@ async function driveBatch(api, batch, queue, { now, timeoutMinutes, log, actions
         await sendBack(rest, `#${m.number} has a new head or was closed before its merge`, true)
         break
       }
-      // The file rule again, at merge time: never a status on a head that changes anything outside docs and tests.
+      // The file rule again, at merge time: never a status on a head that changes anything outside docs and tests
+      // (a docs batch) or that changes a workflow (a code batch).
       const files = await api.listFiles(m.number)
-      const outside = !Array.isArray(files) || !files.length || files.length >= BATCH_MAX_FILES || (pr.changedFiles != null && files.length !== pr.changedFiles) ? 'its file list is incomplete' : files.find((path) => !isBatchPath(path))
+      const outside = !Array.isArray(files) || !files.length || files.length >= BATCH_MAX_FILES || (pr.changedFiles != null && files.length !== pr.changedFiles) ? 'its file list is incomplete' : files.find((path) => (batch.code ? isWorkflowPath(path) : !isBatchPath(path)))
       if (outside) {
-        await sendBack(rest, `#${m.number} ${outside === 'its file list is incomplete' ? outside : `changes ${cleanName(outside)}`}, outside docs and tests`, true)
+        await sendBack(rest, `#${m.number} ${outside === 'its file list is incomplete' ? outside : `changes ${cleanName(outside)}`}, ${batch.code ? 'a workflow' : 'outside docs and tests'}`, true)
         break
       }
       await api.postStatus(m.sha, { state: 'success', context: 'CI result', description: `batch ${branch}`, targetUrl: url })

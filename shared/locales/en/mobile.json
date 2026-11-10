@@ -31,7 +31,8 @@
     "unpairConfirm": {
       "title": "Unpair from {{desktop}}?",
       "body": "This phone forgets {{desktop}} and the key it used with it. To come back, pair again with the QR in Settings › Devices on the computer."
-    }
+    },
+    "cardProblem": "Not connected"
   },
   "pairing": {
     "title": "Pair with your computer",
@@ -70,6 +71,12 @@
       "localNetworkBlocked": "Android blocked this phone from reaching your computer: local network access is off for OXESpace. Turn it on in the app's settings (Permissions), then scan again.",
       "refusedByComputer": "Your computer refused the connection. Check that the phone connection is on in Settings › Devices. If a third-party firewall such as McAfee or Norton is installed, allow OXESpace in it too: it can refuse connections even when Windows Firewall allows them.",
       "timedOut": "Your computer didn't answer, so it never got the request. On Windows, the firewall blocks the phone when the Wi-Fi is set to Public: set the network to Private, or allow OXESpace through the firewall. Also check that both are on the same Wi-Fi."
+    },
+    "step": {
+      "scan": "Scan",
+      "connect": "Connect",
+      "confirm": "Confirm",
+      "done": "Done"
     }
   },
   "live": {
@@ -125,6 +132,15 @@
       "days": "{{days}} d ago"
     },
     "delegationState": {
+      "preparing": "Preparing",
+      "starting": "Starting",
+      "accepted": "Accepted",
+      "blocked": "Blocked",
+      "interrupted": "Stopped",
+      "failed": "Failed",
+      "review": "In review",
+      "approved": "Approved",
+      "cancelled": "Cancelled",
       "unknown": "Not confirmed"
     },
     "agentsChip": {
@@ -133,7 +149,21 @@
       "working": "Working",
       "failed": "Failed",
       "finished": "Finished"
-    }
+    },
+    "agentsEmpty": {
+      "title": "No agents yet",
+      "text": "Conversations, terminals and delegations on {{desktop}} show up here."
+    },
+    "agentsEmptyFilter": {
+      "title": "None in this state",
+      "text": "No agent is in this state right now. All shows every agent."
+    },
+    "agentsPartial": {
+      "title": "Some agents aren't listed",
+      "text": "The computer couldn't read every source this time. The list fills in when it can."
+    },
+    "menuSettings": "Settings",
+    "emptyTitle": "Nothing here yet"
   },
   "thread": {
     "tool": {
@@ -160,7 +190,6 @@
     "unknownItems_other": "{{count}} items from a newer OXESpace aren't shown.",
     "loadOlder": "Load earlier",
     "latest": "Latest ↓",
-    "respond": "Respond",
     "answerLabel": "Agent's answer",
     "copy": "Copy",
     "copied": "Copied",
@@ -218,7 +247,6 @@
     },
     "moreRequests_one": "+{{count}} more",
     "moreRequests_other": "+{{count}} more",
-    "answerOnComputer": "Answer on the computer",
     "stop": {
       "title": "Stop this turn?",
       "body": "The agent in “{{title}}” stops what it is doing now. The conversation stays.",
@@ -235,7 +263,9 @@
       "seconds": "{{seconds}} s",
       "minutes": "{{minutes}} min",
       "hours": "{{hours}} h"
-    }
+    },
+    "nowNeedsYou": "Needs you: {{title}}",
+    "review": "Review"
   },
   "terminal": {
     "redacted_one": "{{count}} secret value hidden by your computer.",
@@ -259,10 +289,23 @@
     "hiddenShown": "Hidden characters are now shown in the field. Check it and send again.",
     "cancel": "Cancel",
     "hiddenOnDesktop": "This terminal was hidden from the phone on {{computer}}.",
+    "conversation": {
+      "screen": "Screen",
+      "conversation": "Conversation",
+      "caption": "{{agent}}'s conversation · read only",
+      "newConversation": "The agent started a new conversation",
+      "unavailable": "This terminal's conversation isn't available any more. The screen is still live.",
+      "showScreen": "Show the screen",
+      "empty": "No messages yet.",
+      "latest_one": "{{count}} new message ↓",
+      "latest_other": "{{count}} new messages ↓",
+      "latestNoCount": "New messages ↓"
+    },
     "hiddenBack": "Back to terminals",
     "panHint": "{{cols}} cols · swipe to pan",
     "fitWidth": "Fit the width",
-    "typeOnScreen": "Type on the Screen view"
+    "typeOnScreen": "Type on the Screen view",
+    "hiddenTitle": "Terminal"
   },
   "approval": {
     "prompt": {
@@ -323,7 +366,8 @@
       "question": "The agent's question",
       "permissions": "Permission request"
     },
-    "noUndo": "No undo."
+    "noUndo": "No undo.",
+    "allowIn": "in {{seconds}} s"
   },
   "action": {
     "offline": "Not connected to your computer. Nothing was sent.",
@@ -334,11 +378,12 @@
   "composer": {
     "placeholder": "Message the agent",
     "send": "Send",
-    "steer": "Steer",
+    "steer": "Send",
     "steerFinishedBefore": "The agent finished before your instruction arrived. Nothing was sent.",
     "queuedPlaceholder": "Queued until the current step ends",
     "readAfterStep": "read after the current step",
-    "queuedLine": "queued"
+    "queuedLine": "queued",
+    "steerPlaceholder": "Steer: read after the current step"
   },
   "terminalInput": {
     "placeholder": "Type in this terminal",
@@ -378,5 +423,21 @@
     "allow": "Allow local network access",
     "denied": "Local network access is off for OXESpace, so Android blocks every connection to your computer. Turn on \"Local network access\" for OXESpace in the app's settings (Permissions), then come back.",
     "openSettings": "Open app settings"
+  },
+  "settings": {
+    "title": "Settings",
+    "back": "Back",
+    "theme": {
+      "title": "Theme",
+      "system": "Same as the phone",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "alerts": {
+      "title": "Notifications",
+      "needsYou": "An agent needs you",
+      "done": "A task finished",
+      "failed": "A task failed"
+    }
   }
 }

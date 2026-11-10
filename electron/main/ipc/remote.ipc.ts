@@ -39,6 +39,8 @@ export function registerRemoteIpc(db: AppDatabase, hosts?: { threads: Promise<Re
   handle(IPC_CHANNELS.remote.rename, (gateway, input) => gateway.rename(input))
   handle(IPC_CHANNELS.remote.setDesktopName, (gateway, input) => gateway.setDesktopName(input))
   handle(IPC_CHANNELS.remote.setPhoneWrite, (gateway, input) => gateway.setPhoneWrite(input))
+  // CR-34: the person's own "Show on phone"; never a phone command or an MCP tool.
+  handle(IPC_CHANNELS.remote.setPhoneHidden, (gateway, input) => gateway.setPhoneHidden(input))
   // 1.4.3 P1: the firewall check reads the port and the QR's address from the gateway; the module loads on first use.
   const firewall = (run: (module: typeof import('../services/remote/windows-firewall'), port: number | null, address: string | undefined, env: import('../services/remote/windows-firewall').FirewallEnvironment) => unknown) =>
     noInput(async gateway => {

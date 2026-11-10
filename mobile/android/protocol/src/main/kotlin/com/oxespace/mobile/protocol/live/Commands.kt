@@ -1,12 +1,14 @@
 package com.oxespace.mobile.protocol.live
 
 import com.oxespace.mobile.protocol.RemoteAckFrame
+import com.oxespace.mobile.protocol.RemoteAgentMarkSeenArgs
 import com.oxespace.mobile.protocol.RemoteCommand
 import com.oxespace.mobile.protocol.RemoteCommandFrame
 import com.oxespace.mobile.protocol.RemoteErrorCode
 import com.oxespace.mobile.protocol.RemoteErrorFrame
 import com.oxespace.mobile.protocol.RemoteFrame
 import com.oxespace.mobile.protocol.RemoteFrames
+import com.oxespace.mobile.protocol.RemotePaneConversationArgs
 import com.oxespace.mobile.protocol.RemoteRespondRequestArgs
 import com.oxespace.mobile.protocol.RemoteTerminalWriteArgs
 import com.oxespace.mobile.protocol.RemoteThreadHistoryArgs
@@ -22,8 +24,11 @@ import kotlinx.serialization.json.JsonObject
 /** How a command ended, as the screen needs to tell the person. */
 sealed interface CommandResult {
     data class Done(val result: JsonElement?) : CommandResult
-    /** The desktop said no: forbidden, not-pending, stale-generation, pane-not-shared, rate-limited… */
-    data class Refused(val code: RemoteErrorCode, val retryAfterMs: Long? = null) : CommandResult
+    /**
+     * The desktop said no: forbidden, not-pending, stale-generation, pane-not-shared, rate-limited… [reason] is the
+     * error's own when it has one (`conversation-changed` says `new-session` or `rewritten`).
+     */
+    data class Refused(val code: RemoteErrorCode, val retryAfterMs: Long? = null, val reason: String? = null) : CommandResult
     /** Not connected: nothing was sent. */
     data object Offline : CommandResult
     /** Sent, but no answer came in time; a send or steer can be repeated with the same clientId safely. */
@@ -41,7 +46,7 @@ internal class PendingCommands {
     /** True when the frame answered a command. */
     fun onFrame(frame: RemoteFrame): Boolean = when (frame) {
         is RemoteAckFrame -> waiting.remove(frame.id)?.complete(CommandResult.Done(frame.result)) != null
-        is RemoteErrorFrame -> frame.id?.let { waiting.remove(it) }?.complete(CommandResult.Refused(frame.code, frame.retryAfterMs)) != null
+        is RemoteErrorFrame -> frame.id?.let { waiting.remove(it) }?.complete(CommandResult.Refused(frame.code, frame.retryAfterMs, frame.reason)) != null
         else -> false
     }
 
@@ -60,6 +65,10 @@ class CommandApi internal constructor(private val run: suspend (RemoteCommand, J
     suspend fun respondRequest(args: RemoteRespondRequestArgs) = run(RemoteCommand.THREAD_RESPOND_REQUEST, encode(RemoteRespondRequestArgs.serializer(), args))
     suspend fun terminalWrite(args: RemoteTerminalWriteArgs) = run(RemoteCommand.TERMINAL_WRITE, encode(RemoteTerminalWriteArgs.serializer(), args))
     suspend fun history(args: RemoteThreadHistoryArgs) = run(RemoteCommand.THREAD_HISTORY, encode(RemoteThreadHistoryArgs.serializer(), args))
+    /** 1.5.0 F10 CR-F10-7 (A43): the person opened a finished agent's row; the desktop drops it from "finished". */
+    suspend fun markSeen(args: RemoteAgentMarkSeenArgs) = run(RemoteCommand.AGENT_MARK_SEEN, encode(RemoteAgentMarkSeenArgs.serializer(), args))
+    /** 1.5.0 F10 CR-F10-7 (A46): a page of a pane agent's conversation, the newest without a cursor. */
+    suspend fun paneConversation(args: RemotePaneConversationArgs) = run(RemoteCommand.PANE_CONVERSATION, encode(RemotePaneConversationArgs.serializer(), args))
 
     private fun <T> encode(serializer: KSerializer<T>, value: T) = RemoteFrames.json.encodeToJsonElement(serializer, value) as JsonObject
 

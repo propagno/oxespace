@@ -1859,6 +1859,11 @@
     "phoneWriteBadge": "Phone can type",
     "phoneWriteBadgeTitle": "A paired phone can type in this terminal. Turn it off in the ⋯ menu.",
     "phoneWriteFailed": "Could not change typing from the phone",
+    "phoneShow": "Show on phone",
+    "phoneShowHint": "Paired phones can see this terminal.",
+    "phoneWriteNeedsShow": "Show it on the phone first.",
+    "phoneHiddenMark": "Hidden from the phone",
+    "phoneShowFailed": "Could not change whether the phone shows this terminal",
     "whyStatus": "Why this status?",
     "explain": {
       "description": "What OXESpace read to decide this pane's status.",
@@ -2360,37 +2365,6 @@
       "lines": "{{visible}} / {{count}} lines",
       "empty": "No activity yet."
     }
-  },
-  "linear": {
-    "title": "Linear issues",
-    "refresh": "Refresh issues",
-    "disconnect": "Disconnect",
-    "close": "Close Linear",
-    "connectTitle": "Connect Linear",
-    "keyBefore": "Create a personal API key at",
-    "keyAfter": "and paste it below. It is encrypted with your OS keychain and stays in the main process.",
-    "connecting": "Connecting…",
-    "connect": "Connect",
-    "unencrypted": "An earlier version saved this key unencrypted. Disconnect and connect again once OS encryption is available.",
-    "scopes": {
-      "assigned": "Assigned to me",
-      "created": "Created by me",
-      "team": "Team"
-    },
-    "filterTeam": "Filter by team",
-    "allTeams": "All teams",
-    "done": "Done",
-    "filter": "Filter issues…",
-    "loading": "Loading issues…",
-    "empty": "No issues match this filter.",
-    "worktreeTitle": "git worktree on {{branch}}",
-    "creating": "Creating…",
-    "worktree": "Worktree",
-    "open": "Open {{id}} in Linear",
-    "connected": "Connected as {{name}}.",
-    "user": "Linear user",
-    "disconnected": "Linear disconnected.",
-    "unexpected": "Unexpected Linear error"
   },
   "sessions": {
     "loadFailed": "Could not load every session. Check that Codex and Claude are installed.",

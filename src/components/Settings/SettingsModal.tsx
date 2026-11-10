@@ -8,7 +8,6 @@ import type { SemanticUsage, SemanticVectorStatus } from '../../../shared/types/
 import type { AgentHookAgent, AgentHooksStatus } from '../../../shared/types/agent-hooks'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { AgentCliOnboarding, openInstallDocs } from '../Onboarding/AgentCliOnboarding'
-import { AutomationsSettings } from './AutomationsSettings'
 import { AgentActivitySettings } from './AgentActivitySettings'
 import { useAgentStore } from '../../store/agent.store'
 import { useSettingsStore } from '../../store/settings.store'
@@ -1021,8 +1020,6 @@ function NotificationsSettingsSection({ onClose }: { onClose: () => void }): Rea
         </Button>
 
         <AgentHooksSetting />
-
-        <AutomationsSettings />
       </div>
     </section>
   )
