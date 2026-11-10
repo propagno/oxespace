@@ -689,7 +689,7 @@
     "groups": {
       "core": {
         "name": "Essenciais",
-        "description": "Consultas de código, busca e memória, em toda conversa."
+        "description": "Consultas de código e busca, em toda conversa."
       },
       "orchestration": {
         "name": "Orquestração",

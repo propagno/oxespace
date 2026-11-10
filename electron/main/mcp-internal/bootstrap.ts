@@ -55,7 +55,6 @@ export interface InternalMcpDeps {
   team?: import('../services/coordination/team-access').TeamAccess
   executions?: import('../services/execution-registry').ExecutionRegistry
   delegationAgents?: () => unknown
-  memory?: import('../services/memory/memory.service').MemoryService
   oxeQuery?: () => import('../services/oxequery/agent-gateway').AgentGateway | undefined
   oxeQueryError?: () => string | undefined
   git?: import('./tool-registry').ToolContext['git']
@@ -100,7 +99,6 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
     // Browser preview automation for oxespace_preview_interact and the capture tool (R9: the documentation runtime is gone).
     documentation: () => browserPreview ??= import('../services/browser-preview/preview-automation').then(module => ({ preview: new module.PreviewAutomation() })).catch(error => { browserPreview = undefined; throw error }),
     delegation: deps.delegation, executions: deps.executions, delegationAgents: deps.delegationAgents, team: deps.team,
-    memory: deps.memory,
     oxeQuery: deps.oxeQuery,
     oxeQueryError: deps.oxeQueryError,
     agentActions: new AgentActions({ broker: new ApprovalBroker(appApprovalPrompter), audit: actionAudit }),

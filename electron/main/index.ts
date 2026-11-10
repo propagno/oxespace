@@ -46,13 +46,10 @@ import { installIncidentHooks, registerDiagnosticsIpc } from './ipc/diagnostics.
 import { registerPolicyIpc } from './ipc/policy.ipc'
 import { BackgroundManager } from './services/background.service'
 import { TerminalManager } from './services/terminal.service'
-import { MemoryService } from './services/memory/memory.service'
-import { configureExperimentalFeatures, sharedProjectMemoryEnabled } from './services/experimental-features'
-import { gateMemoryTools } from './mcp-internal/tool-registry'
+import { configureExperimentalFeatures } from './services/experimental-features'
 import { ExecutionRegistry } from './services/execution-registry'
 import { AgentLaunchService, agentMcpArguments, codeAgentMcpLaunch, providerForExecutable } from './services/agent-launch.service'
 import { AgentService } from './services/agent.service'
-import { registerMemoryIpc } from './ipc/memory.ipc'
 import { registerAgentHooksIpc } from './ipc/agent-hooks.ipc'
 import { AgentHookServer } from './services/agent-hooks/server'
 import { resolveSessionLocation } from './services/git-common-dir'
@@ -166,14 +163,10 @@ async function registerIpcHandlers(): Promise<() => void> {
   // The window asks before it renders; a normal start answers that nothing failed.
   ipcMain.handle(IPC_CHANNELS.app.startupFailure, () => null)
 
-  // Shared Project Memory ships off: no service, no settings page, no oxespace_memory_* tools until the flag is on.
   configureExperimentalFeatures(app.getPath('userData'))
-  gateMemoryTools(sharedProjectMemoryEnabled)
-  const memoryService = new MemoryService(db, join(app.getPath('userData'), 'memory'), sharedProjectMemoryEnabled)
   const { DelegationService } = await import('./services/delegation.service')
   const { registerDelegationIpc } = await import('./ipc/delegation.ipc')
   const executions = new ExecutionRegistry()
-  registerMemoryIpc(memoryService)
   registerAgentHooksIpc(app.getPath('userData'))
   // What each pane's agent is doing (working, blocked, done...), from its hooks and its screen.
   const [{ AgentStateService }, { loadManifests }, { BUNDLED_MANIFESTS }, { registerAgentStateIpc, broadcastAgentState }, { notifyAgentsChanged, onAgentsChanged }] = await Promise.all([
@@ -236,9 +229,8 @@ async function registerIpcHandlers(): Promise<() => void> {
     oxeQueryShell: paneId => oxeQueryShells.shellFor?.(paneId),
     observer: agentState,
     resumeSession: (paneId, wanted, again) => paneAgentSessions.take(paneId, wanted, again), assignSession: (paneId, agent, sessionId) => paneAgentSessions.record(paneId, agent, sessionId, 'launch'), clearSession: paneId => paneAgentSessions.clear(paneId), currentSession: paneId => paneAgentSessions.current(paneId),
-    prepareLaunch: (input) => memoryService.prepareLaunch(input),
     isManagedPane: paneId => delegationService?.ownsPane(paneId) ?? false,
-    onLaunchExit: (paneId) => { memoryService.endLaunch(paneId); executions.end(paneId); delegationService?.exited(paneId) },
+    onLaunchExit: (paneId) => { executions.end(paneId); delegationService?.exited(paneId) },
     executionEnvironment: (input) => {
       const meta = db.prepare('SELECT port, token FROM internal_mcp_meta LIMIT 1').get() as { port: number; token: string } | undefined
       const hookPort = agentHookServer.port
@@ -323,18 +315,13 @@ async function registerIpcHandlers(): Promise<() => void> {
       const { waitForInternalMcp } = await import('./mcp-internal/ready')
       const meta = await waitForInternalMcp(() => db.prepare('SELECT port, token FROM internal_mcp_meta LIMIT 1').get() as { port: number; token: string } | undefined)
       if (!meta) throw Error('Internal MCP is still starting. Retry shortly.')
-      const nativeHooks = thread.hooksEnabled === true && (thread.access === 'workspace-write' || thread.access === 'full-access')
-      const memory = await memoryService.prepareLaunch({ paneId: `thread:${thread.id}`, workspaceId: thread.workspaceId, cwd: thread.rootPath,
-        captureOwner: nativeHooks ? 'native' : 'external', expectedAgent: thread.provider === 'claude' ? 'claude-code' : 'codex' }).catch(() => ({}))
       const execution = executions.register({ owner: { kind: 'thread', id: thread.id }, workspaceId: thread.workspaceId, cwd: thread.rootPath })
-      return { ...memory, ...execution, OXESPACE_MCP_PORT: String(meta.port), OXESPACE_MCP_TOKEN: meta.token, OXESPACE_WORKSPACE_ID: thread.workspaceId }
+      return { ...execution, OXESPACE_MCP_PORT: String(meta.port), OXESPACE_MCP_TOKEN: meta.token, OXESPACE_WORKSPACE_ID: thread.workspaceId }
     },
     end: (threadId, executionId) => {
       if (executionId && executions.forOwner({ kind: 'thread', id: threadId })?.id !== executionId) return
-      memoryService.endLaunch(`thread:${threadId}`)
       executions.endOwner({ kind: 'thread', id: threadId })
-    },
-    memoryEvent: (snapshot, event) => memoryService.observeThread(snapshot, event)
+    }
   }, threadWorktrees)
   const skillService = new SkillService({ onChange: broadcastSkillChange })
   registerSkillIpc(skillService, (input) => terminalManager.write(input))
@@ -427,7 +414,6 @@ async function registerIpcHandlers(): Promise<() => void> {
       try { launcher.resolve(p.agentProfileId); return { agentProfileId: p.agentProfileId, name: p.name, supported: true } }
       catch (e) { return { agentProfileId: p.agentProfileId, name: p.name, supported: false, reason: String(e) } }
     }),
-    memory: memoryService,
     oxeQuery: () => oxeQuery.agent,
     oxeQueryError: () => oxeQuery.error,
     git: gitService,
@@ -490,7 +476,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       memoryShutdownComplete = true
       quit()
     }, 10000)
-    void Promise.allSettled([threadManager.stop(), memoryService.stop(), delegationService?.stop()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
+    void Promise.allSettled([threadManager.stop(), delegationService?.stop()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
       clearTimeout(shutdownDeadline)
       if (memoryShutdownComplete) return
       memoryShutdownComplete = true
@@ -519,7 +505,6 @@ async function registerIpcHandlers(): Promise<() => void> {
     skillService.init()
     backgroundManager.init()
     void internalMcp.start()
-    void memoryService.init()
     // R0b: the one-time export of the removed features' data, after the window shows; it never throws.
     void runDataExport()
     // F3 · Local RPC bus (named pipe / unix socket). Out-of-process callers

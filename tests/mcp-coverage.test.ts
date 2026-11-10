@@ -104,6 +104,6 @@ describe('levels and tool groups', () => {
   })
 
   it('does not grow the core group every ordinary Thread pays for', () => {
-    expect(THREAD_TOOL_GROUPS.core).toEqual(['oxespace_capabilities', 'oxespace_project_context', 'oxespace_memory_search', 'oxespace_memory_remember'])
+    expect(THREAD_TOOL_GROUPS.core).toEqual(['oxespace_capabilities', 'oxespace_project_context'])
   })
 })

@@ -23,32 +23,12 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Reads the user-level MCP config files of Claude Desktop, Cursor and Windsurf at their fixed locations
   // (512 KiB at most, JSON only); the renderer never supplies a path.
   'electron/main/services/mcp-import.service.ts',
-  // Optional local memory infrastructure: runtime/config/credentials and agent
-  // home configuration, analogous to MCP sync/bootstrap. Never arbitrary source
-  // file reads or terminal transcripts. Project probes below read only identity
-  // and .ai-memory.toml routing policy; the adapter writes that opt-in marker.
-  'electron/main/services/memory/memory-runtime.ts',
-  'electron/main/services/memory/memory.service.ts',
-  'electron/main/services/memory/agent-memory-adapter.ts',
-  'electron/main/services/memory/memory-marker.ts',
   // Project identity (R0a, out of memory): realpath of the folder and of its Git common dir only. Never reads or
   // writes file contents.
   'electron/main/services/project-identity.ts',
   // Owner-only JSON (R0a, out of memory): reads and writes, by temp file and rename (mode 0600), the app's own config
   // files its callers name (agent hook configs, memory runtime files); never a path from the renderer.
   'electron/main/services/private-json.ts',
-  // Memory upgrade transaction (journal, snapshot, candidate): fixed children of
-  // the application's private memory runtime directory; never workspace paths.
-  'electron/main/services/memory/memory-migration.ts',
-  // Producer-owned, crash-recoverable delivery queue under the private memory
-  // directory; files carry opaque names and are never derived from workspace paths.
-  'electron/main/services/memory/memory-outbox.ts',
-  // Read-only size inventory of the private memory directory: counts bytes, never reads
-  // file contents, follows no links and deletes nothing.
-  'electron/main/services/memory/memory-storage.ts',
-  // "Erase all stored memory" in Settings: removes only the managed store's `data` and `upgrade-2.6.2` folders,
-  // each a direct child of the private memory directory (checked before removing); no workspace path is ever used.
-  'electron/main/services/memory/memory-control.ts',
   // Reads one small JSON flag file (<userData>/experimental.json); no workspace path involved.
   'electron/main/services/experimental-features.ts',
   // Reads the app's own translation catalogs (locales/<language>/main.json next to the bundle); fixed names only.

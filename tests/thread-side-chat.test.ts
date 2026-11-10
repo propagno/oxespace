@@ -214,7 +214,7 @@ describe('side chat: Codex fork', () => {
     await start(f.adapter, 'native-A')
     const config = f.requests.find(request => request.method === 'thread/fork')!.params.config as Record<string, unknown>
     const approved = Object.entries(config).filter(([, value]) => value === 'approve').map(([key]) => key)
-    expect(approved.sort()).toEqual(['mcp_servers.oxespace-delegation.tools.oxespace_memory_search.approval_mode', 'mcp_servers.oxespace-delegation.tools.oxespace_search.approval_mode'])
+    expect(approved.sort()).toEqual(['mcp_servers.oxespace-delegation.tools.oxespace_search.approval_mode'])
     expect(config['mcp_servers.oxespace-delegation.default_tools_approval_mode']).toBe('prompt')
     expect(config['mcp_servers.userwriter.default_tools_approval_mode']).toBe('prompt')
     await f.adapter.dispose()

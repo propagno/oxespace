@@ -1133,11 +1133,6 @@
           "hint": "Text & default shell",
           "description": "Set your default shell and how terminal sessions look in this workspace."
         },
-        "memory": {
-          "label": "Project memory",
-          "hint": "Shared knowledge",
-          "description": "Keep project knowledge across worktrees without sharing agent conversations."
-        },
         "delegation": {
           "label": "Agent delegation",
           "hint": "Parallel work",
@@ -1164,7 +1159,6 @@
       "terminalNote": "Terminal appearance and the default shell apply right away.",
       "saved": "Workspace settings saved",
       "footer": {
-        "memory": "Memory changes use Apply memory settings above.",
         "delegation": "Delegation changes apply right away.",
         "tools": "Tool modes and rules are saved in the project right away.",
         "default": "Changes apply right away."
@@ -1184,6 +1178,12 @@
         "underline": "Underline"
       },
       "usingGlobal": "Using the global terminal preferences (Settings › Terminal)."
+    },
+    "instructions": {
+      "title": "Project instructions",
+      "hint": "Agents read these at the start of each conversation.",
+      "open": "Open in editor",
+      "none": "No CLAUDE.md or AGENTS.md at the root of this workspace. Run /init in a conversation to create one."
     },
     "topbar": {
       "label": "Workspace status",

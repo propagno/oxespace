@@ -7,7 +7,6 @@ import type { SettingsModalProps, SettingsSection } from './SettingsModal'
 import { SETTINGS_PAGES } from '../Workspace/workspaceSettingsPages'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { chunk, lazyFrom } from '../../lib/chunk'
-import { useSharedProjectMemory } from '../../hooks/useSharedProjectMemory'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace } from '../../../shared/types/workspace'
 import { SeenSitesSetting } from './SeenSitesSetting'
 import { ExternalEditorSetting } from './ExternalEditorSetting'
@@ -87,8 +86,7 @@ export function SettingsCenter(props: SettingsModalProps & {
     try { localStorage.setItem('oxe.settings.destination', JSON.stringify(next)) } catch { /* Preferences are optional. */ }
   }
   const close = (): void => props.onClose()
-  const memoryOn = useSharedProjectMemory(destination.scope === 'workspace' ? destination.workspaceId : undefined) === true
-  const pages = destination.scope === 'workspace' ? SETTINGS_PAGES.filter(p => p.id !== 'memory' || memoryOn)
+  const pages = destination.scope === 'workspace' ? [...SETTINGS_PAGES]
     : appPages.map(p => ({ ...p, label: t(`center.pages.${p.id}.label`), hint: t(`center.pages.${p.id}.hint`) }))
   const filtered = pages.filter(p => `${p.label} ${p.hint}`.toLowerCase().includes(query.toLowerCase()))
   return <ModalRoot open onOpenChange={open => { if (!open) close() }}>

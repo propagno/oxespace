@@ -24,10 +24,10 @@ policy (`tool.use` rules of the policy store) applies by tool name to every tool
 
 | Covered | Excluded | Planned | Forbidden | Total |
 |---|---|---|---|---|
-| 36 | 30 | 2 | 20 | 88 |
+| 35 | 29 | 2 | 20 | 86 |
 
-The registry has 81 tools: 58 single-purpose tools and 23 domain tools with 86 actions, so the
-manifest declares 144 tool-or-action entries.
+The registry has 75 tools: 52 single-purpose tools and 23 domain tools with 86 actions, so the
+manifest declares 138 tool-or-action entries.
 
 ## Forbidden, never a tool
 
@@ -156,8 +156,6 @@ before. Code panes receive the whole registry.
 | `delegation.use` | Delegate a task and follow it | **read**: `oxespace_delegation_targets`, `oxespace_delegation_preflight`, `oxespace_delegation_status`, `oxespace_delegation_inbox`, `oxespace_delegation_result`, `oxespace_delegation_context`<br>**write**: `oxespace_delegate_task`, `oxespace_delegation_control`, `oxespace_delegation_update`, `oxespace_delegation_checkpoint`, `oxespace_delegation_message`, `oxespace_delegation_acknowledge` |
 | `delegation.authorize` | Authorize delegation targets and adopt delegations | **Forbidden**: Raises access: decides where agents may start work. |
 | `work.plans` | Work plans: plan, status, result, message, cancel | **read**: `oxespace_work_status`, `oxespace_work_result`<br>**write**: `oxespace_work_plan`, `oxespace_work_message`, `oxespace_work_cancel` |
-| `memory.use` | Project memory: search, remember, sessions, handoffs | **read**: `oxespace_memory_search`, `oxespace_memory_sessions`, `oxespace_memory_handoffs`, `oxespace_memory_diagnostics`<br>**write**: `oxespace_memory_remember`, `oxespace_memory_accept_handoff` |
-| `memory.admin` | Install, configure or roll back memory; wire it into agents | Excluded: Memory is the person's opt-in. |
 | `oxequery.read` | Connections, schemas, read queries, plans, activity | **read**: `oxespace_db_connections`, `oxespace_db_describe`, `oxespace_db_explain`, `oxespace_db_activity`<br>**confirm**: `oxespace_db_query`, `oxespace_mongo_find`, `oxespace_mongo_aggregate` |
 | `oxequery.write` | Change data or schema | **confirm**: `oxespace_db_execute`, `oxespace_mongo_write` |
 | `oxequery.saved_queries` | Saved queries, history, import and export of data | Excluded: The person's notebook and bulk data moves; agents run one approved statement at a time. |

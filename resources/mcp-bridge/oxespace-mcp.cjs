@@ -103,11 +103,11 @@ function enableGroup(args) {
   enabledGroups.add(group)
   for (const tool of tools) allowedTools.add(tool)
   if (!already) send({ jsonrpc: '2.0', method: 'notifications/tools/list_changed' })
-  // Say what the app actually lists: some tools are off in this app now (memory tools while memory is off), and the
+  // Say what the app actually lists: some tools are off in this app now (a tool this build does not register), and the
   // group's list alone would promise them (homologation of #316). Unknown until the first tools/list: then all of them.
   const added = serverTools ? tools.filter(tool => serverTools.has(tool)) : tools
   const unavailable = tools.filter(tool => !added.includes(tool))
-  return textResult({ status: 'ok', group, tools: added, ...(unavailable.length ? { unavailable, unavailableReason: 'Not offered by OXESpace right now, for example memory tools while memory is off.' } : {}), note: 'If these tools do not appear in your tool list, this client did not reload it: ask the person to start a new conversation, or to set the group to always in Settings > Tools.' })
+  return textResult({ status: 'ok', group, tools: added, ...(unavailable.length ? { unavailable, unavailableReason: 'Not offered by OXESpace right now.' } : {}), note: 'If these tools do not appear in your tool list, this client did not reload it: ask the person to start a new conversation, or to set the group to always in Settings > Tools.' })
 }
 
 /** Adds this session's groups to oxespace_capabilities: which were turned on here and which still can be. */

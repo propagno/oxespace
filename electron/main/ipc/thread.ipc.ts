@@ -8,7 +8,6 @@ import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { registerOxePostIpc } from './oxepost.ipc'
 import { AgentService } from '../services/agent.service'
 import type { AgentAccountContext } from '../../../shared/types/agentAuth'
-import { MemoryProjectService } from '../services/memory/memory-project.service'
 import { ThreadProjectService } from '../services/conversation/thread-projects'
 import { parsePermissionRuleInput } from '../services/conversation/thread-permissions'
 import type { ThreadMcpBindings } from '../services/conversation/thread-mcp'
@@ -71,7 +70,15 @@ function requestResponse(value: unknown): ThreadRequestResponse {
 export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, worktrees?: ThreadWorktreeHost): { stop(): Promise<void>; manager: Promise<ThreadManager> } {
   // OxePost's channel is registered from this lazy module: the main entry bundle has no room for another line.
   registerOxePostIpc(workspaceId => (db.prepare('SELECT root_path FROM workspaces WHERE id = ?').get(workspaceId) as { root_path: string } | undefined)?.root_path)
-  const projects = new MemoryProjectService(db)
+  // The folder an account scope runs in: the pane's own root when it has one, else the workspace's.
+  const workspaceCwd = (workspaceId: string, paneId?: string | null): string => {
+    const ws = db.prepare('SELECT root_path FROM workspaces WHERE id = ?').get(workspaceId) as { root_path: string } | undefined
+    if (!ws) throw new Error('Unknown workspace')
+    if (!paneId) return ws.root_path
+    const pane = db.prepare('SELECT root_path FROM panes WHERE id = ? AND workspace_id = ?').get(paneId, workspaceId) as { root_path: string | null } | undefined
+    if (!pane) throw new Error('The pane does not belong to this workspace')
+    return pane.root_path ?? ws.root_path
+  }
   const threadProjects = new ThreadProjectService(db)
   // Keep account/project implementation out of the startup entry bundle.
   const accounts: Promise<NativeAccountService> = import('../services/conversation/native-account.service').then(({ NativeAccountService, authScopeId }) => new NativeAccountService({
@@ -84,7 +91,7 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
       if (!profile || (profile.parentProvider ?? profile.provider) !== context.provider) throw Error('Configure the provider in Agent Settings')
       const root = thread ? thread.rootPath : context.workspaceId.startsWith('thread:')
         ? threadProjects.context(context.workspaceId.slice('thread:'.length)).rootPath
-        : (await projects.workspace(context.workspaceId, context.paneId)).cwd
+        : workspaceCwd(context.workspaceId, context.paneId)
       return { id: authScopeId(context.provider, profile.command, root), provider: context.provider, command: profile.command, cwd: root }
     },
     openExternal: url => shell.openExternal(url),

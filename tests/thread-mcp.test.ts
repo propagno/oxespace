@@ -9,7 +9,8 @@ it('adds the OXESpace bridge while preserving Claude CLI MCP inheritance and per
   expect(args.slice(0, 4)).toEqual(['--tools', 'default', '--settings', '{"disableAllHooks":true}'])
   const server = JSON.parse(args.at(-1)!).mcpServers['oxespace-delegation']
   expect(server.args[0]).toBe('/bridge.cjs')
-  expect(JSON.parse(server.args[2])).toContain('oxespace_memory_search')
+  // R5: AI Memory's tools are gone.
+  expect(JSON.parse(server.args[2]).some((tool: string) => tool.startsWith('oxespace_memory_'))).toBe(false)
   expect(JSON.parse(server.args[2])).toContain('oxespace_project_context')
   // R1: the CodeGraph tools are gone.
   expect(JSON.parse(server.args[2]).some((tool: string) => tool.startsWith('oxespace_code_'))).toBe(false)
@@ -67,7 +68,7 @@ it('gives a read-only Claude conversation the bridge limited to read-only lookup
   const allowed = JSON.parse(config.mcpServers['oxespace-delegation'].args[2]) as string[]
   expect(allowed).toContain('oxespace_capabilities')
   expect(allowed.some(tool => tool.startsWith('oxespace_code_'))).toBe(false)
-  expect(allowed).toContain('oxespace_memory_search')
+  expect(allowed.some(tool => tool.startsWith('oxespace_memory_'))).toBe(false)
   for (const writer of ['oxespace_memory_remember', 'oxespace_thread_send', 'oxespace_delegate_task', 'oxespace_team_message', 'oxespace_preview_interact', 'oxespace_open_web_preview']) {
     expect(allowed).not.toContain(writer)
   }

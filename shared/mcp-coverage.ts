@@ -247,7 +247,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   },
   'thread.session_admin': {
     label: 'Fork, delete, clean up or search CLI sessions',
-    excluded: 'Deletes or copies the person\'s CLI history across projects. Agents search with oxespace_memory_search, scoped to the project.',
+    excluded: 'Deletes or copies the person\'s CLI history across projects. Agents read the project with oxespace_project_context and oxespace_search.',
     ipc: ['session.fork', 'session.delete', 'session.cleanup', 'session.search']
   },
 
@@ -276,21 +276,6 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     label: 'Work plans: plan, status, result, message, cancel',
     tools: { oxespace_work_plan: 'write', oxespace_work_status: 'read', oxespace_work_result: 'read', oxespace_work_message: 'write', oxespace_work_cancel: 'write' },
     ipc: ['thread.workRuns', 'thread.cancelWork']
-  },
-
-  // ---- memory ---------------------------------------------------------------------------
-  'memory.use': {
-    label: 'Project memory: search, remember, sessions, handoffs',
-    tools: {
-      oxespace_memory_search: 'read', oxespace_memory_remember: 'write', oxespace_memory_sessions: 'read', oxespace_memory_handoffs: 'read',
-      oxespace_memory_accept_handoff: 'write', oxespace_memory_diagnostics: 'read'
-    },
-    ipc: ['memory.status', 'memory.search', 'memory.recent', 'memory.handoffs', 'memory.storage', 'memory.acceptHandoff']
-  },
-  'memory.admin': {
-    label: 'Install, configure or roll back memory; wire it into agents; list, export, delete or reset what is stored',
-    excluded: 'Memory is the person\'s opt-in, and so is looking through, exporting, deleting or resetting what it holds. Agents only search and record.',
-    ipc: ['memory.configure', 'memory.install', 'memory.rollback', 'memory.setupAgents', 'memory.notes', 'memory.noteUpdate', 'memory.noteDelete', 'memory.export', 'memory.reset']
   },
 
   // ---- OxeQuery (databases) and OxePod (containers) -------------------------------------------

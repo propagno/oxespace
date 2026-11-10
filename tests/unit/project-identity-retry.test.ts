@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { retryIdentityProbe } from '../../electron/main/services/memory/memory-project.service'
+import { retryIdentityProbe } from '../../electron/main/services/project-identity'
 const probe = vi.fn()
 beforeEach(() => { probe.mockReset() })
 describe('project identity timeout recovery', () => {

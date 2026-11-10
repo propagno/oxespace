@@ -664,7 +664,7 @@
     "groups": {
       "core": {
         "name": "Core tools",
-        "description": "Source code, search and memory lookups, in every conversation."
+        "description": "Source code and search lookups, in every conversation."
       },
       "orchestration": {
         "name": "Orchestration",

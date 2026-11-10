@@ -1189,11 +1189,6 @@
           "hint": "Texto e shell padrão",
           "description": "Defina o shell padrão e a aparência dos terminais neste workspace."
         },
-        "memory": {
-          "label": "Memória do projeto",
-          "hint": "Conhecimento compartilhado",
-          "description": "Guarde o conhecimento do projeto entre worktrees sem compartilhar as conversas dos agentes."
-        },
         "delegation": {
           "label": "Delegação de agentes",
           "hint": "Trabalho em paralelo",
@@ -1220,7 +1215,6 @@
       "terminalNote": "A aparência do terminal e o shell padrão valem na hora.",
       "saved": "Configurações do workspace salvas",
       "footer": {
-        "memory": "As mudanças de memória usam Aplicar as configurações de memória, acima.",
         "delegation": "As mudanças de delegação valem na hora.",
         "tools": "Os modos e as regras das ferramentas são salvos no projeto na hora.",
         "default": "As mudanças valem na hora."
@@ -1240,6 +1234,12 @@
         "underline": "Sublinhado"
       },
       "usingGlobal": "Usando as preferências globais do terminal (Configurações › Terminal)."
+    },
+    "instructions": {
+      "title": "Instruções do projeto",
+      "hint": "Os agentes leem estes arquivos no início de cada conversa.",
+      "open": "Abrir no editor",
+      "none": "Não há CLAUDE.md nem AGENTS.md na raiz deste workspace. Rode /init em uma conversa para criar um."
     },
     "topbar": {
       "label": "Status do workspace",

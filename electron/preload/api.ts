@@ -155,23 +155,6 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
         return () => ipc.removeListener(IPC_CHANNELS.delegation.changed, handler)
       }
     },
-    memory: {
-      status: (id) => ipc.invoke(IPC_CHANNELS.memory.status, id) as ReturnType<OxeApi['memory']['status']>,
-      configure: (input) => ipc.invoke(IPC_CHANNELS.memory.configure, input) as ReturnType<OxeApi['memory']['configure']>,
-      install: () => ipc.invoke(IPC_CHANNELS.memory.install) as Promise<string>,
-      rollback: (id) => ipc.invoke(IPC_CHANNELS.memory.rollback, id) as ReturnType<OxeApi['memory']['rollback']>,
-      setupAgents: (id) => ipc.invoke(IPC_CHANNELS.memory.setupAgents, id) as Promise<string>,
-      search: (input) => ipc.invoke(IPC_CHANNELS.memory.search, input) as ReturnType<OxeApi['memory']['search']>,
-      recent: (id) => ipc.invoke(IPC_CHANNELS.memory.recent, id) as ReturnType<OxeApi['memory']['recent']>,
-      storage: () => ipc.invoke(IPC_CHANNELS.memory.storage) as ReturnType<OxeApi['memory']['storage']>,
-      notes: (input) => ipc.invoke(IPC_CHANNELS.memory.notes, input) as ReturnType<OxeApi['memory']['notes']>,
-      noteUpdate: (input) => ipc.invoke(IPC_CHANNELS.memory.noteUpdate, input) as ReturnType<OxeApi['memory']['noteUpdate']>,
-      noteDelete: (input) => ipc.invoke(IPC_CHANNELS.memory.noteDelete, input) as ReturnType<OxeApi['memory']['noteDelete']>,
-      export: (input) => ipc.invoke(IPC_CHANNELS.memory.export, input) as ReturnType<OxeApi['memory']['export']>,
-      reset: (input) => ipc.invoke(IPC_CHANNELS.memory.reset, input) as ReturnType<OxeApi['memory']['reset']>,
-      handoffs: (id) => ipc.invoke(IPC_CHANNELS.memory.handoffs, id) as ReturnType<OxeApi['memory']['handoffs']>,
-      acceptHandoff: (input) => ipc.invoke(IPC_CHANNELS.memory.acceptHandoff, input) as ReturnType<OxeApi['memory']['acceptHandoff']>
-    },
     app: {
       version: packageJson.version,
       // Sandboxed preloads still get Electron's polyfilled `process`, so the

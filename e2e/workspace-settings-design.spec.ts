@@ -23,7 +23,7 @@ test('workspace settings navigation and responsive visual review', async () => {
     await expect(modal).toBeVisible()
     for (const width of [1360, 600]) {
       await page.setViewportSize({ width, height: 900 })
-      for (const label of ['Appearance', 'Terminal', 'Project memory', 'Agent delegation']) {
+      for (const label of ['Appearance', 'Terminal', 'Agent delegation']) {
         if (width < 900) {
           const category = modal.getByRole('group', { name: 'Settings category' }).getByRole('button', { name: label, exact: true })
           await category.click()
