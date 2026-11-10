@@ -201,7 +201,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
           </span>
           {needsDecision && <span className="pane-decision-chip" title={display.attentionReason ? `${display.attentionReason} · ${statusText}` : statusText} data-testid="pane-decision-chip" aria-hidden="true">{display.statusLabel}</span>}
           <span className="pane-header-divider" aria-hidden="true">/</span>
-          {isTerminalPane && <PaneBranchBadge paneId={pane.id} />}
+          {isTerminalPane && <PaneBranchBadge paneId={pane.id} workspace={workspace} pane={pane} />}
           {isTerminalPane && <PanePhoneHeaderMark paneId={pane.id} />}
           {isTerminalPane && resume && <PaneResumeMarker paneId={pane.id} outcome={resume} />}
           {renaming ? (

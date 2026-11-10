@@ -241,6 +241,7 @@
         "notFound": "This is not a removable worktree of this repository.",
         "busy": "This worktree is in use ({{reason}}). Close its panes or wait for its conversation to finish.",
         "locked": "This worktree is locked: {{reason}}. Unlock it before removing.",
+        "dirty": "{{count}} uncommitted changes. Commit or discard them first.",
         "dirty_one": "{{count}} uncommitted change. Commit or discard it first.",
         "dirty_other": "{{count}} uncommitted changes. Commit or discard them first.",
         "failed": "The worktree could not be removed. It is still listed; try again when nothing is using it.",

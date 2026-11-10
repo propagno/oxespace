@@ -9,12 +9,12 @@
   box-shadow: var(--elevation-1);
   color: var(--text-primary);
 }
-:global(.thread-pending-requests) .root { margin: var(--space-2) 0; }
+:global(.thread-pending-requests) .root { margin: 2px 0 4px; }
 
 .question { display: flex; flex-direction: column; max-height: min(620px, calc(100dvh - 260px)); }
-:global(.thread-pending-requests) .question { max-height: calc(var(--request-cap) - 16px); }
+:global(.thread-pending-requests) .question { max-height: calc(var(--request-cap) - 6px); }
 /* An approval or form in the dock: the header and the buttons stay put and the details between them scroll. */
-:global(.thread-pending-requests) .root:not(.question) { display: flex; flex-direction: column; max-height: calc(var(--request-cap) - 16px); }
+:global(.thread-pending-requests) .root:not(.question) { display: flex; flex-direction: column; max-height: calc(var(--request-cap) - 6px); }
 :global(.thread-pending-requests) .root:not(.question) > * { flex-shrink: 0; }
 :global(.thread-pending-requests) .root:not(.question) > :not(header, footer, .context, .policy) { flex-shrink: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .question > header, .question > nav, .question > footer { flex-shrink: 0; }
