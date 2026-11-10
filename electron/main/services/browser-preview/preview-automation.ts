@@ -7,6 +7,8 @@ import { approvalCenter } from '../approvals'
 import { previewDraft } from '../approvals/drafts'
 import { requesterFor } from '../approvals/requester'
 import { mainMessage } from '../../../../shared/messages'
+import { MainMessageError } from '../../ipc/main-message-error'
+import { brokerForGuest } from './debugger-broker'
 import type { ApprovalRequester } from '../../../../shared/types/approvals'
 
 export interface PreviewRequest {
@@ -250,11 +252,12 @@ export class PreviewAutomation {
   async capture(workspaceId: string, options: ScreenshotOptions, verify: () => void, owner?: ExecutionOwner): Promise<CapturedPage> {
     return this.exclusive(workspaceId, verify, async guest => {
       if (guest.isLoading()) throw new Error('Wait for preview loading to complete')
-      if (guest.debugger.isAttached()) throw new Error('Close preview DevTools before capturing')
+      const broker = brokerForGuest(guest)
+      if (broker.state().devToolsOpen) throw new MainMessageError(mainMessage('preview.capture.devtools', {}), "Close the browser's DevTools to let the agent capture.")
       const url = guest.getURL(), marker = `oxe-capture-${randomUUID()}`
       const redact = options.redact ?? [], highlight = options.highlight ?? []
       if (![redact, highlight].every(items => Array.isArray(items) && items.length <= 30 && items.every(s => typeof s === 'string' && s.length <= 1000))) throw new Error('Invalid screenshot selectors')
-      guest.debugger.attach('1.3')
+      const lease = broker.acquire('capture')
       try {
         const info = await this.script<{x:number;y:number;width:number;height:number;redactionCount:number}>(guest, `(() => {
           const marker=${JSON.stringify(marker)}, o=${JSON.stringify(options)}
@@ -274,14 +277,14 @@ export class PreviewAutomation {
         if (info.x < viewport.x || info.y < viewport.y || info.x + info.width > viewport.x + viewport.width || info.y + info.height > viewport.y + viewport.height) throw new Error('Preview capture must fit the visible viewport; scroll or split the step')
         if (info.width < 1 || info.height < 1 || info.width > 4096 || info.height > 16000 || info.width * info.height > 24000000) throw new Error('Capture too large; use viewport or element mode')
         await this.script(guest, 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
-        const { data } = await bounded(guest.debugger.sendCommand('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false, clip: { x:info.x,y:info.y,width:info.width,height:info.height,scale:1 } }), 15000) as {data:string}
+        const { data } = await bounded(broker.capture({ format: 'png', fromSurface: true, captureBeyondViewport: false, clip: { x:info.x,y:info.y,width:info.width,height:info.height,scale:1 } }), 15000)
         await this.assertAccess(workspaceId, verify, owner)
         if (guest.getURL() !== url) throw new Error('Page navigated during capture; retry after inspecting')
         return { png: Buffer.from(data,'base64'), pageUrl: safePageUrl(url), width:info.width,height:info.height,redactionCount:info.redactionCount }
       } finally {
+        lease.release()
         if (!guest.isDestroyed()) {
           await this.script(guest, `document.querySelectorAll('[data-oxe-capture="${marker}"]').forEach(e=>e.remove())`).catch(() => {})
-          if (guest.debugger.isAttached()) guest.debugger.detach()
         }
       }
     }, owner)
