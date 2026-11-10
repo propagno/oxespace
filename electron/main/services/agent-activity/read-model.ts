@@ -390,7 +390,7 @@ export class AgentActivity {
     d.setHours(0, 0, 0, 0)
     const midnight = d.getTime()
 
-    let today = 0
+    let today: number
     try {
       const row = this.db
         .prepare('SELECT COUNT(*) as c FROM oxequery_audit WHERE connection_id = ? AND ts >= ?')

@@ -1769,5 +1769,9 @@
     "pathCopied": "Path copied",
     "loading": "Opening {{path}}…",
     "failed": "Could not open {{path}}."
+  },
+  "toolOutputCut": {
+    "withTotal": "Output cut to the first {{kept}} of {{total}}",
+    "keptOnly": "Output cut to the first {{kept}}"
   }
 }

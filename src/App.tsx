@@ -73,6 +73,7 @@ import { useSettingsStore, VISITED_WORKSPACES_CAP_DEFAULT } from './store/settin
 import { useIntegrationStore } from './store/integration.store'
 import { useWorktreeStore } from './store/worktree.store'
 import { useAgentHookStatus } from './hooks/useAgentHookStatus'
+import { startToolOutputCuts } from './store/tool-output-cut.store'
 import { QUOTA_NOTIFICATION_PANE_PREFIX, THREAD_NOTIFICATION_PANE_PREFIX } from './hooks/notificationPrefixes'
 import { useThreadShortcuts } from './hooks/useThreadShortcuts'
 import { setKeyboardView, useKeybindings, type AppView } from './keyboard/keybindings'
@@ -458,6 +459,7 @@ export function App(): ReactElement {
   // The activity center's producers load right after the first frame (renderer entry headroom, after T52).
   const activitySources = useDeferredModule(loadActivitySources, () => t('deferred.activityMissing', { ns: 'common' }))
   useAgentHookStatus()
+  useEffect(() => startToolOutputCuts(), [])
 
   // Clicking a notification focuses the originating pane (window focus + restore
   // is handled in main); here we switch to its workspace and select the pane.

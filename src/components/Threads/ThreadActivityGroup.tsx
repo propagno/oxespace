@@ -7,6 +7,8 @@ import type { ThreadViewMode } from '../../store/thread-view-mode.store'
 import { i18n } from '../../i18n'
 import { formatNumber } from '../../utils/formatTime'
 import { Button, Spinner } from '../../ui'
+import { useToolOutputCuts } from '../../store/tool-output-cut.store'
+import { cutNote } from './toolOutputCut'
 type Tool = Extract<ThreadEvent, { type: 'tool' }>
 const NAMED = new Set(['commandExecution', 'fileChange', 'mcpToolCall', 'contextCompaction', 'Read', 'Glob', 'Grep', 'Bash', 'Edit', 'Write', 'Tool result'])
 /** What an action did, in words; a tool the app does not know keeps the provider's own name. */
@@ -52,11 +54,15 @@ export type ResolveInterrupted = (command: string) => void
 
 function ThreadToolDiagnostic({ event, onResolve }: { event: Tool; onResolve?: ResolveInterrupted }) {
   const { t } = useTranslation('thread')
+  const cut = useToolOutputCuts((state) => state.cuts[event.id])
   const kind = diagnosticKind(event)
   const failureKind = event.state === 'failed' ? threadActionFailure(event.output ?? '') : undefined
   const failure = failureKind && { label: t(`actionFailure.${failureKind}.label`), guidance: t(`actionFailure.${failureKind}.guidance`) }
   const detail = event.detail.trim(), output = event.output?.trim() ?? ''
-  const technical = [detail && `${t('activity.input')}\n${detail}`, output && `${t('activity.output')}\n${output}`, event.exitCode !== undefined && t('activity.exitCode', { code: event.exitCode })].filter(Boolean).join('\n\n')
+  const displayOutput = cut ? output.slice(0, cut.keptBytes) : output
+  const technical = cut
+    ? displayOutput
+    : [detail && `${t('activity.input')}\n${detail}`, output && `${t('activity.output')}\n${output}`, event.exitCode !== undefined && t('activity.exitCode', { code: event.exitCode })].filter(Boolean).join('\n\n')
   const primary = event.state === 'failed'
     ? output.split('\n').find(line => line.trim()) || (event.exitCode !== undefined ? t('activity.failedExit', { code: event.exitCode }) : t('activity.failedPlain'))
     : event.state === 'unknown' ? t('activity.notConfirmed')
@@ -65,6 +71,7 @@ function ThreadToolDiagnostic({ event, onResolve }: { event: Tool; onResolve?: R
     <div className="thread-tool-diagnostic-meta"><span className={kind.className}>{failure?.label ?? kind.label}</span>{event.startedAt && event.completedAt && <time>{t('activity.duration', { ms: formatNumber(Math.max(0, event.completedAt - event.startedAt)) })}</time>}</div>
     <p>{primary.slice(0, 320)}</p>
     {failure && <p>{failure.guidance}</p>}
+    {cut && <p className="thread-tool-cut-note">{cutNote(cut.keptBytes, cut.totalBytes)}</p>}
     {event.interrupted && !event.interruptedHandled && <><p>{t('activity.interruptedHint')}</p>{onResolve && <div className="thread-tool-diagnostic-actions"><Button size="sm" variant="primary" onClick={() => onResolve(`/continue-interrupted ${event.id}`)}>{t('activity.continue')}</Button><Button size="sm" onClick={() => onResolve(`/dismiss-interrupted ${event.id}`)}>{t('activity.dismiss')}</Button></div>}</>}
     {event.interruptedHandled && <p>{t(`activity.interruptedHandled.${event.interruptedHandled}`)}</p>}
     {technical && <details className="thread-tool-technical"><summary>{t('activity.technical')}</summary><pre>{technical}</pre></details>}

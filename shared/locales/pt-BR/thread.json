@@ -1817,5 +1817,9 @@
     "pathCopied": "Caminho copiado",
     "loading": "Abrindo {{path}}…",
     "failed": "Não foi possível abrir {{path}}."
+  },
+  "toolOutputCut": {
+    "withTotal": "Saída cortada nos primeiros {{kept}} de {{total}}",
+    "keptOnly": "Saída cortada nos primeiros {{kept}}"
   }
 }
