@@ -75,6 +75,8 @@ export interface ToolContext {
   codegraph: import('../services/codegraph.service').CodeGraphService
   webPreview: WebPreviewBus
   worktree: WorktreeEventBus
+  androidAccess?: () => import('../services/android/android-devices').AndroidAgentAccess | undefined
+  askAndroidScreenshot?: (input: { serial: string; sessionKey: string; owner: { kind: 'pane' | 'thread'; id: string }; label: string }) => Promise<boolean>
 }
 
 export interface ToolEntry {
@@ -390,6 +392,22 @@ export const TOOL_REGISTRY: ToolEntry[] = [
     },
     requiresWorkspace: true,
     handler: handlers.previewInteract
+  },
+  {
+    descriptor: {
+      name: 'oxespace_device_screenshot',
+      description: 'Capture a PNG screenshot from a connected Android device when Agents can see is enabled by the person and approved once per session.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          serial: { type: 'string', description: 'Connected Android device serial.' }
+        },
+        required: ['serial'],
+        additionalProperties: false
+      }
+    },
+    requiresWorkspace: false,
+    handler: handlers.deviceScreenshot
   },
   {
     descriptor: {

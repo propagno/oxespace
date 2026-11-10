@@ -467,6 +467,35 @@ async function hybridExplore(args: unknown, ctx: ToolContext): Promise<InternalM
 }
 
 const PREVIEW_ACTIONS = ['inspect', 'status', 'console', 'network', 'tabs', 'newTab', 'selectTab', 'closeTab', 'click', 'fill', 'navigate', 'wait', 'scroll']
+
+async function deviceScreenshot(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
+  if (!args || typeof args !== 'object' || Array.isArray(args)) return errorResult('Arguments must be an object.')
+  const input = args as Record<string, unknown>
+  if (Object.keys(input).some(key => key !== 'serial')) return errorResult('Only "serial" is accepted.')
+  const serial = expectString(input.serial, 'serial')
+  let execution: ReturnType<NonNullable<ToolContext['executions']>['authenticate']> | undefined
+  try { execution = ctx.executions?.authenticate(ctx.executionId, ctx.executionToken, ctx.workspaceId) } catch { /* handled below */ }
+  if (!execution) return errorResult('An authenticated OXESpace execution is required to capture an Android screenshot.')
+  const access = ctx.androidAccess?.()
+  if (!access) return errorResult('Android device service is unavailable.')
+  const owner = execution.owner
+  const shot = await access.screenshot({
+    serial,
+    sessionKey: execution.id,
+    ask: ({ serial: s, sessionKey }) =>
+      ctx.askAndroidScreenshot
+        ? ctx.askAndroidScreenshot({ serial: s, sessionKey, owner, label: `${owner.kind}:${owner.id}` })
+        : Promise.resolve(false)
+  })
+  if (!shot.ok) {
+    return errorResult(
+      shot.code === 'android.agents.notAllowed'
+        ? 'Agents can see is off for this device. Ask the person to enable Agents can see in the Android panel.'
+        : 'The person declined the Android screenshot request.'
+    )
+  }
+  return { content: [{ type: 'image', data: shot.png, mimeType: 'image/png' }], isError: false }
+}
 const PREVIEW_ARGUMENTS = new Set(['action', 'expectedUrl', 'selector', 'text', 'url', 'tabId', 'deltaY'])
 
 /** oxespace_preview_interact: drives the opted-in browser session. R0c moved its automation to services/browser-preview; R9 keeps it. */
@@ -504,6 +533,7 @@ export const handlers = {
   openWebPreview,
   captureWebPreview,
   previewInteract,
+  deviceScreenshot,
   semanticSearch,
   qualityCheck,
   hybridExplore
