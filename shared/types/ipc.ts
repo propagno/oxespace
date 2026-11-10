@@ -436,7 +436,12 @@ export const IPC_CHANNELS = {
   },
   httpAudit: {
     list: 'http-audit:list'
-  }
+  },
+  agentActivity: {
+    list: 'agent-activity:list',
+    detail: 'agent-activity:detail',
+    badge: 'agent-activity:badge'
+  },
 } as const
 
 export interface WorkspaceApi {
@@ -714,6 +719,7 @@ export interface OxeApi {
   policy: import('../policy').PolicyApi
   dataExport: DataExportApi
   httpAudit: import('./http-audit').HttpAuditApi
+  agentActivity: import('./agent-activity').AgentActivityApi
 }
 
 export interface McpInternalApi {

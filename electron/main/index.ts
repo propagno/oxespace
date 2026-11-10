@@ -48,9 +48,12 @@ import { registerSemanticIpc } from './ipc/semantic.ipc'
 import { installIncidentHooks, registerDiagnosticsIpc } from './ipc/diagnostics.ipc'
 import { registerPolicyIpc } from './ipc/policy.ipc'
 import { registerHttpAuditIpc } from './ipc/http-audit.ipc'
+import { registerAgentActivityIpc } from './ipc/agent-activity.ipc'
+import { AgentActivity } from './services/agent-activity/read-model'
 import { HttpAuditLog } from './services/http-audit/store'
 import { productionHostsFor } from './services/http-audit/production-hosts'
 import { policyStore } from './services/policy'
+import { approvalCenter } from './services/approvals'
 import { BackgroundManager } from './services/background.service'
 import { TerminalManager } from './services/terminal.service'
 import { MemoryService } from './services/memory/memory.service'
@@ -524,6 +527,11 @@ async function registerIpcHandlers(): Promise<() => void> {
     isProductionHost: productionHostsFor({ db, policy: policyStore() ?? undefined })
   })
   registerHttpAuditIpc(httpAuditLog)
+  const agentActivity = new AgentActivity(db, {
+    isProductionHost: productionHostsFor({ db, policy: policyStore() ?? undefined }),
+    pendingFor: (connectionId) => approvalCenter.list().some(req => req.target === connectionId || req.target?.includes(connectionId))
+  })
+  registerAgentActivityIpc(agentActivity)
   // OXESpace context manifest — prepended to the agent's initial prompt on pane spawn so the CLI knows the
   // workspace state without calling any MCP tool. Read shortcut; MCP is still the action path (see oxe-context.service.ts).
   registerOxeContextIpc({

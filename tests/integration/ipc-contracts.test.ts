@@ -195,9 +195,17 @@ describe('ipc contracts', () => {
     expect(IPC_CHANNELS.github.connectRepository).toBe('github:connect-repository')
   })
 
-    test('uses stable httpAudit channel names', () => {
+  test('uses stable httpAudit channel names', () => {
     expect(IPC_CHANNELS.httpAudit).toEqual({
       list: 'http-audit:list'
+    })
+  })
+
+  test('uses stable agentActivity channel names', () => {
+    expect(IPC_CHANNELS.agentActivity).toEqual({
+      list: 'agent-activity:list',
+      detail: 'agent-activity:detail',
+      badge: 'agent-activity:badge'
     })
   })
 

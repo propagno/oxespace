@@ -568,6 +568,11 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     },
     httpAudit: {
       list: (query) => ipc.invoke(IPC_CHANNELS.httpAudit.list, query) as Promise<import('../../shared/types/http-audit').HttpAuditPage>
+    },
+    agentActivity: {
+      list: (query) => ipc.invoke(IPC_CHANNELS.agentActivity.list, query) as Promise<import('../../shared/types/agent-activity').AgentActivityPage>,
+      detail: (id) => ipc.invoke(IPC_CHANNELS.agentActivity.detail, id) as Promise<Record<string, unknown> | null>,
+      badge: (query) => ipc.invoke(IPC_CHANNELS.agentActivity.badge, query) as Promise<import('../../shared/types/agent-activity').AgentActivityBadge>
     }
   }
 }
