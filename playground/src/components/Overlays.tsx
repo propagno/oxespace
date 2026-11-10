@@ -92,7 +92,6 @@ export const COMMANDS: [string, string, string, string, string][] = [
   ['/stop', 'Stop the current agent (asks first)', 'Stop in Agora or the conversation', 'Esc Esc', 'stop'],
   ['/new', 'New conversation', '+ in the project group', 'N', 'plus'],
   ['/history', 'Time travel in this conversation', 'History in the conversation header', 'Ctrl H', 'scrub'],
-  ['/agora', 'Every agent, right now', 'Agora in the title bar', 'Ctrl Shift G', 'agora'],
   ['/terminal', 'New terminal where the focused pane is', '+ Terminal in OxeCode', 'Ctrl Shift `', 'term'],
   ['/theme', 'Switch light and dark', 'Settings › Appearance', '', 'sun']
 ]
@@ -126,11 +125,10 @@ function cmdItems (raw: string): PalItem[] | null {
       if (!ps.length) return [{ g: 'Waiting', icon: 'check', label: 'Nothing waiting', act: () => {} }]
       return ps.map(a => ({ g: 'Deny a request', icon: 'shieldx', label: `Deny: ${a.title}`, sub: task(a.task)!.title, k, also, act: () => resolve(a.id, 'deny') }))
     }
-    if (c === '/steer') return t && t.id !== 'quick' ? [{ g: 'Steer', icon: 'send', label: rest ? `Tell "${t.title}": ${rest}` : `Type what to tell "${t.title}"`, sub: t.status === 'run' ? (canSteer(t) ? 'Read after the current step' : 'Queued until the current turn ends') : 'Sent now', k, also, act: () => { if (rest) { S.drafts[t.id] = rest; sendMsg(t) } else setTimeout(() => document.querySelector<HTMLElement>('.composer textarea')?.focus(), 30) } }] : [{ g: 'Steer', icon: 'info', label: 'Open a conversation first', sub: 'Or steer any agent from Agora', act: () => {} }]
-    if (c === '/stop') return t && t.status === 'run' ? [{ g: 'Stop', icon: 'stop', label: `Stop "${t.title}"…`, sub: 'Asks first; the work so far is kept', k, also, act: () => { S.agStop = t.id; S.overlay = { type: 'dlg', id: 'agstop' } } }] : [{ g: 'Stop', icon: 'info', label: 'The current conversation isn\'t running', sub: 'Stop any agent from Agora', act: () => {} }]
+    if (c === '/steer') return t && t.id !== 'quick' ? [{ g: 'Steer', icon: 'send', label: rest ? `Tell "${t.title}": ${rest}` : `Type what to tell "${t.title}"`, sub: t.status === 'run' ? (canSteer(t) ? 'Read after the current step' : 'Queued until the current turn ends') : 'Sent now', k, also, act: () => { if (rest) { S.drafts[t.id] = rest; sendMsg(t) } else setTimeout(() => document.querySelector<HTMLElement>('.composer textarea')?.focus(), 30) } }] : [{ g: 'Steer', icon: 'info', label: 'Open a conversation first', sub: 'Steer an agent in OxeChat', act: () => {} }]
+    if (c === '/stop') return t && t.status === 'run' ? [{ g: 'Stop', icon: 'stop', label: `Stop "${t.title}"…`, sub: 'Asks first; the work so far is kept', k, also, act: () => { S.agStop = t.id; S.overlay = { type: 'dlg', id: 'agstop' } } }] : [{ g: 'Stop', icon: 'info', label: 'The current conversation isn\'t running', sub: 'Stop an agent in OxeChat', act: () => {} }]
     if (c === '/new') return [{ g: 'New', icon: 'plus', label: rest ? `New conversation: "${rest}"` : 'New conversation…', k, also, act: () => { S.overlay = { type: 'newtask', text: rest } } }]
     if (c === '/history') return t && t.id !== 'quick' ? [{ g: 'Time travel', icon: 'scrub', label: `History of "${t.title}"`, k, also, act: () => { S.tt = t.id; S.tab = 'conv' } }] : [{ g: 'Time travel', icon: 'info', label: 'Open a conversation first', act: () => {} }]
-    if (c === '/agora') return [{ g: 'Go to', icon: 'agora', label: 'Agora', k, also, act: () => goScreen('agora') }]
     if (c === '/terminal') return [{ g: 'OxeCode', icon: 'term', label: 'New terminal where the focused pane is', k, also, act: () => { railGo('code') } }]
     return [{ g: 'View', icon: 'sun', label: S.mode === 'dark' ? 'Switch to light' : 'Switch to dark', also, act: () => { S.mode = S.mode === 'dark' ? 'light' : 'dark' } }]
   }
