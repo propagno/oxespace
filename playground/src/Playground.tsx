@@ -77,7 +77,7 @@ function Side () {
     <div><h3 className="side-h">Keyboard</h3><div className="keys"><kbd>Ctrl K</kbd><span>Command palette</span><kbd>N</kbd><span>New task</span><kbd>Ctrl B</kbd><span>Collapse the sidebar</span><kbd>D</kbd><span>Deny (the default)</span><kbd>A</kbd><span>Approve; hold when irreversible</span><kbd>J K</kbd><span>Move in the approval queue</span><kbd>L</kbd><span>Back to now from a checkpoint</span><kbd>Esc</kbd><span>Close</span></div></div>
     <div className="idx"><h3 className="side-h">All screens <small>{SCREENS.length}</small></h3>{GROUPS.map(g => <div key={g}><h4>{g}</h4><ul>{SCREENS.filter(x => x.group === g).map(x => <li key={x.id}><button aria-current={x.id === S.screen} onClick={() => goScreen(x.id)}><span>{x.name}</span><span className={'pg-tag ' + tagClass(x)}>{tagLabel(x)}</span></button></li>)}</ul></div>)}</div>
     <details><summary className="side-h">What changes in Mandacaru 1.5</summary><table className="toks"><tbody>{D.tokenChanges.map(t => <tr key={t.tok}><td>{t.sw.map(c => <span key={c} className="sw" style={{ background: c }} />)}{t.tok}</td><td>{t.what}</td></tr>)}</tbody></table></details>
-    <p className="pg-note">1.5.0, the cockpit: see, control, audit and recover what agents do. It opens on Agora. OxePost and OxePod are panels now; mature tools are integrated, not rebuilt. Mock data for a fictional company; nothing talks to a model, a database or the network.</p></aside>
+    <p className="pg-note">1.5.0: The core triad OxeCode, OxeChat and OxeQuery consolidated. Focused mission control with live execution, thread checkpoints and zero redundant screens.</p></aside>
 }
 
 function useKeys () {
@@ -95,7 +95,7 @@ function useKeys () {
       if (mod && e.shiftKey && (e.key === '|' || e.key === '\\' || e.key === '_' || e.key === '-') && S.area === 'mode' && S.mode2 === 'code') { e.preventDefault(); split(e.key === '_' || e.key === '-'); emit(); return }
       if (mod && e.shiftKey && e.key === 'Enter' && S.area === 'mode' && S.mode2 === 'code') { e.preventDefault(); codeMaxToggle(); emit(); return }
       if (mod && !e.shiftKey && e.key.toLowerCase() === 'h' && S.area === 'task') { e.preventDefault(); const t = cur(); if (t && t.id !== 'quick') { S.tt = S.tt === t.id ? undefined : t.id; S.ttAt = undefined; S.tab = 'conv'; emit() } return }
-      if (mod && e.shiftKey && e.key.toLowerCase() === 'g') { e.preventDefault(); goScreen('agora'); return } // Ctrl+0 stays the terminal's font reset (1.4)
+      if (mod && e.shiftKey && e.key.toLowerCase() === 'g') { e.preventDefault(); goMode('chat'); return }
       if (mod && !e.shiftKey && e.key.toLowerCase() === 'e') { e.preventDefault(); if (S.area === 'mode' && S.mode2 === 'code') S.codeDock = S.codeDock === 'files' ? undefined : 'files'; else if (S.area === 'task') { const t = cur(); S.dockTool[t.id] = 'files'; const o = S.dockOpen[t.id] || []; if (!o.includes('files')) S.dockOpen[t.id] = o.concat('files') } emit(); return }
       if (e.key === 'Escape') { if (S.menu || S.notif) { S.menu = null; S.notif = false; emit() } else if (S.overlay) closeOverlay(); return }
       if (typing || mod || e.altKey) return
@@ -129,7 +129,7 @@ export function Playground () {
     const ro = new ResizeObserver(fit); ro.observe(el); fit(); return () => ro.disconnect()
   }, [S.w])
   useEffect(() => {
-    const h = location.hash.slice(1); goScreen(SCREENS.some(s => s.id === h) ? h : 'agora')
+    const h = location.hash.slice(1); goScreen(SCREENS.some(s => s.id === h) ? h : 'chat')
     const onHash = () => { const id = location.hash.slice(1); if (id !== S.screen && SCREENS.some(s => s.id === id)) goScreen(id) }
     window.addEventListener('hashchange', onHash); return () => window.removeEventListener('hashchange', onHash)
   }, [])

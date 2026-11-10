@@ -8,6 +8,8 @@ import { Icon, Av, Kbd, MI, menuBtn, StateBlock, toastSoon } from './ui'
 import { MENUS, railGo } from './Shell'
 import { syncScreen, goScreen } from '../screens/registry'
 import { HttpPanel, ContainersPanel, PrSummary, AzurePrTab } from './Cockpit'
+import { agents, openAgent, STATE_WORD, AGENT_GLYPH } from './Agora'
+import { wsName } from '../state/ws'
 
 /* ---------------------------------------------------------------- shared pieces */
 const KW = /\b(UPDATE|SET|FROM|WHERE|AND|SELECT|JOIN|ON|LIMIT|GROUP BY|EXPLAIN|ANALYZE|CREATE|TABLE|INDEX|CONCURRENTLY|PRIMARY|KEY|NOT|NULL|DEFAULT|IS|IN|AS|ANY|count|now)\b/
@@ -133,15 +135,17 @@ export function ImpactActions ({ ap }: { ap: Approval }) {
 export function QueueView () {
   const pend = S.queue.filter(q => !S.resolved[q]); const done = Object.keys(S.resolved)
   const sel = pend[Math.min(S.queueSel, pend.length - 1)]
+  const active = agents().filter(a => a.state === 'working' || a.state === 'failed' || a.kind === 'pane' || a.kind === 'delegation')
   return <div className="qv"><div className="qv-l"><header><h1>Approvals</h1><p className="muted" style={{ fontSize: 12 }}>{(() => { const qn = S.tasks.filter(x => x.ask).length; const n = pend.length + qn; return n ? `${n} waiting · ${plural(pend.length, 'approval')}${qn ? ', ' + plural(qn, 'question') : ''} · J and K move · D denies` : 'Nothing is waiting for you.' })()}</p></header>
     <div className="scroll"><div className="lst">{S.tasks.filter(t => t.ask).map(t => <button key={'q' + t.id} className="qi" onClick={() => { S.taskId = t.id; S.tab = 'conv'; goScreen('task-current'); setTimeout(() => document.getElementById('ask-' + t.id)?.scrollIntoView({ block: 'center' }), 100) }}><span className="sun live" style={{ marginTop: 5 }} /><span className="t trunc">{t.ask === 'cmd' ? 'Run a command' : 'Answer 2 questions'}</span><span className="s"><Av p={t.prov} size="s16" /><span className="trunc">{t.title}</span> · opens the conversation</span></button>)}
       {pend.map((q, i) => { const ap = D.approvals[q], t = task(ap.task)!
       return <button key={q} className="qi" autoFocus={i === 0 && q === sel} onClick={run(() => { S.queueSel = i })} aria-current={q === sel}><span className="sun live" style={{ marginTop: 5 }} /><span className="t trunc">{ap.title}</span><span className="s"><Av p={t.prov} size="s16" /><span className="trunc">{t.title}</span> · {ap.irreversible ? <span style={{ color: 'var(--danger-fg)' }}>can't be undone</span> : 'can be undone'}</span></button> })}
-      {done.length ? <><div className="tg">Decided today</div>{done.map(q => <div key={q} className="qi" style={{ opacity: .75 }}><span style={{ color: S.resolved[q] === 'deny' ? 'var(--danger)' : 'var(--success)' }}><Icon n={S.resolved[q] === 'deny' ? 'x' : 'check'} s={12} /></span><span className="t trunc" style={{ fontWeight: 500 }}>{D.approvals[q].title}</span><span className="s">{S.resolved[q] === 'deny' ? 'Denied' : S.resolved[q] === 'snap' ? 'Snapshot, then approved' : 'Approved'} by you</span></div>)}</> : null}</div></div>
+      {done.length ? <><div className="tg">Decided today</div>{done.map(q => <div key={q} className="qi" style={{ opacity: .75 }}><span style={{ color: S.resolved[q] === 'deny' ? 'var(--danger)' : 'var(--success)' }}><Icon n={S.resolved[q] === 'deny' ? 'x' : 'check'} s={12} /></span><span className="t trunc" style={{ fontWeight: 500 }}>{D.approvals[q].title}</span><span className="s">{S.resolved[q] === 'deny' ? 'Denied' : S.resolved[q] === 'snap' ? 'Snapshot, then approved' : 'Approved'} by you</span></div>)}</> : null}
+      {active.length ? <><div className="tg">Active across OxeChat &amp; OxeCode · {active.length}</div>{active.map(a => <button key={a.id} className="qi" onClick={() => openAgent(a)}><span className={'sg ' + AGENT_GLYPH[a.state]} style={{ marginTop: 4 }} /><span className="t trunc">{a.title}</span><span className="s"><Av p={a.prov} size="s16" /><span>{STATE_WORD[a.state]}</span> · <span>{wsName(a.ws)}</span> · <span>{a.kind === 'pane' ? 'OxeCode pane' : a.kind === 'delegation' ? 'delegated' : 'OxeChat'}</span></span></button>)}</> : null}</div></div>
     <div className="dlg-f"><button className="btn sm ghost" onClick={() => goScreen('settings-approvals')}><Icon n="gear" s={12} />Approval rules</button></div></div>
     <div className="qv-r">{sel ? <><ImpactBody ap={D.approvals[sel]} /><div className="imp-act" style={{ marginTop: 16, maxWidth: 880 }}><ImpactActions ap={D.approvals[sel]} /></div>
       <p className="muted" style={{ fontSize: 12, marginTop: 10 }}><button className="lk" onClick={() => { S.taskId = D.approvals[sel].task; S.tab = 'conv'; goScreen('task-current') }}>Open the task</button> to see the conversation around it.</p></>
-      : <StateBlock kind="empty" icon="check" title="All clear" text="When an agent asks to do something outside its permissions, it waits here and on its task. Your phone gets it too when it's paired and on the same Wi-Fi; database writes are answered only here." />}</div></div>
+      : <StateBlock kind="empty" icon="check" title="All clear" text="Requests outside an agent's permissions wait here and on your paired phone. Database writes stay on this computer." />}</div></div>
 }
 export { syncScreen }
 

@@ -20,7 +20,8 @@ import { refocus } from './Tools'
 
 export type AgState = 'needs-you' | 'failed' | 'working' | 'finished' | 'idle' | 'stopped' | 'unknown'
 export const STATE_WORD: Record<AgState, string> = { 'needs-you': 'Needs you', failed: 'Failed', working: 'Working', finished: 'Finished', idle: 'Idle', stopped: 'Stopped', unknown: 'Not confirmed' }
-const GLYPH: Record<AgState, string> = { 'needs-you': 'needs', failed: 'err', working: 'run', finished: 'done', idle: 'idle', stopped: 'stopped', unknown: 'unknown' }
+export const AGENT_GLYPH: Record<AgState, string> = { 'needs-you': 'needs', failed: 'err', working: 'run', finished: 'done', idle: 'idle', stopped: 'stopped', unknown: 'unknown' }
+const GLYPH = AGENT_GLYPH
 type Kind = 'thread' | 'pane' | 'delegation' | 'work'
 interface Agent { id: string; kind: Kind; ws: Workspace; title: string; prov: string; model?: string; state: AgState; since: string; activity?: string; sub?: string; t?: Task; pane?: { ws: string; i: number }; request?: string; parent?: string }
 
@@ -47,11 +48,12 @@ export function agents (): Agent[] {
   }
   return out
 }
-function open (a: Agent) {
+export function openAgent (a: Agent) {
   if (a.t) openTask(a.t.id)
   else if (a.pane) { S.ws = a.pane.ws; S.code.focus = a.pane.i; S.area = 'mode'; S.mode2 = 'code'; syncScreen(); emit() }
   else { S.overlay = { type: 'dlg', id: 'delegated' }; emit() }
 }
+const open = openAgent
 /** Steer a conversation (it queues if the provider can't steer mid-turn); type into a pane (the person's own keys). */
 /** From the provider's capabilities (the conversation header's canSteer); both Claude Code and Codex steer today. */
 export const canSteer = (t: Task) => !!D.providers[t.prov]?.caps?.canSteer
@@ -79,13 +81,14 @@ export function agoraKey (k: string): boolean {
 function NeedsCard ({ a, first }: { a: Agent; first: boolean }) {
   const ap = a.request ? D.approvals[a.request] : null; const ref = useRef<HTMLElement>(null)
   useEffect(() => { if (first && !document.activeElement?.closest('.ag-need, .ag-h, input')) ref.current?.focus() }, [first])
+  const showWhere = ap?.where && !ap.title.toLowerCase().includes(ap.where.toLowerCase())
   return <article ref={ref} className="ag-need" tabIndex={0} data-ap={ap?.id} data-ws={wsColor(a.ws)} aria-label={`${a.title} needs you${ap ? `: ${ap.title}. D to deny, A to ${ap.irreversible ? 'see the impact' : 'allow'}` : ': it asks you a question. Answer it in the conversation'}`}>
     <header><span className="wschip"><span className="wsdot" />{wsName(a.ws)}</span><Av p={a.prov} /><button className="ag-t" onClick={() => open(a)}>{a.title}</button><span className="sp" /><span className="muted mono" style={{ fontSize: 11 }}>{a.since}</span></header>
-    {ap ? <><p className="ag-ask"><b>{ap.title}</b> <span className="muted">· {ap.where}</span>{ap.irreversible ? <span className="pill danger" style={{ height: 18, marginLeft: 6 }}>can't be undone</span> : null}</p>
+    {ap ? <><p className="ag-ask"><b>{ap.title}</b>{showWhere ? <span className="muted"> · {ap.where}</span> : null}{ap.irreversible ? <span className="pill danger" style={{ height: 18, marginLeft: 6 }}>can't be undone</span> : null}</p>
       <div className="ag-acts"><button className="btn sm" onClick={() => { resolve(ap.id, 'deny'); emit(); refocus() }}>Deny <Kbd>D</Kbd></button>
         {ap.irreversible ? <button className="btn sm pri" onClick={run(() => { S.overlay = { type: 'approve', id: ap.id } })}>See impact… <Kbd>A</Kbd></button> : <button className="btn sm pri" onClick={() => { resolve(ap.id, 'ok'); emit(); refocus() }}>Allow <Kbd>A</Kbd></button>}
         <span className="sp" /><button className="btn sm ghost" onClick={run(() => { S.agOpen = a.id })}>Tell it something else</button></div></>
-      : <><p className="ag-ask"><b>{(a.activity || '').replace('Waiting for your answer: ', 'Asks you ')}</b></p><div className="ag-acts"><button className="btn sm pri ag-answer" onClick={() => open(a)}>Answer in the conversation</button><span className="sp" /><button className="btn sm ghost" onClick={run(() => { S.agOpen = a.id })}>Tell it something else</button></div></>}
+      : <><p className="ag-ask"><b>{(a.activity || '').replace('Waiting for your answer: ', 'Asks you ')}</b></p><div className="ag-acts"><button className="btn sm pri ag-answer" onClick={() => open(a)}>Answer in the conversation</button></div></>}
     {S.agOpen === a.id ? <Steer a={a} /> : null}</article>
 }
 const FILTERS: [string, string, (a: Agent) => boolean][] = [
@@ -107,7 +110,8 @@ function Row ({ a, all }: { a: Agent; all: Agent[] }) {
 export function Agora () {
   const all = agents(); const f = S.agFilter || 'all'; const fl = FILTERS.find(x => x[0] === f) || FILTERS[0]
   const needs = all.filter(a => a.state === 'needs-you' && a.kind === 'thread')
-  const groups = WORKSPACES.filter(w => !S.wsGone?.includes(w.id)).map(w => [w, all.filter(a => a.ws.id === w.id && fl[2](a))] as const).filter(g => g[1].length)
+  const listForGroups = f === 'needs-you' ? [] : f === 'all' ? all.filter(a => a.state !== 'needs-you') : all.filter(fl[2])
+  const groups = WORKSPACES.filter(w => !S.wsGone?.includes(w.id)).map(w => [w, listForGroups.filter(a => a.ws.id === w.id)] as const).filter(g => g[1].length)
   return <div className="agora">
     <header className="ag-h"><div><h1>Agora</h1><p>Every agent in every workspace, right now. Act here or open it where it runs.</p></div><span className="sp" />
       <div className="seg" role="radiogroup" aria-label="Show">{FILTERS.map(([k, l, m]) => <button key={k} role="radio" aria-checked={f === k} onClick={run(() => { S.agFilter = k })}>{l}<span className="n">{all.filter(m).length}</span></button>)}</div></header>
@@ -121,7 +125,7 @@ export function Agora () {
           <h2><button aria-expanded={!shut} onClick={run(() => { (S.agShut ||= {})[w.id] = !shut })}><Icon n={shut ? 'right' : 'down'} s={12} /><span className="wsdot" /><span>{wsName(w)}</span><span className="mono muted">{w.wt ? 'worktree · ' : ''}{w.branch}</span><span className="n">{plural(list.length, 'agent')}</span></button></h2>
           {shut ? null : <><div className="ag-rows" role="list">{(showDone ? top : live).map(a => <Row key={a.id} a={a} all={list} />)}</div>
             {!showDone && done.length ? <button className="more-b" onClick={run(() => { (S.agDone ||= {})[w.id] = true })}>Show {plural(done.length, 'finished agent')}</button> : null}</>}</section> })}
-      {!groups.length ? <div className="state" style={{ padding: 40 }}><p>No agents match this filter.</p></div> : null}
+      {!groups.length && f !== 'needs-you' ? <div className="state" style={{ padding: 40 }}><p>No agents match this filter.</p></div> : null}
     </div>
     <footer className="ag-f muted"><span>MCP requests are answered in their conversation.</span><span className="sp" /><span><Kbd>Ctrl Shift G</Kbd> opens Agora</span></footer></div>
 }
