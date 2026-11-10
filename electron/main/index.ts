@@ -65,6 +65,7 @@ import { AgentService } from './services/agent.service'
 import { registerMemoryIpc } from './ipc/memory.ipc'
 import { registerAgentHooksIpc } from './ipc/agent-hooks.ipc'
 import { AgentHookServer } from './services/agent-hooks/server'
+import { hookServerOptionsFor } from './services/agent-hooks/hook-pipeline'
 import { resolveSessionLocation } from './services/git-common-dir'
 import { SearchService } from './services/search.service'
 import { fallbackShellProfiles } from './services/shell-profile.defaults'
@@ -214,7 +215,8 @@ async function registerIpcHandlers(): Promise<() => void> {
   // hook script outside an OXESpace terminal is simply inert.
   // A18 (P7) · the cwd each pane's agent reported last, for the task's Terminal tab.
   const paneAgentCwd = new Map<string, string>()
-  const agentHookServer = new AgentHookServer({
+  const agentHookServer = new AgentHookServer(hookServerOptionsFor({
+    db,
     authenticate: ({ executionId, token, workspaceId }) => {
       try {
         const execution = executions.authenticate(executionId, token, workspaceId)
@@ -252,7 +254,7 @@ async function registerIpcHandlers(): Promise<() => void> {
         window.webContents.send(IPC_CHANNELS.agentHooks.onLocation, event)
       }
     }
-  })
+  }))
   // A bind failure only costs the hook signal; the heuristic keeps working.
   void agentHookServer.start().catch((error) => log.warn('Agent hook server unavailable', error))
   app.once('before-quit', () => agentHookServer.stop())
@@ -527,6 +529,9 @@ async function registerIpcHandlers(): Promise<() => void> {
     isProductionHost: productionHostsFor({ db, policy: policyStore() ?? undefined })
   })
   registerHttpAuditIpc(httpAuditLog)
+  httpAuditLog.prune()
+  const pruneHttpInterval = setInterval(() => httpAuditLog.prune(), 24 * 60 * 60 * 1000)
+  app.once('before-quit', () => clearInterval(pruneHttpInterval))
   const agentActivity = new AgentActivity(db, {
     isProductionHost: productionHostsFor({ db, policy: policyStore() ?? undefined }),
     pendingFor: (connectionId) => approvalCenter.list().some(req => req.target === connectionId || req.target?.includes(connectionId))
