@@ -15,7 +15,7 @@ import { useUpdaterStore } from '../../store/updater.store'
 import { applyWithUndo, Button, EmptyState, Notice, SegmentedControl, Switch, Select } from '../../ui'
 import { UpdatePreferences } from './UpdatePreferences'
 import { humanizeError } from '../../utils/humanizeError'
-
+import { ToolsSettings } from './ToolsSettings'; import { DataSettings } from './DataSettings'
 export interface SettingsModalProps {
   agentProfiles: AgentProfile[]
   agentReadiness: AgentReadiness[]
@@ -27,14 +27,12 @@ export interface SettingsModalProps {
   /** Bind a ready agent to the active terminal pane and restart it. */
   onUseProviderInPane?: (profile: AgentProfile) => void | Promise<void>
 }
-
 import { installDocLabel, PROVIDER_INSTALL_DOCS } from './providerInstallDocs'
 import type { TFunction } from 'i18next'
 import { THREAD_IDLE_SUSPEND_CHOICES } from '../../../shared/threadLimits'
 import { compatibilityBadge, type ProviderCompatibility } from '../../../shared/providerCompatibility'
 import { formatNumber } from '../../utils/formatTime'
 export { PROVIDER_INSTALL_DOCS }
-
 function formatCheckedAgo(ts: number | null, t: TFunction<'settings'>): string | null {
   if (ts == null) return null
   const sec = Math.max(0, Math.floor((Date.now() - ts) / 1000))
@@ -43,15 +41,16 @@ function formatCheckedAgo(ts: number | null, t: TFunction<'settings'>): string |
   if (sec < 86400) return t('checked.hours', { value: Math.floor(sec / 3600) })
   return t('checked.days', { value: Math.floor(sec / 86400) })
 }
-
-export type SettingsSection = 'providers' | 'appearance' | 'terminal' | 'notifications' | 'updates' | 'diagnostics'
-
+export type SettingsSection = 'providers' | 'appearance' | 'terminal' | 'notifications' | 'updates' | 'diagnostics' | 'mcp' | 'privacy' | 'activity' | 'about'
 export function SettingsContent({ section, ...props }: SettingsModalProps & { section: SettingsSection }): ReactElement {
   switch (section) {
     case 'appearance': return <AppearanceSettingsSection onClose={props.onClose} />
     case 'terminal': return <TerminalSettingsSection onClose={props.onClose} />
     case 'notifications': return <NotificationsSettingsSection onClose={props.onClose} />
-    case 'updates': return <UpdatesSettingsSection onClose={props.onClose} />
+    case 'updates': case 'about': return <UpdatesSettingsSection onClose={props.onClose} />
+    case 'activity': return <AgentActivitySettings />
+    case 'mcp': return <ToolsSettings rootPath="" />
+    case 'privacy': return <DataSettings />
     case 'diagnostics': return <DiagnosticsSettingsSection onClose={props.onClose} />
     default: return <ProvidersSettingsSection {...props} />
   }

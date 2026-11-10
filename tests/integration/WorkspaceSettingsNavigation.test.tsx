@@ -15,13 +15,9 @@ test('each change applies at once, and navigation keeps what was applied', async
   render(<WorkspaceSettingsModal workspace={workspace} shellProfiles={shells} onSave={onSave} onClose={onClose} />)
   fireEvent.click(screen.getByRole('radio', { name: /Compact/ }))
   await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ uiDensity: 'compact', workspaceId: 'ws' })))
-  fireEvent.click(screen.getByRole('button', { name: /Agent delegation Parallel work/ }))
+  fireEvent.click(screen.getByRole('button', { name: /Projects Worktrees/ }))
   expect(screen.queryByRole('radiogroup', { name: 'Density' })).toBeNull()
-  expect(screen.getByText('Delegation changes apply right away.')).toBeVisible()
-  fireEvent.click(screen.getByRole('button', { name: /Terminal Text/ }))
-  expect(screen.getByRole('radiogroup', { name: 'Default shell profile' })).toBeVisible()
-  expect(screen.getByText('Terminal appearance and the default shell apply right away.')).toBeVisible()
-  fireEvent.click(screen.getByRole('button', { name: /Appearance Mode/ }))
+  fireEvent.click(screen.getByRole('button', { name: /General Project instructions/ }))
   expect(screen.getByRole('radio', { name: /Compact/ })).toHaveAttribute('aria-checked', 'true')
   expect(screen.queryByRole('button', { name: 'Save workspace settings' })).toBeNull()
   expect(onClose).not.toHaveBeenCalled()
@@ -42,7 +38,6 @@ test('the default shell is a risky change: it applies at once and its toast offe
   const onSave = vi.fn(async () => {})
   const twoShells = [...shells, { id: 'pwsh', name: 'PowerShell', executable: 'pwsh', args: [] }] as ShellProfile[]
   render(<><Toaster /><WorkspaceSettingsModal workspace={workspace} shellProfiles={twoShells} onSave={onSave} onClose={vi.fn()} /></>)
-  fireEvent.click(screen.getByRole('button', { name: /Terminal Text/ }))
   fireEvent.click(screen.getByRole('radio', { name: /PowerShell/ }))
   await waitFor(() => expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({ defaultShellProfileId: 'pwsh' })))
   expect(await screen.findByText('The default shell is now PowerShell')).toBeVisible()
@@ -51,12 +46,12 @@ test('the default shell is a risky change: it applies at once and its toast offe
   expect(screen.getByRole('radio', { name: /Bash/ })).toBeChecked()
 })
 
-// R5: AI Memory is gone, so the workspace settings have no Memory page and probe nothing to decide it.
-test('there is no Project memory page, whatever the window offers', async () => {
-  vi.stubGlobal('oxe', {})
+test('the workspace pages are General, Projects and Policy', async () => {
   render(<WorkspaceSettingsModal workspace={workspace} shellProfiles={shells} onSave={vi.fn(async () => {})} onClose={vi.fn()} />)
-  await waitFor(() => expect(screen.getByRole('button', { name: /Agent delegation/ })).toBeVisible())
+  expect(screen.getByRole('button', { name: /General/ })).toBeVisible()
+  expect(screen.getByRole('button', { name: /Projects/ })).toBeVisible()
+  expect(screen.getByRole('button', { name: /Policy/ })).toBeVisible()
   expect(screen.queryByRole('button', { name: /Project memory/ })).toBeNull()
   expect(screen.queryByText('Shared Project Memory')).toBeNull()
-  expect(screen.getAllByRole('button', { name: /Appearance|Terminal|Agent delegation|Tools/ }).length).toBeGreaterThanOrEqual(4)
+  expect(screen.getAllByRole('button', { name: /General|Projects|Policy/ }).length).toBeGreaterThanOrEqual(3)
 })

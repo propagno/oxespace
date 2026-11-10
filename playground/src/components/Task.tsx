@@ -9,7 +9,7 @@ import { syncScreen, goScreen } from '../screens/registry'
 import { ToolTab, Highlight, DiffFile, placesFor } from './Tools'
 import { isRich, RichItem, decideCmd } from './Thread'
 import { CodeBlock, type Lang } from './Code'
-import { TOOLS, ToolPanel } from './Workbench'
+import { TOOLS, CHAT_TOOLS, ToolPanel } from './Workbench'
 import { TimeBar } from './TimeTravel'
 import { wsFor, TASK_WT } from '../mock/workspaces'
 import { wsName, wsColor } from '../state/ws'
@@ -86,7 +86,7 @@ export function TaskHeader ({ t, cell }: { t: Task; cell?: number }) {
     <div className="th-sub">{later ? <><Av p="claude" size="s16" /><Av p="codex" size="s16" />2 agents</> : <><Av p={t.prov} size="s16" />{prov(t.prov).name} · {t.model}</>}<span>·</span>{(() => { const w = wsFor(t.project, TASK_WT[t.id]); return w ? <span className="wschip" data-ws={wsColor(w)} title={w.path}><span className="wsdot" />{wsName(w)}</span> : <span>{p.name}</span> })()}<span>·</span><span className="num">{t.mins} min</span><CollisionChip tid={t.id} /></div>
     <NowLine t={t} /></header>
 }
-MENUS.convact = () => { const t = cur(); return <><MI icon="pencil" label="Rename" sc="/rename" onClick={() => { S.overlay = { type: 'dlg', id: 'rename' } }} /><MI icon="pin" label={t.pinned ? 'Unpin' : 'Pin to the top'} onClick={() => { t.pinned = !t.pinned; toast(t.pinned ? `Pinned ${t.key}` : `Unpinned ${t.key}`) }} /><MI icon="users" label="Delegate to a teammate…" onClick={() => { S.overlay = { type: 'dlg', id: 'delegate' } }} /><MI icon="plug" label="MCP servers…" onClick={() => { S.overlay = { type: 'dlg', id: 'mcp' } }} /><hr />
+MENUS.convact = () => { const t = cur(); return <><MI icon="pencil" label="Rename" sc="/rename" onClick={() => { S.overlay = { type: 'dlg', id: 'rename' } }} /><MI icon="pin" label={t.pinned ? 'Unpin' : 'Pin to the top'} onClick={() => { t.pinned = !t.pinned; toast(t.pinned ? `Pinned ${t.key}` : `Unpinned ${t.key}`) }} /><MI icon="users" label="Delegate…" onClick={() => { S.overlay = { type: 'dlg', id: 'delegate' } }} /><MI icon="plug" label="MCP servers…" onClick={() => { S.overlay = { type: 'dlg', id: 'mcp' } }} /><hr />
   <MI check={S.bigText} label="Larger text" onClick={() => { S.bigText = !S.bigText }} /><MI check={S.verbose} label="Show every tool call in full" onClick={() => { S.verbose = !S.verbose; if (S.verbose) (S.conv[t.id] || []).forEach((it, i) => it.tools && it.tools.forEach((r, j) => { if (r[4]) S.open[`${t.id}:${i}:${j}`] = true })) }} /><MI icon="info" label="Conversation details" sc="Ctrl I" onClick={() => { S.rp = true; S.rp900 = true; S.rpTab = 'details'; syncScreen() }} /><hr />
   <MI icon="fork" label="Fork" sc="/fork" dis={t.prov !== 'codex'} title={t.prov !== 'codex' ? 'Fork is available for Codex conversations' : undefined} onClick={() => { S.overlay = { type: 'dlg', id: 'branch', ck: 'message' } }} /><MI icon="download" label="Export" onClick={() => toast(`Exported ${t.key}.md to Downloads`)} />
   <MI icon="archive" label="Archive" sc="/archive" onClick={() => { const idx = S.tasks.indexOf(t); S.tasks.splice(idx, 1); S.taskId = S.tasks[0].id; toast(`Archived ${t.key}`, { undo: () => { S.tasks.splice(idx, 0, t); S.taskId = t.id; emit() } }) }} /><hr />
@@ -255,7 +255,7 @@ export function ChatArea () {
 }
 export function openBeside (id: string) { if (id === S.taskId) return; S.cellA = S.taskId; S.split2 = id; S.taskId = id; S.area = 'task' }
 export function closeCell (i: number) { const keep = i === 0 ? S.split2! : S.cellA!; S.split2 = null; S.cellA = null; S.taskId = keep; emit() }
-MENUS.addtool = () => { const t = cur(); const open = S.dockOpen[t.id] || []; return <><div className="mg">Open beside the conversation</div>{TOOLS.map(([id, ic, l, k]) => <MI key={id} icon={ic} label={l} sc={k} onClick={() => { S.dockTool[t.id] = id; if (!open.includes(id)) S.dockOpen[t.id] = open.concat(id) }} />)}</> }
+MENUS.addtool = () => { const t = cur(); const open = S.dockOpen[t.id] || []; return <><div className="mg">Open beside the conversation</div>{CHAT_TOOLS.map(([id, ic, l, k]) => <MI key={id} icon={ic} label={l} sc={k} onClick={() => { S.dockTool[t.id] = id; if (!open.includes(id)) S.dockOpen[t.id] = open.concat(id) }} />)}</> }
 
 /** Paths named in the agent's text open from where the file really is. The search order is shown when a path is
     opened, and a miss says where it looked (F33, T70). */

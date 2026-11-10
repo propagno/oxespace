@@ -9,11 +9,22 @@ describe('preload api', () => {
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.thread.observe, 'thread-A')
     expect(ipc.invoke).toHaveBeenCalledTimes(1)
   })
-  test('exposes explicit command refresh without launching a Thread or Code terminal', async () => {
+  test('exposes httpAudit API without raw ipc access', async () => {
     const ipc = createFakeIpc(), api = createOxeApi(ipc)
-    await api.thread!.commands('thread-A', true)
-    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.thread.commands, 'thread-A', true)
+    await api.httpAudit.list({ workspaceId: 'ws-1' })
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.httpAudit.list, { workspaceId: 'ws-1' })
     expect(ipc.invoke).toHaveBeenCalledTimes(1)
+  })
+
+  test('exposes agentActivity API without raw ipc access', async () => {
+    const ipc = createFakeIpc(), api = createOxeApi(ipc)
+    await api.agentActivity.list({ sources: ['http'] })
+    await api.agentActivity.detail('http:1')
+    await api.agentActivity.badge({ connectionId: 'c-1' })
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.agentActivity.list, { sources: ['http'] })
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.agentActivity.detail, 'http:1')
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.agentActivity.badge, { connectionId: 'c-1' })
+    expect(ipc.invoke).toHaveBeenCalledTimes(3)
   })
   test('exposes portable Thread import and export only through validated IPC methods', async () => {
     const ipc = createFakeIpc(), api = createOxeApi(ipc)

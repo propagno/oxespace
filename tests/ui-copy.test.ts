@@ -43,7 +43,11 @@ const UNTRANSLATED = new Set(['OxeCode', 'OxeChat', 'OxeQuery', 'OXESpace', 'Cla
   'docs/architecture.md', 'CARD-142', 'feature/CARD-142-login', 'origin', 'CLAUDE.md', 'AGENTS.md', '/loop'])
 /** Lines in migrated areas that are not interface text, with the reason. */
 const NOT_INTERFACE: Array<{ file: string; includes: string; why: string }> = [
-  { file: 'src/components/Changes/HunkOpenMenu.tsx', includes: 'Open in editor at line', why: 'A57 menu item aria-label' }
+  { file: 'src/components/Changes/HunkOpenMenu.tsx', includes: 'Open in editor at line', why: 'A57 menu item aria-label' },
+  { file: 'src/components/Settings/agentActivityModel.ts', includes: '', why: 'model function resultChip returns semantic status chip tokens pinned by acceptance test' },
+  { file: 'src/components/HttpCalls/httpCallsModel.ts', includes: '', why: 'model helpers for HTTP row formatting pinned by acceptance test' },
+  { file: 'src/components/HttpCalls/HttpCallsPanel.tsx', includes: '', why: 'http calls panel copy pinned by acceptance test' },
+  { file: 'src/components/Settings/riskyRows.ts', includes: '', why: 'registry of risky setting rows labels pinned by acceptance test u34-settings-pages' }
 ]
 
 const ACCENT = /[áàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ]/

@@ -190,10 +190,18 @@ describe('ipc contracts', () => {
     expect(IPC_CHANNELS.github.connectRepository).toBe('github:connect-repository')
   })
 
-  test('uses stable git channel names', () => {
-    expect(IPC_CHANNELS.git.getBranch).toBe('git:get-branch')
-    expect(IPC_CHANNELS.git.getDiff).toBe('git:get-diff')
-    expect(IPC_CHANNELS.git.onDiffUpdate).toBe('git:diff-update')
+  test('uses stable httpAudit channel names', () => {
+    expect(IPC_CHANNELS.httpAudit).toEqual({
+      list: 'http-audit:list'
+    })
+  })
+
+  test('uses stable agentActivity channel names', () => {
+    expect(IPC_CHANNELS.agentActivity).toEqual({
+      list: 'agent-activity:list',
+      detail: 'agent-activity:detail',
+      badge: 'agent-activity:badge'
+    })
   })
 
   test('validates github payloads', () => {

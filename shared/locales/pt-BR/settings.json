@@ -29,7 +29,7 @@
     "pages": {
       "general": {
         "label": "Geral",
-        "hint": "Navegação, workspace e privacidade"
+        "hint": "Navegação, workspace e preferências"
       },
       "providers": {
         "label": "Agentes",
@@ -56,12 +56,12 @@
         "hint": "Versão, downloads e instalação"
       },
       "policy": {
-        "label": "Política",
-        "hint": "O que os agentes estão proibidos de usar"
+        "label": "Aprovações e segurança",
+        "hint": "Aprovações, regras de política e recursos protegidos"
       },
       "devices": {
-        "label": "Dispositivos",
-        "hint": "Celulares pareados com este computador"
+        "label": "Celular e dispositivos",
+        "hint": "Celulares e dispositivos pareados"
       },
       "diagnostics": {
         "label": "Diagnóstico",
@@ -70,6 +70,22 @@
       "data": {
         "label": "Dados",
         "hint": "Exportação, backup e recursos removidos"
+      },
+      "mcp": {
+        "label": "Servidores MCP e skills",
+        "hint": "Servidores MCP e prompts de skills"
+      },
+      "privacy": {
+        "label": "Dados e privacidade",
+        "hint": "Exportação de dados e privacidade"
+      },
+      "activity": {
+        "label": "Atividade dos agentes",
+        "hint": "O que os agentes mudaram pelo OXESpace e o que você decidiu."
+      },
+      "about": {
+        "label": "Sobre",
+        "hint": "Versão, downloads e instalação"
       }
     }
   },
@@ -419,25 +435,55 @@
     "noFile": "Nenhum arquivo.",
     "noRules": "Nenhuma regra.",
     "rules": "Regras de {{layer}}",
-    "reload": "Recarregar a política"
+    "reload": "Recarregar a política",
+    "networkHint": "Hosts que os agentes podem chamar."
   },
   "activity": {
     "title": "Atividade dos agentes",
-    "hint": "O que os agentes mudaram pelo OXESpace (commits, pushes, pull requests, conversas, tarefas, skills) e o que você decidiu. Os pedidos a bancos de dados e contêineres aparecem no OxeQuery.",
+    "hint": "O que os agentes mudaram pelo OXESpace e o que você decidiu.",
     "decisions": {
       "auto": "executou",
       "approved": "você aprovou",
       "denied": "você recusou",
-      "refused": "recusado pela política",
+      "refused": "recusado por política",
       "pending": "aguardando você"
     },
-    "empty": "Nenhuma mudança dos agentes ainda.",
-    "list": "Mudanças dos agentes",
+    "empty": "Nenhuma atividade de agentes ainda.",
+    "list": "Alterações de agentes",
     "failed": "falhou",
     "failedWithCode": "falhou ({{code}})",
     "savedAudit": "Auditoria salva em {{path}}",
-    "refresh": "Atualizar a atividade",
-    "export": "Exportar a auditoria (JSONL)"
+    "refresh": "Atualizar atividade",
+    "export": "Exportar auditoria (JSONL)",
+    "columns": {
+      "when": "Quando",
+      "conversation": "Conversa",
+      "what": "O que",
+      "result": "Resultado"
+    },
+    "sources": {
+      "all": "Todos",
+      "changes": "Alterações",
+      "databases": "Bancos de dados",
+      "http": "HTTP",
+      "containers": "Contêineres"
+    },
+    "sourcesFailed": "Algumas fontes não puderam ser lidas. O resto está em dia.",
+    "tryAgain": "Tentar de novo",
+    "loadMore": "Carregar mais",
+    "emptyFiltered": "Nada corresponde a estes filtros.",
+    "clearFilters": "Limpar filtros",
+    "actorRemoved": "(removido)",
+    "changeGone": "Esta alteração não está mais na árvore de trabalho: foi commitada, desfeita ou movida.",
+    "containerGone": "Este contêiner foi removido. Só o nome e o horário de início ficam guardados.",
+    "openInEditor": "Abrir no editor na linha {{line}}",
+    "connection": "Conexão",
+    "engine": "Motor",
+    "image": "Imagem",
+    "ports": "Portas",
+    "folder": "Pasta",
+    "target": "Alvo",
+    "status": "Status"
   },
   "keyboard": {
     "title": "Teclado",
@@ -695,7 +741,7 @@
     "groups": {
       "core": {
         "name": "Essenciais",
-        "description": "Consultas de código e busca, em toda conversa."
+        "description": "Consultas de código, busca e memória, em toda conversa."
       },
       "orchestration": {
         "name": "Orquestração",
@@ -815,7 +861,7 @@
     "description": "Gerencie os dados do aplicativo, exportações e recursos removidos",
     "removedSection": "Removidos na 1.5",
     "exportLabel": "Exportar dados removidos",
-    "exportDesc": "Requisições do OxePost, memórias e automações, em um arquivo JSON.",
+    "exportDesc": "Dados dos recursos removidos na 1.5, em um arquivo JSON.",
     "savedDesc": "Salvo em {{date}} · {{file}}",
     "errorDesc": "Ainda não salvo: {{error}}",
     "showInFolder": "Mostrar na pasta",

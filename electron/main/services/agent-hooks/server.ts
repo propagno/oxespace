@@ -28,6 +28,16 @@ export interface AgentHookServerOptions {
   /** Sent when the directory a pane's agent reports working in changes. */
   onLocation?(event: AgentHookLocationEvent): void
   now?: () => number
+  httpAudit?: {
+    ingest(input: {
+      paneId: string
+      workspaceId: string
+      agent: string
+      sessionId: string | null
+      at: number
+      record: Record<string, unknown>
+    }): void | Promise<void>
+  }
 }
 
 interface Delivery {
@@ -112,6 +122,34 @@ export class AgentHookServer {
     const record = payload !== null && typeof payload === 'object' ? (payload as HookPayload) : {}
     const sessionId = typeof record.session_id === 'string' ? record.session_id : null
     const at = (this.options.now ?? Date.now)()
+    if (this.options.httpAudit) {
+      try {
+        void this.options.httpAudit.ingest({
+          paneId: target.paneId,
+          workspaceId: target.workspaceId,
+          agent: String(agent),
+          sessionId,
+          at,
+          record: record as Record<string, unknown>
+        })
+      } catch {
+        /* fail-open */
+      }
+    }
+
+    let output: { truncated: boolean; keptBytes: number; totalBytes?: number } | undefined
+    const toolResponse = record.tool_response as Record<string, unknown> | undefined
+    if (toolResponse && toolResponse.truncated === true) {
+      const rawKept = toolResponse.keptBytes
+      const keptBytes = typeof rawKept === 'number' && Number.isFinite(rawKept) && rawKept >= 0 ? rawKept : 0
+      const rawTotal = toolResponse.totalBytes
+      const hasTotal = typeof rawTotal === 'number' && Number.isFinite(rawTotal) && rawTotal >= 0
+      output = {
+        truncated: true,
+        keptBytes,
+        ...(hasTotal ? { totalBytes: rawTotal } : {})
+      }
+    }
     const state = mapHookEvent(agent as AgentHookAgent, record)
     // Location is read from every event, mapped or not, so a move into a worktree shows up at once.
     if (state === 'ended') this.lastLocation.delete(target.paneId)
@@ -125,6 +163,8 @@ export class AgentHookServer {
       event: typeof record.hook_event_name === 'string' ? record.hook_event_name : '',
       at,
       sessionId,
+      ...(typeof record.tool_use_id === 'string' ? { toolUseId: record.tool_use_id } : {}),
+      ...(output ? { output } : {}),
       // Only the mode a Claude session started in: a fresh start's SessionStart. Later events, and the SessionStart of
       // a /clear or /resume inside Claude, carry a mode changed during the session (T54, SECURITY L1 on #552).
       ...(agent === 'claude-code' && record.hook_event_name === 'SessionStart' && (record.source ?? 'startup') === 'startup' && isClaudePermissionMode(record.permission_mode) ? { permissionMode: record.permission_mode } : {})

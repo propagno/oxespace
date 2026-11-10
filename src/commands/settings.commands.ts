@@ -1,4 +1,4 @@
-import { Activity, ArrowUpCircle, Bell, Bot, Bug, Database, Info, Keyboard, Palette, Settings2, ShieldCheck, Smartphone, SquareTerminal, type LucideIcon } from 'lucide-react'
+import { Activity, ArrowUpCircle, Bell, Bot, Bug, Info, Keyboard, Palette, Settings2, ShieldCheck, Smartphone, SquareTerminal, Wrench, type LucideIcon } from 'lucide-react'
 import { OPEN_ABOUT_EVENT } from '../components/About/AboutHost'
 import { OPEN_REPORT_PROBLEM_EVENT } from '../components/Diagnostics/ReportProblemHost'
 import { OPEN_SHORTCUT_GUIDE_EVENT } from '../components/Keyboard/ShortcutGuideHost'
@@ -15,11 +15,13 @@ const PAGES: Array<{ page: SettingsPageId; icon: LucideIcon; keywords?: string[]
   { page: 'terminal', icon: SquareTerminal, keywords: ['font', 'cursor', 'scrollback'] },
   { page: 'keyboard', icon: Keyboard, keywords: ['shortcuts', 'keybindings', 'hotkeys'] },
   { page: 'notifications', icon: Bell, keywords: ['alerts', 'sounds'] },
-  { page: 'updates', icon: ArrowUpCircle, keywords: ['version', 'download'] },
+  { page: 'about', icon: ArrowUpCircle, keywords: ['version', 'download', 'updates', 'about'] },
+  { page: 'mcp', icon: Wrench, keywords: ['mcp', 'servers', 'skills', 'tools'] },
+  { page: 'privacy', icon: ShieldCheck, keywords: ['data', 'privacy', 'export'] },
+  { page: 'activity', icon: Activity, keywords: ['activity', 'audit', 'actions'] },
   { page: 'policy', icon: ShieldCheck, keywords: ['rules', 'block', 'deny'] },
   { page: 'devices', icon: Smartphone, keywords: ['phone', 'mobile', 'android', 'pair', 'remote'] },
-  { page: 'diagnostics', icon: Activity, keywords: ['health', 'logs', 'troubleshooting'] },
-  { page: 'data', icon: Database, keywords: ['export', 'backup', 'removed'] }
+  { page: 'diagnostics', icon: Activity, keywords: ['health', 'logs', 'troubleshooting'] }
 ]
 
 /** Every Settings page and the shortcut guide, in the palette. Loaded at boot; Settings itself stays lazy. */

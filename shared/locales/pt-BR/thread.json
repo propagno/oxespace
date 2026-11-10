@@ -1010,7 +1010,8 @@
     "search": "Buscar nos arquivos",
     "scripts": "Scripts",
     "worktrees": "Worktrees",
-    "background": "Atividade em segundo plano"
+    "background": "Atividade em segundo plano",
+    "httpCalls": "Chamadas HTTP"
   },
   "patch": {
     "region": "Diff do arquivo",
@@ -1709,6 +1710,7 @@
     "loadingBackground": "Carregando a atividade em segundo plano…",
     "loadingPreview": "Carregando a prévia web…",
     "loadingTerminal": "Carregando o terminal…",
+    "loadingNetwork": "Carregando chamadas HTTP…",
     "unavailable": "O projeto não está disponível.",
     "nativeActivity": "Atividade nativa em segundo plano",
     "providerActivity": "Atividade do provedor · {{count}} em execução",
@@ -1808,5 +1810,9 @@
     "pathCopied": "Caminho copiado",
     "loading": "Abrindo {{path}}…",
     "failed": "Não foi possível abrir {{path}}."
+  },
+  "toolOutputCut": {
+    "withTotal": "Saída cortada nos primeiros {{kept}} de {{total}}",
+    "keptOnly": "Saída cortada nos primeiros {{kept}}"
   }
 }

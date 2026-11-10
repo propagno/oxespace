@@ -16,6 +16,7 @@ import { SQL_NULL, displayCell, formatRows, type CopyFormat } from './grid-forma
 // warms up, stays small.
 const Editor = lazy(() => import('./SqlEditor'))
 import { LibraryMenu } from './LibraryMenu'
+import { AgentActivityBadge } from './AgentActivityBadge'
 import { ExportButton, TableEditor } from './TableEditor'
 import { SchemaTree } from './SchemaTree'
 import { ReconnectBar } from './ReconnectBar'
@@ -366,6 +367,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         </span>)}
         <button type="button" className="oq-qtab-add" data-oq-action="newQuery" aria-label={t('workbench.newQuery')} title={t('workbench.newQueryTitle')} disabled={tabs.length >= MAX_TABS} onClick={() => addTab('')}><Plus size={13} aria-hidden="true" /></button>
         <span className="oq-spacer" />
+        <AgentActivityBadge connectionId={connection.id} />
         <span className="oq-badge" data-environment={connection.environment}>{t(`environment.short.${connection.environment}`)}</span>
         <span className="oq-badge" data-readonly={safety.readOnly} data-policy={safety.readOnlyBy === 'policy' ? 'true' : undefined} title={safety.readOnlyBy === 'policy' ? t('workbench.readOnlyPolicyTitle') : safety.readOnly ? t('workbench.readOnlyTitle') : t('workbench.readWriteTitle')}>{safety.readOnlyBy === 'policy' ? t('workbench.readOnlyPolicy') : safety.readOnly ? t('common.readOnly') : t('common.readWrite')}</span>
       </div>

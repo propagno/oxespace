@@ -1,4 +1,9 @@
 {
+  "agentActivity": {
+    "badge_one": "{{count}} ação de agente hoje",
+    "badge_other": "{{count}} ações de agente hoje",
+    "badge_many": "{{count}} ações de agente hoje"
+  },
   "activity": {
     "label": "Atividade dos agentes",
     "intro": "Cada pedido de banco que um agente de IA fez, e o que você decidiu.",
