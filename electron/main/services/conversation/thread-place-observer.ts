@@ -59,6 +59,17 @@ export class ThreadPlaceObserver {
 
   constructor(private readonly deps: ThreadPlaceObserverDeps) {}
 
+  private readonly listeners = new Map<string, Set<(id: string) => void>>()
+  /** CR-F4-7b: hears a place added, or a drift seen, cleared or answered; '*' hears every conversation. Only the id is passed. */
+  subscribePlaces = (id: string, listener: (id: string) => void): (() => void) => {
+    const listeners = this.listeners.get(id) ?? new Set<(id: string) => void>()
+    listeners.add(listener); this.listeners.set(id, listeners)
+    return () => { listeners.delete(listener); if (!listeners.size) this.listeners.delete(id) }
+  }
+  placesChanged = (id: string): void => {
+    for (const listener of [...this.listeners.get(id) ?? [], ...this.listeners.get('*') ?? []]) { try { listener(id) } catch { /* a listener never breaks the place bookkeeping */ } }
+  }
+
   private audit(): PersonActionAudit { return (this.personAuditLog ??= new PersonActionAudit(this.deps.db)) }
 
   /** Where this conversation worked: its root, then each worktree, checkout and outside folder the evidence named. */
@@ -97,6 +108,7 @@ export class ThreadPlaceObserver {
     if (answer === 'followed') {
       this.deps.db.prepare('UPDATE thread_places SET base_commit = ?, base_branch = ?, drift_json = ? WHERE thread_id = ? AND id = ?')
         .run(drift.to.commit, drift.to.branch, JSON.stringify(answered), id, place.id)
+      this.placesChanged(id)
     } else this.storeDrift(id, place.id, answered)
     this.acceptedHeads.get(id)?.delete(place.id)
     const after = (await this.places(id)).places.find(entry => entry.id === place.id)
@@ -195,6 +207,7 @@ export class ThreadPlaceObserver {
 
   private storeDrift(id: string, placeId: string, drift: ThreadPlaceDrift | null): void {
     this.deps.db.prepare('UPDATE thread_places SET drift_json = ? WHERE thread_id = ? AND id = ?').run(drift ? JSON.stringify(drift) : null, id, placeId)
+    this.placesChanged(id)
   }
 
   /** The places with their drift read now; a new drift is stored and saved as one place-drift event. */

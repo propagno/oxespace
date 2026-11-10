@@ -116,7 +116,7 @@ export class ThreadOrchestrator {
   /** F4 places per conversation, from evidence (migration 095). */
   private readonly placeStore: ThreadPlaceStore
   /** F4 places, drift, place diff and read, cwd, panes and collisions (thread-place-observer.ts). */
-  private readonly placeObserver: ThreadPlaceObserver
+  protected readonly placeObserver: ThreadPlaceObserver
   private readonly placeActions = new ThreadPlaceActions(() => this.db, id => this.places(id))
   private paneSource: () => ThreadPaneSource[] = () => []
   private readonly busy = new Set<string>()
@@ -157,7 +157,7 @@ export class ThreadOrchestrator {
     this.exports = new ThreadExportService((threadId, artifactId) => this.history.artifact(threadId, artifactId))
     this.checkpoints = new ThreadCheckpointService(db)
     this.turns = new ThreadTurnTracker(this.checkpoints, id => this.read(id), (id, event) => this.event(id, event))
-    this.placeStore = new ThreadPlaceStore(db, this.checkpoints, (threadId, turnId, root) => this.turns.begin(threadId, turnId, root, 'Another checkout'))
+    this.placeStore = new ThreadPlaceStore(db, this.checkpoints, (threadId, turnId, root) => this.turns.begin(threadId, turnId, root, 'Another checkout'), threadId => this.placeObserver.placesChanged(threadId))
     this.placeObserver = new ThreadPlaceObserver({ db, placeStore: this.placeStore, readThread: id => this.readThread(id), read: id => this.read(id), save: (snapshot, options) => this.save(snapshot, options),
       paneSources: () => this.paneSources(), isBusy: id => this.busy.has(id), isStarting: id => this.starting.has(id), beginCheckpoint: (id, turnId, root, label) => this.turns.begin(id, turnId, root, label) })
     this.permissions = new ThreadPermissionStore(db)

@@ -17,6 +17,7 @@ import { tagThreadWorktreeError } from '../../../shared/threadWorktree'
 import { registerThreadWorktreeIpc } from './thread-worktree.ipc'
 import { registerThreadSectionsIpc } from './thread-sections.ipc'
 import { registerThreadPlacesIpc } from './thread-places.ipc'
+import { forwardPlacesChanged } from './thread-places-changed'
 import type { ThreadRequestResponse } from '../../../shared/types/thread'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
 import { MainRefusal } from '../services/main-refusal'
@@ -319,5 +320,6 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
   registerThreadWorktreeIpc({ db, manager, threadProjects, worktrees, id: string })
   registerThreadSectionsIpc({ db })
   registerThreadPlacesIpc({ manager })
+  forwardPlacesChanged({ manager })
   return { manager, stop: async () => { await sideChats?.then(chats => chats.stop()).catch(() => {}); await (await accounts).stop(); await (await manager).stop() } }
 }
