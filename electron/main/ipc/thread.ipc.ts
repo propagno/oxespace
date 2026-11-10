@@ -254,8 +254,6 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
     return manager.then(service => service.addPermissionRule(string(id), input))
   })
   ipcMain.handle(IPC_CHANNELS.thread.removePermissionRule, (event, id: unknown, ruleId: unknown) => manager.then(service => service.removePermissionRule(string(id), string(ruleId))))
-  ipcMain.handle(IPC_CHANNELS.thread.workRuns, (event, id: unknown) => manager.then(service => service.workRuns(string(id))))
-  ipcMain.handle(IPC_CHANNELS.thread.cancelWork, (event, id: unknown, runId: unknown) => manager.then(service => service.cancelWork(string(id), string(runId))))
   ipcMain.handle(IPC_CHANNELS.thread.autoApproveReads, event => manager.then(service => service.autoApproveReads()))
   ipcMain.handle(IPC_CHANNELS.thread.setAutoApproveReads, (event, enabled: unknown) => {
     if (typeof enabled !== 'boolean') throw Error('Choose on or off')

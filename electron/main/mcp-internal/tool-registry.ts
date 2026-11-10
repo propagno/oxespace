@@ -30,7 +30,6 @@ import { execGit } from '../utils/safe-git'
 import { CONFIGURABLE_MCP_TOOL_GROUPS as TOOL_GROUP_NAMES } from '../../../shared/types/mcp-tools'
 import { THREAD_HANDOFF_TOOLS } from './thread-handoff-tools'
 import { OXEQUERY_TOOLS } from './oxequery-tools'
-import { WORK_TOOLS } from './work-tools'
 import { GIT_TOOLS } from './git-tools'
 import { APP_READ_TOOLS } from './app-read-tools'
 import { APP_WRITE_TOOLS } from './app-write-tools'
@@ -219,7 +218,6 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   ...DELEGATION_TOOLS,
   ...THREAD_HANDOFF_TOOLS,
   ...OXEQUERY_TOOLS,
-  ...WORK_TOOLS,
   ...GIT_TOOLS,
   ...APP_READ_TOOLS,
   ...APP_WRITE_TOOLS,

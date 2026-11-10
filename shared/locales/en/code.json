@@ -2078,7 +2078,10 @@
       "description": "The delegated agent stops. Its worktree and conversation are kept, so you can inspect them later."
     },
     "notice": "Delegated task updated",
-    "view": "View task"
+    "view": "View task",
+    "waitsForOne": "Waits for: {{objective}}",
+    "waitsForMany": "Waits for: {{first}} and {{count}} more",
+    "blocked": "Blocked: {{objective}} failed"
   },
   "integration": {
     "roles": {

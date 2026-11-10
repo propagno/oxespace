@@ -2149,7 +2149,10 @@
       "description": "O agente delegado para. O worktree e a conversa são mantidos, para você inspecionar depois."
     },
     "notice": "Tarefa delegada atualizada",
-    "view": "Ver tarefa"
+    "view": "Ver tarefa",
+    "waitsForOne": "Aguarda: {{objective}}",
+    "waitsForMany": "Aguarda: {{first}} e mais {{count}}",
+    "blocked": "Bloqueada: {{objective}} falhou"
   },
   "integration": {
     "roles": {

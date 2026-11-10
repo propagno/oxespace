@@ -147,6 +147,7 @@ export class DelegationApplicationService {
     if (input.evidenceFiles !== undefined && (!Array.isArray(input.evidenceFiles) || input.evidenceFiles.length > 8 || input.evidenceFiles.some(path => typeof path !== 'string' || !path || path.length > 512))) throw new Error('Invalid evidence selection')
     if (input.sourceThreadIds !== undefined && (!Array.isArray(input.sourceThreadIds) || input.sourceThreadIds.length > 5 || new Set(input.sourceThreadIds).size !== input.sourceThreadIds.length || input.sourceThreadIds.some(id => typeof id !== 'string' || !/^[a-f\d-]{36}$/i.test(id)))) throw new Error('Select up to five distinct conversations')
     if (input.includeMemory !== undefined && typeof input.includeMemory !== 'boolean') throw new Error('Invalid AI Memory selection')
+    if (input.dependsOn !== undefined && (!Array.isArray(input.dependsOn) || input.dependsOn.length > 12 || new Set(input.dependsOn).size !== input.dependsOn.length || input.dependsOn.some(id => typeof id !== 'string' || !id.trim() || id.length > 128))) throw new Error('Invalid task dependencies')
     if (input.targetWorkspaceId !== undefined && (typeof input.targetWorkspaceId !== 'string' || !input.targetWorkspaceId || input.targetWorkspaceId.length > 128)) throw new Error('Invalid target workspace')
     const originProject = await projectIdentity(origin.cwd)
     const targetId = input.targetWorkspaceId ?? origin.workspaceId
@@ -165,7 +166,8 @@ export class DelegationApplicationService {
       targetWorkspaceId: targetId, mode: input.mode ?? 'isolated-change', surface: input.surface ?? 'terminal',
       branchIntent: input.branchIntent ?? { strategy: 'generated' as const }, evidenceFiles: input.evidenceFiles ?? [],
       ...(input.sourceThreadIds?.length ? { sourceThreadIds: input.sourceThreadIds } : {}),
-      ...(input.includeMemory !== undefined ? { includeMemory: input.includeMemory } : {}) }
+      ...(input.includeMemory !== undefined ? { includeMemory: input.includeMemory } : {}),
+      ...(input.dependsOn?.length ? { dependsOn: input.dependsOn } : {}) }
     const payloadHash = createHash('sha256').update(JSON.stringify(normalized)).digest('hex')
     const request = this.db.prepare('SELECT task_id AS id, payload_hash AS hash FROM coordination_requests WHERE origin_pane=? AND request_key=?')
       .get(origin.paneId, input.key) as { id: string; hash: string } | undefined
@@ -231,7 +233,7 @@ export class DelegationApplicationService {
     this.event(task, 'created', 'Delegation queued')
     if (fromPerson && task.checkout?.fetchBase) this.personFetches.add(task.id)
     this.schedule(task.id)
-    return task
+    return this.get(task.id)
   }
   async createFromSurface(workspaceId: string, owner: { kind: 'pane' | 'thread'; id: string }, input: DelegationInput): Promise<DelegationTask> {
     if (!owner || !['pane', 'thread'].includes(owner.kind) || typeof owner.id !== 'string' || !owner.id || owner.id.length > 128) throw new Error('Invalid delegation origin')
