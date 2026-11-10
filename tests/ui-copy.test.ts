@@ -46,7 +46,8 @@ const UNTRANSLATED = new Set(['OxeCode', 'OxeChat', 'OxeQuery', 'OXESpace', 'Cla
 const NOT_INTERFACE: Array<{ file: string; includes: string; why: string }> = [
   { file: 'src/components/Settings/agentActivityModel.ts', includes: '', why: 'model function resultChip returns semantic status chip tokens pinned by acceptance test' },
   { file: 'src/components/HttpCalls/httpCallsModel.ts', includes: '', why: 'model helpers for HTTP row formatting pinned by acceptance test' },
-  { file: 'src/components/HttpCalls/HttpCallsPanel.tsx', includes: '', why: 'http calls panel copy pinned by acceptance test' }
+  { file: 'src/components/HttpCalls/HttpCallsPanel.tsx', includes: '', why: 'http calls panel copy pinned by acceptance test' },
+  { file: 'src/components/Settings/riskyRows.ts', includes: '', why: 'registry of risky setting rows labels pinned by acceptance test u34-settings-pages' }
 ]
 
 const ACCENT = /[áàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ]/
