@@ -66,6 +66,10 @@
       "diagnostics": {
         "label": "Diagnostics",
         "hint": "Application health and troubleshooting"
+      },
+      "data": {
+        "label": "Data",
+        "hint": "Export, backup and removed features"
       }
     }
   },
@@ -776,5 +780,17 @@
       "bodyDefaults": "The file has an error and has never been read, so agents use the app's defaults, shown below. To change them, fix the file by hand and choose Reload.",
       "readAgain": "Modes read again"
     }
+  },
+  "data": {
+    "title": "Data",
+    "description": "Manage your application data, exports and removed features",
+    "removedSection": "Removed in 1.5",
+    "exportLabel": "Export removed data",
+    "exportDesc": "OxePost requests, memories and automations, in one JSON file.",
+    "savedDesc": "Saved {{date}} · {{file}}",
+    "errorDesc": "Not saved yet: {{error}}",
+    "showInFolder": "Show in folder",
+    "tryNow": "Try now",
+    "exportAction": "Export…"
   }
 }

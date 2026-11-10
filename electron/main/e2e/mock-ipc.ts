@@ -68,6 +68,18 @@ export function registerE2eMockIpcHandlers(): void {
   registerAgentsMock()
   registerThreadSectionsMock(id => workspaces.some(workspace => workspace.id === id))
   registerOpenExternalMock()
+  ipcMain.handle(IPC_CHANNELS.dataExport.state, () => ({
+    upgrade: false,
+    file: null,
+    exportedAt: null,
+    shownNotice: true,
+    error: null,
+    removed: []
+  }))
+  ipcMain.handle(IPC_CHANNELS.dataExport.markNoticeShown, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.dataExport.exportAgain, () => ({ file: null }))
+  ipcMain.handle(IPC_CHANNELS.dataExport.open, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.dataExport.reveal, () => undefined)
   registerAgentHooksMock()
   // Never in a packaged build: the gate is inside, on app.isPackaged (see mcp-fixture.ts).
   installMcpFixture(ipcMain, process.env, app.isPackaged)

@@ -473,7 +473,73 @@
       "ready": "OXESpace {{version}} is ready",
       "readyDetail": "Restart to install the update."
     },
-    "devBuild": "Updates only run in installed builds"
+    "devBuild": "Updates only run in installed builds",
+    "removedFeatures": {
+      "info": "OXESpace 1.5 removed some features. Your data was saved.",
+      "warning": "OXESpace 1.5 removed some features. Your data isn't saved yet.",
+      "seeWhatChanged": "See what changed",
+      "dismiss": "Dismiss",
+      "tryNow": "Try now",
+      "dialogTitle": "What changed in 1.5",
+      "nothingNeededSaving": "Nothing needed saving.",
+      "savedPrefix": "Saved to",
+      "savedMemoriesAutosRequests": ": memories, automations and the OxePost requests of your open workspaces.",
+      "savedMemoriesRequests": ": memories and the requests of your open workspaces.",
+      "secretsNote": "Secrets aren't in the file; they stay in OXESpace. Other projects keep theirs in .oxespace/requests.",
+      "errorPrefix": "Couldn't save your data:",
+      "errorSuffix": "Nothing was deleted, and OXESpace tries again at the next start.",
+      "open": "Open",
+      "showInFolder": "Show in folder",
+      "close": "Close",
+      "oxepost": {
+        "feature": "OxePost",
+        "dest": "HTTP calls panel"
+      },
+      "oxepod": {
+        "feature": "OxePod",
+        "dest": "Containers panel"
+      },
+      "memory": {
+        "feature": "AI Memory",
+        "and": "and"
+      },
+      "automations": {
+        "feature": "Automations",
+        "dest": "and scheduled routines"
+      },
+      "teams": {
+        "feature": "Teams",
+        "dest": "Delegated work"
+      },
+      "linear": {
+        "feature": "Linear",
+        "dest": "Linear's MCP server"
+      },
+      "semantic": {
+        "feature": "Search by meaning",
+        "dest": "Agents' own search"
+      },
+      "codegraph": {
+        "feature": "CodeGraph",
+        "dest": "CodeGraph's MCP server"
+      },
+      "rtk": {
+        "feature": "RTK",
+        "dest": "Install RTK yourself"
+      },
+      "docs": {
+        "feature": "Documentation tools",
+        "dest": "Agents write docs in the repo"
+      },
+      "fileEditing": {
+        "feature": "File editing",
+        "dest": "Open in editor"
+      },
+      "skillsManager": {
+        "feature": "Skills manager",
+        "dest": "Read-only list, run with /"
+      }
+    }
   },
   "brand": {
     "tagline": "Agents and terminals for your projects"

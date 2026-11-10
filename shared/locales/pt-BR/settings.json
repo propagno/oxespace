@@ -66,6 +66,10 @@
       "diagnostics": {
         "label": "Diagnóstico",
         "hint": "Saúde do aplicativo e solução de problemas"
+      },
+      "data": {
+        "label": "Dados",
+        "hint": "Exportação, backup e recursos removidos"
       }
     }
   },
@@ -803,5 +807,17 @@
       "bodyDefaults": "O arquivo tem um erro e nunca foi lido, então os agentes usam os padrões do app, mostrados abaixo. Para mudá-los, corrija o arquivo à mão e escolha Recarregar.",
       "readAgain": "Modos lidos de novo"
     }
+  },
+  "data": {
+    "title": "Dados",
+    "description": "Gerencie os dados do aplicativo, exportações e recursos removidos",
+    "removedSection": "Removidos na 1.5",
+    "exportLabel": "Exportar dados removidos",
+    "exportDesc": "Requisições do OxePost, memórias e automações, em um arquivo JSON.",
+    "savedDesc": "Salvo em {{date}} · {{file}}",
+    "errorDesc": "Ainda não salvo: {{error}}",
+    "showInFolder": "Mostrar na pasta",
+    "tryNow": "Tentar agora",
+    "exportAction": "Exportar…"
   }
 }

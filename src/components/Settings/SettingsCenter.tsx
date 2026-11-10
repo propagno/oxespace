@@ -1,4 +1,4 @@
-import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, Keyboard, Palette, Settings2, ShieldCheck, Smartphone, SquareTerminal, X } from 'lucide-react'
+import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, Database, Keyboard, Palette, Settings2, ShieldCheck, Smartphone, SquareTerminal, X } from 'lucide-react'
 import { Suspense, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
@@ -10,6 +10,7 @@ import { chunk, lazyFrom } from '../../lib/chunk'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace } from '../../../shared/types/workspace'
 import { SeenSitesSetting } from './SeenSitesSetting'
 import { ExternalEditorSetting } from './ExternalEditorSetting'
+import { DataSettings } from './DataSettings'
 import './SettingsCenter.css'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
@@ -30,13 +31,13 @@ const KeyboardSettings = lazyFrom(SETTINGS_CHUNK, module => module.KeyboardSetti
 const DevicesSettings = lazyFrom(SETTINGS_CHUNK, module => module.DevicesSettings)
 const retryPages = (): void => { for (const page of [SettingsContent, WorkspaceSettingsModal, PolicySettings, KeyboardSettings, DevicesSettings]) page.retry() }
 
-type AppPage = 'general' | 'policy' | 'devices' | 'keyboard' | SettingsSection
+type AppPage = 'general' | 'policy' | 'devices' | 'keyboard' | 'data' | SettingsSection
 export type SettingsDestination = { scope: 'application'; page: AppPage } | { scope: 'workspace'; workspaceId: string; page: typeof SETTINGS_PAGES[number]['id'] }
 const appPages = [
   { id: 'general', icon: Settings2 }, { id: 'providers', icon: Bot }, { id: 'appearance', icon: Palette },
   { id: 'terminal', icon: SquareTerminal }, { id: 'keyboard', icon: Keyboard },
   { id: 'notifications', icon: Bell }, { id: 'updates', icon: ArrowUpCircle }, { id: 'policy', icon: ShieldCheck }, { id: 'devices', icon: Smartphone },
-  { id: 'diagnostics', icon: Activity }
+  { id: 'diagnostics', icon: Activity }, { id: 'data', icon: Database }
 ] as const
 
 /**
@@ -165,7 +166,7 @@ export function SettingsCenter(props: SettingsModalProps & {
               props.onClose()
             }} />
             : <section className="settings-general"><h2>{t('center.workspaceClosed')}</h2><p>{t('center.workspaceClosedHint')}</p></section>
-            : destination.page === 'general' ? <GeneralSettings /> : destination.page === 'policy' ? <PolicySettings workspaceId={scopeWorkspace?.id} /> : destination.page === 'keyboard' ? <KeyboardSettings /> : destination.page === 'devices' ? <DevicesSettings /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
+            : destination.page === 'general' ? <GeneralSettings /> : destination.page === 'policy' ? <PolicySettings workspaceId={scopeWorkspace?.id} /> : destination.page === 'keyboard' ? <KeyboardSettings /> : destination.page === 'devices' ? <DevicesSettings /> : destination.page === 'data' ? <DataSettings /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
         </Suspense></ErrorBoundary></div>
       </main>
     </ModalSurface>

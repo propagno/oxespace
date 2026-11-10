@@ -39,7 +39,7 @@ declare module 'web-tree-sitter' {
   }
 
   export interface EmscriptenModule {
-    [key: string]: any;
+    [key: string]: unknown;
   }
 
   export class Parser {
@@ -75,8 +75,8 @@ declare module 'web-tree-sitter' {
     get supertypes(): number[];
     subtypes(supertype: number): number[];
     nextState(stateId: number, typeId: number): number;
-    lookaheadIterator(stateId: number): any;
-    query(source: string): any;
+    lookaheadIterator(stateId: number): unknown;
+    query(source: string): unknown;
     static load(input: string | Uint8Array): Promise<Language>;
   }
 

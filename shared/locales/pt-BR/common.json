@@ -481,7 +481,73 @@
       "ready": "OXESpace {{version}} está pronto",
       "readyDetail": "Reinicie para instalar a atualização."
     },
-    "devBuild": "As atualizações só funcionam em versões instaladas"
+    "devBuild": "As atualizações só funcionam em versões instaladas",
+    "removedFeatures": {
+      "info": "O OXESpace 1.5 removeu alguns recursos. Seus dados foram salvos.",
+      "warning": "O OXESpace 1.5 removeu alguns recursos. Seus dados ainda não foram salvos.",
+      "seeWhatChanged": "Ver o que mudou",
+      "dismiss": "Dispensar",
+      "tryNow": "Tentar agora",
+      "dialogTitle": "O que mudou na 1.5",
+      "nothingNeededSaving": "Nada precisava ser salvo.",
+      "savedPrefix": "Salvo em",
+      "savedMemoriesAutosRequests": ": memórias, automações e as requisições do OxePost dos seus workspaces abertos.",
+      "savedMemoriesRequests": ": memórias e as requisições dos seus workspaces abertos.",
+      "secretsNote": "Segredos não estão no arquivo; eles ficam no OXESpace. Outros projetos mantêm os seus em .oxespace/requests.",
+      "errorPrefix": "Não foi possível salvar seus dados:",
+      "errorSuffix": "Nada foi excluído, e o OXESpace tenta novamente na próxima inicialização.",
+      "open": "Abrir",
+      "showInFolder": "Mostrar na pasta",
+      "close": "Fechar",
+      "oxepost": {
+        "feature": "OxePost",
+        "dest": "Painel de chamadas HTTP"
+      },
+      "oxepod": {
+        "feature": "OxePod",
+        "dest": "Painel de contêineres"
+      },
+      "memory": {
+        "feature": "Memória de IA",
+        "and": "e"
+      },
+      "automations": {
+        "feature": "Automações",
+        "dest": "e rotinas agendadas"
+      },
+      "teams": {
+        "feature": "Equipes",
+        "dest": "Trabalho delegado"
+      },
+      "linear": {
+        "feature": "Linear",
+        "dest": "Servidor MCP do Linear"
+      },
+      "semantic": {
+        "feature": "Busca semântica",
+        "dest": "Busca própria dos agentes"
+      },
+      "codegraph": {
+        "feature": "CodeGraph",
+        "dest": "Servidor MCP do CodeGraph"
+      },
+      "rtk": {
+        "feature": "RTK",
+        "dest": "Instale o RTK você mesmo"
+      },
+      "docs": {
+        "feature": "Ferramentas de documentação",
+        "dest": "Agentes escrevem documentação no repositório"
+      },
+      "fileEditing": {
+        "feature": "Edição de arquivos",
+        "dest": "Abrir no editor"
+      },
+      "skillsManager": {
+        "feature": "Gerenciador de habilidades",
+        "dest": "Lista somente leitura, execute com /"
+      }
+    }
   },
   "brand": {
     "tagline": "Agentes e terminais para os seus projetos"

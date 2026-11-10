@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ReactElement } from 'react'
 import type { DiffComment, DiffSide } from '../../../shared/types/diff-comments'
 import { attachLineComments } from './diffLineComments'
 import { HunkOpenMenu } from './HunkOpenMenu'
-import { hunkTargets, hunkDecorations } from './diffHunkOpen'
+import { hunkTargets, hunkDecorations, type LineChange } from './diffHunkOpen'
 import { i18n } from '../../i18n'
 // Self-hosts Monaco and registers its workers (CSP-compliant, offline).
 import '../../lib/monacoSetup'
@@ -66,18 +66,18 @@ export default function MonacoDiff({ original, modified, language, path, review,
             observer.observe(dom, { childList: true, subtree: true, characterData: true })
             relabelFolds(dom)
 
-            const lineChanges = editor.getLineChanges() ?? []
-            const foundTargets = hunkTargets(lineChanges as any)
+            const lineChanges = (editor.getLineChanges() ?? []) as unknown as LineChange[]
+            const foundTargets = hunkTargets(lineChanges)
             setTargets(foundTargets)
             const modifiedEditor = editor.getModifiedEditor()
             let currentDecorations: string[] = []
             if (foundTargets.length > 0) {
-              currentDecorations = modifiedEditor.deltaDecorations([], hunkDecorations(foundTargets) as any)
+              currentDecorations = modifiedEditor.deltaDecorations([], hunkDecorations(foundTargets) as unknown as Parameters<typeof modifiedEditor.deltaDecorations>[1])
             }
             editor.onDidUpdateDiff(() => {
-              const updated = hunkTargets((editor.getLineChanges() as any) ?? [])
+              const updated = hunkTargets((editor.getLineChanges() ?? []) as unknown as LineChange[])
               setTargets(updated)
-              currentDecorations = modifiedEditor.deltaDecorations(currentDecorations, hunkDecorations(updated) as any)
+              currentDecorations = modifiedEditor.deltaDecorations(currentDecorations, hunkDecorations(updated) as unknown as Parameters<typeof modifiedEditor.deltaDecorations>[1])
             })
 
             let measuring = true

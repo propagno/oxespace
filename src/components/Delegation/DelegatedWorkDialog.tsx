@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { GitBranch, Plus, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import type { DelegationTask, DelegationRecoveryAction } from '../../../shared/types/delegation'
 import type { Workspace } from '../../../shared/types/workspace'
 import { DelegationCreateDialog } from './DelegationCreateDialog'
@@ -9,7 +10,7 @@ import { Button, ConfirmDialog, Dialog, Notice, Select, TextField } from '../../
 import { humanizeError } from '../../utils/humanizeError'
 import { formatDateTime } from '../../utils/formatTime'
 
-function renderDependencyLine(task: DelegationTask, t: any) {
+function renderDependencyLine(task: DelegationTask, t: TFunction<'code'>) {
   const deps = task.dependencies ?? []
   if (!deps.length) return null
   const failed = deps.find(d => ['failed', 'cancelled', 'interrupted'].includes(d.state))
