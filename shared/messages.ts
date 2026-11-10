@@ -355,22 +355,6 @@ export interface MessageParams {
   /** SQL risk: a backslash in an ordinary string can end it early on a legacy server, so more runs than the text shows. */
   'oxequery.sql.ambiguousEscape': Record<string, never>
   'oxepod.startFailed': { reason: string }
-  'oxepost.network.notFound': Record<string, never>
-  'oxepost.network.refused': Record<string, never>
-  'oxepost.network.reset': Record<string, never>
-  'oxepost.network.timedOut': Record<string, never>
-  'oxepost.network.lookupFailed': Record<string, never>
-  'oxepost.network.hostUnreachable': Record<string, never>
-  'oxepost.network.networkUnreachable': Record<string, never>
-  'oxepost.send.invalidUrl': Record<string, never>
-  'oxepost.send.scheme': Record<string, never>
-  'oxepost.send.bodyNotAllowed': { method: string }
-  'oxepost.send.bodyTooLarge': Record<string, never>
-  'oxepost.send.invalidHeader': { name: string }
-  'oxepost.send.timeout': { seconds: number }
-  'oxepost.send.tls': { code: string }
-  'oxepost.send.failed': Record<string, never>
-  'oxepost.send.failedWith': { detail: string }
   /** The person picked a port below 1024 for the remote gateway. */
   'remote.port.privileged': { port: number }
   /** Another program already listens on the gateway's port. */
@@ -749,22 +733,6 @@ export const MESSAGE_CODES = [
   'oxequery.mongo.deletes',
   'oxequery.sql.ambiguousEscape',
   'oxepod.startFailed',
-  'oxepost.network.notFound',
-  'oxepost.network.refused',
-  'oxepost.network.reset',
-  'oxepost.network.timedOut',
-  'oxepost.network.lookupFailed',
-  'oxepost.network.hostUnreachable',
-  'oxepost.network.networkUnreachable',
-  'oxepost.send.invalidUrl',
-  'oxepost.send.scheme',
-  'oxepost.send.bodyNotAllowed',
-  'oxepost.send.bodyTooLarge',
-  'oxepost.send.invalidHeader',
-  'oxepost.send.timeout',
-  'oxepost.send.tls',
-  'oxepost.send.failed',
-  'oxepost.send.failedWith',
   'remote.port.privileged',
   'remote.port.inUse',
   'remote.network.noPrivateInterface',

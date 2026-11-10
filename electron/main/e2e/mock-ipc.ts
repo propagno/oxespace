@@ -44,7 +44,6 @@ import { installE2eAgentStateHook } from './agent-state-hook'
 import { loadManifests } from '../services/agent-state/manifest'
 import { BUNDLED_MANIFESTS } from '../services/agent-state/bundled-manifests'
 import { broadcastAgentState, registerAgentStateIpc } from '../ipc/agent-state.ipc'
-import { registerOxePostIpc } from '../ipc/oxepost.ipc'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { ShellProfile, Workspace, WorkspaceLayout, WorkspaceLayoutPreset } from '../../../shared/types/workspace'
 import type { GitCompareMode } from '../../../shared/types/git'
@@ -91,7 +90,6 @@ export function registerE2eMockIpcHandlers(): void {
     sendHookStatus: event => { for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.agentHooks.onStatus, event) },
     registerIpc: registerAgentStateIpc
   })
-  registerOxePostIpc(id => workspaces.find(workspace => workspace.id === id)?.rootPath)
 
   ipcMain.handle(IPC_CHANNELS.workspace.list, () => workspaces)
   ipcMain.handle(IPC_CHANNELS.workspace.shellProfiles, () => shellProfiles)

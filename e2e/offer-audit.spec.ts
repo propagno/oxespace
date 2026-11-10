@@ -53,11 +53,6 @@ const PALETTE_EFFECTS: Record<string, Check> = {
   'oxepod.resources': both(view('pods'), async page => { await expect(page.getByRole('region', { name: 'Images, volumes and networks' })).toBeVisible() }),
   'oxepod.activity': both(view('pods'), async page => { await expect(page.locator('.pod-host').getByRole('region', { name: 'Agent activity' })).toBeVisible() }),
   'oxepod.pruneContainers': both(view('pods'), dialog('Remove every stopped container?')),
-  'oxepost.open': view('post'),
-  'oxepost.newRequest': both(view('post'), async page => { await expect(page.getByRole('textbox', { name: 'Request name' })).toHaveValue('New request') }),
-  'oxepost.filter': both(view('post'), async page => { await expect(page.getByRole('searchbox', { name: 'Filter requests' })).toBeFocused() }),
-  'oxepost.import': both(view('post'), dialog('Import requests')),
-  'oxepost.environments': both(view('post'), dialog('Environments')),
   // Kept-ready workspaces is a General preference, shown once.
   'settings.general': both(settingsPage('General'), async page => { await expect(page.getByLabel('Recently visited workspaces kept ready')).toBeVisible() }),
   'settings.notifications': both(settingsPage('Notifications'), async page => { await expect(page.getByLabel('Number of workspaces to keep mounted')).toHaveCount(0) }),
@@ -206,7 +201,7 @@ test.describe('offer audit', () => {
     const { app, page } = launched
     try {
       // OxeQuery's and OxePod's commands register after first paint.
-      await expect.poll(async () => { const ids = await listedCommandIds(page); return ids.some(id => id.startsWith('oxequery.')) && ids.some(id => id.startsWith('oxepod.')) && ids.some(id => id.startsWith('oxepost.')) }).toBe(true)
+      await expect.poll(async () => { const ids = await listedCommandIds(page); return ids.some(id => id.startsWith('oxequery.')) && ids.some(id => id.startsWith('oxepod.')) }).toBe(true)
       const ids = await listedCommandIds(page)
       const untested = ids.filter(id => !effectFor(id) && !NATIVE_DIALOG.has(id))
       expect(untested, 'palette commands without an expected effect in e2e/offer-audit.spec.ts').toEqual([])
@@ -344,7 +339,7 @@ test.describe('offer audit', () => {
         'File/Exit': 'native',
         'Edit/Undo': 'native', 'Edit/Redo': 'native', 'Edit/Cut': 'native', 'Edit/Copy': 'native', 'Edit/Paste': 'native', 'Edit/Select all': 'native',
         'View/Command palette…': async p => { await expect(paletteInput(p)).toBeVisible() },
-        'View/OxeCode': view('code'), 'View/OxeChat': view('thread'), 'View/OxeQuery': view('data'), 'View/OxePod': view('pods'), 'View/OxePost': view('post'),
+        'View/OxeCode': view('code'), 'View/OxeChat': view('thread'), 'View/OxeQuery': view('data'), 'View/OxePod': view('pods'),
         'View/Toggle sidebar': async p => { await expect(p.locator('.app-shell')).toHaveClass(/sidebar-collapsed/) },
         'View/Toggle files panel': testId('workspace-editor-panel'),
         'View/Toggle commit & pull request panel': testId('workspace-github-panel'),

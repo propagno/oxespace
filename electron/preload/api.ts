@@ -274,7 +274,6 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       call: (op, input) => ipc.invoke(IPC_CHANNELS.oxePod.call, { op, input }) as never,
       onEvent: listener => subscribe<import('../../shared/types/oxepod').OxePodEvent>(ipc, IPC_CHANNELS.oxePod.onEvent, listener)
     },
-    oxePost: { call: (op, input) => ipc.invoke(IPC_CHANNELS.oxePost.call, { op, input }) as never },
     remote: {
       status: () => ipc.invoke(IPC_CHANNELS.remote.status) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
       devices: () => ipc.invoke(IPC_CHANNELS.remote.devices) as Promise<import('../../shared/types/remote').RemoteDevice[]>,

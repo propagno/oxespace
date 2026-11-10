@@ -8,7 +8,7 @@
  * so none of it is in the boot bundle. The chunks it loads are the ones the views render from (src/lib/chunk.ts), so
  * a preloaded view opens without suspending.
  */
-export type PreloadTarget = 'thread' | 'data' | 'pods' | 'post' | 'settings'
+export type PreloadTarget = 'thread' | 'data' | 'pods' | 'settings'
 export type ViewSkip = 'no-recent-view' | 'device-memory-unknown' | 'low-device-memory' | 'high-memory-use' | 'on-battery'
 
 interface BatteryLike { charging?: boolean }
@@ -43,7 +43,6 @@ const LOADERS: Record<PreloadTarget, () => Promise<unknown>> = {
   thread: () => import('../components/Navigation/ModeViews').then(m => m.VIEW_CHUNKS.thread.load()),
   data: () => import('../components/Navigation/ModeViews').then(m => m.VIEW_CHUNKS.data.load()),
   pods: () => import('../components/Navigation/ModeViews').then(m => m.VIEW_CHUNKS.pods.load()),
-  post: () => import('../components/Navigation/ModeViews').then(m => m.VIEW_CHUNKS.post.load()),
   // With Settings, the usage chip OxeChat's status bar shows: loaded at its first switch it cost the cold first
   // content ~40 ms (F7.3); loaded here it renders at once (lazyFrom).
   settings: () => Promise.all([import('../components/Settings/SettingsHost').then(m => m.preloadSettings()), import('../components/Workspace/usageChunk').then(m => m.USAGE_CHUNK.load())])
@@ -51,7 +50,7 @@ const LOADERS: Record<PreloadTarget, () => Promise<unknown>> = {
 
 /** The most recent view, when it is one that loads lazily (Code is in the boot bundle). */
 export function lazyView(recent: string | null): Exclude<PreloadTarget, 'settings'> | null {
-  return recent === 'thread' || recent === 'data' || recent === 'pods' || recent === 'post' ? recent : null
+  return recent === 'thread' || recent === 'data' || recent === 'pods' ? recent : null
 }
 
 /** Why the most recent view's chunks should not be preloaded on this machine right now, or null when they may. */

@@ -57,8 +57,7 @@
       "code": "OxeCode: terminals and agents in your workspaces",
       "thread": "OxeChat: conversations with an agent",
       "data": "OxeQuery: databases",
-      "pods": "OxePod: containers",
-      "post": "OxePost: API requests"
+      "pods": "OxePod: containers"
     },
     "primary": "Primary navigation",
     "switchToLight": "Switch to light mode",
@@ -190,15 +189,10 @@
         "code": "Show OxeCode",
         "thread": "Show OxeChat",
         "data": "Show OxeQuery",
-        "pods": "Show OxePod",
-        "post": "Show OxePost"
+        "pods": "Show OxePod"
       },
       "oxepod": {
         "filter": "Find a container"
-      },
-      "oxepost": {
-        "send": "Send the request",
-        "filter": "Find a request"
       }
     },
     "terminalFocus": {
@@ -372,8 +366,7 @@
       "open": {
         "thread": "Open OxeChat",
         "data": "Open OxeQuery",
-        "pods": "Open OxePod",
-        "post": "Open OxePost"
+        "pods": "Open OxePod"
       }
     },
     "notice": {
@@ -543,13 +536,6 @@
         "activity": "Show agent activity on containers",
         "pruneContainers": "Clean up stopped containers"
       },
-      "oxepost": {
-        "open": "Open",
-        "newRequest": "Create an API request",
-        "filter": "Find an API request",
-        "import": "Import cURL or OpenAPI",
-        "environments": "Manage API environments"
-      },
       "thread": {
         "new": "Start a new conversation",
         "add-project": "Add a project…",
@@ -627,11 +613,6 @@
         "open": "Open OxePod",
         "resources": "Images, volumes and networks",
         "activity": "Agent activity on containers"
-      },
-      "oxepost": {
-        "open": "Open OxePost",
-        "newRequest": "New API request",
-        "environments": "API environments"
       },
       "thread": {
         "new": "New conversation",
@@ -784,9 +765,7 @@
     "saveQuit": "Save all and quit",
     "saveFailed_one": "{{count}} change could not be saved, so nothing was closed. Check it and try again.",
     "saveFailed_other": "{{count}} changes could not be saved, so nothing was closed. Check them and try again.",
-    "inEditor": "OxeCode editor · {{folder}}",
-    "inOxePost": "OxePost request",
-    "untitledRequest": "Untitled request"
+    "inEditor": "OxeCode editor · {{folder}}"
   },
   "links": {
     "refused": "This link was not opened",

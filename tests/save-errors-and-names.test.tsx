@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useOxePostStore } from '../src/components/OxePost/oxepost.store'
 import { changeLanguage } from '../src/i18n'
 import { useEditorStore, withProjectPaths, type EditorFileState } from '../src/store/editor.store'
 
@@ -37,16 +36,5 @@ describe('a save that fails', () => {
     writeFile.mockResolvedValueOnce(undefined as never)
     await useEditorStore.getState().savePath('ws', 'src/app.ts')
     expect(useEditorStore.getState().files.ws['src/app.ts'].saveError).toBeNull()
-  })
-})
-
-describe('a new OxePost request', () => {
-  it('is named in the interface language', async () => {
-    await changeLanguage('pt-BR')
-    useOxePostStore.getState().newRequest()
-    expect(useOxePostStore.getState().draft.name).toBe('Nova requisição')
-    await changeLanguage('en')
-    useOxePostStore.getState().newRequest()
-    expect(useOxePostStore.getState().draft.name).toBe('New request')
   })
 })

@@ -199,7 +199,6 @@ export const IPC_CHANNELS = {
     setDesktopName: 'remote:set-desktop-name', setPhoneWrite: 'remote:set-phone-write', pairingFailed: 'remote:pairing-failed',
     firewallStatus: 'remote:firewall-status', firewallRepair: 'remote:firewall-repair', firewallUndo: 'remote:firewall-undo'
   },
-  oxePost: { call: 'oxePost:call' },
   agentHooks: {
     status: 'agent-hooks:status',
     install: 'agent-hooks:install',
@@ -644,7 +643,6 @@ export interface OxeApi {
   oxeQuery: import('./oxequery').OxeQueryApi
   oxePod: import('./oxepod').OxePodApi
   remote?: import('./remote').RemoteApi
-  oxePost: import('../oxepost/types').OxePostApi
   oxe: OxeIntegrationApi
   copilot: CopilotApi
   agentCredits: AgentCreditsApi
