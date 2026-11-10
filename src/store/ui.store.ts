@@ -20,7 +20,7 @@ interface UIState {
   isSettingsOpen: boolean
   settingsInitialPage: SettingsPageId | undefined
   /** Opens application Settings on one page. */
-  openSettingsPage: (page: SettingsPageId) => void
+  openSettingsPage: (page: SettingsPageId | 'activity' | (string & {})) => void
   openAgentSettings: () => void
   /** Tools hub modal (sidebar gear) — distinct from agent Settings. */
   isCommandPaletteOpen: boolean
@@ -83,7 +83,7 @@ export const useUIStore = create<UIState>((set) => ({
   isSettingsOpen: false,
   settingsInitialPage: undefined,
   openAgentSettings: () => set({ isSettingsOpen: true, isWorkspaceSettingsOpen: false, settingsInitialPage: 'providers' }),
-  openSettingsPage: (page) => set({ isSettingsOpen: true, isWorkspaceSettingsOpen: false, settingsInitialPage: page }),
+  openSettingsPage: (page) => set({ isSettingsOpen: true, isWorkspaceSettingsOpen: false, settingsInitialPage: page as SettingsPageId }),
   isCommandPaletteOpen: false,
   isCommandMenuOpen: false,
   isWorkspaceSettingsOpen: false,

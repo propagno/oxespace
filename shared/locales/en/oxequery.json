@@ -1,4 +1,8 @@
 {
+  "agentActivity": {
+    "badge_one": "{{count}} agent action today",
+    "badge_other": "{{count}} agent actions today"
+  },
   "activity": {
     "label": "Agent activity",
     "intro": "Every database request an AI agent made, and what you decided.",
