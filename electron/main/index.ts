@@ -47,6 +47,10 @@ import { registerWorkspaceIpc } from './ipc/workspace.ipc'
 import { registerSemanticIpc } from './ipc/semantic.ipc'
 import { installIncidentHooks, registerDiagnosticsIpc } from './ipc/diagnostics.ipc'
 import { registerPolicyIpc } from './ipc/policy.ipc'
+import { registerHttpAuditIpc } from './ipc/http-audit.ipc'
+import { HttpAuditLog } from './services/http-audit/store'
+import { productionHostsFor } from './services/http-audit/production-hosts'
+import { policyStore } from './services/policy'
 import { BackgroundManager } from './services/background.service'
 import { TerminalManager } from './services/terminal.service'
 import { MemoryService } from './services/memory/memory.service'
@@ -516,7 +520,10 @@ async function registerIpcHandlers(): Promise<() => void> {
     previousDbVersion
   })
   registerDiagnosticsIpc(db, internalMcp, { terminals: terminalManager, mcp: mcpManager })
-  await registerPolicyIpc(id => internalMcpWorkspaceServ.get(id)?.rootPath, { db, files: fileSystemService, servers: mcpManager, executions })
+    const httpAuditLog = new HttpAuditLog(db, undefined, {
+    isProductionHost: productionHostsFor({ db, policy: policyStore() ?? undefined })
+  })
+  registerHttpAuditIpc(httpAuditLog)
   // OXESpace context manifest — prepended to the agent's initial prompt on pane spawn so the CLI knows the
   // workspace state without calling any MCP tool. Read shortcut; MCP is still the action path (see oxe-context.service.ts).
   registerOxeContextIpc({

@@ -433,6 +433,9 @@ export const IPC_CHANNELS = {
     acceptChange: 'policy:accept-change',
     reviewChange: 'policy:review-change',
     onChanged: 'policy:changed'
+  },
+  httpAudit: {
+    list: 'http-audit:list'
   }
 } as const
 
@@ -710,6 +713,7 @@ export interface OxeApi {
   diagnostics: import('./diagnostics').DiagnosticsApi
   policy: import('../policy').PolicyApi
   dataExport: DataExportApi
+  httpAudit: import('./http-audit').HttpAuditApi
 }
 
 export interface McpInternalApi {

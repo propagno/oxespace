@@ -9,10 +9,10 @@ describe('preload api', () => {
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.thread.observe, 'thread-A')
     expect(ipc.invoke).toHaveBeenCalledTimes(1)
   })
-  test('exposes explicit command refresh without launching a Thread or Code terminal', async () => {
+    test('exposes httpAudit API without raw ipc access', async () => {
     const ipc = createFakeIpc(), api = createOxeApi(ipc)
-    await api.thread!.commands('thread-A', true)
-    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.thread.commands, 'thread-A', true)
+    await api.httpAudit.list({ workspaceId: 'ws-1' })
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.httpAudit.list, { workspaceId: 'ws-1' })
     expect(ipc.invoke).toHaveBeenCalledTimes(1)
   })
   test('exposes portable Thread import and export only through validated IPC methods', async () => {

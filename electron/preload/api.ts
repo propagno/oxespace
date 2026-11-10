@@ -565,6 +565,9 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       acceptChange: input => ipc.invoke(IPC_CHANNELS.policy.acceptChange, input) as Promise<import('../../shared/policy').PolicyView>,
       reviewChange: input => ipc.invoke(IPC_CHANNELS.policy.reviewChange, input) as Promise<import('../../shared/policy').PolicyView>,
       onChanged: listener => subscribe<import('../../shared/policy').PolicyChangedEvent>(ipc, IPC_CHANNELS.policy.onChanged, listener)
+    },
+    httpAudit: {
+      list: (query) => ipc.invoke(IPC_CHANNELS.httpAudit.list, query) as Promise<import('../../shared/types/http-audit').HttpAuditPage>
     }
   }
 }
