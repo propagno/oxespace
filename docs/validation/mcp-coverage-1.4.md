@@ -24,7 +24,7 @@ policy (`tool.use` rules of the policy store) applies by tool name to every tool
 
 | Covered | Excluded | Planned | Forbidden | Total |
 |---|---|---|---|---|
-| 35 | 29 | 2 | 20 | 86 |
+| 35 | 30 | 2 | 20 | 87 |
 
 The registry has 75 tools: 52 single-purpose tools and 23 domain tools with 86 actions, so the
 manifest declares 138 tool-or-action entries.
@@ -46,7 +46,7 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `oxequery.secrets` | OxeQuery connection credentials, SSH host keys, connection export/import |
 | `mcp.server_trust` | `mcp.create`, `update`, `delete`, `discover`, `importDiscovered`, `openSignIn` |
 | `mcp_internal.tool_groups_admin` | `mcpInternal.setToolGroupMode` |
-| `remote.gateway_admin` | `remote.setEnabled`, `startPairing`, `cancelPairing`, `answerPairing`, `revoke`, `rename`, `setDesktopName`, `setPhoneWrite` |
+| `remote.gateway_admin` | `remote.setEnabled`, `startPairing`, `cancelPairing`, `answerPairing`, `revoke`, `rename`, `setDesktopName`, `setPhoneWrite`, `setPhoneHidden` (CR-34: the person keeps a pane off the phone) |
 | `approvals.admin` | `approvals.list`, `respond`, `ack`, `unavailable`, `history` (B10: the app's own approval modal) |
 | `thread.sections` | `thread.sections`, `thread.saveSections` (F13, for 1.4: the person's own organization of the conversation list) |
 | `app.open_external` | `app.openExternal` (the window's only way to open a link outside the app, after the person confirmed its host) |
@@ -115,6 +115,7 @@ before. Code panes receive the whole registry.
 | `code.agent_seen` | Mark an agent's finished turn as seen | Excluded: An attention marker of the person's window. |
 | `code.terminal_output` | Read a pane's output | **read**: `oxespace_terminal#output` |
 | `code.terminal_input` | Start, type into, resize or stop a terminal | Excluded: Free key input into another terminal. Agents prompt agents with oxespace_agents_change prompt, which refuses one waiting for an approval. |
+| `code.pane_branch` | A pane's branch and the branch it started on (switched from) | Excluded: The person's pane header. Agents read the branch with oxespace_git branch. |
 | `code.agent_profiles` | Agent profiles an agent can delegate to | **read**: `oxespace_list_agents` |
 | `code.agent_profiles_admin` | Create, edit, delete or discover agent profiles | Excluded: A profile chooses an executable and arguments that run on this machine; the person edits it. |
 | `code.scripts` | Project scripts | **read**: `oxespace_list_scripts`<br>**write**: `oxespace_run_script` |
@@ -139,6 +140,7 @@ before. Code panes receive the whole registry.
 | `github.read` | Pull requests, CI runs and logs, commits, releases | **read**: `oxespace_github#status`, `oxespace_github#branches`, `oxespace_github#pull_requests`, `oxespace_github#pull_request_status`, `oxespace_github#commits`, `oxespace_github#commit`, `oxespace_github#releases`, `oxespace_github#workflows`, `oxespace_github#runs`, `oxespace_github#run`, `oxespace_github#run_logs` |
 | `github.change` | Open pull requests, auto-merge, releases, run workflows | **confirm**: `oxespace_github_change#create_pull_request`, `oxespace_github_change#set_auto_merge`, `oxespace_github_change#create_release`, `oxespace_github_change#run_workflow`, `oxespace_github_change#rerun` |
 | `github.connected_repositories` | Connect a GitHub repository to a workspace | Excluded: An account-level link the person makes and confirms in the GitHub panel. |
+| `code.pull_request` | The Pull request tab: a branch's pull request on GitHub or Azure DevOps | Excluded: The person's window. Agents read pull requests with oxespace_github. |
 | `search.text` | Exact text search and the file list | **read**: `oxespace_search#text`, `oxespace_search#files` |
 | `search.code` | The post-diff quality check | **read**: `oxespace_quality_check` |
 | `editor.files` | Read, write and watch files in the editor | Excluded: Agents read and edit files with their own tools, under their provider's permission prompts; an MCP write would bypass them. Reads: oxespace_git file_at_ref, oxespace_search. |

@@ -75,6 +75,11 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     excluded: 'Free key input into another terminal. Agents prompt agents with oxespace_agents_change prompt, which refuses one waiting for an approval.',
     ipc: ['terminal.start', 'terminal.write', 'terminal.resize', 'terminal.stop', 'terminal.restart', 'terminal.attach', 'terminal.detach']
   },
+  'code.pane_branch': {
+    label: 'A pane\'s branch and the branch it started on (switched from)',
+    excluded: 'The person\'s pane header. Agents read the branch with oxespace_git branch.',
+    ipc: ['terminal.branch', 'terminal.branchChanged']
+  },
   'code.agent_profiles': {
     label: 'Agent profiles an agent can delegate to',
     tools: { oxespace_list_agents: 'read' },
@@ -181,6 +186,11 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     label: 'Connect a GitHub repository to a workspace',
     excluded: 'An account-level link the person makes and confirms in the GitHub panel.',
     ipc: ['github.listConnectedRepositories', 'github.connectRepository']
+  },
+  'code.pull_request': {
+    label: 'The Pull request tab: a branch\'s pull request on GitHub or Azure DevOps',
+    excluded: 'The person\'s window. Agents read pull requests with oxespace_github.',
+    ipc: ['pullRequest.state']
   },
 
   // ---- search ---------------------------------------------------------------------
@@ -371,9 +381,9 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   },
   'remote.devices_read': { label: 'Remote gateway status and paired phones', excluded: 'The person\'s devices, shown in Settings › Devices; agents have no use for them.', ipc: ['remote.status', 'remote.devices'] },
   'remote.gateway_admin': {
-    label: 'Turn the remote gateway on or off, pair, answer, revoke or rename a phone, name the desktop, let a phone type into a pane',
+    label: 'Turn the remote gateway on or off, pair, answer, revoke or rename a phone, name the desktop, let a phone type into a pane, keep a pane off the phone',
     forbidden: 'Opens a network surface and grants device access.',
-    ipc: ['remote.setEnabled', 'remote.startPairing', 'remote.cancelPairing', 'remote.answerPairing', 'remote.revoke', 'remote.rename', 'remote.setDesktopName', 'remote.setPhoneWrite', 'remote.firewallStatus', 'remote.firewallRepair', 'remote.firewallUndo']
+    ipc: ['remote.setEnabled', 'remote.startPairing', 'remote.cancelPairing', 'remote.answerPairing', 'remote.revoke', 'remote.rename', 'remote.setDesktopName', 'remote.setPhoneWrite', 'remote.setPhoneHidden', 'remote.firewallStatus', 'remote.firewallRepair', 'remote.firewallUndo']
   },
   'mcp.tool_rules_admin': { label: 'Choose, per MCP tool, to run it without asking, ask, or block it', forbidden: 'Approvals and access stay with the person.', ipc: ['mcpInternal.setToolRule'] },
   'settings.data_export': {

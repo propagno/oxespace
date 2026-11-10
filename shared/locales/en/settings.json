@@ -594,7 +594,8 @@
         "terminal": "Watch terminal output (read only)",
         "jobs": "See background jobs",
         "delegations": "See delegations",
-        "agents": "See every agent and what needs you"
+        "agents": "See every agent and what needs you",
+        "paneConversation": "Read a terminal agent's conversation (read only)"
       },
       "commands": {
         "threadSend": "Send a message to a conversation",
@@ -603,7 +604,8 @@
         "threadRespondRequest": "Accept or decline a conversation request, after confirming on the phone with fingerprint or face",
         "terminalWrite": "Type in a terminal you allowed here",
         "threadHistory": "Read older messages",
-        "agentMarkSeen": "Mark an agent as seen"
+        "agentMarkSeen": "Mark an agent as seen",
+        "paneConversation": "Read older messages of a terminal agent"
       },
       "forbidden": {
         "oxequeryApprove": "Approve OxeQuery changes",

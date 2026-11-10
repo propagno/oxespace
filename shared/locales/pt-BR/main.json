@@ -112,6 +112,16 @@
       },
       "invalidInput": "Não foi possível ler este pedido da conversa.",
       "notFound": "Esta conversa não existe mais.",
+      "place": {
+        "gone": "Este local não faz mais parte da conversa. Recarregue a lista de locais.",
+        "notEvidence": "Só é possível abrir aqui pastas em que uma ferramenta desta conversa escreveu.",
+        "outside": "Este caminho leva para fora do local, então não pode ser aberto.",
+        "noDrift": "Este local não tem mudança de branch para responder. Recarregue a lista de locais.",
+        "busy": "Espere o turno desta conversa terminar antes de voltar a branch.",
+        "dirty": "Este checkout tem alterações não commitadas, então a branch não foi trocada de volta. Faça commit ou guarde-as antes.",
+        "detached": "A tarefa começou sem branch (HEAD destacado), então não há branch para onde voltar.",
+        "branchGone": "A branch \"{{branch}}\" não existe mais, então não é possível voltar para ela."
+      },
       "sections": {
         "invalid": "Não foi possível salvar estas seções. Recarregue a lista e tente de novo.",
         "tooMany": "Um workspace tem no máximo {{sections}} seções e {{assignments}} conversas colocadas nelas.",

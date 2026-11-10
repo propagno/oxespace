@@ -32,7 +32,8 @@
     "unpairConfirm": {
       "title": "Desparear de {{desktop}}?",
       "body": "Este celular esquece {{desktop}} e a chave usada com ele. Para voltar, pareie de novo pelo QR em Configurações › Dispositivos no computador."
-    }
+    },
+    "cardProblem": "Sem conexão"
   },
   "pairing": {
     "title": "Parear com o computador",
@@ -71,6 +72,12 @@
       "localNetworkBlocked": "O Android impediu este celular de falar com o computador: o acesso à rede local está desligado para o OXESpace. Ligue nas configurações do app (Permissões) e escaneie de novo.",
       "refusedByComputer": "O computador recusou a conexão. Confira se a conexão com o celular está ligada em Configurações › Dispositivos. Se houver um firewall de terceiros, como McAfee ou Norton, libere o OXESpace nele também: ele pode recusar conexões mesmo com o Firewall do Windows permitindo.",
       "timedOut": "O computador não respondeu, então não recebeu o pedido. No Windows, o firewall bloqueia o celular quando a Wi-Fi está como Pública: mude a rede para Privada ou libere o OXESpace no firewall. Confira também se os dois estão na mesma Wi-Fi."
+    },
+    "step": {
+      "scan": "Ler",
+      "connect": "Conectar",
+      "confirm": "Confirmar",
+      "done": "Pronto"
     }
   },
   "live": {
@@ -78,7 +85,8 @@
       "threads": "Conversas",
       "requests": "Pedidos",
       "terminals": "Terminais",
-      "tasks": "Tarefas"
+      "tasks": "Tarefas",
+      "agents": "Agentes"
     },
     "requestsBadge_one": "{{count}} pedido esperando",
     "requestsBadge_other": "{{count}} pedidos esperando",
@@ -125,7 +133,40 @@
       "minutes": "há {{minutes}} min",
       "hours": "há {{hours}} h",
       "days": "há {{days}} d"
-    }
+    },
+    "delegationState": {
+      "preparing": "Preparando",
+      "starting": "Iniciando",
+      "accepted": "Aceita",
+      "blocked": "Bloqueada",
+      "interrupted": "Interrompida",
+      "failed": "Falhou",
+      "review": "Em revisão",
+      "approved": "Aprovada",
+      "cancelled": "Cancelada",
+      "unknown": "Não confirmado"
+    },
+    "agentsChip": {
+      "all": "Todos",
+      "needsYou": "Precisa de você",
+      "working": "Trabalhando",
+      "failed": "Falhou",
+      "finished": "Concluído"
+    },
+    "agentsEmpty": {
+      "title": "Nenhum agente ainda",
+      "text": "Conversas, terminais e delegações em {{desktop}} aparecem aqui."
+    },
+    "agentsEmptyFilter": {
+      "title": "Nenhum neste estado",
+      "text": "Nenhum agente está neste estado agora. Todos mostra cada agente."
+    },
+    "agentsPartial": {
+      "title": "Alguns agentes não estão na lista",
+      "text": "O computador não conseguiu ler todas as fontes desta vez. A lista se completa quando puder."
+    },
+    "menuSettings": "Configurações",
+    "emptyTitle": "Nada por aqui ainda"
   },
   "thread": {
     "tool": {
@@ -154,7 +195,6 @@
     "unknownItems_many": "{{count}} itens de um OXESpace mais novo não aparecem.",
     "loadOlder": "Carregar anteriores",
     "latest": "Mais recentes ↓",
-    "respond": "Responder",
     "answerLabel": "Resposta do agente",
     "copy": "Copiar",
     "copied": "Copiado",
@@ -218,7 +258,6 @@
     "moreRequests_one": "+{{count}} outro",
     "moreRequests_other": "+{{count}} outros",
     "moreRequests_many": "+{{count}} outros",
-    "answerOnComputer": "Responda no computador",
     "stop": {
       "title": "Parar este turno?",
       "body": "O agente em “{{title}}” para o que está fazendo agora. A conversa continua.",
@@ -235,7 +274,9 @@
       "seconds": "{{seconds}} s",
       "minutes": "{{minutes}} min",
       "hours": "{{hours}} h"
-    }
+    },
+    "nowNeedsYou": "Precisa de você: {{title}}",
+    "review": "Revisar"
   },
   "terminal": {
     "redacted_one": "{{count}} valor secreto escondido pelo seu computador.",
@@ -259,7 +300,26 @@
     "pasteLines_other": "Este texto tem {{count}} linhas, e cada uma roda como digitada. Enviar todas?",
     "pasteLines_many": "Este texto tem {{count}} linhas, e cada uma roda como digitada. Enviar todas?",
     "hiddenShown": "Caracteres ocultos foram mostrados no campo. Confira e envie de novo.",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "hiddenOnDesktop": "Este terminal foi ocultado do celular em {{computer}}.",
+    "conversation": {
+      "screen": "Tela",
+      "conversation": "Conversa",
+      "caption": "Conversa do {{agent}} · somente leitura",
+      "newConversation": "O agente começou uma nova conversa",
+      "unavailable": "A conversa deste terminal não está mais disponível. A tela continua ao vivo.",
+      "showScreen": "Mostrar a tela",
+      "empty": "Nenhuma mensagem ainda.",
+      "latest_one": "{{count}} mensagem nova ↓",
+      "latest_other": "{{count}} mensagens novas ↓",
+      "latest_many": "{{count}} mensagens novas ↓",
+      "latestNoCount": "Mensagens novas ↓"
+    },
+    "hiddenBack": "Voltar aos terminais",
+    "panHint": "{{cols}} colunas · arraste para os lados",
+    "fitWidth": "Ajustar à largura",
+    "typeOnScreen": "Digite na visão Tela",
+    "hiddenTitle": "Terminal"
   },
   "approval": {
     "prompt": {
@@ -319,7 +379,9 @@
       "agent": "Pedido de um agente",
       "question": "Pergunta do agente",
       "permissions": "Pedido de permissão"
-    }
+    },
+    "noUndo": "Sem desfazer.",
+    "allowIn": "em {{seconds}} s"
   },
   "action": {
     "offline": "Sem conexão com o computador. Nada foi enviado.",
@@ -330,7 +392,12 @@
   "composer": {
     "placeholder": "Mensagem para o agente",
     "send": "Enviar",
-    "steer": "Orientar"
+    "steer": "Enviar",
+    "steerFinishedBefore": "O agente terminou antes de a sua instrução chegar. Nada foi enviado.",
+    "queuedPlaceholder": "Na fila até o passo atual terminar",
+    "readAfterStep": "lida depois do passo atual",
+    "queuedLine": "na fila",
+    "steerPlaceholder": "Orientar: lida depois do passo atual"
   },
   "terminalInput": {
     "placeholder": "Digite neste terminal",
@@ -370,5 +437,21 @@
     "allow": "Permitir acesso à rede local",
     "denied": "O acesso à rede local está desligado para o OXESpace, então o Android bloqueia toda conexão com o computador. Ligue \"Acesso à rede local\" para o OXESpace nas configurações do app (Permissões) e volte.",
     "openSettings": "Abrir configurações do app"
+  },
+  "settings": {
+    "title": "Configurações",
+    "back": "Voltar",
+    "theme": {
+      "title": "Tema",
+      "system": "Igual ao do celular",
+      "light": "Claro",
+      "dark": "Escuro"
+    },
+    "alerts": {
+      "title": "Notificações",
+      "needsYou": "Um agente precisa de você",
+      "done": "Uma tarefa terminou",
+      "failed": "Uma tarefa falhou"
+    }
   }
 }

@@ -196,6 +196,8 @@ async function registerIpcHandlers(): Promise<() => void> {
   // Agents' own lifecycle hooks report here. Deliveries authenticate with the
   // same per-pane execution credentials the terminal already carries, so a
   // hook script outside an OXESpace terminal is simply inert.
+  // A18 (P7) · the cwd each pane's agent reported last, for the task's Terminal tab.
+  const paneAgentCwd = new Map<string, string>()
   const agentHookServer = new AgentHookServer({
     authenticate: ({ executionId, token, workspaceId }) => {
       try {
@@ -209,14 +211,18 @@ async function registerIpcHandlers(): Promise<() => void> {
       const hookAgent = event.agent === 'codex' ? 'codex' : 'claude'
       agentState.hook(event.paneId, hookAgent, event.state)
       // Remember the native session so the pane can reopen it after a restart; an ended session is forgotten.
-      if (event.state === 'ended') paneAgentSessions.clear(event.paneId)
+      const sessionBefore = paneAgentSessions.current(event.paneId)?.sessionId
+      if (event.state === 'ended') { paneAgentSessions.clear(event.paneId); paneAgentCwd.delete(event.paneId) }
       else if (event.sessionId) paneAgentSessions.record(event.paneId, hookAgent, event.sessionId, 'hook', event.permissionMode)
+      // BE-A46-c5: the phone's reader of this pane's conversation hears a new (or ended) session: a higher epoch, one signal.
+      if (paneAgentSessions.current(event.paneId)?.sessionId !== sessionBefore) void import('./services/remote/pane-conversation').then(module => module.announcePaneSession(event.paneId), () => undefined)
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send(IPC_CHANNELS.agentHooks.onStatus, event)
       }
     },
     resolveLocation: resolveSessionLocation,
     onLocation: (event) => {
+      paneAgentCwd.set(event.paneId, event.cwd)
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send(IPC_CHANNELS.agentHooks.onLocation, event)
       }
@@ -251,6 +257,12 @@ async function registerIpcHandlers(): Promise<() => void> {
     // Detached sessions send this instead of their output, so the sidebar and
     // notifications still reflect a background agent without shipping bytes
     // that no view would render.
+    // A18 (T73) · The pane header's branch, pushed when it changes.
+    emitBranchChanged: (event) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.terminal.branchChanged, event)
+      }
+    },
     emitActivity: (event) => {
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send(IPC_CHANNELS.terminal.onActivity, event)
@@ -270,17 +282,19 @@ async function registerIpcHandlers(): Promise<() => void> {
   const [
     { registerGitIpc }, { registerSearchIpc }, { registerGitHubIpc },
     { registerIntegrationIpc }, { registerRemoteIpc },
-    { GitHubService }, { GitService }
+    { GitHubService }, { GitService }, { registerPullRequestIpc }
   ] = await Promise.all([
     import('./ipc/git.ipc'), import('./ipc/search.ipc'), import('./ipc/github.ipc'),
     import('./ipc/integration.ipc'), import('./ipc/remote.ipc'),
-    import('./services/github.service'), import('./services/git.service')
+    import('./services/github.service'), import('./services/git.service'),
+    import('./ipc/pull-request.ipc')
   ])
   const gitService = registerGitIpc()
   registerSearchIpc()
   // Agents search with their own instance: a new search cancels the previous one of the same service.
   const agentSearch = new SearchService()
   const gitHubService = registerGitHubIpc(db)
+  registerPullRequestIpc()
   gitHubService.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
   registerIntegrationIpc(db)
   const backgroundManager = new BackgroundManager(db, {
@@ -324,6 +338,20 @@ async function registerIpcHandlers(): Promise<() => void> {
       executions.endOwner({ kind: 'thread', id: threadId })
     }
   }, threadWorktrees)
+  // A18 (P7) · the task's Terminal tab reads every running pane: its launch folder, its agent's reported cwd and its
+  // shell's OSC cwd (F4-P6); `agent` = the pane runs an agent CLI.
+  const paneRows = db.prepare('SELECT id, workspace_id, display_name, agent_name FROM panes')
+  void threadManager.manager.then(manager => manager.configurePanes(() => {
+    const sources: import('../../shared/types/thread-places').ThreadPaneSource[] = []
+    for (const row of paneRows.all() as { id: string; workspace_id: string; display_name: string | null; agent_name: string | null }[]) {
+      if (!terminalManager.hasSession(row.id)) continue
+      const launchDir = terminalManager.status(row.id).launchDirectory
+      if (!launchDir) continue
+      sources.push({ paneId: row.id, title: row.display_name || row.agent_name || 'Terminal', workspaceId: row.workspace_id, launchDir,
+        agentCwd: paneAgentCwd.get(row.id) ?? null, shellCwd: terminalManager.shellCwd(row.id), agent: agentState.get(row.id) !== null || Boolean(row.agent_name) })
+    }
+    return sources
+  })).catch(error => log.warn('Thread panes unavailable', error))
   const skillService = new SkillService({ onChange: broadcastSkillChange })
   registerSkillIpc(skillService, (input) => terminalManager.write(input))
   const mcpManager = new McpManager(db, { emitHealth: broadcastMcpHealth })

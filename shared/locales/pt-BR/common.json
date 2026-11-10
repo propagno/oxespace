@@ -588,7 +588,8 @@
         "notifications": "Abrir as configurações de notificações",
         "updates": "Procurar atualizações",
         "policy": "Abrir as configurações de política",
-        "diagnostics": "Abrir o diagnóstico"
+        "diagnostics": "Abrir o diagnóstico",
+        "data": "Abrir as configurações de dados"
       },
       "oxequery": {
         "open": "Abrir",

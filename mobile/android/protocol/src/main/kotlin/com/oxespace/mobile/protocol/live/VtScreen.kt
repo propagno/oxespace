@@ -19,8 +19,11 @@ data class VtLine(val text: String, val runs: List<VtRun>)
  * - SGR colors 0–15 and bold, as before.
  *
  * Everything else is read and dropped: OSC titles and links, other modes (?25 included), charsets, scroll regions.
- * The width is unbounded: the desktop doesn't send the PTY's columns (that's (B), 1.5), and Ink and ratatui never
- * write past them, so nothing wraps.
+ *
+ * The width (1.5.0 A45): with the desktop's columns known from its snapshot ([reset] with cols), the grid is exactly
+ * that wide, as xterm's: a line wraps at the edge (autowrap, the wrap pending until the next printed character), CUP,
+ * CHA, CUF and TAB clamp to the last column, and a wide character (CJK, emoji) takes two columns, wrapping whole when
+ * only one is left. Without a snapshot (an older desktop) the width stays unbounded, as in 1.4.3.
  *
  * Fed one chunk at a time, keeping the parser state across chunks. Only changed lines are rebuilt. Holds at most
  * [capacity] characters, dropping whole lines from the top of the main screen.
@@ -30,6 +33,8 @@ class VtScreen(private val capacity: Int = 256 * 1024) {
         val chars = StringBuilder()
         var styles = IntArray(8)
         var cached: VtLine? = null
+        /** Holds a character whose columns differ from its UTF-16 length (CJK); its cells are then counted, not indexed. */
+        var wide = false
 
         fun length() = chars.length
         fun style(at: Int) = if (at < chars.length) styles[at] else 0
@@ -90,6 +95,8 @@ class VtScreen(private val capacity: Int = 256 * 1024) {
     private var chars = 1 // newlines counted as one each, like the text the view shows
     /** An escape sequence cut by the end of the last chunk, waiting for the rest. */
     private val pending = StringBuilder()
+    /** A surrogate high half waiting for its low half (possibly in the next chunk). */
+    private var high: Char? = null
 
     private val lines: MutableList<Line> get() = alt ?: main
     private val screenTop: Int get() = if (alt != null) 0 else top
@@ -98,9 +105,10 @@ class VtScreen(private val capacity: Int = 256 * 1024) {
     var version: Long = 0
         private set
 
+    /** A blank screen; the width stays what the last snapshot set (a RIS or a truncated ring doesn't change the pane). */
     fun reset() {
         main = mutableListOf(Line()); alt = null; top = 0; row = 0; col = 0; style = 0
-        savedMain = null; saved = null; chars = 1; pending.setLength(0); rows = 0; version++
+        savedMain = null; saved = null; chars = 1; pending.setLength(0); high = null; rows = 0; version++
     }
 
     /** The lines to show: the alternate screen while a full-screen program has it, else the main screen with its scrollback. */
@@ -124,24 +132,54 @@ class VtScreen(private val capacity: Int = 256 * 1024) {
                 }
                 c == '\r' -> col = 0
                 c == '\n' -> { newLine(); col = 0 }
-                c == '\b' -> if (col > 0) col--
-                c == '\t' -> col = (col / 8 + 1) * 8
+                c == '\b' -> if (col > 0) col = maxOf(0, clampCol(col) - 1)
+                c == '\t' -> col = clampCol((col / 8 + 1) * 8)
                 c < ' ' || c == '\u007f' -> Unit
-                else -> write(c)
+                c.isHighSurrogate() -> { high = c; i++; continue }
+                c.isLowSurrogate() -> high?.let { first -> put("$first$c", widthOf(Character.toCodePoint(first, c))) }
+                else -> put(c.toString(), widthOf(c.code))
             }
+            high = null
             i++
         }
         bound()
         version++
     }
 
-    private fun write(c: Char) {
+    /**
+     * Prints one character ([text] is one code point, two chars for a surrogate pair) taking [width] columns. With a
+     * width known, a character that doesn't fit what is left of the row (the cursor past the last column, or a wide one
+     * at the last column) goes to the start of the next row first, as xterm's autowrap does.
+     */
+    private fun put(text: String, width: Int) {
+        if (cols > 0) {
+            val used = cellsAt(lines[row], col)
+            if (used > 0 && used + width > cols) { newLine(); col = 0 }
+        }
         val line = lines[row]
         val before = line.length()
-        line.put(col, c, style)
+        for (k in text.indices) line.put(col + k, text[k], style)
+        if (width != text.length) line.wide = true
         if (alt == null) chars += line.length() - before
-        col++
+        col += text.length
     }
+
+    /** The columns before index [index] of [line]: the index itself unless the line holds a wide character. */
+    private fun cellsAt(line: Line, index: Int): Int {
+        if (!line.wide) return index
+        val end = minOf(index, line.length())
+        var cells = 0
+        var i = 0
+        while (i < end) {
+            val cp = line.chars.codePointAt(i)
+            cells += widthOf(cp)
+            i += Character.charCount(cp)
+        }
+        return cells + maxOf(0, index - line.length())
+    }
+
+    /** A cursor column kept inside the grid when the width is known. */
+    private fun clampCol(value: Int): Int = if (cols > 0) minOf(value, cols - 1) else value
 
     private fun newLine() {
         row++
@@ -158,11 +196,21 @@ class VtScreen(private val capacity: Int = 256 * 1024) {
     /** The pane's height, from the desktop's snapshot (P4). 0, the default, keeps the screen top where clears put it. */
     private var rows = 0
 
-    /** A fresh screen of [rows] lines, before a snapshot is fed (P4). The width stays unbounded until wrapping lands. */
-    fun reset(rows: Int) {
+    /** The pane's width, from the desktop's snapshot (A45). 0, the default, keeps the width unbounded as in 1.4.3. */
+    private var cols = 0
+
+    /**
+     * A fresh screen of [rows] lines, exactly [cols] wide, before a snapshot is fed (P4, A45): lines wrap and the cursor
+     * clamps as xterm does. 0 for either leaves it unknown (no fixed height; an unbounded width).
+     */
+    fun reset(cols: Int, rows: Int) {
         reset()
+        this.cols = cols.coerceAtLeast(0)
         this.rows = rows.coerceAtLeast(0)
     }
+
+    /** A fresh screen of [rows] lines with no known width (P4 before A45). */
+    fun reset(rows: Int) = reset(0, rows)
 
     /** The index just past the escape sequence starting at [start], or -1 when the chunk ends inside it. */
     private fun escapeEnd(s: String, start: Int): Int {
@@ -210,18 +258,23 @@ class VtScreen(private val capacity: Int = 256 * 1024) {
             'm' -> sgr(numbers)
             'A' -> row = maxOf(screenTop, row - n())
             'B', 'e' -> { row += n(); ensureRow(row) }
-            'C', 'a' -> col += n()
-            'D' -> col = maxOf(0, col - n())
+            'C', 'a' -> col = clampCol(col + n())
+            'D' -> col = maxOf(0, clampCol(col) - n())
             'E' -> { row += n(); ensureRow(row); col = 0 }
             'F' -> { row = maxOf(screenTop, row - n()); col = 0 }
-            'G', '`' -> col = n() - 1
+            'G', '`' -> col = clampCol(n() - 1)
             'd' -> { row = screenTop + n() - 1; ensureRow(row) }
-            'H', 'f' -> { row = screenTop + n(0) - 1; col = n(1) - 1; ensureRow(row) }
+            'H', 'f' -> { row = screenTop + n(0) - 1; col = clampCol(n(1) - 1); ensureRow(row) }
             'K' -> eraseLine(numbers.firstOrNull() ?: 0)
             'J' -> eraseScreen(numbers.firstOrNull() ?: 0)
             'X' -> { lines[row].blank(col, col + n()) }
             'P' -> { val l = lines[row]; val before = l.length(); l.delete(col, n()); if (alt == null) chars += l.length() - before }
-            '@' -> { val l = lines[row]; val before = l.length(); l.insert(col, n()); if (alt == null) chars += l.length() - before }
+            '@' -> {
+                val l = lines[row]; val before = l.length(); l.insert(col, n())
+                // ICH pushes the row's end past the edge, where xterm drops it.
+                if (cols > 0) l.truncate(cols)
+                if (alt == null) chars += l.length() - before
+            }
             's' -> saved = Saved(row - screenTop, col, style)
             'u' -> restore(saved)
         }
@@ -229,7 +282,7 @@ class VtScreen(private val capacity: Int = 256 * 1024) {
 
     private fun restore(at: Saved?) {
         at ?: return
-        row = screenTop + at.row; col = at.col; style = at.style
+        row = screenTop + at.row; col = clampCol(at.col); style = at.style
         ensureRow(row)
     }
 
@@ -333,6 +386,14 @@ class VtScreen(private val capacity: Int = 256 * 1024) {
             mainCursor = mainCursor?.let { (r, c) -> maxOf(0, r - 1) to c }
         }
     }
+
+    /** Columns a code point takes, as xterm's wcwidth counts the East Asian wide ranges and emoji. */
+    private fun widthOf(cp: Int): Int = if (
+        cp in 0x1100..0x115F || cp in 0x2E80..0x303E || cp in 0x3041..0x33FF || cp in 0x3400..0x4DBF ||
+        cp in 0x4E00..0x9FFF || cp in 0xA000..0xA4CF || cp in 0xAC00..0xD7A3 || cp in 0xF900..0xFAFF ||
+        cp in 0xFE30..0xFE4F || cp in 0xFF00..0xFF60 || cp in 0xFFE0..0xFFE6 || cp in 0x1F300..0x1F64F ||
+        cp in 0x1F900..0x1F9FF || cp in 0x20000..0x3FFFD
+    ) 2 else 1
 
     private companion object {
         const val ESC = '\u001B'

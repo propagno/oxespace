@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, type ReactElement, type ReactNode } f
 import { useTranslation } from 'react-i18next'
 import { Dialog } from '../../ui/Overlay'
 import { Button } from '../../ui/Button'
-import type { DataExportState } from '../../../shared/types/ipc'
+import type { DataExportState, RemovedFeatureId } from '../../../shared/types/ipc'
 
 export interface WhatChangedDialogProps {
   onClose: () => void
@@ -143,12 +143,13 @@ export function WhatChangedDialog({ onClose, returnFocusTo, initialState }: What
     })
   }
 
-  const rKey = ['r', 't', 'k'].join('')
+  const rKey = ['r', 't', 'k'].join('') as RemovedFeatureId
   if (removedIds.has(rKey)) {
+    const tAny = t as unknown as (k: string) => string
     rows.push({
       id: rKey,
-      feature: t(`updates.removedFeatures.${rKey}.feature` as unknown as 'updates.dismiss'),
-      destination: t(`updates.removedFeatures.${rKey}.dest` as unknown as 'updates.dismiss')
+      feature: tAny(`updates.removedFeatures.${rKey}.feature`),
+      destination: tAny(`updates.removedFeatures.${rKey}.dest`)
     })
   }
 

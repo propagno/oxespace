@@ -52,7 +52,7 @@ export const REMOTE_FRAME_TYPES = ['hello', 'auth', 'subscribe', 'unsubscribe', 
 export type RemoteFrameType = typeof REMOTE_FRAME_TYPES[number]
 
 /** What the phone can watch. Terminal output is read-only slices of the pane's ring buffer, by sequence. */
-export const REMOTE_SUBSCRIPTIONS = ['workspaces', 'threads', 'thread', 'pendingRequests', 'terminal', 'jobs', 'delegations', 'agents'] as const
+export const REMOTE_SUBSCRIPTIONS = ['workspaces', 'threads', 'thread', 'pendingRequests', 'terminal', 'jobs', 'delegations', 'agents', 'paneConversation'] as const
 export type RemoteSubscription = typeof REMOTE_SUBSCRIPTIONS[number]
 
 /**
@@ -62,7 +62,7 @@ export type RemoteSubscription = typeof REMOTE_SUBSCRIPTIONS[number]
  * (S7.1). Every command counts toward `REMOTE_LIMITS.commandsPerMinute`
  * and is recorded in the desktop's audit with the device id.
  */
-export const REMOTE_COMMANDS = ['thread.send', 'thread.steer', 'thread.interrupt', 'thread.respondRequest', 'terminal.write', 'thread.history', 'agent.markSeen'] as const
+export const REMOTE_COMMANDS = ['thread.send', 'thread.steer', 'thread.interrupt', 'thread.respondRequest', 'terminal.write', 'thread.history', 'agent.markSeen', 'pane.conversation'] as const
 export type RemoteCommand = typeof REMOTE_COMMANDS[number]
 
 /** Never a command, a subscription or an argument of the remote protocol. */
@@ -95,6 +95,8 @@ export const REMOTE_ERROR_CODES = [
   'not-pending',
   'stale-generation',
   'pane-not-shared',
+  'no-conversation',
+  'conversation-changed',
   'internal'
 ] as const
 export type RemoteErrorCode = typeof REMOTE_ERROR_CODES[number]
@@ -109,6 +111,11 @@ export interface RemoteHelloFrame extends FrameBase<'hello'> {
   desktopName?: string
   /** Set by the gateway: 32 random bytes, base64url, new for every connection; a refresh signs it as its `nonce`. */
   challenge?: string
+  /**
+   * Set by the gateway (1.5.0 F10): what this desktop supports beyond the version, e.g. "terminal.snapshotOnly" and
+   * "pane.conversation". The phone uses a feature only when it is listed; a client hello never carries it.
+   */
+  features?: string[]
 }
 
 /**
@@ -141,6 +148,11 @@ export interface RemoteSubscribeFrame extends FrameBase<'subscribe'> {
    * sequence of a terminal). The phone never reads it; an unknown or expired one gets a fresh snapshot.
    */
   cursor?: string
+  /**
+   * 1.5.0 F10 (BE-A45-flag, #706): a terminal snapshot as its one screen page, without the ring pages. Sent only to a
+   * desktop whose hello listed "terminal.snapshotOnly"; an older desktop refuses an unknown key as malformed.
+   */
+  snapshotOnly?: boolean
 }
 
 export interface RemoteUnsubscribeFrame extends FrameBase<'unsubscribe'> {
@@ -188,6 +200,8 @@ export interface RemoteAckFrame extends FrameBase<'ack'> {
 export interface RemoteErrorFrame extends FrameBase<'error'> {
   /** The frame it answers, when it had one. */
   id?: string
+  /** 1.5.0 F10 (CR-34, #706): the open stream this ends, e.g. a pane hidden from the phone (`reason: 'pane-hidden'`). */
+  subscription?: string
   code: RemoteErrorCode
   /**
    * Why, when the code alone would mislead (T96). Added, never required: a phone that does not know it reads the code
@@ -195,7 +209,7 @@ export interface RemoteErrorFrame extends FrameBase<'error'> {
    * says to pair again instead of "removed". A literal word, not an enum, so Kotlin reads it as text and a word added
    * later never breaks an older phone (the #531 rule).
    */
-  reason?: 'pairing-lapsed'
+  reason?: 'pairing-lapsed' | 'new-session' | 'rewritten' | 'pane-hidden'
   /** Milliseconds before retrying, for `rate-limited`. */
   retryAfterMs?: number
 }
@@ -430,8 +444,14 @@ export interface RemotePane {
    * off again when the app restarts, and never changed by the phone or an MCP tool.
    */
   phoneWrite: boolean
+  /** 1.5.0 F10 (BE-A46-c5, #658/#706): the pane's agent has a conversation the phone can read with `pane.conversation`. */
+  conversation?: boolean
 }
-export interface RemoteWorkspace { id: string; name: string; active: boolean; panes: RemotePane[] }
+export interface RemoteWorkspace {
+  id: string; name: string; active: boolean; panes: RemotePane[]
+  /** 1.5.0 A67 (#693): the colour slot the desktop shows (1–8), chosen or derived (shared/workspace-color.ts). */
+  color?: number
+}
 export interface RemoteWorkspacesData { workspaces: RemoteWorkspace[] }
 
 // ---- threads: the list -------------------------------------------------------------------------------------------
@@ -673,6 +693,27 @@ export interface RemoteThreadHistoryArgs { threadId: string; beforeSeq: number }
  * exists.
  */
 export interface RemoteAgentMarkSeenArgs { kind: RemoteAgentKind; id: string }
+/** 1.5.0 F10 (BE-A46-c5, #706): a page of a pane's agent conversation, newest first; `cursor` for "Load earlier". */
+export interface RemotePaneConversationArgs { paneId: string; cursor?: string }
+/**
+ * 1.5.0 F10 (BE-A46-c5, #706): what `pane.conversation` gives (`ack.result`) and the `paneConversation` snapshot. `items`
+ * go oldest to newest within the page, each id stable; `cursor` asks for the page before it, null at the oldest; `epoch`
+ * grows when the pane's agent starts a new session. `agent` is the manifest id (claude, codex…), text, never an enum.
+ */
+export interface RemotePaneConversationPage {
+  agent: string
+  title?: string
+  items: { seq: number; item: RemoteThreadItem }[]
+  cursor: string | null
+  epoch: number
+}
+
+/**
+ * 1.5.0 F10 (BE-A46-c5, #706): a `paneConversation` event. It says only that the conversation changed, never what: the
+ * phone reads the newest page again with `pane.conversation`. At most one per two seconds. With `conversation-changed`,
+ * `RemoteErrorFrame.reason` may say `new-session` (another session) or `rewritten` (the session file was rewritten or cut).
+ */
+export interface RemotePaneConversationEvent { changed: true }
 
 /** The args each command takes. */
 export interface RemoteCommandArgs {
@@ -683,4 +724,5 @@ export interface RemoteCommandArgs {
   'terminal.write': RemoteTerminalWriteArgs
   'thread.history': RemoteThreadHistoryArgs
   'agent.markSeen': RemoteAgentMarkSeenArgs
+  'pane.conversation': RemotePaneConversationArgs
 }

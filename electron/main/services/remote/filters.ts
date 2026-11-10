@@ -9,6 +9,7 @@ import { riskFromShell } from '../../../../shared/approval-rules'
 import type { AgentRow } from '../../../../shared/types/agents'
 import type { MainMessage } from '../../../../shared/messages'
 import { toToolDiff } from './tool-diff'
+import { workspaceColorIndex } from '../../../../shared/workspace-color'
 
 /**
  * Desktop data to C5 payloads. Each mapper names what it keeps; anything not named here (absolute paths, cwd, native
@@ -23,9 +24,11 @@ const text = (value: string | undefined, roots: readonly string[], limit: number
 
 // ---- workspaces ---------------------------------------------------------------------------------------------------
 
-export function toWorkspace(row: RemoteWorkspaceRow, phoneWrite: ReadonlySet<string>, roots: readonly string[]): RemoteWorkspace {
+export function toWorkspace(row: RemoteWorkspaceRow, phoneWrite: ReadonlySet<string>, roots: readonly string[], conversation?: (paneId: string) => boolean): RemoteWorkspace {
   return {
     id: row.id, name: text(row.name, roots, TITLE) || 'Workspace', active: row.active,
+    // 1.5.0 A67 (#693): the slot the desktop shows, chosen or derived from the id; always 1–8.
+    color: workspaceColorIndex({ id: row.id, color: row.color ?? null }),
     panes: row.panes.map((pane): RemotePane => {
       const agent = pane.agent
       return {
@@ -34,7 +37,9 @@ export function toWorkspace(row: RemoteWorkspaceRow, phoneWrite: ReadonlySet<str
         kind: pane.type !== 'terminal' ? 'other' : agent || pane.agentName ? 'agent' : 'terminal',
         ...(agent ? { agent: text(agent, roots, 64) } : {}),
         ...(pane.agentState ? { agentState: pane.agentState } : {}),
-        phoneWrite: phoneWrite.has(pane.id)
+        phoneWrite: phoneWrite.has(pane.id),
+        // BE-A46-c5: only the flag; the conversation itself is read with `pane.conversation`.
+        ...(conversation?.(pane.id) ? { conversation: true } : {})
       }
     })
   }

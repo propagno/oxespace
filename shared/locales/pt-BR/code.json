@@ -1994,7 +1994,12 @@
     "pid": "ID do processo",
     "startedAt": "Terminal iniciado em",
     "checkingBranch": "Verificando a branch…",
-    "noBranch": "Branch indisponível"
+    "noBranch": "Branch indisponível",
+    "phoneShow": "Mostrar no celular",
+    "phoneShowHint": "Celulares pareados podem ver este terminal.",
+    "phoneWriteNeedsShow": "Mostre no celular primeiro.",
+    "phoneHiddenMark": "Oculto do celular",
+    "phoneShowFailed": "Não foi possível mudar se o celular mostra este terminal"
   },
   "terminalPane": {
     "taskMissing": "Tarefa delegada não encontrada. Veja as configurações do workspace > Delegação de agentes.",

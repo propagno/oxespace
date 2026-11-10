@@ -501,6 +501,8 @@ export type ThreadEvent =
   | { type: 'cli-command'; id: string; command: string }
   | { type: 'completed'; status: 'completed' | 'interrupted' | 'failed'; error?: string; errorCode?: ThreadFailure['code']; failure?: ThreadFailure }
   | { type: 'failure-details'; id: string; usage?: ThreadUsage; usageUnavailable?: boolean }
+  /** F4 A15: a place's branch moved under the conversation; saved once per change. `by` is a hint, never certain. */
+  | { type: 'place-drift'; placeId: string; from: import('./thread-places').ThreadPlaceHead; to: import('./thread-places').ThreadPlaceHead; by: { kind: 'pane'; id: string; title: string }[]; certain: false; seenAt: number }
 
 export interface ConversationCapabilities {
   resume: boolean

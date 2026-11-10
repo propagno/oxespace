@@ -580,7 +580,8 @@
         "notifications": "Open notification settings",
         "updates": "Check for updates",
         "policy": "Open policy settings",
-        "diagnostics": "Open diagnostics"
+        "diagnostics": "Open diagnostics",
+        "data": "Open data settings"
       },
       "oxequery": {
         "open": "Open",

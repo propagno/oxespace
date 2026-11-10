@@ -26,7 +26,7 @@ export interface GatewaySettings {
 }
 
 export type RemoteAuditAction = 'enable' | 'disable' | 'pairing-start' | 'pairing-cancel' | 'pairing' | 'revoke' | 'rename' | 'desktop-name' | 'auth-failure' | 'certificate'
-  | 'command' | 'phone-write'
+  | 'command' | 'phone-write' | 'phone-hidden'
 
 export interface RemoteAuditRecord {
   action: RemoteAuditAction
@@ -126,6 +126,17 @@ export class RemoteStore {
   /** Never moves the last sight back (a clock set back, or a close in the same millisecond as the sign-in): B9.2 reads it. */
   touch(deviceId: string, at = this.now()): void {
     this.db.prepare('UPDATE remote_devices SET last_seen_at = MAX(?, COALESCE(last_seen_at, 0)) WHERE device_id = ? AND revoked = 0').run(at, deviceId)
+  }
+
+  /** CR-34: panes kept off the phone, sorted. No row is the default: shown. */
+  hiddenPanes(): string[] {
+    try { return (this.db.prepare('SELECT pane_id FROM remote_hidden_panes ORDER BY pane_id').all() as Array<{ pane_id: string }>).map(row => row.pane_id) } catch { return [] }
+  }
+
+  /** CR-34: keeps a pane off the phone, or shows it again. Only a pane the app has is stored, and the row goes with it. */
+  setPaneHidden(paneId: string, hidden: boolean): void {
+    if (hidden) this.db.prepare('INSERT OR IGNORE INTO remote_hidden_panes (pane_id, hidden_at) SELECT id, ? FROM panes WHERE id = ?').run(this.now(), paneId)
+    else this.db.prepare('DELETE FROM remote_hidden_panes WHERE pane_id = ?').run(paneId)
   }
 
   /** Append-only and best effort: a failed write never changes what is being recorded. */

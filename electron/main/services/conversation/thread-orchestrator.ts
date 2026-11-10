@@ -39,12 +39,12 @@ import { ThreadUsageLedger, turnSteps } from './thread-usage'
 import { recordRuntime } from '../runtime-diagnostics'
 import { hasUnconfirmedTurnTools, recoverPublicTurn } from './thread-result-recovery'
 import type { NativeStateResult } from './codex-state-reader'
-import { canonicalPath, resolveSessionLocation } from '../git-common-dir'
+import { ThreadPlaceStore } from './thread-places'
+import { ThreadPlaceObserver } from './thread-place-observer'
+import { projectDiffAt } from './thread-place-heads'
+import type { ThreadCollision, ThreadPane, ThreadPaneSource, ThreadPathResolution, ThreadPlace, ThreadPlaceDiff, ThreadPlaceDriftAnswer, ThreadPlaceReadResult, ThreadPlaces } from '../../../../shared/types/thread-places'
+import type { MainMessage } from '../../../../shared/messages'
 import { explainMissingFolder, ThreadFolderMissingError } from './thread-worktree'
-import { execGit } from '../../utils/safe-git'
-
-// Canonical comparison: a Windows short name and its long form are the same folder.
-const sameCheckout = (a: string, b: string): boolean => canonicalPath(a) === canonicalPath(b)
 
 /** The checkout a conversation works in: a worktree of its repository the provider moved into, else its root. */
 const workingRootOf = (thread: ConversationThread): string =>
@@ -108,6 +108,11 @@ export class ThreadOrchestrator {
   private readonly usage: ThreadUsageLedger
   /** Checkpoints and working-tree baselines of running turns. */
   private readonly turns: ThreadTurnTracker
+  /** F4 places per conversation, from evidence (migration 095). */
+  private readonly placeStore: ThreadPlaceStore
+  /** F4 places, drift, place diff and read, cwd, panes and collisions (thread-place-observer.ts). */
+  private readonly placeObserver: ThreadPlaceObserver
+  private paneSource: () => ThreadPaneSource[] = () => []
   private readonly busy = new Set<string>()
   private readonly nativePageLoads = new Map<string, Promise<void>>()
   private readonly finalizing = new Set<string>()
@@ -146,6 +151,9 @@ export class ThreadOrchestrator {
     this.exports = new ThreadExportService((threadId, artifactId) => this.history.artifact(threadId, artifactId))
     this.checkpoints = new ThreadCheckpointService(db)
     this.turns = new ThreadTurnTracker(this.checkpoints, id => this.read(id), (id, event) => this.event(id, event))
+    this.placeStore = new ThreadPlaceStore(db, this.checkpoints, (threadId, turnId, root) => this.turns.begin(threadId, turnId, root, 'Another checkout'))
+    this.placeObserver = new ThreadPlaceObserver({ db, placeStore: this.placeStore, readThread: id => this.readThread(id), read: id => this.read(id), save: (snapshot, options) => this.save(snapshot, options),
+      paneSources: () => this.paneSources(), isBusy: id => this.busy.has(id), isStarting: id => this.starting.has(id), beginCheckpoint: (id, turnId, root, label) => this.turns.begin(id, turnId, root, label) })
     this.permissions = new ThreadPermissionStore(db)
     this.policy = new ThreadPolicy(this.permissions, id => this.readThread(id).rootPath, (id, requestId, generation, response) => this.requests.resolve(id, requestId, generation, response))
     this.usage = new ThreadUsageLedger(db)
@@ -172,6 +180,26 @@ export class ThreadOrchestrator {
     this.retentionSweep = setInterval(() => { try { pruneThreadData(this.db) } catch { /* best effort */ } }, 24 * 60 * 60 * 1000)
     this.retentionSweep.unref?.()
   }
+
+  /** Where this conversation worked: its root, then each worktree, checkout and outside folder the evidence named. */
+  places(id: string): Promise<ThreadPlaces> { return this.placeObserver.places(id) }
+  /** A15 (thread:place-drift-answer): Switch back (guarded, audited), Follow or Dismiss; see ThreadPlaceObserver. */
+  answerPlaceDrift(id: string, placeId: string, answer: ThreadPlaceDriftAnswer): Promise<{ ok: true; place: ThreadPlace } | { ok: false; refusal: MainMessage }> { return this.placeObserver.answerPlaceDrift(id, placeId, answer) }
+  /** A17 (thread:place-read, forbidden to MCP): one file of a place from tool evidence, read only and audited. */
+  readPlaceFile(id: string, placeId: string, relativePath: string): Promise<ThreadPlaceReadResult> { return this.placeObserver.readPlaceFile(id, placeId, relativePath) }
+  /** A14: one place's changes against its own base; an outside folder lists what was written. */
+  placeDiff(id: string, placeId: string): Promise<ThreadPlaceDiff> { return this.placeObserver.placeDiff(id, placeId) }
+  /** A16: where a path the conversation named opens; `turnId` picks that turn's cwd, the default is the newest turn. */
+  resolvePath(id: string, raw: string, at: { turnId?: string } = {}): Promise<ThreadPathResolution> { return this.placeObserver.resolvePath(id, raw, at) }
+  /** The app's panes, for the places a pane works in; set once the pane registry is up. */
+  configurePanes(source: () => ThreadPaneSource[]): void { this.paneSource = source }
+  paneSources(): ThreadPaneSource[] { try { return this.paneSource() } catch { return [] } }
+  /** A18 · the task's Terminal tab: panes whose newest known cwd is in one of its places; computed, never stored. */
+  panes(id: string): Promise<ThreadPane[]> { return this.placeObserver.panes(id) }
+  /** A54: files this conversation and another non-archived one both wrote and left dirty in the same checkout. */
+  collisions(id: string): Promise<ThreadCollision[]> { return this.placeObserver.collisions(id) }
+  /** Place classification options; `homeDir` stands in for the home folder. */
+  configurePlaces(options: { homeDir?: string }): void { this.placeStore.configure(options) }
 
   /** Minutes without activity before an idle conversation's agent process is closed; 0 keeps it open. */
   idleSuspendMinutes(): number { return idleSuspendMinutes(this.db) }
@@ -271,6 +299,7 @@ export class ThreadOrchestrator {
     this.lastActivity.delete(id)
     this.sessionGrants.delete(id)
     this.turns.forget(id)
+    this.placeObserver.forget(id)
     clearTimeout(this.deltaTimers.get(id)); this.deltaTimers.delete(id); this.deltaBuffers.delete(id)
     this.requests.invalidate(id)
   }
@@ -425,7 +454,9 @@ export class ThreadOrchestrator {
     if (this.busy.has(targetId) || this.configuring.has(targetId)) throw Error('Finish the active operation before importing a conversation')
     const imported = this.portable.parse(input)
     if (imported.conversation.provider !== target.thread.provider) throw Error('Import the conversation into a project using the same provider')
-    const snapshot = this.create({ workspaceId: target.thread.workspaceId, projectId: target.thread.projectId, rootPath: target.thread.rootPath, provider: target.thread.provider })
+    // An empty target (no events, no turns, no native session) takes the import itself; otherwise a new conversation does.
+    const empty = !target.events.length && !(target.turns?.length) && !target.thread.nativeSessionId
+    const snapshot = empty ? target : this.create({ workspaceId: target.thread.workspaceId, projectId: target.thread.projectId, rootPath: target.thread.rootPath, provider: target.thread.provider })
     snapshot.thread.title = imported.conversation.title || 'Imported conversation'
     Object.assign(snapshot.thread, imported.conversation.configuration, { status: 'idle', nativeSessionId: null, generation: 1, queue: [], cliActive: false })
     snapshot.events = imported.conversation.events
@@ -447,21 +478,7 @@ export class ThreadOrchestrator {
     await this.attachmentStore.remove(id, attachmentId)
   }
 
-  async projectDiff(id: string): Promise<import('../../../../shared/types/git').GitDiff> {
-    const thread = this.readThread(id)
-    // The project's changes live in the worktree the provider moved into, when it reported one.
-    const rootPath = thread.observedLocation?.sameRepository && thread.observedLocation.checkoutRoot ? thread.observedLocation.checkoutRoot : thread.rootPath
-    const run = async (args: string[]) => (await execGit(rootPath, args, { maxBuffer: 2 * 1024 * 1024, timeout: 15000 })).stdout
-    let hasHead = true
-    try { await run(['rev-parse', '--verify', 'HEAD']) } catch { hasHead = false }
-    const args = ['--no-pager', 'diff', '--no-ext-diff', '--no-textconv', '--unified=3']
-    let raw: string
-    try { raw = await run([...args, hasHead ? 'HEAD' : (await run(['hash-object', '-t', 'tree', '--stdin'])).trim(), '--']) }
-    catch { throw Error('Could not read tracked project changes. Check the repository and retry.') }
-    this.readThread(id)
-    const { parseDiffOutput } = await import('../git.service')
-    return { files: parseDiffOutput(raw), base: hasHead ? 'HEAD' : 'Unborn branch', includeUncommitted: true, compiledAt: Date.now() }
-  }
+  async projectDiff(id: string): Promise<import('../../../../shared/types/git').GitDiff> { return projectDiffAt(this.readThread(id), () => { this.readThread(id) }) }
 
   async send(id: string, text: string, attachmentIds: string[] = []): Promise<void> {
     if (this.stopping) throw new Error('Application is shutting down')
@@ -559,6 +576,8 @@ export class ThreadOrchestrator {
     snapshot.events.push({ type: 'activity', id: `activity:${turnId}:preparing`, phase: 'preparing', at: Date.now() })
     this.save(snapshot, { eventsFrom, operationId: operation.id })
     try {
+      // A15 read point: the turn's begin.
+      this.placeObserver.queuePlaceRead(id)
       // Publish the accepted prompt before repository snapshots or agent startup can block the UI.
       // Both reads must finish before the agent can modify files, but they are independent.
       // In the checkout the conversation works in: a worktree it moved into, else its own root.
@@ -922,35 +941,6 @@ export class ThreadOrchestrator {
     } catch { /* Thread may have been deleted while the provider was reporting. */ }
   }
 
-  /**
-   * Records where the provider says it works. A worktree of the thread's repository is registered as a
-   * context of the same project, so the review panels may read it; working in `rootPath` clears the record.
-   * Saved only when it changes, since Codex reports a directory with every command.
-   */
-  private storeLocation(id: string, cwd: string): void {
-    try {
-      const snapshot = this.read(id)
-      const location = resolveSessionLocation(cwd, snapshot.thread.rootPath)
-      if (!location) return
-      const atRoot = location.sameRepository && location.checkoutRoot !== null && sameCheckout(location.checkoutRoot, snapshot.thread.rootPath)
-      const next = atRoot ? undefined : location
-      const previous = snapshot.thread.observedLocation
-      if (previous?.checkoutRoot === next?.checkoutRoot && previous?.sameRepository === next?.sameRepository && (previous?.cwd === next?.cwd || next?.sameRepository)) return
-      if (next?.sameRepository && next.checkoutRoot) {
-        this.db.prepare('INSERT OR IGNORE INTO thread_project_contexts (project_id, root_path) VALUES (?, ?)').run(snapshot.thread.projectId, next.checkoutRoot)
-      }
-      if (next) snapshot.thread.observedLocation = next
-      else delete snapshot.thread.observedLocation
-      this.save(snapshot, { eventsFrom: snapshot.events.length })
-      // A move during a running turn: that checkout gets its own checkpoint and baseline, so what the turn
-      // changes there can be reviewed and undone like changes in the root.
-      const turn = snapshot.turns?.at(-1)
-      if (this.busy.has(id) && turn?.status === 'running' && next?.sameRepository && next.checkoutRoot) {
-        void this.turns.begin(id, turn.id, next.checkoutRoot, 'In a worktree').catch(() => undefined)
-      }
-    } catch { /* Thread may have been deleted while the provider was reporting. */ }
-  }
-
   private storeCost(id: string, turn: Extract<ThreadEvent, { type: 'turn-cost' }>): void {
     try {
       const snapshot = this.read(id)
@@ -986,7 +976,7 @@ export class ThreadOrchestrator {
     if (this.stopping) return
     if (event.type === 'context-usage') { this.storeContext(id, event.report); return }
     if (event.type === 'turn-cost') { this.storeCost(id, event); return }
-    if (event.type === 'location') { this.storeLocation(id, event.cwd); return }
+    if (event.type === 'location') { this.placeObserver.storeLocation(id, event.cwd); return }
     let snapshot: ThreadSnapshot
     try { snapshot = this.read(id) } catch {
       this.busy.delete(id)
@@ -996,6 +986,8 @@ export class ThreadOrchestrator {
       return
     }
     if (generation !== undefined && generation !== (snapshot.thread.generation ?? 1)) return
+    this.placeObserver.collectPlaceEvidence(id, snapshot, event)
+    this.placeObserver.trackPlaceHeads(id, event)
     const diagnostic = { thread: id, turn: snapshot.turns?.at(-1)?.id, generation }
     switch (event.type) {
       case 'tool': case 'subagent':

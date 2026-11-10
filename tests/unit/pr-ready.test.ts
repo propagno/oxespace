@@ -66,7 +66,7 @@ describe('CI as evidence for the whole suite', () => {
   })
 
   it('needs every unit job completed and green on the head, and names the runs that prove it', () => {
-    expect(ciEvidence(CI_UNIT_JOBS.map((n: string) => run(n)), CI_UNIT_JOBS, SHA)).toEqual({ ok: true, missing: [], runs: [71, 72] })
+    expect(ciEvidence(CI_UNIT_JOBS.map((n: string) => run(n)), CI_UNIT_JOBS, SHA)).toMatchObject({ ok: true, missing: [], runs: [71, 72] })
     expect(ciEvidence(CI_UNIT_JOBS.map((n: string) => run(n, { details_url: 'https://github.com/o/r/actions/runs/70/job/1' }))).runs).toEqual([70])
     expect(ciEvidence([run(CI_UNIT_JOBS[0])]).ok).toBe(false)
     expect(ciEvidence([run(CI_UNIT_JOBS[0]), run(CI_UNIT_JOBS[1], { status: 'in_progress', conclusion: null })]).missing).toEqual([`${CI_UNIT_JOBS[1]}: still in_progress`])

@@ -133,6 +133,9 @@ export const IPC_CHANNELS = {
     // T54 · Settings › Terminal: a session that skipped permissions resumes that way only with this on.
     resumeBypass: 'terminal:resume-bypass',
     setResumeBypass: 'terminal:set-resume-bypass',
+    // A18 (T73) · The pane's branch and where it started, for the pane header; read, then pushed on change.
+    branch: 'terminal:branch',
+    branchChanged: 'terminal:branch-changed',
     onData: 'terminal:data',
     onExit: 'terminal:exit',
     onActivity: 'terminal:activity'
@@ -195,7 +198,7 @@ export const IPC_CHANNELS = {
   remote: {
     status: 'remote:status', devices: 'remote:devices', changed: 'remote:changed', setEnabled: 'remote:set-enabled', startPairing: 'remote:start-pairing',
     cancelPairing: 'remote:cancel-pairing', answerPairing: 'remote:answer-pairing', revoke: 'remote:revoke', rename: 'remote:rename',
-    setDesktopName: 'remote:set-desktop-name', setPhoneWrite: 'remote:set-phone-write', pairingFailed: 'remote:pairing-failed',
+    setDesktopName: 'remote:set-desktop-name', setPhoneWrite: 'remote:set-phone-write', setPhoneHidden: 'remote:set-phone-hidden', pairingFailed: 'remote:pairing-failed',
     firewallStatus: 'remote:firewall-status', firewallRepair: 'remote:firewall-repair', firewallUndo: 'remote:firewall-undo'
   },
   agentHooks: {
@@ -329,6 +332,8 @@ export const IPC_CHANNELS = {
     listConnectedRepositories: 'github:list-connected-repositories',
     connectRepository: 'github:connect-repository'
   },
+  /** A60: the Pull request tab, GitHub or Azure DevOps in one shape. */
+  pullRequest: { state: 'pull-request:state' },
   integration: {
     listGroups: 'integration:list-groups',
     createGroup: 'integration:create-group',
@@ -429,7 +434,21 @@ export interface WorkspaceApi {
   createGitHubTerminalPane(workspaceId: string): Promise<{ id: string }>
 }
 
+/** A18 (T73) · A pane's branch, the branch it started on, and whether it switched; null branches outside a repository or detached. */
+export interface TerminalPaneBranch {
+  branch: string | null
+  startedOn: string | null
+  switched: boolean
+}
+
+export interface TerminalBranchChangedEvent extends TerminalPaneBranch {
+  paneId: string
+}
+
 export interface TerminalApi {
+  /** A18 · The pane's branch now; null for a pane that is not tracked. */
+  branch?(paneId: string): Promise<TerminalPaneBranch | null>
+  onBranchChanged?(paneId: string, listener: (event: TerminalBranchChangedEvent) => void): () => void
   start(input: TerminalStartInput): Promise<void>
   /** T54 · Whether a Claude session that skipped permissions resumes that way. Off by default. */
   resumeBypass?(): Promise<boolean>
@@ -633,6 +652,7 @@ export interface OxeApi {
   git: GitApi
   search: SearchApi
   github: GitHubApi
+  pullRequest?: import('./pull-request').PullRequestApi
   integration: IntegrationApi
   clipboard: ClipboardApi
   notifications: NotificationsApi

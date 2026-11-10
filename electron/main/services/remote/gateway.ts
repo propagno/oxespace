@@ -28,6 +28,7 @@ import { defaultRouteAddress, interfaceOf, networkCategories } from './network-p
 import { PAIRING_PROMPT_TIMEOUT_MS, PairingDesk } from './pairing'
 import { RemoteStore, TooManyDevicesError, type DeviceRecord } from './store'
 import { createTopics } from './topics'
+import { paneConversationsFor, paneConversationTopic, type PaneConversationSource } from './pane-conversation'
 import { AccessTokens, readDevicePublicKey, sameSecret, verifyRefreshSignature } from './tokens'
 import { frameSocket, refuseUpgrade, upgradeRefusal, WS_CLOSE } from './websocket'
 
@@ -84,6 +85,8 @@ export interface RemoteGatewayDeps {
   env?: NodeJS.ProcessEnv
   /** Connection slots, for tests. */
   limits?: { connections?: number; unauthenticatedPerAddress?: number; unauthenticated?: number }
+  /** BE-A46-c5: pane agents' conversations; read from the database's recorded sessions by default (with a desktop). */
+  paneConversations?: PaneConversationSource
 }
 
 interface Running {
@@ -137,6 +140,10 @@ export class RemoteGateway implements ConnectionHost {
   private offerWatch: { contacted: boolean; timer: ReturnType<typeof setTimeout> } | null = null
   /** Panes the person let phones type into: in memory only, so off on every launch, and never set by a phone or MCP. */
   private readonly phoneWritePanes = new Set<string>()
+  /** CR-34: panes kept off the phone entirely (shown by default: no row). Persisted per pane; set only from the window. */
+  private readonly phoneHiddenPanes: Set<string>
+  /** CR-34: how to end each open terminal or paneConversation stream, by pane. */
+  private readonly paneStreams = new Map<string, Set<() => void>>()
   /** B9.2: devices paired on this launch that have not signed in yet, and when they lapse. In memory only. */
   /** A paused entry (the gateway is off) has no timer and never lapses until the gateway is on again (T96). */
   private readonly unused = new Map<string, { expiresAt: number; timer: ReturnType<typeof setTimeout> | null }>()
@@ -144,6 +151,7 @@ export class RemoteGateway implements ConnectionHost {
   private readonly rateLimitAudited = new Map<string, number>()
   private readonly topics: Partial<Record<RemoteSubscription, RemoteTopicSource>>
   private readonly commands: RemoteCommands | null
+  private readonly conversations: PaneConversationSource | undefined
   /** Signs access tokens. Made at each launch and kept only in memory: a restart ends every access token, never a pairing. */
   private readonly tokenKey = randomBytes(32)
   /** `ws` with compression off and the C5 frame cap; it never listens itself, upgrades are handed to it. */
@@ -151,19 +159,31 @@ export class RemoteGateway implements ConnectionHost {
 
   constructor(private readonly deps: RemoteGatewayDeps) {
     this.store = new RemoteStore(deps.db, this.now)
+    this.phoneHiddenPanes = new Set(this.store.hiddenPanes())
     this.pairing = new PairingDesk(this.now, deps.promptTimeoutMs ?? PAIRING_PROMPT_TIMEOUT_MS, prompt => this.deps.broadcast({ pairing: prompt }))
     this.store.pruneAudit()
     // A failing read here must not take the gateway down for the whole run (it is built once, on first use).
     try { this.expireUnusedAtLaunch() } catch { /* the in-memory watch still covers what this launch pairs */ }
     const desktop = deps.desktop
+    const conversations = deps.paneConversations ?? (desktop ? paneConversationsFor(deps.db, () => desktop.roots()) : undefined)
+    this.conversations = conversations
     this.topics = {
       ...(desktop ? createTopics({
-        desktop, phoneWrite: () => this.phoneWritePanes, ...deps.topicTiming,
+        desktop, phoneWrite: () => this.phoneWritePanes, phoneHidden: () => this.phoneHiddenPanes, ...deps.topicTiming,
+        ...(conversations ? { paneConversation: (paneId: string) => conversations.has(paneId) } : {}),
         onWorkspacesChanged: listener => { this.workspaceListeners.add(listener); return () => { this.workspaceListeners.delete(listener) } }
       }) : {}),
+      ...(conversations ? { paneConversation: paneConversationTopic(conversations) } : {}),
       ...deps.topics
     }
-    this.commands = desktop ? new RemoteCommands({ desktop, now: this.now, phoneWrite: () => this.phoneWritePanes }) : null
+    // CR-34: a hidden pane has no terminal stream and no conversation; an open one ends when the pane is hidden.
+    const built = this.topics
+    this.topics = {
+      ...built,
+      ...(built.terminal ? { terminal: this.paneGated(built.terminal, true) } : {}),
+      ...(built.paneConversation ? { paneConversation: this.paneGated(built.paneConversation, false) } : {})
+    }
+    this.commands = desktop ? new RemoteCommands({ desktop, now: this.now, phoneWrite: () => this.phoneWritePanes, phoneHidden: () => this.phoneHiddenPanes, ...(conversations ? { paneConversations: conversations } : {}) }) : null
   }
 
   readonly now = (): number => (this.deps.now ?? Date.now)()
@@ -186,6 +206,7 @@ export class RemoteGateway implements ConnectionHost {
       devices: this.store.activeCount(),
       maxDevices: REMOTE_LIMITS.maxDevices,
       phoneWritePanes: [...this.phoneWritePanes].sort(),
+      phoneHiddenPanes: [...this.phoneHiddenPanes].sort(),
       listenedBefore: settings.listenedBefore,
       ...(running && this.network ? { network: this.network } : {}),
       ...(this.pairing.current() ? { pendingPairing: this.pairing.current()! } : {}),
@@ -332,6 +353,8 @@ export class RemoteGateway implements ConnectionHost {
   /** Lets phones type into one pane, or stops it. The window's own action: never a phone command or an MCP tool. */
   setPhoneWrite(value: unknown): RemoteGatewayStatus {
     const { paneId, allowed } = parseSetPhoneWriteInput(value)
+    // CR-34: a pane kept off the phone cannot be typed into from it either; show it first.
+    if (allowed && this.phoneHiddenPanes.has(paneId)) return this.status()
     const changed = allowed !== this.phoneWritePanes.has(paneId)
     if (allowed) this.phoneWritePanes.add(paneId)
     else this.phoneWritePanes.delete(paneId)
@@ -342,6 +365,70 @@ export class RemoteGateway implements ConnectionHost {
     const status = this.status()
     this.deps.broadcast({ status })
     return status
+  }
+
+  /**
+   * CR-34 (HML-F10-1): "Show on phone" per pane, on by default. Hidden, the pane is gone from the phone entirely: out of
+   * the workspaces and agents topics, its terminal subscribe refused like an unknown pane's, no conversation, and every
+   * open stream of it ends with `pane-hidden`. It also takes back typing from the phone. Persisted per pane and audited
+   * when it changes; the window's own action, never a phone command or an MCP tool.
+   */
+  setPhoneHidden(value: unknown): RemoteGatewayStatus {
+    const { paneId, hidden } = parseSetPhoneHiddenInput(value)
+    if (hidden !== this.phoneHiddenPanes.has(paneId)) {
+      this.store.setPaneHidden(paneId, hidden)
+      if (hidden) this.phoneHiddenPanes.add(paneId)
+      else this.phoneHiddenPanes.delete(paneId)
+      this.store.audit({ action: 'phone-hidden', outcome: hidden ? 'on' : 'off' })
+      if (hidden) {
+        if (this.phoneWritePanes.delete(paneId)) this.store.audit({ action: 'phone-write', outcome: 'off' })
+        this.endPaneStreams(paneId)
+      }
+      this.workspacesChanged()
+    }
+    const status = this.status()
+    this.deps.broadcast({ status })
+    return status
+  }
+
+  private endPaneStreams(paneId: string): void {
+    for (const ender of [...(this.paneStreams.get(paneId) ?? [])]) { try { ender() } catch { /* a closed stream */ } }
+  }
+
+  /**
+   * CR-34: a pane topic that refuses a hidden pane (the same `not-found` as an unknown one) and can end its open streams.
+   * A terminal stream gets one last event that clears the screen first, so a phone that predates the end frame shows
+   * nothing of the pane.
+   */
+  private paneGated(source: RemoteTopicSource, clearScreen: boolean): RemoteTopicSource {
+    return {
+      open: (request, emit, end) => {
+        const paneId = request.target
+        if (paneId !== undefined && this.phoneHiddenPanes.has(paneId)) return null
+        let seq = 0, schemaVersion = REMOTE_PROTOCOL_VERSION
+        const inner = source.open(request, frame => { seq = frame.seq; schemaVersion = frame.schemaVersion; emit(frame) }, end)
+        if (!inner || paneId === undefined) return inner
+        let closed = false
+        const close = (): void => {
+          if (closed) return
+          closed = true
+          const enders = this.paneStreams.get(paneId)
+          enders?.delete(ender)
+          if (enders && !enders.size) this.paneStreams.delete(paneId)
+          inner.close()
+        }
+        const ender = (): void => {
+          if (closed) return
+          if (clearScreen) emit({ kind: 'event', seq: seq + 1, schemaVersion, data: { data: CLEAR_SCREEN, truncated: false } })
+          end?.('not-found', 'pane-hidden')
+          close()
+        }
+        const enders = this.paneStreams.get(paneId) ?? new Set<() => void>()
+        enders.add(ender)
+        this.paneStreams.set(paneId, enders)
+        return { close }
+      }
+    }
   }
 
   private clearPhoneWrite(): void {
@@ -558,13 +645,18 @@ export class RemoteGateway implements ConnectionHost {
     // `ws` checks the handshake itself (version, key) and answers 400 to a bad one.
     this.websockets.handleUpgrade(req, socket, head, ws => {
       const connection = new RemoteConnection(address, this)
-      connection.attach(frameSocket(ws))
+      // BE-A46-c5 (test 6): a refused `paneConversation` subscribe reads no-conversation, never not-found.
+      const paneSubscribes = new Set<string>()
+      const framed = frameSocket(ws)
+      connection.attach({ get isOpen() { return framed.isOpen }, close: code => framed.close(code), sendText: text => framed.sendText(paneSubscribeAnswer(text, paneSubscribes)) })
       this.connections.add(connection)
       ;(socket as Socket).setNoDelay?.(true)
       ;(socket as Socket).setKeepAlive?.(true, 30_000)
       ws.on('message', (data, isBinary) => {
         if (isBinary) return connection.close(WS_CLOSE.unsupportedData)
-        connection.receive(Buffer.isBuffer(data) ? data.toString('utf8') : Buffer.concat(data as Buffer[]).toString('utf8'))
+        const text = Buffer.isBuffer(data) ? data.toString('utf8') : Buffer.concat(data as Buffer[]).toString('utf8')
+        notePaneSubscribe(text, paneSubscribes)
+        connection.receive(text)
       })
       // A frame over the cap, bad UTF-8, an unmasked frame: `ws` closes with the matching code by itself.
       ws.on('error', () => { setTimeout(() => ws.terminate(), 500).unref?.() })
@@ -779,10 +871,49 @@ export class RemoteGateway implements ConnectionHost {
 
   closed(connection: RemoteConnection): void {
     this.connections.delete(connection)
+    // BE-A46-c5: a device with no connection left loses its conversation handles.
+    if (connection.deviceId && ![...this.connections].some(other => other.deviceId === connection.deviceId)) this.conversations?.forgetDevice(connection.deviceId)
     if (!connection.deviceId) return
     this.store.touch(connection.deviceId, this.now())
     this.deps.broadcast({ devices: this.devices() })
   }
+}
+
+/** BE-A46-c5: the ids of `paneConversation` subscribes still unanswered on a connection. */
+function notePaneSubscribe(text: string, ids: Set<string>): void {
+  if (text.length > REMOTE_LIMITS.maxFrameBytes || !text.includes('paneConversation')) return
+  try {
+    const frame = JSON.parse(text) as { type?: unknown; topic?: unknown; id?: unknown } | null
+    if (frame?.type === 'subscribe' && frame.topic === 'paneConversation' && typeof frame.id === 'string') {
+      ids.add(frame.id)
+      while (ids.size > 64) ids.delete(ids.values().next().value!)
+    }
+  } catch { /* the connection answers it */ }
+}
+
+/** The answer to one of those subscribes: a `not-found` (unknown pane, no session) is `no-conversation`. */
+function paneSubscribeAnswer(text: string, ids: Set<string>): string {
+  if (!ids.size) return text
+  let frame: { type?: unknown; id?: unknown; code?: unknown } | null
+  try { frame = JSON.parse(text) } catch { return text }
+  if (!frame || typeof frame.id !== 'string' || !ids.has(frame.id)) return text
+  ids.delete(frame.id)
+  return frame.type === 'error' && frame.code === 'not-found' ? JSON.stringify({ ...frame, code: 'no-conversation' }) : text
+}
+
+/** CR-34: the last event of a terminal stream whose pane was hidden: clears the screen and its scrollback. */
+const CLEAR_SCREEN = '\u001b[2J\u001b[3J\u001b[H'
+const PHONE_HIDDEN_PANE_ID = /^[A-Za-z0-9._:-]{1,200}$/
+
+/** `{ paneId, hidden }`, read like the phone write input: a well-formed pane id and a boolean, nothing else. */
+function parseSetPhoneHiddenInput(value: unknown): { paneId: string; hidden: boolean } {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Phone hidden input must be an object')
+  const input = value as Record<string, unknown>
+  if (Object.keys(input).some(key => key !== 'paneId' && key !== 'hidden')) throw new Error('Phone hidden input has unknown fields')
+  if (typeof input.paneId !== 'string') throw new Error('paneId must be a string')
+  if (!PHONE_HIDDEN_PANE_ID.test(input.paneId)) throw new MainMessageError(mainMessage('remote.pane.invalid', {}), 'Invalid pane')
+  if (typeof input.hidden !== 'boolean') throw new Error('hidden must be a boolean')
+  return { paneId: input.paneId, hidden: input.hidden }
 }
 
 function closeServer(server: https.Server): Promise<void> {
