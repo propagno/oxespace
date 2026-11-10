@@ -80,11 +80,12 @@
 .pg-t .sg.needs { width: 10px; height: 10px; }
 
 /* ---------------------------------------------------------------- title bar: the command bar and Agora */
-.tb .cbar { width: 300px; height: 28px; border-radius: 8px; font-size: 12.5px; color: var(--text-muted); background: var(--surface-base); }
+.tb .cbar { width: 300px; height: 28px; border-radius: 8px; font-size: 12.5px; color: var(--text-muted); background: var(--surface-base); border: 1px solid var(--border-default); transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease; }
+.tb .cbar:hover { border-color: var(--border-strong); background: var(--surface-raised); color: var(--text-secondary); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
 .tb .cbar .cb-p { flex: none; font: 700 15px/1 var(--f-mono); color: var(--accent-text, var(--accent)); width: auto; }
 .tb .cbar .cb-h { flex: none; font: 11px var(--f-mono); color: var(--text-muted); opacity: .8; }
-.agora-b { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 8px; border-radius: 8px; border: 1px solid var(--border-default); background: var(--surface-base); color: var(--text-primary); font: 600 12.5px var(--f-sans); }
-.agora-b:hover { border-color: var(--border-strong); }
+.agora-b { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 8px; border-radius: 8px; border: 1px solid var(--border-default); background: var(--surface-base); color: var(--text-primary); font: 600 12.5px var(--f-sans); transition: border-color 120ms ease, background 120ms ease; }
+.agora-b:hover { border-color: var(--border-strong); background: var(--surface-raised); }
 .agora-b[aria-current="page"] { background: var(--fill-selected); border-color: var(--accent-border); color: var(--accent-text, var(--accent)); }
 .agora-b .n { font: 600 11px var(--f-mono); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent-soft, var(--fill-hover)); color: var(--accent-text, var(--accent)); display: grid; place-items: center; }
 .modes button .i { margin-right: 5px; vertical-align: -2px; opacity: .8; }
@@ -111,7 +112,8 @@
 .ag-needs h2 .n, .ag-ws h2 .n { font: 500 11px var(--f-mono); color: var(--text-muted); }
 .ag-needs h2 .sun { width: 9px; height: 9px; border-radius: 50%; background: var(--attn); box-shadow: 0 0 0 3px var(--attn-bg); }
 .ag-ngrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 10px; }
-.ag-need { display: grid; gap: 8px; padding: 12px 14px; border-radius: 12px; background: var(--surface-raised); border: 1px solid var(--attn-border); box-shadow: inset 3px 0 0 var(--attn); }
+.ag-need { display: grid; gap: 8px; padding: 12px 14px; border-radius: 12px; background: var(--surface-raised); border: 1px solid var(--attn-border); box-shadow: inset 3px 0 0 var(--attn), 0 4px 16px rgba(0,0,0,0.04); transition: transform 120ms ease, box-shadow 120ms ease; }
+.ag-need:hover { box-shadow: inset 3px 0 0 var(--attn), 0 6px 20px rgba(0,0,0,0.08); }
 .ag-need header { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .ag-t { border: 0; background: transparent; padding: 0; color: var(--text-primary); font: 600 13.5px var(--f-sans); text-align: left; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ag-t:hover { text-decoration: underline; text-underline-offset: 3px; }
@@ -119,13 +121,13 @@
 .ag-acts { display: flex; gap: 6px; align-items: center; }
 .ag-steer { display: flex; gap: 6px; }
 .ag-steer .input { flex: 1; min-width: 0; }
-.ag-ws { background: var(--surface-raised); border-radius: 12px; border: 1px solid var(--border-subtle); box-shadow: inset 3px 0 0 var(--wsc); padding: 6px 8px 8px 12px; }
+.ag-ws { background: var(--surface-raised); border-radius: 12px; border: 1px solid var(--border-subtle); box-shadow: inset 3px 0 0 var(--wsc), 0 2px 8px rgba(0,0,0,0.03); padding: 6px 8px 8px 12px; }
 .ag-ws h2 { margin: 0; }
 .ag-ws h2 button { display: flex; align-items: center; gap: 8px; width: 100%; height: 32px; border: 0; background: transparent; color: var(--wsc); font: 700 13.5px var(--f-display); text-align: left; padding: 0 4px; }
 .ag-ws h2 .mono { font-size: 11px; font-weight: 400; }
 .ag-ws h2 .n { margin-left: auto; }
 .ag-rows { display: grid; }
-.ag-row { display: grid; grid-template-columns: 14px 16px minmax(120px, 1.1fr) auto minmax(0, 1.4fr) 56px auto; gap: 10px; align-items: center; min-height: 34px; padding: 0 6px; border-radius: 7px; border-top: 1px solid var(--border-subtle); }
+.ag-row { display: grid; grid-template-columns: 14px 16px minmax(120px, 1.1fr) auto minmax(0, 1.4fr) 56px auto; gap: 10px; align-items: center; min-height: 34px; padding: 0 6px; border-radius: 7px; border-top: 1px solid var(--border-subtle); transition: background 100ms ease; }
 .ag-row:first-child { border-top: 0; }
 .ag-row:hover, .ag-row:focus-within { background: var(--fill-hover); }
 .ag-row .sg { width: 12px; height: 12px; }
@@ -167,7 +169,7 @@
 .tt-l { position: absolute; top: -21px; left: 50%; transform: translateX(-50%); font: 500 10.5px var(--f-mono); color: var(--text-secondary); white-space: nowrap; }
 .ttk.other .tt-l { transform: translateX(-50%) rotate(-45deg); }
 .tt-ev { position: absolute; top: 33px; transform: translateX(-50%); width: 18px; height: 14px; display: grid; place-items: center; color: var(--danger-fg, var(--danger)); }
-.tt-knob { position: absolute; top: 24px; width: 18px; height: 18px; border-radius: 50%; transform: translate(-50%, -50%); background: var(--surface-raised); box-shadow: 0 0 0 3px var(--accent), 0 2px 6px rgb(0 0 0 / .2); pointer-events: none; transition: left .12s var(--ease-out, ease-out); }
+.tt-knob { position: absolute; top: 24px; width: 18px; height: 18px; border-radius: 50%; transform: translate(-50%, -50%); background: var(--surface-raised); box-shadow: 0 0 0 3px var(--accent), 0 0 0 5px color-mix(in srgb, var(--accent) 24%, transparent), 0 3px 8px rgba(0, 0, 0, .25); pointer-events: none; transition: left .12s var(--ease-out, ease-out); }
 .tt-info { display: grid; gap: 8px; font-size: 12.5px; }
 .tt-info p { margin: 0; color: var(--text-secondary); }
 .tt-info p b { color: var(--text-primary); }

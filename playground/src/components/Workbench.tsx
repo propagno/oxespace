@@ -14,6 +14,10 @@ export const TOOLS: [string, string, string, string][] = [
   ['files', 'file', 'Files', 'Ctrl E'], ['browser', 'globe', 'Browser', 'Ctrl Shift B'], ['android', 'phone', 'Android device', ''], ['http', 'net', 'HTTP calls', ''], ['containers', 'box', 'Containers', ''],
   ['git', 'branch', 'Git and pull request', ''], ['scripts', 'play', 'Scripts', ''], ['search', 'search', 'Search', 'Ctrl Shift F'], ['worktrees', 'layers', 'Worktrees', ''], ['background', 'activity', 'Background', '']
 ]
+/** Live side-by-side companions in OxeChat (audit views live exclusively in the conversation's dynamic tabs). */
+export const CHAT_TOOLS: [string, string, string, string][] = [
+  ['browser', 'globe', 'Browser', 'Ctrl Shift B'], ['android', 'phone', 'Android device', ''], ['files', 'file', 'Files', 'Ctrl E'], ['search', 'search', 'Search', 'Ctrl Shift F'], ['scripts', 'play', 'Scripts', '']
+]
 const TREE: [number, string, boolean?][] = [[0, 'migrations', true], [1, '0042_idempotency_keys.sql'], [1, '0043_invoice_items_invoice_id_idx.sql'], [0, 'src', true], [1, 'charges', true], [2, 'create.ts'], [2, 'idempotency.ts'], [2, 'routes.ts'], [1, 'reports', true], [2, 'invoice-report.ts'], [1, 'webhooks', true], [2, 'pix.ts'], [2, 'signature.ts'], [1, 'server.ts'], [0, 'test', true], [0, 'docker-compose.yml'], [0, 'package.json'], [0, 'README.md']]
 const FILES: Record<string, [Lang, string]> = {
   'idempotency.ts': ['ts', 'import { SQL, type Tx } from \'../db\'\n\n// Locks the key row so two parallel retries can\'t both create a charge.\nexport async function lock(tx: Tx, key: string, requestHash: string) {\n  const row = await tx.one(SQL`SELECT * FROM idempotency_keys WHERE key = ${key} FOR UPDATE`)\n  if (!row) { await tx.insertKey(key, requestHash); return null }\n  if (row.request_hash !== requestHash) return { conflict: true }\n  return { response: row.response }\n}\n\nexport async function save(tx: Tx, key: string, response: unknown) {\n  await tx.query(SQL`UPDATE idempotency_keys SET response = ${response} WHERE key = ${key}`)\n}\n'],
