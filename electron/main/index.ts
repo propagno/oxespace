@@ -225,6 +225,15 @@ async function registerIpcHandlers(): Promise<() => void> {
       else if (event.sessionId) paneAgentSessions.record(event.paneId, hookAgent, event.sessionId, 'hook', event.permissionMode)
       // BE-A46-c5: the phone's reader of this pane's conversation hears a new (or ended) session: a higher epoch, one signal.
       if (paneAgentSessions.current(event.paneId)?.sessionId !== sessionBefore) void import('./services/remote/pane-conversation').then(module => module.announcePaneSession(event.paneId), () => undefined)
+      if (event.agent === 'codex' && event.state === 'done') {
+        const codexSessionId = event.sessionId ?? paneAgentSessions.current(event.paneId)?.sessionId
+        if (codexSessionId) {
+          void Promise.all([import('./services/http-audit/codex-rollout'), import('./services/http-audit/store')]).then(async ([rollout, store]) => {
+            const file = await rollout.findCodexRolloutFile(codexSessionId)
+            if (file) await rollout.ingestCodexRollout(new store.HttpAuditLog(db), { file, paneId: event.paneId, workspaceId: event.workspaceId, sessionId: codexSessionId })
+          }).catch(() => undefined)
+        }
+      }
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send(IPC_CHANNELS.agentHooks.onStatus, event)
       }
