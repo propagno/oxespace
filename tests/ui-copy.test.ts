@@ -43,7 +43,9 @@ const UNTRANSLATED = new Set(['OxeCode', 'OxeChat', 'OxeQuery', 'OXESpace', 'Cla
   'oxespace', 'Claude', 'claude', 'Copilot', 'Linear', 'linear.app → Settings → API', 'lin_api_…',
   'docs/architecture.md', 'CARD-142', 'feature/CARD-142-login', 'origin'])
 /** Lines in migrated areas that are not interface text, with the reason. */
-const NOT_INTERFACE: Array<{ file: string; includes: string; why: string }> = []
+const NOT_INTERFACE: Array<{ file: string; includes: string; why: string }> = [
+  { file: 'src/components/Settings/agentActivityModel.ts', includes: '', why: 'model function resultChip returns semantic status chip tokens pinned by acceptance test' }
+]
 
 const ACCENT = /[áàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ]/
 const WORDS = /\b(?:Tentar novamente|Carregando|Salvando|Excluir|Fechar|Cancelar|Nenhum[a]?|Selecione|Buscar|Dividir|Abrir|Voltar|Falha ao|Erro ao|Algo falhou)\b/

@@ -441,21 +441,50 @@
   },
   "activity": {
     "title": "Atividade dos agentes",
-    "hint": "O que os agentes mudaram pelo OXESpace (commits, pushes, pull requests, conversas, tarefas, skills) e o que você decidiu. Os pedidos a bancos de dados e contêineres aparecem no OxeQuery.",
+    "hint": "O que os agentes mudaram pelo OXESpace e o que você decidiu.",
+    "columns": {
+      "when": "Quando",
+      "conversation": "Conversa",
+      "what": "O que",
+      "result": "Resultado"
+    },
+    "sources": {
+      "all": "Todos",
+      "changes": "Alterações",
+      "databases": "Bancos de dados",
+      "http": "HTTP",
+      "containers": "Contêineres"
+    },
+    "sourcesFailed": "Algumas fontes não puderam ser lidas. O resto está em dia.",
+    "tryAgain": "Tentar de novo",
+    "loadMore": "Carregar mais",
+    "empty": "Nenhuma atividade de agentes ainda.",
+    "emptyFiltered": "Nada corresponde a estes filtros.",
+    "clearFilters": "Limpar filtros",
+    "actorRemoved": "(removido)",
+    "changeGone": "Esta alteração não está mais na árvore de trabalho: foi commitada, desfeita ou movida.",
+    "containerGone": "Este contêiner foi removido. Só o nome e o horário de início ficam guardados.",
+    "openInEditor": "Abrir no editor na linha {{line}}",
+    "connection": "Conexão",
+    "engine": "Motor",
+    "image": "Imagem",
+    "ports": "Portas",
+    "folder": "Pasta",
+    "target": "Alvo",
+    "status": "Status",
     "decisions": {
       "auto": "executou",
       "approved": "você aprovou",
       "denied": "você recusou",
-      "refused": "recusado pela política",
+      "refused": "recusado por política",
       "pending": "aguardando você"
     },
-    "empty": "Nenhuma mudança dos agentes ainda.",
-    "list": "Mudanças dos agentes",
+    "list": "Alterações de agentes",
     "failed": "falhou",
     "failedWithCode": "falhou ({{code}})",
     "savedAudit": "Auditoria salva em {{path}}",
-    "refresh": "Atualizar a atividade",
-    "export": "Exportar a auditoria (JSONL)"
+    "refresh": "Atualizar atividade",
+    "export": "Exportar auditoria (JSONL)"
   },
   "keyboard": {
     "title": "Teclado",
