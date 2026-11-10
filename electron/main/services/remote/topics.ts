@@ -427,12 +427,13 @@ class AgentsTopic implements RemoteTopicSource {
       const request = toPendingRequest(row, roots)
       return [`${request.threadId}\u0000${request.requestId}`, request] as const
     }))
-    const unavailable = REMOTE_AGENT_SOURCES.filter(source => !overview.sources[source]?.ok)
+    const unavailable = REMOTE_AGENT_SOURCES.filter(source => Boolean(overview.sources[source] && !overview.sources[source].ok))
     const fresh = overview.agents.map(row => toRemoteAgent(row, 0, roots, message => this.desktop.messageText(message), (threadId, requestId) => shown.get(`${threadId}\u0000${requestId}`)))
     // A source that could not be read keeps its last rows, named in `unavailable`: a failure never reads as "gone"
     // (SECURITY #531 L5, §5.7).
     for (const source of REMOTE_AGENT_SOURCES) {
       const kind = SOURCE_KIND[source]
+      if (!overview.sources[source]) { this.lastRows.delete(kind); continue }
       if (unavailable.includes(source)) fresh.push(...(this.lastRows.get(kind) ?? []))
       else this.lastRows.set(kind, fresh.filter(row => row.kind === kind))
     }
