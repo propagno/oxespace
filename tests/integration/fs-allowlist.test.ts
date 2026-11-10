@@ -159,6 +159,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // merges our entries into the agents' own config (~/.claude/settings.json,
   // ~/.codex/hooks.json). Outside the workspace tree; never source files.
   'electron/main/services/agent-hooks/installer.ts',
+  // G4 (1.5.0): removes retired AI Memory hook entries from the user's Claude and Codex config files and deletes
+  // <userData>/memory/adapters; never a workspace path or a path from the renderer.
+  'electron/main/services/agent-hooks/legacy-cleanup.ts',
   // Trusted UI repository registration: realpath identity probes only. No
   // source file reads/writes; evidence reads committed blobs through Git.
   'electron/main/services/coordination/workspace-resolver.ts',

@@ -120,9 +120,7 @@ export function parseTerminalStartInput(value: unknown): TerminalStartInput {
     workspaceId: expectNonEmptyString(input.workspaceId, 'workspaceId'),
     agentCommand: input.agentCommand === undefined ? undefined : expectNonEmptyString(input.agentCommand, 'agentCommand'),
     agentArgs: Array.isArray(input.agentArgs) ? (input.agentArgs as unknown[]).filter((a): a is string => typeof a === 'string') : undefined,
-    initialPrompt: input.initialPrompt === undefined ? undefined : expectNonEmptyString(input.initialPrompt, 'initialPrompt'),
-    disableRtk: input.disableRtk === undefined ? undefined : typeof input.disableRtk === 'boolean' ? input.disableRtk : false,
-    resumeAgent: input.resumeAgent === true ? true : undefined,
+    initialPrompt: input.initialPrompt === undefined ? undefined : expectNonEmptyString(input.initialPrompt, 'initialPrompt'),    resumeAgent: input.resumeAgent === true ? true : undefined,
     cols: parseOptionalDimension(input.cols),
     rows: parseOptionalDimension(input.rows)
   }

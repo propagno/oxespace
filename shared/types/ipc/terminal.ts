@@ -7,9 +7,7 @@ export interface TerminalStartInput {
   workspaceId: string
   agentCommand?: string
   agentArgs?: string[]
-  initialPrompt?: string
-  disableRtk?: boolean
-  /** On the pane's first start after the app opens, reopen the agent session its hooks recorded (Claude Code, Codex). */
+  initialPrompt?: string  /** On the pane's first start after the app opens, reopen the agent session its hooks recorded (Claude Code, Codex). */
   resumeAgent?: boolean
   /**
    * Real viewport at spawn time. Without these the PTY starts at 80x24 and the

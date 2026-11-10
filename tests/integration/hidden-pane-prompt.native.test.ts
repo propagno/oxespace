@@ -18,7 +18,7 @@ describe.skipIf(process.platform !== 'win32')('a hidden pane on the bundled ConP
     const manager = new TerminalManager(db, { env: Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('OXESPACE_'))),oxeQueryShell: id => id === paneId ? { file: NODE, args: ['-e', PROMPT_SCRIPT] } : undefined })
     try {
       const startedAt = Date.now()
-      await manager.start({ workspaceId: 'oxequery', paneId, disableRtk: true, cols: 80, rows: 24 })
+      await manager.start({ workspaceId: 'oxequery', paneId, cols: 80, rows: 24 })
       let elapsed = Infinity
       while (Date.now() - startedAt < 6000) {
         if (manager.peek(paneId)?.data.includes('HIDDEN-READY>')) { elapsed = Date.now() - startedAt; break }

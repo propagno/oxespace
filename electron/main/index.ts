@@ -10,7 +10,7 @@ import { systemLocale, tMain } from './i18n'
 import { randomUUID } from 'node:crypto'
 import { realpathSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { openDatabase, resolveAppDatabasePath } from './db/index'
@@ -24,6 +24,7 @@ import { broadcastMcpHealth, registerMcpIpc } from './ipc/mcp.ipc'
 import { registerMcpInternalIpc } from './ipc/mcp-internal.ipc'
 import { registerDataExportIpc } from './ipc/data-export.ipc'
 import { peekDatabaseVersion } from './services/data-export/removed-features-export'
+import { removeLegacyAgentHooks } from './services/agent-hooks/legacy-cleanup'
 import { registerNotificationsIpc } from './ipc/notifications.ipc'
 import { registerAppInfoIpc } from './ipc/app-info.ipc'
 import { singleInstanceDisabled } from './test-switches'
@@ -499,6 +500,11 @@ async function registerIpcHandlers(): Promise<() => void> {
     void internalMcp.start()
     // R0b: the one-time export of the removed features' data, after the window shows; it never throws.
     void runDataExport()
+    void removeLegacyAgentHooks({
+      claudeSettings: join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'settings.json'),
+      codexHooks: join(process.env.CODEX_HOME || join(homedir(), '.codex'), 'hooks.json'),
+      memoryAdapters: join(app.getPath('userData'), 'memory', 'adapters')
+    })
     // F3 · Local RPC bus (named pipe / unix socket). Out-of-process callers
     // (CLI now, orchestration coordinator later) reach the same services the
     // renderer reaches over IPC. Failure here must not affect the app.
