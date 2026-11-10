@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { RichText } from '../../i18n/RichText'
-import { Button } from '../../ui'
+import { Button, applyWithUndo } from '../../ui'
 import { eventToChord } from '../../keyboard/chords'
 import {
   KEYBINDINGS, chordsFor, conflictsFor, isOverridden, type Keybinding, type KeybindingId, type KeybindingScope
@@ -11,7 +11,7 @@ import { useSettingsStore } from '../../store/settings.store'
 import { KeyChords } from '../Keyboard/KeyChord'
 import styles from '../Keyboard/Keyboard.module.css'
 
-const SCOPES: KeybindingScope[] = ['global', 'code', 'terminal', 'thread', 'oxequery', 'oxepod', 'oxepost']
+const SCOPES: KeybindingScope[] = ['global', 'code', 'terminal', 'thread', 'oxequery']
 
 /** Settings › Keyboard: every shortcut, changeable one by one, with a warning when two share a key. */
 export function KeyboardSettings(): ReactElement {
@@ -40,6 +40,15 @@ export function KeyboardSettings(): ReactElement {
 
   const groups = SCOPES.map(scope => ({ scope, bindings: (KEYBINDINGS as readonly Keybinding[]).filter(binding => binding.scope === scope) }))
     .filter(group => group.bindings.length > 0)
+  const handleResetAll = async (): Promise<void> => {
+    const previous = { ...useSettingsStore.getState().keybindingOverrides }
+    await applyWithUndo({
+      apply: async () => { resetAll() },
+      undo: async () => { useSettingsStore.setState({ keybindingOverrides: previous }) },
+      done: t('keyboard.reset')
+    })
+  }
+
   const customized = Object.keys(overrides).length
 
   return <section className="settings-general" data-testid="keyboard-settings"><h2>{t('keyboard.title')}</h2>
@@ -79,7 +88,7 @@ export function KeyboardSettings(): ReactElement {
       </div>
     </div>)}
     <div className="settings-inline-actions">
-      <Button variant="ghost" disabled={!customized} onClick={resetAll}>{t('keyboard.resetAll')}</Button>
+      <Button variant="ghost" disabled={!customized} onClick={() => void handleResetAll()}>{t('keyboard.resetAll')}</Button>
     </div>
   </section>
 }

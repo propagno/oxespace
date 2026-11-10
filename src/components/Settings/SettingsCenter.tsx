@@ -1,4 +1,5 @@
-import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, Keyboard, Palette, Settings2, ShieldCheck, Smartphone, SquareTerminal, X } from 'lucide-react'
+import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, Keyboard, Palette, Settings2, ShieldCheck, Smartphone, SquareTerminal, Wrench, X, type LucideIcon } from 'lucide-react'
+import { i18n } from '../../i18n'
 import { Suspense, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
@@ -31,21 +32,49 @@ const KeyboardSettings = lazyFrom(SETTINGS_CHUNK, module => module.KeyboardSetti
 const DevicesSettings = lazyFrom(SETTINGS_CHUNK, module => module.DevicesSettings)
 const retryPages = (): void => { for (const page of [SettingsContent, WorkspaceSettingsModal, PolicySettings, KeyboardSettings, DevicesSettings]) page.retry() }
 
-type AppPage = 'general' | 'policy' | 'devices' | 'keyboard' | SettingsSection
+export type AppPage = 'general' | 'appearance' | 'providers' | 'policy' | 'notifications' | 'keyboard' | 'terminal' | 'mcp' | 'devices' | 'privacy' | 'activity' | 'diagnostics' | 'about'
 export type SettingsDestination = { scope: 'application'; page: AppPage } | { scope: 'workspace'; workspaceId: string; page: typeof SETTINGS_PAGES[number]['id'] }
-const appPages = [
-  { id: 'general', icon: Settings2 }, { id: 'providers', icon: Bot }, { id: 'appearance', icon: Palette },
-  { id: 'terminal', icon: SquareTerminal }, { id: 'keyboard', icon: Keyboard },
-  { id: 'notifications', icon: Bell }, { id: 'updates', icon: ArrowUpCircle }, { id: 'policy', icon: ShieldCheck }, { id: 'devices', icon: Smartphone },
-  { id: 'diagnostics', icon: Activity }
+export type Page = { id: string; label: string; hint?: string }
+
+const ts = i18n.getFixedT(null, 'settings')
+
+function appPage(id: AppPage, icon: LucideIcon, defaultLabel: string, defaultHint = '') {
+  return {
+    id,
+    icon,
+    get label() { return ts(`center.pages.${id}.label`, { defaultValue: defaultLabel }) },
+    get hint() { return ts(`center.pages.${id}.hint`, { defaultValue: defaultHint }) }
+  }
+}
+
+export const APPLICATION_SETTINGS_PAGES = [
+  appPage('general', Settings2, 'General', 'Navigation, workspace caches and default external editor.'),
+  appPage('appearance', Palette, 'Appearance', 'Theme, font sizing and layout density.'),
+  appPage('providers', Bot, 'Agents', 'Default model, fallback chain and provider API keys.'),
+  appPage('policy', ShieldCheck, 'Approvals and safety', 'Safety boundaries, read-only paths and write permissions.'),
+  appPage('notifications', Bell, 'Notifications', 'Desktop alerts, sound effects and quiet hours.'),
+  appPage('keyboard', Keyboard, 'Keyboard', 'Keyboard shortcuts and custom chords.'),
+  appPage('terminal', SquareTerminal, 'Terminal', 'Default shell, scrollback buffer and font overrides.'),
+  appPage('mcp', Wrench, 'MCP servers and skills', 'Connected MCP servers, custom tools and agent skills.'),
+  appPage('devices', Smartphone, 'Phone and devices', 'Linked mobile devices and companion app connections.'),
+  appPage('privacy', ShieldCheck, 'Data and privacy', 'Diagnostics telemetry, audit retention and data export.'),
+  appPage('activity', Activity, 'Agent activity', 'What agents changed through OXESpace, and what you decided.'),
+  appPage('diagnostics', Activity, 'Diagnostics', 'System health, runtime logs and active background tasks.'),
+  appPage('about', ArrowUpCircle, 'About', 'Version details, release notes and open-source licenses.')
 ] as const
 
+export function searchSettingsPages(query: string): Page[] {
+  const needle = query.trim().toLowerCase()
+  if (!needle) return []
+  const all: readonly Page[] = [...APPLICATION_SETTINGS_PAGES, ...SETTINGS_PAGES]
+  return all.filter(page => `${page.label} ${page.hint ?? ''}`.toLowerCase().includes(needle))
+}
+
 /**
- * The application page a deep link or a saved destination opens. A page that no longer exists (the Voice page went with
- * OXEVoice, F34) lands on Settings' first page instead of an empty panel.
+ * The application page a deep link or a saved destination opens. A page that no longer exists lands on Settings' first page.
  */
 export function resolveAppPage(page: string): AppPage {
-  return appPages.find(p => p.id === page)?.id ?? appPages[0].id
+  return (APPLICATION_SETTINGS_PAGES.find(p => p.id === page)?.id as AppPage) ?? 'general'
 }
 
 export function SettingsCenter(props: SettingsModalProps & {
@@ -54,7 +83,7 @@ export function SettingsCenter(props: SettingsModalProps & {
 }): ReactElement {
   const { t } = useTranslation('settings')
   const [destination, setDestination] = useState<SettingsDestination>(() => {
-    if (props.allowWorkspaceScope !== false && props.initialWorkspaceId) return { scope: 'workspace', workspaceId: props.initialWorkspaceId, page: 'appearance' }
+    if (props.allowWorkspaceScope !== false && props.initialWorkspaceId) return { scope: 'workspace', workspaceId: props.initialWorkspaceId, page: 'general' }
     if (props.initialPage) return { scope: 'application', page: resolveAppPage(props.initialPage) }
     try {
       const saved = JSON.parse(localStorage.getItem('oxe.settings.destination') ?? 'null') as SettingsDestination
@@ -87,10 +116,8 @@ export function SettingsCenter(props: SettingsModalProps & {
     try { localStorage.setItem('oxe.settings.destination', JSON.stringify(next)) } catch { /* Preferences are optional. */ }
   }
   const close = (): void => props.onClose()
-  const memoryOn = useSharedProjectMemory(destination.scope === 'workspace' ? destination.workspaceId : undefined) === true
-  const pages = destination.scope === 'workspace' ? SETTINGS_PAGES.filter(p => p.id !== 'memory' || memoryOn)
-    : appPages.map(p => ({ ...p, label: t(`center.pages.${p.id}.label`), hint: t(`center.pages.${p.id}.hint`) }))
-  const filtered = pages.filter(p => `${p.label} ${p.hint}`.toLowerCase().includes(query.toLowerCase()))
+  const pages = destination.scope === 'workspace' ? SETTINGS_PAGES : APPLICATION_SETTINGS_PAGES
+  const filtered = pages.filter(p => `${p.label} ${p.hint ?? ''}`.toLowerCase().includes(query.toLowerCase()))
   return <ModalRoot open onOpenChange={open => { if (!open) close() }}>
     <ModalSurface className="settings-center" style={{ '--settings-navigation-width': `${navigationWidth}px` } as CSSProperties} scrimClassName="settings-center-overlay" toasts aria-describedby={undefined}
       onCloseAutoFocus={event => { if (returnPane.current) { event.preventDefault(); requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('oxe:focus-pane', { detail: { paneId: returnPane.current } }))) } }}
@@ -102,7 +129,7 @@ export function SettingsCenter(props: SettingsModalProps & {
           <div className="settings-scope-choices" role="group" aria-label={t('center.scope')}>
             <button type="button" aria-pressed={destination.scope === 'application'} onClick={() => go({ scope: 'application', page: 'appearance' })}>{t('center.application')}</button>
             {scopeWorkspace && <button type="button" aria-pressed={destination.scope === 'workspace'} title={scopeWorkspace.rootPath}
-              onClick={() => go({ scope: 'workspace', workspaceId: scopeWorkspace.id, page: 'appearance' })}>
+              onClick={() => go({ scope: 'workspace', workspaceId: scopeWorkspace.id, page: 'general' })}>
               <span>{scopeWorkspace.name}</span><small>{t('center.currentWorkspace')}</small>
             </button>}
           </div>

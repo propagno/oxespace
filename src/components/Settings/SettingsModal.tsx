@@ -16,6 +16,7 @@ import { useUpdaterStore } from '../../store/updater.store'
 import { applyWithUndo, Button, EmptyState, Notice, SegmentedControl, Switch, Select } from '../../ui'
 import { UpdatePreferences } from './UpdatePreferences'
 import { humanizeError } from '../../utils/humanizeError'
+import { ToolsSettings } from './ToolsSettings'
 
 export interface SettingsModalProps {
   agentProfiles: AgentProfile[]
@@ -45,19 +46,42 @@ function formatCheckedAgo(ts: number | null, t: TFunction<'settings'>): string |
   return t('checked.days', { value: Math.floor(sec / 86400) })
 }
 
-export type SettingsSection = 'providers' | 'appearance' | 'terminal' | 'notifications' | 'updates' | 'diagnostics'
+export type SettingsSection = 'providers' | 'appearance' | 'terminal' | 'notifications' | 'updates' | 'diagnostics' | 'mcp' | 'privacy' | 'activity' | 'about'
 
 export function SettingsContent({ section, ...props }: SettingsModalProps & { section: SettingsSection }): ReactElement {
   switch (section) {
     case 'appearance': return <AppearanceSettingsSection onClose={props.onClose} />
     case 'terminal': return <TerminalSettingsSection onClose={props.onClose} />
     case 'notifications': return <NotificationsSettingsSection onClose={props.onClose} />
-    case 'updates': return <UpdatesSettingsSection onClose={props.onClose} />
+    case 'updates':
+    case 'about': return <UpdatesSettingsSection onClose={props.onClose} />
+    case 'activity': return <AgentActivitySettings />
+    case 'mcp': return <ToolsSettings rootPath="" />
+    case 'privacy': return <DataPrivacySection />
     case 'diagnostics': return <DiagnosticsSettingsSection onClose={props.onClose} />
     default: return <ProvidersSettingsSection {...props} />
   }
 }
 type ProviderStatus = AgentReadiness['status'] | 'checking' | 'custom'
+
+function DataPrivacySection(): ReactElement {
+  const { t } = useTranslation('settings')
+  return (
+    <section className="settings-general">
+      <h2>{t('center.pages.privacy.label', { defaultValue: 'Data and privacy' })}</h2>
+      <p>{t('center.pages.privacy.hint', { defaultValue: 'Export data and reset preferences' })}</p>
+      <div className="settings-general-card">
+        <div>
+          <h3>{t('common.export', { defaultValue: 'Export' })}</h3>
+          <p>{t('diagnostics.exportHint', { defaultValue: 'Export diagnostic report and application logs.' })}</p>
+          <Button variant="primary" onClick={() => void window.oxe?.dataExport?.exportAgain?.()}>
+            <Download size={14} aria-hidden="true" /> {t('diagnostics.export', { defaultValue: 'Export' })}
+          </Button>
+        </div>
+      </div>
+    </section>
+  )
+}
 
 function readinessFor(profile: AgentProfile, readiness: AgentReadiness[]): AgentReadiness | undefined {
   return readiness.find((item) => item.provider === profile.provider)

@@ -29,43 +29,55 @@
     "pages": {
       "general": {
         "label": "Geral",
-        "hint": "Navegação, workspace e privacidade"
-      },
-      "providers": {
-        "label": "Agentes",
-        "hint": "CLIs de agentes, agentes personalizados e conversas ociosas"
+        "hint": "Navegação, workspace e preferências"
       },
       "appearance": {
         "label": "Aparência",
         "hint": "Modo, escala, densidade e idioma"
       },
-      "terminal": {
-        "label": "Terminal",
-        "hint": "Fonte, cursor, rolagem e comportamento"
+      "providers": {
+        "label": "Agentes",
+        "hint": "CLIs de agentes, agentes personalizados e conversas ociosas"
       },
-      "keyboard": {
-        "label": "Teclado",
-        "hint": "Atalhos e combinações de teclas"
+      "policy": {
+        "label": "Aprovações e segurança",
+        "hint": "Aprovações, regras de política e recursos protegidos"
       },
       "notifications": {
         "label": "Notificações",
         "hint": "Alertas e sons"
       },
-      "updates": {
-        "label": "Atualizações",
-        "hint": "Versão, downloads e instalação"
+      "keyboard": {
+        "label": "Teclado",
+        "hint": "Atalhos e combinações de teclas"
       },
-      "policy": {
-        "label": "Política",
-        "hint": "O que os agentes estão proibidos de usar"
+      "terminal": {
+        "label": "Terminal",
+        "hint": "Fonte, cursor, rolagem e comportamento"
+      },
+      "mcp": {
+        "label": "Servidores MCP e skills",
+        "hint": "Servidores MCP e prompts de skills"
       },
       "devices": {
-        "label": "Dispositivos",
-        "hint": "Celulares pareados com este computador"
+        "label": "Celular e dispositivos",
+        "hint": "Celulares e dispositivos pareados"
+      },
+      "privacy": {
+        "label": "Dados e privacidade",
+        "hint": "Exportação de dados e privacidade"
+      },
+      "activity": {
+        "label": "Atividade dos agentes",
+        "hint": "O que os agentes mudaram pelo OXESpace e o que você decidiu."
       },
       "diagnostics": {
         "label": "Diagnóstico",
         "hint": "Saúde do aplicativo e solução de problemas"
+      },
+      "about": {
+        "label": "Sobre",
+        "hint": "Versão, downloads e instalação"
       }
     }
   },
@@ -417,6 +429,7 @@
   },
   "policy": {
     "title": "Política",
+    "networkHint": "Hosts que os agentes podem chamar.",
     "intro": "Regras que bloqueiam o que os agentes podem usar: provedores, ferramentas, servidores MCP, skills, bancos de dados e memória compartilhada. Elas só bloqueiam; nunca liberam nada. Para mudar uma regra, edite o arquivo. A última regra que se aplica decide, então o arquivo gerenciado prevalece.",
     "notApplied": "Não aplicado: {{problem}}",
     "layers": {

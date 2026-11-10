@@ -11,7 +11,7 @@ function restoredSidebarCollapsed(): boolean {
 }
 
 /** The application Settings pages, in SettingsCenter order. */
-export type SettingsPageId = 'general' | 'providers' | 'appearance' | 'terminal' | 'keyboard' | 'notifications' | 'updates' | 'policy' | 'devices' | 'diagnostics'
+export type SettingsPageId = 'general' | 'appearance' | 'providers' | 'policy' | 'notifications' | 'keyboard' | 'terminal' | 'mcp' | 'devices' | 'privacy' | 'activity' | 'diagnostics' | 'about'
 
 interface UIState {
   isNewWorkspaceOpen: boolean
@@ -20,7 +20,7 @@ interface UIState {
   isSettingsOpen: boolean
   settingsInitialPage: SettingsPageId | undefined
   /** Opens application Settings on one page. */
-  openSettingsPage: (page: SettingsPageId | 'activity' | (string & {})) => void
+  openSettingsPage: (page: SettingsPageId) => void
   openAgentSettings: () => void
   /** Tools hub modal (sidebar gear) — distinct from agent Settings. */
   isCommandPaletteOpen: boolean
@@ -83,7 +83,7 @@ export const useUIStore = create<UIState>((set) => ({
   isSettingsOpen: false,
   settingsInitialPage: undefined,
   openAgentSettings: () => set({ isSettingsOpen: true, isWorkspaceSettingsOpen: false, settingsInitialPage: 'providers' }),
-  openSettingsPage: (page) => set({ isSettingsOpen: true, isWorkspaceSettingsOpen: false, settingsInitialPage: page as SettingsPageId }),
+  openSettingsPage: (page) => set({ isSettingsOpen: true, isWorkspaceSettingsOpen: false, settingsInitialPage: page }),
   isCommandPaletteOpen: false,
   isCommandMenuOpen: false,
   isWorkspaceSettingsOpen: false,

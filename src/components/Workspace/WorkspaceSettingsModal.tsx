@@ -1,18 +1,15 @@
-import { Check, Maximize2, Minimize2, Palette, Settings2, SquareTerminal, X } from 'lucide-react'
+import { Check, FolderTree, Maximize2, Minimize2, Palette, Settings2, SquareTerminal, X } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace, WorkspaceDensity, WorkspaceLayoutPreset, WorkspaceThemeId } from '../../../shared/types/workspace'
 import { LAYOUT_PRESETS, WORKSPACE_DENSITIES } from './workspaceOptions'
 import { useSettingsStore } from '../../store/settings.store'
 import { resolveDensity } from '../../design/density'
 import { AppearanceSettings } from '../Settings/AppearanceSettings'
-import { WorkspaceMemorySettings } from './WorkspaceMemorySettings'
-import { WorkspaceDelegationSettings } from './WorkspaceDelegationSettings'
-import { ToolsSettings } from '../Settings/ToolsSettings'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import './WorkspaceSettingsModal.css'
 import { DefaultShellSettings } from './DefaultShellSettings'
-import { useSharedProjectMemory } from '../../hooks/useSharedProjectMemory'
+import { PolicySettings } from '../Settings/PolicySettings'
 import { applyWithUndo, Button, ErrorState, Select } from '../../ui'
 import { formatNumber } from '../../utils/formatTime'
 import { humanizeError } from '../../utils/humanizeError'
@@ -72,11 +69,10 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onClose, onOp
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
 
-  const [localPage, setPage] = useState<(typeof SETTINGS_PAGES)[number]['id']>('appearance')
+  const [localPage, setPage] = useState<(typeof SETTINGS_PAGES)[number]['id']>('general')
   const page = selectedPageId ?? localPage
-  const memoryOn = useSharedProjectMemory(workspace.id) === true
-  const visiblePages = SETTINGS_PAGES.filter(item => item.id !== 'memory' || memoryOn)
-  const selectedPage = SETTINGS_PAGES.find(item => item.id === page)!
+  const visiblePages = SETTINGS_PAGES
+  const selectedPage = SETTINGS_PAGES.find(item => item.id === page) ?? SETTINGS_PAGES[0]
   const contentRef = useRef<HTMLDivElement>(null)
   useEffect(() => { if (contentRef.current) contentRef.current.scrollTop = 0 }, [page])
 
@@ -149,15 +145,12 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onClose, onOp
             </nav>}
             <div className="ws-settings-main" ref={contentRef}>
               <header className="ws-settings-page-heading"><h3>{selectedPage.label}</h3><p>{selectedPage.description}</p></header>
-              {memoryOn && <div id="ws-page-memory" hidden={page !== 'memory'}><WorkspaceMemorySettings workspaceId={workspace.id} /></div>}
-              <div id="ws-page-delegation" hidden={page !== 'delegation'}><WorkspaceDelegationSettings workspaceId={workspace.id} paneIds={workspace.panes.map(pane => pane.id)} onOpenTerminal={onOpenTerminal} onOpenDiagnostics={onOpenDiagnostics} /></div>
-              {page === 'tools' && <div id="ws-page-tools"><ToolsSettings rootPath={workspace.rootPath} workspaceId={workspace.id} /></div>}
-              <div id="ws-page-appearance" className="ws-appearance-layout" hidden={page !== 'appearance'}>
+              <div id="ws-page-general" className="ws-appearance-layout" hidden={page !== 'general'}>
               <div className="ws-appearance-controls">
               <section className="ws-settings-section" aria-labelledby="ws-section-appearance">
                 <header className="ws-settings-section-header">
                   <Palette size={14} aria-hidden="true" />
-                  <h3 id="ws-section-appearance">{t('workspace.settings.pages.appearance.label')}</h3>
+                  <h3 id="ws-section-appearance">{t('workspace.settings.pages.appearance.label', { defaultValue: 'Appearance' })}</h3>
                 </header>
 
                 <div className="ws-settings-field-label">{t('workspace.settings.mode')}</div>
@@ -199,19 +192,31 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onClose, onOp
                 </div>
               </section>
 
+              <DefaultShellSettings profiles={shellProfiles} selectedId={defaultShellProfileId} onSelect={chooseShell}
+                applyToIdle={applyShellToIdlePanes} onApplyToIdle={setApplyShellToIdlePanes} rootPath={workspace.rootPath} />
+
+              <TerminalOverrideSection workspaceId={workspace.id} />
               </div>
               <aside className="ws-settings-aside" aria-label={t('workspace.settings.preview')}>
                 <WorkspacePreview name={workspace.name} themeId={themeId} density={uiDensity} layoutPreset={layoutPreset} prefs={terminalPrefs} />
               </aside>
               </div>
 
-              <div id="ws-page-terminal" className="ws-terminal-page" hidden={page !== 'terminal'}>
-              <p className="ws-settings-save-note">{t('workspace.settings.terminalNote')}</p>
-              <TerminalOverrideSection workspaceId={workspace.id} />
-
-              <DefaultShellSettings profiles={shellProfiles} selectedId={defaultShellProfileId} onSelect={chooseShell}
-                applyToIdle={applyShellToIdlePanes} onApplyToIdle={setApplyShellToIdlePanes} rootPath={workspace.rootPath} />
+              <div id="ws-page-projects" hidden={page !== 'projects'}>
+                <section className="ws-settings-section">
+                  <header className="ws-settings-section-header">
+                    <FolderTree size={14} aria-hidden="true" />
+                    <h3>{selectedPage.label}</h3>
+                  </header>
+                  <p className="ws-settings-hint">{selectedPage.hint}</p>
+                </section>
               </div>
+
+              {page === 'policy' && Boolean(window.oxe?.policy) && (
+                <div id="ws-page-policy">
+                  <PolicySettings workspaceId={workspace.id} />
+                </div>
+              )}
             </div>
           </div>
 
@@ -219,7 +224,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onClose, onOp
           {saved && !error ? <div className="ws-settings-saved" role="status"><Check size={14} aria-hidden="true" />{t('workspace.settings.saved')}</div> : null}
 
           <footer className="modal-actions">
-            <p>{page === 'memory' ? t('workspace.settings.footer.memory') : page === 'delegation' ? t('workspace.settings.footer.delegation') : page === 'tools' ? t('workspace.settings.footer.tools') : t('workspace.settings.footer.default')}</p>
+            <p>{t('workspace.settings.footer.default')}</p>
           </footer>
         </div>
       </>

@@ -29,43 +29,55 @@
     "pages": {
       "general": {
         "label": "General",
-        "hint": "Navigation, workspace and privacy preferences"
-      },
-      "providers": {
-        "label": "Agents",
-        "hint": "Agent CLIs, custom agents and idle conversations"
+        "hint": "Navigation, workspace and preferences"
       },
       "appearance": {
         "label": "Appearance",
         "hint": "Mode, scale, density and language"
       },
-      "terminal": {
-        "label": "Terminal",
-        "hint": "Font, cursor, scrolling and behavior"
+      "providers": {
+        "label": "Agents",
+        "hint": "Agent CLIs, custom agents and idle conversations"
       },
-      "keyboard": {
-        "label": "Keyboard",
-        "hint": "Shortcuts and key bindings"
+      "policy": {
+        "label": "Approvals and safety",
+        "hint": "Approvals, policy rules and protected resources"
       },
       "notifications": {
         "label": "Notifications",
         "hint": "Alerts and sounds"
       },
-      "updates": {
-        "label": "Updates",
-        "hint": "Version, downloads and installation"
+      "keyboard": {
+        "label": "Keyboard",
+        "hint": "Shortcuts and key bindings"
       },
-      "policy": {
-        "label": "Policy",
-        "hint": "What agents are blocked from using"
+      "terminal": {
+        "label": "Terminal",
+        "hint": "Font, cursor, scrolling and behavior"
+      },
+      "mcp": {
+        "label": "MCP servers and skills",
+        "hint": "Model Context Protocol servers and skill prompts"
       },
       "devices": {
-        "label": "Devices",
-        "hint": "Phones paired with this computer"
+        "label": "Phone and devices",
+        "hint": "Phones and paired devices"
+      },
+      "privacy": {
+        "label": "Data and privacy",
+        "hint": "Export data and reset preferences"
+      },
+      "activity": {
+        "label": "Agent activity",
+        "hint": "What agents changed through OXESpace, and what you decided."
       },
       "diagnostics": {
         "label": "Diagnostics",
         "hint": "Application health and troubleshooting"
+      },
+      "about": {
+        "label": "About",
+        "hint": "Version, downloads and installation"
       }
     }
   },
@@ -253,8 +265,8 @@
   },
   "semantic": {
     "title": "Semantic index (beta)",
-    "searchByMeaning": "Search by meaning",
-    "switchLabel": "Search by meaning with the semantic index",
+    "searchByMeaning": "Semantic search",
+    "switchLabel": "Semantic search with the local index",
     "downloadLabel": "Model download",
     "state": {
       "off": "Off. Agents search with exact terms (FTS5) and code structure (CodeGraph).",
@@ -263,7 +275,7 @@
       "loading": "Loading the model…",
       "notInstalled": "On, but the model is not installed. Download it or import it from a folder.",
       "error": "The model could not load: {{error}}",
-      "ready": "Ready. Agents also search by meaning; files are embedded in the background."
+      "ready": "Ready. Agents also search with semantic concepts; files are embedded in the background."
     },
     "unknownError": "unknown error",
     "download": "Download model (~270 MB)",
@@ -392,6 +404,7 @@
   },
   "policy": {
     "title": "Policy",
+    "networkHint": "Hosts agents can call.",
     "intro": "Rules that block what agents may use: providers, tools, MCP servers, skills, databases and shared memory. They only block; they never grant anything. To change a rule, edit the file. The last matching rule decides, so the managed file wins.",
     "notApplied": "Not applied: {{problem}}",
     "layers": {

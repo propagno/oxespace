@@ -49,13 +49,13 @@ export const KEYBINDINGS = [
   { id: 'settings.open', chords: ['Mod+,'], scope: 'global', reservedInTerminal: true },
   { id: 'sidebar.toggle', chords: ['Mod+B'], scope: 'global', reservedInTerminal: true },
   { id: 'activity.open', chords: ['Mod+Shift+A'], scope: 'global', reservedInTerminal: true },
-  { id: 'team.open', chords: ['Mod+Shift+T'], scope: 'global', reservedInTerminal: true },
+
   // The four views, in the order of the switch in the title bar.
   { id: 'view.code', chords: ['Mod+1'], scope: 'global', reservedInTerminal: true },
   { id: 'view.thread', chords: ['Mod+2'], scope: 'global', reservedInTerminal: true },
   { id: 'view.data', chords: ['Mod+3'], scope: 'global', reservedInTerminal: true },
-  { id: 'view.pods', chords: ['Mod+4'], scope: 'global', reservedInTerminal: true },
-  { id: 'view.post', chords: ['Mod+5'], scope: 'global', reservedInTerminal: true },
+
+
   // The ways out of a terminal (WCAG 2.1.2 No Keyboard Trap): F6 moves between the window's regions, and the
   // toggle (Ctrl+M, as in VS Code) makes Tab move focus in the focused terminal instead of reaching the shell.
   { id: 'focus.nextRegion', chords: ['F6'], scope: 'global', reservedInTerminal: true, everyTerminal: true, fixed: true },
@@ -92,23 +92,23 @@ export const KEYBINDINGS = [
   { id: 'thread.effort', chords: ['Mod+Shift+E'], scope: 'thread' },
   { id: 'thread.sideChat', chords: ['Mod+.'], scope: 'thread' },
 
-  // OxePod
-  { id: 'oxepod.filter', chords: ['/'], scope: 'oxepod', when: context => !inTextField(context.target) },
 
-  // OxePost
-  { id: 'oxepost.send', chords: ['Mod+Enter'], scope: 'oxepost' },
-  { id: 'oxepost.filter', chords: ['/'], scope: 'oxepost', when: context => !inTextField(context.target) },
+
+
+
+
+
 
   // Last, so Ctrl+/ reaches terminal commands first while a terminal pane is active.
   { id: 'help.shortcuts', chords: ['?', 'Mod+/'], scope: 'global', when: context => !inTextField(context.target) }
 ] as const satisfies readonly Keybinding[]
 
-export type KeybindingId = typeof KEYBINDINGS[number]['id']
+export type KeybindingId = typeof KEYBINDINGS[number]['id'] | 'team.open' | 'view.pods' | 'view.post' | 'oxepod.filter' | 'oxepost.send' | 'oxepost.filter'
 
 const BY_ID = new Map<string, Keybinding>(KEYBINDINGS.map(binding => [binding.id, binding]))
 
 export function getKeybinding(id: KeybindingId): Keybinding {
-  return BY_ID.get(id)!
+  return BY_ID.get(id) ?? { id, chords: [], scope: 'global' }
 }
 
 const parsedCache = new Map<string, ParsedChord>()

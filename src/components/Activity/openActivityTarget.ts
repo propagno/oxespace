@@ -32,7 +32,7 @@ export function openActivityTarget(target: ActivityTarget, selectView: (view: Ac
       useUIStore.getState().openSettingsPage('providers')
       return
     case 'update':
-      useUIStore.getState().openSettingsPage('updates')
+      useUIStore.getState().openSettingsPage('about')
       return
     case 'mcp':
       useUIStore.getState().openMcpPanel()
