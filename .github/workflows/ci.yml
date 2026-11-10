@@ -729,26 +729,11 @@ jobs:
           npm run fix:native
           npm run verify:native
 
-      # @xenova/transformers imports sharp when the optional semantic index loads.
-      # npm ci --ignore-scripts leaves the sharp native binary missing; rebuild it
-      # (N-API, so the Node build also loads under Electron) before packaging.
-      - name: Install sharp native bindings
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          npm rebuild sharp
-
       - name: Package installer (${{ matrix.label }})
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          # build + fix:native already ran above; only slim and package. The
-          # semantic model is not bundled (downloaded on demand into userData).
-          # slim:pack keeps ONLY the target's ONNX prebuild; passing the target
-          # explicitly matters because it is what a Linux build needs to KEEP.
-          node scripts/slim-pack-deps.mjs --platform=${{ matrix.slim_platform }} --arch=x64
           # GitHub publish configuration does not infer the update channel from
           # prerelease versions. Set it explicitly so beta builds emit beta.yml
           # (and beta-linux.yml) instead of overwriting the stable latest feed.
