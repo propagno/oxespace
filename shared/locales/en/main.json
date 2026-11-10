@@ -631,6 +631,12 @@
       "firstSight": {
         "enforced": "Waiting for your review: only the rules that deny apply, and tool groups are at most on demand."
       }
+    },
+    "preview": {
+      "capture": {
+        "devtools": "Close the browser's DevTools to let the agent capture.",
+        "busy": "Another debugger is attached to this page, so the agent cannot capture right now."
+      }
     }
   },
   "remotePairingFailure": {

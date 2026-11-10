@@ -633,6 +633,12 @@
       "firstSight": {
         "enforced": "Esperando sua revisão: só valem as regras que negam, e os grupos de ferramentas ficam no máximo sob demanda."
       }
+    },
+    "preview": {
+      "capture": {
+        "devtools": "Feche o DevTools do navegador para o agente capturar.",
+        "busy": "Outro depurador está conectado a esta página, então o agente não pode capturar agora."
+      }
     }
   },
   "remotePairingFailure": {

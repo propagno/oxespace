@@ -357,7 +357,9 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'app.openIn.unknownTarget': [],
   'app.openIn.editorMissing': ['editor'],
   'app.openIn.launchFailed': ['editor'],
-  'app.openIn.revealFailed': []
+  'app.openIn.revealFailed': [],
+  'preview.capture.devtools': [],
+  'preview.capture.busy': []
 }
 
 describe('C3 message codes', () => {
