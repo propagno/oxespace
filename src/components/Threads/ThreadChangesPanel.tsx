@@ -23,7 +23,8 @@ const BackgroundJobsPanel = lazy(() => import('../Background/BackgroundJobsPanel
 const WebPreviewPanel = lazy(() => import('../WebPreview/WebPreviewPanel').then(module => ({ default: module.WebPreviewPanel })))
 const ThreadProjectTerminal = lazy(() => import('./ThreadProjectTerminal').then(module => ({ default: module.ThreadProjectTerminal })))
 /** Thread panels named as everywhere else (src/components/Workbench/panelCatalog.ts). */
-const PANEL_ID: Record<ThreadPanel, WorkbenchPanelId> = { session: 'session', changes: 'changes', git: 'git', files: 'files', search: 'search', scripts: 'scripts', background: 'background', preview: 'browser', terminal: 'terminal' }
+const ThreadNetworkPanel = lazy(() => import('./ThreadNetworkPanel').then(module => ({ default: module.ThreadNetworkPanel })))
+const PANEL_ID: Record<ThreadPanel, WorkbenchPanelId> = { session: 'session', changes: 'changes', git: 'git', files: 'files', search: 'search', scripts: 'scripts', background: 'background', preview: 'browser', terminal: 'terminal', network: 'httpCalls' }
 
 export function ThreadChangesPanel({ snapshot, workspace, panel, onClose, onSendToConversation, onCompact, maximized = false, onToggleMaximized }: { snapshot: ThreadSnapshot; workspace?: Workspace; panel: ThreadPanel; onClose(): void; onSendToConversation?(prompt: string): void; /** Runs /compact in the conversation; without it the session panel offers no Compact. */ onCompact?(): void; maximized?: boolean; onToggleMaximized?(): void }) {
   const { t } = useTranslation('thread')
@@ -53,6 +54,7 @@ export function ThreadChangesPanel({ snapshot, workspace, panel, onClose, onSend
       : panel === 'scripts' ? <div className="thread-review-body thread-tool-surface">{scopedWorkspace ? <Suspense fallback={<LoadingState label={t('workbench.loadingScripts')} />}><ScriptsPanel workspace={scopedWorkspace} embedded onClose={onClose} onOpenBackground={() => setPanel('background')} /></Suspense> : unavailable}</div>
       : panel === 'background' ? <div className="thread-review-body thread-tool-surface thread-background-surface"><section aria-label={t('workbench.nativeActivity')}><h3>{t('workbench.providerActivity', { count: subagents.filter(event => event.type === 'subagent' && event.state === 'running').length })}</h3>{subagents.map(event => event.type === 'subagent' && <ThreadSubagentActivity key={event.id} event={event} />)}{!subagents.length && <EmptyState compact title={t('workbench.noNativeTasks')} />}</section><Suspense fallback={<LoadingState label={t('workbench.loadingBackground')} />}><BackgroundJobsPanel workspaceId={snapshot.thread.workspaceId} /></Suspense></div>
       : panel === 'preview' ? <div className="thread-review-body thread-tool-surface">{scopedWorkspace ? <Suspense fallback={<LoadingState label={t('workbench.loadingPreview')} />}><WebPreviewPanel workspace={scopedWorkspace} threadId={id} embedded onClose={onClose} onRunCommand={() => {}} onSendToAgent={onSendToConversation} /></Suspense> : unavailable}</div>
+      : panel === 'network' ? <div className="thread-review-body thread-tool-surface"><Suspense fallback={<LoadingState label={t('workbench.loadingNetwork')} />}><ThreadNetworkPanel threadId={id} workspaceId={snapshot.thread.workspaceId} /></Suspense></div>
       : <div className="thread-review-body thread-tool-surface thread-terminal-surface"><Suspense fallback={<LoadingState label={t('workbench.loadingTerminal')} />}><ThreadProjectTerminal key={id} thread={snapshot.thread} /></Suspense></div>}
   </aside>
 }

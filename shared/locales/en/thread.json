@@ -989,7 +989,8 @@
     "search": "Find in files",
     "scripts": "Scripts",
     "worktrees": "Worktrees",
-    "background": "Background activity"
+    "background": "Background activity",
+    "httpCalls": "HTTP calls"
   },
   "patch": {
     "region": "File diff",
@@ -1672,6 +1673,7 @@
     "loadingBackground": "Loading background activity…",
     "loadingPreview": "Loading web preview…",
     "loadingTerminal": "Loading terminal…",
+    "loadingNetwork": "Loading HTTP calls…",
     "unavailable": "The project is unavailable.",
     "nativeActivity": "Native background activity",
     "providerActivity": "Provider activity · {{count}} running",

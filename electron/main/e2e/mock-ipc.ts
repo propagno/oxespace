@@ -562,6 +562,7 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.agentActivity.list, () => ({ rows: [], cursor: null, failedSources: [] }))
   ipcMain.handle(IPC_CHANNELS.agentActivity.detail, () => null)
   ipcMain.handle(IPC_CHANNELS.agentActivity.badge, () => ({ today: 0, waiting: false }))
+  ipcMain.handle(IPC_CHANNELS.httpAudit.list, () => ({ rows: [], cursor: null, hosts: [] }))
 
   // ── Catch-all safety net (E2E) ──────────────────────────────────────────────
   // Any IPC channel NOT explicitly mocked above gets a safe, shaped empty default
