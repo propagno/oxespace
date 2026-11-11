@@ -45,9 +45,9 @@ describe('AppUpdateIndicator', () => {
 
     render(<AppUpdateIndicator />)
 
-    await user.click(screen.getByRole('button', { name: /OXESpace update ready/i }))
+    await user.click(screen.getByRole('button', { name: /Restart to update/i }))
     expect(screen.getByText(/OXESpace 0\.2\.11/i)).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /Restart and install/i }))
+    await user.click(screen.getByRole('button', { name: /Restart now/i }))
     expect(window.oxe.app.quitAndInstall).toHaveBeenCalled()
   })
 
@@ -55,8 +55,8 @@ describe('AppUpdateIndicator', () => {
     const user = userEvent.setup()
     useUpdaterStore.setState({ app: { status: 'available', installMode: 'manual', currentVersion: '0.2.10', availableVersion: '0.2.11', progress: null, error: null, lastCheckedAt: Date.now() } })
     render(<AppUpdateIndicator />)
-    await user.click(screen.getByRole('button', { name: /OXESpace update 0\.2\.11 available/i }))
+    await user.click(screen.getByRole('button', { name: /Update to 0\.2\.11/i }))
     expect(screen.getByRole('link', { name: /Open releases/i })).toHaveAttribute('href', 'https://github.com/propagno/oxespace/releases/latest')
-    expect(screen.queryByRole('button', { name: /Restart and install/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Restart now/i })).not.toBeInTheDocument()
   })
 })
