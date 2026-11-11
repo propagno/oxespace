@@ -281,6 +281,7 @@ describe('A68 · SECURITY (TECH LEAD)', () => {
     // Idle: a tunnel that sends nothing is closed by the proxy.
     const idleClosed = await new Promise<boolean>(resolve => {
       const socket = connect(port, '127.0.0.1')
+      socket.resume()
       socket.on('connect', () => socket.write(`CONNECT 127.0.0.1:${target} HTTP/1.1\r\nHost: x\r\nProxy-Authorization: ${auth}\r\n\r\n`))
       socket.on('close', () => resolve(true))
       setTimeout(() => { socket.destroy(); resolve(false) }, 5000)
