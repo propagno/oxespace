@@ -123,6 +123,7 @@ export function ApprovalQueue({
       }
     }
     void loadAgents()
+    void window.oxe?.featureUsage?.record?.('approvalsQueue')
     const unsubscribe = bridge?.onChanged?.(() => {
       void loadAgents()
     })

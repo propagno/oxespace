@@ -900,5 +900,51 @@
       "noProdWrite": "Agents never write to production.",
       "denyAndHold": "Deny is the default, and irreversible approvals need a hold."
     }
+  },
+  "usage": {
+    "sectionTitle": "Usage on this computer",
+    "toggleLabel": "Count which features I use",
+    "toggleHint": "Counted on this computer only. Nothing is sent.",
+    "empty": "Nothing counted yet.",
+    "showAll": "Show all",
+    "exportJson": "Export as JSON…",
+    "clearCount": "Clear the count…",
+    "columns": {
+      "feature": "Feature",
+      "uses": "Uses",
+      "lastUsed": "Last used"
+    },
+    "clearDialog": {
+      "title": "Clear usage?",
+      "body": "Clear the usage count? This can't be undone.",
+      "cancel": "Cancel",
+      "confirm": "Clear"
+    },
+    "turnOffDialog": {
+      "title": "Stop counting?",
+      "body": "Also clear what was counted?",
+      "keep": "Keep",
+      "clear": "Clear"
+    },
+    "features": {
+      "approvalsQueue": "Approvals queue",
+      "commandBar": "Command bar",
+      "agentBrowser": "Agent browser",
+      "deviceEmulation": "Device emulation",
+      "androidMirror": "Android mirror",
+      "showOnPhone": "Show on phone",
+      "paneConversation": "Pane conversation",
+      "splitConversations": "Split conversations",
+      "approvalPreview": "Approval preview",
+      "alwaysAllow": "Always allow",
+      "agentPermissions": "What agents can do",
+      "httpCalls": "HTTP calls",
+      "agentActivity": "Agent activity",
+      "containersPanel": "Containers panel",
+      "worktreesPanel": "Worktrees panel",
+      "prSummary": "Pull request summary",
+      "timeTravel": "Time travel",
+      "branchFromCheckpoint": "Branch from checkpoint"
+    }
   }
 }

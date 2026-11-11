@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, type ReactElement, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../ui/Button'
+import { UsageSettings } from './UsageSettings'
 import type { DataExportState } from '../../../shared/types/ipc'
 
 export function DataSettings(): ReactElement {
@@ -54,7 +55,8 @@ export function DataSettings(): ReactElement {
   }
 
   return (
-    <section className="settings-general">
+    <>
+      <section className="settings-general">
       <h2>{t('data.removedSection')}</h2>
       <div className="settings-general-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
@@ -77,6 +79,8 @@ export function DataSettings(): ReactElement {
           </Button>
         </div>
       </div>
-    </section>
+      </section>
+      <UsageSettings />
+    </>
   )
 }

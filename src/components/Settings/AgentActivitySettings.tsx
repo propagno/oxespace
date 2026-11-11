@@ -34,6 +34,7 @@ export function AgentActivitySettings(): ReactElement {
   const cursorRef = useRef<string | null>(null)
   const lastFocusedRowRef = useRef<HTMLElement | null>(null)
   const tbodyRef = useRef<HTMLTableSectionElement>(null)
+  useEffect(() => { void window.oxe?.featureUsage?.record?.('agentActivity') }, [])
 
   const [selectedSource, setSelectedSource] = useState<string | null>(initialSource)
   const [rows, setRows] = useState<ActivityRow[]>([])

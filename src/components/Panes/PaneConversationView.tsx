@@ -43,6 +43,7 @@ export function PaneConversationView(props: {
   const { paneId, onShowScreen, onTypeInTerminal } = props
   const { t: tc } = useTranslation('code')
   const { t: tm } = useTranslation('mobile')
+  useEffect(() => { void window.oxe?.featureUsage?.record?.('paneConversation') }, [])
 
   const [entries, setEntries] = useState<Entry[]>([])
   const [cursor, setCursor] = useState<string | null>(null)

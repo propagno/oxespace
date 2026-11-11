@@ -928,5 +928,51 @@
       "noProdWrite": "Agentes nunca escrevem em produção.",
       "denyAndHold": "Negar é o padrão, e aprovações irreversíveis exigem segurar o botão."
     }
+  },
+  "usage": {
+    "sectionTitle": "Uso neste computador",
+    "toggleLabel": "Contar quais recursos eu uso",
+    "toggleHint": "Contado só neste computador. Nada é enviado.",
+    "empty": "Nada contado ainda.",
+    "showAll": "Mostrar todos",
+    "exportJson": "Exportar como JSON…",
+    "clearCount": "Limpar a contagem…",
+    "columns": {
+      "feature": "Recurso",
+      "uses": "Usos",
+      "lastUsed": "Último uso"
+    },
+    "clearDialog": {
+      "title": "Limpar o uso?",
+      "body": "Limpar a contagem de uso? Isso não pode ser desfeito.",
+      "cancel": "Cancelar",
+      "confirm": "Limpar"
+    },
+    "turnOffDialog": {
+      "title": "Parar de contar?",
+      "body": "Limpar também o que foi contado?",
+      "keep": "Manter",
+      "clear": "Limpar"
+    },
+    "features": {
+      "approvalsQueue": "Fila de aprovações",
+      "commandBar": "Barra de comandos",
+      "agentBrowser": "Navegador de agentes",
+      "deviceEmulation": "Emulação de dispositivos",
+      "androidMirror": "Espelhamento Android",
+      "showOnPhone": "Mostrar no celular",
+      "paneConversation": "Conversa do painel",
+      "splitConversations": "Conversas divididas",
+      "approvalPreview": "Prévia da aprovação",
+      "alwaysAllow": "Permitir sempre",
+      "agentPermissions": "O que os agentes podem fazer",
+      "httpCalls": "Chamadas HTTP",
+      "agentActivity": "Atividade dos agentes",
+      "containersPanel": "Painel de contêineres",
+      "worktreesPanel": "Painel de worktrees",
+      "prSummary": "Resumo de pull request",
+      "timeTravel": "Viagem no tempo",
+      "branchFromCheckpoint": "Branch a partir de checkpoint"
+    }
   }
 }

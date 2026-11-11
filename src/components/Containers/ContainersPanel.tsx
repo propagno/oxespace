@@ -62,6 +62,7 @@ export function ContainersPanel({ onOpenConversation, onClose }: ContainersPanel
   const [panel, setPanel] = useState<ContainerPanel | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [logs, setLogs] = useState<string[]>([])
+  useEffect(() => { void window.oxe?.featureUsage?.record?.('containersPanel') }, [])
   const [confirm, setConfirm] = useState<{ kind: 'stack' | 'remove'; row: ContainerPanelRow } | null>(null)
 
   const refresh = useCallback(async (): Promise<void> => {
