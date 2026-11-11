@@ -8,7 +8,7 @@ export interface OxePodIpcService {
 
 /** Every operation the window may ask OxePod for; anything else is refused before the service loads. */
 export const OXEPOD_OPS: readonly OxePodOp[] = [
-  'containers.engines', 'containers.candidates', 'containers.useCandidate', 'containers.list', 'containers.inspect', 'containers.stats', 'containers.action', 'containers.remove',
+  'containers.engines', 'containers.candidates', 'containers.useCandidate', 'containers.list', 'containers.panel', 'containers.inspect', 'containers.stats', 'containers.action', 'containers.remove',
   'containers.compose', 'containers.exec', 'containers.logsStart', 'containers.logsStop', 'containers.shell', 'containers.suggestConnection',
   'resources.images', 'resources.volumes', 'resources.networks', 'resources.usage', 'resources.remove', 'resources.prune'
 ]
@@ -19,8 +19,10 @@ const OPS = new Set<string>(OXEPOD_OPS)
  * request (or by OxeQuery, in process), so none of it weighs on boot. Every operation is validated again in the service.
  */
 export function registerOxePodIpc(load: () => Promise<OxePodIpcService>, describeFailure: (error: unknown) => string): void {
-  ipcMain.handle(IPC_CHANNELS.oxePod.call, async (event, request: unknown): Promise<OxePodResponse<unknown>> => {
-    const body = request && typeof request === 'object' ? request as { op?: unknown; input?: unknown } : {}
+  ipcMain.handle(IPC_CHANNELS.oxePod.call, async (_event, request: unknown, ...rest: unknown[]): Promise<OxePodResponse<unknown>> => {
+    const body = typeof request === 'string' && rest.length > 0
+      ? { op: request, input: rest[0] }
+      : request && typeof request === 'object' ? request as { op?: unknown; input?: unknown } : {}
     if (typeof body.op !== 'string' || !OPS.has(body.op)) throw new Error('Unknown OxePod operation')
     let service: OxePodIpcService
     // The view asks through this channel; answer with the reason instead of a rejected call.

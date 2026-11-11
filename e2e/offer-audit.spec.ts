@@ -123,7 +123,7 @@ async function openPalette(page: Page): Promise<void> {
     // a bounded click lets the next attempt take the shortcut instead of waiting 30 s on a detached button (FL-13).
     const button = page.getByRole('button', { name: 'Files & commands' }).first()
     if (await button.isVisible()) await button.click({ timeout: 2_000 }).catch(() => undefined)
-    else { await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur()); await page.keyboard.press('Control+k') }
+    else { await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur()); await page.keyboard.press('Control+Shift+P') }
     await paletteInput(page).waitFor({ timeout: 2_000 }).catch(() => undefined)
   }
   await expect(paletteInput(page)).toBeVisible()

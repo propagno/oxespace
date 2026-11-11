@@ -194,7 +194,7 @@ export const IPC_CHANNELS = {
     call: 'oxeQuery:call',
     onEvent: 'oxeQuery:event'
   },
-  oxePod: { call: 'oxePod:call', onEvent: 'oxePod:event' },
+  oxePod: { call: 'oxePod:call', onEvent: 'oxePod:event', 'containers.panel': 'oxePod:call' },
   remote: {
     status: 'remote:status', devices: 'remote:devices', changed: 'remote:changed', setEnabled: 'remote:set-enabled', startPairing: 'remote:start-pairing',
     cancelPairing: 'remote:cancel-pairing', answerPairing: 'remote:answer-pairing', revoke: 'remote:revoke', rename: 'remote:rename',

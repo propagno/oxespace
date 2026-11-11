@@ -562,6 +562,8 @@ export interface MessageParams extends PlaceMessageParams {
   'commandBar.args.control': Record<string, never>
   'commandBar.request.otherWorkspace': Record<string, never>
   'commandBar.request.none': Record<string, never>
+  /** F9 A64: a feature a provider does not support stays visible and disabled with its provider display name. */
+  'parity.notAvailable': { provider: string }
 }
 
 export type MessageCode = keyof MessageParams
@@ -914,7 +916,8 @@ export const MESSAGE_CODES = [
   'commandBar.skill.noAgent',
   'commandBar.args.control',
   'commandBar.request.otherWorkspace',
-  'commandBar.request.none'
+  'commandBar.request.none',
+  'parity.notAvailable'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */

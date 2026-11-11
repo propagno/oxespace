@@ -22,7 +22,7 @@ export type McpCapability =
   | Base & { forbidden: string }
 
 /** The user's standing rule: these never become MCP tools. Each must be a `forbidden` capability. */
-export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'thread.time_travel', 'accounts.sign_in', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'android.controls', 'git.repo_hook_approval', 'remote.gateway_admin', 'approvals.admin', 'mcp_internal.tool_groups_admin', 'app.open_external', 'mcp.tool_rules_admin', 'policy.accept_change', 'app.open_in', 'code.resume_bypass'] as const
+export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'thread.time_travel', 'accounts.sign_in', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'android.controls', 'git.repo_hook_approval', 'remote.gateway_admin', 'approvals.admin', 'mcp_internal.tool_groups_admin', 'app.open_external', 'mcp.tool_rules_admin', 'policy.accept_change', 'app.open_in', 'code.resume_bypass', 'containers.panel'] as const
 
 /** No tool name or domain action may look like one of these. */
 export const FORBIDDEN_NAME = /approv|permission|access|sign_?in|log_?in|log_?out|token|secret|credential|password|api_?key|trust|host_?key/i
@@ -341,6 +341,11 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     label: 'Containers (OxePod): list, logs, start, stop, restart',
     tools: { oxespace_containers_list: 'read', oxespace_container_logs: 'read', oxespace_container_action: 'confirm' },
     ipc: ['oxePod.call']
+  },
+  'containers.panel': {
+    label: 'The Containers panel: stack, status, uptime, database flag and who started each container',
+    forbidden: 'The window\'s read model: rows carry other conversations\' titles, so agents never reach it.',
+    ipc: ['oxePod.containers.panel']
   },
   'containers.resources': {
     label: 'Images, volumes, networks, compose, exec and shell, stats, database containers',

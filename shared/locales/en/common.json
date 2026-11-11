@@ -66,6 +66,8 @@
     "openSettings": "Open settings",
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
+    "collapseSidebarShortcut": "Collapse the sidebar (Ctrl B)",
+    "expandSidebarShortcut": "Expand the sidebar (Ctrl B)",
     "clearSearch": "Clear search",
     "applicationMenu": "Application menu",
     "menu": "Menu",
@@ -407,7 +409,22 @@
     "githubBefore": "Pull requests and issues need the GitHub CLI signed in",
     "githubAfter": "OXESpace checks it once a project is open.",
     "copy": "Copy command",
-    "markDone": "Mark as done"
+    "markDone": "Mark as done",
+    "v2": {
+      "folderStep": "Open a project folder",
+      "chooseFolder": "Choose folder",
+      "agentStep": "Connect an agent",
+      "howToInstall": "How to install",
+      "signIn": "Sign in to {{provider}}",
+      "waiting": "Waiting for sign-in in your browser…",
+      "cancel": "Cancel",
+      "readyModel": "Ready · {{model}}",
+      "ready": "Ready",
+      "conversationStep": "Start your first conversation",
+      "newConversation": "New conversation",
+      "connectFirst": "Connect an agent first",
+      "openModeAlone": "Or open a mode on its own"
+    }
   },
   "usage": {
     "resetUnknown": "Reset time unknown",

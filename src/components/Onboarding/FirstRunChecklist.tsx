@@ -14,6 +14,7 @@ import { accountContext, accountMessage } from '../Threads/accountMessages'
 import { AgentInstallLinks } from './AgentCliOnboarding'
 import { watchFirstAnswer } from './firstAnswer'
 import styles from './FirstRunChecklist.module.css'
+export { FirstRun, type FirstRunAgent, type FirstRunAgentStatus, type FirstRunProps } from './FirstRun'
 
 const DOT: Record<AgentSetupState, 'idle' | 'running' | 'success' | 'attention' | 'danger'> = {
   unchecked: 'idle',

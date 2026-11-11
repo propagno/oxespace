@@ -355,6 +355,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   registerBackgroundIpc(backgroundManager)
   registerSessionIpc(db)
   // OxePod (containers) loads on its first request; OxeQuery (databases) reaches a database container through it, in process.
+  ;(await import('./services/oxepod/service')).setOxePodAppDatabase(db)
   const oxePod = (await import('./services/oxepod/startup')).startOxePod()
   oxeQueryShells.shellFor = paneId => oxePod.peek()?.shellFor(paneId)
   const oxeQuery = await (await import('./services/oxequery/startup')).startOxeQuery(db, async () => (await oxePod.load()).containers)

@@ -14,7 +14,8 @@
     "more": "Mais painéis",
     "needsWorkspace": "Abra um workspace para usar os painéis dele",
     "httpCalls": "Chamadas HTTP",
-    "android": "Android"
+    "android": "Android",
+    "containers": "Contêineres"
   },
   "tools": {
     "team": {
@@ -876,11 +877,13 @@
   },
   "pane": {
     "boundary": "este painel",
+    "overflowNote": "{{n}} painéis não cabem nesta largura, então aparecem um por vez.",
     "splitRefused": {
       "title": "Não é possível dividir este painel aqui",
       "hint": "Todos os lugares deste layout estão ocupados. Escolha um layout maior, ou ligue o layout dividido para adicionar painéis livremente.",
       "tooNarrow": "Cada metade ficaria com menos de {{width}} px de largura. Feche outro painel ou aumente a janela.",
-      "tooShort": "Cada metade ficaria com menos de {{height}} px de altura. Feche outro painel ou aumente a janela."
+      "tooShort": "Cada metade ficaria com menos de {{height}} px de altura. Feche outro painel ou aumente a janela.",
+      "tooSmall": "Sem espaço para dividir: os painéis ficariam com {{w}} × {{h}} px, abaixo de {{minW}} × {{minH}}."
     },
     "attention": {
       "blocked": "Precisa da sua aprovação ou resposta",
@@ -987,6 +990,7 @@
       "exited_other": "{{count}} encerrados"
     },
     "newWorkspace": "Novo workspace",
+    "railNeedsDecision": "{{name}}, precisa da sua decisão",
     "search": "Arquivos e comandos ({{shortcut}})",
     "searchLabel": "Arquivos e comandos",
     "openPanels": "Abrir painéis",
@@ -2602,5 +2606,46 @@
     "udevHint": "Adicione uma regra em /etc/udev/rules.d/51-android.rules para o fabricante e recarregue o udev.",
     "howToSetUp": "Como configurar",
     "reconnect": "Reconectar"
+  },
+  "containers": {
+    "empty": "Nenhum contêiner. Inicie um stack do compose a partir de um projeto.",
+    "startedByYou": "Você",
+    "outside": "Fora do OXESpace",
+    "outsideHint": "Iniciado antes do OXESpace ou por outra ferramenta",
+    "statusRunning": "Em execução",
+    "statusStopped": "Parado",
+    "detailLabel": "Contêiner selecionado",
+    "stop": "Parar",
+    "start": "Iniciar",
+    "restart": "Reiniciar",
+    "moreActions": "Mais ações",
+    "openShell": "Abrir um shell",
+    "copyId": "Copiar ID do contêiner",
+    "connectInOxeQuery": "Conectar no OxeQuery",
+    "stopStack": "Parar o stack inteiro…",
+    "removeContainer": "Remover contêiner…",
+    "stoppedToast": "{{name}} parado",
+    "undo": "Desfazer",
+    "noLogs": "Sem logs ainda.",
+    "tryAgain": "Tentar de novo",
+    "howToInstall": "Como instalar",
+    "confirmStopStackTitle": "Parar {{stack}}?",
+    "confirmStopStackBody": "Todos os contêineres de {{stack}} vão parar.",
+    "confirmStopStackAction": "Parar stack",
+    "confirmRemoveTitle": "Remover {{name}}?",
+    "confirmRemoveBody": "Isso remove o contêiner. Os volumes são mantidos.",
+    "confirmRemoveAction": "Remover",
+    "engineName": {
+      "docker": "Docker",
+      "podman": "Podman"
+    },
+    "engine": {
+      "stoppedTitle": "O {{engine}} não está respondendo",
+      "stoppedBody": "Inicie o {{engine}} e tente de novo.",
+      "missingTitle": "{{engine}} não encontrado",
+      "missingBody": "Instale o Docker ou o Podman e abra este painel de novo.",
+      "deniedTitle": "Sem acesso ao {{engine}}",
+      "deniedBody": "Confira se seu usuário pode usar o {{engine}} e tente de novo."
+    }
   }
 }

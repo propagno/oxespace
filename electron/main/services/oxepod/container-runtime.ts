@@ -107,6 +107,10 @@ export class ContainerRuntime {
     return engine === 'docker' && this.selection ? this.selection.args : []
   }
 
+  preferredEngine(): ContainerEngine | undefined {
+    return this.options.preferred?.()
+  }
+
   private runRaw(engine: ContainerEngine, args: string[], timeoutMs = 20_000, maxOutputBytes = 2 * 1024 * 1024, env?: Record<string, string>) {
     return this.options.host.exec(this.binaries.get(engine) ?? engine, args, { cwd: tmpdir(), timeoutMs, maxOutputBytes, ...(env ? { env } : {}) })
   }
@@ -223,6 +227,13 @@ export class ContainerRuntime {
 
   private async inspectRaw(engine: ContainerEngine, id: string): Promise<string> {
     const result = await this.run(engine, ['inspect', '--type', 'container', assertContainerId(id)])
+    if (result.code !== 0) throw explainEngineError(engine, result.stderr)
+    return result.stdout
+  }
+
+  async inspectBatch(engine: ContainerEngine, ids: string[]): Promise<string> {
+    if (ids.length === 0) return '[]'
+    const result = await this.run(engine, ['inspect', '--type=container', ...ids.map(assertContainerId)])
     if (result.code !== 0) throw explainEngineError(engine, result.stderr)
     return result.stdout
   }
