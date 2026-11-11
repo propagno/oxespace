@@ -321,6 +321,8 @@ export interface MessageParams extends PlaceMessageParams {
   'thread.observe.unsupported': Record<string, never>
   'thread.observe.changed': Record<string, never>
   'thread.queue.deliveryUnconfirmed': Record<string, never>
+  /** F6 / T76: a queued message cannot steer now (no turn is running, or the provider cannot steer). */
+  'thread.steer.unavailable': Record<string, never>
   'oxequery.edit.readOnly': Record<string, never>
   'oxequery.edit.notTable': Record<string, never>
   'oxequery.edit.noKey': Record<string, never>
@@ -733,6 +735,7 @@ export const MESSAGE_CODES = [
   'thread.observe.unsupported',
   'thread.observe.changed',
   'thread.queue.deliveryUnconfirmed',
+  'thread.steer.unavailable',
   'oxequery.edit.readOnly',
   'oxequery.edit.notTable',
   'oxequery.edit.noKey',

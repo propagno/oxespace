@@ -88,7 +88,6 @@ export const KEYBINDINGS = [
   { id: 'thread.permissions', chords: ['Mod+Shift+M'], scope: 'thread' },
   { id: 'thread.model', chords: ['Mod+Shift+I'], scope: 'thread' },
   { id: 'thread.effort', chords: ['Mod+Shift+E'], scope: 'thread' },
-  { id: 'thread.sideChat', chords: ['Mod+.'], scope: 'thread' },
 
   // Last, so Ctrl+/ reaches terminal commands first while a terminal pane is active.
   { id: 'help.shortcuts', chords: ['?', 'Mod+/'], scope: 'global', when: context => !inTextField(context.target) }

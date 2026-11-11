@@ -1,0 +1,86 @@
+.wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.row {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 8px;
+  text-align: left;
+  font-size: var(--text-xs);
+}
+
+.bar {
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  background: var(--border-strong, var(--text-tertiary));
+}
+
+.wrap[data-kind="read"] .bar {
+  background: var(--intent-info);
+}
+
+.wrap[data-kind="edit"] .bar {
+  background: var(--intent-warning);
+}
+
+.wrap[data-kind="run"] .bar {
+  background: var(--intent-success);
+}
+
+.wrap[data-kind="query"] .bar {
+  background: var(--accent, var(--intent-info));
+}
+
+.wrap[data-kind="http"] .bar {
+  background: var(--intent-info);
+}
+
+.wrap[data-kind="container"] .bar {
+  background: var(--intent-warning);
+}
+
+.wrap[data-failed="true"] .bar {
+  background: var(--intent-danger);
+}
+
+.kind {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.target {
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
+.meta {
+  margin-left: auto;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+.tooltip {
+  position: absolute;
+  right: 8px;
+  top: -24px;
+  z-index: var(--layer-popover);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-overlay, var(--surface-raised));
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  pointer-events: none;
+  white-space: nowrap;
+}

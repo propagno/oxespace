@@ -14,7 +14,7 @@ import { ThreadAgentError, threadFailure } from './thread-failure'
 import { ThreadHistory, type ThreadHistoryWriteOptions } from './thread-history'
 import { ThreadSnapshotCache } from './thread-snapshot-cache'
 import { applyPendingRewind, redoRewind, retryTurn, rewind, type RewindHost } from './thread-rewind-flow'
-import { deleteQueued, drainQueue, reorderQueued, resumeQueue, sendQueuedNow, updateQueued, type QueueHost } from './thread-queue'
+import { deleteQueued, drainQueue, reorderQueued, resumeQueue, sendQueuedNow, steerQueued, updateQueued, type QueueHost } from './thread-queue'
 import { addTurnCost } from './thread-cost'
 import { repairLegacyCost } from '../../../../shared/threadCostRepair'
 import { deriveThreadTitle, isUnnamedThreadTitle, parseThreadRow } from './thread-title'
@@ -760,6 +760,8 @@ export class ThreadOrchestrator {
   sendQueuedNow(id: string, itemId: string): Promise<void> {
     return sendQueuedNow(this.queueHost(), id, itemId)
   }
+
+  steerQueued(id: string, itemId: string): Promise<void> { return steerQueued(this.queueHost(), id, itemId) }
 
   reorderQueued(id: string, itemIds: string[]): Promise<void> {
     return reorderQueued(this.queueHost(), id, itemIds)

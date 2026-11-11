@@ -320,31 +320,36 @@ async function registerIpcHandlers(): Promise<() => void> {
   const [
     { registerGitIpc }, { registerSearchIpc }, { registerGitHubIpc },
     { registerIntegrationIpc }, { registerRemoteIpc },
-    { GitHubService }, { GitService }, { registerPullRequestIpc }
+    { GitHubService }, { GitService }, { registerPullRequestIpc },
+    { paneConversationsFor }, { registerPaneConversationIpc }
   ] = await Promise.all([
     import('./ipc/git.ipc'), import('./ipc/search.ipc'), import('./ipc/github.ipc'),
     import('./ipc/integration.ipc'), import('./ipc/remote.ipc'),
     import('./services/github.service'), import('./services/git.service'),
-    import('./ipc/pull-request.ipc')
+    import('./ipc/pull-request.ipc'),
+    import('./services/remote/pane-conversation'), import('./ipc/pane-conversation.ipc')
   ])
   const gitService = registerGitIpc()
   registerSearchIpc()
   // Agents search with their own instance: a new search cancels the previous one of the same service.
   const agentSearch = new SearchService()
   const gitHubService = registerGitHubIpc(db)
-  registerPullRequestIpc()
+  const pullRequestProvider = registerPullRequestIpc()
   gitHubService.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
   registerIntegrationIpc(db)
+  const backgroundListeners = new Set<() => void>()
   const backgroundManager = new BackgroundManager(db, {
     emitOutput: (event) => {
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send(IPC_CHANNELS.background.onOutput, event)
       }
+      for (const listener of backgroundListeners) listener()
     },
     emitUpdate: (event) => {
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send(IPC_CHANNELS.background.onUpdate, event)
       }
+      for (const listener of backgroundListeners) listener()
     }
   })
   registerBackgroundIpc(backgroundManager)
@@ -377,7 +382,15 @@ async function registerIpcHandlers(): Promise<() => void> {
       if (current) androidAccess.revokeSession(current.id)
       executions.endOwner({ kind: 'thread', id: threadId })
     }
-  }, threadWorktrees)
+  }, threadWorktrees, {
+    // F6 A22: the conversation's own OXESpace jobs with their last lines; Stop stays on background:stop.
+    jobs: thread => backgroundManager.list(thread.workspaceId).map(job => ({ job, tail: backgroundManager.getOutput(job.id).lines.slice(-5) })),
+    onJobsChanged: listener => { backgroundListeners.add(listener); return () => { backgroundListeners.delete(listener) } },
+    pullRequest: async ({ rootPath, branch }) => {
+      const state = await pullRequestProvider.state({ rootPath, branch }).catch(() => null)
+      return state?.pr ? { number: state.pr.number } : null
+    }
+  })
   // A18 (P7) · the task's Terminal tab reads every running pane: its launch folder, its agent's reported cwd and its
   // shell's OSC cwd (F4-P6); `agent` = the pane runs an agent CLI.
   const paneRows = db.prepare('SELECT id, workspace_id, display_name, agent_name FROM panes')
@@ -411,8 +424,23 @@ async function registerIpcHandlers(): Promise<() => void> {
     return filePath
   })
   registerNotificationsIpc()
+  const paneConversations = paneConversationsFor(db, () => {
+    const rows = db.prepare('SELECT root_path AS root FROM workspaces UNION SELECT root_path FROM thread_project_contexts').all() as Array<{ root: string | null }>
+    return rows.map(row => row.root).filter((root): root is string => typeof root === 'string' && root.length > 0)
+  })
+  const disposePaneConversationIpc = registerPaneConversationIpc(ipcMain, {
+    conversations: paneConversations,
+    push: (senderId, payload) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (!window.isDestroyed() && window.webContents.id === senderId) {
+          window.webContents.send(IPC_CHANNELS.paneConversation.changed, payload)
+        }
+      }
+    }
+  })
+  app.once('before-quit', disposePaneConversationIpc)
   registerRemoteIpc(db, {
-    threads: threadManager.manager, terminals: terminalManager, agentState,
+    threads: threadManager.manager, terminals: terminalManager, agentState, paneConversations,
     // S7.1: the phone's `agents` topic; a mark from the phone reaches the window too.
     agents: {
       overview: () => agentsModel.overview(),

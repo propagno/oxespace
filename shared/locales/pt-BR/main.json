@@ -95,6 +95,9 @@
       "queue": {
         "deliveryUnconfirmed": "Não foi possível confirmar a entrega desta mensagem."
       },
+      "steer": {
+        "unavailable": "Esta conversa não pode ser direcionada agora. Sua mensagem continuou na fila."
+      },
       "side": {
         "unavailable": "Este agente ainda não abre um chat lateral.",
         "noSession": "Envie uma mensagem primeiro: o chat lateral copia a conversa até aqui.",

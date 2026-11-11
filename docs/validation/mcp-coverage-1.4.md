@@ -155,6 +155,7 @@ before. Code panes receive the whole registry.
 | `thread.side_chat` | A side chat about a conversation | Excluded: The person's read-only scratch copy of a conversation; agents ask in their own. |
 | `thread.access` | Permission rules and auto-approval | **Forbidden**: Raises access. |
 | `thread.places` | A conversation's places, their diffs, path links, panes, collisions and agent summary (F4) | Excluded: The person's window: read models of where a conversation worked. Agents read their own checkout with oxespace_git. |
+| `thread.cockpit` | A conversation's tool tabs and background shells (F6) | Excluded: The person's window: read models of what a conversation used and left running. Agents see their own tools and shells. |
 | `thread.place_actions` | Answer a branch drift; undo, restore or discard a place's changes; read a file of a place (F4) | **Forbidden**: Person-only (A14 Undo, A15): they change or restore files and branches for the person; the place read reaches outside the workspace roots (A17). |
 | `thread.session_admin` | Fork, delete, clean up or search CLI sessions | Excluded: Deletes or copies the person's CLI history across projects. Agents search with oxespace_memory_search, scoped to the project. |
 | `delegation.use` | Delegate a task and follow it | **read**: `oxespace_delegation_targets`, `oxespace_delegation_preflight`, `oxespace_delegation_status`, `oxespace_delegation_inbox`, `oxespace_delegation_result`, `oxespace_delegation_context`<br>**write**: `oxespace_delegate_task`, `oxespace_delegation_control`, `oxespace_delegation_update`, `oxespace_delegation_checkpoint`, `oxespace_delegation_message`, `oxespace_delegation_acknowledge` |
@@ -189,6 +190,7 @@ before. Code panes receive the whole registry.
 | `settings.agent_audit` | Audit of agent actions; internal MCP status | Excluded: The person's review of what agents did. OxeQuery's trail is oxespace_db_activity. |
 | `http_audit.list` | List HTTP audit calls | Excluded: The person's review of HTTP calls made by agents. |
 | `agent_activity.read` | List, detail and badge of agent activity | Excluded: The person's review of what agents did across changes, databases, containers and HTTP. |
+| `code.pane_conversation` | A terminal agent's conversation on the desktop (A53) | Excluded: The person's read-only view of a pane's native session. Agents read panes with oxespace_agents read and sessions with oxespace_threads native_sessions. |
 | `mcp_internal.token` | Regenerate the internal MCP token | **Forbidden**: A token. |
 | `accounts.sign_in` | Sign in or out of Claude, Codex and other accounts | **Forbidden**: Sign-in and tokens. |
 | `app.events` | Change notifications sent to the window | Excluded: Events, not actions: agents read the state they describe with the tools above. |

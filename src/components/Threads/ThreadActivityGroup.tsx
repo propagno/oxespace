@@ -1,3 +1,4 @@
+import { foldSummary, toolRow } from '../../../shared/thread-tool-rows'
 import { threadToolSummary as toolSummary } from '../../../shared/threadToolSummary'
 import { threadActionFailure } from '../../../shared/threadActionFailure'
 import { Check, ChevronDown, CircleAlert, CircleHelp, TerminalSquare } from 'lucide-react'
@@ -9,6 +10,8 @@ import { formatNumber } from '../../utils/formatTime'
 import { Button, Spinner } from '../../ui'
 import { useToolOutputCuts } from '../../store/tool-output-cut.store'
 import { cutNote } from './toolOutputCut'
+import { foldSummaryText } from './foldSummaryText'
+import { ToolRowView } from './ToolRowView'
 type Tool = Extract<ThreadEvent, { type: 'tool' }>
 const NAMED = new Set(['commandExecution', 'fileChange', 'mcpToolCall', 'contextCompaction', 'Read', 'Glob', 'Grep', 'Bash', 'Edit', 'Write', 'Tool result'])
 /** What an action did, in words; a tool the app does not know keeps the provider's own name. */
@@ -78,9 +81,18 @@ function ThreadToolDiagnostic({ event, onResolve }: { event: Tool; onResolve?: R
   </div>
 }
 
-export function ThreadActivityGroup({ events, mode = 'verbose', onResolveInterrupted }: { events: Tool[]; mode?: ThreadViewMode; onResolveInterrupted?: ResolveInterrupted }) {
+export function ThreadActivityGroup({ events, mode = 'verbose', rootPath = '', onResolveInterrupted }: { events: Tool[]; mode?: ThreadViewMode; rootPath?: string; onResolveInterrupted?: ResolveInterrupted }) {
   const { t } = useTranslation('thread')
   const running = events.some(event => event.state === 'running'), failures = events.filter(event => event.state === 'failed').length, unconfirmed = events.filter(event => event.state === 'unknown').length
+  if (mode === 'normal') {
+    const rows = events.map(event => toolRow(event, rootPath))
+    const summary = foldSummary(rows)
+    return <details className={`thread-activity-group${summary.failed ? ' has-failure' : ''}`} open={summary.running || undefined}>
+      <summary>{summary.running ? <Spinner size="sm" decorative /> : summary.failed ? <CircleAlert size={14} /> : unconfirmed ? <CircleHelp size={14} /> : <Check size={14} />}
+        <span>{foldSummaryText(summary)}{summary.running ? '…' : ''}</span><ChevronDown size={14} /></summary>
+      <div className="thread-activity-items">{events.map((event, index) => <div key={event.id}><ToolRowView row={rows[index]} />{(event.state === 'failed' || event.interrupted) && <ThreadToolDiagnostic event={event} onResolve={onResolveInterrupted} />}</div>)}</div>
+    </details>
+  }
   const commands = events.every(event => ['commandExecution', 'Bash'].includes(event.name))
   const reading = events.every(event => ['Read', 'Glob', 'Grep'].includes(event.name))
   if (events.length === 1) {

@@ -4,5 +4,13 @@ import common from '../../../shared/locales/en/common.json'
 import settings from '../../../shared/locales/en/settings.json'
 import thread from '../../../shared/locales/en/thread.json'
 import { messages } from '../../../shared/locales/en/main.json'
+import { terminal, thread as mobileThread } from '../../../shared/locales/en/mobile.json'
 
-export default { common, code, thread, settings, main: { messages } }
+export default {
+  common,
+  code,
+  thread,
+  settings,
+  main: { messages },
+  mobile: { terminal: { conversation: terminal.conversation }, thread: { loadOlder: mobileThread.loadOlder } }
+}

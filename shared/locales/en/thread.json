@@ -758,7 +758,37 @@
     "labelTimed_one": "Completed {{count}} step in {{duration}}",
     "labelTimed_other": "Completed {{count}} steps in {{duration}}",
     "hide": "Hide the steps of this turn",
-    "show": "Show every step of this turn"
+    "show": "Show every step of this turn",
+    "steps_one": "{{count}} step",
+    "steps_other": "{{count}} steps",
+    "stepsWithParts_one": "{{count}} step: {{parts}}",
+    "stepsWithParts_other": "{{count}} steps: {{parts}}",
+    "read_one": "read {{count}} thing",
+    "read_other": "read {{count}} things",
+    "edited_one": "edited {{count}} file",
+    "edited_other": "edited {{count}} files",
+    "ran_one": "ran {{count}} command",
+    "ran_other": "ran {{count}} commands",
+    "queries_one": "ran {{count}} query",
+    "queries_other": "ran {{count}} queries",
+    "http_one": "made {{count}} HTTP call",
+    "http_other": "made {{count}} HTTP calls",
+    "containers_one": "started {{count}} container",
+    "containers_other": "started {{count}} containers",
+    "failed_one": "{{count}} failed",
+    "failed_other": "{{count}} failed",
+    "fixed_one": "{{count}} error, fixed",
+    "fixed_other": "{{count}} errors, fixed",
+    "kinds": {
+      "read": "Read",
+      "edit": "Edit",
+      "run": "Run",
+      "query": "Query",
+      "http": "HTTP",
+      "container": "Container",
+      "other": "Step"
+    },
+    "truncated": "Cut"
   },
   "grid": {
     "split": "Side-by-side conversations",
@@ -1871,7 +1901,8 @@
     "terminal": "Terminal",
     "containers": "Containers",
     "network": "Network",
-    "pullRequest": "Pull request"
+    "pullRequest": "Pull request",
+    "queries": "Queries"
   },
   "prTab": {
     "loading": "Loading…",
@@ -2070,5 +2101,92 @@
         "redirect": "Always allow isn't offered for commands that redirect output into files."
       }
     }
+  },
+  "nowLine": {
+    "needsYou": "Needs you. {{agent}} asks to {{request}}.",
+    "needsYouShort": "Needs you. {{agent}} is waiting for approval.",
+    "question_one": "Needs you. {{agent}} asked {{count}} question.",
+    "question_other": "Needs you. {{agent}} asked {{count}} questions.",
+    "workingVerb": "Working. {{verb}} {{target}}.",
+    "workingVerbOnly": "Working. {{verb}}.",
+    "workingText": "Working. {{text}}.",
+    "workingShort": "Working.",
+    "paused": "Paused. You stopped it. Send a message to continue.",
+    "error": "Stopped with an error. {{reason}}.",
+    "errorShort": "Stopped with an error.",
+    "ready": "Ready for review. {{summary}}.",
+    "readyShort": "Ready for review.",
+    "done": "Done. {{summary}}.",
+    "doneShort": "Done.",
+    "verbs": {
+      "editing": "Editing",
+      "running": "Running",
+      "reading": "Reading",
+      "querying": "Querying",
+      "calling": "Calling",
+      "starting": "Starting",
+      "thinking": "Thinking"
+    },
+    "actions": {
+      "deny": "Deny",
+      "allow": "Allow",
+      "seeImpact": "See impact",
+      "answer": "Answer",
+      "stop": "Stop",
+      "retry": "Retry the failed step",
+      "openPr": "Open pull request"
+    }
+  },
+  "subline": {
+    "movedTo": "moved to {{branch}}",
+    "accessRead": "Read only",
+    "accessEdit": "Can edit",
+    "accessFull": "Full access",
+    "elapsedMin": "{{minutes}} min",
+    "elapsedHours": "{{hours}} h"
+  },
+  "moreActions": {
+    "rename": "Rename",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "delegate": "Delegate…",
+    "mcp": "MCP servers…",
+    "largerText": "Larger text",
+    "showEveryToolCall": "Show every tool call",
+    "details": "Details",
+    "fork": "Fork",
+    "forkCodexOnly": "Fork is available for Codex conversations",
+    "export": "Export",
+    "archive": "Archive",
+    "delete": "Delete…"
+  },
+  "composerModel": {
+    "idle": "Ask, or type / for commands",
+    "steer": "Steer: the agent reads this after its current step",
+    "queued": "Queued until the current turn ends",
+    "needsYou": "Answer, or tell the agent what to do instead",
+    "appliesNext": "Applies to the next message",
+    "queuedPrefix": "Queued · {{text}}",
+    "steerWithThis": "Steer with this",
+    "sendNow": "Send now",
+    "removeQueued": "Remove queued message"
+  },
+  "backgroundShells": {
+    "region": "Background shells",
+    "running": "Running",
+    "stopped": "Stopped",
+    "exitCode": "exit {{code}}",
+    "unknownSince": "State unknown since {{time}}",
+    "showOutput": "Show output",
+    "stop": "Stop",
+    "stopFromConversation": "Stop it from the conversation"
+  },
+  "toolPanels": {
+    "addTool": "+ Tool",
+    "browser": "Browser",
+    "android": "Android device",
+    "files": "Files",
+    "search": "Search",
+    "scripts": "Scripts"
   }
 }

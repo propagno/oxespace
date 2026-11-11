@@ -27,6 +27,23 @@ export interface AgentRequestSummary {
   since: number
 }
 
+export type ThreadActivityKind = 'needs-you' | 'question' | 'working' | 'paused' | 'error' | 'ready' | 'done'
+export type ThreadActivityVerb =
+  | 'read' | 'edit' | 'run' | 'query' | 'http' | 'container' | 'think'
+  | 'reading' | 'editing' | 'running' | 'querying' | 'calling' | 'starting'
+
+/** T90 (F6 A19): the conversation's activity values, built in main and worded by the window (C3). */
+export interface ThreadActivity {
+  kind: ThreadActivityKind
+  at: number
+  text?: string
+  verb?: ThreadActivityVerb
+  since?: number
+  count?: number
+  requestId?: string
+  reason?: string
+}
+
 export interface AgentRow extends AgentKey {
   state: AgentState
   /** Set only by the window, for a pane state it estimated from timing; main never estimates (§3.2). */
@@ -49,6 +66,8 @@ export interface AgentRow extends AgentKey {
   requests: AgentRequestSummary[]
   /** The agent that started it, for nesting. */
   parent?: AgentKey
+  /** T90 (F6 A19): set only on conversation (`thread`) rows. */
+  activity?: ThreadActivity
 }
 
 /** Each source answers on its own: one that fails never hides the others (§5.7). */
