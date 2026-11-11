@@ -86,7 +86,7 @@ function ConnectionForm({ editing, draft }: { editing: OxeQueryConnection | null
     setSelectedContainerId(selected.id)
     const sug = selected.suggestion as { engine?: DatabaseEngine; name?: string; port?: number; host?: string; database?: string; username?: string }
     if (sug) {
-      if (sug.engine) chooseEngine(sug.engine)
+      if (sug.engine) { setEngine(sug.engine); setMode('host') }
       if (sug.host) setHost(sug.host)
       if (sug.port) setPort(String(sug.port))
       if (sug.username) setUsername(sug.username)
