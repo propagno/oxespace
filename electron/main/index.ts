@@ -538,7 +538,7 @@ async function registerIpcHandlers(): Promise<() => void> {
           approvalNotifier.pending({
             requestId: req.id,
             threadId: thread.id,
-            agent: thread.provider === 'codex' ? 'Codex' : 'Claude',
+            agent: thread.provider === 'codex' ? 'Codex' : thread.provider === 'antigravity' ? 'Antigravity' : 'Claude',
             pane: thread.title || 'Chat',
             risk: req.impact?.risk ?? 'medium',
             title: req.title

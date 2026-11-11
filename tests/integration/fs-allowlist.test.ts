@@ -61,6 +61,8 @@ const ALLOWED_FS_IMPORTS = new Set([
   // userData area under opaque IDs; neither accepts arbitrary workspace paths.
   'electron/main/services/conversation/claude-conversation.ts',
   'electron/main/services/conversation/thread-attachments.ts',
+  // Antigravity's ACP takes an image as base64: the adapter reads only the attachment paths the store above issued.
+  'electron/main/services/conversation/antigravity-conversation.ts',
   // Transactional Thread checkpoints are a dedicated filesystem boundary:
   // they canonicalize the Thread root, reject traversal/symlinks, hash every
   // postimage and restore through temp+rename without destructive Git calls.

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { threadAgentName } from '../../../shared/threadProviders'
 import { useTranslation } from 'react-i18next'
 import type { ThreadSnapshot } from '../../../shared/types/thread'
 import type { DelegationTask } from '../../../shared/types/delegation'
@@ -94,7 +95,7 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
         </div>
         {onDelegations && <Button variant="link" size="sm" className="thread-resume-all" onClick={() => { onClose(); onDelegations() }}>{t('commandDialog.openDelegated')}</Button>}
       </section>
-      <section><h3>{t('commandDialog.nativeTitle', { provider: snapshot?.thread.provider === 'codex' ? 'Codex' : 'Claude' })}</h3><p>{t('commandDialog.nativeHint')}</p>
+      <section><h3>{t('commandDialog.nativeTitle', { provider: threadAgentName(snapshot?.thread.provider ?? 'claude') })}</h3><p>{t('commandDialog.nativeHint')}</p>
         {resume?.nativeNotice && <p role="status">{resume.nativeNotice}</p>}
         <div className="thread-panel-list thread-native-session-list">{nativeSessions.filter(session => resumeMatches([session.firstMessagePreview, session.modelId, session.sessionId, formatDateTime(session.sessionStartedAtMs), formatDateTime(session.lastUpdatedMs)])).map(session => <button key={session.sessionId} type="button" disabled={pending} onClick={() => void action(() => runCommand(`/resume ${session.sessionId}`))}><strong>{session.firstMessagePreview || t('commandDialog.providerSession', { provider: session.provider === 'codex' ? 'Codex' : 'Claude' })}</strong><span className="thread-session-meta"><span>{t('commandDialog.updated', { date: sessionDate(session.lastUpdatedMs) })}</span><span>{session.modelId || t('commandDialog.modelUnknown')}</span>{session.requestCount > 0 && <span>{t('commandDialog.requests', { count: session.requestCount })}</span>}</span><span className="thread-session-foot"><span>{t('commandDialog.started', { date: sessionDate(session.sessionStartedAtMs) })}</span><code>{session.sessionId}</code></span></button>)}
           {!nativeSessions.some(session => resumeMatches([session.firstMessagePreview, session.modelId, session.sessionId, formatDateTime(session.sessionStartedAtMs), formatDateTime(session.lastUpdatedMs)])) && !resume?.nativeNotice && <EmptyState compact title={resumeQuery ? t('commandDialog.noNativeMatch') : t('commandDialog.noNative')} />}

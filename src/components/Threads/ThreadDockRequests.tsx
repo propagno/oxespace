@@ -1,4 +1,5 @@
 import { useState, type RefObject } from 'react'
+import { threadAgentName } from '../../../shared/threadProviders'
 import { ChevronDown, ChevronUp, Maximize2, Minimize2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ErrorState } from '../../ui'
@@ -32,7 +33,7 @@ export function ThreadDockRequests({ snapshot, pendingRequests, pending, action 
   const listId = `thread-pending-requests-${id}`
   const [expanded, setExpanded] = useState(readExpanded)
   const toggleExpanded = () => { const next = !expanded; setExpanded(next); try { localStorage.setItem(EXPANDED_KEY, next ? '1' : '0') } catch { /* not remembered */ } }
-  const agentName = snapshot.thread.provider === 'codex' ? 'Codex' : 'Claude'
+  const agentName = threadAgentName(snapshot.thread.provider)
   return <>
     {pendingRequests.length > 0 && <div className="thread-pending-requests-bar">
       {/* One request is named by its own card; repeating its title here said it twice (T67, DESIGN #568 C-01). */}

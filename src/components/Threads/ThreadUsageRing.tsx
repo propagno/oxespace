@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AgentCreditsSnapshot } from '../../../shared/types/agentCredits'
-import type { ThreadContextReport } from '../../../shared/types/thread'
+import type { ThreadContextReport, ThreadProvider } from '../../../shared/types/thread'
 import { useUIStore } from '../../store/ui.store'
 import { usageResetIn } from './ThreadFailureCard'
 import { Button, Popover } from '../../ui'
@@ -19,7 +19,7 @@ const compact = (tokens: number): string => tokens >= 1_000_000 ? `${(tokens / 1
  * to the plan window when available, and shows an initial 0% context ring
  * while a conversation is open so the cockpit meter is always present.
  */
-export function ThreadUsageRing({ provider, idle, threadId, context }: { provider: 'claude' | 'codex'; idle: boolean; threadId?: string; context?: ThreadContextReport }): ReactElement | null {
+export function ThreadUsageRing({ provider, idle, threadId, context }: { provider: ThreadProvider; idle: boolean; threadId?: string; context?: ThreadContextReport }): ReactElement | null {
   const { t } = useTranslation('thread')
   const [snapshot, setSnapshot] = useState<AgentCreditsSnapshot | null>(null)
   const [open, setOpen] = useState(false)
@@ -46,7 +46,7 @@ export function ThreadUsageRing({ provider, idle, threadId, context }: { provide
   const worst = windows.length ? windows.reduce((best, value) => value.usedPct > best.usedPct ? value : best, windows[0]) : null
   if (!rawReport && !worst && !threadId) return null
   const report: ThreadContextReport | undefined = rawReport ?? (!worst && threadId
-    ? { usedTokens: 0, windowTokens: DEFAULT_CONTEXT_WINDOW, percentage: 0, categories: [], capturedAt: 0, source: provider === 'claude' ? 'claude-control' : 'codex-token-usage' }
+    ? { usedTokens: 0, windowTokens: DEFAULT_CONTEXT_WINDOW, percentage: 0, categories: [], capturedAt: 0, source: provider === 'claude' ? 'claude-control' : provider === 'antigravity' ? 'antigravity-usage' : 'codex-token-usage' }
     : undefined)
   const planPercent = worst ? Math.max(0, Math.min(100, worst.usedPct)) : 0
   const planUsed = worst ? t(worst.kind === 'session' ? 'usage.planLabelSession' : 'usage.planLabelWeek', { percent: Math.round(planPercent) }) : ''

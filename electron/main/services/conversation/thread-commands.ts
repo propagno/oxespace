@@ -49,10 +49,11 @@ export class ThreadCommandService {
     }
     const entry = { promise: Promise.resolve<NativeCatalog>({ commands: [] }), expiresAt: Infinity }
     // Schedule after registering the promise so concurrent list/prepare/refresh calls share one process.
-    entry.promise = Promise.resolve().then(() => thread.provider === 'claude'
-      ? this.claudeCommands(thread, command) : this.codexSkills(thread, command)).then<NativeCatalog, NativeCatalog>(commands => ({ commands }), () => ({
-      commands: [], warning: `Could not load ${thread.provider === 'claude' ? 'Claude commands' : 'Codex skills'}. Check the CLI in Agent Settings and use Refresh commands to retry.`,
-      messageCode: { code: thread.provider === 'claude' ? 'thread.commands.claudeFailed' : 'thread.commands.codexFailed', params: {} }
+    // Antigravity lists its commands inside a session (ACP), and discovery never opens one: only the known names are shown.
+    entry.promise = Promise.resolve().then((): Promise<Entry[]> | Entry[] => thread.provider === 'claude'
+      ? this.claudeCommands(thread, command) : thread.provider === 'antigravity' ? [] : this.codexSkills(thread, command)).then<NativeCatalog, NativeCatalog>(commands => ({ commands }), () => ({
+      commands: [], warning: `Could not load ${thread.provider === 'claude' ? 'Claude commands' : thread.provider === 'antigravity' ? 'Antigravity commands' : 'Codex skills'}. Check the CLI in Agent Settings and use Refresh commands to retry.`,
+      messageCode: { code: thread.provider === 'claude' ? 'thread.commands.claudeFailed' : thread.provider === 'antigravity' ? 'thread.commands.antigravityFailed' : 'thread.commands.codexFailed', params: {} }
     })).then(result => { entry.expiresAt = Date.now() + (result.warning ? 5000 : 60000); return result })
     this.catalogs.set(key, entry)
     return entry.promise
@@ -95,11 +96,13 @@ export class ThreadCommandService {
       if (hasDesktopCommand(thread.provider, name)) entries.set(name, { ...entry, execution: 'desktop', ...(thread.provider === 'codex' && name === 'mcp' ? { argumentHint: '[reload | login <server>]' } : {}), ...(thread.provider === 'codex' && name === 'plugins' ? { argumentHint: '[install <name> | uninstall <id> | reconcile]' } : {}), ...(thread.provider === 'codex' && name === 'apps' ? { argumentHint: '[app id]' } : {}) })
       else if (entry.execution === 'cli') entries.set(name, { ...entry, execution: 'unavailable', unavailableReason: 'This provider operation is not exposed by the integrated Thread adapter yet.' })
     }
+    // Sent as text, `/compact` would reach the model as a message: Antigravity's own command is not verified over ACP.
+    if (thread.provider === 'antigravity') entries.set('compact', { ...entries.get('compact')!, execution: 'unavailable', unavailableReason: 'Compacting from OxeChat is not verified for Antigravity yet.' })
     if (!entries.has('rules')) entries.set('rules', { name: 'rules', description: 'Permission rules that answer approvals, and the decisions recorded', source: thread.provider, execution: 'desktop' })
     if (!entries.has('work')) entries.set('work', { name: 'work', description: 'Agent Work: tasks this conversation runs in worker conversations', source: thread.provider, execution: 'desktop' })
     if (!entries.has('events')) entries.set('events', { name: 'events', description: 'Inspect the saved events of this conversation: tools, requests, turns and their timing', source: thread.provider, execution: 'desktop' })
     if (!entries.has('spending')) entries.set('spending', { name: 'spending', description: 'Tokens and estimated cost by day, model and conversation', source: thread.provider, execution: 'desktop' })
-    if (!entries.has('instructions')) entries.set('instructions', { name: 'instructions', description: thread.provider === 'claude' ? 'Show which CLAUDE.md and rule files the agent reads' : 'Show which AGENTS.md files the agent reads', source: thread.provider, execution: 'desktop' })
+    if (!entries.has('instructions')) entries.set('instructions', { name: 'instructions', description: thread.provider === 'claude' ? 'Show which CLAUDE.md and rule files the agent reads' : thread.provider === 'antigravity' ? 'Show which GEMINI.md, AGENTS.md and rule files the agent reads' : 'Show which AGENTS.md files the agent reads', source: thread.provider, execution: 'desktop' })
     for (const name of ['effort', 'permissions', 'help', 'accounts', 'settings', 'capabilities', 'delegations', 'delegation']) if (!entries.has(name)) entries.set(name, { name, description: name === 'capabilities' ? 'Show verified Thread capabilities' : name === 'delegations' || name === 'delegation' ? 'Open persistent delegated work' : `Open ${name}`, source: thread.provider, execution: 'desktop' })
     return { entries, warning }
   }
@@ -149,6 +152,8 @@ export class ThreadCommandService {
       if (['status', 'compact'].includes(match[1]) && match[2]) throw Error(`/${match[1]} does not take arguments in Codex.`)
       return { text: text.trim() }
     }
+    // The Antigravity adapter answers these from the session itself; nothing reaches the model.
+    if (thread.provider === 'antigravity' && ['model', 'status'].includes(match[1])) return { text: text.trim() }
     const { entries } = await this.load(thread)
     const entry = entries.get(match[1]), argument = match[2] ?? ''
     if (entry?.blocked) throw Error(entry.blocked)

@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react'
+import { threadAgentName } from '../../../shared/threadProviders'
 import { Folder, GitBranch } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { workspaceColorAttrs } from '../../../shared/workspace-color'
@@ -34,8 +35,8 @@ export function ThreadSubline(props: {
       : access
         ? t('subline.accessEdit')
         : null
-  const providerLabel = provider === 'codex' ? 'Codex' : provider === 'claude' ? 'Claude' : provider
-  const knownProvider = provider === 'codex' || provider === 'claude' ? provider : null
+  const knownProvider = provider === 'codex' || provider === 'claude' || provider === 'antigravity' ? provider : null
+  const providerLabel = knownProvider ? threadAgentName(knownProvider) : provider
 
   return (
     <div className="thread-subline">

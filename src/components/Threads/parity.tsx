@@ -1,4 +1,5 @@
 import { useId, type ReactElement, type ReactNode } from 'react'
+import { threadProductName } from '../../../shared/threadProviders'
 import { useTranslation } from 'react-i18next'
 import { parityFor, type ParityFeature } from '../../../shared/provider-parity'
 import type { ThreadCapabilityManifest, ThreadProvider as ParityProvider } from '../../../shared/types/thread'
@@ -20,7 +21,7 @@ export function parityState(source: ParitySource, feature: ParityFeature): { ena
       ? formatMainMessage(fromManifest.messageCode)
       : (fromManifest.reason ?? formatMainMessage({
           code: 'parity.notAvailable',
-          params: { provider: source.provider === 'claude' ? 'Claude Code' : 'Codex' }
+          params: { provider: threadProductName(source.provider) }
         }))
     return { enabled: false, reason }
   }

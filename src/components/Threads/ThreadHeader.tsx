@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactElement } from 'react'
+import { threadAgentName } from '../../../shared/threadProviders'
 import { Archive, Download, GitFork, History, Info, ListTree, MoreHorizontal, Pencil, Pin, Plug, Plus, Trash2, Type, Waypoints } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button, Menu, type MenuEntry } from '../../ui'
@@ -259,7 +260,7 @@ export function ThreadHeader({
         {thread && activity && (
           <NowLine
             activity={activity}
-            agent={thread.provider === 'codex' ? 'Codex' : 'Claude'}
+            agent={threadAgentName(thread.provider)}
             irreversible={irreversible}
             hasPullRequest={hasPullRequest}
             onAction={action => onNowAction?.(action)}

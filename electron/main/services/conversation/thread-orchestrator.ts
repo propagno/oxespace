@@ -811,8 +811,8 @@ export class ThreadOrchestrator {
       const before = turnConfiguration(previous)
       const configuration: ThreadConfiguration = mergeTurnConfiguration(previous, input)
       if (configuration.access === 'read-only') configuration.hooksEnabled = false
-      // Auto-accepting edits is a Claude permission mode that only means something when edits are allowed.
-      if (configuration.mode === 'acceptEdits' && snapshot.thread.provider !== 'claude') throw Error('Auto-accepting edits is available for Claude conversations')
+      // Auto-accepting edits is a permission mode of Claude and Antigravity that only means something when edits are allowed.
+      if (configuration.mode === 'acceptEdits' && snapshot.thread.provider === 'codex') throw Error('Auto-accepting edits is not available for Codex conversations')
       if (configuration.mode === 'acceptEdits' && configuration.access !== 'workspace-write') configuration.mode = 'default'
       if (input.model || input.reasoningEffort !== undefined) {
         const catalog = await this.models(id)
@@ -963,7 +963,7 @@ export class ThreadOrchestrator {
       const snapshot = this.read(id)
       const { type: _type, ...cost } = turn
       const now = Date.now()
-      snapshot.thread.costReport = addTurnCost(repairLegacyCost(snapshot.thread.costReport), cost, now, snapshot.thread.provider === 'codex' ? 'codex-token-usage' : 'claude-result-step')
+      snapshot.thread.costReport = addTurnCost(repairLegacyCost(snapshot.thread.costReport), cost, now, snapshot.thread.provider === 'codex' ? 'codex-token-usage' : snapshot.thread.provider === 'antigravity' ? 'antigravity-usage' : 'claude-result-step')
       this.save(snapshot, { eventsFrom: snapshot.events.length })
       const model = snapshot.thread.model ?? snapshot.thread.contextReport?.model
       try { this.usage.record({ ...cost, ...turnSteps(snapshot), threadId: id, projectRoot: snapshot.thread.rootPath, provider: snapshot.thread.provider, ...(model ? { model } : {}), at: now }) } catch { /* The ledger is best effort; the conversation keeps its own total. */ }

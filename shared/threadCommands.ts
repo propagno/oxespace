@@ -49,7 +49,25 @@ const claudeInteractive: [string, string][] = [
   ['voice', 'Configure native voice input'], ['tui', 'Configure native rendering'], ['privacy-settings', 'Inspect native privacy options']
 ]
 
+const antigravityInteractive: [string, string][] = [
+  ['model', 'Choose an Antigravity model and reasoning effort'], ['permissions', 'Adjust access and approval rules'],
+  ['plan', 'Enter planning mode'], ['goal', 'Run a thorough goal-driven workflow'], ['compact', 'Summarize and compact conversation context'],
+  ['schedule', 'Schedule a recurring or timed instruction'], ['browser', 'Work with web pages and browser tasks'],
+  ['grill-me', 'Align on design decisions interactively'], ['teamwork', 'Coordinate autonomous subagents'],
+  ['learn', 'Save a correction or workflow convention'], ['boost', 'Deepen reasoning and verification'],
+  ['new', 'Start a new conversation with the same settings'], ['clear', 'Start a new conversation with the same settings'],
+  ['resume', 'Choose a saved Antigravity session'], ['rename', 'Rename this conversation'],
+  ['archive', 'Archive this conversation'], ['delete', 'Delete this conversation from OXESpace; the provider session is kept'],
+  ['diff', 'Inspect project changes'], ['copy', 'Show the last response to copy'], ['export', 'Show this conversation as Markdown to copy'],
+  ['mention', 'Choose a file for the next message'], ['status', 'Inspect native session information'], ['usage', 'Inspect usage'],
+  ['mcp', 'Manage MCP connections'], ['plugins', 'Manage Antigravity plugins'], ['skills', 'Browse skills'], ['agents', 'List available agents'],
+  ['login', 'Connect an Antigravity account'], ['logout', 'Open agent accounts to sign out'],
+  ['exit', 'Stop the agent process; your next message starts it again'], ['quit', 'Stop the agent process; your next message starts it again'],
+  ['stop', 'Interrupt the current turn'], ['help', 'Show available commands and skills']
+]
+
 export const NATIVE_CLI_COMMANDS = {
   codex: codexInteractive.map(([name, description]): ThreadCommand => ({ name, description, source: 'codex', execution: 'cli' })),
-  claude: claudeInteractive.map(([name, description]): ThreadCommand => ({ name, description, source: 'claude', execution: 'cli' }))
+  claude: claudeInteractive.map(([name, description]): ThreadCommand => ({ name, description, source: 'claude', execution: 'cli' })),
+  antigravity: antigravityInteractive.map(([name, description]): ThreadCommand => ({ name, description, source: 'antigravity', execution: 'cli' }))
 }

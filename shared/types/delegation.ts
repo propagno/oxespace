@@ -85,7 +85,7 @@ export interface DelegationInput {
 export interface DelegationSessionContext {
   threadId: string
   title: string
-  provider: 'claude' | 'codex'
+  provider: 'claude' | 'codex' | 'antigravity'
   capturedAt: number
   text: string
 }

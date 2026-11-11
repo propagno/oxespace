@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactElement } from 'react'
+import { threadAgentName } from '../../../shared/threadProviders'
 import { createPortal } from 'react-dom'
 import { Settings2, Sun, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -693,7 +694,7 @@ export function ApprovalQueueModal({
     const since = midnight.getTime()
 
     for (const snap of snapshots.values()) {
-      const agent = snap.thread.provider === 'codex' ? 'Codex' : snap.thread.provider === 'claude' ? 'Claude' : tThread('f7.card.defaultAgent')
+      const agent = threadAgentName(snap.thread.provider)
       const conversation = snap.thread.title || tThread('notify.untitled')
       for (const event of snap.events) {
         if (event.type !== 'request' || (event.request.kind !== 'approval' && event.request.kind !== 'question')) continue

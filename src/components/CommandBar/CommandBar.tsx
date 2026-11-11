@@ -1,4 +1,5 @@
 import { Search } from 'lucide-react'
+import { THREAD_PROVIDERS, threadAgentName } from '../../../shared/threadProviders'
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactElement } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
@@ -206,13 +207,13 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
       const match = /^@([^\s]*)(?:[ \t]+([\s\S]*))?$/.exec(startTrimmed)
       const prefix = (match?.[1] ?? '').toLowerCase()
       const promptText = (match?.[2] ?? '').replace(/[ \t]+$/, '')
-      const providers = (['claude', 'codex'] as const).filter(p => !prefix || p.startsWith(prefix))
+      const providers = THREAD_PROVIDERS.filter(p => !prefix || p.startsWith(prefix))
       if (!providers.length) return []
       return [{
         key: 'agents',
         groupLabel: t('commandBar.groups.agents'),
         items: providers.map(provider => {
-          const agentName = provider === 'claude' ? 'Claude' : 'Codex'
+          const agentName = threadAgentName(provider)
           return {
             key: `agent-${provider}`,
             domId: nextDomId(),

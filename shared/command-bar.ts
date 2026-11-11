@@ -14,7 +14,7 @@ export const KNOWN_COMMAND_IDS = [
 export type KnownCommandId = (typeof KNOWN_COMMAND_IDS)[number]
 
 export type ParsedCommandLine =
-  | { kind: 'agent'; provider: 'claude' | 'codex'; text: string }
+  | { kind: 'agent'; provider: 'claude' | 'codex' | 'antigravity'; text: string }
   | { kind: 'skill'; name: string; args: string }
   | { kind: 'command'; id: KnownCommandId; args: string }
   | { kind: 'open'; query: string }
@@ -50,9 +50,9 @@ export function parseCommandLine(text: string, skillNames: readonly string[] = [
   const startTrimmed = text.replace(/^[ \t]+/, '')
   if (startTrimmed.trim() === '?') return { kind: 'help' }
 
-  const agentMatch = /^@(claude|codex)(?:[ \t]+([\s\S]*))?$/i.exec(startTrimmed)
+  const agentMatch = /^@(claude|codex|antigravity)(?:[ \t]+([\s\S]*))?$/i.exec(startTrimmed)
   if (agentMatch) {
-    const provider = agentMatch[1].toLowerCase() as 'claude' | 'codex'
+    const provider = agentMatch[1].toLowerCase() as 'claude' | 'codex' | 'antigravity'
     return { kind: 'agent', provider, text: (agentMatch[2] ?? '').replace(/[ \t]+$/, '') }
   }
 

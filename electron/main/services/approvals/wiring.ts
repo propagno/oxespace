@@ -78,6 +78,8 @@ export function wireApprovals(sources: {
   const applyAlwaysAllow = async (requestId: string): Promise<ApprovalAlwaysAllowResult> => {
     const threadPending = new ThreadHistory(sources.db).pendingRequestRows(500).find(item => item.request.id === requestId)
     if (!threadPending) return { ok: false, code: 'approvals.alwaysAllow.notOffered' }
+    // Never a Claude rule for another provider: Antigravity has no rule OXESpace can save.
+    if (threadPending.thread.provider === 'antigravity') return { ok: false, code: 'approvals.alwaysAllow.notOffered' }
     const provider = threadPending.thread.provider === 'codex' ? 'codex' : 'claude'
     const applied = alwaysAllow.apply(threadPending.request, provider, {
       threadId: threadPending.thread.id,

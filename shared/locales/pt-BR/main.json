@@ -82,7 +82,8 @@
         "configure": "Configure o provedor em Configurações de agentes e use Atualizar comandos para tentar de novo.",
         "busy": "A busca de comandos está ocupada. Use Atualizar comandos para tentar de novo.",
         "claudeFailed": "Não foi possível carregar os comandos do Claude. Confira a CLI em Configurações de agentes e use Atualizar comandos.",
-        "codexFailed": "Não foi possível carregar as skills do Codex. Confira a CLI em Configurações de agentes e use Atualizar comandos."
+        "codexFailed": "Não foi possível carregar as skills do Codex. Confira a CLI em Configurações de agentes e use Atualizar comandos.",
+        "antigravityFailed": "Não foi possível carregar os comandos do Antigravity. Confira a CLI em Configurações de agentes e use Atualizar comandos."
       },
       "capability": {
         "readOnly": "Desligado pela política de ferramentas somente leitura desta conversa.",

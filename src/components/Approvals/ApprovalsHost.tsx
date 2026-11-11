@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ComponentType, type ReactElement } from 'react'
+import { threadAgentName } from '../../../shared/threadProviders'
 import type { ThreadRequest } from '../../../shared/types/thread'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { i18n } from '../../i18n'
@@ -40,11 +41,7 @@ function findPendingThreadApproval(
   for (const snap of entries.values()) {
     for (const event of snap.events) {
       if (event.type === 'request' && event.request.id === requestId && event.request.state === 'pending') {
-        const agent = snap.thread.provider === 'codex'
-          ? 'Codex'
-          : snap.thread.provider === 'claude'
-            ? 'Claude'
-            : i18n.t('thread:f7.card.defaultAgent')
+        const agent = threadAgentName(snap.thread.provider)
         const conversation = snap.thread.title || i18n.t('thread:notify.untitled')
         return { threadId: snap.thread.id, request: event.request, agent, conversation }
       }
@@ -64,11 +61,7 @@ function findBackgroundToastApproval(
   let best: OpenedThreadApproval | null = null
   for (const snap of entries.values()) {
     if (visibleThreadIds.has(snap.thread.id)) continue
-    const agent = snap.thread.provider === 'codex'
-      ? 'Codex'
-      : snap.thread.provider === 'claude'
-        ? 'Claude'
-        : i18n.t('thread:f7.card.defaultAgent')
+    const agent = threadAgentName(snap.thread.provider)
     const conversation = snap.thread.title || i18n.t('thread:notify.untitled')
     for (const event of snap.events) {
       if (event.type !== 'request' || event.request.kind !== 'approval' || event.request.state !== 'pending') continue

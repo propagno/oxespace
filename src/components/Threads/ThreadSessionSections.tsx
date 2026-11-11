@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
+import { threadProductName } from '../../../shared/threadProviders'
 import { useTranslation } from 'react-i18next'
 import type { ThreadSnapshot } from '../../../shared/types/thread'
 import type { Workspace } from '../../../shared/types/workspace'
@@ -54,7 +55,7 @@ export function SessionEnvironment({ snapshot, workspace }: SessionSectionProps)
     </dd>
     <dt>{t('sessionPanel.environment.branch')}</dt><dd>{branchName ? <code>{branchName}</code> : <span className={styles.muted}>{t('sessionPanel.environment.branchUnknown')}</span>}</dd>
     {observed && !observed.sameRepository && <><dt>{t('sessionPanel.environment.outside')}</dt><dd className={styles.path} title={observed.cwd}>{observed.cwd}</dd></>}
-    <dt>{t('sessionPanel.environment.agent')}</dt><dd>{thread.provider === 'claude' ? 'Claude Code' : 'Codex'}</dd>
+    <dt>{t('sessionPanel.environment.agent')}</dt><dd>{threadProductName(thread.provider)}</dd>
     <dt>{t('sessionPanel.environment.model')}</dt><dd>{model ?? <span className={styles.muted}>{t('sessionPanel.environment.modelDefault')}</span>}</dd>
   </dl>
 }
@@ -99,10 +100,10 @@ export function SessionContextSection({ snapshot, running, onCompact }: SessionS
         {context.reserved > 0 && row('reserved', t('sessionPanel.context.reserved'), context.reserved, 'reserved')}
       </tbody>
     </table>
-    {!context.itemized && <p className={styles.note}>{t('sessionPanel.context.notItemized', { provider: thread.provider === 'claude' ? 'Claude Code' : 'Codex' })}</p>}
+    {!context.itemized && <p className={styles.note}>{t('sessionPanel.context.notItemized', { provider: threadProductName(thread.provider) })}</p>}
     {context.deferred > 0 && <p className={styles.note}>{t('sessionPanel.context.deferred', { tokens: compactTokens(context.deferred) })}</p>}
     {context.autoCompactAt !== undefined && <p className={styles.note}>{t('sessionPanel.context.autoCompact', { tokens: compactTokens(context.autoCompactAt) })}</p>}
-    {cost && cost.turns > 0 && <p className={styles.note}>{t(cost.source === 'codex-token-usage' ? 'sessionPanel.context.cost' : 'sessionPanel.context.costReported', { cost: formatThreadCost(cost.totalUsd), count: cost.turns })}</p>}
+    {cost && cost.turns > 0 && <p className={styles.note}>{t(cost.source === 'codex-token-usage' || cost.source === 'antigravity-usage' ? 'sessionPanel.context.cost' : 'sessionPanel.context.costReported', { cost: formatThreadCost(cost.totalUsd), count: cost.turns })}</p>}
     <p className={styles.note}>{t('sessionPanel.context.capturedAt', { time: formatClock(context.capturedAt, { hour: '2-digit', minute: '2-digit' }) })}</p>
     {compactButton}
   </>

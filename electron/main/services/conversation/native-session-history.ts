@@ -66,6 +66,8 @@ export class NativeSessionReader {
       const path = join(home, 'projects', encodeClaudeProjectPath(thread.rootPath), `${id}.jsonl`)
       return this.readClaudePage(thread, id, path, cursor)
     }
+    // Antigravity keeps its history behind ACP, and replaying it would open the session: it is resumed, never imported.
+    if (thread.provider === 'antigravity') throw Error('Antigravity session history cannot be imported. Resume the session to continue it.')
     const rollout = await findCodexRollout(this.options.codexHome ?? process.env.CODEX_HOME ?? join(homedir(), '.codex'), id)
     if (rollout) return this.readCodexRollout(thread, id, rollout, cursor)
     if (cursor) throw Error('Native history file is unavailable. Restore its location and retry.')

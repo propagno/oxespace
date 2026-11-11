@@ -116,7 +116,7 @@ export function registerThreadIpc(
   const accountContext = (value: unknown): AgentAccountContext => {
     if (!value || typeof value !== 'object') throw Error('Invalid account context')
     const input = value as Record<string, unknown>
-    if (input.provider !== 'claude' && input.provider !== 'codex') throw Error('Invalid account provider')
+    if (input.provider !== 'claude' && input.provider !== 'codex' && input.provider !== 'antigravity') throw Error('Invalid account provider')
     return { provider: input.provider, workspaceId: string(input.workspaceId),
       ...(input.paneId ? { paneId: string(input.paneId) } : {}), ...(input.threadId ? { threadId: string(input.threadId) } : {}) }
   }
@@ -232,7 +232,7 @@ export function registerThreadIpc(
   ipcMain.handle(IPC_CHANNELS.thread.create, async (event, input: unknown) => {
     if (!input || typeof input !== 'object') throw new MainRefusal('thread.invalidInput', {})
     const value = input as Record<string, unknown>
-    if (value.provider !== 'codex' && value.provider !== 'claude') throw new Error('Invalid thread provider')
+    if (value.provider !== 'codex' && value.provider !== 'claude' && value.provider !== 'antigravity') throw new Error('Invalid thread provider')
     const context = threadProjects.context(string(value.projectId), value.rootPath === undefined ? undefined : string(value.rootPath))
     const service = await manager
     if (value.worktree === undefined) return service.create({ workspaceId: `thread:${context.projectId}`, projectId: context.projectId, rootPath: context.rootPath, provider: value.provider })

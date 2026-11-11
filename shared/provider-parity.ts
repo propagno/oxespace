@@ -10,7 +10,7 @@ export const PARITY_FEATURES = [
 
 export type ParityFeature = typeof PARITY_FEATURES[number]
 
-export type ParityProviderLabel = 'Claude' | 'Codex'
+export type ParityProviderLabel = 'Claude' | 'Codex' | 'Antigravity'
 
 export type ParityRefusal = {
   code: 'parity.notAvailable'
@@ -23,12 +23,14 @@ export type ParityAnswer =
 
 const PROVIDER_LABELS: Record<ThreadProvider, ParityProviderLabel> = {
   claude: 'Claude',
-  codex: 'Codex'
+  codex: 'Codex',
+  antigravity: 'Antigravity'
 }
 
 const SUPPORTED: Record<ThreadProvider, ReadonlySet<ParityFeature>> = {
   claude: new Set<ParityFeature>(PARITY_FEATURES),
-  codex: new Set<ParityFeature>(['fork', 'paneConversation', 'effort'])
+  codex: new Set<ParityFeature>(['fork', 'paneConversation', 'effort']),
+  antigravity: new Set<ParityFeature>(['effort'])
 }
 
 export function parityFor(provider: ThreadProvider, feature: ParityFeature): ParityAnswer {

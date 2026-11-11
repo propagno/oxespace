@@ -316,6 +316,7 @@ export interface MessageParams extends PlaceMessageParams {
   'thread.commands.busy': Record<string, never>
   'thread.commands.claudeFailed': Record<string, never>
   'thread.commands.codexFailed': Record<string, never>
+  'thread.commands.antigravityFailed': Record<string, never>
   'thread.capability.readOnly': Record<string, never>
   'thread.capability.mcpReadOnly': Record<string, never>
   'thread.observe.unsupported': Record<string, never>
@@ -756,6 +757,7 @@ export const MESSAGE_CODES = [
   'thread.commands.busy',
   'thread.commands.claudeFailed',
   'thread.commands.codexFailed',
+  'thread.commands.antigravityFailed',
   'thread.capability.readOnly',
   'thread.capability.mcpReadOnly',
   'thread.observe.unsupported',

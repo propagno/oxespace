@@ -1,4 +1,5 @@
 import { FolderGit2, GitBranch, Shield, Sparkles } from 'lucide-react'
+import { threadAgentName } from '../../../shared/threadProviders'
 import { useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ConversationThread } from '../../../shared/types/thread'
@@ -27,7 +28,7 @@ export function threadStarters(): { id: (typeof STARTERS)[number]; label: string
  */
 export function ThreadEmptyState({ thread, branch, onStarter }: { thread: ConversationThread; branch?: string | null; onStarter: (prompt: string) => void }): ReactElement {
   const { t } = useTranslation('thread')
-  const agent = thread.provider === 'claude' ? 'Claude' : 'Codex'
+  const agent = threadAgentName(thread.provider)
   const folder = thread.rootPath.split(/[\\/]/).filter(Boolean).at(-1) ?? thread.rootPath
   const [dismissedId, setDismissedId] = useState<string | null>(null)
   const dismissed = dismissedId === thread.id || noticesDismissed(thread.id)

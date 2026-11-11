@@ -16,7 +16,7 @@ export class ThreadExportService {
     if (snapshot.thread.nativeHistoryCursor) lines.push('_Earlier native messages have not been loaded; this export contains imported history only._', '')
     for (const event of snapshot.events) {
       if (event.type === 'message') {
-        lines.push(`## ${event.role === 'user' ? 'You' : snapshot.thread.provider === 'codex' ? 'Codex' : 'Claude'}`, '', safe(event.text), '')
+        lines.push(`## ${event.role === 'user' ? 'You' : snapshot.thread.provider === 'codex' ? 'Codex' : snapshot.thread.provider === 'antigravity' ? 'Antigravity' : 'Claude'}`, '', safe(event.text), '')
         if (event.historicalQuestions?.length) {
           lines.push('### Recovered questions — answer not confirmed', '')
           for (const question of event.historicalQuestions) lines.push(safe(question.title), ...(question.options ?? []).map(option => `- ${safe(option)}`), '')

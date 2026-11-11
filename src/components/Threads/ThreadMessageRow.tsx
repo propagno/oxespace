@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { threadAgentName } from '../../../shared/threadProviders'
 import { Check, Clock3, Copy, FileText, Image as ImageIcon, Paperclip, Quote } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
@@ -62,7 +63,7 @@ export function ThreadMessageRow({ event, turnEvents, snapshot, running, pending
         <span className="thread-agent-avatar" aria-hidden="true">
           <AgentProviderIcon provider={provider} size={18} />
         </span>
-        <span className="thread-agent-name">{provider === 'claude' ? 'Claude' : 'Codex'}</span>
+        <span className="thread-agent-name">{threadAgentName(provider)}</span>
       </div>
     )}
     {event.role === 'user' && event.attachments?.length ? <ul className="thread-sent-attachments" aria-label={t('message.attachments')}>{event.attachments.map(attachment => <li key={attachment.id} title={attachment.name}><ImageIcon size={14} aria-hidden="true" /><span>{attachment.name}</span><small>{kilobytes(attachment.bytes)}</small></li>)}</ul> : null}

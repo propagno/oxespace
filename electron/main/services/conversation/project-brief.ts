@@ -10,6 +10,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { loadRepoConfig } from '../repo-config/loader'
+import type { ThreadProvider } from '../../../../shared/types/thread'
 import { instructionLabel, instructionSources } from './instruction-sources'
 import { runGit } from '../../utils/safe-git'
 
@@ -38,7 +39,7 @@ function packageSummary(root: string): string[] {
   } catch { return [] }
 }
 
-export async function projectBrief(rootPath: string, provider: 'claude' | 'codex'): Promise<string> {
+export async function projectBrief(rootPath: string, provider: ThreadProvider): Promise<string> {
   try { if (!statSync(rootPath).isDirectory()) return '' } catch { return '' }
   const config = await loadRepoConfig(rootPath)
   if (config?.thread?.brief === false) return ''

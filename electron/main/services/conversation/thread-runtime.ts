@@ -6,6 +6,7 @@ import { ThreadManager } from './thread-manager'
 import { AgentProcessTransport } from './process-transport'
 import { CodexConversationAdapter } from './codex-conversation'
 import { ClaudeConversationAdapter } from './claude-conversation'
+import { AntigravityConversationAdapter } from './antigravity-conversation'
 import type { NativeAccountService } from './native-account.service'
 import { AgentService } from '../agent.service'
 import { ThreadCommandService } from './thread-commands'
@@ -13,7 +14,7 @@ import { ThreadNativeCli } from './thread-cli'
 import { NativeHistoryWorkerClient } from './native-history-worker-client'
 import { CodexStateReader } from './codex-state-reader'
 import { ThreadModelService } from './thread-models'
-import { bindThreadMcp, deniedMcpTools, threadMcpArguments, threadToolRoles, toolSearchEnvironment, type ThreadMcpBindings } from './thread-mcp'
+import { antigravityMcpServers, bindThreadMcp, deniedMcpTools, threadMcpArguments, threadToolRoles, toolSearchEnvironment, type ThreadMcpBindings } from './thread-mcp'
 import { sessionToolPlan, usesToolSearch } from './tool-groups'
 import { effectiveToolModes, toolConfigSubject } from '../policy/tool-config'
 import { ThreadPermissionStore } from './thread-permissions'
@@ -67,8 +68,11 @@ export function createThreadManager(db: AppDatabase, accounts: NativeAccountServ
       acceptedConfig()?.reviewPoint([toolConfigSubject(thread.rootPath), ...(policyStore()?.subjects(thread.rootPath) ?? [])].filter(subject => subject !== null))
       const { tools, enableable } = sessionToolPlan(usesToolSearch(thread.provider, { ...process.env, ...env }), threadToolRoles(db, thread.id), modes)
       const transport = (args: string[], cwd: string) => new AgentProcessTransport(profile.command, threadMcpArguments(thread.provider, args, mcp.bridge, managed, denied, tools, policyDeniedToolNames(thread.rootPath), enableable), cwd, env, { thread: thread.id, generation: thread.generation })
+      const deniedTools = policyDeniedToolNames(thread.rootPath)
       const adapter = thread.provider === 'claude' ? new ClaudeConversationAdapter(transport)
-        : new CodexConversationAdapter(transport(['app-server', '--listen', 'stdio://'], thread.rootPath))
+        // Antigravity is started once per access level, and takes its MCP servers when the session opens.
+        : thread.provider === 'antigravity' ? new AntigravityConversationAdapter(transport, { mcpServers: access => antigravityMcpServers(mcp.bridge, env, access, managed, denied, tools, deniedTools, enableable) })
+          : new CodexConversationAdapter(transport(['app-server', '--listen', 'stdio://'], thread.rootPath))
       return bindThreadMcp(adapter, () => mcp.end(thread.id, executionId))
     } catch (error) { if (executionId) mcp.end(thread.id, executionId); throw error }
   }, threadId => {

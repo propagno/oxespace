@@ -1,6 +1,6 @@
 import type { LineHunk } from '../lineDiff'
 /** Conversation identity is distinct from native session, memory run and pane IDs. */
-export type ThreadProvider = 'claude' | 'codex'
+export type ThreadProvider = 'claude' | 'codex' | 'antigravity'
 export type ThreadStatus = 'idle' | 'running' | 'approval' | 'interrupted' | 'failed'
 export type ThreadOperationState = 'created' | 'sent' | 'acknowledged' | 'running' | 'completed' | 'failed' | 'cancelled' | 'unknown'
 export type ThreadOperationKind = 'turn' | 'queue' | 'request' | 'configuration' | 'command' | 'recovery'
@@ -356,7 +356,7 @@ export interface ThreadCostReport {
   cacheReadTokens?: number
   updatedAt: number
   /** claude-result: written before 0.17.2, summed running totals; claude-result-step: each turn's own step. */
-  source: 'claude-result' | 'claude-result-step' | 'codex-token-usage'
+  source: 'claude-result' | 'claude-result-step' | 'codex-token-usage' | 'antigravity-usage'
 }
 
 export interface ThreadContextReport {
@@ -367,7 +367,7 @@ export interface ThreadContextReport {
   autoCompactAtTokens?: number
   categories: ThreadContextCategory[]
   capturedAt: number
-  source: 'claude-control' | 'codex-token-usage'
+  source: 'claude-control' | 'codex-token-usage' | 'antigravity-usage'
 }
 
 export interface ThreadRewindResult {

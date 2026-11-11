@@ -32,7 +32,7 @@ export class ThreadDelegationHost {
     const manager = await this.manager
     const thread = manager.read(task.destinationThreadId).thread
     this.assertIdentity(task, thread.rootPath, thread.provider)
-    if (!thread.nativeSessionId) return undefined
+    if (!thread.nativeSessionId || thread.provider === 'antigravity') return undefined
     if (task.nativeSession && task.nativeSession.nativeSessionId !== thread.nativeSessionId) throw new Error('NATIVE_SESSION_MISMATCH')
     return { provider: thread.provider, nativeSessionId: thread.nativeSessionId, canonicalRoot: task.path,
       generation: task.nativeSession?.generation ?? 1, observedAt: Date.now(), resumable: true }

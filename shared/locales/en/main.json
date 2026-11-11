@@ -82,7 +82,8 @@
         "configure": "Configure the provider in Agent Settings and use Refresh commands to try again.",
         "busy": "Command discovery is busy. Use Refresh commands to try again.",
         "claudeFailed": "Could not load Claude commands. Check the CLI in Agent Settings and use Refresh commands to try again.",
-        "codexFailed": "Could not load Codex skills. Check the CLI in Agent Settings and use Refresh commands to try again."
+        "codexFailed": "Could not load Codex skills. Check the CLI in Agent Settings and use Refresh commands to try again.",
+        "antigravityFailed": "Could not load Antigravity commands. Check the CLI in Agent Settings and use Refresh commands to try again."
       },
       "capability": {
         "readOnly": "Turned off by this conversation’s read-only tool policy.",
