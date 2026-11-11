@@ -5,11 +5,11 @@ import { i18n } from '../../i18n'
 import { useKeybindings } from '../../keyboard/keybindings'
 import { useThreadStore } from '../../store/thread.store'
 import { approvalsApi } from './approvalsApi'
-import { handBackAll, schedulePreload, startApprovals } from './approvalsBoot'
+import { handBackAll, OPEN_APPROVAL_QUEUE_EVENT, schedulePreload, startApprovals } from './approvalsBoot'
 import type { ImpactPreviewProps } from './ImpactPreview'
 import { startOpenRequestListener, useOpenRequest } from './openRequest'
 
-export { OPEN_APPROVAL_HISTORY_EVENT } from './approvalsBoot'
+export { OPEN_APPROVAL_HISTORY_EVENT, OPEN_APPROVAL_QUEUE_EVENT } from './approvalsBoot'
 
 interface OpenedThreadApproval {
   threadId: string
@@ -82,6 +82,7 @@ export function ApprovalsHost(): ReactElement | null {
 
   useKeybindings({
     'approvals.queue': () => setQueueOpen(open => !open)
+  }); useEffect(() => { const toggle = (): void => setQueueOpen(open => !open); window.addEventListener(OPEN_APPROVAL_QUEUE_EVENT, toggle); return () => window.removeEventListener(OPEN_APPROVAL_QUEUE_EVENT, toggle) }, []); void ({
   })
 
   useEffect(() => {

@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useRef, type ReactElement } from 'react'
+import { lazy, Suspense, useState, useEffect, useCallback, useRef, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { Button } from '../../ui/Button'
-import { WhatChangedDialog } from './WhatChangedDialog'
+const WhatChangedDialog = lazy(() => import('./WhatChangedDialog').then(m => ({ default: m.WhatChangedDialog })))
 import type { DataExportState } from '../../../shared/types/ipc'
 
 export function RemovedFeaturesBand(): ReactElement | null {
@@ -103,11 +103,11 @@ export function RemovedFeaturesBand(): ReactElement | null {
         </div>
       </div>
       {showDialog && (
-        <WhatChangedDialog
+        <Suspense fallback={null}><WhatChangedDialog
           initialState={state}
           onClose={handleDialogClose}
           returnFocusTo={() => bandRef.current}
-        />
+        /></Suspense>
       )}
     </>
   )

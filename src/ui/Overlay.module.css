@@ -4,6 +4,8 @@
   inset: 0;
   z-index: var(--layer-modal);
   background: var(--scrim);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   transition: opacity var(--duration-base) var(--ease-standard);
 }
 .dialog {
@@ -48,6 +50,8 @@
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   box-shadow: var(--elevation-3);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   transition: opacity var(--duration-fast) var(--ease-out), scale var(--duration-fast) var(--ease-out);
 }
 .popover { padding: var(--space-3); }
@@ -101,6 +105,8 @@
   inset: 0;
   z-index: var(--layer-overlay);
   background: var(--scrim);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   transition: opacity var(--duration-base) var(--ease-standard);
 }
 .menuRadioText { display: grid; gap: 1px; min-width: 0; }

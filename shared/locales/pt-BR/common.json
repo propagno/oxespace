@@ -84,7 +84,9 @@
     "failed_one": "{{count}} falhou",
     "failed_many": "{{count}} falharam",
     "failed_other": "{{count}} falharam",
-    "working": "{{count}} em andamento"
+    "working": "{{count}} em andamento",
+    "nothingWaiting": "Nada aguardando",
+    "approvalsWaiting": "Aprovações aguardando você"
   },
   "menu": {
     "file": "Arquivo",

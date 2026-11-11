@@ -80,7 +80,9 @@
     "needsDecision_one": "{{count}} needs your decision",
     "needsDecision_other": "{{count}} need your decision",
     "failed": "{{count}} failed",
-    "working": "{{count}} working"
+    "working": "{{count}} working",
+    "nothingWaiting": "Nothing waiting",
+    "approvalsWaiting": "Approvals waiting for you"
   },
   "menu": {
     "file": "File",

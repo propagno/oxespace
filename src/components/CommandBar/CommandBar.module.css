@@ -19,6 +19,8 @@
   inset: 0;
   z-index: var(--layer-overlay);
   background: var(--surface-scrim);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: flex-start;
   justify-content: center;

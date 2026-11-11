@@ -1269,11 +1269,6 @@
   border-color: color-mix(in srgb, var(--brand) 30%, transparent);
 }
 
-.settings-update-icon.rtk {
-  color: var(--intent-warning-fg);
-  background: var(--intent-warning-bg);
-  border-color: var(--intent-warning-border);
-}
 
 .settings-update-icon.bundled {
   color: var(--text-primary);

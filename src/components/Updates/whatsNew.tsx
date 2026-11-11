@@ -1,8 +1,10 @@
-import { useEffect, type ReactElement } from 'react'
+import { lazy, Suspense, useEffect, type ReactElement } from 'react'
 import { create } from 'zustand'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
-import { WhatsNewDialog, type WhatsNewTarget } from './WhatsNewDialog'
+import type { WhatsNewTarget } from './WhatsNewDialog'
+
+const WhatsNewDialog = lazy(() => import('./WhatsNewDialog').then(m => ({ default: m.WhatsNewDialog })))
 
 export interface WhatsNewState {
   open: boolean
@@ -49,12 +51,14 @@ export function WhatsNewHost(): ReactElement | null {
   if (!open) return null
 
   return (
-    <WhatsNewDialog
-      onClose={close}
-      onOpen={target => {
-        close()
-        openWhatsNewTarget(target)
-      }}
-    />
+    <Suspense fallback={null}>
+      <WhatsNewDialog
+        onClose={close}
+        onOpen={target => {
+          close()
+          openWhatsNewTarget(target)
+        }}
+      />
+    </Suspense>
   )
 }
