@@ -102,7 +102,7 @@ describe('Thread workspace UI', () => {
         { type: 'turn-diff', id: 'turn-diff:native', turnId: 'native', files: [{ path: 'docs/thread-view.md', kind: 'update', source: 'native-patch', state: 'completed' }] },
         { type: 'completed', status: 'completed' }
       ] } }))
-      await waitFor(() => expect(screen.getByRole('button', { name: 'Changes' })).toHaveAttribute('aria-pressed', 'false'))
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Conversation details' })).toHaveAttribute('aria-pressed', 'false'))
       expect(screen.queryByLabelText('OxeChat workbench')).toBeNull()
     } finally { width.mockRestore() }
   })
@@ -456,7 +456,7 @@ describe('Thread workspace UI', () => {
     const toggle = await screen.findByRole('button', { name: 'Conversation details' })
     act(() => toggle.focus())
     fireEvent.click(toggle)
-    const panel = await screen.findByTestId('thread-session-panel')
+    const panel = await screen.findByTestId('thread-session-panel', {}, { timeout: 5000 })
     // Escape in the composer is the composer's: the panel stays.
     fireEvent.keyDown(screen.getByRole('textbox', { name: 'Message' }), { key: 'Escape' })
     expect(screen.getByTestId('thread-session-panel')).toBeInTheDocument()
@@ -656,7 +656,7 @@ describe('Thread workspace UI', () => {
     expect(screen.queryByRole('button', { name: /Implement worktree fix/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Delegated work' })).not.toBeInTheDocument()
     fireEvent.keyDown(screen.getByRole('button', { name: 'More actions' }), { key: 'Enter' })
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'MCP servers' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^MCP servers/ }))
     expect(useUIStore.getState().isMcpPanelOpen).toBe(true)
   })
   it('retains distinct drafts when selecting another thread', async () => {

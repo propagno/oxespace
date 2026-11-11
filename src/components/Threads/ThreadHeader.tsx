@@ -1,84 +1,222 @@
-import { Folder, GitBranch, Minus, MoreHorizontal, Pin, Plug, Plus, Waypoints, X, MessagesSquare } from 'lucide-react'
+import { useEffect, useRef } from 'react'
+import { Archive, Download, GitFork, Info, ListTree, MoreHorizontal, Pencil, Pin, Plug, Plus, Trash2, Type, Waypoints } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Menu, type MenuEntry } from '../../ui'
+import { Button, Menu, type MenuEntry } from '../../ui'
+import type { ThreadActivity } from '../../../shared/types/agents'
 import type { ConversationThread } from '../../../shared/types/thread'
 import type { Workspace } from '../../../shared/types/workspace'
 import { workspaceColorAttrs } from '../../../shared/workspace-color'
-import { THREAD_FONT_DEFAULT, THREAD_FONT_MAX, THREAD_FONT_MIN, useThreadPrefs } from '../../store/thread-prefs.store'
-import { THREAD_VIEW_MODES, useThreadViewModeStore, type ThreadViewMode } from '../../store/thread-view-mode.store'
+import { THREAD_FONT_DEFAULT, THREAD_FONT_MAX, useThreadPrefs } from '../../store/thread-prefs.store'
+import { useThreadViewModeStore } from '../../store/thread-view-mode.store'
 import type { ThreadPanel } from '../../store/thread-workbench.store'
 import { useUIStore } from '../../store/ui.store'
-import { ThreadConversationActions } from './ThreadConversationActions'
-import { CollisionChips } from './CollisionChips'
-import { THREAD_BAR_PANELS, THREAD_MENU_PANELS, type WorkbenchPanelId } from '../Workbench/panelCatalog'
-import { threadPanelLabel, threadPanelTitle } from './threadPanelLabels'
 import { WorkbenchPanelToggle } from '../Workbench/WorkbenchPanelMenu'
-import { shortcutLabel } from '../../keyboard/keybindings'
+import { threadPanelLabel, threadPanelTitle } from './threadPanelLabels'
+import { NowLine, type NowLineAction } from './NowLine'
+import { ThreadCellClose } from './ThreadCellClose'
+import { ThreadSubline } from './ThreadSubline'
+import { THREAD_MORE_ACTIONS, type ThreadMoreActionId } from './threadMoreActions'
+import { THREAD_TOOL_PANELS } from './threadToolPanels'
 import './ThreadHeaderChrome.css'
 
-/** Thread's own panel ids for the shared panel names. Worktrees is Code only and never listed here; the session panel is Thread only. */
-const THREAD_PANEL = {
-  session: 'session', terminal: 'terminal', changes: 'changes', browser: 'preview', git: 'git', files: 'files', search: 'search', scripts: 'scripts', background: 'background'
-} as Record<WorkbenchPanelId, ThreadPanel>
-
-/** Title, project and branch, and the conversation's panel, view and pin controls. */
-export function ThreadHeader({ thread, workspace, branch, pending, running, activePanel, onTogglePanel, onCommand, onExport, onImport, onDelegate, sideChatOpen = false, onSideChat, onPin, onCloseCell }: {
+/** Title row, A19 sub-line without cost, NowLine, "+ Tool", and the cockpit ⋯ menu (DESIGN U6.1, U6.5). */
+export function ThreadHeader({
+  thread,
+  workspace,
+  branch,
+  moved,
+  activity,
+  hasPullRequest,
+  pending,
+  running,
+  activePanel,
+  cell,
+  onTogglePanel,
+  onCommand,
+  onExport,
+  onDelegate,
+  onPin,
+  onNowAction,
+  onCloseCell
+}: {
   thread?: ConversationThread
   workspace?: Workspace
   branch?: string
+  moved?: string | null
+  activity?: ThreadActivity | null
+  hasPullRequest?: boolean
   pending: boolean
   running: boolean
   activePanel?: ThreadPanel | null
+  cell?: 'primary' | 'secondary'
   onTogglePanel: (panel: ThreadPanel, keepOpen?: boolean) => void
   onCommand: (command: string) => void
   onExport?: () => void
   onImport?: () => void
   onDelegate: () => void
-  /** The side chat drawer (B1.2): open, and its toggle. */
-  sideChatOpen?: boolean
-  onSideChat?: () => void
   onPin: () => void
+  onNowAction?: (action: NowLineAction) => void
   onCloseCell?: () => void
 }) {
   const { t } = useTranslation('thread')
+  const headingRef = useRef<HTMLHeadingElement>(null)
   const threadFontSize = useThreadPrefs(state => state.fontSize)
   const setThreadFontSize = useThreadPrefs(state => state.setFontSize)
   const viewMode = useThreadViewModeStore(state => state.mode)
-  // The provider reported working in another worktree of the repository, or outside it.
-  const observed = thread?.observedLocation
-  const moved = Boolean(observed?.sameRepository && observed.checkoutRoot)
-  const outside = observed && !observed.sameRepository ? observed.cwd : null
-  // The conversation was started in a worktree of its own: its branch is shown even before Git answers.
-  const owned = thread?.ownedWorktree
-  return <header className="thread-heading" {...(workspace ? workspaceColorAttrs(workspace) : {})}><div className="thread-heading-identity"><span className="thread-heading-context" data-moved={moved ? 'true' : undefined} title={moved ? t('header.movedTitle', { checkout: thread!.observedLocation!.checkoutRoot, root: thread!.rootPath }) : outside ? t('header.outsideTitle', { root: thread!.rootPath, cwd: outside }) : thread?.rootPath ?? workspace?.rootPath}><Folder size={13} aria-hidden="true" /><strong>{workspace?.name ?? t('header.yourProjects')}</strong>{(branch ?? owned?.branch) && <span className="thread-heading-branch"><GitBranch size={11} aria-hidden="true" />{branch ?? owned?.branch}</span>}{(moved || owned) && <span className="thread-heading-worktree" title={owned ? t('header.ownedTitle', { branch: owned.branch, root: owned.projectRoot }) : undefined}>{t('header.worktree')}</span>}</span><h1>{thread?.title ?? t('header.projectConversations')}</h1>
-    {thread && <ThreadConversationActions thread={thread} disabled={pending} onCommand={onCommand} onExport={onExport} onImport={onImport} />}</div>
-    {thread && <CollisionChips threadId={thread.id} />}
-    <div className="thread-heading-actions">
-    {thread && THREAD_BAR_PANELS.map(id => <WorkbenchPanelToggle key={id} className="thread-review-trigger thread-panel-toggle" item={{ id, label: threadPanelLabel(id), title: threadPanelTitle(id), active: activePanel === THREAD_PANEL[id], onToggle: () => onTogglePanel(THREAD_PANEL[id]) }} />)}
-    <Menu label={t('header.moreActions')} align="end" items={[
-      ...(thread ? [
-        { label: t('header.delegate'), icon: <Waypoints size={14} aria-hidden="true" />, disabled: pending || running, onSelect: onDelegate },
-        ...(onSideChat ? [{ label: t(sideChatOpen ? 'side.closeMenu' : 'side.openMenu'), shortcut: shortcutLabel('thread.sideChat'), icon: <MessagesSquare size={14} aria-hidden="true" />, onSelect: onSideChat }] : []),
-        { label: thread.pinned ? t('header.unpin') : t('header.pin'), icon: <Pin size={14} aria-hidden="true" />, disabled: pending, onSelect: onPin }
-      ] : []),
-      { label: t('header.mcp'), icon: <Plug size={14} aria-hidden="true" />, onSelect: () => useUIStore.getState().openMcpPanel() },
-      { type: 'separator' },
-      { type: 'label', label: <>{t('header.textSize')} <output aria-label={t('header.textSizeValue')}>{threadFontSize}px</output></> },
-      { label: t('header.smaller'), icon: <Minus size={14} aria-hidden="true" />, keepOpen: true, disabled: THREAD_FONT_MIN >= threadFontSize, onSelect: () => setThreadFontSize(threadFontSize - 1) },
-      { label: t('header.larger'), icon: <Plus size={14} aria-hidden="true" />, keepOpen: true, disabled: threadFontSize >= THREAD_FONT_MAX, onSelect: () => setThreadFontSize(threadFontSize + 1) },
-      { label: t('header.resetSize'), keepOpen: true, disabled: threadFontSize === THREAD_FONT_DEFAULT, onSelect: () => setThreadFontSize(THREAD_FONT_DEFAULT) },
-      ...(thread ? [
-        { type: 'separator' },
-        { type: 'label', label: t('workbench.panels') },
-        { type: 'radio', value: activePanel ?? '', onValueChange: (value: string) => onTogglePanel(value as ThreadPanel, true),
-          options: THREAD_MENU_PANELS.map(id => ({ value: THREAD_PANEL[id], label: threadPanelLabel(id) })) },
-        { type: 'separator' },
-        { type: 'label', label: <>{t('header.transcriptView')} <kbd>{shortcutLabel('thread.viewMode')}</kbd></> },
-        { type: 'radio', value: viewMode, onValueChange: (value: string) => useThreadViewModeStore.getState().setMode(value as ThreadViewMode),
-          options: THREAD_VIEW_MODES.map(mode => ({ value: mode, label: t(`viewMode.${mode}.label`), hint: t(`viewMode.${mode}.hint`), ariaLabel: t('viewMode.ariaLabel', { mode: t(`viewMode.${mode}.label`) }) })) }
-      ] satisfies MenuEntry[] : [])
-    ]} trigger={<button type="button" className="thread-icon-action" aria-label={t('header.moreActions')} title={t('header.moreActions')}><MoreHorizontal size={16} /></button>} />
-    {onCloseCell && <button type="button" className="thread-icon-action" aria-label={t('header.closeSide')} title={t('header.closeSide')} onClick={onCloseCell}><X size={14} /></button>}
-    </div>
-  </header>
+
+  useEffect(() => {
+    if (thread?.id && document.activeElement === document.body) {
+      headingRef.current?.focus({ preventScroll: true })
+    }
+  }, [thread?.id])
+
+  const iconFor = (id: ThreadMoreActionId) => {
+    switch (id) {
+      case 'rename': return <Pencil size={14} aria-hidden="true" />
+      case 'pin': return <Pin size={14} aria-hidden="true" />
+      case 'delegate': return <Waypoints size={14} aria-hidden="true" />
+      case 'mcp': return <Plug size={14} aria-hidden="true" />
+      case 'larger-text': return <Type size={14} aria-hidden="true" />
+      case 'show-every-tool-call': return <ListTree size={14} aria-hidden="true" />
+      case 'details': return <Info size={14} aria-hidden="true" />
+      case 'fork': return <GitFork size={14} aria-hidden="true" />
+      case 'export': return <Download size={14} aria-hidden="true" />
+      case 'archive': return <Archive size={14} aria-hidden="true" />
+      case 'delete': return <Trash2 size={14} aria-hidden="true" />
+    }
+  }
+
+  const buildMenuItems = (): MenuEntry[] => {
+    if (!thread) {
+      return [{
+        label: t('moreActions.mcp'),
+        icon: <Plug size={14} aria-hidden="true" />,
+        onSelect: () => useUIStore.getState().openMcpPanel()
+      }]
+    }
+    return THREAD_MORE_ACTIONS.map((entry): MenuEntry => {
+      const id = entry.id as ThreadMoreActionId
+      switch (id) {
+        case 'rename':
+          return { label: entry.label, icon: iconFor(id), disabled: pending, onSelect: () => onCommand('/rename') }
+        case 'pin':
+          return { label: thread.pinned ? t('moreActions.unpin') : entry.label, icon: iconFor(id), disabled: pending, onSelect: onPin }
+        case 'delegate':
+          return { label: entry.label, icon: iconFor(id), disabled: pending || running, onSelect: onDelegate }
+        case 'mcp':
+          return { label: entry.label, icon: iconFor(id), onSelect: () => useUIStore.getState().openMcpPanel() }
+        case 'larger-text':
+          return {
+            label: entry.label,
+            icon: iconFor(id),
+            keepOpen: true,
+            onSelect: () => setThreadFontSize(threadFontSize >= THREAD_FONT_MAX ? THREAD_FONT_DEFAULT : threadFontSize + 1)
+          }
+        case 'show-every-tool-call':
+          return {
+            label: entry.label,
+            icon: iconFor(id),
+            onSelect: () => useThreadViewModeStore.getState().setMode(viewMode === 'verbose' ? 'normal' : 'verbose')
+          }
+        case 'details':
+          return { label: entry.label, icon: iconFor(id), onSelect: () => onTogglePanel('session') }
+        case 'fork':
+          return {
+            label: entry.label,
+            icon: iconFor(id),
+            disabled: pending || thread.provider !== 'codex',
+            hint: thread.provider !== 'codex' ? t('moreActions.forkCodexOnly') : undefined,
+            onSelect: () => onCommand('/fork')
+          }
+        case 'export':
+          return { label: entry.label, icon: iconFor(id), disabled: !onExport || pending, onSelect: () => onExport?.() }
+        case 'archive':
+          return { label: entry.label, icon: iconFor(id), disabled: pending, onSelect: () => onCommand('/archive') }
+        case 'delete':
+          return { label: entry.label, icon: iconFor(id), danger: true, disabled: pending, onSelect: () => onCommand('/delete') }
+      }
+    })
+  }
+
+  const sublineWorkspace = workspace
+    ? { id: workspace.id, name: workspace?.name, color: workspace.color, rootPath: thread?.rootPath ?? workspace.rootPath }
+    : undefined
+
+  return (
+    <header className="thread-heading" {...(workspace ? workspaceColorAttrs(workspace) : {})}>
+      <div className="thread-heading-identity">
+        <div className="thread-heading-title-row">
+          <h1 ref={headingRef} tabIndex={-1} title={thread?.title ?? t('header.projectConversations')}>
+            {thread?.title ?? t('header.projectConversations')}
+          </h1>
+          <div className="thread-heading-actions">
+            {thread && (
+              <Menu
+                label={t('toolPanels.addTool')}
+                align="end"
+                items={THREAD_TOOL_PANELS.map(item => ({
+                  type: 'check' as const,
+                  label: item.label,
+                  checked: activePanel === item.panel,
+                  onSelect: () => onTogglePanel(item.panel)
+                }))}
+                trigger={
+                  <Button size="sm" variant="ghost" icon={<Plus size={13} aria-hidden="true" />}>
+                    {t('toolPanels.addTool')}
+                  </Button>
+                }
+              />
+            )}
+            {thread && (
+              <WorkbenchPanelToggle
+                className="thread-review-trigger thread-panel-toggle"
+                item={{
+                  id: 'session',
+                  label: threadPanelLabel('session'),
+                  title: threadPanelTitle('session'),
+                  active: activePanel === 'session',
+                  onToggle: () => onTogglePanel('session')
+                }}
+              />
+            )}
+            <Menu
+              label={t('header.moreActions')}
+              align="end"
+              items={buildMenuItems()}
+              trigger={
+                <button
+                  type="button"
+                  className="thread-icon-action"
+                  aria-label={t('header.moreActions')}
+                  title={t('header.moreActions')}
+                >
+                  <MoreHorizontal size={16} />
+                </button>
+              }
+            />
+            {(cell === 'secondary' || onCloseCell) && <ThreadCellClose cell={cell ?? 'secondary'} onClose={onCloseCell} />}
+          </div>
+        </div>
+        <ThreadSubline
+          provider={thread?.provider}
+          model={thread?.model}
+          workspace={sublineWorkspace}
+          branch={branch}
+          moved={moved}
+          ownedWorktree={thread?.ownedWorktree ?? null}
+          access={thread?.access}
+          startedAt={thread?.createdAt}
+          threadId={thread?.id}
+        />
+        {thread && activity && (
+          <NowLine
+            activity={activity}
+            agent={thread.provider === 'codex' ? 'Codex' : 'Claude'}
+            hasPullRequest={hasPullRequest}
+            onAction={action => onNowAction?.(action)}
+          />
+        )}
+      </div>
+    </header>
+  )
 }

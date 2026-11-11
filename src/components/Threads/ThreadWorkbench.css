@@ -16,7 +16,7 @@
 .thread-turn-timing { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0; font-size: var(--fs-2xs); color: var(--text-muted); }
 .thread-turn-outcome { display: inline-flex; align-items: center; gap: 5px; color: var(--text-secondary); font-weight: 600; }
 .thread-turn-timing.is-completed .thread-turn-outcome svg { color: var(--dot-green); }
-.thread-turn-timing.is-failed .thread-turn-outcome, .thread-turn-timing.is-failed .thread-turn-outcome svg { color: var(--dot-red); }
+.thread-turn-timing.is-failed .thread-turn-outcome, .thread-turn-timing.is-failed .thread-turn-outcome svg { color: var(--intent-danger-fg); }
 .thread-turn-timing.is-interrupted .thread-turn-outcome svg { color: var(--dot-yellow); }
 .thread-view .thread-turn-timing { font-size: max(11px, calc(var(--thread-reader-font-size) - 4px)); }
 .thread-plan { margin: 12px 0 18px; border: 1px solid var(--border-default); border-radius: var(--surface-radius); background: var(--pane-surface-raised); padding: 10px 12px; }

@@ -13,7 +13,7 @@ import { ThreadAgentError, threadFailure } from './thread-failure'
 import { ThreadHistory, type ThreadHistoryWriteOptions } from './thread-history'
 import { ThreadSnapshotCache } from './thread-snapshot-cache'
 import { applyPendingRewind, redoRewind, retryTurn, rewind, type RewindHost } from './thread-rewind-flow'
-import { deleteQueued, drainQueue, reorderQueued, resumeQueue, sendQueuedNow, updateQueued, type QueueHost } from './thread-queue'
+import { deleteQueued, drainQueue, reorderQueued, resumeQueue, sendQueuedNow, steerQueued, updateQueued, type QueueHost } from './thread-queue'
 import { addTurnCost } from './thread-cost'
 import { repairLegacyCost } from '../../../../shared/threadCostRepair'
 import { deriveThreadTitle, isUnnamedThreadTitle, parseThreadRow } from './thread-title'
@@ -45,7 +45,6 @@ import { projectDiffAt } from './thread-place-heads'
 import type { ThreadCollision, ThreadPane, ThreadPaneSource, ThreadPathResolution, ThreadPlace, ThreadPlaceActionResult, ThreadPlaceDiff, ThreadPlaceDriftAnswer, ThreadPlaceReadResult, ThreadPlaces, ThreadPlaceUndoInput, ThreadPlaceUndoResult } from '../../../../shared/types/thread-places'
 import type { MainMessage } from '../../../../shared/messages'
 import { explainMissingFolder, ThreadFolderMissingError } from './thread-worktree'
-
 /** The checkout a conversation works in: a worktree of its repository the provider moved into, else its root. */
 const workingRootOf = (thread: ConversationThread): string =>
   thread.observedLocation?.sameRepository && thread.observedLocation.checkoutRoot ? thread.observedLocation.checkoutRoot : thread.rootPath
@@ -57,10 +56,8 @@ const THREADS_NEEDING_RECOVERY = `SELECT id FROM conversation_threads t WHERE
   OR json_extract(data_json, '$.connection.suspendedAt') IS NOT NULL
   OR EXISTS (SELECT 1 FROM conversation_events e WHERE e.thread_id = t.id
     AND json_extract(e.data_json, '$.type') = 'subagent' AND json_extract(e.data_json, '$.state') = 'running')`
-
 /** How often idle conversations are checked for suspension. */
 const IDLE_SWEEP_MS = 60_000
-
 /** Repair older histories whose provider ended a turn without a matching tool result. */
 function settleCompletedHistoryTools(events: ThreadEvent[]): number {
   let turnStart = 0, earliest = events.length
@@ -78,7 +75,6 @@ function settleCompletedHistoryTools(events: ThreadEvent[]): number {
   })
   return earliest
 }
-
 export class ThreadOrchestrator {
   private readonly changeListeners = new Map<string, Set<(id: string) => void>>()
   /** `id` '*' hears every conversation (the remote gateway's lists); thread ids are UUIDs, so it names none. */
@@ -133,7 +129,6 @@ export class ThreadOrchestrator {
   private readonly idleSweep: ReturnType<typeof setInterval>
   /** Daily retention pass for an app left open for days. */
   private readonly retentionSweep: ReturnType<typeof setInterval>
-
   constructor(private readonly db: AppDatabase,
     private readonly factory: (thread: ConversationThread) => Promise<AgentConversationAdapter>,
     private readonly notifyChanged: (threadId: string) => void,
@@ -180,7 +175,6 @@ export class ThreadOrchestrator {
     this.retentionSweep = setInterval(() => { try { pruneThreadData(this.db) } catch { /* best effort */ } }, 24 * 60 * 60 * 1000)
     this.retentionSweep.unref?.()
   }
-
   /** Where this conversation worked: its root, then each worktree, checkout and outside folder the evidence named. */
   places(id: string): Promise<ThreadPlaces> { return this.placeObserver.places(id) }
   /** A15 (thread:place-drift-answer): Switch back (guarded, audited), Follow or Dismiss; see ThreadPlaceObserver. */
@@ -204,17 +198,13 @@ export class ThreadOrchestrator {
   collisions(id: string): Promise<ThreadCollision[]> { return this.placeObserver.collisions(id) }
   /** Place classification options; `homeDir` stands in for the home folder. */
   configurePlaces(options: { homeDir?: string }): void { this.placeStore.configure(options) }
-
   /** Minutes without activity before an idle conversation's agent process is closed; 0 keeps it open. */
   idleSuspendMinutes(): number { return idleSuspendMinutes(this.db) }
-
   setIdleSuspendMinutes(minutes: number): number { return setIdleSuspendMinutes(this.db, minutes) }
-
   /** Closes the agent process of conversations idle longer than the setting (see thread-idle). */
   suspendIdle(now = Date.now()): Promise<string[]> {
     return suspendIdle(this.idleHost(), now)
   }
-
   private idleHost(): IdleHost {
     return {
       db: this.db,
@@ -233,7 +223,6 @@ export class ThreadOrchestrator {
       save: (snapshot, options) => this.save(snapshot, options)
     }
   }
-
   list(): ConversationThread[] {
     return (this.db.prepare(`SELECT data_json,
       (SELECT json_extract(turn.data_json, '$.status') FROM conversation_turns turn
@@ -247,7 +236,6 @@ export class ThreadOrchestrator {
       })
       .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt - a.updatedAt)
   }
-
   create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId' | 'ownedWorktree'>): ThreadSnapshot {
     const now = Date.now()
     const snapshot: ThreadSnapshot = { thread: { ...context, id: randomUUID(), nativeSessionId: null,
@@ -297,6 +285,17 @@ export class ThreadOrchestrator {
     return this.history.readThread(id) ?? this.read(id).thread
   }
 
+  /** Tool names and thread metadata without caching full history in memory. */
+  readToolSummary(id: string): { thread: ConversationThread; tools: Array<{ id: string; name: string }> } {
+    this.flushDeltas(id)
+    if (!this.snapshots.has(id)) return { thread: this.readThread(id), tools: this.history.readToolNames(id) }
+    const snap = this.read(id)
+    return { thread: snap.thread, tools: snap.events.filter((e): e is Extract<ThreadEvent, { type: 'tool' }> => e.type === 'tool' && e.name !== 'Tool result').map(e => ({ id: e.id, name: e.name })) }
+  }
+  readBackgroundSource(id: string): { thread: ConversationThread; events: ThreadEvent[] } {
+    this.flushDeltas(id)
+    return this.snapshots.has(id) ? { thread: this.read(id).thread, events: this.read(id).events } : { thread: this.readThread(id), events: this.history.readBackgroundEvents(id) }
+  }
   /** In-memory state of a conversation that no longer exists. */
   private forget(id: string): void {
     this.snapshots.delete(id)
@@ -771,6 +770,8 @@ export class ThreadOrchestrator {
   sendQueuedNow(id: string, itemId: string): Promise<void> {
     return sendQueuedNow(this.queueHost(), id, itemId)
   }
+
+  steerQueued(id: string, itemId: string): Promise<void> { return steerQueued(this.queueHost(), id, itemId) }
 
   reorderQueued(id: string, itemIds: string[]): Promise<void> {
     return reorderQueued(this.queueHost(), id, itemIds)

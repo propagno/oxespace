@@ -1,4 +1,5 @@
 import type { ConversationThread } from '../../../shared/types/thread'
+import type { ComposerHintStatus } from './composerModel'
 
 export type ThreadComposerState = 'disabled' | 'idle' | 'sending' | 'running' | 'approval' | 'reconnecting' | 'queued' | 'unknown'
 
@@ -10,6 +11,12 @@ export function deriveThreadComposerState(thread: ConversationThread | undefined
   if (thread.queue?.some(item => item.state === 'unknown')) return 'unknown'
   if (thread.queue?.some(item => item.state === 'queued' || item.state === 'sending')) return 'queued'
   if (thread.status === 'running') return 'running'
+  return 'idle'
+}
+
+export function deriveComposerHintStatus(thread: ConversationThread | undefined, running: boolean, hasPendingRequests = false): ComposerHintStatus {
+  if (thread?.status === 'approval' || hasPendingRequests) return 'needs-you'
+  if (running || thread?.status === 'running') return 'working'
   return 'idle'
 }
 
