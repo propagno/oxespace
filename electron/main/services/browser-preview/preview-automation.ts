@@ -10,6 +10,7 @@ import { mainMessage } from '../../../../shared/messages'
 import { MainMessageError } from '../../ipc/main-message-error'
 import { brokerForGuest, type DebuggerLease } from './debugger-broker'
 import { consoleRow, NetworkLog, previewStep } from './preview-observe'
+import { judgePreviewUrl, previewGrants } from './preview-grants'
 import type { ApprovalRequester } from '../../../../shared/types/approvals'
 
 export interface PreviewRequest {
@@ -18,6 +19,7 @@ export interface PreviewRequest {
   selector?: string
   text?: string
   url?: string
+  frameUrl?: string
   deltaY?: number
   tabId?: string
 }
@@ -140,9 +142,9 @@ export class PreviewAutomation {
    * Access turned off meanwhile still refuses it; the check after this wait is unchanged.
    */
   private async previewBack(workspaceId: string, owner?: ExecutionOwner, timeoutMs = PREVIEW_BACK_MS): Promise<void> {
-    const until = Date.now() + timeoutMs
+    const deadline = Date.now() + timeoutMs
     // A cancelled execution stops waiting at once (#243 security review L3); verify() then refuses it.
-    while (!browserPreviewService.activeFor(workspaceId, owner) && !executionSignal(owner)?.aborted && Date.now() < until) await new Promise(resolve => setTimeout(resolve, 25))
+    while (!browserPreviewService.activeFor(workspaceId, owner) && !executionSignal(owner)?.aborted && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 25))
   }
   /**
    * The same wait before any action starts, but only while the preview has access and is merely covered: the agent's
@@ -150,8 +152,8 @@ export class PreviewAutomation {
    * off, or no preview, it refuses at once as before.
    */
   private async uncovered(workspaceId: string, owner?: ExecutionOwner): Promise<void> {
-    const until = Date.now() + PREVIEW_BACK_MS
-    while (!browserPreviewService.activeFor(workspaceId, owner) && browserPreviewService.coveredWithAccess(workspaceId, owner) && !executionSignal(owner)?.aborted && Date.now() < until) await new Promise(resolve => setTimeout(resolve, 25))
+    const deadline = Date.now() + PREVIEW_BACK_MS
+    while (!browserPreviewService.activeFor(workspaceId, owner) && browserPreviewService.coveredWithAccess(workspaceId, owner) && !executionSignal(owner)?.aborted && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 25))
   }
   async assertAccess(workspaceId: string, verify: () => void, owner?: ExecutionOwner): Promise<void> { verify(); await this.target(workspaceId, owner); verify() }
   private async target(workspaceId: string, owner?: ExecutionOwner): Promise<{ guest: WebContents; window: BrowserWindow; external: boolean; tabId: string; ownerKey: string }> {
@@ -169,7 +171,7 @@ export class PreviewAutomation {
         this.observeCdp(guest, native.window, native.ownerKey, native.tabId)
       }
       safePageUrl(guest.getURL())
-      if (!native.external && !['localhost','127.0.0.1','[::1]'].includes(new URL(guest.getURL()).hostname)) throw new Error('External preview access is disabled')
+      if (!native.external && judgePreviewUrl(guest.getURL()).kind !== 'loopback') throw new Error('External preview access is disabled')
       return native
     }
     throw new Error('Open this workspace Web Preview and enable Agent documentation access first')
@@ -246,9 +248,25 @@ export class PreviewAutomation {
         await this.assertAccess(workspaceId, verify, owner)
         return { sessionId: this.sessionId(workspaceId, owner), tabId, found, url: safePageUrl(guest.getURL()) }
       }
-      // B10: the app's approval modal; the selector or URL the agent sent is the untrusted text, the page the target.
-      const confirmation = await approvalCenter.ask(previewDraft({ requester: previewRequester(owner, workspaceId), action: input.action, page: safePageUrl(initialUrl), text: input.action === 'navigate' ? safePageUrl(input.url ?? '') : input.action === 'fill' ? `${input.selector ?? ''}\n${input.text ?? ''}` : input.selector ?? '' }), executionSignal(owner))
-      if (confirmation.intent !== 'allow') throw new Error('User declined browser action')
+      // A49: the grant decides whether the person is asked. On loopback one answer lasts for the preview session and
+      // origin; elsewhere, and for a navigate leaving loopback, every action asks. The approval names the field or
+      // element and never carries a fill value (HML-712-1); the selector or URL the agent sent is the untrusted text.
+      const previewSessionId = this.sessionId(workspaceId, owner)
+      const allowed = await previewGrants.authorize({
+        previewSessionId, url: initialUrl, action: input.action,
+        ...(input.action === 'navigate' ? { target: input.url ?? '' } : {}),
+        ...(input.frameUrl ? { frameUrl: input.frameUrl } : {}),
+        ...(input.selector ? { label: input.selector.slice(0, 200) } : {}),
+        ask: async request => {
+          const confirmation = await approvalCenter.ask(previewDraft({ requester: previewRequester(owner, workspaceId), action: input.action, page: safePageUrl(initialUrl), text: input.action === 'navigate' ? safePageUrl(request.url) : input.selector ?? '' }), executionSignal(owner))
+          return confirmation.intent === 'allow'
+        }
+      })
+      if (!allowed) {
+        browserPreviewService.emitToTab(window, ownerKey, tabId, { type: 'agent-action', phase: 'after', action: { id: randomUUID(), kind: input.action as 'click' | 'fill' | 'navigate' | 'scroll', label: input.selector?.slice(0, 120) ?? '', at: Date.now() }, result: 'denied' })
+        throw new Error('User declined browser action')
+      }
+      browserPreviewService.emitToTab(window, ownerKey, tabId, { type: 'grant', grant: previewGrants.list(previewSessionId).find(grant => grant.origin === new URL(initialUrl).origin) ?? null })
       verify()
       await this.previewBack(workspaceId, owner)
       const current = await this.target(workspaceId, owner)
@@ -256,7 +274,7 @@ export class PreviewAutomation {
       if (input.action === 'navigate') {
         const url = new URL(input.url ?? '')
         safePageUrl(url.href)
-        if (!external && !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) throw new Error('Enable External preview before navigating outside localhost')
+        if (!external && judgePreviewUrl(url.href).kind !== 'loopback') throw new Error('Enable External preview before navigating outside localhost')
         const step = previewStep({ action: 'navigate', url: url.href })
         const actionRecord = { id: randomUUID(), kind: step.kind, label: step.label ?? '', ...(step.value !== undefined ? { value: step.value } : {}), at: Date.now() }
         browserPreviewService.emitToTab(window, ownerKey, tabId, { type: 'agent-action', phase: 'before', action: actionRecord })
