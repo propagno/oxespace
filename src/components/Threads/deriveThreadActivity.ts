@@ -229,13 +229,19 @@ export function deriveThreadActivity(
     }
   }
 
+  // A restore that was not confirmed yet keeps the undone turns in the history, for Redo. They are no longer where the
+  // conversation stands: their answer is not the last word, and when the files went back, neither are their changes.
+  const undoneFrom = thread.rewind ? events.findIndex(event => event.type === 'message' && event.role === 'user' && event.id === thread.rewind!.turnId) : -1
+  const standing = undoneFrom >= 0 ? events.slice(0, undoneFrom) : events
+  const filesWentBack = undoneFrom >= 0 && Boolean(thread.rewind?.redoCheckpointIds?.length)
+
   // Empty new conversation before any message or turn: keep header clean without "Done."
-  if (events.length === 0) return null
+  if (standing.length === 0) return null
 
   const changedFiles = new Set(
-    events.flatMap(event => event.type === 'tool' && event.files ? event.files.map(file => file.path) : [])
+    (filesWentBack ? standing : events).flatMap(event => event.type === 'tool' && event.files ? event.files.map(file => file.path) : [])
   ).size
-  const lastAssistant = [...events].reverse().find(
+  const lastAssistant = [...standing].reverse().find(
     (event): event is Extract<ThreadEvent, { type: 'message' }> => event.type === 'message' && event.role === 'assistant' && Boolean(event.text.trim())
   )
   const summary = lastAssistant ? firstSentence(lastAssistant.text, root, 200) : ''

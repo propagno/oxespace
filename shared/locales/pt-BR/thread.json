@@ -2245,7 +2245,7 @@
     "restoreDisabledLabel": "Restaurar para o checkpoint",
     "branchButton": "Ramificar numa nova worktree",
     "branchUnsupported": "Indisponível no {{agent}}",
-    "restoreConfirmTitle": "Restaurar para {{time}}?",
+    "restoreConfirmTitle": "Restaurar este checkpoint",
     "restoreConfirmBody": "Restaurar para {{time}}? As mensagens seguintes ficam de lado; Refazer funciona até a sua próxima mensagem.",
     "alsoRestoreFiles": "Restaurar também os arquivos",
     "cancel": "Cancelar",

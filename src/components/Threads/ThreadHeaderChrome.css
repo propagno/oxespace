@@ -591,6 +591,14 @@
   color: var(--text-primary);
 }
 
+/* The 36 px above is the collapsed rail. The expanded sidebar's footer keeps the 28 px it has in every mode. */
+.thread-navigation [data-sidebar-footer] .nav-rail-btn {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+}
+
 .thread-navigation .nav-rail-btn[aria-current='page'],
 .thread-navigation .nav-rail-btn[aria-current='true'] {
   background: var(--nav-selected);

@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { resizeWindow } from './helpers/launch'
+import { modeButton } from './helpers/modes'
 
 /**
  * F13 · Sections of the conversation list are kept by the main process. This runs main for real (no E2E doubles) on
@@ -85,7 +86,8 @@ test('sections live in the main process: a local copy moves there once, and the 
   try {
     const page = await app.firstWindow()
     await resizeWindow(app, 1280, 800)
-    await page.getByTestId('btn-new-workspace').waitFor()
+    // The app reopens in the mode it was closed in (OxeChat here), so the wait is for the mode switch, which every mode has.
+    await modeButton(page, 'thread').waitFor()
     await openConversations(page, project)
     await expect.poll(() => sectionNames(page)).toEqual(['Imported', 'Work'])
     await expect(section(page, 'Imported').getByRole('button', { name: /^Imported/ })).toHaveAttribute('aria-expanded', 'false')

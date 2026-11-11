@@ -2169,7 +2169,7 @@
     "restoreDisabledLabel": "Restore to checkpoint",
     "branchButton": "Branch into a new worktree",
     "branchUnsupported": "Not available in {{agent}}",
-    "restoreConfirmTitle": "Restore to {{time}}?",
+    "restoreConfirmTitle": "Restore this checkpoint",
     "restoreConfirmBody": "Restore to {{time}}? Later messages are set aside; Redo works until your next message.",
     "alsoRestoreFiles": "Also restore files",
     "cancel": "Cancel",

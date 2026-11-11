@@ -156,9 +156,12 @@
    reason under it stays in reach, and a fade at the bottom says there is more while there is. */
 /* T67 (DESIGN #568 C-01): in the dock the command is never in a scroll of its own. The card grows instead (see
    --request-cap below) and, past its cap, the details scroll as one; "Copy exact text" stays in view at their top. */
-.thread-pending-requests .thread-approval-exact { overflow: clip; }
-.thread-pending-requests .thread-approval-exact pre { max-height: none; overflow: visible; }
+/* Docked or inline in the timeline, a pending command is read whole: the box is as tall as the command, with no scroll of its own (T67). */
+.thread-pending-requests .thread-approval-exact, .thread-timeline-request .thread-approval-exact { overflow: clip; }
+.thread-pending-requests .thread-approval-exact pre, .thread-timeline-request .thread-approval-exact pre { max-height: none; overflow: visible; }
 .thread-pending-requests .thread-approval-exact > .thread-approval-preview-heading { position: sticky; top: -14px; z-index: var(--layer-raised); background: var(--surface-canvas); }
+/* Inline, the timeline is what scrolls: the heading, with Copy, stays at its top edge while the command passes under it. */
+.thread-timeline-request .thread-approval-exact > .thread-approval-preview-heading { position: sticky; top: 0; z-index: var(--layer-raised); background: var(--surface-canvas); }
 .thread-approval-content[data-more-below] { mask-image: linear-gradient(to bottom, currentColor calc(100% - 28px), transparent); }
 .thread-approval-exact > .thread-approval-preview-heading > button { display: inline-flex; flex: none; align-items: center; gap: 5px; margin-left: auto; padding: 5px 8px; font-size: var(--fs-2xs); }
 /* The agent's own words: the same dashed, sunken box as the approval modal's agent block. */

@@ -311,7 +311,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
       // FL-09: each press checked to its exact step; a press that does not land is recorded and pressed again (≤2).
       await pressUntilValueChanges(resize, key, presses, { step: 8, label: `Sidebar width ${key}×${presses}→${width}` })
       await expect(resize).toHaveAttribute('aria-valuenow', String(width))
-      await expect.poll(() => page.evaluate(() => Math.round(document.querySelector('.workspace-surface')!.getBoundingClientRect().left - document.querySelector('.sidebar')!.getBoundingClientRect().right))).toBe(8) // --frame-gap
+      await expect.poll(() => page.evaluate(() => Math.round(document.querySelector('.workspace-surface')!.getBoundingClientRect().left - document.querySelector('.sidebar')!.getBoundingClientRect().right))).toBe(0) // edge to edge since the 1.5 shell: the sidebar's own border divides them
       await expect(codeSidebar.getByRole('button', { name: 'Open settings', exact: true })).toBeVisible()
       const bounds = await codeSidebar.evaluate(el => {
         const side = el.getBoundingClientRect()
@@ -515,7 +515,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.locator('.thread-navigation-row').filter({ has: page.locator('.thread-session-title', { hasText: 'Authentication flow' }) }).locator('.thread-session-state')).toHaveText('Completed')
     const completedIcon = await page.locator('.thread-session-indicator[data-status="completed"]').first().evaluate(el => ({ icon: el.querySelector('svg')?.getAttribute('class'), color: getComputedStyle(el).color }))
     expect(completedIcon.icon).toContain('circle-check')
-    expect(completedIcon.color).toBe(readyIcon.color)
+    // Since the 1.5 sidebar a finished conversation is a green check; the blue dot is one that has not started.
+    expect(completedIcon.color).toBe(await page.evaluate(() => { const el = document.createElement('span'); el.style.color = 'var(--intent-success-solid)'; document.body.append(el); const color = getComputedStyle(el).color; el.remove(); return color }))
+    expect(completedIcon.color).not.toBe(readyIcon.color)
     expect(completedIcon.color).not.toBe(failedColor)
     await expect(page.locator('.thread-activity-single')).toHaveCount(1)
     await expect(page.locator('.thread-turn-timing')).toContainText('1 action')
@@ -714,7 +716,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     const mainThreadName = await projects.locator('.thread-navigation-item[aria-current="page"] span').first().textContent()
     const mainThreadButton = projects.locator('.thread-navigation-item').filter({ hasText: mainThreadName! }).first()
     await page.getByRole('button', { name: /^History conversation 69/ }).click()
-    await expect(page.getByText('Independent conversation history-69')).toBeVisible()
+    await expect(page.locator('.thread-timeline').getByText('Independent conversation history-69')).toBeVisible()
     await mainThreadButton.click()
     await expect.poll(() => timeline.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop)).toBeLessThanOrEqual(64)
     await timeline.hover()
@@ -769,8 +771,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
         composerCenterDelta: Math.abs((composer.left + composer.width / 2) - (view.left + view.width / 2))
       }
     })
-    expect(wideGeometry.readingWidth).toBeGreaterThan(850)
-    expect(wideGeometry.readingWidth).toBeLessThanOrEqual(1100)
+    // The 1.5 conversation canvas is 780 px wide, centred, however wide the window is.
+    expect(wideGeometry.readingWidth).toBeGreaterThan(700)
+    expect(wideGeometry.readingWidth).toBeLessThanOrEqual(780)
     // The floating panels (gaps + borders) narrow the view, so the composer may sit a little inside the reading column.
     expect(wideGeometry.composerWidth).toBeLessThanOrEqual(wideGeometry.readingWidth)
     expect(wideGeometry.composerWidth).toBeGreaterThan(wideGeometry.readingWidth - 32)
@@ -865,7 +868,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(sticky).toContainText('Show the files updated in this conversation')
     // The conversation's provider usage, live in the bottom bar, which sits below the composer instead of over it.
     const usage = page.getByTestId('usage-status')
-    await expect(usage).toContainText('5h 40% · wk 30%')
+    // The chip shows the agent and its highest window; the windows themselves are in its accessible name.
+    await expect(usage).toContainText('40%')
+    await expect(usage).toHaveAccessibleName(/5h 40% · wk 30%/)
     // Clicking the reading opens its detail above the bar, inside the window.
     await usage.click()
     const usageDetail = page.getByTestId('usage-popover')
@@ -975,9 +980,16 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toBeEnabled()
     await page.setViewportSize({ width: 1280, height: 800 })
     await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Structured question fixture'))
+    await expect(page.getByRole('region', { name: 'Pending agent requests' })).toBeVisible()
     await expect(page.getByRole('region', { name: 'Claude needs your input' })).toBeVisible()
+    // The question must leave the conversation readable, and hiding it gives the room back.
     const conversationShare = () => page.evaluate(() => document.querySelector('.thread-timeline')!.getBoundingClientRect().height / document.querySelector('.thread-view')!.getBoundingClientRect().height)
-    expect(await conversationShare()).toBeGreaterThanOrEqual(0.5)
+    expect(await conversationShare()).toBeGreaterThanOrEqual(0.3)
+    await page.getByRole('button', { name: 'Hide', exact: true }).click()
+    await expect(page.getByRole('region', { name: 'Pending agent requests' })).toBeHidden()
+    expect(await conversationShare()).toBeGreaterThanOrEqual(0.6)
+    await page.getByRole('button', { name: 'Show', exact: true }).click()
+    // The compact card still shows two whole options; Expand gives it more room, Shrink gives it back.
     const visibleOptions = () => page.locator('.thread-request-question').evaluate(card => {
       const body = card.querySelector('.thread-question-body')!.getBoundingClientRect()
       return [...card.querySelectorAll('fieldset:not([hidden]) .thread-request-option')].filter(option => { const rect = option.getBoundingClientRect(); return rect.top >= body.top - 1 && rect.bottom <= body.bottom + 1 }).length
@@ -985,6 +997,12 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     console.log('Whole options visible', await visibleOptions())
     await page.screenshot({ path: 'test-results/thread-question-compact.png' })
     expect(await visibleOptions()).toBeGreaterThanOrEqual(2)
+    const requestRoom = () => page.locator('.thread-pending-requests').evaluate(el => parseFloat(getComputedStyle(el).maxHeight))
+    const compactRoom = await requestRoom()
+    await page.getByRole('button', { name: 'Expand', exact: true }).click()
+    expect(await requestRoom()).toBeGreaterThan(compactRoom * 1.5)
+    await page.getByRole('button', { name: 'Shrink', exact: true }).click()
+    expect(await requestRoom()).toBe(compactRoom)
     await page.getByRole('radio', { name: 'Staged' }).check()
     await page.getByRole('region', { name: 'Claude needs your input' }).getByRole('button', { name: 'Next' }).click()
     await page.getByRole('radio', { name: 'Pilot', exact: true }).check()

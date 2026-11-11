@@ -812,7 +812,7 @@ export class ThreadOrchestrator {
       const configuration: ThreadConfiguration = mergeTurnConfiguration(previous, input)
       if (configuration.access === 'read-only') configuration.hooksEnabled = false
       // Auto-accepting edits is a permission mode of Claude and Antigravity that only means something when edits are allowed.
-      if (configuration.mode === 'acceptEdits' && snapshot.thread.provider === 'codex') throw Error('Auto-accepting edits is not available for Codex conversations')
+      if (configuration.mode === 'acceptEdits' && snapshot.thread.provider === 'codex') throw Error('Auto-accepting edits is available for Claude and Antigravity conversations')
       if (configuration.mode === 'acceptEdits' && configuration.access !== 'workspace-write') configuration.mode = 'default'
       if (input.model || input.reasoningEffort !== undefined) {
         const catalog = await this.models(id)

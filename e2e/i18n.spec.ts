@@ -14,7 +14,7 @@ test('opens in Brazilian Portuguese on a Portuguese system and switches to Engli
     await expect(page.getByRole('dialog', { name: 'Configurações', exact: true })).toBeVisible()
     // The dialog is renamed when the language changes, so it is found by role alone.
     const settings = page.getByRole('dialog')
-    await settings.getByRole('group', { name: 'Escopo das configurações' }).getByRole('button', { name: 'Aplicativo', exact: true }).click()
+    // The application pages are listed straight away since 1.5: the scope selector above them is gone.
     const categories = settings.getByRole('navigation', { name: 'Categorias das configurações' })
     await categories.getByRole('button', { name: /^Agentes/ }).click()
     await expect(settings.getByRole('heading', { name: 'Agentes', exact: true })).toBeVisible()

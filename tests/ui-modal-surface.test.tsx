@@ -1,6 +1,15 @@
 import { fireEvent, render, screen } from '@testing-library/react'
+import { useLayoutEffect, useRef } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { useModalSurface } from '../src/ui'
+
+/** A panel that puts focus in its own field as it opens, like the command bar. */
+function FieldPanel({ onClose }: { onClose: () => void }) {
+  const surface = useModalSurface<HTMLElement>(onClose)
+  const field = useRef<HTMLInputElement | null>(null)
+  useLayoutEffect(() => { field.current?.focus() }, [])
+  return <section role="dialog" aria-label="Panel" {...surface}><input ref={field} aria-label="Field" /></section>
+}
 
 function Panel({ onClose }: { onClose: () => void }) {
   const surface = useModalSurface<HTMLElement>(onClose)
@@ -67,6 +76,18 @@ describe('useModalSurface', () => {
     expect(close).toHaveBeenCalledTimes(1)
 
     unmount()
+    expect(opener).toHaveFocus()
+    opener.remove()
+  })
+
+  it('gives focus back to what opened it when the panel focuses its own field first (HML-F11-13)', () => {
+    const opener = document.createElement('button')
+    document.body.append(opener)
+    opener.focus()
+    const { unmount } = render(<FieldPanel onClose={vi.fn()} />)
+    expect(screen.getByRole('textbox', { name: 'Field' })).toHaveFocus()
+    unmount()
+    // Not <body>: the field that took focus on open is gone, and the opener is what the person came from.
     expect(opener).toHaveFocus()
     opener.remove()
   })

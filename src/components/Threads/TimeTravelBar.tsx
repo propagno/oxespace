@@ -485,7 +485,7 @@ export function TimeTravelBar({ threadId, title, agent, onBranched, onCompareWit
       {restoreDialog && (
         <Dialog
           size="sm"
-          title={t('timeTravel.restoreConfirmTitle', { time: formatCheckpointTime(restoreDialog.cp.at, i18n.language) })}
+          title={t('timeTravel.restoreConfirmTitle')}
           onClose={() => { if (!busy) setRestoreDialog(null) }}
           actions={{
             cancel: {

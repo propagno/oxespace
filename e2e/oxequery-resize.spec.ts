@@ -57,7 +57,8 @@ test('the query editor, the table list and the sidebar are resized by dragging t
     await expect.poll(() => width(tree)).toBeGreaterThan(treeBefore + 80)
     await treeSplit.focus()
     await page.keyboard.press('Home')
-    await expect.poll(() => width(tree)).toBe(180)
+    // The narrowest table list in 1.5 (TREE_WIDTH.min).
+    await expect.poll(() => width(tree)).toBe(170)
 
     // App sidebar.
     const sidebar = page.getByRole('complementary', { name: 'OxeQuery sidebar' })
@@ -68,6 +69,6 @@ test('the query editor, the table list and the sidebar are resized by dragging t
 
     // The sizes are remembered.
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('oxe.oxequery.layout') ?? '{}').state)
-    expect(saved).toMatchObject({ editorHeight: 186, treeWidth: 180 })
+    expect(saved).toMatchObject({ editorHeight: 186, treeWidth: 170 })
   } finally { await app.close() }
 })

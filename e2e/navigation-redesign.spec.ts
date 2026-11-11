@@ -24,8 +24,6 @@ test('sidebar sessions and full-page settings preserve terminal DOM', async () =
       const menubar = page.getByRole('navigation', { name: 'Menu' })
       for (const name of ['File', 'Edit', 'View', 'Tools', 'Help']) await expect(menubar.getByRole('button', { name, exact: true })).toBeVisible()
       await menubar.getByRole('button', { name: 'File', exact: true }).click()
-
-      await page.keyboard.press('Escape')
       await expect(page.getByRole('menuitem', { name: /^Settings/ })).toBeVisible()
       await page.keyboard.press('Escape')
       await page.keyboard.press('Escape')

@@ -171,7 +171,8 @@ test('Thread shows delivery, queue pause, context usage and rewind, and merges i
       g.setHardeningDelta({ ok: true, epoch: 'epoch-1', revision: 6, live: 5, thread: { ...snapshot.thread, queue: [], capabilities: undefined }, events: [{ seq: 4, event: snapshot.events[0] }], turns: [], deliveries: {}, pendingRequests: [] })
       g.hardeningChanged()
     })
-    await expect(page.getByText('Delta-delivered answer')).toBeVisible()
+    // The status line repeats the answer's first sentence; the message itself is the one in the timeline.
+    await expect(page.locator('.thread-timeline').getByText('Delta-delivered answer')).toBeVisible()
     expect((await calls()).readSince.length).toBeGreaterThan(0)
     expect((await calls()).readSince.at(-1)?.[0]).toMatchObject({ epoch: 'epoch-1', revision: 5 })
     expect((await calls()).read.length).toBe(readsBefore)

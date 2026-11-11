@@ -57,7 +57,7 @@ function ThemeButton() {
 export function SidebarFooter({ context, onToggle, children }: { context: RailAction; onToggle: () => void; children?: ReactNode }) {
   const { t } = useTranslation()
   const openSettings = useUIStore(state => state.toggleSettings)
-  return <footer className={cx('nav-rail-footer', styles.footer)}>
+  return <footer className={cx('nav-rail-footer', styles.footer)} data-sidebar-footer="">
     <ActionButton action={context} size={15} />
     {children}
     <span className={styles.spacer} />

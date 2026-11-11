@@ -20,6 +20,8 @@ export function reportSplitTooSmall(sizeOrDirection: { width: number; height: nu
     })
     return
   }
+  // The sizes say how far off it is; the line under them says which side is short and what to do about it (F19).
+  const side = sizeOrDirection.width < MIN_PANE_WIDTH_PX ? 'tooNarrow' as const : sizeOrDirection.height < MIN_PANE_HEIGHT_PX ? 'tooShort' as const : null
   toast({
     title: i18n.t('pane.splitRefused.tooSmall', {
       ns: 'code',
@@ -28,6 +30,7 @@ export function reportSplitTooSmall(sizeOrDirection: { width: number; height: nu
       minW: MIN_PANE_WIDTH_PX,
       minH: MIN_PANE_HEIGHT_PX
     }),
+    ...(side ? { description: i18n.t(`pane.splitRefused.${side}`, { ns: 'code', width: MIN_PANE_WIDTH_PX, height: MIN_PANE_HEIGHT_PX }) } : {}),
     intent: 'warning'
   })
 }

@@ -31,7 +31,8 @@
   padding: 1px var(--space-1-5, 6px);
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--ws, var(--accent)) 12%, transparent);
-  color: var(--ws-fg, var(--text-secondary));
+  /* The workspace colour is the tint and the dot. Its text colour on this tint measured 4.42:1 at 11 px (axe, light). */
+  color: var(--text-primary);
   font-weight: var(--weight-medium);
 }
 
