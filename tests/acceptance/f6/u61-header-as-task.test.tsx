@@ -123,7 +123,7 @@ describe('U6.1 · the header as a task', () => {
     tabs = [{ tab: 'conversation', count: null }, { tab: 'terminal', count: 1 }, { tab: 'changes', count: 3 }, { tab: 'pullRequest', count: 1 }]
     act(() => { for (const listener of listeners) listener({ threadId: 't-1' }) })
     expect(await screen.findByRole('tab', { name: /Pull request/ })).toBeInTheDocument()
-    expect(screen.getAllByRole('tab').map(tab => tab.textContent?.replace(/d+/g, '').trim())).toEqual(['Conversation', 'Terminal', 'Changes', 'Pull request'])
+    expect(screen.getAllByRole('tab').map(tab => tab.textContent?.replace(/\d+/g, '').trim())).toEqual(['Conversation', 'Terminal', 'Changes', 'Pull request'])
     expect(screen.getAllByRole('tablist')).toHaveLength(1)
   })
 
