@@ -919,7 +919,15 @@
       "error": "Precisa de atenção",
       "exited": "Retomar a sessão"
     },
-    "local": "Local"
+    "local": "Local",
+    "conversation": {
+      "switchLabel": "Visão do painel",
+      "terminal": "Terminal",
+      "readOnly": "Somente leitura",
+      "live": "Ao vivo",
+      "latest": "Mais recentes",
+      "typeInTerminal": "Digite no terminal"
+    }
   },
   "sidebar": {
     "rename": "Renomear o workspace {{name}}",

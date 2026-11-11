@@ -94,7 +94,7 @@ export function initI18n(preference: LanguagePreference = useSettingsStore.getSt
       lng: bundle ? language : 'en',
       fallbackLng: 'en',
       supportedLngs: [...LANGUAGES],
-      ns: ['common', 'code', 'thread', 'oxequery', 'pods', 'settings', 'main'],
+      ns: ['common', 'code', 'thread', 'oxequery', 'pods', 'settings', 'main', 'mobile'],
       defaultNS: 'common',
       resources: bundle ? { [language]: bundle } : {},
       partialBundledLanguages: true,
