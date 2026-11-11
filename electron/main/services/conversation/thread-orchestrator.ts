@@ -1219,28 +1219,18 @@ export class ThreadOrchestrator {
     }
   }
 
-  private drainQueue(id: string): Promise<void> {
-    return drainQueue(this.queueHost(), id)
-  }
-
+  private drainQueue(id: string): Promise<void> { return drainQueue(this.queueHost(), id) }
   private queueHost(): QueueHost {
     return {
-      isStopping: () => this.stopping,
-      isBusy: id => this.busy.has(id),
+      isStopping: () => this.stopping, isBusy: id => this.busy.has(id), adapter: id => this.adapters.get(id),
       blocksDrain: id => this.busy.has(id) || this.finalizing.has(id) || this.configuring.has(id),
       setBusy: (id, busy) => { if (busy) this.busy.add(id); else this.busy.delete(id) },
       markSendNowAfterStop: (id, marked) => { if (marked) this.sendNowAfterStop.add(id); else this.sendNowAfterStop.delete(id) },
-      takeSendNowAfterStop: id => this.sendNowAfterStop.delete(id),
-      read: id => this.read(id),
-      save: (snapshot, options) => this.save(snapshot, options),
-      transitionOperation: (id, operationId, state, reason) => { this.history.transitionOperation(id, operationId, state, reason) },
-      adapter: id => this.adapters.get(id),
-      resolveAttachments: (id, attachmentIds) => this.resolveAttachments(id, attachmentIds),
-      releaseAttachments: (id, attachmentIds) => this.releaseAttachments(id, attachmentIds),
-      applyPendingRewind: id => this.applyPendingRewind(id),
-      beginTurn: (id, turnId, thread, label, baseline) => this.turns.begin(id, turnId, workingRootOf(thread), label, baseline),
-      send: (id, text, attachmentIds) => this.send(id, text, attachmentIds),
-      interrupt: id => this.interrupt(id)
+      takeSendNowAfterStop: id => this.sendNowAfterStop.delete(id), read: id => this.read(id), save: (s, o) => this.save(s, o),
+      transitionOperation: (id, op, st, r) => { this.history.transitionOperation(id, op, st, r) },
+      resolveAttachments: (id, a) => this.resolveAttachments(id, a), releaseAttachments: (id, a) => this.releaseAttachments(id, a),
+      applyPendingRewind: id => this.applyPendingRewind(id), send: (id, t, a) => this.send(id, t, a), interrupt: id => this.interrupt(id),
+      beginTurn: (id, turnId, thread, label, baseline) => this.turns.begin(id, turnId, workingRootOf(thread), label, baseline)
     }
   }
 
