@@ -4,11 +4,13 @@ import { Settings2, Sun, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ApprovalDatabasePreview, ApprovalRequest } from '../../../shared/types/approvals'
 import type { ThreadRequest, ThreadRequestResponse } from '../../../shared/types/thread'
+import { i18n } from '../../i18n'
 import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
-import { Button, EmptyState, IconButton, Notice } from '../../ui'
+import { Button, Checkbox, Dialog, EmptyState, IconButton, Notice } from '../../ui'
 import { useModalSurface } from '../../ui/useModalSurface'
+import { formatNumber } from '../../utils/formatTime'
 import { AlwaysAllowConfirm, clearAlwaysAllowToast, showAlwaysAllowToast } from './AlwaysAllowConfirm'
 import { approvalsApi } from './approvalsApi'
 import { useApprovalsStore } from './approvals.store'
@@ -112,7 +114,8 @@ export function ApprovalQueue({
   onRespond,
   onOpenTask,
   onOpenRules,
-  headingId
+  headingId,
+  initialSelectedId
 }: {
   items: ApprovalQueueItem[]
   decided: ApprovalDecidedItem[]
@@ -120,22 +123,35 @@ export function ApprovalQueue({
   onOpenTask?: (item: ApprovalQueueItem) => void
   onOpenRules?: () => void
   headingId?: string
+  initialSelectedId?: string | null
 }): ReactElement {
   const { t } = useTranslation('thread')
   const sorted = useMemo(() => [...items].sort((a, b) => a.request.createdAt - b.request.createdAt), [items])
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null)
   const [activeAgents, setActiveAgents] = useState<ActiveAgentEntry[]>([])
   const [dbPreview, setDbPreview] = useState<{ id: string; data: ApprovalDatabasePreview } | null>(null)
   const [alwaysAllowOpen, setAlwaysAllowOpen] = useState(false)
   const [savingRule, setSavingRule] = useState(false)
+  const [withoutHoldOpen, setWithoutHoldOpen] = useState(false)
+  const [understood, setUnderstood] = useState(false)
   const listboxRef = useRef<HTMLDivElement>(null)
   const approveRef = useRef<HTMLButtonElement>(null)
+  const withoutHoldCancelRef = useRef<HTMLButtonElement>(null)
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const onRespondRef = useRef(onRespond)
 
   useEffect(() => {
     onRespondRef.current = onRespond
   }, [onRespond])
+
+  useEffect(() => {
+    if (initialSelectedId) setSelectedId(initialSelectedId)
+  }, [initialSelectedId])
+
+  useEffect(() => {
+    if (!withoutHoldOpen) return
+    withoutHoldCancelRef.current?.focus({ preventScroll: true })
+  }, [withoutHoldOpen])
 
   const selectedIndex = sorted.length === 0 ? -1 : Math.max(0, sorted.findIndex(item => item.request.id === selectedId))
   const selected = selectedIndex >= 0 ? sorted[selectedIndex] : null
@@ -217,7 +233,7 @@ export function ApprovalQueue({
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>): void => {
-    if (event.ctrlKey || event.metaKey || event.altKey) return
+    if (event.ctrlKey || event.metaKey || event.altKey || withoutHoldOpen) return
     const target = event.target as HTMLElement | null
     if (target?.closest('input, textarea, select')) return
     const lower = event.key.toLowerCase()
@@ -300,6 +316,11 @@ export function ApprovalQueue({
     } finally {
       setSavingRule(false)
     }
+  }
+
+  const closeWithoutHold = (): void => {
+    setWithoutHoldOpen(false)
+    setUnderstood(false)
   }
 
   return (
@@ -417,77 +438,89 @@ export function ApprovalQueue({
 
       {selected ? (
         <section aria-label={t('f7.queue.previewLabel')} className={styles.right}>
-          <header className={styles.previewHeader}>
-            <div className={styles.previewContextRow}>
-              <span>{t('f7.preview.context', { agent: selected.agent, conversation: selected.conversation })}</span>
-            </div>
-            <h3 className={styles.previewTitle}>{selected.request.title}</h3>
-          </header>
+          <div className={styles.rightBody}>
+            <header className={styles.previewHeader}>
+              <div className={styles.previewContextRow}>
+                <span>{t('f7.preview.context', { agent: selected.agent, conversation: selected.conversation })}</span>
+              </div>
+              <h3 className={styles.previewTitle}>{selected.request.title}</h3>
+            </header>
 
-          {selectedImpact?.why ? <p className={styles.previewWhy}>{selectedImpact.why}</p> : null}
+            {selectedImpact?.why ? <p className={styles.previewWhy}>{selectedImpact.why}</p> : null}
 
-          {selectedImpact ? (
-            <ImpactFacts
-              impact={selectedImpact}
-              layout="grid"
-              countOverride={selectedImpact.kind === 'db' && currentDbPreview ? currentDbPreview.count : undefined}
-            />
-          ) : null}
+            {selectedImpact ? (
+              <ImpactFacts
+                impact={selectedImpact}
+                layout="grid"
+                countOverride={selectedImpact.kind === 'db' && currentDbPreview ? currentDbPreview.count : undefined}
+              />
+            ) : null}
 
-          {selectedImpact?.kind === 'db' && currentDbPreview?.status === 'ok' && currentDbPreview.sample ? (
-            <section className={sharedStyles.sectionBlock}>
-              <h4 className={sharedStyles.sectionHeading}>{t('f7.preview.beforeAfter')}</h4>
-              <p className={sharedStyles.sampleMeta}>
-                {t('f7.preview.sampleCount', {
-                  sampleCount: currentDbPreview.sample.rows.length,
-                  count: currentDbPreview.count ?? currentDbPreview.sample.rows.length
-                })}
-              </p>
-              <div className={sharedStyles.sampleWrap}>
-                <table className={sharedStyles.sampleTable}>
-                  <thead>
-                    <tr>
-                      {currentDbPreview.sample.cols.map(col => (
-                        <th key={col} scope="col">{col}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentDbPreview.sample.rows.map((row, rowIndex) => (
-                      <tr key={rowIndex}>
-                        {row.map((cell, cellIndex) => (
-                          <td key={cellIndex} className={isChangedPreviewCell(cell) ? sharedStyles.changedCell : undefined}>
-                            {formatPreviewCell(cell)}
-                          </td>
+            {selectedImpact?.kind === 'db' && currentDbPreview?.status === 'ok' && currentDbPreview.sample ? (
+              <section className={sharedStyles.sectionBlock}>
+                <h4 className={sharedStyles.sectionHeading}>{t('f7.preview.beforeAfter')}</h4>
+                <p className={sharedStyles.sampleMeta}>
+                  {t('f7.preview.sampleCount', {
+                    sampleCount: currentDbPreview.sample.rows.length,
+                    count: currentDbPreview.count ?? currentDbPreview.sample.rows.length,
+                    formattedSample: formatNumber(currentDbPreview.sample.rows.length),
+                    formattedCount: formatNumber(currentDbPreview.count ?? currentDbPreview.sample.rows.length)
+                  })}
+                </p>
+                <div className={sharedStyles.sampleWrap}>
+                  <table className={sharedStyles.sampleTable}>
+                    <thead>
+                      <tr>
+                        {currentDbPreview.sample.cols.map(col => (
+                          <th key={col} scope="col">{col}</th>
                         ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          ) : null}
+                    </thead>
+                    <tbody>
+                      {currentDbPreview.sample.rows.map((row, rowIndex) => (
+                        <tr key={rowIndex}>
+                          {row.map((cell, cellIndex) => (
+                            <td key={cellIndex} className={isChangedPreviewCell(cell) ? sharedStyles.changedCell : undefined}>
+                              {formatPreviewCell(cell)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            ) : null}
 
-          {selectedImpact ? (
-            <section className={sharedStyles.sectionBlock}>
-              <h4 className={sharedStyles.sectionHeading}>{t('f7.preview.exactHeading')}</h4>
+            {selectedImpact ? (
+              <section className={sharedStyles.sectionBlock}>
+                <h4 className={sharedStyles.sectionHeading}>{t('f7.preview.exactHeading')}</h4>
+                <pre className={sharedStyles.codeBlock}>
+                  <code>{selectedImpact.text}</code>
+                </pre>
+              </section>
+            ) : selected.request.command || selected.request.detail ? (
               <pre className={sharedStyles.codeBlock}>
-                <code>{selectedImpact.text}</code>
+                <code>{selected.request.command ?? selected.request.detail}</code>
               </pre>
-            </section>
-          ) : selected.request.command || selected.request.detail ? (
-            <pre className={sharedStyles.codeBlock}>
-              <code>{selected.request.command ?? selected.request.detail}</code>
-            </pre>
-          ) : null}
+            ) : null}
 
-          {selectedImpact && !selectedImpact.reversible ? (
-            isCriticalIrreversible ? (
-              <Notice intent="danger">{t('f7.preview.criticalCallout')}</Notice>
-            ) : (
-              <Notice intent="warning">{t('f7.preview.highCallout')}</Notice>
-            )
-          ) : null}
+            {selectedImpact && !selectedImpact.reversible ? (
+              isCriticalIrreversible ? (
+                <>
+                  <Notice intent="danger">{t('f7.preview.criticalCallout')}</Notice>
+                  <p className={sharedStyles.noteLine}>{t('f7.preview.criticalPhone')}</p>
+                </>
+              ) : (
+                <>
+                  <Notice intent="warning">{t('f7.preview.highCallout')}</Notice>
+                  {selectedImpact.kind === 'db' ? (
+                    <p className={sharedStyles.noteLine}>{t('f7.preview.dbDesktopOnly')}</p>
+                  ) : null}
+                </>
+              )
+            ) : null}
+          </div>
 
           <footer className={styles.previewFooter}>
             <Button variant="secondary" onClick={() => void onRespond(selected.request.id, { decision: 'decline' })}>
@@ -495,16 +528,27 @@ export function ApprovalQueue({
               <kbd aria-hidden="true" className={sharedStyles.kbdHint}>D</kbd>
             </Button>
             {isCriticalIrreversible ? (
-              <Button
-                variant="danger"
-                onPointerDown={() => startHold(selected.request.id)}
-                onPointerUp={clearHold}
-                onPointerCancel={clearHold}
-                onPointerLeave={clearHold}
-              >
-                {t('f7.preview.holdToApprove')}
-                <kbd aria-hidden="true" className={sharedStyles.kbdHint}>A</kbd>
-              </Button>
+              <>
+                <Button
+                  variant="danger"
+                  onPointerDown={() => startHold(selected.request.id)}
+                  onPointerUp={clearHold}
+                  onPointerCancel={clearHold}
+                  onPointerLeave={clearHold}
+                >
+                  {t('f7.preview.holdToApprove')}
+                  <kbd aria-hidden="true" className={sharedStyles.kbdHint}>A</kbd>
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setUnderstood(false)
+                    setWithoutHoldOpen(true)
+                  }}
+                >
+                  {t('f7.preview.approveWithoutHolding')}
+                </Button>
+              </>
             ) : (
               <Button
                 ref={approveRef}
@@ -545,11 +589,56 @@ export function ApprovalQueue({
           onConfirm={() => void confirmAlwaysAllow()}
         />
       ) : null}
+
+      {withoutHoldOpen && selected ? (
+        <Dialog
+          size="sm"
+          title={t('f7.preview.withoutHoldTitle')}
+          onClose={closeWithoutHold}
+          footer={
+            <>
+              <Button
+                ref={withoutHoldCancelRef}
+                variant="secondary"
+                data-dialog-cancel=""
+                autoFocus
+                onClick={closeWithoutHold}
+              >
+                {i18n.t('ui.cancel')}
+              </Button>
+              <Button
+                variant="danger"
+                data-dialog-primary=""
+                disabled={!understood}
+                onClick={() => {
+                  const id = selected.request.id
+                  closeWithoutHold()
+                  void onRespond(id, { decision: 'accept' })
+                }}
+              >
+                {t('request.approve')}
+              </Button>
+            </>
+          }
+        >
+          <Checkbox
+            checked={understood}
+            onChange={event => setUnderstood(event.currentTarget.checked)}
+            label={t('f7.preview.withoutHoldCheckbox')}
+          />
+        </Dialog>
+      ) : null}
     </div>
   )
 }
 
-export function ApprovalQueueModal({ onClose }: { onClose: () => void }): ReactElement {
+export function ApprovalQueueModal({
+  onClose,
+  initialSelectedId
+}: {
+  onClose: () => void
+  initialSelectedId?: string | null
+}): ReactElement {
   const { t: tThread } = useTranslation('thread')
   const headingId = useId()
   const closeRef = useRef<HTMLButtonElement>(null)
@@ -654,49 +743,47 @@ export function ApprovalQueueModal({ onClose }: { onClose: () => void }): ReactE
   }, [items.length > 0, modalProps.ref])
 
   return createPortal(
-    <>
-      <div className={styles.scrim} aria-hidden="true" onClick={onClose} />
-      <div className={styles.viewport}>
-        <div
-          {...modalProps}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={headingId}
-          className={styles.surface}
-        >
-          <div className={styles.closeSlot}>
-            <IconButton ref={closeRef} icon={<X size={16} />} label={tThread('f7.queue.closeQueue')} onClick={onClose} />
-          </div>
-          <ApprovalQueue
-            headingId={headingId}
-            items={items}
-            decided={decided}
-            onOpenRules={onClose}
-            onOpenTask={item => {
-              onClose()
-              if (item.threadId) {
-                void useThreadStore.getState().select(item.threadId)
-              }
-            }}
-            onRespond={async (requestId, response) => {
-              const paneReq = paneById.get(requestId)
-              if (paneReq) {
-                const api = approvalsApi()
-                if (!api) return
-                const targetIntent = response.decision === 'accept' || response.decision === 'acceptForSession' ? 'allow' : 'deny'
-                const option = paneReq.options.find(opt => opt.intent === targetIntent) ?? paneReq.options[0]
-                if (option) await useApprovalsStore.getState().respond(api, paneReq, option.id)
-                return
-              }
-              const threadId = threadById.get(requestId)
-              if (!threadId || !window.oxe?.thread?.respond) return
-              await window.oxe.thread.respond(threadId, requestId, response)
-              await useThreadStore.getState().refresh(threadId)
-            }}
-          />
+    <div className={styles.viewport}>
+      <div
+        {...modalProps}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={headingId}
+        className={styles.surface}
+      >
+        <div className={styles.closeSlot}>
+          <IconButton ref={closeRef} icon={<X size={16} />} label={tThread('f7.queue.closeQueue')} onClick={onClose} />
         </div>
+        <ApprovalQueue
+          headingId={headingId}
+          initialSelectedId={initialSelectedId}
+          items={items}
+          decided={decided}
+          onOpenRules={onClose}
+          onOpenTask={item => {
+            onClose()
+            if (item.threadId) {
+              void useThreadStore.getState().select(item.threadId)
+            }
+          }}
+          onRespond={async (requestId, response) => {
+            const paneReq = paneById.get(requestId)
+            if (paneReq) {
+              const api = approvalsApi()
+              if (!api) return
+              const targetIntent = response.decision === 'accept' || response.decision === 'acceptForSession' ? 'allow' : 'deny'
+              const option = paneReq.options.find(opt => opt.intent === targetIntent) ?? paneReq.options[0]
+              if (option) await useApprovalsStore.getState().respond(api, paneReq, option.id)
+              return
+            }
+            const threadId = threadById.get(requestId)
+            if (!threadId || !window.oxe?.thread?.respond) return
+            await window.oxe.thread.respond(threadId, requestId, response)
+            await useThreadStore.getState().refresh(threadId)
+          }}
+        />
       </div>
-    </>,
+    </div>,
     document.body
   )
 }

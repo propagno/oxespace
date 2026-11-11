@@ -4,6 +4,7 @@ import { ErrorBoundary } from '../common/ErrorBoundary'
 import { i18n } from '../../i18n'
 import { useKeybindings } from '../../keyboard/keybindings'
 import { useThreadStore } from '../../store/thread.store'
+import { usePendingView } from '../../app/viewSwitch'
 import { approvalsApi } from './approvalsApi'
 import { handBackAll, OPEN_APPROVAL_QUEUE_EVENT, schedulePreload, startApprovals } from './approvalsBoot'
 import { ApprovalToast } from './ApprovalToast'
@@ -96,15 +97,24 @@ function ApprovalsUnavailable(): ReactElement {
 export function ApprovalsHost(): ReactElement | null {
   const [Center, setCenter] = useState<ComponentType | null>(null)
   const [queueOpen, setQueueOpen] = useState(false)
-  const [QueueModal, setQueueModal] = useState<ComponentType<{ onClose: () => void }> | null>(null)
+  const [initialQueueSelectedId, setInitialQueueSelectedId] = useState<string | null>(null)
+  const [QueueModal, setQueueModal] = useState<ComponentType<{ onClose: () => void; initialSelectedId?: string | null }> | null>(null)
   const [PreviewModal, setPreviewModal] = useState<ComponentType<ImpactPreviewProps> | null>(null)
   const [dismissedToastIds, setDismissedToastIds] = useState<Set<string>>(() => new Set())
 
+  const pendingView = usePendingView()
   const openedRequestId = useOpenRequest(state => state.requestId)
   const snapshot = useThreadStore(state => state.snapshot)
   const snapshotCache = useThreadStore(state => state.snapshotCache)
   const selectedThreadId = useThreadStore(state => state.selectedId)
   const secondaryThreadId = useThreadStore(state => state.secondaryId)
+
+  useEffect(() => {
+    if (pendingView) {
+      setQueueOpen(false)
+      setInitialQueueSelectedId(null)
+    }
+  }, [pendingView])
 
   const visibleThreadIds = useMemo(() => {
     const ids = new Set<string>()
@@ -125,10 +135,21 @@ export function ApprovalsHost(): ReactElement | null {
   )
 
   useKeybindings({
-    'approvals.queue': () => setQueueOpen(open => !open)
+    'approvals.queue': () => window.dispatchEvent(new CustomEvent(OPEN_APPROVAL_QUEUE_EVENT))
   })
   useEffect(() => {
-    const toggle = (): void => setQueueOpen(open => !open)
+    const toggle = (): void => {
+      setQueueOpen(open => {
+        if (open) {
+          setInitialQueueSelectedId(null)
+          return false
+        }
+        const currentRequestId = useOpenRequest.getState().requestId
+        setInitialQueueSelectedId(currentRequestId)
+        if (currentRequestId) useOpenRequest.getState().close()
+        return true
+      })
+    }
     window.addEventListener(OPEN_APPROVAL_QUEUE_EVENT, toggle)
     return () => window.removeEventListener(OPEN_APPROVAL_QUEUE_EVENT, toggle)
   }, [])
@@ -178,14 +199,14 @@ export function ApprovalsHost(): ReactElement | null {
     return () => { stopOpen(); stop(); cancelPreload() }
   }, [])
 
-  const showPreview = Boolean(needsImpactPreview && openedTarget && PreviewModal)
+  const showPreview = Boolean(needsImpactPreview && openedTarget && PreviewModal && !queueOpen)
   const showCenter = Boolean(Center && !queueOpen)
   const showToast = Boolean(toastTarget && !queueOpen && !showPreview)
 
   if (!showCenter && !(queueOpen && QueueModal) && !showPreview && !showToast) return null
   return <>
     {showCenter && Center ? <ErrorBoundary id="approvals" label={i18n.t('approvals.boundaryLabel')} fallback={<ApprovalsUnavailable />}><Center /></ErrorBoundary> : null}
-    {queueOpen && QueueModal ? <QueueModal onClose={() => setQueueOpen(false)} /> : null}
+    {queueOpen && QueueModal ? <QueueModal initialSelectedId={initialQueueSelectedId} onClose={() => { setQueueOpen(false); setInitialQueueSelectedId(null) }} /> : null}
     {showPreview && openedTarget && PreviewModal ? (
       <PreviewModal
         request={openedTarget.request}

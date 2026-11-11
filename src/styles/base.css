@@ -37,10 +37,9 @@ body {
   transition: grid-template-columns var(--duration-base) var(--ease-standard);
   /* Inset frame: the window chrome colour surrounds a raised, rounded work
      surface instead of every region being split by a 1px divider. */
-  padding: 0 var(--frame-gap) var(--frame-gap);
-  column-gap: var(--frame-gap);
-  /* The window is the deepest layer; the sidebar and the work surface float on it as panels. */
-  background: var(--surface-sunken);
+  padding: 0;
+  column-gap: 0;
+  background: var(--surface-base);
 }
 .app-shell.sidebar-collapsed {
   grid-template-columns: var(--sidebar-w-collapsed) minmax(0, 1fr);
@@ -57,7 +56,7 @@ body {
 .app-update-popover p { margin: 8px 0 12px; color: var(--tx-secondary); font-size: var(--fs-xs); line-height: 1.5; }
 .app-update-popover a { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); }
 .app-shell > :is(.sidebar, .thread-navigation) { grid-column: 1; grid-row: 2; }
-.app-shell > .workspace-surface { grid-column: 2; grid-row: 2; min-height: 0; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--frame-radius); background: var(--surface-base); }
+.app-shell > .workspace-surface { grid-column: 2; grid-row: 2; min-height: 0; overflow: hidden; border: 0; border-radius: 0; background: var(--surface-base); }
 /* Reduced motion: data-motion='reduce' comes from Settings › Appearance (System follows the operating system).
    Busy indicators (any *spin* class) are left out: a frozen spinner reads as a hang. The one spin slows down through --duration-spin.
    No transitions at all, not a tiny duration: transition-property defaults to `all`, so any duration above 0 starts a

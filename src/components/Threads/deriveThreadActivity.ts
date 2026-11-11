@@ -2,6 +2,7 @@ import { redactSecrets } from '../../../shared/secrets'
 import type { ThreadActivity } from '../../../shared/types/agents'
 import type { ThreadEvent, ThreadRequest, ThreadSnapshot } from '../../../shared/types/thread'
 import { normalizeRootPath } from '../../../shared/utils/path'
+import { i18n } from '../../i18n'
 
 type ToolVerb = 'read' | 'edit' | 'run' | 'query' | 'http' | 'container' | 'other'
 
@@ -68,16 +69,29 @@ function cleanText(raw: string | undefined, root: string, limit: number): string
   return cutSafe(relativizeInText(redactSecrets(raw), root).trim(), limit)
 }
 
+function stripInlineMarkdown(line: string): string {
+  return line
+    .replace(/^#{1,6}\s+/, '')
+    .replace(/^(?:[-*+]|\d+\.)\s+/, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/(\*\*|__)(.*?)\1/g, '$2')
+    .replace(/(\*|_)(.*?)\1/g, '$2')
+    .replace(/`([^`]+)`/g, '$1')
+    .trim()
+}
+
 function firstSentence(raw: string, root: string, limit: number): string {
   const withRelPaths = relativizeInText(redactSecrets(raw), root)
   const firstLine = withRelPaths
     .split(/\r?\n/)
     .map(line => line.trim())
+    .filter(line => Boolean(line) && !line.startsWith('```'))
+    .map(stripInlineMarkdown)
     .find(Boolean) ?? ''
   if (!firstLine) return ''
   const collapsed = firstLine.replace(/\s+/g, ' ')
   const match = /^(.+?[.!?])(?=\s|$)/.exec(collapsed)
-  return cutSafe(match ? match[1] : collapsed, limit)
+  return cutSafe((match ? match[1] : collapsed).replace(/\.+$/, ''), limit)
 }
 
 function normalizeToolName(name: string): string {
@@ -189,8 +203,13 @@ export function deriveThreadActivity(
     const failedEvent = [...events].reverse().find(
       (event): event is Extract<ThreadEvent, { type: 'completed' }> => event.type === 'completed' && event.status === 'failed'
     )
-    const rawReason = failedEvent?.errorCode ?? failedEvent?.failure?.code
-    const reason = rawReason ? cleanText(String(rawReason), root, 200) : undefined
+    const code = failedEvent?.failure?.code ?? failedEvent?.errorCode
+    const titledKey = code ? `thread:failure.title.${code}` : ''
+    const humanReason = (code && i18n.exists(titledKey) ? String(i18n.t(titledKey as never)) : undefined)
+      ?? failedEvent?.error
+      ?? failedEvent?.failure?.message
+      ?? (code ? String(code) : undefined)
+    const reason = humanReason ? cleanText(humanReason, root, 200) : undefined
     return {
       kind: 'error',
       at: failedEvent?.failure?.occurredAt ?? lastTurn?.completedAt ?? lastTurn?.startedAt ?? baseAt,

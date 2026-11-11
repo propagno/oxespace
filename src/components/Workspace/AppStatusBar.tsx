@@ -50,9 +50,6 @@ export function AppStatusBar({ activePaneId, workspace, usageProvider, rootPath,
   const workingCount = attention.code.working + attention.thread.working
   const versionLabel = `OXESpace ${appVersion && appVersion !== 'dev' ? appVersion : '1.5.0'}`
 
-  // Shells outlive their view now, so a workspace left behind can still be
-  // running an agent. Without somewhere to see and stop them they would burn
-  // tokens and CPU unobserved — this is that escape hatch.
   const panes = useTerminalStore((state) => state.panes)
   const backgroundPaneIds = useMemo(
     () => Object.entries(panes).filter(([, entry]) => entry.detached).map(([paneId]) => paneId),
@@ -85,19 +82,17 @@ export function AppStatusBar({ activePaneId, workspace, usageProvider, rootPath,
   return (
     <footer className={cx('app-statusbar', styles.bar, docked && styles.docked)} aria-label={tc('workspace.status.bar')}>
       <div className={styles.group}>
-        <span className={cx(styles.item, styles.strong)} title={path ?? tc('workspace.status.noProject')}>
-          {branchLabel ? (
-            <>
-              <GitBranch size={12} aria-hidden="true" />
-              <strong className={styles.branchName}>{branchLabel}</strong>
-            </>
-          ) : (
-            <>
-              <FolderGit2 size={12} aria-hidden="true" />
-              <span className={styles.path}>{folderFallback}</span>
-            </>
-          )}
-        </span>
+        {branchLabel ? (
+          <span className={cx(styles.item, styles.strong)} title={path ?? tc('workspace.status.noProject')}>
+            <GitBranch size={12} aria-hidden="true" />
+            <strong className={styles.branchName}>{branchLabel}</strong>
+          </span>
+        ) : !workspace && !path ? (
+          <span className={cx(styles.item, styles.strong)} title={tc('workspace.status.noProject')}>
+            <FolderGit2 size={12} aria-hidden="true" />
+            <span className={styles.path}>{folderFallback}</span>
+          </span>
+        ) : null}
         {workspace ? (
           <span
             className={cx(styles.item, styles.wsChip)}

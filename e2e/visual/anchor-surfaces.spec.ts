@@ -84,7 +84,6 @@ for (const theme of THEMES) {
       await page.emulateMedia({ forcedColors: 'active' })
       await page.getByRole('button', { name: 'Open settings', exact: true }).click()
       const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
-      await settings.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: 'Application', exact: true }).click()
       await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Appearance/ }).click()
       await expect(settings.getByRole('radiogroup', { name: 'Density' })).toBeVisible()
       await page.mouse.move(0, 0)

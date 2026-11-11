@@ -28,6 +28,7 @@
 .settings-center-nav > nav button:hover { background: color-mix(in srgb, var(--text-primary) 4%, transparent); color: var(--text-primary); }
 .settings-center-nav > nav button[aria-current="page"] { color: var(--text-primary); background: var(--fill-selected); font-weight: 500; }
 .settings-center-nav > nav button[aria-current="page"] svg { color: var(--text-primary); }
+.settings-nav-badge { margin-left: auto; padding: 1px 6px; border-radius: var(--radius-full); background: var(--surface-sunken); color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-2xs); font-variant-numeric: tabular-nums; line-height: 1.4; }
 .settings-nav-footer { display: grid; gap: 10px; margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border-default); }
 .settings-scope-note { overflow: hidden; margin: 0; padding: 0 10px; color: var(--text-muted); font-size: var(--fs-2xs); text-overflow: ellipsis; white-space: nowrap; }
 .settings-back { display: flex; align-items: center; gap: 8px; min-height: var(--control-h); padding: 6px 10px; border: 0; border-radius: var(--nav-radius); background: transparent; color: var(--text-secondary); font-size: var(--fs-sm); cursor: pointer; }
@@ -217,7 +218,7 @@
   .settings-center-main { grid-template-rows: 32px minmax(0, 1fr); }
   .settings-center-nav { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: 30px 34px 34px; gap: 8px 12px; padding: 8px 12px; border-right: 0; border-bottom: 1px solid var(--border-default); }
   .settings-center-title { grid-column: 1; grid-row: 1; height: 30px; min-height: 30px; margin: 0; padding: 0; border: 0; }
-  .settings-search { grid-column: 1; grid-row: 2; min-width: 0; }
+  .settings-search { grid-column: 1 / -1; grid-row: 2; min-width: 0; }
   .settings-scope { grid-column: 2; grid-row: 2; display: block; min-width: 0; }
   .settings-scope > span, .settings-scope-choices button small { display: none; }
   .settings-scope-choices { display: flex; height: 34px; padding: 2px; }

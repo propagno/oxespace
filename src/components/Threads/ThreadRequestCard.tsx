@@ -9,6 +9,7 @@ import { elicitationContent, elicitationDefaults, elicitationFields, validateEli
 import { Button, copyText, cx, ErrorState, FieldError, Select } from '../../ui'
 import { useUIStore } from '../../store/ui.store'
 import { AlwaysAllowConfirm, AlwaysAllowReason, clearAlwaysAllowToast, showAlwaysAllowToast } from '../Approvals/AlwaysAllowConfirm'
+import { OPEN_APPROVAL_QUEUE_EVENT } from '../Approvals/approvalsBoot'
 import { ImpactFacts } from '../Approvals/ImpactFacts'
 import { ImpactPreview } from '../Approvals/ImpactPreview'
 import { i18n } from '../../i18n'
@@ -73,6 +74,12 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
   const [form, setForm] = useState<Record<string, ElicitationValue>>(() => elicitationDefaults(elicitation))
   const [showProblems, setShowProblems] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
+  useEffect(() => {
+    if (!previewOpen) return
+    const closePreview = (): void => setPreviewOpen(false)
+    window.addEventListener(OPEN_APPROVAL_QUEUE_EVENT, closePreview)
+    return () => window.removeEventListener(OPEN_APPROVAL_QUEUE_EVENT, closePreview)
+  }, [previewOpen])
   const [alwaysAllowOpen, setAlwaysAllowOpen] = useState(false)
   const [savingRule, setSavingRule] = useState(false)
   const [error, setError] = useState('')

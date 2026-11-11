@@ -180,7 +180,7 @@ describe('Settings agents UI', () => {
     expect(screen.getByRole('switch', { name: /Notify when an agent needs you/i })).toBeInTheDocument()
     expect(screen.getByTestId('btn-test-notification')).toBeInTheDocument()
     view.rerender(<SettingsContent section="updates" {...props} />)
-    expect(screen.getByRole('heading', { name: 'Updates' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'About' })).toBeInTheDocument()
     expect(screen.getByTestId('settings-app-update')).toBeInTheDocument()
     // Development builds can check Releases, but installation is manual.
     expect(screen.getByTestId('app-update-pill')).toHaveTextContent(/Dev build/i)

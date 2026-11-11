@@ -9,6 +9,8 @@ import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, Circ
 import type { ConversationThread } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
+import { useWorkspaceStore } from '../../store/workspace.store'
+import { workspaceColorAttrs } from '../../../shared/workspace-color'
 import { SidebarActions, SidebarFooter, type RailAction } from '../Navigation/NavigationChrome'
 import { SidebarCollapseButton } from '../Sidebar/SidebarCollapseButton'
 import { ThreadRail } from './ThreadRail'
@@ -58,6 +60,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   const [confirmation, setConfirmation] = useState<{ kind: 'thread' | 'archive' | 'project'; id: string; title: string } | null>(null)
   const [actionError, setActionError] = useState(''), [acting, setActing] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
+  const workspaces = useWorkspaceStore(state => state.workspaces)
   const [expandedProjects, setExpandedProjects] = useState<string[]>([])
   const [restoringId, setRestoringId] = useState<string | null>(null)
   // The conversation whose "…" menu a right click, Shift+F10 or the menu key opened.
@@ -132,7 +135,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     onKeyDown={event => { if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) { event.preventDefault(); setRowMenuId(thread.id) } }}><button type="button" data-list-item className={cx('thread-navigation-item', styles.item)} aria-current={selectedId === thread.id ? 'page' : undefined}
     title={`${displayThreadTitle(thread.title)}\n${thread.provider} · ${status.label}${unread ? ` · ${t('sidebar.unreadShort')}` : ''}\n${thread.rootPath}`} onClick={() => void select(thread.id)}>
     {unread && <span className={cx('thread-unread-marker', styles.unreadMark)} aria-label={t('sidebar.unread')} />}{unread && ' '}
-    <span className={cx('thread-session-indicator', styles.indicator)} data-status={status.kind} aria-hidden="true">{status.kind === 'ready' ? <Circle size={8} fill="currentColor" /> : status.kind === 'completed' ? <CircleCheck size={12} /> : status.kind === 'attention' ? <Sun size={12} /> : status.kind === 'failed' ? <CircleX size={12} /> : status.kind === 'interrupted' ? <Square size={10} /> : null}</span>
+    <span className={cx('thread-session-indicator', styles.indicator)} data-status={status.kind} aria-hidden="true">{status.kind === 'ready' ? <Circle size={10} fill="currentColor" /> : status.kind === 'completed' ? <CircleCheck size={14} /> : status.kind === 'attention' ? <Sun size={14} /> : status.kind === 'failed' ? <CircleX size={14} /> : status.kind === 'interrupted' ? <Square size={11} /> : null}</span>
     <span className={cx('thread-session-content', styles.content)}><span className={cx('thread-session-title', styles.title)}>{displayThreadTitle(thread.title)}</span>{' '}<span className={cx('thread-session-meta', styles.meta)}><span className={cx('thread-session-provider', styles.provider)}><AgentProviderIcon provider={thread.provider} size={density === 'compact' ? 11 : 12} /><span>{thread.provider === 'claude' ? 'Claude Code' : 'Codex'}</span></span>{' '}<span className={cx('thread-session-state', styles.state)} data-status={status.kind}>{status.label}</span>{thread.pinned && <> <Pin size={11} aria-label={t('sidebar.pinned')} /></>}</span></span>{' '}
     {status.kind === 'attention' ? <small className={styles.needs}>{t('sidebar.asksYouShort')}</small> : <small className={styles.time}>{relativeTime(thread.updatedAt)}</small>}
   </button><button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.openSideNamed', { name: displayThreadTitle(thread.title) })} title={sideBySideBlocked(thread.id) ? t('sidebar.alreadyOpen') : t('sidebar.openSide')} disabled={sideBySideBlocked(thread.id)} onClick={() => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed'))))}><Columns2 size={14} /></button><Menu label={t('sidebar.actionsFor', { name: displayThreadTitle(thread.title) })} side="right" open={rowMenuId === thread.id} onOpenChange={open => setRowMenuId(open ? thread.id : null)} items={[
@@ -175,9 +178,11 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
         {Object.entries(errors).map(([id, error]) => <ErrorState key={id} compact title={error} retryLabel={t('common.tryAgain')} onRetry={() => { void useThreadStore.getState().load(); void useThreadStore.getState().loadProjects() }} />)}
         {threads.some(t => t.pinned && matches(t, projects.find(p => p.projectId === t.projectId)?.displayName ?? '')) && <section><h2>{t('sidebar.pinnedHeading')}</h2>{threads.filter(t => t.pinned && matches(t, projects.find(p => p.projectId === t.projectId)?.displayName ?? '')).sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id)).map(row)}</section>}
         {!!groups.length && <div className={cx('thread-list-heading', styles.listHeading)}><h2>{t('sidebar.projects')}</h2><button type="button" aria-label={t('sidebar.compact')} title={density === 'compact' ? t('sidebar.comfortableSpacing') : t('sidebar.compactSpacing')} aria-pressed={density === 'compact'} onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')}><AlignJustify size={14} aria-hidden="true" /></button></div>}
-        {groups.map(group => <section key={group.id} className={cx('thread-project-group', styles.group, selected?.projectId === group.id && cx('is-active', styles.active))}>
+        {groups.map(group => {
+          const matchedColor = workspaces.find(w => w.rootPath === group.rootPath)?.color ?? null
+          return <section key={group.id} {...workspaceColorAttrs({ id: group.id, color: typeof matchedColor === 'string' ? null : matchedColor })} className={cx('thread-project-group', styles.group, selected?.projectId === group.id && cx('is-active', styles.active))}>
           <div className={cx('thread-project-heading', styles.heading)}>
-          <button type="button" data-list-item className={cx('thread-project-toggle', styles.toggle)} title={group.path} aria-expanded={query ? true : expanded[group.id] ?? true} onClick={() => toggle(group.id)}><ChevronDown size={12} /><span className={cx('thread-project-name', styles.name)}>{group.name}</span>{unavailableProjects.includes(group.id) && <small>{t('sidebar.directoryMissing')}</small>}{groups.filter(g => g.name === group.name).length > 1 && <small>{group.path.split(/[\\/]/).slice(-2).join('/')}</small>}</button>
+          <button type="button" data-list-item className={cx('thread-project-toggle', styles.toggle)} title={group.path} aria-expanded={query ? true : expanded[group.id] ?? true} onClick={() => toggle(group.id)}><ChevronDown size={12} /><span className={styles.projectDot} aria-hidden="true" /><span className={cx('thread-project-name', styles.name)}>{group.name}</span>{unavailableProjects.includes(group.id) && <small>{t('sidebar.directoryMissing')}</small>}{groups.filter(g => g.name === group.name).length > 1 && <small>{group.path.split(/[\\/]/).slice(-2).join('/')}</small>}<span className={styles.count} aria-hidden="true">{group.threads.length}</span></button>
           <button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.newInNamed', { name: group.name })} title={t('sidebar.newIn')} disabled={!group.rootPath || unavailableProjects.includes(group.id)} onClick={() => onCreate(group.id, group.rootPath)}><Plus size={14} /></button>
           <Menu label={t('sidebar.projectActions', { name: group.name })} align="end"
             trigger={<button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.actionsFor', { name: group.name })} data-project-actions={group.id}><MoreHorizontal size={14} /></button>}
@@ -198,7 +203,8 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
               <div className={cx('thread-project-rows', styles.rows, sectionStyles.loose, drag.dragging && sectionStyles.dragging)} {...drag.zoneProps({ projectId: group.id, sectionId: null })}>{visible.map(row)}{split.loose.length > visible.length && <button type="button" data-list-item className={cx('thread-show-more', styles.showMore)} onClick={() => setExpandedProjects(value => [...value, group.id])}>{t('sidebar.showMore', { count: split.loose.length - visible.length })}</button>}</div>
             </>
           })()}</div>}
-        </section>)}
+        </section>
+        })}
         {archived.length > 0 && <section className={cx('thread-archived-section', styles.section)} aria-label={t('sidebar.archivedRegion')}>
           <button type="button" data-list-item className={cx('thread-project-toggle', styles.toggle)} aria-expanded={query ? true : showArchived} onClick={() => setShowArchived(value => !value)}><ChevronDown size={12} /><span>{t('sidebar.archived')}</span>{' '}<small>{archived.length}</small></button>
           {(query || showArchived) && archived.map(thread => <div key={thread.id} className={cx('thread-navigation-row thread-archived-row', styles.row, styles.archivedRow)}>

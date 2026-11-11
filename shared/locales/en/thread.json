@@ -1613,8 +1613,8 @@
     "loadEarlier": "Load earlier messages",
     "opening": "Opening conversation…",
     "openingBody": "Loading the selected conversation.",
-    "welcomeTitle": "What would you like to work on?",
-    "welcomeBody": "Start a conversation in a project, or pick one from the sidebar.",
+    "welcomeTitle": "Start your first conversation",
+    "welcomeBody": "Describe what you want done. The agent gets its own branch and worktree, and everything it runs, queries or changes stays with the conversation.",
     "newConversation": "New conversation",
     "providerAccounts": "Provider accounts",
     "sendingMessage": "Sending message",
@@ -2101,6 +2101,10 @@
   "timeTravel": {
     "button": "History",
     "region": "Conversation history",
+    "counts": "{{checkpoints}} checkpoints · {{steps}} steps",
+    "legend": { "checkpoint": "Checkpoint", "step": "Step", "viewing": "Viewing", "transcriptOnly": "Transcript only" },
+    "compareWithNow": "Compare with now",
+    "backToNow": "Back to now",
     "sliderLabel": "Conversation timeline",
     "close": "Close history",
     "noCheckpoints": "No checkpoints in this conversation yet.",
@@ -2185,12 +2189,12 @@
       "canUndo": "Can be undone",
       "cannotUndo": "Can't be undone",
       "unit": {
-        "rows_one": "{{count}} row",
-        "rows_other": "{{count}} rows",
-        "files_one": "{{count}} file",
-        "files_other": "{{count}} files",
-        "resources_one": "{{count}} resource",
-        "resources_other": "{{count}} resources"
+        "rows_one": "{{formattedCount}} row",
+        "rows_other": "{{formattedCount}} rows",
+        "files_one": "{{formattedCount}} file",
+        "files_other": "{{formattedCount}} files",
+        "resources_one": "{{formattedCount}} resource",
+        "resources_other": "{{formattedCount}} resources"
       }
     },
     "toast": {
@@ -2217,8 +2221,8 @@
       "context": "{{agent}} · {{conversation}}",
       "exactHeading": "Shown exactly what runs",
       "beforeAfter": "Before → after",
-      "sampleCount_one": "{{sampleCount}} of {{count}} row, read with SELECT",
-      "sampleCount_other": "{{sampleCount}} of {{count}} rows, read with SELECT",
+      "sampleCount_one": "{{formattedSample}} of {{formattedCount}} row, read with SELECT",
+      "sampleCount_other": "{{formattedSample}} of {{formattedCount}} rows, read with SELECT",
       "offProduction": "Preview is off for production.",
       "failed": "Couldn't preview: {{reason}}. Nothing ran.",
       "criticalCallout": "This can't be undone. Hold Approve for 1.2 s to confirm.",

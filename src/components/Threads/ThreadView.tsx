@@ -38,7 +38,7 @@ import { useUIStore } from '../../store/ui.store'
 import { CONVERSATION_MIN_WIDTH, REVIEW_MIN_WIDTH, useThreadWorkbenchStore, type ThreadPanel } from '../../store/thread-workbench.store'
 import { authText, ThreadMessageBody } from './ThreadMessageRow'
 import { ThreadAddToolMenu, ThreadHeader } from './ThreadHeader'
-import { ThreadToolTabs } from './ThreadToolTabs'
+import { ThreadToolTabs, type ThreadTabId } from './ThreadToolTabs'
 import { deriveThreadActivity } from './deriveThreadActivity'
 import type { NowLineAction } from './NowLine'
 import { useOpenRequest } from '../Approvals/openRequest'
@@ -320,11 +320,17 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     }
     if (act === 'see-impact' && firstPending) {
       if (firstPending.impact && !firstPending.impact.reversible) useOpenRequest.getState().open(firstPending.id)
-      else workbench.current?.querySelector<HTMLElement>('.thread-request-approval .thread-request-decline, .thread-request-approval button')?.focus()
+      else {
+        const inlineCard = workbench.current?.querySelector<HTMLElement>(`.thread-timeline [data-request-id="${firstPending.id}"]`)
+        inlineCard?.scrollIntoView({ block: 'nearest' })
+        ;(inlineCard?.querySelector<HTMLElement>('button') ?? workbench.current?.querySelector<HTMLElement>('.thread-request-approval .thread-request-decline, .thread-request-approval button'))?.focus()
+      }
       return
     }
     if (act === 'answer') {
-      workbench.current?.querySelector<HTMLElement>('.thread-pending-requests input, .thread-pending-requests select, .thread-pending-requests button')?.focus()
+      const inlineQuestion = firstPending ? workbench.current?.querySelector<HTMLElement>(`.thread-timeline [data-request-id="${firstPending.id}"]`) : null
+      inlineQuestion?.scrollIntoView({ block: 'nearest' })
+      ;(inlineQuestion?.querySelector<HTMLElement>('input, select, textarea, button') ?? workbench.current?.querySelector<HTMLElement>('.thread-pending-requests input, .thread-pending-requests select, .thread-pending-requests button'))?.focus()
       return
     }
     const interrupt = api?.interrupt
@@ -342,6 +348,13 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     }
   }
   const welcomeStarters = useMemo(() => threadStarters(), [t])
+  const [activeToolTab, setActiveToolTab] = useState<ThreadTabId>('conversation')
+  useEffect(() => { setActiveToolTab('conversation') }, [snapshot?.thread.id])
+  const orphanPendingRequests = useMemo(
+    () => (snapshot ? pendingRequests.filter(req => !snapshot.events.some(ev => ev.type === 'request' && ev.request.id === req.id)) : NO_REQUESTS),
+    [snapshot, pendingRequests]
+  )
+  const showingToolTab = Boolean(snapshot && activeToolTab !== 'conversation')
   // Esc first gives a maximized panel its place back, then closes it.
   return <div ref={workbench} className={`thread-workbench${drawer ? ' is-drawer' : ''}${active ? ' is-active-cell' : ''}${reviewMaximized ? ' is-review-maximized' : ''}`} onPointerDown={onActivate} onKeyDown={event => { if (event.key === 'Escape' && review?.panel && !panel && !commands.open && !openControl && event.target instanceof Element && event.target.closest('.thread-review-host')) { event.preventDefault(); if (reviewMaximized) useThreadWorkbenchStore.getState().setMaximized(null); else { closeReview(); returnFocusFromPanel() } } }}>
     <section className="thread-view" aria-label={t('view.region')} style={{ '--thread-reader-font-size': `${threadFontSize}px` } as React.CSSProperties}>
@@ -352,12 +365,12 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
       onExport={snapshot && api?.exportPortable ? () => void action(async () => { const path = await api.exportPortable!(snapshot.thread.id); if (path) setPanel({ kind: 'panel', title: t('view.exported'), text: path }) }) : undefined}
       onImport={snapshot && api?.importPortable ? () => { setPending(true); setError(''); void api.importPortable!(snapshot.thread.id).then(imported => { if (imported) useThreadStore.getState().adopt(imported) }).catch(cause => setError(humanizeError(cause, t('view.importFailed')))).finally(() => setPending(false)) } : undefined}
       onDelegate={() => setDelegationOpen(true)} onPin={() => { if (snapshot) void action(() => api!.pin(snapshot.thread.id, !snapshot.thread.pinned)) }} />
-    {snapshot && <ThreadToolTabs key={snapshot.thread.id} threadId={snapshot.thread.id} rootPath={threadWorkingRoot(snapshot.thread)} branch={branch?.branch ?? undefined}
-      trailing={<ThreadAddToolMenu activePanel={review?.panel} onTogglePanel={togglePanel} />}
-      onOpen={tab => { if (tab === 'changes') useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'changes' }) }} />}
+    {snapshot && <ThreadToolTabs key={snapshot.thread.id} threadId={snapshot.thread.id} workspaceId={snapshot.thread.workspaceId} rootPath={threadWorkingRoot(snapshot.thread)} branch={branch?.branch ?? undefined}
+      activeTab={activeToolTab} onOpen={tab => setActiveToolTab(tab)} onSendToConversation={appendToConversation}
+      trailing={<ThreadAddToolMenu activePanel={review?.panel} onTogglePanel={togglePanel} />} />}
     {finding && <ThreadFindBar rows={timelineRows} scrollRoot={timeline} scrollTo={scrollTo} onClose={() => { setFinding(false); requestAnimationFrame(() => textarea.current?.focus()) }} />}
-    {snapshot && historyOpen && <TimeTravelBar threadId={snapshot.thread.id} title={snapshot.thread.title} agent={snapshot.thread.provider === 'codex' ? 'Codex' : 'Claude'} onClose={() => setHistoryOpenThreadId(null)} onBranched={result => { setHistoryOpenThreadId(null); void (async () => { await useWorkspaceStore.getState().bootstrap(); await useWorkspaceStore.getState().setActiveWorkspace(result.workspaceId); await useThreadStore.getState().load(); await useThreadStore.getState().select(result.threadId) })() }} />}
-    <div ref={timeline} className="thread-timeline" role="region" tabIndex={0} aria-label={t('view.history')} {...scroll.timelineProps}>
+    {snapshot && historyOpen && <TimeTravelBar threadId={snapshot.thread.id} title={snapshot.thread.title} agent={snapshot.thread.provider === 'codex' ? 'Codex' : 'Claude'} onCompareWithNow={() => setActiveToolTab('changes')} onClose={() => setHistoryOpenThreadId(null)} onBranched={result => { setHistoryOpenThreadId(null); void (async () => { await useWorkspaceStore.getState().bootstrap(); await useWorkspaceStore.getState().setActiveWorkspace(result.workspaceId); await useThreadStore.getState().load(); await useThreadStore.getState().select(result.threadId) })() }} />}
+    <div ref={timeline} className="thread-timeline" hidden={showingToolTab} role="region" tabIndex={0} aria-label={t('view.history')} {...scroll.timelineProps}>
       <div ref={scroll.content} className="thread-reading-column">
         {/* Zero-height sticky anchor: the strip overlays the top edge without shifting the rows below. */}
         {snapshot && <div className="thread-sticky-prompt-anchor"><ThreadPromptNavigator rows={timelineRows} scrollRef={timeline} scrollTo={scrollTo} /></div>}
@@ -370,7 +383,6 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
           <p>{t('view.welcomeBody')}</p>
           <div className="thread-welcome-actions">
             {onNewThread && <Button variant="primary" icon={<MessageSquarePlus size={14} />} onClick={onNewThread}>{t('view.newConversation')}</Button>}
-            {onAccounts && <Button onClick={onAccounts}>{t('view.providerAccounts')}</Button>}
           </div>
           {onNewThread && <div className="thread-opening-starters">
             {welcomeStarters.map(starter => <Button key={starter.id} variant="secondary" className="thread-opening-starter" onClick={onNewThread}><strong>{starter.label}</strong><span>{starter.prompt}</span></Button>)}
@@ -386,9 +398,9 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
         {snapshot && <ThreadLiveActivity snapshot={snapshot} />}
       </div>
     </div>
-    <div className="thread-composer-dock"><div className="thread-composer-column">
+    {(Boolean(snapshot) || Boolean(error) || !api) && !showingToolTab && <div className="thread-composer-dock"><div className="thread-composer-column">
       {snapshot && <ThreadAnnouncer thread={snapshot.thread} pendingRequests={pendingRequests.length} />}
-      {snapshot && <ThreadDockRequests snapshot={snapshot} pendingRequests={pendingRequests} pending={pending} action={action} />}
+      {snapshot && <ThreadDockRequests snapshot={snapshot} pendingRequests={orphanPendingRequests} pending={pending} action={action} />}
       {scroll.showEnd && <button type="button" className="thread-scroll-end" onClick={scrollEnd}><ArrowDown size={12} />{scroll.newMessages > 0 ? t('view.latestCount', { count: scroll.newMessages }) : t('view.latest')}</button>}
       {snapshot && needsLogin && <div className="thread-connection-notice"><AlertCircle size={14} /><span>{authFailure ? t('view.signIn', { provider: snapshot.thread.provider === 'claude' ? 'Claude Code' : 'Codex' }) : accountMessage(account)}</span><Button size="sm" variant={authFailure && account?.state === 'connected' ? 'secondary' : 'primary'} onClick={onAccounts}>{authFailure ? t('view.reconnect') : t('view.connect')}</Button>{authFailure && lastPrompt?.type === 'message' && <Button size="sm" variant={account?.state === 'connected' && account.method === 'subscription' ? 'primary' : 'secondary'} title={t('view.resendTitle')} disabled={pending || account?.state !== 'connected' || account.method !== 'subscription'} onClick={() => void action(() => api!.send(snapshot.thread.id, lastPrompt.text, lastPrompt.attachments?.map(attachment => attachment.id) ?? []))}>{t('view.retry')}</Button>}</div>}
       {degradedConnection && !needsLogin && <div className="thread-connection-notice is-warning" role="status"><AlertCircle size={14} /><span>{degradedConnection.detail || t('view.connectionUnavailable')}{degradedConnection.nextRetryAt ? ` ${t('view.retryAfter', { time: formatClock(degradedConnection.nextRetryAt, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) })}` : ''}</span></div>}
@@ -408,7 +420,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
       <ThreadComposerForm snapshot={snapshot} draft={draft} attachments={attachments} pending={pending} running={running} active={active} composerState={composerState} textarea={textarea} fileInput={fileInput}
         commands={commands} mentions={mentions} openControl={openControl} onControlClosed={() => setOpenControl(null)} onError={setError} onSend={send} onCaret={setCaret}
         onUpload={files => void uploadFiles(files)} onRemoveAttachment={attachmentId => void removeAttachment(attachmentId)} onInsertMention={insertMention} onInterrupt={() => void action(() => api!.interrupt(snapshot!.thread.id))} />
-    </div></div>
+    </div></div>}
     {panel && <Suspense fallback={null}><ThreadCommandDialog key={`${panel.surface ?? panel.kind}:${panel.title ?? ''}`} panel={panel} snapshot={snapshot} pending={pending} error={error} onError={setError} action={action} runCommand={runCommand} onDelegations={onDelegations}
       onClose={() => { setPanel(null); requestAnimationFrame(() => textarea.current?.focus()) }} /></Suspense>}
     {delegationOpen && snapshot && <DelegationCreateDialog thread={snapshot.thread} onClose={() => setDelegationOpen(false)} />}

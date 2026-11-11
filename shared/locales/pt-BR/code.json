@@ -1239,6 +1239,21 @@
     },
     "settings": {
       "pages": {
+        "general": {
+          "label": "Geral",
+          "hint": "Instruções do projeto e preferências do workspace",
+          "description": "Defina instruções padrão, preferências de shell e aparência para este workspace."
+        },
+        "projects": {
+          "label": "Projetos",
+          "hint": "Worktrees e branches",
+          "description": "Inspecione e gerencie worktrees e branches do Git vinculados a este workspace."
+        },
+        "policy": {
+          "label": "Política",
+          "hint": "Regras de política do workspace",
+          "description": "Controle quais ferramentas e ações os agentes podem executar neste workspace."
+        },
         "appearance": {
           "label": "Aparência",
           "hint": "Modo, densidade e layout",

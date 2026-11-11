@@ -67,7 +67,7 @@ const PALETTE_EFFECTS: Record<string, Check> = {
   'activity.markAllRead': toast(/Nothing to mark as read|All activity marked as read/),
   'new-workspace': dialog('Create new workspace'),
   'workspace-settings': both(view('code'), dialog('Settings'), async page => {
-    await expect(page.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: /Current workspace/ })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^General Project instructions/ })).toHaveAttribute('aria-current', 'page')
   }),
   'toggle-sidebar': async page => { await expect(page.locator('.app-shell')).toHaveClass(/sidebar-collapsed/) },
   'tool-team': dialog('Project team'),
@@ -309,7 +309,7 @@ test.describe('offer audit', () => {
       await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
       await page.keyboard.press('Control+,')
       await dialog('Settings')(page)
-      await expect(page.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: 'Application' })).toHaveAttribute('aria-pressed', 'true')
+      await expect(page.locator('.settings-center-content')).not.toHaveClass(/is-workspace/)
       expect(pageErrors(launched)).toEqual([])
     } finally {
       await Promise.race([app.close().catch(() => undefined), new Promise(resolve => setTimeout(resolve, 4000))])
@@ -332,8 +332,12 @@ test.describe('offer audit', () => {
       }
       const openMenu = async (menu: string): Promise<Locator> => {
         await dismiss(page)
-        await trigger.click()
-        return openSub(page.locator('[role="menu"]').first(), menu)
+        if (await trigger.isVisible()) { await trigger.click(); return openSub(page.locator('[role="menu"]').first(), menu) }
+        await page.getByRole('navigation', { name: 'Menu' }).getByRole('button', { name: menu, exact: true }).click()
+        const inlineMenu = page.locator('[role="menu"]').first()
+        await expect(inlineMenu).toBeVisible()
+        return inlineMenu
+        // inline menu already returned above
       }
       /** What each item visibly does, by menu and label. Edit items run the browser's own editing commands. */
       const MENU_EFFECTS: Record<string, Check | 'native'> = {

@@ -2,6 +2,7 @@ import type { ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadRequestImpact } from '../../../shared/types/thread'
 import { Badge, cx } from '../../ui'
+import { formatNumber } from '../../utils/formatTime'
 import styles from './Approvals.module.css'
 
 export function titleIncludesWhere(title: string, where: string | undefined): boolean {
@@ -24,7 +25,9 @@ export function ImpactFacts({
   const { t: tCommon } = useTranslation('common')
   const whereText = impact.whereSub ? `${impact.where} · ${impact.whereSub}` : impact.where
   const count = countOverride !== undefined ? countOverride : impact.affects.count
-  const affectsText = count === null ? t('f7.facts.affectsUnknown') : t(`f7.facts.unit.${impact.affects.unit}`, { count })
+  const affectsText = count === null
+    ? t('f7.facts.affectsUnknown')
+    : t(`f7.facts.unit.${impact.affects.unit}`, { count, formattedCount: formatNumber(count) })
   const undoText = impact.reversible ? t('f7.facts.canUndo') : t('f7.facts.cannotUndo')
   const riskText = tCommon(`approvals.risk.${impact.risk}`)
 

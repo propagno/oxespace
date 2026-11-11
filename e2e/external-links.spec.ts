@@ -123,8 +123,7 @@ test('links ask before leaving, remember the site, and Settings clears what was 
     // Settings › General › Privacy forgets both sites.
     await page.getByRole('button', { name: 'Open settings', exact: true }).click()
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
-    await settings.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: 'Application', exact: true }).click()
-    await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^General/ }).click()
+    await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^General\b|^Application: General/ }).click()
     await expect(settings.getByTestId('seen-sites-count')).toHaveText('2 sites remembered.')
     await settings.getByRole('button', { name: "Clear sites you've opened" }).click()
     await expect(settings.getByTestId('seen-sites-count')).toHaveText('0 sites remembered.')

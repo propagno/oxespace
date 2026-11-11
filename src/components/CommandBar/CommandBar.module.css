@@ -164,6 +164,49 @@
   white-space: nowrap;
 }
 
+.emptyBody {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  max-height: 58vh;
+}
+
+.defaultSections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0 var(--space-2) var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-2);
+}
+
+.defaultRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.defaultRow:hover {
+  background: var(--surface-hover);
+}
+
+.defaultRow:focus-visible {
+  background: var(--surface-hover);
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
 .hints {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

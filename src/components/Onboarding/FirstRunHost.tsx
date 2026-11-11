@@ -115,7 +115,10 @@ export function FirstRunHost({ onOpenMode, onStartConversation, onNewWorkspace }
       onSignIn={handleSignIn}
       onCancelSignIn={handleCancelSignIn}
       onNewConversation={handleNewConversation}
-      onOpenMode={onOpenMode}
+      onOpenMode={(mode) => {
+        useNavigationPrefs.getState().dismissFirstRun()
+        onOpenMode(mode)
+      }}
       onNewWorkspace={onNewWorkspace}
     />
   )

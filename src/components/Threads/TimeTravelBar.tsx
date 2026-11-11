@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { X } from 'lucide-react'
+import { AlertTriangle, History, Info, X } from 'lucide-react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { branchNameFor } from '../../../shared/branch-name'
@@ -26,6 +26,7 @@ export interface TimeTravelBarProps {
   title: string
   agent: string
   onBranched: (result: TimeTravelBranchedResult) => void
+  onCompareWithNow?: () => void
   onClose: () => void
 }
 
@@ -109,7 +110,7 @@ function buildCantGoBack(
   }
 }
 
-export function TimeTravelBar({ threadId, title, agent, onBranched, onClose }: TimeTravelBarProps) {
+export function TimeTravelBar({ threadId, title, agent, onBranched, onCompareWithNow, onClose }: TimeTravelBarProps) {
   const { t, i18n } = useTranslation('thread')
   const [timeline, setTimeline] = useState<ThreadTimeline | null>(null)
   const [step, setStep] = useState(0)
@@ -172,6 +173,7 @@ export function TimeTravelBar({ threadId, title, agent, onBranched, onClose }: T
 
   const { checkpoints, cantGoBack, canBranch } = timeline
   const cantGoBackNote = buildCantGoBack(cantGoBack, t)
+  const hasIrreversible = BUCKET_ORDER.some(bucket => Number(cantGoBack[bucket] ?? 0) > 0)
 
   if (checkpoints.length === 0) {
     return (
@@ -180,7 +182,12 @@ export function TimeTravelBar({ threadId, title, agent, onBranched, onClose }: T
           <EmptyState compact title={t('timeTravel.noCheckpoints')} />
           <IconButton size="sm" label={t('timeTravel.close')} icon={<X size={14} />} onClick={onClose} />
         </div>
-        <p role="note" className={styles.cantGoBack} title={cantGoBackNote.tooltip}>{cantGoBackNote.text}</p>
+        <div role="note" className={styles.cantGoBack} data-tone={hasIrreversible ? 'warning' : 'info'} title={cantGoBackNote.tooltip}>
+          {hasIrreversible
+            ? <AlertTriangle size={14} aria-hidden="true" className={styles.cantGoBackIcon} />
+            : <Info size={14} aria-hidden="true" className={styles.cantGoBackIcon} />}
+          <span>{cantGoBackNote.text}</span>
+        </div>
       </section>
     )
   }
@@ -191,6 +198,7 @@ export function TimeTravelBar({ threadId, title, agent, onBranched, onClose }: T
   const currentCheckpoint = isBetween ? null : checkpoints[clampedStep / 2] ?? null
   const laterStartIndex = isBetween ? Math.ceil(clampedStep / 2) : clampedStep / 2 + 1
   const laterCheckpoints = checkpoints.slice(laterStartIndex)
+  const sliderPos = maxStep > 0 ? `${(clampedStep / maxStep) * 100}%` : '50%'
 
   const statusText = isBetween
     ? t('timeTravel.betweenCheckpoints')
@@ -338,29 +346,56 @@ export function TimeTravelBar({ threadId, title, agent, onBranched, onClose }: T
   return (
     <section className={styles.bar} aria-label={t('timeTravel.region')}>
       <div className={styles.header}>
-        <div className={styles.titleGroup}>
-          <span className={styles.status}>{statusText}</span>
-          {currentCheckpoint && <span className={styles.checkpointLabel}>{currentCheckpoint.label}</span>}
+        <div className={styles.headerTitle}>
+          <History size={15} aria-hidden="true" className={styles.titleIcon} />
+          <strong className={styles.titleText}>{t('timeTravel.button')}</strong>
+          <span className={styles.counts}>
+            {t('timeTravel.counts', { checkpoints: checkpoints.length, steps: maxStep + 1 })}
+          </span>
         </div>
-        <IconButton size="sm" label={t('timeTravel.close')} icon={<X size={14} />} onClick={onClose} />
+        <div className={styles.headerRight}>
+          <div className={styles.legend} aria-hidden="true">
+            <span className={styles.legendItem}><i className={styles.legendCheckpoint} />{t('timeTravel.legend.checkpoint')}</span>
+            <span className={styles.legendItem}><i className={styles.legendStep} />{t('timeTravel.legend.step')}</span>
+            <span className={styles.legendItem}><i className={styles.legendCurrent} />{t('timeTravel.legend.viewing')}</span>
+            <span className={styles.legendItem}><i className={styles.legendWarn} />{t('timeTravel.legend.transcriptOnly')}</span>
+          </div>
+          <IconButton size="sm" label={t('timeTravel.close')} icon={<X size={14} />} onClick={onClose} />
+        </div>
       </div>
 
       <div className={styles.trackRow}>
         <div className={styles.track} data-track="" onClick={onTrackClick}>
+          <span
+            className={styles.trackFill}
+            style={{ '--pos': sliderPos } as CSSProperties}
+            aria-hidden="true"
+          />
+          {maxStep > 0 && checkpoints.slice(0, -1).map((cp, index) => (
+            <span
+              key={`step-${cp.id}`}
+              className={styles.stepTick}
+              style={{ '--pos': `${((2 * index + 1) / maxStep) * 100}%` } as CSSProperties}
+              aria-hidden="true"
+            />
+          ))}
           {checkpoints.map((cp, index) => (
             <span
               key={cp.id}
               className={styles.tick}
               data-failed={cp.failed ? '' : undefined}
+              data-passed={2 * index <= clampedStep ? '' : undefined}
               style={{ '--pos': maxStep > 0 ? `${(2 * index / maxStep) * 100}%` : '50%' } as CSSProperties}
               aria-hidden="true"
-            />
+            >
+              <span className={styles.tickTime}>{formatCheckpointTime(cp.at, i18n.language)}</span>
+            </span>
           ))}
           <div
             role="slider"
             tabIndex={0}
             className={styles.knob}
-            style={{ '--pos': maxStep > 0 ? `${(clampedStep / maxStep) * 100}%` : '50%' } as CSSProperties}
+            style={{ '--pos': sliderPos } as CSSProperties}
             aria-label={t('timeTravel.sliderLabel')}
             aria-valuemin={0}
             aria-valuemax={maxStep}
@@ -369,6 +404,11 @@ export function TimeTravelBar({ threadId, title, agent, onBranched, onClose }: T
             onKeyDown={onKnobKeyDown}
           />
         </div>
+      </div>
+
+      <div className={styles.titleGroup}>
+        <span className={styles.status}>{statusText}</span>
+        {currentCheckpoint && <span className={styles.checkpointLabel}>{currentCheckpoint.label}</span>}
       </div>
 
       {currentCheckpoint && !currentCheckpoint.failed && currentCheckpoint.files.length > 0 && (
@@ -390,11 +430,24 @@ export function TimeTravelBar({ threadId, title, agent, onBranched, onClose }: T
         </section>
       )}
 
-      <p role="note" className={styles.cantGoBack} title={cantGoBackNote.tooltip}>
-        {cantGoBackNote.text}
-      </p>
+      <div
+        role="note"
+        className={styles.cantGoBack}
+        data-tone={hasIrreversible ? 'warning' : 'info'}
+        title={cantGoBackNote.tooltip}
+      >
+        {hasIrreversible
+          ? <AlertTriangle size={14} aria-hidden="true" className={styles.cantGoBackIcon} />
+          : <Info size={14} aria-hidden="true" className={styles.cantGoBackIcon} />}
+        <span>{cantGoBackNote.text}</span>
+      </div>
 
       <div className={styles.actionsRow}>
+        {onCompareWithNow && clampedStep < maxStep ? (
+          <Button size="sm" variant="secondary" onClick={onCompareWithNow}>
+            {t('timeTravel.compareWithNow')}
+          </Button>
+        ) : null}
         <Button
           size="sm"
           variant="secondary"
@@ -420,6 +473,13 @@ export function TimeTravelBar({ threadId, title, agent, onBranched, onClose }: T
           {t('timeTravel.branchButton')}
         </Button>
         {unsupportedText && <span className={styles.unsupportedNote}>{unsupportedText}</span>}
+        {clampedStep < maxStep ? (
+          <span className={styles.backToNowSlot}>
+            <Button size="sm" variant="primary" onClick={() => setStep(maxStep)}>
+              {t('timeTravel.backToNow')}
+            </Button>
+          </span>
+        ) : null}
       </div>
 
       {restoreDialog && (

@@ -988,7 +988,7 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
     <section className="settings-modal-content" aria-labelledby="settings-updates-title">
       <SettingsContentHeader
         kicker={t('updates.kicker')}
-        title={t('updates.title')}
+        title={t('center.pages.about.label', { defaultValue: t('updates.title') })}
         titleId="settings-updates-title"
         description={t('updates.description')}
         onClose={onClose}

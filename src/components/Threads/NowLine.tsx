@@ -30,7 +30,11 @@ const VERB_KEYS: Partial<Record<ThreadActivityVerb | string, VerbI18nKey>> = {
 }
 
 function stripEndDot(value: string | undefined): string {
-  return (value ?? '').trim().replace(/\.+$/, '')
+  return (value ?? '').replace(/[*_`]+$/g, '').trim().replace(/\.+$/, '')
+}
+
+function lowerVerbStart(value: string): string {
+  return /^[A-Z][a-zÀ-ÿ]/.test(value) ? value[0].toLowerCase() + value.slice(1) : value
 }
 
 export function NowLine(props: {
@@ -48,7 +52,7 @@ export function NowLine(props: {
 
   switch (activity.kind) {
     case 'needs-you': {
-      const request = stripEndDot(activity.text)
+      const request = lowerVerbStart(stripEndDot(activity.text))
       copy = request ? t('nowLine.needsYou', { agent, request }) : t('nowLine.needsYouShort', { agent })
       buttons = irreversible
         ? [
@@ -111,9 +115,12 @@ export function NowLine(props: {
     }
   }
 
+  const leadEnd = copy.indexOf('. ')
   return (
     <div className="thread-now-line" data-kind={activity.kind}>
-      <p role="status" className="thread-now-line-copy">{copy}</p>
+      <p role="status" className="thread-now-line-copy">
+        {leadEnd > 0 ? <><strong>{copy.slice(0, leadEnd + 1)}</strong>{copy.slice(leadEnd + 1)}</> : <strong>{copy}</strong>}
+      </p>
       {buttons.length > 0 && (
         <div className="thread-now-line-actions">
           {buttons.slice(0, 2).map(item => (

@@ -19,9 +19,8 @@ for (const theme of THEMES) {
       await page.getByRole('button', { name: 'Open settings', exact: true }).click()
       const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
       await expect(settings).toBeVisible()
-      await settings.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: 'Application', exact: true }).click()
       for (const [id, label] of PAGES) {
-        await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: new RegExp(`^${label}`) }).click()
+        await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: new RegExp(`^(?:Application: )?${label}`) }).click()
         await expect(settings.locator('.settings-center-content')).toBeVisible()
         await expectSurface(page, `settings-${id}-${theme}`, { target: settings })
       }

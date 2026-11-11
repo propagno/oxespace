@@ -1,6 +1,6 @@
 import { Suspense, lazy, memo, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels'
-import { Activity, MoreHorizontal, Network, PanelsTopLeft, PlugZap, Plus, type LucideIcon } from 'lucide-react'
+import { Activity, Bot, LayoutGrid, MoreHorizontal, Network, PanelsTopLeft, PlugZap, Plus, type LucideIcon } from 'lucide-react'
 import { Button, Menu } from '../../ui'
 import { WorkbenchPanelMenu, WorkbenchPanelToggle, type WorkbenchPanelItem } from '../Workbench/WorkbenchPanelMenu'
 import { CODE_BAR_PANELS, CODE_MENU_PANELS, WORKBENCH_PANELS } from '../Workbench/panelCatalog'
@@ -13,6 +13,7 @@ import { WorkspaceSplitGrid } from '../Grid/WorkspaceSplitGrid'
 import { usePaneLayoutStore } from '../../store/pane-layout.store'
 import { useUIStore } from '../../store/ui.store'
 import { useTerminalStore } from '../../store/terminal.store'
+import { useWorkspaceStore } from '../../store/workspace.store'
 import { resolveWorkspaceScope } from '../../utils/workspaceScope'
 // Side panels are lazy-loaded: they only mount when the user opens them, so
 // keeping them out of the initial bundle cuts first-paint parse/exec time. The
@@ -565,6 +566,73 @@ function WorkspaceSurfaceComponent({
           {tc('workspace.topbar.addTerminal')}
         </Button>
       ) : null}
+      {agentProfiles && agentProfiles.length > 0 ? (
+        <Menu
+          label={tc('workspace.topbar.agentMenu', { defaultValue: 'Launch agent' })}
+          trigger={
+            <Button
+              variant="ghost"
+              size="sm"
+              className="workspace-topbar-add-btn"
+              icon={<Bot size={12} aria-hidden="true" />}
+            >
+              {tc('workspace.topbar.agent', { defaultValue: 'Agent' })}
+            </Button>
+          }
+          items={agentProfiles.map(profile => ({
+            label: profile.name,
+            onSelect: () => {
+              void (async () => {
+                const paneId = await useWorkspaceStore.getState().createPane(workspace.id)
+                await useWorkspaceStore.getState().setPaneAgent(paneId, profile.agentProfileId)
+              })()
+            }
+          }))}
+        />
+      ) : null}
+      <Menu
+        label={tc('workspace.topbar.layoutMenu', { defaultValue: 'Terminal grid layout' })}
+        trigger={
+          <Button
+            variant="ghost"
+            size="sm"
+            className="workspace-topbar-add-btn"
+            icon={<LayoutGrid size={12} aria-hidden="true" />}
+          >
+            {maximizedPaneId
+              ? tc('workspace.topbar.layoutFocus', { defaultValue: 'Focus' })
+              : workspace.layoutPreset === 1
+                ? '1 × 1'
+                : workspace.layoutPreset === 2
+                  ? '1 × 2'
+                  : workspace.layoutPreset === 6
+                    ? '2 × 3'
+                    : '2 × 2'}
+          </Button>
+        }
+        items={[
+          {
+            type: 'radio',
+            value: maximizedPaneId ? 'focus' : String(workspace.layoutPreset ?? 4),
+            onValueChange: value => {
+              if (value === 'focus') {
+                if (splitTargetPaneId && !maximizedPaneId) onToggleMaximize(splitTargetPaneId)
+                return
+              }
+              if (maximizedPaneId) onToggleMaximize(maximizedPaneId)
+              const preset = Number(value) as 1 | 2 | 4 | 6
+              void useWorkspaceStore.getState().updateSettings({ workspaceId: workspace.id, layoutPreset: preset })
+            },
+            options: [
+              { value: '1', label: '1 × 1' },
+              { value: '2', label: '1 × 2' },
+              { value: '4', label: '2 × 2' },
+              { value: '6', label: '2 × 3' },
+              ...(splitTargetPaneId ? [{ value: 'focus', label: tc('workspace.topbar.layoutFocus', { defaultValue: 'Focus active pane' }) }] : [])
+            ]
+          }
+        ]}
+      />
       <div className="workspace-topbar-spacer" />
       {panels?.filter(item => CODE_BAR_PANELS.includes(item.id)).map(item => <WorkbenchPanelToggle key={item.id} item={item} className="workspace-topbar-action" />)}
       {panels && <WorkbenchPanelMenu items={panels.filter(item => CODE_MENU_PANELS.includes(item.id))} testId="workspace-panels-menu"

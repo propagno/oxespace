@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next'
 import type { ApprovalDatabasePreview } from '../../../shared/types/approvals'
 import type { ThreadRequest, ThreadRequestResponse } from '../../../shared/types/thread'
 import { i18n } from '../../i18n'
-import { Button, Checkbox, Dialog, Notice } from '../../ui'
+import { Badge, Button, Checkbox, Dialog, Notice } from '../../ui'
+import { formatNumber } from '../../utils/formatTime'
 import styles from './Approvals.module.css'
 import { HoldToApprove } from './HoldToApprove'
 import { ImpactFacts } from './ImpactFacts'
@@ -116,6 +117,16 @@ export function ImpactPreview({
     setUnderstood(false)
   }
 
+  const dialogTitle = (
+    <span className={styles.previewDialogTitle}>
+      <span className={styles.previewSunDot} aria-hidden="true" />
+      <span>{request.title}</span>
+      <Badge intent={impact.reversible ? 'success' : 'danger'}>
+        {impact.reversible ? t('f7.facts.canUndo') : t('f7.facts.cannotUndo')}
+      </Badge>
+    </span>
+  )
+
   const footer = (
     <>
       <Button
@@ -171,20 +182,13 @@ export function ImpactPreview({
 
   return (
     <>
-      <Dialog size="lg" title={request.title} onClose={onClose} footer={footer}>
+      <Dialog size="lg" title={dialogTitle} onClose={onClose} footer={footer}>
         <div className={styles.previewStack}>
           <p className={styles.contextLine}>{contextLine}</p>
 
           {impact.why ? <p className={styles.whyText}>{impact.why}</p> : null}
 
           <ImpactFacts impact={impact} layout="grid" countOverride={countOverride} />
-
-          <section className={styles.sectionBlock}>
-            <h3 className={styles.sectionHeading}>{t('f7.preview.exactHeading')}</h3>
-            <pre className={styles.codeBlock}>
-              <code>{impact.text}</code>
-            </pre>
-          </section>
 
           {impact.kind === 'db' && dbPreview ? (
             <section className={styles.sectionBlock}>
@@ -194,7 +198,9 @@ export function ImpactPreview({
                   <p className={styles.sampleMeta}>
                     {t('f7.preview.sampleCount', {
                       sampleCount: dbPreview.sample.rows.length,
-                      count: dbPreview.count ?? dbPreview.sample.rows.length
+                      count: dbPreview.count ?? dbPreview.sample.rows.length,
+                      formattedSample: formatNumber(dbPreview.sample.rows.length),
+                      formattedCount: formatNumber(dbPreview.count ?? dbPreview.sample.rows.length)
                     })}
                   </p>
                   <div className={styles.sampleWrap}>
@@ -227,6 +233,13 @@ export function ImpactPreview({
               ) : null}
             </section>
           ) : null}
+
+          <section className={styles.sectionBlock}>
+            <h3 className={styles.sectionHeading}>{t('f7.preview.exactHeading')}</h3>
+            <pre className={styles.codeBlock}>
+              <code>{impact.text}</code>
+            </pre>
+          </section>
 
           {impact.reversible ? (
             <Notice intent="success">{reversibleText}</Notice>

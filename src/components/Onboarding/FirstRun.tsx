@@ -5,7 +5,6 @@ import type { AgentProvider } from '../../../shared/types/agent'
 import { OxeCodeIcon } from '../../design/icons/OxeCodeIcon'
 import { OxeQueryIcon } from '../../design/icons/OxeQueryIcon'
 import { Button, cx } from '../../ui'
-import { OxeLogo } from '../Brand/OxeLogo'
 import { PROVIDER_INSTALL_DOCS } from '../Settings/providerInstallDocs'
 import { openInstallDocs } from './AgentCliOnboarding'
 import styles from './FirstRun.module.css'
@@ -69,16 +68,12 @@ export function FirstRun({
     <section className={styles.screen} data-testid="first-run">
       <div className={styles.inner}>
         <header className={styles.hero}>
-          <span className={styles.heroBrand}>
-            <OxeLogo size={18} />
-            <span>OXESpace 1.5</span>
-          </span>
           <h1 className={styles.heroTitle}>{t('firstRun.v2.heroTitle')}</h1>
           <p className={styles.heroLead}>{t('firstRun.v2.heroLead')}</p>
         </header>
 
         <ol className={styles.steps}>
-          <li className={styles.step} data-done={Boolean(folder) || undefined}>
+          <li className={cx(styles.step, !folder && styles.stepActive)} data-done={Boolean(folder) || undefined}>
             <span className={styles.stepNum} aria-hidden="true">
               {folder ? <Check size={13} /> : '1'}
             </span>
@@ -86,14 +81,14 @@ export function FirstRun({
               <div className={styles.stepHeader}>
                 <h3 className={styles.stepTitle}>{t('firstRun.v2.folderStep')}</h3>
                 <div className={styles.actions}>
-                  <Button variant="secondary" size="sm" onClick={onOpenFolder}>{t('firstRun.v2.chooseFolder')}</Button>
+                  <Button variant={folder ? 'secondary' : 'primary'} size="sm" onClick={onOpenFolder}>{t('firstRun.v2.chooseFolder')}</Button>
                 </div>
               </div>
               {folder ? <p className={styles.folderBadge}>{folder}</p> : null}
             </div>
           </li>
 
-          <li className={styles.step} data-done={hasReadyAgent || undefined}>
+          <li className={cx(styles.step, Boolean(folder) && !hasReadyAgent && styles.stepActive)} data-done={hasReadyAgent || undefined}>
             <span className={styles.stepNum} aria-hidden="true">
               {hasReadyAgent ? <Check size={13} /> : '2'}
             </span>

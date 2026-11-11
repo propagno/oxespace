@@ -116,19 +116,19 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
 
     const modeDestinations = [
       {
-        id: 'oxechat',
-        label: 'OxeChat',
-        match: 'oxechat',
-        secondary: isPt ? 'Conversas e tarefas delegadas' : 'Conversations and delegated work',
-        also: 'OxeChat',
-        shortcut: formatChord('Mod+1')
-      },
-      {
         id: 'oxecode',
         label: 'OxeCode',
         match: 'oxecode',
         secondary: isPt ? 'Workspaces, terminais e alterações' : 'Workspaces, terminals and changes',
         also: 'OxeCode',
+        shortcut: formatChord('Mod+1')
+      },
+      {
+        id: 'oxechat',
+        label: 'OxeChat',
+        match: 'oxechat',
+        secondary: isPt ? 'Conversas e tarefas delegadas' : 'Conversations and delegated work',
+        also: 'OxeChat',
         shortcut: formatChord('Mod+2')
       },
       {
@@ -632,23 +632,70 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
         </div>
 
         {!trimmed && !refusal && (
-          <div className={styles.hints}>
-            {(['agent', 'skill', 'open', 'help'] as const).map(kind => (
-              <div
-                key={kind}
-                className={styles.hintCard}
-                onClick={() => {
-                  setQuery(HINT_FILL[kind])
-                  setActiveIndex(0)
-                  setRefusal(null)
-                  setAnnounced('')
-                  inputRef.current?.focus({ preventScroll: true })
-                }}
-              >
-                <code className={styles.hintExample}>{t(`commandBar.examples.${kind}`)}</code>
-                <span className={styles.hintText}>{t(`commandBar.hints.${kind}`)}</span>
+          <div className={styles.emptyBody}>
+            <div className={styles.hints}>
+              {(['agent', 'skill', 'open', 'help'] as const).map(kind => (
+                <div
+                  key={kind}
+                  className={styles.hintCard}
+                  onClick={() => {
+                    setQuery(HINT_FILL[kind])
+                    setActiveIndex(0)
+                    setRefusal(null)
+                    setAnnounced('')
+                    inputRef.current?.focus({ preventScroll: true })
+                  }}
+                >
+                  <code className={styles.hintExample}>{t(`commandBar.examples.${kind}`)}</code>
+                  <span className={styles.hintText}>{t(`commandBar.hints.${kind}`)}</span>
+                </div>
+              ))}
+            </div>
+            <div className={styles.defaultSections}>
+              <div className={styles.group}>
+                <div className={styles.groupHeading}>{isPt ? 'Ações' : 'Actions'}</div>
+                {COMMAND_CATALOG.filter((entry): entry is typeof entry & { id: Exclude<typeof entry.id, 'skill'> } => !GO_TO_COMMAND_IDS.has(entry.id) && entry.id !== 'skill').slice(0, 4).map(entry => (
+                  <Button
+                    key={entry.id}
+                    variant="ghost"
+                    className={styles.defaultRow}
+                    onClick={() => void executeParsed({ kind: 'command', id: entry.id, args: '' })}
+                  >
+                    <span className={styles.optionMain}>
+                      <span className={styles.optionPrimary}>/{entry.id}</span>
+                      <span className={styles.optionSecondary}>{t(`commandBar.catalog.${entry.id}`)}</span>
+                    </span>
+                    <span className={styles.optionMeta}>
+                      {entry.shortcut ? <Kbd>{formatChord(entry.shortcut)}</Kbd> : null}
+                    </span>
+                  </Button>
+                ))}
               </div>
-            ))}
+              <div className={styles.group}>
+                <div className={styles.groupHeading}>{t('commands.category.goTo', { defaultValue: isPt ? 'Ir para' : 'Go to' })}</div>
+                {[
+                  { id: 'oxecode', label: 'OxeCode', desc: isPt ? 'Workspaces, terminais e alterações' : 'Workspaces, terminals and changes', chord: 'Mod+1' },
+                  { id: 'oxechat', label: 'OxeChat', desc: isPt ? 'Conversas e tarefas delegadas' : 'Conversations and delegated work', chord: 'Mod+2' },
+                  { id: 'oxequery', label: 'OxeQuery', desc: isPt ? 'Bancos de dados, SQL e MongoDB' : 'Databases, SQL and MongoDB', chord: 'Mod+3' },
+                  { id: 'settings', label: isPt ? 'Configurações' : 'Settings', desc: isPt ? 'Preferências do aplicativo e do workspace' : 'Application and workspace preferences', chord: 'Mod+,' }
+                ].map(dest => (
+                  <Button
+                    key={dest.id}
+                    variant="ghost"
+                    className={styles.defaultRow}
+                    onClick={() => void executeParsed({ kind: 'open', query: dest.id })}
+                  >
+                    <span className={styles.optionMain}>
+                      <span className={styles.optionPrimary}>{dest.label}</span>
+                      <span className={styles.optionSecondary}>{dest.desc}</span>
+                    </span>
+                    <span className={styles.optionMeta}>
+                      <Kbd>{formatChord(dest.chord)}</Kbd>
+                    </span>
+                  </Button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 

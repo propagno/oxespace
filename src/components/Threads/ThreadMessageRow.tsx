@@ -63,7 +63,6 @@ export function ThreadMessageRow({ event, turnEvents, snapshot, running, pending
           <AgentProviderIcon provider={provider} size={18} />
         </span>
         <span className="thread-agent-name">{provider === 'claude' ? 'Claude' : 'Codex'}</span>
-        {final && <span className="thread-final-label">{t('message.final')}</span>}
       </div>
     )}
     {event.role === 'user' && event.attachments?.length ? <ul className="thread-sent-attachments" aria-label={t('message.attachments')}>{event.attachments.map(attachment => <li key={attachment.id} title={attachment.name}><ImageIcon size={14} aria-hidden="true" /><span>{attachment.name}</span><small>{kilobytes(attachment.bytes)}</small></li>)}</ul> : null}
@@ -87,7 +86,7 @@ export function ThreadMessageRow({ event, turnEvents, snapshot, running, pending
     {event.role !== 'user' && event.attachments?.length ? <div className="thread-message-attachments" aria-label={t('message.attachments')}>{event.attachments.map(attachment => <span key={attachment.id}><Paperclip size={12} />{attachment.name}<small>{kilobytes(attachment.bytes)}</small></span>)}</div> : null}
     {event.role === 'assistant' && <div className="thread-message-actions">
       <button type="button" aria-label={t('message.quote')} title={t('message.quote')} onClick={() => onQuote(copyText)}><Quote size={14} /></button>
-      <button type="button" aria-label={copied ? t('message.copiedLabel') : final ? t('message.copyFinal') : t('message.copyResponse')} title={copied ? t('message.copied') : final ? t('message.copyFinal') : t('message.copyResponse')} onClick={() => onCopy(event.id, copyText)}>{copied ? <Check size={14} className="oxe-confirm" /> : <Copy size={14} />}{final && <span>{copied ? t('message.copied') : t('message.copy')}</span>}</button>
+      <button type="button" aria-label={copied ? t('message.copiedLabel') : final ? t('message.copyFinal') : t('message.copyResponse')} title={copied ? t('message.copied') : final ? t('message.copyFinal') : t('message.copyResponse')} onClick={() => onCopy(event.id, copyText)}>{copied ? <Check size={14} className="oxe-confirm" /> : <Copy size={14} />}</button>
     </div>}
   </article>
 }

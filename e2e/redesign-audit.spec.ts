@@ -207,17 +207,12 @@ test('redesign audit', async () => {
     await step('settings', async () => {
       await page.keyboard.press('Control+,')
       await page.locator('.settings-center').waitFor({ timeout: 5000 })
-      for (const scope of ['Application', 'Workspace']) {
-        await step(`scope-${scope}`, async () => {
-          await page.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: scope === 'Application' ? scope : /Current workspace/ }).click()
-          const nav = page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button')
-          const n = await nav.count()
-          for (let i = 0; i < n; i++) {
-            const label = ((await nav.nth(i).innerText()).split('\n')[0] || `cat${i}`).trim()
-            await nav.nth(i).click()
-            await capture(page, `12-settings-${scope.toLowerCase()}-${String(i).padStart(2, '0')}-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 24)}`)
-          }
-        })
+      const nav = page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button')
+      const n = await nav.count()
+      for (let i = 0; i < n; i++) {
+        const label = ((await nav.nth(i).innerText()).split('\n')[0] || `cat${i}`).trim()
+        await nav.nth(i).click()
+        await capture(page, `12-settings-${String(i).padStart(2, '0')}-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 24)}`)
       }
       await page.keyboard.press('Escape')
     })

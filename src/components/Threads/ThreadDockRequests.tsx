@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { ErrorState } from '../../ui'
 import type { ThreadRequest, ThreadSnapshot } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
+import { useOpenRequest } from '../Approvals/openRequest'
 import { QueuedMessageRow } from './QueuedMessageRow'
 import { ThreadRequestCard } from './ThreadRequestCard'
 import { ThreadPromptQueue } from './ThreadPromptQueue'
@@ -43,7 +44,7 @@ export function ThreadDockRequests({ snapshot, pendingRequests, pending, action 
       </span>
     </div>}
     {pendingRequests.length > 0 && <section id={listId} className="thread-pending-requests" aria-label={t('requests.label')} hidden={hidden} data-expanded={expanded || undefined}>
-      {pendingRequests.map(request => <ThreadRequestCard key={`${id}:${request.id}:${request.generation}`} conversationId={id} agent={agentName} request={request} disabled={pending} onRespond={response => action(() => api!.respond!(id, request.id, response))}
+      {pendingRequests.map(request => <ThreadRequestCard key={`${id}:${request.id}:${request.generation}`} conversationId={id} agent={agentName} request={request} disabled={pending} onSeeImpact={() => useOpenRequest.getState().open(request.id)} onRespond={response => action(() => api!.respond!(id, request.id, response))}
         onRemember={api?.addPermissionRule ? async suggestions => { for (const item of suggestions) await api.addPermissionRule!(id, { kind: item.kind, pattern: item.pattern, decision: 'allow', scope: 'project' }) } : undefined} />)}
     </section>}
     {orphanedApproval && <ErrorState compact title={t('requests.orphaned')} actions={<button type="button" disabled={pending} onClick={() => void action(() => useThreadStore.getState().refresh(id))}>{t('requests.refresh')}</button>} />}

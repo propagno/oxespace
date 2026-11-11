@@ -4,17 +4,19 @@ import { useTranslation } from 'react-i18next'
 import { useAttentionSummary } from '../../hooks/useAttentionSummary'
 import { withShortcut } from '../../keyboard/keybindings'
 import { cx } from '../../ui'
+import { useApprovalsStore } from '../Approvals/approvals.store'
 import { OPEN_APPROVAL_QUEUE_EVENT } from '../Approvals/approvalsBoot'
 import styles from './TitleBar.module.css'
 
 /**
- * Title-bar approval queue pill (Playground parity D1.2): shows how many agents are waiting
- * on a person across Code and Chat, and opens ApprovalQueueModal (`Ctrl+Shift+A`) on click.
+ * Title-bar approval queue pill (Playground parity D1.2): shows how many agents and panels are waiting
+ * on a person across Code, Chat and dock tools, and opens the Approvals queue (`Ctrl+Shift+A`) on click.
  */
 export function NeedsYouPill(): ReactElement {
   const { t } = useTranslation()
   const attention = useAttentionSummary()
-  const count = attention.code.needsYou + attention.thread.needsYou
+  const paneWaiting = useApprovalsStore(state => state.queue.length)
+  const count = attention.code.needsYou + attention.thread.needsYou + paneWaiting
   const label = count > 0 ? t('attention.needsYou', { count }) : t('attention.nothingWaiting')
   const title = withShortcut(t('attention.approvalsWaiting'), 'approvals.queue')
 

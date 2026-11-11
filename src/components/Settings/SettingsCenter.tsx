@@ -19,6 +19,8 @@ import { useWorkspaceStore } from '../../store/workspace.store'
 import { SearchField } from '../Navigation/SearchField'
 import { useNavigationPrefs } from '../../store/navigation-prefs.store'
 import { useTerminalStore } from '../../store/terminal.store'
+import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
+import { useActivityStore } from '../../store/activity.store'
 import { useSettingsStore, VISITED_WORKSPACES_CAP_MAX, VISITED_WORKSPACES_CAP_MIN } from '../../store/settings.store'
 
 /**
@@ -159,18 +161,26 @@ export function SettingsCenter(props: SettingsModalProps & {
     try { localStorage.setItem('oxe.settings.destination', JSON.stringify(next)) } catch { /* Preferences are optional. */ }
   }
   const close = (): void => props.onClose()
-  const pages: readonly NavEntry[] = destination.scope === 'workspace' ? SETTINGS_PAGES : APPLICATION_SETTINGS_PAGES
-  const filtered = pages.filter(p => matchesPage(p, query))
-  const secondaryPages: readonly NavEntry[] = destination.scope === 'application'
-    ? (scopeWorkspace ? SETTINGS_PAGES.filter(p => p.id !== 'general' && matchesPage(p, query)) : [])
-    : APPLICATION_SETTINGS_PAGES.filter(p => p.id !== 'general' && matchesPage(p, query))
+  const mcpCount = useMcpStore(selectMcpServers(scopeWorkspace?.id ?? activeWorkspaceId)).length
+  const activityCount = useActivityStore(state => state.items.length)
+  const readyAgentsCount = (props.agentReadiness ?? []).filter(r => r.status === 'ready' || r.status === 'partial').length
+  const appBadge = (id: string): number => (id === 'providers' ? readyAgentsCount : id === 'mcp' ? mcpCount : id === 'activity' ? activityCount : 0)
+  const appFiltered = APPLICATION_SETTINGS_PAGES.filter(p => matchesPage(p, query))
+  const wsFiltered = scopeWorkspace ? SETTINGS_PAGES.filter(p => matchesPage(p, query)) : []
   const workspaceCaption = scopeWorkspace ? t('center.workspaceNamed', { name: scopeWorkspace.name }) : t('center.workspace')
-  const renderNavButton = ({ icon: Icon, ...page }: NavEntry, current: boolean, onSelect: () => void, keyPrefix = ''): ReactElement => (
-    <button key={`${keyPrefix}${page.id}`} title={page.hint} aria-label={`${page.label} ${page.hint ?? ''}`} aria-current={current ? 'page' : undefined} onClick={onSelect}>
+  const renderNavButton = ({ icon: Icon, ...page }: NavEntry, current: boolean, onSelect: () => void, keyPrefix = '', inactiveScopeLabel?: string, badge = 0): ReactElement => (
+    <button
+      key={`${keyPrefix}${page.id}`}
+      title={page.hint}
+      aria-label={inactiveScopeLabel && page.id === 'general' ? `${inactiveScopeLabel}: ${page.label} ${page.hint ?? ''}` : `${page.label} ${page.hint ?? ''}`}
+      aria-current={current ? 'page' : undefined}
+      onClick={onSelect}
+    >
       <Icon size={16} aria-hidden="true" /><span>{page.label}</span>
+      {badge > 0 ? <small className="settings-nav-badge" aria-hidden="true">{badge}</small> : null}
     </button>
   )
-  const hasAnyNav = filtered.length > 0 || secondaryPages.length > 0
+  const hasAnyNav = appFiltered.length > 0 || wsFiltered.length > 0
 
   return <ModalRoot open onOpenChange={open => { if (!open) close() }}>
     <ModalSurface className="settings-center" style={{ '--settings-navigation-width': `${navigationWidth}px` } as CSSProperties} scrimClassName="settings-center-overlay" toasts aria-describedby={undefined}
@@ -179,40 +189,35 @@ export function SettingsCenter(props: SettingsModalProps & {
       <aside className="settings-center-nav">
         <ModalTitle className="settings-center-title"><Settings2 size={16} />{t('center.title')}</ModalTitle>
         <SearchField className="settings-search" ref={search} label={t('center.searchLabel')} placeholder={t('center.searchPlaceholder')} value={query} onChange={setQuery} shortcut="Ctrl F" />
-        <div className="settings-scope"><span>{t('center.settingsFor')}</span>
-          <div className="settings-scope-choices" role="group" aria-label={t('center.scope')}>
-            <button type="button" aria-pressed={destination.scope === 'application'} onClick={() => go({ scope: 'application', page: 'appearance' })}>{t('center.application')}</button>
-            {scopeWorkspace && <button type="button" aria-pressed={destination.scope === 'workspace'} title={scopeWorkspace.rootPath}
-              onClick={() => go({ scope: 'workspace', workspaceId: scopeWorkspace.id, page: 'general' })}>
-              <span>{scopeWorkspace.name}</span><small>{t('center.currentWorkspace')}</small>
-            </button>}
-          </div>
-        </div>
         <div className="settings-scope settings-compact-category"><span>{t('center.category')}</span>
           <div className="settings-category-choices" role="group" aria-label={t('center.categoryGroup')}>
-            {filtered.map(page => <button type="button" key={page.id} aria-pressed={destination.page === page.id}
-              onClick={() => go(destination.scope === 'application' ? { scope: 'application', page: page.id as AppPage } : { ...destination, page: page.id as typeof SETTINGS_PAGES[number]['id'] })}>{page.label}</button>)}
-            {!filtered.length && <EmptyState compact title={t('center.noMatch')} />}
+            {appFiltered.map(page => <button type="button" key={`app-${page.id}`} aria-pressed={destination.scope === 'application' && destination.page === page.id}
+              onClick={() => go({ scope: 'application', page: page.id as AppPage })}>{page.label}</button>)}
+            {scopeWorkspace && wsFiltered.map(page => <button type="button" key={`ws-${page.id}`} aria-pressed={destination.scope === 'workspace' && destination.page === page.id}
+              onClick={() => go({ scope: 'workspace', workspaceId: scopeWorkspace.id, page: page.id as typeof SETTINGS_PAGES[number]['id'] })}>{`${scopeWorkspace.name}: ${page.label}`}</button>)}
+            {!hasAnyNav && <EmptyState compact title={t('center.noMatch')} />}
           </div>
         </div>
         <nav aria-label={t('center.categories')}>
-          {filtered.length > 0 && <>
-            <span className="settings-nav-caption">{destination.scope === 'application' ? t('center.application') : workspaceCaption}</span>
-            {filtered.map(page => renderNavButton(
+          {appFiltered.length > 0 && <>
+            <span className="settings-nav-caption">{t('center.application')}</span>
+            {appFiltered.map(page => renderNavButton(
               page,
-              destination.page === page.id,
-              () => go(destination.scope === 'application' ? { scope: 'application', page: page.id as AppPage } : { ...destination, page: page.id as typeof SETTINGS_PAGES[number]['id'] })
+              destination.scope === 'application' && destination.page === page.id,
+              () => go({ scope: 'application', page: page.id as AppPage }),
+              'app-',
+              destination.scope !== 'application' ? t('center.application') : undefined,
+              appBadge(page.id)
             ))}
           </>}
-          {secondaryPages.length > 0 && <>
-            <span className="settings-nav-caption settings-nav-caption-sub">{destination.scope === 'application' ? workspaceCaption : t('center.application')}</span>
-            {secondaryPages.map(page => renderNavButton(
+          {wsFiltered.length > 0 && scopeWorkspace && <>
+            <span className="settings-nav-caption settings-nav-caption-sub">{workspaceCaption}</span>
+            {wsFiltered.map(page => renderNavButton(
               page,
-              false,
-              () => go(destination.scope === 'application' && scopeWorkspace
-                ? { scope: 'workspace', workspaceId: scopeWorkspace.id, page: page.id as typeof SETTINGS_PAGES[number]['id'] }
-                : { scope: 'application', page: page.id as AppPage }),
-              'alt-'
+              destination.scope === 'workspace' && destination.page === page.id,
+              () => go({ scope: 'workspace', workspaceId: scopeWorkspace.id, page: page.id as typeof SETTINGS_PAGES[number]['id'] }),
+              'ws-',
+              destination.scope !== 'workspace' ? workspaceCaption : undefined
             ))}
           </>}
           {!hasAnyNav && <p className="settings-scope">{t('center.noMatch')}</p>}
