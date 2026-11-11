@@ -149,7 +149,7 @@ export class ContainerPanel {
       )
 
       const rows: ContainerPanelRow[] = matched.map(({ summary, inspected, labels }) => {
-        const stack = labels['com.docker.compose.project']?.trim() || null
+        const stack = (labels['com.docker.compose.project'] ?? labels['io.podman.compose.project'])?.trim() || null
         const upSince = summary.state === 'running' ? (inspected?.startedAt ?? null) : null
         const ports = summary.ports.length > 0 ? summary.ports : (inspected?.ports ?? [])
         const isDatabase = Boolean(inspected) && detectEngine(inspected!.image || summary.image, inspected!.ports.map(port => port.containerPort)) !== null

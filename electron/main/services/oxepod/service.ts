@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto'
+import type { AppDatabase } from '../../db'
 import type { ExecutionHost } from '../../runtime/execution-host'
 import type { ContainerAction, ContainerEngine, OxePodErrorInfo, OxePodEvent, OxePodOp, OxePodOps, OxePodResponse } from '../../../../shared/types/oxepod'
 import { ContainerRuntime, ContainerRuntimeError } from './container-runtime'
+import { ContainerOrigins } from './container-origins'
 import { ContainerPanel } from './container-panel'
-import { COMPOSE_ACTIONS, type ComposeAction } from './compose'
+import { COMPOSE_ACTIONS, composeTarget, type ComposeAction } from './compose'
 
 type Raw = Record<string, unknown>
 const ACTIONS = new Set(['start', 'stop', 'restart', 'pause', 'unpause'])
@@ -41,23 +43,36 @@ export function toPodErrorInfo(error: unknown): OxePodErrorInfo {
   return { code: 'failed', message: error instanceof Error ? error.message.slice(0, 400) : 'OxePod failed.' }
 }
 
+let defaultAppDatabase: AppDatabase | undefined
+
+export function setOxePodAppDatabase(db: AppDatabase | undefined): void {
+  defaultAppDatabase = db
+}
+
 export interface OxePodServiceOptions {
   host: ExecutionHost
   emit: (event: OxePodEvent) => void
   preferredEngine?: () => ContainerEngine | undefined
   runtime?: ContainerRuntime
+  db?: AppDatabase
 }
 
 /** Validates every OxePod operation and routes it to the container runtime. */
 export class OxePodService {
   /** Also what OxeQuery reaches, in process, for a database in a container and for the agents' container tools. */
   readonly containers: ContainerRuntime
+  private readonly origins?: ContainerOrigins
   private readonly panel: ContainerPanel
   private readonly shells = new Map<string, { file: string; args: string[] }>()
 
   constructor(options: OxePodServiceOptions) {
     this.containers = options.runtime ?? new ContainerRuntime({ host: options.host, emit: options.emit, preferred: options.preferredEngine })
-    this.panel = new ContainerPanel(this.containers)
+    const effectiveDb = 'db' in options ? options.db : defaultAppDatabase
+    this.origins = effectiveDb ? new ContainerOrigins(effectiveDb) : undefined
+    this.panel = new ContainerPanel(
+      this.containers,
+      this.origins ? (chosenEngine, items) => this.origins!.resolve(chosenEngine, items) : undefined
+    )
   }
 
   /** Lookup for the terminal service; the renderer can only ask to open a pane it was handed. */
@@ -114,7 +129,12 @@ export class OxePodService {
       case 'containers.action': {
         const action = str(input.action, 'Action', 16)
         if (!ACTIONS.has(action)) throw new OxePodError('invalid', 'Unsupported container action.')
-        await this.containers.action(str(input.id, 'Container', 128), action as ContainerAction, engine(input.engine))
+        const targetId = str(input.id, 'Container', 128)
+        const chosenEngine = engine(input.engine)
+        await this.containers.action(targetId, action as ContainerAction, chosenEngine)
+        if (action === 'start' || action === 'restart') {
+          this.origins?.recordPersonContainer(chosenEngine ?? '*', targetId)
+        }
         return { ok: true }
       }
       case 'containers.compose': {
@@ -123,8 +143,20 @@ export class OxePodService {
         if (action === 'down' && input.confirmed !== true) {
           throw new OxePodError('confirm', 'Taking a project down removes its containers and networks.', ['Named volumes are kept.', 'Anything running from this project stops.'])
         }
+        const targetId = str(input.id, 'Container', 128)
+        const chosenEngine = engine(input.engine)
         const tail = optionalInt(input.tail, 1, 500)
-        return this.containers.compose(str(input.id, 'Container', 128), action as ComposeAction, tail !== undefined ? { tail } : {}, engine(input.engine))
+        const result = await this.containers.compose(targetId, action as ComposeAction, tail !== undefined ? { tail } : {}, chosenEngine)
+        if (this.origins && (action === 'up' || action === 'start' || action === 'restart')) {
+          try {
+            const inspected = await this.containers.inspect(targetId, chosenEngine)
+            const parsed = composeTarget(inspected)
+            if (parsed) this.origins.recordPersonStack(chosenEngine ?? '*', parsed.directory)
+          } catch {
+            // Recording origin never blocks a completed compose operation.
+          }
+        }
+        return result
       }
       case 'containers.exec': {
         const argv = input.argv
