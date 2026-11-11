@@ -4,6 +4,7 @@ import type { ThreadPermissionStore } from './thread-permissions'
 import { policyBlockedMessage } from '../../../../shared/policy'
 import { policyStore } from '../policy'
 import { OXESPACE_BRIDGE_KEY } from './read-only-mcp-tools'
+import { requestImpact } from '../approvals/request-impact'
 
 const BRIDGE_PREFIX = `mcp__${OXESPACE_BRIDGE_KEY}__`
 
@@ -30,6 +31,9 @@ export class ThreadPolicy {
 
   /** The rules' answer to a request, combined with the conversation's access level. */
   evaluate(rootPath: string, request: ThreadRequest, access?: ThreadConfiguration['access']) {
+    if (request.kind === 'approval' && !request.impact) {
+      request.impact = requestImpact(request, { root: rootPath })
+    }
     // Organization policy first: a tool it blocks is declined, whatever the saved rules or the access level say. An
     // OXESpace tool also answers to `mcp__oxespace__…`, its name in Code terminals, as at tools/call (SECURITY #547 L2).
     const names = request.toolName ? [request.toolName, ...(request.toolName.startsWith(BRIDGE_PREFIX) ? [`mcp__oxespace__${request.toolName.slice(BRIDGE_PREFIX.length)}`] : [])] : []
