@@ -44,7 +44,8 @@ export const SCOPE_LABELS: Record<KeybindingScope, string> = { global: 'Everywhe
 
 export const KEYBINDINGS = [
   // Global
-  { id: 'palette.open', chords: ['Mod+K', 'Mod+Shift+P'], scope: 'global', reservedInTerminal: true },
+  { id: 'commandBar.open', chords: ['Mod+K'], scope: 'global', reservedInTerminal: true },
+  { id: 'palette.open', chords: ['Mod+Shift+P'], scope: 'global', reservedInTerminal: true },
   { id: 'palette.search', chords: ['Mod+J'], scope: 'global' },
   { id: 'settings.open', chords: ['Mod+,'], scope: 'global', reservedInTerminal: true },
   { id: 'sidebar.toggle', chords: ['Mod+B'], scope: 'global', reservedInTerminal: true },
