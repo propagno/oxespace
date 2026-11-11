@@ -33,7 +33,7 @@ const SELF_RESTORING = new Set(['toggle-sidebar', 'toggle-split-layout', 'maximi
 
 const SETTINGS_LABELS: Record<string, string> = {
   general: 'General', providers: 'Agents', appearance: 'Appearance', terminal: 'Terminal', keyboard: 'Keyboard',
-  notifications: 'Notifications', updates: 'Updates', policy: 'Policy', devices: 'Devices', diagnostics: 'Diagnostics'
+  notifications: 'Notifications', updates: 'Updates', policy: 'Policy', devices: 'Devices', data: 'Data', diagnostics: 'Diagnostics'
 }
 
 /** What each palette command visibly does. Exact ids first, then id prefixes. */

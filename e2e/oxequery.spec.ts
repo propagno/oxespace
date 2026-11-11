@@ -44,7 +44,7 @@ test('OxeQuery opens on its connections and queries PostgreSQL and MongoDB from 
     // OxeQuery starts at the connections: no container list, a welcome page that points to OxePod.
     await expect(page.getByRole('tab', { name: 'Containers' })).toHaveCount(0)
     await expect(page.locator('.oq-welcome')).toContainText('Open a database')
-    await expect(page.locator('.oq-welcome')).toContainText('OxePod')
+    await expect(page.locator('.oq-welcome')).toContainText('container')
 
     // PostgreSQL from its container, through OxePod's Connect in OxeQuery
     await connectFromContainer(page, 'pg-dev')
