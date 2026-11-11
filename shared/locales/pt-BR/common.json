@@ -409,7 +409,22 @@
     "githubBefore": "Pull requests e issues precisam do GitHub CLI com login feito",
     "githubAfter": "O OXESpace verifica isso assim que um projeto é aberto.",
     "copy": "Copiar comando",
-    "markDone": "Marcar como concluído"
+    "markDone": "Marcar como concluído",
+    "v2": {
+      "folderStep": "Abra uma pasta de projeto",
+      "chooseFolder": "Escolher pasta",
+      "agentStep": "Conecte um agente",
+      "howToInstall": "Como instalar",
+      "signIn": "Entrar no {{provider}}",
+      "waiting": "Aguardando o login no navegador…",
+      "cancel": "Cancelar",
+      "readyModel": "Pronto · {{model}}",
+      "ready": "Pronto",
+      "conversationStep": "Comece sua primeira conversa",
+      "newConversation": "Nova conversa",
+      "connectFirst": "Conecte um agente primeiro",
+      "openModeAlone": "Ou abra um modo sozinho"
+    }
   },
   "usage": {
     "resetUnknown": "Horário de renovação desconhecido",
