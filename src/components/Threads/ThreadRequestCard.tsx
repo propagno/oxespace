@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next'
 import { elicitationContent, elicitationDefaults, elicitationFields, validateElicitationField, type ElicitationValue } from '../../../shared/elicitationForm'
 import { copyText, cx, ErrorState, FieldError, Select } from '../../ui'
 import { ImpactFacts } from '../Approvals/ImpactFacts'
+import { ImpactPreview } from '../Approvals/ImpactPreview'
 import { i18n } from '../../i18n'
 import styles from './ThreadRequestCard.module.css'
 import { humanizeError } from '../../utils/humanizeError'
@@ -60,6 +61,7 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
   const elicitation = useMemo(() => elicitationFields(request.schema), [request.schema])
   const [form, setForm] = useState<Record<string, ElicitationValue>>(() => elicitationDefaults(elicitation))
   const [showProblems, setShowProblems] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
   const [error, setError] = useState('')
   const requestLabel = request.kind === 'approval' && request.nativeMethod === 'can_use_tool:ExitPlanMode' ? t('request.reviewPlan')
     : request.kind === 'approval' && request.nativeMethod?.startsWith('can_use_tool:mcp__') ? t('request.mcpApproval') : request.title
@@ -125,9 +127,10 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
         <button ref={denyButtonRef} type="button" className={cx('thread-request-decline', styles.decline)} disabled={disabled} onClick={() => void submit({ decision: 'decline' })}>{t('request.deny')}</button>
         {impact.reversible
           ? <button type="button" disabled={disabled} onClick={() => void submit({ decision: 'accept' })}>{t('f7.card.allow')}</button>
-          : <button type="button" className={styles.quiet} disabled={disabled} onClick={() => onSeeImpact?.()}>{t('f7.card.seeImpact')}</button>}
+          : <button type="button" className={styles.quiet} disabled={disabled} onClick={() => { if (onSeeImpact) onSeeImpact(); else setPreviewOpen(true) }}>{t('f7.card.seeImpact')}</button>}
         <button type="button" className={styles.quiet} onClick={() => { if (navigator.clipboard?.writeText) void navigator.clipboard.writeText(impact.text); else void copyText(impact.text, t('f7.card.copyWhat')) }}>{t('f7.card.copyExact')}</button>
       </footer>
+      {previewOpen ? <ImpactPreview request={request} agent={agentName} onRespond={async response => { setPreviewOpen(false); await submit(response) }} onClose={() => setPreviewOpen(false)} /> : null}
     </section>
   }
   return <section ref={card} className={cx(`thread-request thread-request-${request.kind}`, styles.root, request.kind === 'question' && styles.question)} aria-label={requestLabel}>
