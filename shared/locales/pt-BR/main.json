@@ -496,11 +496,19 @@
       "notify": {
         "waiting": "OXESpace: aprovação aguardando"
       },
+      "alwaysAllow": {
+        "notOffered": "Sempre permitir não é oferecido para este comando.",
+        "invalidSettings": "O arquivo .claude/settings.local.json deste projeto não é JSON válido, então nada foi gravado.",
+        "outsideProject": "A pasta .claude deste projeto aponta para fora do projeto, então nada foi gravado."
+      },
       "textLabel": {
         "policyChange": "Conteúdo do arquivo"
       }
     },
     "notify": {
+      "agentNeedsYou": "{{agent}} precisa de você",
+      "requestsNeedYou": "{{count}} pedidos precisam de você",
+      "requestBody": "{{pane}} · {{risk}}",
       "prefix": {
         "pane": "{{agent}} no painel {{pane}}: {{title}}",
         "conversation": "{{agent}} na conversa {{conversation}}: {{title}}",
@@ -636,6 +644,21 @@
       "capture": {
         "devtools": "Feche o DevTools do navegador para o agente capturar.",
         "busy": "Outro depurador está conectado a esta página, então o agente não pode capturar agora."
+      }
+    },
+    "permissions": {
+      "production": {
+        "readOnly": "Uma conexão de produção oferece aos agentes só nenhum acesso ou leitura."
+      },
+      "policy": {
+        "readOnly": "As linhas da Política são só leitura aqui. Altere-as no arquivo de Política do projeto."
+      },
+      "access": {
+        "invalid": "O acesso dos agentes é desligado, leitura ou escrita."
+      },
+      "notFound": "Essa permissão não existe mais. A lista foi atualizada.",
+      "undo": {
+        "expired": "Este desfazer já foi usado ou não está mais disponível."
       }
     }
   },

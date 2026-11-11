@@ -48,7 +48,7 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `mcp.server_trust` | `mcp.create`, `update`, `delete`, `discover`, `importDiscovered`, `openSignIn` |
 | `mcp_internal.tool_groups_admin` | `mcpInternal.setToolGroupMode` |
 | `remote.gateway_admin` | `remote.setEnabled`, `startPairing`, `cancelPairing`, `answerPairing`, `revoke`, `rename`, `setDesktopName`, `setPhoneWrite`, `setPhoneHidden` (CR-34: the person keeps a pane off the phone) |
-| `approvals.admin` | `approvals.list`, `respond`, `ack`, `unavailable`, `history` (B10: the app's own approval modal) |
+| `approvals.admin` | `approvals.list`, `respond`, `ack`, `unavailable`, `history`, `preview`, `alwaysAllow`, `agentPermissions.list`, `revokeRule`, `setDatabaseAccess`, `setHostAccess`, `undo` (B10, F7: the app's own approval modal, database preview, Always allow and Settings › What agents can do) |
 | `thread.sections` | `thread.sections`, `thread.saveSections` (F13, for 1.4: the person's own organization of the conversation list) |
 | `thread.place_actions` | `thread.placeRead`, `thread.placeDriftAnswer`, `thread.placeUndo`, `thread.placeRestore`, `thread.placeDiscard` (F4, CR-F4-7: the person's answers to a branch drift, Undo, Restore and Discard of a place, and the read of a place's file outside the workspace roots) |
 | `app.open_external` | `app.openExternal` (the window's only way to open a link outside the app, after the person confirmed its host) |

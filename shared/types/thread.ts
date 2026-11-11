@@ -138,6 +138,24 @@ export interface ThreadPreviewApproval {
   }
 }
 
+export type ThreadRequestImpactKind = 'db' | 'command' | 'file' | 'container' | 'push'
+export type ThreadRequestImpactUnit = 'rows' | 'files' | 'resources'
+export type ThreadRequestImpactRisk = 'low' | 'medium' | 'high' | 'critical'
+export type ThreadRequestImpactLang = 'shell' | 'sql' | 'diff' | 'text'
+
+export interface ThreadRequestImpact {
+  why?: string
+  where: string
+  whereSub?: string
+  affects: { count: number | null; unit: ThreadRequestImpactUnit }
+  reversible: boolean
+  undoHow?: 'checkpoint' | 'start' | string
+  risk: ThreadRequestImpactRisk
+  kind: ThreadRequestImpactKind
+  text: string
+  lang: ThreadRequestImpactLang
+}
+export type RequestImpact = ThreadRequestImpact
 export interface ThreadRequest {
   id: string
   nativeId: string
@@ -168,7 +186,20 @@ export interface ThreadRequest {
   /** What OXESpace's permission rules say about this approval. */
   policy?: ThreadRequestPolicy
   preview?: ThreadPreviewApproval
+  /** F7 A25: impact facts built in main. */
+  impact?: ThreadRequestImpact
+  /** F7 A26: Always allow offer or refusal reason built in main. */
+  alwaysAllow?: ThreadAlwaysAllowOffer
 }
+export type ThreadAlwaysAllowReasonKind = 'destructive' | 'network' | 'push' | 'code' | 'elevation' | 'broad' | 'compound' | 'redirect'
+export interface ThreadAlwaysAllowRule {
+  provider: 'claude' | 'codex'
+  text: string
+  scope: 'project' | 'session'
+}
+export type ThreadAlwaysAllowOffer =
+  | { offered: true; rule: ThreadAlwaysAllowRule; runsProjectCode?: true; definedIn?: string }
+  | { offered: false; reasonKind: ThreadAlwaysAllowReasonKind; rule?: undefined }
 export interface ThreadMcpServerStatus { name: string; status: 'connected' | 'failed' | 'needs-auth' | 'pending' | 'disabled' | 'unknown' }
 /** One change block of a turn's file, undoable on its own; `id` pins the exact change. */
 export interface ThreadFileHunk extends LineHunk { id: string }

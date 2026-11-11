@@ -28,7 +28,9 @@ export interface CreateDatabaseInput {
  * verify-ca: chain checked against the CA (host name not checked). verify-full: chain and host name.
  */
 export type SslMode = 'disable' | 'prefer' | 'require' | 'verify-ca' | 'verify-full'
-export type AgentAccess = 'off' | 'read' | 'write'
+/** What agents may do on a connection. "Read, ask before writing" is `write`, which already asks (F7 A55). */
+export const AGENT_ACCESS_LEVELS = ['off', 'read', 'write'] as const
+export type AgentAccess = typeof AGENT_ACCESS_LEVELS[number]
 export type SshAuth = 'key' | 'password' | 'agent'
 /** Identity colors for a connection's tab and bar; the page maps each to a design token. */
 export const CONNECTION_COLORS = ['blue', 'violet', 'pink', 'amber', 'green', 'teal'] as const

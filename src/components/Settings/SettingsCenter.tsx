@@ -28,11 +28,12 @@ export const SETTINGS_CHUNK = chunk(() => import('./settingsPages'))
 const SettingsContent = lazyFrom(SETTINGS_CHUNK, module => module.SettingsContent)
 const WorkspaceSettingsModal = lazyFrom(SETTINGS_CHUNK, module => module.WorkspaceSettingsModal)
 const PolicySettings = lazyFrom(SETTINGS_CHUNK, module => module.PolicySettings)
+const AgentPermissionsSettings = lazyFrom(SETTINGS_CHUNK, module => module.AgentPermissionsSettings)
 const KeyboardSettings = lazyFrom(SETTINGS_CHUNK, module => module.KeyboardSettings)
 const DevicesSettings = lazyFrom(SETTINGS_CHUNK, module => module.DevicesSettings)
-const retryPages = (): void => { for (const page of [SettingsContent, WorkspaceSettingsModal, PolicySettings, KeyboardSettings, DevicesSettings]) page.retry() }
+const retryPages = (): void => { for (const page of [SettingsContent, WorkspaceSettingsModal, PolicySettings, AgentPermissionsSettings, KeyboardSettings, DevicesSettings]) page.retry() }
 
-export type AppPage = 'general' | 'appearance' | 'providers' | 'policy' | 'notifications' | 'keyboard' | 'terminal' | 'mcp' | 'devices' | 'privacy' | 'activity' | 'diagnostics' | 'about'
+export type AppPage = 'general' | 'appearance' | 'providers' | 'policy' | 'agent-permissions' | 'notifications' | 'keyboard' | 'terminal' | 'mcp' | 'devices' | 'privacy' | 'activity' | 'diagnostics' | 'about'
 export type SettingsDestination = { scope: 'application'; page: AppPage } | { scope: 'workspace'; workspaceId: string; page: typeof SETTINGS_PAGES[number]['id'] }
 export type Page = { id: string; label: string; hint?: string }
 
@@ -52,6 +53,7 @@ export const APPLICATION_SETTINGS_PAGES = [
   appPage('appearance', Palette, 'Appearance', 'Theme, font sizing and layout density.'),
   appPage('providers', Bot, 'Agents', 'Default model, fallback chain and provider API keys.'),
   appPage('policy', ShieldCheck, 'Approvals and safety', 'Safety boundaries, read-only paths and write permissions.'),
+  appPage('agent-permissions', ShieldCheck, 'What agents can do', 'Always allowed commands, databases, HTTP hosts and policy rules.'),
   appPage('notifications', Bell, 'Notifications', 'Desktop alerts, sound effects and quiet hours.'),
   appPage('keyboard', Keyboard, 'Keyboard', 'Keyboard shortcuts and custom chords.'),
   appPage('terminal', SquareTerminal, 'Terminal', 'Default shell, scrollback buffer and font overrides.'),
@@ -128,6 +130,16 @@ export function SettingsCenter(props: SettingsModalProps & {
     return () => window.removeEventListener('keydown', focusSearch, true)
   }, [])
   useEffect(() => { if (content.current) content.current.scrollTop = 0 }, [destination])
+  const requestedPage = useUIStore(state => state.settingsInitialPage)
+  const prevRequestedPage = useRef(requestedPage)
+  useEffect(() => {
+    if (requestedPage && requestedPage !== prevRequestedPage.current) {
+      prevRequestedPage.current = requestedPage
+      setDestination({ scope: 'application', page: resolveAppPage(requestedPage) })
+    } else {
+      prevRequestedPage.current = requestedPage
+    }
+  }, [requestedPage])
   const returnPane = useRef(useUIStore.getState().activePaneId)
   const workspace = destination.scope === 'workspace' ? props.workspaces.find(w => w.id === destination.workspaceId) : undefined
   const activeWorkspaceId = useWorkspaceStore(state => state.activeWorkspaceId)
@@ -194,7 +206,7 @@ export function SettingsCenter(props: SettingsModalProps & {
               props.onClose()
             }} />
             : <section className="settings-general"><h2>{t('center.workspaceClosed')}</h2><p>{t('center.workspaceClosedHint')}</p></section>
-            : destination.page === 'general' ? <GeneralSettings /> : destination.page === 'policy' ? <PolicySettings workspaceId={scopeWorkspace?.id} /> : destination.page === 'keyboard' ? <KeyboardSettings /> : destination.page === 'devices' ? <DevicesSettings /> : destination.page === 'privacy' ? <DataSettings /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
+            : destination.page === 'general' ? <GeneralSettings /> : destination.page === 'policy' ? <PolicySettings workspaceId={scopeWorkspace?.id} scope="application" /> : destination.page === 'agent-permissions' ? <AgentPermissionsSettings workspaceId={scopeWorkspace?.id ?? ''} /> : destination.page === 'keyboard' ? <KeyboardSettings /> : destination.page === 'devices' ? <DevicesSettings /> : destination.page === 'privacy' ? <DataSettings /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
         </Suspense></ErrorBoundary></div>
       </main>
     </ModalSurface>
