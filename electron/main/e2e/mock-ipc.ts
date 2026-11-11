@@ -578,6 +578,20 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.paneConversation.page, () => ({ error: 'no-conversation' }))
   ipcMain.handle(IPC_CHANNELS.paneConversation.watch, () => undefined)
   ipcMain.handle(IPC_CHANNELS.paneConversation.unwatch, () => undefined)
+  let mockUsage = { enabled: false, since: null as number | null, rows: [] as Array<{ feature: string; uses: number; lastUsed: number }> }
+  ipcMain.handle(IPC_CHANNELS.featureUsage.state, () => mockUsage)
+  ipcMain.handle(IPC_CHANNELS.featureUsage.setEnabled, (_event, input: { enabled: boolean; clear?: boolean }) => {
+    mockUsage = { enabled: Boolean(input?.enabled), since: input?.enabled ? (mockUsage.since ?? Date.now()) : null, rows: input?.clear || !input?.enabled ? [] : mockUsage.rows }
+    return mockUsage
+  })
+  ipcMain.handle(IPC_CHANNELS.featureUsage.export, () => ({ path: '/tmp/oxespace-feature-usage.json' }))
+  ipcMain.handle(IPC_CHANNELS.featureUsage.clear, () => { mockUsage = { ...mockUsage, rows: [] }; return mockUsage })
+  ipcMain.handle(IPC_CHANNELS.featureUsage.record, () => undefined)
+  let mockHostsProxy = { enabled: false, state: 'stopped' as 'running' | 'stopped' | 'failed', hosts: [] as Array<{ host: string; port: number; count: number; lastSeen: number; firstSeen: number }> }
+  ipcMain.handle(IPC_CHANNELS.hostsProxy.state, () => mockHostsProxy)
+  ipcMain.handle(IPC_CHANNELS.hostsProxy.setEnabled, (_event, enabled: boolean) => { mockHostsProxy = { ...mockHostsProxy, enabled: Boolean(enabled), state: enabled ? 'running' : 'stopped' }; return mockHostsProxy })
+  ipcMain.handle(IPC_CHANNELS.hostsProxy.clear, () => { mockHostsProxy = { ...mockHostsProxy, hosts: [] }; return mockHostsProxy })
+  ipcMain.handle(IPC_CHANNELS.hostsProxy.retry, () => mockHostsProxy)
 
   // ── Catch-all safety net (E2E) ──────────────────────────────────────────────
   // Any IPC channel NOT explicitly mocked above gets a safe, shaped empty default

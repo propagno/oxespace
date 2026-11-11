@@ -22,7 +22,7 @@ export type McpCapability =
   | Base & { forbidden: string }
 
 /** The user's standing rule: these never become MCP tools. Each must be a `forbidden` capability. */
-export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'android.controls', 'git.repo_hook_approval', 'remote.gateway_admin', 'approvals.admin', 'mcp_internal.tool_groups_admin', 'app.open_external', 'mcp.tool_rules_admin', 'policy.accept_change', 'app.open_in', 'code.resume_bypass', 'containers.panel'] as const
+export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'android.controls', 'git.repo_hook_approval', 'remote.gateway_admin', 'approvals.admin', 'mcp_internal.tool_groups_admin', 'app.open_external', 'mcp.tool_rules_admin', 'policy.accept_change', 'app.open_in', 'code.resume_bypass', 'containers.panel', 'settings.feature_usage', 'settings.hosts_proxy'] as const
 
 /** No tool name or domain action may look like one of these. */
 export const FORBIDDEN_NAME = /approv|permission|access|sign_?in|log_?in|log_?out|token|secret|credential|password|api_?key|trust|host_?key/i
@@ -444,6 +444,16 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   },
   'mcp_internal.token': { label: 'Regenerate the internal MCP token', forbidden: 'A token.', ipc: ['mcpInternal.regenerateToken'] },
   'accounts.sign_in': { label: 'Sign in or out of Claude, Codex and other accounts', forbidden: 'Sign-in and tokens.', ipc: ['agentAccount.*'] },
+  'settings.feature_usage': {
+    label: 'Local-only feature usage counter: switch, export, clear and feature counts (A65)',
+    forbidden: 'Person-only local usage preferences and counts; agents neither read nor change them.',
+    ipc: ['featureUsage.state', 'featureUsage.setEnabled', 'featureUsage.export', 'featureUsage.clear', 'featureUsage.record']
+  },
+  'settings.hosts_proxy': {
+    label: 'Loopback outgoing-hosts proxy: switch, clear and retry (A68)',
+    forbidden: 'Person-only network inspection control; agents must not turn off or clear their own host log.',
+    ipc: ['hostsProxy.state', 'hostsProxy.setEnabled', 'hostsProxy.clear', 'hostsProxy.retry']
+  },
 
   // ---- push events from main to the window ----------------------------------------------
   'app.events': {

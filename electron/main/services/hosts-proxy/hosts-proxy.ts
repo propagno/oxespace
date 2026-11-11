@@ -1,7 +1,14 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { connect, createServer, type AddressInfo, type Server, type Socket } from 'node:net'
 import { mainMessage, type MainMessage } from '../../../../shared/messages'
+import type {
+  HostsProxyRow,
+  HostsProxyStateKind,
+  HostsProxyStatus
+} from '../../../../shared/types/ipc'
 import type { AppDatabase } from '../../db'
+
+export type { HostsProxyRow, HostsProxyStateKind, HostsProxyStatus }
 
 export const HOSTS_PROXY_IDLE_MS = 10 * 60_000
 
@@ -31,25 +38,6 @@ export interface HostsProxyOptions {
 }
 
 export type HostsProxyOrigin = { conversationId: string } | { paneId: string }
-
-export interface HostsProxyRow {
-  host: string
-  port: number
-  count: number
-  lastSeen: number
-  firstSeen: number
-  conversationId?: string
-  conversationTitle?: string
-}
-
-export type HostsProxyStateKind = 'running' | 'stopped' | 'failed'
-
-export interface HostsProxyStatus {
-  enabled: boolean
-  state: HostsProxyStateKind
-  reason?: MainMessage
-  hosts: HostsProxyRow[]
-}
 
 export interface HostsProxyGrant {
   env: Record<string, string>

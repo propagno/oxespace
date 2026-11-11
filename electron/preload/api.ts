@@ -581,6 +581,21 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       watch: paneId => ipc.invoke(IPC_CHANNELS.paneConversation.watch, paneId) as Promise<void>,
       unwatch: paneId => ipc.invoke(IPC_CHANNELS.paneConversation.unwatch, paneId) as Promise<void>,
       onChanged: listener => subscribe<{ paneId: string }>(ipc, IPC_CHANNELS.paneConversation.changed, listener)
+    },
+    featureUsage: {
+      state: () => ipc.invoke(IPC_CHANNELS.featureUsage.state) as Promise<import('../../shared/feature-usage').FeatureUsageStatus>,
+      setEnabled: input => ipc.invoke(IPC_CHANNELS.featureUsage.setEnabled, input) as Promise<import('../../shared/feature-usage').FeatureUsageStatus>,
+      export: () => ipc.invoke(IPC_CHANNELS.featureUsage.export) as Promise<{ path: string } | null>,
+      clear: () => ipc.invoke(IPC_CHANNELS.featureUsage.clear) as Promise<import('../../shared/feature-usage').FeatureUsageStatus>,
+      record: feature => ipc.invoke(IPC_CHANNELS.featureUsage.record, feature) as Promise<void>,
+      onChanged: listener => subscribe<import('../../shared/feature-usage').FeatureUsageStatus>(ipc, IPC_CHANNELS.featureUsage.changed, listener)
+    },
+    hostsProxy: {
+      state: () => ipc.invoke(IPC_CHANNELS.hostsProxy.state) as Promise<import('../../shared/types/ipc').HostsProxyStatus>,
+      setEnabled: enabled => ipc.invoke(IPC_CHANNELS.hostsProxy.setEnabled, enabled) as Promise<import('../../shared/types/ipc').HostsProxyStatus>,
+      clear: () => ipc.invoke(IPC_CHANNELS.hostsProxy.clear) as Promise<import('../../shared/types/ipc').HostsProxyStatus>,
+      retry: () => ipc.invoke(IPC_CHANNELS.hostsProxy.retry) as Promise<import('../../shared/types/ipc').HostsProxyStatus>,
+      onChanged: listener => subscribe<import('../../shared/types/ipc').HostsProxyStatus>(ipc, IPC_CHANNELS.hostsProxy.changed, listener)
     }
   }
 }

@@ -195,5 +195,7 @@ before. Code panes receive the whole registry.
 | `code.pane_conversation` | A terminal agent's conversation on the desktop (A53) | Excluded: The person's read-only view of a pane's native session. Agents read panes with oxespace_agents read and sessions with oxespace_threads native_sessions. |
 | `mcp_internal.token` | Regenerate the internal MCP token | **Forbidden**: A token. |
 | `accounts.sign_in` | Sign in or out of Claude, Codex and other accounts | **Forbidden**: Sign-in and tokens. |
+| `settings.feature_usage` | Local-only feature usage counter: switch, export, clear and feature counts (A65) | **Forbidden**: Person-only local usage preferences and counts; agents neither read nor change them. |
+| `settings.hosts_proxy` | Loopback outgoing-hosts proxy: switch, clear and retry (A68) | **Forbidden**: Person-only network inspection control; agents must not turn off or clear their own host log. |
 | `app.events` | Change notifications sent to the window | Excluded: Events, not actions: agents read the state they describe with the tools above. |
 | `oxepost.all` | OxePost: collections, environments, sending | Planned (H8): OxePost (H1-H4) is the person's API client: collections, environments and sending have no tool yet; H8 adds list, read and create, and send with GET and HEAD to localhost free and the rest confirmed. Environment secrets stay in the system's secure storage and are never a tool, an argument or a result. |
