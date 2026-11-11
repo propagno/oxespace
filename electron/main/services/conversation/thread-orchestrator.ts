@@ -1240,10 +1240,7 @@ export class ThreadOrchestrator {
       if (otherId === id) continue
       try {
         const other = this.read(otherId).thread
-        const activeNativeId = other.nativeSessionId
-        if (other.provider === provider && activeNativeId === nativeSessionId) {
-          throw Error('This native session is already open in another OxeChat conversation')
-        }
+        if (other.provider === provider && other.nativeSessionId === nativeSessionId) throw Error('This native session is already open in another OxeChat conversation')
       } catch (error) {
         if (error instanceof Error && error.message.includes('already open')) throw error
         // Deleted local owners are ignored and cleaned up by their lifecycle.
