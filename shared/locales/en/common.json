@@ -601,7 +601,11 @@
         "updates": "Check for updates",
         "policy": "Open policy settings",
         "diagnostics": "Open diagnostics",
-        "data": "Open data settings"
+        "data": "Open data settings",
+        "about": "Check for updates",
+        "mcp": "Open MCP and skills settings",
+        "privacy": "Open data and privacy settings",
+        "activity": "Open agent activity settings"
       },
       "oxequery": {
         "open": "Open",
@@ -669,7 +673,8 @@
       "split-horizontal": "Split pane down",
       "maximize-pane": "Maximize or restore pane",
       "restart-terminal": "Restart",
-      "stop-terminal": "Stop"
+      "stop-terminal": "Stop",
+      "tool-http-calls": "Toggle HTTP calls panel"
     },
     "formerly": {
       "help": {
@@ -686,7 +691,9 @@
         "notifications": "Settings: Notifications",
         "updates": "Settings: Updates | Check for updates…",
         "policy": "Settings: Policy",
-        "diagnostics": "Settings: Diagnostics | Diagnostics"
+        "diagnostics": "Settings: Diagnostics | Diagnostics",
+        "about": "Settings: Updates | Check for updates…",
+        "privacy": "Settings: Data | Open data settings"
       },
       "oxequery": {
         "open": "Open OxeQuery",

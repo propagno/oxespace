@@ -609,7 +609,11 @@
         "updates": "Procurar atualizações",
         "policy": "Abrir as configurações de política",
         "diagnostics": "Abrir o diagnóstico",
-        "data": "Abrir as configurações de dados"
+        "data": "Abrir as configurações de dados",
+        "about": "Procurar atualizações",
+        "mcp": "Abrir as configurações de MCP e habilidades",
+        "privacy": "Abrir as configurações de dados e privacidade",
+        "activity": "Abrir as configurações de atividade dos agentes"
       },
       "oxequery": {
         "open": "Abrir",
@@ -678,7 +682,8 @@
       "split-horizontal": "Dividir o painel abaixo",
       "maximize-pane": "Maximizar ou restaurar o painel",
       "restart-terminal": "Reiniciar",
-      "stop-terminal": "Parar"
+      "stop-terminal": "Parar",
+      "tool-http-calls": "Mostrar ou ocultar o painel de chamadas HTTP"
     },
     "formerly": {
       "help": {
@@ -695,7 +700,9 @@
         "notifications": "Configurações: Notificações",
         "updates": "Configurações: Atualizações | Procurar atualizações…",
         "policy": "Configurações: Política",
-        "diagnostics": "Configurações: Diagnóstico | Diagnóstico"
+        "diagnostics": "Configurações: Diagnóstico | Diagnóstico",
+        "about": "Configurações: Atualizações | Procurar atualizações…",
+        "privacy": "Configurações: Dados | Abrir as configurações de dados"
       },
       "oxequery": {
         "open": "Abrir o OxeQuery",
