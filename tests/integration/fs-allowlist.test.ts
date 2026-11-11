@@ -176,6 +176,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   // New-conversation worktree: only checks whether the folder it is about to create already exists and
   // resolves its real path. Never reads files.
   'electron/main/services/conversation/thread-worktree.ts',
+  // F8 A30 branch from checkpoint: probes whether the target sibling worktree folder already exists, resolves its
+  // canonical path after git worktree add, and removes the empty/failed worktree folder on rollback; checkpoint file
+  // writes stay in thread-checkpoints.ts.
+  'electron/main/services/conversation/thread-branch.ts',
   // Conversation worktree finish: only checks whether the app-owned worktree folder still exists before
   // asking Git for its state. Never reads or writes files.
   'electron/main/services/conversation/thread-worktree-lifecycle.ts',

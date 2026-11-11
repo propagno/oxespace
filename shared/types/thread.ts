@@ -780,6 +780,8 @@ export interface ThreadApi {
   rewind?(id: string, turnId: string, options?: { restoreFiles?: boolean; confirmed?: boolean }): Promise<ThreadRewindResult>
   /** Brings back the turns (and files) of a rewind not confirmed by a new message yet. */
   redoRewind?(id: string): Promise<ThreadSnapshot>
+  /** F8 A30: branches from a checkpoint into a new worktree, workspace and forked conversation. */
+  branchFromCheckpoint?(id: string, checkpointId: string, input: { branch: string }): Promise<ThreadBranchResult>
   /** Sends a finished turn's prompt again, after undoing that turn's file changes when `restoreFiles` is set. */
   retryTurn?(id: string, turnId: string, options?: { restoreFiles?: boolean }): Promise<{ restoredFiles: number }>
   readSince?(id: string, cursor: ThreadSyncCursor): Promise<ThreadDelta>
@@ -822,6 +824,10 @@ export interface ThreadApi {
 
 /** One file changed by a turn, against the working tree now. */
 /** `path` is relative to `root`, the checkout the turn changed (absent from older builds). */
+export type ThreadBranchResult =
+  | { ok: true; threadId: string; workspaceId: string; worktreePath: string }
+  | { ok: false; refusal: import('../messages').MainMessage }
+
 export interface ThreadTurnFileStatus { path: string; root?: string; state: 'pending' | 'reverted' | 'modified'; preExists: boolean; postExists: boolean }
 
 export interface ThreadCliState {

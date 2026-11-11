@@ -325,6 +325,16 @@ export interface MessageParams extends PlaceMessageParams {
   'thread.steer.unavailable': Record<string, never>
   /** F8 A30: files changed outside the conversation since the checkpoint's post-image. */
   'thread.restore.foreignChanges': { count: number; files: string[] }
+  /** F8 A30: branching from a checkpoint into a new worktree. */
+  'thread.branch.unsupported': Record<string, never>
+  'thread.branch.checkpointGone': Record<string, never>
+  'thread.branch.checkpointFailed': Record<string, never>
+  'thread.branch.exists': Record<string, never>
+  'thread.branch.pathExists': { path: string }
+  'thread.branch.baseGone': Record<string, never>
+  'thread.branch.notGit': Record<string, never>
+  'thread.branch.sessionGone': Record<string, never>
+  'thread.branch.failed': { step: 'restore' | 'register' | 'fork' | 'conversation' }
   'oxequery.edit.readOnly': Record<string, never>
   'oxequery.edit.notTable': Record<string, never>
   'oxequery.edit.noKey': Record<string, never>
@@ -739,6 +749,15 @@ export const MESSAGE_CODES = [
   'thread.queue.deliveryUnconfirmed',
   'thread.steer.unavailable',
   'thread.restore.foreignChanges',
+  'thread.branch.unsupported',
+  'thread.branch.checkpointGone',
+  'thread.branch.checkpointFailed',
+  'thread.branch.exists',
+  'thread.branch.pathExists',
+  'thread.branch.baseGone',
+  'thread.branch.notGit',
+  'thread.branch.sessionGone',
+  'thread.branch.failed',
   'oxequery.edit.readOnly',
   'oxequery.edit.notTable',
   'oxequery.edit.noKey',

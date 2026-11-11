@@ -160,6 +160,13 @@ export class ThreadCheckpointService {
     return this.summary(this.row(checkpointId))
   }
 
+  /** F8 A30: writes a checkpoint's hash-verified pre-images into a newly created branch worktree. */
+  async applyPreImagesToWorktree(checkpointId: string, worktreeRoot: string): Promise<void> {
+    const root = await canonicalRoot(worktreeRoot)
+    const files = this.db.prepare('SELECT path, pre_exists, pre_content, pre_hash, post_exists, post_hash FROM conversation_checkpoint_files WHERE checkpoint_id = ? ORDER BY path ASC').all(checkpointId) as CheckpointFileRow[]
+    for (const file of files) await applyImage(root, safeRelative(file.path), imageFromRow(file, 'pre'))
+  }
+
   /** The most recent checkpoint captured for a turn, if any. */
   forTurn(threadId: string, turnId: string): ThreadCheckpointSummary | undefined {
     // A turn that moved into a worktree has one checkpoint per checkout; the one where files changed is the
