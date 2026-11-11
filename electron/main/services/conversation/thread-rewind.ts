@@ -1,4 +1,6 @@
+import { MAIN_MESSAGE_ERROR_TAG, mainMessage } from '../../../../shared/messages'
 import type { ThreadEvent, ThreadSnapshot, ThreadTurn } from '../../../../shared/types/thread'
+import { redactMainMessage } from '../../ipc/main-message-error'
 
 export type ThreadRewindFailure =
   | 'unsupported'        // the provider has no verified way to rewind
@@ -6,9 +8,18 @@ export type ThreadRewindFailure =
   | 'history-limit'      // provider history is longer than we are willing to prove
   | 'provider-refused'   // the provider rejected the request; nothing changed
   | 'proof-mismatch'     // the provider answered, but its history is not what we expected
+  | 'foreign-changes'    // a file changed outside the conversation since its checkpoint
 
 export class ThreadRewindError extends Error {
   constructor(readonly code: ThreadRewindFailure, message: string) { super(message) }
+}
+
+export function foreignChangesRewindError(allFiles: string[]): ThreadRewindError {
+  const count = allFiles.length
+  const files = allFiles.slice(0, 5)
+  const safe = redactMainMessage(mainMessage('thread.restore.foreignChanges', { count, files }))
+  const text = `${count} file${count === 1 ? '' : 's'} changed outside this conversation (${files.join(', ')})`
+  return new ThreadRewindError('foreign-changes', `${text}${MAIN_MESSAGE_ERROR_TAG}${JSON.stringify(safe)}`)
 }
 
 const MAX_PAGES = 100

@@ -191,7 +191,7 @@ export function threadTimeline(input: ThreadTimelineInput): ThreadTimeline {
   }
 
   const checkpointRows = db.prepare(
-    'SELECT id, turn_id, root_path, label, state, created_at FROM conversation_checkpoints WHERE thread_id = ? ORDER BY created_at ASC, rowid ASC'
+    "SELECT id, turn_id, root_path, label, state, created_at FROM conversation_checkpoints WHERE thread_id = ? AND COALESCE(turn_id, '') NOT LIKE 'redo:%' ORDER BY created_at ASC, rowid ASC"
   ).all(thread.id) as TimelineCheckpointRow[]
 
   const filesStmt = db.prepare(

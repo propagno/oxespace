@@ -717,7 +717,7 @@ export class ThreadOrchestrator {
   }
 
   /** Rewinds to just before a turn; the provider follows when the next message is sent (see thread-rewind-flow). */
-  rewind(id: string, turnId: string, options: { restoreFiles?: boolean } = {}): Promise<ThreadRewindResult> {
+  rewind(id: string, turnId: string, options: { restoreFiles?: boolean; confirmed?: boolean } = {}): Promise<ThreadRewindResult> {
     return rewind(this.rewindHost(), id, turnId, options)
   }
 

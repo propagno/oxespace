@@ -323,6 +323,8 @@ export interface MessageParams extends PlaceMessageParams {
   'thread.queue.deliveryUnconfirmed': Record<string, never>
   /** F6 / T76: a queued message cannot steer now (no turn is running, or the provider cannot steer). */
   'thread.steer.unavailable': Record<string, never>
+  /** F8 A30: files changed outside the conversation since the checkpoint's post-image. */
+  'thread.restore.foreignChanges': { count: number; files: string[] }
   'oxequery.edit.readOnly': Record<string, never>
   'oxequery.edit.notTable': Record<string, never>
   'oxequery.edit.noKey': Record<string, never>
@@ -736,6 +738,7 @@ export const MESSAGE_CODES = [
   'thread.observe.changed',
   'thread.queue.deliveryUnconfirmed',
   'thread.steer.unavailable',
+  'thread.restore.foreignChanges',
   'oxequery.edit.readOnly',
   'oxequery.edit.notTable',
   'oxequery.edit.noKey',

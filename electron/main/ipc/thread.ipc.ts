@@ -142,8 +142,9 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
   ipcMain.handle(IPC_CHANNELS.thread.sideClose, (event, sideId: unknown) => sides().then(chats => chats.close(sideId)))
   ipcMain.handle(IPC_CHANNELS.thread.read, (event, id: unknown) => manager.then(service => service.readForRenderer(string(id))))
   ipcMain.handle(IPC_CHANNELS.thread.rewind, (event, id: unknown, turnId: unknown, options: unknown) => {
-    const restoreFiles = Boolean(options && typeof options === 'object' && (options as Record<string, unknown>).restoreFiles === true)
-    return manager.then(service => service.rewind(string(id), string(turnId), { restoreFiles }))
+    const input = options && typeof options === 'object' && !Array.isArray(options) ? options as Record<string, unknown> : {}
+    if (input.confirmed !== undefined && typeof input.confirmed !== 'boolean') throw new MainRefusal('thread.invalidInput', {})
+    return manager.then(service => service.rewind(string(id), string(turnId), { restoreFiles: input.restoreFiles === true, confirmed: input.confirmed === true }))
   })
   ipcMain.handle(IPC_CHANNELS.thread.redoRewind, (event, id: unknown) => {
     return manager.then(service => service.redoRewind(string(id)))

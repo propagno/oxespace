@@ -222,6 +222,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'thread.observe.changed': [],
   'thread.queue.deliveryUnconfirmed': [],
   'thread.steer.unavailable': [],
+  'thread.restore.foreignChanges': ['count', 'files'],
   'oxequery.edit.readOnly': [],
   'oxequery.edit.notTable': [],
   'oxequery.edit.noKey': [],

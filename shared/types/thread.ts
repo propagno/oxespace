@@ -777,7 +777,7 @@ export interface ThreadApi {
   usageSummary?(id: string, options?: { scope?: 'thread' | 'project' | 'all'; days?: number }): Promise<ThreadUsageSummary>
   workRuns?(id: string): Promise<import('./work').WorkRun[]>
   cancelWork?(id: string, runId: string): Promise<import('./work').WorkRun>
-  rewind?(id: string, turnId: string, options?: { restoreFiles?: boolean }): Promise<ThreadRewindResult>
+  rewind?(id: string, turnId: string, options?: { restoreFiles?: boolean; confirmed?: boolean }): Promise<ThreadRewindResult>
   /** Brings back the turns (and files) of a rewind not confirmed by a new message yet. */
   redoRewind?(id: string): Promise<ThreadSnapshot>
   /** Sends a finished turn's prompt again, after undoing that turn's file changes when `restoreFiles` is set. */

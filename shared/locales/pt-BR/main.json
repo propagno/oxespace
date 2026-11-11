@@ -141,6 +141,9 @@
       "agent": {
         "scriptUnsupported": "Escolha o executável do próprio agente nas Configurações de agentes: o OxeChat não inicia agentes por scripts .cmd, .ps1 ou .bat.",
         "nativeMissing": "Falta o executável nativo (codex.exe) no Codex instalado. Reinstale o Codex ou escolha o codex.exe nas Configurações de agentes."
+      },
+      "restore": {
+        "foreignChanges": "{{count}} arquivos mudaram fora desta conversa ({{files}}). Restaurar sobrescreve esses arquivos; Refazer traz sua versão de volta."
       }
     },
     "app": {
