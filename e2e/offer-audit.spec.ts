@@ -33,7 +33,7 @@ const SELF_RESTORING = new Set(['toggle-sidebar', 'toggle-split-layout', 'maximi
 
 const SETTINGS_LABELS: Record<string, string> = {
   general: 'General', providers: 'Agents', appearance: 'Appearance', terminal: 'Terminal', keyboard: 'Keyboard',
-  notifications: 'Notifications', about: 'About', policy: 'Approvals and safety', devices: 'Phone and devices',
+  notifications: 'Notifications', about: 'About', policy: 'Approvals and safety', 'agent-permissions': 'What agents can do', devices: 'Phone and devices',
   privacy: 'Data and privacy', mcp: 'MCP servers and skills', activity: 'Agent activity', diagnostics: 'Diagnostics'
 }
 
@@ -148,7 +148,7 @@ async function runCommand(page: Page, id: string): Promise<boolean> {
 /** Closes whatever a command opened, back to the work surface. */
 /** Code's side panels, by the tool command that toggles each and the panel it shows. */
 // Integration last: its command only opens it, so it closes from its own Collapse button, shown once it is the only one.
-const SIDE_PANELS = ['github', 'worktrees', 'scripts', 'search', 'web-preview', 'background', 'editor', 'review', 'http-calls', 'android', 'integration'] as const
+const SIDE_PANELS = ['github', 'worktrees', 'scripts', 'search', 'web-preview', 'background', 'editor', 'review', 'http-calls', 'android', 'containers', 'integration'] as const
 /**
  * Splits are refused when the halves would be under 240 px (#310), so they are checked from the known layout: Code,
  * two panes, no side panel. Earlier commands leave theirs open (each panel takes its share of the width), so every
@@ -158,7 +158,7 @@ async function closeSidePanels(page: Page): Promise<void> {
   for (const id of SIDE_PANELS) {
     const panel = page.getByTestId(id === 'worktrees' ? 'workspace-worktree-panel' : `workspace-${id}-panel`)
     if (!(await panel.count())) continue
-    if (id === 'integration') await panel.getByRole('button', { name: 'Collapse panel', exact: true }).click()
+    if (id === 'integration' || id === 'containers') await panel.getByRole('button', { name: 'Collapse panel', exact: true }).click()
     else await runCommand(page, `tool-${id}`)
     await expect(panel).toHaveCount(0)
   }
@@ -343,7 +343,7 @@ test.describe('offer audit', () => {
         'File/Exit': 'native',
         'Edit/Undo': 'native', 'Edit/Redo': 'native', 'Edit/Cut': 'native', 'Edit/Copy': 'native', 'Edit/Paste': 'native', 'Edit/Select all': 'native',
         'View/Command palette…': async p => { await expect(paletteInput(p)).toBeVisible() },
-        'View/OxeCode': view('code'), 'View/OxeChat': view('thread'), 'View/OxeQuery': view('data'), 'View/OxePod': view('pods'),
+        'View/OxeCode': view('code'), 'View/OxeChat': view('thread'), 'View/OxeQuery': view('data'),
         'View/Toggle sidebar': async p => { await expect(p.locator('.app-shell')).toHaveClass(/sidebar-collapsed/) },
         'View/Toggle files panel': testId('workspace-editor-panel'),
         'View/Toggle commit & pull request panel': testId('workspace-github-panel'),
@@ -354,6 +354,9 @@ test.describe('offer audit', () => {
         'View/Split pane down': async p => { expect(await paneCount(p)).toBe(3) },
         'View/Maximize or restore pane': async p => { expect(await paneCount(p)).toBe(1) },
         // F35: the project Team moved off the title bar into the Tools menu.
+        'Tools/Toggle Android panel': testId('workspace-android-panel'),
+        'Tools/Toggle HTTP calls panel': testId('workspace-http-calls-panel'),
+        'Tools/Containers': testId('workspace-containers-panel'),
         'Tools/Open the project team…': dialog('Project team'),
         'Tools/Manage MCP servers': dialog('MCP servers'),
         'Tools/Browse skills': dialog('Skills'),
