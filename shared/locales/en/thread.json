@@ -990,7 +990,8 @@
     "scripts": "Scripts",
     "worktrees": "Worktrees",
     "background": "Background activity",
-    "httpCalls": "HTTP calls"
+    "httpCalls": "HTTP calls",
+    "android": "Android"
   },
   "patch": {
     "region": "File diff",
@@ -1674,6 +1675,7 @@
     "loadingPreview": "Loading web preview…",
     "loadingTerminal": "Loading terminal…",
     "loadingNetwork": "Loading HTTP calls…",
+    "loadingAndroid": "Loading Android mirror…",
     "unavailable": "The project is unavailable.",
     "nativeActivity": "Native background activity",
     "providerActivity": "Provider activity · {{count}} running",

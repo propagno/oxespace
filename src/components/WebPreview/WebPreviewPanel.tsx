@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowLeft, ArrowRight, Camera, ExternalLink, MousePointerClick, Minus, Monitor, MonitorPlay, Plus, RotateCw, Smartphone, Tablet, X } from 'lucide-react'
+import { AlertCircle, ArrowLeft, ArrowRight, Camera, ExternalLink, MousePointerClick, Minus, MonitorPlay, Plus, RotateCw, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { ToolPanel, Button, EmptyState, ErrorState, Spinner } from '../../ui'
 import type { DesignGrabPayload } from '../../../shared/types/design-mode'
@@ -12,6 +12,8 @@ import { DesignGrabSheet } from './DesignGrabSheet'
 import { NativePreviewHost } from './NativePreviewHost'
 import { AgentBrowserChrome } from './AgentBrowserChrome'
 import { PreviewEmptyState } from './PreviewEmptyState'
+import { PREVIEW_DEVICES } from '../../../shared/preview-devices'
+import { DeviceMenu, fitDeviceFrame } from './DeviceMenu'
 import { humanizeError } from '../../utils/humanizeError'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
@@ -63,7 +65,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onRunCommand, onSen
   },[previewKey,applySession])
   const setDraftUrl = (value: string): void => updateTab(activeTabId, tab => ({ ...tab, draftUrl: value }))
   const [zoom, setZoom] = useState(100)
-  const [viewport, setViewport] = useState<Viewport>('desktop')
+  const [deviceChoice, setDeviceChoice] = useState<{ deviceId: string | null; rotated: boolean }>({ deviceId: null, rotated: false })
   const [captureNotice, setCaptureNotice] = useState<string | null>(null)
   const [capturing, setCapturing] = useState(false)
   const [allowExternal, setAllowExternal] = useState(false)
@@ -194,7 +196,9 @@ export function WebPreviewPanel({ embedded = false, onClose, onRunCommand, onSen
   const zoomOut = (): void => setZoom((value) => Math.max(50, value - 10))
   const zoomIn = (): void => setZoom((value) => Math.min(150, value + 10))
   const openExternal = (): void => { if (url) void openExternalLink(url, { source: 'preview' }) }
-  const viewportConfig = VIEWPORTS[viewport]
+  const activeDevice = PREVIEW_DEVICES.find(item => item.id === (deviceChoice.deviceId ?? 'desktop')) ?? PREVIEW_DEVICES[0]
+  const deviceFrame = activeDevice.id !== 'desktop' ? fitDeviceFrame(activeDevice, deviceChoice.rotated, { width: 420, height: 560 }) : null
+  const viewportConfig = deviceFrame ? { width: deviceFrame.width, height: deviceFrame.height } : VIEWPORTS.desktop
   const handleCapture = async (): Promise<void> => {
     if (!url || capturing) return
     setCapturing(true)
@@ -267,9 +271,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onRunCommand, onSen
           <span>{zoom}%</span>
           <button type="button" aria-label={t('preview.zoomIn')} title={t('preview.zoomIn')} onClick={zoomIn}><Plus size={14} aria-hidden="true" /></button>
         </div>
-        <button type="button" className="web-preview-nav-button" aria-label={t('preview.viewport.desktop')} title={t('preview.viewport.desktop')} aria-pressed={viewport === 'desktop'} onClick={() => setViewport('desktop')}><Monitor size={14} aria-hidden="true" /></button>
-        <button type="button" className="web-preview-nav-button" aria-label={t('preview.viewport.tablet')} title={t('preview.viewport.tablet')} aria-pressed={viewport === 'tablet'} onClick={() => setViewport('tablet')}><Tablet size={14} aria-hidden="true" /></button>
-        <button type="button" className="web-preview-nav-button" aria-label={t('preview.viewport.mobile')} title={t('preview.viewport.mobile')} aria-pressed={viewport === 'mobile'} onClick={() => setViewport('mobile')}><Smartphone size={14} aria-hidden="true" /></button>
+        <DeviceMenu ownerKey={previewKey} tabId={activeTabId} deviceId={deviceChoice.deviceId} rotated={deviceChoice.rotated} onChange={setDeviceChoice} />
         <button
           type="button"
           className={`web-preview-nav-button${designMode ? ' active' : ''}`}
@@ -309,15 +311,16 @@ export function WebPreviewPanel({ embedded = false, onClose, onRunCommand, onSen
       <div className="web-preview-stage" aria-busy={loading}>
         {tabs.map(tab => tab.url && !tab.error && normalizePreviewUrl(tab.url, allowExternal) && <div className="web-preview-frame-wrap" key={tab.id} style={tab.id === activeTabId ? undefined : { display: 'none' }}>
             <div
-              className={`web-preview-device viewport-${viewport}`}
+              className={`web-preview-device viewport-${activeDevice.id === 'desktop' ? 'desktop' : activeDevice.id === 'ipad-mini' ? 'tablet' : 'mobile'}`}
               style={{
                 width: viewportConfig.width ? `${viewportConfig.width}px` : '100%',
                 height: viewportConfig.height ? `${viewportConfig.height}px` : '100%',
-                maxHeight: '100%'
+                maxHeight: '100%',
+                borderRadius: deviceFrame ? `${deviceFrame.radius}px` : undefined
               }}
             >
               <div className="web-preview-device-bar">
-                <span>{viewportConfig.width ? t('preview.viewport.size', { name: t(`preview.viewport.${viewport}`), width: viewportConfig.width }) : t(`preview.viewport.${viewport}`)}</span>
+                <span>{deviceFrame ? t('deviceEmulation.activeLabel', { name: activeDevice.name, width: deviceChoice.rotated ? activeDevice.height : activeDevice.width, height: deviceChoice.rotated ? activeDevice.width : activeDevice.height }) : t('deviceEmulation.desktop')}</span>
                 <code>{url}</code>
               </div>
               <NativePreviewHost key={tab.id} mount={{ownerKey:previewKey,workspaceId:workspace.id,threadId,tabId:tab.id,url:tab.url,allowExternal,agentAccess:agentAutomation}} active={tab.id === activeTabId} zoom={zoom} />
