@@ -11,7 +11,7 @@ test('the design system viewer: motion, components and states in both modes', as
   const { app, page, consoleErrors } = await launchApp({ appearance: 'light' })
   try {
     await resizeWindow(app, 1280, 900)
-    await page.keyboard.press('Control+k')
+    await page.keyboard.press('Control+Shift+P')
     await expect(page.locator('[cmdk-root]')).toBeVisible()
     await page.keyboard.insertText('Design System')
     await page.locator('[cmdk-item]', { hasText: 'View: Open the design system viewer' }).click()

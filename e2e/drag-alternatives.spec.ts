@@ -76,7 +76,7 @@ test('dividers and the file tree work without dragging', async () => {
     await expect(divider).toHaveAttribute('aria-valuenow', /\d+/)
 
     // The file tree copies a path instead of dragging it into a terminal.
-    await page.keyboard.press('Control+k')
+    await page.keyboard.press('Control+Shift+P')
     await page.locator('[cmdk-item][data-value="cmd-tool-editor"]').click()
     const file = page.locator('.editor-browser-file', { hasText: 'notes.md' })
     await file.click({ button: 'right' })

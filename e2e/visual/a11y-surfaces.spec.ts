@@ -97,9 +97,14 @@ for (const theme of THEMES) {
       await record(await scanSurface(page, `${theme}/tools-menu`), found)
       await page.keyboard.press('Escape')
 
-      await page.keyboard.press('Control+k')
+      await page.keyboard.press('Control+Shift+P')
       await expect(page.locator('[cmdk-root]')).toBeVisible()
       await record(await scanSurface(page, `${theme}/command-palette`), found)
+      await page.keyboard.press('Escape')
+
+      await page.keyboard.press('Control+k')
+      await expect(page.getByRole('combobox')).toBeVisible()
+      await record(await scanSurface(page, `${theme}/command-bar`), found)
       await page.keyboard.press('Escape')
 
       await openTool(page, /^Changes$/)

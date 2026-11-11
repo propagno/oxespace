@@ -83,7 +83,7 @@ test('F18/#243: queue in order, critical pacing, a cut text only denies, history
     expect.soft(await pending(page), 'nothing left').toEqual([])
 
     // History of this session's decisions, in the app, from the command palette.
-    await page.keyboard.press('Control+k')
+    await page.keyboard.press('Control+Shift+P')
     await page.keyboard.insertText('Approval history')
     await page.locator('[cmdk-item]', { hasText: /approval history/i }).first().click()
     const history = page.getByTestId('approval-history')

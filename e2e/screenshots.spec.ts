@@ -69,7 +69,7 @@ test('captures all surfaces for design review', async () => {
     await page.waitForTimeout(200)
 
     // 7. Command palette (Ctrl+K)
-    await page.keyboard.press('Control+k')
+    await page.keyboard.press('Control+Shift+P')
     await page.waitForTimeout(200)
     await shot(page, '07-command-palette')
     await page.keyboard.press('Escape')

@@ -21,7 +21,7 @@ async function markAllRead(page: Page): Promise<void> {
   const input = page.getByPlaceholder('Search files and commands…')
   for (let attempt = 0; attempt < 3 && !(await input.isVisible()); attempt++) {
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
-    await page.keyboard.press('Control+k')
+    await page.keyboard.press('Control+Shift+P')
     await input.waitFor({ timeout: 2_000 }).catch(() => undefined)
   }
   await input.fill('Mark all as read')

@@ -22,7 +22,7 @@ test('screen-reader script: start, palette, Code mode, Settings', async () => {
 
     // 1.3 · Ctrl+K: the "Search" dialog, its combobox and the suggestions; Escape gives focus back.
     await page.getByTestId('btn-new-workspace').focus()
-    await page.keyboard.press('Control+k')
+    await page.keyboard.press('Control+Shift+P')
     await expect(page.getByRole('dialog', { name: 'Search' })).toMatchAriaSnapshot(`
       - dialog "Search":
         - combobox [expanded]
