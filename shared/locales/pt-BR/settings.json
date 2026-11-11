@@ -929,6 +929,33 @@
       "denyAndHold": "Negar é o padrão, e aprovações irreversíveis exigem segurar o botão."
     }
   },
+  "hostsProxy": {
+    "sectionTitle": "Conexões de saída",
+    "toggleLabel": "Registrar os hosts aos quais os agentes se conectam",
+    "toggleHint": "Registra hosts de programas que usam HTTP_PROXY. Nunca caminhos, cabeçalhos ou corpos.",
+    "turnedOnNotice": "Vale para programas de novos agentes que usam HTTP_PROXY. Alguns, como ssh ou fetch do Node, ignoram.",
+    "turnedOffNotice": "Registro parado. Agentes já em execução continuam funcionando até terminarem.",
+    "tryAgain": "Tentar novamente",
+    "filterLabel": "Filtrar hosts",
+    "empty": "Nenhuma conexão de saída ainda.",
+    "noMatch": "Nenhum host encontrado.",
+    "outsideConversation": "Fora de uma conversa",
+    "newBadge": "Novo",
+    "clearList": "Limpar a lista…",
+    "columns": {
+      "host": "Host",
+      "port": "Porta",
+      "from": "Origem",
+      "count": "Conexões",
+      "lastSeen": "Visto por último"
+    },
+    "clearDialog": {
+      "title": "Limpar as conexões de saída?",
+      "body": "Limpar os hosts registrados? Isso não pode ser desfeito.",
+      "cancel": "Cancelar",
+      "confirm": "Limpar"
+    }
+  },
   "usage": {
     "sectionTitle": "Uso neste computador",
     "toggleLabel": "Contar quais recursos eu uso",
