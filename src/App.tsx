@@ -647,7 +647,7 @@ export function App(): ReactElement {
     const flush = async () => {
       const batch = [...changed]; changed.clear()
       const state = useThreadStore.getState()
-      if (batch.some(id => !state.threads.some(t => t.id === id))) await state.load()
+      if (batch.some(id => !state.threads.some(t => t.id === id))) await Promise.all([state.load(), state.loadProjects()])
       else await Promise.all(batch.map(id => state.refresh(id)))
       timer = undefined
       if (active && changed.size) timer = setTimeout(() => { void flush() }, 100)
