@@ -2578,5 +2578,32 @@
     "emptyFiltered": "Nada corresponde",
     "clearFilters": "Limpar filtros",
     "error": "Não deu para ler o registro HTTP"
+  },
+  "agentBrowser": {
+    "defaultAgent": "Claude",
+    "usingPage": "{{agent}} está usando esta página",
+    "scopeSession": "Esta sessão",
+    "scopeSessionHint": "Liberado nesta sessão, no localhost",
+    "scopeAction": "Pergunta a cada vez",
+    "scopeActionHint": "Cada ação pergunta antes",
+    "end": "Encerrar",
+    "revokedToast": "O {{agent}} não pode mais usar esta página",
+    "stepsLabel": "O que o agente fez",
+    "stepOpened": "Abriu {{target}}",
+    "stepClicked": "Clicou em {{label}}",
+    "stepFilled": "{{label}}: {{value}}",
+    "stepFilledNoValue": "Preencheu {{label}}",
+    "stepScrolled": "Rolou {{label}}",
+    "stepScrolledPlain": "Rolou",
+    "console": "Console",
+    "network": "Rede",
+    "emptyLog": "Nada registrado ainda.",
+    "ms": "{{ms}} ms",
+    "devToolsOpen": "Feche o DevTools do navegador para o agente capturar.",
+    "downTitle": "{{url}} não está respondendo",
+    "downHint": "Inicie o servidor de dev e recarregue.",
+    "runDev": "Rodar {{script}}",
+    "noneTitle": "Nenhuma página aberta",
+    "noneHint": "Digite um endereço ou rode seu servidor de dev."
   }
 }

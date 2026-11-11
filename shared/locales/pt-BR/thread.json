@@ -1823,5 +1823,18 @@
   "toolOutputCut": {
     "withTotal": "Saída cortada nos primeiros {{kept}} de {{total}}",
     "keptOnly": "Saída cortada nos primeiros {{kept}}"
+  },
+  "previewApproval": {
+    "defaultAgent": "O agente",
+    "title": "{{agent}} quer usar o navegador",
+    "click": "Clicar em \"{{label}}\" em {{origin}}",
+    "fill": "Preencher \"{{label}}\" em {{origin}}",
+    "navigate": "Abrir {{url}}",
+    "scroll": "Rolar em {{origin}}",
+    "scopeSession": "Libera esta sessão de prévia em {{origin}}, até você encerrar.",
+    "scopeAction": "Libera só esta ação.",
+    "leavingLocalhost": "Sair do localhost sempre pergunta.",
+    "allowSession": "Permitir nesta sessão",
+    "allowOnce": "Permitir uma vez"
   }
 }

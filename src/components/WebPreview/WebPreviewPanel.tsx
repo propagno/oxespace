@@ -10,6 +10,8 @@ import { ConfirmDialog } from '../../ui'
 import { useUIStore } from '../../store/ui.store'
 import { DesignGrabSheet } from './DesignGrabSheet'
 import { NativePreviewHost } from './NativePreviewHost'
+import { AgentBrowserChrome } from './AgentBrowserChrome'
+import { PreviewEmptyState } from './PreviewEmptyState'
 import { humanizeError } from '../../utils/humanizeError'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
@@ -36,7 +38,8 @@ const VIEWPORTS: Record<Viewport, { width: number | null; height: number | null 
   mobile: { width: 390, height: 844 }
 }
 
-export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, workspace, threadId }: WebPreviewPanelProps): ReactElement {
+export function WebPreviewPanel({ embedded = false, onClose, onRunCommand, onSendToAgent, workspace, threadId }: WebPreviewPanelProps): ReactElement {
+  const agentName = workspace.panes?.find(pane => pane.agentName)?.agentName ?? tc('agentBrowser.defaultAgent')
   const { t } = useTranslation('code')
   const previewKey = threadId ? `thread:${threadId}` : workspace.id
   const [tabs, setTabs] = useState<PreviewTab[]>([])
@@ -302,6 +305,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
         <span>{agentAutomation ? t('preview.access.on') : t('preview.access.off')}</span>
       </div>
 
+      <AgentBrowserChrome ownerKey={previewKey} tabId={activeTabId} agentName={agentName}>
       <div className="web-preview-stage" aria-busy={loading}>
         {tabs.map(tab => tab.url && !tab.error && normalizePreviewUrl(tab.url, allowExternal) && <div className="web-preview-frame-wrap" key={tab.id} style={tab.id === activeTabId ? undefined : { display: 'none' }}>
             <div
@@ -322,11 +326,13 @@ export function WebPreviewPanel({ embedded = false, onClose, onSendToAgent, work
         {(!url || externalPageBlocked || pageError) && (
           <div className="web-preview-placeholder">
             {externalPageBlocked ? <EmptyState icon={<MonitorPlay size={20} />} title={t('preview.externalRequired')}>{t('preview.externalRequiredHint')}</EmptyState>
+              : pageError && url && normalizePreviewUrl(url, false) ? <PreviewEmptyState kind="down" url={(() => { try { return new URL(url).host } catch { return url } })()} devScript="npm run dev" onRunDev={() => onRunCommand('npm run dev')} />
               : pageError ? <ErrorState title={t('preview.unavailable')} message={t('preview.unavailableHint')} detail={pageError} onRetry={open} retryLabel={t('preview.retry')} />
-              : <EmptyState icon={<MonitorPlay size={20} />} title={t('panels.browser')}>{t('preview.emptyHint')}</EmptyState>}
+              : <PreviewEmptyState kind="none" />}
           </div>
         )}
       </div>
+      </AgentBrowserChrome>
       {designMode ? (
         <div className="web-preview-design-hint" role="status">
           {t('preview.designHint')}
