@@ -312,19 +312,22 @@ async function registerIpcHandlers(): Promise<() => void> {
   // Agents search with their own instance: a new search cancels the previous one of the same service.
   const agentSearch = new SearchService()
   const gitHubService = registerGitHubIpc(db)
-  registerPullRequestIpc()
+  const pullRequestProvider = registerPullRequestIpc()
   gitHubService.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
   registerIntegrationIpc(db)
+  const backgroundListeners = new Set<() => void>()
   const backgroundManager = new BackgroundManager(db, {
     emitOutput: (event) => {
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send(IPC_CHANNELS.background.onOutput, event)
       }
+      for (const listener of backgroundListeners) listener()
     },
     emitUpdate: (event) => {
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send(IPC_CHANNELS.background.onUpdate, event)
       }
+      for (const listener of backgroundListeners) listener()
     }
   })
   registerBackgroundIpc(backgroundManager)
@@ -355,7 +358,15 @@ async function registerIpcHandlers(): Promise<() => void> {
       if (executionId && executions.forOwner({ kind: 'thread', id: threadId })?.id !== executionId) return
       executions.endOwner({ kind: 'thread', id: threadId })
     }
-  }, threadWorktrees)
+  }, threadWorktrees, {
+    // F6 A22: the conversation's own OXESpace jobs with their last lines; Stop stays on background:stop.
+    jobs: thread => backgroundManager.list(thread.workspaceId).map(job => ({ job, tail: backgroundManager.getOutput(job.id).lines.slice(-5) })),
+    onJobsChanged: listener => { backgroundListeners.add(listener); return () => { backgroundListeners.delete(listener) } },
+    pullRequest: async ({ rootPath, branch }) => {
+      const state = await pullRequestProvider.state({ rootPath, branch }).catch(() => null)
+      return state?.pr ? { number: state.pr.number } : null
+    }
+  })
   // A18 (P7) · the task's Terminal tab reads every running pane: its launch folder, its agent's reported cwd and its
   // shell's OSC cwd (F4-P6); `agent` = the pane runs an agent CLI.
   const paneRows = db.prepare('SELECT id, workspace_id, display_name, agent_name FROM panes')

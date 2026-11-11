@@ -19,6 +19,10 @@ import { forwardPlacesChanged } from './thread-places-changed'
 import type { ThreadRequestResponse } from '../../../shared/types/thread'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
 import { MainRefusal } from '../services/main-refusal'
+import { threadToolTabs } from '../services/conversation/thread-tool-tabs'
+import { backgroundShells, watchBackground, type BackgroundJobEntry, type BackgroundShellsInput } from '../services/conversation/thread-background'
+import { foldSummary, toolRow, type ToolRow } from '../../../shared/thread-tool-rows'
+import type { ThreadToolTabEntry } from '../../../shared/types/ipc'
 
 function string(value: unknown): string {
   if (typeof value !== 'string' || !value || value.length > 65536 || value.includes('\0')) throw new MainRefusal('thread.invalidInput', {})
@@ -68,7 +72,7 @@ function requestResponse(value: unknown): ThreadRequestResponse {
   return result
 }
 
-export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, worktrees?: ThreadWorktreeHost): { stop(): Promise<void>; manager: Promise<ThreadManager> } {
+export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, worktrees?: ThreadWorktreeHost, background?: ThreadBackgroundHost): { stop(): Promise<void>; manager: Promise<ThreadManager> } {
   // The folder an account scope runs in: the pane's own root when it has one, else the workspace's.
   const workspaceCwd = (workspaceId: string, paneId?: string | null): string => {
     const ws = db.prepare('SELECT root_path FROM workspaces WHERE id = ?').get(workspaceId) as { root_path: string } | undefined
@@ -323,5 +327,101 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
   registerThreadSectionsIpc({ db })
   registerThreadPlacesIpc({ manager })
   forwardPlacesChanged({ manager })
-  return { manager, stop: async () => { await sideChats?.then(chats => chats.stop()).catch(() => {}); await (await accounts).stop(); await (await manager).stop() } }
+  const cockpit = registerThreadCockpitIpc(manager, background)
+  return { manager, stop: async () => { cockpit.stop(); await sideChats?.then(chats => chats.stop()).catch(() => {}); await (await accounts).stop(); await (await manager).stop() } }
+}
+
+/** F6 A19/A22: OXESpace's own background jobs and PR lookup for a conversation. */
+export interface ThreadBackgroundHost {
+  jobs(thread: { id: string; workspaceId: string; rootPath: string }): BackgroundJobEntry[]
+  onJobsChanged?(listener: () => void): () => void
+  pullRequest?(input: { rootPath: string; branch: string }): Promise<{ number: number } | null>
+}
+
+/**
+ * F6 (ccr-f6-conversation.md §Contract): steer with a queued message, and the tool tabs and background shells as read
+ * models. Each push carries only { threadId }, sent when what the window would read changed (coalesced per conversation).
+ */
+function registerThreadCockpitIpc(manager: Promise<ThreadManager>, background?: ThreadBackgroundHost): { stop(): void } {
+  const toolTabs = async (service: ThreadManager, id: string): Promise<ThreadToolTabEntry[]> => {
+    const snapshot = service.read(id), seen = new Set<string>(), rows: ToolRow[] = []
+    for (const event of snapshot.events) if (event.type === 'tool' && event.name !== 'Tool result' && !seen.has(event.id)) { seen.add(event.id); rows.push(toolRow(event, snapshot.thread.rootPath)) }
+    const counts = foldSummary(rows)
+    const [places, panes] = await Promise.all([service.places(id).catch(() => null), service.panes(id).catch(() => null)])
+    const place = places?.places.find(entry => entry.current?.branch)
+    const branch = place?.current?.branch ?? snapshot.thread.ownedWorktree?.branch ?? null
+    const pullRequest = branch && background?.pullRequest
+      ? await background.pullRequest({ rootPath: place?.path ?? snapshot.thread.rootPath, branch }).catch(() => null)
+      : null
+    return threadToolTabs({
+      summary: { databases: counts.queries, http: counts.http, containers: counts.containers },
+      files: places ? places.places.reduce((sum, entry) => sum + entry.files.length, 0) : null,
+      panes: panes ? panes.length : null,
+      pullRequest
+    })
+  }
+  const source = (service: ThreadManager, id: string): BackgroundShellsInput => {
+    const snapshot = service.read(id), thread = snapshot.thread
+    let jobs: BackgroundJobEntry[] = []
+    try { jobs = background?.jobs(thread) ?? [] } catch { jobs = [] }
+    return { events: snapshot.events, jobs, live: !!thread.connection && thread.connection.state !== 'closed' && !thread.connection.suspendedAt }
+  }
+  const push = (channel: string, threadId: string): void => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (window.isDestroyed() || window.webContents.isDestroyed()) continue
+      window.webContents.send(channel, { threadId })
+    }
+  }
+  const watchers = new Map<string, ReturnType<typeof watchBackground>>()
+  const lastTabs = new Map<string, string>(), lastShells = new Map<string, string>(), pending = new Map<string, ReturnType<typeof setTimeout>>()
+  const watch = (service: ThreadManager, id: string): void => {
+    const existing = watchers.get(id)
+    if (existing) { existing.refresh(); return }
+    if (watchers.size >= 64) { const [oldest, stop] = [...watchers][0]; stop(); watchers.delete(oldest) }
+    watchers.set(id, watchBackground({ source: () => source(service, id), onChange: () => push(IPC_CHANNELS.thread.backgroundChanged, id) }))
+  }
+  const changed = (service: ThreadManager, id: string): void => {
+    if (pending.has(id)) return
+    pending.set(id, setTimeout(() => {
+      pending.delete(id)
+      void (async () => {
+        const tabs = JSON.stringify(await toolTabs(service, id))
+        if (lastTabs.has(id) && lastTabs.get(id) !== tabs) push(IPC_CHANNELS.thread.toolTabsChanged, id)
+        lastTabs.set(id, tabs)
+        if (!watchers.has(id)) return
+        const shells = JSON.stringify(backgroundShells(source(service, id)))
+        if (lastShells.get(id) !== shells) push(IPC_CHANNELS.thread.backgroundChanged, id)
+        lastShells.set(id, shells)
+        watch(service, id)
+      })().catch(() => undefined)
+    }, 250))
+  }
+  let unsubscribe: Array<() => void> = []
+  void manager.then(service => {
+    unsubscribe = [
+      service.subscribe('*', id => changed(service, id)),
+      service.subscribePlaces('*', id => changed(service, id)),
+      ...(background?.onJobsChanged ? [background.onJobsChanged(() => { for (const id of watchers.keys()) changed(service, id) })] : [])
+    ]
+  }, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.thread.steerQueued, (event, id: unknown, itemId: unknown) => manager.then(service => service.steerQueued(string(id), string(itemId))))
+  ipcMain.handle(IPC_CHANNELS.thread.toolTabs, async (event, id: unknown) => {
+    const threadId = string(id), service = await manager, tabs = await toolTabs(service, threadId)
+    lastTabs.set(threadId, JSON.stringify(tabs))
+    return tabs
+  })
+  ipcMain.handle(IPC_CHANNELS.thread.background, async (event, id: unknown) => {
+    const threadId = string(id), service = await manager, shells = backgroundShells(source(service, threadId))
+    lastShells.set(threadId, JSON.stringify(shells))
+    watch(service, threadId)
+    return shells
+  })
+  return {
+    stop: () => {
+      for (const stop of unsubscribe) stop()
+      for (const timer of pending.values()) clearTimeout(timer)
+      for (const stop of watchers.values()) stop()
+      pending.clear(); watchers.clear()
+    }
+  }
 }

@@ -223,7 +223,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
       oxespace_thread_create: 'write', oxespace_thread_send: 'write'
     },
     ipc: ['thread.create', 'thread.send', 'thread.steer', 'thread.interrupt', 'thread.stopTask', 'thread.configure', 'thread.pin', 'thread.keepAfterPr', 'thread.updateQueued', 'thread.deleteQueued',
-      'thread.reorderQueued', 'thread.resumeQueue', 'thread.sendQueuedNow', 'thread.retryTurn']
+      'thread.reorderQueued', 'thread.resumeQueue', 'thread.sendQueuedNow', 'thread.retryTurn', 'thread.steerQueued']
   },
   'thread.history_edit': {
     label: 'Rewind, undo a turn\'s edits, export, import, recover, attach files, slash commands',
@@ -260,6 +260,11 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     label: 'A conversation\'s places, their diffs, path links, panes, collisions and agent summary (F4)',
     excluded: 'The person\'s window: read models of where a conversation worked. Agents read their own checkout with oxespace_git.',
     ipc: ['thread.places', 'thread.placeDiff', 'thread.resolvePath', 'thread.panes', 'thread.collisions', 'thread.agentSummary', 'thread.placesChanged']
+  },
+  'thread.cockpit': {
+    label: 'A conversation\'s tool tabs and background shells (F6)',
+    excluded: 'The person\'s window: read models of what a conversation used and left running. Agents see their own tools and shells.',
+    ipc: ['thread.toolTabs', 'thread.toolTabsChanged', 'thread.background', 'thread.backgroundChanged']
   },
   'thread.place_actions': {
     label: 'Answer a branch drift; undo, restore or discard a place\'s changes; read a file of a place (F4)',
