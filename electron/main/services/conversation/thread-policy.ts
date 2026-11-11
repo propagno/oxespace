@@ -1,11 +1,14 @@
+import type { AgentHostDecision } from '../../../../shared/types/agent-permissions'
 import type { ThreadAuditEntry, ThreadConfiguration, ThreadPermissionRule, ThreadRequest, ThreadRequestPolicy, ThreadRequestResponse } from '../../../../shared/types/thread'
 import { fullAccessPolicy } from './kernel/permission-policy'
 import type { ThreadPermissionStore } from './thread-permissions'
 import { policyBlockedMessage } from '../../../../shared/policy'
 import { policyStore } from '../policy'
 import { OXESPACE_BRIDGE_KEY } from './read-only-mcp-tools'
+import { activeHostDecision } from '../approvals/agent-permissions'
 import { requestImpact } from '../approvals/request-impact'
 import { alwaysAllowOffer } from '../approvals/always-allow'
+import { parseHttpCalls } from '../http-audit/parse'
 
 const BRIDGE_PREFIX = `mcp__${OXESPACE_BRIDGE_KEY}__`
 
@@ -27,7 +30,8 @@ export class ThreadPolicy {
     private readonly permissions: ThreadPermissionStore,
     /** The project root of a conversation; throws for one that does not exist. */
     private readonly rootOf: (id: string) => string,
-    private readonly resolve: (id: string, requestId: string, generation: number, response: ThreadRequestResponse) => Promise<unknown>
+    private readonly resolve: (id: string, requestId: string, generation: number, response: ThreadRequestResponse) => Promise<unknown>,
+    private readonly hostDecisionFor: (rootPath: string, host: string) => AgentHostDecision = activeHostDecision
   ) {}
 
   /** The rules' answer to a request, combined with the conversation's access level. */
@@ -45,9 +49,33 @@ export class ThreadPolicy {
     const store = names.length ? policyStore() : null
     const organization = store ? names.map(name => store.decide('tool.use', name, rootPath)).find(verdict => !verdict.allowed) : undefined
     if (organization && !organization.allowed) return { decision: 'deny' as const, reasons: [policyBlockedMessage(organization, request.toolName!)] }
+
+    let hostMustAsk: string | undefined
+    if (request.kind === 'approval' && request.command) {
+      const shell = /^(powershell|pwsh)$/i.test(request.toolName ?? '') ? 'powershell' : 'bash'
+      for (const call of parseHttpCalls(request.command, shell)) {
+        if (!call.host) continue
+        const verdict = this.hostDecisionFor(rootPath, call.host)
+        if (verdict === 'deny') {
+          return { decision: 'deny' as const, reasons: [`HTTP host ${call.host} is blocked.`] }
+        }
+        if (verdict === 'ask' && !hostMustAsk) hostMustAsk = call.host
+      }
+    }
+
     let policy: ThreadRequestPolicy | undefined
     try { policy = this.permissions.evaluate(rootPath, request) } catch { policy = undefined }
-    return fullAccessPolicy(request, policy, access)
+    const combined = fullAccessPolicy(request, policy, access)
+    if (combined?.decision === 'deny') return combined
+    if (hostMustAsk) {
+      return {
+        ...(combined ?? { reasons: [] }),
+        decision: 'ask' as const,
+        guarded: true as const,
+        reasons: [`HTTP host ${hostMustAsk} requires approval first.`, ...(combined?.reasons ?? [])]
+      }
+    }
+    return combined
   }
 
   /** Answers a request the permission rules decided; on any failure the person still sees the prompt. */

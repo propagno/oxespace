@@ -619,6 +619,21 @@
       "firstSight": {
         "enforced": "Esperando sua revisão: só valem as regras que negam, e os grupos de ferramentas ficam no máximo sob demanda."
       }
+    },
+    "permissions": {
+      "production": {
+        "readOnly": "Uma conexão de produção oferece aos agentes só nenhum acesso ou leitura."
+      },
+      "policy": {
+        "readOnly": "As linhas da Política são só leitura aqui. Altere-as no arquivo de Política do projeto."
+      },
+      "access": {
+        "invalid": "O acesso dos agentes é desligado, leitura ou escrita."
+      },
+      "notFound": "Essa permissão não existe mais. A lista foi atualizada.",
+      "undo": {
+        "expired": "Este desfazer já foi usado ou não está mais disponível."
+      }
     }
   },
   "remotePairingFailure": {

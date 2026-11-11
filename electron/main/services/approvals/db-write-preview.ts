@@ -121,7 +121,7 @@ function lexSql(sql: string): { ok: true; tokens: SqlToken[] } | { ok: false; re
       continue
     }
     if (ch === '\'') {
-      const escaped = /[eE]/.test(sql[i - 1] ?? '') && tokens.at(-1)?.kind === 'word' && tokens.at(-1)?.upper === 'E'
+      const escaped = /[eE]/.test(sql[i - 1] ?? '') && (() => { const last = tokens.at(-1); return last?.kind === 'word' && last.upper === 'E' })()
       if (escaped) tokens.pop()
       const start = i
       i += 1
@@ -401,7 +401,8 @@ function translateSql(sql: string): { ok: true; plan: TranslatedSql } | { ok: fa
 
   if (first.upper === 'DELETE') {
     let idx = 1
-    if (stmt[idx]?.kind === 'word' && stmt[idx].upper === 'FROM') idx += 1
+    const fromTok = stmt[idx]
+    if (fromTok?.kind === 'word' && fromTok.upper === 'FROM') idx += 1
     else return { ok: false, reason: 'delete without from not supported' }
     const rest = stmt.slice(idx)
     const badMod = hasTopLevelWord(rest, WRITE_MODIFIERS)

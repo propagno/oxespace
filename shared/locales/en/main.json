@@ -617,6 +617,21 @@
       "firstSight": {
         "enforced": "Waiting for your review: only the rules that deny apply, and tool groups are at most on demand."
       }
+    },
+    "permissions": {
+      "production": {
+        "readOnly": "A production connection offers agents only no access or read."
+      },
+      "policy": {
+        "readOnly": "Policy rows are read only here. Change them in the project's Policy file."
+      },
+      "access": {
+        "invalid": "Agent access is off, read or write."
+      },
+      "notFound": "That permission is no longer there. The list was refreshed.",
+      "undo": {
+        "expired": "This undo was already used or is no longer available."
+      }
     }
   },
   "remotePairingFailure": {
