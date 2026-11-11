@@ -222,14 +222,14 @@ describe('U7.2 · The impact preview', () => {
   test('under reduced motion the hold shows a static countdown text and still completes at 1.2 s', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date', 'performance', 'requestAnimationFrame', 'cancelAnimationFrame'] })
     const original = window.matchMedia
-    window.matchMedia = ((query: string) => ({ matches: /prefers-reduced-motion:s*reduce/.test(query), media: query, onchange: null, addListener: () => undefined, removeListener: () => undefined, addEventListener: () => undefined, removeEventListener: () => undefined, dispatchEvent: () => false })) as typeof window.matchMedia
+    window.matchMedia = ((query: string) => ({ matches: /prefers-reduced-motion:\s*reduce/.test(query), media: query, onchange: null, addListener: () => undefined, removeListener: () => undefined, addEventListener: () => undefined, removeEventListener: () => undefined, dispatchEvent: () => false })) as typeof window.matchMedia
     try {
       mockPreview(SAMPLE)
       const onRespond = await renderPreview(PUSH)
       const hold = screen.getByRole('button', { name: /Hold to approve/ })
       act(() => { fireEvent.pointerDown(hold, { pointerId: 1, button: 0 }) })
       await act(async () => { await vi.advanceTimersByTimeAsync(400) })
-      expect(within(hold.parentElement ?? hold).getByText(/d[.,]ds?s/)).toBeInTheDocument()
+      expect(within(hold.parentElement ?? hold).getByText(/\d[.,]\d\s?s/)).toBeInTheDocument()
       await act(async () => { await vi.advanceTimersByTimeAsync(850) })
       expect(onRespond).toHaveBeenCalledWith({ decision: 'accept' })
     } finally { window.matchMedia = original }
