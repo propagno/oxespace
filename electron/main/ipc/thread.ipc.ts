@@ -68,7 +68,12 @@ function requestResponse(value: unknown): ThreadRequestResponse {
   return result
 }
 
-export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, worktrees?: ThreadWorktreeHost): { stop(): Promise<void>; manager: Promise<ThreadManager> } {
+export function registerThreadIpc(
+  db: AppDatabase,
+  mcp: ThreadMcpBindings,
+  worktrees?: ThreadWorktreeHost,
+  activity?: () => import('../services/agent-activity/read-model').AgentActivity | undefined
+): { stop(): Promise<void>; manager: Promise<ThreadManager> } {
   // The folder an account scope runs in: the pane's own root when it has one, else the workspace's.
   const workspaceCwd = (workspaceId: string, paneId?: string | null): string => {
     const ws = db.prepare('SELECT root_path FROM workspaces WHERE id = ?').get(workspaceId) as { root_path: string } | undefined
@@ -318,6 +323,53 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
   ipcMain.handle(IPC_CHANNELS.thread.keepAfterPr, (event, id: unknown, prNumber: unknown) => {
     if (typeof prNumber !== 'number' || !Number.isSafeInteger(prNumber) || prNumber <= 0) throw new Error('Invalid pull request number')
     return manager.then(service => service.keepAfterPr(string(id), prNumber))
+  })
+  let fallbackActivity: import('../services/agent-activity/read-model').AgentActivity | null = null
+  const resolveActivity = async (): Promise<import('../services/agent-activity/read-model').AgentActivity> => {
+    const provided = activity?.()
+    if (provided) return provided
+    if (fallbackActivity) return fallbackActivity
+    const [{ AgentActivity }, { productionHostsFor }, { policyStore }] = await Promise.all([
+      import('../services/agent-activity/read-model'),
+      import('../services/http-audit/production-hosts'),
+      import('../services/policy')
+    ])
+    fallbackActivity = new AgentActivity(db, { isProductionHost: productionHostsFor({ db, policy: policyStore() ?? undefined }) })
+    return fallbackActivity
+  }
+  ipcMain.handle(IPC_CHANNELS.thread.agentSummary, (_event, id: unknown) => {
+    const threadId = string(id)
+    return Promise.all([manager, resolveActivity(), import('../services/agent-activity/thread-summary')]).then(async ([service, act, { threadAgentSummary }]) => {
+      let snapshot: import('../../../shared/types/thread').ThreadSnapshot
+      try {
+        snapshot = service.read(threadId)
+      } catch {
+        return null
+      }
+      const extraFailedSources: string[] = []
+      let files: number | null = null
+      try {
+        const { places } = await service.places(threadId)
+        files = places.reduce((sum, place) => sum + place.files.length, 0)
+      } catch {
+        extraFailedSources.push('files')
+      }
+      let agentPaneIds: string[]
+      try {
+        const panes = await service.panes(threadId)
+        agentPaneIds = panes.filter(pane => pane.group === 'agent').map(pane => pane.paneId)
+      } catch {
+        agentPaneIds = []
+      }
+      return threadAgentSummary({
+        activity: act,
+        threadId,
+        agentPaneIds,
+        files,
+        events: snapshot.events,
+        extraFailedSources
+      })
+    })
   })
   registerThreadWorktreeIpc({ db, manager, threadProjects, worktrees, id: string })
   registerThreadSectionsIpc({ db })

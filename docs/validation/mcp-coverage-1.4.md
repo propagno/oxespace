@@ -24,7 +24,7 @@ policy (`tool.use` rules of the policy store) applies by tool name to every tool
 
 | Covered | Excluded | Planned | Forbidden | Total |
 |---|---|---|---|---|
-| 36 | 30 | 2 | 21 | 89 |
+| 36 | 31 | 2 | 21 | 90 |
 
 The registry has 75 tools: 52 single-purpose tools and 23 domain tools with 86 actions, so the
 manifest declares 138 tool-or-action entries.
@@ -123,6 +123,7 @@ before. Code panes receive the whole registry.
 | `code.background_jobs` | Background jobs | **read**: `oxespace_list_background_jobs`, `oxespace_get_job_output`<br>**write**: `oxespace_stop_background_job` |
 | `code.background_cleanup` | Remove a finished job from the list | Excluded: Tidies the person's list; nothing for an agent to gain. |
 | `code.worktrees` | Git worktrees | **read**: `oxespace_list_worktrees`<br>**write**: `oxespace_create_worktree`<br>**confirm**: `oxespace_remove_worktree` |
+| `code.worktrees_panel` | The Worktrees panel: list with owner, merged state, disk use and activity, and guarded Remove with optional local branch delete (A63) | Excluded: The person's window and local branch delete. Agents list and remove worktrees one at a time without deleting branches (`oxespace_list_worktrees`, `oxespace_remove_worktree`). |
 | `code.worktree_cleanup` | Bulk worktree cleanup | Excluded: Deletes many worktrees at once. Agents remove one at a time, approved by a person. |
 | `code.tasks` | Task board | **read**: `oxespace_tasks#list`, `oxespace_tasks#ready`, `oxespace_tasks#executions`<br>**write**: `oxespace_tasks_change#create`, `oxespace_tasks_change#update`, `oxespace_tasks_change#reorder`, `oxespace_tasks_change#add_dependency`, `oxespace_tasks_change#remove_dependency`<br>**confirm**: `oxespace_tasks_change#verify`, `oxespace_tasks_change#delete` |
 | `code.task_run` | Start a task in an agent's terminal | Excluded: Types the task into another agent's terminal. |

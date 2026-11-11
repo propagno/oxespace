@@ -70,8 +70,8 @@ export interface ToolContext {
   fileSystem: FileSystemService
   webPreview: WebPreviewBus
   worktree: WorktreeEventBus
-  /** A63: the guarded worktree removal the person's panel uses; oxespace_remove_worktree goes through it. */
-  worktreesPanel?: import('../services/github/worktrees-panel').WorktreesPanel
+  /** A63: the guarded worktree removal; oxespace_remove_worktree goes through it without branch deletion. */
+  worktreesPanel?: import('../services/github/worktree-guard').WorktreeRemoveGuard
 }
 
 export interface ToolEntry {

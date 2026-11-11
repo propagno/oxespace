@@ -52,7 +52,7 @@ const AZURE_ORG_HOST = /^([a-z0-9][a-z0-9-]*)\.visualstudio\.com$/
 function remoteParts(url: string): RemoteParts | null {
   const text = url.trim()
   if (!text || /\s/.test(text)) return null
-  const scheme = /^([a-z][a-z0-9+.-]*):\/\/([^/?#]*)([^?#]*)/i.exec(text)
+  const scheme = text.match(/^([a-z][a-z0-9+.-]*):\/\/([^/?#]*)([^?#]*)/i)
   if (scheme) {
     if (!URL_SCHEMES.has(scheme[1].toLowerCase())) return null
     const authority = scheme[2]
@@ -60,7 +60,7 @@ function remoteParts(url: string): RemoteParts | null {
     return HOST.test(host) ? { host, path: scheme[3] } : null
   }
   // The scp form: [user@]host:path
-  const scp = /^(?:[^@/\s]+@)?([^@/:\s]+):(?!\/\/)(.*)$/.exec(text)
+  const scp = text.match(/^(?:[^@/\s]+@)?([^@/:\s]+):(?!\/\/)(.*)$/)
   if (!scp) return null
   const host = scp[1].toLowerCase()
   return HOST.test(host) ? { host, path: scp[2] } : null
@@ -100,7 +100,7 @@ function azureRepo(url: string): AzureRepo | null {
       org = segments[0]
       rest = segments.slice(1)
     } else {
-      org = AZURE_ORG_HOST.exec(parts.host)?.[1]
+      org = parts.host.match(AZURE_ORG_HOST)?.[1]
       rest = segments[0]?.toLowerCase() === 'defaultcollection' ? segments.slice(1) : segments
     }
     const git = rest.indexOf('_git')

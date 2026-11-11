@@ -667,6 +667,10 @@ export interface OxeApi {
   search: SearchApi
   github: GitHubApi
   pullRequest?: import('./pull-request').PullRequestApi
+  worktreesPanel?: {
+    list(input: { rootPath: string }): Promise<import('../../electron/main/services/github/worktrees-panel').WorktreesPanelRow[]>
+    remove(input: { rootPath: string; path: string; deleteBranch: boolean; confirmUnmerged?: boolean }): Promise<import('../../electron/main/services/github/worktrees-panel').WorktreesPanelRemoveResult>
+  }
   integration: IntegrationApi
   clipboard: ClipboardApi
   notifications: NotificationsApi

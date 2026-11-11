@@ -340,6 +340,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     createWorktree: (input: import('../../shared/types/github').GitHubCreateWorktreeInput) => gitHubService.createWorktree(input),
     resolveBaseRef: async (rootPath: string) => (await gitHubService.resolveWorktreeBase({ workspaceId: '', rootPath })).baseRef, removeWorktree: (input: import('../../shared/types/github').GitHubRemoveWorktreeInput) => gitHubService.removeWorktree(input)
   }
+  const sharedAgentActivity: { current?: AgentActivity } = {}
   const threadManager = registerThreadIpc(db, {
     observed: thread => delegatedThreadObserver.current?.(thread),
     bridge: join(app.getPath('userData'), 'bin', 'oxespace-mcp.cjs'),
@@ -355,7 +356,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       if (executionId && executions.forOwner({ kind: 'thread', id: threadId })?.id !== executionId) return
       executions.endOwner({ kind: 'thread', id: threadId })
     }
-  }, threadWorktrees)
+  }, threadWorktrees, () => sharedAgentActivity.current)
   // A18 (P7) · the task's Terminal tab reads every running pane: its launch folder, its agent's reported cwd and its
   // shell's OSC cwd (F4-P6); `agent` = the pane runs an agent CLI.
   const paneRows = db.prepare('SELECT id, workspace_id, display_name, agent_name FROM panes')
@@ -524,6 +525,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     isProductionHost: productionHostsFor({ db, policy: policyStore() ?? undefined }),
     pendingFor: (connectionId) => approvalCenter.list().some(req => req.target === connectionId || req.target?.includes(connectionId))
   })
+  sharedAgentActivity.current = agentActivity
   registerAgentActivityIpc(agentActivity)
   // OXESpace context manifest — prepended to the agent's initial prompt on pane spawn so the CLI knows the
   // workspace state without calling any MCP tool. Read shortcut; MCP is still the action path (see oxe-context.service.ts).
