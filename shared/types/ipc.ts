@@ -70,7 +70,7 @@ export type { AgentsApi } from './ipc/agents'
 export const IPC_CHANNELS = {
   agents: AGENTS_CHANNELS,
   agentAccount: { read: 'agent-account:read', login: 'agent-account:login', logout: 'agent-account:logout', cancel: 'agent-account:cancel', code: 'agent-account:code', browser: 'agent-account:browser', changed: 'agent-account:changed' },
-  thread: { projectDiff: 'thread:project-diff', artifact: 'thread:artifact', exportPortable: 'thread:export-portable', importPortable: 'thread:import-portable', models: 'thread:models', configure: 'thread:configure', command: 'thread:command', recover: 'thread:recover', observe: 'thread:observe', commands: 'thread:commands', projects: 'thread:projects', addProject: 'thread:project-add', relinkProject: 'thread:project-relink', setProjectHidden: 'thread:project-hidden', list: 'thread:list', pendingRequestsAll: 'thread:pending-requests-all', sideOpen: 'thread:side-open', sideSend: 'thread:side-send', sideClose: 'thread:side-close', onSideEvent: 'thread:side-event', respondPending: 'thread:respond-pending', create: 'thread:create', read: 'thread:read', history: 'thread:history', attach: 'thread:attach', removeAttachment: 'thread:remove-attachment', send: 'thread:send', steer: 'thread:steer', stopTask: 'thread:stop-task', turnFiles: 'thread:turn-files', undoTurnFile: 'thread:undo-turn-file', turnFileHunks: 'thread:turn-file-hunks', undoTurnHunk: 'thread:undo-turn-hunk', sections: 'thread:sections', saveSections: 'thread:sections-save', permissionRules: 'thread:permission-rules', addPermissionRule: 'thread:permission-rule-add', removePermissionRule: 'thread:permission-rule-remove', auditLog: 'thread:audit-log', debugEvents: 'thread:debug-events', autoApproveReads: 'thread:auto-approve-reads', setAutoApproveReads: 'thread:set-auto-approve-reads', idleSuspendMinutes: 'thread:idle-suspend-minutes', setIdleSuspendMinutes: 'thread:set-idle-suspend-minutes', shellCheck: 'thread:shell-check', usageSummary: 'thread:usage-summary', workRuns: 'thread:work-runs', cancelWork: 'thread:work-cancel', updateQueued: 'thread:queue-update', deleteQueued: 'thread:queue-delete', reorderQueued: 'thread:queue-reorder', readSince: 'thread:read-since', rewind: 'thread:rewind', redoRewind: 'thread:redo-rewind', retryTurn: 'thread:retry-turn', contextUsage: 'thread:context-usage', resumeQueue: 'thread:queue-resume', sendQueuedNow: 'thread:queue-send-now', interrupt: 'thread:interrupt', approve: 'thread:approve', respond: 'thread:respond', pin: 'thread:pin', keepAfterPr: 'thread:keep-after-pr', changed: 'thread:changed', worktreeInspect: 'thread:worktree-inspect', worktreeFinish: 'thread:worktree-finish', places: 'thread:places', placeDiff: 'thread:place-diff', placeRead: 'thread:place-read', resolvePath: 'thread:resolve-path', placeDriftAnswer: 'thread:place-drift-answer', placeUndo: 'thread:place-undo', placeRestore: 'thread:place-restore', placeDiscard: 'thread:place-discard', panes: 'thread:panes', collisions: 'thread:collisions', agentSummary: 'thread:agent-summary', placesChanged: 'thread:places-changed' },
+  thread: { projectDiff: 'thread:project-diff', artifact: 'thread:artifact', exportPortable: 'thread:export-portable', importPortable: 'thread:import-portable', models: 'thread:models', configure: 'thread:configure', command: 'thread:command', recover: 'thread:recover', observe: 'thread:observe', commands: 'thread:commands', projects: 'thread:projects', addProject: 'thread:project-add', relinkProject: 'thread:project-relink', setProjectHidden: 'thread:project-hidden', list: 'thread:list', pendingRequestsAll: 'thread:pending-requests-all', sideOpen: 'thread:side-open', sideSend: 'thread:side-send', sideClose: 'thread:side-close', onSideEvent: 'thread:side-event', respondPending: 'thread:respond-pending', create: 'thread:create', read: 'thread:read', history: 'thread:history', attach: 'thread:attach', removeAttachment: 'thread:remove-attachment', send: 'thread:send', steer: 'thread:steer', stopTask: 'thread:stop-task', turnFiles: 'thread:turn-files', undoTurnFile: 'thread:undo-turn-file', turnFileHunks: 'thread:turn-file-hunks', undoTurnHunk: 'thread:undo-turn-hunk', sections: 'thread:sections', saveSections: 'thread:sections-save', permissionRules: 'thread:permission-rules', addPermissionRule: 'thread:permission-rule-add', removePermissionRule: 'thread:permission-rule-remove', auditLog: 'thread:audit-log', debugEvents: 'thread:debug-events', autoApproveReads: 'thread:auto-approve-reads', setAutoApproveReads: 'thread:set-auto-approve-reads', idleSuspendMinutes: 'thread:idle-suspend-minutes', setIdleSuspendMinutes: 'thread:set-idle-suspend-minutes', shellCheck: 'thread:shell-check', usageSummary: 'thread:usage-summary', workRuns: 'thread:work-runs', cancelWork: 'thread:work-cancel', updateQueued: 'thread:queue-update', deleteQueued: 'thread:queue-delete', reorderQueued: 'thread:queue-reorder', readSince: 'thread:read-since', rewind: 'thread:rewind', redoRewind: 'thread:redo-rewind', retryTurn: 'thread:retry-turn', contextUsage: 'thread:context-usage', resumeQueue: 'thread:queue-resume', sendQueuedNow: 'thread:queue-send-now', interrupt: 'thread:interrupt', approve: 'thread:approve', respond: 'thread:respond', pin: 'thread:pin', keepAfterPr: 'thread:keep-after-pr', changed: 'thread:changed', worktreeInspect: 'thread:worktree-inspect', worktreeFinish: 'thread:worktree-finish', places: 'thread:places', placeDiff: 'thread:place-diff', placeRead: 'thread:place-read', resolvePath: 'thread:resolve-path', placeDriftAnswer: 'thread:place-drift-answer', placeUndo: 'thread:place-undo', placeRestore: 'thread:place-restore', placeDiscard: 'thread:place-discard', panes: 'thread:panes', collisions: 'thread:collisions', agentSummary: 'thread:agent-summary', placesChanged: 'thread:places-changed', steerQueued: 'thread:queue-steer', toolTabs: 'thread:tool-tabs', toolTabsChanged: 'thread:tool-tabs-changed', background: 'thread:background', backgroundChanged: 'thread:background-changed' },
   delegation: { create: 'delegation:create', status: 'delegation:status', preview: 'delegation:preview', configure: 'delegation:configure', control: 'delegation:control', changed: 'delegation:changed', configureTarget: 'delegation:configure-target', adopt: 'delegation:adopt' },
   app: {
     getUpdateState: 'app:get-update-state',
@@ -432,6 +432,13 @@ export const IPC_CHANNELS = {
     detail: 'agent-activity:detail',
     badge: 'agent-activity:badge'
   },
+  paneConversation: {
+    has: 'pane-conversation:has',
+    page: 'pane-conversation:page',
+    watch: 'pane-conversation:watch',
+    unwatch: 'pane-conversation:unwatch',
+    changed: 'pane-conversation:changed'
+  },
 } as const
 
 export interface WorkspaceApi {
@@ -663,9 +670,34 @@ export interface AppUpdateApi {
   setUiScale?(factor: number): Promise<number>
 }
 
+/** F6 (ccr-f6-conversation.md §A19, §A22): one conversation tab with its count; null when a count has no number. */
+export interface ThreadToolTabEntry {
+  tab: 'conversation' | 'terminal' | 'queries' | 'network' | 'containers' | 'changes' | 'pullRequest'
+  count: number | null
+}
+/** F6 A22 (T77): a background shell of a conversation, the agent's or OXESpace's own. */
+export interface ThreadBackgroundShell {
+  id: string
+  command: string
+  startedBy: 'agent' | 'oxespace'
+  state: 'running' | 'stopped' | 'unknown'
+  exitCode?: number | null
+  since: number
+  tail: string[]
+  canStop: boolean
+}
+/** F6: steer with a queued message, the tool tabs and the background shells, with their { threadId } pushes. */
+export interface ThreadCockpitApi {
+  steerQueued(id: string, itemId: string): Promise<void>
+  toolTabs(id: string): Promise<ThreadToolTabEntry[]>
+  background(id: string): Promise<ThreadBackgroundShell[]>
+  onToolTabsChanged(listener: (event: { threadId: string }) => void): () => void
+  onBackgroundChanged(listener: (event: { threadId: string }) => void): () => void
+}
+
 export interface OxeApi {
   agentAccount?: import('./agentAuth').AgentAccountApi
-  thread?: import('./thread').ThreadApi
+  thread?: import('./thread').ThreadApi & ThreadCockpitApi
   delegation: import('./delegation').DelegationApi
   app: {
     version: string
@@ -715,6 +747,20 @@ export interface OxeApi {
   httpAudit: import('./http-audit').HttpAuditApi
   android?: AndroidApi
   agentActivity: import('./agent-activity').AgentActivityApi
+  paneConversation?: PaneConversationApi
+}
+
+export type PaneConversationPageResult =
+  | import('../remote/protocol').RemotePaneConversationPage
+  | { error: 'no-conversation' }
+  | { error: 'conversation-changed'; reason?: 'new-session' | 'rewritten' }
+
+export interface PaneConversationApi {
+  has(paneId: string): Promise<boolean>
+  page(input: import('../remote/protocol').RemotePaneConversationArgs): Promise<PaneConversationPageResult>
+  watch(paneId: string): Promise<void>
+  unwatch(paneId: string): Promise<void>
+  onChanged(listener: (event: { paneId: string }) => void): () => void
 }
 
 export interface McpInternalApi {

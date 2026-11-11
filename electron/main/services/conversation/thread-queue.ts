@@ -1,5 +1,7 @@
 import type { AgentConversationAdapter, ConversationThread, ThreadAttachment, ThreadOperationState, ThreadSnapshot } from '../../../../shared/types/thread'
+import { mainMessage } from '../../../../shared/messages'
 import { assertThreadMessage } from '../../../../shared/threadLimits'
+import { MainMessageError } from '../../ipc/main-message-error'
 import { turnConfiguration } from './kernel/turn-configuration'
 import type { ThreadHistoryWriteOptions } from './thread-history'
 
@@ -86,6 +88,32 @@ export async function sendQueuedNow(host: QueueHost, id: string, itemId: string)
     return
   }
   await drainQueue(host, id)
+}
+
+/**
+ * T76: Sends a waiting queued item as a steer into the running turn when a turn is active and the
+ * provider supports steering; otherwise refuses with `thread.steer.unavailable` and keeps it queued.
+ */
+export async function steerQueued(host: QueueHost, id: string, itemId: string): Promise<void> {
+  const snapshot = host.read(id), item = snapshot.thread.queue?.find(value => value.id === itemId)
+  if (!item || item.state !== 'queued') throw Error('Queued input is unavailable')
+  const adapter = host.adapter(id)
+  if (!host.isBusy(id) || !adapter?.steer) {
+    throw new MainMessageError(mainMessage('thread.steer.unavailable', {}), 'Cannot steer the current turn right now')
+  }
+  const attachmentIds = item.attachmentIds ?? []
+  const attachments = attachmentIds.length ? await host.resolveAttachments(id, attachmentIds) : []
+  await adapter.steer(item.text, attachments)
+  if (item.nativeId && adapter.deleteQueued) await adapter.deleteQueued(item.nativeId).catch(() => {})
+  const latest = host.read(id)
+  latest.thread.queue = latest.thread.queue?.filter(value => value.id !== itemId)
+  if (!latest.thread.queue?.some(value => value.state === 'queued')) delete latest.thread.queuePause
+  if (item.operationId) host.transitionOperation(id, item.operationId, 'completed')
+  const turn = latest.turns?.at(-1)
+  if (turn && attachmentIds.length) turn.attachmentIds = [...new Set([...(turn.attachmentIds ?? []), ...attachmentIds])]
+  const eventsFrom = latest.events.length
+  latest.events.push({ type: 'message', id: item.id, role: 'user', text: item.text, ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}) })
+  host.save(latest, { eventsFrom, ...(turn?.operationId ? { operationId: turn.operationId } : {}) })
 }
 
 export async function reorderQueued(host: QueueHost, id: string, itemIds: string[]): Promise<void> {

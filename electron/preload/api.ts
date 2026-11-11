@@ -139,6 +139,11 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       collisions: id => ipc.invoke(IPC_CHANNELS.thread.collisions, id) as Promise<import('../../shared/types/thread-places').ThreadCollision[]>,
       agentSummary: id => ipc.invoke(IPC_CHANNELS.thread.agentSummary, id) as Promise<import('../../shared/types/thread-places').ThreadAgentSummary | null>,
       onPlacesChanged: listener => subscribe<{ threadId: string }>(ipc, IPC_CHANNELS.thread.placesChanged, listener),
+      steerQueued: (id, itemId) => ipc.invoke(IPC_CHANNELS.thread.steerQueued, id, itemId) as Promise<void>,
+      toolTabs: id => ipc.invoke(IPC_CHANNELS.thread.toolTabs, id) as Promise<import('../../shared/types/ipc').ThreadToolTabEntry[]>,
+      background: id => ipc.invoke(IPC_CHANNELS.thread.background, id) as Promise<import('../../shared/types/ipc').ThreadBackgroundShell[]>,
+      onToolTabsChanged: listener => subscribe<{ threadId: string }>(ipc, IPC_CHANNELS.thread.toolTabsChanged, listener),
+      onBackgroundChanged: listener => subscribe<{ threadId: string }>(ipc, IPC_CHANNELS.thread.backgroundChanged, listener),
       onChanged: listener => {
         const handler = (_event: IpcRendererEvent, payload: unknown): void => listener(payload as { threadId: string })
         ipc.on(IPC_CHANNELS.thread.changed, handler)
@@ -564,6 +569,13 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       list: (query) => ipc.invoke(IPC_CHANNELS.agentActivity.list, query) as Promise<import('../../shared/types/agent-activity').AgentActivityPage>,
       detail: (id) => ipc.invoke(IPC_CHANNELS.agentActivity.detail, id) as Promise<Record<string, unknown> | null>,
       badge: (query) => ipc.invoke(IPC_CHANNELS.agentActivity.badge, query) as Promise<import('../../shared/types/agent-activity').AgentActivityBadge>
+    },
+    paneConversation: {
+      has: paneId => ipc.invoke(IPC_CHANNELS.paneConversation.has, paneId) as Promise<boolean>,
+      page: input => ipc.invoke(IPC_CHANNELS.paneConversation.page, input) as Promise<import('../../shared/types/ipc').PaneConversationPageResult>,
+      watch: paneId => ipc.invoke(IPC_CHANNELS.paneConversation.watch, paneId) as Promise<void>,
+      unwatch: paneId => ipc.invoke(IPC_CHANNELS.paneConversation.unwatch, paneId) as Promise<void>,
+      onChanged: listener => subscribe<{ paneId: string }>(ipc, IPC_CHANNELS.paneConversation.changed, listener)
     }
   }
 }

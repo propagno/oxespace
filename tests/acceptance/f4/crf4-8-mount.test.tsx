@@ -14,6 +14,7 @@ import { useTerminalStore } from '../../../src/store/terminal.store'
 import { useThreadStore } from '../../../src/store/thread.store'
 import { useWorkspaceStore } from '../../../src/store/workspace.store'
 import { ThreadView } from '../../../src/components/Threads/ThreadView'
+import { threadToolTabs } from '../../../electron/main/services/conversation/thread-tool-tabs'
 import type { ThreadSnapshot } from '../../../shared/types/thread'
 import type { ThreadPane, ThreadPlace } from '../../../shared/types/thread-places'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
@@ -38,7 +39,7 @@ const PR = {
 
 function conversation(main: FakeMain = {}) {
   const snapshot: ThreadSnapshot = { thread: { id: 'thread', workspaceId: 'ws', projectId: 'project', rootPath: '/repo', provider: 'claude', title: 'Auth investigation', pinned: false, status: 'idle', nativeSessionId: null, createdAt: 1, updatedAt: 1 }, events: [] }
-  const bridge = preloadOxe({
+  const handlers: FakeMain = {
     'thread.commands': () => ({ commands: [] }),
     'thread.projects': () => ({ projects: [], unavailable: [] }),
     'thread.list': () => [snapshot.thread],
@@ -50,8 +51,20 @@ function conversation(main: FakeMain = {}) {
     'thread.panes': () => [],
     'thread.collisions': () => [],
     'pullRequest.state': () => ({ provider: 'github', cli: 'ok', pr: null }),
+    'thread.toolTabs': async () => {
+      const placesRes = await Promise.resolve(handlers['thread.places']?.('thread')) as { places: ThreadPlace[] } | undefined
+      const panesRes = await Promise.resolve(handlers['thread.panes']?.('thread')) as ThreadPane[] | undefined
+      const prRes = await Promise.resolve(handlers['pullRequest.state']?.({ rootPath: '/repo', branch: 'feat/thread' })) as { pr: { number: number } | null } | undefined
+      return threadToolTabs({
+        summary: { databases: 0, http: 0, containers: 0 },
+        files: placesRes ? placesRes.places.reduce((sum, entry) => sum + entry.files.length, 0) : 0,
+        panes: panesRes ? panesRes.length : 0,
+        pullRequest: prRes?.pr ? { number: prRes.pr.number } : null
+      })
+    },
     ...main
-  })
+  }
+  const bridge = preloadOxe(handlers)
   const workspace = { id: 'ws', name: 'Repo', rootPath: '/repo', panes: [] } as unknown as Workspace
   useAccountStore.setState({ scopes: {}, snapshots: {} })
   useWorkspaceStore.setState({ workspaces: [workspace] })
@@ -59,7 +72,7 @@ function conversation(main: FakeMain = {}) {
   render(<ThreadView workspace={workspace} />)
   return bridge
 }
-const tabNames = (): string[] => within(screen.getByRole('tablist', { name: 'Conversation tabs' })).getAllByRole('tab').map(tab => tab.textContent?.trim() ?? '')
+const tabNames = (): string[] => within(screen.getByRole('tablist', { name: 'Conversation tabs' })).getAllByRole('tab').map(tab => tab.textContent?.replace(/\d+/g, '').trim() ?? '')
 
 afterEach(async () => { cleanup(); vi.restoreAllMocks(); await changeLanguage('en') })
 
@@ -69,13 +82,13 @@ describe('CR-F4-8 · the F4 tabs, chips and badge are mounted and reach main thr
     const bridge = conversation({ 'thread.panes': () => panes })
     await waitFor(() => expect(tabNames()).toEqual(['Conversation', 'Changes']))
     panes = PANES
-    await act(async () => { bridge.emit('thread.placesChanged', { threadId: 'thread' }) })
-    await waitFor(() => expect(tabNames()).toEqual(['Conversation', 'Changes', 'Terminal']))
+    await act(async () => { bridge.emit('thread.placesChanged', { threadId: 'thread' }); bridge.emit('thread.toolTabsChanged', { threadId: 'thread' }) })
+    await waitFor(() => expect(tabNames()).toEqual(['Conversation', 'Terminal', 'Changes']))
   }, 30_000)
 
   test("CR-F4-8 · the Terminal tab lists the conversation's panes under Agent's and Yours", async () => {
     conversation({ 'thread.panes': () => PANES })
-    await userEvent.click(await screen.findByRole('tab', { name: 'Terminal' }))
+    await userEvent.click(await screen.findByRole('tab', { name: /^Terminal/ }))
     const panel = await screen.findByRole('tabpanel')
     const agent = within(panel).getByRole('heading', { name: "Agent's" }).closest('section') as HTMLElement
     const yours = within(panel).getByRole('heading', { name: 'Yours' }).closest('section') as HTMLElement

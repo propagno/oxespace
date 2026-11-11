@@ -890,7 +890,15 @@
       "error": "Needs attention",
       "exited": "Resume session"
     },
-    "local": "Local"
+    "local": "Local",
+    "conversation": {
+      "switchLabel": "Pane view",
+      "terminal": "Terminal",
+      "readOnly": "Read only",
+      "live": "Live",
+      "latest": "Latest",
+      "typeInTerminal": "Type in the terminal"
+    }
   },
   "sidebar": {
     "rename": "Rename workspace {{name}}",

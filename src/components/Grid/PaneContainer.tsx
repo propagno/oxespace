@@ -9,6 +9,9 @@ import { workspaceColorAttrs } from '../../../shared/workspace-color'
 import { derivePaneDisplayState, resolvePaneIdentity } from '../../utils/paneDisplay'
 import { AgentSessionDetails, EnableResumeMenuItem, PaneHooksNotice, PaneResumeMarker, StartFreshMenuItem, usePaneResume } from '../AgentSessions/PaneResume'
 import { PaneContent } from '../Panes/PaneContent'
+import { PaneConversationSwitch } from '../Panes/PaneConversationSwitch'
+import { PaneConversationView } from '../Panes/PaneConversationView'
+import { usePaneConversationView } from '../../store/pane-conversation-view.store'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { PaneBranchBadge } from '../Panes/PaneBranchBadge'
 import { Button, Dialog } from '../../ui'
@@ -75,6 +78,9 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
   })
   const updatePaneName = useWorkspaceStore((s) => s.updatePaneName)
   const isTerminalPane = pane.type === 'terminal'
+  const paneViewMode = usePaneConversationView((s) => s.views[pane.id] ?? 'terminal')
+  const setPaneViewMode = usePaneConversationView((s) => s.setMode)
+  const clearPaneViewMode = usePaneConversationView((s) => s.clear)
   // F32: what main did with this pane's earlier Claude/Codex session when the app reopened (B17).
   const identityKey = resolvePaneIdentity({ pane, profile: agentProfile, shellProfileName }).key
   const resumeAgent = identityKey === 'claude' || identityKey === 'codex' ? identityKey : null
@@ -237,6 +243,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
           )}
         </div>
         <div className="pane-actions">
+          {isTerminalPane ? <PaneConversationSwitch paneId={pane.id} /> : null}
           {isTerminalPane ? (
             <button
               type="button"
@@ -364,7 +371,10 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                       className="pane-actions-popover-item danger"
                       onClick={(e) => {
                         e.stopPropagation()
-                        runMenuAction(() => onClose(pane.id))
+                        runMenuAction(() => {
+                          clearPaneViewMode(pane.id)
+                          onClose(pane.id)
+                        })
                       }}
                     >
                       <X size={14} aria-hidden="true" />
@@ -379,7 +389,24 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
       </header>
       {/* F32: the status-hooks question for this pane's agent, without taking the terminal's focus. */}
       {isTerminalPane && <PaneHooksNotice paneId={pane.id} />}
-      <PaneContent pane={pane} workspaceId={workspace.id} workspaceRootPath={workspace.rootPath} autoStart={autoStart} />
+      <div
+        hidden={isTerminalPane && paneViewMode === 'conversation'}
+        style={isTerminalPane && paneViewMode === 'conversation' ? { display: 'none' } : { display: 'contents' }}
+      >
+        <PaneContent pane={pane} workspaceId={workspace.id} workspaceRootPath={workspace.rootPath} autoStart={autoStart} />
+      </div>
+      {isTerminalPane && paneViewMode === 'conversation' ? (
+        <PaneConversationView
+          paneId={pane.id}
+          onShowScreen={() => setPaneViewMode(pane.id, 'terminal')}
+          onTypeInTerminal={() => {
+            setPaneViewMode(pane.id, 'terminal')
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('oxe:terminal-focus', { detail: { paneId: pane.id } }))
+            }, 0)
+          }}
+        />
+      ) : null}
       {detailsOpen && <Dialog size="md" title={tc('paneMenu.detailsTitle')} description={tc('paneMenu.detailsDescription')} onClose={() => setDetailsOpen(false)}>
         {/* F32: the native session main resumed or recorded; the note on finding it only when there is none. */}
         {sessionDetails?.agentSession && <AgentSessionDetails session={sessionDetails.agentSession} resume={sessionDetails.agentResume} />}

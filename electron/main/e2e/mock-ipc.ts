@@ -53,6 +53,7 @@ import type { AppAbout, AppConnectivity } from '../../../shared/types/app'
 import type { ThreadPendingRefusal, ThreadPendingRequestSummary, ThreadPendingResponseInput, ThreadPendingResponseResult, ThreadProjectCatalog } from '../../../shared/types/thread'
 import { version as packageVersion } from '../../../package.json'
 import { mainMessage } from '../../../shared/messages'
+import { MainRefusal } from '../services/main-refusal'
 import { requestOutcome } from '../../../shared/threadRequestOutcome'
 import { registerE2eSideChat } from './side-chat-mock'
 
@@ -338,6 +339,9 @@ export function registerE2eMockIpcHandlers(): void {
   // T87: the window asks before it renders; under the mocks the start never failed.
   ipcMain.handle(IPC_CHANNELS.app.startupFailure, () => null)
   ipcMain.handle(IPC_CHANNELS.thread.projects, (): ThreadProjectCatalog => ({ projects: [], unavailable: [] }))
+  ipcMain.handle(IPC_CHANNELS.thread.toolTabs, () => [{ tab: 'conversation' as const, count: null }])
+  ipcMain.handle(IPC_CHANNELS.thread.background, () => [])
+  ipcMain.handle(IPC_CHANNELS.thread.steerQueued, () => { throw new MainRefusal('thread.steer.unavailable', {}) })
   const pendingRequests: ThreadPendingRequestSummary[] = JSON.parse(process.env.OXESPACE_E2E_PENDING_REQUESTS || '[]')
   ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, () => pendingRequests)
   // B1.2: the real side chat service over a provider stand-in (see side-chat-mock.ts).
@@ -573,6 +577,10 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.android.status, () => ({ adb: 'missing', devices: [], avds: [] }))
   ipcMain.handle(IPC_CHANNELS.android.connect, () => ({ ok: true }))
   ipcMain.handle(IPC_CHANNELS.android.screenshot, () => ({ path: '/tmp/screenshot.png', name: 'screenshot.png' }))
+  ipcMain.handle(IPC_CHANNELS.paneConversation.has, () => false)
+  ipcMain.handle(IPC_CHANNELS.paneConversation.page, () => ({ error: 'no-conversation' }))
+  ipcMain.handle(IPC_CHANNELS.paneConversation.watch, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.paneConversation.unwatch, () => undefined)
 
   // ── Catch-all safety net (E2E) ──────────────────────────────────────────────
   // Any IPC channel NOT explicitly mocked above gets a safe, shaped empty default

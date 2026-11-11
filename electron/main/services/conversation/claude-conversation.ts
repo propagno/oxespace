@@ -9,7 +9,7 @@ import { normalizeClaudeContext } from './thread-context'
 import { readClaudeResultCost, stepFromProcessTotal } from './thread-cost'
 import { createApiRetryTracker } from './claude-api-retry'
 import { describePermissionRequest } from './claude-permission-request'
-import { toolResultText } from './tool-result-text'
+import { toolResultOutput, toolResultText } from './tool-result-text'
 import { ReasoningStream } from './reasoning-stream'
 
 /** How long a cooperative interrupt may take before the process is ended instead. */
@@ -286,15 +286,16 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
           const id = `claude-task:${this.context!.nativeSessionId}:${event.task_id}`
           const previous = this.tasks.get(id)
           const terminal = event.subtype === 'task_notification' || ['completed', 'failed', 'stopped', 'killed'].includes(String(nativeStatus))
-          // A delayed progress event must not resurrect a finished task.
-          if (!terminal && previous && previous.state !== 'running') return
+          // A delayed progress event must not resurrect a finished task, though unknown can recover (HML-709-2).
+          if (!terminal && previous && previous.state !== 'running' && previous.state !== 'unknown') return
           const status = nativeStatus === 'completed' ? 'completed' : nativeStatus === 'failed' ? 'failed' : ['stopped', 'killed'].includes(String(nativeStatus)) ? 'interrupted' : 'unknown'
           const state = terminal ? status : 'running'
           const description = typeof event.description === 'string' ? event.description.slice(0, 2000) : previous?.prompt
           const message = typeof event.summary === 'string' ? event.summary.slice(0, 12000) : previous?.agents[0]?.message
+          const now = Date.now()
           const task: Extract<ThreadEvent, { type: 'subagent' }> = { type: 'subagent', id, action: typeof event.task_type === 'string' && /bash|shell/i.test(event.task_type) ? 'Background command' : previous?.action ?? 'Background agent', state,
             receiverThreadIds: [event.task_id], agents: [{ threadId: event.task_id, status: state, ...(message ? { message } : {}) }], prompt: description,
-            startedAt: previous?.startedAt ?? Date.now(), ...(terminal ? { completedAt: Date.now() } : {}) }
+            startedAt: previous?.startedAt ?? now, signalAt: now, ...(terminal ? { completedAt: now } : {}) }
           this.tasks.set(id, task)
           if (this.tasks.size > 512) {
             const settled = [...this.tasks].find(([key, value]) => key !== id && value.state !== 'running')
@@ -418,7 +419,8 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
           if (Array.isArray(content)) for (const block of content.map(record)) {
             if (block.type === 'tool_result' && typeof block.tool_use_id === 'string') {
               const files = this.fileTools.get(block.tool_use_id)?.map(file => ({ ...file, state: block.is_error ? 'failed' as const : 'completed' as const }))
-              this.emit({ type: 'tool', id: block.tool_use_id, name: 'Tool result', state: block.is_error ? 'failed' : 'completed', detail: '', output: toolResultText(block.content), completedAt: Date.now(), ...(files ? { files } : {}) })
+              const result = toolResultOutput(block.content)
+              this.emit({ type: 'tool', id: block.tool_use_id, name: 'Tool result', state: block.is_error ? 'failed' : 'completed', detail: '', output: result.text, ...(result.truncated ? { outputTruncated: true } : {}), completedAt: Date.now(), ...(files ? { files } : {}) })
               this.fileTools.delete(block.tool_use_id)
               // Claude's own worktree tools move the session; the orchestrator checks the reported directory.
               const worktreeTool = this.worktreeTools.get(block.tool_use_id)
@@ -536,7 +538,8 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
 
   private markTaskUnknown(taskId: string): void {
     for (const [id, task] of this.tasks) if (task.state === 'running' && task.receiverThreadIds.includes(taskId)) {
-      const unknown = { ...task, state: 'unknown' as const, completedAt: Date.now(), agents: task.agents.map(agent => ({ ...agent, status: 'unknown' as const })) }
+      const now = Date.now()
+      const unknown = { ...task, state: 'unknown' as const, completedAt: now, signalAt: now, agents: task.agents.map(agent => ({ ...agent, status: 'unknown' as const })) }
       this.tasks.set(id, unknown)
       this.emit(unknown)
     }
@@ -544,7 +547,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
 
   private markTasksUnknown(): void {
     for (const [id, task] of this.tasks) if (task.state === 'running') {
-      const unknown = { ...task, state: 'unknown' as const, agents: task.agents.map(agent => ({ ...agent, status: 'unknown' as const })) }
+      const unknown = { ...task, state: 'unknown' as const, signalAt: Date.now(), agents: task.agents.map(agent => ({ ...agent, status: 'unknown' as const })) }
       this.tasks.set(id, unknown)
       this.emit(unknown)
     }
