@@ -95,6 +95,9 @@
       "queue": {
         "deliveryUnconfirmed": "Delivery of this message could not be confirmed."
       },
+      "steer": {
+        "unavailable": "This conversation cannot be steered right now. Your message stayed in the queue."
+      },
       "side": {
         "unavailable": "This agent cannot open a side chat yet.",
         "noSession": "Send a message first: a side chat copies the conversation so far.",

@@ -221,6 +221,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'thread.observe.unsupported': [],
   'thread.observe.changed': [],
   'thread.queue.deliveryUnconfirmed': [],
+  'thread.steer.unavailable': [],
   'oxequery.edit.readOnly': [],
   'oxequery.edit.notTable': [],
   'oxequery.edit.noKey': [],
