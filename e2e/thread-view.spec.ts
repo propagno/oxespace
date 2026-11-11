@@ -792,8 +792,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     })).toBe(true)
     expect(await inlineDiff.locator('.thread-review-diff').evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true)
     await page.getByRole('button', { name: 'Expand file diff src/App.tsx' }).click()
-    await page.getByRole('button', { name: 'More actions' }).click()
-    await page.getByRole('menuitemradio', { name: 'Files', exact: true }).click()
+    await page.getByRole('button', { name: /^\+?\s*Tool$/ }).click()
+    await page.getByRole('menuitemcheckbox', { name: 'Files', exact: true }).click()
     await expect(page.getByRole('complementary', { name: 'OxeChat workbench' })).toBeVisible()
     await expect(page.locator('.thread-workbench')).not.toHaveClass(/is-drawer/)
     // The side panel is as wide as it is dragged, but the conversation keeps 360 px; it can take the whole workbench.
