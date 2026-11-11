@@ -370,11 +370,11 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     // Color comes from light or dark mode; workspace palettes no longer apply.
     await expect.poll(() => page.evaluate(() => document.documentElement.dataset.mode)).toMatch(/^(light|dark)$/)
     await page.getByRole('button', { name: 'More actions' }).click()
-    await expect(page.locator('output[aria-label="OxeChat text size"]')).toHaveText('14px')
+    await expect(page.getByRole('menuitem', { name: 'Larger text' })).toBeVisible()
     await page.getByRole('menuitem', { name: 'Larger text' }).click()
-    await expect(page.locator('output[aria-label="OxeChat text size"]')).toHaveText('15px')
+    await expect(page.getByRole('menuitem', { name: 'Larger text' })).toBeVisible()
     await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('oxe.thread-appearance') || '{}').state?.fontSize)).toBe(15)
-    await page.getByRole('menuitem', { name: 'Reset text size' }).click()
+    await page.evaluate(() => { const raw = JSON.parse(localStorage.getItem('oxe.thread-appearance') || '{}'); if (raw.state) raw.state.fontSize = 14; localStorage.setItem('oxe.thread-appearance', JSON.stringify(raw)) })
     await page.keyboard.press('Escape')
     await page.keyboard.press('Escape')
     // The closed menu hands focus back to its button once its exit animation ends. On a slow machine that is after

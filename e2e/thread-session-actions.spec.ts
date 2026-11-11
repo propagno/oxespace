@@ -63,7 +63,7 @@ test('session actions open to the side, archive, restore and delete through Elec
     await page.getByRole('menuitem', { name: 'Open to the side', disabled: false }).click()
     await expect(page.getByRole('group', { name: 'Side-by-side conversations' })).toBeVisible()
     await expect(page.locator('.thread-cell')).toHaveCount(2)
-    await page.getByRole('button', { name: 'Close side-by-side conversation' }).click()
+    await page.getByRole('button', { name: 'Close side-by-side conversation' }).last().click()
 
     // Beta's menu, closed by choosing an item, may still be animating out; both menus hold the same items.
     await expect(page.getByRole('menu')).toHaveCount(0)
