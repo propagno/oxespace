@@ -286,7 +286,7 @@ test('shell: sidebar, command menu, tools and split renderer', async () => {
       collapse.push(await timeDomToggle(page, () => pressShellShortcut(page, 'Control+b'), '.sidebar.sidebar-collapsed', true))
       expand.push(await timeDomToggle(page, () => pressShellShortcut(page, 'Control+b'), '.sidebar.sidebar-collapsed', false))
 
-      commandOpen.push(await timeDomToggle(page, () => pressShellShortcut(page, 'Control+k'), 'input[placeholder="Search files and commands…"]', true))
+      commandOpen.push(await timeDomToggle(page, () => pressShellShortcut(page, 'Control+Shift+P'), 'input[placeholder="Search files and commands…"]', true))
       commandClose.push(await timeDomToggle(page, () => page.keyboard.press('Escape'), 'input[placeholder="Search files and commands…"]', false))
 
       toolsOpen.push(await timeDomToggle(page, () => page.getByTestId('btn-open-tools').click(), '[role="menu"]', true))
@@ -308,7 +308,7 @@ test('shell: sidebar, command menu, tools and split renderer', async () => {
     const paneCount = await page.getByTestId('pane-container').count()
     const runningCount = await page.getByTestId('terminal-status-label').filter({ hasText: 'running' }).count()
     await page.getByTestId('pane-container').first().click()
-    await pressShellShortcut(page, 'Control+k')
+    await pressShellShortcut(page, 'Control+Shift+P')
     const commandInput = page.locator('input[placeholder="Search files and commands…"]')
     // By command id, not its words: the palette's labels are "Category: Action" (F17) and may be reworded.
     await commandInput.fill('split')
@@ -553,7 +553,7 @@ test('modal surfaces: agents, MCP, workspace settings and usage', async () => {
       const started = await page.evaluate(() => performance.now())
       // Settings restores terminal focus; move to navigation before an app shortcut.
       await page.locator('.sidebar-section-header').last().click()
-      await page.keyboard.press('Control+k')
+      await page.keyboard.press('Control+Shift+P')
       const input = page.locator('input[placeholder="Search files and commands…"]')
       await input.fill('usage')
       await page.locator('[cmdk-item][data-value="cmd-open-usage"]').click()

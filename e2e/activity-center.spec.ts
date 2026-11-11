@@ -52,7 +52,7 @@ test('the activity center lists what needs you, opens it, and marks everything r
 
     // The palette command opens it again; "Mark all as read" clears the count.
     await page.locator('[data-testid="btn-open-tools"]:visible').focus().catch(() => undefined)
-    await page.keyboard.press('Control+k')
+    await page.keyboard.press('Control+Shift+P')
     const input = page.locator('input[placeholder="Search files and commands…"]')
     await expect(input).toBeVisible()
     await input.fill('activity center')

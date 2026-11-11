@@ -155,9 +155,9 @@ test('coverage audit', async () => {
     await surface(page, '42-tool-workspace-settings', command('Workspace settings'))
     await surface(page, '43-tool-integration', command('Multi-repo coordination'))
     // Overlays and global.
-    await surface(page, '50-palette-query', async () => { await page.keyboard.press('Control+k'); await page.keyboard.type('terminal') })
-    await surface(page, '51-usage', async () => { await page.keyboard.press('Control+k'); await page.keyboard.type('Usage'); await page.keyboard.press('Enter') })
-    await surface(page, '52-design-system', async () => { await page.keyboard.press('Control+k'); await page.keyboard.type('Design System'); await page.keyboard.press('Enter') })
+    await surface(page, '50-palette-query', async () => { await page.keyboard.press('Control+Shift+P'); await page.keyboard.type('terminal') })
+    await surface(page, '51-usage', async () => { await page.keyboard.press('Control+Shift+P'); await page.keyboard.type('Usage'); await page.keyboard.press('Enter') })
+    await surface(page, '52-design-system', async () => { await page.keyboard.press('Control+Shift+P'); await page.keyboard.type('Design System'); await page.keyboard.press('Enter') })
     await page.getByRole('button', { name: /^Close/ }).first().click({ timeout: 2000 }).catch(() => undefined)
     // Thread entry without accounts.
     await surface(page, '60-thread-empty', () => modeButton(page, 'thread').click())

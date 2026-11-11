@@ -48,7 +48,7 @@ test('About OXESpace opens from the Help menu and the palette with the build fac
     await about.getByRole('button', { name: 'Close' }).last().click()
     await expect(about).toHaveCount(0)
 
-    await page.keyboard.press('Control+k')
+    await page.keyboard.press('Control+Shift+P')
     await page.keyboard.insertText('About OXESpace')
     await page.locator('[cmdk-item]', { hasText: 'About OXESpace' }).first().click()
     await expect(page.getByRole('dialog', { name: 'About OXESpace' })).toBeVisible()

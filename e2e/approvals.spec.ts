@@ -82,7 +82,7 @@ for (const appearance of ['light', 'dark'] as Appearance[]) {
       await expect(dialog).toHaveCount(0)
       expect(await history(page)).toEqual(['rich:deny:user'])
 
-      await page.keyboard.press('Control+k')
+      await page.keyboard.press('Control+Shift+P')
       await page.keyboard.insertText('Approval history')
       await page.locator('[cmdk-item]', { hasText: 'Help: Show approval history' }).first().click()
       const panel = page.getByTestId('approval-history')

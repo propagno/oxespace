@@ -16,8 +16,8 @@ test('the palette ranks commands, shows shortcuts and remembers recent commands'
     await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
     const input = page.locator('input[placeholder="Search files and commands…"]')
     const open = async (): Promise<void> => {
-      await page.locator('[data-testid="btn-open-tools"]:visible').focus()
-      await page.keyboard.press('Control+k')
+      await page.locator('[data-testid="btn-new-workspace"]:visible').focus()
+      await page.keyboard.press('Control+Shift+P')
       await expect(input).toBeVisible()
     }
 

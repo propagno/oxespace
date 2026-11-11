@@ -18,7 +18,7 @@ test('F34: no voice control in panes, composer, Settings or the palette', async 
     await page.keyboard.press('Control+,')
     expect(await page.getByRole('button', { name: /^Voice$/ }).or(page.getByRole('link', { name: /^Voice$/ })).count(), 'no Settings › Voice').toBe(0)
     await page.keyboard.press('Escape')
-    await page.keyboard.press('Control+k')
+    await page.keyboard.press('Control+Shift+P')
     await page.keyboard.type('voice')
     expect(await page.getByRole('option', { name: voice }).count(), 'no voice command in the palette').toBe(0)
   } finally { await app.close() }

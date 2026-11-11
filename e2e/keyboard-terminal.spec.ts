@@ -49,7 +49,7 @@ test('reserved shortcuts leave a focused terminal, the rest reach the shell', as
 
     // Ctrl+K opens the palette instead of sending ^K (kill line) to the shell.
     await focusTerminal()
-    await page.keyboard.press('Control+k')
+    await page.keyboard.press('Control+Shift+P')
     const palette = page.locator('input[placeholder="Search files and commands…"]')
     await expect(palette).toBeVisible()
     await page.keyboard.press('Escape')
