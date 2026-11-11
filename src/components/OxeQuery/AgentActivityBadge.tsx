@@ -14,8 +14,10 @@ export function AgentActivityBadge({ connectionId }: { connectionId: string }) {
   const [data, setData] = useState<BadgeState | null>(null)
 
   useEffect(() => {
+    const badge = window.oxe?.agentActivity?.badge
+    if (!badge) return
     let active = true
-    window.oxe.agentActivity.badge({ connectionId })
+    badge({ connectionId })
       .then(res => {
         if (active && res) {
           setData(res)

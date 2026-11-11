@@ -16,6 +16,7 @@ import { humanizeError } from '../../utils/humanizeError'
 import { claudeFixedCost, decisionsFor, organizationToolRules, OXESPACE_SERVER, otherServerRules, ruleFor } from './toolsModel'
 import styles from './ToolsSettings.module.css'
 import { SkillsList } from './SkillsList'
+import { useWorkspaceStore } from '../../store/workspace.store'
 
 /** File, key and product names: the same in every language. */
 const OXE_YAML = 'oxe.yaml', THREAD_TOOLS_KEY = 'thread.tools', CLAUDE = 'Claude', CODEX = 'Codex'
@@ -97,7 +98,10 @@ function GroupPanel({ group, rules, busy, unread = false, locked = false, onMode
  * oxe.yaml, what each costs per provider, and per-tool rules. Modes and rules are the person's choices, made only
  * here (never by an MCP tool); the organization's policy is shown read only.
  */
-export function ToolsSettings({ rootPath, workspaceId }: { rootPath: string; workspaceId?: string }): ReactElement {
+export function ToolsSettings({ rootPath: propRootPath, workspaceId: propWorkspaceId }: { rootPath: string; workspaceId?: string }): ReactElement {
+  const activeWs = useWorkspaceStore(s => s.workspaces.find(w => w.id === s.activeWorkspaceId) ?? s.workspaces[0])
+  const rootPath = propRootPath || activeWs?.rootPath || ''
+  const workspaceId = propWorkspaceId ?? activeWs?.id
   const { t } = useTranslation('settings')
   const [report, setReport] = useState<McpToolGroupsReport | null>(null)
   const [groupsError, setGroupsError] = useState('')
