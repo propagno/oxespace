@@ -95,7 +95,7 @@ test('the same holds for workspace Settings opened from the palette (HML batch-3
   try {
     await openDemoWorkspace(page, workspaceRoot)
     await page.locator('.sidebar-section-header').first().click()
-    await page.keyboard.press('Control+k')
+    await page.keyboard.press('Control+Shift+P')
     await page.locator('[cmdk-item][data-value="cmd-workspace-settings"]').click()
     const surface = page.locator('.settings-center')
     await expect(surface).toBeVisible()

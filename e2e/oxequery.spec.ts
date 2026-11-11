@@ -816,7 +816,7 @@ test('the command palette opens OxeQuery and its dialogs from anywhere', async (
     await expect(page.locator('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]').first()).toBeVisible()
     // Still in Code view: OxeQuery was never opened, so the palette entry has to open it.
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
-    await page.keyboard.press('Control+k')
+    await page.keyboard.press('Control+Shift+P')
     await page.keyboard.type('New database connection')
     await page.locator('[cmdk-item][data-value="cmd-oxequery.newConnection"]').click()
     await expect(page.getByRole('dialog', { name: 'New connection' })).toBeVisible()
@@ -824,7 +824,7 @@ test('the command palette opens OxeQuery and its dialogs from anywhere', async (
     await expect(page.getByRole('dialog', { name: 'New connection' })).toHaveCount(0)
     // And settings.
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
-    await page.keyboard.press('Control+k')
+    await page.keyboard.press('Control+Shift+P')
     await page.keyboard.type('OxeQuery settings')
     await page.locator('[cmdk-item][data-value="cmd-oxequery.settings"]').click()
     await expect(page.getByRole('dialog', { name: 'OxeQuery settings' })).toBeVisible()

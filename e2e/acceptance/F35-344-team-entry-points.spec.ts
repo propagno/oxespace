@@ -33,7 +33,7 @@ test('F35/#344: Team from the palette, Tools menu, Ctrl+Shift+T and OxeChat; not
     expect.soft(out.titleBarTeam, 'no Team button in the title bar').toBe(0)
 
     // Palette.
-    await page.keyboard.press('Control+k'); await page.keyboard.insertText('Team')
+    await page.keyboard.press('Control+Shift+P'); await page.keyboard.insertText('Team')
     out.paletteItems = await page.locator('[cmdk-item]').allInnerTexts().then(l => l.filter(t => /team/i.test(t)).slice(0, 5))
     await page.locator('[cmdk-item]', { hasText: /team/i }).first().click().catch(() => undefined)
     await closeAndCheck(page, 'palette', out)

@@ -179,7 +179,7 @@ test('redesign audit', async () => {
     await step('density', () => capture(page, '08-density-comfortable'))
     await page.evaluate(() => { delete document.documentElement.dataset.density })
 
-    await step('palette', async () => { await page.keyboard.press('Control+k'); await capture(page, '09-command-palette'); await page.keyboard.press('Escape') })
+    await step('palette', async () => { await page.keyboard.press('Control+Shift+P'); await capture(page, '09-command-palette'); await page.keyboard.press('Escape') })
 
     // Tools menu: record the live item list, then visit every item.
     let items: string[] = []

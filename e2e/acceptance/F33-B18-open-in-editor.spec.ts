@@ -54,7 +54,7 @@ test('F33/B18: a cited path opens in the editor on its line; outside the project
     // The terminal may draw on a canvas (no text in the DOM, as on the Windows runner): then the menu can't be reached here.
     // #470's path menu from the file tree (FE: terminal paths open the menu only after xterm's own hover over the
     // canvas cell, and are covered by unit tests). The tree comes from the palette; Ctrl+E stays with a focused terminal.
-    await page.keyboard.press('Control+k'); await page.keyboard.insertText('Files')
+    await page.keyboard.press('Control+Shift+P'); await page.keyboard.insertText('Files')
     await page.locator('[cmdk-item][data-value="cmd-tool-editor"]').first().click({ timeout: 8_000 }).catch(() => undefined)
     await page.locator('.editor-browser-directory', { hasText: 'src' }).first().click({ timeout: 8_000 }).catch(() => undefined)
     await page.locator('.editor-browser-file', { hasText: 'app.ts' }).first().click({ button: 'right', timeout: 8_000 }).catch(() => undefined)

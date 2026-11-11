@@ -18,7 +18,7 @@ const stub = (app: ElectronApplication) => app.evaluate(({ dialog }) => {
   dialog.showMessageBoxSync = (() => 0) as typeof dialog.showMessageBoxSync
 })
 const palette = async (page: Page, text: string) => {
-  await page.keyboard.press('Control+k'); await page.keyboard.insertText(text)
+  await page.keyboard.press('Control+Shift+P'); await page.keyboard.insertText(text)
   await page.locator('[cmdk-item]', { hasText: text }).first().click()
 }
 const CALL = String.raw`
@@ -172,7 +172,7 @@ test('#176 Settings states, #414 the cold switch to OxeChat, and the 1.4.0 notes
     out.helpMenu = await page.getByRole('menubar').getByRole('menuitem', { name: /^Help/ }).first().click({ timeout: 3_000 }).then(async () => {
       const items = await page.getByRole('menuitem').allInnerTexts(); await page.keyboard.press('Escape'); return items.filter(t => /report/i.test(t))
     }, () => 'no menubar Help')
-    await page.keyboard.press('Control+k'); await page.keyboard.insertText('Report a problem'); await page.waitForTimeout(500)
+    await page.keyboard.press('Control+Shift+P'); await page.keyboard.insertText('Report a problem'); await page.waitForTimeout(500)
     out.paletteReport = await page.locator('[cmdk-item]').allInnerTexts().then(list => list.filter(t => /report a problem/i.test(t)))
     await page.keyboard.press('Escape')
 

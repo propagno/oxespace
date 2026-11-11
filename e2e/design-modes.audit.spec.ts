@@ -43,7 +43,7 @@ test('captures the main surfaces in light and dark mode', async () => {
     }
     // The design-system viewer renders both modes side by side.
     await setMode(page, 'light')
-    await page.keyboard.press('Control+k')
+    await page.keyboard.press('Control+Shift+P')
     await page.keyboard.type('Design System')
     await page.keyboard.press('Enter')
     await page.waitForTimeout(500)

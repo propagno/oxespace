@@ -89,7 +89,7 @@ for (const theme of THEMES) {
       await expectSurface(page, `code-tools-menu-${theme}`, { hide: liveMasks(page) })
       await page.keyboard.press('Escape')
 
-      await page.keyboard.press('Control+k')
+      await page.keyboard.press('Control+Shift+P')
       await expect(page.locator('[cmdk-root]')).toBeVisible()
       // The workspace row prints the random temp directory; the rest of the list is stable.
       const randomPath = page.locator('[cmdk-item]', { hasText: 'oxespace-visual' }).locator('[class*="detail"]')
