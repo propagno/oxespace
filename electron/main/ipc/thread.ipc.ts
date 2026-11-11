@@ -21,7 +21,7 @@ import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
 import { MainRefusal } from '../services/main-refusal'
 import { threadToolTabs } from '../services/conversation/thread-tool-tabs'
 import { backgroundShells, watchBackground, type BackgroundJobEntry, type BackgroundShellsInput } from '../services/conversation/thread-background'
-import { foldSummary, toolRow, type ToolRow } from '../../../shared/thread-tool-rows'
+import { classifyToolRowKind } from '../../../shared/thread-tool-rows'
 import type { ThreadToolTabEntry } from '../../../shared/types/ipc'
 
 function string(value: unknown): string {
@@ -177,7 +177,7 @@ export function registerThreadIpc(
   ipcMain.handle(IPC_CHANNELS.thread.exportPortable, async (event, id: unknown) => {
     const service = await manager, threadId = string(id), snapshot = service.read(threadId)
     const owner = BrowserWindow.fromWebContents(event.sender)
-    const options = { title: 'Export conversation', defaultPath: `${snapshot.thread.title.replace(/[<>:"/\\|?*\x00-\x1f]/g, '-').slice(0, 80) || 'conversation'}.oxethread.json`, filters: [{ name: 'OXESpace conversation', extensions: ['json'] }] }
+    const options = { title: 'Export conversation', defaultPath: `${thread.title.replace(/[<>:"/\\|?*\x00-\x1f]/g, '-').slice(0, 80) || 'conversation'}.oxethread.json`, filters: [{ name: 'OXESpace conversation', extensions: ['json'] }] }
     const result = owner ? await dialog.showSaveDialog(owner, options) : await dialog.showSaveDialog(options)
     if (result.canceled || !result.filePath) return null
     await writeFile(result.filePath, service.exportPortable(threadId), { encoding: 'utf8', flag: 'wx' }).catch(async error => {
@@ -397,14 +397,21 @@ export interface ThreadBackgroundHost {
  */
 function registerThreadCockpitIpc(manager: Promise<ThreadManager>, background?: ThreadBackgroundHost): { stop(): void } {
   const toolTabs = async (service: ThreadManager, id: string): Promise<ThreadToolTabEntry[]> => {
-    const snapshot = service.read(id), seen = new Set<string>(), rows: ToolRow[] = []
-    for (const event of snapshot.events) if (event.type === 'tool' && event.name !== 'Tool result' && !seen.has(event.id)) { seen.add(event.id); rows.push(toolRow(event, snapshot.thread.rootPath)) }
-    const counts = foldSummary(rows)
+    const { thread, tools } = service.readToolSummary(id), seen = new Set<string>()
+    const counts = { queries: 0, http: 0, containers: 0 }
+    for (const tool of tools) {
+      if (seen.has(tool.id)) continue
+      seen.add(tool.id)
+      const kind = classifyToolRowKind(tool.name)
+      if (kind === 'query') counts.queries += 1
+      else if (kind === 'http') counts.http += 1
+      else if (kind === 'container') counts.containers += 1
+    }
     const [places, panes] = await Promise.all([service.places(id).catch(() => null), service.panes(id).catch(() => null)])
     const place = places?.places.find(entry => entry.current?.branch)
-    const branch = place?.current?.branch ?? snapshot.thread.ownedWorktree?.branch ?? null
+    const branch = place?.current?.branch ?? thread.ownedWorktree?.branch ?? null
     const pullRequest = branch && background?.pullRequest
-      ? await background.pullRequest({ rootPath: place?.path ?? snapshot.thread.rootPath, branch }).catch(() => null)
+      ? await background.pullRequest({ rootPath: place?.path ?? thread.rootPath, branch }).catch(() => null)
       : null
     return threadToolTabs({
       summary: { databases: counts.queries, http: counts.http, containers: counts.containers },
@@ -414,10 +421,10 @@ function registerThreadCockpitIpc(manager: Promise<ThreadManager>, background?: 
     })
   }
   const source = (service: ThreadManager, id: string): BackgroundShellsInput => {
-    const snapshot = service.read(id), thread = snapshot.thread
+    const { thread, events } = service.readBackgroundSource(id)
     let jobs: BackgroundJobEntry[]
     try { jobs = background?.jobs(thread) ?? [] } catch { jobs = [] }
-    return { events: snapshot.events, jobs, live: !!thread.connection && thread.connection.state !== 'closed' && !thread.connection.suspendedAt }
+    return { events, jobs, live: !!thread.connection && thread.connection.state !== 'closed' && !thread.connection.suspendedAt }
   }
   const push = (channel: string, threadId: string): void => {
     for (const window of BrowserWindow.getAllWindows()) {
