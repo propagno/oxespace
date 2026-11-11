@@ -29,6 +29,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Owner-only JSON (R0a, out of memory): reads and writes, by temp file and rename (mode 0600), the app's own config
   // files its callers name (agent hook configs, memory runtime files); never a path from the renderer.
   'electron/main/services/private-json.ts',
+  // F7 A26 (SECURITY S2): reads and atomically writes only <project>/.claude/settings.local.json (temp file + rename),
+  // after lstat/realpath checks confirm neither .claude nor settings.local.json links outside the project root.
+  'electron/main/services/approvals/always-allow.ts',
   // Reads one small JSON flag file (<userData>/experimental.json); no workspace path involved.
   'electron/main/services/experimental-features.ts',
   // Reads the app's own translation catalogs (locales/<language>/main.json next to the bundle); fixed names only.

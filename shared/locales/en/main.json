@@ -474,6 +474,11 @@
       "notify": {
         "waiting": "OXESpace: approval waiting"
       },
+      "alwaysAllow": {
+        "notOffered": "Always allow isn't offered for this command.",
+        "invalidSettings": "The project's .claude/settings.local.json is not valid JSON, so nothing was written.",
+        "outsideProject": "The project's .claude folder points outside the project, so nothing was written."
+      },
       "textLabel": {
         "policyChange": "Content of the file"
       }

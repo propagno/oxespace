@@ -476,6 +476,11 @@
       "notify": {
         "waiting": "OXESpace: aprovação aguardando"
       },
+      "alwaysAllow": {
+        "notOffered": "Sempre permitir não é oferecido para este comando.",
+        "invalidSettings": "O arquivo .claude/settings.local.json deste projeto não é JSON válido, então nada foi gravado.",
+        "outsideProject": "A pasta .claude deste projeto aponta para fora do projeto, então nada foi gravado."
+      },
       "textLabel": {
         "policyChange": "Conteúdo do arquivo"
       }

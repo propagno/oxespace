@@ -176,7 +176,18 @@ export interface ThreadRequest {
   policy?: ThreadRequestPolicy
   /** F7 A25: impact facts built in main. */
   impact?: ThreadRequestImpact
+  /** F7 A26: Always allow offer or refusal reason built in main. */
+  alwaysAllow?: ThreadAlwaysAllowOffer
 }
+export type ThreadAlwaysAllowReasonKind = 'destructive' | 'network' | 'push' | 'code' | 'elevation' | 'broad' | 'compound' | 'redirect'
+export interface ThreadAlwaysAllowRule {
+  provider: 'claude' | 'codex'
+  text: string
+  scope: 'project' | 'session'
+}
+export type ThreadAlwaysAllowOffer =
+  | { offered: true; rule: ThreadAlwaysAllowRule; runsProjectCode?: true; definedIn?: string }
+  | { offered: false; reasonKind: ThreadAlwaysAllowReasonKind; rule?: undefined }
 export interface ThreadMcpServerStatus { name: string; status: 'connected' | 'failed' | 'needs-auth' | 'pending' | 'disabled' | 'unknown' }
 /** One change block of a turn's file, undoable on its own; `id` pins the exact change. */
 export interface ThreadFileHunk extends LineHunk { id: string }

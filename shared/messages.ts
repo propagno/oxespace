@@ -503,6 +503,9 @@ export interface MessageParams {
   'approvals.denied.cancelled': Record<string, never>
   /** Denied before it was shown: the text to approve is longer than a person reviews. */
   'approvals.denied.tooLong': { max: number }
+  'approvals.alwaysAllow.notOffered': Record<string, never>
+  'approvals.alwaysAllow.invalidSettings': Record<string, never>
+  'approvals.alwaysAllow.outsideProject': Record<string, never>
   /** An agent's notification, prefixed with who sent it; `title` is the agent's text. */
   'notify.prefix.pane': { agent: string; pane: number; title: string }
   'notify.prefix.conversation': { agent: string; conversation: string; title: string }
@@ -850,6 +853,9 @@ export const MESSAGE_CODES = [
   'approvals.denied.timeout',
   'approvals.denied.cancelled',
   'approvals.denied.tooLong',
+  'approvals.alwaysAllow.notOffered',
+  'approvals.alwaysAllow.invalidSettings',
+  'approvals.alwaysAllow.outsideProject',
   'notify.prefix.pane',
   'notify.prefix.conversation',
   'notify.prefix.unknownPane',
