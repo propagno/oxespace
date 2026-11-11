@@ -53,9 +53,11 @@ export function ThreadSubline(props: {
         <strong>{workspace?.name ?? t('header.yourProjects')}</strong>
       </span>
       {effectiveBranch && (
-        <span className="thread-heading-branch">
-          <GitBranch size={11} aria-hidden="true" />
-          <code>{effectiveBranch}</code>
+        <>
+          <span className="thread-heading-branch">
+            <GitBranch size={11} aria-hidden="true" />
+            <code>{effectiveBranch}</code>
+          </span>
           {ownedWorktree && (
             <span
               className="thread-heading-worktree"
@@ -69,7 +71,7 @@ export function ThreadSubline(props: {
               {t('subline.movedTo', { branch: moved })}
             </span>
           )}
-        </span>
+        </>
       )}
       {accessText && <span className="thread-subline-access">{accessText}</span>}
       {typeof startedAt === 'number' && Number.isFinite(startedAt) && (() => {
