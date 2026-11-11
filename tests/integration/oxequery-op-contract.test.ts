@@ -30,7 +30,7 @@ function handledOps(): string[] {
 
 const MOVED_TO_OXEPOD = [
   'containers.engines', 'containers.candidates', 'containers.useCandidate', 'containers.list', 'containers.inspect', 'containers.stats', 'containers.action', 'containers.remove',
-  'containers.compose', 'containers.exec', 'containers.logsStart', 'containers.logsStop', 'containers.shell', 'containers.suggestConnection',
+  'containers.compose', 'containers.exec', 'containers.logsStart', 'containers.logsStop', 'containers.shell', 'containers.suggestConnection', 'containers.panel',
   'resources.images', 'resources.volumes', 'resources.networks', 'resources.usage', 'resources.remove', 'resources.prune'
 ]
 
