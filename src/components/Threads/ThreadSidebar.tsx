@@ -42,10 +42,8 @@ function relativeTime(timestamp: number): string {
   const t = i18n.t.bind(i18n)
   return minutes < 1 ? t('thread:sidebar.age.now') : minutes < 60 ? t('thread:sidebar.age.minutes', { count: minutes }) : minutes < 1440 ? t('thread:sidebar.age.hours', { count: Math.floor(minutes / 60) }) : t('thread:sidebar.age.days', { count: Math.floor(minutes / 1440) })
 }
-export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode, onOpenTeam }: {
+export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode }: {
   onCreate: (projectId: string, rootPath?: string) => void; onAccounts?: () => void; onAddProject?: () => void; onOpenInCode?: (rootPath: string) => Promise<void>
-  /** The project's Team; never off here, since the row is the project. */
-  onOpenTeam?: (projectId: string) => void
 }) {
   const { t } = useTranslation('thread')
   // Only these fields: the store also changes for drafts, snapshots and scroll positions, which the list never shows.
@@ -172,7 +170,6 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
             items={[
               { label: t('sidebar.projectSettings'), onSelect: () => setProjectSettingsId(group.id) },
               { label: t('sections.newSection'), onSelect: () => sections.setDialog({ kind: 'create', projectId: group.id }) },
-              ...(onOpenTeam ? [{ label: t('tools.team.menu', { ns: 'code' }), onSelect: () => onOpenTeam(group.id) }] : []),
               ...(group.rootPath ? [{ label: t('sidebar.openInCode'), disabled: unavailableProjects.includes(group.id), onSelect: () => void onOpenInCode?.(group.rootPath!).catch(error => setActionError(humanizeError(error, t('sidebar.openInCodeFailed')))) }] : []),
               { type: 'separator' as const },
               { label: t('sidebar.removeProjectMenu'), danger: true, onSelect: () => { setActionError(''); setConfirmation({ kind: 'project', id: group.id, title: group.name }) } }
