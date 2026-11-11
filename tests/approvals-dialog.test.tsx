@@ -367,7 +367,7 @@ describe('approval dialog', () => {
     expect(rows[0]).toContain('Denied by OXESpace')
     expect(rows[0]).toContain('Too many requests are waiting (50), so this one was denied without being shown.')
     expect(rows[1]).toContain('Denied by OXESpace')
-    expect(rows[1]).toContain('longer than 100000 characters')
+    expect(rows[1]).toContain('over 100000 characters')
     expect(rows.slice(0, 2).join(' ')).not.toMatch(/Allowed|Denied\b(?! by)/)
     expect(rows).toEqual(expect.arrayContaining([
       expect.stringContaining('Wants to change data in the database'),

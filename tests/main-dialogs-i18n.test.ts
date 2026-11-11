@@ -76,7 +76,7 @@ describe('native dialogs in the interface language', () => {
   it('makes a critical request deny-only in the system dialog, which cannot hold Allow back', async () => {
     const critical = await ask({ risk: 'critical', allowDelayMs: 2_000, enterDisabled: true })
     expect(critical.buttons).toEqual(['Deny'])
-    expect(critical.detail).toContain('the system dialog cannot hold Allow back')
+    expect(critical.detail).toContain('The system dialog can only deny it; open OXESpace to approve.')
     // Even a dialog that somehow answers "Allow" counts as deny.
     showMessageBox.mockResolvedValueOnce({ response: 1, checkboxChecked: false })
     expect(await nativeApproval(request({ risk: 'critical', allowDelayMs: 2_000, enterDisabled: true }), 'no-window', new AbortController().signal)).toBe('deny')
