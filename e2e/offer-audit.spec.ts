@@ -57,6 +57,7 @@ const PALETTE_EFFECTS: Record<string, Check> = {
   // Kept-ready workspaces is a General preference, shown once.
   'settings.general': both(settingsPage('General'), async page => { await expect(page.getByLabel('Recently visited workspaces kept ready')).toBeVisible() }),
   'settings.notifications': both(settingsPage('Notifications'), async page => { await expect(page.getByLabel('Number of workspaces to keep mounted')).toHaveCount(0) }),
+  'help.whats-new': dialog('What\x27s new in 1.5'),
   'help.shortcuts': dialog('Keyboard shortcuts'),
   // F18: the approval history; it opens even with no decision yet, and says so.
   'help.approvals': both(dialog('Approval decisions'), testId('approval-history')),
@@ -358,6 +359,7 @@ test.describe('offer audit', () => {
         'Tools/Browse skills': dialog('Skills'),
         'Tools/Show usage and limits': dialog('Usage & rate limits'),
         'Tools/Open Linear issues': dialog('Linear issues'),
+        'Help/Show what\'s new in 1.5': dialog('What\'s new in 1.5'),
         'Help/Show keyboard shortcuts': dialog('Keyboard shortcuts'),
         'Help/Open diagnostics': settingsPage('Diagnostics'),
         'Help/Report a problem…': dialog('Report a problem'),

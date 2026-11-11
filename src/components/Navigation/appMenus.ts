@@ -32,7 +32,7 @@ const VIEWS: Array<[AppView, string]> = [['code', 'OxeCode'], ['thread', 'OxeCha
 /** Every palette action a menu points to; tests/app-menus.test.ts checks each one exists, so none disappears silently. */
 export const MENU_ACTION_IDS = ['new-workspace', 'workspace-settings', 'toggle-sidebar', 'tool-editor', 'tool-github', 'tool-background',
   'toggle-split-layout', 'balance-pane-layout', 'split-vertical', 'split-horizontal', 'maximize-pane',
-  'tool-mcp', 'open-usage', 'help.shortcuts', 'help.report-problem', 'help.about', 'settings.diagnostics', 'settings.about'] as const
+  'tool-mcp', 'open-usage', 'help.whats-new', 'help.shortcuts', 'help.report-problem', 'help.about', 'settings.diagnostics', 'settings.about'] as const
 /** Families of actions shown as submenus, by id prefix. */
 export const MENU_ACTION_PREFIXES = ['appearance-', 'density-', 'layout-'] as const
 type MenuActionId = typeof MENU_ACTION_IDS[number]
@@ -114,6 +114,7 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
     },
     {
       id: 'help', label: t('menu.help'), items: compact([
+        fromAction('help.whats-new'),
         fromAction('help.shortcuts', shortcutLabel('help.shortcuts')),
         fromAction('settings.diagnostics'),
         fromAction('help.report-problem'),

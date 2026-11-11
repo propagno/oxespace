@@ -14,6 +14,7 @@ export function HttpCallsPanel({ workspaceId, actor }: { workspaceId: string; ac
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  useEffect(() => { void window.oxe?.featureUsage?.record?.('httpCalls') }, [])
 
   useEffect(() => {
     let active = true

@@ -877,7 +877,6 @@
   },
   "pane": {
     "boundary": "este painel",
-    "overflowNote": "{{n}} painéis não cabem nesta largura, então aparecem um por vez.",
     "splitRefused": {
       "title": "Não é possível dividir este painel aqui",
       "hint": "Todos os lugares deste layout estão ocupados. Escolha um layout maior, ou ligue o layout dividido para adicionar painéis livremente.",
@@ -936,7 +935,8 @@
       "live": "Ao vivo",
       "latest": "Mais recentes",
       "typeInTerminal": "Digite no terminal"
-    }
+    },
+    "overflowNote": "{{n}} painéis não cabem nesta largura, então aparecem um por vez."
   },
   "sidebar": {
     "rename": "Renomear o workspace {{name}}",

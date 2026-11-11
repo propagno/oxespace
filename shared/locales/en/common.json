@@ -498,10 +498,43 @@
       "readyDetail": "Restart to install the update."
     },
     "devBuild": "Updates only run in installed builds",
+    "chip": {
+      "available": "Update to {{version}}",
+      "downloading": "Downloading {{version}}… {{percent}}%",
+      "downloaded": "Restart to update",
+      "restartNow": "Restart now",
+      "later": "Later",
+      "error": "The update couldn't download. Try again later or get it from the releases page.",
+      "openReleases": "Open releases page"
+    },
+    "whatsNew": {
+      "title": "What's new in 1.5",
+      "open": "Open",
+      "openTarget": "Open {{title}}",
+      "rows": {
+        "browser": {
+          "title": "Agent browser",
+          "body": "Watch the agent drive your app, on desktop or a phone size."
+        },
+        "approvals": {
+          "title": "Approvals with impact",
+          "body": "Approve with the impact in front of you; irreversible steps hold."
+        },
+        "httpCalls": {
+          "title": "HTTP calls",
+          "body": "Every HTTP call your agents made, with secrets masked."
+        },
+        "timeTravel": {
+          "title": "Time travel",
+          "body": "Go back to any checkpoint, or branch from it."
+        }
+      }
+    },
     "removedFeatures": {
       "info": "OXESpace 1.5 removed some features. Your data was saved.",
       "warning": "OXESpace 1.5 removed some features. Your data isn't saved yet.",
       "seeWhatChanged": "See what changed",
+      "seeWhatsNew": "See what's new",
       "dismiss": "Dismiss",
       "tryNow": "Try now",
       "dialogTitle": "What changed in 1.5",
@@ -654,6 +687,7 @@
       },
       "help": {
         "shortcuts": "Show keyboard shortcuts",
+        "whats-new": "Show what's new in 1.5",
         "report-problem": "Report a problem…",
         "about": "About OXESpace",
         "approvals": "Show approval history"
@@ -673,7 +707,11 @@
         "updates": "Check for updates",
         "policy": "Open policy settings",
         "diagnostics": "Open diagnostics",
-        "data": "Open data settings"
+        "data": "Open data settings",
+        "about": "Check for updates",
+        "mcp": "Open MCP and skills settings",
+        "privacy": "Open data and privacy settings",
+        "activity": "Open agent activity settings"
       },
       "oxequery": {
         "open": "Open",
@@ -906,6 +944,7 @@
     "links": "Links",
     "link": {
       "repository": "Source code",
+      "whatsNew": "What's new in 1.5",
       "releaseNotes": "Release notes",
       "licenseText": "License",
       "notices": "Third-party licenses"

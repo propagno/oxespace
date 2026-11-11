@@ -13,6 +13,7 @@ import { ShortcutGuideHost } from './components/Keyboard/ShortcutGuideHost'
 import { TerminalFocusHost } from './components/Keyboard/TerminalFocusHost'
 import { ReportProblemHost } from './components/Diagnostics/ReportProblemHost'
 import { AboutHost } from './components/About/AboutHost'
+import { WhatsNewHost } from './components/Updates/whatsNew'
 import { ApprovalsHost } from './components/Approvals/ApprovalsHost'
 import { StartupInteractiveMark } from './lib/startupTiming'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
@@ -76,6 +77,7 @@ void Promise.all([initI18n().catch(error => console.error('[i18n] could not star
       <TerminalFocusHost />
       <ReportProblemHost />
       <AboutHost />
+      <WhatsNewHost />
       {/* Approval requests from main, in the window instead of a native dialog (F18). Its window loads at idle. */}
       <ApprovalsHost />
       <StartupInteractiveMark />

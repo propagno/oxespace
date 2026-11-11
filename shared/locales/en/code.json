@@ -842,7 +842,6 @@
   },
   "pane": {
     "boundary": "this pane",
-    "overflowNote": "{{n}} panes don't fit at this width, so they show one at a time.",
     "splitRefused": {
       "title": "This pane cannot be split here",
       "hint": "Every place in this layout is taken. Choose a larger layout, or turn on the split layout to add panes freely.",
@@ -901,7 +900,8 @@
       "live": "Live",
       "latest": "Latest",
       "typeInTerminal": "Type in the terminal"
-    }
+    },
+    "overflowNote": "{{n}} panes don't fit at this width, so they show one at a time."
   },
   "sidebar": {
     "rename": "Rename workspace {{name}}",

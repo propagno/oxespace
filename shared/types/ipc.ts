@@ -451,6 +451,21 @@ export const IPC_CHANNELS = {
     unwatch: 'pane-conversation:unwatch',
     changed: 'pane-conversation:changed'
   },
+  featureUsage: {
+    state: 'feature-usage:state',
+    setEnabled: 'feature-usage:set-enabled',
+    export: 'feature-usage:export',
+    clear: 'feature-usage:clear',
+    record: 'feature-usage:record',
+    changed: 'feature-usage:changed'
+  },
+  hostsProxy: {
+    state: 'hosts-proxy:state',
+    setEnabled: 'hosts-proxy:set-enabled',
+    clear: 'hosts-proxy:clear',
+    retry: 'hosts-proxy:retry',
+    changed: 'hosts-proxy:changed'
+  },
 } as const
 
 export interface WorkspaceApi {
@@ -761,6 +776,8 @@ export interface OxeApi {
   android?: AndroidApi
   agentActivity: import('./agent-activity').AgentActivityApi
   paneConversation?: PaneConversationApi
+  featureUsage: FeatureUsageApi
+  hostsProxy: HostsProxyApi
 }
 
 export type PaneConversationPageResult =
@@ -925,4 +942,40 @@ export interface AndroidApi {
   startEmulator(avd: string): Promise<void>
   onChanged(listener: (status?: AndroidMirrorStatus) => void): () => void
   onFrame(listener: (frame: AndroidMirrorFrame) => void): () => void
+}
+
+export interface FeatureUsageApi {
+  state(): Promise<import('../feature-usage').FeatureUsageStatus>
+  setEnabled(input: { enabled: boolean; clear?: boolean }): Promise<import('../feature-usage').FeatureUsageStatus | void>
+  export(): Promise<{ path: string } | null>
+  clear(): Promise<import('../feature-usage').FeatureUsageStatus | void>
+  record(feature: import('../feature-usage').FeatureUsageKey): Promise<void>
+  onChanged(listener: (status?: import('../feature-usage').FeatureUsageStatus) => void): () => void
+}
+
+export interface HostsProxyRow {
+  host: string
+  port: number
+  count: number
+  lastSeen: number
+  firstSeen: number
+  conversationId?: string
+  conversationTitle?: string
+}
+
+export type HostsProxyStateKind = 'running' | 'stopped' | 'failed'
+
+export interface HostsProxyStatus {
+  enabled: boolean
+  state: HostsProxyStateKind
+  reason?: import('../messages').MainMessage
+  hosts: HostsProxyRow[]
+}
+
+export interface HostsProxyApi {
+  state(): Promise<HostsProxyStatus>
+  setEnabled(enabled: boolean): Promise<HostsProxyStatus | void>
+  clear(): Promise<HostsProxyStatus | void>
+  retry(): Promise<HostsProxyStatus | void>
+  onChanged(listener: (status?: HostsProxyStatus) => void): () => void
 }

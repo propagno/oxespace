@@ -690,6 +690,11 @@
     },
     "parity": {
       "notAvailable": "Indisponível no {{provider}}"
+    },
+    "hostsProxy": {
+      "portInUse": "O proxy de hosts não iniciou: a porta {{port}} está em uso. Os agentes rodam sem ele.",
+      "failed": "O proxy de hosts não iniciou. Os agentes rodam sem ele.",
+      "userProxy": "Você já tem um proxy definido, então o OXESpace não o substitui. Os agentes rodam sem o registro."
     }
   },
   "remotePairingFailure": {

@@ -24,7 +24,7 @@ policy (`tool.use` rules of the policy store) applies by tool name to every tool
 
 | Covered | Excluded | Planned | Forbidden | Total |
 |---|---|---|---|---|
-| 37 | 33 | 2 | 24 | 96 |
+| 37 | 33 | 2 | 26 | 98 |
 
 The registry has 75 tools: 52 single-purpose tools and 23 domain tools with 86 actions, so the
 manifest declares 138 tool-or-action entries.
@@ -59,6 +59,8 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `policy.accept_change` | `policy.acceptChange`, `policy.reviewChange` (B7.4: accepting, or reviewing again, a policy file changed outside OXESpace; the phone maps a `policyChange` request to its forbidden `policy.edit`) |
 | `code.agents_overview` | `agents.overview`, `agents.markSeen`, `agents.onChanged` (`agents:overview`, `agents:mark-seen`, `agents:changed`; S7.1: the person's overview of every agent, and only the person marks what they have seen. Agents read the same states with oxespace_agents list, oxespace_threads list and oxespace_work status) |
 | `containers.panel` | `oxePod.containers.panel` (F9 A34: the Containers panel's window-only read model; rows carry other conversations' titles, so agents never reach it) |
+| `settings.feature_usage` | `featureUsage.*` (F11 A65: local-only feature usage switch, export, clear and counts) |
+| `settings.hosts_proxy` | `hostsProxy.*` (F11 A68: loopback outgoing-hosts proxy switch, clear and retry) |
 
 ### Per-tool rules (B7.3): where each one holds
 
@@ -198,5 +200,7 @@ before. Code panes receive the whole registry.
 | `code.pane_conversation` | A terminal agent's conversation on the desktop (A53) | Excluded: The person's read-only view of a pane's native session. Agents read panes with oxespace_agents read and sessions with oxespace_threads native_sessions. |
 | `mcp_internal.token` | Regenerate the internal MCP token | **Forbidden**: A token. |
 | `accounts.sign_in` | Sign in or out of Claude, Codex and other accounts | **Forbidden**: Sign-in and tokens. |
+| `settings.feature_usage` | Local-only feature usage counter: switch, export, clear and feature counts (A65) | **Forbidden**: Person-only local usage preferences and counts; agents neither read nor change them. |
+| `settings.hosts_proxy` | Loopback outgoing-hosts proxy: switch, clear and retry (A68) | **Forbidden**: Person-only network inspection control; agents must not turn off or clear their own host log. |
 | `app.events` | Change notifications sent to the window | Excluded: Events, not actions: agents read the state they describe with the tools above. |
 | `oxepost.all` | OxePost: collections, environments, sending | Planned (H8): OxePost (H1-H4) is the person's API client: collections, environments and sending have no tool yet; H8 adds list, read and create, and send with GET and HEAD to localhost free and the rest confirmed. Environment secrets stay in the system's secure storage and are never a tool, an argument or a result. |

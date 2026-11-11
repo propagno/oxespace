@@ -33,6 +33,7 @@ export function AndroidPanel(): ReactElement {
   const { t } = useTranslation('code')
   const [status, setStatus] = useState<AndroidMirrorStatus | null>(null)
   const [selectedSerial, setSelectedSerial] = useState<string | null>(null)
+  useEffect(() => { void window.oxe?.featureUsage?.record?.('androidMirror') }, [])
   const [lastConnected, setLastConnected] = useState<{ serial: string; name: string } | null>(null)
   const [frames, setFrames] = useState<Record<string, { width: number; height: number }>>({})
   const canvasRef = useRef<HTMLCanvasElement | null>(null)

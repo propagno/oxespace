@@ -43,6 +43,7 @@ export function ImpactPreview({
   onClose
 }: ImpactPreviewProps): ReactElement | null {
   const { t } = useTranslation('thread')
+  useEffect(() => { void window.oxe?.featureUsage?.record?.('approvalPreview') }, [])
   const [dbPreviewState, setDbPreviewState] = useState<{ requestId: string; result: ApprovalDatabasePreview } | null>(null)
   const [busy, setBusy] = useState(false)
   const [withoutHoldOpen, setWithoutHoldOpen] = useState(false)

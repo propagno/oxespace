@@ -383,7 +383,10 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'app.openIn.revealFailed': [],
   'preview.capture.devtools': [],
   'preview.capture.busy': [],
-  'parity.notAvailable': ['provider']
+  'parity.notAvailable': ['provider'],
+  'hostsProxy.portInUse': ['port'],
+  'hostsProxy.failed': [],
+  'hostsProxy.userProxy': []
 }
 
 describe('C3 message codes', () => {

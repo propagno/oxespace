@@ -35,6 +35,7 @@ export function PullRequestTab(props: { threadId: string; rootPath: string; bran
   const [summary, setSummary] = useState<Load<AgentSummary | null>>({ status: 'loading' })
   const [description, setDescription] = useState('')
   const [reload, setReload] = useState(0)
+  useEffect(() => { void window.oxe?.featureUsage?.record?.('prSummary') }, [])
 
   useEffect(() => {
     let alive = true

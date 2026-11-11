@@ -5,6 +5,9 @@ import { formatClock, formatDate } from '../../utils/formatTime'
 import { resultChip } from './agentActivityModel'
 import { AgentActivityDetail } from './AgentActivityDetail'
 import { useAgentActivityFilter } from '../../store/agent-activity-filter.store'
+import { useThreadStore } from '../../store/thread.store'
+import { useUIStore } from '../../store/ui.store'
+import { HostsProxySettings } from './HostsProxySettings'
 
 type ActivityRow = Record<string, unknown>
 
@@ -34,6 +37,7 @@ export function AgentActivitySettings(): ReactElement {
   const cursorRef = useRef<string | null>(null)
   const lastFocusedRowRef = useRef<HTMLElement | null>(null)
   const tbodyRef = useRef<HTMLTableSectionElement>(null)
+  useEffect(() => { void window.oxe?.featureUsage?.record?.('agentActivity') }, [])
 
   const [selectedSource, setSelectedSource] = useState<string | null>(initialSource)
   const [rows, setRows] = useState<ActivityRow[]>([])
@@ -260,6 +264,13 @@ export function AgentActivitySettings(): ReactElement {
           )}
         </>
       )}
+
+      <HostsProxySettings
+        onOpenConversation={conversationId => {
+          void useThreadStore.getState().select(conversationId)
+          if (useUIStore.getState().isSettingsOpen) useUIStore.getState().toggleSettings()
+        }}
+      />
 
       {activeModalRow && (
         <AgentActivityDetail

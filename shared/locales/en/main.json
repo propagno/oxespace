@@ -687,6 +687,11 @@
     },
     "parity": {
       "notAvailable": "Not available in {{provider}}"
+    },
+    "hostsProxy": {
+      "portInUse": "The hosts proxy couldn't start: port {{port}} is in use. Agents run without it.",
+      "failed": "The hosts proxy couldn't start. Agents run without it.",
+      "userProxy": "You already have a proxy set, so OXESpace won't replace it. Agents run without the hosts log."
     }
   },
   "remotePairingFailure": {

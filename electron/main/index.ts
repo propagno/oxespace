@@ -25,6 +25,8 @@ import { broadcastSkillChange, registerSkillIpc } from './ipc/skill.ipc'
 import { broadcastMcpHealth, registerMcpIpc } from './ipc/mcp.ipc'
 import { registerMcpInternalIpc } from './ipc/mcp-internal.ipc'
 import { registerDataExportIpc } from './ipc/data-export.ipc'
+import { registerFeatureUsageIpc } from './ipc/feature-usage.ipc'
+import { registerHostsProxyIpc } from './ipc/hosts-proxy.ipc'
 import { peekDatabaseVersion } from './services/data-export/removed-features-export'
 import { removeLegacyAgentHooks } from './services/agent-hooks/legacy-cleanup'
 import { registerNotificationsIpc } from './ipc/notifications.ipc'
@@ -270,8 +272,10 @@ async function registerIpcHandlers(): Promise<() => void> {
   void agentHookServer.start().catch((error) => log.warn('Agent hook server unavailable', error))
   app.once('before-quit', () => agentHookServer.stop())
   const oxeQueryShells: { shellFor?: (paneId: string) => { file: string; args: string[] } | undefined } = {}
+  registerFeatureUsageIpc(db); const hostsProxy = registerHostsProxyIpc(db, log)
   const terminalManager: TerminalManager = new TerminalManager(db, {
     oxeQueryShell: paneId => oxeQueryShells.shellFor?.(paneId),
+    grantProxy: origin => hostsProxy.grant(origin),
     observer: agentState,
     resumeSession: (paneId, wanted, again) => paneAgentSessions.take(paneId, wanted, again), assignSession: (paneId, agent, sessionId) => paneAgentSessions.record(paneId, agent, sessionId, 'launch'), clearSession: paneId => paneAgentSessions.clear(paneId), currentSession: paneId => paneAgentSessions.current(paneId),
     isManagedPane: paneId => delegationService?.ownsPane(paneId) ?? false,
@@ -396,7 +400,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   // A18 (P7) · the task's Terminal tab reads every running pane: its launch folder, its agent's reported cwd and its
   // shell's OSC cwd (F4-P6); `agent` = the pane runs an agent CLI.
   const paneRows = db.prepare('SELECT id, workspace_id, display_name, agent_name FROM panes')
-  void threadManager.manager.then(manager => manager.configurePanes(() => {
+  void threadManager.manager.then(manager => { manager.configureHostsProxy(hostsProxy); manager.configurePanes(() => {
     const sources: import('../../shared/types/thread-places').ThreadPaneSource[] = []
     for (const row of paneRows.all() as { id: string; workspace_id: string; display_name: string | null; agent_name: string | null }[]) {
       if (!terminalManager.hasSession(row.id)) continue
@@ -406,7 +410,7 @@ async function registerIpcHandlers(): Promise<() => void> {
         agentCwd: paneAgentCwd.get(row.id) ?? null, shellCwd: terminalManager.shellCwd(row.id), agent: agentState.get(row.id) !== null || Boolean(row.agent_name) })
     }
     return sources
-  })).catch(error => log.warn('Thread panes unavailable', error))
+  }) }).catch(error => log.warn('Thread panes unavailable', error))
   const skillService = new SkillService({ onChange: broadcastSkillChange })
   registerSkillIpc(skillService, (input) => terminalManager.write(input))
   const mcpManager = new McpManager(db, { emitHealth: broadcastMcpHealth })
@@ -690,6 +694,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     skillService.dispose()
     mcpManager.stopAll()
     oxeService.disposeAll()
+    void hostsProxy.stop()
     // Keep the hook metadata bridge alive for the bounded memory shutdown drain.
     void rpcServer?.stop()
   })

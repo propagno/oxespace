@@ -23,6 +23,24 @@ describe('ipc contracts', () => {
     expect(IPC_CHANNELS).not.toHaveProperty('semantic')
   })
 
+  test('F11: uses stable featureUsage and hostsProxy channel names', () => {
+    expect(IPC_CHANNELS.featureUsage).toEqual({
+      state: 'feature-usage:state',
+      setEnabled: 'feature-usage:set-enabled',
+      export: 'feature-usage:export',
+      clear: 'feature-usage:clear',
+      record: 'feature-usage:record',
+      changed: 'feature-usage:changed'
+    })
+    expect(IPC_CHANNELS.hostsProxy).toEqual({
+      state: 'hosts-proxy:state',
+      setEnabled: 'hosts-proxy:set-enabled',
+      clear: 'hosts-proxy:clear',
+      retry: 'hosts-proxy:retry',
+      changed: 'hosts-proxy:changed'
+    })
+  })
+
   test('R0b: uses stable data export channel names', () => {
     expect(IPC_CHANNELS.dataExport).toEqual({
       state: 'data-export:state',
