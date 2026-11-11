@@ -1766,5 +1766,86 @@
   "toolOutputCut": {
     "withTotal": "Output cut to the first {{kept}} of {{total}}",
     "keptOnly": "Output cut to the first {{kept}}"
+  },
+  "f7": {
+    "card": {
+      "needsApproval": "{{agent}} needs your approval",
+      "defaultAgent": "Agent",
+      "allow": "Allow",
+      "allowOnce": "Allow once",
+      "alwaysAllowEllipsis": "Always allow…",
+      "seeImpact": "See impact",
+      "copyExact": "Copy exact text",
+      "copyWhat": "Exact text"
+    },
+    "facts": {
+      "whereLabel": "Where it runs",
+      "affectsLabel": "Affects",
+      "affectsUnknown": "Not known",
+      "undoLabel": "Can it be undone?",
+      "riskLabel": "Risk",
+      "canUndo": "Can be undone",
+      "cannotUndo": "Can't be undone",
+      "unit": {
+        "rows_one": "{{count}} row",
+        "rows_other": "{{count}} rows",
+        "files_one": "{{count}} file",
+        "files_other": "{{count}} files",
+        "resources_one": "{{count}} resource",
+        "resources_other": "{{count}} resources"
+      }
+    },
+    "toast": {
+      "needsYou": "Needs you: {{title}} · {{agent}}"
+    },
+    "queue": {
+      "listLabel": "Pending approvals",
+      "previewLabel": "Selected request impact",
+      "decidedToday": "Decided today",
+      "noDecided": "No approvals decided today.",
+      "activeHeading": "Active across OxeChat & OxeCode · {{count}}",
+      "noActive": "No active agents right now.",
+      "allClear": "Requests outside an agent's permissions wait here and on your paired phone. Database writes stay on this computer."
+    },
+    "preview": {
+      "context": "{{agent}} · {{conversation}}",
+      "exactHeading": "Shown exactly what runs",
+      "beforeAfter": "Before → after",
+      "sampleCount_one": "{{sampleCount}} of {{count}} row, read with SELECT",
+      "sampleCount_other": "{{sampleCount}} of {{count}} rows, read with SELECT",
+      "offProduction": "Preview is off for production.",
+      "failed": "Couldn't preview: {{reason}}. Nothing ran.",
+      "criticalCallout": "This can't be undone. Hold Approve for 1.2 s to confirm.",
+      "criticalPhone": "On the phone this is Critical: Allow unlocks after 2 s.",
+      "highCallout": "No undo. OXESpace can't revert this, so Deny if you're unsure.",
+      "dbDesktopOnly": "Database writes are answered only at this computer.",
+      "reversibleCheckpoint": "Restorable from a checkpoint if you change your mind.",
+      "reversibleStart": "You can start the container again if you change your mind.",
+      "reversibleGeneric": "Can be undone if you change your mind.",
+      "holdToApprove": "Hold to approve",
+      "approveWithoutHolding": "Approve without holding…",
+      "withoutHoldTitle": "Approve without holding",
+      "withoutHoldCheckbox": "I understand this can't be undone"
+    },
+    "alwaysAllow": {
+      "title": "Always allow this command?",
+      "confirm": "Always allow",
+      "claudeRule": "Adds to this project's Claude Code rules:",
+      "codexSession": "Allowed for this Codex session only.",
+      "runsProjectCode": "This command runs this project's code ({{definedIn}}).",
+      "runsProjectCodeGeneric": "This command runs this project's code.",
+      "toastAdded": "Always allowed: {{command}} · revoke in What agents can do",
+      "toastOpen": "Open",
+      "reason": {
+        "destructive": "Always allow isn't offered for destructive commands.",
+        "network": "Always allow isn't offered for network commands.",
+        "push": "Always allow isn't offered for push commands.",
+        "compound": "Always allow isn't offered for commands that chain several steps.",
+        "code": "Always allow isn't offered for commands that run code given on the command line.",
+        "elevation": "Always allow isn't offered for commands that run as administrator.",
+        "broad": "Always allow isn't offered for a rule this broad. Allow it once instead.",
+        "redirect": "Always allow isn't offered for commands that redirect output into files."
+      }
+    }
   }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ComponentType, type ReactElement } from 'react'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { i18n } from '../../i18n'
+import { useKeybindings } from '../../keyboard/keybindings'
 import { approvalsApi } from './approvalsApi'
 import { handBackAll, schedulePreload, startApprovals } from './approvalsBoot'
 
@@ -29,6 +30,24 @@ export function ApprovalsHost(): ReactElement | null {
   // Held in state instead of React.lazy: the chunk has settled before it renders, so there is nothing to suspend for,
   // and a failed load stays with the fail-safe instead of throwing during render.
   const [Center, setCenter] = useState<ComponentType | null>(null)
+  const [queueOpen, setQueueOpen] = useState(false)
+  const [QueueModal, setQueueModal] = useState<ComponentType<{ onClose: () => void }> | null>(null)
+
+  useKeybindings({
+    'approvals.queue': () => setQueueOpen(open => !open)
+  })
+
+  useEffect(() => {
+    if (!queueOpen || QueueModal) return
+    let alive = true
+    void import('./ApprovalQueue')
+      .then(mod => {
+        if (alive) setQueueModal(() => mod.ApprovalQueueModal)
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [queueOpen, QueueModal])
+
   useEffect(() => {
     const api = approvalsApi()
     if (!api) return
@@ -36,5 +55,10 @@ export function ApprovalsHost(): ReactElement | null {
     const cancelPreload = schedulePreload()
     return () => { stop(); cancelPreload() }
   }, [])
-  return Center && <ErrorBoundary id="approvals" label={i18n.t('approvals.boundaryLabel')} fallback={<ApprovalsUnavailable />}><Center /></ErrorBoundary>
+
+  if (!Center && !(queueOpen && QueueModal)) return null
+  return <>
+    {Center ? <ErrorBoundary id="approvals" label={i18n.t('approvals.boundaryLabel')} fallback={<ApprovalsUnavailable />}><Center /></ErrorBoundary> : null}
+    {queueOpen && QueueModal ? <QueueModal onClose={() => setQueueOpen(false)} /> : null}
+  </>
 }

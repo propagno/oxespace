@@ -6,7 +6,8 @@ import { threadApprovalRisk } from './threadApprovalRisk'
 import { useAllowHold } from '../Approvals/useAllowHold'
 import { useTranslation } from 'react-i18next'
 import { elicitationContent, elicitationDefaults, elicitationFields, validateElicitationField, type ElicitationValue } from '../../../shared/elicitationForm'
-import { cx, ErrorState, FieldError, Select } from '../../ui'
+import { copyText, cx, ErrorState, FieldError, Select } from '../../ui'
+import { ImpactFacts } from '../Approvals/ImpactFacts'
 import { i18n } from '../../i18n'
 import styles from './ThreadRequestCard.module.css'
 import { humanizeError } from '../../utils/humanizeError'
@@ -23,20 +24,23 @@ export function requestOutcomeText(request: ThreadRequest): string {
   return i18n.t(request.state === 'expired' ? 'thread:outcome.expired' : request.state === 'cancelled' ? 'thread:outcome.cancelled' : 'thread:outcome.closed')
 }
 
-export function ThreadRequestCard({ request, disabled, turnResult, onRespond, onRemember, conversationId = '' }: {
+export function ThreadRequestCard({ request, agent, disabled, turnResult, onRespond, onRemember, onSeeImpact, conversationId = '' }: {
   request: ThreadRequest
+  agent?: string
   conversationId?: string
   disabled: boolean
   turnResult?: 'completed' | 'failed' | 'interrupted'
   onRespond: (response: ThreadRequestResponse) => Promise<void>
   /** Saves allow rules for this project; the request is approved afterwards. */
   onRemember?: (suggestions: ThreadPermissionSuggestion[]) => Promise<void>
+  onSeeImpact?: () => void
 }) {
   const { t } = useTranslation('thread')
   const draftKey = `${conversationId}:${request.generation}:${request.id}:${request.createdAt}`
   const [answers, setAnswers] = useState<Record<string, string[]>>(() => drafts.get(draftKey) ?? {})
   const [step, setStep] = useState(0)
   const card = useRef<HTMLElement>(null)
+  const denyButtonRef = useRef<HTMLButtonElement>(null)
   const previousStep = useRef(step)
   useEffect(() => {
     if (previousStep.current === step) return
@@ -88,6 +92,10 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, on
     try { await onRemember!(suggestions) } catch (cause) { setError(humanizeError(cause, t('request.ruleFailed'))); return }
     await submit({ decision: 'accept' })
   }
+  const isImpactApproval = request.kind === 'approval' && request.state === 'pending' && Boolean(request.impact)
+  useEffect(() => {
+    if (isImpactApproval) denyButtonRef.current?.focus()
+  }, [isImpactApproval, request.id])
   if (request.state !== 'pending') return <details className={cx(`thread-request-history is-${request.state}`, styles.history)}>
     <summary className={cx('thread-request is-resolved', styles.resolved)}>
     {request.resolution === 'answered' || request.resolution === 'approved' ? <Check size={14} className="oxe-confirm" /> : <AlertCircle size={14} />}
@@ -104,6 +112,24 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, on
       {request.requestedPermissions && <pre>{JSON.stringify(request.requestedPermissions, null, 2)}</pre>}
     </div>
   </details>
+  if (isImpactApproval && request.impact) {
+    const impact = request.impact
+    const agentName = agent ?? t('f7.card.defaultAgent')
+    return <section ref={card} className={cx('thread-request thread-request-approval', styles.root)} aria-label={requestLabel}>
+      <header><AlertCircle size={14} /><div><small>{t('f7.card.needsApproval', { agent: agentName })}</small><strong>{requestLabel}</strong></div></header>
+      {impact.why ? <p className={styles.context}>{impact.why}</p> : null}
+      <ImpactFacts impact={impact} layout="chips" />
+      <pre><code>{impact.text}</code></pre>
+      {error && <ErrorState compact title={error} />}
+      <footer>
+        <button ref={denyButtonRef} type="button" className={cx('thread-request-decline', styles.decline)} disabled={disabled} onClick={() => void submit({ decision: 'decline' })}>{t('request.deny')}</button>
+        {impact.reversible
+          ? <button type="button" disabled={disabled} onClick={() => void submit({ decision: 'accept' })}>{t('f7.card.allow')}</button>
+          : <button type="button" className={styles.quiet} disabled={disabled} onClick={() => onSeeImpact?.()}>{t('f7.card.seeImpact')}</button>}
+        <button type="button" className={styles.quiet} onClick={() => { if (navigator.clipboard?.writeText) void navigator.clipboard.writeText(impact.text); else void copyText(impact.text, t('f7.card.copyWhat')) }}>{t('f7.card.copyExact')}</button>
+      </footer>
+    </section>
+  }
   return <section ref={card} className={cx(`thread-request thread-request-${request.kind}`, styles.root, request.kind === 'question' && styles.question)} aria-label={requestLabel}>
     <header>{request.kind === 'permissions' ? <Shield size={14} /> : <AlertCircle size={14} />}<div><strong>{requestLabel}</strong>{guarded && <span className={cx('thread-request-guarded', styles.guarded)} data-testid="approval-guarded" title={t('request.guardedHint')}><Shield size={12} aria-hidden="true" />{t('request.guarded')}</span>}{request.kind !== 'approval' && request.detail && <p>{request.detail}</p>}</div></header>
     {guarded && <p className={styles.context} data-testid="approval-guarded-hint">{t('request.guardedHint')}</p>}
