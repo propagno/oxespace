@@ -32,6 +32,7 @@ const rel = (path: string): string => relative(ROOT, path).split('\\').join('/')
  */
 const OUTLINE_NONE_ALLOWED: Record<string, number> = {
   'src/components/Changes/ChangesPanel.css': 3,
+  'src/components/CommandBar/CommandBar.module.css': 1,
   'src/components/Navigation/AppMenuBar.css': 1,
   'src/components/Navigation/DetailList.css': 1,
   'src/components/Navigation/NavigationChrome.css': 1,
