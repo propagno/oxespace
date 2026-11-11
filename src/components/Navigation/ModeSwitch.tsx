@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cx } from '../../ui'
 import { describeAttention, useAttentionSummary, type AttentionCounts } from '../../hooks/useAttentionSummary'
@@ -5,16 +6,19 @@ import type { NavigationMode } from './NavigationChrome'
 import { shortcutLabel, useKeybindings, type KeybindingId } from '../../keyboard/keybindings'
 import styles from './ModeSwitch.module.css'
 import { prefetchView, usePendingView } from '../../app/viewSwitch'
+import { OxeCodeIcon } from '../../design/icons/OxeCodeIcon'
+import { OxeChatIcon } from '../../design/icons/OxeChatIcon'
+import { OxeQueryIcon } from '../../design/icons/OxeQueryIcon'
 
 // Product names, never translated.
-const MODES: Array<{ mode: NavigationMode; label: string }> = [
-  { mode: 'code', label: 'OxeCode' },
-  { mode: 'thread', label: 'OxeChat' },
-  { mode: 'data', label: 'OxeQuery' }
+const MODES: Array<{ mode: NavigationMode; label: string; Icon: (props: { size?: number; className?: string }) => ReactElement }> = [
+  { mode: 'code', label: 'OxeCode', Icon: OxeCodeIcon },
+  { mode: 'thread', label: 'OxeChat', Icon: OxeChatIcon },
+  { mode: 'data', label: 'OxeQuery', Icon: OxeQueryIcon }
 ]
 
 /**
- * The application's views, as one segmented control in the middle of the title bar; Ctrl+1…5 switch between them.
+ * The application's views, as three icon + label tabs in the title bar; Ctrl+1…3 switch between them.
  * The view being switched to (usePendingView, src/app/viewSwitch.ts): its button is selected and busy at once (the first feedback),
  * and a view's chunk starts loading as soon as its button is hovered or focused (docs/design/motion.md).
  */
@@ -29,13 +33,15 @@ export function ModeSwitch({ mode, onSelect }: { mode: NavigationMode; onSelect:
     {MODES.map(item => {
       const counts = item.mode === 'code' ? attention.code : item.mode === 'thread' ? attention.thread : null
       const attentionId = counts && counts.needsYou + counts.failed + counts.working > 0 ? `mode-attention-${item.mode}` : undefined
+      const ModeIcon = item.Icon
       // The badge sits beside the button, not inside it: its count would otherwise be visible text missing from
       // the button's name (WCAG 2.5.3). It describes the button instead, so focus reads "OxeChat … 1 needs you".
       return <span key={item.mode} className={styles.item}>
         <button type="button" className={styles.option} aria-label={item.label} data-app-mode={item.mode} aria-pressed={shown === item.mode} aria-busy={pending === item.mode} title={withKey(t(`nav.modeTitle.${item.mode}`), item.mode)} aria-describedby={attentionId}
           onPointerEnter={() => prefetchView(item.mode)} onFocus={() => prefetchView(item.mode)}
           onClick={() => { if (item.mode !== shown) onSelect(item.mode) }}>
-          {item.label}
+          <ModeIcon size={13} className={styles.modeIcon} />
+          <span>{item.label}</span>
         </button>
         {counts && attentionId && <Attention id={attentionId} counts={counts} scope={item.mode === 'code' ? 'code' : 'thread'} />}
       </span>

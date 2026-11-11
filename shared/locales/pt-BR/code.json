@@ -14,7 +14,7 @@
     "more": "Mais painéis",
     "needsWorkspace": "Abra um workspace para usar os painéis dele",
     "httpCalls": "Chamadas HTTP",
-    "android": "Android",
+    "android": "Dispositivo Android",
     "containers": "Contêineres"
   },
   "tools": {
@@ -66,7 +66,7 @@
       "detail": "Alterações da branch e ainda não commitadas"
     },
     "android": {
-      "label": "Android",
+      "label": "Dispositivo Android",
       "detail": "Espelho ao vivo de um celular conectado ou emulador",
       "keywords": "android, adb, emulador, celular, espelho"
     },
@@ -1311,7 +1311,8 @@
       "activityShort": "Atividade",
       "panels": "Painéis do workspace",
       "openPanels": "Painéis abertos do workspace",
-      "morePanels": "Mais painéis: {{count}}"
+      "morePanels": "Mais painéis: {{count}}",
+      "addTerminal": "Novo terminal"
     }
   },
   "memory": {

@@ -432,7 +432,11 @@
       "conversationStep": "Comece sua primeira conversa",
       "newConversation": "Nova conversa",
       "connectFirst": "Conecte um agente primeiro",
-      "openModeAlone": "Ou abra um modo sozinho"
+      "openModeAlone": "Ou abra um modo sozinho",
+      "heroTitle": "Agentes que trabalham no seu código e mostram cada passo",
+      "heroLead": "Escolha uma pasta de projeto, conecte o Claude Code ou o Codex e trabalhe vendo cada etapa.",
+      "modeDescCode": "Terminais e agentes lado a lado",
+      "modeDescQuery": "Tabelas e consultas SQL com segurança"
     }
   },
   "usage": {
@@ -718,11 +722,7 @@
         "updates": "Procurar atualizações",
         "policy": "Abrir as configurações de política",
         "diagnostics": "Abrir o diagnóstico",
-        "data": "Abrir as configurações de dados",
-        "about": "Procurar atualizações",
-        "mcp": "Abrir as configurações de MCP e habilidades",
-        "privacy": "Abrir as configurações de dados e privacidade",
-        "activity": "Abrir as configurações de atividade dos agentes"
+        "data": "Abrir as configurações de dados"
       },
       "oxequery": {
         "open": "Abrir",
@@ -1131,5 +1131,11 @@
     "noEditor": "Nenhum editor externo foi encontrado (VS Code, Cursor ou Zed). Instale um e tente de novo.",
     "notAFile": "Daqui o {{editor}} só abre arquivos. Para abrir uma pasta, use “{{reveal}}”.",
     "menuUnavailable": "Não foi possível carregar o menu. Tente de novo."
+  },
+  "statusBar": {
+    "agentsWorking_one": "{{count}} agente trabalhando",
+    "agentsWorking_many": "{{count}} agentes trabalhando",
+    "agentsWorking_other": "{{count}} agentes trabalhando",
+    "nothingSetUpYet": "Nada configurado ainda"
   }
 }

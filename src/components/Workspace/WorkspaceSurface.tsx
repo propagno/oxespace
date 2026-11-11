@@ -1,11 +1,12 @@
 import { Suspense, lazy, memo, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels'
-import { Activity, MoreHorizontal, Network, PanelsTopLeft, PlugZap, type LucideIcon } from 'lucide-react'
-import { Menu } from '../../ui'
+import { Activity, MoreHorizontal, Network, PanelsTopLeft, PlugZap, Plus, type LucideIcon } from 'lucide-react'
+import { Button, Menu } from '../../ui'
 import { WorkbenchPanelMenu, WorkbenchPanelToggle, type WorkbenchPanelItem } from '../Workbench/WorkbenchPanelMenu'
 import { CODE_BAR_PANELS, CODE_MENU_PANELS, WORKBENCH_PANELS } from '../Workbench/panelCatalog'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../../shared/types/workspace'
+import { workspaceColorAttrs } from '../../../shared/workspace-color'
 import { WorkspaceGrid } from '../Grid/WorkspaceGrid'
 import { WorkspaceSplitGrid } from '../Grid/WorkspaceSplitGrid'
 import { usePaneLayoutStore } from '../../store/pane-layout.store'
@@ -24,6 +25,7 @@ const WorkspaceScriptsPanel = lazy(() => import('./WorkspaceScriptsPanel').then(
 const WorkspaceSearchPanel = lazy(() => import('./WorkspaceSearchPanel').then((m) => ({ default: m.WorkspaceSearchPanel })))
 const WorkspaceHttpCallsPanel = lazy(() => import('./WorkspaceHttpCallsPanel').then((m) => ({ default: m.WorkspaceHttpCallsPanel })))
 const WorkspaceAndroidPanel = lazy(() => import('./WorkspaceAndroidPanel').then((m) => ({ default: m.WorkspaceAndroidPanel })))
+const WorkspaceContainersPanel = lazy(() => import('./WorkspaceContainersPanel').then((m) => ({ default: m.WorkspaceContainersPanel })))
 const WorkspaceWebPreviewPanel = lazy(() => import('./WorkspaceWebPreviewPanel').then((m) => ({ default: m.WorkspaceWebPreviewPanel })))
 const WorkspaceWorktreePanel = lazy(() => import('./WorkspaceWorktreePanel').then((m) => ({ default: m.WorkspaceWorktreePanel })))
 
@@ -40,6 +42,7 @@ function prefetchPanelChunks(): void {
     void import('./WorkspaceWorktreePanel'); void import('./WorkspaceBackgroundPanel')
     void import('./WorkspaceScriptsPanel'); void import('./WorkspaceWebPreviewPanel')
     void import('./WorkspaceIntegrationPanel'); void import('./WorkspaceSearchPanel')
+    void import('./WorkspaceContainersPanel')
   }
 
   const prefetchEditor = (): void => { void import('./WorkspaceEditorPanel') }
@@ -79,10 +82,13 @@ interface WorkspaceSurfaceProps {
   webPreviewVisible: boolean
   integrationVisible: boolean
   searchVisible: boolean
+  containersVisible?: boolean
   onCloseScripts: () => void
   onCloseWebPreview: () => void
   onCloseIntegration: () => void
   onCloseSearch: () => void
+  onCloseContainers?: () => void
+  onOpenContainerConversation?: (id: string) => void
   onSelectWorkspace: (workspaceId: string) => void
   workspaces: Workspace[]
   onUpdateEditorState: (input: {
@@ -127,10 +133,13 @@ function WorkspaceSurfaceComponent({
   webPreviewVisible,
   integrationVisible,
   searchVisible,
+  containersVisible = false,
   onCloseScripts,
   onCloseWebPreview,
   onCloseIntegration,
   onCloseSearch,
+  onCloseContainers,
+  onOpenContainerConversation,
   onRunCommand,
   onSplitPane,
   onToggleMaximize,
@@ -196,6 +205,7 @@ function WorkspaceSurfaceComponent({
   const [androidExpanded, setAndroidExpanded] = useState(false)
   const androidVisible = useUIStore((s) => isActive && s.isAndroidPanelOpen)
   const closeAndroid = useUIStore((s) => s.closeAndroidPanel)
+  const [containersExpanded, setContainersExpanded] = useState(false)
   // F2 split-tree is the default layout. Keep the fixed grid as a fallback
   // (toggle via F2) so users can recover if a tree layout gets awkward.
   const splitLayoutEnabled = useUIStore((s) => s.splitLayoutEnabled)
@@ -214,9 +224,10 @@ function WorkspaceSurfaceComponent({
   const searchWidth = searchExpanded ? 70 : DEFAULT_REVIEW_WIDTH
   const httpCallsWidth = httpCallsExpanded ? 70 : DEFAULT_REVIEW_WIDTH
   const androidWidth = androidExpanded ? 70 : DEFAULT_REVIEW_WIDTH
+  const containersWidth = containersExpanded ? 70 : DEFAULT_REVIEW_WIDTH
 
-  const hasSidePanels = editorVisible || reviewVisible || githubVisible || backgroundVisible || worktreeVisible || scriptsVisible || webPreviewVisible || integrationVisible || searchVisible || httpCallsVisible || androidVisible
-  const visibleSideIds = [githubVisible && 'github', reviewVisible && 'review', editorVisible && 'editor', backgroundVisible && 'background', worktreeVisible && 'worktree', scriptsVisible && 'scripts', webPreviewVisible && 'web-preview', integrationVisible && 'integration', searchVisible && 'search', httpCallsVisible && 'http-calls', androidVisible && 'android'].filter((id): id is string => Boolean(id))
+  const hasSidePanels = editorVisible || reviewVisible || githubVisible || backgroundVisible || worktreeVisible || scriptsVisible || webPreviewVisible || integrationVisible || searchVisible || httpCallsVisible || androidVisible || containersVisible
+  const visibleSideIds = [githubVisible && 'github', reviewVisible && 'review', editorVisible && 'editor', backgroundVisible && 'background', worktreeVisible && 'worktree', scriptsVisible && 'scripts', webPreviewVisible && 'web-preview', integrationVisible && 'integration', searchVisible && 'search', httpCallsVisible && 'http-calls', androidVisible && 'android', containersVisible && 'containers'].filter((id): id is string => Boolean(id))
   const visibleSideKey = visibleSideIds.join('|')
   const [preferredSideId, setPreferredSideId] = useState<string | null>(null)
   const previousSideIds = useRef<string[]>([])
@@ -257,7 +268,9 @@ function WorkspaceSurfaceComponent({
     httpCallsVisible: activeSideId === 'http-calls',
     httpCallsWidth,
     androidVisible: activeSideId === 'android',
-    androidWidth
+    androidWidth,
+    containersVisible: activeSideId === 'containers',
+    containersWidth
   })
 
   // Total width of all side panels combined (as % of workspace)
@@ -487,6 +500,14 @@ function WorkspaceSurfaceComponent({
   if (androidVisible) {
     sidePanels.push({ id: 'android', defaultSize: toInnerPct(layoutSizes.android), onResize: () => undefined, content: <WorkspaceAndroidPanel isExpanded={androidExpanded} onCollapse={closeAndroid} onToggleExpanded={() => setAndroidExpanded((v) => !v)} /> })
   }
+  if (containersVisible && onCloseContainers) {
+    sidePanels.push({
+      id: 'containers',
+      defaultSize: toInnerPct(layoutSizes.containers),
+      onResize: () => undefined,
+      content: <WorkspaceContainersPanel isExpanded={containersExpanded} onCollapse={onCloseContainers} onToggleExpanded={() => setContainersExpanded((v) => !v)} onOpenConversation={onOpenContainerConversation} />
+    })
+  }
 
   const grid = <ErrorBoundary id="workspace-grid" label={tc('workspace.gridBoundary')}>{splitLayoutEnabled ? (
     <WorkspaceSplitGrid
@@ -517,11 +538,32 @@ function WorkspaceSurfaceComponent({
 
   const folderName = workspace.rootPath ? workspace.rootPath.replace(/\\/g, '/').split('/').filter(Boolean).pop() : null
   const showSubPath = Boolean(folderName && folderName.toLowerCase() !== workspace.name.toLowerCase())
+  const splitTargetPaneId = activePaneId ?? workspace.panes[0]?.id ?? null
 
   const toolbar = (
     <header className="workspace-topbar" aria-label={tc('workspace.topbar.label')}>
-      {/* The workspace name lives in the title bar; the strip only adds the folder when it differs from it. */}
+      <span className="workspace-topbar-mode">OxeCode</span>
+      <span
+        className="workspace-topbar-wschip"
+        {...(typeof workspace.color !== 'string' ? workspaceColorAttrs({ id: workspace.id, color: workspace.color ?? null }) : undefined)}
+        title={workspace.rootPath}
+      >
+        <span className="workspace-topbar-wsdot" aria-hidden="true" />
+        <span className="workspace-topbar-wschip-name">{workspace.name}</span>
+      </span>
       {showSubPath ? <div className="workspace-topbar-breadcrumb"><span className="workspace-topbar-path" title={workspace.rootPath}>{folderName}</span></div> : null}
+      <span className="workspace-topbar-panes">{tc('workspace.status.panes', { count: workspace.panes.length })}</span>
+      {onSplitPane && splitTargetPaneId ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="workspace-topbar-add-btn"
+          icon={<Plus size={12} aria-hidden="true" />}
+          onClick={() => onSplitPane(splitTargetPaneId, 'vertical')}
+        >
+          {tc('workspace.topbar.addTerminal')}
+        </Button>
+      ) : null}
       <div className="workspace-topbar-spacer" />
       {panels?.filter(item => CODE_BAR_PANELS.includes(item.id)).map(item => <WorkbenchPanelToggle key={item.id} item={item} className="workspace-topbar-action" />)}
       {panels && <WorkbenchPanelMenu items={panels.filter(item => CODE_MENU_PANELS.includes(item.id))} testId="workspace-panels-menu"
@@ -550,12 +592,14 @@ function WorkspaceSurfaceComponent({
   const sideLabels: Record<string, string> = {
     github: WORKBENCH_PANELS.git.label, review: WORKBENCH_PANELS.changes.label, editor: WORKBENCH_PANELS.files.label,
     background: WORKBENCH_PANELS.background.label, worktree: WORKBENCH_PANELS.worktrees.label, scripts: WORKBENCH_PANELS.scripts.label,
-    'web-preview': WORKBENCH_PANELS.browser.label, integration: tc('sidebar.integrations'), search: WORKBENCH_PANELS.search.label, 'http-calls': WORKBENCH_PANELS.httpCalls.label, android: WORKBENCH_PANELS.android.label
+    'web-preview': WORKBENCH_PANELS.browser.label, integration: tc('sidebar.integrations'), search: WORKBENCH_PANELS.search.label,
+    'http-calls': WORKBENCH_PANELS.httpCalls.label, android: WORKBENCH_PANELS.android.label, containers: WORKBENCH_PANELS.containers.label
   }
   const sideIcons: Record<string, LucideIcon> = {
     github: WORKBENCH_PANELS.git.icon, review: WORKBENCH_PANELS.changes.icon, editor: WORKBENCH_PANELS.files.icon,
     background: WORKBENCH_PANELS.background.icon, worktree: WORKBENCH_PANELS.worktrees.icon, scripts: WORKBENCH_PANELS.scripts.icon,
-    'web-preview': WORKBENCH_PANELS.browser.icon, integration: Network, search: WORKBENCH_PANELS.search.icon, 'http-calls': WORKBENCH_PANELS.httpCalls.icon, android: WORKBENCH_PANELS.android.icon
+    'web-preview': WORKBENCH_PANELS.browser.icon, integration: Network, search: WORKBENCH_PANELS.search.icon,
+    'http-calls': WORKBENCH_PANELS.httpCalls.icon, android: WORKBENCH_PANELS.android.icon, containers: WORKBENCH_PANELS.containers.icon
   }
   // Four tabs fit one row at the minimum window width; the rest live in a menu, and the active panel is always a visible tab.
   const SIDE_TAB_LIMIT = 4
@@ -649,6 +693,8 @@ export const WorkspaceSurface = memo(
     previous.webPreviewVisible === next.webPreviewVisible &&
     previous.integrationVisible === next.integrationVisible &&
     previous.searchVisible === next.searchVisible &&
+    previous.containersVisible === next.containersVisible &&
+    previous.panels === next.panels &&
     previous.workspaces === next.workspaces &&
     previous.activePaneId === next.activePaneId
 )
@@ -676,6 +722,8 @@ interface WorkspacePanelSizeInput {
   httpCallsWidth: number
   androidVisible: boolean
   androidWidth: number
+  containersVisible: boolean
+  containersWidth: number
 }
 
 interface WorkspacePanelSizeOutput {
@@ -692,6 +740,7 @@ interface WorkspacePanelSizeOutput {
   search: number
   httpCalls: number
   android: number
+  containers: number
 }
 
 function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelSizeOutput {
@@ -706,10 +755,11 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
   const search = input.searchVisible ? clampPanelSize(input.searchWidth, 24, 70) : 0
   const httpCalls = input.httpCallsVisible ? clampPanelSize(input.httpCallsWidth, 24, 70) : 0
   const android = input.androidVisible ? clampPanelSize(input.androidWidth, 24, 70) : 0
-  const visibleSideCount = Number(input.editorVisible) + Number(input.githubVisible) + Number(input.reviewVisible) + Number(input.backgroundVisible) + Number(input.worktreeVisible) + Number(input.scriptsVisible) + Number(input.webPreviewVisible) + Number(input.integrationVisible) + Number(input.searchVisible) + Number(input.httpCallsVisible) + Number(input.androidVisible)
+  const containers = input.containersVisible ? clampPanelSize(input.containersWidth, 24, 70) : 0
+  const visibleSideCount = Number(input.editorVisible) + Number(input.githubVisible) + Number(input.reviewVisible) + Number(input.backgroundVisible) + Number(input.worktreeVisible) + Number(input.scriptsVisible) + Number(input.webPreviewVisible) + Number(input.integrationVisible) + Number(input.searchVisible) + Number(input.httpCallsVisible) + Number(input.androidVisible) + Number(input.containersVisible)
 
   if (visibleSideCount === 0) {
-    return { grid: 100, gridMinSize: 30, editor: 0, github: 0, review: 0, background: 0, worktree: 0, scripts: 0, webPreview: 0, integration: 0, search: 0, httpCalls: 0, android: 0 }
+    return { grid: 100, gridMinSize: 30, editor: 0, github: 0, review: 0, background: 0, worktree: 0, scripts: 0, webPreview: 0, integration: 0, search: 0, httpCalls: 0, android: 0, containers: 0 }
   }
 
   if (visibleSideCount === 1) {
@@ -721,7 +771,9 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
               : input.scriptsVisible ? scripts
                 : input.webPreviewVisible ? webPreview
                   : input.integrationVisible ? integration
-                    : input.searchVisible ? search : input.httpCallsVisible ? httpCalls : android
+                    : input.searchVisible ? search
+                      : input.httpCallsVisible ? httpCalls
+                        : input.androidVisible ? android : containers
     return {
       grid: 100 - side,
       gridMinSize: 30,
@@ -735,12 +787,13 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
       integration,
       search,
       httpCalls,
-      android
+      android,
+      containers
     }
   }
 
   const maxCombinedSideWidth = 70
-  const combined = editor + github + review + background + worktree + scripts + webPreview + integration + search + httpCalls + android
+  const combined = editor + github + review + background + worktree + scripts + webPreview + integration + search + httpCalls + android + containers
   const scale = combined > maxCombinedSideWidth ? maxCombinedSideWidth / combined : 1
   const normalizedEditor = input.editorVisible ? Math.max(25, Math.round(editor * scale)) : 0
   const normalizedGitHub = input.githubVisible ? Math.max(25, Math.round(github * scale)) : 0
@@ -753,7 +806,8 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
   const normalizedSearch = input.searchVisible ? Math.max(24, Math.round(search * scale)) : 0
   const normalizedHttpCalls = input.httpCallsVisible ? Math.max(24, Math.round(httpCalls * scale)) : 0
   const normalizedAndroid = input.androidVisible ? Math.max(24, Math.round(android * scale)) : 0
-  const normalizedCombined = normalizedEditor + normalizedGitHub + normalizedReview + normalizedBackground + normalizedWorktree + normalizedScripts + normalizedWebPreview + normalizedIntegration + normalizedSearch + normalizedHttpCalls + normalizedAndroid
+  const normalizedContainers = input.containersVisible ? Math.max(24, Math.round(containers * scale)) : 0
+  const normalizedCombined = normalizedEditor + normalizedGitHub + normalizedReview + normalizedBackground + normalizedWorktree + normalizedScripts + normalizedWebPreview + normalizedIntegration + normalizedSearch + normalizedHttpCalls + normalizedAndroid + normalizedContainers
 
   return {
     grid: Math.max(30, 100 - normalizedCombined),
@@ -768,7 +822,8 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
     integration: normalizedIntegration,
     search: normalizedSearch,
     httpCalls: normalizedHttpCalls,
-    android: normalizedAndroid
+    android: normalizedAndroid,
+    containers: normalizedContainers
   }
 }
 

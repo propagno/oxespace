@@ -161,12 +161,17 @@
   color: var(--intent-warning-fg);
 }
 
-.http-call-detail pre {
+.http-call-detail pre,
+.http-detail-headers {
   margin: 0;
   padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
   background: var(--surface-raised);
+  color: var(--text-secondary);
   border-radius: var(--radius-sm);
   overflow-x: auto;
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
+  white-space: pre-wrap;
+  word-break: break-all;
 }

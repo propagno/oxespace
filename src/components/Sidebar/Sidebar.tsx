@@ -2,6 +2,7 @@ import { ChevronDown, FolderOpen, PanelsTopLeft, Plus, Search, Waypoints } from 
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { IntegrationGroup } from '../../../shared/types/integration'
 import type { Workspace } from '../../../shared/types/workspace'
+import { workspaceColorAttrs } from '../../../shared/workspace-color'
 import { useIntegrationStore } from '../../store/integration.store'
 import { rootPathKey } from '../../../shared/utils/path'
 import { useWorkspaceStore } from '../../store/workspace.store'
@@ -245,7 +246,11 @@ export function Sidebar({
             : <EmptyState compact icon={<FolderOpen size={16} />} title={t('sidebar.none')} actions={<Button size="sm" variant="secondary" icon={<Plus size={12} aria-hidden="true" />} onClick={onNewWorkspace}>{t('sidebar.newWorkspace')}</Button>} />
         ) : (
           filtered.map((ws) => (
-            <section key={ws.id} className={`sidebar-workspace-tree${ws.id === activeWorkspaceId ? ' active' : ''}`}>
+            <section
+              key={ws.id}
+              className={`sidebar-workspace-tree${ws.id === activeWorkspaceId ? ' active' : ''}`}
+              {...(typeof ws.color !== 'string' ? workspaceColorAttrs({ id: ws.id, color: ws.color ?? null }) : undefined)}
+            >
             <WorkspaceGroup
               key={ws.id}
               workspace={ws}
@@ -290,5 +295,3 @@ export function Sidebar({
     </aside>
   )
 }
-
-

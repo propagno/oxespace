@@ -273,6 +273,13 @@
   text-align: center;
 }
 
+.web-preview-device-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
 .web-preview-stage {
   flex: 1;
   min-height: 0;
