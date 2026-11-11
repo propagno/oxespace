@@ -9,8 +9,6 @@ import { useViewSwitch } from './app/viewSwitch'
 import { setShownView } from './app/shownView'
 import { rememberAppView, startAppView } from './app/startView'
 import { SettingsCenter } from './components/Settings/SettingsHost'
-import { NoWorkspaceStart } from './components/Onboarding/NoWorkspaceStart'
-import { DelegationNotice } from './components/Delegation/DelegationNotice'
 import { useTranslation } from 'react-i18next'
 import type { ToolId } from './components/Workspace/toolCatalog'
 import { panelMenuEntries, type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
@@ -22,7 +20,6 @@ import { ModeSwitch } from './components/Navigation/ModeSwitch'
 import { RemovedFeaturesBand } from './components/Updates/RemovedFeaturesBand'
 import { ActivityCenter } from './components/Activity/ActivityCenter'
 import { CommandBarTrigger } from './components/CommandBar/CommandBarTrigger'
-import { CommandBarHost } from './components/CommandBar/CommandBarHost'
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import type { AgentProfile } from '../shared/types/agent'
@@ -37,6 +34,7 @@ import { humanizeError } from './utils/humanizeError'
 const loadCommandContributors = () => import('./commands/CommandContributors')
 /** The activity center's producers, loaded after the first frame. */
 const loadActivitySources = () => import('./app/ActivitySources')
+const CommandBarHost = lazy(() => import('./components/CommandBar/CommandBarHost').then((m) => ({ default: m.CommandBarHost })))
 const AgentConfigModal = lazy(() => import('./components/Agents/AgentConfigModal').then((m) => ({ default: m.AgentConfigModal })))
 const DesignSystemPage = lazy(() => import('./components/DesignSystem/DesignSystemPage').then((m) => ({ default: m.DesignSystemPage })))
 const DelegatedWorkDialog = lazy(() => import('./components/Delegation/DelegatedWorkDialog').then(m => ({ default: m.DelegatedWorkDialog })))
@@ -60,7 +58,9 @@ import { useNavigationPrefs } from './store/navigation-prefs.store'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import type { WizardLaunchInput } from './components/Workspace/NewWorkspaceModal'
 const NewWorkspaceModal = lazy(() => import('./components/Workspace/NewWorkspaceModal').then((m) => ({ default: m.NewWorkspaceModal })))
-import { WorkspaceSurface } from './components/Workspace/WorkspaceSurface'
+const WorkspaceSurface = lazy(() => import('./components/Workspace/WorkspaceSurface').then((m) => ({ default: m.WorkspaceSurface })))
+const NoWorkspaceStart = lazy(() => import('./components/Onboarding/NoWorkspaceStart').then((m) => ({ default: m.NoWorkspaceStart })))
+const DelegationNotice = lazy(() => import('./components/Delegation/DelegationNotice').then((m) => ({ default: m.DelegationNotice })))
 import { AgentHooksPromptHost } from './components/AgentSessions/AgentHooksPromptHost'
 import './components/Threads/ThreadView.css'
 import { AppStatusBar } from './components/Workspace/AppStatusBar'
@@ -714,7 +714,7 @@ export function App(): ReactElement {
         <div className={titleBar.trailing}><CommandBarTrigger onOpen={() => setCommandBarOpen(true)} /><ActivityCenter onSelectView={selectMode} /><UpdateChips /></div>
       </header>
       <RemovedFeaturesBand />
-      {delegationNotice && <DelegationNotice onView={() => { setDelegatedWorkOpen(true); setDelegationNotice(null) }} onDismiss={() => setDelegationNotice(null)} />}
+      {delegationNotice && <Suspense fallback={null}><DelegationNotice onView={() => { setDelegatedWorkOpen(true); setDelegationNotice(null) }} onDismiss={() => setDelegationNotice(null)} /></Suspense>}
       {delegatedWorkOpen && <Suspense fallback={null}><DelegatedWorkDialog workspaces={workspaces} workspaceId={delegationTarget?.workspaceId ?? (applicationView === 'thread' ? threadSnapshot?.thread.workspaceId ?? activeWorkspaceId ?? '' : activeWorkspaceId ?? '')} focusTaskId={delegationTarget?.taskId}
         origin={applicationView === 'thread' ? threadSelection ? { kind: 'thread', id: threadSelection } : undefined : activePane ? { kind: 'pane', id: activePane.id } : undefined}
         onClose={() => { setDelegatedWorkOpen(false); setDelegationTarget(null) }} onOpen={openDelegation} /></Suspense>}
@@ -771,7 +771,7 @@ export function App(): ReactElement {
                     className={`workspace-host${isActive ? '' : ' workspace-host-hidden'}`} data-view={isActive ? 'code' : undefined}
                     aria-hidden={!isActive}
                   >
-                    <WorkspaceSurface
+                    <Suspense fallback={null}><WorkspaceSurface
                       workspace={ws}
                       isActive={isActive}
                       agentProfiles={agentProfiles}
@@ -798,13 +798,13 @@ export function App(): ReactElement {
                       onRunCommand={(command) => void runCommandInTerminal(command)}
                       activePaneId={isActive ? activePane?.id ?? null : null}
                       panels={isActive ? codePanelItems : undefined}
-                    />
+                    /></Suspense>
                   </div>
                 )
               })}
           </>
         ) : (
-          <NoWorkspaceStart onNewWorkspace={openNewWorkspaceFromUI} onSelectMode={selectMode} onAddProject={() => { selectMode('thread'); setThreadProjectOpen(true) }} />
+          <Suspense fallback={null}><NoWorkspaceStart onNewWorkspace={openNewWorkspaceFromUI} onSelectMode={selectMode} onAddProject={() => { selectMode('thread'); setThreadProjectOpen(true) }} /></Suspense>
         )}
         {applicationView === 'code' && <AppStatusBar workspace={activeWorkspace ?? null} activePaneId={activePane?.id ?? null} />}
         {applicationView === 'thread' && <AppStatusBar docked workspace={null} activePaneId={null} rootPath={threadSnapshot?.thread.rootPath} usageProvider={threadSnapshot?.thread.provider === 'claude' || threadSnapshot?.thread.provider === 'codex' ? threadSnapshot.thread.provider : null} />}
