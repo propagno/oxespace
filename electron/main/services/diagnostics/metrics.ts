@@ -20,7 +20,7 @@ export interface McpCounts { total: number; healthy: number; quarantined: number
 export interface MetricsSources {
   appMetrics(): ProcessMetricLike[]
   /** Pids of processes the app starts itself, where a service exposes one. */
-  knownPids?(): Partial<Record<'oxequery-worker' | 'codegraph', number | undefined>>
+  knownPids?(): Partial<Record<'oxequery-worker', number | undefined>>
   terminals?(): { running: number; agents: number }
   storage(): Promise<DiagnosticsMetrics['storage']>
   /** The computer's memory, in bytes; os.totalmem() when not given (tests give it). */
@@ -34,7 +34,7 @@ export interface MetricsSources {
 const ELECTRON_KINDS: Record<string, DiagnosticsProcessKind> = { Browser: 'main', Tab: 'renderer', GPU: 'gpu', Utility: 'utility' }
 
 export function classifyProcess(metric: Pick<ProcessMetricLike, 'pid' | 'type'>, known: ReturnType<NonNullable<MetricsSources['knownPids']>> = {}): DiagnosticsProcessKind {
-  for (const kind of ['oxequery-worker', 'codegraph'] as const) if (known[kind] !== undefined && known[kind] === metric.pid) return kind
+  for (const kind of ['oxequery-worker'] as const) if (known[kind] !== undefined && known[kind] === metric.pid) return kind
   return ELECTRON_KINDS[metric.type] ?? 'other'
 }
 

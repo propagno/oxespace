@@ -31,37 +31,49 @@
         "label": "Geral",
         "hint": "Navegação, workspace e preferências"
       },
-      "appearance": {
-        "label": "Aparência",
-        "hint": "Modo, escala, densidade e idioma"
-      },
       "providers": {
         "label": "Agentes",
         "hint": "CLIs de agentes, agentes personalizados e conversas ociosas"
       },
-      "policy": {
-        "label": "Aprovações e segurança",
-        "hint": "Aprovações, regras de política e recursos protegidos"
-      },
-      "notifications": {
-        "label": "Notificações",
-        "hint": "Alertas e sons"
-      },
-      "keyboard": {
-        "label": "Teclado",
-        "hint": "Atalhos e combinações de teclas"
+      "appearance": {
+        "label": "Aparência",
+        "hint": "Modo, escala, densidade e idioma"
       },
       "terminal": {
         "label": "Terminal",
         "hint": "Fonte, cursor, rolagem e comportamento"
       },
-      "mcp": {
-        "label": "Servidores MCP e skills",
-        "hint": "Servidores MCP e prompts de skills"
+      "keyboard": {
+        "label": "Teclado",
+        "hint": "Atalhos e combinações de teclas"
+      },
+      "notifications": {
+        "label": "Notificações",
+        "hint": "Alertas e sons"
+      },
+      "updates": {
+        "label": "Atualizações",
+        "hint": "Versão, downloads e instalação"
+      },
+      "policy": {
+        "label": "Aprovações e segurança",
+        "hint": "Aprovações, regras de política e recursos protegidos"
       },
       "devices": {
         "label": "Celular e dispositivos",
         "hint": "Celulares e dispositivos pareados"
+      },
+      "diagnostics": {
+        "label": "Diagnóstico",
+        "hint": "Saúde do aplicativo e solução de problemas"
+      },
+      "data": {
+        "label": "Dados",
+        "hint": "Exportação, backup e recursos removidos"
+      },
+      "mcp": {
+        "label": "Servidores MCP e skills",
+        "hint": "Servidores MCP e prompts de skills"
       },
       "privacy": {
         "label": "Dados e privacidade",
@@ -70,10 +82,6 @@
       "activity": {
         "label": "Atividade dos agentes",
         "hint": "O que os agentes mudaram pelo OXESpace e o que você decidiu."
-      },
-      "diagnostics": {
-        "label": "Diagnóstico",
-        "hint": "Saúde do aplicativo e solução de problemas"
       },
       "about": {
         "label": "Sobre",
@@ -288,28 +296,6 @@
     "hint": "Cada conversa aberta do OxeChat mantém um processo de agente e os servidores MCP dele rodando. Encerrar as ociosas libera memória; sua próxima mensagem retoma a mesma sessão. Uma conversa com turno em andamento, pergunta, mensagens na fila, tarefa em segundo plano ou permissão liberada para a sessão continua aberta.",
     "saveFailed": "Não foi possível salvar esta configuração"
   },
-  "semantic": {
-    "title": "Índice semântico (beta)",
-    "searchByMeaning": "Buscar pelo significado",
-    "switchLabel": "Buscar pelo significado com o índice semântico",
-    "downloadLabel": "Download do modelo",
-    "state": {
-      "off": "Desligado. Os agentes buscam por termos exatos (FTS5) e pela estrutura do código (CodeGraph).",
-      "downloadingProgress": "Baixando o modelo… {{loaded}} de {{total}}",
-      "downloading": "Baixando o modelo…",
-      "loading": "Carregando o modelo…",
-      "notInstalled": "Ligado, mas o modelo não está instalado. Baixe-o ou importe de uma pasta.",
-      "error": "O modelo não carregou: {{error}}",
-      "ready": "Pronto. Os agentes também buscam pelo significado; os arquivos são indexados em segundo plano."
-    },
-    "unknownError": "erro desconhecido",
-    "download": "Baixar o modelo (~270 MB)",
-    "import": "Importar de uma pasta…",
-    "remove": "Remover o modelo baixado",
-    "hint": "O modelo ({{model}}) roda nesta máquina e fica na pasta de dados do app, então as atualizações não o baixam de novo. Para importar, escolha uma pasta com config.json, tokenizer.json, tokenizer_config.json e onnx/model_quantized.onnx.",
-    "usage": "Buscas dos agentes até agora: {{without}} sem o índice, {{with}} com ele (contadas só nesta máquina).",
-    "changeFailed": "Não foi possível mudar o índice semântico."
-  },
   "terminal": {
     "title": "Terminal",
     "description": "Defina a fonte, o cursor e o comportamento padrão de todos os workspaces. Os ajustes de cada workspace continuam independentes.",
@@ -429,7 +415,6 @@
   },
   "policy": {
     "title": "Política",
-    "networkHint": "Hosts que os agentes podem chamar.",
     "intro": "Regras que bloqueiam o que os agentes podem usar: provedores, ferramentas, servidores MCP, skills, bancos de dados e memória compartilhada. Elas só bloqueiam; nunca liberam nada. Para mudar uma regra, edite o arquivo. A última regra que se aplica decide, então o arquivo gerenciado prevalece.",
     "notApplied": "Não aplicado: {{problem}}",
     "layers": {
@@ -450,11 +435,26 @@
     "noFile": "Nenhum arquivo.",
     "noRules": "Nenhuma regra.",
     "rules": "Regras de {{layer}}",
-    "reload": "Recarregar a política"
+    "reload": "Recarregar a política",
+    "networkHint": "Hosts que os agentes podem chamar."
   },
   "activity": {
     "title": "Atividade dos agentes",
     "hint": "O que os agentes mudaram pelo OXESpace e o que você decidiu.",
+    "decisions": {
+      "auto": "executou",
+      "approved": "você aprovou",
+      "denied": "você recusou",
+      "refused": "recusado por política",
+      "pending": "aguardando você"
+    },
+    "empty": "Nenhuma atividade de agentes ainda.",
+    "list": "Alterações de agentes",
+    "failed": "falhou",
+    "failedWithCode": "falhou ({{code}})",
+    "savedAudit": "Auditoria salva em {{path}}",
+    "refresh": "Atualizar atividade",
+    "export": "Exportar auditoria (JSONL)",
     "columns": {
       "when": "Quando",
       "conversation": "Conversa",
@@ -471,7 +471,6 @@
     "sourcesFailed": "Algumas fontes não puderam ser lidas. O resto está em dia.",
     "tryAgain": "Tentar de novo",
     "loadMore": "Carregar mais",
-    "empty": "Nenhuma atividade de agentes ainda.",
     "emptyFiltered": "Nada corresponde a estes filtros.",
     "clearFilters": "Limpar filtros",
     "actorRemoved": "(removido)",
@@ -484,20 +483,7 @@
     "ports": "Portas",
     "folder": "Pasta",
     "target": "Alvo",
-    "status": "Status",
-    "decisions": {
-      "auto": "executou",
-      "approved": "você aprovou",
-      "denied": "você recusou",
-      "refused": "recusado por política",
-      "pending": "aguardando você"
-    },
-    "list": "Alterações de agentes",
-    "failed": "falhou",
-    "failedWithCode": "falhou ({{code}})",
-    "savedAudit": "Auditoria salva em {{path}}",
-    "refresh": "Atualizar atividade",
-    "export": "Exportar auditoria (JSONL)"
+    "status": "Status"
   },
   "keyboard": {
     "title": "Teclado",
@@ -869,5 +855,17 @@
       "bodyDefaults": "O arquivo tem um erro e nunca foi lido, então os agentes usam os padrões do app, mostrados abaixo. Para mudá-los, corrija o arquivo à mão e escolha Recarregar.",
       "readAgain": "Modos lidos de novo"
     }
+  },
+  "data": {
+    "title": "Dados",
+    "description": "Gerencie os dados do aplicativo, exportações e recursos removidos",
+    "removedSection": "Removidos na 1.5",
+    "exportLabel": "Exportar dados removidos",
+    "exportDesc": "Dados dos recursos removidos na 1.5, em um arquivo JSON.",
+    "savedDesc": "Salvo em {{date}} · {{file}}",
+    "errorDesc": "Ainda não salvo: {{error}}",
+    "showInFolder": "Mostrar na pasta",
+    "tryNow": "Tentar agora",
+    "exportAction": "Exportar…"
   }
 }

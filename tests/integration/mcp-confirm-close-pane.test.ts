@@ -57,7 +57,7 @@ describe('H2 · closing a pane withdraws its pending internal-MCP confirms', () 
       onLaunchExit: paneId => executions.end(paneId)
     } as never)
     const workspaces = new WorkspaceService(db)
-    registerWorkspaceIpc(db, { watchWorkspace: vi.fn(), unwatchWorkspace: vi.fn() } as never, terminal, { workspaceService: workspaces })
+    registerWorkspaceIpc(db, terminal, { workspaceService: workspaces })
     try {
       const workspace = workspaces.create({ rootPath: 'C:/repo', layout: '1x2', autoStart: false })
       const [paneA, paneB] = workspace.panes

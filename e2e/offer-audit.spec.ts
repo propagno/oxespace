@@ -33,7 +33,8 @@ const SELF_RESTORING = new Set(['toggle-sidebar', 'toggle-split-layout', 'maximi
 
 const SETTINGS_LABELS: Record<string, string> = {
   general: 'General', providers: 'Agents', appearance: 'Appearance', terminal: 'Terminal', keyboard: 'Keyboard',
-  notifications: 'Notifications', updates: 'Updates', policy: 'Policy', devices: 'Devices', diagnostics: 'Diagnostics'
+  notifications: 'Notifications', about: 'About', policy: 'Approvals and safety', devices: 'Phone and devices',
+  privacy: 'Data and privacy', mcp: 'MCP servers and skills', activity: 'Agent activity', diagnostics: 'Diagnostics'
 }
 
 /** What each palette command visibly does. Exact ids first, then id prefixes. */
@@ -53,11 +54,6 @@ const PALETTE_EFFECTS: Record<string, Check> = {
   'oxepod.resources': both(view('pods'), async page => { await expect(page.getByRole('region', { name: 'Images, volumes and networks' })).toBeVisible() }),
   'oxepod.activity': both(view('pods'), async page => { await expect(page.locator('.pod-host').getByRole('region', { name: 'Agent activity' })).toBeVisible() }),
   'oxepod.pruneContainers': both(view('pods'), dialog('Remove every stopped container?')),
-  'oxepost.open': view('post'),
-  'oxepost.newRequest': both(view('post'), async page => { await expect(page.getByRole('textbox', { name: 'Request name' })).toHaveValue('New request') }),
-  'oxepost.filter': both(view('post'), async page => { await expect(page.getByRole('searchbox', { name: 'Filter requests' })).toBeFocused() }),
-  'oxepost.import': both(view('post'), dialog('Import requests')),
-  'oxepost.environments': both(view('post'), dialog('Environments')),
   // Kept-ready workspaces is a General preference, shown once.
   'settings.general': both(settingsPage('General'), async page => { await expect(page.getByLabel('Recently visited workspaces kept ready')).toBeVisible() }),
   'settings.notifications': both(settingsPage('Notifications'), async page => { await expect(page.getByLabel('Number of workspaces to keep mounted')).toHaveCount(0) }),
@@ -83,6 +79,7 @@ const PALETTE_EFFECTS: Record<string, Check> = {
   'tool-background': both(view('code'), testId('workspace-background-panel')),
   'tool-editor': both(view('code'), testId('workspace-editor-panel')),
   'tool-review': both(view('code'), testId('workspace-review-panel')),
+  'tool-http-calls': both(view('code'), testId('workspace-http-calls-panel')),
   'tool-slash': both(view('code'), dialog(/^Commands for/)),
   'tool-mcp': dialog('MCP servers'),
   'tool-skills': dialog('Skills'),
@@ -149,7 +146,7 @@ async function runCommand(page: Page, id: string): Promise<boolean> {
 /** Closes whatever a command opened, back to the work surface. */
 /** Code's side panels, by the tool command that toggles each and the panel it shows. */
 // Integration last: its command only opens it, so it closes from its own Collapse button, shown once it is the only one.
-const SIDE_PANELS = ['github', 'worktrees', 'scripts', 'search', 'web-preview', 'background', 'editor', 'review', 'integration'] as const
+const SIDE_PANELS = ['github', 'worktrees', 'scripts', 'search', 'web-preview', 'background', 'editor', 'review', 'http-calls', 'integration'] as const
 /**
  * Splits are refused when the halves would be under 240 px (#310), so they are checked from the known layout: Code,
  * two panes, no side panel. Earlier commands leave theirs open (each panel takes its share of the width), so every
@@ -206,7 +203,7 @@ test.describe('offer audit', () => {
     const { app, page } = launched
     try {
       // OxeQuery's and OxePod's commands register after first paint.
-      await expect.poll(async () => { const ids = await listedCommandIds(page); return ids.some(id => id.startsWith('oxequery.')) && ids.some(id => id.startsWith('oxepod.')) && ids.some(id => id.startsWith('oxepost.')) }).toBe(true)
+      await expect.poll(async () => { const ids = await listedCommandIds(page); return ids.some(id => id.startsWith('oxequery.')) }).toBe(true)
       const ids = await listedCommandIds(page)
       const untested = ids.filter(id => !effectFor(id) && !NATIVE_DIALOG.has(id))
       expect(untested, 'palette commands without an expected effect in e2e/offer-audit.spec.ts').toEqual([])
@@ -292,11 +289,11 @@ test.describe('offer audit', () => {
     }
   })
 
-  test('a Code panel command run from Thread, OxeQuery or OxePod opens Code with the panel, and Ctrl+, opens Settings', async () => {
+  test('a Code panel command run from Thread or OxeQuery opens Code with the panel, and Ctrl+, opens Settings', async () => {
     const launched = await launchWithWorkspace()
     const { app, page } = launched
     try {
-      for (const name of ['thread', 'data', 'pods'] as const) {
+      for (const name of ['thread', 'data'] as const) {
         await selectView(page, name)
         await runCommand(page, 'tool-editor')
         await view('code')(page)
@@ -344,7 +341,7 @@ test.describe('offer audit', () => {
         'File/Exit': 'native',
         'Edit/Undo': 'native', 'Edit/Redo': 'native', 'Edit/Cut': 'native', 'Edit/Copy': 'native', 'Edit/Paste': 'native', 'Edit/Select all': 'native',
         'View/Command palette…': async p => { await expect(paletteInput(p)).toBeVisible() },
-        'View/OxeCode': view('code'), 'View/OxeChat': view('thread'), 'View/OxeQuery': view('data'), 'View/OxePod': view('pods'), 'View/OxePost': view('post'),
+        'View/OxeCode': view('code'), 'View/OxeChat': view('thread'), 'View/OxeQuery': view('data'), 'View/OxePod': view('pods'),
         'View/Toggle sidebar': async p => { await expect(p.locator('.app-shell')).toHaveClass(/sidebar-collapsed/) },
         'View/Toggle files panel': testId('workspace-editor-panel'),
         'View/Toggle commit & pull request panel': testId('workspace-github-panel'),

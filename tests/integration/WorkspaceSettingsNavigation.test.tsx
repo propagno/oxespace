@@ -52,4 +52,6 @@ test('the workspace pages are General, Projects and Policy', async () => {
   expect(screen.getByRole('button', { name: /Projects/ })).toBeVisible()
   expect(screen.getByRole('button', { name: /Policy/ })).toBeVisible()
   expect(screen.queryByRole('button', { name: /Project memory/ })).toBeNull()
+  expect(screen.queryByText('Shared Project Memory')).toBeNull()
+  expect(screen.getAllByRole('button', { name: /General|Projects|Policy/ }).length).toBeGreaterThanOrEqual(3)
 })

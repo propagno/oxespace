@@ -184,7 +184,7 @@ export const APP_READ_TOOLS: ToolEntry[] = [
     }
   }),
 
-  domainTool('oxespace_search', 'Exact text or regular-expression search over your project with ripgrep (respects .gitignore), and the list of its files. Use oxespace_semantic_search for meaning.', {
+  domainTool('oxespace_search', 'Exact text or regular-expression search over your project with ripgrep (respects .gitignore), and the list of its files.', {
     text: {
       level: 'read', description: 'Matches with line numbers.',
       properties: {

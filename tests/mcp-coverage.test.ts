@@ -6,7 +6,6 @@ import { THREAD_READ_ONLY_MCP_TOOLS, THREAD_TOOL_GROUPS } from '../electron/main
 import { IPC_CHANNELS } from '../shared/types/ipc'
 import { FORBIDDEN_ARGUMENT, FORBIDDEN_CAPABILITIES, FORBIDDEN_NAME, MCP_COVERAGE, type McpCapability, type McpLevel } from '../shared/mcp-coverage'
 
-vi.mock('../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
 
 /** The actions of a domain tool as its description states them, with their level. */
 function domainActions(description: string, schema: unknown): Array<[string, McpLevel]> {
@@ -105,7 +104,6 @@ describe('levels and tool groups', () => {
   })
 
   it('does not grow the core group every ordinary Thread pays for', () => {
-    expect(THREAD_TOOL_GROUPS.core).toEqual(['oxespace_capabilities', 'oxespace_project_context', 'oxespace_memory_search', 'oxespace_memory_remember',
-      'oxespace_semantic_search', 'oxespace_hybrid_explore', 'oxespace_code_search', 'oxespace_code_callers', 'oxespace_code_callees', 'oxespace_code_impact', 'oxespace_code_node', 'oxespace_code_status'])
+    expect(THREAD_TOOL_GROUPS.core).toEqual(['oxespace_capabilities', 'oxespace_project_context'])
   })
 })

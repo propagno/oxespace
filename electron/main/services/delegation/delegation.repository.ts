@@ -162,11 +162,19 @@ export class DelegationRepository {
     `).run(reason, Date.now()).changes
   }
 
-  private decode(payload: string): DelegationTask {
+  private decode(payload: string, resolveDependencies = true): DelegationTask {
     const task = JSON.parse(payload) as DelegationTask
     task.schemaVersion ??= undefined
     task.surface ??= 'terminal'
     task.branchIntent ??= { strategy: 'generated' }
+    if (resolveDependencies && task.dependsOn?.length) {
+      task.dependencies = task.dependsOn.flatMap(depId => {
+        const row = this.db.prepare('SELECT payload FROM delegations WHERE id = ?').get(depId) as { payload: string } | undefined
+        if (!row) return []
+        const dep = this.decode(row.payload, false)
+        return [{ id: dep.id, objective: dep.objective, state: dep.state }]
+      })
+    }
     task.recoveryActions = recoveryActions(task)
     return task
   }

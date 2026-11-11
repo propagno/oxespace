@@ -46,7 +46,7 @@ test('secondary Buttons keep their border and fill at rest in every view, light 
     let audited = 0
     for (const mode of ['light', 'dark'] as const) {
       await page.evaluate(value => { document.documentElement.dataset.mode = value }, mode)
-      for (const view of ['data', 'pods', 'post', 'thread', 'code'] as AppMode[]) {
+      for (const view of ['data', 'thread', 'code'] as AppMode[]) {
         await openView(page, view)
         await page.waitForTimeout(400)
         audited += await count(page)

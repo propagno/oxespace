@@ -47,7 +47,6 @@ describe('EditorPane', () => {
       fs: {
         listTree: vi.fn().mockResolvedValue(tree),
         readFile: vi.fn().mockResolvedValue({ relativePath: 'src/index.ts', content: 'const a = 1', size: 11, mtimeMs: 1 }),
-        writeFile: vi.fn().mockResolvedValue({ relativePath: 'src/index.ts', size: 11, mtimeMs: 2 }),
         watchFile: vi.fn().mockResolvedValue({ watchId: 'watch-1' }),
         unwatchFile: vi.fn().mockResolvedValue(undefined),
         onFileChanged: vi.fn(() => vi.fn())
@@ -55,7 +54,7 @@ describe('EditorPane', () => {
     }
   })
 
-  test('lists files, opens in Monaco and marks dirty/saved', async () => {
+  test('lists files and opens in Monaco read-only', async () => {
     const user = userEvent.setup()
     render(<EditorPane workspaceId="workspace-1" rootPath="C:/repo" />)
 
@@ -66,14 +65,6 @@ describe('EditorPane', () => {
     expect(monaco).toHaveAttribute('data-height', '100%')
     expect(monaco).toHaveAttribute('data-width', '100%')
     expect(document.querySelector('.editor-browser')).toBeInTheDocument()
-
-    await user.clear(screen.getByLabelText('monaco-typescript'))
-    await user.type(screen.getByLabelText('monaco-typescript'), 'const a = 2')
-    expect(screen.getByText('Unsaved')).toBeInTheDocument()
-
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true }))
-    await waitFor(() => expect(window.oxe.fs.writeFile).toHaveBeenCalledWith(expect.objectContaining({ content: 'const a = 2' })))
-    expect(screen.getByText('Saved')).toBeInTheDocument()
   })
 
   test('collapses and expands directories without losing file selection behavior', async () => {
@@ -112,58 +103,6 @@ describe('EditorPane', () => {
     unmount()
     render(<EditorPane workspaceId="workspace-1" rootPath="C:/repo" />)
     expect(screen.getByRole('separator', { name: 'File tree width' })).toHaveAttribute('aria-valuenow', '256')
-  })
-
-  test('shows conflict without overwriting dirty content', async () => {
-    const user = userEvent.setup()
-    render(<EditorPane workspaceId="workspace-1" rootPath="C:/repo" />)
-
-    await user.click(await screen.findByRole('treeitem', { name: /src/i }))
-    await user.click(await screen.findByRole('treeitem', { name: /index\.ts/i }))
-    await user.clear(screen.getByLabelText('monaco-typescript'))
-    await user.type(screen.getByLabelText('monaco-typescript'), 'local')
-
-    useEditorStore.getState().markExternalChange({
-      watchId: 'watch-1',
-      workspaceId: 'workspace-1',
-      relativePath: 'src/index.ts',
-      content: 'external',
-      size: 8,
-      mtimeMs: 3
-    })
-
-    expect(await screen.findByText('Your unsaved edits were kept.')).toBeInTheDocument()
-    expect(screen.getByLabelText('monaco-typescript')).toHaveValue('local')
-    expect(screen.getByText('On disk').closest('figure')).toHaveTextContent('external')
-    expect(screen.getByText('Your edits').closest('figure')).toHaveTextContent('local')
-
-    // Keeping the edits ends the conflict and leaves them unsaved, so the next save writes them.
-    await user.click(screen.getByRole('button', { name: 'Keep my edits' }))
-    expect(screen.queryByText('Your unsaved edits were kept.')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('monaco-typescript')).toHaveValue('local')
-    expect(screen.getByText('Unsaved')).toBeInTheDocument()
-  })
-
-  test('takes the version on disk when asked, and right-click closes other tabs but keeps unsaved ones', async () => {
-    const user = userEvent.setup()
-    render(<EditorPane workspaceId="workspace-1" rootPath="C:/repo" />)
-    await user.click(await screen.findByRole('treeitem', { name: /src/i }))
-    await user.click(await screen.findByRole('treeitem', { name: /index\.ts/i }))
-    await user.clear(screen.getByLabelText('monaco-typescript'))
-    await user.type(screen.getByLabelText('monaco-typescript'), 'local')
-    useEditorStore.getState().markExternalChange({ watchId: 'watch-1', workspaceId: 'workspace-1', relativePath: 'src/index.ts', content: 'external', size: 8, mtimeMs: 3 })
-
-    await user.click(await screen.findByRole('button', { name: 'Use the version on disk' }))
-    expect(screen.getByLabelText('monaco-typescript')).toHaveValue('external')
-    expect(screen.getByText('Saved')).toBeInTheDocument()
-
-    // Two tabs, one of them with unsaved edits: "Close others" from the other keeps it.
-    await user.type(screen.getByLabelText('monaco-typescript'), '!')
-    await act(async () => { await useEditorStore.getState().openFile({ workspaceId: 'workspace-1', rootPath: 'C:/repo', relativePath: 'README.md' }) })
-    fireEvent.contextMenu(await screen.findByTestId('editor-tab-README.md'))
-    await user.click(await screen.findByRole('menuitem', { name: 'Close other tabs' }))
-    expect(screen.getByTestId('editor-tab-src/index.ts')).toBeInTheDocument()
-    expect(screen.getByTestId('editor-tab-README.md')).toBeInTheDocument()
   })
 
   test('does not re-render for editor changes in another workspace', async () => {

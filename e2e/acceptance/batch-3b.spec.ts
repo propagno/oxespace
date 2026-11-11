@@ -158,9 +158,7 @@ test('#176 Settings states, #414 the cold switch to OxeChat, and the 1.4.0 notes
     await page.locator('body').click({ position: { x: 5, y: 300 } }).catch(() => undefined)
     await page.keyboard.press('Control+4'); await page.waitForTimeout(800)
     out.ctrl4 = await page.locator('button[data-app-mode="pods"]').first().getAttribute('aria-pressed').catch(() => null) ?? await page.locator('main').first().innerText().then(t => t.slice(0, 40))
-    await page.keyboard.press('Control+5'); await page.waitForTimeout(800)
-    out.ctrl5 = await page.locator('button[data-app-mode="post"]').first().getAttribute('aria-pressed').catch(() => null) ?? await page.locator('main').first().innerText().then(t => t.slice(0, 40))
-    await page.keyboard.press('Control+Shift+A'); await page.waitForTimeout(800)
+        await page.keyboard.press('Control+Shift+A'); await page.waitForTimeout(800)
     out.activity = await page.getByTestId('activity-center').isVisible().catch(() => false)
     await page.keyboard.press('Escape')
     // Help › Report a problem, in the app menu.

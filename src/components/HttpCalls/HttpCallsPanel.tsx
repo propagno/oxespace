@@ -1,6 +1,8 @@
 import { useEffect, useState, useMemo } from 'react'
 import type { HttpAuditRow, HttpAuditView, HttpAuditHostSummary, HttpAuditQuery } from '../../../shared/types/http-audit'
 import { formatRowButtonLabel, formatHeaders, formatBodySize, formatResponse, formatAgentName, formatTime } from './httpCallsModel'
+import { Button } from '../../ui/Button'
+import { EmptyState, ErrorState } from '../../ui/Display'
 import { useThreadStore } from '../../store/thread.store'
 import './HttpCallsPanel.css'
 
@@ -98,28 +100,16 @@ export function HttpCallsPanel({ workspaceId, actor }: { workspaceId: string; ac
 
       <div className="http-calls-content">
         {error ? (
-          <div className="http-calls-error">
-            <p>{error}</p>
-          </div>
+          <ErrorState title={error} compact />
         ) : !loading && rows.length === 0 ? (
-          <div className="http-calls-empty">
-            {filter.trim() || view !== 'all' ? (
-              <>
-                <p>Nothing matches</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFilter('')
-                    setView('all')
-                  }}
-                >
-                  Clear filters
-                </button>
-              </>
-            ) : (
-              <p>No HTTP calls yet. curl, wget and HTTPie calls from agents show up here.</p>
-            )}
-          </div>
+          filter.trim() || view !== 'all' ? (
+            <EmptyState
+              title="Nothing matches"
+              actions={<Button variant="secondary" size="sm" onClick={() => { setFilter(''); setView('all') }}>Clear filters</Button>}
+            />
+          ) : (
+            <EmptyState title="No HTTP calls yet. curl, wget and HTTPie calls from agents show up here." />
+          )
         ) : (
           <div className="http-calls-list">
             {groupedHosts.map(group => (

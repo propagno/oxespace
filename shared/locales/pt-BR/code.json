@@ -17,10 +17,7 @@
   },
   "tools": {
     "team": {
-      "label": "Equipe do projeto",
-      "detail": "Papéis do projeto e caixas de entrada dos agentes",
-      "menu": "Equipe do projeto…",
-      "keywords": "equipe, time, papéis, coordenadora, membros, caixa de entrada"
+      "menu": "Equipe do projeto…"
     },
     "integration": {
       "label": "Coordenação entre repositórios",
@@ -57,10 +54,6 @@
     "mcp": {
       "label": "Servidores MCP",
       "detail": "Servidores e conectores que seus agentes usam"
-    },
-    "semantic": {
-      "label": "Registro do índice semântico",
-      "detail": "Atividade do índice vetorial local"
     },
     "editor": {
       "label": "Arquivos",
@@ -155,7 +148,11 @@
       "keepMine": "Manter minhas edições",
       "local": "Suas edições",
       "external": "No disco"
-    }
+    },
+    "readOnly": "Somente leitura · edite no seu editor",
+    "openInEditor": "Abrir no editor",
+    "noExternalEditor": "Nenhum editor externo encontrado. Escolha um em Configurações › Geral › Editor externo, ou instale o VS Code.",
+    "openExternalEditorSettings": "Editor externo"
   },
   "scripts": {
     "found_one": "{{count}} encontrado",
@@ -233,20 +230,20 @@
     "mainSuffix": "(principal)",
     "unknown": "worktree desconhecido",
     "paneName": "Painel {{row}}.{{column}}",
-    "pickPaneFirst": "Escolha um painel primeiro: clique em um painel da grade e depois escolha o worktree.",
+    "pickPaneFirst": "Escolha um painel primeiro: clique em um painel da grade e depois escolha a worktree.",
     "activePaneSection": "Worktree do painel ativo",
     "activePane": "Painel ativo",
     "noActivePane": "Nenhum painel ativo. Clique em um painel para escolhê-lo.",
     "refresh": "Atualizar a lista de worktrees",
     "dismiss": "Dispensar",
-    "onlyMain": "Este repositório só tem o worktree principal. Crie um abaixo para trabalhar em outra branch sem mexer no painel atual.",
+    "onlyMain": "Este repositório só tem a worktree principal. Crie um abaixo para trabalhar em outra branch sem mexer no painel atual.",
     "none": "Nenhum worktree",
-    "noneHint": "Crie um worktree abaixo para trabalhar em outra branch sem mexer no painel atual.",
+    "noneHint": "Crie uma worktree abaixo para trabalhar em outra branch sem mexer no painel atual.",
     "pickPaneTitle": "Clique em um painel da grade primeiro",
     "alreadyOn": "O painel ativo já está em {{name}}",
     "useHere": "Abrir o painel ativo neste worktree",
     "remove": "Remover worktree",
-    "removeLabel": "Remover o worktree {{name}}",
+    "removeLabel": "Remover a worktree {{name}}",
     "tag": {
       "main": "principal",
       "locked": "bloqueado",
@@ -277,8 +274,8 @@
     "hooks": {
       "label": "Scripts do oxe.yaml aguardando aprovação",
       "waiting": {
-        "setup": "O script setup (roda quando um worktree é criado) aguarda aprovação",
-        "archive": "O script archive (roda antes de um worktree ser removido) aguarda aprovação"
+        "setup": "O script setup (roda quando uma worktree é criado) aguarda aprovação",
+        "archive": "O script archive (roda antes de uma worktree ser removido) aguarda aprovação"
       },
       "review": "Revisar e aprovar…",
       "failed": "Não foi possível aprovar o script",
@@ -301,28 +298,28 @@
       "unpushed_other": "{{count}} commits não publicados",
       "neverPushed": "uma branch que nunca foi publicada",
       "title": "Remover {{name}}?",
-      "checking": "Verificando o que este worktree guarda…",
+      "checking": "Verificando o que esta worktree guarda…",
       "clean": "Tudo aqui está commitado e publicado. A pasta é apagada; a branch fica.",
-      "losesWork": "Este worktree ainda guarda {{losses}}. Removê-lo apaga esse trabalho de vez.",
-      "losesFolder": "Este worktree ainda guarda {{losses}}. Removê-lo apaga a pasta; a branch fica.",
+      "losesWork": "Esta worktree ainda guarda {{losses}}. Removê-lo apaga esse trabalho de vez.",
+      "losesFolder": "Esta worktree ainda guarda {{losses}}. Removê-lo apaga a pasta; a branch fica.",
       "force": "Remover e descartar as alterações"
     },
     "createError": {
-      "folderExists": "A pasta “{{path}}” já existe. Escolha outro caminho: o git não cria um worktree onde já há arquivos.",
+      "folderExists": "A pasta “{{path}}” já existe. Escolha outro caminho: o git não cria uma worktree onde já há arquivos.",
       "branchInUse": "Esta branch já está aberta em outro worktree. Escolha outra branch ou remova aquele worktree antes.",
       "noStart": "O git não encontrou um ponto de partida para a nova branch. Confira se a branch atual tem pelo menos um commit.",
       "branchMissing": "Branch não encontrada. Digite o nome de uma branch existente, ou desmarque “Usar uma branch existente” para criar uma nova.",
       "notGit": "Este workspace não é um repositório Git. Worktrees só funcionam dentro de um repositório.",
       "unknownBase": "O git não conhece o ponto de partida “{{base}}”. Busque o remoto ou digite uma referência que exista localmente.",
       "invalidName": "O nome da branch ou o ponto de partida tem caracteres que o git não aceita. Use letras, dígitos, /, -, _ e .",
-      "generic": "Não foi possível criar o worktree."
+      "generic": "Não foi possível criar a worktree."
     },
     "removeError": {
       "archiveHook": "Corrija o script archive no oxe.yaml e tente de novo.",
-      "main": "Este é o worktree principal; ele não pode ser removido pelo app.",
-      "folderInUse": "O worktree saiu do git, mas a pasta não pôde ser apagada: algo ainda a mantém aberta (um editor, o explorador de arquivos ou um terminal). Feche e apague a pasta à mão se ela continuar lá.",
-      "changed": "Este worktree mudou desde a verificação e agora tem trabalho não commitado. Abra a remoção de novo para ver o quê e confirme.",
-      "generic": "Não foi possível remover o worktree."
+      "main": "Este é a worktree principal; ele não pode ser removido pelo app.",
+      "folderInUse": "A worktree saiu do git, mas a pasta não pôde ser apagada: algo ainda a mantém aberta (um editor, o explorador de arquivos ou um terminal). Feche e apague a pasta à mão se ela continuar lá.",
+      "changed": "Esta worktree mudou desde a verificação e agora tem trabalho não commitado. Abra a remoção de novo para ver o quê e confirme.",
+      "generic": "Não foi possível remover a worktree."
     },
     "cleanup": {
       "title": "Limpar worktrees",
@@ -331,14 +328,14 @@
       "idleDays_one": "parado há {{count}} dia",
       "idleDays_many": "parado há {{count}} dias",
       "idleDays_other": "parado há {{count}} dias",
-      "scanFailed": "Não foi possível verificar os worktrees",
-      "scanning": "Verificando os worktrees…",
+      "scanFailed": "Não foi possível verificar as worktrees",
+      "scanning": "Verificando as worktrees…",
       "none": "Nenhum worktree além do principal.",
       "select": "Selecionar {{name}}",
       "noReason": "nenhum motivo para remover",
       "reason": {
         "idle-clean": "parado há mais de 30 dias",
-        "merged": "já mesclado",
+        "merged": "já mergeado",
         "missing-directory": "pasta ausente"
       },
       "blocker": {
@@ -354,7 +351,7 @@
       "risky_one": "{{count}} worktree selecionado tem trabalho não salvo ou estado desconhecido; removê-lo descarta esse trabalho.",
       "risky_many": "{{count}} worktrees selecionados têm trabalho não salvo ou estado desconhecido; removê-los descarta esse trabalho.",
       "risky_other": "{{count}} worktrees selecionados têm trabalho não salvo ou estado desconhecido; removê-los descarta esse trabalho.",
-      "removed_one": "{{count}} worktree removido.",
+      "removed_one": "{{count}} worktree removida.",
       "removed_many": "{{count}} worktrees removidos.",
       "removed_other": "{{count}} worktrees removidos.",
       "partly_one": "{{removed}} removidos; {{count}} recusado:",
@@ -371,6 +368,41 @@
       "confirm_one": "Remover {{count}} e descartar",
       "confirm_many": "Remover {{count}} e descartar",
       "confirm_other": "Remover {{count}} e descartar"
+    },
+    "panel": {
+      "label": "Worktrees deste repositório",
+      "loading": "Carregando as worktrees…",
+      "failed": "Não foi possível listar as worktrees",
+      "col": {
+        "conversation": "Conversa",
+        "branch": "Branch",
+        "state": "Estado",
+        "disk": "Disco",
+        "activity": "Última atividade",
+        "actions": "Ações"
+      },
+      "noConversation": "—",
+      "conversationGone": "{{title}} (removida)",
+      "merged": "Mergeada",
+      "mergedGit": "Mergeada (pelo git; pode não ver squash)",
+      "openPr": "PR #{{number}} aberto",
+      "changed_one": "{{count}} alterada",
+      "changed_many": "{{count}} alteradas",
+      "changed_other": "{{count}} alteradas",
+      "branchChanged": "Branch mudou desde então",
+      "missing": "Pasta ausente",
+      "locked": "Bloqueado",
+      "dirtyReason": "Faça commit ou descarte as alterações primeiro.",
+      "lockedReason": "O git está com ele bloqueado. Desbloqueie antes.",
+      "remove": "Remover",
+      "removeTitle": "Remover a worktree em {{path}}?",
+      "removeBody": "A pasta dele é apagada. Os commits da branch continuam no repositório, a menos que você apague a branch também.",
+      "deleteBranch": "Apagar também a branch {{branch}}",
+      "unmerged": "Não mergeada: os commits ficam só nesta branch.",
+      "removedDeleted": "Worktree removida; branch apagada.",
+      "removedKept": "Worktree removida; a branch continua.",
+      "removedNotDeleted": "Worktree removida; não foi possível apagar a branch, que foi mantida.",
+      "removeOpen": "Remover…"
     }
   },
   "terminal": {
@@ -1108,15 +1140,9 @@
       "title": "Sistemas",
       "label": "Status das integrações",
       "triggerLabel": "Sistemas {{count}}: status das integrações",
-      "alerts_one": "{{count}} alerta",
-      "alerts_many": "{{count}} alertas",
-      "alerts_other": "{{count}} alertas",
       "active_one": "{{count}} ativo",
       "active_many": "{{count}} ativos",
       "active_other": "{{count}} ativos",
-      "semanticOff": "Busca semântica: desligada",
-      "semanticTitle": "Semântica: {{label}}",
-      "mode": "modo {{mode}}",
       "disconnected": "Desconectado",
       "checking": "Verificando…",
       "mcp_one": "{{count}} para os agentes",
@@ -1124,11 +1150,7 @@
       "mcp_other": "{{count}} para os agentes",
       "update": "Atualização {{version}} disponível",
       "on": "Ativo",
-      "off": "Desligado",
-      "clickOff": "clique para desligar",
-      "clickOn": "clique para ligar",
-      "semantic": "Semântica",
-      "indexing": "Indexando…"
+      "off": "Desligado"
     },
     "summary": {
       "agents_one": "agente",
@@ -1209,11 +1231,6 @@
           "hint": "Texto e shell padrão",
           "description": "Defina o shell padrão e a aparência dos terminais neste workspace."
         },
-        "memory": {
-          "label": "Memória do projeto",
-          "hint": "Conhecimento compartilhado",
-          "description": "Guarde o conhecimento do projeto entre worktrees sem compartilhar as conversas dos agentes."
-        },
         "delegation": {
           "label": "Delegação de agentes",
           "hint": "Trabalho em paralelo",
@@ -1240,7 +1257,6 @@
       "terminalNote": "A aparência do terminal e o shell padrão valem na hora.",
       "saved": "Configurações do workspace salvas",
       "footer": {
-        "memory": "As mudanças de memória usam Aplicar as configurações de memória, acima.",
         "delegation": "As mudanças de delegação valem na hora.",
         "tools": "Os modos e as regras das ferramentas são salvos no projeto na hora.",
         "default": "As mudanças valem na hora."
@@ -1260,6 +1276,12 @@
         "underline": "Sublinhado"
       },
       "usingGlobal": "Usando as preferências globais do terminal (Configurações › Terminal)."
+    },
+    "instructions": {
+      "title": "Instruções do projeto",
+      "hint": "Os agentes leem estes arquivos no início de cada conversa.",
+      "open": "Abrir no editor",
+      "none": "Não há CLAUDE.md nem AGENTS.md na raiz deste workspace. Rode /init em uma conversa para criar um."
     },
     "topbar": {
       "label": "Status do workspace",
@@ -1935,11 +1957,6 @@
     "phoneWriteBadge": "Celular pode digitar",
     "phoneWriteBadgeTitle": "Um celular pareado pode digitar neste terminal. Desligue no menu ⋯.",
     "phoneWriteFailed": "Não foi possível mudar a digitação pelo celular",
-    "phoneShow": "Mostrar no celular",
-    "phoneShowHint": "Celulares pareados podem ver este terminal.",
-    "phoneWriteNeedsShow": "Mostre no celular primeiro.",
-    "phoneHiddenMark": "Oculto do celular",
-    "phoneShowFailed": "Não foi possível mudar se o celular mostra este terminal",
     "whyStatus": "Por que este status?",
     "explain": {
       "description": "O que o OXESpace leu para decidir o status deste painel.",
@@ -2018,7 +2035,12 @@
     "pid": "ID do processo",
     "startedAt": "Terminal iniciado em",
     "checkingBranch": "Verificando a branch…",
-    "noBranch": "Branch indisponível"
+    "noBranch": "Branch indisponível",
+    "phoneShow": "Mostrar no celular",
+    "phoneShowHint": "Celulares pareados podem ver este terminal.",
+    "phoneWriteNeedsShow": "Mostre no celular primeiro.",
+    "phoneHiddenMark": "Oculto do celular",
+    "phoneShowFailed": "Não foi possível mudar se o celular mostra este terminal"
   },
   "terminalPane": {
     "taskMissing": "Tarefa delegada não encontrada. Veja as configurações do workspace > Delegação de agentes.",
@@ -2041,9 +2063,7 @@
     "tools": "Mostrar as ferramentas do painel",
     "restoreOpen": "Restaurar a sessão do provedor…",
     "cavemanHint": "Respostas curtas e técnicas",
-    "semanticHint": "Busca no código pelo significado",
     "cavemanTitle": "Pede ao agente respostas curtas e técnicas. Vale na próxima vez que o terminal iniciar.",
-    "semanticTitle": "Indexa este workspace para os agentes buscarem pelo significado.",
     "restoreTitle": "Restaurar a sessão do provedor",
     "restoreDescription": "Escolha uma conversa salva do {{agent}} nesta pasta. O processo atual do terminal só fecha depois que você escolher uma.",
     "searchSessions": "Buscar sessões",
@@ -2179,7 +2199,10 @@
       "description": "O agente delegado para. O worktree e a conversa são mantidos, para você inspecionar depois."
     },
     "notice": "Tarefa delegada atualizada",
-    "view": "Ver tarefa"
+    "view": "Ver tarefa",
+    "waitsForOne": "Aguarda: {{objective}}",
+    "waitsForMany": "Aguarda: {{first}} e mais {{count}}",
+    "blocked": "Bloqueada: {{objective}} falhou"
   },
   "integration": {
     "roles": {
@@ -2364,91 +2387,6 @@
     "select": "Selecione um arquivo na árvore para ver o diff.",
     "send_many": "Enviar {{count}} ao agente",
     "pasted_many": "{{count}} comentários colados no agente. Pressione Enter para enviar."
-  },
-  "semantic": {
-    "sources": {
-      "both": "termos exatos + índice vetorial",
-      "exact": "termos exatos"
-    },
-    "vector": {
-      "downloadingProgress": "baixando o modelo {{percent}}%",
-      "downloading": "baixando o modelo…",
-      "loading": "carregando o modelo vetorial…",
-      "notInstalled": "modelo vetorial não instalado",
-      "error": "erro no modelo vetorial: {{error}}",
-      "unknown": "desconhecido",
-      "ready": "índice vetorial pronto"
-    },
-    "summary": {
-      "off": "desligado",
-      "starting": "iniciando…",
-      "error": "erro: {{error}}",
-      "indexing_one": "indexando… · {{count}} arquivo",
-      "indexing_other": "indexando… · {{count}} arquivos",
-      "empty": "pronto · índice vazio (aguardando arquivos)",
-      "ready_one": "pronto · {{count}} arquivo",
-      "ready_other": "pronto · {{count}} arquivos",
-      "indexing_many": "indexando… · {{count}} arquivos",
-      "ready_many": "pronto · {{count}} arquivos"
-    },
-    "panel": {
-      "log": "Log de atividade",
-      "noWorkspace": "nenhum workspace ativo",
-      "disabled": "desativado · ative o chip Semantic",
-      "modelVectors": "termos exatos (FTS5) + vetores ({{model}})",
-      "modelExact": "termos exatos (FTS5)",
-      "title": "Atividade semântica",
-      "reindex": "Reindexar workspace",
-      "reindexTitle": "Limpar os embeddings e percorrer este workspace de novo",
-      "resume": "Retomar",
-      "pause": "Pausar",
-      "resumeTitle": "Retomar o fluxo",
-      "pauseTitle": "Pausar o fluxo",
-      "copy": "Copiar logs",
-      "copyTitle": "Copiar os logs visíveis",
-      "export": "Exportar logs",
-      "exportTitle": "Exportar logs (.log)",
-      "clear": "Limpar a visualização",
-      "sources": "Fontes:",
-      "localNote": "local · {{note}}",
-      "local": "local · nada sai desta máquina",
-      "mode": "Modo de recuperação",
-      "modeLabel": "Modo de recuperação semântica",
-      "modes": {
-        "auto": "Automático · conforme a intenção",
-        "explore": "Explorar · poupa tokens",
-        "exhaustive": "Exaustivo · prioriza qualidade"
-      },
-      "coverage": "Cobertura do índice semântico",
-      "indexed": "Cobertura indexada",
-      "documents_one": "{{count}} documento pesquisável",
-      "documents_other": "{{count}} documentos pesquisáveis",
-      "categories": "código {{source}} · testes {{tests}} · config {{config}} · docs {{docs}}",
-      "last": "Última recuperação",
-      "confidence": "confiança {{confidence}} · {{mode}}",
-      "confidenceLevel": {
-        "high": "alta",
-        "medium": "média",
-        "low": "baixa"
-      },
-      "resolved": {
-        "explore": "explorar",
-        "exhaustive": "exaustivo"
-      },
-      "expanded": "expandida automaticamente",
-      "results_one": "{{count}} resultado · ≈{{tokens}} tokens · ≈{{saved}}% economizados · {{ms}}ms",
-      "results_other": "{{count}} resultados · ≈{{tokens}} tokens · ≈{{saved}}% economizados · {{ms}}ms",
-      "capped": "limitada",
-      "noQuery": "Nenhuma consulta ainda",
-      "noQueryHint": "A cobertura e o orçamento de tokens aparecem depois da recuperação.",
-      "trust": "Explorar ordena por melhor esforço. Exaustivo cobre todo o índice local — referências em tempo de execução ainda podem precisar de verificação.",
-      "levels": "Filtrar por nível",
-      "autoScroll": "Rolagem automática",
-      "lines": "{{visible}} / {{count}} linhas",
-      "empty": "Nenhuma atividade ainda.",
-      "documents_many": "{{count}} documentos pesquisáveis",
-      "results_many": "{{count}} resultados · ≈{{tokens}} tokens · ≈{{saved}}% economizados · {{ms}}ms"
-    }
   },
   "sessions": {
     "loadFailed": "Não foi possível carregar todas as sessões. Verifique se o Codex e o Claude estão instalados.",

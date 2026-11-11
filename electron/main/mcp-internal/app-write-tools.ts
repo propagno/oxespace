@@ -160,7 +160,7 @@ async function targetThread(args: Args, scope: ActionScope, ctx: ToolContext): P
   if (!thread) throw new ActionRefused('No Thread with that id in this project. Use oxespace_threads list.', 'not-found')
   // A Thread this caller created (handoff) or one of its Agent Work workers is the caller's own to drive.
   const owned = Boolean(self && ctx.db && (ctx.db.prepare('SELECT 1 FROM mcp_thread_handoffs WHERE origin_thread_id = ? AND destination_thread_id = ?').get(self.id, thread.id)
-    ?? manager.work?.isWorkerOf(self.id, thread.id)))
+    ))
   return { thread, owned }
 }
 

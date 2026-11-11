@@ -9,7 +9,6 @@ import {
   parseFileSystemReadFileInput,
   parseFileSystemUnwatchFileInput,
   parseFileSystemWatchFileInput,
-  parseFileSystemWriteFileInput
 } from './validation'
 
 /**
@@ -32,7 +31,6 @@ export function registerFileSystemIpc(db: AppDatabase, fileSystemService = new F
   ipcMain.handle(IPC_CHANNELS.fs.readFile, (_event, input: unknown) => fileSystemService.readFile(parseFileSystemReadFileInput(input)))
   // Rich previews (#10): same validated shape as readFile, base64 payload out.
   ipcMain.handle(IPC_CHANNELS.fs.readBinary, (_event, input: unknown) => fileSystemService.readBinary(parseFileSystemReadFileInput(input)))
-  ipcMain.handle(IPC_CHANNELS.fs.writeFile, (_event, input: unknown) => fileSystemService.writeFile(parseFileSystemWriteFileInput(input)))
   ipcMain.handle(IPC_CHANNELS.fs.watchFile, (event, input: unknown) =>
     fileSystemService.watchFile(parseFileSystemWatchFileInput(input), (payload) => {
       event.sender.send(IPC_CHANNELS.fs.onFileChanged, payload)

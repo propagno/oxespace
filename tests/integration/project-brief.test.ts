@@ -23,7 +23,7 @@ function repo(): string {
 }
 
 describe('projectBrief', () => {
-  it('summarises branch, stack, scripts, instruction files and the code tools', { timeout: 20_000 }, async () => {
+  it('summarises branch, stack, scripts and instruction files, and names no removed code tool', { timeout: 20_000 }, async () => {
     const root = repo()
     const brief = await projectBrief(root, 'claude')
     expect(brief).toContain('Branch: main · 1 uncommitted change')
@@ -31,7 +31,7 @@ describe('projectBrief', () => {
     expect(brief).toContain('npm run test: vitest run')
     expect(brief).not.toContain('postinstall')
     expect(brief).toContain('Instruction files you already loaded: CLAUDE.md')
-    expect(brief).toContain('oxespace_code_callers')
+    expect(brief).not.toContain('oxespace_code_')
     expect(Buffer.byteLength(brief)).toBeLessThanOrEqual(MAX_BRIEF_BYTES)
     expect(briefBlock(brief)).toMatch(/^\n\n<oxespace-project-brief>\n[\s\S]*\n<\/oxespace-project-brief>$/)
   })

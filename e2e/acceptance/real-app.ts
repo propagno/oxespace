@@ -62,4 +62,4 @@ export async function openRepo(page: Page, repo: string): Promise<void> {
   await page.waitForTimeout(2_500)
 }
 
-export const mode = (page: Page, id: 'code' | 'thread' | 'data' | 'pods' | 'post') => page.locator(`button[data-app-mode="${id}"]`).first().click()
+export const mode = (page: Page, id: 'code' | 'thread' | 'data' | 'pods') => page.locator(`button[data-app-mode="${id}"]`).first().click()

@@ -72,7 +72,6 @@ describe('preload api', () => {
     await api.tasks.create({ workspaceId: 'workspace-1', title: 'Task' })
     await api.fs.listTree({ workspaceId: 'workspace-1', rootPath: 'C:/repo' })
     await api.fs.readFile({ workspaceId: 'workspace-1', rootPath: 'C:/repo', relativePath: 'README.md' })
-    await api.fs.writeFile({ workspaceId: 'workspace-1', rootPath: 'C:/repo', relativePath: 'README.md', content: 'ok' })
     await api.fs.watchFile({ workspaceId: 'workspace-1', rootPath: 'C:/repo', relativePath: 'README.md' })
     await api.fs.unwatchFile({ watchId: 'watch-1' })
     await api.git.getBranch({ workspaceId: 'workspace-1', rootPath: 'C:/repo' })
@@ -121,12 +120,6 @@ describe('preload api', () => {
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.tasks.create, { workspaceId: 'workspace-1', title: 'Task' })
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.fs.listTree, { workspaceId: 'workspace-1', rootPath: 'C:/repo' })
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.fs.readFile, { workspaceId: 'workspace-1', rootPath: 'C:/repo', relativePath: 'README.md' })
-    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.fs.writeFile, {
-      workspaceId: 'workspace-1',
-      rootPath: 'C:/repo',
-      relativePath: 'README.md',
-      content: 'ok'
-    })
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.fs.watchFile, { workspaceId: 'workspace-1', rootPath: 'C:/repo', relativePath: 'README.md' })
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.fs.unwatchFile, { watchId: 'watch-1' })
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.git.getBranch, { workspaceId: 'workspace-1', rootPath: 'C:/repo' })

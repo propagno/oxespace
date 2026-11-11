@@ -23,32 +23,12 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Reads the user-level MCP config files of Claude Desktop, Cursor and Windsurf at their fixed locations
   // (512 KiB at most, JSON only); the renderer never supplies a path.
   'electron/main/services/mcp-import.service.ts',
-  // Optional local memory infrastructure: runtime/config/credentials and agent
-  // home configuration, analogous to MCP sync/bootstrap. Never arbitrary source
-  // file reads or terminal transcripts. Project probes below read only identity
-  // and .ai-memory.toml routing policy; the adapter writes that opt-in marker.
-  'electron/main/services/memory/memory-runtime.ts',
-  'electron/main/services/memory/memory.service.ts',
-  'electron/main/services/memory/agent-memory-adapter.ts',
-  'electron/main/services/memory/memory-marker.ts',
   // Project identity (R0a, out of memory): realpath of the folder and of its Git common dir only. Never reads or
   // writes file contents.
   'electron/main/services/project-identity.ts',
   // Owner-only JSON (R0a, out of memory): reads and writes, by temp file and rename (mode 0600), the app's own config
   // files its callers name (agent hook configs, memory runtime files); never a path from the renderer.
   'electron/main/services/private-json.ts',
-  // Memory upgrade transaction (journal, snapshot, candidate): fixed children of
-  // the application's private memory runtime directory; never workspace paths.
-  'electron/main/services/memory/memory-migration.ts',
-  // Producer-owned, crash-recoverable delivery queue under the private memory
-  // directory; files carry opaque names and are never derived from workspace paths.
-  'electron/main/services/memory/memory-outbox.ts',
-  // Read-only size inventory of the private memory directory: counts bytes, never reads
-  // file contents, follows no links and deletes nothing.
-  'electron/main/services/memory/memory-storage.ts',
-  // "Erase all stored memory" in Settings: removes only the managed store's `data` and `upgrade-2.6.2` folders,
-  // each a direct child of the private memory directory (checked before removing); no workspace path is ever used.
-  'electron/main/services/memory/memory-control.ts',
   // Reads one small JSON flag file (<userData>/experimental.json); no workspace path involved.
   'electron/main/services/experimental-features.ts',
   // Reads the app's own translation catalogs (locales/<language>/main.json next to the bundle); fixed names only.
@@ -61,9 +41,6 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Stat and one directory open only: confirms that a workspace root is an absolute path to a folder that
   // exists and can be listed, before `workspace:create` writes anything. Reads, lists and writes nothing.
   'electron/main/services/workspace-root.ts',
-  // The optional semantic model and its settings/usage counters under userData/models only; an import copies
-  // the four model files from the folder the user picked in a native dialog. Never touches workspace files.
-  'electron/main/services/semantic-model-store.ts',
   // Preview captures are app-owned PNGs under <userData>/web-preview-captures.
   // The store validates owner and basename and refuses to overwrite a file.
   'electron/main/services/browser-preview/preview-capture-store.ts',
@@ -96,8 +73,13 @@ const ALLOWED_FS_IMPORTS = new Set([
   // never writes, and FileSystemService's roots are unchanged.
   'electron/main/services/conversation/thread-place-read.ts',
   // A15 branch drift: existsSync on the paths git names for an operation in progress (rebase-merge, MERGE_HEAD,
-  // BISECT_LOG...). It never reads or writes file content.
+  // BISECT_LOG...); CR-F4-2b readHeadSync stats and reads only git's own .git file, HEAD, commondir, loose refs and
+  // packed-refs, to take a place's HEAD in an event handler. It never reads working-tree content and never writes.
   'electron/main/services/conversation/thread-place-drift.ts',
+  // A14 Undo (person-only, SECURITY 08/11): stat for a written file's mtime (the stale check) and, in Discard, lstat +
+  // unlink of one file the task created, only when it resolves inside the place. Every other change is git apply
+  // through safe git; it never reads file content and never writes anything else.
+  'electron/main/services/conversation/thread-place-undo.ts',
   // Thread project registration only canonicalizes and checks the selected
   // directory; source-file reads and writes remain in FileSystemService.
   'electron/main/services/conversation/thread-projects.ts',
@@ -181,6 +163,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Cleanup scan: stat-only probes of a worktree's own git metadata (HEAD,
   // reflog tail) to estimate idleness. Never reads source files.
   'electron/main/services/github/worktree-cleanup.ts',
+  // A63 Worktrees panel: lstat and readdir only, to tell whether a registered worktree folder is still there and to
+  // add up its disk use (never follows a link or junction, stops after 200k entries). It never reads or writes file
+  // content; removal goes through worktree-removal.ts.
+  'electron/main/services/github/worktrees-panel.ts',
   // Repository identity: reads only `.git` and the `gitdir`/`commondir` pointers of a checkout to tell
   // whether two directories are worktrees of the same repository. Never reads source files.
   'electron/main/services/git-common-dir.ts',
@@ -198,6 +184,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   // merges our entries into the agents' own config (~/.claude/settings.json,
   // ~/.codex/hooks.json). Outside the workspace tree; never source files.
   'electron/main/services/agent-hooks/installer.ts',
+  // G4 (1.5.0): removes retired AI Memory hook entries from the user's Claude and Codex config files and deletes
+  // <userData>/memory/adapters; never a workspace path or a path from the renderer.
+  'electron/main/services/agent-hooks/legacy-cleanup.ts',
   // Trusted UI repository registration: realpath identity probes only. No
   // source file reads/writes; evidence reads committed blobs through Git.
   'electron/main/services/coordination/workspace-resolver.ts',
@@ -219,8 +208,6 @@ const ALLOWED_FS_IMPORTS = new Set([
   // under userData/diagnostics and probes executable realpaths, never source files.
   'electron/main/services/runtime-diagnostics.ts',
   'electron/main/ipc/diagnostics.ipc.ts',
-  // The list of Thread projects with semantic search turned on: one JSON file under userData.
-  'electron/main/services/semantic-projects.ts',
   // Deletes only the app's own stale backups and crash dumps under userData (fixed directories, age-based); the live database and WAL are never listed.
   'electron/main/services/storage-retention.ts',
   // The audit export is written only to a path returned by Electron's native save dialog.
@@ -267,11 +254,6 @@ const ALLOWED_FS_IMPORTS = new Set([
   // OXE integration: existsSync(`<root>/.oxe`) to decide onboarding vs status —
   // a read-only project probe, not a workspace file operation.
   'electron/main/services/oxe.service.ts',
-  // Semantic Service: indexes the workspace tree for local embeddings (reads
-  // arbitrary files to embed) and creates the transformers.js model cache under
-  // <userData>/models. Background indexing outside the workspace-scoped
-  // FileSystemService.
-  'electron/main/services/semantic.service.ts',
   // Search Service: Find in Files delegates the actual file reads to the
   // ripgrep child process; its only raw fs use is existsSync to locate the
   // bundled rg binary and validate the search root — a read-only probe.
@@ -289,13 +271,6 @@ const ALLOWED_FS_IMPORTS = new Set([
   // Reads and writes only <userData>/ui-scale.json (the interface zoom the next
   // window starts at, so boot has no 100% first frame) — never a workspace path.
   'electron/main/ipc/appearance.ipc.ts',
-  // OxePost collections: request and environment files under <workspace>/.oxespace/requests only. The renderer sends
-  // relative paths that are validated segment by segment (no "..", no backslash, .http files, four levels at most),
-  // resolved under that folder and checked again through realpath; links are skipped, reads are capped at 256 KiB.
-  'electron/main/services/oxepost/store.ts',
-  // OxePost secrets: one encrypted file under <userData> (safeStorage; refused where only obfuscation exists), mode 0600,
-  // written by temp file and rename. No workspace path is read or written, and no value is ever returned to the page.
-  'electron/main/services/oxepost/secrets.ts',
   // BE-A46-c5 (1.5.0 F10): a terminal agent's own conversation for the phone. Stats, reads and watches only the one
   // native session file the pane's recorded session names (Claude's <claudeHome>/projects/<cwd>/<id>.jsonl or Codex's
   // rollout), and lists only Codex's sessions/<year>/<month>/<day> folders to find it. Never a path from the phone.
@@ -312,9 +287,8 @@ describe('workspace fs allowlist', () => {
     for (const file of files) {
       const rel = relative(root, file).replaceAll('\\', '/')
       if (!rel.endsWith('.ts')) continue
-      // Vendored third-party code (electron/main/vendor/**, e.g. the embedded
-      // CodeGraph engine) is not workspace-scoped file I/O and is outside this
-      // sandbox policy — it manages its own .oxe/codegraph.db + cache.
+      // Vendored third-party code (electron/main/vendor/**) is not workspace-scoped
+      // file I/O and is outside this sandbox policy.
       if (rel.includes('/vendor/')) continue
       const source = await readFile(file, 'utf8')
       const importsFs = /from ['"]node:fs/.test(source) || /from ['"]fs/.test(source)

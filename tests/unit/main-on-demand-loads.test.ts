@@ -4,13 +4,11 @@
  * install paths import their script and write it, and each on-demand service is imported once and kept, so only
  * the first request of a launch pays for the import and a failed one is retried by the next.
  */
-import { mkdtemp, readFile } from 'node:fs/promises'
 import { readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import { describe, expect, test, vi } from 'vitest'
 import { createFakeIpcMain } from '../helpers/fake-ipc-main'
-import { removeTempDir } from '../helpers/removeTempDir'
 
 const ipc = createFakeIpcMain()
 vi.mock('electron', () => ({ ipcMain: ipc, BrowserWindow: { getAllWindows: () => [] }, safeStorage: {}, app: { getPath: () => tmpdir() } }))
@@ -18,20 +16,8 @@ vi.mock('electron', () => ({ ipcMain: ipc, BrowserWindow: { getAllWindows: () =>
 const { IPC_CHANNELS } = await import('../../shared/types/ipc')
 const { registerAgentHooksIpc } = await import('../../electron/main/ipc/agent-hooks.ipc')
 const { registerOxeIpc } = await import('../../electron/main/ipc/oxe.ipc')
-const { AgentMemoryAdapters } = await import('../../electron/main/services/memory/agent-memory-adapter')
 
 describe('hook install paths load their script on demand', () => {
-  test('memory hook setup imports the hook source and writes it, as the static import did', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'oxespace-on-demand-hook-'))
-    try {
-      const runtime = { directory } as ConstructorParameters<typeof AgentMemoryAdapters>[0]
-      // No agent targets: setup writes the shared hook script and stops before the native installer.
-      await new AgentMemoryAdapters(runtime, []).setup()
-      const written = await readFile(join(directory, 'adapters', 'oxespace-memory-hook.cjs'), 'utf8')
-      expect(written).toBe(readFileSync(resolve('resources/memory/agent-hook.cjs'), 'utf8'))
-    } finally { removeTempDir(directory) }
-  })
-
   test('the status hook installer loads on the first Settings request, once, and installs through it', async () => {
     const installer = { status: vi.fn(async (agent: string) => ({ agent, state: 'missing' })), install: vi.fn(async (agent: string) => ({ agent, state: 'installed' })), remove: vi.fn() }
     const load = vi.fn(async () => installer as never)

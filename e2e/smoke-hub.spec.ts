@@ -2,7 +2,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openConnections, runPaletteCommand } from './helpers/panels'
+import { openConnections } from './helpers/panels'
 
 /**
  * Lightweight smoke: workspace → Tools hub → Agent Settings.
@@ -48,10 +48,6 @@ test('smoke: Tools hub and Agent Settings open from sidebar', async () => {
     await openConnections(page)
     await expect(page.getByRole('dialog', { name: 'MCP servers' })).toBeVisible()
     await page.getByRole('button', { name: 'Close' }).click()
-
-    await runPaletteCommand(page, 'Semantic index log')
-    await expect(page.getByRole('dialog', { name: 'Semantic activity' })).toBeVisible()
-    await expect(page.getByTestId('semantic-status-label')).toBeVisible()
   } finally {
     await electronApp.close()
   }

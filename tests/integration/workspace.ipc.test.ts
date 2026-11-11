@@ -2,7 +2,7 @@
  * The workspace IPC adapter holds orchestration that exists nowhere else: which
  * collaborators run in which order when a workspace or pane goes away, and
  * which mutations are allowed to leave a PTY alive. WorkspaceService knows
- * nothing about the terminal lifecycle or the semantic watcher, so a service
+ * nothing about the terminal lifecycle, so a service
  * test cannot catch a regression here — dropping `lifecycle?.stop()` from
  * setPaneRootPath would leave every service test green while the pane silently
  * kept its old cwd.
@@ -16,7 +16,6 @@ import { removeTempDir } from '../helpers/removeTempDir'
 import { isWorkspaceCreateRefusal } from '../../shared/types/workspace'
 import type { AppDatabase } from '../../electron/main/db'
 import type { WorkspaceService } from '../../electron/main/services/workspace.service'
-import type { SemanticService } from '../../electron/main/services/semantic.service'
 
 const ipcMain: FakeIpcMain = createFakeIpcMain()
 vi.mock('electron', () => ({
@@ -30,7 +29,6 @@ const { setAcceptedConfig } = await import('../../electron/main/services/policy'
 
 function setup(): {
   workspaceService: { [K in keyof WorkspaceService]?: ReturnType<typeof vi.fn> }
-  semantic: { watchWorkspace: ReturnType<typeof vi.fn>; unwatchWorkspace: ReturnType<typeof vi.fn> }
   lifecycle: { stop: ReturnType<typeof vi.fn>; stopWorkspace: ReturnType<typeof vi.fn> }
   calls: string[]
 } {
@@ -56,10 +54,6 @@ function setup(): {
     get: vi.fn((id: string) => ({ id, rootPath: 'C:/repo' })),
     list: vi.fn((): Array<{ id: string; rootPath: string }> => [])
   }
-  const semantic = {
-    watchWorkspace: record('semantic.watchWorkspace', undefined),
-    unwatchWorkspace: record('semantic.unwatchWorkspace', undefined)
-  }
   const lifecycle = {
     stop: record('lifecycle.stop', undefined),
     stopWorkspace: record('lifecycle.stopWorkspace', undefined)
@@ -67,7 +61,6 @@ function setup(): {
 
   registerWorkspaceIpc(
     {} as AppDatabase,
-    semantic as unknown as SemanticService,
     lifecycle,
     {
       workspaceService: workspaceService as unknown as WorkspaceService,
@@ -78,7 +71,7 @@ function setup(): {
     }
   )
 
-  return { workspaceService, semantic, lifecycle, calls }
+  return { workspaceService, lifecycle, calls }
 }
 
 describe('workspace IPC adapter', () => {
@@ -91,18 +84,16 @@ describe('workspace IPC adapter', () => {
     ctx = setup()
   })
 
-  test('deleting a workspace stops its shells and the watcher before the row goes', async () => {
+  test('deleting a workspace stops its shells before the row goes', async () => {
     await ipcMain.invoke('workspace:delete', 'ws-1')
 
-    // Order matters: deleting the row first would leave stopWorkspace and
-    // unwatchWorkspace operating on an id the database no longer resolves.
+    // Order matters: deleting the row first would leave stopWorkspace
+    // operating on an id the database no longer resolves.
     expect(ctx.calls).toEqual([
       'lifecycle.stopWorkspace',
-      'semantic.unwatchWorkspace',
       'workspace.delete'
     ])
     expect(ctx.lifecycle.stopWorkspace).toHaveBeenCalledWith('ws-1')
-    expect(ctx.semantic.unwatchWorkspace).toHaveBeenCalledWith('ws-1')
   })
 
   test('B7.4: deleting the last workspace of a project ends its pending policy change; one still open keeps it', async () => {
@@ -133,26 +124,11 @@ describe('workspace IPC adapter', () => {
     expect(ctx.calls).toEqual(['lifecycle.stop', 'workspace.setPaneRootPath'])
   })
 
-  test('activating a workspace defers the semantic crawl rather than blocking the transition', async () => {
+  test('activating a workspace only sets it active: R2 took the semantic crawl out', async () => {
     vi.useFakeTimers()
-    await ipcMain.invoke('workspace:set-active', 'ws-1')
-
-    // The crawl fans out thousands of fs-stats; starting it inline is what made
-    // workspace switching stutter, so it must NOT have run yet.
-    expect(ctx.semantic.watchWorkspace).not.toHaveBeenCalled()
-
-    vi.advanceTimersByTime(750)
-    expect(ctx.semantic.watchWorkspace).toHaveBeenCalledWith('ws-1', 'C:/repo')
-  })
-
-  test('a workspace with no root path never schedules a watch', async () => {
-    vi.useFakeTimers()
-    ctx.workspaceService.setActive?.mockReturnValueOnce({ id: 'ws-2', rootPath: null })
-
-    await ipcMain.invoke('workspace:set-active', 'ws-2')
+    await expect(ipcMain.invoke('workspace:set-active', 'ws-1')).resolves.toEqual({ id: 'ws-1', rootPath: 'C:/repo' })
     vi.advanceTimersByTime(5_000)
-
-    expect(ctx.semantic.watchWorkspace).not.toHaveBeenCalled()
+    expect(ctx.calls).toEqual(['workspace.setActive'])
   })
 
   test('invalid input is rejected before the service is reached', async () => {

@@ -80,6 +80,7 @@ export interface DelegationInput {
   sourceThreadIds?: string[]
   /** R0d: ignored since 1.5.0 (no AI Memory enrichment); kept on the wire for one release so older callers don't fail. */
   includeMemory?: boolean
+  dependsOn?: string[]
 }
 export interface DelegationSessionContext {
   threadId: string
@@ -101,6 +102,7 @@ export interface DelegationTask extends DelegationInput {
   evidence?: { path: string; commit: string; sha256: string; text: string }[]
   /** Bounded public-message snapshot captured at creation, stable across retry/restart. */
   sessionContext?: DelegationSessionContext[]
+  dependencies?: Array<{ id: string; objective: string; state: DelegationState }>
 }
 export interface DelegationEvent { cursor: number; taskId: string; kind: string; text: string; createdAt: number }
 export interface DelegationTarget { workspaceId: string; name: string; rootPath: string; expiresAt: number; allowEvidence: boolean }

@@ -19,12 +19,11 @@ const BUNDLES: Record<Language, () => Promise<{ default: Bundle }>> = {
 }
 
 /** Namespaces of lazy views: their catalogs load with the view, never at boot. */
-export type LazyNamespace = 'oxequery' | 'pods' | 'post'
+export type LazyNamespace = 'oxequery' | 'pods'
 type Catalog = { default: Record<string, unknown> }
 const LAZY: Record<LazyNamespace, Record<Language, () => Promise<Catalog>>> = {
   oxequery: { en: () => import('../../shared/locales/en/oxequery.json'), 'pt-BR': () => import('../../shared/locales/pt-BR/oxequery.json') },
-  pods: { en: () => import('../../shared/locales/en/pods.json'), 'pt-BR': () => import('../../shared/locales/pt-BR/pods.json') },
-  post: { en: () => import('../../shared/locales/en/post.json'), 'pt-BR': () => import('../../shared/locales/pt-BR/post.json') }
+  pods: { en: () => import('../../shared/locales/en/pods.json'), 'pt-BR': () => import('../../shared/locales/pt-BR/pods.json') }
 }
 const lazyLoaded = new Set<LazyNamespace>()
 
@@ -95,7 +94,7 @@ export function initI18n(preference: LanguagePreference = useSettingsStore.getSt
       lng: bundle ? language : 'en',
       fallbackLng: 'en',
       supportedLngs: [...LANGUAGES],
-      ns: ['common', 'code', 'thread', 'oxequery', 'pods', 'post', 'settings', 'main'],
+      ns: ['common', 'code', 'thread', 'oxequery', 'pods', 'settings', 'main'],
       defaultNS: 'common',
       resources: bundle ? { [language]: bundle } : {},
       partialBundledLanguages: true,

@@ -11,7 +11,7 @@ import styles from './ModeViews.module.css'
 import { USAGE_CHUNK } from '../Workspace/usageChunk'
 
 /**
- * Thread, OxeQuery (databases), OxePod (containers) and OxePost (API requests) are entirely lazy: nothing of them is in
+ * Thread and OxeQuery (databases) are entirely lazy: nothing of them is in
  * the entry chunk until first use. Each view's sidebar and work area are one chunk pair requested together, so they
  * reveal in one commit; the idle preload (src/lib/idlePreload.ts) loads the same pairs.
  */
@@ -21,26 +21,20 @@ export const VIEW_CHUNKS = {
   thread: chunk(() => Promise.all([import('../Threads/ThreadSidebar'), import('../Threads/ThreadGrid'), USAGE_CHUNK.load()])),
   // With each view, its catalog (src/i18n useNamespace): loaded with the chunk, the view renders at once instead of
   // suspending once more for its words after the switch (#363 CI: OxeQuery's sidebar skeleton at 128 ms).
-  data: chunk(() => Promise.all([import('../OxeQuery/OxeQuerySidebar'), import('../OxeQuery/OxeQueryView'), loadNamespace('oxequery')])),
-  pods: chunk(() => Promise.all([import('../OxePod/OxePodSidebar'), import('../OxePod/OxePodView'), loadNamespace('pods')])),
-  post: chunk(() => Promise.all([import('../OxePost/OxePostSidebar'), import('../OxePost/OxePostView'), loadNamespace('post')]))
+  data: chunk(() => Promise.all([import('../OxeQuery/OxeQuerySidebar'), import('../OxeQuery/OxeQueryView'), loadNamespace('oxequery')]))
 }
 export const ThreadSidebar = lazyFrom(VIEW_CHUNKS.thread, ([sidebar]) => sidebar.ThreadSidebar)
 export const ThreadGrid = lazyFrom(VIEW_CHUNKS.thread, ([, grid]) => grid.ThreadGrid)
 const OxeQuerySidebar = lazyFrom(VIEW_CHUNKS.data, ([sidebar]) => sidebar.OxeQuerySidebar)
 const OxeQueryView = lazyFrom(VIEW_CHUNKS.data, ([, view]) => view.OxeQueryView)
-const OxePodSidebar = lazyFrom(VIEW_CHUNKS.pods, ([sidebar]) => sidebar.OxePodSidebar)
-const OxePodView = lazyFrom(VIEW_CHUNKS.pods, ([, view]) => view.OxePodView)
-const OxePostSidebar = lazyFrom(VIEW_CHUNKS.post, ([sidebar]) => sidebar.OxePostSidebar)
-const OxePostView = lazyFrom(VIEW_CHUNKS.post, ([, view]) => view.OxePostView)
 
-export type DataView = 'data' | 'pods' | 'post'
+export type DataView = 'data'
 /** The views with their own lazy sidebar and work area, laid out alike. */
-export const isDataView = (view: AppView): view is DataView => view === 'data' || view === 'pods' || view === 'post'
+export const isDataView = (view: AppView): view is DataView => view === 'data'
 
-const NAMES: Record<DataView, string> = { data: 'OxeQuery', pods: 'OxePod', post: 'OxePost' }
-const HOSTS: Record<DataView, string> = { data: 'oq-host', pods: 'pod-host', post: 'post-host' }
-const ORDER: readonly DataView[] = ['data', 'pods', 'post']
+const NAMES: Record<DataView, string> = { data: 'OxeQuery' }
+const HOSTS: Record<DataView, string> = { data: 'oq-host' }
+const ORDER: readonly DataView[] = ['data']
 
 /** What a lazy view's sidebar shows while its chunk loads: the same frame and header, with placeholder rows. */
 export function ViewSidebarSkeleton({ view }: { view: DataView | 'thread' }): ReactElement {
@@ -63,8 +57,8 @@ export function ViewSkeleton({ name }: { name: string }): ReactElement {
   </div>
 }
 
-const SIDEBARS = { data: OxeQuerySidebar, pods: OxePodSidebar, post: OxePostSidebar }
-const VIEWS = { data: OxeQueryView, pods: OxePodView, post: OxePostView }
+const SIDEBARS = { data: OxeQuerySidebar }
+const VIEWS = { data: OxeQueryView }
 
 /** A view's sidebar: a chunk that fails to load shows its error here, with Try again, and leaves the window alone. */
 /** The Thread sidebar's frame while its chunk loads or fails: the skeleton, and an error that stays in the sidebar. */
@@ -83,7 +77,7 @@ export function DataSidebar({ view }: { view: DataView }): ReactElement {
 }
 
 /**
- * The work areas of OxeQuery, OxePod and OxePost. Each mounts the first time its view opens and then stays mounted
+ * The work area of OxeQuery. Each mounts the first time its view opens and then stays mounted
  * while hidden, so open connections, tabs, the selected container and the request being edited survive a trip to
  * another view.
  */
@@ -97,13 +91,13 @@ export function DataHosts({ view }: { view: AppView }): ReactElement {
   return <>{ORDER.filter(item => opened.includes(item) || item === view).map(item =>
     <div key={item} className={HOSTS[item]} data-view={item} style={{ display: view === item ? 'flex' : 'none', flex: 1, minWidth: 0, minHeight: 0 }} aria-hidden={view !== item}>
       <ErrorBoundary id="mode-view" component={NAMES[item]} label={NAMES[item]} onReset={VIEWS[item].retry}><Suspense fallback={<ViewSkeleton name={NAMES[item]} />}>
-        {item === 'data' ? <OxeQueryView active={view === 'data'} /> : item === 'pods' ? <OxePodView active={view === 'pods'} /> : <OxePostView active={view === 'post'} />}
+        <OxeQueryView active={view === 'data'} />
       </Suspense></ErrorBoundary>
     </div>)}</>
 }
 
 /**
- * The palette entries of OxeQuery, OxePod and OxePost register once their modules load, after the first paint; so
+ * The palette entries of OxeQuery register once its modules load, after the first paint; so
  * do the small bridges they talk through, which keeps all three out of the boot bundle. Choosing an entry opens its
  * view first, then lets the action find its control.
  */
@@ -114,12 +108,10 @@ export function useModeActions(select: (view: AppView) => void): void {
   useEffect(() => {
     let cancelled = false
     let off: Array<() => void> = []
-    void Promise.all([import('../OxeQuery/oxequery-bridge'), import('../OxePod/oxepod-bridge'), import('../OxePost/oxepost-bridge'), import('../OxeQuery/oxequery.commands'), import('../OxePod/oxepod.commands'), import('../OxePost/oxepost.commands')]).then(([query, pod, post]) => {
+    void Promise.all([import('../OxeQuery/oxequery-bridge'), import('../OxeQuery/oxequery.commands')]).then(([query]) => {
       if (cancelled) return
       off = [
-        query.onOxeQueryAction(action => { latest.current('data'); query.performOxeQueryAction(action) }),
-        pod.onOxePodAction(action => { latest.current('pods'); pod.performOxePodAction(action) }),
-        post.onOxePostAction(action => { latest.current('post'); post.performOxePostAction(action) })
+        query.onOxeQueryAction(action => { latest.current('data'); query.performOxeQueryAction(action) })
       ]
     })
     return () => { cancelled = true; off.forEach(stop => stop()) }

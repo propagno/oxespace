@@ -17,7 +17,7 @@ function report(dataMode: McpToolGroupMode = 'off'): McpToolGroupsReport {
   return {
     rootPath: ROOT,
     groups: [
-      group('core', 'always', ['oxespace_capabilities', 'oxespace_code_search']),
+      group('core', 'always', ['oxespace_capabilities', 'oxespace_project_context']),
       group('orchestration', 'on-demand', ['oxespace_delegate_task']),
       group('data', dataMode, ['oxespace_db_connections', 'oxespace_db_execute'], dataMode === 'off' ? { source: 'project' } : { source: 'project' }),
       group('docs', 'always', ['oxespace_open_web_preview']),
@@ -193,10 +193,10 @@ describe('Settings › Tools', () => {
   })
 
   it('T53: an auto-approved read says why, offers running or blocking, and is not counted as a rule set', async () => {
-    mount({ rules: [{ server: 'oxespace-delegation', tool: 'oxespace_code_search', decision: 'allow', source: 'reads', editable: true, allowedDecisions: ['allow', 'deny'], confirmLevel: false, scope: 'oxechat' }] })
+    mount({ rules: [{ server: 'oxespace-delegation', tool: 'oxespace_project_context', decision: 'allow', source: 'reads', editable: true, allowedDecisions: ['allow', 'deny'], confirmLevel: false, scope: 'oxechat' }] })
     const core = await panel('Core tools')
     fireEvent.click(await within(core).findByText('Rules per tool · 0 set'))
-    const row = within(core).getByRole('combobox', { name: 'Rule for oxespace_code_search' })
+    const row = within(core).getByRole('combobox', { name: 'Rule for oxespace_project_context' })
     expect(row).toHaveValue('allow')
     expect(within(row).getByRole('option', { name: 'Run without asking' })).toBeInTheDocument()
     expect(within(row).getByRole('option', { name: 'Block' })).toBeInTheDocument()

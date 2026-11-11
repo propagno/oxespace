@@ -216,14 +216,6 @@ for (const base of ['light', 'dark'] as const) {
       await page.keyboard.press('Escape')
       await expect(settings).toHaveCount(0)
 
-      // OxePod: Docker / Podman.
-      await openView(page, 'pods')
-      const pod = page.getByRole('complementary', { name: /OxePod/ })
-      await expectChoicesMarked(page, 'oxepod', pod, ['Container engine'])
-      await expectTick(pod, 'Container engine')
-      await shoot(page, 'oxepod', base)
-      await scan(page, 'oxepod')
-
       // OxeQuery › New connection: engine cards, Host/URL, environment, the Read-only switch and Favorite.
       await openView(page, 'data')
       await page.getByRole('button', { name: 'New connection' }).first().click()

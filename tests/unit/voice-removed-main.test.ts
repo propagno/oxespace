@@ -1,18 +1,14 @@
 // @vitest-environment node
 /**
  * B21 · OXEVoice left the main process (user decision, 31/10): no voice channel or preload API, no whisper engine in
- * the source or the package, no microphone permission. `<userData>/models` is shared with the semantic search model
- * (SemanticModelStore), so the cut leaves that folder alone: an upgrade keeps the semantic model and every file
- * OXEVoice downloaded there (the 1.4.0 notes, #449, tell the person to delete the `ggml-*` files by hand).
+ * the source or the package, no microphone permission. `<userData>/models` held OXEVoice's ggml files and the model of
+ * semantic search, which R2 removed in 1.5.0: nothing in main opens that folder any more, so an upgrade leaves it and
+ * every file in it as they were (the 1.4.0 notes, #449, tell the person to delete the `ggml-*` files by hand).
  */
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync, existsSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
-import { SEMANTIC_MODEL_FILES, SemanticModelStore } from '../../electron/main/services/semantic-model-store'
-import { SEMANTIC_MODEL_ID } from '../../electron/main/services/semantic-model'
-import { removeTempDir } from '../helpers/removeTempDir'
 
 const repo = process.cwd()
 const read = (rel: string) => readFileSync(join(repo, rel), 'utf8')
@@ -34,7 +30,7 @@ describe('B21: OXEVoice is gone from main, the preload and the package', () => {
     expect(existsSync(join(repo, 'shared/types/voice.ts'))).toBe(false)
   })
 
-  test('no main source names whisper or a ggml model, and only the semantic store opens <userData>/models', () => {
+  test('no main source names whisper or a ggml model, and none opens <userData>/models (R2 removed its last reader)', () => {
     const offenders: string[] = []
     const modelsUsers: string[] = []
     for (const file of [...sources(join(repo, 'electron/main')), ...sources(join(repo, 'electron/preload'))]) {
@@ -44,8 +40,7 @@ describe('B21: OXEVoice is gone from main, the preload and the package', () => {
       if (/getPath\('userData'\)[^\n]*'models'/.test(text)) modelsUsers.push(rel)
     }
     expect(offenders).toEqual([])
-    expect(modelsUsers).toEqual(['electron/main/index.ts'])
-    expect(read('electron/main/index.ts')).toMatch(/new SemanticModelStore\(join\(app\.getPath\('userData'\), 'models'\)\)/)
+    expect(modelsUsers).toEqual([])
   })
 
   test('the package carries no whisper engine', () => {
@@ -59,46 +54,5 @@ describe('B21: OXEVoice is gone from main, the preload and the package', () => {
     expect(allowed?.[1]).toBeDefined()
     expect(allowed![1]).not.toMatch(/'media'/)
     expect(allowed![1]).toMatch(/'clipboard-read'/)
-  })
-})
-
-describe('B21: an upgrade leaves <userData>/models as it was', () => {
-  test('the semantic model is still installed next to OXEVoice\'s ggml files, and no file there changes', () => {
-    const models = mkdtempSync(join(tmpdir(), 'oxe-b21-models-'))
-    try {
-      const modelDir = join(models, ...SEMANTIC_MODEL_ID.split('/'))
-      for (const file of SEMANTIC_MODEL_FILES) {
-        mkdirSync(join(modelDir, file, '..'), { recursive: true })
-        writeFileSync(join(modelDir, file), file.endsWith('.onnx') ? Buffer.alloc(1024 * 1024 + 1) : '{}')
-      }
-      writeFileSync(join(models, 'ggml-base.bin'), 'whisper model')
-      writeFileSync(join(models, 'ggml-small.bin.part'), 'partial download')
-      // Every file under models/, with its size and modification time.
-      const listing = (): string[] => {
-        const all: string[] = []
-        const walk = (dir: string) => {
-          for (const entry of readdirSync(dir, { withFileTypes: true })) {
-            const path = join(dir, entry.name)
-            if (entry.isDirectory()) walk(path)
-            else { const info = statSync(path); all.push(`${relative(models, path).replace(/\\/g, '/')}:${info.size}:${info.mtimeMs}`) }
-          }
-        }
-        walk(models)
-        return all.sort()
-      }
-      const before = listing()
-      expect(before).toHaveLength(SEMANTIC_MODEL_FILES.length + 2)
-
-      // What the upgraded app does with the folder at launch: the semantic store reads it.
-      const store = new SemanticModelStore(models)
-      expect(store.isInstalled()).toBe(true)
-      store.readSettings()
-      store.readUsage()
-
-      expect(listing()).toEqual(before)
-      expect(readFileSync(join(models, 'ggml-base.bin'), 'utf8')).toBe('whisper model')
-    } finally {
-      removeTempDir(models)
-    }
   })
 })

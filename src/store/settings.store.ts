@@ -5,6 +5,7 @@ import { isLanguagePreference, type LanguagePreference } from '../../shared/i18n
 import { motionPreference, type MotionPreference } from '../design/motion'
 import type { UiDensity } from '../../shared/types/workspace'
 import { clampUiScale, UI_SCALE_DEFAULT } from '../../shared/uiScale'
+import { KEYBINDINGS } from '../keyboard/keybindings'
 
 /**
  * General app preferences, persisted to localStorage (OXESpace has no global
@@ -26,8 +27,9 @@ function clampVisitedCap(n: number): number {
 
 function cleanOverrides(value: unknown): Record<string, string[]> {
   if (!value || typeof value !== 'object') return {}
+  const validIds = new Set(KEYBINDINGS.map(binding => binding.id as string))
   return Object.fromEntries(Object.entries(value as Record<string, unknown>)
-    .filter((entry): entry is [string, string[]] => Array.isArray(entry[1]) && entry[1].every(chord => typeof chord === 'string')))
+    .filter((entry): entry is [string, string[]] => validIds.has(entry[0]) && Array.isArray(entry[1]) && entry[1].every(chord => typeof chord === 'string')))
 }
 
 interface SettingsState {
@@ -90,7 +92,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'oxe-settings',
-      version: 7,
+      version: 8,
       migrate: (persisted) => {
         const s = (persisted ?? {}) as Partial<SettingsState>
         return {
@@ -101,6 +103,14 @@ export const useSettingsStore = create<SettingsState>()(
           uiScale: clampUiScale(s.uiScale ?? UI_SCALE_DEFAULT),
           density: s.density === 'comfortable' ? 'comfortable' : 'compact',
           motion: motionPreference(s.motion),
+          keybindingOverrides: cleanOverrides(s.keybindingOverrides)
+        }
+      },
+      merge: (persistedState, currentState) => {
+        const s = (persistedState ?? {}) as Partial<SettingsState>
+        return {
+          ...currentState,
+          ...s,
           keybindingOverrides: cleanOverrides(s.keybindingOverrides)
         }
       }

@@ -3,8 +3,9 @@ import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../db/index'
 import { defaultSplitShellProfileId } from './shell-profile.defaults'
 import { isSameRootPath } from '../../../shared/utils/path'
-import type {
-  CreateWorkspaceInput,
+import {
+  PANE_TYPES,
+  type CreateWorkspaceInput,
   PaneAgentBinding,
   PaneStatus,
   PaneType,
@@ -670,7 +671,8 @@ export class WorkspaceService {
       const task = JSON.parse(record.payload) as { paneId?: string; originPaneId?: string }
       if (task.paneId && task.originPaneId) origins.set(task.paneId, task.originPaneId)
     }
-    return rows.map((row) => ({
+    const validPaneTypes = new Set<string>(PANE_TYPES)
+    return rows.filter((row) => validPaneTypes.has(row.type)).map((row) => ({
       originPaneId: origins.get(row.id),
       id: row.id,
       workspaceId: row.workspace_id,

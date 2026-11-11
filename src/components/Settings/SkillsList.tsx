@@ -1,8 +1,17 @@
-import { useEffect, type ReactElement } from 'react'
+import { useEffect, type ReactElement, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSkillStore } from '../../store/skill.store'
 import { Badge, EmptyState, ErrorState, LoadingState, Panel } from '../../ui'
 import styles from './ToolsSettings.module.css'
+
+const CODE_TOKEN_RE = /(~\/\.oxe\/skills|\.oxe\/skills|(?<=\s)\/(?=\.))/g
+const IS_CODE_TOKEN = /^(~\/\.oxe\/skills|\.oxe\/skills|\/)$/
+
+function renderWithCode(text: string): ReactNode {
+  return text.split(CODE_TOKEN_RE).map((part, index) =>
+    IS_CODE_TOKEN.test(part) ? <code key={index}>{part}</code> : part
+  )
+}
 
 /**
  * Settings › Tools, "MCP servers and skills" (R12, DESIGN M5 08/11): the skills agents can run, read only. Each is a
@@ -20,7 +29,7 @@ export function SkillsList(): ReactElement {
   useEffect(() => { if (!loaded && canRead) void refresh() }, [loaded, canRead, refresh])
   const title = t('tools.skillsList.title')
   return <Panel className={styles.group} label={title} title={title}>
-    <p className={styles.hint}>{t('tools.skillsList.intro')}</p>
+    <p className={styles.hint}>{renderWithCode(t('tools.skillsList.intro'))}</p>
     {error ? <ErrorState compact title={t('tools.skillsList.loadFailed')} message={error} onRetry={canRead ? () => void refresh() : undefined} />
       : !loaded && loading ? <LoadingState label={t('tools.skillsList.loading')} />
         : skills.length ? <ul className={styles.list} aria-label={title}>
@@ -30,6 +39,6 @@ export function SkillsList(): ReactElement {
             <span className={styles.ruleNote}>{skill.description || t('tools.skillsList.noDescription')}</span>
           </li>)}
         </ul>
-          : <EmptyState compact title={t('tools.skillsList.empty')}>{t('tools.skillsList.emptyBody')}</EmptyState>}
+          : <EmptyState compact title={t('tools.skillsList.empty')}>{renderWithCode(t('tools.skillsList.emptyBody'))}</EmptyState>}
   </Panel>
 }

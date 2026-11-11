@@ -1,3 +1,4 @@
+// Parked for F9 (P1, Containers panel). Component tests keep passing.
 import { Suspense, lazy, useEffect, type ReactElement } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Boxes, RefreshCw } from 'lucide-react'

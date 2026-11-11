@@ -12,7 +12,6 @@ import { useShallow } from 'zustand/react/shallow'
  */
 
 export type TerminalCursorStyle = 'block' | 'bar' | 'underline'
-export type SemanticSearchMode = 'auto' | 'explore' | 'exhaustive'
 
 export interface TerminalPrefs {
   fontFamily: string
@@ -25,8 +24,6 @@ export interface TerminalPrefs {
   /** 1 = opaque card. Below 1 the terminal surface goes translucent (blur behind). */
   backgroundOpacity: number
   cavemanModeEnabled: boolean
-  semanticSearchEnabled: boolean
-  semanticSearchMode: SemanticSearchMode
   /** After the app restarts, Claude Code and Codex panes reopen the session they were in. */
   resumeAgentSessions: boolean
 }
@@ -53,12 +50,9 @@ export const TERMINAL_PREFS_DEFAULTS: TerminalPrefs = {
   // in Settings raises it for whoever wants more.
   scrollback: 10_000,
   backgroundOpacity: 1,
-  // Caveman and Semantic are opt-in developer features — off by default so a
-  // fresh workspace does no extra prompt transforms or background indexing.
-  // The user enables them via the toolbar chips when wanted.
+  // Caveman is an opt-in developer feature: off by default, so a fresh workspace
+  // does no extra prompt transforms. The person turns it on from the terminal menu.
   cavemanModeEnabled: false,
-  semanticSearchEnabled: false,
-  semanticSearchMode: 'auto',
   resumeAgentSessions: true
 }
 
@@ -115,16 +109,10 @@ export const useTerminalPrefsStore = create<TerminalPrefsState>()(
     {
       name: 'oxe-terminal-prefs',
       version: 8,
-      // v2: Semantic became opt-in (off by default). Existing users have a
-      // persisted `global` from when it defaulted to ON, and `merge` spreads
-      // persisted over defaults — so without this migration the old always-on
-      // value would stick. Reset that flag once (in the global default and in
-      // any per-workspace override) so a fresh workspace starts with it off;
-      // the user re-enables it per workspace via the chips.
+      // v2 turned the old Semantic flag off. R2 removed semantic search; merge (knownPrefs) drops its saved keys.
       migrate: (persisted) => {
         const p = (persisted ?? {}) as Partial<TerminalPrefsState>
         const global = { ...TERMINAL_PREFS_DEFAULTS, ...(p.global ?? {}) }
-        global.semanticSearchEnabled = false
         // v3 (chat-like terminal): roll the new soft look forward ONLY for users
         // who never customized these — preserve deliberate choices. Anyone still
         // on the old hard-console defaults gets the bar caret / looser leading.
@@ -145,7 +133,6 @@ export const useTerminalPrefsStore = create<TerminalPrefsState>()(
         const overrides: Record<string, Partial<TerminalPrefs>> = {}
         for (const [ws, ov] of Object.entries(p.overrides ?? {})) {
           const next = { ...(ov as Partial<TerminalPrefs>) }
-          delete next.semanticSearchEnabled
           if (next.scrollback === 100_000 || next.scrollback === 50_000) next.scrollback = TERMINAL_PREFS_DEFAULTS.scrollback
           if (Object.keys(next).length > 0) overrides[ws] = next
         }

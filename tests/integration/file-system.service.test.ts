@@ -57,7 +57,7 @@ describe('FileSystemService', () => {
     await expect(service.readFile({ workspaceId: 'workspace-1', rootPath, relativePath: join(rootPath, '..', 'secret.txt') })).rejects.toThrow(
       'Path escapes workspace root'
     )
-    await expect(service.writeFile({ workspaceId: 'workspace-1', rootPath, relativePath: '/etc/passwd', content: 'x' })).rejects.toThrow(
+    await expect(service.readFile({ workspaceId: 'workspace-1', rootPath, relativePath: '/etc/passwd' })).rejects.toThrow(
       'Path escapes workspace root'
     )
   })
@@ -66,7 +66,7 @@ describe('FileSystemService', () => {
   // ordinary filename that resolves inside the root, so refusing it there would
   // be wrong — the traversal cases above already cover the real escape.
   testWindows('treats a backslash as a separator when escaping the root', async () => {
-    await expect(service.writeFile({ workspaceId: 'workspace-1', rootPath, relativePath: '..\\secret.txt', content: 'x' })).rejects.toThrow(
+    await expect(service.readFile({ workspaceId: 'workspace-1', rootPath, relativePath: '..\\secret.txt' })).rejects.toThrow(
       'Path escapes workspace root'
     )
   })
@@ -100,18 +100,10 @@ describe('FileSystemService', () => {
     }
   })
 
-  test('reads and writes text files inside the workspace', async () => {
+  test('reads text files inside the workspace', async () => {
     const readResult = await service.readFile({ workspaceId: 'workspace-1', rootPath, relativePath: 'src/index.ts' })
     expect(readResult.content).toBe('export const value = 1\n')
-
-    const writeResult = await service.writeFile({
-      workspaceId: 'workspace-1',
-      rootPath,
-      relativePath: 'src/index.ts',
-      content: 'export const value = 2\n'
-    })
-    expect(writeResult.relativePath).toBe('src/index.ts')
-    await expect(readFile(join(rootPath, 'src', 'index.ts'), 'utf8')).resolves.toBe('export const value = 2\n')
+    expect(readResult.relativePath).toBe('src/index.ts')
   })
 
   test.skipIf(process.platform === 'win32')('rejects a symlink to a case-distinct sibling for reads, writes and previews', async () => {
@@ -125,7 +117,6 @@ describe('FileSystemService', () => {
     const guarded = new FileSystemService(() => registered)
     const input = { workspaceId: 'workspace-1', rootPath: registered, relativePath: 'linked/secret.txt' }
     await expect(guarded.readFile(input)).rejects.toThrow('resolves outside')
-    await expect(guarded.writeFile({ ...input, content: 'overwritten' })).rejects.toThrow('resolves outside')
     await expect(guarded.readBinary({ ...input, relativePath: 'linked/secret.svg' })).rejects.toThrow('resolves outside')
     await expect(guarded.listTree({ ...input, relativePath: 'linked' })).rejects.toThrow('resolves outside')
     await expect(guarded.readFile({ ...input, rootPath: outside, relativePath: 'secret.txt' })).rejects.toThrow('does not match')
@@ -137,9 +128,6 @@ describe('FileSystemService', () => {
     await writeFile(join(rootPath, 'binary.bin'), Buffer.from([0x00, 0x01, 0x02]))
 
     await expect(service.readFile({ workspaceId: 'workspace-1', rootPath, relativePath: 'large.txt' })).rejects.toThrow('larger than 2 MB')
-    await expect(service.writeFile({ workspaceId: 'workspace-1', rootPath, relativePath: 'README.md', content: 'a'.repeat(MAX_TEXT_FILE_BYTES + 1) })).rejects.toThrow(
-      'larger than 2 MB'
-    )
     await expect(service.readFile({ workspaceId: 'workspace-1', rootPath, relativePath: 'binary.bin' })).rejects.toThrow('Binary files')
   })
 

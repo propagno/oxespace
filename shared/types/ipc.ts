@@ -62,25 +62,16 @@ export type { GitHubBranch, GitHubCheckpoint, GitHubCliStatus, GitHubCommit, Git
 export type { IntegrationGroup, IntegrationMember, IntegrationHandoff, IntegrationRole, IntegrationSession, IntegrationStatus } from './integration'
 export type { FileSystemApi, FileSystemFileChangedEvent, FileSystemListTreeInput, FileSystemReadBinaryInput, FileSystemReadBinaryResult, FileSystemReadFileInput, FileSystemReadFileResult, FileSystemUnwatchFileInput, FileSystemWatchFileInput, FileSystemWatchFileResult, FileSystemWriteFileInput, FileSystemWriteFileResult, FileTreeNode, FileTreeNodeType } from './filesystem'
 import type { TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalStatusResult, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
-import type { SemanticStatus, SemanticRetrievalSource, SemanticVectorStatus, SemanticUsage, SemanticUsageBucket, SemanticSearchMode, SemanticConfidence, SemanticIndexCoverage, SemanticLastQuery, SemanticLogLevel, SemanticLogEntry, SemanticQueryHit, SemanticApi } from './ipc/semantic'
 export type { TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalStatusResult, PaneAgentResume, PaneAgentSession, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
-export type { SemanticStatus, SemanticRetrievalSource, SemanticVectorStatus, SemanticUsage, SemanticUsageBucket, SemanticSearchMode, SemanticConfidence, SemanticIndexCoverage, SemanticLastQuery, SemanticLogLevel, SemanticLogEntry, SemanticQueryHit, SemanticApi } from './ipc/semantic'
 
 import { AGENTS_CHANNELS } from './ipc/agents'
 export type { AgentsApi } from './ipc/agents'
 
 export const IPC_CHANNELS = {
   agents: AGENTS_CHANNELS,
-  team: { command: 'team:command', messages: 'team:messages', send: 'team:send' },
   agentAccount: { read: 'agent-account:read', login: 'agent-account:login', logout: 'agent-account:logout', cancel: 'agent-account:cancel', code: 'agent-account:code', browser: 'agent-account:browser', changed: 'agent-account:changed' },
-  thread: { projectDiff: 'thread:project-diff', artifact: 'thread:artifact', exportPortable: 'thread:export-portable', importPortable: 'thread:import-portable', models: 'thread:models', configure: 'thread:configure', command: 'thread:command', recover: 'thread:recover', observe: 'thread:observe', commands: 'thread:commands', projects: 'thread:projects', addProject: 'thread:project-add', relinkProject: 'thread:project-relink', setProjectHidden: 'thread:project-hidden', list: 'thread:list', pendingRequestsAll: 'thread:pending-requests-all', sideOpen: 'thread:side-open', sideSend: 'thread:side-send', sideClose: 'thread:side-close', onSideEvent: 'thread:side-event', respondPending: 'thread:respond-pending', create: 'thread:create', read: 'thread:read', history: 'thread:history', attach: 'thread:attach', removeAttachment: 'thread:remove-attachment', send: 'thread:send', steer: 'thread:steer', stopTask: 'thread:stop-task', turnFiles: 'thread:turn-files', undoTurnFile: 'thread:undo-turn-file', turnFileHunks: 'thread:turn-file-hunks', undoTurnHunk: 'thread:undo-turn-hunk', sections: 'thread:sections', saveSections: 'thread:sections-save', permissionRules: 'thread:permission-rules', addPermissionRule: 'thread:permission-rule-add', removePermissionRule: 'thread:permission-rule-remove', auditLog: 'thread:audit-log', debugEvents: 'thread:debug-events', autoApproveReads: 'thread:auto-approve-reads', setAutoApproveReads: 'thread:set-auto-approve-reads', idleSuspendMinutes: 'thread:idle-suspend-minutes', setIdleSuspendMinutes: 'thread:set-idle-suspend-minutes', shellCheck: 'thread:shell-check', usageSummary: 'thread:usage-summary', workRuns: 'thread:work-runs', cancelWork: 'thread:work-cancel', updateQueued: 'thread:queue-update', deleteQueued: 'thread:queue-delete', reorderQueued: 'thread:queue-reorder', readSince: 'thread:read-since', rewind: 'thread:rewind', redoRewind: 'thread:redo-rewind', retryTurn: 'thread:retry-turn', contextUsage: 'thread:context-usage', resumeQueue: 'thread:queue-resume', sendQueuedNow: 'thread:queue-send-now', interrupt: 'thread:interrupt', approve: 'thread:approve', respond: 'thread:respond', pin: 'thread:pin', keepAfterPr: 'thread:keep-after-pr', changed: 'thread:changed', worktreeInspect: 'thread:worktree-inspect', worktreeFinish: 'thread:worktree-finish' },
+  thread: { projectDiff: 'thread:project-diff', artifact: 'thread:artifact', exportPortable: 'thread:export-portable', importPortable: 'thread:import-portable', models: 'thread:models', configure: 'thread:configure', command: 'thread:command', recover: 'thread:recover', observe: 'thread:observe', commands: 'thread:commands', projects: 'thread:projects', addProject: 'thread:project-add', relinkProject: 'thread:project-relink', setProjectHidden: 'thread:project-hidden', list: 'thread:list', pendingRequestsAll: 'thread:pending-requests-all', sideOpen: 'thread:side-open', sideSend: 'thread:side-send', sideClose: 'thread:side-close', onSideEvent: 'thread:side-event', respondPending: 'thread:respond-pending', create: 'thread:create', read: 'thread:read', history: 'thread:history', attach: 'thread:attach', removeAttachment: 'thread:remove-attachment', send: 'thread:send', steer: 'thread:steer', stopTask: 'thread:stop-task', turnFiles: 'thread:turn-files', undoTurnFile: 'thread:undo-turn-file', turnFileHunks: 'thread:turn-file-hunks', undoTurnHunk: 'thread:undo-turn-hunk', sections: 'thread:sections', saveSections: 'thread:sections-save', permissionRules: 'thread:permission-rules', addPermissionRule: 'thread:permission-rule-add', removePermissionRule: 'thread:permission-rule-remove', auditLog: 'thread:audit-log', debugEvents: 'thread:debug-events', autoApproveReads: 'thread:auto-approve-reads', setAutoApproveReads: 'thread:set-auto-approve-reads', idleSuspendMinutes: 'thread:idle-suspend-minutes', setIdleSuspendMinutes: 'thread:set-idle-suspend-minutes', shellCheck: 'thread:shell-check', usageSummary: 'thread:usage-summary', workRuns: 'thread:work-runs', cancelWork: 'thread:work-cancel', updateQueued: 'thread:queue-update', deleteQueued: 'thread:queue-delete', reorderQueued: 'thread:queue-reorder', readSince: 'thread:read-since', rewind: 'thread:rewind', redoRewind: 'thread:redo-rewind', retryTurn: 'thread:retry-turn', contextUsage: 'thread:context-usage', resumeQueue: 'thread:queue-resume', sendQueuedNow: 'thread:queue-send-now', interrupt: 'thread:interrupt', approve: 'thread:approve', respond: 'thread:respond', pin: 'thread:pin', keepAfterPr: 'thread:keep-after-pr', changed: 'thread:changed', worktreeInspect: 'thread:worktree-inspect', worktreeFinish: 'thread:worktree-finish', places: 'thread:places', placeDiff: 'thread:place-diff', placeRead: 'thread:place-read', resolvePath: 'thread:resolve-path', placeDriftAnswer: 'thread:place-drift-answer', placeUndo: 'thread:place-undo', placeRestore: 'thread:place-restore', placeDiscard: 'thread:place-discard', panes: 'thread:panes', collisions: 'thread:collisions', agentSummary: 'thread:agent-summary', placesChanged: 'thread:places-changed' },
   delegation: { create: 'delegation:create', status: 'delegation:status', preview: 'delegation:preview', configure: 'delegation:configure', control: 'delegation:control', changed: 'delegation:changed', configureTarget: 'delegation:configure-target', adopt: 'delegation:adopt' },
-  memory: {
-    status: 'memory:status', configure: 'memory:configure', install: 'memory:install', rollback: 'memory:rollback',
-    setupAgents: 'memory:setup-agents', search: 'memory:search', recent: 'memory:recent',
-    handoffs: 'memory:handoffs', storage: 'memory:storage', acceptHandoff: 'memory:accept-handoff',
-    notes: 'memory:notes', noteUpdate: 'memory:note-update', noteDelete: 'memory:note-delete', export: 'memory:export', reset: 'memory:reset'
-  },
   app: {
     getUpdateState: 'app:get-update-state',
     checkForUpdates: 'app:check-for-updates',
@@ -176,7 +167,6 @@ export const IPC_CHANNELS = {
     listTree: 'fs:list-tree',
     readFile: 'fs:read-file',
     readBinary: 'fs:read-binary',
-    writeFile: 'fs:write-file',
     watchFile: 'fs:watch-file',
     unwatchFile: 'fs:unwatch-file',
     onFileChanged: 'fs:file-changed'
@@ -211,7 +201,6 @@ export const IPC_CHANNELS = {
     setDesktopName: 'remote:set-desktop-name', setPhoneWrite: 'remote:set-phone-write', setPhoneHidden: 'remote:set-phone-hidden', pairingFailed: 'remote:pairing-failed',
     firewallStatus: 'remote:firewall-status', firewallRepair: 'remote:firewall-repair', firewallUndo: 'remote:firewall-undo'
   },
-  oxePost: { call: 'oxePost:call' },
   agentHooks: {
     status: 'agent-hooks:status',
     install: 'agent-hooks:install',
@@ -345,6 +334,8 @@ export const IPC_CHANNELS = {
   },
   /** A60: the Pull request tab, GitHub or Azure DevOps in one shape. */
   pullRequest: { state: 'pull-request:state' },
+  /** A63 / N9: the Worktrees panel (list with owner, merged, changed, disk, activity; a guarded Remove). */
+  worktreesPanel: { list: 'worktrees-panel:list', remove: 'worktrees-panel:remove' },
   integration: {
     listGroups: 'integration:list-groups',
     createGroup: 'integration:create-group',
@@ -400,23 +391,6 @@ export const IPC_CHANNELS = {
   },
   oxeContext: {
     buildPaneManifest: 'oxe-context:build-pane-manifest'
-  },
-  semantic: {
-    getStatus: 'semantic:get-status',
-    setEnabled: 'semantic:set-enabled',
-    projectStatus: 'semantic:project-status',
-    setProjectEnabled: 'semantic:set-project-enabled',
-    setMode: 'semantic:set-mode',
-    reindex: 'semantic:reindex',
-    getLogs: 'semantic:get-logs',
-    onLog: 'semantic:log',
-    query: 'semantic:query',
-    getVectorStatus: 'semantic:get-vector-status',
-    setVectorIndex: 'semantic:set-vector-index',
-    downloadModel: 'semantic:download-model',
-    importModel: 'semantic:import-model',
-    removeModel: 'semantic:remove-model',
-    getUsage: 'semantic:get-usage'
   },
   diagnostics: {
     getSnapshot: 'diagnostics:get-snapshot',
@@ -566,6 +540,10 @@ export interface GitHubApi {
   getRepoConfig(input: { rootPath: string }): Promise<import('./repo-config').RepoConfigSnapshot>
   scanWorktreeCleanup(input: import('./worktree-cleanup').WorktreeCleanupScanInput): Promise<import('./worktree-cleanup').WorktreeCleanupCandidate[]>
   removeWorktreeCleanup(input: import('./worktree-cleanup').WorktreeCleanupRemoveInput): Promise<import('./worktree-cleanup').WorktreeCleanupRemoveResult[]>
+  /** A63: every non-main worktree of a repository, merged first then oldest first. */
+  listWorktreesPanel(input: { rootPath: string }): Promise<import('../../electron/main/services/github/worktrees-panel').WorktreesPanelRow[]>
+  /** A63: the guarded Remove; a refusal comes back as { ok: false, refusal } with a C3 code. */
+  removeWorktreePanel(input: { rootPath: string; path: string; deleteBranch: boolean; confirmUnmerged?: boolean }): Promise<import('../../electron/main/services/github/worktrees-panel').WorktreesPanelRemoveResult>
   /** Approves the hook script whose hash the user was shown; refused if the file changed since. */
   approveRepoHook(input: { rootPath: string; kind: import('./repo-config').RepoHookKind; contentHash: string }): Promise<import('./repo-config').RepoConfigSnapshot>
   listPullRequests(input: GitHubPullRequestListInput): Promise<GitHubPullRequest[]>
@@ -670,11 +648,9 @@ export interface AppUpdateApi {
 }
 
 export interface OxeApi {
-  team?: import('./team').TeamApi
   agentAccount?: import('./agentAuth').AgentAccountApi
   thread?: import('./thread').ThreadApi
   delegation: import('./delegation').DelegationApi
-  memory: import('./memory').MemoryApi
   app: {
     version: string
     /** Host OS, so renderer code can build platform-correct shell commands. */
@@ -700,7 +676,6 @@ export interface OxeApi {
   oxeQuery: import('./oxequery').OxeQueryApi
   oxePod: import('./oxepod').OxePodApi
   remote?: import('./remote').RemoteApi
-  oxePost: import('../oxepost/types').OxePostApi
   oxe: OxeIntegrationApi
   copilot: CopilotApi
   agentCredits: AgentCreditsApi
@@ -714,7 +689,6 @@ export interface OxeApi {
   agents: import('./ipc/agents').AgentsApi
   browserPreview: import('./browser-preview').BrowserPreviewApi
   oxeContext: OxeContextApi
-  semantic: SemanticApi
   diagnostics: import('./diagnostics').DiagnosticsApi
   policy: import('../policy').PolicyApi
   dataExport: DataExportApi

@@ -9,7 +9,7 @@ describe('editor.store', () => {
   beforeEach(() => {
     useEditorStore.setState({ files: {}, tabs: {}, activePath: {} })
     window.oxe = {
-      app: { version: '0.1.4' },
+      app: { version: '1.5.0' },
       workspace: {} as never,
       terminal: {} as never,
       agent: {} as never,
@@ -17,7 +17,6 @@ describe('editor.store', () => {
       fs: {
         listTree: vi.fn(),
         readFile: vi.fn().mockResolvedValue({ relativePath: 'src/index.ts', content: 'one', size: 3, mtimeMs: 1 }),
-        writeFile: vi.fn().mockResolvedValue({ relativePath: 'src/index.ts', size: 3, mtimeMs: 2 }),
         watchFile: vi.fn().mockResolvedValue({ watchId: 'watch-1' }),
         unwatchFile: vi.fn().mockResolvedValue(undefined),
         onFileChanged: vi.fn(() => vi.fn())
@@ -25,29 +24,21 @@ describe('editor.store', () => {
     }
   })
 
-  test('opens, edits and saves a file', async () => {
+  test('opens a file read-only', async () => {
     await useEditorStore.getState().openFile({
       workspaceId: 'workspace-1',
       rootPath: 'C:/repo',
       relativePath: 'src/index.ts'
     })
     expect(activeFile('workspace-1')).toMatchObject({ content: 'one', language: 'typescript' })
-
-    useEditorStore.getState().updateContent('workspace-1', 'two')
-    expect(useEditorStore.getState().hasDirtyEditor('workspace-1')).toBe(true)
-
-    await useEditorStore.getState().saveFile('workspace-1')
-    expect(window.oxe.fs.writeFile).toHaveBeenCalledWith(expect.objectContaining({ content: 'two' }))
-    expect(useEditorStore.getState().hasDirtyEditor('workspace-1')).toBe(false)
   })
 
-  test('marks external changes as conflict when local file is dirty', async () => {
+  test('reloads external changes directly', async () => {
     await useEditorStore.getState().openFile({
       workspaceId: 'workspace-1',
       rootPath: 'C:/repo',
       relativePath: 'src/index.ts'
     })
-    useEditorStore.getState().updateContent('workspace-1', 'local')
     useEditorStore.getState().markExternalChange({
       watchId: 'watch-1',
       workspaceId: 'workspace-1',
@@ -57,7 +48,6 @@ describe('editor.store', () => {
       mtimeMs: 3
     })
 
-    expect(activeFile('workspace-1')?.content).toBe('local')
-    expect(activeFile('workspace-1')?.conflict?.externalContent).toBe('external')
+    expect(activeFile('workspace-1')?.content).toBe('external')
   })
 })

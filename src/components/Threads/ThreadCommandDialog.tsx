@@ -8,7 +8,6 @@ import { ThreadUsageDetails } from './ThreadFailureCard'
 import ThreadEventsPanel from './ThreadEventsPanel'
 import ThreadPermissionsPanel from './ThreadPermissionsPanel'
 import ThreadUsagePanel from './ThreadUsagePanel'
-import ThreadWorkPanel from './ThreadWorkPanel'
 import type { ThreadPanelState } from './threadCommandPanels'
 import { threadNavigationStatus } from './threadNavigationStatus'
 import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, TextField } from '../../ui'
@@ -20,7 +19,7 @@ import { openExternalLink } from '../../lib/externalLinks'
 function sessionDate(timestamp: number): string { return formatDateTime(timestamp, { dateStyle: 'medium', timeStyle: 'short' }) }
 
 /** Integrated surfaces with a line under their title saying what they are for. Output panels have no description. */
-const DESCRIBED = new Set(['rename', 'sessions', 'rules', 'work', 'events', 'spending', 'delegations'])
+const DESCRIBED = new Set(['rename', 'sessions', 'rules', 'events', 'spending', 'delegations'])
 /** The shape of a native session ID, shown as the placeholder; the same in every language. */
 const SESSION_ID_SHAPE = 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
 /** The rows /status sends, in the order shown, with their catalog keys; the main process names them in English. */
@@ -80,7 +79,6 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
       <label>{t('commandDialog.name')}<TextField aria-label={t('commandDialog.name')} value={rename} maxLength={120} autoFocus onFocus={event => event.currentTarget.select()} onChange={event => setRename(event.target.value)} /></label>
     </form>
     : panel.surface === 'rules' && snapshot ? <ThreadPermissionsPanel threadId={snapshot.thread.id} />
-    : panel.surface === 'work' && snapshot ? <ThreadWorkPanel threadId={snapshot.thread.id} onOpenThread={threadId => { onClose(); void useThreadStore.getState().select(threadId) }} />
     : panel.surface === 'events' && snapshot ? <ThreadEventsPanel threadId={snapshot.thread.id} />
     : panel.surface === 'spending' && snapshot ? <ThreadUsagePanel threadId={snapshot.thread.id} />
     : panel.surface === 'sessions' ? <div className="thread-resume-sections">

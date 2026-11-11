@@ -16,7 +16,7 @@ test('compact diagnostics retain process metadata and aggregate GPU failures acr
       const project = await window.oxe.thread!.addProject(root)
       const snapshot = await window.oxe.thread!.create({ projectId: project.projectId, provider: 'codex' })
       const paneId = `thread-shell:${snapshot.thread.id}:1`
-      await window.oxe.terminal.start({ workspaceId: snapshot.thread.workspaceId, paneId, cols: 80, rows: 24, disableRtk: true })
+      await window.oxe.terminal.start({ workspaceId: snapshot.thread.workspaceId, paneId, cols: 80, rows: 24 })
       await window.oxe.terminal.stop({ paneId })
     }, root)
     await app.evaluate(({ app }) => {

@@ -7,7 +7,6 @@ import type { BackgroundManager } from '../services/background.service'
 import type { FileSystemService } from '../services/file-system.service'
 import type { GitHubWorktreeApi } from '../../../shared/types/github'
 import type { McpManager } from '../services/mcp.service'
-import type { SemanticService } from '../services/semantic.service'
 import type { WorkspaceService } from '../services/workspace.service'
 import type {
   InternalMcpStatus,
@@ -56,7 +55,6 @@ export interface InternalMcpDeps {
   team?: import('../services/coordination/team-access').TeamAccess
   executions?: import('../services/execution-registry').ExecutionRegistry
   delegationAgents?: () => unknown
-  memory?: import('../services/memory/memory.service').MemoryService
   oxeQuery?: () => import('../services/oxequery/agent-gateway').AgentGateway | undefined
   oxeQueryError?: () => string | undefined
   git?: import('./tool-registry').ToolContext['git']
@@ -67,8 +65,6 @@ export interface InternalMcpDeps {
   github: GitHubWorktreeApi
   background: BackgroundManager
   fileSystem: FileSystemService
-  semantic: SemanticService
-  codegraph: import('../services/codegraph.service').CodeGraphService
 }
 
 export interface InternalMcpHandle {
@@ -103,7 +99,6 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
     // Browser preview automation for oxespace_preview_interact and the capture tool (R9: the documentation runtime is gone).
     documentation: () => browserPreview ??= import('../services/browser-preview/preview-automation').then(module => ({ preview: new module.PreviewAutomation() })).catch(error => { browserPreview = undefined; throw error }),
     delegation: deps.delegation, executions: deps.executions, delegationAgents: deps.delegationAgents, team: deps.team,
-    memory: deps.memory,
     oxeQuery: deps.oxeQuery,
     oxeQueryError: deps.oxeQueryError,
     agentActions: new AgentActions({ broker: new ApprovalBroker(appApprovalPrompter), audit: actionAudit }),
@@ -113,8 +108,6 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
     github: deps.github,
     background: deps.background,
     fileSystem: deps.fileSystem,
-    semantic: deps.semantic,
-    codegraph: deps.codegraph,
     webPreview,
     worktree
   })

@@ -31,7 +31,7 @@ test('#302 cold boot, every view, and the on-demand pieces the first time they a
     })
     await openRepo(page, profile.repo)
     const views: Record<string, string> = {}
-    for (const id of ['thread', 'data', 'pods', 'post', 'code'] as const) {
+    for (const id of ['thread', 'data', 'pods', 'code'] as const) {
       await mode(page, id)
       await page.waitForTimeout(1_200)
       views[id] = (await page.locator('main').first().innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 80)

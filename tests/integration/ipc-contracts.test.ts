@@ -15,16 +15,12 @@ import {
 } from '../../electron/main/ipc/validation'
 
 describe('ipc contracts', () => {
-  test('uses stable app update and semantic channel names', () => {
+  test('uses stable app update channel names, and has no semantic group (R2)', () => {
     expect(IPC_CHANNELS.app.getUpdateState).toBe('app:get-update-state')
     expect(IPC_CHANNELS.app.checkForUpdates).toBe('app:check-for-updates')
     expect(IPC_CHANNELS.app.quitAndInstall).toBe('app:quit-and-install')
     expect(IPC_CHANNELS.app.onUpdateState).toBe('app:update-state')
-    expect(IPC_CHANNELS.semantic.getStatus).toBe('semantic:get-status')
-    expect(IPC_CHANNELS.semantic.setEnabled).toBe('semantic:set-enabled')
-    expect(IPC_CHANNELS.semantic.setMode).toBe('semantic:set-mode')
-    expect(IPC_CHANNELS.semantic.reindex).toBe('semantic:reindex')
-    expect(IPC_CHANNELS.semantic.getLogs).toBe('semantic:get-logs')
+    expect(IPC_CHANNELS).not.toHaveProperty('semantic')
   })
 
   test('R0b: uses stable data export channel names', () => {
@@ -45,6 +41,23 @@ describe('ipc contracts', () => {
     expect(IPC_CHANNELS.app.closeAnswer).toBe('app:close-answer')
     expect(IPC_CHANNELS.thread.pendingRequestsAll).toBe('thread:pending-requests-all')
     expect(IPC_CHANNELS.thread.respondPending).toBe('thread:respond-pending')
+  })
+
+  test('CR-F4-7: uses stable place channel names (ccr-f4-places-pr.md §Contract, §A14 Undo)', () => {
+    expect(IPC_CHANNELS.thread).toMatchObject({
+      places: 'thread:places',
+      placeDiff: 'thread:place-diff',
+      placeRead: 'thread:place-read',
+      resolvePath: 'thread:resolve-path',
+      placeDriftAnswer: 'thread:place-drift-answer',
+      placeUndo: 'thread:place-undo',
+      placeRestore: 'thread:place-restore',
+      placeDiscard: 'thread:place-discard',
+      panes: 'thread:panes',
+      collisions: 'thread:collisions',
+      agentSummary: 'thread:agent-summary',
+      placesChanged: 'thread:places-changed'
+    })
   })
 
   test('uses stable workspace and terminal channel names', () => {
@@ -84,7 +97,6 @@ describe('ipc contracts', () => {
   test('uses stable filesystem channel names', () => {
     expect(IPC_CHANNELS.fs.listTree).toBe('fs:list-tree')
     expect(IPC_CHANNELS.fs.readFile).toBe('fs:read-file')
-    expect(IPC_CHANNELS.fs.writeFile).toBe('fs:write-file')
     expect(IPC_CHANNELS.fs.watchFile).toBe('fs:watch-file')
     expect(IPC_CHANNELS.fs.unwatchFile).toBe('fs:unwatch-file')
     expect(IPC_CHANNELS.fs.onFileChanged).toBe('fs:file-changed')

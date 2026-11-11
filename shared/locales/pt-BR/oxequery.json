@@ -124,7 +124,7 @@
     "deleteTitle": "Excluir “{{name}}”?",
     "deleteDescription": "A senha, as chaves e os certificados salvos também são removidos. O banco de dados em si não é alterado.",
     "emptyTitle": "Nenhuma conexão ainda",
-    "emptyText": "Adicione uma, ou use Conectar no OxeQuery num contêiner de banco de dados no OxePod.",
+    "emptyText": "Adicione uma, ou conecte a partir de um contêiner de banco em execução.",
     "section": {
       "matches_one": "Resultados ({{count}})",
       "matches_other": "Resultados ({{count}})",
@@ -273,7 +273,15 @@
     "now": "agora: {{fingerprint}}",
     "testFailed": "O teste de conexão falhou",
     "fromContainerDraft": "Do contêiner {{name}}: host e porta já preenchidos.",
-    "containerPassword": "Digite a senha com que o contêiner foi criado. Ela fica no cofre; os agentes nunca a veem."
+    "containerPassword": "Digite a senha. O OxeQuery nunca a lê do contêiner.",
+    "source": "Origem da conexão",
+    "sourceDetails": "Digitar os dados",
+    "sourceContainer": "De um contêiner em execução",
+    "containerLabel": "Contêiner",
+    "containerSelectPlaceholder": "Escolha um contêiner…",
+    "containerPort": "{{name}} · {{engine}} · porta {{port}}",
+    "noContainersRunning": "Nenhum contêiner de banco está em execução.",
+    "dockerNotRunning": "O Docker não está em execução. Inicie-o para ver seus contêineres."
   },
   "grid": {
     "label": "Resultado",
@@ -1242,8 +1250,8 @@
   },
   "welcome": {
     "title": "Abra um banco de dados",
-    "text": "Conecte a um PostgreSQL ou MongoDB, ou inicie um num contêiner. Os contêineres que você já roda estão no OxePod, com o botão Conectar no OxeQuery.",
-    "textSaved": "Escolha uma conexão à esquerda, ou adicione uma. Os contêineres estão no OxePod.",
+    "text": "Conecte a um PostgreSQL ou MongoDB, ou inicie um num contêiner.",
+    "textSaved": "Escolha uma conexão à esquerda, ou adicione uma.",
     "newDatabase": "Novo banco local",
     "newDatabaseTitle": "Iniciar um contêiner PostgreSQL ou MongoDB e conectar a ele"
   }

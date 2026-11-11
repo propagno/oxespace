@@ -8,10 +8,10 @@ import type { SettingsModalProps, SettingsSection } from './SettingsModal'
 import { SETTINGS_PAGES } from '../Workspace/workspaceSettingsPages'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { chunk, lazyFrom } from '../../lib/chunk'
-import { useSharedProjectMemory } from '../../hooks/useSharedProjectMemory'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace } from '../../../shared/types/workspace'
 import { SeenSitesSetting } from './SeenSitesSetting'
 import { ExternalEditorSetting } from './ExternalEditorSetting'
+import { DataSettings } from './DataSettings'
 import './SettingsCenter.css'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
@@ -77,6 +77,29 @@ export function resolveAppPage(page: string): AppPage {
   return (APPLICATION_SETTINGS_PAGES.find(p => p.id === page)?.id as AppPage) ?? 'general'
 }
 
+export function restoreSettingsDestination(
+  saved: unknown,
+  workspaceIds: readonly string[],
+  allowWorkspaceScope = true
+): SettingsDestination {
+  if (saved && typeof saved === 'object') {
+    const candidate = saved as { scope?: unknown; page?: unknown; workspaceId?: unknown }
+    if (candidate.scope === 'application' && typeof candidate.page === 'string') {
+      return { scope: 'application', page: resolveAppPage(candidate.page) }
+    }
+    if (
+      allowWorkspaceScope &&
+      candidate.scope === 'workspace' &&
+      typeof candidate.workspaceId === 'string' &&
+      workspaceIds.includes(candidate.workspaceId)
+    ) {
+      const page = SETTINGS_PAGES.find(p => p.id === candidate.page)?.id ?? SETTINGS_PAGES[0].id
+      return { scope: 'workspace', workspaceId: candidate.workspaceId, page }
+    }
+  }
+  return { scope: 'application', page: 'appearance' }
+}
+
 export function SettingsCenter(props: SettingsModalProps & {
   workspaces: Workspace[]; initialWorkspaceId?: string; initialPage?: AppPage; shellProfiles: ShellProfile[]; allowWorkspaceScope?: boolean
   onSave: (input: UpdateWorkspaceSettingsInput) => Promise<void>
@@ -86,9 +109,8 @@ export function SettingsCenter(props: SettingsModalProps & {
     if (props.allowWorkspaceScope !== false && props.initialWorkspaceId) return { scope: 'workspace', workspaceId: props.initialWorkspaceId, page: 'general' }
     if (props.initialPage) return { scope: 'application', page: resolveAppPage(props.initialPage) }
     try {
-      const saved = JSON.parse(localStorage.getItem('oxe.settings.destination') ?? 'null') as SettingsDestination
-      if (saved?.scope === 'application' && typeof saved.page === 'string') return { scope: 'application', page: resolveAppPage(saved.page) }
-      if (props.allowWorkspaceScope !== false && saved?.scope === 'workspace' && props.workspaces.some(w => w.id === saved.workspaceId) && SETTINGS_PAGES.some(p => p.id === saved.page)) return saved
+      const saved = JSON.parse(localStorage.getItem('oxe.settings.destination') ?? 'null') as unknown
+      return restoreSettingsDestination(saved, props.workspaces.map(w => w.id), props.allowWorkspaceScope !== false)
     } catch { /* Invalid preferences use safe defaults. */ }
     return { scope: 'application', page: 'appearance' }
   })
@@ -172,7 +194,7 @@ export function SettingsCenter(props: SettingsModalProps & {
               props.onClose()
             }} />
             : <section className="settings-general"><h2>{t('center.workspaceClosed')}</h2><p>{t('center.workspaceClosedHint')}</p></section>
-            : destination.page === 'general' ? <GeneralSettings /> : destination.page === 'policy' ? <PolicySettings workspaceId={scopeWorkspace?.id} /> : destination.page === 'keyboard' ? <KeyboardSettings /> : destination.page === 'devices' ? <DevicesSettings /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
+            : destination.page === 'general' ? <GeneralSettings /> : destination.page === 'policy' ? <PolicySettings workspaceId={scopeWorkspace?.id} /> : destination.page === 'keyboard' ? <KeyboardSettings /> : destination.page === 'devices' ? <DevicesSettings /> : destination.page === 'privacy' ? <DataSettings /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
         </Suspense></ErrorBoundary></div>
       </main>
     </ModalSurface>

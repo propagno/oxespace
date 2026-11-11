@@ -8,7 +8,7 @@ afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); localStorage.clear(
 const fakeLoaders = () => {
   const calls: PreloadTarget[] = []
   const loader = (target: PreloadTarget) => () => { calls.push(target); return Promise.resolve() }
-  return { calls, loaders: { thread: loader('thread'), data: loader('data'), pods: loader('pods'), post: loader('post'), settings: loader('settings') } }
+  return { calls, loaders: { thread: loader('thread'), data: loader('data'), pods: loader('pods'), settings: loader('settings') } }
 }
 const big = { navigator: { deviceMemory: 8, getBattery: async () => ({ charging: true }) }, performance: { memory: { usedJSHeapSize: 50, jsHeapSizeLimit: 1000 } } }
 
@@ -19,8 +19,8 @@ describe('idle preload', () => {
     expect(await preloadTargets('code', big)).toEqual({ targets: ['settings'], viewSkipped: 'no-recent-view' })
     expect((await preloadTargets(null, big)).targets).toEqual(['settings'])
     const { calls, loaders } = fakeLoaders()
-    expect(await runIdlePreload(() => false, { recent: 'pods', env: big, loaders })).toEqual(['pods', 'settings'])
-    expect(calls).toEqual(['pods', 'settings'])
+    expect(await runIdlePreload(() => false, { recent: 'data', env: big, loaders })).toEqual(['data', 'settings'])
+    expect(calls).toEqual(['data', 'settings'])
   })
 
   it('leaves the view out below 8 GB, without deviceMemory, on battery or with a mostly used heap; Settings still loads', async () => {
@@ -58,7 +58,7 @@ describe('idle preload', () => {
 
   it('a failing chunk does not stop the next one', async () => {
     const { calls, loaders } = fakeLoaders()
-    expect(await runIdlePreload(() => false, { recent: 'post', env: big, loaders: { ...loaders, post: () => Promise.reject(new Error('offline')) } })).toEqual(['post', 'settings'])
+    expect(await runIdlePreload(() => false, { recent: 'data', env: big, loaders: { ...loaders, data: () => Promise.reject(new Error('offline')) } })).toEqual(['data', 'settings'])
     expect(calls).toEqual(['settings'])
   })
 

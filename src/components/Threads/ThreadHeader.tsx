@@ -9,6 +9,7 @@ import { THREAD_VIEW_MODES, useThreadViewModeStore, type ThreadViewMode } from '
 import type { ThreadPanel } from '../../store/thread-workbench.store'
 import { useUIStore } from '../../store/ui.store'
 import { ThreadConversationActions } from './ThreadConversationActions'
+import { CollisionChips } from './CollisionChips'
 import { THREAD_BAR_PANELS, THREAD_MENU_PANELS, type WorkbenchPanelId } from '../Workbench/panelCatalog'
 import { threadPanelLabel, threadPanelTitle } from './threadPanelLabels'
 import { WorkbenchPanelToggle } from '../Workbench/WorkbenchPanelMenu'
@@ -51,6 +52,7 @@ export function ThreadHeader({ thread, workspace, branch, pending, running, acti
   const owned = thread?.ownedWorktree
   return <header className="thread-heading" {...(workspace ? workspaceColorAttrs(workspace) : {})}><div className="thread-heading-identity"><span className="thread-heading-context" data-moved={moved ? 'true' : undefined} title={moved ? t('header.movedTitle', { checkout: thread!.observedLocation!.checkoutRoot, root: thread!.rootPath }) : outside ? t('header.outsideTitle', { root: thread!.rootPath, cwd: outside }) : thread?.rootPath ?? workspace?.rootPath}><Folder size={13} aria-hidden="true" /><strong>{workspace?.name ?? t('header.yourProjects')}</strong>{(branch ?? owned?.branch) && <span className="thread-heading-branch"><GitBranch size={11} aria-hidden="true" />{branch ?? owned?.branch}</span>}{(moved || owned) && <span className="thread-heading-worktree" title={owned ? t('header.ownedTitle', { branch: owned.branch, root: owned.projectRoot }) : undefined}>{t('header.worktree')}</span>}</span><h1>{thread?.title ?? t('header.projectConversations')}</h1>
     {thread && <ThreadConversationActions thread={thread} disabled={pending} onCommand={onCommand} onExport={onExport} onImport={onImport} />}</div>
+    {thread && <CollisionChips threadId={thread.id} />}
     <div className="thread-heading-actions">
     {thread && THREAD_BAR_PANELS.map(id => <WorkbenchPanelToggle key={id} className="thread-review-trigger thread-panel-toggle" item={{ id, label: threadPanelLabel(id), title: threadPanelTitle(id), active: activePanel === THREAD_PANEL[id], onToggle: () => onTogglePanel(THREAD_PANEL[id]) }} />)}
     <Menu label={t('header.moreActions')} align="end" items={[

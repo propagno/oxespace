@@ -36,7 +36,6 @@ export interface FileSystemApi {
   listTree(input: FileSystemListTreeInput): Promise<FileTreeNode[]>
   readFile(input: FileSystemReadFileInput): Promise<FileSystemReadFileResult>
   readBinary(input: FileSystemReadBinaryInput): Promise<FileSystemReadBinaryResult>
-  writeFile(input: FileSystemWriteFileInput): Promise<FileSystemWriteFileResult>
   watchFile(input: FileSystemWatchFileInput): Promise<FileSystemWatchFileResult>
   unwatchFile(input: FileSystemUnwatchFileInput): Promise<void>
   onFileChanged(listener: (event: FileSystemFileChangedEvent) => void): () => void

@@ -131,12 +131,12 @@ async function expectTarget(name: string, control: Locator): Promise<void> {
 
 const settingsDialog = (page: Page) => page.getByRole('dialog', { name: 'Settings', exact: true })
 
-async function openSettings(page: Page, category: 'Appearance' | 'Updates'): Promise<Locator> {
+async function openSettings(page: Page, category: 'Appearance' | 'About'): Promise<Locator> {
   const settings = settingsDialog(page)
   if (!await settings.isVisible()) await page.getByRole('button', { name: 'Open settings', exact: true }).click()
   await settings.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: 'Application', exact: true }).click()
   await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: new RegExp(`^${category}`) }).click()
-  await expect(settings.getByRole('heading', { name: category, exact: true }).first()).toBeVisible()
+  await expect(settings.getByRole('heading', { name: category === 'About' ? 'Updates' : category, exact: true }).first()).toBeVisible()
   return settings
 }
 
@@ -158,16 +158,11 @@ test('audited surfaces have targets of at least 24×24 px in both densities', as
       await setDensity(page, density)
       await check(page, `${tag}-settings-appearance`, settingsDialog(page))
       for (const row of await settingsDialog(page).getByRole('group', { name: 'Settings scope' }).getByRole('button').all()) await expectTarget(`${tag} Settings scope row "${await row.textContent()}"`, row)
-      await check(page, `${tag}-settings-updates`, await openSettings(page, 'Updates'))
+      await check(page, `${tag}-settings-updates`, await openSettings(page, 'About'))
       await page.keyboard.press('Escape')
       await expect(settingsDialog(page)).toHaveCount(0)
 
       await expectTarget(`${tag} workspace name in the Code sidebar`, page.locator('.sidebar-workspace-tree .ws-group-name').first())
-
-      await openView(page, 'pods')
-      const pod = page.getByRole('complementary', { name: /OxePod/ })
-      await expect(pod.getByRole('radiogroup', { name: 'Container engine' })).toBeVisible()
-      await check(page, `${tag}-oxepod-sidebar`, pod)
 
       await openView(page, 'data')
       await page.getByRole('button', { name: 'New connection' }).first().click()

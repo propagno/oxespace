@@ -218,11 +218,15 @@ describe('worktree handlers emit change events', () => {
 
   test('removeWorktree emits a "removed" event', async () => {
     const ctx = makeCtx()
+    // A63: an agent removes a worktree through the Worktrees panel guard, never forced and never with its branch.
+    const remove = vi.fn(async () => ({ ok: true as const }))
+    Object.assign(ctx, { worktreesPanel: { remove } })
     const events: InternalMcpWorktreeChangedEvent[] = []
     ctx.worktree.subscribe((e) => events.push(e))
     await handlers.removeWorktree({ path: '../wt' }, ctx)
     expect(events).toHaveLength(1)
     expect(events[0].action).toBe('removed')
+    expect(remove).toHaveBeenCalledWith({ rootPath: expect.any(String), path: '../wt', deleteBranch: false, via: 'agent' })
   })
 
   test('does not emit when the git call throws', async () => {

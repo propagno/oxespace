@@ -84,14 +84,4 @@ describe('editor store', () => {
     useEditorStore.getState().clearReveal('ws', first.seq + 1)
     expect(useEditorStore.getState().reveal.ws).toBeNull()
   })
-
-  it('resolves an on-disk conflict either way', () => {
-    const file = { workspaceId: 'ws', rootPath: '/r', relativePath: 'a.ts', content: 'mine', lastSavedContent: 'base', language: 'ts', watchId: 'w', isLoading: false, isSaving: false, error: null, conflict: { externalContent: 'disk', externalMtimeMs: 2 } }
-    useEditorStore.setState({ files: { ws: { 'a.ts': file } }, activePath: { ws: 'a.ts' } })
-    useEditorStore.getState().resolveConflict('ws', 'mine')
-    expect(useEditorStore.getState().files.ws['a.ts']).toMatchObject({ content: 'mine', lastSavedContent: 'disk', conflict: null })
-    useEditorStore.setState({ files: { ws: { 'a.ts': file } } })
-    useEditorStore.getState().resolveConflict('ws', 'disk')
-    expect(useEditorStore.getState().files.ws['a.ts']).toMatchObject({ content: 'disk', lastSavedContent: 'disk', conflict: null })
-  })
 })

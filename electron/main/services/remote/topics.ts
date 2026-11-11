@@ -450,7 +450,7 @@ class AgentsTopic implements RemoteTopicSource {
       const request = toPendingRequest(row, roots)
       return [`${request.threadId}\u0000${request.requestId}`, request] as const
     }))
-    const unavailable = REMOTE_AGENT_SOURCES.filter(source => !overview.sources[source]?.ok)
+    const unavailable = REMOTE_AGENT_SOURCES.filter(source => Boolean(overview.sources[source] && !overview.sources[source].ok))
     const hidden = this.hidden()
     const visible = (row: { kind: string; id: string }): boolean => !(row.kind === 'pane' && hidden.has(row.id))
     const fresh = overview.agents.filter(visible).map(row => toRemoteAgent(row, 0, roots, message => this.desktop.messageText(message), (threadId, requestId) => shown.get(`${threadId}\u0000${requestId}`)))
@@ -458,6 +458,7 @@ class AgentsTopic implements RemoteTopicSource {
     // (SECURITY #531 L5, §5.7).
     for (const source of REMOTE_AGENT_SOURCES) {
       const kind = SOURCE_KIND[source]
+      if (!overview.sources[source]) { this.lastRows.delete(kind); continue }
       if (unavailable.includes(source)) fresh.push(...(this.lastRows.get(kind) ?? []).filter(visible))
       else this.lastRows.set(kind, fresh.filter(row => row.kind === kind))
     }

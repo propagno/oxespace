@@ -148,7 +148,7 @@ describe('side chat runtime (B1.2)', () => {
     // Only the read-only lookups this conversation has are approved, each by name; the bridge itself still asks.
     const forkConfig = launch.writes.find(write => write.method === 'thread/fork')!.params as { config: Record<string, unknown> }
     const approved = Object.entries(forkConfig.config).filter(([, value]) => value === 'approve').map(([key]) => key.split('.')[3])
-    expect(approved).toContain('oxespace_code_search')
+    expect(approved).toContain('oxespace_project_context')
     expect(approved.every(tool => THREAD_READ_ONLY_MCP_TOOLS.includes(tool))).toBe(true)
     expect(approved).not.toContain('oxespace_memory_remember')
     const bridgeArg = launch.args.find(arg => arg.startsWith('mcp_servers.oxespace-delegation.args='))!

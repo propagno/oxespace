@@ -24,10 +24,10 @@ policy (`tool.use` rules of the policy store) applies by tool name to every tool
 
 | Covered | Excluded | Planned | Forbidden | Total |
 |---|---|---|---|---|
-| 36 | 31 | 2 | 20 | 89 |
+| 36 | 30 | 2 | 21 | 89 |
 
-The registry has 82 tools: 59 single-purpose tools and 23 domain tools with 88 actions, so the
-manifest declares 147 tool-or-action entries.
+The registry has 75 tools: 52 single-purpose tools and 23 domain tools with 86 actions, so the
+manifest declares 138 tool-or-action entries.
 
 ## Forbidden, never a tool
 
@@ -49,6 +49,7 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `remote.gateway_admin` | `remote.setEnabled`, `startPairing`, `cancelPairing`, `answerPairing`, `revoke`, `rename`, `setDesktopName`, `setPhoneWrite`, `setPhoneHidden` (CR-34: the person keeps a pane off the phone) |
 | `approvals.admin` | `approvals.list`, `respond`, `ack`, `unavailable`, `history` (B10: the app's own approval modal) |
 | `thread.sections` | `thread.sections`, `thread.saveSections` (F13, for 1.4: the person's own organization of the conversation list) |
+| `thread.place_actions` | `thread.placeRead`, `thread.placeDriftAnswer`, `thread.placeUndo`, `thread.placeRestore`, `thread.placeDiscard` (F4, CR-F4-7: the person's answers to a branch drift, Undo, Restore and Discard of a place, and the read of a place's file outside the workspace roots) |
 | `app.open_external` | `app.openExternal` (the window's only way to open a link outside the app, after the person confirmed its host) |
 | `app.open_in` | `app.openIn`, `app.openInTargets`, `app.setOpenInPreference` (B18, for 1.4: it starts a program on the computer, so only the person opens a file in an editor or its folder) |
 | `app.activity` | `activity.recent`, `activity.record`, `activity.seen`, `activity.resolve` (F30, for 1.4: the person's own notification history) |
@@ -78,7 +79,6 @@ Settings › Tools sets, per MCP tool of a project, `allow`, `ask` or `deny` (`e
 |---|---|---|---|
 | `oxespace_settings#workspace` | read | app | The Code workspace's settings (name, root, layout, default shell, auto start, pane count). |
 | `oxespace_settings#policy` | read | app | Organization policy in force for the project (layers, rules, problems). |
-| `oxespace_settings#semantic` | read | app | Semantic index status of the project (no last query text). |
 | `oxespace_integration#groups` | read | Code only | Integration groups the workspace belongs to, with members. |
 | `oxespace_integration#handoffs` | read | Code only | Handoffs of one of those groups; other groups are refused. |
 | `oxespace_threads#native_sessions` | read | app | Claude Code / Codex CLI sessions of the folder (no transcript path). |
@@ -143,8 +143,7 @@ before. Code panes receive the whole registry.
 | `github.connected_repositories` | Connect a GitHub repository to a workspace | Excluded: An account-level link the person makes and confirms in the GitHub panel. |
 | `code.pull_request` | The Pull request tab: a branch's pull request on GitHub or Azure DevOps | Excluded: The person's window. Agents read pull requests with oxespace_github. |
 | `search.text` | Exact text search and the file list | **read**: `oxespace_search#text`, `oxespace_search#files` |
-| `search.code` | Semantic, structural and hybrid code retrieval; post-diff quality check | **read**: `oxespace_semantic_search`, `oxespace_hybrid_explore`, `oxespace_quality_check`, `oxespace_code_search`, `oxespace_code_callers`, `oxespace_code_callees`, `oxespace_code_impact`, `oxespace_code_node`, `oxespace_code_status`, `oxespace_settings#semantic`<br>**write**: `oxespace_workspace_change#reindex` |
-| `search.semantic_admin` | Turn semantic search on or off; download, import or remove the vector model | Excluded: Changes disk use and what is indexed; the person decides in Settings. |
+| `search.code` | The post-diff quality check | **read**: `oxespace_quality_check` |
 | `editor.files` | Read, write and watch files in the editor | Excluded: Agents read and edit files with their own tools, under their provider's permission prompts; an MCP write would bypass them. Reads: oxespace_git file_at_ref, oxespace_search. |
 | `thread.read` | List and read Threads, their usage, and CLI sessions of the folder | **read**: `oxespace_threads#list`, `oxespace_threads#read`, `oxespace_threads#usage`, `oxespace_threads#native_sessions`, `oxespace_thread_read` |
 | `thread.drive` | Create Threads, send, steer, stop, set the model, rename, archive | **write**: `oxespace_thread_create`, `oxespace_thread_send`<br>**confirm**: `oxespace_threads_change#send`, `oxespace_threads_change#steer`, `oxespace_threads_change#interrupt`, `oxespace_threads_change#configure`, `oxespace_threads_change#rename`, `oxespace_threads_change#archive` |
@@ -154,14 +153,12 @@ before. Code panes receive the whole registry.
 | `thread.approvals` | Answer a Thread's approvals and questions | **Forbidden**: Approvals stay with the person. |
 | `thread.side_chat` | A side chat about a conversation | Excluded: The person's read-only scratch copy of a conversation; agents ask in their own. |
 | `thread.access` | Permission rules and auto-approval | **Forbidden**: Raises access. |
+| `thread.places` | A conversation's places, their diffs, path links, panes, collisions and agent summary (F4) | Excluded: The person's window: read models of where a conversation worked. Agents read their own checkout with oxespace_git. |
+| `thread.place_actions` | Answer a branch drift; undo, restore or discard a place's changes; read a file of a place (F4) | **Forbidden**: Person-only (A14 Undo, A15): they change or restore files and branches for the person; the place read reaches outside the workspace roots (A17). |
 | `thread.session_admin` | Fork, delete, clean up or search CLI sessions | Excluded: Deletes or copies the person's CLI history across projects. Agents search with oxespace_memory_search, scoped to the project. |
-| `team.messaging` | Team status and messages | **read**: `oxespace_team_status`, `oxespace_team_inbox`<br>**write**: `oxespace_team_message`, `oxespace_team_acknowledge` |
-| `team.admin` | Add members, pick the coordinator, archive, delivery | Excluded: The person builds the team. |
 | `delegation.use` | Delegate a task and follow it | **read**: `oxespace_delegation_targets`, `oxespace_delegation_preflight`, `oxespace_delegation_status`, `oxespace_delegation_inbox`, `oxespace_delegation_result`, `oxespace_delegation_context`<br>**write**: `oxespace_delegate_task`, `oxespace_delegation_control`, `oxespace_delegation_update`, `oxespace_delegation_checkpoint`, `oxespace_delegation_message`, `oxespace_delegation_acknowledge` |
 | `delegation.authorize` | Authorize delegation targets and adopt delegations | **Forbidden**: Raises access: decides where agents may start work. |
 | `work.plans` | Work plans: plan, status, result, message, cancel | **read**: `oxespace_work_status`, `oxespace_work_result`<br>**write**: `oxespace_work_plan`, `oxespace_work_message`, `oxespace_work_cancel` |
-| `memory.use` | Project memory: search, remember, sessions, handoffs | **read**: `oxespace_memory_search`, `oxespace_memory_sessions`, `oxespace_memory_handoffs`, `oxespace_memory_diagnostics`<br>**write**: `oxespace_memory_remember`, `oxespace_memory_accept_handoff` |
-| `memory.admin` | Install, configure or roll back memory; wire it into agents | Excluded: Memory is the person's opt-in. |
 | `oxequery.read` | Connections, schemas, read queries, plans, activity | **read**: `oxespace_db_connections`, `oxespace_db_describe`, `oxespace_db_explain`, `oxespace_db_activity`<br>**confirm**: `oxespace_db_query`, `oxespace_mongo_find`, `oxespace_mongo_aggregate` |
 | `oxequery.write` | Change data or schema | **confirm**: `oxespace_db_execute`, `oxespace_mongo_write` |
 | `oxequery.saved_queries` | Saved queries, history, import and export of data | Excluded: The person's notebook and bulk data moves; agents run one approved statement at a time. |

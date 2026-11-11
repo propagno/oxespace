@@ -1,10 +1,10 @@
-import { Activity, Brain, Code2, FileCode2, FolderTree, GitCompareArrows, MonitorPlay, Network, Users, Search, Slash, Wrench, type LucideIcon } from 'lucide-react'
+import { Activity, Code2, FileCode2, FolderTree, GitCompareArrows, MonitorPlay, Network, Search, Slash, Wrench, type LucideIcon } from 'lucide-react'
 import { Github } from '../Brand/GithubIcon'
 import { i18n } from '../../i18n'
 import type { KeybindingId } from '../../keyboard/keybindings'
 
 export type ToolGroup = 'Project' | 'Development' | 'AI & Agents' | 'System'
-export type ToolId = 'integration' | 'github' | 'worktrees' | 'scripts' | 'search' | 'web-preview' | 'background' | 'slash' | 'mcp' | 'semantic' | 'editor' | 'review' | 'team' | 'http-calls'
+export type ToolId = 'integration' | 'github' | 'worktrees' | 'scripts' | 'search' | 'web-preview' | 'background' | 'slash' | 'mcp' | 'editor' | 'review' | 'http-calls'
 
 export interface ToolMeta {
   id: ToolId
@@ -30,12 +30,12 @@ function tool(id: ToolId, group: ToolGroup, icon: LucideIcon, rest: { keybinding
     id, group, icon, ...rest,
     // Words in the language on screen come from the catalog (tools.<id>.keywords, comma separated); code keeps English.
     get keywords() {
-      const local = i18n.t(`tools.${key as 'team'}.keywords`, { ns: 'code', defaultValue: '' })
+      const local = i18n.t(`tools.${key as 'integration'}.keywords`, { ns: 'code', defaultValue: '' })
       const words = [...(rest.keywords ?? []), ...local.split(',').map(word => word.trim()).filter(Boolean)]
       return words.length ? words : undefined
     },
-    get label() { return PANEL_OF[id] ? i18n.t(`panels.${PANEL_OF[id] as 'git'}`, { ns: 'code' }) : i18n.t(`tools.${key as 'team'}.label`, { ns: 'code' }) },
-    get detail() { return i18n.t(`tools.${key as 'team'}.detail`, { ns: 'code' }) }
+    get label() { return PANEL_OF[id] ? i18n.t(`panels.${PANEL_OF[id] as 'git'}`, { ns: 'code' }) : i18n.t(`tools.${key as 'integration'}.label`, { ns: 'code' }) },
+    get detail() { return i18n.t(`tools.${key as 'integration'}.detail`, { ns: 'code' }) }
   }
 }
 
@@ -44,7 +44,6 @@ function tool(id: ToolId, group: ToolGroup, icon: LucideIcon, rest: { keybinding
  * shortcuts of the shared panel catalog (src/components/Workbench/panelCatalog.ts).
  */
 export const TOOL_CATALOG: ToolMeta[] = [
-  tool('team', 'Project', Users, { keybinding: 'team.open', keywords: ['team', 'roles', 'coordinator', 'members', 'inbox', 'agents'] }),
   tool('integration', 'Project', Network, { keywords: ['integration', 'srv', 'bff', 'handoff'] }),
   tool('github', 'Development', Github, { keywords: ['git', 'pr', 'workflow', 'actions'] }),
   tool('worktrees', 'Development', FolderTree, { keywords: ['branch', 'checkout'] }),
@@ -55,7 +54,6 @@ export const TOOL_CATALOG: ToolMeta[] = [
   tool('background', 'Development', Activity, { keywords: ['bg', 'job', 'task'] }),
   tool('slash', 'AI & Agents', Slash, { keybinding: 'terminal.slash', keywords: ['slash', 'command'] }),
   tool('mcp', 'AI & Agents', Wrench, { keywords: ['mcp', 'connections', 'tools'] }),
-  tool('semantic', 'AI & Agents', Brain, { keywords: ['index', 'embedding', 'vector'] }),
   tool('editor', 'System', FileCode2, { keybinding: 'code.files', keywords: ['editor', 'monaco', 'files'] }),
   tool('review', 'System', GitCompareArrows, { keybinding: 'code.changes', keywords: ['review', 'diff', 'changes'] })
 ]

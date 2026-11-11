@@ -5,7 +5,6 @@ import { useThreadStore } from '../../store/thread.store'
 import { useTranslation } from 'react-i18next'
 import { Button, Checkbox, Dialog, ErrorState, TextField } from '../../ui'
 import { errorText, humanizeError } from '../../utils/humanizeError'
-import { ThreadProjectSemantic } from './ThreadProjectSemantic'
 import { formatDate } from '../../utils/formatTime'
 
 export function ThreadProjectSettingsDialog({ project, unavailable, onClose, returnFocusTo }: { project: ThreadProjectSummary; unavailable: boolean; onClose(): void; returnFocusTo?: () => HTMLElement | null }) {
@@ -52,7 +51,6 @@ export function ThreadProjectSettingsDialog({ project, unavailable, onClose, ret
         })}>{t('projectSettings.relink')}</Button>
       </details>
     </div>
-    {project.contexts[0]?.rootPath && <ThreadProjectSemantic rootPath={project.contexts[0].rootPath} disabled={needsRelink} />}
     <div className="thread-create-section"><strong>{t('projectSettings.delegation')}</strong>
       <Checkbox className="thread-project-check" checked={snapshot?.enabled ?? false} disabled={!snapshot || busy}
         onChange={event => void apply(() => window.oxe.delegation.configure(scope, event.target.checked))} label={t('projectSettings.allow')} />

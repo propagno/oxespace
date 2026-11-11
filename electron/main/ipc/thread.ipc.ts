@@ -5,10 +5,8 @@ import type { ThreadManager } from '../services/conversation/thread-manager'
 import type { AppDatabase } from '../db'
 import { shellCheck } from '../services/conversation/shell-check'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
-import { registerOxePostIpc } from './oxepost.ipc'
 import { AgentService } from '../services/agent.service'
 import type { AgentAccountContext } from '../../../shared/types/agentAuth'
-import { MemoryProjectService } from '../services/memory/memory-project.service'
 import { ThreadProjectService } from '../services/conversation/thread-projects'
 import { parsePermissionRuleInput } from '../services/conversation/thread-permissions'
 import type { ThreadMcpBindings } from '../services/conversation/thread-mcp'
@@ -16,6 +14,8 @@ import { createThreadWorktree, discardThreadWorktree, ThreadWorktreeError, type 
 import { tagThreadWorktreeError } from '../../../shared/threadWorktree'
 import { registerThreadWorktreeIpc } from './thread-worktree.ipc'
 import { registerThreadSectionsIpc } from './thread-sections.ipc'
+import { registerThreadPlacesIpc } from './thread-places.ipc'
+import { forwardPlacesChanged } from './thread-places-changed'
 import type { ThreadRequestResponse } from '../../../shared/types/thread'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
 import { MainRefusal } from '../services/main-refusal'
@@ -69,9 +69,15 @@ function requestResponse(value: unknown): ThreadRequestResponse {
 }
 
 export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, worktrees?: ThreadWorktreeHost): { stop(): Promise<void>; manager: Promise<ThreadManager> } {
-  // OxePost's channel is registered from this lazy module: the main entry bundle has no room for another line.
-  registerOxePostIpc(workspaceId => (db.prepare('SELECT root_path FROM workspaces WHERE id = ?').get(workspaceId) as { root_path: string } | undefined)?.root_path)
-  const projects = new MemoryProjectService(db)
+  // The folder an account scope runs in: the pane's own root when it has one, else the workspace's.
+  const workspaceCwd = (workspaceId: string, paneId?: string | null): string => {
+    const ws = db.prepare('SELECT root_path FROM workspaces WHERE id = ?').get(workspaceId) as { root_path: string } | undefined
+    if (!ws) throw new Error('Unknown workspace')
+    if (!paneId) return ws.root_path
+    const pane = db.prepare('SELECT root_path FROM panes WHERE id = ? AND workspace_id = ?').get(paneId, workspaceId) as { root_path: string | null } | undefined
+    if (!pane) throw new Error('The pane does not belong to this workspace')
+    return pane.root_path ?? ws.root_path
+  }
   const threadProjects = new ThreadProjectService(db)
   // Keep account/project implementation out of the startup entry bundle.
   const accounts: Promise<NativeAccountService> = import('../services/conversation/native-account.service').then(({ NativeAccountService, authScopeId }) => new NativeAccountService({
@@ -84,7 +90,7 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
       if (!profile || (profile.parentProvider ?? profile.provider) !== context.provider) throw Error('Configure the provider in Agent Settings')
       const root = thread ? thread.rootPath : context.workspaceId.startsWith('thread:')
         ? threadProjects.context(context.workspaceId.slice('thread:'.length)).rootPath
-        : (await projects.workspace(context.workspaceId, context.paneId)).cwd
+        : workspaceCwd(context.workspaceId, context.paneId)
       return { id: authScopeId(context.provider, profile.command, root), provider: context.provider, command: profile.command, cwd: root }
     },
     openExternal: url => shell.openExternal(url),
@@ -247,8 +253,6 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
     return manager.then(service => service.addPermissionRule(string(id), input))
   })
   ipcMain.handle(IPC_CHANNELS.thread.removePermissionRule, (event, id: unknown, ruleId: unknown) => manager.then(service => service.removePermissionRule(string(id), string(ruleId))))
-  ipcMain.handle(IPC_CHANNELS.thread.workRuns, (event, id: unknown) => manager.then(service => service.workRuns(string(id))))
-  ipcMain.handle(IPC_CHANNELS.thread.cancelWork, (event, id: unknown, runId: unknown) => manager.then(service => service.cancelWork(string(id), string(runId))))
   ipcMain.handle(IPC_CHANNELS.thread.autoApproveReads, event => manager.then(service => service.autoApproveReads()))
   ipcMain.handle(IPC_CHANNELS.thread.setAutoApproveReads, (event, enabled: unknown) => {
     if (typeof enabled !== 'boolean') throw Error('Choose on or off')
@@ -317,5 +321,7 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
   })
   registerThreadWorktreeIpc({ db, manager, threadProjects, worktrees, id: string })
   registerThreadSectionsIpc({ db })
+  registerThreadPlacesIpc({ manager })
+  forwardPlacesChanged({ manager })
   return { manager, stop: async () => { await sideChats?.then(chats => chats.stop()).catch(() => {}); await (await accounts).stop(); await (await manager).stop() } }
 }

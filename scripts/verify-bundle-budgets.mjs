@@ -13,7 +13,7 @@ const budgets = [
   // 952 KiB since organization policy (roadmap C1, 2026-10): the policy reader and its enforcement in MCP sync and
   // Thread launches brought the entry to 890 kB, under 5% headroom at 936.
   // 1000 KiB since the 1.4 batch (was 960; env scrubbing and the network rule added 9 kB more) (2026-10-30): MCP coverage, config guard and MCP quarantine, memory control, the problem
-  // report, the upgrade rehearsal hooks and the idle CodeGraph close brought the readable, unminified entry to 926 kB,
+  // report, the upgrade rehearsal hooks and an idle-close of the (since removed, R1) code index brought the readable, unminified entry to 926 kB,
   // under 5% headroom at 952 KiB. Each of them already loads its heavy parts lazily; minifying the main process is the
   // follow-up that would give this back.
   // 620 KiB since the main process is minified (B8.1, 2026-10-30): esbuild with keepNames took the entry from 914 to

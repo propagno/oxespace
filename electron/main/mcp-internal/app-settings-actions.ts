@@ -4,7 +4,6 @@ import { codeWorkspace, int, resolveScope, service, str, type ActionScope, type 
 import { ActionRefused, AgentActions } from '../services/agent-actions/agent-actions'
 import { mainMessage } from '../../../shared/messages'
 import { policyStore } from '../services/policy'
-import { SemanticProjects } from '../services/semantic-projects'
 import { SessionService } from '../services/session.service'
 
 /**
@@ -43,12 +42,6 @@ export const ACTIONS: Record<string, Run> = {
     if (!store) return { sources: [], problems: [] }
     const { sources, problems } = store.load(scope.rootPath)
     return { sources: sources.map(({ layer, organization, rules }) => ({ layer, organization: organization ?? null, rules })), problems }
-  },
-  async settings_semantic(_args, scope, ctx) {
-    // A Code workspace keeps its own index id; a Thread project uses its root's.
-    const id = scope.workspaceId && !scope.workspaceId.startsWith('thread:') ? scope.workspaceId : SemanticProjects.idFor(scope.rootPath)
-    const { lastQuery: _lastQuery, lastError, ...status } = ctx.semantic.getStatus(id)
-    return { ...status, lastError: lastError ? lastError.slice(0, 300) : null }
   },
   async integration_groups(_args, scope, ctx) {
     return (await integration(ctx)).listGroups(codeWorkspace(scope))

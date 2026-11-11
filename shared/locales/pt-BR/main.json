@@ -120,7 +120,11 @@
         "busy": "Espere o turno desta conversa terminar antes de voltar a branch.",
         "dirty": "Este checkout tem alterações não commitadas, então a branch não foi trocada de volta. Faça commit ou guarde-as antes.",
         "detached": "A tarefa começou sem branch (HEAD destacado), então não há branch para onde voltar.",
-        "branchGone": "A branch \"{{branch}}\" não existe mais, então não é possível voltar para ela."
+        "branchGone": "A branch \"{{branch}}\" não existe mais, então não é possível voltar para ela.",
+        "stale": "Este arquivo mudou depois que as alterações foram mostradas, então nada foi desfeito. Recarregue as alterações e tente de novo.",
+        "notTask": "Esta tarefa não alterou este arquivo, então ele ficou como está.",
+        "restoreGone": "Esta alteração não pode mais ser restaurada: ela já foi restaurada, um novo turno começou ou dez minutos se passaram.",
+        "confirm": "Confirme para descartar as alterações desta tarefa neste local."
       },
       "sections": {
         "invalid": "Não foi possível salvar estas seções. Recarregue a lista e tente de novo.",
@@ -233,6 +237,19 @@
         "notFollowed": "Não copiados, por serem links ou levarem para fora do repositório ou do worktree: {{paths}}.",
         "failed": "Não foi possível copiar: {{paths}}."
       },
+      "remove": {
+        "notFound": "Este não é um worktree removível deste repositório.",
+        "busy": "Este worktree está em uso ({{reason}}). Feche os painéis dele ou espere a conversa terminar.",
+        "locked": "Este worktree está bloqueado: {{reason}}. Desbloqueie antes de remover.",
+        "dirty": "{{count}} alterações não commitadas. Faça commit ou descarte primeiro.",
+        "dirty_one": "{{count}} alteração não commitada. Faça commit ou descarte primeiro.",
+        "dirty_many": "{{count}} alterações não commitadas. Faça commit ou descarte primeiro.",
+        "dirty_other": "{{count}} alterações não commitadas. Faça commit ou descarte primeiro.",
+        "failed": "Não foi possível remover o worktree. Ele continua na lista; tente de novo quando nada estiver usando.",
+        "defaultBranch": "A branch {{branch}} é a branch padrão e nunca é apagada.",
+        "branchInUse": "A branch {{branch}} está em uso em outro worktree e não é apagada.",
+        "unmergedBranch": "A branch {{branch}} tem commits não mesclados. Confirme para apagá-la mesmo assim."
+      },
       "removed": "Worktree removido de {{path}}.",
       "archive": {
         "notApproved": "O hook de archive do oxe.yaml não foi aprovado e foi pulado.",
@@ -310,28 +327,6 @@
     },
     "oxepod": {
       "startFailed": "O OxePod não iniciou: {{reason}}"
-    },
-    "oxepost": {
-      "network": {
-        "notFound": "O nome do host não foi encontrado. Confira a URL e a conexão.",
-        "refused": "A conexão foi recusada: nada está escutando nesse endereço e porta.",
-        "reset": "O servidor fechou a conexão antes de responder.",
-        "timedOut": "A conexão esgotou o tempo.",
-        "lookupFailed": "Não foi possível consultar o nome do host agora.",
-        "hostUnreachable": "O host não pode ser alcançado.",
-        "networkUnreachable": "A rede não pode ser alcançada."
-      },
-      "send": {
-        "invalidUrl": "A URL não é válida. Ela precisa de um esquema, como https://example.com/path",
-        "scheme": "Só URLs http e https podem ser enviadas.",
-        "bodyNotAllowed": "{{method}} não pode ter corpo. Troque o método ou limpe o corpo.",
-        "bodyTooLarge": "O corpo passa de 5 MB.",
-        "invalidHeader": "“{{name}}” não é um cabeçalho válido.",
-        "timeout": "Nenhuma resposta completa em {{seconds}} segundos.",
-        "tls": "O certificado do servidor não foi aceito ({{code}}). O OxePost sempre verifica certificados: confie no certificado neste computador ou use o endereço para o qual ele foi emitido.",
-        "failed": "O pedido falhou.",
-        "failedWith": "O pedido falhou: {{detail}}"
-      }
     },
     "approvals": {
       "title": {

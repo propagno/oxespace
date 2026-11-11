@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button } from '../../ui'
+import { Button, EmptyState } from '../../ui'
 import { formatClock, formatDate } from '../../utils/formatTime'
 import { resultChip } from './agentActivityModel'
 import { AgentActivityDetail } from './AgentActivityDetail'
@@ -209,18 +209,14 @@ export function AgentActivitySettings(): ReactElement {
       )}
 
       {rows.length === 0 ? (
-        <div className="agent-activity-empty">
-          {isFiltered ? (
-            <>
-              <p>{t('activity.emptyFiltered')}</p>
-              <Button variant="secondary" onClick={handleClearFilters}>
-                {t('activity.clearFilters')}
-              </Button>
-            </>
-          ) : (
-            <p>{t('activity.empty')}</p>
-          )}
-        </div>
+        isFiltered ? (
+          <EmptyState
+            title={t('activity.emptyFiltered')}
+            actions={<Button variant="secondary" onClick={handleClearFilters}>{t('activity.clearFilters')}</Button>}
+          />
+        ) : (
+          <EmptyState title={t('activity.empty')} />
+        )
       ) : (
         <>
           <table className="agent-activity-table">

@@ -14,7 +14,7 @@ import type { Chunk } from '../lib/chunk'
  * 5. focus moves into the new view and its name is announced at the commit, not at the click.
  */
 export const SKELETON_AFTER_MS = 300
-export const VIEW_NAMES: Record<AppView, string> = { code: 'OxeCode', thread: 'OxeChat', data: 'OxeQuery', pods: 'OxePod', post: 'OxePost' }
+export const VIEW_NAMES: Record<AppView, string> = { code: 'OxeCode', thread: 'OxeChat', data: 'OxeQuery' }
 
 /** The chunks the lazy views load from; OxeCode is in the entry. Read lazily so this module stays out of their way. */
 let viewChunks: Partial<Record<AppView, Chunk<unknown>>> | null = null

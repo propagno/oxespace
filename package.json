@@ -31,18 +31,15 @@
     "bench:services": "vitest bench --run tests/bench/services.bench.ts",
     "bench:ui": "playwright test --config playwright.tools.config.ts perf-benchmark.spec.ts memory-footprint.spec.ts perceived-perf.spec.ts",
     "bench:web-preview": "playwright test --config playwright.tools.config.ts browser-preview-performance.spec.ts",
-    "bench:semantic": "node scripts/semantic-eval.mjs",
-    "bench:semantic:gate": "node scripts/semantic-quality-gate.mjs",
     "test:a11y": "playwright test --config playwright.visual.config.ts a11y-surfaces",
     "test:visual": "playwright test --config playwright.visual.config.ts",
     "test:visual:update": "playwright test --config playwright.visual.config.ts --update-snapshots",
     "shots:ui": "playwright test --config playwright.tools.config.ts screenshots.spec.ts",
     "shots:settings": "playwright test --config playwright.tools.config.ts settings-tabs.spec.ts",
-    "prepare:model": "node scripts/fetch-semantic-model.mjs",
     "postinstall": "npm run rebuild:native",
     "dist": "node scripts/dist-host.mjs",
-    "dist:win": "npm run build && npm run fix:native && npm run slim:pack -- --platform=win32 --arch=x64 && electron-builder --win --config.npmRebuild=false --publish never",
-    "dist:linux": "npm run build && npm run fix:native && npm run slim:pack -- --platform=linux --arch=x64 && electron-builder --linux --config.npmRebuild=false --publish never",
+    "dist:win": "npm run build && npm run fix:native && electron-builder --win --config.npmRebuild=false --publish never",
+    "dist:linux": "npm run build && npm run fix:native && electron-builder --linux --config.npmRebuild=false --publish never",
     "rebuild:native": "node scripts/fix-native-modules.mjs",
     "rebuild:native:electron": "node scripts/fix-native-modules.mjs",
     "rebuild:native:node": "npm rebuild better-sqlite3 node-pty",
@@ -50,7 +47,6 @@
     "native:doctor": "node scripts/native-doctor.mjs",
     "verify:bundle": "node scripts/verify-bundle-budgets.mjs && node scripts/verify-worker-bundle.mjs",
     "fix:native": "node scripts/fix-native-modules.mjs",
-    "slim:pack": "node scripts/slim-pack-deps.mjs",
     "generate:icon": "node scripts/generate-icon.mjs",
     "test:smoke": "playwright test e2e/smoke-hub.spec.ts",
     "verify:linux": "docker build -f docker/linux-verify.Dockerfile -t oxespace-linux-verify . && docker run --rm --name oxespace-linux-verify-run --shm-size=1g oxespace-linux-verify",
@@ -74,7 +70,6 @@
     "@fontsource/ibm-plex-sans": "^5.3.0",
     "@monaco-editor/react": "^4.7.0",
     "@vscode/ripgrep": "^1.18.0",
-    "@xenova/transformers": "^2.17.2",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/addon-search": "^0.15.0",
     "@xterm/addon-serialize": "0.13.0",
@@ -114,9 +109,7 @@
     "node-pty": "^1.1.0"
   },
   "overrides": {
-    "dompurify": "3.4.17",
-    "protobufjs": "7.6.5",
-    "sharp": "0.35.5"
+    "dompurify": "3.4.17"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",

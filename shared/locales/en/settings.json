@@ -31,37 +31,49 @@
         "label": "General",
         "hint": "Navigation, workspace and preferences"
       },
-      "appearance": {
-        "label": "Appearance",
-        "hint": "Mode, scale, density and language"
-      },
       "providers": {
         "label": "Agents",
         "hint": "Agent CLIs, custom agents and idle conversations"
       },
-      "policy": {
-        "label": "Approvals and safety",
-        "hint": "Approvals, policy rules and protected resources"
-      },
-      "notifications": {
-        "label": "Notifications",
-        "hint": "Alerts and sounds"
-      },
-      "keyboard": {
-        "label": "Keyboard",
-        "hint": "Shortcuts and key bindings"
+      "appearance": {
+        "label": "Appearance",
+        "hint": "Mode, scale, density and language"
       },
       "terminal": {
         "label": "Terminal",
         "hint": "Font, cursor, scrolling and behavior"
       },
-      "mcp": {
-        "label": "MCP servers and skills",
-        "hint": "Model Context Protocol servers and skill prompts"
+      "keyboard": {
+        "label": "Keyboard",
+        "hint": "Shortcuts and key bindings"
+      },
+      "notifications": {
+        "label": "Notifications",
+        "hint": "Alerts and sounds"
+      },
+      "updates": {
+        "label": "Updates",
+        "hint": "Version, downloads and installation"
+      },
+      "policy": {
+        "label": "Approvals and safety",
+        "hint": "Approvals, policy rules and protected resources"
       },
       "devices": {
         "label": "Phone and devices",
         "hint": "Phones and paired devices"
+      },
+      "diagnostics": {
+        "label": "Diagnostics",
+        "hint": "Application health and troubleshooting"
+      },
+      "data": {
+        "label": "Data",
+        "hint": "Export, backup and removed features"
+      },
+      "mcp": {
+        "label": "MCP servers and skills",
+        "hint": "Model Context Protocol servers and skill prompts"
       },
       "privacy": {
         "label": "Data and privacy",
@@ -70,10 +82,6 @@
       "activity": {
         "label": "Agent activity",
         "hint": "What agents changed through OXESpace, and what you decided."
-      },
-      "diagnostics": {
-        "label": "Diagnostics",
-        "hint": "Application health and troubleshooting"
       },
       "about": {
         "label": "About",
@@ -263,28 +271,6 @@
     "hint": "Each open OxeChat conversation keeps an agent process and its MCP servers running. Closing idle ones frees memory; your next message resumes the same session. A conversation with a running turn, a question, queued messages, a background task or a permission allowed for the session stays open.",
     "saveFailed": "Could not save this setting"
   },
-  "semantic": {
-    "title": "Semantic index (beta)",
-    "searchByMeaning": "Semantic search",
-    "switchLabel": "Semantic search with the local index",
-    "downloadLabel": "Model download",
-    "state": {
-      "off": "Off. Agents search with exact terms (FTS5) and code structure (CodeGraph).",
-      "downloadingProgress": "Downloading model… {{loaded}} of {{total}}",
-      "downloading": "Downloading model…",
-      "loading": "Loading the model…",
-      "notInstalled": "On, but the model is not installed. Download it or import it from a folder.",
-      "error": "The model could not load: {{error}}",
-      "ready": "Ready. Agents also search with semantic concepts; files are embedded in the background."
-    },
-    "unknownError": "unknown error",
-    "download": "Download model (~270 MB)",
-    "import": "Import from folder…",
-    "remove": "Remove downloaded model",
-    "hint": "The model ({{model}}) runs on this machine and is kept in the app's data folder, so updates do not download it again. To import, choose a folder with config.json, tokenizer.json, tokenizer_config.json and onnx/model_quantized.onnx.",
-    "usage": "Agent searches so far: {{without}} without the index, {{with}} with it (counted on this machine only).",
-    "changeFailed": "Could not change the semantic index."
-  },
   "terminal": {
     "title": "Terminal",
     "description": "Set the default font, cursor and behavior for every workspace. Workspace overrides remain independent.",
@@ -404,7 +390,6 @@
   },
   "policy": {
     "title": "Policy",
-    "networkHint": "Hosts agents can call.",
     "intro": "Rules that block what agents may use: providers, tools, MCP servers, skills, databases and shared memory. They only block; they never grant anything. To change a rule, edit the file. The last matching rule decides, so the managed file wins.",
     "notApplied": "Not applied: {{problem}}",
     "layers": {
@@ -425,11 +410,26 @@
     "noFile": "No file.",
     "noRules": "No rules.",
     "rules": "{{layer}} rules",
-    "reload": "Reload policy"
+    "reload": "Reload policy",
+    "networkHint": "Hosts agents can call."
   },
   "activity": {
     "title": "Agent activity",
     "hint": "What agents changed through OXESpace, and what you decided.",
+    "decisions": {
+      "auto": "ran",
+      "approved": "you approved",
+      "denied": "you declined",
+      "refused": "refused by policy",
+      "pending": "waiting for you"
+    },
+    "empty": "No agent activity yet.",
+    "list": "Agent changes",
+    "failed": "failed",
+    "failedWithCode": "failed ({{code}})",
+    "savedAudit": "Saved the audit to {{path}}",
+    "refresh": "Refresh activity",
+    "export": "Export the audit (JSONL)",
     "columns": {
       "when": "When",
       "conversation": "Conversation",
@@ -446,7 +446,6 @@
     "sourcesFailed": "Some sources couldn't be read. The rest is up to date.",
     "tryAgain": "Try again",
     "loadMore": "Load more",
-    "empty": "No agent activity yet.",
     "emptyFiltered": "Nothing matches these filters.",
     "clearFilters": "Clear filters",
     "actorRemoved": "(removed)",
@@ -459,20 +458,7 @@
     "ports": "Ports",
     "folder": "Folder",
     "target": "Target",
-    "status": "Status",
-    "decisions": {
-      "auto": "ran",
-      "approved": "you approved",
-      "denied": "you declined",
-      "refused": "refused by policy",
-      "pending": "waiting for you"
-    },
-    "list": "Agent changes",
-    "failed": "failed",
-    "failedWithCode": "failed ({{code}})",
-    "savedAudit": "Saved the audit to {{path}}",
-    "refresh": "Refresh activity",
-    "export": "Export the audit (JSONL)"
+    "status": "Status"
   },
   "keyboard": {
     "title": "Keyboard",
@@ -842,5 +828,17 @@
       "bodyDefaults": "The file has an error and has never been read, so agents use the app's defaults, shown below. To change them, fix the file by hand and choose Reload.",
       "readAgain": "Modes read again"
     }
+  },
+  "data": {
+    "title": "Data",
+    "description": "Manage your application data, exports and removed features",
+    "removedSection": "Removed in 1.5",
+    "exportLabel": "Export removed data",
+    "exportDesc": "Data from features removed in 1.5, in one JSON file.",
+    "savedDesc": "Saved {{date}} · {{file}}",
+    "errorDesc": "Not saved yet: {{error}}",
+    "showInFolder": "Show in folder",
+    "tryNow": "Try now",
+    "exportAction": "Export…"
   }
 }
