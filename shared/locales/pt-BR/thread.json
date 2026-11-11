@@ -1774,36 +1774,36 @@
   "pathLink": {
     "which": "Qual deles?",
     "candidate": "{{place}} · {{path}}",
-    "missing": "{{path}} não foi encontrado. Procurado, nesta ordem, em:",
+    "missing": "{{path}} não foi encontrado. Procurei, em ordem:",
     "lookedAt": "{{path}} ({{step}})",
     "more_one": "e mais {{count}}",
     "more_many": "e mais {{count}}",
     "more_other": "e mais {{count}}",
-    "findFile": "Encontrar arquivo…",
+    "findFile": "Procurar arquivo…",
     "askAgent": "Perguntar ao agente",
     "askDraft": "Não consegui abrir {{path}}. Onde ele está?",
     "failed": "Não foi possível procurar {{path}}. Tente de novo.",
     "kind": {
       "root": "Checkout principal",
       "worktree": "Worktree da tarefa",
-      "checkout": "Outro repositório",
-      "outside": "Pasta externa",
-      "sibling": "Worktree irmão",
+      "checkout": "Outro checkout",
+      "outside": "Fora do repositório",
+      "sibling": "Worktree irmã",
       "place": "Outro lugar"
     },
     "step": {
       "absolute": "o caminho como foi escrito",
       "turnCwd": "a pasta do turno",
       "checkoutRoot": "o checkout dela",
-      "taskWorktree": "o worktree da tarefa",
+      "taskWorktree": "a worktree da tarefa",
       "projectRoot": "a raiz do projeto",
       "taskPlace": "um lugar onde a tarefa escreveu",
-      "siblingWorktree": "um worktree irmão"
+      "siblingWorktree": "uma worktree irmã"
     }
   },
   "outsideFile": {
     "band": "Somente leitura · fora do repositório · {{path}}",
-    "bandCheckout": "Somente leitura · outro repositório · {{path}}",
+    "bandCheckout": "Somente leitura · outro checkout · {{path}}",
     "label": "{{path}}, somente leitura",
     "copyPath": "Copiar caminho",
     "path": "Caminho",
@@ -1814,5 +1814,223 @@
   "toolOutputCut": {
     "withTotal": "Saída cortada nos primeiros {{kept}} de {{total}}",
     "keptOnly": "Saída cortada nos primeiros {{kept}}"
+  },
+  "semantic": {
+    "title": "Busca semântica",
+    "toggle": "Indexar este projeto para os agentes buscarem por significado",
+    "hint": "O índice fica neste computador. Os agentes continuam lendo os arquivos de que precisam; isto só ajuda a encontrá-los.",
+    "starting": "Iniciando o índice…",
+    "indexing": "Indexando… {{files}} arquivos até agora",
+    "indexed": "{{files}} arquivos indexados",
+    "failed": "Não foi possível alterar a busca semântica."
+  },
+  "places": {
+    "kind": {
+      "worktree": "Worktree da tarefa",
+      "root": "Checkout principal",
+      "checkout": "Outro checkout",
+      "outside": "Fora do repositório"
+    },
+    "summary_one": "Alterações em {{count}} lugar",
+    "summary_many": "Alterações em {{count}} lugares",
+    "summary_other": "Alterações em {{count}} lugares",
+    "against": "{{path}} · comparado com {{commit}}, onde a tarefa começou",
+    "outsideNote": "Não é um checkout git: arquivos como o agente os escreveu",
+    "capped": "Acompanhando os primeiros {{limit}} lugares desta conversa.",
+    "empty": "Nenhuma alteração. Arquivos que o agente escreve aparecem aqui, pelo lugar onde escreveu.",
+    "loading": "Lendo as alterações",
+    "failed": "Não foi possível ler as alterações deste lugar. Tente de novo.",
+    "noFiles": "Nenhuma alteração aqui.",
+    "undoFile": "Desfazer arquivo",
+    "undoHunk": "Desfazer trecho",
+    "undone": "Alteração desfeita",
+    "restored": "Alteração restaurada",
+    "undoFailed": "Não foi possível desfazer esta alteração. Tente de novo.",
+    "stale": "O arquivo mudou depois de ser mostrado; as alterações foram lidas de novo.",
+    "discard": "Descartar…",
+    "discardTitle": "Descartar as alterações da tarefa em {{place}}?",
+    "discardText": "Os arquivos que a tarefa mudou em {{path}} voltam a como estavam quando a tarefa começou.",
+    "discardConfirm": "Descartar alterações",
+    "discarded": "Alterações descartadas",
+    "openFolder": "Abrir pasta",
+    "groups": {
+      "task": "Alterado pela tarefa",
+      "branchSwitch": "Alterado pela troca de branch"
+    },
+    "drift": {
+      "title": "Esta worktree está em outra branch agora.",
+      "moved": "Às {{time}} ela passou de {{from}} para {{to}}.",
+      "movedOne": "Às {{time}} ela passou de {{from}} para {{to}}, provavelmente pelo seu terminal \"{{pane}}\".",
+      "movedMany": "Às {{time}} ela passou de {{from}} para {{to}}, provavelmente por um dos seus terminais: {{panes}}.",
+      "detachedBranch": "um HEAD destacado",
+      "switchBack": "Voltar para {{branch}}",
+      "follow": "Seguir a nova branch",
+      "dismiss": "Dispensar",
+      "openTerminal": "Abrir aquele terminal",
+      "dirty": "Faça commit ou mova as alterações primeiro.",
+      "detached": "O HEAD está destacado; faça checkout de uma branch primeiro.",
+      "busy": "Espere o agente terminar este turno primeiro.",
+      "followTitle": "Seguir a nova branch?",
+      "followText": "Seguir {{branch}}? As alterações da tarefa passam a ser comparadas com {{branch}}.",
+      "followConfirm": "Seguir {{branch}}",
+      "switchBackTitle": "Voltar?",
+      "switchBackText": "Voltar a worktree para {{branch}}? A branch {{to}} do seu terminal fica como está.",
+      "switchBackConfirm": "Voltar",
+      "failed": "Não foi possível responder à troca de branch. Tente de novo."
+    },
+    "base": "comparado com {{commit}}, onde a tarefa começou",
+    "files_one": "{{count}} arquivo",
+    "files_many": "{{count}} arquivos",
+    "files_other": "{{count}} arquivos",
+    "inPlaces_one": "em {{count}} lugar",
+    "inPlaces_many": "em {{count}} lugares",
+    "inPlaces_other": "em {{count}} lugares",
+    "view": {
+      "label": "Mostrar alterações",
+      "all": "Todas as alterações",
+      "byTurn": "Por turno"
+    },
+    "askReview": "Pedir uma revisão",
+    "reviewPrompt": "Revise as alterações que esta conversa fez, lugar por lugar, e diga o que corrigir.",
+    "finish": "Concluir a worktree…",
+    "comment": "Comentar",
+    "commentLabel": "Comentário em {{path}} {{hunk}}",
+    "commentSend": "Enviar para a conversa",
+    "commentPrompt": "Sobre `{{path}}` ({{hunk}}):",
+    "openAt": "Abrir no editor na linha {{line}}"
+  },
+  "paneBranch": {
+    "on": "Em {{branch}}",
+    "switched": "Em {{branch}}, trocou de {{from}}"
+  },
+  "collision": {
+    "alsoEditedBy": "Também editado por {{title}}",
+    "more_one": "e mais {{count}}",
+    "more_many": "e mais {{count}}",
+    "more_other": "e mais {{count}}"
+  },
+  "terminalTab": {
+    "agent": "Do agente",
+    "yours": "Seus",
+    "empty": "Ainda não há terminais nos lugares desta conversa."
+  },
+  "threadTabs": {
+    "label": "Abas da conversa",
+    "conversation": "Conversa",
+    "changes": "Alterações",
+    "terminal": "Terminal",
+    "containers": "Contêineres",
+    "network": "Rede",
+    "pullRequest": "Pull request"
+  },
+  "prTab": {
+    "loading": "Carregando…",
+    "failed": "Não foi possível ler o pull request.",
+    "unsupported": "Pull requests deste remoto não são suportados.",
+    "none": "Esta branch ainda não tem pull request.",
+    "missing": {
+      "github": "Instale a GitHub CLI (gh) para ver o pull request desta branch.",
+      "azure": "Instale a Azure CLI (az) com a extensão azure-devops para ver o pull request desta branch."
+    },
+    "signedOut": {
+      "github": "Entre com gh auth login para ver o pull request desta branch.",
+      "azure": "Entre com az login para ver o pull request desta branch."
+    },
+    "howToInstall": "Como instalar",
+    "copyCommand": "Copiar comando",
+    "command": "Comando",
+    "provider": {
+      "github": "GitHub",
+      "azure": "Azure DevOps"
+    },
+    "state": {
+      "open": "Aberto",
+      "draft": "Rascunho",
+      "merged": "Mergeado",
+      "closed": "Fechado",
+      "completed": "Concluído",
+      "abandoned": "Abandonado"
+    },
+    "branches": "{{head}} para {{base}}",
+    "workItems": "Itens de trabalho",
+    "checks": {
+      "github": "Verificações",
+      "azure": "Pipelines e políticas",
+      "tally": "{{passed}} de {{total}} passaram",
+      "none": "Nenhuma verificação ainda.",
+      "pass": "Passou",
+      "running": "Rodando",
+      "fail": "Falhou",
+      "skipped": "Ignorada",
+      "notApplicable": "Não se aplica"
+    },
+    "duration": {
+      "seconds": "{{seconds}} s",
+      "minutes": "{{minutes}} min {{seconds}} s"
+    },
+    "reviewers": {
+      "title": "Revisores",
+      "none": "Nenhum revisor ainda."
+    },
+    "vote": {
+      "approved": "Aprovado",
+      "changesRequested": "Alterações pedidas",
+      "commented": "Comentou",
+      "reviewRequested": "Revisão pedida",
+      "approvedWithSuggestions": "Aprovado com sugestões",
+      "noVote": "Sem voto",
+      "waitingForAuthor": "Aguardando o autor",
+      "rejected": "Rejeitado"
+    },
+    "open": {
+      "github": "Abrir no GitHub",
+      "azure": "Abrir no Azure DevOps"
+    },
+    "merge": {
+      "github": "Fazer merge",
+      "azure": "Concluir"
+    },
+    "description": "Descrição",
+    "summary": {
+      "title": "O que o agente fez",
+      "empty": "Nada a relatar ainda.",
+      "failed": "Algumas fontes não puderam ser lidas.",
+      "add": "Adicionar à descrição",
+      "added": "Adicionado à descrição",
+      "undo": "Desfazer",
+      "files_one": "{{count}} arquivo alterado",
+      "files_many": "{{count}} arquivos alterados",
+      "files_other": "{{count}} arquivos alterados",
+      "databases_one": "{{count}} consulta ao banco",
+      "databases_many": "{{count}} consultas ao banco",
+      "databases_other": "{{count}} consultas ao banco",
+      "http_one": "{{count}} chamada HTTP",
+      "http_many": "{{count}} chamadas HTTP",
+      "http_other": "{{count}} chamadas HTTP",
+      "httpProduction_one": "{{count}} chamada HTTP, {{production}} para produção",
+      "httpProduction_many": "{{count}} chamadas HTTP, {{production}} para produção",
+      "httpProduction_other": "{{count}} chamadas HTTP, {{production}} para produção",
+      "containers_one": "{{count}} ação em contêiner",
+      "containers_many": "{{count}} ações em contêineres",
+      "containers_other": "{{count}} ações em contêineres",
+      "approvals_one": "{{count}} aprovação sua",
+      "approvals_many": "{{count}} aprovações suas",
+      "approvals_other": "{{count}} aprovações suas"
+    },
+    "form": {
+      "title": "Título",
+      "from": "De",
+      "into": "Para",
+      "draft": "Abrir como rascunho",
+      "submit": "Enviar e abrir pull request",
+      "opened": "Pull request aberto",
+      "failed": "Não foi possível abrir o pull request. Tente de novo."
+    },
+    "address": "Tratar os comentários da revisão",
+    "addressPrompt": "Leia os comentários da revisão do pull request {{number}} e trate-os.",
+    "mergeTooltip": {
+      "github": "O merge acontece no GitHub depois da revisão",
+      "azure": "A conclusão acontece no Azure DevOps quando as políticas passam"
+    }
   }
 }

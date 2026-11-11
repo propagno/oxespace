@@ -41,15 +41,14 @@ import { hasUnconfirmedTurnTools, recoverPublicTurn } from './thread-result-reco
 import type { NativeStateResult } from './codex-state-reader'
 import { ThreadPlaceStore } from './thread-places'
 import { ThreadPlaceObserver } from './thread-place-observer'
+import { ThreadPlaceActions } from './thread-place-actions'
 import { projectDiffAt } from './thread-place-heads'
-import type { ThreadCollision, ThreadPane, ThreadPaneSource, ThreadPathResolution, ThreadPlace, ThreadPlaceDiff, ThreadPlaceDriftAnswer, ThreadPlaceReadResult, ThreadPlaces } from '../../../../shared/types/thread-places'
+import type { ThreadCollision, ThreadPane, ThreadPaneSource, ThreadPathResolution, ThreadPlace, ThreadPlaceActionResult, ThreadPlaceDiff, ThreadPlaceDriftAnswer, ThreadPlaceReadResult, ThreadPlaces, ThreadPlaceUndoInput, ThreadPlaceUndoResult } from '../../../../shared/types/thread-places'
 import type { MainMessage } from '../../../../shared/messages'
 import { explainMissingFolder, ThreadFolderMissingError } from './thread-worktree'
-
 /** The checkout a conversation works in: a worktree of its repository the provider moved into, else its root. */
 const workingRootOf = (thread: ConversationThread): string =>
   thread.observedLocation?.sameRepository && thread.observedLocation.checkoutRoot ? thread.observedLocation.checkoutRoot : thread.rootPath
-
 /** Conversations a restart may have left mid-operation: live status, an open connection, or a task still marked running. */
 const THREADS_NEEDING_RECOVERY = `SELECT id FROM conversation_threads t WHERE
   json_extract(data_json, '$.status') IN ('running', 'approval')
@@ -58,10 +57,8 @@ const THREADS_NEEDING_RECOVERY = `SELECT id FROM conversation_threads t WHERE
   OR json_extract(data_json, '$.connection.suspendedAt') IS NOT NULL
   OR EXISTS (SELECT 1 FROM conversation_events e WHERE e.thread_id = t.id
     AND json_extract(e.data_json, '$.type') = 'subagent' AND json_extract(e.data_json, '$.state') = 'running')`
-
 /** How often idle conversations are checked for suspension. */
 const IDLE_SWEEP_MS = 60_000
-
 /** Repair older histories whose provider ended a turn without a matching tool result. */
 function settleCompletedHistoryTools(events: ThreadEvent[]): number {
   let turnStart = 0, earliest = events.length
@@ -79,7 +76,6 @@ function settleCompletedHistoryTools(events: ThreadEvent[]): number {
   })
   return earliest
 }
-
 export class ThreadOrchestrator {
   private readonly changeListeners = new Map<string, Set<(id: string) => void>>()
   /** `id` '*' hears every conversation (the remote gateway's lists); thread ids are UUIDs, so it names none. */
@@ -111,7 +107,8 @@ export class ThreadOrchestrator {
   /** F4 places per conversation, from evidence (migration 095). */
   private readonly placeStore: ThreadPlaceStore
   /** F4 places, drift, place diff and read, cwd, panes and collisions (thread-place-observer.ts). */
-  private readonly placeObserver: ThreadPlaceObserver
+  protected readonly placeObserver: ThreadPlaceObserver
+  private readonly placeActions = new ThreadPlaceActions(() => this.db, id => this.places(id))
   private paneSource: () => ThreadPaneSource[] = () => []
   private readonly busy = new Set<string>()
   private readonly nativePageLoads = new Map<string, Promise<void>>()
@@ -133,7 +130,6 @@ export class ThreadOrchestrator {
   private readonly idleSweep: ReturnType<typeof setInterval>
   /** Daily retention pass for an app left open for days. */
   private readonly retentionSweep: ReturnType<typeof setInterval>
-
   constructor(private readonly db: AppDatabase,
     private readonly factory: (thread: ConversationThread) => Promise<AgentConversationAdapter>,
     private readonly notifyChanged: (threadId: string) => void,
@@ -151,7 +147,7 @@ export class ThreadOrchestrator {
     this.exports = new ThreadExportService((threadId, artifactId) => this.history.artifact(threadId, artifactId))
     this.checkpoints = new ThreadCheckpointService(db)
     this.turns = new ThreadTurnTracker(this.checkpoints, id => this.read(id), (id, event) => this.event(id, event))
-    this.placeStore = new ThreadPlaceStore(db, this.checkpoints, (threadId, turnId, root) => this.turns.begin(threadId, turnId, root, 'Another checkout'))
+    this.placeStore = new ThreadPlaceStore(db, this.checkpoints, (threadId, turnId, root) => this.turns.begin(threadId, turnId, root, 'Another checkout'), threadId => this.placeObserver.placesChanged(threadId))
     this.placeObserver = new ThreadPlaceObserver({ db, placeStore: this.placeStore, readThread: id => this.readThread(id), read: id => this.read(id), save: (snapshot, options) => this.save(snapshot, options),
       paneSources: () => this.paneSources(), isBusy: id => this.busy.has(id), isStarting: id => this.starting.has(id), beginCheckpoint: (id, turnId, root, label) => this.turns.begin(id, turnId, root, label) })
     this.permissions = new ThreadPermissionStore(db)
@@ -180,7 +176,6 @@ export class ThreadOrchestrator {
     this.retentionSweep = setInterval(() => { try { pruneThreadData(this.db) } catch { /* best effort */ } }, 24 * 60 * 60 * 1000)
     this.retentionSweep.unref?.()
   }
-
   /** Where this conversation worked: its root, then each worktree, checkout and outside folder the evidence named. */
   places(id: string): Promise<ThreadPlaces> { return this.placeObserver.places(id) }
   /** A15 (thread:place-drift-answer): Switch back (guarded, audited), Follow or Dismiss; see ThreadPlaceObserver. */
@@ -188,7 +183,11 @@ export class ThreadOrchestrator {
   /** A17 (thread:place-read, forbidden to MCP): one file of a place from tool evidence, read only and audited. */
   readPlaceFile(id: string, placeId: string, relativePath: string): Promise<ThreadPlaceReadResult> { return this.placeObserver.readPlaceFile(id, placeId, relativePath) }
   /** A14: one place's changes against its own base; an outside folder lists what was written. */
-  placeDiff(id: string, placeId: string): Promise<ThreadPlaceDiff> { return this.placeObserver.placeDiff(id, placeId) }
+  placeDiff(id: string, placeId: string): Promise<ThreadPlaceDiff> { return this.placeActions.withMtimes(this.placeObserver.placeDiff(id, placeId)) }
+  /** A14 Undo / Restore / Discard (person-only, never MCP): thread-place-actions.ts, audited per attempt. */
+  placeUndo(id: string, placeId: string, input: ThreadPlaceUndoInput): Promise<ThreadPlaceUndoResult> { return this.placeActions.undo(id, placeId, input) }
+  placeRestore(id: string, token: string): Promise<ThreadPlaceActionResult> { return this.placeActions.restore(id, token) }
+  placeDiscard(id: string, placeId: string, input: { confirmed?: boolean }): Promise<ThreadPlaceActionResult> { return this.placeActions.discard(id, placeId, input) }
   /** A16: where a path the conversation named opens; `turnId` picks that turn's cwd, the default is the newest turn. */
   resolvePath(id: string, raw: string, at: { turnId?: string } = {}): Promise<ThreadPathResolution> { return this.placeObserver.resolvePath(id, raw, at) }
   /** The app's panes, for the places a pane works in; set once the pane registry is up. */
@@ -200,17 +199,13 @@ export class ThreadOrchestrator {
   collisions(id: string): Promise<ThreadCollision[]> { return this.placeObserver.collisions(id) }
   /** Place classification options; `homeDir` stands in for the home folder. */
   configurePlaces(options: { homeDir?: string }): void { this.placeStore.configure(options) }
-
   /** Minutes without activity before an idle conversation's agent process is closed; 0 keeps it open. */
   idleSuspendMinutes(): number { return idleSuspendMinutes(this.db) }
-
   setIdleSuspendMinutes(minutes: number): number { return setIdleSuspendMinutes(this.db, minutes) }
-
   /** Closes the agent process of conversations idle longer than the setting (see thread-idle). */
   suspendIdle(now = Date.now()): Promise<string[]> {
     return suspendIdle(this.idleHost(), now)
   }
-
   private idleHost(): IdleHost {
     return {
       db: this.db,
@@ -229,7 +224,6 @@ export class ThreadOrchestrator {
       save: (snapshot, options) => this.save(snapshot, options)
     }
   }
-
   list(): ConversationThread[] {
     return (this.db.prepare(`SELECT data_json,
       (SELECT json_extract(turn.data_json, '$.status') FROM conversation_turns turn
@@ -243,7 +237,6 @@ export class ThreadOrchestrator {
       })
       .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt - a.updatedAt)
   }
-
   create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId' | 'ownedWorktree'>): ThreadSnapshot {
     const now = Date.now()
     const snapshot: ThreadSnapshot = { thread: { ...context, id: randomUUID(), nativeSessionId: null,
@@ -300,6 +293,7 @@ export class ThreadOrchestrator {
     this.sessionGrants.delete(id)
     this.turns.forget(id)
     this.placeObserver.forget(id)
+    this.placeActions.dropThread(id)
     clearTimeout(this.deltaTimers.get(id)); this.deltaTimers.delete(id); this.deltaBuffers.delete(id)
     this.requests.invalidate(id)
   }
@@ -576,6 +570,8 @@ export class ThreadOrchestrator {
     snapshot.events.push({ type: 'activity', id: `activity:${turnId}:preparing`, phase: 'preparing', at: Date.now() })
     this.save(snapshot, { eventsFrom, operationId: operation.id })
     try {
+      // A14: restore tokens end at the conversation's next turn.
+      this.placeActions.dropThread(id)
       // A15 read point: the turn's begin.
       this.placeObserver.queuePlaceRead(id)
       // Publish the accepted prompt before repository snapshots or agent startup can block the UI.

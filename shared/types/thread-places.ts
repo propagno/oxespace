@@ -63,6 +63,11 @@ export type ThreadPlaceDiff = {
   place: ThreadPlace
   groups: { task: import('./git').GitDiff; branchSwitch?: import('./git').GitDiff } | { written: ThreadPlaceWrite[] }
 }
+/** A14 Undo (ccr-f4-places-pr.md §A14 Undo): one file, or one hunk by its header, with the mtime the diff showed. */
+export interface ThreadPlaceUndoInput { path: string; hunk?: string; seenMtime: number | null }
+/** The restore token is held in memory only: single use, bound to its thread and place, gone at the next turn or 10 minutes. */
+export type ThreadPlaceUndoResult = { ok: true; restoreToken: string } | { ok: false; refusal: import('../messages').MainMessage }
+export type ThreadPlaceActionResult = { ok: true } | { ok: false; refusal: import('../messages').MainMessage }
 /** A17 (ccr-t71-task-places.md §4.1 thread:place-read): fs:read-file's shape for a file in a place from evidence; never writable. */
 export interface ThreadPlaceReadResult extends FileSystemReadFileResult { readOnly: true }
 /** A pane as the app's pane registry describes it, for the places a pane works in. */
@@ -82,6 +87,16 @@ export interface ThreadCollision {
   file: string
   checkoutId: string
   others: { conversationId: string; title: string }[]
+}
+/** FE-P9 (thread:agent-summary): what the agent did in this conversation; null is a source main could not read, named in failedSources. */
+export interface ThreadAgentSummary {
+  files: number | null
+  databases: number | null
+  http: number | null
+  httpProduction: number | null
+  containers: number | null
+  approvals: number | null
+  failedSources: string[]
 }
 /** One conversation's written-and-dirty files in one checkout, the input of the collision intersection. */
 export interface ThreadDirtyWrites {

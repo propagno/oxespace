@@ -477,6 +477,34 @@ async function registerIpcHandlers(): Promise<() => void> {
     fileSystem: fileSystemService
   })
   registerMcpInternalIpc(internalMcp)
+  // A63 / N9: the Worktrees panel. The window and the oxespace_remove_worktree tool share its guarded removal; the
+  // merged state follows A60 (the pull request provider first, git as the fallback); each Remove a person makes is audited.
+  const worktreeOwnersCache: { current: import('./services/github/worktrees-panel').WorktreeOwner[] } = { current: [] }
+  {
+    const [{ WorktreesPanel, setAppWorktreesPanel }, { registerWorktreesPanelIpc }, { PersonActionAudit }, { GhExec }, { createPullRequestProvider }] = await Promise.all([
+      import('./services/github/worktrees-panel'), import('./ipc/worktrees-panel.ipc'), import('./services/person-action-audit'),
+      import('./services/github/gh-exec'), import('./ipc/pull-request.ipc')
+    ])
+    const panelGh = new GhExec()
+    const prProvider = createPullRequestProvider(panelGh)
+    const worktreesPanel = new WorktreesPanel({
+      gh: panelGh,
+      owners: () => worktreeOwnersCache.current,
+      provider: {
+        merged: async ({ rootPath, branch }) => {
+          const baseRef = (await gitHubService.resolveWorktreeBase({ workspaceId: '', rootPath })).baseRef
+          const base = baseRef.replace(/^(refs\/remotes\/)?origin\//, '') || 'main'
+          return prProvider.merged({ rootPath, branch, base })
+        }
+      },
+      removeWorktree: input => gitHubService.removeWorktree(input),
+      // A live pane or conversation execution inside the worktree keeps it from being removed (HML 704-6).
+      busy: path => executions.liveWithin(path) > 0 ? 'pane' : null,
+      audit: new PersonActionAudit(db)
+    })
+    setAppWorktreesPanel(worktreesPanel)
+    registerWorktreesPanelIpc(worktreesPanel)
+  }
   // R0b: Settings › Data and the notice band; the first-run export itself starts in the deferred init below.
   const runDataExport = registerDataExportIpc({
     db,

@@ -722,6 +722,28 @@ export interface ThreadApi {
   worktreeInspect?(id: string): Promise<import('../threadWorktree').ThreadWorktreeInspection | null>
   /** Archives or deletes the conversation, then cleans up its worktree as the choice allows. */
   worktreeFinish?(id: string, action: import('../threadWorktree').ThreadWorktreeFinishAction, choice: import('../threadWorktree').ThreadWorktreeChoice): Promise<import('../threadWorktree').ThreadWorktreeFinishResult>
+  /** F4 places (CR-F4-7, ccr-f4-places-pr.md §Contract): where this conversation worked, from tool evidence (A13). */
+  places?(id: string): Promise<import('./thread-places').ThreadPlaces>
+  /** A14: one place's changes against its own base; an outside folder lists what was written. */
+  placeDiff?(id: string, placeId: string): Promise<import('./thread-places').ThreadPlaceDiff>
+  /** A17: one file of a place from tool evidence, read only. The person's window only: never an MCP tool. */
+  placeRead?(id: string, placeId: string, relativePath: string): Promise<import('./thread-places').ThreadPlaceReadResult>
+  /** A16: where a path the conversation named opens; `turnId` picks that turn's cwd, the default is the newest turn. */
+  resolvePath?(id: string, raw: string, at?: { turnId?: string }): Promise<import('./thread-places').ThreadPathResolution>
+  /** A15: Switch back, Follow or Dismiss a branch drift. Person-only. */
+  placeDriftAnswer?(id: string, placeId: string, answer: import('./thread-places').ThreadPlaceDriftAnswer): Promise<{ ok: true; place: import('./thread-places').ThreadPlace } | { ok: false; refusal: import('../messages').MainMessage }>
+  /** A14 Undo / Restore / Discard: person-only, audited per attempt; main refuses an unconfirmed discard. */
+  placeUndo?(id: string, placeId: string, input: import('./thread-places').ThreadPlaceUndoInput): Promise<import('./thread-places').ThreadPlaceUndoResult>
+  placeRestore?(id: string, restoreToken: string): Promise<import('./thread-places').ThreadPlaceActionResult>
+  placeDiscard?(id: string, placeId: string, input: { confirmed?: boolean }): Promise<import('./thread-places').ThreadPlaceActionResult>
+  /** A18: panes whose newest known cwd is in one of this conversation's places. */
+  panes?(id: string): Promise<import('./thread-places').ThreadPane[]>
+  /** A54: files this conversation and another one both wrote and left dirty in the same checkout. */
+  collisions?(id: string): Promise<import('./thread-places').ThreadCollision[]>
+  /** FE-P9: the Pull request tab's summary of what the agent did. */
+  agentSummary?(id: string): Promise<import('./thread-places').ThreadAgentSummary | null>
+  /** Main pushes thread:places-changed when a conversation's places, drift or writes change. */
+  onPlacesChanged?(listener: (event: { threadId: string }) => void): () => void
   onChanged(listener: (value: { threadId: string }) => void): () => void
 }
 
