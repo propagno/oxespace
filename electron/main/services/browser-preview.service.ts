@@ -11,8 +11,9 @@ import { mainMessage } from '../../../shared/messages'
 import { approvalCenter } from './approvals'
 import { previewDraft } from './approvals/drafts'
 import { requesterFor } from './approvals/requester'
-import { brokerForGuest } from './browser-preview/debugger-broker'
+import { brokerForGuest, type DebuggerLease } from './browser-preview/debugger-broker'
 import { judgePreviewUrl, previewGrants, type PreviewNavigationCause } from './browser-preview/preview-grants'
+import { emulationFor, PREVIEW_DEVICES } from '../../../shared/preview-devices'
 
 interface BrowserTab {
   window: BrowserWindow
@@ -25,6 +26,8 @@ interface BrowserTab {
   agentAccess: boolean
   visible: boolean
   lease: string
+  defaultUserAgent?: string
+  emulationLease?: DebuggerLease
 }
 
 function checkedUrl(raw: string, allowExternal: boolean): string {
@@ -192,7 +195,7 @@ export class BrowserPreviewService {
         view.webContents.on('devtools-closed', emitBroker)
         view.webContents.once('destroyed', offBroker)
       }
-      view.webContents.once('destroyed', () => { if (this.tabs.get(key) === current) this.tabs.delete(key) })
+      view.webContents.once('destroyed', () => { current.emulationLease?.release(); current.emulationLease = undefined; if (this.tabs.get(key) === current) this.tabs.delete(key) })
     }
     tab.allowExternal = input.allowExternal === true
     this.applyAgentAccess(window,input.ownerKey,input.agentAccess === true,false,input.workspaceId)
@@ -284,6 +287,34 @@ export class BrowserPreviewService {
     previewGrants.revoke(this.sessionId(input.ownerKey))
     this.emitToTab(window, input.ownerKey, input.tabId, { type: 'grant', grant: null })
   }
+  async setDevice(window: BrowserWindow, input: {ownerKey:string;tabId:string;deviceId:string|null;rotated:boolean}): Promise<void> {
+    if (!input || typeof input.ownerKey !== 'string' || typeof input.tabId !== 'string' || (input.deviceId !== null && typeof input.deviceId !== 'string') || typeof input.rotated !== 'boolean') {
+      throw new Error('Invalid browser device emulation')
+    }
+    const preset = PREVIEW_DEVICES.find(item => item.id === (input.deviceId ?? 'desktop'))
+    if (!preset) throw new Error('Unknown preview device')
+    const tab = this.find(window, input.ownerKey, input.tabId)
+    const guest = tab.view.webContents
+    tab.defaultUserAgent ??= guest.getUserAgent()
+    const emulation = emulationFor(preset, input.rotated)
+    if (!emulation) {
+      guest.disableDeviceEmulation()
+      guest.setUserAgent(tab.defaultUserAgent)
+      if (tab.emulationLease && guest.debugger) {
+        await brokerForGuest(guest).sendCommand('Emulation.setTouchEmulationEnabled', { enabled: false }).catch(() => {})
+        tab.emulationLease.release()
+        tab.emulationLease = undefined
+      }
+      return
+    }
+    guest.enableDeviceEmulation(emulation.deviceEmulation)
+    guest.setUserAgent(emulation.userAgent)
+    if (guest.debugger) {
+      const broker = brokerForGuest(guest)
+      tab.emulationLease ??= broker.acquire('emulation')
+      await broker.sendCommand('Emulation.setTouchEmulationEnabled', { enabled: emulation.touch, maxTouchPoints: emulation.touch ? 5 : 0 }).catch(() => {})
+    }
+  }
   designMode(window: BrowserWindow, input: {ownerKey:string;tabId:string;enabled:boolean}): void {
     const tab = this.find(window,input.ownerKey,input.tabId)
     tab.view.webContents.send(DESIGN_MODE_CHANNELS.setEnabled,input.enabled === true)
@@ -321,6 +352,8 @@ export class BrowserPreviewService {
     if (!tab || tab.view.webContents.isDestroyed()) return
     if (input.lease && input.lease !== tab.lease) return
     this.tabs.delete(key)
+    tab.emulationLease?.release()
+    tab.emulationLease = undefined
     tab.window.contentView.removeChildView(tab.view)
     tab.view.webContents.close()
     if (![...this.tabs.values()].some(other => other.ownerKey === tab.ownerKey)) previewGrants.endSession(this.sessionId(tab.ownerKey))

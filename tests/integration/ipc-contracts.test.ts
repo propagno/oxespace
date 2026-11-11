@@ -221,6 +221,13 @@ describe('ipc contracts', () => {
     })
   })
 
+  test('F5: uses stable browserPreview grant/device and android mirror channel names', () => {
+    expect(IPC_CHANNELS.browserPreview.revokeGrant).toBe('browser-preview:revoke-grant')
+    expect(IPC_CHANNELS.browserPreview.setDevice).toBe('browser-preview:set-device')
+    expect(IPC_CHANNELS.android.status).toBe('android:status')
+    expect(IPC_CHANNELS.android.setAgentsCanSee).toBe('android:set-agents-can-see')
+  })
+
   test('validates github payloads', () => {
     expect(parseGitHubWorkspaceInput({ workspaceId: 'w-1', rootPath: 'C:/repo' })).toEqual({ workspaceId: 'w-1', rootPath: 'C:/repo' })
     expect(() => parseGitHubWorkspaceInput({ workspaceId: '', rootPath: 'C:/repo' })).toThrow('workspaceId')

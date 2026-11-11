@@ -387,6 +387,8 @@ export const IPC_CHANNELS = {
     captureElement: 'browser-preview:capture-element',
     captureClipboard: 'browser-preview:capture-clipboard',
     close: 'browser-preview:close',
+    revokeGrant: 'browser-preview:revoke-grant',
+    setDevice: 'browser-preview:set-device',
     onEvent: 'browser-preview:event'
   },
   android: {

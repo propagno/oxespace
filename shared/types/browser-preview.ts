@@ -109,7 +109,7 @@ export interface BrowserPreviewApi {
   captureElement(input: {ownerKey:string;tabId:string;rect:{x:number;y:number;width:number;height:number}}): Promise<string | null>
   captureClipboard(input: {ownerKey:string;tabId:string}): Promise<void>
   close(input: {ownerKey:string;tabId:string;lease?:string}): Promise<void>
-  revokeGrant?(input: { ownerKey: string; tabId: string }): Promise<void>
-  setDevice?(input: { ownerKey: string; tabId: string; deviceId: string | null; rotated: boolean }): Promise<void>
+  revokeGrant(input: { ownerKey: string; tabId: string }): Promise<void>
+  setDevice(input: { ownerKey: string; tabId: string; deviceId: string | null; rotated: boolean }): Promise<void>
   onEvent(listener: (event: BrowserPreviewEvent) => void): () => void
 }

@@ -508,6 +508,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       captureElement: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.captureElement, input) as Promise<string | null>,
       captureClipboard: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.captureClipboard, input) as Promise<void>,
       close: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.close, input) as Promise<void>,
+      revokeGrant: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.revokeGrant, input) as Promise<void>,
+      setDevice: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.setDevice, input) as Promise<void>,
       onEvent: (listener) => subscribe<import('../../shared/types/browser-preview').BrowserPreviewEvent>(ipc, IPC_CHANNELS.browserPreview.onEvent, listener)
     },
     oxeContext: {
@@ -537,6 +539,20 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     },
     httpAudit: {
       list: (query) => ipc.invoke(IPC_CHANNELS.httpAudit.list, query) as Promise<import('../../shared/types/http-audit').HttpAuditPage>
+    },
+    android: {
+      status: () => ipc.invoke(IPC_CHANNELS.android.status) as Promise<import('../../shared/types/ipc').AndroidMirrorStatus>,
+      connect: (input) => ipc.invoke(IPC_CHANNELS.android.connect, input) as Promise<{ ok: boolean } | void>,
+      disconnect: (input) => ipc.invoke(IPC_CHANNELS.android.disconnect, input) as Promise<void>,
+      tap: (input) => ipc.invoke(IPC_CHANNELS.android.tap, input) as Promise<void>,
+      swipe: (input) => ipc.invoke(IPC_CHANNELS.android.swipe, input) as Promise<void>,
+      key: (input) => ipc.invoke(IPC_CHANNELS.android.key, input) as Promise<void>,
+      rotate: (input) => ipc.invoke(IPC_CHANNELS.android.rotate, input) as Promise<void>,
+      screenshot: (input) => ipc.invoke(IPC_CHANNELS.android.screenshot, input) as Promise<{ path: string; name: string }>,
+      setAgentsCanSee: (input) => ipc.invoke(IPC_CHANNELS.android.setAgentsCanSee, input) as Promise<void>,
+      startEmulator: (avd) => ipc.invoke(IPC_CHANNELS.android.startEmulator, avd) as Promise<void>,
+      onChanged: (listener) => subscribe<import('../../shared/types/ipc').AndroidMirrorStatus | undefined>(ipc, IPC_CHANNELS.android.changed, listener),
+      onFrame: (listener) => subscribe<import('../../shared/types/ipc').AndroidMirrorFrame>(ipc, IPC_CHANNELS.android.frame, listener)
     },
     agentActivity: {
       list: (query) => ipc.invoke(IPC_CHANNELS.agentActivity.list, query) as Promise<import('../../shared/types/agent-activity').AgentActivityPage>,
