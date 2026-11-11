@@ -1869,7 +1869,8 @@
     "terminal": "Terminal",
     "containers": "Containers",
     "network": "Network",
-    "pullRequest": "Pull request"
+    "pullRequest": "Pull request",
+    "queries": "Queries"
   },
   "prTab": {
     "loading": "Loading…",
@@ -1974,5 +1975,63 @@
       "github": "Merging happens on GitHub after review",
       "azure": "Complete happens in Azure DevOps once the policies pass"
     }
+  },
+  "nowLine": {
+    "needsYou": "Needs you. {{agent}} asks to {{request}}.",
+    "needsYouShort": "Needs you. {{agent}} is waiting for approval.",
+    "question_one": "Needs you. {{agent}} asked {{count}} question.",
+    "question_other": "Needs you. {{agent}} asked {{count}} questions.",
+    "workingVerb": "Working. {{verb}} {{target}}.",
+    "workingVerbOnly": "Working. {{verb}}.",
+    "workingText": "Working. {{text}}.",
+    "workingShort": "Working.",
+    "paused": "Paused. You stopped it. Send a message to continue.",
+    "error": "Stopped with an error. {{reason}}.",
+    "errorShort": "Stopped with an error.",
+    "ready": "Ready for review. {{summary}}.",
+    "readyShort": "Ready for review.",
+    "done": "Done. {{summary}}.",
+    "doneShort": "Done.",
+    "verbs": {
+      "editing": "Editing",
+      "running": "Running",
+      "reading": "Reading",
+      "querying": "Querying",
+      "calling": "Calling",
+      "starting": "Starting",
+      "thinking": "Thinking"
+    },
+    "actions": {
+      "deny": "Deny",
+      "allow": "Allow",
+      "seeImpact": "See impact",
+      "answer": "Answer",
+      "stop": "Stop",
+      "retry": "Retry the failed step",
+      "openPr": "Open pull request"
+    }
+  },
+  "subline": {
+    "movedTo": "moved to {{branch}}",
+    "accessRead": "Read only",
+    "accessEdit": "Can edit",
+    "accessFull": "Full access",
+    "elapsedMin": "{{minutes}} min",
+    "elapsedHours": "{{hours}} h"
+  },
+  "moreActions": {
+    "rename": "Rename",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "delegate": "Delegate…",
+    "mcp": "MCP servers…",
+    "largerText": "Larger text",
+    "showEveryToolCall": "Show every tool call",
+    "details": "Details",
+    "fork": "Fork",
+    "forkCodexOnly": "Fork is available for Codex conversations",
+    "export": "Export",
+    "archive": "Archive",
+    "delete": "Delete…"
   }
 }

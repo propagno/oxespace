@@ -362,7 +362,7 @@ function registerThreadCockpitIpc(manager: Promise<ThreadManager>, background?: 
   }
   const source = (service: ThreadManager, id: string): BackgroundShellsInput => {
     const snapshot = service.read(id), thread = snapshot.thread
-    let jobs: BackgroundJobEntry[] = []
+    let jobs: BackgroundJobEntry[]
     try { jobs = background?.jobs(thread) ?? [] } catch { jobs = [] }
     return { events: snapshot.events, jobs, live: !!thread.connection && thread.connection.state !== 'closed' && !thread.connection.suspendedAt }
   }

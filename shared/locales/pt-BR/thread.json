@@ -1921,7 +1921,8 @@
     "terminal": "Terminal",
     "containers": "Contêineres",
     "network": "Rede",
-    "pullRequest": "Pull request"
+    "pullRequest": "Pull request",
+    "queries": "Consultas"
   },
   "prTab": {
     "loading": "Carregando…",
@@ -2032,5 +2033,64 @@
       "github": "O merge acontece no GitHub depois da revisão",
       "azure": "A conclusão acontece no Azure DevOps quando as políticas passam"
     }
+  },
+  "nowLine": {
+    "needsYou": "Precisa de você. {{agent}} pede para {{request}}.",
+    "needsYouShort": "Precisa de você. {{agent}} aguarda aprovação.",
+    "question_one": "Precisa de você. {{agent}} fez {{count}} pergunta.",
+    "question_many": "Precisa de você. {{agent}} fez {{count}} perguntas.",
+    "question_other": "Precisa de você. {{agent}} fez {{count}} perguntas.",
+    "workingVerb": "Trabalhando. {{verb}} {{target}}.",
+    "workingVerbOnly": "Trabalhando. {{verb}}.",
+    "workingText": "Trabalhando. {{text}}.",
+    "workingShort": "Trabalhando.",
+    "paused": "Pausada. Você parou. Envie uma mensagem para continuar.",
+    "error": "Parou com erro. {{reason}}.",
+    "errorShort": "Parou com erro.",
+    "ready": "Pronta para revisão. {{summary}}.",
+    "readyShort": "Pronta para revisão.",
+    "done": "Concluída. {{summary}}.",
+    "doneShort": "Concluída.",
+    "verbs": {
+      "editing": "Editando",
+      "running": "Rodando",
+      "reading": "Lendo",
+      "querying": "Consultando",
+      "calling": "Chamando",
+      "starting": "Iniciando",
+      "thinking": "Pensando"
+    },
+    "actions": {
+      "deny": "Negar",
+      "allow": "Permitir",
+      "seeImpact": "Ver impacto",
+      "answer": "Responder",
+      "stop": "Parar",
+      "retry": "Tentar novamente o passo que falhou",
+      "openPr": "Abrir pull request"
+    }
+  },
+  "subline": {
+    "movedTo": "mudou para {{branch}}",
+    "accessRead": "Somente leitura",
+    "accessEdit": "Pode editar",
+    "accessFull": "Acesso total",
+    "elapsedMin": "{{minutes}} min",
+    "elapsedHours": "{{hours}} h"
+  },
+  "moreActions": {
+    "rename": "Renomear",
+    "pin": "Fixar",
+    "unpin": "Desafixar",
+    "delegate": "Delegar…",
+    "mcp": "Servidores MCP…",
+    "largerText": "Texto maior",
+    "showEveryToolCall": "Mostrar cada chamada de ferramenta",
+    "details": "Detalhes",
+    "fork": "Bifurcar",
+    "forkCodexOnly": "Bifurcar está disponível para conversas do Codex",
+    "export": "Exportar",
+    "archive": "Arquivar",
+    "delete": "Excluir…"
   }
 }
