@@ -619,6 +619,33 @@ export type ThreadDelta =
   | { ok: true; epoch: string; revision: number; live: number; thread: ConversationThread; events: { seq: number; event: ThreadEvent }[]; turns: ThreadTurn[]; deliveries: Record<string, ThreadDelivery>; pendingRequests: ThreadRequest[] }
   | { ok: false; reset: 'epoch' | 'unknown' | 'limit' }
 
+export interface ThreadTimelineCheckpoint {
+  id: string
+  n: number
+  turnId: string
+  at: number
+  label: string
+  files: string[]
+  checkout: string
+  failed?: boolean
+}
+
+export interface ThreadTimelineCantGoBack {
+  dbWrites: number
+  pushes: number
+  containers: number
+  commands: number
+  httpWrites: number
+  scope: 'conversation'
+}
+
+export interface ThreadTimeline {
+  checkpoints: ThreadTimelineCheckpoint[]
+  canBranch: boolean
+  branchRefusal?: { code: string; params: Record<string, unknown> }
+  cantGoBack: ThreadTimelineCantGoBack
+}
+
 export interface ThreadHistoryPage { events: ThreadEvent[]; before?: number; hasMore: boolean; total: number }
 
 export interface ThreadProjectSummary {
@@ -714,6 +741,7 @@ export interface ThreadApi {
   create(input: { projectId: string; rootPath?: string; provider: ThreadProvider; worktree?: ThreadWorktreeRequestInput }): Promise<ThreadSnapshot>
   read(id: string): Promise<ThreadSnapshot>
   history?(id: string, before?: number, limit?: number): Promise<ThreadHistoryPage>
+  timeline?(id: string): Promise<ThreadTimeline>
   attach?(id: string, input: { name: string; mimeType: ThreadAttachment['mimeType']; data: ArrayBuffer }): Promise<ThreadAttachment>
   removeAttachment?(id: string, attachmentId: string): Promise<void>
   send(id: string, text: string, attachmentIds?: string[]): Promise<void>

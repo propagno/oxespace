@@ -46,6 +46,7 @@ import { projectDiffAt } from './thread-place-heads'
 import type { ThreadCollision, ThreadPane, ThreadPaneSource, ThreadPathResolution, ThreadPlace, ThreadPlaceActionResult, ThreadPlaceDiff, ThreadPlaceDriftAnswer, ThreadPlaceReadResult, ThreadPlaces, ThreadPlaceUndoInput, ThreadPlaceUndoResult } from '../../../../shared/types/thread-places'
 import type { MainMessage } from '../../../../shared/messages'
 import { explainMissingFolder, ThreadFolderMissingError } from './thread-worktree'
+import { threadTimeline } from './thread-timeline'
 /** The checkout a conversation works in: a worktree of its repository the provider moved into, else its root. */
 const workingRootOf = (thread: ConversationThread): string =>
   thread.observedLocation?.sameRepository && thread.observedLocation.checkoutRoot ? thread.observedLocation.checkoutRoot : thread.rootPath
@@ -332,6 +333,8 @@ export class ThreadOrchestrator {
     this.readThread(id)
     return this.history.artifact(id, artifactId)
   }
+
+  async timeline(id: string): Promise<import('../../../../shared/types/thread').ThreadTimeline> { await Promise.allSettled([...this.finalizationTasks]); await this.placeStore.idle(id); return threadTimeline({ db: this.db, snapshot: this.read(id) }) }
 
   async historyPage(id: string, before?: number, limit?: number): Promise<import('../../../../shared/types/thread').ThreadHistoryPage> {
     this.flushDeltas(id)
