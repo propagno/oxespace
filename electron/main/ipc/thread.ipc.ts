@@ -175,7 +175,7 @@ export function registerThreadIpc(
   ipcMain.handle(IPC_CHANNELS.thread.removeAttachment, (event, id: unknown, attachmentId: unknown) => manager.then(service => service.removeAttachment(string(id), string(attachmentId))))
   ipcMain.handle(IPC_CHANNELS.thread.artifact, (event, id: unknown, artifactId: unknown) => manager.then(service => service.artifact(string(id), string(artifactId))))
   ipcMain.handle(IPC_CHANNELS.thread.exportPortable, async (event, id: unknown) => {
-    const service = await manager, threadId = string(id), snapshot = service.read(threadId)
+    const service = await manager, threadId = string(id), { thread } = service.read(threadId)
     const owner = BrowserWindow.fromWebContents(event.sender)
     const options = { title: 'Export conversation', defaultPath: `${thread.title.replace(/[<>:"/\\|?*\x00-\x1f]/g, '-').slice(0, 80) || 'conversation'}.oxethread.json`, filters: [{ name: 'OXESpace conversation', extensions: ['json'] }] }
     const result = owner ? await dialog.showSaveDialog(owner, options) : await dialog.showSaveDialog(options)
