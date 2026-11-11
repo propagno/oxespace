@@ -14,7 +14,7 @@ const serviced = new Set([...read('electron/main/services/oxepod/service.ts').ma
 
 describe('OxePod operations', () => {
   it('are the same list in the types and the IPC allowlist', () => {
-    expect(declared.length).toBe(20)
+    expect(declared.length).toBe(21)
     expect([...allowed].sort()).toEqual([...declared].sort())
     expect(new Set(allowed).size).toBe(allowed.length)
   })
