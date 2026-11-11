@@ -657,6 +657,19 @@
         "busy": "Another debugger is attached to this page, so the agent cannot capture right now."
       }
     },
+    "commandBar": {
+      "skill": {
+        "notEnabled": "/{{name}} isn't enabled in this project.",
+        "noAgent": "Focus a conversation or an agent pane first."
+      },
+      "args": {
+        "control": "Remove the control characters from the text."
+      },
+      "request": {
+        "otherWorkspace": "That request is in another workspace.",
+        "none": "Nothing is waiting for you."
+      }
+    },
     "permissions": {
       "production": {
         "readOnly": "A production connection offers agents only no access or read."

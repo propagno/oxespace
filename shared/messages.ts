@@ -556,6 +556,12 @@ export interface MessageParams extends PlaceMessageParams {
   'agents.source.unavailable': { source: string }
   'preview.capture.devtools': Record<string, never>
   'preview.capture.busy': Record<string, never>
+  /** F8 A31 · Command bar refusals. */
+  'commandBar.skill.notEnabled': { name: string }
+  'commandBar.skill.noAgent': Record<string, never>
+  'commandBar.args.control': Record<string, never>
+  'commandBar.request.otherWorkspace': Record<string, never>
+  'commandBar.request.none': Record<string, never>
 }
 
 export type MessageCode = keyof MessageParams
@@ -903,7 +909,12 @@ export const MESSAGE_CODES = [
   'agents.request.pane',
   'agents.source.unavailable',
   'preview.capture.devtools',
-  'preview.capture.busy'
+  'preview.capture.busy',
+  'commandBar.skill.notEnabled',
+  'commandBar.skill.noAgent',
+  'commandBar.args.control',
+  'commandBar.request.otherWorkspace',
+  'commandBar.request.none'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */

@@ -660,6 +660,19 @@
         "busy": "Outro depurador está conectado a esta página, então o agente não pode capturar agora."
       }
     },
+    "commandBar": {
+      "skill": {
+        "notEnabled": "/{{name}} não está habilitada neste projeto.",
+        "noAgent": "Foque uma conversa ou um painel de agente primeiro."
+      },
+      "args": {
+        "control": "Remova os caracteres de controle do texto."
+      },
+      "request": {
+        "otherWorkspace": "Esse pedido está em outro workspace.",
+        "none": "Nada está esperando por você."
+      }
+    },
     "permissions": {
       "production": {
         "readOnly": "Uma conexão de produção oferece aos agentes só nenhum acesso ou leitura."
