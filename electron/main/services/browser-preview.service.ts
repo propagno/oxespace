@@ -7,6 +7,7 @@ import type { BrowserPreviewBounds, BrowserPreviewEvent, BrowserPreviewMount, Br
 import type { ExecutionOwner } from './execution-registry'
 import { guestProbeWebPreferences, previewSessionFor, securePreviewGuest } from './browser-preview-security'
 import { trustPreviewGuest } from '../ipc/ipc-sender-guard'
+import { brokerForGuest } from './browser-preview/debugger-broker'
 
 interface BrowserTab {
   window: BrowserWindow
@@ -106,6 +107,9 @@ export class BrowserPreviewService {
   private emit(tab: BrowserTab, event: Omit<BrowserPreviewEvent,'ownerKey'|'tabId'>): void {
     if (!tab.window.isDestroyed()) tab.window.webContents.send(IPC_CHANNELS.browserPreview.onEvent, {ownerKey:tab.ownerKey,tabId:tab.tabId,...event})
   }
+  emitToTab(window: BrowserWindow, ownerKey: string, tabId: string, event: Omit<BrowserPreviewEvent,'ownerKey'|'tabId'>): void {
+    if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.browserPreview.onEvent, {ownerKey,tabId,...event})
+  }
   async mount(window: BrowserWindow, input: BrowserPreviewMount): Promise<BrowserPreviewMountResult> {
     if (!input || typeof input.ownerKey !== 'string' || typeof input.workspaceId !== 'string' || typeof input.tabId !== 'string' || !/^[a-f\d-]{36}$/i.test(input.tabId)) throw new Error('Invalid browser mount')
     if (input.threadId && input.ownerKey !== `thread:${input.threadId}`) throw new Error('Browser Thread owner mismatch')
@@ -148,6 +152,14 @@ export class BrowserPreviewService {
       view.webContents.on('did-stop-loading', () => { if (!isCurrent()) return; meta.loading = false; this.emit(current,{type:'loading',loading:false}); if (inPage) { inPage = false; this.emit(current,{type:'ready'}) } })
       view.webContents.on('did-fail-load', (_event,code,description,_url,isMainFrame) => { if (!isCurrent()) return; if(code !== -3 && isMainFrame) { meta.loading = false; meta.error = description.slice(0,200); this.emit(current,{type:'failed',message:meta.error}) } })
       view.webContents.on('dom-ready', () => { if (isCurrent()) this.emit(current,{type:'ready'}) })
+      if (view.webContents.debugger) {
+        const broker = brokerForGuest(view.webContents)
+        const emitBroker = (): void => { if (isCurrent()) { const s = broker.state(); this.emit(current,{type:'broker',attached:s.attached,devToolsOpen:s.devToolsOpen}) } }
+        const offBroker = broker.onStateChange(emitBroker)
+        view.webContents.on('devtools-opened', emitBroker)
+        view.webContents.on('devtools-closed', emitBroker)
+        view.webContents.once('destroyed', offBroker)
+      }
       view.webContents.once('destroyed', () => { if (this.tabs.get(key) === current) this.tabs.delete(key) })
     }
     tab.allowExternal = input.allowExternal === true
@@ -287,12 +299,12 @@ export class BrowserPreviewService {
     // Only the owner's active tab: a background tab is never visible and is not "covered" (#243 security review L2).
     return this.agentTabs(workspaceId, owner).tabs.some(tab => !tab.visible && this.tabSessions.get(this.ownerKey(tab.window, tab.ownerKey))?.activeTabId === tab.tabId)
   }
-  activeFor(workspaceId: string, owner?: ExecutionOwner): {guest:WebContents;window:BrowserWindow;external:boolean;tabId:string;sessionId:string} | null {
+  activeFor(workspaceId: string, owner?: ExecutionOwner): {guest:WebContents;window:BrowserWindow;external:boolean;tabId:string;sessionId:string;ownerKey:string} | null {
     const { ownerKey, tabs } = this.agentTabs(workspaceId, owner)
     const matches = tabs.filter(tab => tab.visible)
     if (matches.length !== 1) return null
     const tab = matches[0]
-    return {guest:tab.view.webContents,window:tab.window,external:tab.allowExternal,tabId:tab.tabId,sessionId:this.sessionId(ownerKey)}
+    return {guest:tab.view.webContents,window:tab.window,external:tab.allowExternal,tabId:tab.tabId,sessionId:this.sessionId(ownerKey),ownerKey}
   }
 
   handleDesignMessage(sender: WebContents, type: 'grab'|'cancel', payload?: DesignGrabPayload): void {
