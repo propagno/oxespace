@@ -211,7 +211,7 @@ export function ThreadHeader({
                 </button>
               }
             />
-            {(cell || onCloseCell) && <ThreadCellClose cell={cell ?? 'secondary'} onClose={onCloseCell} />}
+            {(cell === 'secondary' || onCloseCell) && <ThreadCellClose cell={cell ?? 'secondary'} onClose={onCloseCell} />}
           </div>
         </div>
         <ThreadSubline
