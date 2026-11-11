@@ -493,7 +493,7 @@ export class AgentGateway {
     const info = this.find(reference)
     const connection: ResolvedConnection = { ...this.deps.resolve(info.id), readOnly: true, role: 'agent' }
     if (info.engine === 'mongodb') {
-      let parsed: Record<string, unknown> = {}
+      let parsed: Record<string, unknown>
       try {
         const newline = statement.indexOf('\n')
         parsed = JSON.parse(newline >= 0 ? statement.slice(newline + 1) : statement) as Record<string, unknown>

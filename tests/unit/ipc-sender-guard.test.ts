@@ -74,7 +74,7 @@ const group = (name: string): string[] => flatten((IPC_CHANNELS as unknown as Re
  * phone gateway's admin, `answerPairing` included) are read from IPC_CHANNELS, so channels added there later are
  * covered as soon as they exist.
  */
-const MUST_BE_GUARDED = [IPC_CHANNELS.terminal.write, IPC_CHANNELS.fs.readFile, IPC_CHANNELS.mcp.create, ...group('approvals'), ...group('remote')]
+const MUST_BE_GUARDED = [IPC_CHANNELS.terminal.write, IPC_CHANNELS.fs.readFile, IPC_CHANNELS.mcp.create, ...group('approvals'), ...group('agentPermissions'), ...group('remote')]
 
 const refusedWithCode = (promise: Promise<unknown>) => expect(promise).rejects.toMatchObject({ code: IPC_SENDER_REFUSED, message: IPC_SENDER_REFUSED })
 

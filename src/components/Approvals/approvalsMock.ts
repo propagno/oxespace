@@ -159,8 +159,11 @@ export function createApprovalsMock(): ApprovalsApi & { hook: ApprovalsMockHook 
       reported.add(key)
       return { ok: true, id: request.id }
     },
+    preview: async () => ({ status: 'failed' as const, count: null, reason: 'not-found' }),
+    alwaysAllow: async () => ({ ok: false as const, code: 'approvals.alwaysAllow.notOffered' as const }),
     onRequested(listener) { requested.add(listener); return () => { requested.delete(listener) } },
-    onResolved(listener) { resolved.add(listener); return () => { resolved.delete(listener) } }
+    onResolved(listener) { resolved.add(listener); return () => { resolved.delete(listener) } },
+    onOpenRequest: () => () => undefined
   }
 }
 

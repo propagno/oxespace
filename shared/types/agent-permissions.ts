@@ -52,3 +52,12 @@ export type AgentPermissionsChange =
   | { ok: false; code: MessageCode; undoToken?: undefined }
 
 export type AgentPermissionsUndo = { ok: true; code?: undefined } | { ok: false; code: MessageCode }
+
+export interface AgentPermissionsApi {
+  list(input: { workspaceId: string }): Promise<AgentPermissionsPage>
+  revokeRule(id: string): Promise<AgentPermissionsChange>
+  setDatabaseAccess(input: { id: string; access: string }): Promise<AgentPermissionsChange>
+  setHostAccess(input: { workspaceId: string; host: string; access: AgentHostAccess }): Promise<AgentPermissionsChange>
+  undo(token: string): Promise<AgentPermissionsUndo>
+  onChanged(listener: () => void): () => void
+}

@@ -468,8 +468,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       win.focus()
     },
     openRequest: requestId => {
-      const channel = (IPC_CHANNELS.approvals as { openRequest?: string }).openRequest ?? 'approvals:open-request'
-      for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.webContents.send(channel, requestId)
+      for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.webContents.send(IPC_CHANNELS.approvals.openRequest, requestId)
     }
   })
   delegatedThreadObserver.current = thread => {
@@ -500,7 +499,7 @@ async function registerIpcHandlers(): Promise<() => void> {
 
   // B10: outside the main entry, but awaited here, so the approval channels exist before the window can ask.
   const approvals = await import('./services/approvals/wiring')
-  approvals.wireApprovals({ db, workspaces: () => internalMcpWorkspaceServ.list(), profiles: () => delegationAgents.list() })
+  approvals.wireApprovals({ db, workspaces: () => internalMcpWorkspaceServ.list(), profiles: () => delegationAgents.list(), oxeQuery: () => oxeQuery.agent })
   const internalMcp: InternalMcpHandle = createInternalMcpHandle({
     threads: threadManager.manager,
     delegation: delegationService, executions,

@@ -316,8 +316,19 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       ack: input => ipc.invoke(IPC_CHANNELS.approvals.ack, input) as Promise<import('../../shared/types/approvals').ApprovalCallResult>,
       unavailable: input => ipc.invoke(IPC_CHANNELS.approvals.unavailable, input) as Promise<import('../../shared/types/approvals').ApprovalCallResult>,
       history: () => ipc.invoke(IPC_CHANNELS.approvals.history) as Promise<import('../../shared/types/approvals').ApprovalHistoryEntry[]>,
+      preview: requestId => ipc.invoke(IPC_CHANNELS.approvals.preview, requestId) as Promise<import('../../shared/types/approvals').ApprovalDatabasePreview>,
+      alwaysAllow: requestId => ipc.invoke(IPC_CHANNELS.approvals.alwaysAllow, requestId) as Promise<import('../../shared/types/approvals').ApprovalAlwaysAllowResult>,
       onRequested: listener => subscribe<import('../../shared/types/approvals').ApprovalRequest>(ipc, IPC_CHANNELS.approvals.onRequested, listener),
-      onResolved: listener => subscribe<import('../../shared/types/approvals').ApprovalResolved>(ipc, IPC_CHANNELS.approvals.onResolved, listener)
+      onResolved: listener => subscribe<import('../../shared/types/approvals').ApprovalResolved>(ipc, IPC_CHANNELS.approvals.onResolved, listener),
+      onOpenRequest: listener => subscribe<string>(ipc, IPC_CHANNELS.approvals.openRequest, listener)
+    },
+    agentPermissions: {
+      list: input => ipc.invoke(IPC_CHANNELS.agentPermissions.list, input) as Promise<import('../../shared/types/agent-permissions').AgentPermissionsPage>,
+      revokeRule: id => ipc.invoke(IPC_CHANNELS.agentPermissions.revokeRule, id) as Promise<import('../../shared/types/agent-permissions').AgentPermissionsChange>,
+      setDatabaseAccess: input => ipc.invoke(IPC_CHANNELS.agentPermissions.setDatabaseAccess, input) as Promise<import('../../shared/types/agent-permissions').AgentPermissionsChange>,
+      setHostAccess: input => ipc.invoke(IPC_CHANNELS.agentPermissions.setHostAccess, input) as Promise<import('../../shared/types/agent-permissions').AgentPermissionsChange>,
+      undo: token => ipc.invoke(IPC_CHANNELS.agentPermissions.undo, token) as Promise<import('../../shared/types/agent-permissions').AgentPermissionsUndo>,
+      onChanged: listener => subscribe<void>(ipc, IPC_CHANNELS.agentPermissions.changed, () => listener())
     },
     activity: {
       recent: () => ipc.invoke(IPC_CHANNELS.activity.recent) as Promise<import('../../shared/types/activity').ActivityRecent>,

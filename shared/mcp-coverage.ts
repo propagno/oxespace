@@ -246,9 +246,10 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['thread.approve', 'thread.respond', 'thread.pendingRequestsAll', 'thread.respondPending']
   },
   'approvals.admin': {
-    label: 'Answer, acknowledge or list the app\'s approval requests (agent actions, OxeQuery, preview automation, crash restart)',
-    forbidden: 'Approvals stay with the person: an agent never answers, lists or skips a request raised for the person.',
-    ipc: ['approvals.list', 'approvals.respond', 'approvals.ack', 'approvals.unavailable', 'approvals.history']
+    label: 'Answer, acknowledge, preview, Always-allow or list the app\'s approval requests and What agents can do',
+    forbidden: 'Approvals and permissions stay with the person: an agent never answers, lists, previews, Always-allows or changes what agents can do.',
+    ipc: ['approvals.list', 'approvals.respond', 'approvals.ack', 'approvals.unavailable', 'approvals.history', 'approvals.preview', 'approvals.alwaysAllow',
+      'agentPermissions.list', 'agentPermissions.revokeRule', 'agentPermissions.setDatabaseAccess', 'agentPermissions.setHostAccess', 'agentPermissions.undo']
   },
   'thread.access': {
     label: 'Permission rules and auto-approval',
@@ -413,7 +414,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'app.events': {
     label: 'Change notifications sent to the window',
     excluded: 'Events, not actions: agents read the state they describe with the tools above.',
-    ipc: ['*.on*', '*.changed', 'remote.pairingFailed']
+    ipc: ['*.on*', '*.changed', 'remote.pairingFailed', 'approvals.openRequest']
   },
 
   // ---- future products ----------------------------------------------------------------------
