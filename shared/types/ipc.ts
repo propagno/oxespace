@@ -387,7 +387,23 @@ export const IPC_CHANNELS = {
     captureElement: 'browser-preview:capture-element',
     captureClipboard: 'browser-preview:capture-clipboard',
     close: 'browser-preview:close',
+    revokeGrant: 'browser-preview:revoke-grant',
+    setDevice: 'browser-preview:set-device',
     onEvent: 'browser-preview:event'
+  },
+  android: {
+    status: 'android:status',
+    changed: 'android:changed',
+    connect: 'android:connect',
+    disconnect: 'android:disconnect',
+    frame: 'android:frame',
+    tap: 'android:tap',
+    swipe: 'android:swipe',
+    key: 'android:key',
+    rotate: 'android:rotate',
+    screenshot: 'android:screenshot',
+    setAgentsCanSee: 'android:set-agents-can-see',
+    startEmulator: 'android:start-emulator'
   },
   oxeContext: {
     buildPaneManifest: 'oxe-context:build-pane-manifest'
@@ -697,6 +713,7 @@ export interface OxeApi {
   policy: import('../policy').PolicyApi
   dataExport: DataExportApi
   httpAudit: import('./http-audit').HttpAuditApi
+  android?: AndroidApi
   agentActivity: import('./agent-activity').AgentActivityApi
 }
 
@@ -811,4 +828,42 @@ export interface McpApi {
   /** Creates the named servers of one source, untrusted, in the global or workspace scope. */
   importDiscovered?(input: { workspaceId: string | null; source: import('./mcp').McpDiscoverySource['id']; names: string[] }): Promise<import('./mcp').McpImportResult>
   onHealth(listener: (event: import('./mcp').McpServerHealthEvent) => void): () => void
+}
+
+export interface AndroidMirrorDevice {
+  serial: string
+  name: string
+  kind: 'emulator' | 'usb' | 'wifi'
+  api?: number
+  state: 'device' | 'offline' | 'unauthorized' | 'recovery' | 'sideload' | 'authorizing' | 'no-permissions'
+  agentsCanSee?: boolean
+  stream?: 'idle' | 'connecting' | 'live'
+}
+
+export interface AndroidMirrorStatus {
+  adb: 'missing' | 'ok'
+  devices: AndroidMirrorDevice[]
+  avds: string[]
+}
+
+export interface AndroidMirrorFrame {
+  serial: string
+  width: number
+  height: number
+  data: Uint8Array
+}
+
+export interface AndroidApi {
+  status(): Promise<AndroidMirrorStatus>
+  connect(input: { serial: string }): Promise<{ ok: boolean } | void>
+  disconnect(input: { serial: string }): Promise<void>
+  tap(input: { serial: string; x: number; y: number }): Promise<void>
+  swipe(input: { serial: string; x1: number; y1: number; x2: number; y2: number; durationMs?: number }): Promise<void>
+  key(input: { serial: string; keycode: number }): Promise<void>
+  rotate(input: { serial: string }): Promise<void>
+  screenshot(input: { serial: string }): Promise<{ path: string; name: string }>
+  setAgentsCanSee(input: { serial: string; value: boolean }): Promise<void>
+  startEmulator(avd: string): Promise<void>
+  onChanged(listener: (status?: AndroidMirrorStatus) => void): () => void
+  onFrame(listener: (frame: AndroidMirrorFrame) => void): () => void
 }

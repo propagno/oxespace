@@ -39,10 +39,41 @@ export interface BrowserPreviewSessionState {
   tabs: BrowserPreviewTabState[]
 }
 
+export interface BrowserPreviewGrant {
+  previewSessionId: string
+  origin: string
+  scope: 'session' | 'action'
+  grantedAt: number
+}
+
+export interface BrowserPreviewAgentAction {
+  id: string
+  kind: 'click' | 'fill' | 'navigate' | 'scroll'
+  label: string
+  value?: string
+  at: number
+}
+
+export interface BrowserPreviewConsoleRow {
+  level: 'error' | 'warning' | 'info'
+  message: string
+  source: string
+  line: number
+}
+
+export interface BrowserPreviewNetworkRow {
+  method: string
+  url: string
+  status: number | null
+  type: string
+  ms: number | null
+  failed?: 'canceled' | 'error'
+}
+
 export interface BrowserPreviewEvent {
   ownerKey: string
   tabId: string
-  type: 'ready' | 'navigation' | 'loading' | 'title' | 'failed' | 'grab' | 'cancel' | 'session' | 'access'
+  type: 'ready' | 'navigation' | 'loading' | 'title' | 'failed' | 'grab' | 'cancel' | 'session' | 'access' | 'grant' | 'agent-action' | 'console' | 'network' | 'broker'
   session?: BrowserPreviewSessionState
   url?: string
   title?: string
@@ -54,6 +85,14 @@ export interface BrowserPreviewEvent {
   screenshot?: string | null
   /** `access`: main turned agent access off (T43); the window shows it and asks the person again to turn it on. */
   agentAccess?: boolean
+  grant?: BrowserPreviewGrant | null
+  phase?: 'before' | 'after'
+  action?: BrowserPreviewAgentAction
+  result?: 'ok' | 'denied' | 'failed'
+  row?: BrowserPreviewConsoleRow | BrowserPreviewNetworkRow
+  at?: number
+  attached?: boolean
+  devToolsOpen?: boolean
 }
 
 export interface BrowserPreviewApi {
@@ -70,5 +109,7 @@ export interface BrowserPreviewApi {
   captureElement(input: {ownerKey:string;tabId:string;rect:{x:number;y:number;width:number;height:number}}): Promise<string | null>
   captureClipboard(input: {ownerKey:string;tabId:string}): Promise<void>
   close(input: {ownerKey:string;tabId:string;lease?:string}): Promise<void>
+  revokeGrant(input: { ownerKey: string; tabId: string }): Promise<void>
+  setDevice(input: { ownerKey: string; tabId: string; deviceId: string | null; rotated: boolean }): Promise<void>
   onEvent(listener: (event: BrowserPreviewEvent) => void): () => void
 }

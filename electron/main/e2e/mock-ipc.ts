@@ -570,6 +570,9 @@ export function registerE2eMockIpcHandlers(): void {
     failedSources: []
   }))
   ipcMain.handle(IPC_CHANNELS.httpAudit.list, () => ({ rows: [], cursor: null, hosts: [] }))
+  ipcMain.handle(IPC_CHANNELS.android.status, () => ({ adb: 'missing', devices: [], avds: [] }))
+  ipcMain.handle(IPC_CHANNELS.android.connect, () => ({ ok: true }))
+  ipcMain.handle(IPC_CHANNELS.android.screenshot, () => ({ path: '/tmp/screenshot.png', name: 'screenshot.png' }))
 
   // ── Catch-all safety net (E2E) ──────────────────────────────────────────────
   // Any IPC channel NOT explicitly mocked above gets a safe, shaped empty default

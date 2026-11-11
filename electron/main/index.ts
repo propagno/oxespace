@@ -68,6 +68,10 @@ import { guardMainWindowLinks, isLoopbackHttpUrl } from './utils/external-open'
 import { applyLoginShellPath } from './utils/login-shell-path'
 import { securePreviewGuest, securePreviewSession, WEB_PREVIEW_PARTITION_PREFIX } from './services/browser-preview-security'
 import { registerBrowserPreviewIpc } from './ipc/browser-preview.ipc'
+import { registerAndroidIpc } from './ipc/android.ipc'
+import { AndroidAgentAccess, AndroidDevices } from './services/android/android-devices'
+import { setPreviewGrantAudit } from './services/browser-preview/preview-grants'
+import { mainMessage } from '../../shared/messages'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
 import type { ShellProfile } from '../../shared/types/workspace'
 import { redactLogMessage } from './services/log-redaction'
@@ -176,6 +180,20 @@ async function registerIpcHandlers(): Promise<() => void> {
   const { DelegationService } = await import('./services/delegation.service')
   const { registerDelegationIpc } = await import('./ipc/delegation.ipc')
   const executions = new ExecutionRegistry()
+  const personAuditStmt = db.prepare("INSERT INTO person_action_audit (ts, actor, action, target, outcome, code) VALUES (?, 'person', ?, ?, ?, ?)")
+  setPreviewGrantAudit(entry => {
+    try { personAuditStmt.run(Date.now(), entry.action, entry.target, entry.outcome, null) } catch { /* best-effort audit */ }
+  })
+  const androidDevices = new AndroidDevices()
+  const androidAccess = new AndroidAgentAccess({
+    devices: androidDevices,
+    audit: {
+      record: entry => {
+        try { personAuditStmt.run(Date.now(), entry.action, entry.target, 'ok', entry.outcome) } catch { /* best-effort audit */ }
+      }
+    }
+  })
+  registerAndroidIpc({ devices: androidDevices, access: androidAccess })
   registerAgentHooksIpc(app.getPath('userData'))
   // What each pane's agent is doing (working, blocked, done...), from its hooks and its screen.
   const [{ AgentStateService }, { loadManifests }, { BUNDLED_MANIFESTS }, { registerAgentStateIpc, broadcastAgentState }, { notifyAgentsChanged, onAgentsChanged }] = await Promise.all([
@@ -255,7 +273,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     observer: agentState,
     resumeSession: (paneId, wanted, again) => paneAgentSessions.take(paneId, wanted, again), assignSession: (paneId, agent, sessionId) => paneAgentSessions.record(paneId, agent, sessionId, 'launch'), clearSession: paneId => paneAgentSessions.clear(paneId), currentSession: paneId => paneAgentSessions.current(paneId),
     isManagedPane: paneId => delegationService?.ownsPane(paneId) ?? false,
-    onLaunchExit: (paneId) => { executions.end(paneId); delegationService?.exited(paneId) },
+    onLaunchExit: (paneId) => { const ex = executions.forOwner({ kind: 'pane', id: paneId }); if (ex) androidAccess.revokeSession(ex.id); executions.end(paneId); delegationService?.exited(paneId) },
     executionEnvironment: (input) => {
       const meta = db.prepare('SELECT port, token FROM internal_mcp_meta LIMIT 1').get() as { port: number; token: string } | undefined
       const hookPort = agentHookServer.port
@@ -353,7 +371,9 @@ async function registerIpcHandlers(): Promise<() => void> {
       return { ...execution, OXESPACE_MCP_PORT: String(meta.port), OXESPACE_MCP_TOKEN: meta.token, OXESPACE_WORKSPACE_ID: thread.workspaceId }
     },
     end: (threadId, executionId) => {
-      if (executionId && executions.forOwner({ kind: 'thread', id: threadId })?.id !== executionId) return
+      const current = executions.forOwner({ kind: 'thread', id: threadId })
+      if (executionId && current?.id !== executionId) return
+      if (current) androidAccess.revokeSession(current.id)
       executions.endOwner({ kind: 'thread', id: threadId })
     }
   }, threadWorktrees, () => sharedAgentActivity.current)
@@ -475,7 +495,23 @@ async function registerIpcHandlers(): Promise<() => void> {
     workspaceServ: internalMcpWorkspaceServ,
     github: internalMcpGithub,
     background: backgroundManager,
-    fileSystem: fileSystemService
+    fileSystem: fileSystemService,
+    androidAccess: () => androidAccess,
+    askAndroidScreenshot: async ({ serial, owner }) => {
+      const [{ brokerDraft }, { requesterFor }] = await Promise.all([import('./services/approvals/drafts'), import('./services/approvals/requester')])
+      const outcome = await approvalCenter.ask(brokerDraft({
+        kind: 'mcp-confirm',
+        requester: requesterFor(owner),
+        level: 'medium',
+        risk: 'read',
+        title: mainMessage('approvals.title.agent', {}),
+        summary: mainMessage('approvals.summary.mcpConfirm', { tool: 'oxespace_device_screenshot', action: 'screenshot', target: serial }),
+        target: serial,
+        notes: [],
+        text: serial
+      }))
+      return outcome.intent === 'allow' || outcome.intent === 'allow-session'
+    }
   })
   registerMcpInternalIpc(internalMcp)
   // A63 / N9: the Worktrees panel. The window and the oxespace_remove_worktree tool share its guarded removal; the

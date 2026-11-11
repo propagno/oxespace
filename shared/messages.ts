@@ -524,6 +524,8 @@ export interface MessageParams extends PlaceMessageParams {
   'agents.request.pane': Record<string, never>
   /** S7.1: one source of the agents overview (panes, threads, delegations, work) could not be read; the others still show. */
   'agents.source.unavailable': { source: string }
+  'preview.capture.devtools': Record<string, never>
+  'preview.capture.busy': Record<string, never>
 }
 
 export type MessageCode = keyof MessageParams
@@ -847,7 +849,9 @@ export const MESSAGE_CODES = [
   'agents.request.elicitation',
   'agents.request.tool',
   'agents.request.pane',
-  'agents.source.unavailable'
+  'agents.source.unavailable',
+  'preview.capture.devtools',
+  'preview.capture.busy'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */

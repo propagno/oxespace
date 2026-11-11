@@ -31,6 +31,7 @@ interface UIState {
   isScriptsPanelOpen: boolean
   isSearchPanelOpen: boolean
   isHttpCallsPanelOpen: boolean
+  isAndroidPanelOpen: boolean
   isUsageOpen: boolean
   /** F2 experimental: render the recursive split-tree layout instead of the grid. */
   splitLayoutEnabled: boolean
@@ -66,6 +67,8 @@ interface UIState {
   closeSearchPanel: () => void
   toggleHttpCallsPanel: () => void
   closeHttpCallsPanel: () => void
+  toggleAndroidPanel: () => void
+  closeAndroidPanel: () => void
   openUsage: () => void
   closeUsage: () => void
   toggleSplitLayout: () => void
@@ -95,6 +98,7 @@ export const useUIStore = create<UIState>((set) => ({
   isScriptsPanelOpen: false,
   isSearchPanelOpen: false,
   isHttpCallsPanelOpen: false,
+  isAndroidPanelOpen: false,
   isUsageOpen: false,
   splitLayoutEnabled: true,
   webPreviewOpenByWorkspace: {},
@@ -122,6 +126,8 @@ export const useUIStore = create<UIState>((set) => ({
   closeSearchPanel: () => set({ isSearchPanelOpen: false }),
   toggleHttpCallsPanel: () => set((s) => ({ isHttpCallsPanelOpen: !s.isHttpCallsPanelOpen })),
   closeHttpCallsPanel: () => set({ isHttpCallsPanelOpen: false }),
+  toggleAndroidPanel: () => set((s) => ({ isAndroidPanelOpen: !s.isAndroidPanelOpen })),
+  closeAndroidPanel: () => set({ isAndroidPanelOpen: false }),
   openUsage: () => set({ isUsageOpen: true }),
   closeUsage: () => set({ isUsageOpen: false }),
   toggleSplitLayout: () => set((s) => ({ splitLayoutEnabled: !s.splitLayoutEnabled })),

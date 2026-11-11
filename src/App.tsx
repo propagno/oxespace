@@ -171,7 +171,7 @@ export function App(): ReactElement {
     closeMcpPanel,
     openScriptsPanel,
     closeScriptsPanel,
-    isSearchPanelOpen, openSearchPanel, closeSearchPanel, isHttpCallsPanelOpen, toggleHttpCallsPanel,
+    isSearchPanelOpen, openSearchPanel, closeSearchPanel, isHttpCallsPanelOpen, toggleHttpCallsPanel, isAndroidPanelOpen, toggleAndroidPanel,
     openWebPreview,
     closeWebPreview,
     openIntegrationPanel,
@@ -208,7 +208,7 @@ export function App(): ReactElement {
     openScriptsPanel: state.openScriptsPanel,
     closeScriptsPanel: state.closeScriptsPanel,
     isSearchPanelOpen: state.isSearchPanelOpen, openSearchPanel: state.openSearchPanel, closeSearchPanel: state.closeSearchPanel,
-    isHttpCallsPanelOpen: state.isHttpCallsPanelOpen, toggleHttpCallsPanel: state.toggleHttpCallsPanel,
+    isHttpCallsPanelOpen: state.isHttpCallsPanelOpen, toggleHttpCallsPanel: state.toggleHttpCallsPanel, isAndroidPanelOpen: state.isAndroidPanelOpen, toggleAndroidPanel: state.toggleAndroidPanel,
     openWebPreview: state.openWebPreview,
     closeWebPreview: state.closeWebPreview,
     openIntegrationPanel: state.openIntegrationPanel,
@@ -637,20 +637,20 @@ export function App(): ReactElement {
     { id: 'files', active: activeWorkspace.editorVisible === true, onToggle: toggleEditor },
     { id: 'search', active: isSearchPanelOpen, onToggle: toggleSearchPanel },
     { id: 'scripts', active: isScriptsPanelOpen, onToggle: toggleScriptsPanel },
-    { id: 'worktrees', active: activeWorkspace.worktreePanelVisible === true, onToggle: toggleWorktreePanel }, { id: 'httpCalls', active: isHttpCallsPanelOpen, onToggle: toggleHttpCallsPanel }
+    { id: 'worktrees', active: activeWorkspace.worktreePanelVisible === true, onToggle: toggleWorktreePanel }, { id: 'httpCalls', active: isHttpCallsPanelOpen, onToggle: toggleHttpCallsPanel }, { id: 'android', active: isAndroidPanelOpen, onToggle: toggleAndroidPanel }
   ] : []
 
   const toolHandlers: Partial<Record<ToolId, () => void>> = {
     integration: openIntegrationPanel, github: toggleGitHubPanel, worktrees: toggleWorktreePanel, scripts: toggleScriptsPanel, search: toggleSearchPanel,
     'web-preview': toggleWebPreviewPanel, background: toggleBackgroundPanel, mcp: openMcpPanel,
-    editor: toggleEditor, review: toggleReviewPanel, 'http-calls': toggleHttpCallsPanel, slash: () => { if (activePane) openSlashOverlay(activePane.id) }
+    editor: toggleEditor, review: toggleReviewPanel, 'http-calls': toggleHttpCallsPanel, android: toggleAndroidPanel, slash: () => { if (activePane) openSlashOverlay(activePane.id) }
   }
 
   // Palette and menu commands live in src/commands/*.commands.ts. They load after the first frame (T52): only the lazy
   // palette and menu bar read them, and shortcuts never go through them.
   const commandContributors = useDeferredModule(loadCommandContributors)
   const codeCommandContext: CodeCommandContext = { applicationView, activeWorkspace, activePane, toolHandlers, openNewWorkspace: openNewWorkspaceFromUI, showCode: () => selectMode('code'),
-    openTools: { editor: activeWorkspace?.editorVisible, github: activeWorkspace?.githubPanelVisible, review: activeWorkspace?.reviewPanelVisible, background: activeWorkspace?.backgroundPanelVisible, worktrees: activeWorkspace?.worktreePanelVisible, scripts: isScriptsPanelOpen, search: isSearchPanelOpen, 'http-calls': isHttpCallsPanelOpen, 'web-preview': activeWorkspace ? webPreviewOpenByWorkspace[activeWorkspace.id] : false },
+    openTools: { editor: activeWorkspace?.editorVisible, github: activeWorkspace?.githubPanelVisible, review: activeWorkspace?.reviewPanelVisible, background: activeWorkspace?.backgroundPanelVisible, worktrees: activeWorkspace?.worktreePanelVisible, scripts: isScriptsPanelOpen, search: isSearchPanelOpen, 'http-calls': isHttpCallsPanelOpen, android: isAndroidPanelOpen, 'web-preview': activeWorkspace ? webPreviewOpenByWorkspace[activeWorkspace.id] : false },
     splitActivePane, toggleActivePaneMaximize, openDesignSystem: () => setDesignSystemOpen(true) }
   const commandActions = useContributedCommands()
   useEffect(() => { setKeyboardView(applicationView); setShownView(applicationView) }, [applicationView])
