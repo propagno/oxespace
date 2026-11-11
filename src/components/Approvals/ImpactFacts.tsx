@@ -1,7 +1,8 @@
 import type { ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadRequestImpact } from '../../../shared/types/thread'
-import { Badge } from '../../ui'
+import { Badge, cx } from '../../ui'
+import styles from './Approvals.module.css'
 
 export function titleIncludesWhere(title: string, where: string | undefined): boolean {
   if (!where) return false
@@ -29,31 +30,37 @@ export function ImpactFacts({
 
   if (layout === 'chips') {
     return (
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', alignItems: 'center' }}>
+      <div className={styles.factsChips}>
         <Badge>{whereText}</Badge>
         {count !== null ? <Badge>{affectsText}</Badge> : null}
-        <Badge intent={impact.reversible ? 'success' : 'warning'}>{undoText}</Badge>
+        <Badge intent={impact.reversible ? 'success' : 'danger'}>{undoText}</Badge>
       </div>
     )
   }
 
+  const riskTone = impact.risk === 'critical'
+    ? styles.factDanger
+    : impact.risk === 'high' || impact.risk === 'medium'
+      ? styles.factWarning
+      : styles.factSuccess
+
   return (
-    <dl style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 'var(--space-3)', margin: 0 }}>
-      <div>
-        <dt style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-xs)' }}>{t('f7.facts.whereLabel')}</dt>
-        <dd style={{ margin: 0, fontWeight: 500 }}>{whereText}</dd>
+    <dl className={styles.factsGrid}>
+      <div className={styles.factCard}>
+        <dt className={styles.factLabel}>{t('f7.facts.whereLabel')}</dt>
+        <dd className={styles.factValue}>{whereText}</dd>
       </div>
-      <div>
-        <dt style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-xs)' }}>{t('f7.facts.affectsLabel')}</dt>
-        <dd style={{ margin: 0, fontWeight: 500 }}>{affectsText}</dd>
+      <div className={styles.factCard}>
+        <dt className={styles.factLabel}>{t('f7.facts.affectsLabel')}</dt>
+        <dd className={styles.factValue}>{affectsText}</dd>
       </div>
-      <div>
-        <dt style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-xs)' }}>{t('f7.facts.undoLabel')}</dt>
-        <dd style={{ margin: 0, fontWeight: 500 }}>{undoText}</dd>
+      <div className={styles.factCard}>
+        <dt className={styles.factLabel}>{t('f7.facts.undoLabel')}</dt>
+        <dd className={cx(styles.factValue, impact.reversible ? styles.factSuccess : styles.factDanger)}>{undoText}</dd>
       </div>
-      <div>
-        <dt style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-xs)' }}>{t('f7.facts.riskLabel')}</dt>
-        <dd style={{ margin: 0, fontWeight: 500 }}>{riskText}</dd>
+      <div className={styles.factCard}>
+        <dt className={styles.factLabel}>{t('f7.facts.riskLabel')}</dt>
+        <dd className={cx(styles.factValue, riskTone)}>{riskText}</dd>
       </div>
     </dl>
   )

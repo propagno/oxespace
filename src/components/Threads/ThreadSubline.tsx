@@ -2,6 +2,7 @@ import type { ReactElement } from 'react'
 import { Folder, GitBranch } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { workspaceColorAttrs } from '../../../shared/workspace-color'
+import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { CollisionChips } from './CollisionChips'
 
 export interface ThreadSublineWorkspace {
@@ -34,11 +35,13 @@ export function ThreadSubline(props: {
         ? t('subline.accessEdit')
         : null
   const providerLabel = provider === 'codex' ? 'Codex' : provider === 'claude' ? 'Claude' : provider
+  const knownProvider = provider === 'codex' || provider === 'claude' ? provider : null
 
   return (
     <div className="thread-subline">
       {(providerLabel || model) && (
         <span className="thread-subline-model">
+          {knownProvider && <AgentProviderIcon provider={knownProvider} size={14} />}
           {providerLabel && <span className="thread-subline-provider">{providerLabel}</span>}
           {providerLabel && model && <span aria-hidden="true">{' · '}</span>}
           {model && <span className="thread-subline-model-name">{model}</span>}
@@ -49,7 +52,7 @@ export function ThreadSubline(props: {
         {...(workspace ? workspaceColorAttrs(workspace as never) : {})}
         title={workspace?.rootPath}
       >
-        <Folder size={13} aria-hidden="true" />
+        <Folder size={12} aria-hidden="true" />
         <strong>{workspace?.name ?? t('header.yourProjects')}</strong>
       </span>
       {effectiveBranch && (

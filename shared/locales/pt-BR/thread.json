@@ -1433,7 +1433,13 @@
       "confirm": "Remover projeto",
       "description": "Remover “{{name}}” da barra lateral do OxeChat? As conversas, os arquivos e os workspaces do OxeCode continuam. Restaure o projeto em Projetos removidos ou adicione a pasta de novo."
     },
-    "restartToDelete": "Reinicie o aplicativo atualizado para excluir conversas."
+    "restartToDelete": "Reinicie o aplicativo atualizado para excluir conversas.",
+    "archivedCount": "Arquivadas · {{count}}",
+    "conversationCount_one": "{{count}} conversa",
+    "conversationCount_many": "{{count}} conversas",
+    "conversationCount_other": "{{count}} conversas",
+    "asksYou": "Pede a você · {{text}}",
+    "asksYouShort": "Pede a você"
   },
   "sections": {
     "notKept_one": "Não foi possível manter {{count}} seção. O resto da lista está como antes.",
@@ -2277,7 +2283,16 @@
       "noDecided": "Nenhuma aprovação decidida hoje.",
       "activeHeading": "Ativos no OxeChat e OxeCode · {{count}}",
       "noActive": "Nenhum agente ativo agora.",
-      "allClear": "Pedidos fora das permissões aguardam aqui e no celular pareado. Escritas em banco ficam neste computador."
+      "allClear": "Pedidos fora das permissões aguardam aqui e no celular pareado. Escritas em banco ficam neste computador.",
+      "heading": "Aprovações",
+      "subtitle_one": "{{count}} aguardando · J e K movem · D nega",
+      "subtitle_many": "{{count}} aguardando · J e K movem · D nega",
+      "subtitle_other": "{{count}} aguardando · J e K movem · D nega",
+      "subtitleClear": "0 aguardando · Tudo em dia",
+      "allClearTitle": "Tudo em dia",
+      "approvalRules": "Regras de aprovação",
+      "openTask": "Abrir a conversa",
+      "closeQueue": "Fechar aprovações"
     },
     "preview": {
       "context": "{{agent}} · {{conversation}}",

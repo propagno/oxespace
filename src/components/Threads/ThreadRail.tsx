@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Archive, Sun } from 'lucide-react'
+import { Archive, CircleAlert, Sun } from 'lucide-react'
 import { SidebarCollapseButton } from '../Sidebar/SidebarCollapseButton'
 
 export interface ThreadRailConversation {
@@ -8,6 +8,7 @@ export interface ThreadRailConversation {
   title: string
   needsYou?: boolean
   current?: boolean
+  status?: 'running' | 'ready' | 'completed' | 'attention' | 'failed' | 'interrupted'
 }
 
 export interface ThreadRailProps {
@@ -24,8 +25,8 @@ export function ThreadRail({ conversations, onSelect, onArchived }: ThreadRailPr
   return (
     <div className="nav-rail" data-collapsed data-mode="thread">
       <SidebarCollapseButton mode="thread" collapsed />
-      <nav aria-label={t('sidebar.conversations')}>
-        {conversations.map((conv) => {
+      <nav aria-label={t('sidebar.conversations')} data-rail-items="">
+        {conversations.map(conv => {
           const label = conv.needsYou ? t('sidebar.railNeedsDecision', { name: conv.title }) : conv.title
           return (
             <button
@@ -35,11 +36,18 @@ export function ThreadRail({ conversations, onSelect, onArchived }: ThreadRailPr
               style={RAIL_BUTTON_STYLE}
               aria-label={label}
               title={label}
-              aria-current={conv.current ? 'true' : undefined}
+              aria-current={conv.current ? 'page' : undefined}
+              data-needs-you={conv.needsYou ? 'true' : undefined}
+              data-status={conv.status}
               onClick={() => onSelect(conv.id)}
             >
-              <span aria-hidden="true">{[...conv.title.trim()][0]?.toUpperCase() ?? '·'}</span>
-              {conv.needsYou ? <Sun size={12} aria-hidden="true" /> : null}
+              {conv.needsYou ? (
+                <Sun size={15} aria-hidden="true" />
+              ) : conv.status === 'failed' ? (
+                <CircleAlert size={14} aria-hidden="true" />
+              ) : (
+                <span aria-hidden="true">{[...conv.title.trim()][0]?.toUpperCase() ?? '·'}</span>
+              )}
             </button>
           )
         })}

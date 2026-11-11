@@ -9,14 +9,15 @@ import { Button, Popover } from '../../ui'
 const RADIUS = 7
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 const REFRESH_MS = 5 * 60_000
+const DEFAULT_CONTEXT_WINDOW = 200_000
 
 const compact = (tokens: number): string => tokens >= 1_000_000 ? `${(tokens / 1_000_000).toFixed(1)}M` : tokens >= 1_000 ? `${Math.round(tokens / 1_000)}k` : String(tokens)
 
 /**
  * Context window and plan usage at a glance, next to the model controls.
- * The ring shows the context fill when the provider reports it and falls back
- * to the plan window otherwise. The plan numbers are the cached subscription
- * snapshot (the same one as Usage & rate limits). Hidden when neither exists.
+ * The ring shows the context fill when the provider reports it, falls back
+ * to the plan window when available, and shows an initial 0% context ring
+ * while a conversation is open so the cockpit meter is always present.
  */
 export function ThreadUsageRing({ provider, idle, threadId, context }: { provider: 'claude' | 'codex'; idle: boolean; threadId?: string; context?: ThreadContextReport }): ReactElement | null {
   const { t } = useTranslation('thread')
@@ -40,10 +41,13 @@ export function ThreadUsageRing({ provider, idle, threadId, context }: { provide
     return () => { active = false }
   }, [open, idle, threadId])
 
-  const report = fresh && (!context || fresh.capturedAt >= context.capturedAt) ? fresh : context
+  const rawReport = fresh && (!context || fresh.capturedAt >= context.capturedAt) ? fresh : context
   const windows = snapshot?.available ? snapshot.windows ?? [] : []
   const worst = windows.length ? windows.reduce((best, value) => value.usedPct > best.usedPct ? value : best, windows[0]) : null
-  if (!report && !worst) return null
+  if (!rawReport && !worst && !threadId) return null
+  const report: ThreadContextReport | undefined = rawReport ?? (!worst && threadId
+    ? { usedTokens: 0, windowTokens: DEFAULT_CONTEXT_WINDOW, percentage: 0, categories: [], capturedAt: 0, source: provider === 'claude' ? 'claude-control' : 'codex-token-usage' }
+    : undefined)
   const planPercent = worst ? Math.max(0, Math.min(100, worst.usedPct)) : 0
   const planUsed = worst ? t(worst.kind === 'session' ? 'usage.planLabelSession' : 'usage.planLabelWeek', { percent: Math.round(planPercent) }) : ''
   const planLabel = worst?.resetsAtMs ? t('usage.resetsIn', { label: planUsed, time: usageResetIn(worst.resetsAtMs) }) : planUsed

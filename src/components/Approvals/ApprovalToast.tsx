@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { Sun } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadRequest, ThreadRequestResponse } from '../../../shared/types/thread'
 import { Button } from '../../ui'
+import styles from './Approvals.module.css'
 
 const TOAST_MS = 12_000
 
@@ -72,6 +74,7 @@ export function ApprovalToast({
     <div
       role="status"
       aria-live="polite"
+      className={styles.toast}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onFocus={() => {
@@ -81,19 +84,12 @@ export function ApprovalToast({
         const next = event.relatedTarget as Node | null
         if (!next || !event.currentTarget.contains(next)) setFocused(false)
       }}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 'var(--space-3)',
-        padding: 'var(--space-3)',
-        background: 'var(--surface-elevated)',
-        border: '1px solid var(--border-subtle)',
-        borderRadius: 'var(--radius-md)'
-      }}
     >
-      <span>{t('f7.toast.needsYou', { title: request.title, agent })}</span>
-      <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+      <span className={styles.toastBody}>
+        <Sun size={15} aria-hidden="true" className={styles.toastIcon} />
+        <span>{t('f7.toast.needsYou', { title: request.title, agent })}</span>
+      </span>
+      <div className={styles.toastActions}>
         <Button ref={denyRef} variant="secondary" size="sm" onClick={() => void onRespond({ decision: 'decline' })}>
           {t('request.deny')}
         </Button>

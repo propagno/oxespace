@@ -5,7 +5,7 @@ import { i18n } from '../../i18n'
 import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, LoadingState, Menu, Notice, Spinner, Splitter, cx, TextField } from '../../ui'
 import styles from './ThreadSidebar.module.css'
 import { useThreadContentSearch } from '../../hooks/useThreadContentSearch'
-import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleAlert, CircleCheck, CircleX, Columns2, FolderPlus, MoreHorizontal, Pencil, Pin, Plus, Square, Trash2, UserRound } from 'lucide-react'
+import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleCheck, CircleX, Columns2, FolderPlus, MoreHorizontal, Pencil, Pin, Plus, Square, Sun, Trash2, UserRound } from 'lucide-react'
 import type { ConversationThread } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
@@ -42,6 +42,7 @@ function relativeTime(timestamp: number): string {
   const t = i18n.t.bind(i18n)
   return minutes < 1 ? t('thread:sidebar.age.now') : minutes < 60 ? t('thread:sidebar.age.minutes', { count: minutes }) : minutes < 1440 ? t('thread:sidebar.age.hours', { count: Math.floor(minutes / 60) }) : t('thread:sidebar.age.days', { count: Math.floor(minutes / 1440) })
 }
+
 export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode }: {
   onCreate: (projectId: string, rootPath?: string) => void; onAccounts?: () => void; onAddProject?: () => void; onOpenInCode?: (rootPath: string) => Promise<void>
 }) {
@@ -95,6 +96,10 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   const archived = useMemo(() => threads.filter(thread => thread.archived && !hiddenProjects.includes(thread.projectId)
     && (`${displayThreadTitle(thread.title)} ${thread.provider} ${thread.rootPath} ${projects.find(project => project.projectId === thread.projectId)?.displayName ?? ''}`.toLowerCase().includes(query.toLowerCase()) || contentHit(thread)))
     .sort((a, b) => b.updatedAt - a.updatedAt), [threads, projects, hiddenProjects, query, contentHit])
+  const activeConversationCount = useMemo(
+    () => threads.filter(thread => !thread.archived && !hiddenProjects.includes(thread.projectId)).length,
+    [threads, hiddenProjects]
+  )
   // Sections inside each project (F13): dragging a row and its "Move to section" menu make the same move.
   const sections = useThreadSections(useMemo(() => groups.map(group => group.id), [groups]), threads)
   const drag = useSectionDrag(threads, (thread, sectionId) => void sections.moveTo(thread, sectionId))
@@ -122,14 +127,14 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   }
   const row = (thread: ConversationThread) => {
     const status = threadNavigationStatus(thread), unread = unreadIds.includes(thread.id)
-    return <div key={thread.id} className={cx('thread-navigation-row', styles.row, unread && cx('is-unread', styles.unread))} data-thread-row={thread.id} {...drag.rowProps(thread)}
+    return <div key={thread.id} className={cx('thread-navigation-row', styles.row, unread && cx('is-unread', styles.unread), status.kind === 'attention' && styles.attentionRow)} data-thread-row={thread.id} {...drag.rowProps(thread)}
     onContextMenu={event => { if (event.defaultPrevented) return; event.preventDefault(); setRowMenuId(thread.id) }}
     onKeyDown={event => { if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) { event.preventDefault(); setRowMenuId(thread.id) } }}><button type="button" data-list-item className={cx('thread-navigation-item', styles.item)} aria-current={selectedId === thread.id ? 'page' : undefined}
     title={`${displayThreadTitle(thread.title)}\n${thread.provider} · ${status.label}${unread ? ` · ${t('sidebar.unreadShort')}` : ''}\n${thread.rootPath}`} onClick={() => void select(thread.id)}>
     {unread && <span className={cx('thread-unread-marker', styles.unreadMark)} aria-label={t('sidebar.unread')} />}{unread && ' '}
-    <span className={cx('thread-session-indicator', styles.indicator)} data-status={status.kind} aria-hidden="true">{status.kind === 'ready' ? <Circle size={12} /> : status.kind === 'completed' ? <CircleCheck size={12} /> : status.kind === 'attention' ? <CircleAlert size={12} /> : status.kind === 'failed' ? <CircleX size={12} /> : status.kind === 'interrupted' ? <Square size={12} /> : null}</span>
-    <span className={cx('thread-session-content', styles.content)}><span className={cx('thread-session-title', styles.title)}>{displayThreadTitle(thread.title)}</span>{' '}<span className={cx('thread-session-meta', styles.meta)}><span className={cx('thread-session-provider', styles.provider)}><AgentProviderIcon provider={thread.provider} size={density === 'compact' ? 12 : 14} /><span>{thread.provider === 'claude' ? 'Claude Code' : 'Codex'}</span></span>{' '}<span className={cx('thread-session-state', styles.state)} data-status={status.kind}>{status.label}</span>{thread.pinned && <> <Pin size={12} aria-label={t('sidebar.pinned')} /></>}</span></span>{' '}
-    {status.kind === 'attention' ? <small className={styles.needs}>{t('status.attention')}</small> : <small className={styles.time}>{relativeTime(thread.updatedAt)}</small>}
+    <span className={cx('thread-session-indicator', styles.indicator)} data-status={status.kind} aria-hidden="true">{status.kind === 'ready' ? <Circle size={8} fill="currentColor" /> : status.kind === 'completed' ? <CircleCheck size={12} /> : status.kind === 'attention' ? <Sun size={12} /> : status.kind === 'failed' ? <CircleX size={12} /> : status.kind === 'interrupted' ? <Square size={10} /> : null}</span>
+    <span className={cx('thread-session-content', styles.content)}><span className={cx('thread-session-title', styles.title)}>{displayThreadTitle(thread.title)}</span>{' '}<span className={cx('thread-session-meta', styles.meta)}><span className={cx('thread-session-provider', styles.provider)}><AgentProviderIcon provider={thread.provider} size={density === 'compact' ? 11 : 12} /><span>{thread.provider === 'claude' ? 'Claude Code' : 'Codex'}</span></span>{' '}<span className={cx('thread-session-state', styles.state)} data-status={status.kind}>{status.label}</span>{thread.pinned && <> <Pin size={11} aria-label={t('sidebar.pinned')} /></>}</span></span>{' '}
+    {status.kind === 'attention' ? <small className={styles.needs}>{t('sidebar.asksYouShort')}</small> : <small className={styles.time}>{relativeTime(thread.updatedAt)}</small>}
   </button><button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.openSideNamed', { name: displayThreadTitle(thread.title) })} title={sideBySideBlocked(thread.id) ? t('sidebar.alreadyOpen') : t('sidebar.openSide')} disabled={sideBySideBlocked(thread.id)} onClick={() => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed'))))}><Columns2 size={14} /></button><Menu label={t('sidebar.actionsFor', { name: displayThreadTitle(thread.title) })} side="right" open={rowMenuId === thread.id} onOpenChange={open => setRowMenuId(open ? thread.id : null)} items={[
     { label: t('sidebar.openToSide'), icon: <Columns2 size={14} />, disabled: sideBySideBlocked(thread.id), onSelect: () => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed')))) },
     { label: t('sidebar.renameMenu'), icon: <Pencil size={14} />, onSelect: () => { setActionError(''); setRenameTarget(thread); setRenameValue(namedThreadTitle(thread.title)) } },
@@ -148,7 +153,16 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     {collapsed && <ThreadRail
       conversations={threads.filter(thread => !thread.archived && !hiddenProjects.includes(thread.projectId))
         .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || b.updatedAt - a.updatedAt)
-        .map(thread => ({ id: thread.id, title: displayThreadTitle(thread.title), needsYou: threadNavigationStatus(thread).kind === 'attention', current: thread.id === selectedId }))}
+        .map(thread => {
+          const navStatus = threadNavigationStatus(thread)
+          return {
+            id: thread.id,
+            title: displayThreadTitle(thread.title),
+            needsYou: navStatus.kind === 'attention',
+            current: thread.id === selectedId,
+            status: navStatus.kind
+          }
+        })}
       onSelect={id => void select(id)}
       onArchived={() => { toggleCollapse(); setShowArchived(true) }} />}
     {!collapsed && <div className="nav-panel">
@@ -206,6 +220,10 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
           })}
         </section>}
       </nav>
+      <div className={styles.summaryStrip}>
+        <span>{t('sidebar.archivedCount', { count: archived.length })}</span>
+        <span>{t('sidebar.conversationCount', { count: activeConversationCount })}</span>
+      </div>
       <SidebarFooter context={railContext} onToggle={toggleCollapse} />
     </div>}
     {projectSettingsId && projects.find(project => project.projectId === projectSettingsId) &&
@@ -223,7 +241,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
       </form>
     </Dialog>}
     <ThreadSectionDialogs controller={sections} />
-    {finishRequest && finishThread &&<ThreadWorktreeFinishDialog key={finishRequest.threadId} thread={finishThread} action={finishRequest.action} onOpenInCode={onOpenInCode} onClose={() => useThreadWorktreeFinishStore.getState().clear()} />}
+    {finishRequest && finishThread && <ThreadWorktreeFinishDialog key={finishRequest.threadId} thread={finishThread} action={finishRequest.action} onOpenInCode={onOpenInCode} onClose={() => useThreadWorktreeFinishStore.getState().clear()} />}
     {confirmation && <ConfirmDialog cancelLabel={t('common.cancel')}
       {...(confirmation.kind === 'project'
         ? { title: t('sidebar.removeProject.title'), confirmLabel: t('sidebar.removeProject.confirm'), danger: true, description: t('sidebar.removeProject.description', { name: confirmation.title }) }

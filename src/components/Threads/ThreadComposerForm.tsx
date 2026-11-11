@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { ThreadAttachment, ThreadSnapshot } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { ErrorState, Menu } from '../../ui'
+import { ComposerChips } from './ComposerChips'
 import { ThreadConfigurationBar } from './ThreadConfigurationBar'
 import { ThreadUsageRing } from './ThreadUsageRing'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
@@ -26,8 +27,19 @@ interface CommandInput {
   onKeyDown: (event: ReactKeyboardEvent<HTMLTextAreaElement>) => boolean
 }
 
+export interface CompactComposerChipsConfig {
+  mode: string
+  model: string
+  models: string[]
+  nextModel: string | null
+  effort?: string
+  efforts?: string[]
+  access: string
+  onChange: (change: Record<string, unknown>) => void
+}
+
 /** The message box: text, attachments, commands, mentions, configuration and send/steer/stop. */
-export function ThreadComposerForm({ snapshot, draft, attachments, pending, running, active, composerState, textarea, fileInput, commands, mentions, openControl, onControlClosed, onError, onSend, onUpload, onRemoveAttachment, onInsertMention, onInterrupt, onCaret }: {
+export function ThreadComposerForm({ snapshot, draft, attachments, pending, running, active, composerState, textarea, fileInput, commands, mentions, openControl, compactChips, onControlClosed, onError, onSend, onUpload, onRemoveAttachment, onInsertMention, onInterrupt, onCaret }: {
   snapshot: ThreadSnapshot | null
   draft: string
   attachments: ThreadAttachment[]
@@ -40,6 +52,7 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
   commands: CommandInput
   mentions: { popup: ReactNode; onKeyDown: (event: ReactKeyboardEvent<HTMLTextAreaElement>) => boolean }
   openControl: 'model' | 'effort' | 'permissions' | null
+  compactChips?: CompactComposerChipsConfig
   onControlClosed: () => void
   onError: (message: string) => void
   onSend: (mode?: 'queue' | 'steer') => void
@@ -77,7 +90,9 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
         { label: t('composer.attach'), icon: <Paperclip size={14} />, disabled: attachments.length >= 8 || !api?.attach, onSelect: () => fileInput.current?.click() },
         { label: t('composer.mention'), icon: <AtSign size={14} />, onSelect: onInsertMention }
       ]} trigger={<button type="button" className="thread-command-trigger" aria-label={t('composer.add')} title={t('composer.addTitle')} disabled={!snapshot || pending}><Plus size={14} /></button>} /></div>
-      {snapshot && <ThreadConfigurationBar key={snapshot.thread.id} thread={snapshot.thread} openControl={openControl} onControlClosed={onControlClosed} onError={onError} onConfigured={value => useThreadStore.getState().updateSnapshot(value)} />}
+      {compactChips
+        ? <ComposerChips {...compactChips} />
+        : snapshot && <ThreadConfigurationBar key={snapshot.thread.id} thread={snapshot.thread} openControl={openControl} onControlClosed={onControlClosed} onError={onError} onConfigured={value => useThreadStore.getState().updateSnapshot(value)} />}
       {hints.steer && <button type="button" className="thread-command-trigger" aria-label={t('composer.steer')} title={t('composer.steerTitle')} disabled={pending || (!draft.trim() && !attachments.length)} onClick={() => onSend('steer')}><CornerDownLeft size={14} /></button>}
       {snapshot && <div className="thread-composer-group thread-composer-status">
       <ThreadUsageRing provider={snapshot.thread.provider} idle={!running} threadId={snapshot.thread.id} context={snapshot.thread.contextReport} /></div>}

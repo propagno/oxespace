@@ -1388,7 +1388,12 @@
       "confirm": "Remove project",
       "description": "Remove “{{name}}” from the OxeChat sidebar? Its conversations, files and OxeCode workspaces remain. Restore this project individually from Removed projects or add its folder again."
     },
-    "restartToDelete": "Restart the updated application to delete conversations."
+    "restartToDelete": "Restart the updated application to delete conversations.",
+    "archivedCount": "Archived · {{count}}",
+    "conversationCount_one": "{{count}} conversation",
+    "conversationCount_other": "{{count}} conversations",
+    "asksYou": "Asks you · {{text}}",
+    "asksYouShort": "Asks you"
   },
   "sections": {
     "notKept_one": "Could not keep {{count}} section. The rest of the list is as before.",
@@ -2198,7 +2203,15 @@
       "noDecided": "No approvals decided today.",
       "activeHeading": "Active across OxeChat & OxeCode · {{count}}",
       "noActive": "No active agents right now.",
-      "allClear": "Requests outside an agent's permissions wait here and on your paired phone. Database writes stay on this computer."
+      "allClear": "Requests outside an agent's permissions wait here and on your paired phone. Database writes stay on this computer.",
+      "heading": "Approvals",
+      "subtitle_one": "{{count}} waiting · J and K move · D denies",
+      "subtitle_other": "{{count}} waiting · J and K move · D denies",
+      "subtitleClear": "0 waiting · All clear",
+      "allClearTitle": "All clear",
+      "approvalRules": "Approval rules",
+      "openTask": "Open the task",
+      "closeQueue": "Close approvals"
     },
     "preview": {
       "context": "{{agent}} · {{conversation}}",
