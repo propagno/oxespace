@@ -1011,7 +1011,8 @@
     "scripts": "Scripts",
     "worktrees": "Worktrees",
     "background": "Atividade em segundo plano",
-    "httpCalls": "Chamadas HTTP"
+    "httpCalls": "Chamadas HTTP",
+    "containers": "Contêineres"
   },
   "patch": {
     "region": "Diff do arquivo",

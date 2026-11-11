@@ -13,7 +13,8 @@
     "menu": "Panels",
     "more": "More panels",
     "needsWorkspace": "Open a workspace to use its panels",
-    "httpCalls": "HTTP calls"
+    "httpCalls": "HTTP calls",
+    "containers": "Containers"
   },
   "tools": {
     "team": {
@@ -2444,5 +2445,46 @@
     "emptyFiltered": "Nothing matches",
     "clearFilters": "Clear filters",
     "error": "Couldn't read the HTTP log"
+  },
+  "containers": {
+    "empty": "No containers. Start a compose stack from a project.",
+    "startedByYou": "You",
+    "outside": "Outside OXESpace",
+    "outsideHint": "Started before OXESpace or by another tool",
+    "statusRunning": "Running",
+    "statusStopped": "Stopped",
+    "detailLabel": "Selected container",
+    "stop": "Stop",
+    "start": "Start",
+    "restart": "Restart",
+    "moreActions": "More actions",
+    "openShell": "Open a shell",
+    "copyId": "Copy container ID",
+    "connectInOxeQuery": "Connect in OxeQuery",
+    "stopStack": "Stop the whole stack…",
+    "removeContainer": "Remove container…",
+    "stoppedToast": "Stopped {{name}}",
+    "undo": "Undo",
+    "noLogs": "No logs yet.",
+    "tryAgain": "Try again",
+    "howToInstall": "How to install",
+    "confirmStopStackTitle": "Stop {{stack}}?",
+    "confirmStopStackBody": "All containers in {{stack}} will stop.",
+    "confirmStopStackAction": "Stop stack",
+    "confirmRemoveTitle": "Remove {{name}}?",
+    "confirmRemoveBody": "This removes the container. Volumes are kept.",
+    "confirmRemoveAction": "Remove",
+    "engineName": {
+      "docker": "Docker",
+      "podman": "Podman"
+    },
+    "engine": {
+      "stoppedTitle": "{{engine}} isn't answering",
+      "stoppedBody": "Start {{engine}}, then try again.",
+      "missingTitle": "{{engine}} not found",
+      "missingBody": "Install Docker or Podman, then reopen this panel.",
+      "deniedTitle": "Can't reach {{engine}}",
+      "deniedBody": "Check that your user may use {{engine}}, then try again."
+    }
   }
 }

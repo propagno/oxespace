@@ -3,11 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { Plus, Sun } from 'lucide-react'
 import { SidebarCollapseButton } from './SidebarCollapseButton'
 
+import { workspaceColorAttrs } from '../../../shared/workspace-color'
+
 export interface CodeRailWorkspace {
   id: string
   name: string
   rootPath?: string
-  color?: string
+  color?: string | number | null
 }
 
 export interface CodeRailProps {
@@ -42,7 +44,8 @@ export function CodeRail({
               key={ws.id}
               type="button"
               className={`sidebar-rail-workspace-btn${active ? ' active' : ''}`}
-              style={{ ...RAIL_BUTTON_STYLE, ...(ws.color ? { borderColor: ws.color } : undefined) }}
+              {...(typeof ws.color === 'number' ? workspaceColorAttrs({ id: ws.id, color: ws.color }) : undefined)}
+              style={{ ...RAIL_BUTTON_STYLE, ...(typeof ws.color === 'string' && ws.color ? { borderColor: ws.color } : undefined) }}
               aria-label={label}
               title={label}
               aria-current={active ? 'true' : undefined}

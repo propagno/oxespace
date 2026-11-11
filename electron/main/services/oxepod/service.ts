@@ -149,8 +149,9 @@ export class OxePodService {
         const result = await this.containers.compose(targetId, action as ComposeAction, tail !== undefined ? { tail } : {}, chosenEngine)
         if (this.origins && (action === 'up' || action === 'start' || action === 'restart')) {
           try {
-            const inspected = await this.containers.inspect(targetId, chosenEngine)
-            const parsed = composeTarget(inspected)
+            const resolved = await this.containers.resolve(chosenEngine)
+            const raw = await this.containers.inspectBatch(resolved, [targetId])
+            const parsed = composeTarget(raw)
             if (parsed) this.origins.recordPersonStack(chosenEngine ?? '*', parsed.directory)
           } catch {
             // Recording origin never blocks a completed compose operation.

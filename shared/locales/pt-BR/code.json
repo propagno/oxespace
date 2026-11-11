@@ -13,7 +13,8 @@
     "menu": "Painéis",
     "more": "Mais painéis",
     "needsWorkspace": "Abra um workspace para usar os painéis dele",
-    "httpCalls": "Chamadas HTTP"
+    "httpCalls": "Chamadas HTTP",
+    "containers": "Contêineres"
   },
   "tools": {
     "team": {
@@ -2519,5 +2520,46 @@
     "emptyFiltered": "Nada corresponde",
     "clearFilters": "Limpar filtros",
     "error": "Não deu para ler o registro HTTP"
+  },
+  "containers": {
+    "empty": "Nenhum contêiner. Inicie um stack do compose a partir de um projeto.",
+    "startedByYou": "Você",
+    "outside": "Fora do OXESpace",
+    "outsideHint": "Iniciado antes do OXESpace ou por outra ferramenta",
+    "statusRunning": "Em execução",
+    "statusStopped": "Parado",
+    "detailLabel": "Contêiner selecionado",
+    "stop": "Parar",
+    "start": "Iniciar",
+    "restart": "Reiniciar",
+    "moreActions": "Mais ações",
+    "openShell": "Abrir um shell",
+    "copyId": "Copiar ID do contêiner",
+    "connectInOxeQuery": "Conectar no OxeQuery",
+    "stopStack": "Parar o stack inteiro…",
+    "removeContainer": "Remover contêiner…",
+    "stoppedToast": "{{name}} parado",
+    "undo": "Desfazer",
+    "noLogs": "Sem logs ainda.",
+    "tryAgain": "Tentar de novo",
+    "howToInstall": "Como instalar",
+    "confirmStopStackTitle": "Parar {{stack}}?",
+    "confirmStopStackBody": "Todos os contêineres de {{stack}} vão parar.",
+    "confirmStopStackAction": "Parar stack",
+    "confirmRemoveTitle": "Remover {{name}}?",
+    "confirmRemoveBody": "Isso remove o contêiner. Os volumes são mantidos.",
+    "confirmRemoveAction": "Remover",
+    "engineName": {
+      "docker": "Docker",
+      "podman": "Podman"
+    },
+    "engine": {
+      "stoppedTitle": "O {{engine}} não está respondendo",
+      "stoppedBody": "Inicie o {{engine}} e tente de novo.",
+      "missingTitle": "{{engine}} não encontrado",
+      "missingBody": "Instale o Docker ou o Podman e abra este painel de novo.",
+      "deniedTitle": "Sem acesso ao {{engine}}",
+      "deniedBody": "Confira se seu usuário pode usar o {{engine}} e tente de novo."
+    }
   }
 }

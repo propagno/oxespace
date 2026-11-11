@@ -1,7 +1,9 @@
 import { useId, type ReactElement, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { parityFor, type ParityFeature, type ParityProvider } from '../../../shared/provider-parity'
-import type { ThreadCapabilityManifest } from '../../../shared/types/thread'
+import { parityFor, type ParityFeature } from '../../../shared/provider-parity'
+import type { ThreadCapabilityManifest, ThreadProvider as ParityProvider } from '../../../shared/types/thread'
+
+export type { ParityProvider }
 import { formatMainMessage } from '../../i18n/mainMessage'
 import { Button } from '../../ui'
 

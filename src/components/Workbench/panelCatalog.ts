@@ -1,9 +1,9 @@
 import { withShortcut, type KeybindingId } from '../../keyboard/keybindings'
-import { Activity, Code2, Info, FileCode2, FolderTree, GitCompareArrows, GitPullRequest, Globe, Network, Search, TerminalSquare, type LucideIcon } from 'lucide-react'
+import { Activity, Box, Code2, Info, FileCode2, FolderTree, GitCompareArrows, GitPullRequest, Globe, Network, Search, TerminalSquare, type LucideIcon } from 'lucide-react'
 import { i18n } from '../../i18n'
 
 /** The side panels Code and Thread share. One name, icon and shortcut for each, whichever mode opens it. */
-export type WorkbenchPanelId = 'session' | 'terminal' | 'changes' | 'browser' | 'git' | 'files' | 'search' | 'scripts' | 'worktrees' | 'background' | 'httpCalls'
+export type WorkbenchPanelId = 'session' | 'terminal' | 'changes' | 'browser' | 'git' | 'files' | 'search' | 'scripts' | 'worktrees' | 'background' | 'httpCalls' | 'containers'
 
 export interface WorkbenchPanelMeta {
   /** Read in the interface language each time it is used; do not keep a copy. */
@@ -28,12 +28,13 @@ export const WORKBENCH_PANELS: Record<WorkbenchPanelId, WorkbenchPanelMeta> = {
   scripts: panel('scripts', Code2),
   worktrees: panel('worktrees', FolderTree),
   background: panel('background', Activity),
-  httpCalls: panel('httpCalls', Network)
+  httpCalls: panel('httpCalls', Network),
+  containers: panel('containers', Box)
 }
 
 /** Panels shown as buttons in the bar; the rest live in the Panels menu. */
 export const CODE_BAR_PANELS: WorkbenchPanelId[] = ['changes', 'browser']
-export const CODE_MENU_PANELS: WorkbenchPanelId[] = ['git', 'files', 'search', 'scripts', 'worktrees', 'httpCalls']
+export const CODE_MENU_PANELS: WorkbenchPanelId[] = ['git', 'files', 'search', 'scripts', 'worktrees', 'httpCalls', 'containers']
 export const THREAD_BAR_PANELS: WorkbenchPanelId[] = ['terminal', 'changes', 'browser', 'session']
 export const THREAD_MENU_PANELS: WorkbenchPanelId[] = ['git', 'files', 'search', 'scripts', 'background']
 

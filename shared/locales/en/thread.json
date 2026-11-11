@@ -990,7 +990,8 @@
     "scripts": "Scripts",
     "worktrees": "Worktrees",
     "background": "Background activity",
-    "httpCalls": "HTTP calls"
+    "httpCalls": "HTTP calls",
+    "containers": "Containers"
   },
   "patch": {
     "region": "File diff",

@@ -45,6 +45,7 @@ const SlashOverlay = lazy(() => import('./components/SlashOverlay/SlashOverlay')
 const CommandMenu = lazy(() => Promise.all([import('./components/CommandMenu/CommandMenu'), loadCommandContributors()]).then(([m]) => ({ default: m.CommandMenu })))
 const UsageModal = lazy(() => import('./components/Usage/UsageModal').then(m => ({ default: m.UsageModal })))
 const McpPanel = lazy(() => import('./components/MCP/McpPanel').then((m) => ({ default: m.McpPanel })))
+const ContainersPanel = lazy(() => import('./components/Containers/ContainersPanel').then((m) => ({ default: m.ContainersPanel })))
 import { useBackgroundStore } from './store/background.store'
 import { useMcpStore } from './store/mcp.store'
 import { useSkillStore } from './store/skill.store'
@@ -100,6 +101,7 @@ export function App(): ReactElement {
   const threadSelection = useThreadStore(state => state.selectedId)
   const codeSidebarWidth = useNavigationPrefs(state => state.width)
   const [accountsOpen, setAccountsOpen] = useState(false)
+  const [containersOpen, setContainersOpen] = useState(false)
   const {
     activeWorkspaceId,
     bootstrap,
@@ -552,15 +554,8 @@ export function App(): ReactElement {
     })
   }
 
-  const toggleScriptsPanel = (): void => {
-    if (isScriptsPanelOpen) closeScriptsPanel()
-    else openScriptsPanel()
-  }
-
-  const toggleSearchPanel = (): void => {
-    if (isSearchPanelOpen) closeSearchPanel()
-    else openSearchPanel()
-  }
+  const toggleScriptsPanel = (): void => { if (isScriptsPanelOpen) closeScriptsPanel(); else openScriptsPanel() }
+  const toggleSearchPanel = (): void => { if (isSearchPanelOpen) closeSearchPanel(); else openSearchPanel() }
 
   const toggleWebPreviewPanel = (): void => {
     if (!activeWorkspaceId) return
@@ -640,7 +635,8 @@ export function App(): ReactElement {
     { id: 'files', active: activeWorkspace.editorVisible === true, onToggle: toggleEditor },
     { id: 'search', active: isSearchPanelOpen, onToggle: toggleSearchPanel },
     { id: 'scripts', active: isScriptsPanelOpen, onToggle: toggleScriptsPanel },
-    { id: 'worktrees', active: activeWorkspace.worktreePanelVisible === true, onToggle: toggleWorktreePanel }
+    { id: 'worktrees', active: activeWorkspace.worktreePanelVisible === true, onToggle: toggleWorktreePanel },
+    { id: 'containers', active: containersOpen, onToggle: () => setContainersOpen(open => !open) }
   ] : []
 
   const toolHandlers: Partial<Record<ToolId, () => void>> = {
@@ -898,6 +894,7 @@ export function App(): ReactElement {
           onClose={closeMcpPanel}
         />
       ) : null}
+      {containersOpen ? <ContainersPanel onClose={() => setContainersOpen(false)} onOpenConversation={id => { setContainersOpen(false); setHasOpenedThread(true); setApplicationView('thread'); void useThreadStore.getState().select(id) }} /> : null}
       {/* Workspace settings asked for from another view (the palette shows Code first) mount once Code is shown, so they
           open on "Current workspace": SettingsCenter reads its scope only when it mounts. */}
       {isSettingsOpen || (isWorkspaceSettingsOpen && applicationView === 'code') ? (
