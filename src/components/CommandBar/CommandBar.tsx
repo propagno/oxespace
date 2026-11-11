@@ -12,6 +12,7 @@ import {
 import type { MainMessage } from '../../../shared/messages'
 import { formatChord } from '../../keyboard/chords'
 import { useSkillStore } from '../../store/skill.store'
+import { useThreadStore } from '../../store/thread.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { Button } from '../../ui/Button'
 import { Notice } from '../../ui/Display'
@@ -51,6 +52,13 @@ interface ActiveRefusal {
 
 const DISALLOWED_RE = /^\/(approve|allow|accept)(?:\s|$)/i
 const CONTROL_CHAR_RE = /[\x00-\x1f\x7f]/
+const GO_TO_COMMAND_IDS = new Set<string>(['pending', 'history'])
+const HINT_FILL: Record<'agent' | 'skill' | 'open' | 'help', string> = {
+  agent: '@Codex ',
+  skill: '/skill ',
+  open: 'open ',
+  help: '?'
+}
 
 function workspaceTier(name: string, q: string): number {
   const lower = name.toLowerCase()
@@ -61,12 +69,14 @@ function workspaceTier(name: string, q: string): number {
 }
 
 export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarProps): ReactElement | null {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const isPt = Boolean(i18n.language?.toLowerCase().startsWith('pt'))
   const baseId = useId()
   const listboxId = `${baseId}-listbox`
   const inputRef = useRef<HTMLInputElement | null>(null)
   const skills = useSkillStore(state => state.skills)
   const workspaces = useWorkspaceStore(state => state.workspaces)
+  const threads = useThreadStore(state => state.threads)
 
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
@@ -100,6 +110,53 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
     let seq = 0
     const nextDomId = () => `${baseId}-opt-${seq++}`
 
+    const actionsLabel = isPt ? 'Ações' : 'Actions'
+    const goToLabel = t('commands.category.goTo', { defaultValue: isPt ? 'Ir para' : 'Go to' })
+    const openBesideLabel = isPt ? 'Abrir ao lado' : 'Open beside'
+
+    const modeDestinations = [
+      {
+        id: 'oxechat',
+        label: 'OxeChat',
+        match: 'oxechat',
+        secondary: isPt ? 'Conversas e tarefas delegadas' : 'Conversations and delegated work',
+        also: 'OxeChat',
+        shortcut: formatChord('Mod+1')
+      },
+      {
+        id: 'oxecode',
+        label: 'OxeCode',
+        match: 'oxecode',
+        secondary: isPt ? 'Workspaces, terminais e alterações' : 'Workspaces, terminals and changes',
+        also: 'OxeCode',
+        shortcut: formatChord('Mod+2')
+      },
+      {
+        id: 'oxequery',
+        label: 'OxeQuery',
+        match: 'oxequery',
+        secondary: isPt ? 'Bancos de dados, SQL e MongoDB' : 'Databases, SQL and MongoDB',
+        also: 'OxeQuery',
+        shortcut: formatChord('Mod+3')
+      },
+      {
+        id: 'settings',
+        label: isPt ? 'Configurações' : 'Settings',
+        match: isPt ? 'settings configurações' : 'settings',
+        secondary: isPt ? 'Preferências do aplicativo e do workspace' : 'Application and workspace preferences',
+        also: isPt ? 'Configurações' : 'Settings',
+        shortcut: formatChord('Mod+,')
+      },
+      {
+        id: 'approvals',
+        label: isPt ? 'Aprovações' : 'Approvals',
+        match: isPt ? 'approvals aprovações' : 'approvals',
+        secondary: isPt ? 'Pedidos aguardando sua decisão' : 'Requests waiting for your decision',
+        also: t('commandBar.fallback.pending'),
+        shortcut: formatChord('Mod+Shift+A')
+      }
+    ]
+
     const catalogOption = (entry: (typeof COMMAND_CATALOG)[number], args = ''): BarOption => ({
       key: `cmd-${entry.id}`,
       domId: nextDomId(),
@@ -111,12 +168,38 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
       parsed: entry.id === 'skill' ? undefined : { kind: 'command', id: entry.id, args }
     })
 
+    const modeOption = (dest: (typeof modeDestinations)[number]): BarOption => ({
+      key: `dest-${dest.id}`,
+      domId: nextDomId(),
+      primary: dest.label,
+      secondary: dest.secondary,
+      alsoText: t('commandBar.also', { button: dest.also }),
+      shortcutText: dest.shortcut,
+      parsed: { kind: 'open', query: dest.id }
+    })
+
+    const besideThreads = (needle: string): BarOption[] => {
+      const candidates = threads
+        .filter(th => !th.archived && th.id !== context.threadId && (!needle || th.title.toLowerCase().includes(needle)))
+        .slice(0, 4)
+      return candidates.map(th => ({
+        key: `beside-${th.id}`,
+        domId: nextDomId(),
+        primary: th.title,
+        secondary: isPt ? 'Conversa no OxeChat' : 'OxeChat conversation',
+        alsoText: t('commandBar.also', { button: 'OxeChat' }),
+        shortcutText: formatChord('Mod+Enter'),
+        parsed: { kind: 'open', query: `beside:${th.id}` }
+      }))
+    }
+
     if (trimmed === '?') {
-      return [{
-        key: 'commands',
-        groupLabel: t('commandBar.groups.commands'),
-        items: COMMAND_CATALOG.map(entry => catalogOption(entry))
-      }]
+      const actionItems = COMMAND_CATALOG.filter(entry => !GO_TO_COMMAND_IDS.has(entry.id)).map(entry => catalogOption(entry))
+      const goToItems = COMMAND_CATALOG.filter(entry => GO_TO_COMMAND_IDS.has(entry.id)).map(entry => catalogOption(entry))
+      const out: BarGroup[] = []
+      if (actionItems.length > 0) out.push({ key: 'actions', groupLabel: actionsLabel, items: actionItems })
+      if (goToItems.length > 0) out.push({ key: 'goto', groupLabel: goToLabel, items: goToItems })
+      return out
     }
 
     if (startTrimmed.startsWith('@')) {
@@ -170,12 +253,16 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
       const restArgs = parts?.[2] ?? ''
       const out: BarGroup[] = []
       const cmdMatches = COMMAND_CATALOG.filter(entry => !headLower || entry.id.startsWith(headLower))
-      if (cmdMatches.length > 0) {
-        out.push({
-          key: 'commands',
-          groupLabel: t('commandBar.groups.commands'),
-          items: cmdMatches.map(entry => catalogOption(entry, restArgs))
-        })
+      const actionItems = cmdMatches.filter(entry => !GO_TO_COMMAND_IDS.has(entry.id)).map(entry => catalogOption(entry, restArgs))
+      const goToItems = [
+        ...cmdMatches.filter(entry => GO_TO_COMMAND_IDS.has(entry.id)).map(entry => catalogOption(entry, restArgs)),
+        ...(!headLower ? modeDestinations.map(dest => modeOption(dest)) : [])
+      ]
+      if (actionItems.length > 0) {
+        out.push({ key: 'actions', groupLabel: actionsLabel, items: actionItems })
+      }
+      if (goToItems.length > 0) {
+        out.push({ key: 'goto', groupLabel: goToLabel, items: goToItems })
       }
       const skillMatches = skills.filter(s => !headLower || 'skill'.startsWith(headLower) || s.name.toLowerCase().includes(headLower))
       if (skillMatches.length > 0) {
@@ -193,39 +280,80 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
           }))
         })
       }
+      if (!headLower) {
+        const beside = besideThreads('')
+        if (beside.length > 0) {
+          out.push({ key: 'open-beside', groupLabel: openBesideLabel, items: beside })
+        }
+      }
       return out
     }
 
     if (/^open(?:\s|$)/i.test(startTrimmed)) {
       const q = startTrimmed.replace(/^open[ \t]*/i, '').trim().toLowerCase()
-      const matched = workspaces
+      const out: BarGroup[] = []
+      const matchedWorkspaces = workspaces
         .filter(ws => !q || ws.name.toLowerCase().includes(q))
         .slice()
         .sort((a, b) => workspaceTier(a.name, q) - workspaceTier(b.name, q))
-      if (!matched.length) return []
-      return [{
-        key: 'workspaces',
-        groupLabel: t('commandBar.groups.workspaces'),
-        items: matched.map(ws => ({
-          key: `ws-${ws.id}`,
-          domId: nextDomId(),
-          primary: ws.name,
-          secondary: ws.rootPath,
-          alsoText: t('commandBar.also', { button: 'OxeCode' }),
-          shortcutText: null,
-          parsed: { kind: 'open', query: ws.name }
-        }))
-      }]
+      if (matchedWorkspaces.length > 0) {
+        out.push({
+          key: 'workspaces',
+          groupLabel: t('commandBar.groups.workspaces'),
+          items: matchedWorkspaces.map(ws => ({
+            key: `ws-${ws.id}`,
+            domId: nextDomId(),
+            primary: ws.name,
+            secondary: ws.rootPath,
+            alsoText: t('commandBar.also', { button: 'OxeCode' }),
+            shortcutText: null,
+            parsed: { kind: 'open', query: ws.name }
+          }))
+        })
+      }
+      const matchedModes = modeDestinations
+        .filter(dest => !q || dest.match.includes(q) || dest.label.toLowerCase().includes(q))
+        .slice()
+        .sort((a, b) => workspaceTier(a.label, q) - workspaceTier(b.label, q))
+      if (matchedModes.length > 0) {
+        out.push({
+          key: 'goto',
+          groupLabel: goToLabel,
+          items: matchedModes.map(dest => modeOption(dest))
+        })
+      }
+      if (!q) {
+        const beside = besideThreads('')
+        if (beside.length > 0) {
+          out.push({ key: 'open-beside', groupLabel: openBesideLabel, items: beside })
+        }
+      }
+      return out
     }
 
     const q = trimmed.toLowerCase()
     const out: BarGroup[] = []
     const cmdMatches = COMMAND_CATALOG.filter(entry => entry.id.includes(q))
-    if (cmdMatches.length > 0) {
+    const actionItems = cmdMatches.filter(entry => !GO_TO_COMMAND_IDS.has(entry.id)).map(entry => catalogOption(entry))
+    const matchedModes = modeDestinations
+      .filter(dest => dest.match.includes(q) || dest.label.toLowerCase().includes(q))
+      .sort((a, b) => workspaceTier(a.label, q) - workspaceTier(b.label, q))
+    const goToItems = [
+      ...cmdMatches.filter(entry => GO_TO_COMMAND_IDS.has(entry.id)).map(entry => catalogOption(entry)),
+      ...matchedModes.map(dest => modeOption(dest))
+    ]
+    if (actionItems.length > 0) {
       out.push({
-        key: 'commands',
-        groupLabel: t('commandBar.groups.commands'),
-        items: cmdMatches.map(entry => catalogOption(entry))
+        key: 'actions',
+        groupLabel: actionsLabel,
+        items: actionItems
+      })
+    }
+    if (goToItems.length > 0) {
+      out.push({
+        key: 'goto',
+        groupLabel: goToLabel,
+        items: goToItems
       })
     }
     const wsMatches = workspaces
@@ -263,8 +391,16 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
         }))
       })
     }
+    const beside = besideThreads(q)
+    if (beside.length > 0) {
+      out.push({
+        key: 'open-beside',
+        groupLabel: openBesideLabel,
+        items: beside
+      })
+    }
     return out
-  }, [baseId, disallowedCommand, open, skills, startTrimmed, t, trimmed, workspaces])
+  }, [baseId, context.threadId, disallowedCommand, isPt, open, skills, startTrimmed, t, threads, trimmed, workspaces])
 
   const flatOptions = useMemo(() => groups.flatMap(g => g.items), [groups])
   const hasOptions = flatOptions.length > 0
@@ -490,12 +626,25 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
             }}
             onKeyDown={handleKeyDown}
           />
+          <span className={styles.inputEsc} aria-hidden="true">
+            <Kbd>Esc</Kbd>
+          </span>
         </div>
 
         {!trimmed && !refusal && (
           <div className={styles.hints}>
             {(['agent', 'skill', 'open', 'help'] as const).map(kind => (
-              <div key={kind} className={styles.hintRow}>
+              <div
+                key={kind}
+                className={styles.hintCard}
+                onClick={() => {
+                  setQuery(HINT_FILL[kind])
+                  setActiveIndex(0)
+                  setRefusal(null)
+                  setAnnounced('')
+                  inputRef.current?.focus({ preventScroll: true })
+                }}
+              >
                 <code className={styles.hintExample}>{t(`commandBar.examples.${kind}`)}</code>
                 <span className={styles.hintText}>{t(`commandBar.hints.${kind}`)}</span>
               </div>
@@ -567,11 +716,15 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
           </div>
         )}
 
-        <div
-          className={announced && !hasOptions && trimmed && !disallowedCommand ? styles.liveStatus : styles.liveStatusHidden}
-          aria-live="polite"
-        >
-          {announced && <span>{announced}</span>}
+        <div className={styles.footer}>
+          <div className={styles.footerHints} aria-hidden="true">
+            <span className={styles.footerHint}><Kbd>↑↓</Kbd> {isPt ? 'navegar' : 'navigate'}</span>
+            <span className={styles.footerHint}><Kbd>↵</Kbd> {isPt ? 'executar' : 'run'}</span>
+            <span className={styles.footerHint}><Kbd>Esc</Kbd> {isPt ? 'fechar' : 'close'}</span>
+          </div>
+          <div className={styles.footerStatus} aria-live="polite">
+            {announced && <span>{announced}</span>}
+          </div>
         </div>
       </div>
     </div>,

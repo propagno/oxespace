@@ -26,6 +26,10 @@ export function OxeQuerySidebar(): ReactElement {
   const setSettings = useOxeQueryStore(state => state.setPreferencesOpen)
   useEffect(() => { void useOxeQueryStore.getState().refreshConnections() }, [])
 
+  const activeConnection = activeTab.startsWith('connection:')
+    ? connections.find(connection => `connection:${connection.id}` === activeTab)
+    : connections[0]
+
   const railPrimary: RailAction[] = [{ id: 'new-connection', label: t('connections.new'), icon: Plus, onClick: () => useOxeQueryStore.getState().openDialog(null) }]
   const railContext: RailAction = { id: 'refresh', label: t('sidebar.refresh'), ariaLabel: t('sidebar.refresh'), icon: RefreshCw, onClick: () => { void useOxeQueryStore.getState().refreshConnections() } }
   return <aside className={`thread-navigation oq-sidebar${collapsed ? ' thread-navigation-collapsed' : ''}`} aria-label={t('sidebar.label')}>
@@ -35,6 +39,16 @@ export function OxeQuerySidebar(): ReactElement {
     </NavigationRail>}
     {!collapsed && <div className="oq-sidebar-content">
       <header><strong>OxeQuery</strong><SidebarActions actions={railPrimary} /><button type="button" className="oq-icon" data-oq-action="settings" aria-label={t('sidebar.settings')} title={t('sidebar.settings')} onClick={() => setSettings(true)}><Settings size={13} aria-hidden="true" /></button></header>
+      {activeConnection && <div className="oq-active-conn" data-testid="oq-active-connection">
+        <div className="oq-active-conn-top">
+          <span className="oq-status-dot" data-env={activeConnection.environment} aria-hidden="true" />
+          <strong className="oq-active-conn-name">{activeConnection.name}</strong>
+          <span className="oq-env-pill" data-env={activeConnection.environment}>{t(`environment.short.${activeConnection.environment}`)}</span>
+        </div>
+        <div className="oq-active-conn-sub">
+          <span>{activeConnection.engine} · {activeConnection.host}:{activeConnection.port}{activeConnection.database ? `/${activeConnection.database}` : ''}</span>
+        </div>
+      </div>}
       <ConnectionList activeTab={activeTab} />
       <button type="button" className="oq-nav-item" aria-current={activeTab === 'activity' ? 'page' : undefined} onClick={() => useOxeQueryStore.getState().openActivity()}>
         <ShieldCheck size={14} aria-hidden="true" /><span>{t('activity.label')}</span></button>

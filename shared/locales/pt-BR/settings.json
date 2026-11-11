@@ -2,7 +2,7 @@
   "center": {
     "title": "Configurações",
     "searchLabel": "Buscar nas configurações",
-    "searchPlaceholder": "Filtrar categorias",
+    "searchPlaceholder": "Encontrar uma configuração",
     "settingsFor": "Configurações de",
     "scope": "Escopo das configurações",
     "application": "Aplicativo",
@@ -91,7 +91,9 @@
         "label": "Sobre",
         "hint": "Versão, downloads e instalação"
       }
-    }
+    },
+    "workspaceNamed": "Workspace · {{name}}",
+    "autoApplyNote": "As alterações valem na hora. As sensíveis mostram desfazer por 6 segundos."
   },
   "header": {
     "close": "Fechar",
@@ -528,7 +530,7 @@
     "command": "Comando"
   },
   "devices": {
-    "title": "Dispositivos",
+    "title": "Celular e dispositivos",
     "intro": "Use o OXESpace pelo seu celular Android na mesma rede: acompanhe conversas, responda pedidos e veja terminais. O celular fala só com este computador, pela sua rede local, nunca pela internet.",
     "loadFailed": "Não foi possível ler a conexão com o celular.",
     "unavailable": "A conexão com o celular não está disponível nesta versão.",
@@ -859,11 +861,15 @@
       "bodyLastValid": "O arquivo tem um erro. Os agentes continuam com os últimos modos que puderam ser lidos, mostrados abaixo. Para mudá-los, corrija o arquivo à mão e escolha Recarregar.",
       "bodyDefaults": "O arquivo tem um erro e nunca foi lido, então os agentes usam os padrões do app, mostrados abaixo. Para mudá-los, corrija o arquivo à mão e escolha Recarregar.",
       "readAgain": "Modos lidos de novo"
+    },
+    "noProject": {
+      "title": "Nenhuma pasta de projeto aberta",
+      "body": "Abra um workspace ou uma pasta de projeto para configurar os grupos de ferramentas MCP e as regras do oxe.yaml."
     }
   },
   "data": {
     "title": "Dados",
-    "description": "Gerencie os dados do aplicativo, exportações e recursos removidos",
+    "description": "O que o OXESpace guarda neste computador e por quanto tempo.",
     "removedSection": "Removidos na 1.5",
     "exportLabel": "Exportar dados removidos",
     "exportDesc": "Dados dos recursos removidos na 1.5, em um arquivo JSON.",
@@ -871,7 +877,12 @@
     "errorDesc": "Ainda não salvo: {{error}}",
     "showInFolder": "Mostrar na pasta",
     "tryNow": "Tentar agora",
-    "exportAction": "Exportar…"
+    "exportAction": "Exportar…",
+    "historyTitle": "Histórico",
+    "conversationHistory": "Histórico de conversas",
+    "conversationHistoryHint": "Guardado localmente por projeto neste computador.",
+    "activityRetention": "Registro de atividade dos agentes",
+    "activityRetentionHint": "Guardado localmente neste computador para auditoria e revisão."
   },
   "agentPermissions": {
     "title": "O que os agentes podem fazer",
