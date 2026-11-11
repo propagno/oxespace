@@ -211,8 +211,19 @@ export class ThreadPlaceObserver {
   }
 
   /** The places with their drift read now; a new drift is stored and saved as one place-drift event. */
+  /** The turns a pending Restore undid, when it also put their files back; empty when there is none, or it kept the files. */
+  private undoneTurns(id: string): string[] {
+    let snapshot: ThreadSnapshot
+    try { snapshot = this.deps.read(id) } catch { return [] }
+    const pending = snapshot.thread.rewind
+    if (!pending?.redoCheckpointIds?.length) return []
+    const turns = snapshot.turns ?? []
+    const from = turns.findIndex(turn => turn.id === pending.turnId)
+    return from < 0 ? [] : turns.slice(from).map(turn => turn.id)
+  }
+
   private async observePlaces(id: string): Promise<ThreadPlaces> {
-    const result = await this.deps.placeStore.list(this.deps.readThread(id))
+    const result = await this.deps.placeStore.list(this.deps.readThread(id), this.undoneTurns(id))
     const shellRunning = (this.shellTools.get(id)?.size ?? 0) > 0
     const seen = this.headsSeen(id)
     const places: ThreadPlace[] = []
