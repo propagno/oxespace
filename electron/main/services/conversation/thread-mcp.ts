@@ -41,7 +41,7 @@ export const THREAD_TOOL_GROUPS = {
     'oxespace_db_execute', 'oxespace_mongo_write', 'oxespace_containers_list', 'oxespace_container_logs', 'oxespace_container_action',
     'oxespace_db_explain', 'oxespace_db_activity'],
   /** Web previews: open, capture and drive the opted-in browser session. */
-  docs: ['oxespace_open_web_preview', 'oxespace_capture_web_preview', 'oxespace_preview_interact'],
+  docs: ['oxespace_open_web_preview', 'oxespace_capture_web_preview', 'oxespace_preview_interact', 'oxespace_device_screenshot'],
   /** The app itself: Git, GitHub, Threads, skills, MCP servers, search and usage.
    * Changes: each action is recorded; pushes, pull requests, releases and the like are approved by a person. */
   app: ['oxespace_git', 'oxespace_github', 'oxespace_threads', 'oxespace_skills',
