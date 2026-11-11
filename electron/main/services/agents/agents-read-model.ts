@@ -3,9 +3,10 @@ import { mainMessage } from '../../../../shared/messages'
 import { delegationAgentState, paneAgentState, seenSince, threadAgentState, workRunAgentState } from '../../../../shared/agents/agentState'
 import { AGENT_SOURCES, isAgentKind, type AgentKey, type AgentRequestSummary, type AgentRow, type AgentSource, type AgentSourceStatus, type AgentsChange, type AgentsOverview } from '../../../../shared/types/agents'
 import type { PaneAgentState } from '../../../../shared/types/agent-state'
-import type { ConversationThread, ThreadPendingRequestSummary, ThreadRequest } from '../../../../shared/types/thread'
+import type { ConversationThread, ThreadEvent, ThreadPendingRequestSummary, ThreadRequest, ThreadTurn } from '../../../../shared/types/thread'
 import type { DelegationState, DelegationTask } from '../../../../shared/types/delegation'
 import type { WorkRunStatus } from '../../../../shared/types/work'
+import { threadActivity } from '../agent-state/thread-activity'
 import { readThreadTitle } from '../conversation/thread-title'
 import { AgentSeenStore } from './agent-seen.store'
 
@@ -112,12 +113,20 @@ export class AgentsReadModel {
   private threads(seen: Map<string, number>): AgentRow[] {
     const requests = new Map<string, ThreadPendingRequestSummary[]>()
     for (const request of this.deps.threadRequests()) requests.set(request.threadId, [...requests.get(request.threadId) ?? [], request])
-    const rows = this.deps.db.prepare(`SELECT id, data_json FROM conversation_threads
+    const rows = this.deps.db.prepare(`SELECT id, data_json, events_json, history_version FROM conversation_threads
       WHERE COALESCE(json_extract(data_json, '$.archived'), 0) = 0
-      ORDER BY json_extract(data_json, '$.updatedAt') DESC LIMIT ?`).all(SOURCE_LIMIT) as { id: string; data_json: string }[]
+      ORDER BY json_extract(data_json, '$.updatedAt') DESC LIMIT ?`).all(SOURCE_LIMIT) as { id: string; data_json: string; events_json: string; history_version: number }[]
+    const eventStmt = this.deps.db.prepare('SELECT data_json FROM conversation_events WHERE thread_id = ? ORDER BY seq DESC LIMIT 200')
+    const turnStmt = this.deps.db.prepare("SELECT data_json FROM conversation_turns WHERE thread_id = ? ORDER BY json_extract(data_json, '$.sequence')")
+    let countWrites: ((id: string) => number) | null = null
+    try {
+      const writeStmt = this.deps.db.prepare('SELECT COUNT(*) AS n FROM thread_place_writes WHERE thread_id = ?')
+      countWrites = (id: string) => (writeStmt.get(id) as { n: number } | undefined)?.n ?? 0
+    } catch { countWrites = null }
+    const now = this.now()
     return rows.flatMap(row => {
-      let thread: ConversationThread
-      try { thread = JSON.parse(row.data_json) as ConversationThread } catch { return [] }
+      let thread: ConversationThread & { turns?: ThreadTurn[] }
+      try { thread = JSON.parse(row.data_json) as ConversationThread & { turns?: ThreadTurn[] } } catch { return [] }
       const pending = requests.get(row.id) ?? []
       const since = thread.updatedAt ?? 0
       const seenAt = seen.get(AgentSeenStore.key('thread', row.id)) ?? null
@@ -125,15 +134,44 @@ export class AgentsReadModel {
         status: thread.status, lastTurnStatus: thread.lastTurnStatus, pendingRequests: pending.length,
         backgroundRunning: thread.background?.running ?? 0, observation: thread.providerObservation?.state, seen: seenSince(seenAt, since)
       })
+      const events = this.readEvents(row, eventStmt)
+      const turns = this.readTurns(row.id, thread.turns, turnStmt)
+      const storedRequests = events.flatMap(event => event.type === 'request' && event.request.state === 'pending' ? [event.request] : [])
+      const activityRequests: ThreadRequest[] = storedRequests.length
+        ? storedRequests
+        : pending.map(req => ({ id: req.requestId, nativeId: req.requestId, nativeMethod: 'request', kind: req.kind, title: '', generation: req.generation, createdAt: req.createdAt, state: 'pending' as const }))
+      const changedFiles = countWrites ? countWrites(row.id) : 0
+      const activity = threadActivity({ thread, events, requests: activityRequests, turns, changedFiles, now })
       return [{
         kind: 'thread' as const, id: row.id, state, provider: provider(thread.provider), mode: 'thread' as const,
         title: readThreadTitle(thread.title), workspaceId: thread.workspaceId ?? null, since, seenAt,
         session: thread.nativeSessionId ?? null,
         worktree: thread.ownedWorktree ? { path: thread.ownedWorktree.path, branch: thread.ownedWorktree.branch ?? null } : null,
         cost: typeof thread.costReport?.totalUsd === 'number' ? { usd: thread.costReport.totalUsd } : null,
-        requests: pending.map(request => ({ requestId: request.requestId, title: REQUEST_TITLE[request.kind]?.() ?? REQUEST_TITLE.approval(), risk: null, answerable: true, since: request.createdAt }))
+        requests: pending.map(request => ({ requestId: request.requestId, title: REQUEST_TITLE[request.kind]?.() ?? REQUEST_TITLE.approval(), risk: null, answerable: true, since: request.createdAt })),
+        activity
       }]
     })
+  }
+
+  private readEvents(row: { id: string; events_json: string; history_version: number }, stmt: { all(id: string): unknown[] }): ThreadEvent[] {
+    if (row.history_version) {
+      const journal = (stmt.all(row.id) as { data_json: string }[]).reverse()
+      if (journal.length) {
+        return journal.flatMap(entry => { try { return [JSON.parse(entry.data_json) as ThreadEvent] } catch { return [] } })
+      }
+    }
+    try {
+      const parsed = JSON.parse(row.events_json)
+      return Array.isArray(parsed) ? parsed as ThreadEvent[] : []
+    } catch { return [] }
+  }
+
+  private readTurns(id: string, inline: ThreadTurn[] | undefined, stmt: { all(id: string): unknown[] }): ThreadTurn[] {
+    const rows = (stmt.all(id) as { data_json: string }[]).flatMap(entry => {
+      try { return [JSON.parse(entry.data_json) as ThreadTurn] } catch { return [] }
+    })
+    return rows.length ? rows : (Array.isArray(inline) ? inline : [])
   }
 
   private delegations(seen: Map<string, number>): AgentRow[] {
