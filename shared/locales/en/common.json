@@ -131,6 +131,9 @@
       "f6ToProgram": "In a terminal pane with “Send F6 to the program” on (in its ⋯ menu), F6 and Shift+F6 go to the program there, for mc, htop or tig; {{toggle}} still makes Tab move focus out of it."
     },
     "bindings": {
+      "commandBar": {
+        "open": "Open command bar"
+      },
       "palette": {
         "open": "Open command palette",
         "search": "Search files & commands"
@@ -183,6 +186,7 @@
         "permissions": "Permissions",
         "model": "Model",
         "effort": "Reasoning effort",
+        "history": "History",
         "sideChat": "Side chat"
       },
       "help": {
@@ -546,6 +550,70 @@
   },
   "brand": {
     "tagline": "Agents and terminals for your projects"
+  },
+  "commandBar": {
+    "trigger": "Ask, run or go to…",
+    "dialogLabel": "Command bar",
+    "inputLabel": "Ask, run or go to",
+    "groups": {
+      "commands": "Commands",
+      "skills": "Skills",
+      "agents": "Agents",
+      "workspaces": "Workspaces"
+    },
+    "hints": {
+      "agent": "start or delegate",
+      "skill": "run a skill",
+      "open": "go anywhere",
+      "help": "every command and its shortcut"
+    },
+    "examples": {
+      "agent": "@Codex write tests for the Pix webhook",
+      "skill": "/skill pix-rules",
+      "open": "open billing-staging",
+      "help": "?"
+    },
+    "resultCount_one": "{{count}} result",
+    "resultCount_other": "{{count}} results",
+    "noMatch": "No match for {{query}}",
+    "noCommand": "No command {{command}}",
+    "also": "Also: {{button}}",
+    "fallback": {
+      "pending": "Needs you",
+      "deny": "Deny on request card",
+      "steer": "Steer in OxeChat",
+      "stop": "Stop in OxeChat",
+      "new": "New conversation",
+      "history": "History",
+      "terminal": "New terminal",
+      "theme": "Appearance",
+      "skill": "Skills"
+    },
+    "catalog": {
+      "pending": "See requests waiting for your answer",
+      "deny": "Decline the waiting request in this workspace",
+      "steer": "Send a steering note in OxeChat",
+      "stop": "Stop the active turn in OxeChat",
+      "new": "Start a new conversation in OxeChat",
+      "history": "Open conversation history and checkpoints",
+      "terminal": "Open a new terminal pane",
+      "theme": "Switch light or dark appearance",
+      "skill": "Run an enabled skill in the focused agent pane"
+    },
+    "agentPrompt": "Ask or delegate to {{agent}}",
+    "refusal": {
+      "skillNotEnabled": "/{{name}} isn't enabled in this project.",
+      "noAgent": "Focus a conversation or an agent pane first.",
+      "controlChars": "Remove the control characters from the text.",
+      "requestNone": "Nothing is waiting for you.",
+      "otherWorkspace": "That request is in {{workspace}}.",
+      "openWorkspace": "Open {{workspace}}"
+    },
+    "confirmStop": {
+      "message": "Stop the active turn in OxeChat?",
+      "cancel": "Cancel",
+      "stop": "Stop"
+    }
   },
   "commands": {
     "category": {

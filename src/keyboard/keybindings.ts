@@ -44,7 +44,8 @@ export const SCOPE_LABELS: Record<KeybindingScope, string> = { global: 'Everywhe
 
 export const KEYBINDINGS = [
   // Global
-  { id: 'palette.open', chords: ['Mod+K', 'Mod+Shift+P'], scope: 'global', reservedInTerminal: true },
+  { id: 'commandBar.open', chords: ['Mod+K'], scope: 'global', reservedInTerminal: true },
+  { id: 'palette.open', chords: ['Mod+Shift+P'], scope: 'global', reservedInTerminal: true },
   { id: 'palette.search', chords: ['Mod+J'], scope: 'global' },
   { id: 'settings.open', chords: ['Mod+,'], scope: 'global', reservedInTerminal: true },
   { id: 'sidebar.toggle', chords: ['Mod+B'], scope: 'global', reservedInTerminal: true },
@@ -88,6 +89,7 @@ export const KEYBINDINGS = [
   { id: 'thread.permissions', chords: ['Mod+Shift+M'], scope: 'thread' },
   { id: 'thread.model', chords: ['Mod+Shift+I'], scope: 'thread' },
   { id: 'thread.effort', chords: ['Mod+Shift+E'], scope: 'thread' },
+  { id: 'thread.history', chords: ['Mod+H'], scope: 'thread' },
 
   // Last, so Ctrl+/ reaches terminal commands first while a terminal pane is active.
   { id: 'help.shortcuts', chords: ['?', 'Mod+/'], scope: 'global', when: context => !inTextField(context.target) }

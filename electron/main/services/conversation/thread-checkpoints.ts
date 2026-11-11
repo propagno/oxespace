@@ -6,6 +6,7 @@ import type { ThreadFileHunk } from '../../../../shared/types/thread'
 import { diffLines, joinLines, revertHunk, splitLines, type LineHunk } from '../../../../shared/lineDiff'
 import { execGit } from '../../utils/safe-git'
 import { canonicalPath } from '../git-common-dir'
+import { ThreadRewindError, foreignChangesRewindError } from './thread-rewind'
 
 const FILE_LIMIT = 2 * 1024 * 1024
 const CHECKPOINT_LIMIT = 32 * 1024 * 1024
@@ -84,8 +85,10 @@ export class ThreadCheckpointService {
     try {
       const root = await canonicalRoot(checkpoint.root_path)
       const paths = new Set<string>(JSON.parse((this.db.prepare('SELECT before_paths_json FROM conversation_checkpoints WHERE id = ?').get(checkpointId) as { before_paths_json: string }).before_paths_json))
-      for (const path of await statusPaths(root)) paths.add(path)
-      if (checkpoint.base_commit) for (const path of await gitNameDiff(root, checkpoint.base_commit)) paths.add(path)
+      const [status, diff] = await Promise.all([statusPaths(root), checkpoint.base_commit ? gitNameDiff(root, checkpoint.base_commit) : Promise.resolve([])])
+      for (const path of status) paths.add(path)
+      for (const path of diff) paths.add(path)
+
       const existing = new Map((this.db.prepare('SELECT path, pre_exists, pre_content, pre_hash, post_exists, post_hash FROM conversation_checkpoint_files WHERE checkpoint_id = ?').all(checkpointId) as CheckpointFileRow[]).map(row => [row.path, row]))
       const files: Array<{ path: string; pre: FileImage; post: FileImage }> = []
       let bytes = [...existing.values()].reduce((sum, row) => sum + (row.pre_content?.byteLength ?? 0), 0)
@@ -99,6 +102,7 @@ export class ThreadCheckpointService {
         files.push({ path, pre, post })
       }
       this.db.transaction(() => {
+        if (this.row(checkpointId).state !== 'open') return
         const upsert = this.db.prepare(`INSERT INTO conversation_checkpoint_files
           (checkpoint_id, path, pre_exists, pre_content, pre_hash, post_exists, post_hash, bytes)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -106,7 +110,7 @@ export class ThreadCheckpointService {
             pre_exists=excluded.pre_exists, pre_content=excluded.pre_content, pre_hash=excluded.pre_hash,
             post_exists=excluded.post_exists, post_hash=excluded.post_hash, bytes=excluded.bytes`)
         for (const file of files) upsert.run(checkpointId, file.path, Number(file.pre.exists), file.pre.content ?? null, file.pre.hash ?? null, Number(file.post.exists), file.post.hash ?? null, (file.pre.content?.byteLength ?? 0) + (file.post.content?.byteLength ?? 0))
-        this.db.prepare("UPDATE conversation_checkpoints SET state = 'ready', finalized_at = ?, error = NULL WHERE id = ?").run(Date.now(), checkpointId)
+        this.db.prepare("UPDATE conversation_checkpoints SET state = 'ready', finalized_at = ?, error = NULL WHERE id = ? AND state = 'open'").run(Date.now(), checkpointId)
       })()
     } catch (error) {
       this.db.prepare("UPDATE conversation_checkpoints SET state = 'failed', finalized_at = ?, error = ? WHERE id = ?")
@@ -154,6 +158,13 @@ export class ThreadCheckpointService {
     }
     this.db.prepare("UPDATE conversation_checkpoints SET state = 'restored', restored_at = ?, error = NULL WHERE id = ?").run(Date.now(), checkpointId)
     return this.summary(this.row(checkpointId))
+  }
+
+  /** F8 A30: writes a checkpoint's hash-verified pre-images into a newly created branch worktree. */
+  async applyPreImagesToWorktree(checkpointId: string, worktreeRoot: string): Promise<void> {
+    const root = await canonicalRoot(worktreeRoot)
+    const files = this.db.prepare('SELECT path, pre_exists, pre_content, pre_hash, post_exists, post_hash FROM conversation_checkpoint_files WHERE checkpoint_id = ? ORDER BY path ASC').all(checkpointId) as CheckpointFileRow[]
+    for (const file of files) await applyImage(root, safeRelative(file.path), imageFromRow(file, 'pre'))
   }
 
   /** The most recent checkpoint captured for a turn, if any. */
@@ -253,6 +264,133 @@ export class ThreadCheckpointService {
     return { root, file, current: text(image.content!), pre }
   }
 
+
+  /**
+   * Restores only the files changed by `turnIds` (in chronological order), after
+   * saving a safety (`redo:`) checkpoint of every file it will write. Refuses with
+   * `foreign-changes` when any file differs from the latest dropped checkpoint's
+   * post-image unless `confirmed` is true. Never touches `.git` or other files.
+   */
+  async restoreTurns(
+    threadId: string,
+    turnIds: string[],
+    options: { confirmed?: boolean; allowedRoots?: string[] } = {}
+  ): Promise<{ redoCheckpointIds: string[]; restoredFiles: number }> {
+    if (!turnIds.length) return { redoCheckpointIds: [], restoredFiles: 0 }
+    const turnOrder = new Map(turnIds.map((turnId, idx) => [turnId, idx]))
+    const allRows = (this.db.prepare('SELECT * FROM conversation_checkpoints WHERE thread_id = ? ORDER BY created_at ASC, rowid ASC').all(threadId) as CheckpointRow[])
+      .filter(row => row.turn_id !== null && turnOrder.has(row.turn_id))
+      .sort((a, b) => (turnOrder.get(a.turn_id!)! - turnOrder.get(b.turn_id!)!) || (a.created_at - b.created_at))
+    if (!allRows.length) return { redoCheckpointIds: [], restoredFiles: 0 }
+    if (allRows.some(row => row.state === 'failed' || row.state === 'open')) {
+      throw new ThreadRewindError('unavailable', "One of the turns' file checkpoints wasn't saved; restore without files.")
+    }
+
+    const allowedKeys = options.allowedRoots?.length
+      ? new Set(await Promise.all(options.allowedRoots.map(async r => canonicalPath(await canonicalRoot(r).catch(() => resolve(r))))))
+      : null
+
+    const changedStmt = this.db.prepare(
+      "SELECT path, pre_exists, pre_content, pre_hash, post_exists, post_hash FROM conversation_checkpoint_files WHERE checkpoint_id = ? AND (pre_exists != post_exists OR COALESCE(pre_hash, '') != COALESCE(post_hash, '')) ORDER BY path ASC"
+    )
+    interface PlannedRestore {
+      root: string
+      path: string
+      targetPre: FileImage
+      expectedPost: FileImage
+      current?: FileImage
+    }
+    const planned = new Map<string, PlannedRestore>()
+    for (const checkpoint of allRows) {
+      const root = await canonicalRoot(checkpoint.root_path)
+      if (allowedKeys && !allowedKeys.has(canonicalPath(root))) {
+        throw new ThreadRewindError('unavailable', 'Checkpoint root is outside the conversation places.')
+      }
+      const files = changedStmt.all(checkpoint.id) as CheckpointFileRow[]
+      for (const file of files) {
+        const rel = safeRelative(file.path)
+        const key = `${root}\0${rel}`
+        const existing = planned.get(key)
+        if (!existing) {
+          planned.set(key, { root, path: rel, targetPre: imageFromRow(file, 'pre'), expectedPost: imageFromRow(file, 'post') })
+        } else {
+          existing.expectedPost = imageFromRow(file, 'post')
+        }
+      }
+    }
+    if (!planned.size) return { redoCheckpointIds: [], restoredFiles: 0 }
+
+    const foreignFiles: string[] = []
+    const byRoot = new Map<string, PlannedRestore[]>()
+    for (const item of planned.values()) {
+      if (item.targetPre.exists && (!item.targetPre.content || hash(item.targetPre.content) !== item.targetPre.hash)) {
+        throw Error(`Checkpoint preimage is corrupt: ${item.path}`)
+      }
+      const current = await readImage(item.root, item.path)
+      item.current = current
+      if (!matches(current, item.expectedPost) && !foreignFiles.includes(item.path)) {
+        foreignFiles.push(item.path)
+      }
+      const list = byRoot.get(item.root) ?? []
+      list.push(item)
+      byRoot.set(item.root, list)
+    }
+
+    if (foreignFiles.length > 0 && !options.confirmed) {
+      throw foreignChangesRewindError(foreignFiles)
+    }
+
+    for (const items of byRoot.values()) {
+      const bytes = items.reduce((sum, item) => sum + (item.current?.content?.byteLength ?? 0), 0)
+      if (bytes > CHECKPOINT_LIMIT) throw Error('Checkpoint exceeds the 32 MiB safety limit')
+    }
+
+    const redoCheckpointIds: string[] = []
+    this.db.transaction(() => {
+      const now = Date.now()
+      const insertCp = this.db.prepare(`INSERT INTO conversation_checkpoints
+        (id, thread_id, turn_id, root_path, base_commit, label, state, before_paths_json, created_at, finalized_at)
+        VALUES (?, ?, ?, ?, NULL, 'Before rewind', 'ready', ?, ?, ?)`)
+      const insertFile = this.db.prepare(`INSERT INTO conversation_checkpoint_files
+        (checkpoint_id, path, pre_exists, pre_content, pre_hash, post_exists, post_hash, bytes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+      for (const [root, items] of byRoot.entries()) {
+        const redoId = randomUUID()
+        insertCp.run(redoId, threadId, `redo:${turnIds[0]}`, root, JSON.stringify(items.map(i => i.path)), now, now)
+        for (const item of items) {
+          const cur = item.current!
+          insertFile.run(
+            redoId,
+            item.path,
+            Number(cur.exists),
+            cur.content ?? null,
+            cur.hash ?? null,
+            Number(item.targetPre.exists),
+            item.targetPre.hash ?? null,
+            (cur.content?.byteLength ?? 0) + (item.targetPre.content?.byteLength ?? 0)
+          )
+        }
+        redoCheckpointIds.push(redoId)
+      }
+    })()
+
+    const applied: Array<{ root: string; path: string; previous: FileImage }> = []
+    try {
+      for (const item of planned.values()) {
+        if (!matches(item.current!, item.targetPre)) {
+          await applyImage(item.root, item.path, item.targetPre)
+          applied.push({ root: item.root, path: item.path, previous: item.current! })
+        }
+      }
+    } catch (error) {
+      for (const done of applied.reverse()) await applyImage(done.root, done.path, done.previous).catch(() => {})
+      for (const redoId of redoCheckpointIds) this.db.prepare('DELETE FROM conversation_checkpoints WHERE id = ?').run(redoId)
+      throw error
+    }
+
+    return { redoCheckpointIds, restoredFiles: planned.size }
+  }
+
   delete(threadId: string, checkpointId: string): void {
     const result = this.db.prepare('DELETE FROM conversation_checkpoints WHERE id = ? AND thread_id = ?').run(checkpointId, threadId)
     if (!result.changes) throw Error('Checkpoint not found')
@@ -294,6 +432,7 @@ async function canonicalRoot(rootPath: string): Promise<string> {
 function safeRelative(path: string): string {
   const value = path.replaceAll('\\', '/').replace(/^\.\//, '')
   if (!value || isAbsolute(value) || value === '..' || value.startsWith('../') || value.includes('/../') || value.includes('\0')) throw Error('Checkpoint contains an unsafe path')
+  if (value.split('/').some(segment => segment.toLowerCase() === '.git')) throw Error('Checkpoint refuses .git path')
   return value
 }
 

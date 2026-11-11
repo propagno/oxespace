@@ -45,6 +45,8 @@ import { projectDiffAt } from './thread-place-heads'
 import type { ThreadCollision, ThreadPane, ThreadPaneSource, ThreadPathResolution, ThreadPlace, ThreadPlaceActionResult, ThreadPlaceDiff, ThreadPlaceDriftAnswer, ThreadPlaceReadResult, ThreadPlaces, ThreadPlaceUndoInput, ThreadPlaceUndoResult } from '../../../../shared/types/thread-places'
 import type { MainMessage } from '../../../../shared/messages'
 import { explainMissingFolder, ThreadFolderMissingError } from './thread-worktree'
+import { threadTimeline } from './thread-timeline'
+import { branchFromCheckpoint, type ThreadBranching } from './thread-branch'
 /** The checkout a conversation works in: a worktree of its repository the provider moved into, else its root. */
 const workingRootOf = (thread: ConversationThread): string =>
   thread.observedLocation?.sameRepository && thread.observedLocation.checkoutRoot ? thread.observedLocation.checkoutRoot : thread.rootPath
@@ -129,6 +131,7 @@ export class ThreadOrchestrator {
   private readonly idleSweep: ReturnType<typeof setInterval>
   /** Daily retention pass for an app left open for days. */
   private readonly retentionSweep: ReturnType<typeof setInterval>
+  private branching?: ThreadBranching
   constructor(private readonly db: AppDatabase,
     private readonly factory: (thread: ConversationThread) => Promise<AgentConversationAdapter>,
     private readonly notifyChanged: (threadId: string) => void,
@@ -331,6 +334,10 @@ export class ThreadOrchestrator {
     this.readThread(id)
     return this.history.artifact(id, artifactId)
   }
+
+  async timeline(id: string): Promise<import('../../../../shared/types/thread').ThreadTimeline> { await Promise.allSettled([...this.finalizationTasks]); await this.placeStore.idle(id); return threadTimeline({ db: this.db, snapshot: this.read(id) }) }
+  configureBranching(branching: ThreadBranching): void { this.branching = branching }
+  branchFromCheckpoint(id: string, checkpointId: string, input: { branch: string }): Promise<import('../../../../shared/types/thread').ThreadBranchResult> { return branchFromCheckpoint({ db: this.db, checkpoints: this.checkpoints, branching: this.branching, settleFinalization: async () => { await Promise.allSettled([...this.finalizationTasks]) }, read: tid => this.read(tid), save: (s, o) => this.save(s, o), create: c => this.create(c), deleteThread: async tid => { this.db.prepare('DELETE FROM conversation_threads WHERE id = ?').run(tid); this.forget(tid); await this.attachmentStore?.removeThread(tid); this.changed(tid) }, assertNativeSessionAvailable: (tid, p, s) => this.assertNativeSessionAvailable(tid, p, s) }, id, checkpointId, input) }
 
   async historyPage(id: string, before?: number, limit?: number): Promise<import('../../../../shared/types/thread').ThreadHistoryPage> {
     this.flushDeltas(id)
@@ -713,7 +720,7 @@ export class ThreadOrchestrator {
   }
 
   /** Rewinds to just before a turn; the provider follows when the next message is sent (see thread-rewind-flow). */
-  rewind(id: string, turnId: string, options: { restoreFiles?: boolean } = {}): Promise<ThreadRewindResult> {
+  rewind(id: string, turnId: string, options: { restoreFiles?: boolean; confirmed?: boolean } = {}): Promise<ThreadRewindResult> {
     return rewind(this.rewindHost(), id, turnId, options)
   }
 

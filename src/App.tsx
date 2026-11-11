@@ -7,6 +7,7 @@ import { useDeferredModule } from './app/useDeferredModule'
 import { DataHosts, DataSidebar, isDataView, ThreadGrid, ThreadSidebar, ThreadSidebarBoundary, useModeActions, ViewSkeleton } from './components/Navigation/ModeViews'
 import { useViewSwitch } from './app/viewSwitch'
 import { setShownView } from './app/shownView'
+import { rememberAppView, startAppView } from './app/startView'
 import { SettingsCenter } from './components/Settings/SettingsHost'
 import { NoWorkspaceStart } from './components/Onboarding/NoWorkspaceStart'
 import { DelegationNotice } from './components/Delegation/DelegationNotice'
@@ -20,6 +21,8 @@ import titleBar from './components/Navigation/TitleBar.module.css'
 import { ModeSwitch } from './components/Navigation/ModeSwitch'
 import { RemovedFeaturesBand } from './components/Updates/RemovedFeaturesBand'
 import { ActivityCenter } from './components/Activity/ActivityCenter'
+import { CommandBarTrigger } from './components/CommandBar/CommandBarTrigger'
+import { CommandBarHost } from './components/CommandBar/CommandBarHost'
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import type { AgentProfile } from '../shared/types/agent'
@@ -85,12 +88,12 @@ const IS_MAC = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platfor
 export function App(): ReactElement {
   const { t } = useTranslation()
   const appVersion = window.oxe?.app?.version ?? 'dev'
-  const [applicationView, setApplicationView] = useState<AppView>('code')
+  const [applicationView, setApplicationView] = useState<AppView>(startAppView)
   const [delegatedWorkOpen, setDelegatedWorkOpen] = useState(false)
   const [delegationTarget, setDelegationTarget] = useState<{ workspaceId: string; taskId: string } | null>(null)
-  const [hasOpenedThread, setHasOpenedThread] = useState(false)
+  const [hasOpenedThread, setHasOpenedThread] = useState(() => applicationView === 'thread')
   // The view switches when the next view is ready; until then the current one stays and the button is busy (F7.2).
-  const viewSwitch = useViewSwitch(applicationView, mode => { if (mode === 'thread') setHasOpenedThread(true); setApplicationView(mode) })
+  const viewSwitch = useViewSwitch(applicationView, mode => { if (mode === 'thread') setHasOpenedThread(true); rememberAppView(mode); setApplicationView(mode) })
   const selectMode = viewSwitch.select
   useModeActions(selectMode)
   const [newThreadWorkspaceId, setNewThreadWorkspaceId] = useState<string | null | undefined>(undefined)
@@ -100,44 +103,8 @@ export function App(): ReactElement {
   const threadSelection = useThreadStore(state => state.selectedId)
   const codeSidebarWidth = useNavigationPrefs(state => state.width)
   const [accountsOpen, setAccountsOpen] = useState(false)
-  const {
-    activeWorkspaceId,
-    bootstrap,
-    closePane,
-    closeWorkspace,
-    createWorkspace,
-    error,
-    isLoading,
-    loadShellProfiles,
-    setActiveWorkspace,
-    shellProfiles,
-    splitPane,
-    updateGitHubState,
-    updateReviewState,
-    updateEditorState,
-    updateBackgroundState,
-    updateWorktreeState,
-    updateSettings,
-    workspaces
-  } = useWorkspaceStore(useShallow((state) => ({
-    activeWorkspaceId: state.activeWorkspaceId,
-    bootstrap: state.bootstrap,
-    closePane: state.closePane,
-    closeWorkspace: state.closeWorkspace,
-    createWorkspace: state.createWorkspace,
-    error: state.error,
-    isLoading: state.isLoading,
-    loadShellProfiles: state.loadShellProfiles,
-    setActiveWorkspace: state.setActiveWorkspace,
-    shellProfiles: state.shellProfiles,
-    splitPane: state.splitPane,
-    updateGitHubState: state.updateGitHubState,
-    updateReviewState: state.updateReviewState,
-    updateEditorState: state.updateEditorState,
-    updateBackgroundState: state.updateBackgroundState,
-    updateWorktreeState: state.updateWorktreeState,
-    updateSettings: state.updateSettings,
-    workspaces: state.workspaces
+  const { activeWorkspaceId, bootstrap, closePane, closeWorkspace, createWorkspace, error, isLoading, loadShellProfiles, setActiveWorkspace, shellProfiles, splitPane, updateGitHubState, updateReviewState, updateEditorState, updateBackgroundState, updateWorktreeState, updateSettings, workspaces } = useWorkspaceStore(useShallow((state) => ({
+    activeWorkspaceId: state.activeWorkspaceId, bootstrap: state.bootstrap, closePane: state.closePane, closeWorkspace: state.closeWorkspace, createWorkspace: state.createWorkspace, error: state.error, isLoading: state.isLoading, loadShellProfiles: state.loadShellProfiles, setActiveWorkspace: state.setActiveWorkspace, shellProfiles: state.shellProfiles, splitPane: state.splitPane, updateGitHubState: state.updateGitHubState, updateReviewState: state.updateReviewState, updateEditorState: state.updateEditorState, updateBackgroundState: state.updateBackgroundState, updateWorktreeState: state.updateWorktreeState, updateSettings: state.updateSettings, workspaces: state.workspaces
   })))
   const clearEditor = useEditorStore((state) => state.clearEditor)
   const getTerminalStatus = useTerminalStore((state) => state.getStatus)
@@ -247,6 +214,7 @@ export function App(): ReactElement {
   const [delegationNotice, setDelegationNotice] = useState<{ workspaceId: string; taskId: string } | null>(null)
   const [isDesignSystemOpen, setDesignSystemOpen] = useState(false)
   const [appNotice, setAppNotice] = useState<string | null>(null)
+  const [commandBarOpen, setCommandBarOpen] = useState(false)
   // Track workspaces that have been visited at least once. Visited workspaces
   // stay mounted (hidden via CSS) so the xterm Terminal instances persist
   // across workspace switches — required so full-screen Copilot/Claude TUIs
@@ -483,6 +451,7 @@ export function App(): ReactElement {
         if (cmd && workspace.panes[i]) setPendingCommand(workspace.panes[i].id, cmd)
       })
     }
+    rememberAppView('code')
     closeNewWorkspace()
   }
 
@@ -661,7 +630,7 @@ export function App(): ReactElement {
     store.setGlobal({ fontSize: Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, next)) })
   }
   useKeybindings({
-    'palette.open': openCommandMenu, 'palette.search': openCommandMenu, 'settings.open': () => { if (!isSettingsOpen) toggleSettings() }, 'sidebar.toggle': toggleSidebar,
+    'commandBar.open': () => setCommandBarOpen(true), 'palette.open': openCommandMenu, 'palette.search': openCommandMenu, 'settings.open': () => { if (!isSettingsOpen) toggleSettings() }, 'sidebar.toggle': toggleSidebar,
     'code.changes': toggleReviewPanel, 'code.browser': toggleWebPreviewPanel, 'code.files': toggleEditor,
     'code.splitLayout': () => useUIStore.getState().toggleSplitLayout(),
     // Read fresh state: the search panel flag is not part of this render's closure.
@@ -747,7 +716,7 @@ export function App(): ReactElement {
       <header className={cx('workbench-titlebar', titleBar.bar)} aria-label={t('app.workbench')}>
         <div className={titleBar.brand}><OxeLogo size={16} /><strong className={titleBar.word}>oxespace</strong>{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), openCommandMenu }} /></Suspense>}</div>
         <ModeSwitch mode={applicationView} onSelect={selectMode} />
-        <div className={titleBar.trailing}><ActivityCenter onSelectView={selectMode} /><UpdateChips /></div>
+        <div className={titleBar.trailing}><CommandBarTrigger onOpen={() => setCommandBarOpen(true)} /><ActivityCenter onSelectView={selectMode} /><UpdateChips /></div>
       </header>
       <RemovedFeaturesBand />
       {delegationNotice && <DelegationNotice onView={() => { setDelegatedWorkOpen(true); setDelegationNotice(null) }} onDismiss={() => setDelegationNotice(null)} />}
@@ -879,6 +848,7 @@ export function App(): ReactElement {
         onSelectPane={setActivePane}
       />
       <UsageModal open={isUsageOpen} onOpenChange={(o) => (o ? openUsage() : closeUsage())} />
+      <CommandBarHost open={commandBarOpen} onOpenChange={setCommandBarOpen} applicationView={applicationView} selectMode={selectMode} activeWorkspace={activeWorkspace ?? null} activePane={activePane} />
       {slashPane ? (
         <SlashOverlay
           paneId={slashPane.id}

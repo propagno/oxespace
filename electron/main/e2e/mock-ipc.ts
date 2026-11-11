@@ -341,6 +341,8 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.thread.projects, (): ThreadProjectCatalog => ({ projects: [], unavailable: [] }))
   ipcMain.handle(IPC_CHANNELS.thread.toolTabs, () => [{ tab: 'conversation' as const, count: null }])
   ipcMain.handle(IPC_CHANNELS.thread.background, () => [])
+  ipcMain.handle(IPC_CHANNELS.thread.timeline, () => ({ checkpoints: [], cantGoBack: { dbWrites: 0, pushes: 0, containers: 0, commands: 0, httpWrites: 0, scope: 'conversation' as const }, canBranch: true }))
+  ipcMain.handle(IPC_CHANNELS.thread.branchFromCheckpoint, () => ({ ok: false as const, refusal: { code: 'thread.branch.notGit' as const, params: {} } }))
   ipcMain.handle(IPC_CHANNELS.thread.steerQueued, () => { throw new MainRefusal('thread.steer.unavailable', {}) })
   const pendingRequests: ThreadPendingRequestSummary[] = JSON.parse(process.env.OXESPACE_E2E_PENDING_REQUESTS || '[]')
   ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, () => pendingRequests)

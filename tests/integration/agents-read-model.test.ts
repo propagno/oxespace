@@ -79,10 +79,10 @@ describe('the agents overview', () => {
     const { agents } = model.overview()
     const conversation = find(agents, 'thread', 't-1') as { state: string; requests: unknown[] }
     expect(conversation.state).toBe('needs-you')
-    expect(conversation.requests).toEqual([{ requestId: 'r-1', title: { code: 'agents.request.question', params: {} }, risk: null, answerable: true, since: 50 }])
+    expect(conversation.requests).toEqual([{ requestId: 'r-1', kind: 'question', title: { code: 'agents.request.question', params: {} }, risk: null, reversible: null, answerable: true, since: 50 }])
     expect(JSON.stringify(agents)).not.toContain('IGNORE')
     const paneRow = find(agents, 'pane', 'pane-1') as { requests: unknown[] }
-    expect(paneRow.requests).toEqual([{ requestId: 'pane:pane-1:3', title: { code: 'agents.request.pane', params: {} }, risk: null, answerable: false, since: 70 }])
+    expect(paneRow.requests).toEqual([{ requestId: 'pane:pane-1:3', kind: 'approval', title: { code: 'agents.request.pane', params: {} }, risk: null, reversible: null, answerable: false, since: 70 }])
   })
 
   it('one failing source never hides the others', () => {

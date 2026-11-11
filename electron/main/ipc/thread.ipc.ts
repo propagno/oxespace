@@ -148,8 +148,9 @@ export function registerThreadIpc(
   ipcMain.handle(IPC_CHANNELS.thread.sideClose, (event, sideId: unknown) => sides().then(chats => chats.close(sideId)))
   ipcMain.handle(IPC_CHANNELS.thread.read, (event, id: unknown) => manager.then(service => service.readForRenderer(string(id))))
   ipcMain.handle(IPC_CHANNELS.thread.rewind, (event, id: unknown, turnId: unknown, options: unknown) => {
-    const restoreFiles = Boolean(options && typeof options === 'object' && (options as Record<string, unknown>).restoreFiles === true)
-    return manager.then(service => service.rewind(string(id), string(turnId), { restoreFiles }))
+    const input = options && typeof options === 'object' && !Array.isArray(options) ? options as Record<string, unknown> : {}
+    if (input.confirmed !== undefined && typeof input.confirmed !== 'boolean') throw new MainRefusal('thread.invalidInput', {})
+    return manager.then(service => service.rewind(string(id), string(turnId), { restoreFiles: input.restoreFiles === true, confirmed: input.confirmed === true }))
   })
   ipcMain.handle(IPC_CHANNELS.thread.redoRewind, (event, id: unknown) => {
     return manager.then(service => service.redoRewind(string(id)))
@@ -165,6 +166,14 @@ export function registerThreadIpc(
     return manager.then(service => service.readSinceForRenderer(string(id), { epoch, revision }))
   })
   ipcMain.handle(IPC_CHANNELS.thread.history, (event, id: unknown, before: unknown, limit: unknown) => manager.then(service => service.historyPage(string(id), optionalInteger(before, Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER), optionalInteger(limit, 1, 500))))
+  ipcMain.handle(IPC_CHANNELS.thread.timeline, (event, id: unknown) => manager.then(service => service.timeline(string(id))))
+  ipcMain.handle(IPC_CHANNELS.thread.branchFromCheckpoint, (event, id: unknown, checkpointId: unknown, value: unknown) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new MainRefusal('thread.invalidInput', {})
+    const input = value as Record<string, unknown>
+    const branch = input.branch
+    if (typeof branch !== 'string' || branch.length > 200 || branch.includes('\0') || Object.keys(input).some(key => key !== 'branch')) throw new MainRefusal('thread.invalidInput', {})
+    return manager.then(service => service.branchFromCheckpoint(string(id), string(checkpointId), { branch }))
+  })
   ipcMain.handle(IPC_CHANNELS.thread.attach, (event, id: unknown, input: unknown) => {
     if (!input || typeof input !== 'object' || Array.isArray(input)) throw Error('Invalid attachment')
     const value = input as Record<string, unknown>

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
-import { readFile, unlink, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { encodeClaudeProjectPath } from '../usage/claude-project-path'
 import { ThreadRewindError } from './thread-rewind'
 
@@ -81,6 +81,20 @@ export async function forkClaudeBefore(input: { rootPath: string; sessionId: str
  * Removes a side chat's copy (B1.2): only the `<forkId>.jsonl` file of that UUID, never one of the ids in `keep`
  * (the main conversation's session). A copy that was never written is not an error.
  */
+export async function forkClaudeToWorktree(input: { rootPath: string; worktreePath: string; sessionId: string; localPrompts: string[]; targetIndex: number; env?: NodeJS.ProcessEnv }): Promise<{ sessionId: string | null }> {
+  const source = claudeTranscriptPath(input.rootPath, input.sessionId, input.env)
+  let transcript: string
+  try { transcript = await readFile(source, 'utf8') } catch { throw new ThreadRewindError('unavailable', 'The Claude transcript for this session was not found.') }
+  if (transcript.length > MAX_BYTES) throw new ThreadRewindError('history-limit', 'The Claude transcript is too large to rewind safely.')
+  const { keep } = planClaudeFork(transcript, input.localPrompts, input.targetIndex)
+  if (!keep.length) return { sessionId: null }
+  const sessionId = randomUUID()
+  const dest = claudeTranscriptPath(input.worktreePath, sessionId, input.env)
+  await mkdir(dirname(dest), { recursive: true })
+  await writeFile(dest, keep.join('\n') + '\n', { encoding: 'utf8', flag: 'wx' })
+  return { sessionId }
+}
+
 export async function removeClaudeSessionCopy(input: { rootPath: string; forkId: string; keep: readonly (string | null | undefined)[]; env?: NodeJS.ProcessEnv }): Promise<boolean> {
   if (!SESSION_ID.test(input.forkId) || input.keep.some(id => id && id.toLowerCase() === input.forkId.toLowerCase())) return false
   try { await unlink(claudeTranscriptPath(input.rootPath, input.forkId, input.env)); return true } catch (error) {

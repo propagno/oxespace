@@ -90,6 +90,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       retryTurn: (id, turnId, options) => ipc.invoke(IPC_CHANNELS.thread.retryTurn, id, turnId, options) as Promise<{ restoredFiles: number }>,
       readSince: (id, cursor) => ipc.invoke(IPC_CHANNELS.thread.readSince, id, cursor) as Promise<import('../../shared/types/thread').ThreadDelta>,
       history: (id, before, limit) => ipc.invoke(IPC_CHANNELS.thread.history, id, before, limit) as Promise<import('../../shared/types/thread').ThreadHistoryPage>,
+      timeline: id => ipc.invoke(IPC_CHANNELS.thread.timeline, id) as Promise<import('../../shared/types/thread').ThreadTimeline>,
+      branchFromCheckpoint: (id, checkpointId, input) => ipc.invoke(IPC_CHANNELS.thread.branchFromCheckpoint, id, checkpointId, input) as Promise<import('../../shared/types/thread').ThreadBranchResult>,
       attach: (id, input) => ipc.invoke(IPC_CHANNELS.thread.attach, id, input) as Promise<import('../../shared/types/thread').ThreadAttachment>,
       removeAttachment: (id, attachmentId) => ipc.invoke(IPC_CHANNELS.thread.removeAttachment, id, attachmentId) as Promise<void>,
       send: (id, text, attachmentIds) => ipc.invoke(IPC_CHANNELS.thread.send, id, text, attachmentIds) as Promise<void>,

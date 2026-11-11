@@ -141,6 +141,20 @@
       "agent": {
         "scriptUnsupported": "Escolha o executável do próprio agente nas Configurações de agentes: o OxeChat não inicia agentes por scripts .cmd, .ps1 ou .bat.",
         "nativeMissing": "Falta o executável nativo (codex.exe) no Codex instalado. Reinstale o Codex ou escolha o codex.exe nas Configurações de agentes."
+      },
+      "restore": {
+        "foreignChanges": "{{count}} arquivos mudaram fora desta conversa ({{files}}). Restaurar sobrescreve esses arquivos; Refazer traz sua versão de volta."
+      },
+      "branch": {
+        "unsupported": "Indisponível no Codex",
+        "checkpointGone": "Este checkpoint não existe mais.",
+        "checkpointFailed": "Só a conversa: os arquivos deste checkpoint não foram salvos.",
+        "exists": "Já existe uma branch com esse nome. Escolha outro nome de branch.",
+        "pathExists": "Já existe uma pasta em {{path}}. Escolha outro nome de branch.",
+        "baseGone": "O commit de onde este checkpoint partiu não existe mais; não dá para ramificar.",
+        "notGit": "A pasta desta conversa não é um repositório git; não dá para ramificar.",
+        "sessionGone": "A sessão do agente desta conversa não existe mais; o ramo não consegue continuá-la.",
+        "failed": "Não deu para concluir a ramificação ({{step}}); nada foi mantido."
       }
     },
     "app": {
@@ -496,19 +510,16 @@
       "notify": {
         "waiting": "OXESpace: aprovação aguardando"
       },
+      "textLabel": {
+        "policyChange": "Conteúdo do arquivo"
+      },
       "alwaysAllow": {
         "notOffered": "Sempre permitir não é oferecido para este comando.",
         "invalidSettings": "O arquivo .claude/settings.local.json deste projeto não é JSON válido, então nada foi gravado.",
         "outsideProject": "A pasta .claude deste projeto aponta para fora do projeto, então nada foi gravado."
-      },
-      "textLabel": {
-        "policyChange": "Conteúdo do arquivo"
       }
     },
     "notify": {
-      "agentNeedsYou": "{{agent}} precisa de você",
-      "requestsNeedYou": "{{count}} pedidos precisam de você",
-      "requestBody": "{{pane}} · {{risk}}",
       "prefix": {
         "pane": "{{agent}} no painel {{pane}}: {{title}}",
         "conversation": "{{agent}} na conversa {{conversation}}: {{title}}",
@@ -518,7 +529,10 @@
       "refused": {
         "reservedName": "Uma notificação não pode usar o nome \"{{name}}\"; ele pertence ao app.",
         "rateLimit": "Notificações demais: no máximo {{perMinute}} por minuto."
-      }
+      },
+      "agentNeedsYou": "{{agent}} precisa de você",
+      "requestsNeedYou": "{{count}} pedidos precisam de você",
+      "requestBody": "{{pane}} · {{risk}}"
     },
     "agents": {
       "name": {
@@ -644,6 +658,19 @@
       "capture": {
         "devtools": "Feche o DevTools do navegador para o agente capturar.",
         "busy": "Outro depurador está conectado a esta página, então o agente não pode capturar agora."
+      }
+    },
+    "commandBar": {
+      "skill": {
+        "notEnabled": "/{{name}} não está habilitada neste projeto.",
+        "noAgent": "Foque uma conversa ou um painel de agente primeiro."
+      },
+      "args": {
+        "control": "Remova os caracteres de controle do texto."
+      },
+      "request": {
+        "otherWorkspace": "Esse pedido está em outro workspace.",
+        "none": "Nada está esperando por você."
       }
     },
     "permissions": {

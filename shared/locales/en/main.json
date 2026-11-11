@@ -141,6 +141,20 @@
       "agent": {
         "scriptUnsupported": "Choose the agent's own executable in Agent Settings: OxeChat does not start agents through .cmd, .ps1 or .bat scripts.",
         "nativeMissing": "The installed Codex is missing its native executable (codex.exe). Reinstall Codex, or choose codex.exe in Agent Settings."
+      },
+      "restore": {
+        "foreignChanges": "{{count}} files changed outside this conversation ({{files}}). Restoring overwrites them; Redo brings your version back."
+      },
+      "branch": {
+        "unsupported": "Not available in Codex",
+        "checkpointGone": "This checkpoint no longer exists.",
+        "checkpointFailed": "Transcript only: this checkpoint's files weren't saved.",
+        "exists": "A branch with that name already exists. Pick another branch name.",
+        "pathExists": "A folder already exists at {{path}}. Pick another branch name.",
+        "baseGone": "The commit this checkpoint started from is gone, so it can't be branched.",
+        "notGit": "This conversation's folder isn't a git repository, so it can't be branched.",
+        "sessionGone": "The agent session for this conversation is gone, so the branch can't continue it.",
+        "failed": "Couldn't complete the branch ({{step}}); nothing was kept."
       }
     },
     "app": {
@@ -493,19 +507,16 @@
       "notify": {
         "waiting": "OXESpace: approval waiting"
       },
+      "textLabel": {
+        "policyChange": "Content of the file"
+      },
       "alwaysAllow": {
         "notOffered": "Always allow isn't offered for this command.",
         "invalidSettings": "The project's .claude/settings.local.json is not valid JSON, so nothing was written.",
         "outsideProject": "The project's .claude folder points outside the project, so nothing was written."
-      },
-      "textLabel": {
-        "policyChange": "Content of the file"
       }
     },
     "notify": {
-      "agentNeedsYou": "{{agent}} needs you",
-      "requestsNeedYou": "{{count}} requests need you",
-      "requestBody": "{{pane}} · {{risk}}",
       "prefix": {
         "pane": "{{agent}} in pane {{pane}}: {{title}}",
         "conversation": "{{agent}} in conversation {{conversation}}: {{title}}",
@@ -515,7 +526,10 @@
       "refused": {
         "reservedName": "A notification cannot use the name \"{{name}}\"; it belongs to the app.",
         "rateLimit": "Too many notifications: at most {{perMinute}} a minute."
-      }
+      },
+      "agentNeedsYou": "{{agent}} needs you",
+      "requestsNeedYou": "{{count}} requests need you",
+      "requestBody": "{{pane}} · {{risk}}"
     },
     "agents": {
       "name": {
@@ -641,6 +655,19 @@
       "capture": {
         "devtools": "Close the browser's DevTools to let the agent capture.",
         "busy": "Another debugger is attached to this page, so the agent cannot capture right now."
+      }
+    },
+    "commandBar": {
+      "skill": {
+        "notEnabled": "/{{name}} isn't enabled in this project.",
+        "noAgent": "Focus a conversation or an agent pane first."
+      },
+      "args": {
+        "control": "Remove the control characters from the text."
+      },
+      "request": {
+        "otherWorkspace": "That request is in another workspace.",
+        "none": "Nothing is waiting for you."
       }
     },
     "permissions": {

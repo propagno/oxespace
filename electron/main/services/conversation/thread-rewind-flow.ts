@@ -69,7 +69,7 @@ export async function retryTurn(host: RewindHost, id: string, turnId: string, op
  * too (a Claude fork, a Codex revert), so a Redo never has to undo anything at the provider. When files are
  * restored, their current state is captured first, so Redo brings the files back as well.
  */
-export async function rewind(host: RewindHost, id: string, turnId: string, options: { restoreFiles?: boolean } = {}): Promise<ThreadRewindResult> {
+export async function rewind(host: RewindHost, id: string, turnId: string, options: { restoreFiles?: boolean; confirmed?: boolean } = {}): Promise<ThreadRewindResult> {
   if (host.isStopping()) throw Error('Application is shutting down')
   // A just-finished turn is still capturing its diff and checkpoint; that is a moment, not a refusal.
   if (host.isFinalizing(id)) await host.settleFinalization()
@@ -87,29 +87,22 @@ export async function rewind(host: RewindHost, id: string, turnId: string, optio
   if (claude && !current.thread.nativeSessionId) throw new ThreadRewindError('unavailable', 'This conversation has no Claude session to rewind yet.')
   return host.withConfiguring(id, async () => {
     const result: ThreadRewindResult = { snapshot: host.readForRenderer(id), removedTurns: plan.dropped.length }
-    const redoCheckpointIds: string[] = []
+    let redoCheckpointIds: string[] = []
     if (options.restoreFiles) {
-      const dropped = new Set(plan.dropped.map(turn => turn.id))
-      const restorable = host.checkpoints.list(id).filter(value => value.turnId && dropped.has(value.turnId) && (value.state === 'ready' || value.state === 'conflict'))
-      // The files as they are now, in every checkout the dropped turns used, so Redo can bring them back.
-      const roots = [...new Set(restorable.flatMap(checkpoint => {
-        const row = host.db.prepare('SELECT root_path FROM conversation_checkpoints WHERE id = ?').get(checkpoint.id) as { root_path: string } | undefined
-        return row ? [row.root_path] : []
-      }))]
-      for (const root of roots) {
-        const redoId = await host.checkpoints.begin({ threadId: id, turnId: `redo:${turnId}`, rootPath: root, label: 'Before rewind' }).catch(() => undefined)
-        if (redoId) redoCheckpointIds.push(redoId)
-      }
-      let restored = 0
-      try {
-        // Newest first, so each restore sees the working tree its checkpoint recorded.
-        for (const checkpoint of restorable.sort((a, b) => b.createdAt - a.createdAt)) { await host.checkpoints.restore(id, checkpoint.id); restored += checkpoint.fileCount }
-        result.restoredFiles = restored
-      } catch (error) {
-        result.restoredFiles = restored
-        result.fileError = error instanceof Error ? error.message : 'Files could not be restored.'
-      }
-      for (const redoId of redoCheckpointIds) await host.checkpoints.finalize(redoId).catch(() => undefined)
+      const placeRows = host.db.prepare("SELECT path FROM thread_places WHERE thread_id = ? AND kind != 'outside'").all(id) as Array<{ path: string }>
+      const cpRoots = host.db.prepare("SELECT DISTINCT root_path FROM conversation_checkpoints WHERE thread_id = ? AND COALESCE(turn_id, '') NOT LIKE 'redo:%'").all(id) as Array<{ root_path: string }>
+      const allowedRoots = [
+        current.thread.rootPath,
+        ...(current.thread.ownedWorktree ? [current.thread.ownedWorktree.path, current.thread.ownedWorktree.projectRoot] : []),
+        ...placeRows.map(r => r.path),
+        ...cpRoots.map(r => r.root_path)
+      ]
+      const restored = await host.checkpoints.restoreTurns(id, plan.dropped.map(turn => turn.id), {
+        confirmed: options.confirmed === true,
+        allowedRoots
+      })
+      redoCheckpointIds = restored.redoCheckpointIds
+      result.restoredFiles = restored.restoredFiles
     }
     const latest = host.read(id)
     latest.thread.rewind = { turnId, at: Date.now(), removedTurns: plan.dropped.length, ...(redoCheckpointIds.length ? { redoCheckpointIds } : {}) }
@@ -133,7 +126,10 @@ export async function redoRewind(host: RewindHost, id: string): Promise<ThreadSn
   const pending = host.read(id).thread.rewind
   if (!pending) throw Error('There is nothing to redo.')
   return host.withConfiguring(id, async () => {
-    for (const redoId of [...(pending.redoCheckpointIds ?? [])].reverse()) await host.checkpoints.restore(id, redoId)
+    for (const redoId of [...(pending.redoCheckpointIds ?? [])].reverse()) {
+      await host.checkpoints.restore(id, redoId)
+      host.checkpoints.delete(id, redoId)
+    }
     const latest = host.read(id)
     delete latest.thread.rewind
     latest.thread.updatedAt = Date.now()
@@ -186,6 +182,9 @@ export async function applyPendingRewind(host: RewindHost, id: string): Promise<
   latest.thread.status = 'idle'
   latest.thread.lastTurnStatus = final.turns.at(-1)?.status
   delete latest.thread.providerObservation
+  for (const redoId of pending.redoCheckpointIds ?? []) {
+    try { host.checkpoints.delete(id, redoId) } catch { /* already gone */ }
+  }
   delete latest.thread.rewind
   latest.thread.updatedAt = Date.now()
   for (const turn of final.dropped) if (turn.operationId) host.cancelOperation(id, turn.operationId, 'The conversation was rewound.')

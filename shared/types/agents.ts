@@ -18,10 +18,13 @@ export interface AgentKey { kind: AgentKind; id: string }
 /** A pending request on this agent: main-built, never the agent's own text. */
 export interface AgentRequestSummary {
   requestId: string
+  kind: 'approval' | 'question'
   /** Main-built title (C3). */
   title: MainMessage
   /** The 4 risk words (DESIGN FINDING M); null when nothing assessed it (a pane's own prompt). */
   risk: ApprovalRisk | null
+  /** Whether F7's impact marked the request reversible; null when nothing assessed it. */
+  reversible: boolean | null
   /** False when it can't be answered from where it is read (a pane's own prompt is answered in the pane). */
   answerable: boolean
   since: number

@@ -135,6 +135,9 @@
       "f6ToProgram": "Num painel de terminal com “Enviar F6 ao programa” ligado (no menu ⋯), F6 e Shift+F6 vão para o programa dele, como mc, htop ou tig; {{toggle}} continua fazendo o Tab mover o foco para fora."
     },
     "bindings": {
+      "commandBar": {
+        "open": "Abrir a barra de comando"
+      },
       "palette": {
         "open": "Abrir a paleta de comandos",
         "search": "Buscar arquivos e comandos"
@@ -187,6 +190,7 @@
         "permissions": "Permissões",
         "model": "Modelo",
         "effort": "Esforço de raciocínio",
+        "history": "Histórico",
         "sideChat": "Chat lateral"
       },
       "help": {
@@ -554,6 +558,71 @@
   },
   "brand": {
     "tagline": "Agentes e terminais para os seus projetos"
+  },
+  "commandBar": {
+    "trigger": "Perguntar, rodar ou ir para…",
+    "dialogLabel": "Barra de comando",
+    "inputLabel": "Perguntar, rodar ou ir para",
+    "groups": {
+      "commands": "Comandos",
+      "skills": "Skills",
+      "agents": "Agentes",
+      "workspaces": "Workspaces"
+    },
+    "hints": {
+      "agent": "começar ou delegar",
+      "skill": "rodar uma skill",
+      "open": "ir a qualquer lugar",
+      "help": "todos os comandos e atalhos"
+    },
+    "examples": {
+      "agent": "@Codex escreva testes para o webhook do Pix",
+      "skill": "/skill pix-rules",
+      "open": "open billing-staging",
+      "help": "?"
+    },
+    "resultCount_one": "{{count}} resultado",
+    "resultCount_many": "{{count}} resultados",
+    "resultCount_other": "{{count}} resultados",
+    "noMatch": "Nada encontrado para {{query}}",
+    "noCommand": "Não existe o comando {{command}}",
+    "also": "Também: {{button}}",
+    "fallback": {
+      "pending": "Precisa de você",
+      "deny": "Negar no cartão do pedido",
+      "steer": "Direcionar no OxeChat",
+      "stop": "Parar no OxeChat",
+      "new": "Nova conversa",
+      "history": "Histórico",
+      "terminal": "Novo terminal",
+      "theme": "Aparência",
+      "skill": "Skills"
+    },
+    "catalog": {
+      "pending": "Ver os pedidos esperando a sua resposta",
+      "deny": "Recusar o pedido em espera neste workspace",
+      "steer": "Enviar uma orientação no OxeChat",
+      "stop": "Parar o turno em andamento no OxeChat",
+      "new": "Iniciar uma nova conversa no OxeChat",
+      "history": "Abrir o histórico e os checkpoints da conversa",
+      "terminal": "Abrir um novo painel de terminal",
+      "theme": "Alternar a aparência clara ou escura",
+      "skill": "Rodar uma skill habilitada no painel de agente em foco"
+    },
+    "agentPrompt": "Perguntar ou delegar para {{agent}}",
+    "refusal": {
+      "skillNotEnabled": "/{{name}} não está habilitada neste projeto.",
+      "noAgent": "Foque uma conversa ou um painel de agente primeiro.",
+      "controlChars": "Remova os caracteres de controle do texto.",
+      "requestNone": "Nada está esperando por você.",
+      "otherWorkspace": "Esse pedido está em {{workspace}}.",
+      "openWorkspace": "Abrir {{workspace}}"
+    },
+    "confirmStop": {
+      "message": "Parar o turno em andamento no OxeChat?",
+      "cancel": "Cancelar",
+      "stop": "Parar"
+    }
   },
   "commands": {
     "category": {

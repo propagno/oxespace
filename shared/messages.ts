@@ -323,6 +323,18 @@ export interface MessageParams extends PlaceMessageParams {
   'thread.queue.deliveryUnconfirmed': Record<string, never>
   /** F6 / T76: a queued message cannot steer now (no turn is running, or the provider cannot steer). */
   'thread.steer.unavailable': Record<string, never>
+  /** F8 A30: files changed outside the conversation since the checkpoint's post-image. */
+  'thread.restore.foreignChanges': { count: number; files: string[] }
+  /** F8 A30: branching from a checkpoint into a new worktree. */
+  'thread.branch.unsupported': Record<string, never>
+  'thread.branch.checkpointGone': Record<string, never>
+  'thread.branch.checkpointFailed': Record<string, never>
+  'thread.branch.exists': Record<string, never>
+  'thread.branch.pathExists': { path: string }
+  'thread.branch.baseGone': Record<string, never>
+  'thread.branch.notGit': Record<string, never>
+  'thread.branch.sessionGone': Record<string, never>
+  'thread.branch.failed': { step: 'restore' | 'register' | 'fork' | 'conversation' }
   'oxequery.edit.readOnly': Record<string, never>
   'oxequery.edit.notTable': Record<string, never>
   'oxequery.edit.noKey': Record<string, never>
@@ -544,6 +556,12 @@ export interface MessageParams extends PlaceMessageParams {
   'agents.source.unavailable': { source: string }
   'preview.capture.devtools': Record<string, never>
   'preview.capture.busy': Record<string, never>
+  /** F8 A31 · Command bar refusals. */
+  'commandBar.skill.notEnabled': { name: string }
+  'commandBar.skill.noAgent': Record<string, never>
+  'commandBar.args.control': Record<string, never>
+  'commandBar.request.otherWorkspace': Record<string, never>
+  'commandBar.request.none': Record<string, never>
 }
 
 export type MessageCode = keyof MessageParams
@@ -736,6 +754,16 @@ export const MESSAGE_CODES = [
   'thread.observe.changed',
   'thread.queue.deliveryUnconfirmed',
   'thread.steer.unavailable',
+  'thread.restore.foreignChanges',
+  'thread.branch.unsupported',
+  'thread.branch.checkpointGone',
+  'thread.branch.checkpointFailed',
+  'thread.branch.exists',
+  'thread.branch.pathExists',
+  'thread.branch.baseGone',
+  'thread.branch.notGit',
+  'thread.branch.sessionGone',
+  'thread.branch.failed',
   'oxequery.edit.readOnly',
   'oxequery.edit.notTable',
   'oxequery.edit.noKey',
@@ -881,7 +909,12 @@ export const MESSAGE_CODES = [
   'agents.request.pane',
   'agents.source.unavailable',
   'preview.capture.devtools',
-  'preview.capture.busy'
+  'preview.capture.busy',
+  'commandBar.skill.notEnabled',
+  'commandBar.skill.noAgent',
+  'commandBar.args.control',
+  'commandBar.request.otherWorkspace',
+  'commandBar.request.none'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */

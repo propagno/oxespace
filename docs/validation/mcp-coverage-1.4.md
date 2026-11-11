@@ -24,7 +24,7 @@ policy (`tool.use` rules of the policy store) applies by tool name to every tool
 
 | Covered | Excluded | Planned | Forbidden | Total |
 |---|---|---|---|---|
-| 37 | 33 | 2 | 22 | 94 |
+| 37 | 33 | 2 | 23 | 95 |
 
 The registry has 75 tools: 52 single-purpose tools and 23 domain tools with 86 actions, so the
 manifest declares 138 tool-or-action entries.
@@ -51,6 +51,7 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `approvals.admin` | `approvals.list`, `respond`, `ack`, `unavailable`, `history`, `preview`, `alwaysAllow`, `agentPermissions.list`, `revokeRule`, `setDatabaseAccess`, `setHostAccess`, `undo` (B10, F7: the app's own approval modal, database preview, Always allow and Settings › What agents can do) |
 | `thread.sections` | `thread.sections`, `thread.saveSections` (F13, for 1.4: the person's own organization of the conversation list) |
 | `thread.place_actions` | `thread.placeRead`, `thread.placeDriftAnswer`, `thread.placeUndo`, `thread.placeRestore`, `thread.placeDiscard` (F4, CR-F4-7: the person's answers to a branch drift, Undo, Restore and Discard of a place, and the read of a place's file outside the workspace roots) |
+| `thread.time_travel` | `thread.rewind`, `thread.redoRewind`, `thread.branchFromCheckpoint` (F8, A30: Restore and Branch rewrite working-tree files or create a worktree and conversation for the person) |
 | `app.open_external` | `app.openExternal` (the window's only way to open a link outside the app, after the person confirmed its host) |
 | `app.open_in` | `app.openIn`, `app.openInTargets`, `app.setOpenInPreference` (B18, for 1.4: it starts a program on the computer, so only the person opens a file in an editor or its folder) |
 | `app.activity` | `activity.recent`, `activity.record`, `activity.seen`, `activity.resolve` (F30, for 1.4: the person's own notification history) |
@@ -156,7 +157,8 @@ before. Code panes receive the whole registry.
 | `thread.side_chat` | A side chat about a conversation | Excluded: The person's read-only scratch copy of a conversation; agents ask in their own. |
 | `thread.access` | Permission rules and auto-approval | **Forbidden**: Raises access. |
 | `thread.places` | A conversation's places, their diffs, path links, panes, collisions and agent summary (F4) | Excluded: The person's window: read models of where a conversation worked. Agents read their own checkout with oxespace_git. |
-| `thread.cockpit` | A conversation's tool tabs and background shells (F6) | Excluded: The person's window: read models of what a conversation used and left running. Agents see their own tools and shells. |
+| `thread.cockpit` | A conversation's tool tabs, background shells and timeline (F6, F8) | Excluded: The person's window: read models of what a conversation used and left running. Agents see their own tools and shells. |
+| `thread.time_travel` | Restore a conversation to a checkpoint, redo a restore, or branch from a checkpoint into a new worktree (F8) | **Forbidden**: Person-only (A30): Restore and Branch rewrite working-tree files or create a worktree and conversation for the person. |
 | `thread.place_actions` | Answer a branch drift; undo, restore or discard a place's changes; read a file of a place (F4) | **Forbidden**: Person-only (A14 Undo, A15): they change or restore files and branches for the person; the place read reaches outside the workspace roots (A17). |
 | `thread.session_admin` | Fork, delete, clean up or search CLI sessions | Excluded: Deletes or copies the person's CLI history across projects. Agents search with oxespace_memory_search, scoped to the project. |
 | `delegation.use` | Delegate a task and follow it | **read**: `oxespace_delegation_targets`, `oxespace_delegation_preflight`, `oxespace_delegation_status`, `oxespace_delegation_inbox`, `oxespace_delegation_result`, `oxespace_delegation_context`<br>**write**: `oxespace_delegate_task`, `oxespace_delegation_control`, `oxespace_delegation_update`, `oxespace_delegation_checkpoint`, `oxespace_delegation_message`, `oxespace_delegation_acknowledge` |

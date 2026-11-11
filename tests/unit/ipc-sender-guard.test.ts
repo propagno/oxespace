@@ -76,7 +76,7 @@ const group = (name: string): string[] => flatten((IPC_CHANNELS as unknown as Re
  */
 const MUST_BE_GUARDED = [IPC_CHANNELS.terminal.write, IPC_CHANNELS.fs.readFile, IPC_CHANNELS.mcp.create, ...group('approvals'), ...group('agentPermissions'), ...group('remote'),
   // CR-F4-7: the person-only place writes (A14 Undo, A15) and the read outside the workspace roots (A17).
-  ...(['placeUndo', 'placeRestore', 'placeDiscard', 'placeDriftAnswer', 'placeRead'] as const).map(key => (IPC_CHANNELS.thread as Record<string, string>)[key])]
+  ...(['placeUndo', 'placeRestore', 'placeDiscard', 'placeDriftAnswer', 'placeRead', 'rewind', 'redoRewind', 'branchFromCheckpoint'] as const).map(key => (IPC_CHANNELS.thread as Record<string, string>)[key])]
 
 const refusedWithCode = (promise: Promise<unknown>) => expect(promise).rejects.toMatchObject({ code: IPC_SENDER_REFUSED, message: IPC_SENDER_REFUSED })
 
