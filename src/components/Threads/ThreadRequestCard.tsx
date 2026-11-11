@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { AlertCircle, Check, Shield, X } from 'lucide-react'
+import { AlertCircle, Check, Shield, Sun, X } from 'lucide-react'
 import type { ThreadPermissionSuggestion, ThreadRequest, ThreadRequestResponse } from '../../../shared/types/thread'
 import { approvalCommandPreview, ThreadApprovalDetails } from './ThreadApprovalDetails'
 import { threadApprovalRisk } from './threadApprovalRisk'
@@ -154,17 +154,17 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
         setSavingRule(false)
       }
     }
-    return <section ref={card} className={cx('thread-request thread-request-approval', styles.root)} aria-label={requestLabel}>
-      <header><AlertCircle size={14} /><div><small>{t('f7.card.needsApproval', { agent: agentName })}</small><strong>{requestLabel}</strong></div></header>
+    return <section ref={card} className={cx('thread-request thread-request-approval', styles.root, styles.amber)} aria-label={requestLabel}>
+      <header><Sun size={14} aria-hidden="true" /><div><small className={styles.kicker}>{t('f7.card.needsApproval', { agent: agentName })}</small><strong>{requestLabel}</strong></div></header>
       {impact.why ? <p className={styles.context}>{impact.why}</p> : null}
-      <ImpactFacts impact={impact} layout="chips" />
+      <div className={styles.factsWrap}><ImpactFacts impact={impact} layout="chips" /></div>
       <pre><code>{impact.text}</code></pre>
       {offer && !offer.offered ? <AlwaysAllowReason reasonKind={offer.reasonKind} className={styles.context} /> : null}
       {error && <ErrorState compact title={error} />}
       <footer>
         <button ref={denyButtonRef} type="button" className={cx('thread-request-decline', styles.decline)} disabled={disabled} onClick={() => void submit({ decision: 'decline' })}>{t('request.deny')}</button>
         {impact.reversible
-          ? <button type="button" disabled={disabled} onClick={() => void submit({ decision: 'accept' })}>{offeredRule ? t('f7.card.allowOnce') : t('f7.card.allow')}</button>
+          ? <button type="button" className={styles.allowPrimary} disabled={disabled} onClick={() => void submit({ decision: 'accept' })}>{offeredRule ? t('f7.card.allowOnce') : t('f7.card.allow')}</button>
           : <button type="button" className={styles.quiet} disabled={disabled} onClick={() => { if (onSeeImpact) onSeeImpact(); else setPreviewOpen(true) }}>{t('f7.card.seeImpact')}</button>}
         {offeredRule ? <button type="button" className={styles.quiet} disabled={disabled} onClick={() => setAlwaysAllowOpen(true)}>{t('f7.card.alwaysAllowEllipsis')}</button> : null}
         <button type="button" className={styles.quiet} onClick={() => { if (navigator.clipboard?.writeText) void navigator.clipboard.writeText(impact.text); else void copyText(impact.text, t('f7.card.copyWhat')) }}>{t('f7.card.copyExact')}</button>
@@ -173,8 +173,9 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
       {alwaysAllowOpen && offer?.offered ? <AlwaysAllowConfirm rule={offer.rule} runsProjectCode={offer.runsProjectCode} definedIn={offer.definedIn} busy={savingRule} onCancel={() => setAlwaysAllowOpen(false)} onConfirm={() => void confirmAlwaysAllow()} /> : null}
     </section>
   }
-  return <section ref={card} className={cx(`thread-request thread-request-${request.kind}`, styles.root, request.kind === 'question' && styles.question)} aria-label={requestLabel}>
-    <header>{request.kind === 'permissions' ? <Shield size={14} /> : <AlertCircle size={14} />}<div><strong>{requestLabel}</strong>{guarded && <span className={cx('thread-request-guarded', styles.guarded)} data-testid="approval-guarded" title={t('request.guardedHint')}><Shield size={12} aria-hidden="true" />{t('request.guarded')}</span>}{request.kind !== 'approval' && request.detail && <p>{request.detail}</p>}</div></header>
+  const warmAmber = request.kind === 'approval' || request.kind === 'question'
+  return <section ref={card} className={cx(`thread-request thread-request-${request.kind}`, styles.root, warmAmber && styles.amber, request.kind === 'question' && styles.question)} aria-label={requestLabel}>
+    <header>{request.kind === 'permissions' ? <Shield size={14} aria-hidden="true" /> : warmAmber ? <Sun size={14} aria-hidden="true" /> : <AlertCircle size={14} aria-hidden="true" />}<div><strong>{requestLabel}</strong>{guarded && <span className={cx('thread-request-guarded', styles.guarded)} data-testid="approval-guarded" title={t('request.guardedHint')}><Shield size={12} aria-hidden="true" />{t('request.guarded')}</span>}{request.kind !== 'approval' && request.detail && <p>{request.detail}</p>}</div></header>
     {guarded && <p className={styles.context} data-testid="approval-guarded-hint">{t('request.guardedHint')}</p>}
     {request.kind === 'elicitation' && <p className={styles.context}>{t('request.elicitation')}</p>}
     {request.kind === 'approval' && request.nativeMethod?.startsWith('can_use_tool:mcp__') && <p className={styles.context}>{t('request.mcpContext')}</p>}

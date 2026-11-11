@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactElement } from 'react'
 import { Button } from '../../ui'
+import styles from './Approvals.module.css'
 
 export const IMPACT_HOLD_MS = 1_200
 const COUNTDOWN_TICK_MS = 100
@@ -15,10 +16,12 @@ function prefersReducedMotion(): boolean {
 
 export function HoldToApprove({
   label,
+  shortcut,
   onComplete,
   disabled = false
 }: {
   label: string
+  shortcut?: string
   onComplete: () => void
   disabled?: boolean
 }): ReactElement {
@@ -109,7 +112,7 @@ export function HoldToApprove({
     : null
 
   return (
-    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+    <div className={styles.holdWrap}>
       <Button
         variant="danger"
         disabled={disabled}
@@ -123,8 +126,9 @@ export function HoldToApprove({
         onBlur={cancelHold}
       >
         {label}
+        {shortcut ? <kbd aria-hidden="true" className={styles.kbdHint}>{shortcut}</kbd> : null}
       </Button>
-      {countdown ? <span aria-live="off">{countdown}</span> : null}
+      {countdown ? <span aria-live="off" className={styles.holdCountdown}>{countdown}</span> : null}
     </div>
   )
 }

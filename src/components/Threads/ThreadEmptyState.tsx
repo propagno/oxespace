@@ -3,6 +3,7 @@ import { useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ConversationThread } from '../../../shared/types/thread'
 import { i18n } from '../../i18n'
+import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { WorktreeCreationNotices } from '../Worktree/WorktreeCreationNotices'
 
 const STARTERS = ['tour', 'review', 'bugs', 'next'] as const
@@ -22,16 +23,12 @@ export function threadStarters(): { id: (typeof STARTERS)[number]; label: string
 }
 
 /**
- * The opening of a conversation with no messages yet: where the agent will work, and ways to begin. A composed
- * welcome rather than an empty-state message, so it keeps its own layout instead of <EmptyState>.
+ * The opening of a conversation with no messages yet: where the agent will work, and ways to begin in a 2×2 grid.
  */
 export function ThreadEmptyState({ thread, branch, onStarter }: { thread: ConversationThread; branch?: string | null; onStarter: (prompt: string) => void }): ReactElement {
   const { t } = useTranslation('thread')
   const agent = thread.provider === 'claude' ? 'Claude' : 'Codex'
   const folder = thread.rootPath.split(/[\\/]/).filter(Boolean).at(-1) ?? thread.rootPath
-  // What creating its worktree reported (the dialog closed as the conversation opened): shown here until dismissed.
-  // The dismissal belongs to one conversation: keyed by its id, so a switch without a remount reads the new one's
-  // (FRONTEND review #487).
   const [dismissedId, setDismissedId] = useState<string | null>(null)
   const dismissed = dismissedId === thread.id || noticesDismissed(thread.id)
   const notices = dismissed ? [] : thread.ownedWorktree?.notices ?? []
@@ -40,8 +37,11 @@ export function ThreadEmptyState({ thread, branch, onStarter }: { thread: Conver
     try { localStorage.setItem(noticesDismissedKey(thread.id), '1') } catch { /* this window only, then */ }
   }
   return <section className="thread-opening" aria-label={t('opening.label')} data-testid="thread-empty">
-    {/* A worktree of its own is named by its branch in the title: its folder carries a random suffix nobody chose. */}
-    <h2>{t('opening.title', { agent, folder: thread.ownedWorktree?.branch ?? folder })}</h2>
+    <div className="thread-opening-hero">
+      <AgentProviderIcon provider={thread.provider} size={28} />
+      {/* A worktree of its own is named by its branch in the title: its folder carries a random suffix nobody chose. */}
+      <h2>{t('opening.title', { agent, folder: thread.ownedWorktree?.branch ?? folder })}</h2>
+    </div>
     <ul className="thread-opening-context" aria-label={t('opening.context')}>
       <li title={thread.rootPath}><FolderGit2 size={13} aria-hidden="true" />{folder}</li>
       {branch && <li><GitBranch size={13} aria-hidden="true" />{branch}</li>}

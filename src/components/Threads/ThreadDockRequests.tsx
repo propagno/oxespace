@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { ErrorState } from '../../ui'
 import type { ThreadRequest, ThreadSnapshot } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
+import { QueuedMessageRow } from './QueuedMessageRow'
 import { ThreadRequestCard } from './ThreadRequestCard'
 import { ThreadPromptQueue } from './ThreadPromptQueue'
 
@@ -30,6 +31,7 @@ export function ThreadDockRequests({ snapshot, pendingRequests, pending, action 
   const listId = `thread-pending-requests-${id}`
   const [expanded, setExpanded] = useState(readExpanded)
   const toggleExpanded = () => { const next = !expanded; setExpanded(next); try { localStorage.setItem(EXPANDED_KEY, next ? '1' : '0') } catch { /* not remembered */ } }
+  const agentName = snapshot.thread.provider === 'codex' ? 'Codex' : 'Claude'
   return <>
     {pendingRequests.length > 0 && <div className="thread-pending-requests-bar">
       {/* One request is named by its own card; repeating its title here said it twice (T67, DESIGN #568 C-01). */}
@@ -41,14 +43,14 @@ export function ThreadDockRequests({ snapshot, pendingRequests, pending, action 
       </span>
     </div>}
     {pendingRequests.length > 0 && <section id={listId} className="thread-pending-requests" aria-label={t('requests.label')} hidden={hidden} data-expanded={expanded || undefined}>
-      {pendingRequests.map(request => <ThreadRequestCard key={`${id}:${request.id}:${request.generation}`} conversationId={id} request={request} disabled={pending} onRespond={response => action(() => api!.respond!(id, request.id, response))}
+      {pendingRequests.map(request => <ThreadRequestCard key={`${id}:${request.id}:${request.generation}`} conversationId={id} agent={agentName} request={request} disabled={pending} onRespond={response => action(() => api!.respond!(id, request.id, response))}
         onRemember={api?.addPermissionRule ? async suggestions => { for (const item of suggestions) await api.addPermissionRule!(id, { kind: item.kind, pattern: item.pattern, decision: 'allow', scope: 'project' }) } : undefined} />)}
     </section>}
     {orphanedApproval && <ErrorState compact title={t('requests.orphaned')} actions={<button type="button" disabled={pending} onClick={() => void action(() => useThreadStore.getState().refresh(id))}>{t('requests.refresh')}</button>} />}
   </>
 }
 
-/** Follow-ups queued while a turn runs: edit, reorder, send now, or restore one to the composer. */
+/** Follow-ups queued while a turn runs: single compact U6.3 row while steering/running, or full multi-item queue card. */
 export function ThreadDockQueue({ snapshot, pending, textarea, action }: {
   snapshot: ThreadSnapshot
   pending: boolean
@@ -57,8 +59,22 @@ export function ThreadDockQueue({ snapshot, pending, textarea, action }: {
 }) {
   const api = window.oxe?.thread
   const id = snapshot.thread.id
-  return <>
-    {snapshot.thread.queue && <ThreadPromptQueue threadId={id} canSteer={Boolean(snapshot.thread.capabilities?.features.steering?.enabled)} items={snapshot.thread.queue} disabled={pending} running={snapshot.thread.status === 'running'} pause={snapshot.thread.queuePause}
+  const queue = snapshot.thread.queue
+  const canSteer = Boolean(snapshot.thread.capabilities?.features.steering?.enabled)
+  const working = snapshot.thread.status === 'running'
+  if (!queue?.length) return null
+  if (
+    queue.length === 1
+    && !snapshot.thread.queuePause
+    && queue[0].state === 'queued'
+    && !queue[0].error
+    && canSteer
+    && working
+  ) {
+    return <QueuedMessageRow threadId={id} item={queue[0]} canSteer={canSteer} working={working} />
+  }
+  return (
+    <ThreadPromptQueue threadId={id} canSteer={canSteer} items={queue} disabled={pending} running={working} pause={snapshot.thread.queuePause}
       onResume={api?.resumeQueue ? () => action(() => api.resumeQueue!(id)) : undefined}
       onSendNow={api?.sendQueuedNow ? itemId => action(() => api.sendQueuedNow!(id, itemId)) : undefined}
       onClear={() => action(async () => { for (const item of snapshot.thread.queue ?? []) if (item.state !== 'sending') await api!.deleteQueued!(id, item.id) })}
@@ -69,6 +85,6 @@ export function ThreadDockQueue({ snapshot, pending, textarea, action }: {
         for (const attachment of item.attachments ?? []) useThreadStore.getState().addAttachment(id, attachment)
         if (item.configuration && api?.configure) useThreadStore.getState().updateSnapshot(await api.configure(id, item.configuration, snapshot.thread.configurationRevision ?? 0))
         requestAnimationFrame(() => textarea.current?.focus())
-      })} onReorder={itemIds => action(() => api!.reorderQueued!(id, itemIds))} />}
-  </>
+      })} onReorder={itemIds => action(() => api!.reorderQueued!(id, itemIds))} />
+  )
 }

@@ -4,6 +4,7 @@ import type { ApprovalDatabasePreview } from '../../../shared/types/approvals'
 import type { ThreadRequest, ThreadRequestResponse } from '../../../shared/types/thread'
 import { i18n } from '../../i18n'
 import { Button, Checkbox, Dialog, Notice } from '../../ui'
+import styles from './Approvals.module.css'
 import { HoldToApprove } from './HoldToApprove'
 import { ImpactFacts } from './ImpactFacts'
 
@@ -19,10 +20,13 @@ function formatScalar(value: unknown): string {
   return String(value)
 }
 
-function formatPreviewCell(cell: unknown): string {
-  if (cell && typeof cell === 'object' && 'old' in cell && 'new' in cell) {
-    const pair = cell as { old: unknown; new: unknown }
-    return `${formatScalar(pair.old)} → ${formatScalar(pair.new)}`
+export function isChangedPreviewCell(cell: unknown): cell is { old: unknown; new: unknown } {
+  return Boolean(cell && typeof cell === 'object' && 'old' in cell && 'new' in cell)
+}
+
+export function formatPreviewCell(cell: unknown): string {
+  if (isChangedPreviewCell(cell)) {
+    return `${formatScalar(cell.old)} → ${formatScalar(cell.new)}`
   }
   return formatScalar(cell)
 }
@@ -122,6 +126,7 @@ export function ImpactPreview({
         onClick={() => void respond({ decision: 'decline' })}
       >
         {t('request.deny')}
+        <kbd aria-hidden="true" className={styles.kbdHint}>D</kbd>
       </Button>
       {impact.reversible ? (
         <Button
@@ -130,11 +135,13 @@ export function ImpactPreview({
           onClick={() => void respond({ decision: 'accept' })}
         >
           {t('request.approve')}
+          <kbd aria-hidden="true" className={styles.kbdHint}>A</kbd>
         </Button>
       ) : isCriticalIrreversible ? (
         <>
           <HoldToApprove
             label={t('f7.preview.holdToApprove')}
+            shortcut="A"
             disabled={busy}
             onComplete={() => void respond({ decision: 'accept' })}
           />
@@ -156,6 +163,7 @@ export function ImpactPreview({
           onClick={() => void respond({ decision: 'accept' })}
         >
           {t('request.approve')}
+          <kbd aria-hidden="true" className={styles.kbdHint}>A</kbd>
         </Button>
       )}
     </>
@@ -164,39 +172,33 @@ export function ImpactPreview({
   return (
     <>
       <Dialog size="lg" title={request.title} onClose={onClose} footer={footer}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
-            {contextLine}
-          </p>
+        <div className={styles.previewStack}>
+          <p className={styles.contextLine}>{contextLine}</p>
 
-          {impact.why ? <p style={{ margin: 0 }}>{impact.why}</p> : null}
+          {impact.why ? <p className={styles.whyText}>{impact.why}</p> : null}
 
           <ImpactFacts impact={impact} layout="grid" countOverride={countOverride} />
 
-          <section>
-            <h3 style={{ margin: '0 0 var(--space-1)', fontSize: 'var(--text-sm)' }}>
-              {t('f7.preview.exactHeading')}
-            </h3>
-            <pre style={{ margin: 0, overflowX: 'auto' }}>
+          <section className={styles.sectionBlock}>
+            <h3 className={styles.sectionHeading}>{t('f7.preview.exactHeading')}</h3>
+            <pre className={styles.codeBlock}>
               <code>{impact.text}</code>
             </pre>
           </section>
 
           {impact.kind === 'db' && dbPreview ? (
-            <section>
+            <section className={styles.sectionBlock}>
               {dbPreview.status === 'ok' && dbPreview.sample ? (
                 <>
-                  <h3 style={{ margin: '0 0 var(--space-1)', fontSize: 'var(--text-sm)' }}>
-                    {t('f7.preview.beforeAfter')}
-                  </h3>
-                  <p style={{ margin: '0 0 var(--space-2)', color: 'var(--text-secondary)', fontSize: 'var(--text-xs)' }}>
+                  <h3 className={styles.sectionHeading}>{t('f7.preview.beforeAfter')}</h3>
+                  <p className={styles.sampleMeta}>
                     {t('f7.preview.sampleCount', {
                       sampleCount: dbPreview.sample.rows.length,
                       count: dbPreview.count ?? dbPreview.sample.rows.length
                     })}
                   </p>
-                  <div style={{ overflowX: 'auto' }}>
-                    <table>
+                  <div className={styles.sampleWrap}>
+                    <table className={styles.sampleTable}>
                       <thead>
                         <tr>
                           {dbPreview.sample.cols.map(col => (
@@ -208,7 +210,9 @@ export function ImpactPreview({
                         {dbPreview.sample.rows.map((row, rowIndex) => (
                           <tr key={rowIndex}>
                             {row.map((cell, cellIndex) => (
-                              <td key={cellIndex}>{formatPreviewCell(cell)}</td>
+                              <td key={cellIndex} className={isChangedPreviewCell(cell) ? styles.changedCell : undefined}>
+                                {formatPreviewCell(cell)}
+                              </td>
                             ))}
                           </tr>
                         ))}
@@ -217,9 +221,9 @@ export function ImpactPreview({
                   </div>
                 </>
               ) : dbPreview.status === 'off-production' ? (
-                <p style={{ margin: 0 }}>{t('f7.preview.offProduction')}</p>
+                <p className={styles.noteLine}>{t('f7.preview.offProduction')}</p>
               ) : dbPreview.status === 'failed' ? (
-                <p style={{ margin: 0 }}>{t('f7.preview.failed', { reason: dbPreview.reason ?? '' })}</p>
+                <p className={styles.noteLine}>{t('f7.preview.failed', { reason: dbPreview.reason ?? '' })}</p>
               ) : null}
             </section>
           ) : null}
@@ -229,17 +233,13 @@ export function ImpactPreview({
           ) : isCriticalIrreversible ? (
             <>
               <Notice intent="danger">{t('f7.preview.criticalCallout')}</Notice>
-              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 'var(--text-xs)' }}>
-                {t('f7.preview.criticalPhone')}
-              </p>
+              <p className={styles.noteLine}>{t('f7.preview.criticalPhone')}</p>
             </>
           ) : (
             <>
               <Notice intent="warning">{t('f7.preview.highCallout')}</Notice>
               {impact.kind === 'db' ? (
-                <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 'var(--text-xs)' }}>
-                  {t('f7.preview.dbDesktopOnly')}
-                </p>
+                <p className={styles.noteLine}>{t('f7.preview.dbDesktopOnly')}</p>
               ) : null}
             </>
           )}

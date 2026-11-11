@@ -14,7 +14,7 @@
 .thread-inline-evidence p, .thread-inline-evidence > div[role="alert"] { padding: 10px 12px; color: var(--text-muted); font-size: var(--fs-2xs); }
 .thread-inline-evidence pre { padding: 12px; font: 11px/1.7 var(--font-mono); overflow: auto; }
 .thread-turn-timing { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0; font-size: var(--fs-2xs); color: var(--text-muted); }
-.thread-turn-outcome { display: inline-flex; align-items: center; gap: 5px; color: var(--text-secondary); font-weight: 600; }
+.thread-turn-outcome { display: inline-flex; align-items: center; gap: 5px; color: var(--text-primary); font-weight: 600; }
 .thread-turn-timing.is-completed .thread-turn-outcome svg { color: var(--dot-green); }
 .thread-turn-timing.is-failed .thread-turn-outcome, .thread-turn-timing.is-failed .thread-turn-outcome svg { color: var(--intent-danger-fg); }
 .thread-turn-timing.is-interrupted .thread-turn-outcome svg { color: var(--dot-yellow); }

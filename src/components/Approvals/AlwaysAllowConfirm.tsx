@@ -2,6 +2,7 @@ import type { ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadAlwaysAllowReasonKind, ThreadAlwaysAllowRule } from '../../../shared/types/thread'
 import { Dialog, dismissToast, toast } from '../../ui'
+import styles from './Approvals.module.css'
 
 let lastAlwaysAllowToastId: number | null = null
 
@@ -92,15 +93,13 @@ export function AlwaysAllowConfirm({
         }
       }}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-        <p style={{ margin: 0 }}>{intro}</p>
-        <pre style={{ margin: 0, overflowX: 'auto' }}>
+      <div className={styles.previewStack}>
+        <p className={styles.whyText}>{intro}</p>
+        <pre className={styles.codeBlock}>
           <code>{rule.text}</code>
         </pre>
         {projectCodeNotice ? (
-          <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
-            {projectCodeNotice}
-          </p>
+          <p className={styles.noteLine}>{projectCodeNotice}</p>
         ) : null}
       </div>
     </Dialog>
