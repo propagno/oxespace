@@ -59,7 +59,7 @@ test('captures all surfaces for design review', async () => {
     await page.getByRole('button', { name: 'Collapse sidebar' }).click()
     await expect(page.locator('.app-shell')).toHaveClass(/sidebar-collapsed/)
     await shot(page, '05-sidebar-collapsed')
-    await page.getByRole('button', { name: 'Expand sidebar' }).click()
+    await page.getByRole('button', { name: /^Expand (the )?sidebar/ }).first().click()
 
     // 6. Tools modal open (sidebar gear)
     await page.getByTestId('btn-open-tools').click()

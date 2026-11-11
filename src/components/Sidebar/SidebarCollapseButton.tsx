@@ -13,6 +13,7 @@ export function SidebarCollapseButton({ mode, collapsed }: { mode: SidebarMode; 
     <button
       type="button"
       className="nav-rail-btn"
+      style={{ minWidth: 28, minHeight: 28, width: 28, height: 28, flexShrink: 0 }}
       aria-label={label}
       title={label}
       onClick={() => toggleSidebar(mode)}

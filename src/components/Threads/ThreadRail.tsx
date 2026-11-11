@@ -24,7 +24,7 @@ export function ThreadRail({ conversations, onSelect, onArchived }: ThreadRailPr
   return (
     <div className="nav-rail" data-collapsed data-mode="thread">
       <SidebarCollapseButton mode="thread" collapsed />
-      <nav aria-label={t('sidebar.conversations')}>
+      <nav aria-label={t('sidebar.conversations')} data-rail-items="">
         {conversations.map((conv) => {
           const label = conv.needsYou ? t('sidebar.railNeedsDecision', { name: conv.title }) : conv.title
           return (
@@ -35,7 +35,7 @@ export function ThreadRail({ conversations, onSelect, onArchived }: ThreadRailPr
               style={RAIL_BUTTON_STYLE}
               aria-label={label}
               title={label}
-              aria-current={conv.current ? 'true' : undefined}
+              aria-current={conv.current ? 'page' : undefined}
               onClick={() => onSelect(conv.id)}
             >
               <span aria-hidden="true">{[...conv.title.trim()][0]?.toUpperCase() ?? '·'}</span>
