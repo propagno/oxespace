@@ -58,6 +58,29 @@ export class ThreadHistory {
     return row.history_version ? parseThreadRow<ConversationThread>(row.data_json) : undefined
   }
 
+  /** Distinct tool names without loading full event payloads (keeps long-thread heap/RSS flat). */
+  readToolNames(id: string): Array<{ id: string; name: string }> {
+    const row = this.db.prepare('SELECT history_version, events_json FROM conversation_threads WHERE id = ?').get(id) as { history_version: number; events_json: string } | undefined
+    if (!row) throw new MainRefusal('thread.notFound', {})
+    if (!row.history_version) {
+      const events = JSON.parse(row.events_json) as ThreadEvent[]
+      return events.filter((e): e is Extract<ThreadEvent, { type: 'tool' }> => e.type === 'tool' && e.name !== 'Tool result').map(e => ({ id: e.id, name: e.name }))
+    }
+    return this.db.prepare("SELECT json_extract(data_json, '$.id') AS id, json_extract(data_json, '$.name') AS name FROM conversation_events WHERE thread_id = ? AND json_extract(data_json, '$.type') = 'tool' AND json_extract(data_json, '$.name') != 'Tool result' ORDER BY seq").all(id) as Array<{ id: string; name: string }>
+  }
+
+  /** Background command subagent events only, without loading message/tool rows. */
+  readBackgroundEvents(id: string): ThreadEvent[] {
+    const row = this.db.prepare('SELECT history_version, events_json FROM conversation_threads WHERE id = ?').get(id) as { history_version: number; events_json: string } | undefined
+    if (!row) throw new MainRefusal('thread.notFound', {})
+    if (!row.history_version) {
+      const events = JSON.parse(row.events_json) as ThreadEvent[]
+      return events.filter(e => e.type === 'subagent' && e.action === 'Background command')
+    }
+    return (this.db.prepare("SELECT data_json FROM conversation_events WHERE thread_id = ? AND json_extract(data_json, '$.type') = 'subagent' AND json_extract(data_json, '$.action') = 'Background command' ORDER BY seq").all(id) as { data_json: string }[]).map(v => JSON.parse(v.data_json))
+  }
+
+
   /** Bounded projection for the renderer. Main-process operations keep using read(). */
   readWindow(id: string, limit = 250): ThreadSnapshot {
     let row = this.db.prepare('SELECT data_json, events_json, history_version FROM conversation_threads WHERE id = ?').get(id) as { data_json: string; events_json: string; history_version: number } | undefined

@@ -290,6 +290,26 @@ export class ThreadOrchestrator {
     return this.history.readThread(id) ?? this.read(id).thread
   }
 
+  /** Tool names and thread metadata without caching full history in memory. */
+  readToolSummary(id: string): { thread: ConversationThread; tools: Array<{ id: string; name: string }> } {
+    this.flushDeltas(id)
+    if (this.snapshots.has(id)) {
+      const snap = this.read(id)
+      return { thread: snap.thread, tools: snap.events.filter((e): e is Extract<ThreadEvent, { type: 'tool' }> => e.type === 'tool' && e.name !== 'Tool result').map(e => ({ id: e.id, name: e.name })) }
+    }
+    return { thread: this.readThread(id), tools: this.history.readToolNames(id) }
+  }
+
+  /** Background shell events and thread metadata without caching full history in memory. */
+  readBackgroundSource(id: string): { thread: ConversationThread; events: ThreadEvent[] } {
+    this.flushDeltas(id)
+    if (this.snapshots.has(id)) {
+      const snap = this.read(id)
+      return { thread: snap.thread, events: snap.events }
+    }
+    return { thread: this.readThread(id), events: this.history.readBackgroundEvents(id) }
+  }
+
   /** In-memory state of a conversation that no longer exists. */
   private forget(id: string): void {
     this.snapshots.delete(id)

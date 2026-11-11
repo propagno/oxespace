@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { removeTempDir } from '../helpers/removeTempDir'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, test, vi } from 'vitest'
@@ -53,16 +54,16 @@ const fromStranger = { sender: stranger, senderFrame: stranger.mainFrame }
 
 const cleanups: Array<() => Promise<void> | void> = []
 afterEach(async () => {
-  for (const fn of cleanups.splice(0).reverse()) await fn()
-  ipc.handlers.clear()
-  ipc.removeAllListeners()
+  try { for (const fn of cleanups.splice(0).reverse()) await fn() } finally { ipc.handlers.clear(); ipc.removeAllListeners() }
+
+
 })
 
 describe('T21 · thread:agent-summary over IPC and E2E mock', () => {
   test('validates input, guards sender, returns null for unknown thread, and aggregates thread + agent panes', async () => {
     installIpcSenderGuard(ipc, null)
     const dir = mkdtempSync(join(tmpdir(), 'oxe-t21-summary-'))
-    cleanups.push(() => rmSync(dir, { recursive: true, force: true }))
+    cleanups.push(() => removeTempDir(dir))
     writeFileSync(join(dir, 'index.ts'), 'export const x = 1\n', 'utf8')
 
     const db = openInMemoryDatabase()

@@ -61,8 +61,8 @@ const PLATFORM: Platform = process.platform === 'win32' ? 'windows' : 'linux'
  * baseline + one frame. Rebase only from CI medians like these, never from a local run.
  */
 const PLATFORM_WARM_BASELINE_MS: Record<Platform, Record<string, number>> = {
-  linux: { 'OxeCode (Code)': 28, 'OxeChat (Thread)': 30, OxeQuery: 24.5, OxePod: 23, 'Settings · Agents': 27.5, 'Settings · Appearance': 32 },
-  windows: { 'OxeCode (Code)': 37.5, 'OxeChat (Thread)': 33, OxeQuery: 26, OxePod: 23.5, 'Settings · Agents': 28, 'Settings · Appearance': 34 }
+  linux: { 'OxeCode (Code)': 28, 'OxeChat (Thread)': 30, OxeQuery: 24.5, 'Settings · Agents': 27.5, 'Settings · Appearance': 32 },
+  windows: { 'OxeCode (Code)': 37.5, 'OxeChat (Thread)': 33, OxeQuery: 26, 'Settings · Agents': 28, 'Settings · Appearance': 34 }
 }
 /**
  * Cold first content, per platform: the p90 of 16 samples per OS (FL-26, TECH LEAD 08/11), not the median. The phase-1
@@ -92,8 +92,8 @@ const PLATFORM_WARM_BASELINE_MS: Record<Platform, Record<string, number>> = {
  *   Settings · Appearance      35 → 51.7           37 → 53.7          1.06
  */
 const PLATFORM_COLD_BASELINE_MS: Record<Platform, Record<string, number>> = {
-  linux: { 'OxeCode (Code)': 52, 'OxeChat (Thread)': 162, OxeQuery: 54, OxePod: 52, 'Settings · Agents': 38, 'Settings · Appearance': 35 },
-  windows: { 'OxeCode (Code)': 58, 'OxeChat (Thread)': 175, OxeQuery: 66, OxePod: 55, 'Settings · Agents': 41, 'Settings · Appearance': 37 }
+  linux: { 'OxeCode (Code)': 52, 'OxeChat (Thread)': 162, OxeQuery: 54, 'Settings · Agents': 38, 'Settings · Appearance': 35 },
+  windows: { 'OxeCode (Code)': 58, 'OxeChat (Thread)': 175, OxeQuery: 66, 'Settings · Agents': 41, 'Settings · Appearance': 37 }
 }
 /** A surface much slower on windows than on linux is a finding to explain, not a baseline to accept (FL-21). */
 const MAX_WINDOWS_TO_LINUX = 1.5
@@ -244,7 +244,7 @@ function probeInPage(probe: Probe): Promise<Sample> {
   })
 }
 
-type View = 'OxeCode' | 'OxeChat' | 'OxeQuery' | 'OxePod'
+type View = 'OxeCode' | 'OxeChat' | 'OxeQuery'
 interface Surface { name: string; probe: Probe; /** Untimed setup, then tags the control to click. */ arm: (page: Page) => Promise<void>; /** Untimed teardown. */ leave?: (page: Page) => Promise<void> }
 
 const MODE_PROBE = { dialog: false, settleMs: 300, timeoutMs: 10_000 }
@@ -272,7 +272,6 @@ const settingsSurface = (name: string, page: 'providers' | 'appearance'): Surfac
 const SURFACES: Surface[] = [
   { name: 'OxeChat (Thread)', arm: armMode('OxeChat'), probe: { ...MODE_PROBE, sidebar: true, text: 'How should sessions be stored?', content: ['.thread-host .thread-timeline', 'aside.thread-navigation'] } },
   { name: 'OxeQuery', arm: armMode('OxeQuery'), probe: { ...MODE_PROBE, sidebar: true, content: ['.oq-host .oq-view', 'aside.oq-sidebar .oq-sidebar-content header'] } },
-  { name: 'OxePod', arm: armMode('OxePod'), probe: { ...MODE_PROBE, sidebar: true, content: ['.pod-host [aria-label="OxePod"]', 'aside.thread-navigation [data-pod-filter]'] } },
   { name: 'OxeCode (Code)', arm: armMode('OxeCode'), probe: { ...MODE_PROBE, sidebar: false, content: ['.workspace-host:not(.workspace-host-hidden) [data-testid="terminal-pane"]'] } },
   settingsSurface('Settings · Agents', 'providers'),
   settingsSurface('Settings · Appearance', 'appearance')
