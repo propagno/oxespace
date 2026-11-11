@@ -160,6 +160,14 @@ export function registerThreadIpc(db: AppDatabase, mcp: ThreadMcpBindings, workt
     return manager.then(service => service.readSinceForRenderer(string(id), { epoch, revision }))
   })
   ipcMain.handle(IPC_CHANNELS.thread.history, (event, id: unknown, before: unknown, limit: unknown) => manager.then(service => service.historyPage(string(id), optionalInteger(before, Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER), optionalInteger(limit, 1, 500))))
+  ipcMain.handle(IPC_CHANNELS.thread.timeline, (event, id: unknown) => manager.then(service => service.timeline(string(id))))
+  ipcMain.handle(IPC_CHANNELS.thread.branchFromCheckpoint, (event, id: unknown, checkpointId: unknown, value: unknown) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new MainRefusal('thread.invalidInput', {})
+    const input = value as Record<string, unknown>
+    const branch = input.branch
+    if (typeof branch !== 'string' || branch.length > 200 || branch.includes('\0') || Object.keys(input).some(key => key !== 'branch')) throw new MainRefusal('thread.invalidInput', {})
+    return manager.then(service => service.branchFromCheckpoint(string(id), string(checkpointId), { branch }))
+  })
   ipcMain.handle(IPC_CHANNELS.thread.attach, (event, id: unknown, input: unknown) => {
     if (!input || typeof input !== 'object' || Array.isArray(input)) throw Error('Invalid attachment')
     const value = input as Record<string, unknown>
