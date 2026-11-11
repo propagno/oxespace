@@ -3,7 +3,7 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-test('the first-run guide walks the steps, opens a workspace and stays dismissed', async () => {
+test('the first-run screen presents the three setup steps, opens a workspace wizard and exits to OxeCode persistently', async () => {
   test.setTimeout(90000)
   const root = mkdtempSync(join(tmpdir(), 'oxe-first-run-'))
   const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
@@ -17,36 +17,33 @@ test('the first-run guide walks the steps, opens a workspace and stays dismissed
       ipcMain.handle('agent:get-readiness', () => readiness)
       ipcMain.handle('agent:discover', () => readiness)
     })
-    // Load again so the guide reads the CLIs from the handlers above.
+    // Load again so FirstRun reads the CLIs from the handlers above.
     await page.reload()
 
-    const guide = page.getByRole('region', { name: 'Before you start' })
+    const guide = page.getByTestId('first-run')
     await expect(guide).toBeVisible()
-    await expect(guide.getByRole('heading', { name: 'Agent CLIs (done)' })).toBeVisible()
-    await expect(guide).toContainText('Claude Code is ready')
-    await expect(guide).toContainText('1 of 3 done')
-    await expect(guide).toContainText('gh auth login')
+    await expect(guide.getByRole('heading', { name: 'Open a project folder' })).toBeVisible()
+    await expect(guide.getByRole('heading', { name: 'Connect an agent' })).toBeVisible()
+    await expect(guide.getByRole('heading', { name: 'Start your first conversation' })).toBeVisible()
+    await expect(guide).toContainText('Claude Code')
+    await expect(guide).toContainText('Ready')
+    await expect(guide.getByRole('button', { name: 'How to install' })).toBeVisible()
+    await expect(guide.getByRole('button', { name: 'New conversation' })).toBeEnabled()
+    await expect(guide).toContainText('Or open a mode on its own')
     await page.screenshot({ path: test.info().outputPath('first-run-guide.png') })
 
-    await guide.getByRole('button', { name: 'Skip for now' }).click()
-    await expect(guide).toContainText('2 of 3 done')
-    await guide.getByRole('button', { name: 'Mark as done' }).click()
-    await expect(guide.getByRole('heading', { name: 'GitHub (optional) (done)' })).toBeVisible()
-
-    await guide.getByRole('button', { name: 'New OxeCode workspace' }).click()
+    await guide.getByTestId('btn-new-workspace').click()
     const wizard = page.getByRole('dialog', { name: 'Create new workspace' })
     await expect(wizard).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(wizard).toBeHidden()
 
-    // Progress survives a reload; dismissing hides the guide for good.
-    await page.reload()
-    await expect(guide).toContainText('2 of 3 done')
-    await guide.getByRole('button', { name: 'Hide this guide' }).click()
+    // Opening a mode on its own exits first-run and remembers the view across reloads.
+    await guide.getByRole('button', { name: /^OxeCode\b/ }).click()
     await expect(guide).toBeHidden()
     await page.reload()
     await expect(page.getByText('Select a folder to start your first agentic terminal workspace.')).toBeVisible()
-    await expect(page.getByTestId('first-run-checklist')).toHaveCount(0)
+    await expect(page.getByTestId('first-run')).toHaveCount(0)
   } finally {
     await app.close()
   }
