@@ -2074,5 +2074,23 @@
     "steerWithThis": "Steer with this",
     "sendNow": "Send now",
     "removeQueued": "Remove queued message"
+  },
+  "backgroundShells": {
+    "region": "Background shells",
+    "running": "Running",
+    "stopped": "Stopped",
+    "exitCode": "exit {{code}}",
+    "unknownSince": "State unknown since {{time}}",
+    "showOutput": "Show output",
+    "stop": "Stop",
+    "stopFromConversation": "Stop it from the conversation"
+  },
+  "toolPanels": {
+    "addTool": "+ Tool",
+    "browser": "Browser",
+    "android": "Android device",
+    "files": "Files",
+    "search": "Search",
+    "scripts": "Scripts"
   }
 }

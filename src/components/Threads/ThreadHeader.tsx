@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
-import { Archive, Download, GitFork, Info, ListTree, MoreHorizontal, Pencil, Pin, Plug, Trash2, Type, Waypoints, X } from 'lucide-react'
+import { Archive, Download, GitFork, Info, ListTree, MoreHorizontal, Pencil, Pin, Plug, Plus, Trash2, Type, Waypoints } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Menu, type MenuEntry } from '../../ui'
+import { Button, Menu, type MenuEntry } from '../../ui'
 import type { ThreadActivity } from '../../../shared/types/agents'
 import type { ConversationThread } from '../../../shared/types/thread'
 import type { Workspace } from '../../../shared/types/workspace'
@@ -13,11 +13,13 @@ import { useUIStore } from '../../store/ui.store'
 import { WorkbenchPanelToggle } from '../Workbench/WorkbenchPanelMenu'
 import { threadPanelLabel, threadPanelTitle } from './threadPanelLabels'
 import { NowLine, type NowLineAction } from './NowLine'
+import { ThreadCellClose } from './ThreadCellClose'
 import { ThreadSubline } from './ThreadSubline'
 import { THREAD_MORE_ACTIONS, type ThreadMoreActionId } from './threadMoreActions'
+import { THREAD_TOOL_PANELS } from './threadToolPanels'
 import './ThreadHeaderChrome.css'
 
-/** Title row, A19 sub-line without cost, NowLine, and the cockpit ⋯ menu (DESIGN U6.1). */
+/** Title row, A19 sub-line without cost, NowLine, "+ Tool", and the cockpit ⋯ menu (DESIGN U6.1, U6.5). */
 export function ThreadHeader({
   thread,
   workspace,
@@ -28,6 +30,7 @@ export function ThreadHeader({
   pending,
   running,
   activePanel,
+  cell,
   onTogglePanel,
   onCommand,
   onExport,
@@ -45,6 +48,7 @@ export function ThreadHeader({
   pending: boolean
   running: boolean
   activePanel?: ThreadPanel | null
+  cell?: 'primary' | 'secondary'
   onTogglePanel: (panel: ThreadPanel, keepOpen?: boolean) => void
   onCommand: (command: string) => void
   onExport?: () => void
@@ -147,6 +151,23 @@ export function ThreadHeader({
           </h1>
           <div className="thread-heading-actions">
             {thread && (
+              <Menu
+                label={t('toolPanels.addTool')}
+                align="end"
+                items={THREAD_TOOL_PANELS.map(item => ({
+                  type: 'check' as const,
+                  label: item.label,
+                  checked: activePanel === item.panel,
+                  onSelect: () => onTogglePanel(item.panel)
+                }))}
+                trigger={
+                  <Button size="sm" variant="ghost" icon={<Plus size={13} aria-hidden="true" />}>
+                    {t('toolPanels.addTool')}
+                  </Button>
+                }
+              />
+            )}
+            {thread && (
               <WorkbenchPanelToggle
                 className="thread-review-trigger thread-panel-toggle"
                 item={{
@@ -173,17 +194,7 @@ export function ThreadHeader({
                 </button>
               }
             />
-            {onCloseCell && (
-              <button
-                type="button"
-                className="thread-icon-action"
-                aria-label={t('header.closeSide')}
-                title={t('header.closeSide')}
-                onClick={onCloseCell}
-              >
-                <X size={14} />
-              </button>
-            )}
+            {(cell || onCloseCell) && <ThreadCellClose cell={cell ?? 'secondary'} onClose={onCloseCell} />}
           </div>
         </div>
         <ThreadSubline

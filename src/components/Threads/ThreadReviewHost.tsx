@@ -3,9 +3,9 @@ import { Dialog as RadixDialog } from 'radix-ui'
 import { useTranslation } from 'react-i18next'
 import type { ThreadSnapshot } from '../../../shared/types/thread'
 import type { Workspace } from '../../../shared/types/workspace'
-import { CONVERSATION_MIN_WIDTH, REVIEW_DEFAULT_WIDTH, REVIEW_MIN_WIDTH, useThreadWorkbenchStore, type ThreadPanel } from '../../store/thread-workbench.store'
-import { Splitter } from '../../ui/Splitter'
+import { useThreadWorkbenchStore, type ThreadPanel } from '../../store/thread-workbench.store'
 import { ThreadChangesPanel } from './ThreadChangesPanel'
+import { clampToolPanelWidth, ToolPanelSplitter } from './threadToolPanels'
 
 /**
  * The side panel next to the conversation (changes, files, terminal…): a
@@ -39,10 +39,9 @@ export default function ThreadReviewHost({ snapshot, workspace, panel, drawer, a
   </RadixDialog.Portal></RadixDialog.Root>
   if (maximized) return <div className="thread-review-host is-maximized">{content}</div>
   // As wide as it was dragged, up to leaving the conversation its minimum width.
-  const max = Math.max(REVIEW_MIN_WIDTH, availableWidth - CONVERSATION_MIN_WIDTH)
-  const width = Math.min(Math.max(reviewWidth, REVIEW_MIN_WIDTH), max)
+  const width = clampToolPanelWidth(reviewWidth, availableWidth)
   return <>
-    <Splitter orientation="vertical" label={t('reviewHost.resize')} value={width} min={REVIEW_MIN_WIDTH} max={max} defaultValue={REVIEW_DEFAULT_WIDTH} after step={24}
+    <ToolPanelSplitter width={width} available={availableWidth}
       onChange={value => useThreadWorkbenchStore.getState().setWidth(value)} />
     <div className="thread-review-host" style={{ width }}>
       {content}

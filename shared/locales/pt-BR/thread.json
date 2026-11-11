@@ -2143,5 +2143,23 @@
     "steerWithThis": "Direcionar com esta",
     "sendNow": "Enviar agora",
     "removeQueued": "Remover mensagem da fila"
+  },
+  "backgroundShells": {
+    "region": "Shells em segundo plano",
+    "running": "Em execução",
+    "stopped": "Parado",
+    "exitCode": "saída {{code}}",
+    "unknownSince": "Estado desconhecido desde {{time}}",
+    "showOutput": "Mostrar saída",
+    "stop": "Parar",
+    "stopFromConversation": "Pare pela conversa"
+  },
+  "toolPanels": {
+    "addTool": "+ Ferramenta",
+    "browser": "Navegador",
+    "android": "Dispositivo Android",
+    "files": "Arquivos",
+    "search": "Busca",
+    "scripts": "Scripts"
   }
 }

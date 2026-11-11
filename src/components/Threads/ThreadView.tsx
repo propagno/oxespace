@@ -46,6 +46,7 @@ import { ThreadDockQueue, ThreadDockRequests } from './ThreadDockRequests'
 import { ThreadDockPlan } from './ThreadDockPlan'
 import { ThreadDockRewind, supersededTurnIds } from './ThreadDockRewind'
 import { ThreadDockChanges } from './ThreadDockChanges'
+import { ThreadBackgroundShells } from './ThreadBackgroundShells'
 import { ThreadPromptNavigator } from './ThreadPromptNavigator'
 import { useThreadScrollAnchor } from './useThreadScrollAnchor'
 import { isAccountUnavailable, threadError } from './threadError'
@@ -61,7 +62,7 @@ import './ThreadWorkbench.css'
 import './ThreadView.css'
 import { formatClock, formatNumber } from '../../utils/formatTime'
 
-export function ThreadView({ workspace, threadId, active = true, onActivate, onCloseCell, onNewThread, onAccounts, onDelegations }: { workspace?: Workspace; threadId?: string | null; active?: boolean; onActivate?: () => void; onCloseCell?: () => void; onNewThread?: () => void; onAccounts?: () => void; onDelegations?: () => void }) {
+export function ThreadView({ workspace, threadId, active = true, cell, onActivate, onCloseCell, onNewThread, onAccounts, onDelegations }: { workspace?: Workspace; threadId?: string | null; active?: boolean; cell?: 'primary' | 'secondary'; onActivate?: () => void; onCloseCell?: () => void; onNewThread?: () => void; onAccounts?: () => void; onDelegations?: () => void }) {
   const { t } = useTranslation('thread')
   const storeSelectedId = useThreadStore(state => state.selectedId)
   const snapshot = useThreadStore(state => threadId ? state.selectedId === threadId ? state.snapshot : state.snapshotCache[threadId] ?? null : state.snapshot)
@@ -300,7 +301,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
   // Esc first gives a maximized panel its place back, then closes it.
   return <div ref={workbench} className={`thread-workbench${drawer ? ' is-drawer' : ''}${active ? ' is-active-cell' : ''}${reviewMaximized ? ' is-review-maximized' : ''}`} onPointerDown={onActivate} onKeyDown={event => { if (event.key === 'Escape' && review?.panel && !panel && !commands.open && !openControl && event.target instanceof Element && event.target.closest('.thread-review-host')) { event.preventDefault(); if (reviewMaximized) useThreadWorkbenchStore.getState().setMaximized(null); else { closeReview(); returnFocusFromPanel() } } }}>
     <section className="thread-view" aria-label={t('view.region')} style={{ '--thread-reader-font-size': `${threadFontSize}px` } as React.CSSProperties}>
-    <ThreadHeader thread={snapshot?.thread} workspace={workspace} branch={branch?.branch ?? undefined} pending={pending} running={running} activePanel={review?.panel} onTogglePanel={togglePanel} onCloseCell={onCloseCell}
+    <ThreadHeader thread={snapshot?.thread} workspace={workspace} branch={branch?.branch ?? undefined} pending={pending} running={running} activePanel={review?.panel} cell={cell} onTogglePanel={togglePanel} onCloseCell={onCloseCell}
       onCommand={command => void action(async () => { setPanel(null); await runCommand(command) })}
       onExport={snapshot && api?.exportPortable ? () => void action(async () => { const path = await api.exportPortable!(snapshot.thread.id); if (path) setPanel({ kind: 'panel', title: t('view.exported'), text: path }) }) : undefined}
       onImport={snapshot && api?.importPortable ? () => { setPending(true); setError(''); void api.importPortable!(snapshot.thread.id).then(imported => { if (imported) useThreadStore.getState().adopt(imported) }).catch(cause => setError(humanizeError(cause, t('view.importFailed')))).finally(() => setPending(false)) } : undefined}
@@ -340,6 +341,7 @@ export function ThreadView({ workspace, threadId, active = true, onActivate, onC
         const restored = await api!.redoRewind!(snapshot.thread.id)
         useThreadStore.getState().updateSnapshot(restored)
       })} />}
+      {snapshot && <ThreadBackgroundShells threadId={snapshot.thread.id} />}
       {snapshot && <ThreadDockPlan events={snapshot.events} />}
       {snapshot && <ThreadDockChanges snapshot={snapshot} running={running} onViewChanges={() => useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'changes' })} />}
       {snapshot && <ThreadDockQueue snapshot={snapshot} pending={pending} textarea={textarea} action={action} />}
