@@ -1,5 +1,5 @@
 import { FolderGit2, GitBranch, Moon, WifiOff } from 'lucide-react'
-import { Suspense, useMemo, type ReactElement } from 'react'
+import { Suspense, useEffect, useMemo, useState, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { workspaceColorAttrs } from '../../../shared/workspace-color'
 import { useTerminalStore } from '../../store/terminal.store'
@@ -42,7 +42,9 @@ export function AppStatusBar({ activePaneId, workspace, usageProvider, rootPath,
   }, [activePane?.agentProfileId, profiles])
   const provider = usageProvider === undefined ? paneProvider : usageProvider
   const path = rootPath ?? workspace?.rootPath ?? null
-  const branchStatus = useGitBranch(workspace?.id ?? 'statusbar', path, Boolean(path && !firstRun))
+  const [settled, setSettled] = useState(false)
+  useEffect(() => { if (firstRun) { setSettled(false); return } const id = window.setTimeout(() => setSettled(true), 250); return () => window.clearTimeout(id) }, [firstRun, path])
+  const branchStatus = useGitBranch(workspace?.id ?? 'statusbar', path, Boolean(path && !firstRun && settled))
   const branchLabel = branchStatus?.branch ?? branchStatus?.shortSha ?? null
   const attention = useAttentionSummary()
   const workingCount = attention.code.working + attention.thread.working
@@ -117,7 +119,7 @@ export function AppStatusBar({ activePaneId, workspace, usageProvider, rootPath,
       </div>
       <div className={styles.group}>
         {offline ? <span className={cx(styles.item, styles.offline)} role="status" title={i18n.t('ui.offline.message')} data-testid="offline-indicator"><WifiOff size={12} aria-hidden="true" />{i18n.t('ui.offline.title')}</span> : null}
-        <Suspense fallback={null}>
+        {settled ? <Suspense fallback={null}>
           {provider ? (
             <UsageStatus provider={provider} />
           ) : (
@@ -126,7 +128,7 @@ export function AppStatusBar({ activePaneId, workspace, usageProvider, rootPath,
               <UsageStatus provider="codex" />
             </>
           )}
-        </Suspense>
+        </Suspense> : null}
         {backgroundPaneIds.length > 0 ? (
           <button
             type="button"

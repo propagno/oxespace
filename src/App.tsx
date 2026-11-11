@@ -9,7 +9,6 @@ import { useViewSwitch } from './app/viewSwitch'
 import { setShownView } from './app/shownView'
 import { hasRememberedAppView, rememberAppView, startAppView } from './app/startView'
 import { SettingsCenter } from './components/Settings/SettingsHost'
-const NoWorkspaceStart = lazy(() => import('./components/Onboarding/NoWorkspaceStart').then(m => ({ default: m.NoWorkspaceStart })))
 const FirstRunHost = lazy(() => import('./components/Onboarding/FirstRunHost').then(m => ({ default: m.FirstRunHost })))
 const DelegationNotice = lazy(() => import('./components/Delegation/DelegationNotice').then(m => ({ default: m.DelegationNotice })))
 import { useTranslation } from 'react-i18next'
@@ -57,7 +56,7 @@ import { useMcpStore } from './store/mcp.store'
 import { useSkillStore } from './store/skill.store'
 import { useSlashDispatcher } from './lib/useSlashDispatcher'
 import { useAccountStore } from './store/account.store'
-import { useThreadStore } from './store/thread.store'
+import { useThreadStore, warmThreadList } from './store/thread.store'
 import { useThreadWorkbenchStore } from './store/thread-workbench.store'
 import { useNavigationPrefs } from './store/navigation-prefs.store'
 import { Sidebar } from './components/Sidebar/Sidebar'
@@ -69,6 +68,8 @@ const NewWorkspaceModal = lazy(() => import('./components/Workspace/NewWorkspace
 import { chunk, lazyFrom } from './lib/chunk'
 const WORKSPACE_SURFACE_CHUNK = chunk(() => import('./components/Workspace/WorkspaceSurface'))
 const WorkspaceSurface = lazyFrom(WORKSPACE_SURFACE_CHUNK, (m) => m.WorkspaceSurface)
+const NO_WORKSPACE_START_CHUNK = chunk(() => import('./components/Onboarding/NoWorkspaceStart'))
+const NoWorkspaceStart = lazyFrom(NO_WORKSPACE_START_CHUNK, (m) => m.NoWorkspaceStart)
 
 
 
@@ -110,10 +111,10 @@ export function App(): ReactElement {
   const viewSwitch = useViewSwitch(applicationView, mode => { setFirstRunExited(true); if (mode === 'thread') setHasOpenedThread(true); rememberAppView(mode); setApplicationView(mode) })
   const rawSelectMode = viewSwitch.select
   const selectMode = useCallback((mode: AppView) => {
-    setFirstRunExited(true)
-    rememberAppView(mode)
+    if (mode === 'thread' && !hasOpenedThread) requestAnimationFrame(() => { setTimeout(warmThreadList, 0) })
+    if (mode === applicationView) { setFirstRunExited(true); if (mode === 'thread') setHasOpenedThread(true); rememberAppView(mode); return }
     rawSelectMode(mode)
-  }, [rawSelectMode])
+  }, [applicationView, hasOpenedThread, rawSelectMode])
   useModeActions(selectMode)
   const [newThreadWorkspaceId, setNewThreadWorkspaceId] = useState<string | null | undefined>(undefined)
   const [newThreadRootPath, setNewThreadRootPath] = useState<string | undefined>()
@@ -203,7 +204,7 @@ export function App(): ReactElement {
     toggleSettings: state.toggleSettings,
     toggleSidebar: state.toggleSidebar
   })))
-  useEffect(() => { if (isNewWorkspaceOpen || activeWorkspace) void WORKSPACE_SURFACE_CHUNK.load() }, [isNewWorkspaceOpen, activeWorkspace])
+  useEffect(() => { if (isNewWorkspaceOpen || activeWorkspace) { void WORKSPACE_SURFACE_CHUNK.load(); void NO_WORKSPACE_START_CHUNK.load(); void import('./components/Workspace/usageChunk').then(m => m.USAGE_CHUNK.load()) } }, [isNewWorkspaceOpen, activeWorkspace])
   const {
     allProfiles: agentProfiles,
     readiness: agentReadiness,
@@ -239,10 +240,11 @@ export function App(): ReactElement {
   workspacesRef.current = workspaces
   useEffect(() => {
     if (!activeWorkspaceId) return
-    setVisitedWorkspaceIds((prev) => {
+    const frame = window.requestAnimationFrame(() => setVisitedWorkspaceIds((prev) => {
       const without = prev.filter((id) => id !== activeWorkspaceId)
       return [...without, activeWorkspaceId]
-    })
+    }))
+    return () => window.cancelAnimationFrame(frame)
   }, [activeWorkspaceId])
   useEffect(() => {
     if (!activeWorkspaceId || applicationView !== 'code') return
@@ -342,7 +344,8 @@ export function App(): ReactElement {
   }, [activeWorkspaceId])
 
   useEffect(() => {
-    setActiveTerminalPaneId(activePane?.id ?? null)
+    const frame = window.requestAnimationFrame(() => setActiveTerminalPaneId(activePane?.id ?? null))
+    return () => window.cancelAnimationFrame(frame)
   }, [activePane?.id, setActiveTerminalPaneId])
 
   useEffect(() => {
@@ -410,22 +413,9 @@ export function App(): ReactElement {
 
   const handleLaunch = async (input: WizardLaunchInput): Promise<void> => {
     const knownIds = new Set(useWorkspaceStore.getState().workspaces.map((workspace) => workspace.id))
-    const workspace = await createWorkspace({
-      rootPath: input.rootPath,
-      layoutPreset: input.layoutPreset,
-      defaultShellProfileId: input.defaultShellProfileId,
-      autoStart: true,
-      agentBindings: input.agentBindings
-    })
-    if (!knownIds.has(workspace.id)) {
-      input.agentSlots.forEach((cmd, i) => {
-        if (cmd && workspace.panes[i]) setPendingCommand(workspace.panes[i].id, cmd)
-      })
-    }
-    setFirstRunExited(true)
-    rememberAppView('code')
-    setApplicationView('code')
-    closeNewWorkspace()
+    const workspace = await createWorkspace({ rootPath: input.rootPath, layoutPreset: input.layoutPreset, defaultShellProfileId: input.defaultShellProfileId, autoStart: true, agentBindings: input.agentBindings })
+    if (!knownIds.has(workspace.id)) input.agentSlots.forEach((cmd, i) => { if (cmd && workspace.panes[i]) setPendingCommand(workspace.panes[i].id, cmd) })
+    setFirstRunExited(true); rememberAppView('code'); setApplicationView('code'); window.requestAnimationFrame(() => closeNewWorkspace())
   }
 
   const handleClosePane = (paneId: string): void => {
@@ -614,7 +604,7 @@ export function App(): ReactElement {
   useEffect(() => {
     if (!hasOpenedThread) return
     void useThreadStore.getState().load()
-    void useThreadStore.getState().loadProjects()
+    if (useThreadStore.getState().projects.length === 0) void useThreadStore.getState().loadProjects()
     let timer: ReturnType<typeof setTimeout> | undefined
     const changed = new Set<string>()
     let active = true
@@ -685,7 +675,7 @@ export function App(): ReactElement {
       <main className={`app-shell${showFirstRun ? ' first-run-shell' : applicationView === 'thread' ? ' thread-shell' : isDataView(applicationView) ? ' oq-shell' : collapsedSidebars.code ? ' sidebar-collapsed' : ''}`} style={applicationView !== 'code' ? { '--thread-sidebar-width': `${(applicationView === 'thread' ? collapsedSidebars.thread : isSidebarCollapsed) ? 48 : codeSidebarWidth}px` } as CSSProperties : { '--sidebar-w': `${codeSidebarWidth}px` } as CSSProperties}>
       <header className={cx('workbench-titlebar', titleBar.bar)} aria-label={t('app.workbench')}>
         <div className={titleBar.brand}><OxeLogo size={16} /><strong className={titleBar.word}>oxespace</strong>{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), openCommandMenu, openContainers: () => setContainersOpen(v => !v), version: appVersion }} /></Suspense>}</div>
-        <ModeSwitch mode={showFirstRun ? 'thread' : applicationView} onSelect={selectMode} />
+        <ModeSwitch mode={showFirstRun ? 'thread' : applicationView} allowReselect={showFirstRun} onSelect={selectMode} />
         <div className={titleBar.trailing}><CommandBarTrigger onOpen={() => setCommandBarOpen(true)} /><NeedsYouPill /><ActivityCenter onSelectView={selectMode} /><Button variant="ghost" size="sm" square aria-label={showFirstRun ? t('nav.openSettings') : withShortcut(t('nav.settings'), 'settings.open')} title={withShortcut(t('nav.settings'), 'settings.open')} data-testid="titlebar-settings" icon={<Settings size={14} aria-hidden="true" />} onClick={toggleSettings} /><UpdateChips /></div>
       </header>
       <RemovedFeaturesBand />
@@ -693,7 +683,7 @@ export function App(): ReactElement {
       {delegatedWorkOpen && <Suspense fallback={null}><DelegatedWorkDialog workspaces={workspaces} workspaceId={delegationTarget?.workspaceId ?? (applicationView === 'thread' ? threadSnapshot?.thread.workspaceId ?? activeWorkspaceId ?? '' : activeWorkspaceId ?? '')} focusTaskId={delegationTarget?.taskId}
         origin={applicationView === 'thread' ? threadSelection ? { kind: 'thread', id: threadSelection } : undefined : activePane ? { kind: 'pane', id: activePane.id } : undefined}
         onClose={() => { setDelegatedWorkOpen(false); setDelegationTarget(null) }} onOpen={openDelegation} /></Suspense>}
-      {showFirstRun ? null : isDataView(applicationView) ? <DataSidebar view={applicationView} />
+      {showFirstRun && !isNewWorkspaceOpen ? null : isDataView(applicationView) ? <DataSidebar view={applicationView} />
       : applicationView === 'thread' ? <ThreadSidebarBoundary><ThreadSidebar onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} onOpenInCode={async rootPath => {
         const existing = (await window.oxe.workspace.list()).find(workspace => isSameRootPath(workspace.rootPath, rootPath, window.oxe.app.platform))
         if (existing) await setActiveWorkspace(existing.id)
@@ -729,7 +719,7 @@ export function App(): ReactElement {
             <h3>{t('app.loadingWorkspaces')}</h3>
           </div>
         ) : showFirstRun ? (
-          <Suspense fallback={null}><FirstRunHost onOpenMode={selectMode} onNewWorkspace={openNewWorkspaceFromUI} onStartConversation={folder => {
+          <Suspense key="first-run" fallback={null}><FirstRunHost onOpenMode={selectMode} onNewWorkspace={openNewWorkspaceFromUI} onStartConversation={folder => {
             setFirstRunExited(true)
             setHasOpenedThread(true)
             selectMode('thread')
@@ -789,7 +779,7 @@ export function App(): ReactElement {
               })}
           </>
         ) : (
-          <Suspense fallback={null}><NoWorkspaceStart onNewWorkspace={openNewWorkspaceFromUI} onSelectMode={selectMode} onAddProject={() => { selectMode('thread'); setThreadProjectOpen(true) }} /></Suspense>
+          <Suspense key="no-workspace" fallback={null}><NoWorkspaceStart onNewWorkspace={openNewWorkspaceFromUI} onSelectMode={selectMode} onAddProject={() => { selectMode('thread'); setThreadProjectOpen(true) }} /></Suspense>
         )}
         {showFirstRun ? (
           <AppStatusBar docked firstRun appVersion={appVersion} workspace={null} activePaneId={null} />

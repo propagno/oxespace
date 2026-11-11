@@ -233,7 +233,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     // up launching Claude instead of the persisted Copilot/Codex/etc. Wait for
     // profiles before auto-starting bound panes.
     if (pane.agentProfileId && allProfiles.length === 0) return
-    void start()
+    const frame = window.requestAnimationFrame(() => { void start() }); return () => window.cancelAnimationFrame(frame)
   }, [autoStart, start, state.status, pane.agentProfileId, allProfiles.length])
 
   const restart = useCallback(async (): Promise<void> => {

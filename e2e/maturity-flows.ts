@@ -130,6 +130,7 @@ export function registerMaturityFlows(options: MaturityFlowsOptions): void {
     const dirs = scratch('first-run')
     const { app, page } = await boot(options, dirs.database)
     try {
+      await page.locator('button[data-app-mode="code"]').click()
       const card = page.getByRole('region', { name: 'Before you start' })
       await expect(card).toBeVisible()
       // The first launch checks the machine once; wait for that check to finish.

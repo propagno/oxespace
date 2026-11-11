@@ -57,7 +57,8 @@ function deltaEnabled(): boolean {
 }
 /** How long a conversation switch keeps the current conversation up before showing the next one's skeleton. */
 export const CONVERSATION_SKELETON_AFTER_MS = 300
-let generation = 0, catalogGeneration = 0, projectGeneration = 0
+let generation = 0, catalogGeneration = 0, projectGeneration = 0, prefetchedList: Promise<ConversationThread[]> | null = null
+export function warmThreadList(): void { if (!prefetchedList && window.oxe?.thread?.list) prefetchedList = window.oxe.thread.list().catch(err => { prefetchedList = null; throw err }) }
 export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
   threads: [], projects: [], unavailableProjects: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', snapshotCache: {}, snapshotCacheOrder: [], drafts: storedDrafts.drafts, attachments: {}, scrollPositions: {}, expanded: {}, errors: {}, loading: false, hiddenProjects: [], unreadIds: [],
   markUnread: id => set(state => ({ unreadIds: [...new Set([...state.unreadIds, id])] })),
@@ -159,7 +160,7 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
     const version = ++catalogGeneration
     set({ loading: true })
     let threads: ConversationThread[], errors: Record<string, string> = {}
-    try { threads = await window.oxe.thread!.list() }
+    const pendingList = prefetchedList; prefetchedList = null; try { threads = await (pendingList ?? window.oxe.thread!.list()) }
     catch { errors = { catalog: i18n.t('thread:store.catalogFailed') }; threads = get().threads }
     if (version !== catalogGeneration) return
     threads.sort((a, b) => b.updatedAt - a.updatedAt)

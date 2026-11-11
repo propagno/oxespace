@@ -22,12 +22,12 @@ const MODES: Array<{ mode: NavigationMode; label: string; Icon: (props: { size?:
  * The view being switched to (usePendingView, src/app/viewSwitch.ts): its button is selected and busy at once (the first feedback),
  * and a view's chunk starts loading as soon as its button is hovered or focused (docs/design/motion.md).
  */
-export function ModeSwitch({ mode, onSelect }: { mode: NavigationMode; onSelect: (mode: NavigationMode) => void }) {
+export function ModeSwitch({ mode, allowReselect, onSelect }: { mode: NavigationMode; allowReselect?: boolean; onSelect: (mode: NavigationMode) => void }) {
   const pending = usePendingView()
   const { t } = useTranslation()
   const attention = useAttentionSummary()
   const shown = pending ?? mode
-  const go = (next: NavigationMode) => () => { if (next !== shown) onSelect(next) }
+  const go = (next: NavigationMode) => () => { if (allowReselect || next !== shown) onSelect(next) }
   useKeybindings({ 'view.code': go('code'), 'view.thread': go('thread'), 'view.data': go('data') })
   return <nav className={styles.switch} aria-label={t('nav.applicationView')} data-focus-region="modes">
     {MODES.map(item => {
@@ -39,7 +39,7 @@ export function ModeSwitch({ mode, onSelect }: { mode: NavigationMode; onSelect:
       return <span key={item.mode} className={styles.item}>
         <button type="button" className={styles.option} aria-label={item.label} data-app-mode={item.mode} aria-pressed={shown === item.mode} aria-busy={pending === item.mode} title={withKey(t(`nav.modeTitle.${item.mode}`), item.mode)} aria-describedby={attentionId}
           onPointerEnter={() => prefetchView(item.mode)} onFocus={() => prefetchView(item.mode)}
-          onClick={() => { if (item.mode !== shown) onSelect(item.mode) }}>
+          onClick={() => { if (allowReselect || item.mode !== shown) onSelect(item.mode) }}>
           <ModeIcon size={13} className={styles.modeIcon} />
           <span>{item.label}</span>
         </button>

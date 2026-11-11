@@ -9,6 +9,7 @@ test('Code speaks Brazilian Portuguese end to end', async () => {
   try {
     execFileSync('git', ['init', '-q', '-b', 'main', workspaceRoot])
     await expect(page.locator('html')).toHaveAttribute('lang', 'pt-BR')
+    await page.locator('button[data-app-mode="code"]').click()
     await expect(page.getByText('Nenhum workspace ainda.')).toBeVisible()
 
     await page.getByTestId('btn-new-workspace').click()
@@ -21,7 +22,7 @@ test('Code speaks Brazilian Portuguese end to end', async () => {
     await expect(page.getByRole('navigation', { name: 'Workspaces' })).toBeVisible()
     await expect(page.getByRole('searchbox', { name: 'Filtrar workspaces' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Arquivos e comandos' })).toHaveCount(1)
-    await expect(page.locator('.app-statusbar')).toContainText('painéis')
+    await expect(page.locator('.app-statusbar')).toContainText(/agentes? trabalhando/)
 
     // Panels menu: every panel is named in Portuguese.
     await page.locator('[data-testid="btn-open-tools"]:visible').click()
