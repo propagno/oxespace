@@ -12,7 +12,8 @@
     "background": "Atividade em segundo plano",
     "menu": "Painéis",
     "more": "Mais painéis",
-    "needsWorkspace": "Abra um workspace para usar os painéis dele"
+    "needsWorkspace": "Abra um workspace para usar os painéis dele",
+    "httpCalls": "Chamadas HTTP"
   },
   "tools": {
     "team": {
@@ -61,6 +62,11 @@
     "review": {
       "label": "Alterações",
       "detail": "Alterações da branch e ainda não commitadas"
+    },
+    "httpCalls": {
+      "label": "Chamadas HTTP",
+      "detail": "Chamadas de curl, wget e HTTPie dos agentes",
+      "keywords": "http, curl, wget, rede, api"
     }
   },
   "search": {
@@ -2491,5 +2497,24 @@
     "delete": "Excluir comentário",
     "deleted": "Comentário excluído",
     "undo": "Desfazer"
+  },
+  "httpCalls": {
+    "title": "Chamadas HTTP",
+    "filterPlaceholder": "Filtrar por host ou caminho",
+    "all": "Todas",
+    "errors": "Erros",
+    "flagged": "Sinalizadas",
+    "production": "produção",
+    "notEncrypted": "Sem criptografia",
+    "tlsNotChecked": "TLS não verificado",
+    "noStatus": "Sem status",
+    "readAfterTurn": "Lido depois do turno",
+    "productionCallout": "Um host de produção.",
+    "plainHttpCallout": "Enviado sem TLS para um host fora deste computador.",
+    "openConversation": "Abrir a conversa",
+    "empty": "Nenhuma chamada HTTP ainda. Chamadas de curl, wget e HTTPie dos agentes aparecem aqui.",
+    "emptyFiltered": "Nada corresponde",
+    "clearFilters": "Limpar filtros",
+    "error": "Não deu para ler o registro HTTP"
   }
 }

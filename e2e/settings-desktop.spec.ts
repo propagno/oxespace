@@ -26,7 +26,7 @@ test('Settings stays usable in short windows and renders updater states', async 
     await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Agents/ }).click()
     await expect(settings.getByTestId('provider-contract-claude')).toHaveText('Newer than checked')
     await expect(settings.getByTestId('provider-contract-claude')).toHaveAttribute('title', /newer than 2\.1\.306/)
-    const categories = [['general', 'General'], ['providers', 'Agents'], ['terminal', 'Terminal'], ['notifications', 'Notifications'], ['updates', 'Updates'], ['diagnostics', 'Diagnostics']]
+    const categories = [['general', 'General'], ['providers', 'Agents'], ['terminal', 'Terminal'], ['notifications', 'Notifications'], ['about', 'About'], ['diagnostics', 'Diagnostics']]
     for (const width of [1440, 1280, 900, 600]) {
       await page.setViewportSize({ width, height: width === 1440 ? 900 : width === 1280 ? 720 : 600 })
       if (width === 600) {
@@ -46,7 +46,7 @@ test('Settings stays usable in short windows and renders updater states', async 
         const scroller = settings.locator('.settings-center-content')
         expect(await scroller.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
         expect(await scroller.evaluate(el => el.scrollTop)).toBe(0)
-        if (id === 'updates') {
+        if (id === 'about') {
           await expect(settings.getByTestId('btn-check-app-updates')).toBeEnabled()
           // R4 took RTK out: no RTK card and no update button for it.
           await expect(settings.getByTestId('settings-rtk-update')).toHaveCount(0)
@@ -74,7 +74,7 @@ test('Settings stays usable in short windows and renders updater states', async 
     await expect(nav.getByRole('button')).toHaveCount(1)
     await expect(nav.getByRole('button', { name: /^Diagnostics/ })).toBeVisible()
     await settings.getByRole('searchbox', { name: 'Search settings' }).clear()
-    await nav.getByRole('button', { name: /^Updates/ }).click()
+    await nav.getByRole('button', { name: /^About/ }).click()
     // How the app updates is the person's choice, and it is saved.
     const updateMode = settings.getByRole('radiogroup', { name: 'How OXESpace updates' })
     await expect(updateMode.getByRole('radio', { name: 'Automatic' })).toHaveAttribute('aria-checked', 'true')
@@ -144,7 +144,7 @@ test('Settings shows the policy files that apply, their rules and a file set asi
     await page.getByRole('button', { name: 'Open settings', exact: true }).click()
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
     await settings.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: 'Application', exact: true }).click()
-    await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Policy/ }).click()
+    await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Approvals and safety/ }).click()
     const policy = settings.getByTestId('policy-settings')
     await expect(policy.getByRole('heading', { name: 'Managed · Acme' })).toBeVisible()
     await expect(policy.getByRole('list', { name: 'Managed rules' })).toContainText('integration.use · db:prod*')

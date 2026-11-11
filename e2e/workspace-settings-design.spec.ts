@@ -5,7 +5,6 @@ import { join } from 'node:path'
 import { runPaletteCommand } from './helpers/panels'
 
 test('workspace settings navigation and responsive visual review', async () => {
-  // Eight categories at two widths, each with a screenshot.
   test.setTimeout(90_000)
   const info = test.info()
   const root = mkdtempSync(join(tmpdir(), 'oxe-settings-design-'))
@@ -23,7 +22,7 @@ test('workspace settings navigation and responsive visual review', async () => {
     await expect(modal).toBeVisible()
     for (const width of [1360, 600]) {
       await page.setViewportSize({ width, height: 900 })
-      for (const label of ['Appearance', 'Terminal', 'Agent delegation']) {
+      for (const label of ['General', 'Projects', 'Policy']) {
         if (width < 900) {
           const category = modal.getByRole('group', { name: 'Settings category' }).getByRole('button', { name: label, exact: true })
           await category.click()
@@ -36,14 +35,14 @@ test('workspace settings navigation and responsive visual review', async () => {
         expect(await modal.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
         expect(await modal.locator('.ws-settings-main').evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
         expect(await modal.locator('.ws-settings-main').evaluate(el => el.scrollTop)).toBe(0)
-        if (label === 'Appearance') await expect(modal.getByRole('radiogroup', { name: 'Appearance' })).toBeVisible()
+        if (label === 'General') await expect(modal.getByRole('radiogroup', { name: 'Appearance' })).toBeVisible()
         await modal.screenshot({ path: info.outputPath(`${width}-${label.split(' ')[0]}.png`) })
-        if (width === 1360 && label === 'Appearance') {
+        if (width === 1360 && label === 'General') {
           // Light and dark mode apply app-wide and immediately; no workspace save is needed.
           await modal.getByRole('radio', { name: /^Dark/ }).click()
           await expect(page.locator('html')).toHaveAttribute('data-mode', 'dark')
         }
-        if (label === 'Terminal') {
+        if (label === 'General') {
           await modal.getByRole('radio', { name: 'Codex', exact: true }).check()
           await modal.locator('.ws-settings-main').evaluate(el => {
             const section = el.querySelector('.default-shell-settings')!
@@ -84,7 +83,7 @@ test('workspace settings navigation and responsive visual review', async () => {
     await page.screenshot({ path: info.outputPath('600-Code-Dark.png') })
     await page.setViewportSize({ width: 1360, height: 900 })
     await runPaletteCommand(page, 'Workspace settings')
-    await modal.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Appearance/ }).click()
+    await modal.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^General/ }).click()
     await modal.getByRole('radio', { name: /^Light/ }).click()
     await page.keyboard.press('Escape')
     await expect(page.locator('html')).toHaveAttribute('data-mode', 'light')

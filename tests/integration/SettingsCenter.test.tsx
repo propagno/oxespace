@@ -20,7 +20,7 @@ test('a workspace change applies at once and leaving needs no confirmation', asy
   const { onSave, onClose } = await setup()
   fireEvent.click(screen.getByRole('radio', { name: /Compact/ }))
   await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 'ws', uiDensity: 'compact', applyShellToIdlePanes: false })))
-  expect(await screen.findByRole('status')).toHaveTextContent('Workspace settings saved')
+  expect(await screen.findByText('Workspace settings saved')).toHaveAttribute('role', 'status')
   // Only what changed: an unchanged layout sent along can rebuild the panes and their terminals.
   expect(onSave.mock.calls[0][0]).not.toHaveProperty('layoutPreset')
   expect(screen.queryByRole('button', { name: 'Save workspace settings' })).toBeNull()
@@ -75,17 +75,13 @@ test('Agents is a page of application settings, not only a first-run shortcut', 
   expect(screen.getByTestId('btn-new-custom-agent')).toBeVisible()
 })
 
-test('opening a delegated terminal closes the host and reveals the correct pane', async () => {
-  vi.stubGlobal('oxe', {delegation:{status:vi.fn(async () => ({enabled:true,tasks:[{id:'task',workspaceId:'ws',paneId:'child',state:'failed',objective:'Fix auth',branch:'oxe/auth'}]})),onChanged:vi.fn(() => () => {})}})
-  useWorkspaceStore.setState({activeWorkspaceId:'ws'})
-  useUIStore.setState({activePaneId:'origin',maximizedPaneId:'origin'})
-  const onClose = vi.fn()
-  const ws = {...workspace,panes:[{id:'child',type:'terminal'}]} as Workspace
-  render(<SettingsCenter initialWorkspaceId="ws" workspaces={[ws]} shellProfiles={[]} onSave={vi.fn()} onClose={onClose}
+test('workspace settings lists General, Projects and Policy after 1.5 removals', async () => {
+  render(<SettingsCenter initialWorkspaceId="ws" workspaces={[workspace]} shellProfiles={[]} onSave={vi.fn()} onClose={vi.fn()}
     agentProfiles={[]} agentReadiness={[]} isDiscoveringAgents={false} onDiscoverAgents={vi.fn()} onConfigureAgent={vi.fn()} onNewCustomAgent={vi.fn()} />)
-  fireEvent.click(screen.getByRole('button', {name:/^Agent delegation Parallel/}))
-  fireEvent.click(await screen.findByRole('button', {name:'Open terminal'}))
-  expect(onClose).toHaveBeenCalledOnce()
-  expect(useUIStore.getState().activePaneId).toBe('child')
-  expect(useUIStore.getState().maximizedPaneId).toBeNull()
+  const nav = screen.getByRole('navigation', { name: 'Settings categories' })
+  expect(within(nav).getByRole('button', { name: /^General/ })).toHaveAttribute('aria-current', 'page')
+  fireEvent.click(within(nav).getByRole('button', { name: /^Projects/ }))
+  expect(within(nav).getByRole('button', { name: /^Projects/ })).toHaveAttribute('aria-current', 'page')
+  fireEvent.click(within(nav).getByRole('button', { name: /^Policy/ }))
+  expect(within(nav).getByRole('button', { name: /^Policy/ })).toHaveAttribute('aria-current', 'page')
 })

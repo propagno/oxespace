@@ -29,7 +29,7 @@
     "pages": {
       "general": {
         "label": "General",
-        "hint": "Navigation, workspace and privacy preferences"
+        "hint": "Navigation, workspace and preferences"
       },
       "providers": {
         "label": "Agents",
@@ -56,12 +56,12 @@
         "hint": "Version, downloads and installation"
       },
       "policy": {
-        "label": "Policy",
-        "hint": "What agents are blocked from using"
+        "label": "Approvals and safety",
+        "hint": "Approvals, policy rules and protected resources"
       },
       "devices": {
-        "label": "Devices",
-        "hint": "Phones paired with this computer"
+        "label": "Phone and devices",
+        "hint": "Phones and paired devices"
       },
       "diagnostics": {
         "label": "Diagnostics",
@@ -70,6 +70,22 @@
       "data": {
         "label": "Data",
         "hint": "Export, backup and removed features"
+      },
+      "mcp": {
+        "label": "MCP servers and skills",
+        "hint": "Model Context Protocol servers and skill prompts"
+      },
+      "privacy": {
+        "label": "Data and privacy",
+        "hint": "Export data and reset preferences"
+      },
+      "activity": {
+        "label": "Agent activity",
+        "hint": "What agents changed through OXESpace, and what you decided."
+      },
+      "about": {
+        "label": "About",
+        "hint": "Version, downloads and installation"
       }
     }
   },
@@ -394,11 +410,12 @@
     "noFile": "No file.",
     "noRules": "No rules.",
     "rules": "{{layer}} rules",
-    "reload": "Reload policy"
+    "reload": "Reload policy",
+    "networkHint": "Hosts agents can call."
   },
   "activity": {
     "title": "Agent activity",
-    "hint": "What agents changed through OXESpace (commits, pushes, pull requests, conversations, tasks, skills) and what you decided. Database and container requests are listed in OxeQuery.",
+    "hint": "What agents changed through OXESpace, and what you decided.",
     "decisions": {
       "auto": "ran",
       "approved": "you approved",
@@ -406,13 +423,42 @@
       "refused": "refused by policy",
       "pending": "waiting for you"
     },
-    "empty": "No agent changes yet.",
+    "empty": "No agent activity yet.",
     "list": "Agent changes",
     "failed": "failed",
     "failedWithCode": "failed ({{code}})",
     "savedAudit": "Saved the audit to {{path}}",
     "refresh": "Refresh activity",
-    "export": "Export the audit (JSONL)"
+    "export": "Export the audit (JSONL)",
+    "columns": {
+      "when": "When",
+      "conversation": "Conversation",
+      "what": "What",
+      "result": "Result"
+    },
+    "sources": {
+      "all": "All",
+      "changes": "Changes",
+      "databases": "Databases",
+      "http": "HTTP",
+      "containers": "Containers"
+    },
+    "sourcesFailed": "Some sources couldn't be read. The rest is up to date.",
+    "tryAgain": "Try again",
+    "loadMore": "Load more",
+    "emptyFiltered": "Nothing matches these filters.",
+    "clearFilters": "Clear filters",
+    "actorRemoved": "(removed)",
+    "changeGone": "This change isn't in the working tree any more: it was committed, undone or moved.",
+    "containerGone": "This container was removed. Only its name and start time are kept.",
+    "openInEditor": "Open in editor at line {{line}}",
+    "connection": "Connection",
+    "engine": "Engine",
+    "image": "Image",
+    "ports": "Ports",
+    "folder": "Folder",
+    "target": "Target",
+    "status": "Status"
   },
   "keyboard": {
     "title": "Keyboard",
@@ -670,7 +716,7 @@
     "groups": {
       "core": {
         "name": "Core tools",
-        "description": "Source code and search lookups, in every conversation."
+        "description": "Source code, search and memory lookups, in every conversation."
       },
       "orchestration": {
         "name": "Orchestration",
@@ -788,7 +834,7 @@
     "description": "Manage your application data, exports and removed features",
     "removedSection": "Removed in 1.5",
     "exportLabel": "Export removed data",
-    "exportDesc": "OxePost requests, memories and automations, in one JSON file.",
+    "exportDesc": "Data from features removed in 1.5, in one JSON file.",
     "savedDesc": "Saved {{date}} · {{file}}",
     "errorDesc": "Not saved yet: {{error}}",
     "showInFolder": "Show in folder",

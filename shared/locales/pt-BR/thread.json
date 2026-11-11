@@ -1010,7 +1010,8 @@
     "search": "Buscar nos arquivos",
     "scripts": "Scripts",
     "worktrees": "Worktrees",
-    "background": "Atividade em segundo plano"
+    "background": "Atividade em segundo plano",
+    "httpCalls": "Chamadas HTTP"
   },
   "patch": {
     "region": "Diff do arquivo",
@@ -1709,6 +1710,7 @@
     "loadingBackground": "Carregando a atividade em segundo plano…",
     "loadingPreview": "Carregando a prévia web…",
     "loadingTerminal": "Carregando o terminal…",
+    "loadingNetwork": "Carregando chamadas HTTP…",
     "unavailable": "O projeto não está disponível.",
     "nativeActivity": "Atividade nativa em segundo plano",
     "providerActivity": "Atividade do provedor · {{count}} em execução",
@@ -1799,6 +1801,20 @@
       "siblingWorktree": "uma worktree irmã"
     }
   },
+  "outsideFile": {
+    "band": "Somente leitura · fora do repositório · {{path}}",
+    "bandCheckout": "Somente leitura · outro checkout · {{path}}",
+    "label": "{{path}}, somente leitura",
+    "copyPath": "Copiar caminho",
+    "path": "Caminho",
+    "pathCopied": "Caminho copiado",
+    "loading": "Abrindo {{path}}…",
+    "failed": "Não foi possível abrir {{path}}."
+  },
+  "toolOutputCut": {
+    "withTotal": "Saída cortada nos primeiros {{kept}} de {{total}}",
+    "keptOnly": "Saída cortada nos primeiros {{kept}}"
+  },
   "places": {
     "kind": {
       "worktree": "Worktree da tarefa",
@@ -1873,16 +1889,6 @@
     "commentSend": "Enviar para a conversa",
     "commentPrompt": "Sobre `{{path}}` ({{hunk}}):",
     "openAt": "Abrir no editor na linha {{line}}"
-  },
-  "outsideFile": {
-    "band": "Somente leitura · fora do repositório · {{path}}",
-    "bandCheckout": "Somente leitura · outro checkout · {{path}}",
-    "label": "{{path}}, somente leitura",
-    "copyPath": "Copiar caminho",
-    "path": "Caminho",
-    "pathCopied": "Caminho copiado",
-    "loading": "Abrindo {{path}}…",
-    "failed": "Não foi possível abrir {{path}}."
   },
   "paneBranch": {
     "on": "Em {{branch}}",

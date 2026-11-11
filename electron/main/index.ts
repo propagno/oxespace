@@ -45,6 +45,13 @@ import { registerTerminalIpc } from './ipc/terminal.ipc'
 import { registerWorkspaceIpc } from './ipc/workspace.ipc'
 import { installIncidentHooks, registerDiagnosticsIpc } from './ipc/diagnostics.ipc'
 import { registerPolicyIpc } from './ipc/policy.ipc'
+import { registerHttpAuditIpc } from './ipc/http-audit.ipc'
+import { registerAgentActivityIpc } from './ipc/agent-activity.ipc'
+import { AgentActivity } from './services/agent-activity/read-model'
+import { HttpAuditLog } from './services/http-audit/store'
+import { productionHostsFor } from './services/http-audit/production-hosts'
+import { policyStore } from './services/policy'
+import { approvalCenter } from './services/approvals'
 import { BackgroundManager } from './services/background.service'
 import { TerminalManager } from './services/terminal.service'
 import { configureExperimentalFeatures } from './services/experimental-features'
@@ -53,6 +60,7 @@ import { AgentLaunchService, agentMcpArguments, codeAgentMcpLaunch, providerForE
 import { AgentService } from './services/agent.service'
 import { registerAgentHooksIpc } from './ipc/agent-hooks.ipc'
 import { AgentHookServer } from './services/agent-hooks/server'
+import { hookServerOptionsFor } from './services/agent-hooks/hook-pipeline'
 import { resolveSessionLocation } from './services/git-common-dir'
 import { SearchService } from './services/search.service'
 import { fallbackShellProfiles } from './services/shell-profile.defaults'
@@ -198,7 +206,8 @@ async function registerIpcHandlers(): Promise<() => void> {
   // hook script outside an OXESpace terminal is simply inert.
   // A18 (P7) · the cwd each pane's agent reported last, for the task's Terminal tab.
   const paneAgentCwd = new Map<string, string>()
-  const agentHookServer = new AgentHookServer({
+  const agentHookServer = new AgentHookServer(hookServerOptionsFor({
+    db,
     authenticate: ({ executionId, token, workspaceId }) => {
       try {
         const execution = executions.authenticate(executionId, token, workspaceId)
@@ -216,6 +225,15 @@ async function registerIpcHandlers(): Promise<() => void> {
       else if (event.sessionId) paneAgentSessions.record(event.paneId, hookAgent, event.sessionId, 'hook', event.permissionMode)
       // BE-A46-c5: the phone's reader of this pane's conversation hears a new (or ended) session: a higher epoch, one signal.
       if (paneAgentSessions.current(event.paneId)?.sessionId !== sessionBefore) void import('./services/remote/pane-conversation').then(module => module.announcePaneSession(event.paneId), () => undefined)
+      if (event.agent === 'codex' && event.state === 'done') {
+        const codexSessionId = event.sessionId ?? paneAgentSessions.current(event.paneId)?.sessionId
+        if (codexSessionId) {
+          void Promise.all([import('./services/http-audit/codex-rollout'), import('./services/http-audit/store')]).then(async ([rollout, store]) => {
+            const file = await rollout.findCodexRolloutFile(codexSessionId)
+            if (file) await rollout.ingestCodexRollout(new store.HttpAuditLog(db), { file, paneId: event.paneId, workspaceId: event.workspaceId, sessionId: codexSessionId })
+          }).catch(() => undefined)
+        }
+      }
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send(IPC_CHANNELS.agentHooks.onStatus, event)
       }
@@ -227,7 +245,7 @@ async function registerIpcHandlers(): Promise<() => void> {
         window.webContents.send(IPC_CHANNELS.agentHooks.onLocation, event)
       }
     }
-  })
+  }))
   // A bind failure only costs the hook signal; the heuristic keeps working.
   void agentHookServer.start().catch((error) => log.warn('Agent hook server unavailable', error))
   app.once('before-quit', () => agentHookServer.stop())
@@ -495,7 +513,18 @@ async function registerIpcHandlers(): Promise<() => void> {
     previousDbVersion
   })
   registerDiagnosticsIpc(db, internalMcp, { terminals: terminalManager, mcp: mcpManager })
-  await registerPolicyIpc(id => internalMcpWorkspaceServ.get(id)?.rootPath, { db, files: fileSystemService, servers: mcpManager, executions })
+    const httpAuditLog = new HttpAuditLog(db, undefined, {
+    isProductionHost: productionHostsFor({ db, policy: policyStore() ?? undefined })
+  })
+  registerHttpAuditIpc(httpAuditLog)
+  httpAuditLog.prune()
+  const pruneHttpInterval = setInterval(() => httpAuditLog.prune(), 24 * 60 * 60 * 1000)
+  app.once('before-quit', () => clearInterval(pruneHttpInterval))
+  const agentActivity = new AgentActivity(db, {
+    isProductionHost: productionHostsFor({ db, policy: policyStore() ?? undefined }),
+    pendingFor: (connectionId) => approvalCenter.list().some(req => req.target === connectionId || req.target?.includes(connectionId))
+  })
+  registerAgentActivityIpc(agentActivity)
   // OXESpace context manifest — prepended to the agent's initial prompt on pane spawn so the CLI knows the
   // workspace state without calling any MCP tool. Read shortcut; MCP is still the action path (see oxe-context.service.ts).
   registerOxeContextIpc({

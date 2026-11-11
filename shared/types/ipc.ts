@@ -407,7 +407,15 @@ export const IPC_CHANNELS = {
     acceptChange: 'policy:accept-change',
     reviewChange: 'policy:review-change',
     onChanged: 'policy:changed'
-  }
+  },
+  httpAudit: {
+    list: 'http-audit:list'
+  },
+  agentActivity: {
+    list: 'agent-activity:list',
+    detail: 'agent-activity:detail',
+    badge: 'agent-activity:badge'
+  },
 } as const
 
 export interface WorkspaceApi {
@@ -684,6 +692,8 @@ export interface OxeApi {
   diagnostics: import('./diagnostics').DiagnosticsApi
   policy: import('../policy').PolicyApi
   dataExport: DataExportApi
+  httpAudit: import('./http-audit').HttpAuditApi
+  agentActivity: import('./agent-activity').AgentActivityApi
 }
 
 export interface McpInternalApi {

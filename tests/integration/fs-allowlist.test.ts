@@ -274,7 +274,8 @@ const ALLOWED_FS_IMPORTS = new Set([
   // BE-A46-c5 (1.5.0 F10): a terminal agent's own conversation for the phone. Stats, reads and watches only the one
   // native session file the pane's recorded session names (Claude's <claudeHome>/projects/<cwd>/<id>.jsonl or Codex's
   // rollout), and lists only Codex's sessions/<year>/<month>/<day> folders to find it. Never a path from the phone.
-  'electron/main/services/remote/pane-conversation.ts'
+  'electron/main/services/remote/pane-conversation.ts',
+  'electron/main/services/http-audit/codex-rollout.ts'
 ])
 
 describe('workspace fs allowlist', () => {

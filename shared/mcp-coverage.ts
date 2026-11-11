@@ -407,6 +407,16 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     excluded: 'The person\'s review of what agents did. OxeQuery\'s trail is oxespace_db_activity.',
     ipc: ['mcpInternal.getStatus', 'mcpInternal.actionAudit', 'mcpInternal.exportAudit', 'thread.auditLog']
   },
+  'http_audit.list': {
+    label: 'List HTTP audit calls',
+    excluded: "The person's review of HTTP calls made by agents.",
+    ipc: ['httpAudit.list']
+  },
+  'agent_activity.read': {
+    label: 'List, detail and badge of agent activity',
+    excluded: "The person's review of what agents did across changes, databases, containers and HTTP.",
+    ipc: ['agentActivity.list', 'agentActivity.detail', 'agentActivity.badge']
+  },
   'mcp_internal.token': { label: 'Regenerate the internal MCP token', forbidden: 'A token.', ipc: ['mcpInternal.regenerateToken'] },
   'accounts.sign_in': { label: 'Sign in or out of Claude, Codex and other accounts', forbidden: 'Sign-in and tokens.', ipc: ['agentAccount.*'] },
 

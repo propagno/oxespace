@@ -72,6 +72,7 @@ import { useSettingsStore, VISITED_WORKSPACES_CAP_DEFAULT } from './store/settin
 import { useIntegrationStore } from './store/integration.store'
 import { useWorktreeStore } from './store/worktree.store'
 import { useAgentHookStatus } from './hooks/useAgentHookStatus'
+import { startToolOutputCuts } from './store/tool-output-cut.store'
 import { QUOTA_NOTIFICATION_PANE_PREFIX, THREAD_NOTIFICATION_PANE_PREFIX } from './hooks/notificationPrefixes'
 import { useThreadShortcuts } from './hooks/useThreadShortcuts'
 import { setKeyboardView, useKeybindings, type AppView } from './keyboard/keybindings'
@@ -170,9 +171,7 @@ export function App(): ReactElement {
     closeMcpPanel,
     openScriptsPanel,
     closeScriptsPanel,
-    isSearchPanelOpen,
-    openSearchPanel,
-    closeSearchPanel,
+    isSearchPanelOpen, openSearchPanel, closeSearchPanel, isHttpCallsPanelOpen, toggleHttpCallsPanel,
     openWebPreview,
     closeWebPreview,
     openIntegrationPanel,
@@ -208,9 +207,8 @@ export function App(): ReactElement {
     closeMcpPanel: state.closeMcpPanel,
     openScriptsPanel: state.openScriptsPanel,
     closeScriptsPanel: state.closeScriptsPanel,
-    isSearchPanelOpen: state.isSearchPanelOpen,
-    openSearchPanel: state.openSearchPanel,
-    closeSearchPanel: state.closeSearchPanel,
+    isSearchPanelOpen: state.isSearchPanelOpen, openSearchPanel: state.openSearchPanel, closeSearchPanel: state.closeSearchPanel,
+    isHttpCallsPanelOpen: state.isHttpCallsPanelOpen, toggleHttpCallsPanel: state.toggleHttpCallsPanel,
     openWebPreview: state.openWebPreview,
     closeWebPreview: state.closeWebPreview,
     openIntegrationPanel: state.openIntegrationPanel,
@@ -270,7 +268,6 @@ export function App(): ReactElement {
       return [...without, activeWorkspaceId]
     })
   }, [activeWorkspaceId])
-
   useEffect(() => {
     if (!activeWorkspaceId || applicationView !== 'code') return
     let secondFrame = 0
@@ -286,7 +283,6 @@ export function App(): ReactElement {
       if (secondFrame) window.cancelAnimationFrame(secondFrame)
     }
   }, [activeWorkspaceId, applicationView])
-
   // Trim the MRU only after the newly activated workspace has painted. Killing
   // PTYs and disposing xterm/WebGL for an evicted workspace in the activation
   // effect competed directly with mounting the new surface.
@@ -449,6 +445,7 @@ export function App(): ReactElement {
   // The activity center's producers load right after the first frame (renderer entry headroom, after T52).
   const activitySources = useDeferredModule(loadActivitySources, () => t('deferred.activityMissing', { ns: 'common' }))
   useAgentHookStatus()
+  useEffect(() => startToolOutputCuts(), [])
 
   // Clicking a notification focuses the originating pane (window focus + restore
   // is handled in main); here we switch to its workspace and select the pane.
@@ -640,20 +637,20 @@ export function App(): ReactElement {
     { id: 'files', active: activeWorkspace.editorVisible === true, onToggle: toggleEditor },
     { id: 'search', active: isSearchPanelOpen, onToggle: toggleSearchPanel },
     { id: 'scripts', active: isScriptsPanelOpen, onToggle: toggleScriptsPanel },
-    { id: 'worktrees', active: activeWorkspace.worktreePanelVisible === true, onToggle: toggleWorktreePanel }
+    { id: 'worktrees', active: activeWorkspace.worktreePanelVisible === true, onToggle: toggleWorktreePanel }, { id: 'httpCalls', active: isHttpCallsPanelOpen, onToggle: toggleHttpCallsPanel }
   ] : []
 
   const toolHandlers: Partial<Record<ToolId, () => void>> = {
     integration: openIntegrationPanel, github: toggleGitHubPanel, worktrees: toggleWorktreePanel, scripts: toggleScriptsPanel, search: toggleSearchPanel,
     'web-preview': toggleWebPreviewPanel, background: toggleBackgroundPanel, mcp: openMcpPanel,
-    editor: toggleEditor, review: toggleReviewPanel, slash: () => { if (activePane) openSlashOverlay(activePane.id) }
+    editor: toggleEditor, review: toggleReviewPanel, 'http-calls': toggleHttpCallsPanel, slash: () => { if (activePane) openSlashOverlay(activePane.id) }
   }
 
   // Palette and menu commands live in src/commands/*.commands.ts. They load after the first frame (T52): only the lazy
   // palette and menu bar read them, and shortcuts never go through them.
   const commandContributors = useDeferredModule(loadCommandContributors)
   const codeCommandContext: CodeCommandContext = { applicationView, activeWorkspace, activePane, toolHandlers, openNewWorkspace: openNewWorkspaceFromUI, showCode: () => selectMode('code'),
-    openTools: { editor: activeWorkspace?.editorVisible, github: activeWorkspace?.githubPanelVisible, review: activeWorkspace?.reviewPanelVisible, background: activeWorkspace?.backgroundPanelVisible, worktrees: activeWorkspace?.worktreePanelVisible, scripts: isScriptsPanelOpen, search: isSearchPanelOpen, 'web-preview': activeWorkspace ? webPreviewOpenByWorkspace[activeWorkspace.id] : false },
+    openTools: { editor: activeWorkspace?.editorVisible, github: activeWorkspace?.githubPanelVisible, review: activeWorkspace?.reviewPanelVisible, background: activeWorkspace?.backgroundPanelVisible, worktrees: activeWorkspace?.worktreePanelVisible, scripts: isScriptsPanelOpen, search: isSearchPanelOpen, 'http-calls': isHttpCallsPanelOpen, 'web-preview': activeWorkspace ? webPreviewOpenByWorkspace[activeWorkspace.id] : false },
     splitActivePane, toggleActivePaneMaximize, openDesignSystem: () => setDesignSystemOpen(true) }
   const commandActions = useContributedCommands()
   useEffect(() => { setKeyboardView(applicationView); setShownView(applicationView) }, [applicationView])

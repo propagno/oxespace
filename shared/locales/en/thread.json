@@ -989,7 +989,8 @@
     "search": "Find in files",
     "scripts": "Scripts",
     "worktrees": "Worktrees",
-    "background": "Background activity"
+    "background": "Background activity",
+    "httpCalls": "HTTP calls"
   },
   "patch": {
     "region": "File diff",
@@ -1663,6 +1664,7 @@
     "loadingBackground": "Loading background activity…",
     "loadingPreview": "Loading web preview…",
     "loadingTerminal": "Loading terminal…",
+    "loadingNetwork": "Loading HTTP calls…",
     "unavailable": "The project is unavailable.",
     "nativeActivity": "Native background activity",
     "providerActivity": "Provider activity · {{count}} running",
@@ -1751,6 +1753,20 @@
       "siblingWorktree": "a sibling worktree"
     }
   },
+  "outsideFile": {
+    "band": "Read only · outside the repository · {{path}}",
+    "bandCheckout": "Read only · another checkout · {{path}}",
+    "label": "{{path}}, read only",
+    "copyPath": "Copy path",
+    "path": "Path",
+    "pathCopied": "Path copied",
+    "loading": "Opening {{path}}…",
+    "failed": "Could not open {{path}}."
+  },
+  "toolOutputCut": {
+    "withTotal": "Output cut to the first {{kept}} of {{total}}",
+    "keptOnly": "Output cut to the first {{kept}}"
+  },
   "places": {
     "kind": {
       "worktree": "Task worktree",
@@ -1822,16 +1838,6 @@
     "commentSend": "Send to the conversation",
     "commentPrompt": "About `{{path}}` ({{hunk}}):",
     "openAt": "Open in editor at line {{line}}"
-  },
-  "outsideFile": {
-    "band": "Read only · outside the repository · {{path}}",
-    "bandCheckout": "Read only · another checkout · {{path}}",
-    "label": "{{path}}, read only",
-    "copyPath": "Copy path",
-    "path": "Path",
-    "pathCopied": "Path copied",
-    "loading": "Opening {{path}}…",
-    "failed": "Could not open {{path}}."
   },
   "paneBranch": {
     "on": "On {{branch}}",

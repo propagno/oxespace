@@ -22,6 +22,7 @@ const WorkspaceIntegrationPanel = lazy(() => import('./WorkspaceIntegrationPanel
 const WorkspaceReviewPanel = lazy(() => import('./WorkspaceReviewPanel').then((m) => ({ default: m.WorkspaceReviewPanel })))
 const WorkspaceScriptsPanel = lazy(() => import('./WorkspaceScriptsPanel').then((m) => ({ default: m.WorkspaceScriptsPanel })))
 const WorkspaceSearchPanel = lazy(() => import('./WorkspaceSearchPanel').then((m) => ({ default: m.WorkspaceSearchPanel })))
+const WorkspaceHttpCallsPanel = lazy(() => import('./WorkspaceHttpCallsPanel').then((m) => ({ default: m.WorkspaceHttpCallsPanel })))
 const WorkspaceWebPreviewPanel = lazy(() => import('./WorkspaceWebPreviewPanel').then((m) => ({ default: m.WorkspaceWebPreviewPanel })))
 const WorkspaceWorktreePanel = lazy(() => import('./WorkspaceWorktreePanel').then((m) => ({ default: m.WorkspaceWorktreePanel })))
 
@@ -188,6 +189,9 @@ function WorkspaceSurfaceComponent({
   const [webPreviewExpanded, setWebPreviewExpanded] = useState(false)
   const [integrationExpanded, setIntegrationExpanded] = useState(false)
   const [searchExpanded, setSearchExpanded] = useState(false)
+  const [httpCallsExpanded, setHttpCallsExpanded] = useState(false)
+  const httpCallsVisible = useUIStore((s) => isActive && s.isHttpCallsPanelOpen)
+  const closeHttpCalls = useUIStore((s) => s.closeHttpCallsPanel)
   // F2 split-tree is the default layout. Keep the fixed grid as a fallback
   // (toggle via F2) so users can recover if a tree layout gets awkward.
   const splitLayoutEnabled = useUIStore((s) => s.splitLayoutEnabled)
@@ -204,9 +208,10 @@ function WorkspaceSurfaceComponent({
   const webPreviewWidth = webPreviewExpanded ? 70 : DEFAULT_GITHUB_WIDTH
   const integrationWidth = integrationExpanded ? 70 : DEFAULT_GITHUB_WIDTH
   const searchWidth = searchExpanded ? 70 : DEFAULT_REVIEW_WIDTH
+  const httpCallsWidth = httpCallsExpanded ? 70 : DEFAULT_REVIEW_WIDTH
 
-  const hasSidePanels = editorVisible || reviewVisible || githubVisible || backgroundVisible || worktreeVisible || scriptsVisible || webPreviewVisible || integrationVisible || searchVisible
-  const visibleSideIds = [githubVisible && 'github', reviewVisible && 'review', editorVisible && 'editor', backgroundVisible && 'background', worktreeVisible && 'worktree', scriptsVisible && 'scripts', webPreviewVisible && 'web-preview', integrationVisible && 'integration', searchVisible && 'search'].filter((id): id is string => Boolean(id))
+  const hasSidePanels = editorVisible || reviewVisible || githubVisible || backgroundVisible || worktreeVisible || scriptsVisible || webPreviewVisible || integrationVisible || searchVisible || httpCallsVisible
+  const visibleSideIds = [githubVisible && 'github', reviewVisible && 'review', editorVisible && 'editor', backgroundVisible && 'background', worktreeVisible && 'worktree', scriptsVisible && 'scripts', webPreviewVisible && 'web-preview', integrationVisible && 'integration', searchVisible && 'search', httpCallsVisible && 'http-calls'].filter((id): id is string => Boolean(id))
   const visibleSideKey = visibleSideIds.join('|')
   const [preferredSideId, setPreferredSideId] = useState<string | null>(null)
   const previousSideIds = useRef<string[]>([])
@@ -243,7 +248,9 @@ function WorkspaceSurfaceComponent({
     integrationVisible: activeSideId === 'integration',
     integrationWidth,
     searchVisible: activeSideId === 'search',
-    searchWidth
+    searchWidth,
+    httpCallsVisible: activeSideId === 'http-calls',
+    httpCallsWidth
   })
 
   // Total width of all side panels combined (as % of workspace)
@@ -462,6 +469,15 @@ function WorkspaceSurfaceComponent({
     })
   }
 
+  if (httpCallsVisible) {
+    sidePanels.push({
+      id: 'http-calls',
+      defaultSize: toInnerPct(layoutSizes.httpCalls),
+      onResize: () => undefined,
+      content: <WorkspaceHttpCallsPanel workspace={workspace} isExpanded={httpCallsExpanded} onCollapse={closeHttpCalls} onToggleExpanded={() => setHttpCallsExpanded((v) => !v)} />
+    })
+  }
+
   const grid = <ErrorBoundary id="workspace-grid" label={tc('workspace.gridBoundary')}>{splitLayoutEnabled ? (
     <WorkspaceSplitGrid
       workspace={workspace}
@@ -524,12 +540,12 @@ function WorkspaceSurfaceComponent({
   const sideLabels: Record<string, string> = {
     github: WORKBENCH_PANELS.git.label, review: WORKBENCH_PANELS.changes.label, editor: WORKBENCH_PANELS.files.label,
     background: WORKBENCH_PANELS.background.label, worktree: WORKBENCH_PANELS.worktrees.label, scripts: WORKBENCH_PANELS.scripts.label,
-    'web-preview': WORKBENCH_PANELS.browser.label, integration: tc('sidebar.integrations'), search: WORKBENCH_PANELS.search.label
+    'web-preview': WORKBENCH_PANELS.browser.label, integration: tc('sidebar.integrations'), search: WORKBENCH_PANELS.search.label, 'http-calls': WORKBENCH_PANELS.httpCalls.label
   }
   const sideIcons: Record<string, LucideIcon> = {
     github: WORKBENCH_PANELS.git.icon, review: WORKBENCH_PANELS.changes.icon, editor: WORKBENCH_PANELS.files.icon,
     background: WORKBENCH_PANELS.background.icon, worktree: WORKBENCH_PANELS.worktrees.icon, scripts: WORKBENCH_PANELS.scripts.icon,
-    'web-preview': WORKBENCH_PANELS.browser.icon, integration: Network, search: WORKBENCH_PANELS.search.icon
+    'web-preview': WORKBENCH_PANELS.browser.icon, integration: Network, search: WORKBENCH_PANELS.search.icon, 'http-calls': WORKBENCH_PANELS.httpCalls.icon
   }
   // Four tabs fit one row at the minimum window width; the rest live in a menu, and the active panel is always a visible tab.
   const SIDE_TAB_LIMIT = 4
@@ -646,6 +662,8 @@ interface WorkspacePanelSizeInput {
   integrationWidth: number
   searchVisible: boolean
   searchWidth: number
+  httpCallsVisible: boolean
+  httpCallsWidth: number
 }
 
 interface WorkspacePanelSizeOutput {
@@ -660,6 +678,7 @@ interface WorkspacePanelSizeOutput {
   webPreview: number
   integration: number
   search: number
+  httpCalls: number
 }
 
 function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelSizeOutput {
@@ -672,10 +691,11 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
   const webPreview = input.webPreviewVisible ? clampPanelSize(input.webPreviewWidth, 25, 70) : 0
   const integration = input.integrationVisible ? clampPanelSize(input.integrationWidth, 25, 70) : 0
   const search = input.searchVisible ? clampPanelSize(input.searchWidth, 24, 70) : 0
-  const visibleSideCount = Number(input.editorVisible) + Number(input.githubVisible) + Number(input.reviewVisible) + Number(input.backgroundVisible) + Number(input.worktreeVisible) + Number(input.scriptsVisible) + Number(input.webPreviewVisible) + Number(input.integrationVisible) + Number(input.searchVisible)
+  const httpCalls = input.httpCallsVisible ? clampPanelSize(input.httpCallsWidth, 24, 70) : 0
+  const visibleSideCount = Number(input.editorVisible) + Number(input.githubVisible) + Number(input.reviewVisible) + Number(input.backgroundVisible) + Number(input.worktreeVisible) + Number(input.scriptsVisible) + Number(input.webPreviewVisible) + Number(input.integrationVisible) + Number(input.searchVisible) + Number(input.httpCallsVisible)
 
   if (visibleSideCount === 0) {
-    return { grid: 100, gridMinSize: 30, editor: 0, github: 0, review: 0, background: 0, worktree: 0, scripts: 0, webPreview: 0, integration: 0, search: 0 }
+    return { grid: 100, gridMinSize: 30, editor: 0, github: 0, review: 0, background: 0, worktree: 0, scripts: 0, webPreview: 0, integration: 0, search: 0, httpCalls: 0 }
   }
 
   if (visibleSideCount === 1) {
@@ -687,7 +707,7 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
               : input.scriptsVisible ? scripts
                 : input.webPreviewVisible ? webPreview
                   : input.integrationVisible ? integration
-                    : search
+                    : input.searchVisible ? search : httpCalls
     return {
       grid: 100 - side,
       gridMinSize: 30,
@@ -699,12 +719,13 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
       scripts,
       webPreview,
       integration,
-      search
+      search,
+      httpCalls
     }
   }
 
   const maxCombinedSideWidth = 70
-  const combined = editor + github + review + background + worktree + scripts + webPreview + integration + search
+  const combined = editor + github + review + background + worktree + scripts + webPreview + integration + search + httpCalls
   const scale = combined > maxCombinedSideWidth ? maxCombinedSideWidth / combined : 1
   const normalizedEditor = input.editorVisible ? Math.max(25, Math.round(editor * scale)) : 0
   const normalizedGitHub = input.githubVisible ? Math.max(25, Math.round(github * scale)) : 0
@@ -715,7 +736,8 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
   const normalizedWebPreview = input.webPreviewVisible ? Math.max(25, Math.round(webPreview * scale)) : 0
   const normalizedIntegration = input.integrationVisible ? Math.max(25, Math.round(integration * scale)) : 0
   const normalizedSearch = input.searchVisible ? Math.max(24, Math.round(search * scale)) : 0
-  const normalizedCombined = normalizedEditor + normalizedGitHub + normalizedReview + normalizedBackground + normalizedWorktree + normalizedScripts + normalizedWebPreview + normalizedIntegration + normalizedSearch
+  const normalizedHttpCalls = input.httpCallsVisible ? Math.max(24, Math.round(httpCalls * scale)) : 0
+  const normalizedCombined = normalizedEditor + normalizedGitHub + normalizedReview + normalizedBackground + normalizedWorktree + normalizedScripts + normalizedWebPreview + normalizedIntegration + normalizedSearch + normalizedHttpCalls
 
   return {
     grid: Math.max(30, 100 - normalizedCombined),
@@ -728,7 +750,8 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
     scripts: normalizedScripts,
     webPreview: normalizedWebPreview,
     integration: normalizedIntegration,
-    search: normalizedSearch
+    search: normalizedSearch,
+    httpCalls: normalizedHttpCalls
   }
 }
 

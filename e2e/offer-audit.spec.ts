@@ -33,7 +33,8 @@ const SELF_RESTORING = new Set(['toggle-sidebar', 'toggle-split-layout', 'maximi
 
 const SETTINGS_LABELS: Record<string, string> = {
   general: 'General', providers: 'Agents', appearance: 'Appearance', terminal: 'Terminal', keyboard: 'Keyboard',
-  notifications: 'Notifications', updates: 'Updates', policy: 'Policy', devices: 'Devices', data: 'Data', diagnostics: 'Diagnostics'
+  notifications: 'Notifications', about: 'About', policy: 'Approvals and safety', devices: 'Phone and devices',
+  privacy: 'Data and privacy', mcp: 'MCP servers and skills', activity: 'Agent activity', diagnostics: 'Diagnostics'
 }
 
 /** What each palette command visibly does. Exact ids first, then id prefixes. */
@@ -78,6 +79,7 @@ const PALETTE_EFFECTS: Record<string, Check> = {
   'tool-background': both(view('code'), testId('workspace-background-panel')),
   'tool-editor': both(view('code'), testId('workspace-editor-panel')),
   'tool-review': both(view('code'), testId('workspace-review-panel')),
+  'tool-http-calls': both(view('code'), testId('workspace-http-calls-panel')),
   'tool-slash': both(view('code'), dialog(/^Commands for/)),
   'tool-mcp': dialog('MCP servers'),
   'tool-skills': dialog('Skills'),
@@ -144,7 +146,7 @@ async function runCommand(page: Page, id: string): Promise<boolean> {
 /** Closes whatever a command opened, back to the work surface. */
 /** Code's side panels, by the tool command that toggles each and the panel it shows. */
 // Integration last: its command only opens it, so it closes from its own Collapse button, shown once it is the only one.
-const SIDE_PANELS = ['github', 'worktrees', 'scripts', 'search', 'web-preview', 'background', 'editor', 'review', 'integration'] as const
+const SIDE_PANELS = ['github', 'worktrees', 'scripts', 'search', 'web-preview', 'background', 'editor', 'review', 'http-calls', 'integration'] as const
 /**
  * Splits are refused when the halves would be under 240 px (#310), so they are checked from the known layout: Code,
  * two panes, no side panel. Earlier commands leave theirs open (each panel takes its share of the width), so every
@@ -358,7 +360,7 @@ test.describe('offer audit', () => {
         'Help/Show keyboard shortcuts': dialog('Keyboard shortcuts'),
         'Help/Open diagnostics': settingsPage('Diagnostics'),
         'Help/Report a problem…': dialog('Report a problem'),
-        'Help/Check for updates': settingsPage('Updates')
+        'Help/Check for updates': settingsPage('About')
       }
       const SUBMENUS: Record<string, (label: string) => Check> = {
         // Menu items say the palette's action: "Use the light theme", "Use compact density", "Use 2 panes".

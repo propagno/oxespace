@@ -12,7 +12,8 @@
     "background": "Background activity",
     "menu": "Panels",
     "more": "More panels",
-    "needsWorkspace": "Open a workspace to use its panels"
+    "needsWorkspace": "Open a workspace to use its panels",
+    "httpCalls": "HTTP calls"
   },
   "tools": {
     "team": {
@@ -61,6 +62,11 @@
     "review": {
       "label": "Changes",
       "detail": "Branch and uncommitted changes"
+    },
+    "httpCalls": {
+      "label": "HTTP calls",
+      "detail": "curl, wget and HTTPie calls from agents",
+      "keywords": "http, curl, wget, network, api"
     }
   },
   "search": {
@@ -2416,5 +2422,24 @@
     "delete": "Delete comment",
     "deleted": "Comment deleted",
     "undo": "Undo"
+  },
+  "httpCalls": {
+    "title": "HTTP calls",
+    "filterPlaceholder": "Filter by host or path",
+    "all": "All",
+    "errors": "Errors",
+    "flagged": "Flagged",
+    "production": "production",
+    "notEncrypted": "Not encrypted",
+    "tlsNotChecked": "TLS not checked",
+    "noStatus": "No status",
+    "readAfterTurn": "Read after the turn",
+    "productionCallout": "A production host.",
+    "plainHttpCallout": "Sent without TLS to a host outside this computer.",
+    "openConversation": "Open the conversation",
+    "empty": "No HTTP calls yet. curl, wget and HTTPie calls from agents show up here.",
+    "emptyFiltered": "Nothing matches",
+    "clearFilters": "Clear filters",
+    "error": "Couldn't read the HTTP log"
   }
 }
