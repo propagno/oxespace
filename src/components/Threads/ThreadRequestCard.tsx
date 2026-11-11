@@ -7,6 +7,8 @@ import { useAllowHold } from '../Approvals/useAllowHold'
 import { useTranslation } from 'react-i18next'
 import { elicitationContent, elicitationDefaults, elicitationFields, validateElicitationField, type ElicitationValue } from '../../../shared/elicitationForm'
 import { copyText, cx, ErrorState, FieldError, Select } from '../../ui'
+import { useUIStore } from '../../store/ui.store'
+import { AlwaysAllowConfirm, AlwaysAllowReason, clearAlwaysAllowToast, showAlwaysAllowToast } from '../Approvals/AlwaysAllowConfirm'
 import { ImpactFacts } from '../Approvals/ImpactFacts'
 import { ImpactPreview } from '../Approvals/ImpactPreview'
 import { i18n } from '../../i18n'
@@ -62,6 +64,8 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
   const [form, setForm] = useState<Record<string, ElicitationValue>>(() => elicitationDefaults(elicitation))
   const [showProblems, setShowProblems] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [alwaysAllowOpen, setAlwaysAllowOpen] = useState(false)
+  const [savingRule, setSavingRule] = useState(false)
   const [error, setError] = useState('')
   const requestLabel = request.kind === 'approval' && request.nativeMethod === 'can_use_tool:ExitPlanMode' ? t('request.reviewPlan')
     : request.kind === 'approval' && request.nativeMethod?.startsWith('can_use_tool:mcp__') ? t('request.mcpApproval') : request.title
@@ -117,20 +121,45 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
   if (isImpactApproval && request.impact) {
     const impact = request.impact
     const agentName = agent ?? t('f7.card.defaultAgent')
+    const offer = request.alwaysAllow
+    const offeredRule = offer?.offered ? offer.rule : undefined
+    const confirmAlwaysAllow = async (): Promise<void> => {
+      if (savingRule || inFlight.current) return
+      setSavingRule(true)
+      try {
+        const res = await window.oxe?.approvals?.alwaysAllow?.(request.id)
+        setAlwaysAllowOpen(false)
+        if (!res?.ok) {
+          clearAlwaysAllowToast()
+          return
+        }
+        await submit({ decision: 'accept' })
+        showAlwaysAllowToast(
+          t('f7.alwaysAllow.toastAdded', { command: impact.text }),
+          t('f7.alwaysAllow.toastOpen'),
+          () => useUIStore.getState().openSettingsPage('agent-permissions')
+        )
+      } finally {
+        setSavingRule(false)
+      }
+    }
     return <section ref={card} className={cx('thread-request thread-request-approval', styles.root)} aria-label={requestLabel}>
       <header><AlertCircle size={14} /><div><small>{t('f7.card.needsApproval', { agent: agentName })}</small><strong>{requestLabel}</strong></div></header>
       {impact.why ? <p className={styles.context}>{impact.why}</p> : null}
       <ImpactFacts impact={impact} layout="chips" />
       <pre><code>{impact.text}</code></pre>
+      {offer && !offer.offered ? <AlwaysAllowReason reasonKind={offer.reasonKind} className={styles.context} /> : null}
       {error && <ErrorState compact title={error} />}
       <footer>
         <button ref={denyButtonRef} type="button" className={cx('thread-request-decline', styles.decline)} disabled={disabled} onClick={() => void submit({ decision: 'decline' })}>{t('request.deny')}</button>
         {impact.reversible
-          ? <button type="button" disabled={disabled} onClick={() => void submit({ decision: 'accept' })}>{t('f7.card.allow')}</button>
+          ? <button type="button" disabled={disabled} onClick={() => void submit({ decision: 'accept' })}>{offeredRule ? t('f7.card.allowOnce') : t('f7.card.allow')}</button>
           : <button type="button" className={styles.quiet} disabled={disabled} onClick={() => { if (onSeeImpact) onSeeImpact(); else setPreviewOpen(true) }}>{t('f7.card.seeImpact')}</button>}
+        {offeredRule ? <button type="button" className={styles.quiet} disabled={disabled} onClick={() => setAlwaysAllowOpen(true)}>{t('f7.card.alwaysAllowEllipsis')}</button> : null}
         <button type="button" className={styles.quiet} onClick={() => { if (navigator.clipboard?.writeText) void navigator.clipboard.writeText(impact.text); else void copyText(impact.text, t('f7.card.copyWhat')) }}>{t('f7.card.copyExact')}</button>
       </footer>
       {previewOpen ? <ImpactPreview request={request} agent={agentName} onRespond={async response => { setPreviewOpen(false); await submit(response) }} onClose={() => setPreviewOpen(false)} /> : null}
+      {alwaysAllowOpen && offer?.offered ? <AlwaysAllowConfirm rule={offer.rule} runsProjectCode={offer.runsProjectCode} definedIn={offer.definedIn} busy={savingRule} onCancel={() => setAlwaysAllowOpen(false)} onConfirm={() => void confirmAlwaysAllow()} /> : null}
     </section>
   }
   return <section ref={card} className={cx(`thread-request thread-request-${request.kind}`, styles.root, request.kind === 'question' && styles.question)} aria-label={requestLabel}>
