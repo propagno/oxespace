@@ -72,7 +72,8 @@ describe('Thread workspace UI', () => {
     f.snapshot.events = [{ type: 'request', id: 'choice', request: { id: 'choice', nativeId: 'native-choice', nativeMethod: 'can_use_tool:AskUserQuestion', kind: 'question', title: 'Claude needs your input', state: 'pending', generation: 1, createdAt: 1, questions: [{ id: 'rollout', question: 'Which rollout?', options: [{ label: 'Staged' }, { label: 'Immediate' }] }] } }]
     render(<ThreadView workspace={f.workspace} />)
     fireEvent.click(screen.getByRole('radio', { name: 'Staged' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Answer' }))
+    // The status line above also has an Answer button, which only brings this card into view; the card's own one sends.
+    fireEvent.click(screen.getAllByRole('button', { name: 'Answer' }).find(button => button.classList.contains('thread-request-answer'))!)
     await waitFor(() => expect(f.api.respond).toHaveBeenCalledWith('thread', 'choice', { answers: { rollout: ['Staged'] } }))
   })
   it('shows a submitted message before the native send completes and reconciles the saved event', async () => {
@@ -636,7 +637,8 @@ describe('Thread workspace UI', () => {
       { type: 'message', id: 'answer', role: 'assistant', text: 'Found the cause.' }
     ]
     render(<ThreadView workspace={f.workspace} />)
-    await screen.findByText('Found the cause.')
+    // The status line repeats the answer's first sentence ("Done. Found the cause."), so the text is on screen twice.
+    await screen.findAllByText('Found the cause.')
     expect(document.querySelectorAll('.thread-agent-label')).toHaveLength(1)
   })
   it('groups and filters conversations without changing Code selection', async () => {

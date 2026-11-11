@@ -216,6 +216,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'thread.commands.busy': [],
   'thread.commands.claudeFailed': [],
   'thread.commands.codexFailed': [],
+  'thread.commands.antigravityFailed': [],
   'thread.capability.readOnly': [],
   'thread.capability.mcpReadOnly': [],
   'thread.observe.unsupported': [],

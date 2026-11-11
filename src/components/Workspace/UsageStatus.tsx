@@ -69,7 +69,7 @@ export function UsageStatus({ provider }: { provider: Extract<AgentProvider, 'cl
   const Icon = provider === 'codex' ? Bot : Sparkles
   const clampedPeak = Math.min(100, Math.max(0, Math.round(peak)))
   return <Popover label={tc('workspace.usage.label')} side="top" align="end" trigger={<button type="button" className={cx(styles.item, styles.usage, peak >= 100 ? styles.usageCritical : peak >= 80 || snapshot.stale ? styles.usageWarning : undefined)}
-    title={`${detail}\n${tc('workspace.usage.click')}`} aria-label={tc('workspace.usage.aria', { name: providerName(provider), value: short })} aria-busy={loading || undefined} data-testid="usage-status">
+    title={`${detail}\n${tc('workspace.usage.click')}`} aria-label={`${providerName(provider)} ${clampedPeak}%, ${tc('workspace.usage.aria', { name: providerName(provider), value: short })}`} aria-busy={loading || undefined} data-testid="usage-status">
     <Icon size={11} aria-hidden="true" />
     <span>{providerName(provider)} {clampedPeak}%</span>
     <span className={styles.usageBar} aria-hidden="true"><i style={{ width: `${clampedPeak}%` }} /></span>

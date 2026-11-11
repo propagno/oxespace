@@ -48,7 +48,9 @@ export class ClaudeCreditsService implements AgentCreditsProvider {
   private blockedUntil = 0
   private backoffMs = 0
 
-  constructor(private readonly credentialsPath: string = join(homedir(), '.claude', '.credentials.json')) {}
+  // The same folder the CLI reads: a run that points CLAUDE_CONFIG_DIR elsewhere (tests, a second profile) must not
+  // fall back to the account in the home folder.
+  constructor(private readonly credentialsPath: string = join(process.env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), '.claude'), '.credentials.json')) {}
 
   async getCredits(force = false): Promise<AgentCreditsSnapshot> {
     if (!force && this.cache && Date.now() - this.cache.at < TTL_MS) {

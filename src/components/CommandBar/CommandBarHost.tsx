@@ -1,3 +1,4 @@
+import { i18n } from '../../i18n'
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
 import type { CommandContext, CommandRequestItem, ParsedCommandLine } from '../../../shared/command-bar'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
@@ -83,8 +84,8 @@ export function CommandBarHost({
         if (dest === 'oxechat') { selectMode('thread'); return true }
         if (dest === 'oxecode') { selectMode('code'); return true }
         if (dest === 'oxequery') { selectMode('data'); return true }
-        if (dest === 'settings' || dest === 'configurações') { useUIStore.getState().openSettingsPage('general'); return true }
-        if (dest === 'approvals' || dest === 'aprovações') { window.dispatchEvent(new CustomEvent(OPEN_APPROVAL_QUEUE_EVENT)); return true }
+        if (dest === 'settings' || dest === i18n.t('commandBar.destinations.settings').toLowerCase()) { useUIStore.getState().openSettingsPage('general'); return true }
+        if (dest === 'approvals' || dest === i18n.t('commandBar.destinations.approvals').toLowerCase()) { window.dispatchEvent(new CustomEvent(OPEN_APPROVAL_QUEUE_EVENT)); return true }
         return false
       }
       if (openDestination(q)) return

@@ -34,7 +34,9 @@ const SUPPORTED: Record<ThreadProvider, ReadonlySet<ParityFeature>> = {
 }
 
 export function parityFor(provider: ThreadProvider, feature: ParityFeature): ParityAnswer {
-  if (SUPPORTED[provider].has(feature)) return { available: true }
+  // A conversation read before its provider is known (an old row, a half-loaded snapshot) makes no claim either way.
+  const supported = SUPPORTED[provider] as ReadonlySet<ParityFeature> | undefined
+  if (!supported || supported.has(feature)) return { available: true }
   return {
     available: false,
     refusal: {

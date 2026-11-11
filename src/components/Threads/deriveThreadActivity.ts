@@ -1,4 +1,5 @@
 import { redactSecrets } from '../../../shared/secrets'
+import { threadToolSummary } from '../../../shared/threadToolSummary'
 import type { ThreadActivity } from '../../../shared/types/agents'
 import type { ThreadEvent, ThreadRequest, ThreadSnapshot } from '../../../shared/types/thread'
 import { normalizeRootPath } from '../../../shared/utils/path'
@@ -80,6 +81,11 @@ function stripInlineMarkdown(line: string): string {
     .trim()
 }
 
+/** A request title inside a sentence ("asks to run a command"): its first letter in lower case, unless it is an acronym or a name. */
+function midSentence(text: string): string {
+  return /^[A-Z][a-z]/.test(text) ? text[0].toLowerCase() + text.slice(1) : text
+}
+
 function firstSentence(raw: string, root: string, limit: number): string {
   const withRelPaths = relativizeInText(redactSecrets(raw), root)
   const firstLine = withRelPaths
@@ -117,7 +123,13 @@ function runningToolTarget(event: Extract<ThreadEvent, { type: 'tool' }>, kind: 
   if (kind === 'edit' && event.files?.[0]?.path) {
     return cutSafe(redactSecrets(relativizePath(event.files[0].path, root)), 160)
   }
-  const firstLine = (event.detail ?? '').split(/\r?\n/, 1)[0] ?? ''
+  const detail = (event.detail ?? '').trim()
+  // A tool's input is JSON while it streams in: say the command or the file it names, never the opening brace.
+  if (detail.startsWith('{') || detail.startsWith('[')) {
+    const summary = threadToolSummary({ name: event.name, detail })
+    return /^Open details to inspect/.test(summary) || /^[{[]/.test(summary) ? '' : cleanText(summary, root, 160)
+  }
+  const firstLine = detail.split(/\r?\n/, 1)[0] ?? ''
   if (!firstLine) return ''
   if (kind === 'read' || kind === 'edit') {
     const asPath = relativizePath(firstLine.trim(), root)
@@ -152,7 +164,7 @@ export function deriveThreadActivity(
   }
   if (pending.length > 0) {
     const first = pending[0]
-    const text = cleanText(first.title, root, 200)
+    const text = midSentence(cleanText(first.title, root, 200))
     return {
       kind: 'needs-you',
       at: first.createdAt ?? baseAt,

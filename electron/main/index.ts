@@ -637,7 +637,9 @@ async function registerIpcHandlers(): Promise<() => void> {
     previousDbVersion
   })
   registerDiagnosticsIpc(db, internalMcp, { terminals: terminalManager, mcp: mcpManager })
-    const httpAuditLog = new HttpAuditLog(db, undefined, {
+  // Loads the policy and the accepted-config gate and answers policy:get; the HTTP audit below reads policyStore().
+  await registerPolicyIpc(id => internalMcpWorkspaceServ.get(id)?.rootPath, { db, files: fileSystemService, servers: mcpManager, executions })
+  const httpAuditLog = new HttpAuditLog(db, undefined, {
     isProductionHost: productionHostsFor({ db, policy: policyStore() ?? undefined })
   })
   registerHttpAuditIpc(httpAuditLog)

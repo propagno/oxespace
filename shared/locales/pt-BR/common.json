@@ -616,6 +616,19 @@
     "tagline": "Agentes e terminais para os seus projetos"
   },
   "commandBar": {
+    "sections": { "actions": "Ações", "goTo": "Ir para", "openBeside": "Abrir ao lado" },
+    "destinations": {
+      "oxechat": "Conversas e tarefas delegadas",
+      "oxecode": "Workspaces, terminais e alterações",
+      "oxequery": "Bancos de dados, SQL e MongoDB",
+      "settings": "Configurações",
+      "settingsHint": "Preferências do aplicativo e do workspace",
+      "approvals": "Aprovações",
+      "approvalsHint": "Pedidos aguardando sua decisão",
+      "conversation": "Conversa no OxeChat"
+    },
+    "footer": { "navigate": "navegar", "run": "executar", "close": "fechar" },
+    "keys": { "escape": "Esc" },
     "trigger": "Perguntar, rodar ou ir para…",
     "dialogLabel": "Barra de comando",
     "inputLabel": "Perguntar, rodar ou ir para",

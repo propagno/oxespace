@@ -116,11 +116,33 @@ export function classifyToolRowKind(rawName: string): ToolRowKind {
   return 'other'
 }
 
+/**
+ * A native tool's input arrives as JSON. The row names what it touches (the file, the command, the address), never
+ * the opening brace. `null` when the detail is not JSON; '' while the JSON is still streaming in.
+ */
+function jsonTarget(rawDetail: string, kind: ToolRowKind): string | null {
+  const detail = rawDetail.trim()
+  if (!detail.startsWith('{')) return null
+  try {
+    const input = JSON.parse(detail) as Record<string, unknown>
+    const pick = (...keys: string[]): string => {
+      for (const key of keys) { const value = input[key]; if (typeof value === 'string' && value.trim()) return value.trim().split(/\r?\n/, 1)[0] }
+      return ''
+    }
+    if (kind === 'read' || kind === 'edit') return pick('file_path', 'notebook_path', 'path', 'pattern', 'query')
+    if (kind === 'run') return pick('command', 'cmd', 'description')
+    return pick('url', 'query', 'description', 'command', 'file_path', 'path', 'pattern', 'action')
+  } catch {
+    return ''
+  }
+}
+
 function targetFor(event: Extract<ThreadEvent, { type: 'tool' }>, kind: ToolRowKind, root: string): string {
   if (kind === 'edit' && event.files?.length && event.files[0].path) {
     return cutSafe(relativizeInText(redactSecrets(relativizePath(event.files[0].path, root)), root), TARGET_LIMIT)
   }
-  const firstLine = (event.detail ?? '').split(/\r?\n/, 1)[0] ?? ''
+  const named = jsonTarget(event.detail ?? '', kind)
+  const firstLine = named ?? (event.detail ?? '').split(/\r?\n/, 1)[0] ?? ''
   if (!firstLine) return ''
   if (kind === 'read' || kind === 'edit') {
     const rel = relativizePath(firstLine.trim(), root)

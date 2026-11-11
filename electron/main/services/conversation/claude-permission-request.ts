@@ -41,6 +41,42 @@ const pick = (record: Record<string, unknown>, ...keys: string[]): string => {
   return ''
 }
 
+const str = (value: unknown): string => (typeof value === 'string' ? value : '')
+const baseName = (path: string): string => path.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || path
+const signed = (block: string, sign: '-' | '+'): string => block.split('\n').map(line => `${sign} ${line}`).join('\n')
+
+/**
+ * What the tool is about to do, in the words a person reads: the command itself, the file with the lines that leave
+ * and the lines that come in, the address. Never the tool's raw JSON, unless its input has no plain shape.
+ */
+export function readableToolInput(toolName: string, displayName: string, input: Record<string, unknown>): { title: string; body: string } {
+  const command = str(input.command)
+  if (command) return { title: 'Run a command', body: command }
+  const file = str(input.file_path) || str(input.notebook_path) || str(input.path)
+  if (file) {
+    const verb = /write|create/i.test(toolName) ? 'Write' : /read|view/i.test(toolName) ? 'Read' : 'Edit'
+    const title = `${verb} ${baseName(file)}`
+    if (typeof input.old_string === 'string' && typeof input.new_string === 'string') return { title, body: [file, signed(input.old_string, '-'), signed(input.new_string, '+')].join('\n') }
+    if (Array.isArray(input.edits)) {
+      const edits = input.edits.filter((edit): edit is Record<string, unknown> => edit !== null && typeof edit === 'object')
+      return { title, body: [file, ...edits.map(edit => [signed(str(edit.old_string), '-'), signed(str(edit.new_string), '+')].join('\n'))].join('\n\n') }
+    }
+    if (typeof input.content === 'string') return { title, body: [file, signed(input.content, '+')].join('\n') }
+    if (typeof input.new_source === 'string') return { title, body: [file, signed(input.new_source, '+')].join('\n') }
+    return { title, body: file }
+  }
+  const url = str(input.url)
+  if (url) {
+    let host = url
+    try { host = new URL(url).host || url } catch { /* not a URL: shown as given */ }
+    return { title: `Open ${host}`, body: [url, str(input.prompt)].filter(Boolean).join('\n') }
+  }
+  const entries = Object.entries(input)
+  const plain = entries.every(([, value]) => value === null || ['string', 'number', 'boolean'].includes(typeof value))
+  const body = entries.length === 0 ? '' : plain ? entries.map(([name, value]) => `${name}: ${String(value)}`).join('\n') : JSON.stringify(input, null, 2) ?? ''
+  return { title: `Use ${displayName}`, body }
+}
+
 export function describePermissionRequest(
   request: Record<string, unknown>,
   toolName: string,
@@ -61,7 +97,8 @@ export function describePermissionRequest(
   }
 
   const displayName = pick(request, 'display_name', 'displayName') || toolName
-  const title = pick(request, 'title') || `Approve ${displayName}`
+  const readable = readableToolInput(toolName, displayName, input)
+  const title = pick(request, 'title') || readable.title
 
   const lines: string[] = []
   const description = pick(request, 'description')
@@ -80,8 +117,7 @@ export function describePermissionRequest(
     if (label) lines.push(`Confirmation rule: ${label}`)
   }
 
-  const inputText = JSON.stringify(input, null, 2) ?? ''
-  const detail = (lines.length ? `${lines.join('\n')}\n\n${inputText}` : inputText).slice(0, 12000)
+  const detail = [lines.join('\n'), readable.body].filter(Boolean).join('\n\n').slice(0, 12000)
 
   const raw = request.permission_suggestions ?? request.permissionSuggestions
   const suggestions = Array.isArray(raw)

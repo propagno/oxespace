@@ -548,7 +548,12 @@ export function App(): ReactElement {
 
   const threadProjects = useThreadStore(state => state.projects)
   const threadProject = threadProjects.find(project => project.projectId === threadSnapshot?.thread.projectId)
-  const showFirstRun = !isLoading && workspaces.length === 0 && threadProjects.length === 0 && !firstRunDismissed && !firstRunExited && !hasRememberedAppView()
+  // First run starts on a profile with nothing in it. Picking the folder (step 1) adds a project, so once it has
+  // started it stays until the person leaves it (a mode, a workspace, the first conversation), not until a project exists.
+  const firstRunStarted = useRef(false)
+  const firstRunOpen = !firstRunDismissed && !firstRunExited && !hasRememberedAppView() && workspaces.length === 0
+  if (!isLoading && firstRunOpen && threadProjects.length === 0) firstRunStarted.current = true
+  const showFirstRun = !isLoading && firstRunOpen && (threadProjects.length === 0 || firstRunStarted.current)
   const openContainerConversation = useCallback((id: string): void => {
     setContainersOpen(false)
     setFirstRunExited(true)

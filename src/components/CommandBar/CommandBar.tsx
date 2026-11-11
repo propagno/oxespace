@@ -70,8 +70,7 @@ function workspaceTier(name: string, q: string): number {
 }
 
 export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarProps): ReactElement | null {
-  const { t, i18n } = useTranslation()
-  const isPt = Boolean(i18n.language?.toLowerCase().startsWith('pt'))
+  const { t } = useTranslation()
   const baseId = useId()
   const listboxId = `${baseId}-listbox`
   const inputRef = useRef<HTMLInputElement | null>(null)
@@ -111,16 +110,16 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
     let seq = 0
     const nextDomId = () => `${baseId}-opt-${seq++}`
 
-    const actionsLabel = isPt ? 'Ações' : 'Actions'
-    const goToLabel = t('commands.category.goTo', { defaultValue: isPt ? 'Ir para' : 'Go to' })
-    const openBesideLabel = isPt ? 'Abrir ao lado' : 'Open beside'
+    const actionsLabel = t('commandBar.sections.actions')
+    const goToLabel = t('commandBar.sections.goTo')
+    const openBesideLabel = t('commandBar.sections.openBeside')
 
     const modeDestinations = [
       {
         id: 'oxecode',
         label: 'OxeCode',
         match: 'oxecode',
-        secondary: isPt ? 'Workspaces, terminais e alterações' : 'Workspaces, terminals and changes',
+        secondary: t('commandBar.destinations.oxecode'),
         also: 'OxeCode',
         shortcut: formatChord('Mod+1')
       },
@@ -128,7 +127,7 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
         id: 'oxechat',
         label: 'OxeChat',
         match: 'oxechat',
-        secondary: isPt ? 'Conversas e tarefas delegadas' : 'Conversations and delegated work',
+        secondary: t('commandBar.destinations.oxechat'),
         also: 'OxeChat',
         shortcut: formatChord('Mod+2')
       },
@@ -136,23 +135,23 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
         id: 'oxequery',
         label: 'OxeQuery',
         match: 'oxequery',
-        secondary: isPt ? 'Bancos de dados, SQL e MongoDB' : 'Databases, SQL and MongoDB',
+        secondary: t('commandBar.destinations.oxequery'),
         also: 'OxeQuery',
         shortcut: formatChord('Mod+3')
       },
       {
         id: 'settings',
-        label: isPt ? 'Configurações' : 'Settings',
-        match: isPt ? 'settings configurações' : 'settings',
-        secondary: isPt ? 'Preferências do aplicativo e do workspace' : 'Application and workspace preferences',
-        also: isPt ? 'Configurações' : 'Settings',
+        label: t('commandBar.destinations.settings'),
+        match: `settings ${t('commandBar.destinations.settings').toLowerCase()}`,
+        secondary: t('commandBar.destinations.settingsHint'),
+        also: t('commandBar.destinations.settings'),
         shortcut: formatChord('Mod+,')
       },
       {
         id: 'approvals',
-        label: isPt ? 'Aprovações' : 'Approvals',
-        match: isPt ? 'approvals aprovações' : 'approvals',
-        secondary: isPt ? 'Pedidos aguardando sua decisão' : 'Requests waiting for your decision',
+        label: t('commandBar.destinations.approvals'),
+        match: `approvals ${t('commandBar.destinations.approvals').toLowerCase()}`,
+        secondary: t('commandBar.destinations.approvalsHint'),
         also: t('commandBar.fallback.pending'),
         shortcut: formatChord('Mod+Shift+A')
       }
@@ -187,7 +186,7 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
         key: `beside-${th.id}`,
         domId: nextDomId(),
         primary: th.title,
-        secondary: isPt ? 'Conversa no OxeChat' : 'OxeChat conversation',
+        secondary: t('commandBar.destinations.conversation'),
         alsoText: t('commandBar.also', { button: 'OxeChat' }),
         shortcutText: formatChord('Mod+Enter'),
         parsed: { kind: 'open', query: `beside:${th.id}` }
@@ -334,7 +333,9 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
 
     const q = trimmed.toLowerCase()
     const out: BarGroup[] = []
-    const cmdMatches = COMMAND_CATALOG.filter(entry => entry.id.includes(q))
+    // Plain words find a command by what it does and by the button it stands for ("new conversation"), not only by its id.
+    const commandWords = (entry: (typeof COMMAND_CATALOG)[number]): string => `${entry.id} ${t(`commandBar.catalog.${entry.id}`)} ${t(`commandBar.fallback.${entry.id}`)}`.toLowerCase()
+    const cmdMatches = COMMAND_CATALOG.filter(entry => commandWords(entry).includes(q))
     const actionItems = cmdMatches.filter(entry => !GO_TO_COMMAND_IDS.has(entry.id)).map(entry => catalogOption(entry))
     const matchedModes = modeDestinations
       .filter(dest => dest.match.includes(q) || dest.label.toLowerCase().includes(q))
@@ -401,7 +402,7 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
       })
     }
     return out
-  }, [baseId, context.threadId, disallowedCommand, isPt, open, skills, startTrimmed, t, threads, trimmed, workspaces])
+  }, [baseId, context.threadId, disallowedCommand, open, skills, startTrimmed, t, threads, trimmed, workspaces])
 
   const flatOptions = useMemo(() => groups.flatMap(g => g.items), [groups])
   const hasOptions = flatOptions.length > 0
@@ -628,7 +629,7 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
             onKeyDown={handleKeyDown}
           />
           <span className={styles.inputEsc} aria-hidden="true">
-            <Kbd>Esc</Kbd>
+            <Kbd>{t('commandBar.keys.escape')}</Kbd>
           </span>
         </div>
 
@@ -654,7 +655,7 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
             </div>
             <div className={styles.defaultSections}>
               <div className={styles.group}>
-                <div className={styles.groupHeading}>{isPt ? 'Ações' : 'Actions'}</div>
+                <div className={styles.groupHeading}>{t('commandBar.sections.actions')}</div>
                 {COMMAND_CATALOG.filter((entry): entry is typeof entry & { id: Exclude<typeof entry.id, 'skill'> } => !GO_TO_COMMAND_IDS.has(entry.id) && entry.id !== 'skill').slice(0, 4).map(entry => (
                   <Button
                     key={entry.id}
@@ -673,12 +674,12 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
                 ))}
               </div>
               <div className={styles.group}>
-                <div className={styles.groupHeading}>{t('commands.category.goTo', { defaultValue: isPt ? 'Ir para' : 'Go to' })}</div>
+                <div className={styles.groupHeading}>{t('commandBar.sections.goTo')}</div>
                 {[
-                  { id: 'oxecode', label: 'OxeCode', desc: isPt ? 'Workspaces, terminais e alterações' : 'Workspaces, terminals and changes', chord: 'Mod+1' },
-                  { id: 'oxechat', label: 'OxeChat', desc: isPt ? 'Conversas e tarefas delegadas' : 'Conversations and delegated work', chord: 'Mod+2' },
-                  { id: 'oxequery', label: 'OxeQuery', desc: isPt ? 'Bancos de dados, SQL e MongoDB' : 'Databases, SQL and MongoDB', chord: 'Mod+3' },
-                  { id: 'settings', label: isPt ? 'Configurações' : 'Settings', desc: isPt ? 'Preferências do aplicativo e do workspace' : 'Application and workspace preferences', chord: 'Mod+,' }
+                  { id: 'oxecode', label: 'OxeCode', desc: t('commandBar.destinations.oxecode'), chord: 'Mod+1' },
+                  { id: 'oxechat', label: 'OxeChat', desc: t('commandBar.destinations.oxechat'), chord: 'Mod+2' },
+                  { id: 'oxequery', label: 'OxeQuery', desc: t('commandBar.destinations.oxequery'), chord: 'Mod+3' },
+                  { id: 'settings', label: t('commandBar.destinations.settings'), desc: t('commandBar.destinations.settingsHint'), chord: 'Mod+,' }
                 ].map(dest => (
                   <Button
                     key={dest.id}
@@ -766,9 +767,9 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
 
         <div className={styles.footer}>
           <div className={styles.footerHints} aria-hidden="true">
-            <span className={styles.footerHint}><Kbd>↑↓</Kbd> {isPt ? 'navegar' : 'navigate'}</span>
-            <span className={styles.footerHint}><Kbd>↵</Kbd> {isPt ? 'executar' : 'run'}</span>
-            <span className={styles.footerHint}><Kbd>Esc</Kbd> {isPt ? 'fechar' : 'close'}</span>
+            <span className={styles.footerHint}><Kbd>↑↓</Kbd> {t('commandBar.footer.navigate')}</span>
+            <span className={styles.footerHint}><Kbd>↵</Kbd> {t('commandBar.footer.run')}</span>
+            <span className={styles.footerHint}><Kbd>{t('commandBar.keys.escape')}</Kbd> {t('commandBar.footer.close')}</span>
           </div>
           <div className={styles.footerStatus} aria-live="polite">
             {announced && <span>{announced}</span>}

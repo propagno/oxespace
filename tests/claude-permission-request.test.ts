@@ -16,12 +16,14 @@ describe('describePermissionRequest', () => {
     expect(p.detail).toContain('List files')
     expect(p.detail).toContain('Reason: No allow rule matched')
     expect(p.detail).toContain('C:\\outside\\x')
-    expect(p.detail).toContain('"command": "ls"')
+    // The command itself, as a person reads it: never the tool's JSON.
+    expect(p.detail).toMatch(/^ls$/m)
+    expect(p.detail).not.toContain('"command"')
   })
 
   it('falls back to the tool name and offers session scope only with suggestions', () => {
     const plain = describePermissionRequest({}, 'Edit', { file_path: 'a.ts' })
-    expect(plain.title).toBe('Approve Edit')
+    expect(plain.title).toBe('Edit a.ts')
     expect(plain.decisions).toEqual(['accept', 'decline'])
 
     const scoped = describePermissionRequest(
@@ -32,6 +34,27 @@ describe('describePermissionRequest', () => {
     expect(scoped.decisions).toEqual(['accept', 'acceptForSession', 'decline'])
     expect(scoped.suggestions).toHaveLength(1)
     expect(scoped.toolUseId).toBe('toolu_1')
+  })
+
+  it('says what the tool does in plain words: a command, a file change with its lines, an address', () => {
+    const run = describePermissionRequest({}, 'PowerShell', { command: 'npm test', description: 'Run the tests' })
+    expect(run.title).toBe('Run a command')
+    expect(run.detail).toBe('npm test')
+
+    const file = ['C:', 'repo', 'src', 'price.js'].join('\\')
+    const edit = describePermissionRequest({}, 'Edit', { file_path: file, old_string: 'sum + item.price', new_string: 'sum + item.price * item.qty', replace_all: false })
+    expect(edit.title).toBe('Edit price.js')
+    expect(edit.detail.split('\n')).toEqual([file, '- sum + item.price', '+ sum + item.price * item.qty'])
+    expect(edit.detail).not.toContain('{')
+
+    const write = describePermissionRequest({}, 'Write', { file_path: 'notes/a.md', content: ['one', 'two'].join('\n') })
+    expect(write.title).toBe('Write a.md')
+    expect(write.detail.split('\n')).toEqual(['notes/a.md', '+ one', '+ two'])
+
+    expect(describePermissionRequest({}, 'WebFetch', { url: 'https://example.com/docs?x=1', prompt: 'Summarize' }).title).toBe('Open example.com')
+    const other = describePermissionRequest({ display_name: 'Capabilities' }, 'mcp__oxespace__capabilities', { scope: 'workspace', limit: 5 })
+    expect(other.title).toBe('Use Capabilities')
+    expect(other.detail.split('\n')).toEqual(['scope: workspace', 'limit: 5'])
   })
 
   it('shows a plan as prose and never offers to remember the approval', () => {

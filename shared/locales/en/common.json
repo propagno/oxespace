@@ -608,6 +608,19 @@
     "tagline": "Agents and terminals for your projects"
   },
   "commandBar": {
+    "sections": { "actions": "Actions", "goTo": "Go to", "openBeside": "Open beside" },
+    "destinations": {
+      "oxechat": "Conversations and delegated work",
+      "oxecode": "Workspaces, terminals and changes",
+      "oxequery": "Databases, SQL and MongoDB",
+      "settings": "Settings",
+      "settingsHint": "Application and workspace preferences",
+      "approvals": "Approvals",
+      "approvalsHint": "Requests waiting for your decision",
+      "conversation": "OxeChat conversation"
+    },
+    "footer": { "navigate": "navigate", "run": "run", "close": "close" },
+    "keys": { "escape": "Esc" },
     "trigger": "Ask, run or go to…",
     "dialogLabel": "Command bar",
     "inputLabel": "Ask, run or go to",
