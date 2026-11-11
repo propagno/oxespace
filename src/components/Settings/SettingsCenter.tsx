@@ -12,6 +12,7 @@ import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace } from '../.
 import { SeenSitesSetting } from './SeenSitesSetting'
 import { ExternalEditorSetting } from './ExternalEditorSetting'
 import { DataSettings } from './DataSettings'
+import { RISKY_SETTING_ROWS } from './riskyRows'
 import './SettingsCenter.css'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
@@ -35,41 +36,49 @@ const retryPages = (): void => { for (const page of [SettingsContent, WorkspaceS
 
 export type AppPage = 'general' | 'appearance' | 'providers' | 'policy' | 'agent-permissions' | 'notifications' | 'keyboard' | 'terminal' | 'mcp' | 'devices' | 'privacy' | 'activity' | 'diagnostics' | 'about'
 export type SettingsDestination = { scope: 'application'; page: AppPage } | { scope: 'workspace'; workspaceId: string; page: typeof SETTINGS_PAGES[number]['id'] }
-export type Page = { id: string; label: string; hint?: string }
+export type Page = { id: string; label: string; hint?: string; keywords?: readonly string[] }
+type NavEntry = Page & { icon: LucideIcon }
 
 const ts = i18n.getFixedT(null, 'settings')
 
-function appPage(id: AppPage, icon: LucideIcon, defaultLabel: string, defaultHint = '') {
+function appPage(id: AppPage, icon: LucideIcon, defaultLabel: string, defaultHint = '', keywords: readonly string[] = []) {
   return {
     id,
     icon,
+    keywords,
     get label() { return ts(`center.pages.${id}.label`, { defaultValue: defaultLabel }) },
     get hint() { return ts(`center.pages.${id}.hint`, { defaultValue: defaultHint }) }
   }
 }
 
 export const APPLICATION_SETTINGS_PAGES = [
-  appPage('general', Settings2, 'General', 'Navigation, workspace caches and default external editor.'),
-  appPage('appearance', Palette, 'Appearance', 'Theme, font sizing and layout density.'),
-  appPage('providers', Bot, 'Agents', 'Default model, fallback chain and provider API keys.'),
-  appPage('policy', ShieldCheck, 'Approvals and safety', 'Safety boundaries, read-only paths and write permissions.'),
-  appPage('agent-permissions', ShieldCheck, 'What agents can do', 'Always allowed commands, databases, HTTP hosts and policy rules.'),
-  appPage('notifications', Bell, 'Notifications', 'Desktop alerts, sound effects and quiet hours.'),
-  appPage('keyboard', Keyboard, 'Keyboard', 'Keyboard shortcuts and custom chords.'),
-  appPage('terminal', SquareTerminal, 'Terminal', 'Default shell, scrollback buffer and font overrides.'),
-  appPage('mcp', Wrench, 'MCP servers and skills', 'Connected MCP servers, custom tools and agent skills.'),
-  appPage('devices', Smartphone, 'Phone and devices', 'Linked mobile devices and companion app connections.'),
-  appPage('privacy', ShieldCheck, 'Data and privacy', 'Diagnostics telemetry, audit retention and data export.'),
-  appPage('activity', Activity, 'Agent activity', 'What agents changed through OXESpace, and what you decided.'),
-  appPage('diagnostics', Activity, 'Diagnostics', 'System health, runtime logs and active background tasks.'),
-  appPage('about', ArrowUpCircle, 'About', 'Version details, release notes and open-source licenses.')
+  appPage('general', Settings2, 'General', 'Navigation, workspace caches and default external editor.', ['editor', 'vscode', 'cursor', 'sites', 'cache']),
+  appPage('appearance', Palette, 'Appearance', 'Theme, font sizing and layout density.', ['theme', 'dark', 'light', 'font', 'density', 'language', 'locale']),
+  appPage('providers', Bot, 'Agents', 'Default model, fallback chain and provider API keys.', ['claude', 'codex', 'model', 'agent', 'cli', 'idle']),
+  appPage('policy', ShieldCheck, 'Approvals and safety', 'Safety boundaries, read-only paths and write permissions.', ['approvals', 'safety', 'sandbox', 'rules', 'yaml']),
+  appPage('agent-permissions', ShieldCheck, 'What agents can do', 'Always allowed commands, databases, HTTP hosts and policy rules.', ['permissions', 'commands', 'databases', 'hosts', 'http', 'allowed', 'revoke']),
+  appPage('notifications', Bell, 'Notifications', 'Desktop alerts, sound effects and quiet hours.', ['sound', 'alerts', 'quiet', 'bell']),
+  appPage('keyboard', Keyboard, 'Keyboard', 'Keyboard shortcuts and custom chords.', ['shortcuts', 'keybindings', 'chords', 'hotkeys']),
+  appPage('terminal', SquareTerminal, 'Terminal', 'Default shell, scrollback buffer and font overrides.', ['shell', 'scrollback', 'cursor', 'powershell', 'bash', 'zsh']),
+  appPage('mcp', Wrench, 'MCP servers and skills', 'Connected MCP servers, custom tools and agent skills.', ['mcp', 'tools', 'skills', 'servers', 'oxe.yaml']),
+  appPage('devices', Smartphone, 'Phone and devices', 'Linked mobile devices and companion app connections.', ['phone', 'mobile', 'android', 'mirror', 'qr', 'network', 'pairing']),
+  appPage('privacy', ShieldCheck, 'Data and privacy', 'Diagnostics telemetry, audit retention and data export.', ['export', 'privacy', 'usage', 'history', 'retention', 'telemetry']),
+  appPage('activity', Activity, 'Agent activity', 'What agents changed through OXESpace, and what you decided.', ['audit', 'outgoing', 'proxy', 'hosts', 'network', 'changes', 'containers']),
+  appPage('diagnostics', Activity, 'Diagnostics', 'System health, runtime logs and active background tasks.', ['health', 'logs', 'doctor', 'troubleshooting', 'support']),
+  appPage('about', ArrowUpCircle, 'About', 'Version details, release notes and open-source licenses.', ['version', 'updates', 'release', 'changelog', 'licenses'])
 ] as const
+
+function matchesPage(page: Page, query: string): boolean {
+  const needle = query.trim().toLowerCase()
+  if (!needle) return true
+  return `${page.label} ${page.hint ?? ''} ${(page.keywords ?? []).join(' ')}`.toLowerCase().includes(needle)
+}
 
 export function searchSettingsPages(query: string): Page[] {
   const needle = query.trim().toLowerCase()
   if (!needle) return []
   const all: readonly Page[] = [...APPLICATION_SETTINGS_PAGES, ...SETTINGS_PAGES]
-  return all.filter(page => `${page.label} ${page.hint ?? ''}`.toLowerCase().includes(needle))
+  return all.filter(page => matchesPage(page, needle))
 }
 
 /**
@@ -150,8 +159,19 @@ export function SettingsCenter(props: SettingsModalProps & {
     try { localStorage.setItem('oxe.settings.destination', JSON.stringify(next)) } catch { /* Preferences are optional. */ }
   }
   const close = (): void => props.onClose()
-  const pages = destination.scope === 'workspace' ? SETTINGS_PAGES : APPLICATION_SETTINGS_PAGES
-  const filtered = pages.filter(p => `${p.label} ${p.hint ?? ''}`.toLowerCase().includes(query.toLowerCase()))
+  const pages: readonly NavEntry[] = destination.scope === 'workspace' ? SETTINGS_PAGES : APPLICATION_SETTINGS_PAGES
+  const filtered = pages.filter(p => matchesPage(p, query))
+  const secondaryPages: readonly NavEntry[] = destination.scope === 'application'
+    ? (scopeWorkspace ? SETTINGS_PAGES.filter(p => p.id !== 'general' && matchesPage(p, query)) : [])
+    : APPLICATION_SETTINGS_PAGES.filter(p => p.id !== 'general' && matchesPage(p, query))
+  const workspaceCaption = scopeWorkspace ? t('center.workspaceNamed', { name: scopeWorkspace.name }) : t('center.workspace')
+  const renderNavButton = ({ icon: Icon, ...page }: NavEntry, current: boolean, onSelect: () => void, keyPrefix = ''): ReactElement => (
+    <button key={`${keyPrefix}${page.id}`} title={page.hint} aria-label={`${page.label} ${page.hint ?? ''}`} aria-current={current ? 'page' : undefined} onClick={onSelect}>
+      <Icon size={16} aria-hidden="true" /><span>{page.label}</span>
+    </button>
+  )
+  const hasAnyNav = filtered.length > 0 || secondaryPages.length > 0
+
   return <ModalRoot open onOpenChange={open => { if (!open) close() }}>
     <ModalSurface className="settings-center" style={{ '--settings-navigation-width': `${navigationWidth}px` } as CSSProperties} scrimClassName="settings-center-overlay" toasts aria-describedby={undefined}
       onCloseAutoFocus={event => { if (returnPane.current) { event.preventDefault(); requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('oxe:focus-pane', { detail: { paneId: returnPane.current } }))) } }}
@@ -176,12 +196,26 @@ export function SettingsCenter(props: SettingsModalProps & {
           </div>
         </div>
         <nav aria-label={t('center.categories')}>
-          <span className="settings-nav-caption">{destination.scope === 'application' ? t('center.application') : t('center.workspace')}</span>
-          {filtered.map(({ icon: Icon, ...page }) => <button key={page.id} title={page.hint} aria-label={`${page.label} ${page.hint}`} aria-current={destination.page === page.id ? 'page' : undefined}
-            onClick={() => go(destination.scope === 'application' ? { scope: 'application', page: page.id as AppPage } : { ...destination, page: page.id as typeof SETTINGS_PAGES[number]['id'] })}>
-            <Icon size={16} aria-hidden="true" /><span>{page.label}</span>
-          </button>)}
-          {!filtered.length && <p className="settings-scope">{t('center.noMatch')}</p>}
+          {filtered.length > 0 && <>
+            <span className="settings-nav-caption">{destination.scope === 'application' ? t('center.application') : workspaceCaption}</span>
+            {filtered.map(page => renderNavButton(
+              page,
+              destination.page === page.id,
+              () => go(destination.scope === 'application' ? { scope: 'application', page: page.id as AppPage } : { ...destination, page: page.id as typeof SETTINGS_PAGES[number]['id'] })
+            ))}
+          </>}
+          {secondaryPages.length > 0 && <>
+            <span className="settings-nav-caption settings-nav-caption-sub">{destination.scope === 'application' ? workspaceCaption : t('center.application')}</span>
+            {secondaryPages.map(page => renderNavButton(
+              page,
+              false,
+              () => go(destination.scope === 'application' && scopeWorkspace
+                ? { scope: 'workspace', workspaceId: scopeWorkspace.id, page: page.id as typeof SETTINGS_PAGES[number]['id'] }
+                : { scope: 'application', page: page.id as AppPage }),
+              'alt-'
+            ))}
+          </>}
+          {!hasAnyNav && <p className="settings-scope">{t('center.noMatch')}</p>}
         </nav>
         <div className="settings-nav-footer">
           <p className="settings-scope-note" title={workspace?.rootPath}>{workspace ? workspace.name : t('center.appliesAcross')}</p>
@@ -206,7 +240,10 @@ export function SettingsCenter(props: SettingsModalProps & {
               props.onClose()
             }} />
             : <section className="settings-general"><h2>{t('center.workspaceClosed')}</h2><p>{t('center.workspaceClosedHint')}</p></section>
-            : destination.page === 'general' ? <GeneralSettings /> : destination.page === 'policy' ? <PolicySettings workspaceId={scopeWorkspace?.id} scope="application" /> : destination.page === 'agent-permissions' ? <AgentPermissionsSettings workspaceId={scopeWorkspace?.id ?? ''} /> : destination.page === 'keyboard' ? <KeyboardSettings /> : destination.page === 'devices' ? <DevicesSettings /> : destination.page === 'privacy' ? <DataSettings /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
+            : <>
+              {destination.page === 'general' ? <GeneralSettings /> : destination.page === 'policy' ? <PolicySettings workspaceId={scopeWorkspace?.id} scope="application" /> : destination.page === 'agent-permissions' ? <AgentPermissionsSettings workspaceId={scopeWorkspace?.id ?? ''} /> : destination.page === 'keyboard' ? <KeyboardSettings /> : destination.page === 'devices' ? <DevicesSettings /> : destination.page === 'privacy' ? <DataSettings /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
+              <footer className="settings-auto-apply-note" data-risky-count={RISKY_SETTING_ROWS.length}>{t('center.autoApplyNote')}</footer>
+            </>}
         </Suspense></ErrorBoundary></div>
       </main>
     </ModalSurface>

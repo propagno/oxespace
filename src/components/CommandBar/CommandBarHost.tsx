@@ -4,7 +4,9 @@ import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
 import type { AppView } from '../../keyboard/keybindings'
 import { useSkillStore } from '../../store/skill.store'
 import { useThreadStore } from '../../store/thread.store'
+import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
+import { OPEN_APPROVAL_QUEUE_EVENT } from '../Approvals/approvalsBoot'
 import { CommandBar } from './CommandBar'
 
 export interface CommandBarHostProps {
@@ -67,16 +69,36 @@ export function CommandBarHost({
 
   const handleRun = useCallback((parsed: ParsedCommandLine) => {
     if (parsed.kind === 'open') {
-      const q = parsed.query.trim().toLowerCase()
-      if (q === 'oxechat') { selectMode('thread'); return }
-      if (q === 'oxecode') { selectMode('code'); return }
-      if (q === 'oxequery') { selectMode('data'); return }
+      const raw = parsed.query.trim()
+      if (raw.startsWith('beside:')) {
+        const threadId = raw.slice('beside:'.length).trim()
+        if (threadId) {
+          selectMode('thread')
+          void useThreadStore.getState().openSecondary(threadId)
+        }
+        return
+      }
+      const q = raw.toLowerCase()
+      const openDestination = (dest: string): boolean => {
+        if (dest === 'oxechat') { selectMode('thread'); return true }
+        if (dest === 'oxecode') { selectMode('code'); return true }
+        if (dest === 'oxequery') { selectMode('data'); return true }
+        if (dest === 'settings' || dest === 'configurações') { useUIStore.getState().openSettingsPage('general'); return true }
+        if (dest === 'approvals' || dest === 'aprovações') { window.dispatchEvent(new CustomEvent(OPEN_APPROVAL_QUEUE_EVENT)); return true }
+        return false
+      }
+      if (openDestination(q)) return
       const match = workspaces.find(ws => ws.name.toLowerCase() === q)
         ?? workspaces.find(ws => ws.name.toLowerCase().startsWith(q))
         ?? workspaces.find(ws => ws.name.toLowerCase().includes(q))
       if (match) {
         void setActiveWorkspace(match.id)
         selectMode('code')
+        return
+      }
+      if (q) {
+        const prefixDest = (['oxechat', 'oxecode', 'oxequery', 'settings', 'approvals'] as const).find(d => d.startsWith(q))
+        if (prefixDest) openDestination(prefixDest)
       }
       return
     }

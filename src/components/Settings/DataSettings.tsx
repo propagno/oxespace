@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, type ReactElement, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../ui/Button'
+import { SettingRow, SettingsSection } from '../../ui/Settings'
 import { UsageSettings } from './UsageSettings'
 import type { DataExportState } from '../../../shared/types/ipc'
 
@@ -55,32 +56,43 @@ export function DataSettings(): ReactElement {
   }
 
   return (
-    <>
-      <section className="settings-general">
-      <h2>{t('data.removedSection')}</h2>
-      <div className="settings-general-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <label><strong>{t('data.exportLabel')}</strong></label>
-          <p>{descText}</p>
-        </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {state?.file && (
-            <Button variant="secondary" size="sm" onClick={handleReveal}>
-              {t('data.showInFolder')}
-            </Button>
-          )}
-          {state?.error && (
-            <Button variant="secondary" size="sm" onClick={handleExportAgain} disabled={loading}>
-              {t('data.tryNow')}
-            </Button>
-          )}
-          <Button variant="secondary" size="sm" onClick={handleExportAgain} disabled={loading}>
-            {t('data.exportAction')}
-          </Button>
-        </div>
-      </div>
-      </section>
+    <section className="settings-general" data-testid="data-settings">
+      <h2>{t('center.pages.privacy.label')}</h2>
+      <p>{t('data.description')}</p>
+      <SettingsSection title={t('data.historyTitle')}>
+        <SettingRow
+          label={t('data.conversationHistory')}
+          description={t('data.conversationHistoryHint')}
+        />
+        <SettingRow
+          label={t('data.activityRetention')}
+          description={t('data.activityRetentionHint')}
+        />
+      </SettingsSection>
       <UsageSettings />
-    </>
+      <SettingsSection title={t('data.removedSection')}>
+        <SettingRow
+          label={t('data.exportLabel')}
+          description={descText}
+          control={
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {state?.file && (
+                <Button variant="secondary" size="sm" onClick={handleReveal}>
+                  {t('data.showInFolder')}
+                </Button>
+              )}
+              {state?.error && (
+                <Button variant="secondary" size="sm" onClick={handleExportAgain} disabled={loading}>
+                  {t('data.tryNow')}
+                </Button>
+              )}
+              <Button variant="secondary" size="sm" onClick={handleExportAgain} disabled={loading}>
+                {t('data.exportAction')}
+              </Button>
+            </div>
+          }
+        />
+      </SettingsSection>
+    </section>
   )
 }

@@ -2,7 +2,7 @@
   "center": {
     "title": "Settings",
     "searchLabel": "Search settings",
-    "searchPlaceholder": "Filter categories",
+    "searchPlaceholder": "Find a setting",
     "settingsFor": "Settings for",
     "scope": "Settings scope",
     "application": "Application",
@@ -91,7 +91,9 @@
         "label": "About",
         "hint": "Version, downloads and installation"
       }
-    }
+    },
+    "workspaceNamed": "Workspace · {{name}}",
+    "autoApplyNote": "Changes apply at once. Risky ones show an undo for 6 seconds."
   },
   "header": {
     "close": "Close",
@@ -503,7 +505,7 @@
     "command": "Command"
   },
   "devices": {
-    "title": "Devices",
+    "title": "Phone and devices",
     "intro": "Use OXESpace from your Android phone on the same network: follow conversations, answer requests and watch terminals. The phone talks only to this computer, over your local network, never through the internet.",
     "loadFailed": "Could not read the phone connection.",
     "unavailable": "The phone connection is not available in this version.",
@@ -832,11 +834,15 @@
       "bodyLastValid": "The file has an error. Agents keep using the last modes that could be read, shown below. To change them, fix the file by hand and choose Reload.",
       "bodyDefaults": "The file has an error and has never been read, so agents use the app's defaults, shown below. To change them, fix the file by hand and choose Reload.",
       "readAgain": "Modes read again"
+    },
+    "noProject": {
+      "title": "No project folder open",
+      "body": "Open a workspace or project folder to configure project MCP tool groups and oxe.yaml rules."
     }
   },
   "data": {
     "title": "Data",
-    "description": "Manage your application data, exports and removed features",
+    "description": "What OXESpace keeps on this computer, and for how long.",
     "removedSection": "Removed in 1.5",
     "exportLabel": "Export removed data",
     "exportDesc": "Data from features removed in 1.5, in one JSON file.",
@@ -844,7 +850,12 @@
     "errorDesc": "Not saved yet: {{error}}",
     "showInFolder": "Show in folder",
     "tryNow": "Try now",
-    "exportAction": "Export…"
+    "exportAction": "Export…",
+    "historyTitle": "History",
+    "conversationHistory": "Conversation history",
+    "conversationHistoryHint": "Stored locally per project on this computer.",
+    "activityRetention": "Agent activity log",
+    "activityRetentionHint": "Kept locally on this computer for audit and review."
   },
   "agentPermissions": {
     "title": "What agents can do",

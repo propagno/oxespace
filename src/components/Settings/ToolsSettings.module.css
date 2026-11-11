@@ -1,7 +1,9 @@
 /* Settings › Tools: tool groups, their modes and costs, per-tool rules and the organization's policy. */
 .page { display: grid; gap: var(--space-4); min-width: 0; }
 .header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
-.intro { margin: 0; font-size: var(--text-sm); color: var(--text-secondary); line-height: var(--leading-normal); }
+.titleBlock { display: grid; gap: var(--space-2); min-width: 0; }
+.pageTitle { margin: 0; font-size: var(--fs-2xl); font-weight: var(--weight-semibold); letter-spacing: -.5px; line-height: 1.3; color: var(--text-primary); }
+.intro { margin: 0; font-size: var(--text-xs); color: var(--text-muted); line-height: var(--leading-normal); }
 .intro code, .toolName { font-family: var(--font-mono); font-size: var(--text-xs); overflow-wrap: anywhere; }
 .hint { margin: 0; font-size: var(--text-xs); color: var(--text-muted); line-height: var(--leading-normal); }
 .sectionTitle { margin: var(--space-2) 0 0; font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--text-primary); }

@@ -178,9 +178,9 @@ export function AgentActivitySettings(): ReactElement {
   }
 
   return (
-    <div className="settings-form-group agent-activity-settings" data-testid="agent-activity">
-      <h3 className="settings-form-group-title">{t('activity.title')}</h3>
-      <p className="settings-field-hint">{t('activity.hint')}</p>
+    <section className="settings-general agent-activity-page" data-testid="agent-activity">
+      <h2>{t('activity.title')}</h2>
+      <p>{t('activity.hint')}</p>
 
       <div className="agent-activity-sources" role="toolbar" aria-label={t('activity.sources.all')}>
         {SOURCES.map(({ key, labelKey, defaultLabel }) => {
@@ -281,6 +281,6 @@ export function AgentActivitySettings(): ReactElement {
           }}
         />
       )}
-    </div>
+    </section>
   )
 }

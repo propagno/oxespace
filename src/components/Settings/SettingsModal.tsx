@@ -178,8 +178,6 @@ function DiagnosticsSettingsSection({ onClose }: { onClose: () => void }): React
             <Download size={14} aria-hidden="true" /> {t('diagnostics.export')}
           </Button>
         </div>
-
-        <AgentActivitySettings />
       </div>
     </section>
   )

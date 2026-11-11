@@ -26,14 +26,25 @@ export function OxeQueryView({ active }: { active: boolean }): ReactElement {
 
   useEffect(() => { if (active) void useOxeQueryStore.getState().refreshConnections() }, [active])
 
+  const currentTab = tabs.find(tab => tab.id === activeTab)
+  const activeConnection = currentTab?.kind === 'connection'
+    ? connections.find(item => item.id === currentTab.connectionId)
+    : undefined
+
   const titleOf = (tab: OxeQueryTab): string => tab.kind === 'connection' ? tab.title : t('view.tab.activity')
   return <div className="oq-view" aria-label="OxeQuery">
-    {tabs.length > 0 && <div className="oq-tabs" role="tablist" aria-label={t('view.openViews')}>
-      {tabs.map(tab => <span key={tab.id} className="oq-tab" data-active={tab.id === activeTab} data-color={tab.kind === 'connection' ? connections.find(item => item.id === tab.connectionId)?.color || undefined : undefined}
-        data-environment={tab.kind === 'connection' ? connections.find(item => item.id === tab.connectionId)?.environment : undefined}>
-        <button type="button" role="tab" aria-selected={tab.id === activeTab} data-oq-tab={tab.kind} onClick={() => setActiveTab(tab.id)}>{titleOf(tab)}</button>
-        <button type="button" aria-label={t('view.closeTab', { name: titleOf(tab) })} className="oq-tab-close" onClick={() => closeTab(tab.id)}><X size={12} aria-hidden="true" /></button>
-      </span>)}
+    {tabs.length > 0 && <div className="oq-tabs-bar">
+      <div className="oq-tabs" role="tablist" aria-label={t('view.openViews')}>
+        {tabs.map(tab => <span key={tab.id} className="oq-tab" data-active={tab.id === activeTab} data-color={tab.kind === 'connection' ? connections.find(item => item.id === tab.connectionId)?.color || undefined : undefined}
+          data-environment={tab.kind === 'connection' ? connections.find(item => item.id === tab.connectionId)?.environment : undefined}>
+          <button type="button" role="tab" aria-selected={tab.id === activeTab} data-oq-tab={tab.kind} onClick={() => setActiveTab(tab.id)}>{titleOf(tab)}</button>
+          <button type="button" aria-label={t('view.closeTab', { name: titleOf(tab) })} className="oq-tab-close" onClick={() => closeTab(tab.id)}><X size={12} aria-hidden="true" /></button>
+        </span>)}
+      </div>
+      {activeConnection && <div className="oq-view-meta">
+        <span>{t(`form.agentsHint.${activeConnection.agentAccess}`)}</span>
+        <span className="oq-env-pill" data-env={activeConnection.environment}>{t(`environment.short.${activeConnection.environment}`)}</span>
+      </div>}
     </div>}
     <div className="oq-panels">
       {tabs.length === 0 && <div className="oq-panel oq-welcome"><EmptyState icon={<Database size={22} aria-hidden="true" />} title={t('welcome.title')}
@@ -46,7 +57,7 @@ export function OxeQueryView({ active }: { active: boolean }): ReactElement {
         if (tab.kind === 'activity') return <div key={tab.id} className="oq-panel" hidden={!visible} role="tabpanel"><ActivityPanel active={active && visible} /></div>
         const connection = connections.find(item => item.id === tab.connectionId)
         return <div key={tab.id} className="oq-panel" hidden={!visible} role="tabpanel">
-          {!connection ? <div className="oq-placeholder"><EmptyState title={t('view.connectionGone')} actions={<button type="button" onClick={() => closeTab(tab.id)}>{t('view.closeThisTab')}</button>} /></div>
+          {!connection ? <div className="oq-placeholder"><EmptyState title={t('view.connectionGone')} actions={<Button size="sm" onClick={() => closeTab(tab.id)}>{t('view.closeThisTab')}</Button>} /></div>
             : connection.engine === 'postgres' ? <SqlWorkbench connection={connection} /> : <MongoWorkbench connection={connection} />}
         </div>
       })}
