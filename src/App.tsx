@@ -58,7 +58,9 @@ import { useNavigationPrefs } from './store/navigation-prefs.store'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import type { WizardLaunchInput } from './components/Workspace/NewWorkspaceModal'
 const NewWorkspaceModal = lazy(() => import('./components/Workspace/NewWorkspaceModal').then((m) => ({ default: m.NewWorkspaceModal })))
-const WorkspaceSurface = lazy(() => import('./components/Workspace/WorkspaceSurface').then((m) => ({ default: m.WorkspaceSurface })))
+import { chunk, lazyFrom } from './lib/chunk'
+const WORKSPACE_SURFACE_CHUNK = chunk(() => import('./components/Workspace/WorkspaceSurface'))
+const WorkspaceSurface = lazyFrom(WORKSPACE_SURFACE_CHUNK, (m) => m.WorkspaceSurface)
 const NoWorkspaceStart = lazy(() => import('./components/Onboarding/NoWorkspaceStart').then((m) => ({ default: m.NoWorkspaceStart })))
 const DelegationNotice = lazy(() => import('./components/Delegation/DelegationNotice').then((m) => ({ default: m.DelegationNotice })))
 import { AgentHooksPromptHost } from './components/AgentSessions/AgentHooksPromptHost'
@@ -189,6 +191,9 @@ export function App(): ReactElement {
     toggleSettings: state.toggleSettings,
     toggleSidebar: state.toggleSidebar
   })))
+  useEffect(() => {
+    if (isNewWorkspaceOpen || activeWorkspace) void WORKSPACE_SURFACE_CHUNK.load()
+  }, [isNewWorkspaceOpen, activeWorkspace])
   const {
     allProfiles: agentProfiles,
     readiness: agentReadiness,
@@ -771,7 +776,7 @@ export function App(): ReactElement {
                     className={`workspace-host${isActive ? '' : ' workspace-host-hidden'}`} data-view={isActive ? 'code' : undefined}
                     aria-hidden={!isActive}
                   >
-                    <Suspense fallback={null}><WorkspaceSurface
+                    <Suspense fallback={<ViewSkeleton name="OxeCode" />}><WorkspaceSurface
                       workspace={ws}
                       isActive={isActive}
                       agentProfiles={agentProfiles}
