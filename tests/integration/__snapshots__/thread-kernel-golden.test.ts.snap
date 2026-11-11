@@ -243,6 +243,18 @@ exports[`Thread event pipeline (golden) > approvals and requests, including ones
         "createdAt": "<time>",
         "generation": 1,
         "id": "rq-1",
+        "impact": {
+          "affects": {
+            "count": null,
+            "unit": "files",
+          },
+          "kind": "command",
+          "lang": "shell",
+          "reversible": true,
+          "risk": "medium",
+          "text": "Approve Edit",
+          "where": "project-A",
+        },
         "kind": "approval",
         "nativeId": "rq-1",
         "nativeMethod": "m",
