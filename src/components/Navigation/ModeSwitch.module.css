@@ -1,43 +1,55 @@
-/* Segmented control for the three views: a quiet track, the active view lifted on a raised fill. */
+/* Mode tabs in the title bar: icon + label, active view underlined in Mandacaru green. */
 .switch {
   display: inline-flex;
+  align-items: stretch;
   justify-self: center;
   gap: 2px;
-  padding: 3px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  background: var(--surface-base);
+  height: 36px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   -webkit-app-region: no-drag;
 }
 
 /* Holds a view's button and, beside it, its attention badge; the badge is placed against this box. */
-.item { position: relative; display: inline-flex; }
+.item { position: relative; display: inline-flex; align-items: stretch; }
 
 .option {
   position: relative;
   display: inline-flex;
   align-items: center;
-  height: 24px;
-  padding: 0 var(--space-4);
+  gap: var(--space-1-5, 6px);
+  height: 36px;
+  padding: 0 var(--space-3);
   border: 0;
-  border-radius: var(--radius-md);
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
   background: transparent;
   color: var(--text-muted);
   font: inherit;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: var(--weight-medium);
+  white-space: nowrap;
   cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
+  transition: color var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard);
 }
-.option:hover { color: var(--text-primary); }
-.option[aria-pressed='true'] { background: var(--fill-pressed); color: var(--text-primary); }
-.option:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.option:hover { color: var(--text-primary); background: var(--fill-hover); }
+.option[aria-pressed='true'] {
+  background: transparent;
+  border-bottom-color: var(--accent);
+  color: var(--text-primary);
+  font-weight: var(--weight-semibold);
+}
+.option:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+
+.modeIcon { flex-shrink: 0; color: currentColor; transition: color var(--duration-fast) var(--ease-standard); }
+.option[aria-pressed='true'] .modeIcon { color: var(--accent); }
 
 /* What needs a person in that view: amber for "needs you", red when only failures remain. */
 .badge {
   position: absolute;
-  top: -5px;
-  right: -3px;
+  top: 4px;
+  right: 1px;
   min-width: 14px;
   height: 14px;
   padding: 0 3px;
@@ -56,5 +68,5 @@
 .badgeFailed { border-color: var(--intent-danger-fg); background: var(--intent-danger-bg); color: var(--intent-danger-fg); }
 
 /* Agents are busy and nothing needs you: a small breathing dot. */
-.working { position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); pointer-events: none; --pulse-opacity: 0.35; animation: global(oxe-pulse) var(--duration-pulse) var(--ease-standard) infinite; }
+.working { position: absolute; top: 8px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); pointer-events: none; --pulse-opacity: 0.35; animation: global(oxe-pulse) var(--duration-pulse) var(--ease-standard) infinite; }
 :global([data-motion='reduce']) .working { animation: none; }

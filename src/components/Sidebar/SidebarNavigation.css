@@ -1,9 +1,11 @@
 /* Code-specific project tree; shared chrome lives in NavigationChrome.css. */
 .sidebar-redesign { position: relative; }
-.sidebar-workspace-tree { border: 1px solid transparent; border-radius: var(--nav-radius); margin-bottom: 4px; overflow: visible; }
+.sidebar-workspace-tree { border: 1px solid var(--border-subtle); border-radius: var(--nav-radius); margin: 0 8px 6px; overflow: hidden; background: var(--surface-raised); }
+.sidebar-workspace-tree[data-ws] { box-shadow: inset 3px 0 0 var(--ws); }
+.sidebar-workspace-tree[data-ws].active { background: color-mix(in srgb, var(--ws) 6%, transparent); border-color: color-mix(in srgb, var(--ws) 35%, var(--border-default)); }
 .sidebar-workspace-tree .ws-group { border: 0; background: transparent; margin: 0; }
-.sidebar-terminal-children { margin: 0 4px 8px 16px; padding-left: 8px; border-left: 1px solid var(--bd-base); }
-.sidebar-terminal-children .pane-session-row { margin: 4px 0; padding: 8px; border: 1px solid transparent; border-radius: var(--nav-radius); }
+.sidebar-terminal-children { margin: 0 6px 8px 14px; padding-left: 8px; border-left: 1px solid var(--bd-base); }
+.sidebar-terminal-children .pane-session-row { margin: 3px 0; padding: 6px 8px; border: 1px solid transparent; border-radius: var(--nav-radius); }
 .sidebar-terminal-children .pane-row-title { font-size: var(--fs-sm); }
 .sidebar-terminal-children .pane-row-context { font-size: var(--fs-2xs); }
 .sidebar-terminal-children .pane-row-bottom { display: none; }

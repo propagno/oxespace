@@ -2,7 +2,6 @@ import type { CSSProperties, ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, Sun } from 'lucide-react'
 import { SidebarCollapseButton } from './SidebarCollapseButton'
-
 import { workspaceColorAttrs } from '../../../shared/workspace-color'
 
 export interface CodeRailWorkspace {
@@ -44,7 +43,7 @@ export function CodeRail({
               key={ws.id}
               type="button"
               className={`sidebar-rail-workspace-btn${active ? ' active' : ''}`}
-              {...(typeof ws.color === 'number' ? workspaceColorAttrs({ id: ws.id, color: ws.color }) : undefined)}
+              {...(typeof ws.color !== 'string' ? workspaceColorAttrs({ id: ws.id, color: ws.color ?? null }) : undefined)}
               style={{ ...RAIL_BUTTON_STYLE, ...(typeof ws.color === 'string' && ws.color ? { borderColor: ws.color } : undefined) }}
               aria-label={label}
               title={label}
@@ -52,7 +51,7 @@ export function CodeRail({
               onClick={() => onSelect(ws.id)}
             >
               <span aria-hidden="true">{ws.name.slice(0, 2).toUpperCase()}</span>
-              {attention ? <Sun size={12} aria-hidden="true" /> : null}
+              {attention ? <Sun size={11} className="sidebar-rail-attention" aria-hidden="true" /> : null}
             </button>
           )
         })}

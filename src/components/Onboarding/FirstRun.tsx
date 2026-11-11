@@ -1,10 +1,14 @@
+import { Check } from 'lucide-react'
 import { useEffect, useId, useRef, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AgentProvider } from '../../../shared/types/agent'
-import { Button } from '../../ui'
+import { OxeCodeIcon } from '../../design/icons/OxeCodeIcon'
+import { OxeQueryIcon } from '../../design/icons/OxeQueryIcon'
+import { Button, cx } from '../../ui'
+import { OxeLogo } from '../Brand/OxeLogo'
 import { PROVIDER_INSTALL_DOCS } from '../Settings/providerInstallDocs'
 import { openInstallDocs } from './AgentCliOnboarding'
-import styles from './FirstRunChecklist.module.css'
+import styles from './FirstRun.module.css'
 
 export type FirstRunAgentStatus = 'ready' | 'missing' | 'signed-out' | 'signing-in'
 
@@ -22,6 +26,7 @@ export interface FirstRunProps {
   onCancelSignIn: (provider: AgentProvider) => void
   onNewConversation: () => void
   onOpenMode: (mode: 'code' | 'data') => void
+  onNewWorkspace?: () => void
 }
 
 function providerTitle(provider: AgentProvider): string {
@@ -37,7 +42,8 @@ export function FirstRun({
   onSignIn,
   onCancelSignIn,
   onNewConversation,
-  onOpenMode
+  onOpenMode,
+  onNewWorkspace
 }: FirstRunProps): ReactElement {
   const { t } = useTranslation()
   const reasonId = useId()
@@ -60,76 +66,129 @@ export function FirstRun({
   const disabledReason = !hasReadyAgent ? t('firstRun.v2.connectFirst') : undefined
 
   return (
-    <section className={styles.card} data-testid="first-run">
-      <ol className={styles.steps}>
-        <li className={styles.step} data-done={Boolean(folder) || undefined}>
-          <div className={styles.body}>
-            <h3 className={styles.stepTitle}>{t('firstRun.v2.folderStep')}</h3>
-            {folder ? <p className={styles.detail}>{folder}</p> : null}
-            <div className={styles.actions}>
-              <Button variant="secondary" size="sm" onClick={onOpenFolder}>{t('firstRun.v2.chooseFolder')}</Button>
-            </div>
-          </div>
-        </li>
-        <li className={styles.step} data-done={hasReadyAgent || undefined}>
-          <div className={styles.body}>
-            <h3 className={styles.stepTitle}>{t('firstRun.v2.agentStep')}</h3>
-            {agents.map((agent) => {
-              const label = providerTitle(agent.provider)
-              const docUrl = PROVIDER_INSTALL_DOCS[agent.provider]?.url ?? 'https://github.com'
-              return (
-                <div key={agent.provider} className={styles.row}>
-                  <span className={styles.headline}>{label}</span>
-                  {agent.status === 'missing' ? (
-                    <Button variant="ghost" size="sm" onClick={() => openInstallDocs(docUrl)}>
-                      {t('firstRun.v2.howToInstall')}
-                    </Button>
-                  ) : agent.status === 'signed-out' ? (
-                    <Button variant="secondary" size="sm" onClick={() => onSignIn(agent.provider)}>
-                      {t('firstRun.v2.signIn', { provider: label })}
-                    </Button>
-                  ) : agent.status === 'signing-in' ? (
-                    <>
-                      <span className={styles.detail}>{t('firstRun.v2.waiting')}</span>
-                      <Button variant="ghost" size="sm" onClick={() => onCancelSignIn(agent.provider)}>
-                        {t('firstRun.v2.cancel')}
-                      </Button>
-                    </>
-                  ) : (
-                    <span className={styles.detail}>
-                      {agent.model ? t('firstRun.v2.readyModel', { model: agent.model }) : t('firstRun.v2.ready')}
-                    </span>
-                  )}
+    <section className={styles.screen} data-testid="first-run">
+      <div className={styles.inner}>
+        <header className={styles.hero}>
+          <span className={styles.heroBrand}>
+            <OxeLogo size={18} />
+            <span>OXESpace 1.5</span>
+          </span>
+          <h1 className={styles.heroTitle}>{t('firstRun.v2.heroTitle')}</h1>
+          <p className={styles.heroLead}>{t('firstRun.v2.heroLead')}</p>
+        </header>
+
+        <ol className={styles.steps}>
+          <li className={styles.step} data-done={Boolean(folder) || undefined}>
+            <span className={styles.stepNum} aria-hidden="true">
+              {folder ? <Check size={13} /> : '1'}
+            </span>
+            <div className={styles.body}>
+              <div className={styles.stepHeader}>
+                <h3 className={styles.stepTitle}>{t('firstRun.v2.folderStep')}</h3>
+                <div className={styles.actions}>
+                  <Button variant="secondary" size="sm" onClick={onOpenFolder}>{t('firstRun.v2.chooseFolder')}</Button>
                 </div>
-              )
-            })}
-          </div>
-        </li>
-        <li className={styles.step}>
-          <div className={styles.body}>
-            <h3 ref={step3HeadingRef} tabIndex={-1} className={styles.stepTitle}>
-              {t('firstRun.v2.conversationStep')}
-            </h3>
-            <div className={styles.actions}>
-              <Button
-                variant="primary"
-                size="sm"
-                disabled={!hasReadyAgent}
-                title={disabledReason}
-                aria-describedby={disabledReason ? reasonId : undefined}
-                onClick={onNewConversation}
-              >
-                {t('firstRun.v2.newConversation')}
-              </Button>
-              {disabledReason ? <span id={reasonId} className="sr-only">{disabledReason}</span> : null}
+              </div>
+              {folder ? <p className={styles.folderBadge}>{folder}</p> : null}
             </div>
+          </li>
+
+          <li className={styles.step} data-done={hasReadyAgent || undefined}>
+            <span className={styles.stepNum} aria-hidden="true">
+              {hasReadyAgent ? <Check size={13} /> : '2'}
+            </span>
+            <div className={styles.body}>
+              <h3 className={styles.stepTitle}>{t('firstRun.v2.agentStep')}</h3>
+              <div className={styles.agentList}>
+                {agents.map((agent) => {
+                  const label = providerTitle(agent.provider)
+                  const docUrl = PROVIDER_INSTALL_DOCS[agent.provider]?.url ?? 'https://github.com'
+                  return (
+                    <div key={agent.provider} className={styles.agentRow}>
+                      <span className={styles.agentIdentity}>
+                        <span className={cx(styles.agentDot, agent.status === 'ready' && styles.agentDotReady)} aria-hidden="true" />
+                        <span className={styles.headline}>{label}</span>
+                      </span>
+                      <span className={styles.agentActions}>
+                        {agent.status === 'missing' ? (
+                          <Button variant="ghost" size="sm" onClick={() => openInstallDocs(docUrl)}>
+                            {t('firstRun.v2.howToInstall')}
+                          </Button>
+                        ) : agent.status === 'signed-out' ? (
+                          <Button variant="secondary" size="sm" onClick={() => onSignIn(agent.provider)}>
+                            {t('firstRun.v2.signIn', { provider: label })}
+                          </Button>
+                        ) : agent.status === 'signing-in' ? (
+                          <>
+                            <span className={styles.detail}>{t('firstRun.v2.waiting')}</span>
+                            <Button variant="ghost" size="sm" onClick={() => onCancelSignIn(agent.provider)}>
+                              {t('firstRun.v2.cancel')}
+                            </Button>
+                          </>
+                        ) : (
+                          <span className={cx(styles.detail, styles.detailReady)}>
+                            {agent.model ? t('firstRun.v2.readyModel', { model: agent.model }) : t('firstRun.v2.ready')}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </li>
+
+          <li className={styles.step}>
+            <span className={styles.stepNum} aria-hidden="true">3</span>
+            <div className={styles.body}>
+              <div className={styles.stepHeader}>
+                <h3 ref={step3HeadingRef} tabIndex={-1} className={styles.stepTitle}>
+                  {t('firstRun.v2.conversationStep')}
+                </h3>
+                <div className={styles.actions}>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={!hasReadyAgent}
+                    title={disabledReason}
+                    aria-describedby={disabledReason ? reasonId : undefined}
+                    onClick={onNewConversation}
+                  >
+                    {t('firstRun.v2.newConversation')}
+                  </Button>
+                  {disabledReason ? <span id={reasonId} className="sr-only">{disabledReason}</span> : null}
+                </div>
+              </div>
+            </div>
+          </li>
+        </ol>
+
+        <div className={styles.modesFooter}>
+          <div className={styles.modesCaptionRow}>
+            <span className={styles.modesCaption}>{t('firstRun.v2.openModeAlone')}</span>
+            {onNewWorkspace ? (
+              <Button variant="ghost" size="sm" data-testid="btn-new-workspace" onClick={onNewWorkspace}>
+                {t('app.start.newWorkspace')}
+              </Button>
+            ) : null}
           </div>
-        </li>
-      </ol>
-      <div className={styles.actions}>
-        <span>{t('firstRun.v2.openModeAlone')}</span>
-        <Button variant="ghost" size="sm" onClick={() => onOpenMode('code')}>OxeCode</Button>
-        <Button variant="ghost" size="sm" onClick={() => onOpenMode('data')}>OxeQuery</Button>
+          <div className={styles.modeGrid}>
+            <Button variant="ghost" className={styles.modeTile} onClick={() => onOpenMode('code')}>
+              <OxeCodeIcon size={16} className={styles.modeIcon} />
+              <span className={styles.modeText}>
+                <span className={styles.modeName}>OxeCode</span>{' '}
+                <span className={styles.modeDesc}>{t('firstRun.v2.modeDescCode')}</span>
+              </span>
+            </Button>
+            <Button variant="ghost" className={styles.modeTile} onClick={() => onOpenMode('data')}>
+              <OxeQueryIcon size={16} className={styles.modeIcon} />
+              <span className={styles.modeText}>
+                <span className={styles.modeName}>OxeQuery</span>{' '}
+                <span className={styles.modeDesc}>{t('firstRun.v2.modeDescQuery')}</span>
+              </span>
+            </Button>
+          </div>
+        </div>
       </div>
     </section>
   )

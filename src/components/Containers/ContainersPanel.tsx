@@ -6,6 +6,7 @@ import type { DatabaseEngine } from '../../../shared/types/oxequery'
 import { openExternalLink } from '../../lib/externalLinks'
 import { Avatar, Button, EmptyState, Menu, Notice, StatusDot, ToolPanel, copyText, toast, useModalSurface, type MenuEntry } from '../../ui'
 import { requestOxeQueryConnect } from '../OxeQuery/oxequery-bridge'
+import './ContainersPanel.css'
 
 const DOCKER_INSTALL_URL = 'https://docs.docker.com/get-docker/'
 
@@ -32,8 +33,9 @@ function ConfirmPrompt({
     cancelRef.current?.focus()
   }, [])
   return (
-    <div role="presentation" onMouseDown={onCancel}>
+    <div className="containers-confirm-overlay" role="presentation" onMouseDown={onCancel}>
       <div
+        className="containers-confirm-box"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -43,7 +45,7 @@ function ConfirmPrompt({
       >
         <h3 id={titleId}>{title}</h3>
         <p id={descId}>{description}</p>
-        <div>
+        <div className="containers-confirm-actions">
           <Button ref={cancelRef} variant="secondary" onClick={onCancel}>{cancelLabel}</Button>
           <Button variant="danger" onClick={onConfirm}>{confirmLabel}</Button>
         </div>
@@ -113,13 +115,15 @@ export function ContainersPanel({ onOpenConversation, onClose }: ContainersPanel
     if (!onClose) return <div className="containers-panel">{body}</div>
     return (
       <ToolPanel label={t('panels.containers')} onClose={onClose} toasts>
-        <header className="containers-panel-header">
-          <h2>{t('panels.containers')}</h2>
-          <Button size="sm" variant="ghost" aria-label={t('ui.close', { ns: 'common' })} onClick={onClose}>
-            <X size={14} aria-hidden="true" />
-          </Button>
-        </header>
-        {body}
+        <div className="containers-panel containers-panel-modal">
+          <header className="containers-panel-header">
+            <h2>{t('panels.containers')}</h2>
+            <Button size="sm" variant="ghost" aria-label={t('ui.close', { ns: 'common' })} onClick={onClose}>
+              <X size={14} aria-hidden="true" />
+            </Button>
+          </header>
+          {body}
+        </div>
       </ToolPanel>
     )
   }
@@ -129,25 +133,29 @@ export function ContainersPanel({ onOpenConversation, onClose }: ContainersPanel
     const engineName = t(`containers.engineName.${engineKey}`)
     if (panel.engine.state === 'missing') {
       return wrap(
-        <Notice
-          intent="warning"
-          title={t('containers.engine.missingTitle', { engine: engineName })}
-          actions={<Button size="sm" onClick={() => void openExternalLink(DOCKER_INSTALL_URL, { source: 'app' })}>{t('containers.howToInstall')}</Button>}
-        >
-          <p>{t('containers.engine.missingBody')}</p>
-        </Notice>
+        <div className="containers-panel-notice">
+          <Notice
+            intent="warning"
+            title={t('containers.engine.missingTitle', { engine: engineName })}
+            actions={<Button size="sm" onClick={() => void openExternalLink(DOCKER_INSTALL_URL, { source: 'app' })}>{t('containers.howToInstall')}</Button>}
+          >
+            <p>{t('containers.engine.missingBody')}</p>
+          </Notice>
+        </div>
       )
     }
     const titleKey = panel.engine.state === 'denied' ? 'containers.engine.deniedTitle' : 'containers.engine.stoppedTitle'
     const bodyKey = panel.engine.state === 'denied' ? 'containers.engine.deniedBody' : 'containers.engine.stoppedBody'
     return wrap(
-      <Notice
-        intent="warning"
-        title={t(titleKey, { engine: engineName })}
-        actions={<Button size="sm" onClick={() => void refresh()}>{t('containers.tryAgain')}</Button>}
-      >
-        <p>{t(bodyKey, { engine: engineName })}</p>
-      </Notice>
+      <div className="containers-panel-notice">
+        <Notice
+          intent="warning"
+          title={t(titleKey, { engine: engineName })}
+          actions={<Button size="sm" onClick={() => void refresh()}>{t('containers.tryAgain')}</Button>}
+        >
+          <p>{t(bodyKey, { engine: engineName })}</p>
+        </Notice>
+      </div>
     )
   }
 
@@ -224,12 +232,13 @@ export function ContainersPanel({ onOpenConversation, onClose }: ContainersPanel
     return (
       <li key={row.id} data-selected={selected?.id === row.id || undefined} onClick={() => setSelectedId(row.id)}>
         <StatusDot status={running ? 'running' : 'idle'} label={running ? t('containers.statusRunning') : t('containers.statusStopped')} />
-        <button type="button" onClick={() => setSelectedId(row.id)}>
+        <button type="button" className="containers-row-name" onClick={() => setSelectedId(row.id)}>
           <span>{row.name}</span>
         </button>
         {origin?.kind === 'conversation' ? (
           <button
             type="button"
+            className="containers-row-origin"
             onClick={event => {
               event.stopPropagation()
               onOpenConversation?.(origin.conversationId)
@@ -239,7 +248,7 @@ export function ContainersPanel({ onOpenConversation, onClose }: ContainersPanel
             <span>{origin.title}</span>
           </button>
         ) : origin?.kind === 'person' ? (
-          <span>{t('containers.startedByYou')}</span>
+          <span className="containers-row-origin">{t('containers.startedByYou')}</span>
         ) : (
           <span className="text-muted" title={t('containers.outsideHint')}>{t('containers.outside')}</span>
         )}
@@ -259,7 +268,7 @@ export function ContainersPanel({ onOpenConversation, onClose }: ContainersPanel
     <div className="containers-panel-body">
       <div className="containers-panel-list">
         {[...stacks.entries()].map(([stack, group]) => (
-          <div key={stack} role="group" aria-label={stack}>
+          <div key={stack} className="containers-stack-group" role="group" aria-label={stack}>
             <h4>{stack}</h4>
             <ul>{group.map(renderRow)}</ul>
           </div>

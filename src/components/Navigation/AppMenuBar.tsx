@@ -2,6 +2,7 @@ import type { ReactElement } from 'react'
 import { Check, ChevronRight, Menu } from 'lucide-react'
 import { DropdownMenu } from 'radix-ui'
 import { useTranslation } from 'react-i18next'
+import { Button } from '../../ui'
 import { buildAppMenus, type AppMenuContext, type AppMenuNode } from './appMenus'
 import './AppMenuBar.css'
 
@@ -30,18 +31,34 @@ function Submenu({ label, nodes, disabled }: { label: string; nodes: AppMenuNode
   </DropdownMenu.Sub>
 }
 
-/** The application menus (File, Edit, View, Tools, Help) behind one button in the title bar; the OS frame is hidden. */
+/** The application menus (File, Edit, View, Tools, Help) inline beside the logo, with the compact menu button kept for narrow widths and keyboard shortcuts. */
 export function AppMenuBar({ context }: { context: AppMenuContext }): ReactElement {
   // Subscribing re-renders the menus, built with i18n.t, when the language changes.
   const { t } = useTranslation()
   const menus = buildAppMenus(context)
   // Non-modal (CR-33, HML-F2-1): a modal menu sets aria-hidden on every sibling of its portal, <main> included, while <main> keeps focusable controls (axe aria-hidden-focus). Escape, a click outside and focus return still close it.
-  return <DropdownMenu.Root modal={false}>
-    <DropdownMenu.Trigger className="app-menu-button" aria-label={t('nav.applicationMenu')} title={t('nav.menu')}><Menu size={16} aria-hidden="true" /></DropdownMenu.Trigger>
-    <DropdownMenu.Portal>
-      <DropdownMenu.Content className="app-menu-content" align="start" sideOffset={6}>
-        {menus.map(menu => <Submenu key={menu.id} label={menu.label} nodes={menu.items} />)}
-      </DropdownMenu.Content>
-    </DropdownMenu.Portal>
-  </DropdownMenu.Root>
+  return <div className="app-menubar-wrap">
+    <DropdownMenu.Root modal={false}>
+      <DropdownMenu.Trigger className="app-menu-button" aria-label={t('nav.applicationMenu')} title={t('nav.menu')}><Menu size={15} aria-hidden="true" /></DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content className="app-menu-content" align="start" sideOffset={6}>
+          {menus.map(menu => <Submenu key={menu.id} label={menu.label} nodes={menu.items} />)}
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+    <nav className="app-menubar-inline" aria-label={t('nav.menu')}>
+      {menus.map(menu => (
+        <DropdownMenu.Root key={menu.id} modal={false}>
+          <DropdownMenu.Trigger asChild>
+            <Button variant="ghost" size="sm" className="app-menubar-trigger">{menu.label}</Button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content className="app-menu-content" align="start" sideOffset={6}>
+              <Nodes nodes={menu.items} />
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
+      ))}
+    </nav>
+  </div>
 }

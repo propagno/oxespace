@@ -425,7 +425,11 @@
       "conversationStep": "Start your first conversation",
       "newConversation": "New conversation",
       "connectFirst": "Connect an agent first",
-      "openModeAlone": "Or open a mode on its own"
+      "openModeAlone": "Or open a mode on its own",
+      "heroTitle": "Agents that work in your code, and show you every step",
+      "heroLead": "Pick a project folder, connect Claude Code or Codex, and start working with full visibility.",
+      "modeDescCode": "Terminals and agents side by side",
+      "modeDescQuery": "Inspect tables and run SQL safely"
     }
   },
   "usage": {
@@ -709,11 +713,7 @@
         "updates": "Check for updates",
         "policy": "Open policy settings",
         "diagnostics": "Open diagnostics",
-        "data": "Open data settings",
-        "about": "Check for updates",
-        "mcp": "Open MCP and skills settings",
-        "privacy": "Open data and privacy settings",
-        "activity": "Open agent activity settings"
+        "data": "Open data settings"
       },
       "oxequery": {
         "open": "Open",
@@ -1117,5 +1117,10 @@
     "noEditor": "No external editor was found (VS Code, Cursor or Zed). Install one and try again.",
     "notAFile": "{{editor}} opens only files from here. To open a folder, use “{{reveal}}”.",
     "menuUnavailable": "The menu couldn't load. Try again."
+  },
+  "statusBar": {
+    "agentsWorking_one": "{{count}} agent working",
+    "agentsWorking_other": "{{count}} agents working",
+    "nothingSetUpYet": "Nothing set up yet"
   }
 }

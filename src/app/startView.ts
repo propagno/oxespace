@@ -13,6 +13,15 @@ export function initialAppView(remembered: string | null): AppView {
   return 'thread'
 }
 
+export function hasRememberedAppView(): boolean {
+  try {
+    const remembered = localStorage.getItem(RECENT_VIEW)
+    return remembered === 'code' || remembered === 'thread' || remembered === 'data'
+  } catch {
+    return false
+  }
+}
+
 /**
  * Resolves the initial AppView at window boot. Until first-run has an agent
  * ready or is dismissed (with no remembered view yet), OXESpace opens on
