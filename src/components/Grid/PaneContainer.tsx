@@ -10,7 +10,6 @@ import { derivePaneDisplayState, resolvePaneIdentity } from '../../utils/paneDis
 import { AgentSessionDetails, EnableResumeMenuItem, PaneHooksNotice, PaneResumeMarker, StartFreshMenuItem, usePaneResume } from '../AgentSessions/PaneResume'
 import { PaneContent } from '../Panes/PaneContent'
 import { PaneConversationSwitch } from '../Panes/PaneConversationSwitch'
-import { PaneConversationView } from '../Panes/PaneConversationView'
 import { usePaneConversationView } from '../../store/pane-conversation-view.store'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { PaneBranchBadge } from '../Panes/PaneBranchBadge'
@@ -28,6 +27,7 @@ const detailRows = (items: string[][]): Array<{ label: string; detail: string }>
 const ProviderSessionFinder = lazy(() => import('./ProviderSessionFinder').then(module => ({ default: module.ProviderSessionFinder })))
 const StatusExplainDialog = lazy(() => import('./StatusExplainDialog').then(module => ({ default: module.StatusExplainDialog })))
 const TerminalFocusMenuItems = lazy(() => import('./TerminalFocusMenuItems').then(module => ({ default: module.TerminalFocusMenuItems })))
+const PaneConversationView = lazy(() => import('../Panes/PaneConversationView').then(module => ({ default: module.PaneConversationView })))
 
 interface PaneContainerProps {
   pane: WorkspacePane
@@ -396,7 +396,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
         <PaneContent pane={pane} workspaceId={workspace.id} workspaceRootPath={workspace.rootPath} autoStart={autoStart} />
       </div>
       {isTerminalPane && paneViewMode === 'conversation' ? (
-        <PaneConversationView
+        <Suspense fallback={null}><PaneConversationView
           paneId={pane.id}
           onShowScreen={() => setPaneViewMode(pane.id, 'terminal')}
           onTypeInTerminal={() => {
@@ -405,7 +405,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
               window.dispatchEvent(new CustomEvent('oxe:terminal-focus', { detail: { paneId: pane.id } }))
             }, 0)
           }}
-        />
+        /></Suspense>
       ) : null}
       {detailsOpen && <Dialog size="md" title={tc('paneMenu.detailsTitle')} description={tc('paneMenu.detailsDescription')} onClose={() => setDetailsOpen(false)}>
         {/* F32: the native session main resumed or recorded; the note on finding it only when there is none. */}
