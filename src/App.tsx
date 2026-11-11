@@ -172,12 +172,8 @@ export function App(): ReactElement {
     isScriptsPanelOpen: state.isScriptsPanelOpen,
     webPreviewOpenByWorkspace: state.webPreviewOpenByWorkspace,
     isIntegrationPanelOpen: state.isIntegrationPanelOpen,
-    openSlashOverlay: state.openSlashOverlay,
-    closeSlashOverlay: state.closeSlashOverlay,
-    openMcpPanel: state.openMcpPanel,
-    closeMcpPanel: state.closeMcpPanel,
-    openScriptsPanel: state.openScriptsPanel,
-    closeScriptsPanel: state.closeScriptsPanel,
+    openSlashOverlay: state.openSlashOverlay, closeSlashOverlay: state.closeSlashOverlay, openMcpPanel: state.openMcpPanel, closeMcpPanel: state.closeMcpPanel,
+    openScriptsPanel: state.openScriptsPanel, closeScriptsPanel: state.closeScriptsPanel,
     isSearchPanelOpen: state.isSearchPanelOpen, openSearchPanel: state.openSearchPanel, closeSearchPanel: state.closeSearchPanel,
     isHttpCallsPanelOpen: state.isHttpCallsPanelOpen, toggleHttpCallsPanel: state.toggleHttpCallsPanel, isAndroidPanelOpen: state.isAndroidPanelOpen, toggleAndroidPanel: state.toggleAndroidPanel,
     openWebPreview: state.openWebPreview,
@@ -191,9 +187,7 @@ export function App(): ReactElement {
     toggleSettings: state.toggleSettings,
     toggleSidebar: state.toggleSidebar
   })))
-  useEffect(() => {
-    if (isNewWorkspaceOpen || activeWorkspace) void WORKSPACE_SURFACE_CHUNK.load()
-  }, [isNewWorkspaceOpen, activeWorkspace])
+  useEffect(() => { if (isNewWorkspaceOpen || activeWorkspace) void WORKSPACE_SURFACE_CHUNK.load() }, [isNewWorkspaceOpen, activeWorkspace])
   const {
     allProfiles: agentProfiles,
     readiness: agentReadiness,
