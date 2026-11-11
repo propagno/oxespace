@@ -672,6 +672,8 @@ export interface ThreadPendingRequestSummary {
   createdAt: number
   /** The conversation generation the request belongs to; an answer must name it (`respondPending`). */
   generation: number
+  /** F7 impact summary when main assessed the request; absent otherwise. */
+  impact?: { risk: ThreadRequestImpactRisk; reversible: boolean }
 }
 
 /** An answer to a request listed by `pendingRequestsAll`, from any window or device. */
