@@ -60,6 +60,13 @@ describe('Thread working location', { timeout: 30_000 }, () => {
     }
   }
   const verifiedPaths = (f: ReturnType<typeof fixture>): string[] => f.read().events.flatMap(event => event.type === 'turn-diff' && event.id.startsWith('verified-diff:') ? event.files.map(file => file.path) : [])
+  const turnReady = async (f: ReturnType<typeof fixture>, count = 1): Promise<void> => {
+    const turns = (f.manager as unknown as { turns: { checkpointIds: Map<string, string[]>; baselines: Map<string, unknown[]> } }).turns
+    await until(() => {
+      const turnId = f.read().turns?.at(-1)?.id
+      return Boolean(turnId && f.read().turns!.at(-1)!.status === 'running' && (turns.checkpointIds.get(turnId)?.length ?? 0) >= count && (turns.baselines.get(f.id)?.length ?? 0) >= count)
+    }, `turn baseline x${count}`)
+  }
   // Finalizing reads git in every checkout the turn used, which takes a moment on Windows.
   // Finalizing reads git in every checkout the turn used, which takes a moment on Windows: wait for the
   // verified diff and for every checkpoint of the turn to be finalized.
@@ -80,10 +87,10 @@ describe('Thread working location', { timeout: 30_000 }, () => {
     await f.manager.send(f.id, 'Move')
     f.callbacks[0]({ type: 'location', cwd: tree })
     f.callbacks[0]({ type: 'completed', status: 'completed' })
-    await settle()
+    await until(() => f.read().thread.status === 'idle', 'first turn idle')
 
     await f.manager.send(f.id, 'Edit in the worktree')
-    await settle()
+    await turnReady(f, 1)
     writeFileSync(join(tree, 'a.txt'), 'changed in the worktree\n')
     f.callbacks[0]({ type: 'completed', status: 'completed' })
     await finalized(f)
@@ -101,7 +108,7 @@ describe('Thread working location', { timeout: 30_000 }, () => {
     const f = fixture(repo, { realWorkingState: true })
     const sends = (f.manager as unknown as { adapters: Map<string, AgentConversationAdapter> })
     await f.manager.send(f.id, 'Change a.txt')
-    await settle()
+    await turnReady(f, 1)
     writeFileSync(join(repo, 'a.txt'), 'half-done edit\n')
     f.callbacks[0]({ type: 'completed', status: 'failed', error: 'connection dropped' })
     await finalized(f).catch(() => undefined)
@@ -131,11 +138,12 @@ describe('Thread working location', { timeout: 30_000 }, () => {
     await f.manager.send(f.id, 'First')
     f.callbacks[0]({ type: 'session', nativeSessionId: 'native-1' })
     f.callbacks[0]({ type: 'completed', status: 'completed' })
-    await settle()
+    await until(() => f.read().thread.status === 'idle', 'first turn idle')
     await f.manager.send(f.id, 'Edit a.txt')
     // A slow runner can still be starting the turn after a fixed pause: wait for it to run, and for the thread to be
     // idle again before rewinding, which refuses while a turn is active.
     await until(() => f.read().turns?.length === 2 && f.read().turns!.at(-1)!.status === 'running')
+    await turnReady(f, 1)
     writeFileSync(join(repo, 'a.txt'), 'edited by the turn\n')
     f.callbacks.at(-1)!({ type: 'completed', status: 'completed' })
     await finalized(f)
@@ -154,9 +162,9 @@ describe('Thread working location', { timeout: 30_000 }, () => {
     const { repo, tree } = repository()
     const f = fixture(repo, { realWorkingState: true })
     await f.manager.send(f.id, 'Work in a worktree')
-    await settle()
+    await turnReady(f, 1)
     f.callbacks[0]({ type: 'location', cwd: tree })
-    await settle()
+    await turnReady(f, 2)
     writeFileSync(join(tree, 'new-in-tree.txt'), 'created after the move\n')
     f.callbacks[0]({ type: 'completed', status: 'completed' })
     await finalized(f)
