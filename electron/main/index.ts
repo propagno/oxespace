@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, session } from 'electron'
+import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, Notification, session } from 'electron'
 import log from 'electron-log/main.js'
 import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from './services/runtime-diagnostics'
 import { markAppReady, measureStartup, trackWindowStartup } from './startup-timing'
@@ -6,7 +6,9 @@ import { registerAppUpdateIpc, startAutoUpdater } from './ipc/app-update.ipc'
 import { RendererRecoveryPolicy } from './renderer-recovery'
 import { installCloseGuard } from './window-close-guard'
 import { initialWindowColors, registerAppearanceIpc, savedUiScale } from './ipc/appearance.ipc'
-import { systemLocale, tMain } from './i18n'
+import { mainLanguage, systemLocale, tMain } from './i18n'
+import { messageKey, messageValues } from '../../shared/messages'
+import { ApprovalNotifier } from './services/approvals/approval-notifier'
 import { randomUUID } from 'node:crypto'
 import { realpathSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
@@ -440,7 +442,60 @@ async function registerIpcHandlers(): Promise<() => void> {
     }
     // R0d: no enrich. The delegated agent starts from the explicit handoff, evidence files and selected conversations.
   })
-  delegatedThreadObserver.current = thread => delegationService.observeThread(thread)
+  const seenApprovalNotifications = new Map<string, Set<string>>()
+  const approvalNotifier = new ApprovalNotifier({
+    show: ({ title, body, actions, onAction }) => {
+      if (!Notification.isSupported()) return { close: () => undefined }
+      const lang = mainLanguage()
+      const notification = new Notification({
+        title: tMain(messageKey(title.code) as never, messageValues(title, lang)),
+        body: tMain(messageKey(body.code) as never, messageValues(body, lang)),
+        silent: false,
+        actions: actions.map(action => ({ type: 'button', text: action === 'open' ? tMain('common.open' as never, { defaultValue: 'Open' }) : action }))
+      })
+      notification.on('click', () => onAction('open'))
+      notification.on('action', (_event, index) => { const chosen = actions[index]; if (chosen) onAction(chosen) })
+      notification.show()
+      return { close: () => notification.close() }
+    },
+    focused: () => BrowserWindow.getAllWindows().some(win => !win.isDestroyed() && win.isFocused()),
+    enabled: () => true,
+    focusWindow: () => {
+      const win = BrowserWindow.getAllWindows().find(item => !item.isDestroyed())
+      if (!win) return
+      if (win.isMinimized()) win.restore()
+      win.show()
+      win.focus()
+    },
+    openRequest: requestId => {
+      const channel = (IPC_CHANNELS.approvals as { openRequest?: string }).openRequest ?? 'approvals:open-request'
+      for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.webContents.send(channel, requestId)
+    }
+  })
+  delegatedThreadObserver.current = thread => {
+    delegationService.observeThread(thread)
+    try {
+      const pending = agentThreadHistory.readWindow(thread.id).pendingRequests ?? []
+      const previous = seenApprovalNotifications.get(thread.id) ?? new Set<string>()
+      const current = new Set<string>()
+      for (const req of pending) {
+        if (req.state !== 'pending') continue
+        current.add(req.id)
+        if (!previous.has(req.id)) {
+          approvalNotifier.pending({
+            requestId: req.id,
+            threadId: thread.id,
+            agent: thread.provider === 'codex' ? 'Codex' : 'Claude',
+            pane: thread.title || 'Chat',
+            risk: req.impact?.risk ?? 'medium',
+            title: req.title
+          })
+        }
+      }
+      for (const oldId of previous) if (!current.has(oldId)) approvalNotifier.resolved(oldId)
+      seenApprovalNotifications.set(thread.id, current)
+    } catch { /* notification bookkeeping never blocks thread observation */ }
+  }
   registerDelegationIpc(delegationService)
 
   // B10: outside the main entry, but awaited here, so the approval channels exist before the window can ask.

@@ -510,6 +510,9 @@ export interface MessageParams {
   'notify.prefix.unknownConversation': { conversation: string; title: string }
   'notify.refused.reservedName': { name: string }
   'notify.refused.rateLimit': { perMinute: number }
+  'notify.agentNeedsYou': { agent: string }
+  'notify.requestsNeedYou': { count: number }
+  'notify.requestBody': { pane: string; risk: string }
   /** A pane name an agent chose contains a name only the app uses. */
   'agents.name.reserved': { name: string }
   /** Another session tried to control a delegation whose requester is still running (B6.2). */
@@ -853,6 +856,9 @@ export const MESSAGE_CODES = [
   'notify.prefix.unknownConversation',
   'notify.refused.reservedName',
   'notify.refused.rateLimit',
+  'notify.agentNeedsYou',
+  'notify.requestsNeedYou',
+  'notify.requestBody',
   'agents.name.reserved',
   'delegation.requester.live',
   'app.openIn.outsideRoot',

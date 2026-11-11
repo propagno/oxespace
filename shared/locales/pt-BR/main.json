@@ -481,6 +481,9 @@
       }
     },
     "notify": {
+      "agentNeedsYou": "{{agent}} precisa de você",
+      "requestsNeedYou": "{{count}} pedidos precisam de você",
+      "requestBody": "{{pane}} · {{risk}}",
       "prefix": {
         "pane": "{{agent}} no painel {{pane}}: {{title}}",
         "conversation": "{{agent}} na conversa {{conversation}}: {{title}}",
