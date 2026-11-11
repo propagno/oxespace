@@ -46,7 +46,7 @@ describe('ActivityCenter', () => {
     fireEvent.click(screen.getByTestId('activity-bell'))
     await screen.findByTestId('activity-center')
     fireEvent.click(screen.getByRole('button', { name: /OXESpace 1.4.0/ }))
-    expect(openSettingsPage).toHaveBeenCalledWith('updates')
+    expect(openSettingsPage).toHaveBeenCalledWith('about')
   })
 
   it('marks everything read, and the palette has both commands', async () => {

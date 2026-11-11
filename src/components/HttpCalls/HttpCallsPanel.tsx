@@ -25,7 +25,12 @@ export function HttpCallsPanel({ workspaceId, actor }: { workspaceId: string; ac
       ...(view !== 'all' ? { view } : {}),
       ...(filter.trim() ? { filter: filter.trim() } : {})
     }
-    window.oxe.httpAudit.list(query)
+    const list = window.oxe?.httpAudit?.list
+    if (!list) {
+      setLoading(false)
+      return
+    }
+    list(query)
       .then(page => {
         if (!active) return
         setRows(page.rows || [])

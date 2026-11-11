@@ -2,13 +2,12 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtempSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { runPaletteCommand } from './helpers/panels'
 
 /**
- * Settings › Tools (F10, B7.3) for a workspace's project, against the E2E contract mock (electron/main/e2e/mcp-tools-mock.ts):
+ * Settings › MCP servers and skills (1.5.0 U3.4, B7.3) for a workspace's project, against the E2E contract mock:
  * groups with their costs, turning a group on in the project, and a per-tool rule.
  */
-test('Settings › Tools: groups and costs, turning a group on in the project, and a per-tool rule', async () => {
+test('Settings › MCP servers and skills: groups and costs, turning a group on in the project, and a per-tool rule', async () => {
   test.setTimeout(90_000)
   const info = test.info()
   const root = mkdtempSync(join(tmpdir(), 'oxe-settings-tools-'))
@@ -22,10 +21,10 @@ test('Settings › Tools: groups and costs, turning a group on in the project, a
     await page.getByTestId('btn-new-workspace').click()
     await page.getByTestId('wizard-dir-input').fill(repo)
     await page.getByTestId('wizard-launch-btn').click()
-    await runPaletteCommand(page, 'Workspace settings')
+    await page.getByRole('button', { name: 'Open settings' }).click()
     const modal = page.getByRole('dialog', { name: 'Settings', exact: true })
     await expect(modal).toBeVisible()
-    const category = modal.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Tools/ })
+    const category = modal.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^MCP servers and skills/ })
     await category.click()
     await expect(category).toHaveAttribute('aria-current', 'page')
     const tools = modal.getByTestId('tools-settings')

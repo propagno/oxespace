@@ -360,7 +360,7 @@ test.describe('offer audit', () => {
         'Help/Show keyboard shortcuts': dialog('Keyboard shortcuts'),
         'Help/Open diagnostics': settingsPage('Diagnostics'),
         'Help/Report a problem…': dialog('Report a problem'),
-        'Help/Check for updates': settingsPage('Updates')
+        'Help/Check for updates': settingsPage('About')
       }
       const SUBMENUS: Record<string, (label: string) => Check> = {
         // Menu items say the palette's action: "Use the light theme", "Use compact density", "Use 2 panes".
