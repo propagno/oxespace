@@ -190,7 +190,7 @@ function WorkspaceSurfaceComponent({
   const [integrationExpanded, setIntegrationExpanded] = useState(false)
   const [searchExpanded, setSearchExpanded] = useState(false)
   const [httpCallsExpanded, setHttpCallsExpanded] = useState(false)
-  const httpCallsVisible = isActive && useUIStore((s) => s.isHttpCallsPanelOpen)
+  const httpCallsVisible = useUIStore((s) => isActive && s.isHttpCallsPanelOpen)
   const closeHttpCalls = useUIStore((s) => s.closeHttpCallsPanel)
   // F2 split-tree is the default layout. Keep the fixed grid as a fallback
   // (toggle via F2) so users can recover if a tree layout gets awkward.
