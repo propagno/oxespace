@@ -56,6 +56,7 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `mcp.tool_rules_admin` | `mcpInternal.setToolRule` |
 | `policy.accept_change` | `policy.acceptChange`, `policy.reviewChange` (B7.4: accepting, or reviewing again, a policy file changed outside OXESpace; the phone maps a `policyChange` request to its forbidden `policy.edit`) |
 | `code.agents_overview` | `agents.overview`, `agents.markSeen`, `agents.onChanged` (`agents:overview`, `agents:mark-seen`, `agents:changed`; S7.1: the person's overview of every agent, and only the person marks what they have seen. Agents read the same states with oxespace_agents list, oxespace_threads list and oxespace_work status) |
+| `containers.panel` | `oxePod.containers.panel` (F9 A34: the Containers panel's window-only read model; rows carry other conversations' titles, so agents never reach it) |
 
 ### Per-tool rules (B7.3): where each one holds
 
@@ -164,6 +165,7 @@ before. Code panes receive the whole registry.
 | `oxequery.saved_queries` | Saved queries, history, import and export of data | Excluded: The person's notebook and bulk data moves; agents run one approved statement at a time. |
 | `oxequery.secrets` | Connection credentials, SSH host keys, export and import of connections | **Forbidden**: Secrets and trust. |
 | `containers.runtime` | Containers (OxePod): list, logs, start, stop, restart | **read**: `oxespace_containers_list`, `oxespace_container_logs`<br>**confirm**: `oxespace_container_action` |
+| `containers.panel` | The Containers panel: stack, status, uptime, database flag and who started each container | **Forbidden**: Window-only read model carrying other conversations' titles. |
 | `containers.resources` | Images, volumes, networks, compose, exec and shell, stats, database containers | Planned (P7): OxePod shows them to the person; tools for them come with P7. Removing a container and cleaning up are the person's confirmed actions in OxePod and are not tools. A container's environment reaches the page redacted and never an agent. |
 | `skills.use` | Skills: list, read, add | **read**: `oxespace_skills#list`, `oxespace_skills#get`<br>**confirm**: `oxespace_skills_change#create` |
 | `skills.invoke` | Invoke a skill in a pane | Excluded: Types the skill into a terminal. Agents read its body with oxespace_skills get. |

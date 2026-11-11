@@ -24,7 +24,7 @@ function declaredOps(file: string, name: string): string[] {
 }
 
 const EXPECTED = [
-  'containers.engines', 'containers.candidates', 'containers.useCandidate', 'containers.list', 'containers.inspect', 'containers.stats', 'containers.action', 'containers.remove',
+  'containers.engines', 'containers.candidates', 'containers.useCandidate', 'containers.list', 'containers.panel', 'containers.inspect', 'containers.stats', 'containers.action', 'containers.remove',
   'containers.compose', 'containers.exec', 'containers.logsStart', 'containers.logsStop', 'containers.shell', 'containers.suggestConnection',
   'resources.images', 'resources.volumes', 'resources.networks', 'resources.usage', 'resources.remove', 'resources.prune'
 ]
@@ -34,7 +34,7 @@ registerOxePodIpc(load, error => `reason: ${error instanceof Error ? error.messa
 
 describe('OxePod op contract', () => {
   test('carries exactly the container and resource operations, on its own channel', () => {
-    expect(IPC_CHANNELS.oxePod).toEqual({ call: 'oxePod:call', onEvent: 'oxePod:event' })
+    expect(IPC_CHANNELS.oxePod).toEqual({ call: 'oxePod:call', onEvent: 'oxePod:event', 'containers.panel': 'oxePod:call' })
     expect([...OXEPOD_OPS].sort()).toEqual([...EXPECTED].sort())
     expect(new Set(OXEPOD_OPS).size).toBe(OXEPOD_OPS.length)
     expect([...declaredOps('shared/types/oxepod.ts', 'OxePodOps')].sort()).toEqual([...OXEPOD_OPS].sort())

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { ExecutionHost } from '../../runtime/execution-host'
 import type { ContainerAction, ContainerEngine, OxePodErrorInfo, OxePodEvent, OxePodOp, OxePodOps, OxePodResponse } from '../../../../shared/types/oxepod'
 import { ContainerRuntime, ContainerRuntimeError } from './container-runtime'
+import { ContainerPanel } from './container-panel'
 import { COMPOSE_ACTIONS, type ComposeAction } from './compose'
 
 type Raw = Record<string, unknown>
@@ -51,10 +52,12 @@ export interface OxePodServiceOptions {
 export class OxePodService {
   /** Also what OxeQuery reaches, in process, for a database in a container and for the agents' container tools. */
   readonly containers: ContainerRuntime
+  private readonly panel: ContainerPanel
   private readonly shells = new Map<string, { file: string; args: string[] }>()
 
   constructor(options: OxePodServiceOptions) {
     this.containers = options.runtime ?? new ContainerRuntime({ host: options.host, emit: options.emit, preferred: options.preferredEngine })
+    this.panel = new ContainerPanel(this.containers)
   }
 
   /** Lookup for the terminal service; the renderer can only ask to open a pane it was handed. */
@@ -80,6 +83,7 @@ export class OxePodService {
         return this.containers.useCandidate(typeof input.id === 'string' ? input.id : null)
       }
       case 'containers.list': return this.containers.list(engine(input.engine))
+      case 'containers.panel': return this.panel.read(engine(input.engine))
       case 'containers.inspect': return this.containers.inspect(str(input.id, 'Container', 128), engine(input.engine))
       case 'containers.stats': return this.containers.stats(engine(input.engine))
       case 'resources.images': return this.containers.images(engine(input.engine))
