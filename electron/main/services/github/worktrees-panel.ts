@@ -20,6 +20,7 @@ import { loadRepoConfig } from '../repo-config/loader'
 import { findSharedLinks } from '../repo-config/shared-dirs'
 import type { GhExec } from './gh-exec'
 import { lastWorktreeActivity } from './worktree-cleanup'
+import { setWorktreeRemoveGuard } from './worktree-guard'
 import { longPath } from './worktree-removal'
 
 /** A conversation that made (or owns) a worktree, as main's thread store knows it. */
@@ -146,7 +147,10 @@ export async function diskUse(root: string, limit = DISK_WALK_LIMIT): Promise<nu
 let appPanel: WorktreesPanel | null = null
 
 /** The app's panel, set once by main at boot, so the agent tool reaches the same guarded removal as the window. */
-export function setAppWorktreesPanel(panel: WorktreesPanel | null): void { appPanel = panel }
+export function setAppWorktreesPanel(panel: WorktreesPanel | null): void {
+  appPanel = panel
+  setWorktreeRemoveGuard(panel)
+}
 export function appWorktreesPanel(): WorktreesPanel | null { return appPanel }
 
 export class WorktreesPanel {

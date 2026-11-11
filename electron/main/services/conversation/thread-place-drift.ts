@@ -72,7 +72,7 @@ export function readHeadSync(placePath: string): ThreadPlaceHead | null {
     if (!gitDir) return null
     const head = readFileSync(join(gitDir, 'HEAD'), 'utf8').trim()
     if (OBJECT_ID.test(head)) return { branch: null, commit: head }
-    const ref = /^ref:\s*(refs\/heads\/\S+)$/.exec(head)?.[1]
+    const ref = head.match(/^ref:\s*(refs\/heads\/\S+)$/)?.[1]
     if (!ref) return null
     let commonDir = gitDir
     const commonFile = join(gitDir, 'commondir')

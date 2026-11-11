@@ -50,6 +50,15 @@ export interface AgentActivityBadge {
   waiting: boolean
 }
 
+export interface AgentActivitySummary {
+  changes: number | null
+  databases: number | null
+  containers: number | null
+  http: number | null
+  httpProduction: number | null
+  failedSources: AgentActivitySource[]
+}
+
 export interface AgentActivityApi {
   list(query?: AgentActivityQuery): Promise<AgentActivityPage>
   detail(id: string): Promise<Record<string, unknown> | null>

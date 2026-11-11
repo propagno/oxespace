@@ -6,7 +6,8 @@ import {
   type AgentActivityPage,
   type AgentActivityQuery,
   type AgentActivityRow,
-  type AgentActivitySource
+  type AgentActivitySource,
+  type AgentActivitySummary
 } from '../../../../shared/types/agent-activity'
 import { resolveAuditActor } from '../http-audit/store'
 
@@ -402,5 +403,65 @@ export class AgentActivity {
 
     const waiting = Boolean(this.deps.pendingFor?.(query.connectionId))
     return { today, waiting }
+  }
+
+  summary({ actors }: { actors: readonly string[] }): AgentActivitySummary {
+    if (!Array.isArray(actors) || actors.length === 0) {
+      return { changes: 0, databases: 0, containers: 0, http: 0, httpProduction: 0, failedSources: [] }
+    }
+    const placeholders = actors.map(() => '?').join(', ')
+    const failedSources: AgentActivitySource[] = []
+    let changes: number | null = null
+    let databases: number | null = null
+    let containers: number | null = null
+    let http: number | null = null
+    let httpProduction: number | null = null
+
+    try {
+      const row = this.db
+        .prepare(`SELECT COUNT(*) AS c FROM agent_action_audit WHERE actor IN (${placeholders})`)
+        .get(...actors) as { c: number } | undefined
+      changes = row ? Number(row.c) : 0
+    } catch {
+      failedSources.push('changes')
+    }
+
+    try {
+      const row = this.db
+        .prepare(`SELECT COUNT(*) AS c FROM oxequery_audit WHERE actor IN (${placeholders}) AND tool NOT LIKE 'oxespace_container_%'`)
+        .get(...actors) as { c: number } | undefined
+      databases = row ? Number(row.c) : 0
+    } catch {
+      failedSources.push('databases')
+    }
+
+    try {
+      const row = this.db
+        .prepare(`SELECT COUNT(*) AS c FROM oxequery_audit WHERE actor IN (${placeholders}) AND tool LIKE 'oxespace_container_%'`)
+        .get(...actors) as { c: number } | undefined
+      containers = row ? Number(row.c) : 0
+    } catch {
+      failedSources.push('containers')
+    }
+
+    try {
+      const rows = this.db
+        .prepare(`SELECT workspace_id, host, COUNT(*) AS c FROM agent_http_audit WHERE actor IN (${placeholders}) GROUP BY workspace_id, host`)
+        .all(...actors) as Array<{ workspace_id: unknown; host: unknown; c: number }>
+      const isProd = this.deps.isProductionHost ?? (() => false)
+      let total = 0
+      let prod = 0
+      for (const row of rows) {
+        const count = Number(row.c)
+        total += count
+        if (isProd(String(row.workspace_id ?? ''), String(row.host ?? ''))) prod += count
+      }
+      http = total
+      httpProduction = prod
+    } catch {
+      failedSources.push('http')
+    }
+
+    return { changes, databases, containers, http, httpProduction, failedSources }
   }
 }

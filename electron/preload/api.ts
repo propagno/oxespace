@@ -415,6 +415,12 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     pullRequest: {
       state: (input) => ipc.invoke(IPC_CHANNELS.pullRequest.state, input) as Promise<import('../../shared/types/pull-request').PullRequestState>
     },
+    worktreesPanel: {
+      list: (input) =>
+        ipc.invoke(IPC_CHANNELS.worktreesPanel.list, input) as Promise<import('../main/services/github/worktrees-panel').WorktreesPanelRow[]>,
+      remove: (input) =>
+        ipc.invoke(IPC_CHANNELS.worktreesPanel.remove, input) as Promise<import('../main/services/github/worktrees-panel').WorktreesPanelRemoveResult>
+    },
     integration: {
       listGroups: (input) => ipc.invoke(IPC_CHANNELS.integration.listGroups, input ?? {}) as Promise<import('../../shared/types/integration').IntegrationGroup[]>,
       createGroup: (input) => ipc.invoke(IPC_CHANNELS.integration.createGroup, input) as Promise<import('../../shared/types/integration').IntegrationGroup>,

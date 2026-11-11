@@ -560,6 +560,15 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.agentActivity.list, () => ({ rows: [], cursor: null, failedSources: [] }))
   ipcMain.handle(IPC_CHANNELS.agentActivity.detail, () => null)
   ipcMain.handle(IPC_CHANNELS.agentActivity.badge, () => ({ today: 0, waiting: false }))
+  ipcMain.handle(IPC_CHANNELS.thread.agentSummary, () => ({
+    files: 0,
+    databases: 0,
+    http: 0,
+    httpProduction: 0,
+    containers: 0,
+    approvals: 0,
+    failedSources: []
+  }))
   ipcMain.handle(IPC_CHANNELS.httpAudit.list, () => ({ rows: [], cursor: null, hosts: [] }))
 
   // ── Catch-all safety net (E2E) ──────────────────────────────────────────────

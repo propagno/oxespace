@@ -10,8 +10,8 @@ import { execGit } from '../../utils/safe-git'
  * F4 A14 Undo (ccr-f4-places-pr.md §A14 Undo; SECURITY conditions 1-6 of 08/11). Person-only: never reachable from an
  * agent-facing module or MCP. Undo reverts one file (or one hunk) the task wrote in a git place back to the place's
  * base; Restore puts that change back once; Discard reverts every file the task wrote there. Git runs through safe git:
- * diffs through execGit, the patch through GhExec.runGit (an argument array, no shell, the patch on stdin). Never
- * reset --hard, never clean; the only fs write is the unlink of a file the task created, inside the place.
+ * diffs through execGit, the patch through GhExec.runGit (an argument array, no shell, the patch on stdin). Never a
+ * destructive git reset or clean; the only fs write is the unlink of a file the task created, inside the place.
  */
 
 /** placeDiff's flags (so hunk headers match) plus --binary, so a binary file's patch can be applied too. */
@@ -85,7 +85,7 @@ function oneHunk(patch: string, header: string): string | null {
 async function keepsLf(cwd: string, path: string): Promise<boolean> {
   try {
     const line = await out(cwd, ['ls-files', '--eol', '--cached', '--others', '--', literal(path)])
-    const eol = /\bw\/(\S*)/.exec(line)?.[1] ?? ''
+    const eol = line.match(/\bw\/(\S*)/)?.[1] ?? ''
     return eol === 'lf' || eol === 'none'
   } catch { return false }
 }
