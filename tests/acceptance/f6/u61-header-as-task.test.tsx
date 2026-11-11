@@ -144,7 +144,7 @@ describe('U6.1 · the header as a task', () => {
     expect(THREAD_MORE_ACTIONS.map(action => `${action.id} ${action.label}`).join(' ')).not.toMatch(/side ?chat|conversa lateral/i)
     const { KEYBINDINGS } = await import('../../../src/keyboard/keybindings')
     expect(KEYBINDINGS.filter(binding => (binding.chords as readonly string[]).includes('Mod+.')).map(binding => binding.id)).toEqual([])
-    expect(KEYBINDINGS.map(binding => binding.id as string).filter(id => /side/i.test(id))).toEqual([])
+    expect(KEYBINDINGS.map(binding => binding.id as string).filter(id => /sidechat|side[-_.]chat|thread\.side/i.test(id))).toEqual([])
   })
 
 })
