@@ -975,6 +975,7 @@
       "exited_other": "{{count}} encerrados"
     },
     "newWorkspace": "Novo workspace",
+    "railNeedsDecision": "{{name}}, precisa da sua decisão",
     "search": "Arquivos e comandos ({{shortcut}})",
     "searchLabel": "Arquivos e comandos",
     "openPanels": "Abrir painéis",

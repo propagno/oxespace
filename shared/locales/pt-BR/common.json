@@ -66,6 +66,8 @@
     "openSettings": "Abrir configurações",
     "collapseSidebar": "Recolher barra lateral",
     "expandSidebar": "Expandir barra lateral",
+    "collapseSidebarShortcut": "Recolher a barra lateral (Ctrl B)",
+    "expandSidebarShortcut": "Expandir a barra lateral (Ctrl B)",
     "clearSearch": "Limpar busca",
     "applicationMenu": "Menu do aplicativo",
     "menu": "Menu",

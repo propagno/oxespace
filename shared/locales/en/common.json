@@ -66,6 +66,8 @@
     "openSettings": "Open settings",
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
+    "collapseSidebarShortcut": "Collapse the sidebar (Ctrl B)",
+    "expandSidebarShortcut": "Expand the sidebar (Ctrl B)",
     "clearSearch": "Clear search",
     "applicationMenu": "Application menu",
     "menu": "Menu",

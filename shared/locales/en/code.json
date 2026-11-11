@@ -928,6 +928,7 @@
       "exited_other": "{{count}} exited"
     },
     "newWorkspace": "New workspace",
+    "railNeedsDecision": "{{name}}, needs your decision",
     "search": "Files & commands ({{shortcut}})",
     "searchLabel": "Files & commands",
     "openPanels": "Open panels",

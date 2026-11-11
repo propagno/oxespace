@@ -1341,6 +1341,7 @@
     "showMore_other": "Show {{count}} more",
     "archivedRegion": "Archived conversations",
     "archived": "Archived",
+    "railNeedsDecision": "{{name}}, needs your decision",
     "restoreNamed": "Restore {{name}}",
     "restoreConversation": "Restore conversation",
     "noMatches": "No conversations found.",

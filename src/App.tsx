@@ -157,7 +157,7 @@ export function App(): ReactElement {
     openUsage,
     closeUsage,
     isSettingsOpen,
-    isSidebarCollapsed,
+    isSidebarCollapsed, collapsedSidebars,
     isNewWorkspaceOpen,
     isWorkspaceSettingsOpen,
     slashOverlayPaneId,
@@ -195,7 +195,7 @@ export function App(): ReactElement {
     openUsage: state.openUsage,
     closeUsage: state.closeUsage,
     isSettingsOpen: state.isSettingsOpen,
-    isSidebarCollapsed: state.isSidebarCollapsed,
+    isSidebarCollapsed: state.isSidebarCollapsed, collapsedSidebars: state.collapsedSidebars,
     isNewWorkspaceOpen: state.isNewWorkspaceOpen,
     isWorkspaceSettingsOpen: state.isWorkspaceSettingsOpen,
     slashOverlayPaneId: state.slashOverlayPaneId,
@@ -577,7 +577,7 @@ export function App(): ReactElement {
     // From the layout, not the screen: a maximized pane looks big enough but goes back to its own share on restore.
     const size = layoutPaneSize(usePaneLayoutStore.getState().trees[workspaceId] ?? null, paneId, splitGridSize()) ?? paneSize(paneId)
     if (size && !splitHasRoom(size, direction)) {
-      reportSplitTooSmall(direction)
+      reportSplitTooSmall({ width: direction === 'vertical' ? (size.width - 10) / 2 : size.width, height: direction === 'horizontal' ? (size.height - 10) / 2 : size.height })
       return
     }
 
@@ -664,7 +664,7 @@ export function App(): ReactElement {
     store.setGlobal({ fontSize: Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, next)) })
   }
   useKeybindings({
-    'palette.open': openCommandMenu, 'palette.search': openCommandMenu, 'settings.open': () => { if (!isSettingsOpen) toggleSettings() }, 'sidebar.toggle': toggleSidebar,
+    'palette.open': openCommandMenu, 'palette.search': openCommandMenu, 'settings.open': () => { if (!isSettingsOpen) toggleSettings() }, 'sidebar.toggle': () => toggleSidebar(applicationView === 'thread' ? 'thread' : 'code'),
     'code.changes': toggleReviewPanel, 'code.browser': toggleWebPreviewPanel, 'code.files': toggleEditor,
     'code.splitLayout': () => useUIStore.getState().toggleSplitLayout(),
     // Read fresh state: the search panel flag is not part of this render's closure.
@@ -746,7 +746,7 @@ export function App(): ReactElement {
       <TitleTooltips />
       {activitySources && <activitySources.ActivitySources applicationView={applicationView} />}
       {commandContributors && <><commandContributors.CodeCommandContributor {...codeCommandContext} /><commandContributors.ThreadCommandContributor {...threadCommandContext} /></>}
-      <main className={`app-shell${applicationView === 'thread' ? ' thread-shell' : isDataView(applicationView) ? ' oq-shell' : isSidebarCollapsed ? ' sidebar-collapsed' : ''}`} style={applicationView !== 'code' ? { '--thread-sidebar-width': `${isSidebarCollapsed ? 48 : codeSidebarWidth}px` } as CSSProperties : { '--sidebar-w': `${codeSidebarWidth}px` } as CSSProperties}>
+      <main className={`app-shell${applicationView === 'thread' ? ' thread-shell' : isDataView(applicationView) ? ' oq-shell' : collapsedSidebars.code ? ' sidebar-collapsed' : ''}`} style={applicationView !== 'code' ? { '--thread-sidebar-width': `${(applicationView === 'thread' ? collapsedSidebars.thread : isSidebarCollapsed) ? 48 : codeSidebarWidth}px` } as CSSProperties : { '--sidebar-w': `${codeSidebarWidth}px` } as CSSProperties}>
       <header className={cx('workbench-titlebar', titleBar.bar)} aria-label={t('app.workbench')}>
         <div className={titleBar.brand}><OxeLogo size={16} /><strong className={titleBar.word}>oxespace</strong>{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), openCommandMenu }} /></Suspense>}</div>
         <ModeSwitch mode={applicationView} onSelect={selectMode} />
@@ -771,8 +771,8 @@ export function App(): ReactElement {
         onNewWorkspace={openNewWorkspaceFromUI}
         onSelectWorkspace={(id) => void setActiveWorkspace(id)}
         onCloseWorkspace={handleCloseWorkspace}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={toggleSidebar}
+        isCollapsed={collapsedSidebars.code}
+        onToggleCollapse={() => toggleSidebar('code')}
         panelMenu={panelMenuEntries(codePanelItems)}
         onOpenJobs={toggleBackgroundPanel}
         onOpenScripts={toggleScriptsPanel}
