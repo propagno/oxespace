@@ -102,13 +102,16 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
       focus: document.hasFocus(), visibility: document.visibilityState
     }))))
     expect(filled.error).toBeUndefined()
-    expect((await answer(run({action:'click',selector:'#save',expectedUrl:url}), 'allow')).error).toBeUndefined()
+    // 1.5.0 A49: on loopback, allowing fill granted a session grant, so click runs without re-prompting until End.
+    expect((await run({action:'click',selector:'#save',expectedUrl:url})).error).toBeUndefined()
     await expect.poll(async()=>JSON.stringify(await run({action:'inspect'}))).toContain('Saved Example')
     await app.evaluate(({webContents},baseUrl) => webContents.getAllWebContents().find(c=>c.getURL().startsWith(baseUrl))!.executeJavaScript("document.querySelector('#name').value='Blocked'"),url)
     // The page changes while a click waits for approval (a page script navigates): allowing afterwards must not run the
     // click on a page other than the one the person decided on (main's check on allow). The modal blocks the window's
     // UI, as it does in the product.
     // The case of access revoked from main while a click waits is the next step (T43, #418: main is the authority).
+    await page.locator('.agent-browser-strip').getByRole('button', { name: 'End', exact: true }).click()
+    await expect(page.locator('.agent-browser-strip')).toHaveCount(0)
     const pendingClick = run({action:'click',selector:'#save',expectedUrl:url})
     await expect(approval).toBeVisible()
     await app.evaluate(({webContents},baseUrl) => webContents.getAllWebContents().find(c=>c.getURL().startsWith(baseUrl))!.executeJavaScript("location.hash='moved'"),url)
@@ -121,6 +124,8 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
     // Access revoked from main while a click waits (T43): the window's re-sends cannot give it back, and allowing
     // afterwards must not run the click. The person grants it again from the window's toggle.
     await app.evaluate(({webContents},baseUrl) => webContents.getAllWebContents().find(c=>c.getURL().startsWith(baseUrl))!.executeJavaScript("document.querySelector('#name').value='Revoked'"),url)
+    await page.locator('.agent-browser-strip').getByRole('button', { name: 'End', exact: true }).click()
+    await expect(page.locator('.agent-browser-strip')).toHaveCount(0)
     const revokedClick = run({action:'click',selector:'#save',expectedUrl:url})
     await expect(approval).toBeVisible()
     expect(await app.evaluate((_, ws) => (globalThis as unknown as { previewService: { revokeAgentAccess: (match: { workspaceId: string }) => number } }).previewService.revokeAgentAccess({ workspaceId: ws }), workspaceId)).toBeGreaterThan(0)
@@ -242,10 +247,10 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
     failPreview = true
     await page.locator('.web-preview-address-input').fill(`${url}failure`)
     await page.locator('.web-preview-address-input').press('Enter')
-    await expect(page.getByText('Page unavailable')).toBeVisible()
+    await expect(page.getByText("isn't answering")).toBeVisible()
     await expect(page.getByTestId('browser-preview-native')).toHaveCount(0)
     failPreview = false
-    await page.getByRole('button',{name:'Retry'}).click()
+    await page.getByRole('button',{name:'Reload'}).click()
     try { await expect(page.getByTestId('browser-preview-native')).toHaveCount(1) }
     catch (error) {
       // Linux CI intermittently shows no host after Retry; print the state so the next failure carries its own evidence.
@@ -255,7 +260,7 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
       console.log('[doc-preview diag] stage=' + JSON.stringify(state) + ' tabs=' + JSON.stringify(tabs) + ' guests=' + JSON.stringify(guests) + ' renderer=' + JSON.stringify(rendererLog.slice(-12)))
       throw error
     }
-    await expect(page.getByText('Page unavailable')).toHaveCount(0)
+    await expect(page.getByText("isn't answering")).toHaveCount(0)
     await expect.poll(async () => app.evaluate(({webContents},baseUrl) => webContents.getAllWebContents().filter(contents => contents.getURL() === `${baseUrl}failure`).length,url)).toBe(1)
     const externalUrl = url.replace('127.0.0.1','localhost.')
     await page.locator('.web-preview-address-input').fill(externalUrl)

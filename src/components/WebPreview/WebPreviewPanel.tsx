@@ -101,7 +101,10 @@ export function WebPreviewPanel({ embedded = false, onClose, onRunCommand, onSen
     void window.oxe.browserPreview.forward({ownerKey:previewKey,tabId:activeTabId}).catch(error => setCaptureNotice(humanizeError(error, tc('preview.error.forward'))))
   }
 
-  const reload = (): void => { void window.oxe.browserPreview.reload({ownerKey:previewKey,tabId:activeTabId}).catch(error => setCaptureNotice(humanizeError(error, tc('preview.error.reload')))) }
+  const reload = (): void => {
+    if (pageError) { open(); return }
+    void window.oxe.browserPreview.reload({ownerKey:previewKey,tabId:activeTabId}).catch(error => setCaptureNotice(humanizeError(error, tc('preview.error.reload'))))
+  }
   const changeTab = (action:'new'|'select'|'close',tabId?:string): void => {
     void window.oxe.browserPreview.session({ownerKey:previewKey,action,tabId}).then(applySession).catch(error => setCaptureNotice(humanizeError(error, tc('preview.error.tabs'))))
     setDesignMode(false)

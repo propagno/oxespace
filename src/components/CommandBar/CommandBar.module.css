@@ -48,6 +48,7 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 
+.inputRow:focus-within { border-bottom-color: var(--focus-ring); }
 .inputIcon {
   color: var(--text-muted);
   flex-shrink: 0;
