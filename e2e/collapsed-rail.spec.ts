@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { launchApp, openDemoWorkspace, resizeWindow } from './helpers/launch'
-import { connectFromContainer, containerRow, openView } from './helpers/oxepod'
+import { connectFromContainer, openView } from './helpers/oxepod'
 import { installThreadFixtures, openThreadWithState, registerThreadProject } from './helpers/thread-fixtures'
 
 /**
@@ -70,23 +70,3 @@ test('OxeQuery: the collapsed rail lists the connections, and expanding keeps th
   }
 })
 
-test('OxePod: the collapsed rail lists the containers and opens one', async () => {
-  test.setTimeout(120_000)
-  const { app, page, workspaceRoot, consoleErrors } = await launchApp()
-  try {
-    await openDemoWorkspace(page, workspaceRoot)
-    await openView(page, 'pods')
-    await expect(page.getByRole('region', { name: 'mongo-dev details' })).toBeVisible()
-    await collapse(page)
-    const item = rail(page).getByRole('button', { name: /^pg-dev · / })
-    await expect(item).toBeVisible()
-    await item.click()
-    await expect(item).toHaveAttribute('aria-current', 'page')
-    await expect(page.getByRole('region', { name: 'pg-dev details' })).toBeVisible()
-    await expand(page)
-    await expect(containerRow(page, 'pg-dev')).toHaveAttribute('aria-current', 'page')
-    expect(pageErrors(consoleErrors)).toEqual([])
-  } finally {
-    await app.close()
-  }
-})

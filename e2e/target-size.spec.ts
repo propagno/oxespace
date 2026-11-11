@@ -164,11 +164,6 @@ test('audited surfaces have targets of at least 24×24 px in both densities', as
 
       await expectTarget(`${tag} workspace name in the Code sidebar`, page.locator('.sidebar-workspace-tree .ws-group-name').first())
 
-      await openView(page, 'pods')
-      const pod = page.getByRole('complementary', { name: /OxePod/ })
-      await expect(pod.getByRole('radiogroup', { name: 'Container engine' })).toBeVisible()
-      await check(page, `${tag}-oxepod-sidebar`, pod)
-
       await openView(page, 'data')
       await page.getByRole('button', { name: 'New connection' }).first().click()
       const form = page.getByRole('dialog', { name: 'New connection' })

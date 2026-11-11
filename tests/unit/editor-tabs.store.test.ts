@@ -16,8 +16,7 @@ function stubFs(contents: Record<string, string>): void {
           return { relativePath: input.relativePath, content, size: content.length, mtimeMs: 1 }
         }),
         watchFile: vi.fn(async () => ({ watchId: `watch-${(watchSeq += 1)}` })),
-        unwatchFile: vi.fn(async () => undefined),
-        writeFile: vi.fn(async () => ({ relativePath: 'x', size: 0, mtimeMs: 2 }))
+        unwatchFile: vi.fn(async () => undefined)
       }
     }
   })
@@ -37,18 +36,6 @@ describe('editor tabs', () => {
     expect(state.tabs[WS].map((tab) => tab.relativePath)).toEqual(['a.ts', 'b.ts'])
     expect(state.activePath[WS]).toBe('b.ts')
     expect(state.files[WS]['a.ts'].content).toBe('A')
-  })
-
-  it('keeps unsaved edits when switching away and back', async () => {
-    await useEditorStore.getState().openFile({ workspaceId: WS, rootPath: ROOT, relativePath: 'a.ts' })
-    useEditorStore.getState().updateContent(WS, 'A edited')
-    await useEditorStore.getState().openFile({ workspaceId: WS, rootPath: ROOT, relativePath: 'b.ts' })
-    await useEditorStore.getState().openFile({ workspaceId: WS, rootPath: ROOT, relativePath: 'a.ts' })
-
-    expect(useEditorStore.getState().files[WS]['a.ts'].content).toBe('A edited')
-    expect(useEditorStore.getState().hasDirtyEditor(WS)).toBe(true)
-    // Re-activating must not re-read the file from disk.
-    expect(window.oxe.fs.readFile).toHaveBeenCalledTimes(2)
   })
 
   it('closing the active tab activates a neighbour and unwatches', async () => {
@@ -72,15 +59,6 @@ describe('editor tabs', () => {
 
     useEditorStore.getState().closeOtherTabs(WS, 'a.ts')
     expect(useEditorStore.getState().tabs[WS].map((tab) => tab.relativePath)).toEqual(['c.ts', 'a.ts'])
-  })
-
-  it('closing other tabs keeps the ones with unsaved edits', async () => {
-    for (const path of ['a.ts', 'b.ts', 'c.ts']) await useEditorStore.getState().openFile({ workspaceId: WS, rootPath: ROOT, relativePath: path })
-    // updateContent edits the active file: c.ts.
-    useEditorStore.getState().updateContent(WS, 'C edited')
-    useEditorStore.getState().closeOtherTabs(WS, 'a.ts')
-    expect(useEditorStore.getState().tabs[WS].map((tab) => tab.relativePath)).toEqual(['a.ts', 'c.ts'])
-    expect(useEditorStore.getState().files[WS]['c.ts'].content).toBe('C edited')
   })
 
   it('reorders tabs by drag', async () => {

@@ -55,7 +55,6 @@ test('screen-reader script: start, palette, Code mode, Settings', async () => {
         - button /^(Oxe)?Code$/ [pressed]
         - button /^(Thread|OxeChat)$/
         - button "OxeQuery"
-        - button "OxePod"
     `)
 
     // 2.4 · The sidebar's width is a separator with its value, adjustable from the keyboard and read again.

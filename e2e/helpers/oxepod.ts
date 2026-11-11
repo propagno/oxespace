@@ -18,7 +18,7 @@ export function containerRow(page: Page, name: string) {
  */
 export async function connectFromContainer(page: Page, name: string, labels = { newConnection: 'New connection', fromContainer: 'From a running container', container: 'Container', save: 'Save and open' }): Promise<void> {
   await openView(page, 'data')
-  await page.getByRole('button', { name: labels.newConnection }).click()
+  await page.getByRole('button', { name: labels.newConnection }).first().click()
   await page.getByRole('radio', { name: labels.fromContainer }).click()
   await page.getByLabel(labels.container).selectOption({ label: new RegExp(`^${name}\\b`) })
   const form = page.getByRole('dialog')

@@ -1,5 +1,4 @@
 import { i18n } from '../../i18n'
-import { toast } from '../../ui/Toast'
 import type { CommandPaletteAction } from '../../utils/commandRegistry'
 import { shortcutLabel, type AppView } from '../../keyboard/keybindings'
 import { tCommand } from '../../commands/commandText'
@@ -33,7 +32,7 @@ const VIEWS: Array<[AppView, string]> = [['code', 'OxeCode'], ['thread', 'OxeCha
 /** Every palette action a menu points to; tests/app-menus.test.ts checks each one exists, so none disappears silently. */
 export const MENU_ACTION_IDS = ['new-workspace', 'workspace-settings', 'toggle-sidebar', 'tool-editor', 'tool-github', 'tool-background',
   'toggle-split-layout', 'balance-pane-layout', 'split-vertical', 'split-horizontal', 'maximize-pane',
-  'tool-mcp', 'tool-team', 'open-usage', 'help.shortcuts', 'help.report-problem', 'help.about', 'settings.diagnostics', 'settings.updates'] as const
+  'tool-mcp', 'open-usage', 'help.shortcuts', 'help.report-problem', 'help.about', 'settings.diagnostics', 'settings.updates'] as const
 /** Families of actions shown as submenus, by id prefix. */
 export const MENU_ACTION_PREFIXES = ['appearance-', 'density-', 'layout-'] as const
 type MenuActionId = typeof MENU_ACTION_IDS[number]
@@ -50,15 +49,6 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
     const action = byId.get(id)
     if (!action) return null
     return { kind: 'item', id, label: menuLabel(action), shortcut, disabled: action.disabled, onSelect: action.run }
-  }
-  /** An action whose palette description says why it can't run: reachable, with that reason (Team). */
-  const explained = (id: MenuActionId, shortcut?: string): AppMenuNode | null => {
-    const action = byId.get(id)
-    if (!action) return null
-    const label = menuLabel(action)
-    if (!action.disabled || !action.subtitle) return { kind: 'item', id, label, shortcut, disabled: action.disabled, onSelect: action.run }
-    const reason = action.subtitle
-    return { kind: 'item', id, label, shortcut, unavailable: reason, onSelect: () => { toast({ title: label.replace(/…$/, ''), description: reason, intent: 'info' }) } }
   }
   const group = (prefix: string): AppMenuNode[] => ctx.actions
     .filter(action => action.id.startsWith(prefix))
@@ -119,8 +109,6 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
     {
       id: 'tools', label: t('menu.tools'), items: compact([
         fromAction('tool-mcp'),
-        // F35: Team stays reachable with its reason where it can't open.
-        explained('tool-team', shortcutLabel('team.open')),
         fromAction('open-usage')
       ])
     },

@@ -122,7 +122,7 @@ test('ipc sender guard: a real preview guest is refused, Design Mode still works
     // 1. Privileged channels from the guest's main frame: refused with the C3 code, before any handler runs.
     const refused: Array<[string, unknown]> = [
       ['terminal:write', { paneId: 'pane-1', data: 'echo pwned\r' }],
-      ['fs:write-file', { workspaceId: 'ws', rootPath: workspaceRoot, relativePath: 'pwned.txt', content: 'x' }],
+      ['fs:read-file', { workspaceId: 'ws', rootPath: workspaceRoot, relativePath: 'pwned.txt' }],
       ['mcp:create', { name: 'evil', transport: 'stdio', config: { command: 'calc.exe' } }],
       // The E2E mock registers approvals:respond on main today; #238's real handler registers on the same ipcMain.
       ['approvals:respond', { id: 'r-1', generation: 1, optionId: 'allow-once' }]

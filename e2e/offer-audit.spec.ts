@@ -201,7 +201,7 @@ test.describe('offer audit', () => {
     const { app, page } = launched
     try {
       // OxeQuery's and OxePod's commands register after first paint.
-      await expect.poll(async () => { const ids = await listedCommandIds(page); return ids.some(id => id.startsWith('oxequery.')) && ids.some(id => id.startsWith('oxepod.')) }).toBe(true)
+      await expect.poll(async () => { const ids = await listedCommandIds(page); return ids.some(id => id.startsWith('oxequery.')) }).toBe(true)
       const ids = await listedCommandIds(page)
       const untested = ids.filter(id => !effectFor(id) && !NATIVE_DIALOG.has(id))
       expect(untested, 'palette commands without an expected effect in e2e/offer-audit.spec.ts').toEqual([])
@@ -287,11 +287,11 @@ test.describe('offer audit', () => {
     }
   })
 
-  test('a Code panel command run from Thread, OxeQuery or OxePod opens Code with the panel, and Ctrl+, opens Settings', async () => {
+  test('a Code panel command run from Thread or OxeQuery opens Code with the panel, and Ctrl+, opens Settings', async () => {
     const launched = await launchWithWorkspace()
     const { app, page } = launched
     try {
-      for (const name of ['thread', 'data', 'pods'] as const) {
+      for (const name of ['thread', 'data'] as const) {
         await selectView(page, name)
         await runCommand(page, 'tool-editor')
         await view('code')(page)

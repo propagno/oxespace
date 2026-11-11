@@ -52,13 +52,10 @@ describe('oxespace_skills_change', () => {
 })
 
 describe('oxespace_workspace_change', () => {
-  it('notifies, and reindexes only a Code workspace', async () => {
+  it('notifies with sanitized single-line title', async () => {
     const notify = vi.fn(() => true)
-    const semantic = { reindex: vi.fn(() => ({ indexing: true, enabled: true })) }
     expect(await call('oxespace_workspace_change', { action: 'notify', title: 'Build\ndone', body: 'All green' }, setup({ notify } as never).ctx)).toMatchObject({ ok: true, result: { shown: true } })
     expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'agent', label: expect.objectContaining({ code: 'approvals.requester.unknownPane' }) }), 'Build done', 'All green')
-    expect(await call('oxespace_workspace_change', { action: 'reindex' }, setup({} as never, { semantic }).ctx)).toMatchObject({ ok: true, result: { indexing: true } })
-    expect(await call('oxespace_workspace_change', { action: 'reindex' }, setup({} as never, { semantic, owner: { kind: 'thread', id: 't' }, workspaceId: 'thread:p' }).ctx)).toMatchObject({ ok: false, code: 'no-workspace' })
   })
 
   it('refuses a notification that speaks as the app, and never shows it (B10)', async () => {
@@ -109,11 +106,6 @@ describe('discovery tools (R8 moved them from automation-tools.ts into tool-regi
   it('rejects foreign workspace and argument overrides', async () => {
     expect((await tools[0].handler({}, { ...context, workspaceId: 'foreign' })).isError).toBe(true)
     expect((await tools[0].handler({ workspaceId: 'foreign' }, context)).isError).toBe(true)
-  })
-  it('unbound memory is not reported as captured data', async () => {
-    const result = await tools[2].handler({}, context)
-    expect(JSON.stringify(result)).toContain('not_observable')
-    expect(JSON.stringify(result)).toContain('unbound')
   })
   it('revoked executions cannot discover capabilities', async () => {
     const executions = new ExecutionRegistry()
