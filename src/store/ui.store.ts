@@ -1,14 +1,26 @@
 import { create } from 'zustand'
 
-function restoredSidebarCollapsed(): boolean {
+export type SidebarMode = 'code' | 'thread'
+
+function restoredCollapsedSidebars(): Record<SidebarMode, boolean> {
   try {
+    const savedCode = localStorage.getItem('oxe.sidebar.collapsed.code')
+    const savedThread = localStorage.getItem('oxe.sidebar.collapsed.thread')
+    if (savedCode !== null || savedThread !== null) {
+      return { code: savedCode === 'true', thread: savedThread === 'true' }
+    }
     const saved = localStorage.getItem('oxe.sidebar.collapsed')
-    if (saved !== null) return saved === 'true'
-    const collapsed = JSON.parse(localStorage.getItem('oxe.thread-navigation') ?? 'null')?.state?.collapsed === true
-    localStorage.setItem('oxe.sidebar.collapsed', String(collapsed))
-    return collapsed
-  } catch { return false }
+    const legacy = saved !== null
+      ? saved === 'true'
+      : JSON.parse(localStorage.getItem('oxe.thread-navigation') ?? 'null')?.state?.collapsed === true
+    if (saved === null) localStorage.setItem('oxe.sidebar.collapsed', String(legacy))
+    localStorage.setItem('oxe.sidebar.collapsed.code', String(legacy))
+    localStorage.setItem('oxe.sidebar.collapsed.thread', String(legacy))
+    return { code: legacy, thread: legacy }
+  } catch { return { code: false, thread: false } }
 }
+
+const initialCollapsedSidebars = restoredCollapsedSidebars()
 
 /** The application Settings pages, in SettingsCenter order. */
 export type SettingsPageId = 'general' | 'appearance' | 'providers' | 'policy' | 'agent-permissions' | 'notifications' | 'keyboard' | 'terminal' | 'mcp' | 'devices' | 'privacy' | 'activity' | 'diagnostics' | 'about'
@@ -17,6 +29,7 @@ interface UIState {
   isNewWorkspaceOpen: boolean
   maximizedPaneId: string | null
   isSidebarCollapsed: boolean
+  collapsedSidebars: Record<SidebarMode, boolean>
   isSettingsOpen: boolean
   settingsInitialPage: SettingsPageId | undefined
   /** Opens application Settings on one page. */
@@ -73,13 +86,14 @@ interface UIState {
   openIntegrationPanel: () => void
   closeIntegrationPanel: () => void
   toggleSettings: () => void
-  toggleSidebar: () => void
+  toggleSidebar: (mode?: SidebarMode) => void
 }
 
 export const useUIStore = create<UIState>((set) => ({
   isNewWorkspaceOpen: false,
   maximizedPaneId: null,
-  isSidebarCollapsed: restoredSidebarCollapsed(),
+  isSidebarCollapsed: initialCollapsedSidebars.code,
+  collapsedSidebars: initialCollapsedSidebars,
   isSettingsOpen: false,
   settingsInitialPage: undefined,
   openAgentSettings: () => set({ isSettingsOpen: true, isWorkspaceSettingsOpen: false, settingsInitialPage: 'providers' }),
@@ -142,9 +156,18 @@ export const useUIStore = create<UIState>((set) => ({
   openIntegrationPanel: () => set({ isIntegrationPanelOpen: true }),
   closeIntegrationPanel: () => set({ isIntegrationPanelOpen: false }),
   toggleSettings: () => set((s) => ({ isSettingsOpen: !s.isSettingsOpen, isWorkspaceSettingsOpen: false, settingsInitialPage: undefined })),
-  toggleSidebar: () => set((s) => {
-    const isSidebarCollapsed = !s.isSidebarCollapsed
-    try { localStorage.setItem('oxe.sidebar.collapsed', String(isSidebarCollapsed)) } catch { /* optional preference */ }
-    return { isSidebarCollapsed }
+  toggleSidebar: (mode) => set((s) => {
+    const target: SidebarMode = mode === 'thread' ? 'thread' : 'code'
+    const collapsedSidebars: Record<SidebarMode, boolean> = {
+      ...s.collapsedSidebars,
+      [target]: !s.collapsedSidebars[target]
+    }
+    const isSidebarCollapsed = collapsedSidebars.code
+    try {
+      localStorage.setItem('oxe.sidebar.collapsed.code', String(collapsedSidebars.code))
+      localStorage.setItem('oxe.sidebar.collapsed.thread', String(collapsedSidebars.thread))
+      localStorage.setItem('oxe.sidebar.collapsed', String(isSidebarCollapsed))
+    } catch { /* optional preference */ }
+    return { collapsedSidebars, isSidebarCollapsed }
   })
 }))

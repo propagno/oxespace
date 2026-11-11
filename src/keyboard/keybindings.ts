@@ -10,7 +10,7 @@ import { chordsCollide, formatChord, matchesChord, parseChord, type ParsedChord 
  * shortcut's name is `keys.bindings.<id>` in the common catalog (bindingLabel).
  */
 export type KeybindingScope = 'global' | 'code' | 'thread' | 'oxequery' | 'terminal'
-/** The application's views: OxeCode (`code`), OxeChat (`thread`), OxeQuery (`data`), OxePod (`pods`) and OxePost (`post`). */
+/** The application's three modes: OxeCode (`code`), OxeChat (`thread`) and OxeQuery (`data`). */
 export type AppView = 'code' | 'thread' | 'data'
 export const APP_VIEWS: readonly AppView[] = ['code', 'thread', 'data']
 
@@ -50,7 +50,7 @@ export const KEYBINDINGS = [
   { id: 'sidebar.toggle', chords: ['Mod+B'], scope: 'global', reservedInTerminal: true },
   { id: 'activity.open', chords: [], scope: 'global', reservedInTerminal: true },
   { id: 'approvals.queue', chords: ['Mod+Shift+A'], scope: 'global', reservedInTerminal: true },
-  // The four views, in the order of the switch in the title bar.
+  // The three modes, in the order of the switch in the title bar.
   { id: 'view.code', chords: ['Mod+1'], scope: 'global', reservedInTerminal: true },
   { id: 'view.thread', chords: ['Mod+2'], scope: 'global', reservedInTerminal: true },
   { id: 'view.data', chords: ['Mod+3'], scope: 'global', reservedInTerminal: true },

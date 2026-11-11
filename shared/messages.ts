@@ -544,6 +544,8 @@ export interface MessageParams extends PlaceMessageParams {
   'agents.source.unavailable': { source: string }
   'preview.capture.devtools': Record<string, never>
   'preview.capture.busy': Record<string, never>
+  /** F9 A64: a feature a provider does not support stays visible and disabled with its provider display name. */
+  'parity.notAvailable': { provider: string }
 }
 
 export type MessageCode = keyof MessageParams
@@ -881,7 +883,8 @@ export const MESSAGE_CODES = [
   'agents.request.pane',
   'agents.source.unavailable',
   'preview.capture.devtools',
-  'preview.capture.busy'
+  'preview.capture.busy',
+  'parity.notAvailable'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */

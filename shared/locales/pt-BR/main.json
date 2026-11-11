@@ -3,14 +3,14 @@
     "unexpected": {
       "title": "O OXESpace encontrou um erro inesperado",
       "message": "Algo deu errado em segundo plano.",
-      "detail": "Seus terminais e agentes podem continuar rodando, mas o OXESpace não consegue mais garantir que estejam bem. Reinicie para continuar com segurança. O diagnóstico pode ser exportado em Configurações > Diagnóstico.",
+      "detail": "Terminais e agentes podem seguir rodando, mas o OXESpace não responde por eles. Reinicie. Diagnóstico: Configurações > Diagnóstico.",
       "restart": "Reiniciar o OXESpace",
       "keepWorking": "Continuar trabalhando"
     },
     "rendererGone": {
       "title": "O OXESpace parou de responder",
       "message": "A interface continua travando.",
-      "detail": "Seus terminais e agentes continuam rodando. Reinicie o OXESpace para trazer a interface de volta; o diagnóstico pode ser exportado em Configurações > Diagnóstico.",
+      "detail": "Terminais e agentes continuam rodando. Reinicie o OXESpace para trazer a janela de volta. Diagnóstico: Configurações > Diagnóstico.",
       "ok": "OK"
     }
   },
@@ -76,7 +76,7 @@
         "staleGeneration": "A conversa reiniciou desde que este pedido apareceu. Abra-a para ver o que está esperando agora.",
         "alreadyResponding": "Uma resposta a este pedido já está sendo enviada.",
         "unanswered": "Responda a todas as perguntas antes de continuar.",
-        "guardedDecision": "Uma alteração em instruções de agente, configurações MCP ou hooks é aprovada uma vez, nunca para a sessão. Responda de novo."
+        "guardedDecision": "Mudanças em instruções, MCP ou hooks são aprovadas uma vez, nunca para a sessão. Responda de novo."
       },
       "commands": {
         "configure": "Configure o provedor em Configurações de agentes e use Atualizar comandos para tentar de novo.",
@@ -105,13 +105,13 @@
         "invalidInput": "Não foi possível ler esta mensagem do chat lateral. Tente de novo."
       },
       "protectedConfig": {
-        "instructions": "\"{{path}}\" guarda instruções de agente. Uma alteração ali orienta todas as sessões seguintes, então precisa da sua confirmação a cada vez.",
-        "mcp": "\"{{path}}\" guarda configurações de servidor MCP. Uma alteração ali orienta todas as sessões seguintes, então precisa da sua confirmação a cada vez.",
-        "hooks": "\"{{path}}\" guarda hooks de agente. Uma alteração ali orienta todas as sessões seguintes, então precisa da sua confirmação a cada vez.",
+        "instructions": "\"{{path}}\" guarda instruções de agente. Mudanças orientam as sessões seguintes, então cada uma pergunta.",
+        "mcp": "\"{{path}}\" guarda configurações de MCP. Mudanças orientam as sessões seguintes, então cada uma pergunta.",
+        "hooks": "\"{{path}}\" guarda hooks de agente. Mudanças orientam as sessões seguintes, então cada uma pergunta.",
         "git": "\"{{path}}\" guarda configuração do git. O git pode rodar comandos nomeados ali, então precisa da sua confirmação a cada vez.",
-        "policy": "\"{{path}}\" guarda a política de agentes e os grupos de ferramentas do projeto, incluindo as ferramentas que você bloqueou. Uma alteração ali orienta todas as sessões seguintes, então precisa da sua confirmação a cada vez.",
-        "warning": "Um texto que o agente leu (uma página, uma issue, um arquivo) pode estar dirigindo esta alteração. Confira se foi você quem pediu.",
-        "rewritesTracked": "{{command}} reescreve arquivos versionados sem nomeá-los, e instruções de agente, configurações MCP ou hooks podem estar entre eles, então precisa da sua confirmação a cada vez."
+        "policy": "\"{{path}}\" guarda a política de agentes e ferramentas bloqueadas. Mudanças orientam sessões seguintes; cada uma pergunta.",
+        "warning": "Algo que o agente leu (página, issue, arquivo) pode estar dirigindo esta mudança. Foi você quem pediu?",
+        "rewritesTracked": "{{command}} reescreve arquivos versionados sem nomeá-los, talvez instruções, MCP ou hooks, então cada execução pergunta."
       },
       "invalidInput": "Não foi possível ler este pedido da conversa.",
       "notFound": "Esta conversa não existe mais.",
@@ -139,7 +139,7 @@
         "unknownWorkspace": "Este workspace não existe mais."
       },
       "agent": {
-        "scriptUnsupported": "Escolha o executável do próprio agente nas Configurações de agentes: o OxeChat não inicia agentes por scripts .cmd, .ps1 ou .bat.",
+        "scriptUnsupported": "O OxeChat não inicia agentes por .cmd, .ps1 ou .bat. Escolha o executável nas Configurações de agentes.",
         "nativeMissing": "Falta o executável nativo (codex.exe) no Codex instalado. Reinstale o Codex ou escolha o codex.exe nas Configurações de agentes."
       }
     },
@@ -183,10 +183,10 @@
         "failed": "Não foi possível criar o certificado da conexão nem lê-lo do armazenamento seguro."
       },
       "keyring": {
-        "missing": "A conexão com o celular fica desligada porque nenhum chaveiro do sistema foi encontrado para proteger a chave dela. Inicie o GNOME Keyring ou o KWallet e reinicie o OXESpace. Se um deles já estiver rodando (comum no i3 ou no sway), inicie o OXESpace com `--password-store=gnome-libsecret`."
+        "missing": "Conexão do celular desligada: sem chaveiro do sistema. Inicie GNOME Keyring ou KWallet, ou abra com `--password-store=gnome-libsecret`."
       },
       "storage": {
-        "unavailable": "A conexão com o celular fica desligada porque o armazenamento seguro não está disponível neste sistema, então a chave dela não pode ser guardada."
+        "unavailable": "Conexão com o celular desligada: este sistema não tem armazenamento seguro para guardar a chave."
       },
       "pairing": {
         "failed": "$t(remotePairingFailure.{{reason}})",
@@ -230,9 +230,9 @@
       "copyFiles": {
         "copied": "{{count}} arquivos listados em worktree.copyFiles foram copiados.",
         "outsideRepo": "Padrões do worktree.copyFiles recusados, porque são relativos ao repositório e não podem usar .. nem .git: {{patterns}}.",
-        "overLimit": "O worktree.copyFiles encontrou {{files}} arquivos ({{megabytes}} MB), acima do limite de {{maxFiles}} arquivos ou {{maxMegabytes}} MB. Nada foi copiado; o worktree foi criado.",
+        "overLimit": "Worktree criada, nada copiado: o worktree.copyFiles achou {{files}} arquivos ({{megabytes}} MB), acima de {{maxFiles}} arquivos ou {{maxMegabytes}} MB.",
         "tooComplex": "Padrões do worktree.copyFiles recusados, porque têm pastas ou ** demais para comparar com segurança: {{patterns}}.",
-        "excludeReserved": "Padrões do worktree.copyFiles que começam com ! ficam reservados para excluir arquivos numa versão futura, e nada foi copiado para eles: {{patterns}}.",
+        "excludeReserved": "Padrões que começam com ! ficam reservados para uma versão futura; nada foi copiado para eles: {{patterns}}.",
         "ignoreCheckFailed": "O Git não conseguiu dizer quais arquivos ignora no worktree novo, então nada do worktree.copyFiles foi copiado.",
         "notIgnored": "Não copiados, porque o Git não os ignora no worktree novo e eles poderiam ir para um commit: {{paths}}.",
         "searchTooLarge": "O worktree.copyFiles percorreu mais de {{limit}} itens sem terminar. Nada foi copiado; o worktree foi criado. Use padrões mais específicos.",
@@ -274,13 +274,13 @@
         "maybeStale": "A base pode estar desatualizada. Isto foi criado a partir da sua cópia local de {{branch}}, sem um fetch antes."
       },
       "fetch": {
-        "needsPerson": "O agente precisa da versão mais recente da branch remota, mas agentes não acessam a rede pelo Git. Faça o fetch você mesmo no painel Git ou no terminal e depois deixe o agente continuar."
+        "needsPerson": "O agente precisa da branch remota atualizada, mas agentes não fazem fetch pelo Git. Faça você e continue."
       },
       "person": {
-        "refused": "O OXESpace não executa Git com acesso à rede neste repositório porque as configurações dele (.git/config) definem {{keys}}. Rode o comando no terminal."
+        "refused": "O .git/config deste repositório define {{keys}}, então o OXESpace não roda Git com rede aqui. Use o terminal."
       },
       "hooks": {
-        "skipped": "Os hooks do Git não rodam nas ações feitas por aqui. Push, troca de branch e criação de worktree pelo OXESpace não executam os hooks do repositório. Se o seu fluxo depende deles, faça esses passos no terminal."
+        "skipped": "Push, troca de branch e worktrees pelo OXESpace pulam os hooks do Git. Precisa deles? Use o terminal."
       }
     },
     "oxe": {
@@ -314,10 +314,10 @@
         "rowLock": "FOR UPDATE / FOR SHARE trava as linhas lidas até o fim da transação.",
         "sessionRole": "SET ROLE muda o usuário da sessão e, com ele, o que os próximos comandos podem fazer.",
         "tableLock": "VACUUM FULL trava a tabela inteira enquanto roda.",
-        "ambiguousEscape": "Uma barra invertida num texto pode encerrá-lo antes num servidor com standard_conforming_strings desligado, e então roda mais do que o texto mostra."
+        "ambiguousEscape": "Com standard_conforming_strings desligado, uma barra invertida pode encerrar o texto antes, e roda mais do que aparece."
       },
       "session": {
-        "busy": "Esta conexão tem uma transação aberta ou um comando em execução, então não pode ser reaberta agora. Faça commit ou rollback da transação, ou espere o comando terminar, e tente de novo.",
+        "busy": "Há uma transação aberta ou um comando rodando, então a conexão não reabre. Faça commit, rollback ou espere.",
         "limit": "Esta conexão já tem {{limit}} conexões com o banco abertas. Espere uma terminar e tente de novo.",
         "agentTransaction": "Um agente não pode abrir uma transação: cada instrução dele roda sozinha. A transação foi desfeita."
       },
@@ -363,11 +363,11 @@
           "deleted": "{{file}} foi excluído. Permitir remove as regras deste arquivo. Até você decidir, as regras aceitas continuam valendo.",
           "invalid": "{{file}} tem um erro, então não pode ser aplicado. As regras aceitas continuam valendo.",
           "tooLarge": "{{file}} passa de {{max}}, então não pode ser aplicado. As regras aceitas continuam valendo.",
-          "worktree": "A worktree {{worktree}} tem o próprio {{file}}, que permite mais do que as regras que você aceitou para este projeto. Até você decidir, as regras aceitas valem lá também.",
+          "worktree": "Worktree {{worktree}} tem {{file}} próprio, permitindo mais do que você aceitou. Até decidir, vale o aceito.",
           "partial": "{{file}} mudou fora do OXESpace. As regras mais rígidas já valem; as que permitem mais esperam por você."
         },
-        "policyFirstSight": "É a primeira vez que o OXESpace lê estas regras, e elas permitem mais do que o padrão do OXESpace. Até você decidir, só vale o que elas negam.",
-        "policyFirstSightLost": "É a primeira vez que o OXESpace lê estas regras, e o arquivo no disco tirou restrições que a versão commitada tem. Até você decidir, valem as restrições commitadas."
+        "policyFirstSight": "Regras novas, que permitem mais que o padrão do OXESpace. Até você decidir, só vale o que negam.",
+        "policyFirstSightLost": "Regras novas, e o arquivo no disco tira restrições da versão commitada. Até você decidir, essas restrições valem."
       },
       "requester": {
         "pane": "{{agent}} · painel {{pane}}",
@@ -433,8 +433,8 @@
         },
         "textCut": "O texto passa de {{max}} caracteres, então só parte dele aparece. Ele não pode ser aprovado.",
         "crash": "Trabalho não salvo nos editores pode ser perdido. Terminais e agentes reiniciam com o app.",
-        "hiddenCharacters": "O texto tem caracteres invisíveis ou que mudam a direção, então o que você vê pode não ser o que roda.",
-        "nativeCriticalDenyOnly": "Esta alteração é crítica, e o diálogo do sistema não consegue segurar o Permitir, então aqui ela só pode ser negada. Abra o OXESpace para aprovar.",
+        "hiddenCharacters": "O texto tem caracteres invisíveis ou de direção; o que você vê pode não ser o que roda.",
+        "nativeCriticalDenyOnly": "Esta mudança é crítica. O diálogo do sistema só pode negar; abra o OXESpace para aprovar.",
         "preview": {
           "notLocal": "Esta página não está no localhost. Ela pode carregar qualquer coisa e vê o que for digitado nela."
         },
@@ -471,7 +471,7 @@
           "liveSessions_one": "{{count}} sessão de agente deste projeto estava rodando quando a mudança foi detectada.",
           "liveSessions_many": "{{count}} sessões de agente deste projeto estavam rodando quando a mudança foi detectada.",
           "liveSessions_other": "{{count}} sessões de agente deste projeto estavam rodando quando a mudança foi detectada.",
-          "committedDeny": "− Continua negado: {{rule}}. O arquivo no disco tirou esta regra, mas a versão commitada a mantém, então ela continua valendo.",
+          "committedDeny": "− Continua negado: {{rule}}. O arquivo no disco tirou a regra, mas a versão commitada a mantém.",
           "committedOff": "↓ As ferramentas de {{group}} continuam desligadas. O arquivo no disco as religou, mas a versão commitada as mantém desligadas.",
           "matchesBranch": "Igual a `origin/{{branch}}`."
         }
@@ -489,7 +489,7 @@
       },
       "denied": {
         "queueFull": "Há pedidos demais esperando ({{max}}), então este foi negado sem ser mostrado.",
-        "tooLong": "O texto a aprovar passa de {{max}} caracteres, mais do que uma pessoa consegue revisar, então foi recusado. Divida em passos menores.",
+        "tooLong": "Recusado: mais de {{max}} caracteres é longo demais para revisar. Divida em passos menores.",
         "timeout": "Ninguém respondeu a tempo, então foi negado.",
         "cancelled": "O pedido foi retirado antes de alguém responder."
       },
@@ -535,7 +535,7 @@
         "bypassWithheld": "Retomada sem ignorar as permissões, como a sessão estava. Para retomar assim, ative em Configurações › Terminal."
       },
       "session": {
-        "notFound": "Este agente ainda não informou a sessão. Ela aparece depois da primeira resposta do agente, ou antes, com os hooks de status ligados (Configurações › Notificações)."
+        "notFound": "Ainda sem sessão. Aparece na primeira resposta do agente, ou antes com hooks de status (Configurações › Notificações)."
       },
       "request": {
         "approval": "Aguardando sua aprovação",
@@ -576,7 +576,7 @@
       },
       "oxequery": {
         "timeout": "Um pedido do OxeQuery esgotou o tempo.",
-        "restartDeferred": "O worker do OxeQuery parou de responder. O reinício foi adiado porque uma conexão tem uma transação aberta ou um comando em execução."
+        "restartDeferred": "O worker do OxeQuery parou de responder. O reinício espera uma transação aberta ou um comando em execução."
       },
       "updater": {
         "failed": "Não foi possível verificar ou instalar uma atualização."
@@ -660,6 +660,9 @@
       "undo": {
         "expired": "Este desfazer já foi usado ou não está mais disponível."
       }
+    },
+    "parity": {
+      "notAvailable": "Indisponível no {{provider}}"
     }
   },
   "remotePairingFailure": {
@@ -669,6 +672,6 @@
     "limit": "O celular não conseguiu parear: este computador já tem o número máximo de dispositivos.",
     "peer-closed": "O celular desistiu do pareamento antes da sua resposta. Mostre um novo código para tentar de novo.",
     "reserved-name": "O celular se deu um nome que só o OXESpace pode usar. Renomeie-o no celular e tente de novo.",
-    "no-contact": "O código expirou e nenhum celular chegou a este computador. Confira se o celular está na mesma rede e se esta rede é Particular ou se o firewall permite o OXESpace."
+    "no-contact": "Código expirado; nenhum celular chegou aqui. Use a mesma rede Particular ou libere o OXESpace no firewall."
   }
 }

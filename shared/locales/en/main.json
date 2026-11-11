@@ -3,14 +3,14 @@
     "unexpected": {
       "title": "OXESpace hit an unexpected error",
       "message": "Something went wrong in the background.",
-      "detail": "Your terminals and agents may still be running, but OXESpace can no longer guarantee them. Restart to continue safely. Diagnostics can be exported from Settings > Diagnostics.",
+      "detail": "Terminals and agents may still run, but OXESpace can't vouch for them. Restart. Diagnostics: Settings > Diagnostics.",
       "restart": "Restart OXESpace",
       "keepWorking": "Keep working"
     },
     "rendererGone": {
       "title": "OXESpace stopped responding",
       "message": "The interface keeps crashing.",
-      "detail": "Your terminals and agents are still running. Restart OXESpace to bring the interface back; diagnostics can be exported from Settings > Diagnostics.",
+      "detail": "Terminals and agents are still running. Restart OXESpace to bring the window back. Diagnostics: Settings > Diagnostics.",
       "ok": "OK"
     }
   },
@@ -109,9 +109,9 @@
         "mcp": "\"{{path}}\" holds MCP server settings. A change there steers every later session, so it needs your confirmation each time.",
         "hooks": "\"{{path}}\" holds agent hooks. A change there steers every later session, so it needs your confirmation each time.",
         "git": "\"{{path}}\" holds git configuration. Git can run commands named there, so it needs your confirmation each time.",
-        "policy": "\"{{path}}\" holds the project's agent policy and tool groups, including the tools you blocked. A change there steers every later session, so it needs your confirmation each time.",
-        "warning": "Text the agent read (a web page, an issue, a file) may be steering this change. Check that you asked for it.",
-        "rewritesTracked": "{{command}} rewrites tracked files without naming them, and agent instructions, MCP settings or hooks may be among them, so it needs your confirmation each time."
+        "policy": "\"{{path}}\" holds the agent policy and your blocked tools. Changes steer every later session, so each one asks.",
+        "warning": "Something the agent read (a page, issue or file) may be steering this change. Did you ask?",
+        "rewritesTracked": "{{command}} rewrites tracked files without naming them, maybe agent instructions, MCP settings or hooks, so each run asks."
       },
       "invalidInput": "This conversation request could not be read.",
       "notFound": "This conversation no longer exists.",
@@ -183,7 +183,7 @@
         "failed": "The connection certificate could not be created or read from secure storage."
       },
       "keyring": {
-        "missing": "The phone connection stays off because no system keyring was found to protect its key. Start GNOME Keyring or KWallet and restart OXESpace. If one is already running (common on i3 or sway), start OXESpace with `--password-store=gnome-libsecret`."
+        "missing": "Phone connection is off: no system keyring found. Start GNOME Keyring or KWallet, or launch with `--password-store=gnome-libsecret`."
       },
       "storage": {
         "unavailable": "The phone connection stays off because secure storage isn't available on this system, so its key can't be kept."
@@ -230,9 +230,9 @@
       "copyFiles": {
         "copied": "Copied {{count}} files listed in worktree.copyFiles.",
         "outsideRepo": "worktree.copyFiles patterns refused, because patterns must be relative to the repository and cannot use .. or .git: {{patterns}}.",
-        "overLimit": "worktree.copyFiles matched {{files}} files ({{megabytes}} MB), over the limit of {{maxFiles}} files or {{maxMegabytes}} MB. Nothing was copied; the worktree was created.",
+        "overLimit": "Worktree created, nothing copied: worktree.copyFiles matched {{files}} files ({{megabytes}} MB), over {{maxFiles}} files or {{maxMegabytes}} MB.",
         "tooComplex": "worktree.copyFiles patterns refused, because they have too many folders or ** to match safely: {{patterns}}.",
-        "excludeReserved": "worktree.copyFiles patterns starting with ! are kept for excluding files in a later version, so nothing was copied for them: {{patterns}}.",
+        "excludeReserved": "Patterns starting with ! are reserved for a later version, so nothing was copied for them: {{patterns}}.",
         "ignoreCheckFailed": "Git could not tell which files it ignores in the new worktree, so nothing from worktree.copyFiles was copied.",
         "notIgnored": "Not copied, because Git does not ignore them in the new worktree and they could be committed: {{paths}}.",
         "searchTooLarge": "worktree.copyFiles looked through more than {{limit}} entries without finishing. Nothing was copied; the worktree was created. Use narrower patterns.",
@@ -273,13 +273,13 @@
         "maybeStale": "The base may be out of date. This was created from your local copy of {{branch}}, which wasn't fetched first."
       },
       "fetch": {
-        "needsPerson": "The agent needs the latest version of the remote branch, but agents can't reach the network through Git. Fetch it yourself in the Git panel or the terminal, then let the agent continue."
+        "needsPerson": "The agent needs the latest remote branch, but agents can't fetch through Git. Fetch it, then continue."
       },
       "person": {
-        "refused": "OXESpace won't run network Git in this repository because its own settings (.git/config) set {{keys}}. Run the command in the terminal instead."
+        "refused": "This repository's .git/config sets {{keys}}, so OXESpace won't run network Git here. Use the terminal."
       },
       "hooks": {
-        "skipped": "Git hooks don't run for actions started here. Push, switching branches and creating worktrees from OXESpace skip the repository's hooks. If your flow depends on them, run those steps in the terminal."
+        "skipped": "Push, branch switches and worktrees from OXESpace skip Git hooks. If you rely on them, use the terminal."
       }
     },
     "oxe": {
@@ -313,10 +313,10 @@
         "rowLock": "FOR UPDATE / FOR SHARE locks the rows it reads until the transaction ends.",
         "sessionRole": "SET ROLE changes the session user, and with it what later statements may do.",
         "tableLock": "VACUUM FULL locks the whole table while it runs.",
-        "ambiguousEscape": "A backslash in a string can end it early on a server with standard_conforming_strings off, and then more of this text runs than it shows."
+        "ambiguousEscape": "With standard_conforming_strings off, a backslash can end a string early, so more runs than this shows."
       },
       "session": {
-        "busy": "This connection has a transaction open or a command running, so it cannot be reopened now. Commit or roll back the transaction, or wait for the command, then try again.",
+        "busy": "A transaction is open or a command running, so the connection can't reopen. Commit, roll back or wait.",
         "limit": "This connection already has {{limit}} database connections open. Wait for one to finish, then try again.",
         "agentTransaction": "An agent cannot open a transaction: each of its statements runs on its own. The transaction was rolled back."
       },
@@ -362,11 +362,11 @@
           "deleted": "{{file}} was deleted. Allowing it removes this file's rules. Until you decide, the accepted rules stay in force.",
           "invalid": "{{file}} has an error, so it can't be applied. The accepted rules stay in force.",
           "tooLarge": "{{file}} is larger than {{max}}, so it can't be applied. The accepted rules stay in force.",
-          "worktree": "The worktree {{worktree}} has its own {{file}}, which allows more than the rules you accepted for this project. Until you decide, the accepted rules apply there too.",
+          "worktree": "Worktree {{worktree}} has its own {{file}}, allowing more than you accepted. Until you decide, the accepted rules apply.",
           "partial": "{{file}} changed outside OXESpace. Its stricter rules already apply; the ones that allow more wait for you."
         },
-        "policyFirstSight": "This is the first time OXESpace reads these rules, and they allow more than OXESpace does by default. Until you decide, only what they deny applies.",
-        "policyFirstSightLost": "This is the first time OXESpace reads these rules, and the file on disk dropped restrictions the committed version has. Until you decide, the committed restrictions apply."
+        "policyFirstSight": "New rules that allow more than OXESpace's defaults. Until you decide, only what they deny applies.",
+        "policyFirstSightLost": "New rules, and the file on disk drops the committed version's restrictions. Until you decide, those apply."
       },
       "requester": {
         "pane": "{{agent}} · pane {{pane}}",
@@ -433,7 +433,7 @@
         "textCut": "The text is longer than {{max}} characters, so only part of it is shown. It cannot be approved.",
         "crash": "Unsaved work in editors may be lost. Terminals and agents restart with the app.",
         "hiddenCharacters": "The text holds invisible or direction-changing characters, so what you see may not be what runs.",
-        "nativeCriticalDenyOnly": "This change is critical, and the system dialog cannot hold Allow back, so it can only be denied here. Open OXESpace to approve it.",
+        "nativeCriticalDenyOnly": "This change is critical. The system dialog can only deny it; open OXESpace to approve.",
         "preview": {
           "notLocal": "This page is not on localhost. It can load anything, and it sees what is typed into it."
         },
@@ -468,7 +468,7 @@
           "usableMore": "Agents could then use: {{tools}} and {{more}} more",
           "liveSessions_one": "{{count}} agent session of this project was running when the change was detected.",
           "liveSessions_other": "{{count}} agent sessions of this project were running when the change was detected.",
-          "committedDeny": "− Still denied: {{rule}}. The file on disk dropped it, but the committed version keeps it, so it stays in force.",
+          "committedDeny": "− Still denied: {{rule}}. The file on disk dropped it, but the committed version keeps it.",
           "committedOff": "↓ {{group}} tools stay off. The file on disk turned them back on, but the committed version keeps them off.",
           "matchesBranch": "Same as `origin/{{branch}}`."
         }
@@ -486,7 +486,7 @@
       },
       "denied": {
         "queueFull": "Too many requests are waiting ({{max}}), so this one was denied without being shown.",
-        "tooLong": "The text to approve is longer than {{max}} characters, more than a person can review, so it was refused. Split it into smaller steps.",
+        "tooLong": "Refused: over {{max}} characters is too long to review. Split it into smaller steps.",
         "timeout": "Nobody answered in time, so it was denied.",
         "cancelled": "The request was withdrawn before anyone answered."
       },
@@ -532,7 +532,7 @@
         "bypassWithheld": "Resumed without skipping permissions, as the session had. To resume that way, turn it on in Settings › Terminal."
       },
       "session": {
-        "notFound": "This agent hasn't reported its session yet. It shows after the agent's first reply, or sooner with the status hooks on (Settings › Notifications)."
+        "notFound": "No session yet. It shows after the agent's first reply, or sooner with status hooks (Settings › Notifications)."
       },
       "request": {
         "approval": "Waiting for your approval",
@@ -573,7 +573,7 @@
       },
       "oxequery": {
         "timeout": "An OxeQuery request ran out of time.",
-        "restartDeferred": "The OxeQuery worker stopped answering. Its restart was put off because a connection has a transaction open or a command running."
+        "restartDeferred": "The OxeQuery worker stopped answering. Its restart waits for an open transaction or a running command."
       },
       "updater": {
         "failed": "An update could not be checked or installed."
@@ -657,6 +657,9 @@
       "undo": {
         "expired": "This undo was already used or is no longer available."
       }
+    },
+    "parity": {
+      "notAvailable": "Not available in {{provider}}"
     }
   },
   "remotePairingFailure": {
@@ -666,6 +669,6 @@
     "limit": "The phone could not pair: this computer already has the maximum number of devices.",
     "peer-closed": "The phone stopped pairing before you answered. Show a new code to try again.",
     "reserved-name": "The phone gave itself a name only OXESpace may use. Rename it on the phone and try again.",
-    "no-contact": "The code expired and no phone reached this computer. Check that the phone is on the same network, and that this network is Private or the firewall allows OXESpace."
+    "no-contact": "Code expired; no phone reached this computer. Use the same Private network, or allow OXESpace in the firewall."
   }
 }

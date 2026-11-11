@@ -9,7 +9,9 @@ import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, Circ
 import type { ConversationThread } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
-import { NavigationRail, RailItems, SidebarActions, SidebarFooter, type RailAction } from '../Navigation/NavigationChrome'
+import { SidebarActions, SidebarFooter, type RailAction } from '../Navigation/NavigationChrome'
+import { SidebarCollapseButton } from '../Sidebar/SidebarCollapseButton'
+import { ThreadRail } from './ThreadRail'
 import { useNavigationSearch } from '../Navigation/useNavigationSearch'
 import { SearchField } from '../Navigation/SearchField'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
@@ -34,18 +36,14 @@ import sectionStyles from './sections/ThreadSections.module.css'
 
 /** Threads shown per project before "Show more" (a search or the selected thread always shows). */
 const THREAD_ROWS_PER_PROJECT = 8
-/** How many conversations the collapsed rail lists: the pinned, then the most recent (T61). */
-const RAIL_CONVERSATIONS = 12
 
 function relativeTime(timestamp: number): string {
   const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000))
   const t = i18n.t.bind(i18n)
   return minutes < 1 ? t('thread:sidebar.age.now') : minutes < 60 ? t('thread:sidebar.age.minutes', { count: minutes }) : minutes < 1440 ? t('thread:sidebar.age.hours', { count: Math.floor(minutes / 60) }) : t('thread:sidebar.age.days', { count: Math.floor(minutes / 1440) })
 }
-export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode, onOpenTeam }: {
+export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode }: {
   onCreate: (projectId: string, rootPath?: string) => void; onAccounts?: () => void; onAddProject?: () => void; onOpenInCode?: (rootPath: string) => Promise<void>
-  /** The project's Team; never off here, since the row is the project. */
-  onOpenTeam?: (projectId: string) => void
 }) {
   const { t } = useTranslation('thread')
   // Only these fields: the store also changes for drafts, snapshots and scroll positions, which the list never shows.
@@ -69,7 +67,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   const width = useNavigationPrefs(s => s.width), setWidth = useNavigationPrefs(s => s.setWidth)
   // The list's own density overrides the app-wide one (Settings › Appearance) once the person toggles it.
   const density = resolveDensity(useNavigationPrefs(s => s.threadDensity), useSettingsStore(s => s.density)), setDensity = useNavigationPrefs(s => s.setThreadDensity)
-  const collapsed = useUIStore(s => s.isSidebarCollapsed), toggleCollapse = useUIStore(s => s.toggleSidebar)
+  const collapsed = useUIStore(s => s.collapsedSidebars.thread), toggleCollapse = useCallback(() => useUIStore.getState().toggleSidebar('thread'), [])
   const [query, setQuery] = useState('')
   const search = useRef<HTMLInputElement>(null)
   // Arrows and j/k move through conversations and projects; one tab stop for the whole list.
@@ -147,14 +145,14 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   const railContext: RailAction = { id: 'accounts', label: t('sidebar.accounts'), ariaLabel: t('sidebar.agentAccounts'), icon: UserRound, onClick: onAccounts }
   return <aside className={`thread-navigation${collapsed ? ' thread-navigation-collapsed' : ''}`} data-density={density} aria-label={t('sidebar.region')}>
     {!collapsed && <Splitter edge orientation="vertical" label={t('sidebar.width')} value={width} min={SIDEBAR_MIN_WIDTH} max={SIDEBAR_MAX_WIDTH} defaultValue={SIDEBAR_WIDTH} step={SIDEBAR_RESIZE_STEP} onChange={setWidth} />}
-    {collapsed && <NavigationRail mode="thread" primary={railPrimary} context={railContext} onToggle={toggleCollapse}>
-      <RailItems label={t('sidebar.conversations')} items={threads.filter(thread => !thread.archived && !hiddenProjects.includes(thread.projectId))
-        .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || b.updatedAt - a.updatedAt).slice(0, RAIL_CONVERSATIONS)
-        .map(thread => ({ id: thread.id, label: `${displayThreadTitle(thread.title)} · ${threadNavigationStatus(thread).label}`, current: thread.id === selectedId,
-          onSelect: () => void select(thread.id) }))} />
-    </NavigationRail>}
+    {collapsed && <ThreadRail
+      conversations={threads.filter(thread => !thread.archived && !hiddenProjects.includes(thread.projectId))
+        .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || b.updatedAt - a.updatedAt)
+        .map(thread => ({ id: thread.id, title: displayThreadTitle(thread.title), needsYou: threadNavigationStatus(thread).kind === 'attention', current: thread.id === selectedId }))}
+      onSelect={id => void select(id)}
+      onArchived={() => { toggleCollapse(); setShowArchived(true) }} />}
     {!collapsed && <div className="nav-panel">
-      <div className="nav-panel-title"><strong>{t('sidebar.conversations')}</strong><SidebarActions actions={railPrimary} /></div>
+      <div className="nav-panel-title"><strong>{t('sidebar.conversations')}</strong><SidebarActions actions={railPrimary} /><SidebarCollapseButton mode="thread" /></div>
       <div className={cx('thread-nav-actions', styles.search)}>
         <SearchField className="thread-nav-search" ref={search} label={t('sidebar.filter')} placeholder={t('sidebar.filter')} value={query} onChange={setQuery} shortcut="/" />
       </div>
@@ -172,7 +170,6 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
             items={[
               { label: t('sidebar.projectSettings'), onSelect: () => setProjectSettingsId(group.id) },
               { label: t('sections.newSection'), onSelect: () => sections.setDialog({ kind: 'create', projectId: group.id }) },
-              ...(onOpenTeam ? [{ label: t('tools.team.menu', { ns: 'code' }), onSelect: () => onOpenTeam(group.id) }] : []),
               ...(group.rootPath ? [{ label: t('sidebar.openInCode'), disabled: unavailableProjects.includes(group.id), onSelect: () => void onOpenInCode?.(group.rootPath!).catch(error => setActionError(humanizeError(error, t('sidebar.openInCodeFailed')))) }] : []),
               { type: 'separator' as const },
               { label: t('sidebar.removeProjectMenu'), danger: true, onSelect: () => { setActionError(''); setConfirmation({ kind: 'project', id: group.id, title: group.name }) } }

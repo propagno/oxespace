@@ -1021,7 +1021,8 @@
     "worktrees": "Worktrees",
     "background": "Background activity",
     "httpCalls": "HTTP calls",
-    "android": "Android"
+    "android": "Android",
+    "containers": "Containers"
   },
   "patch": {
     "region": "File diff",
@@ -1372,6 +1373,7 @@
     "showMore_other": "Show {{count}} more",
     "archivedRegion": "Archived conversations",
     "archived": "Archived",
+    "railNeedsDecision": "{{name}}, needs your decision",
     "restoreNamed": "Restore {{name}}",
     "restoreConversation": "Restore conversation",
     "noMatches": "No conversations found.",
