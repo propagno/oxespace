@@ -782,7 +782,7 @@ describe('docs-only main changes (coordinator rule)', () => {
     // Paths the scan finds that are fixtures in a temp folder or path strings, not reads of this repository.
     const notReads = new Set(['.claude', '.claude/settings.local.json'])
     // Folders a test lists, and the rule that covers what it reads there.
-    const folderReads: Record<string, string> = { docs: 'docs/x/any.md', 'docs/plans': 'skipped by docs-links', 'docs/audits': 'skipped by docs-links' }
+    const folderReads: Record<string, string> = { docs: 'docs/x/any.md', 'docs/build-diary': 'docs/build-diary/README.md', 'docs/plans': 'skipped by docs-links', 'docs/audits': 'skipped by docs-links' }
     const hits = scanDocReads(['tests', 'e2e'])
     expect(hits.length).toBeGreaterThan(3)
     for (const hit of hits) {
