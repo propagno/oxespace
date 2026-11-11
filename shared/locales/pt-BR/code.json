@@ -227,20 +227,20 @@
     "mainSuffix": "(principal)",
     "unknown": "worktree desconhecido",
     "paneName": "Painel {{row}}.{{column}}",
-    "pickPaneFirst": "Escolha um painel primeiro: clique em um painel da grade e depois escolha o worktree.",
+    "pickPaneFirst": "Escolha um painel primeiro: clique em um painel da grade e depois escolha a worktree.",
     "activePaneSection": "Worktree do painel ativo",
     "activePane": "Painel ativo",
     "noActivePane": "Nenhum painel ativo. Clique em um painel para escolhê-lo.",
     "refresh": "Atualizar a lista de worktrees",
     "dismiss": "Dispensar",
-    "onlyMain": "Este repositório só tem o worktree principal. Crie um abaixo para trabalhar em outra branch sem mexer no painel atual.",
+    "onlyMain": "Este repositório só tem a worktree principal. Crie um abaixo para trabalhar em outra branch sem mexer no painel atual.",
     "none": "Nenhum worktree",
-    "noneHint": "Crie um worktree abaixo para trabalhar em outra branch sem mexer no painel atual.",
+    "noneHint": "Crie uma worktree abaixo para trabalhar em outra branch sem mexer no painel atual.",
     "pickPaneTitle": "Clique em um painel da grade primeiro",
     "alreadyOn": "O painel ativo já está em {{name}}",
     "useHere": "Abrir o painel ativo neste worktree",
     "remove": "Remover worktree",
-    "removeLabel": "Remover o worktree {{name}}",
+    "removeLabel": "Remover a worktree {{name}}",
     "tag": {
       "main": "principal",
       "locked": "bloqueado",
@@ -271,8 +271,8 @@
     "hooks": {
       "label": "Scripts do oxe.yaml aguardando aprovação",
       "waiting": {
-        "setup": "O script setup (roda quando um worktree é criado) aguarda aprovação",
-        "archive": "O script archive (roda antes de um worktree ser removido) aguarda aprovação"
+        "setup": "O script setup (roda quando uma worktree é criado) aguarda aprovação",
+        "archive": "O script archive (roda antes de uma worktree ser removido) aguarda aprovação"
       },
       "review": "Revisar e aprovar…",
       "failed": "Não foi possível aprovar o script",
@@ -295,28 +295,28 @@
       "unpushed_other": "{{count}} commits não publicados",
       "neverPushed": "uma branch que nunca foi publicada",
       "title": "Remover {{name}}?",
-      "checking": "Verificando o que este worktree guarda…",
+      "checking": "Verificando o que esta worktree guarda…",
       "clean": "Tudo aqui está commitado e publicado. A pasta é apagada; a branch fica.",
-      "losesWork": "Este worktree ainda guarda {{losses}}. Removê-lo apaga esse trabalho de vez.",
-      "losesFolder": "Este worktree ainda guarda {{losses}}. Removê-lo apaga a pasta; a branch fica.",
+      "losesWork": "Esta worktree ainda guarda {{losses}}. Removê-lo apaga esse trabalho de vez.",
+      "losesFolder": "Esta worktree ainda guarda {{losses}}. Removê-lo apaga a pasta; a branch fica.",
       "force": "Remover e descartar as alterações"
     },
     "createError": {
-      "folderExists": "A pasta “{{path}}” já existe. Escolha outro caminho: o git não cria um worktree onde já há arquivos.",
+      "folderExists": "A pasta “{{path}}” já existe. Escolha outro caminho: o git não cria uma worktree onde já há arquivos.",
       "branchInUse": "Esta branch já está aberta em outro worktree. Escolha outra branch ou remova aquele worktree antes.",
       "noStart": "O git não encontrou um ponto de partida para a nova branch. Confira se a branch atual tem pelo menos um commit.",
       "branchMissing": "Branch não encontrada. Digite o nome de uma branch existente, ou desmarque “Usar uma branch existente” para criar uma nova.",
       "notGit": "Este workspace não é um repositório Git. Worktrees só funcionam dentro de um repositório.",
       "unknownBase": "O git não conhece o ponto de partida “{{base}}”. Busque o remoto ou digite uma referência que exista localmente.",
       "invalidName": "O nome da branch ou o ponto de partida tem caracteres que o git não aceita. Use letras, dígitos, /, -, _ e .",
-      "generic": "Não foi possível criar o worktree."
+      "generic": "Não foi possível criar a worktree."
     },
     "removeError": {
       "archiveHook": "Corrija o script archive no oxe.yaml e tente de novo.",
-      "main": "Este é o worktree principal; ele não pode ser removido pelo app.",
-      "folderInUse": "O worktree saiu do git, mas a pasta não pôde ser apagada: algo ainda a mantém aberta (um editor, o explorador de arquivos ou um terminal). Feche e apague a pasta à mão se ela continuar lá.",
-      "changed": "Este worktree mudou desde a verificação e agora tem trabalho não commitado. Abra a remoção de novo para ver o quê e confirme.",
-      "generic": "Não foi possível remover o worktree."
+      "main": "Este é a worktree principal; ele não pode ser removido pelo app.",
+      "folderInUse": "A worktree saiu do git, mas a pasta não pôde ser apagada: algo ainda a mantém aberta (um editor, o explorador de arquivos ou um terminal). Feche e apague a pasta à mão se ela continuar lá.",
+      "changed": "Esta worktree mudou desde a verificação e agora tem trabalho não commitado. Abra a remoção de novo para ver o quê e confirme.",
+      "generic": "Não foi possível remover a worktree."
     },
     "cleanup": {
       "title": "Limpar worktrees",
@@ -325,14 +325,14 @@
       "idleDays_one": "parado há {{count}} dia",
       "idleDays_many": "parado há {{count}} dias",
       "idleDays_other": "parado há {{count}} dias",
-      "scanFailed": "Não foi possível verificar os worktrees",
-      "scanning": "Verificando os worktrees…",
+      "scanFailed": "Não foi possível verificar as worktrees",
+      "scanning": "Verificando as worktrees…",
       "none": "Nenhum worktree além do principal.",
       "select": "Selecionar {{name}}",
       "noReason": "nenhum motivo para remover",
       "reason": {
         "idle-clean": "parado há mais de 30 dias",
-        "merged": "já mesclado",
+        "merged": "já mergeado",
         "missing-directory": "pasta ausente"
       },
       "blocker": {
@@ -348,7 +348,7 @@
       "risky_one": "{{count}} worktree selecionado tem trabalho não salvo ou estado desconhecido; removê-lo descarta esse trabalho.",
       "risky_many": "{{count}} worktrees selecionados têm trabalho não salvo ou estado desconhecido; removê-los descarta esse trabalho.",
       "risky_other": "{{count}} worktrees selecionados têm trabalho não salvo ou estado desconhecido; removê-los descarta esse trabalho.",
-      "removed_one": "{{count}} worktree removido.",
+      "removed_one": "{{count}} worktree removida.",
       "removed_many": "{{count}} worktrees removidos.",
       "removed_other": "{{count}} worktrees removidos.",
       "partly_one": "{{removed}} removidos; {{count}} recusado:",
@@ -365,6 +365,41 @@
       "confirm_one": "Remover {{count}} e descartar",
       "confirm_many": "Remover {{count}} e descartar",
       "confirm_other": "Remover {{count}} e descartar"
+    },
+    "panel": {
+      "label": "Worktrees deste repositório",
+      "loading": "Carregando as worktrees…",
+      "failed": "Não foi possível listar as worktrees",
+      "col": {
+        "conversation": "Conversa",
+        "branch": "Branch",
+        "state": "Estado",
+        "disk": "Disco",
+        "activity": "Última atividade",
+        "actions": "Ações"
+      },
+      "noConversation": "—",
+      "conversationGone": "{{title}} (removida)",
+      "merged": "Mergeada",
+      "mergedGit": "Mergeada (pelo git; pode não ver squash)",
+      "openPr": "PR #{{number}} aberto",
+      "changed_one": "{{count}} alterada",
+      "changed_many": "{{count}} alteradas",
+      "changed_other": "{{count}} alteradas",
+      "branchChanged": "Branch mudou desde então",
+      "missing": "Pasta ausente",
+      "locked": "Bloqueado",
+      "dirtyReason": "Faça commit ou descarte as alterações primeiro.",
+      "lockedReason": "O git está com ele bloqueado. Desbloqueie antes.",
+      "remove": "Remover",
+      "removeTitle": "Remover a worktree em {{path}}?",
+      "removeBody": "A pasta dele é apagada. Os commits da branch continuam no repositório, a menos que você apague a branch também.",
+      "deleteBranch": "Apagar também a branch {{branch}}",
+      "unmerged": "Não mergeada: os commits ficam só nesta branch.",
+      "removedDeleted": "Worktree removida; branch apagada.",
+      "removedKept": "Worktree removida; a branch continua.",
+      "removedNotDeleted": "Worktree removida; não foi possível apagar a branch, que foi mantida.",
+      "removeOpen": "Remover…"
     }
   },
   "terminal": {

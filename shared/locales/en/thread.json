@@ -1745,8 +1745,8 @@
     "kind": {
       "root": "Main checkout",
       "worktree": "Task worktree",
-      "checkout": "Other repository",
-      "outside": "Outside folder",
+      "checkout": "Another checkout",
+      "outside": "Outside the repository",
       "sibling": "Sibling worktree",
       "place": "Another place"
     },
@@ -1760,14 +1760,213 @@
       "siblingWorktree": "a sibling worktree"
     }
   },
+  "places": {
+    "kind": {
+      "worktree": "Task worktree",
+      "root": "Main checkout",
+      "checkout": "Another checkout",
+      "outside": "Outside the repository"
+    },
+    "summary_one": "Changes in {{count}} place",
+    "summary_other": "Changes in {{count}} places",
+    "against": "{{path}} · against {{commit}}, where the task started",
+    "outsideNote": "Not a git checkout: files as the agent wrote them",
+    "capped": "Tracking the first {{limit}} places of this conversation.",
+    "empty": "No changes. Files the agent writes show up here, by where it wrote them.",
+    "loading": "Reading changes",
+    "failed": "Could not read the changes of this place. Try again.",
+    "noFiles": "No changes here.",
+    "undoFile": "Undo file",
+    "undoHunk": "Undo hunk",
+    "undone": "Change undone",
+    "restored": "Change restored",
+    "undoFailed": "Could not undo this change. Try again.",
+    "stale": "The file changed since it was shown; the changes were read again.",
+    "discard": "Discard…",
+    "discardTitle": "Discard the task's changes in {{place}}?",
+    "discardText": "The files the task changed in {{path}} go back to where the task started.",
+    "discardConfirm": "Discard changes",
+    "discarded": "Changes discarded",
+    "openFolder": "Open folder",
+    "groups": {
+      "task": "Changed by the task",
+      "branchSwitch": "Changed by the branch switch"
+    },
+    "drift": {
+      "title": "This worktree is on another branch now.",
+      "moved": "At {{time}} it moved from {{from}} to {{to}}.",
+      "movedOne": "At {{time}} it moved from {{from}} to {{to}}, probably from your terminal \"{{pane}}\".",
+      "movedMany": "At {{time}} it moved from {{from}} to {{to}}, probably from one of your terminals: {{panes}}.",
+      "detachedBranch": "a detached HEAD",
+      "switchBack": "Switch back to {{branch}}",
+      "follow": "Follow the new branch",
+      "dismiss": "Dismiss",
+      "openTerminal": "Open that terminal",
+      "dirty": "Commit or move the uncommitted changes first.",
+      "detached": "HEAD is detached; check out a branch first.",
+      "busy": "Wait for the agent to finish this turn first.",
+      "followTitle": "Follow the new branch?",
+      "followText": "Follow {{branch}}? The task's changes are compared against {{branch}} from now on.",
+      "followConfirm": "Follow {{branch}}",
+      "switchBackTitle": "Switch back?",
+      "switchBackText": "Switch the worktree back to {{branch}}? Your terminal's branch {{to}} stays as it is.",
+      "switchBackConfirm": "Switch back",
+      "failed": "Could not answer the branch change. Try again."
+    },
+    "base": "against {{commit}}, where the task started",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} files",
+    "inPlaces_one": "in {{count}} place",
+    "inPlaces_other": "in {{count}} places",
+    "view": {
+      "label": "Show changes",
+      "all": "All changes",
+      "byTurn": "By turn"
+    },
+    "askReview": "Ask for a review",
+    "reviewPrompt": "Review the changes this conversation made, place by place, and tell me what to fix.",
+    "finish": "Finish the worktree…",
+    "comment": "Comment",
+    "commentLabel": "Comment on {{path}} {{hunk}}",
+    "commentSend": "Send to the conversation",
+    "commentPrompt": "About `{{path}}` ({{hunk}}):",
+    "openAt": "Open in editor at line {{line}}"
+  },
   "outsideFile": {
     "band": "Read only · outside the repository · {{path}}",
-    "bandCheckout": "Read only · another repository · {{path}}",
+    "bandCheckout": "Read only · another checkout · {{path}}",
     "label": "{{path}}, read only",
     "copyPath": "Copy path",
     "path": "Path",
     "pathCopied": "Path copied",
     "loading": "Opening {{path}}…",
     "failed": "Could not open {{path}}."
+  },
+  "paneBranch": {
+    "on": "On {{branch}}",
+    "switched": "On {{branch}}, switched from {{from}}"
+  },
+  "collision": {
+    "alsoEditedBy": "Also edited by {{title}}",
+    "more_one": "and {{count}} more",
+    "more_other": "and {{count}} more"
+  },
+  "terminalTab": {
+    "agent": "Agent's",
+    "yours": "Yours",
+    "empty": "No terminals in this conversation's places yet."
+  },
+  "threadTabs": {
+    "label": "Conversation tabs",
+    "conversation": "Conversation",
+    "changes": "Changes",
+    "terminal": "Terminal",
+    "containers": "Containers",
+    "network": "Network",
+    "pullRequest": "Pull request"
+  },
+  "prTab": {
+    "loading": "Loading…",
+    "failed": "Couldn't read the pull request.",
+    "unsupported": "Pull requests for this remote aren't supported.",
+    "none": "No pull request for this branch yet.",
+    "missing": {
+      "github": "Install the GitHub CLI (gh) to see this branch's pull request.",
+      "azure": "Install the Azure CLI (az) with its azure-devops extension to see this branch's pull request."
+    },
+    "signedOut": {
+      "github": "Sign in with gh auth login to see this branch's pull request.",
+      "azure": "Sign in with az login to see this branch's pull request."
+    },
+    "howToInstall": "How to install",
+    "copyCommand": "Copy command",
+    "command": "Command",
+    "provider": {
+      "github": "GitHub",
+      "azure": "Azure DevOps"
+    },
+    "state": {
+      "open": "Open",
+      "draft": "Draft",
+      "merged": "Merged",
+      "closed": "Closed",
+      "completed": "Completed",
+      "abandoned": "Abandoned"
+    },
+    "branches": "{{head}} into {{base}}",
+    "workItems": "Work items",
+    "checks": {
+      "github": "Checks",
+      "azure": "Pipelines and policies",
+      "tally": "{{passed}} of {{total}} passed",
+      "none": "No checks yet.",
+      "pass": "Passed",
+      "running": "Running",
+      "fail": "Failed",
+      "skipped": "Skipped",
+      "notApplicable": "Not applicable"
+    },
+    "duration": {
+      "seconds": "{{seconds}} s",
+      "minutes": "{{minutes}} min {{seconds}} s"
+    },
+    "reviewers": {
+      "title": "Reviewers",
+      "none": "No reviewers yet."
+    },
+    "vote": {
+      "approved": "Approved",
+      "changesRequested": "Changes requested",
+      "commented": "Commented",
+      "reviewRequested": "Review requested",
+      "approvedWithSuggestions": "Approved with suggestions",
+      "noVote": "No vote",
+      "waitingForAuthor": "Waiting for author",
+      "rejected": "Rejected"
+    },
+    "open": {
+      "github": "Open on GitHub",
+      "azure": "Open in Azure DevOps"
+    },
+    "merge": {
+      "github": "Merge",
+      "azure": "Complete"
+    },
+    "description": "Description",
+    "summary": {
+      "title": "What the agent did",
+      "empty": "Nothing to report yet.",
+      "failed": "Some sources couldn't be read.",
+      "add": "Add to description",
+      "added": "Added to the description",
+      "undo": "Undo",
+      "files_one": "{{count}} file changed",
+      "files_other": "{{count}} files changed",
+      "databases_one": "{{count}} database query",
+      "databases_other": "{{count}} database queries",
+      "http_one": "{{count}} HTTP call",
+      "http_other": "{{count}} HTTP calls",
+      "httpProduction_one": "{{count}} HTTP call, {{production}} to production",
+      "httpProduction_other": "{{count}} HTTP calls, {{production}} to production",
+      "containers_one": "{{count}} container action",
+      "containers_other": "{{count}} container actions",
+      "approvals_one": "{{count}} approval you gave",
+      "approvals_other": "{{count}} approvals you gave"
+    },
+    "form": {
+      "title": "Title",
+      "from": "From",
+      "into": "Into",
+      "draft": "Open as a draft",
+      "submit": "Push and open pull request",
+      "opened": "Pull request opened",
+      "failed": "Couldn't open the pull request. Try again."
+    },
+    "address": "Address review comments",
+    "addressPrompt": "Read the review comments on pull request {{number}} and address them.",
+    "mergeTooltip": {
+      "github": "Merging happens on GitHub after review",
+      "azure": "Complete happens in Azure DevOps once the policies pass"
+    }
   }
 }

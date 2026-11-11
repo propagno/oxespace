@@ -15,7 +15,7 @@ import { changeLanguage } from '../../src/i18n'
 
 // The header's content and branch badge read terminals and Git; they are not what this file checks.
 vi.mock('../../src/components/Panes/PaneContent', () => ({ PaneContent: () => null }))
-vi.mock('../../src/components/Workspace/PaneBranchBadge', () => ({ PaneBranchBadge: () => null }))
+vi.mock('../../src/components/Panes/PaneBranchBadge', () => ({ PaneBranchBadge: () => null }))
 const { PaneContainer } = await import('../../src/components/Grid/PaneContainer')
 
 const running: PaneDisplayTerminalState = { status: 'running', error: null, lastActivityAt: null, lastOutput: null, lastIntent: null, lastIntentAt: null, isWorking: false, hasUnread: false, hookState: null, hookAt: null }

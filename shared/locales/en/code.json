@@ -350,6 +350,40 @@
       "confirmBody": "These worktrees have uncommitted changes, unpushed commits or an unknown state: {{names}}. Removing them deletes that work for good.",
       "confirm_one": "Remove {{count}} and discard",
       "confirm_other": "Remove {{count}} and discard"
+    },
+    "panel": {
+      "label": "Worktrees of this repository",
+      "loading": "Loading the worktrees…",
+      "failed": "Could not list the worktrees",
+      "col": {
+        "conversation": "Conversation",
+        "branch": "Branch",
+        "state": "State",
+        "disk": "Disk",
+        "activity": "Last activity",
+        "actions": "Actions"
+      },
+      "noConversation": "—",
+      "conversationGone": "{{title}} (removed)",
+      "merged": "Merged",
+      "mergedGit": "Merged (from git; may miss squash merges)",
+      "openPr": "Open PR #{{number}}",
+      "changed_one": "{{count}} changed",
+      "changed_other": "{{count}} changed",
+      "branchChanged": "Branch changed since",
+      "missing": "Folder missing",
+      "locked": "Locked",
+      "dirtyReason": "Commit or discard its changes first.",
+      "lockedReason": "Git has it locked. Unlock it first.",
+      "remove": "Remove",
+      "removeTitle": "Remove the worktree at {{path}}?",
+      "removeBody": "Its folder is deleted. Commits on its branch stay in the repository unless you delete the branch too.",
+      "deleteBranch": "Also delete branch {{branch}}",
+      "unmerged": "Not merged: its commits stay only on this branch.",
+      "removedDeleted": "Removed the worktree; branch deleted.",
+      "removedKept": "Removed the worktree; the branch stays.",
+      "removedNotDeleted": "Removed the worktree; the branch could not be deleted and is kept.",
+      "removeOpen": "Remove…"
     }
   },
   "terminal": {

@@ -1,0 +1,6 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": { "noEmit": true },
+  "files": ["cr-f4-7-bridge-types.ts", "../../../vite-env.d.ts"],
+  "include": ["../../../electron/**/*.d.ts", "../../../src/**/*.d.ts", "../../../shared/**/*.d.ts"]
+}

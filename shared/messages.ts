@@ -8,8 +8,10 @@
  * Native dialogs are the one exception: the main process shows them itself, so it translates with `tMain`.
  */
 
+import { PLACE_MESSAGE_CODES, type PlaceMessageParams } from './messages-places'
+
 /** Every code the main process may send, with the parameters each one carries. Add codes; never repurpose one. */
-export interface MessageParams {
+export interface MessageParams extends PlaceMessageParams {
   /** MCP quarantine: tools whose description or inputs changed after the person trusted the server. */
   'mcp.quarantine.changed': { tools: string[] }
   /** MCP quarantine: tools the server added after it was trusted. */
@@ -60,22 +62,6 @@ export interface MessageParams {
   'thread.invalidInput': Record<string, never>
   /** No conversation has this id (deleted, or never existed). */
   'thread.notFound': Record<string, never>
-  /** F4 (A14): the conversation has no place with this id (it never had one, or the place left). */
-  'thread.place.gone': Record<string, never>
-  /** F4 (A17): a place that did not come from a tool's write (the root, a worktree, a location-only place) cannot be read here. */
-  'thread.place.notEvidence': Record<string, never>
-  /** F4 (A17, SECURITY S2): the path leaves the place (an escape, an absolute or device path, a link out). */
-  'thread.place.outside': Record<string, never>
-  /** F4 (A15): the place has no branch drift left to answer (none was seen, or it was answered already). */
-  'thread.place.noDrift': Record<string, never>
-  /** F4 (A15, HML 704-3): Switch back waits while this conversation has a running turn. */
-  'thread.place.busy': Record<string, never>
-  /** F4 (A15): the checkout has uncommitted changes, so Switch back did not run (never stashes, never forces). */
-  'thread.place.dirty': Record<string, never>
-  /** F4 (A15): the base had no branch (a detached HEAD), so there is no branch to switch back to. */
-  'thread.place.detached': Record<string, never>
-  /** F4 (A15, HML 704-4): the base branch no longer exists. */
-  'thread.place.branchGone': { branch: string }
   /** B13: OxeChat starts agents only from a native executable; any other .cmd/.ps1/.bat is refused. */
   'thread.agent.scriptUnsupported': Record<string, never>
   /** B13: a `codex.cmd` npm install whose native `codex.exe` is missing (it is never run through the app as Node). */
@@ -559,6 +545,7 @@ export interface MessageParams {
 export type MessageCode = keyof MessageParams
 
 export const MESSAGE_CODES = [
+  ...PLACE_MESSAGE_CODES,
   'mcp.quarantine.changed',
   'mcp.quarantine.added',
   'mcp.quarantine.removed',
@@ -586,14 +573,6 @@ export const MESSAGE_CODES = [
   'thread.side.invalidInput',
   'thread.invalidInput',
   'thread.notFound',
-  'thread.place.gone',
-  'thread.place.notEvidence',
-  'thread.place.outside',
-  'thread.place.noDrift',
-  'thread.place.busy',
-  'thread.place.dirty',
-  'thread.place.detached',
-  'thread.place.branchGone',
   'thread.agent.scriptUnsupported',
   'thread.agent.nativeMissing',
   'activity.invalid',

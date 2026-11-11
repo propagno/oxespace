@@ -1,5 +1,5 @@
-import { existsSync } from 'node:fs'
-import { isAbsolute, resolve } from 'node:path'
+import { existsSync, readFileSync, statSync } from 'node:fs'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
 import type { ThreadPaneSource, ThreadPlace, ThreadPlaceDrift, ThreadPlaceHead } from '../../../../shared/types/thread-places'
 import { mainMessage, type MainMessage } from '../../../../shared/messages'
 import { execGit } from '../../utils/safe-git'
@@ -16,6 +16,74 @@ const LIMITS = { timeout: 10_000 }
 const out = async (cwd: string, args: string[]): Promise<string> => (await execGit(cwd, args, LIMITS)).stdout
 
 export const sameHead = (a: ThreadPlaceHead, b: ThreadPlaceHead): boolean => a.branch === b.branch && a.commit === b.commit
+
+const OBJECT_ID = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/
+
+/** The git dir of the checkout holding `placePath`: a `.git` folder, or a `.git` file's `gitdir:` (a worktree). */
+function gitDirOf(placePath: string): string | null {
+  let dir = resolve(placePath)
+  for (;;) {
+    const dotGit = join(dir, '.git')
+    const stat = statSync(dotGit, { throwIfNoEntry: false })
+    if (stat?.isDirectory()) return dotGit
+    if (stat?.isFile()) {
+      const line = readFileSync(dotGit, 'utf8').split(/\r?\n/).find(entry => entry.startsWith('gitdir:'))
+      if (!line) return null
+      const target = line.slice('gitdir:'.length).trim()
+      return target ? (isAbsolute(target) ? target : resolve(dir, target)) : null
+    }
+    const parent = dirname(dir)
+    if (parent === dir) return null
+    dir = parent
+  }
+}
+
+/** The commit a ref names: its loose file (in the git dir or the common dir), else packed-refs; null when unknown. */
+function refCommit(gitDir: string, commonDir: string, ref: string): string | null {
+  for (const root of commonDir === gitDir ? [gitDir] : [commonDir, gitDir]) {
+    const loose = join(root, ...ref.split('/'))
+    if (statSync(loose, { throwIfNoEntry: false })?.isFile()) {
+      const value = readFileSync(loose, 'utf8').trim()
+      return OBJECT_ID.test(value) ? value : null
+    }
+  }
+  const packed = join(commonDir, 'packed-refs')
+  if (!statSync(packed, { throwIfNoEntry: false })?.isFile()) return null
+  for (const line of readFileSync(packed, 'utf8').split(/\r?\n/)) {
+    if (!line || line.startsWith('#') || line.startsWith('^')) continue
+    const space = line.indexOf(' ')
+    if (space > 0 && line.slice(space + 1).trim() === ref) {
+      const value = line.slice(0, space).trim()
+      return OBJECT_ID.test(value) ? value : null
+    }
+  }
+  return null
+}
+
+/**
+ * CR-F4-2b: a place's HEAD read now, with no subprocess, so an event handler can take it at once. Reads the git dir's
+ * HEAD: `ref: refs/heads/<b>` gives { branch, commit } from the loose ref or packed-refs; a commit id is a detached
+ * HEAD ({ branch: null, commit }). Null when it cannot say (an unborn branch, another ref, no git dir): the caller
+ * falls back to the queued read. Reads only git's own HEAD and ref files, never the working tree.
+ */
+export function readHeadSync(placePath: string): ThreadPlaceHead | null {
+  try {
+    const gitDir = gitDirOf(placePath)
+    if (!gitDir) return null
+    const head = readFileSync(join(gitDir, 'HEAD'), 'utf8').trim()
+    if (OBJECT_ID.test(head)) return { branch: null, commit: head }
+    const ref = /^ref:\s*(refs\/heads\/\S+)$/.exec(head)?.[1]
+    if (!ref) return null
+    let commonDir = gitDir
+    const commonFile = join(gitDir, 'commondir')
+    if (statSync(commonFile, { throwIfNoEntry: false })?.isFile()) {
+      const value = readFileSync(commonFile, 'utf8').trim()
+      if (value) commonDir = isAbsolute(value) ? value : resolve(gitDir, value)
+    }
+    const commit = refCommit(gitDir, commonDir, ref)
+    return commit ? { branch: ref.slice('refs/heads/'.length), commit } : null
+  } catch { return null }
+}
 
 export async function isAncestor(cwd: string, ancestor: string, descendant: string): Promise<boolean> {
   try { await execGit(cwd, ['merge-base', '--is-ancestor', ancestor, descendant], LIMITS); return true } catch { return false }
@@ -42,7 +110,8 @@ export async function operationInProgress(cwd: string): Promise<boolean> {
 
 /** Uncommitted changes, untracked files included; throws when git cannot say. */
 async function isDirty(cwd: string): Promise<boolean> {
-  return (await out(cwd, ['status', '--porcelain=v1', '-z'])).length > 0
+  // --no-optional-locks: a read never takes index.lock to refresh the index, so a person's git command never fails on it.
+  return (await out(cwd, ['--no-optional-locks', 'status', '--porcelain=v1', '-z'])).length > 0
 }
 
 async function branchExists(cwd: string, branch: string): Promise<boolean> {

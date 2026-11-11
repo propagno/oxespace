@@ -5,7 +5,8 @@
 // rebase or bisect in progress is no drift; a gone base branch is a refusal; a fast-forward is no drift. TECH LEAD S5:
 // every Switch back writes one audit row.
 // Written by the planner; the executor must not edit it. SECURITY: Switch back is a git write from the UI. v2 (CR-F4-2,
-// 09/11): no fixed sleeps against background drift work; tests wait on the in-order queue or poll the events.
+// 09/11): no fixed sleeps against background drift work; tests wait on the in-order queue or poll the events. v3
+// (CR-F4-2b): the HEAD at a tool's end is taken when the event is handled, so a switch right after it is drift.
 // Spec: docs/roadmap-1.5/ccr-f4-places-pr.md §A15 (ccr-t71-task-places.md §2.4, §4.1 thread:place-drift-answer, §4.2).
 // Runs under Electron's Node ABI: npm run test:electron -- tests/acceptance/f4/a15-branch-drift.native.test.ts
 import { join } from 'node:path'
@@ -230,6 +231,20 @@ describe('A15 · HML 704 and SECURITY S5', () => {
     git(repo, 'switch', '-q', 'other')
     await complete(f)
     expect(at((await f.manager.places(f.id)).places, repo).drift).toMatchObject({ to: { branch: 'other' } })
+  })
+
+  test('HML 704-1 (CR-F4-2b): a person\'s switch right after a tool ends is drift, even before OXESpace has done any of its queued work', async () => {
+    const { repo, f } = await touched({ taskFile: 'committed' })
+    await turn(f, 'Move')
+    // The tool starts and ends, and the person switches at once: the test never yields between these three steps,
+    // so no queued drift work can have run. The HEAD at the tool's end is taken when that event is handled, not
+    // later, so the switch after it is never the conversation's own.
+    f.emit({ type: 'tool', id: 'sh-fast', name: 'Bash', state: 'running', detail: 'ls' })
+    f.emit({ type: 'tool', id: 'sh-fast', name: 'Bash', state: 'completed', detail: 'ls', exitCode: 0 })
+    git(repo, 'switch', '-q', 'other')
+    await complete(f)
+    expect(at((await f.manager.places(f.id)).places, repo).drift).toMatchObject({ from: { branch: 'main' }, to: { branch: 'other' }, certain: false })
+    expect(drifts(f)).toHaveLength(1)
   })
 
   test('HML 704-2: files the task left uncommitted, carried by a person\'s switch, stay the task\'s, also after Follow', async () => {

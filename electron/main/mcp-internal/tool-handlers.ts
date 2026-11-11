@@ -20,7 +20,9 @@ import { requirePreviewExecution } from './preview-scope'
 import { savePreviewCapture } from '../services/browser-preview/preview-capture-store'
 import type { PreviewRequest } from '../services/browser-preview/preview-automation'
 import { semanticProjects } from '../services/semantic-projects'
-import { mainMessage } from '../../../shared/messages'
+import { mainMessage, type MainMessage } from '../../../shared/messages'
+import { ActionRefused } from '../services/agent-actions/agent-actions'
+import { englishText } from '../agent-text'
 
 /**
  * One handler per tool. Each is a thin shape-translation layer over an
@@ -191,10 +193,15 @@ async function removeWorktree(args: unknown, ctx: ToolContext): Promise<Internal
   const ws = await requireWorkspace(ctx)
   const input = asRecord(args) as Partial<RemoveWorktreeArgs>
   const path = expectString(input.path, 'path')
-  const force = input.force === undefined ? false : expectBoolean(input.force, 'force')
-  const result = await ctx.github.removeWorktree({ rootPath: ws.rootPath, path, force })
+  if (input.force !== undefined) expectBoolean(input.force, 'force')
+  // A63 (TECH LEAD): the same guarded removal as the Worktrees panel. Never forced, and an agent never deletes a
+  // branch, whatever it asks; a refusal carries the panel's code into the agent audit.
+  const panel = ctx.worktreesPanel ?? (await import('../services/github/worktrees-panel')).appWorktreesPanel()
+  if (!panel) throw new ActionRefused('The Worktrees panel is unavailable right now.', 'unavailable')
+  const result = await panel.remove({ rootPath: ws.rootPath, path, deleteBranch: false, via: 'agent' })
+  if (!result.ok) throw new ActionRefused(englishText(result.refusal as MainMessage), result.refusal.code)
   ctx.worktree.emitChanged({ workspaceId: ws.id, rootPath: ws.rootPath, action: 'removed', requestedAt: Date.now() })
-  return textResult(result)
+  return textResult({ ok: true, path, branchDeleted: false })
 }
 
 async function listScripts(_args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
