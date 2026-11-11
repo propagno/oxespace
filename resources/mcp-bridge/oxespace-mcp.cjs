@@ -44,9 +44,9 @@ function stepsAside() {
   return false
 }
 const STEPS_ASIDE = stepsAside()
-// Sent once per session in initialize: when these tools beat grep and file reads. Claude's tool search reads it to decide
+// Sent once per session in initialize: which OXESpace tools to reach for and how to find the rest (R3). Claude's tool search reads it to decide
 // when to look here (S5, docs/design/teardown-s7-s5.md). One line, at most 600 chars; the T8 test reads and measures it.
-const INSTRUCTIONS = 'Prefer these to grep and reading many files: oxespace_hybrid_explore to find where code lives or how a feature works; oxespace_code_impact and oxespace_code_callers before changing a symbol; oxespace_semantic_search for an idea with no exact name. More tools: oxespace_tools_enable or tool search.'
+const INSTRUCTIONS = 'OXESpace tools for this project and app: oxespace_project_context for the project at a glance, oxespace_search for exact text and the file list, oxespace_git for history and diffs. oxespace_capabilities lists what this session offers; turn a group on with oxespace_tools_enable, or find a tool with tool search.'
 const allowIndex = process.argv.indexOf('--allowed-tools')
 const allowedTools = allowIndex < 0 ? null : new Set(JSON.parse(process.argv[allowIndex + 1]))
 // Groups this session may turn on with oxespace_tools_enable: { group: [tool, ...] } (B7.2). Off groups are never here.
@@ -60,10 +60,9 @@ const MAX_READ_RETRIES = 2
 const READ_ONLY_TOOLS = new Set([
   'oxespace_ping', 'oxespace_list_workspaces', 'oxespace_list_panes', 'oxespace_list_scripts',
   'oxespace_list_background_jobs', 'oxespace_get_job_output', 'oxespace_list_worktrees',
-  'oxespace_capabilities', 'oxespace_execution_context', 'oxespace_semantic_search',
-  'oxespace_hybrid_explore', 'oxespace_project_context', 'oxespace_quality_check',
-  'oxespace_memory_search', 'oxespace_memory_sessions', 'oxespace_memory_handoffs',
-  'oxespace_memory_diagnostics', 'oxespace_delegation_status', 'oxespace_delegation_result',
+  'oxespace_capabilities', 'oxespace_execution_context',
+  'oxespace_project_context', 'oxespace_quality_check',
+  'oxespace_delegation_status', 'oxespace_delegation_result',
   'oxespace_delegation_inbox', 'oxespace_delegation_targets', 'oxespace_delegation_preflight',
   'oxespace_git',
   'oxespace_github', 'oxespace_threads', 'oxespace_tasks', 'oxespace_skills',
@@ -104,11 +103,11 @@ function enableGroup(args) {
   enabledGroups.add(group)
   for (const tool of tools) allowedTools.add(tool)
   if (!already) send({ jsonrpc: '2.0', method: 'notifications/tools/list_changed' })
-  // Say what the app actually lists: some tools are off in this app now (memory tools while memory is off), and the
+  // Say what the app actually lists: some tools are off in this app now (a tool this build does not register), and the
   // group's list alone would promise them (homologation of #316). Unknown until the first tools/list: then all of them.
   const added = serverTools ? tools.filter(tool => serverTools.has(tool)) : tools
   const unavailable = tools.filter(tool => !added.includes(tool))
-  return textResult({ status: 'ok', group, tools: added, ...(unavailable.length ? { unavailable, unavailableReason: 'Not offered by OXESpace right now, for example memory tools while memory is off.' } : {}), note: 'If these tools do not appear in your tool list, this client did not reload it: ask the person to start a new conversation, or to set the group to always in Settings > Tools.' })
+  return textResult({ status: 'ok', group, tools: added, ...(unavailable.length ? { unavailable, unavailableReason: 'Not offered by OXESpace right now.' } : {}), note: 'If these tools do not appear in your tool list, this client did not reload it: ask the person to start a new conversation, or to set the group to always in Settings > Tools.' })
 }
 
 /** Adds this session's groups to oxespace_capabilities: which were turned on here and which still can be. */
@@ -232,8 +231,8 @@ async function dispatch(msg) {
       protocolVersion: PROTOCOL_VERSION,
       capabilities: { tools: enableable ? { listChanged: true } : {} },
       serverInfo: { name: SERVER_NAME, version: SERVER_VERSION },
-      // Only where those tools are listed: never from a bridge that lists nothing, or one whose plan leaves them out.
-      ...(!STEPS_ASIDE && !UNCONNECTED && (!allowedTools || allowedTools.has('oxespace_hybrid_explore')) ? { instructions: INSTRUCTIONS } : {})
+      // Never from a bridge that lists nothing (stepped aside, or not connected to the app); no longer tied to one tool (R3).
+      ...(!STEPS_ASIDE && !UNCONNECTED ? { instructions: INSTRUCTIONS } : {})
     })
     return
   }

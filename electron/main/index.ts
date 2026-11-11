@@ -10,7 +10,7 @@ import { systemLocale, tMain } from './i18n'
 import { randomUUID } from 'node:crypto'
 import { realpathSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { openDatabase, resolveAppDatabasePath } from './db/index'
@@ -24,6 +24,7 @@ import { broadcastMcpHealth, registerMcpIpc } from './ipc/mcp.ipc'
 import { registerMcpInternalIpc } from './ipc/mcp-internal.ipc'
 import { registerDataExportIpc } from './ipc/data-export.ipc'
 import { peekDatabaseVersion } from './services/data-export/removed-features-export'
+import { removeLegacyAgentHooks } from './services/agent-hooks/legacy-cleanup'
 import { registerNotificationsIpc } from './ipc/notifications.ipc'
 import { registerAppInfoIpc } from './ipc/app-info.ipc'
 import { singleInstanceDisabled } from './test-switches'
@@ -37,25 +38,19 @@ import { registerOxeContextIpc } from './ipc/oxe-context.ipc'
 import { SkillService } from './services/skill.service'
 import { McpManager } from './services/mcp.service'
 import { WorkspaceService } from './services/workspace.service'
-import { SemanticService } from './services/semantic.service'
-import { SemanticModelStore } from './services/semantic-model-store'
 import { createInternalMcpHandle, type InternalMcpHandle } from './mcp-internal/bootstrap'
 import { startRpcServer, type RpcServerHandle } from './runtime/rpc/server'
 import { registerTaskIpc } from './ipc/task.ipc'
 import { registerTerminalIpc } from './ipc/terminal.ipc'
 import { registerWorkspaceIpc } from './ipc/workspace.ipc'
-import { registerSemanticIpc } from './ipc/semantic.ipc'
 import { installIncidentHooks, registerDiagnosticsIpc } from './ipc/diagnostics.ipc'
 import { registerPolicyIpc } from './ipc/policy.ipc'
 import { BackgroundManager } from './services/background.service'
 import { TerminalManager } from './services/terminal.service'
-import { MemoryService } from './services/memory/memory.service'
-import { configureExperimentalFeatures, sharedProjectMemoryEnabled } from './services/experimental-features'
-import { gateMemoryTools } from './mcp-internal/tool-registry'
+import { configureExperimentalFeatures } from './services/experimental-features'
 import { ExecutionRegistry } from './services/execution-registry'
 import { AgentLaunchService, agentMcpArguments, codeAgentMcpLaunch, providerForExecutable } from './services/agent-launch.service'
 import { AgentService } from './services/agent.service'
-import { registerMemoryIpc } from './ipc/memory.ipc'
 import { registerAgentHooksIpc } from './ipc/agent-hooks.ipc'
 import { AgentHookServer } from './services/agent-hooks/server'
 import { resolveSessionLocation } from './services/git-common-dir'
@@ -169,14 +164,10 @@ async function registerIpcHandlers(): Promise<() => void> {
   // The window asks before it renders; a normal start answers that nothing failed.
   ipcMain.handle(IPC_CHANNELS.app.startupFailure, () => null)
 
-  // Shared Project Memory ships off: no service, no settings page, no oxespace_memory_* tools until the flag is on.
   configureExperimentalFeatures(app.getPath('userData'))
-  gateMemoryTools(sharedProjectMemoryEnabled)
-  const memoryService = new MemoryService(db, join(app.getPath('userData'), 'memory'), sharedProjectMemoryEnabled)
   const { DelegationService } = await import('./services/delegation.service')
   const { registerDelegationIpc } = await import('./ipc/delegation.ipc')
   const executions = new ExecutionRegistry()
-  registerMemoryIpc(memoryService)
   registerAgentHooksIpc(app.getPath('userData'))
   // What each pane's agent is doing (working, blocked, done...), from its hooks and its screen.
   const [{ AgentStateService }, { loadManifests }, { BUNDLED_MANIFESTS }, { registerAgentStateIpc, broadcastAgentState }, { notifyAgentsChanged, onAgentsChanged }] = await Promise.all([
@@ -245,9 +236,8 @@ async function registerIpcHandlers(): Promise<() => void> {
     oxeQueryShell: paneId => oxeQueryShells.shellFor?.(paneId),
     observer: agentState,
     resumeSession: (paneId, wanted, again) => paneAgentSessions.take(paneId, wanted, again), assignSession: (paneId, agent, sessionId) => paneAgentSessions.record(paneId, agent, sessionId, 'launch'), clearSession: paneId => paneAgentSessions.clear(paneId), currentSession: paneId => paneAgentSessions.current(paneId),
-    prepareLaunch: (input) => memoryService.prepareLaunch(input),
     isManagedPane: paneId => delegationService?.ownsPane(paneId) ?? false,
-    onLaunchExit: (paneId) => { memoryService.endLaunch(paneId); executions.end(paneId); delegationService?.exited(paneId) },
+    onLaunchExit: (paneId) => { executions.end(paneId); delegationService?.exited(paneId) },
     executionEnvironment: (input) => {
       const meta = db.prepare('SELECT port, token FROM internal_mcp_meta LIMIT 1').get() as { port: number; token: string } | undefined
       const hookPort = agentHookServer.port
@@ -282,20 +272,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   
   terminalForHistory = terminalManager
-  // Semantic search service. emitLog broadcasts each activity-log line to every
-  // renderer window so Tools → Semantic Activity can show processing live.
-  const semanticService = new SemanticService(db, {
-    emitLog: (entry) => {
-      for (const window of BrowserWindow.getAllWindows()) {
-        if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.semantic.onLog, entry)
-      }
-    },
-    // Optional embedding model (not in the installer), downloaded or imported on demand.
-    modelStore: new SemanticModelStore(join(app.getPath('userData'), 'models'))
-  })
-
-  registerWorkspaceIpc(db, semanticService, terminalManager)
-  registerSemanticIpc(semanticService)
+  registerWorkspaceIpc(db, terminalManager)
   registerTerminalIpc(terminalManager)
   registerAgentIpc(db)
   const taskService = registerTaskIpc(db, terminalManager)
@@ -305,11 +282,11 @@ async function registerIpcHandlers(): Promise<() => void> {
   const [
     { registerGitIpc }, { registerSearchIpc }, { registerGitHubIpc },
     { registerIntegrationIpc }, { registerRemoteIpc },
-    { GitHubService }, { GitService }, { CodeGraphService }, { registerPullRequestIpc }
+    { GitHubService }, { GitService }, { registerPullRequestIpc }
   ] = await Promise.all([
     import('./ipc/git.ipc'), import('./ipc/search.ipc'), import('./ipc/github.ipc'),
     import('./ipc/integration.ipc'), import('./ipc/remote.ipc'),
-    import('./services/github.service'), import('./services/git.service'), import('./services/codegraph.service'),
+    import('./services/github.service'), import('./services/git.service'),
     import('./ipc/pull-request.ipc')
   ])
   const gitService = registerGitIpc()
@@ -353,18 +330,13 @@ async function registerIpcHandlers(): Promise<() => void> {
       const { waitForInternalMcp } = await import('./mcp-internal/ready')
       const meta = await waitForInternalMcp(() => db.prepare('SELECT port, token FROM internal_mcp_meta LIMIT 1').get() as { port: number; token: string } | undefined)
       if (!meta) throw Error('Internal MCP is still starting. Retry shortly.')
-      const nativeHooks = thread.hooksEnabled === true && (thread.access === 'workspace-write' || thread.access === 'full-access')
-      const memory = await memoryService.prepareLaunch({ paneId: `thread:${thread.id}`, workspaceId: thread.workspaceId, cwd: thread.rootPath,
-        captureOwner: nativeHooks ? 'native' : 'external', expectedAgent: thread.provider === 'claude' ? 'claude-code' : 'codex' }).catch(() => ({}))
       const execution = executions.register({ owner: { kind: 'thread', id: thread.id }, workspaceId: thread.workspaceId, cwd: thread.rootPath })
-      return { ...memory, ...execution, OXESPACE_MCP_PORT: String(meta.port), OXESPACE_MCP_TOKEN: meta.token, OXESPACE_WORKSPACE_ID: thread.workspaceId }
+      return { ...execution, OXESPACE_MCP_PORT: String(meta.port), OXESPACE_MCP_TOKEN: meta.token, OXESPACE_WORKSPACE_ID: thread.workspaceId }
     },
     end: (threadId, executionId) => {
       if (executionId && executions.forOwner({ kind: 'thread', id: threadId })?.id !== executionId) return
-      memoryService.endLaunch(`thread:${threadId}`)
       executions.endOwner({ kind: 'thread', id: threadId })
-    },
-    memoryEvent: (snapshot, event) => memoryService.observeThread(snapshot, event)
+    }
   }, threadWorktrees)
   // A18 (P7) · the task's Terminal tab reads every running pane: its launch folder, its agent's reported cwd and its
   // shell's OSC cwd (F4-P6); `agent` = the pane runs an agent CLI.
@@ -430,7 +402,6 @@ async function registerIpcHandlers(): Promise<() => void> {
   const internalMcpGithub = new GitHubService(db)
   internalMcpGithub.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
   const internalMcpGit = new GitService()
-  const codeGraphService = new CodeGraphService(db)
   const delegationAgents = new AgentService(db)
   const launcher = new AgentLaunchService(terminalManager, () => delegationAgents.list(), app.getPath('userData'))
   const { ThreadDelegationHost } = await import('./services/delegation/thread-delegation-host')
@@ -453,26 +424,17 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   delegatedThreadObserver.current = thread => delegationService.observeThread(thread)
   registerDelegationIpc(delegationService)
-  const { registerTeamIpc } = await import('./ipc/team.ipc')
-  const { TeamAccess } = await import('./services/coordination/team-access')
-  const teamAccess = new TeamAccess(db, executions)
-  const { TeamDelivery } = await import('./services/coordination/team-delivery')
-  const teamDelivery = new TeamDelivery(db, teamAccess, { read: async id => (await threadManager.manager).read(id), send: async (id, text) => (await threadManager.manager).send(id, text) })
-  teamDelivery.start()
-  app.on('before-quit', () => teamDelivery.stop())
-  registerTeamIpc(db, teamAccess)
 
   // B10: outside the main entry, but awaited here, so the approval channels exist before the window can ask.
   const approvals = await import('./services/approvals/wiring')
   approvals.wireApprovals({ db, workspaces: () => internalMcpWorkspaceServ.list(), profiles: () => delegationAgents.list() })
   const internalMcp: InternalMcpHandle = createInternalMcpHandle({
     threads: threadManager.manager,
-    delegation: delegationService, executions, team: teamAccess,
+    delegation: delegationService, executions,
     delegationAgents: () => delegationAgents.list().filter(p => ['claude','codex'].includes(p.parentProvider ?? p.provider)).map(p => {
       try { launcher.resolve(p.agentProfileId); return { agentProfileId: p.agentProfileId, name: p.name, supported: true } }
       catch (e) { return { agentProfileId: p.agentProfileId, name: p.name, supported: false, reason: String(e) } }
     }),
-    memory: memoryService,
     oxeQuery: () => oxeQuery.agent,
     oxeQueryError: () => oxeQuery.error,
     git: gitService,
@@ -494,9 +456,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     workspaceServ: internalMcpWorkspaceServ,
     github: internalMcpGithub,
     background: backgroundManager,
-    fileSystem: fileSystemService,
-    semantic: semanticService,
-    codegraph: codeGraphService
+    fileSystem: fileSystemService
   })
   registerMcpInternalIpc(internalMcp)
   // A63 / N9: the Worktrees panel. The window and the oxespace_remove_worktree tool share its guarded removal; the
@@ -565,7 +525,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       memoryShutdownComplete = true
       quit()
     }, 10000)
-    void Promise.allSettled([threadManager.stop(), memoryService.stop(), delegationService?.stop()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
+    void Promise.allSettled([threadManager.stop(), delegationService?.stop()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
       clearTimeout(shutdownDeadline)
       if (memoryShutdownComplete) return
       memoryShutdownComplete = true
@@ -580,7 +540,6 @@ async function registerIpcHandlers(): Promise<() => void> {
     skillService.dispose()
     mcpManager.stopAll()
     oxeService.disposeAll()
-    semanticService.destroy()
     // Keep the hook metadata bridge alive for the bounded memory shutdown drain.
     void rpcServer?.stop()
   })
@@ -595,9 +554,13 @@ async function registerIpcHandlers(): Promise<() => void> {
     skillService.init()
     backgroundManager.init()
     void internalMcp.start()
-    void memoryService.init()
     // R0b: the one-time export of the removed features' data, after the window shows; it never throws.
     void runDataExport()
+    void removeLegacyAgentHooks({
+      claudeSettings: join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'settings.json'),
+      codexHooks: join(process.env.CODEX_HOME || join(homedir(), '.codex'), 'hooks.json'),
+      memoryAdapters: join(app.getPath('userData'), 'memory', 'adapters')
+    })
     // F3 · Local RPC bus (named pipe / unix socket). Out-of-process callers
     // (CLI now, orchestration coordinator later) reach the same services the
     // renderer reaches over IPC. Failure here must not affect the app.

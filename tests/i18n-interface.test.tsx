@@ -4,7 +4,6 @@ import { mainMessage } from '../shared/messages'
 import type { McpServer } from '../shared/types/mcp'
 import '../src/commands/settings.commands'
 import { McpServerSafety, quarantineReasons } from '../src/components/MCP/McpServerSafety'
-import { useOxePostStore } from '../src/components/OxePost/oxepost.store'
 import { SlashOverlay } from '../src/components/SlashOverlay/SlashOverlay'
 import { commandCategoryLabel } from '../src/commands/commandText'
 import { changeLanguage } from '../src/i18n'
@@ -62,14 +61,6 @@ describe('text built outside components', () => {
     expect(bindingLabel(getKeybinding('palette.open'))).toBe('Open command palette')
     await act(async () => { await changeLanguage('pt-BR') })
     expect(bindingLabel(getKeybinding('palette.open'))).not.toBe('Open command palette')
-  })
-
-  it('names a new OxePost request in the language on screen', async () => {
-    useOxePostStore.getState().newRequest()
-    expect(useOxePostStore.getState().draft.name).toBe('New request')
-    await act(async () => { await changeLanguage('pt-BR') })
-    useOxePostStore.getState().newRequest()
-    expect(useOxePostStore.getState().draft.name).toBe('Nova requisição')
   })
 })
 

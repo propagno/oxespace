@@ -44,7 +44,6 @@ import { installE2eAgentStateHook } from './agent-state-hook'
 import { loadManifests } from '../services/agent-state/manifest'
 import { BUNDLED_MANIFESTS } from '../services/agent-state/bundled-manifests'
 import { broadcastAgentState, registerAgentStateIpc } from '../ipc/agent-state.ipc'
-import { registerOxePostIpc } from '../ipc/oxepost.ipc'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { ShellProfile, Workspace, WorkspaceLayout, WorkspaceLayoutPreset } from '../../../shared/types/workspace'
 import type { GitCompareMode } from '../../../shared/types/git'
@@ -69,6 +68,18 @@ export function registerE2eMockIpcHandlers(): void {
   registerAgentsMock()
   registerThreadSectionsMock(id => workspaces.some(workspace => workspace.id === id))
   registerOpenExternalMock()
+  ipcMain.handle(IPC_CHANNELS.dataExport.state, () => ({
+    upgrade: false,
+    file: null,
+    exportedAt: null,
+    shownNotice: true,
+    error: null,
+    removed: []
+  }))
+  ipcMain.handle(IPC_CHANNELS.dataExport.markNoticeShown, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.dataExport.exportAgain, () => ({ file: null }))
+  ipcMain.handle(IPC_CHANNELS.dataExport.open, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.dataExport.reveal, () => undefined)
   registerAgentHooksMock()
   // Never in a packaged build: the gate is inside, on app.isPackaged (see mcp-fixture.ts).
   installMcpFixture(ipcMain, process.env, app.isPackaged)
@@ -91,7 +102,6 @@ export function registerE2eMockIpcHandlers(): void {
     sendHookStatus: event => { for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.agentHooks.onStatus, event) },
     registerIpc: registerAgentStateIpc
   })
-  registerOxePostIpc(id => workspaces.find(workspace => workspace.id === id)?.rootPath)
 
   ipcMain.handle(IPC_CHANNELS.workspace.list, () => workspaces)
   ipcMain.handle(IPC_CHANNELS.workspace.shellProfiles, () => shellProfiles)
@@ -270,17 +280,6 @@ export function registerE2eMockIpcHandlers(): void {
     throw new Error(`Pane ${input.paneId} not found`)
   })
   ipcMain.handle(IPC_CHANNELS.workspace.pickFolder, () => null)
-  ipcMain.handle(IPC_CHANNELS.semantic.getStatus, () => ({ enabled: true, workerReady: false, indexing: false, count: 0, lastError: null, mode: 'auto', coverage: { lexicalDocuments: 0, lastIndexedAt: null, byCategory: { source: 0, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null }))
-  ipcMain.handle(IPC_CHANNELS.semantic.setEnabled, (_event: IpcMainInvokeEvent, input: { enabled: boolean }) => ({ enabled: input?.enabled ?? true, workerReady: false, indexing: false, count: 0, lastError: null, mode: 'auto', coverage: { lexicalDocuments: 0, lastIndexedAt: null, byCategory: { source: 0, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null }))
-  ipcMain.handle(IPC_CHANNELS.semantic.setMode, (_event: IpcMainInvokeEvent, input: { mode?: string }) => ({ enabled: true, workerReady: false, indexing: false, count: 0, lastError: null, mode: input?.mode ?? 'auto', coverage: { lexicalDocuments: 0, lastIndexedAt: null, byCategory: { source: 0, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null }))
-  ipcMain.handle(IPC_CHANNELS.semantic.getLogs, () => [])
-  const semanticProjects = new Set<string>()
-  const projectSemantic = (rootPath: string) => ({ on: semanticProjects.has(rootPath), status: { enabled: semanticProjects.has(rootPath), workerReady: false, indexing: false, count: 0, lastError: null, mode: 'auto', coverage: { lexicalDocuments: semanticProjects.has(rootPath) ? 12 : 0, lastIndexedAt: null, byCategory: { source: 12, test: 0, config: 0, docs: 0, other: 0 } }, lastQuery: null } })
-  ipcMain.handle(IPC_CHANNELS.semantic.projectStatus, (_event: IpcMainInvokeEvent, rootPath: string) => projectSemantic(rootPath))
-  ipcMain.handle(IPC_CHANNELS.semantic.setProjectEnabled, (_event: IpcMainInvokeEvent, input: { rootPath: string; enabled: boolean }) => {
-    if (input.enabled) semanticProjects.add(input.rootPath); else semanticProjects.delete(input.rootPath)
-    return projectSemantic(input.rootPath)
-  })
   ipcMain.handle(IPC_CHANNELS.diagnostics.getSnapshot, () => ({
     generatedAt: Date.now(), appVersion: packageVersion, platform: process.platform, arch: process.arch,
     nodeVersion: process.versions.node, electronVersion: process.versions.electron ?? 'unknown', workspaceCount: workspaces.length,
@@ -385,9 +384,6 @@ export function registerE2eMockIpcHandlers(): void {
   )
   ipcMain.handle(IPC_CHANNELS.fs.readBinary, (_event: IpcMainInvokeEvent, input: unknown) =>
     mockFileSystemService.readBinary(input as Parameters<FileSystemService['readBinary']>[0])
-  )
-  ipcMain.handle(IPC_CHANNELS.fs.writeFile, (_event: IpcMainInvokeEvent, input: unknown) =>
-    mockFileSystemService.writeFile(input as Parameters<FileSystemService['writeFile']>[0])
   )
   ipcMain.handle(IPC_CHANNELS.fs.watchFile, (event: IpcMainInvokeEvent, input: unknown) =>
     mockFileSystemService.watchFile(input as Parameters<FileSystemService['watchFile']>[0], (payload) => {
@@ -571,11 +567,6 @@ export function registerE2eMockIpcHandlers(): void {
   const channelDefault = (channel: string): unknown => {
     if (channel === IPC_CHANNELS.delegation.status) return { enabled: false, tasks: [] }
     if (channel === IPC_CHANNELS.delegation.preview) return { targetWorkspaceId: 'workspace-1', targetName: 'Workspace', ready: false, reason: 'PROJECT_OPT_IN_REQUIRED', effects: [], checkout: { strategy: 'create', branch: 'feature/preview', baseRef: 'main', baseSha: '0000000000000000000000000000000000000000', path: '/tmp/preview', createBranch: true, reuseExistingWorktree: false, fetchBase: false, resolvedAt: Date.now() } }
-    if (channel === IPC_CHANNELS.memory.status) return {
-      projectId: 'e2e-project', settings: { enabled: false, automaticCapture: false, automaticContext: false },
-      runtime: { mode: 'managed', executable: 'ai-memory', url: 'http://127.0.0.1:49374' },
-      health: { status: 'disabled' }, sessions: []
-    }
     if (/get-output/i.test(channel)) return { jobId: '', startSequence: 0, lines: [] }
     if (/(^|:|-)list|executions|get-ready|profiles|branches|worktrees|releases|commits|workflows|checkpoints|repositories|groups|handoffs|logs/i.test(channel)) return []
     if (/status|usage|credits|summary|detect|get-state|getStatus/i.test(channel)) return {}

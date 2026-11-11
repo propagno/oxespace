@@ -17,7 +17,7 @@ test('Thread owns a real shell that survives panel detach without creating a Cod
       return { workspaceId: snapshot.thread.workspaceId, paneId: `thread-shell:${snapshot.thread.id}:1` }
     }, root))
     await test.step('start shell and write marker', () => page.evaluate(async ids => {
-      await window.oxe.terminal.start({ ...ids, cols: 100, rows: 24, disableRtk: true })
+      await window.oxe.terminal.start({ ...ids, cols: 100, rows: 24 })
       await window.oxe.terminal.write({ paneId: ids.paneId, data: 'echo OXE_THREAD_SHELL_READY\r' })
     }, ids))
     await expect.poll(() => page.evaluate(async ids => (await window.oxe.terminal.attach({ paneId: ids.paneId })).replay, ids)).toContain('OXE_THREAD_SHELL_READY')

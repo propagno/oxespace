@@ -27,7 +27,7 @@ test('OxeQuery runs the main query flow in Brazilian Portuguese', async () => {
     await expect(page.locator('.oq-sidebar').getByRole('region', { name: pt.connections.title })).toBeVisible()
 
     // The connection comes from its container in OxePod, with the form in Portuguese.
-    await connectFromContainer(page, 'pg-dev', { connect: /no OxeQuery$/, save: pt.form.saveOpen })
+    await connectFromContainer(page, 'pg-dev', { newConnection: pt.connections.new, fromContainer: 'De um contêiner em execução', container: 'Contêiner', save: pt.form.saveOpen })
     await expect(page.getByRole('tab', { name: 'pg-dev' })).toBeVisible()
     const tree = page.getByRole('navigation', { name: pt.tree.label })
     await tree.getByRole('treeitem', { name: 'users', exact: true }).click({ position: { x: 12, y: 8 } })

@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState, type ReactElement } from 'react'
-import { FileText, FolderGit2, Bot, Brain } from 'lucide-react'
+import { FileText, FolderGit2, Bot } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
 import type { SearchResult } from '../../../shared/types/search'
-import type { SemanticQueryHit } from '../../../shared/types/ipc'
 import type { CommandPaletteAction } from '../../utils/commandRegistry'
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, commandStyles } from '../../ui/CommandPalette'
 import { useEditorStore } from '../../store/editor.store'
@@ -27,13 +26,6 @@ interface CommandMenuProps {
   onSelectWorkspace: (id: string) => void
   /** Focus a pane (agent/terminal) in the active workspace. */
   onSelectPane: (paneId: string) => void
-}
-
-/** Semantic hits carry absolute paths; the editor opens workspace-relative ones. */
-function toRelative(filePath: string, root: string): string {
-  const norm = filePath.replace(/\\/g, '/')
-  const base = root.replace(/\\/g, '/').replace(/\/$/, '')
-  return norm.toLowerCase().startsWith(`${base.toLowerCase()}/`) ? norm.slice(base.length + 1) : norm
 }
 
 // Ignore stale async search responses (a superseded query resolving late).
@@ -70,13 +62,11 @@ export function CommandMenu({
   const [results, setResults] = useState<SearchResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [fileList, setFileList] = useState<string[]>([])
-  const [semanticHits, setSemanticHits] = useState<SemanticQueryHit[]>([])
 
   useEffect(() => {
     if (!open) return
     setQuery('')
     setResults(null)
-    setSemanticHits([])
     setLoading(false)
     if (!workspace) {
       setFileList([])
@@ -96,7 +86,6 @@ export function CommandMenu({
     const q = query.trim()
     if (!q || !workspace) {
       setResults(null)
-      setSemanticHits([])
       return
     }
     const token = ++requestToken
@@ -113,11 +102,6 @@ export function CommandMenu({
         .catch(() => {
           if (token === requestToken) setLoading(false)
         })
-      // Semantic (e5-base) runs in parallel; returns [] when disabled/unindexed.
-      window.oxe.semantic
-        .query({ workspaceId: workspace.id, text: q, limit: 6 })
-        .then((hits) => { if (token === requestToken) setSemanticHits(Array.isArray(hits) ? hits : []) })
-        .catch(() => { if (token === requestToken) setSemanticHits([]) })
     }, 200)
     return () => window.clearTimeout(handle)
   }, [query, workspace])
@@ -247,22 +231,6 @@ export function CommandMenu({
           </CommandGroup>
         ) : null}
 
-        {q && semanticHits.length > 0 ? (
-          <CommandGroup heading={t('commands.menu.semantic')}>
-            {semanticHits.map((h) => {
-              const rel = workspace ? toRelative(h.filePath, workspace.rootPath) : h.filePath
-              const { name, dir } = splitPath(rel)
-              return (
-                <CommandItem key={`sem-${h.filePath}`} value={`sem-${h.filePath}`} onSelect={() => openFile(rel)}>
-                  <Brain />
-                  <span className={commandStyles.label}>{name}</span>
-                  {dir ? <span className={commandStyles.detail}>{dir}</span> : null}
-                </CommandItem>
-              )
-            })}
-          </CommandGroup>
-        ) : null}
-
         {q ? (
           <CommandGroup heading={loading ? t('commands.menu.searching') : t('commands.menu.contents', { count: results?.totalMatches ?? 0 })}>
             {files.flatMap((f) =>
@@ -287,7 +255,6 @@ export function CommandMenu({
         matchedPanes.length === 0 &&
         matchedActions.length === 0 &&
         nameMatches.length === 0 &&
-        semanticHits.length === 0 &&
         files.length === 0 ? (
           <CommandEmpty>{t('commands.menu.empty')}</CommandEmpty>
         ) : null}

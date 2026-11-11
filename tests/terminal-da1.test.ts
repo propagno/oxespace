@@ -29,7 +29,7 @@ async function startPane(platform: NodeJS.Platform = 'win32') {
   const emitted: string[] = []
   const manager = new TerminalManager(db, { pty: { spawn: vi.fn(() => fake as never) }, platform, emitData: event => { emitted.push(event.data) } })
   cleanups.push(() => { manager.stopAll(); db.close() })
-  await manager.start({ workspaceId: workspace.id, paneId, agentCommand: 'my-agent', disableRtk: true })
+  await manager.start({ workspaceId: workspace.id, paneId, agentCommand: 'my-agent' })
   const replies = () => fake.write.mock.calls.map(([data]) => data as string).filter(data => data === DA1_REPLY)
   return { manager, paneId, emit: (data: string) => onData?.(data), fake, emitted, replies }
 }

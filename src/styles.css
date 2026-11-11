@@ -46,7 +46,6 @@
 @import './styles/mcp.css' layer(oxe-legacy);
 @import './styles/skills.css' layer(oxe-legacy);
 @import './styles/scripts-webpreview.css' layer(oxe-legacy);
-@import './styles/semantic.css' layer(oxe-legacy);
 @import './styles/search.css' layer(oxe-legacy);
 @import './styles/split-grid.css' layer(oxe-legacy);
 @import './styles/diff-comments.css' layer(oxe-legacy);

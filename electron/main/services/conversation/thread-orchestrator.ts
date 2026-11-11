@@ -1,8 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../../db'
-import type { AgentConversationAdapter, ConversationThread, ThreadAgentInput, ThreadCommandCatalog, ThreadEvent, ThreadSnapshot, ThreadRequest, ThreadRequestResponse, ThreadQueuedInput, ThreadContextReport, ThreadRewindResult, ThreadAuditEntry, ThreadFileHunk, ThreadPermissionRule, ThreadUsageSummary, ThreadDebugPage } from '../../../../shared/types/thread'
+import type { AgentConversationAdapter, ConversationThread, ThreadAgentInput, ThreadCommandCatalog, ThreadEvent, ThreadSnapshot, ThreadRequest, ThreadRequestResponse, ThreadQueuedInput, ThreadContextReport, ThreadRewindResult, ThreadAuditEntry, ThreadFileHunk, ThreadPermissionRule, ThreadUsageSummary, ThreadDebugPage, ThreadModelCatalog, ThreadConfiguration, ThreadCommandResult } from '../../../../shared/types/thread'
 import type { ThreadNativeCli } from './thread-cli'
-import type { ThreadModelCatalog, ThreadConfiguration, ThreadCommandResult } from '../../../../shared/types/thread'
 import { backgroundSummary } from '../../../../shared/threadBackground'
 import type { ThreadModelService } from './thread-models'
 import { hasDesktopCommand } from '../../../../shared/threadDesktopCommands'
@@ -36,8 +35,6 @@ import { ThreadTurnTracker } from './thread-turns'
 import { ThreadPermissionStore } from './thread-permissions'
 import { requestSubject, ThreadPolicy } from './thread-policy'
 import { ThreadUsageLedger, turnSteps } from './thread-usage'
-import { WorkService } from '../work/work-service'
-import type { WorkRun } from '../../../../shared/types/work'
 import { recordRuntime } from '../runtime-diagnostics'
 import { hasUnconfirmedTurnTools, recoverPublicTurn } from './thread-result-recovery'
 import type { NativeStateResult } from './codex-state-reader'
@@ -52,7 +49,6 @@ import { explainMissingFolder, ThreadFolderMissingError } from './thread-worktre
 /** The checkout a conversation works in: a worktree of its repository the provider moved into, else its root. */
 const workingRootOf = (thread: ConversationThread): string =>
   thread.observedLocation?.sameRepository && thread.observedLocation.checkoutRoot ? thread.observedLocation.checkoutRoot : thread.rootPath
-
 /** Conversations a restart may have left mid-operation: live status, an open connection, or a task still marked running. */
 const THREADS_NEEDING_RECOVERY = `SELECT id FROM conversation_threads t WHERE
   json_extract(data_json, '$.status') IN ('running', 'approval')
@@ -109,8 +105,6 @@ export class ThreadOrchestrator {
   private readonly permissions: ThreadPermissionStore
   private readonly policy: ThreadPolicy
   private readonly usage: ThreadUsageLedger
-  /** Agent Work: plans a supervising conversation runs through worker conversations. */
-  readonly work: WorkService
   /** Checkpoints and working-tree baselines of running turns. */
   private readonly turns: ThreadTurnTracker
   /** F4 places per conversation, from evidence (migration 095). */
@@ -181,14 +175,6 @@ export class ThreadOrchestrator {
       if (recovered) this.save(snapshot, { eventsFrom })
       this.snapshots.delete(row.id)
     }
-    this.work = new WorkService(db, {
-      read: threadId => this.read(threadId), create: context => this.create(context),
-      configure: (threadId, input, revision) => this.configure(threadId, input, revision),
-      command: (threadId, text) => this.command(threadId, text), send: (threadId, text) => this.send(threadId, text),
-      interrupt: threadId => this.interrupt(threadId), subscribe: (threadId, listener) => this.subscribe(threadId, listener)
-    })
-    // After subclasses finish constructing: workers that ran before a restart are settled, ready work starts.
-    queueMicrotask(() => { try { this.work.resume() } catch { /* Agent Work recovery is best effort. */ } })
     this.idleSweep = setInterval(() => { void this.suspendIdle().catch(() => {}) }, IDLE_SWEEP_MS)
     this.idleSweep.unref?.()
     this.retentionSweep = setInterval(() => { try { pruneThreadData(this.db) } catch { /* best effort */ } }, 24 * 60 * 60 * 1000)
@@ -908,7 +894,6 @@ export class ThreadOrchestrator {
     this.stopping = true
     clearInterval(this.idleSweep)
     clearInterval(this.retentionSweep)
-    this.work.stop()
     const observations = Promise.allSettled([...this.observations.values()])
     await this.stateReader?.stop()
     await this.nativeCli?.closeHistoryReader?.()
@@ -1093,19 +1078,6 @@ export class ThreadOrchestrator {
   addPermissionRule(id: string, input: Parameters<ThreadPolicy['addRule']>[1]): ThreadPermissionRule { return this.policy.addRule(id, input) }
 
   removePermissionRule(id: string, ruleId: string): void { this.policy.removeRule(id, ruleId) }
-
-  workRuns(id: string): WorkRun[] {
-    this.readThread(id)
-    return this.work.runsFor(id)
-  }
-
-  async cancelWork(id: string, runId: string): Promise<WorkRun> {
-    const run = this.work.run(runId)
-    // The person may cancel from the supervisor or from any of its workers.
-    if (run.supervisorThreadId !== id && !run.tasks.some(task => task.threadId === id)) throw Error('This run is not related to the conversation')
-    return this.work.cancel(runId, 'user')
-  }
-
   usageSummary(id: string, options: { scope?: 'thread' | 'project' | 'all'; days?: number } = {}): ThreadUsageSummary {
     const thread = this.readThread(id)
     const scope = options.scope ?? 'project'

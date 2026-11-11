@@ -18,7 +18,6 @@ import { recordIncident } from '../../electron/main/services/diagnostics/inciden
 import type { PolicyRule } from '../../shared/policy'
 import { removeTempDir } from '../helpers/removeTempDir'
 
-vi.mock('../../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
 vi.mock('../../electron/main/services/diagnostics/incident-sink', () => ({ recordIncident: vi.fn() }))
 
 /**

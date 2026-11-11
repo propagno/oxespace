@@ -13,7 +13,8 @@ import type { FileTreeNode } from '../../../shared/types/ipc'
 import { selectActiveFile, useEditorStore } from '../../store/editor.store'
 import { useShallow } from 'zustand/react/shallow'
 import { isBinaryPreview, previewKind } from '../Preview/previewKind'
-import { ConflictDiff } from './ConflictDiff'
+import { NoEditorNote } from './NoEditorNote'
+import { Button } from '../../ui/Button'
 import { EditorTabs } from './EditorTabs'
 import { FileBrowser } from './FileBrowser'
 import { useTranslation } from 'react-i18next'
@@ -48,8 +49,8 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
   const tabs = useEditorStore((state) => state.tabs[workspaceId] ?? EMPTY_TABS)
   const workspaceFiles = useEditorStore((state) => state.files[workspaceId] ?? EMPTY_FILES)
   // The actions only: subscribing to the whole store re-rendered the editor on every change in any workspace.
-  const { closeOtherTabs, closeTab, markExternalChange, moveTab, openFile, restoreSession, saveFile, togglePin, updateContent } =
-    useEditorStore(useShallow((state) => ({ closeOtherTabs: state.closeOtherTabs, closeTab: state.closeTab, markExternalChange: state.markExternalChange, moveTab: state.moveTab, openFile: state.openFile, restoreSession: state.restoreSession, saveFile: state.saveFile, togglePin: state.togglePin, updateContent: state.updateContent })))
+  const { closeOtherTabs, closeTab, markExternalChange, moveTab, openFile, restoreSession, togglePin } =
+    useEditorStore(useShallow((state) => ({ closeOtherTabs: state.closeOtherTabs, closeTab: state.closeTab, markExternalChange: state.markExternalChange, moveTab: state.moveTab, openFile: state.openFile, restoreSession: state.restoreSession, togglePin: state.togglePin })))
   const monacoHostRef = useRef<HTMLDivElement | null>(null)
   const [tree, setTree] = useState<FileTreeNode[]>([])
   const [treeError, setTreeError] = useState<string | null>(null)
@@ -59,6 +60,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
   const [editorSize, setEditorSize] = useState({ width: 0, height: 0 })
   const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null)
   const [showRendered, setShowRendered] = useState(true)
+  const [showNoEditorNote, setShowNoEditorNote] = useState(false)
 
   useEffect(() => {
     window.localStorage.setItem('oxe.editor-tree-width', String(treeWidth))
@@ -142,13 +144,12 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
     function onKeyDown(event: KeyboardEvent): void {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's' && file) {
         event.preventDefault()
-        void saveFile(workspaceId)
       }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [file, saveFile, workspaceId])
+  }, [file])
 
   useEffect(() => {
     const element = monacoHostRef.current
@@ -180,9 +181,29 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
     }
   }, [file?.relativePath])
 
-  const isDirty = Boolean(file && file.content !== file.lastSavedContent)
   const editorWidth = editorSize.width > 0 ? editorSize.width : '100%'
   const editorHeight = editorSize.height > 0 ? editorSize.height : '100%'
+
+
+  const handleOpenInEditor = async (): Promise<void> => {
+    if (!activePath) return
+    const targets = await window.oxe?.app?.openInTargets?.().catch(() => null)
+    const editors = targets?.editors ?? []
+    if (editors.length === 0) {
+      setShowNoEditorNote(true)
+      return
+    }
+    setShowNoEditorNote(false)
+    const target = (targets?.preferred && targets.preferred !== 'auto') ? targets.preferred : (targets?.editors[0]?.id ?? 'vscode')
+    const line = editorRef.current?.getVisibleRanges?.()[0]?.startLineNumber ?? 1
+    await window.oxe?.app?.openIn?.({
+      workspaceId,
+      rootPath,
+      path: activePath,
+      line,
+      target
+    })
+  }
 
   const handleOpenFile = (relativePath: string): void => {
     setShowRendered(true)
@@ -200,15 +221,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
     const next = state.reveal[workspaceId]
     if (next && next !== previous.reveal[workspaceId] && previewKind(next.relativePath) === 'markdown') setShowRendered(false)
   }), [workspaceId])
-  const dirtyPaths = useMemo(
-    () =>
-      new Set(
-        Object.values(workspaceFiles)
-          .filter((entry) => entry.content !== entry.lastSavedContent)
-          .map((entry) => entry.relativePath)
-      ),
-    [workspaceFiles]
-  )
+  const emptyDirtyPaths = useMemo(() => new Set<string>(), [])
 
   return (
     <div className="editor-pane" ref={paneRef}>
@@ -251,7 +264,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
         <EditorTabs
           tabs={tabs}
           activePath={activePath}
-          dirtyPaths={dirtyPaths}
+          dirtyPaths={emptyDirtyPaths}
           onActivate={handleOpenFile}
           onClose={(relativePath) => closeTab(workspaceId, relativePath)}
           onCloseOthers={(relativePath) => closeOtherTabs(workspaceId, relativePath)}
@@ -262,6 +275,16 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
         <header className="editor-toolbar">
           <span className="editor-path">{activePath ?? t('editor.noFile')}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {activePath && (
+              <>
+                <span className="editor-readonly-notice" style={{ fontSize: 12, opacity: 0.7 }}>
+                  {t('editor.readOnly', { defaultValue: 'Read only · edit in your editor' })}
+                </span>
+                <Button variant="secondary" size="sm" onClick={() => void handleOpenInEditor()}>
+                  {t('editor.openInEditor', { defaultValue: 'Open in editor' })}
+                </Button>
+              </>
+            )}
             {activePath && !workspaceId.startsWith('thread:') ? (
               <button
                 type="button"
@@ -286,11 +309,9 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
                 {showRendered ? <Code2 size={12} aria-hidden="true" /> : <Eye size={12} aria-hidden="true" />}
               </button>
             ) : null}
-            {binaryFile ? null : (
-              <span className={`editor-dirty${isDirty ? ' active' : ''}`}>{file?.isSaving ? t('editor.saving') : isDirty ? t('editor.unsaved') : t('editor.saved')}</span>
-            )}
           </div>
         </header>
+        {showNoEditorNote && <NoEditorNote onClose={() => setShowNoEditorNote(false)} />}
         <div className="editor-body">
           {binaryFile ? (
             <Suspense fallback={<LoadingState label={t('editor.loadingPreview')} />}>
@@ -303,9 +324,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
             </Suspense>
           ) : null}
           {!binaryFile && file?.error ? <ErrorState compact title={t('editor.openFailed')} message={file.error} onRetry={() => void openFile({ workspaceId, rootPath, relativePath: file.relativePath })} /> : null}
-          {!binaryFile && file?.saveError ? <ErrorState compact title={t('editor.saveFailed', { name: file.relativePath })} message={file.saveError} onRetry={() => void useEditorStore.getState().savePath(workspaceId, file.relativePath)} /> : null}
-          {!binaryFile && file?.conflict ? <ConflictDiff localContent={file.content} externalContent={file.conflict.externalContent} onResolve={(keep) => useEditorStore.getState().resolveConflict(workspaceId, keep)} /> : null}
-          {!binaryFile && file && isMarkdown && showRendered ? (
+                              {!binaryFile && file && isMarkdown && showRendered ? (
             <div className="editor-preview-host scrollbar-sleek">
               <Suspense fallback={<LoadingState label={t('editor.loadingPreview')} />}>
                 <MarkdownPreview content={file.content} />
@@ -331,13 +350,13 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
                     alwaysConsumeMouseWheel: true,
                     horizontal: 'visible',
                     vertical: 'visible'
-                  }
+                  },
+                  readOnly: true
                 }}
                 onMount={(editor) => {
                   editorRef.current = editor
                   setEditorReady((value) => value + 1)
                 }}
-                onChange={(value) => updateContent(workspaceId, value ?? '')}
               />
             </div>
           ) : null}

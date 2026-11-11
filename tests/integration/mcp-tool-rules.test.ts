@@ -20,7 +20,6 @@ import { serverKey } from '../../shared/types/mcp'
 import { isMcpToolRuleRefusal, MCP_TOOL_RULE_REFUSAL_CODES, type McpToolRule } from '../../shared/types/mcp-tools'
 import { removeTempDir } from '../helpers/removeTempDir'
 
-vi.mock('../../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
 
 const roots: string[] = []
 const databases: AppDatabase[] = []
@@ -165,24 +164,24 @@ describe('Per-tool rules (B7.3)', () => {
     const request = (requestId: string, toolName: string) => emit({ type: 'request', id: requestId, request: {
       id: requestId, nativeId: requestId, nativeMethod: `can_use_tool:${toolName}`, kind: 'approval', title: `Approve ${toolName}`, generation: 0, createdAt: Date.now(), state: 'pending', availableDecisions: ['accept', 'decline'], toolName
     } as ThreadRequest })
-    request('r1', 'mcp__oxespace-delegation__oxespace_code_impact'); await settle()
-    request('r2', 'mcp__evil__oxespace_code_impact'); await settle()
+    request('r1', 'mcp__oxespace-delegation__oxespace_search'); await settle()
+    request('r2', 'mcp__evil__oxespace_search'); await settle()
     request('r3', 'mcp__oxespace-delegation__oxespace_preview_interact'); await settle()
     expect(responses).toEqual([{ id: 'r1', response: { decision: 'accept' } }])
     // Off: the same lookup asks, and Settings › Tools shows it as asking by default.
     new ThreadPermissionStore(db).setAutoApproveReads(false)
-    request('r4', 'mcp__oxespace-delegation__oxespace_code_impact'); await settle()
+    request('r4', 'mcp__oxespace-delegation__oxespace_search'); await settle()
     expect(responses.map(item => item.id)).toEqual(['r1'])
-    expect(find(await toolRules(deps, root), 'oxespace-delegation', 'oxespace_code_impact')).toMatchObject({ decision: 'ask', source: 'default', allowedDecisions: ['allow', 'ask', 'deny'] })
+    expect(find(await toolRules(deps, root), 'oxespace-delegation', 'oxespace_search')).toMatchObject({ decision: 'ask', source: 'default', allowedDecisions: ['allow', 'ask', 'deny'] })
     await manager.stop()
   })
 
   it('T53: a blocked lookup cannot be set to ask while reads are approved, since ask writes nothing (SECURITY #547 L1)', async () => {
     const { root, deps } = project()
-    const blocked = await setToolRule(deps, { rootPath: root, server: 'oxespace-delegation', tool: 'oxespace_code_impact', decision: 'deny' })
-    expect(find(blocked, 'oxespace-delegation', 'oxespace_code_impact')).toMatchObject({ decision: 'deny', source: 'project', allowedDecisions: ['allow', 'deny'] })
-    const allowed = await setToolRule(deps, { rootPath: root, server: 'oxespace-delegation', tool: 'oxespace_code_impact', decision: 'allow' })
-    expect(find(allowed, 'oxespace-delegation', 'oxespace_code_impact')).toMatchObject({ decision: 'allow', source: 'project', allowedDecisions: ['allow', 'deny'] })
+    const blocked = await setToolRule(deps, { rootPath: root, server: 'oxespace-delegation', tool: 'oxespace_search', decision: 'deny' })
+    expect(find(blocked, 'oxespace-delegation', 'oxespace_search')).toMatchObject({ decision: 'deny', source: 'project', allowedDecisions: ['allow', 'deny'] })
+    const allowed = await setToolRule(deps, { rootPath: root, server: 'oxespace-delegation', tool: 'oxespace_search', decision: 'allow' })
+    expect(find(allowed, 'oxespace-delegation', 'oxespace_search')).toMatchObject({ decision: 'allow', source: 'project', allowedDecisions: ['allow', 'deny'] })
     // A lookup not covered keeps all three.
     expect(find(allowed, 'oxespace-delegation', 'oxespace_mcp_servers')).toMatchObject({ decision: 'ask', source: 'default', allowedDecisions: ['allow', 'ask', 'deny'] })
   })
@@ -190,18 +189,18 @@ describe('Per-tool rules (B7.3)', () => {
   it('T53: a deny written under the `oxespace` name holds in approvals and in Settings, and changing the row removes it (SECURITY #547 L2)', { timeout: 30_000 }, async () => {
     const { root, deps, policyFile, readPolicy } = project()
     mkdirSync(join(root, '.oxespace'), { recursive: true })
-    writeFileSync(policyFile, JSON.stringify({ rules: [{ effect: 'deny', action: 'tool.use', resource: 'mcp__oxespace__oxespace_code_impact' }] }))
-    const row = find(await toolRules(deps, root), 'oxespace-delegation', 'oxespace_code_impact')
+    writeFileSync(policyFile, JSON.stringify({ rules: [{ effect: 'deny', action: 'tool.use', resource: 'mcp__oxespace__oxespace_search' }] }))
+    const row = find(await toolRules(deps, root), 'oxespace-delegation', 'oxespace_search')
     expect(row).toMatchObject({ decision: 'deny', source: 'project', editable: true })
     // A conversation's prompt for it is declined by the policy, before "Auto-approve reads".
     const { ThreadPolicy } = await import('../../electron/main/services/conversation/thread-policy')
     const policy = new ThreadPolicy(new ThreadPermissionStore(deps.db), vi.fn(), vi.fn())
-    const request = { id: 'r', kind: 'approval', toolName: 'mcp__oxespace-delegation__oxespace_code_impact', generation: 0, state: 'pending', title: 'x', createdAt: 0 } as unknown as ThreadRequest
+    const request = { id: 'r', kind: 'approval', toolName: 'mcp__oxespace-delegation__oxespace_search', generation: 0, state: 'pending', title: 'x', createdAt: 0 } as unknown as ThreadRequest
     expect(policy.evaluate(root, request)).toMatchObject({ decision: 'deny' })
     // Changing the row removes the rule under either name, so it does not stay blocked.
-    await setToolRule(deps, { rootPath: root, server: 'oxespace-delegation', tool: 'oxespace_code_impact', decision: 'allow' })
+    await setToolRule(deps, { rootPath: root, server: 'oxespace-delegation', tool: 'oxespace_search', decision: 'allow' })
     expect(readPolicy().rules).toEqual([])
-    expect(find(await toolRules(deps, root), 'oxespace-delegation', 'oxespace_code_impact')).toMatchObject({ decision: 'allow', source: 'project' })
+    expect(find(await toolRules(deps, root), 'oxespace-delegation', 'oxespace_search')).toMatchObject({ decision: 'allow', source: 'project' })
   })
 
   it('ask removes both, and deny → allow → ask leaves nothing behind', async () => {

@@ -73,7 +73,7 @@ describe('the first Windows terminal screen (B13, bundled ConPTY)', () => {
       const emitted: string[] = []
       const manager = new TerminalManager(db, { pty: { spawn: vi.fn(() => fake as never) }, platform, emitData: event => { emitted.push(event.data) } })
       try {
-        await manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id, agentCommand: 'my-agent', disableRtk: true })
+        await manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id, agentCommand: 'my-agent' })
         onData?.('PS> ')
         await vi.waitFor(() => expect(emitted.join('')).toContain('PS> '))
         expect(emitted.join('')).toBe(platform === 'win32' ? `${CONPTY_START_SCREEN}PS> ` : 'PS> ')

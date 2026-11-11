@@ -11,7 +11,7 @@ function restoredSidebarCollapsed(): boolean {
 }
 
 /** The application Settings pages, in SettingsCenter order. */
-export type SettingsPageId = 'general' | 'providers' | 'appearance' | 'terminal' | 'keyboard' | 'notifications' | 'updates' | 'policy' | 'devices' | 'diagnostics'
+export type SettingsPageId = 'general' | 'providers' | 'appearance' | 'terminal' | 'keyboard' | 'notifications' | 'updates' | 'policy' | 'devices' | 'diagnostics' | 'data'
 
 interface UIState {
   isNewWorkspaceOpen: boolean

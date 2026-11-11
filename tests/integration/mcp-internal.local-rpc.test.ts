@@ -14,6 +14,7 @@ import { WorktreeEventBus } from '../../electron/main/mcp-internal/worktree-even
 import { ExecutionRegistry } from '../../electron/main/services/execution-registry'
 import { removeTempDir } from '../helpers/removeTempDir'
 
+
 interface ServerCtx {
   server: LocalRpcServer
   port: number
@@ -63,10 +64,7 @@ async function start(delegation?: { create: (...args: unknown[]) => Promise<unkn
     background: new BackgroundManager(db, { emitOutput: () => undefined, emitUpdate: () => undefined }),
     fileSystem: new FileSystemService(),
     webPreview: new WebPreviewBus(),
-    worktree: new WorktreeEventBus(),
-    // Semantic/codegraph are unused by the RPC smoke tools exercised below.
-    semantic: { isEnabled: () => false, queryDetailed: async () => ({ results: [] }) } as never,
-    codegraph: {} as never
+    worktree: new WorktreeEventBus()
   })
   server.setToken(TOKEN)
   const { port } = await server.start(0)
@@ -131,14 +129,12 @@ describe('Internal MCP local RPC server', () => {
       const { json } = await postRpc(ctx.port, headers, { jsonrpc: '2.0', id: 90, method: 'tools/call', params: { name, arguments: { query: 'orchestrator' } } })
       return (json as { result: { isError?: boolean; content: Array<{ text: string }> } }).result
     }
-    const semantic = await call('oxespace_semantic_search')
-    expect(semantic.isError).toBeUndefined()
-    expect(semantic.content[0].text).toMatch(/off for this project.*Project settings › Semantic search/)
-    const hybrid = await call('oxespace_hybrid_explore')
-    expect(hybrid.content[0].text).not.toMatch(/requires a Code workspace/)
-    expect(hybrid.content[0].text).toMatch(/Hybrid RAG: Structural AST/)
+    // The quality check resolves the Thread to its project scope, then says it reads files through a Code workspace.
+    const quality = await call('oxespace_quality_check')
+    expect(quality.content[0].text).not.toMatch(/requires a Code workspace|could not be verified/)
+    expect(quality.content[0].text).toContain('Open this project in Code once')
     // A Thread whose execution cannot be verified is still refused.
-    const { json } = await postRpc(ctx.port, { ...headers, 'x-oxe-execution-token': 'wrong' }, { jsonrpc: '2.0', id: 91, method: 'tools/call', params: { name: 'oxespace_semantic_search', arguments: { query: 'x' } } })
+    const { json } = await postRpc(ctx.port, { ...headers, 'x-oxe-execution-token': 'wrong' }, { jsonrpc: '2.0', id: 91, method: 'tools/call', params: { name: 'oxespace_quality_check', arguments: {} } })
     expect(JSON.stringify(json)).toMatch(/could not be verified/)
   })
 

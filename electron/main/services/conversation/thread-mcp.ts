@@ -23,12 +23,10 @@ export interface ThreadMcpBindings {
 // conversation gets only the core group, the groups its role needs, and the
 // groups the project turns on with `thread.tools` in oxe.yaml.
 export const THREAD_TOOL_GROUPS = {
-  /** Every conversation: code, search and memory lookups. */
-  core: ['oxespace_capabilities', 'oxespace_project_context', 'oxespace_memory_search', 'oxespace_memory_remember',
-    'oxespace_semantic_search', 'oxespace_hybrid_explore',
-    'oxespace_code_search', 'oxespace_code_callers', 'oxespace_code_callees', 'oxespace_code_impact', 'oxespace_code_node', 'oxespace_code_status'],
+  /** Every conversation: context lookups. */
+  core: ['oxespace_capabilities', 'oxespace_project_context'],
   /** A team member's conversation. */
-  team: ['oxespace_team_status', 'oxespace_team_inbox', 'oxespace_team_message', 'oxespace_team_acknowledge'],
+  team: [],
   /** A conversation that runs a delegation or an Agent Work task, or supervises a Work run. */
   worker: ['oxespace_execution_context', 'oxespace_delegation_context', 'oxespace_delegation_update', 'oxespace_delegation_checkpoint',
     'oxespace_delegation_message', 'oxespace_delegation_inbox', 'oxespace_delegation_acknowledge', 'oxespace_delegation_result',
@@ -37,8 +35,7 @@ export const THREAD_TOOL_GROUPS = {
   orchestration: ['oxespace_list_agents', 'oxespace_list_workspaces', 'oxespace_delegation_targets', 'oxespace_delegation_preflight',
     'oxespace_delegate_task', 'oxespace_delegation_status', 'oxespace_delegation_inbox', 'oxespace_delegation_result', 'oxespace_delegation_control',
     'oxespace_work_plan', 'oxespace_work_status', 'oxespace_work_result', 'oxespace_work_message', 'oxespace_work_cancel',
-    'oxespace_thread_create', 'oxespace_thread_send', 'oxespace_thread_read',
-    'oxespace_memory_sessions', 'oxespace_memory_handoffs', 'oxespace_memory_accept_handoff', 'oxespace_quality_check'],
+    'oxespace_thread_create', 'oxespace_thread_send', 'oxespace_thread_read', 'oxespace_quality_check'],
   /** Database and container access; every data read and change is approved by a person inside OxeQuery. */
   data: ['oxespace_db_connections', 'oxespace_db_describe', 'oxespace_db_query', 'oxespace_mongo_find', 'oxespace_mongo_aggregate',
     'oxespace_db_execute', 'oxespace_mongo_write', 'oxespace_containers_list', 'oxespace_container_logs', 'oxespace_container_action',
@@ -62,7 +59,7 @@ export type ThreadToolGroup = keyof typeof THREAD_TOOL_GROUPS
 export const CODE_TOOL_GROUP = ['oxespace_list_panes', 'oxespace_terminal', 'oxespace_list_scripts', 'oxespace_run_script',
   'oxespace_list_background_jobs', 'oxespace_get_job_output', 'oxespace_stop_background_job', 'oxespace_list_worktrees',
   'oxespace_create_worktree', 'oxespace_remove_worktree', 'oxespace_tasks', 'oxespace_tasks_change', 'oxespace_agents',
-  'oxespace_agents_change', 'oxespace_integration', 'oxespace_memory_diagnostics'] as const
+  'oxespace_agents_change', 'oxespace_integration'] as const
 
 /**
  * What an agent in a Code terminal starts with (T8, about 2.2k chars): its panes, terminal, scripts and jobs. The rest

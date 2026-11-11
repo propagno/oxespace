@@ -104,7 +104,7 @@ describe('ConnectionDialog', () => {
     expect(within(dialog).getByLabelText('User')).toHaveValue('app')
     const password = within(dialog).getByLabelText('Password')
     expect(password).toHaveFocus()
-    expect(password).toHaveAccessibleDescription(/agents never see it/)
+    expect(password).toHaveAccessibleDescription(/never reads it from the container/)
     fireEvent.change(password, { target: { value: 's3cret' } })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save and open' }))
     await waitFor(() => expect(api.callsOf('connections.save')).toHaveLength(1))

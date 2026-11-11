@@ -121,15 +121,7 @@ const ACKNOWLEDGEMENTS = [
  * listed here and carry its upstream LICENSE; `check` fails otherwise.
  */
 const VENDOR_ROOT = join(root, 'electron', 'main', 'vendor')
-const VENDORED = [
-  {
-    name: 'codegraph',
-    folder: 'codegraph',
-    source: 'https://github.com/colbymchenry/codegraph',
-    license: 'MIT',
-    use: 'Code graph indexing and search behind the code tools (electron/main/vendor/codegraph; origin and local changes in its ORIGIN.md).'
-  }
-]
+const VENDORED = []
 
 /**
  * Runtime dependencies that the main process loads from node_modules instead of bundling, listed for their license

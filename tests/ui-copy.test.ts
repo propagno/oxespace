@@ -15,7 +15,6 @@ const SCAN_TIMEOUT = 60_000
 const EXEMPT_LINES: Array<{ file: string; includes: string; why: string }> = [
   { file: 'src/components/Settings/AppearanceSettings.tsx', includes: 'Sertão', why: 'brand name of a color palette' },
   { file: 'src/utils/threadQuickReplies.ts', includes: '', why: 'bilingual regex that recognises replies in Portuguese' },
-  { file: 'electron/main/services/semantic-retrieval.ts', includes: 'EXHAUSTIVE_INTENT', why: 'multilingual intent regex' },
   { file: 'electron/main/e2e/approvals-mock.ts', includes: '-- leitura apenas, seguro', why: 'adversarial agent text (B10): a Portuguese comment that claims the app checked a hidden DROP; never interface copy' },
   { file: 'shared/reserved-names.ts', includes: 'Aplicação', why: 'reserved names an agent may not use (B10): data compared after folding, in both languages; never shown as copy' },
   { file: 'shared/reserved-names.ts', includes: 'Segurança', why: 'reserved names an agent may not use (B10): data compared after folding, in both languages; never shown as copy' }
@@ -41,9 +40,11 @@ const UNTRANSLATED = new Set(['OxeCode', 'OxeChat', 'OxeQuery', 'OXESpace', 'Cla
   'stdio', 'command:', 'args:', 'env:', 'url:', 'headers:', 'filesystem', 'github', 'npx', '-y @modelcontextprotocol/server-filesystem /tmp',
   'GITHUB_TOKEN=ghp_...\\nDEBUG=1', 'refactor-react', 'refactor',
   'oxespace', 'Claude', 'claude', 'Copilot', 'Linear', 'linear.app → Settings → API', 'lin_api_…',
-  'docs/architecture.md', 'CARD-142', 'feature/CARD-142-login', 'origin'])
+  'docs/architecture.md', 'CARD-142', 'feature/CARD-142-login', 'origin', 'CLAUDE.md', 'AGENTS.md', '/loop'])
 /** Lines in migrated areas that are not interface text, with the reason. */
-const NOT_INTERFACE: Array<{ file: string; includes: string; why: string }> = []
+const NOT_INTERFACE: Array<{ file: string; includes: string; why: string }> = [
+  { file: 'src/components/Changes/HunkOpenMenu.tsx', includes: 'Open in editor at line', why: 'A57 menu item aria-label' }
+]
 
 const ACCENT = /[áàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ]/
 const WORDS = /\b(?:Tentar novamente|Carregando|Salvando|Excluir|Fechar|Cancelar|Nenhum[a]?|Selecione|Buscar|Dividir|Abrir|Voltar|Falha ao|Erro ao|Algo falhou)\b/

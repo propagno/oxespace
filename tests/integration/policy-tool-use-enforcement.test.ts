@@ -12,7 +12,6 @@ import { createLocalRpcServer } from '../../electron/main/mcp-internal/local-rpc
 import { WorkspaceService } from '../../electron/main/services/workspace.service'
 import { removeTempDir } from '../helpers/removeTempDir'
 
-vi.mock('../../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
 
 const roots: string[] = []
 const databases: AppDatabase[] = []

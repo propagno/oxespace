@@ -34,7 +34,6 @@ const PERF_BUDGETS_MS: Record<string, number> = {
   // Modal surfaces perform a full settings-tree mount. Their CI p95 baseline
   // is ~570 ms on Linux runners; keep this explicit instead of weakening the
   // 500 ms budget for all other interactions.
-  'modal open:  Semantic Activity': 750,
   'modal open:  Usage & limits': 750,
   'modal close: Usage & limits': 750,
   // Track 7 (V12) targets. Calibrated on Windows from the built app in mock-native mode; the CI gate
@@ -500,7 +499,7 @@ test('repository: Files ↔ Source Control', async () => {
   }
 })
 
-test('modal surfaces: agents, MCP, semantic, workspace settings and usage', async () => {
+test('modal surfaces: agents, MCP, workspace settings and usage', async () => {
   test.setTimeout(120_000)
   const { app, page, pid } = await launchApp()
   try {
@@ -526,7 +525,6 @@ test('modal surfaces: agents, MCP, semantic, workspace settings and usage', asyn
         selector: '[role="dialog"][aria-label="MCP servers"]',
         trigger: () => openConnections(page)
       },
-      fromPalette('Semantic Activity', '[role="dialog"][aria-label="Semantic activity"]', 'Semantic index log'),
       fromPalette('Workspace Settings', '.workspace-settings-modal-v2', 'Workspace settings')
     )
 

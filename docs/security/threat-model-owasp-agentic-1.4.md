@@ -26,7 +26,7 @@ servers, and it exposes its own MCP server to them. The agent has the same OS us
 | ASI03 | Identity and privilege abuse | Env scrubber, per-execution tokens, user-only approvals | Provider credentials stay in the CLI's reach | S7 (this PR is slice 1) |
 | ASI04 | Supply chain | MCP trust and `trusted` sync filter; quarantine (not on main) | Floating `npx` versions, skills | S5/S6 PR; policy `mcp:` |
 | ASI05 | Unexpected code execution | Shell parsing and risk, path safety | No sandbox; hooks run repository scripts | S3 |
-| ASI06 | Memory and context poisoning | Memory fence, redaction before capture, `memory` policy | The fence is heuristic | `tests/unit/memory-fence.test.ts` |
+| ASI06 | Memory and context poisoning | Memory fence, redaction before capture, `memory` policy | The fence is heuristic | `tests/secrets.test.ts` |
 | ASI07 | Insecure inter-agent communication | Coordinator authorization, per-execution lease | Bindings are in memory only | `coordination.authorization.test.ts` |
 | ASI08 | Cascading failures | Rate limits, bounded results, idle suspension | No global spend or fan-out cap | Gap, no item yet |
 | ASI09 | Human-agent trust exploitation | Approval cards carry the reason; user-only capabilities | Wording is not tested adversarially | Gap, no item yet |
@@ -109,7 +109,7 @@ runs. Roadmap: S3 (macOS seatbelt, Linux Landlock, Windows job objects or AppCon
 ## ASI06 Memory and context poisoning
 
 Controls: `shared/memory-fence.ts` neutralizes instruction-like text and caps each item; shared memory is captured after `redactSecrets`;
-the `memory` policy resource turns it off per project, user or machine; erase-all in Settings. Tests: `tests/secrets.test.ts` plus `tests/unit/memory-fence.test.ts`.
+the `memory` policy resource turns it off per project, user or machine; erase-all in Settings. Tests: `tests/secrets.test.ts`.
 
 Gap: the fence is a heuristic; a well-phrased note passes. Project steering files are covered only by the PR #144 guard. Roadmap: none
 beyond S5.

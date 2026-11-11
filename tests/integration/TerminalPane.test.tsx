@@ -110,10 +110,6 @@ describe('TerminalPane', () => {
         getBranch: vi.fn().mockResolvedValue({ branch: 'feature/test', detached: false, shortSha: null }),
         getDiff: vi.fn(),
         onDiffUpdate: vi.fn(() => vi.fn())
-      },
-      semantic: {
-        setEnabled: vi.fn().mockResolvedValue({ enabled: true, workerReady: true, indexing: false, count: 0, lastError: null }),
-        getStatus: vi.fn().mockResolvedValue({ enabled: false, workerReady: true, indexing: false, count: 0, lastError: null })
       }
     } as unknown as typeof window.oxe
   })
@@ -227,7 +223,7 @@ describe('TerminalPane', () => {
     expect(useTerminalStore.getState().panes['pane-2']?.hasUnread).toBe(false)
   })
 
-  test('more menu toggles Caveman and Semantic', async () => {
+  test('more menu toggles Caveman, with no Semantic toggle (R2)', async () => {
     const user = userEvent.setup()
     useTerminalStore.getState().setStatus('pane-1', 'running')
     render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
@@ -237,7 +233,7 @@ describe('TerminalPane', () => {
     // R4 took RTK out: the menu has no RTK toggle.
     expect(screen.queryByTestId('menu-toggle-rtk')).toBeNull()
     expect(screen.getByTestId('menu-toggle-caveman')).toBeInTheDocument()
-    expect(screen.getByTestId('menu-toggle-semantic')).toBeInTheDocument()
+    expect(screen.queryByTestId('menu-toggle-semantic')).toBeNull()
 
     await user.click(screen.getByTestId('menu-toggle-caveman'))
     expect(screen.getByTestId('menu-toggle-caveman')).toHaveAttribute('aria-checked', 'true')

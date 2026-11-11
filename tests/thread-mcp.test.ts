@@ -9,8 +9,11 @@ it('adds the OXESpace bridge while preserving Claude CLI MCP inheritance and per
   expect(args.slice(0, 4)).toEqual(['--tools', 'default', '--settings', '{"disableAllHooks":true}'])
   const server = JSON.parse(args.at(-1)!).mcpServers['oxespace-delegation']
   expect(server.args[0]).toBe('/bridge.cjs')
-  expect(JSON.parse(server.args[2])).toContain('oxespace_memory_search')
-  expect(JSON.parse(server.args[2])).toContain('oxespace_hybrid_explore')
+  // R5: AI Memory's tools are gone.
+  expect(JSON.parse(server.args[2]).some((tool: string) => tool.startsWith('oxespace_memory_'))).toBe(false)
+  expect(JSON.parse(server.args[2])).toContain('oxespace_project_context')
+  // R1: the CodeGraph tools are gone.
+  expect(JSON.parse(server.args[2]).some((tool: string) => tool.startsWith('oxespace_code_'))).toBe(false)
   // Tools that need a Code workspace's panes, scripts, jobs or worktrees are not offered to a Thread.
   for (const codeOnly of ['oxespace_run_script', 'oxespace_list_panes', 'oxespace_list_worktrees', 'oxespace_create_worktree', 'oxespace_remove_worktree', 'oxespace_list_background_jobs']) {
     expect(JSON.parse(server.args[2])).not.toContain(codeOnly)
@@ -63,9 +66,10 @@ it('gives a read-only Claude conversation the bridge limited to read-only lookup
   const config = JSON.parse(result[4]) as { mcpServers: Record<string, { args: string[] }> }
   expect(Object.keys(config.mcpServers)).toEqual(['oxespace-delegation'])
   const allowed = JSON.parse(config.mcpServers['oxespace-delegation'].args[2]) as string[]
-  expect(allowed).toContain('oxespace_hybrid_explore')
-  expect(allowed).toContain('oxespace_memory_search')
-  for (const writer of ['oxespace_memory_remember', 'oxespace_thread_send', 'oxespace_delegate_task', 'oxespace_team_message', 'oxespace_preview_interact', 'oxespace_open_web_preview']) {
+  expect(allowed).toContain('oxespace_capabilities')
+  expect(allowed.some(tool => tool.startsWith('oxespace_code_'))).toBe(false)
+  expect(allowed.some(tool => tool.startsWith('oxespace_memory_'))).toBe(false)
+  for (const writer of ['oxespace_memory_remember', 'oxespace_thread_send', 'oxespace_delegate_task', 'oxespace_preview_interact', 'oxespace_open_web_preview']) {
     expect(allowed).not.toContain(writer)
   }
 })

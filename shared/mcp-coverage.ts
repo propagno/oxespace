@@ -197,18 +197,8 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   // ---- search ---------------------------------------------------------------------
   'search.text': { label: 'Exact text search and the file list', tools: each('oxespace_search', 'read', ['text', 'files']), ipc: ['search.run', 'search.cancel', 'search.listFiles'] },
   'search.code': {
-    label: 'Semantic, structural and hybrid code retrieval; post-diff quality check',
-    tools: {
-      oxespace_semantic_search: 'read', oxespace_hybrid_explore: 'read', oxespace_quality_check: 'read', oxespace_code_search: 'read', oxespace_code_callers: 'read',
-      oxespace_code_callees: 'read', oxespace_code_impact: 'read', oxespace_code_node: 'read', oxespace_code_status: 'read',
-      ...each('oxespace_settings', 'read', ['semantic']), ...each('oxespace_workspace_change', 'write', ['reindex'])
-    },
-    ipc: ['semantic.query', 'semantic.getStatus', 'semantic.projectStatus', 'semantic.getVectorStatus', 'semantic.getUsage', 'semantic.reindex']
-  },
-  'search.semantic_admin': {
-    label: 'Turn semantic search on or off; download, import or remove the vector model',
-    excluded: 'Changes disk use and what is indexed; the person decides in Settings.',
-    ipc: ['semantic.setEnabled', 'semantic.setProjectEnabled', 'semantic.setMode', 'semantic.setVectorIndex', 'semantic.downloadModel', 'semantic.importModel', 'semantic.removeModel', 'semantic.getLogs']
+    label: 'The post-diff quality check',
+    tools: { oxespace_quality_check: 'read' }
   },
 
   // ---- editor ---------------------------------------------------------------------
@@ -278,17 +268,11 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   },
   'thread.session_admin': {
     label: 'Fork, delete, clean up or search CLI sessions',
-    excluded: 'Deletes or copies the person\'s CLI history across projects. Agents search with oxespace_memory_search, scoped to the project.',
+    excluded: 'Deletes or copies the person\'s CLI history across projects. Agents read the project with oxespace_project_context and oxespace_search.',
     ipc: ['session.fork', 'session.delete', 'session.cleanup', 'session.search']
   },
 
-  // ---- Team, delegation, work -----------------------------------------------------------
-  'team.messaging': {
-    label: 'Team status and messages',
-    tools: { oxespace_team_status: 'read', oxespace_team_inbox: 'read', oxespace_team_message: 'write', oxespace_team_acknowledge: 'write' },
-    ipc: ['team.messages', 'team.send']
-  },
-  'team.admin': { label: 'Add members, pick the coordinator, archive, delivery', excluded: 'The person builds the team.', ipc: ['team.command'] },
+  // ---- Delegation, work -----------------------------------------------------------
   'delegation.use': {
     label: 'Delegate a task and follow it',
     tools: {
@@ -307,21 +291,6 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     label: 'Work plans: plan, status, result, message, cancel',
     tools: { oxespace_work_plan: 'write', oxespace_work_status: 'read', oxespace_work_result: 'read', oxespace_work_message: 'write', oxespace_work_cancel: 'write' },
     ipc: ['thread.workRuns', 'thread.cancelWork']
-  },
-
-  // ---- memory ---------------------------------------------------------------------------
-  'memory.use': {
-    label: 'Project memory: search, remember, sessions, handoffs',
-    tools: {
-      oxespace_memory_search: 'read', oxespace_memory_remember: 'write', oxespace_memory_sessions: 'read', oxespace_memory_handoffs: 'read',
-      oxespace_memory_accept_handoff: 'write', oxespace_memory_diagnostics: 'read'
-    },
-    ipc: ['memory.status', 'memory.search', 'memory.recent', 'memory.handoffs', 'memory.storage', 'memory.acceptHandoff']
-  },
-  'memory.admin': {
-    label: 'Install, configure or roll back memory; wire it into agents; list, export, delete or reset what is stored',
-    excluded: 'Memory is the person\'s opt-in, and so is looking through, exporting, deleting or resetting what it holds. Agents only search and record.',
-    ipc: ['memory.configure', 'memory.install', 'memory.rollback', 'memory.setupAgents', 'memory.notes', 'memory.noteUpdate', 'memory.noteDelete', 'memory.export', 'memory.reset']
   },
 
   // ---- OxeQuery (databases) and OxePod (containers) -------------------------------------------
@@ -449,5 +418,5 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   },
 
   // ---- future products ----------------------------------------------------------------------
-  'oxepost.all': { label: 'OxePost: collections, environments, sending', planned: 'H8', reason: 'OxePost (H1-H4) is the person\'s API client: collections, environments and sending have no tool yet; H8 adds list, read and create, and send with GET and HEAD to localhost free and the rest confirmed. Environment secrets stay in the system\'s secure storage and are never a tool, an argument or a result.', ipc: ['oxePost.call'] }
+  'oxepost.all': { label: 'OxePost: collections, environments, sending', planned: 'H8', reason: 'OxePost (H1-H4) is the person\'s API client: collections, environments and sending have no tool yet; H8 adds list, read and create, and send with GET and HEAD to localhost free and the rest confirmed. Environment secrets stay in the system\'s secure storage and are never a tool, an argument or a result.' }
 }

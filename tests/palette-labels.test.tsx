@@ -13,7 +13,6 @@ import { buildThreadCommands } from '../src/commands/thread.commands'
 import { CommandMenu } from '../src/components/CommandMenu/CommandMenu'
 import { buildAppMenus, type AppMenuNode } from '../src/components/Navigation/appMenus'
 import '../src/components/OxePod/oxepod.commands'
-import '../src/components/OxePost/oxepost.commands'
 import '../src/components/OxeQuery/oxequery.commands'
 import { changeLanguage } from '../src/i18n'
 import { useCommandSource } from '../src/commands/useCommandSource'
@@ -35,7 +34,7 @@ const NOT_A_VERB: Record<string, string> = { 'help.about': 'conventional "About 
  */
 const SAME_IN_BOTH = new Set([
   // Product names
-  'OxeCode', 'OxeChat', 'OxeQuery', 'OxePod', 'OxePost', 'OXESpace',
+  'OxeCode', 'OxeChat', 'OxeQuery', 'OxePod', 'OXESpace',
   // Terms nobody translates
   'Terminal', 'Git', 'Docker', 'MCP', 'SQL'
 ])
@@ -77,7 +76,7 @@ describe('command palette labels', () => {
       const commands = paletteCommands()
       // 89 since F34 took OXEVoice out (its toggle and its settings page); Devices came with the phone (#384).
       // 88 since R12 took the skills manager out (tool-skills); 87 since R6 took Linear out (open-linear).
-      expect(commands.length).toBeGreaterThanOrEqual(87)
+      expect(commands.length).toBeGreaterThanOrEqual(80)
       const wrong: string[] = []
       for (const command of commands) {
         const match = pattern.exec(command.label)
@@ -172,7 +171,6 @@ describe('palette search', () => {
     render(<Palette />)
     expect(await firstCommand('Keyboard shortcuts')).toBe('Help: Show keyboard shortcuts')
     expect(await firstCommand('Restart terminal')).toBe('Terminal: Restart')
-    expect(await firstCommand('Semantic index log')).toBe('Agents: Show semantic index log')
     expect(await firstCommand('Workspace settings')).toBe('Workspace: Open workspace settings')
     expect(await firstCommand('Settings: Keyboard')).toBe('Settings: Open keyboard settings')
     await act(async () => { await changeLanguage('pt-BR') })

@@ -19,7 +19,7 @@ export function NoWorkspaceStart({ onNewWorkspace, onSelectMode, onAddProject }:
       <Button variant="primary" size="lg" icon={<Plus size={14} aria-hidden="true" />} onClick={onNewWorkspace}>{t('app.start.newWorkspace')}</Button>
       <div className="empty-state-alt" role="group" aria-label={t('app.start.otherWays')}>
         <span>{t('app.start.elsewhere')}</span>
-        {(['thread', 'data', 'pods', 'post'] as const).map(view => <Button key={view} variant="ghost" size="sm" onClick={() => onSelectMode(view)}>{t(`app.start.open.${view}`)}</Button>)}
+        {(['thread', 'data'] as const).map(view => <Button key={view} variant="ghost" size="sm" onClick={() => onSelectMode(view)}>{t(`app.start.open.${view}`)}</Button>)}
       </div>
       <Suspense fallback={<FirstRunChecklistFallback />}><FirstRunChecklist onNewWorkspace={onNewWorkspace} onAddProject={onAddProject} /></Suspense>
     </div>

@@ -8,7 +8,6 @@ import {
   REMOTE_DEFAULT_DESKTOP_NAME, REMOTE_MAX_DESKTOP_NAME_LENGTH, REMOTE_MIN_PORT, REMOTE_PAIRING_FAILURE_REASONS, type RemoteGatewayStatus, type RemotePairingFailureReason
 } from '../shared/types/remote'
 
-vi.mock('../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
 
 const ACTIONS = ['setEnabled', 'startPairing', 'cancelPairing', 'answerPairing', 'revoke', 'rename', 'setDesktopName', 'setPhoneWrite', 'setPhoneHidden', 'firewallStatus', 'firewallRepair', 'firewallUndo'] as const
 

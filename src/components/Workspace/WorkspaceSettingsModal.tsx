@@ -5,14 +5,13 @@ import { LAYOUT_PRESETS, WORKSPACE_DENSITIES } from './workspaceOptions'
 import { useSettingsStore } from '../../store/settings.store'
 import { resolveDensity } from '../../design/density'
 import { AppearanceSettings } from '../Settings/AppearanceSettings'
-import { WorkspaceMemorySettings } from './WorkspaceMemorySettings'
+import { ProjectInstructionsRow } from './ProjectInstructionsRow'
 import { WorkspaceDelegationSettings } from './WorkspaceDelegationSettings'
 import { ToolsSettings } from '../Settings/ToolsSettings'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import './WorkspaceSettingsModal.css'
 import { DefaultShellSettings } from './DefaultShellSettings'
-import { useSharedProjectMemory } from '../../hooks/useSharedProjectMemory'
 import { applyWithUndo, Button, ErrorState, Select } from '../../ui'
 import { formatNumber } from '../../utils/formatTime'
 import { humanizeError } from '../../utils/humanizeError'
@@ -74,8 +73,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onClose, onOp
 
   const [localPage, setPage] = useState<(typeof SETTINGS_PAGES)[number]['id']>('appearance')
   const page = selectedPageId ?? localPage
-  const memoryOn = useSharedProjectMemory(workspace.id) === true
-  const visiblePages = SETTINGS_PAGES.filter(item => item.id !== 'memory' || memoryOn)
+  const visiblePages = SETTINGS_PAGES
   const selectedPage = SETTINGS_PAGES.find(item => item.id === page)!
   const contentRef = useRef<HTMLDivElement>(null)
   useEffect(() => { if (contentRef.current) contentRef.current.scrollTop = 0 }, [page])
@@ -149,9 +147,8 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onClose, onOp
             </nav>}
             <div className="ws-settings-main" ref={contentRef}>
               <header className="ws-settings-page-heading"><h3>{selectedPage.label}</h3><p>{selectedPage.description}</p></header>
-              {memoryOn && <div id="ws-page-memory" hidden={page !== 'memory'}><WorkspaceMemorySettings workspaceId={workspace.id} /></div>}
               <div id="ws-page-delegation" hidden={page !== 'delegation'}><WorkspaceDelegationSettings workspaceId={workspace.id} paneIds={workspace.panes.map(pane => pane.id)} onOpenTerminal={onOpenTerminal} onOpenDiagnostics={onOpenDiagnostics} /></div>
-              {page === 'tools' && <div id="ws-page-tools"><ToolsSettings rootPath={workspace.rootPath} workspaceId={workspace.id} /></div>}
+              {page === 'tools' && <div id="ws-page-tools"><ProjectInstructionsRow workspaceId={workspace.id} rootPath={workspace.rootPath} /><ToolsSettings rootPath={workspace.rootPath} workspaceId={workspace.id} /></div>}
               <div id="ws-page-appearance" className="ws-appearance-layout" hidden={page !== 'appearance'}>
               <div className="ws-appearance-controls">
               <section className="ws-settings-section" aria-labelledby="ws-section-appearance">
@@ -219,7 +216,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onClose, onOp
           {saved && !error ? <div className="ws-settings-saved" role="status"><Check size={14} aria-hidden="true" />{t('workspace.settings.saved')}</div> : null}
 
           <footer className="modal-actions">
-            <p>{page === 'memory' ? t('workspace.settings.footer.memory') : page === 'delegation' ? t('workspace.settings.footer.delegation') : page === 'tools' ? t('workspace.settings.footer.tools') : t('workspace.settings.footer.default')}</p>
+            <p>{page === 'delegation' ? t('workspace.settings.footer.delegation') : page === 'tools' ? t('workspace.settings.footer.tools') : t('workspace.settings.footer.default')}</p>
           </footer>
         </div>
       </>

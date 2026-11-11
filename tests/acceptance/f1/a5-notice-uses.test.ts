@@ -13,7 +13,6 @@ const read = (path: string): string => readFileSync(join(ROOT, path), 'utf8')
 describe('A5 · the four Callout places use the ui Notice with the right intent', () => {
   test.each([
     ['accounts that failed', 'src/components/Threads/ProviderAccountsPanel.tsx', 'danger'],
-    ['the OxePost environments secrets', 'src/components/OxePost/EnvironmentsDialog.tsx', 'warning'],
     ['the OxeChat sign-in failure', 'src/components/Threads/ThreadFailureCard.tsx', 'danger'],
     ['the workspace policy without a file', 'src/components/Settings/PolicySettings.tsx', 'info'],
     ['a workspace policy problem (page level)', 'src/components/Settings/PolicySettings.tsx', 'warning']

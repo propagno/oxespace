@@ -98,7 +98,7 @@ function terminalWith(script: string, pidFile: string, cwd: string) {
   const paneId = 'oxequery-shell:5f0c2f4e-6b7a-4c1e-9d3b-0a1b2c3d4e5f'
   const shell = { file: NODE, args: [script, pidFile, '0'] }
   const manager = new TerminalManager(db, { env: { ...process.env }, oxeQueryShell: id => id === paneId ? shell : undefined })
-  const input = { workspaceId: 'oxequery', paneId, disableRtk: true, cols: 80, rows: 24 }
+  const input = { workspaceId: 'oxequery', paneId, cols: 80, rows: 24 }
   return { manager, input, db, cwd }
 }
 

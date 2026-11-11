@@ -210,28 +210,28 @@ describe('side chat: Codex fork', () => {
   })
 
   it('approves only the listed OXESpace read-only lookups by name, never the whole bridge', async () => {
-    const f = codexFixture(() => ({ result: { thread: { id: 'fork-A', ephemeral: true } } }), { lookups: ['oxespace_code_search', 'oxespace_memory_search', 'oxespace_thread_send', 'oxespace_memory_remember', 'bad.name'] })
+    const f = codexFixture(() => ({ result: { thread: { id: 'fork-A', ephemeral: true } } }), { lookups: ['oxespace_search', 'oxespace_memory_search', 'oxespace_thread_send', 'oxespace_memory_remember', 'bad.name'] })
     await start(f.adapter, 'native-A')
     const config = f.requests.find(request => request.method === 'thread/fork')!.params.config as Record<string, unknown>
     const approved = Object.entries(config).filter(([, value]) => value === 'approve').map(([key]) => key)
-    expect(approved.sort()).toEqual(['mcp_servers.oxespace-delegation.tools.oxespace_code_search.approval_mode', 'mcp_servers.oxespace-delegation.tools.oxespace_memory_search.approval_mode'])
+    expect(approved.sort()).toEqual(['mcp_servers.oxespace-delegation.tools.oxespace_search.approval_mode'])
     expect(config['mcp_servers.oxespace-delegation.default_tools_approval_mode']).toBe('prompt')
     expect(config['mcp_servers.userwriter.default_tools_approval_mode']).toBe('prompt')
     await f.adapter.dispose()
   })
 
   it('runs a listed lookup, and asks about and declines an unlisted OXESpace tool and a user MCP tool', async () => {
-    const f = codexFixture(() => ({ result: { thread: { id: 'fork-A', ephemeral: true } } }), { lookups: ['oxespace_code_search', 'oxespace_thread_send'] })
+    const f = codexFixture(() => ({ result: { thread: { id: 'fork-A', ephemeral: true } } }), { lookups: ['oxespace_search', 'oxespace_thread_send'] })
     const s = sideFixture(thread({ provider: 'codex' }))
     vi.mocked(s.host.connect).mockResolvedValueOnce(f.adapter)
     const opened = await s.chats.open('thread-A', s.emit)
     if (!opened.ok) throw Error('expected a side chat')
     await s.chats.send(opened.side.sideId, 'Look around')
-    expect(await f.callTool('oxespace-delegation', 'oxespace_code_search')).toEqual({ asked: false, ran: true })
+    expect(await f.callTool('oxespace-delegation', 'oxespace_search')).toEqual({ asked: false, ran: true })
     expect(await f.callTool('oxespace-delegation', 'oxespace_thread_send')).toEqual({ asked: true, ran: false })
     expect(await f.callTool('oxespace-delegation', 'oxespace_memory_remember')).toEqual({ asked: true, ran: false })
     expect(await f.callTool('userwriter', 'write_marker')).toEqual({ asked: true, ran: false })
-    expect(f.ran).toEqual(['oxespace-delegation/oxespace_code_search'])
+    expect(f.ran).toEqual(['oxespace-delegation/oxespace_search'])
     expect(f.responses.filter(response => (response.result as { action?: string } | undefined)?.action === 'decline')).toHaveLength(3)
     expect(s.events.some(event => event.event.type === 'request')).toBe(false)
     await s.chats.stop()

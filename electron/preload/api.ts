@@ -145,17 +145,6 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
         return () => ipc.removeListener(IPC_CHANNELS.thread.changed, handler)
       }
     },
-    team: {
-      delivery: (scope, revision, id, enabled) => ipc.invoke(IPC_CHANNELS.team.command, scope, enabled ? 'delivery-on' : 'delivery-off', revision, id) as Promise<import('../../shared/types/team').AgentTeam>,
-      messages: (scope, id, before) => ipc.invoke(IPC_CHANNELS.team.messages, scope, id, before) as Promise<import('../../shared/types/team').TeamMessage[]>,
-      send: (scope, id, key, body) => ipc.invoke(IPC_CHANNELS.team.send, scope, id, key, body) as Promise<import('../../shared/types/team').TeamMessage>,
-      connect: (scope, revision, id, owner) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'connect', revision, id, undefined, owner) as Promise<import('../../shared/types/team').AgentTeam>,
-      disconnect: (scope, revision, id) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'disconnect', revision, id) as Promise<import('../../shared/types/team').AgentTeam>,
-      read: scope => ipc.invoke(IPC_CHANNELS.team.command, scope, 'read') as Promise<import('../../shared/types/team').AgentTeam>,
-      add: (scope, revision, name, role) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'add', revision, name, role) as Promise<import('../../shared/types/team').AgentTeam>,
-      coordinator: (scope, revision, id) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'coordinator', revision, id) as Promise<import('../../shared/types/team').AgentTeam>,
-      archive: (scope, revision, id) => ipc.invoke(IPC_CHANNELS.team.command, scope, 'archive', revision, id) as Promise<import('../../shared/types/team').AgentTeam>
-    },
     delegation: {
       create: (ws, origin, input) => ipc.invoke(IPC_CHANNELS.delegation.create, ws, origin, input) as ReturnType<OxeApi['delegation']['create']>,
       configureTarget: (ws, path, enabled, evidence) => ipc.invoke(IPC_CHANNELS.delegation.configureTarget, ws, path, enabled, evidence) as Promise<void>,
@@ -169,23 +158,6 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
         ipc.on(IPC_CHANNELS.delegation.changed, handler)
         return () => ipc.removeListener(IPC_CHANNELS.delegation.changed, handler)
       }
-    },
-    memory: {
-      status: (id) => ipc.invoke(IPC_CHANNELS.memory.status, id) as ReturnType<OxeApi['memory']['status']>,
-      configure: (input) => ipc.invoke(IPC_CHANNELS.memory.configure, input) as ReturnType<OxeApi['memory']['configure']>,
-      install: () => ipc.invoke(IPC_CHANNELS.memory.install) as Promise<string>,
-      rollback: (id) => ipc.invoke(IPC_CHANNELS.memory.rollback, id) as ReturnType<OxeApi['memory']['rollback']>,
-      setupAgents: (id) => ipc.invoke(IPC_CHANNELS.memory.setupAgents, id) as Promise<string>,
-      search: (input) => ipc.invoke(IPC_CHANNELS.memory.search, input) as ReturnType<OxeApi['memory']['search']>,
-      recent: (id) => ipc.invoke(IPC_CHANNELS.memory.recent, id) as ReturnType<OxeApi['memory']['recent']>,
-      storage: () => ipc.invoke(IPC_CHANNELS.memory.storage) as ReturnType<OxeApi['memory']['storage']>,
-      notes: (input) => ipc.invoke(IPC_CHANNELS.memory.notes, input) as ReturnType<OxeApi['memory']['notes']>,
-      noteUpdate: (input) => ipc.invoke(IPC_CHANNELS.memory.noteUpdate, input) as ReturnType<OxeApi['memory']['noteUpdate']>,
-      noteDelete: (input) => ipc.invoke(IPC_CHANNELS.memory.noteDelete, input) as ReturnType<OxeApi['memory']['noteDelete']>,
-      export: (input) => ipc.invoke(IPC_CHANNELS.memory.export, input) as ReturnType<OxeApi['memory']['export']>,
-      reset: (input) => ipc.invoke(IPC_CHANNELS.memory.reset, input) as ReturnType<OxeApi['memory']['reset']>,
-      handoffs: (id) => ipc.invoke(IPC_CHANNELS.memory.handoffs, id) as ReturnType<OxeApi['memory']['handoffs']>,
-      acceptHandoff: (input) => ipc.invoke(IPC_CHANNELS.memory.acceptHandoff, input) as ReturnType<OxeApi['memory']['acceptHandoff']>
     },
     app: {
       version: packageJson.version,
@@ -287,7 +259,6 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       listTree: (input) => ipc.invoke(IPC_CHANNELS.fs.listTree, input) as Promise<FileTreeNode[]>,
       readFile: (input) => ipc.invoke(IPC_CHANNELS.fs.readFile, input) as Promise<FileSystemReadFileResult>,
       readBinary: (input) => ipc.invoke(IPC_CHANNELS.fs.readBinary, input) as Promise<import('../../shared/types/filesystem').FileSystemReadBinaryResult>,
-      writeFile: (input) => ipc.invoke(IPC_CHANNELS.fs.writeFile, input) as Promise<FileSystemWriteFileResult>,
       watchFile: (input) => ipc.invoke(IPC_CHANNELS.fs.watchFile, input) as Promise<FileSystemWatchFileResult>,
       unwatchFile: (input) => ipc.invoke(IPC_CHANNELS.fs.unwatchFile, input) as Promise<void>,
       onFileChanged: (listener) => subscribe<FileSystemFileChangedEvent>(ipc, IPC_CHANNELS.fs.onFileChanged, listener)
@@ -319,7 +290,6 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       call: (op, input) => ipc.invoke(IPC_CHANNELS.oxePod.call, { op, input }) as never,
       onEvent: listener => subscribe<import('../../shared/types/oxepod').OxePodEvent>(ipc, IPC_CHANNELS.oxePod.onEvent, listener)
     },
-    oxePost: { call: (op, input) => ipc.invoke(IPC_CHANNELS.oxePost.call, { op, input }) as never },
     remote: {
       status: () => ipc.invoke(IPC_CHANNELS.remote.status) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
       devices: () => ipc.invoke(IPC_CHANNELS.remote.devices) as Promise<import('../../shared/types/remote').RemoteDevice[]>,
@@ -542,23 +512,6 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     },
     oxeContext: {
       buildPaneManifest: (input) => ipc.invoke(IPC_CHANNELS.oxeContext.buildPaneManifest, input) as Promise<string>
-    },
-    semantic: {
-      getStatus: (workspaceId) => ipc.invoke(IPC_CHANNELS.semantic.getStatus, workspaceId) as Promise<import('../../shared/types/ipc').SemanticStatus>,
-      setEnabled: (input) => ipc.invoke(IPC_CHANNELS.semantic.setEnabled, input) as Promise<import('../../shared/types/ipc').SemanticStatus>,
-      projectStatus: (rootPath) => ipc.invoke(IPC_CHANNELS.semantic.projectStatus, rootPath) as Promise<{ on: boolean; status: import('../../shared/types/ipc').SemanticStatus }>,
-      setProjectEnabled: (input) => ipc.invoke(IPC_CHANNELS.semantic.setProjectEnabled, input) as Promise<{ on: boolean; status: import('../../shared/types/ipc').SemanticStatus }>,
-      setMode: (input) => ipc.invoke(IPC_CHANNELS.semantic.setMode, input) as Promise<import('../../shared/types/ipc').SemanticStatus>,
-      reindex: (workspaceId) => ipc.invoke(IPC_CHANNELS.semantic.reindex, workspaceId) as Promise<import('../../shared/types/ipc').SemanticStatus>,
-      getLogs: () => ipc.invoke(IPC_CHANNELS.semantic.getLogs) as Promise<import('../../shared/types/ipc').SemanticLogEntry[]>,
-      onLog: (listener) => subscribe<import('../../shared/types/ipc').SemanticLogEntry>(ipc, IPC_CHANNELS.semantic.onLog, listener),
-      query: (input) => ipc.invoke(IPC_CHANNELS.semantic.query, input) as Promise<import('../../shared/types/ipc').SemanticQueryHit[]>,
-      getVectorStatus: () => ipc.invoke(IPC_CHANNELS.semantic.getVectorStatus) as Promise<import('../../shared/types/ipc').SemanticVectorStatus>,
-      setVectorIndex: (enabled) => ipc.invoke(IPC_CHANNELS.semantic.setVectorIndex, enabled) as Promise<import('../../shared/types/ipc').SemanticVectorStatus>,
-      downloadModel: () => ipc.invoke(IPC_CHANNELS.semantic.downloadModel) as Promise<import('../../shared/types/ipc').SemanticVectorStatus>,
-      importModel: () => ipc.invoke(IPC_CHANNELS.semantic.importModel) as Promise<import('../../shared/types/ipc').SemanticVectorStatus>,
-      removeModel: () => ipc.invoke(IPC_CHANNELS.semantic.removeModel) as Promise<import('../../shared/types/ipc').SemanticVectorStatus>,
-      getUsage: () => ipc.invoke(IPC_CHANNELS.semantic.getUsage) as Promise<import('../../shared/types/ipc').SemanticUsage>
     },
     diagnostics: {
       getSnapshot: () => ipc.invoke(IPC_CHANNELS.diagnostics.getSnapshot) as Promise<import('../../shared/types/diagnostics').DiagnosticsSnapshot>,

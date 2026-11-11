@@ -22,21 +22,22 @@ function tool(name: string, description: string, properties: Record<string, unkn
           branchIntent: a.branchIntent as DelegationInput['branchIntent']
         }); break
         case 'oxespace_delegation_inbox': value = await service.inbox(origin, a.after as number | undefined); break
-        case 'oxespace_delegation_result': value = await service.details(origin, a.taskId as string); break
+        case 'oxespace_delegation_result':
+        case 'oxespace_work_result': value = await service.details(origin, a.taskId as string); break
         default: {
           const t = await service.authorize(origin, a.taskId as string,
-            name === 'oxespace_delegation_control' ? { reconnectRequester: true } : undefined)
-          if (name === 'oxespace_delegation_status') value = t
+            name === 'oxespace_delegation_control' || name === 'oxespace_work_cancel' ? { reconnectRequester: true } : undefined)
+          if (name === 'oxespace_delegation_status' || name === 'oxespace_work_status') value = t
           if (name === 'oxespace_delegation_context') value = { taskId: t.id, context: t.context ?? 'Context is still being prepared.',
             bundle: t.knowledgeBundle ? { version: t.knowledgeBundle.version, revision: t.knowledgeBundle.revision, sha256: t.knowledgeBundle.sha256, sources: t.knowledgeBundle.sources } : null }
           if (name === 'oxespace_delegation_update') await service.update(origin,t.id,a.state as string,a.text as string)
           if (name === 'oxespace_delegation_checkpoint') await service.checkpoint(origin,t.id,a.text as string)
-          if (name === 'oxespace_delegation_message') await service.message(origin,t.id,a.text as string)
+          if (name === 'oxespace_delegation_message' || name === 'oxespace_work_message') await service.message(origin,t.id,a.text as string)
           if (name === 'oxespace_delegation_acknowledge') service.coordinator.acknowledge(t, origin, a.cursor as number)
-          if (name === 'oxespace_delegation_control') {
+          if (name === 'oxespace_delegation_control' || name === 'oxespace_work_cancel') {
             if (origin.id !== t.originExecutionId) throw new Error('Only the origin can control this delegation')
             if (t.originWorkspaceId) await service.coordinator.authorize(t, origin, 'control')
-            await service.control(t.originWorkspaceId ?? t.workspaceId,t.id,a.action as string)
+            await service.control(t.originWorkspaceId ?? t.workspaceId,t.id, name === 'oxespace_work_cancel' ? 'cancel' : a.action as string)
           }
           value ??= { ok: true }
         }
@@ -67,7 +68,8 @@ export const DELEGATION_TOOLS: ToolEntry[] = [
       template:{type:'string',maxLength:240}
     }}, evidenceFiles:{type:'array',maxItems:8,items:{type:'string',maxLength:512}},
     sourceThreadIds:{type:'array',maxItems:5,uniqueItems:true,items:{type:'string',pattern:'^[a-fA-F0-9-]{36}$'},description:'Explicitly selected saved conversations from the origin project. Transfers a bounded public-message snapshot, not full history.'},
-    includeMemory:{type:'boolean',description:'Deprecated and ignored since 1.5.0; accepted so older callers do not fail. The handoff, evidence files and selected conversations are the context.'}
+    includeMemory:{type:'boolean',description:'Deprecated and ignored since 1.5.0; accepted so older callers do not fail. The handoff, evidence files and selected conversations are the context.'},
+    dependsOn:{type:'array',maxItems:12,uniqueItems:true,items:{type:'string',minLength:1,maxLength:128},description:'IDs of delegated tasks this task waits for.'}
   },['key','agentProfileId','objective','handoff','acceptance']),
   tool('oxespace_delegation_status','Read provisioning, acceptance and result state. A running process is not task completion.',{taskId:string},['taskId']),
   tool('oxespace_delegation_context','Read the task-specific handoff, evidence files and selected conversation snapshots. Verify historical claims against the checkout.',{taskId:string},['taskId']),
@@ -75,5 +77,61 @@ export const DELEGATION_TOOLS: ToolEntry[] = [
   tool('oxespace_delegation_checkpoint','Delegated agent: persist an append-only progress checkpoint that survives restart without changing task state.',{taskId:string,text:string},['taskId','text']),
   tool('oxespace_delegation_message','Send a question, answer or clarification to the other participant. Does not type into terminals.',{taskId:string,text:string},['taskId','text']),
   tool('oxespace_delegation_inbox','Read your delegation events after cursor. Check at milestones and while awaiting parallel work. Reads do not consume messages.',{after:{type:'integer',minimum:0}}),
-  tool('oxespace_delegation_control','Requester control: resume an exact bound native Thread session, retry provisioning when no resumable session exists, explicitly start a new session from the latest handoff, cancel while preserving code, or approve a submitted result. If the creator execution changed, this explicit call securely reconnects a live session from the same original workspace, project and checkout. Never merges.',{taskId:string,action:{type:'string',enum:['resume','retry','new-session','cancel','approve']}},['taskId','action'])
+  tool('oxespace_delegation_control','Requester control: resume an exact bound native Thread session, retry provisioning when no resumable session exists, explicitly start a new session from the latest handoff, cancel while preserving code, or approve a submitted result. If the creator execution changed, this explicit call securely reconnects a live session from the same original workspace, project and checkout. Never merges.',{taskId:string,action:{type:'string',enum:['resume','retry','new-session','cancel','approve']}},['taskId','action']),
+  // R13: oxespace_work_* stay registered for one release as aliases that route to Delegation; they leave in 1.5.x.
+  {
+    descriptor: {
+      name: 'oxespace_work_plan',
+      description: 'Alias for Delegation (kept for 1.5.0; use oxespace_delegate_task): delegates each planned task through Delegation, resolving task dependencies to delegation task IDs.',
+      inputSchema: {
+        type: 'object', required: ['key', 'title', 'tasks'], additionalProperties: false,
+        properties: {
+          key: string, title: string, agentProfileId: string,
+          surface: { type: 'string', enum: ['thread', 'terminal'] },
+          tasks: {
+            type: 'array', minItems: 1, maxItems: 12,
+            items: {
+              type: 'object', required: ['key', 'title', 'prompt'], additionalProperties: false,
+              properties: {
+                key: string, title: string, prompt: string, agentProfileId: string,
+                dependsOn: { type: 'array', maxItems: 12, items: string }
+              }
+            }
+          }
+        }
+      }
+    },
+    requiresWorkspace: true,
+    handler: async (args, ctx) => {
+      const service = ctx.delegation
+      if (!service || !ctx.executions) throw new Error('Agent delegation is unavailable')
+      const origin = ctx.executions.authenticate(ctx.executionId, ctx.executionToken, ctx.workspaceId)
+      const a = (args && typeof args === 'object' && !Array.isArray(args) ? args : {}) as Record<string, unknown>
+      const planKey = String(a.key ?? '').trim(), planTitle = String(a.title ?? '').trim()
+      const rawTasks = Array.isArray(a.tasks) ? a.tasks as Array<Record<string, unknown>> : []
+      if (!planKey || !planTitle || !rawTasks.length) throw new Error('Invalid delegation plan input')
+      const defaultProfile = typeof a.agentProfileId === 'string' && a.agentProfileId.trim() ? a.agentProfileId.trim() : 'builtin-claude'
+      const surface = a.surface === 'terminal' ? 'terminal' as const : 'thread' as const
+      const idByKey = new Map<string, string>()
+      const tasks = []
+      for (const item of rawTasks) {
+        const itemKey = String(item?.key ?? '').trim(), objective = String(item?.title ?? '').trim(), handoff = String(item?.prompt ?? '').trim()
+        const depKeys = Array.isArray(item?.dependsOn) ? item.dependsOn.map(dep => String(dep)) : []
+        const dependsOn = depKeys.map(dep => idByKey.get(dep) ?? dep)
+        const created = await service.create(origin, {
+          schemaVersion: 2, key: `${planKey}:${itemKey}`.slice(0, 64),
+          agentProfileId: typeof item?.agentProfileId === 'string' && item.agentProfileId.trim() ? item.agentProfileId.trim() : defaultProfile,
+          objective, handoff, acceptance: `Complete "${objective}" (${planTitle}).`, surface,
+          ...(dependsOn.length ? { dependsOn } : {})
+        })
+        idByKey.set(itemKey, created.id)
+        tasks.push(created)
+      }
+      return { content: [{ type: 'text', text: JSON.stringify({ aliasFor: 'oxespace_delegate_task', tasks }) }] }
+    }
+  },
+  tool('oxespace_work_status', 'Alias for Delegation status (kept for 1.5.0; use oxespace_delegation_status): read provisioning, acceptance and result state of a delegated task.', { taskId: string }, ['taskId']),
+  tool('oxespace_work_result', 'Alias for Delegation result (kept for 1.5.0; use oxespace_delegation_result): read authorized task results and provisioning receipts.', { taskId: string }, ['taskId']),
+  tool('oxespace_work_message', 'Alias for Delegation message (kept for 1.5.0; use oxespace_delegation_message): send a follow-up message to a delegated task.', { taskId: string, text: string }, ['taskId', 'text']),
+  tool('oxespace_work_cancel', 'Alias for Delegation control cancel (kept for 1.5.0; use oxespace_delegation_control): cancel a delegated task while preserving its worktree and code.', { taskId: string }, ['taskId'])
 ]

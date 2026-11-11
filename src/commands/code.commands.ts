@@ -15,10 +15,6 @@ export interface CodeCommandContext {
   applicationView: import('../keyboard/keybindings').AppView
   activeWorkspace: Workspace | null | undefined
   activePane: WorkspacePane | null | undefined
-  /** Team needs a project: the workspace in Code, the project in Thread. */
-  hasTeamTarget: boolean
-  /** Why Team can't open here; the palette shows it as the command's description. */
-  teamUnavailable?: string
   toolHandlers: Partial<Record<ToolId, () => void>>
   /** Which Code panels are open, so a command run from Thread or OxeQuery opens a panel instead of closing it. */
   openTools?: Partial<Record<ToolId, boolean>>
@@ -32,8 +28,8 @@ export interface CodeCommandContext {
 
 /** The palette group of each workspace tool (docs/design/commands.md). */
 const TOOL_CATEGORY: Record<ToolId, CommandCategory> = {
-  team: 'Agents', integration: 'Workspace', github: 'Git', worktrees: 'Git', scripts: 'View', search: 'View', 'web-preview': 'View', background: 'View',
-  slash: 'Terminal', mcp: 'Agents', semantic: 'Agents', editor: 'View', review: 'View'
+  integration: 'Workspace', github: 'Git', worktrees: 'Git', scripts: 'View', search: 'View', 'web-preview': 'View', background: 'View',
+  slash: 'Terminal', mcp: 'Agents', editor: 'View', review: 'View'
 }
 
 const updateSettings = (input: Parameters<ReturnType<typeof useWorkspaceStore.getState>['updateSettings']>[0]): void => {
@@ -67,10 +63,10 @@ export function buildCodeCommands(ctx: CodeCommandContext): ContributedCommand[]
     ...TOOL_CATALOG.map(tool => ({
       id: `tool-${tool.id}`,
       ...text(TOOL_CATEGORY[tool.id], `tool-${tool.id}`, { keywords: [tool.label, ...(tool.keywords ?? [])] }),
-      detail: tool.id === 'team' && !ctx.hasTeamTarget && ctx.teamUnavailable ? ctx.teamUnavailable : tool.detail,
+      detail: tool.detail,
       icon: tool.icon,
       shortcut: tool.keybinding,
-      disabled: tool.id === 'team' ? !ctx.hasTeamTarget : tool.id === 'slash' ? !activePane : !['mcp', 'semantic'].includes(tool.id) && !activeWorkspace,
+      disabled: tool.id === 'slash' ? !activePane : tool.id !== 'mcp' && !activeWorkspace,
       run: toolRun(tool.id)
     })),
 

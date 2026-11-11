@@ -9,7 +9,7 @@ import { launchReal, openRepo, quitReal, realProfile } from './real-app'
  * - with reduced motion, no fade.
  * #363's own spec (f7-2-view-switch) covers the OxeQuery cold switch frame by frame, keys in flight and the slow CPU.
  */
-const MODES = [['thread', 'Control+2'], ['data', 'Control+3'], ['pods', 'Control+4'], ['post', 'Control+5'], ['code', 'Control+1']] as const
+const MODES = [['thread', 'Control+2'], ['data', 'Control+3'], ['pods', 'Control+4'], ['code', 'Control+1']] as const
 type Sample = { t: number; pressed: boolean; oldUp: boolean; newUp: boolean; skeleton: boolean; brand: boolean; dimmed: boolean; fading: boolean }
 
 async function switchTo(page: Page, from: string, to: string, how: 'click' | string) {

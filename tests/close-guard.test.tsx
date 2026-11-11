@@ -2,28 +2,44 @@ import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CloseAnswerInput, CloseRequest } from '../shared/types/app'
 import { handleCloseRequest, installCloseGuard } from '../src/lib/closeGuard'
-import { registerUnsavedSource, unsavedWork } from '../src/lib/unsavedWork'
-import { unsavedEditorFiles, useEditorStore, type EditorFileState } from '../src/store/editor.store'
+import { registerUnsavedSource, resetUnsavedSourcesForTests, unsavedWork } from '../src/lib/unsavedWork'
 
 const answers: Array<CloseAnswerInput['answer']> = []
 let writeFile: ReturnType<typeof vi.fn>
+type DraftItem = { relativePath: string; content: string }
 
-function editedFile(relativePath: string, content = 'changed'): EditorFileState {
-  return { workspaceId: 'ws1', rootPath: 'C:/repos/demo', relativePath, content, lastSavedContent: 'saved', language: 'markdown', watchId: null, isLoading: false, isSaving: false, error: null, conflict: null }
+function editedFile(relativePath: string, content = 'changed'): DraftItem {
+  return { relativePath, content }
 }
-const setFiles = (...files: EditorFileState[]): void => useEditorStore.setState({ files: { ws1: Object.fromEntries(files.map(file => [file.relativePath, file])) } })
+let drafts: DraftItem[] = []
+function setFiles(...files: DraftItem[]): void {
+  drafts = [...files]
+  registerUnsavedSource({
+    id: 'test-drafts',
+    items: () => drafts.map(file => ({ id: file.relativePath, label: file.relativePath, detail: 'OxeQuery · demo' })),
+    saveAll: async () => {
+      const remaining: DraftItem[] = []
+      for (const file of drafts) {
+        try { await writeFile({ relativePath: file.relativePath, content: file.content }) }
+        catch { remaining.push(file) }
+      }
+      drafts = remaining
+    }
+  })
+}
 const request = (requestId: string, reason: CloseRequest['reason'] = 'close'): Promise<void> => handleCloseRequest({ requestId, reason })
 
 // The dialog is its own chunk; load it once so the first test does not wait on the import.
 beforeAll(async () => { await import('../src/components/CloseGuard/UnsavedWorkDialog') }, 30_000)
 beforeEach(() => {
   answers.length = 0
+  drafts = []
+  resetUnsavedSourcesForTests()
   writeFile = vi.fn(async () => undefined)
-  window.oxe = { ...window.oxe, app: { ...(window.oxe?.app ?? {}), answerClose: vi.fn(async (input: CloseAnswerInput) => { answers.push(input.answer) }) }, fs: { ...(window.oxe?.fs ?? {}), writeFile } } as unknown as typeof window.oxe
-  useEditorStore.setState({ files: {} })
+  window.oxe = { ...window.oxe, app: { ...(window.oxe?.app ?? {}), answerClose: vi.fn(async (input: CloseAnswerInput) => { answers.push(input.answer) }) }, fs: { ...(window.oxe?.fs ?? {}) } } as unknown as typeof window.oxe
 })
 // A dialog unmounts just after it answers; wait for it so the next test cannot click a stale one.
-afterEach(async () => { cleanup(); await waitFor(() => expect(screen.queryByTestId('unsaved-work-dialog')).toBeNull()) })
+afterEach(async () => { cleanup(); resetUnsavedSourcesForTests(); await waitFor(() => expect(screen.queryByTestId('unsaved-work-dialog')).toBeNull()) })
 
 describe('close guard', () => {
   it('closes at once when nothing is unsaved', async () => {
@@ -40,7 +56,7 @@ describe('close guard', () => {
     expect(dialog).toHaveTextContent('Save your changes before closing?')
     expect(dialog).toHaveTextContent('2 changes are not saved yet')
     expect(dialog).toHaveTextContent('notes.md')
-    expect(dialog).toHaveTextContent('OxeCode editor · demo')
+    expect(dialog).toHaveTextContent('OxeQuery · demo')
     expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus()
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     await pending
@@ -64,7 +80,7 @@ describe('close guard', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Save all and close' }))
     await pending
     expect(writeFile.mock.calls.map(([input]) => [input.relativePath, input.content])).toEqual([['notes.md', 'one'], ['src/app.ts', 'two']])
-    expect(unsavedEditorFiles()).toEqual([])
+    expect(unsavedWork()).toEqual([])
     expect(answers).toEqual(['hold', 'proceed'])
   })
 

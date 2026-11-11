@@ -23,18 +23,13 @@ import type { WorktreeEventBus } from './worktree-event-bus'
  * validator here would force a new dep without observable benefit. Validation
  * happens inline in each handler.
  */
-import type { SemanticService } from '../services/semantic.service'
-import { MEMORY_TOOLS } from './memory-tool-handlers'
 import { DELEGATION_TOOLS } from './delegation-tools'
-import { TEAM_TOOLS } from './team-tools'
 import { createHash, randomUUID } from 'node:crypto'
 import { projectIdentity } from '../services/project-identity'
 import { execGit } from '../utils/safe-git'
 import { CONFIGURABLE_MCP_TOOL_GROUPS as TOOL_GROUP_NAMES } from '../../../shared/types/mcp-tools'
 import { THREAD_HANDOFF_TOOLS } from './thread-handoff-tools'
 import { OXEQUERY_TOOLS } from './oxequery-tools'
-import { CODE_GRAPH_TOOLS } from './code-graph-tools'
-import { WORK_TOOLS } from './work-tools'
 import { GIT_TOOLS } from './git-tools'
 import { APP_READ_TOOLS } from './app-read-tools'
 import { APP_WRITE_TOOLS } from './app-write-tools'
@@ -50,17 +45,19 @@ export interface ToolContext {
   /** The browser preview automation (services/browser-preview, R0c). The field keeps its name: local-rpc-server passes it through. */
   documentation?: () => Promise<{ preview: import('../services/browser-preview/preview-automation').PreviewAutomation }>
   delegation?: import('../services/delegation.service').DelegationService
-  team?: import('../services/coordination/team-access').TeamAccess
+  /** R7: the Teams UI and team MCP tools are gone. bootstrap.ts (outside R7's files) still forwards this; nothing here reads it. */
+  team?: unknown
   executions?: import('../services/execution-registry').ExecutionRegistry
   executionId?: string
   executionToken?: string
   delegationAgents?: () => unknown
-  memory?: import('../services/memory/memory.service').MemoryService
+  /** R5: AI Memory is gone. local-rpc-server.ts (outside R5's files) still forwards these two; nothing here reads them. */
+  memory?: { observe(params: unknown): Promise<unknown> }
+  memoryRunId?: string
   /** OxeQuery's agent gateway, available once the service has started. */
   oxeQuery?: () => import('../services/oxequery/agent-gateway').AgentGateway | undefined
   /** Why OxeQuery is not running, when it failed to start. */
   oxeQueryError?: () => string | undefined
-  memoryRunId?: string
   /** Policy for app tools outside OxeQuery: levels, approvals, rate limit, audit. */
   agentActions?: import('../services/agent-actions/agent-actions').AgentActions
   /** Services the domain tools reach (GitHub, tasks, skills, Linear, terminal output...). */
@@ -71,8 +68,6 @@ export interface ToolContext {
   github: GitHubWorktreeApi
   background: BackgroundManager
   fileSystem: FileSystemService
-  semantic: SemanticService
-  codegraph: import('../services/codegraph.service').CodeGraphService
   webPreview: WebPreviewBus
   worktree: WorktreeEventBus
   /** A63: the guarded worktree removal the person's panel uses; oxespace_remove_worktree goes through it. */
@@ -123,15 +118,13 @@ const toolsEnable: ToolEntry = {
   }
 }
 
-/** Discovery is read-only and authenticated independently of optional memory. R8 moved it here when automation-tools.ts left. */
+/** Discovery is read-only and authenticated. R8 moved it here when automation-tools.ts left. */
 export function discoveryTools(catalogue: () => ToolEntry[]): ToolEntry[] {
   // Discovery first, in the order agents and tests know; the group switch B7.2 adds comes last.
-  return [...['oxespace_capabilities', 'oxespace_execution_context', 'oxespace_memory_diagnostics'].map((name): ToolEntry => ({
+  return [...['oxespace_capabilities', 'oxespace_execution_context'].map((name): ToolEntry => ({
     descriptor: { name, description: name === 'oxespace_capabilities'
       ? 'Discover registered OXESpace tools and execution requirements. Availability is not authorization.'
-      : name === 'oxespace_execution_context'
-        ? 'Read your authenticated launch workspace, pane and Git checkout. Does not infer your shell current directory.'
-        : 'Inspect memory binding and observed hook metadata. A received hook does not prove native persistence or consolidation.',
+      : 'Read your authenticated launch workspace, pane and Git checkout. Does not infer your shell current directory.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false } },
     requiresWorkspace: true,
     handler: async (args, ctx) => {
@@ -151,7 +144,6 @@ export function discoveryTools(catalogue: () => ToolEntry[]): ToolEntry[] {
       if (name === 'oxespace_capabilities') return reply('ok', {
         tools: catalogue().map(t => ({ name: t.descriptor.name, requiresWorkspace: t.requiresWorkspace })),
         workspaceId: execution.workspaceId,
-        memoryBound: Boolean(ctx.memory && ctx.memoryRunId),
         delegationServiceAvailable: Boolean(ctx.delegation),
         // Discovery must not wait for filesystem identity or Git on a busy host.
         // Delegation preflight performs the detailed check when requested.
@@ -165,21 +157,6 @@ export function discoveryTools(catalogue: () => ToolEntry[]): ToolEntry[] {
           enable: 'With tool search, search for the tool you need. Otherwise call oxespace_tools_enable with the group; sessionToolGroups lists what can still be turned on. A group the project turns off stays off.'
         } } : {})
       })
-      if (name === 'oxespace_memory_diagnostics') {
-        if (!ctx.memory || !ctx.memoryRunId) return reply('ok', { binding: 'unbound', suggestedAction: 'Enable/configure memory and open a new terminal.', nativePersistence: 'not_observable', consolidation: 'not_observable' })
-        try {
-          const observations = ctx.memory.observations(ctx.memoryRunId, execution.workspaceId, execution.paneId)
-          const context = await ctx.memory.contextForRun(ctx.memoryRunId, execution.workspaceId)
-          const health = await ctx.memory.manager.run(context, provider => provider.health())
-          return reply('ok', { binding: 'bound', projectId: context.projectId,
-            settings: ctx.memory.projects.settings(context.projectId),
-            runtime: health.status === 'ok' ? health.value.status : health.status,
-            runtimeError: health.status === 'ok' ? health.value.errorCode : undefined,
-            pipeline: health.status === 'ok' ? health.value.pipeline : undefined,
-            observations, providerReplies: ctx.memory.manager.observations(context.projectId),
-            nativePersistence: 'not_observable', consolidation: 'not_observable', spool: 'not_observable' })
-        } catch { return reply('error', { code: 'MEMORY_BINDING_UNAVAILABLE', message: 'Memory binding cannot be verified. Terminal execution can continue.', retryable: true }, true) }
-      }
       let git: unknown = { status: 'unavailable' }
       let repositoryIdentity: string | null = null
       try {
@@ -197,15 +174,52 @@ export function discoveryTools(catalogue: () => ToolEntry[]): ToolEntry[] {
   })), toolsEnable]
 }
 
+/**
+ * R5: the project at a glance for this exact checkout, with AI Memory gone: its folder, branch and HEAD, the instruction
+ * files agents read at the root and the top-level entries. Read from Git only, so it needs no filesystem access here.
+ */
+const projectContext: ToolEntry = {
+  descriptor: {
+    name: 'oxespace_project_context',
+    description: 'Read this checkout at a glance: its folder, Git branch and HEAD, the instruction files at its root (CLAUDE.md, AGENTS.md) and its top-level entries. Use oxespace_search for text and oxespace_git for history.',
+    inputSchema: { type: 'object', properties: { query: { type: 'string', maxLength: 1000 } }, additionalProperties: false }
+  },
+  requiresWorkspace: true,
+  handler: async (args, ctx) => {
+    const reply = (status: string, data: unknown, isError = false) => ({ content: [{ type: 'text' as const,
+      text: JSON.stringify({ schemaVersion: 1, status, ...(isError ? { error: data } : { data }) }) }], ...(isError ? { isError: true } : {}) })
+    if (args !== undefined && (!args || typeof args !== 'object' || Array.isArray(args) || Object.keys(args).some(key => key !== 'query'))) {
+      return reply('error', { code: 'INVALID_ARGUMENTS', message: 'Pass {} or { "query": "<text>" }.', retryable: false }, true)
+    }
+    let execution
+    try { execution = ctx.executions?.authenticate(ctx.executionId, ctx.executionToken, ctx.workspaceId) }
+    catch { /* Never return credential-bearing errors. */ }
+    if (!execution) return reply('error', { code: 'EXECUTION_REQUIRED', message: 'Open a new OXESpace agent terminal.', retryable: false }, true)
+    const cwd = execution.cwd
+    const git = async (gitArgs: string[]): Promise<string | null> => {
+      try { return (await execGit(cwd, gitArgs, { timeout: 2000, maxBuffer: 65536 })).stdout.trim() } catch { return null }
+    }
+    const [branch, head, instructions, entries] = await Promise.all([
+      git(['rev-parse', '--abbrev-ref', 'HEAD']), git(['rev-parse', '--verify', 'HEAD']),
+      git(['ls-files', '--', 'CLAUDE.md', 'AGENTS.md']), git(['ls-tree', '--name-only', 'HEAD'])
+    ])
+    const lines = (text: string | null): string[] => text ? text.split(/\r?\n/).filter(Boolean) : []
+    return reply('ok', {
+      checkout: cwd,
+      git: branch === null ? { status: 'unavailable' } : { status: 'ok', branch, head },
+      instructionFiles: lines(instructions),
+      topLevel: lines(entries).slice(0, 200),
+      next: 'Read the instruction files first; search with oxespace_search and read history with oxespace_git.'
+    })
+  }
+}
+
 export const TOOL_REGISTRY: ToolEntry[] = [
   ...discoveryTools(() => TOOL_REGISTRY),
-  ...MEMORY_TOOLS,
+  projectContext,
   ...DELEGATION_TOOLS,
-  ...TEAM_TOOLS,
   ...THREAD_HANDOFF_TOOLS,
   ...OXEQUERY_TOOLS,
-  ...CODE_GRAPH_TOOLS,
-  ...WORK_TOOLS,
   ...GIT_TOOLS,
   ...APP_READ_TOOLS,
   ...APP_WRITE_TOOLS,
@@ -395,50 +409,6 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   },
   {
     descriptor: {
-      name: 'oxespace_semantic_search',
-      description: 'Token-budgeted local repository search over exact FTS5 terms (identifiers, strings, tests, config), fused with vector meaning when the optional semantic index is on. The result names the sources that answered. Returns source windows, confidence, coverage and explicit truncation warnings. Use mode=explore for navigation and mode=exhaustive for refactors/completeness-sensitive work.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          query: { type: 'string', description: 'The natural language query to search for.' },
-          limit: { type: 'number', description: 'Maximum number of files to return (default depends on mode).' },
-          mode: { type: 'string', enum: ['auto', 'explore', 'exhaustive'], description: 'Retrieval policy. Auto detects completeness-sensitive intent.' },
-          maxTokens: { type: 'number', description: 'Hard source-context budget (400-20000 estimated tokens).' }
-        },
-        required: ['query'],
-        additionalProperties: false
-      }
-    },
-    requiresWorkspace: true,
-    handler: handlers.semanticSearch
-  },
-  {
-    descriptor: {
-      name: 'oxespace_hybrid_explore',
-      description: 'Adaptive repository retrieval for development. Fuses exact FTS5 terms (including tests/config) and structural AST traversal (CodeGraph), plus local vector embeddings when the optional semantic index is on, then returns budgeted verbatim source with confidence and coverage. mode=explore is token-first and ranked best-effort; mode=exhaustive searches the full local lexical index for refactors/renames/completeness-sensitive work. Runtime-only dynamic dispatch and ignored/generated/binary files remain explicitly disclosed.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          query: {
-            type: 'string',
-            description: 'Natural language question or symbol names to explore (e.g., "How does authentication work?", "AuthService loginUser").'
-          },
-          maxFiles: {
-            type: 'number',
-            description: 'Maximum number of files to include source code from (default: 12)'
-          },
-          mode: { type: 'string', enum: ['auto', 'explore', 'exhaustive'], description: 'Auto, fast exploration, or completeness-sensitive retrieval.' },
-          maxTokens: { type: 'number', description: 'Hard budget for semantic/lexical source windows before structural results.' }
-        },
-        required: ['query'],
-        additionalProperties: false
-      }
-    },
-    requiresWorkspace: true,
-    handler: handlers.hybridExplore
-  },
-  {
-    descriptor: {
       name: 'oxespace_quality_check',
       description: 'Post-diff quality controller. Maps changed files to unchanged exact-reference consumers, checks test/migration/contract coverage and links acceptance criteria to diff evidence. Run after implementation and before claiming completion; address HIGH findings and pair this heuristic check with the real verification commands.',
       inputSchema: {
@@ -457,13 +427,9 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   }
 ]
 
-/** Main sets this from the experimental-features flag; the default keeps every tool (tests). */
-let memoryToolsAllowed: () => boolean = () => true
-export function gateMemoryTools(allowed: () => boolean): void { memoryToolsAllowed = allowed }
-
-/** The tools this build exposes: oxespace_memory_* disappear while Shared Project Memory is off. */
+/** The tools this build exposes. */
 export function activeTools(): ToolEntry[] {
-  return memoryToolsAllowed() ? TOOL_REGISTRY : TOOL_REGISTRY.filter((entry) => !entry.descriptor.name.startsWith('oxespace_memory_'))
+  return TOOL_REGISTRY
 }
 
 export function findTool(name: string): ToolEntry | null {

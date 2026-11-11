@@ -23,16 +23,16 @@ describe('OXESpace read-only lookups under "Auto-approve reads"', () => {
         .toMatchObject({ decision: 'allow', safeList: true })
     }
     // On by default, like the shell list.
-    expect(evaluatePermission(approval(own('oxespace_code_impact')), root, [])).toMatchObject({ decision: 'allow', safeList: true })
+    expect(evaluatePermission(approval(own('oxespace_search')), root, [])).toMatchObject({ decision: 'allow', safeList: true })
   })
 
   it('a third-party server with a tool of the same name, or the bare name, still asks', () => {
     for (const server of ['oxespace', 'evil', 'oxespace-delegation-2', 'Oxespace-Delegation']) {
-      expect(evaluatePermission(approval(`mcp__${server}__oxespace_code_impact`), root, [], {}, { readOnlyList: true }), server)
+      expect(evaluatePermission(approval(`mcp__${server}__oxespace_search`), root, [], {}, { readOnlyList: true }), server)
         .toMatchObject({ decision: 'ask' })
     }
-    expect(isOxespaceReadOnlyTool('evil', 'oxespace_code_impact')).toBe(false)
-    expect(evaluatePermission(approval('oxespace_code_impact'), root, [], {}, { readOnlyList: true })).toBeUndefined()
+    expect(isOxespaceReadOnlyTool('evil', 'oxespace_search')).toBe(false)
+    expect(evaluatePermission(approval('oxespace_search'), root, [], {}, { readOnlyList: true })).toBeUndefined()
   })
 
   it('asks for every lookup when the setting is off', () => {
@@ -49,7 +49,7 @@ describe('OXESpace read-only lookups under "Auto-approve reads"', () => {
 
   it('reads beyond this project, an account or the team still ask, like a shell read outside the folder (SECURITY #547 M1)', () => {
     const outside = ['oxespace_list_workspaces', 'oxespace_list_agents', 'oxespace_github', 'oxespace_skills',
-      'oxespace_mcp_servers', 'oxespace_settings', 'oxespace_usage', 'oxespace_diagnostics', 'oxespace_team_status', 'oxespace_team_inbox',
+      'oxespace_mcp_servers', 'oxespace_settings', 'oxespace_usage', 'oxespace_diagnostics',
       'oxespace_delegation_status', 'oxespace_delegation_inbox', 'oxespace_delegation_result']
     // Still lookups a read-only conversation may call, but not approved without asking.
     for (const tool of outside) {
@@ -61,12 +61,12 @@ describe('OXESpace read-only lookups under "Auto-approve reads"', () => {
   })
 
   it('a saved rule still decides first: a deny blocks a lookup, whatever the setting', () => {
-    expect(evaluatePermission(approval(own('oxespace_code_impact')), root, [rule(`${OXESPACE_BRIDGE_KEY}/oxespace_code_impact`, 'deny')], {}, { readOnlyList: true }))
+    expect(evaluatePermission(approval(own('oxespace_search')), root, [rule(`${OXESPACE_BRIDGE_KEY}/oxespace_search`, 'deny')], {}, { readOnlyList: true }))
       .toMatchObject({ decision: 'deny' })
-    expect(evaluatePermission(approval(own('oxespace_code_impact')), root, [rule(`${OXESPACE_BRIDGE_KEY}/*`, 'deny')], {}, { readOnlyList: true }))
+    expect(evaluatePermission(approval(own('oxespace_search')), root, [rule(`${OXESPACE_BRIDGE_KEY}/*`, 'deny')], {}, { readOnlyList: true }))
       .toMatchObject({ decision: 'deny' })
     // A person's allow is their own rule, not the safe list.
-    expect(evaluatePermission(approval(own('oxespace_code_impact')), root, [rule(`${OXESPACE_BRIDGE_KEY}/oxespace_code_impact`, 'allow')], {}, { readOnlyList: false }))
+    expect(evaluatePermission(approval(own('oxespace_search')), root, [rule(`${OXESPACE_BRIDGE_KEY}/oxespace_search`, 'allow')], {}, { readOnlyList: false }))
       .toEqual({ decision: 'allow', reasons: ['Covered by the project permission rules.'] })
   })
 

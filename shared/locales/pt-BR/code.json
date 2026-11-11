@@ -16,10 +16,7 @@
   },
   "tools": {
     "team": {
-      "label": "Equipe do projeto",
-      "detail": "Papéis do projeto e caixas de entrada dos agentes",
-      "menu": "Equipe do projeto…",
-      "keywords": "equipe, time, papéis, coordenadora, membros, caixa de entrada"
+      "menu": "Equipe do projeto…"
     },
     "integration": {
       "label": "Coordenação entre repositórios",
@@ -56,10 +53,6 @@
     "mcp": {
       "label": "Servidores MCP",
       "detail": "Servidores e conectores que seus agentes usam"
-    },
-    "semantic": {
-      "label": "Registro do índice semântico",
-      "detail": "Atividade do índice vetorial local"
     },
     "editor": {
       "label": "Arquivos",
@@ -149,7 +142,11 @@
       "keepMine": "Manter minhas edições",
       "local": "Suas edições",
       "external": "No disco"
-    }
+    },
+    "readOnly": "Somente leitura · edite no seu editor",
+    "openInEditor": "Abrir no editor",
+    "noExternalEditor": "Nenhum editor externo encontrado. Escolha um em Configurações › Geral › Editor externo, ou instale o VS Code.",
+    "openExternalEditorSettings": "Editor externo"
   },
   "scripts": {
     "found_one": "{{count}} encontrado",
@@ -1137,15 +1134,9 @@
       "title": "Sistemas",
       "label": "Status das integrações",
       "triggerLabel": "Sistemas {{count}}: status das integrações",
-      "alerts_one": "{{count}} alerta",
-      "alerts_many": "{{count}} alertas",
-      "alerts_other": "{{count}} alertas",
       "active_one": "{{count}} ativo",
       "active_many": "{{count}} ativos",
       "active_other": "{{count}} ativos",
-      "semanticOff": "Busca semântica: desligada",
-      "semanticTitle": "Semântica: {{label}}",
-      "mode": "modo {{mode}}",
       "disconnected": "Desconectado",
       "checking": "Verificando…",
       "mcp_one": "{{count}} para os agentes",
@@ -1153,11 +1144,7 @@
       "mcp_other": "{{count}} para os agentes",
       "update": "Atualização {{version}} disponível",
       "on": "Ativo",
-      "off": "Desligado",
-      "clickOff": "clique para desligar",
-      "clickOn": "clique para ligar",
-      "semantic": "Semântica",
-      "indexing": "Indexando…"
+      "off": "Desligado"
     },
     "summary": {
       "agents_one": "agente",
@@ -1238,11 +1225,6 @@
           "hint": "Texto e shell padrão",
           "description": "Defina o shell padrão e a aparência dos terminais neste workspace."
         },
-        "memory": {
-          "label": "Memória do projeto",
-          "hint": "Conhecimento compartilhado",
-          "description": "Guarde o conhecimento do projeto entre worktrees sem compartilhar as conversas dos agentes."
-        },
         "delegation": {
           "label": "Delegação de agentes",
           "hint": "Trabalho em paralelo",
@@ -1269,7 +1251,6 @@
       "terminalNote": "A aparência do terminal e o shell padrão valem na hora.",
       "saved": "Configurações do workspace salvas",
       "footer": {
-        "memory": "As mudanças de memória usam Aplicar as configurações de memória, acima.",
         "delegation": "As mudanças de delegação valem na hora.",
         "tools": "Os modos e as regras das ferramentas são salvos no projeto na hora.",
         "default": "As mudanças valem na hora."
@@ -1289,6 +1270,12 @@
         "underline": "Sublinhado"
       },
       "usingGlobal": "Usando as preferências globais do terminal (Configurações › Terminal)."
+    },
+    "instructions": {
+      "title": "Instruções do projeto",
+      "hint": "Os agentes leem estes arquivos no início de cada conversa.",
+      "open": "Abrir no editor",
+      "none": "Não há CLAUDE.md nem AGENTS.md na raiz deste workspace. Rode /init em uma conversa para criar um."
     },
     "topbar": {
       "label": "Status do workspace",
@@ -1964,11 +1951,6 @@
     "phoneWriteBadge": "Celular pode digitar",
     "phoneWriteBadgeTitle": "Um celular pareado pode digitar neste terminal. Desligue no menu ⋯.",
     "phoneWriteFailed": "Não foi possível mudar a digitação pelo celular",
-    "phoneShow": "Mostrar no celular",
-    "phoneShowHint": "Celulares pareados podem ver este terminal.",
-    "phoneWriteNeedsShow": "Mostre no celular primeiro.",
-    "phoneHiddenMark": "Oculto do celular",
-    "phoneShowFailed": "Não foi possível mudar se o celular mostra este terminal",
     "whyStatus": "Por que este status?",
     "explain": {
       "description": "O que o OXESpace leu para decidir o status deste painel.",
@@ -2047,7 +2029,12 @@
     "pid": "ID do processo",
     "startedAt": "Terminal iniciado em",
     "checkingBranch": "Verificando a branch…",
-    "noBranch": "Branch indisponível"
+    "noBranch": "Branch indisponível",
+    "phoneShow": "Mostrar no celular",
+    "phoneShowHint": "Celulares pareados podem ver este terminal.",
+    "phoneWriteNeedsShow": "Mostre no celular primeiro.",
+    "phoneHiddenMark": "Oculto do celular",
+    "phoneShowFailed": "Não foi possível mudar se o celular mostra este terminal"
   },
   "terminalPane": {
     "taskMissing": "Tarefa delegada não encontrada. Veja as configurações do workspace > Delegação de agentes.",
@@ -2070,9 +2057,7 @@
     "tools": "Mostrar as ferramentas do painel",
     "restoreOpen": "Restaurar a sessão do provedor…",
     "cavemanHint": "Respostas curtas e técnicas",
-    "semanticHint": "Busca no código pelo significado",
     "cavemanTitle": "Pede ao agente respostas curtas e técnicas. Vale na próxima vez que o terminal iniciar.",
-    "semanticTitle": "Indexa este workspace para os agentes buscarem pelo significado.",
     "restoreTitle": "Restaurar a sessão do provedor",
     "restoreDescription": "Escolha uma conversa salva do {{agent}} nesta pasta. O processo atual do terminal só fecha depois que você escolher uma.",
     "searchSessions": "Buscar sessões",
@@ -2208,7 +2193,10 @@
       "description": "O agente delegado para. O worktree e a conversa são mantidos, para você inspecionar depois."
     },
     "notice": "Tarefa delegada atualizada",
-    "view": "Ver tarefa"
+    "view": "Ver tarefa",
+    "waitsForOne": "Aguarda: {{objective}}",
+    "waitsForMany": "Aguarda: {{first}} e mais {{count}}",
+    "blocked": "Bloqueada: {{objective}} falhou"
   },
   "integration": {
     "roles": {
@@ -2393,91 +2381,6 @@
     "select": "Selecione um arquivo na árvore para ver o diff.",
     "send_many": "Enviar {{count}} ao agente",
     "pasted_many": "{{count}} comentários colados no agente. Pressione Enter para enviar."
-  },
-  "semantic": {
-    "sources": {
-      "both": "termos exatos + índice vetorial",
-      "exact": "termos exatos"
-    },
-    "vector": {
-      "downloadingProgress": "baixando o modelo {{percent}}%",
-      "downloading": "baixando o modelo…",
-      "loading": "carregando o modelo vetorial…",
-      "notInstalled": "modelo vetorial não instalado",
-      "error": "erro no modelo vetorial: {{error}}",
-      "unknown": "desconhecido",
-      "ready": "índice vetorial pronto"
-    },
-    "summary": {
-      "off": "desligado",
-      "starting": "iniciando…",
-      "error": "erro: {{error}}",
-      "indexing_one": "indexando… · {{count}} arquivo",
-      "indexing_other": "indexando… · {{count}} arquivos",
-      "empty": "pronto · índice vazio (aguardando arquivos)",
-      "ready_one": "pronto · {{count}} arquivo",
-      "ready_other": "pronto · {{count}} arquivos",
-      "indexing_many": "indexando… · {{count}} arquivos",
-      "ready_many": "pronto · {{count}} arquivos"
-    },
-    "panel": {
-      "log": "Log de atividade",
-      "noWorkspace": "nenhum workspace ativo",
-      "disabled": "desativado · ative o chip Semantic",
-      "modelVectors": "termos exatos (FTS5) + vetores ({{model}})",
-      "modelExact": "termos exatos (FTS5)",
-      "title": "Atividade semântica",
-      "reindex": "Reindexar workspace",
-      "reindexTitle": "Limpar os embeddings e percorrer este workspace de novo",
-      "resume": "Retomar",
-      "pause": "Pausar",
-      "resumeTitle": "Retomar o fluxo",
-      "pauseTitle": "Pausar o fluxo",
-      "copy": "Copiar logs",
-      "copyTitle": "Copiar os logs visíveis",
-      "export": "Exportar logs",
-      "exportTitle": "Exportar logs (.log)",
-      "clear": "Limpar a visualização",
-      "sources": "Fontes:",
-      "localNote": "local · {{note}}",
-      "local": "local · nada sai desta máquina",
-      "mode": "Modo de recuperação",
-      "modeLabel": "Modo de recuperação semântica",
-      "modes": {
-        "auto": "Automático · conforme a intenção",
-        "explore": "Explorar · poupa tokens",
-        "exhaustive": "Exaustivo · prioriza qualidade"
-      },
-      "coverage": "Cobertura do índice semântico",
-      "indexed": "Cobertura indexada",
-      "documents_one": "{{count}} documento pesquisável",
-      "documents_other": "{{count}} documentos pesquisáveis",
-      "categories": "código {{source}} · testes {{tests}} · config {{config}} · docs {{docs}}",
-      "last": "Última recuperação",
-      "confidence": "confiança {{confidence}} · {{mode}}",
-      "confidenceLevel": {
-        "high": "alta",
-        "medium": "média",
-        "low": "baixa"
-      },
-      "resolved": {
-        "explore": "explorar",
-        "exhaustive": "exaustivo"
-      },
-      "expanded": "expandida automaticamente",
-      "results_one": "{{count}} resultado · ≈{{tokens}} tokens · ≈{{saved}}% economizados · {{ms}}ms",
-      "results_other": "{{count}} resultados · ≈{{tokens}} tokens · ≈{{saved}}% economizados · {{ms}}ms",
-      "capped": "limitada",
-      "noQuery": "Nenhuma consulta ainda",
-      "noQueryHint": "A cobertura e o orçamento de tokens aparecem depois da recuperação.",
-      "trust": "Explorar ordena por melhor esforço. Exaustivo cobre todo o índice local — referências em tempo de execução ainda podem precisar de verificação.",
-      "levels": "Filtrar por nível",
-      "autoScroll": "Rolagem automática",
-      "lines": "{{visible}} / {{count}} linhas",
-      "empty": "Nenhuma atividade ainda.",
-      "documents_many": "{{count}} documentos pesquisáveis",
-      "results_many": "{{count}} resultados · ≈{{tokens}} tokens · ≈{{saved}}% economizados · {{ms}}ms"
-    }
   },
   "sessions": {
     "loadFailed": "Não foi possível carregar todas as sessões. Verifique se o Codex e o Claude estão instalados.",

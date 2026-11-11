@@ -39,7 +39,7 @@ for (const language of LANGUAGES) {
       await expect.poll(async () => (await page.locator('[cmdk-item][data-value^="cmd-oxequery."]').count())).toBeGreaterThan(0)
       const labels = await page.locator('[cmdk-item][data-value^="cmd-"] [class*="label"]').allTextContents()
       // Enabled commands only: the palette hides the ones that need a running terminal or a conversation.
-      expect(labels.length).toBeGreaterThan(70)
+      expect(labels.length).toBeGreaterThan(50)
       expect(labels.filter(label => !/^[^:]+: \S/.test(label))).toEqual([])
       for (const label of language.labels) expect(labels).toContain(label)
 

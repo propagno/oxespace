@@ -11,7 +11,6 @@ import { readShown, safeName, SHOWN_READ_MAX } from '../../electron/main/service
 import { AcceptedConfig, managedIsProtected, OWNER_SCRIPT, windowsOwnerSids } from '../../electron/main/services/policy/accepted-config'
 import { mainMessage, messageValues } from '../../shared/messages'
 
-vi.mock('../../electron/main/vendor/codegraph/mcp/tools', () => ({ ToolHandler: class { execute = vi.fn() } }))
 
 const deny = (resource: string, action: PolicyRule['action'] = 'tool.use'): PolicyRule => ({ effect: 'deny', action, resource })
 const allow = (resource: string, action: PolicyRule['action'] = 'tool.use'): PolicyRule => ({ effect: 'allow', action, resource })

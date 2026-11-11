@@ -1,4 +1,4 @@
-import { Bone, Brain, Check, History, MoreHorizontal, Play } from 'lucide-react'
+import { Bone, Check, History, MoreHorizontal, Play } from 'lucide-react'
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { SessionSummary } from '../../../shared/types/session'
@@ -422,22 +422,6 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
                 <Bone size={12} aria-hidden="true" />
                 <span className="statusbar-more-label">Caveman<small className="statusbar-more-hint">{tc('terminalPane.cavemanHint')}</small></span>
                 {terminalPrefs.cavemanModeEnabled ? <Check size={12} className="statusbar-more-check" aria-hidden="true" /> : null}
-              </button>
-              <button
-                type="button"
-                role="menuitemcheckbox"
-                aria-checked={terminalPrefs.semanticSearchEnabled}
-                data-testid="menu-toggle-semantic"
-                title={tc('terminalPane.semanticTitle')}
-                onClick={() => {
-                  const next = !terminalPrefs.semanticSearchEnabled
-                  setTerminalOverride(workspaceId, 'semanticSearchEnabled', next)
-                  void window.oxe.semantic?.setEnabled({ workspaceId, enabled: next }).catch(() => undefined)
-                }}
-              >
-                <Brain size={12} aria-hidden="true" />
-                <span className="statusbar-more-label">{tc('workspace.systems.semantic')}<small className="statusbar-more-hint">{tc('terminalPane.semanticHint')}</small></span>
-                {terminalPrefs.semanticSearchEnabled ? <Check size={12} className="statusbar-more-check" aria-hidden="true" /> : null}
               </button>
             </div>
           ) : null}
