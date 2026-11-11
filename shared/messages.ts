@@ -546,6 +546,12 @@ export interface MessageParams extends PlaceMessageParams {
   'preview.capture.busy': Record<string, never>
   /** F9 A64: a feature a provider does not support stays visible and disabled with its provider display name. */
   'parity.notAvailable': { provider: string }
+  /** F11 A68: the outgoing hosts proxy could not bind its loopback port because another process holds it. */
+  'hostsProxy.portInUse': { port: number }
+  /** F11 A68: the outgoing hosts proxy could not start for any other reason. */
+  'hostsProxy.failed': Record<string, never>
+  /** F11 A68: the person already set HTTP_PROXY / HTTPS_PROXY, so OXESpace does not replace it. */
+  'hostsProxy.userProxy': Record<string, never>
 }
 
 export type MessageCode = keyof MessageParams
@@ -884,7 +890,10 @@ export const MESSAGE_CODES = [
   'agents.source.unavailable',
   'preview.capture.devtools',
   'preview.capture.busy',
-  'parity.notAvailable'
+  'parity.notAvailable',
+  'hostsProxy.portInUse',
+  'hostsProxy.failed',
+  'hostsProxy.userProxy'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */

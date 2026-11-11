@@ -110,6 +110,7 @@ export class ThreadOrchestrator {
   protected readonly placeObserver: ThreadPlaceObserver
   private readonly placeActions = new ThreadPlaceActions(() => this.db, id => this.places(id))
   private paneSource: () => ThreadPaneSource[] = () => []
+  private hostsProxy?: { grant(origin: { conversationId: string }): { env: Record<string, string>; revoke(): void } }
   private readonly busy = new Set<string>()
   private readonly nativePageLoads = new Map<string, Promise<void>>()
   private readonly finalizing = new Set<string>()
@@ -131,7 +132,7 @@ export class ThreadOrchestrator {
   /** Daily retention pass for an app left open for days. */
   private readonly retentionSweep: ReturnType<typeof setInterval>
   constructor(private readonly db: AppDatabase,
-    private readonly factory: (thread: ConversationThread) => Promise<AgentConversationAdapter>,
+    private readonly factory: (thread: ConversationThread, extraEnv?: Record<string, string>) => Promise<AgentConversationAdapter>,
     private readonly notifyChanged: (threadId: string) => void,
     private readonly preflight?: (thread: ConversationThread) => Promise<void>,
     private readonly commandService?: {
@@ -192,6 +193,7 @@ export class ThreadOrchestrator {
   resolvePath(id: string, raw: string, at: { turnId?: string } = {}): Promise<ThreadPathResolution> { return this.placeObserver.resolvePath(id, raw, at) }
   /** The app's panes, for the places a pane works in; set once the pane registry is up. */
   configurePanes(source: () => ThreadPaneSource[]): void { this.paneSource = source }
+  configureHostsProxy(proxy: { grant(origin: { conversationId: string }): { env: Record<string, string>; revoke(): void } }): void { this.hostsProxy = proxy }
   paneSources(): ThreadPaneSource[] { try { return this.paneSource() } catch { return [] } }
   /** A18 · the task's Terminal tab: panes whose newest known cwd is in one of its places; computed, never stored. */
   panes(id: string): Promise<ThreadPane[]> { return this.placeObserver.panes(id) }
@@ -1167,9 +1169,11 @@ export class ThreadOrchestrator {
     const connecting = this.read(id)
     connecting.thread.connection = this.sessions.begin(id)
     this.save(connecting, { eventsFrom: connecting.events.length })
+    const proxyGrant = this.hostsProxy?.grant({ conversationId: id })
     let adapter: AgentConversationAdapter | undefined
     try {
-      adapter = await this.factory(thread)
+      adapter = await this.factory(thread, proxyGrant?.env)
+      if (proxyGrant && adapter) { const orig = adapter.dispose.bind(adapter); adapter.dispose = async () => { try { await orig() } finally { proxyGrant.revoke() } } }
       if (this.stopping) { await adapter.dispose(); throw Error('Application is shutting down') }
       this.adapters.set(id, adapter)
       this.lastActivity.set(id, Date.now())
@@ -1186,6 +1190,7 @@ export class ThreadOrchestrator {
       return adapter
     } catch (cause) {
       if (adapter && this.adapters.get(id) === adapter) this.adapters.delete(id)
+      proxyGrant?.revoke()
       await adapter?.dispose().catch(() => {})
       // A removed worktree makes the provider fail to start with a spawn error; say what actually happened.
       const error = explainMissingFolder(cause, thread.rootPath)

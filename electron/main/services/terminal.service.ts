@@ -1,4 +1,4 @@
-import { defaultSplitShellProfileId } from './shell-profile.defaults'
+import { defaultSplitShellProfileId, POSIX_SHELL_PROFILE_ID, WINDOWS_SHELL_PROFILE_ID } from './shell-profile.defaults'
 import { recordRuntime } from './runtime-diagnostics'
 import type { IPty, IPtyForkOptions, IWindowsPtyForkOptions } from 'node-pty'
 import { spawn } from 'node-pty'
@@ -46,6 +46,7 @@ interface TerminalManagerOptions {
   prepareLaunch?: (input: { paneId: string; workspaceId: string; cwd: string; signal: AbortSignal }) => Promise<Record<string, string>>
   onLaunchExit?: (paneId: string) => void
   executionEnvironment?: (input: { paneId: string; workspaceId: string; cwd: string }) => Record<string, string>
+  grantProxy?: (origin: { paneId: string }) => { env: Record<string, string>; revoke: () => void }
   /** MCP launch arguments for an agent CLI, and the variables those arguments refer to. */
   agentMcpArgs?: (executable: string, args: string[], workspaceId: string) => { args: string[]; env?: Record<string, string> } | Promise<{ args: string[]; env?: Record<string, string> }>
   isManagedPane?: (paneId: string) => boolean
@@ -92,6 +93,7 @@ interface TerminalSession {
   resumeAgent?: boolean
   /** B17 · The native session this process was started to resume, if any. */
   resumed?: { agent: 'claude' | 'codex'; sessionId: string }
+  revokeProxy?: () => void
   inputQueue: PtyInputQueue
   outputBatcher: PtyOutputBatcher
   /** Recent output, so a re-mounted view is restored without a respawn. */
@@ -154,6 +156,7 @@ export class TerminalManager {
   private readonly prepareLaunch?: TerminalManagerOptions['prepareLaunch']
   private readonly onLaunchExit?: TerminalManagerOptions['onLaunchExit']
   private readonly executionEnvironment?: TerminalManagerOptions['executionEnvironment']
+  private readonly grantProxy?: TerminalManagerOptions['grantProxy']
   private readonly agentMcpArgs?: TerminalManagerOptions['agentMcpArgs']
   private readonly isManagedPane?: TerminalManagerOptions['isManagedPane']
   private readonly oxeQueryShell?: TerminalManagerOptions['oxeQueryShell']
@@ -191,6 +194,7 @@ export class TerminalManager {
     this.prepareLaunch = options.prepareLaunch
     this.onLaunchExit = options.onLaunchExit
     this.executionEnvironment = options.executionEnvironment
+    this.grantProxy = options.grantProxy
     this.agentMcpArgs = options.agentMcpArgs
     this.isManagedPane = options.isManagedPane
     this.oxeQueryShell = options.oxeQueryShell
@@ -341,6 +345,8 @@ export class TerminalManager {
     }
     if (this.executionEnvironment && !threadShell && !oxeShell) finalEnv = { ...finalEnv, ...this.executionEnvironment({ paneId: input.paneId, workspaceId: input.workspaceId, cwd }) }
     finalEnv = { ...finalEnv, ...mcpEnv }
+    const proxyGrant = !threadShell && !oxeShell && Boolean(agentCommand || input.launch || (launch.shell_profile_id !== WINDOWS_SHELL_PROFILE_ID && launch.shell_profile_id !== POSIX_SHELL_PROFILE_ID)) ? this.grantProxy?.({ paneId: input.paneId }) : undefined
+    if (proxyGrant) finalEnv = { ...finalEnv, ...proxyGrant.env }
     // Optional launch integrations only return environment; provider failures
     // never prevent the shell/agent from starting or touch its output stream.
     if (this.prepareLaunch && !threadShell && !oxeShell) {
@@ -377,7 +383,7 @@ export class TerminalManager {
     const rows = clampDimension(input.rows, 24)
 
     let ptyProcess: IPty
-    if (signal.aborted) { this.notifyLaunchExit(input.paneId); return }
+    if (signal.aborted) { proxyGrant?.revoke(); this.notifyLaunchExit(input.paneId); return }
     try {
       ptyProcess = this.pty.spawn(executable, args, {
         name: 'xterm-256color',
@@ -391,6 +397,7 @@ export class TerminalManager {
       })
     } catch (error) {
       recordRuntime('process-error', { pane: input.paneId, executable, state: 'launch-failed' })
+      proxyGrant?.revoke()
       this.notifyLaunchExit(input.paneId)
       if (agentCommand || input.launch) {
         recordIncident('incident.agent.startFailed', agentName || 'agent')
@@ -416,6 +423,7 @@ export class TerminalManager {
       agentCommand: input.agentCommand,
       resumeAgent: input.resumeAgent,
       resumed,
+      revokeProxy: proxyGrant?.revoke,
       inputQueue: new PtyInputQueue(ptyProcess),
       outputBatcher: new PtyOutputBatcher(input.paneId, (event) => this.onBatch(event)),
       ring: new PtyRingBuffer(this.ringCapacityBytes),
@@ -456,6 +464,7 @@ export class TerminalManager {
         this.clearSession?.(input.paneId)
       }
       this.sessions.delete(input.paneId)
+      session?.revokeProxy?.()
       this.notifyLaunchExit(input.paneId)
       this.forgetBranch(input.paneId)
       this.observer?.exit(input.paneId)
@@ -795,6 +804,7 @@ export class TerminalManager {
     // The whole tree, not just the shell: an MCP server or `npm run dev` it started must not outlive the pane (BE-M-08).
     void terminatePty(session.pty)
     this.sessions.delete(input.paneId)
+    session.revokeProxy?.()
     this.notifyLaunchExit(input.paneId)
     this.observer?.exit(input.paneId)
     this.forgetBranch(input.paneId)

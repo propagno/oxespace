@@ -41,7 +41,7 @@ export function createThreadManager(db: AppDatabase, accounts: NativeAccountServ
   const broadcast = (channel: string, event: unknown) => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send(channel, event) }
   const commands = new ThreadCommandService(executable)
   const cli = new ThreadNativeCli(executable, { historyReader: new NativeHistoryWorkerClient(join(app.getAppPath(), 'out', 'main', 'native-history-worker.js'), executable) })
-  return new ThreadManager(db, async thread => {
+  return new ThreadManager(db, async (thread, extraEnv) => {
     const profile = resolveProfile(thread)
     if (!profile) throw new Error('Configure the agent in Agent Settings')
     let executionId: string | undefined
@@ -57,7 +57,7 @@ export function createThreadManager(db: AppDatabase, accounts: NativeAccountServ
       // An agent the policy blocks never starts; the conversation shows why.
       assertProviderAllowed(thread.provider, thread.rootPath)
       const managed = readManagedMcp(db, [thread.workspaceId, ...projectWorkspaces], process.platform, name => mcpServerAllowed(name, thread.rootPath))
-      const env = { ...managed.env, ...prepared, ...toolSearchEnvironment(thread.provider) }
+      const env = { ...managed.env, ...prepared, ...toolSearchEnvironment(thread.provider), ...extraEnv }
       // Deny rules for MCP tools take effect when the session starts.
       // Policy denials by name too, so a server configured directly in the CLI is excluded as well.
       const denied = [...deniedMcpTools(new ThreadPermissionStore(db).rules(thread.rootPath)), ...policyDeniedMcpNames(thread.rootPath).map(server => ({ server, tool: '*' }))]
