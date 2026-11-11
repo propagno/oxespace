@@ -179,6 +179,17 @@ export interface ApprovalHistoryEntry {
   resolvedAt: number
 }
 
+export interface ApprovalDatabasePreview {
+  status: 'ok' | 'off-production' | 'failed'
+  count: number | null
+  sample?: { cols: string[]; rows: unknown[][] }
+  reason?: string
+}
+
+export type ApprovalAlwaysAllowResult =
+  | { ok: true; rule: import('./thread').ThreadAlwaysAllowRule }
+  | { ok: false; code: import('../messages').MessageCode }
+
 export interface ApprovalsApi {
   /** The pending queue, oldest first. */
   list(): Promise<ApprovalRequest[]>
@@ -187,6 +198,9 @@ export interface ApprovalsApi {
   /** The modal cannot show this request: neither an approval nor a denial. Main asks natively, once. */
   unavailable(input: ApprovalAnswerInput): Promise<ApprovalCallResult>
   history(): Promise<ApprovalHistoryEntry[]>
+  preview(requestId: string): Promise<ApprovalDatabasePreview>
+  alwaysAllow(requestId: string): Promise<ApprovalAlwaysAllowResult>
   onRequested(listener: (request: ApprovalRequest) => void): () => void
   onResolved(listener: (resolved: ApprovalResolved) => void): () => void
+  onOpenRequest(listener: (requestId: string) => void): () => void
 }

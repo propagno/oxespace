@@ -219,8 +219,20 @@ export const IPC_CHANNELS = {
     ack: 'approvals:ack',
     unavailable: 'approvals:unavailable',
     history: 'approvals:history',
+    preview: 'approvals:preview',
+    alwaysAllow: 'approvals:always-allow',
+    openRequest: 'approvals:open-request',
     onRequested: 'approvals:requested',
     onResolved: 'approvals:resolved'
+  },
+  /** F7 · What agents can do (shared/types/agent-permissions.ts). Main frame only; never an MCP tool. */
+  agentPermissions: {
+    list: 'agent-permissions:list',
+    revokeRule: 'agent-permissions:revoke-rule',
+    setDatabaseAccess: 'agent-permissions:set-database-access',
+    setHostAccess: 'agent-permissions:set-host-access',
+    undo: 'agent-permissions:undo',
+    changed: 'agent-permissions:changed'
   },
   /** F30 · The activity center's entries (shared/types/activity.ts). Main frame only; never an MCP tool. */
   activity: {
@@ -723,6 +735,7 @@ export interface OxeApi {
   clipboard: ClipboardApi
   notifications: NotificationsApi
   approvals?: import('./approvals').ApprovalsApi
+  agentPermissions?: import('./agent-permissions').AgentPermissionsApi
   activity?: import('./activity').ActivityApi
   agentHooks: AgentHooksApi
   oxeQuery: import('./oxequery').OxeQueryApi

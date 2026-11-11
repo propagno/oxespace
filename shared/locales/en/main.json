@@ -493,11 +493,19 @@
       "notify": {
         "waiting": "OXESpace: approval waiting"
       },
+      "alwaysAllow": {
+        "notOffered": "Always allow isn't offered for this command.",
+        "invalidSettings": "The project's .claude/settings.local.json is not valid JSON, so nothing was written.",
+        "outsideProject": "The project's .claude folder points outside the project, so nothing was written."
+      },
       "textLabel": {
         "policyChange": "Content of the file"
       }
     },
     "notify": {
+      "agentNeedsYou": "{{agent}} needs you",
+      "requestsNeedYou": "{{count}} requests need you",
+      "requestBody": "{{pane}} · {{risk}}",
       "prefix": {
         "pane": "{{agent}} in pane {{pane}}: {{title}}",
         "conversation": "{{agent}} in conversation {{conversation}}: {{title}}",
@@ -633,6 +641,21 @@
       "capture": {
         "devtools": "Close the browser's DevTools to let the agent capture.",
         "busy": "Another debugger is attached to this page, so the agent cannot capture right now."
+      }
+    },
+    "permissions": {
+      "production": {
+        "readOnly": "A production connection offers agents only no access or read."
+      },
+      "policy": {
+        "readOnly": "Policy rows are read only here. Change them in the project's Policy file."
+      },
+      "access": {
+        "invalid": "Agent access is off, read or write."
+      },
+      "notFound": "That permission is no longer there. The list was refreshed.",
+      "undo": {
+        "expired": "This undo was already used or is no longer available."
       }
     }
   },

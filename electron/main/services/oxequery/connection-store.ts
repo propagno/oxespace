@@ -357,6 +357,20 @@ export class ConnectionStore {
     return this.get(id)
   }
 
+  /** F7 A55: changes only what agents may do on this connection. Production never gets write. */
+  setAgentAccess(id: string, access: AgentAccess): OxeQueryConnection {
+    if (!AGENT.has(access)) throw new ConnectionInputError('Unsupported agent access level.')
+    const memory = this.memory.get(id)
+    const current = memory ? memory.info : this.get(id)
+    if (current.environment === 'prod' && access === 'write') throw new ConnectionInputError('Agents cannot be given write access to a production connection.')
+    if (memory) {
+      memory.info = { ...memory.info, agentAccess: access }
+      return memory.info
+    }
+    this.db.prepare('UPDATE oxequery_connections SET agent_access = ? WHERE id = ?').run(access, id)
+    return this.get(id)
+  }
+
   /** Remembers that a connection was just used, for the "recent" list. Once a minute at most. */
   touch(id: string, now = Date.now()): void {
     if (this.memory.has(id)) return

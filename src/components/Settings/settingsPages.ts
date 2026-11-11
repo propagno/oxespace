@@ -2,5 +2,6 @@
 export { SettingsContent } from './SettingsModal'
 export { WorkspaceSettingsModal } from '../Workspace/WorkspaceSettingsModal'
 export { PolicySettings } from './PolicySettings'
+export { AgentPermissionsSettings } from './AgentPermissionsSettings'
 export { KeyboardSettings } from './KeyboardSettings'
 export { DevicesSettings } from './DevicesSettings'

@@ -2167,5 +2167,90 @@
     "files": "Arquivos",
     "search": "Busca",
     "scripts": "Scripts"
+  },
+  "f7": {
+    "card": {
+      "needsApproval": "{{agent}} precisa da sua aprovação",
+      "defaultAgent": "Agente",
+      "allow": "Permitir",
+      "allowOnce": "Permitir uma vez",
+      "alwaysAllowEllipsis": "Sempre permitir…",
+      "seeImpact": "Ver impacto",
+      "copyExact": "Copiar o texto exato",
+      "copyWhat": "Texto exato"
+    },
+    "facts": {
+      "whereLabel": "Onde roda",
+      "affectsLabel": "Afeta",
+      "affectsUnknown": "Não se sabe",
+      "undoLabel": "Dá para desfazer?",
+      "riskLabel": "Risco",
+      "canUndo": "Dá para desfazer",
+      "cannotUndo": "Não dá para desfazer",
+      "unit": {
+        "rows_one": "{{count}} linha",
+        "rows_many": "{{count}} linhas",
+        "rows_other": "{{count}} linhas",
+        "files_one": "{{count}} arquivo",
+        "files_many": "{{count}} arquivos",
+        "files_other": "{{count}} arquivos",
+        "resources_one": "{{count}} recurso",
+        "resources_many": "{{count}} recursos",
+        "resources_other": "{{count}} recursos"
+      }
+    },
+    "toast": {
+      "needsYou": "Precisa de você: {{title}} · {{agent}}"
+    },
+    "queue": {
+      "listLabel": "Aprovações pendentes",
+      "previewLabel": "Impacto do pedido selecionado",
+      "decidedToday": "Decididos hoje",
+      "noDecided": "Nenhuma aprovação decidida hoje.",
+      "activeHeading": "Ativos no OxeChat e OxeCode · {{count}}",
+      "noActive": "Nenhum agente ativo agora.",
+      "allClear": "Pedidos fora das permissões aguardam aqui e no celular pareado. Escritas em banco ficam neste computador."
+    },
+    "preview": {
+      "context": "{{agent}} · {{conversation}}",
+      "exactHeading": "Exatamente o que vai rodar",
+      "beforeAfter": "Antes → depois",
+      "sampleCount_one": "{{sampleCount}} de {{count}} linha, lidas com SELECT",
+      "sampleCount_many": "{{sampleCount}} de {{count}} linhas, lidas com SELECT",
+      "sampleCount_other": "{{sampleCount}} de {{count}} linhas, lidas com SELECT",
+      "offProduction": "A prévia fica desligada em produção.",
+      "failed": "Não foi possível gerar a prévia: {{reason}}. Nada rodou.",
+      "criticalCallout": "Isto não pode ser desfeito. Segure Aprovar por 1,2 s para confirmar.",
+      "criticalPhone": "No celular é Crítico: Permitir libera depois de 2 s.",
+      "highCallout": "Sem desfazer. O OXESpace não consegue reverter isto; negue se tiver dúvida.",
+      "dbDesktopOnly": "Escritas em banco são respondidas só neste computador.",
+      "reversibleCheckpoint": "Dá para restaurar de um checkpoint se mudar de ideia.",
+      "reversibleStart": "Você pode iniciar o contêiner de novo se mudar de ideia.",
+      "reversibleGeneric": "Dá para desfazer se mudar de ideia.",
+      "holdToApprove": "Segure para aprovar",
+      "approveWithoutHolding": "Aprovar sem segurar…",
+      "withoutHoldTitle": "Aprovar sem segurar",
+      "withoutHoldCheckbox": "Entendo que isto não pode ser desfeito"
+    },
+    "alwaysAllow": {
+      "title": "Sempre permitir este comando?",
+      "confirm": "Sempre permitir",
+      "claudeRule": "Adiciona às regras do Claude Code deste projeto:",
+      "codexSession": "Permitido só nesta sessão do Codex.",
+      "runsProjectCode": "Este comando executa código deste projeto ({{definedIn}}).",
+      "runsProjectCodeGeneric": "Este comando executa código deste projeto.",
+      "toastAdded": "Sempre permitido: {{command}} · revogue em O que os agentes podem fazer",
+      "toastOpen": "Abrir",
+      "reason": {
+        "destructive": "Sempre permitir não é oferecido para comandos destrutivos.",
+        "network": "Sempre permitir não é oferecido para comandos de rede.",
+        "push": "Sempre permitir não é oferecido para comandos de push.",
+        "compound": "Sempre permitir não é oferecido para comandos que encadeiam vários passos.",
+        "code": "Sempre permitir não é oferecido para comandos que executam código na linha de comando.",
+        "elevation": "Sempre permitir não é oferecido para comandos que rodam como administrador.",
+        "broad": "Sempre permitir não é oferecido para uma regra tão ampla. Permita uma vez.",
+        "redirect": "Sempre permitir não é oferecido para comandos que redirecionam a saída para arquivos."
+      }
+    }
   }
 }

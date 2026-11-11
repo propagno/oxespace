@@ -581,6 +581,11 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.paneConversation.page, () => ({ error: 'no-conversation' }))
   ipcMain.handle(IPC_CHANNELS.paneConversation.watch, () => undefined)
   ipcMain.handle(IPC_CHANNELS.paneConversation.unwatch, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.agentPermissions.list, () => ({ rules: [], databases: [], hosts: [], policy: [] }))
+  ipcMain.handle(IPC_CHANNELS.agentPermissions.revokeRule, () => ({ ok: true as const, undoToken: 'mock-undo' }))
+  ipcMain.handle(IPC_CHANNELS.agentPermissions.setDatabaseAccess, () => ({ ok: true as const, undoToken: 'mock-undo' }))
+  ipcMain.handle(IPC_CHANNELS.agentPermissions.setHostAccess, () => ({ ok: true as const, undoToken: 'mock-undo' }))
+  ipcMain.handle(IPC_CHANNELS.agentPermissions.undo, () => ({ ok: true as const }))
 
   // ── Catch-all safety net (E2E) ──────────────────────────────────────────────
   // Any IPC channel NOT explicitly mocked above gets a safe, shaped empty default

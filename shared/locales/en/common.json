@@ -144,6 +144,9 @@
       "activity": {
         "open": "Open activity center"
       },
+      "approvals": {
+        "queue": "Open approval queue"
+      },
       "code": {
         "changes": "Changes",
         "browser": "Browser",
@@ -871,6 +874,7 @@
     "factsEnvironment": "Risk: {{risk}}. Environment: {{environment}}. Asked by {{requester}}.",
     "factsProduction": "Risk: {{risk}}. Production environment: {{environment}}. Asked by {{requester}}.",
     "queue": "Request {{position}} of {{total}}",
+    "queueDialogTitle": "Approval queue",
     "closeDeny": "Deny and close",
     "risk": {
       "label": "Risk: {{level}}",

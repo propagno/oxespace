@@ -5,7 +5,7 @@ import type { PolicyLayer, PolicyView } from '../../../shared/policy'
 import { Button, ErrorState, Notice } from '../../ui'
 
 /** Read only: shows which policy files apply and what they block. Nothing here writes a policy. */
-export function PolicySettings({ workspaceId }: { workspaceId?: string }): ReactElement {
+export function PolicySettings({ workspaceId, scope = 'workspace' }: { workspaceId?: string; scope?: 'application' | 'workspace' }): ReactElement {
   const { t } = useTranslation('settings')
   const label = (layer: PolicyLayer): string => t(`policy.layers.${layer}.label`)
   const [view, setView] = useState<PolicyView | null>(null)
@@ -13,13 +13,13 @@ export function PolicySettings({ workspaceId }: { workspaceId?: string }): React
   const [reloads, setReloads] = useState(0)
   useEffect(() => {
     let current = true
-    window.oxe.policy.get(workspaceId).then(
-      next => { if (current) { setView(next); setError('') } },
+    Promise.resolve(window.oxe?.policy?.get?.(workspaceId)).then(
+      next => { if (current) { setView(next ?? null); setError('') } },
       (cause: unknown) => { if (current) setError(cause instanceof Error ? cause.message : String(cause)) })
     return () => { current = false }
   }, [workspaceId, reloads])
 
-  return <section className="settings-general" data-testid="policy-settings"><h2>{t('policy.title')}</h2>
+  return <section className="settings-general" data-testid="policy-settings"><h2>{scope === 'application' ? t('center.pages.policy.label') : t('policy.title')}</h2>
     <p>{t('policy.intro')}</p>
     {error ? <ErrorState compact title={error} /> : null}
     {view?.problems.map(problem => <Notice key={problem} intent="warning">{t('policy.notApplied', { problem })}</Notice>)}
