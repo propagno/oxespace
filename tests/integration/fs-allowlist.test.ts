@@ -300,7 +300,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   // native session file the pane's recorded session names (Claude's <claudeHome>/projects/<cwd>/<id>.jsonl or Codex's
   // rollout), and lists only Codex's sessions/<year>/<month>/<day> folders to find it. Never a path from the phone.
   'electron/main/services/remote/pane-conversation.ts',
-  'electron/main/services/http-audit/codex-rollout.ts'
+  'electron/main/services/http-audit/codex-rollout.ts',
+  // F5 (A52): saves a person-requested Android screenshot PNG under <Pictures>/OXESpace with a generated basename;
+  // the renderer sends only a validated adb serial, never a path.
+  'electron/main/ipc/android.ipc.ts'
 ])
 
 describe('workspace fs allowlist', () => {

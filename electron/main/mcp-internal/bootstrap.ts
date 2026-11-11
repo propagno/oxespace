@@ -69,6 +69,8 @@ export interface InternalMcpDeps {
   fileSystem: FileSystemService
   semantic: SemanticService
   codegraph: import('../services/codegraph.service').CodeGraphService
+  androidAccess?: import('./tool-registry').ToolContext['androidAccess']
+  askAndroidScreenshot?: import('./tool-registry').ToolContext['askAndroidScreenshot']
 }
 
 export interface InternalMcpHandle {
@@ -116,7 +118,9 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
     semantic: deps.semantic,
     codegraph: deps.codegraph,
     webPreview,
-    worktree
+    worktree,
+    androidAccess: deps.androidAccess,
+    askAndroidScreenshot: deps.askAndroidScreenshot
   })
 
   let lastError: string | null = null
