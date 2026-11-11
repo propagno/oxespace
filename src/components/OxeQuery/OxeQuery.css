@@ -590,3 +590,16 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-agent-activity-badge[data-tone='attn'] { border-color: var(--intent-warning-border); background: var(--intent-warning-bg); color: var(--intent-warning-fg); }
 .oq-grid-header { background: var(--surface-sunken); border-bottom-color: var(--border-subtle); color: var(--text-secondary); font-weight: var(--weight-semibold); }
 .oq-grid-row { font-variant-numeric: tabular-nums; }
+
+/* OxeQuery cell, connection section, container picker & Mongo preview helpers */
+.oq-json-row { display: flex; align-items: baseline; gap: var(--space-1); min-width: 0; }
+.oq-json-node { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-primary); }
+.oq-conn-section { display: flex; flex-direction: column; gap: var(--space-1); }
+.oq-container-picker-section { display: flex; flex-direction: column; gap: var(--space-2); }
+.oq-source-radiogroup { display: inline-flex; flex-wrap: wrap; gap: var(--space-2); }
+.oq-source-radio { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-xs); color: var(--text-primary); cursor: pointer; }
+.oq-container-picker-reason { font-size: var(--text-xs); color: var(--text-muted); }
+.oq-form-group { display: flex; flex-direction: column; gap: var(--space-1); }
+.oq-mtree { display: flex; flex-direction: column; gap: 2px; font-family: var(--font-mono); font-size: var(--text-xs); }
+.oq-placeholder { display: flex; align-items: center; justify-content: center; padding: var(--space-6); color: var(--text-muted); font-size: var(--text-sm); }
+.oq-doc-preview { margin: 0; padding: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-sunken); font-family: var(--font-mono); font-size: var(--text-xs); overflow: auto; }

@@ -50,7 +50,7 @@ export function FirstRunHost({ onOpenMode, onStartConversation, onNewWorkspace }
     const entry = readiness.find(item => item.provider === provider)
     const profile = profiles.find(item => item.provider === provider)
     const account = provider === 'claude' ? claudeAccount : codexAccount
-    let status: FirstRunAgentStatus = 'missing'
+    let status: FirstRunAgentStatus
     if (signingIn[provider] || account?.state === 'connecting' || account?.state === 'awaiting-browser' || account?.state === 'awaiting-code') {
       status = 'signing-in'
     } else if (account?.state === 'missing-cli' || (!entry && !account) || entry?.status === 'missing') {

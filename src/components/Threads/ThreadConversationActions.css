@@ -1,2 +1,0 @@
-.thread-heading .thread-conversation-menu { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; flex-shrink: 0; border: 1px solid transparent; border-radius: var(--nav-radius); color: var(--tx-muted); }
-.thread-heading .thread-conversation-menu:hover, .thread-heading .thread-conversation-menu[data-state="open"] { color: var(--tx-primary); border-color: var(--bd-base); background: var(--bg-elevated); }

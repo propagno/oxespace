@@ -4,6 +4,7 @@ import { Activity, MoreHorizontal, Network, PanelsTopLeft, PlugZap, Plus, type L
 import { Button, Menu } from '../../ui'
 import { WorkbenchPanelMenu, WorkbenchPanelToggle, type WorkbenchPanelItem } from '../Workbench/WorkbenchPanelMenu'
 import { CODE_BAR_PANELS, CODE_MENU_PANELS, WORKBENCH_PANELS } from '../Workbench/panelCatalog'
+import { clampDockWidth, MAX_DOCK_WIDTH_PX, MIN_DOCK_WIDTH_PX } from '../Workbench/dockWidth'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../../shared/types/workspace'
 import { workspaceColorAttrs } from '../../../shared/workspace-color'
@@ -647,8 +648,8 @@ function WorkspaceSurfaceComponent({
               <Panel
                 id={`${workspace.id}-sides`}
                 ref={outerSidePanelRef}
-                minSize={25}
-                maxSize={70}
+                minSize={Math.min(45, Math.max(20, Math.round((clampDockWidth(MIN_DOCK_WIDTH_PX, typeof window !== 'undefined' && window.innerWidth > 0 ? window.innerWidth : 1280) / (typeof window !== 'undefined' && window.innerWidth > 0 ? window.innerWidth : 1280)) * 100)))}
+                maxSize={Math.max(46, Math.min(70, Math.round((clampDockWidth(MAX_DOCK_WIDTH_PX, typeof window !== 'undefined' && window.innerWidth > 0 ? window.innerWidth : 1280) / (typeof window !== 'undefined' && window.innerWidth > 0 ? window.innerWidth : 1280)) * 100)))}
                 defaultSize={combinedSideSize}
                 onResize={persistSideWidth}
               >
