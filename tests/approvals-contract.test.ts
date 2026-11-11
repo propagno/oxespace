@@ -11,6 +11,7 @@ describe('approvals contract (B10)', () => {
   it('uses stable channel names', () => {
     expect(IPC_CHANNELS.approvals).toEqual({
       list: 'approvals:list', respond: 'approvals:respond', ack: 'approvals:ack', unavailable: 'approvals:unavailable', history: 'approvals:history',
+      preview: 'approvals:preview', alwaysAllow: 'approvals:always-allow', openRequest: 'approvals:open-request',
       onRequested: 'approvals:requested', onResolved: 'approvals:resolved'
     })
   })
@@ -40,7 +41,7 @@ describe('approvals contract (B10)', () => {
     expect(FORBIDDEN_CAPABILITIES).toContain('approvals.admin')
     const admin = MCP_COVERAGE['approvals.admin']
     expect('forbidden' in admin && !('tools' in admin)).toBe(true)
-    expect(admin.ipc).toEqual(['approvals.list', 'approvals.respond', 'approvals.ack', 'approvals.unavailable', 'approvals.history'])
+    expect(admin.ipc).toEqual(['approvals.list', 'approvals.respond', 'approvals.ack', 'approvals.unavailable', 'approvals.history', 'approvals.preview', 'approvals.alwaysAllow', 'agentPermissions.list', 'agentPermissions.revokeRule', 'agentPermissions.setDatabaseAccess', 'agentPermissions.setHostAccess', 'agentPermissions.undo'])
     // A tool for it could not even be named: every approval-like name is refused by the manifest test.
     expect(FORBIDDEN_NAME.test('oxespace_approvals')).toBe(true)
   })
@@ -64,7 +65,7 @@ describe('approvals contract (B10)', () => {
     expect(ipc.on).toHaveBeenCalledWith(IPC_CHANNELS.approvals.onResolved, expect.any(Function))
     off()
     expect(ipc.removeListener).toHaveBeenCalledWith(IPC_CHANNELS.approvals.onRequested, expect.any(Function))
-    expect(Object.keys(approvals).sort()).toEqual(['ack', 'history', 'list', 'onRequested', 'onResolved', 'respond', 'unavailable'])
+    expect(Object.keys(approvals).sort()).toEqual(['ack', 'alwaysAllow', 'history', 'list', 'onOpenRequest', 'onRequested', 'onResolved', 'preview', 'respond', 'unavailable'])
   })
 })
 
