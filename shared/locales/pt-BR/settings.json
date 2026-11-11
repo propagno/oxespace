@@ -59,6 +59,10 @@
         "label": "Aprovações e segurança",
         "hint": "Aprovações, regras de política e recursos protegidos"
       },
+      "agent-permissions": {
+        "label": "O que os agentes podem fazer",
+        "hint": "Comandos sempre permitidos, bancos de dados, hosts HTTP e regras de política"
+      },
       "devices": {
         "label": "Celular e dispositivos",
         "hint": "Celulares e dispositivos pareados"
@@ -483,7 +487,8 @@
     "ports": "Portas",
     "folder": "Pasta",
     "target": "Alvo",
-    "status": "Status"
+    "status": "Status",
+    "blockHost": "Bloquear este host"
   },
   "keyboard": {
     "title": "Teclado",
@@ -867,5 +872,61 @@
     "showInFolder": "Mostrar na pasta",
     "tryNow": "Tentar agora",
     "exportAction": "Exportar…"
+  },
+  "agentPermissions": {
+    "title": "O que os agentes podem fazer",
+    "description": "Tudo o que os agentes podem fazer sem perguntar. Revogue o que quiser aqui.",
+    "revoke": "Revogar",
+    "sections": {
+      "commands": "Comandos sempre permitidos",
+      "databases": "Bancos de dados",
+      "hosts": "Hosts HTTP",
+      "alwaysOn": "Sempre ativo"
+    },
+    "providers": {
+      "claude": "Claude Code",
+      "codex": "Codex"
+    },
+    "commands": {
+      "empty": "Nenhum comando está sempre permitido.",
+      "scopeSession": "{{provider}} · só nesta sessão",
+      "scopeProjectFolder": "{{provider}} · {{folder}} · regra do projeto",
+      "scopeProject": "{{provider}} · regra do projeto",
+      "scopeUser": "{{provider}} · regra do usuário",
+      "revokedToast": "Revogado: {{rule}}"
+    },
+    "databases": {
+      "empty": "Nenhuma conexão de banco configurada.",
+      "selectLabel": "{{name}} ({{env}})",
+      "prodSelectLabel": "Produção · {{name}}",
+      "updatedToast": "Acesso atualizado para {{name}}",
+      "access": {
+        "off": "Nada",
+        "read": "Ler",
+        "write": "Ler, pedir antes de escrever"
+      }
+    },
+    "hosts": {
+      "empty": "Nenhum host HTTP registrado ainda.",
+      "callsToday_one": "{{count}} chamada hoje",
+      "callsToday_many": "{{count}} chamadas hoje",
+      "callsToday_other": "{{count}} chamadas hoje",
+      "production": "produção",
+      "insecure": "sem TLS",
+      "updatedToast": "Acesso atualizado para {{host}}",
+      "access": {
+        "allowed": "Permitido",
+        "ask": "Perguntar antes",
+        "blocked": "Bloqueado"
+      }
+    },
+    "policy": {
+      "fromFile": "Do policy.yaml",
+      "openInEditor": "Abrir no editor"
+    },
+    "alwaysOn": {
+      "noProdWrite": "Agentes nunca escrevem em produção.",
+      "denyAndHold": "Negar é o padrão, e aprovações irreversíveis exigem segurar o botão."
+    }
   }
 }

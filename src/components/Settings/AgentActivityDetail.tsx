@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../ui'
+import { useUIStore } from '../../store/ui.store'
 import { changeInWorkingTree, liveContainer } from './agentActivityLive'
 import type { OpenInInput } from '../../../shared/types/open-in'
 
@@ -189,6 +190,17 @@ export function AgentActivityDetail({ row, onClose }: AgentActivityDetailProps):
                   <strong>{t('activity.status', { defaultValue: 'Status' })}:</strong> {String(row.status)}
                 </p>
               )}
+              <div className="agent-activity-actions">
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    onClose()
+                    useUIStore.getState().openSettingsPage('agent-permissions')
+                  }}
+                >
+                  {t('activity.blockHost')}
+                </Button>
+              </div>
             </div>
           )}
         </div>
