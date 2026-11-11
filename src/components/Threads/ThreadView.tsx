@@ -8,6 +8,8 @@ import type { Workspace } from '../../../shared/types/workspace'
 import type { ThreadAttachment } from '../../../shared/types/thread'
 import { useGitBranch } from '../../hooks/useGitBranch'
 import { ThreadEmptyState } from './ThreadEmptyState'
+import { TimeTravelBar } from './TimeTravelBar'
+import { useWorkspaceStore } from '../../store/workspace.store'
 import { useThreadStore } from '../../store/thread.store'
 import { useThreadPrefs } from '../../store/thread-prefs.store'
 import { useAccountStore, selectAccount } from '../../store/account.store'
@@ -119,9 +121,12 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     requestAnimationFrame(() => { if (opener?.isConnected) opener.focus(); else textarea.current?.focus() })
   }
   const [finding, setFinding] = useState(false)
+  const [historyOpenThreadId, setHistoryOpenThreadId] = useState<string | null>(null)
+  const historyOpen = Boolean(snapshot && historyOpenThreadId === snapshot.thread.id)
+  const toggleHistory = useCallback(() => { if (snapshot) setHistoryOpenThreadId(cur => cur === snapshot.thread.id ? null : snapshot.thread.id) }, [snapshot])
   const scrollToRow = useRef<((index: number) => void) | null>(null)
   const scrollTo = useCallback((index: number) => scrollToRow.current?.(index), [])
-  useThreadShortcuts({ active, togglePanel, openControl: setOpenControl, onFind: () => setFinding(true), runCommand: text => action(() => runCommand(text)) })
+  useThreadShortcuts({ active, togglePanel, openControl: setOpenControl, onFind: () => setFinding(true), onHistory: toggleHistory, runCommand: text => action(() => runCommand(text)) })
   const closeReview = () => { if (snapshot) useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: null }); if (useThreadWorkbenchStore.getState().maximizedId === snapshot?.thread.id) useThreadWorkbenchStore.getState().setMaximized(null); requestAnimationFrame(() => textarea.current?.focus()) }
   const reviewMaximized = useThreadWorkbenchStore(state => Boolean(snapshot) && state.maximizedId === snapshot?.thread.id) && Boolean(review?.panel) && !drawer
   const appendToConversation = (prompt: string) => {
@@ -301,7 +306,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
   // Esc first gives a maximized panel its place back, then closes it.
   return <div ref={workbench} className={`thread-workbench${drawer ? ' is-drawer' : ''}${active ? ' is-active-cell' : ''}${reviewMaximized ? ' is-review-maximized' : ''}`} onPointerDown={onActivate} onKeyDown={event => { if (event.key === 'Escape' && review?.panel && !panel && !commands.open && !openControl && event.target instanceof Element && event.target.closest('.thread-review-host')) { event.preventDefault(); if (reviewMaximized) useThreadWorkbenchStore.getState().setMaximized(null); else { closeReview(); returnFocusFromPanel() } } }}>
     <section className="thread-view" aria-label={t('view.region')} style={{ '--thread-reader-font-size': `${threadFontSize}px` } as React.CSSProperties}>
-    <ThreadHeader thread={snapshot?.thread} workspace={workspace} branch={branch?.branch ?? undefined} pending={pending} running={running} activePanel={review?.panel} cell={cell} onTogglePanel={togglePanel} onCloseCell={onCloseCell}
+    <ThreadHeader thread={snapshot?.thread} workspace={workspace} branch={branch?.branch ?? undefined} pending={pending} running={running} activePanel={review?.panel} historyOpen={historyOpen} cell={cell} onTogglePanel={togglePanel} onToggleHistory={snapshot ? toggleHistory : undefined} onCloseCell={onCloseCell}
       onCommand={command => void action(async () => { setPanel(null); await runCommand(command) })}
       onExport={snapshot && api?.exportPortable ? () => void action(async () => { const path = await api.exportPortable!(snapshot.thread.id); if (path) setPanel({ kind: 'panel', title: t('view.exported'), text: path }) }) : undefined}
       onImport={snapshot && api?.importPortable ? () => { setPending(true); setError(''); void api.importPortable!(snapshot.thread.id).then(imported => { if (imported) useThreadStore.getState().adopt(imported) }).catch(cause => setError(humanizeError(cause, t('view.importFailed')))).finally(() => setPending(false)) } : undefined}
@@ -309,6 +314,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     {snapshot && <ThreadToolTabs key={snapshot.thread.id} threadId={snapshot.thread.id} rootPath={threadWorkingRoot(snapshot.thread)} branch={branch?.branch ?? undefined}
       onOpen={tab => { if (tab === 'changes') useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'changes' }) }} />}
     {finding && <ThreadFindBar rows={timelineRows} scrollRoot={timeline} scrollTo={scrollTo} onClose={() => { setFinding(false); requestAnimationFrame(() => textarea.current?.focus()) }} />}
+    {snapshot && historyOpen && <TimeTravelBar threadId={snapshot.thread.id} title={snapshot.thread.title} agent={snapshot.thread.provider === 'codex' ? 'Codex' : 'Claude'} onClose={() => setHistoryOpenThreadId(null)} onBranched={result => { setHistoryOpenThreadId(null); void (async () => { await useWorkspaceStore.getState().bootstrap(); await useWorkspaceStore.getState().setActiveWorkspace(result.workspaceId); await useThreadStore.getState().load(); await useThreadStore.getState().select(result.threadId) })() }} />}
     <div ref={timeline} className="thread-timeline" role="region" tabIndex={0} aria-label={t('view.history')} {...scroll.timelineProps}>
       <div ref={scroll.content} className="thread-reading-column">
         {/* Zero-height sticky anchor: the strip overlays the top edge without shifting the rows below. */}

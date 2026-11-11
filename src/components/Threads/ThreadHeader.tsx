@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Archive, Download, GitFork, Info, ListTree, MoreHorizontal, Pencil, Pin, Plug, Plus, Trash2, Type, Waypoints } from 'lucide-react'
+import { Archive, Download, GitFork, History, Info, ListTree, MoreHorizontal, Pencil, Pin, Plug, Plus, Trash2, Type, Waypoints } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button, Menu, type MenuEntry } from '../../ui'
 import type { ThreadActivity } from '../../../shared/types/agents'
@@ -11,6 +11,7 @@ import { useThreadViewModeStore } from '../../store/thread-view-mode.store'
 import type { ThreadPanel } from '../../store/thread-workbench.store'
 import { useUIStore } from '../../store/ui.store'
 import { WorkbenchPanelToggle } from '../Workbench/WorkbenchPanelMenu'
+import { withShortcut } from '../../keyboard/keybindings'
 import { threadPanelLabel, threadPanelTitle } from './threadPanelLabels'
 import { NowLine, type NowLineAction } from './NowLine'
 import { ThreadCellClose } from './ThreadCellClose'
@@ -30,8 +31,10 @@ export function ThreadHeader({
   pending,
   running,
   activePanel,
+  historyOpen,
   cell,
   onTogglePanel,
+  onToggleHistory,
   onCommand,
   onExport,
   onDelegate,
@@ -48,8 +51,10 @@ export function ThreadHeader({
   pending: boolean
   running: boolean
   activePanel?: ThreadPanel | null
+  historyOpen?: boolean
   cell?: 'primary' | 'secondary'
   onTogglePanel: (panel: ThreadPanel, keepOpen?: boolean) => void
+  onToggleHistory?: () => void
   onCommand: (command: string) => void
   onExport?: () => void
   onImport?: () => void
@@ -150,6 +155,18 @@ export function ThreadHeader({
             {thread?.title ?? t('header.projectConversations')}
           </h1>
           <div className="thread-heading-actions">
+            {thread && onToggleHistory && (
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={<History size={13} aria-hidden="true" />}
+                aria-pressed={Boolean(historyOpen)}
+                title={withShortcut(t('timeTravel.button'), 'thread.history')}
+                onClick={onToggleHistory}
+              >
+                {t('timeTravel.button')}
+              </Button>
+            )}
             {thread && (
               <Menu
                 label={t('toolPanels.addTool')}

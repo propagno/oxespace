@@ -183,6 +183,7 @@
         "permissions": "Permissions",
         "model": "Model",
         "effort": "Reasoning effort",
+        "history": "History",
         "sideChat": "Side chat"
       },
       "help": {
