@@ -26,6 +26,8 @@ export function registerBrowserPreviewIpc(): void {
   ipcMain.handle(IPC_CHANNELS.browserPreview.captureElement, async (event, input) => { const window = windowFor(event.sender); return (await service()).captureElement(window, input) })
   ipcMain.handle(IPC_CHANNELS.browserPreview.captureClipboard, async (event, input) => { const window = windowFor(event.sender); return (await service()).captureClipboard(window, input) })
   ipcMain.handle(IPC_CHANNELS.browserPreview.close, async (event, input) => { const window = windowFor(event.sender); return (await service()).close(window, input) })
+  ipcMain.handle(IPC_CHANNELS.browserPreview.revokeGrant, async (event, input) => { const window = windowFor(event.sender); return (await service()).revokeGrant(window, input) })
+  ipcMain.handle(IPC_CHANNELS.browserPreview.setDevice, async (event, input) => { const window = windowFor(event.sender); return (await service()).setDevice(window, input) })
   // A grab before any preview opened has no tab to belong to; the service drops it either way.
   ipcMain.on(DESIGN_MODE_CHANNELS.grab, (event, payload: DesignGrabPayload) => { const sender = event.sender; void service().then(preview => preview.handleDesignMessage(sender, 'grab', payload)) })
   ipcMain.on(DESIGN_MODE_CHANNELS.cancel, event => { const sender = event.sender; void service().then(preview => preview.handleDesignMessage(sender, 'cancel')) })

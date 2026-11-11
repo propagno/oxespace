@@ -26,6 +26,18 @@ describe('preload api', () => {
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.agentActivity.badge, { connectionId: 'c-1' })
     expect(ipc.invoke).toHaveBeenCalledTimes(3)
   })
+
+  test('F5: exposes browserPreview grant/device and android mirror APIs without raw ipc access', async () => {
+    const ipc = createFakeIpc(), api = createOxeApi(ipc)
+    await api.browserPreview.revokeGrant({ ownerKey: 'code:ws-1', tabId: 't-1' })
+    await api.browserPreview.setDevice({ ownerKey: 'code:ws-1', tabId: 't-1', deviceId: 'pixel-8', rotated: false })
+    await api.android!.status()
+    await api.android!.setAgentsCanSee({ serial: 'emulator-5554', value: true })
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.browserPreview.revokeGrant, { ownerKey: 'code:ws-1', tabId: 't-1' })
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.browserPreview.setDevice, { ownerKey: 'code:ws-1', tabId: 't-1', deviceId: 'pixel-8', rotated: false })
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.android.status)
+    expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.android.setAgentsCanSee, { serial: 'emulator-5554', value: true })
+  })
   test('exposes portable Thread import and export only through validated IPC methods', async () => {
     const ipc = createFakeIpc(), api = createOxeApi(ipc)
     await api.thread!.exportPortable!('thread-A')

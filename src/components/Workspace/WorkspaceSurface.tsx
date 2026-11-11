@@ -23,6 +23,7 @@ const WorkspaceReviewPanel = lazy(() => import('./WorkspaceReviewPanel').then((m
 const WorkspaceScriptsPanel = lazy(() => import('./WorkspaceScriptsPanel').then((m) => ({ default: m.WorkspaceScriptsPanel })))
 const WorkspaceSearchPanel = lazy(() => import('./WorkspaceSearchPanel').then((m) => ({ default: m.WorkspaceSearchPanel })))
 const WorkspaceHttpCallsPanel = lazy(() => import('./WorkspaceHttpCallsPanel').then((m) => ({ default: m.WorkspaceHttpCallsPanel })))
+const WorkspaceAndroidPanel = lazy(() => import('./WorkspaceAndroidPanel').then((m) => ({ default: m.WorkspaceAndroidPanel })))
 const WorkspaceWebPreviewPanel = lazy(() => import('./WorkspaceWebPreviewPanel').then((m) => ({ default: m.WorkspaceWebPreviewPanel })))
 const WorkspaceWorktreePanel = lazy(() => import('./WorkspaceWorktreePanel').then((m) => ({ default: m.WorkspaceWorktreePanel })))
 
@@ -192,6 +193,9 @@ function WorkspaceSurfaceComponent({
   const [httpCallsExpanded, setHttpCallsExpanded] = useState(false)
   const httpCallsVisible = useUIStore((s) => isActive && s.isHttpCallsPanelOpen)
   const closeHttpCalls = useUIStore((s) => s.closeHttpCallsPanel)
+  const [androidExpanded, setAndroidExpanded] = useState(false)
+  const androidVisible = useUIStore((s) => isActive && s.isAndroidPanelOpen)
+  const closeAndroid = useUIStore((s) => s.closeAndroidPanel)
   // F2 split-tree is the default layout. Keep the fixed grid as a fallback
   // (toggle via F2) so users can recover if a tree layout gets awkward.
   const splitLayoutEnabled = useUIStore((s) => s.splitLayoutEnabled)
@@ -209,9 +213,10 @@ function WorkspaceSurfaceComponent({
   const integrationWidth = integrationExpanded ? 70 : DEFAULT_GITHUB_WIDTH
   const searchWidth = searchExpanded ? 70 : DEFAULT_REVIEW_WIDTH
   const httpCallsWidth = httpCallsExpanded ? 70 : DEFAULT_REVIEW_WIDTH
+  const androidWidth = androidExpanded ? 70 : DEFAULT_REVIEW_WIDTH
 
-  const hasSidePanels = editorVisible || reviewVisible || githubVisible || backgroundVisible || worktreeVisible || scriptsVisible || webPreviewVisible || integrationVisible || searchVisible || httpCallsVisible
-  const visibleSideIds = [githubVisible && 'github', reviewVisible && 'review', editorVisible && 'editor', backgroundVisible && 'background', worktreeVisible && 'worktree', scriptsVisible && 'scripts', webPreviewVisible && 'web-preview', integrationVisible && 'integration', searchVisible && 'search', httpCallsVisible && 'http-calls'].filter((id): id is string => Boolean(id))
+  const hasSidePanels = editorVisible || reviewVisible || githubVisible || backgroundVisible || worktreeVisible || scriptsVisible || webPreviewVisible || integrationVisible || searchVisible || httpCallsVisible || androidVisible
+  const visibleSideIds = [githubVisible && 'github', reviewVisible && 'review', editorVisible && 'editor', backgroundVisible && 'background', worktreeVisible && 'worktree', scriptsVisible && 'scripts', webPreviewVisible && 'web-preview', integrationVisible && 'integration', searchVisible && 'search', httpCallsVisible && 'http-calls', androidVisible && 'android'].filter((id): id is string => Boolean(id))
   const visibleSideKey = visibleSideIds.join('|')
   const [preferredSideId, setPreferredSideId] = useState<string | null>(null)
   const previousSideIds = useRef<string[]>([])
@@ -250,7 +255,9 @@ function WorkspaceSurfaceComponent({
     searchVisible: activeSideId === 'search',
     searchWidth,
     httpCallsVisible: activeSideId === 'http-calls',
-    httpCallsWidth
+    httpCallsWidth,
+    androidVisible: activeSideId === 'android',
+    androidWidth
   })
 
   // Total width of all side panels combined (as % of workspace)
@@ -477,6 +484,9 @@ function WorkspaceSurfaceComponent({
       content: <WorkspaceHttpCallsPanel workspace={workspace} isExpanded={httpCallsExpanded} onCollapse={closeHttpCalls} onToggleExpanded={() => setHttpCallsExpanded((v) => !v)} />
     })
   }
+  if (androidVisible) {
+    sidePanels.push({ id: 'android', defaultSize: toInnerPct(layoutSizes.android), onResize: () => undefined, content: <WorkspaceAndroidPanel isExpanded={androidExpanded} onCollapse={closeAndroid} onToggleExpanded={() => setAndroidExpanded((v) => !v)} /> })
+  }
 
   const grid = <ErrorBoundary id="workspace-grid" label={tc('workspace.gridBoundary')}>{splitLayoutEnabled ? (
     <WorkspaceSplitGrid
@@ -540,12 +550,12 @@ function WorkspaceSurfaceComponent({
   const sideLabels: Record<string, string> = {
     github: WORKBENCH_PANELS.git.label, review: WORKBENCH_PANELS.changes.label, editor: WORKBENCH_PANELS.files.label,
     background: WORKBENCH_PANELS.background.label, worktree: WORKBENCH_PANELS.worktrees.label, scripts: WORKBENCH_PANELS.scripts.label,
-    'web-preview': WORKBENCH_PANELS.browser.label, integration: tc('sidebar.integrations'), search: WORKBENCH_PANELS.search.label, 'http-calls': WORKBENCH_PANELS.httpCalls.label
+    'web-preview': WORKBENCH_PANELS.browser.label, integration: tc('sidebar.integrations'), search: WORKBENCH_PANELS.search.label, 'http-calls': WORKBENCH_PANELS.httpCalls.label, android: WORKBENCH_PANELS.android.label
   }
   const sideIcons: Record<string, LucideIcon> = {
     github: WORKBENCH_PANELS.git.icon, review: WORKBENCH_PANELS.changes.icon, editor: WORKBENCH_PANELS.files.icon,
     background: WORKBENCH_PANELS.background.icon, worktree: WORKBENCH_PANELS.worktrees.icon, scripts: WORKBENCH_PANELS.scripts.icon,
-    'web-preview': WORKBENCH_PANELS.browser.icon, integration: Network, search: WORKBENCH_PANELS.search.icon, 'http-calls': WORKBENCH_PANELS.httpCalls.icon
+    'web-preview': WORKBENCH_PANELS.browser.icon, integration: Network, search: WORKBENCH_PANELS.search.icon, 'http-calls': WORKBENCH_PANELS.httpCalls.icon, android: WORKBENCH_PANELS.android.icon
   }
   // Four tabs fit one row at the minimum window width; the rest live in a menu, and the active panel is always a visible tab.
   const SIDE_TAB_LIMIT = 4
@@ -664,6 +674,8 @@ interface WorkspacePanelSizeInput {
   searchWidth: number
   httpCallsVisible: boolean
   httpCallsWidth: number
+  androidVisible: boolean
+  androidWidth: number
 }
 
 interface WorkspacePanelSizeOutput {
@@ -679,6 +691,7 @@ interface WorkspacePanelSizeOutput {
   integration: number
   search: number
   httpCalls: number
+  android: number
 }
 
 function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelSizeOutput {
@@ -692,10 +705,11 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
   const integration = input.integrationVisible ? clampPanelSize(input.integrationWidth, 25, 70) : 0
   const search = input.searchVisible ? clampPanelSize(input.searchWidth, 24, 70) : 0
   const httpCalls = input.httpCallsVisible ? clampPanelSize(input.httpCallsWidth, 24, 70) : 0
-  const visibleSideCount = Number(input.editorVisible) + Number(input.githubVisible) + Number(input.reviewVisible) + Number(input.backgroundVisible) + Number(input.worktreeVisible) + Number(input.scriptsVisible) + Number(input.webPreviewVisible) + Number(input.integrationVisible) + Number(input.searchVisible) + Number(input.httpCallsVisible)
+  const android = input.androidVisible ? clampPanelSize(input.androidWidth, 24, 70) : 0
+  const visibleSideCount = Number(input.editorVisible) + Number(input.githubVisible) + Number(input.reviewVisible) + Number(input.backgroundVisible) + Number(input.worktreeVisible) + Number(input.scriptsVisible) + Number(input.webPreviewVisible) + Number(input.integrationVisible) + Number(input.searchVisible) + Number(input.httpCallsVisible) + Number(input.androidVisible)
 
   if (visibleSideCount === 0) {
-    return { grid: 100, gridMinSize: 30, editor: 0, github: 0, review: 0, background: 0, worktree: 0, scripts: 0, webPreview: 0, integration: 0, search: 0, httpCalls: 0 }
+    return { grid: 100, gridMinSize: 30, editor: 0, github: 0, review: 0, background: 0, worktree: 0, scripts: 0, webPreview: 0, integration: 0, search: 0, httpCalls: 0, android: 0 }
   }
 
   if (visibleSideCount === 1) {
@@ -707,7 +721,7 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
               : input.scriptsVisible ? scripts
                 : input.webPreviewVisible ? webPreview
                   : input.integrationVisible ? integration
-                    : input.searchVisible ? search : httpCalls
+                    : input.searchVisible ? search : input.httpCallsVisible ? httpCalls : android
     return {
       grid: 100 - side,
       gridMinSize: 30,
@@ -720,12 +734,13 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
       webPreview,
       integration,
       search,
-      httpCalls
+      httpCalls,
+      android
     }
   }
 
   const maxCombinedSideWidth = 70
-  const combined = editor + github + review + background + worktree + scripts + webPreview + integration + search + httpCalls
+  const combined = editor + github + review + background + worktree + scripts + webPreview + integration + search + httpCalls + android
   const scale = combined > maxCombinedSideWidth ? maxCombinedSideWidth / combined : 1
   const normalizedEditor = input.editorVisible ? Math.max(25, Math.round(editor * scale)) : 0
   const normalizedGitHub = input.githubVisible ? Math.max(25, Math.round(github * scale)) : 0
@@ -737,7 +752,8 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
   const normalizedIntegration = input.integrationVisible ? Math.max(25, Math.round(integration * scale)) : 0
   const normalizedSearch = input.searchVisible ? Math.max(24, Math.round(search * scale)) : 0
   const normalizedHttpCalls = input.httpCallsVisible ? Math.max(24, Math.round(httpCalls * scale)) : 0
-  const normalizedCombined = normalizedEditor + normalizedGitHub + normalizedReview + normalizedBackground + normalizedWorktree + normalizedScripts + normalizedWebPreview + normalizedIntegration + normalizedSearch + normalizedHttpCalls
+  const normalizedAndroid = input.androidVisible ? Math.max(24, Math.round(android * scale)) : 0
+  const normalizedCombined = normalizedEditor + normalizedGitHub + normalizedReview + normalizedBackground + normalizedWorktree + normalizedScripts + normalizedWebPreview + normalizedIntegration + normalizedSearch + normalizedHttpCalls + normalizedAndroid
 
   return {
     grid: Math.max(30, 100 - normalizedCombined),
@@ -751,7 +767,8 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
     webPreview: normalizedWebPreview,
     integration: normalizedIntegration,
     search: normalizedSearch,
-    httpCalls: normalizedHttpCalls
+    httpCalls: normalizedHttpCalls,
+    android: normalizedAndroid
   }
 }
 

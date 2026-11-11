@@ -65,6 +65,8 @@ export interface InternalMcpDeps {
   github: GitHubWorktreeApi
   background: BackgroundManager
   fileSystem: FileSystemService
+  androidAccess?: import('./tool-registry').ToolContext['androidAccess']
+  askAndroidScreenshot?: import('./tool-registry').ToolContext['askAndroidScreenshot']
 }
 
 export interface InternalMcpHandle {
@@ -109,7 +111,9 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
     background: deps.background,
     fileSystem: deps.fileSystem,
     webPreview,
-    worktree
+    worktree,
+    androidAccess: deps.androidAccess,
+    askAndroidScreenshot: deps.askAndroidScreenshot
   })
 
   let lastError: string | null = null

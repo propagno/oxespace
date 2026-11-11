@@ -80,6 +80,7 @@ const PALETTE_EFFECTS: Record<string, Check> = {
   'tool-editor': both(view('code'), testId('workspace-editor-panel')),
   'tool-review': both(view('code'), testId('workspace-review-panel')),
   'tool-http-calls': both(view('code'), testId('workspace-http-calls-panel')),
+  'tool-android': both(view('code'), testId('workspace-android-panel')),
   'tool-slash': both(view('code'), dialog(/^Commands for/)),
   'tool-mcp': dialog('MCP servers'),
   'tool-skills': dialog('Skills'),
@@ -146,7 +147,7 @@ async function runCommand(page: Page, id: string): Promise<boolean> {
 /** Closes whatever a command opened, back to the work surface. */
 /** Code's side panels, by the tool command that toggles each and the panel it shows. */
 // Integration last: its command only opens it, so it closes from its own Collapse button, shown once it is the only one.
-const SIDE_PANELS = ['github', 'worktrees', 'scripts', 'search', 'web-preview', 'background', 'editor', 'review', 'http-calls', 'integration'] as const
+const SIDE_PANELS = ['github', 'worktrees', 'scripts', 'search', 'web-preview', 'background', 'editor', 'review', 'http-calls', 'android', 'integration'] as const
 /**
  * Splits are refused when the halves would be under 240 px (#310), so they are checked from the known layout: Code,
  * two panes, no side panel. Earlier commands leave theirs open (each panel takes its share of the width), so every

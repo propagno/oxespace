@@ -69,6 +69,7 @@
   "thread.undo-last-turn": null,
   "toggle-sidebar": "sidebar.toggle",
   "toggle-split-layout": "code.splitLayout",
+  "tool-android": null,
   "tool-background": null,
   "tool-editor": "code.files",
   "tool-github": null,

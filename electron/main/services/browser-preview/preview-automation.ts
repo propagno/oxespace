@@ -7,6 +7,10 @@ import { approvalCenter } from '../approvals'
 import { previewDraft } from '../approvals/drafts'
 import { requesterFor } from '../approvals/requester'
 import { mainMessage } from '../../../../shared/messages'
+import { MainMessageError } from '../../ipc/main-message-error'
+import { brokerForGuest, type DebuggerLease } from './debugger-broker'
+import { consoleRow, NetworkLog, previewStep } from './preview-observe'
+import { judgePreviewUrl, previewGrants } from './preview-grants'
 import type { ApprovalRequester } from '../../../../shared/types/approvals'
 
 export interface PreviewRequest {
@@ -15,6 +19,7 @@ export interface PreviewRequest {
   selector?: string
   text?: string
   url?: string
+  frameUrl?: string
   deltaY?: number
   tabId?: string
 }
@@ -49,6 +54,45 @@ export class PreviewAutomation {
   private locks = new Set<number>()
   private consoleLevels = new Map<number, number[]>()
   private observedGuests = new Set<number>()
+  private networkLogs = new Map<number, NetworkLog>()
+
+  private observeCdp(guest: WebContents, window: BrowserWindow, ownerKey: string, tabId: string): void {
+    if (!guest.debugger || typeof guest.debugger.attach !== 'function') return
+    const broker = brokerForGuest(guest)
+    const networkLog = new NetworkLog()
+    this.networkLogs.set(guest.id, networkLog)
+    let lease: DebuggerLease | null = null
+    const start = (): void => {
+      if (lease || guest.isDestroyed() || broker.state().devToolsOpen) return
+      try {
+        lease = broker.acquire('observe')
+        void broker.sendCommand('Runtime.enable').catch(() => {})
+        void broker.sendCommand('Log.enable').catch(() => {})
+        void broker.sendCommand('Network.enable', { maxPostDataSize: 0 }).catch(() => {})
+      } catch {
+        lease = null
+      }
+    }
+    const stop = (): void => {
+      if (!lease) return
+      lease.release()
+      lease = null
+    }
+    const offMessage = broker.onMessage((method, params) => {
+      const cRow = consoleRow({ method, params })
+      if (cRow) browserPreviewService.emitToTab(window, ownerKey, tabId, { type: 'console', row: cRow, at: Date.now() })
+      const nRow = networkLog.add({ method, params })
+      if (nRow) browserPreviewService.emitToTab(window, ownerKey, tabId, { type: 'network', row: nRow, at: Date.now() })
+    })
+    guest.on('devtools-opened', stop)
+    guest.on('devtools-closed', start)
+    guest.once('destroyed', () => {
+      offMessage()
+      stop()
+      this.networkLogs.delete(guest.id)
+    })
+    start()
+  }
   private sessionId(workspaceId: string, owner?: ExecutionOwner): string {
     return browserPreviewService.sessionId(owner?.kind === 'thread' ? `thread:${owner.id}` : workspaceId)
   }
@@ -98,9 +142,9 @@ export class PreviewAutomation {
    * Access turned off meanwhile still refuses it; the check after this wait is unchanged.
    */
   private async previewBack(workspaceId: string, owner?: ExecutionOwner, timeoutMs = PREVIEW_BACK_MS): Promise<void> {
-    const until = Date.now() + timeoutMs
+    const deadline = Date.now() + timeoutMs
     // A cancelled execution stops waiting at once (#243 security review L3); verify() then refuses it.
-    while (!browserPreviewService.activeFor(workspaceId, owner) && !executionSignal(owner)?.aborted && Date.now() < until) await new Promise(resolve => setTimeout(resolve, 25))
+    while (!browserPreviewService.activeFor(workspaceId, owner) && !executionSignal(owner)?.aborted && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 25))
   }
   /**
    * The same wait before any action starts, but only while the preview has access and is merely covered: the agent's
@@ -108,11 +152,11 @@ export class PreviewAutomation {
    * off, or no preview, it refuses at once as before.
    */
   private async uncovered(workspaceId: string, owner?: ExecutionOwner): Promise<void> {
-    const until = Date.now() + PREVIEW_BACK_MS
-    while (!browserPreviewService.activeFor(workspaceId, owner) && browserPreviewService.coveredWithAccess(workspaceId, owner) && !executionSignal(owner)?.aborted && Date.now() < until) await new Promise(resolve => setTimeout(resolve, 25))
+    const deadline = Date.now() + PREVIEW_BACK_MS
+    while (!browserPreviewService.activeFor(workspaceId, owner) && browserPreviewService.coveredWithAccess(workspaceId, owner) && !executionSignal(owner)?.aborted && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 25))
   }
   async assertAccess(workspaceId: string, verify: () => void, owner?: ExecutionOwner): Promise<void> { verify(); await this.target(workspaceId, owner); verify() }
-  private async target(workspaceId: string, owner?: ExecutionOwner): Promise<{ guest: WebContents; window: BrowserWindow; external: boolean; tabId: string }> {
+  private async target(workspaceId: string, owner?: ExecutionOwner): Promise<{ guest: WebContents; window: BrowserWindow; external: boolean; tabId: string; ownerKey: string }> {
     const native = browserPreviewService.activeFor(workspaceId, owner)
     if (native) {
       const guest = native.guest
@@ -124,14 +168,15 @@ export class PreviewAutomation {
           if (levels) { levels.push(level); if (levels.length > 100) levels.shift() }
         })
         guest.once('destroyed', () => { this.observedGuests.delete(guest.id); this.consoleLevels.delete(guest.id) })
+        this.observeCdp(guest, native.window, native.ownerKey, native.tabId)
       }
       safePageUrl(guest.getURL())
-      if (!native.external && !['localhost','127.0.0.1','[::1]'].includes(new URL(guest.getURL()).hostname)) throw new Error('External preview access is disabled')
+      if (!native.external && judgePreviewUrl(guest.getURL()).kind !== 'loopback') throw new Error('External preview access is disabled')
       return native
     }
     throw new Error('Open this workspace Web Preview and enable Agent documentation access first')
   }
-  private async exclusive<T>(workspaceId: string, verify: () => void, fn: (guest: WebContents, window: BrowserWindow, external: boolean, tabId: string) => Promise<T>, owner?: ExecutionOwner): Promise<T> {
+  private async exclusive<T>(workspaceId: string, verify: () => void, fn: (guest: WebContents, window: BrowserWindow, external: boolean, tabId: string, ownerKey: string) => Promise<T>, owner?: ExecutionOwner): Promise<T> {
     verify()
     await this.uncovered(workspaceId, owner)
     const target = await this.target(workspaceId, owner)
@@ -139,7 +184,7 @@ export class PreviewAutomation {
     this.locks.add(target.guest.id)
     try {
       verify()
-      const result = await fn(target.guest, target.window, target.external, target.tabId)
+      const result = await fn(target.guest, target.window, target.external, target.tabId, target.ownerKey)
       const current = await this.target(workspaceId, owner)
       if (current.guest.id !== target.guest.id) throw new Error('Preview tab changed during the operation; inspect again')
       verify()
@@ -154,7 +199,7 @@ export class PreviewAutomation {
   }
   async run(workspaceId: string, input: PreviewRequest, verify: () => void, owner?: ExecutionOwner): Promise<unknown> {
     if (['tabs','newTab','selectTab','closeTab'].includes(input.action)) return this.manageTabs(workspaceId, input, verify, owner)
-    return this.exclusive(workspaceId, verify, async (guest, window, external, tabId) => {
+    return this.exclusive(workspaceId, verify, async (guest, window, external, tabId, ownerKey) => {
       const initialUrl = guest.getURL()
       if (!['inspect','status','console','network'].includes(input.action) && (!input.expectedUrl || safePageUrl(initialUrl) !== input.expectedUrl)) throw new Error('Inspect the current page and provide its exact reported URL first')
       if (input.action === 'status') {
@@ -203,9 +248,25 @@ export class PreviewAutomation {
         await this.assertAccess(workspaceId, verify, owner)
         return { sessionId: this.sessionId(workspaceId, owner), tabId, found, url: safePageUrl(guest.getURL()) }
       }
-      // B10: the app's approval modal; the selector or URL the agent sent is the untrusted text, the page the target.
-      const confirmation = await approvalCenter.ask(previewDraft({ requester: previewRequester(owner, workspaceId), action: input.action, page: safePageUrl(initialUrl), text: input.action === 'navigate' ? safePageUrl(input.url ?? '') : input.action === 'fill' ? `${input.selector ?? ''}\n${input.text ?? ''}` : input.selector ?? '' }), executionSignal(owner))
-      if (confirmation.intent !== 'allow') throw new Error('User declined browser action')
+      // A49: the grant decides whether the person is asked. On loopback one answer lasts for the preview session and
+      // origin; elsewhere, and for a navigate leaving loopback, every action asks. The approval names the field or
+      // element and never carries a fill value (HML-712-1); the selector or URL the agent sent is the untrusted text.
+      const previewSessionId = this.sessionId(workspaceId, owner)
+      const allowed = await previewGrants.authorize({
+        previewSessionId, url: initialUrl, action: input.action,
+        ...(input.action === 'navigate' ? { target: input.url ?? '' } : {}),
+        ...(input.frameUrl ? { frameUrl: input.frameUrl } : {}),
+        ...(input.selector ? { label: input.selector.slice(0, 200) } : {}),
+        ask: async request => {
+          const confirmation = await approvalCenter.ask(previewDraft({ requester: previewRequester(owner, workspaceId), action: input.action, page: safePageUrl(initialUrl), text: input.action === 'navigate' ? safePageUrl(request.url) : input.selector ?? '' }), executionSignal(owner))
+          return confirmation.intent === 'allow'
+        }
+      })
+      if (!allowed) {
+        browserPreviewService.emitToTab(window, ownerKey, tabId, { type: 'agent-action', phase: 'after', action: { id: randomUUID(), kind: input.action as 'click' | 'fill' | 'navigate' | 'scroll', label: input.selector?.slice(0, 120) ?? '', at: Date.now() }, result: 'denied' })
+        throw new Error('User declined browser action')
+      }
+      browserPreviewService.emitToTab(window, ownerKey, tabId, { type: 'grant', grant: previewGrants.list(previewSessionId).find(grant => grant.origin === new URL(initialUrl).origin) ?? null })
       verify()
       await this.previewBack(workspaceId, owner)
       const current = await this.target(workspaceId, owner)
@@ -213,12 +274,22 @@ export class PreviewAutomation {
       if (input.action === 'navigate') {
         const url = new URL(input.url ?? '')
         safePageUrl(url.href)
-        if (!external && !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) throw new Error('Enable External preview before navigating outside localhost')
-        try { await bounded(guest.loadURL(url.href), 15000) }
-        catch (error) { guest.stop(); throw error }
+        if (!external && judgePreviewUrl(url.href).kind !== 'loopback') throw new Error('Enable External preview before navigating outside localhost')
+        const step = previewStep({ action: 'navigate', url: url.href })
+        const actionRecord = { id: randomUUID(), kind: step.kind, label: step.label ?? '', ...(step.value !== undefined ? { value: step.value } : {}), at: Date.now() }
+        browserPreviewService.emitToTab(window, ownerKey, tabId, { type: 'agent-action', phase: 'before', action: actionRecord })
+        try {
+          await bounded(guest.loadURL(url.href), 15000)
+          browserPreviewService.emitToTab(window, ownerKey, tabId, { type: 'agent-action', phase: 'after', action: actionRecord, result: 'ok' })
+        } catch (error) {
+          guest.stop()
+          browserPreviewService.emitToTab(window, ownerKey, tabId, { type: 'agent-action', phase: 'after', action: actionRecord, result: 'failed' })
+          throw error
+        }
       } else {
         if (!input.selector || input.selector.length > 1000) throw new Error('Provide a bounded selector')
-        const point = await this.script<{x:number;y:number}>(guest, `(() => {
+        const outlineId = `oxe-action-${randomUUID()}`
+        const point = await this.script<{x:number;y:number;label:string;type:string|null}>(guest, `(() => {
           const matches=document.querySelectorAll(${JSON.stringify(input.selector)}); if(matches.length!==1) throw new Error('Selector must identify exactly one element')
           const e=matches[0]; if(e.disabled || e.type==='password' || e.type==='file') throw new Error('Unsupported sensitive or disabled input; complete it manually')
           e.scrollIntoView({block:'center',inline:'center'}); const r=e.getBoundingClientRect();
@@ -226,23 +297,44 @@ export class PreviewAutomation {
           const x=Math.round(r.left+r.width/2),y=Math.round(r.top+r.height/2)
           if(!e.contains(document.elementFromPoint(x,y))) throw new Error('Element is obscured')
           ${input.action === 'fill' ? "if(!['INPUT','TEXTAREA'].includes(e.tagName)) throw new Error('Only text inputs are supported'); e.focus(); e.select();" : ''}
-          return {x,y}
+          const label=(e.getAttribute('aria-label') || (['input','textarea','select'].includes(e.localName) ? e.getAttribute('placeholder') : e.textContent) || e.getAttribute('name') || e.id || '').trim().slice(0,120)
+          const host=document.createElement('div'); host.dataset.oxeActionOutline=${JSON.stringify(outlineId)};
+          Object.assign(host.style,{position:'fixed',inset:'0',pointerEvents:'none',zIndex:'2147483647'});
+          const root=host.attachShadow({mode:'closed'});
+          const ring=document.createElement('div');
+          Object.assign(ring.style,{position:'fixed',left:(r.left-2)+'px',top:(r.top-2)+'px',width:(r.width+4)+'px',height:(r.height+4)+'px',border:'2px solid #3b82f6',borderRadius:'4px',boxSizing:'border-box',pointerEvents:'none'});
+          root.appendChild(ring); document.documentElement.appendChild(host);
+          return {x,y,label,type:e.getAttribute('type')}
         })()`)
-        if (input.action === 'scroll') {
-          const deltaY = input.deltaY ?? 600
-          if (!Number.isFinite(deltaY) || Math.abs(deltaY) > 2000 || deltaY === 0) throw new Error('Scroll delta must be between -2000 and 2000')
-          await this.assertAccess(workspaceId, verify, owner)
-          guest.sendInputEvent({ type: 'mouseWheel', ...point, deltaX: 0, deltaY })
-        } else if (input.action === 'fill') {
-          if (typeof input.text !== 'string' || input.text.length > 4000) throw new Error('Text exceeds input limit')
-          await this.assertAccess(workspaceId, verify, owner)
-          await guest.insertText(input.text)
-        } else if (input.action === 'click') {
-          await this.assertAccess(workspaceId, verify, owner)
-          window.focus(); guest.focus()
-          guest.sendInputEvent({ type: 'mouseDown', ...point, button: 'left', clickCount: 1 })
-          guest.sendInputEvent({ type: 'mouseUp', ...point, button: 'left', clickCount: 1 })
-        } else throw new Error('Unsupported action')
+        const actionKind = input.action as 'click' | 'fill' | 'scroll'
+        const step = previewStep({ action: actionKind, target: { label: point.label, type: point.type }, text: input.text })
+        const actionRecord = { id: randomUUID(), kind: step.kind, label: step.label ?? '', ...(step.value !== undefined ? { value: step.value } : {}), at: Date.now() }
+        browserPreviewService.emitToTab(window, ownerKey, tabId, { type: 'agent-action', phase: 'before', action: actionRecord })
+        try {
+          if (input.action === 'scroll') {
+            const deltaY = input.deltaY ?? 600
+            if (!Number.isFinite(deltaY) || Math.abs(deltaY) > 2000 || deltaY === 0) throw new Error('Scroll delta must be between -2000 and 2000')
+            await this.assertAccess(workspaceId, verify, owner)
+            guest.sendInputEvent({ type: 'mouseWheel', x: point.x, y: point.y, deltaX: 0, deltaY })
+          } else if (input.action === 'fill') {
+            if (typeof input.text !== 'string' || input.text.length > 4000) throw new Error('Text exceeds input limit')
+            await this.assertAccess(workspaceId, verify, owner)
+            await guest.insertText(input.text)
+          } else if (input.action === 'click') {
+            await this.assertAccess(workspaceId, verify, owner)
+            window.focus(); guest.focus()
+            guest.sendInputEvent({ type: 'mouseDown', x: point.x, y: point.y, button: 'left', clickCount: 1 })
+            guest.sendInputEvent({ type: 'mouseUp', x: point.x, y: point.y, button: 'left', clickCount: 1 })
+          } else throw new Error('Unsupported action')
+          browserPreviewService.emitToTab(window, ownerKey, tabId, { type: 'agent-action', phase: 'after', action: actionRecord, result: 'ok' })
+        } catch (error) {
+          browserPreviewService.emitToTab(window, ownerKey, tabId, { type: 'agent-action', phase: 'after', action: actionRecord, result: 'failed' })
+          throw error
+        } finally {
+          if (!guest.isDestroyed()) {
+            await this.script(guest, `document.querySelectorAll('[data-oxe-action-outline="${outlineId}"]').forEach(e=>e.remove())`).catch(() => {})
+          }
+        }
       }
       return { sessionId: this.sessionId(workspaceId, owner), tabId, dispatched: true, url: safePageUrl(guest.getURL()), verificationRequired: true, next: 'Inspect or wait for the expected element; dispatch does not prove business success.' }
     }, owner)
@@ -250,11 +342,12 @@ export class PreviewAutomation {
   async capture(workspaceId: string, options: ScreenshotOptions, verify: () => void, owner?: ExecutionOwner): Promise<CapturedPage> {
     return this.exclusive(workspaceId, verify, async guest => {
       if (guest.isLoading()) throw new Error('Wait for preview loading to complete')
-      if (guest.debugger.isAttached()) throw new Error('Close preview DevTools before capturing')
+      const broker = brokerForGuest(guest)
+      if (broker.state().devToolsOpen) throw new MainMessageError(mainMessage('preview.capture.devtools', {}), "Close the browser's DevTools to let the agent capture.")
       const url = guest.getURL(), marker = `oxe-capture-${randomUUID()}`
       const redact = options.redact ?? [], highlight = options.highlight ?? []
       if (![redact, highlight].every(items => Array.isArray(items) && items.length <= 30 && items.every(s => typeof s === 'string' && s.length <= 1000))) throw new Error('Invalid screenshot selectors')
-      guest.debugger.attach('1.3')
+      const lease = broker.acquire('capture')
       try {
         const info = await this.script<{x:number;y:number;width:number;height:number;redactionCount:number}>(guest, `(() => {
           const marker=${JSON.stringify(marker)}, o=${JSON.stringify(options)}
@@ -274,14 +367,14 @@ export class PreviewAutomation {
         if (info.x < viewport.x || info.y < viewport.y || info.x + info.width > viewport.x + viewport.width || info.y + info.height > viewport.y + viewport.height) throw new Error('Preview capture must fit the visible viewport; scroll or split the step')
         if (info.width < 1 || info.height < 1 || info.width > 4096 || info.height > 16000 || info.width * info.height > 24000000) throw new Error('Capture too large; use viewport or element mode')
         await this.script(guest, 'new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
-        const { data } = await bounded(guest.debugger.sendCommand('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false, clip: { x:info.x,y:info.y,width:info.width,height:info.height,scale:1 } }), 15000) as {data:string}
+        const { data } = await bounded(broker.capture({ format: 'png', fromSurface: true, captureBeyondViewport: false, clip: { x:info.x,y:info.y,width:info.width,height:info.height,scale:1 } }), 15000)
         await this.assertAccess(workspaceId, verify, owner)
         if (guest.getURL() !== url) throw new Error('Page navigated during capture; retry after inspecting')
         return { png: Buffer.from(data,'base64'), pageUrl: safePageUrl(url), width:info.width,height:info.height,redactionCount:info.redactionCount }
       } finally {
+        lease.release()
         if (!guest.isDestroyed()) {
           await this.script(guest, `document.querySelectorAll('[data-oxe-capture="${marker}"]').forEach(e=>e.remove())`).catch(() => {})
-          if (guest.debugger.isAttached()) guest.debugger.detach()
         }
       }
     }, owner)

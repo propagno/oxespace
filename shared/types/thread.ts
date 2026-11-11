@@ -127,6 +127,17 @@ export interface ThreadRequestQuestion {
 }
 /** What OXESpace observed, not a claim that the provider completed the tool. */
 export type ThreadRequestResolution = 'answered' | 'approved' | 'declined' | 'cancelled-by-user' | 'turn-completed' | 'turn-failed' | 'interrupted' | 'connection-lost' | 'unknown'
+export interface ThreadPreviewApproval {
+  origin: string
+  scope: 'session' | 'action'
+  agentName?: string
+  action: {
+    kind: 'click' | 'fill' | 'navigate' | 'scroll'
+    label: string
+    target?: string
+  }
+}
+
 export interface ThreadRequest {
   id: string
   nativeId: string
@@ -156,6 +167,7 @@ export interface ThreadRequest {
   paths?: string[]
   /** What OXESpace's permission rules say about this approval. */
   policy?: ThreadRequestPolicy
+  preview?: ThreadPreviewApproval
 }
 export interface ThreadMcpServerStatus { name: string; status: 'connected' | 'failed' | 'needs-auth' | 'pending' | 'disabled' | 'unknown' }
 /** One change block of a turn's file, undoable on its own; `id` pins the exact change. */

@@ -13,7 +13,8 @@
     "menu": "Panels",
     "more": "More panels",
     "needsWorkspace": "Open a workspace to use its panels",
-    "httpCalls": "HTTP calls"
+    "httpCalls": "HTTP calls",
+    "android": "Android"
   },
   "tools": {
     "team": {
@@ -62,6 +63,11 @@
     "review": {
       "label": "Changes",
       "detail": "Branch and uncommitted changes"
+    },
+    "android": {
+      "label": "Android",
+      "detail": "Live mirror of a connected phone or emulator",
+      "keywords": "android, adb, emulator, phone, mirror"
     },
     "httpCalls": {
       "label": "HTTP calls",
@@ -2441,5 +2447,77 @@
     "emptyFiltered": "Nothing matches",
     "clearFilters": "Clear filters",
     "error": "Couldn't read the HTTP log"
+  },
+  "agentBrowser": {
+    "defaultAgent": "Claude",
+    "usingPage": "{{agent}} is using this page",
+    "scopeSession": "This session",
+    "scopeSessionHint": "Allowed for this session on localhost",
+    "scopeAction": "Asks each time",
+    "scopeActionHint": "Each action asks you first",
+    "end": "End",
+    "revokedToast": "{{agent}} can no longer use this page",
+    "stepsLabel": "What the agent did",
+    "stepOpened": "Opened {{target}}",
+    "stepClicked": "Clicked {{label}}",
+    "stepFilled": "{{label}}: {{value}}",
+    "stepFilledNoValue": "Filled {{label}}",
+    "stepScrolled": "Scrolled {{label}}",
+    "stepScrolledPlain": "Scrolled",
+    "console": "Console",
+    "network": "Network",
+    "emptyLog": "Nothing logged yet.",
+    "ms": "{{ms}} ms",
+    "devToolsOpen": "Close the browser's DevTools to let the agent capture.",
+    "downTitle": "{{url}} isn't answering",
+    "downHint": "Start the dev server, then reload.",
+    "runDev": "Run {{script}}",
+    "noneTitle": "No page open",
+    "noneHint": "Type an address, or run your dev server."
+  },
+  "deviceEmulation": {
+    "menuLabel": "Device emulation",
+    "desktop": "Desktop",
+    "menuHintTouch": " · {{width}} × {{height}} · touch",
+    "menuHintPlain": " · {{width}} × {{height}}",
+    "activeLabel": "{{name}} · {{width}} × {{height}}",
+    "rotate": "Rotate"
+  },
+  "android": {
+    "deviceMenu": "Android device",
+    "kindEmulator": "Emulator",
+    "kindUsb": "USB",
+    "kindWifi": "Wi-Fi",
+    "deviceWithApi": "{{name}} · {{kind}} · API {{api}}",
+    "devicePlain": "{{name}} · {{kind}}",
+    "live": "Live",
+    "connecting": "Connecting to {{name}}…",
+    "screenLive": "{{name}} screen, live",
+    "rotate": "Rotate",
+    "screenshot": "Screenshot",
+    "savedScreenshot": "Saved {{name}}",
+    "back": "Back",
+    "home": "Home",
+    "overview": "Overview",
+    "agentsCanSee": "Agents can see",
+    "agentsCanSeeOnHint": "Agents can take screenshots of this device",
+    "adbMissingTitle": "Android tools not found",
+    "adbMissingDetail": "Install Android platform-tools (adb) and add it to your PATH.",
+    "adbInstallHint": "Install Android Studio or Android SDK Platform-Tools so adb is in your PATH.",
+    "howToInstall": "How to install",
+    "noDeviceTitle": "No Android device",
+    "noDeviceDetail": "Plug in a phone with USB debugging on, or start an emulator.",
+    "startEmulatorNamed": "Start the {{name}} emulator",
+    "lostTitle": "Lost {{name}}",
+    "lostDetail": "The cable was unplugged or USB debugging turned off.",
+    "unauthorizedTitle": "USB debugging wasn't allowed",
+    "unauthorizedDetail": "Unlock the phone, reconnect the cable, and tap Allow when prompted.",
+    "authorizingTitle": "Waiting for {{name}}",
+    "authorizingDetail": "Tap Allow on the phone's screen.",
+    "noPermissionsTitle": "Can't access {{name}}",
+    "noPermissionsDetail": "Linux needs a udev rule for this phone. Add it, then reconnect.",
+    "udevHint": "Add a /etc/udev/rules.d/51-android.rules entry for your vendor ID and reload udev.",
+    "howToSetUp": "How to set it up",
+    "reconnect": "Reconnect"
   }
 }

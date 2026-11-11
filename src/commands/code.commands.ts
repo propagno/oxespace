@@ -29,7 +29,7 @@ export interface CodeCommandContext {
 /** The palette group of each workspace tool (docs/design/commands.md). */
 const TOOL_CATEGORY: Record<ToolId, CommandCategory> = {
   integration: 'Workspace', github: 'Git', worktrees: 'Git', scripts: 'View', search: 'View', 'web-preview': 'View', background: 'View',
-  slash: 'Terminal', mcp: 'Agents', editor: 'View', review: 'View', 'http-calls': 'View'
+  slash: 'Terminal', mcp: 'Agents', editor: 'View', review: 'View', 'http-calls': 'View', android: 'View'
 }
 
 const updateSettings = (input: Parameters<ReturnType<typeof useWorkspaceStore.getState>['updateSettings']>[0]): void => {
@@ -45,7 +45,7 @@ export function buildCodeCommands(ctx: CodeCommandContext): ContributedCommand[]
   // Workspace commands act on Code: from Thread or OxeQuery they show Code first, so their effect is visible.
   const away = ctx.applicationView !== 'code'
   const inCode = (run: () => void) => (): void => { if (away) ctx.showCode?.(); run() }
-  const CODE_TOOLS: ToolId[] = ['integration', 'github', 'worktrees', 'scripts', 'search', 'web-preview', 'background', 'slash', 'editor', 'review', 'http-calls']
+  const CODE_TOOLS: ToolId[] = ['integration', 'github', 'worktrees', 'scripts', 'search', 'web-preview', 'background', 'slash', 'editor', 'review', 'http-calls', 'android']
   const toolRun = (id: ToolId): (() => void) => {
     const run = ctx.toolHandlers[id] ?? (() => undefined)
     if (!CODE_TOOLS.includes(id) || !away) return run
