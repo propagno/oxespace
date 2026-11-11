@@ -1974,5 +1974,18 @@
       "github": "Merging happens on GitHub after review",
       "azure": "Complete happens in Azure DevOps once the policies pass"
     }
+  },
+  "previewApproval": {
+    "defaultAgent": "The agent",
+    "title": "{{agent}} wants to use the browser",
+    "click": "Click \"{{label}}\" on {{origin}}",
+    "fill": "Fill \"{{label}}\" on {{origin}}",
+    "navigate": "Open {{url}}",
+    "scroll": "Scroll on {{origin}}",
+    "scopeSession": "Allows this preview session on {{origin}}, until you end it.",
+    "scopeAction": "Allows only this action.",
+    "leavingLocalhost": "Leaving localhost always asks.",
+    "allowSession": "Allow for this session",
+    "allowOnce": "Allow once"
   }
 }

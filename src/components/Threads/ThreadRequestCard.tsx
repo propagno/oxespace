@@ -6,11 +6,20 @@ import { threadApprovalRisk } from './threadApprovalRisk'
 import { useAllowHold } from '../Approvals/useAllowHold'
 import { useTranslation } from 'react-i18next'
 import { elicitationContent, elicitationDefaults, elicitationFields, validateElicitationField, type ElicitationValue } from '../../../shared/elicitationForm'
-import { cx, ErrorState, FieldError, Select } from '../../ui'
+import { Button, cx, ErrorState, FieldError, Select } from '../../ui'
 import { i18n } from '../../i18n'
 import styles from './ThreadRequestCard.module.css'
 import { humanizeError } from '../../utils/humanizeError'
 import { formatDateTime } from '../../utils/formatTime'
+
+function isLoopbackOrigin(origin: string): boolean {
+  try {
+    const host = new URL(origin).hostname.toLowerCase()
+    return host === 'localhost' || host.endsWith('.localhost') || host === '127.0.0.1' || host === '[::1]' || host === '::1'
+  } catch {
+    return false
+  }
+}
 
 // In-memory only: preserve drafts across view remounts, never persist secrets.
 const drafts = new Map<string, Record<string, string[]>>()
@@ -57,7 +66,9 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, on
   const [form, setForm] = useState<Record<string, ElicitationValue>>(() => elicitationDefaults(elicitation))
   const [showProblems, setShowProblems] = useState(false)
   const [error, setError] = useState('')
-  const requestLabel = request.kind === 'approval' && request.nativeMethod === 'can_use_tool:ExitPlanMode' ? t('request.reviewPlan')
+  const preview = request.kind === 'approval' ? request.preview : undefined
+  const requestLabel = preview ? t('previewApproval.title', { agent: preview.agentName || t('previewApproval.defaultAgent') })
+    : request.kind === 'approval' && request.nativeMethod === 'can_use_tool:ExitPlanMode' ? t('request.reviewPlan')
     : request.kind === 'approval' && request.nativeMethod?.startsWith('can_use_tool:mcp__') ? t('request.mcpApproval') : request.title
   const questionsAnswered = Boolean(request.questions?.length) && request.questions!.every(question => answers[question.id]?.some(value => value.trim()))
   const submit = async (response: ThreadRequestResponse) => {
@@ -109,7 +120,15 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, on
     {guarded && <p className={styles.context} data-testid="approval-guarded-hint">{t('request.guardedHint')}</p>}
     {request.kind === 'elicitation' && <p className={styles.context}>{t('request.elicitation')}</p>}
     {request.kind === 'approval' && request.nativeMethod?.startsWith('can_use_tool:mcp__') && <p className={styles.context}>{t('request.mcpContext')}</p>}
-    {request.kind === 'approval' && <ThreadApprovalDetails command={approvalCommand} cwd={request.cwd} reason={request.reason} fileChanges={fileChanges} toolName={request.nativeMethod?.startsWith('can_use_tool:') ? request.nativeMethod.slice('can_use_tool:'.length) : undefined} />}
+    {preview && <div className={styles.context}>
+      <p>{preview.action.kind === 'click' ? t('previewApproval.click', { label: preview.action.label, origin: preview.origin })
+        : preview.action.kind === 'fill' ? t('previewApproval.fill', { label: preview.action.label, origin: preview.origin })
+        : preview.action.kind === 'navigate' ? t('previewApproval.navigate', { url: preview.action.target ?? preview.origin })
+        : t('previewApproval.scroll', { origin: preview.origin })}</p>
+      <p>{preview.scope === 'session' ? t('previewApproval.scopeSession', { origin: preview.origin }) : t('previewApproval.scopeAction')}</p>
+      {preview.scope === 'action' && preview.action.kind === 'navigate' && isLoopbackOrigin(preview.origin) && <p>{t('previewApproval.leavingLocalhost')}</p>}
+    </div>}
+    {request.kind === 'approval' && !preview && <ThreadApprovalDetails command={approvalCommand} cwd={request.cwd} reason={request.reason} fileChanges={fileChanges} toolName={request.nativeMethod?.startsWith('can_use_tool:') ? request.nativeMethod.slice('can_use_tool:'.length) : undefined} />}
     {request.kind === 'approval' && policy?.decision === 'ask' && policy.reasons.length > 0 && <div className={cx('thread-request-policy', styles.policy, policy.risk && cx('is-high-risk', styles.highRisk))}>
       {policy.risk ? <strong>{t('request.highRisk')}</strong> : policy.level === 'red' ? <strong>{t('request.destructive')}</strong> : policy.level === 'orange' ? <strong>{t('request.changes')}</strong> : null}
       <ul>{policy.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul>
@@ -153,11 +172,16 @@ export function ThreadRequestCard({ request, disabled, turnResult, onRespond, on
         void submit({ decision: 'accept', content })
       }}>{t('request.continue')}</button>}
       {request.kind === 'permissions' && <><button type="button" disabled={disabled} onClick={() => void submit({ decision: 'accept', permissions: request.requestedPermissions ?? {}, scope: 'turn' })}>{t('request.allowTurn')}</button><button type="button" disabled={disabled} onClick={() => void submit({ decision: 'accept', permissions: request.requestedPermissions ?? {}, scope: 'session' })}>{t('request.allowSession')}</button></>}
+      {preview ? <>
+        <Button variant="secondary" autoFocus className={cx('thread-request-decline', styles.decline)} disabled={disabled} onClick={() => void submit({ decision: 'decline' })}><X size={14} />{t('request.deny')}</Button>
+        <Button variant="primary" disabled={disabled} onClick={() => void submit({ decision: 'accept' })}>{preview.scope === 'session' ? t('previewApproval.allowSession') : t('previewApproval.allowOnce')}</Button>
+      </> : <>
       {request.kind === 'approval' && critical && <small role="status" data-testid="approval-hold">{holdLeft > 0 ? t('request.holdWaiting', { seconds: Math.ceil(holdLeft / 1000) }) : t('request.holdReady')}</small>}
       {request.kind === 'approval' && (request.availableDecisions ?? ['accept', 'decline']).filter(decision => decision === 'accept' || (decision === 'acceptForSession' && risk === 'low' && !guarded)).map(decision => <button type="button" key={decision} data-risk={risk} data-guarded={guarded ? 'true' : undefined} className={risk !== 'low' || guarded ? styles.quiet : undefined} disabled={disabled || holdLeft > 0} onKeyDown={guardEnter} onClick={() => { if (holdLeft <= 0) void submit({ decision }) }}>{decision === 'acceptForSession' ? t('request.allowSession') : t('request.approve')}</button>)}
       {/* MCP tool suggestions are alternatives (the tool, or its whole server); the others must all be saved together. */}
       {request.kind === 'approval' && remember && (remember.every(item => item.kind === 'tool') ? remember.map(item => [item]) : [remember]).map(group => <button key={group.map(item => item.pattern).join(',')} type="button" className={cx('thread-request-remember', styles.remember)} disabled={disabled} title={t('request.rememberTitle', { patterns: group.map(item => item.pattern).join(', ') })} onClick={() => void rememberAndApprove(group)}>{t('request.always', { labels: group.map(item => item.label).join(', ') })}</button>)}
       <button type="button" className={cx('thread-request-decline', styles.decline)} disabled={disabled} onClick={() => void submit({ decision: request.availableDecisions?.includes('cancel') ? 'cancel' : 'decline' })}><X size={14} />{request.availableDecisions?.includes('cancel') ? t('request.cancel') : request.kind === 'approval' || request.kind === 'permissions' ? t('request.deny') : t('request.decline')}</button>
+      </>}
     </footer>
   </section>
 }

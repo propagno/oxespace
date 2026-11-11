@@ -2441,5 +2441,32 @@
     "emptyFiltered": "Nothing matches",
     "clearFilters": "Clear filters",
     "error": "Couldn't read the HTTP log"
+  },
+  "agentBrowser": {
+    "defaultAgent": "Claude",
+    "usingPage": "{{agent}} is using this page",
+    "scopeSession": "This session",
+    "scopeSessionHint": "Allowed for this session on localhost",
+    "scopeAction": "Asks each time",
+    "scopeActionHint": "Each action asks you first",
+    "end": "End",
+    "revokedToast": "{{agent}} can no longer use this page",
+    "stepsLabel": "What the agent did",
+    "stepOpened": "Opened {{target}}",
+    "stepClicked": "Clicked {{label}}",
+    "stepFilled": "{{label}}: {{value}}",
+    "stepFilledNoValue": "Filled {{label}}",
+    "stepScrolled": "Scrolled {{label}}",
+    "stepScrolledPlain": "Scrolled",
+    "console": "Console",
+    "network": "Network",
+    "emptyLog": "Nothing logged yet.",
+    "ms": "{{ms}} ms",
+    "devToolsOpen": "Close the browser's DevTools to let the agent capture.",
+    "downTitle": "{{url}} isn't answering",
+    "downHint": "Start the dev server, then reload.",
+    "runDev": "Run {{script}}",
+    "noneTitle": "No page open",
+    "noneHint": "Type an address, or run your dev server."
   }
 }

@@ -2032,5 +2032,18 @@
       "github": "O merge acontece no GitHub depois da revisão",
       "azure": "A conclusão acontece no Azure DevOps quando as políticas passam"
     }
+  },
+  "previewApproval": {
+    "defaultAgent": "O agente",
+    "title": "{{agent}} quer usar o navegador",
+    "click": "Clicar em \"{{label}}\" em {{origin}}",
+    "fill": "Preencher \"{{label}}\" em {{origin}}",
+    "navigate": "Abrir {{url}}",
+    "scroll": "Rolar em {{origin}}",
+    "scopeSession": "Libera esta sessão de prévia em {{origin}}, até você encerrar.",
+    "scopeAction": "Libera só esta ação.",
+    "leavingLocalhost": "Sair do localhost sempre pergunta.",
+    "allowSession": "Permitir nesta sessão",
+    "allowOnce": "Permitir uma vez"
   }
 }
