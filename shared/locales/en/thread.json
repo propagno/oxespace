@@ -758,7 +758,37 @@
     "labelTimed_one": "Completed {{count}} step in {{duration}}",
     "labelTimed_other": "Completed {{count}} steps in {{duration}}",
     "hide": "Hide the steps of this turn",
-    "show": "Show every step of this turn"
+    "show": "Show every step of this turn",
+    "steps_one": "{{count}} step",
+    "steps_other": "{{count}} steps",
+    "stepsWithParts_one": "{{count}} step: {{parts}}",
+    "stepsWithParts_other": "{{count}} steps: {{parts}}",
+    "read_one": "read {{count}} thing",
+    "read_other": "read {{count}} things",
+    "edited_one": "edited {{count}} file",
+    "edited_other": "edited {{count}} files",
+    "ran_one": "ran {{count}} command",
+    "ran_other": "ran {{count}} commands",
+    "queries_one": "ran {{count}} query",
+    "queries_other": "ran {{count}} queries",
+    "http_one": "made {{count}} HTTP call",
+    "http_other": "made {{count}} HTTP calls",
+    "containers_one": "started {{count}} container",
+    "containers_other": "started {{count}} containers",
+    "failed_one": "{{count}} failed",
+    "failed_other": "{{count}} failed",
+    "fixed_one": "{{count}} error, fixed",
+    "fixed_other": "{{count}} errors, fixed",
+    "kinds": {
+      "read": "Read",
+      "edit": "Edit",
+      "run": "Run",
+      "query": "Query",
+      "http": "HTTP",
+      "container": "Container",
+      "other": "Step"
+    },
+    "truncated": "Cut"
   },
   "grid": {
     "split": "Side-by-side conversations",
@@ -2033,5 +2063,16 @@
     "export": "Export",
     "archive": "Archive",
     "delete": "Delete…"
+  },
+  "composerModel": {
+    "idle": "Ask, or type / for commands",
+    "steer": "Steer: the agent reads this after its current step",
+    "queued": "Queued until the current turn ends",
+    "needsYou": "Answer, or tell the agent what to do instead",
+    "appliesNext": "Applies to the next message",
+    "queuedPrefix": "Queued · {{text}}",
+    "steerWithThis": "Steer with this",
+    "sendNow": "Send now",
+    "removeQueued": "Remove queued message"
   }
 }
