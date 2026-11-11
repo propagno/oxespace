@@ -502,10 +502,43 @@
       "readyDetail": "Reinicie para instalar a atualização."
     },
     "devBuild": "As atualizações só funcionam em versões instaladas",
+    "chip": {
+      "available": "Atualizar para {{version}}",
+      "downloading": "Baixando {{version}}… {{percent}}%",
+      "downloaded": "Reinicie para atualizar",
+      "restartNow": "Reiniciar agora",
+      "later": "Depois",
+      "error": "Não foi possível baixar a atualização. Tente depois ou baixe na página de versões.",
+      "openReleases": "Abrir página de versões"
+    },
+    "whatsNew": {
+      "title": "Novidades da 1.5",
+      "open": "Abrir",
+      "openTarget": "Abrir {{title}}",
+      "rows": {
+        "browser": {
+          "title": "Navegador dos agentes",
+          "body": "Veja o agente guiar seu app no computador ou no tamanho de celular."
+        },
+        "approvals": {
+          "title": "Aprovações com impacto",
+          "body": "Aprove vendo o impacto à sua frente; passos sem volta exigem segurar."
+        },
+        "httpCalls": {
+          "title": "Chamadas HTTP",
+          "body": "Cada chamada HTTP feita pelos agentes, com segredos ocultos."
+        },
+        "timeTravel": {
+          "title": "Viagem no tempo",
+          "body": "Volte a qualquer checkpoint ou ramifique a partir dele."
+        }
+      }
+    },
     "removedFeatures": {
       "info": "O OXESpace 1.5 removeu alguns recursos. Seus dados foram salvos.",
       "warning": "O OXESpace 1.5 removeu alguns recursos. Seus dados ainda não foram salvos.",
       "seeWhatChanged": "Ver o que mudou",
+      "seeWhatsNew": "Ver as novidades",
       "dismiss": "Dispensar",
       "tryNow": "Tentar agora",
       "dialogTitle": "O que mudou na 1.5",
@@ -594,6 +627,7 @@
       },
       "help": {
         "shortcuts": "Mostrar os atalhos de teclado",
+        "whats-new": "Mostrar as novidades da 1.5",
         "report-problem": "Relatar um problema…",
         "about": "Sobre o OXESpace",
         "approvals": "Mostrar histórico de aprovações"
@@ -849,6 +883,7 @@
     "links": "Links",
     "link": {
       "repository": "Código-fonte",
+      "whatsNew": "Novidades da 1.5",
       "releaseNotes": "Notas da versão",
       "licenseText": "Licença",
       "notices": "Licenças de terceiros"

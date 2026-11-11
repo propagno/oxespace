@@ -1,4 +1,5 @@
-import { Activity, ArrowUpCircle, Bell, Bot, Bug, Info, Keyboard, Palette, Settings2, ShieldCheck, Smartphone, SquareTerminal, Wrench, type LucideIcon } from 'lucide-react'
+import { Activity, ArrowUpCircle, Bell, Bot, Bug, Info, Keyboard, Palette, Settings2, ShieldCheck, Smartphone, Sparkles, SquareTerminal, Wrench, type LucideIcon } from 'lucide-react'
+import { useWhatsNew } from '../components/Updates/whatsNew'
 import { OPEN_ABOUT_EVENT } from '../components/About/AboutHost'
 import { OPEN_REPORT_PROBLEM_EVENT } from '../components/Diagnostics/ReportProblemHost'
 import { OPEN_SHORTCUT_GUIDE_EVENT } from '../components/Keyboard/ShortcutGuideHost'
@@ -31,6 +32,8 @@ registerTranslated(() => registerCommands('settings', [
     ...commandText('Settings', `settings.${page}`, { keywords: ['settings', 'preferences', i18n.t(`center.pages.${page}.label`, { ns: 'settings' }), ...(keywords ?? [])] }),
     run: () => useUIStore.getState().openSettingsPage(page)
   })),
+  { id: 'help.whats-new', ...commandText('Help', 'help.whats-new', { keywords: ['whats new', 'release', '1.5', 'features', 'novidades'] }), icon: Sparkles,
+    run: () => { requestAnimationFrame(() => useWhatsNew.getState().show()) } },
   { id: 'help.shortcuts', ...commandText('Help', 'help.shortcuts', { keywords: ['keys', 'hotkeys', 'cheatsheet'] }), icon: Keyboard, shortcut: 'help.shortcuts',
     // After the palette closes, so the guide gets focus.
     run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_SHORTCUT_GUIDE_EVENT))) } },

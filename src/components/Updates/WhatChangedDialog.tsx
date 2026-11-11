@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, type ReactElement, type ReactNode } f
 import { useTranslation } from 'react-i18next'
 import { Dialog } from '../../ui/Overlay'
 import { Button } from '../../ui/Button'
+import { useWhatsNew } from './whatsNew'
 import type { DataExportState, RemovedFeatureId } from '../../../shared/types/ipc'
 
 export interface WhatChangedDialogProps {
@@ -175,6 +176,7 @@ export function WhatChangedDialog({ onClose, returnFocusTo, initialState }: What
   })
 
   const basename = state?.file ? state.file.split(/[\\/]/).pop() ?? state.file : null
+  const handleSeeWhatsNew = (): void => { void handleClose(); useWhatsNew.getState().show() }
 
   let footerContent: ReactNode
   if (state?.error) {
@@ -184,6 +186,9 @@ export function WhatChangedDialog({ onClose, returnFocusTo, initialState }: What
           {`${t('updates.removedFeatures.errorPrefix')} ${state.error}. ${t('updates.removedFeatures.errorSuffix')}`}
         </p>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+          <Button variant="ghost" size="sm" onClick={handleSeeWhatsNew}>
+            {t('updates.removedFeatures.seeWhatsNew')}
+          </Button>
           <Button variant="secondary" size="sm" onClick={handleTryNow}>
             {t('updates.removedFeatures.tryNow')}
           </Button>
@@ -210,6 +215,9 @@ export function WhatChangedDialog({ onClose, returnFocusTo, initialState }: What
           {t('updates.removedFeatures.secretsNote')}
         </p>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+          <Button variant="ghost" size="sm" onClick={handleSeeWhatsNew}>
+            {t('updates.removedFeatures.seeWhatsNew')}
+          </Button>
           <Button variant="secondary" size="sm" onClick={handleOpen}>
             {t('updates.removedFeatures.open')}
           </Button>
@@ -227,6 +235,9 @@ export function WhatChangedDialog({ onClose, returnFocusTo, initialState }: What
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
         <p>{t('updates.removedFeatures.nothingNeededSaving')}</p>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+          <Button variant="ghost" size="sm" onClick={handleSeeWhatsNew}>
+            {t('updates.removedFeatures.seeWhatsNew')}
+          </Button>
           <Button variant="primary" size="sm" onClick={handleClose}>
             {t('updates.removedFeatures.close')}
           </Button>
