@@ -1,3 +1,5 @@
+// v2 — F8 CR: Agora is the start screen. A remembered post view now lands on Agora (DESIGN 1.5.0-f8-design.md U8.1,
+// which supersedes F2's OxeCode fallback), checked through initialAppView instead of App.tsx's text. Everything else is v1.
 // Frozen acceptance test for 1.5.0 R0b, renderer side (OXE program, phase F2, task FE-R0b). Written by the planner; the
 // executor must not edit it. Spec: .claude/roadmap-1.4/team/plans/f2-removals-FRONTEND.json (FE-R0b); copy by DESIGN.
 // Contract:
@@ -149,13 +151,16 @@ describe('R0b · what left in 1.5.0: the band, its dialog and Settings › Data'
     expect(screen.queryByText(/OXESpace 1\.5 removed some features\./)).toBeNull()
   })
 
-  test('a remembered post view opens OxeCode and shows the band once', async () => {
+  test("a remembered post or pods view opens OxeChat ('thread') and shows the band once", async () => {
     const { lazyView } = await import('../../../src/lib/idlePreload')
     expect(lazyView('post')).toBeNull()
     expect(lazyView('pods')).toBeNull()
     const { APP_VIEWS } = await import('../../../src/keyboard/keybindings')
     expect(APP_VIEWS as readonly string[]).not.toContain('post')
-    expect(read('src/App.tsx')).toMatch(/useState<AppView>\('code'\)/)
+    // CR-F8-Triad (10/11): cold start and removed 'post'/'pods' views open OxeChat ('thread').
+    const { initialAppView } = await load<{ initialAppView: (remembered: string | null) => string }>('src/app/startView')
+    expect(initialAppView('post')).toBe('thread')
+    expect(initialAppView('pods')).toBe('thread')
     mockMain({ removed: had('oxepost') })
     await renderBand()
     expect(await band()).toBeInTheDocument()
