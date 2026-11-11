@@ -14,6 +14,7 @@ import { APPROVAL_AGENT_TEXT_MAX, type ApprovalRequester, type ApprovalRisk } fr
 import { ownerFromLabel, requesterFor } from '../approvals/requester'
 import { refusalCode } from '../agent-actions/agent-actions'
 import { AgentToolError } from './agent-tool-error'
+import { previewDatabaseWrite, type DatabaseWritePreview, type PreviewDriver } from '../approvals/db-write-preview'
 
 export { AgentToolError }
 
@@ -143,8 +144,8 @@ export class AgentGateway {
     try { return await task } finally { this.busy.delete(connectionId) }
   }
 
-  private async withTimeout<T>(connection: ResolvedConnection, run: () => Promise<T>): Promise<T> {
-    const limit = this.deps.timeoutMs ?? AGENT_TIMEOUT_MS
+  private async withTimeout<T>(connection: ResolvedConnection, run: () => Promise<T>, customLimitMs?: number): Promise<T> {
+    const limit = customLimitMs ?? this.deps.timeoutMs ?? AGENT_TIMEOUT_MS
     let timer: ReturnType<typeof setTimeout> | undefined
     const guard = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
@@ -486,5 +487,60 @@ export class AgentGateway {
       this.log(actor, undefined, tool, { decision, outcome: 'error', textHash: hash, text: body })
       throw new AgentToolError(error instanceof Error ? error.message.slice(0, 300) : 'The action failed.', 'failed')
     }
+  }
+
+  async previewWrite(reference: string, statement: string, options: { productionCount?: boolean } = {}): Promise<DatabaseWritePreview> {
+    const info = this.find(reference)
+    const connection: ResolvedConnection = { ...this.deps.resolve(info.id), readOnly: true, role: 'agent' }
+    if (info.engine === 'mongodb') {
+      let parsed: Record<string, unknown> = {}
+      try {
+        const newline = statement.indexOf('\n')
+        parsed = JSON.parse(newline >= 0 ? statement.slice(newline + 1) : statement) as Record<string, unknown>
+      } catch {
+        return { status: 'failed', count: null, reason: 'invalid mongo write' }
+      }
+      const database = typeof parsed.database === 'string' ? parsed.database : ''
+      const collection = typeof parsed.collection === 'string' ? parsed.collection : ''
+      const op = parsed.op === 'delete' ? 'deleteOne' : parsed.op === 'replace' ? 'replaceOne' : parsed.op === 'insert' ? 'insertOne' : String(parsed.op ?? '')
+      let filter: Record<string, unknown> = {}
+      let update: Record<string, unknown> | undefined
+      try {
+        if (typeof parsed.expected === 'string') {
+          const doc = JSON.parse(parsed.expected) as Record<string, unknown>
+          filter = '_id' in doc ? { _id: doc._id } : doc
+        }
+        if (typeof parsed.document === 'string') update = JSON.parse(parsed.document) as Record<string, unknown>
+      } catch {
+        return { status: 'failed', count: null, reason: 'invalid mongo document' }
+      }
+      const driver: PreviewDriver = {
+        engine: 'mongo',
+        countDocuments: (coll, flt, drvOpts) => this.serial(info.id, () => this.withTimeout(connection, async () => {
+          const found = await this.deps.call<{ documents: string[] }>('mongo.find', connection, { database, collection: coll, filter: JSON.stringify(flt ?? {}), limit: 200 })
+          return found.documents.length
+        }, drvOpts?.maxTimeMS ?? 5_000)),
+        find: (coll, flt, limit, drvOpts) => this.serial(info.id, () => this.withTimeout(connection, async () => {
+          const found = await this.deps.call<{ documents: string[] }>('mongo.find', connection, { database, collection: coll, filter: JSON.stringify(flt ?? {}), limit })
+          return found.documents.map(doc => JSON.parse(doc) as Record<string, unknown>)
+        }, drvOpts?.maxTimeMS ?? 5_000))
+      }
+      return previewDatabaseWrite({
+        mongo: { collection, op, filter, ...(update ? { update } : {}) },
+        env: info.environment,
+        driver,
+        productionCount: options.productionCount
+      })
+    }
+    const driver: PreviewDriver = {
+      engine: 'postgres',
+      query: (sql, queryOptions) => this.serial(info.id, () => this.withTimeout(connection, async () => {
+        const res = await this.deps.call<{ columns: { name: string }[]; rows: unknown[][] }>('sql.run', { ...connection, readOnly: true }, { sql, maxRows: 5, confirmed: false })
+        const cols = res.columns.map(col => col.name)
+        const rows = res.rows.map(row => Object.fromEntries(cols.map((col, idx) => [col, row[idx]])))
+        return { rows }
+      }, queryOptions?.timeoutMs ?? 5_000))
+    }
+    return previewDatabaseWrite({ text: statement, env: info.environment, driver, productionCount: options.productionCount })
   }
 }
