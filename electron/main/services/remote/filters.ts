@@ -131,8 +131,14 @@ export function toThreadItem(event: ThreadEvent, seq: number, rootsIn: readonly 
 // ---- pending requests ---------------------------------------------------------------------------------------------
 
 /** Only the desktop answers these: guarded requests, permissions, elicitation, tools and any secret question. */
+const isDatabaseWriteRequest = (request: ThreadRequest): boolean => {
+  if (request.impact?.kind === 'db') return true
+  const tool = request.toolName?.replace(/^mcp__.+?__/, '')
+  return tool === 'oxespace_db_execute' || tool === 'oxespace_mongo_write'
+}
+
 export function isAnswerable(request: ThreadRequest): boolean {
-  if (request.state !== 'pending' || request.policy?.guarded) return false
+  if (request.state !== 'pending' || request.policy?.guarded || isDatabaseWriteRequest(request)) return false
   if (request.kind === 'approval') return decisionsOf(request).length > 0
   if (request.kind === 'question') return !!request.questions?.length && !request.questions.some(question => question.secret)
   return false
@@ -175,7 +181,8 @@ export function toPendingRequest({ thread, request }: RemotePendingRow, roots: r
   // question not seen whole is not answered from the phone at all, not even declined.
   const truncated = !!command?.truncated || !!detail?.truncated || (!!request.cwd && cwd === undefined) || paths.length < (request.paths?.length ?? 0) ||
     allWarnings.length > 20 || warnings.some(warning => warning.truncated) || questionsCut
-  const desktopOnly = truncated && request.kind === 'question'
+  const desktopOnly = (truncated && request.kind === 'question') || isDatabaseWriteRequest(request)
+  const risk = request.impact?.risk ?? (request.policy?.level ? riskFromShell(request.policy.level) : undefined)
   return {
     threadId: thread.id, workspaceId: thread.workspaceId, threadTitle: text(thread.title, all, TITLE), requestId: request.id, generation: request.generation,
     kind: request.kind, title: text(request.title, all, TITLE),
@@ -185,7 +192,7 @@ export function toPendingRequest({ thread, request }: RemotePendingRow, roots: r
     ...(request.reason ? { reason: text(request.reason, all, REMOTE_TEXT_LIMITS.detail) } : {}),
     ...(request.toolName ? { toolName: text(request.toolName, all, TITLE) } : {}),
     ...(paths.length ? { paths } : {}),
-    ...(request.policy?.level ? { risk: riskFromShell(request.policy.level) } : {}),
+    ...(risk ? { risk } : {}),
     ...(warnings.length ? { warnings: warnings.map(warning => warning.text) } : {}),
     ...(redacted ? { redacted } : {}),
     ...(questions.length ? { questions } : {}),

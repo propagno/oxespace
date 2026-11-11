@@ -489,6 +489,19 @@ export interface MessageParams extends PlaceMessageParams {
   'approvals.denied.cancelled': Record<string, never>
   /** Denied before it was shown: the text to approve is longer than a person reviews. */
   'approvals.denied.tooLong': { max: number }
+  'approvals.alwaysAllow.notOffered': Record<string, never>
+  'approvals.alwaysAllow.invalidSettings': Record<string, never>
+  'approvals.alwaysAllow.outsideProject': Record<string, never>
+  /** F7 A55: a production connection offers agents only none and read. */
+  'permissions.production.readOnly': Record<string, never>
+  /** F7 A55: Policy rows are shown read only; they change only in the Policy file. */
+  'permissions.policy.readOnly': Record<string, never>
+  /** F7 A55: agent access is exactly off, read or write. */
+  'permissions.access.invalid': Record<string, never>
+  /** F7 A55: the rule, connection or host is no longer there. */
+  'permissions.notFound': Record<string, never>
+  /** F7 A55: the undo was already used or is no longer available. */
+  'permissions.undo.expired': Record<string, never>
   /** An agent's notification, prefixed with who sent it; `title` is the agent's text. */
   'notify.prefix.pane': { agent: string; pane: number; title: string }
   'notify.prefix.conversation': { agent: string; conversation: string; title: string }
@@ -496,6 +509,9 @@ export interface MessageParams extends PlaceMessageParams {
   'notify.prefix.unknownConversation': { conversation: string; title: string }
   'notify.refused.reservedName': { name: string }
   'notify.refused.rateLimit': { perMinute: number }
+  'notify.agentNeedsYou': { agent: string }
+  'notify.requestsNeedYou': { count: number }
+  'notify.requestBody': { pane: string; risk: string }
   /** A pane name an agent chose contains a name only the app uses. */
   'agents.name.reserved': { name: string }
   /** Another session tried to control a delegation whose requester is still running (B6.2). */
@@ -828,12 +844,23 @@ export const MESSAGE_CODES = [
   'approvals.denied.timeout',
   'approvals.denied.cancelled',
   'approvals.denied.tooLong',
+  'approvals.alwaysAllow.notOffered',
+  'approvals.alwaysAllow.invalidSettings',
+  'approvals.alwaysAllow.outsideProject',
+  'permissions.production.readOnly',
+  'permissions.policy.readOnly',
+  'permissions.access.invalid',
+  'permissions.notFound',
+  'permissions.undo.expired',
   'notify.prefix.pane',
   'notify.prefix.conversation',
   'notify.prefix.unknownPane',
   'notify.prefix.unknownConversation',
   'notify.refused.reservedName',
   'notify.refused.rateLimit',
+  'notify.agentNeedsYou',
+  'notify.requestsNeedYou',
+  'notify.requestBody',
   'agents.name.reserved',
   'delegation.requester.live',
   'app.openIn.outsideRoot',

@@ -59,6 +59,10 @@
         "label": "Approvals and safety",
         "hint": "Approvals, policy rules and protected resources"
       },
+      "agent-permissions": {
+        "label": "What agents can do",
+        "hint": "Always allowed commands, databases, HTTP hosts and policy rules"
+      },
       "devices": {
         "label": "Phone and devices",
         "hint": "Phones and paired devices"
@@ -458,7 +462,8 @@
     "ports": "Ports",
     "folder": "Folder",
     "target": "Target",
-    "status": "Status"
+    "status": "Status",
+    "blockHost": "Block this host"
   },
   "keyboard": {
     "title": "Keyboard",
@@ -840,5 +845,60 @@
     "showInFolder": "Show in folder",
     "tryNow": "Try now",
     "exportAction": "Export…"
+  },
+  "agentPermissions": {
+    "title": "What agents can do",
+    "description": "Everything agents may do without asking. Revoke anything here.",
+    "revoke": "Revoke",
+    "sections": {
+      "commands": "Always allowed commands",
+      "databases": "Databases",
+      "hosts": "HTTP hosts",
+      "alwaysOn": "Always on"
+    },
+    "providers": {
+      "claude": "Claude Code",
+      "codex": "Codex"
+    },
+    "commands": {
+      "empty": "No commands are always allowed.",
+      "scopeSession": "{{provider}} · this session only",
+      "scopeProjectFolder": "{{provider}} · {{folder}} · project rule",
+      "scopeProject": "{{provider}} · project rule",
+      "scopeUser": "{{provider}} · user rule",
+      "revokedToast": "Revoked {{rule}}"
+    },
+    "databases": {
+      "empty": "No database connections configured.",
+      "selectLabel": "{{name}} ({{env}})",
+      "prodSelectLabel": "Production · {{name}}",
+      "updatedToast": "Updated access for {{name}}",
+      "access": {
+        "off": "Nothing",
+        "read": "Read",
+        "write": "Read, ask before writing"
+      }
+    },
+    "hosts": {
+      "empty": "No HTTP hosts recorded yet.",
+      "callsToday_one": "{{count}} call today",
+      "callsToday_other": "{{count}} calls today",
+      "production": "production",
+      "insecure": "no TLS",
+      "updatedToast": "Updated access for {{host}}",
+      "access": {
+        "allowed": "Allowed",
+        "ask": "Ask first",
+        "blocked": "Blocked"
+      }
+    },
+    "policy": {
+      "fromFile": "From policy.yaml",
+      "openInEditor": "Open in editor"
+    },
+    "alwaysOn": {
+      "noProdWrite": "Agents never write to production.",
+      "denyAndHold": "Deny is the default, and irreversible approvals need a hold."
+    }
   }
 }

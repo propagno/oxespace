@@ -113,6 +113,8 @@ export function registerApprovalsMock(): void {
     setTimeout(() => { if (pending.get(request.id) === request) resolve(request, request.defaultOptionId, 'native') }, 200)
     return { ok: true, id: request.id }
   })
+  ipcMain.handle(IPC_CHANNELS.approvals.preview, () => ({ status: 'failed' as const, count: null, reason: 'not-found' }))
+  ipcMain.handle(IPC_CHANNELS.approvals.alwaysAllow, () => ({ ok: false as const, code: 'approvals.alwaysAllow.notOffered' as const }))
 
   const raise = (request: ApprovalRequest): void => {
     pending.set(request.id, request)

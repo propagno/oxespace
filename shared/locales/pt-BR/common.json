@@ -148,6 +148,9 @@
       "activity": {
         "open": "Abrir a central de atividade"
       },
+      "approvals": {
+        "queue": "Abrir a fila de aprovações"
+      },
       "code": {
         "changes": "Alterações",
         "browser": "Navegador",
@@ -877,6 +880,7 @@
     "factsEnvironment": "Risco: {{risk}}. Ambiente: {{environment}}. Pedido por {{requester}}.",
     "factsProduction": "Risco: {{risk}}. Ambiente de produção: {{environment}}. Pedido por {{requester}}.",
     "queue": "Pedido {{position}} de {{total}}",
+    "queueDialogTitle": "Fila de aprovações",
     "closeDeny": "Negar e fechar",
     "risk": {
       "label": "Risco: {{level}}",
