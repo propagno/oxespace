@@ -70,6 +70,8 @@ export interface ToolContext {
   fileSystem: FileSystemService
   webPreview: WebPreviewBus
   worktree: WorktreeEventBus
+  /** A63: the guarded worktree removal the person's panel uses; oxespace_remove_worktree goes through it. */
+  worktreesPanel?: import('../services/github/worktrees-panel').WorktreesPanel
 }
 
 export interface ToolEntry {
@@ -275,12 +277,12 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   {
     descriptor: {
       name: 'oxespace_remove_worktree',
-      description: 'Remove the git worktree at the given path. Use `force` to override uncommitted changes. A person approves each call.',
+      description: 'Remove the git worktree at the given path. Refused when it has uncommitted changes, is busy, locked, or is the main checkout; never forced, and its branch is kept. A person approves each call.',
       inputSchema: {
         type: 'object',
         properties: {
           path: { type: 'string', description: 'Path of the worktree to remove.' },
-          force: { type: 'boolean', description: 'Pass --force to git worktree remove.' }
+          force: { type: 'boolean', description: 'Ignored: uncommitted changes always refuse the removal.' }
         },
         required: ['path'],
         additionalProperties: false

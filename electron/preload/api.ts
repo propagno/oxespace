@@ -127,6 +127,18 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       keepAfterPr: (id, prNumber) => ipc.invoke(IPC_CHANNELS.thread.keepAfterPr, id, prNumber) as Promise<void>,
       worktreeInspect: id => ipc.invoke(IPC_CHANNELS.thread.worktreeInspect, id) as Promise<import('../../shared/threadWorktree').ThreadWorktreeInspection | null>,
       worktreeFinish: (id, action, choice) => ipc.invoke(IPC_CHANNELS.thread.worktreeFinish, id, action, choice) as Promise<import('../../shared/threadWorktree').ThreadWorktreeFinishResult>,
+      places: id => ipc.invoke(IPC_CHANNELS.thread.places, id) as Promise<import('../../shared/types/thread-places').ThreadPlaces>,
+      placeDiff: (id, placeId) => ipc.invoke(IPC_CHANNELS.thread.placeDiff, id, placeId) as Promise<import('../../shared/types/thread-places').ThreadPlaceDiff>,
+      placeRead: (id, placeId, relativePath) => ipc.invoke(IPC_CHANNELS.thread.placeRead, id, placeId, relativePath) as Promise<import('../../shared/types/thread-places').ThreadPlaceReadResult>,
+      resolvePath: (id, raw, at) => ipc.invoke(IPC_CHANNELS.thread.resolvePath, id, raw, at) as Promise<import('../../shared/types/thread-places').ThreadPathResolution>,
+      placeDriftAnswer: (id, placeId, answer) => ipc.invoke(IPC_CHANNELS.thread.placeDriftAnswer, id, placeId, answer) as ReturnType<NonNullable<import('../../shared/types/thread').ThreadApi['placeDriftAnswer']>>,
+      placeUndo: (id, placeId, input) => ipc.invoke(IPC_CHANNELS.thread.placeUndo, id, placeId, input) as Promise<import('../../shared/types/thread-places').ThreadPlaceUndoResult>,
+      placeRestore: (id, restoreToken) => ipc.invoke(IPC_CHANNELS.thread.placeRestore, id, restoreToken) as Promise<import('../../shared/types/thread-places').ThreadPlaceActionResult>,
+      placeDiscard: (id, placeId, input) => ipc.invoke(IPC_CHANNELS.thread.placeDiscard, id, placeId, input) as Promise<import('../../shared/types/thread-places').ThreadPlaceActionResult>,
+      panes: id => ipc.invoke(IPC_CHANNELS.thread.panes, id) as Promise<import('../../shared/types/thread-places').ThreadPane[]>,
+      collisions: id => ipc.invoke(IPC_CHANNELS.thread.collisions, id) as Promise<import('../../shared/types/thread-places').ThreadCollision[]>,
+      agentSummary: id => ipc.invoke(IPC_CHANNELS.thread.agentSummary, id) as Promise<import('../../shared/types/thread-places').ThreadAgentSummary | null>,
+      onPlacesChanged: listener => subscribe<{ threadId: string }>(ipc, IPC_CHANNELS.thread.placesChanged, listener),
       onChanged: listener => {
         const handler = (_event: IpcRendererEvent, payload: unknown): void => listener(payload as { threadId: string })
         ipc.on(IPC_CHANNELS.thread.changed, handler)
@@ -371,6 +383,10 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
         ipc.invoke(IPC_CHANNELS.github.scanWorktreeCleanup, input) as Promise<import('../../shared/types/worktree-cleanup').WorktreeCleanupCandidate[]>,
       removeWorktreeCleanup: (input) =>
         ipc.invoke(IPC_CHANNELS.github.removeWorktreeCleanup, input) as Promise<import('../../shared/types/worktree-cleanup').WorktreeCleanupRemoveResult[]>,
+      listWorktreesPanel: (input) =>
+        ipc.invoke(IPC_CHANNELS.worktreesPanel.list, input) as Promise<import('../main/services/github/worktrees-panel').WorktreesPanelRow[]>,
+      removeWorktreePanel: (input) =>
+        ipc.invoke(IPC_CHANNELS.worktreesPanel.remove, input) as Promise<import('../main/services/github/worktrees-panel').WorktreesPanelRemoveResult>,
       getRepoConfig: (input) =>
         ipc.invoke(IPC_CHANNELS.github.getRepoConfig, input) as Promise<import('../../shared/types/repo-config').RepoConfigSnapshot>,
       approveRepoHook: (input) =>

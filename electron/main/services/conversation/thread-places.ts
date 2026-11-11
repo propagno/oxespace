@@ -60,7 +60,8 @@ export class ThreadPlaceStore {
 
   constructor(private readonly db: AppDatabase,
     private readonly checkpoints: Pick<ThreadCheckpointService, 'turnBase'>,
-    private readonly openCheckpoint: (threadId: string, turnId: string, root: string) => Promise<void>) {}
+    private readonly openCheckpoint: (threadId: string, turnId: string, root: string) => Promise<void>,
+    private readonly changed: (threadId: string) => void = () => {}) {}
 
   configure(options: { homeDir?: string }): void { if (options.homeDir) this.homeDir = options.homeDir }
 
@@ -125,8 +126,8 @@ export class ThreadPlaceStore {
     const owned = thread.ownedWorktree
     const branch = owned && typeof (owned as { branch?: unknown }).branch === 'string' ? (owned as { branch: string }).branch : null
     const now = Date.now()
-    this.db.prepare(`INSERT OR IGNORE INTO thread_places (thread_id, id, kind, path, first_seen_at, base_commit, base_branch, base_captured_at, base_turn_id)
-      VALUES (?, ?, 'root', ?, ?, ?, ?, ?, NULL)`).run(thread.id, id, thread.rootPath, now, owned?.baseSha || null, branch, owned ? now : null)
+    if (this.db.prepare(`INSERT OR IGNORE INTO thread_places (thread_id, id, kind, path, first_seen_at, base_commit, base_branch, base_captured_at, base_turn_id)
+      VALUES (?, ?, 'root', ?, ?, ?, ?, ?, NULL)`).run(thread.id, id, thread.rootPath, now, owned?.baseSha || null, branch, owned ? now : null).changes) this.changed(thread.id)
   }
 
   private async applyOne(thread: PlaceThread, item: PlaceEvidence, turn: PlaceTurn | null): Promise<void> {
@@ -137,7 +138,7 @@ export class ThreadPlaceStore {
     let row = this.row(thread.id, id)
     if (!row) {
       if (!this.hasRoom(thread.id, target.kind)) { this.count(thread.id, 0, true); return }
-      this.db.prepare('INSERT OR IGNORE INTO thread_places (thread_id, id, kind, path, first_seen_at) VALUES (?, ?, ?, ?, ?)').run(thread.id, id, target.kind, target.path, Date.now())
+      if (this.db.prepare('INSERT OR IGNORE INTO thread_places (thread_id, id, kind, path, first_seen_at) VALUES (?, ?, ?, ?, ?)').run(thread.id, id, target.kind, target.path, Date.now()).changes) this.changed(thread.id)
       row = this.row(thread.id, id)
       if (!row) return
     }
