@@ -31,7 +31,7 @@ test('renders the Orca-inspired project, editor and source-control shell', async
     await page.getByTestId('wizard-launch-btn').click()
     await page.waitForSelector('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]')
 
-    const expandSidebar = page.getByRole('button', { name: 'Expand sidebar' })
+    const expandSidebar = page.getByRole('button', { name: /^Expand (the )?sidebar/ }).first()
     if (await expandSidebar.isVisible().catch(() => false)) await expandSidebar.click()
 
     const navItems = page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button')

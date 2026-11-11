@@ -164,7 +164,7 @@ test('redesign audit', async () => {
     await step('sidebar-collapsed', async () => {
       await page.getByRole('button', { name: 'Collapse sidebar' }).click()
       await capture(page, '06-sidebar-collapsed')
-      await page.getByRole('button', { name: 'Expand sidebar' }).click()
+      await page.getByRole('button', { name: /^Expand (the )?sidebar/ }).first().click()
     })
 
     // Theme + density sweep.
