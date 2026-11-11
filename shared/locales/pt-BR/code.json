@@ -13,7 +13,8 @@
     "menu": "Painéis",
     "more": "Mais painéis",
     "needsWorkspace": "Abra um workspace para usar os painéis dele",
-    "httpCalls": "Chamadas HTTP"
+    "httpCalls": "Chamadas HTTP",
+    "android": "Android"
   },
   "tools": {
     "team": {
@@ -62,6 +63,11 @@
     "review": {
       "label": "Alterações",
       "detail": "Alterações da branch e ainda não commitadas"
+    },
+    "android": {
+      "label": "Android",
+      "detail": "Espelho ao vivo de um celular conectado ou emulador",
+      "keywords": "android, adb, emulador, celular, espelho"
     },
     "httpCalls": {
       "label": "Chamadas HTTP",
@@ -2543,5 +2549,50 @@
     "runDev": "Rodar {{script}}",
     "noneTitle": "Nenhuma página aberta",
     "noneHint": "Digite um endereço ou rode seu servidor de dev."
+  },
+  "deviceEmulation": {
+    "menuLabel": "Emulação de dispositivo",
+    "desktop": "Desktop",
+    "menuHintTouch": " · {{width}} × {{height}} · toque",
+    "menuHintPlain": " · {{width}} × {{height}}",
+    "activeLabel": "{{name}} · {{width}} × {{height}}",
+    "rotate": "Girar"
+  },
+  "android": {
+    "deviceMenu": "Dispositivo Android",
+    "kindEmulator": "Emulador",
+    "kindUsb": "USB",
+    "kindWifi": "Wi-Fi",
+    "deviceWithApi": "{{name}} · {{kind}} · API {{api}}",
+    "devicePlain": "{{name}} · {{kind}}",
+    "live": "Ao vivo",
+    "connecting": "Conectando a {{name}}…",
+    "screenLive": "Tela de {{name}}, ao vivo",
+    "rotate": "Girar",
+    "screenshot": "Captura de tela",
+    "savedScreenshot": "Salvo {{name}}",
+    "back": "Voltar",
+    "home": "Início",
+    "overview": "Recentes",
+    "agentsCanSee": "Agentes podem ver",
+    "agentsCanSeeOnHint": "Agentes podem capturar a tela deste dispositivo",
+    "adbMissingTitle": "Ferramentas do Android não encontradas",
+    "adbMissingDetail": "Instale o Android platform-tools (adb) e adicione ao seu PATH.",
+    "adbInstallHint": "Instale o Android Studio ou o Android SDK Platform-Tools para ter o adb no PATH.",
+    "howToInstall": "Como instalar",
+    "noDeviceTitle": "Nenhum dispositivo Android",
+    "noDeviceDetail": "Conecte um celular com depuração USB ligada ou inicie um emulador.",
+    "startEmulatorNamed": "Iniciar o emulador {{name}}",
+    "lostTitle": "Perdeu {{name}}",
+    "lostDetail": "O cabo foi desconectado ou a depuração USB foi desligada.",
+    "unauthorizedTitle": "A depuração USB não foi permitida",
+    "unauthorizedDetail": "Desbloqueie o celular, reconecte o cabo e toque em Permitir quando aparecer.",
+    "authorizingTitle": "Aguardando {{name}}",
+    "authorizingDetail": "Toque em Permitir na tela do celular.",
+    "noPermissionsTitle": "Sem acesso a {{name}}",
+    "noPermissionsDetail": "O Linux precisa de uma regra udev para este celular. Adicione-a e reconecte.",
+    "udevHint": "Adicione uma regra em /etc/udev/rules.d/51-android.rules para o fabricante e recarregue o udev.",
+    "howToSetUp": "Como configurar",
+    "reconnect": "Reconectar"
   }
 }

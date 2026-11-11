@@ -1,10 +1,10 @@
-import { Activity, Code2, FileCode2, FolderTree, GitCompareArrows, MonitorPlay, Network, Search, Slash, Wrench, type LucideIcon } from 'lucide-react'
+import { Activity, Code2, FileCode2, FolderTree, GitCompareArrows, MonitorPlay, Network, Search, Slash, Smartphone, Wrench, type LucideIcon } from 'lucide-react'
 import { Github } from '../Brand/GithubIcon'
 import { i18n } from '../../i18n'
 import type { KeybindingId } from '../../keyboard/keybindings'
 
 export type ToolGroup = 'Project' | 'Development' | 'AI & Agents' | 'System'
-export type ToolId = 'integration' | 'github' | 'worktrees' | 'scripts' | 'search' | 'web-preview' | 'background' | 'slash' | 'mcp' | 'editor' | 'review' | 'http-calls'
+export type ToolId = 'integration' | 'github' | 'worktrees' | 'scripts' | 'search' | 'web-preview' | 'background' | 'slash' | 'mcp' | 'editor' | 'review' | 'http-calls' | 'android'
 
 export interface ToolMeta {
   id: ToolId
@@ -22,7 +22,7 @@ export interface ToolMeta {
 export const TOOL_GROUPS: ToolGroup[] = ['Project', 'Development', 'AI & Agents', 'System']
 
 /** Tools that are side panels take the panel's name, so the palette, the Panels menu and Thread say the same thing. */
-const PANEL_OF: Partial<Record<ToolId, string>> = { github: 'git', worktrees: 'worktrees', scripts: 'scripts', search: 'search', 'web-preview': 'browser', background: 'background', editor: 'files', review: 'changes', 'http-calls': 'httpCalls' }
+const PANEL_OF: Partial<Record<ToolId, string>> = { github: 'git', worktrees: 'worktrees', scripts: 'scripts', search: 'search', 'web-preview': 'browser', background: 'background', editor: 'files', review: 'changes', 'http-calls': 'httpCalls', android: 'android' }
 
 function tool(id: ToolId, group: ToolGroup, icon: LucideIcon, rest: { keybinding?: KeybindingId; keywords?: string[] } = {}): ToolMeta {
   const key = id === 'web-preview' ? 'webPreview' : id === 'http-calls' ? 'httpCalls' : id
@@ -51,6 +51,7 @@ export const TOOL_CATALOG: ToolMeta[] = [
   tool('search', 'Development', Search, { keybinding: 'code.search', keywords: ['grep', 'ripgrep', 'regex', 'text'] }),
   tool('web-preview', 'Development', MonitorPlay, { keybinding: 'code.browser', keywords: ['web preview', 'browser', 'localhost', 'preview'] }),
   tool('http-calls', 'Development', Network, { keywords: ['http', 'curl', 'wget', 'network', 'calls', 'api'] }),
+  tool('android', 'Development', Smartphone, { keywords: ['android', 'adb', 'emulator', 'phone', 'mirror'] }),
   tool('background', 'Development', Activity, { keywords: ['bg', 'job', 'task'] }),
   tool('slash', 'AI & Agents', Slash, { keybinding: 'terminal.slash', keywords: ['slash', 'command'] }),
   tool('mcp', 'AI & Agents', Wrench, { keywords: ['mcp', 'connections', 'tools'] }),

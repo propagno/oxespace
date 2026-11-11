@@ -707,6 +707,7 @@ export interface OxeApi {
   policy: import('../policy').PolicyApi
   dataExport: DataExportApi
   httpAudit: import('./http-audit').HttpAuditApi
+  android?: AndroidApi
   agentActivity: import('./agent-activity').AgentActivityApi
 }
 
@@ -836,27 +837,27 @@ export interface AndroidMirrorDevice {
 export interface AndroidMirrorStatus {
   adb: 'missing' | 'ok'
   devices: AndroidMirrorDevice[]
-  avds?: string[]
+  avds: string[]
 }
 
-export interface AndroidFrameEvent {
+export interface AndroidMirrorFrame {
   serial: string
   width: number
   height: number
-  data: string
+  data: Uint8Array
 }
 
 export interface AndroidApi {
   status(): Promise<AndroidMirrorStatus>
-  connect(input: { serial: string }): Promise<void>
+  connect(input: { serial: string }): Promise<{ ok: boolean } | void>
   disconnect(input: { serial: string }): Promise<void>
   tap(input: { serial: string; x: number; y: number }): Promise<void>
   swipe(input: { serial: string; x1: number; y1: number; x2: number; y2: number; durationMs?: number }): Promise<void>
-  key(input: { serial: string; keyCode: number }): Promise<void>
-  rotate(input: { serial: string; rotated: boolean }): Promise<void>
+  key(input: { serial: string; keycode: number }): Promise<void>
+  rotate(input: { serial: string }): Promise<void>
   screenshot(input: { serial: string }): Promise<{ path: string; name: string }>
   setAgentsCanSee(input: { serial: string; value: boolean }): Promise<void>
-  startEmulator(input: { avd: string }): Promise<void>
+  startEmulator(avd: string): Promise<void>
   onChanged(listener: (status?: AndroidMirrorStatus) => void): () => void
-  onFrame(listener: (frame: AndroidFrameEvent) => void): () => void
+  onFrame(listener: (frame: AndroidMirrorFrame) => void): () => void
 }

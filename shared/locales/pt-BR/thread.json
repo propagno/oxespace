@@ -1011,7 +1011,8 @@
     "scripts": "Scripts",
     "worktrees": "Worktrees",
     "background": "Atividade em segundo plano",
-    "httpCalls": "Chamadas HTTP"
+    "httpCalls": "Chamadas HTTP",
+    "android": "Android"
   },
   "patch": {
     "region": "Diff do arquivo",
@@ -1711,6 +1712,7 @@
     "loadingPreview": "Carregando a prévia web…",
     "loadingTerminal": "Carregando o terminal…",
     "loadingNetwork": "Carregando chamadas HTTP…",
+    "loadingAndroid": "Carregando espelho Android…",
     "unavailable": "O projeto não está disponível.",
     "nativeActivity": "Atividade nativa em segundo plano",
     "providerActivity": "Atividade do provedor · {{count}} em execução",

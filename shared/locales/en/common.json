@@ -625,6 +625,7 @@
       "tool-scripts": "Toggle scripts panel",
       "tool-search": "Find in files",
       "tool-web-preview": "Toggle browser panel",
+      "tool-android": "Toggle Android panel",
       "tool-background": "Toggle background activity panel",
       "tool-slash": "Show agent commands",
       "tool-mcp": "Manage MCP servers",

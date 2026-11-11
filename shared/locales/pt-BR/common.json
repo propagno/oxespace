@@ -633,6 +633,7 @@
       "tool-scripts": "Mostrar ou ocultar o painel de scripts",
       "tool-search": "Buscar nos arquivos",
       "tool-web-preview": "Mostrar ou ocultar o painel do navegador",
+      "tool-android": "Mostrar ou ocultar o painel do Android",
       "tool-background": "Mostrar ou ocultar o painel de atividade em segundo plano",
       "tool-slash": "Mostrar os comandos do agente",
       "tool-mcp": "Gerenciar os servidores MCP",
