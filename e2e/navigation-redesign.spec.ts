@@ -21,9 +21,18 @@ test('sidebar sessions and full-page settings preserve terminal DOM', async () =
     await expect(modeButton(page, 'code')).toHaveAttribute('aria-pressed', 'true')
     // The application menus sit behind one button (Windows and Linux; macOS keeps its native menu bar).
     if (process.platform !== 'darwin') {
+      // From 1121 px the menus are listed in the title bar; a narrower window (a CI screen) keeps them behind one button.
       const menubar = page.getByRole('navigation', { name: 'Menu' })
-      for (const name of ['File', 'Edit', 'View', 'Tools', 'Help']) await expect(menubar.getByRole('button', { name, exact: true })).toBeVisible()
-      await menubar.getByRole('button', { name: 'File', exact: true }).click()
+      const appMenu = page.getByRole('button', { name: 'Application menu' })
+      await expect.poll(async () => await menubar.isVisible() || await appMenu.isVisible()).toBe(true)
+      if (await menubar.isVisible()) {
+        for (const name of ['File', 'Edit', 'View', 'Tools', 'Help']) await expect(menubar.getByRole('button', { name, exact: true })).toBeVisible()
+        await menubar.getByRole('button', { name: 'File', exact: true }).click()
+      } else {
+        await appMenu.click()
+        for (const name of ['File', 'Edit', 'View', 'Tools', 'Help']) await expect(page.getByRole('menuitem', { name, exact: true })).toBeVisible()
+        await page.getByRole('menuitem', { name: 'File', exact: true }).hover()
+      }
       await expect(page.getByRole('menuitem', { name: /^Settings/ })).toBeVisible()
       await page.keyboard.press('Escape')
       await page.keyboard.press('Escape')
@@ -57,7 +66,7 @@ test('sidebar sessions and full-page settings preserve terminal DOM', async () =
     // Settings fill the window below the title bar, which stays in view.
     expect(await settings.boundingBox()).toEqual({ x: 0, y: 36, width: 1280, height: 684 })
     await page.screenshot({ path: test.info().outputPath('settings-general.png') })
-    await nav.getByRole('button', { name: /^Workspace.*General/ }).click()
+    await nav.getByRole('button', { name: /(^|: )General / }).last().click()
     await expect(page.getByRole('radio', { name: /Comfortable/ })).toBeVisible()
     await page.screenshot({ path: test.info().outputPath('settings-workspace.png') })
     // A workspace change (density) applies at once (U2), so leaving asks nothing.

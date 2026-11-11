@@ -90,7 +90,8 @@ test('interface scale, density and motion apply app-wide and survive a restart',
 
     // A workspace can keep its own density: it overrides the app until the person sends it back.
     const nav = settings.getByRole('navigation', { name: 'Settings categories' })
-    await nav.getByRole('button', { name: /^Workspace.*General/ }).click()
+    // The workspace's pages come after the application's; its General is the last of the two, named with the workspace or not.
+    await nav.getByRole('button', { name: /(^|: )General / }).last().click()
     const workspaceDensity = settings.getByRole('radiogroup', { name: 'Density' })
     await expect(workspaceDensity.getByRole('radio', { name: 'App default' })).toHaveAttribute('aria-checked', 'true')
     await workspaceDensity.getByRole('radio', { name: 'Compact' }).click()
