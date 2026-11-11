@@ -7,6 +7,7 @@ import { useDeferredModule } from './app/useDeferredModule'
 import { DataHosts, DataSidebar, isDataView, ThreadGrid, ThreadSidebar, ThreadSidebarBoundary, useModeActions, ViewSkeleton } from './components/Navigation/ModeViews'
 import { useViewSwitch } from './app/viewSwitch'
 import { setShownView } from './app/shownView'
+import { rememberAppView, startAppView } from './app/startView'
 import { SettingsCenter } from './components/Settings/SettingsHost'
 import { NoWorkspaceStart } from './components/Onboarding/NoWorkspaceStart'
 import { DelegationNotice } from './components/Delegation/DelegationNotice'
@@ -85,12 +86,12 @@ const IS_MAC = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platfor
 export function App(): ReactElement {
   const { t } = useTranslation()
   const appVersion = window.oxe?.app?.version ?? 'dev'
-  const [applicationView, setApplicationView] = useState<AppView>('code')
+  const [applicationView, setApplicationView] = useState<AppView>(startAppView)
   const [delegatedWorkOpen, setDelegatedWorkOpen] = useState(false)
   const [delegationTarget, setDelegationTarget] = useState<{ workspaceId: string; taskId: string } | null>(null)
-  const [hasOpenedThread, setHasOpenedThread] = useState(false)
+  const [hasOpenedThread, setHasOpenedThread] = useState(() => applicationView === 'thread')
   // The view switches when the next view is ready; until then the current one stays and the button is busy (F7.2).
-  const viewSwitch = useViewSwitch(applicationView, mode => { if (mode === 'thread') setHasOpenedThread(true); setApplicationView(mode) })
+  const viewSwitch = useViewSwitch(applicationView, mode => { if (mode === 'thread') setHasOpenedThread(true); rememberAppView(mode); setApplicationView(mode) })
   const selectMode = viewSwitch.select
   useModeActions(selectMode)
   const [newThreadWorkspaceId, setNewThreadWorkspaceId] = useState<string | null | undefined>(undefined)
@@ -100,44 +101,8 @@ export function App(): ReactElement {
   const threadSelection = useThreadStore(state => state.selectedId)
   const codeSidebarWidth = useNavigationPrefs(state => state.width)
   const [accountsOpen, setAccountsOpen] = useState(false)
-  const {
-    activeWorkspaceId,
-    bootstrap,
-    closePane,
-    closeWorkspace,
-    createWorkspace,
-    error,
-    isLoading,
-    loadShellProfiles,
-    setActiveWorkspace,
-    shellProfiles,
-    splitPane,
-    updateGitHubState,
-    updateReviewState,
-    updateEditorState,
-    updateBackgroundState,
-    updateWorktreeState,
-    updateSettings,
-    workspaces
-  } = useWorkspaceStore(useShallow((state) => ({
-    activeWorkspaceId: state.activeWorkspaceId,
-    bootstrap: state.bootstrap,
-    closePane: state.closePane,
-    closeWorkspace: state.closeWorkspace,
-    createWorkspace: state.createWorkspace,
-    error: state.error,
-    isLoading: state.isLoading,
-    loadShellProfiles: state.loadShellProfiles,
-    setActiveWorkspace: state.setActiveWorkspace,
-    shellProfiles: state.shellProfiles,
-    splitPane: state.splitPane,
-    updateGitHubState: state.updateGitHubState,
-    updateReviewState: state.updateReviewState,
-    updateEditorState: state.updateEditorState,
-    updateBackgroundState: state.updateBackgroundState,
-    updateWorktreeState: state.updateWorktreeState,
-    updateSettings: state.updateSettings,
-    workspaces: state.workspaces
+  const { activeWorkspaceId, bootstrap, closePane, closeWorkspace, createWorkspace, error, isLoading, loadShellProfiles, setActiveWorkspace, shellProfiles, splitPane, updateGitHubState, updateReviewState, updateEditorState, updateBackgroundState, updateWorktreeState, updateSettings, workspaces } = useWorkspaceStore(useShallow((state) => ({
+    activeWorkspaceId: state.activeWorkspaceId, bootstrap: state.bootstrap, closePane: state.closePane, closeWorkspace: state.closeWorkspace, createWorkspace: state.createWorkspace, error: state.error, isLoading: state.isLoading, loadShellProfiles: state.loadShellProfiles, setActiveWorkspace: state.setActiveWorkspace, shellProfiles: state.shellProfiles, splitPane: state.splitPane, updateGitHubState: state.updateGitHubState, updateReviewState: state.updateReviewState, updateEditorState: state.updateEditorState, updateBackgroundState: state.updateBackgroundState, updateWorktreeState: state.updateWorktreeState, updateSettings: state.updateSettings, workspaces: state.workspaces
   })))
   const clearEditor = useEditorStore((state) => state.clearEditor)
   const getTerminalStatus = useTerminalStore((state) => state.getStatus)
