@@ -1,8 +1,23 @@
+import { parityFor, type ParityFeature } from '../../../../shared/provider-parity'
 import type { ConversationCapabilities, ConversationProtocolEvidence, ThreadCapability, ThreadCapabilityManifest, ThreadProvider, ThreadConfiguration } from '../../../../shared/types/thread'
 
 const capability = (implemented: boolean, reason?: string, verified: ThreadCapability['verified'] = implemented ? 'fixture' : 'none'): ThreadCapability => ({
   availability: implemented ? 'supported' : 'unavailable', enabled: implemented, authorized: implemented, implemented, verified, ...(reason ? { reason } : {})
 })
+
+function parityCapability(provider: ThreadProvider, feature: ParityFeature): ThreadCapability {
+  const answer = parityFor(provider, feature)
+  if (answer.available) return capability(true)
+  return {
+    availability: 'unavailable',
+    enabled: false,
+    authorized: true,
+    implemented: false,
+    verified: 'fixture',
+    reason: `Not available in ${answer.refusal.params.provider}`,
+    messageCode: answer.refusal
+  }
+}
 
 const experimental = (implemented: boolean, reason: string): ThreadCapability => ({ availability: 'experimental', enabled: implemented, authorized: implemented, implemented, verified: implemented ? 'fixture' : 'none', reason })
 
@@ -48,7 +63,12 @@ export function threadCapabilityManifest(provider: ThreadProvider, native?: Conv
         : capability(false, provider === 'codex'
           ? 'The Codex app-server version in use does not expose independent, idempotent child lifecycle operations'
           : 'Claude headless mode does not expose spawn, interrupt, resume or retry operations for child agents'),
-      additionalProviders: capability(false, 'OxeCode providers without a supported headless protocol remain OxeCode-only')
+      additionalProviders: capability(false, 'OxeCode providers without a supported headless protocol remain OxeCode-only'),
+      fork: parityCapability(provider, 'fork'),
+      branch: parityCapability(provider, 'branch'),
+      alwaysAllowBeyondSession: parityCapability(provider, 'alwaysAllowBeyondSession'),
+      paneConversation: parityCapability(provider, 'paneConversation'),
+      effort: parityCapability(provider, 'effort')
     }
   }
   if (provider === 'claude' && (configuration?.access ?? 'read-only') === 'read-only') {

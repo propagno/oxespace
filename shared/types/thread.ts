@@ -88,7 +88,13 @@ export interface ThreadCapabilityManifest {
   protocolVersion?: string
   platform: NodeJS.Platform
   authentication: 'subscription' | 'api' | 'unknown'
-  features: Record<string, ThreadCapability>
+  features: {
+    fork?: ThreadCapability
+    branch?: ThreadCapability
+    alwaysAllowBeyondSession?: ThreadCapability
+    paneConversation?: ThreadCapability
+    effort?: ThreadCapability
+  } & Record<string, ThreadCapability>
 }
 export interface ThreadUsageWindow { label: string; usedPercent: number; resetsAt?: number; windowMinutes?: number }
 export interface ThreadUsage { windows: ThreadUsageWindow[]; checkedAt: number }

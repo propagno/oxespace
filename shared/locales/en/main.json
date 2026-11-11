@@ -625,6 +625,9 @@
       "firstSight": {
         "enforced": "Waiting for your review: only the rules that deny apply, and tool groups are at most on demand."
       }
+    },
+    "parity": {
+      "notAvailable": "Not available in {{provider}}"
     }
   },
   "remotePairingFailure": {

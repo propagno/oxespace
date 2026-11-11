@@ -628,6 +628,9 @@
       "firstSight": {
         "enforced": "Esperando sua revisão: só valem as regras que negam, e os grupos de ferramentas ficam no máximo sob demanda."
       }
+    },
+    "parity": {
+      "notAvailable": "Indisponível no {{provider}}"
     }
   },
   "remotePairingFailure": {
