@@ -20,7 +20,6 @@ import { ModeSwitch } from './components/Navigation/ModeSwitch'
 import { RemovedFeaturesBand } from './components/Updates/RemovedFeaturesBand'
 import { ActivityCenter } from './components/Activity/ActivityCenter'
 import { CommandBarTrigger } from './components/CommandBar/CommandBarTrigger'
-import { CommandBarHost } from './components/CommandBar/CommandBarHost'
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import type { AgentProfile } from '../shared/types/agent'
@@ -35,6 +34,7 @@ import { humanizeError } from './utils/humanizeError'
 const loadCommandContributors = () => import('./commands/CommandContributors')
 /** The activity center's producers, loaded after the first frame. */
 const loadActivitySources = () => import('./app/ActivitySources')
+const CommandBarHost = lazy(() => import('./components/CommandBar/CommandBarHost').then((m) => ({ default: m.CommandBarHost })))
 const AgentConfigModal = lazy(() => import('./components/Agents/AgentConfigModal').then((m) => ({ default: m.AgentConfigModal })))
 const DesignSystemPage = lazy(() => import('./components/DesignSystem/DesignSystemPage').then((m) => ({ default: m.DesignSystemPage })))
 const DelegatedWorkDialog = lazy(() => import('./components/Delegation/DelegatedWorkDialog').then(m => ({ default: m.DelegatedWorkDialog })))
