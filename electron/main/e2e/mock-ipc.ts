@@ -565,6 +565,10 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.agentActivity.detail, () => null)
   ipcMain.handle(IPC_CHANNELS.agentActivity.badge, () => ({ today: 0, waiting: false }))
   ipcMain.handle(IPC_CHANNELS.httpAudit.list, () => ({ rows: [], cursor: null, hosts: [] }))
+  ipcMain.handle(IPC_CHANNELS.paneConversation.has, () => false)
+  ipcMain.handle(IPC_CHANNELS.paneConversation.page, () => ({ error: 'no-conversation' }))
+  ipcMain.handle(IPC_CHANNELS.paneConversation.watch, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.paneConversation.unwatch, () => undefined)
 
   // ── Catch-all safety net (E2E) ──────────────────────────────────────────────
   // Any IPC channel NOT explicitly mocked above gets a safe, shaped empty default

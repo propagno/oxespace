@@ -4,6 +4,7 @@ import type { MainMessage } from '../../../shared/messages'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { RemoteChange } from '../../../shared/types/remote'
 import type { RemoteAgentStateHost, RemoteAgentsHost, RemoteTerminalHost, RemoteThreadHost } from '../services/remote/desktop'
+import type { PaneConversationSource } from '../services/remote/pane-conversation'
 import type { RemoteGateway } from '../services/remote/gateway'
 import { parseNoInput } from '../services/remote/inputs'
 
@@ -13,7 +14,7 @@ import { parseNoInput } from '../services/remote/inputs'
  * it, and it starts off on every launch. `hosts` are what phones may watch and do (M4, M5); the gateway gets only
  * the narrow view of them in `services/remote/desktop`.
  */
-export function registerRemoteIpc(db: AppDatabase, hosts?: { threads: Promise<RemoteThreadHost>; terminals: RemoteTerminalHost; agentState: RemoteAgentStateHost; agents?: RemoteAgentsHost }): void {
+export function registerRemoteIpc(db: AppDatabase, hosts?: { threads: Promise<RemoteThreadHost>; terminals: RemoteTerminalHost; agentState: RemoteAgentStateHost; agents?: RemoteAgentsHost; paneConversations?: PaneConversationSource }): void {
   let gateway: Promise<RemoteGateway> | null = null
   const send = (channel: string, payload: unknown) => {
     for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(channel, payload)
@@ -21,7 +22,7 @@ export function registerRemoteIpc(db: AppDatabase, hosts?: { threads: Promise<Re
   const broadcast = (change: RemoteChange) => send(IPC_CHANNELS.remote.changed, change)
   const pairingFailed = (message: MainMessage) => send(IPC_CHANNELS.remote.pairingFailed, message)
   const load = () => gateway ??= Promise.all([import('../services/remote/gateway'), import('../services/remote/desktop'), hosts?.threads]).then(([{ RemoteGateway }, { createRemoteDesktop }, threads]) =>
-    new RemoteGateway({ db, storage: safeStorage, broadcast, pairingFailed, ...(hosts && threads ? { desktop: createRemoteDesktop({ db, threads, terminals: hosts.terminals, agentState: hosts.agentState, agents: hosts.agents }) } : {}) }))
+    new RemoteGateway({ db, storage: safeStorage, broadcast, pairingFailed, ...(hosts?.paneConversations ? { paneConversations: hosts.paneConversations } : {}), ...(hosts && threads ? { desktop: createRemoteDesktop({ db, threads, terminals: hosts.terminals, agentState: hosts.agentState, agents: hosts.agents }) } : {}) }))
   const handle = (channel: string, run: (gateway: RemoteGateway, input: unknown) => unknown) => {
     ipcMain.handle(channel, async (_event: IpcMainInvokeEvent, input: unknown) => {
       return run(await load(), input)

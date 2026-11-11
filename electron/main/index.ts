@@ -300,12 +300,14 @@ async function registerIpcHandlers(): Promise<() => void> {
   const [
     { registerGitIpc }, { registerSearchIpc }, { registerGitHubIpc },
     { registerIntegrationIpc }, { registerRemoteIpc },
-    { GitHubService }, { GitService }, { registerPullRequestIpc }
+    { GitHubService }, { GitService }, { registerPullRequestIpc },
+    { paneConversationsFor }, { registerPaneConversationIpc }
   ] = await Promise.all([
     import('./ipc/git.ipc'), import('./ipc/search.ipc'), import('./ipc/github.ipc'),
     import('./ipc/integration.ipc'), import('./ipc/remote.ipc'),
     import('./services/github.service'), import('./services/git.service'),
-    import('./ipc/pull-request.ipc')
+    import('./ipc/pull-request.ipc'),
+    import('./services/remote/pane-conversation'), import('./ipc/pane-conversation.ipc')
   ])
   const gitService = registerGitIpc()
   registerSearchIpc()
@@ -400,8 +402,23 @@ async function registerIpcHandlers(): Promise<() => void> {
     return filePath
   })
   registerNotificationsIpc()
+  const paneConversations = paneConversationsFor(db, () => {
+    const rows = db.prepare('SELECT root_path AS root FROM workspaces UNION SELECT root_path FROM thread_project_contexts').all() as Array<{ root: string | null }>
+    return rows.map(row => row.root).filter((root): root is string => typeof root === 'string' && root.length > 0)
+  })
+  const disposePaneConversationIpc = registerPaneConversationIpc(ipcMain, {
+    conversations: paneConversations,
+    push: (senderId, payload) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (!window.isDestroyed() && window.webContents.id === senderId) {
+          window.webContents.send(IPC_CHANNELS.paneConversation.changed, payload)
+        }
+      }
+    }
+  })
+  app.once('before-quit', disposePaneConversationIpc)
   registerRemoteIpc(db, {
-    threads: threadManager.manager, terminals: terminalManager, agentState,
+    threads: threadManager.manager, terminals: terminalManager, agentState, paneConversations,
     // S7.1: the phone's `agents` topic; a mark from the phone reaches the window too.
     agents: {
       overview: () => agentsModel.overview(),

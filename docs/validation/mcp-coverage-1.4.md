@@ -187,6 +187,7 @@ before. Code panes receive the whole registry.
 | `settings.agent_audit` | Audit of agent actions; internal MCP status | Excluded: The person's review of what agents did. OxeQuery's trail is oxespace_db_activity. |
 | `http_audit.list` | List HTTP audit calls | Excluded: The person's review of HTTP calls made by agents. |
 | `agent_activity.read` | List, detail and badge of agent activity | Excluded: The person's review of what agents did across changes, databases, containers and HTTP. |
+| `code.pane_conversation` | A terminal agent's conversation on the desktop (A53) | Excluded: The person's read-only view of a pane's native session. Agents read panes with oxespace_agents read and sessions with oxespace_threads native_sessions. |
 | `mcp_internal.token` | Regenerate the internal MCP token | **Forbidden**: A token. |
 | `accounts.sign_in` | Sign in or out of Claude, Codex and other accounts | **Forbidden**: Sign-in and tokens. |
 | `app.events` | Change notifications sent to the window | Excluded: Events, not actions: agents read the state they describe with the tools above. |

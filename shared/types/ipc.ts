@@ -416,6 +416,13 @@ export const IPC_CHANNELS = {
     detail: 'agent-activity:detail',
     badge: 'agent-activity:badge'
   },
+  paneConversation: {
+    has: 'pane-conversation:has',
+    page: 'pane-conversation:page',
+    watch: 'pane-conversation:watch',
+    unwatch: 'pane-conversation:unwatch',
+    changed: 'pane-conversation:changed'
+  },
 } as const
 
 export interface WorkspaceApi {
@@ -719,6 +726,20 @@ export interface OxeApi {
   dataExport: DataExportApi
   httpAudit: import('./http-audit').HttpAuditApi
   agentActivity: import('./agent-activity').AgentActivityApi
+  paneConversation?: PaneConversationApi
+}
+
+export type PaneConversationPageResult =
+  | import('../remote/protocol').RemotePaneConversationPage
+  | { error: 'no-conversation' }
+  | { error: 'conversation-changed'; reason?: 'new-session' | 'rewritten' }
+
+export interface PaneConversationApi {
+  has(paneId: string): Promise<boolean>
+  page(input: import('../remote/protocol').RemotePaneConversationArgs): Promise<PaneConversationPageResult>
+  watch(paneId: string): Promise<void>
+  unwatch(paneId: string): Promise<void>
+  onChanged(listener: (event: { paneId: string }) => void): () => void
 }
 
 export interface McpInternalApi {

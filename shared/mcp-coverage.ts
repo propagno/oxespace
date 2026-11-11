@@ -422,6 +422,11 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     excluded: "The person's review of what agents did across changes, databases, containers and HTTP.",
     ipc: ['agentActivity.list', 'agentActivity.detail', 'agentActivity.badge']
   },
+  'code.pane_conversation': {
+    label: "A terminal agent's conversation on the desktop (A53)",
+    excluded: "The person's read-only view of a pane's native session. Agents read panes with oxespace_agents read and sessions with oxespace_threads native_sessions.",
+    ipc: ['paneConversation.*']
+  },
   'mcp_internal.token': { label: 'Regenerate the internal MCP token', forbidden: 'A token.', ipc: ['mcpInternal.regenerateToken'] },
   'accounts.sign_in': { label: 'Sign in or out of Claude, Codex and other accounts', forbidden: 'Sign-in and tokens.', ipc: ['agentAccount.*'] },
 
