@@ -1,7 +1,7 @@
 import type { AppView } from '../keyboard/keybindings'
 import { useNavigationPrefs } from '../store/navigation-prefs.store'
 
-const RECENT_VIEW = 'oxe.recent-view'
+const START_VIEW = 'oxe.start-view'
 
 /**
  * CR-F8-Triad (10/11): OxeChat ('thread') is the cold-start home screen and
@@ -20,7 +20,7 @@ export function initialAppView(remembered: string | null): AppView {
  */
 export function startAppView(): AppView {
   let remembered: string | null
-  try { remembered = localStorage.getItem(RECENT_VIEW) } catch { remembered = null }
+  try { remembered = localStorage.getItem(START_VIEW) } catch { remembered = null }
   if (remembered === 'code' || remembered === 'thread' || remembered === 'data') return remembered
   const { firstRun } = useNavigationPrefs.getState()
   const firstRunReady = firstRun.dismissed || (['agents', 'account', 'folder'] as const).every(step => firstRun.done.includes(step))
@@ -29,5 +29,5 @@ export function startAppView(): AppView {
 }
 
 export function rememberAppView(view: AppView): void {
-  try { localStorage.setItem(RECENT_VIEW, view) } catch { /* storage unavailable */ }
+  try { localStorage.setItem(START_VIEW, view) } catch { /* storage unavailable */ }
 }
