@@ -1261,6 +1261,10 @@
     },
     "topbar": {
       "label": "Workspace status",
+      "agent": "Agent",
+      "agentMenu": "Launch agent",
+      "layoutMenu": "Terminal grid layout",
+      "layoutFocus": "Focus",
       "mcp": "Open MCP servers",
       "mcpQuarantined_one": "Open MCP servers: {{count}} quarantined",
       "mcpQuarantined_other": "Open MCP servers: {{count}} quarantined",
@@ -2017,6 +2021,7 @@
     "start": "Start terminal",
     "starting": "Starting…",
     "startButton": "Start Terminal",
+    "commandPlaceholder": "Type a command and press Enter",
     "status": {
       "idle": "idle",
       "starting": "starting",

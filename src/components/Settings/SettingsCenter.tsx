@@ -152,6 +152,9 @@ export function SettingsCenter(props: SettingsModalProps & {
     }
   }, [requestedPage])
   const returnPane = useRef(useUIStore.getState().activePaneId)
+  // What had focus when Settings opened (the gear, a menu item). Settings covers the whole window, so when it closes
+  // that control is only just back on screen: focus is returned on the next frame, or it fell to <body> (visual QA r4).
+  const [opener] = useState(() => document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null)
   const workspace = destination.scope === 'workspace' ? props.workspaces.find(w => w.id === destination.workspaceId) : undefined
   const activeWorkspaceId = useWorkspaceStore(state => state.activeWorkspaceId)
   const scopeWorkspace = props.allowWorkspaceScope === false ? undefined : workspace ?? props.workspaces.find(w => w.id === activeWorkspaceId) ?? props.workspaces[0]
@@ -184,7 +187,11 @@ export function SettingsCenter(props: SettingsModalProps & {
 
   return <ModalRoot open onOpenChange={open => { if (!open) close() }}>
     <ModalSurface className="settings-center" style={{ '--settings-navigation-width': `${navigationWidth}px` } as CSSProperties} scrimClassName="settings-center-overlay" toasts aria-describedby={undefined}
-      onCloseAutoFocus={event => { if (returnPane.current) { event.preventDefault(); requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('oxe:focus-pane', { detail: { paneId: returnPane.current } }))) } }}
+      onCloseAutoFocus={event => {
+        // Opened from a control (the gear, a menu): back to it. Opened from the keyboard inside a terminal: back to the pane.
+        if (opener && !opener.closest('[data-testid="pane-container"]')) { event.preventDefault(); requestAnimationFrame(() => { if (opener.isConnected) opener.focus({ preventScroll: true }) }) }
+        else if (returnPane.current) { event.preventDefault(); requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('oxe:focus-pane', { detail: { paneId: returnPane.current } }))) }
+      }}
       onPointerDownOutside={event => event.preventDefault()}>
       <aside className="settings-center-nav">
         <ModalTitle className="settings-center-title"><Settings2 size={16} />{t('center.title')}</ModalTitle>

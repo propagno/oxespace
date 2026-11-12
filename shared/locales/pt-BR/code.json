@@ -1318,6 +1318,10 @@
     },
     "topbar": {
       "label": "Status do workspace",
+      "agent": "Agente",
+      "agentMenu": "Iniciar um agente",
+      "layoutMenu": "Layout da grade de terminais",
+      "layoutFocus": "Foco",
       "mcp": "Abrir os servidores MCP",
       "mcpQuarantined_one": "Abrir os servidores MCP: {{count}} em quarentena",
       "mcpQuarantined_many": "Abrir os servidores MCP: {{count}} em quarentena",
@@ -2087,6 +2091,7 @@
     "start": "Iniciar o terminal",
     "starting": "Iniciando…",
     "startButton": "Iniciar o terminal",
+    "commandPlaceholder": "Digite um comando e pressione Enter",
     "status": {
       "idle": "ocioso",
       "starting": "iniciando",
