@@ -1,4 +1,4 @@
-import type { CloseAnswer, CloseRequest } from '../../shared/types/app'
+import type { CloseAnswer, CloseReason, CloseRequest } from '../../shared/types/app'
 import { unsavedWork } from './unsavedWork'
 
 /**
@@ -59,6 +59,32 @@ export async function handleCloseRequest(request: CloseRequest): Promise<void> {
   }
   pendingId = null
   await answer(request.requestId, decision)
+}
+
+let confirming: Promise<boolean> | null = null
+
+/**
+ * The same question for a close the window starts itself (File › Exit). Electron closes a window at once when its
+ * own page calls window.close(): main's close event never happens, so main never asks. Measured in the app on
+ * 2026-11-12: the window's X asked, File › Exit closed with a turn running (FUNC-3). Resolves true when the window
+ * may close: nothing to lose, or the person chose to go on. A second call while one is asked shares its answer.
+ */
+export function confirmClose(reason: CloseReason = 'quit'): Promise<boolean> {
+  confirming ??= (async () => {
+    try {
+      const unsaved = unsavedWork().length > 0
+      const running = await runningTurns()
+      if (!unsaved && !running.length) return true
+      const { askAboutUnsavedWork } = await import('../components/CloseGuard/UnsavedWorkDialog')
+      return (await askAboutUnsavedWork(reason, running)) === 'proceed'
+    } catch {
+      // The dialog could not load: keep the window open rather than lose the work.
+      return false
+    } finally {
+      confirming = null
+    }
+  })()
+  return confirming
 }
 
 /** Subscribes once, at start: a window that has not subscribed gets main's 3 s deadline and a forced close. */

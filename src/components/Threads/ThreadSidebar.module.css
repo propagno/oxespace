@@ -46,8 +46,7 @@
 .content { display: grid; flex: 1; min-width: 0; gap: 2px; container-type: inline-size; }
 .title { display: -webkit-box; min-width: 0; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; line-height: 1.3; color: var(--text-primary); font-size: var(--text-sm); font-weight: var(--weight-medium); }
 .meta { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--text-muted); font-size: var(--text-2xs); line-height: 1.25; }
-.time, .needs { flex: none; align-self: flex-start; margin-top: 2px; color: var(--text-muted); font-size: var(--text-2xs); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.needs { color: var(--intent-warning-fg); font-weight: var(--weight-semibold); }
+.time { flex: none; align-self: flex-start; margin-top: 2px; color: var(--text-muted); font-size: var(--text-2xs); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .meta > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .meta > small { flex-shrink: 0; margin-left: auto; color: var(--text-secondary); font-size: var(--text-2xs); }
 .provider { display: inline-flex; align-items: center; gap: 4px; min-width: 0; color: var(--text-secondary); }
@@ -69,7 +68,7 @@
 .rows .row > .action { position: absolute; top: 4px; right: 34px; background: var(--nav-selected); }
 .rows .row > .action:last-child { right: var(--space-1); }
 .rows .row:hover > .action, .rows .row:focus-within > .action { background: var(--fill-hover); }
-.rows .row:hover :is(.time, .needs), .rows .row:focus-within :is(.time, .needs) { visibility: hidden; }
+.rows .row:hover .time, .rows .row:focus-within .time { visibility: hidden; }
 
 /* The sidebar's own density, set on its <aside>; compact collapses rows to a single line. */
 :global(.thread-navigation)[data-density='compact'] .rows .row,

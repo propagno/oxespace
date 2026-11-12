@@ -456,7 +456,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     const permissions = page.getByRole('dialog', { name: 'Permissions', exact: true })
     await expect(permissions).toBeVisible()
     await page.screenshot({ path: 'test-results/thread-permissions-popover.png' })
-    await permissions.getByRole('button', { name: /Workspace access Allow edits inside this project/ }).click()
+    await permissions.getByRole('button', { name: /Can edit Allow edits inside this project/ }).click()
     const accessDialog = page.getByRole('dialog', { name: 'Change conversation access?', exact: true })
     await expect(accessDialog.getByRole('button', { name: 'Apply access', exact: true })).toBeInViewport()
     await page.screenshot({ path: 'test-results/thread-access-dialog.png' })
@@ -514,7 +514,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await accountsDialog.getByRole('button', { name: 'Close', exact: true }).click()
     await page.getByRole('button', { name: 'Retry', exact: true }).click()
     await expect(page.getByText('Verified fixture response', { exact: true })).toBeVisible()
-    await expect(page.locator('.thread-navigation-row').filter({ has: page.locator('.thread-session-title', { hasText: 'Authentication flow' }) }).locator('.thread-session-state')).toHaveText('Completed')
+    await expect(page.locator('.thread-navigation-row').filter({ has: page.locator('.thread-session-title', { hasText: 'Authentication flow' }) }).locator('.thread-session-state')).toHaveText('Finished')
     const completedIcon = await page.locator('.thread-session-indicator[data-status="completed"]').first().evaluate(el => ({ icon: el.querySelector('svg')?.getAttribute('class'), color: getComputedStyle(el).color }))
     expect(completedIcon.icon).toContain('circle-check')
     // Since the 1.5 sidebar a finished conversation is a green check; the blue dot is one that has not started.
@@ -854,9 +854,10 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.getByRole('button', { name: 'More actions' }).click()
     await page.getByRole('menuitem', { name: 'Show every tool call' }).click()
     await expect(inlineRows).toHaveCount(0)
-    // A finished turn folds its work under one line; opening it shows the one-line action summaries.
+    // A finished turn folds its work under one line that names what it opens ("6 steps"); the turn is closed once,
+    // under the answer. Opening the fold shows the one-line action summaries.
     const fold = page.getByTestId('thread-turn-fold').first()
-    await expect(fold).toHaveText(/^Completed \d+ steps?/)
+    await expect(fold).toHaveText(/^\d+ steps?/)
     await expect(fold).toHaveAttribute('aria-expanded', 'false')
     await fold.click()
     await expect(fold).toHaveAttribute('aria-expanded', 'true')
@@ -961,7 +962,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(latestMessage.getByRole('button')).toHaveCount(0)
     await expect(latestResponse).toHaveClass(/is-final-response/)
     await expect(latestResponse.getByRole('button', { name: 'Copy final response' })).toBeVisible()
-    await expect(page.locator('.thread-virtual-turn.is-turn-end').last().locator('.thread-turn-timing')).toContainText('Completed')
+    await expect(page.locator('.thread-virtual-turn.is-turn-end').last().locator('.thread-turn-timing')).toContainText('Finished')
     await page.screenshot({ path: 'test-results/thread-message-actions.png' })
     await latestResponse.getByRole('button', { name: 'Copy final response' }).click()
     await expect.poll(() => page.evaluate(() => window.oxe.clipboard.readText())).toContain('A detailed response to verify the conversation history.')
@@ -1034,8 +1035,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     const requestDock = page.getByRole('region', { name: 'Pending agent requests' })
     await expect(requestDock.getByText('Allow this memory update?')).toBeVisible()
     await timeline.evaluate(element => { element.scrollTop = 0 })
-    await expect(requestDock.getByRole('button', { name: 'Continue', exact: true })).toBeInViewport()
-    await requestDock.getByRole('button', { name: 'Continue', exact: true }).click()
+    // An MCP request with nothing to fill in is a yes or no, with the words of an approval.
+    await expect(requestDock.getByRole('button', { name: 'Approve', exact: true })).toBeInViewport()
+    await requestDock.getByRole('button', { name: 'Approve', exact: true }).click()
     await expect.poll(() => app.evaluate(() => (globalThis as Record<string, unknown>).lastThreadAnswer)).toEqual({ decision: 'accept', content: {} })
     await expect(requestDock).toHaveCount(0)
     await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Historical questions fixture'))

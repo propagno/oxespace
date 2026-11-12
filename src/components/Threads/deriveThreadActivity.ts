@@ -164,6 +164,15 @@ export function deriveThreadActivity(
   }
   if (pending.length > 0) {
     const first = pending[0]
+    // A plan to review has its own words in the line: the request's title is whatever the agent called it, in its
+    // language, and read "asks to aprovar o plano?." inside the sentence (CHAT-7).
+    if (first.nativeMethod === 'can_use_tool:ExitPlanMode') return { kind: 'needs-you', at: first.createdAt ?? baseAt, requestId: first.id, reason: 'plan' }
+    // An MCP server's request is titled with the server's name, which read "asks to oxespace-delegation." in the
+    // line (CHAT-15). It has its own words; a title that is not one name is left out of them.
+    if (first.kind === 'elicitation') {
+      const source = cleanText(first.title, root, 80)
+      return { kind: 'needs-you', at: first.createdAt ?? baseAt, requestId: first.id, reason: 'mcp', ...(source && !/\s/.test(source) ? { text: source } : {}) }
+    }
     const text = midSentence(cleanText(first.title, root, 200))
     return {
       kind: 'needs-you',
@@ -205,9 +214,13 @@ export function deriveThreadActivity(
   const turnStatus = lastTurn?.status ?? thread.lastTurnStatus
 
   if (thread.status === 'interrupted' || turnStatus === 'interrupted') {
+    // A turn the app cut short when it closed is settled with what happened (thread-recovery.service.ts); one the
+    // person stopped is settled with nothing. The status line said "You stopped it" for both.
+    const settled = [...events].reverse().find((event): event is Extract<ThreadEvent, { type: 'completed' }> => event.type === 'completed')
     return {
       kind: 'paused',
-      at: lastTurn?.completedAt ?? lastTurn?.startedAt ?? baseAt
+      at: lastTurn?.completedAt ?? lastTurn?.startedAt ?? baseAt,
+      ...(settled?.status === 'interrupted' && settled.error ? { reason: 'app-closed' } : {})
     }
   }
 
@@ -229,19 +242,13 @@ export function deriveThreadActivity(
     }
   }
 
-  // A restore that was not confirmed yet keeps the undone turns in the history, for Redo. They are no longer where the
-  // conversation stands: their answer is not the last word, and when the files went back, neither are their changes.
-  const undoneFrom = thread.rewind ? events.findIndex(event => event.type === 'message' && event.role === 'user' && event.id === thread.rewind!.turnId) : -1
-  const standing = undoneFrom >= 0 ? events.slice(0, undoneFrom) : events
-  const filesWentBack = undoneFrom >= 0 && Boolean(thread.rewind?.redoCheckpointIds?.length)
-
   // Empty new conversation before any message or turn: keep header clean without "Done."
-  if (standing.length === 0) return null
+  if (events.length === 0) return null
 
   const changedFiles = new Set(
-    (filesWentBack ? standing : events).flatMap(event => event.type === 'tool' && event.files ? event.files.map(file => file.path) : [])
+    events.flatMap(event => event.type === 'tool' && event.files ? event.files.map(file => file.path) : [])
   ).size
-  const lastAssistant = [...standing].reverse().find(
+  const lastAssistant = [...events].reverse().find(
     (event): event is Extract<ThreadEvent, { type: 'message' }> => event.type === 'message' && event.role === 'assistant' && Boolean(event.text.trim())
   )
   const summary = lastAssistant ? firstSentence(lastAssistant.text, root, 200) : ''

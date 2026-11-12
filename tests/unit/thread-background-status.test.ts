@@ -14,9 +14,9 @@ describe('background work in the thread summary', () => {
     expect(backgroundSummary([task('a', 'completed', NOW)], NOW)).toBeUndefined()
   })
 
-  it('keeps a finished turn with background work out of "Completed" in the sidebar', () => {
+  it('keeps a finished turn with background work out of "Finished" in the sidebar', () => {
     expect(threadNavigationStatus(thread({ background: { running: 1, since: Date.now() - 1000 } }))).toEqual({ kind: 'running', label: 'Background' })
-    expect(threadNavigationStatus(thread({}))).toEqual({ kind: 'completed', label: 'Completed' })
+    expect(threadNavigationStatus(thread({}))).toEqual({ kind: 'completed', label: 'Finished' })
     expect(backgroundRunning(thread({ background: { running: 1, since: Date.now() - BACKGROUND_TRUST_MS - 1 } }))).toBe(false)
     expect(threadNavigationStatus(thread({ status: 'approval', background: { running: 1, since: Date.now() } })).kind).toBe('attention')
   })

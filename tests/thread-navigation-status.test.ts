@@ -10,11 +10,11 @@ const thread = (status: ConversationThread['status'], lastTurnStatus?: Conversat
 describe('Thread navigation status', () => {
   it.each([
     ['idle', undefined, 'ready', 'Ready'],
-    ['idle', 'completed', 'completed', 'Completed'],
-    ['running', undefined, 'running', 'Running'],
+    ['idle', 'completed', 'completed', 'Finished'],
+    ['running', undefined, 'running', 'Working'],
     ['approval', undefined, 'attention', 'Needs you'],
     ['failed', undefined, 'failed', 'Failed'],
-    ['interrupted', undefined, 'interrupted', 'Interrupted']
+    ['interrupted', undefined, 'interrupted', 'Paused']
   ] as const)('maps %s and last turn %s to %s', (status, lastTurnStatus, kind, label) => {
     expect(threadNavigationStatus(thread(status, lastTurnStatus))).toEqual({ kind, label })
   })

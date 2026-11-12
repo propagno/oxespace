@@ -22,7 +22,6 @@ export interface QueueHost {
   adapter(id: string): AgentConversationAdapter | undefined
   resolveAttachments(id: string, attachmentIds: string[]): Promise<ThreadAttachment[]>
   releaseAttachments(id: string, attachmentIds: string[]): Promise<void>
-  applyPendingRewind(id: string): Promise<void>
   /** Starts checkpoint and baseline tracking for a turn in the thread's working checkout. */
   beginTurn(id: string, turnId: string, thread: ConversationThread, label: string, baseline: boolean): Promise<void>
   send(id: string, text: string, attachmentIds: string[]): Promise<void>
@@ -139,15 +138,8 @@ export async function drainQueue(host: QueueHost, id: string): Promise<void> {
     savePlain(host, snapshot)
   }
   if (snapshot.thread.queuePause) return
-  let item = snapshot.thread.queue?.find(value => value.state === 'queued')
+  const item = snapshot.thread.queue?.find(value => value.state === 'queued')
   if (!item) return
-  // The next queued message confirms a pending rewind, as a sent one does.
-  if (snapshot.thread.rewind) {
-    try { await host.applyPendingRewind(id) } catch { return }
-    snapshot = host.read(id)
-    item = snapshot.thread.queue?.find(value => value.state === 'queued')
-    if (!item) return
-  }
   item.state = 'sending'
   if (item.operationId) host.transitionOperation(id, item.operationId, 'sent')
   savePlain(host, snapshot)

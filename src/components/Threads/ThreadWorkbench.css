@@ -14,6 +14,8 @@
 .thread-inline-evidence p, .thread-inline-evidence > div[role="alert"] { padding: 10px 12px; color: var(--text-muted); font-size: var(--fs-2xs); }
 .thread-inline-evidence pre { padding: 12px; font: 11px/1.7 var(--font-mono); overflow: auto; }
 .thread-turn-timing { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0; font-size: var(--fs-2xs); color: var(--text-muted); }
+/* Plan mode in a Read only conversation: what it takes to run the plan, under the turn that wrote it. */
+.thread-plan-only-hint { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 8px; font-size: var(--fs-xs); color: var(--text-secondary); }
 .thread-turn-outcome { display: inline-flex; align-items: center; gap: 5px; color: var(--text-primary); font-weight: 600; }
 .thread-turn-timing.is-completed .thread-turn-outcome svg { color: var(--dot-green); }
 .thread-turn-timing.is-failed .thread-turn-outcome, .thread-turn-timing.is-failed .thread-turn-outcome svg { color: var(--intent-danger-fg); }
@@ -200,13 +202,6 @@
 .thread-retry-choice { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .thread-retry-choice > span { color: var(--text-secondary); font-size: var(--fs-xs); }
 
-/* Turns set aside by a pending rewind: readable, greyed and inert until the next message confirms it. */
-.thread-turn.is-superseded { opacity: .45; }
-.thread-dock-rewind { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; padding: 6px 6px 6px 10px; border: 1px solid var(--border-subtle, var(--border-default)); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--text-secondary); font-size: var(--fs-xs); }
-.thread-dock-rewind > span { flex: 1; min-width: 0; }
-.thread-dock-rewind button { display: inline-flex; flex: none; align-items: center; gap: 4px; height: 24px; padding: 0 10px; border: 1px solid var(--border-subtle, var(--border-default)); border-radius: var(--radius-sm); background: transparent; color: var(--text-primary); font: inherit; cursor: pointer; }
-.thread-dock-rewind button:hover:not(:disabled) { background: var(--nav-hover); }
-.thread-dock-rewind button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .thread-change-file-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
 /* The checkout a file was changed in, when it is not the conversation's own (a worktree). */
 .thread-file-checkout { flex: none; max-width: 40%; overflow: hidden; padding: 0 5px; border-radius: var(--radius-sm); background: var(--nav-hover); color: var(--text-muted); font-size: var(--fs-2xs); text-overflow: ellipsis; white-space: nowrap; }

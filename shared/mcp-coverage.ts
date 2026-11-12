@@ -22,7 +22,7 @@ export type McpCapability =
   | Base & { forbidden: string }
 
 /** The user's standing rule: these never become MCP tools. Each must be a `forbidden` capability. */
-export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'thread.time_travel', 'accounts.sign_in', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'android.controls', 'git.repo_hook_approval', 'remote.gateway_admin', 'approvals.admin', 'mcp_internal.tool_groups_admin', 'app.open_external', 'mcp.tool_rules_admin', 'policy.accept_change', 'app.open_in', 'code.resume_bypass', 'containers.panel', 'settings.feature_usage', 'settings.hosts_proxy'] as const
+export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'android.controls', 'git.repo_hook_approval', 'remote.gateway_admin', 'approvals.admin', 'mcp_internal.tool_groups_admin', 'app.open_external', 'mcp.tool_rules_admin', 'policy.accept_change', 'app.open_in', 'code.resume_bypass', 'containers.panel', 'settings.feature_usage', 'settings.hosts_proxy'] as const
 
 /** No tool name or domain action may look like one of these. */
 export const FORBIDDEN_NAME = /approv|permission|access|sign_?in|log_?in|log_?out|token|secret|credential|password|api_?key|trust|host_?key/i
@@ -278,12 +278,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'thread.cockpit': {
     label: 'A conversation\'s tool tabs and background shells (F6)',
     excluded: 'The person\'s window: read models of what a conversation used and left running. Agents see their own tools and shells.',
-    ipc: ['thread.toolTabs', 'thread.toolTabsChanged', 'thread.background', 'thread.backgroundChanged', 'thread.timeline']
-  },
-  'thread.time_travel': {
-    label: 'Restore a conversation to a checkpoint, redo a restore, or branch from a checkpoint into a new worktree (F8)',
-    forbidden: 'Person-only (A30): Restore and Branch rewrite working-tree files or create a worktree and conversation for the person.',
-    ipc: ['thread.rewind', 'thread.redoRewind', 'thread.branchFromCheckpoint']
+    ipc: ['thread.toolTabs', 'thread.toolTabsChanged', 'thread.background', 'thread.backgroundChanged']
   },
   'thread.place_actions': {
     label: 'Answer a branch drift; undo, restore or discard a place\'s changes; read a file of a place (F4)',

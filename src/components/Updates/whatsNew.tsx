@@ -33,10 +33,6 @@ function openWhatsNewTarget(target: WhatsNewTarget): void {
     case 'httpCalls':
       ui.openSettingsPage('activity')
       return
-    case 'timeTravel':
-      if (activeWsId) void wsStore.updateReviewState({ workspaceId: activeWsId, reviewPanelVisible: true })
-      else ui.openNewWorkspace()
-      return
   }
 }
 
