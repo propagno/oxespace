@@ -1095,7 +1095,19 @@
       "text": "Texto",
       "note": "O que o agente deve mudar?",
       "notePlaceholder": "O que o agente deve mudar aqui? (Ctrl+Enter envia)",
-      "send": "Enviar ao agente"
+      "send": "Enviar ao agente",
+      "selected": "Elementos selecionados: {{count}}",
+      "remove": "Tirar {{selector}} da seleção",
+      "locating": "Procurando onde isto está escrito…",
+      "noSource": "A página não informa onde isto está escrito, e a busca no projeto não encontrou nada.",
+      "approximate": "a linha pode estar algumas linhas fora",
+      "bySearch": "encontrado por busca no projeto",
+      "otherPlaces": "Outros lugares possíveis",
+      "choosePlace": "Escolher…",
+      "openSource": "Abrir {{location}} em Arquivos",
+      "addAnother": "Selecionar outro elemento",
+      "addAnotherTitle": "Escolha mais elementos para o mesmo pedido. Shift+clique na página também continua selecionando.",
+      "picking": "Clique em um elemento da página…"
     },
     "retry": "Tentar de novo"
   },

@@ -1048,7 +1048,19 @@
       "text": "Text",
       "note": "What should the agent change?",
       "notePlaceholder": "What should the agent change here? (Ctrl+Enter sends)",
-      "send": "Send to agent"
+      "send": "Send to agent",
+      "selected": "Selected elements: {{count}}",
+      "remove": "Remove {{selector}} from the selection",
+      "locating": "Looking for where this is written…",
+      "noSource": "The page does not say where this is written, and a search of the project found nothing.",
+      "approximate": "the line may be a few lines off",
+      "bySearch": "found by searching the project",
+      "otherPlaces": "Other places it may be",
+      "choosePlace": "Choose…",
+      "openSource": "Open {{location}} in Files",
+      "addAnother": "Select another element",
+      "addAnotherTitle": "Pick more elements for the same request. Shift+click in the page also keeps selecting.",
+      "picking": "Click an element in the page…"
     },
     "retry": "Retry"
   },

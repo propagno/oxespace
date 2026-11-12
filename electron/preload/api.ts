@@ -530,6 +530,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       back: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.back, input) as Promise<void>,
       forward: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.forward, input) as Promise<void>,
       captureElement: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.captureElement, input) as Promise<string | null>,
+      captureElementFile: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.captureElementFile, input) as Promise<{dataUrl:string;path:string|null} | null>,
       captureClipboard: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.captureClipboard, input) as Promise<void>,
       close: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.close, input) as Promise<void>,
       revokeGrant: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.revokeGrant, input) as Promise<void>,

@@ -161,6 +161,7 @@
       "code": {
         "changes": "Alterações",
         "browser": "Navegador",
+        "designMode": "Selecionar um elemento no Navegador",
         "files": "Arquivos",
         "search": "Buscar nos arquivos",
         "splitLayout": "Alternar o layout dividido"
@@ -191,6 +192,7 @@
         "terminal": "Terminal",
         "changes": "Alterações",
         "browser": "Navegador",
+        "designMode": "Selecionar um elemento no Navegador",
         "permissions": "Permissões",
         "model": "Modelo",
         "effort": "Esforço de raciocínio",

@@ -2,6 +2,8 @@ import { app, BrowserWindow, clipboard, ClipboardItem, WebContentsView, type Web
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
+import { designSourceProbeScript, sanitizeDesignProbe } from '../../../shared/design-source'
+import { savePreviewCapture } from './browser-preview/preview-capture-store'
 import { DESIGN_MODE_CHANNELS, type DesignGrabPayload } from '../../../shared/types/design-mode'
 import type { BrowserPreviewBounds, BrowserPreviewEvent, BrowserPreviewMount, BrowserPreviewMountResult, BrowserPreviewSessionState } from '../../../shared/types/browser-preview'
 import type { ExecutionOwner } from './execution-registry'
@@ -315,9 +317,9 @@ export class BrowserPreviewService {
       await broker.sendCommand('Emulation.setTouchEmulationEnabled', { enabled: emulation.touch, maxTouchPoints: emulation.touch ? 5 : 0 }).catch(() => {})
     }
   }
-  designMode(window: BrowserWindow, input: {ownerKey:string;tabId:string;enabled:boolean}): void {
+  designMode(window: BrowserWindow, input: {ownerKey:string;tabId:string;enabled:boolean;keep?:boolean}): void {
     const tab = this.find(window,input.ownerKey,input.tabId)
-    tab.view.webContents.send(DESIGN_MODE_CHANNELS.setEnabled,input.enabled === true)
+    tab.view.webContents.send(DESIGN_MODE_CHANNELS.setEnabled,input.enabled === true,input.enabled === true && input.keep === true)
   }
   setZoom(window: BrowserWindow, input: {ownerKey:string;tabId:string;zoom:number}): void {
     if (!Number.isFinite(input.zoom) || input.zoom < 50 || input.zoom > 150) throw new Error('Invalid browser zoom')
@@ -339,6 +341,17 @@ export class BrowserPreviewService {
     const {x,y,width,height} = input.rect
     if (![x,y,width,height].every(Number.isFinite) || width < 1 || height < 1 || width * height > 4_000_000) throw new Error('Invalid element capture bounds')
     return (await tab.view.webContents.capturePage({x:Math.max(0,Math.round(x)),y:Math.max(0,Math.round(y)),width:Math.round(width),height:Math.round(height)})).toDataURL()
+  }
+  /** The element's capture for the confirmation sheet, also saved to the app's capture folder: an agent in a terminal is given the path. */
+  async captureElementFile(window: BrowserWindow, input: {ownerKey:string;tabId:string;rect:{x:number;y:number;width:number;height:number}}): Promise<{dataUrl:string;path:string|null} | null> {
+    const tab = this.find(window,input.ownerKey,input.tabId)
+    const {x,y,width,height} = input.rect
+    if (![x,y,width,height].every(Number.isFinite) || width < 1 || height < 1 || width * height > 4_000_000) throw new Error('Invalid element capture bounds')
+    const image = await tab.view.webContents.capturePage({x:Math.max(0,Math.round(x)),y:Math.max(0,Math.round(y)),width:Math.round(width),height:Math.round(height)})
+    if (image.isEmpty()) return null
+    const owner = tab.threadId ?? tab.workspaceId
+    const saved = await savePreviewCapture(join(app.getPath('userData'),'web-preview-captures'), owner, `element-${Date.now().toString(36)}-${randomUUID().slice(0,8)}.png`, image.toPNG()).catch(() => null)
+    return {dataUrl:image.toDataURL(),path:saved?.path ?? null}
   }
   async captureClipboard(window: BrowserWindow, input: {ownerKey:string;tabId:string}): Promise<void> {
     const tab = this.find(window,input.ownerKey,input.tabId)
@@ -382,8 +395,21 @@ export class BrowserPreviewService {
   handleDesignMessage(sender: WebContents, type: 'grab'|'cancel', payload?: DesignGrabPayload): void {
     const tab = [...this.tabs.values()].find(item => item.view.webContents === sender)
     if (!tab || !tab.visible) return
-    this.emit(tab,type === 'grab' ? {type,payload} : {type})
+    if (type !== 'grab' || !payload) { this.emit(tab,{type:'cancel'}); return }
+    // Where the element is written is asked in the page's own world (the guest preload cannot see what the frameworks
+    // hang on elements). The page is not trusted: only bounded strings and numbers come back, and the window keeps a
+    // file only when it exists in the project. A page that does not answer in time sends the grab without it.
+    const point = payload.point
+    const { probe: _fromGuest, ...grab } = payload
+    void _fromGuest
+    const asked = point && Number.isFinite(point.x) && Number.isFinite(point.y)
+      ? Promise.race([sender.executeJavaScript(designSourceProbeScript(point.x, point.y)).then(sanitizeDesignProbe, () => null), new Promise<null>(resolve => setTimeout(() => resolve(null), DESIGN_PROBE_TIMEOUT_MS))])
+      : Promise.resolve(null)
+    void asked.then(probe => { if (this.tabs.get(this.key(tab.window, tab.ownerKey, tab.tabId)) === tab && tab.visible) this.emit(tab,{type:'grab',payload:{...grab,probe}}) })
   }
 }
+
+/** How long the page has to say where an element is written before the grab goes without it. */
+const DESIGN_PROBE_TIMEOUT_MS = 800
 
 export const browserPreviewService = new BrowserPreviewService()

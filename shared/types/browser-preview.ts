@@ -101,12 +101,15 @@ export interface BrowserPreviewApi {
   bounds(input: BrowserPreviewBounds): Promise<void>
   /** `grant` only when the person confirms access (T43): without it, main can keep or lower agent access but never raise it. */
   setAccess(input: {ownerKey:string;tabId:string;agentAccess:boolean;allowExternal:boolean;grant?:boolean}): Promise<{agentAccess:boolean}>
-  designMode(input: {ownerKey:string;tabId:string;enabled:boolean}): Promise<void>
+  /** `keep`: the picker stays on after each pick, for several elements in a row. */
+  designMode(input: {ownerKey:string;tabId:string;enabled:boolean;keep?:boolean}): Promise<void>
   setZoom(input: {ownerKey:string;tabId:string;zoom:number}): Promise<void>
   reload(input: {ownerKey:string;tabId:string}): Promise<void>
   back(input: {ownerKey:string;tabId:string}): Promise<void>
   forward(input: {ownerKey:string;tabId:string}): Promise<void>
   captureElement(input: {ownerKey:string;tabId:string;rect:{x:number;y:number;width:number;height:number}}): Promise<string | null>
+  /** The same capture, also saved under the app's private capture folder so an agent can be given its path. `path` is null when it could not be saved. */
+  captureElementFile(input: {ownerKey:string;tabId:string;rect:{x:number;y:number;width:number;height:number}}): Promise<{dataUrl:string;path:string|null} | null>
   captureClipboard(input: {ownerKey:string;tabId:string}): Promise<void>
   close(input: {ownerKey:string;tabId:string;lease?:string}): Promise<void>
   revokeGrant(input: { ownerKey: string; tabId: string }): Promise<void>

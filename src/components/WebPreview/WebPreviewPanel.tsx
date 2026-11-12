@@ -1,14 +1,18 @@
 import { AlertCircle, ArrowLeft, ArrowRight, Camera, ExternalLink, MousePointerClick, Minus, MonitorPlay, Plus, RotateCw, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { ToolPanel, Button, EmptyState, ErrorState, Spinner } from '../../ui'
-import type { DesignGrabPayload } from '../../../shared/types/design-mode'
+import { formatDesignGrabs, type DesignGrabContext } from '../../../shared/types/design-mode'
+import type { DesignGrabSource } from '../../../shared/design-source'
 import type { BrowserPreviewEvent, BrowserPreviewSessionState } from '../../../shared/types/browser-preview'
 import type { Workspace } from '../../../shared/types/workspace'
 import { pasteIntoAgentTerminal } from '../../lib/sendToAgent'
 import { openExternalLink } from '../../lib/externalLinks'
 import { ConfirmDialog } from '../../ui'
 import { useUIStore } from '../../store/ui.store'
-import { DesignGrabSheet } from './DesignGrabSheet'
+import { useEditorStore } from '../../store/editor.store'
+import { useWorkspaceStore } from '../../store/workspace.store'
+import { DesignGrabSheet, type DesignGrabItem } from './DesignGrabSheet'
+import { locateDesignSource } from './designSource'
 import { NativePreviewHost } from './NativePreviewHost'
 import { AgentBrowserChrome } from './AgentBrowserChrome'
 import { PreviewEmptyState } from './PreviewEmptyState'
@@ -16,6 +20,7 @@ import { PREVIEW_DEVICES } from '../../../shared/preview-devices'
 import { DeviceMenu, fitDeviceFrame } from './DeviceMenu'
 import { humanizeError } from '../../utils/humanizeError'
 import { useTranslation } from 'react-i18next'
+import { useKeybindings } from '../../keyboard/keybindings'
 import { i18n } from '../../i18n'
 
 const tc = i18n.getFixedT(null, 'code')
@@ -26,8 +31,16 @@ interface WebPreviewPanelProps {
   onRunCommand: (command: string) => void
   onClose: () => void
   embedded?: boolean
-  onSendToAgent?: (prompt: string) => void | Promise<void>
+  /** The conversation's draft, in OxeChat. The captures of the picked elements go with it as attachments. */
+  onSendToAgent?: (prompt: string, extra?: { images: PreviewAttachment[] }) => void | Promise<void>
+  /** Shows a file of the project (where a picked element is written). Without it the Files panel of OxeCode opens. */
+  onOpenFile?: (relativePath: string, line?: number) => void
 }
+
+/** A capture handed to the conversation with a Design Mode selection. */
+export interface PreviewAttachment { name: string; dataUrl: string }
+
+const NO_CONTEXT: DesignGrabContext = { source: null, candidates: [], components: [], screenshotPath: null }
 
 const DEFAULT_URL = 'http://localhost:3000'
 
@@ -40,7 +53,7 @@ const VIEWPORTS: Record<Viewport, { width: number | null; height: number | null 
   mobile: { width: 390, height: 844 }
 }
 
-export function WebPreviewPanel({ embedded = false, onClose, onRunCommand, onSendToAgent, workspace, threadId }: WebPreviewPanelProps): ReactElement {
+export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onRunCommand, onSendToAgent, workspace, threadId }: WebPreviewPanelProps): ReactElement {
   const agentName = workspace.panes?.find(pane => pane.agentName)?.agentName ?? tc('agentBrowser.defaultAgent')
   const { t } = useTranslation('code')
   useEffect(() => { void window.oxe?.featureUsage?.record?.('agentBrowser') }, [])
@@ -76,7 +89,11 @@ export function WebPreviewPanel({ embedded = false, onClose, onRunCommand, onSen
   // #3 Design Mode: pick an element in the previewed page and hand it to an agent.
   const [designMode, setDesignMode] = useState(false)
   // Escape first leaves Design Mode (the hint says so), then closes the panel.
-  const [grab, setGrab] = useState<{ payload: DesignGrabPayload; screenshot: string | null } | null>(null)
+  // Every element picked since the sheet opened: one click each, or several in a row with Shift or "Select another".
+  const [grabs, setGrabs] = useState<DesignGrabItem[]>([])
+  /** The picker stays on after a pick (asked from the sheet). */
+  const [designKeep, setDesignKeep] = useState(false)
+  const patchGrab = useCallback((id: string, patch: (item: DesignGrabItem) => DesignGrabItem): void => setGrabs(current => current.map(item => item.id === id ? patch(item) : item)), [])
   // `send()` and `capturePage()` throw until the guest emits dom-ready.
   const [guestReady, setGuestReady] = useState(false)
   const readyTabs = useRef(new Set<string>())
@@ -126,16 +143,23 @@ export function WebPreviewPanel({ embedded = false, onClose, onRunCommand, onSen
       if (event.type === 'loading' && event.loading) { readyTabs.current.delete(event.tabId); setGuestReady(false) }
       if (event.type === 'cancel') {
         setDesignMode(false)
+        setDesignKeep(false)
         return
       }
       if (event.type !== 'grab' || !event.payload) return
       const payload = event.payload
-      setDesignMode(false)
-      void window.oxe.browserPreview.captureElement({ownerKey:previewKey,tabId:activeTabId,rect:payload.rect})
-        .then((screenshot) => setGrab({ payload, screenshot }))
-        .catch(() => setGrab({ payload, screenshot: null }))
+      if (!payload.keepPicking) { setDesignMode(false); setDesignKeep(false) }
+      const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+      setGrabs(current => [...current.filter(item => item.payload.selector !== payload.selector || item.payload.pageUrl !== payload.pageUrl), { id, payload, screenshot: null, context: { ...NO_CONTEXT, components: payload.probe?.components ?? [] }, locating: true }].slice(-6))
+      // The capture and the search for the code run side by side; the sheet shows each as it arrives.
+      void window.oxe.browserPreview.captureElementFile({ownerKey:previewKey,tabId:activeTabId,rect:payload.rect})
+        .then(capture => { if (capture) patchGrab(id, item => ({ ...item, screenshot: capture.dataUrl, context: { ...item.context, screenshotPath: capture.path } })) })
+        .catch(() => {})
+      void locateDesignSource(payload, { id: workspace.id, rootPath: workspace.rootPath })
+        .then(found => patchGrab(id, item => ({ ...item, locating: false, context: { ...item.context, ...found } })))
+        .catch(() => patchGrab(id, item => ({ ...item, locating: false })))
     })
-  }, [previewKey, activeTabId, applySession])
+  }, [previewKey, activeTabId, applySession, patchGrab, workspace.id, workspace.rootPath])
 
   // A new document means a fresh guest with the picker off.
   useEffect(() => {
@@ -146,8 +170,8 @@ export function WebPreviewPanel({ embedded = false, onClose, onRunCommand, onSen
   // Keep the guest in sync with the toggle, including after a reload.
   useEffect(() => {
     if (!guestReady) return
-    void window.oxe.browserPreview.designMode({ownerKey:previewKey,tabId:activeTabId,enabled:designMode}).catch(() => {})
-  }, [designMode, guestReady, previewKey, activeTabId])
+    void window.oxe.browserPreview.designMode({ownerKey:previewKey,tabId:activeTabId,enabled:designMode,keep:designKeep}).catch(() => {})
+  }, [designMode, designKeep, guestReady, previewKey, activeTabId])
 
   useEffect(() => {
     // Main answers what applies (T43): if it says off, the toggle shows off, and turning it on asks the person again.
@@ -163,20 +187,33 @@ export function WebPreviewPanel({ embedded = false, onClose, onRunCommand, onSen
     setDesignMode((value) => !value)
   }, [url, guestReady])
 
+  const closeGrabs = useCallback((): void => { setGrabs([]); setDesignMode(false); setDesignKeep(false) }, [])
+  // The shortcut works wherever the Browser is on screen; with no page loaded it says what to wait for.
+  useKeybindings({ 'code.designMode': toggleDesignMode, 'thread.designMode': toggleDesignMode })
+
   const sendGrabToAgent = useCallback(
-    async (prompt: string): Promise<void> => {
+    async (note: string): Promise<void> => {
+      if (grabs.length === 0) return
+      const prompt = formatDesignGrabs(grabs.map(item => ({ payload: item.payload, context: onSendToAgent ? { ...item.context, screenshotPath: null } : item.context })), note)
       if (onSendToAgent) {
-        await onSendToAgent(prompt)
-        setGrab(null)
+        // In a conversation the captures travel as attachments; their paths are for agents in a terminal.
+        const images = grabs.flatMap((item, index) => item.screenshot ? [{ name: `element-${index + 1}.png`, dataUrl: item.screenshot }] : [])
+        await onSendToAgent(prompt, { images })
+        closeGrabs()
         setCaptureNotice(tc('preview.addedToDraft'))
         return
       }
       const result = await pasteIntoAgentTerminal(workspace.id, prompt)
-      setGrab(null)
+      closeGrabs()
       setCaptureNotice(result.message)
     },
-    [onSendToAgent, workspace.id]
+    [closeGrabs, grabs, onSendToAgent, workspace.id]
   )
+  const openSource = useCallback((source: DesignGrabSource): void => {
+    if (onOpenFile) { void useEditorStore.getState().openFile({ workspaceId: workspace.id, rootPath: workspace.rootPath, relativePath: source.file, line: source.line ?? undefined }); onOpenFile(source.file, source.line ?? undefined); return }
+    void useEditorStore.getState().openFile({ workspaceId: workspace.id, rootPath: workspace.rootPath, relativePath: source.file, line: source.line ?? undefined })
+    void useWorkspaceStore.getState().updateEditorState({ workspaceId: workspace.id, editorVisible: true })
+  }, [onOpenFile, workspace.id, workspace.rootPath])
 
   // Watch this workspace's pending preview slot — populated by App.tsx when
   // `oxespace_open_web_preview` tool was invoked. Two layers: (a) the panel
@@ -345,12 +382,16 @@ export function WebPreviewPanel({ embedded = false, onClose, onRunCommand, onSen
           {t('preview.designHint')}
         </div>
       ) : null}
-      {grab ? (
+      {grabs.length > 0 ? (
         <DesignGrabSheet
-          payload={grab.payload}
-          screenshot={grab.screenshot}
-          onSend={(prompt) => void sendGrabToAgent(prompt)}
-          onDismiss={() => setGrab(null)}
+          items={grabs}
+          picking={designMode}
+          onSend={(note) => void sendGrabToAgent(note)}
+          onDismiss={closeGrabs}
+          onRemove={id => setGrabs(current => current.filter(item => item.id !== id))}
+          onAddAnother={() => { if (designMode) { setDesignMode(false); setDesignKeep(false) } else { setDesignKeep(true); setDesignMode(true) } }}
+          onChooseSource={(id, source) => patchGrab(id, item => ({ ...item, context: { ...item.context, source, candidates: [item.context.source, ...item.context.candidates].filter((other): other is DesignGrabSource => Boolean(other) && other !== source) } }))}
+          onOpenSource={openSource}
         />
       ) : null}
       {captureNotice ? <div className="web-preview-capture-notice" role="status">{captureNotice}</div> : null}
