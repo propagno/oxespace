@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { scanSurface, writeReport, type Violation } from '../helpers/a11y'
-import { launchApp, openDemoWorkspace, resizeWindow, type Appearance } from '../helpers/launch'
+import { launchApp, layoutAtWidth, openDemoWorkspace, resizeWindow, type Appearance } from '../helpers/launch'
 import { seedGitRepo } from '../helpers/seed'
 import { installThreadFixtures, openThreadWithState, registerThreadProject, setThreadState, THREAD_STATES, type ThreadStateName } from '../helpers/thread-fixtures'
 
@@ -227,7 +227,10 @@ for (const theme of THEMES) {
       await page.evaluate(() => localStorage.setItem('oxe.thread.viewMode', 'verbose'))
       await page.reload()
       await page.waitForLoadState('load')
-      await resizeWindow(app, 1280, 800)
+      // Laid out 1280 px wide whatever the screen. A Windows runner's 1024×768 screen clamps the window to about
+      // 1008×696; at that height the workbench state rests with a file row half under the top edge of the timeline,
+      // and axe reads its 28 px button as an 11 px target. Measured: at 1280×800 the button is whole.
+      await layoutAtWidth(app, page, 1280, 800)
       await installThreadFixtures(app, workspaceRoot)
       await openDemoWorkspace(page, workspaceRoot)
       await registerThreadProject(app, page, workspaceRoot)
@@ -235,10 +238,6 @@ for (const theme of THEMES) {
       for (const state of THREAD_SURFACES) {
         await setThreadState(app, workspaceRoot, state)
         await expect(page.locator('.thread-view')).toContainText(THREAD_STATES[state].title.split(' ')[0])
-        // On the 780 px canvas this state scrolls, and the sticky prompt covers part of whatever row sits under it: axe
-        // reads that row's button as a target of 11 px (target-size, Windows). Scanned from the top, where the prompt
-        // itself is in view and nothing is under a sticky band; the row is 28 px when not scrolled under it.
-        if (state === 'workbench') await page.locator('.thread-timeline').evaluate(el => { el.scrollTop = 0 })
         await record(await scanSurface(page, `${theme}/thread-${state}`), found)
       }
       // Thread dialogs on the ui Dialog. Each is opened, scanned and closed; one that cannot be opened in the

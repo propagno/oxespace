@@ -999,8 +999,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
       const element = document.querySelector(selector)!, rect = element.getBoundingClientRect()
       return [selector, { top: rect.top, bottom: rect.bottom, height: rect.height, scroll: element.scrollHeight }]
     }))))
-    await expect(page.getByRole('button', { name: 'Answer', exact: true })).toBeInViewport()
-    await expect(page.getByRole('button', { name: 'Decline', exact: true })).toBeInViewport()
+    // The status line has its own Answer button, which only brings the card into view: the card's buttons are meant.
+    await expect(page.getByRole('region', { name: 'Claude needs your input' }).getByRole('button', { name: 'Answer', exact: true })).toBeInViewport()
+    await expect(page.getByRole('region', { name: 'Claude needs your input' }).getByRole('button', { name: 'Decline', exact: true })).toBeInViewport()
     const questionLayout = await page.locator('.thread-request-question').evaluate(card => ({
       bodyBottom: card.querySelector('.thread-question-body')!.getBoundingClientRect().bottom,
       footerTop: card.querySelector('footer')!.getBoundingClientRect().top,
@@ -1009,12 +1010,12 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     expect(questionLayout.bodyBottom).toBeLessThanOrEqual(questionLayout.footerTop + 1)
     expect(questionLayout.bodyOverflow).toBe('auto')
     await page.screenshot({ path: 'test-results/thread-question-interactive.png' })
-    await page.getByRole('button', { name: 'Answer', exact: true }).click()
+    await page.getByRole('region', { name: 'Claude needs your input' }).getByRole('button', { name: 'Answer', exact: true }).click()
     await expect.poll(() => app.evaluate(() => (globalThis as Record<string, unknown>).lastThreadAnswer)).toEqual({ answers: { rollout: ['Staged'], validation: ['Pilot'] } })
     await expect(page.getByText('Answer sent to agent')).toBeVisible()
     await page.screenshot({ path: 'test-results/thread-question-answered.png' })
     await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Structured question fixture'))
-    await page.getByRole('button', { name: 'Decline', exact: true }).click()
+    await page.getByRole('region', { name: 'Claude needs your input' }).getByRole('button', { name: 'Decline', exact: true }).click()
     await expect(page.getByText('Declined by you')).toBeVisible()
     await page.screenshot({ path: 'test-results/thread-question-declined.png' })
     await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Lost approval fixture'))

@@ -103,7 +103,11 @@ test('interface scale, density and motion apply app-wide and survive a restart',
     await capture(app, 'workspace-density.png')
     // U2: the workspace's density applies at once; there is no Save button.
     await expect.poll(() => page.evaluate(() => document.documentElement.dataset.density)).toBe('compact')
-    await nav.getByRole('button', { name: /^Appearance/ }).click()
+    // Back to the application's Appearance page, from the list that is shown at this scale.
+    const wideAppearance = nav.getByRole('button', { name: /^Appearance/ })
+    const compactAppearance = settings.getByRole('group', { name: 'Settings category' }).getByRole('button', { name: 'Appearance', exact: true })
+    await expect.poll(async () => await wideAppearance.isVisible() || await compactAppearance.isVisible()).toBe(true)
+    await (await wideAppearance.isVisible() ? wideAppearance : compactAppearance).click()
     await expect(settings.getByTestId('workspace-density-override')).toHaveText(/1 workspace uses its own density\./)
     await settings.getByTestId('workspace-density-override').evaluate(el => el.scrollIntoView({ block: 'center' }))
     await capture(app, 'appearance-workspace-override.png')
