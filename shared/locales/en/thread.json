@@ -487,12 +487,6 @@
       "confirm": "Delete conversation",
       "description": "Delete this conversation from OXESpace? An active turn will stop. The provider session and project files are kept.",
       "descriptionNamed": "Delete “{{name}}” from OXESpace? An active turn will stop. The provider session and project files are kept."
-    },
-    "rewind": {
-      "title": "Rewind the last turn?",
-      "confirm": "Rewind one turn",
-      "description": "Remove the most recent turn from the native conversation. Files are not reverted; restore them from a checkpoint if needed.",
-      "descriptionNamed": "Remove the most recent turn from the native conversation. Files are not reverted; restore them from a checkpoint if needed."
     }
   },
   "worktreeFinish": {
@@ -630,11 +624,6 @@
     "summary": "Plan, {{done}} of {{total}} done",
     "summaryNow": "Plan, {{done}} of {{total}} done. Now: {{current}}",
     "title": "Plan {{done}}/{{total}}"
-  },
-  "dockRewind": {
-    "body_one": "Rewound {{count}} turn. It leaves the conversation when you send your next message.",
-    "body_other": "Rewound {{count}} turns. They leave the conversation when you send your next message.",
-    "redo": "Redo"
   },
   "errors": {
     "action": "Could not complete the action.",
@@ -978,7 +967,6 @@
     "bytesTruncated": "{{bytes}} bytes attached (truncated)",
     "truncated": "truncated",
     "brief": "Project brief attached",
-    "rewoundFilesFailed": "Conversation rewound. Files were not fully restored: {{error}}",
     "suggested": "Suggested replies",
     "suggestedHint": "Choose a reply to review before sending",
     "quote": "Quote in reply",
@@ -1107,7 +1095,7 @@
     "thisConversation": "This conversation",
     "wholeProject": "Whole project",
     "noDecisions": "No decisions recorded yet",
-    "noDecisionsHint": "Approvals, rule changes, undo and rewind appear here for 180 days."
+    "noDecisionsHint": "Approvals, rule changes and undone files appear here for 180 days."
   },
   "plan": {
     "title": "Plan",
@@ -1238,21 +1226,6 @@
   "reviewHost": {
     "title": "Conversation review",
     "resize": "Resize review panel"
-  },
-  "rewind": {
-    "editTitle": "Rewind to before this message and edit it",
-    "edit": "Edit",
-    "hereTitle": "Set this message and everything after it aside; your next message confirms it",
-    "here": "Rewind to here",
-    "confirmEdit": "Confirm edit",
-    "confirmRewind": "Confirm rewind",
-    "editBody_one": "To edit this message, it and its reply are set aside and the text returns to the composer. They leave the conversation, and the provider's history, when you send your next message; until then, Redo brings them back.",
-    "editBody_other": "To edit this message, it and {{count}} turns are set aside and the text returns to the composer. They leave the conversation, and the provider's history, when you send your next message; until then, Redo brings them back.",
-    "rewindBody_one": "Rewinds to before this message: it and its reply are set aside. They leave the conversation, and the provider's history, when you send your next message; until then, Redo brings them back.",
-    "rewindBody_other": "Rewinds to before this message: it and {{count}} turns are set aside. They leave the conversation, and the provider's history, when you send your next message; until then, Redo brings them back.",
-    "restoreFiles": "Also restore files changed by those turns",
-    "rewindAndEdit": "Rewind and edit",
-    "rewind": "Rewind"
   },
   "sessionPanel": {
     "sections": {
@@ -2139,69 +2112,6 @@
     "showOutput": "Show output",
     "stop": "Stop",
     "stopFromConversation": "Stop it from the conversation"
-  },
-  "timeTravel": {
-    "button": "History",
-    "region": "Conversation history",
-    "counts": "{{checkpoints}} checkpoints · {{steps}} steps",
-    "legend": { "checkpoint": "Checkpoint", "step": "Step", "viewing": "Viewing", "transcriptOnly": "Transcript only" },
-    "compareWithNow": "Compare with now",
-    "backToNow": "Back to now",
-    "sliderLabel": "Conversation timeline",
-    "close": "Close history",
-    "noCheckpoints": "No checkpoints in this conversation yet.",
-    "filesAt_one": "{{count}} file at {{time}}",
-    "filesAt_other": "{{count}} files at {{time}}",
-    "betweenCheckpoints": "Transcript only between checkpoints",
-    "checkpointFailed": "Transcript only: this checkpoint's files weren't saved.",
-    "cantGoBackNone": "Nothing irreversible so far (this conversation only).",
-    "cantGoBackList": "Can't go back, at least: {{items}} (this conversation only).",
-    "cantGoBackMore": "Can't go back, at least: {{items}} and more (this conversation only).",
-    "cantGoBackKind": {
-      "containers_one": "{{count}} container removed",
-      "containers_other": "{{count}} containers removed",
-      "dbWrites_one": "{{count}} database write",
-      "dbWrites_other": "{{count}} database writes",
-      "pushes_one": "{{count}} push",
-      "pushes_other": "{{count}} pushes",
-      "commands_one": "{{count}} other irreversible command",
-      "commands_other": "{{count}} other irreversible commands",
-      "httpWrites_one": "{{count}} external write",
-      "httpWrites_other": "{{count}} external writes"
-    },
-    "setAside": "Set aside if you restore here",
-    "restoreTo": "Restore to {{target}}",
-    "restoreDisabledLabel": "Restore to checkpoint",
-    "branchButton": "Branch into a new worktree",
-    "branchUnsupported": "Not available in {{agent}}",
-    "restoreConfirmTitle": "Restore this checkpoint",
-    "restoreConfirmBody": "Restore to {{time}}? Later messages are set aside; Redo works until your next message.",
-    "alsoRestoreFiles": "Also restore files",
-    "cancel": "Cancel",
-    "restoreAction": "Restore",
-    "foreignTitle": "Files changed since {{time}}",
-    "foreignBody_one": "{{count}} file changed outside this conversation. Restoring overwrites it; Redo brings your version back.",
-    "foreignBody_other": "{{count}} files changed outside this conversation. Restoring overwrites them; Redo brings your version back.",
-    "restoreOverThem": "Restore over them",
-    "branchTitle": "Branch into a new worktree",
-    "branchDescription": "{{agent}} continues from that moment in the new worktree.",
-    "branchNameLabel": "Branch name",
-    "branchAction": "Branch",
-    "tryAgain": "Try again",
-    "refusal": {
-      "pathExists": "A folder already exists at {{path}}. Pick another branch name.",
-      "exists": "A branch with that name already exists. Pick another branch name.",
-      "unsafeName": "Pick a valid git branch name.",
-      "baseGone": "The commit this checkpoint started from is gone, so it can't be branched.",
-      "notGit": "This conversation's folder isn't a git repository, so it can't be branched.",
-      "sessionGone": "{{agent}}'s session for this conversation is gone, so the branch can't continue it.",
-      "checkpointGone": "This checkpoint is no longer available.",
-      "checkpointFailed": "Transcript only: this checkpoint's files weren't saved.",
-      "failedRestore": "Couldn't copy the checkpoint's files into the new worktree; nothing was kept.",
-      "failedRegister": "Couldn't add the new worktree as a workspace; nothing was kept.",
-      "failedFork": "{{agent}} couldn't continue the session from that moment; nothing was kept.",
-      "failedConversation": "Couldn't open the new conversation; nothing was kept."
-    }
   },
   "toolPanels": {
     "addTool": "+ Tool",

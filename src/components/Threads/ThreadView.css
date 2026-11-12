@@ -622,17 +622,6 @@
 .thread-usage-bar { height: 4px; overflow: hidden; border-radius: var(--radius-pill); background: var(--ov-3); }
 .thread-usage-bar > span { display: block; height: 100%; background: currentColor; }
 /* Always there as a quiet icon, so the actions can be found without hovering; the label opens on hover or focus. */
-.thread-rewind-trigger { display: inline-flex; align-items: center; min-width: 28px; min-height: 28px; margin-top: 4px; padding: 0 7px; border: 0; border-radius: var(--radius-sm); color: var(--text-muted); background: transparent; font: inherit; font-size: var(--fs-2xs); opacity: .6; transition: opacity var(--duration-fast) var(--ease-standard); }
-.thread-rewind-label { max-width: 0; overflow: hidden; white-space: nowrap; transition: max-width var(--duration-fast) var(--ease-standard), margin var(--duration-fast) var(--ease-standard); }
-.thread-message:hover .thread-rewind-trigger, .thread-rewind-trigger:focus-visible { opacity: 1; }
-.thread-message:hover .thread-rewind-label, .thread-rewind-trigger:focus-visible .thread-rewind-label { max-width: 12em; margin-left: 4px; }
-.thread-rewind-trigger:hover:not(:disabled) { color: var(--text-primary); background: var(--fill-hover); }
-@media (hover: none) { .thread-rewind-trigger { opacity: 1; } .thread-rewind-label { max-width: 12em; margin-left: 4px; } }
-.thread-rewind-triggers { display: inline-flex; gap: 2px; }
-.thread-rewind-confirm { display: grid; gap: 6px; margin-top: 6px; padding: 8px 10px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--text-secondary); font-size: var(--fs-xs); }
-.thread-rewind-confirm p { margin: 0; }
-.thread-rewind-confirm span { display: flex; gap: 6px; }
-.thread-rewind-confirm button { padding: 3px 8px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: var(--text-primary); background: transparent; font: inherit; }
 .thread-change-summary .thread-change-file:has(.thread-hunk-review) { flex-wrap: wrap; }
 .thread-hunk-review { display: grid; gap: 8px; margin: 6px 0 4px; flex: 1 0 100%; min-width: 0; }
 .thread-hunk { border: 1px solid var(--border-default); border-radius: 6px; overflow: hidden; }

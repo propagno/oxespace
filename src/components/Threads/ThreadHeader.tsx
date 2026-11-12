@@ -63,11 +63,9 @@ export function ThreadHeader({
   pending,
   running,
   activePanel,
-  historyOpen,
   showAddTool = false,
   cell,
   onTogglePanel,
-  onToggleHistory,
   onCommand,
   onExport,
   onDelegate,
@@ -86,11 +84,9 @@ export function ThreadHeader({
   pending: boolean
   running: boolean
   activePanel?: ThreadPanel | null
-  historyOpen?: boolean
   showAddTool?: boolean
   cell?: 'primary' | 'secondary'
   onTogglePanel: (panel: ThreadPanel, keepOpen?: boolean) => void
-  onToggleHistory?: () => void
   onCommand: (command: string) => void
   onExport?: () => void
   onImport?: () => void
@@ -204,18 +200,6 @@ export function ThreadHeader({
             </h1>
           </div>
           <div className="thread-heading-actions">
-            {thread && onToggleHistory && (
-              <Button
-                size="sm"
-                variant="ghost"
-                icon={<History size={13} aria-hidden="true" />}
-                aria-pressed={Boolean(historyOpen)}
-                title={withShortcut(t('timeTravel.button'), 'thread.history')}
-                onClick={onToggleHistory}
-              >
-                {t('timeTravel.button')}
-              </Button>
-            )}
             {thread && showAddTool && (
               <ThreadAddToolMenu activePanel={activePanel} onTogglePanel={onTogglePanel} />
             )}

@@ -34,7 +34,7 @@ const codexInteractive: [string, string][] = [
 const claudeInteractive: [string, string][] = [
   ['model', 'Choose a Claude model'], ['permissions', 'Manage native tool permissions'], ['allowed-tools', 'Manage native tool permissions'],
   ['config', 'Open settings'], ['settings', 'Open settings'], ['login', 'Connect a Claude subscription'], ['logout', 'Open agent accounts to sign out'],
-  ['resume', 'Choose a saved Claude session'], ['fork', 'Branch the current session'], ['rewind', 'Choose a conversation checkpoint'], ['checkpoint', 'Restore files from a checkpoint'],
+  ['resume', 'Choose a saved Claude session'], ['fork', 'Branch the current session'], ['checkpoint', 'Restore files from a checkpoint'],
   ['clear', 'Start a new conversation with the same settings'], ['reset', 'Start a new conversation with the same settings'], ['new', 'Start a new conversation with the same settings'],
   ['rename', 'Rename this conversation'], ['name', 'Rename this conversation'], ['status', 'Inspect native session information'],
   ['cost', 'Inspect native usage'], ['usage', 'Inspect subscription limits'], ['stats', 'Inspect native usage'],

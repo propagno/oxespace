@@ -495,12 +495,6 @@
       "confirm": "Excluir conversa",
       "description": "Excluir esta conversa do OXESpace? Um turno em andamento será interrompido. A sessão do provedor e os arquivos do projeto são mantidos.",
       "descriptionNamed": "Excluir “{{name}}” do OXESpace? Um turno em andamento será interrompido. A sessão do provedor e os arquivos do projeto são mantidos."
-    },
-    "rewind": {
-      "title": "Retroceder o último turno?",
-      "confirm": "Retroceder um turno",
-      "description": "Remove o turno mais recente da conversa nativa. Os arquivos não são revertidos; se precisar, restaure-os de um checkpoint.",
-      "descriptionNamed": "Remove o turno mais recente da conversa nativa. Os arquivos não são revertidos; se precisar, restaure-os de um checkpoint."
     }
   },
   "worktreeFinish": {
@@ -642,12 +636,6 @@
     "summary": "Plano, {{done}} de {{total}} concluídas",
     "summaryNow": "Plano, {{done}} de {{total}} concluídas. Agora: {{current}}",
     "title": "Plano {{done}}/{{total}}"
-  },
-  "dockRewind": {
-    "body_one": "{{count}} turno retrocedido. Ele sai da conversa quando você enviar a próxima mensagem.",
-    "body_many": "{{count}} turnos retrocedidos. Eles saem da conversa quando você enviar a próxima mensagem.",
-    "body_other": "{{count}} turnos retrocedidos. Eles saem da conversa quando você enviar a próxima mensagem.",
-    "redo": "Refazer"
   },
   "errors": {
     "action": "Não foi possível concluir a ação.",
@@ -1008,7 +996,6 @@
     "bytesTruncated": "{{bytes}} bytes anexados (cortado)",
     "truncated": "cortado",
     "brief": "Resumo do projeto anexado",
-    "rewoundFilesFailed": "Conversa retrocedida. Os arquivos não foram totalmente restaurados: {{error}}",
     "suggested": "Respostas sugeridas",
     "suggestedHint": "Escolha uma resposta para revisar antes de enviar",
     "quote": "Citar na resposta",
@@ -1137,7 +1124,7 @@
     "thisConversation": "Esta conversa",
     "wholeProject": "Projeto inteiro",
     "noDecisions": "Nenhuma decisão registrada ainda",
-    "noDecisionsHint": "Aprovações, mudanças de regras, desfazer e retroceder aparecem aqui por 180 dias."
+    "noDecisionsHint": "Aprovações, mudanças de regras e arquivos desfeitos aparecem aqui por 180 dias."
   },
   "plan": {
     "title": "Plano",
@@ -1268,23 +1255,6 @@
   "reviewHost": {
     "title": "Revisão da conversa",
     "resize": "Redimensionar o painel de revisão"
-  },
-  "rewind": {
-    "editTitle": "Retroceder para antes desta mensagem e editá-la",
-    "edit": "Editar",
-    "hereTitle": "Deixa esta mensagem e tudo depois dela de lado; a sua próxima mensagem confirma",
-    "here": "Retroceder até aqui",
-    "confirmEdit": "Confirmar edição",
-    "confirmRewind": "Confirmar retrocesso",
-    "editBody_one": "Para editar esta mensagem, ela e a resposta ficam de lado e o texto volta para o campo de mensagem. Elas saem da conversa, e do histórico do provedor, quando você enviar a próxima mensagem; até lá, Refazer traz tudo de volta.",
-    "editBody_many": "Para editar esta mensagem, ela e {{count}} turnos ficam de lado e o texto volta para o campo de mensagem. Eles saem da conversa, e do histórico do provedor, quando você enviar a próxima mensagem; até lá, Refazer traz tudo de volta.",
-    "editBody_other": "Para editar esta mensagem, ela e {{count}} turnos ficam de lado e o texto volta para o campo de mensagem. Eles saem da conversa, e do histórico do provedor, quando você enviar a próxima mensagem; até lá, Refazer traz tudo de volta.",
-    "rewindBody_one": "Retrocede para antes desta mensagem: ela e a resposta ficam de lado. Elas saem da conversa, e do histórico do provedor, quando você enviar a próxima mensagem; até lá, Refazer traz tudo de volta.",
-    "rewindBody_many": "Retrocede para antes desta mensagem: ela e {{count}} turnos ficam de lado. Eles saem da conversa, e do histórico do provedor, quando você enviar a próxima mensagem; até lá, Refazer traz tudo de volta.",
-    "rewindBody_other": "Retrocede para antes desta mensagem: ela e {{count}} turnos ficam de lado. Eles saem da conversa, e do histórico do provedor, quando você enviar a próxima mensagem; até lá, Refazer traz tudo de volta.",
-    "restoreFiles": "Restaurar também os arquivos alterados nesses turnos",
-    "rewindAndEdit": "Retroceder e editar",
-    "rewind": "Retroceder"
   },
   "sessionPanel": {
     "sections": {
@@ -2208,76 +2178,6 @@
     "showOutput": "Mostrar saída",
     "stop": "Parar",
     "stopFromConversation": "Pare pela conversa"
-  },
-  "timeTravel": {
-    "button": "Histórico",
-    "region": "Histórico da conversa",
-    "counts": "{{checkpoints}} checkpoints · {{steps}} passos",
-    "legend": { "checkpoint": "Checkpoint", "step": "Passo", "viewing": "Visualizando", "transcriptOnly": "Só conversa" },
-    "compareWithNow": "Comparar com agora",
-    "backToNow": "Voltar para agora",
-    "sliderLabel": "Linha do tempo da conversa",
-    "close": "Fechar histórico",
-    "noCheckpoints": "Ainda não há checkpoints nesta conversa.",
-    "filesAt_one": "{{count}} arquivo às {{time}}",
-    "filesAt_many": "{{count}} arquivos às {{time}}",
-    "filesAt_other": "{{count}} arquivos às {{time}}",
-    "betweenCheckpoints": "Só a conversa entre checkpoints",
-    "checkpointFailed": "Só a conversa: os arquivos deste checkpoint não foram salvos.",
-    "cantGoBackNone": "Nada irreversível até aqui (só esta conversa).",
-    "cantGoBackList": "Não dá para voltar, pelo menos: {{items}} (só esta conversa).",
-    "cantGoBackMore": "Não dá para voltar, pelo menos: {{items}} e mais (só esta conversa).",
-    "cantGoBackKind": {
-      "containers_one": "{{count}} contêiner removido",
-      "containers_many": "{{count}} contêineres removidos",
-      "containers_other": "{{count}} contêineres removidos",
-      "dbWrites_one": "{{count}} escrita em banco",
-      "dbWrites_many": "{{count}} escritas em banco",
-      "dbWrites_other": "{{count}} escritas em banco",
-      "pushes_one": "{{count}} push",
-      "pushes_many": "{{count}} pushes",
-      "pushes_other": "{{count}} pushes",
-      "commands_one": "{{count}} outro comando irreversível",
-      "commands_many": "{{count}} outros comandos irreversíveis",
-      "commands_other": "{{count}} outros comandos irreversíveis",
-      "httpWrites_one": "{{count}} escrita externa",
-      "httpWrites_many": "{{count}} escritas externas",
-      "httpWrites_other": "{{count}} escritas externas"
-    },
-    "setAside": "Deixados de lado se você restaurar aqui",
-    "restoreTo": "Restaurar para {{target}}",
-    "restoreDisabledLabel": "Restaurar para o checkpoint",
-    "branchButton": "Ramificar numa nova worktree",
-    "branchUnsupported": "Indisponível no {{agent}}",
-    "restoreConfirmTitle": "Restaurar este checkpoint",
-    "restoreConfirmBody": "Restaurar para {{time}}? As mensagens seguintes ficam de lado; Refazer funciona até a sua próxima mensagem.",
-    "alsoRestoreFiles": "Restaurar também os arquivos",
-    "cancel": "Cancelar",
-    "restoreAction": "Restaurar",
-    "foreignTitle": "Arquivos alterados desde {{time}}",
-    "foreignBody_one": "{{count}} arquivo mudou fora desta conversa. Restaurar sobrescreve esse arquivo; Refazer traz a sua versão de volta.",
-    "foreignBody_many": "{{count}} arquivos mudaram fora desta conversa. Restaurar sobrescreve esses arquivos; Refazer traz a sua versão de volta.",
-    "foreignBody_other": "{{count}} arquivos mudaram fora desta conversa. Restaurar sobrescreve esses arquivos; Refazer traz a sua versão de volta.",
-    "restoreOverThem": "Restaurar por cima deles",
-    "branchTitle": "Ramificar numa nova worktree",
-    "branchDescription": "{{agent}} continua a partir desse momento na nova worktree.",
-    "branchNameLabel": "Nome da branch",
-    "branchAction": "Ramificar",
-    "tryAgain": "Tentar de novo",
-    "refusal": {
-      "pathExists": "Já existe uma pasta em {{path}}. Escolha outro nome de branch.",
-      "exists": "Já existe uma branch com esse nome. Escolha outro nome de branch.",
-      "unsafeName": "Escolha um nome de branch válido no git.",
-      "baseGone": "O commit do qual este checkpoint partiu não existe mais, então não dá para ramificar.",
-      "notGit": "A pasta desta conversa não é um repositório git, então não dá para ramificar.",
-      "sessionGone": "A sessão de {{agent}} para esta conversa não existe mais, então a branch não pode continuá-la.",
-      "checkpointGone": "Este checkpoint não está mais disponível.",
-      "checkpointFailed": "Só a conversa: os arquivos deste checkpoint não foram salvos.",
-      "failedRestore": "Não foi possível copiar os arquivos do checkpoint para a nova worktree; nada foi mantido.",
-      "failedRegister": "Não foi possível adicionar a nova worktree como um workspace; nada foi mantido.",
-      "failedFork": "{{agent}} não conseguiu continuar a sessão a partir desse momento; nada foi mantido.",
-      "failedConversation": "Não foi possível abrir a nova conversa; nada foi mantido."
-    }
   },
   "toolPanels": {
     "addTool": "+ Ferramenta",

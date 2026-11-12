@@ -62,7 +62,6 @@ describe('Antigravity conversation adapter', () => {
     assertAdapterConformance('antigravity', fixture().adapter)
     // What ACP does not give is reported as unavailable, never as a Claude or Codex feature.
     const manifest = threadCapabilityManifest('antigravity', fixture().adapter.capabilities, true)
-    expect(manifest.features.rewind.enabled).toBe(false)
     expect(manifest.features.hooks.reason).toContain('Antigravity')
     expect(manifest.features.fork.enabled).toBe(false)
     expect(manifest.features.effort.enabled).toBe(true)

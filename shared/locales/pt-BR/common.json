@@ -197,7 +197,6 @@
         "permissions": "Permissões",
         "model": "Modelo",
         "effort": "Esforço de raciocínio",
-        "history": "Histórico",
         "sideChat": "Chat lateral"
       },
       "help": {
@@ -540,10 +539,6 @@
         "httpCalls": {
           "title": "Chamadas HTTP",
           "body": "Cada chamada HTTP feita pelos agentes, com segredos ocultos."
-        },
-        "timeTravel": {
-          "title": "Viagem no tempo",
-          "body": "Volte a qualquer checkpoint ou ramifique a partir dele."
         }
       }
     },
@@ -665,7 +660,6 @@
       "steer": "Direcionar no OxeChat",
       "stop": "Parar no OxeChat",
       "new": "Nova conversa",
-      "history": "Histórico",
       "terminal": "Novo terminal",
       "theme": "Aparência",
       "skill": "Skills"
@@ -676,7 +670,6 @@
       "steer": "Enviar uma orientação no OxeChat",
       "stop": "Parar o turno em andamento no OxeChat",
       "new": "Iniciar uma nova conversa no OxeChat",
-      "history": "Abrir o histórico e os checkpoints da conversa",
       "terminal": "Abrir um novo painel de terminal",
       "theme": "Alternar a aparência clara ou escura",
       "skill": "Rodar uma skill habilitada no painel de agente em foco"
