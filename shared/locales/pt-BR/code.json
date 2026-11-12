@@ -2629,7 +2629,42 @@
     "noPermissionsDetail": "O Linux precisa de uma regra udev para este celular. Adicione-a e reconecte.",
     "udevHint": "Adicione uma regra em /etc/udev/rules.d/51-android.rules para o fabricante e recarregue o udev.",
     "howToSetUp": "Como configurar",
-    "reconnect": "Reconectar"
+    "reconnect": "Reconectar",
+    "installApk": "Instalar um APK…",
+    "openLink": "Abrir um link…",
+    "pair": "Parear este aparelho com o OXESpace",
+    "installTitle": "Instalar este app no aparelho?",
+    "installDetail": "{{name}} ({{size}} MB) será instalado em {{device}}, serial {{serial}}. Uma versão que já esteja lá é substituída.",
+    "install": "Instalar",
+    "installing": "Instalando…",
+    "installed": "{{name}} instalado",
+    "installFailed": "Não foi possível instalar {{name}}",
+    "notAnApk": "Esse arquivo não é um APK",
+    "openLinkTitle": "Abrir um link no aparelho",
+    "openLinkDetail": "O endereço abre no navegador do aparelho. Só http e https.",
+    "address": "Endereço",
+    "open": "Abrir",
+    "linkOpened": "Enviado ao aparelho",
+    "linkFailed": "O aparelho não abriu o link",
+    "linkRefused": {
+      "empty": "Digite um endereço.",
+      "tooLong": "O endereço é longo demais.",
+      "scheme": "Comece o endereço com http:// ou https://.",
+      "characters": "O endereço tem um caractere que não pode ser enviado ao aparelho: espaço, aspas, $, ;, |, <, >, parêntese ou barra invertida. Codifique-o, por exemplo %20 para espaço.",
+      "malformed": "Isso não é um endereço completo."
+    },
+    "failure": {
+      "pick-expired": "O arquivo escolhido não está mais em espera. Escolha de novo.",
+      "file-changed": "O arquivo mudou depois de escolhido. Escolha de novo.",
+      "not-debug-build": "O app do OXESpace neste aparelho não é uma build de depuração. Pareie lendo o código.",
+      "pairing-unavailable": "O pareamento não está disponível agora."
+    },
+    "pairSent": "Link de pareamento enviado",
+    "pairSentDetail": "O telefone mostra um código. Confirme-o aqui quando o OXESpace perguntar.",
+    "pairClosed": "Telefones ainda não podem se conectar",
+    "pairClosedDetail": "Ligue a conexão de telefones em Configurações e pareie de novo.",
+    "openPhoneSettings": "Abrir Telefone e dispositivos",
+    "pairFailed": "Não foi possível enviar o link de pareamento"
   },
   "containers": {
     "empty": "Nenhum contêiner. Inicie um stack do compose a partir de um projeto.",

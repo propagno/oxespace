@@ -164,6 +164,11 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     forbidden: 'The person\'s Android mirror, input and device access switch; no MCP tool may send input to a device or raise access.',
     ipc: ['android.*']
   },
+  'android.device_actions': {
+    label: 'Install an APK, open a link or send the pairing link to an Android device from the panel',
+    forbidden: 'The person\'s own actions on their device: no MCP tool may install an app, start an activity or pair a phone.',
+    ipc: ['androidActions.*']
+  },
   'code.resume_bypass': { label: 'Resume Claude sessions that skipped permissions that way', forbidden: 'Raises access: only the person turns it on.', ipc: ['terminal.resumeBypass', 'terminal.setResumeBypass'] },
 
   // ---- changes and Git ------------------------------------------------------------

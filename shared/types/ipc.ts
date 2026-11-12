@@ -419,6 +419,8 @@ export const IPC_CHANNELS = {
     setAgentsCanSee: 'android:set-agents-can-see',
     startEmulator: 'android:start-emulator'
   },
+  /** The person's own actions on a device from the Android panel; apart from the mirror's channels, which F5 fixed. */
+  androidActions: { pickApk: 'android-actions:pick-apk', installApk: 'android-actions:install-apk', openLink: 'android-actions:open-link', pair: 'android-actions:pair' },
   oxeContext: {
     buildPaneManifest: 'oxe-context:build-pane-manifest'
   },
@@ -914,43 +916,8 @@ export interface McpApi {
   onHealth(listener: (event: import('./mcp').McpServerHealthEvent) => void): () => void
 }
 
-export interface AndroidMirrorDevice {
-  serial: string
-  name: string
-  kind: 'emulator' | 'usb' | 'wifi'
-  api?: number
-  state: 'device' | 'offline' | 'unauthorized' | 'recovery' | 'sideload' | 'authorizing' | 'no-permissions'
-  agentsCanSee?: boolean
-  stream?: 'idle' | 'connecting' | 'live'
-}
-
-export interface AndroidMirrorStatus {
-  adb: 'missing' | 'ok'
-  devices: AndroidMirrorDevice[]
-  avds: string[]
-}
-
-export interface AndroidMirrorFrame {
-  serial: string
-  width: number
-  height: number
-  data: Uint8Array
-}
-
-export interface AndroidApi {
-  status(): Promise<AndroidMirrorStatus>
-  connect(input: { serial: string }): Promise<{ ok: boolean } | void>
-  disconnect(input: { serial: string }): Promise<void>
-  tap(input: { serial: string; x: number; y: number }): Promise<void>
-  swipe(input: { serial: string; x1: number; y1: number; x2: number; y2: number; durationMs?: number }): Promise<void>
-  key(input: { serial: string; keycode: number }): Promise<void>
-  rotate(input: { serial: string }): Promise<void>
-  screenshot(input: { serial: string }): Promise<{ path: string; name: string }>
-  setAgentsCanSee(input: { serial: string; value: boolean }): Promise<void>
-  startEmulator(avd: string): Promise<void>
-  onChanged(listener: (status?: AndroidMirrorStatus) => void): () => void
-  onFrame(listener: (frame: AndroidMirrorFrame) => void): () => void
-}
+export type { AndroidMirrorDevice, AndroidApkPick, AndroidActionOutcome, AndroidMirrorStatus, AndroidMirrorFrame, AndroidApi } from './android'
+import type { AndroidApi } from './android'
 
 export interface FeatureUsageApi {
   state(): Promise<import('../feature-usage').FeatureUsageStatus>
