@@ -913,6 +913,7 @@
     "status": {
       "needs-decision": "Precisa da sua decisão",
       "thinking": "Pensando",
+      "running": "Rodando",
       "awaiting": "Aguardando",
       "starting": "Iniciando",
       "exited": "Encerrado",

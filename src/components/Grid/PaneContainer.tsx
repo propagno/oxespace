@@ -233,7 +233,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
             <button
               type="button"
               className="pane-intent pane-intent-button"
-              title={tc('paneMenu.titleHint', { title: display.title })}
+              title={tc('paneMenu.titleHint', { title: display.lastCommand ? `${display.title} · ${display.lastCommand}` : display.title })}
               onDoubleClick={(e) => startRename(e)}
               onClick={(e) => e.stopPropagation()}
             >

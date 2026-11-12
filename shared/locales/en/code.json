@@ -878,6 +878,7 @@
     "status": {
       "needs-decision": "Needs your decision",
       "thinking": "Thinking",
+      "running": "Running",
       "awaiting": "Awaiting",
       "starting": "Starting",
       "exited": "Exited",
