@@ -16,7 +16,6 @@ type ToolPanelLabelKey =
   | 'thread:toolPanels.android'
   | 'thread:toolPanels.files'
   | 'thread:toolPanels.search'
-  | 'thread:toolPanels.scripts'
 
 export interface ThreadToolPanelDef {
   readonly id: ThreadCompanionToolId
