@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { AlertCircle, Check, Shield, Sun, X } from 'lucide-react'
 import type { ThreadPermissionSuggestion, ThreadRequest, ThreadRequestResponse } from '../../../shared/types/thread'
 import { approvalCommandPreview, ThreadApprovalDetails } from './ThreadApprovalDetails'
+import { ThreadMarkdown } from './ThreadMarkdown'
 import { threadApprovalRisk } from './threadApprovalRisk'
 import { useAllowHold } from '../Approvals/useAllowHold'
 import { useTranslation } from 'react-i18next'
@@ -167,7 +168,11 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
       <header><Sun size={14} aria-hidden="true" /><div><small className={styles.kicker}>{t('f7.card.needsApproval', { agent: agentName })}</small><strong>{requestLabel}</strong></div></header>
       {impact.why ? <p className={styles.context}>{impact.why}</p> : null}
       <div className={styles.factsWrap}><ImpactFacts impact={impact} layout="chips" /></div>
-      <pre><code>{impact.text}</code></pre>
+      {/* A plan is prose to read whole, not a command: rendered, with no box that scrolls inside the card. The status
+          line keeps Deny and Allow in reach while the card's own are below the screen. */}
+      {request.nativeMethod === 'can_use_tool:ExitPlanMode'
+        ? <div className={styles.plan} tabIndex={0} role="region" aria-label={t('approvalDetails.plan')} data-testid="request-plan"><ThreadMarkdown text={impact.text} /></div>
+        : <pre><code>{impact.text}</code></pre>}
       {offer && !offer.offered ? <AlwaysAllowReason reasonKind={offer.reasonKind} className={styles.context} /> : null}
       {error && <ErrorState compact title={error} />}
       <footer>

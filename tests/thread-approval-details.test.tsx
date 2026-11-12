@@ -63,7 +63,7 @@ describe('Thread command approval', () => {
     // The request carries the plan's own text, not the tool's JSON.
     const plan = '# Plan: quantity-aware `total()`\n\n## Context\n\n- Multiply each price by its quantity'
     const request: ThreadRequest = { id: 'plan', nativeId: 'plan', nativeMethod: 'can_use_tool:ExitPlanMode', kind: 'approval', title: 'Review the plan', detail: plan, generation: 1, createdAt: 1, state: 'pending' }
-    render(<ThreadRequestCard request={request} disabled={false} onRespond={vi.fn(async () => {})} />)
+    const first = render(<ThreadRequestCard request={request} disabled={false} onRespond={vi.fn(async () => {})} />)
     expect(screen.getByRole('heading', { name: 'Plan: quantity-aware total()' })).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Context' })).toBeVisible()
     expect(screen.getByText('Multiply each price by its quantity')).toBeVisible()
@@ -71,6 +71,19 @@ describe('Thread command approval', () => {
     expect(screen.queryByTestId('approval-exact')).toBeNull()
     expect(screen.queryByText(/## Context/)).toBeNull()
     expect(screen.getByRole('button', { name: 'Copy exact text' })).toBeVisible()
+    first.unmount()
+
+    // As it arrives in the app: with its impact (where, what it touches), which is the card with the facts on top.
+    // That card showed the plan in the box for a command, whatever the other one did.
+    const withImpact: ThreadRequest = { ...request, impact: { where: 'shop-api', affects: { count: 1, unit: 'files' }, reversible: true, risk: 'low', kind: 'file', text: plan, lang: 'text' } }
+    const { container } = render(<ThreadRequestCard request={withImpact} disabled={false} onRespond={vi.fn(async () => {})} />)
+    const shown = screen.getByTestId('request-plan')
+    expect(within(shown).getByRole('heading', { name: 'Plan: quantity-aware total()' })).toBeVisible()
+    expect(within(shown).getByRole('heading', { name: 'Context' })).toBeVisible()
+    expect(within(shown).getByRole('listitem')).toHaveTextContent('Multiply each price by its quantity')
+    expect(container.querySelector('pre')).toBeNull()
+    expect(container).not.toHaveTextContent('## Context')
+    expect(screen.getByRole('button', { name: 'Allow' })).toBeVisible()
   })
   it('renders ExitPlanMode plans as readable Markdown while retaining the exact request', () => {
     const plan = '# Delivery plan\n\n- Verify the UI\n- Publish after approval'
