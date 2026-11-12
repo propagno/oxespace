@@ -52,6 +52,9 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-workbench-main { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
 .oq-editor { flex: none; min-height: 80px; overflow: hidden; border-top: 1px solid var(--border-default); }
 .oq-badge { padding: 1px 8px; border-radius: var(--radius-pill, 999px); font-size: var(--text-2xs); background: var(--ov-3); }
+/* The shortcut beside Run: the one action people repeat, so its key is always in sight. */
+.oq-run-key { display: inline-flex; margin-left: 6px; opacity: .85; }
+.oq-run-key kbd { color: inherit; background: color-mix(in srgb, currentColor 14%, transparent); border-color: transparent; }
 .oq-badge[data-environment='prod'] { color: var(--text-on-solid); background: var(--intent-danger-solid); }
 .oq-badge[data-readonly='false'] { color: var(--intent-warning-solid); }
 .oq-badge[data-policy='true'] { color: var(--intent-danger-solid); }
