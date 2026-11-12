@@ -247,6 +247,24 @@ export function resizeSplit(
   }
 }
 
+/**
+ * The rows and columns the panes form, when they form a full grid (every row crosses every column, whatever the sizes).
+ * Null for anything else: a pane split on its own, or panes spanning rows or columns.
+ */
+export function gridShape(node: PaneNode | null): { rows: number; columns: number } | null {
+  if (!node) return null
+  if (node.kind === 'leaf') return { rows: 1, columns: 1 }
+  const shape = (along: number, across: number): { rows: number; columns: number } =>
+    node.direction === 'horizontal' ? { rows: across, columns: along } : { rows: along, columns: across }
+  // Each child is one line of the grid: a single pane, or panes split the other way.
+  const lines = node.children.map(child => child.kind === 'leaf'
+    ? 1
+    : child.direction !== node.direction && child.children.every(isLeaf) ? child.children.length : null)
+  const [first] = lines
+  if (first === null || lines.some(line => line !== first)) return null
+  return shape(node.children.length, first)
+}
+
 /** Compute absolute rects (percent of container) for every leaf, plus the
  *  resize handles at split boundaries. Drives the flat-list renderer. */
 export function computeLayout(node: PaneNode | null): { rects: LeafRect[]; handles: ResizeHandle[] } {

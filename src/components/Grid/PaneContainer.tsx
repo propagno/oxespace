@@ -42,6 +42,8 @@ interface PaneContainerProps {
   onSplitHorizontal?: (paneId: string) => void
   onActivate?: (paneId: string) => void
   onArrange?: (position: 'right' | 'bottom' | 'balance') => void
+  /** False on the first pane: the two "previous pane" moves have nowhere to go, and say so. */
+  hasPreviousPane?: boolean
 }
 
 const EMPTY_TERMINAL_STATE = {
@@ -61,7 +63,7 @@ function statusClass(status: WorkspacePane['status']): string {
   return ''
 }
 
-export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, onActivate, onArrange, onClose, onSplitHorizontal, onSplitVertical, onToggleMaximize, pane, workspace }: PaneContainerProps): ReactElement {
+export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true, isActive, isMaximized, onActivate, onArrange, onClose, onSplitHorizontal, onSplitVertical, onToggleMaximize, pane, workspace }: PaneContainerProps): ReactElement {
   const terminalState = useTerminalStore((s) => s.panes[pane.id] ?? EMPTY_TERMINAL_STATE)
   const shellProfiles = useWorkspaceStore((s) => s.shellProfiles)
   const shellProfileName = useMemo(() => {
@@ -358,8 +360,8 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                 </button>
                 {onArrange ? <>
                   <div className="pane-actions-popover-sep" aria-hidden="true" />
-                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('bottom')) }}><PanelBottom size={14} aria-hidden="true" />{tc('paneMenu.moveBelow')}</button>
-                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('right')) }}><PanelRight size={14} aria-hidden="true" />{tc('paneMenu.moveRight')}</button>
+                  <button type="button" role="menuitem" className="pane-actions-popover-item" disabled={!hasPreviousPane} title={hasPreviousPane ? undefined : tc('paneMenu.firstPane')} onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('bottom')) }}><PanelBottom size={14} aria-hidden="true" />{tc('paneMenu.moveBelow')}</button>
+                  <button type="button" role="menuitem" className="pane-actions-popover-item" disabled={!hasPreviousPane} title={hasPreviousPane ? undefined : tc('paneMenu.firstPane')} onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('right')) }}><PanelRight size={14} aria-hidden="true" />{tc('paneMenu.moveRight')}</button>
                   <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('balance')) }}><RotateCcw size={14} aria-hidden="true" />{tc('paneMenu.balance')}</button>
                 </> : null}
                 {onClose ? (

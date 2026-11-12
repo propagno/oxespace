@@ -3,6 +3,7 @@ import {
   buildTreeFromPanes,
   collectPaneIds,
   computeLayout,
+  gridShape,
   moveLeaf,
   normalize,
   placeSplit,
@@ -186,5 +187,38 @@ describe('placeSplit: a split pane that sync already placed', () => {
   test('unknown panes and a pane split from itself change nothing', () => {
     expect(placeSplit(synced, 'a', 'missing', 'horizontal')).toBe(synced)
     expect(placeSplit(synced, 'a', 'a', 'horizontal')).toBe(synced)
+  })
+})
+
+describe('gridShape: the grid the panes form now', () => {
+  const leaf = (paneId: string): PaneNode => ({ kind: 'leaf', paneId })
+  const row = (...ids: string[]): PaneNode => ({ kind: 'split', direction: 'horizontal', children: ids.map(leaf) })
+
+  test('one pane, one row, one column', () => {
+    expect(gridShape(leaf('a'))).toEqual({ rows: 1, columns: 1 })
+    expect(gridShape(row('a', 'b', 'c'))).toEqual({ rows: 1, columns: 3 })
+    expect(gridShape({ kind: 'split', direction: 'vertical', children: [leaf('a'), leaf('b')] })).toEqual({ rows: 2, columns: 1 })
+  })
+
+  test('rows of the same length are a grid, whatever their sizes', () => {
+    const grid: PaneNode = { kind: 'split', direction: 'vertical', sizes: [30, 70], children: [{ ...row('a', 'b'), sizes: [20, 80] } as PaneNode, row('c', 'd')] }
+    expect(gridShape(grid)).toEqual({ rows: 2, columns: 2 })
+    expect(gridShape({ kind: 'split', direction: 'vertical', children: [row('a', 'b', 'c'), row('d', 'e', 'f')] })).toEqual({ rows: 2, columns: 3 })
+  })
+
+  test('columns of the same length are a grid too', () => {
+    const column = (...ids: string[]): PaneNode => ({ kind: 'split', direction: 'vertical', children: ids.map(leaf) })
+    expect(gridShape({ kind: 'split', direction: 'horizontal', children: [column('a', 'b'), column('c', 'd'), column('e', 'f')] })).toEqual({ rows: 2, columns: 3 })
+  })
+
+  test('a fifth pane split from one of four is no grid', () => {
+    const five = placeSplit({ kind: 'split', direction: 'vertical', children: [row('a', 'b', 'n'), row('c', 'd')] }, 'a', 'n', 'horizontal')
+    expect(collectPaneIds(five)).toHaveLength(5)
+    expect(gridShape(five)).toBeNull()
+    expect(gridShape({ kind: 'split', direction: 'horizontal', children: [leaf('a'), { kind: 'split', direction: 'vertical', children: [leaf('b'), leaf('c')] }] })).toBeNull()
+  })
+
+  test('no tree, no shape', () => {
+    expect(gridShape(null)).toBeNull()
   })
 })
