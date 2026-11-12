@@ -60,7 +60,7 @@ function copy(text: string, what = tq('workbench.copiedText'), done = tq('workbe
   void copyText(text, what, done)
 }
 
-/** Query tabs and toolbar above the editor, which the editor's height does not include. */
+/** Query tabs and toolbar above the editor, which the editor's height does not include: the least they take. */
 const EDITOR_CHROME = 90
 
 export function SqlWorkbench({ connection }: { connection: OxeQueryConnection }): ReactElement {
@@ -68,6 +68,9 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const layout = useOxeQueryLayout()
   const main = useRef<HTMLDivElement>(null)
   const mainHeight = useHeight(main)
+  // The toolbar wraps to a second row in a narrow window: what the bars really take is measured, not assumed.
+  const tabsBar = useRef<HTMLDivElement>(null), toolbar = useRef<HTMLDivElement>(null)
+  const barsHeight = useHeight(tabsBar, 'border') + useHeight(toolbar, 'border')
   const [tabs, setTabs] = useState<QueryTab[]>(() => [newTab('SELECT now();', tq('workbench.queryTitle', { number: 1 }))])
   const [activeId, setActiveId] = useState(tabs[0].id)
   const [loaded, setLoaded] = useState(false)
@@ -356,13 +359,13 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const executedText = active.browse ? null : output?.text ?? null
 
   // The editor is as tall as it was dragged, but never so tall that the results lose their minimum height.
-  const editorMax = Math.max(EDITOR_HEIGHT.min, mainHeight - RESULTS_MIN_HEIGHT - EDITOR_CHROME)
+  const editorMax = Math.max(EDITOR_HEIGHT.min, mainHeight - RESULTS_MIN_HEIGHT - Math.max(EDITOR_CHROME, Math.ceil(barsHeight) + 1))
   const editorHeight = mainHeight ? Math.min(layout.editorHeight, editorMax) : layout.editorHeight
   return <div className="oq-workbench" style={{ '--oq-tree-width': `${layout.treeWidth}px` } as CSSProperties}>
     <SchemaTree connection={connection} pinned={pinned} onPinnedChange={setPinned} onOpen={table => void openTable(table)} onInsert={text => addTab(text)} />
     <Splitter orientation="vertical" label={t('workbench.treeWidth')} value={layout.treeWidth} min={TREE_WIDTH.min} max={TREE_WIDTH.max} defaultValue={TREE_WIDTH.default} onChange={treeWidth => layout.set({ treeWidth })} />
     <div className="oq-workbench-main" ref={main}>
-      <div className="oq-qtabs" role="tablist" aria-label={t('workbench.queries')}>
+      <div className="oq-qtabs" ref={tabsBar} role="tablist" aria-label={t('workbench.queries')}>
         {tabs.map(tab => <span key={tab.id} className="oq-qtab" data-active={tab.id === active.id}>
           <button type="button" role="tab" aria-selected={tab.id === active.id} onClick={() => { setActiveId(tab.id); setSelectedRow(null); setCell(null) }}>{tab.title}</button>
           <button type="button" className="oq-tab-close" aria-label={t('view.closeTab', { name: tab.title })} onClick={() => closeTab(tab.id)}><X size={11} aria-hidden="true" /></button>
@@ -373,7 +376,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         <span className="oq-badge" data-environment={connection.environment}>{t(`environment.short.${connection.environment}`)}</span>
         <span className="oq-badge" data-readonly={safety.readOnly} data-policy={safety.readOnlyBy === 'policy' ? 'true' : undefined} title={safety.readOnlyBy === 'policy' ? t('workbench.readOnlyPolicyTitle') : safety.readOnly ? t('workbench.readOnlyTitle') : t('workbench.readWriteTitle')}>{safety.readOnlyBy === 'policy' ? t('workbench.readOnlyPolicy') : safety.readOnly ? t('common.readOnly') : t('common.readWrite')}</span>
       </div>
-      <div className="oq-editor-toolbar">
+      <div className="oq-editor-toolbar" ref={toolbar}>
         <div className="oq-tb-group" role="group" aria-label={t('common.run')}>
           <Button size="sm" variant="primary" icon={<Play size={13} aria-hidden="true" />} onClick={runCurrent} disabled={running} title={t('workbench.runTitle')}>{t('common.run')}<span className="oq-run-key" aria-hidden="true"><Kbd>{formatChord('Mod+Enter')}</Kbd></span></Button>
           <Button size="sm" data-oq-action="runAll" onClick={runAll} disabled={running} title={t('workbench.runAllTitle')}>{t('workbench.runAll')}</Button>
