@@ -307,6 +307,29 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     await useAccountStore.getState().read(context)
     scroll.reinitialize()
   }
+  // Whether the first pending request's buttons are on screen in the timeline. Its footer is what is watched: a long
+  // command can show the top of the card while Deny and Allow are still below the fold.
+  const firstPendingId = pendingRequests[0]?.id
+  const [requestInView, setRequestInView] = useState(false)
+  useEffect(() => {
+    const root = workbench.current?.querySelector<HTMLElement>('.thread-timeline')
+    if (!firstPendingId || !root || typeof IntersectionObserver === 'undefined') { setRequestInView(false); return }
+    let watched: Element | null = null
+    const observer = new IntersectionObserver(entries => setRequestInView(entries.some(entry => entry.isIntersecting)), { root, threshold: 0.6 })
+    const attach = (): void => {
+      const card = root.querySelector<HTMLElement>(`[data-request-id="${CSS.escape(firstPendingId)}"]`)
+      const target = card?.querySelector('footer') ?? card ?? null
+      if (target === watched) return
+      if (watched) observer.unobserve(watched)
+      watched = target
+      // The timeline is virtual: a card scrolled far away leaves the page, and is not on screen.
+      if (target) observer.observe(target); else setRequestInView(false)
+    }
+    attach()
+    const rows = new MutationObserver(attach)
+    rows.observe(root, { childList: true, subtree: true })
+    return () => { observer.disconnect(); rows.disconnect() }
+  }, [firstPendingId])
   const handleNowAction = (act: NowLineAction): void => {
     if (!snapshot) return
     const firstPending = pendingRequests[0]
@@ -360,7 +383,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
   return <div ref={workbench} className={`thread-workbench${drawer ? ' is-drawer' : ''}${active ? ' is-active-cell' : ''}${reviewMaximized ? ' is-review-maximized' : ''}`} onPointerDown={onActivate} onKeyDown={event => { if (event.key === 'Escape' && review?.panel && !panel && !commands.open && !openControl && event.target instanceof Element && event.target.closest('.thread-review-host')) { event.preventDefault(); if (reviewMaximized) useThreadWorkbenchStore.getState().setMaximized(null); else { closeReview(); returnFocusFromPanel() } } }}>
     <section className="thread-view" aria-label={t('view.region')} style={{ '--thread-reader-font-size': `${threadFontSize}px` } as React.CSSProperties}>
     <ThreadHeader thread={snapshot?.thread} workspace={workspace} branch={branch?.branch ?? undefined} pending={pending} running={running} activePanel={review?.panel} historyOpen={historyOpen} cell={cell}
-      activity={activity} irreversible={irreversible} hasPullRequest={hasPullRequest} onNowAction={handleNowAction}
+      activity={activity} irreversible={irreversible} hasPullRequest={hasPullRequest} onNowAction={handleNowAction} requestInView={requestInView}
       onTogglePanel={togglePanel} onToggleHistory={snapshot ? toggleHistory : undefined} onCloseCell={onCloseCell}
       onCommand={command => void action(async () => { setPanel(null); await runCommand(command) })}
       onExport={snapshot && api?.exportPortable ? () => void action(async () => { const path = await api.exportPortable!(snapshot.thread.id); if (path) setPanel({ kind: 'panel', title: t('view.exported'), text: path }) }) : undefined}

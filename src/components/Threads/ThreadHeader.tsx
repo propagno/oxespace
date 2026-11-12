@@ -73,6 +73,7 @@ export function ThreadHeader({
   onDelegate,
   onPin,
   onNowAction,
+  requestInView,
   onCloseCell
 }: {
   thread?: ConversationThread
@@ -96,6 +97,8 @@ export function ThreadHeader({
   onDelegate: () => void
   onPin: () => void
   onNowAction?: (action: NowLineAction) => void
+  /** The pending request's own buttons are on screen: the status line shows no second pair. */
+  requestInView?: boolean
   onCloseCell?: () => void
 }) {
   const { t } = useTranslation('thread')
@@ -263,6 +266,7 @@ export function ThreadHeader({
             agent={threadAgentName(thread.provider)}
             irreversible={irreversible}
             hasPullRequest={hasPullRequest}
+            requestInView={requestInView}
             onAction={action => onNowAction?.(action)}
           />
         )}

@@ -42,9 +42,14 @@ export function NowLine(props: {
   agent: string
   irreversible?: boolean
   hasPullRequest?: boolean
+  /**
+   * The pending request's card, with its own buttons, is on screen in the conversation. The line then only says what
+   * is asked: the same Deny and Allow twice, a few lines apart, is two places to decide the same thing.
+   */
+  requestInView?: boolean
   onAction(action: NowLineAction): void
 }): ReactElement {
-  const { activity, agent, irreversible = false, hasPullRequest = false, onAction } = props
+  const { activity, agent, irreversible = false, hasPullRequest = false, requestInView = false, onAction } = props
   const { t } = useTranslation('thread')
 
   let copy = ''
@@ -121,7 +126,7 @@ export function NowLine(props: {
       <p role="status" className="thread-now-line-copy">
         {leadEnd > 0 ? <><strong>{copy.slice(0, leadEnd + 1)}</strong>{copy.slice(leadEnd + 1)}</> : <strong>{copy}</strong>}
       </p>
-      {buttons.length > 0 && (
+      {buttons.length > 0 && !(requestInView && (activity.kind === 'needs-you' || activity.kind === 'question')) && (
         <div className="thread-now-line-actions">
           {buttons.slice(0, 2).map(item => (
             <button
