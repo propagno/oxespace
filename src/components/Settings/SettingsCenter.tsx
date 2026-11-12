@@ -1,4 +1,4 @@
-import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, Keyboard, Palette, Settings2, ShieldCheck, Smartphone, SquareTerminal, Wrench, X, type LucideIcon } from 'lucide-react'
+import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, History, Keyboard, KeyRound, Lock, Palette, Settings2, ShieldCheck, Smartphone, SquareTerminal, Wrench, X, type LucideIcon } from 'lucide-react'
 import { i18n } from '../../i18n'
 import { Suspense, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -58,14 +58,14 @@ export const APPLICATION_SETTINGS_PAGES = [
   appPage('appearance', Palette, 'Appearance', 'Theme, font sizing and layout density.', ['theme', 'dark', 'light', 'font', 'density', 'language', 'locale']),
   appPage('providers', Bot, 'Agents', 'Default model, fallback chain and provider API keys.', ['claude', 'codex', 'model', 'agent', 'cli', 'idle']),
   appPage('policy', ShieldCheck, 'Approvals and safety', 'Safety boundaries, read-only paths and write permissions.', ['approvals', 'safety', 'sandbox', 'rules', 'yaml']),
-  appPage('agent-permissions', ShieldCheck, 'What agents can do', 'Always allowed commands, databases, HTTP hosts and policy rules.', ['permissions', 'commands', 'databases', 'hosts', 'http', 'allowed', 'revoke']),
+  appPage('agent-permissions', KeyRound, 'What agents can do', 'Always allowed commands, databases, HTTP hosts and policy rules.', ['permissions', 'commands', 'databases', 'hosts', 'http', 'allowed', 'revoke']),
   appPage('notifications', Bell, 'Notifications', 'Desktop alerts, sound effects and quiet hours.', ['sound', 'alerts', 'quiet', 'bell']),
   appPage('keyboard', Keyboard, 'Keyboard', 'Keyboard shortcuts and custom chords.', ['shortcuts', 'keybindings', 'chords', 'hotkeys']),
   appPage('terminal', SquareTerminal, 'Terminal', 'Default shell, scrollback buffer and font overrides.', ['shell', 'scrollback', 'cursor', 'powershell', 'bash', 'zsh']),
   appPage('mcp', Wrench, 'MCP servers and skills', 'Connected MCP servers, custom tools and agent skills.', ['mcp', 'tools', 'skills', 'servers', 'oxe.yaml']),
   appPage('devices', Smartphone, 'Phone and devices', 'Linked mobile devices and companion app connections.', ['phone', 'mobile', 'android', 'mirror', 'qr', 'network', 'pairing']),
-  appPage('privacy', ShieldCheck, 'Data and privacy', 'Diagnostics telemetry, audit retention and data export.', ['export', 'privacy', 'usage', 'history', 'retention', 'telemetry']),
-  appPage('activity', Activity, 'Agent activity', 'What agents changed through OXESpace, and what you decided.', ['audit', 'outgoing', 'proxy', 'hosts', 'network', 'changes', 'containers']),
+  appPage('privacy', Lock, 'Data and privacy', 'Diagnostics telemetry, audit retention and data export.', ['export', 'privacy', 'usage', 'history', 'retention', 'telemetry']),
+  appPage('activity', History, 'Agent activity', 'What agents changed through OXESpace, and what you decided.', ['audit', 'outgoing', 'proxy', 'hosts', 'network', 'changes', 'containers']),
   appPage('diagnostics', Activity, 'Diagnostics', 'System health, runtime logs and active background tasks.', ['health', 'logs', 'doctor', 'troubleshooting', 'support']),
   appPage('about', ArrowUpCircle, 'About', 'Version details, release notes and open-source licenses.', ['version', 'updates', 'release', 'changelog', 'licenses'])
 ] as const
