@@ -1656,6 +1656,10 @@
     "backToBefore": "Este arquivo voltou a ser como era antes do turno.",
     "editedAfter": "Este arquivo foi editado depois do turno, então a alteração do turno não pode mais ser mostrada sozinha. Use Todas as alterações para ver o arquivo como ele está."
   },
+  "planOnly": {
+    "hint": "Em Somente leitura, {{agent}} planeja mas não executa o plano. Para executar, mude o acesso para Pode editar e peça para seguir.",
+    "changeAccess": "Mudar acesso"
+  },
   "turnTiming": {
     "completedBackground": "Turno concluído · {{count}} em segundo plano pendente",
     "completedWarnings": "Concluído com avisos",

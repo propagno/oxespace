@@ -14,6 +14,7 @@ import { ThreadFailureCard } from './ThreadFailureCard'
 import { ThreadFileActivity, ThreadTurnChanges } from './ThreadFileActivity'
 import { ThreadMessageRow } from './ThreadMessageRow'
 import { ThreadPlan } from './ThreadPlan'
+import { planOnlyTurn, ThreadPlanOnlyHint } from './ThreadPlanOnlyHint'
 import { ThreadReasoning } from './ThreadReasoning'
 import { ThreadRequestCard } from './ThreadRequestCard'
 import { useOpenRequest } from '../Approvals/openRequest'
@@ -134,5 +135,6 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
       onUndoHunk={snapshot && !running && turnId && api?.undoTurnHunk ? async (path, hunkId) => { await api.undoTurnHunk!(snapshot.thread.id, turnId, path, hunkId); await useThreadStore.getState().refresh(snapshot.thread.id) } : undefined}
       onComment={onDraft} />}
     {finished && <ThreadTurnTiming turn={snapshot?.turns?.find(value => value.id === turnId)} events={turnEvents} />}
+    {finished && !running && planOnlyTurn(snapshot, turnId) && <ThreadPlanOnlyHint agent={threadAgentName(snapshot!.thread.provider)} onChangeAccess={onPermissions} />}
   </section>
 }

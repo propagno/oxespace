@@ -14,6 +14,8 @@
 .thread-inline-evidence p, .thread-inline-evidence > div[role="alert"] { padding: 10px 12px; color: var(--text-muted); font-size: var(--fs-2xs); }
 .thread-inline-evidence pre { padding: 12px; font: 11px/1.7 var(--font-mono); overflow: auto; }
 .thread-turn-timing { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0; font-size: var(--fs-2xs); color: var(--text-muted); }
+/* Plan mode in a Read only conversation: what it takes to run the plan, under the turn that wrote it. */
+.thread-plan-only-hint { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 8px; font-size: var(--fs-xs); color: var(--text-secondary); }
 .thread-turn-outcome { display: inline-flex; align-items: center; gap: 5px; color: var(--text-primary); font-weight: 600; }
 .thread-turn-timing.is-completed .thread-turn-outcome svg { color: var(--dot-green); }
 .thread-turn-timing.is-failed .thread-turn-outcome, .thread-turn-timing.is-failed .thread-turn-outcome svg { color: var(--intent-danger-fg); }

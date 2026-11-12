@@ -1604,6 +1604,10 @@
     "backToBefore": "This file is back to how it was before the turn.",
     "editedAfter": "This file was edited after the turn, so the turn’s own change can no longer be shown on its own. Use All changes to see the file as it is."
   },
+  "planOnly": {
+    "hint": "In Read only, {{agent}} plans but does not carry the plan out. To run it, change access to Can edit and ask it to go ahead.",
+    "changeAccess": "Change access"
+  },
   "turnTiming": {
     "completedBackground": "Turn finished · {{count}} background pending",
     "completedWarnings": "Finished with warnings",
