@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactElement } from 'react'
+import { ThreadMarkdown } from '../Threads/ThreadMarkdown'
 import { threadAgentName } from '../../../shared/threadProviders'
 import { createPortal } from 'react-dom'
 import { Settings2, Sun, X } from 'lucide-react'
@@ -493,7 +494,13 @@ export function ApprovalQueue({
               </section>
             ) : null}
 
-            {selectedImpact ? (
+            {selectedImpact && selected.request.nativeMethod === 'can_use_tool:ExitPlanMode' ? (
+              // A plan to review is prose, here as in its card in the conversation: rendered, not the raw Markdown.
+              <section className={sharedStyles.sectionBlock}>
+                <h4 className={sharedStyles.sectionHeading}>{t('approvalDetails.plan')}</h4>
+                <div className={sharedStyles.planBlock} tabIndex={0} role="region" aria-label={t('approvalDetails.plan')} data-testid="queue-plan"><ThreadMarkdown text={selectedImpact.text} /></div>
+              </section>
+            ) : selectedImpact ? (
               <section className={sharedStyles.sectionBlock}>
                 <h4 className={sharedStyles.sectionHeading}>{t('f7.preview.exactHeading')}</h4>
                 <pre className={sharedStyles.codeBlock}>
