@@ -13,7 +13,8 @@ describe('Thread command approval', () => {
     render(<ThreadRequestCard request={{ id: 'mcp', nativeId: 'mcp', nativeMethod: 'mcpServer/elicitation/request', kind: 'elicitation', title: 'oxespace-memory', detail: 'Allow memory tool?', generation: 1, createdAt: 1, state: 'pending' }} disabled={false} onRespond={respond} />)
     expect(screen.getByText(/Full access controls filesystem and command access/)).toBeVisible()
     expect(respond).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Continue', exact: true }))
+    // Nothing to fill in: a yes or no, with the words of an approval.
+    fireEvent.click(screen.getByRole('button', { name: 'Approve', exact: true }))
     expect(respond).toHaveBeenCalledWith({ decision: 'accept', content: {} })
   })
   const command = '"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command \'$path = "docs\\thread-view.md"; $content = Get-Content -LiteralPath $path -Raw; $needle = "line one\\r\\nline two"; Set-Content -LiteralPath $path -Value $content\''

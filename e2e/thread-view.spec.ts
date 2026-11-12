@@ -854,9 +854,10 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.getByRole('button', { name: 'More actions' }).click()
     await page.getByRole('menuitem', { name: 'Show every tool call' }).click()
     await expect(inlineRows).toHaveCount(0)
-    // A finished turn folds its work under one line; opening it shows the one-line action summaries.
+    // A finished turn folds its work under one line that names what it opens ("6 steps"); the turn is closed once,
+    // under the answer. Opening the fold shows the one-line action summaries.
     const fold = page.getByTestId('thread-turn-fold').first()
-    await expect(fold).toHaveText(/^Completed \d+ steps?/)
+    await expect(fold).toHaveText(/^\d+ steps?/)
     await expect(fold).toHaveAttribute('aria-expanded', 'false')
     await fold.click()
     await expect(fold).toHaveAttribute('aria-expanded', 'true')
@@ -1034,8 +1035,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     const requestDock = page.getByRole('region', { name: 'Pending agent requests' })
     await expect(requestDock.getByText('Allow this memory update?')).toBeVisible()
     await timeline.evaluate(element => { element.scrollTop = 0 })
-    await expect(requestDock.getByRole('button', { name: 'Continue', exact: true })).toBeInViewport()
-    await requestDock.getByRole('button', { name: 'Continue', exact: true }).click()
+    // An MCP request with nothing to fill in is a yes or no, with the words of an approval.
+    await expect(requestDock.getByRole('button', { name: 'Approve', exact: true })).toBeInViewport()
+    await requestDock.getByRole('button', { name: 'Approve', exact: true }).click()
     await expect.poll(() => app.evaluate(() => (globalThis as Record<string, unknown>).lastThreadAnswer)).toEqual({ decision: 'accept', content: {} })
     await expect(requestDock).toHaveCount(0)
     await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Historical questions fixture'))
