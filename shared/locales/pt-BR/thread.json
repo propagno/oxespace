@@ -1785,6 +1785,13 @@
     "requestsWaiting_other": "{{count}} pedidos estão esperando a sua decisão.",
     "requestsWaiting_many": "{{count}} pedidos estão esperando a sua decisão."
   },
+  "contextMenu": {
+    "label": "Menu da conversa",
+    "copySelection": "Copiar",
+    "quoteSelection": "Citar na mensagem",
+    "copyMessage": "Copiar a mensagem",
+    "quoteMessage": "Citar a mensagem"
+  },
   "side": {
     "title": "Chat lateral",
     "region": "Chat lateral",
