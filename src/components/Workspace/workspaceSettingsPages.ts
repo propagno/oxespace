@@ -15,6 +15,6 @@ function settingsPage(id: WorkspacePageId, icon: LucideIcon, defaultLabel: strin
 
 export const SETTINGS_PAGES = [
   settingsPage('general', Settings2, 'General', 'Project instructions and workspace preferences', 'Set default instructions, shell preferences and appearance for this workspace.'),
-  settingsPage('projects', FolderTree, 'Projects', 'Worktrees and branches', 'Inspect and manage git worktrees and branches linked to this workspace.'),
+  settingsPage('projects', FolderTree, 'Projects', 'Project instructions', 'The instruction files agents read in this project.'),
   settingsPage('policy', ScrollText, 'Policy', 'Workspace policy rules', 'Control which tools and actions agents may run in this workspace.')
 ] as const

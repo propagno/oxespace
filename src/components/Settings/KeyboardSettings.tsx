@@ -4,7 +4,7 @@ import { RichText } from '../../i18n/RichText'
 import { Button, applyWithUndo } from '../../ui'
 import { eventToChord } from '../../keyboard/chords'
 import {
-  KEYBINDINGS, chordsFor, conflictsFor, isOverridden, type Keybinding, type KeybindingId, type KeybindingScope
+  KEYBINDINGS, chordsFor, conflictsFor, conflictsWith, isOverridden, type Keybinding, type KeybindingId, type KeybindingScope
 } from '../../keyboard/keybindings'
 import { bindingLabel, scopeLabel } from '../../keyboard/labels'
 import { useSettingsStore } from '../../store/settings.store'
@@ -19,6 +19,8 @@ export function KeyboardSettings(): ReactElement {
   const setOverride = useSettingsStore(state => state.setKeybindingOverride)
   const resetAll = useSettingsStore(state => state.resetKeybindings)
   const [capturing, setCapturing] = useState<KeybindingId | null>(null)
+  /** The last shortcut pressed for the row being changed that another command already uses. */
+  const [refused, setRefused] = useState<{ id: KeybindingId; text: string } | null>(null)
   const { t } = useTranslation('settings')
 
   useEffect(() => {
@@ -28,15 +30,22 @@ export function KeyboardSettings(): ReactElement {
       // and the chord from reaching the app's own shortcuts.
       event.preventDefault()
       event.stopPropagation()
-      if (event.key === 'Escape' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) { setCapturing(null); return }
+      if (event.key === 'Escape' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) { setCapturing(null); setRefused(null); return }
       const chord = eventToChord(event)
       if (!chord) return
+      // Two commands on one key fire together. The shortcut is refused and the row keeps waiting for another one.
+      const taken = conflictsWith(capturing, [chord])
+      if (taken.length) {
+        setRefused({ id: capturing, text: t('keyboard.taken', { chord, bindings: taken.map(other => `${bindingLabel(other)} (${scopeLabel(other.scope)})`).join(', ') }) })
+        return
+      }
       setOverride(capturing, [chord])
       setCapturing(null)
+      setRefused(null)
     }
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
-  }, [capturing, setOverride])
+  }, [capturing, setOverride, t])
 
   const groups = SCOPES.map(scope => ({ scope, bindings: (KEYBINDINGS as readonly Keybinding[]).filter(binding => binding.scope === scope) }))
     .filter(group => group.bindings.length > 0)
@@ -69,12 +78,13 @@ export function KeyboardSettings(): ReactElement {
                   {t('keyboard.alsoUsed', { bindings: conflicts.map(other => `${bindingLabel(other)} (${scopeLabel(other.scope)})`).join(', ') })}
                 </span>}
                 {active && <span className={styles.capturing} role="status">{t('keyboard.capturing')}</span>}
+                {active && refused?.id === id && <span className={styles.warning} role="status" data-testid="shortcut-taken">{refused.text}</span>}
               </span>
               <span className={styles.actions}>
                 <KeyChords chords={chordsFor(id)} />
                 {binding.fixed ? <span className={styles.fixed}>{t('keyboard.fixed')}</span> : <>
                 <Button size="sm" variant="ghost" className={styles.rowAction} data-shown={active || undefined} aria-pressed={active} aria-label={t('keyboard.changeLabel', { name })}
-                  onClick={() => setCapturing(active ? null : id)}>{active ? t('keyboard.pressKeys') : t('keyboard.change')}</Button>
+                  onClick={() => { setRefused(null); setCapturing(active ? null : id) }}>{active ? t('keyboard.pressKeys') : t('keyboard.change')}</Button>
                 {/* S-04: Reset only for a shortcut that differs from its default; the empty cell keeps the columns. */}
                 {isOverridden(id)
                   ? <Button size="sm" variant="ghost" className={styles.rowAction} aria-label={t('keyboard.resetLabel', { name })} onClick={() => setOverride(id, null)}>{t('keyboard.reset')}</Button>

@@ -1246,8 +1246,8 @@
         },
         "projects": {
           "label": "Projetos",
-          "hint": "Worktrees e branches",
-          "description": "Inspecione e gerencie worktrees e branches do Git vinculados a este workspace."
+          "hint": "Instruções do projeto",
+          "description": "Os arquivos de instruções que os agentes leem neste projeto."
         },
         "policy": {
           "label": "Política",

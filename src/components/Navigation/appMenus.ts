@@ -5,6 +5,7 @@ import { tCommand } from '../../commands/commandText'
 import { toast } from '../../ui/Toast'
 import type { EditCommand } from '../../../shared/types/ipc'
 import { editUnavailable, requestEdit } from './editTarget'
+import { confirmClose } from '../../lib/closeGuard'
 
 export type AppMenuNode =
   /**
@@ -85,7 +86,8 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
         { kind: 'item', id: 'settings', label: t('menu.settings'), shortcut: shortcutLabel('settings.open'), onSelect: ctx.openSettings },
         fromAction('workspace-settings'),
         sep('file-2'),
-        { kind: 'item', id: 'quit', label: t('menu.exit'), onSelect: () => window.close() }
+        // Asked here first: a window.close() from the page closes at once, and main's own question never runs.
+        { kind: 'item', id: 'quit', label: t('menu.exit'), onSelect: () => { void confirmClose('quit').then(go => { if (go) window.close() }) } }
       ])
     },
     {

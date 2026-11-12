@@ -106,6 +106,9 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
     if (open) inputRef.current?.focus({ preventScroll: true })
   }, [open])
 
+  // The local usage count's "Command bar" is this bar, counted once each time it opens.
+  useEffect(() => { if (open) void window.oxe?.featureUsage?.record?.('commandBar') }, [open])
+
   const startTrimmed = query.replace(/^[ \t]+/, '')
   const trimmed = startTrimmed.trim()
   const disallowedMatch = DISALLOWED_RE.exec(startTrimmed)
