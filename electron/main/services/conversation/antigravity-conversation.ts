@@ -10,6 +10,8 @@ import { ThreadAgentError, threadFailure } from './thread-failure'
 
 // A completed tool call carries its whole output in one frame; keep a finite ceiling.
 const MAX_ACP_FRAME_BYTES = 32 * 1024 * 1024
+// The whole of what Antigravity says when its own run broke, with or without the warning sign in front.
+const TERMINATED_BY_ERROR = /^[^\p{L}]*Agent execution terminated due to error\.?$/iu
 // A turn is one `session/prompt` request that answers only when the turn ends, which can take hours.
 const TURN_TIMEOUT_MS = 12 * 60 * 60 * 1000
 const WRITE_KINDS = new Set(['edit', 'delete', 'move', 'execute'])
@@ -275,6 +277,13 @@ export class AntigravityConversationAdapter implements AgentConversationAdapter 
       const failure = threadFailure({ message: reason === 'max_tokens' ? 'The model stopped at its token limit; the context window is full.'
         : reason === 'refusal' ? 'The model refused to continue this turn.' : reason === 'max_turn_requests' ? 'The turn reached its limit of model requests.' : 'The agent ended the turn without a known reason.' })
       this.fail({ ...failure, ...(/^[a-z_]{1,40}$/.test(reason) ? { providerCode: reason } : {}), usageUnavailable: true }, cost)
+      return
+    }
+    // Antigravity reports a run of its own that broke as an ordinary answer, "⚠ Agent execution terminated due to
+    // error.", and then ends the turn as finished (measured with a real account, 2026-11-12). A turn whose last
+    // words are only that did not finish: it fails, and the sentence stays in the conversation as the agent's.
+    if (reason === 'end_turn' && this.segment?.kind === 'message' && TERMINATED_BY_ERROR.test(this.segment.text.trim())) {
+      this.fail({ ...threadFailure({ message: 'Antigravity stopped its own run with an error and gave no reason.' }), providerCode: 'agent_execution_terminated', usageUnavailable: true }, cost)
       return
     }
     this.settle()

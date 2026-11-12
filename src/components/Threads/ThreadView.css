@@ -117,7 +117,9 @@
 .thread-message-outgoing-status { display: block; margin-top: 7px; color: var(--text-muted); font-size: var(--fs-2xs); }
 .thread-delivery-note { display: flex; align-items: center; gap: 6px; margin: 7px 0 0; color: var(--text-muted); font-size: var(--fs-2xs); }
 .thread-delivery-note.is-rejected { color: var(--dot-red); }
-.thread-delivery-note button { margin-left: auto; padding: 2px 8px; border: 1px solid var(--border-default); border-radius: var(--radius-xs); background: transparent; color: inherit; font: inherit; cursor: pointer; }
+/* A long reason wraps in its own column; the button beside it keeps its words on one line. */
+.thread-delivery-text { min-width: 0; overflow-wrap: anywhere; }
+.thread-delivery-note button { flex: none; white-space: nowrap; margin-left: auto; padding: 2px 8px; border: 1px solid var(--border-default); border-radius: var(--radius-xs); background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .thread-delivery-note button:disabled { opacity: 0.5; cursor: default; }
 .thread-long-prompt-preview { margin: 0; color: var(--text-primary); line-height: 1.55; }
 .thread-view .thread-long-prompt > button { margin-top: 8px; padding: 3px 0; color: var(--text-secondary); font-size: var(--fs-2xs); }
