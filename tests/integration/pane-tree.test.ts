@@ -5,6 +5,7 @@ import {
   computeLayout,
   moveLeaf,
   normalize,
+  placeSplit,
   removeLeaf,
   resizeSplit,
   splitLeaf,
@@ -143,5 +144,47 @@ describe('pane-tree', () => {
       direction: 'vertical',
       children: [{ kind: 'leaf', paneId: 'b' }, { kind: 'leaf', paneId: 'a' }]
     })
+  })
+})
+
+describe('placeSplit: a split pane that sync already placed', () => {
+  const leaf = (paneId: string): PaneNode => ({ kind: 'leaf', paneId })
+  const widths = (tree: PaneNode | null) => Object.fromEntries(computeLayout(tree).rects.map(rect => [rect.paneId, Math.round(rect.width * 10) / 10]))
+  const heights = (tree: PaneNode | null) => Object.fromEntries(computeLayout(tree).rects.map(rect => [rect.paneId, Math.round(rect.height * 10) / 10]))
+  // A 2 × 2 grid after sync put "n" beside "a": the top row is a, n, b at 25, 25, 50.
+  const synced: PaneNode = { kind: 'split', direction: 'vertical', children: [
+    { kind: 'split', direction: 'horizontal', children: [leaf('a'), leaf('n'), leaf('b')], sizes: [25, 25, 50] },
+    { kind: 'split', direction: 'horizontal', children: [leaf('c'), leaf('d')] }
+  ] }
+
+  test('split right: the two share the origin\'s half, the neighbour keeps its own', () => {
+    const tree = placeSplit(synced, 'a', 'n', 'horizontal')
+    expect(collectPaneIds(tree)).toEqual(['a', 'n', 'b', 'c', 'd'])
+    expect(widths(tree)).toMatchObject({ a: 25, n: 25, b: 50 })
+  })
+
+  test('split down: the origin keeps its width and gives half its height', () => {
+    const tree = placeSplit(synced, 'a', 'n', 'vertical')
+    expect(collectPaneIds(tree)).toEqual(['a', 'n', 'b', 'c', 'd'])
+    expect(widths(tree)).toMatchObject({ a: 50, n: 50, b: 50 })
+    expect(heights(tree).a).toBeCloseTo(heights(tree).n, 0)
+    expect(heights(tree).b).toBeCloseTo(heights(tree).a * 2, 0)
+  })
+
+  test('the old path gave the origin a third of the row', () => {
+    // What moveLeaf does with the same tree, kept here so the difference stays visible.
+    expect(widths(moveLeaf(synced, 'n', 'a', 'vertical'))).toMatchObject({ a: 33.3, b: 66.7 })
+  })
+
+  test('a pane placed at the far end of the row gives its share to the origin; the pane between keeps its own', () => {
+    const elsewhere: PaneNode = { kind: 'split', direction: 'horizontal', children: [leaf('a'), leaf('b'), leaf('n')], sizes: [40, 40, 20] }
+    const tree = placeSplit(elsewhere, 'a', 'n', 'horizontal')
+    expect(collectPaneIds(tree)).toEqual(['a', 'n', 'b'])
+    expect(widths(tree)).toMatchObject({ a: 30, n: 30, b: 40 })
+  })
+
+  test('unknown panes and a pane split from itself change nothing', () => {
+    expect(placeSplit(synced, 'a', 'missing', 'horizontal')).toBe(synced)
+    expect(placeSplit(synced, 'a', 'a', 'horizontal')).toBe(synced)
   })
 })

@@ -186,6 +186,39 @@ export function moveLeaf(
   return normalize(splitLeaf(without, targetPaneId, paneId, direction, after))
 }
 
+/**
+ * A pane the person split from `targetPaneId` that the tree already holds: `sync` put it beside its origin, in a
+ * direction chosen by the pane's shape, before the split itself arrived. It goes where the person asked, and the two
+ * share the space the origin had. `moveLeaf` would not do: it removes the pane first and spreads its share over the
+ * whole row, so the origin kept a third of the row instead of its half and the neighbour grew.
+ */
+export function placeSplit(
+  node: PaneNode | null,
+  targetPaneId: string,
+  newPaneId: string,
+  direction: SplitDirection
+): PaneNode | null {
+  if (!node || targetPaneId === newPaneId) return node
+  const ids = collectPaneIds(node)
+  if (!ids.includes(targetPaneId) || !ids.includes(newPaneId)) return node
+  const without = returnShare(node, newPaneId, targetPaneId)
+  if (!without) return node
+  return normalize(splitLeaf(without, targetPaneId, newPaneId, direction))
+}
+
+/** Removes `paneId`; when `heirPaneId` sits beside it in the same split, the heir gets its share, otherwise the proportions are kept. */
+function returnShare(node: PaneNode | null, paneId: string, heirPaneId: string): PaneNode | null {
+  if (!node) return null
+  if (node.kind === 'leaf') return node.paneId === paneId ? null : node
+  if (!collectPaneIds(node).includes(paneId)) return node
+  const sizes = resolveSizes(node.sizes, node.children.length)
+  const at = node.children.findIndex(child => child.kind === 'leaf' && child.paneId === paneId)
+  const heir = node.children.findIndex(child => child.kind === 'leaf' && child.paneId === heirPaneId)
+  if (at >= 0 && heir >= 0) sizes[heir] += sizes[at]
+  const remaining = node.children.map((child, i) => ({ node: returnShare(child, paneId, heirPaneId), size: sizes[i] })).filter(child => child.node !== null)
+  return normalize({ kind: 'split', direction: node.direction, children: remaining.map(child => child.node!), sizes: remaining.map(child => child.size) })
+}
+
 /** Adjust the boundary between children `index`/`index+1` of the split at `path`
  *  by `deltaPct` (percent of that split's extent), clamped to MIN_SIZE_PCT. */
 export function resizeSplit(
