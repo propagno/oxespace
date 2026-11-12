@@ -873,7 +873,9 @@ test('memory: main process with 10 Threads open', async () => {
 
     // The main process after a forced GC (when available): resident set and live JS heap, in MB. On Linux the
     // resident set is also split into what the process allocated (anon) and what it maps from files (code, database).
-    type Sample = { rss: number; heap: number; gc: boolean; anon: number | null; file: number | null }
+    // `detail` says where the memory is: what V8 holds resident per heap space (a young generation that grew during
+    // a burst of work stays resident with nothing live in it), what it allocated outside the heap, and Buffers.
+    type Sample = { rss: number; heap: number; gc: boolean; anon: number | null; file: number | null; detail: string }
     const sample = (): Promise<Sample> => app.evaluate(() => {
       let gc = false
       try {
@@ -890,7 +892,13 @@ test('memory: main process with 10 Threads open', async () => {
         const kb = (name: string): number | null => { const line = status.split('\n').find(value => value.startsWith(`${name}:`)); return line ? Number.parseInt(line.slice(name.length + 1), 10) / 1024 : null }
         anon = kb('RssAnon'); file = kb('RssFile')
       } catch { /* no /proc: Windows, macOS */ }
-      return { rss: usage.rss / 1024 / 1024, heap: usage.heapUsed / 1024 / 1024, gc, anon, file }
+      const mb = (bytes: number): string => (bytes / 1024 / 1024).toFixed(1)
+      const v8 = process.getBuiltinModule('node:v8')
+      const heap = v8.getHeapStatistics()
+      const spaces = v8.getHeapSpaceStatistics().filter(space => space.physical_space_size > 512 * 1024)
+        .map(space => `${space.space_name.replace(/_space$/, '')}=${mb(space.physical_space_size)}`).join(' ')
+      const detail = `v8 resident=${mb(heap.total_physical_size)} (${spaces}) malloced=${mb(heap.malloced_memory)} external=${mb(usage.external)} buffers=${mb(usage.arrayBuffers)}`
+      return { rss: usage.rss / 1024 / 1024, heap: usage.heapUsed / 1024 / 1024, gc, anon, file, detail }
     })
     // The app's deferred start (index.ts "deferred-init": the internal MCP server, config sync, policy) is still
     // allocating when the window shows. A fixed wait left part of it inside the measured growth, which is meant to be
@@ -937,7 +945,27 @@ test('memory: main process with 10 Threads open', async () => {
       `(before: rss=${before.rss.toFixed(1)}MB heap=${before.heap.toFixed(1)}MB${split(before)}) rssGrowth=${growth.toFixed(1)}MB gc=${after.gc} ` +
       `settled after ${before.waits}/${after.waits} waits`
     )
-    const budget = MAIN_MEMORY_BUDGETS_MB[process.platform] ?? MAIN_MEMORY_BUDGETS_MB.default
+    console.log(`[RESULT] memory main process, where: before ${before.detail}`)
+    console.log(`[RESULT] memory main process, where: after  ${after.detail}`)
+    // Reported, not budgeted: ten more Threads, every one opened. A cost per Thread shows again in full here; what
+    // the first ten paid once (code compiled on first use, caches, a grown young generation) does not.
+    try {
+      await page.evaluate(async ({ projectId, count }) => {
+        for (let index = 0; index < count; index++) await window.oxe.thread!.create({ projectId, provider: 'claude' })
+      }, { projectId: project.projectId, count: THREAD_COUNT })
+      for (let index = 0; index < THREAD_COUNT * 2; index++) {
+        if (await page.locator('.thread-show-more').count()) await page.locator('.thread-show-more').click()
+        await page.locator('.thread-navigation-item').nth(index).click()
+        await page.locator('.thread-timeline').waitFor()
+      }
+      await page.waitForTimeout(1_500)
+      const again = await settled()
+      console.log(`[RESULT] memory main process, ${THREAD_COUNT} more Threads   rss=${again.rss.toFixed(1)}MB heap=${again.heap.toFixed(1)}MB${split(again)} rssGrowth=${(again.rss - after.rss).toFixed(1)}MB`)
+      console.log(`[RESULT] memory main process, where: again  ${again.detail}`)
+    } catch (error) {
+      console.log(`[RESULT] memory main process, ${THREAD_COUNT} more Threads   not measured: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`)
+    }
+    const budget =MAIN_MEMORY_BUDGETS_MB[process.platform] ?? MAIN_MEMORY_BUDGETS_MB.default
     if (ENFORCE_BUDGETS) {
       expect(after.rss, `main process RSS after ${THREAD_COUNT} Threads (budget ${budget.rss} MB)`).toBeLessThanOrEqual(budget.rss)
       expect(after.heap, `main process heap after ${THREAD_COUNT} Threads (budget ${budget.heap} MB)`).toBeLessThanOrEqual(budget.heap)
