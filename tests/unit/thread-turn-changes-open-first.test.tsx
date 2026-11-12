@@ -56,6 +56,17 @@ describe('the changes of the latest turn (OxeChat, diff in the conversation)', (
     expect(loadFileStates).toHaveBeenCalledTimes(2)
   })
 
+  it('counts what this turn changed when its checkpoint says, not each file against the last commit (B-1)', async () => {
+    // The events say +1 -1 per file; the checkpoint says this turn added one line to price.ts and two to tax.ts.
+    const own: ThreadTurnFileStatus[] = [{ ...states[0], additions: 1, deletions: 0 }, { ...states[1], additions: 2, deletions: 0 }]
+    render(<ThreadTurnChanges events={events} root="/repo" onOpen={vi.fn()} loadFileStates={async () => own}
+      onUndoFile={vi.fn(async () => {})} loadHunks={async () => []} onUndoHunk={vi.fn(async () => {})} />)
+    const card = screen.getByLabelText('Changed files')
+    await waitFor(() => expect(card.querySelector('header')).toHaveTextContent('+3−0'))
+    expect(screen.getByTitle('/repo/src/price.ts')).toHaveTextContent('+1−0')
+    expect(screen.getByTitle('/repo/src/tax.ts')).toHaveTextContent('+2−0')
+  })
+
   it('a review the person opens shows every block', async () => {
     renderChanges(false)
     fireEvent.click(await screen.findByRole('button', { name: 'Review changes in src/tax.ts' }))

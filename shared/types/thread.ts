@@ -836,7 +836,11 @@ export type ThreadBranchResult =
   | { ok: true; threadId: string; workspaceId: string; worktreePath: string }
   | { ok: false; refusal: import('../messages').MainMessage }
 
-export interface ThreadTurnFileStatus { path: string; root?: string; state: 'pending' | 'reverted' | 'modified'; preExists: boolean; postExists: boolean }
+export interface ThreadTurnFileStatus {
+  path: string; root?: string; state: 'pending' | 'reverted' | 'modified'; preExists: boolean; postExists: boolean
+  /** Lines this turn added and removed, for a text file still as the turn left it. */
+  additions?: number; deletions?: number
+}
 
 export interface ThreadCliState {
   running: boolean

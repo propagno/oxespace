@@ -128,10 +128,18 @@ export function ThreadTurnChanges({ events, root, roots = [], workspaceId, onOpe
   if (!entries.length) return events.some(event => event.type === 'turn-diff') ? <p className="thread-turn-timing">{t('files.noRemaining')}</p> : null
   const files = [...new Map(entries.map(entry => [entry.file.path, entry])).values()]
   const shown = showAll ? files : files.slice(0, CHANGE_PREVIEW_FILES)
+  // What this turn changed, from its checkpoint, when every file has it. The events count each file against the
+  // last commit: after two turns on one file the second card read both turns' lines.
+  const own = (entry: ThreadChangeEntry): { additions: number; deletions: number } | undefined => {
+    const status = fileStates[relativeKey(entry.file.path, allRoots)]
+    return status?.additions !== undefined && status.deletions !== undefined ? { additions: status.additions, deletions: status.deletions } : undefined
+  }
+  const owned = files.map(own)
+  const turnTotal = owned.every(Boolean) ? { additions: owned.reduce((sum, value) => sum + value!.additions, 0), deletions: owned.reduce((sum, value) => sum + value!.deletions, 0) } : undefined
   return <section className="thread-change-summary" aria-label={t('files.label')}>
     <header>
       <FileCode2 size={14} aria-hidden="true" />
-      <span><strong>{t('files.edited', { count: summary.files })}</strong>{summary.exact ? <FileStats file={{ ...entries[0].file, additions: summary.additions, deletions: summary.deletions }} /> : <small>{t('files.operations', { count: summary.operations })}</small>}</span>
+      <span><strong>{t('files.edited', { count: summary.files })}</strong>{turnTotal ? <FileStats file={{ ...entries[0].file, ...turnTotal, truncated: false }} /> : summary.exact ? <FileStats file={{ ...entries[0].file, additions: summary.additions, deletions: summary.deletions }} /> : <small>{t('files.operations', { count: summary.operations })}</small>}</span>
       {onUndo && (undo === 'idle'
         ? <button type="button" className="thread-change-view" onClick={() => { setUndoError(''); setUndo('confirm') }}>{t('files.undo')}</button>
         : <span className="thread-change-confirm" role="group" aria-label={t('files.undoGroup')}>
@@ -150,7 +158,7 @@ export function ThreadTurnChanges({ events, root, roots = [], workspaceId, onOpe
       return <div key={entry.key} className="thread-change-file">
         {/* F33: the path menu on a changed file of the conversation's project. */}
         <WithPathMenu {...(() => { const target = conversationPathMenu(entry.file.path, workspaceId, root, allRoots); return { request: target?.request ?? null, copyOnly: target?.copyOnly } })()} openInOxespace={() => onOpen(entry)}
-          render={onContextMenu => <button type="button" onClick={() => onOpen(entry)} onContextMenu={onContextMenu} title={entry.file.path}><span className="thread-change-file-name"><TurnPath path={entry.file.path} roots={allRoots} /></span>{entries.filter(value => value.file.path === entry.file.path).length === 1 && <FileStats file={entry.file} />}</button>} />
+          render={onContextMenu => <button type="button" onClick={() => onOpen(entry)} onContextMenu={onContextMenu} title={entry.file.path}><span className="thread-change-file-name"><TurnPath path={entry.file.path} roots={allRoots} /></span>{own(entry) ? <FileStats file={{ ...entry.file, ...own(entry), truncated: false }} /> : entries.filter(value => value.file.path === entry.file.path).length === 1 && <FileStats file={entry.file} />}</button>} />
         {status?.state === 'reverted' && <span className="thread-change-file-state">{t('files.reverted')}</span>}
         {status?.state === 'modified' && <span className="thread-change-file-state" title={t('files.editedLaterTitle')}>{t('files.editedLater')}</span>}
         {status?.state === 'pending' && onUndoFile && <button type="button" className="thread-change-view" disabled={undoingFile !== null || undo === 'working'} aria-label={t('files.undoFileLabel', { path: label })} onClick={() => {
