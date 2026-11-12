@@ -2063,6 +2063,7 @@
     "workingText": "Working. {{text}}.",
     "workingShort": "Working.",
     "paused": "Paused. You stopped it. Send a message to continue.",
+    "pausedByClose": "Paused. OXESpace closed before this turn finished. Send a message to continue.",
     "error": "Stopped with an error. {{reason}}.",
     "errorShort": "Stopped with an error.",
     "ready": "Ready for review. {{summary}}.",

@@ -205,9 +205,13 @@ export function deriveThreadActivity(
   const turnStatus = lastTurn?.status ?? thread.lastTurnStatus
 
   if (thread.status === 'interrupted' || turnStatus === 'interrupted') {
+    // A turn the app cut short when it closed is settled with what happened (thread-recovery.service.ts); one the
+    // person stopped is settled with nothing. The status line said "You stopped it" for both.
+    const settled = [...events].reverse().find((event): event is Extract<ThreadEvent, { type: 'completed' }> => event.type === 'completed')
     return {
       kind: 'paused',
-      at: lastTurn?.completedAt ?? lastTurn?.startedAt ?? baseAt
+      at: lastTurn?.completedAt ?? lastTurn?.startedAt ?? baseAt,
+      ...(settled?.status === 'interrupted' && settled.error ? { reason: 'app-closed' } : {})
     }
   }
 

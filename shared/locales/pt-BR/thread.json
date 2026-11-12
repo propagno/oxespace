@@ -2132,6 +2132,7 @@
     "workingText": "Trabalhando. {{text}}.",
     "workingShort": "Trabalhando.",
     "paused": "Pausada. Você parou. Envie uma mensagem para continuar.",
+    "pausedByClose": "Pausada. O OXESpace fechou antes de este turno terminar. Envie uma mensagem para continuar.",
     "error": "Parou com erro. {{reason}}.",
     "errorShort": "Parou com erro.",
     "ready": "Pronta para revisão. {{summary}}.",

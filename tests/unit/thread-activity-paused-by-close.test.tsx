@@ -1,0 +1,37 @@
+import { cleanup, render } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { deriveThreadActivity } from '../../src/components/Threads/deriveThreadActivity'
+import { NowLine } from '../../src/components/Threads/NowLine'
+import type { ThreadEvent, ThreadSnapshot } from '../../shared/types/thread'
+
+const turn: ThreadEvent[] = [
+  { type: 'message', id: 'turn-1', role: 'user', text: 'Refactor the price module' },
+  { type: 'message', id: 'a1', role: 'assistant', text: 'Reading the module' }
+]
+
+function interrupted(settled: ThreadEvent): ThreadSnapshot {
+  return {
+    thread: { id: 'thread', workspaceId: 'ws', projectId: 'p', rootPath: '/repo', provider: 'claude', title: 'T', status: 'interrupted', lastTurnStatus: 'interrupted', createdAt: 1, updatedAt: 2 },
+    events: [...turn, settled],
+    turns: [{ id: 'turn-1', status: 'interrupted', startedAt: 1, completedAt: 2 }]
+  } as unknown as ThreadSnapshot
+}
+
+afterEach(cleanup)
+
+describe('the status line of a paused conversation says who paused it (CHAT-1)', () => {
+  it('a turn the person stopped: "You stopped it"', () => {
+    const activity = deriveThreadActivity(interrupted({ type: 'completed', status: 'interrupted' }), [])
+    expect(activity).toEqual({ kind: 'paused', at: 2 })
+    const { container } = render(<NowLine activity={activity!} agent="Claude" onAction={vi.fn()} />)
+    expect(container).toHaveTextContent('Paused. You stopped it. Send a message to continue.')
+  })
+
+  it('a turn the app cut short when it closed: it says so, as the note under the turn does', () => {
+    const activity = deriveThreadActivity(interrupted({ type: 'completed', status: 'interrupted', error: 'OXESpace closed before this turn completed.' }), [])
+    expect(activity).toEqual({ kind: 'paused', at: 2, reason: 'app-closed' })
+    const { container } = render(<NowLine activity={activity!} agent="Claude" onAction={vi.fn()} />)
+    expect(container).toHaveTextContent('Paused. OXESpace closed before this turn finished. Send a message to continue.')
+    expect(container).not.toHaveTextContent('You stopped it')
+  })
+})

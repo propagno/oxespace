@@ -96,7 +96,7 @@ export function NowLine(props: {
       break
     }
     case 'paused': {
-      copy = t('nowLine.paused')
+      copy = t(activity.reason === 'app-closed' ? 'nowLine.pausedByClose' : 'nowLine.paused')
       break
     }
     case 'error': {
