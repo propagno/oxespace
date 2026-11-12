@@ -19,6 +19,29 @@ function interrupted(settled: ThreadEvent): ThreadSnapshot {
 
 afterEach(cleanup)
 
+describe("the status line for an MCP server's request (CHAT-15)", () => {
+  const waiting = (title: string) => {
+    const snapshot = { ...interrupted({ type: 'completed', status: 'completed' }), thread: { id: 'thread', workspaceId: 'ws', projectId: 'p', rootPath: '/repo', provider: 'codex', title: 'T', status: 'approval', createdAt: 1, updatedAt: 2 }, turns: [{ id: 'turn-1', status: 'running', startedAt: 1 }] } as unknown as ThreadSnapshot
+    const ask = { id: 'mcp', nativeId: 'mcp', nativeMethod: 'mcpServer/elicitation/request', kind: 'elicitation' as const, title, detail: 'Allow the server to run a tool?', generation: 1, createdAt: 7, state: 'pending' as const }
+    return deriveThreadActivity(snapshot, [ask])
+  }
+
+  it('names the server it comes from, not "asks to" and the server', () => {
+    const activity = waiting('oxespace-delegation')
+    expect(activity).toEqual({ kind: 'needs-you', at: 7, requestId: 'mcp', reason: 'mcp', text: 'oxespace-delegation' })
+    const { container } = render(<NowLine activity={activity!} agent="Codex" onAction={vi.fn()} />)
+    expect(container).toHaveTextContent('Needs you. Codex has a request from oxespace-delegation.')
+    expect(container).not.toHaveTextContent('asks to')
+  })
+
+  it('without a server name it says the agent waits for an answer', () => {
+    const activity = waiting('MCP input required')
+    expect(activity).toEqual({ kind: 'needs-you', at: 7, requestId: 'mcp', reason: 'mcp' })
+    const { container } = render(<NowLine activity={activity!} agent="Codex" onAction={vi.fn()} />)
+    expect(container).toHaveTextContent('Needs you. Codex is waiting for your answer.')
+  })
+})
+
 describe('the status line for a plan to review (CHAT-7)', () => {
   it('has its own words, whatever the agent called the request', () => {
     const snapshot = { ...interrupted({ type: 'completed', status: 'completed' }), thread: { id: 'thread', workspaceId: 'ws', projectId: 'p', rootPath: '/repo', provider: 'claude', title: 'T', status: 'approval', createdAt: 1, updatedAt: 2 }, turns: [{ id: 'turn-1', status: 'running', startedAt: 1 }] } as unknown as ThreadSnapshot

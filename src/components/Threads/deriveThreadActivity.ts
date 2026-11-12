@@ -167,6 +167,12 @@ export function deriveThreadActivity(
     // A plan to review has its own words in the line: the request's title is whatever the agent called it, in its
     // language, and read "asks to aprovar o plano?." inside the sentence (CHAT-7).
     if (first.nativeMethod === 'can_use_tool:ExitPlanMode') return { kind: 'needs-you', at: first.createdAt ?? baseAt, requestId: first.id, reason: 'plan' }
+    // An MCP server's request is titled with the server's name, which read "asks to oxespace-delegation." in the
+    // line (CHAT-15). It has its own words; a title that is not one name is left out of them.
+    if (first.kind === 'elicitation') {
+      const source = cleanText(first.title, root, 80)
+      return { kind: 'needs-you', at: first.createdAt ?? baseAt, requestId: first.id, reason: 'mcp', ...(source && !/\s/.test(source) ? { text: source } : {}) }
+    }
     const text = midSentence(cleanText(first.title, root, 200))
     return {
       kind: 'needs-you',

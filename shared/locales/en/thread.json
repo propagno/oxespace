@@ -2061,6 +2061,8 @@
     "needsYou": "Needs you. {{agent}} asks to {{request}}.",
     "needsYouShort": "Needs you. {{agent}} is waiting for approval.",
     "needsYouPlan": "Needs you. {{agent}} asks you to review its plan.",
+    "needsYouMcp": "Needs you. {{agent}} has a request from {{source}}.",
+    "needsYouInput": "Needs you. {{agent}} is waiting for your answer.",
     "question_one": "Needs you. {{agent}} asked {{count}} question.",
     "question_other": "Needs you. {{agent}} asked {{count}} questions.",
     "workingVerb": "Working. {{verb}} {{target}}.",
