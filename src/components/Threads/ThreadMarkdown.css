@@ -37,4 +37,14 @@
 .thread-code-toolbar button { font-size: var(--fs-2xs); }
 .thread-markdown .thread-code-block pre { margin: 0; padding: 12px 14px; border-radius: 0; overflow-x: auto; white-space: pre; overflow-wrap: normal; line-height: 1.6; tab-size: 2; }
 .thread-code-block pre code { padding: 0; border: 0; background: transparent; font-size: var(--fs-xs); white-space: inherit; }
+/* Colour for code: what a reader scans for, in the colours the app already uses for text on a surface (both themes). */
+.thread-code-block .tk-comment { color: var(--tx-muted); font-style: italic; }
+.thread-code-block .tk-string { color: var(--intent-success-fg); }
+.thread-code-block :is(.tk-keyword,.tk-type,.tk-attr) { color: var(--intent-info-fg); }
+.thread-code-block :is(.tk-number,.tk-literal) { color: var(--intent-warning-fg); }
+.thread-code-block .tk-function { color: var(--tx-primary); font-weight: 600; }
+.thread-code-block .tk-tag { color: var(--intent-info-fg); font-weight: 600; }
+.thread-code-block .tk-added { color: var(--intent-success-fg); }
+.thread-code-block .tk-removed { color: var(--intent-danger-fg); }
+.thread-code-block .tk-meta { color: var(--tx-muted); }
 .thread-markdown-reference { color: var(--tx-secondary); }
