@@ -58,7 +58,9 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
   useEffect(() => {
     if (previousStep.current === step) return
     previousStep.current = step
-    const frame = requestAnimationFrame(() => card.current?.scrollIntoView?.({ block: 'nearest', behavior: 'instant' }))
+    // The next question can make the card taller than the conversation's viewport. Its buttons are what the person needs
+    // next, so they are what is brought into view; the card itself only when it has no footer.
+    const frame = requestAnimationFrame(() => (card.current?.querySelector('footer') ?? card.current)?.scrollIntoView?.({ block: 'nearest', behavior: 'instant' }))
     return () => cancelAnimationFrame(frame)
   }, [step])
   const [sending, setSending] = useState(false)
