@@ -34,7 +34,7 @@ export const COMMAND_CATALOG: readonly CommandCatalogEntry[] = [
   { id: 'deny', ipc: 'thread.respond', fixedArgs: { decision: 'decline' }, fallback: 'Deny on request card', shortcut: null },
   { id: 'steer', ipc: 'thread.steer', fallback: 'Steer in OxeChat', shortcut: null },
   { id: 'stop', ipc: 'thread.interrupt', confirm: true, fallback: 'Stop in OxeChat', shortcut: null },
-  { id: 'new', ipc: 'thread.create', fallback: 'New conversation', shortcut: 'Mod+N' },
+  { id: 'new', ipc: 'thread.create', fallback: 'New conversation', shortcut: 'Ctrl+Alt+N' },
   { id: 'terminal', ipc: 'workspace.createPane', fallback: 'New terminal', shortcut: 'Mod+Shift+T' },
   { id: 'theme', ipc: 'app.setAppearance', fallback: 'Appearance', shortcut: null },
   { id: 'skill', ipc: 'skill.invoke', fallback: 'Skills', shortcut: null }

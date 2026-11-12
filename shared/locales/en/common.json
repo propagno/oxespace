@@ -98,6 +98,7 @@
     "notInTerminal": "Not available in a terminal",
     "readOnlyFile": "This view is read only",
     "needsTextField": "Place the cursor in a text field first",
+    "needsWorkspace": "Open a workspace in OxeCode first",
     "view": "View",
     "appearance": "Appearance",
     "density": "Density",
@@ -166,6 +167,7 @@
       },
       "pane": {
         "splitRight": "Split pane right",
+        "new": "New terminal",
         "splitDown": "Split pane down",
         "maximize": "Maximize / restore pane"
       },
@@ -606,6 +608,12 @@
     "tagline": "Agents and terminals for your projects"
   },
   "commandBar": {
+    "hint": {
+      "steerEmpty": "Say what to tell the agent: /steer and your message.",
+      "noTurn": "No turn is running in the open conversation.",
+      "failed": "That did not run: {{reason}}",
+      "noWorkspace": "Open a workspace in OxeCode first: a terminal belongs to one."
+    },
     "sections": { "actions": "Actions", "goTo": "Go to", "openBeside": "Open beside" },
     "destinations": {
       "oxechat": "Conversations and delegated work",

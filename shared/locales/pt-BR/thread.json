@@ -1630,6 +1630,10 @@
     "hint": "Em Somente leitura, {{agent}} planeja mas não executa o plano. Para executar, mude o acesso para Pode editar e peça para seguir.",
     "changeAccess": "Mudar acesso"
   },
+  "compactFeedback": {
+    "done": "Conversa compactada: o contexto foi de {{before}}% para {{after}}% da janela.",
+    "doneNoNumbers": "Conversa compactada."
+  },
   "turnTiming": {
     "completedBackground": "Turno concluído · {{count}} em segundo plano pendente",
     "completedWarnings": "Concluído com avisos",

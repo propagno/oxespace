@@ -637,7 +637,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
       if (!row) throw Error('No visible timeline anchor')
       return { key: row.dataset.threadRow, offset: Math.round(row.getBoundingClientRect().top - viewportTop) }
     })
-    const expectReadingAnchor = async (tolerance = 0) => expect.poll(() => timeline.evaluate((el, expected) => {
+    // Both positions are rounded from fractions of a pixel, so the same place can read one pixel apart (it did, once
+    // in several runs on Linux: "Expected <= 0, Received 1"). One pixel is that rounding, not a jump.
+    const expectReadingAnchor = async (tolerance = 1) => expect.poll(() => timeline.evaluate((el, expected) => {
       const row = [...el.querySelectorAll<HTMLElement>('.thread-virtual-row')].find(candidate => candidate.dataset.threadRow === expected.key)
       return row ? Math.abs(Math.round(row.getBoundingClientRect().top - el.getBoundingClientRect().top) - expected.offset) : Number.NaN
     }, readingAnchor)).toBeLessThanOrEqual(tolerance)
