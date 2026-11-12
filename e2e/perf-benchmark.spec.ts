@@ -221,7 +221,9 @@ async function timeDomToggle(
 }
 
 async function pressShellShortcut(page: Page, shortcut: string): Promise<void> {
-  await page.locator('[data-testid="btn-open-tools"]:visible').focus()
+  // Focus has to be on the shell, not in a terminal, for a shell shortcut. The mode switch is on screen in every
+  // state; the Panels button this used is not in the collapsed sidebar of 1.5, so the expand step never got its key.
+  await page.getByRole('navigation', { name: 'Application view' }).getByRole('button').first().focus()
   await page.keyboard.press(shortcut)
 }
 

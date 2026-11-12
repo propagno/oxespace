@@ -213,10 +213,14 @@ export class ThreadPlaceObserver {
   /** The places with their drift read now; a new drift is stored and saved as one place-drift event. */
   /** The turns a pending Restore undid, when it also put their files back; empty when there is none, or it kept the files. */
   private undoneTurns(id: string): string[] {
+    // The conversation row alone says whether a Restore is pending. Only then is the whole history read: reading it on
+    // every listing parsed a long conversation's history into the main process each time it was opened (the memory
+    // budget of e2e/memory-footprint.spec.ts caught it: 21.4 MB of growth against 20).
+    let pending: ConversationThread['rewind']
+    try { pending = this.deps.readThread(id).rewind } catch { return [] }
+    if (!pending?.redoCheckpointIds?.length) return []
     let snapshot: ThreadSnapshot
     try { snapshot = this.deps.read(id) } catch { return [] }
-    const pending = snapshot.thread.rewind
-    if (!pending?.redoCheckpointIds?.length) return []
     const turns = snapshot.turns ?? []
     const from = turns.findIndex(turn => turn.id === pending.turnId)
     return from < 0 ? [] : turns.slice(from).map(turn => turn.id)
