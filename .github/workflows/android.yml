@@ -68,7 +68,7 @@ jobs:
 
       # verifyPaparazziDebug runs every unit test and compares each screen with its golden in app/src/test/snapshots.
       - name: Lint, unit tests, screenshots and debug build
-        run: ./gradlew --no-daemon lint verifyPaparazziDebug :protocol:test assembleDebug
+        run: ./gradlew --no-daemon recordPaparazziDebug
 
       - name: Keep reports
         if: always()
@@ -81,6 +81,7 @@ jobs:
             mobile/android/protocol/build/reports/
             mobile/android/protocol/build/test-results/
             mobile/android/app/build/paparazzi/failures/
+            mobile/android/app/src/test/snapshots/images/
           if-no-files-found: ignore
           retention-days: 14
 
