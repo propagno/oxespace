@@ -49,7 +49,7 @@
       },
       "notifications": {
         "label": "Notifications",
-        "hint": "Alerts and sounds"
+        "hint": "Desktop alerts"
       },
       "updates": {
         "label": "Updates",
@@ -81,7 +81,7 @@
       },
       "privacy": {
         "label": "Data and privacy",
-        "hint": "Export data and reset preferences"
+        "hint": "Usage count and data export"
       },
       "activity": {
         "label": "Agent activity",
@@ -850,12 +850,7 @@
     "errorDesc": "Not saved yet: {{error}}",
     "showInFolder": "Show in folder",
     "tryNow": "Try now",
-    "exportAction": "Export…",
-    "historyTitle": "History",
-    "conversationHistory": "Conversation history",
-    "conversationHistoryHint": "Stored locally per project on this computer.",
-    "activityRetention": "Agent activity log",
-    "activityRetentionHint": "Kept locally on this computer for audit and review."
+    "exportAction": "Export…"
   },
   "agentPermissions": {
     "title": "What agents can do",

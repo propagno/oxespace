@@ -59,16 +59,6 @@ export function DataSettings(): ReactElement {
     <section className="settings-general" data-testid="data-settings">
       <h2>{t('center.pages.privacy.label')}</h2>
       <p>{t('data.description')}</p>
-      <SettingsSection title={t('data.historyTitle')}>
-        <SettingRow
-          label={t('data.conversationHistory')}
-          description={t('data.conversationHistoryHint')}
-        />
-        <SettingRow
-          label={t('data.activityRetention')}
-          description={t('data.activityRetentionHint')}
-        />
-      </SettingsSection>
       <UsageSettings />
       <SettingsSection title={t('data.removedSection')}>
         <SettingRow

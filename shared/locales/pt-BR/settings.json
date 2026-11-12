@@ -49,7 +49,7 @@
       },
       "notifications": {
         "label": "Notificações",
-        "hint": "Alertas e sons"
+        "hint": "Alertas na área de trabalho"
       },
       "updates": {
         "label": "Atualizações",
@@ -81,7 +81,7 @@
       },
       "privacy": {
         "label": "Dados e privacidade",
-        "hint": "Exportação de dados e privacidade"
+        "hint": "Contagem de uso e exportação de dados"
       },
       "activity": {
         "label": "Atividade dos agentes",
@@ -877,12 +877,7 @@
     "errorDesc": "Ainda não salvo: {{error}}",
     "showInFolder": "Mostrar na pasta",
     "tryNow": "Tentar agora",
-    "exportAction": "Exportar…",
-    "historyTitle": "Histórico",
-    "conversationHistory": "Histórico de conversas",
-    "conversationHistoryHint": "Guardado localmente por projeto neste computador.",
-    "activityRetention": "Registro de atividade dos agentes",
-    "activityRetentionHint": "Guardado localmente neste computador para auditoria e revisão."
+    "exportAction": "Exportar…"
   },
   "agentPermissions": {
     "title": "O que os agentes podem fazer",
