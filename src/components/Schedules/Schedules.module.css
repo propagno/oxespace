@@ -8,7 +8,8 @@
 .meta { margin: 0; color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.5; overflow-wrap: anywhere; }
 .note { margin: var(--space-3) 0 0; color: var(--text-muted); font-size: var(--text-2xs); line-height: 1.5; }
 .form { display: flex; flex-direction: column; gap: var(--space-3); }
-.columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); align-items: start; }
+.columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-1) var(--space-3); align-items: start; }
+.columnsHint { grid-column: 1 / -1; margin: 0; color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.5; }
 .when { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: var(--space-3); border: 1px solid var(--border-default); border-radius: var(--radius-md); }
 .when legend { padding: 0 var(--space-1); color: var(--text-secondary); font-size: var(--text-xs); font-weight: 600; }
 .kinds, .days { display: flex; flex-wrap: wrap; gap: var(--space-1); }
@@ -18,4 +19,4 @@
 .runs { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; font-size: var(--text-xs); }
 .runs li { display: grid; grid-template-columns: 170px minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); padding: 6px 0; border-bottom: 1px solid var(--border-subtle); }
 .runs li span:first-child { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
-@media (max-width: 760px) { .columns { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) { .columns { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); } }

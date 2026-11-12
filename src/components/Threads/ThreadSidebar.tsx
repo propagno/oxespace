@@ -150,7 +150,11 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     { label: t('confirm.delete.confirm'), icon: <Trash2 size={14} />, danger: true, onSelect: () => { setActionError(''); if (thread.ownedWorktree) askWorktreeFinish(thread.id, 'delete'); else setConfirmation({ kind: 'thread', id: thread.id, title: displayThreadTitle(thread.title) }) } }
   ]} trigger={<button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.actionsFor', { name: displayThreadTitle(thread.title) })} title={t('sidebar.conversationActions')}><MoreHorizontal size={14} /></button>} /></div>
   }
-  const railPrimary: RailAction[] = [{ id: 'add-project', label: t('sidebar.addProject'), icon: FolderPlus, onClick: onAddProject }]
+  // Schedules sits with the header's actions: in the strip below it pushed the two counts onto a second line in Portuguese.
+  const railPrimary: RailAction[] = [
+    { id: 'add-project', label: t('sidebar.addProject'), icon: FolderPlus, onClick: onAddProject },
+    { id: 'schedules', label: t('schedules.title'), icon: CalendarClock, onClick: () => useUIStore.getState().openSchedules() }
+  ]
   const railContext: RailAction = { id: 'accounts', label: t('sidebar.accounts'), ariaLabel: t('sidebar.agentAccounts'), icon: UserRound, onClick: onAccounts }
   return <aside className={`thread-navigation${collapsed ? ' thread-navigation-collapsed' : ''}`} data-density={density} aria-label={t('sidebar.region')}>
     {!collapsed && <Splitter edge orientation="vertical" label={t('sidebar.width')} value={width} min={SIDEBAR_MIN_WIDTH} max={SIDEBAR_MAX_WIDTH} defaultValue={SIDEBAR_WIDTH} step={SIDEBAR_RESIZE_STEP} onChange={setWidth} />}
@@ -229,7 +233,6 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
       </nav>
       <div className={styles.summaryStrip}>
         <span>{t('sidebar.archivedCount', { count: archived.length })}</span>
-        <button type="button" className={styles.schedules} onClick={() => useUIStore.getState().openSchedules()}><CalendarClock size={12} aria-hidden="true" />{t('schedules.title')}</button>
         <span>{t('sidebar.conversationCount', { count: activeConversationCount })}</span>
       </div>
       <SidebarFooter context={railContext} onToggle={toggleCollapse} />

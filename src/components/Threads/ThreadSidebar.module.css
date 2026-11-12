@@ -109,8 +109,3 @@
 .archivedRow .item { display: flex; align-items: center; gap: var(--space-2); min-width: 0; min-height: 32px; }
 .archivedRow .item > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .archivedRow .item > small { flex: none; color: var(--text-muted); font-size: var(--text-2xs); }
-
-/* The way to Schedules, between the two counts: a quiet text button, the strip's own size. */
-.schedules { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border: 0; border-radius: var(--radius-sm); background: transparent; color: inherit; font: inherit; cursor: pointer; }
-.schedules:hover { background: var(--surface-hover); color: var(--text-primary); }
-.schedules:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }

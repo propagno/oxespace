@@ -107,9 +107,10 @@ export function SchedulesDialog({ onClose, onOpenThread }: { onClose: () => void
           <Select label={t('schedules.project')} value={form.projectId} onChange={event => { const next = openProjects.find(item => item.projectId === event.target.value); patch({ projectId: event.target.value, rootPath: next?.contexts[0]?.rootPath ?? '' }) }}
             options={[...(project ? [] : [{ value: form.projectId, label: t('schedules.chooseProject'), disabled: true }]), ...openProjects.map(item => ({ value: item.projectId, label: item.displayName }))]} />
           <Select label={t('schedules.agent')} value={form.provider} onChange={event => patch({ provider: event.target.value as ThreadProvider })} options={THREAD_PROVIDERS.map(provider => ({ value: provider, label: threadAgentName(provider) }))} />
-          <Select label={t('schedules.access')} value={form.access} onChange={event => patch({ access: event.target.value as Schedule['access'] })}
-            hint={form.access === 'workspace-write' ? t('schedules.accessWriteHint') : t('schedules.accessReadHint')}
+          <Select label={t('schedules.access')} value={form.access} aria-describedby="schedule-access-hint" onChange={event => patch({ access: event.target.value as Schedule['access'] })}
             options={[{ value: 'read-only', label: t('schedules.accessRead') }, { value: 'workspace-write', label: t('schedules.accessWrite') }]} />
+          {/* Under the three fields, not under one: a hint in the last column alone left the row uneven. */}
+          <p id="schedule-access-hint" className={styles.columnsHint}>{form.access === 'workspace-write' ? t('schedules.accessWriteHint') : t('schedules.accessReadHint')}</p>
         </div>
         {project && project.contexts.length > 1 && <Select label={t('schedules.folder')} value={form.rootPath} onChange={event => patch({ rootPath: event.target.value })} options={project.contexts.map(context => ({ value: context.rootPath, label: context.label || context.rootPath }))} />}
         <TextArea label={t('schedules.prompt')} rows={5} value={form.prompt} maxLength={8000} placeholder={t('schedules.promptPlaceholder')} onChange={event => patch({ prompt: event.target.value })} />
