@@ -600,7 +600,6 @@ export function App(): ReactElement {
     'code.splitLayout': () => useUIStore.getState().toggleSplitLayout(),
     'code.search': () => { const ui = useUIStore.getState(); if (ui.isSearchPanelOpen) ui.closeSearchPanel(); else ui.openSearchPanel() },
     'pane.splitRight': () => splitActivePane('vertical'), 'pane.splitDown': () => splitActivePane('horizontal'), 'pane.maximize': toggleActivePaneMaximize,
-    'pane.new': () => splitActivePane('vertical'),
     'terminal.restart': () => terminalPane ? void window.oxe.terminal.restart({ paneId: terminalPane.id }) : false,
     'terminal.slash': () => terminalPane ? openSlashOverlay(terminalPane.id) : false,
     'terminal.zoomIn': () => terminalPane ? zoomTerminal(1) : false, 'terminal.zoomOut': () => terminalPane ? zoomTerminal(-1) : false,

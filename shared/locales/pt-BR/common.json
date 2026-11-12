@@ -171,7 +171,6 @@
       },
       "pane": {
         "splitRight": "Dividir painel à direita",
-        "new": "Novo terminal",
         "splitDown": "Dividir painel abaixo",
         "maximize": "Maximizar / restaurar painel"
       },

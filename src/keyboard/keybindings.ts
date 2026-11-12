@@ -66,8 +66,6 @@ export const KEYBINDINGS = [
   { id: 'code.files', chords: ['Mod+E'], scope: 'code' },
   { id: 'code.search', chords: ['Mod+Shift+F'], scope: 'code' },
   { id: 'code.splitLayout', chords: ['F2'], scope: 'code' },
-  // The command bar shows this chord beside "New terminal"; it does what that button does.
-  { id: 'pane.new', chords: ['Mod+Shift+T'], scope: 'code' },
   { id: 'pane.splitRight', chords: ['Mod+Shift+\\'], scope: 'code' },
   { id: 'pane.splitDown', chords: ['Mod+Shift+-'], scope: 'code' },
   { id: 'pane.maximize', chords: ['Mod+Shift+Enter'], scope: 'code' },

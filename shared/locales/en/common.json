@@ -167,7 +167,6 @@
       },
       "pane": {
         "splitRight": "Split pane right",
-        "new": "New terminal",
         "splitDown": "Split pane down",
         "maximize": "Maximize / restore pane"
       },
