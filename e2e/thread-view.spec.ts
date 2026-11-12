@@ -303,7 +303,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await modeButton(page, 'thread').click()
     await modeButton(page, 'code').click()
     await expect(page.getByRole('navigation', { name: 'Collapsed workspaces' })).toBeVisible()
-    await page.getByRole('button', { name: /^Expand (the )?sidebar/ }).first().click()
+    // Both modes have a rail with this button, and switching modes swaps them: the one on screen is meant. Taking the
+    // first in the page raced with the swap and waited on a rail that was no longer shown (run 43130476576).
+    await page.getByRole('button', { name: /^Expand (the )?sidebar/ }).filter({ visible: true }).first().click()
 
     const codeSidebar = page.locator('.sidebar')
     const resize = codeSidebar.getByRole('separator', { name: 'Sidebar width', exact: true })
@@ -691,7 +693,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.screenshot({ path: 'test-results/thread-long-900.png' })
     await page.getByRole('button', { name: 'Collapse sidebar', exact: true }).click()
     await expect(page.getByRole('button', { name: /^Expand (the )?sidebar/ }).first()).toBeVisible()
-    await page.getByRole('button', { name: /^Expand (the )?sidebar/ }).first().click()
+    await page.getByRole('button', { name: /^Expand (the )?sidebar/ }).filter({ visible: true }).first().click()
     await expect(page.getByRole('navigation', { name: 'OxeChat projects' })).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue('Unsent draft')
     await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Sidebar history fixture'))
