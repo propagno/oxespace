@@ -218,6 +218,16 @@ describe('gridShape: the grid the panes form now', () => {
     expect(gridShape({ kind: 'split', direction: 'horizontal', children: [leaf('a'), { kind: 'split', direction: 'vertical', children: [leaf('b'), leaf('c')] }] })).toBeNull()
   })
 
+  test('panes that line up are a grid however the tree nests them', () => {
+    // What a 2 × 3 preset leaves over a split layout: two halves, the first holding two columns of two.
+    const column = (...ids: string[]): PaneNode => ({ kind: 'split', direction: 'vertical', children: ids.map(leaf) })
+    const nested: PaneNode = { kind: 'split', direction: 'horizontal', children: [{ kind: 'split', direction: 'horizontal', children: [column('a', 'b'), column('c', 'd')] }, column('e', 'f')] }
+    expect(gridShape(nested)).toEqual({ rows: 2, columns: 3 })
+    // Same nesting, one column split at another height: the edges no longer cross, so it is no grid.
+    const uneven: PaneNode = { kind: 'split', direction: 'horizontal', children: [{ kind: 'split', direction: 'horizontal', children: [{ ...column('a', 'b'), sizes: [30, 70] } as PaneNode, column('c', 'd')] }, column('e', 'f')] }
+    expect(gridShape(uneven)).toBeNull()
+  })
+
   test('no tree, no shape', () => {
     expect(gridShape(null)).toBeNull()
   })

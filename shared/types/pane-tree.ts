@@ -261,8 +261,16 @@ export function gridShape(node: PaneNode | null): { rows: number; columns: numbe
     ? 1
     : child.direction !== node.direction && child.children.every(isLeaf) ? child.children.length : null)
   const [first] = lines
-  if (first === null || lines.some(line => line !== first)) return null
-  return shape(node.children.length, first)
+  if (first !== null && lines.every(line => line === first)) return shape(node.children.length, first)
+  // Nested another way (a preset applied over splits leaves columns inside halves), the panes can still line up as a
+  // grid: every left edge crosses every top edge exactly once.
+  const { rects } = computeLayout(node)
+  const edge = (value: number): number => Math.round(value * 100) / 100
+  const lefts = new Set(rects.map(rect => edge(rect.left)))
+  const tops = new Set(rects.map(rect => edge(rect.top)))
+  if (lefts.size * tops.size !== rects.length) return null
+  const cells = new Set(rects.map(rect => `${edge(rect.left)}:${edge(rect.top)}`))
+  return cells.size === rects.length ? { rows: tops.size, columns: lefts.size } : null
 }
 
 /** Compute absolute rects (percent of container) for every leaf, plus the
