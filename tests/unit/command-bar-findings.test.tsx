@@ -15,6 +15,8 @@ import { useWorkspaceStore } from '../../src/store/workspace.store'
 afterEach(() => { cleanup(); act(() => { useThreadStore.setState({ snapshot: null }) }) })
 
 type Bridge = Record<string, Record<string, unknown>>
+/** The button of the question "/stop" asks before it stops a running turn. */
+const STOP = 'Stop'
 const CONTEXT: CommandContext = { workspaceId: 'A', threadId: 't-A', pane: { id: 'p-A', agent: true }, enabledSkills: [], requests: [] }
 
 async function bar(context: CommandContext = CONTEXT, bridge: Bridge = {}) {
@@ -75,7 +77,8 @@ describe('the command bar runs what it offers', () => {
     const { run, calls } = await bar()
     await run('/stop')
     expect(await screen.findByTestId('command-bar-hint')).toHaveTextContent('No turn is running in the open conversation.')
-    expect(screen.queryByText(/Stop the active turn/)).toBeNull()
+    // No question with its own Stop button: there is nothing to stop.
+    expect(screen.queryByRole('button', { name: STOP })).toBeNull()
     expect(calls.interrupt).not.toHaveBeenCalled()
   })
 
@@ -83,7 +86,7 @@ describe('the command bar runs what it offers', () => {
     act(() => { useThreadStore.setState({ snapshot: { thread: { id: 't-A', status: 'running' }, events: [], turns: [] } as never }) })
     const { run, calls } = await bar()
     await run('/stop')
-    expect(await screen.findByText(/Stop the active turn/)).toBeVisible()
+    expect(await screen.findByRole('button', { name: STOP })).toBeVisible()
     expect(screen.queryByTestId('command-bar-hint')).toBeNull()
     expect(calls.interrupt).not.toHaveBeenCalled()
   })
