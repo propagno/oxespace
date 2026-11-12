@@ -28,6 +28,7 @@
 .settings-center-nav > nav button:hover { background: color-mix(in srgb, var(--text-primary) 4%, transparent); color: var(--text-primary); }
 .settings-center-nav > nav button[aria-current="page"] { color: var(--text-primary); background: var(--fill-selected); font-weight: 500; }
 .settings-center-nav > nav button[aria-current="page"] svg { color: var(--text-primary); }
+.settings-nav-badge::before { content: attr(data-count); }
 .settings-nav-badge { margin-left: auto; padding: 1px 6px; border-radius: var(--radius-full); background: var(--surface-sunken); color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-2xs); font-variant-numeric: tabular-nums; line-height: 1.4; }
 .settings-nav-footer { display: grid; gap: 10px; margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border-default); }
 .settings-scope-note { overflow: hidden; margin: 0; padding: 0 10px; color: var(--text-muted); font-size: var(--fs-2xs); text-overflow: ellipsis; white-space: nowrap; }
