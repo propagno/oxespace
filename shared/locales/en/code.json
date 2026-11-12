@@ -1189,8 +1189,8 @@
         },
         "projects": {
           "label": "Projects",
-          "hint": "Worktrees and branches",
-          "description": "Inspect and manage git worktrees and branches linked to this workspace."
+          "hint": "Project instructions",
+          "description": "The instruction files agents read in this project."
         },
         "policy": {
           "label": "Policy",

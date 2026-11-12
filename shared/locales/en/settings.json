@@ -49,7 +49,7 @@
       },
       "notifications": {
         "label": "Notifications",
-        "hint": "Alerts and sounds"
+        "hint": "Desktop alerts"
       },
       "updates": {
         "label": "Updates",
@@ -81,7 +81,7 @@
       },
       "privacy": {
         "label": "Data and privacy",
-        "hint": "Export data and reset preferences"
+        "hint": "Usage count and data export"
       },
       "activity": {
         "label": "Agent activity",
@@ -472,6 +472,7 @@
     "intro": "Shortcuts work in the view named by each group. Press <strong>?</strong> outside a text field to see the ones for the current screen. A focused terminal keeps every key except the command palette, Settings and the sidebar shortcuts.",
     "shortcuts": "{{scope}} shortcuts",
     "alsoUsed": "Also used by {{bindings}}",
+    "taken": "{{chord}} is already the shortcut for {{bindings}}. Press another one, or change that shortcut first.",
     "capturing": "Press the new shortcut, or Esc to cancel",
     "changeLabel": "Change shortcut for {{name}}",
     "pressKeys": "Press keys…",
@@ -675,6 +676,7 @@
     }
   },
   "tools": {
+    "whereToAdd": "To add or remove an MCP server, use Tools › Manage MCP servers.",
     "skillsList": {
       "title": "Skills",
       "intro": "Markdown prompts in ~/.oxe/skills and the project's .oxe/skills. The project's wins on a shared name. Run one with /.",
@@ -851,11 +853,7 @@
     "showInFolder": "Show in folder",
     "tryNow": "Try now",
     "exportAction": "Export…",
-    "historyTitle": "History",
-    "conversationHistory": "Conversation history",
-    "conversationHistoryHint": "Stored locally per project on this computer.",
-    "activityRetention": "Agent activity log",
-    "activityRetentionHint": "Kept locally on this computer for audit and review."
+    "nothingToExport": "Nothing to export: this profile has no data from the features removed in 1.5."
   },
   "agentPermissions": {
     "title": "What agents can do",
