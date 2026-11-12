@@ -58,6 +58,11 @@
 .thread-outside-file { display: flex; flex-direction: column; flex: 1; min-height: 0; background: var(--surface-base); }
 .thread-outside-file-content { flex: 1; min-height: 0; margin: 0; padding: var(--space-3); overflow: auto; font-family: var(--font-mono); font-size: var(--text-xs); }
 .thread-path-link { display: inline; padding: 0; border: 0; background: transparent; color: var(--accent-text); font-family: var(--font-mono); font-size: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+/* The project path link (F33) is a button. In a conversation the generic button rule gave it a button's box: 34 px tall
+   in an 18 px line, 10 px of padding on each side of a path in a sentence, and a smaller font than the code beside it.
+   It is text in the line. */
+.thread-view button.path-link { display: inline; padding: 0; gap: 0; border-radius: 0; font: inherit; vertical-align: baseline; }
+.thread-view button.path-link:hover { background: none; }
 .thread-path-missing { color: var(--text-muted); font-family: var(--font-mono); }
 .thread-path-looked { color: var(--text-muted); font-size: var(--text-xs); }
 .places-add { color: var(--intent-success-fg); font-variant-numeric: tabular-nums; }

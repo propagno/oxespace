@@ -42,9 +42,14 @@ export function NowLine(props: {
   agent: string
   irreversible?: boolean
   hasPullRequest?: boolean
+  /**
+   * The pending request's card, with its own buttons, is on screen in the conversation. The line then only says what
+   * is asked: the same Deny and Allow twice, a few lines apart, is two places to decide the same thing.
+   */
+  requestInView?: boolean
   onAction(action: NowLineAction): void
 }): ReactElement {
-  const { activity, agent, irreversible = false, hasPullRequest = false, onAction } = props
+  const { activity, agent, irreversible = false, hasPullRequest = false, requestInView = false, onAction } = props
   const { t } = useTranslation('thread')
 
   let copy = ''
@@ -53,7 +58,9 @@ export function NowLine(props: {
   switch (activity.kind) {
     case 'needs-you': {
       const request = lowerVerbStart(stripEndDot(activity.text))
-      copy = request ? t('nowLine.needsYou', { agent, request }) : t('nowLine.needsYouShort', { agent })
+      copy = activity.reason === 'plan' ? t('nowLine.needsYouPlan', { agent })
+        : activity.reason === 'mcp' ? (activity.text ? t('nowLine.needsYouMcp', { agent, source: activity.text }) : t('nowLine.needsYouInput', { agent }))
+        : request ? t('nowLine.needsYou', { agent, request }) : t('nowLine.needsYouShort', { agent })
       buttons = irreversible
         ? [
             { action: 'deny', label: t('nowLine.actions.deny'), danger: true },
@@ -91,7 +98,7 @@ export function NowLine(props: {
       break
     }
     case 'paused': {
-      copy = t('nowLine.paused')
+      copy = t(activity.reason === 'app-closed' ? 'nowLine.pausedByClose' : 'nowLine.paused')
       break
     }
     case 'error': {
@@ -121,7 +128,7 @@ export function NowLine(props: {
       <p role="status" className="thread-now-line-copy">
         {leadEnd > 0 ? <><strong>{copy.slice(0, leadEnd + 1)}</strong>{copy.slice(leadEnd + 1)}</> : <strong>{copy}</strong>}
       </p>
-      {buttons.length > 0 && (
+      {buttons.length > 0 && !(requestInView && (activity.kind === 'needs-you' || activity.kind === 'question')) && (
         <div className="thread-now-line-actions">
           {buttons.slice(0, 2).map(item => (
             <button

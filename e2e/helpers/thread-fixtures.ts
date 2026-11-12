@@ -272,30 +272,6 @@ export async function installThreadFixtures(app: ElectronApplication, root: stri
       if (fileCount > 0) tabs.push({ tab: 'changes', count: fileCount })
       return tabs
     })
-    ipcMain.handle('thread:timeline', () => ({
-      checkpoints: [
-        {
-          id: 'cp-1',
-          n: 1,
-          at: now + 60_000,
-          label: 'Inspect configuration and routes',
-          files: ['src/App.tsx'],
-          checkout: fixtureRoot,
-          turnId: 'turn-1'
-        },
-        {
-          id: 'cp-2',
-          n: 2,
-          at: now + 180_000,
-          label: 'Integrate review alongside the conversation',
-          files: ['src/App.tsx', 'src/components/Threads/ThreadWorkbench.tsx'],
-          checkout: fixtureRoot,
-          turnId: 'turn-2'
-        }
-      ],
-      cantGoBack: { dbWrites: 1, pushes: 0, containers: 0, commands: 0, httpWrites: 0, scope: 'conversation' },
-      canBranch: true
-    }))
     for (const name of ['github:get-pull-request-status', 'agent-credits:get', 'copilot:credits', 'git:get-status', 'approvals:preview', 'approvals:always-allow']) {
       ipcMain.removeHandler(name)
     }

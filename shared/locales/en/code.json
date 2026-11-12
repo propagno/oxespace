@@ -878,6 +878,7 @@
     "status": {
       "needs-decision": "Needs your decision",
       "thinking": "Thinking",
+      "running": "Running",
       "awaiting": "Awaiting",
       "starting": "Starting",
       "exited": "Exited",
@@ -1223,8 +1224,8 @@
         },
         "projects": {
           "label": "Projects",
-          "hint": "Worktrees and branches",
-          "description": "Inspect and manage git worktrees and branches linked to this workspace."
+          "hint": "Project instructions",
+          "description": "The instruction files agents read in this project."
         },
         "policy": {
           "label": "Policy",
@@ -1299,6 +1300,7 @@
       "agentMenu": "Launch agent",
       "layoutMenu": "Terminal grid layout",
       "layoutFocus": "Focus",
+      "layoutCustom": "Custom",
       "mcp": "Open MCP servers",
       "mcpQuarantined_one": "Open MCP servers: {{count}} quarantined",
       "mcpQuarantined_other": "Open MCP servers: {{count}} quarantined",
@@ -2005,6 +2007,7 @@
     "splitDown": "Split pane down",
     "moveBelow": "Move below the previous pane",
     "moveRight": "Move to the right of the previous pane",
+    "firstPane": "This is the first pane: there is none before it.",
     "balance": "Balance panes",
     "close": "Close pane",
     "detailsTitle": "Terminal details",

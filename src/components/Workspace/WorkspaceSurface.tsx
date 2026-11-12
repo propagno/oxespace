@@ -11,6 +11,7 @@ import { workspaceColorAttrs } from '../../../shared/workspace-color'
 import { WorkspaceGrid } from '../Grid/WorkspaceGrid'
 import { WorkspaceSplitGrid } from '../Grid/WorkspaceSplitGrid'
 import { usePaneLayoutStore } from '../../store/pane-layout.store'
+import { gridShape } from '../../../shared/types/pane-tree'
 import { useUIStore } from '../../store/ui.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
@@ -541,6 +542,14 @@ function WorkspaceSurfaceComponent({
   const folderName = workspace.rootPath ? workspace.rootPath.replace(/\\/g, '/').split('/').filter(Boolean).pop() : null
   const showSubPath = Boolean(folderName && folderName.toLowerCase() !== workspace.name.toLowerCase())
   const splitTargetPaneId = activePaneId ?? workspace.panes[0]?.id ?? null
+  // The chip names the grid the panes form now. A preset is only its starting point: after a split or a move the
+  // panes may form another grid, or none.
+  const PRESET_SHAPES: Record<number, string> = { 1: '1 × 1', 2: '1 × 2', 4: '2 × 2', 6: '2 × 3' }
+  const shape = splitLayoutEnabled && tree ? gridShape(tree) : null
+  const layoutLabel = splitLayoutEnabled && tree
+    ? shape ? `${shape.rows} × ${shape.columns}` : tc('workspace.topbar.layoutCustom')
+    : PRESET_SHAPES[workspace.layoutPreset ?? 4] ?? '2 × 2'
+  const layoutValue = Object.entries(PRESET_SHAPES).find(([, label]) => label === layoutLabel)?.[0] ?? ''
 
   const toolbar = (
     <header className="workspace-topbar" aria-label={tc('workspace.topbar.label')}>
@@ -601,19 +610,13 @@ function WorkspaceSurfaceComponent({
           >
             {maximizedPaneId
               ? tc('workspace.topbar.layoutFocus', { defaultValue: 'Focus' })
-              : workspace.layoutPreset === 1
-                ? '1 × 1'
-                : workspace.layoutPreset === 2
-                  ? '1 × 2'
-                  : workspace.layoutPreset === 6
-                    ? '2 × 3'
-                    : '2 × 2'}
+              : layoutLabel}
           </Button>
         }
         items={[
           {
             type: 'radio',
-            value: maximizedPaneId ? 'focus' : String(workspace.layoutPreset ?? 4),
+            value: maximizedPaneId ? 'focus' : layoutValue,
             onValueChange: value => {
               if (value === 'focus') {
                 if (splitTargetPaneId && !maximizedPaneId) onToggleMaximize(splitTargetPaneId)

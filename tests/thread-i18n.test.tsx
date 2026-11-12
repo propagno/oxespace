@@ -9,7 +9,7 @@ import { failureMessage, usageWindowLabel } from '../src/components/Threads/Thre
 afterEach(async () => { await changeLanguage('en') })
 
 describe('Thread in the interface language', () => {
-  it('asks archive, delete and rewind in the interface language, naming the conversation when there is one', async () => {
+  it('asks archive and delete in the interface language, naming the conversation when there is one', async () => {
     expect(threadConfirmationText('delete', 'Fix login')).toMatchObject({ title: 'Delete this conversation?', confirmLabel: 'Delete conversation', command: '/delete confirm', danger: true })
     expect(threadConfirmationText('delete', 'Fix login').description).toContain('“Fix login”')
 
@@ -18,7 +18,7 @@ describe('Thread in the interface language', () => {
     expect(archive).toMatchObject({ title: 'Arquivar esta conversa?', confirmLabel: 'Arquivar conversa', command: '/archive confirm' })
     expect(archive.description).toContain('“Fix login”')
     // The main process sends the English wording with the slash command; the dialog shows it translated.
-    expect(localizeConfirmation(threadConfirmation('rewind'))).toMatchObject({ title: 'Retroceder o último turno?', command: '/rewind 1', danger: true })
+    expect(localizeConfirmation(threadConfirmation('delete'))).toMatchObject({ title: 'Excluir esta conversa?', command: '/delete confirm', danger: true })
     // A confirmation the app does not know is shown as sent.
     const unknown = { title: 'Do it?', description: 'Really', confirmLabel: 'Do', command: '/other' }
     expect(localizeConfirmation(unknown)).toBe(unknown)

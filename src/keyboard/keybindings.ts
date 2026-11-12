@@ -92,7 +92,6 @@ export const KEYBINDINGS = [
   { id: 'thread.permissions', chords: ['Mod+Shift+M'], scope: 'thread' },
   { id: 'thread.model', chords: ['Mod+Shift+I'], scope: 'thread' },
   { id: 'thread.effort', chords: ['Mod+Shift+E'], scope: 'thread' },
-  { id: 'thread.history', chords: ['Mod+H'], scope: 'thread' },
 
   // Last, so Ctrl+/ reaches terminal commands first while a terminal pane is active.
   { id: 'help.shortcuts', chords: ['?', 'Mod+/'], scope: 'global', when: context => !inTextField(context.target) }
@@ -131,8 +130,12 @@ const ALLOWED_OVERLAPS = new Set(['terminal.slash|help.shortcuts'])
 
 /** The other bindings a key press of `id` would also fire in some view, with the chords in effect. */
 export function conflictsFor(id: KeybindingId): Keybinding[] {
+  return conflictsWith(id, chordsFor(id))
+}
+
+/** The other bindings `id` would collide with if it had `chords`: what Settings checks before it saves a shortcut. */
+export function conflictsWith(id: KeybindingId, chords: string[]): Keybinding[] {
   const binding = getKeybinding(id)
-  const chords = chordsFor(id)
   return (KEYBINDINGS as readonly Keybinding[]).filter(other => other.id !== id
     && !ALLOWED_OVERLAPS.has(`${id}|${other.id}`) && !ALLOWED_OVERLAPS.has(`${other.id}|${id}`)
     && bindingsCollide(binding, other, chords, chordsFor(other.id as KeybindingId)))

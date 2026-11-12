@@ -913,6 +913,7 @@
     "status": {
       "needs-decision": "Precisa da sua decisão",
       "thinking": "Pensando",
+      "running": "Rodando",
       "awaiting": "Aguardando",
       "starting": "Iniciando",
       "exited": "Encerrado",
@@ -1280,8 +1281,8 @@
         },
         "projects": {
           "label": "Projetos",
-          "hint": "Worktrees e branches",
-          "description": "Inspecione e gerencie worktrees e branches do Git vinculados a este workspace."
+          "hint": "Instruções do projeto",
+          "description": "Os arquivos de instruções que os agentes leem neste projeto."
         },
         "policy": {
           "label": "Política",
@@ -1356,6 +1357,7 @@
       "agentMenu": "Iniciar um agente",
       "layoutMenu": "Layout da grade de terminais",
       "layoutFocus": "Foco",
+      "layoutCustom": "Personalizada",
       "mcp": "Abrir os servidores MCP",
       "mcpQuarantined_one": "Abrir os servidores MCP: {{count}} em quarentena",
       "mcpQuarantined_many": "Abrir os servidores MCP: {{count}} em quarentena",
@@ -2075,6 +2077,7 @@
     "splitDown": "Dividir o painel para baixo",
     "moveBelow": "Mover para baixo do painel anterior",
     "moveRight": "Mover para a direita do painel anterior",
+    "firstPane": "Este é o primeiro painel: não há outro antes dele.",
     "balance": "Equilibrar os painéis",
     "close": "Fechar o painel",
     "detailsTitle": "Detalhes do terminal",

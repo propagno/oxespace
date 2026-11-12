@@ -33,13 +33,18 @@ export function ThreadApprovalDetails({ command, cwd, reason, fileChanges = fals
   const isToolRequest = Boolean(toolName && toolName !== 'Bash' && toolName !== 'Write' && toolName !== 'Edit' && toolName !== 'MultiEdit')
   let plan: string | undefined
   if (isPlan) {
-    try { const input = JSON.parse(command) as { plan?: unknown }; if (typeof input.plan === 'string') plan = input.plan } catch { /* Keep the exact request below. */ }
+    // Main hands the plan over as its own text (claude-permission-request.ts); an older request carried the tool's
+    // JSON. As text it fell through here and was shown raw, in the box for a command: Markdown marks and all.
+    try { const input = JSON.parse(command) as { plan?: unknown }; if (typeof input.plan === 'string') plan = input.plan } catch { plan = command.trim() || undefined }
   }
   const summary = isPlan ? t('approvalDetails.reviewPlan')
     : isToolRequest ? t('approvalDetails.reviewTool', { tool: toolName })
     : fileChanges ? t('approvalDetails.reviewFiles')
     : display.writesFiles ? t('approvalDetails.mayModify', { target: display.target ?? t('approvalDetails.projectFiles') }) : t('approvalDetails.reviewCommand')
   const exact = command.trim()
+  // The plan is what is approved: rendered once, as prose. The raw box only when it holds something else (the JSON).
+  const planIsExact = plan !== undefined && plan.trim() === exact
+  const copy = <button type="button" onClick={() => void navigator.clipboard?.writeText(command).then(() => setCopied(true)).catch(() => setCopied(false))}><Copy size={14} />{copied ? t('approvalDetails.copied') : t('approvalDetails.copyExact')}</button>
   // The readable preview only when it says something the exact text does not (P1-8): never an empty or duplicate box.
   // A tool's JSON input reads better indented; that indented copy is the readable preview.
   let structured: string | undefined
@@ -50,13 +55,13 @@ export function ThreadApprovalDetails({ command, cwd, reason, fileChanges = fals
   return <div ref={scroller} className="thread-approval-content" data-more-below={moreBelow || undefined}>
     <div className="thread-approval-intent">{isToolRequest ? <Wrench size={16} /> : display.writesFiles || fileChanges ? <FilePenLine size={16} /> : <TerminalSquare size={16} />}<div><strong>{summary}</strong><span>{isToolRequest ? t('approvalDetails.toolRequest') : fileChanges ? t('approvalDetails.fileChanges') : display.runner}{where ? ` · ${where}` : ''}</span></div></div>
     {/* The exact text being approved, open from the start: what runs is never behind a click. */}
-    {exact && <section className="thread-approval-exact" aria-label={t('approvalDetails.exact')} data-testid="approval-exact">
+    {exact && !planIsExact && <section className="thread-approval-exact" aria-label={t('approvalDetails.exact')} data-testid="approval-exact">
       {/* Copy sits in the heading, which stays in view while a long command scrolls in the dock (T67). */}
       <div className="thread-approval-preview-heading"><strong>{t('approvalDetails.exact')}</strong>{where && <small>{t('approvalDetails.directory', { path: where })}</small>}
-        <button type="button" onClick={() => void navigator.clipboard?.writeText(command).then(() => setCopied(true)).catch(() => setCopied(false))}><Copy size={14} />{copied ? t('approvalDetails.copied') : t('approvalDetails.copyExact')}</button></div>
+        {copy}</div>
       <pre tabIndex={0}>{command}</pre>
     </section>}
-    {showPreview && <div className="thread-approval-preview" data-testid="approval-readable"><div className="thread-approval-preview-heading"><strong>{isPlan ? t('approvalDetails.plan') : isToolRequest ? t('approvalDetails.toolInput') : fileChanges ? t('approvalDetails.proposedChange') : t('approvalDetails.readable')}</strong><small>{t('approvalDetails.readableHint')}</small></div>{plan ? <div className="thread-approval-plan"><ThreadMarkdown text={plan} /></div> : <pre className={isToolRequest ? 'is-structured' : undefined}>{structured ?? display.preview}</pre>}</div>}
+    {showPreview && <div className="thread-approval-preview" data-testid="approval-readable"><div className="thread-approval-preview-heading"><strong>{isPlan ? t('approvalDetails.plan') : isToolRequest ? t('approvalDetails.toolInput') : fileChanges ? t('approvalDetails.proposedChange') : t('approvalDetails.readable')}</strong>{planIsExact ? copy : <small>{t('approvalDetails.readableHint')}</small>}</div>{plan ? <div className="thread-approval-plan" tabIndex={0}><ThreadMarkdown text={plan} /></div> : <pre className={isToolRequest ? 'is-structured' : undefined}>{structured ?? display.preview}</pre>}</div>}
     {/* The agent's own words, below the command and marked as such: a claim, not something OXESpace checked. */}
     {reason && reason !== command && <section className="thread-approval-agent" aria-label={t('approvalDetails.reason')} data-testid="approval-agent-reason">
       <div className="thread-approval-preview-heading"><strong>{t('approvalDetails.reason')}</strong><small>{t('approvalDetails.reasonHint')}</small></div>
