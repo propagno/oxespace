@@ -1043,7 +1043,7 @@
     "verify": {
       "toggle": "Auto-verify",
       "toggleTitle": "With agent access on, the agent is told with each message to check this page after it edits: a screenshot and the console. Uses extra agent steps.",
-      "problems": "Since the page loaded: {{errors}} console error(s), {{requests}} failed request(s).",
+      "problems": "Since the page loaded: {{count}} error(s) in its console.",
       "send": "Send to agent",
       "dismiss": "Dismiss"
     },
@@ -1080,7 +1080,9 @@
       "openSource": "Open {{location}} in Files",
       "addAnother": "Select another element",
       "addAnotherTitle": "Pick more elements for the same request. Shift+click in the page also keeps selecting.",
-      "picking": "Click an element in the page…"
+      "picking": "Click an element in the page…",
+      "pickingMore": "Selected: {{count}}. Click another element, or review what you picked.",
+      "review": "Review and send"
     },
     "retry": "Retry"
   },

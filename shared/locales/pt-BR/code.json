@@ -1090,7 +1090,7 @@
     "verify": {
       "toggle": "Conferir sozinho",
       "toggleTitle": "Com o acesso do agente ligado, o agente é instruído em cada mensagem a conferir esta página depois de editar: uma captura e o console. Usa passos extras do agente.",
-      "problems": "Desde a carga da página: {{errors}} erro(s) de console, {{requests}} requisição(ões) com falha.",
+      "problems": "Desde a carga da página: {{count}} erro(s) no console dela.",
       "send": "Enviar ao agente",
       "dismiss": "Dispensar"
     },
@@ -1127,7 +1127,9 @@
       "openSource": "Abrir {{location}} em Arquivos",
       "addAnother": "Selecionar outro elemento",
       "addAnotherTitle": "Escolha mais elementos para o mesmo pedido. Shift+clique na página também continua selecionando.",
-      "picking": "Clique em um elemento da página…"
+      "picking": "Clique em um elemento da página…",
+      "pickingMore": "Selecionados: {{count}}. Clique em outro elemento, ou revise o que escolheu.",
+      "review": "Revisar e enviar"
     },
     "retry": "Tentar de novo"
   },

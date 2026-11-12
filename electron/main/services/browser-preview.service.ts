@@ -5,6 +5,8 @@ import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { designSourceProbeScript, sanitizeDesignProbe } from '../../../shared/design-source'
 import { savePreviewCapture } from './browser-preview/preview-capture-store'
 import { previewVerifyNote } from '../../../shared/preview-problems'
+import { redactSecrets } from '../../../shared/secrets'
+import { maskPreviewUrl } from './browser-preview/preview-observe'
 import { setPreviewNoteSource } from './conversation/preview-note'
 import { DESIGN_MODE_CHANNELS, type DesignGrabPayload } from '../../../shared/types/design-mode'
 import type { BrowserPreviewBounds, BrowserPreviewEvent, BrowserPreviewMount, BrowserPreviewMountResult, BrowserPreviewSessionState } from '../../../shared/types/browser-preview'
@@ -188,6 +190,18 @@ export class BrowserPreviewService {
         }
       })
       view.webContents.on('did-navigate-in-page', (_event,next,isMainFrame) => { if (isMainFrame) inPage = true; emitNavigation(next); if (isMainFrame && isCurrent() && !view.webContents.isLoading()) this.emit(current,{type:'ready'}) })
+      // What the page writes to its console as an error (an uncaught exception, a request that failed): the Browser
+      // counts these since the last load, with or without an agent attached. Electron hands the level as a word in an
+      // event object (and, in older versions, as a number in the second argument).
+      view.webContents.on('console-message', (event: unknown, level?: unknown, message?: unknown, line?: unknown, sourceId?: unknown) => {
+        if (!isCurrent()) return
+        const details = (event && typeof event === 'object' ? event : {}) as { level?: unknown; message?: unknown; lineNumber?: unknown; sourceId?: unknown }
+        if (details.level !== 'error' && level !== 3) return
+        const text = redactSecrets(String(details.message ?? message ?? '')).slice(0, 500)
+        if (!text) return
+        const lineNumber = Number(details.lineNumber ?? line)
+        this.emit(current,{type:'page-error',row:{level:'error',message:text,source:maskPreviewUrl(String(details.sourceId ?? sourceId ?? '')),line:Number.isFinite(lineNumber) ? lineNumber : 0},at:Date.now()})
+      })
       view.webContents.on('page-title-updated', (_event,title) => { if (!isCurrent()) return; meta.title = title.slice(0,100); this.emit(current,{type:'title',title:meta.title}) })
       view.webContents.on('did-start-loading', () => { if (!isCurrent()) return; meta.loading = true; meta.error = null; this.emit(current,{type:'loading',loading:true}) })
       view.webContents.on('did-stop-loading', () => { if (!isCurrent()) return; meta.loading = false; this.emit(current,{type:'loading',loading:false}); if (inPage) { inPage = false; this.emit(current,{type:'ready'}) } })

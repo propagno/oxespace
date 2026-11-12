@@ -73,7 +73,8 @@ export interface BrowserPreviewNetworkRow {
 export interface BrowserPreviewEvent {
   ownerKey: string
   tabId: string
-  type: 'ready' | 'navigation' | 'loading' | 'title' | 'failed' | 'grab' | 'cancel' | 'session' | 'access' | 'grant' | 'agent-action' | 'console' | 'network' | 'broker'
+  /** `page-error`: an error the page wrote to its console (a failed request is one), heard without an agent attached; `row` is a console row. */
+  type: 'ready' | 'navigation' | 'loading' | 'title' | 'failed' | 'grab' | 'cancel' | 'session' | 'access' | 'grant' | 'agent-action' | 'console' | 'network' | 'broker' | 'page-error'
   session?: BrowserPreviewSessionState
   url?: string
   title?: string

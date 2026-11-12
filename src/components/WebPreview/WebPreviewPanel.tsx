@@ -14,10 +14,9 @@ import { useWorkspaceStore } from '../../store/workspace.store'
 import { DesignGrabSheet, type DesignGrabItem } from './DesignGrabSheet'
 import { locateDesignSource } from './designSource'
 import { DevServerMenu, useDevServers } from './DevServerMenu'
-import { urlFromOutput, type DevServerConfig } from '../../../shared/dev-server'
+import type { DevServerConfig } from '../../../shared/dev-server'
 import { addPreviewProblem, formatPreviewProblems, NO_PREVIEW_PROBLEMS, previewProblemCount, type PreviewProblems } from '../../../shared/preview-problems'
-import type { BrowserPreviewConsoleRow, BrowserPreviewNetworkRow } from '../../../shared/types/browser-preview'
-import { selectOutput, useBackgroundStore } from '../../store/background.store'
+import type { BrowserPreviewConsoleRow } from '../../../shared/types/browser-preview'
 import { NativePreviewHost } from './NativePreviewHost'
 import { AgentBrowserChrome } from './AgentBrowserChrome'
 import { PreviewEmptyState } from './PreviewEmptyState'
@@ -47,6 +46,9 @@ interface WebPreviewPanelProps {
 export interface PreviewAttachment { name: string; dataUrl: string }
 
 const NO_CONTEXT: DesignGrabContext = { source: null, candidates: [], components: [], screenshotPath: null }
+/** What was picked in each Browser, kept while the app runs: in a conversation the tool area shows one tool at a time, and opening the source in Files must not lose the selection. */
+const keptGrabs = new Map<string, DesignGrabItem[]>()
+const NO_GRABS: DesignGrabItem[] = []
 
 const DEFAULT_URL = 'http://localhost:3000'
 
@@ -100,10 +102,16 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
   const [designMode, setDesignMode] = useState(false)
   // Escape first leaves Design Mode (the hint says so), then closes the panel.
   // Every element picked since the sheet opened: one click each, or several in a row with Shift or "Select another".
-  const [grabs, setGrabs] = useState<DesignGrabItem[]>([])
+  const [, setGrabTick] = useState(0)
+  const grabs = keptGrabs.get(previewKey) ?? NO_GRABS
+  const setGrabs = useCallback((update: DesignGrabItem[] | ((current: DesignGrabItem[]) => DesignGrabItem[])): void => {
+    const next = typeof update === 'function' ? update(keptGrabs.get(previewKey) ?? NO_GRABS) : update
+    if (next.length > 0) keptGrabs.set(previewKey, next); else keptGrabs.delete(previewKey)
+    setGrabTick(value => value + 1)
+  }, [previewKey])
   /** The picker stays on after a pick (asked from the sheet). */
   const [designKeep, setDesignKeep] = useState(false)
-  const patchGrab = useCallback((id: string, patch: (item: DesignGrabItem) => DesignGrabItem): void => setGrabs(current => current.map(item => item.id === id ? patch(item) : item)), [])
+  const patchGrab = useCallback((id: string, patch: (item: DesignGrabItem) => DesignGrabItem): void => setGrabs(current => current.map(item => item.id === id ? patch(item) : item)), [setGrabs])
   // `send()` and `capturePage()` throw until the guest emits dom-ready.
   const [guestReady, setGuestReady] = useState(false)
   const readyTabs = useRef(new Set<string>())
@@ -120,10 +128,8 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
   }
 
   // The project's dev servers: started from here as background jobs; the page opens at the address the server prints.
-  const dev = useDevServers(workspace)
+  const dev = useDevServers(workspace, threadId)
   const autoVerify = autoVerifyChoice ?? dev.autoVerify ?? true
-  const [startingServer, setStartingServer] = useState<{ jobId: string; name: string; url: string; since: number } | null>(null)
-  const serverOutput = useBackgroundStore(selectOutput(startingServer?.jobId ?? ''))
   const showPage = useCallback((address: string): void => {
     const nextUrl = normalizePreviewUrl(address, allowExternal)
     if (!nextUrl || !activeTabId) return
@@ -133,19 +139,18 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
   }, [activeTabId, allowExternal, applySession, previewKey])
   const startServer = useCallback((config: DevServerConfig): void => {
     setCaptureNotice(tc('preview.devServer.starting', { name: config.name }))
-    void dev.start(config).then(job => { if (job) setStartingServer({ jobId: job.id, name: config.name, url: config.url, since: Date.now() }); else showPage(config.url) })
+    void dev.start(config).then(started => { if (!started) { setCaptureNotice(null); showPage(config.url) } })
       .catch(error => setCaptureNotice(humanizeError(error, tc('preview.devServer.startFailed', { name: config.name }))))
   }, [dev, showPage])
+  const { starting, settle } = dev
   useEffect(() => {
-    if (!startingServer) return
-    const printed = urlFromOutput(serverOutput.join('\n'))
-    if (printed) { setStartingServer(null); setCaptureNotice(null); showPage(printed); return }
+    if (!starting) return
+    if (starting.printedUrl) { const address = starting.printedUrl; settle(); setCaptureNotice(null); showPage(address); return }
     // A server that prints no address: its expected one is tried once it has had time to come up.
-    const wait = Math.max(0, 8000 - (Date.now() - startingServer.since))
-    const timer = window.setTimeout(() => { setStartingServer(null); setCaptureNotice(tc('preview.devServer.noAddress', { name: startingServer.name, url: startingServer.url })); showPage(startingServer.url) }, wait)
+    const timer = window.setTimeout(() => { settle(); setCaptureNotice(tc('preview.devServer.noAddress', { name: starting.name, url: starting.url })); showPage(starting.url) }, Math.max(0, 8000 - (Date.now() - starting.since)))
     return () => window.clearTimeout(timer)
-  }, [serverOutput, showPage, startingServer])
-  const firstServer = dev.servers.find(config => config.command && !dev.jobFor(config)) ?? null
+  }, [settle, showPage, starting])
+  const firstServer = dev.servers.find(config => config.command && !dev.isRunning(config)) ?? null
   const sendProblemsToAgent = useCallback(async (): Promise<void> => {
     if (!url || previewProblemCount(problems) === 0) return
     const prompt = formatPreviewProblems(url, problems)
@@ -186,7 +191,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
       if (event.tabId !== activeTabId) return
       if (event.type === 'ready') { readyTabs.current.add(event.tabId); setGuestReady(true) }
       if (event.type === 'loading' && event.loading) { readyTabs.current.delete(event.tabId); setGuestReady(false); setProblems(NO_PREVIEW_PROBLEMS) }
-      if ((event.type === 'console' || event.type === 'network') && event.row) { const row = event.row as BrowserPreviewConsoleRow | BrowserPreviewNetworkRow; setProblems(current => addPreviewProblem(current, row)); return }
+      if (event.type === 'page-error' && event.row) { const row = event.row as BrowserPreviewConsoleRow; setProblems(current => addPreviewProblem(current, row)); return }
       if (event.type === 'cancel') {
         setDesignMode(false)
         setDesignKeep(false)
@@ -205,7 +210,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
         .then(found => patchGrab(id, item => ({ ...item, locating: false, context: { ...item.context, ...found } })))
         .catch(() => patchGrab(id, item => ({ ...item, locating: false })))
     })
-  }, [previewKey, activeTabId, applySession, patchGrab, workspace.id, workspace.rootPath])
+  }, [previewKey, activeTabId, applySession, patchGrab, setGrabs, workspace.id, workspace.rootPath])
 
   // A new document means a fresh guest with the picker off.
   useEffect(() => {
@@ -233,7 +238,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
     setDesignMode((value) => !value)
   }, [url, guestReady])
 
-  const closeGrabs = useCallback((): void => { setGrabs([]); setDesignMode(false); setDesignKeep(false) }, [])
+  const closeGrabs = useCallback((): void => { setGrabs([]); setDesignMode(false); setDesignKeep(false) }, [setGrabs])
   // The shortcut works wherever the Browser is on screen; with no page loaded it says what to wait for.
   useKeybindings({ 'code.designMode': toggleDesignMode, 'thread.designMode': toggleDesignMode })
 
@@ -402,7 +407,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
       {previewProblemCount(problems) > 0 ? (
         <div className="web-preview-problems" role="status" data-testid="preview-problems">
           <AlertCircle size={12} aria-hidden="true" />
-          <span>{t('preview.verify.problems', { errors: problems.console.length, requests: problems.network.length })}</span>
+          <span>{t('preview.verify.problems', { count: previewProblemCount(problems) })}</span>
           <button type="button" className="web-preview-problems-send" data-testid="preview-problems-send" onClick={() => void sendProblemsToAgent()}>{t('preview.verify.send')}</button>
           <button type="button" className="web-preview-problems-dismiss" aria-label={t('preview.verify.dismiss')} title={t('preview.verify.dismiss')} onClick={() => setProblems(NO_PREVIEW_PROBLEMS)}><X size={12} aria-hidden="true" /></button>
         </div>
@@ -439,10 +444,11 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
       </AgentBrowserChrome>
       {designMode ? (
         <div className="web-preview-design-hint" role="status">
-          {t('preview.designHint')}
+          {grabs.length > 0 ? t('preview.grab.pickingMore', { count: grabs.length }) : t('preview.designHint')}
+          {grabs.length > 0 ? <button type="button" className="web-preview-design-review" data-testid="design-grab-review" onClick={() => { setDesignMode(false); setDesignKeep(false) }}>{t('preview.grab.review')}</button> : null}
         </div>
       ) : null}
-      {grabs.length > 0 ? (
+      {grabs.length > 0 && !designMode ? (
         <DesignGrabSheet
           items={grabs}
           picking={designMode}
