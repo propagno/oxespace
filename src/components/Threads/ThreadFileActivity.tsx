@@ -1,5 +1,5 @@
 import { FileCode2, ChevronDown, ChevronRight } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ErrorState, LoadingState } from '../../ui'
 import { parseThreadPatch } from '../../../shared/threadPatch'
@@ -65,7 +65,7 @@ const relativeKey = (path: string, roots: Array<string | null | undefined>): str
   return roots.some(root => root && /^[a-z]:[\\/]/i.test(root)) ? label.toLowerCase() : label
 }
 
-export function ThreadTurnChanges({ events, root, roots = [], workspaceId, onOpen, onViewChanges, onUndo, loadFileStates, onUndoFile, loadHunks, onUndoHunk, onComment }: { events: ThreadEvent[]; root: string; roots?: Array<string | null | undefined>; workspaceId?: string; onOpen(entry: ThreadChangeEntry): void; onViewChanges?(): void; onUndo?(): Promise<void>; loadFileStates?(): Promise<ThreadTurnFileStatus[]>; onUndoFile?(path: string): Promise<void>; loadHunks?(path: string): Promise<ThreadFileHunk[]>; onUndoHunk?(path: string, hunkId: string): Promise<void>; onComment?(text: string): void }) {
+export function ThreadTurnChanges({ events, root, roots = [], workspaceId, onOpen, onViewChanges, onUndo, loadFileStates, onUndoFile, loadHunks, onUndoHunk, onComment, openFirst = false }: { openFirst?: boolean; events: ThreadEvent[]; root: string; roots?: Array<string | null | undefined>; workspaceId?: string; onOpen(entry: ThreadChangeEntry): void; onViewChanges?(): void; onUndo?(): Promise<void>; loadFileStates?(): Promise<ThreadTurnFileStatus[]>; onUndoFile?(path: string): Promise<void>; loadHunks?(path: string): Promise<ThreadFileHunk[]>; onUndoHunk?(path: string, hunkId: string): Promise<void>; onComment?(text: string): void }) {
   const { t } = useTranslation('thread')
   const [showAll, setShowAll] = useState(false)
   const [undo, setUndo] = useState<'idle' | 'confirm' | 'working'>('idle')
@@ -87,6 +87,24 @@ export function ThreadTurnChanges({ events, root, roots = [], workspaceId, onOpe
   }
   // Loaded once per rendered turn and after each undo; the loader is an inline closure, so it is not a dependency.
   useEffect(refreshStates, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // The latest turn shows the change where it is told: the first file still pending opens its first block by itself.
+  // Only once, only when its blocks really load, and never over a review the person opened.
+  const autoOpened = useRef(false)
+  const [openedByItself, setOpenedByItself] = useState<string | null>(null)
+  useEffect(() => {
+    if (!openFirst || autoOpened.current || !loadHunks || !onUndoHunk) return
+    const first = [...new Map(turnChanges(events).map(entry => [entry.file.path, entry])).values()].slice(0, CHANGE_PREVIEW_FILES)
+      .map(entry => fileStates[relativeKey(entry.file.path, [root, ...roots, ...checkoutRoots])]).find(status => status?.state === 'pending')
+    if (!first) return
+    autoOpened.current = true
+    let active = true
+    void loadHunks(first.path).then(hunks => {
+      if (!active || !hunks.length) return
+      setOpenedByItself(first.path)
+      setReviewing(current => current ?? first.path)
+    }, () => undefined)
+    return () => { active = false }
+  }, [openFirst, fileStates]) // eslint-disable-line react-hooks/exhaustive-deps
   const entries = turnChanges(events), summary = changeSummary(entries)
   if (!entries.length) return events.some(event => event.type === 'turn-diff') ? <p className="thread-turn-timing">{t('files.noRemaining')}</p> : null
   const files = [...new Map(entries.map(entry => [entry.file.path, entry])).values()]
@@ -120,8 +138,8 @@ export function ThreadTurnChanges({ events, root, roots = [], workspaceId, onOpe
           setUndoError(''); setUndoingFile(status.path)
           void onUndoFile(status.path).then(refreshStates, cause => setUndoError(humanizeError(cause, t('files.undoFileFailed')))).finally(() => setUndoingFile(null))
         }}>{undoingFile === status.path ? t('files.undoing') : t('files.undoFile')}</button>}
-        {status?.state === 'pending' && loadHunks && onUndoHunk && <button type="button" className="thread-change-view" aria-expanded={reviewing === status.path} aria-label={t('files.reviewLabel', { path: label })} onClick={() => setReviewing(reviewing === status.path ? null : status.path)}>{reviewing === status.path ? t('files.closeReview') : t('files.review')}</button>}
-        {reviewing === status?.path && loadHunks && onUndoHunk && <ThreadHunkReview path={status.path} disabled={undoingFile !== null || undo === 'working'} loadHunks={() => loadHunks(status.path)}
+        {status?.state === 'pending' && loadHunks && onUndoHunk && <button type="button" className="thread-change-view" aria-expanded={reviewing === status.path} aria-label={t('files.reviewLabel', { path: label })} onClick={() => { setOpenedByItself(null); setReviewing(reviewing === status.path ? null : status.path) }}>{reviewing === status.path ? t('files.closeReview') : t('files.review')}</button>}
+        {reviewing === status?.path && loadHunks && onUndoHunk && <ThreadHunkReview key={`${status.path}:${openedByItself === status.path}`} firstOnly={openedByItself === status.path} path={status.path} disabled={undoingFile !== null || undo === 'working'} loadHunks={() => loadHunks(status.path)}
           onUndoHunk={async hunkId => { await onUndoHunk(status.path, hunkId); refreshStates() }} onComment={text => onComment?.(text)} />}
       </div>
     })}</div>

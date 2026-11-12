@@ -854,6 +854,8 @@
     "body": "Recovered from the provider history. These questions cannot be answered here; no answer was inferred."
   },
   "hunks": {
+    "showAll_one": "Show {{count}} more change in this file",
+    "showAll_other": "Show {{count}} more changes in this file",
     "comment": "Review comment on `{{path}}` ({{range}}):",
     "lines": "lines {{from}}–{{to}}",
     "afterLine": "after line {{line}}",

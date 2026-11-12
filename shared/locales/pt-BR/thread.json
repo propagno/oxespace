@@ -882,6 +882,9 @@
     "body": "Recuperadas do histórico do provedor. Estas perguntas não podem ser respondidas aqui; nenhuma resposta foi deduzida."
   },
   "hunks": {
+    "showAll_one": "Mostrar mais {{count}} alteração neste arquivo",
+    "showAll_many": "Mostrar mais {{count}} alterações neste arquivo",
+    "showAll_other": "Mostrar mais {{count}} alterações neste arquivo",
     "comment": "Comentário de revisão em `{{path}}` ({{range}}):",
     "lines": "linhas {{from}}–{{to}}",
     "afterLine": "depois da linha {{line}}",
