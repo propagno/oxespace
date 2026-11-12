@@ -9,8 +9,8 @@ import { installThreadFixtures, openThreadWithState, registerThreadProject } fro
  * reset after expanding. Here: the collapsed rail lists the items and opens one, and expanding finds the same groups.
  */
 const rail = (page: Page) => page.locator('[data-rail-items]')
-const collapse = (page: Page) => page.getByRole('button', { name: 'Collapse sidebar' }).click()
-const expand = (page: Page) => page.getByRole('button', { name: 'Expand sidebar' }).click()
+const collapse = (page: Page) => page.getByRole('button', { name: /^Collapse (the )?sidebar/ }).first().click()
+const expand = (page: Page) => page.getByRole('button', { name: /^Expand (the )?sidebar/ }).first().click()
 const pageErrors = (lines: string[]): string[] => lines.filter(line => line.startsWith('pageerror:'))
 
 test('OxeChat: the collapsed rail lists the conversations and opens one', async () => {
@@ -23,7 +23,7 @@ test('OxeChat: the collapsed rail lists the conversations and opens one', async 
     await registerThreadProject(app, page, workspaceRoot)
     await openThreadWithState(app, page, workspaceRoot, 'conversation')
     await collapse(page)
-    const item = rail(page).getByRole('button', { name: /^Authentication flow · / })
+    const item = rail(page).getByRole('button', { name: /^Authentication flow/ })
     await expect(item).toBeVisible()
     await expect(item).toHaveAttribute('aria-current', 'page')
     await item.click()

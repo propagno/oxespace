@@ -135,7 +135,6 @@ jobs:
       - name: Package (unpacked, nothing published)
         run: |
           set -euo pipefail
-          node scripts/slim-pack-deps.mjs --platform=${{ matrix.slim }} --arch=x64
           npx electron-builder ${{ matrix.flag }} --dir --config.npmRebuild=false --publish never
 
       - name: A test copy outside the checkout, with only the inspect fuse on

@@ -1,9 +1,10 @@
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
-import { Fragment, type ReactElement } from 'react'
+import { Fragment, useEffect, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { Workspace } from '../../../shared/types/workspace'
 import { getPaneAt, layoutOf } from './layouts'
 import { PaneContainer } from './PaneContainer'
+import { paneOverflowNote } from './paneOverflow'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { i18n } from '../../i18n'
 
@@ -40,9 +41,18 @@ export function WorkspaceGrid({
     rows: Math.max(preset.rows, ...visiblePanes.map(p => p.rowIndex + 1)),
     columns: Math.max(preset.columns, ...visiblePanes.map(p => p.columnIndex + 1))
   }
-  const isMaximized = Boolean(maximizedPaneId)
-  const maximizedPane = maximizedPaneId
-    ? workspace.panes.find((pane) => pane.id === maximizedPaneId) ?? null
+  const [windowWidth, setWindowWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1440))
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onResize = (): void => setWindowWidth(window.innerWidth)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  const overflowNote = paneOverflowNote(visiblePanes.length, windowWidth)
+  const focusedPaneId = maximizedPaneId ?? (overflowNote ? (activePaneId ?? visiblePanes[0]?.id ?? null) : null)
+  const isMaximized = Boolean(focusedPaneId)
+  const maximizedPane = focusedPaneId
+    ? workspace.panes.find((pane) => pane.id === focusedPaneId) ?? null
     : null
 
   return (
@@ -51,6 +61,7 @@ export function WorkspaceGrid({
       data-testid="workspace-grid"
       data-maximized-pane={maximizedPaneId ?? undefined}
     >
+      {overflowNote ? <p className="workspace-grid-overflow-note" role="status">{overflowNote}</p> : null}
       <PanelGroup direction="vertical" className="workspace-grid-vgroup">
         {Array.from({ length: layout.rows }, (_, rowIndex) => {
           const rowFocused = !maximizedPane || maximizedPane.rowIndex === rowIndex
@@ -69,8 +80,8 @@ export function WorkspaceGrid({
                 <PanelGroup direction="horizontal" className="workspace-grid-hgroup">
                   {Array.from({ length: layout.columns }, (_, columnIndex) => {
                     const pane = getPaneAt(workspace.panes, rowIndex, columnIndex)
-                    const panelMaximized = Boolean(pane && pane.id === maximizedPaneId)
-                    const panelSuppressed = Boolean(maximizedPaneId && (!pane || pane.id !== maximizedPaneId))
+                    const panelMaximized = Boolean(pane && pane.id === focusedPaneId)
+                    const panelSuppressed = Boolean(focusedPaneId && (!pane || pane.id !== focusedPaneId))
                     return (
                       <Fragment key={`${rowIndex}-${columnIndex}`}>
                         <Panel
@@ -92,7 +103,7 @@ export function WorkspaceGrid({
                                 workspace={workspace}
                                 agentProfile={getAgentProfile(agentProfiles, pane.agentProfileId)}
                                 autoStart={workspace.autoStart}
-                                isMaximized={panelMaximized}
+                                isMaximized={Boolean(pane && pane.id === maximizedPaneId)}
                                 isActive={pane.id === activePaneId}
                                 onClose={onClosePane}
                                 onToggleMaximize={onToggleMaximize}

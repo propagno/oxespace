@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
+import { threadAgentName } from '../../../shared/threadProviders'
 import { Command, RefreshCw, Slash } from 'lucide-react'
-import type { ThreadCommand, ThreadCommandCatalog, ThreadSnapshot } from '../../../shared/types/thread'
+import type { ThreadCommand, ThreadCommandCatalog, ThreadProvider, ThreadSnapshot } from '../../../shared/types/thread'
 import { CODEX_THREAD_COMMANDS, NATIVE_CLI_COMMANDS } from '../../../shared/threadCommands'
 import { hasDesktopCommand } from '../../../shared/threadDesktopCommands'
 import { EmptyState, ErrorState, LoadingState, Spinner } from '../../ui'
@@ -16,7 +17,7 @@ const localCommands = (): ThreadCommand[] => LOCAL_NAMES.map(name => ({ name, de
  * A command's description in the interface language when the app knows it (the built-in lists of
  * shared/threadCommands.ts); a description the provider reported stays as the provider wrote it.
  */
-export function describeThreadCommand(command: ThreadCommand, provider: 'claude' | 'codex'): string {
+export function describeThreadCommand(command: ThreadCommand, provider: ThreadProvider): string {
   const key = `thread:commands.${provider}.${command.name}`, own = `thread:commands.desktop.${command.name}`
   // A command OXESpace itself carries out is described by what it does here, not by the provider.
   if (command.execution === 'desktop') {
@@ -169,7 +170,7 @@ export function useThreadCommands({ snapshot, draft, textarea, pending, run, onN
       <div className="thread-command-list" id={listId} role="listbox" aria-label={t('commands.list')} ref={menu}>
         {commands.map((command, index) => <button key={command.name} type="button" role="option" id={`${listId}-${index}`} aria-selected={activeIndex === index} tabIndex={-1}
           onMouseDown={event => event.preventDefault()} onMouseMove={() => setSelected(index)} onClick={() => choose(command)}>
-          <Slash size={14} /><span><strong>/{command.name}{command.argumentHint && <small>{command.argumentHint}</small>}</strong><span>{command.description}</span></span><small>{command.execution === 'desktop' || localNames.has(command.name) && command.source === 'oxe' && !catalog.commands.some(native => native.name === command.name) ? 'OxeChat' : command.source === 'oxe' ? t('commands.skill') : command.source === 'claude' ? 'Claude' : 'Codex'}</small>
+          <Slash size={14} /><span><strong>/{command.name}{command.argumentHint && <small>{command.argumentHint}</small>}</strong><span>{command.description}</span></span><small>{command.execution === 'desktop' || localNames.has(command.name) && command.source === 'oxe' && !catalog.commands.some(native => native.name === command.name) ? 'OxeChat' : command.source === 'oxe' ? t('commands.skill') : threadAgentName(command.source)}</small>
         </button>)}
       </div>
       {!commands.length && (loading ? <LoadingState label={t('commands.loading')} /> : <EmptyState compact title={t('commands.none')} />)}

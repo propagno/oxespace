@@ -9,6 +9,7 @@ import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import './WorkspaceSettingsModal.css'
 import { DefaultShellSettings } from './DefaultShellSettings'
+import { ProjectInstructionsRow } from './ProjectInstructionsRow'
 import { PolicySettings } from '../Settings/PolicySettings'
 import { applyWithUndo, Button, ErrorState, Select } from '../../ui'
 import { formatNumber } from '../../utils/formatTime'
@@ -210,6 +211,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onClose, onOp
                   </header>
                   <p className="ws-settings-hint">{selectedPage.hint}</p>
                 </section>
+                <ProjectInstructionsRow workspaceId={workspace.id} rootPath={workspace.rootPath} />
               </div>
 
               {page === 'policy' && Boolean(window.oxe?.policy) && (

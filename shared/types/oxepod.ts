@@ -60,6 +60,27 @@ export interface ContainerSummary {
   labels: Record<string, string>
 }
 
+export type ContainerStartedBy =
+  | { kind: 'conversation'; conversationId: string; title: string; provider: 'claude' | 'codex' }
+  | { kind: 'person' }
+
+export interface ContainerPanelRow {
+  id: string
+  name: string
+  image: string
+  status: ContainerState
+  ports: ContainerPort[]
+  stack: string | null
+  upSince: number | null
+  isDatabase: boolean
+  startedBy: ContainerStartedBy | null
+}
+
+export interface ContainerPanel {
+  engine: { state: ContainerEngineState; engine?: ContainerEngine }
+  rows: ContainerPanelRow[]
+}
+
 export interface ContainerStat {
   id: string
   name: string
@@ -127,6 +148,7 @@ export interface OxePodOps {
   'containers.candidates': { input: Record<string, never>; output: ContainerEngineCandidate[] }
   'containers.useCandidate': { input: { id: string | null }; output: ContainerEngineCandidate[] }
   'containers.list': { input: { engine?: ContainerEngine }; output: { engine: ContainerEngine; containers: ContainerSummary[] } }
+  'containers.panel': { input: { engine?: ContainerEngine }; output: ContainerPanel }
   'containers.inspect': { input: { engine?: ContainerEngine; id: string }; output: ContainerInspect }
   'containers.stats': { input: { engine?: ContainerEngine }; output: ContainerStat[] }
   'containers.action': { input: { engine?: ContainerEngine; id: string; action: ContainerAction }; output: { ok: true } }

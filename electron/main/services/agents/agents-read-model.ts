@@ -32,6 +32,7 @@ const REQUEST_TITLE = {
   tool: () => mainMessage('agents.request.tool', {})
 } satisfies Record<ThreadRequest['kind'], () => AgentRequestSummary['title']>
 
+const requestKind = (kind: ThreadRequest['kind']): AgentRequestSummary['kind'] => kind === 'question' || kind === 'elicitation' ? 'question' : 'approval'
 const provider = (value: string | undefined): AgentRow['provider'] => value === 'claude' || value === 'codex' ? value : 'other'
 const rowKey = (row: AgentKey) => AgentSeenStore.key(row.kind, row.id)
 
@@ -101,7 +102,7 @@ export class AgentsReadModel {
       const seenAt = seen.get(AgentSeenStore.key('pane', pane.paneId)) ?? null
       const state = paneAgentState({ lifecycle: pane.state, seen: pane.seen || seenSince(seenAt, pane.since) })
       const requests: AgentRequestSummary[] = pane.state === 'blocked'
-        ? [{ requestId: `pane:${pane.paneId}:${pane.stateChangeSeq}`, title: mainMessage('agents.request.pane', {}), risk: null, answerable: false, since: pane.since }]
+        ? [{ requestId: `pane:${pane.paneId}:${pane.stateChangeSeq}`, kind: 'approval', title: mainMessage('agents.request.pane', {}), risk: null, reversible: null, answerable: false, since: pane.since }]
         : []
       return {
         kind: 'pane', id: pane.paneId, state, provider: provider(pane.agent), mode: 'code', title: pane.agent,
@@ -137,6 +138,7 @@ export class AgentsReadModel {
       const events = this.readEvents(row, eventStmt)
       const turns = this.readTurns(row.id, thread.turns, turnStmt)
       const storedRequests = events.flatMap(event => event.type === 'request' && event.request.state === 'pending' ? [event.request] : [])
+      const storedById = new Map(storedRequests.map(req => [req.id, req]))
       const activityRequests: ThreadRequest[] = storedRequests.length
         ? storedRequests
         : pending.map(req => ({ id: req.requestId, nativeId: req.requestId, nativeMethod: 'request', kind: req.kind, title: '', generation: req.generation, createdAt: req.createdAt, state: 'pending' as const }))
@@ -148,7 +150,15 @@ export class AgentsReadModel {
         session: thread.nativeSessionId ?? null,
         worktree: thread.ownedWorktree ? { path: thread.ownedWorktree.path, branch: thread.ownedWorktree.branch ?? null } : null,
         cost: typeof thread.costReport?.totalUsd === 'number' ? { usd: thread.costReport.totalUsd } : null,
-        requests: pending.map(request => ({ requestId: request.requestId, title: REQUEST_TITLE[request.kind]?.() ?? REQUEST_TITLE.approval(), risk: null, answerable: true, since: request.createdAt })),
+        requests: pending.map(request => {
+          const kind = requestKind(request.kind)
+          const impact = kind === 'approval' ? (request.impact ?? storedById.get(request.requestId)?.impact) : undefined
+          return {
+            requestId: request.requestId, kind, title: REQUEST_TITLE[request.kind]?.() ?? REQUEST_TITLE.approval(),
+            risk: impact ? impact.risk : null, reversible: impact ? impact.reversible : null,
+            answerable: true, since: request.createdAt
+          }
+        }),
         activity
       }]
     })

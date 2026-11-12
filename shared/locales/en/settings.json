@@ -2,7 +2,7 @@
   "center": {
     "title": "Settings",
     "searchLabel": "Search settings",
-    "searchPlaceholder": "Filter categories",
+    "searchPlaceholder": "Find a setting",
     "settingsFor": "Settings for",
     "scope": "Settings scope",
     "application": "Application",
@@ -91,7 +91,9 @@
         "label": "About",
         "hint": "Version, downloads and installation"
       }
-    }
+    },
+    "workspaceNamed": "Workspace · {{name}}",
+    "autoApplyNote": "Changes apply at once. Risky ones show an undo for 6 seconds."
   },
   "header": {
     "close": "Close",
@@ -503,7 +505,7 @@
     "command": "Command"
   },
   "devices": {
-    "title": "Devices",
+    "title": "Phone and devices",
     "intro": "Use OXESpace from your Android phone on the same network: follow conversations, answer requests and watch terminals. The phone talks only to this computer, over your local network, never through the internet.",
     "loadFailed": "Could not read the phone connection.",
     "unavailable": "The phone connection is not available in this version.",
@@ -832,11 +834,15 @@
       "bodyLastValid": "The file has an error. Agents keep using the last modes that could be read, shown below. To change them, fix the file by hand and choose Reload.",
       "bodyDefaults": "The file has an error and has never been read, so agents use the app's defaults, shown below. To change them, fix the file by hand and choose Reload.",
       "readAgain": "Modes read again"
+    },
+    "noProject": {
+      "title": "No project folder open",
+      "body": "Open a workspace or project folder to configure project MCP tool groups and oxe.yaml rules."
     }
   },
   "data": {
     "title": "Data",
-    "description": "Manage your application data, exports and removed features",
+    "description": "What OXESpace keeps on this computer, and for how long.",
     "removedSection": "Removed in 1.5",
     "exportLabel": "Export removed data",
     "exportDesc": "Data from features removed in 1.5, in one JSON file.",
@@ -844,7 +850,12 @@
     "errorDesc": "Not saved yet: {{error}}",
     "showInFolder": "Show in folder",
     "tryNow": "Try now",
-    "exportAction": "Export…"
+    "exportAction": "Export…",
+    "historyTitle": "History",
+    "conversationHistory": "Conversation history",
+    "conversationHistoryHint": "Stored locally per project on this computer.",
+    "activityRetention": "Agent activity log",
+    "activityRetentionHint": "Kept locally on this computer for audit and review."
   },
   "agentPermissions": {
     "title": "What agents can do",
@@ -899,6 +910,79 @@
     "alwaysOn": {
       "noProdWrite": "Agents never write to production.",
       "denyAndHold": "Deny is the default, and irreversible approvals need a hold."
+    }
+  },
+  "hostsProxy": {
+    "sectionTitle": "Outgoing connections",
+    "toggleLabel": "Log the hosts agents connect to",
+    "toggleHint": "Logs hosts for programs that use HTTP_PROXY. Never paths, headers or bodies.",
+    "turnedOnNotice": "Applies to new agents' programs that use HTTP_PROXY. Some, like ssh or Node's fetch, skip it.",
+    "turnedOffNotice": "Logging stopped. Agents already running keep working until they end.",
+    "tryAgain": "Try again",
+    "filterLabel": "Filter hosts",
+    "empty": "No outgoing connections yet.",
+    "noMatch": "No matching hosts.",
+    "outsideConversation": "Outside a conversation",
+    "newBadge": "New",
+    "clearList": "Clear the list…",
+    "columns": {
+      "host": "Host",
+      "port": "Port",
+      "from": "From",
+      "count": "Connections",
+      "lastSeen": "Last seen"
+    },
+    "clearDialog": {
+      "title": "Clear outgoing connections?",
+      "body": "Clear the recorded hosts? This can't be undone.",
+      "cancel": "Cancel",
+      "confirm": "Clear"
+    }
+  },
+  "usage": {
+    "sectionTitle": "Usage on this computer",
+    "toggleLabel": "Count which features I use",
+    "toggleHint": "Counted on this computer only. Nothing is sent.",
+    "empty": "Nothing counted yet.",
+    "showAll": "Show all",
+    "exportJson": "Export as JSON…",
+    "clearCount": "Clear the count…",
+    "columns": {
+      "feature": "Feature",
+      "uses": "Uses",
+      "lastUsed": "Last used"
+    },
+    "clearDialog": {
+      "title": "Clear usage?",
+      "body": "Clear the usage count? This can't be undone.",
+      "cancel": "Cancel",
+      "confirm": "Clear"
+    },
+    "turnOffDialog": {
+      "title": "Stop counting?",
+      "body": "Also clear what was counted?",
+      "keep": "Keep",
+      "clear": "Clear"
+    },
+    "features": {
+      "approvalsQueue": "Approvals queue",
+      "commandBar": "Command bar",
+      "agentBrowser": "Agent browser",
+      "deviceEmulation": "Device emulation",
+      "androidMirror": "Android mirror",
+      "showOnPhone": "Show on phone",
+      "paneConversation": "Pane conversation",
+      "splitConversations": "Split conversations",
+      "approvalPreview": "Approval preview",
+      "alwaysAllow": "Always allow",
+      "agentPermissions": "What agents can do",
+      "httpCalls": "HTTP calls",
+      "agentActivity": "Agent activity",
+      "containersPanel": "Containers panel",
+      "worktreesPanel": "Worktrees panel",
+      "prSummary": "Pull request summary",
+      "timeTravel": "Time travel",
+      "branchFromCheckpoint": "Branch from checkpoint"
     }
   }
 }

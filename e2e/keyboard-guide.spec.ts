@@ -14,6 +14,7 @@ test('the shortcut guide lists the registry and Settings › Keyboard rebinds a 
     await page.waitForURL(/index\.html/)
     await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.show(); window.focus() })
     await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
+    await page.locator('button[data-app-mode="code"]').click()
 
     // ? outside a text field opens the guide for the current screen.
     await page.locator('body').click({ position: { x: 5, y: 300 } })

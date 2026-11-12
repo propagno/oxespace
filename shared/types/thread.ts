@@ -1,6 +1,6 @@
 import type { LineHunk } from '../lineDiff'
 /** Conversation identity is distinct from native session, memory run and pane IDs. */
-export type ThreadProvider = 'claude' | 'codex'
+export type ThreadProvider = 'claude' | 'codex' | 'antigravity'
 export type ThreadStatus = 'idle' | 'running' | 'approval' | 'interrupted' | 'failed'
 export type ThreadOperationState = 'created' | 'sent' | 'acknowledged' | 'running' | 'completed' | 'failed' | 'cancelled' | 'unknown'
 export type ThreadOperationKind = 'turn' | 'queue' | 'request' | 'configuration' | 'command' | 'recovery'
@@ -88,7 +88,13 @@ export interface ThreadCapabilityManifest {
   protocolVersion?: string
   platform: NodeJS.Platform
   authentication: 'subscription' | 'api' | 'unknown'
-  features: Record<string, ThreadCapability>
+  features: {
+    fork?: ThreadCapability
+    branch?: ThreadCapability
+    alwaysAllowBeyondSession?: ThreadCapability
+    paneConversation?: ThreadCapability
+    effort?: ThreadCapability
+  } & Record<string, ThreadCapability>
 }
 export interface ThreadUsageWindow { label: string; usedPercent: number; resetsAt?: number; windowMinutes?: number }
 export interface ThreadUsage { windows: ThreadUsageWindow[]; checkedAt: number }
@@ -350,7 +356,7 @@ export interface ThreadCostReport {
   cacheReadTokens?: number
   updatedAt: number
   /** claude-result: written before 0.17.2, summed running totals; claude-result-step: each turn's own step. */
-  source: 'claude-result' | 'claude-result-step' | 'codex-token-usage'
+  source: 'claude-result' | 'claude-result-step' | 'codex-token-usage' | 'antigravity-usage'
 }
 
 export interface ThreadContextReport {
@@ -361,7 +367,7 @@ export interface ThreadContextReport {
   autoCompactAtTokens?: number
   categories: ThreadContextCategory[]
   capturedAt: number
-  source: 'claude-control' | 'codex-token-usage'
+  source: 'claude-control' | 'codex-token-usage' | 'antigravity-usage'
 }
 
 export interface ThreadRewindResult {
@@ -619,6 +625,33 @@ export type ThreadDelta =
   | { ok: true; epoch: string; revision: number; live: number; thread: ConversationThread; events: { seq: number; event: ThreadEvent }[]; turns: ThreadTurn[]; deliveries: Record<string, ThreadDelivery>; pendingRequests: ThreadRequest[] }
   | { ok: false; reset: 'epoch' | 'unknown' | 'limit' }
 
+export interface ThreadTimelineCheckpoint {
+  id: string
+  n: number
+  turnId: string
+  at: number
+  label: string
+  files: string[]
+  checkout: string
+  failed?: boolean
+}
+
+export interface ThreadTimelineCantGoBack {
+  dbWrites: number
+  pushes: number
+  containers: number
+  commands: number
+  httpWrites: number
+  scope: 'conversation'
+}
+
+export interface ThreadTimeline {
+  checkpoints: ThreadTimelineCheckpoint[]
+  canBranch: boolean
+  branchRefusal?: { code: string; params: Record<string, unknown> }
+  cantGoBack: ThreadTimelineCantGoBack
+}
+
 export interface ThreadHistoryPage { events: ThreadEvent[]; before?: number; hasMore: boolean; total: number }
 
 export interface ThreadProjectSummary {
@@ -645,6 +678,8 @@ export interface ThreadPendingRequestSummary {
   createdAt: number
   /** The conversation generation the request belongs to; an answer must name it (`respondPending`). */
   generation: number
+  /** F7 impact summary when main assessed the request; absent otherwise. */
+  impact?: { risk: ThreadRequestImpactRisk; reversible: boolean }
 }
 
 /** An answer to a request listed by `pendingRequestsAll`, from any window or device. */
@@ -714,6 +749,7 @@ export interface ThreadApi {
   create(input: { projectId: string; rootPath?: string; provider: ThreadProvider; worktree?: ThreadWorktreeRequestInput }): Promise<ThreadSnapshot>
   read(id: string): Promise<ThreadSnapshot>
   history?(id: string, before?: number, limit?: number): Promise<ThreadHistoryPage>
+  timeline?(id: string): Promise<ThreadTimeline>
   attach?(id: string, input: { name: string; mimeType: ThreadAttachment['mimeType']; data: ArrayBuffer }): Promise<ThreadAttachment>
   removeAttachment?(id: string, attachmentId: string): Promise<void>
   send(id: string, text: string, attachmentIds?: string[]): Promise<void>
@@ -747,9 +783,11 @@ export interface ThreadApi {
   usageSummary?(id: string, options?: { scope?: 'thread' | 'project' | 'all'; days?: number }): Promise<ThreadUsageSummary>
   workRuns?(id: string): Promise<import('./work').WorkRun[]>
   cancelWork?(id: string, runId: string): Promise<import('./work').WorkRun>
-  rewind?(id: string, turnId: string, options?: { restoreFiles?: boolean }): Promise<ThreadRewindResult>
+  rewind?(id: string, turnId: string, options?: { restoreFiles?: boolean; confirmed?: boolean }): Promise<ThreadRewindResult>
   /** Brings back the turns (and files) of a rewind not confirmed by a new message yet. */
   redoRewind?(id: string): Promise<ThreadSnapshot>
+  /** F8 A30: branches from a checkpoint into a new worktree, workspace and forked conversation. */
+  branchFromCheckpoint?(id: string, checkpointId: string, input: { branch: string }): Promise<ThreadBranchResult>
   /** Sends a finished turn's prompt again, after undoing that turn's file changes when `restoreFiles` is set. */
   retryTurn?(id: string, turnId: string, options?: { restoreFiles?: boolean }): Promise<{ restoredFiles: number }>
   readSince?(id: string, cursor: ThreadSyncCursor): Promise<ThreadDelta>
@@ -792,6 +830,10 @@ export interface ThreadApi {
 
 /** One file changed by a turn, against the working tree now. */
 /** `path` is relative to `root`, the checkout the turn changed (absent from older builds). */
+export type ThreadBranchResult =
+  | { ok: true; threadId: string; workspaceId: string; worktreePath: string }
+  | { ok: false; refusal: import('../messages').MainMessage }
+
 export interface ThreadTurnFileStatus { path: string; root?: string; state: 'pending' | 'reverted' | 'modified'; preExists: boolean; postExists: boolean }
 
 export interface ThreadCliState {

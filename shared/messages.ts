@@ -316,6 +316,7 @@ export interface MessageParams extends PlaceMessageParams {
   'thread.commands.busy': Record<string, never>
   'thread.commands.claudeFailed': Record<string, never>
   'thread.commands.codexFailed': Record<string, never>
+  'thread.commands.antigravityFailed': Record<string, never>
   'thread.capability.readOnly': Record<string, never>
   'thread.capability.mcpReadOnly': Record<string, never>
   'thread.observe.unsupported': Record<string, never>
@@ -323,6 +324,18 @@ export interface MessageParams extends PlaceMessageParams {
   'thread.queue.deliveryUnconfirmed': Record<string, never>
   /** F6 / T76: a queued message cannot steer now (no turn is running, or the provider cannot steer). */
   'thread.steer.unavailable': Record<string, never>
+  /** F8 A30: files changed outside the conversation since the checkpoint's post-image. */
+  'thread.restore.foreignChanges': { count: number; files: string[] }
+  /** F8 A30: branching from a checkpoint into a new worktree. */
+  'thread.branch.unsupported': Record<string, never>
+  'thread.branch.checkpointGone': Record<string, never>
+  'thread.branch.checkpointFailed': Record<string, never>
+  'thread.branch.exists': Record<string, never>
+  'thread.branch.pathExists': { path: string }
+  'thread.branch.baseGone': Record<string, never>
+  'thread.branch.notGit': Record<string, never>
+  'thread.branch.sessionGone': Record<string, never>
+  'thread.branch.failed': { step: 'restore' | 'register' | 'fork' | 'conversation' }
   'oxequery.edit.readOnly': Record<string, never>
   'oxequery.edit.notTable': Record<string, never>
   'oxequery.edit.noKey': Record<string, never>
@@ -544,6 +557,20 @@ export interface MessageParams extends PlaceMessageParams {
   'agents.source.unavailable': { source: string }
   'preview.capture.devtools': Record<string, never>
   'preview.capture.busy': Record<string, never>
+  /** F8 A31 · Command bar refusals. */
+  'commandBar.skill.notEnabled': { name: string }
+  'commandBar.skill.noAgent': Record<string, never>
+  'commandBar.args.control': Record<string, never>
+  'commandBar.request.otherWorkspace': Record<string, never>
+  'commandBar.request.none': Record<string, never>
+  /** F9 A64: a feature a provider does not support stays visible and disabled with its provider display name. */
+  'parity.notAvailable': { provider: string }
+  /** F11 A68: the outgoing hosts proxy could not bind its loopback port because another process holds it. */
+  'hostsProxy.portInUse': { port: number }
+  /** F11 A68: the outgoing hosts proxy could not start for any other reason. */
+  'hostsProxy.failed': Record<string, never>
+  /** F11 A68: the person already set HTTP_PROXY / HTTPS_PROXY, so OXESpace does not replace it. */
+  'hostsProxy.userProxy': Record<string, never>
 }
 
 export type MessageCode = keyof MessageParams
@@ -730,12 +757,23 @@ export const MESSAGE_CODES = [
   'thread.commands.busy',
   'thread.commands.claudeFailed',
   'thread.commands.codexFailed',
+  'thread.commands.antigravityFailed',
   'thread.capability.readOnly',
   'thread.capability.mcpReadOnly',
   'thread.observe.unsupported',
   'thread.observe.changed',
   'thread.queue.deliveryUnconfirmed',
   'thread.steer.unavailable',
+  'thread.restore.foreignChanges',
+  'thread.branch.unsupported',
+  'thread.branch.checkpointGone',
+  'thread.branch.checkpointFailed',
+  'thread.branch.exists',
+  'thread.branch.pathExists',
+  'thread.branch.baseGone',
+  'thread.branch.notGit',
+  'thread.branch.sessionGone',
+  'thread.branch.failed',
   'oxequery.edit.readOnly',
   'oxequery.edit.notTable',
   'oxequery.edit.noKey',
@@ -881,7 +919,16 @@ export const MESSAGE_CODES = [
   'agents.request.pane',
   'agents.source.unavailable',
   'preview.capture.devtools',
-  'preview.capture.busy'
+  'preview.capture.busy',
+  'commandBar.skill.notEnabled',
+  'commandBar.skill.noAgent',
+  'commandBar.args.control',
+  'commandBar.request.otherWorkspace',
+  'commandBar.request.none',
+  'parity.notAvailable',
+  'hostsProxy.portInUse',
+  'hostsProxy.failed',
+  'hostsProxy.userProxy'
 ] as const satisfies readonly MessageCode[]
 
 /** A code and its parameters, as one value: what crosses IPC instead of a sentence. */

@@ -43,6 +43,7 @@ const VIEWPORTS: Record<Viewport, { width: number | null; height: number | null 
 export function WebPreviewPanel({ embedded = false, onClose, onRunCommand, onSendToAgent, workspace, threadId }: WebPreviewPanelProps): ReactElement {
   const agentName = workspace.panes?.find(pane => pane.agentName)?.agentName ?? tc('agentBrowser.defaultAgent')
   const { t } = useTranslation('code')
+  useEffect(() => { void window.oxe?.featureUsage?.record?.('agentBrowser') }, [])
   const previewKey = threadId ? `thread:${threadId}` : workspace.id
   const [tabs, setTabs] = useState<PreviewTab[]>([])
   const [activeTabId, setActiveTabId] = useState('')

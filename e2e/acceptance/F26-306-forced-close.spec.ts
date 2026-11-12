@@ -41,7 +41,7 @@ test('F26/#306 real app: a renderer that never answers is closed after ~3 s and 
     await openRepo(page, profile.repo)
     // An unsaved file, so the guard has something to ask about.
     writeFileSync(join(profile.repo, 'note.txt'), 'original\n')
-    await page.keyboard.press('Control+k'); await page.locator('[cmdk-item][data-value="cmd-tool-editor"]').click()
+    await page.keyboard.press('Control+Shift+P'); await page.locator('[cmdk-item][data-value="cmd-tool-editor"]').click()
     await page.locator('.editor-browser-file', { hasText: 'note.txt' }).first().click({ timeout: 10_000 })
     await page.locator('.monaco-editor').first().click({ timeout: 10_000 })
     await page.keyboard.press('Control+End'); await page.keyboard.insertText('changed, not saved\n')

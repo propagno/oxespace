@@ -31,7 +31,8 @@ test('Thread main flow in Brazilian Portuguese', async () => {
     await message.fill('')
 
     await setThreadState(app, workspaceRoot, 'conversation')
-    await expect(page.getByText('Use an HttpOnly cookie.')).toBeVisible()
+    // The status line repeats the answer's first sentence; the message itself is the one in the timeline.
+    await expect(page.locator('.thread-timeline').getByText('Use an HttpOnly cookie.')).toBeVisible()
 
     // Header ⋯: pin, text size and the transcript views.
     await page.locator('.thread-heading-actions').getByRole('button', { name: 'Mais ações', exact: true }).click()

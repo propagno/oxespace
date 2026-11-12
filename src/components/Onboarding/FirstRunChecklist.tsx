@@ -3,6 +3,7 @@ import { useEffect, useId, useMemo, useRef, type ReactElement, type ReactNode } 
 import { useTranslation } from 'react-i18next'
 import type { AgentAccountContext } from '../../../shared/types/agentAuth'
 import { selectAccount, useAccountStore } from '../../store/account.store'
+import { rememberAppView } from '../../app/startView'
 import { useAgentStore } from '../../store/agent.store'
 import { useNavigationPrefs, type FirstRunStep } from '../../store/navigation-prefs.store'
 import { useThreadStore } from '../../store/thread.store'
@@ -13,6 +14,7 @@ import { accountContext, accountMessage } from '../Threads/accountMessages'
 import { AgentInstallLinks } from './AgentCliOnboarding'
 import { watchFirstAnswer } from './firstAnswer'
 import styles from './FirstRunChecklist.module.css'
+export { FirstRun, type FirstRunAgent, type FirstRunAgentStatus, type FirstRunProps } from './FirstRun'
 
 const DOT: Record<AgentSetupState, 'idle' | 'running' | 'success' | 'attention' | 'danger'> = {
   unchecked: 'idle',
@@ -129,7 +131,7 @@ export function FirstRunChecklist({ onNewWorkspace, onAddProject }: { onNewWorks
       <div className={styles.header}>
         <h2 className={styles.title} id={titleId}>{t('firstRun.title')}</h2>
         <span className={styles.progress}>{t('firstRun.progress', { done: finished, total: REQUIRED.length })}</span>
-        <IconButton size="sm" label={t('firstRun.hide')} icon={<X size={14} />} onClick={() => useNavigationPrefs.getState().dismissFirstRun()} />
+        <IconButton size="sm" label={t('firstRun.hide')} icon={<X size={14} />} onClick={() => { rememberAppView('code'); useNavigationPrefs.getState().dismissFirstRun() }} />
       </div>
       <ol className={styles.steps}>
         <Step number={1} title={t('firstRun.agents')} done={done('agents')} summary={agents}>{agents}</Step>

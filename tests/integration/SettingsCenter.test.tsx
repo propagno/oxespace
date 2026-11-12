@@ -24,7 +24,7 @@ test('a workspace change applies at once and leaving needs no confirmation', asy
   // Only what changed: an unchanged layout sent along can rebuild the panes and their terminals.
   expect(onSave.mock.calls[0][0]).not.toHaveProperty('layoutPreset')
   expect(screen.queryByRole('button', { name: 'Save workspace settings' })).toBeNull()
-  fireEvent.click(screen.getByRole('group', { name: 'Settings scope' }).querySelector('button')!)
+  fireEvent.click(within(screen.getByRole('navigation', { name: 'Settings categories' })).getByRole('button', { name: /^Appearance/ }))
   expect(screen.queryByRole('dialog', { name: 'Save your changes?' })).toBeNull()
   expect(await screen.findByRole('heading', { name: 'Appearance' })).toBeVisible()
   fireEvent.click(screen.getByRole('button', { name: 'Back to work' }))
@@ -44,7 +44,7 @@ test('explicit initial page overrides the last visited workspace destination', a
   localStorage.setItem('oxe.settings.destination', JSON.stringify({scope:'workspace',workspaceId:'ws',page:'delegation'}))
   render(<SettingsCenter initialPage="providers" workspaces={[workspace]} shellProfiles={[]} onSave={vi.fn()} onClose={vi.fn()}
     agentProfiles={[]} agentReadiness={[]} isDiscoveringAgents={false} onDiscoverAgents={vi.fn()} onConfigureAgent={vi.fn()} onNewCustomAgent={vi.fn()} />)
-  expect(screen.getByRole('group', { name: 'Settings scope' }).querySelector('button')).toHaveAttribute('aria-pressed', 'true')
+  expect(within(screen.getByRole('navigation', { name: 'Settings categories' })).getByRole('button', { name: /^Agents/ })).toHaveAttribute('aria-current', 'page')
   expect(await screen.findByRole('heading', { name: 'Agents' })).toBeVisible()
   expect(screen.queryByRole('button', {name:/^Agents CLI discovery/})).toBeNull()
 })

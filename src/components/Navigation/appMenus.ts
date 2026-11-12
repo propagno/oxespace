@@ -23,6 +23,8 @@ export interface AppMenuContext {
   openSettings(): void
   addThreadProject(): void
   openCommandMenu(): void
+  openContainers?: () => void
+  version?: string
 }
 
 const sep = (id: string): AppMenuNode => ({ kind: 'separator', id })
@@ -32,7 +34,7 @@ const VIEWS: Array<[AppView, string]> = [['code', 'OxeCode'], ['thread', 'OxeCha
 /** Every palette action a menu points to; tests/app-menus.test.ts checks each one exists, so none disappears silently. */
 export const MENU_ACTION_IDS = ['new-workspace', 'workspace-settings', 'toggle-sidebar', 'tool-editor', 'tool-github', 'tool-background',
   'toggle-split-layout', 'balance-pane-layout', 'split-vertical', 'split-horizontal', 'maximize-pane',
-  'tool-mcp', 'open-usage', 'help.shortcuts', 'help.report-problem', 'help.about', 'settings.diagnostics', 'settings.about'] as const
+  'tool-http-calls', 'tool-android', 'tool-mcp', 'open-usage', 'help.whats-new', 'help.shortcuts', 'help.report-problem', 'help.about', 'settings.diagnostics', 'settings.about'] as const
 /** Families of actions shown as submenus, by id prefix. */
 export const MENU_ACTION_PREFIXES = ['appearance-', 'density-', 'layout-'] as const
 type MenuActionId = typeof MENU_ACTION_IDS[number]
@@ -108,12 +110,17 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
     },
     {
       id: 'tools', label: t('menu.tools'), items: compact([
+        fromAction('tool-android'),
+        fromAction('tool-http-calls'),
+        ctx.openContainers ? { kind: 'item', id: 'containers', label: i18n.t('panels.containers', { ns: 'code' }), onSelect: ctx.openContainers } : null,
+        sep('tools-1'),
         fromAction('tool-mcp'),
         fromAction('open-usage')
       ])
     },
     {
       id: 'help', label: t('menu.help'), items: compact([
+        fromAction('help.whats-new'),
         fromAction('help.shortcuts', shortcutLabel('help.shortcuts')),
         fromAction('settings.diagnostics'),
         fromAction('help.report-problem'),

@@ -1,7 +1,18 @@
-/* One button in the (frameless) title bar opens File, Edit, View and Help. */
-.app-menu-button { display: inline-grid; place-items: center; width: 28px; height: 28px; margin-left: 2px; padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--text-secondary); cursor: pointer; -webkit-app-region: no-drag; }
+/* Inline File · Edit · View · Tools · Help menu bar beside the logo, plus the compact Application menu trigger. */
+.app-menubar-wrap { display: inline-flex; align-items: center; gap: 2px; min-width: 0; -webkit-app-region: no-drag; }
+.app-menu-button { display: inline-grid; place-items: center; width: 26px; height: 26px; margin-left: 2px; padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); cursor: pointer; flex-shrink: 0; -webkit-app-region: no-drag; }
 .app-menu-button:hover, .app-menu-button[data-state='open'] { background: var(--fill-hover); color: var(--text-primary); }
 .app-menu-button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+
+.app-menubar-inline { display: inline-flex; align-items: center; gap: 1px; margin-left: 2px; -webkit-app-region: no-drag; }
+.app-menubar-trigger { height: 24px; min-height: 24px; padding: 0 7px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); font-size: var(--text-xs); font-weight: var(--weight-regular); cursor: pointer; transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard); }
+.app-menubar-trigger:hover, .app-menubar-trigger[data-state='open'] { background: var(--fill-hover); color: var(--text-primary); }
+@media (min-width: 1121px) {
+  .app-menu-button { display: none; }
+}
+@media (max-width: 1120px) {
+  .app-menubar-inline { display: none; }
+}
 
 .app-menu-content { z-index: var(--layer-modal); min-width: 224px; padding: 4px; border: 1px solid var(--wb-border); border-radius: var(--radius-md); background: var(--bg-elevated); color: var(--tx-primary); box-shadow: var(--shadow-lg); }
 .app-menu-item { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px 0 4px; border-radius: var(--radius-sm); font-size: var(--fs-xs); cursor: default; outline: none; user-select: none; }

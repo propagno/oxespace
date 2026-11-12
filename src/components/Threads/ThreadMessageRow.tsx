@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { threadAgentName } from '../../../shared/threadProviders'
 import { Check, Clock3, Copy, FileText, Image as ImageIcon, Paperclip, Quote } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
@@ -52,10 +53,19 @@ export function ThreadMessageRow({ event, turnEvents, snapshot, running, pending
   if (notice) return <p className="thread-task-notice" role="note"><Clock3 size={12} aria-hidden="true" />{notice.summary ? t('message.taskNoticeSummary', { status: notice.status, summary: notice.summary }) : t('message.taskNotice', { status: notice.status })}</p>
   const displayText = event.role === 'user' && event.id.startsWith('native:') ? formatNativeUserText(event.text) : event.text
   if (!displayText && !event.historicalQuestions?.length) return null
-  const copyText = event.historicalQuestions?.length ? [displayText, t('message.recovered'),...event.historicalQuestions.flatMap(question => [question.title, ...(question.options ?? []).map(option => `- ${option}`)])].filter(Boolean).join('\n\n') : displayText
+  const copyText = event.historicalQuestions?.length ? [displayText, t('message.recovered'), ...event.historicalQuestions.flatMap(question => [question.title, ...(question.options ?? []).map(option => `- ${option}`)])].filter(Boolean).join('\n\n') : displayText
   const final = event.role === 'assistant' && threadTurnPresentation(turnEvents).finalMessageId === event.id
+  const showAvatar = event.role === 'assistant' && (final || turnEvents.find(value => value.type === 'message' && value.role === 'assistant') === event)
+  const provider = snapshot?.thread.provider ?? 'claude'
   return <article className={`thread-message thread-message-${event.role}${final ? ' is-final-response' : ''}`}>
-    {event.role === 'assistant' && (final || turnEvents.find(value => value.type === 'message' && value.role === 'assistant') === event) && <div className="thread-agent-label"><span className="thread-agent-name"><AgentProviderIcon provider={snapshot?.thread.provider ?? 'claude'} size={16} />{snapshot?.thread.provider === 'claude' ? 'Claude' : 'Codex'}</span>{final && <span className="thread-final-label">{t('message.final')}</span>}</div>}
+    {showAvatar && (
+      <div className="thread-agent-label">
+        <span className="thread-agent-avatar" aria-hidden="true">
+          <AgentProviderIcon provider={provider} size={18} />
+        </span>
+        <span className="thread-agent-name">{threadAgentName(provider)}</span>
+      </div>
+    )}
     {event.role === 'user' && event.attachments?.length ? <ul className="thread-sent-attachments" aria-label={t('message.attachments')}>{event.attachments.map(attachment => <li key={attachment.id} title={attachment.name}><ImageIcon size={14} aria-hidden="true" /><span>{attachment.name}</span><small>{kilobytes(attachment.bytes)}</small></li>)}</ul> : null}
     <ThreadMessageBody text={displayText} role={event.role} />
     {event.role === 'user' && event.context?.length ? <ul className="thread-sent-context" aria-label={t('message.context')}>{event.context.map(file => <li key={file.path} title={t(file.truncated ? 'message.bytesTruncated' : 'message.bytes', { bytes: formatNumber(file.bytes) })}><FileText size={12} aria-hidden="true" /><span>{file.path}</span>{file.truncated && <small>{t('message.truncated')}</small>}</li>)}</ul> : null}
@@ -77,7 +87,7 @@ export function ThreadMessageRow({ event, turnEvents, snapshot, running, pending
     {event.role !== 'user' && event.attachments?.length ? <div className="thread-message-attachments" aria-label={t('message.attachments')}>{event.attachments.map(attachment => <span key={attachment.id}><Paperclip size={12} />{attachment.name}<small>{kilobytes(attachment.bytes)}</small></span>)}</div> : null}
     {event.role === 'assistant' && <div className="thread-message-actions">
       <button type="button" aria-label={t('message.quote')} title={t('message.quote')} onClick={() => onQuote(copyText)}><Quote size={14} /></button>
-      <button type="button" aria-label={copied ? t('message.copiedLabel') : final ? t('message.copyFinal') : t('message.copyResponse')} title={copied ? t('message.copied') : final ? t('message.copyFinal') : t('message.copyResponse')} onClick={() => onCopy(event.id, copyText)}>{copied ? <Check size={14} className="oxe-confirm" /> : <Copy size={14} />}{final && <span>{copied ? t('message.copied') : t('message.copy')}</span>}</button>
+      <button type="button" aria-label={copied ? t('message.copiedLabel') : final ? t('message.copyFinal') : t('message.copyResponse')} title={copied ? t('message.copied') : final ? t('message.copyFinal') : t('message.copyResponse')} onClick={() => onCopy(event.id, copyText)}>{copied ? <Check size={14} className="oxe-confirm" /> : <Copy size={14} />}</button>
     </div>}
   </article>
 }

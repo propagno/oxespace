@@ -14,7 +14,8 @@
     "more": "More panels",
     "needsWorkspace": "Open a workspace to use its panels",
     "httpCalls": "HTTP calls",
-    "android": "Android"
+    "android": "Android device",
+    "containers": "Containers"
   },
   "tools": {
     "team": {
@@ -65,7 +66,7 @@
       "detail": "Branch and uncommitted changes"
     },
     "android": {
-      "label": "Android",
+      "label": "Android device",
       "detail": "Live mirror of a connected phone or emulator",
       "keywords": "android, adb, emulator, phone, mirror"
     },
@@ -845,7 +846,8 @@
       "title": "This pane cannot be split here",
       "hint": "Every place in this layout is taken. Choose a larger layout, or turn on the split layout to add panes freely.",
       "tooNarrow": "Each half would be narrower than {{width}} px. Close another pane, or make the window wider.",
-      "tooShort": "Each half would be shorter than {{height}} px. Close another pane, or make the window taller."
+      "tooShort": "Each half would be shorter than {{height}} px. Close another pane, or make the window taller.",
+      "tooSmall": "No room to split: panes would be {{w}} × {{h}} px, under {{minW}} × {{minH}}."
     },
     "attention": {
       "blocked": "Needs your approval or answer",
@@ -898,7 +900,8 @@
       "live": "Live",
       "latest": "Latest",
       "typeInTerminal": "Type in the terminal"
-    }
+    },
+    "overflowNote": "{{n}} panes don't fit at this width, so they show one at a time."
   },
   "sidebar": {
     "rename": "Rename workspace {{name}}",
@@ -940,6 +943,7 @@
       "exited_other": "{{count}} exited"
     },
     "newWorkspace": "New workspace",
+    "railNeedsDecision": "{{name}}, needs your decision",
     "search": "Files & commands ({{shortcut}})",
     "searchLabel": "Files & commands",
     "openPanels": "Open panels",
@@ -1178,6 +1182,21 @@
     },
     "settings": {
       "pages": {
+        "general": {
+          "label": "General",
+          "hint": "Project instructions and workspace preferences",
+          "description": "Set default instructions, shell preferences and appearance for this workspace."
+        },
+        "projects": {
+          "label": "Projects",
+          "hint": "Worktrees and branches",
+          "description": "Inspect and manage git worktrees and branches linked to this workspace."
+        },
+        "policy": {
+          "label": "Policy",
+          "hint": "Workspace policy rules",
+          "description": "Control which tools and actions agents may run in this workspace."
+        },
         "appearance": {
           "label": "Appearance",
           "hint": "Mode, density & layout",
@@ -1242,6 +1261,10 @@
     },
     "topbar": {
       "label": "Workspace status",
+      "agent": "Agent",
+      "agentMenu": "Launch agent",
+      "layoutMenu": "Terminal grid layout",
+      "layoutFocus": "Focus",
       "mcp": "Open MCP servers",
       "mcpQuarantined_one": "Open MCP servers: {{count}} quarantined",
       "mcpQuarantined_other": "Open MCP servers: {{count}} quarantined",
@@ -1249,7 +1272,8 @@
       "activityShort": "Activity",
       "panels": "Workspace panels",
       "openPanels": "Open workspace panels",
-      "morePanels": "More panels: {{count}}"
+      "morePanels": "More panels: {{count}}",
+      "addTerminal": "New terminal"
     }
   },
   "memory": {
@@ -1997,6 +2021,7 @@
     "start": "Start terminal",
     "starting": "Starting…",
     "startButton": "Start Terminal",
+    "commandPlaceholder": "Type a command and press Enter",
     "status": {
       "idle": "idle",
       "starting": "starting",
@@ -2527,5 +2552,46 @@
     "udevHint": "Add a /etc/udev/rules.d/51-android.rules entry for your vendor ID and reload udev.",
     "howToSetUp": "How to set it up",
     "reconnect": "Reconnect"
+  },
+  "containers": {
+    "empty": "No containers. Start a compose stack from a project.",
+    "startedByYou": "You",
+    "outside": "Outside OXESpace",
+    "outsideHint": "Started before OXESpace or by another tool",
+    "statusRunning": "Running",
+    "statusStopped": "Stopped",
+    "detailLabel": "Selected container",
+    "stop": "Stop",
+    "start": "Start",
+    "restart": "Restart",
+    "moreActions": "More actions",
+    "openShell": "Open a shell",
+    "copyId": "Copy container ID",
+    "connectInOxeQuery": "Connect in OxeQuery",
+    "stopStack": "Stop the whole stack…",
+    "removeContainer": "Remove container…",
+    "stoppedToast": "Stopped {{name}}",
+    "undo": "Undo",
+    "noLogs": "No logs yet.",
+    "tryAgain": "Try again",
+    "howToInstall": "How to install",
+    "confirmStopStackTitle": "Stop {{stack}}?",
+    "confirmStopStackBody": "All containers in {{stack}} will stop.",
+    "confirmStopStackAction": "Stop stack",
+    "confirmRemoveTitle": "Remove {{name}}?",
+    "confirmRemoveBody": "This removes the container. Volumes are kept.",
+    "confirmRemoveAction": "Remove",
+    "engineName": {
+      "docker": "Docker",
+      "podman": "Podman"
+    },
+    "engine": {
+      "stoppedTitle": "{{engine}} isn't answering",
+      "stoppedBody": "Start {{engine}}, then try again.",
+      "missingTitle": "{{engine}} not found",
+      "missingBody": "Install Docker or Podman, then reopen this panel.",
+      "deniedTitle": "Can't reach {{engine}}",
+      "deniedBody": "Check that your user may use {{engine}}, then try again."
+    }
   }
 }

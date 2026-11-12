@@ -45,6 +45,8 @@ import { projectDiffAt } from './thread-place-heads'
 import type { ThreadCollision, ThreadPane, ThreadPaneSource, ThreadPathResolution, ThreadPlace, ThreadPlaceActionResult, ThreadPlaceDiff, ThreadPlaceDriftAnswer, ThreadPlaceReadResult, ThreadPlaces, ThreadPlaceUndoInput, ThreadPlaceUndoResult } from '../../../../shared/types/thread-places'
 import type { MainMessage } from '../../../../shared/messages'
 import { explainMissingFolder, ThreadFolderMissingError } from './thread-worktree'
+import { threadTimeline } from './thread-timeline'
+import { branchFromCheckpoint, type ThreadBranching } from './thread-branch'
 /** The checkout a conversation works in: a worktree of its repository the provider moved into, else its root. */
 const workingRootOf = (thread: ConversationThread): string =>
   thread.observedLocation?.sameRepository && thread.observedLocation.checkoutRoot ? thread.observedLocation.checkoutRoot : thread.rootPath
@@ -109,6 +111,7 @@ export class ThreadOrchestrator {
   protected readonly placeObserver: ThreadPlaceObserver
   private readonly placeActions = new ThreadPlaceActions(() => this.db, id => this.places(id))
   private paneSource: () => ThreadPaneSource[] = () => []
+  private hostsProxy?: { grant(origin: { conversationId: string }): { env: Record<string, string>; revoke(): void } }
   private readonly busy = new Set<string>()
   private readonly nativePageLoads = new Map<string, Promise<void>>()
   private readonly finalizing = new Set<string>()
@@ -129,8 +132,9 @@ export class ThreadOrchestrator {
   private readonly idleSweep: ReturnType<typeof setInterval>
   /** Daily retention pass for an app left open for days. */
   private readonly retentionSweep: ReturnType<typeof setInterval>
+  private branching?: ThreadBranching
   constructor(private readonly db: AppDatabase,
-    private readonly factory: (thread: ConversationThread) => Promise<AgentConversationAdapter>,
+    private readonly factory: (thread: ConversationThread, extraEnv?: Record<string, string>) => Promise<AgentConversationAdapter>,
     private readonly notifyChanged: (threadId: string) => void,
     private readonly preflight?: (thread: ConversationThread) => Promise<void>,
     private readonly commandService?: {
@@ -191,6 +195,7 @@ export class ThreadOrchestrator {
   resolvePath(id: string, raw: string, at: { turnId?: string } = {}): Promise<ThreadPathResolution> { return this.placeObserver.resolvePath(id, raw, at) }
   /** The app's panes, for the places a pane works in; set once the pane registry is up. */
   configurePanes(source: () => ThreadPaneSource[]): void { this.paneSource = source }
+  configureHostsProxy(proxy: { grant(origin: { conversationId: string }): { env: Record<string, string>; revoke(): void } }): void { this.hostsProxy = proxy }
   paneSources(): ThreadPaneSource[] { try { return this.paneSource() } catch { return [] } }
   /** A18 · the task's Terminal tab: panes whose newest known cwd is in one of its places; computed, never stored. */
   panes(id: string): Promise<ThreadPane[]> { return this.placeObserver.panes(id) }
@@ -342,6 +347,10 @@ export class ThreadOrchestrator {
     this.readThread(id)
     return this.history.artifact(id, artifactId)
   }
+
+  async timeline(id: string): Promise<import('../../../../shared/types/thread').ThreadTimeline> { await Promise.allSettled([...this.finalizationTasks]); await this.placeStore.idle(id); return threadTimeline({ db: this.db, snapshot: this.read(id) }) }
+  configureBranching(branching: ThreadBranching): void { this.branching = branching }
+  branchFromCheckpoint(id: string, checkpointId: string, input: { branch: string }): Promise<import('../../../../shared/types/thread').ThreadBranchResult> { return branchFromCheckpoint({ db: this.db, checkpoints: this.checkpoints, branching: this.branching, settleFinalization: async () => { await Promise.allSettled([...this.finalizationTasks]) }, read: tid => this.read(tid), save: (s, o) => this.save(s, o), create: c => this.create(c), deleteThread: async tid => { this.db.prepare('DELETE FROM conversation_threads WHERE id = ?').run(tid); this.forget(tid); await this.attachmentStore?.removeThread(tid); this.changed(tid) }, assertNativeSessionAvailable: (tid, p, s) => this.assertNativeSessionAvailable(tid, p, s) }, id, checkpointId, input) }
 
   async historyPage(id: string, before?: number, limit?: number): Promise<import('../../../../shared/types/thread').ThreadHistoryPage> {
     this.flushDeltas(id)
@@ -724,7 +733,7 @@ export class ThreadOrchestrator {
   }
 
   /** Rewinds to just before a turn; the provider follows when the next message is sent (see thread-rewind-flow). */
-  rewind(id: string, turnId: string, options: { restoreFiles?: boolean } = {}): Promise<ThreadRewindResult> {
+  rewind(id: string, turnId: string, options: { restoreFiles?: boolean; confirmed?: boolean } = {}): Promise<ThreadRewindResult> {
     return rewind(this.rewindHost(), id, turnId, options)
   }
 
@@ -802,8 +811,8 @@ export class ThreadOrchestrator {
       const before = turnConfiguration(previous)
       const configuration: ThreadConfiguration = mergeTurnConfiguration(previous, input)
       if (configuration.access === 'read-only') configuration.hooksEnabled = false
-      // Auto-accepting edits is a Claude permission mode that only means something when edits are allowed.
-      if (configuration.mode === 'acceptEdits' && snapshot.thread.provider !== 'claude') throw Error('Auto-accepting edits is available for Claude conversations')
+      // Auto-accepting edits is a permission mode of Claude and Antigravity that only means something when edits are allowed.
+      if (configuration.mode === 'acceptEdits' && snapshot.thread.provider === 'codex') throw Error('Auto-accepting edits is available for Claude and Antigravity conversations')
       if (configuration.mode === 'acceptEdits' && configuration.access !== 'workspace-write') configuration.mode = 'default'
       if (input.model || input.reasoningEffort !== undefined) {
         const catalog = await this.models(id)
@@ -954,7 +963,7 @@ export class ThreadOrchestrator {
       const snapshot = this.read(id)
       const { type: _type, ...cost } = turn
       const now = Date.now()
-      snapshot.thread.costReport = addTurnCost(repairLegacyCost(snapshot.thread.costReport), cost, now, snapshot.thread.provider === 'codex' ? 'codex-token-usage' : 'claude-result-step')
+      snapshot.thread.costReport = addTurnCost(repairLegacyCost(snapshot.thread.costReport), cost, now, snapshot.thread.provider === 'codex' ? 'codex-token-usage' : snapshot.thread.provider === 'antigravity' ? 'antigravity-usage' : 'claude-result-step')
       this.save(snapshot, { eventsFrom: snapshot.events.length })
       const model = snapshot.thread.model ?? snapshot.thread.contextReport?.model
       try { this.usage.record({ ...cost, ...turnSteps(snapshot), threadId: id, projectRoot: snapshot.thread.rootPath, provider: snapshot.thread.provider, ...(model ? { model } : {}), at: now }) } catch { /* The ledger is best effort; the conversation keeps its own total. */ }
@@ -1177,9 +1186,11 @@ export class ThreadOrchestrator {
     const connecting = this.read(id)
     connecting.thread.connection = this.sessions.begin(id)
     this.save(connecting, { eventsFrom: connecting.events.length })
+    const proxyGrant = this.hostsProxy?.grant({ conversationId: id })
     let adapter: AgentConversationAdapter | undefined
     try {
-      adapter = await this.factory(thread)
+      adapter = await this.factory(thread, proxyGrant?.env)
+      if (proxyGrant && adapter) { const orig = adapter.dispose.bind(adapter); adapter.dispose = async () => { try { await orig() } finally { proxyGrant.revoke() } } }
       if (this.stopping) { await adapter.dispose(); throw Error('Application is shutting down') }
       this.adapters.set(id, adapter)
       this.lastActivity.set(id, Date.now())
@@ -1195,7 +1206,7 @@ export class ThreadOrchestrator {
       this.save(connected, { eventsFrom: connected.events.length })
       return adapter
     } catch (cause) {
-      if (adapter && this.adapters.get(id) === adapter) this.adapters.delete(id)
+      if (adapter && this.adapters.get(id) === adapter) this.adapters.delete(id); proxyGrant?.revoke()
       await adapter?.dispose().catch(() => {})
       // A removed worktree makes the provider fail to start with a spawn error; say what actually happened.
       const error = explainMissingFolder(cause, thread.rootPath)
@@ -1208,28 +1219,18 @@ export class ThreadOrchestrator {
     }
   }
 
-  private drainQueue(id: string): Promise<void> {
-    return drainQueue(this.queueHost(), id)
-  }
-
+  private drainQueue(id: string): Promise<void> { return drainQueue(this.queueHost(), id) }
   private queueHost(): QueueHost {
     return {
-      isStopping: () => this.stopping,
-      isBusy: id => this.busy.has(id),
+      isStopping: () => this.stopping, isBusy: id => this.busy.has(id), adapter: id => this.adapters.get(id),
       blocksDrain: id => this.busy.has(id) || this.finalizing.has(id) || this.configuring.has(id),
       setBusy: (id, busy) => { if (busy) this.busy.add(id); else this.busy.delete(id) },
       markSendNowAfterStop: (id, marked) => { if (marked) this.sendNowAfterStop.add(id); else this.sendNowAfterStop.delete(id) },
-      takeSendNowAfterStop: id => this.sendNowAfterStop.delete(id),
-      read: id => this.read(id),
-      save: (snapshot, options) => this.save(snapshot, options),
-      transitionOperation: (id, operationId, state, reason) => { this.history.transitionOperation(id, operationId, state, reason) },
-      adapter: id => this.adapters.get(id),
-      resolveAttachments: (id, attachmentIds) => this.resolveAttachments(id, attachmentIds),
-      releaseAttachments: (id, attachmentIds) => this.releaseAttachments(id, attachmentIds),
-      applyPendingRewind: id => this.applyPendingRewind(id),
-      beginTurn: (id, turnId, thread, label, baseline) => this.turns.begin(id, turnId, workingRootOf(thread), label, baseline),
-      send: (id, text, attachmentIds) => this.send(id, text, attachmentIds),
-      interrupt: id => this.interrupt(id)
+      takeSendNowAfterStop: id => this.sendNowAfterStop.delete(id), read: id => this.read(id), save: (s, o) => this.save(s, o),
+      transitionOperation: (id, op, st, r) => { this.history.transitionOperation(id, op, st, r) },
+      resolveAttachments: (id, a) => this.resolveAttachments(id, a), releaseAttachments: (id, a) => this.releaseAttachments(id, a),
+      applyPendingRewind: id => this.applyPendingRewind(id), send: (id, t, a) => this.send(id, t, a), interrupt: id => this.interrupt(id),
+      beginTurn: (id, turnId, thread, label, baseline) => this.turns.begin(id, turnId, workingRootOf(thread), label, baseline)
     }
   }
 
@@ -1239,10 +1240,7 @@ export class ThreadOrchestrator {
       if (otherId === id) continue
       try {
         const other = this.read(otherId).thread
-        const activeNativeId = other.nativeSessionId
-        if (other.provider === provider && activeNativeId === nativeSessionId) {
-          throw Error('This native session is already open in another OxeChat conversation')
-        }
+        if (other.provider === provider && other.nativeSessionId === nativeSessionId) throw Error('This native session is already open in another OxeChat conversation')
       } catch (error) {
         if (error instanceof Error && error.message.includes('already open')) throw error
         // Deleted local owners are ignored and cleaned up by their lifecycle.

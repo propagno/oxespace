@@ -277,7 +277,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {activePath && (
               <>
-                <span className="editor-readonly-notice" style={{ fontSize: 12, opacity: 0.7 }}>
+                <span className="editor-readonly-notice">
                   {t('editor.readOnly', { defaultValue: 'Read only · edit in your editor' })}
                 </span>
                 <Button variant="secondary" size="sm" onClick={() => void handleOpenInEditor()}>

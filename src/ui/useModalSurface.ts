@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
@@ -42,10 +42,18 @@ export function useModalSurface<T extends HTMLElement>(onClose: () => void, enab
   const ref = useRef<T | null>(null)
   const close = useRef(onClose)
   close.current = onClose
+  const opener = useRef<HTMLElement | null>(null)
+  // What had focus when the panel opened, read before the panel's own layout effect moves focus to one of its fields.
+  // Read later, in the effect below, it would be that field, which is gone at close, and focus would fall to <body>.
+  useLayoutEffect(() => {
+    const active = document.activeElement
+    opener.current = enabled && active instanceof HTMLElement && active !== document.body && !ref.current?.contains(active) ? active : null
+  }, [enabled])
   useEffect(() => {
     const surface = ref.current
     if (!enabled || !surface) return
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const active = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const previous = opener.current ?? (active && !surface.contains(active) ? active : null)
     if (!surface.contains(document.activeElement)) surface.focus({ preventScroll: true })
     const restore = inertOutside(surface)
     const onKeyDown = (event: KeyboardEvent): void => {

@@ -66,6 +66,8 @@
     "openSettings": "Abrir configurações",
     "collapseSidebar": "Recolher barra lateral",
     "expandSidebar": "Expandir barra lateral",
+    "collapseSidebarShortcut": "Recolher a barra lateral (Ctrl B)",
+    "expandSidebarShortcut": "Expandir a barra lateral (Ctrl B)",
     "clearSearch": "Limpar busca",
     "applicationMenu": "Menu do aplicativo",
     "menu": "Menu",
@@ -82,7 +84,9 @@
     "failed_one": "{{count}} falhou",
     "failed_many": "{{count}} falharam",
     "failed_other": "{{count}} falharam",
-    "working": "{{count}} em andamento"
+    "working": "{{count}} em andamento",
+    "nothingWaiting": "Nada aguardando",
+    "approvalsWaiting": "Aprovações aguardando você"
   },
   "menu": {
     "file": "Arquivo",
@@ -135,6 +139,9 @@
       "f6ToProgram": "Num painel de terminal com “Enviar F6 ao programa” ligado (no menu ⋯), F6 e Shift+F6 vão para o programa dele, como mc, htop ou tig; {{toggle}} continua fazendo o Tab mover o foco para fora."
     },
     "bindings": {
+      "commandBar": {
+        "open": "Abrir a barra de comando"
+      },
       "palette": {
         "open": "Abrir a paleta de comandos",
         "search": "Buscar arquivos e comandos"
@@ -187,6 +194,7 @@
         "permissions": "Permissões",
         "model": "Modelo",
         "effort": "Esforço de raciocínio",
+        "history": "Histórico",
         "sideChat": "Chat lateral"
       },
       "help": {
@@ -410,7 +418,26 @@
     "githubBefore": "Pull requests e issues precisam do GitHub CLI com login feito",
     "githubAfter": "O OXESpace verifica isso assim que um projeto é aberto.",
     "copy": "Copiar comando",
-    "markDone": "Marcar como concluído"
+    "markDone": "Marcar como concluído",
+    "v2": {
+      "folderStep": "Abra uma pasta de projeto",
+      "chooseFolder": "Escolher pasta",
+      "agentStep": "Conecte um agente",
+      "howToInstall": "Como instalar",
+      "signIn": "Entrar no {{provider}}",
+      "waiting": "Aguardando o login no navegador…",
+      "cancel": "Cancelar",
+      "readyModel": "Pronto · {{model}}",
+      "ready": "Pronto",
+      "conversationStep": "Comece sua primeira conversa",
+      "newConversation": "Nova conversa",
+      "connectFirst": "Conecte um agente primeiro",
+      "openModeAlone": "Ou abra um modo sozinho",
+      "heroTitle": "Agentes que trabalham no seu código e mostram cada passo",
+      "heroLead": "Escolha uma pasta de projeto, conecte o Claude Code ou o Codex e trabalhe vendo cada etapa.",
+      "modeDescCode": "Terminais e agentes lado a lado",
+      "modeDescQuery": "Tabelas e consultas SQL com segurança"
+    }
   },
   "usage": {
     "resetUnknown": "Horário de renovação desconhecido",
@@ -485,10 +512,43 @@
       "readyDetail": "Reinicie para instalar a atualização."
     },
     "devBuild": "As atualizações só funcionam em versões instaladas",
+    "chip": {
+      "available": "Atualizar para {{version}}",
+      "downloading": "Baixando {{version}}… {{percent}}%",
+      "downloaded": "Reinicie para atualizar",
+      "restartNow": "Reiniciar agora",
+      "later": "Depois",
+      "error": "Não foi possível baixar a atualização. Tente depois ou baixe na página de versões.",
+      "openReleases": "Abrir página de versões"
+    },
+    "whatsNew": {
+      "title": "Novidades da 1.5",
+      "open": "Abrir",
+      "openTarget": "Abrir {{title}}",
+      "rows": {
+        "browser": {
+          "title": "Navegador dos agentes",
+          "body": "Veja o agente guiar seu app no computador ou no tamanho de celular."
+        },
+        "approvals": {
+          "title": "Aprovações com impacto",
+          "body": "Aprove vendo o impacto à sua frente; passos sem volta exigem segurar."
+        },
+        "httpCalls": {
+          "title": "Chamadas HTTP",
+          "body": "Cada chamada HTTP feita pelos agentes, com segredos ocultos."
+        },
+        "timeTravel": {
+          "title": "Viagem no tempo",
+          "body": "Volte a qualquer checkpoint ou ramifique a partir dele."
+        }
+      }
+    },
     "removedFeatures": {
       "info": "O OXESpace 1.5 removeu alguns recursos. Seus dados foram salvos.",
       "warning": "O OXESpace 1.5 removeu alguns recursos. Seus dados ainda não foram salvos.",
       "seeWhatChanged": "Ver o que mudou",
+      "seeWhatsNew": "Ver as novidades",
       "dismiss": "Dispensar",
       "tryNow": "Tentar agora",
       "dialogTitle": "O que mudou na 1.5",
@@ -555,6 +615,84 @@
   "brand": {
     "tagline": "Agentes e terminais para os seus projetos"
   },
+  "commandBar": {
+    "sections": { "actions": "Ações", "goTo": "Ir para", "openBeside": "Abrir ao lado" },
+    "destinations": {
+      "oxechat": "Conversas e tarefas delegadas",
+      "oxecode": "Workspaces, terminais e alterações",
+      "oxequery": "Bancos de dados, SQL e MongoDB",
+      "settings": "Configurações",
+      "settingsHint": "Preferências do aplicativo e do workspace",
+      "approvals": "Aprovações",
+      "approvalsHint": "Pedidos aguardando sua decisão",
+      "conversation": "Conversa no OxeChat"
+    },
+    "footer": { "navigate": "navegar", "run": "executar", "close": "fechar" },
+    "keys": { "escape": "Esc" },
+    "trigger": "Perguntar, rodar ou ir para…",
+    "dialogLabel": "Barra de comando",
+    "inputLabel": "Perguntar, rodar ou ir para",
+    "groups": {
+      "commands": "Comandos",
+      "skills": "Skills",
+      "agents": "Agentes",
+      "workspaces": "Workspaces"
+    },
+    "hints": {
+      "agent": "começar ou delegar",
+      "skill": "rodar uma skill",
+      "open": "ir a qualquer lugar",
+      "help": "todos os comandos e atalhos"
+    },
+    "examples": {
+      "agent": "@Codex escreva testes para o webhook do Pix",
+      "skill": "/skill pix-rules",
+      "open": "open billing-staging",
+      "help": "?"
+    },
+    "resultCount_one": "{{count}} resultado",
+    "resultCount_many": "{{count}} resultados",
+    "resultCount_other": "{{count}} resultados",
+    "noMatch": "Nada encontrado para {{query}}",
+    "noCommand": "Não existe o comando {{command}}",
+    "also": "Também: {{button}}",
+    "fallback": {
+      "pending": "Precisa de você",
+      "deny": "Negar no cartão do pedido",
+      "steer": "Direcionar no OxeChat",
+      "stop": "Parar no OxeChat",
+      "new": "Nova conversa",
+      "history": "Histórico",
+      "terminal": "Novo terminal",
+      "theme": "Aparência",
+      "skill": "Skills"
+    },
+    "catalog": {
+      "pending": "Ver os pedidos esperando a sua resposta",
+      "deny": "Recusar o pedido em espera neste workspace",
+      "steer": "Enviar uma orientação no OxeChat",
+      "stop": "Parar o turno em andamento no OxeChat",
+      "new": "Iniciar uma nova conversa no OxeChat",
+      "history": "Abrir o histórico e os checkpoints da conversa",
+      "terminal": "Abrir um novo painel de terminal",
+      "theme": "Alternar a aparência clara ou escura",
+      "skill": "Rodar uma skill habilitada no painel de agente em foco"
+    },
+    "agentPrompt": "Perguntar ou delegar para {{agent}}",
+    "refusal": {
+      "skillNotEnabled": "/{{name}} não está habilitada neste projeto.",
+      "noAgent": "Foque uma conversa ou um painel de agente primeiro.",
+      "controlChars": "Remova os caracteres de controle do texto.",
+      "requestNone": "Nada está esperando por você.",
+      "otherWorkspace": "Esse pedido está em {{workspace}}.",
+      "openWorkspace": "Abrir {{workspace}}"
+    },
+    "confirmStop": {
+      "message": "Parar o turno em andamento no OxeChat?",
+      "cancel": "Cancelar",
+      "stop": "Parar"
+    }
+  },
   "commands": {
     "category": {
       "general": "Geral",
@@ -577,6 +715,7 @@
       },
       "help": {
         "shortcuts": "Mostrar os atalhos de teclado",
+        "whats-new": "Mostrar as novidades da 1.5",
         "report-problem": "Relatar um problema…",
         "about": "Sobre o OXESpace",
         "approvals": "Mostrar histórico de aprovações"
@@ -832,6 +971,7 @@
     "links": "Links",
     "link": {
       "repository": "Código-fonte",
+      "whatsNew": "Novidades da 1.5",
       "releaseNotes": "Notas da versão",
       "licenseText": "Licença",
       "notices": "Licenças de terceiros"
@@ -1004,5 +1144,11 @@
     "noEditor": "Nenhum editor externo foi encontrado (VS Code, Cursor ou Zed). Instale um e tente de novo.",
     "notAFile": "Daqui o {{editor}} só abre arquivos. Para abrir uma pasta, use “{{reveal}}”.",
     "menuUnavailable": "Não foi possível carregar o menu. Tente de novo."
+  },
+  "statusBar": {
+    "agentsWorking_one": "{{count}} agente trabalhando",
+    "agentsWorking_many": "{{count}} agentes trabalhando",
+    "agentsWorking_other": "{{count}} agentes trabalhando",
+    "nothingSetUpYet": "Nada configurado ainda"
   }
 }

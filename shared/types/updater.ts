@@ -31,17 +31,3 @@ export interface AppUpdateState {
   lastCheckedAt: number | null
   preferences?: AppUpdatePreferences
 }
-
-/** RTK sidecar (userData/bin) version tracking. */
-export interface RtkUpdateState {
-  installed: boolean
-  /** Local version from rtk.version (or null if legacy install without file). */
-  version: string | null
-  latestVersion: string | null
-  updateAvailable: boolean
-  binDir: string | null
-  error: string | null
-  checking: boolean
-  updating: boolean
-  lastCheckedAt: number | null
-}

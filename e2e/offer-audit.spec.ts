@@ -33,7 +33,7 @@ const SELF_RESTORING = new Set(['toggle-sidebar', 'toggle-split-layout', 'maximi
 
 const SETTINGS_LABELS: Record<string, string> = {
   general: 'General', providers: 'Agents', appearance: 'Appearance', terminal: 'Terminal', keyboard: 'Keyboard',
-  notifications: 'Notifications', about: 'About', policy: 'Approvals and safety', devices: 'Phone and devices',
+  notifications: 'Notifications', about: 'About', policy: 'Approvals and safety', 'agent-permissions': 'What agents can do', devices: 'Phone and devices',
   privacy: 'Data and privacy', mcp: 'MCP servers and skills', activity: 'Agent activity', diagnostics: 'Diagnostics'
 }
 
@@ -57,6 +57,7 @@ const PALETTE_EFFECTS: Record<string, Check> = {
   // Kept-ready workspaces is a General preference, shown once.
   'settings.general': both(settingsPage('General'), async page => { await expect(page.getByLabel('Recently visited workspaces kept ready')).toBeVisible() }),
   'settings.notifications': both(settingsPage('Notifications'), async page => { await expect(page.getByLabel('Number of workspaces to keep mounted')).toHaveCount(0) }),
+  'help.whats-new': dialog('What\x27s new in 1.5'),
   'help.shortcuts': dialog('Keyboard shortcuts'),
   // F18: the approval history; it opens even with no decision yet, and says so.
   'help.approvals': both(dialog('Approval decisions'), testId('approval-history')),
@@ -66,7 +67,7 @@ const PALETTE_EFFECTS: Record<string, Check> = {
   'activity.markAllRead': toast(/Nothing to mark as read|All activity marked as read/),
   'new-workspace': dialog('Create new workspace'),
   'workspace-settings': both(view('code'), dialog('Settings'), async page => {
-    await expect(page.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: /Current workspace/ })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^General Project instructions/ })).toHaveAttribute('aria-current', 'page')
   }),
   'toggle-sidebar': async page => { await expect(page.locator('.app-shell')).toHaveClass(/sidebar-collapsed/) },
   'tool-team': dialog('Project team'),
@@ -123,7 +124,7 @@ async function openPalette(page: Page): Promise<void> {
     // a bounded click lets the next attempt take the shortcut instead of waiting 30 s on a detached button (FL-13).
     const button = page.getByRole('button', { name: 'Files & commands' }).first()
     if (await button.isVisible()) await button.click({ timeout: 2_000 }).catch(() => undefined)
-    else { await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur()); await page.keyboard.press('Control+k') }
+    else { await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur()); await page.keyboard.press('Control+Shift+P') }
     await paletteInput(page).waitFor({ timeout: 2_000 }).catch(() => undefined)
   }
   await expect(paletteInput(page)).toBeVisible()
@@ -147,7 +148,7 @@ async function runCommand(page: Page, id: string): Promise<boolean> {
 /** Closes whatever a command opened, back to the work surface. */
 /** Code's side panels, by the tool command that toggles each and the panel it shows. */
 // Integration last: its command only opens it, so it closes from its own Collapse button, shown once it is the only one.
-const SIDE_PANELS = ['github', 'worktrees', 'scripts', 'search', 'web-preview', 'background', 'editor', 'review', 'http-calls', 'android', 'integration'] as const
+const SIDE_PANELS = ['github', 'worktrees', 'scripts', 'search', 'web-preview', 'background', 'editor', 'review', 'http-calls', 'android', 'containers', 'integration'] as const
 /**
  * Splits are refused when the halves would be under 240 px (#310), so they are checked from the known layout: Code,
  * two panes, no side panel. Earlier commands leave theirs open (each panel takes its share of the width), so every
@@ -157,7 +158,7 @@ async function closeSidePanels(page: Page): Promise<void> {
   for (const id of SIDE_PANELS) {
     const panel = page.getByTestId(id === 'worktrees' ? 'workspace-worktree-panel' : `workspace-${id}-panel`)
     if (!(await panel.count())) continue
-    if (id === 'integration') await panel.getByRole('button', { name: 'Collapse panel', exact: true }).click()
+    if (id === 'integration' || id === 'containers') await panel.getByRole('button', { name: 'Collapse panel', exact: true }).click()
     else await runCommand(page, `tool-${id}`)
     await expect(panel).toHaveCount(0)
   }
@@ -308,7 +309,7 @@ test.describe('offer audit', () => {
       await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
       await page.keyboard.press('Control+,')
       await dialog('Settings')(page)
-      await expect(page.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: 'Application' })).toHaveAttribute('aria-pressed', 'true')
+      await expect(page.locator('.settings-center-content')).not.toHaveClass(/is-workspace/)
       expect(pageErrors(launched)).toEqual([])
     } finally {
       await Promise.race([app.close().catch(() => undefined), new Promise(resolve => setTimeout(resolve, 4000))])
@@ -331,8 +332,12 @@ test.describe('offer audit', () => {
       }
       const openMenu = async (menu: string): Promise<Locator> => {
         await dismiss(page)
-        await trigger.click()
-        return openSub(page.locator('[role="menu"]').first(), menu)
+        if (await trigger.isVisible()) { await trigger.click(); return openSub(page.locator('[role="menu"]').first(), menu) }
+        await page.getByRole('navigation', { name: 'Menu' }).getByRole('button', { name: menu, exact: true }).click()
+        const inlineMenu = page.locator('[role="menu"]').first()
+        await expect(inlineMenu).toBeVisible()
+        return inlineMenu
+        // inline menu already returned above
       }
       /** What each item visibly does, by menu and label. Edit items run the browser's own editing commands. */
       const MENU_EFFECTS: Record<string, Check | 'native'> = {
@@ -342,7 +347,7 @@ test.describe('offer audit', () => {
         'File/Exit': 'native',
         'Edit/Undo': 'native', 'Edit/Redo': 'native', 'Edit/Cut': 'native', 'Edit/Copy': 'native', 'Edit/Paste': 'native', 'Edit/Select all': 'native',
         'View/Command palette…': async p => { await expect(paletteInput(p)).toBeVisible() },
-        'View/OxeCode': view('code'), 'View/OxeChat': view('thread'), 'View/OxeQuery': view('data'), 'View/OxePod': view('pods'),
+        'View/OxeCode': view('code'), 'View/OxeChat': view('thread'), 'View/OxeQuery': view('data'),
         'View/Toggle sidebar': async p => { await expect(p.locator('.app-shell')).toHaveClass(/sidebar-collapsed/) },
         'View/Toggle files panel': testId('workspace-editor-panel'),
         'View/Toggle commit & pull request panel': testId('workspace-github-panel'),
@@ -353,11 +358,15 @@ test.describe('offer audit', () => {
         'View/Split pane down': async p => { expect(await paneCount(p)).toBe(3) },
         'View/Maximize or restore pane': async p => { expect(await paneCount(p)).toBe(1) },
         // F35: the project Team moved off the title bar into the Tools menu.
+        'Tools/Toggle Android panel': testId('workspace-android-panel'),
+        'Tools/Toggle HTTP calls panel': testId('workspace-http-calls-panel'),
+        'Tools/Containers': testId('workspace-containers-panel'),
         'Tools/Open the project team…': dialog('Project team'),
         'Tools/Manage MCP servers': dialog('MCP servers'),
         'Tools/Browse skills': dialog('Skills'),
         'Tools/Show usage and limits': dialog('Usage & rate limits'),
         'Tools/Open Linear issues': dialog('Linear issues'),
+        'Help/Show what\'s new in 1.5': dialog('What\'s new in 1.5'),
         'Help/Show keyboard shortcuts': dialog('Keyboard shortcuts'),
         'Help/Open diagnostics': settingsPage('Diagnostics'),
         'Help/Report a problem…': dialog('Report a problem'),

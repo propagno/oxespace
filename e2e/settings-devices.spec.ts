@@ -22,7 +22,6 @@ test('Settings › Devices pairs a phone by QR and removes it', async () => {
 
     await page.getByRole('button', { name: 'Open settings', exact: true }).click()
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
-    await settings.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: 'Application', exact: true }).click()
     await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Phone and devices/ }).click()
     const devices = settings.getByTestId('devices-settings')
     await expect(devices.getByTestId('devices-gateway-state')).toHaveText('Off. No port is open.')

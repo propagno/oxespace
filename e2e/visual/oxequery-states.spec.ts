@@ -1,10 +1,10 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { launchApp, openDemoWorkspace, pinWorkspaceColor, resizeWindow, type Appearance } from '../helpers/launch'
-import { connectFromContainer, containerRow, openView } from '../helpers/oxepod'
+import { connectFromContainer, openView } from '../helpers/oxepod'
 import { expectSurface } from '../helpers/visual'
 
 /**
- * Pixel baselines for the OxeQuery surfaces a person actually looks at: containers (now in OxePod), connection forms,
+ * Pixel baselines for the OxeQuery surfaces a person actually looks at: connection forms,
  * the SQL workbench (result, error, plan, filter, row edit), dialogs, server and settings, and MongoDB.
  * Everything runs against the mock engine (`OXESPACE_E2E_MOCK_NATIVE`), so the data never changes.
  * Each state is compared in both themes at 1280x800.
@@ -21,7 +21,7 @@ const volatile = (page: Page): Locator[] => [
 ]
 
 for (const theme of THEMES) {
-  test(`OxePod containers, OxeQuery forms and dialogs — ${theme}`, async () => {
+  test(`OxeQuery forms and dialogs — ${theme}`, async () => {
     test.setTimeout(180_000)
     const { app, page, workspaceRoot } = await launchApp({ appearance: theme })
     try {
@@ -29,24 +29,6 @@ for (const theme of THEMES) {
       await openDemoWorkspace(page, workspaceRoot)
       await pinWorkspaceColor(page)
       const shot = (name: string, target?: Locator, extraMask: Locator[] = []): Promise<void> => settle(page).then(() => expectSurface(page, `${name}-${theme}`, { target, mask: [...volatile(page), ...extraMask] }))
-
-      // Containers live in the OxePod mode (#161): the list is its sidebar, the work area holds the open container,
-      // so these shots take the whole window. The first running container opens by itself.
-      await openView(page, 'pods')
-      await expect(containerRow(page, 'mongo-dev')).toBeVisible()
-      await expect(page.getByRole('region', { name: 'mongo-dev details' })).toBeVisible()
-      // "running for 2 hours" and the Started date are the clock of the run: the app marks both volatile (data-oq-volatile),
-      // and the capture masks them.
-      await shot('oxepod-containers')
-
-      await page.getByRole('complementary', { name: /OxePod/ }).getByRole('button', { name: 'Images, volumes and networks' }).last().click()
-      await expect(page.getByRole('region', { name: 'Images, volumes and networks' })).toBeVisible()
-      await shot('oxepod-containers-resources')
-
-      await containerRow(page, 'pg-dev').click()
-      await expect(page.getByRole('region', { name: 'pg-dev details' })).toBeVisible()
-      await expect(page.getByRole('region', { name: 'Database detected' })).toBeVisible()
-      await shot('oxepod-container-details')
 
       // The connection forms, the local database wizard and the audit stay in OxeQuery.
       await openView(page, 'data')

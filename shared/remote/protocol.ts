@@ -459,7 +459,7 @@ export interface RemoteThreadSummary {
   id: string
   workspaceId: string
   title: string
-  provider: 'claude' | 'codex'
+  provider: 'claude' | 'codex' | 'antigravity'
   status: 'idle' | 'running' | 'approval' | 'interrupted' | 'failed'
   lastTurnStatus?: 'running' | 'completed' | 'failed' | 'interrupted'
   /** Background tasks still running after the turn ended. */
@@ -652,7 +652,7 @@ export interface RemoteAgentRow {
    */
   rev: number
   state: 'needs-you' | 'failed' | 'working' | 'finished' | 'idle' | 'stopped' | 'unknown'
-  provider: 'claude' | 'codex' | 'other'
+  provider: 'claude' | 'codex' | 'antigravity' | 'other'
   title: string
   since: number
   request?: RemoteAgentRequest

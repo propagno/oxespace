@@ -70,7 +70,7 @@ for (const variant of VARIANTS) {
 
 /**
  * Forced colors on the surfaces where a choice used to vanish (F31): Settings › Appearance (mode cards and segmented
- * controls, the scope rows), the OxePod engine switch, and a new connection set to Production with Read-only on
+ * controls, the scope rows) and a new connection set to Production with Read-only on
  * (engine cards, Host/URL, environment, the switch). Once each at desktop size, over a light and a dark base.
  */
 for (const theme of THEMES) {
@@ -84,19 +84,12 @@ for (const theme of THEMES) {
       await page.emulateMedia({ forcedColors: 'active' })
       await page.getByRole('button', { name: 'Open settings', exact: true }).click()
       const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
-      await settings.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: 'Application', exact: true }).click()
       await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Appearance/ }).click()
       await expect(settings.getByRole('radiogroup', { name: 'Density' })).toBeVisible()
       await page.mouse.move(0, 0)
       await expectSurface(page, `forced-colors-settings-appearance-${theme}`, { target: settings })
       await page.keyboard.press('Escape')
-
       const views = page.getByRole('navigation', { name: 'Application view' })
-      await views.getByRole('button', { name: 'OxePod', exact: true }).click()
-      const pod = page.getByRole('complementary', { name: /OxePod/ })
-      await expect(pod.getByRole('radiogroup', { name: 'Container engine' })).toBeVisible()
-      await expectSurface(page, `forced-colors-oxepod-sidebar-${theme}`, { target: pod })
-
       await views.getByRole('button', { name: 'OxeQuery', exact: true }).click()
       await page.getByRole('button', { name: 'New connection' }).first().click()
       const form = page.getByRole('dialog', { name: 'New connection' })

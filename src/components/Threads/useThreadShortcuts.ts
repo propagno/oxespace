@@ -9,11 +9,12 @@ import type { ThreadPanel } from '../../store/thread-workbench.store'
  * configuration pickers; chords live in src/keyboard/keybindings.ts).
  * Inactive cells (side-by-side layouts) listen to nothing.
  */
-export function useThreadShortcuts({ active, togglePanel, openControl, onFind, runCommand }: {
+export function useThreadShortcuts({ active, togglePanel, openControl, onFind, onHistory, runCommand }: {
   active: boolean
   togglePanel: (panel: ThreadPanel) => void
   openControl: (control: 'model' | 'effort' | 'permissions') => void
   onFind: () => void
+  onHistory?: () => void
   /** Runs a composer command (the palette's Thread entries send these). */
   runCommand: (text: string) => Promise<void>
 }) {
@@ -36,6 +37,7 @@ export function useThreadShortcuts({ active, togglePanel, openControl, onFind, r
     'thread.browser': () => togglePanel('preview'),
     'thread.permissions': () => openControl('permissions'),
     'thread.model': () => openControl('model'),
-    'thread.effort': () => openControl('effort')
+    'thread.effort': () => openControl('effort'),
+    'thread.history': onHistory
   }, active)
 }

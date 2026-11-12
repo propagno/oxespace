@@ -35,7 +35,7 @@ test('overlays take focus, trap Tab and close on Escape', async () => {
       await page.keyboard.press('Escape')
       await expect(overlay, `${name} closes on Escape`).toBeHidden()
     }
-    await exercise('Command palette', () => page.keyboard.press('Control+k'), '[cmdk-root], [role="dialog"]:has([cmdk-input])')
+    await exercise('Command palette', () => page.keyboard.press('Control+Shift+P'), '[cmdk-root], [role="dialog"]:has([cmdk-input])')
     await exercise('MCP servers', () => openConnections(page), '[role="dialog"][aria-label*="MCP servers" i], [role="dialog"]:has-text("MCP servers")')
     await exercise('Workspace settings', () => runPaletteCommand(page, 'Workspace settings'), '[role="dialog"]:has-text("Workspace")')
   } finally { await app.close() }

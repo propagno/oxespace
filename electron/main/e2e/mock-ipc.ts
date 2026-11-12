@@ -25,7 +25,7 @@ import { worktreeOrWorkspaceRoot } from '../ipc/file-system.ipc'
 import { registerTerminalRestartMock } from './terminal-restart-mock'
 import { parseWorktreePorcelain } from '../services/github/parsers'
 import { registerOxeQueryMock } from './oxequery-mock'
-import { registerOxePodMock } from './oxepod-mock'
+import { mockContainers, registerOxePodMock } from './oxepod-mock'
 import { registerMcpToolsMock } from './mcp-tools-mock'
 import { registerDiagnosticsMock } from './diagnostics-mock'
 import { registerRemoteMock } from './remote-mock'
@@ -62,6 +62,7 @@ export function registerE2eMockIpcHandlers(): void {
   const workspaces: Workspace[] = []
   registerOxeQueryMock()
   registerOxePodMock()
+  extendOxePodPanelMock(ipcMain)
   registerMcpToolsMock()
   registerDiagnosticsMock()
   registerRemoteMock()
@@ -341,6 +342,8 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.thread.projects, (): ThreadProjectCatalog => ({ projects: [], unavailable: [] }))
   ipcMain.handle(IPC_CHANNELS.thread.toolTabs, () => [{ tab: 'conversation' as const, count: null }])
   ipcMain.handle(IPC_CHANNELS.thread.background, () => [])
+  ipcMain.handle(IPC_CHANNELS.thread.timeline, () => ({ checkpoints: [], cantGoBack: { dbWrites: 0, pushes: 0, containers: 0, commands: 0, httpWrites: 0, scope: 'conversation' as const }, canBranch: true }))
+  ipcMain.handle(IPC_CHANNELS.thread.branchFromCheckpoint, () => ({ ok: false as const, refusal: { code: 'thread.branch.notGit' as const, params: {} } }))
   ipcMain.handle(IPC_CHANNELS.thread.steerQueued, () => { throw new MainRefusal('thread.steer.unavailable', {}) })
   const pendingRequests: ThreadPendingRequestSummary[] = JSON.parse(process.env.OXESPACE_E2E_PENDING_REQUESTS || '[]')
   ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, () => pendingRequests)
@@ -586,6 +589,20 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.agentPermissions.setDatabaseAccess, () => ({ ok: true as const, undoToken: 'mock-undo' }))
   ipcMain.handle(IPC_CHANNELS.agentPermissions.setHostAccess, () => ({ ok: true as const, undoToken: 'mock-undo' }))
   ipcMain.handle(IPC_CHANNELS.agentPermissions.undo, () => ({ ok: true as const }))
+  let mockUsage = { enabled: false, since: null as number | null, rows: [] as Array<{ feature: string; uses: number; lastUsed: number }> }
+  ipcMain.handle(IPC_CHANNELS.featureUsage.state, () => mockUsage)
+  ipcMain.handle(IPC_CHANNELS.featureUsage.setEnabled, (_event, input: { enabled: boolean; clear?: boolean }) => {
+    mockUsage = { enabled: Boolean(input?.enabled), since: input?.enabled ? (mockUsage.since ?? Date.now()) : null, rows: input?.clear || !input?.enabled ? [] : mockUsage.rows }
+    return mockUsage
+  })
+  ipcMain.handle(IPC_CHANNELS.featureUsage.export, () => ({ path: '/tmp/oxespace-feature-usage.json' }))
+  ipcMain.handle(IPC_CHANNELS.featureUsage.clear, () => { mockUsage = { ...mockUsage, rows: [] }; return mockUsage })
+  ipcMain.handle(IPC_CHANNELS.featureUsage.record, () => undefined)
+  let mockHostsProxy = { enabled: false, state: 'stopped' as 'running' | 'stopped' | 'failed', hosts: [] as Array<{ host: string; port: number; count: number; lastSeen: number; firstSeen: number }> }
+  ipcMain.handle(IPC_CHANNELS.hostsProxy.state, () => mockHostsProxy)
+  ipcMain.handle(IPC_CHANNELS.hostsProxy.setEnabled, (_event, enabled: boolean) => { mockHostsProxy = { ...mockHostsProxy, enabled: Boolean(enabled), state: enabled ? 'running' : 'stopped' }; return mockHostsProxy })
+  ipcMain.handle(IPC_CHANNELS.hostsProxy.clear, () => { mockHostsProxy = { ...mockHostsProxy, hosts: [] }; return mockHostsProxy })
+  ipcMain.handle(IPC_CHANNELS.hostsProxy.retry, () => mockHostsProxy)
 
   // ── Catch-all safety net (E2E) ──────────────────────────────────────────────
   // Any IPC channel NOT explicitly mocked above gets a safe, shaped empty default
@@ -611,6 +628,31 @@ export function registerE2eMockIpcHandlers(): void {
     } catch {
       // Already registered by an explicit mock above — keep that one.
     }
+  }
+}
+
+function extendOxePodPanelMock(target: unknown): void {
+  const buildPanel = () => process.env.OXE_MOCK_ENGINE === 'stopped'
+    ? { engine: { state: 'stopped' as const, engine: 'docker' as const }, rows: [] }
+    : {
+        engine: { state: 'ready' as const, engine: 'docker' as const },
+        rows: mockContainers.map(c => ({
+          id: c.id, name: c.name, image: c.image, status: c.state, ports: c.ports,
+          stack: c.labels?.['com.docker.compose.project'] ?? null,
+          upSince: c.state === 'running' ? Date.UTC(2026, 9, 14, 10, 0, 0) : null,
+          isDatabase: /postgres|mysql|mariadb|mongo|redis/i.test(c.image),
+          startedBy: c.id === 'c1' ? { kind: 'person' as const } : null
+        }))
+      }
+  if (IPC_CHANNELS.oxePod['containers.panel'] !== IPC_CHANNELS.oxePod.call) {
+    ipcMain.handle(IPC_CHANNELS.oxePod['containers.panel'], () => ({ ok: true as const, value: buildPanel() }))
+  }
+  const bus = target as { _invokeHandlers?: Map<string, (e: unknown, r: unknown) => unknown>; handlers?: Map<string, (e: unknown, r: unknown) => unknown> }
+  const prev = (bus._invokeHandlers ?? bus.handlers)?.get(IPC_CHANNELS.oxePod.call)
+  if (prev) {
+    ipcMain.removeHandler(IPC_CHANNELS.oxePod.call)
+    ipcMain.handle(IPC_CHANNELS.oxePod.call, (event, req: { op?: string; input?: unknown }) =>
+      req?.op === 'containers.panel' ? { ok: true as const, value: buildPanel() } : prev(event, req))
   }
 }
 

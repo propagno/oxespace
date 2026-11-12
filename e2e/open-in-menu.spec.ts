@@ -34,7 +34,7 @@ function project(workspaceRoot: string): string {
 }
 
 async function openTree(page: Page): Promise<void> {
-  await page.keyboard.press('Control+k')
+  await page.keyboard.press('Control+Shift+P')
   await page.locator('[cmdk-item][data-value="cmd-tool-editor"]').click()
   await page.locator('.editor-browser-directory', { hasText: 'src' }).click()
 }
@@ -77,7 +77,7 @@ test('the path menu has the same items in the same order on the tree, a tab and 
       ipcMain.removeHandler('search:run')
       ipcMain.handle('search:run', () => ({ files: [{ path: 'src/app.ts', truncated: false, matches: [{ lineNumber: 1, line: 'export const needle = 1', submatches: [{ text: 'needle', start: 13, end: 19 }] }] }], totalMatches: 1, totalFiles: 1, truncated: false, elapsedMs: 1 }))
     })
-    await page.keyboard.press('Control+k')
+    await page.keyboard.press('Control+Shift+P')
     await page.keyboard.type('Find in files')
     await page.keyboard.press('Enter')
     await page.locator('.search-panel-input').fill('needle')

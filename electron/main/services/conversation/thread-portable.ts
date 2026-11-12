@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import type { ThreadArtifact, ThreadEvent, ThreadSnapshot, ThreadTurn } from '../../../../shared/types/thread'
+import type { ThreadArtifact, ThreadEvent, ThreadProvider, ThreadSnapshot, ThreadTurn } from '../../../../shared/types/thread'
 
 const FORMAT = 'oxespace-thread'
 const VERSION = 1
@@ -11,7 +11,7 @@ const EVENT_TYPES = new Set(['session', 'native-signal', 'activity', 'message', 
 
 interface PortableConversation {
   title: string
-  provider: 'claude' | 'codex'
+  provider: ThreadProvider
   configuration: { model?: string; reasoningEffort?: string; access?: 'read-only' | 'workspace-write' | 'full-access'; networkAccess?: boolean; approvalPolicy?: 'untrusted' | 'on-request' | 'never'; mode?: 'default' | 'plan' | 'acceptEdits'; hooksEnabled?: boolean }
   events: ThreadEvent[]
   turns: ThreadTurn[]
@@ -75,7 +75,7 @@ export class ThreadPortableService {
     const checksum = safeText(source.checksum, 'package checksum', 64)
     const conversationSource = record(source.conversation, 'conversation')
     const provider = conversationSource.provider
-    if (provider !== 'claude' && provider !== 'codex') throw Error('Invalid conversation provider')
+    if (provider !== 'claude' && provider !== 'codex' && provider !== 'antigravity') throw Error('Invalid conversation provider')
     const title = safeText(conversationSource.title, 'conversation title', 120)
     if (!Array.isArray(conversationSource.events) || conversationSource.events.length > MAX_EVENTS) throw Error('Invalid conversation events')
     const events = conversationSource.events.map((value, index) => {

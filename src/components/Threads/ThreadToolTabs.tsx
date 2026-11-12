@@ -1,10 +1,17 @@
-import { useEffect, useId, useState, type KeyboardEvent, type ReactElement, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useId, useState, type KeyboardEvent, type ReactElement, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadToolTabEntry } from '../../../shared/types/ipc'
-import { ThreadTerminalTab } from './ThreadTerminalTab'
+import { PlacesChanges } from './PlacesChanges'
+import { placesBridge } from './placesModel'
 import { PullRequestTab } from './PullRequestTab'
+import { ThreadTerminalTab } from './ThreadTerminalTab'
 
-type TabId = ThreadToolTabEntry['tab']
+const ChangesPanel = lazy(() => import('../Changes/ChangesPanel').then(module => ({ default: module.ChangesPanel })))
+const ThreadNetworkPanel = lazy(() => import('./ThreadNetworkPanel').then(module => ({ default: module.ThreadNetworkPanel })))
+const ActivityPanel = lazy(() => import('../OxeQuery/ActivityPanel').then(module => ({ default: module.ActivityPanel })))
+const ContainersPanel = lazy(() => import('../Containers/ContainersPanel').then(module => ({ default: module.ContainersPanel })))
+
+export type ThreadTabId = ThreadToolTabEntry['tab']
 
 interface ToolTabsBridge {
   thread?: {
@@ -23,7 +30,7 @@ const TAB_KEY = {
   containers: 'threadTabs.containers',
   changes: 'threadTabs.changes',
   pullRequest: 'threadTabs.pullRequest'
-} as const satisfies Record<TabId, string>
+} as const satisfies Record<ThreadTabId, string>
 
 function bridge(): ToolTabsBridge | undefined {
   return (window as unknown as { oxe?: ToolTabsBridge }).oxe
@@ -31,16 +38,20 @@ function bridge(): ToolTabsBridge | undefined {
 
 export function ThreadToolTabs(props: {
   threadId: string
+  workspaceId?: string
   rootPath?: string
   branch?: string
-  onOpen?: (tab: TabId) => void
+  activeTab?: ThreadTabId
+  onOpen?: (tab: ThreadTabId) => void
+  onSendToConversation?: (prompt: string) => void
   trailing?: ReactNode
 }): ReactElement {
-  const { threadId, rootPath, branch, onOpen, trailing } = props
+  const { threadId, workspaceId, rootPath, branch, activeTab, onOpen, onSendToConversation, trailing } = props
   const { t } = useTranslation('thread')
   const base = useId()
   const [entries, setEntries] = useState<ThreadToolTabEntry[]>(DEFAULT_TABS)
-  const [selected, setSelected] = useState<TabId>('conversation')
+  const [internalSelected, setInternalSelected] = useState<ThreadTabId>('conversation')
+  const selected = activeTab ?? internalSelected
 
   useEffect(() => {
     const api = bridge()
@@ -64,13 +75,13 @@ export function ThreadToolTabs(props: {
 
   const tabs = entries.map(entry => entry.tab)
   const current = tabs.includes(selected) ? selected : 'conversation'
-  const tabId = (tab: TabId): string => `${base}-tab-${tab}`
-  const choose = (tab: TabId): void => {
-    setSelected(tab)
+  const tabId = (tab: ThreadTabId): string => `${base}-tab-${tab}`
+  const choose = (tab: ThreadTabId): void => {
+    setInternalSelected(tab)
     onOpen?.(tab)
   }
 
-  const onKeyDown = (event: KeyboardEvent<HTMLElement>, tab: TabId): void => {
+  const onKeyDown = (event: KeyboardEvent<HTMLElement>, tab: ThreadTabId): void => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
       choose(tab)
@@ -84,11 +95,24 @@ export function ThreadToolTabs(props: {
     document.getElementById(tabId(next))?.focus()
   }
 
+  const pBridge = placesBridge()
+  const hasPlaces = Boolean(pBridge?.places && pBridge.placeDiff)
+
   const content = current === 'terminal'
     ? <ThreadTerminalTab threadId={threadId} />
     : current === 'pullRequest' && rootPath && branch
       ? <PullRequestTab threadId={threadId} rootPath={rootPath} branch={branch} />
-      : null
+      : current === 'changes' && workspaceId && rootPath
+        ? (hasPlaces
+            ? <PlacesChanges threadId={threadId} workspaceId={workspaceId} onSend={onSendToConversation} />
+            : <Suspense fallback={null}><ChangesPanel workspaceId={workspaceId} rootPath={rootPath} onSendComments={onSendToConversation ? text => { onSendToConversation(text); return true } : undefined} /></Suspense>)
+        : current === 'queries' && workspaceId
+          ? <Suspense fallback={null}><ActivityPanel active scope="database" /></Suspense>
+          : current === 'network' && workspaceId
+            ? <Suspense fallback={null}><ThreadNetworkPanel threadId={threadId} workspaceId={workspaceId} /></Suspense>
+            : current === 'containers' && workspaceId
+              ? <Suspense fallback={null}><ContainersPanel /></Suspense>
+              : null
 
   return (
     <>

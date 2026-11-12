@@ -3,7 +3,8 @@ import { bridgePlanFlags } from '../../mcp-internal/bridge-plan'
 import { claudeMcpEntries, codexMcpArguments, type ManagedMcp } from './thread-managed-mcp'
 import { matchesResource } from '../../../../shared/policy'
 import { THREAD_READ_ONLY_MCP_TOOLS } from './read-only-mcp-tools'
-import type { ConversationThread, AgentConversationAdapter, ThreadEvent, ThreadPermissionRule, ThreadSnapshot } from '../../../../shared/types/thread'
+import type { ConversationThread, AgentConversationAdapter, ThreadConfiguration, ThreadEvent, ThreadPermissionRule, ThreadProvider, ThreadSnapshot } from '../../../../shared/types/thread'
+import type { AntigravityMcpServer } from './antigravity-conversation'
 
 export interface ThreadMcpBindings {
   bridge: string
@@ -109,7 +110,7 @@ export function threadToolRoles(db: RoleDatabase, threadId: string): ThreadToolR
  * sending every definition with every request, once they pass 5% of the
  * context. A value the person set is kept.
  */
-export function toolSearchEnvironment(provider: 'claude' | 'codex', source: NodeJS.ProcessEnv = process.env): Record<string, string> {
+export function toolSearchEnvironment(provider: ThreadProvider, source: NodeJS.ProcessEnv = process.env): Record<string, string> {
   // `true`, not `auto:N`: measured in T8, `auto:5` loaded every definition on a large context window (+21.7k tokens
   // for a plain conversation), while `true` defers them and costs less than 1.3's core group did.
   return provider === 'claude' && source.ENABLE_TOOL_SEARCH === undefined ? { ENABLE_TOOL_SEARCH: 'true' } : {}
@@ -174,8 +175,10 @@ function policyExclusions(deniedTools: readonly string[], tools: readonly string
   return { builtIn, mcp }
 }
 
-export function threadMcpArguments(provider: 'claude' | 'codex', args: string[], bridge: string, managed?: ManagedMcp, denied: DeniedMcpTool[] = [],
+export function threadMcpArguments(provider: ThreadProvider, args: string[], bridge: string, managed?: ManagedMcp, denied: DeniedMcpTool[] = [],
   tools: readonly string[] = THREAD_MCP_TOOLS, deniedTools: readonly string[] = [], enableable: Readonly<Record<string, readonly string[]>> = {}): string[] {
+  // `agy acp` has no MCP flag: its servers are attached when the session opens (antigravityMcpServers).
+  if (provider === 'antigravity') return args
   if (provider === 'claude' && args.includes('--strict-mcp-config')) {
     // A read-only conversation keeps its strict surface (no user servers, which
     // may write), but gets the OXESpace bridge limited to read-only lookups.
@@ -200,6 +203,32 @@ export function threadMcpArguments(provider: 'claude' | 'codex', args: string[],
     ...(managed ? claudeMcpEntries(managed) : {}),
     'oxespace-delegation': { command: 'node', args: bridgeArgs }
   } }), ...exclusionArguments(provider, denied, [], deniedTools, tools)]
+}
+
+/**
+ * The MCP servers an Antigravity session opens with (ACP `session/new`). The OXESpace bridge gets its connection in
+ * `env`, since `agy` starts the server, not OXESpace. A read-only conversation gets the bridge limited to lookups and
+ * none of the person's servers, which may write. A server a rule or a policy denies whole is left out, and a denied
+ * OXESpace tool is not offered. Only stdio servers: this ACP version was not verified with HTTP ones.
+ */
+export function antigravityMcpServers(bridge: string, env: Readonly<Record<string, string>>, access: ThreadConfiguration['access'], managed?: ManagedMcp, denied: DeniedMcpTool[] = [],
+  tools: readonly string[] = THREAD_MCP_TOOLS, deniedTools: readonly string[] = [], enableable: Readonly<Record<string, readonly string[]>> = {}): AntigravityMcpServer[] {
+  const rules = [...denied, ...policyExclusions(deniedTools, tools).mcp]
+  const off = (server: string): boolean => rules.some(rule => rule.server === server && rule.tool === '*')
+  const readOnly = (access ?? 'read-only') === 'read-only'
+  const offered = (readOnly ? THREAD_READ_ONLY_MCP_TOOLS.filter(tool => tools.includes(tool)) : tools)
+    .filter(tool => !rules.some(rule => rule.server === 'oxespace-delegation' && rule.tool === tool))
+  const servers: AntigravityMcpServer[] = []
+  if (!off('oxespace-delegation')) servers.push({ name: 'oxespace-delegation', command: 'node',
+    args: [bridge, ...bridgePlanFlags({ tools: offered, enableable: readOnly ? {} : enableable })],
+    env: Object.entries(env).filter(([name]) => name.startsWith('OXESPACE_')).map(([name, value]) => ({ name, value })) })
+  if (readOnly) return servers
+  for (const server of managed?.servers ?? []) {
+    if (server.transport !== 'stdio' || !server.command || off(server.key)) continue
+    servers.push({ name: server.key, command: server.command, args: server.args ?? [],
+      env: Object.entries(server.env).map(([name, ref]) => ({ name, value: managed!.env[ref] ?? '' })) })
+  }
+  return servers
 }
 
 export function bindThreadMcp(adapter: AgentConversationAdapter, release: () => void): AgentConversationAdapter {

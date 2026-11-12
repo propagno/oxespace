@@ -181,12 +181,11 @@ for (const base of ['light', 'dark'] as const) {
       expect(dots.length).toBeGreaterThan(0)
       for (const dot of dots) expect(dot).toEqual({ adjust: 'none', outline: 'solid', width: 1 })
 
-      // Settings › Appearance: the mode cards (hand-made radios), Density (SegmentedControl) and the scope rows (pressed toggles).
+      // Settings › Appearance: the mode cards (hand-made radios), Density (SegmentedControl) and the side nav rows.
       await page.getByRole('button', { name: 'Open settings', exact: true }).click()
       const settings = settingsDialog(page)
-      const scope = settings.getByRole('group', { name: 'Settings scope' })
-      await scope.getByRole('button', { name: 'Application', exact: true }).click()
-      await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Appearance/ }).click()
+      const nav = settings.getByRole('navigation', { name: 'Settings categories' })
+      await nav.getByRole('button', { name: /^Appearance/ }).click()
       await expect(settings.getByRole('heading', { name: 'Appearance', exact: true }).first()).toBeVisible()
       const groups = await settings.getByRole('radiogroup').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label') ?? document.getElementById(node.getAttribute('aria-labelledby') ?? '')?.textContent?.trim() ?? ''))
       report[`settings radiogroups (${base})`] = groups
@@ -194,21 +193,17 @@ for (const base of ['light', 'dark'] as const) {
       await expectChoicesMarked(page, 'settings-appearance', settings, groups.filter(Boolean))
       await expectTick(settings, 'Density')
       const { highlight } = await systemColors(page)
-      const rows = await paints(scope, 'button')
-      report[`settings scope (${base})`] = rows
-      expect(rows.find(row => row.checked === 'true')?.background, 'scope: the pressed row is filled with Highlight').toBe(highlight)
-      for (const row of rows.filter(item => item.checked !== 'true')) expect(row.background, `scope: "${row.name}" is not`).not.toBe(highlight)
       // The side nav's current page (aria-current) is marked the same way (homologation of #271).
-      const pages = await settings.getByRole('navigation', { name: 'Settings categories' }).evaluate(element => Array.from(element.querySelectorAll('button'))
+      const pages = await nav.evaluate(element => Array.from(element.querySelectorAll('button'))
         .filter(node => node.getClientRects().length > 0)
         .map(node => ({ current: node.getAttribute('aria-current'), background: getComputedStyle(node).backgroundColor })))
       report[`settings nav (${base})`] = pages
       expect(pages.find(page => page.current === 'page')?.background, 'settings nav: the current page is filled with Highlight').toBe(highlight)
-      for (const other of pages.filter(page => page.current !== 'page')) expect(other.background, 'settings nav: other pages are not').not.toBe(highlight)
-      for (const button of await scope.getByRole('button').all()) {
+      for (const other of pages.filter(page => page.current !== 'page')) expect(other.background, `settings nav: other pages are not`).not.toBe(highlight)
+      for (const button of await nav.getByRole('button').all()) {
         const size = await target(button)
-        report[`scope target ${await button.textContent()} (${base})`] = size
-        expect(size.height, `scope row "${await button.textContent()}" is ${MIN} px tall at least`).toBeGreaterThanOrEqual(MIN)
+        report[`nav target ${await button.textContent()} (${base})`] = size
+        expect(size.height, `nav row "${await button.textContent()}" is ${MIN} px tall at least`).toBeGreaterThanOrEqual(MIN)
         expect(size.width).toBeGreaterThanOrEqual(MIN)
       }
       await shoot(page, 'settings-appearance', base)

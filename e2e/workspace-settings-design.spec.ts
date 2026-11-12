@@ -24,11 +24,13 @@ test('workspace settings navigation and responsive visual review', async () => {
       await page.setViewportSize({ width, height: 900 })
       for (const label of ['General', 'Projects', 'Policy']) {
         if (width < 900) {
-          const category = modal.getByRole('group', { name: 'Settings category' }).getByRole('button', { name: label, exact: true })
+          // Application and workspace pages share one list since 1.5; a workspace page is named "<workspace>: <page>".
+          const category = modal.getByRole('group', { name: 'Settings category' }).getByRole('button', { name: new RegExp(`: ${label}$`) })
           await category.click()
           await expect(category).toHaveAttribute('aria-pressed', 'true')
         } else {
-          const category = modal.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: new RegExp(`^${label}`) })
+          // The workspace's pages come after the application's; its General is the last of the two.
+          const category = modal.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: new RegExp(`(^|: )${label} `) }).last()
           await category.click()
           await expect(category).toHaveAttribute('aria-current', 'page')
         }

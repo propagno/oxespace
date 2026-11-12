@@ -127,12 +127,7 @@ for (const [width, height] of [[900, 620], [1440, 900]] as const) {
       // No scroll of its own: the command box is as tall as the command.
       expect(await exact.locator('pre').evaluate(pre => pre.scrollHeight <= pre.clientHeight + 1)).toBe(true)
       await expect(copy).toBeInViewport()
-      // The card takes the room, up to 60% of the conversation.
-      const share = await page.evaluate(() => document.querySelector('.thread-pending-requests')!.getBoundingClientRect().height / document.querySelector('.thread-view')!.getBoundingClientRect().height)
-      console.log(`[T67] ${width}×${height}: request share ${share.toFixed(2)}`)
-      expect(share).toBeGreaterThan(0.45)
-      expect(share).toBeLessThanOrEqual(0.61)
-      // Past the cap the details scroll as one: the end of the command is reachable, and Copy is still in view.
+      // Inline in the conversation timeline (G6): the command has no scroll of its own and Copy stays in view.
       const content = card.locator('.thread-approval-content')
       await content.evaluate(node => { node.scrollTop = node.scrollHeight })
       const end = await content.evaluate(node => {
@@ -140,11 +135,8 @@ for (const [width, height] of [[900, 620], [1440, 900]] as const) {
         return { preBottom: pre.bottom, boxBottom: box.bottom }
       })
       expect(end.preBottom).toBeLessThanOrEqual(end.boxBottom + 1)
-      await expect(copy).toBeInViewport()
-      // One title: the bar above the card no longer repeats it, and its buttons are icons named by their word.
-      await expect(page.locator('.thread-pending-requests-bar')).toHaveText('')
-      await expect(page.getByRole('button', { name: 'Expand', exact: true })).toHaveAttribute('title', /more room/)
-      await expect(page.getByRole('button', { name: 'Hide', exact: true })).toHaveAttribute('title', /Hide the request/)
+      await card.scrollIntoViewIfNeeded()
+      await expect(copy).toBeVisible()
       await page.screenshot({ path: `${SHOTS}/thread-card-long-${width}x${height}.png` })
       expect(consoleErrors.filter(line => line.startsWith('pageerror:'))).toEqual([])
     } finally {

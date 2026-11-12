@@ -17,6 +17,8 @@ export type ThreadStateName =
   | 'workbench'
   | 'long-command'
 
+export type ExtendedThreadStateName = ThreadStateName | 'approval-sql'
+
 interface ThreadStateDefinition {
   status: string
   title: string
@@ -29,6 +31,53 @@ const NOW = Date.UTC(2026, 9, 14, 12, 0, 0)
 const done = { type: 'completed', status: 'completed' }
 const user = (id: string, text: string) => ({ type: 'message', id, role: 'user', text })
 const answer = (id: string, text: string) => ({ type: 'message', id, role: 'assistant', text })
+
+/**
+ * Irreversible SQL database write fixture (#approve-sql, #task-approval, #queue).
+ * Kept outside THREAD_STATES keys so visual snapshot loops over Object.keys(THREAD_STATES) stay aligned.
+ */
+export const THREAD_SQL_APPROVAL_STATE: ThreadStateDefinition = {
+  status: 'approval',
+  title: 'Settle overdue staging invoices',
+  provider: 'codex',
+  events: () => [
+    user('u1', 'Settle overdue invoices in billing-staging before running reconciliation.'),
+    {
+      type: 'request',
+      id: 'approval-sql-1',
+      request: {
+        id: 'approval-sql-1',
+        nativeId: 'sql-1',
+        nativeMethod: 'item/commandExecution/requestApproval',
+        kind: 'approval',
+        title: 'Update 1,284 invoices on billing-staging',
+        detail: "UPDATE invoices SET status = 'settled', settled_at = NOW() WHERE due_date < '2026-10-01' AND status = 'pending';",
+        command: "UPDATE invoices\nSET status = 'settled', settled_at = NOW()\nWHERE due_date < '2026-10-01' AND status = 'pending';",
+        cwd: 'C:\\work\\repo',
+        reason: 'Settle the 1,284 overdue staging invoices before running the reconciliation suite.',
+        generation: 1,
+        createdAt: NOW,
+        state: 'pending',
+        availableDecisions: ['accept', 'decline'],
+        impact: {
+          why: 'Settle the 1,284 overdue staging invoices before running the reconciliation suite.',
+          where: 'billing-staging',
+          whereSub: 'PostgreSQL 16 · staging',
+          affects: { count: 1284, unit: 'rows' },
+          reversible: false,
+          risk: 'critical',
+          kind: 'db',
+          text: "UPDATE invoices\nSET status = 'settled', settled_at = NOW()\nWHERE due_date < '2026-10-01' AND status = 'pending';",
+          lang: 'sql'
+        },
+        alwaysAllow: {
+          offered: false,
+          reasonKind: 'destructive'
+        }
+      }
+    }
+  ]
+}
 
 export const THREAD_STATES: Record<ThreadStateName, ThreadStateDefinition> = {
   empty: { status: 'idle', title: 'New conversation', events: () => [] },
@@ -51,7 +100,26 @@ export const THREAD_STATES: Record<ThreadStateName, ThreadStateDefinition> = {
       { type: 'request', id: 'approval-1', request: {
         id: 'approval-1', nativeId: '1', nativeMethod: 'item/commandExecution/requestApproval', kind: 'approval',
         title: 'Approve command', detail: 'npm run typecheck', command: 'npm run typecheck', cwd: 'C:\\work\\repo',
-        reason: 'Verify the change compiles', generation: 1, createdAt: NOW, state: 'pending'
+        reason: 'Verify the change compiles', generation: 1, createdAt: NOW, state: 'pending',
+        availableDecisions: ['accept', 'decline'],
+        impact: {
+          why: 'Verify the change compiles before updating the Thread guide.',
+          where: 'repo',
+          whereSub: 'main',
+          affects: { count: 1, unit: 'resources' },
+          reversible: true,
+          undoHow: 'checkpoint',
+          risk: 'low',
+          kind: 'command',
+          text: 'npm run typecheck',
+          lang: 'shell'
+        },
+        alwaysAllow: {
+          offered: true,
+          rule: { provider: 'claude', text: 'Bash(npm run typecheck)', scope: 'project' },
+          runsProjectCode: true,
+          definedIn: 'package.json'
+        }
       } }
     ]
   },
@@ -143,15 +211,21 @@ export async function installThreadFixtures(app: ElectronApplication, root: stri
   await app.evaluate(({ ipcMain, BrowserWindow }, { fixtureRoot, now }) => {
     const g = globalThis as Record<string, unknown>
     let snapshot: Record<string, unknown> | null = null
-    const changed = () => { for (const w of BrowserWindow.getAllWindows()) w.webContents.send('thread:changed', { threadId: 'e2e-thread' }) }
+    const changed = () => {
+      for (const w of BrowserWindow.getAllWindows()) {
+        w.webContents.send('thread:changed', { threadId: 'e2e-thread' })
+        w.webContents.send('thread:tool-tabs-changed', { threadId: 'e2e-thread' })
+      }
+    }
     g.applyThreadState = (state: { status: string; title: string; provider?: string; extra?: Record<string, unknown>; events: unknown[] }) => {
       const thread = snapshot!.thread as Record<string, unknown>
       Object.assign(thread, { status: state.status, title: state.title, ...(state.provider ? { provider: state.provider } : {}), ...(state.extra ?? {}) })
       snapshot!.events = state.events
       changed()
     }
-    for (const channel of ['commands', 'list', 'read', 'create', 'send', 'pin', 'projects', 'models', 'configure', 'command', 'artifact', 'project-diff', 'observe', 'respond', 'turn-files']) ipcMain.removeHandler(`thread:${channel}`)
-    // The real handler returns null for a thread that only exists in this fake.
+    for (const channel of ['commands', 'list', 'read', 'create', 'send', 'pin', 'projects', 'models', 'configure', 'command', 'artifact', 'project-diff', 'observe', 'respond', 'turn-files', 'timeline', 'tool-tabs', 'background', 'pending-requests-all']) {
+      ipcMain.removeHandler(`thread:${channel}`)
+    }
     ipcMain.handle('thread:turn-files', () => [])
     ipcMain.handle('thread:create', (_event, input) => {
       snapshot = { thread: { id: 'e2e-thread', workspaceId: g.e2eWorkspaceId, projectId: 'e2e-project', rootPath: fixtureRoot, provider: input.provider, nativeSessionId: null, title: 'New conversation', pinned: false, status: 'idle', createdAt: now, updatedAt: now }, events: [] }
@@ -169,11 +243,79 @@ export async function installThreadFixtures(app: ElectronApplication, root: stri
     ipcMain.handle('thread:artifact', () => null)
     ipcMain.handle('thread:project-diff', () => ({ files: [], base: 'HEAD', includeUncommitted: true, compiledAt: now }))
     ipcMain.handle('thread:models', () => ({ defaultModel: 'native-model', models: [{ id: 'native-model', label: 'Native model', description: 'Native catalog model', efforts: ['low', 'high'], defaultEffort: 'low' }] }))
-    for (const name of ['github:get-pull-request-status', 'agent-credits:get', 'copilot:credits', 'git:get-status']) ipcMain.removeHandler(name)
+    ipcMain.handle('thread:background', () => [])
+    ipcMain.handle('thread:pending-requests-all', () => {
+      if (!snapshot) return []
+      const thread = snapshot.thread as Record<string, unknown>
+      const events = (snapshot.events as Array<Record<string, unknown>>) ?? []
+      return events
+        .filter(ev => ev.type === 'request' && (ev.request as Record<string, unknown>)?.state === 'pending')
+        .map(ev => {
+          const req = ev.request as Record<string, unknown>
+          return {
+            threadId: thread.id,
+            workspaceId: thread.workspaceId ?? '',
+            threadTitle: thread.title ?? 'Conversation',
+            requestId: req.id,
+            kind: req.kind,
+            title: req.title,
+            createdAt: req.createdAt ?? now
+          }
+        })
+    })
+    ipcMain.handle('thread:tool-tabs', () => {
+      const tabs: Array<{ tab: string; count: number | null }> = [{ tab: 'conversation', count: null }]
+      const events = (snapshot?.events as Array<Record<string, unknown>> | undefined) ?? []
+      const cmdCount = events.filter(ev => ev.type === 'tool' && (ev.name === 'commandExecution' || ev.name === 'Bash')).length
+      const fileCount = events.filter(ev => ev.type === 'tool' && ev.name === 'fileChange').length
+      if (cmdCount > 0) tabs.push({ tab: 'terminal', count: cmdCount })
+      if (fileCount > 0) tabs.push({ tab: 'changes', count: fileCount })
+      return tabs
+    })
+    ipcMain.handle('thread:timeline', () => ({
+      checkpoints: [
+        {
+          id: 'cp-1',
+          n: 1,
+          at: now + 60_000,
+          label: 'Inspect configuration and routes',
+          files: ['src/App.tsx'],
+          checkout: fixtureRoot,
+          turnId: 'turn-1'
+        },
+        {
+          id: 'cp-2',
+          n: 2,
+          at: now + 180_000,
+          label: 'Integrate review alongside the conversation',
+          files: ['src/App.tsx', 'src/components/Threads/ThreadWorkbench.tsx'],
+          checkout: fixtureRoot,
+          turnId: 'turn-2'
+        }
+      ],
+      cantGoBack: { dbWrites: 1, pushes: 0, containers: 0, commands: 0, httpWrites: 0, scope: 'conversation' },
+      canBranch: true
+    }))
+    for (const name of ['github:get-pull-request-status', 'agent-credits:get', 'copilot:credits', 'git:get-status', 'approvals:preview', 'approvals:always-allow']) {
+      ipcMain.removeHandler(name)
+    }
     ipcMain.handle('github:get-pull-request-status', () => null)
     ipcMain.handle('copilot:credits', () => ({ installed: false, credits: null, plan: null, error: null }))
     ipcMain.handle('agent-credits:get', (_event, input: { provider: string }) => ({ provider: input.provider, available: true, installed: true, planLabel: 'Pro', source: 'oauth', observedAtMs: now, error: null, windows: [] }))
     ipcMain.handle('git:get-status', () => ({ branch: 'main', ahead: 0, behind: 0, checkedAt: now, files: [] }))
+    ipcMain.handle('approvals:preview', () => ({
+      status: 'ok',
+      count: 1284,
+      sample: {
+        cols: ['invoice_id', 'customer', 'status', 'settled_at'],
+        rows: [
+          ['INV-1042', 'Acme Studio', { old: 'pending', new: 'settled' }, { old: null, new: '2026-10-14T12:00:00Z' }],
+          ['INV-1048', 'Northwind Labs', { old: 'pending', new: 'settled' }, { old: null, new: '2026-10-14T12:00:00Z' }],
+          ['INV-1051', 'Solaria Cloud', { old: 'pending', new: 'settled' }, { old: null, new: '2026-10-14T12:00:00Z' }]
+        ]
+      }
+    }))
+    ipcMain.handle('approvals:always-allow', () => ({ ok: true, rule: { provider: 'claude', text: 'Bash(npm run typecheck)', scope: 'project' } }))
   }, { fixtureRoot: root, now: NOW - 5 * 60_000 })
 }
 
@@ -188,7 +330,7 @@ export async function registerThreadProject(app: ElectronApplication, page: Page
 }
 
 /** Opens Thread mode, creates the fake thread through the real dialog and applies a named state. */
-export async function openThreadWithState(app: ElectronApplication, page: Page, root: string, state: ThreadStateName): Promise<void> {
+export async function openThreadWithState(app: ElectronApplication, page: Page, root: string, state: ExtendedThreadStateName): Promise<void> {
   await modeButton(page, 'thread').click()
   await page.getByRole('button', { name: 'New conversation in repo' }).click()
   await page.getByRole('button', { name: 'Create conversation', exact: true }).click()
@@ -196,8 +338,8 @@ export async function openThreadWithState(app: ElectronApplication, page: Page, 
   await setThreadState(app, root, state)
 }
 
-export async function setThreadState(app: ElectronApplication, root: string, state: ThreadStateName): Promise<void> {
-  const definition = THREAD_STATES[state]
+export async function setThreadState(app: ElectronApplication, root: string, state: ExtendedThreadStateName): Promise<void> {
+  const definition = state === 'approval-sql' ? THREAD_SQL_APPROVAL_STATE : THREAD_STATES[state]
   await app.evaluate((_context, payload) => {
     ;(globalThis as Record<string, (s: unknown) => void>).applyThreadState(payload)
   }, { status: definition.status, title: definition.title, provider: definition.provider, extra: definition.extra, events: definition.events({ root }) })

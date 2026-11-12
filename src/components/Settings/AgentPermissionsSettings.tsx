@@ -31,6 +31,7 @@ function isProductionEnv(env: string): boolean {
 export function AgentPermissionsSettings({ workspaceId }: { workspaceId: string }): ReactElement {
   const { t } = useTranslation('settings')
   const [page, setPage] = useState<AgentPermissionsPage>(EMPTY_PAGE)
+  useEffect(() => { void window.oxe?.featureUsage?.record?.('agentPermissions') }, [])
 
   const refresh = useCallback(async (): Promise<void> => {
     const api = window.oxe?.agentPermissions

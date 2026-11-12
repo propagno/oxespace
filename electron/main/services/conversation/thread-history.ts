@@ -150,7 +150,8 @@ export class ThreadHistory {
   /** That read as titles only: the activity center points at a request, it never answers one. */
   pendingRequestsAll(limit = 200): ThreadPendingRequestSummary[] {
     return this.pendingRequestRows(limit).map(({ thread, request }) => ({
-      threadId: thread.id, workspaceId: thread.workspaceId, threadTitle: readThreadTitle(thread.title), requestId: request.id, kind: request.kind, title: request.title, createdAt: request.createdAt, generation: request.generation
+      threadId: thread.id, workspaceId: thread.workspaceId, threadTitle: readThreadTitle(thread.title), requestId: request.id, kind: request.kind, title: request.title, createdAt: request.createdAt, generation: request.generation,
+      ...(request.impact ? { impact: { risk: request.impact.risk, reversible: request.impact.reversible } } : {})
     }))
   }
 

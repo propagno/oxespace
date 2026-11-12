@@ -2,7 +2,8 @@
 .root {
   max-width: min(100%, 1040px);
   margin: var(--space-2) 0 var(--space-3);
-  overflow: hidden;
+  /* clip, not hidden: the corners are still cut, and the card is no scroll container, so a heading inside it can stick to the timeline. */
+  overflow: clip;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
@@ -11,31 +12,42 @@
 }
 :global(.thread-pending-requests) .root { margin: 2px 0 4px; }
 
+/* Cockpit warm amber treatment for pending approvals and questions (#task-approval, #chat). */
+.amber {
+  border-color: var(--intent-warning-border);
+  background: var(--intent-warning-bg);
+}
+
 .question { display: flex; flex-direction: column; max-height: min(620px, calc(100dvh - 260px)); }
 :global(.thread-pending-requests) .question { max-height: calc(var(--request-cap) - 6px); }
 /* An approval or form in the dock: the header and the buttons stay put and the details between them scroll. */
 :global(.thread-pending-requests) .root:not(.question) { display: flex; flex-direction: column; max-height: calc(var(--request-cap) - 6px); }
 :global(.thread-pending-requests) .root:not(.question) > * { flex-shrink: 0; }
-:global(.thread-pending-requests) .root:not(.question) > :not(header, footer, .context, .policy) { flex-shrink: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+:global(.thread-pending-requests) .root:not(.question) > :not(header, footer, .context, .policy, .factsWrap) { flex-shrink: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .question > header, .question > nav, .question > footer { flex-shrink: 0; }
 
 .root > header { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border-subtle); }
+.amber > header { border-bottom-color: var(--intent-warning-border); }
 .root > header > svg { display: block; box-sizing: content-box; flex: none; width: 15px; height: 15px; padding: 6px; border-radius: 50%; background: var(--accent-soft); color: var(--text-accent); }
-.root > header > div { min-width: 0; }
+.amber > header > svg { background: var(--surface-raised); color: var(--intent-warning-fg); border: 1px solid var(--intent-warning-border); }
+.root > header > div { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.kicker { color: var(--intent-warning-fg); font-size: var(--text-xs); font-weight: var(--weight-medium); }
 .root > header strong { font-size: var(--text-sm); font-weight: var(--weight-semibold); }
 /* P1-17: the change touches a file that steers agents; the word, not colour alone, says so. */
-.guarded { display: inline-flex; align-items: center; gap: var(--space-1); margin-left: var(--space-2); padding: 1px var(--space-2); border: 1px solid var(--intent-warning-solid); border-radius: var(--radius-full); background: var(--intent-warning-bg); color: var(--text-primary); font-size: var(--text-2xs); font-weight: var(--weight-semibold); letter-spacing: 0.04em; text-transform: uppercase; vertical-align: middle; }
+.guarded { display: inline-flex; align-items: center; gap: var(--space-1); width: fit-content; margin-left: var(--space-2); padding: 1px var(--space-2); border: 1px solid var(--intent-warning-solid); border-radius: var(--radius-full); background: var(--intent-warning-bg); color: var(--text-primary); font-size: var(--text-2xs); font-weight: var(--weight-semibold); letter-spacing: 0.02em; vertical-align: middle; }
 .root > header p { margin: var(--space-1) 0 0; color: var(--text-secondary); font-size: var(--text-xs); white-space: pre-wrap; overflow-wrap: anywhere; }
 
-.context { margin: var(--space-2) var(--space-3); color: var(--text-secondary); font-size: var(--text-xs); line-height: var(--leading-normal); overflow-wrap: anywhere; }
+.context { margin: var(--space-2) var(--space-4); color: var(--text-secondary); font-size: var(--text-xs); line-height: var(--leading-normal); overflow-wrap: anywhere; }
+.factsWrap { padding: var(--space-2) var(--space-4); }
 
-.policy { margin: var(--space-2) var(--space-3); padding: var(--space-2) var(--space-3); border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: var(--text-secondary); font-size: var(--text-xs); line-height: var(--leading-normal); overflow-wrap: anywhere; }
+.policy { margin: var(--space-2) var(--space-4); padding: var(--space-2) var(--space-3); border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--surface-raised); color: var(--text-secondary); font-size: var(--text-xs); line-height: var(--leading-normal); overflow-wrap: anywhere; }
 .policy ul { margin: 0; padding-left: var(--space-4); }
 .highRisk { border-color: var(--intent-danger-border); background: var(--intent-danger-bg); }
 .highRisk strong { display: block; margin-bottom: var(--space-1); color: var(--intent-danger-fg); }
 
 /* Steps through several questions. */
 .steps { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin: 0; padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--border-subtle); }
+.amber .steps { border-bottom-color: var(--intent-warning-border); }
 .steps button { min-height: var(--control-sm); padding: 0 var(--space-3); border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); font: inherit; font-size: var(--text-xs); cursor: pointer; }
 .steps button:hover:not(:disabled) { background: var(--fill-hover); color: var(--text-primary); }
 .steps button:disabled { opacity: 0.4; cursor: default; }
@@ -51,7 +63,7 @@
 .root fieldset { min-width: 0; margin: 0; padding: var(--space-4); border: 0; }
 .root fieldset[hidden] { display: none; }
 .root legend { display: grid; gap: var(--space-1); width: 100%; padding: 0 0 var(--space-3); font-size: var(--text-sm); font-weight: var(--weight-semibold); line-height: var(--leading-snug); }
-.root legend small { color: var(--text-accent); font-size: var(--text-2xs); letter-spacing: 0.06em; text-transform: uppercase; }
+.root legend small { color: var(--text-accent); font-size: var(--text-2xs); font-weight: var(--weight-semibold); letter-spacing: 0.03em; }
 
 .option {
   display: flex;
@@ -61,6 +73,7 @@
   padding: var(--space-3);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
+  background: var(--surface-raised);
   cursor: pointer;
   transition: border-color var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard);
 }
@@ -96,15 +109,18 @@
   overflow: auto;
   padding: var(--space-3) var(--space-4);
   border-top: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
+  background: var(--surface-sunken);
+  color: var(--text-primary);
   font-family: var(--font-mono);
-  font-size: var(--text-2xs);
+  font-size: var(--text-xs);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.amber pre { border-top-color: var(--intent-warning-border); }
 
 .root > footer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border-subtle); }
-.root > footer > small { flex: 1 1 auto; color: var(--text-muted); font-size: var(--text-xs); }
+.amber > footer { border-top-color: var(--intent-warning-border); }
+.root > footer > small { flex: 1 1 auto; color: var(--text-secondary); font-size: var(--text-xs); }
 .root > footer button { display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--control-md); padding: 0 var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface-raised); color: var(--text-primary); font: inherit; font-size: var(--text-sm); font-weight: var(--weight-medium); cursor: pointer; }
 .root > footer button:hover:not(:disabled) { background: var(--fill-hover); }
 .root > footer button { transition: background var(--duration-fast) var(--ease-standard), scale var(--duration-fast) var(--ease-out); }
@@ -114,9 +130,11 @@
 /* The first action is the main one. */
 .root > footer button:first-child:not(.decline, .quiet), .answer { order: 2; padding: 0 var(--space-4); border-color: transparent; background: var(--accent); color: var(--text-on-accent); font-weight: var(--weight-semibold); }
 .root > footer button:first-child:not(.decline, .quiet):hover:not(:disabled), .answer:hover:not(:disabled) { background: var(--accent-hover); }
+.allowPrimary { order: 2; padding: 0 var(--space-4); border-color: transparent; background: var(--accent); color: var(--text-on-accent); font-weight: var(--weight-semibold); }
+.allowPrimary:hover:not(:disabled) { background: var(--accent-hover); }
 /* Approve above low risk (a write, a destructive command): the same weight as Decline, never the accent (P1-8). */
 .quiet { order: 2; }
-.decline { order: 1; border-color: transparent; background: transparent; color: var(--text-secondary); }
+.decline { order: 1; border-color: var(--border-default); background: var(--surface-raised); color: var(--text-primary); }
 .remember { order: 1; }
 
 /* A request that was answered, kept as a one-line record that expands. */
@@ -143,5 +161,3 @@
 :global(.thread-pending-requests) .root legend { padding-bottom: var(--space-2); }
 :global(.thread-pending-requests) .option { margin-bottom: var(--space-1); padding: var(--space-2) var(--space-3); }
 :global(.thread-pending-requests) .root > footer { padding: var(--space-2) var(--space-3); }
-/* The bar above already says the agent is waiting; a question without extra detail does not repeat it. */
-:global(.thread-pending-requests) .question > header:not(:has(p)) { display: none; }

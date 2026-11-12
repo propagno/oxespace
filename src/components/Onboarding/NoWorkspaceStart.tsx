@@ -2,6 +2,7 @@ import { Plus } from 'lucide-react'
 import { Suspense, lazy, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AppView } from '../../keyboard/keybindings'
+import { useNavigationPrefs } from '../../store/navigation-prefs.store'
 import { Button } from '../../ui'
 import { OxeLogo } from '../Brand/OxeLogo'
 import { FirstRunChecklistFallback } from './FirstRunChecklistFallback'
@@ -12,16 +13,17 @@ const FirstRunChecklist = lazy(() => import('./FirstRunChecklist').then(m => ({ 
 /** OxeCode with no workspace yet: start one, go to another mode, or follow the first-run guide. */
 export function NoWorkspaceStart({ onNewWorkspace, onSelectMode, onAddProject }: { onNewWorkspace: () => void; onSelectMode: (view: AppView) => void; onAddProject: () => void }): ReactElement {
   const { t } = useTranslation()
+  const firstRunDismissed = useNavigationPrefs(state => state.firstRun.dismissed)
   return (
     <div className="empty-state">
-      <OxeLogo size={72} variant="hero" />
+      <OxeLogo size={56} variant="hero" />
       <p>{t('app.start.prompt')}</p>
       <Button variant="primary" size="lg" icon={<Plus size={14} aria-hidden="true" />} onClick={onNewWorkspace}>{t('app.start.newWorkspace')}</Button>
       <div className="empty-state-alt" role="group" aria-label={t('app.start.otherWays')}>
         <span>{t('app.start.elsewhere')}</span>
         {(['thread', 'data'] as const).map(view => <Button key={view} variant="ghost" size="sm" onClick={() => onSelectMode(view)}>{t(`app.start.open.${view}`)}</Button>)}
       </div>
-      <Suspense fallback={<FirstRunChecklistFallback />}><FirstRunChecklist onNewWorkspace={onNewWorkspace} onAddProject={onAddProject} /></Suspense>
+      {!firstRunDismissed ? <Suspense fallback={<FirstRunChecklistFallback />}><FirstRunChecklist onNewWorkspace={onNewWorkspace} onAddProject={onAddProject} /></Suspense> : null}
     </div>
   )
 }

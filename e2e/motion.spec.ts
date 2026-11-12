@@ -28,7 +28,7 @@ test('motion: full plays the brand keyframes and entrances; reduced keeps only a
   try {
     await resizeWindow(app, 1280, 900)
     await page.evaluate(() => { document.documentElement.dataset.motion = 'full' })
-    await page.keyboard.press('Control+k')
+    await page.keyboard.press('Control+Shift+P')
     await expect(page.locator('[cmdk-root]')).toBeVisible()
     await page.keyboard.insertText('Design System')
     await page.locator('[cmdk-item]', { hasText: 'View: Open the design system viewer' }).click()

@@ -9,10 +9,28 @@ export function reportSplitRefused(cause: unknown): void {
 }
 
 /** A split whose halves would be too small to use is refused before any pane is created, and said. */
-export function reportSplitTooSmall(direction: 'vertical' | 'horizontal'): void {
+export function reportSplitTooSmall(size: { width: number; height: number }): void
+export function reportSplitTooSmall(direction: 'vertical' | 'horizontal'): void
+export function reportSplitTooSmall(sizeOrDirection: { width: number; height: number } | 'vertical' | 'horizontal'): void {
+  if (typeof sizeOrDirection === 'string') {
+    toast({
+      title: i18n.t('pane.splitRefused.title', { ns: 'code' }),
+      description: i18n.t(sizeOrDirection === 'vertical' ? 'pane.splitRefused.tooNarrow' : 'pane.splitRefused.tooShort', { ns: 'code', width: MIN_PANE_WIDTH_PX, height: MIN_PANE_HEIGHT_PX }),
+      intent: 'warning'
+    })
+    return
+  }
+  // The sizes say how far off it is; the line under them says which side is short and what to do about it (F19).
+  const side = sizeOrDirection.width < MIN_PANE_WIDTH_PX ? 'tooNarrow' as const : sizeOrDirection.height < MIN_PANE_HEIGHT_PX ? 'tooShort' as const : null
   toast({
-    title: i18n.t('pane.splitRefused.title', { ns: 'code' }),
-    description: i18n.t(direction === 'vertical' ? 'pane.splitRefused.tooNarrow' : 'pane.splitRefused.tooShort', { ns: 'code', width: MIN_PANE_WIDTH_PX, height: MIN_PANE_HEIGHT_PX }),
+    title: i18n.t('pane.splitRefused.tooSmall', {
+      ns: 'code',
+      w: Math.round(sizeOrDirection.width),
+      h: Math.round(sizeOrDirection.height),
+      minW: MIN_PANE_WIDTH_PX,
+      minH: MIN_PANE_HEIGHT_PX
+    }),
+    ...(side ? { description: i18n.t(`pane.splitRefused.${side}`, { ns: 'code', width: MIN_PANE_WIDTH_PX, height: MIN_PANE_HEIGHT_PX }) } : {}),
     intent: 'warning'
   })
 }

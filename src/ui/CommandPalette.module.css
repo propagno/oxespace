@@ -15,7 +15,7 @@
   transition: opacity var(--duration-base) var(--ease-out), translate var(--duration-base) var(--ease-out);
 }
 @starting-style { .content { opacity: 0; translate: 0 var(--motion-shift); } }
-.scrim { position: fixed; inset: 0; z-index: var(--layer-modal); background: var(--scrim); }
+.scrim { position: fixed; inset: 0; z-index: var(--layer-modal); background: var(--scrim); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 
 .command { display: flex; flex-direction: column; width: 100%; }
 

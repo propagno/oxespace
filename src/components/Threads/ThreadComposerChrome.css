@@ -21,6 +21,7 @@
 .thread-chip-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
 .thread-chip-dot[data-provider='claude'] { background: var(--provider-claude); }
 .thread-chip-dot[data-provider='codex'] { background: var(--provider-codex); }
+.thread-chip-dot[data-provider='antigravity'] { background: var(--provider-antigravity); }
 .thread-composer .thread-chip.is-permissions { flex-shrink: 0; }
 .thread-composer .thread-chip.is-permissions[data-access='read-only'] { background: var(--intent-info-bg); color: var(--intent-info-fg); }
 .thread-composer .thread-chip.is-permissions[data-access='workspace-write'] { background: var(--accent-soft); color: var(--text-accent); }

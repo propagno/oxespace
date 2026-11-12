@@ -54,7 +54,8 @@ test('Claude native pages use the production worker and survive an Electron rest
     expect(foundFirst).toBe(true)
     await app.close()
     app = await launch(); page = await app.firstWindow()
-    await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
+    // The app reopens in the mode it was closed in (OxeChat here), so the wait is for the mode switch, which every mode has.
+    await modeButton(page, 'thread').waitFor({ state: 'visible' })
     snapshot = await page.evaluate(id => window.oxe.thread!.read(id), threadId)
     expect(snapshot.page?.total).toBe(1200)
     expect(snapshot.thread.nativeHistoryCursor).toBeUndefined()

@@ -24,7 +24,7 @@ policy (`tool.use` rules of the policy store) applies by tool name to every tool
 
 | Covered | Excluded | Planned | Forbidden | Total |
 |---|---|---|---|---|
-| 37 | 33 | 2 | 22 | 94 |
+| 37 | 33 | 2 | 26 | 98 |
 
 The registry has 75 tools: 52 single-purpose tools and 23 domain tools with 86 actions, so the
 manifest declares 138 tool-or-action entries.
@@ -51,12 +51,16 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `approvals.admin` | `approvals.list`, `respond`, `ack`, `unavailable`, `history`, `preview`, `alwaysAllow`, `agentPermissions.list`, `revokeRule`, `setDatabaseAccess`, `setHostAccess`, `undo` (B10, F7: the app's own approval modal, database preview, Always allow and Settings › What agents can do) |
 | `thread.sections` | `thread.sections`, `thread.saveSections` (F13, for 1.4: the person's own organization of the conversation list) |
 | `thread.place_actions` | `thread.placeRead`, `thread.placeDriftAnswer`, `thread.placeUndo`, `thread.placeRestore`, `thread.placeDiscard` (F4, CR-F4-7: the person's answers to a branch drift, Undo, Restore and Discard of a place, and the read of a place's file outside the workspace roots) |
+| `thread.time_travel` | `thread.rewind`, `thread.redoRewind`, `thread.branchFromCheckpoint` (F8, A30: Restore and Branch rewrite working-tree files or create a worktree and conversation for the person) |
 | `app.open_external` | `app.openExternal` (the window's only way to open a link outside the app, after the person confirmed its host) |
 | `app.open_in` | `app.openIn`, `app.openInTargets`, `app.setOpenInPreference` (B18, for 1.4: it starts a program on the computer, so only the person opens a file in an editor or its folder) |
 | `app.activity` | `activity.recent`, `activity.record`, `activity.seen`, `activity.resolve` (F30, for 1.4: the person's own notification history) |
 | `mcp.tool_rules_admin` | `mcpInternal.setToolRule` |
 | `policy.accept_change` | `policy.acceptChange`, `policy.reviewChange` (B7.4: accepting, or reviewing again, a policy file changed outside OXESpace; the phone maps a `policyChange` request to its forbidden `policy.edit`) |
 | `code.agents_overview` | `agents.overview`, `agents.markSeen`, `agents.onChanged` (`agents:overview`, `agents:mark-seen`, `agents:changed`; S7.1: the person's overview of every agent, and only the person marks what they have seen. Agents read the same states with oxespace_agents list, oxespace_threads list and oxespace_work status) |
+| `containers.panel` | `oxePod.containers.panel` (F9 A34: the Containers panel's window-only read model; rows carry other conversations' titles, so agents never reach it) |
+| `settings.feature_usage` | `featureUsage.*` (F11 A65: local-only feature usage switch, export, clear and counts) |
+| `settings.hosts_proxy` | `hostsProxy.*` (F11 A68: loopback outgoing-hosts proxy switch, clear and retry) |
 
 ### Per-tool rules (B7.3): where each one holds
 
@@ -156,7 +160,8 @@ before. Code panes receive the whole registry.
 | `thread.side_chat` | A side chat about a conversation | Excluded: The person's read-only scratch copy of a conversation; agents ask in their own. |
 | `thread.access` | Permission rules and auto-approval | **Forbidden**: Raises access. |
 | `thread.places` | A conversation's places, their diffs, path links, panes, collisions and agent summary (F4) | Excluded: The person's window: read models of where a conversation worked. Agents read their own checkout with oxespace_git. |
-| `thread.cockpit` | A conversation's tool tabs and background shells (F6) | Excluded: The person's window: read models of what a conversation used and left running. Agents see their own tools and shells. |
+| `thread.cockpit` | A conversation's tool tabs, background shells and timeline (F6, F8) | Excluded: The person's window: read models of what a conversation used and left running. Agents see their own tools and shells. |
+| `thread.time_travel` | Restore a conversation to a checkpoint, redo a restore, or branch from a checkpoint into a new worktree (F8) | **Forbidden**: Person-only (A30): Restore and Branch rewrite working-tree files or create a worktree and conversation for the person. |
 | `thread.place_actions` | Answer a branch drift; undo, restore or discard a place's changes; read a file of a place (F4) | **Forbidden**: Person-only (A14 Undo, A15): they change or restore files and branches for the person; the place read reaches outside the workspace roots (A17). |
 | `thread.session_admin` | Fork, delete, clean up or search CLI sessions | Excluded: Deletes or copies the person's CLI history across projects. Agents search with oxespace_memory_search, scoped to the project. |
 | `delegation.use` | Delegate a task and follow it | **read**: `oxespace_delegation_targets`, `oxespace_delegation_preflight`, `oxespace_delegation_status`, `oxespace_delegation_inbox`, `oxespace_delegation_result`, `oxespace_delegation_context`<br>**write**: `oxespace_delegate_task`, `oxespace_delegation_control`, `oxespace_delegation_update`, `oxespace_delegation_checkpoint`, `oxespace_delegation_message`, `oxespace_delegation_acknowledge` |
@@ -167,6 +172,7 @@ before. Code panes receive the whole registry.
 | `oxequery.saved_queries` | Saved queries, history, import and export of data | Excluded: The person's notebook and bulk data moves; agents run one approved statement at a time. |
 | `oxequery.secrets` | Connection credentials, SSH host keys, export and import of connections | **Forbidden**: Secrets and trust. |
 | `containers.runtime` | Containers (OxePod): list, logs, start, stop, restart | **read**: `oxespace_containers_list`, `oxespace_container_logs`<br>**confirm**: `oxespace_container_action` |
+| `containers.panel` | The Containers panel: stack, status, uptime, database flag and who started each container | **Forbidden**: Window-only read model carrying other conversations' titles. |
 | `containers.resources` | Images, volumes, networks, compose, exec and shell, stats, database containers | Planned (P7): OxePod shows them to the person; tools for them come with P7. Removing a container and cleaning up are the person's confirmed actions in OxePod and are not tools. A container's environment reaches the page redacted and never an agent. |
 | `skills.use` | Skills: list, read, add | **read**: `oxespace_skills#list`, `oxespace_skills#get`<br>**confirm**: `oxespace_skills_change#create` |
 | `skills.invoke` | Invoke a skill in a pane | Excluded: Types the skill into a terminal. Agents read its body with oxespace_skills get. |
@@ -194,5 +200,7 @@ before. Code panes receive the whole registry.
 | `code.pane_conversation` | A terminal agent's conversation on the desktop (A53) | Excluded: The person's read-only view of a pane's native session. Agents read panes with oxespace_agents read and sessions with oxespace_threads native_sessions. |
 | `mcp_internal.token` | Regenerate the internal MCP token | **Forbidden**: A token. |
 | `accounts.sign_in` | Sign in or out of Claude, Codex and other accounts | **Forbidden**: Sign-in and tokens. |
+| `settings.feature_usage` | Local-only feature usage counter: switch, export, clear and feature counts (A65) | **Forbidden**: Person-only local usage preferences and counts; agents neither read nor change them. |
+| `settings.hosts_proxy` | Loopback outgoing-hosts proxy: switch, clear and retry (A68) | **Forbidden**: Person-only network inspection control; agents must not turn off or clear their own host log. |
 | `app.events` | Change notifications sent to the window | Excluded: Events, not actions: agents read the state they describe with the tools above. |
 | `oxepost.all` | OxePost: collections, environments, sending | Planned (H8): OxePost (H1-H4) is the person's API client: collections, environments and sending have no tool yet; H8 adds list, read and create, and send with GET and HEAD to localhost free and the rest confirmed. Environment secrets stay in the system's secure storage and are never a tool, an argument or a result. |

@@ -25,6 +25,7 @@ export function CommandDialog({ open, onOpenChange, children, title = i18n.t('ui
   const content = useRef<HTMLDivElement | null>(null)
   // Radix calls this before it moves focus into the dialog, so the active element is still the one to return to.
   const remember = (): void => { previous.current = document.activeElement instanceof HTMLElement ? document.activeElement : null }
+  useEffect(() => { if (open) void window.oxe?.featureUsage?.record?.('commandBar') }, [open])
   const returnFocus = (event: Event): void => {
     onCloseAutoFocus?.(event)
     const target = previous.current

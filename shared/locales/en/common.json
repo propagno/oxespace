@@ -66,6 +66,8 @@
     "openSettings": "Open settings",
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
+    "collapseSidebarShortcut": "Collapse the sidebar (Ctrl B)",
+    "expandSidebarShortcut": "Expand the sidebar (Ctrl B)",
     "clearSearch": "Clear search",
     "applicationMenu": "Application menu",
     "menu": "Menu",
@@ -78,7 +80,9 @@
     "needsDecision_one": "{{count}} needs your decision",
     "needsDecision_other": "{{count}} need your decision",
     "failed": "{{count}} failed",
-    "working": "{{count}} working"
+    "working": "{{count}} working",
+    "nothingWaiting": "Nothing waiting",
+    "approvalsWaiting": "Approvals waiting for you"
   },
   "menu": {
     "file": "File",
@@ -131,6 +135,9 @@
       "f6ToProgram": "In a terminal pane with “Send F6 to the program” on (in its ⋯ menu), F6 and Shift+F6 go to the program there, for mc, htop or tig; {{toggle}} still makes Tab move focus out of it."
     },
     "bindings": {
+      "commandBar": {
+        "open": "Open command bar"
+      },
       "palette": {
         "open": "Open command palette",
         "search": "Search files & commands"
@@ -183,6 +190,7 @@
         "permissions": "Permissions",
         "model": "Model",
         "effort": "Reasoning effort",
+        "history": "History",
         "sideChat": "Side chat"
       },
       "help": {
@@ -403,7 +411,26 @@
     "githubBefore": "Pull requests and issues need the GitHub CLI signed in",
     "githubAfter": "OXESpace checks it once a project is open.",
     "copy": "Copy command",
-    "markDone": "Mark as done"
+    "markDone": "Mark as done",
+    "v2": {
+      "folderStep": "Open a project folder",
+      "chooseFolder": "Choose folder",
+      "agentStep": "Connect an agent",
+      "howToInstall": "How to install",
+      "signIn": "Sign in to {{provider}}",
+      "waiting": "Waiting for sign-in in your browser…",
+      "cancel": "Cancel",
+      "readyModel": "Ready · {{model}}",
+      "ready": "Ready",
+      "conversationStep": "Start your first conversation",
+      "newConversation": "New conversation",
+      "connectFirst": "Connect an agent first",
+      "openModeAlone": "Or open a mode on its own",
+      "heroTitle": "Agents that work in your code, and show you every step",
+      "heroLead": "Pick a project folder, connect Claude Code or Codex, and start working with full visibility.",
+      "modeDescCode": "Terminals and agents side by side",
+      "modeDescQuery": "Inspect tables and run SQL safely"
+    }
   },
   "usage": {
     "resetUnknown": "Reset time unknown",
@@ -477,10 +504,43 @@
       "readyDetail": "Restart to install the update."
     },
     "devBuild": "Updates only run in installed builds",
+    "chip": {
+      "available": "Update to {{version}}",
+      "downloading": "Downloading {{version}}… {{percent}}%",
+      "downloaded": "Restart to update",
+      "restartNow": "Restart now",
+      "later": "Later",
+      "error": "The update couldn't download. Try again later or get it from the releases page.",
+      "openReleases": "Open releases page"
+    },
+    "whatsNew": {
+      "title": "What's new in 1.5",
+      "open": "Open",
+      "openTarget": "Open {{title}}",
+      "rows": {
+        "browser": {
+          "title": "Agent browser",
+          "body": "Watch the agent drive your app, on desktop or a phone size."
+        },
+        "approvals": {
+          "title": "Approvals with impact",
+          "body": "Approve with the impact in front of you; irreversible steps hold."
+        },
+        "httpCalls": {
+          "title": "HTTP calls",
+          "body": "Every HTTP call your agents made, with secrets masked."
+        },
+        "timeTravel": {
+          "title": "Time travel",
+          "body": "Go back to any checkpoint, or branch from it."
+        }
+      }
+    },
     "removedFeatures": {
       "info": "OXESpace 1.5 removed some features. Your data was saved.",
       "warning": "OXESpace 1.5 removed some features. Your data isn't saved yet.",
       "seeWhatChanged": "See what changed",
+      "seeWhatsNew": "See what's new",
       "dismiss": "Dismiss",
       "tryNow": "Try now",
       "dialogTitle": "What changed in 1.5",
@@ -547,6 +607,83 @@
   "brand": {
     "tagline": "Agents and terminals for your projects"
   },
+  "commandBar": {
+    "sections": { "actions": "Actions", "goTo": "Go to", "openBeside": "Open beside" },
+    "destinations": {
+      "oxechat": "Conversations and delegated work",
+      "oxecode": "Workspaces, terminals and changes",
+      "oxequery": "Databases, SQL and MongoDB",
+      "settings": "Settings",
+      "settingsHint": "Application and workspace preferences",
+      "approvals": "Approvals",
+      "approvalsHint": "Requests waiting for your decision",
+      "conversation": "OxeChat conversation"
+    },
+    "footer": { "navigate": "navigate", "run": "run", "close": "close" },
+    "keys": { "escape": "Esc" },
+    "trigger": "Ask, run or go to…",
+    "dialogLabel": "Command bar",
+    "inputLabel": "Ask, run or go to",
+    "groups": {
+      "commands": "Commands",
+      "skills": "Skills",
+      "agents": "Agents",
+      "workspaces": "Workspaces"
+    },
+    "hints": {
+      "agent": "start or delegate",
+      "skill": "run a skill",
+      "open": "go anywhere",
+      "help": "every command and its shortcut"
+    },
+    "examples": {
+      "agent": "@Codex write tests for the Pix webhook",
+      "skill": "/skill pix-rules",
+      "open": "open billing-staging",
+      "help": "?"
+    },
+    "resultCount_one": "{{count}} result",
+    "resultCount_other": "{{count}} results",
+    "noMatch": "No match for {{query}}",
+    "noCommand": "No command {{command}}",
+    "also": "Also: {{button}}",
+    "fallback": {
+      "pending": "Needs you",
+      "deny": "Deny on request card",
+      "steer": "Steer in OxeChat",
+      "stop": "Stop in OxeChat",
+      "new": "New conversation",
+      "history": "History",
+      "terminal": "New terminal",
+      "theme": "Appearance",
+      "skill": "Skills"
+    },
+    "catalog": {
+      "pending": "See requests waiting for your answer",
+      "deny": "Decline the waiting request in this workspace",
+      "steer": "Send a steering note in OxeChat",
+      "stop": "Stop the active turn in OxeChat",
+      "new": "Start a new conversation in OxeChat",
+      "history": "Open conversation history and checkpoints",
+      "terminal": "Open a new terminal pane",
+      "theme": "Switch light or dark appearance",
+      "skill": "Run an enabled skill in the focused agent pane"
+    },
+    "agentPrompt": "Ask or delegate to {{agent}}",
+    "refusal": {
+      "skillNotEnabled": "/{{name}} isn't enabled in this project.",
+      "noAgent": "Focus a conversation or an agent pane first.",
+      "controlChars": "Remove the control characters from the text.",
+      "requestNone": "Nothing is waiting for you.",
+      "otherWorkspace": "That request is in {{workspace}}.",
+      "openWorkspace": "Open {{workspace}}"
+    },
+    "confirmStop": {
+      "message": "Stop the active turn in OxeChat?",
+      "cancel": "Cancel",
+      "stop": "Stop"
+    }
+  },
   "commands": {
     "category": {
       "general": "General",
@@ -569,6 +706,7 @@
       },
       "help": {
         "shortcuts": "Show keyboard shortcuts",
+        "whats-new": "Show what's new in 1.5",
         "report-problem": "Report a problem…",
         "about": "About OXESpace",
         "approvals": "Show approval history"
@@ -821,6 +959,7 @@
     "links": "Links",
     "link": {
       "repository": "Source code",
+      "whatsNew": "What's new in 1.5",
       "releaseNotes": "Release notes",
       "licenseText": "License",
       "notices": "Third-party licenses"
@@ -991,5 +1130,10 @@
     "noEditor": "No external editor was found (VS Code, Cursor or Zed). Install one and try again.",
     "notAFile": "{{editor}} opens only files from here. To open a folder, use “{{reveal}}”.",
     "menuUnavailable": "The menu couldn't load. Try again."
+  },
+  "statusBar": {
+    "agentsWorking_one": "{{count}} agent working",
+    "agentsWorking_other": "{{count}} agents working",
+    "nothingSetUpYet": "Nothing set up yet"
   }
 }

@@ -184,15 +184,11 @@ describe('Sidebar', () => {
     // the workspace (pane navigation lives in the grid).
     expect(screen.queryByText('repo')).not.toBeInTheDocument()
     expect(screen.getByLabelText('repo')).toBeInTheDocument()
-    expect(screen.getByLabelText('Expand sidebar')).toBeInTheDocument()
-    expect(screen.getByTestId('btn-open-tools')).toBeInTheDocument()
+    expect(screen.getByLabelText('Expand the sidebar (Ctrl B)')).toBeInTheDocument()
+    expect(screen.getByTestId('btn-new-workspace')).toBeInTheDocument()
 
     await user.click(screen.getByLabelText('repo'))
     expect(onSelectWorkspace).toHaveBeenCalledWith('workspace-1')
-
-    await user.click(screen.getByTestId('btn-open-tools'))
-    await user.click(await screen.findByRole('menuitemcheckbox', { name: 'Files' }))
-    expect(onOpenTools).toHaveBeenCalled()
   })
 
   test('numbers workspaces that share a root folder so they can be told apart', async () => {

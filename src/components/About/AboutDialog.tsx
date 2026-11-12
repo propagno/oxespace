@@ -7,6 +7,7 @@ import { OPEN_REPORT_PROBLEM_EVENT } from '../Diagnostics/ReportProblemHost'
 import { Badge, Button, copyText, Dialog, Notice, Skeleton } from '../../ui'
 import { formatDateTime } from '../../utils/formatTime'
 import { openExternalLink } from '../../lib/externalLinks'
+import { useWhatsNew } from '../Updates/whatsNew'
 import styles from './AboutDialog.module.css'
 
 const PLATFORMS: Record<string, string> = { win32: 'Windows', linux: 'Linux', darwin: 'macOS' }
@@ -76,6 +77,7 @@ export function AboutDialog({ onClose }: { onClose: () => void }): ReactElement 
     {rows.length > 0 && <dl className={styles.facts}>{rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>}
     <p className={styles.license}>{t('about.license')}</p>
     <ul className={styles.links} aria-label={t('about.links')}>
+      <li><Button variant="link" onClick={() => { onClose(); useWhatsNew.getState().show() }}>{t('about.link.whatsNew')}</Button></li>
       {([['repository', links.repository], ['releaseNotes', links.releaseNotes], ['licenseText', links.license], ['notices', links.notices]] as const).map(([key, url]) =>
         <li key={key}><Button variant="link" onClick={() => open(url)}>{t(`about.link.${key}`)}<ExternalLink size={12} aria-hidden="true" /></Button></li>)}
     </ul>

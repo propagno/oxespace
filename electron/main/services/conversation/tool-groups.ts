@@ -1,5 +1,6 @@
 import { CONFIGURABLE_MCP_TOOL_GROUPS, MCP_TOOL_GROUP_MODES, type ConfigurableMcpToolGroup, type McpToolGroupMode } from '../../../../shared/types/mcp-tools'
 import type { RepoConfig } from '../../../../shared/types/repo-config'
+import type { ThreadProvider } from '../../../../shared/types/thread'
 import { CODE_ON_DEMAND_TOOLS, CODE_START_TOOLS, MCP_TOOL_GROUPS, type ThreadToolRoles } from './thread-mcp'
 
 /** Each configurable group's mode in a project, and whether the project set it. */
@@ -71,9 +72,11 @@ export function projectMcpJsonPlan(modes: ProjectToolModes): SessionToolPlan {
  *   be offered from the start to work at all.
  * - Claude Code defers them for sure only with `ENABLE_TOOL_SEARCH=true`: `auto:N` defers only above N% of the context
  *   window, which a large window never reached, so it gets the plan without tool search.
+ * - Antigravity (agy 1.5.5) was not measured, and whether it reloads its tool list mid-session is not known, so like
+ *   Codex it is offered every group that is not off from the start.
  */
-export function usesToolSearch(provider: 'claude' | 'codex', env: Record<string, string | undefined>): boolean {
-  if (provider === 'codex') return true
+export function usesToolSearch(provider: ThreadProvider, env: Record<string, string | undefined>): boolean {
+  if (provider !== 'claude') return true
   const value = env.ENABLE_TOOL_SEARCH?.trim().toLowerCase()
   return value === 'true' || value === '1'
 }

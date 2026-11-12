@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { scanSurface, writeReport, type Violation } from '../helpers/a11y'
-import { launchApp, openDemoWorkspace, resizeWindow, type Appearance } from '../helpers/launch'
+import { launchApp, layoutAtWidth, openDemoWorkspace, resizeWindow, type Appearance } from '../helpers/launch'
 import { seedGitRepo } from '../helpers/seed'
 import { installThreadFixtures, openThreadWithState, registerThreadProject, setThreadState, THREAD_STATES, type ThreadStateName } from '../helpers/thread-fixtures'
 
@@ -97,9 +97,14 @@ for (const theme of THEMES) {
       await record(await scanSurface(page, `${theme}/tools-menu`), found)
       await page.keyboard.press('Escape')
 
-      await page.keyboard.press('Control+k')
+      await page.keyboard.press('Control+Shift+P')
       await expect(page.locator('[cmdk-root]')).toBeVisible()
       await record(await scanSurface(page, `${theme}/command-palette`), found)
+      await page.keyboard.press('Escape')
+
+      await page.keyboard.press('Control+k')
+      await expect(page.getByRole('combobox')).toBeVisible()
+      await record(await scanSurface(page, `${theme}/command-bar`), found)
       await page.keyboard.press('Escape')
 
       await openTool(page, /^Changes$/)
@@ -166,30 +171,17 @@ for (const theme of THEMES) {
       //  - "Back to work" leaves the settings center.
       // So only the visible "Settings categories" navigation is used, and it is read again after each scope change.
       const slug = (text: string): string => text.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-      for (const scope of ['application', 'workspace'] as const) {
-        const scopeButton = scope === 'application'
-          ? page.locator('.settings-scope-choices button').first()
-          : page.locator('.settings-scope-choices button', { hasText: 'Current workspace' })
-        await reach(`${theme}/settings-scope-${scope}`, found, page, async () => {
-          await scopeButton.click()
-          await expect(scopeButton).toHaveAttribute('aria-pressed', 'true')
+      const categories = page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button')
+      const count = Math.min(await categories.count().catch(() => 0), 20)
+      for (let index = 0; index < count; index++) {
+        const label = (await categories.nth(index).locator('span').first().innerText().catch(() => `page ${index}`)).trim()
+        await reach(`${theme}/settings-${index}-${slug(label)}`, found, page, async () => {
+          await categories.nth(index).click()
+          await page.waitForTimeout(250)
         })
-        // A scope that did not switch would label the previous scope's pages with the wrong name.
-        if ((await scopeButton.getAttribute('aria-pressed').catch(() => null)) !== 'true') continue
-        const categories = page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button')
-        const count = Math.min(await categories.count().catch(() => 0), 12)
-        for (let index = 0; index < count; index++) {
-          const label = (await categories.nth(index).locator('span').first().innerText().catch(() => `page ${index}`)).trim()
-          await reach(`${theme}/settings-${scope}-${slug(label)}`, found, page, async () => {
-            await categories.nth(index).click()
-            await page.waitForTimeout(250)
-          })
-        }
       }
       await dialogScan('agent-config', async () => {
         // The mock lists no agents, so the configuration opens for a new custom agent (Agents page).
-        // The loop above ends in the workspace scope, whose pages do not include Agents.
-        await page.locator('.settings-scope-choices button').first().click()
         await page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Agents/ }).first().click()
         await page.getByTestId('btn-new-custom-agent').click()
       }, () => page.getByRole('dialog').last())
@@ -235,7 +227,10 @@ for (const theme of THEMES) {
       await page.evaluate(() => localStorage.setItem('oxe.thread.viewMode', 'verbose'))
       await page.reload()
       await page.waitForLoadState('load')
-      await resizeWindow(app, 1280, 800)
+      // Laid out 1280 px wide whatever the screen. A Windows runner's 1024×768 screen clamps the window to about
+      // 1008×696; at that height the workbench state rests with a file row half under the top edge of the timeline,
+      // and axe reads its 28 px button as an 11 px target. Measured: at 1280×800 the button is whole.
+      await layoutAtWidth(app, page, 1280, 800)
       await installThreadFixtures(app, workspaceRoot)
       await openDemoWorkspace(page, workspaceRoot)
       await registerThreadProject(app, page, workspaceRoot)

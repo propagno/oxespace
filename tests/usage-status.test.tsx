@@ -37,7 +37,9 @@ describe('usage in the status bar', () => {
       render(<UsageStatus provider="claude" />)
       await act(async () => { await Promise.resolve() })
       expect(get).toHaveBeenCalledTimes(1)
-      expect(screen.getByTestId('usage-status')).toHaveTextContent('5h 42% · wk 18%')
+      // The chip shows the agent and its highest window; the windows themselves are in its accessible name.
+      expect(screen.getByTestId('usage-status')).toHaveTextContent('Claude 42%')
+      expect(screen.getByTestId('usage-status')).toHaveAccessibleName(/^Claude 42%.*5h 42% · wk 18%/)
       await act(async () => { vi.advanceTimersByTime(USAGE_POLL_MS); await Promise.resolve() })
       expect(get).toHaveBeenCalledTimes(2)
       vi.useRealTimers() // the popover opens on real time

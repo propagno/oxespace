@@ -115,7 +115,7 @@ test('approval over Settings: on top, Settings stays, focus and place come back,
     await page.waitForTimeout(1_000)
 
     // The person is deep in Settings: a page down the list, scrolled, with the focus on its entry.
-    await page.keyboard.press('Control+k'); await page.keyboard.insertText('Settings')
+    await page.keyboard.press('Control+Shift+P'); await page.keyboard.insertText('Settings')
     await page.locator('[cmdk-item]', { hasText: 'Settings' }).first().click()
     const settings = settingsDialog(page)
     await expect(settings).toBeVisible({ timeout: 10_000 })
@@ -175,7 +175,7 @@ test('approval over Settings: a policy change raised by opening Settings › Too
     await page.keyboard.press('Enter')
     await expect.poll(() => existsSync(done), { timeout: 20_000, message: 'the agent widened the policy' }).toBe(true)
 
-    await page.keyboard.press('Control+k'); await page.keyboard.insertText('Workspace settings')
+    await page.keyboard.press('Control+Shift+P'); await page.keyboard.insertText('Workspace settings')
     await page.locator('[cmdk-item]', { hasText: 'Workspace settings' }).first().click()
     const settings = settingsDialog(page)
     await expect(settings).toBeVisible({ timeout: 10_000 })

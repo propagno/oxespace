@@ -122,13 +122,15 @@ export function ToolsSettings({ rootPath: propRootPath, workspaceId: propWorkspa
   useEffect(() => {
     let live = true
     const api = window.oxe?.mcpInternal
-    api?.toolGroups?.({ rootPath }).then(next => {
-      if (!live) return
-      setReport(next)
-      if (wasInvalid.current && next.oxeYaml !== 'invalid') setReadAgain(true)
-      wasInvalid.current = false
-    }, (cause: unknown) => { if (live) setGroupsError(humanizeError(cause)) })
-    api?.toolRules?.({ rootPath }).then(next => { if (live) setRules(next) }, (cause: unknown) => { if (live) setRulesError(humanizeError(cause)) })
+    if (rootPath) {
+      api?.toolGroups?.({ rootPath }).then(next => {
+        if (!live) return
+        setReport(next)
+        if (wasInvalid.current && next.oxeYaml !== 'invalid') setReadAgain(true)
+        wasInvalid.current = false
+      }, (cause: unknown) => { if (live) setGroupsError(humanizeError(cause)) })
+      api?.toolRules?.({ rootPath }).then(next => { if (live) setRules(next) }, (cause: unknown) => { if (live) setRulesError(humanizeError(cause)) })
+    }
     window.oxe?.policy?.get(workspaceId).then(next => { if (live) setPolicy(next) }, (cause: unknown) => { if (live) setPolicyError(humanizeError(cause)) })
     return () => { live = false }
   }, [rootPath, workspaceId, reloads])
@@ -191,11 +193,13 @@ export function ToolsSettings({ rootPath: propRootPath, workspaceId: propWorkspa
   const others = rules ? otherServerRules(rules) : []
   const organization = organizationToolRules(policy)
 
-  // The page heading ("Tools") comes from the workspace settings around it.
   return <section className={styles.page} data-testid="tools-settings" aria-label={t('tools.title')}>
     <div className={styles.header}>
-      <p className={styles.intro}>{t('tools.intro')} <code title={rootPath}>{OXE_YAML}</code> · <code>{THREAD_TOOLS_KEY}</code></p>
-      <Button variant="ghost" size="sm" disabled={busy} onClick={reload}><RefreshCw size={14} aria-hidden="true" /> {t('tools.reload')}</Button>
+      <div className={styles.titleBlock}>
+        <h2 className={styles.pageTitle}>{t('center.pages.mcp.label')}</h2>
+        <p className={styles.intro}>{t('tools.intro')} <code title={rootPath || undefined}>{OXE_YAML}</code> · <code>{THREAD_TOOLS_KEY}</code></p>
+      </div>
+      {rootPath && <Button variant="ghost" size="sm" disabled={busy} onClick={reload}><RefreshCw size={14} aria-hidden="true" /> {t('tools.reload')}</Button>}
     </div>
     <div className={styles.providers} role="note" aria-label={t('tools.providers.title')}>
       <p><strong>{CLAUDE}</strong> {t('tools.providers.claude')}</p>
@@ -203,25 +207,26 @@ export function ToolsSettings({ rootPath: propRootPath, workspaceId: propWorkspa
     </div>
     {(status || readAgain) && <p className={styles.status} role="status">{status || t('tools.invalidYaml.readAgain')}</p>}
     {actionError && <ErrorState compact title={actionError.title} message={actionError.message} />}
-    {groupsProblem ? <ErrorState title={t('tools.loadFailed')} message={groupsProblem} onRetry={reload} />
-      : !report ? <LoadingState label={t('tools.loading')} />
-        : <>
-          {invalid && <Notice intent="warning" title={t('tools.invalidYaml.title', { file: OXE_YAML })}>
-            <code>{yamlPath(rootPath)}</code>: {t(effectiveFrom === 'last-valid' ? 'tools.invalidYaml.bodyLastValid' : effectiveFrom === 'defaults' ? 'tools.invalidYaml.bodyDefaults' : 'tools.invalidYaml.body')}
-          </Notice>}
-          <dl className={styles.totals} aria-label={t('tools.totals.title')}>
-            <div><dt>{t('tools.totals.plain')}</dt><dd>{costText(t, report.totals.plainConversation)}</dd></div>
-            <div><dt>{t('tools.totals.everything')}</dt><dd>{costText(t, report.totals.everythingOnDemand)}</dd></div>
-          </dl>
-          <p className={styles.hint}>{t('tools.totals.estimate')}</p>
-          {rulesProblem && <ErrorState compact title={t('tools.rules.loadFailed')} message={rulesProblem} />}
-          <h4 className={styles.sectionTitle}>{t('tools.sections.project')}</h4>
-          <p className={styles.hint}>{t('tools.rules.intro')}</p>
-          <div className={styles.groups}>{chosen.map(group => <GroupPanel key={group.id} group={group} rules={rules} busy={busy} unread={unread} locked={invalid} onMode={onMode} onRule={chooseRule} />)}</div>
-          <h4 className={styles.sectionTitle}>{t('tools.sections.role')}</h4>
-          <p className={styles.hint}>{t('tools.sections.roleIntro')}</p>
-          <div className={styles.groups}>{byRole.map(group => <GroupPanel key={group.id} group={group} rules={rules} busy={busy} onMode={onMode} onRule={chooseRule} />)}</div>
-        </>}
+    {!rootPath ? <EmptyState compact title={t('tools.noProject.title')}>{t('tools.noProject.body')}</EmptyState>
+      : groupsProblem ? <ErrorState title={t('tools.loadFailed')} message={groupsProblem} onRetry={reload} />
+        : !report ? <LoadingState label={t('tools.loading')} />
+          : <>
+            {invalid && <Notice intent="warning" title={t('tools.invalidYaml.title', { file: OXE_YAML })}>
+              <code>{yamlPath(rootPath)}</code>: {t(effectiveFrom === 'last-valid' ? 'tools.invalidYaml.bodyLastValid' : effectiveFrom === 'defaults' ? 'tools.invalidYaml.bodyDefaults' : 'tools.invalidYaml.body')}
+            </Notice>}
+            <dl className={styles.totals} aria-label={t('tools.totals.title')}>
+              <div><dt>{t('tools.totals.plain')}</dt><dd>{costText(t, report.totals.plainConversation)}</dd></div>
+              <div><dt>{t('tools.totals.everything')}</dt><dd>{costText(t, report.totals.everythingOnDemand)}</dd></div>
+            </dl>
+            <p className={styles.hint}>{t('tools.totals.estimate')}</p>
+            {rulesProblem && <ErrorState compact title={t('tools.rules.loadFailed')} message={rulesProblem} />}
+            <h4 className={styles.sectionTitle}>{t('tools.sections.project')}</h4>
+            <p className={styles.hint}>{t('tools.rules.intro')}</p>
+            <div className={styles.groups}>{chosen.map(group => <GroupPanel key={group.id} group={group} rules={rules} busy={busy} unread={unread} locked={invalid} onMode={onMode} onRule={chooseRule} />)}</div>
+            <h4 className={styles.sectionTitle}>{t('tools.sections.role')}</h4>
+            <p className={styles.hint}>{t('tools.sections.roleIntro')}</p>
+            <div className={styles.groups}>{byRole.map(group => <GroupPanel key={group.id} group={group} rules={rules} busy={busy} onMode={onMode} onRule={chooseRule} />)}</div>
+          </>}
     <h4 className={styles.sectionTitle}>{t('tools.sections.mcpAndSkills')}</h4>
     {rules && <Panel className={styles.group} label={t('tools.rules.otherTitle')} title={t('tools.rules.otherTitle')}>
       {others.length ? <ul aria-label={t('tools.rules.otherTitle')} className={styles.list}>{others.map(rule => <RuleRow key={`${rule.server}/${rule.tool}`} rule={rule} busy={busy} onChoose={chooseRule} />)}</ul>

@@ -115,8 +115,8 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
       const sources = instructionSources(thread.provider, thread.rootPath)
       const scopeLabel = { user: 'user', project: 'project', directory: 'subdirectory', local: 'local (not committed)', rules: 'rule' } as const
       return { kind: 'panel', title: 'Instruction files', text: sources.length
-        ? `${thread.provider === 'claude' ? 'Claude Code' : 'Codex'} reads these files when the session starts, in this order. Edit them in the project to change how the agent behaves.`
-        : `No ${thread.provider === 'claude' ? 'CLAUDE.md' : 'AGENTS.md'} instruction files were found for this project.`,
+        ? `${thread.provider === 'claude' ? 'Claude Code' : thread.provider === 'antigravity' ? 'Antigravity' : 'Codex'} reads these files when the session starts, in this order. Edit them in the project to change how the agent behaves.`
+        : `No ${thread.provider === 'claude' ? 'CLAUDE.md' : thread.provider === 'antigravity' ? 'GEMINI.md or AGENTS.md' : 'AGENTS.md'} instruction files were found for this project.`,
       rows: sources.map(source => ({ label: instructionLabel(source, thread.rootPath), detail: `${scopeLabel[source.scope]} · ${source.bytes.toLocaleString()} bytes${source.paths ? ` · only for ${source.paths.join(', ')}` : ''}` })) }
     }
     if (name === 'capabilities') {

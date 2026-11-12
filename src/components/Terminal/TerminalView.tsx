@@ -98,13 +98,15 @@ function buildTerminalTheme(translucent: boolean): ITheme {
     const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
     return v || fallback
   }
-  const ansi = (name: string): string => tok(`--ansi-${name}`, '#808080')
+  const darkMode = document.documentElement.dataset.appearance === 'dark'
+  const darkAnsi: Record<string, string> = { black: '#2f3431', white: '#d3d9d5', 'bright-black': '#828883', 'bright-white': '#f0f7f2', red: '#fb8276', 'bright-red': '#ffb5ac', green: '#60c473', 'bright-green': '#8de29a', yellow: '#dc9e12', 'bright-yellow': '#f7c15f', blue: '#60b0ff', 'bright-blue': '#a2cfff', magenta: '#df86d7', 'bright-magenta': '#faabf3', cyan: '#00c2ca', 'bright-cyan': '#3fe4ec' }
+  const ansi = (name: string): string => darkMode ? tok(`--ansi-${name}`, darkAnsi[name] ?? '#808080') : (darkAnsi[name] ?? '#808080')
   return {
-    background:          translucent ? '#00000000' : tok('--surface-base', '#141615'),
-    foreground:          tok('--text-primary', '#e8f1eb'),
+    background:          translucent ? '#00000000' : tok('--term-bg', '#131714'),
+    foreground:          tok('--term-fg', '#e7efe9'),
     cursor:              tok('--accent', '#f5a939'),
-    cursorAccent:        tok('--surface-base', '#141615'),
-    selectionBackground: tok('--fill-selected-strong', '#4a3a1c'),
+    cursorAccent:        tok('--term-bg', '#131714'),
+    selectionBackground: darkMode ? tok('--fill-selected-strong', '#1e422c') : '#1e422c',
     black:               ansi('black'),
     red:                 ansi('red'),
     green:               ansi('green'),

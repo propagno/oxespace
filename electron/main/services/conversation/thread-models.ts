@@ -1,6 +1,8 @@
 import type { ConversationThread, ThreadModelCatalog } from '../../../../shared/types/thread'
 import { AgentProcessTransport } from './process-transport'
+import { StringDecoder } from 'node:string_decoder'
 import { AgentRpcPeer } from './rpc-peer'
+import { ANTIGRAVITY_FALLBACK_MODELS, parseAntigravityModels } from './antigravity-conversation'
 import { CLAUDE_THREAD_ARGS, claudeRuntimeCatalog } from './claude-command-catalog'
 import type { ConversationTransport } from './codex-conversation'
 import { detectModelOverride, type ModelOverrideEvidence } from './thread-model-override'
@@ -40,7 +42,26 @@ export class ThreadModelService {
     this.cache.set(key, entry)
     return entry.promise
   }
+  /** `agy models` prints the catalog and exits. When it cannot run, the names known at verification are offered. */
+  private async antigravity(command: string, cwd: string): Promise<ThreadModelCatalog> {
+    let transport: ConversationTransport
+    try { transport = this.spawn(command, ['models'], cwd) } catch { return { models: ANTIGRAVITY_FALLBACK_MODELS } }
+    this.transports.add(transport)
+    try {
+      const output = await new Promise<string>((resolve, reject) => {
+        let text = ''
+        const decoder = new StringDecoder('utf8')
+        const timer = setTimeout(() => reject(Error('timeout')), 15000)
+        transport.onData(chunk => { text += decoder.write(Buffer.from(chunk)); if (text.length > 65536) { clearTimeout(timer); reject(Error('limit')) } })
+        transport.onClose(() => { clearTimeout(timer); resolve(text + decoder.end()) })
+      })
+      const models = parseAntigravityModels(output)
+      return { models: models.length ? models : ANTIGRAVITY_FALLBACK_MODELS }
+    } catch { return { models: ANTIGRAVITY_FALLBACK_MODELS } }
+    finally { this.transports.delete(transport); await transport.close() }
+  }
   private async discover(thread: ConversationThread, command: string): Promise<ThreadModelCatalog> {
+    if (thread.provider === 'antigravity') return this.antigravity(command, thread.rootPath)
     const transport = this.spawn(command, thread.provider === 'claude' ? [...CLAUDE_THREAD_ARGS, '--no-session-persistence'] : ['app-server', '--listen', 'stdio://'], thread.rootPath)
     this.transports.add(transport)
     let peer: AgentRpcPeer | undefined

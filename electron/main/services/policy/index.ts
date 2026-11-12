@@ -78,7 +78,7 @@ export function policyDeniedToolNames(projectRoot?: string | null, policy: Polic
 export function assertProviderAllowed(provider: string, projectRoot?: string | null, policy: PolicyStore | null = policyStore()): void {
   if (!policy) return
   const decision = policy.decide('provider.use', provider, projectRoot)
-  if (!decision.allowed) throw new Error(policyBlockedMessage(decision, provider === 'claude' ? 'Claude Code' : provider === 'codex' ? 'Codex' : provider))
+  if (!decision.allowed) throw new Error(policyBlockedMessage(decision, provider === 'claude' ? 'Claude Code' : provider === 'codex' ? 'Codex' : provider === 'antigravity' ? 'Antigravity' : provider))
 }
 
 /** The message to show when policy blocks an integration (`db:<name>`, `skill:<id>`, `memory`), or nothing. */

@@ -3,6 +3,7 @@ import { StringDecoder } from 'node:string_decoder'
 import type { AgentAccountContext, AgentAccountSnapshot } from '../../../../shared/types/agentAuth'
 import type { ThreadProvider } from '../../../../shared/types/thread'
 import { AgentRpcPeer } from './rpc-peer'
+import { ThreadAgentError } from './thread-failure'
 import { AgentProcessTransport } from './process-transport'
 import { noteAccount } from '../diagnostics/facts'
 
@@ -22,11 +23,22 @@ export function authScopeId(provider: ThreadProvider, command: string, cwd: stri
 export function loginUrl(value: string, provider: ThreadProvider): string | null {
   try {
     const url = new URL(value)
-    const hosts = provider === 'codex' ? ['auth.openai.com', 'chatgpt.com'] : ['claude.ai', 'claude.com', 'platform.claude.com', 'console.anthropic.com']
+    const hosts = provider === 'codex' ? ['auth.openai.com', 'chatgpt.com'] : provider === 'antigravity' ? ['accounts.google.com'] : ['claude.ai', 'claude.com', 'platform.claude.com', 'console.anthropic.com']
     return url.protocol === 'https:' && !url.username && !url.password && hosts.includes(url.hostname) ? url.href : null
   } catch { return null }
 }
 function object(value: unknown): Record<string, unknown> { return value && typeof value === 'object' ? value as Record<string, unknown> : {} }
+/** Whether an ACP refusal says the account is signed out; the peer keeps the server's words, not its error code. */
+function authRefusal(error: unknown): boolean {
+  const words = [error instanceof Error ? error.message : '', error instanceof ThreadAgentError ? error.failure.detail ?? '' : ''].join(' ')
+  return /auth|log ?in|sign(?:ed)? ?(?:in|out)|credential/i.test(words)
+}
+/** The start arguments of each provider's account process: status, sign-in and sign-out. */
+const ACCOUNT_ARGS: Record<ThreadProvider, Record<'probe' | 'login' | 'logout', string[]>> = {
+  codex: { probe: ['app-server', '--listen', 'stdio://'], login: ['app-server', '--listen', 'stdio://'], logout: ['app-server', '--listen', 'stdio://'] },
+  claude: { probe: ['auth', 'status', '--json'], login: ['auth', 'login', '--claudeai'], logout: ['auth', 'logout'] },
+  antigravity: { probe: ['acp'], login: ['acp', '--login'], logout: ['acp'] }
+}
 function label(value: unknown): string | undefined { return typeof value === 'string' && value.length < 160 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? value : undefined }
 export function claudeAccount(scope: NativeAuthScope, payload: unknown): AgentAccountSnapshot {
   const value = object(payload)
@@ -84,6 +96,16 @@ export class NativeAccountService {
     rpc.notify('initialized')
     return rpc
   }
+  /** Antigravity's ACP handshake; its `agentCapabilities` say whether the server can sign out. */
+  private async acp(transport: AccountTransport): Promise<{ rpc: AgentRpcPeer; capabilities: Record<string, unknown> }> {
+    const rpc = new AgentRpcPeer(line => transport.write(line), () => {}, message => {
+      if (message.id !== undefined) rpc.rejectRequest(message.id)
+    }, this.deps.probeTimeoutMs ?? 30000)
+    transport.onData(chunk => { try { rpc.push(chunk) } catch { void transport.close() } })
+    transport.onClose(() => rpc.close())
+    const handshake = object(await rpc.request('initialize', { protocolVersion: 1, clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false } }))
+    return { rpc, capabilities: object(handshake.agentCapabilities) }
+  }
   async read(context: AgentAccountContext): Promise<AgentAccountSnapshot> {
     const scope = await this.deps.resolve(context)
     const active = [...this.attempts.values()].find(attempt => attempt.scope.id === scope.id)
@@ -93,7 +115,7 @@ export class NativeAccountService {
   }
   private async probe(scope: NativeAuthScope): Promise<AgentAccountSnapshot> {
     let transport: AccountTransport
-    try { transport = this.transport(scope, scope.provider === 'codex' ? ['app-server', '--listen', 'stdio://'] : ['auth', 'status', '--json']) }
+    try { transport = this.transport(scope, ACCOUNT_ARGS[scope.provider].probe) }
     catch { return this.failure(scope, 'installation') }
     this.probes.add(transport)
     let rpc: AgentRpcPeer | undefined
@@ -101,6 +123,16 @@ export class NativeAccountService {
       if (scope.provider === 'codex') {
         rpc = await this.rpc(scope, transport)
         return this.publish(codexAccount(scope, await rpc.request('account/read', { refreshToken: true })))
+      }
+      if (scope.provider === 'antigravity') {
+        // ACP has no account query: listing this folder's sessions answers only for a signed-in account.
+        rpc = (await this.acp(transport)).rpc
+        try { await rpc.request('session/list', { cwd: scope.cwd }) }
+        catch (error) {
+          if (!authRefusal(error)) throw error
+          return this.publish({ provider: scope.provider, scopeId: scope.id, state: 'signed-out', method: 'unknown', checkedAt: Date.now() })
+        }
+        return this.publish({ provider: scope.provider, scopeId: scope.id, state: 'connected', method: 'subscription', planLabel: 'Google', checkedAt: Date.now() })
       }
       const json = await new Promise<string>((resolve, reject) => {
         let output = ''; const decoder = new StringDecoder('utf8')
@@ -134,7 +166,7 @@ export class NativeAccountService {
     try {
       try { await this.deps.beforeLogin?.(scope.provider) } catch { await this.finish(attempt, 'active-turn'); return this.snapshots.get(scope.id)! }
       if (!this.attempts.has(id) || this.stopped) return this.snapshots.get(scope.id)!
-      const transport = attempt.transport = this.transport(scope, scope.provider === 'codex' ? ['app-server', '--listen', 'stdio://'] : ['auth', 'login', '--claudeai'])
+      const transport = attempt.transport = this.transport(scope, ACCOUNT_ARGS[scope.provider].login)
       if (scope.provider === 'codex') {
         const rpc = attempt.rpc = await this.rpc(scope, transport, (method, payload) => {
           if (method !== 'account/login/completed' || !this.attempts.has(id)) return
@@ -162,7 +194,7 @@ export class NativeAccountService {
           pending = (pending + decoder.write(Buffer.from(data))).slice(-16384)
           // Only recognized prompts/HTTPS URLs leave this parser, never raw process output.
           const urls = pending.match(/https:\/\/[^\s<>"\u001b]+/g) ?? []
-          const url = urls.map(value => loginUrl(value, 'claude')).find(Boolean)
+          const url = urls.map(value => loginUrl(value, scope.provider)).find(Boolean)
           if (url) attempt.url = url
           const codePrompt = /(?:paste|enter) (?:the |your )?(?:authentication |authorization |login )?code|paste code here/i.test(pending)
           this.publish({ provider: scope.provider, scopeId: scope.id, state: codePrompt ? 'awaiting-code' : 'awaiting-browser', method: 'unknown', checkedAt: Date.now(), attemptId: id, canOpenBrowser: Boolean(attempt.url) })
@@ -181,10 +213,15 @@ export class NativeAccountService {
     try { await this.deps.beforeLogin?.(scope.provider) } catch { return this.failure(scope, 'active-turn') }
     let transport: AccountTransport | undefined, rpc: AgentRpcPeer | undefined
     try {
-      transport = this.transport(scope, scope.provider === 'codex' ? ['app-server', '--listen', 'stdio://'] : ['auth', 'logout'])
+      transport = this.transport(scope, ACCOUNT_ARGS[scope.provider].logout)
       if (scope.provider === 'codex') {
         rpc = await this.rpc(scope, transport)
         await rpc.request('account/logout', {})
+      } else if (scope.provider === 'antigravity') {
+        const session = await this.acp(transport)
+        rpc = session.rpc
+        if (!object(session.capabilities.auth).logout) throw Error('Unsupported logout')
+        await rpc.request('auth/logout', {})
       } else {
         await new Promise<void>((resolve, reject) => {
           const timer = setTimeout(() => reject(Error('timeout')), 15000)
@@ -212,7 +249,7 @@ export class NativeAccountService {
   async cancel(id: string): Promise<void> { const attempt = this.attempts.get(id); if (attempt) await this.finish(attempt, 'cancelled') }
   async submitCode(id: string, code: string): Promise<void> {
     const attempt = this.attempts.get(id)
-    if (!attempt || attempt.scope.provider !== 'claude' || this.snapshots.get(attempt.scope.id)?.state !== 'awaiting-code' || !code || code.length > 4096 || /[\r\n\0]/.test(code)) throw Error('Invalid login code')
+    if (!attempt || attempt.scope.provider === 'codex' || this.snapshots.get(attempt.scope.id)?.state !== 'awaiting-code' || !code || code.length > 4096 || /[\r\n\0]/.test(code)) throw Error('Invalid login code')
     attempt.transport?.write(code + '\n')
   }
   async openBrowser(id: string): Promise<void> { const attempt = this.attempts.get(id); if (!attempt?.url) throw Error('Login browser link unavailable'); await this.deps.openExternal(attempt.url) }

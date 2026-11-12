@@ -2,11 +2,14 @@ import { ChevronDown, FolderOpen, PanelsTopLeft, Plus, Search, Waypoints } from 
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { IntegrationGroup } from '../../../shared/types/integration'
 import type { Workspace } from '../../../shared/types/workspace'
+import { workspaceColorAttrs } from '../../../shared/workspace-color'
 import { useIntegrationStore } from '../../store/integration.store'
 import { rootPathKey } from '../../../shared/utils/path'
 import { useWorkspaceStore } from '../../store/workspace.store'
-import { useWorkspaceActivity } from '../../hooks/useWorkspaceActivity'
-import { NavigationRail, SidebarActions, SidebarFooter, type RailAction } from '../Navigation/NavigationChrome'
+import { deriveStatusTone } from '../../utils/paneDisplay'
+import { SidebarActions, SidebarFooter, type RailAction } from '../Navigation/NavigationChrome'
+import { CodeRail } from './CodeRail'
+import { SidebarCollapseButton } from './SidebarCollapseButton'
 import { Button, EmptyState, Splitter, type MenuEntry } from '../../ui'
 import { useTranslation } from 'react-i18next'
 import { useNavigationSearch } from '../Navigation/useNavigationSearch'
@@ -174,41 +177,25 @@ export function Sidebar({
   ]
   const railContext: RailAction = { id: 'panels', label: t('panels.menu'), ariaLabel: t('sidebar.openPanels'), icon: PanelsTopLeft, testId: 'btn-open-tools', disabled: !panelMenu, menu: panelMenu }
 
+  const terminalPanes = useTerminalStore(s => s.panes)
+  const needsYou = useMemo(() => {
+    const ids = new Set<string>()
+    for (const ws of workspaces) {
+      if (ws.panes.some(p => p.type === 'terminal' && p.id in terminalPanes && deriveStatusTone(terminalPanes[p.id]) === 'needs-decision')) ids.add(ws.id)
+    }
+    return ids
+  }, [workspaces, terminalPanes])
+
   if (isCollapsed) {
     return (
       <aside className="sidebar sidebar-redesign sidebar-collapsed" data-version={appVersion}>
-        <NavigationRail mode="code" primary={railPrimary} context={railContext} onToggle={onToggleCollapse}>
-        <nav className="sidebar-rail-list" aria-label={t('sidebar.collapsed')}>
-          {integrationGroups.map((group) => (
-            <div key={group.id} className={`sidebar-rail-integration${group.id === activeIntegrationGroupId ? ' active' : ''}`} title={group.name}>
-              <span>{group.name.slice(0, 1).toUpperCase()}</span>
-              {group.members.slice(0, 4).map((member) => (
-                <button
-                  key={member.id}
-                  type="button"
-                  className={`sidebar-rail-integration-member${member.id === activeIntegrationMemberId ? ' active' : ''}`}
-                  title={`${member.role.toUpperCase()} · ${member.alias}`}
-                  onClick={() => {
-                    setActiveIntegrationGroup(group.id)
-                    setActiveIntegrationMember(member.id)
-                    onSelectWorkspace(member.workspaceId)
-                  }}
-                >
-                  {member.role.slice(0, 1).toUpperCase()}
-                </button>
-              ))}
-            </div>
-          ))}
-          {workspaces.map((workspace) => (
-            <RailWorkspace
-              key={workspace.id}
-              workspace={workspace}
-              isActive={workspace.id === activeWorkspaceId}
-              onSelect={() => handleSelectWorkspace(workspace.id)}
-            />
-          ))}
-        </nav>
-        </NavigationRail>
+        <CodeRail
+          workspaces={workspaces}
+          activeWorkspaceId={activeWorkspaceId}
+          needsYou={needsYou}
+          onSelect={handleSelectWorkspace}
+          onNewWorkspace={onNewWorkspace}
+        />
       </aside>
     )
   }
@@ -217,7 +204,7 @@ export function Sidebar({
     <aside className="sidebar sidebar-redesign" style={{ width, minWidth: width, flexBasis: width }}>
       <Splitter edge orientation="vertical" label={t('sidebar.width')} value={width} min={SIDEBAR_MIN_WIDTH} max={SIDEBAR_MAX_WIDTH} defaultValue={SIDEBAR_WIDTH} step={SIDEBAR_RESIZE_STEP} onChange={setWidth} />
       <div className="nav-panel" title={t('sidebar.version', { version: appVersion })}>
-      <div className="nav-panel-title"><strong>{t('sidebar.workspaces')}</strong><SidebarActions actions={railPrimary} /></div>
+      <div className="nav-panel-title"><strong>{t('sidebar.workspaces')}</strong><SidebarActions actions={railPrimary} /><SidebarCollapseButton mode="code" /></div>
       <SearchField className="sidebar-search-wrap" inputClassName="sidebar-search-input" ref={searchInputRef} label={t('sidebar.filter')} placeholder={t('sidebar.filter')} value={searchQuery} onChange={setSearchQuery} shortcut="/" />
 
       <nav ref={attachList} onKeyDown={onListKeyDown} className="ws-group-list" aria-label={t('sidebar.workspaces')}>
@@ -259,7 +246,11 @@ export function Sidebar({
             : <EmptyState compact icon={<FolderOpen size={16} />} title={t('sidebar.none')} actions={<Button size="sm" variant="secondary" icon={<Plus size={12} aria-hidden="true" />} onClick={onNewWorkspace}>{t('sidebar.newWorkspace')}</Button>} />
         ) : (
           filtered.map((ws) => (
-            <section key={ws.id} className={`sidebar-workspace-tree${ws.id === activeWorkspaceId ? ' active' : ''}`}>
+            <section
+              key={ws.id}
+              className={`sidebar-workspace-tree${ws.id === activeWorkspaceId ? ' active' : ''}`}
+              {...(typeof ws.color !== 'string' ? workspaceColorAttrs({ id: ws.id, color: ws.color ?? null }) : undefined)}
+            >
             <WorkspaceGroup
               key={ws.id}
               workspace={ws}
@@ -302,33 +293,5 @@ export function Sidebar({
       <SidebarFooter context={railContext} onToggle={onToggleCollapse} />
       </div>
     </aside>
-  )
-}
-
-/**
- * Collapsed-rail workspace button. Its status pip is colored by the dominant
- * agent activity tone — same vocabulary as the expanded cards.
- */
-function RailWorkspace({ workspace, isActive, onSelect }: {
-  workspace: Workspace
-  isActive: boolean
-  onSelect: () => void
-}): ReactElement {
-  const activity = useWorkspaceActivity(workspace)
-  const tone = activity.dominant
-  const showPip = tone !== null && tone !== 'idle' && tone !== 'exited'
-  return (
-    <div className={`sidebar-rail-workspace${isActive ? ' active' : ''}`}>
-      <button
-        type="button"
-        className="sidebar-rail-workspace-btn"
-        title={workspace.name}
-        aria-label={workspace.name}
-        onClick={onSelect}
-      >
-        <span>{workspace.name.slice(0, 2).toUpperCase()}</span>
-        {showPip ? <i className={`sidebar-rail-pip activity-${tone}`} aria-hidden="true" /> : null}
-      </button>
-    </div>
   )
 }

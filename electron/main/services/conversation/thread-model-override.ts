@@ -58,6 +58,9 @@ export async function detectModelOverride(provider: ThreadProvider, rootPath: st
       consider(join(rootPath, '.claude', 'settings.local.json'), claudeSettingsPickModel),
       consider(join(home, 'settings.json'), claudeSettingsPickModel)
     ])
+  } else if (provider === 'antigravity') {
+    // `agy models` names no default: it lives in Antigravity's own settings, so none is labelled.
+    mayOverride = true
   } else {
     const home = env.CODEX_HOME?.trim() || join(homedir(), '.codex')
     await Promise.all([

@@ -86,7 +86,8 @@ export class DelegationApplicationService {
     const canonical = (value: string) => process.platform === 'win32' ? resolve(value).toLowerCase() : resolve(value)
     if (canonical(task.path) !== canonical(thread.rootPath) || task.workspaceId !== thread.workspaceId) return
     let changed = false
-    if (thread.nativeSessionId && !task.nativeSession) {
+    // A delegation binds only Claude and Codex sessions (delegation_session_bindings); another provider's is never recorded.
+    if (thread.nativeSessionId && !task.nativeSession && thread.provider !== 'antigravity') {
       task.nativeSession = { provider: thread.provider, nativeSessionId: thread.nativeSessionId, canonicalRoot: task.path, generation: 1, observedAt: Date.now(), resumable: true }
       changed = true
     }

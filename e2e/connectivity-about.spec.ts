@@ -33,10 +33,17 @@ test('About OXESpace opens from the Help menu and the palette with the build fac
   test.setTimeout(120_000)
   const { app, page, consoleErrors } = await launchApp()
   try {
-    await page.getByRole('button', { name: 'Application menu' }).click()
-    const help = page.locator('[role="menu"]').first().getByRole('menuitem', { name: 'Help', exact: true })
-    await help.hover()
-    await help.press('ArrowRight').catch(() => undefined)
+    // From 1121 px the menus are listed in the title bar; a narrower window (a CI screen) keeps them behind one button.
+    const inlineHelp = page.getByRole('navigation', { name: 'Menu' }).getByRole('button', { name: 'Help', exact: true })
+    const appMenu = page.getByRole('button', { name: 'Application menu' })
+    await expect.poll(async () => await inlineHelp.isVisible() || await appMenu.isVisible()).toBe(true)
+    if (await inlineHelp.isVisible()) await inlineHelp.click()
+    else {
+      await appMenu.click()
+      const help = page.locator('[role="menu"]').first().getByRole('menuitem', { name: 'Help', exact: true })
+      await help.hover()
+      await help.press('ArrowRight').catch(() => undefined)
+    }
     await page.getByRole('menuitem', { name: /^About OXESpace/ }).click()
     const about = page.getByRole('dialog', { name: 'About OXESpace' })
     await expect(about).toBeVisible()
@@ -48,7 +55,7 @@ test('About OXESpace opens from the Help menu and the palette with the build fac
     await about.getByRole('button', { name: 'Close' }).last().click()
     await expect(about).toHaveCount(0)
 
-    await page.keyboard.press('Control+k')
+    await page.keyboard.press('Control+Shift+P')
     await page.keyboard.insertText('About OXESpace')
     await page.locator('[cmdk-item]', { hasText: 'About OXESpace' }).first().click()
     await expect(page.getByRole('dialog', { name: 'About OXESpace' })).toBeVisible()

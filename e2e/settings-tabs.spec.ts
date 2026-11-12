@@ -39,7 +39,6 @@ test('captures every Agent Settings tab', async () => {
     await page.waitForLoadState('domcontentloaded')
     await page.getByRole('button', { name: 'Open settings' }).click()
     await page.locator('.settings-center').waitFor()
-    await page.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: 'Application', exact: true }).click()
 
     const tabs = ['Terminal', 'Notifications', 'About', 'Diagnostics']
     for (const [index, label] of tabs.entries()) {

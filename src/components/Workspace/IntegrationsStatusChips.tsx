@@ -110,8 +110,6 @@ export function IntegrationsStatusChips({ workspace, isActive = true }: Integrat
       >
         <Server size={12} aria-hidden="true" />
         <span className={`workspace-integrations-health tone-${overallTone}`} aria-hidden="true" />
-        <span className="workspace-integrations-label">{`${tc('workspace.systems.title')} `}</span>
-        <span className="workspace-integrations-count">{countText}</span>
         <ChevronDown size={12} className="workspace-integrations-chevron" aria-hidden="true" />
       </button>
 

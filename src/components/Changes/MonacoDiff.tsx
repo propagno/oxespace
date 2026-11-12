@@ -1,5 +1,5 @@
-import { DiffEditor } from '@monaco-editor/react'
-import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { DiffEditor, type DiffOnMount } from '@monaco-editor/react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react'
 import type { DiffComment, DiffSide } from '../../../shared/types/diff-comments'
 import { attachLineComments } from './diffLineComments'
 import { HunkOpenMenu } from './HunkOpenMenu'
@@ -26,16 +26,33 @@ export interface MonacoDiffReview {
   onRemove(id: string): void
 }
 
+type DiffEditorInstance = Parameters<DiffOnMount>[0]
+
 /** Read-only, side-by-side diff that folds long unchanged runs, with per-line review comments. */
 export default function MonacoDiff({ original, modified, language, path, review, onOpenHunk }: {
   original: string; modified: string; language: string; path: string; review?: MonacoDiffReview; onOpenHunk?: (line: number) => void
 }): ReactElement {
   const cleanup = useRef<Array<() => void>>([])
+  const diffEditorRef = useRef<DiffEditorInstance | null>(null)
+  const modelsRef = useRef<{ original?: { dispose(): void } | null; modified?: { dispose(): void } | null } | null>(null)
   const latest = useRef(review)
   const sync = useRef<(() => void) | null>(null)
   const [targets, setTargets] = useState<Array<{ line: number }>>([])
   latest.current = review
-  useEffect(() => () => { for (const dispose of cleanup.current.splice(0)) dispose() }, [])
+
+  // Reset the DiffEditorWidget model BEFORE disposing TextModels so Monaco never throws
+  // "TextModel got disposed before DiffEditorWidget model got reset" when closing Changes.
+  useLayoutEffect(() => () => {
+    for (const dispose of cleanup.current.splice(0)) dispose()
+    const editor = diffEditorRef.current
+    const models = editor?.getModel?.() ?? modelsRef.current
+    diffEditorRef.current = null
+    modelsRef.current = null
+    try { editor?.setModel(null) } catch { /* widget already disposed */ }
+    try { models?.original?.dispose() } catch { /* model already disposed */ }
+    try { models?.modified?.dispose() } catch { /* model already disposed */ }
+  }, [path])
+
   // Saved comments changed (added, removed or sent): redraw the zones under their lines.
   useEffect(() => { sync.current?.() }, [review?.comments])
 
@@ -54,9 +71,13 @@ export default function MonacoDiff({ original, modified, language, path, review,
           modified={modified}
           language={language}
           theme={MONACO_THEME}
+          keepCurrentOriginalModel
+          keepCurrentModifiedModel
           beforeMount={defineMonacoTheme}
           onMount={(editor, monaco) => {
             for (const dispose of cleanup.current.splice(0)) dispose()
+            diffEditorRef.current = editor
+            modelsRef.current = editor.getModel()
             const dom = editor.getContainerDomNode()
             let frame = 0
             const observer = new MutationObserver(() => {
@@ -75,6 +96,7 @@ export default function MonacoDiff({ original, modified, language, path, review,
               currentDecorations = modifiedEditor.deltaDecorations([], hunkDecorations(foundTargets) as unknown as Parameters<typeof modifiedEditor.deltaDecorations>[1])
             }
             editor.onDidUpdateDiff(() => {
+              modelsRef.current = editor.getModel()
               const updated = hunkTargets((editor.getLineChanges() ?? []) as unknown as LineChange[])
               setTargets(updated)
               currentDecorations = modifiedEditor.deltaDecorations(currentDecorations, hunkDecorations(updated) as unknown as Parameters<typeof modifiedEditor.deltaDecorations>[1])

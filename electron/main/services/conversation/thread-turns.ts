@@ -73,8 +73,9 @@ export class ThreadTurnTracker {
     // The turn is over from here: a checkout reported while this runs belongs to no turn.
     if (turnId && this.roots.get(id)?.turnId === turnId) this.roots.delete(id)
     try {
-      if (captureDiff) await this.captureDiff(id, status, turnId)
-      for (const checkpointId of turnId ? this.checkpointIds.get(turnId) ?? [] : []) await this.checkpoints.finalize(checkpointId)
+      const checkpointIds = turnId ? this.checkpointIds.get(turnId) ?? [] : []
+      await Promise.all([captureDiff ? this.captureDiff(id, status, turnId) : Promise.resolve(), (async () => { for (const checkpointId of checkpointIds) await this.checkpoints.finalize(checkpointId) })()])
+
     } finally {
       if (turnId) this.checkpointIds.delete(turnId)
       if (turnId && this.roots.get(id)?.turnId === turnId) this.roots.delete(id)

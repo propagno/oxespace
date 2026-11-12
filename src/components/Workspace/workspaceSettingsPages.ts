@@ -1,22 +1,20 @@
 import { FolderTree, Settings2, ShieldCheck, type LucideIcon } from 'lucide-react'
 import { i18n } from '../../i18n'
 
-const tc = i18n.getFixedT(null, 'code')
-
 export type WorkspacePageId = 'general' | 'projects' | 'policy'
 
 function settingsPage(id: WorkspacePageId, icon: LucideIcon, defaultLabel: string, defaultHint = '', defaultDesc = '') {
   return {
     id,
     icon,
-    get label() { return tc(`workspace.settings.pages.${id}.label`, { defaultValue: defaultLabel }) },
-    get hint() { return tc(`workspace.settings.pages.${id}.hint`, { defaultValue: defaultHint }) },
-    get description() { return tc(`workspace.settings.pages.${id}.description`, { defaultValue: defaultDesc }) }
+    get label() { return i18n.t(`workspace.settings.pages.${id}.label`, { ns: 'code', defaultValue: defaultLabel }) },
+    get hint() { return i18n.t(`workspace.settings.pages.${id}.hint`, { ns: 'code', defaultValue: defaultHint }) },
+    get description() { return i18n.t(`workspace.settings.pages.${id}.description`, { ns: 'code', defaultValue: defaultDesc }) }
   }
 }
 
 export const SETTINGS_PAGES = [
-  settingsPage('general', Settings2, 'General', 'Project instructions and workspace preferences'),
-  settingsPage('projects', FolderTree, 'Projects', 'Worktrees and branches'),
-  settingsPage('policy', ShieldCheck, 'Policy', 'Workspace policy rules')
+  settingsPage('general', Settings2, 'General', 'Project instructions and workspace preferences', 'Set default instructions, shell preferences and appearance for this workspace.'),
+  settingsPage('projects', FolderTree, 'Projects', 'Worktrees and branches', 'Inspect and manage git worktrees and branches linked to this workspace.'),
+  settingsPage('policy', ShieldCheck, 'Policy', 'Workspace policy rules', 'Control which tools and actions agents may run in this workspace.')
 ] as const

@@ -31,7 +31,7 @@ type Size = { label: string; width: number; height: number }
 /** 900×620 is the smallest supported window; full is the window maximized on the runner's screen. */
 const SIZES: Size[] = [{ label: '900x620', width: 900, height: 620 }, { label: 'full', width: 0, height: 0 }]
 /** Names and code that read the same in both languages on purpose. */
-const SAME_IN_BOTH = /^((Ctrl|Shift|Alt|Cmd|Mod|⌘|⇧)([ +]\S+)+|[Tt]erminal \d+|[\w.-]+ CLI|[a-z][a-z0-9-]*( [a-z0-9-]+)+|OXESpace|OxeCode|OxeChat|OxeQuery|Claude( Code)?|Codex|Git(Hub)?|MCP|PostgreSQL|MongoDB|MySQL|SQL|JSON|HTTP|URL|API|Docker|Podman|CLAUDE\.md|AGENTS\.md|Ctrl|Shift|Alt|Enter|Esc|Tab|OK|main|bash|zsh|pwsh|PowerShell|Terminal|Web Preview|\d[\d.:,%\s]*|[A-Z]{1,4}|[^A-Za-zÀ-ÿ]+)$/
+const SAME_IN_BOTH = /^((Ctrl|Shift|Alt|Cmd|Mod|⌘|⇧)([ +]\S+)+|[Tt]erminal \d+|[\w.-]+ CLI|\/?[a-z][a-z0-9-]*( [a-z0-9-]+)+|Workspace · .+|OXESpace( [\d.]+)?|OxeCode|OxeChat|OxeQuery|(Claude )?(Sonnet|Opus|Haiku)( [\d.]+)?|Claude( Code)?|Codex|Git(Hub)?|Git Bash|Command Prompt|Windows PowerShell|MCP|PostgreSQL|MongoDB|MySQL|SQL|JSON|HTTP|URL|API|Docker|Podman|CLAUDE\.md|AGENTS\.md|Ctrl|Shift|Alt|Enter|Esc|Tab|OK|main|bash|zsh|pwsh|PowerShell|Terminal|Web Preview|\d[\d.:,%\s]*|[A-Z]{1,4}|[^A-Za-zÀ-ÿ]+)$/
 
 interface Finding { combo: string; surface: string; kind: string; detail: string }
 const findings: Finding[] = []

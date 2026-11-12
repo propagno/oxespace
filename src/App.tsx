@@ -1,4 +1,4 @@
-import { Activity, Palette } from 'lucide-react'
+import { Settings } from 'lucide-react'
 import { useContributedCommands } from './utils/commandRegistry'
 import { sayAddProjectFirst } from './commands/thread.events'
 import type { CodeCommandContext } from './commands/code.commands'
@@ -7,7 +7,10 @@ import { useDeferredModule } from './app/useDeferredModule'
 import { DataHosts, DataSidebar, isDataView, ThreadGrid, ThreadSidebar, ThreadSidebarBoundary, useModeActions, ViewSkeleton } from './components/Navigation/ModeViews'
 import { useViewSwitch } from './app/viewSwitch'
 import { setShownView } from './app/shownView'
+import { hasRememberedAppView, rememberAppView, startAppView } from './app/startView'
 import { SettingsCenter } from './components/Settings/SettingsHost'
+const FirstRunHost = lazy(() => import('./components/Onboarding/FirstRunHost').then(m => ({ default: m.FirstRunHost })))
+const DelegationNotice = lazy(() => import('./components/Delegation/DelegationNotice').then(m => ({ default: m.DelegationNotice })))
 import { useTranslation } from 'react-i18next'
 import type { ToolId } from './components/Workspace/toolCatalog'
 import { panelMenuEntries, type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
@@ -16,8 +19,11 @@ import { reportSplitRefused, reportSplitTooSmall } from './components/Grid/split
 import { layoutPaneSize, paneSize, splitGridSize, splitHasRoom } from './components/Grid/splitRoom'
 import titleBar from './components/Navigation/TitleBar.module.css'
 import { ModeSwitch } from './components/Navigation/ModeSwitch'
+import { NeedsYouPill } from './components/Navigation/NeedsYouPill'
 import { RemovedFeaturesBand } from './components/Updates/RemovedFeaturesBand'
 import { ActivityCenter } from './components/Activity/ActivityCenter'
+import { CommandBarTrigger } from './components/CommandBar/CommandBarTrigger'
+
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import type { AgentProfile } from '../shared/types/agent'
@@ -42,23 +48,31 @@ const SlashOverlay = lazy(() => import('./components/SlashOverlay/SlashOverlay')
 // The palette waits for the command lists (T52), so its first opening never shows an empty or partial list.
 const CommandMenu = lazy(() => Promise.all([import('./components/CommandMenu/CommandMenu'), loadCommandContributors()]).then(([m]) => ({ default: m.CommandMenu })))
 const UsageModal = lazy(() => import('./components/Usage/UsageModal').then(m => ({ default: m.UsageModal })))
+const CommandBarHost = lazy(() => import('./components/CommandBar/CommandBarHost').then(m => ({ default: m.CommandBarHost })))
 const McpPanel = lazy(() => import('./components/MCP/McpPanel').then((m) => ({ default: m.McpPanel })))
+const ContainersPanel = lazy(() => import('./components/Containers/ContainersPanel').then((m) => ({ default: m.ContainersPanel })))
 import { useBackgroundStore } from './store/background.store'
 import { useMcpStore } from './store/mcp.store'
 import { useSkillStore } from './store/skill.store'
 import { useSlashDispatcher } from './lib/useSlashDispatcher'
 import { useAccountStore } from './store/account.store'
-import { useThreadStore } from './store/thread.store'
+import { useThreadStore, warmThreadList } from './store/thread.store'
 import { useThreadWorkbenchStore } from './store/thread-workbench.store'
 import { useNavigationPrefs } from './store/navigation-prefs.store'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import type { WizardLaunchInput } from './components/Workspace/NewWorkspaceModal'
 const NewWorkspaceModal = lazy(() => import('./components/Workspace/NewWorkspaceModal').then((m) => ({ default: m.NewWorkspaceModal })))
+
+
+
 import { chunk, lazyFrom } from './lib/chunk'
 const WORKSPACE_SURFACE_CHUNK = chunk(() => import('./components/Workspace/WorkspaceSurface'))
 const WorkspaceSurface = lazyFrom(WORKSPACE_SURFACE_CHUNK, (m) => m.WorkspaceSurface)
-const NoWorkspaceStart = lazy(() => import('./components/Onboarding/NoWorkspaceStart').then((m) => ({ default: m.NoWorkspaceStart })))
-const DelegationNotice = lazy(() => import('./components/Delegation/DelegationNotice').then((m) => ({ default: m.DelegationNotice })))
+const NO_WORKSPACE_START_CHUNK = chunk(() => import('./components/Onboarding/NoWorkspaceStart'))
+const NoWorkspaceStart = lazyFrom(NO_WORKSPACE_START_CHUNK, (m) => m.NoWorkspaceStart)
+
+
+
 import { AgentHooksPromptHost } from './components/AgentSessions/AgentHooksPromptHost'
 import './components/Threads/ThreadView.css'
 import { AppStatusBar } from './components/Workspace/AppStatusBar'
@@ -77,7 +91,7 @@ import { useAgentHookStatus } from './hooks/useAgentHookStatus'
 import { startToolOutputCuts } from './store/tool-output-cut.store'
 import { QUOTA_NOTIFICATION_PANE_PREFIX, THREAD_NOTIFICATION_PANE_PREFIX } from './hooks/notificationPrefixes'
 import { useThreadShortcuts } from './hooks/useThreadShortcuts'
-import { setKeyboardView, useKeybindings, type AppView } from './keyboard/keybindings'
+import { setKeyboardView, useKeybindings, withShortcut, type AppView } from './keyboard/keybindings'
 import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZE_MAX } from './store/terminal-prefs.store'
 import { RemotePairingHost } from './components/Remote/RemotePairingHost'
 /** macOS keeps its native application menu; Windows/Linux draw it in the title bar. */
@@ -87,13 +101,20 @@ const IS_MAC = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platfor
 export function App(): ReactElement {
   const { t } = useTranslation()
   const appVersion = window.oxe?.app?.version ?? 'dev'
-  const [applicationView, setApplicationView] = useState<AppView>('code')
+  const [applicationView, setApplicationView] = useState<AppView>(startAppView)
   const [delegatedWorkOpen, setDelegatedWorkOpen] = useState(false)
   const [delegationTarget, setDelegationTarget] = useState<{ workspaceId: string; taskId: string } | null>(null)
-  const [hasOpenedThread, setHasOpenedThread] = useState(false)
+  const [hasOpenedThread, setHasOpenedThread] = useState(() => applicationView === 'thread')
+  const [firstRunExited, setFirstRunExited] = useState(false)
+  const firstRunDismissed = useNavigationPrefs(state => state.firstRun.dismissed)
   // The view switches when the next view is ready; until then the current one stays and the button is busy (F7.2).
-  const viewSwitch = useViewSwitch(applicationView, mode => { if (mode === 'thread') setHasOpenedThread(true); setApplicationView(mode) })
-  const selectMode = viewSwitch.select
+  const viewSwitch = useViewSwitch(applicationView, mode => { setFirstRunExited(true); if (mode === 'thread') setHasOpenedThread(true); rememberAppView(mode); setApplicationView(mode) })
+  const rawSelectMode = viewSwitch.select
+  const selectMode = useCallback((mode: AppView) => {
+    if (mode === 'thread' && !hasOpenedThread) requestAnimationFrame(() => { setTimeout(warmThreadList, 0) })
+    if (mode === applicationView) { setFirstRunExited(true); if (mode === 'thread') setHasOpenedThread(true); rememberAppView(mode); return }
+    rawSelectMode(mode)
+  }, [applicationView, hasOpenedThread, rawSelectMode])
   useModeActions(selectMode)
   const [newThreadWorkspaceId, setNewThreadWorkspaceId] = useState<string | null | undefined>(undefined)
   const [newThreadRootPath, setNewThreadRootPath] = useState<string | undefined>()
@@ -102,44 +123,9 @@ export function App(): ReactElement {
   const threadSelection = useThreadStore(state => state.selectedId)
   const codeSidebarWidth = useNavigationPrefs(state => state.width)
   const [accountsOpen, setAccountsOpen] = useState(false)
-  const {
-    activeWorkspaceId,
-    bootstrap,
-    closePane,
-    closeWorkspace,
-    createWorkspace,
-    error,
-    isLoading,
-    loadShellProfiles,
-    setActiveWorkspace,
-    shellProfiles,
-    splitPane,
-    updateGitHubState,
-    updateReviewState,
-    updateEditorState,
-    updateBackgroundState,
-    updateWorktreeState,
-    updateSettings,
-    workspaces
-  } = useWorkspaceStore(useShallow((state) => ({
-    activeWorkspaceId: state.activeWorkspaceId,
-    bootstrap: state.bootstrap,
-    closePane: state.closePane,
-    closeWorkspace: state.closeWorkspace,
-    createWorkspace: state.createWorkspace,
-    error: state.error,
-    isLoading: state.isLoading,
-    loadShellProfiles: state.loadShellProfiles,
-    setActiveWorkspace: state.setActiveWorkspace,
-    shellProfiles: state.shellProfiles,
-    splitPane: state.splitPane,
-    updateGitHubState: state.updateGitHubState,
-    updateReviewState: state.updateReviewState,
-    updateEditorState: state.updateEditorState,
-    updateBackgroundState: state.updateBackgroundState,
-    updateWorktreeState: state.updateWorktreeState,
-    updateSettings: state.updateSettings,
-    workspaces: state.workspaces
+  const [containersOpen, setContainersOpen] = useState(false)
+  const { activeWorkspaceId, bootstrap, closePane, closeWorkspace, createWorkspace, error, isLoading, loadShellProfiles, setActiveWorkspace, shellProfiles, splitPane, updateGitHubState, updateReviewState, updateEditorState, updateBackgroundState, updateWorktreeState, updateSettings, workspaces } = useWorkspaceStore(useShallow((state) => ({
+    activeWorkspaceId: state.activeWorkspaceId, bootstrap: state.bootstrap, closePane: state.closePane, closeWorkspace: state.closeWorkspace, createWorkspace: state.createWorkspace, error: state.error, isLoading: state.isLoading, loadShellProfiles: state.loadShellProfiles, setActiveWorkspace: state.setActiveWorkspace, shellProfiles: state.shellProfiles, splitPane: state.splitPane, updateGitHubState: state.updateGitHubState, updateReviewState: state.updateReviewState, updateEditorState: state.updateEditorState, updateBackgroundState: state.updateBackgroundState, updateWorktreeState: state.updateWorktreeState, updateSettings: state.updateSettings, workspaces: state.workspaces
   })))
   const clearEditor = useEditorStore((state) => state.clearEditor)
   const getTerminalStatus = useTerminalStore((state) => state.getStatus)
@@ -159,7 +145,7 @@ export function App(): ReactElement {
     openUsage,
     closeUsage,
     isSettingsOpen,
-    isSidebarCollapsed,
+    isSidebarCollapsed, collapsedSidebars,
     isNewWorkspaceOpen,
     isWorkspaceSettingsOpen,
     slashOverlayPaneId,
@@ -195,7 +181,7 @@ export function App(): ReactElement {
     openUsage: state.openUsage,
     closeUsage: state.closeUsage,
     isSettingsOpen: state.isSettingsOpen,
-    isSidebarCollapsed: state.isSidebarCollapsed,
+    isSidebarCollapsed: state.isSidebarCollapsed, collapsedSidebars: state.collapsedSidebars,
     isNewWorkspaceOpen: state.isNewWorkspaceOpen,
     isWorkspaceSettingsOpen: state.isWorkspaceSettingsOpen,
     slashOverlayPaneId: state.slashOverlayPaneId,
@@ -218,7 +204,7 @@ export function App(): ReactElement {
     toggleSettings: state.toggleSettings,
     toggleSidebar: state.toggleSidebar
   })))
-  useEffect(() => { if (isNewWorkspaceOpen || activeWorkspace) void WORKSPACE_SURFACE_CHUNK.load() }, [isNewWorkspaceOpen, activeWorkspace])
+  useEffect(() => { if (isNewWorkspaceOpen || activeWorkspace) { void WORKSPACE_SURFACE_CHUNK.load(); void NO_WORKSPACE_START_CHUNK.load(); void import('./components/Workspace/usageChunk').then(m => m.USAGE_CHUNK.load()) } }, [isNewWorkspaceOpen, activeWorkspace])
   const {
     allProfiles: agentProfiles,
     readiness: agentReadiness,
@@ -246,15 +232,7 @@ export function App(): ReactElement {
   const [delegationNotice, setDelegationNotice] = useState<{ workspaceId: string; taskId: string } | null>(null)
   const [isDesignSystemOpen, setDesignSystemOpen] = useState(false)
   const [appNotice, setAppNotice] = useState<string | null>(null)
-  // Track workspaces that have been visited at least once. Visited workspaces
-  // stay mounted (hidden via CSS) so the xterm Terminal instances persist
-  // across workspace switches — required so full-screen Copilot/Claude TUIs
-  // keep their altbuf state and scrollback when the user returns to them.
-  // MRU list of visited workspaces (most-recently-visited at the end). Kept
-  // mounted in DOM so xterm scrollback and altbuf state survive workspace
-  // switches. Capped by visitedWorkspacesCap (Settings) — when exceeded the
-  // oldest entry is evicted, its WorkspaceSurface unmounts, and its panes'
-  // xterm + IPC + git pollers are torn down.
+  const [commandBarOpen, setCommandBarOpen] = useState(false)
   const [visitedWorkspaceIds, setVisitedWorkspaceIds] = useState<string[]>([])
   const visitedWorkspaceIdsRef = useRef(visitedWorkspaceIds)
   visitedWorkspaceIdsRef.current = visitedWorkspaceIds
@@ -262,10 +240,11 @@ export function App(): ReactElement {
   workspacesRef.current = workspaces
   useEffect(() => {
     if (!activeWorkspaceId) return
-    setVisitedWorkspaceIds((prev) => {
+    const frame = window.requestAnimationFrame(() => setVisitedWorkspaceIds((prev) => {
       const without = prev.filter((id) => id !== activeWorkspaceId)
       return [...without, activeWorkspaceId]
-    })
+    }))
+    return () => window.cancelAnimationFrame(frame)
   }, [activeWorkspaceId])
   useEffect(() => {
     if (!activeWorkspaceId || applicationView !== 'code') return
@@ -282,16 +261,11 @@ export function App(): ReactElement {
       if (secondFrame) window.cancelAnimationFrame(secondFrame)
     }
   }, [activeWorkspaceId, applicationView])
-  // Trim the MRU only after the newly activated workspace has painted. Killing
-  // PTYs and disposing xterm/WebGL for an evicted workspace in the activation
-  // effect competed directly with mounting the new surface.
   useEffect(() => {
     const trim = (): void => {
       const current = visitedWorkspaceIdsRef.current
       const paneCountOf = (workspaceId: string): number =>
         workspacesRef.current.find((item) => item.id === workspaceId)?.panes.length ?? 0
-      // Budgeted by rendered panes (WebGL contexts), not by workspace count —
-      // five one-pane workspaces are cheaper than three four-pane ones.
       const evictedWorkspaceIds = selectWorkspacesToEvict(
         current,
         paneCountOf,
@@ -303,13 +277,6 @@ export function App(): ReactElement {
       for (const workspaceId of evictedWorkspaceIds) {
         const workspace = workspacesRef.current.find((item) => item.id === workspaceId)
         for (const pane of workspace?.panes ?? []) {
-          // The PTY is deliberately NOT stopped. Killing it here is what made
-          // returning to a workspace cost a shell respawn plus a $PROFILE load,
-          // and it discarded whatever an agent had produced. Main keeps the
-          // process and buffers its output; TerminalView's unmount detaches, so
-          // coming back is a replay. The store entry is kept (marked detached)
-          // because deleting it is what made a background agent invisible to
-          // notifications — see useAgentNotifications.
           markPaneDetached(pane.id)
         }
       }
@@ -328,10 +295,6 @@ export function App(): ReactElement {
     return () => window.clearTimeout(timer)
   }, [activeWorkspaceId, markPaneDetached, visitedWorkspaceIds.length, visitedWorkspacesCap])
 
-  // Activity heartbeats for panes with no mounted view. Their TerminalView is
-  // gone, so nothing else would hear them and a working background agent would
-  // look idle in the sidebar. The preload multiplexes one IPC listener across
-  // all panes, so subscribing for every pane is cheap.
   const notePaneActivity = useTerminalStore((state) => state.noteBackgroundActivity)
   useEffect(() => {
     const unsubscribes = workspaces.flatMap((workspace) =>
@@ -355,20 +318,14 @@ export function App(): ReactElement {
     void loadReadiness()
     void useSkillStore.getState().refresh()
     void useMcpStore.getState().load(null)
-    // Integration store is workspace-agnostic (load(null) returns ALL
-    // groups). Load it once at boot — re-running on every workspace switch
-    // was the source of the "Loading integration groups…" flash that made
-    // sidebar member clicks feel laggy. Add/remove/update actions in the
-    // store keep the cache fresh without a network round-trip.
     void useIntegrationStore.getState().load(null)
-    // Subscribe once to background job + skill change + mcp health streams.
+    if (window.oxe?.thread?.projects) void useThreadStore.getState().loadProjects()
     const unsubscribe = useBackgroundStore.getState().subscribe()
     const unsubscribeSkills = useSkillStore.getState().subscribe()
     const unsubscribeMcp = useMcpStore.getState().subscribe()
     return () => { unsubscribe(); unsubscribeSkills(); unsubscribeMcp() }
   }, [loadProfiles, loadReadiness])
 
-  // Reload skills (including workspace-scoped ones) when switching workspaces.
   useEffect(() => {
     if (!activeWorkspace) return
     const timer = window.setTimeout(() => {
@@ -378,7 +335,6 @@ export function App(): ReactElement {
     return () => window.clearTimeout(timer)
   }, [activeWorkspace?.id, activeWorkspace?.rootPath])
 
-  // Hydrate background jobs for the active workspace
   useEffect(() => {
     if (!activeWorkspaceId) return
     const timer = window.setTimeout(() => {
@@ -388,13 +344,10 @@ export function App(): ReactElement {
   }, [activeWorkspaceId])
 
   useEffect(() => {
-    setActiveTerminalPaneId(activePane?.id ?? null)
+    const frame = window.requestAnimationFrame(() => setActiveTerminalPaneId(activePane?.id ?? null))
+    return () => window.cancelAnimationFrame(frame)
   }, [activePane?.id, setActiveTerminalPaneId])
 
-  // Top-level listener for `oxespace_open_web_preview` tool calls. Lives
-  // here (not inside WebPreviewPanel) so it fires even when the panel is
-  // closed — agent says "open localhost:3000" → we auto-open the panel +
-  // queue the URL → panel consumes the pending URL on mount.
   useEffect(() => {
     const api = window.oxe?.mcpInternal
     if (!api) return
@@ -411,9 +364,6 @@ export function App(): ReactElement {
     return unsubscribe
   }, [])
 
-  // Top-level listener for worktree mutations driven by the MCP tools. The
-  // store keys worktrees by rootPath, so a refresh re-renders both the
-  // Worktree panel and the sidebar `Nwt` badge without a manual reload.
   useEffect(() => {
     const api = window.oxe?.mcpInternal
     if (!api) return
@@ -423,11 +373,8 @@ export function App(): ReactElement {
     return unsubscribe
   }, [])
 
-  // Former OXEVoice users are told once that it was removed (F34).
-  // After the first frame: it only ever shows a toast, once (T52 keeps it and its link helper out of the entry).
   useEffect(() => { void import('./app/voiceRemovedNotice').then(m => m.showVoiceRemovedNotice(), () => {}) }, [])
 
-  // Native desktop notifications when a background agent finishes / needs you.
   useEffect(() => {
     const api = window.oxe?.delegation
     if (!api) return
@@ -441,21 +388,17 @@ export function App(): ReactElement {
     })
   }, [])
 
-  // The activity center's producers load right after the first frame (renderer entry headroom, after T52).
   const activitySources = useDeferredModule(loadActivitySources, () => t('deferred.activityMissing', { ns: 'common' }))
   useAgentHookStatus()
   useEffect(() => startToolOutputCuts(), [])
 
-  // Clicking a notification focuses the originating pane (window focus + restore
-  // is handled in main); here we switch to its workspace and select the pane.
   useEffect(() => {
     const api = window.oxe?.notifications
     if (!api) return
     return api.onActivate(({ paneId, workspaceId }) => {
-      // Quota alerts are not about a pane; the window was already focused by the click.
       if (paneId.startsWith(QUOTA_NOTIFICATION_PANE_PREFIX)) return
-      // Thread notifications carry `thread:<id>` instead of a terminal pane id.
       if (paneId.startsWith(THREAD_NOTIFICATION_PANE_PREFIX)) {
+        setFirstRunExited(true)
         setHasOpenedThread(true)
         setApplicationView('thread')
         void useThreadStore.getState().select(paneId.slice(THREAD_NOTIFICATION_PANE_PREFIX.length))
@@ -470,19 +413,9 @@ export function App(): ReactElement {
 
   const handleLaunch = async (input: WizardLaunchInput): Promise<void> => {
     const knownIds = new Set(useWorkspaceStore.getState().workspaces.map((workspace) => workspace.id))
-    const workspace = await createWorkspace({
-      rootPath: input.rootPath,
-      layoutPreset: input.layoutPreset,
-      defaultShellProfileId: input.defaultShellProfileId,
-      autoStart: true,
-      agentBindings: input.agentBindings
-    })
-    if (!knownIds.has(workspace.id)) {
-      input.agentSlots.forEach((cmd, i) => {
-        if (cmd && workspace.panes[i]) setPendingCommand(workspace.panes[i].id, cmd)
-      })
-    }
-    closeNewWorkspace()
+    const workspace = await createWorkspace({ rootPath: input.rootPath, layoutPreset: input.layoutPreset, defaultShellProfileId: input.defaultShellProfileId, autoStart: true, agentBindings: input.agentBindings })
+    if (!knownIds.has(workspace.id)) input.agentSlots.forEach((cmd, i) => { if (cmd && workspace.panes[i]) setPendingCommand(workspace.panes[i].id, cmd) })
+    setFirstRunExited(true); rememberAppView('code'); setApplicationView('code'); window.requestAnimationFrame(() => closeNewWorkspace())
   }
 
   const handleClosePane = (paneId: string): void => {
@@ -548,15 +481,8 @@ export function App(): ReactElement {
     })
   }
 
-  const toggleScriptsPanel = (): void => {
-    if (isScriptsPanelOpen) closeScriptsPanel()
-    else openScriptsPanel()
-  }
-
-  const toggleSearchPanel = (): void => {
-    if (isSearchPanelOpen) closeSearchPanel()
-    else openSearchPanel()
-  }
+  const toggleScriptsPanel = (): void => { if (isScriptsPanelOpen) closeScriptsPanel(); else openScriptsPanel() }
+  const toggleSearchPanel = (): void => { if (isSearchPanelOpen) closeSearchPanel(); else openSearchPanel() }
 
   const toggleWebPreviewPanel = (): void => {
     if (!activeWorkspaceId) return
@@ -569,17 +495,12 @@ export function App(): ReactElement {
       void splitPane(paneId, direction).catch(reportSplitRefused)
       return
     }
-    // Each split halves the pane: one that would leave halves too small to use is refused before main creates a pane.
-    // From the layout, not the screen: a maximized pane looks big enough but goes back to its own share on restore.
     const size = layoutPaneSize(usePaneLayoutStore.getState().trees[workspaceId] ?? null, paneId, splitGridSize()) ?? paneSize(paneId)
     if (size && !splitHasRoom(size, direction)) {
-      reportSplitTooSmall(direction)
+      reportSplitTooSmall({ width: direction === 'vertical' ? (size.width - 10) / 2 : size.width, height: direction === 'horizontal' ? (size.height - 10) / 2 : size.height })
       return
     }
 
-    // WorkspaceSurface instances for recently visited workspaces stay mounted
-    // to preserve xterm state. Global split routing must therefore live here;
-    // a listener in each surface would also mutate hidden workspaces.
     void useWorkspaceStore
       .getState()
       .createPane(workspaceId)
@@ -627,6 +548,20 @@ export function App(): ReactElement {
 
   const threadProjects = useThreadStore(state => state.projects)
   const threadProject = threadProjects.find(project => project.projectId === threadSnapshot?.thread.projectId)
+  // First run starts on a profile with nothing in it. Picking the folder (step 1) adds a project, so once it has
+  // started it stays until the person leaves it (a mode, a workspace, the first conversation), not until a project exists.
+  const firstRunStarted = useRef(false)
+  const firstRunOpen = !firstRunDismissed && !firstRunExited && !hasRememberedAppView() && workspaces.length === 0
+  if (!isLoading && firstRunOpen && threadProjects.length === 0) firstRunStarted.current = true
+  const showFirstRun = !isLoading && firstRunOpen && (threadProjects.length === 0 || firstRunStarted.current)
+  const openContainerConversation = useCallback((id: string): void => {
+    setContainersOpen(false)
+    setFirstRunExited(true)
+    setHasOpenedThread(true)
+    rememberAppView('thread')
+    setApplicationView('thread')
+    void useThreadStore.getState().select(id)
+  }, [])
 
   // Code's side panels: buttons in the workspace bar for Changes and Browser, the rest in the Panels menu (also on the rail).
   const codePanelItems: WorkbenchPanelItem[] = activeWorkspace ? [
@@ -636,7 +571,7 @@ export function App(): ReactElement {
     { id: 'files', active: activeWorkspace.editorVisible === true, onToggle: toggleEditor },
     { id: 'search', active: isSearchPanelOpen, onToggle: toggleSearchPanel },
     { id: 'scripts', active: isScriptsPanelOpen, onToggle: toggleScriptsPanel },
-    { id: 'worktrees', active: activeWorkspace.worktreePanelVisible === true, onToggle: toggleWorktreePanel }, { id: 'httpCalls', active: isHttpCallsPanelOpen, onToggle: toggleHttpCallsPanel }, { id: 'android', active: isAndroidPanelOpen, onToggle: toggleAndroidPanel }
+    { id: 'worktrees', active: activeWorkspace.worktreePanelVisible === true, onToggle: toggleWorktreePanel }, { id: 'httpCalls', active: isHttpCallsPanelOpen, onToggle: toggleHttpCallsPanel }, { id: 'android', active: isAndroidPanelOpen, onToggle: toggleAndroidPanel }, { id: 'containers', active: containersOpen, onToggle: () => setContainersOpen(open => !open) }
   ] : []
 
   const toolHandlers: Partial<Record<ToolId, () => void>> = {
@@ -660,15 +595,13 @@ export function App(): ReactElement {
     store.setGlobal({ fontSize: Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, next)) })
   }
   useKeybindings({
-    'palette.open': openCommandMenu, 'palette.search': openCommandMenu, 'settings.open': () => { if (!isSettingsOpen) toggleSettings() }, 'sidebar.toggle': toggleSidebar,
+    'commandBar.open': () => setCommandBarOpen(true), 'palette.open': openCommandMenu, 'palette.search': openCommandMenu, 'settings.open': () => { if (!isSettingsOpen) toggleSettings() }, 'sidebar.toggle': () => toggleSidebar(applicationView === 'thread' ? 'thread' : 'code'),
     'code.changes': toggleReviewPanel, 'code.browser': toggleWebPreviewPanel, 'code.files': toggleEditor,
     'code.splitLayout': () => useUIStore.getState().toggleSplitLayout(),
-    // Read fresh state: the search panel flag is not part of this render's closure.
     'code.search': () => { const ui = useUIStore.getState(); if (ui.isSearchPanelOpen) ui.closeSearchPanel(); else ui.openSearchPanel() },
     'pane.splitRight': () => splitActivePane('vertical'), 'pane.splitDown': () => splitActivePane('horizontal'), 'pane.maximize': toggleActivePaneMaximize,
     'terminal.restart': () => terminalPane ? void window.oxe.terminal.restart({ paneId: terminalPane.id }) : false,
     'terminal.slash': () => terminalPane ? openSlashOverlay(terminalPane.id) : false,
-    // Terminal zoom belongs to the focused xterm, never to the window.
     'terminal.zoomIn': () => terminalPane ? zoomTerminal(1) : false, 'terminal.zoomOut': () => terminalPane ? zoomTerminal(-1) : false,
     'terminal.zoomReset': () => terminalPane ? zoomTerminal(0) : false
   })
@@ -676,14 +609,14 @@ export function App(): ReactElement {
   useEffect(() => {
     if (!hasOpenedThread) return
     void useThreadStore.getState().load()
-    void useThreadStore.getState().loadProjects()
+    if (useThreadStore.getState().projects.length === 0) void useThreadStore.getState().loadProjects()
     let timer: ReturnType<typeof setTimeout> | undefined
     const changed = new Set<string>()
     let active = true
     const flush = async () => {
       const batch = [...changed]; changed.clear()
       const state = useThreadStore.getState()
-      if (batch.some(id => !state.threads.some(t => t.id === id))) await state.load()
+      if (batch.some(id => !state.threads.some(t => t.id === id))) await Promise.all([state.load(), state.loadProjects()])
       else await Promise.all(batch.map(id => state.refresh(id)))
       timer = undefined
       if (active && changed.size) timer = setTimeout(() => { void flush() }, 100)
@@ -712,6 +645,7 @@ export function App(): ReactElement {
       setDelegatedWorkOpen(true)
     }
     if (task.destinationThreadId) {
+      setFirstRunExited(true)
       setHasOpenedThread(true)
       setApplicationView('thread')
       setDelegatedWorkOpen(false)
@@ -726,6 +660,7 @@ export function App(): ReactElement {
         if (!owner || !session.running) { showDelegationDetails(); return false }
         await setActiveWorkspace(owner.id)
         useUIStore.getState().setActivePane(task.paneId)
+        setFirstRunExited(true)
         setApplicationView('code')
         setDelegatedWorkOpen(false)
         return true
@@ -742,22 +677,23 @@ export function App(): ReactElement {
       <TitleTooltips />
       {activitySources && <activitySources.ActivitySources applicationView={applicationView} />}
       {commandContributors && <><commandContributors.CodeCommandContributor {...codeCommandContext} /><commandContributors.ThreadCommandContributor {...threadCommandContext} /></>}
-      <main className={`app-shell${applicationView === 'thread' ? ' thread-shell' : isDataView(applicationView) ? ' oq-shell' : isSidebarCollapsed ? ' sidebar-collapsed' : ''}`} style={applicationView !== 'code' ? { '--thread-sidebar-width': `${isSidebarCollapsed ? 48 : codeSidebarWidth}px` } as CSSProperties : { '--sidebar-w': `${codeSidebarWidth}px` } as CSSProperties}>
+      <main className={`app-shell${showFirstRun ? ' first-run-shell' : applicationView === 'thread' ? ' thread-shell' : isDataView(applicationView) ? ' oq-shell' : collapsedSidebars.code ? ' sidebar-collapsed' : ''}`} style={applicationView !== 'code' ? { '--thread-sidebar-width': `${(applicationView === 'thread' ? collapsedSidebars.thread : isSidebarCollapsed) ? 48 : codeSidebarWidth}px` } as CSSProperties : { '--sidebar-w': `${codeSidebarWidth}px` } as CSSProperties}>
       <header className={cx('workbench-titlebar', titleBar.bar)} aria-label={t('app.workbench')}>
-        <div className={titleBar.brand}><OxeLogo size={16} /><strong className={titleBar.word}>oxespace</strong>{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), openCommandMenu }} /></Suspense>}</div>
-        <ModeSwitch mode={applicationView} onSelect={selectMode} />
-        <div className={titleBar.trailing}><ActivityCenter onSelectView={selectMode} /><UpdateChips /></div>
+        <div className={titleBar.brand}><OxeLogo size={16} />{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), openCommandMenu, openContainers: () => setContainersOpen(v => !v), version: appVersion }} /></Suspense>}</div>
+        <ModeSwitch mode={showFirstRun ? 'thread' : applicationView} allowReselect={showFirstRun} onSelect={selectMode} />
+        <div className={titleBar.trailing}><CommandBarTrigger onOpen={() => setCommandBarOpen(true)} /><NeedsYouPill /><ActivityCenter onSelectView={selectMode} /><Button variant="ghost" size="sm" square aria-label={showFirstRun ? t('nav.openSettings') : withShortcut(t('nav.settings'), 'settings.open')} title={withShortcut(t('nav.settings'), 'settings.open')} data-testid="titlebar-settings" icon={<Settings size={14} aria-hidden="true" />} onClick={toggleSettings} /><UpdateChips /></div>
       </header>
       <RemovedFeaturesBand />
       {delegationNotice && <Suspense fallback={null}><DelegationNotice onView={() => { setDelegatedWorkOpen(true); setDelegationNotice(null) }} onDismiss={() => setDelegationNotice(null)} /></Suspense>}
       {delegatedWorkOpen && <Suspense fallback={null}><DelegatedWorkDialog workspaces={workspaces} workspaceId={delegationTarget?.workspaceId ?? (applicationView === 'thread' ? threadSnapshot?.thread.workspaceId ?? activeWorkspaceId ?? '' : activeWorkspaceId ?? '')} focusTaskId={delegationTarget?.taskId}
         origin={applicationView === 'thread' ? threadSelection ? { kind: 'thread', id: threadSelection } : undefined : activePane ? { kind: 'pane', id: activePane.id } : undefined}
         onClose={() => { setDelegatedWorkOpen(false); setDelegationTarget(null) }} onOpen={openDelegation} /></Suspense>}
-      {isDataView(applicationView) ? <DataSidebar view={applicationView} />
+      {showFirstRun && !isNewWorkspaceOpen ? null : isDataView(applicationView) ? <DataSidebar view={applicationView} />
       : applicationView === 'thread' ? <ThreadSidebarBoundary><ThreadSidebar onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} onOpenInCode={async rootPath => {
         const existing = (await window.oxe.workspace.list()).find(workspace => isSameRootPath(workspace.rootPath, rootPath, window.oxe.app.platform))
         if (existing) await setActiveWorkspace(existing.id)
         else await createWorkspace({ rootPath, layoutPreset: 1, autoStart: false })
+        setFirstRunExited(true)
         setApplicationView('code')
       }} /></ThreadSidebarBoundary> : <Sidebar
         onDelegations={() => { setDelegationTarget(null); setDelegatedWorkOpen(true) }}
@@ -767,15 +703,15 @@ export function App(): ReactElement {
         onNewWorkspace={openNewWorkspaceFromUI}
         onSelectWorkspace={(id) => void setActiveWorkspace(id)}
         onCloseWorkspace={handleCloseWorkspace}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={toggleSidebar}
+        isCollapsed={collapsedSidebars.code}
+        onToggleCollapse={() => toggleSidebar('code')}
         panelMenu={panelMenuEntries(codePanelItems)}
         onOpenJobs={toggleBackgroundPanel}
         onOpenScripts={toggleScriptsPanel}
         onOpenSearch={openCommandMenu}
         integrationGroups={integrationGroups}
       />}
-      <section className={`workspace-surface${applicationView === 'thread' ? ' thread-workspace-surface' : isDataView(applicationView) ? ' oq-surface' : ''}`}>
+      <section className={`workspace-surface${showFirstRun ? ' thread-workspace-surface' : applicationView === 'thread' ? ' thread-workspace-surface' : isDataView(applicationView) ? ' oq-surface' : ''}`}>
         {error ? <div className="error-banner">{error}</div> : null}
         {appNotice ? (
           <div className="error-banner">
@@ -787,16 +723,22 @@ export function App(): ReactElement {
           <div className="empty-state">
             <h3>{t('app.loadingWorkspaces')}</h3>
           </div>
+        ) : showFirstRun ? (
+          <Suspense key="first-run" fallback={null}><FirstRunHost onOpenMode={selectMode} onNewWorkspace={openNewWorkspaceFromUI} onStartConversation={folder => {
+            setFirstRunExited(true)
+            setHasOpenedThread(true)
+            selectMode('thread')
+            const project = folder ? threadProjects.find(item => item.contexts.some(ctx => isSameRootPath(ctx.rootPath, folder, window.oxe.app.platform))) : threadProjects.find(item => !item.hidden)
+            if (project) setNewThreadWorkspaceId(project.projectId)
+            else if (folder) { setNewThreadRootPath(folder); setNewThreadWorkspaceId(null) }
+            else setThreadProjectOpen(true)
+          }} /></Suspense>
         ) : activeWorkspace || applicationView !== 'code' ? (
           <>
             <DataHosts view={applicationView} />
-            {/* F32: the status hooks' one question, when a Claude or Codex pane runs without them. */}
             <AgentHooksPromptHost />
             {hasOpenedThread && <div className="thread-host" data-view="thread" style={{ display: applicationView === 'thread' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'thread'}><ErrorBoundary id="conversations" label={t('app.boundary.conversations')} onReset={ThreadGrid.retry}><Suspense fallback={<ViewSkeleton name="OxeChat" />}><ThreadGrid onNewThread={newThread} onAccounts={openThreadAccounts} onDelegations={() => setDelegatedWorkOpen(true)} /></Suspense></ErrorBoundary></div>}
             {workspaces
-              // Include the active id synchronously. On a first visit the MRU
-              // effect has not run yet, but the user should never wait an extra
-              // render before the new WorkspaceSurface begins mounting.
               .filter((ws) => ws.id === activeWorkspaceId || visitedWorkspaceIds.includes(ws.id))
               .map((ws) => {
                 const isActive = ws.id === activeWorkspaceId && applicationView === 'code'
@@ -819,10 +761,13 @@ export function App(): ReactElement {
                       webPreviewVisible={webPreviewOpenByWorkspace[ws.id] === true}
                       integrationVisible={isActive && isIntegrationPanelOpen}
                       searchVisible={isActive && isSearchPanelOpen}
+                      containersVisible={isActive && containersOpen}
                       onCloseScripts={closeScriptsPanel}
                       onCloseWebPreview={() => closeWebPreview(ws.id)}
                       onCloseIntegration={closeIntegrationPanel}
                       onCloseSearch={closeSearchPanel}
+                      onCloseContainers={() => setContainersOpen(false)}
+                      onOpenContainerConversation={openContainerConversation}
                       onSelectWorkspace={(id) => void setActiveWorkspace(id)}
                       workspaces={workspaces}
                       onUpdateEditorState={(input) => void updateEditorState(input)}
@@ -839,10 +784,17 @@ export function App(): ReactElement {
               })}
           </>
         ) : (
-          <Suspense fallback={null}><NoWorkspaceStart onNewWorkspace={openNewWorkspaceFromUI} onSelectMode={selectMode} onAddProject={() => { selectMode('thread'); setThreadProjectOpen(true) }} /></Suspense>
+          <Suspense key="no-workspace" fallback={null}><NoWorkspaceStart onNewWorkspace={openNewWorkspaceFromUI} onSelectMode={selectMode} onAddProject={() => { selectMode('thread'); setThreadProjectOpen(true) }} /></Suspense>
         )}
-        {applicationView === 'code' && <AppStatusBar workspace={activeWorkspace ?? null} activePaneId={activePane?.id ?? null} />}
-        {applicationView === 'thread' && <AppStatusBar docked workspace={null} activePaneId={null} rootPath={threadSnapshot?.thread.rootPath} usageProvider={threadSnapshot?.thread.provider === 'claude' || threadSnapshot?.thread.provider === 'codex' ? threadSnapshot.thread.provider : null} />}
+        {showFirstRun ? (
+          <AppStatusBar docked firstRun appVersion={appVersion} workspace={null} activePaneId={null} />
+        ) : applicationView === 'code' ? (
+          <AppStatusBar appVersion={appVersion} workspace={activeWorkspace ?? null} activePaneId={activePane?.id ?? null} />
+        ) : applicationView === 'thread' ? (
+          <AppStatusBar docked appVersion={appVersion} workspace={null} activePaneId={null} rootPath={threadSnapshot?.thread.rootPath} usageProvider={threadSnapshot?.thread.provider === 'claude' || threadSnapshot?.thread.provider === 'codex' ? threadSnapshot.thread.provider : null} />
+        ) : (
+          <AppStatusBar docked appVersion={appVersion} workspace={activeWorkspace ?? null} activePaneId={null} />
+        )}
         <Suspense fallback={null}>
           {accountsOpen && (threadProject ?? threadProjects[0]) && <ProviderAccountsPanel workspaceId={threadSnapshot?.thread.workspaceId ?? `thread:${(threadProject ?? threadProjects[0]).projectId}`} onClose={() => setAccountsOpen(false)} />}
           {newThreadWorkspaceId !== undefined && <NewThreadDialog initialProjectId={newThreadWorkspaceId} initialRootPath={newThreadRootPath} onClose={() => { setNewThreadWorkspaceId(undefined); setNewThreadRootPath(undefined) }} />}
@@ -861,7 +813,7 @@ export function App(): ReactElement {
           existingWorkspaces={workspaces}
           activeWorkspaceId={activeWorkspaceId}
           platform={window.oxe.app.platform}
-          onOpenExisting={async (id) => { await setActiveWorkspace(id); closeNewWorkspace() }}
+          onOpenExisting={async (id) => { setFirstRunExited(true); await setActiveWorkspace(id); closeNewWorkspace() }}
           onLaunch={handleLaunch}
           onPickFolder={() => window.oxe.workspace.pickFolder()}
           returnFocusTo={newWorkspaceOpenerRef.current}
@@ -878,6 +830,7 @@ export function App(): ReactElement {
         onSelectPane={setActivePane}
       />
       <UsageModal open={isUsageOpen} onOpenChange={(o) => (o ? openUsage() : closeUsage())} />
+      {commandBarOpen ? <CommandBarHost open={commandBarOpen} onOpenChange={setCommandBarOpen} applicationView={applicationView} selectMode={selectMode} activeWorkspace={activeWorkspace ?? null} activePane={activePane} /> : null}
       {slashPane ? (
         <SlashOverlay
           paneId={slashPane.id}
@@ -894,8 +847,7 @@ export function App(): ReactElement {
           onClose={closeMcpPanel}
         />
       ) : null}
-      {/* Workspace settings asked for from another view (the palette shows Code first) mount once Code is shown, so they
-          open on "Current workspace": SettingsCenter reads its scope only when it mounts. */}
+      {containersOpen && !(applicationView === 'code' && activeWorkspace && !showFirstRun) ? <ContainersPanel onClose={() => setContainersOpen(false)} onOpenConversation={openContainerConversation} /> : null}
       {isSettingsOpen || (isWorkspaceSettingsOpen && applicationView === 'code') ? (
         <Suspense fallback={null}><SettingsCenter
           initialPage={useUIStore.getState().settingsInitialPage}
@@ -910,8 +862,6 @@ export function App(): ReactElement {
           onDiscoverAgents={() => void discover(true)}
           onConfigureAgent={(profile) => setConfiguredAgent(profile)}
           onNewCustomAgent={() => setConfiguredAgent({
-            // Blank profile for the modal's "isNew" branch. agentProfileId === ''
-            // is what AgentConfigModal uses to switch its UI to "create" mode.
             agentProfileId: '',
             name: '',
             provider: 'custom',
@@ -967,9 +917,6 @@ export function App(): ReactElement {
           readiness={agentReadiness.find((r) => r.provider === configuredAgent.provider)}
           isDiscovering={isDiscovering}
           onSave={async (id, input) => {
-            // Empty id = "+ New custom agent" path. AgentConfigModal sets the
-            // isNew flag from the empty id but routes every save through the
-            // same callback, so we branch here on the id.
             if (id === '') {
               await createProfile({
                 name: input.name ?? configuredAgent.name,
@@ -995,7 +942,6 @@ export function App(): ReactElement {
       </Suspense>
       </ErrorBoundary>
       </main>
-      {/* T86: a phone asking to pair is answered wherever the person is. */}
       <RemotePairingHost />
       <Toaster />
       </TooltipProvider>

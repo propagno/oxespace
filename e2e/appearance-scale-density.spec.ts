@@ -58,7 +58,7 @@ test('interface scale, density and motion apply app-wide and survive a restart',
 
     await page.getByRole('button', { name: 'Open settings', exact: true }).click()
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
-    await settings.getByRole('group', { name: 'Settings scope' }).getByRole('button', { name: 'Application', exact: true }).click()
+    await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Appearance/ }).click()
     await settings.getByRole('radio', { name: '125%', exact: true }).click()
     await expect.poll(() => zoomFactor(app)).toBe(1.25)
     await expect(settings.getByText('Currently 125%.', { exact: false })).toBeVisible()
@@ -89,8 +89,13 @@ test('interface scale, density and motion apply app-wide and survive a restart',
     await capture(app, 'appearance-125.png')
 
     // A workspace can keep its own density: it overrides the app until the person sends it back.
-    const scope = settings.getByRole('group', { name: 'Settings scope' })
-    await scope.getByRole('button', { name: /Current workspace/ }).click()
+    const nav = settings.getByRole('navigation', { name: 'Settings categories' })
+    // The workspace's pages come after the application's; its General is the last of the two, named with the workspace
+    // or not. At 125% a narrow screen shows the compact list instead, where a workspace page is "<workspace>: <page>".
+    const wide = nav.getByRole('button', { name: /(^|: )General / }).last()
+    const compact = settings.getByRole('group', { name: 'Settings category' }).getByRole('button', { name: /: General$/ })
+    await expect.poll(async () => await wide.isVisible() || await compact.isVisible()).toBe(true)
+    await (await wide.isVisible() ? wide : compact).click()
     const workspaceDensity = settings.getByRole('radiogroup', { name: 'Density' })
     await expect(workspaceDensity.getByRole('radio', { name: 'App default' })).toHaveAttribute('aria-checked', 'true')
     await workspaceDensity.getByRole('radio', { name: 'Compact' }).click()
@@ -98,7 +103,11 @@ test('interface scale, density and motion apply app-wide and survive a restart',
     await capture(app, 'workspace-density.png')
     // U2: the workspace's density applies at once; there is no Save button.
     await expect.poll(() => page.evaluate(() => document.documentElement.dataset.density)).toBe('compact')
-    await scope.getByRole('button', { name: 'Application', exact: true }).click()
+    // Back to the application's Appearance page, from the list that is shown at this scale.
+    const wideAppearance = nav.getByRole('button', { name: /^Appearance/ })
+    const compactAppearance = settings.getByRole('group', { name: 'Settings category' }).getByRole('button', { name: 'Appearance', exact: true })
+    await expect.poll(async () => await wideAppearance.isVisible() || await compactAppearance.isVisible()).toBe(true)
+    await (await wideAppearance.isVisible() ? wideAppearance : compactAppearance).click()
     await expect(settings.getByTestId('workspace-density-override')).toHaveText(/1 workspace uses its own density\./)
     await settings.getByTestId('workspace-density-override').evaluate(el => el.scrollIntoView({ block: 'center' }))
     await capture(app, 'appearance-workspace-override.png')

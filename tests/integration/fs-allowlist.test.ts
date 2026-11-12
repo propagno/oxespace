@@ -61,6 +61,8 @@ const ALLOWED_FS_IMPORTS = new Set([
   // userData area under opaque IDs; neither accepts arbitrary workspace paths.
   'electron/main/services/conversation/claude-conversation.ts',
   'electron/main/services/conversation/thread-attachments.ts',
+  // Antigravity's ACP takes an image as base64: the adapter reads only the attachment paths the store above issued.
+  'electron/main/services/conversation/antigravity-conversation.ts',
   // Transactional Thread checkpoints are a dedicated filesystem boundary:
   // they canonicalize the Thread root, reject traversal/symlinks, hash every
   // postimage and restore through temp+rename without destructive Git calls.
@@ -176,6 +178,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   // New-conversation worktree: only checks whether the folder it is about to create already exists and
   // resolves its real path. Never reads files.
   'electron/main/services/conversation/thread-worktree.ts',
+  // F8 A30 branch from checkpoint: probes whether the target sibling worktree folder already exists, resolves its
+  // canonical path after git worktree add, and removes the empty/failed worktree folder on rollback; checkpoint file
+  // writes stay in thread-checkpoints.ts.
+  'electron/main/services/conversation/thread-branch.ts',
   // Conversation worktree finish: only checks whether the app-owned worktree folder still exists before
   // asking Git for its state. Never reads or writes files.
   'electron/main/services/conversation/thread-worktree-lifecycle.ts',
@@ -281,7 +287,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/http-audit/codex-rollout.ts',
   // F5 (A52): saves a person-requested Android screenshot PNG under <Pictures>/OXESpace with a generated basename;
   // the renderer sends only a validated adb serial, never a path.
-  'electron/main/ipc/android.ipc.ts'
+  'electron/main/ipc/android.ipc.ts',
+  // F11 (A65): exports the local feature-usage summary JSON only to the path chosen in Electron's native save dialog
+  // (mode 0600); never reads files and never accepts a path from the renderer.
+  'electron/main/services/usage/usage-count.ts'
 ])
 
 describe('workspace fs allowlist', () => {

@@ -9,7 +9,7 @@ import { launchReal, quitReal, realProfile } from './real-app'
  * drives one any more.
  */
 async function openUpdates(page: Page) {
-  await page.keyboard.press('Control+k'); await page.keyboard.insertText('Settings')
+  await page.keyboard.press('Control+Shift+P'); await page.keyboard.insertText('Settings')
   await page.locator('[cmdk-item]', { hasText: 'Settings' }).first().click()
   const settings = page.getByRole('dialog').filter({ has: page.getByRole('navigation', { name: 'Settings categories' }) }).first()
   await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Updates/ }).click()

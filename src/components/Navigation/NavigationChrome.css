@@ -1,7 +1,9 @@
 /* Shared desktop chrome. Mode-specific content stays in each feature. */
 .sidebar.sidebar-redesign, .thread-navigation { box-shadow: none; background: var(--bg-sidebar); background-image: none; border-right: 0; overflow: clip; }
 /* Sidebars float on the window as panels, like the work surface. Here, unlayered, so feature CSS does not repaint them. */
-.app-shell > :is(.sidebar.sidebar-redesign, .thread-navigation) { border: 1px solid var(--border-subtle); border-radius: var(--frame-radius); background: var(--surface-base); }
+.app-shell > :is(.sidebar.sidebar-redesign, .thread-navigation) { border: 0; border-right: 1px solid var(--border-subtle); border-radius: 0; background: var(--surface-base); }
+.app-shell.first-run-shell { grid-template-columns: minmax(0, 1fr); } .app-shell.first-run-shell > aside { display: none; }
+.app-shell.first-run-shell > .workspace-surface { grid-column: 1 / -1; }
 .desktop-search svg { flex-shrink: 0; }
 
 .sidebar .desktop-search, .thread-navigation .desktop-search, .settings-center .desktop-search { display: flex; align-items: center; gap: 8px; position: relative; height: var(--control-h); min-height: var(--control-h); padding: 0 10px; border: 1px solid var(--bd-base); border-radius: var(--nav-radius); color: var(--tx-muted); background: var(--bg-sidebar); box-shadow: none; }
@@ -17,17 +19,17 @@
 .thread-heading, .settings-center-toolbar { padding: 0 var(--chrome-inset); }
 .thread-heading h1 { font-size: var(--fs-base); }
 .sidebar-redesign .sidebar-nav-item:has(.sidebar-nav-kbd) { order: initial; margin: 0; border: 0; background: transparent; font-size: var(--fs-xs); color: var(--tx-secondary); }
-.sidebar-redesign .sidebar-search-wrap { margin: 0 12px 16px; }
+.sidebar-redesign .sidebar-search-wrap { margin: 0 12px 12px; }
 .sidebar-redesign .sidebar-section-header { padding: 8px 12px; height: 32px; }
 .sidebar-redesign .sidebar-section-header > span, .thread-project-list h2, .settings-nav-caption { color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: 500; text-transform: none; letter-spacing: 0; }
-.sidebar-redesign .ws-group-name { font-size: var(--fs-sm); font-weight: 500; line-height: var(--target-min); }
-.sidebar-redesign .ws-group.active .ws-group-name { font-weight: 500; }
-.sidebar-redesign .ws-group.active > .ws-group-header { border-left-color: transparent; background: var(--nav-selected); }
+.sidebar-redesign .ws-group-name { font-size: var(--fs-sm); font-weight: 600; line-height: var(--target-min); }
+.sidebar-redesign .ws-group.active .ws-group-name { font-weight: 600; }
+.sidebar-redesign .ws-group.active > .ws-group-header { border-left-color: transparent; background: transparent; }
+.sidebar-redesign .sidebar-workspace-tree[data-ws].active .ws-group.active > .ws-group-header { background: color-mix(in srgb, var(--ws) 8%, transparent); }
 .sidebar-redesign .ws-group.active:not(.drop-before):not(.drop-after)::before { display: none; }
 .sidebar-redesign .sidebar-terminal-children .pane-session-row.active { box-shadow: none; }
 .sidebar-redesign .ws-group-branch-row { color: var(--tx-muted); font-size: var(--fs-2xs); }
-.sidebar-redesign .sidebar-workspace-tree { border-radius: var(--nav-radius); margin-bottom: 4px; }
-.sidebar-redesign .sidebar-workspace-tree.active { background: transparent; border-color: transparent; }
+.sidebar-redesign .sidebar-workspace-tree { border-radius: var(--nav-radius); margin-bottom: 6px; }
 .sidebar-redesign .sidebar-terminal-children .pane-session-row.active { background: var(--nav-selected); border-color: transparent; }
 .sidebar-redesign .sidebar-terminal-children .pane-row-title { font-size: var(--fs-sm); }
 .sidebar-redesign .sidebar-terminal-children .pane-row-context { font-size: var(--fs-2xs); }
@@ -49,8 +51,20 @@
 /* ─── Icon rail + tree panel (Codex-style sidebar) ───────────────────────── */
 .sidebar.sidebar-redesign, .thread-navigation { display: flex; flex-direction: row; }
 .nav-panel { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
-.nav-panel-title { display: flex; align-items: center; height: var(--chrome-h); min-height: var(--chrome-h); padding: 0 var(--chrome-inset) 0 6px; }
+.nav-panel-title { display: flex; align-items: center; gap: 4px; height: var(--chrome-h); min-height: var(--chrome-h); padding: 0 var(--chrome-inset) 0 10px; }
 .nav-panel-title strong { font-size: var(--fs-sm); font-weight: 600; color: var(--tx-primary); }
+
+/* Collapsed rails & rail buttons (G10) */
+.nav-rail { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); width: 100%; height: 100%; min-height: 0; padding: var(--space-2) 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
+.nav-rail-btn { position: relative; display: inline-grid; place-items: center; min-width: 28px; min-height: 28px; padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--text-secondary); cursor: pointer; transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard); }
+.nav-rail-btn:hover:not(:disabled) { background: var(--fill-hover); color: var(--text-primary); }
+.nav-rail-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.sidebar-rail-list { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); width: 100%; margin: var(--space-1) 0; padding: var(--space-1) 0; border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); overflow-y: auto; scrollbar-width: none; }
+.sidebar-rail-workspace-btn { position: relative; display: inline-grid; place-items: center; padding: 0; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); background: var(--surface-raised); color: var(--text-secondary); font-family: var(--font-ui); font-size: var(--fs-2xs); font-weight: var(--weight-bold); cursor: pointer; transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard); }
+.sidebar-rail-workspace-btn:hover { background: var(--fill-hover); color: var(--text-primary); }
+.sidebar-rail-workspace-btn[data-ws] { background: color-mix(in srgb, var(--ws) 10%, transparent); color: var(--ws-fg); border-color: color-mix(in srgb, var(--ws) 28%, transparent); }
+.sidebar-rail-workspace-btn[data-ws].active { background: color-mix(in srgb, var(--ws) 18%, transparent); border-color: var(--ws); color: var(--ws-fg); }
+.sidebar-rail-attention { position: absolute; top: -3px; right: -3px; border-radius: var(--radius-full); background: var(--intent-warning-bg); color: var(--intent-warning-fg); padding: 1px; }
 
 /* Hit targets and contrast raised to the audit baseline (28px, AA text). */
 .pane-header .tile-btn, .workspace-editor-actions .tile-btn, .sidebar-section-action-btn, .ws-group-expand-btn { min-width: var(--hit-min); min-height: var(--hit-min); }
@@ -60,7 +74,7 @@
 
 /* The footer of an expanded sidebar sits at its bottom, however short the list above. */
 .nav-panel > .nav-rail-footer, .oq-sidebar-content > .nav-rail-footer { margin-top: auto; }
-.nav-panel-title .sidebar-actions { margin-right: -4px; }
+.nav-panel-title .sidebar-actions { margin-right: 0; }
 /* OxeQuery's sidebar column scrolls as a grid; as a column its footer can sit at the bottom. */
 .oq-sidebar .oq-sidebar-content { display: flex; flex-direction: column; }
 /* The active workspace is a plain selected row, not a bordered box. */

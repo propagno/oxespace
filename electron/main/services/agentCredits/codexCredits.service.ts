@@ -48,7 +48,7 @@ export class CodexCreditsService implements AgentCreditsProvider {
   readonly provider = 'codex' as const
   private cache: { value: AgentCreditsSnapshot; at: number } | null = null
 
-  constructor(private readonly sessionsRoot: string = join(homedir(), '.codex', 'sessions')) {}
+  constructor(private readonly sessionsRoot: string = join(process.env.CODEX_HOME?.trim() || join(homedir(), '.codex'), 'sessions')) {}
 
   async getCredits(force = false): Promise<AgentCreditsSnapshot> {
     if (!force && this.cache && Date.now() - this.cache.at < TTL_MS) {

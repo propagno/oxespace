@@ -5,6 +5,9 @@ import { formatClock, formatDate } from '../../utils/formatTime'
 import { resultChip } from './agentActivityModel'
 import { AgentActivityDetail } from './AgentActivityDetail'
 import { useAgentActivityFilter } from '../../store/agent-activity-filter.store'
+import { useThreadStore } from '../../store/thread.store'
+import { useUIStore } from '../../store/ui.store'
+import { HostsProxySettings } from './HostsProxySettings'
 
 type ActivityRow = Record<string, unknown>
 
@@ -34,6 +37,7 @@ export function AgentActivitySettings(): ReactElement {
   const cursorRef = useRef<string | null>(null)
   const lastFocusedRowRef = useRef<HTMLElement | null>(null)
   const tbodyRef = useRef<HTMLTableSectionElement>(null)
+  useEffect(() => { void window.oxe?.featureUsage?.record?.('agentActivity') }, [])
 
   const [selectedSource, setSelectedSource] = useState<string | null>(initialSource)
   const [rows, setRows] = useState<ActivityRow[]>([])
@@ -174,9 +178,9 @@ export function AgentActivitySettings(): ReactElement {
   }
 
   return (
-    <div className="settings-form-group agent-activity-settings" data-testid="agent-activity">
-      <h3 className="settings-form-group-title">{t('activity.title')}</h3>
-      <p className="settings-field-hint">{t('activity.hint')}</p>
+    <section className="settings-general agent-activity-page" data-testid="agent-activity">
+      <h2>{t('activity.title')}</h2>
+      <p>{t('activity.hint')}</p>
 
       <div className="agent-activity-sources" role="toolbar" aria-label={t('activity.sources.all')}>
         {SOURCES.map(({ key, labelKey, defaultLabel }) => {
@@ -261,6 +265,13 @@ export function AgentActivitySettings(): ReactElement {
         </>
       )}
 
+      <HostsProxySettings
+        onOpenConversation={conversationId => {
+          void useThreadStore.getState().select(conversationId)
+          if (useUIStore.getState().isSettingsOpen) useUIStore.getState().toggleSettings()
+        }}
+      />
+
       {activeModalRow && (
         <AgentActivityDetail
           row={activeModalRow}
@@ -270,6 +281,6 @@ export function AgentActivitySettings(): ReactElement {
           }}
         />
       )}
-    </div>
+    </section>
   )
 }

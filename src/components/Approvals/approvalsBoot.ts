@@ -10,6 +10,8 @@ import type { ApprovalAckInput, ApprovalRequest, ApprovalsApi } from '../../../s
 
 /** Event the palette sends to open this session's approval decisions. */
 export const OPEN_APPROVAL_HISTORY_EVENT = 'oxe:open-approval-history'
+/** Event the title bar pill sends to toggle the approval queue modal. */
+export const OPEN_APPROVAL_QUEUE_EVENT = 'oxe:open-approval-queue'
 /**
  * Same budget main gives an `ackRequired` request (APPROVAL_ACK_TIMEOUT_MS; a test keeps them equal). A literal, so the
  * boot bundle does not carry the contract's other constants.

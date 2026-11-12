@@ -13,6 +13,7 @@ test('primary Code navigation works by keyboard and restores focus after dialogs
     await page.waitForURL(/index\.html/)
     await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.show(); window.focus() })
     await page.setViewportSize({ width: 900, height: 650 })
+    await page.locator('button[data-app-mode="code"]').click()
     const tools = page.getByTestId('btn-open-tools')
     await tools.focus()
     await expect(tools).toBeFocused()

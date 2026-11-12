@@ -233,7 +233,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     // up launching Claude instead of the persisted Copilot/Codex/etc. Wait for
     // profiles before auto-starting bound panes.
     if (pane.agentProfileId && allProfiles.length === 0) return
-    void start()
+    const frame = window.requestAnimationFrame(() => { void start() }); return () => window.cancelAnimationFrame(frame)
   }, [autoStart, start, state.status, pane.agentProfileId, allProfiles.length])
 
   const restart = useCallback(async (): Promise<void> => {
@@ -386,7 +386,27 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         <span className={`statusbar-dot ${statusDotClass}`} aria-hidden="true" />
         <span className="statusbar-text" data-testid="terminal-status-label">{tc(`terminalPane.status.${state.status}`)}</span>
 
-        <div className="terminal-statusbar-spacer" />
+        {state.status === 'running' && !pane.agentProfileId ? (
+          <div className="terminal-cmd-inline">
+            <span className="terminal-cmd-prompt" aria-hidden="true">❯</span>
+            <input
+              type="text"
+              className="terminal-cmd-input"
+              aria-label={tc('terminalPane.commandPlaceholder', { defaultValue: 'Type a command and press Enter' })}
+              placeholder={tc('terminalPane.commandPlaceholder', { defaultValue: 'Type a command and press Enter' })}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter') return
+                const value = event.currentTarget.value
+                if (!value.trim()) return
+                event.preventDefault()
+                event.currentTarget.value = ''
+                void window.oxe?.terminal?.write?.({ paneId: pane.id, data: `${value}\r` })
+              }}
+            />
+          </div>
+        ) : (
+          <div className="terminal-statusbar-spacer" />
+        )}
 
         <Suspense fallback={null}>
           {contextProvider ? <ContextUsageStatus provider={contextProvider} rootPath={effectiveRootPath} /> : null}

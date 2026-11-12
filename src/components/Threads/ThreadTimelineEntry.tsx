@@ -1,4 +1,5 @@
 import { AlertCircle, Check, ChevronDown } from 'lucide-react'
+import { threadAgentName } from '../../../shared/threadProviders'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
 import { Spinner, toast } from '../../ui'
@@ -15,6 +16,7 @@ import { ThreadMessageRow } from './ThreadMessageRow'
 import { ThreadPlan } from './ThreadPlan'
 import { ThreadReasoning } from './ThreadReasoning'
 import { ThreadRequestCard } from './ThreadRequestCard'
+import { useOpenRequest } from '../Approvals/openRequest'
 import { ThreadSubagentActivity } from './ThreadSubagentActivity'
 import { ThreadTurnTiming } from './ThreadTurnTiming'
 import { ThreadTurnFoldRow } from './ThreadTurnFold'
@@ -104,7 +106,7 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
     if (event.type === 'message') return <PathScopeContext.Provider key={key} value={pathScope}><ThreadMessageRow event={event} turnEvents={turnEvents} snapshot={snapshot} running={running} pending={pending} copied={copiedMessageId === event.id} action={action} onCopy={onCopy}
       quickReplies={event.id === lastMessageId ? quickReplies : []} onQuickReply={onQuickReply} onQuote={onQuote} /></PathScopeContext.Provider>
     if (event.type === 'tool') return <details key={key} className="thread-tool"><summary><ChevronDown size={12} />{event.state === 'running' ? <Spinner size="sm" decorative /> : event.state === 'failed' ? <AlertCircle size={12} /> : <Check size={12} />}{event.name}<small>{t(`activity.state.${event.state === 'running' || event.state === 'failed' || event.state === 'unknown' ? event.state : 'completed'}`)}</small></summary>{event.detail && <pre>{event.detail}</pre>}</details>
-    if (event.type === 'request') return pendingRequests.some(request => request.id === event.request.id) ? null : <ThreadRequestCard key={key} conversationId={snapshot!.thread.id} request={event.request} turnResult={turnEvents.find((value): value is Extract<ThreadEvent, { type: 'completed' }> => value.type === 'completed')?.status} disabled={pending} onRespond={response => action(() => api!.respond!(snapshot!.thread.id, event.id, response))} />
+    if (event.type === 'request') return <div key={key} className="thread-timeline-request" data-request-id={event.request.id}><ThreadRequestCard conversationId={snapshot!.thread.id} agent={threadAgentName(snapshot!.thread.provider)} request={event.request} turnResult={turnEvents.find((value): value is Extract<ThreadEvent, { type: 'completed' }> => value.type === 'completed')?.status} disabled={pending} onSeeImpact={() => useOpenRequest.getState().open(event.request.id)} onRespond={response => action(() => api!.respond!(snapshot!.thread.id, event.id, response))} /></div>
     if (event.type === 'approval') {
       if (snapshot?.events.some(value => value.type === 'request' && value.id === event.id)) return null
       const unresolved = snapshot?.thread.status === 'approval' && !snapshot.events.some(e => e.type === 'approval-resolved' && e.id === event.id)

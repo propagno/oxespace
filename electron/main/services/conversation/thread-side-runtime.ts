@@ -31,6 +31,8 @@ export function createThreadSideChats(db: AppDatabase, bridge: string, manager: 
     subscribe: (id, listener) => manager.subscribe(id, listener),
     unavailable: error => error instanceof CodexForkUnsupportedError,
     connect: async (thread, forkId) => {
+      // ACP has no ephemeral copy of a session, so nothing is started: the side chat answers as unavailable.
+      if (thread.provider === 'antigravity') throw new CodexForkUnsupportedError('Antigravity cannot open a side chat')
       assertProviderAllowed(thread.provider, thread.rootPath)
       const profile = threadAgentProfile(db, thread)
       const meta = db.prepare('SELECT port, token FROM internal_mcp_meta LIMIT 1').get() as { port: number; token: string } | undefined

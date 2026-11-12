@@ -1,43 +1,66 @@
-/* Segmented control for the three views: a quiet track, the active view lifted on a raised fill. */
+/* Mode tabs in the title bar: Playground segmented pill group (.modes) beside the menus. */
 .switch {
   display: inline-flex;
-  justify-self: center;
+  align-items: center;
+  justify-self: start;
   gap: 2px;
-  padding: 3px;
+  height: 30px;
+  padding: 2px;
+  margin-left: var(--space-1);
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  background: var(--surface-base);
+  background: var(--surface-sunken);
   -webkit-app-region: no-drag;
 }
 
 /* Holds a view's button and, beside it, its attention badge; the badge is placed against this box. */
-.item { position: relative; display: inline-flex; }
+.item { position: relative; display: inline-flex; align-items: center; }
 
 .option {
   position: relative;
   display: inline-flex;
   align-items: center;
-  height: 24px;
-  padding: 0 var(--space-4);
+  gap: var(--space-1-5, 6px);
+  height: 26px;
+  padding: 0 var(--space-3);
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font: inherit;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: var(--weight-medium);
+  white-space: nowrap;
   cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
+  transition: color var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
 }
-.option:hover { color: var(--text-primary); }
-.option[aria-pressed='true'] { background: var(--fill-pressed); color: var(--text-primary); }
-.option:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.option:hover { color: var(--text-primary); background: var(--fill-hover); }
+.option[aria-pressed='true'] {
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-weight: var(--weight-semibold);
+  box-shadow: var(--shadow-sm);
+}
+:global([data-appearance='dark']) .option[aria-pressed='true'] {
+  background: var(--fill-selected);
+  color: var(--text-accent);
+  box-shadow: none;
+}
+.option:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+
+.modeIcon { flex-shrink: 0; color: currentColor; opacity: 0.82; transition: color var(--duration-fast) var(--ease-standard), opacity var(--duration-fast) var(--ease-standard); }
+.option[aria-pressed='true'] .modeIcon { color: var(--accent); opacity: 1; }
+
+@media (max-width: 1080px) {
+  .option { padding: 0 var(--space-2); }
+  .modeIcon { display: none; }
+}
 
 /* What needs a person in that view: amber for "needs you", red when only failures remain. */
 .badge {
   position: absolute;
-  top: -5px;
-  right: -3px;
+  top: -2px;
+  right: -2px;
   min-width: 14px;
   height: 14px;
   padding: 0 3px;
@@ -56,5 +79,5 @@
 .badgeFailed { border-color: var(--intent-danger-fg); background: var(--intent-danger-bg); color: var(--intent-danger-fg); }
 
 /* Agents are busy and nothing needs you: a small breathing dot. */
-.working { position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); pointer-events: none; --pulse-opacity: 0.35; animation: global(oxe-pulse) var(--duration-pulse) var(--ease-standard) infinite; }
+.working { position: absolute; top: 3px; right: 2px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); pointer-events: none; --pulse-opacity: 0.35; animation: global(oxe-pulse) var(--duration-pulse) var(--ease-standard) infinite; }
 :global([data-motion='reduce']) .working { animation: none; }

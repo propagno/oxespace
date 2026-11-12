@@ -11,6 +11,7 @@ import { closeSync, existsSync, openSync, readdirSync, readSync, statSync } from
 import { homedir } from 'node:os'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { load as loadYaml } from 'js-yaml'
+import type { ThreadProvider } from '../../../../shared/types/thread'
 
 export interface InstructionSource {
   path: string
@@ -78,7 +79,7 @@ function chainFromRepoRoot(cwd: string): string[] {
   return [resolve(cwd)]
 }
 
-export function instructionSources(provider: 'claude' | 'codex', cwd: string, home: string = homedir()): InstructionSource[] {
+export function instructionSources(provider: ThreadProvider, cwd: string, home: string = homedir()): InstructionSource[] {
   const found: InstructionSource[] = []
   const add = (path: string, scope: InstructionSource['scope']): void => {
     const bytes = fileSize(path)
@@ -99,6 +100,16 @@ export function instructionSources(provider: 'claude' | 'codex', cwd: string, ho
     }
     add(join(resolve(cwd), 'CLAUDE.local.md'), 'local')
     for (const file of ruleFiles(join(root, '.claude', 'rules')).slice(0, MAX_RULES)) add(file, 'rules')
+  } else if (provider === 'antigravity') {
+    // Antigravity shares Gemini's files: the user's GEMINI.md, then GEMINI.md and AGENTS.md down the tree, then its rules.
+    add(join(home, '.gemini', 'GEMINI.md'), 'user')
+    for (const dir of chain) {
+      const scope = dir === root ? 'project' : 'directory'
+      add(join(dir, 'GEMINI.md'), scope)
+      add(join(dir, '.gemini', 'GEMINI.md'), scope)
+      add(join(dir, 'AGENTS.md'), scope)
+    }
+    for (const file of ruleFiles(join(root, '.agent', 'rules')).slice(0, MAX_RULES)) add(file, 'rules')
   } else {
     const codexHome = process.env.CODEX_HOME || join(home, '.codex')
     add(join(codexHome, 'AGENTS.override.md'), 'user')

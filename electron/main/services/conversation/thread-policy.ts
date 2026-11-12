@@ -39,7 +39,8 @@ export class ThreadPolicy {
     if (request.kind === 'approval' && !request.impact) {
       request.impact = requestImpact(request, { root: rootPath })
     }
-    if (request.kind === 'approval' && request.command && !request.alwaysAllow) {
+    // Antigravity has no saved rule of its own: OXESpace never writes one of Claude's for it. Its own "always" is the session answer.
+    if (request.kind === 'approval' && request.command && !request.alwaysAllow && request.nativeMethod !== 'session/request_permission') {
       const provider = request.nativeMethod?.startsWith('item/') ? 'codex' : 'claude'
       request.alwaysAllow = alwaysAllowOffer(request, provider)
     }
