@@ -4,6 +4,8 @@ import { join } from 'node:path'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { designSourceProbeScript, sanitizeDesignProbe } from '../../../shared/design-source'
 import { savePreviewCapture } from './browser-preview/preview-capture-store'
+import { previewVerifyNote } from '../../../shared/preview-problems'
+import { setPreviewNoteSource } from './conversation/preview-note'
 import { DESIGN_MODE_CHANNELS, type DesignGrabPayload } from '../../../shared/types/design-mode'
 import type { BrowserPreviewBounds, BrowserPreviewEvent, BrowserPreviewMount, BrowserPreviewMountResult, BrowserPreviewSessionState } from '../../../shared/types/browser-preview'
 import type { ExecutionOwner } from './execution-registry'
@@ -26,6 +28,8 @@ interface BrowserTab {
   tabId: string
   allowExternal: boolean
   agentAccess: boolean
+  /** With agent access on: the agent is told to check this page after it edits (the Browser's "Auto-verify"). */
+  autoVerify: boolean
   visible: boolean
   lease: string
   defaultUserAgent?: string
@@ -134,7 +138,7 @@ export class BrowserPreviewService {
     if (!tab) {
       const view = new WebContentsView({webPreferences:{session:previewSessionFor(input.ownerKey),preload:join(app.getAppPath(),'out','preload','design-guest.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,...guestProbeWebPreferences()}})
       view.setBackgroundColor('#07080e')
-      tab = {window,view,ownerKey:input.ownerKey,workspaceId:input.workspaceId,threadId:input.threadId,tabId:input.tabId,allowExternal:input.allowExternal === true,agentAccess:false,visible:false,lease:randomUUID()}
+      tab = {window,view,ownerKey:input.ownerKey,workspaceId:input.workspaceId,threadId:input.threadId,tabId:input.tabId,allowExternal:input.allowExternal === true,agentAccess:false,autoVerify:true,visible:false,lease:randomUUID()}
       this.tabs.set(key,tab)
       window.contentView.addChildView(view)
       view.setVisible(false)
@@ -247,11 +251,12 @@ export class BrowserPreviewService {
    * the consent dialog; the window's re-sends on every tab change carry no grant, so they can keep access or lower it
    * but never give back what main revoked. Returns what applies.
    */
-  setAccess(window: BrowserWindow, input: {ownerKey:string;tabId:string;agentAccess:boolean;allowExternal:boolean;grant?:boolean}): {agentAccess:boolean} {
+  setAccess(window: BrowserWindow, input: {ownerKey:string;tabId:string;agentAccess:boolean;allowExternal:boolean;grant?:boolean;autoVerify?:boolean}): {agentAccess:boolean} {
     if (!input || typeof input.ownerKey !== 'string' || typeof input.tabId !== 'string') throw new Error('Invalid browser access')
     const tab = this.tabs.get(this.key(window,input.ownerKey,input.tabId))
     if (!tab && input.grant !== true) this.find(window,input.ownerKey,input.tabId)
     if (tab) tab.allowExternal = input.allowExternal === true
+    if (tab && typeof input.autoVerify === 'boolean') tab.autoVerify = input.autoVerify
     return {agentAccess:this.applyAgentAccess(window,input.ownerKey,input.agentAccess === true,input.grant === true,tab?.workspaceId)}
   }
   /** Whether main lets agents drive this owner's preview in this window (T43). */
@@ -392,6 +397,17 @@ export class BrowserPreviewService {
     return {guest:tab.view.webContents,window:tab.window,external:tab.allowExternal,tabId:tab.tabId,sessionId:this.sessionId(ownerKey),ownerKey}
   }
 
+  /**
+   * What a conversation's agent is told with a message while it can see the conversation's preview and Auto-verify is
+   * on: the page's address and how to check a change. Null when there is no such page: no access, Auto-verify off, the
+   * Browser closed or covered, or a page that is not on this machine.
+   */
+  autoVerifyNote(threadId: string): string | null {
+    const ownerKey = `thread:${threadId}`
+    const tab = [...this.tabs.values()].find(item => item.ownerKey === ownerKey && item.threadId === threadId && item.agentAccess && item.autoVerify && item.visible && !item.view.webContents.isDestroyed() && this.hasAgentAccess(item.window, ownerKey))
+    if (!tab) return null
+    try { return previewVerifyNote(checkedUrl(tab.view.webContents.getURL(), false)) } catch { return null }
+  }
   handleDesignMessage(sender: WebContents, type: 'grab'|'cancel', payload?: DesignGrabPayload): void {
     const tab = [...this.tabs.values()].find(item => item.view.webContents === sender)
     if (!tab || !tab.visible) return
@@ -413,3 +429,5 @@ export class BrowserPreviewService {
 const DESIGN_PROBE_TIMEOUT_MS = 800
 
 export const browserPreviewService = new BrowserPreviewService()
+// The conversation asks this once the Browser has been used; before that there is no page to check.
+setPreviewNoteSource(threadId => browserPreviewService.autoVerifyNote(threadId))

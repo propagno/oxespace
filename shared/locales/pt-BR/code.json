@@ -1087,6 +1087,26 @@
     "unavailableHint": "O navegador não conseguiu carregar esta página. Confira se o servidor está rodando.",
     "emptyHint": "Inicie o seu servidor de desenvolvimento e digite o endereço acima, por exemplo http://localhost:3000.",
     "page": "Página no navegador",
+    "verify": {
+      "toggle": "Conferir sozinho",
+      "toggleTitle": "Com o acesso do agente ligado, o agente é instruído em cada mensagem a conferir esta página depois de editar: uma captura e o console. Usa passos extras do agente.",
+      "problems": "Desde a carga da página: {{errors}} erro(s) de console, {{requests}} requisição(ões) com falha.",
+      "send": "Enviar ao agente",
+      "dismiss": "Dispensar"
+    },
+    "devServer": {
+      "label": "Servidores de dev",
+      "labelRunning": "Servidores de dev: {{count}} rodando",
+      "none": "Nenhum servidor de dev encontrado. Adicione um script \"dev\" ao package.json, ou um .claude/launch.json.",
+      "start": "Iniciar {{name}}",
+      "stop": "Parar {{name}}",
+      "open": "Abrir {{url}}",
+      "commandIn": "{{command}} — em {{folder}}",
+      "starting": "Iniciando {{name}}… a página abre quando o servidor estiver no ar.",
+      "startFailed": "Não foi possível iniciar {{name}}",
+      "stopFailed": "Não foi possível parar {{name}}",
+      "noAddress": "{{name}} não informou o endereço; tentando {{url}}."
+    },
     "grab": {
       "label": "Seleção do Modo Design",
       "discard": "Descartar a seleção",

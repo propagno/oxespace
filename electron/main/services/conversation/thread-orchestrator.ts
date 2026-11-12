@@ -19,6 +19,7 @@ import { repairLegacyCost } from '../../../../shared/threadCostRepair'
 import { deriveThreadTitle, isUnnamedThreadTitle, parseThreadRow } from './thread-title'
 import { resolveMentionContext } from './thread-context-resolver'
 import { briefBlock, projectBrief } from './project-brief'
+import { previewNoteFor } from './preview-note'
 import { reduceThreadEvent, type KernelEffect } from './kernel/event-reducer'
 import { mergeTurnConfiguration, turnConfiguration } from './kernel/turn-configuration'
 import { runThreadCommand, type CommandHost } from './kernel/command-router'
@@ -572,6 +573,9 @@ export class ThreadOrchestrator {
           brief = await projectBrief(snapshot.thread.rootPath, snapshot.thread.provider).catch(() => '')
           if (brief) input = { ...input, text: input.text + briefBlock(brief) }
         }
+        // A preview this conversation's agent can see, with Auto-verify on: it is told how to check its change.
+        const previewNote = previewNoteFor(id)
+        if (previewNote) input = { ...input, text: input.text + previewNote }
       }
       snapshot = this.read(id)
       if (this.stopping) throw new Error('Application is shutting down')

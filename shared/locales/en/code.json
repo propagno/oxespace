@@ -1040,6 +1040,26 @@
     "unavailableHint": "The browser could not load this page. Check that the server is running.",
     "emptyHint": "Start your dev server, then type its address above, for example http://localhost:3000.",
     "page": "Page in the browser",
+    "verify": {
+      "toggle": "Auto-verify",
+      "toggleTitle": "With agent access on, the agent is told with each message to check this page after it edits: a screenshot and the console. Uses extra agent steps.",
+      "problems": "Since the page loaded: {{errors}} console error(s), {{requests}} failed request(s).",
+      "send": "Send to agent",
+      "dismiss": "Dismiss"
+    },
+    "devServer": {
+      "label": "Dev servers",
+      "labelRunning": "Dev servers: {{count}} running",
+      "none": "No dev server found. Add a \"dev\" script to package.json, or a .claude/launch.json.",
+      "start": "Start {{name}}",
+      "stop": "Stop {{name}}",
+      "open": "Open {{url}}",
+      "commandIn": "{{command}} — in {{folder}}",
+      "starting": "Starting {{name}}… the page opens when the server is up.",
+      "startFailed": "Could not start {{name}}",
+      "stopFailed": "Could not stop {{name}}",
+      "noAddress": "{{name}} printed no address; trying {{url}}."
+    },
     "grab": {
       "label": "Design Mode selection",
       "discard": "Discard the selection",

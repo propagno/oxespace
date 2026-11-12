@@ -100,7 +100,8 @@ export interface BrowserPreviewApi {
   mount(input: BrowserPreviewMount): Promise<BrowserPreviewMountResult>
   bounds(input: BrowserPreviewBounds): Promise<void>
   /** `grant` only when the person confirms access (T43): without it, main can keep or lower agent access but never raise it. */
-  setAccess(input: {ownerKey:string;tabId:string;agentAccess:boolean;allowExternal:boolean;grant?:boolean}): Promise<{agentAccess:boolean}>
+  /** `autoVerify`: with access on, the agent is told with each message to check this page after it edits; false turns that off. */
+  setAccess(input: {ownerKey:string;tabId:string;agentAccess:boolean;allowExternal:boolean;grant?:boolean;autoVerify?:boolean}): Promise<{agentAccess:boolean}>
   /** `keep`: the picker stays on after each pick, for several elements in a row. */
   designMode(input: {ownerKey:string;tabId:string;enabled:boolean;keep?:boolean}): Promise<void>
   setZoom(input: {ownerKey:string;tabId:string;zoom:number}): Promise<void>

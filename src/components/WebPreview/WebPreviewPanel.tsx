@@ -13,6 +13,11 @@ import { useEditorStore } from '../../store/editor.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { DesignGrabSheet, type DesignGrabItem } from './DesignGrabSheet'
 import { locateDesignSource } from './designSource'
+import { DevServerMenu, useDevServers } from './DevServerMenu'
+import { urlFromOutput, type DevServerConfig } from '../../../shared/dev-server'
+import { addPreviewProblem, formatPreviewProblems, NO_PREVIEW_PROBLEMS, previewProblemCount, type PreviewProblems } from '../../../shared/preview-problems'
+import type { BrowserPreviewConsoleRow, BrowserPreviewNetworkRow } from '../../../shared/types/browser-preview'
+import { selectOutput, useBackgroundStore } from '../../store/background.store'
 import { NativePreviewHost } from './NativePreviewHost'
 import { AgentBrowserChrome } from './AgentBrowserChrome'
 import { PreviewEmptyState } from './PreviewEmptyState'
@@ -28,7 +33,8 @@ const tc = i18n.getFixedT(null, 'code')
 interface WebPreviewPanelProps {
   workspace: Workspace
   threadId?: string
-  onRunCommand: (command: string) => void
+  /** No longer used: the panel starts the project's dev server itself, as a background job. Kept so callers need no change. */
+  onRunCommand?: (command: string) => void
   onClose: () => void
   embedded?: boolean
   /** The conversation's draft, in OxeChat. The captures of the picked elements go with it as attachments. */
@@ -53,7 +59,7 @@ const VIEWPORTS: Record<Viewport, { width: number | null; height: number | null 
   mobile: { width: 390, height: 844 }
 }
 
-export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onRunCommand, onSendToAgent, workspace, threadId }: WebPreviewPanelProps): ReactElement {
+export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendToAgent, workspace, threadId }: WebPreviewPanelProps): ReactElement {
   const agentName = workspace.panes?.find(pane => pane.agentName)?.agentName ?? tc('agentBrowser.defaultAgent')
   const { t } = useTranslation('code')
   useEffect(() => { void window.oxe?.featureUsage?.record?.('agentBrowser') }, [])
@@ -86,6 +92,10 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onRunCo
   const externalPageBlocked = Boolean(url && !normalizePreviewUrl(url, allowExternal))
   const [agentAutomation, setAgentAutomation] = useState(false)
   const [consentOpen, setConsentOpen] = useState(false)
+  // Checking after an edit: with access on, the agent is told to look at this page after it edits (on unless turned off
+  // here or by `autoVerify: false` in the project's launch file); and what broke since the page loaded is counted here.
+  const [autoVerifyChoice, setAutoVerifyChoice] = useState<boolean | null>(null)
+  const [problems, setProblems] = useState<PreviewProblems>(NO_PREVIEW_PROBLEMS)
   // #3 Design Mode: pick an element in the previewed page and hand it to an agent.
   const [designMode, setDesignMode] = useState(false)
   // Escape first leaves Design Mode (the hint says so), then closes the panel.
@@ -108,6 +118,41 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onRunCo
     const nextUrl = normalizedUrl
     void window.oxe.browserPreview.session({ownerKey:previewKey,action:'navigate',tabId:activeTabId,url:nextUrl,allowExternal}).then(applySession).catch(error => setCaptureNotice(humanizeError(error, tc('preview.error.open'))))
   }
+
+  // The project's dev servers: started from here as background jobs; the page opens at the address the server prints.
+  const dev = useDevServers(workspace)
+  const autoVerify = autoVerifyChoice ?? dev.autoVerify ?? true
+  const [startingServer, setStartingServer] = useState<{ jobId: string; name: string; url: string; since: number } | null>(null)
+  const serverOutput = useBackgroundStore(selectOutput(startingServer?.jobId ?? ''))
+  const showPage = useCallback((address: string): void => {
+    const nextUrl = normalizePreviewUrl(address, allowExternal)
+    if (!nextUrl || !activeTabId) return
+    updateTab(activeTabId, tab => ({ ...tab, draftUrl: address }))
+    void window.oxe.browserPreview.session({ownerKey:previewKey,action:'navigate',tabId:activeTabId,url:nextUrl,allowExternal}).then(applySession).catch(error => setCaptureNotice(humanizeError(error, tc('preview.error.open'))))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTabId, allowExternal, applySession, previewKey])
+  const startServer = useCallback((config: DevServerConfig): void => {
+    setCaptureNotice(tc('preview.devServer.starting', { name: config.name }))
+    void dev.start(config).then(job => { if (job) setStartingServer({ jobId: job.id, name: config.name, url: config.url, since: Date.now() }); else showPage(config.url) })
+      .catch(error => setCaptureNotice(humanizeError(error, tc('preview.devServer.startFailed', { name: config.name }))))
+  }, [dev, showPage])
+  useEffect(() => {
+    if (!startingServer) return
+    const printed = urlFromOutput(serverOutput.join('\n'))
+    if (printed) { setStartingServer(null); setCaptureNotice(null); showPage(printed); return }
+    // A server that prints no address: its expected one is tried once it has had time to come up.
+    const wait = Math.max(0, 8000 - (Date.now() - startingServer.since))
+    const timer = window.setTimeout(() => { setStartingServer(null); setCaptureNotice(tc('preview.devServer.noAddress', { name: startingServer.name, url: startingServer.url })); showPage(startingServer.url) }, wait)
+    return () => window.clearTimeout(timer)
+  }, [serverOutput, showPage, startingServer])
+  const firstServer = dev.servers.find(config => config.command && !dev.jobFor(config)) ?? null
+  const sendProblemsToAgent = useCallback(async (): Promise<void> => {
+    if (!url || previewProblemCount(problems) === 0) return
+    const prompt = formatPreviewProblems(url, problems)
+    if (onSendToAgent) { await onSendToAgent(prompt); setCaptureNotice(tc('preview.addedToDraft')) }
+    else setCaptureNotice((await pasteIntoAgentTerminal(workspace.id, prompt)).message)
+    setProblems(NO_PREVIEW_PROBLEMS)
+  }, [onSendToAgent, problems, url, workspace.id])
 
   const goBack = (): void => {
     if (!canGoBack) return
@@ -140,7 +185,8 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onRunCo
       if (event.type === 'failed') updateTab(event.tabId, tab => ({...tab,loading:false,error:event.message ?? tc('preview.pageFailed')}))
       if (event.tabId !== activeTabId) return
       if (event.type === 'ready') { readyTabs.current.add(event.tabId); setGuestReady(true) }
-      if (event.type === 'loading' && event.loading) { readyTabs.current.delete(event.tabId); setGuestReady(false) }
+      if (event.type === 'loading' && event.loading) { readyTabs.current.delete(event.tabId); setGuestReady(false); setProblems(NO_PREVIEW_PROBLEMS) }
+      if ((event.type === 'console' || event.type === 'network') && event.row) { const row = event.row as BrowserPreviewConsoleRow | BrowserPreviewNetworkRow; setProblems(current => addPreviewProblem(current, row)); return }
       if (event.type === 'cancel') {
         setDesignMode(false)
         setDesignKeep(false)
@@ -175,9 +221,9 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onRunCo
 
   useEffect(() => {
     // Main answers what applies (T43): if it says off, the toggle shows off, and turning it on asks the person again.
-    for (const tab of tabs) if (tab.url) void window.oxe.browserPreview.setAccess({ownerKey:previewKey,tabId:tab.id,agentAccess:agentAutomation,allowExternal})
+    for (const tab of tabs) if (tab.url) void window.oxe.browserPreview.setAccess({ownerKey:previewKey,tabId:tab.id,agentAccess:agentAutomation,allowExternal,autoVerify})
       .then(result => { if (agentAutomation && result?.agentAccess === false) setAgentAutomation(false) }).catch(() => {})
-  }, [tabs, previewKey, agentAutomation, allowExternal])
+  }, [tabs, previewKey, agentAutomation, allowExternal, autoVerify])
 
   const toggleDesignMode = useCallback((): void => {
     if (!url || !guestReady) {
@@ -313,6 +359,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onRunCo
           <button type="button" aria-label={t('preview.zoomIn')} title={t('preview.zoomIn')} onClick={zoomIn}><Plus size={14} aria-hidden="true" /></button>
         </div>
         <DeviceMenu ownerKey={previewKey} tabId={activeTabId} deviceId={deviceChoice.deviceId} rotated={deviceChoice.rotated} onChange={setDeviceChoice} />
+        <DevServerMenu dev={dev} onStart={startServer} onOpen={showPage} onNotice={setCaptureNotice} />
         <button
           type="button"
           className={`web-preview-nav-button${designMode ? ' active' : ''}`}
@@ -346,7 +393,20 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onRunCo
           }} />{t('preview.access.toggle')}
         </label>
         <span>{agentAutomation ? t('preview.access.on') : t('preview.access.off')}</span>
+        {agentAutomation && threadId ? (
+          <label className="web-preview-external-toggle" title={t('preview.verify.toggleTitle')}>
+            <input type="checkbox" data-testid="preview-auto-verify" checked={autoVerify} onChange={event => setAutoVerifyChoice(event.currentTarget.checked)} />{t('preview.verify.toggle')}
+          </label>
+        ) : null}
       </div>
+      {previewProblemCount(problems) > 0 ? (
+        <div className="web-preview-problems" role="status" data-testid="preview-problems">
+          <AlertCircle size={12} aria-hidden="true" />
+          <span>{t('preview.verify.problems', { errors: problems.console.length, requests: problems.network.length })}</span>
+          <button type="button" className="web-preview-problems-send" data-testid="preview-problems-send" onClick={() => void sendProblemsToAgent()}>{t('preview.verify.send')}</button>
+          <button type="button" className="web-preview-problems-dismiss" aria-label={t('preview.verify.dismiss')} title={t('preview.verify.dismiss')} onClick={() => setProblems(NO_PREVIEW_PROBLEMS)}><X size={12} aria-hidden="true" /></button>
+        </div>
+      ) : null}
 
       <AgentBrowserChrome ownerKey={previewKey} tabId={activeTabId} agentName={agentName}>
       <div className="web-preview-stage" aria-busy={loading}>
@@ -370,9 +430,9 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onRunCo
         {(!url || externalPageBlocked || pageError) && (
           <div className="web-preview-placeholder">
             {externalPageBlocked ? <EmptyState icon={<MonitorPlay size={20} />} title={t('preview.externalRequired')}>{t('preview.externalRequiredHint')}</EmptyState>
-              : pageError && url && normalizePreviewUrl(url, false) ? <PreviewEmptyState kind="down" url={(() => { try { return new URL(url).host } catch { return url } })()} devScript="npm run dev" onRunDev={() => onRunCommand('npm run dev')} />
+              : pageError && url && normalizePreviewUrl(url, false) ? <PreviewEmptyState kind="down" url={(() => { try { return new URL(url).host } catch { return url } })()} devScript={firstServer?.command ?? undefined} onRunDev={firstServer ? () => startServer(firstServer) : undefined} />
               : pageError ? <ErrorState title={t('preview.unavailable')} message={t('preview.unavailableHint')} detail={pageError} onRetry={open} retryLabel={t('preview.retry')} />
-              : <PreviewEmptyState kind="none" />}
+              : <PreviewEmptyState kind="none" devScript={firstServer?.command ?? undefined} onRunDev={firstServer ? () => startServer(firstServer) : undefined} />}
           </div>
         )}
       </div>
