@@ -1,4 +1,4 @@
-import { FolderTree, Settings2, ShieldCheck, type LucideIcon } from 'lucide-react'
+import { FolderTree, ScrollText, Settings2, type LucideIcon } from 'lucide-react'
 import { i18n } from '../../i18n'
 
 export type WorkspacePageId = 'general' | 'projects' | 'policy'
@@ -16,5 +16,5 @@ function settingsPage(id: WorkspacePageId, icon: LucideIcon, defaultLabel: strin
 export const SETTINGS_PAGES = [
   settingsPage('general', Settings2, 'General', 'Project instructions and workspace preferences', 'Set default instructions, shell preferences and appearance for this workspace.'),
   settingsPage('projects', FolderTree, 'Projects', 'Worktrees and branches', 'Inspect and manage git worktrees and branches linked to this workspace.'),
-  settingsPage('policy', ShieldCheck, 'Policy', 'Workspace policy rules', 'Control which tools and actions agents may run in this workspace.')
+  settingsPage('policy', ScrollText, 'Policy', 'Workspace policy rules', 'Control which tools and actions agents may run in this workspace.')
 ] as const
