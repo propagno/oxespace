@@ -95,6 +95,8 @@
     "copy": "Copy",
     "paste": "Paste",
     "selectAll": "Select all",
+    "notInTerminal": "Not available in a terminal",
+    "needsTextField": "Place the cursor in a text field first",
     "view": "View",
     "appearance": "Appearance",
     "density": "Density",
