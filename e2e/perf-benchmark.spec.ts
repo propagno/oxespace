@@ -852,15 +852,26 @@ test('thread: 5,000 events, scroll and streaming append', async () => {
  * allows it, so the heap is live data), so the budget catches a per-Thread leak or an eager load of history.
  * Budgets are 25% above the baseline measured on the CI platforms (MAIN_MEMORY_BUDGETS_MB); the gate is
  * OXESPACE_PERF_GATE, like the timings above.
+ *
+ * The growth is counted outside V8's young generation. That space grows with how much was allocated during the
+ * burst and stays resident after the collection with nothing live in it, so it measured how busy opening the Threads
+ * was, not what they keep. Measured on CI (run 43145038852, 12/11/2026), first ten Threads then ten more:
+ *   Linux    rss +12.3 then +9.4 MB · young generation +6.5 then +8.8 · outside it 5.8 then 0.6 · live heap 15.0 -> 16.1
+ *   Windows  rss  +9.9 then +16.3 MB · young generation +4.7 then +14.5 · outside it 5.2 then 1.8 · live heap 15.3 -> 16.2
+ * With the whole resident set under a 13 MB budget, Linux read 13.2, 13.6, 13.1, 13.5 and 12.3 MB on one code base.
  */
 const THREAD_COUNT = 10
-/** Baseline x 1.25, rounded up, per platform. RSS and heap are totals; growth is RSS gained while opening the Threads. */
+/**
+ * Per platform. RSS and heap are totals, baseline x 1.25 rounded up. `growth` is the resident set gained while opening
+ * the Threads, outside V8's young generation: baseline x 1.25 is 8 on Linux and 7 on Windows, held one above until
+ * more runs say how much the split itself moves. It was 13 for the whole resident set.
+ */
 const MAIN_MEMORY_BUDGETS_MB: Record<string, { rss: number; heap: number; growth: number }> = {
-  // Windows, 4 runs: rss 162-168 MB, heap 17.0-17.2 MB (after GC), growth 3.7-9.7 MB.
-  win32: { rss: 211, heap: 22, growth: 13 },
-  // Linux CI runner (ubuntu-24.04), first run: rss 214.8 MB, heap 16.4 MB, growth 5.7 MB.
-  linux: { rss: 270, heap: 22, growth: 13 },
-  default: { rss: 211, heap: 22, growth: 13 }
+  // Windows, 4 runs: rss 162-168 MB, heap 17.0-17.2 MB (after GC). Growth outside the young generation: 5.2 MB.
+  win32: { rss: 211, heap: 22, growth: 8 },
+  // Linux CI runner (ubuntu-24.04), first run: rss 214.8 MB, heap 16.4 MB. Growth outside the young generation: 5.8 MB.
+  linux: { rss: 270, heap: 22, growth: 9 },
+  default: { rss: 211, heap: 22, growth: 8 }
 }
 
 test('memory: main process with 10 Threads open', async () => {
@@ -875,7 +886,8 @@ test('memory: main process with 10 Threads open', async () => {
     // resident set is also split into what the process allocated (anon) and what it maps from files (code, database).
     // `detail` says where the memory is: what V8 holds resident per heap space (a young generation that grew during
     // a burst of work stays resident with nothing live in it), what it allocated outside the heap, and Buffers.
-    type Sample = { rss: number; heap: number; gc: boolean; anon: number | null; file: number | null; detail: string }
+    // `young` is what V8's young generation holds resident (its semi-spaces and its large objects), in MB.
+    type Sample = { rss: number; heap: number; gc: boolean; anon: number | null; file: number | null; detail: string; young: number }
     const sample = (): Promise<Sample> => app.evaluate(() => {
       let gc = false
       try {
@@ -895,10 +907,13 @@ test('memory: main process with 10 Threads open', async () => {
       const mb = (bytes: number): string => (bytes / 1024 / 1024).toFixed(1)
       const v8 = process.getBuiltinModule('node:v8')
       const heap = v8.getHeapStatistics()
-      const spaces = v8.getHeapSpaceStatistics().filter(space => space.physical_space_size > 512 * 1024)
+      const all = v8.getHeapSpaceStatistics()
+      const spaces = all.filter(space => space.physical_space_size > 512 * 1024)
         .map(space => `${space.space_name.replace(/_space$/, '')}=${mb(space.physical_space_size)}`).join(' ')
+      const young = all.filter(space => space.space_name === 'new_space' || space.space_name === 'new_large_object_space')
+        .reduce((sum, space) => sum + space.physical_space_size, 0) / 1024 / 1024
       const detail = `v8 resident=${mb(heap.total_physical_size)} (${spaces}) malloced=${mb(heap.malloced_memory)} external=${mb(usage.external)} buffers=${mb(usage.arrayBuffers)}`
-      return { rss: usage.rss / 1024 / 1024, heap: usage.heapUsed / 1024 / 1024, gc, anon, file, detail }
+      return { rss: usage.rss / 1024 / 1024, heap: usage.heapUsed / 1024 / 1024, gc, anon, file, detail, young }
     })
     // The app's deferred start (index.ts "deferred-init": the internal MCP server, config sync, policy) is still
     // allocating when the window shows. A fixed wait left part of it inside the measured growth, which is meant to be
@@ -939,10 +954,12 @@ test('memory: main process with 10 Threads open', async () => {
     await expect(page.locator('.thread-navigation-item')).toHaveCount(THREAD_COUNT)
     await page.waitForTimeout(1_500)
     const after = await settled()
-    const growth = after.rss - before.rss
+    const total = after.rss - before.rss
+    const youngGrowth = after.young - before.young
+    const growth = total - youngGrowth
     console.log(
       `[RESULT] memory main process, ${THREAD_COUNT} Threads open   rss=${after.rss.toFixed(1)}MB heap=${after.heap.toFixed(1)}MB${split(after)} ` +
-      `(before: rss=${before.rss.toFixed(1)}MB heap=${before.heap.toFixed(1)}MB${split(before)}) rssGrowth=${growth.toFixed(1)}MB gc=${after.gc} ` +
+      `(before: rss=${before.rss.toFixed(1)}MB heap=${before.heap.toFixed(1)}MB${split(before)}) rssGrowth=${total.toFixed(1)}MB (young generation ${youngGrowth.toFixed(1)}MB, outside it ${growth.toFixed(1)}MB) gc=${after.gc} ` +
       `settled after ${before.waits}/${after.waits} waits`
     )
     console.log(`[RESULT] memory main process, where: before ${before.detail}`)
@@ -960,7 +977,7 @@ test('memory: main process with 10 Threads open', async () => {
       }
       await page.waitForTimeout(1_500)
       const again = await settled()
-      console.log(`[RESULT] memory main process, ${THREAD_COUNT} more Threads   rss=${again.rss.toFixed(1)}MB heap=${again.heap.toFixed(1)}MB${split(again)} rssGrowth=${(again.rss - after.rss).toFixed(1)}MB`)
+      console.log(`[RESULT] memory main process, ${THREAD_COUNT} more Threads   rss=${again.rss.toFixed(1)}MB heap=${again.heap.toFixed(1)}MB${split(again)} rssGrowth=${(again.rss - after.rss).toFixed(1)}MB (young generation ${(again.young - after.young).toFixed(1)}MB, outside it ${(again.rss - after.rss - (again.young - after.young)).toFixed(1)}MB)`)
       console.log(`[RESULT] memory main process, where: again  ${again.detail}`)
     } catch (error) {
       console.log(`[RESULT] memory main process, ${THREAD_COUNT} more Threads   not measured: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`)
@@ -969,7 +986,7 @@ test('memory: main process with 10 Threads open', async () => {
     if (ENFORCE_BUDGETS) {
       expect(after.rss, `main process RSS after ${THREAD_COUNT} Threads (budget ${budget.rss} MB)`).toBeLessThanOrEqual(budget.rss)
       expect(after.heap, `main process heap after ${THREAD_COUNT} Threads (budget ${budget.heap} MB)`).toBeLessThanOrEqual(budget.heap)
-      expect(growth, `main process RSS growth while opening ${THREAD_COUNT} Threads (budget ${budget.growth} MB)`).toBeLessThanOrEqual(budget.growth)
+      expect(growth, `main process RSS growth outside V8's young generation while opening ${THREAD_COUNT} Threads (budget ${budget.growth} MB)`).toBeLessThanOrEqual(budget.growth)
     }
   } finally {
     await killApp(app, pid)
