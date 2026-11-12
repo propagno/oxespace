@@ -32,7 +32,11 @@
       "title": "Unpair from {{desktop}}?",
       "body": "This phone forgets {{desktop}} and the key it used with it. To come back, pair again with the QR in Settings › Devices on the computer."
     },
-    "cardProblem": "Not connected"
+    "cardProblem": "Not connected",
+    "benefitFollow": "See what every agent is doing, as it happens",
+    "benefitAnswer": "Answer approvals and questions",
+    "benefitTerminal": "Read your terminals and type in the ones you allow",
+    "sameWifi": "Same Wi-Fi only: this phone talks straight to your computer."
   },
   "pairing": {
     "title": "Pair with your computer",
@@ -163,7 +167,8 @@
       "text": "The computer couldn't read every source this time. The list fills in when it can."
     },
     "menuSettings": "Settings",
-    "emptyTitle": "Nothing here yet"
+    "emptyTitle": "Nothing here yet",
+    "connectedHint": "Connected · same Wi-Fi"
   },
   "thread": {
     "tool": {
@@ -438,6 +443,16 @@
       "needsYou": "An agent needs you",
       "done": "A task finished",
       "failed": "A task failed"
+    },
+    "computer": {
+      "title": "Computer",
+      "unpair": "Unpair this phone"
+    },
+    "about": {
+      "title": "About",
+      "app": "OXESpace for Android",
+      "version": "Version {{version}}",
+      "sameWifi": "Works while this phone and your computer are on the same Wi-Fi."
     }
   }
 }
