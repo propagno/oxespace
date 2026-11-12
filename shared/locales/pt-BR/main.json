@@ -144,18 +144,6 @@
         "nativeMissing": "Falta o executável nativo (codex.exe) no Codex instalado. Reinstale o Codex ou escolha o codex.exe nas Configurações de agentes."
       },
       "restore": {
-        "foreignChanges": "{{count}} arquivos mudaram fora desta conversa ({{files}}). Restaurar sobrescreve esses arquivos; Refazer traz sua versão de volta."
-      },
-      "branch": {
-        "unsupported": "Indisponível no Codex",
-        "checkpointGone": "Este checkpoint não existe mais.",
-        "checkpointFailed": "Só a conversa: os arquivos deste checkpoint não foram salvos.",
-        "exists": "Já existe uma branch com esse nome. Escolha outro nome de branch.",
-        "pathExists": "Já existe uma pasta em {{path}}. Escolha outro nome de branch.",
-        "baseGone": "O commit de onde este checkpoint partiu não existe mais; não dá para ramificar.",
-        "notGit": "A pasta desta conversa não é um repositório git; não dá para ramificar.",
-        "sessionGone": "A sessão do agente desta conversa não existe mais; o ramo não consegue continuá-la.",
-        "failed": "Não deu para concluir a ramificação ({{step}}); nada foi mantido."
       }
     },
     "app": {

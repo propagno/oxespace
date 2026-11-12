@@ -24,12 +24,22 @@ export function modelDisplayName(id: string): string {
  * The model chip's name (T58 §4.1): the model the conversation runs, never "default". A model picked by name shows
  * its catalog label. Otherwise it is the provider's default when the catalog names a real model; when the default
  * is Claude's alias, or the provider doesn't say (`defaultKnown: false`), it is the model the session reported on
- * its last turn. `null` means not known yet: the caller says "Provider default".
+ * its last turn; failing that, the model the alias itself names in the catalog ("Default (recommended)" with
+ * "Fable 5.2 · …" under it), unless settings may override the default. `null` means not known yet: the caller says
+ * "Provider default".
  */
 export function modelChipName({ chosen, catalog, reported }: { chosen?: string; catalog: ThreadModelCatalog; reported?: string }): string | null {
   const label = (id: string) => catalog.models.find(model => model.id === id)?.label ?? modelDisplayName(id)
   if (chosen && chosen !== DEFAULT_ALIAS) return label(chosen)
   const fallback = catalog.defaultKnown === false ? undefined : catalog.defaultModel
   if (fallback && fallback !== DEFAULT_ALIAS) return label(fallback)
-  return reported && reported !== DEFAULT_ALIAS ? label(reported) : null
+  if (reported && reported !== DEFAULT_ALIAS) return label(reported)
+  return catalog.defaultKnown === false ? null : aliasModelName(catalog)
+}
+
+/** The model Claude's "default" entry says it stands for, read from the words the picker already shows for it. */
+function aliasModelName(catalog: ThreadModelCatalog): string | null {
+  const alias = catalog.models.find(model => model.id === DEFAULT_ALIAS)
+  const named = alias ? /\b(opus|sonnet|haiku|fable)\s+\d+(?:\.\d+)?/i.exec(`${alias.description} ${alias.label}`) : null
+  return named ? named[0][0].toUpperCase() + named[0].slice(1) : null
 }

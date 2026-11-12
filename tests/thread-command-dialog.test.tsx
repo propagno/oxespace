@@ -41,9 +41,9 @@ describe('ThreadCommandDialog', () => {
     await waitFor(() => expect(runCommand).toHaveBeenCalledWith('/archive confirm'))
   })
 
-  it('marks delete and rewind as destructive', () => {
-    setup({ kind: 'confirm', confirm: threadConfirmation('rewind') })
-    expect(screen.getByRole('button', { name: 'Rewind one turn' }).className).toMatch(/danger/)
+  it('marks delete as destructive', () => {
+    setup({ kind: 'confirm', confirm: threadConfirmation('delete') })
+    expect(screen.getByRole('button', { name: 'Delete conversation' }).className).toMatch(/danger/)
   })
 
   it('keeps command output copyable', () => {

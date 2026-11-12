@@ -104,7 +104,9 @@
 .thread-message-assistant .thread-message-actions { position: absolute; top: 0; right: 0; margin: 0; opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard); }
 /* The closing answer of a turn reads as clean prose on the canvas, with compact actions. */
 .thread-message-assistant.is-final-response { padding: 0 36px 0 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-.thread-message-assistant.is-final-response .thread-message-actions { top: 0; right: 0; opacity: 0.72; }
+/* Quote and Copy of the final answer follow the rule of every answer (above and below): shown when the pointer or the
+   keyboard is on it. They used to stay at 72% all the time, as two boxes beside the text. */
+.thread-message-assistant.is-final-response .thread-message-actions { top: 0; right: 0; }
 .thread-view .thread-message-assistant.is-final-response .thread-message-actions button { width: 28px; min-width: 28px; padding: 0; }
 .thread-final-label { margin-left: 5px; color: var(--accent); font-size: max(11px, calc(var(--thread-reader-font-size) - 4px)); font-weight: 600; }
 .thread-message-assistant:hover .thread-message-actions, .thread-message-assistant:focus-within .thread-message-actions { opacity: 1; }
@@ -115,7 +117,9 @@
 .thread-message-outgoing-status { display: block; margin-top: 7px; color: var(--text-muted); font-size: var(--fs-2xs); }
 .thread-delivery-note { display: flex; align-items: center; gap: 6px; margin: 7px 0 0; color: var(--text-muted); font-size: var(--fs-2xs); }
 .thread-delivery-note.is-rejected { color: var(--dot-red); }
-.thread-delivery-note button { margin-left: auto; padding: 2px 8px; border: 1px solid var(--border-default); border-radius: var(--radius-xs); background: transparent; color: inherit; font: inherit; cursor: pointer; }
+/* A long reason wraps in its own column; the button beside it keeps its words on one line. */
+.thread-delivery-text { min-width: 0; overflow-wrap: anywhere; }
+.thread-delivery-note button { flex: none; white-space: nowrap; margin-left: auto; padding: 2px 8px; border: 1px solid var(--border-default); border-radius: var(--radius-xs); background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .thread-delivery-note button:disabled { opacity: 0.5; cursor: default; }
 .thread-long-prompt-preview { margin: 0; color: var(--text-primary); line-height: 1.55; }
 .thread-view .thread-long-prompt > button { margin-top: 8px; padding: 3px 0; color: var(--text-secondary); font-size: var(--fs-2xs); }
@@ -168,6 +172,8 @@
 .thread-approval-agent { min-width: 0; overflow: hidden; border: 1px dashed var(--border-strong); border-radius: var(--radius-md); background: var(--surface-sunken); }
 .thread-approval-agent pre { max-height: 160px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .thread-approval-plan { max-height: 320px; overflow: auto; padding: 0 12px; }
+/* In the conversation the plan is read whole, as the exact text of a command is: it is what the person approves. */
+.thread-pending-requests .thread-approval-plan, .thread-timeline-request .thread-approval-plan { max-height: none; overflow: visible; }
 .thread-approval-raw { min-width: 0; font-size: var(--fs-xs); color: var(--text-secondary); }
 .thread-approval-raw > summary { display: flex; align-items: center; gap: 6px; width: fit-content; cursor: pointer; }
 .thread-approval-raw > summary svg { transition: transform var(--duration-fast) var(--ease-standard); }
@@ -532,13 +538,15 @@
 .thread-terminal-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border-bottom: 1px solid var(--border-default); }
 .thread-terminal-bar nav { display: flex; align-items: center; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 .thread-terminal-actions { display: flex; gap: 2px; flex: none; }
-.thread-terminal-tab { display: inline-flex; align-items: center; border-radius: var(--nav-radius); }
-.thread-terminal-tab.is-selected { background: var(--nav-selected); }
-.thread-project-terminal .thread-terminal-tab-main { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border: 0; background: transparent; color: var(--text-secondary); font-size: var(--fs-xs); white-space: nowrap; }
-.thread-terminal-tab.is-selected .thread-terminal-tab-main { color: var(--text-primary); }
-.thread-project-terminal .thread-terminal-tab-close, .thread-project-terminal .thread-terminal-icon { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: var(--nav-radius); background: transparent; color: var(--text-muted); }
-.thread-project-terminal .thread-terminal-tab-close { width: 20px; height: 20px; margin-right: 3px; }
-.thread-project-terminal .thread-terminal-tab-close:hover, .thread-project-terminal .thread-terminal-icon:hover { background: var(--nav-hover); color: var(--text-primary); }
+/* The chip of one shell in the conversation's terminal. Named apart from .thread-terminal-tab, the page of the
+   Terminal tool tab (ThreadHeaderChrome.css): sharing that name gave each chip the page's padding and width. */
+.thread-shell-tab { display: inline-flex; align-items: center; border-radius: var(--nav-radius); }
+.thread-shell-tab.is-selected { background: var(--nav-selected); }
+.thread-project-terminal .thread-shell-tab-main { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border: 0; background: transparent; color: var(--text-secondary); font-size: var(--fs-xs); white-space: nowrap; }
+.thread-shell-tab.is-selected .thread-shell-tab-main { color: var(--text-primary); }
+.thread-project-terminal .thread-shell-tab-close, .thread-project-terminal .thread-terminal-icon { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: var(--nav-radius); background: transparent; color: var(--text-muted); }
+.thread-project-terminal .thread-shell-tab-close { width: 20px; height: 20px; margin-right: 3px; }
+.thread-project-terminal .thread-shell-tab-close:hover, .thread-project-terminal .thread-terminal-icon:hover { background: var(--nav-hover); color: var(--text-primary); }
 .thread-project-terminal .thread-terminal-icon:disabled { opacity: .4; }
 .thread-terminal-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dot-gray); }
 .thread-terminal-dot[data-status='running'] { background: var(--dot-green); }
@@ -614,17 +622,6 @@
 .thread-usage-bar { height: 4px; overflow: hidden; border-radius: var(--radius-pill); background: var(--ov-3); }
 .thread-usage-bar > span { display: block; height: 100%; background: currentColor; }
 /* Always there as a quiet icon, so the actions can be found without hovering; the label opens on hover or focus. */
-.thread-rewind-trigger { display: inline-flex; align-items: center; min-width: 28px; min-height: 28px; margin-top: 4px; padding: 0 7px; border: 0; border-radius: var(--radius-sm); color: var(--text-muted); background: transparent; font: inherit; font-size: var(--fs-2xs); opacity: .6; transition: opacity var(--duration-fast) var(--ease-standard); }
-.thread-rewind-label { max-width: 0; overflow: hidden; white-space: nowrap; transition: max-width var(--duration-fast) var(--ease-standard), margin var(--duration-fast) var(--ease-standard); }
-.thread-message:hover .thread-rewind-trigger, .thread-rewind-trigger:focus-visible { opacity: 1; }
-.thread-message:hover .thread-rewind-label, .thread-rewind-trigger:focus-visible .thread-rewind-label { max-width: 12em; margin-left: 4px; }
-.thread-rewind-trigger:hover:not(:disabled) { color: var(--text-primary); background: var(--fill-hover); }
-@media (hover: none) { .thread-rewind-trigger { opacity: 1; } .thread-rewind-label { max-width: 12em; margin-left: 4px; } }
-.thread-rewind-triggers { display: inline-flex; gap: 2px; }
-.thread-rewind-confirm { display: grid; gap: 6px; margin-top: 6px; padding: 8px 10px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--text-secondary); font-size: var(--fs-xs); }
-.thread-rewind-confirm p { margin: 0; }
-.thread-rewind-confirm span { display: flex; gap: 6px; }
-.thread-rewind-confirm button { padding: 3px 8px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: var(--text-primary); background: transparent; font: inherit; }
 .thread-change-summary .thread-change-file:has(.thread-hunk-review) { flex-wrap: wrap; }
 .thread-hunk-review { display: grid; gap: 8px; margin: 6px 0 4px; flex: 1 0 100%; min-width: 0; }
 .thread-hunk { border: 1px solid var(--border-default); border-radius: 6px; overflow: hidden; }

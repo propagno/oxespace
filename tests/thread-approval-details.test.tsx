@@ -13,7 +13,8 @@ describe('Thread command approval', () => {
     render(<ThreadRequestCard request={{ id: 'mcp', nativeId: 'mcp', nativeMethod: 'mcpServer/elicitation/request', kind: 'elicitation', title: 'oxespace-memory', detail: 'Allow memory tool?', generation: 1, createdAt: 1, state: 'pending' }} disabled={false} onRespond={respond} />)
     expect(screen.getByText(/Full access controls filesystem and command access/)).toBeVisible()
     expect(respond).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Continue', exact: true }))
+    // Nothing to fill in: a yes or no, with the words of an approval.
+    fireEvent.click(screen.getByRole('button', { name: 'Approve', exact: true }))
     expect(respond).toHaveBeenCalledWith({ decision: 'accept', content: {} })
   })
   const command = '"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command \'$path = "docs\\thread-view.md"; $content = Get-Content -LiteralPath $path -Raw; $needle = "line one\\r\\nline two"; Set-Content -LiteralPath $path -Value $content\''
@@ -58,6 +59,32 @@ describe('Thread command approval', () => {
     expect(screen.getByText('Tool input')).toBeVisible()
     expect(screen.getByText(/Full access does not approve requests/)).toBeVisible()
     expect(screen.queryByText('Review the command before allowing it to run.')).toBeNull()
+  })
+  it('renders the plan main hands over as prose, once, with its copy (CHAT-6)', () => {
+    // The request carries the plan's own text, not the tool's JSON.
+    const plan = '# Plan: quantity-aware `total()`\n\n## Context\n\n- Multiply each price by its quantity'
+    const request: ThreadRequest = { id: 'plan', nativeId: 'plan', nativeMethod: 'can_use_tool:ExitPlanMode', kind: 'approval', title: 'Review the plan', detail: plan, generation: 1, createdAt: 1, state: 'pending' }
+    const first = render(<ThreadRequestCard request={request} disabled={false} onRespond={vi.fn(async () => {})} />)
+    expect(screen.getByRole('heading', { name: 'Plan: quantity-aware total()' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Context' })).toBeVisible()
+    expect(screen.getByText('Multiply each price by its quantity')).toBeVisible()
+    // No raw copy of it in the box for a command, and nothing that shows the Markdown marks.
+    expect(screen.queryByTestId('approval-exact')).toBeNull()
+    expect(screen.queryByText(/## Context/)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Copy exact text' })).toBeVisible()
+    first.unmount()
+
+    // As it arrives in the app: with its impact (where, what it touches), which is the card with the facts on top.
+    // That card showed the plan in the box for a command, whatever the other one did.
+    const withImpact: ThreadRequest = { ...request, impact: { where: 'shop-api', affects: { count: 1, unit: 'files' }, reversible: true, risk: 'low', kind: 'file', text: plan, lang: 'text' } }
+    const { container } = render(<ThreadRequestCard request={withImpact} disabled={false} onRespond={vi.fn(async () => {})} />)
+    const shown = screen.getByTestId('request-plan')
+    expect(within(shown).getByRole('heading', { name: 'Plan: quantity-aware total()' })).toBeVisible()
+    expect(within(shown).getByRole('heading', { name: 'Context' })).toBeVisible()
+    expect(within(shown).getByRole('listitem')).toHaveTextContent('Multiply each price by its quantity')
+    expect(container.querySelector('pre')).toBeNull()
+    expect(container).not.toHaveTextContent('## Context')
+    expect(screen.getByRole('button', { name: 'Allow' })).toBeVisible()
   })
   it('renders ExitPlanMode plans as readable Markdown while retaining the exact request', () => {
     const plan = '# Delivery plan\n\n- Verify the UI\n- Publish after approval'

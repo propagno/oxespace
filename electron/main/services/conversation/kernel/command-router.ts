@@ -1,13 +1,13 @@
 /**
  * Thread slash-command routing: aliases, validation, integrated panels and the
- * provider operations behind /resume, /fork, /rewind, /checkpoint and friends.
+ * provider operations behind /resume, /fork, /checkpoint and friends.
  *
  * Moved out of ThreadOrchestrator unchanged. It reaches the orchestrator only
  * through `CommandHost`, which names exactly what a command may touch.
  */
 import { threadConfirmation } from '../../../../../shared/threadConfirmations'
 import type { AppDatabase } from '../../../db'
-import type { AgentConversationAdapter, ConversationCapabilities, ConversationThread, ThreadCommandResult, ThreadConfiguration, ThreadRewindResult, ThreadSnapshot } from '../../../../../shared/types/thread'
+import type { AgentConversationAdapter, ConversationCapabilities, ConversationThread, ThreadCommandResult, ThreadConfiguration, ThreadSnapshot } from '../../../../../shared/types/thread'
 import { hasDesktopCommand } from '../../../../../shared/threadDesktopCommands'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../../../shared/threadLimits'
 import { PARTIAL_NATIVE_HISTORY_NOTICE } from '../../../../../shared/threadHistoryNotice'
@@ -30,7 +30,6 @@ export interface CommandHost {
   create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId'>): ThreadSnapshot
   configure(id: string, input: ThreadConfiguration, revision: number): Promise<unknown>
   interrupt(id: string): Promise<void>
-  rewind(id: string, turnId: string): Promise<ThreadRewindResult>
   send(id: string, text: string): Promise<void>
   connectAdapter(id: string, thread: ConversationThread): Promise<AgentConversationAdapter>
   assertNativeSessionAvailable(id: string, provider: ConversationThread['provider'], nativeSessionId: string | null): void
@@ -171,16 +170,8 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
       return { kind: 'panel', title: 'File checkpoints', text: 'Restore changes files only. Conversation history, Git index and unrelated dirty files are preserved.', rows }
     }
     if (['review', 'compact'].includes(name)) { await host.send(id, text); return { kind: 'applied' } }
-    if (name === 'rewind' && argument && !/^[1-9][0-9]{0,2}$/.test(argument)) throw Error('Specify the number of turns to rewind (1–999)')
-    if (name === 'rewind' && argument) {
-      // Verified path: the provider is rewound and proven before local history changes.
-      const turns = snapshot.turns ?? [], count = Number(argument)
-      const target = turns[turns.length - count]
-      if (!target) throw Error(`This conversation has only ${turns.length} turn${turns.length === 1 ? '' : 's'}.`)
-      const result = await host.rewind(id, target.id)
-      return { kind: 'applied', title: `Rewound ${result.removedTurns} turn${result.removedTurns === 1 ? '' : 's'}` }
-    }
-    if (name === 'rewind' && !argument) return { kind: 'confirm', confirm: threadConfirmation('rewind') }
+    // Rewind left 1.5.0: the command is not offered, and typing it says so instead of reaching the provider.
+    if (name === 'rewind') throw Error('Rewind is not available in OXESpace. To undo what a turn changed, use Undo on its changes.')
     // Reserve ownership while starting/querying a provider operation.
     return host.withConfiguring(id, async () => {
       const adapter = await host.connectAdapter(id, thread)
@@ -197,17 +188,6 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
         } else fork.events = host.history.readImported(id).events
         host.save(fork)
         return { kind: 'navigate', threadId: fork.thread.id }
-      }
-      if (name === 'rewind' && host.nativeCli) {
-        const current = host.read(id)
-        if (current.thread.nativeSessionId) {
-          const history = await host.nativeCli.read(current.thread, current.thread.nativeSessionId)
-          current.events = history.events
-          current.thread.nativeHistoryCursor = history.cursor
-          current.thread.cliNotice = history.truncated ? PARTIAL_NATIVE_HISTORY_NOTICE : undefined
-          host.history.clearNativePages(id)
-          host.save(current)
-        }
       }
       return result
     })
