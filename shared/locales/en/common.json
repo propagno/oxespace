@@ -160,6 +160,7 @@
       "code": {
         "changes": "Changes",
         "browser": "Browser",
+        "designMode": "Select an element in the Browser",
         "files": "Files",
         "search": "Find in files",
         "splitLayout": "Toggle split layout"
@@ -190,6 +191,7 @@
         "terminal": "Terminal",
         "changes": "Changes",
         "browser": "Browser",
+        "designMode": "Select an element in the Browser",
         "permissions": "Permissions",
         "model": "Model",
         "effort": "Reasoning effort",

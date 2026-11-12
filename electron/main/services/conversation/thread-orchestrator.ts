@@ -20,7 +20,7 @@ import { addTurnCost } from './thread-cost'
 import { repairLegacyCost } from '../../../../shared/threadCostRepair'
 import { deriveThreadTitle, isUnnamedThreadTitle, parseThreadRow } from './thread-title'
 import { resolveMentionContext } from './thread-context-resolver'
-import { briefBlock, projectBrief } from './project-brief'
+import { briefBlock, previewNoteFor, projectBrief } from './project-brief'
 import { reduceThreadEvent, type KernelEffect } from './kernel/event-reducer'
 import { mergeTurnConfiguration, turnConfiguration } from './kernel/turn-configuration'
 import { runThreadCommand, type CommandHost } from './kernel/command-router'
@@ -554,7 +554,7 @@ export class ThreadOrchestrator {
       // `@file` mentions become attached content; the stored message keeps the text as typed.
       if (!text.trim().startsWith('/')) {
         mentioned = await resolveMentionContext(snapshot.thread.rootPath, text).catch(() => mentioned)
-        if (mentioned.block) input = { ...input, text: input.text + mentioned.block }
+        input = { ...input, text: input.text + (mentioned.block || '') + previewNoteFor(id) } // + what a visible preview asks the agent to check (Auto-verify)
         // The first message of a conversation carries a short orientation to the project.
         if (!snapshot.turns?.length && !snapshot.thread.nativeSessionId) {
           brief = await projectBrief(snapshot.thread.rootPath, snapshot.thread.provider).catch(() => '')
