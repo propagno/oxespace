@@ -980,16 +980,10 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toBeEnabled()
     await page.setViewportSize({ width: 1280, height: 800 })
     await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Structured question fixture'))
-    await expect(page.getByRole('region', { name: 'Pending agent requests' })).toBeVisible()
     await expect(page.getByRole('region', { name: 'Claude needs your input' })).toBeVisible()
-    // The question must leave the conversation readable, and hiding it gives the room back.
+    // The question is a card in the timeline since 1.5, not a dock under it: the timeline keeps its share of the view.
     const conversationShare = () => page.evaluate(() => document.querySelector('.thread-timeline')!.getBoundingClientRect().height / document.querySelector('.thread-view')!.getBoundingClientRect().height)
-    expect(await conversationShare()).toBeGreaterThanOrEqual(0.3)
-    await page.getByRole('button', { name: 'Hide', exact: true }).click()
-    await expect(page.getByRole('region', { name: 'Pending agent requests' })).toBeHidden()
-    expect(await conversationShare()).toBeGreaterThanOrEqual(0.6)
-    await page.getByRole('button', { name: 'Show', exact: true }).click()
-    // The compact card still shows two whole options; Expand gives it more room, Shrink gives it back.
+    expect(await conversationShare()).toBeGreaterThanOrEqual(0.4)
     const visibleOptions = () => page.locator('.thread-request-question').evaluate(card => {
       const body = card.querySelector('.thread-question-body')!.getBoundingClientRect()
       return [...card.querySelectorAll('fieldset:not([hidden]) .thread-request-option')].filter(option => { const rect = option.getBoundingClientRect(); return rect.top >= body.top - 1 && rect.bottom <= body.bottom + 1 }).length
@@ -997,12 +991,6 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     console.log('Whole options visible', await visibleOptions())
     await page.screenshot({ path: 'test-results/thread-question-compact.png' })
     expect(await visibleOptions()).toBeGreaterThanOrEqual(2)
-    const requestRoom = () => page.locator('.thread-pending-requests').evaluate(el => parseFloat(getComputedStyle(el).maxHeight))
-    const compactRoom = await requestRoom()
-    await page.getByRole('button', { name: 'Expand', exact: true }).click()
-    expect(await requestRoom()).toBeGreaterThan(compactRoom * 1.5)
-    await page.getByRole('button', { name: 'Shrink', exact: true }).click()
-    expect(await requestRoom()).toBe(compactRoom)
     await page.getByRole('radio', { name: 'Staged' }).check()
     await page.getByRole('region', { name: 'Claude needs your input' }).getByRole('button', { name: 'Next' }).click()
     await page.getByRole('radio', { name: 'Pilot', exact: true }).check()

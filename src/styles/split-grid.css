@@ -25,6 +25,12 @@
   z-index: calc(var(--layer-raised) + 1);
 }
 
+/* A pane's open menu can reach over the pane below it, whose drag grip (raised + 5) sat on top of the menu and took
+   the click meant for "Close pane". The pane whose menu is open goes above every grip. */
+.split-pane-slot:has(.pane-actions-popover) {
+  z-index: calc(var(--layer-raised) + 6);
+}
+
 .split-pane-slot > .pane-container {
   width: 100%;
   height: 100%;

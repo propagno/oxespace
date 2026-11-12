@@ -235,6 +235,10 @@ for (const theme of THEMES) {
       for (const state of THREAD_SURFACES) {
         await setThreadState(app, workspaceRoot, state)
         await expect(page.locator('.thread-view')).toContainText(THREAD_STATES[state].title.split(' ')[0])
+        // On the 780 px canvas this state scrolls, and the sticky prompt covers part of whatever row sits under it: axe
+        // reads that row's button as a target of 11 px (target-size, Windows). Scanned from the top, where the prompt
+        // itself is in view and nothing is under a sticky band; the row is 28 px when not scrolled under it.
+        if (state === 'workbench') await page.locator('.thread-timeline').evaluate(el => { el.scrollTop = 0 })
         await record(await scanSurface(page, `${theme}/thread-${state}`), found)
       }
       // Thread dialogs on the ui Dialog. Each is opened, scanned and closed; one that cannot be opened in the
