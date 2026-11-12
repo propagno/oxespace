@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import '../src/i18n'
 import { ThreadContextMenu } from '../src/components/Threads/ThreadContextMenu'
 
@@ -63,8 +63,11 @@ describe('the right-click menu of a conversation', () => {
     await act(async () => { fireEvent.click(screen.getByRole('menuitem', { name: 'Quote message' })) })
     // The row's own action: what the agent wrote, marks included.
     expect(onQuote).toHaveBeenCalledWith('RAW **markdown**')
+    // The menu chosen from is gone before the next right-click; opening over one that is still closing is a race.
+    await waitFor(() => expect(screen.queryAllByRole('menuitem')).toEqual([]))
     await openOn(screen.getByTestId('message'))
-    await act(async () => { fireEvent.click(screen.getByRole('menuitem', { name: 'Copy message' })) })
+    const copy = await screen.findByRole('menuitem', { name: 'Copy message' })
+    await act(async () => { fireEvent.click(copy) })
     expect(clicked).toHaveBeenCalledTimes(1)
   })
 
