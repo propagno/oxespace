@@ -52,8 +52,11 @@
   transition: border-color var(--duration-fast) var(--ease-standard);
 }
 
+/* The field has no ring of its own; its row shows the focus. The border's colour fades in, so the inset line, which
+   does not, is what is there the moment focus arrives. */
 .inputRow:focus-within {
   border-bottom-color: var(--border-focus);
+  box-shadow: inset 0 -1px 0 var(--border-focus);
 }
 
 .inputIcon {
