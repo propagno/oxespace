@@ -438,8 +438,8 @@
     "automatic": "Automático",
     "permissions": "Permissões",
     "fullAccess": "Acesso total",
-    "nativePermissions": "Permissões nativas",
-    "workspaceAccess": "Acesso ao workspace",
+    "nativePermissions": "Pode editar",
+    "workspaceAccess": "Pode editar",
     "readOnly": "Somente leitura",
     "access": "Acesso",
     "readOnlyClaude": "Ler, buscar e responder perguntas. Shell, agentes e ferramentas MCP ficam desativados.",
@@ -1475,8 +1475,7 @@
     "conversationCount_one": "{{count}} conversa",
     "conversationCount_many": "{{count}} conversas",
     "conversationCount_other": "{{count}} conversas",
-    "asksYou": "Pede a você · {{text}}",
-    "asksYouShort": "Pede a você"
+    "asksYou": "Pede a você · {{text}}"
   },
   "sections": {
     "notKept_one": "Não foi possível manter {{count}} seção. O resto da lista está como antes.",
@@ -1558,10 +1557,10 @@
     "byConversation": "Por conversa"
   },
   "status": {
-    "running": "Em execução",
+    "running": "Trabalhando",
     "attention": "Precisa de você",
     "failed": "Falhou",
-    "interrupted": "Interrompida",
+    "interrupted": "Pausada",
     "background": "Em segundo plano",
     "completed": "Concluída",
     "ready": "Pronta"
@@ -1665,7 +1664,7 @@
     "completedWarnings": "Concluído com avisos",
     "completed": "Concluído",
     "failed": "Falhou",
-    "interrupted": "Interrompido",
+    "interrupted": "Pausado",
     "actions_one": "{{count}} ação",
     "actions_many": "{{count}} ações",
     "actions_other": "{{count}} ações",

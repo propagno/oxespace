@@ -430,8 +430,8 @@
     "automatic": "Automatic",
     "permissions": "Permissions",
     "fullAccess": "Full access",
-    "nativePermissions": "Native permissions",
-    "workspaceAccess": "Workspace access",
+    "nativePermissions": "Can edit",
+    "workspaceAccess": "Can edit",
     "readOnly": "Read only",
     "access": "Access",
     "readOnlyClaude": "Read, search and answer questions. Shell, agents and MCP tools are disabled.",
@@ -1429,8 +1429,7 @@
     "archivedCount": "Archived · {{count}}",
     "conversationCount_one": "{{count}} conversation",
     "conversationCount_other": "{{count}} conversations",
-    "asksYou": "Asks you · {{text}}",
-    "asksYouShort": "Asks you"
+    "asksYou": "Asks you · {{text}}"
   },
   "sections": {
     "notKept_one": "Could not keep {{count}} section. The rest of the list is as before.",
@@ -1507,12 +1506,12 @@
     "byConversation": "By conversation"
   },
   "status": {
-    "running": "Running",
+    "running": "Working",
     "attention": "Needs you",
     "failed": "Failed",
-    "interrupted": "Interrupted",
+    "interrupted": "Paused",
     "background": "Background",
-    "completed": "Completed",
+    "completed": "Finished",
     "ready": "Ready"
   },
   "undoTurn": {
@@ -1608,11 +1607,11 @@
     "editedAfter": "This file was edited after the turn, so the turn’s own change can no longer be shown on its own. Use All changes to see the file as it is."
   },
   "turnTiming": {
-    "completedBackground": "Turn completed · {{count}} background pending",
-    "completedWarnings": "Completed with warnings",
-    "completed": "Completed",
+    "completedBackground": "Turn finished · {{count}} background pending",
+    "completedWarnings": "Finished with warnings",
+    "completed": "Finished",
     "failed": "Failed",
-    "interrupted": "Interrupted",
+    "interrupted": "Paused",
     "actions_one": "{{count}} action",
     "actions_other": "{{count}} actions",
     "failedCount": " · {{count}} failed",
