@@ -125,6 +125,13 @@ export class ThreadOrchestrator {
   private readonly suspending = new Map<string, Promise<void>>()
   /** A send that is starting a turn and has not reserved the conversation as busy yet. */
   private readonly starting = new Set<string>()
+  /**
+   * Turns the person already sees as working that are not with the agent yet: the checkpoint is being opened, the
+   * agent is connecting, or its process is still starting (a resumed session can take many seconds).
+   */
+  private readonly launching = new Set<string>()
+  /** A Stop that arrived while its turn was launching. It is applied the moment the turn can be stopped. */
+  private readonly stopRequested = new Set<string>()
   /** Conversations whose running turn the user stopped to send a queued message: that stop does not pause the queue. */
   private readonly sendNowAfterStop = new Set<string>()
   /** Provider connections being opened, so two callers share one process instead of orphaning one. */
@@ -552,6 +559,8 @@ export class ThreadOrchestrator {
     let snapshot = this.read(id)
     this.assertNativeSessionAvailable(id, snapshot.thread.provider, snapshot.thread.nativeSessionId)
     this.busy.add(id) // reserve before any asynchronous launch
+    this.launching.add(id)
+    this.stopRequested.delete(id)
     let input: ThreadAgentInput = { text }
     let mentioned: Awaited<ReturnType<typeof resolveMentionContext>> = { block: '', files: [] }
     let brief = ''
@@ -575,7 +584,7 @@ export class ThreadOrchestrator {
       }
       snapshot = this.read(id)
       if (this.stopping) throw new Error('Application is shutting down')
-    } catch (error) { this.busy.delete(id); throw error }
+    } catch (error) { this.busy.delete(id); this.launching.delete(id); throw error }
     snapshot.thread.status = 'running'
     delete snapshot.thread.providerObservation
     delete snapshot.thread.queuePause
@@ -597,13 +606,28 @@ export class ThreadOrchestrator {
       // Both reads must finish before the agent can modify files, but they are independent.
       // In the checkout the conversation works in: a worktree it moved into, else its own root.
       await this.turns.begin(id, turnId, workingRootOf(snapshot.thread), text.trim().slice(0, 80))
+      if (this.stopRequested.has(id)) throw Error('Stopped before the agent started')
       this.event(id, { type: 'activity', id: `activity:${turnId}:connecting`, phase: 'connecting', at: Date.now() })
       const adapter = await this.connectAdapter(id, snapshot.thread, false)
+      if (this.stopRequested.has(id)) throw Error('Stopped before the agent started')
       this.history.transitionOperation(id, operation.id, 'sent')
       if (attachments.length) await adapter.send(input.text, input.skill, attachments)
       else await adapter.send(input.text, input.skill)
       this.history.transitionOperation(id, operation.id, 'acknowledged')
+      this.launching.delete(id)
+      // A Stop the adapter could not act on while its process was starting: the turn is with the agent now.
+      if (this.stopRequested.delete(id) && this.busy.has(id)) await adapter.interrupt().catch(() => undefined)
     } catch (error) {
+      this.launching.delete(id)
+      if (this.stopRequested.delete(id)) {
+        // The person stopped the turn while it was starting. That is a stopped turn, not a failure to run the agent.
+        if (this.busy.has(id)) this.event(id, { type: 'completed', status: 'interrupted' })
+        const stopped = this.adapters.get(id)
+        this.adapters.delete(id)
+        await stopped?.dispose().catch(() => {})
+        this.history.transitionOperation(id, operation.id, 'cancelled', 'Stopped before the agent started')
+        return
+      }
       const failure = error instanceof ThreadAgentError ? error.failure : threadFailure({ message: error instanceof Error ? error.message : '' })
       failure.usageUnavailable = true
       if (this.busy.has(id)) this.event(id, { type: 'completed', status: 'failed', error: failure.message, errorCode: failure.code, failure })
@@ -633,6 +657,14 @@ export class ThreadOrchestrator {
     recordRuntime('turn-interrupt', { thread: id })
     this.readThread(id)
     const adapter = this.adapters.get(id)
+    if (this.launching.has(id)) {
+      // The turn shows as working before the agent has it. A Stop sent then found no execution, or an agent process
+      // still starting that could not act on it, and was lost: the turn ran on (CHAT-2). It is kept, and the launch
+      // applies it; an agent already starting is told now.
+      this.stopRequested.add(id)
+      await adapter?.interrupt().catch(() => undefined)
+      return
+    }
     if (!adapter) throw new Error('Thread has no live execution')
     await adapter.interrupt()
   }
