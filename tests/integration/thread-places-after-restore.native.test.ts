@@ -34,6 +34,27 @@ test('a pending Restore with files hides the writes of the turns it undid; Redo 
   expect(await files()).toEqual(['first.ts', 'second.ts'])
 })
 
+test('a file the undone turn wrote last stays listed when a turn that stands wrote it too (CHAT-3)', async () => {
+  const repo = repository(sandbox('oxe-restore-places-'))
+  const f = threadFixture(repo)
+  const files = async (): Promise<string[]> => (await f.manager.places(f.id)).places.flatMap(place => place.files).sort()
+
+  await turn(f, 'First change')
+  write(join(repo, 'shared.ts'), 'one\n')
+  write(join(repo, 'first.ts'), 'one\n')
+  f.wrote([join(repo, 'shared.ts'), join(repo, 'first.ts')])
+  await complete(f)
+  await turn(f, 'Second change')
+  write(join(repo, 'shared.ts'), 'one\ntwo\n')
+  f.wrote([join(repo, 'shared.ts')])
+  await complete(f)
+  expect(await files()).toEqual(['first.ts', 'shared.ts'])
+
+  await f.manager.rewind(f.id, f.read().turns!.at(-1)!.id, { restoreFiles: true })
+  // shared.ts is back to what the first turn wrote, which is still a change of this conversation.
+  expect(await files()).toEqual(['first.ts', 'shared.ts'])
+})
+
 test('a Restore that keeps the files keeps listing them', async () => {
   const repo = repository(sandbox('oxe-restore-places-'))
   const f = threadFixture(repo)
