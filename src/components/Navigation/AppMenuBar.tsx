@@ -1,9 +1,10 @@
-import type { ReactElement } from 'react'
+import { useEffect, useState, type ReactElement } from 'react'
 import { Check, ChevronRight, Menu } from 'lucide-react'
 import { DropdownMenu } from 'radix-ui'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../ui'
 import { buildAppMenus, type AppMenuContext, type AppMenuNode } from './appMenus'
+import { runPendingEdit, watchEditTarget } from './editTarget'
 import './AppMenuBar.css'
 
 function Nodes({ nodes }: { nodes: AppMenuNode[] }): ReactElement {
@@ -35,25 +36,31 @@ function Submenu({ label, nodes, disabled }: { label: string; nodes: AppMenuNode
 export function AppMenuBar({ context }: { context: AppMenuContext }): ReactElement {
   // Subscribing re-renders the menus, built with i18n.t, when the language changes.
   const { t } = useTranslation()
+  // Edit acts on the place the person was in before a menu took the focus; what it can do there is read as a menu opens.
+  useEffect(watchEditTarget, [])
+  const [, setOpened] = useState(0)
+  const onOpenChange = (open: boolean): void => { if (open) setOpened(count => count + 1) }
+  // An Edit command runs once its menu closed, on the field the focus goes back to instead of the menu's button.
+  const onCloseAutoFocus = (event: Event): void => { if (runPendingEdit()) event.preventDefault() }
   const menus = buildAppMenus(context)
   // Non-modal (CR-33, HML-F2-1): a modal menu sets aria-hidden on every sibling of its portal, <main> included, while <main> keeps focusable controls (axe aria-hidden-focus). Escape, a click outside and focus return still close it.
   return <div className="app-menubar-wrap">
-    <DropdownMenu.Root modal={false}>
+    <DropdownMenu.Root modal={false} onOpenChange={onOpenChange}>
       <DropdownMenu.Trigger className="app-menu-button" aria-label={t('nav.applicationMenu')} title={t('nav.menu')}><Menu size={15} aria-hidden="true" /></DropdownMenu.Trigger>
       <DropdownMenu.Portal>
-        <DropdownMenu.Content className="app-menu-content" align="start" sideOffset={6}>
+        <DropdownMenu.Content className="app-menu-content" align="start" sideOffset={6} onCloseAutoFocus={onCloseAutoFocus}>
           {menus.map(menu => <Submenu key={menu.id} label={menu.label} nodes={menu.items} />)}
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>
     <nav className="app-menubar-inline" aria-label={t('nav.menu')}>
       {menus.map(menu => (
-        <DropdownMenu.Root key={menu.id} modal={false}>
+        <DropdownMenu.Root key={menu.id} modal={false} onOpenChange={onOpenChange}>
           <DropdownMenu.Trigger asChild>
             <Button variant="ghost" size="sm" className="app-menubar-trigger">{menu.label}</Button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
-            <DropdownMenu.Content className="app-menu-content" align="start" sideOffset={6}>
+            <DropdownMenu.Content className="app-menu-content" align="start" sideOffset={6} onCloseAutoFocus={onCloseAutoFocus}>
               <Nodes nodes={menu.items} />
             </DropdownMenu.Content>
           </DropdownMenu.Portal>

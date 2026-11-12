@@ -63,7 +63,7 @@ export default function MonacoDiff({ original, modified, language, path, review,
           <HunkOpenMenu targets={targets} onOpen={onOpenHunk} />
         </div>
       )}
-      <div style={{ flex: 1, minHeight: 0 }}>
+      <div style={{ flex: 1, minHeight: 0 }} data-read-only-editor="">
         <DiffEditor
           key={path}
           height="100%"

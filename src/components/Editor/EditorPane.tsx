@@ -332,7 +332,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
             </div>
           ) : null}
           {!binaryFile && file && !(isMarkdown && showRendered) ? (
-            <div className="editor-monaco-host" ref={monacoHostRef}>
+            <div className="editor-monaco-host" ref={monacoHostRef} data-read-only-editor="">
               <Editor
                 height={editorHeight}
                 width={editorWidth}
