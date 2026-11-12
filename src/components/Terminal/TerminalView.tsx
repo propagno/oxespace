@@ -7,6 +7,7 @@ import type { WebglAddon } from '@xterm/addon-webgl'
 import { loadWebglAddon, loadedWebglAddon, supportsWebgl2 } from './webglAddonLoader'
 import { createTerminalLinksAddon } from './terminalLinks'
 import { attachTerminalPaths } from './terminalPaths'
+import { fitTerminalGrid, useHeldGrid, type HeldGrid } from './heldGrid'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { ArrowDown, ArrowUp, X } from 'lucide-react'
@@ -157,11 +158,8 @@ interface TerminalViewProps {
   isRunning: boolean
   onInput: (data: string) => void
   onResize: (cols: number, rows: number) => void
-  /**
-   * 1.5.0 · A phone holds this pane's size: the view takes that grid instead of fitting the pane, and `onResize` keeps
-   * reporting the size the pane would have, which is the one that returns when the phone lets go.
-   */
-  fixedSize?: { cols: number; rows: number } | null
+  /** 1.5.0 · A phone holds this pane's size: the view takes that grid; `onResize` keeps reporting the pane's own. */
+  fixedSize?: HeldGrid | null
   onExit?: (exitCode: number | null) => void
   /** Workspace theme — re-applies terminal colors live when it changes. */
   themeId: WorkspaceThemeId
@@ -183,7 +181,6 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
   const onExitRef = useRef(onExit)
   const onInputRef = useRef(onInput)
   const onResizeRef = useRef(onResize)
-  const fixedSizeRef = useRef(fixedSize)
   const fitFrameRef = useRef<number | null>(null)
   const settleFitTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([])
   const [isDragOver, setIsDragOver] = useState(false)
@@ -197,17 +194,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
   onExitRef.current = onExit
   onInputRef.current = onInput
   onResizeRef.current = onResize
-  const fixedCols = fixedSize?.cols ?? 0, fixedRows = fixedSize?.rows ?? 0
-  // The hold started, changed or ended: take the phone's grid, or fit the pane again.
-  useEffect(() => {
-    fixedSizeRef.current = fixedCols && fixedRows ? { cols: fixedCols, rows: fixedRows } : null
-    refitRef.current?.()
-    // A phone's grid can be taller than this pane: the view scrolls then, and starts at the bottom, where the prompt is.
-    const host = hostRef.current
-    if (!host || !fixedSizeRef.current) return
-    const frame = window.requestAnimationFrame(() => { host.scrollTop = host.scrollHeight })
-    return () => window.cancelAnimationFrame(frame)
-  }, [fixedCols, fixedRows])
+  const fixedSizeRef = useHeldGrid(fixedSize, hostRef, refitRef)
 
   useEffect(() => {
     if (!hostRef.current) return
@@ -618,8 +605,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       }
     }
 
-    let lastNotifiedCols = 0
-    let lastNotifiedRows = 0
+    const notified: HeldGrid = { cols: 0, rows: 0 }
     const fitTerminal = (): void => {
       try {
         // Preserve absolute scroll position. A relative scroll after fit can jump
@@ -628,29 +614,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
         const viewportY = buf.viewportY
         const wasAtBottom = viewportY >= buf.baseY
 
-        const fixed = fixedSizeRef.current
-        let dimensionsChanged: boolean
-        if (fixed) {
-          // A phone holds the size. The pane's own fit is only reported, so main knows what to put back.
-          const own = fitAddon.proposeDimensions()
-          if (own && Number.isFinite(own.cols) && Number.isFinite(own.rows) && (own.cols !== lastNotifiedCols || own.rows !== lastNotifiedRows)) {
-            lastNotifiedCols = own.cols
-            lastNotifiedRows = own.rows
-            onResizeRef.current(own.cols, own.rows)
-          }
-          dimensionsChanged = terminal.cols !== fixed.cols || terminal.rows !== fixed.rows
-          if (dimensionsChanged) terminal.resize(fixed.cols, fixed.rows)
-        } else {
-          fitAddon.fit()
-          dimensionsChanged =
-            terminal.cols !== lastNotifiedCols ||
-            terminal.rows !== lastNotifiedRows
-          if (dimensionsChanged) {
-            lastNotifiedCols = terminal.cols
-            lastNotifiedRows = terminal.rows
-            onResizeRef.current(terminal.cols, terminal.rows)
-          }
-        }
+        const dimensionsChanged = fitTerminalGrid(terminal, fitAddon, fixedSizeRef.current, notified, (cols, rows) => onResizeRef.current(cols, rows))
 
         // Force the viewport scroll area to re-measure after large layout
         // changes (pane maximize/restore). Without a refresh, xterm can keep a
