@@ -21,6 +21,10 @@ export function NeedsYouPill(): ReactElement {
   const title = withShortcut(t('attention.approvalsWaiting'), 'approvals.queue')
 
   return (
+    <span className={styles.needsSlot}>
+      {/* The slot is as wide as the text shown most of the time, so the command bar beside it stays where it is when
+          something starts waiting. Never read, never clicked. */}
+      {count > 0 && <span className={cx(styles.needs, styles.needsZero, styles.needsSizer)} aria-hidden="true"><Check size={12} aria-hidden="true" /><span>{t('attention.nothingWaiting')}</span></span>}
     <button
       type="button"
       className={cx(styles.needs, count === 0 && styles.needsZero)}
@@ -31,5 +35,6 @@ export function NeedsYouPill(): ReactElement {
       {count > 0 ? <span className={styles.sun} aria-hidden="true" /> : <Check size={12} aria-hidden="true" />}
       <span>{label}</span>
     </button>
+    </span>
   )
 }

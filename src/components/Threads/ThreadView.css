@@ -32,7 +32,7 @@
 .thread-resume-all { justify-self: start; }
 .thread-resume-native-label { display: grid; gap: 6px; min-width: 0; flex: 1; color: var(--text-secondary); font-size: var(--fs-xs); }
 .thread-resume-native-label input { width: 100%; }
-.thread-view { --thread-canvas-max: 780px; --thread-prose-max: 72ch; container-type: size; flex: 1; display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; width: 100%; overflow: hidden; background: var(--surface-canvas); color: var(--text-primary); }
+.thread-view { --thread-canvas-max: 760px; --thread-prose-max: 100%; --thread-gutter: 24px; container-type: size; flex: 1; display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; width: 100%; overflow: hidden; background: var(--surface-canvas); color: var(--text-primary); }
 /* Cockpit display header layout is governed by ThreadHeaderChrome.css. */
 .thread-heading-context { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--fs-2xs); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-heading-context svg { flex-shrink: 0; }
@@ -81,7 +81,8 @@
 .thread-timeline { scroll-padding-top: 40px; }
 .thread-timeline:focus-visible { outline: 1px solid var(--accent); outline-offset: -2px; }
 .thread-timeline[hidden] { display: none; }
-.thread-reading-column { width: min(100%, var(--thread-canvas-max)); max-width: none; padding: 20px 24px; margin: 0 auto; }
+/* One column: its content box is the message box's box (the dock pads by the same gutter), at every width. */
+.thread-reading-column { width: min(100%, calc(var(--thread-canvas-max) + 2 * var(--thread-gutter))); max-width: none; padding: 20px var(--thread-gutter); margin: 0 auto; }
 .thread-timeline-request { margin: 12px 0; }
 .thread-virtual-space { width: 100%; min-height: 1px; }
 .thread-virtual-row { display: flow-root; width: 100%; }
@@ -360,7 +361,7 @@
 .thread-account-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .thread-accounts-body .thread-account-note { font-size: var(--fs-2xs); margin: 16px 0 0; }
 .thread-auth-code { margin: 0 0 12px; }
-@media (max-width: 1000px) { .thread-heading { padding: 10px 16px 8px; } .thread-heading-context { max-width: 160px; } .thread-reading-column { padding: 16px; } .thread-composer-dock { padding: 0 calc(16px + var(--thread-scrollbar-width, 0px)) 12px 16px; } }
+@media (max-width: 1000px) { .thread-heading { padding: 10px 16px 8px; } .thread-heading-context { max-width: 160px; } .thread-view { --thread-gutter: 16px; } .thread-reading-column { padding-block: 16px; } .thread-composer-dock { padding: 0 calc(16px + var(--thread-scrollbar-width, 0px)) 12px 16px; } }
 @media (max-height: 600px) { .thread-composer-dock { padding-bottom: 8px; } .thread-composer { padding: 10px; } .thread-welcome { margin-top: 8px; } .thread-connection-notice { padding-top: 2px; padding-bottom: 4px; min-height: 32px; } }
 
 .thread-create-body p, .thread-account-card p, .thread-accounts-body p { font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.5; }
@@ -447,7 +448,6 @@
 .thread-cell { position: relative; display: flex; min-width: 0; min-height: 0; overflow: hidden; background: var(--surface-canvas); }
 .thread-cell>.thread-workbench { flex: 1; min-width: 0; }
 .thread-grid.is-split .thread-cell.is-active { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent); z-index: var(--layer-raised); }
-.thread-grid.is-split .thread-reading-column, .thread-grid.is-split .thread-composer-column { width: min(100%, 760px); }
 
 /* Reading scale stays independent from the terminal font and is shared by all threads. */
 .thread-view .thread-message, .thread-view .thread-markdown, .thread-view .thread-long-prompt-preview { font-size: var(--thread-reader-font-size); }
@@ -591,7 +591,8 @@
 .thread-composer .thread-configuration { display: contents; }
 .thread-composer footer .thread-config-trigger.is-permissions { margin-left: auto; }
 .thread-composer footer .thread-send, .thread-composer footer .thread-stop { margin-left: 0; }
-.thread-usage-ring { display: grid; place-items: center; flex: none; width: 28px; height: 28px; padding: 0; border-radius: var(--radius-pill); color: var(--text-secondary); }
+.thread-usage-ring { display: inline-flex; align-items: center; justify-content: center; gap: 4px; flex: none; min-width: 28px; height: 28px; padding: 0 5px; border-radius: var(--radius-pill); color: var(--text-secondary); }
+.thread-usage-ring-number { font-size: var(--fs-2xs); font-variant-numeric: tabular-nums; line-height: 1; }
 .thread-usage-ring-track { stroke: var(--ov-3); }
 .thread-usage-ring-value { stroke: currentColor; transition: stroke-dashoffset var(--duration-slow) var(--ease-standard); }
 .thread-usage-ring[data-high='true'] { color: var(--dot-red); }
@@ -602,7 +603,7 @@
 .thread-mention-menu small { min-width: 0; overflow: hidden; color: var(--text-muted); text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
 .thread-heading { container-type: inline-size; container-name: thread-heading; }
 @container thread-heading (max-width: 900px) { .thread-heading .thread-review-trigger span { display: none; } .thread-heading .thread-review-trigger { padding: 5px 7px; } }
-.thread-composer footer .thread-usage-ring { width: 28px; height: 28px; padding: 0; justify-content: center; }
+.thread-composer footer .thread-usage-ring { width: auto; min-width: 28px; height: 28px; padding: 0 5px; justify-content: center; }
 
 /* What the user sent: a quiet bubble, attachments as chips above the text, no action buttons. */
 /* Your messages sit on the accent tint, rounded except toward the edge they come from. */

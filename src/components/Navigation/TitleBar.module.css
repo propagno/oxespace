@@ -44,6 +44,9 @@
   cursor: pointer;
   transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
 }
+.needsSlot { display: inline-grid; align-items: center; justify-items: end; flex: none; }
+.needsSlot > * { grid-area: 1 / 1; }
+.needsSizer { visibility: hidden; pointer-events: none; }
 .needs:hover { background: var(--intent-warning-bg-hover); }
 .needsZero {
   border-color: var(--border-subtle);

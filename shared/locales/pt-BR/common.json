@@ -1155,6 +1155,7 @@
     "menuUnavailable": "Não foi possível carregar o menu. Tente de novo."
   },
   "statusBar": {
+    "agentsWorking_zero": "Nenhum agente trabalhando",
     "agentsWorking_one": "{{count}} agente trabalhando",
     "agentsWorking_many": "{{count}} agentes trabalhando",
     "agentsWorking_other": "{{count}} agentes trabalhando",
