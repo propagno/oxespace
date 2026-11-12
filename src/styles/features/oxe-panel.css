@@ -256,6 +256,19 @@
   max-width: 100%;
   overflow: hidden;
 }
+/* 1.5.0 · A phone holds the pane's size: its grid can be wider or taller than the pane, so the view scrolls. */
+.terminal-view[data-held="true"] {
+  overflow: auto;
+}
+.terminal-view[data-held="true"] .xterm {
+  width: max-content;
+  min-width: 100%;
+  height: max-content;
+  min-height: 100%;
+}
+.terminal-view[data-held="true"] .xterm-screen {
+  max-width: none;
+}
 .terminal-view .xterm-rows {
   letter-spacing: 0 !important;
 }

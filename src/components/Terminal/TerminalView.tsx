@@ -201,6 +201,11 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
   useEffect(() => {
     fixedSizeRef.current = fixedCols && fixedRows ? { cols: fixedCols, rows: fixedRows } : null
     refitRef.current?.()
+    // A phone's grid can be taller than this pane: the view scrolls then, and starts at the bottom, where the prompt is.
+    const host = hostRef.current
+    if (!host || !fixedSizeRef.current) return
+    const frame = window.requestAnimationFrame(() => { host.scrollTop = host.scrollHeight })
+    return () => window.cancelAnimationFrame(frame)
   }, [fixedCols, fixedRows])
 
   useEffect(() => {
@@ -964,6 +969,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
         className={`terminal-view${isDragOver ? ' terminal-drop-active' : ''}`}
         data-testid="terminal-view"
         data-terminal-pane={paneId}
+        data-held={fixedSize ? 'true' : undefined}
         data-translucent={translucent ? 'true' : undefined}
         style={translucent ? { ['--term-bg-mix' as never]: `${Math.round(prefs.backgroundOpacity * 100)}%` } : undefined}
         onDragOver={handleDragOver}
