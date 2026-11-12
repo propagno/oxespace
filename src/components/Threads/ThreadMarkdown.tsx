@@ -1,5 +1,5 @@
-import { Children, createContext, isValidElement, useContext, useEffect, useMemo, useState, type ComponentPropsWithoutRef, type ReactElement, type ReactNode } from 'react'
-import Markdown, { defaultUrlTransform } from 'react-markdown'
+import { Children, Suspense, createContext, isValidElement, lazy, useContext, useEffect, useMemo, useState, type ComponentPropsWithoutRef, type ReactElement, type ReactNode } from 'react'
+import Markdown, { defaultUrlTransform, type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Check, Copy } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -10,7 +10,14 @@ import './ThreadMarkdown.css'
 import { InCodeBlockContext, InlineCode, PathScopeContext } from '../PathMenu/PathLink'
 import { PathLink } from './PathLink'
 import { inlineImageSource, MAX_PROJECT_IMAGE_BYTES, projectImagePath } from './markdownImage'
+import { mathOf, protectMath } from './mathSource'
 import { useThreadStore } from '../../store/thread.store'
+
+const REMARK_PLUGINS = [remarkGfm]
+
+// Formulas and diagrams are drawn by libraries far larger than this file: each loads only for an answer that has one.
+const MathView = lazy(() => import('./ThreadMath').then(module => ({ default: module.MathView })))
+const MermaidDiagram = lazy(() => import('./ThreadMermaid').then(module => ({ default: module.MermaidDiagram })))
 
 type Highlighter = typeof import('./codeHighlight')
 let highlighter: Highlighter | null = null
@@ -82,12 +89,36 @@ function textOf(children: ReactNode): string | null {
   return typeof children === 'string' ? children : Array.isArray(children) && children.every(part => typeof part === 'string') ? children.join('') : null
 }
 
+/** The text of a fenced block, without the line end the parser leaves after its last line. */
+function fenceText(children: ReactNode): string | null {
+  const code = Children.toArray(children).find(isValidElement)
+  const text = code ? textOf((code.props as { children?: ReactNode }).children) : null
+  return text === null ? null : text.replace(/\n$/, '')
+}
+
+/**
+ * A fenced block: a formula (`math`, which is also what a `$$…$$` of the answer becomes), a diagram (`mermaid`), or
+ * code. Until the library is in, the block shows as the code it is.
+ */
+function Fence({ children }: { children?: ReactNode }): ReactElement {
+  const language = fenceLanguage(children)
+  const kind = /(?:^|\s)language-(math|mermaid)(?:\s|$)/.exec(language ?? '')?.[1]
+  const text = kind ? fenceText(children) : null
+  const code = <InCodeBlockContext.Provider value><FencedContext.Provider value><CodeBlock language={language}>{children}</CodeBlock></FencedContext.Provider></InCodeBlockContext.Provider>
+  if (kind === 'math' && text) return <Suspense fallback={code}><MathView tex={text} display /></Suspense>
+  if (kind === 'mermaid' && text) return <Suspense fallback={code}><MermaidDiagram code={text} /></Suspense>
+  return code
+}
+
 /** A16: inline code that names a path is resolved by main (PathLink) when the conversation is known; otherwise the F33 link. */
 function MarkdownCode({ children, className, threadId, turnId }: { children?: ReactNode; className?: string; threadId?: string; turnId?: string }) {
   const inBlock = useContext(InCodeBlockContext)
   const fenced = useContext(FencedContext)
   const text = textOf(children)
   if (fenced && text !== null) return <FencedCode className={className} text={text} />
+  // An inline formula of the answer, which `protectMath` put in a marked code span.
+  const tex = !inBlock && !className && text ? mathOf(text) : null
+  if (tex !== null) return <Suspense fallback={<code className="thread-math-source">{tex}</code>}><MathView tex={tex} /></Suspense>
   if (threadId && !inBlock && !className && text && isPathMention(text)) return <PathLink threadId={threadId} raw={text.trim()} {...(turnId ? { turnId } : {})} />
   return <InlineCode className={className}>{children}</InlineCode>
 }
@@ -129,9 +160,13 @@ function keepInlineImages(url: string, key: string): string {
  */
 export function ThreadMarkdown({ text, threadId, turnId }: { text: string; threadId?: string; turnId?: string }) {
   const { t } = useTranslation('thread')
-  return <div className="thread-markdown"><Markdown remarkPlugins={[remarkGfm]} urlTransform={keepInlineImages} components={{
+  // Formulas are set apart before the parser reads the text; a text without one comes back as it was.
+  const source = useMemo(() => protectMath(text), [text])
+  // The same functions from one render to the next: a new one each time is, to React, a new kind of element, and
+  // every block under it would be thrown away and built again (a diagram would lose its drawing while text streams).
+  const components = useMemo<Components>(() => ({
     table: ({ children }) => <div className="thread-table-scroll" role="region" aria-label={t('markdown.table')} tabIndex={0}><table>{children}</table></div>,
-    pre: ({ children }) => <InCodeBlockContext.Provider value><FencedContext.Provider value><CodeBlock language={fenceLanguage(children)}>{children}</CodeBlock></FencedContext.Provider></InCodeBlockContext.Provider>,
+    pre: ({ children }) => <Fence>{children}</Fence>,
     // F33/A16: inline code that names a file is a link (PathLink with a conversation, else the path menu link).
     code: ({ children, className }) => <MarkdownCode className={className} threadId={threadId} turnId={turnId}>{children}</MarkdownCode>,
     // Code inside a link stays plain: a path button inside an anchor would be nested interactive content (FRONTEND #470).
@@ -139,5 +174,6 @@ export function ThreadMarkdown({ text, threadId, turnId }: { text: string; threa
       ? <ExternalAnchor href={href}>{children}</ExternalAnchor>
       : <span className="thread-markdown-reference" title={href}>{children}</span>}</InCodeBlockContext.Provider>,
     img: ({ alt, src }) => <MarkdownImage alt={alt} src={typeof src === 'string' ? src : undefined} threadId={threadId} />
-  }}>{text}</Markdown></div>
+  }), [t, threadId, turnId])
+  return <div className="thread-markdown"><Markdown remarkPlugins={REMARK_PLUGINS} urlTransform={keepInlineImages} components={components}>{source}</Markdown></div>
 }
