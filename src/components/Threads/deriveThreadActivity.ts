@@ -99,6 +99,8 @@ export function firstProseLine(text: string): string {
     if (/^(```|~~~)/.test(line)) { fenced = !fenced; continue }
     if (fenced || !line) continue
     if (/^#{1,6}\s/.test(line) || /^\|.*\|$/.test(line) || /^([-*_=])\1{2,}$/.test(line)) { fallback ||= stripInlineMarkdown(line); continue }
+    // A line that is only an image says nothing in words.
+    if (/^!\[[^\]]*\]\([^)]*\)$/.test(line)) continue
     const clean = stripInlineMarkdown(line.replace(/^(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/, '').replace(/^>\s*/, ''))
     if (clean) return clean
   }

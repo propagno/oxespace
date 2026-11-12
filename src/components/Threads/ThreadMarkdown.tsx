@@ -7,7 +7,7 @@ import { ErrorState } from '../../ui'
 import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
 import { parseExternalUrl } from '../../lib/externalLinks'
 import './ThreadMarkdown.css'
-import { InCodeBlockContext, InlineCode } from '../PathMenu/PathLink'
+import { InCodeBlockContext, InlineCode, PathScopeContext } from '../PathMenu/PathLink'
 import { PathLink } from './PathLink'
 import { inlineImageSource, MAX_PROJECT_IMAGE_BYTES, projectImagePath } from './markdownImage'
 import { useThreadStore } from '../../store/thread.store'
@@ -99,10 +99,12 @@ function MarkdownCode({ children, className, threadId, turnId }: { children?: Re
 function MarkdownImage({ src, alt, threadId }: { src?: string; alt?: string; threadId?: string }): ReactElement {
   const { t } = useTranslation('thread')
   const thread = useThreadStore(state => threadId ? state.threads.find(item => item.id === threadId) ?? (state.snapshot?.thread.id === threadId ? state.snapshot.thread : undefined) : undefined)
+  // The project the text belongs to: the scope the timeline gives every message (the same one its file links use), or the conversation when it is named.
+  const scope = useContext(PathScopeContext)
+  const workspaceId = scope?.workspaceId ?? thread?.workspaceId, rootPath = scope?.rootPath ?? thread?.rootPath
   const inline = inlineImageSource(src)
-  const file = inline || !thread ? null : projectImagePath(src, thread.rootPath)
+  const file = inline || !rootPath ? null : projectImagePath(src, rootPath)
   const [loaded, setLoaded] = useState<{ file: string; source: string } | null>(null)
-  const workspaceId = thread?.workspaceId, rootPath = thread?.rootPath
   useEffect(() => {
     if (!file || !workspaceId || !rootPath) return
     let live = true

@@ -16,6 +16,10 @@ describe('the line of an answer the band sums it up by', () => {
     expect(firstProseLine('> As the README says.')).toBe('As the README says.')
   })
 
+  test('a line that is only an image is skipped', () => {
+    expect(firstProseLine('## Report\n\n![shot](docs/shot.png)\n\nThe cart total is wrong.')).toBe('The cart total is wrong.')
+  })
+
   test('only headings or only code: the first heading, or nothing', () => {
     expect(firstProseLine('# Plan\n\n## Steps\n')).toBe('Plan')
     expect(firstProseLine('```\nonly code\n```')).toBe('')
