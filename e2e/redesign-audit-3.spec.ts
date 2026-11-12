@@ -144,7 +144,6 @@ test('coverage audit', async () => {
     await surface(page, '31-tool-review-real', tool('Changes'))
     await surface(page, '32-tool-editor-real', tool('Files'))
     await surface(page, '33-tool-worktrees-real', tool('Worktrees'))
-    await surface(page, '34-tool-scripts-real', tool('Scripts'))
     await surface(page, '35-tool-search-real', async () => { await tool('Find in files')(); await page.getByRole('searchbox').or(page.getByPlaceholder(/Search/i)).first().fill('answer') ; await page.keyboard.press('Enter') })
     await surface(page, '36-tool-background', async () => { await page.getByRole('button', { name: 'Toggle background activity' }).first().click(); await page.waitForTimeout(1200) })
     await surface(page, '37-tool-web-preview', tool('Browser'))

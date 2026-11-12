@@ -1,7 +1,7 @@
 import type { Locator, Page } from '@playwright/test'
 
 /** Shared panel names (src/components/Workbench/panelCatalog.ts). */
-export type PanelLabel = 'Changes' | 'Browser' | 'Commit & pull request' | 'Files' | 'Find in files' | 'Scripts' | 'Worktrees'
+export type PanelLabel = 'Changes' | 'Browser' | 'Commit & pull request' | 'Files' | 'Find in files' | 'Worktrees'
 
 /** Opens or closes a Code panel through the rail's Panels menu, which lists every panel. */
 export async function togglePanel(page: Page, label: PanelLabel): Promise<void> {
