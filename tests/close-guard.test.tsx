@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CloseAnswerInput, CloseRequest } from '../shared/types/app'
-import { handleCloseRequest, installCloseGuard, RUNNING_TURNS_LOOKUP_MS } from '../src/lib/closeGuard'
+import { confirmClose, handleCloseRequest, installCloseGuard, RUNNING_TURNS_LOOKUP_MS } from '../src/lib/closeGuard'
 import { registerUnsavedSource, resetUnsavedSourcesForTests, unsavedWork } from '../src/lib/unsavedWork'
 
 const answers: Array<CloseAnswerInput['answer']> = []
@@ -205,6 +205,50 @@ describe('close guard', () => {
     await waitFor(() => expect(answers).toEqual(['proceed']))
     uninstall()
     expect(unsubscribe).toHaveBeenCalled()
+  })
+})
+
+describe('a close the window starts itself: File › Exit (FUNC-3)', () => {
+  it('may close at once when nothing is unsaved and no turn is in progress', async () => {
+    await expect(confirmClose()).resolves.toBe(true)
+    expect(screen.queryByTestId('unsaved-work-dialog')).toBeNull()
+    // Main is not part of this: the window decides, and then closes itself.
+    expect(answers).toEqual([])
+  })
+
+  it('asks first with a turn in progress: Cancel keeps the window, "Quit anyway" lets it close', async () => {
+    conversations(async () => [{ id: 't1', title: 'Fix the Pix webhook', status: 'running' }])
+    const kept = confirmClose()
+    const dialog = await screen.findByTestId('unsaved-work-dialog')
+    expect(dialog).toHaveTextContent('Quit while a turn is in progress?')
+    expect(dialog).toHaveTextContent('Fix the Pix webhook')
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await expect(kept).resolves.toBe(false)
+    await waitFor(() => expect(screen.queryByTestId('unsaved-work-dialog')).toBeNull())
+
+    const gone = confirmClose()
+    await screen.findByTestId('unsaved-work-dialog')
+    fireEvent.click(screen.getByRole('button', { name: 'Quit anyway' }))
+    await expect(gone).resolves.toBe(true)
+  })
+
+  it('a request waiting on the person is a turn in progress too, and Exit chosen twice asks once', async () => {
+    conversations(async () => [{ id: 't2', title: 'Rename the price column', status: 'approval' }])
+    const first = confirmClose(), second = confirmClose()
+    await screen.findByTestId('unsaved-work-dialog')
+    expect(screen.getAllByTestId('unsaved-work-dialog')).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await expect(first).resolves.toBe(false)
+    await expect(second).resolves.toBe(false)
+  })
+
+  it('with unsaved work it offers to save, and closes only after the save worked', async () => {
+    setFiles(editedFile('notes.md'))
+    const pending = confirmClose()
+    await screen.findByTestId('unsaved-work-dialog')
+    fireEvent.click(screen.getByTestId('unsaved-work-save'))
+    await expect(pending).resolves.toBe(true)
+    expect(writeFile).toHaveBeenCalledTimes(1)
   })
 })
 
