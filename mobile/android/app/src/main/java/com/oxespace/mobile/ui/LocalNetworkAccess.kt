@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -37,6 +38,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.oxespace.mobile.R
 import com.oxespace.mobile.ui.theme.Oxe
+import com.oxespace.mobile.ui.theme.OxeRadius
 import com.oxespace.mobile.ui.theme.OxeSpace
 
 /**
@@ -100,7 +102,10 @@ fun LocalNetworkGate(onGranted: () -> Unit = {}, content: @Composable () -> Unit
 /** The gate's words and buttons alone, so screenshots can show both states without a permission system. */
 @Composable
 fun LocalNetworkPrompt(ask: LocalNetworkAsk, onAllow: () -> Unit, onOpenSettings: () -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(OxeSpace.space3)) {
+    // Its own surface: the pairing screen puts this where the camera goes, on a dark box, and the words must stay
+    // readable there (they were dark on dark) with the button inside the margins.
+    Surface(modifier, color = Oxe.colors.surfaceRaised, contentColor = Oxe.colors.textPrimary, shape = RoundedCornerShape(OxeRadius.lg)) {
+    Column(Modifier.padding(OxeSpace.space4), verticalArrangement = Arrangement.spacedBy(OxeSpace.space3)) {
         Text(stringResource(R.string.local_network_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
         when (ask) {
             LocalNetworkAsk.NOT_ASKED -> {
@@ -112,6 +117,7 @@ fun LocalNetworkPrompt(ask: LocalNetworkAsk, onAllow: () -> Unit, onOpenSettings
                 OutlinedButton(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(R.string.local_network_open_settings)) }
             }
         }
+    }
     }
 }
 
