@@ -494,6 +494,8 @@ export interface ConversationThread {
   queue?: ThreadQueuedInput[]
   /** Set when a turn ended without completing while input was queued; the next item waits for the user. */
   queuePause?: ThreadQueuePause
+  /** The model the provider said the session runs when it last started; what the model chip shows for "default". */
+  sessionModel?: string
   /** Latest context-window report; never part of the timeline. */
   contextReport?: ThreadContextReport
   /** Running cost estimate; never part of the timeline. */
@@ -517,7 +519,7 @@ export interface ThreadProviderObservation {
 
 export type ThreadEvent =
   | { type: 'continuation-started'; id: string; at: number }
-  | { type: 'session'; nativeSessionId: string; mcpServers?: ThreadMcpServerStatus[] }
+  | { type: 'session'; nativeSessionId: string; mcpServers?: ThreadMcpServerStatus[]; /** The model the provider says this session runs. */ model?: string }
   /** Transport liveness only; the orchestrator updates metadata without saving a timeline row. */
   | { type: 'native-signal'; at: number }
   /** Metadata only: stored on the thread, never added to the timeline. */
@@ -544,7 +546,7 @@ export type ThreadEvent =
   | { type: 'request-resolved'; id: string; state: ThreadRequest['state']; resolution?: ThreadRequestResolution; resolvedAt?: number }
   | { type: 'queue'; id: string; item: ThreadQueuedInput }
   | { type: 'model-picker'; id: string; models: ThreadModel[]; selectedModel?: string; selectedEffort?: string }
-  | { type: 'configuration'; model?: string; reasoningEffort?: string; access?: ThreadConfiguration['access']; networkAccess?: boolean; approvalPolicy?: ThreadConfiguration['approvalPolicy']; hooksEnabled?: boolean; confirmed?: boolean }
+  | { type: 'configuration'; model?: string; reasoningEffort?: string; access?: ThreadConfiguration['access']; networkAccess?: boolean; approvalPolicy?: ThreadConfiguration['approvalPolicy']; hooksEnabled?: boolean; mode?: ThreadConfiguration['mode']; confirmed?: boolean }
   | { type: 'turn-diff'; id: string; turnId: string; files: ThreadFileChange[] }
   | { type: 'plan'; id: string; turnId?: string; explanation?: string; steps: { label: string; status: 'pending' | 'inProgress' | 'completed' }[] }
   | { type: 'cli-command'; id: string; command: string }
@@ -834,7 +836,11 @@ export type ThreadBranchResult =
   | { ok: true; threadId: string; workspaceId: string; worktreePath: string }
   | { ok: false; refusal: import('../messages').MainMessage }
 
-export interface ThreadTurnFileStatus { path: string; root?: string; state: 'pending' | 'reverted' | 'modified'; preExists: boolean; postExists: boolean }
+export interface ThreadTurnFileStatus {
+  path: string; root?: string; state: 'pending' | 'reverted' | 'modified'; preExists: boolean; postExists: boolean
+  /** Lines this turn added and removed, for a text file still as the turn left it. */
+  additions?: number; deletions?: number
+}
 
 export interface ThreadCliState {
   running: boolean

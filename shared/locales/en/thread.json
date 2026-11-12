@@ -430,8 +430,8 @@
     "automatic": "Automatic",
     "permissions": "Permissions",
     "fullAccess": "Full access",
-    "nativePermissions": "Native permissions",
-    "workspaceAccess": "Workspace access",
+    "nativePermissions": "Can edit",
+    "workspaceAccess": "Can edit",
     "readOnly": "Read only",
     "access": "Access",
     "readOnlyClaude": "Read, search and answer questions. Shell, agents and MCP tools are disabled.",
@@ -790,10 +790,6 @@
     "closeTitle": "Close · Esc"
   },
   "fold": {
-    "label_one": "Completed {{count}} step",
-    "label_other": "Completed {{count}} steps",
-    "labelTimed_one": "Completed {{count}} step in {{duration}}",
-    "labelTimed_other": "Completed {{count}} steps in {{duration}}",
     "hide": "Hide the steps of this turn",
     "show": "Show every step of this turn",
     "steps_one": "{{count}} step",
@@ -858,6 +854,8 @@
     "body": "Recovered from the provider history. These questions cannot be answered here; no answer was inferred."
   },
   "hunks": {
+    "showAll_one": "Show {{count}} more change in this file",
+    "showAll_other": "Show {{count}} more changes in this file",
     "comment": "Review comment on `{{path}}` ({{range}}):",
     "lines": "lines {{from}}–{{to}}",
     "afterLine": "after line {{line}}",
@@ -1429,8 +1427,7 @@
     "archivedCount": "Archived · {{count}}",
     "conversationCount_one": "{{count}} conversation",
     "conversationCount_other": "{{count}} conversations",
-    "asksYou": "Asks you · {{text}}",
-    "asksYouShort": "Asks you"
+    "asksYou": "Asks you · {{text}}"
   },
   "sections": {
     "notKept_one": "Could not keep {{count}} section. The rest of the list is as before.",
@@ -1507,12 +1504,12 @@
     "byConversation": "By conversation"
   },
   "status": {
-    "running": "Running",
+    "running": "Working",
     "attention": "Needs you",
     "failed": "Failed",
-    "interrupted": "Interrupted",
+    "interrupted": "Paused",
     "background": "Background",
-    "completed": "Completed",
+    "completed": "Finished",
     "ready": "Ready"
   },
   "undoTurn": {
@@ -1607,12 +1604,16 @@
     "backToBefore": "This file is back to how it was before the turn.",
     "editedAfter": "This file was edited after the turn, so the turn’s own change can no longer be shown on its own. Use All changes to see the file as it is."
   },
+  "planOnly": {
+    "hint": "In Read only, {{agent}} plans but does not carry the plan out. To run it, change access to Can edit and ask it to go ahead.",
+    "changeAccess": "Change access"
+  },
   "turnTiming": {
-    "completedBackground": "Turn completed · {{count}} background pending",
-    "completedWarnings": "Completed with warnings",
-    "completed": "Completed",
+    "completedBackground": "Turn finished · {{count}} background pending",
+    "completedWarnings": "Finished with warnings",
+    "completed": "Finished",
     "failed": "Failed",
-    "interrupted": "Interrupted",
+    "interrupted": "Paused",
     "actions_one": "{{count}} action",
     "actions_other": "{{count}} actions",
     "failedCount": " · {{count}} failed",
@@ -2059,6 +2060,9 @@
   "nowLine": {
     "needsYou": "Needs you. {{agent}} asks to {{request}}.",
     "needsYouShort": "Needs you. {{agent}} is waiting for approval.",
+    "needsYouPlan": "Needs you. {{agent}} asks you to review its plan.",
+    "needsYouMcp": "Needs you. {{agent}} has a request from {{source}}.",
+    "needsYouInput": "Needs you. {{agent}} is waiting for your answer.",
     "question_one": "Needs you. {{agent}} asked {{count}} question.",
     "question_other": "Needs you. {{agent}} asked {{count}} questions.",
     "workingVerb": "Working. {{verb}} {{target}}.",
@@ -2066,6 +2070,7 @@
     "workingText": "Working. {{text}}.",
     "workingShort": "Working.",
     "paused": "Paused. You stopped it. Send a message to continue.",
+    "pausedByClose": "Paused. OXESpace closed before this turn finished. Send a message to continue.",
     "error": "Stopped with an error. {{reason}}.",
     "errorShort": "Stopped with an error.",
     "ready": "Ready for review. {{summary}}.",

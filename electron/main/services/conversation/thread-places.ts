@@ -27,6 +27,14 @@ const BACKSLASH = String.fromCharCode(92)
 const WRITE_KINDS: ReadonlySet<string> = new Set(['add', 'update', 'delete', 'rename'])
 const isSlash = (char: string | undefined): boolean => char === '/' || char === BACKSLASH
 
+/** Whether a file is one of the agent's own working notes: Claude's plans, under its settings folder. */
+export function agentNotes(path: string, env: NodeJS.ProcessEnv = process.env): boolean {
+  // canonicalPath answers with forward slashes on every system.
+  const plans = canonicalPath(join(env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), '.claude'), 'plans'))
+  const target = canonicalPath(path)
+  return target === plans || target.startsWith(`${plans}/`)
+}
+
 /**
  * The evidence an event carries (§2.2): tool and turn-diff file paths (previousPath included) and request paths.
  * Message text is never evidence, and the working-tree observation is already about a known place.
@@ -89,8 +97,18 @@ export class ThreadPlaceStore {
       ORDER BY CASE kind WHEN 'root' THEN 0 ELSE 1 END, first_seen_at, rowid`).all(thread.id) as PlaceRow[]
     const filesOf = this.db.prepare('SELECT path, turn_id FROM thread_place_writes WHERE thread_id = ? AND place_id = ? ORDER BY at DESC, rowid DESC')
     const undone = new Set(undoneTurns)
+    // A write row names the last turn that wrote the file. When that turn was undone, a turn that still stands may
+    // have written the file too, and its change is still there: the Changes tab went from 2 to 1 with two files
+    // changed (CHAT-3). The checkpoints of the standing turns say which files those are.
+    const pathKey = (path: string): string => process.platform === 'win32' ? path.replace(/\\/g, '/').toLowerCase() : path
+    const standing = new Set(undone.size
+      ? (this.db.prepare(`SELECT c.turn_id AS turn, f.path AS path FROM conversation_checkpoint_files f JOIN conversation_checkpoints c ON c.id = f.checkpoint_id
+          WHERE c.thread_id = ? AND c.turn_id IS NOT NULL AND c.turn_id NOT LIKE 'redo:%'`).all(thread.id) as Array<{ turn: string; path: string }>)
+        .filter(value => !undone.has(value.turn)).map(value => pathKey(value.path))
+      : [])
     const places = await Promise.all(rows.map(async (row): Promise<ThreadPlace> => {
-      const files = (filesOf.all(thread.id, row.id) as Array<{ path: string; turn_id: string | null }>).filter(value => !(value.turn_id && undone.has(value.turn_id))).map(value => value.path)
+      const files = (filesOf.all(thread.id, row.id) as Array<{ path: string; turn_id: string | null }>)
+        .filter(value => !(value.turn_id && undone.has(value.turn_id)) || standing.has(pathKey(value.path))).map(value => value.path)
       return {
         id: row.id, kind: row.kind, path: row.path, firstSeenAt: row.first_seen_at,
         base: row.kind === 'outside' || row.base_captured_at === null ? null : { commit: row.base_commit, branch: row.base_branch, capturedAt: row.base_captured_at, turnId: row.base_turn_id },
@@ -183,6 +201,9 @@ export class ThreadPlaceStore {
   private locate(thread: PlaceThread, item: PlaceEvidence): Target | 'refused' | null {
     const full = evidencePath(item.path)
     if (!full) return 'refused'
+    // The agent's own notes are not a place the conversation works in: in plan mode Claude writes its plan under its
+    // settings folder, and the Changes tab counted it before any file of the project changed (CHAT-8).
+    if (item.mode !== 'location' && agentNotes(full)) return null
     const dir = item.mode === 'location' ? full : dirname(full)
     // Walked before stat, so a link out of the folder is never followed.
     if (crossesLink(dir) || !isDirectory(dir)) return 'refused'

@@ -34,7 +34,11 @@ interface FileImage { exists: boolean; content?: Buffer; hash?: string }
  */
 export type CheckpointFileState = 'pending' | 'reverted' | 'modified'
 /** `path` is relative to `root`, the checkout the turn changed. */
-export interface CheckpointFileStatus { path: string; root: string; state: CheckpointFileState; preExists: boolean; postExists: boolean }
+export interface CheckpointFileStatus {
+  path: string; root: string; state: CheckpointFileState; preExists: boolean; postExists: boolean
+  /** Lines this turn added and removed, for a text file still as the turn left it. */
+  additions?: number; deletions?: number
+}
 interface CheckpointRow {
   id: string; thread_id: string; turn_id: string | null; root_path: string; base_commit: string | null
   label: string | null; state: ThreadCheckpointSummary['state']; created_at: number; finalized_at: number | null
@@ -199,7 +203,7 @@ export class ThreadCheckpointService {
       const state: CheckpointFileState = current && matches(current, imageFromRow(file, 'pre')) ? 'reverted'
         : current && current.exists === Boolean(file.post_exists) && current.hash === (file.post_hash ?? undefined) ? 'pending'
           : 'modified'
-      states.push({ path: file.path, root: checkpoint.root_path, state, preExists: Boolean(file.pre_exists), postExists: Boolean(file.post_exists) })
+      states.push({ path: file.path, root: checkpoint.root_path, state, preExists: Boolean(file.pre_exists), postExists: Boolean(file.post_exists), ...(state === 'pending' && current ? turnLines(file, current) : {}) })
     }
     return states
   }
@@ -456,6 +460,20 @@ async function resolveSafe(root: string, path: string): Promise<string> {
     try { if ((await lstat(cursor)).isSymbolicLink()) throw Error('Checkpoint path crosses a symbolic link') } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
   }
   return target
+}
+
+/**
+ * The lines one turn added and removed in a file still as the turn left it: its content before the turn against its
+ * content now. The working tree's diff counts every line changed since the last commit, so a second turn that added
+ * one line to a file read "+2". Nothing for a binary side, a content that was not kept, or too many edits to compare.
+ */
+function turnLines(file: CheckpointFileRow, current: FileImage): { additions?: number; deletions?: number } {
+  const before = !file.pre_exists ? '' : file.pre_content ? text(Buffer.from(file.pre_content)) : null
+  const after = !current.exists ? '' : current.content ? text(current.content) : null
+  if (before === null || after === null) return {}
+  const hunks = diffLines(splitLines(before), splitLines(after))
+  if (!hunks) return {}
+  return { additions: hunks.reduce((sum, hunk) => sum + hunk.newLines.length, 0), deletions: hunks.reduce((sum, hunk) => sum + hunk.oldLines.length, 0) }
 }
 
 async function readImage(root: string, path: string): Promise<FileImage> {

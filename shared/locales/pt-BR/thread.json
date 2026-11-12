@@ -438,8 +438,8 @@
     "automatic": "Automático",
     "permissions": "Permissões",
     "fullAccess": "Acesso total",
-    "nativePermissions": "Permissões nativas",
-    "workspaceAccess": "Acesso ao workspace",
+    "nativePermissions": "Pode editar",
+    "workspaceAccess": "Pode editar",
     "readOnly": "Somente leitura",
     "access": "Acesso",
     "readOnlyClaude": "Ler, buscar e responder perguntas. Shell, agentes e ferramentas MCP ficam desativados.",
@@ -808,12 +808,6 @@
     "closeTitle": "Fechar · Esc"
   },
   "fold": {
-    "label_one": "Concluiu {{count}} passo",
-    "label_many": "Concluiu {{count}} passos",
-    "label_other": "Concluiu {{count}} passos",
-    "labelTimed_one": "Concluiu {{count}} passo em {{duration}}",
-    "labelTimed_many": "Concluiu {{count}} passos em {{duration}}",
-    "labelTimed_other": "Concluiu {{count}} passos em {{duration}}",
     "hide": "Ocultar os passos deste turno",
     "show": "Mostrar todos os passos deste turno",
     "steps_one": "{{count}} passo",
@@ -888,6 +882,9 @@
     "body": "Recuperadas do histórico do provedor. Estas perguntas não podem ser respondidas aqui; nenhuma resposta foi deduzida."
   },
   "hunks": {
+    "showAll_one": "Mostrar mais {{count}} alteração neste arquivo",
+    "showAll_many": "Mostrar mais {{count}} alterações neste arquivo",
+    "showAll_other": "Mostrar mais {{count}} alterações neste arquivo",
     "comment": "Comentário de revisão em `{{path}}` ({{range}}):",
     "lines": "linhas {{from}}–{{to}}",
     "afterLine": "depois da linha {{line}}",
@@ -1475,8 +1472,7 @@
     "conversationCount_one": "{{count}} conversa",
     "conversationCount_many": "{{count}} conversas",
     "conversationCount_other": "{{count}} conversas",
-    "asksYou": "Pede a você · {{text}}",
-    "asksYouShort": "Pede a você"
+    "asksYou": "Pede a você · {{text}}"
   },
   "sections": {
     "notKept_one": "Não foi possível manter {{count}} seção. O resto da lista está como antes.",
@@ -1558,10 +1554,10 @@
     "byConversation": "Por conversa"
   },
   "status": {
-    "running": "Em execução",
+    "running": "Trabalhando",
     "attention": "Precisa de você",
     "failed": "Falhou",
-    "interrupted": "Interrompida",
+    "interrupted": "Pausada",
     "background": "Em segundo plano",
     "completed": "Concluída",
     "ready": "Pronta"
@@ -1660,12 +1656,16 @@
     "backToBefore": "Este arquivo voltou a ser como era antes do turno.",
     "editedAfter": "Este arquivo foi editado depois do turno, então a alteração do turno não pode mais ser mostrada sozinha. Use Todas as alterações para ver o arquivo como ele está."
   },
+  "planOnly": {
+    "hint": "Em Somente leitura, {{agent}} planeja mas não executa o plano. Para executar, mude o acesso para Pode editar e peça para seguir.",
+    "changeAccess": "Mudar acesso"
+  },
   "turnTiming": {
     "completedBackground": "Turno concluído · {{count}} em segundo plano pendente",
     "completedWarnings": "Concluído com avisos",
     "completed": "Concluído",
     "failed": "Falhou",
-    "interrupted": "Interrompido",
+    "interrupted": "Pausado",
     "actions_one": "{{count}} ação",
     "actions_many": "{{count}} ações",
     "actions_other": "{{count}} ações",
@@ -2128,6 +2128,9 @@
   "nowLine": {
     "needsYou": "Precisa de você. {{agent}} pede para {{request}}.",
     "needsYouShort": "Precisa de você. {{agent}} aguarda aprovação.",
+    "needsYouPlan": "Precisa de você. {{agent}} pede que você revise o plano.",
+    "needsYouMcp": "Precisa de você. {{agent}} tem um pedido de {{source}}.",
+    "needsYouInput": "Precisa de você. {{agent}} aguarda a sua resposta.",
     "question_one": "Precisa de você. {{agent}} fez {{count}} pergunta.",
     "question_many": "Precisa de você. {{agent}} fez {{count}} perguntas.",
     "question_other": "Precisa de você. {{agent}} fez {{count}} perguntas.",
@@ -2136,6 +2139,7 @@
     "workingText": "Trabalhando. {{text}}.",
     "workingShort": "Trabalhando.",
     "paused": "Pausada. Você parou. Envie uma mensagem para continuar.",
+    "pausedByClose": "Pausada. O OXESpace fechou antes de este turno terminar. Envie uma mensagem para continuar.",
     "error": "Parou com erro. {{reason}}.",
     "errorShort": "Parou com erro.",
     "ready": "Pronta para revisão. {{summary}}.",
