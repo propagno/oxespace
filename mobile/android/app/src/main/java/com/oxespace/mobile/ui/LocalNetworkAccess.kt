@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.oxespace.mobile.R
@@ -103,8 +104,9 @@ fun LocalNetworkGate(onGranted: () -> Unit = {}, content: @Composable () -> Unit
 @Composable
 fun LocalNetworkPrompt(ask: LocalNetworkAsk, onAllow: () -> Unit, onOpenSettings: () -> Unit, modifier: Modifier = Modifier) {
     // Its own surface: the pairing screen puts this where the camera goes, on a dark box, and the words must stay
-    // readable there (they were dark on dark) with the button inside the margins.
-    Surface(modifier, color = Oxe.colors.surfaceRaised, contentColor = Oxe.colors.textPrimary, shape = RoundedCornerShape(OxeRadius.lg)) {
+    // readable there (they were dark on dark) with the button inside the margins. It goes above the viewfinder's
+    // corner guides and scan line, which are for a camera and would cross the words.
+    Surface(modifier.zIndex(1f), color = Oxe.colors.surfaceRaised, contentColor = Oxe.colors.textPrimary, shape = RoundedCornerShape(OxeRadius.lg)) {
     Column(Modifier.padding(OxeSpace.space4), verticalArrangement = Arrangement.spacedBy(OxeSpace.space3)) {
         Text(stringResource(R.string.local_network_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
         when (ask) {
