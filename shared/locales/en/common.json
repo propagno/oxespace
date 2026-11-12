@@ -96,6 +96,7 @@
     "paste": "Paste",
     "selectAll": "Select all",
     "notInTerminal": "Not available in a terminal",
+    "readOnlyFile": "This view is read only",
     "needsTextField": "Place the cursor in a text field first",
     "view": "View",
     "appearance": "Appearance",

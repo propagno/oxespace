@@ -9,7 +9,10 @@ import type { EditCommand } from '../../../shared/types/ipc'
  * The last focused element outside the menus is remembered; when the menu closes the focus goes back to it and the
  * command runs there: natively through main for a field, with the editor's and the terminal's own commands for those.
  */
-type Place = 'field' | 'editor' | 'terminal' | 'page'
+type Place = 'field' | 'editor' | 'readOnlyEditor' | 'terminal' | 'page'
+
+/** On the host of a code editor that shows without editing (the file viewer, a diff). The editor itself does not say so in the page. */
+export const READ_ONLY_EDITOR_ATTRIBUTE = 'data-read-only-editor'
 
 /** Asks a terminal to select everything it shows; it listens on its own host element. */
 export const TERMINAL_SELECT_ALL_EVENT = 'oxe:terminal-select-all'
@@ -24,7 +27,7 @@ const current = (): HTMLElement | null => target?.isConnected ? target : null
 function place(element: HTMLElement | null): Place {
   if (!element) return 'page'
   if (element.closest('.xterm')) return 'terminal'
-  if (element.closest('.monaco-editor')) return 'editor'
+  if (element.closest('.monaco-editor')) return element.closest(`[${READ_ONLY_EDITOR_ATTRIBUTE}]`) ? 'readOnlyEditor' : 'editor'
   if (element instanceof HTMLTextAreaElement || (element instanceof HTMLInputElement && TEXT_INPUTS.has(element.type))) return element.readOnly || element.disabled ? 'page' : 'field'
   return element.isContentEditable ? 'field' : 'page'
 }
@@ -43,6 +46,7 @@ export function editUnavailable(command: EditCommand): string | undefined {
   const where = place(current())
   if (where === 'field' || where === 'editor' || command === 'copy' || command === 'selectAll') return undefined
   if (where === 'terminal') return command === 'paste' ? undefined : i18n.t('menu.notInTerminal')
+  if (where === 'readOnlyEditor') return i18n.t('menu.readOnlyFile')
   return i18n.t('menu.needsTextField')
 }
 
@@ -71,7 +75,7 @@ export function runPendingEdit(): boolean {
   element?.focus()
   const where = place(element)
   if (element && where === 'terminal' && command === 'selectAll') element.dispatchEvent(new CustomEvent(TERMINAL_SELECT_ALL_EVENT, { bubbles: true }))
-  else if (element && where === 'editor' && (command === 'undo' || command === 'redo' || command === 'selectAll')) editorKey(element, command)
+  else if (element && (where === 'editor' || where === 'readOnlyEditor') && (command === 'undo' || command === 'redo' || command === 'selectAll')) editorKey(element, command)
   else {
     const native = window.oxe?.clipboard?.edit
     // The page's own command is what is left without main: it cannot paste, the rest works in a focused field.

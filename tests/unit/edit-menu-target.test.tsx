@@ -78,6 +78,29 @@ describe('the Edit menu acts where the person was before the menu took the focus
     expect(edit).toHaveBeenCalledWith('copy')
   })
 
+  it('in a read-only editor (the file viewer, a diff): Copy and Select all run, the rest say it is read only', () => {
+    const host = document.createElement('div')
+    host.setAttribute('data-read-only-editor', '')
+    const editor = document.createElement('div')
+    editor.className = 'monaco-editor'
+    const input = document.createElement('textarea')
+    editor.append(input); host.append(editor); document.body.append(host)
+    const keys: string[] = []
+    editor.addEventListener('keydown', event => keys.push(event.key))
+    focusThenMenu(input)
+    for (const command of ['undo', 'redo', 'cut', 'paste'] as const) {
+      expect(editUnavailable(command)).toBe('This view is read only')
+      requestEdit(command)
+      expect(runPendingEdit()).toBe(false)
+    }
+    expect(edit).not.toHaveBeenCalled()
+    expect(keys).toEqual([])
+    requestEdit('selectAll'); runPendingEdit()
+    expect(keys).toEqual(['a'])
+    requestEdit('copy'); runPendingEdit()
+    expect(edit).toHaveBeenCalledWith('copy')
+  })
+
   it('with no text field: Copy and Select all still run, the rest say what is missing and do nothing', () => {
     const button = inBody(document.createElement('button'))
     focusThenMenu(button)
