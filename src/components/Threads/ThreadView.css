@@ -104,7 +104,9 @@
 .thread-message-assistant .thread-message-actions { position: absolute; top: 0; right: 0; margin: 0; opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard); }
 /* The closing answer of a turn reads as clean prose on the canvas, with compact actions. */
 .thread-message-assistant.is-final-response { padding: 0 36px 0 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-.thread-message-assistant.is-final-response .thread-message-actions { top: 0; right: 0; opacity: 0.72; }
+/* Quote and Copy of the final answer follow the rule of every answer (above and below): shown when the pointer or the
+   keyboard is on it. They used to stay at 72% all the time, as two boxes beside the text. */
+.thread-message-assistant.is-final-response .thread-message-actions { top: 0; right: 0; }
 .thread-view .thread-message-assistant.is-final-response .thread-message-actions button { width: 28px; min-width: 28px; padding: 0; }
 .thread-final-label { margin-left: 5px; color: var(--accent); font-size: max(11px, calc(var(--thread-reader-font-size) - 4px)); font-weight: 600; }
 .thread-message-assistant:hover .thread-message-actions, .thread-message-assistant:focus-within .thread-message-actions { opacity: 1; }

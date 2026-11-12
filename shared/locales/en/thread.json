@@ -790,10 +790,6 @@
     "closeTitle": "Close · Esc"
   },
   "fold": {
-    "label_one": "Completed {{count}} step",
-    "label_other": "Completed {{count}} steps",
-    "labelTimed_one": "Completed {{count}} step in {{duration}}",
-    "labelTimed_other": "Completed {{count}} steps in {{duration}}",
     "hide": "Hide the steps of this turn",
     "show": "Show every step of this turn",
     "steps_one": "{{count}} step",

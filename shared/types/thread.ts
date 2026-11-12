@@ -494,6 +494,8 @@ export interface ConversationThread {
   queue?: ThreadQueuedInput[]
   /** Set when a turn ended without completing while input was queued; the next item waits for the user. */
   queuePause?: ThreadQueuePause
+  /** The model the provider said the session runs when it last started; what the model chip shows for "default". */
+  sessionModel?: string
   /** Latest context-window report; never part of the timeline. */
   contextReport?: ThreadContextReport
   /** Running cost estimate; never part of the timeline. */
@@ -517,7 +519,7 @@ export interface ThreadProviderObservation {
 
 export type ThreadEvent =
   | { type: 'continuation-started'; id: string; at: number }
-  | { type: 'session'; nativeSessionId: string; mcpServers?: ThreadMcpServerStatus[] }
+  | { type: 'session'; nativeSessionId: string; mcpServers?: ThreadMcpServerStatus[]; /** The model the provider says this session runs. */ model?: string }
   /** Transport liveness only; the orchestrator updates metadata without saving a timeline row. */
   | { type: 'native-signal'; at: number }
   /** Metadata only: stored on the thread, never added to the timeline. */

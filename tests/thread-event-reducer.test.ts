@@ -23,6 +23,15 @@ function snapshot(over: Partial<ThreadSnapshot> = {}): ThreadSnapshot {
 const kinds = (effects: { kind: string }[]): string[] => effects.map(e => e.kind)
 
 describe('reduceThreadEvent', () => {
+  it('keeps the model the session reported, for the model chip', () => {
+    const s = snapshot()
+    reduceThreadEvent(s, { type: 'session', nativeSessionId: 'n-1', model: 'claude-fable-5-2' }, ctx())
+    expect(s.thread).toMatchObject({ nativeSessionId: 'n-1', sessionModel: 'claude-fable-5-2' })
+    // A later start that names no model does not erase what is known.
+    reduceThreadEvent(s, { type: 'session', nativeSessionId: 'n-2' }, ctx())
+    expect(s.thread).toMatchObject({ nativeSessionId: 'n-2', sessionModel: 'claude-fable-5-2' })
+  })
+
   it('a completed turn settles running tools, releases ownership and drains the queue', () => {
     const s = snapshot()
     s.events.push({ type: 'tool', id: 'x', name: 'Bash', state: 'running', detail: 'make' })

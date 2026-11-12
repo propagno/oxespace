@@ -116,6 +116,7 @@ export function reduceThreadEvent(snapshot: ThreadSnapshot, event: ThreadEvent, 
   } else if (event.type === 'session') {
     snapshot.thread.nativeSessionId = event.nativeSessionId
     if (event.mcpServers) snapshot.thread.mcpServers = { servers: event.mcpServers, checkedAt: ctx.now() }
+    if (event.model) snapshot.thread.sessionModel = event.model
   } else if (event.type === 'completed') {
     const turn = snapshot.turns?.at(-1)
     const now = ctx.now()

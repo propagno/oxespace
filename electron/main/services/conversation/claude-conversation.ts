@@ -353,7 +353,9 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
           this.evidence.protocolVersion = 'stream-json'
           this.evidence.verified = 'native'
           this.context!.nativeSessionId = event.session_id
-          this.emit({ type: 'session', nativeSessionId: event.session_id, ...(Array.isArray(event.mcp_servers) ? { mcpServers: mcpServerStatuses(event.mcp_servers) } : {}) })
+          // The init message names the model the process really started with, whatever "default" resolved to.
+          const sessionModel = typeof event.model === 'string' && /^[a-z0-9][a-z0-9._:/\[\]-]{0,119}$/i.test(event.model) ? event.model : undefined
+          this.emit({ type: 'session', nativeSessionId: event.session_id, ...(Array.isArray(event.mcp_servers) ? { mcpServers: mcpServerStatuses(event.mcp_servers) } : {}), ...(sessionModel ? { model: sessionModel } : {}) })
           if (typeof event.cwd === 'string') this.emit({ type: 'location', cwd: event.cwd })
         } else if (event.type === 'stream_event') {
           const streamed = record(event.event)

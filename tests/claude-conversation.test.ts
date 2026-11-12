@@ -349,6 +349,20 @@ describe('Claude MCP server status', () => {
 })
 
 describe('Claude session location', () => {
+  it('reports the model the session really runs, from the init message', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
+    await f.adapter.send('Hello')
+    f.emit(0, { type: 'system', subtype: 'init', session_id: 'native-model', model: 'claude-fable-5-2' })
+    expect(f.events.find(event => event.type === 'session')).toMatchObject({ nativeSessionId: 'native-model', model: 'claude-fable-5-2' })
+    // A value that is not a model id is not passed on.
+    const other = fixture()
+    await other.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => other.events.push(event))
+    await other.adapter.send('Hello')
+    other.emit(0, { type: 'system', subtype: 'init', session_id: 'native-odd', model: 'not a model id' })
+    expect(other.events.find(event => event.type === 'session')).toEqual({ type: 'session', nativeSessionId: 'native-odd' })
+  })
+
   it('reports the init directory and the worktree EnterWorktree moved into, and the root again on ExitWorktree', async () => {
     const f = fixture()
     await f.adapter.start({ rootPath: '/project', nativeSessionId: 'native' }, event => f.events.push(event))

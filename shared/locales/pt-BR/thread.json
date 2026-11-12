@@ -808,12 +808,6 @@
     "closeTitle": "Fechar · Esc"
   },
   "fold": {
-    "label_one": "Concluiu {{count}} passo",
-    "label_many": "Concluiu {{count}} passos",
-    "label_other": "Concluiu {{count}} passos",
-    "labelTimed_one": "Concluiu {{count}} passo em {{duration}}",
-    "labelTimed_many": "Concluiu {{count}} passos em {{duration}}",
-    "labelTimed_other": "Concluiu {{count}} passos em {{duration}}",
     "hide": "Ocultar os passos deste turno",
     "show": "Mostrar todos os passos deste turno",
     "steps_one": "{{count}} passo",
