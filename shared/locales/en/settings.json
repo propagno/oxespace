@@ -675,6 +675,7 @@
     }
   },
   "tools": {
+    "whereToAdd": "To add or remove an MCP server, use Tools › Manage MCP servers.",
     "skillsList": {
       "title": "Skills",
       "intro": "Markdown prompts in ~/.oxe/skills and the project's .oxe/skills. The project's wins on a shared name. Run one with /.",
@@ -850,7 +851,8 @@
     "errorDesc": "Not saved yet: {{error}}",
     "showInFolder": "Show in folder",
     "tryNow": "Try now",
-    "exportAction": "Export…"
+    "exportAction": "Export…",
+    "nothingToExport": "Nothing to export: this profile has no data from the features removed in 1.5."
   },
   "agentPermissions": {
     "title": "What agents can do",

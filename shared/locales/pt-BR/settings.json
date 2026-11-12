@@ -700,6 +700,7 @@
     }
   },
   "tools": {
+    "whereToAdd": "Para adicionar ou remover um servidor MCP, use Tools › Manage MCP servers.",
     "skillsList": {
       "title": "Skills",
       "intro": "Prompts Markdown de ~/.oxe/skills e do .oxe/skills do projeto, que vence se o nome se repete. Rode com /.",
@@ -877,7 +878,8 @@
     "errorDesc": "Ainda não salvo: {{error}}",
     "showInFolder": "Mostrar na pasta",
     "tryNow": "Tentar agora",
-    "exportAction": "Exportar…"
+    "exportAction": "Exportar…",
+    "nothingToExport": "Nada a exportar: este perfil não tem dados das funções retiradas na 1.5."
   },
   "agentPermissions": {
     "title": "O que os agentes podem fazer",
