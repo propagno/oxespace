@@ -538,13 +538,15 @@
 .thread-terminal-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border-bottom: 1px solid var(--border-default); }
 .thread-terminal-bar nav { display: flex; align-items: center; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 .thread-terminal-actions { display: flex; gap: 2px; flex: none; }
-.thread-terminal-tab { display: inline-flex; align-items: center; border-radius: var(--nav-radius); }
-.thread-terminal-tab.is-selected { background: var(--nav-selected); }
-.thread-project-terminal .thread-terminal-tab-main { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border: 0; background: transparent; color: var(--text-secondary); font-size: var(--fs-xs); white-space: nowrap; }
-.thread-terminal-tab.is-selected .thread-terminal-tab-main { color: var(--text-primary); }
-.thread-project-terminal .thread-terminal-tab-close, .thread-project-terminal .thread-terminal-icon { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: var(--nav-radius); background: transparent; color: var(--text-muted); }
-.thread-project-terminal .thread-terminal-tab-close { width: 20px; height: 20px; margin-right: 3px; }
-.thread-project-terminal .thread-terminal-tab-close:hover, .thread-project-terminal .thread-terminal-icon:hover { background: var(--nav-hover); color: var(--text-primary); }
+/* The chip of one shell in the conversation's terminal. Named apart from .thread-terminal-tab, the page of the
+   Terminal tool tab (ThreadHeaderChrome.css): sharing that name gave each chip the page's padding and width. */
+.thread-shell-tab { display: inline-flex; align-items: center; border-radius: var(--nav-radius); }
+.thread-shell-tab.is-selected { background: var(--nav-selected); }
+.thread-project-terminal .thread-shell-tab-main { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border: 0; background: transparent; color: var(--text-secondary); font-size: var(--fs-xs); white-space: nowrap; }
+.thread-shell-tab.is-selected .thread-shell-tab-main { color: var(--text-primary); }
+.thread-project-terminal .thread-shell-tab-close, .thread-project-terminal .thread-terminal-icon { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: var(--nav-radius); background: transparent; color: var(--text-muted); }
+.thread-project-terminal .thread-shell-tab-close { width: 20px; height: 20px; margin-right: 3px; }
+.thread-project-terminal .thread-shell-tab-close:hover, .thread-project-terminal .thread-terminal-icon:hover { background: var(--nav-hover); color: var(--text-primary); }
 .thread-project-terminal .thread-terminal-icon:disabled { opacity: .4; }
 .thread-terminal-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dot-gray); }
 .thread-terminal-dot[data-status='running'] { background: var(--dot-green); }

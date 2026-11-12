@@ -20,11 +20,11 @@ function TerminalTab({ id, label, selected, closable, onSelect, onClose }: {
 }) {
   const { t } = useTranslation('thread')
   const status = useTerminalStore(state => state.panes[id]?.status ?? 'idle')
-  return <span className={`thread-terminal-tab${selected ? ' is-selected' : ''}`}>
-    <button type="button" className="thread-terminal-tab-main" aria-pressed={selected} onClick={onSelect}>
+  return <span className={`thread-shell-tab${selected ? ' is-selected' : ''}`}>
+    <button type="button" className="thread-shell-tab-main" aria-pressed={selected} onClick={onSelect}>
       <i className="thread-terminal-dot" data-status={status} aria-hidden="true" />{label}
     </button>
-    {closable && <button type="button" className="thread-terminal-tab-close" aria-label={t('terminal.closeTab', { label })} title={t('terminal.closeTab', { label })} onClick={onClose}><X size={12} aria-hidden="true" /></button>}
+    {closable && <button type="button" className="thread-shell-tab-close" aria-label={t('terminal.closeTab', { label })} title={t('terminal.closeTab', { label })} onClick={onClose}><X size={12} aria-hidden="true" /></button>}
   </span>
 }
 
