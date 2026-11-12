@@ -49,15 +49,9 @@ test('Thread projects and conversations survive restart without creating Code wo
 
     app = await launch()
     page = await app.firstWindow()
-    await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' }).catch(async cause => {
-      // This wait timed out once in several runs on Linux (four pull requests on 2026-11-12) with nothing to say why.
-      // The failure now says what the window showed after the relaunch.
-      const relaunched = page
-      const seen = await relaunched.evaluate(() => ({ url: location.href, title: document.title, ready: document.readyState, text: (document.body?.innerText ?? '').slice(0, 600) })).catch(error => ({ unreadable: String(error) }))
-      throw new Error(`${(cause as Error).message}
-window after relaunch: ${JSON.stringify(seen)}
-windows: ${JSON.stringify(app.windows().map(window => window.url()))}`)
-    })
+    // The window opens on the view it last remembered, and Chromium writes that to disk a moment after the click:
+    // closing right after "OxeCode" sometimes reopened in OxeChat, which has no "New workspace" button. That was the
+    // timeout seen once in several runs on Linux (2026-11-12). The switch below is in every view and waits by itself.
     await modeButton(page, 'thread').click()
     await expect(page.locator('.thread-project-group')).toHaveCount(1)
     await expect(page.locator('.thread-session-title')).toContainText(['New conversation'])
