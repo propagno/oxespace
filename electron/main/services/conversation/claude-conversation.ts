@@ -353,7 +353,9 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
           this.evidence.protocolVersion = 'stream-json'
           this.evidence.verified = 'native'
           this.context!.nativeSessionId = event.session_id
-          this.emit({ type: 'session', nativeSessionId: event.session_id, ...(Array.isArray(event.mcp_servers) ? { mcpServers: mcpServerStatuses(event.mcp_servers) } : {}) })
+          // The init message names the model the process really started with, whatever "default" resolved to.
+          const sessionModel = typeof event.model === 'string' && /^[a-z0-9][a-z0-9._:/\[\]-]{0,119}$/i.test(event.model) ? event.model : undefined
+          this.emit({ type: 'session', nativeSessionId: event.session_id, ...(Array.isArray(event.mcp_servers) ? { mcpServers: mcpServerStatuses(event.mcp_servers) } : {}), ...(sessionModel ? { model: sessionModel } : {}) })
           if (typeof event.cwd === 'string') this.emit({ type: 'location', cwd: event.cwd })
         } else if (event.type === 'stream_event') {
           const streamed = record(event.event)
@@ -522,6 +524,12 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     const updatedPermissions = [...(response.decision === 'acceptForSession' ? pending.suggestions ?? [] : []), ...afterPlan]
     this.transport.write(JSON.stringify({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response: accept ? { behavior: 'allow', updatedInput, ...(updatedPermissions.length ? { updatedPermissions } : {}), ...(pending.toolUseId ? { toolUseID: pending.toolUseId } : {}) } : { behavior: 'deny', message: response.reason?.slice(0, 1000) || (response.decision === 'cancel' ? 'Cancelled by the user' : 'Declined by the user') } } }) + '\n')
     this.approvals.delete(requestId)
+    // The CLI left plan mode when the plan was approved. The conversation says so too: the switch stayed on Plan
+    // while the agent edited files, and a later process would have started in plan mode again (CHAT-9).
+    if (accept && pending.toolName === 'ExitPlanMode' && this.context?.mode === 'plan') {
+      this.context = { ...this.context, mode: 'default' }
+      this.emit({ type: 'configuration', mode: 'default', confirmed: true })
+    }
     this.emit({ type: 'request-resolved', id: requestId, ...requestOutcome(pending.toolName === 'AskUserQuestion' ? 'question' : 'approval', response), resolvedAt: Date.now() })
     this.emit({ type: 'approval-resolved', id: requestId })
   }

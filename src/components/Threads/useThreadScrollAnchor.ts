@@ -116,7 +116,11 @@ export function useThreadScrollAnchor(snapshot: ThreadSnapshot | null, selectedI
       const movedUp = el.scrollTop < lastTop.current - 1
       lastTop.current = el.scrollTop
       // Dragging the scrollbar reports no direction; read it from the movement.
-      if (userScrollIntent.current && movedUp) { following.current = false; lastScrollDirection.current = 'up' }
+      // Content that gets shorter under a view at the end (a request card after its answer, a review that closes)
+      // makes the browser lower scrollTop to the new end. Within the moment after a click that looked like a scroll
+      // up: the conversation stopped following and offered "Latest messages" while already showing them.
+      const loweredToEnd = el.scrollHeight - el.scrollTop - el.clientHeight <= 1
+      if (userScrollIntent.current && movedUp && !loweredToEnd) { following.current = false; lastScrollDirection.current = 'up' }
       if (el.scrollTop <= 32 && snapshot.page?.hasMore && !loadingEarlier) void loadEarlier()
       const atEnd = el.scrollHeight - el.scrollTop - el.clientHeight <= 64
       if (following.current && !atEnd && !userScrollIntent.current) {

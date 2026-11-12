@@ -62,7 +62,6 @@ describe('Antigravity conversation adapter', () => {
     assertAdapterConformance('antigravity', fixture().adapter)
     // What ACP does not give is reported as unavailable, never as a Claude or Codex feature.
     const manifest = threadCapabilityManifest('antigravity', fixture().adapter.capabilities, true)
-    expect(manifest.features.rewind.enabled).toBe(false)
     expect(manifest.features.hooks.reason).toContain('Antigravity')
     expect(manifest.features.fork.enabled).toBe(false)
     expect(manifest.features.effort.enabled).toBe(true)
@@ -173,6 +172,31 @@ describe('Antigravity conversation adapter', () => {
     const completed = f.of('completed')[0]
     expect(completed).toMatchObject({ status: 'failed', errorCode: 'context' })
     expect(completed.failure?.providerCode).toBe('max_tokens')
+  })
+
+  it('fails the turn when the agent only says its own run was terminated by an error (CHAT-13)', async () => {
+    const f = fixture()
+    await f.adapter.start(context(), f.emit)
+    await f.adapter.send('Read src/price.js')
+    f.update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: '⚠ Agent execution ' } })
+    f.update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'terminated due to error.' } })
+    f.endTurn({ stopReason: 'end_turn' })
+    await settle()
+    const completed = f.of('completed')[0]
+    expect(completed).toMatchObject({ status: 'failed', errorCode: 'unknown' })
+    expect(completed.failure?.providerCode).toBe('agent_execution_terminated')
+    expect(completed.failure?.detail).toBe('Antigravity stopped its own run with an error and gave no reason.')
+    // What the agent said stays in the conversation, before the failure.
+    expect(f.of('message').map(event => event.text)).toEqual(['⚠ Agent execution terminated due to error.'])
+
+    // An answer that only mentions those words, and one that ends well after an earlier error, are finished turns.
+    const fine = fixture()
+    await fine.adapter.start(context(), fine.emit)
+    await fine.adapter.send('What does that error mean?')
+    fine.update({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'The log says "Agent execution terminated due to error." because the sandbox closed.' } })
+    fine.endTurn({ stopReason: 'end_turn' })
+    await settle()
+    expect(fine.of('completed')[0]).toMatchObject({ status: 'completed' })
   })
 
   it('asks a person before a command, and answers with the option the provider offered', async () => {

@@ -160,6 +160,7 @@
       "code": {
         "changes": "Changes",
         "browser": "Browser",
+        "designMode": "Select an element in the Browser",
         "files": "Files",
         "search": "Find in files",
         "splitLayout": "Toggle split layout"
@@ -190,10 +191,10 @@
         "terminal": "Terminal",
         "changes": "Changes",
         "browser": "Browser",
+        "designMode": "Select an element in the Browser",
         "permissions": "Permissions",
         "model": "Model",
         "effort": "Reasoning effort",
-        "history": "History",
         "sideChat": "Side chat"
       },
       "help": {
@@ -532,10 +533,6 @@
         "httpCalls": {
           "title": "HTTP calls",
           "body": "Every HTTP call your agents made, with secrets masked."
-        },
-        "timeTravel": {
-          "title": "Time travel",
-          "body": "Go back to any checkpoint, or branch from it."
         }
       }
     },
@@ -656,7 +653,6 @@
       "steer": "Steer in OxeChat",
       "stop": "Stop in OxeChat",
       "new": "New conversation",
-      "history": "History",
       "terminal": "New terminal",
       "theme": "Appearance",
       "skill": "Skills"
@@ -667,7 +663,6 @@
       "steer": "Send a steering note in OxeChat",
       "stop": "Stop the active turn in OxeChat",
       "new": "Start a new conversation in OxeChat",
-      "history": "Open conversation history and checkpoints",
       "terminal": "Open a new terminal pane",
       "theme": "Switch light or dark appearance",
       "skill": "Run an enabled skill in the focused agent pane"

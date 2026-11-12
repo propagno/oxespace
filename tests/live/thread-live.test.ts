@@ -104,24 +104,6 @@ async function scenario(provider: ThreadProvider): Promise<void> {
     expect(manager.read(id).thread.queue ?? []).toHaveLength(0)
     expect(manager.read(id).thread.queuePause).toBeUndefined()
 
-    // 5. Rewind removes BRAVO from the provider's own memory, not just the screen.
-    const before = manager.readSinceForRenderer(id, manager.readForRenderer(id).sync!)
-    expect(before.ok).toBe(true)
-    const staleCursor = manager.readForRenderer(id).sync!
-    const second = manager.read(id).turns![1]
-    const result = await manager.rewind(id, second.id)
-    expect(result.removedTurns).toBe(3)
-    const rewound = manager.read(id)
-    expect(rewound.turns).toHaveLength(1)
-    expect(rewound.events.filter(event => event.type === 'message' && event.role === 'user')).toHaveLength(1)
-    expect(manager.readSinceForRenderer(id, staleCursor)).toEqual({ ok: false, reset: 'epoch' })
-
-    const countBefore = h.assistantText().length
-    await manager.send(id, 'List every code word I asked you to remember in this conversation, comma separated, nothing else.')
-    await h.idle('post-rewind turn', 2)
-    const answer = h.assistantText().slice(countBefore).toUpperCase()
-    expect(answer).toContain('ALPHA')
-    expect(answer).not.toContain('BRAVO')
   } finally {
     await manager.stop()
     h.db.close()
@@ -129,6 +111,6 @@ async function scenario(provider: ThreadProvider): Promise<void> {
 }
 
 describe.skipIf(!live)('live providers', () => {
-  it('Claude: delivery, context, delta, queue pause and fork rewind', async () => { await scenario('claude') }, 600_000)
-  it('Codex: delivery, context, delta, queue pause and revert rewind', async () => { await scenario('codex') }, 600_000)
+  it('Claude: delivery, context, delta and queue pause', async () => { await scenario('claude') }, 600_000)
+  it('Codex: delivery, context, delta and queue pause', async () => { await scenario('codex') }, 600_000)
 })

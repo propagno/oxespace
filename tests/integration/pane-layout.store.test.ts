@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from 'vitest'
 import { usePaneLayoutStore } from '../../src/store/pane-layout.store'
 import type { WorkspacePane } from '../../shared/types/workspace'
+import { computeLayout } from '../../shared/types/pane-tree'
 
 function pane(id: string, row = 0, col = 0): WorkspacePane {
   return {
@@ -85,5 +86,21 @@ describe('pane-layout.store', () => {
     const before = usePaneLayoutStore.getState().trees['ws-1']
     usePaneLayoutStore.getState().sync('ws-1', [pane('a', 0, 0), pane('b', 0, 1)])
     expect(usePaneLayoutStore.getState().trees['ws-1']).toEqual(before)
+  })
+
+  test('a pane split from the pane\'s menu takes half of that pane, whichever arrives first, sync or split', () => {
+    const grid = [pane('a', 0, 0), pane('b', 0, 1), pane('c', 1, 0), pane('d', 1, 1)]
+    const shares = () => Object.fromEntries(computeLayout(usePaneLayoutStore.getState().trees['ws-1'] ?? null).rects.map(rect => [rect.paneId, [Math.round(rect.width), Math.round(rect.height)]]))
+    for (const direction of ['horizontal', 'vertical'] as const) {
+      usePaneLayoutStore.setState({ trees: {} })
+      usePaneLayoutStore.getState().sync('ws-1', grid)
+      // The workspace comes back with the new pane first; the split itself arrives after.
+      usePaneLayoutStore.getState().sync('ws-1', [...grid, { ...pane('n', 0, 2), originPaneId: 'a' } as WorkspacePane])
+      usePaneLayoutStore.getState().split('ws-1', 'a', 'n', direction)
+      const now = shares()
+      expect(now.b, direction).toEqual([50, 50])
+      expect(now.a, direction).toEqual(direction === 'horizontal' ? [25, 50] : [50, 25])
+      expect(now.n, direction).toEqual(now.a)
+    }
   })
 })

@@ -3,14 +3,18 @@
  * app or an agent wrapped around it (`<artifact-content-author>…</artifact-content-author>`),
  * which made the sidebar show a raw tag; the title is the first thing a person would read.
  */
-export function deriveThreadTitle(text: string, limit = 80): string {
+export function deriveThreadTitle(text: string, limit = 56): string {
   const withoutBlocks = text.replace(/<([A-Za-z][\w:-]*)(?:\s[^>]*)?>[\s\S]*?<\/\1>/g, ' ')
   const source = withoutBlocks.trim() ? withoutBlocks : text
   const stripped = source.replace(/<\/?[A-Za-z][\w:-]*(?:\s[^>]*)?>/g, ' ')
   const line = stripped.split(/\r?\n/).map(entry => entry.replace(/\s+/g, ' ').trim()).find(Boolean) ?? ''
   const sentence = line.split(/(?<=[.!?])\s/)[0] ?? line
-  const title = (sentence.length > limit ? line : sentence).slice(0, limit).trim()
-  return title
+  if (sentence.length <= limit) return sentence
+  // A heading, not the whole prompt: cut at a word, and say that it was cut. A single long word is cut where it is.
+  const head = sentence.slice(0, limit - 1)
+  const space = head.lastIndexOf(' ')
+  const body = sentence[limit - 1] === ' ' || space <= limit / 2 ? head : head.slice(0, space)
+  return `${body.replace(/[\s,;:.\-–—]+$/, '')}…`
 }
 
 /**

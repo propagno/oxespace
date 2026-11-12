@@ -53,7 +53,7 @@ interface ActiveRefusal {
 
 const DISALLOWED_RE = /^\/(approve|allow|accept)(?:\s|$)/i
 const CONTROL_CHAR_RE = /[\x00-\x1f\x7f]/
-const GO_TO_COMMAND_IDS = new Set<string>(['pending', 'history'])
+const GO_TO_COMMAND_IDS = new Set<string>(['pending'])
 const HINT_FILL: Record<'agent' | 'skill' | 'open' | 'help', string> = {
   agent: '@Codex ',
   skill: '/skill ',
@@ -99,6 +99,9 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
   useEffect(() => {
     if (open) inputRef.current?.focus({ preventScroll: true })
   }, [open])
+
+  // The local usage count's "Command bar" is this bar, counted once each time it opens.
+  useEffect(() => { if (open) void window.oxe?.featureUsage?.record?.('commandBar') }, [open])
 
   const startTrimmed = query.replace(/^[ \t]+/, '')
   const trimmed = startTrimmed.trim()
