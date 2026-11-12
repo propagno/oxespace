@@ -30,7 +30,17 @@ export function PreviewEmptyState({ kind, url, devScript, onRunDev }: PreviewEmp
     )
   }
   return (
-    <EmptyState icon={<MonitorPlay size={20} />} title={t('agentBrowser.noneTitle')}>
+    <EmptyState
+      icon={<MonitorPlay size={20} />}
+      title={t('agentBrowser.noneTitle')}
+      actions={
+        devScript && onRunDev ? (
+          <Button variant="primary" size="sm" onClick={onRunDev}>
+            {t('agentBrowser.runDev', { script: devScript })}
+          </Button>
+        ) : undefined
+      }
+    >
       {t('agentBrowser.noneHint')}
     </EmptyState>
   )
