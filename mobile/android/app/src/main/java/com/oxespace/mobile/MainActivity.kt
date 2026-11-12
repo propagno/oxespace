@@ -23,6 +23,7 @@ import com.oxespace.mobile.approval.KeystorePresence
 import com.oxespace.mobile.approval.PresenceGate
 import com.oxespace.mobile.notify.NotificationTaps
 import com.oxespace.mobile.pairing.PairLinkForHomologation
+import com.oxespace.mobile.protocol.live.showsConversationToggle
 import com.oxespace.mobile.pairing.PairedDesktop
 import com.oxespace.mobile.pairing.PairingViewModel
 import com.oxespace.mobile.session.DesktopStatus
@@ -200,9 +201,18 @@ class MainActivity : ComponentActivity() {
             }
             openPane != null -> {
                 val watched = live.openTerminal(openPane.id)
-                DisposableEffect(openPane.id) { onDispose { live.closeTerminal(openPane.id) } }
+                // A46: the pane agent's conversation, followed only when the desktop says the pane has one.
+                val talks = showsConversationToggle(openPane)
+                val conversation = remember(openPane.id, talks) { if (talks) live.openPaneConversation(openPane.id) else null }
+                DisposableEffect(openPane.id) {
+                    onDispose {
+                        live.closeTerminal(openPane.id)
+                        live.closePaneConversation(openPane.id)
+                        live.terminalSize.release(openPane.id)
+                    }
+                }
                 BackHandler { paneId = null }
-                TerminalScreen(openPane, watched, live.streams.commands, presence, onBack = { paneId = null })
+                TerminalScreen(openPane, watched, live.streams.commands, presence, conversation = conversation, computer = name, sizing = live.terminalSize, onBack = { paneId = null })
             }
             else -> LiveHome(
                 desktopName = name,

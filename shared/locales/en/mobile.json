@@ -304,6 +304,7 @@
     "hiddenBack": "Back to terminals",
     "panHint": "{{cols}} cols · swipe to pan",
     "fitWidth": "Fit the width",
+    "sizeTakenBack": "The computer took its own size back for this terminal. Open it again to fit this phone.",
     "typeOnScreen": "Type on the Screen view",
     "hiddenTitle": "Terminal"
   },

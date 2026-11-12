@@ -318,6 +318,8 @@
     "hiddenBack": "Voltar aos terminais",
     "panHint": "{{cols}} colunas · arraste para os lados",
     "fitWidth": "Ajustar à largura",
+
+    "sizeTakenBack": "O computador retomou o tamanho dele para este terminal. Abra de novo para ajustar a este telefone.",
     "typeOnScreen": "Digite na visão Tela",
     "hiddenTitle": "Terminal"
   },
