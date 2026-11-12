@@ -175,12 +175,14 @@ export function SettingsCenter(props: SettingsModalProps & {
     <button
       key={`${keyPrefix}${page.id}`}
       title={page.hint}
-      aria-label={inactiveScopeLabel && page.id === 'general' ? `${inactiveScopeLabel}: ${page.label} ${page.hint ?? ''}` : `${page.label} ${page.hint ?? ''}`}
+      aria-label={`${inactiveScopeLabel && page.id === 'general' ? `${inactiveScopeLabel}: ` : ''}${page.label}${badge > 0 ? ` (${badge})` : ''} ${page.hint ?? ''}`}
       aria-current={current ? 'page' : undefined}
       onClick={onSelect}
     >
       <Icon size={16} aria-hidden="true" /><span>{page.label}</span>
-      {badge > 0 ? <small className="settings-nav-badge" aria-hidden="true">{badge}</small> : null}
+      {/* Drawn from the attribute, so the button's text is its name: as text, "MCP servers and skills3" was not in
+          the accessible name and a voice user could not say what they read (label-content-name-mismatch). */}
+      {badge > 0 ? <small className="settings-nav-badge" aria-hidden="true" data-count={badge} /> : null}
     </button>
   )
   const hasAnyNav = appFiltered.length > 0 || wsFiltered.length > 0
