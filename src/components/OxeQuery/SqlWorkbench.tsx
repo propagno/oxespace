@@ -2,6 +2,8 @@ import type { OnMount } from '@monaco-editor/react'
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Button } from '../../ui/Button'
+import { Kbd } from '../../ui/Field'
+import { formatChord } from '../../keyboard/chords'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { ChevronDown, ChevronRight, Gauge, Play, Plus, Square, Table2, X } from 'lucide-react'
 import { MONACO_THEME } from '../../lib/monacoTheme'
@@ -373,7 +375,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
       </div>
       <div className="oq-editor-toolbar">
         <div className="oq-tb-group" role="group" aria-label={t('common.run')}>
-          <Button size="sm" variant="primary" icon={<Play size={13} aria-hidden="true" />} onClick={runCurrent} disabled={running} title={t('workbench.runTitle')}>{t('common.run')}</Button>
+          <Button size="sm" variant="primary" icon={<Play size={13} aria-hidden="true" />} onClick={runCurrent} disabled={running} title={t('workbench.runTitle')}>{t('common.run')}<span className="oq-run-key" aria-hidden="true"><Kbd>{formatChord('Mod+Enter')}</Kbd></span></Button>
           <Button size="sm" data-oq-action="runAll" onClick={runAll} disabled={running} title={t('workbench.runAllTitle')}>{t('workbench.runAll')}</Button>
           {running && <Button size="sm" icon={<Square size={13} aria-hidden="true" />} onClick={cancel} title={t('workbench.cancelTitle')}>{t('common.cancel')}</Button>}
         </div>
