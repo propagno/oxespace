@@ -87,7 +87,7 @@ export function ThreadContextMenu({ onQuote }: { onQuote: (text: string) => void
         { label: t('contextMenu.quoteMessage'), onSelect: () => { if (target.quote) target.quote.click(); else onQuote(target.text) } }
       ]
 
-  return <span ref={anchor} className="thread-context-menu-anchor" style={{ position: 'fixed', left: open?.x ?? 0, top: open?.y ?? 0, width: 0, height: 0 }}>
+  return <span ref={anchor} style={{ position: 'fixed', left: open?.x ?? 0, top: open?.y ?? 0, width: 0, height: 0 }}>
     <AnchoredMenu open={open !== null} label={t('contextMenu.label')} items={items}
       returnFocus={() => (target?.kind === 'field' ? target.field : null)}
       onOpenChange={next => {
