@@ -472,6 +472,7 @@
     "intro": "Shortcuts work in the view named by each group. Press <strong>?</strong> outside a text field to see the ones for the current screen. A focused terminal keeps every key except the command palette, Settings and the sidebar shortcuts.",
     "shortcuts": "{{scope}} shortcuts",
     "alsoUsed": "Also used by {{bindings}}",
+    "taken": "{{chord}} is already the shortcut for {{bindings}}. Press another one, or change that shortcut first.",
     "capturing": "Press the new shortcut, or Esc to cancel",
     "changeLabel": "Change shortcut for {{name}}",
     "pressKeys": "Press keys…",

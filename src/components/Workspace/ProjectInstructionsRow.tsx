@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { openPathIn, preferredEditor, useOpenInStore } from '../../lib/openIn'
 import { Button, toast } from '../../ui'
 import { i18n } from '../../i18n'
-import './WorkspaceDelegationSettings.css'
+import './ProjectInstructionsRow.css'
 
 /** The instruction files agents read at the start of a conversation, in the order they are listed. */
 const INSTRUCTION_FILES = ['CLAUDE.md', 'AGENTS.md'] as const
