@@ -206,6 +206,18 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
       else setError(threadError(error))
     } finally { onSettled?.(success); actionInFlight.current = false; setPending(false) }
   }
+  // Stop is never held back by another action of this view. `action` runs one thing at a time and drops the rest:
+  // while a message was still being accepted (a session resumed after the app closed takes its time) every Stop was
+  // dropped without a word, or disabled, and the turn went on.
+  const stopInFlight = useRef(false)
+  const stopTurn = (): void => {
+    const interrupt = api?.interrupt
+    if (!snapshot || !interrupt || stopInFlight.current) return
+    const id = snapshot.thread.id
+    stopInFlight.current = true
+    setError(''); setErrorDetail('')
+    void interrupt(id).then(() => useThreadStore.getState().refresh(id)).catch(cause => setError(threadError(cause))).finally(() => { stopInFlight.current = false })
+  }
   const commands = useThreadCommands({ snapshot, draft, textarea, pending, run: action, onNewThread, onAccounts, onError: setError })
   const [caret, setCaret] = useState(0)
   const mentions = useFileMentions({
@@ -357,9 +369,8 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
       ;(inlineQuestion?.querySelector<HTMLElement>('input, select, textarea, button') ?? workbench.current?.querySelector<HTMLElement>('.thread-pending-requests input, .thread-pending-requests select, .thread-pending-requests button'))?.focus()
       return
     }
-    const interrupt = api?.interrupt
-    if (act === 'stop' && interrupt) {
-      void action(() => interrupt(snapshot.thread.id))
+    if (act === 'stop') {
+      stopTurn()
       return
     }
     const sendApi = api?.send
@@ -443,7 +454,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
       {snapshot && <PrStatusBar key={snapshot.thread.id} workspaceId={snapshot.thread.workspaceId} rootPath={snapshot.thread.rootPath} onFix={appendToConversation} onStatus={pr => { setPrThreadId(pr ? snapshot.thread.id : null); onPrStatus(pr) }} />}
       <ThreadComposerForm snapshot={snapshot} draft={draft} attachments={attachments} pending={pending} running={running} active={active} composerState={composerState} textarea={textarea} fileInput={fileInput}
         commands={commands} mentions={mentions} openControl={openControl} onControlClosed={() => setOpenControl(null)} onError={setError} onSend={send} onCaret={setCaret}
-        onUpload={files => void uploadFiles(files)} onRemoveAttachment={attachmentId => void removeAttachment(attachmentId)} onInsertMention={insertMention} onInterrupt={() => void action(() => api!.interrupt(snapshot!.thread.id))} />
+        onUpload={files => void uploadFiles(files)} onRemoveAttachment={attachmentId => void removeAttachment(attachmentId)} onInsertMention={insertMention} onInterrupt={stopTurn} />
     </div></div>}
     {panel && <Suspense fallback={null}><ThreadCommandDialog key={`${panel.surface ?? panel.kind}:${panel.title ?? ''}`} panel={panel} snapshot={snapshot} pending={pending} error={error} onError={setError} action={action} runCommand={runCommand} onDelegations={onDelegations}
       onClose={() => { setPanel(null); requestAnimationFrame(() => textarea.current?.focus()) }} /></Suspense>}

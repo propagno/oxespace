@@ -567,6 +567,22 @@ describe('Thread workspace UI', () => {
     await waitFor(() => expect(f.api.interrupt).toHaveBeenCalledWith('thread'))
     expect(screen.getByRole('textbox', { name: 'Message' })).toBeEnabled()
   })
+  it('Stop goes through while a message is still being accepted (CHAT-2)', async () => {
+    // A session resumed after the app closed can take long to accept the message. The turn already shows as running;
+    // the one-action-at-a-time guard dropped every Stop, and the composer's was disabled.
+    const f = fixture()
+    vi.mocked(f.api.send).mockImplementation(() => new Promise<void>(() => {}))
+    render(<ThreadView workspace={f.workspace} />)
+    fireEvent.change(screen.getByRole('textbox', { name: 'Message' }), { target: { value: 'A long task' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    expect(f.api.send).toHaveBeenCalledTimes(1)
+    const running: ThreadSnapshot = { ...f.snapshot, thread: { ...f.snapshot.thread, status: 'running' }, events: [{ type: 'message', id: 'turn', role: 'user', text: 'A long task' }] }
+    act(() => useThreadStore.setState({ threads: [running.thread], snapshot: running }))
+    const stop = await screen.findByRole('button', { name: 'Stop turn' })
+    expect(stop).toBeEnabled()
+    fireEvent.click(stop)
+    await waitFor(() => expect(f.api.interrupt).toHaveBeenCalledWith('thread'))
+  })
   it('locks the composer synchronously so repeated submit events cannot duplicate a turn', async () => {
     const f = fixture()
     let release!: () => void
