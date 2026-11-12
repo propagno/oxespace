@@ -878,6 +878,7 @@
     "status": {
       "needs-decision": "Needs your decision",
       "thinking": "Thinking",
+      "running": "Running",
       "awaiting": "Awaiting",
       "starting": "Starting",
       "exited": "Exited",
@@ -1265,6 +1266,7 @@
       "agentMenu": "Launch agent",
       "layoutMenu": "Terminal grid layout",
       "layoutFocus": "Focus",
+      "layoutCustom": "Custom",
       "mcp": "Open MCP servers",
       "mcpQuarantined_one": "Open MCP servers: {{count}} quarantined",
       "mcpQuarantined_other": "Open MCP servers: {{count}} quarantined",
@@ -1971,6 +1973,7 @@
     "splitDown": "Split pane down",
     "moveBelow": "Move below the previous pane",
     "moveRight": "Move to the right of the previous pane",
+    "firstPane": "This is the first pane: there is none before it.",
     "balance": "Balance panes",
     "close": "Close pane",
     "detailsTitle": "Terminal details",
