@@ -31,12 +31,13 @@
 .thread-composer .thread-mode-toggle button[aria-pressed='true']:first-child { background: var(--intent-warning-bg); color: var(--intent-warning-fg); }
 /* Narrow (T58 §5), one step at a time and always a whole chip: the effort keeps its icon, then the permissions keep
    icon and color (the text is in the tooltip and the name), then the model keeps its dot; the number beside the ring
-   goes with the first step. Under 420 px the right side takes a line of its own. The permissions chip never hides.
+   goes with the first step. Under 500 px the right side takes a line of its own when it no longer fits: with Stop on
+   screen the row needs about 475 px and nothing is left to give. The permissions chip never hides.
    The steps are for the longest case: Portuguese, with Stop on screen. */
 @container thread-composer (max-width: 719px) { .thread-composer .thread-chip.is-effort .thread-chip-text, .thread-composer .thread-usage-ring-number { display: none; } }
 @container thread-composer (max-width: 679px) { .thread-composer .thread-chip.is-permissions .thread-chip-text { display: none; } }
 @container thread-composer (max-width: 539px) { .thread-composer .thread-chip.is-model { min-width: 24px; } .thread-composer .thread-chip.is-model .thread-chip-text { display: none; } }
-@container thread-composer (max-width: 419px) { .thread-composer footer { flex-wrap: wrap; row-gap: 6px; } }
+@container thread-composer (max-width: 499px) { .thread-composer footer { flex-wrap: wrap; row-gap: 6px; } }
 .thread-composer .thread-config-trigger[data-state='open'] { outline: 1px solid var(--focus-ring); outline-offset: 0; }
 
 /* One line per option, as in a menu. The explanation stays for screen readers. */
