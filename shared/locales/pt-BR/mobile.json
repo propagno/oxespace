@@ -33,7 +33,11 @@
       "title": "Desparear de {{desktop}}?",
       "body": "Este celular esquece {{desktop}} e a chave usada com ele. Para voltar, pareie de novo pelo QR em Configurações › Dispositivos no computador."
     },
-    "cardProblem": "Sem conexão"
+    "cardProblem": "Sem conexão",
+    "benefitFollow": "Veja o que cada agente está fazendo, na hora",
+    "benefitAnswer": "Responda aprovações e perguntas",
+    "benefitTerminal": "Leia seus terminais e digite nos que você permitir",
+    "sameWifi": "Só na mesma Wi-Fi: este celular fala direto com o seu computador."
   },
   "pairing": {
     "title": "Parear com o computador",
@@ -166,7 +170,8 @@
       "text": "O computador não conseguiu ler todas as fontes desta vez. A lista se completa quando puder."
     },
     "menuSettings": "Configurações",
-    "emptyTitle": "Nada por aqui ainda"
+    "emptyTitle": "Nada por aqui ainda",
+    "connectedHint": "Conectado · mesma Wi-Fi"
   },
   "thread": {
     "tool": {
@@ -454,6 +459,16 @@
       "needsYou": "Um agente precisa de você",
       "done": "Uma tarefa terminou",
       "failed": "Uma tarefa falhou"
+    },
+    "computer": {
+      "title": "Computador",
+      "unpair": "Desparear este celular"
+    },
+    "about": {
+      "title": "Sobre",
+      "app": "OXESpace para Android",
+      "version": "Versão {{version}}",
+      "sameWifi": "Funciona enquanto este celular e o seu computador estão na mesma Wi-Fi."
     }
   }
 }

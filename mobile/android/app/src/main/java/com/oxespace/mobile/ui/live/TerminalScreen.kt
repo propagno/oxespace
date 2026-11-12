@@ -566,17 +566,17 @@ private fun keyName(key: TerminalKey): Int? = when (key) {
     else -> null
 }
 
-private fun sizeLabel(size: TerminalTextSize): Int = when (size) {
+internal fun sizeLabel(size: TerminalTextSize): Int = when (size) {
     TerminalTextSize.SMALL -> R.string.terminal_size_small
     TerminalTextSize.MEDIUM -> R.string.terminal_size_medium
     TerminalTextSize.LARGE -> R.string.terminal_size_large
 }
 
 /** The terminal's text size lives on the phone only; screenshots and a failed read get the default. */
-private fun readTextSize(context: Context): String? =
+internal fun readTextSize(context: Context): String? =
     runCatching { context.getSharedPreferences(TERMINAL_PREFS, Context.MODE_PRIVATE).getString(TEXT_SIZE_KEY, null) }.getOrNull()
 
-private fun writeTextSize(context: Context, size: TerminalTextSize) {
+internal fun writeTextSize(context: Context, size: TerminalTextSize) {
     runCatching { context.getSharedPreferences(TERMINAL_PREFS, Context.MODE_PRIVATE).edit { putString(TEXT_SIZE_KEY, size.name) } }
 }
 
