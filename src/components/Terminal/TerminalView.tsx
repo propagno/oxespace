@@ -1,4 +1,5 @@
 import { FitAddon } from '@xterm/addon-fit'
+import { TERMINAL_SELECT_ALL_EVENT } from '../Navigation/editTarget'
 import { useColorMode } from '../../design/useColorMode'
 import { SearchAddon } from '@xterm/addon-search'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
@@ -575,6 +576,9 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     }
     hostRef.current.addEventListener('paste', handlePaste, { capture: true })
     hostRef.current.addEventListener('copy', handleCopy, { capture: true })
+    // Edit > Select all, with the cursor in this terminal.
+    const handleSelectAll = (): void => terminal.selectAll()
+    hostRef.current.addEventListener(TERMINAL_SELECT_ALL_EVENT, handleSelectAll)
 
     const handleProgrammaticInsert = (event: Event): void => {
       const detail = (event as CustomEvent<{ paneId?: string; text?: string }>).detail
@@ -826,6 +830,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       }
       hostRef.current?.removeEventListener('paste', handlePaste, { capture: true })
       hostRef.current?.removeEventListener('copy', handleCopy, { capture: true })
+      hostRef.current?.removeEventListener(TERMINAL_SELECT_ALL_EVENT, handleSelectAll)
       if (usesHostWheelFallback) {
         hostRef.current?.removeEventListener('wheel', hostWheelFallback)
       }

@@ -293,7 +293,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     clipboard: {
       saveImageToTemp: () => ipc.invoke(IPC_CHANNELS.clipboard.saveImageToTemp) as Promise<string | null>,
       readText: () => ipc.invoke(IPC_CHANNELS.clipboard.readText) as Promise<string>,
-      writeText: (text) => ipc.invoke(IPC_CHANNELS.clipboard.writeText, text) as Promise<boolean>
+      writeText: (text) => ipc.invoke(IPC_CHANNELS.clipboard.writeText, text) as Promise<boolean>,
+      edit: (command) => ipc.invoke(IPC_CHANNELS.clipboard.edit, command) as Promise<boolean>
     },
     oxeQuery: {
       call: (op, input) => ipc.invoke(IPC_CHANNELS.oxeQuery.call, { op, input }) as never,

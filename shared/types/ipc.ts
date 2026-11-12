@@ -192,7 +192,9 @@ export const IPC_CHANNELS = {
   clipboard: {
     saveImageToTemp: 'clipboard:save-image-to-temp',
     readText: 'clipboard:read-text',
-    writeText: 'clipboard:write-text'
+    writeText: 'clipboard:write-text',
+    /** The Edit menu: an editing command on the focused field of the window that asks. */
+    edit: 'clipboard:edit'
   },
   oxeQuery: {
     call: 'oxeQuery:call',
@@ -638,10 +640,16 @@ export interface GitHubApi {
   connectRepository(input: GitHubConnectRepositoryInput): Promise<GitHubConnectedRepository>
 }
 
+/** What the Edit menu can ask of the focused field; the keyboard does the same without asking. */
+export const EDIT_COMMANDS = ['undo', 'redo', 'cut', 'copy', 'paste', 'selectAll'] as const
+export type EditCommand = typeof EDIT_COMMANDS[number]
+
 export interface ClipboardApi {
   saveImageToTemp(): Promise<string | null>
   readText(): Promise<string>
   writeText(text: string): Promise<boolean>
+  /** Runs the command on the window's focused field. False when the command is not one of EDIT_COMMANDS. */
+  edit?(command: EditCommand): Promise<boolean>
 }
 
 export interface AgentNotificationPayload {
