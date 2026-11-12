@@ -50,6 +50,11 @@ describe('describePermissionRequest', () => {
     const write = describePermissionRequest({}, 'Write', { file_path: 'notes/a.md', content: ['one', 'two'].join('\n') })
     expect(write.title).toBe('Write a.md')
     expect(write.detail.split('\n')).toEqual(['notes/a.md', '+ one', '+ two'])
+    // B-2: a file that ends with a line break, as files do, has no empty "+" line after its last one. A blank line
+    // inside the file, or a second line break at the end, is still a line.
+    const ended = describePermissionRequest({}, 'Write', { file_path: 'notes/a.md', content: 'one\n\ntwo\n' })
+    expect(ended.detail.split('\n')).toEqual(['notes/a.md', '+ one', '+ ', '+ two'])
+    expect(describePermissionRequest({}, 'Write', { file_path: 'notes/a.md', content: 'one\n\n' }).detail.split('\n')).toEqual(['notes/a.md', '+ one', '+ '])
 
     expect(describePermissionRequest({}, 'WebFetch', { url: 'https://example.com/docs?x=1', prompt: 'Summarize' }).title).toBe('Open example.com')
     const other = describePermissionRequest({ display_name: 'Capabilities' }, 'mcp__oxespace__capabilities', { scope: 'workspace', limit: 5 })

@@ -43,7 +43,8 @@ const pick = (record: Record<string, unknown>, ...keys: string[]): string => {
 
 const str = (value: unknown): string => (typeof value === 'string' ? value : '')
 const baseName = (path: string): string => path.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || path
-const signed = (block: string, sign: '-' | '+'): string => block.split('\n').map(line => `${sign} ${line}`).join('\n')
+// A block that ends in a line break ends its last line; it has no empty line after it (a new file showed one more "+").
+const signed = (block: string, sign: '-' | '+'): string => block.replace(/\r?\n$/, '').split('\n').map(line => `${sign} ${line}`).join('\n')
 
 /**
  * What the tool is about to do, in the words a person reads: the command itself, the file with the lines that leave
