@@ -8,7 +8,7 @@ import {
   parseTerminalStopInput,
   parseTerminalWriteInput
 } from './validation'
-import type { TerminalAttachResult, TerminalPaneBranch, TerminalStatusResult } from '../../../shared/types/ipc'
+import type { TerminalAttachResult, TerminalPaneBranch, TerminalSizeLease, TerminalStatusResult } from '../../../shared/types/ipc'
 
 export interface TerminalIpcController {
   start(input: ReturnType<typeof parseTerminalStartInput>): Promise<void> | void
@@ -22,6 +22,9 @@ export interface TerminalIpcController {
   hasSession?(paneId: string): boolean
   /** A18 (T73) · The pane's branch for its header; the window only (mcp-coverage: excluded). */
   branch?(paneId: string): Promise<TerminalPaneBranch | null> | TerminalPaneBranch | null
+  /** 1.5.0 · The size a phone holds for the pane, and the person taking it back; the window only (mcp-coverage: excluded). */
+  sizeLease?(paneId: string): TerminalSizeLease | null
+  takeBackSize?(paneId: string): boolean
   resumeBypass?(): boolean
   setResumeBypass?(enabled: boolean): boolean
 }
@@ -37,6 +40,8 @@ export function registerTerminalIpc(controller: TerminalIpcController = createPe
   ipcMain.handle(IPC_CHANNELS.terminal.attach, (_event, input: unknown) => controller.attach(parseTerminalAttachInput(input)))
   ipcMain.handle(IPC_CHANNELS.terminal.detach, (_event, input: unknown) => controller.detach(parseTerminalStopInput(input)))
   ipcMain.handle(IPC_CHANNELS.terminal.branch, (_event, paneId: unknown) => controller.branch?.(String(paneId ?? '')) ?? null)
+  ipcMain.handle(IPC_CHANNELS.terminal.sizeLease, (_event, paneId: unknown) => controller.sizeLease?.(String(paneId ?? '')) ?? null)
+  ipcMain.handle(IPC_CHANNELS.terminal.takeBackSize, (_event, paneId: unknown) => controller.takeBackSize?.(String(paneId ?? '')) ?? false)
   ipcMain.handle(IPC_CHANNELS.terminal.status, (_event, paneId: unknown) => controller.status(String(paneId ?? '')))
   // T54 · Only the window changes it; no agent hook or MCP tool reaches these (mcp-coverage: forbidden).
   ipcMain.handle(IPC_CHANNELS.terminal.resumeBypass, () => controller.resumeBypass?.() ?? false)

@@ -29,6 +29,8 @@ import {
   type TaskVerifyOutputEvent,
   type TerminalActivityEvent,
   type TerminalBranchChangedEvent,
+  type TerminalSizeLease,
+  type TerminalSizeLeaseEvent,
   type TerminalPaneBranch,
   type TerminalAttachResult,
   type TerminalDataEvent,
@@ -50,6 +52,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
   const terminalExit = createPaneSubscriber<TerminalExitEvent>(ipc, IPC_CHANNELS.terminal.onExit)
   const terminalActivity = createPaneSubscriber<TerminalActivityEvent>(ipc, IPC_CHANNELS.terminal.onActivity)
   const terminalBranch = createPaneSubscriber<TerminalBranchChangedEvent>(ipc, IPC_CHANNELS.terminal.branchChanged)
+  const terminalSizeLease = createPaneSubscriber<TerminalSizeLeaseEvent>(ipc, IPC_CHANNELS.terminal.sizeLeaseChanged)
 
   return {
     agentAccount: {
@@ -237,6 +240,9 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       onExit: terminalExit,
       branch: (paneId) => ipc.invoke(IPC_CHANNELS.terminal.branch, paneId) as Promise<TerminalPaneBranch | null>,
       onBranchChanged: terminalBranch,
+      sizeLease: (paneId) => ipc.invoke(IPC_CHANNELS.terminal.sizeLease, paneId) as Promise<TerminalSizeLease | null>,
+      takeBackSize: (paneId) => ipc.invoke(IPC_CHANNELS.terminal.takeBackSize, paneId) as Promise<boolean>,
+      onSizeLeaseChanged: terminalSizeLease,
       onActivity: terminalActivity
     },
     agent: {

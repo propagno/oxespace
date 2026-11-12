@@ -62,7 +62,7 @@ export type RemoteSubscription = typeof REMOTE_SUBSCRIPTIONS[number]
  * (S7.1). Every command counts toward `REMOTE_LIMITS.commandsPerMinute`
  * and is recorded in the desktop's audit with the device id.
  */
-export const REMOTE_COMMANDS = ['thread.send', 'thread.steer', 'thread.interrupt', 'thread.respondRequest', 'terminal.write', 'thread.history', 'agent.markSeen', 'pane.conversation'] as const
+export const REMOTE_COMMANDS = ['thread.send', 'thread.steer', 'thread.interrupt', 'thread.respondRequest', 'terminal.write', 'thread.history', 'agent.markSeen', 'pane.conversation', 'terminal.resize', 'terminal.release'] as const
 export type RemoteCommand = typeof REMOTE_COMMANDS[number]
 
 /** Never a command, a subscription or an argument of the remote protocol. */
@@ -686,6 +686,19 @@ export interface RemoteRespondRequestArgs {
 export interface RemoteRespondRequestResult { resolution: string }
 /** Only on a pane with `phoneWrite`, else `pane-not-shared`; `data` ≤ `REMOTE_LIMITS.terminalWriteBytes`. */
 export interface RemoteTerminalWriteArgs { paneId: string; data: string }
+/**
+ * 1.5.0 · The phone has this terminal open and asks for the grid that fits its own screen, so a full-screen CLI draws
+ * for the phone (before, the phone only panned over the desktop's grid). Used only when the desktop's hello lists
+ * `terminal.resize`. On any pane the phone can see (a hidden one is `pane-not-shared`); `cols` and `rows` inside
+ * `REMOTE_TERMINAL_GRID`. The hold lasts while the phone renews it (send it again at least once a minute) and ends with
+ * `terminal.release`, a disconnect, or the person taking the size back on the desktop; the desktop's own size returns.
+ * After a take-back the answer is `forbidden` until the phone sends `terminal.release` (it left the terminal).
+ */
+export interface RemoteTerminalResizeArgs { paneId: string; cols: number; rows: number }
+/** Lets go of a size taken with `terminal.resize`. Idempotent: without a hold it is still `ok`. */
+export interface RemoteTerminalReleaseArgs { paneId: string }
+/** The grid a phone may ask for: the same bounds as the snapshot a phone is sent. */
+export const REMOTE_TERMINAL_GRID = { minCols: 20, maxCols: 500, minRows: 5, maxRows: 200 } as const
 /** Older items of a conversation, for scrolling back. `ack.result` is a `RemoteThreadSnapshot` page. */
 export interface RemoteThreadHistoryArgs { threadId: string; beforeSeq: number }
 /**
@@ -725,4 +738,6 @@ export interface RemoteCommandArgs {
   'thread.history': RemoteThreadHistoryArgs
   'agent.markSeen': RemoteAgentMarkSeenArgs
   'pane.conversation': RemotePaneConversationArgs
+  'terminal.resize': RemoteTerminalResizeArgs
+  'terminal.release': RemoteTerminalReleaseArgs
 }

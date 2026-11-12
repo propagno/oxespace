@@ -310,6 +310,12 @@ async function registerIpcHandlers(): Promise<() => void> {
         window.webContents.send(IPC_CHANNELS.terminal.onActivity, event)
       }
     },
+    // 1.5.0 · A phone took or gave back a pane's size: the pane shows it and stops fitting on its own.
+    emitSizeLease: (event) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.terminal.sizeLeaseChanged, event)
+      }
+    },
     userDataPath: app.getPath('userData')
   })
   

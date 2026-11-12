@@ -20,7 +20,7 @@ import { PtyModeTracker } from './pty-mode-tracker'
 import { ShellCwdScanner } from './terminal/shell-cwd'
 import { PaneBranchTracker, samePaneBranch } from './terminal/pane-branch'
 import { DA1_CARRY_MS, DA1_REPLY, Da1Filter, stripDa1 } from './pty-da1'
-import type { TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume, PaneAgentSession, TerminalBranchChangedEvent, TerminalPaneBranch } from '../../../shared/types/ipc'
+import type { TerminalActivityEvent, TerminalSizeLease, TerminalSizeLeaseEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume, PaneAgentSession, TerminalBranchChangedEvent, TerminalPaneBranch } from '../../../shared/types/ipc'
 import { assertProviderAllowed, inheritedEnvironment } from './policy'
 import { recordIncident } from './diagnostics/incident-sink'
 
@@ -41,6 +41,8 @@ interface TerminalManagerOptions {
   emitExit?: (event: TerminalExitEvent) => void
   /** A18 (T73) · A pane's branch changed (the pane header's "switched from"). */
   emitBranchChanged?: (event: TerminalBranchChangedEvent) => void
+  /** 1.5.0 · A phone took a pane's size for its own screen, or the desktop's size is back (`lease: null`). */
+  emitSizeLease?: (event: TerminalSizeLeaseEvent) => void
   emitActivity?: (event: TerminalActivityEvent) => void
   ringCapacityBytes?: number
   prepareLaunch?: (input: { paneId: string; workspaceId: string; cwd: string; signal: AbortSignal }) => Promise<Record<string, string>>
@@ -138,6 +140,10 @@ const EXITED_SESSION_TTL_MS = 30 * 60 * 1000
  * count would eventually matter on a long session.
  */
 const MAX_LIVE_PTYS = 24
+/** How long a phone's hold on a terminal's size lasts without being renewed. */
+export const SIZE_LEASE_MS = 120_000
+interface SizeLease { holder: string; desktop: { cols: number; rows: number }; cols: number; rows: number; expiresAt: number; timer: ReturnType<typeof setTimeout> }
+
 /** A session must be quiet this long before it is considered reclaimable. */
 const RECLAIM_IDLE_MS = 30_000
 
@@ -171,6 +177,10 @@ export class TerminalManager {
   /** B17 · Panes whose resumed process exited within RESUME_LOAD_MS: their next start is fresh (failedToLoad). */
   private readonly failedResumes = new Map<string, { agent: 'claude' | 'codex'; sessionId: string }>()
   /** How each pane last started, so a restart can bring back a pane whose process exited by itself. */
+  private readonly sizeLeases = new Map<string, SizeLease>()
+  /** Panes whose size the person took back, and from whom: that holder is refused until it lets go or disconnects. */
+  private readonly sizeTakenBack = new Map<string, string>()
+  private readonly emitSizeLease: (event: TerminalSizeLeaseEvent) => void
   private readonly lastStarts = new Map<string, Pick<TerminalSession, 'workspaceId' | 'agentCommand' | 'cols' | 'rows' | 'resumeAgent'>>()
   private readonly sessions = new Map<string, TerminalSession>()
   private readonly pty: PtyModule
@@ -230,6 +240,7 @@ export class TerminalManager {
     this.emitExit = options.emitExit ?? (() => undefined)
     this.emitActivity = options.emitActivity ?? (() => undefined)
     this.emitBranchChanged = options.emitBranchChanged ?? (() => undefined)
+    this.emitSizeLease = options.emitSizeLease ?? (() => undefined)
     this.ringCapacityBytes = options.ringCapacityBytes
   }
 
@@ -464,6 +475,7 @@ export class TerminalManager {
         this.clearSession?.(input.paneId)
       }
       this.sessions.delete(input.paneId)
+      this.forgetSizeLease(input.paneId)
       session?.revokeProxy?.()
       this.notifyLaunchExit(input.paneId)
       this.forgetBranch(input.paneId)
@@ -521,14 +533,94 @@ export class TerminalManager {
   resize(input: TerminalResizeInput): void {
     const session = this.sessions.get(input.paneId)
     if (!session) return
-    const unchanged = session.cols === input.cols && session.rows === input.rows
-    session.cols = input.cols
-    session.rows = input.rows
-    this.observer?.resize(input.paneId, input.cols, input.rows)
+    // While a phone holds the size, the desktop's own fit is remembered for when the phone lets go, not applied.
+    const lease = this.liveSizeLease(input.paneId)
+    if (lease) { lease.desktop = { cols: input.cols, rows: input.rows }; return }
+    this.applySize(session, input.cols, input.rows)
+  }
+
+  private applySize(session: TerminalSession, cols: number, rows: number): void {
+    const unchanged = session.cols === cols && session.rows === rows
+    session.cols = cols
+    session.rows = rows
+    this.observer?.resize(session.paneId, cols, rows)
     // A restored full-screen TUI needs a fresh frame after the renderer has
     // installed its alternate buffer. A same-size resize is that handshake.
     if (unchanged && session.attached && session.modes.altScreen) this.nudgeRedraw(session)
-    else session.pty.resize(input.cols, input.rows)
+    else session.pty.resize(cols, rows)
+  }
+
+  /**
+   * 1.5.0 · A phone that has this terminal open sizes it for its own screen, so a full-screen CLI draws for the phone
+   * instead of the phone panning over the desktop's grid. One holder per pane; the desktop's size is kept and put back
+   * when the holder lets go, disconnects, or stops renewing (`SIZE_LEASE_MS`). The desktop can take the size back.
+   */
+  leaseSize(paneId: string, holder: string, cols: number, rows: number): 'held' | 'no-terminal' | 'taken-back' {
+    const session = this.sessions.get(paneId)
+    if (!session) return 'no-terminal'
+    if (this.sizeTakenBack.get(paneId) === holder) return 'taken-back'
+    const current = this.liveSizeLease(paneId)
+    const desktop = current?.desktop ?? { cols: session.cols, rows: session.rows }
+    if (current) clearTimeout(current.timer)
+    // The timer ends a hold nobody renews even when nothing else reads the pane (the phone lost its network).
+    const timer = setTimeout(() => { if (this.sizeLeases.get(paneId)?.timer === timer) this.releaseSize(paneId) }, SIZE_LEASE_MS)
+    timer.unref?.()
+    this.sizeLeases.set(paneId, { holder, desktop, cols, rows, expiresAt: Date.now() + SIZE_LEASE_MS, timer })
+    const changed = !current || current.cols !== cols || current.rows !== rows
+    if (changed) { this.applySize(session, cols, rows); this.emitSizeLease({ paneId, lease: { cols, rows } }) }
+    return 'held'
+  }
+
+  /** Puts the desktop's size back. With `holder`, only that holder's lease is released. */
+  releaseSize(paneId: string, holder?: string): boolean {
+    // Letting go also ends a "taken back": the next time this phone opens the terminal it may size it again.
+    if (holder !== undefined && this.sizeTakenBack.get(paneId) === holder) this.sizeTakenBack.delete(paneId)
+    const lease = this.sizeLeases.get(paneId)
+    if (!lease || (holder !== undefined && lease.holder !== holder)) return false
+    clearTimeout(lease.timer)
+    this.sizeLeases.delete(paneId)
+    const session = this.sessions.get(paneId)
+    if (session) this.applySize(session, lease.desktop.cols, lease.desktop.rows)
+    this.emitSizeLease({ paneId, lease: null })
+    return true
+  }
+
+  releaseSizesOf(holder: string): void {
+    for (const [paneId, taken] of [...this.sizeTakenBack]) if (taken === holder) this.sizeTakenBack.delete(paneId)
+    for (const [paneId, lease] of [...this.sizeLeases]) if (lease.holder === holder) this.releaseSize(paneId)
+  }
+
+  /** The person takes the pane's size back on the desktop; the phone that held it is refused until it lets go. */
+  takeBackSize(paneId: string): boolean {
+    const lease = this.liveSizeLease(paneId)
+    if (!lease) return false
+    this.sizeTakenBack.set(paneId, lease.holder)
+    return this.releaseSize(paneId)
+  }
+
+  /** The size a phone holds for this pane right now, or null. */
+  sizeLease(paneId: string): TerminalSizeLease | null {
+    const lease = this.liveSizeLease(paneId)
+    return lease ? { cols: lease.cols, rows: lease.rows } : null
+  }
+
+  /** A lease that stopped being renewed is over: the desktop's size goes back before anything else reads it. */
+  private liveSizeLease(paneId: string): SizeLease | null {
+    const lease = this.sizeLeases.get(paneId)
+    if (!lease) return null
+    if (lease.expiresAt > Date.now()) return lease
+    this.releaseSize(paneId)
+    return null
+  }
+
+  /** The pane's process is gone: nothing is left to size, and the next process starts at the desktop's size. */
+  private forgetSizeLease(paneId: string): void {
+    this.sizeTakenBack.delete(paneId)
+    const lease = this.sizeLeases.get(paneId)
+    if (!lease) return
+    clearTimeout(lease.timer)
+    this.sizeLeases.delete(paneId)
+    this.emitSizeLease({ paneId, lease: null })
   }
 
   /**
@@ -804,6 +896,7 @@ export class TerminalManager {
     // The whole tree, not just the shell: an MCP server or `npm run dev` it started must not outlive the pane (BE-M-08).
     void terminatePty(session.pty)
     this.sessions.delete(input.paneId)
+    this.forgetSizeLease(input.paneId)
     session.revokeProxy?.()
     this.notifyLaunchExit(input.paneId)
     this.observer?.exit(input.paneId)

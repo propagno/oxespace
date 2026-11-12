@@ -44,7 +44,7 @@ describe('remote gateway: hello and auth', () => {
     expect(isHelloChallenge(first.challenge) && isHelloChallenge(second.challenge)).toBe(true)
     expect(first.challenge).not.toBe(second.challenge)
     const socket = await TestSocket.connect(p.target)
-    expect(await socket.ask({ type: 'hello', versions: [1] })).toEqual({ type: 'hello', versions: [1], desktopName: 'OXESpace', challenge: expect.any(String), features: ['terminal.snapshotOnly', 'pane.conversation'] })
+    expect(await socket.ask({ type: 'hello', versions: [1] })).toEqual({ type: 'hello', versions: [1], desktopName: 'OXESpace', challenge: expect.any(String), features: ['terminal.snapshotOnly', 'pane.conversation', 'terminal.resize'] })
 
     const old = await TestSocket.connect(p.target)
     expect(await old.ask({ type: 'hello', versions: [7, 8] })).toEqual({ type: 'error', code: 'unsupported-version' })
