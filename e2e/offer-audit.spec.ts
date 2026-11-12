@@ -383,9 +383,10 @@ test.describe('offer audit', () => {
       for (const menu of ['File', 'Edit', 'View', 'Tools', 'Help']) {
         const sub = await openMenu(menu)
         const labels = (await sub.locator(':scope > [role="menuitem"], :scope > [role="menuitemcheckbox"]').evaluateAll(items => items.map(item => {
-          // The label without its key caps.
+          // The label without its key caps, or the reason an item gives for being unavailable (Edit with no text
+          // field in focus): that second line is the item's description, not its name.
           const copy = item.cloneNode(true) as HTMLElement
-          copy.querySelectorAll('kbd').forEach(kbd => kbd.remove())
+          copy.querySelectorAll('kbd, small').forEach(extra => extra.remove())
           return copy.textContent?.trim() ?? ''
         })))
         await dismiss(page)

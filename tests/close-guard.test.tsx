@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CloseAnswerInput, CloseRequest } from '../shared/types/app'
-import { handleCloseRequest, installCloseGuard } from '../src/lib/closeGuard'
+import { handleCloseRequest, installCloseGuard, RUNNING_TURNS_LOOKUP_MS } from '../src/lib/closeGuard'
 import { registerUnsavedSource, resetUnsavedSourcesForTests, unsavedWork } from '../src/lib/unsavedWork'
 
 const answers: Array<CloseAnswerInput['answer']> = []
@@ -28,6 +28,10 @@ function setFiles(...files: DraftItem[]): void {
   })
 }
 const request = (requestId: string, reason: CloseRequest['reason'] = 'close'): Promise<void> => handleCloseRequest({ requestId, reason })
+/** What main lists: every conversation, with the state of its turn. */
+function conversations(list: () => Promise<Array<{ id: string; title: string; status: string }>>): void {
+  window.oxe = { ...window.oxe, thread: { ...(window.oxe?.thread ?? {}), list: vi.fn(list) } } as unknown as typeof window.oxe
+}
 
 // The dialog is its own chunk; load it once so the first test does not wait on the import.
 beforeAll(async () => { await import('../src/components/CloseGuard/UnsavedWorkDialog') }, 30_000)
@@ -37,6 +41,7 @@ beforeEach(() => {
   resetUnsavedSourcesForTests()
   writeFile = vi.fn(async () => undefined)
   window.oxe = { ...window.oxe, app: { ...(window.oxe?.app ?? {}), answerClose: vi.fn(async (input: CloseAnswerInput) => { answers.push(input.answer) }) }, fs: { ...(window.oxe?.fs ?? {}) } } as unknown as typeof window.oxe
+  conversations(async () => [])
 })
 // A dialog unmounts just after it answers; wait for it so the next test cannot click a stale one.
 afterEach(async () => { cleanup(); resetUnsavedSourcesForTests(); await waitFor(() => expect(screen.queryByTestId('unsaved-work-dialog')).toBeNull()) })
@@ -121,6 +126,74 @@ describe('close guard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     await first
     expect(answers).toEqual(['hold', 'cancel'])
+  })
+
+  it('with a turn in progress a quit asks first: the conversations are listed, Cancel is focused, and "Quit anyway" goes on', async () => {
+    conversations(async () => [
+      { id: 't1', title: 'Fix the Pix webhook', status: 'running' },
+      { id: 't2', title: 'Rename the price column', status: 'approval' },
+      { id: 't3', title: 'Finished yesterday', status: 'idle' },
+      { id: 't4', title: 'Stopped by me', status: 'interrupted' }
+    ])
+    const pending = request('r8', 'quit')
+    const dialog = await screen.findByTestId('unsaved-work-dialog')
+    expect(answers).toEqual(['hold'])
+    expect(dialog).toHaveTextContent('Quit while a turn is in progress?')
+    expect(dialog).toHaveTextContent('2 conversations are in the middle of a turn')
+    const list = screen.getByTestId('running-turns-list')
+    expect(list).toHaveTextContent('Fix the Pix webhook')
+    expect(list).toHaveTextContent('Rename the price column')
+    expect(list).not.toHaveTextContent('Finished yesterday')
+    expect(list).not.toHaveTextContent('Stopped by me')
+    // Nothing to save here: only Cancel and going on.
+    expect(screen.queryByTestId('unsaved-work-save')).toBeNull()
+    expect(screen.queryByTestId('unsaved-work-discard')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus()
+    fireEvent.click(screen.getByRole('button', { name: 'Quit anyway' }))
+    await pending
+    expect(answers).toEqual(['hold', 'proceed'])
+  })
+
+  it('with a turn in progress Cancel keeps the window open', async () => {
+    conversations(async () => [{ id: 't1', title: 'Fix the Pix webhook', status: 'running' }])
+    const pending = request('r9')
+    const dialog = await screen.findByTestId('unsaved-work-dialog')
+    expect(dialog).toHaveTextContent('Close while a turn is in progress?')
+    expect(dialog).toHaveTextContent('1 conversation is in the middle of a turn')
+    expect(screen.getByRole('button', { name: 'Close anyway' })).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await pending
+    expect(answers).toEqual(['hold', 'cancel'])
+  })
+
+  it('unsaved work and a turn in progress: the unsaved-work dialog, with a line about the turn', async () => {
+    setFiles(editedFile('notes.md'))
+    conversations(async () => [{ id: 't1', title: 'Fix the Pix webhook', status: 'running' }])
+    const pending = request('r10')
+    const dialog = await screen.findByTestId('unsaved-work-dialog')
+    // Held once, before main's list was asked.
+    expect(answers).toEqual(['hold'])
+    expect(dialog).toHaveTextContent('Save your changes before closing?')
+    expect(screen.getByTestId('running-turns-note')).toHaveTextContent('1 conversation is also in the middle of a turn')
+    expect(screen.getByTestId('unsaved-work-save')).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await pending
+    expect(answers).toEqual(['hold', 'cancel'])
+  })
+
+  it('a list of conversations that fails, or never answers, does not hold the close', async () => {
+    conversations(async () => { throw new Error('main is gone') })
+    await request('r11')
+    expect(answers).toEqual(['proceed'])
+    conversations(() => new Promise(() => {}))
+    vi.useFakeTimers()
+    try {
+      const pending = request('r12')
+      await vi.advanceTimersByTimeAsync(RUNNING_TURNS_LOOKUP_MS)
+      await pending
+    } finally { vi.useRealTimers() }
+    expect(answers).toEqual(['proceed', 'proceed'])
+    expect(screen.queryByTestId('unsaved-work-dialog')).toBeNull()
   })
 
   it('subscribes at start and answers through the bridge', async () => {

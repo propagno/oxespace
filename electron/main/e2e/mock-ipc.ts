@@ -12,6 +12,7 @@
  * what lets the E2E suite run on a machine with no native modules built, and
  * what makes the perf benchmark measure the renderer rather than the shell.
  */
+import { registerEditCommandIpc } from '../ipc/clipboard.ipc'
 import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { execFile } from 'node:child_process'
@@ -58,6 +59,8 @@ import { requestOutcome } from '../../../shared/threadRequestOutcome'
 import { registerE2eSideChat } from './side-chat-mock'
 
 export function registerE2eMockIpcHandlers(): void {
+  // Not a double: the Edit menu's commands act on the real window here too.
+  registerEditCommandIpc()
   const shellProfiles: ShellProfile[] = fallbackShellProfiles()
   const workspaces: Workspace[] = []
   registerOxeQueryMock()

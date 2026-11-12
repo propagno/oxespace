@@ -1,4 +1,4 @@
-import { Activity, ArrowUpCircle, Bell, Bot, Bug, Info, Keyboard, Palette, Settings2, ShieldCheck, Smartphone, Sparkles, SquareTerminal, Wrench, type LucideIcon } from 'lucide-react'
+import { Activity, ArrowUpCircle, Bell, Bot, Bug, History, Info, Keyboard, Lock, Palette, Settings2, ShieldCheck, Smartphone, Sparkles, SquareTerminal, Wrench, type LucideIcon } from 'lucide-react'
 import { useWhatsNew } from '../components/Updates/whatsNew'
 import { OPEN_ABOUT_EVENT } from '../components/About/AboutHost'
 import { OPEN_REPORT_PROBLEM_EVENT } from '../components/Diagnostics/ReportProblemHost'
@@ -18,8 +18,8 @@ const PAGES: Array<{ page: SettingsPageId; icon: LucideIcon; keywords?: string[]
   { page: 'notifications', icon: Bell, keywords: ['alerts', 'sounds'] },
   { page: 'about', icon: ArrowUpCircle, keywords: ['version', 'download', 'updates', 'about'] },
   { page: 'mcp', icon: Wrench, keywords: ['mcp', 'servers', 'skills', 'tools'] },
-  { page: 'privacy', icon: ShieldCheck, keywords: ['data', 'privacy', 'export'] },
-  { page: 'activity', icon: Activity, keywords: ['activity', 'audit', 'actions'] },
+  { page: 'privacy', icon: Lock, keywords: ['data', 'privacy', 'export'] },
+  { page: 'activity', icon: History, keywords: ['activity', 'audit', 'actions'] },
   { page: 'policy', icon: ShieldCheck, keywords: ['rules', 'block', 'deny'] },
   { page: 'devices', icon: Smartphone, keywords: ['phone', 'mobile', 'android', 'pair', 'remote'] },
   { page: 'diagnostics', icon: Activity, keywords: ['health', 'logs', 'troubleshooting'] }
