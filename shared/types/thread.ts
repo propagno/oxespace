@@ -546,7 +546,7 @@ export type ThreadEvent =
   | { type: 'request-resolved'; id: string; state: ThreadRequest['state']; resolution?: ThreadRequestResolution; resolvedAt?: number }
   | { type: 'queue'; id: string; item: ThreadQueuedInput }
   | { type: 'model-picker'; id: string; models: ThreadModel[]; selectedModel?: string; selectedEffort?: string }
-  | { type: 'configuration'; model?: string; reasoningEffort?: string; access?: ThreadConfiguration['access']; networkAccess?: boolean; approvalPolicy?: ThreadConfiguration['approvalPolicy']; hooksEnabled?: boolean; confirmed?: boolean }
+  | { type: 'configuration'; model?: string; reasoningEffort?: string; access?: ThreadConfiguration['access']; networkAccess?: boolean; approvalPolicy?: ThreadConfiguration['approvalPolicy']; hooksEnabled?: boolean; mode?: ThreadConfiguration['mode']; confirmed?: boolean }
   | { type: 'turn-diff'; id: string; turnId: string; files: ThreadFileChange[] }
   | { type: 'plan'; id: string; turnId?: string; explanation?: string; steps: { label: string; status: 'pending' | 'inProgress' | 'completed' }[] }
   | { type: 'cli-command'; id: string; command: string }

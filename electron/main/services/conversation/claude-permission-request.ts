@@ -89,7 +89,7 @@ export function describePermissionRequest(
   // remember the decision, since approving one plan says nothing about the next.
   if (toolName === 'ExitPlanMode' && typeof input.plan === 'string' && input.plan.trim()) {
     return {
-      title: pick(request, 'title') || 'Aprovar o plano?',
+      title: pick(request, 'title') || 'Review the plan',
       detail: input.plan.trim().slice(0, 12000),
       suggestions: [],
       ...(toolUseId ? { toolUseId } : {}),

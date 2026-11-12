@@ -2124,6 +2124,7 @@
   "nowLine": {
     "needsYou": "Precisa de você. {{agent}} pede para {{request}}.",
     "needsYouShort": "Precisa de você. {{agent}} aguarda aprovação.",
+    "needsYouPlan": "Precisa de você. {{agent}} pede que você revise o plano.",
     "question_one": "Precisa de você. {{agent}} fez {{count}} pergunta.",
     "question_many": "Precisa de você. {{agent}} fez {{count}} perguntas.",
     "question_other": "Precisa de você. {{agent}} fez {{count}} perguntas.",

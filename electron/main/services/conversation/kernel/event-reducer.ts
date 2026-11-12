@@ -112,6 +112,7 @@ export function reduceThreadEvent(snapshot: ThreadSnapshot, event: ThreadEvent, 
     if (event.networkAccess !== undefined) snapshot.thread.networkAccess = event.networkAccess
     if (event.approvalPolicy !== undefined) snapshot.thread.approvalPolicy = event.approvalPolicy
     if (event.hooksEnabled !== undefined) snapshot.thread.hooksEnabled = event.hooksEnabled
+    if (event.mode !== undefined) snapshot.thread.mode = event.mode
     if (activeTurn?.status === 'running') Object.assign(activeTurn.configuration, { ...(event.model !== undefined ? { model: event.model } : {}), ...(event.reasoningEffort !== undefined ? { reasoningEffort: event.reasoningEffort } : {}), ...(event.access !== undefined ? { access: event.access } : {}), ...(event.networkAccess !== undefined ? { networkAccess: event.networkAccess } : {}), ...(event.approvalPolicy !== undefined ? { approvalPolicy: event.approvalPolicy } : {}), ...(event.hooksEnabled !== undefined ? { hooksEnabled: event.hooksEnabled } : {}) })
   } else if (event.type === 'session') {
     snapshot.thread.nativeSessionId = event.nativeSessionId

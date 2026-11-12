@@ -19,6 +19,18 @@ function interrupted(settled: ThreadEvent): ThreadSnapshot {
 
 afterEach(cleanup)
 
+describe('the status line for a plan to review (CHAT-7)', () => {
+  it('has its own words, whatever the agent called the request', () => {
+    const snapshot = { ...interrupted({ type: 'completed', status: 'completed' }), thread: { id: 'thread', workspaceId: 'ws', projectId: 'p', rootPath: '/repo', provider: 'claude', title: 'T', status: 'approval', createdAt: 1, updatedAt: 2 }, turns: [{ id: 'turn-1', status: 'running', startedAt: 1 }] } as unknown as ThreadSnapshot
+    const plan = { id: 'plan', nativeId: 'plan', nativeMethod: 'can_use_tool:ExitPlanMode', kind: 'approval' as const, title: 'Aprovar o plano?', detail: '# Plan', generation: 1, createdAt: 5, state: 'pending' as const }
+    const activity = deriveThreadActivity(snapshot, [plan])
+    expect(activity).toEqual({ kind: 'needs-you', at: 5, requestId: 'plan', reason: 'plan' })
+    const { container } = render(<NowLine activity={activity!} agent="Claude" onAction={vi.fn()} />)
+    expect(container).toHaveTextContent('Needs you. Claude asks you to review its plan.')
+    expect(container).not.toHaveTextContent('aprovar')
+  })
+})
+
 describe('the status line of a paused conversation says who paused it (CHAT-1)', () => {
   it('a turn the person stopped: "You stopped it"', () => {
     const activity = deriveThreadActivity(interrupted({ type: 'completed', status: 'interrupted' }), [])

@@ -270,7 +270,18 @@ describe('Claude print conversation', () => {
     writable.emit(0, { type: 'control_request', request_id: 'plan', request: { subtype: 'can_use_tool', tool_name: 'ExitPlanMode', input: { plan: 'Run echo hi' } } })
     await writable.adapter.respondRequest!('plan', { decision: 'accept' })
     expect((writable.turns[0].writes.at(-1) as { response: { response: Record<string, unknown> } }).response.response).not.toHaveProperty('updatedPermissions')
+    // CHAT-9: the conversation leaves plan mode with the CLI, so the switch does not stay on Plan while the agent edits.
+    expect(writable.events).toContainEqual({ type: 'configuration', mode: 'default', confirmed: true })
     await writable.adapter.dispose()
+
+    // A declined plan stays in plan mode.
+    const declined = fixture()
+    await declined.adapter.start({ rootPath: '/project', nativeSessionId: null, access: 'workspace-write', mode: 'plan' }, event => declined.events.push(event))
+    await declined.adapter.send('Plan, then implement')
+    declined.emit(0, { type: 'control_request', request_id: 'plan', request: { subtype: 'can_use_tool', tool_name: 'ExitPlanMode', input: { plan: 'Run echo hi' } } })
+    await declined.adapter.respondRequest!('plan', { decision: 'decline' })
+    expect(declined.events.some(event => event.type === 'configuration' && event.mode !== undefined)).toBe(false)
+    await declined.adapter.dispose()
   })
   it('answers AskUserQuestion in-process and maps full access to the native bypass mode', async () => {
     const f = fixture()

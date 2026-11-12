@@ -59,6 +59,19 @@ describe('Thread command approval', () => {
     expect(screen.getByText(/Full access does not approve requests/)).toBeVisible()
     expect(screen.queryByText('Review the command before allowing it to run.')).toBeNull()
   })
+  it('renders the plan main hands over as prose, once, with its copy (CHAT-6)', () => {
+    // The request carries the plan's own text, not the tool's JSON.
+    const plan = '# Plan: quantity-aware `total()`\n\n## Context\n\n- Multiply each price by its quantity'
+    const request: ThreadRequest = { id: 'plan', nativeId: 'plan', nativeMethod: 'can_use_tool:ExitPlanMode', kind: 'approval', title: 'Review the plan', detail: plan, generation: 1, createdAt: 1, state: 'pending' }
+    render(<ThreadRequestCard request={request} disabled={false} onRespond={vi.fn(async () => {})} />)
+    expect(screen.getByRole('heading', { name: 'Plan: quantity-aware total()' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Context' })).toBeVisible()
+    expect(screen.getByText('Multiply each price by its quantity')).toBeVisible()
+    // No raw copy of it in the box for a command, and nothing that shows the Markdown marks.
+    expect(screen.queryByTestId('approval-exact')).toBeNull()
+    expect(screen.queryByText(/## Context/)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Copy exact text' })).toBeVisible()
+  })
   it('renders ExitPlanMode plans as readable Markdown while retaining the exact request', () => {
     const plan = '# Delivery plan\n\n- Verify the UI\n- Publish after approval'
     const request: ThreadRequest = { id: 'plan', nativeId: 'plan', nativeMethod: 'can_use_tool:ExitPlanMode', kind: 'approval', title: 'Approve ExitPlanMode', detail: JSON.stringify({ plan }), generation: 1, createdAt: 1, state: 'pending' }

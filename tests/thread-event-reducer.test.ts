@@ -122,6 +122,17 @@ describe('reduceThreadEvent', () => {
     expect(s.turns![0].configuration).toMatchObject({ model: 'big', access: 'workspace-write' })
     expect(kinds(r.before)).toEqual(['refresh-capabilities'])
   })
+
+  it('configuration carries the mode an approved plan left the conversation in', () => {
+    const s = snapshot()
+    s.thread.mode = 'plan'
+    reduceThreadEvent(s, { type: 'configuration', mode: 'default', confirmed: true }, ctx())
+    expect(s.thread.mode).toBe('default')
+    // A configuration that says nothing about the mode keeps it.
+    s.thread.mode = 'plan'
+    reduceThreadEvent(s, { type: 'configuration', model: 'big' }, ctx())
+    expect(s.thread.mode).toBe('plan')
+  })
 })
 
 describe('tool-call transitions in the reducer', () => {

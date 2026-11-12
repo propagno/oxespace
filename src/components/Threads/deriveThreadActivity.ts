@@ -164,6 +164,9 @@ export function deriveThreadActivity(
   }
   if (pending.length > 0) {
     const first = pending[0]
+    // A plan to review has its own words in the line: the request's title is whatever the agent called it, in its
+    // language, and read "asks to aprovar o plano?." inside the sentence (CHAT-7).
+    if (first.nativeMethod === 'can_use_tool:ExitPlanMode') return { kind: 'needs-you', at: first.createdAt ?? baseAt, requestId: first.id, reason: 'plan' }
     const text = midSentence(cleanText(first.title, root, 200))
     return {
       kind: 'needs-you',

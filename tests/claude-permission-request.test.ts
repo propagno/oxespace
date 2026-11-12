@@ -68,7 +68,7 @@ describe('describePermissionRequest', () => {
       'ExitPlanMode',
       { plan: PLAN }
     )
-    expect(p.title).toBe('Aprovar o plano?')
+    expect(p.title).toBe('Review the plan')
     expect(p.detail).toBe(PLAN)
     expect(p.suggestions).toEqual([])
     expect(p.decisions).toEqual(['accept', 'decline'])

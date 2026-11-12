@@ -170,6 +170,8 @@
 .thread-approval-agent { min-width: 0; overflow: hidden; border: 1px dashed var(--border-strong); border-radius: var(--radius-md); background: var(--surface-sunken); }
 .thread-approval-agent pre { max-height: 160px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .thread-approval-plan { max-height: 320px; overflow: auto; padding: 0 12px; }
+/* In the conversation the plan is read whole, as the exact text of a command is: it is what the person approves. */
+.thread-pending-requests .thread-approval-plan, .thread-timeline-request .thread-approval-plan { max-height: none; overflow: visible; }
 .thread-approval-raw { min-width: 0; font-size: var(--fs-xs); color: var(--text-secondary); }
 .thread-approval-raw > summary { display: flex; align-items: center; gap: 6px; width: fit-content; cursor: pointer; }
 .thread-approval-raw > summary svg { transition: transform var(--duration-fast) var(--ease-standard); }

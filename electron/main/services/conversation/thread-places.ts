@@ -27,6 +27,14 @@ const BACKSLASH = String.fromCharCode(92)
 const WRITE_KINDS: ReadonlySet<string> = new Set(['add', 'update', 'delete', 'rename'])
 const isSlash = (char: string | undefined): boolean => char === '/' || char === BACKSLASH
 
+/** Whether a file is one of the agent's own working notes: Claude's plans, under its settings folder. */
+export function agentNotes(path: string, env: NodeJS.ProcessEnv = process.env): boolean {
+  // canonicalPath answers with forward slashes on every system.
+  const plans = canonicalPath(join(env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), '.claude'), 'plans'))
+  const target = canonicalPath(path)
+  return target === plans || target.startsWith(`${plans}/`)
+}
+
 /**
  * The evidence an event carries (§2.2): tool and turn-diff file paths (previousPath included) and request paths.
  * Message text is never evidence, and the working-tree observation is already about a known place.
@@ -193,6 +201,9 @@ export class ThreadPlaceStore {
   private locate(thread: PlaceThread, item: PlaceEvidence): Target | 'refused' | null {
     const full = evidencePath(item.path)
     if (!full) return 'refused'
+    // The agent's own notes are not a place the conversation works in: in plan mode Claude writes its plan under its
+    // settings folder, and the Changes tab counted it before any file of the project changed (CHAT-8).
+    if (item.mode !== 'location' && agentNotes(full)) return null
     const dir = item.mode === 'location' ? full : dirname(full)
     // Walked before stat, so a link out of the folder is never followed.
     if (crossesLink(dir) || !isDirectory(dir)) return 'refused'

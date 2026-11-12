@@ -58,7 +58,7 @@ export function NowLine(props: {
   switch (activity.kind) {
     case 'needs-you': {
       const request = lowerVerbStart(stripEndDot(activity.text))
-      copy = request ? t('nowLine.needsYou', { agent, request }) : t('nowLine.needsYouShort', { agent })
+      copy = activity.reason === 'plan' ? t('nowLine.needsYouPlan', { agent }) : request ? t('nowLine.needsYou', { agent, request }) : t('nowLine.needsYouShort', { agent })
       buttons = irreversible
         ? [
             { action: 'deny', label: t('nowLine.actions.deny'), danger: true },

@@ -524,6 +524,12 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
     const updatedPermissions = [...(response.decision === 'acceptForSession' ? pending.suggestions ?? [] : []), ...afterPlan]
     this.transport.write(JSON.stringify({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response: accept ? { behavior: 'allow', updatedInput, ...(updatedPermissions.length ? { updatedPermissions } : {}), ...(pending.toolUseId ? { toolUseID: pending.toolUseId } : {}) } : { behavior: 'deny', message: response.reason?.slice(0, 1000) || (response.decision === 'cancel' ? 'Cancelled by the user' : 'Declined by the user') } } }) + '\n')
     this.approvals.delete(requestId)
+    // The CLI left plan mode when the plan was approved. The conversation says so too: the switch stayed on Plan
+    // while the agent edited files, and a later process would have started in plan mode again (CHAT-9).
+    if (accept && pending.toolName === 'ExitPlanMode' && this.context?.mode === 'plan') {
+      this.context = { ...this.context, mode: 'default' }
+      this.emit({ type: 'configuration', mode: 'default', confirmed: true })
+    }
     this.emit({ type: 'request-resolved', id: requestId, ...requestOutcome(pending.toolName === 'AskUserQuestion' ? 'question' : 'approval', response), resolvedAt: Date.now() })
     this.emit({ type: 'approval-resolved', id: requestId })
   }
