@@ -280,40 +280,6 @@ describe('Codex conversation adapter', () => {
     await expect(f.adapter.command('mcp', 'login')).rejects.toThrow('Use /mcp')
     await f.adapter.dispose()
   })
-  describe('rewind', () => {
-    const history = (ids: () => string[]) => (params: Record<string, unknown>) => ({ data: ids().map(id => ({ id })), nextCursor: null, params })
-    it('reverts, re-reads the provider turns and accepts only the exact prefix', async () => {
-      let turns = ['t1', 't2', 't3']
-      const f = fixture({}, false, {}, { turns: history(() => turns), revert: params => { turns = turns.slice(0, turns.indexOf(String(params.beforeTurnId))) } })
-      await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
-      await f.adapter.rewind('t2')
-      expect(f.requests.find(request => request.method === 'thread/revert')).toMatchObject({ params: { threadId: 'native-A', beforeTurnId: 't2' } })
-      expect(turns).toEqual(['t1'])
-      await f.adapter.dispose()
-    })
-
-    it('rejects when the provider history does not match the expected prefix', async () => {
-      const f = fixture({}, false, {}, { turns: history(() => ['t1', 't2', 't3']), revert: () => {} })
-      await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
-      await expect(f.adapter.rewind('t2')).rejects.toMatchObject({ code: 'proof-mismatch' })
-      await f.adapter.dispose()
-    })
-
-    it('reports an app-server without thread/revert as unsupported', async () => {
-      const f = fixture({}, false, {}, { turns: history(() => ['t1', 't2']), revert: () => ({ error: 'Method not found' }) })
-      await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
-      await expect(f.adapter.rewind('t2')).rejects.toMatchObject({ code: 'unsupported' })
-      await f.adapter.dispose()
-    })
-
-    it('refuses a turn the provider does not hold without calling revert', async () => {
-      const f = fixture({}, false, {}, { turns: history(() => ['t1']), revert: () => {} })
-      await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
-      await expect(f.adapter.rewind('gone')).rejects.toMatchObject({ code: 'unavailable' })
-      expect(f.requests.some(request => request.method === 'thread/revert')).toBe(false)
-      await f.adapter.dispose()
-    })
-  })
   it('reports the context window from token usage notifications', async () => {
     const f = fixture()
     await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
