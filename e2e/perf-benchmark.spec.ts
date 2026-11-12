@@ -871,8 +871,10 @@ test('memory: main process with 10 Threads open', async () => {
     mkdirSync(repo, { recursive: true })
     await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
 
-    // The main process after a forced GC (when available): resident set and live JS heap, in MB.
-    const sample = (): Promise<{ rss: number; heap: number; gc: boolean }> => app.evaluate(() => {
+    // The main process after a forced GC (when available): resident set and live JS heap, in MB. On Linux the
+    // resident set is also split into what the process allocated (anon) and what it maps from files (code, database).
+    type Sample = { rss: number; heap: number; gc: boolean; anon: number | null; file: number | null }
+    const sample = (): Promise<Sample> => app.evaluate(() => {
       let gc = false
       try {
         // evaluate() has no require; the builtin loader is on process.
@@ -881,14 +883,35 @@ test('memory: main process with 10 Threads open', async () => {
         collect(); collect(); gc = true
       } catch { /* the heap is then read as is */ }
       const usage = process.memoryUsage()
-      return { rss: usage.rss / 1024 / 1024, heap: usage.heapUsed / 1024 / 1024, gc }
+      let anon: number | null = null, file: number | null = null
+      try {
+        const status = process.getBuiltinModule('node:fs').readFileSync('/proc/self/status', 'utf8')
+        // Lines read "RssAnon:     123456 kB".
+        const kb = (name: string): number | null => { const line = status.split('\n').find(value => value.startsWith(`${name}:`)); return line ? Number.parseInt(line.slice(name.length + 1), 10) / 1024 : null }
+        anon = kb('RssAnon'); file = kb('RssFile')
+      } catch { /* no /proc: Windows, macOS */ }
+      return { rss: usage.rss / 1024 / 1024, heap: usage.heapUsed / 1024 / 1024, gc, anon, file }
     })
+    // The app's deferred start (index.ts "deferred-init": the internal MCP server, config sync, policy) is still
+    // allocating when the window shows. A fixed wait left part of it inside the measured growth, which is meant to be
+    // what opening the Threads costs. A sample is taken once the resident set stopped moving.
+    const settled = async (): Promise<Sample & { waits: number }> => {
+      let last = await sample()
+      for (let waits = 1; waits <= 16; waits++) {
+        await page.waitForTimeout(750)
+        const next = await sample()
+        if (Math.abs(next.rss - last.rss) < 0.25) return { ...next, waits }
+        last = next
+      }
+      return { ...last, waits: 17 }
+    }
+    const split = (value: Sample): string => value.anon === null || value.file === null ? '' : ` anon=${value.anon.toFixed(1)}MB file=${value.file.toFixed(1)}MB`
 
     const project = await page.evaluate(root => window.oxe.thread!.addProject(root), repo)
     await modeButton(page, 'thread').click()
     await page.locator('.thread-host').waitFor({ state: 'visible' })
     await page.waitForTimeout(1_500)
-    const before = await sample()
+    const before = await settled()
 
     const ids = await page.evaluate(async ({ projectId, count }) => {
       const created: string[] = []
@@ -907,11 +930,12 @@ test('memory: main process with 10 Threads open', async () => {
     }
     await expect(page.locator('.thread-navigation-item')).toHaveCount(THREAD_COUNT)
     await page.waitForTimeout(1_500)
-    const after = await sample()
+    const after = await settled()
     const growth = after.rss - before.rss
     console.log(
-      `[RESULT] memory main process, ${THREAD_COUNT} Threads open   rss=${after.rss.toFixed(1)}MB heap=${after.heap.toFixed(1)}MB ` +
-      `(before: rss=${before.rss.toFixed(1)}MB heap=${before.heap.toFixed(1)}MB) rssGrowth=${growth.toFixed(1)}MB gc=${after.gc}`
+      `[RESULT] memory main process, ${THREAD_COUNT} Threads open   rss=${after.rss.toFixed(1)}MB heap=${after.heap.toFixed(1)}MB${split(after)} ` +
+      `(before: rss=${before.rss.toFixed(1)}MB heap=${before.heap.toFixed(1)}MB${split(before)}) rssGrowth=${growth.toFixed(1)}MB gc=${after.gc} ` +
+      `settled after ${before.waits}/${after.waits} waits`
     )
     const budget = MAIN_MEMORY_BUDGETS_MB[process.platform] ?? MAIN_MEMORY_BUDGETS_MB.default
     if (ENFORCE_BUDGETS) {
