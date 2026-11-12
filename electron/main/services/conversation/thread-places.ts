@@ -87,28 +87,15 @@ export class ThreadPlaceStore {
 
   /**
    * The places, root first; the root is made here the first time. `current` is read now.
-   * `undoneTurns` are the turns a Restore undid and put the files back for (HML-F11-7): what they wrote is no longer
-   * in the place, so those files are left out. The rows stay, and Redo brings the files and their rows back into view.
    */
-  async list(thread: PlaceThread, undoneTurns: readonly string[] = []): Promise<ThreadPlaces> {
+  async list(thread: PlaceThread): Promise<ThreadPlaces> {
     await this.idle(thread.id)
     this.ensureRoot(thread)
     const rows = this.db.prepare(`SELECT * FROM thread_places WHERE thread_id = ?
       ORDER BY CASE kind WHEN 'root' THEN 0 ELSE 1 END, first_seen_at, rowid`).all(thread.id) as PlaceRow[]
     const filesOf = this.db.prepare('SELECT path, turn_id FROM thread_place_writes WHERE thread_id = ? AND place_id = ? ORDER BY at DESC, rowid DESC')
-    const undone = new Set(undoneTurns)
-    // A write row names the last turn that wrote the file. When that turn was undone, a turn that still stands may
-    // have written the file too, and its change is still there: the Changes tab went from 2 to 1 with two files
-    // changed (CHAT-3). The checkpoints of the standing turns say which files those are.
-    const pathKey = (path: string): string => process.platform === 'win32' ? path.replace(/\\/g, '/').toLowerCase() : path
-    const standing = new Set(undone.size
-      ? (this.db.prepare(`SELECT c.turn_id AS turn, f.path AS path FROM conversation_checkpoint_files f JOIN conversation_checkpoints c ON c.id = f.checkpoint_id
-          WHERE c.thread_id = ? AND c.turn_id IS NOT NULL AND c.turn_id NOT LIKE 'redo:%'`).all(thread.id) as Array<{ turn: string; path: string }>)
-        .filter(value => !undone.has(value.turn)).map(value => pathKey(value.path))
-      : [])
     const places = await Promise.all(rows.map(async (row): Promise<ThreadPlace> => {
-      const files = (filesOf.all(thread.id, row.id) as Array<{ path: string; turn_id: string | null }>)
-        .filter(value => !(value.turn_id && undone.has(value.turn_id)) || standing.has(pathKey(value.path))).map(value => value.path)
+      const files = (filesOf.all(thread.id, row.id) as Array<{ path: string; turn_id: string | null }>).map(value => value.path)
       return {
         id: row.id, kind: row.kind, path: row.path, firstSeenAt: row.first_seen_at,
         base: row.kind === 'outside' || row.base_captured_at === null ? null : { commit: row.base_commit, branch: row.base_branch, capturedAt: row.base_captured_at, turnId: row.base_turn_id },

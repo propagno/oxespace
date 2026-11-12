@@ -53,7 +53,7 @@ interface ActiveRefusal {
 
 const DISALLOWED_RE = /^\/(approve|allow|accept)(?:\s|$)/i
 const CONTROL_CHAR_RE = /[\x00-\x1f\x7f]/
-const GO_TO_COMMAND_IDS = new Set<string>(['pending', 'history'])
+const GO_TO_COMMAND_IDS = new Set<string>(['pending'])
 const HINT_FILL: Record<'agent' | 'skill' | 'open' | 'help', string> = {
   agent: '@Codex ',
   skill: '/skill ',

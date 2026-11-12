@@ -370,15 +370,6 @@ export interface ThreadContextReport {
   source: 'claude-control' | 'codex-token-usage' | 'antigravity-usage'
 }
 
-export interface ThreadRewindResult {
-  snapshot: ThreadSnapshot
-  removedTurns: number
-  /** Files restored from the dropped turns' checkpoints, when requested. */
-  restoredFiles?: number
-  /** Why files were not restored; the conversation itself was rewound. */
-  fileError?: string
-}
-
 export interface ThreadQueuePause {
   reason: 'interrupted' | 'failed'
   since: number
@@ -473,11 +464,6 @@ export interface ConversationThread {
   updatedAt: number
   /** A native interactive CLI exclusively owns this conversation until it exits. */
   cliActive?: boolean
-  /**
-   * A rewind waiting for confirmation: the turns from `turnId` on are still shown (greyed, with Redo) and
-   * leave the conversation, and the provider's history, when the next message is sent.
-   */
-  rewind?: { turnId: string; at: number; removedTurns: number; redoCheckpointIds?: string[] }
   cliNotice?: string
   model?: string
   reasoningEffort?: string
@@ -566,8 +552,6 @@ export interface ConversationCapabilities {
   queue?: boolean
   steering?: boolean
   nativeSessions?: boolean
-  /** The adapter can rewind provider history and prove the result. */
-  rewind?: boolean
   /** The adapter can stop one background task of the provider session. */
   stopTasks?: boolean
 }
@@ -596,8 +580,6 @@ export interface AgentConversationAdapter {
   updateQueued?(nativeId: string, item: ThreadQueuedInput, attachments?: ThreadAttachment[]): Promise<void>
   deleteQueued?(nativeId: string): Promise<void>
   reorderQueued?(nativeIds: string[]): Promise<void>
-  /** Remove the target turn and every later one from the provider's own history, then prove it. */
-  rewind?(beforeNativeTurnId: string): Promise<void>
   /** Ask the provider what fills the context window. Resolves null when unavailable. */
   contextUsage?(): Promise<ThreadContextReport | null>
   /** Stops one provider background task (a shell or agent the session started). */
@@ -626,33 +608,6 @@ export interface ThreadSyncCursor { epoch: string; revision: number }
 export type ThreadDelta =
   | { ok: true; epoch: string; revision: number; live: number; thread: ConversationThread; events: { seq: number; event: ThreadEvent }[]; turns: ThreadTurn[]; deliveries: Record<string, ThreadDelivery>; pendingRequests: ThreadRequest[] }
   | { ok: false; reset: 'epoch' | 'unknown' | 'limit' }
-
-export interface ThreadTimelineCheckpoint {
-  id: string
-  n: number
-  turnId: string
-  at: number
-  label: string
-  files: string[]
-  checkout: string
-  failed?: boolean
-}
-
-export interface ThreadTimelineCantGoBack {
-  dbWrites: number
-  pushes: number
-  containers: number
-  commands: number
-  httpWrites: number
-  scope: 'conversation'
-}
-
-export interface ThreadTimeline {
-  checkpoints: ThreadTimelineCheckpoint[]
-  canBranch: boolean
-  branchRefusal?: { code: string; params: Record<string, unknown> }
-  cantGoBack: ThreadTimelineCantGoBack
-}
 
 export interface ThreadHistoryPage { events: ThreadEvent[]; before?: number; hasMore: boolean; total: number }
 
@@ -751,7 +706,6 @@ export interface ThreadApi {
   create(input: { projectId: string; rootPath?: string; provider: ThreadProvider; worktree?: ThreadWorktreeRequestInput }): Promise<ThreadSnapshot>
   read(id: string): Promise<ThreadSnapshot>
   history?(id: string, before?: number, limit?: number): Promise<ThreadHistoryPage>
-  timeline?(id: string): Promise<ThreadTimeline>
   attach?(id: string, input: { name: string; mimeType: ThreadAttachment['mimeType']; data: ArrayBuffer }): Promise<ThreadAttachment>
   removeAttachment?(id: string, attachmentId: string): Promise<void>
   send(id: string, text: string, attachmentIds?: string[]): Promise<void>
@@ -785,11 +739,6 @@ export interface ThreadApi {
   usageSummary?(id: string, options?: { scope?: 'thread' | 'project' | 'all'; days?: number }): Promise<ThreadUsageSummary>
   workRuns?(id: string): Promise<import('./work').WorkRun[]>
   cancelWork?(id: string, runId: string): Promise<import('./work').WorkRun>
-  rewind?(id: string, turnId: string, options?: { restoreFiles?: boolean; confirmed?: boolean }): Promise<ThreadRewindResult>
-  /** Brings back the turns (and files) of a rewind not confirmed by a new message yet. */
-  redoRewind?(id: string): Promise<ThreadSnapshot>
-  /** F8 A30: branches from a checkpoint into a new worktree, workspace and forked conversation. */
-  branchFromCheckpoint?(id: string, checkpointId: string, input: { branch: string }): Promise<ThreadBranchResult>
   /** Sends a finished turn's prompt again, after undoing that turn's file changes when `restoreFiles` is set. */
   retryTurn?(id: string, turnId: string, options?: { restoreFiles?: boolean }): Promise<{ restoredFiles: number }>
   readSince?(id: string, cursor: ThreadSyncCursor): Promise<ThreadDelta>
@@ -832,10 +781,6 @@ export interface ThreadApi {
 
 /** One file changed by a turn, against the working tree now. */
 /** `path` is relative to `root`, the checkout the turn changed (absent from older builds). */
-export type ThreadBranchResult =
-  | { ok: true; threadId: string; workspaceId: string; worktreePath: string }
-  | { ok: false; refusal: import('../messages').MainMessage }
-
 export interface ThreadTurnFileStatus {
   path: string; root?: string; state: 'pending' | 'reverted' | 'modified'; preExists: boolean; postExists: boolean
   /** Lines this turn added and removed, for a text file still as the turn left it. */

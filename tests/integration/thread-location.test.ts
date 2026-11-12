@@ -132,32 +132,6 @@ describe('Thread working location', { timeout: 30_000 }, () => {
     await expect(f.manager.retryTurn(f.id, lastTurn, { restoreFiles: true })).rejects.toThrow(/no checkpoint/)
   })
 
-  it('a rewind that restored files gives them back on Redo', async () => {
-    const { repo } = repository()
-    const f = fixture(repo, { realWorkingState: true })
-    await f.manager.send(f.id, 'First')
-    f.callbacks[0]({ type: 'session', nativeSessionId: 'native-1' })
-    f.callbacks[0]({ type: 'completed', status: 'completed' })
-    await until(() => f.read().thread.status === 'idle', 'first turn idle')
-    await f.manager.send(f.id, 'Edit a.txt')
-    // A slow runner can still be starting the turn after a fixed pause: wait for it to run, and for the thread to be
-    // idle again before rewinding, which refuses while a turn is active.
-    await until(() => f.read().turns?.length === 2 && f.read().turns!.at(-1)!.status === 'running')
-    await turnReady(f, 1)
-    writeFileSync(join(repo, 'a.txt'), 'edited by the turn\n')
-    f.callbacks.at(-1)!({ type: 'completed', status: 'completed' })
-    await finalized(f)
-    await until(() => f.read().turns!.at(-1)!.status === 'completed' && f.read().thread.status === 'idle')
-    const editTurn = f.read().turns!.at(-1)!.id
-
-    const result = await f.manager.rewind(f.id, editTurn, { restoreFiles: true })
-    expect(result.restoredFiles).toBe(1)
-    expect(readFileSync(join(repo, 'a.txt'), 'utf8')).toBe('a\n')
-    await f.manager.redoRewind(f.id)
-    expect(readFileSync(join(repo, 'a.txt'), 'utf8')).toBe('edited by the turn\n')
-    expect(f.read().thread.rewind).toBeUndefined()
-  })
-
   it('a move into a worktree during a turn adds a checkpoint and baseline there', async () => {
     const { repo, tree } = repository()
     const f = fixture(repo, { realWorkingState: true })

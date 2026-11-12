@@ -144,18 +144,6 @@
         "nativeMissing": "The installed Codex is missing its native executable (codex.exe). Reinstall Codex, or choose codex.exe in Agent Settings."
       },
       "restore": {
-        "foreignChanges": "{{count}} files changed outside this conversation ({{files}}). Restoring overwrites them; Redo brings your version back."
-      },
-      "branch": {
-        "unsupported": "Not available in Codex",
-        "checkpointGone": "This checkpoint no longer exists.",
-        "checkpointFailed": "Transcript only: this checkpoint's files weren't saved.",
-        "exists": "A branch with that name already exists. Pick another branch name.",
-        "pathExists": "A folder already exists at {{path}}. Pick another branch name.",
-        "baseGone": "The commit this checkpoint started from is gone, so it can't be branched.",
-        "notGit": "This conversation's folder isn't a git repository, so it can't be branched.",
-        "sessionGone": "The agent session for this conversation is gone, so the branch can't continue it.",
-        "failed": "Couldn't complete the branch ({{step}}); nothing was kept."
       }
     },
     "app": {

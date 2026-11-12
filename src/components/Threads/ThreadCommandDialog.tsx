@@ -59,7 +59,7 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
     onClose()
   }
 
-  // Archive, delete and rewind: one question, Cancel and one action.
+  // Archive and delete: one question, Cancel and one action.
   if (panel.kind === 'confirm' && panel.confirm) {
     const confirm = localizeConfirmation(panel.confirm)
     return <ConfirmDialog cancelLabel={t('common.cancel')} title={confirm.title} description={confirm.description} confirmLabel={confirm.confirmLabel} danger={confirm.danger} busy={pending} error={error}

@@ -85,7 +85,7 @@ export const ANTIGRAVITY_FALLBACK_MODELS: ThreadModel[] = antigravityModels([
 
 /** Antigravity's Agent Client Protocol (v1, JSON-RPC 2.0 over stdio) through `agy acp`. */
 export class AntigravityConversationAdapter implements AgentConversationAdapter {
-  readonly capabilities = { resume: true, approvals: true, attachments: true, modelSelection: true, questions: false, permissions: false, elicitation: false, queue: false, steering: false, nativeSessions: true, rewind: false }
+  readonly capabilities = { resume: true, approvals: true, attachments: true, modelSelection: true, questions: false, permissions: false, elicitation: false, queue: false, steering: false, nativeSessions: true }
   readonly evidence: ConversationProtocolEvidence = { transport: 'antigravity-acp-jsonrpc', verified: 'fixture' }
   private connection: { transport: ConversationTransport; rpc: AgentRpcPeer; args: string } | null = null
   private sessionId = ''
