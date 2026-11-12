@@ -86,16 +86,33 @@ function midSentence(text: string): string {
   return /^[A-Z][a-z]/.test(text) ? text[0].toLowerCase() + text.slice(1) : text
 }
 
+/**
+ * The first line of the answer that is prose: not a heading, a table row, a rule or what is inside a code fence. An
+ * answer that opens with "## Report" is summed up by its first sentence, not by the word "Report". An answer made only
+ * of headings or code falls back to its first heading.
+ */
+export function firstProseLine(text: string): string {
+  let fenced = false
+  let fallback = ''
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim()
+    if (/^(```|~~~)/.test(line)) { fenced = !fenced; continue }
+    if (fenced || !line) continue
+    if (/^#{1,6}\s/.test(line) || /^\|.*\|$/.test(line) || /^([-*_=])\1{2,}$/.test(line)) { fallback ||= stripInlineMarkdown(line); continue }
+    const clean = stripInlineMarkdown(line.replace(/^(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/, '').replace(/^>\s*/, ''))
+    if (clean) return clean
+  }
+  return fallback
+}
+
+/** An answer that only says it is over adds nothing to a band that already says "Done". */
+const ONLY_SAYS_DONE = /^(?:done|ok|okay|finished|complete[d]?|feito|pronto|conclu[ií]do|certo)[.!]*$/i
+
 function firstSentence(raw: string, root: string, limit: number): string {
-  const withRelPaths = relativizeInText(redactSecrets(raw), root)
-  const firstLine = withRelPaths
-    .split(/\r?\n/)
-    .map(line => line.trim())
-    .filter(line => Boolean(line) && !line.startsWith('```'))
-    .map(stripInlineMarkdown)
-    .find(Boolean) ?? ''
+  const firstLine = firstProseLine(relativizeInText(redactSecrets(raw), root))
   if (!firstLine) return ''
   const collapsed = firstLine.replace(/\s+/g, ' ')
+  if (ONLY_SAYS_DONE.test(collapsed)) return ''
   const match = /^(.+?[.!?])(?=\s|$)/.exec(collapsed)
   return cutSafe((match ? match[1] : collapsed).replace(/\.+$/, ''), limit)
 }
