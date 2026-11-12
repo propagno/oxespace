@@ -1,5 +1,5 @@
 import { Children, createContext, isValidElement, useContext, useEffect, useMemo, useState, type ComponentPropsWithoutRef, type ReactElement, type ReactNode } from 'react'
-import Markdown from 'react-markdown'
+import Markdown, { defaultUrlTransform } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Check, Copy } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -9,6 +9,8 @@ import { parseExternalUrl } from '../../lib/externalLinks'
 import './ThreadMarkdown.css'
 import { InCodeBlockContext, InlineCode } from '../PathMenu/PathLink'
 import { PathLink } from './PathLink'
+import { inlineImageSource, MAX_PROJECT_IMAGE_BYTES, projectImagePath } from './markdownImage'
+import { useThreadStore } from '../../store/thread.store'
 
 type Highlighter = typeof import('./codeHighlight')
 let highlighter: Highlighter | null = null
@@ -91,12 +93,41 @@ function MarkdownCode({ children, className, threadId, turnId }: { children?: Re
 }
 
 /**
+ * An image in an answer: drawn when the answer carries it (`data:`) or when it is an image file of the conversation's
+ * project, read through main. Anything else (an address on the network above all) stays the reference it was.
+ */
+function MarkdownImage({ src, alt, threadId }: { src?: string; alt?: string; threadId?: string }): ReactElement {
+  const { t } = useTranslation('thread')
+  const thread = useThreadStore(state => threadId ? state.threads.find(item => item.id === threadId) ?? (state.snapshot?.thread.id === threadId ? state.snapshot.thread : undefined) : undefined)
+  const inline = inlineImageSource(src)
+  const file = inline || !thread ? null : projectImagePath(src, thread.rootPath)
+  const [loaded, setLoaded] = useState<{ file: string; source: string } | null>(null)
+  const workspaceId = thread?.workspaceId, rootPath = thread?.rootPath
+  useEffect(() => {
+    if (!file || !workspaceId || !rootPath) return
+    let live = true
+    void window.oxe.fs.readBinary({ workspaceId, rootPath, relativePath: file }).then(result => {
+      if (live && /^image\/(png|jpeg|gif|webp)$/.test(result.mimeType) && result.size <= MAX_PROJECT_IMAGE_BYTES) setLoaded({ file, source: `data:${result.mimeType};base64,${result.base64}` })
+    }, () => undefined)
+    return () => { live = false }
+  }, [file, workspaceId, rootPath])
+  const source = inline ?? (loaded && loaded.file === file ? loaded.source : null)
+  if (source) return <img className="thread-markdown-image" src={source} alt={alt ?? ''} title={file ?? undefined} loading="lazy" />
+  return <span className="thread-markdown-reference" title={file ?? undefined}>{alt ? t('markdown.imageAlt', { alt }) : t('markdown.image')}</span>
+}
+
+/** The parser drops every address that is not a web or mail one; an image the answer carries in a `data:` address is kept (it is checked again where it is drawn). */
+function keepInlineImages(url: string, key: string): string {
+  return key === 'src' && inlineImageSource(url) ? url : defaultUrlTransform(url)
+}
+
+/**
  * Same parser for streaming and saved messages; no HTML execution or text rewriting. With `threadId` (and the turn),
  * path mentions in the agent's text become PathLinks that main resolves (A16).
  */
 export function ThreadMarkdown({ text, threadId, turnId }: { text: string; threadId?: string; turnId?: string }) {
   const { t } = useTranslation('thread')
-  return <div className="thread-markdown"><Markdown remarkPlugins={[remarkGfm]} components={{
+  return <div className="thread-markdown"><Markdown remarkPlugins={[remarkGfm]} urlTransform={keepInlineImages} components={{
     table: ({ children }) => <div className="thread-table-scroll" role="region" aria-label={t('markdown.table')} tabIndex={0}><table>{children}</table></div>,
     pre: ({ children }) => <InCodeBlockContext.Provider value><FencedContext.Provider value><CodeBlock language={fenceLanguage(children)}>{children}</CodeBlock></FencedContext.Provider></InCodeBlockContext.Provider>,
     // F33/A16: inline code that names a file is a link (PathLink with a conversation, else the path menu link).
@@ -105,6 +136,6 @@ export function ThreadMarkdown({ text, threadId, turnId }: { text: string; threa
     a: ({ href, children }) => <InCodeBlockContext.Provider value>{href && parseExternalUrl(href)
       ? <ExternalAnchor href={href}>{children}</ExternalAnchor>
       : <span className="thread-markdown-reference" title={href}>{children}</span>}</InCodeBlockContext.Provider>,
-    img: ({ alt }) => <span className="thread-markdown-reference">{alt ? t('markdown.imageAlt', { alt }) : t('markdown.image')}</span>
+    img: ({ alt, src }) => <MarkdownImage alt={alt} src={typeof src === 'string' ? src : undefined} threadId={threadId} />
   }}>{text}</Markdown></div>
 }

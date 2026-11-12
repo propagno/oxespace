@@ -48,3 +48,5 @@
 .thread-code-block .tk-removed { color: var(--intent-danger-fg); }
 .thread-code-block .tk-meta { color: var(--tx-muted); }
 .thread-markdown-reference { color: var(--tx-secondary); }
+/* An image the answer carries, or one of the project: it fits the reading column and never pushes it wider. */
+.thread-markdown-image { display: block; max-width: 100%; max-height: 480px; height: auto; margin: 12px 0; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); background: var(--bg-elevated); object-fit: contain; }
