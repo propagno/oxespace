@@ -47,6 +47,15 @@ describe('the changes of the latest turn (OxeChat, diff in the conversation)', (
     expect(screen.queryByLabelText('Changes in src/price.ts')).toBeNull()
   })
 
+  it('asks again when the turn just ended and its file states are not there yet', async () => {
+    // The checkpoint of a turn is finalized a moment after the turn ends: the first answer is empty.
+    const loadFileStates = vi.fn<() => Promise<ThreadTurnFileStatus[]>>().mockResolvedValueOnce([]).mockResolvedValue(states)
+    render(<ThreadTurnChanges openFirst events={events} root="/repo" onOpen={vi.fn()} loadFileStates={loadFileStates}
+      onUndoFile={vi.fn(async () => {})} loadHunks={async () => [hunk('h1', 'return total', 'return round(total)', 3)]} onUndoHunk={vi.fn(async () => {})} />)
+    expect(await screen.findByLabelText('Changes in src/price.ts', {}, { timeout: 4000 })).toHaveTextContent('+ return round(total)')
+    expect(loadFileStates).toHaveBeenCalledTimes(2)
+  })
+
   it('a review the person opens shows every block', async () => {
     renderChanges(false)
     fireEvent.click(await screen.findByRole('button', { name: 'Review changes in src/tax.ts' }))

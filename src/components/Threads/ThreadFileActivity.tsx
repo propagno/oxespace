@@ -58,6 +58,8 @@ export function FileStats({ file }: { file: ThreadChangeEntry['file'] }) {
   return file.additions !== undefined && file.deletions !== undefined && !file.truncated ? <span className="thread-file-stats"><span>+{file.additions}</span><span>−{file.deletions}</span></span> : null
 }
 const CHANGE_PREVIEW_FILES = 3
+/** Waits before asking again for a turn's file states that came back empty. */
+const STATE_RETRY_MS = [800, 2000, 5000]
 
 // Matches an event's path to a checkpoint path, which is relative to the checkout the turn changed.
 const relativeKey = (path: string, roots: Array<string | null | undefined>): string => {
@@ -86,7 +88,24 @@ export function ThreadTurnChanges({ events, root, roots = [], workspaceId, onOpe
     }, () => setFileStates({}))
   }
   // Loaded once per rendered turn and after each undo; the loader is an inline closure, so it is not a dependency.
-  useEffect(refreshStates, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // A turn that just ended has its checkpoint finalized a moment later; until then there are no states, and the card
+  // had no per-file actions for the rest of its life. An empty answer is asked again, a few times, then left alone.
+  useEffect(() => {
+    if (!loadFileStates) return
+    let active = true
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const load = (attempt: number): void => {
+      void loadFileStates().then(states => {
+        if (!active) return
+        const found = [...new Set(states.flatMap(state => state.root ? [state.root] : []))]
+        setCheckoutRoots(found)
+        setFileStates(Object.fromEntries(states.map(state => [relativeKey(state.path, [root, ...found]), state])))
+        if (!states.length && attempt < STATE_RETRY_MS.length) timer = setTimeout(() => load(attempt + 1), STATE_RETRY_MS[attempt])
+      }, () => { if (active) setFileStates({}) })
+    }
+    load(0)
+    return () => { active = false; if (timer) clearTimeout(timer) }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // The latest turn shows the change where it is told: the first file still pending opens its first block by itself.
   // Only once, only when its blocks really load, and never over a review the person opened.
   const autoOpened = useRef(false)
