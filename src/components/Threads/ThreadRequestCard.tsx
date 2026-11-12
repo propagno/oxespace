@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { AlertCircle, Check, Shield, Sun, X } from 'lucide-react'
 import type { ThreadPermissionSuggestion, ThreadRequest, ThreadRequestResponse } from '../../../shared/types/thread'
 import { approvalCommandPreview, ThreadApprovalDetails } from './ThreadApprovalDetails'
+import { ThreadMarkdown } from './ThreadMarkdown'
 import { threadApprovalRisk } from './threadApprovalRisk'
 import { useAllowHold } from '../Approvals/useAllowHold'
 import { useTranslation } from 'react-i18next'
@@ -167,7 +168,11 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
       <header><Sun size={14} aria-hidden="true" /><div><small className={styles.kicker}>{t('f7.card.needsApproval', { agent: agentName })}</small><strong>{requestLabel}</strong></div></header>
       {impact.why ? <p className={styles.context}>{impact.why}</p> : null}
       <div className={styles.factsWrap}><ImpactFacts impact={impact} layout="chips" /></div>
-      <pre><code>{impact.text}</code></pre>
+      {/* A plan is prose to read whole, not a command: rendered, with no box that scrolls inside the card. The status
+          line keeps Deny and Allow in reach while the card's own are below the screen. */}
+      {request.nativeMethod === 'can_use_tool:ExitPlanMode'
+        ? <div className={styles.plan} tabIndex={0} role="region" aria-label={t('approvalDetails.plan')} data-testid="request-plan"><ThreadMarkdown text={impact.text} /></div>
+        : <pre><code>{impact.text}</code></pre>}
       {offer && !offer.offered ? <AlwaysAllowReason reasonKind={offer.reasonKind} className={styles.context} /> : null}
       {error && <ErrorState compact title={error} />}
       <footer>
@@ -238,7 +243,7 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
         const { content, errors } = elicitationContent(elicitation, form)
         if (Object.keys(errors).length) { setShowProblems(true); return }
         void submit({ decision: 'accept', content })
-      }}>{t('request.continue')}</button>}
+      }}>{t(elicitation.length ? 'request.continue' : 'request.approve')}</button>}
       {request.kind === 'permissions' && <><button type="button" disabled={disabled} onClick={() => void submit({ decision: 'accept', permissions: request.requestedPermissions ?? {}, scope: 'turn' })}>{t('request.allowTurn')}</button><button type="button" disabled={disabled} onClick={() => void submit({ decision: 'accept', permissions: request.requestedPermissions ?? {}, scope: 'session' })}>{t('request.allowSession')}</button></>}
       {preview ? <>
         <Button variant="secondary" autoFocus className={cx('thread-request-decline', styles.decline)} disabled={disabled} onClick={() => void submit({ decision: 'decline' })}><X size={14} />{t('request.deny')}</Button>
@@ -248,7 +253,7 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
       {request.kind === 'approval' && (request.availableDecisions ?? ['accept', 'decline']).filter(decision => decision === 'accept' || (decision === 'acceptForSession' && risk === 'low' && !guarded)).map(decision => <button type="button" key={decision} data-risk={risk} data-guarded={guarded ? 'true' : undefined} className={risk !== 'low' || guarded ? styles.quiet : undefined} disabled={disabled || holdLeft > 0} onKeyDown={guardEnter} onClick={() => { if (holdLeft <= 0) void submit({ decision }) }}>{decision === 'acceptForSession' ? t('request.allowSession') : t('request.approve')}</button>)}
       {/* MCP tool suggestions are alternatives (the tool, or its whole server); the others must all be saved together. */}
       {request.kind === 'approval' && remember && (remember.every(item => item.kind === 'tool') ? remember.map(item => [item]) : [remember]).map(group => <button key={group.map(item => item.pattern).join(',')} type="button" className={cx('thread-request-remember', styles.remember)} disabled={disabled} title={t('request.rememberTitle', { patterns: group.map(item => item.pattern).join(', ') })} onClick={() => void rememberAndApprove(group)}>{t('request.always', { labels: group.map(item => item.label).join(', ') })}</button>)}
-      <button type="button" className={cx('thread-request-decline', styles.decline)} disabled={disabled} onClick={() => void submit({ decision: request.availableDecisions?.includes('cancel') ? 'cancel' : 'decline' })}><X size={14} />{request.availableDecisions?.includes('cancel') ? t('request.cancel') : request.kind === 'approval' || request.kind === 'permissions' ? t('request.deny') : t('request.decline')}</button>
+      <button type="button" className={cx('thread-request-decline', styles.decline)} disabled={disabled} onClick={() => void submit({ decision: request.availableDecisions?.includes('cancel') ? 'cancel' : 'decline' })}><X size={14} />{request.availableDecisions?.includes('cancel') ? t('request.cancel') : request.kind === 'approval' || request.kind === 'permissions' || (request.kind === 'elicitation' && !elicitation.length) ? t('request.deny') : t('request.decline')}</button>
       </>}
     </footer>
   </section>

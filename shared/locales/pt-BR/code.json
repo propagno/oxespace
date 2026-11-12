@@ -913,6 +913,7 @@
     "status": {
       "needs-decision": "Precisa da sua decisão",
       "thinking": "Pensando",
+      "running": "Rodando",
       "awaiting": "Aguardando",
       "starting": "Iniciando",
       "exited": "Encerrado",
@@ -1087,6 +1088,26 @@
     "unavailableHint": "O navegador não conseguiu carregar esta página. Confira se o servidor está rodando.",
     "emptyHint": "Inicie o seu servidor de desenvolvimento e digite o endereço acima, por exemplo http://localhost:3000.",
     "page": "Página no navegador",
+    "verify": {
+      "toggle": "Conferir sozinho",
+      "toggleTitle": "Com o acesso do agente ligado, o agente é instruído em cada mensagem a conferir esta página depois de editar: uma captura e o console. Usa passos extras do agente.",
+      "problems": "Desde a carga da página: {{count}} erro(s) no console dela.",
+      "send": "Enviar ao agente",
+      "dismiss": "Dispensar"
+    },
+    "devServer": {
+      "label": "Servidores de dev",
+      "labelRunning": "Servidores de dev: {{count}} rodando",
+      "none": "Nenhum servidor de dev encontrado. Adicione um script \"dev\" ao package.json, ou um .claude/launch.json.",
+      "start": "Iniciar {{name}}",
+      "stop": "Parar {{name}}",
+      "open": "Abrir {{url}}",
+      "commandIn": "{{command}} — em {{folder}}",
+      "starting": "Iniciando {{name}}… a página abre quando o servidor estiver no ar.",
+      "startFailed": "Não foi possível iniciar {{name}}",
+      "stopFailed": "Não foi possível parar {{name}}",
+      "noAddress": "{{name}} não informou o endereço; tentando {{url}}."
+    },
     "grab": {
       "label": "Seleção do Modo Design",
       "discard": "Descartar a seleção",
@@ -1095,7 +1116,21 @@
       "text": "Texto",
       "note": "O que o agente deve mudar?",
       "notePlaceholder": "O que o agente deve mudar aqui? (Ctrl+Enter envia)",
-      "send": "Enviar ao agente"
+      "send": "Enviar ao agente",
+      "selected": "Elementos selecionados: {{count}}",
+      "remove": "Tirar {{selector}} da seleção",
+      "locating": "Procurando onde isto está escrito…",
+      "noSource": "A página não informa onde isto está escrito, e a busca no projeto não encontrou nada.",
+      "approximate": "a linha pode estar algumas linhas fora",
+      "bySearch": "encontrado por busca no projeto",
+      "otherPlaces": "Outros lugares possíveis",
+      "choosePlace": "Escolher…",
+      "openSource": "Abrir {{location}} em Arquivos",
+      "addAnother": "Selecionar outro elemento",
+      "addAnotherTitle": "Escolha mais elementos para o mesmo pedido. Shift+clique na página também continua selecionando.",
+      "picking": "Clique em um elemento da página…",
+      "pickingMore": "Selecionados: {{count}}. Clique em outro elemento, ou revise o que escolheu.",
+      "review": "Revisar e enviar"
     },
     "retry": "Tentar de novo"
   },
@@ -1246,8 +1281,8 @@
         },
         "projects": {
           "label": "Projetos",
-          "hint": "Worktrees e branches",
-          "description": "Inspecione e gerencie worktrees e branches do Git vinculados a este workspace."
+          "hint": "Instruções do projeto",
+          "description": "Os arquivos de instruções que os agentes leem neste projeto."
         },
         "policy": {
           "label": "Política",
@@ -1322,6 +1357,7 @@
       "agentMenu": "Iniciar um agente",
       "layoutMenu": "Layout da grade de terminais",
       "layoutFocus": "Foco",
+      "layoutCustom": "Personalizada",
       "mcp": "Abrir os servidores MCP",
       "mcpQuarantined_one": "Abrir os servidores MCP: {{count}} em quarentena",
       "mcpQuarantined_many": "Abrir os servidores MCP: {{count}} em quarentena",
@@ -2041,6 +2077,7 @@
     "splitDown": "Dividir o painel para baixo",
     "moveBelow": "Mover para baixo do painel anterior",
     "moveRight": "Mover para a direita do painel anterior",
+    "firstPane": "Este é o primeiro painel: não há outro antes dele.",
     "balance": "Equilibrar os painéis",
     "close": "Fechar o painel",
     "detailsTitle": "Detalhes do terminal",

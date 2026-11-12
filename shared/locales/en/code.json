@@ -878,6 +878,7 @@
     "status": {
       "needs-decision": "Needs your decision",
       "thinking": "Thinking",
+      "running": "Running",
       "awaiting": "Awaiting",
       "starting": "Starting",
       "exited": "Exited",
@@ -1040,6 +1041,26 @@
     "unavailableHint": "The browser could not load this page. Check that the server is running.",
     "emptyHint": "Start your dev server, then type its address above, for example http://localhost:3000.",
     "page": "Page in the browser",
+    "verify": {
+      "toggle": "Auto-verify",
+      "toggleTitle": "With agent access on, the agent is told with each message to check this page after it edits: a screenshot and the console. Uses extra agent steps.",
+      "problems": "Since the page loaded: {{count}} error(s) in its console.",
+      "send": "Send to agent",
+      "dismiss": "Dismiss"
+    },
+    "devServer": {
+      "label": "Dev servers",
+      "labelRunning": "Dev servers: {{count}} running",
+      "none": "No dev server found. Add a \"dev\" script to package.json, or a .claude/launch.json.",
+      "start": "Start {{name}}",
+      "stop": "Stop {{name}}",
+      "open": "Open {{url}}",
+      "commandIn": "{{command}} — in {{folder}}",
+      "starting": "Starting {{name}}… the page opens when the server is up.",
+      "startFailed": "Could not start {{name}}",
+      "stopFailed": "Could not stop {{name}}",
+      "noAddress": "{{name}} printed no address; trying {{url}}."
+    },
     "grab": {
       "label": "Design Mode selection",
       "discard": "Discard the selection",
@@ -1048,7 +1069,21 @@
       "text": "Text",
       "note": "What should the agent change?",
       "notePlaceholder": "What should the agent change here? (Ctrl+Enter sends)",
-      "send": "Send to agent"
+      "send": "Send to agent",
+      "selected": "Selected elements: {{count}}",
+      "remove": "Remove {{selector}} from the selection",
+      "locating": "Looking for where this is written…",
+      "noSource": "The page does not say where this is written, and a search of the project found nothing.",
+      "approximate": "the line may be a few lines off",
+      "bySearch": "found by searching the project",
+      "otherPlaces": "Other places it may be",
+      "choosePlace": "Choose…",
+      "openSource": "Open {{location}} in Files",
+      "addAnother": "Select another element",
+      "addAnotherTitle": "Pick more elements for the same request. Shift+click in the page also keeps selecting.",
+      "picking": "Click an element in the page…",
+      "pickingMore": "Selected: {{count}}. Click another element, or review what you picked.",
+      "review": "Review and send"
     },
     "retry": "Retry"
   },
@@ -1189,8 +1224,8 @@
         },
         "projects": {
           "label": "Projects",
-          "hint": "Worktrees and branches",
-          "description": "Inspect and manage git worktrees and branches linked to this workspace."
+          "hint": "Project instructions",
+          "description": "The instruction files agents read in this project."
         },
         "policy": {
           "label": "Policy",
@@ -1265,6 +1300,7 @@
       "agentMenu": "Launch agent",
       "layoutMenu": "Terminal grid layout",
       "layoutFocus": "Focus",
+      "layoutCustom": "Custom",
       "mcp": "Open MCP servers",
       "mcpQuarantined_one": "Open MCP servers: {{count}} quarantined",
       "mcpQuarantined_other": "Open MCP servers: {{count}} quarantined",
@@ -1971,6 +2007,7 @@
     "splitDown": "Split pane down",
     "moveBelow": "Move below the previous pane",
     "moveRight": "Move to the right of the previous pane",
+    "firstPane": "This is the first pane: there is none before it.",
     "balance": "Balance panes",
     "close": "Close pane",
     "detailsTitle": "Terminal details",

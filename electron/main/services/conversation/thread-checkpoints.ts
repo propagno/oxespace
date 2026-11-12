@@ -6,7 +6,6 @@ import type { ThreadFileHunk } from '../../../../shared/types/thread'
 import { diffLines, joinLines, revertHunk, splitLines, type LineHunk } from '../../../../shared/lineDiff'
 import { execGit } from '../../utils/safe-git'
 import { canonicalPath } from '../git-common-dir'
-import { ThreadRewindError, foreignChangesRewindError } from './thread-rewind'
 import { protectedConfigKind } from './kernel/protected-config'
 
 const FILE_LIMIT = 2 * 1024 * 1024
@@ -34,7 +33,11 @@ interface FileImage { exists: boolean; content?: Buffer; hash?: string }
  */
 export type CheckpointFileState = 'pending' | 'reverted' | 'modified'
 /** `path` is relative to `root`, the checkout the turn changed. */
-export interface CheckpointFileStatus { path: string; root: string; state: CheckpointFileState; preExists: boolean; postExists: boolean }
+export interface CheckpointFileStatus {
+  path: string; root: string; state: CheckpointFileState; preExists: boolean; postExists: boolean
+  /** Lines this turn added and removed, for a text file still as the turn left it. */
+  additions?: number; deletions?: number
+}
 interface CheckpointRow {
   id: string; thread_id: string; turn_id: string | null; root_path: string; base_commit: string | null
   label: string | null; state: ThreadCheckpointSummary['state']; created_at: number; finalized_at: number | null
@@ -199,7 +202,7 @@ export class ThreadCheckpointService {
       const state: CheckpointFileState = current && matches(current, imageFromRow(file, 'pre')) ? 'reverted'
         : current && current.exists === Boolean(file.post_exists) && current.hash === (file.post_hash ?? undefined) ? 'pending'
           : 'modified'
-      states.push({ path: file.path, root: checkpoint.root_path, state, preExists: Boolean(file.pre_exists), postExists: Boolean(file.post_exists) })
+      states.push({ path: file.path, root: checkpoint.root_path, state, preExists: Boolean(file.pre_exists), postExists: Boolean(file.post_exists), ...(state === 'pending' && current ? turnLines(file, current) : {}) })
     }
     return states
   }
@@ -275,132 +278,6 @@ export class ThreadCheckpointService {
   }
 
 
-  /**
-   * Restores only the files changed by `turnIds` (in chronological order), after
-   * saving a safety (`redo:`) checkpoint of every file it will write. Refuses with
-   * `foreign-changes` when any file differs from the latest dropped checkpoint's
-   * post-image unless `confirmed` is true. Never touches `.git` or other files.
-   */
-  async restoreTurns(
-    threadId: string,
-    turnIds: string[],
-    options: { confirmed?: boolean; allowedRoots?: string[] } = {}
-  ): Promise<{ redoCheckpointIds: string[]; restoredFiles: number }> {
-    if (!turnIds.length) return { redoCheckpointIds: [], restoredFiles: 0 }
-    const turnOrder = new Map(turnIds.map((turnId, idx) => [turnId, idx]))
-    const allRows = (this.db.prepare('SELECT * FROM conversation_checkpoints WHERE thread_id = ? ORDER BY created_at ASC, rowid ASC').all(threadId) as CheckpointRow[])
-      .filter(row => row.turn_id !== null && turnOrder.has(row.turn_id))
-      .sort((a, b) => (turnOrder.get(a.turn_id!)! - turnOrder.get(b.turn_id!)!) || (a.created_at - b.created_at))
-    if (!allRows.length) return { redoCheckpointIds: [], restoredFiles: 0 }
-    if (allRows.some(row => row.state === 'failed' || row.state === 'open')) {
-      throw new ThreadRewindError('unavailable', "One of the turns' file checkpoints wasn't saved; restore without files.")
-    }
-
-    const allowedKeys = options.allowedRoots?.length
-      ? new Set(await Promise.all(options.allowedRoots.map(async r => canonicalPath(await canonicalRoot(r).catch(() => resolve(r))))))
-      : null
-
-    const changedStmt = this.db.prepare(
-      "SELECT path, pre_exists, pre_content, pre_hash, post_exists, post_hash FROM conversation_checkpoint_files WHERE checkpoint_id = ? AND (pre_exists != post_exists OR COALESCE(pre_hash, '') != COALESCE(post_hash, '')) ORDER BY path ASC"
-    )
-    interface PlannedRestore {
-      root: string
-      path: string
-      targetPre: FileImage
-      expectedPost: FileImage
-      current?: FileImage
-    }
-    const planned = new Map<string, PlannedRestore>()
-    for (const checkpoint of allRows) {
-      const root = await canonicalRoot(checkpoint.root_path)
-      if (allowedKeys && !allowedKeys.has(canonicalPath(root))) {
-        throw new ThreadRewindError('unavailable', 'Checkpoint root is outside the conversation places.')
-      }
-      const files = changedStmt.all(checkpoint.id) as CheckpointFileRow[]
-      for (const file of files) {
-        const rel = safeRelative(file.path)
-        const key = `${root}\0${rel}`
-        const existing = planned.get(key)
-        if (!existing) {
-          planned.set(key, { root, path: rel, targetPre: imageFromRow(file, 'pre'), expectedPost: imageFromRow(file, 'post') })
-        } else {
-          existing.expectedPost = imageFromRow(file, 'post')
-        }
-      }
-    }
-    if (!planned.size) return { redoCheckpointIds: [], restoredFiles: 0 }
-
-    const foreignFiles: string[] = []
-    const byRoot = new Map<string, PlannedRestore[]>()
-    for (const item of planned.values()) {
-      if (item.targetPre.exists && (!item.targetPre.content || hash(item.targetPre.content) !== item.targetPre.hash)) {
-        throw Error(`Checkpoint preimage is corrupt: ${item.path}`)
-      }
-      const current = await readImage(item.root, item.path)
-      item.current = current
-      if (!matches(current, item.expectedPost) && !foreignFiles.includes(item.path)) {
-        foreignFiles.push(item.path)
-      }
-      const list = byRoot.get(item.root) ?? []
-      list.push(item)
-      byRoot.set(item.root, list)
-    }
-
-    if (foreignFiles.length > 0 && !options.confirmed) {
-      throw foreignChangesRewindError(foreignFiles)
-    }
-
-    for (const items of byRoot.values()) {
-      const bytes = items.reduce((sum, item) => sum + (item.current?.content?.byteLength ?? 0), 0)
-      if (bytes > CHECKPOINT_LIMIT) throw Error('Checkpoint exceeds the 32 MiB safety limit')
-    }
-
-    const redoCheckpointIds: string[] = []
-    this.db.transaction(() => {
-      const now = Date.now()
-      const insertCp = this.db.prepare(`INSERT INTO conversation_checkpoints
-        (id, thread_id, turn_id, root_path, base_commit, label, state, before_paths_json, created_at, finalized_at)
-        VALUES (?, ?, ?, ?, NULL, 'Before rewind', 'ready', ?, ?, ?)`)
-      const insertFile = this.db.prepare(`INSERT INTO conversation_checkpoint_files
-        (checkpoint_id, path, pre_exists, pre_content, pre_hash, post_exists, post_hash, bytes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-      for (const [root, items] of byRoot.entries()) {
-        const redoId = randomUUID()
-        insertCp.run(redoId, threadId, `redo:${turnIds[0]}`, root, JSON.stringify(items.map(i => i.path)), now, now)
-        for (const item of items) {
-          const cur = item.current!
-          insertFile.run(
-            redoId,
-            item.path,
-            Number(cur.exists),
-            cur.content ?? null,
-            cur.hash ?? null,
-            Number(item.targetPre.exists),
-            item.targetPre.hash ?? null,
-            (cur.content?.byteLength ?? 0) + (item.targetPre.content?.byteLength ?? 0)
-          )
-        }
-        redoCheckpointIds.push(redoId)
-      }
-    })()
-
-    const applied: Array<{ root: string; path: string; previous: FileImage }> = []
-    try {
-      for (const item of planned.values()) {
-        if (!matches(item.current!, item.targetPre)) {
-          await applyImage(item.root, item.path, item.targetPre)
-          applied.push({ root: item.root, path: item.path, previous: item.current! })
-        }
-      }
-    } catch (error) {
-      for (const done of applied.reverse()) await applyImage(done.root, done.path, done.previous).catch(() => {})
-      for (const redoId of redoCheckpointIds) this.db.prepare('DELETE FROM conversation_checkpoints WHERE id = ?').run(redoId)
-      throw error
-    }
-
-    return { redoCheckpointIds, restoredFiles: planned.size }
-  }
-
   delete(threadId: string, checkpointId: string): void {
     const result = this.db.prepare('DELETE FROM conversation_checkpoints WHERE id = ? AND thread_id = ?').run(checkpointId, threadId)
     if (!result.changes) throw Error('Checkpoint not found')
@@ -456,6 +333,20 @@ async function resolveSafe(root: string, path: string): Promise<string> {
     try { if ((await lstat(cursor)).isSymbolicLink()) throw Error('Checkpoint path crosses a symbolic link') } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
   }
   return target
+}
+
+/**
+ * The lines one turn added and removed in a file still as the turn left it: its content before the turn against its
+ * content now. The working tree's diff counts every line changed since the last commit, so a second turn that added
+ * one line to a file read "+2". Nothing for a binary side, a content that was not kept, or too many edits to compare.
+ */
+function turnLines(file: CheckpointFileRow, current: FileImage): { additions?: number; deletions?: number } {
+  const before = !file.pre_exists ? '' : file.pre_content ? text(Buffer.from(file.pre_content)) : null
+  const after = !current.exists ? '' : current.content ? text(current.content) : null
+  if (before === null || after === null) return {}
+  const hunks = diffLines(splitLines(before), splitLines(after))
+  if (!hunks) return {}
+  return { additions: hunks.reduce((sum, hunk) => sum + hunk.newLines.length, 0), deletions: hunks.reduce((sum, hunk) => sum + hunk.oldLines.length, 0) }
 }
 
 async function readImage(root: string, path: string): Promise<FileImage> {
