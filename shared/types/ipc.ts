@@ -420,6 +420,8 @@ export const IPC_CHANNELS = {
     startEmulator: 'android:start-emulator'
   },
   /** The person's own actions on a device from the Android panel; apart from the mirror's channels, which F5 fixed. */
+  /** The person's schedules: requests to an agent sent at a set time. Never reachable by an agent. */
+  schedules: { state: 'schedules:state', runs: 'schedules:runs', save: 'schedules:save', remove: 'schedules:remove', setEnabled: 'schedules:set-enabled', setPaused: 'schedules:set-paused', runNow: 'schedules:run-now', changed: 'schedules:changed' },
   androidActions: { pickApk: 'android-actions:pick-apk', installApk: 'android-actions:install-apk', openLink: 'android-actions:open-link', pair: 'android-actions:pair' },
   oxeContext: {
     buildPaneManifest: 'oxe-context:build-pane-manifest'
@@ -784,6 +786,7 @@ export interface OxeApi {
   dataExport: DataExportApi
   httpAudit: import('./http-audit').HttpAuditApi
   android?: AndroidApi
+  schedules?: SchedulesApi
   agentActivity: import('./agent-activity').AgentActivityApi
   paneConversation?: PaneConversationApi
   featureUsage: FeatureUsageApi
@@ -916,6 +919,8 @@ export interface McpApi {
   onHealth(listener: (event: import('./mcp').McpServerHealthEvent) => void): () => void
 }
 
+export type { SchedulesApi } from './schedules-api'
+import type { SchedulesApi } from './schedules-api'
 export type { AndroidMirrorDevice, AndroidApkPick, AndroidActionOutcome, AndroidMirrorStatus, AndroidMirrorFrame, AndroidApi } from './android'
 import type { AndroidApi } from './android'
 

@@ -78,7 +78,7 @@ export function registerThreadIpc(
   worktrees?: ThreadWorktreeHost,
   activity?: () => import('../services/agent-activity/read-model').AgentActivity | undefined,
   background?: ThreadBackgroundHost
-): { stop(): Promise<void>; manager: Promise<ThreadManager> } {
+): { stop(): Promise<void>; manager: Promise<ThreadManager>; projects: ThreadProjectService } {
   // The folder an account scope runs in: the pane's own root when it has one, else the workspace's.
   const workspaceCwd = (workspaceId: string, paneId?: string | null): string => {
     const ws = db.prepare('SELECT root_path FROM workspaces WHERE id = ?').get(workspaceId) as { root_path: string } | undefined
@@ -374,7 +374,7 @@ export function registerThreadIpc(
   registerThreadPlacesIpc({ manager })
   forwardPlacesChanged({ manager })
   const cockpit = registerThreadCockpitIpc(manager, background)
-  return { manager, stop: async () => { cockpit.stop(); await sideChats?.then(chats => chats.stop()).catch(() => {}); await (await accounts).stop(); await (await manager).stop() } }
+  return { manager, projects: threadProjects, stop: async () => { cockpit.stop(); await sideChats?.then(chats => chats.stop()).catch(() => {}); await (await accounts).stop(); await (await manager).stop() } }
 }
 
 /** F6 A19/A22: OXESpace's own background jobs and PR lookup for a conversation. */

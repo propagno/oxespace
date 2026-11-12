@@ -76,6 +76,7 @@ const NoWorkspaceStart = lazyFrom(NO_WORKSPACE_START_CHUNK, (m) => m.NoWorkspace
 import { AgentHooksPromptHost } from './components/AgentSessions/AgentHooksPromptHost'
 import './components/Threads/ThreadView.css'
 import { AppStatusBar } from './components/Workspace/AppStatusBar'
+import { SchedulesHost } from './components/Schedules/SchedulesHost'
 import { UpdateChips } from './app/UpdateChips'
 import { useAgentStore } from './store/agent.store'
 import { useEditorStore } from './store/editor.store'
@@ -116,6 +117,8 @@ export function App(): ReactElement {
     rawSelectMode(mode)
   }, [applicationView, hasOpenedThread, rawSelectMode])
   useModeActions(selectMode)
+  // A schedule's run opened a conversation: the way to it from the notice and from the Schedules dialog.
+  const openScheduledThread = useCallback((threadId: string) => { selectMode('thread'); void useThreadStore.getState().load().then(() => useThreadStore.getState().select(threadId)) }, [selectMode])
   const [newThreadWorkspaceId, setNewThreadWorkspaceId] = useState<string | null | undefined>(undefined)
   const [newThreadRootPath, setNewThreadRootPath] = useState<string | undefined>()
   const [isThreadProjectOpen, setThreadProjectOpen] = useState(false)
@@ -830,6 +833,7 @@ export function App(): ReactElement {
         onSelectPane={setActivePane}
       />
       <UsageModal open={isUsageOpen} onOpenChange={(o) => (o ? openUsage() : closeUsage())} />
+      <SchedulesHost onOpenThread={openScheduledThread} />
       {commandBarOpen ? <CommandBarHost open={commandBarOpen} onOpenChange={setCommandBarOpen} applicationView={applicationView} selectMode={selectMode} activeWorkspace={activeWorkspace ?? null} activePane={activePane} /> : null}
       {slashPane ? (
         <SlashOverlay

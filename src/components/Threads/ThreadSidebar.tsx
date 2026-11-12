@@ -6,7 +6,7 @@ import { i18n } from '../../i18n'
 import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, LoadingState, Menu, Notice, Spinner, Splitter, cx, TextField } from '../../ui'
 import styles from './ThreadSidebar.module.css'
 import { useThreadContentSearch } from '../../hooks/useThreadContentSearch'
-import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleCheck, CircleX, Columns2, FolderPlus, MoreHorizontal, Pencil, Pin, Plus, Square, Sun, Trash2, UserRound } from 'lucide-react'
+import { AlignJustify, Archive, ArchiveRestore, CalendarClock, Check, ChevronDown, Circle, CircleCheck, CircleX, Columns2, FolderPlus, MoreHorizontal, Pencil, Pin, Plus, Square, Sun, Trash2, UserRound } from 'lucide-react'
 import type { ConversationThread } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
@@ -229,6 +229,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
       </nav>
       <div className={styles.summaryStrip}>
         <span>{t('sidebar.archivedCount', { count: archived.length })}</span>
+        <button type="button" className={styles.schedules} onClick={() => useUIStore.getState().openSchedules()}><CalendarClock size={12} aria-hidden="true" />{t('schedules.title')}</button>
         <span>{t('sidebar.conversationCount', { count: activeConversationCount })}</span>
       </div>
       <SidebarFooter context={railContext} onToggle={toggleCollapse} />

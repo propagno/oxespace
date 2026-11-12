@@ -164,6 +164,11 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     forbidden: 'The person\'s Android mirror, input and device access switch; no MCP tool may send input to a device or raise access.',
     ipc: ['android.*']
   },
+  'schedules.admin': {
+    label: 'Create, change, pause, run or delete a schedule',
+    forbidden: 'A schedule sends a request to an agent with no one watching: only the person sets one up. An agent never schedules itself.',
+    ipc: ['schedules.*']
+  },
   'android.device_actions': {
     label: 'Install an APK, open a link or send the pairing link to an Android device from the panel',
     forbidden: 'The person\'s own actions on their device: no MCP tool may install an app, start an activity or pair a phone.',
