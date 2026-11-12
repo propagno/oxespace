@@ -5,6 +5,7 @@ import { detectDevServers, launchAutoVerify, packageManagerFor, urlFromOutput, t
 import { selectJobs, useBackgroundStore } from '../../store/background.store'
 import { Menu, type MenuEntry } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
+import { runInThreadShell, stopThreadShell, threadShellPane, THREAD_SHELL_SLOTS } from '../../lib/threadShell'
 
 interface Project { id: string; rootPath: string }
 
@@ -15,10 +16,12 @@ export const devServerJobLabel = (config: Pick<DevServerConfig, 'name'>): string
  * In a conversation the server runs in a terminal of the conversation's project (background jobs belong to OxeCode
  * workspaces): the last of the eight a conversation has, so the person finds it in the Terminal tab.
  */
-const THREAD_DEV_SLOT = 8
-const threadDevPane = (threadId: string): string => `thread-shell:${threadId}:${THREAD_DEV_SLOT}`
+const THREAD_DEV_SLOT = THREAD_SHELL_SLOTS
+const threadDevPane = (threadId: string): string => threadShellPane(threadId, THREAD_DEV_SLOT)
 /** The server a conversation's terminal is running, and what it printed. Kept while the app runs: the panel closes and reopens. */
-const threadRuns = new Map<string, { configId: string; output: string }>()
+const threadRuns = new Map<string, { configId: string; output: string; startedAt: number }>()
+/** Restarting the terminal ends the shell that was there: that end, arriving late, is not the end of the server just started. */
+const RESTART_GRACE_MS = 2000
 const MAX_OUTPUT = 20_000
 /** The address each server printed, by project: the menu opens the real one also after the panel was closed and reopened. */
 const printedUrls = new Map<string, Record<string, string>>()
@@ -86,7 +89,7 @@ export function useDevServers(project: Project, threadId?: string): DevServers {
       run.output = (run.output + event.data).slice(0, MAX_OUTPUT)
       setTick(value => value + 1)
     })
-    const offExit = window.oxe.terminal.onExit(paneId, () => { threadRuns.delete(threadId); setTick(value => value + 1) })
+    const offExit = window.oxe.terminal.onExit(paneId, () => { const run = threadRuns.get(threadId); if (run && Date.now() - run.startedAt < RESTART_GRACE_MS) return; threadRuns.delete(threadId); setTick(value => value + 1) })
     return () => { offData(); offExit() }
   }, [threadId])
 
@@ -96,13 +99,9 @@ export function useDevServers(project: Project, threadId?: string): DevServers {
   const start = useCallback(async (config: DevServerConfig): Promise<boolean> => {
     if (!config.command) return false
     if (threadId) {
-      const paneId = threadDevPane(threadId)
-      await window.oxe.terminal.stop({ paneId }).catch(() => undefined)
-      await window.oxe.terminal.start({ paneId, workspaceId: project.id })
-      threadRuns.set(threadId, { configId: config.id, output: '' })
-      // The command is typed into the project's shell, as the person would: it runs in the project's folder.
-      const enter = config.cwd ? `cd ${JSON.stringify(joinPath(project.rootPath, config.cwd))}\r` : ''
-      await window.oxe.terminal.write({ paneId, data: `${enter}${config.command}\r` })
+      threadRuns.set(threadId, { configId: config.id, output: '', startedAt: Date.now() })
+      // Typed into a terminal of the conversation's project, as the person would: it runs in the project's folder.
+      await runInThreadShell({ threadId, workspaceId: project.id, slot: THREAD_DEV_SLOT, command: config.command, cwd: config.cwd, rootPath: project.rootPath, restart: true })
       setStarted({ configId: config.id, name: config.name, url: config.url, since: Date.now(), jobId: null })
       return true
     }
@@ -111,7 +110,7 @@ export function useDevServers(project: Project, threadId?: string): DevServers {
     return true
   }, [project.id, project.rootPath, threadId])
   const stop = useCallback(async (config: DevServerConfig): Promise<void> => {
-    if (threadId) { threadRuns.delete(threadId); setTick(value => value + 1); await window.oxe.terminal.stop({ paneId: threadDevPane(threadId) }); return }
+    if (threadId) { threadRuns.delete(threadId); setTick(value => value + 1); await stopThreadShell(threadId, THREAD_DEV_SLOT); return }
     const job = jobs.find(item => item.label === devServerJobLabel(config) && (item.status === 'running' || item.status === 'pending'))
     if (job) await useBackgroundStore.getState().stopJob(job.id)
   }, [jobs, threadId])
