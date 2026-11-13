@@ -3,10 +3,12 @@ import { useCallback, useEffect, useMemo, useState, type ReactElement } from 're
 import type { CommandContext, CommandRequestItem, ParsedCommandLine } from '../../../shared/command-bar'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
 import type { AppView } from '../../keyboard/keybindings'
+import { useSettingsStore } from '../../store/settings.store'
 import { useSkillStore } from '../../store/skill.store'
 import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
+import { toast } from '../../ui/Toast'
 import { OPEN_APPROVAL_QUEUE_EVENT } from '../Approvals/approvalsBoot'
 import { CommandBar } from './CommandBar'
 
@@ -17,6 +19,10 @@ export interface CommandBarHostProps {
   selectMode: (mode: AppView) => void
   activeWorkspace: Workspace | null
   activePane: WorkspacePane | null
+  /** What the "New terminal" button does. */
+  onNewTerminal: () => void
+  /** What "New conversation" does in OxeChat. */
+  onNewConversation: () => void
 }
 
 export function CommandBarHost({
@@ -25,7 +31,9 @@ export function CommandBarHost({
   applicationView,
   selectMode,
   activeWorkspace,
-  activePane
+  activePane,
+  onNewTerminal,
+  onNewConversation
 }: CommandBarHostProps): ReactElement {
   const skills = useSkillStore(state => state.skills)
   const workspaces = useWorkspaceStore(state => state.workspaces)
@@ -69,6 +77,24 @@ export function CommandBarHost({
   }, [activePane, activeWorkspace?.id, applicationView, requests, skills, snapshot?.thread.id, snapshot?.thread.workspaceId])
 
   const handleRun = useCallback((parsed: ParsedCommandLine) => {
+    if (parsed.kind === 'command') {
+      if (parsed.id === 'terminal') {
+        // A terminal belongs to a workspace of OxeCode; without one there is nowhere to open it.
+        if (!activeWorkspace) { toast({ title: i18n.t('commandBar.hint.noWorkspace'), intent: 'warning' }); return }
+        selectMode('code')
+        onNewTerminal()
+      } else if (parsed.id === 'new') {
+        selectMode('thread')
+        onNewConversation()
+      } else if (parsed.id === 'theme') {
+        const wanted = parsed.args.trim().toLowerCase()
+        const dark = document.documentElement.dataset.mode === 'dark'
+        useSettingsStore.getState().setAppearance(wanted === 'light' || wanted === 'dark' || wanted === 'system' ? wanted : dark ? 'light' : 'dark')
+      } else if (parsed.id === 'pending') {
+        window.dispatchEvent(new CustomEvent(OPEN_APPROVAL_QUEUE_EVENT))
+      }
+      return
+    }
     if (parsed.kind === 'open') {
       const raw = parsed.query.trim()
       if (raw.startsWith('beside:')) {
@@ -119,7 +145,7 @@ export function CommandBarHost({
         }
       })
     }
-  }, [activeWorkspace?.id, activeWorkspace?.rootPath, projects, selectMode, setActiveWorkspace, snapshot?.thread.projectId, snapshot?.thread.rootPath, workspaces])
+  }, [activeWorkspace, onNewConversation, onNewTerminal, projects, selectMode, setActiveWorkspace, snapshot?.thread.projectId, snapshot?.thread.rootPath, workspaces])
 
   return <CommandBar open={open} onOpenChange={onOpenChange} context={context} onRun={handleRun} />
 }

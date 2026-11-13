@@ -63,6 +63,8 @@ export const KEYBINDINGS = [
   // Code
   { id: 'code.changes', chords: ['Mod+Shift+D'], scope: 'code' },
   { id: 'code.browser', chords: ['Mod+Shift+B'], scope: 'code' },
+  // Design Mode of the Browser: the next click in the page selects an element (as in Claude Code's preview).
+  { id: 'code.designMode', chords: ['Mod+Shift+S'], scope: 'code' },
   { id: 'code.files', chords: ['Mod+E'], scope: 'code' },
   { id: 'code.search', chords: ['Mod+Shift+F'], scope: 'code' },
   { id: 'code.splitLayout', chords: ['F2'], scope: 'code' },
@@ -86,6 +88,7 @@ export const KEYBINDINGS = [
   { id: 'thread.terminal', chords: ['Mod+`'], scope: 'thread' },
   { id: 'thread.changes', chords: ['Mod+Shift+D'], scope: 'thread' },
   { id: 'thread.browser', chords: ['Mod+Shift+B'], scope: 'thread' },
+  { id: 'thread.designMode', chords: ['Mod+Shift+S'], scope: 'thread' },
   { id: 'thread.permissions', chords: ['Mod+Shift+M'], scope: 'thread' },
   { id: 'thread.model', chords: ['Mod+Shift+I'], scope: 'thread' },
   { id: 'thread.effort', chords: ['Mod+Shift+E'], scope: 'thread' },
