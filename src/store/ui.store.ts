@@ -45,6 +45,8 @@ interface UIState {
   isHttpCallsPanelOpen: boolean
   isAndroidPanelOpen: boolean
   isUsageOpen: boolean
+  /** The Schedules dialog (requests sent to an agent at a set time), opened from OxeChat's list. */
+  isSchedulesOpen: boolean
   /** F2 experimental: render the recursive split-tree layout instead of the grid. */
   splitLayoutEnabled: boolean
   /** Web Preview is workspace-owned. Keeping this keyed prevents opening or
@@ -80,6 +82,8 @@ interface UIState {
   toggleAndroidPanel: () => void
   closeAndroidPanel: () => void
   openUsage: () => void
+  openSchedules: () => void
+  closeSchedules: () => void
   closeUsage: () => void
   toggleSplitLayout: () => void
   openWebPreview: (workspaceId: string) => void
@@ -110,6 +114,7 @@ export const useUIStore = create<UIState>((set) => ({
   isHttpCallsPanelOpen: false,
   isAndroidPanelOpen: false,
   isUsageOpen: false,
+  isSchedulesOpen: false,
   splitLayoutEnabled: true,
   webPreviewOpenByWorkspace: {},
   pendingWebPreviewByWorkspace: {},
@@ -137,6 +142,8 @@ export const useUIStore = create<UIState>((set) => ({
   toggleAndroidPanel: () => set((s) => ({ isAndroidPanelOpen: !s.isAndroidPanelOpen })),
   closeAndroidPanel: () => set({ isAndroidPanelOpen: false }),
   openUsage: () => set({ isUsageOpen: true }),
+  openSchedules: () => set({ isSchedulesOpen: true }),
+  closeSchedules: () => set({ isSchedulesOpen: false }),
   closeUsage: () => set({ isUsageOpen: false }),
   toggleSplitLayout: () => set((s) => ({ splitLayoutEnabled: !s.splitLayoutEnabled })),
   openWebPreview: (workspaceId) => set((state) => ({
