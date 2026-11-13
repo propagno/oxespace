@@ -23,7 +23,7 @@ export function DockPanel({ icon, title, count, actions, close, toolbar, footer,
   className?: string
   children: ReactNode
 }): ReactElement {
-  return <section className={cx(styles.panel, className)} aria-label={label ?? (typeof title === 'string' ? title : undefined)}>
+  return <section data-ui="dock-panel" className={cx(styles.panel, className)} aria-label={label ?? (typeof title === 'string' ? title : undefined)}>
     <header className={styles.header}>
       {icon ? <span className={styles.icon} aria-hidden="true">{icon}</span> : null}
       <h2 className={styles.title}>{title}</h2>

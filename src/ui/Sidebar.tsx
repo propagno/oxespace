@@ -11,7 +11,7 @@ import { cx } from './cx'
 
 /** The sidebar's header bar (--bar-lg): its title, up to three quiet actions, and collapse last. */
 export function SidebarHeader({ title, actions, collapse, className }: { title: ReactNode; actions?: ReactNode; collapse?: ReactNode; className?: string }): ReactElement {
-  return <div className={cx(styles.header, className)}>
+  return <div data-ui="sidebar-header" className={cx(styles.header, className)}>
     <strong className={styles.title}>{title}</strong>
     <div className={styles.headerActions}>{actions}{collapse}</div>
   </div>
@@ -19,7 +19,7 @@ export function SidebarHeader({ title, actions, collapse, className }: { title: 
 
 /** The filter: filled, no border, with its shortcut hint. Forwards everything to the input. */
 export const SidebarFilter = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { icon?: ReactNode; hint?: ReactNode }>(function SidebarFilter({ icon, hint, className, ...rest }, ref) {
-  return <div className={cx(styles.filter, className)}>
+  return <div data-ui="sidebar-filter" className={cx(styles.filter, className)}>
     {icon ? <span className={styles.filterIcon} aria-hidden="true">{icon}</span> : null}
     <input ref={ref} type="search" className={styles.filterInput} {...rest} />
     {hint ? <kbd className={styles.filterHint}>{hint}</kbd> : null}
@@ -28,7 +28,7 @@ export const SidebarFilter = forwardRef<HTMLInputElement, InputHTMLAttributes<HT
 
 /** A section label (11/500, sentence case). Its action shows on hover and focus. */
 export function SidebarSection({ label, action, id }: { label: ReactNode; action?: ReactNode; id?: string }): ReactElement {
-  return <div className={styles.section}>
+  return <div data-ui="sidebar-section" className={styles.section}>
     <span className={styles.sectionLabel} id={id}>{label}</span>
     {action ? <span className={styles.reveal}>{action}</span> : null}
   </div>
@@ -62,7 +62,7 @@ function rowKeys(onSelect?: () => void) {
 
 /** A group row (a workspace, a project): 13/600 name; no card, no tint. The workspace color goes in `lead`. */
 export function SidebarGroup({ lead, title, meta, actions, selected = false, onSelect, onContextMenu, className, 'aria-label': label }: Omit<RowProps, 'detail'>): ReactElement {
-  return <div className={cx(styles.row, styles.group, selected && styles.selected, className)} role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined}
+  return <div data-ui="sidebar-group" className={cx(styles.row, styles.group, selected && styles.selected, className)} role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined}
     aria-label={label} aria-current={selected ? 'true' : undefined} onClick={onSelect} onKeyDown={rowKeys(onSelect)} onContextMenu={onContextMenu}>
     {lead ? <span className={styles.lead}>{lead}</span> : null}
     <span className={styles.rowTitle}>{title}</span>
@@ -73,7 +73,7 @@ export function SidebarGroup({ lead, title, meta, actions, selected = false, onS
 
 /** An item row (a pane, a conversation), indented under its group. Selected is a fill. */
 export function SidebarRow({ lead, title, meta, actions, detail, selected = false, onSelect, onContextMenu, className, 'aria-label': label }: RowProps): ReactElement {
-  return <div className={cx(styles.row, styles.item, detail ? styles.twoLine : undefined, selected && styles.selected, className)} role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined}
+  return <div data-ui="sidebar-row" className={cx(styles.row, styles.item, detail ? styles.twoLine : undefined, selected && styles.selected, className)} role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined}
     aria-label={label} aria-current={selected ? 'true' : undefined} onClick={onSelect} onKeyDown={rowKeys(onSelect)} onContextMenu={onContextMenu}>
     {lead ? <span className={styles.lead}>{lead}</span> : null}
     <span className={styles.rowTitle}>{title}</span>
@@ -85,5 +85,5 @@ export function SidebarRow({ lead, title, meta, actions, detail, selected = fals
 
 /** The footer bar (--bar-lg): quiet icon buttons only. */
 export function SidebarFooter({ children, className }: { children: ReactNode; className?: string }): ReactElement {
-  return <div className={cx(styles.footer, className)}>{children}</div>
+  return <div data-ui="sidebar-footer" className={cx(styles.footer, className)}>{children}</div>
 }

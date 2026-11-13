@@ -18,7 +18,7 @@ export function PaneHeader({ status, title, provider, branch, meta, actions, foc
   focused?: boolean
   className?: string
 }): ReactElement {
-  return <header className={cx(styles.header, focused && styles.focused, className)}>
+  return <header data-ui="pane-header" className={cx(styles.header, focused && styles.focused, className)}>
     {status ? <span className={styles.status}>{status}</span> : null}
     <span className={styles.title}>{title}</span>
     {provider ? <span className={styles.provider}>{provider}</span> : null}

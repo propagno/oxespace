@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { DockPanel, PaneHeader, SidebarFilter, SidebarGroup, SidebarHeader, SidebarRow, SidebarSection } from '../src/ui'
+import { Button, DockPanel, IconButton, PaneHeader, SidebarFilter, SidebarGroup, SidebarHeader, SidebarRow, SidebarSection, Tabs } from '../src/ui'
 
 afterEach(cleanup)
 
@@ -62,6 +62,21 @@ describe('dock panel', () => {
     const region = screen.getByRole('region', { name: 'Changes' })
     expect(region).toHaveTextContent('Changes3 filesReview allClosefilterbodyfooter')
     expect(screen.getByRole('heading', { name: 'Changes' })).toBeInTheDocument()
+  })
+})
+
+describe('stable markers for frozen tests', () => {
+  it('every primitive the redesign checks carries a data-ui name (class names are hashed)', () => {
+    const { container } = render(<>
+      <SidebarHeader title="Workspaces" /><SidebarFilter aria-label="Filter" /><SidebarSection label="Projects" />
+      <SidebarGroup title="pix-api" /><SidebarRow title="api" />
+      <PaneHeader title="api" /><DockPanel title="Changes">body</DockPanel>
+      <Button>Save</Button><IconButton label="Close" icon={<svg />} />
+      <Tabs label="Views" value="a" onChange={() => undefined} tabs={[{ value: 'a', label: 'A', content: null }]} />
+    </>)
+    const names = [...container.querySelectorAll('[data-ui]')].map(node => node.getAttribute('data-ui'))
+    for (const name of ['sidebar-header', 'sidebar-filter', 'sidebar-section', 'sidebar-group', 'sidebar-row', 'pane-header', 'dock-panel', 'button', 'icon-button', 'tabs']) expect(names).toContain(name)
+    expect(screen.getByRole('button', { name: 'Save' })).toHaveAttribute('data-size', 'md')
   })
 })
 
