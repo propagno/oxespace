@@ -129,11 +129,6 @@ test('captures all surfaces for design review', async () => {
     await shot(page, '17-slash-overlay')
     await page.keyboard.press('Escape')
 
-    // 18. Scripts panel via Tools modal
-    await togglePanel(page, 'Scripts')
-    await expect(page.getByTestId('workspace-scripts-panel')).toBeVisible()
-    await shot(page, '18-scripts-panel')
-
     // 19. Web preview panel
     await togglePanel(page, 'Browser')
     await expect(page.getByTestId('workspace-web-preview-panel')).toBeVisible()

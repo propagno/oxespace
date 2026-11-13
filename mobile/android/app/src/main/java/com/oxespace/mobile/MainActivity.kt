@@ -170,7 +170,15 @@ class MainActivity : ComponentActivity() {
         when {
             settingsOpen -> {
                 BackHandler { settingsOpen = false }
-                SettingsScreen(preferences, onBack = { settingsOpen = false })
+                SettingsScreen(
+                    preferences,
+                    computer = name,
+                    connection = banner ?: stringResource(R.string.live_connected_hint),
+                    version = BuildConfig.VERSION_NAME,
+                    onEnterAddress = { settingsOpen = false; askingAddress = true },
+                    onUnpair = { settingsOpen = false; session.unpair() },
+                    onBack = { settingsOpen = false },
+                )
             }
             openRequest != null -> {
                 BackHandler { requestKey = null }

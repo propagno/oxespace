@@ -132,6 +132,8 @@ class ScreensSnapshotTest(private val night: Boolean, private val locale: String
         }
         val prefs = com.oxespace.mobile.settings.PhonePreferences(store).also { it.setAlertsEnabled(com.oxespace.mobile.notify.AlertKind.DONE, false) }
         shot("settings") { com.oxespace.mobile.ui.settings.SettingsScreen(prefs) {} }
+        // With a paired computer: which one, how it is connected, and the ways out.
+        shot("settings-paired") { com.oxespace.mobile.ui.settings.SettingsScreen(prefs, computer = "Studio", connection = "Connected · same Wi-Fi", version = "1.5.0", onEnterAddress = {}, onUnpair = {}) {} }
     }
 
     @Test
