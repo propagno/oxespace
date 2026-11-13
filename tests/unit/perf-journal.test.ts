@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('electron', () => ({ ipcMain: {}, app: { on: vi.fn(), once: vi.fn() } }))
 vi.mock('../../electron/main/services/diagnostics/incident-sink', () => ({ recordIncident: vi.fn() }))
 
-const { PerfJournal, addSample, emptyStat, quantile, summarize, PERF_BUCKETS_MS } = await import('../../electron/main/services/perf/perf-journal')
+const { PerfJournal, addSample, emptyStat, loopStat, quantile, summarize, startPerfJournal, stopPerfJournal, PERF_BUCKETS_MS } = await import('../../electron/main/services/perf/perf-journal')
 const { installIpcSenderGuard, measureIpcWith, trustAppWindow } = await import('../../electron/main/ipc/ipc-sender-guard')
 
 const stat = (...samples: number[]) => { const value = emptyStat(); for (const ms of samples) addSample(value, ms); return value }
@@ -106,6 +106,34 @@ describe('journal', () => {
     expect(text).toContain('2 windows')
     expect(text).not.toContain('broken')
     expect(summarize('', 10)).toContain('(no measurements yet)')
+  })
+})
+
+describe('event-loop delay', () => {
+  const ms = (value: number) => (value + 20) * 1e6 // the histogram's reading includes its own 20 ms tick
+  it('turns the histogram into buckets of the delay beyond each tick', () => {
+    const stat = loopStat({ count: 1000, mean: ms(4), max: ms(180), percentiles: new Map([[0, ms(0)], [50, ms(1)], [90, ms(20)], [99, ms(60)], [99.9, ms(150)], [100, ms(180)]]) })!
+    expect(stat.n).toBe(1000)
+    expect(stat.max).toBeCloseTo(180)
+    expect(stat.b.reduce((sum, count) => sum + count, 0)).toBe(1000)
+    expect(stat.b).toEqual([500, 400, 0, 90, 10, 0, 0, 0, 0])
+    expect(quantile(stat, 0.5)).toBe(16)
+    expect(quantile(stat, 0.95)).toBe(100)
+    expect(loopStat({ count: 0, mean: 0, max: 0, percentiles: new Map() })).toBeNull()
+  })
+
+  it('writes the loop with each window and holds no timer of its own', () => {
+    vi.useFakeTimers()
+    try {
+      const journal = startPerfJournal(directory)
+      expect(vi.getTimerCount()).toBe(0)
+      journal.ipc('terminal:create', 30)
+      const line = JSON.parse(journal.export().trim().split('\n').pop()!)
+      expect(Object.keys(line.stats)).toEqual(expect.arrayContaining(['ipc:all', 'ipc:terminal:create']))
+    } finally {
+      stopPerfJournal()
+      vi.useRealTimers()
+    }
   })
 })
 

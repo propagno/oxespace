@@ -8,7 +8,7 @@ import { monitorEventLoopDelay, type IntervalHistogram } from 'node:perf_hooks'
  * to find what 1.5.2 should make faster. It keeps durations and names only, never content:
  *  - `ipc:<channel>`: a window request to the main process, from the call to its answer (channel names are the app's
  *    own constants, never an argument);
- *  - `main:loop`: the main process's event-loop delay, the worst of each second;
+ *  - `main:loop`: the main process's event-loop delay, every 20 ms tick of `monitorEventLoopDelay`;
  *  - `renderer:frame:<view>` and `renderer:block:<view>`: animation frames over 50 ms and the part of them that
  *    blocked input, per view (code, thread, data, settings, and `:dialog` while one is open);
  *  - `renderer:input:<event>:<view>`: from an input (click, keydown…) to the next painted frame, 16 ms and over.
@@ -75,7 +75,9 @@ export class PerfJournal {
   private readonly run = randomUUID().slice(0, 8)
   private disabled = false
 
-  constructor(private readonly directory: string, private readonly now = Date.now, private readonly fileBytes = FILE_BYTES) {
+  constructor(private readonly directory: string, private readonly now = Date.now, private readonly fileBytes = FILE_BYTES,
+    /** The main process's event-loop delay since the last window, read when a window is written. */
+    private readonly loop: () => PerfStat | null = () => null) {
     this.windowStart = now()
     try { mkdirSync(directory, { recursive: true, mode: 0o700 }); this.prune() } catch { this.disabled = true }
   }
@@ -121,6 +123,8 @@ export class PerfJournal {
   }
 
   flush(): void {
+    const loop = (() => { try { return this.loop() } catch { return null } })()
+    if (loop) this.stats.set('main:loop', loop)
     const stats: Record<string, PerfStat> = {}
     for (const [key, stat] of this.stats) {
       if (key.startsWith('ipc:') && key !== 'ipc:all' && stat.max < WRITE_FLOOR_MS) continue
@@ -208,37 +212,56 @@ export function summarize(lines: string, now = Date.now()): string {
   ].join('\n')
 }
 
+const LOOP_RESOLUTION_MS = 20
+
+/**
+ * The event-loop delay histogram as a stat: one sample per tick of its timer, less the tick itself (the histogram
+ * records the whole interval between ticks), so what is left is time the loop could not run. Bucket counts come from
+ * the histogram's percentiles, so they are as fine as its own resolution.
+ */
+export function loopStat(histogram: Pick<IntervalHistogram, 'count' | 'mean' | 'max' | 'percentiles'>, resolutionMs = LOOP_RESOLUTION_MS): PerfStat | null {
+  const n = Number(histogram.count)
+  if (!Number.isSafeInteger(n) || n < 1) return null
+  const delay = (ns: number) => Math.max(0, ns / 1e6 - resolutionMs)
+  const points = [...histogram.percentiles].map(([percentile, ns]) => [percentile / 100, delay(ns)] as const).sort((a, b) => a[0] - b[0])
+  const below = (bound: number) => points.reduce((share, [percentile, ms]) => ms < bound ? Math.max(share, percentile) : share, 0)
+  const stat = emptyStat()
+  let counted = 0
+  PERF_BUCKETS_MS.forEach((bound, index) => {
+    const upTo = Math.min(n, Math.round(n * below(bound)))
+    stat.b[index] = Math.max(0, upTo - counted); counted = Math.max(counted, upTo)
+  })
+  stat.b[PERF_BUCKETS_MS.length] = n - counted
+  stat.n = n; stat.max = delay(histogram.max); stat.sum = Math.min(delay(histogram.mean), stat.max) * n
+  return stat
+}
+
 let journal: PerfJournal | undefined
 let loop: IntervalHistogram | undefined
-let timers: Array<ReturnType<typeof setInterval>> = []
 
-/** Starts the journal once; `onIpc` is handed the measuring function (the IPC sender guard's hook). */
+/**
+ * Starts the journal once; `onIpc` is handed the measuring function (the IPC sender guard's hook). It holds no timer:
+ * a window is written by the first measurement after its five minutes (the window reports every 30 seconds) and on
+ * quit, and the event-loop histogram is read when a window is written.
+ */
 export function startPerfJournal(directory: string, onIpc?: (measure: ((channel: string, ms: number) => void) | null) => void): PerfJournal {
   if (journal) return journal
-  journal = new PerfJournal(directory)
+  let histogram: IntervalHistogram | undefined
+  try { histogram = monitorEventLoopDelay({ resolution: LOOP_RESOLUTION_MS }); histogram.enable(); loop = histogram } catch { /* requests and frames are still measured */ }
+  journal = new PerfJournal(directory, Date.now, FILE_BYTES, () => {
+    if (!histogram) return null
+    const stat = loopStat(histogram)
+    histogram.reset()
+    return stat
+  })
   const current = journal
   onIpc?.((channel, ms) => current.ipc(channel, ms))
-  try {
-    loop = monitorEventLoopDelay({ resolution: 20 }); loop.enable()
-    const sample = setInterval(() => {
-      if (!loop) return
-      // The histogram's own resolution is always in the reading; what is left is time the loop could not run.
-      const worst = loop.max / 1e6 - 20
-      loop.reset()
-      current.add('main:loop', Math.max(0, worst))
-    }, 1000)
-    sample.unref(); timers.push(sample)
-  } catch { /* the journal still measures requests and frames */ }
-  const flush = setInterval(() => current.flush(), WINDOW_MS)
-  flush.unref(); timers.push(flush)
   return journal
 }
 
 export function stopPerfJournal(): void {
-  for (const timer of timers) clearInterval(timer)
-  timers = []
-  loop?.disable(); loop = undefined
   journal?.flush()
+  loop?.disable(); loop = undefined
 }
 
 export function perfJournal(): PerfJournal | undefined { return journal }
