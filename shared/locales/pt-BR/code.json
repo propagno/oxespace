@@ -7,7 +7,6 @@
     "git": "Commit e pull request",
     "files": "Arquivos",
     "search": "Buscar nos arquivos",
-    "scripts": "Scripts",
     "worktrees": "Worktrees",
     "background": "Atividade em segundo plano",
     "menu": "Painéis",
@@ -32,10 +31,6 @@
     "worktrees": {
       "label": "Worktrees",
       "detail": "Checkouts de branches lado a lado"
-    },
-    "scripts": {
-      "label": "Scripts",
-      "detail": "Encontre e rode os scripts do projeto"
     },
     "search": {
       "label": "Buscar nos arquivos",
@@ -160,25 +155,6 @@
     "openInEditor": "Abrir no editor",
     "noExternalEditor": "Nenhum editor externo encontrado. Escolha um em Configurações › Geral › Editor externo, ou instale o VS Code.",
     "openExternalEditorSettings": "Editor externo"
-  },
-  "scripts": {
-    "found_one": "{{count}} encontrado",
-    "found_many": "{{count}} encontrados",
-    "found_other": "{{count}} encontrados",
-    "refresh": "Procurar scripts de novo",
-    "close": "Fechar scripts",
-    "filter": "Filtrar scripts",
-    "filterPlaceholder": "Filtrar scripts npm, .ps1 e .sh…",
-    "loading": "Procurando scripts…",
-    "none": "Nenhum script encontrado",
-    "noneHint": "Adicione comandos aos scripts do <strong>package.json</strong>, ou arquivos <strong>.ps1</strong> ou <strong>.sh</strong> ao workspace, para rodá-los como tarefas em segundo plano.",
-    "noMatch": "Nenhum script corresponde a “{{query}}”",
-    "run": "Rodar",
-    "starting": "Iniciando…",
-    "runLabel": "Rodar {{name}}",
-    "runTitle": "Rodar como tarefa em segundo plano",
-    "listFailed": "Não foi possível procurar scripts",
-    "runFailed": "{{name}} não iniciou"
   },
   "background": {
     "jobs_one": "{{count}} tarefa",

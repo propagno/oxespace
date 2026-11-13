@@ -42,6 +42,7 @@ import { authText, ThreadMessageBody } from './ThreadMessageRow'
 import { ThreadAddToolMenu, ThreadHeader } from './ThreadHeader'
 import { ThreadToolTabs, type ThreadTabId } from './ThreadToolTabs'
 import { deriveThreadActivity } from './deriveThreadActivity'
+import { useCompactFeedback } from './useCompactFeedback'
 import type { NowLineAction } from './NowLine'
 import { useOpenRequest } from '../Approvals/openRequest'
 import { useThreadShortcuts } from './useThreadShortcuts'
@@ -151,6 +152,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
   const summary = useMemo(() => summarizeThreadEvents(events), [events])
   const pendingRequests = running ? (snapshot?.pendingRequests ?? summary.pendingRequests) : NO_REQUESTS
   const activity = useMemo(() => deriveThreadActivity(snapshot, pendingRequests), [snapshot, pendingRequests])
+  useCompactFeedback(snapshot)
   const irreversible = Boolean(pendingRequests[0]?.impact && !pendingRequests[0].impact.reversible)
   const viewMode = useThreadViewModeStore(state => state.mode)
   // A stable key, so the timeline is not rebuilt on every render only because this array is new.

@@ -734,6 +734,9 @@ export interface ThreadApi {
   /** Minutes without activity after which a conversation's agent process is closed; 0 never closes it. */
   idleSuspendMinutes?(): Promise<number>
   setIdleSuspendMinutes?(minutes: number): Promise<number>
+  /** The access a conversation the person creates starts with (Settings > Agents). */
+  newConversationAccess?(): Promise<NonNullable<ThreadConfiguration['access']>>
+  setNewConversationAccess?(access: NonNullable<ThreadConfiguration['access']>): Promise<NonNullable<ThreadConfiguration['access']>>
   /** What Thread would do with a command, using the real analysis and no saved rules. */
   shellCheck?(command: string): Promise<ThreadShellCheck>
   usageSummary?(id: string, options?: { scope?: 'thread' | 'project' | 'all'; days?: number }): Promise<ThreadUsageSummary>

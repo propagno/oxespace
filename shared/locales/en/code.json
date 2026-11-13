@@ -7,7 +7,6 @@
     "git": "Commit & pull request",
     "files": "Files",
     "search": "Find in files",
-    "scripts": "Scripts",
     "worktrees": "Worktrees",
     "background": "Background activity",
     "menu": "Panels",
@@ -32,10 +31,6 @@
     "worktrees": {
       "label": "Worktrees",
       "detail": "Branch checkouts side by side"
-    },
-    "scripts": {
-      "label": "Scripts",
-      "detail": "Discover and run project scripts"
     },
     "search": {
       "label": "Find in files",
@@ -158,24 +153,6 @@
     "openInEditor": "Open in editor",
     "noExternalEditor": "No external editor found. Pick one in Settings › General › External editor, or install VS Code.",
     "openExternalEditorSettings": "External editor"
-  },
-  "scripts": {
-    "found_one": "{{count}} found",
-    "found_other": "{{count}} found",
-    "refresh": "Look for scripts again",
-    "close": "Close scripts",
-    "filter": "Filter scripts",
-    "filterPlaceholder": "Filter npm, .ps1 and .sh scripts…",
-    "loading": "Looking for scripts…",
-    "none": "No scripts found",
-    "noneHint": "Add commands to the scripts of <strong>package.json</strong>, or add <strong>.ps1</strong> or <strong>.sh</strong> files to the workspace, to run them as background jobs.",
-    "noMatch": "No script matches “{{query}}”",
-    "run": "Run",
-    "starting": "Starting…",
-    "runLabel": "Run {{name}}",
-    "runTitle": "Run as a background job",
-    "listFailed": "Could not look for scripts",
-    "runFailed": "{{name}} did not start"
   },
   "background": {
     "jobs_one": "{{count}} job",

@@ -98,6 +98,7 @@
     "notInTerminal": "Not available in a terminal",
     "readOnlyFile": "This view is read only",
     "needsTextField": "Place the cursor in a text field first",
+    "needsWorkspace": "Open a workspace in OxeCode first",
     "view": "View",
     "appearance": "Appearance",
     "density": "Density",
@@ -608,6 +609,12 @@
     "tagline": "Agents and terminals for your projects"
   },
   "commandBar": {
+    "hint": {
+      "steerEmpty": "Say what to tell the agent: /steer and your message.",
+      "noTurn": "No turn is running in the open conversation.",
+      "failed": "That did not run: {{reason}}",
+      "noWorkspace": "Open a workspace in OxeCode first: a terminal belongs to one."
+    },
     "sections": { "actions": "Actions", "goTo": "Go to", "openBeside": "Open beside" },
     "destinations": {
       "oxechat": "Conversations and delegated work",
@@ -765,7 +772,6 @@
       "tool-integration": "Open multi-repo coordination",
       "tool-github": "Toggle commit & pull request panel",
       "tool-worktrees": "Toggle worktrees panel",
-      "tool-scripts": "Toggle scripts panel",
       "tool-search": "Find in files",
       "tool-web-preview": "Toggle browser panel",
       "tool-android": "Toggle Android panel",
@@ -842,7 +848,6 @@
       "tool-integration": "Multi-repo coordination",
       "tool-github": "Commit & pull request",
       "tool-worktrees": "Worktrees",
-      "tool-scripts": "Scripts",
       "tool-web-preview": "Browser",
       "tool-background": "Background activity",
       "tool-slash": "Terminal commands",
