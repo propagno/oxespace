@@ -470,7 +470,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   }).startPairing; app.once('before-quit', registerAppInfoIpc(db))
   registerCopilotIpc()
   const creditsService = registerAgentCreditsIpc()
-  const contextUsageService = registerContextUsageIpc()
+  const contextUsageService = registerContextUsageIpc(undefined, (paneId, provider) => { const own = paneAgentSessions.current(paneId); return own && own.agent === provider ? own.sessionId : null }) // A7: the pane's own session
   const oxeService = registerOxeIpc()
   const fileSystemService = registerFileSystemIpc(db)
   registerMcpToolsIpc(db, fileSystemService)
