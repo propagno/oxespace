@@ -1733,6 +1733,13 @@
     "requestsWaiting_one": "{{count}} request is waiting for your decision.",
     "requestsWaiting_other": "{{count}} requests are waiting for your decision."
   },
+  "contextMenu": {
+    "label": "Conversation menu",
+    "copySelection": "Copy",
+    "quoteSelection": "Quote in the message",
+    "copyMessage": "Copy message",
+    "quoteMessage": "Quote message"
+  },
   "side": {
     "title": "Side chat",
     "region": "Side chat",

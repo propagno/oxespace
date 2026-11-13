@@ -109,3 +109,6 @@
 .archivedRow .item { display: flex; align-items: center; gap: var(--space-2); min-width: 0; min-height: 32px; }
 .archivedRow .item > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .archivedRow .item > small { flex: none; color: var(--text-muted); font-size: var(--text-2xs); }
+/* Where the filter matched inside the conversation: two quiet lines under the title, the match itself in the text colour. */
+.snippet { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; color: var(--text-muted); font-size: var(--text-2xs); line-height: 1.35; }
+.snippet mark { background: var(--accent-soft); color: var(--text-primary); border-radius: 2px; padding: 0 1px; }
