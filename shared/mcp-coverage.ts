@@ -164,7 +164,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     forbidden: 'The person\'s Android mirror, input and device access switch; no MCP tool may send input to a device or raise access.',
     ipc: ['android.*']
   },
-  'code.resume_bypass': { label: 'Resume Claude sessions that skipped permissions that way', forbidden: 'Raises access: only the person turns it on.', ipc: ['terminal.resumeBypass', 'terminal.setResumeBypass'] },
+  'code.resume_bypass': { label: 'Resume Claude sessions that skipped permissions that way; start agents in a terminal without permission prompts', forbidden: 'Raises access: only the person changes it.', ipc: ['terminal.resumeBypass', 'terminal.setResumeBypass', 'terminal.agentsFullAccess', 'terminal.setAgentsFullAccess'] },
 
   // ---- changes and Git ------------------------------------------------------------
   'git.read': {
@@ -245,9 +245,9 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
       'thread.attach', 'thread.removeAttachment', 'thread.command', 'thread.observe', 'thread.debugEvents', 'thread.worktreeInspect', 'thread.worktreeFinish']
   },
   'thread.project_admin': {
-    label: 'Add, relink or hide Thread projects; idle suspension; shell check',
+    label: 'Add, relink or hide Thread projects; idle suspension; the access a new conversation starts with; shell check',
     excluded: 'The person\'s settings.',
-    ipc: ['thread.addProject', 'thread.relinkProject', 'thread.setProjectHidden', 'thread.idleSuspendMinutes', 'thread.setIdleSuspendMinutes', 'thread.shellCheck']
+    ipc: ['thread.addProject', 'thread.relinkProject', 'thread.setProjectHidden', 'thread.idleSuspendMinutes', 'thread.setIdleSuspendMinutes', 'thread.newConversationAccess', 'thread.setNewConversationAccess', 'thread.shellCheck']
   },
   'thread.sections': {
     label: 'Sections of the conversation list (F13)',
