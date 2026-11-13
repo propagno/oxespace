@@ -27,7 +27,7 @@ test('Code speaks Brazilian Portuguese end to end', async () => {
     // Panels menu: every panel is named in Portuguese.
     await page.locator('[data-testid="btn-open-tools"]:visible').click()
     const menu = page.getByRole('menu')
-    for (const name of ['Alterações', 'Navegador', 'Commit e pull request', 'Arquivos', 'Buscar nos arquivos', 'Scripts', 'Worktrees']) {
+    for (const name of ['Alterações', 'Navegador', 'Commit e pull request', 'Arquivos', 'Buscar nos arquivos', 'Worktrees']) {
       await expect(menu.getByRole('menuitemcheckbox', { name, exact: true })).toBeVisible()
     }
     await menu.getByRole('menuitemcheckbox', { name: 'Alterações', exact: true }).click()
