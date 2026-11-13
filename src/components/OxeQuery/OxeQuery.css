@@ -9,6 +9,9 @@
 .oq-sidebar-content h3 { display: flex; align-items: center; justify-content: space-between; margin: 0 0 4px; padding: 0 8px; color: var(--text-secondary); font-size: var(--text-xs); font-weight: var(--weight-semibold); }
 .oq-nav-item { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 6px 8px; border: 0; border-radius: var(--nav-radius, 6px); color: inherit; background: transparent; font: inherit; font-size: var(--text-xs); text-align: left; cursor: pointer; }
 .oq-nav-item span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A bare <small> is 0.8em: 9.6px inside this product's 12px text, under its 11px floor. Zero specificity, so a rule
+   that names a size still wins. */
+:where([class^='oq-'], [class*=' oq-']) small { font-size: var(--text-2xs); }
 .oq-nav-item small { color: var(--text-muted); }
 .oq-nav-item:hover, .oq-icon:hover { background: color-mix(in srgb, var(--text-primary) 6%, transparent); }
 .oq-nav-item[aria-current='page'] { background: var(--nav-selected); }
@@ -26,7 +29,7 @@
 .oq-tab { display: inline-flex; align-items: center; border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
 .oq-tab[data-active='true'] { background: var(--surface-raised); box-shadow: inset 0 -2px 0 var(--accent); }
 .oq-tab button { padding: 6px 10px; border: 0; color: inherit; background: transparent; font: inherit; font-size: var(--text-xs); cursor: pointer; }
-.oq-tab .oq-tab-close { padding: 4px; color: var(--text-muted); }
+.oq-tab .oq-tab-close { display: inline-grid; place-items: center; min-width: var(--control-sm); min-height: var(--control-sm); padding: 4px; color: var(--text-muted); }
 .oq-panels { position: relative; flex: 1; min-height: 0; }
 .oq-panel { position: absolute; inset: 0; display: flex; min-height: 0; }
 .oq-panel[hidden] { display: none; }
@@ -69,7 +72,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-tree-head { display: flex; align-items: center; gap: 4px; padding: 0 8px 6px; }
 .oq-tree-search { display: flex; flex: 1; align-items: center; gap: 6px; min-width: 0; padding: 0 8px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: var(--text-muted); background: var(--surface-base, transparent); }
 .oq-tree-search:focus-within { border-color: var(--border-focus); }
-.oq-tree-search input { flex: 1; min-width: 0; padding: 5px 0; border: 0; outline: 0; color: var(--text-primary); background: transparent; font: inherit; }
+.oq-tree-search input { flex: 1; min-width: 0; text-overflow: ellipsis; padding: 5px 0; border: 0; outline: 0; color: var(--text-primary); background: transparent; font: inherit; }
 /* Only the rows on screen exist: a schema can hold thousands of objects. */
 .oq-tree-scroll { position: relative; flex: 1; min-height: 0; overflow: auto; outline: 0; }
 .oq-tree-inner { position: relative; min-width: 100%; }
@@ -166,7 +169,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-qtab { display: inline-flex; align-items: center; border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
 .oq-qtab[data-active='true'] { background: var(--surface-raised); box-shadow: inset 0 -2px 0 var(--accent); }
 .oq-qtab button { padding: 5px 8px; border: 0; color: inherit; background: transparent; font-size: var(--text-xs); cursor: pointer; }
-.oq-qtab .oq-tab-close { padding: 3px; color: var(--text-muted); }
+.oq-qtab .oq-tab-close { display: inline-grid; place-items: center; min-width: var(--control-sm); min-height: var(--control-sm); padding: 3px; color: var(--text-muted); }
 .oq-qtab-add { display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--radius-sm); color: var(--text-muted); background: transparent; cursor: pointer; }
 .oq-editor-toolbar kbd { margin-left: 6px; padding: 0 5px; border: 1px solid color-mix(in srgb, currentColor 30%, transparent); border-radius: 4px; font-size: 10px; opacity: .8; }
 .oq-history { position: relative; }
