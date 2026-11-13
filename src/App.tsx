@@ -1,4 +1,3 @@
-import { Settings } from 'lucide-react'
 import { useContributedCommands } from './utils/commandRegistry'
 import { sayAddProjectFirst } from './commands/thread.events'
 import type { CodeCommandContext } from './commands/code.commands'
@@ -93,7 +92,7 @@ import { useAgentHookStatus } from './hooks/useAgentHookStatus'
 import { startToolOutputCuts } from './store/tool-output-cut.store'
 import { QUOTA_NOTIFICATION_PANE_PREFIX, THREAD_NOTIFICATION_PANE_PREFIX } from './hooks/notificationPrefixes'
 import { useThreadShortcuts } from './hooks/useThreadShortcuts'
-import { setKeyboardView, useKeybindings, withShortcut, type AppView } from './keyboard/keybindings'
+import { setKeyboardView, useKeybindings, type AppView } from './keyboard/keybindings'
 import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZE_MAX } from './store/terminal-prefs.store'
 import { RemotePairingHost } from './components/Remote/RemotePairingHost'
 /** macOS keeps its native application menu; Windows/Linux draw it in the title bar. */
@@ -695,7 +694,7 @@ export function App(): ReactElement {
       <header className={cx('workbench-titlebar', titleBar.bar)} aria-label={t('app.workbench')}>
         <div className={titleBar.brand}><OxeLogo size={16} />{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), openCommandMenu, openContainers: () => setContainersOpen(v => !v), version: appVersion }} /></Suspense>}</div>
         <ModeSwitch mode={showFirstRun ? 'thread' : applicationView} allowReselect={showFirstRun} onSelect={selectMode} />
-        <div className={titleBar.trailing}><CommandBarTrigger onOpen={() => setCommandBarOpen(true)} /><NeedsYouPill /><ActivityCenter onSelectView={selectMode} /><Button variant="ghost" size="sm" square aria-label={showFirstRun ? t('nav.openSettings') : withShortcut(t('nav.settings'), 'settings.open')} title={withShortcut(t('nav.settings'), 'settings.open')} data-testid="titlebar-settings" icon={<Settings size={14} aria-hidden="true" />} onClick={toggleSettings} /><UpdateChips /></div>
+        <div className={titleBar.trailing}><CommandBarTrigger onOpen={() => setCommandBarOpen(true)} /><NeedsYouPill /><ActivityCenter onSelectView={selectMode} />{/* No Settings button in the title bar (1.5.2, user): it is in every sidebar's footer, in the menu bar and on Ctrl+,. */}<UpdateChips /></div>
       </header>
       <RemovedFeaturesBand />
       {delegationNotice && <Suspense fallback={null}><DelegationNotice onView={() => { setDelegatedWorkOpen(true); setDelegationNotice(null) }} onDismiss={() => setDelegationNotice(null)} /></Suspense>}

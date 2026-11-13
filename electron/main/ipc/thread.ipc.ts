@@ -395,7 +395,7 @@ export interface ThreadBackgroundHost {
  */
 function registerThreadCockpitIpc(manager: Promise<ThreadManager>, background?: ThreadBackgroundHost): { stop(): void } {
   const toolTabs = async (service: ThreadManager, id: string): Promise<ThreadToolTabEntry[]> => {
-    const { thread, tools } = service.readToolSummary(id), seen = new Set<string>()
+    const { tools } = service.readToolSummary(id), seen = new Set<string>()
     const counts = { queries: 0, http: 0, containers: 0 }
     for (const tool of tools) {
       if (seen.has(tool.id)) continue
@@ -405,17 +405,13 @@ function registerThreadCockpitIpc(manager: Promise<ThreadManager>, background?: 
       else if (kind === 'http') counts.http += 1
       else if (kind === 'container') counts.containers += 1
     }
-    const [places, panes] = await Promise.all([service.places(id).catch(() => null), service.panes(id).catch(() => null)])
-    const place = places?.places.find(entry => entry.current?.branch)
-    const branch = place?.current?.branch ?? thread.ownedWorktree?.branch ?? null
-    const pullRequest = branch && background?.pullRequest
-      ? await background.pullRequest({ rootPath: place?.path ?? thread.rootPath, branch }).catch(() => null)
-      : null
+    // 1.5.2: the Terminal and Pull request tabs left, so neither the panes nor the PR (a gh call) are read for the tabs.
+    const places = await service.places(id).catch(() => null)
     return threadToolTabs({
       summary: { databases: counts.queries, http: counts.http, containers: counts.containers },
       files: places ? places.places.reduce((sum, entry) => sum + entry.files.length, 0) : null,
-      panes: panes ? panes.length : null,
-      pullRequest
+      panes: null,
+      pullRequest: null
     })
   }
   const source = (service: ThreadManager, id: string): BackgroundShellsInput => {
