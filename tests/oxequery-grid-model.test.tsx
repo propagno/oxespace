@@ -1,11 +1,26 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { EMPTY_FILTER, parsePgArray, pinColumns, pinOffsets, readCell, viewOrder } from '../src/components/OxeQuery/grid-model'
+import { EMPTY_FILTER, autoColumnWidth, parsePgArray, pinColumns, pinOffsets, readCell, viewOrder } from '../src/components/OxeQuery/grid-model'
 import { ArrayList, JsonTree } from '../src/components/OxeQuery/CellValue'
 import { CellViewer } from '../src/components/OxeQuery/WorkbenchPanels'
 import { ResultGrid } from '../src/components/OxeQuery/ResultGrid'
 
 const rows: unknown[][] = [[1, 'Ana', null], [2, 'Bo', 'NULL'], [3, 'Cy', 'x'], [10, 'ana maria', 'y']]
+
+describe('the width a column starts with', () => {
+  it('fits the header, name and type, when the values are short', () => {
+    // "id int4" and "name text" used to start at 80px, where the type ended in an ellipsis.
+    expect(autoColumnWidth('id', 'int4', 1)).toBeGreaterThan(80)
+    expect(autoColumnWidth('name', 'text', 5)).toBeGreaterThanOrEqual(96)
+    expect(autoColumnWidth('created_at', 'timestamptz', 4)).toBeGreaterThanOrEqual(Math.round(10 * 7.3 + 11 * 6.7 + 6 + 34))
+  })
+
+  it('follows the values when they are longer, between 80 and 420', () => {
+    expect(autoColumnWidth('email', 'text', 17)).toBe(17 * 8 + 24)
+    expect(autoColumnWidth('n', undefined, 1)).toBe(80)
+    expect(autoColumnWidth('body', 'text', 900)).toBe(420)
+  })
+})
 
 describe('viewOrder', () => {
   it('returns null when nothing filters or sorts', () => {
