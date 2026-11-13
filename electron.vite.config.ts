@@ -23,6 +23,20 @@ const TRANS_CHUNK_PARTS = [
   'html-parse-stringify',
   'void-elements'
 ]
+/**
+ * Formulas and diagrams in answers (Threads/ThreadMath.tsx, ThreadMermaid.tsx): KaTeX, Mermaid and what only they
+ * bring. Reached only by an answer that has a formula or a diagram, so none of it may land in the boot `vendor`
+ * chunk. They are left to Rollup, which follows Mermaid's own lazy imports: one chunk per kind of diagram.
+ * The d3 packages xyflow already used (color, dispatch, drag, ease, interpolate, selection, timer, transition, zoom)
+ * are not here: they stay in `vendor`, where the diagram chunks find them.
+ */
+const ANSWER_DRAWING_PACKAGES = [
+  'katex', 'dompurify', 'mermaid', '@mermaid-js/parser', 'chevrotain', '@chevrotain/cst-dts-gen', '@chevrotain/gast', '@chevrotain/regexp-to-ast', '@chevrotain/types', '@chevrotain/utils',
+  'cytoscape', 'cytoscape-cose-bilkent', 'cytoscape-fcose', 'cose-base', 'layout-base', 'dagre-d3-es', 'elkjs', 'khroma', 'lodash-es', 'es-toolkit', 'stylis', 'ts-dedent', 'roughjs',
+  'hachure-fill', 'path-data-parser', 'points-on-curve', 'points-on-path', 'dayjs', '@braintree/sanitize-url', '@iconify/utils', '@upsetjs/venn.js', 'delaunator', 'internmap', 'robust-predicates',
+  'd3', 'd3-array', 'd3-axis', 'd3-brush', 'd3-chord', 'd3-contour', 'd3-delaunay', 'd3-dsv', 'd3-fetch', 'd3-force', 'd3-format', 'd3-geo', 'd3-hierarchy', 'd3-path', 'd3-polygon', 'd3-quadtree',
+  'd3-random', 'd3-sankey', 'd3-scale', 'd3-scale-chromatic', 'd3-shape', 'd3-time', 'd3-time-format'
+].map(name => `/node_modules/${name}/`)
 const MARKDOWN_CHUNK_PARTS = [
   'react-markdown',
   'remark-',
@@ -250,6 +264,8 @@ export default defineConfig({
             if (id.includes('js-yaml')) return 'yaml'
             // The markdown pipeline (#10) is only reached through the lazy
             // MarkdownPreview, so keep it out of the eagerly-loaded vendor chunk.
+            // Before the markdown rule: Mermaid carries its own copy of a Markdown reader, which must stay with it.
+            if (ANSWER_DRAWING_PACKAGES.some((part) => id.replace(/\\/g, '/').includes(part))) return undefined
             if (MARKDOWN_CHUNK_PARTS.some((part) => id.includes(part))) return 'markdown'
             // <Trans> (rich text inside a translation) is only used by lazy views such as OxeQuery;
             // boot needs useTranslation alone, so the parser behind <Trans> stays out of vendor.

@@ -919,7 +919,10 @@
     "copyFailed": "Could not copy. Select the code to copy it manually.",
     "table": "Message table",
     "image": "[Image]",
-    "imageAlt": "[Image: {{alt}}]"
+    "imageAlt": "[Image: {{alt}}]",
+    "diagram": "Diagram",
+    "showCode": "Show code",
+    "showDiagram": "Show diagram"
   },
   "mcpDiagnose": {
     "startsNow": "Starts now.",

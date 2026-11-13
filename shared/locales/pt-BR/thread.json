@@ -948,7 +948,10 @@
     "copyFailed": "Não foi possível copiar. Selecione o código para copiá-lo manualmente.",
     "table": "Tabela da mensagem",
     "image": "[Imagem]",
-    "imageAlt": "[Imagem: {{alt}}]"
+    "imageAlt": "[Imagem: {{alt}}]",
+    "diagram": "Diagrama",
+    "showCode": "Ver o código",
+    "showDiagram": "Ver o diagrama"
   },
   "mcpDiagnose": {
     "startsNow": "Inicia agora.",
