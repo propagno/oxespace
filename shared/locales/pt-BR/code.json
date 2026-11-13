@@ -2715,6 +2715,8 @@
       "missingBody": "Instale o Docker ou o Podman e abra este painel de novo.",
       "deniedTitle": "Sem acesso ao {{engine}}",
       "deniedBody": "Confira se seu usuário pode usar o {{engine}} e tente de novo."
-    }
+    },
+    "unreadableTitle": "Não foi possível ler os contêineres",
+    "unreadableBody": "O serviço de contêineres não respondeu. Confira se o Docker ou o Podman está instalado e rodando e tente de novo."
   }
 }
