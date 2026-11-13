@@ -16,20 +16,24 @@ import { useUIStore } from '../../store/ui.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { resolveWorkspaceScope } from '../../utils/workspaceScope'
+import { lazyFrom } from '../../lib/chunk'
+import { CHANGES_PANEL_CHUNK, preloadPanels, WORKSPACE_PANEL_CHUNKS } from './panelChunks'
 // Side panels are lazy-loaded: they only mount when the user opens them, so
 // keeping them out of the initial bundle cuts first-paint parse/exec time. The
 // Editor pulls in Monaco (the single heaviest dep), so its split matters most.
-const WorkspaceBackgroundPanel = lazy(() => import('./WorkspaceBackgroundPanel').then((m) => ({ default: m.WorkspaceBackgroundPanel })))
-const WorkspaceEditorPanel = lazy(() => import('./WorkspaceEditorPanel').then((m) => ({ default: m.WorkspaceEditorPanel })))
-const WorkspaceGitHubPanel = lazy(() => import('./WorkspaceGitHubPanel').then((m) => ({ default: m.WorkspaceGitHubPanel })))
-const WorkspaceIntegrationPanel = lazy(() => import('./WorkspaceIntegrationPanel').then((m) => ({ default: m.WorkspaceIntegrationPanel })))
-const WorkspaceReviewPanel = lazy(() => import('./WorkspaceReviewPanel').then((m) => ({ default: m.WorkspaceReviewPanel })))
-const WorkspaceSearchPanel = lazy(() => import('./WorkspaceSearchPanel').then((m) => ({ default: m.WorkspaceSearchPanel })))
+// Rendered through lazyFrom over the shared panel chunks: once a chunk has arrived the panel opens in the same
+// commit, with no Suspense fallback (a plain React.lazy holds it ~300 ms on the first open; OXE-40).
+const WorkspaceBackgroundPanel = lazyFrom(WORKSPACE_PANEL_CHUNKS.background, (m) => m.WorkspaceBackgroundPanel)
+const WorkspaceEditorPanel = lazyFrom(WORKSPACE_PANEL_CHUNKS.editor, (m) => m.WorkspaceEditorPanel)
+const WorkspaceGitHubPanel = lazyFrom(WORKSPACE_PANEL_CHUNKS.github, (m) => m.WorkspaceGitHubPanel)
+const WorkspaceIntegrationPanel = lazyFrom(WORKSPACE_PANEL_CHUNKS.integration, (m) => m.WorkspaceIntegrationPanel)
+const WorkspaceReviewPanel = lazyFrom(WORKSPACE_PANEL_CHUNKS.review, (m) => m.WorkspaceReviewPanel)
+const WorkspaceSearchPanel = lazyFrom(WORKSPACE_PANEL_CHUNKS.search, (m) => m.WorkspaceSearchPanel)
 const WorkspaceHttpCallsPanel = lazy(() => import('./WorkspaceHttpCallsPanel').then((m) => ({ default: m.WorkspaceHttpCallsPanel })))
 const WorkspaceAndroidPanel = lazy(() => import('./WorkspaceAndroidPanel').then((m) => ({ default: m.WorkspaceAndroidPanel })))
-const WorkspaceContainersPanel = lazy(() => import('./WorkspaceContainersPanel').then((m) => ({ default: m.WorkspaceContainersPanel })))
-const WorkspaceWebPreviewPanel = lazy(() => import('./WorkspaceWebPreviewPanel').then((m) => ({ default: m.WorkspaceWebPreviewPanel })))
-const WorkspaceWorktreePanel = lazy(() => import('./WorkspaceWorktreePanel').then((m) => ({ default: m.WorkspaceWorktreePanel })))
+const WorkspaceContainersPanel = lazyFrom(WORKSPACE_PANEL_CHUNKS.containers, (m) => m.WorkspaceContainersPanel)
+const WorkspaceWebPreviewPanel = lazyFrom(WORKSPACE_PANEL_CHUNKS.webPreview, (m) => m.WorkspaceWebPreviewPanel)
+const WorkspaceWorktreePanel = lazyFrom(WORKSPACE_PANEL_CHUNKS.worktree, (m) => m.WorkspaceWorktreePanel)
 
 // Warm common panel chunks just after first paint. The earlier idle-only strategy
 // often waited until after the first click, leaving the initial open on the slow
@@ -39,15 +43,15 @@ function prefetchPanelChunks(): void {
   if (panelsPrefetched) return
   panelsPrefetched = true
 
+  // The chunks lazyFrom renders from: once they arrive, the first open of a panel does not suspend.
   const prefetchCommonPanels = (): void => {
-    void import('./WorkspaceGitHubPanel'); void import('./WorkspaceReviewPanel')
-    void import('./WorkspaceWorktreePanel'); void import('./WorkspaceBackgroundPanel')
-    void import('./WorkspaceWebPreviewPanel')
-    void import('./WorkspaceIntegrationPanel'); void import('./WorkspaceSearchPanel')
-    void import('./WorkspaceContainersPanel')
+    void preloadPanels(['github', 'review', 'worktree', 'background', 'webPreview', 'integration', 'search', 'containers'])
   }
 
-  const prefetchEditor = (): void => { void import('./WorkspaceEditorPanel') }
+  const prefetchEditor = (): void => {
+    void preloadPanels(['editor'])
+    void CHANGES_PANEL_CHUNK.load().catch(() => undefined)
+  }
   const ric = (globalThis as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => void }).requestIdleCallback
   const afterFirstPaint = (): void => {
     prefetchCommonPanels()
