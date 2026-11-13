@@ -14,7 +14,7 @@ import { parseNoInput } from '../services/remote/inputs'
  * it, and it starts off on every launch. `hosts` are what phones may watch and do (M4, M5); the gateway gets only
  * the narrow view of them in `services/remote/desktop`.
  */
-export function registerRemoteIpc(db: AppDatabase, hosts?: { threads: Promise<RemoteThreadHost>; terminals: RemoteTerminalHost; agentState: RemoteAgentStateHost; agents?: RemoteAgentsHost; paneConversations?: PaneConversationSource }): void {
+export function registerRemoteIpc(db: AppDatabase, hosts?: { threads: Promise<RemoteThreadHost>; terminals: RemoteTerminalHost; agentState: RemoteAgentStateHost; agents?: RemoteAgentsHost; paneConversations?: PaneConversationSource }): { startPairing: () => Promise<import('../../../shared/types/remote').RemotePairingOffer> } {
   let gateway: Promise<RemoteGateway> | null = null
   const send = (channel: string, payload: unknown) => {
     for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(channel, payload)
@@ -54,4 +54,6 @@ export function registerRemoteIpc(db: AppDatabase, hosts?: { threads: Promise<Re
   handle(IPC_CHANNELS.remote.firewallUndo, firewall((module, port, address, env) => module.undoFirewall(port, address, env)))
 
   app.on('before-quit', () => { void gateway?.then(loaded => loaded.stop()) })
+  // The Android panel's "pair this device": the same offer the pairing screen opens, asked for from main.
+  return { startPairing: async () => (await load()).startPairing() }
 }

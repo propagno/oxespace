@@ -78,7 +78,6 @@
   "tool-integration": null,
   "tool-mcp": null,
   "tool-review": "code.changes",
-  "tool-scripts": null,
   "tool-search": "code.search",
   "tool-slash": "terminal.slash",
   "tool-web-preview": "code.browser",

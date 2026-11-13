@@ -42,6 +42,7 @@ import { authText, ThreadMessageBody } from './ThreadMessageRow'
 import { ThreadAddToolMenu, ThreadHeader } from './ThreadHeader'
 import { ThreadToolTabs, type ThreadTabId } from './ThreadToolTabs'
 import { deriveThreadActivity } from './deriveThreadActivity'
+import { useCompactFeedback } from './useCompactFeedback'
 import type { NowLineAction } from './NowLine'
 import { useOpenRequest } from '../Approvals/openRequest'
 import { useThreadShortcuts } from './useThreadShortcuts'
@@ -57,6 +58,7 @@ import { ThreadPromptNavigator } from './ThreadPromptNavigator'
 import { useThreadScrollAnchor } from './useThreadScrollAnchor'
 import { isAccountUnavailable, threadError } from './threadError'
 import { quoteMarkdown } from './threadComposerState'
+import { ThreadContextMenu } from './ThreadContextMenu'
 import { loadDelegationPanel, loadResumeData, type ThreadPanelState } from './threadCommandPanels'
 
 const ThreadCommandDialog = lazy(() => import('./ThreadCommandDialog'))
@@ -151,6 +153,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
   const summary = useMemo(() => summarizeThreadEvents(events), [events])
   const pendingRequests = running ? (snapshot?.pendingRequests ?? summary.pendingRequests) : NO_REQUESTS
   const activity = useMemo(() => deriveThreadActivity(snapshot, pendingRequests), [snapshot, pendingRequests])
+  useCompactFeedback(snapshot)
   const irreversible = Boolean(pendingRequests[0]?.impact && !pendingRequests[0].impact.reversible)
   const viewMode = useThreadViewModeStore(state => state.mode)
   // A stable key, so the timeline is not rebuilt on every render only because this array is new.
@@ -391,6 +394,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
   // Esc first gives a maximized panel its place back, then closes it.
   return <div ref={workbench} className={`thread-workbench${drawer ? ' is-drawer' : ''}${active ? ' is-active-cell' : ''}${reviewMaximized ? ' is-review-maximized' : ''}`} onPointerDown={onActivate} onKeyDown={event => { if (event.key === 'Escape' && review?.panel && !panel && !commands.open && !openControl && event.target instanceof Element && event.target.closest('.thread-review-host')) { event.preventDefault(); if (reviewMaximized) useThreadWorkbenchStore.getState().setMaximized(null); else { closeReview(); returnFocusFromPanel() } } }}>
     <section className="thread-view" aria-label={t('view.region')} style={{ '--thread-reader-font-size': `${threadFontSize}px` } as React.CSSProperties}>
+    <ThreadContextMenu onQuote={text => appendToConversation(quoteMarkdown(text))} />
     <ThreadHeader thread={snapshot?.thread} workspace={workspace} branch={branch?.branch ?? undefined} pending={pending} running={running} activePanel={review?.panel} cell={cell}
       activity={activity} irreversible={irreversible} hasPullRequest={hasPullRequest} onNowAction={handleNowAction} requestInView={requestInView}
       onTogglePanel={togglePanel} onCloseCell={onCloseCell}

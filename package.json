@@ -1,6 +1,6 @@
 {
   "name": "oxespace",
-  "version": "1.4.3",
+  "version": "1.5.0",
   "description": "An open source, AI-native workspace and terminal",
   "license": "MIT",
   "repository": {
@@ -87,7 +87,9 @@
     "ignore": "^7.0.14",
     "js-yaml": "^4.3.0",
     "jsonc-parser": "^3.3.1",
+    "katex": "0.19.1",
     "lucide-react": "^1.64.0",
+    "mermaid": "12.3.0",
     "monaco-editor": "^0.57.0",
     "picomatch": "^4.0.4",
     "radix-ui": "^1.8.1",

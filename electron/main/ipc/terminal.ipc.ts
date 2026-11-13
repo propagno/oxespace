@@ -27,6 +27,8 @@ export interface TerminalIpcController {
   takeBackSize?(paneId: string): boolean
   resumeBypass?(): boolean
   setResumeBypass?(enabled: boolean): boolean
+  agentsFullAccess?(): boolean
+  setAgentsFullAccess?(enabled: boolean): boolean
 }
 
 export function registerTerminalIpc(controller: TerminalIpcController = createPendingTerminalController()): void {
@@ -48,6 +50,12 @@ export function registerTerminalIpc(controller: TerminalIpcController = createPe
   ipcMain.handle(IPC_CHANNELS.terminal.setResumeBypass, (_event, enabled: unknown) => {
     if (typeof enabled !== 'boolean') throw new Error('Invalid resume setting')
     return controller.setResumeBypass?.(enabled) ?? false
+  })
+  // Only the window changes it, like the setting above (mcp-coverage: forbidden).
+  ipcMain.handle(IPC_CHANNELS.terminal.agentsFullAccess, () => controller.agentsFullAccess?.() ?? false)
+  ipcMain.handle(IPC_CHANNELS.terminal.setAgentsFullAccess, (_event, enabled: unknown) => {
+    if (typeof enabled !== 'boolean') throw new Error('Invalid agent access setting')
+    return controller.setAgentsFullAccess?.(enabled) ?? false
   })
 }
 

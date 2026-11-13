@@ -73,6 +73,7 @@ import { applyLoginShellPath } from './utils/login-shell-path'
 import { securePreviewGuest, securePreviewSession, WEB_PREVIEW_PARTITION_PREFIX } from './services/browser-preview-security'
 import { registerBrowserPreviewIpc } from './ipc/browser-preview.ipc'
 import { registerAndroidIpc } from './ipc/android.ipc'
+import { startSchedules } from './services/schedules'
 import { AndroidAgentAccess, AndroidDevices } from './services/android/android-devices'
 import { setPreviewGrantAudit } from './services/browser-preview/preview-grants'
 import { mainMessage } from '../../shared/messages'
@@ -197,7 +198,10 @@ async function registerIpcHandlers(): Promise<() => void> {
       }
     }
   })
-  registerAndroidIpc({ devices: androidDevices, access: androidAccess })
+  // The Android panel opens pairing through the gateway, which is registered further down.
+  const remotePairing: { start?: () => Promise<{ uri: string; expiresAt: number }> } = {}
+  registerAndroidIpc({ devices: androidDevices, access: androidAccess, startPairing: () => remotePairing.start ? remotePairing.start() : Promise.reject(new Error('Pairing is not ready yet')),
+    audit: entry => { try { personAuditStmt.run(Date.now(), entry.action, entry.target, entry.outcome, entry.detail) } catch { /* best-effort audit */ } } })
   registerAgentHooksIpc(app.getPath('userData'))
   // What each pane's agent is doing (working, blocked, done...), from its hooks and its screen.
   const [{ AgentStateService }, { loadManifests }, { BUNDLED_MANIFESTS }, { registerAgentStateIpc, broadcastAgentState }, { notifyAgentsChanged, onAgentsChanged }] = await Promise.all([
@@ -450,7 +454,9 @@ async function registerIpcHandlers(): Promise<() => void> {
     }
   })
   app.once('before-quit', disposePaneConversationIpc)
-  registerRemoteIpc(db, {
+  // Schedules: the person's requests sent at a set time, through the same calls "New conversation" makes.
+  app.once('before-quit', startSchedules(db, { service: () => threadManager.manager, context: (projectId, rootPath) => threadManager.projects.context(projectId, rootPath) }))
+  remotePairing.start = registerRemoteIpc(db, {
     threads: threadManager.manager, terminals: terminalManager, agentState, paneConversations,
     // S7.1: the phone's `agents` topic; a mark from the phone reaches the window too.
     agents: {
@@ -466,7 +472,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       },
       onChanged: onAgentsChanged, text: englishText
     }
-  }); app.once('before-quit', registerAppInfoIpc(db))
+  }).startPairing; app.once('before-quit', registerAppInfoIpc(db))
   registerCopilotIpc()
   const creditsService = registerAgentCreditsIpc()
   const contextUsageService = registerContextUsageIpc()

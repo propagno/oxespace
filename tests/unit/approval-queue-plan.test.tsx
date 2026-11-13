@@ -27,7 +27,7 @@ describe('the approval queue shows a plan to review as prose (CHAT-10)', () => {
     expect(within(shown).getByRole('listitem')).toHaveTextContent('Multiply each price by its quantity')
     expect(shown).not.toHaveTextContent('## Context')
     expect(shown).not.toHaveTextContent('```')
-    // The plan's own code block is still code.
-    expect(within(shown).getByText('return price * qty')).toBeInTheDocument()
+    // The plan's own code block is still code. Its words may each sit in their own coloured span, so the block is read whole.
+    expect(shown.querySelector('pre code')).toHaveTextContent('return price * qty')
   })
 })

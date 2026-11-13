@@ -76,6 +76,8 @@ const NoWorkspaceStart = lazyFrom(NO_WORKSPACE_START_CHUNK, (m) => m.NoWorkspace
 import { AgentHooksPromptHost } from './components/AgentSessions/AgentHooksPromptHost'
 import './components/Threads/ThreadView.css'
 import { AppStatusBar } from './components/Workspace/AppStatusBar'
+import { SchedulesHost } from './components/Schedules/SchedulesHost'
+import { isUsageProvider } from './components/Workspace/usageProviders'
 import { UpdateChips } from './app/UpdateChips'
 import { useAgentStore } from './store/agent.store'
 import { useEditorStore } from './store/editor.store'
@@ -116,6 +118,8 @@ export function App(): ReactElement {
     rawSelectMode(mode)
   }, [applicationView, hasOpenedThread, rawSelectMode])
   useModeActions(selectMode)
+  // A schedule's run opened a conversation: the way to it from the notice and from the Schedules dialog.
+  const openScheduledThread = useCallback((threadId: string) => { selectMode('thread'); void useThreadStore.getState().load().then(() => useThreadStore.getState().select(threadId)) }, [selectMode])
   const [newThreadWorkspaceId, setNewThreadWorkspaceId] = useState<string | null | undefined>(undefined)
   const [newThreadRootPath, setNewThreadRootPath] = useState<string | undefined>()
   const [isThreadProjectOpen, setThreadProjectOpen] = useState(false)
@@ -150,15 +154,12 @@ export function App(): ReactElement {
     isWorkspaceSettingsOpen,
     slashOverlayPaneId,
     isMcpPanelOpen,
-    isScriptsPanelOpen,
     webPreviewOpenByWorkspace,
     isIntegrationPanelOpen,
     openSlashOverlay,
     closeSlashOverlay,
     openMcpPanel,
     closeMcpPanel,
-    openScriptsPanel,
-    closeScriptsPanel,
     isSearchPanelOpen, openSearchPanel, closeSearchPanel, isHttpCallsPanelOpen, toggleHttpCallsPanel, isAndroidPanelOpen, toggleAndroidPanel,
     openWebPreview,
     closeWebPreview,
@@ -186,11 +187,9 @@ export function App(): ReactElement {
     isWorkspaceSettingsOpen: state.isWorkspaceSettingsOpen,
     slashOverlayPaneId: state.slashOverlayPaneId,
     isMcpPanelOpen: state.isMcpPanelOpen,
-    isScriptsPanelOpen: state.isScriptsPanelOpen,
     webPreviewOpenByWorkspace: state.webPreviewOpenByWorkspace,
     isIntegrationPanelOpen: state.isIntegrationPanelOpen,
     openSlashOverlay: state.openSlashOverlay, closeSlashOverlay: state.closeSlashOverlay, openMcpPanel: state.openMcpPanel, closeMcpPanel: state.closeMcpPanel,
-    openScriptsPanel: state.openScriptsPanel, closeScriptsPanel: state.closeScriptsPanel,
     isSearchPanelOpen: state.isSearchPanelOpen, openSearchPanel: state.openSearchPanel, closeSearchPanel: state.closeSearchPanel,
     isHttpCallsPanelOpen: state.isHttpCallsPanelOpen, toggleHttpCallsPanel: state.toggleHttpCallsPanel, isAndroidPanelOpen: state.isAndroidPanelOpen, toggleAndroidPanel: state.toggleAndroidPanel,
     openWebPreview: state.openWebPreview,
@@ -481,7 +480,6 @@ export function App(): ReactElement {
     })
   }
 
-  const toggleScriptsPanel = (): void => { if (isScriptsPanelOpen) closeScriptsPanel(); else openScriptsPanel() }
   const toggleSearchPanel = (): void => { if (isSearchPanelOpen) closeSearchPanel(); else openSearchPanel() }
 
   const toggleWebPreviewPanel = (): void => {
@@ -570,12 +568,11 @@ export function App(): ReactElement {
     { id: 'git', active: activeWorkspace.githubPanelVisible === true, onToggle: toggleGitHubPanel },
     { id: 'files', active: activeWorkspace.editorVisible === true, onToggle: toggleEditor },
     { id: 'search', active: isSearchPanelOpen, onToggle: toggleSearchPanel },
-    { id: 'scripts', active: isScriptsPanelOpen, onToggle: toggleScriptsPanel },
     { id: 'worktrees', active: activeWorkspace.worktreePanelVisible === true, onToggle: toggleWorktreePanel }, { id: 'httpCalls', active: isHttpCallsPanelOpen, onToggle: toggleHttpCallsPanel }, { id: 'android', active: isAndroidPanelOpen, onToggle: toggleAndroidPanel }, { id: 'containers', active: containersOpen, onToggle: () => setContainersOpen(open => !open) }
   ] : []
 
   const toolHandlers: Partial<Record<ToolId, () => void>> = {
-    integration: openIntegrationPanel, github: toggleGitHubPanel, worktrees: toggleWorktreePanel, scripts: toggleScriptsPanel, search: toggleSearchPanel,
+    integration: openIntegrationPanel, github: toggleGitHubPanel, worktrees: toggleWorktreePanel, search: toggleSearchPanel,
     'web-preview': toggleWebPreviewPanel, background: toggleBackgroundPanel, mcp: openMcpPanel,
     editor: toggleEditor, review: toggleReviewPanel, 'http-calls': toggleHttpCallsPanel, android: toggleAndroidPanel, slash: () => { if (activePane) openSlashOverlay(activePane.id) }
   }
@@ -584,7 +581,7 @@ export function App(): ReactElement {
   // palette and menu bar read them, and shortcuts never go through them.
   const commandContributors = useDeferredModule(loadCommandContributors)
   const codeCommandContext: CodeCommandContext = { applicationView, activeWorkspace, activePane, toolHandlers, openNewWorkspace: openNewWorkspaceFromUI, showCode: () => selectMode('code'),
-    openTools: { editor: activeWorkspace?.editorVisible, github: activeWorkspace?.githubPanelVisible, review: activeWorkspace?.reviewPanelVisible, background: activeWorkspace?.backgroundPanelVisible, worktrees: activeWorkspace?.worktreePanelVisible, scripts: isScriptsPanelOpen, search: isSearchPanelOpen, 'http-calls': isHttpCallsPanelOpen, android: isAndroidPanelOpen, 'web-preview': activeWorkspace ? webPreviewOpenByWorkspace[activeWorkspace.id] : false },
+    openTools: { editor: activeWorkspace?.editorVisible, github: activeWorkspace?.githubPanelVisible, review: activeWorkspace?.reviewPanelVisible, background: activeWorkspace?.backgroundPanelVisible, worktrees: activeWorkspace?.worktreePanelVisible, search: isSearchPanelOpen, 'http-calls': isHttpCallsPanelOpen, android: isAndroidPanelOpen, 'web-preview': activeWorkspace ? webPreviewOpenByWorkspace[activeWorkspace.id] : false },
     splitActivePane, toggleActivePaneMaximize, openDesignSystem: () => setDesignSystemOpen(true) }
   const commandActions = useContributedCommands()
   useEffect(() => { setKeyboardView(applicationView); setShownView(applicationView) }, [applicationView])
@@ -707,7 +704,6 @@ export function App(): ReactElement {
         onToggleCollapse={() => toggleSidebar('code')}
         panelMenu={panelMenuEntries(codePanelItems)}
         onOpenJobs={toggleBackgroundPanel}
-        onOpenScripts={toggleScriptsPanel}
         onOpenSearch={openCommandMenu}
         integrationGroups={integrationGroups}
       />}
@@ -757,12 +753,10 @@ export function App(): ReactElement {
                       onToggleMaximize={(paneId) => setMaximizedPane(maximizedPaneId === paneId ? null : paneId)}
                       onSplitPane={(paneId, dir) => splitWorkspacePane(ws.id, paneId, dir)}
                       onActivatePane={setActivePane}
-                      scriptsVisible={isActive && isScriptsPanelOpen}
                       webPreviewVisible={webPreviewOpenByWorkspace[ws.id] === true}
                       integrationVisible={isActive && isIntegrationPanelOpen}
                       searchVisible={isActive && isSearchPanelOpen}
                       containersVisible={isActive && containersOpen}
-                      onCloseScripts={closeScriptsPanel}
                       onCloseWebPreview={() => closeWebPreview(ws.id)}
                       onCloseIntegration={closeIntegrationPanel}
                       onCloseSearch={closeSearchPanel}
@@ -791,7 +785,7 @@ export function App(): ReactElement {
         ) : applicationView === 'code' ? (
           <AppStatusBar appVersion={appVersion} workspace={activeWorkspace ?? null} activePaneId={activePane?.id ?? null} />
         ) : applicationView === 'thread' ? (
-          <AppStatusBar docked appVersion={appVersion} workspace={null} activePaneId={null} rootPath={threadSnapshot?.thread.rootPath} usageProvider={threadSnapshot?.thread.provider === 'claude' || threadSnapshot?.thread.provider === 'codex' ? threadSnapshot.thread.provider : null} />
+          <AppStatusBar docked appVersion={appVersion} workspace={null} activePaneId={null} rootPath={threadSnapshot?.thread.rootPath} usageProvider={isUsageProvider(threadSnapshot?.thread.provider) ? threadSnapshot.thread.provider : null} />
         ) : (
           <AppStatusBar docked appVersion={appVersion} workspace={activeWorkspace ?? null} activePaneId={null} />
         )}
@@ -830,7 +824,9 @@ export function App(): ReactElement {
         onSelectPane={setActivePane}
       />
       <UsageModal open={isUsageOpen} onOpenChange={(o) => (o ? openUsage() : closeUsage())} />
-      {commandBarOpen ? <CommandBarHost open={commandBarOpen} onOpenChange={setCommandBarOpen} applicationView={applicationView} selectMode={selectMode} activeWorkspace={activeWorkspace ?? null} activePane={activePane} /> : null}
+      <SchedulesHost onOpenThread={openScheduledThread} />
+      {commandBarOpen ? <CommandBarHost open={commandBarOpen} onOpenChange={setCommandBarOpen} applicationView={applicationView} selectMode={selectMode} activeWorkspace={activeWorkspace ?? null} activePane={activePane}
+        onNewTerminal={() => splitActivePane('vertical')} onNewConversation={newThread} /> : null}
       {slashPane ? (
         <SlashOverlay
           paneId={slashPane.id}

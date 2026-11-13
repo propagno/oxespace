@@ -8,6 +8,7 @@ import { useGitBranch } from '../../hooks/useGitBranch'
 import { useAttentionSummary } from '../../hooks/useAttentionSummary'
 import { lazyFrom } from '../../lib/chunk'
 import { USAGE_CHUNK } from './usageChunk'
+import { USAGE_PROVIDERS, type UsageProvider } from './usageProviders'
 // Usage reads the provider's quota after first paint; OxeChat's view chunk loads it too (usageChunk.ts).
 const UsageStatus = lazyFrom(USAGE_CHUNK, module => module.UsageStatus)
 import { useConnectivity } from '../../hooks/useConnectivity'
@@ -21,7 +22,7 @@ interface AppStatusBarProps {
   workspace: Workspace | null
   activePaneId: string | null
   /** Thread passes its conversation's provider and folder; Code reads them from the active pane. */
-  usageProvider?: 'claude' | 'codex' | null
+  usageProvider?: UsageProvider | null
   rootPath?: string
   /** Laid out as a row of the surface instead of over its bottom edge. */
   docked?: boolean
@@ -34,11 +35,11 @@ interface AppStatusBarProps {
 export function AppStatusBar({ activePaneId, workspace, usageProvider, rootPath, docked, appVersion, firstRun }: AppStatusBarProps): ReactElement {
   const activePane = workspace?.panes.find((pane) => pane.id === activePaneId) ?? null
   const profiles = useAgentStore((state) => state.allProfiles)
-  // The usage shown follows the agent in use: Claude or Codex (directly or as a parent profile).
+  // The usage shown follows the agent in use: Claude, Codex or Antigravity (directly or as a parent profile).
   const paneProvider = useMemo(() => {
     const profile = activePane?.agentProfileId ? profiles.find((value) => value.agentProfileId === activePane.agentProfileId) : undefined
     const providers = [profile?.provider, profile?.parentProvider]
-    return providers.includes('claude') ? 'claude' as const : providers.includes('codex') ? 'codex' as const : null
+    return USAGE_PROVIDERS.find(candidate => providers.includes(candidate)) ?? null
   }, [activePane?.agentProfileId, profiles])
   const provider = usageProvider === undefined ? paneProvider : usageProvider
   const path = rootPath ?? workspace?.rootPath ?? null
@@ -119,8 +120,7 @@ export function AppStatusBar({ activePaneId, workspace, usageProvider, rootPath,
             <UsageStatus provider={provider} />
           ) : (
             <>
-              <UsageStatus provider="claude" />
-              <UsageStatus provider="codex" />
+              {USAGE_PROVIDERS.map(each => <UsageStatus key={each} provider={each} />)}
             </>
           )}
         </Suspense> : null}

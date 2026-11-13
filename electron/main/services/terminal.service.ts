@@ -14,6 +14,7 @@ import { PtyRingBuffer } from './pty-ring-buffer'
 import { resumeCommand, type ClaudePermissionMode, type PaneResumeRecord, type PaneSessionSource } from './agent-state/pane-sessions'
 import { mainMessage } from '../../../shared/messages'
 import { resumeBypassAllowed, setResumeBypassAllowed } from './agent-state/resume-bypass-setting'
+import { agentProgram, setTerminalAgentsFullAccess, terminalAgentsFullAccess, withFullAccess } from './agent-state/agent-full-access'
 import { bypassWithheld, claudeSessionToAssign, failedToLoadStatus, permissionModeArgs, planPaneResume, RESUME_LOAD_MS, startedFreshStatus } from './agent-state/pane-resume'
 import { nativeSessionExists, type NativeSessionRoots } from './agent-state/native-session-files'
 import { PtyModeTracker } from './pty-mode-tracker'
@@ -301,13 +302,17 @@ export class TerminalManager {
     // starts the provider itself rather than typing into the shell.
     const consulted = !threadShell && !oxeShell && !input.launch ? this.resumeSession?.(input.paneId, input.resumeAgent === true, input.resumeAgain === true) ?? null : null
     // A resume whose process exited at once could not load its session: this start is fresh, never another try.
+    // Settings > Terminal: agents started here skip their permission prompts. The person's own setting, so a session
+    // that skipped them comes back that way too (T54 asks for the person's setting, and this is one).
+    const skipPrompts = terminalAgentsFullAccess(this.db)
+    const allowBypass = skipPrompts || resumeBypassAllowed(this.db)
     const failed = this.failedResumes.get(input.paneId)
     this.failedResumes.delete(input.paneId)
     if (failed) this.clearSession?.(input.paneId)
     const plan = await planPaneResume(failed ? null : consulted, input, cwd, {
       allowed: agent => { try { assertProviderAllowed(agent, launch.workspace_root_path); return true } catch { return false } },
       exists: (agent, sessionId, dir) => nativeSessionExists(agent, sessionId, dir, this.nativeSessionRoots),
-      allowBypass: resumeBypassAllowed(this.db)
+      allowBypass
     })
     const status = failed ? failedToLoadStatus(failed) : plan.status
     if (status) this.agentResumes.set(input.paneId, status)
@@ -326,14 +331,18 @@ export class TerminalManager {
     const recorded = !input.launch && !threadShell && !oxeShell && agentName === 'claude' && input.agentArgs?.length === 2 && input.agentArgs[0] === '--resume'
       ? this.currentSession?.(input.paneId) ?? null : null
     const restoreMode = recorded?.agent === 'claude' && recorded.sessionId === input.agentArgs?.[1] && agentParts
-      ? permissionModeArgs(recorded.permissionMode, agentParts.slice(1), resumeBypassAllowed(this.db)) : []
+      ? permissionModeArgs(recorded.permissionMode, agentParts.slice(1), allowBypass) : []
     // The same one line as a B17 resume when the setting held the session's skipped permissions back (SECURITY L on #552).
-    if (recorded?.agent === 'claude' && recorded.sessionId === input.agentArgs?.[1] && agentParts && bypassWithheld(recorded.permissionMode, agentParts.slice(1), resumeBypassAllowed(this.db))) {
+    if (recorded?.agent === 'claude' && recorded.sessionId === input.agentArgs?.[1] && agentParts && bypassWithheld(recorded.permissionMode, agentParts.slice(1), allowBypass)) {
       this.agentResumes.set(input.paneId, { outcome: 'resumed', agent: 'claude', sessionId: recorded.sessionId, note: mainMessage('agents.resume.bypassWithheld', {}) })
     }
     let args = input.launch ? input.launch.args : agentParts
       ? [...agentParts.slice(1), ...restoreMode, ...(input.agentArgs ?? []), ...plan.extraArgs]
       : [...shellArgs, ...(input.agentArgs ?? [])]
+    // The agents the person starts in a pane start without permission prompts while their setting says so (Settings >
+    // Terminal): by the pane's command or as the pane's own program. Never a launch an agent or Team asked for, never
+    // a conversation's or a container's shell, and a resumed session that recorded a mode of its own keeps it.
+    if (!input.launch && !threadShell && !oxeShell) args = withFullAccess(agentProgram(agentParts?.[0] ?? launch.shell_executable), args, skipPrompts)
     // A fresh Claude conversation gets a session id main knows, so the pane can resume it without the hooks.
     const assigned = this.assignSession && !threadShell && !oxeShell && !input.launch && !plan.extraArgs.length ? claudeSessionToAssign(agentParts?.[0] ?? launch.shell_executable, args) : null
     if (assigned) { args = ['--session-id', assigned, ...args]; this.assignSession?.(input.paneId, 'claude', assigned) }
@@ -701,6 +710,11 @@ export class TerminalManager {
   resumeBypass(): boolean { return resumeBypassAllowed(this.db) }
 
   setResumeBypass(enabled: boolean): boolean { return setResumeBypassAllowed(this.db, enabled) }
+
+  /** Settings > Terminal: whether agents started in a pane skip their permission prompts (on by default). */
+  agentsFullAccess(): boolean { return terminalAgentsFullAccess(this.db) }
+
+  setAgentsFullAccess(enabled: boolean): boolean { return setTerminalAgentsFullAccess(this.db, enabled) }
 
   /** A18 (T73) · The pane's branch, read again (terminal focus); null for a pane with no terminal. */
   async branch(paneId: string): Promise<TerminalPaneBranch | null> {

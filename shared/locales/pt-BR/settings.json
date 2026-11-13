@@ -291,6 +291,22 @@
       "configure": "Configurar"
     }
   },
+  "newAccess": {
+    "title": "Conversas novas",
+    "label": "Acesso com que uma conversa nova começa",
+    "saveFailed": "Não foi possível salvar esta configuração",
+    "perConversation": "Dá para mudar em cada conversa, pelo chip de acesso.",
+    "options": {
+      "read-only": "Somente leitura",
+      "workspace-write": "Pode editar",
+      "full-access": "Acesso total"
+    },
+    "hint": {
+      "read-only": "O agente lê o projeto e não altera nada.",
+      "workspace-write": "O agente edita arquivos do projeto e pergunta antes de rodar um comando.",
+      "full-access": "O agente roda comandos e edita arquivos sem perguntar."
+    }
+  },
   "idle": {
     "title": "Conversas ociosas",
     "after": "Encerrar o processo do agente depois de",
@@ -329,6 +345,9 @@
     "opacity": "Opacidade do fundo",
     "translucent": "translúcido",
     "globalDefaults": "Padrões <strong>globais</strong>. Cada workspace pode mudá-los.",
+    "agentsFullAccess": "Iniciar agentes sem pedidos de permissão",
+    "agentsFullAccessOn": "Agentes iniciados em um terminal agora pulam os pedidos de permissão",
+    "agentsFullAccessHint": "Claude Code, Codex e Antigravity iniciados pelo OXESpace em um terminal rodam comandos e editam arquivos sem perguntar. Desligado: cada agente pergunta do jeito do próprio CLI. Um comando que já escolhe o modo fica com o dele.",
     "resumeBypass": "Retomar do mesmo jeito as sessões que ignoravam os pedidos de permissão",
     "resumeBypassOn": "Sessões retomadas agora pulam os pedidos de permissão quando já pulavam antes",
     "resumeBypassHint": "Uma sessão do Claude Code iniciada ignorando os pedidos de permissão é retomada do mesmo jeito depois de reiniciar ou de Restaurar sessão. Desligado: ela é retomada pedindo permissão."

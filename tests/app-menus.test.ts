@@ -29,6 +29,22 @@ describe('application menus', () => {
     for (const prefix of MENU_ACTION_PREFIXES) expect(source).toContain(`id: \`${prefix}`)
   })
 
+  it('with no workspace open, the items that need one say so instead of being disabled without a word (MENU-R1)', () => {
+    const run = vi.fn()
+    const needsWorkspace = new Set(['workspace-settings', 'tool-editor', 'tool-github', 'tool-background'])
+    const actions = MENU_ACTION_IDS.map(id => ({ id, title: id, category: 'Test', run, disabled: needsWorkspace.has(id) }))
+    const menus = buildAppMenus({ actions, applicationView: 'thread', setApplicationView: vi.fn(), openSettings: vi.fn(), addThreadProject: vi.fn(), openCommandMenu: vi.fn(), version: '1.5.0' })
+    const nodes = menus.flatMap(menu => flat(menu.items))
+    for (const id of ['tool-editor', 'tool-github', 'tool-background']) {
+      const node = nodes.find(value => value.id === id)
+      expect(node, id).toMatchObject({ kind: 'item', unavailable: 'Open a workspace in OxeCode first' })
+      expect(node && 'disabled' in node ? node.disabled : undefined, id).toBeFalsy()
+      if (node?.kind === 'item') node.onSelect()
+    }
+    // Choosing one says the reason and runs nothing.
+    expect(run).not.toHaveBeenCalled()
+  })
+
   it('show every listed action and the appearance choices without a workspace', () => {
     const run = vi.fn()
     const actions = [...MENU_ACTION_IDS.map(id => ({ id, title: id, category: 'Test', run })),

@@ -156,6 +156,7 @@ export function ThreadHeader({
           return {
             label: entry.label,
             icon: iconFor(id),
+            checked: viewMode === 'verbose',
             onSelect: () => useThreadViewModeStore.getState().setMode(viewMode === 'verbose' ? 'normal' : 'verbose')
           }
         case 'details':
