@@ -415,7 +415,8 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     label: 'Diagnostics snapshot, live measurements, problem bundles and reports',
     excluded: 'Whole-app paths and logs, and measuring only while the panel is open; the person exports or clears them.',
     ipc: ['diagnostics.getSnapshot', 'diagnostics.exportReport', 'diagnostics.reportInteractive', 'diagnostics.buildIssueReport', 'diagnostics.recordFirstAnswer',
-      'diagnostics.watch', 'diagnostics.unwatch', 'diagnostics.clearIncidents', 'diagnostics.previewBundle', 'diagnostics.exportBundle', 'diagnostics.analysisSummary']
+      'diagnostics.watch', 'diagnostics.unwatch', 'diagnostics.clearIncidents', 'diagnostics.previewBundle', 'diagnostics.exportBundle', 'diagnostics.analysisSummary',
+      'diagnostics.reportPerf']
   },
   'diagnostics.read': {
     label: 'Summary of the incident journal and a snapshot of the app',

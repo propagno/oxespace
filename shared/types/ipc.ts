@@ -439,7 +439,7 @@ export const IPC_CHANNELS = {
     recordFirstAnswer: 'diagnostics:record-first-answer',
     watch: 'diagnostics:watch', unwatch: 'diagnostics:unwatch', onMetrics: 'diagnostics:metrics', incidents: 'diagnostics:incidents',
     clearIncidents: 'diagnostics:clear-incidents', onIncidentsChanged: 'diagnostics:incidents-changed', previewBundle: 'diagnostics:preview-bundle',
-    exportBundle: 'diagnostics:export-bundle', analysisSummary: 'diagnostics:analysis-summary'
+    exportBundle: 'diagnostics:export-bundle', analysisSummary: 'diagnostics:analysis-summary', reportPerf: 'diagnostics:report-perf'
   },
   policy: {
     get: 'policy:get',

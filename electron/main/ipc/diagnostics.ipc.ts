@@ -1,5 +1,5 @@
 import { parseRecord } from './ipc-guards'
-import { IPC_SENDER_REFUSED } from './ipc-sender-guard'
+import { IPC_SENDER_REFUSED, measureIpcWith } from './ipc-sender-guard'
 import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent, type WebContents } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -52,7 +52,10 @@ export function registerDiagnosticsIpc(
   const load = (): Promise<DiagnosticsRuntime> => (runtime ??= import('../services/diagnostics/runtime').then(module => new module.DiagnosticsRuntime(dependencies))
     .catch(error => { runtime = null; throw error }))
   loader = load
-  app.once('will-quit', () => { flushIncidents(); void runtime?.then(value => value.watcher.stopAll()) })
+  // The performance journal (1.5.1): loaded off the startup path; until it is, nothing is measured.
+  const perf = import('../services/perf/perf-journal').then(module => { module.startPerfJournal(join(userData, 'diagnostics'), measureIpcWith); return module })
+    .catch(() => null)
+  app.once('will-quit', () => { flushIncidents(); void runtime?.then(value => value.watcher.stopAll()); void perf.then(module => module?.stopPerfJournal()) })
 
   ipcMain.handle(IPC_CHANNELS.diagnostics.getSnapshot, (event) => service.getSnapshot())
   ipcMain.handle(IPC_CHANNELS.diagnostics.exportReport, async (event) => {
@@ -68,6 +71,10 @@ export function registerDiagnosticsIpc(
   })
   ipcMain.handle(IPC_CHANNELS.diagnostics.recordFirstAnswer, (event, input: unknown) => {
     recordFirstAnswer(input)
+  })
+  // Frame and input times from the window; the journal keeps only known names and well-formed counts.
+  ipcMain.handle(IPC_CHANNELS.diagnostics.reportPerf, async (event, input: unknown) => {
+    (await perf)?.perfJournal()?.addBatch(input)
   })
 
   ipcMain.handle(IPC_CHANNELS.diagnostics.watch, async (event, ...args: unknown[]) => {
