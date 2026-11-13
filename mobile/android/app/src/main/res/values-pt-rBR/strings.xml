@@ -21,6 +21,9 @@
     <string name="home_address_hint">O endereço do computador na sua Wi-Fi, por exemplo 192.168.0.12. O OXESpace mostra em Configurações › Dispositivos.</string>
     <string name="home_address_invalid">Use o endereço do computador na sua rede local, como 192.168.0.12.</string>
     <string name="home_address_title">Endereço do computador</string>
+    <string name="home_benefit_answer">Responda aprovações e perguntas</string>
+    <string name="home_benefit_follow">Veja o que cada agente está fazendo, na hora</string>
+    <string name="home_benefit_terminal">Leia seus terminais e digite nos que você permitir</string>
     <string name="home_body">Pareie este celular com o OXESpace no seu computador, na mesma Wi-Fi, para acompanhar e responder suas sessões.</string>
     <string name="home_cancel">Cancelar</string>
     <string name="home_card_problem">Sem conexão</string>
@@ -32,6 +35,7 @@
     <string name="home_paired_title">Pareado com %1$s</string>
     <string name="home_retry">Tentar de novo</string>
     <string name="home_revoked">%1$s removeu este celular. Pareie de novo para reconectar.</string>
+    <string name="home_same_wifi">Só na mesma Wi-Fi: este celular fala direto com o seu computador.</string>
     <string name="home_save">Salvar</string>
     <string name="home_status_connected">Conectado a %1$s</string>
     <string name="home_status_connecting">Conectando a %1$s…</string>
@@ -71,6 +75,7 @@
     <string name="live_agent_state_unknown">Não confirmado</string>
     <string name="live_agent_state_working">Trabalhando</string>
     <string name="live_back">Voltar</string>
+    <string name="live_connected_hint">Conectado · mesma Wi-Fi</string>
     <string name="live_delegations">Delegações</string>
     <string name="live_delegation_state_accepted">Aceita</string>
     <string name="live_delegation_state_approved">Aprovada</string>
@@ -223,11 +228,17 @@
     <string name="request_truncated">Parte deste pedido não coube no celular. O texto completo está só no computador, então daqui você só pode recusar.</string>
     <string name="request_truncated_question">Parte desta pergunta não coube no celular. Responda no computador, onde dá para ler tudo.</string>
     <string name="request_where">Onde</string>
+    <string name="settings_about_app">OXESpace para Android</string>
+    <string name="settings_about_same_wifi">Funciona enquanto este celular e o seu computador estão na mesma Wi-Fi.</string>
+    <string name="settings_about_title">Sobre</string>
+    <string name="settings_about_version">Versão %1$s</string>
     <string name="settings_alerts_done">Uma tarefa terminou</string>
     <string name="settings_alerts_failed">Uma tarefa falhou</string>
     <string name="settings_alerts_needs_you">Um agente precisa de você</string>
     <string name="settings_alerts_title">Notificações</string>
     <string name="settings_back">Voltar</string>
+    <string name="settings_computer_title">Computador</string>
+    <string name="settings_computer_unpair">Desparear este celular</string>
     <string name="settings_theme_dark">Escuro</string>
     <string name="settings_theme_light">Claro</string>
     <string name="settings_theme_system">Igual ao do celular</string>
@@ -272,6 +283,7 @@
     <string name="terminal_size_large">Grande</string>
     <string name="terminal_size_medium">Médio</string>
     <string name="terminal_size_small">Pequeno</string>
+    <string name="terminal_size_taken_back">O computador retomou o tamanho dele para este terminal. Abra de novo para ajustar a este telefone.</string>
     <string name="terminal_text_size">Tamanho do texto</string>
     <string name="terminal_type_on_screen">Digite na visão Tela</string>
     <string name="terminal_input_not_shared">A digitação pelo celular está desligada neste terminal. No computador, ligue “Permitir digitar pelo celular” no menu ⋯ do terminal.</string>

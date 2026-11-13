@@ -267,6 +267,22 @@
       "configure": "Configure"
     }
   },
+  "newAccess": {
+    "title": "New conversations",
+    "label": "Access a new conversation starts with",
+    "saveFailed": "Could not save this setting",
+    "perConversation": "You can change it in each conversation, from its access chip.",
+    "options": {
+      "read-only": "Read only",
+      "workspace-write": "Can edit",
+      "full-access": "Full access"
+    },
+    "hint": {
+      "read-only": "The agent reads the project and changes nothing.",
+      "workspace-write": "The agent edits files in the project and asks before it runs a command.",
+      "full-access": "The agent runs commands and edits files without asking."
+    }
+  },
   "idle": {
     "title": "Idle conversations",
     "after": "Close the agent process after",
@@ -304,6 +320,9 @@
     "opacity": "Background opacity",
     "translucent": "translucent",
     "globalDefaults": "<strong>Global</strong> defaults. Workspaces can override them.",
+    "agentsFullAccess": "Start agents without permission prompts",
+    "agentsFullAccessOn": "Agents started in a terminal now skip their permission prompts",
+    "agentsFullAccessHint": "Claude Code, Codex and Antigravity started by OXESpace in a terminal run commands and edit files without asking. Off: each agent asks the way its own CLI does. A command that already chooses its mode keeps it.",
     "resumeBypass": "Resume sessions that skipped permission prompts the same way",
     "resumeBypassOn": "Resumed sessions now skip permission prompts when they did before",
     "resumeBypassHint": "A Claude Code session started with its permission prompts skipped resumes the same way after a restart or Restore session. Off: it resumes asking for permission."
@@ -657,6 +676,8 @@
         "threadInterrupt": "Stop a running turn",
         "threadRespondRequest": "Accept or decline a conversation request, after confirming on the phone with fingerprint or face",
         "terminalWrite": "Type in a terminal you allowed here",
+        "terminalResize": "Size a terminal for the phone's screen while it is open there",
+        "terminalRelease": "Give a terminal's size back to this computer",
         "threadHistory": "Read older messages",
         "agentMarkSeen": "Mark an agent as seen",
         "paneConversation": "Read older messages of a terminal agent"

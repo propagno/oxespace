@@ -37,4 +37,27 @@
 .thread-code-toolbar button { font-size: var(--fs-2xs); }
 .thread-markdown .thread-code-block pre { margin: 0; padding: 12px 14px; border-radius: 0; overflow-x: auto; white-space: pre; overflow-wrap: normal; line-height: 1.6; tab-size: 2; }
 .thread-code-block pre code { padding: 0; border: 0; background: transparent; font-size: var(--fs-xs); white-space: inherit; }
+/* Colour for code: what a reader scans for, in the colours the app already uses for text on a surface (both themes). */
+.thread-code-block .tk-comment { color: var(--tx-muted); font-style: italic; }
+.thread-code-block .tk-string { color: var(--intent-success-fg); }
+.thread-code-block :is(.tk-keyword,.tk-type,.tk-attr) { color: var(--intent-info-fg); }
+.thread-code-block :is(.tk-number,.tk-literal) { color: var(--intent-warning-fg); }
+.thread-code-block .tk-function { color: var(--tx-primary); font-weight: 600; }
+.thread-code-block .tk-tag { color: var(--intent-info-fg); font-weight: 600; }
+.thread-code-block .tk-added { color: var(--intent-success-fg); }
+.thread-code-block .tk-removed { color: var(--intent-danger-fg); }
+.thread-code-block .tk-meta { color: var(--tx-muted); }
 .thread-markdown-reference { color: var(--tx-secondary); }
+/* An image the answer carries, or one of the project: it fits the reading column and never pushes it wider. */
+.thread-markdown-image { display: block; max-width: 100%; max-height: 480px; height: auto; margin: 12px 0; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); background: var(--bg-elevated); object-fit: contain; }
+/* A formula of the answer. Inline it sits on the line of text; displayed, it is centred and scrolls sideways when it is wider than the column. */
+.thread-math { font-size: 1.02em; }
+.thread-math-block { display: block; margin: 14px 0; padding: 4px 0; max-width: 100%; overflow-x: auto; overflow-y: hidden; text-align: center; }
+.thread-math-block .katex-display { margin: 0; }
+.thread-math-source { color: var(--tx-secondary); }
+/* A diagram of the answer: the drawing fits the column, a tall one scrolls inside its block. */
+.thread-code-toolbar > span { display: inline-flex; align-items: center; gap: 6px; }
+.thread-diagram-block .thread-code-toolbar { justify-content: flex-start; }
+.thread-diagram-block .thread-code-toolbar > span { margin-right: auto; }
+.thread-diagram { display: flex; justify-content: center; max-height: 640px; padding: 14px; overflow: auto; background: var(--bg-base); }
+.thread-diagram svg { max-width: 100%; height: auto; }

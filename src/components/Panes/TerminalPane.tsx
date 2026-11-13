@@ -12,7 +12,6 @@ import { useResolvedTerminalPrefs, useTerminalPrefsStore } from '../../store/ter
 import { TerminalView } from '../Terminal/TerminalView'
 // The pane's usage chips read quotas and context after the terminal is up; they load on their own.
 const CopilotCreditsStatus = lazy(() => import('../Terminal/CopilotCreditsStatus').then(module => ({ default: module.CopilotCreditsStatus })))
-const AgentCreditsStatus = lazy(() => import('../Terminal/AgentCreditsStatus').then(module => ({ default: module.AgentCreditsStatus })))
 const ContextUsageStatus = lazy(() => import('../Terminal/ContextUsageStatus').then(module => ({ default: module.ContextUsageStatus })))
 import { ErrorBoundary } from '../common/ErrorBoundary'
 
@@ -292,6 +291,15 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     : ''
 
   const [moreOpen, setMoreOpen] = useState(false)
+  // 1.5.0 · A phone that has this terminal open sizes it for its own screen; the pane says so and can take it back.
+  const [sizeLease, setSizeLease] = useState<{ cols: number; rows: number } | null>(null)
+  useEffect(() => {
+    let live = true
+    setSizeLease(null)
+    void window.oxe?.terminal?.sizeLease?.(pane.id).then(lease => { if (live) setSizeLease(lease) }).catch(() => undefined)
+    const off = window.oxe?.terminal?.onSizeLeaseChanged?.(pane.id, event => setSizeLease(event.lease))
+    return () => { live = false; off?.() }
+  }, [pane.id])
   const [restoreOpen, setRestoreOpen] = useState(false)
   const [restoreBusy, setRestoreBusy] = useState(false)
   const [restoreError, setRestoreError] = useState('')
@@ -339,6 +347,14 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
   return (
     <div className="terminal-pane" data-testid="terminal-pane" data-pane-id={pane.id}>
       {state.error ? <div className="terminal-error-bar">{state.error}</div> : null}
+      {isRunning && sizeLease ? (
+        <div className="terminal-size-lease" role="status" data-testid="terminal-size-lease">
+          <span>{tc('terminalPane.sizeLease.label', { cols: sizeLease.cols, rows: sizeLease.rows })}</span>
+          <button type="button" className="terminal-size-lease-take" onClick={() => { void window.oxe?.terminal?.sizeLease?.(pane.id, true) }}>
+            {tc('terminalPane.sizeLease.takeBack')}
+          </button>
+        </div>
+      ) : null}
 
       {isRunning ? (
         <div className="terminal-content">
@@ -349,6 +365,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
             isRunning={isRunning}
             themeId={workspaceThemeId}
             prefs={terminalPrefs}
+            fixedSize={sizeLease}
             onInput={(data) => {
               if (!isRunning) return
               identifyAgentFromInput(data)
@@ -412,7 +429,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         <Suspense fallback={null}>
           {contextProvider ? <ContextUsageStatus provider={contextProvider} rootPath={effectiveRootPath} /> : null}
           {isCopilotPane ? <CopilotCreditsStatus /> : null}
-          {agentCreditsProvider ? <AgentCreditsStatus provider={agentCreditsProvider} /> : null}
+          {/* The plan usage is in the status bar once, not in every pane (1.5.2). */}
         </Suspense>
 
         <div className="statusbar-more" ref={moreRef}>

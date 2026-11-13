@@ -203,7 +203,9 @@ export function Sidebar({
   return (
     <aside className="sidebar sidebar-redesign" style={{ width, minWidth: width, flexBasis: width }}>
       <Splitter edge orientation="vertical" label={t('sidebar.width')} value={width} min={SIDEBAR_MIN_WIDTH} max={SIDEBAR_MAX_WIDTH} defaultValue={SIDEBAR_WIDTH} step={SIDEBAR_RESIZE_STEP} onChange={setWidth} />
-      <div className="nav-panel" title={t('sidebar.version', { version: appVersion })}>
+      {/* The version is in the status bar and in About. As a title on this whole panel it opened a tooltip over the menu
+          bar whenever the pointer rested on any empty part of the sidebar. */}
+      <div className="nav-panel" data-version={appVersion}>
       <div className="nav-panel-title"><strong>{t('sidebar.workspaces')}</strong><SidebarActions actions={railPrimary} /><SidebarCollapseButton mode="code" /></div>
       <SearchField className="sidebar-search-wrap" inputClassName="sidebar-search-input" ref={searchInputRef} label={t('sidebar.filter')} placeholder={t('sidebar.filter')} value={searchQuery} onChange={setSearchQuery} shortcut="/" />
 

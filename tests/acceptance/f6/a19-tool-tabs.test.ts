@@ -8,8 +8,10 @@ import { threadToolTabs, TOOL_TABS } from '../../../electron/main/services/conve
 const none = { summary: { databases: 0, http: 0, containers: 0 }, files: 0, panes: 0, pullRequest: null }
 
 describe('A19 · tabs only for the tools used', () => {
-  test('A19: the tab order is fixed: Conversation, Terminal, Queries, Network, Containers, Changes, Pull request', () => {
-    expect(TOOL_TABS).toEqual(['conversation', 'terminal', 'queries', 'network', 'containers', 'changes', 'pullRequest'])
+  // Changed on 2026-11-13 by the product owner's decision: the Terminal, Network and Pull request tabs left the
+  // conversation (1.5.2). The three tests below that named them now say they are gone; the rest is unchanged.
+  test('A19: the tab order is fixed: Conversation, Queries, Containers, Changes', () => {
+    expect(TOOL_TABS).toEqual(['conversation', 'queries', 'containers', 'changes'])
   })
 
   test('A19: a conversation that only wrote files shows Conversation and Changes, with the file count', () => {
@@ -18,14 +20,11 @@ describe('A19 · tabs only for the tools used', () => {
 
   test('A19: each source adds its tab with its count, in order; zero leaves it out', () => {
     const tabs = threadToolTabs({ summary: { databases: 2, http: 5, containers: 0 }, files: 1, panes: 1, pullRequest: { number: 321 } })
-    expect(tabs).toEqual([
-      { tab: 'conversation', count: null }, { tab: 'terminal', count: 1 }, { tab: 'queries', count: 2 }, { tab: 'network', count: 5 },
-      { tab: 'changes', count: 1 }, { tab: 'pullRequest', count: null }
-    ])
+    expect(tabs).toEqual([{ tab: 'conversation', count: null }, { tab: 'queries', count: 2 }, { tab: 'changes', count: 1 }])
   })
 
   test('A19: a source that failed to load (null) adds no tab: an unknown count never invents a tool the conversation may not have used', () => {
-    expect(threadToolTabs({ ...none, files: 1, summary: { databases: null, http: 4, containers: null } })).toEqual([{ tab: 'conversation', count: null }, { tab: 'network', count: 4 }, { tab: 'changes', count: 1 }])
+    expect(threadToolTabs({ ...none, files: 1, summary: { databases: null, http: 4, containers: null } })).toEqual([{ tab: 'conversation', count: null }, { tab: 'changes', count: 1 }])
   })
 
   test('A19: a conversation with nothing but its messages has only the Conversation tab', () => {

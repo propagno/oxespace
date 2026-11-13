@@ -217,6 +217,8 @@ const ALLOWED_FS_IMPORTS = new Set([
   // under userData/diagnostics and probes executable realpaths, never source files.
   'electron/main/services/runtime-diagnostics.ts',
   'electron/main/ipc/diagnostics.ipc.ts',
+  // The performance journal (1.5.1): three bounded files under userData/diagnostics, durations and names only.
+  'electron/main/services/perf/perf-journal.ts',
   // Deletes only the app's own stale backups and crash dumps under userData (fixed directories, age-based); the live database and WAL are never listed.
   'electron/main/services/storage-retention.ts',
   // The audit export is written only to a path returned by Electron's native save dialog.
@@ -286,8 +288,11 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/remote/pane-conversation.ts',
   'electron/main/services/http-audit/codex-rollout.ts',
   // F5 (A52): saves a person-requested Android screenshot PNG under <Pictures>/OXESpace with a generated basename;
-  // the renderer sends only a validated adb serial, never a path.
+  // the renderer sends only a validated adb serial, never a path. It also checks (lstat) the APK the person picked in
+  // the system's file dialog before handing its path to adb.
   'electron/main/ipc/android.ipc.ts',
+  // Looks for adb and the emulator in the Android SDK's usual folder (existsSync only): nothing is read or written.
+  'electron/main/services/android/android-devices.ts',
   // F11 (A65): exports the local feature-usage summary JSON only to the path chosen in Electron's native save dialog
   // (mode 0600); never reads files and never accepts a path from the renderer.
   'electron/main/services/usage/usage-count.ts'

@@ -79,6 +79,12 @@ import com.oxespace.mobile.protocol.live.CommandResult
 import com.oxespace.mobile.protocol.live.TerminalBuffer
 import com.oxespace.mobile.protocol.live.PaneConversation
 import com.oxespace.mobile.protocol.live.showsConversationToggle
+import com.oxespace.mobile.protocol.live.SizeHold
+import com.oxespace.mobile.protocol.live.TerminalGrid
+import com.oxespace.mobile.protocol.live.TerminalSizeHold
+import com.oxespace.mobile.protocol.live.terminalGridFor
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.compose.runtime.mutableIntStateOf
 import com.oxespace.mobile.protocol.live.VtLine
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -100,6 +106,7 @@ import com.oxespace.mobile.approval.PresenceGate
 import com.oxespace.mobile.approval.PresenceReason
 import com.oxespace.mobile.session.Watched
 import com.oxespace.mobile.ui.SecureScreen
+import com.oxespace.mobile.ui.theme.DarkOxeColors
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeColors
 import com.oxespace.mobile.ui.theme.OxeSpace
@@ -109,7 +116,7 @@ import kotlinx.coroutines.launch
 /** A pane's output, read-only, in the desktop's terminal colors; follows the newest line. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands: CommandApi, presence: PresenceGate, conversation: PaneConversation? = null, computer: String? = null, onBack: () -> Unit) {
+fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands: CommandApi, presence: PresenceGate, conversation: PaneConversation? = null, computer: String? = null, sizing: TerminalSizeHold? = null, onBack: () -> Unit) {
     SecureScreen()
     val tick by watched.changes.collectAsStateWithLifecycle()
     // CR-34: the desktop hid this pane from the phone; nothing of it stays, the title and last frame included.
@@ -139,6 +146,28 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
     val offersConversation = conversation != null && showsConversationToggle(pane)
     var showingConversation by rememberSaveable(pane.id) { mutableStateOf(true) }
     val reading = offersConversation && showingConversation
+    // 1.5.0 · While the Screen view is on screen the CLI draws for this phone: the phone holds the pane's size, renews
+    // it, and lets go when the view closes, the conversation is shown instead, or the app leaves the foreground.
+    var grid by remember(pane.id) { mutableStateOf<TerminalGrid?>(null) }
+    val sizeHold = sizing?.state?.collectAsStateWithLifecycle()?.value ?: SizeHold.NONE
+    if (sizing != null) {
+        val onScreen = !hidden && !reading
+        var resumes by remember { mutableIntStateOf(0) }
+        LaunchedEffect(pane.id, grid, onScreen, resumes) {
+            val wanted = grid
+            if (onScreen && wanted != null) {
+                // The keyboard and a rotation change the view over a few frames; ask once it settles.
+                delay(SIZE_SETTLE_MS)
+                sizing.hold(pane.id, wanted)
+            } else {
+                sizing.release(pane.id)
+            }
+        }
+        LifecycleResumeEffect(pane.id) {
+            resumes++
+            onPauseOrDispose { sizing.release(pane.id) }
+        }
+    }
     // Each view keeps its own scroll while the terminal is open: both list states live here, not in the views.
     val conversationList = rememberLazyListState()
     LaunchedEffect(watched.loaded) {
@@ -234,13 +263,27 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
             } else if (lines.all { it.text.isEmpty() }) {
                 Text(stringResource(if (watched.loaded && !settling) R.string.terminal_empty else R.string.live_loading), color = colors.textSecondary, modifier = Modifier.padding(OxeSpace.space3))
             } else {
-                TerminalLines(lines, watched.store.cols, list, size.sp.sp, colors)
+                if (sizeHold == SizeHold.TAKEN_BACK) {
+                    Text(
+                        stringResource(R.string.terminal_size_taken_back),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.textMuted,
+                        modifier = Modifier.padding(horizontal = OxeSpace.space3, vertical = OxeSpace.space2),
+                    )
+                }
+                // The terminal is dark in light mode too, like the desktop's: its surface and its palette are the dark tokens.
+                Box(Modifier.fillMaxSize().background(DarkOxeColors.termBg)) {
+                    TerminalLines(lines, watched.store.cols, list, size.sp.sp, DarkOxeColors, onGrid = { fits -> grid = fits })
+                }
             }
         }
     }
 }
 
 /** ANSI colors 0–15 from the desktop's terminal tokens, so the phone shows the palette the person knows. */
+/** How long the terminal's view must keep its size before the phone asks the desktop for that grid. */
+private const val SIZE_SETTLE_MS = 350L
+
 private fun ansiColor(colors: OxeColors, index: Int): Color = when (index) {
     0 -> colors.ansiBlack
     1 -> colors.ansiRed
@@ -265,11 +308,12 @@ private fun ansiColor(colors: OxeColors, index: Int): Color = when (index) {
  * as wide as the longest line in the monospaced font, and scrolls sideways inside the screen.
  */
 @Composable
-private fun TerminalLines(lines: List<VtLine>, cols: Int?, list: LazyListState, fontSize: TextUnit, colors: OxeColors) {
-    val base = TextStyle(fontFamily = OxeFonts.mono, fontSize = fontSize, color = colors.textPrimary)
+private fun TerminalLines(lines: List<VtLine>, cols: Int?, list: LazyListState, fontSize: TextUnit, colors: OxeColors, onGrid: ((TerminalGrid?) -> Unit)? = null) {
+    val base = TextStyle(fontFamily = OxeFonts.mono, fontSize = fontSize, color = colors.termFg)
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val charWidth = remember(fontSize, density) { measurer.measure("0", base).size.width }
+    val lineHeight = remember(fontSize, density) { measurer.measure("0", base).size.height }
     // A45: with the desktop's width known the grid is exactly that wide and pans sideways on a narrow phone;
     // without it (an older desktop) it is as wide as the longest line, as in 1.4.3.
     val longest = remember(lines, cols) { cols ?: (lines.maxOfOrNull { it.text.length } ?: 0) }
@@ -277,6 +321,12 @@ private fun TerminalLines(lines: List<VtLine>, cols: Int?, list: LazyListState, 
     // CR-A45 (T-P3.1): nothing is clipped silently. A grid wider than the view says it pans, and offers to fit the width.
     var fit by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
+        // 1.5.0 · The grid that fits this view at this font, for the desktop to draw the CLI in.
+        if (onGrid != null) {
+            val inset = with(density) { (padding * 2).roundToPx() }
+            val fits = if (constraints.hasBoundedWidth && constraints.hasBoundedHeight) terminalGridFor(constraints.maxWidth - inset, constraints.maxHeight - inset, charWidth, lineHeight) else null
+            LaunchedEffect(fits) { onGrid(fits) }
+        }
         val view = maxWidth
         val grid = with(density) { (charWidth * longest).toDp() }
         val wider = grid + padding * 2 > view
@@ -516,17 +566,17 @@ private fun keyName(key: TerminalKey): Int? = when (key) {
     else -> null
 }
 
-private fun sizeLabel(size: TerminalTextSize): Int = when (size) {
+internal fun sizeLabel(size: TerminalTextSize): Int = when (size) {
     TerminalTextSize.SMALL -> R.string.terminal_size_small
     TerminalTextSize.MEDIUM -> R.string.terminal_size_medium
     TerminalTextSize.LARGE -> R.string.terminal_size_large
 }
 
 /** The terminal's text size lives on the phone only; screenshots and a failed read get the default. */
-private fun readTextSize(context: Context): String? =
+internal fun readTextSize(context: Context): String? =
     runCatching { context.getSharedPreferences(TERMINAL_PREFS, Context.MODE_PRIVATE).getString(TEXT_SIZE_KEY, null) }.getOrNull()
 
-private fun writeTextSize(context: Context, size: TerminalTextSize) {
+internal fun writeTextSize(context: Context, size: TerminalTextSize) {
     runCatching { context.getSharedPreferences(TERMINAL_PREFS, Context.MODE_PRIVATE).edit { putString(TEXT_SIZE_KEY, size.name) } }
 }
 

@@ -61,8 +61,8 @@ export type { GitBranchInput, GitBranchStatus, GitDiff, GitDiffFile, GitDiffHunk
 export type { GitHubBranch, GitHubCheckpoint, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubMessageResult, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubRepositorySummary, GitHubWorkflow, GitHubWorkflowRun, GitHubWorkflowRunDetails, GitHubWorkspaceStatus } from './github'
 export type { IntegrationGroup, IntegrationMember, IntegrationHandoff, IntegrationRole, IntegrationSession, IntegrationStatus } from './integration'
 export type { FileSystemApi, FileSystemFileChangedEvent, FileSystemListTreeInput, FileSystemReadBinaryInput, FileSystemReadBinaryResult, FileSystemReadFileInput, FileSystemReadFileResult, FileSystemUnwatchFileInput, FileSystemWatchFileInput, FileSystemWatchFileResult, FileSystemWriteFileInput, FileSystemWriteFileResult, FileTreeNode, FileTreeNodeType } from './filesystem'
-import type { TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalStatusResult, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
-export type { TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalStatusResult, PaneAgentResume, PaneAgentSession, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
+import type { TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalStatusResult, TerminalSizeLease, TerminalSizeLeaseEvent, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
+export type { TerminalSizeLease, TerminalSizeLeaseEvent, TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalStatusResult, PaneAgentResume, PaneAgentSession, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
 
 import { AGENTS_CHANNELS } from './ipc/agents'
 export type { AgentsApi } from './ipc/agents'
@@ -70,7 +70,7 @@ export type { AgentsApi } from './ipc/agents'
 export const IPC_CHANNELS = {
   agents: AGENTS_CHANNELS,
   agentAccount: { read: 'agent-account:read', login: 'agent-account:login', logout: 'agent-account:logout', cancel: 'agent-account:cancel', code: 'agent-account:code', browser: 'agent-account:browser', changed: 'agent-account:changed' },
-  thread: { projectDiff: 'thread:project-diff', artifact: 'thread:artifact', exportPortable: 'thread:export-portable', importPortable: 'thread:import-portable', models: 'thread:models', configure: 'thread:configure', command: 'thread:command', recover: 'thread:recover', observe: 'thread:observe', commands: 'thread:commands', projects: 'thread:projects', addProject: 'thread:project-add', relinkProject: 'thread:project-relink', setProjectHidden: 'thread:project-hidden', list: 'thread:list', pendingRequestsAll: 'thread:pending-requests-all', sideOpen: 'thread:side-open', sideSend: 'thread:side-send', sideClose: 'thread:side-close', onSideEvent: 'thread:side-event', respondPending: 'thread:respond-pending', create: 'thread:create', read: 'thread:read', history: 'thread:history', attach: 'thread:attach', removeAttachment: 'thread:remove-attachment', send: 'thread:send', steer: 'thread:steer', stopTask: 'thread:stop-task', turnFiles: 'thread:turn-files', undoTurnFile: 'thread:undo-turn-file', turnFileHunks: 'thread:turn-file-hunks', undoTurnHunk: 'thread:undo-turn-hunk', sections: 'thread:sections', saveSections: 'thread:sections-save', permissionRules: 'thread:permission-rules', addPermissionRule: 'thread:permission-rule-add', removePermissionRule: 'thread:permission-rule-remove', auditLog: 'thread:audit-log', debugEvents: 'thread:debug-events', autoApproveReads: 'thread:auto-approve-reads', setAutoApproveReads: 'thread:set-auto-approve-reads', idleSuspendMinutes: 'thread:idle-suspend-minutes', setIdleSuspendMinutes: 'thread:set-idle-suspend-minutes', shellCheck: 'thread:shell-check', usageSummary: 'thread:usage-summary', workRuns: 'thread:work-runs', cancelWork: 'thread:work-cancel', updateQueued: 'thread:queue-update', deleteQueued: 'thread:queue-delete', reorderQueued: 'thread:queue-reorder', readSince: 'thread:read-since', retryTurn: 'thread:retry-turn', contextUsage: 'thread:context-usage', resumeQueue: 'thread:queue-resume', sendQueuedNow: 'thread:queue-send-now', interrupt: 'thread:interrupt', approve: 'thread:approve', respond: 'thread:respond', pin: 'thread:pin', keepAfterPr: 'thread:keep-after-pr', changed: 'thread:changed', worktreeInspect: 'thread:worktree-inspect', worktreeFinish: 'thread:worktree-finish', places: 'thread:places', placeDiff: 'thread:place-diff', placeRead: 'thread:place-read', resolvePath: 'thread:resolve-path', placeDriftAnswer: 'thread:place-drift-answer', placeUndo: 'thread:place-undo', placeRestore: 'thread:place-restore', placeDiscard: 'thread:place-discard', panes: 'thread:panes', collisions: 'thread:collisions', agentSummary: 'thread:agent-summary', placesChanged: 'thread:places-changed', steerQueued: 'thread:queue-steer', toolTabs: 'thread:tool-tabs', toolTabsChanged: 'thread:tool-tabs-changed', background: 'thread:background', backgroundChanged: 'thread:background-changed' },
+  thread: { projectDiff: 'thread:project-diff', artifact: 'thread:artifact', exportPortable: 'thread:export-portable', importPortable: 'thread:import-portable', models: 'thread:models', configure: 'thread:configure', command: 'thread:command', recover: 'thread:recover', observe: 'thread:observe', commands: 'thread:commands', projects: 'thread:projects', addProject: 'thread:project-add', relinkProject: 'thread:project-relink', setProjectHidden: 'thread:project-hidden', list: 'thread:list', pendingRequestsAll: 'thread:pending-requests-all', sideOpen: 'thread:side-open', sideSend: 'thread:side-send', sideClose: 'thread:side-close', onSideEvent: 'thread:side-event', respondPending: 'thread:respond-pending', create: 'thread:create', read: 'thread:read', history: 'thread:history', attach: 'thread:attach', removeAttachment: 'thread:remove-attachment', send: 'thread:send', steer: 'thread:steer', stopTask: 'thread:stop-task', turnFiles: 'thread:turn-files', undoTurnFile: 'thread:undo-turn-file', turnFileHunks: 'thread:turn-file-hunks', undoTurnHunk: 'thread:undo-turn-hunk', sections: 'thread:sections', saveSections: 'thread:sections-save', permissionRules: 'thread:permission-rules', addPermissionRule: 'thread:permission-rule-add', removePermissionRule: 'thread:permission-rule-remove', auditLog: 'thread:audit-log', debugEvents: 'thread:debug-events', autoApproveReads: 'thread:auto-approve-reads', setAutoApproveReads: 'thread:set-auto-approve-reads', idleSuspendMinutes: 'thread:idle-suspend-minutes', setIdleSuspendMinutes: 'thread:set-idle-suspend-minutes', newConversationAccess: 'thread:new-conversation-access', setNewConversationAccess: 'thread:set-new-conversation-access', shellCheck: 'thread:shell-check', usageSummary: 'thread:usage-summary', workRuns: 'thread:work-runs', cancelWork: 'thread:work-cancel', updateQueued: 'thread:queue-update', deleteQueued: 'thread:queue-delete', reorderQueued: 'thread:queue-reorder', readSince: 'thread:read-since', retryTurn: 'thread:retry-turn', contextUsage: 'thread:context-usage', resumeQueue: 'thread:queue-resume', sendQueuedNow: 'thread:queue-send-now', interrupt: 'thread:interrupt', approve: 'thread:approve', respond: 'thread:respond', pin: 'thread:pin', keepAfterPr: 'thread:keep-after-pr', changed: 'thread:changed', worktreeInspect: 'thread:worktree-inspect', worktreeFinish: 'thread:worktree-finish', places: 'thread:places', placeDiff: 'thread:place-diff', placeRead: 'thread:place-read', resolvePath: 'thread:resolve-path', placeDriftAnswer: 'thread:place-drift-answer', placeUndo: 'thread:place-undo', placeRestore: 'thread:place-restore', placeDiscard: 'thread:place-discard', panes: 'thread:panes', collisions: 'thread:collisions', agentSummary: 'thread:agent-summary', placesChanged: 'thread:places-changed', steerQueued: 'thread:queue-steer', toolTabs: 'thread:tool-tabs', toolTabsChanged: 'thread:tool-tabs-changed', background: 'thread:background', backgroundChanged: 'thread:background-changed' },
   delegation: { create: 'delegation:create', status: 'delegation:status', preview: 'delegation:preview', configure: 'delegation:configure', control: 'delegation:control', changed: 'delegation:changed', configureTarget: 'delegation:configure-target', adopt: 'delegation:adopt' },
   app: {
     getUpdateState: 'app:get-update-state',
@@ -133,9 +133,13 @@ export const IPC_CHANNELS = {
     // T54 · Settings › Terminal: a session that skipped permissions resumes that way only with this on.
     resumeBypass: 'terminal:resume-bypass',
     setResumeBypass: 'terminal:set-resume-bypass',
+    agentsFullAccess: 'terminal:agents-full-access',
+    setAgentsFullAccess: 'terminal:set-agents-full-access',
     // A18 (T73) · The pane's branch and where it started, for the pane header; read, then pushed on change.
     branch: 'terminal:branch',
     branchChanged: 'terminal:branch-changed',
+    sizeLease: 'terminal:size-lease', // 1.5.0 · a phone holds the pane's size: read, pushed on change, taken back by the person
+    sizeLeaseChanged: 'terminal:size-lease-changed',
     onData: 'terminal:data',
     onExit: 'terminal:exit',
     onActivity: 'terminal:activity'
@@ -420,6 +424,10 @@ export const IPC_CHANNELS = {
     setAgentsCanSee: 'android:set-agents-can-see',
     startEmulator: 'android:start-emulator'
   },
+  /** The person's own actions on a device from the Android panel; apart from the mirror's channels, which F5 fixed. */
+  /** The person's schedules: requests to an agent sent at a set time. Never reachable by an agent. */
+  schedules: { state: 'schedules:state', runs: 'schedules:runs', save: 'schedules:save', remove: 'schedules:remove', setEnabled: 'schedules:set-enabled', setPaused: 'schedules:set-paused', runNow: 'schedules:run-now', changed: 'schedules:changed' },
+  androidActions: { pickApk: 'android-actions:pick-apk', installApk: 'android-actions:install-apk', openLink: 'android-actions:open-link', pair: 'android-actions:pair' },
   oxeContext: {
     buildPaneManifest: 'oxe-context:build-pane-manifest'
   },
@@ -431,7 +439,7 @@ export const IPC_CHANNELS = {
     recordFirstAnswer: 'diagnostics:record-first-answer',
     watch: 'diagnostics:watch', unwatch: 'diagnostics:unwatch', onMetrics: 'diagnostics:metrics', incidents: 'diagnostics:incidents',
     clearIncidents: 'diagnostics:clear-incidents', onIncidentsChanged: 'diagnostics:incidents-changed', previewBundle: 'diagnostics:preview-bundle',
-    exportBundle: 'diagnostics:export-bundle', analysisSummary: 'diagnostics:analysis-summary'
+    exportBundle: 'diagnostics:export-bundle', analysisSummary: 'diagnostics:analysis-summary', reportPerf: 'diagnostics:report-perf'
   },
   policy: {
     get: 'policy:get',
@@ -509,6 +517,8 @@ export interface TerminalBranchChangedEvent extends TerminalPaneBranch {
 }
 
 export interface TerminalApi {
+  sizeLease?(paneId: string, takeBack?: boolean): Promise<TerminalSizeLease | null> // with takeBack, ends a phone's hold first; the phone is refused until it opens the terminal again
+  onSizeLeaseChanged?(paneId: string, listener: (event: TerminalSizeLeaseEvent) => void): () => void
   /** A18 · The pane's branch now; null for a pane that is not tracked. */
   branch?(paneId: string): Promise<TerminalPaneBranch | null>
   onBranchChanged?(paneId: string, listener: (event: TerminalBranchChangedEvent) => void): () => void
@@ -516,6 +526,9 @@ export interface TerminalApi {
   /** T54 · Whether a Claude session that skipped permissions resumes that way. Off by default. */
   resumeBypass?(): Promise<boolean>
   setResumeBypass?(enabled: boolean): Promise<boolean>
+  /** Settings > Terminal: agents started in a pane skip their permission prompts (on by default). */
+  agentsFullAccess?(): Promise<boolean>
+  setAgentsFullAccess?(enabled: boolean): Promise<boolean>
   write(input: TerminalWriteInput): Promise<void>
   resize(input: TerminalResizeInput): Promise<void>
   stop(input: TerminalStopInput): Promise<void>
@@ -708,7 +721,7 @@ export interface AppUpdateApi {
 
 /** F6 (ccr-f6-conversation.md §A19, §A22): one conversation tab with its count; null when a count has no number. */
 export interface ThreadToolTabEntry {
-  tab: 'conversation' | 'terminal' | 'queries' | 'network' | 'containers' | 'changes' | 'pullRequest'
+  tab: 'conversation' | 'queries' | 'containers' | 'changes'
   count: number | null
 }
 /** F6 A22 (T77): a background shell of a conversation, the agent's or OXESpace's own. */
@@ -783,6 +796,7 @@ export interface OxeApi {
   dataExport: DataExportApi
   httpAudit: import('./http-audit').HttpAuditApi
   android?: AndroidApi
+  schedules?: SchedulesApi
   agentActivity: import('./agent-activity').AgentActivityApi
   paneConversation?: PaneConversationApi
   featureUsage: FeatureUsageApi
@@ -915,43 +929,10 @@ export interface McpApi {
   onHealth(listener: (event: import('./mcp').McpServerHealthEvent) => void): () => void
 }
 
-export interface AndroidMirrorDevice {
-  serial: string
-  name: string
-  kind: 'emulator' | 'usb' | 'wifi'
-  api?: number
-  state: 'device' | 'offline' | 'unauthorized' | 'recovery' | 'sideload' | 'authorizing' | 'no-permissions'
-  agentsCanSee?: boolean
-  stream?: 'idle' | 'connecting' | 'live'
-}
-
-export interface AndroidMirrorStatus {
-  adb: 'missing' | 'ok'
-  devices: AndroidMirrorDevice[]
-  avds: string[]
-}
-
-export interface AndroidMirrorFrame {
-  serial: string
-  width: number
-  height: number
-  data: Uint8Array
-}
-
-export interface AndroidApi {
-  status(): Promise<AndroidMirrorStatus>
-  connect(input: { serial: string }): Promise<{ ok: boolean } | void>
-  disconnect(input: { serial: string }): Promise<void>
-  tap(input: { serial: string; x: number; y: number }): Promise<void>
-  swipe(input: { serial: string; x1: number; y1: number; x2: number; y2: number; durationMs?: number }): Promise<void>
-  key(input: { serial: string; keycode: number }): Promise<void>
-  rotate(input: { serial: string }): Promise<void>
-  screenshot(input: { serial: string }): Promise<{ path: string; name: string }>
-  setAgentsCanSee(input: { serial: string; value: boolean }): Promise<void>
-  startEmulator(avd: string): Promise<void>
-  onChanged(listener: (status?: AndroidMirrorStatus) => void): () => void
-  onFrame(listener: (frame: AndroidMirrorFrame) => void): () => void
-}
+export type { SchedulesApi } from './schedules-api'
+import type { SchedulesApi } from './schedules-api'
+export type { AndroidMirrorDevice, AndroidApkPick, AndroidActionOutcome, AndroidMirrorStatus, AndroidMirrorFrame, AndroidApi } from './android'
+import type { AndroidApi } from './android'
 
 export interface FeatureUsageApi {
   state(): Promise<import('../feature-usage').FeatureUsageStatus>

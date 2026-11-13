@@ -46,3 +46,15 @@ describe('useThreadContentSearch', () => {
     expect(result.current.size).toBe(0)
   })
 })
+
+describe('snippetParts', () => {
+  it('splits the index snippet into text and matches', async () => {
+    const { snippetParts } = await import('../src/hooks/useThreadContentSearch')
+    expect(snippetParts('the [websocket] closes\n  when the [socket] idles')).toEqual([
+      { text: 'the ', match: false }, { text: 'websocket', match: true }, { text: ' closes when the ', match: false }, { text: 'socket', match: true }, { text: ' idles', match: false }
+    ])
+    expect(snippetParts('no match here')).toEqual([{ text: 'no match here', match: false }])
+    expect(snippetParts('an empty [] pair')).toEqual([{ text: 'an empty ', match: false }, { text: '[]', match: false }, { text: ' pair', match: false }])
+    expect(snippetParts('')).toEqual([])
+  })
+})

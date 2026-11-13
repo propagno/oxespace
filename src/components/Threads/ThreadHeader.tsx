@@ -156,6 +156,7 @@ export function ThreadHeader({
           return {
             label: entry.label,
             icon: iconFor(id),
+            checked: viewMode === 'verbose',
             onSelect: () => useThreadViewModeStore.getState().setMode(viewMode === 'verbose' ? 'normal' : 'verbose')
           }
         case 'details':
@@ -189,15 +190,16 @@ export function ThreadHeader({
           : thread?.status === 'interrupted' ? 'paused'
             : thread ? 'ready' : undefined)
 
+  // A conversation gets its title from its first message; until then its title is empty and the heading said nothing.
+  const heading = thread?.title?.trim() || (thread ? t('view.newConversation') : t('header.projectConversations'))
+
   return (
     <header className="thread-heading" {...(workspace ? workspaceColorAttrs(workspace) : {})}>
       <div className="thread-heading-identity">
         <div className="thread-heading-title-row">
           <div className="thread-heading-title-main">
             {statusKind && <span className="thread-heading-glyph" data-kind={statusKind} aria-hidden="true" />}
-            <h1 ref={headingRef} tabIndex={-1} title={thread?.title ?? t('header.projectConversations')}>
-              {thread?.title ?? t('header.projectConversations')}
-            </h1>
+            <h1 ref={headingRef} tabIndex={-1} title={heading}>{heading}</h1>
           </div>
           <div className="thread-heading-actions">
             {thread && showAddTool && (

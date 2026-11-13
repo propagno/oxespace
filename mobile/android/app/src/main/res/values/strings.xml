@@ -21,6 +21,9 @@
     <string name="home_address_hint">The computer\'s address on your Wi-Fi, for example 192.168.0.12. OXESpace shows it in Settings › Devices.</string>
     <string name="home_address_invalid">Use the computer\'s address on your local network, like 192.168.0.12.</string>
     <string name="home_address_title">Computer\'s address</string>
+    <string name="home_benefit_answer">Answer approvals and questions</string>
+    <string name="home_benefit_follow">See what every agent is doing, as it happens</string>
+    <string name="home_benefit_terminal">Read your terminals and type in the ones you allow</string>
     <string name="home_body">Pair this phone with OXESpace on your computer, on the same Wi-Fi, to follow and answer your sessions.</string>
     <string name="home_cancel">Cancel</string>
     <string name="home_card_problem">Not connected</string>
@@ -32,6 +35,7 @@
     <string name="home_paired_title">Paired with %1$s</string>
     <string name="home_retry">Try again</string>
     <string name="home_revoked">%1$s removed this phone. Pair again to reconnect.</string>
+    <string name="home_same_wifi">Same Wi-Fi only: this phone talks straight to your computer.</string>
     <string name="home_save">Save</string>
     <string name="home_status_connected">Connected to %1$s</string>
     <string name="home_status_connecting">Connecting to %1$s…</string>
@@ -70,6 +74,7 @@
     <string name="live_agent_state_unknown">Not confirmed</string>
     <string name="live_agent_state_working">Working</string>
     <string name="live_back">Back</string>
+    <string name="live_connected_hint">Connected · same Wi-Fi</string>
     <string name="live_delegations">Delegations</string>
     <string name="live_delegation_state_accepted">Accepted</string>
     <string name="live_delegation_state_approved">Approved</string>
@@ -220,11 +225,17 @@
     <string name="request_truncated">Part of this request didn\'t fit on the phone. The full text is only on your computer, so from here you can only decline it.</string>
     <string name="request_truncated_question">Part of this question didn\'t fit on the phone. Answer it on your computer, where you can read all of it.</string>
     <string name="request_where">Where</string>
+    <string name="settings_about_app">OXESpace for Android</string>
+    <string name="settings_about_same_wifi">Works while this phone and your computer are on the same Wi-Fi.</string>
+    <string name="settings_about_title">About</string>
+    <string name="settings_about_version">Version %1$s</string>
     <string name="settings_alerts_done">A task finished</string>
     <string name="settings_alerts_failed">A task failed</string>
     <string name="settings_alerts_needs_you">An agent needs you</string>
     <string name="settings_alerts_title">Notifications</string>
     <string name="settings_back">Back</string>
+    <string name="settings_computer_title">Computer</string>
+    <string name="settings_computer_unpair">Unpair this phone</string>
     <string name="settings_theme_dark">Dark</string>
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_system">Same as the phone</string>
@@ -266,6 +277,7 @@
     <string name="terminal_size_large">Large</string>
     <string name="terminal_size_medium">Medium</string>
     <string name="terminal_size_small">Small</string>
+    <string name="terminal_size_taken_back">The computer took its own size back for this terminal. Open it again to fit this phone.</string>
     <string name="terminal_text_size">Text size</string>
     <string name="terminal_type_on_screen">Type on the Screen view</string>
     <string name="terminal_input_not_shared">Typing from the phone is off for this terminal. On your computer, turn on “Allow typing from the phone” in the terminal’s ⋯ menu.</string>

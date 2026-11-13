@@ -606,6 +606,7 @@
         "incidents": "The incident journal: codes, areas and counts",
         "logTail": "Last lines of the app log: time, level and the app's own fixed messages only",
         "runtime": "Recent runtime events, redacted",
+        "performance": "How long the app made you wait: request, frame and input times by name, never content",
         "versions": "App, Electron, Chrome, Node and system versions",
         "configuration": "Settings that help a diagnosis, without secrets"
       }

@@ -9,6 +9,8 @@ import { blocksThreadInput, PARTIAL_NATIVE_HISTORY_NOTICE } from '../../../../sh
 import { formatNativeUserText, taskNotification } from '../../../../shared/native-session-text'
 import { assertThreadMessage, THREAD_PROMPT_MAX_CHARS } from '../../../../shared/threadLimits'
 import { idleSuspendMinutes, setIdleSuspendMinutes, suspendIdle, type IdleHost } from './thread-idle'
+import { newConversationAccess, setNewConversationAccess } from './thread-defaults'
+import type { ThreadAccess } from '../../../../shared/threadAccess'
 import { ThreadAgentError, threadFailure } from './thread-failure'
 import { ThreadHistory, type ThreadHistoryWriteOptions } from './thread-history'
 import { ThreadSnapshotCache } from './thread-snapshot-cache'
@@ -194,6 +196,8 @@ export class ThreadOrchestrator {
   configurePlaces(options: { homeDir?: string }): void { this.placeStore.configure(options) }
   /** Minutes without activity before an idle conversation's agent process is closed; 0 keeps it open. */
   idleSuspendMinutes(): number { return idleSuspendMinutes(this.db) }
+  newConversationAccess(): ThreadAccess { return newConversationAccess(this.db) }
+  setNewConversationAccess(access: unknown): ThreadAccess { return setNewConversationAccess(this.db, access) }
   setIdleSuspendMinutes(minutes: number): number { return setIdleSuspendMinutes(this.db, minutes) }
   /** Closes the agent process of conversations idle longer than the setting (see thread-idle). */
   suspendIdle(now = Date.now()): Promise<string[]> {
@@ -230,7 +234,7 @@ export class ThreadOrchestrator {
       })
       .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt - a.updatedAt)
   }
-  create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId' | 'ownedWorktree'>): ThreadSnapshot {
+  create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId' | 'ownedWorktree' | 'access'>): ThreadSnapshot {
     const now = Date.now()
     const snapshot: ThreadSnapshot = { thread: { ...context, id: randomUUID(), nativeSessionId: null,
       title: '', pinned: false, status: 'idle', createdAt: now, updatedAt: now, generation: 1, queue: [], capabilities: threadCapabilityManifest(context.provider), connection: { state: 'closed', attempt: 0, changedAt: now } }, events: [] }

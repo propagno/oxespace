@@ -3,12 +3,19 @@
  * app or an agent wrapped around it (`<artifact-content-author>…</artifact-content-author>`),
  * which made the sidebar show a raw tag; the title is the first thing a person would read.
  */
+/**
+ * A sentence that says how to answer, or only greets, is not what the conversation is about: "Do not use any tool.",
+ * "Don't edit files.", "Sem usar ferramentas.", "Hi!". The title is the first sentence after those, when there is one.
+ */
+const NOT_THE_SUBJECT = /^(?:(?:please[, ]+)?(?:do not|don't|dont|never|without)\b|no (?:tools?|edits?|changes?|need)\b|(?:por favor[, ]+)?(?:não|nao|nunca|sem)\b|(?:hi|hello|hey|oi|olá|ola|bom dia|boa tarde|boa noite|thanks|thank you|obrigad[oa])\b[\s,!.]*$)/i
+
 export function deriveThreadTitle(text: string, limit = 56): string {
   const withoutBlocks = text.replace(/<([A-Za-z][\w:-]*)(?:\s[^>]*)?>[\s\S]*?<\/\1>/g, ' ')
   const source = withoutBlocks.trim() ? withoutBlocks : text
   const stripped = source.replace(/<\/?[A-Za-z][\w:-]*(?:\s[^>]*)?>/g, ' ')
   const line = stripped.split(/\r?\n/).map(entry => entry.replace(/\s+/g, ' ').trim()).find(Boolean) ?? ''
-  const sentence = line.split(/(?<=[.!?])\s/)[0] ?? line
+  const sentences = line.split(/(?<=[.!?])\s/).filter(Boolean)
+  const sentence = sentences.find(entry => !NOT_THE_SUBJECT.test(entry)) ?? sentences[0] ?? line
   if (sentence.length <= limit) return sentence
   // A heading, not the whole prompt: cut at a word, and say that it was cut. A single long word is cut where it is.
   const head = sentence.slice(0, limit - 1)

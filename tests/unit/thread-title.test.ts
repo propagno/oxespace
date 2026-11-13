@@ -7,6 +7,20 @@ describe('deriveThreadTitle', () => {
     expect(deriveThreadTitle('  one line\nsecond line ')).toBe('one line')
   })
 
+  it('skips a sentence that only says how to answer, or only greets, when another follows', () => {
+    expect(deriveThreadTitle('Do not use any tool. Think carefully before answering: how many handshakes are there?')).toBe('Think carefully before answering: how many handshakes…')
+    expect(deriveThreadTitle("Don't edit files. Explain the retry logic in src/queue.ts.")).toBe('Explain the retry logic in src/queue.ts.')
+    expect(deriveThreadTitle('Sem usar ferramentas. Explique o cálculo do frete.')).toBe('Explique o cálculo do frete.')
+    expect(deriveThreadTitle('Hi! Why is the build red?')).toBe('Why is the build red?')
+    expect(deriveThreadTitle('Please do not run commands. Review my changes.')).toBe('Review my changes.')
+    // Nothing else to name it by: the constraint is the title, as before.
+    expect(deriveThreadTitle('Do not use any tool.')).toBe('Do not use any tool.')
+    // A request that merely starts with a polite or negative word is the subject.
+    expect(deriveThreadTitle('Please review the plan. Then merge.')).toBe('Please review the plan.')
+    expect(deriveThreadTitle('Never mind the lint. Fix the login redirect.')).toBe('Fix the login redirect.')
+    expect(deriveThreadTitle('No results show in the search page. Find out why.')).toBe('No results show in the search page.')
+  })
+
   it('does not show markup wrapped around the message', () => {
     expect(deriveThreadTitle('<artifact-content-author>draft the PRD</artifact-content-author> Please review the plan')).toBe('Please review the plan')
     expect(deriveThreadTitle('<context path="a.ts">x</context>')).toBe('x')
