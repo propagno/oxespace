@@ -2606,6 +2606,8 @@
       "missingBody": "Install Docker or Podman, then reopen this panel.",
       "deniedTitle": "Can't reach {{engine}}",
       "deniedBody": "Check that your user may use {{engine}}, then try again."
-    }
+    },
+    "unreadableTitle": "Couldn't read the containers",
+    "unreadableBody": "The containers service did not answer. Check that Docker or Podman is installed and running, then try again."
   }
 }

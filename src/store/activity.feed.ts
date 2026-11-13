@@ -1,4 +1,4 @@
-import { deriveStatusTone } from '../utils/paneDisplay'
+import { deriveStatusOrigin, deriveStatusTone } from '../utils/paneDisplay'
 import { useActivityStore, type LiveAttention } from './activity.store'
 import { useTerminalStore } from './terminal.store'
 import { useThreadStore } from './thread.store'
@@ -21,7 +21,9 @@ function codeLive(): Record<string, LiveAttention> {
       // (it stays visible on its pane and row, and in the activity center).
       if (tone === 'needs-decision') entries[pane.id] = 'needs-you'
       else if (tone === 'error') entries[pane.id] = 'failed'
-      else if (tone === 'thinking') entries[pane.id] = 'working'
+      // "N agents working" counts agents: a plain shell running a build or a server is busy, and is not one. A pane
+      // is an agent's when it was given one, or when what runs in it reports its own state (an agent started by hand).
+      else if (tone === 'thinking' && (pane.agentProfileId || pane.agentName || (entry.agentState && entry.agentState !== 'unknown') || deriveStatusOrigin(entry) === 'hook')) entries[pane.id] = 'working'
     }
   }
   return entries
