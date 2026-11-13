@@ -24,6 +24,10 @@ class LiveStreams(
 
     val commands = CommandApi(::run)
 
+    /** What the connected desktop's hello listed; empty while not connected, so nothing optional is sent then. */
+    @Volatile var features: Set<String> = emptySet()
+        private set
+
     fun follow(topic: RemoteSubscription, target: String? = null, listener: StreamListener): Followed =
         synchronized(lock) { hub.follow(topic, target, listener) }
 
@@ -33,11 +37,13 @@ class LiveStreams(
     // [features] is the session hello's list; the hub sends a capability flag only when the desktop listed it (A45).
     fun attach(features: Set<String> = emptySet(), send: (RemoteFrame) -> Unit) = synchronized(lock) {
         transport = send
+        this.features = features
         hub.onConnected(features)
     }
 
     fun detach() = synchronized(lock) {
         transport = null
+        features = emptySet()
         hub.onDisconnected()
         pending.dropAll()
     }

@@ -129,6 +129,14 @@ class LiveRepository(val streams: LiveStreams = LiveStreams()) {
     private val conversationScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
     private val conversations = mutableMapOf<String, Pair<Followed, com.oxespace.mobile.protocol.live.PaneConversation>>()
 
+    /** 1.5.0 · The size of the terminal the phone has open, held for this screen; see [com.oxespace.mobile.protocol.live.TerminalSizeHold]. */
+    val terminalSize = com.oxespace.mobile.protocol.live.TerminalSizeHold(
+        scope = conversationScope,
+        supported = { com.oxespace.mobile.protocol.live.TerminalSizeHold.FEATURE in streams.features },
+        resize = { streams.commands.terminalResize(it) },
+        release = { streams.commands.terminalRelease(it) },
+    )
+
     /**
      * 1.5.0 A46: follows a pane agent's conversation while its view is open; the same pane twice shares the stream.
      * The snapshot is the newest page; a `changed` event makes the store fetch with `pane.conversation`.
