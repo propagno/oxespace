@@ -609,6 +609,7 @@
         "incidents": "O diário de incidentes: códigos, áreas e contagens",
         "logTail": "Últimas linhas do log do app: horário, nível e só as mensagens fixas do próprio app",
         "runtime": "Eventos recentes de execução, redigidos",
+        "performance": "Quanto o app fez você esperar: tempos de pedidos, quadros e entradas por nome, nunca conteúdo",
         "versions": "Versões do app, do Electron, do Chrome, do Node e do sistema",
         "configuration": "Configurações que ajudam no diagnóstico, sem segredos"
       }

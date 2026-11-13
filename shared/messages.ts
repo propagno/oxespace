@@ -139,6 +139,7 @@ export interface MessageParams extends PlaceMessageParams {
   'bundle.file.incidents': Record<string, never>
   'bundle.file.logTail': Record<string, never>
   'bundle.file.runtime': Record<string, never>
+  'bundle.file.performance': Record<string, never>
   'bundle.file.versions': Record<string, never>
   'bundle.file.configuration': Record<string, never>
   // Main-process sentences the window used to receive ready-made in English (C3 sweep).
@@ -645,6 +646,7 @@ export const MESSAGE_CODES = [
   'bundle.file.incidents',
   'bundle.file.logTail',
   'bundle.file.runtime',
+  'bundle.file.performance',
   'bundle.file.versions',
   'bundle.file.configuration',
   'linear.worktree.exists',

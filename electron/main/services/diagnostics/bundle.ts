@@ -13,6 +13,8 @@ export interface BundleSources {
   metrics(): Promise<DiagnosticsMetrics>
   incidents(): DiagnosticsIncident[]
   runtimeEvents(): string
+  /** The performance journal's table and lines (1.5.1); left out of the bundle when absent. */
+  performance?(): string
   /** The app's own log files, oldest first; only their tail is read. */
   logFiles(): string[]
   about(): Record<string, unknown>
@@ -47,6 +49,7 @@ export async function buildBundle(sources: BundleSources): Promise<Bundle> {
     { name: 'versions.json', summary: { code: 'bundle.file.versions', params: {} }, text: versionsText(safe(() => sources.about(), {}), redactor) },
     { name: 'configuration.json', summary: { code: 'bundle.file.configuration', params: {} }, text: json(safe(() => sources.configuration(), {})) }
   ]
+  if (sources.performance) files.push({ name: 'performance.txt', summary: { code: 'bundle.file.performance', params: {} }, text: redactor.text(safe(() => sources.performance!(), '')) })
   const entries = files.map(file => ({ name: file.name, data: Buffer.from(file.text, 'utf8') }))
   return {
     entries,
