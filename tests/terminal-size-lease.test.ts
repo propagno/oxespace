@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { openInMemoryDatabase } from '../electron/main/db/index'
 import { WorkspaceService } from '../electron/main/services/workspace.service'
-import { SIZE_LEASE_MS, TerminalManager } from '../electron/main/services/terminal.service'
+import { TerminalManager } from '../electron/main/services/terminal.service'
+import { SIZE_LEASE_MS } from '../electron/main/services/terminal/size-lease'
 import { RemoteCommands, parseCommandArgs } from '../electron/main/services/remote/commands'
 import type { RemoteDesktop } from '../electron/main/services/remote/desktop'
 import { REMOTE_COMMANDS, REMOTE_TERMINAL_GRID } from '../shared/remote/protocol'
@@ -36,26 +37,26 @@ async function startPane() {
 describe('a phone holds a terminal\'s size', () => {
   test('the process is sized for the phone, and the window is told', async () => {
     const pane = await startPane()
-    expect(pane.manager.leaseSize(pane.paneId, 'phone-a', 46, 28)).toBe('held')
+    expect(pane.manager.sizes.lease(pane.paneId, 'phone-a', 46, 28)).toBe('held')
     expect(pane.sizes()).toEqual(['46x28'])
-    expect(pane.manager.sizeLease(pane.paneId)).toEqual({ cols: 46, rows: 28 })
+    expect(pane.manager.sizes.get(pane.paneId)).toEqual({ cols: 46, rows: 28 })
     expect(pane.events).toEqual([{ paneId: pane.paneId, lease: { cols: 46, rows: 28 } }])
   })
 
   test('a pane with no process is not held', async () => {
     const pane = await startPane()
-    expect(pane.manager.leaseSize('no-such-pane', 'phone-a', 46, 28)).toBe('no-terminal')
+    expect(pane.manager.sizes.lease('no-such-pane', 'phone-a', 46, 28)).toBe('no-terminal')
     expect(pane.events).toEqual([])
   })
 
   test('while held, the desktop\'s own fit is remembered, not applied; letting go puts the latest one back', async () => {
     const pane = await startPane()
-    pane.manager.leaseSize(pane.paneId, 'phone-a', 46, 28)
+    pane.manager.sizes.lease(pane.paneId, 'phone-a', 46, 28)
     pane.manager.resize({ paneId: pane.paneId, cols: 150, rows: 50 })
     expect(pane.sizes()).toEqual(['46x28'])
-    expect(pane.manager.releaseSize(pane.paneId, 'phone-a')).toBe(true)
+    expect(pane.manager.sizes.release(pane.paneId, 'phone-a')).toBe(true)
     expect(pane.sizes()).toEqual(['46x28', '150x50'])
-    expect(pane.manager.sizeLease(pane.paneId)).toBeNull()
+    expect(pane.manager.sizes.get(pane.paneId)).toBeNull()
     expect(pane.events.at(-1)).toEqual({ paneId: pane.paneId, lease: null })
     // Released: the desktop sizes the pane again.
     pane.manager.resize({ paneId: pane.paneId, cols: 100, rows: 30 })
@@ -64,65 +65,65 @@ describe('a phone holds a terminal\'s size', () => {
 
   test('renewing with the same grid neither resizes again nor tells the window again', async () => {
     const pane = await startPane()
-    pane.manager.leaseSize(pane.paneId, 'phone-a', 46, 28)
-    pane.manager.leaseSize(pane.paneId, 'phone-a', 46, 28)
+    pane.manager.sizes.lease(pane.paneId, 'phone-a', 46, 28)
+    pane.manager.sizes.lease(pane.paneId, 'phone-a', 46, 28)
     expect(pane.sizes()).toEqual(['46x28'])
     expect(pane.events).toHaveLength(1)
     // A rotated phone asks for another grid: that one is applied, and the desktop's size is still the one to return.
-    pane.manager.leaseSize(pane.paneId, 'phone-a', 96, 18)
-    pane.manager.releaseSize(pane.paneId, 'phone-a')
+    pane.manager.sizes.lease(pane.paneId, 'phone-a', 96, 18)
+    pane.manager.sizes.release(pane.paneId, 'phone-a')
     expect(pane.sizes()).toEqual(['46x28', '96x18', '120x40'])
   })
 
   test('another device cannot let go of a size it does not hold', async () => {
     const pane = await startPane()
-    pane.manager.leaseSize(pane.paneId, 'phone-a', 46, 28)
-    expect(pane.manager.releaseSize(pane.paneId, 'phone-b')).toBe(false)
-    expect(pane.manager.sizeLease(pane.paneId)).toEqual({ cols: 46, rows: 28 })
+    pane.manager.sizes.lease(pane.paneId, 'phone-a', 46, 28)
+    expect(pane.manager.sizes.release(pane.paneId, 'phone-b')).toBe(false)
+    expect(pane.manager.sizes.get(pane.paneId)).toEqual({ cols: 46, rows: 28 })
   })
 
   test('a phone that disconnects gives back every size it held', async () => {
     const pane = await startPane()
-    pane.manager.leaseSize(pane.paneId, 'phone-a', 46, 28)
-    pane.manager.releaseSizesOf('phone-b')
-    expect(pane.manager.sizeLease(pane.paneId)).not.toBeNull()
-    pane.manager.releaseSizesOf('phone-a')
-    expect(pane.manager.sizeLease(pane.paneId)).toBeNull()
+    pane.manager.sizes.lease(pane.paneId, 'phone-a', 46, 28)
+    pane.manager.sizes.releaseOf('phone-b')
+    expect(pane.manager.sizes.get(pane.paneId)).not.toBeNull()
+    pane.manager.sizes.releaseOf('phone-a')
+    expect(pane.manager.sizes.get(pane.paneId)).toBeNull()
     expect(pane.sizes().at(-1)).toBe('120x40')
   })
 
   test('a hold nobody renews ends by itself; a renewed one lasts', async () => {
     const pane = await startPane()
     vi.useFakeTimers()
-    pane.manager.leaseSize(pane.paneId, 'phone-a', 46, 28)
+    pane.manager.sizes.lease(pane.paneId, 'phone-a', 46, 28)
     vi.advanceTimersByTime(SIZE_LEASE_MS - 1_000)
-    pane.manager.leaseSize(pane.paneId, 'phone-a', 46, 28)
+    pane.manager.sizes.lease(pane.paneId, 'phone-a', 46, 28)
     vi.advanceTimersByTime(SIZE_LEASE_MS - 1_000)
-    expect(pane.manager.sizeLease(pane.paneId)).toEqual({ cols: 46, rows: 28 })
+    expect(pane.manager.sizes.get(pane.paneId)).toEqual({ cols: 46, rows: 28 })
     vi.advanceTimersByTime(2_000)
     expect(pane.sizes().at(-1)).toBe('120x40')
     expect(pane.events.at(-1)).toEqual({ paneId: pane.paneId, lease: null })
-    expect(pane.manager.sizeLease(pane.paneId)).toBeNull()
+    expect(pane.manager.sizes.get(pane.paneId)).toBeNull()
   })
 
   test('the person takes the size back: that phone is refused until it leaves the terminal', async () => {
     const pane = await startPane()
-    pane.manager.leaseSize(pane.paneId, 'phone-a', 46, 28)
-    expect(pane.manager.takeBackSize(pane.paneId)).toBe(true)
+    pane.manager.sizes.lease(pane.paneId, 'phone-a', 46, 28)
+    expect(pane.manager.sizes.takeBack(pane.paneId)).toBe(true)
     expect(pane.sizes().at(-1)).toBe('120x40')
-    expect(pane.manager.leaseSize(pane.paneId, 'phone-a', 46, 28)).toBe('taken-back')
-    expect(pane.manager.sizeLease(pane.paneId)).toBeNull()
+    expect(pane.manager.sizes.lease(pane.paneId, 'phone-a', 46, 28)).toBe('taken-back')
+    expect(pane.manager.sizes.get(pane.paneId)).toBeNull()
     // Leaving the terminal on the phone (terminal.release) ends the refusal.
-    pane.manager.releaseSize(pane.paneId, 'phone-a')
-    expect(pane.manager.leaseSize(pane.paneId, 'phone-a', 46, 28)).toBe('held')
-    expect(pane.manager.takeBackSize('no-such-pane')).toBe(false)
+    pane.manager.sizes.release(pane.paneId, 'phone-a')
+    expect(pane.manager.sizes.lease(pane.paneId, 'phone-a', 46, 28)).toBe('held')
+    expect(pane.manager.sizes.takeBack('no-such-pane')).toBe(false)
   })
 
   test('a stopped pane holds nothing', async () => {
     const pane = await startPane()
-    pane.manager.leaseSize(pane.paneId, 'phone-a', 46, 28)
+    pane.manager.sizes.lease(pane.paneId, 'phone-a', 46, 28)
     await pane.manager.stop({ paneId: pane.paneId })
-    expect(pane.manager.sizeLease(pane.paneId)).toBeNull()
+    expect(pane.manager.sizes.get(pane.paneId)).toBeNull()
     expect(pane.events.at(-1)).toEqual({ paneId: pane.paneId, lease: null })
   })
 })
