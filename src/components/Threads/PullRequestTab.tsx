@@ -160,13 +160,20 @@ function PullRequestCard({ provider, pr, onSend }: { provider: PrProvider; pr: P
         {pr.workItems.length > 0 && <ul className="pr-tab-inline" aria-label={t('prTab.workItems')}>
           {pr.workItems.map(item => <li key={item.id}><a href={item.url} onClick={event => { event.preventDefault(); openExternal(item.url) }}>{workItemLabel(item.id)}</a></li>)}
         </ul>}
+        <div className="pr-tab-actions">
+          <Button size="sm" onClick={() => openExternal(pr.url)}>{t(`prTab.open.${provider}`)}</Button>
+          <Button size="sm" disabled={!onSend} onClick={() => onSend?.(t('prTab.addressPrompt', { number }))}>{t('prTab.address')}</Button>
+          <span className="pr-tab-merge" title={t(`prTab.mergeTooltip.${provider}`)}>
+            <Button size="sm" variant="primary" disabled>{t(`prTab.merge.${provider}`)}</Button>
+          </span>
+        </div>
       </section>
       <section className="pr-tab-section">
         <h3 className="pr-tab-heading">{t(`prTab.checks.${provider}`)}</h3>
         {tally.total > 0 && <p className="pr-tab-muted">{t('prTab.checks.tally', tally)}</p>}
         {pr.checks.length === 0 ? <p className="pr-tab-muted">{t('prTab.checks.none')}</p> : <ul className="pr-tab-list">
-          {pr.checks.map((check, index) => <li key={`${check.name}:${index}`} className={check.state === 'skipped' ? 'pr-tab-row pr-tab-muted' : 'pr-tab-row'}>
-            <span className="pr-tab-grow">{check.name}</span>
+          {pr.checks.map((check, index) => <li data-state={check.state} key={`${check.name}:${index}`} className={check.state === 'skipped' ? 'pr-tab-row pr-tab-muted' : 'pr-tab-row'}>
+            <span className="pr-tab-grow" title={check.name}>{check.name}</span>
             <span>{t(`prTab.checks.${checkStateKey(provider, check.state)}`)}</span>
             {check.duration !== null && <span className="pr-tab-muted">{duration(check.duration)}</span>}
           </li>)}
@@ -181,13 +188,6 @@ function PullRequestCard({ provider, pr, onSend }: { provider: PrProvider; pr: P
           </li>)}
         </ul>}
       </section>
-      <div className="pr-tab-actions">
-        <Button size="sm" onClick={() => openExternal(pr.url)}>{t(`prTab.open.${provider}`)}</Button>
-        <Button size="sm" disabled={!onSend} onClick={() => onSend?.(t('prTab.addressPrompt', { number }))}>{t('prTab.address')}</Button>
-        <span className="pr-tab-merge" title={t(`prTab.mergeTooltip.${provider}`)}>
-          <Button size="sm" variant="primary" disabled>{t(`prTab.merge.${provider}`)}</Button>
-        </span>
-      </div>
     </>
   )
 }

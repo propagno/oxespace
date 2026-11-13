@@ -10,6 +10,7 @@ import { IPC_CHANNELS } from '../../../../shared/types/ipc'
 import { getAppUpdateState } from '../../updater'
 import { sharedProjectMemoryEnabled } from '../experimental-features'
 import { exportRuntimeDiagnostics } from '../runtime-diagnostics'
+import { perfJournal, summarize } from '../perf/perf-journal'
 import { buildBundle, type Bundle } from './bundle'
 import { knownAccounts, knownCliVersion } from './facts'
 import type { IncidentJournal } from './incident-journal'
@@ -69,6 +70,7 @@ export class DiagnosticsRuntime {
       metrics: () => this.metrics(),
       incidents: () => journal?.list() ?? [],
       runtimeEvents: exportRuntimeDiagnostics,
+      performance: () => { const lines = perfJournal()?.export() ?? ''; return `${summarize(lines)}\n## Lines\n\n${lines}` },
       logFiles: () => { const file = logFile(); return [join(dirname(file), 'main.old.log'), file] },
       about,
       configuration: () => {

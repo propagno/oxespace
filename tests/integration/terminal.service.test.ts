@@ -62,6 +62,8 @@ describe('TerminalManager', () => {
     const manager = new TerminalManager(db, { pty, platform: 'linux' })
     try {
       const id = '11111111-1111-4111-8111-111111111111'
+      // Without "Start agents without permission prompts", which adds an option of its own (pane-resume.test.ts).
+      manager.setAgentsFullAccess(false)
       await manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id, agentCommand: 'codex', agentArgs: ['resume', id, '--no-alt-screen'] })
       expect(pty.spawn).toHaveBeenCalledWith('codex', ['resume', id, '--no-alt-screen'], expect.anything())
     } finally { manager.stopAll(); db.close() }
@@ -200,7 +202,8 @@ describe('TerminalManager', () => {
     expect(pty.spawn).toHaveBeenNthCalledWith(
       1,
       'claude',
-      [],
+      // As installed, an agent the person starts in a pane skips its permission prompts (Settings > Terminal).
+      ['--dangerously-skip-permissions'],
       expect.objectContaining({ cwd: 'C:/repo', cols: 80, rows: 24 })
     )
 
@@ -461,7 +464,7 @@ describe('TerminalManager attach/detach', () => {
 
     // Starting at 80x24 and resizing afterwards makes the app reflow once,
     // which the user sees as a flash.
-    expect(pty.spawn).toHaveBeenCalledWith('claude', [], expect.objectContaining({ cols: 132, rows: 43 }))
+    expect(pty.spawn).toHaveBeenCalledWith('claude', ['--dangerously-skip-permissions'], expect.objectContaining({ cols: 132, rows: 43 }))
 
     db.close()
   })

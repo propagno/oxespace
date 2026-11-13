@@ -78,7 +78,7 @@ export function registerThreadIpc(
   worktrees?: ThreadWorktreeHost,
   activity?: () => import('../services/agent-activity/read-model').AgentActivity | undefined,
   background?: ThreadBackgroundHost
-): { stop(): Promise<void>; manager: Promise<ThreadManager> } {
+): { stop(): Promise<void>; manager: Promise<ThreadManager>; projects: ThreadProjectService } {
   // The folder an account scope runs in: the pane's own root when it has one, else the workspace's.
   const workspaceCwd = (workspaceId: string, paneId?: string | null): string => {
     const ws = db.prepare('SELECT root_path FROM workspaces WHERE id = ?').get(workspaceId) as { root_path: string } | undefined
@@ -219,7 +219,10 @@ export function registerThreadIpc(
     if (value.provider !== 'codex' && value.provider !== 'claude' && value.provider !== 'antigravity') throw new Error('Invalid thread provider')
     const context = threadProjects.context(string(value.projectId), value.rootPath === undefined ? undefined : string(value.rootPath))
     const service = await manager
-    if (value.worktree === undefined) return service.create({ workspaceId: `thread:${context.projectId}`, projectId: context.projectId, rootPath: context.rootPath, provider: value.provider })
+    // A conversation the person creates starts with the access chosen in Settings. Conversations made on their behalf
+    // (a delegation, a side conversation) set their own.
+    const access = service.newConversationAccess()
+    if (value.worktree === undefined) return service.create({ workspaceId: `thread:${context.projectId}`, projectId: context.projectId, rootPath: context.rootPath, provider: value.provider, access })
     // A new branch in its own worktree: registered as another directory of the same project, so the
     // conversation, its panels and its checkpoints all work there. Nothing is kept if any step fails.
     if (!worktrees) throw new Error('Worktrees are unavailable in this session.')
@@ -238,7 +241,7 @@ export function registerThreadIpc(
       threadProjects.addContext(context.projectId, created.rootPath)
       // What creating it reported goes with the conversation: the dialog closes as soon as it opens.
       const ownedWorktree = { path: created.rootPath, branch: created.branch, projectRoot: context.rootPath, baseSha: created.baseSha, createdAt: Date.now(), ...(created.notices ? { notices: created.notices.slice(0, 20) } : {}) }
-      return await service.create({ workspaceId: `thread:${context.projectId}`, projectId: context.projectId, rootPath: created.rootPath, provider: value.provider, ownedWorktree })
+      return await service.create({ workspaceId: `thread:${context.projectId}`, projectId: context.projectId, rootPath: created.rootPath, provider: value.provider, ownedWorktree, access })
     } catch (error) {
       threadProjects.removeContext(context.projectId, created.rootPath)
       await discardThreadWorktree(context.rootPath, created.rootPath, created.branch)
@@ -262,6 +265,8 @@ export function registerThreadIpc(
     return manager.then(service => service.setAutoApproveReads(enabled))
   })
   ipcMain.handle(IPC_CHANNELS.thread.idleSuspendMinutes, event => manager.then(service => service.idleSuspendMinutes()))
+  ipcMain.handle(IPC_CHANNELS.thread.newConversationAccess, event => manager.then(service => service.newConversationAccess()))
+  ipcMain.handle(IPC_CHANNELS.thread.setNewConversationAccess, (event, access: unknown) => manager.then(service => service.setNewConversationAccess(access)))
   ipcMain.handle(IPC_CHANNELS.thread.setIdleSuspendMinutes, (event, minutes: unknown) => {
     if (typeof minutes !== 'number' || !Number.isInteger(minutes)) throw Error('Choose a number of minutes')
     return manager.then(service => service.setIdleSuspendMinutes(minutes))
@@ -374,7 +379,7 @@ export function registerThreadIpc(
   registerThreadPlacesIpc({ manager })
   forwardPlacesChanged({ manager })
   const cockpit = registerThreadCockpitIpc(manager, background)
-  return { manager, stop: async () => { cockpit.stop(); await sideChats?.then(chats => chats.stop()).catch(() => {}); await (await accounts).stop(); await (await manager).stop() } }
+  return { manager, projects: threadProjects, stop: async () => { cockpit.stop(); await sideChats?.then(chats => chats.stop()).catch(() => {}); await (await accounts).stop(); await (await manager).stop() } }
 }
 
 /** F6 A19/A22: OXESpace's own background jobs and PR lookup for a conversation. */

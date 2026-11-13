@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { ContainerEngine, ContainerPanel, ContainerPanelRow } from '../../../shared/types/oxepod'
 import type { DatabaseEngine } from '../../../shared/types/oxequery'
 import { openExternalLink } from '../../lib/externalLinks'
-import { Avatar, Button, EmptyState, Menu, Notice, StatusDot, ToolPanel, copyText, toast, useModalSurface, type MenuEntry } from '../../ui'
+import { Avatar, Button, EmptyState, LoadingState, Menu, Notice, StatusDot, ToolPanel, copyText, toast, useModalSurface, type MenuEntry } from '../../ui'
 import { requestOxeQueryConnect } from '../OxeQuery/oxequery-bridge'
 import './ContainersPanel.css'
 
@@ -67,9 +67,11 @@ export function ContainersPanel({ onOpenConversation, onClose }: ContainersPanel
   useEffect(() => { void window.oxe?.featureUsage?.record?.('containersPanel') }, [])
   const [confirm, setConfirm] = useState<{ kind: 'stack' | 'remove'; row: ContainerPanelRow } | null>(null)
 
+  // The list could not be read at all (the containers service did not answer): said on the panel, which used to stay blank.
+  const [unreadable, setUnreadable] = useState(false)
   const refresh = useCallback(async (): Promise<void> => {
-    const res = await window.oxe?.oxePod?.call('containers.panel', {})
-    if (res?.ok && res.value) setPanel(res.value as ContainerPanel)
+    const res = await window.oxe?.oxePod?.call('containers.panel', {}).catch(() => undefined)
+    if (res?.ok && res.value) { setPanel(res.value as ContainerPanel); setUnreadable(false) } else setUnreadable(true)
   }, [])
 
   useEffect(() => {
@@ -128,7 +130,13 @@ export function ContainersPanel({ onOpenConversation, onClose }: ContainersPanel
     )
   }
 
-  if (panel && panel.engine.state !== 'ready') {
+  if (!panel) {
+    return wrap(unreadable
+      ? <div className="containers-panel-notice"><Notice intent="warning" title={t('containers.unreadableTitle')} actions={<Button size="sm" onClick={() => void refresh()}>{t('containers.tryAgain')}</Button>}><p>{t('containers.unreadableBody')}</p></Notice></div>
+      : <LoadingState />)
+  }
+
+  if (panel.engine.state !== 'ready') {
     const engineKey: ContainerEngine = panel.engine.engine === 'podman' ? 'podman' : 'docker'
     const engineName = t(`containers.engineName.${engineKey}`)
     if (panel.engine.state === 'missing') {

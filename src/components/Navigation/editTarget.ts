@@ -21,7 +21,8 @@ const TEXT_INPUTS = new Set(['text', 'search', 'url', 'tel', 'email', 'password'
 let target: HTMLElement | null = null
 let pending: EditCommand | null = null
 
-const inMenu = (element: Element): boolean => Boolean(element.closest('.app-menubar-wrap, .app-menu-content'))
+// Any menu, not only this bar's: an item of another menu that had the focus is not a place to edit in (MENU-9).
+const inMenu = (element: Element): boolean => Boolean(element.closest('.app-menubar-wrap, .app-menu-content, [role="menu"], [role="menubar"]'))
 const current = (): HTMLElement | null => target?.isConnected ? target : null
 
 function place(element: HTMLElement | null): Place {
@@ -41,10 +42,15 @@ export function watchEditTarget(): () => void {
   return () => document.removeEventListener('focusin', onFocus)
 }
 
-/** Why a command cannot act where the person was, or undefined when it can. Copy and Select all always can. */
+/**
+ * Why a command cannot act where the person was, or undefined when it can. Copy always can. Select all can wherever
+ * there is something of its own to select: with no field, editor or terminal it selected every text of the window
+ * (MENU-R2), so there it says what is missing.
+ */
 export function editUnavailable(command: EditCommand): string | undefined {
   const where = place(current())
-  if (where === 'field' || where === 'editor' || command === 'copy' || command === 'selectAll') return undefined
+  if (where === 'field' || where === 'editor' || command === 'copy') return undefined
+  if (command === 'selectAll') return where === 'page' ? i18n.t('menu.needsTextField') : undefined
   if (where === 'terminal') return command === 'paste' ? undefined : i18n.t('menu.notInTerminal')
   if (where === 'readOnlyEditor') return i18n.t('menu.readOnlyFile')
   return i18n.t('menu.needsTextField')

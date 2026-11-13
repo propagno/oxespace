@@ -29,6 +29,8 @@ import {
   type TaskVerifyOutputEvent,
   type TerminalActivityEvent,
   type TerminalBranchChangedEvent,
+  type TerminalSizeLease,
+  type TerminalSizeLeaseEvent,
   type TerminalPaneBranch,
   type TerminalAttachResult,
   type TerminalDataEvent,
@@ -50,6 +52,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
   const terminalExit = createPaneSubscriber<TerminalExitEvent>(ipc, IPC_CHANNELS.terminal.onExit)
   const terminalActivity = createPaneSubscriber<TerminalActivityEvent>(ipc, IPC_CHANNELS.terminal.onActivity)
   const terminalBranch = createPaneSubscriber<TerminalBranchChangedEvent>(ipc, IPC_CHANNELS.terminal.branchChanged)
+  const terminalSizeLease = createPaneSubscriber<TerminalSizeLeaseEvent>(ipc, IPC_CHANNELS.terminal.sizeLeaseChanged)
 
   return {
     agentAccount: {
@@ -107,6 +110,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       setAutoApproveReads: (enabled) => ipc.invoke(IPC_CHANNELS.thread.setAutoApproveReads, enabled) as Promise<boolean>,
       idleSuspendMinutes: () => ipc.invoke(IPC_CHANNELS.thread.idleSuspendMinutes) as Promise<number>,
       setIdleSuspendMinutes: (minutes) => ipc.invoke(IPC_CHANNELS.thread.setIdleSuspendMinutes, minutes) as Promise<number>,
+      newConversationAccess: () => ipc.invoke(IPC_CHANNELS.thread.newConversationAccess) as Promise<import('../../shared/threadAccess').ThreadAccess>,
+      setNewConversationAccess: (access) => ipc.invoke(IPC_CHANNELS.thread.setNewConversationAccess, access) as Promise<import('../../shared/threadAccess').ThreadAccess>,
       shellCheck: (command) => ipc.invoke(IPC_CHANNELS.thread.shellCheck, command) as Promise<import('../../shared/types/thread').ThreadShellCheck>,
       debugEvents: (id, options) => ipc.invoke(IPC_CHANNELS.thread.debugEvents, id, options) as Promise<import('../../shared/types/thread').ThreadDebugPage>,
       usageSummary: (id, options) => ipc.invoke(IPC_CHANNELS.thread.usageSummary, id, options) as Promise<import('../../shared/types/thread').ThreadUsageSummary>,
@@ -229,10 +234,14 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       status: (paneId) => ipc.invoke(IPC_CHANNELS.terminal.status, paneId) as Promise<TerminalStatusResult>,
       resumeBypass: () => ipc.invoke(IPC_CHANNELS.terminal.resumeBypass) as Promise<boolean>,
       setResumeBypass: (enabled) => ipc.invoke(IPC_CHANNELS.terminal.setResumeBypass, enabled) as Promise<boolean>,
+      agentsFullAccess: () => ipc.invoke(IPC_CHANNELS.terminal.agentsFullAccess) as Promise<boolean>,
+      setAgentsFullAccess: (enabled) => ipc.invoke(IPC_CHANNELS.terminal.setAgentsFullAccess, enabled) as Promise<boolean>,
       onData: terminalData,
       onExit: terminalExit,
       branch: (paneId) => ipc.invoke(IPC_CHANNELS.terminal.branch, paneId) as Promise<TerminalPaneBranch | null>,
       onBranchChanged: terminalBranch,
+      sizeLease: (paneId, takeBack) => ipc.invoke(IPC_CHANNELS.terminal.sizeLease, paneId, takeBack === true) as Promise<TerminalSizeLease | null>,
+      onSizeLeaseChanged: terminalSizeLease,
       onActivity: terminalActivity
     },
     agent: {
@@ -551,7 +560,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       onIncidentsChanged: (listener) => subscribe<{ count: number }>(ipc, IPC_CHANNELS.diagnostics.onIncidentsChanged, listener),
       previewBundle: () => ipc.invoke(IPC_CHANNELS.diagnostics.previewBundle) as Promise<import('../../shared/types/diagnostics').DiagnosticsBundlePreview>,
       exportBundle: () => ipc.invoke(IPC_CHANNELS.diagnostics.exportBundle) as Promise<string | null>,
-      analysisSummary: () => ipc.invoke(IPC_CHANNELS.diagnostics.analysisSummary) as Promise<string>
+      analysisSummary: () => ipc.invoke(IPC_CHANNELS.diagnostics.analysisSummary) as Promise<string>,
+      reportPerf: (batch) => ipc.invoke(IPC_CHANNELS.diagnostics.reportPerf, batch) as Promise<void>
     },
     policy: {
       get: (workspaceId) => ipc.invoke(IPC_CHANNELS.policy.get, workspaceId ?? null) as Promise<import('../../shared/policy').PolicyView>,
@@ -573,8 +583,22 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       screenshot: (input) => ipc.invoke(IPC_CHANNELS.android.screenshot, input) as Promise<{ path: string; name: string }>,
       setAgentsCanSee: (input) => ipc.invoke(IPC_CHANNELS.android.setAgentsCanSee, input) as Promise<void>,
       startEmulator: (avd) => ipc.invoke(IPC_CHANNELS.android.startEmulator, avd) as Promise<void>,
+      pickApk: (input) => ipc.invoke(IPC_CHANNELS.androidActions.pickApk, input) as Promise<import('../../shared/types/ipc').AndroidApkPick | null>,
+      installApk: (input) => ipc.invoke(IPC_CHANNELS.androidActions.installApk, input) as Promise<import('../../shared/types/ipc').AndroidActionOutcome>,
+      openLink: (input) => ipc.invoke(IPC_CHANNELS.androidActions.openLink, input) as Promise<import('../../shared/types/ipc').AndroidActionOutcome>,
+      pair: (input) => ipc.invoke(IPC_CHANNELS.androidActions.pair, input) as Promise<import('../../shared/types/ipc').AndroidActionOutcome>,
       onChanged: (listener) => subscribe<import('../../shared/types/ipc').AndroidMirrorStatus | undefined>(ipc, IPC_CHANNELS.android.changed, listener),
       onFrame: (listener) => subscribe<import('../../shared/types/ipc').AndroidMirrorFrame>(ipc, IPC_CHANNELS.android.frame, listener)
+    },
+    schedules: {
+      state: () => ipc.invoke(IPC_CHANNELS.schedules.state) as ReturnType<import('../../shared/types/schedules-api').SchedulesApi['state']>,
+      runs: (id) => ipc.invoke(IPC_CHANNELS.schedules.runs, id) as ReturnType<import('../../shared/types/schedules-api').SchedulesApi['runs']>,
+      save: (input) => ipc.invoke(IPC_CHANNELS.schedules.save, input) as ReturnType<import('../../shared/types/schedules-api').SchedulesApi['save']>,
+      remove: (id) => ipc.invoke(IPC_CHANNELS.schedules.remove, id) as Promise<void>,
+      setEnabled: (input) => ipc.invoke(IPC_CHANNELS.schedules.setEnabled, input) as ReturnType<import('../../shared/types/schedules-api').SchedulesApi['setEnabled']>,
+      setPaused: (paused) => ipc.invoke(IPC_CHANNELS.schedules.setPaused, paused) as Promise<void>,
+      runNow: (id) => ipc.invoke(IPC_CHANNELS.schedules.runNow, id) as ReturnType<import('../../shared/types/schedules-api').SchedulesApi['runNow']>,
+      onChanged: (listener) => subscribe<import('../../shared/types/schedules-api').ScheduleEvent | undefined>(ipc, IPC_CHANNELS.schedules.changed, listener)
     },
     agentActivity: {
       list: (query) => ipc.invoke(IPC_CHANNELS.agentActivity.list, query) as Promise<import('../../shared/types/agent-activity').AgentActivityPage>,

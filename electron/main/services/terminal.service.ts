@@ -14,13 +14,15 @@ import { PtyRingBuffer } from './pty-ring-buffer'
 import { resumeCommand, type ClaudePermissionMode, type PaneResumeRecord, type PaneSessionSource } from './agent-state/pane-sessions'
 import { mainMessage } from '../../../shared/messages'
 import { resumeBypassAllowed, setResumeBypassAllowed } from './agent-state/resume-bypass-setting'
+import { agentProgram, setTerminalAgentsFullAccess, terminalAgentsFullAccess, withFullAccess } from './agent-state/agent-full-access'
 import { bypassWithheld, claudeSessionToAssign, failedToLoadStatus, permissionModeArgs, planPaneResume, RESUME_LOAD_MS, startedFreshStatus } from './agent-state/pane-resume'
 import { nativeSessionExists, type NativeSessionRoots } from './agent-state/native-session-files'
 import { PtyModeTracker } from './pty-mode-tracker'
 import { ShellCwdScanner } from './terminal/shell-cwd'
 import { PaneBranchTracker, samePaneBranch } from './terminal/pane-branch'
+import { SizeLeases } from './terminal/size-lease'
 import { DA1_CARRY_MS, DA1_REPLY, Da1Filter, stripDa1 } from './pty-da1'
-import type { TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume, PaneAgentSession, TerminalBranchChangedEvent, TerminalPaneBranch } from '../../../shared/types/ipc'
+import type { TerminalActivityEvent, TerminalSizeLeaseEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume, PaneAgentSession, TerminalBranchChangedEvent, TerminalPaneBranch } from '../../../shared/types/ipc'
 import { assertProviderAllowed, inheritedEnvironment } from './policy'
 import { recordIncident } from './diagnostics/incident-sink'
 
@@ -41,6 +43,7 @@ interface TerminalManagerOptions {
   emitExit?: (event: TerminalExitEvent) => void
   /** A18 (T73) · A pane's branch changed (the pane header's "switched from"). */
   emitBranchChanged?: (event: TerminalBranchChangedEvent) => void
+  emitSizeLease?: (event: TerminalSizeLeaseEvent) => void // 1.5.0 · a phone took a pane's size, or the desktop's is back (lease: null)
   emitActivity?: (event: TerminalActivityEvent) => void
   ringCapacityBytes?: number
   prepareLaunch?: (input: { paneId: string; workspaceId: string; cwd: string; signal: AbortSignal }) => Promise<Record<string, string>>
@@ -171,6 +174,8 @@ export class TerminalManager {
   /** B17 · Panes whose resumed process exited within RESUME_LOAD_MS: their next start is fresh (failedToLoad). */
   private readonly failedResumes = new Map<string, { agent: 'claude' | 'codex'; sessionId: string }>()
   /** How each pane last started, so a restart can bring back a pane whose process exited by itself. */
+  private readonly emitSizeLease: (event: TerminalSizeLeaseEvent) => void
+  readonly sizes = new SizeLeases({ size: id => { const s = this.sessions.get(id); return s ? { cols: s.cols, rows: s.rows } : null }, apply: (id, cols, rows) => { const s = this.sessions.get(id); if (s) this.applySize(s, cols, rows) }, emit: event => this.emitSizeLease(event) }) // 1.5.0 · the size a phone holds for a pane while it has the terminal open
   private readonly lastStarts = new Map<string, Pick<TerminalSession, 'workspaceId' | 'agentCommand' | 'cols' | 'rows' | 'resumeAgent'>>()
   private readonly sessions = new Map<string, TerminalSession>()
   private readonly pty: PtyModule
@@ -230,6 +235,7 @@ export class TerminalManager {
     this.emitExit = options.emitExit ?? (() => undefined)
     this.emitActivity = options.emitActivity ?? (() => undefined)
     this.emitBranchChanged = options.emitBranchChanged ?? (() => undefined)
+    this.emitSizeLease = options.emitSizeLease ?? (() => undefined)
     this.ringCapacityBytes = options.ringCapacityBytes
   }
 
@@ -293,13 +299,17 @@ export class TerminalManager {
     // starts the provider itself rather than typing into the shell.
     const consulted = !threadShell && !oxeShell && !input.launch ? this.resumeSession?.(input.paneId, input.resumeAgent === true, input.resumeAgain === true) ?? null : null
     // A resume whose process exited at once could not load its session: this start is fresh, never another try.
+    // Settings > Terminal: agents started here skip their permission prompts. The person's own setting, so a session
+    // that skipped them comes back that way too (T54 asks for the person's setting, and this is one).
+    const skipPrompts = terminalAgentsFullAccess(this.db)
+    const allowBypass = skipPrompts || resumeBypassAllowed(this.db)
     const failed = this.failedResumes.get(input.paneId)
     this.failedResumes.delete(input.paneId)
     if (failed) this.clearSession?.(input.paneId)
     const plan = await planPaneResume(failed ? null : consulted, input, cwd, {
       allowed: agent => { try { assertProviderAllowed(agent, launch.workspace_root_path); return true } catch { return false } },
       exists: (agent, sessionId, dir) => nativeSessionExists(agent, sessionId, dir, this.nativeSessionRoots),
-      allowBypass: resumeBypassAllowed(this.db)
+      allowBypass
     })
     const status = failed ? failedToLoadStatus(failed) : plan.status
     if (status) this.agentResumes.set(input.paneId, status)
@@ -318,14 +328,18 @@ export class TerminalManager {
     const recorded = !input.launch && !threadShell && !oxeShell && agentName === 'claude' && input.agentArgs?.length === 2 && input.agentArgs[0] === '--resume'
       ? this.currentSession?.(input.paneId) ?? null : null
     const restoreMode = recorded?.agent === 'claude' && recorded.sessionId === input.agentArgs?.[1] && agentParts
-      ? permissionModeArgs(recorded.permissionMode, agentParts.slice(1), resumeBypassAllowed(this.db)) : []
+      ? permissionModeArgs(recorded.permissionMode, agentParts.slice(1), allowBypass) : []
     // The same one line as a B17 resume when the setting held the session's skipped permissions back (SECURITY L on #552).
-    if (recorded?.agent === 'claude' && recorded.sessionId === input.agentArgs?.[1] && agentParts && bypassWithheld(recorded.permissionMode, agentParts.slice(1), resumeBypassAllowed(this.db))) {
+    if (recorded?.agent === 'claude' && recorded.sessionId === input.agentArgs?.[1] && agentParts && bypassWithheld(recorded.permissionMode, agentParts.slice(1), allowBypass)) {
       this.agentResumes.set(input.paneId, { outcome: 'resumed', agent: 'claude', sessionId: recorded.sessionId, note: mainMessage('agents.resume.bypassWithheld', {}) })
     }
     let args = input.launch ? input.launch.args : agentParts
       ? [...agentParts.slice(1), ...restoreMode, ...(input.agentArgs ?? []), ...plan.extraArgs]
       : [...shellArgs, ...(input.agentArgs ?? [])]
+    // The agents the person starts in a pane start without permission prompts while their setting says so (Settings >
+    // Terminal): by the pane's command or as the pane's own program. Never a launch an agent or Team asked for, never
+    // a conversation's or a container's shell, and a resumed session that recorded a mode of its own keeps it.
+    if (!input.launch && !threadShell && !oxeShell) args = withFullAccess(agentProgram(agentParts?.[0] ?? launch.shell_executable), args, skipPrompts)
     // A fresh Claude conversation gets a session id main knows, so the pane can resume it without the hooks.
     const assigned = this.assignSession && !threadShell && !oxeShell && !input.launch && !plan.extraArgs.length ? claudeSessionToAssign(agentParts?.[0] ?? launch.shell_executable, args) : null
     if (assigned) { args = ['--session-id', assigned, ...args]; this.assignSession?.(input.paneId, 'claude', assigned) }
@@ -464,6 +478,7 @@ export class TerminalManager {
         this.clearSession?.(input.paneId)
       }
       this.sessions.delete(input.paneId)
+      this.sizes.forget(input.paneId)
       session?.revokeProxy?.()
       this.notifyLaunchExit(input.paneId)
       this.forgetBranch(input.paneId)
@@ -521,14 +536,16 @@ export class TerminalManager {
   resize(input: TerminalResizeInput): void {
     const session = this.sessions.get(input.paneId)
     if (!session) return
-    const unchanged = session.cols === input.cols && session.rows === input.rows
-    session.cols = input.cols
-    session.rows = input.rows
-    this.observer?.resize(input.paneId, input.cols, input.rows)
-    // A restored full-screen TUI needs a fresh frame after the renderer has
-    // installed its alternate buffer. A same-size resize is that handshake.
+    // While a phone holds the size, the desktop's own fit is remembered for when the phone lets go, not applied.
+    if (!this.sizes.rememberDesktop(input.paneId, input.cols, input.rows)) this.applySize(session, input.cols, input.rows)
+  }
+  private applySize(session: TerminalSession, cols: number, rows: number): void {
+    const unchanged = session.cols === cols && session.rows === rows
+    session.cols = cols; session.rows = rows
+    this.observer?.resize(session.paneId, cols, rows)
+    // A restored full-screen TUI needs a fresh frame after the renderer has installed its alternate buffer; a same-size resize is that handshake.
     if (unchanged && session.attached && session.modes.altScreen) this.nudgeRedraw(session)
-    else session.pty.resize(input.cols, input.rows)
+    else session.pty.resize(cols, rows)
   }
 
   /**
@@ -682,6 +699,11 @@ export class TerminalManager {
 
   setResumeBypass(enabled: boolean): boolean { return setResumeBypassAllowed(this.db, enabled) }
 
+  /** Settings > Terminal: whether agents started in a pane skip their permission prompts (on by default). */
+  agentsFullAccess(): boolean { return terminalAgentsFullAccess(this.db) }
+
+  setAgentsFullAccess(enabled: boolean): boolean { return setTerminalAgentsFullAccess(this.db, enabled) }
+
   /** A18 (T73) · The pane's branch, read again (terminal focus); null for a pane with no terminal. */
   async branch(paneId: string): Promise<TerminalPaneBranch | null> {
     if (!this.branches.isTracked(paneId)) return this.branches.get(paneId)
@@ -804,6 +826,7 @@ export class TerminalManager {
     // The whole tree, not just the shell: an MCP server or `npm run dev` it started must not outlive the pane (BE-M-08).
     void terminatePty(session.pty)
     this.sessions.delete(input.paneId)
+    this.sizes.forget(input.paneId)
     session.revokeProxy?.()
     this.notifyLaunchExit(input.paneId)
     this.observer?.exit(input.paneId)

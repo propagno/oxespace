@@ -108,6 +108,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'bundle.file.incidents': [],
   'bundle.file.logTail': [],
   'bundle.file.runtime': [],
+  'bundle.file.performance': [],
   'bundle.file.versions': [],
   'bundle.file.configuration': [],
   'linear.worktree.exists': ['issue', 'path'],

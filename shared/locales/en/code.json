@@ -7,7 +7,6 @@
     "git": "Commit & pull request",
     "files": "Files",
     "search": "Find in files",
-    "scripts": "Scripts",
     "worktrees": "Worktrees",
     "background": "Background activity",
     "menu": "Panels",
@@ -32,10 +31,6 @@
     "worktrees": {
       "label": "Worktrees",
       "detail": "Branch checkouts side by side"
-    },
-    "scripts": {
-      "label": "Scripts",
-      "detail": "Discover and run project scripts"
     },
     "search": {
       "label": "Find in files",
@@ -158,24 +153,6 @@
     "openInEditor": "Open in editor",
     "noExternalEditor": "No external editor found. Pick one in Settings › General › External editor, or install VS Code.",
     "openExternalEditorSettings": "External editor"
-  },
-  "scripts": {
-    "found_one": "{{count}} found",
-    "found_other": "{{count}} found",
-    "refresh": "Look for scripts again",
-    "close": "Close scripts",
-    "filter": "Filter scripts",
-    "filterPlaceholder": "Filter npm, .ps1 and .sh scripts…",
-    "loading": "Looking for scripts…",
-    "none": "No scripts found",
-    "noneHint": "Add commands to the scripts of <strong>package.json</strong>, or add <strong>.ps1</strong> or <strong>.sh</strong> files to the workspace, to run them as background jobs.",
-    "noMatch": "No script matches “{{query}}”",
-    "run": "Run",
-    "starting": "Starting…",
-    "runLabel": "Run {{name}}",
-    "runTitle": "Run as a background job",
-    "listFailed": "Could not look for scripts",
-    "runFailed": "{{name}} did not start"
   },
   "background": {
     "jobs_one": "{{count}} job",
@@ -2059,6 +2036,10 @@
     "starting": "Starting…",
     "startButton": "Start Terminal",
     "commandPlaceholder": "Type a command and press Enter",
+    "sizeLease": {
+      "label": "Sized for your phone ({{cols}} × {{rows}}) while it has this terminal open",
+      "takeBack": "Take back"
+    },
     "status": {
       "idle": "idle",
       "starting": "starting",
@@ -2588,7 +2569,42 @@
     "noPermissionsDetail": "Linux needs a udev rule for this phone. Add it, then reconnect.",
     "udevHint": "Add a /etc/udev/rules.d/51-android.rules entry for your vendor ID and reload udev.",
     "howToSetUp": "How to set it up",
-    "reconnect": "Reconnect"
+    "reconnect": "Reconnect",
+    "installApk": "Install an APK…",
+    "openLink": "Open a link…",
+    "pair": "Pair this device with OXESpace",
+    "installTitle": "Install this app on the device?",
+    "installDetail": "{{name}} ({{size}} MB) will be installed on {{device}}, serial {{serial}}. A version already there is replaced.",
+    "install": "Install",
+    "installing": "Installing…",
+    "installed": "Installed {{name}}",
+    "installFailed": "Couldn't install {{name}}",
+    "notAnApk": "That file is not an APK",
+    "openLinkTitle": "Open a link on the device",
+    "openLinkDetail": "The address opens in the device's browser. Only http and https.",
+    "address": "Address",
+    "open": "Open",
+    "linkOpened": "Sent to the device",
+    "linkFailed": "The device didn't open the link",
+    "linkRefused": {
+      "empty": "Type an address.",
+      "tooLong": "The address is too long.",
+      "scheme": "Start the address with http:// or https://.",
+      "characters": "The address has a character that can't be sent to the device: a space, a quote, $, ;, |, <, >, a parenthesis or a backslash. Encode it, for example %20 for a space.",
+      "malformed": "That is not a full address."
+    },
+    "failure": {
+      "pick-expired": "The file you chose is no longer waiting. Choose it again.",
+      "file-changed": "The file changed after you chose it. Choose it again.",
+      "not-debug-build": "The OXESpace app on this device is not a debug build. Pair it by scanning the code.",
+      "pairing-unavailable": "Pairing is not available right now."
+    },
+    "pairSent": "Pairing link sent",
+    "pairSentDetail": "The phone shows a code. Confirm it here when OXESpace asks.",
+    "pairClosed": "Phones can't connect yet",
+    "pairClosedDetail": "Turn on phone connections in Settings, then pair again.",
+    "openPhoneSettings": "Open Phone and devices",
+    "pairFailed": "Couldn't send the pairing link"
   },
   "containers": {
     "empty": "No containers. Start a compose stack from a project.",
@@ -2629,6 +2645,8 @@
       "missingBody": "Install Docker or Podman, then reopen this panel.",
       "deniedTitle": "Can't reach {{engine}}",
       "deniedBody": "Check that your user may use {{engine}}, then try again."
-    }
+    },
+    "unreadableTitle": "Couldn't read the containers",
+    "unreadableBody": "The containers service did not answer. Check that Docker or Podman is installed and running, then try again."
   }
 }

@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactElement } from 'react'
-import { ArrowLeft, Camera, Circle, RotateCw, Smartphone, Square, Usb, WifiOff } from 'lucide-react'
+import { ArrowLeft, Camera, Circle, Link2, PackagePlus, QrCode, RotateCw, Smartphone, Square, Usb, WifiOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { AndroidMirrorDevice, AndroidMirrorFrame, AndroidMirrorStatus } from '../../../shared/types/ipc'
+import { deviceLinkRefusal } from '../../../shared/android-actions'
+import type { AndroidActionOutcome, AndroidApkPick, AndroidMirrorDevice, AndroidMirrorFrame, AndroidMirrorStatus } from '../../../shared/types/ipc'
+import { useUIStore } from '../../store/ui.store'
+import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { Button, IconButton } from '../../ui/Button'
 import { EmptyState, Spinner, StatusDot } from '../../ui/Display'
-import { Switch } from '../../ui/Field'
-import { Menu } from '../../ui/Overlay'
+import { Switch, TextField } from '../../ui/Field'
+import { Dialog, Menu } from '../../ui/Overlay'
 import { toast } from '../../ui/Toast'
 import './AndroidPanel.css'
 
 function friendlyAvdName(avd: string): string {
-  return avd.replace(/_API_\d+$/i, '').replace(/_/g, ' ').trim() || avd
+  return avd.replace(/_API_\d+(\.\d+)?$/i, '').replace(/_/g, ' ').trim() || avd
 }
 
 function mapDeviceCoords(
@@ -38,6 +41,10 @@ export function AndroidPanel(): ReactElement {
   const [frames, setFrames] = useState<Record<string, { width: number; height: number }>>({})
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const pointerDownRef = useRef<{ clientX: number; clientY: number; time: number } | null>(null)
+  // The person's own actions on the device: an APK waiting for their yes, the address being typed, one action at a time.
+  const [apk, setApk] = useState<{ pick: AndroidApkPick; serial: string; device: string } | null>(null)
+  const [link, setLink] = useState<{ serial: string; text: string } | null>(null)
+  const [busy, setBusy] = useState(false)
 
   const refresh = useCallback(async (): Promise<void> => {
     const api = window.oxe?.android
@@ -155,6 +162,63 @@ export function AndroidPanel(): ReactElement {
     if (result?.name) {
       toast({ title: t('android.savedScreenshot', { name: result.name }) })
     }
+  }
+
+  /** What an action's failure reads as: ours for a refusal, the device's own words otherwise. */
+  const failureText = (outcome: Extract<AndroidActionOutcome, { ok: false }>): string => {
+    const [code, detail] = outcome.reason.split(':', 2)
+    if (code === 'refused') return t(`android.linkRefused.${detail ?? 'malformed'}`, { defaultValue: t('android.linkRefused.malformed') })
+    if (code === 'pick-expired' || code === 'file-changed' || code === 'not-debug-build' || code === 'pairing-unavailable') return t(`android.failure.${code}`)
+    return outcome.reason
+  }
+
+  const handlePickApk = async (): Promise<void> => {
+    if (!selectedDevice || busy) return
+    setBusy(true)
+    try {
+      const pick = await window.oxe?.android?.pickApk?.({ serial: selectedDevice.serial })
+      if (pick) setApk({ pick, serial: selectedDevice.serial, device: formatDeviceLabel(selectedDevice) })
+    } catch {
+      toast({ intent: 'danger', title: t('android.notAnApk') })
+    } finally { setBusy(false) }
+  }
+
+  const handleInstall = async (): Promise<void> => {
+    if (!apk || busy) return
+    setBusy(true)
+    try {
+      const outcome = await window.oxe?.android?.installApk?.({ serial: apk.serial, id: apk.pick.id })
+      if (outcome?.ok) toast({ intent: 'success', title: t('android.installed', { name: apk.pick.name }) })
+      else toast({ intent: 'danger', title: t('android.installFailed', { name: apk.pick.name }), description: outcome ? failureText(outcome) : undefined })
+    } catch (cause) {
+      toast({ intent: 'danger', title: t('android.installFailed', { name: apk.pick.name }), description: cause instanceof Error ? cause.message : undefined })
+    } finally { setBusy(false); setApk(null) }
+  }
+
+  const linkRefusal = link ? deviceLinkRefusal(link.text.trim()) : null
+  const handleOpenLink = async (): Promise<void> => {
+    if (!link || busy || linkRefusal) return
+    setBusy(true)
+    try {
+      const outcome = await window.oxe?.android?.openLink?.({ serial: link.serial, url: link.text.trim() })
+      if (outcome?.ok) { toast({ title: t('android.linkOpened') }); setLink(null) }
+      else toast({ intent: 'danger', title: t('android.linkFailed'), description: outcome ? failureText(outcome) : undefined })
+    } catch (cause) {
+      toast({ intent: 'danger', title: t('android.linkFailed'), description: cause instanceof Error ? cause.message : undefined })
+    } finally { setBusy(false) }
+  }
+
+  const handlePair = async (): Promise<void> => {
+    if (!selectedDevice || busy) return
+    setBusy(true)
+    try {
+      const outcome = await window.oxe?.android?.pair?.({ serial: selectedDevice.serial })
+      if (outcome?.ok) toast({ title: t('android.pairSent'), description: t('android.pairSentDetail') })
+      else if (outcome?.reason.startsWith('pairing-closed')) toast({ intent: 'warning', title: t('android.pairClosed'), description: t('android.pairClosedDetail'), action: { label: t('android.openPhoneSettings'), run: () => useUIStore.getState().openSettingsPage('devices') } })
+      else toast({ intent: 'danger', title: t('android.pairFailed'), description: outcome ? failureText(outcome) : undefined })
+    } catch (cause) {
+      toast({ intent: 'danger', title: t('android.pairFailed'), description: cause instanceof Error ? cause.message : undefined })
+    } finally { setBusy(false) }
   }
 
   const handleKey = async (keycode: number): Promise<void> => {
@@ -397,6 +461,29 @@ export function AndroidPanel(): ReactElement {
         {selectedDevice.state === 'device' ? (
           <>
             <IconButton
+              label={t('android.installApk')}
+              icon={<PackagePlus size={14} />}
+              size="sm"
+              disabled={busy}
+              onClick={() => void handlePickApk()}
+            />
+            <IconButton
+              label={t('android.openLink')}
+              icon={<Link2 size={14} />}
+              size="sm"
+              disabled={busy}
+              onClick={() => setLink({ serial: selectedDevice.serial, text: '' })}
+            />
+            {selectedDevice.phoneApp === 'debug' ? (
+              <IconButton
+                label={t('android.pair')}
+                icon={<QrCode size={14} />}
+                size="sm"
+                disabled={busy}
+                onClick={() => void handlePair()}
+              />
+            ) : null}
+            <IconButton
               label={t('android.rotate')}
               icon={<RotateCw size={14} />}
               size="sm"
@@ -411,6 +498,37 @@ export function AndroidPanel(): ReactElement {
           </>
         ) : null}
       </header>
+
+      {apk ? (
+        <ConfirmDialog
+          testId="android-install-confirm"
+          title={t('android.installTitle')}
+          description={t('android.installDetail', { name: apk.pick.name, size: (apk.pick.sizeBytes / 1_048_576).toFixed(1), device: apk.device, serial: apk.serial })}
+          confirmLabel={busy ? t('android.installing') : t('android.install')}
+          busy={busy}
+          onConfirm={() => void handleInstall()}
+          onCancel={() => { if (!busy) setApk(null) }}
+        />
+      ) : null}
+      {link ? (
+        <Dialog
+          size="sm"
+          testId="android-open-link"
+          title={t('android.openLinkTitle')}
+          description={t('android.openLinkDetail')}
+          onClose={() => { if (!busy) setLink(null) }}
+          actions={{ primary: { label: t('android.open'), disabled: busy || linkRefusal !== null, onClick: () => void handleOpenLink() } }}
+        >
+          <TextField
+            label={t('android.address')}
+            mono
+            placeholder="https://"
+            value={link.text}
+            error={link.text.trim() && linkRefusal && linkRefusal !== 'empty' ? t(`android.linkRefused.${linkRefusal}`) : undefined}
+            onChange={event => setLink({ serial: link.serial, text: event.target.value })}
+          />
+        </Dialog>
+      ) : null}
 
       <div className="android-stage">
         {nonReady ? (

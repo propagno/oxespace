@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
 import type { AgentProfile, AgentReadiness } from '../../shared/types/agent'
@@ -167,6 +167,47 @@ describe('Settings agents UI', () => {
     const name = 'Resume sessions that skipped permission prompts the same way'
     expect(await screen.findByRole('switch', { name })).toBeInTheDocument()
     expect(screen.getByText(name)).toBeVisible()
+    delete (window as { oxe?: unknown }).oxe
+  })
+
+  test('Terminal: "Start agents without permission prompts" shows what is stored and saves each change', async () => {
+    const user = userEvent.setup()
+    const setAgentsFullAccess = vi.fn(async (value: boolean) => value)
+    ;(window as unknown as { oxe: unknown }).oxe = { terminal: { agentsFullAccess: vi.fn(async () => true), setAgentsFullAccess } }
+    const props = { agentProfiles: profiles, agentReadiness: readiness, isDiscoveringAgents: false, onClose: vi.fn(), onDiscoverAgents: vi.fn(), onConfigureAgent: vi.fn(), onNewCustomAgent: vi.fn() }
+    render(<SettingsContent section="terminal" {...props} />)
+    const toggle = await screen.findByRole('switch', { name: 'Start agents without permission prompts' })
+    expect(toggle).toBeChecked()
+    expect(screen.getByTestId('terminal-agents-full-access')).toHaveTextContent('Off: each agent asks the way its own CLI does.')
+    await user.click(toggle)
+    expect(setAgentsFullAccess).toHaveBeenLastCalledWith(false)
+    await waitFor(() => expect(toggle).not.toBeChecked())
+    await user.click(toggle)
+    expect(setAgentsFullAccess).toHaveBeenLastCalledWith(true)
+    await waitFor(() => expect(toggle).toBeChecked())
+    delete (window as { oxe?: unknown }).oxe
+  })
+
+  test('Agents: the access a new conversation starts with is shown as stored, saved when changed, and kept when the save fails', async () => {
+    const user = userEvent.setup()
+    const setNewConversationAccess = vi.fn(async (value: string) => value)
+    ;(window as unknown as { oxe: unknown }).oxe = { thread: { newConversationAccess: vi.fn(async () => 'full-access'), setNewConversationAccess } }
+    const props = { agentProfiles: profiles, agentReadiness: readiness, isDiscoveringAgents: false, onClose: vi.fn(), onDiscoverAgents: vi.fn(), onConfigureAgent: vi.fn(), onNewCustomAgent: vi.fn() }
+    render(<SettingsContent section="providers" {...props} />)
+    const select = await screen.findByRole('combobox', { name: 'Access a new conversation starts with' })
+    const group = screen.getByTestId('new-conversation-access')
+    expect(select).toHaveValue('full-access')
+    expect(group).toHaveTextContent('The agent runs commands and edits files without asking.')
+    expect(group).toHaveTextContent('You can change it in each conversation, from its access chip.')
+    await user.selectOptions(select, 'read-only')
+    expect(setNewConversationAccess).toHaveBeenLastCalledWith('read-only')
+    await waitFor(() => expect(select).toHaveValue('read-only'))
+    expect(group).toHaveTextContent('The agent reads the project and changes nothing.')
+    // A save main refuses leaves the level that is really stored, and says so.
+    setNewConversationAccess.mockRejectedValueOnce(new Error('database is locked'))
+    await user.selectOptions(select, 'workspace-write')
+    await waitFor(() => expect(within(group).getByRole('alert')).toHaveTextContent(/database/i))
+    expect(select).toHaveValue('read-only')
     delete (window as { oxe?: unknown }).oxe
   })
 

@@ -73,7 +73,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'code.terminal_input': {
     label: 'Start, type into, resize or stop a terminal',
     excluded: 'Free key input into another terminal. Agents prompt agents with oxespace_agents_change prompt, which refuses one waiting for an approval.',
-    ipc: ['terminal.start', 'terminal.write', 'terminal.resize', 'terminal.stop', 'terminal.restart', 'terminal.attach', 'terminal.detach']
+    ipc: ['terminal.start', 'terminal.write', 'terminal.resize', 'terminal.stop', 'terminal.restart', 'terminal.attach', 'terminal.detach', 'terminal.sizeLease', 'terminal.sizeLeaseChanged']
   },
   'code.pane_branch': {
     label: 'A pane\'s branch and the branch it started on (switched from)',
@@ -164,7 +164,17 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     forbidden: 'The person\'s Android mirror, input and device access switch; no MCP tool may send input to a device or raise access.',
     ipc: ['android.*']
   },
-  'code.resume_bypass': { label: 'Resume Claude sessions that skipped permissions that way', forbidden: 'Raises access: only the person turns it on.', ipc: ['terminal.resumeBypass', 'terminal.setResumeBypass'] },
+  'schedules.admin': {
+    label: 'Create, change, pause, run or delete a schedule',
+    forbidden: 'A schedule sends a request to an agent with no one watching: only the person sets one up. An agent never schedules itself.',
+    ipc: ['schedules.*']
+  },
+  'android.device_actions': {
+    label: 'Install an APK, open a link or send the pairing link to an Android device from the panel',
+    forbidden: 'The person\'s own actions on their device: no MCP tool may install an app, start an activity or pair a phone.',
+    ipc: ['androidActions.*']
+  },
+  'code.resume_bypass': { label: 'Resume Claude sessions that skipped permissions that way; start agents in a terminal without permission prompts', forbidden: 'Raises access: only the person changes it.', ipc: ['terminal.resumeBypass', 'terminal.setResumeBypass', 'terminal.agentsFullAccess', 'terminal.setAgentsFullAccess'] },
 
   // ---- changes and Git ------------------------------------------------------------
   'git.read': {
@@ -245,9 +255,9 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
       'thread.attach', 'thread.removeAttachment', 'thread.command', 'thread.observe', 'thread.debugEvents', 'thread.worktreeInspect', 'thread.worktreeFinish']
   },
   'thread.project_admin': {
-    label: 'Add, relink or hide Thread projects; idle suspension; shell check',
+    label: 'Add, relink or hide Thread projects; idle suspension; the access a new conversation starts with; shell check',
     excluded: 'The person\'s settings.',
-    ipc: ['thread.addProject', 'thread.relinkProject', 'thread.setProjectHidden', 'thread.idleSuspendMinutes', 'thread.setIdleSuspendMinutes', 'thread.shellCheck']
+    ipc: ['thread.addProject', 'thread.relinkProject', 'thread.setProjectHidden', 'thread.idleSuspendMinutes', 'thread.setIdleSuspendMinutes', 'thread.newConversationAccess', 'thread.setNewConversationAccess', 'thread.shellCheck']
   },
   'thread.sections': {
     label: 'Sections of the conversation list (F13)',
@@ -405,7 +415,8 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     label: 'Diagnostics snapshot, live measurements, problem bundles and reports',
     excluded: 'Whole-app paths and logs, and measuring only while the panel is open; the person exports or clears them.',
     ipc: ['diagnostics.getSnapshot', 'diagnostics.exportReport', 'diagnostics.reportInteractive', 'diagnostics.buildIssueReport', 'diagnostics.recordFirstAnswer',
-      'diagnostics.watch', 'diagnostics.unwatch', 'diagnostics.clearIncidents', 'diagnostics.previewBundle', 'diagnostics.exportBundle', 'diagnostics.analysisSummary']
+      'diagnostics.watch', 'diagnostics.unwatch', 'diagnostics.clearIncidents', 'diagnostics.previewBundle', 'diagnostics.exportBundle', 'diagnostics.analysisSummary',
+      'diagnostics.reportPerf']
   },
   'diagnostics.read': {
     label: 'Summary of the incident journal and a snapshot of the app',

@@ -10,7 +10,7 @@ describe('Workbench panels shared by Code and Thread', () => {
     for (const id of CODE_BAR_PANELS) expect(THREAD_BAR_PANELS).toContain(id)
     expect(WORKBENCH_PANELS.changes.label).toBe('Changes')
     expect(shortcutLabel(WORKBENCH_PANELS.browser.keybinding)).toBe('Ctrl+Shift+B')
-    expect(CODE_MENU_PANELS.filter(id => THREAD_MENU_PANELS.includes(id))).toEqual(['git', 'files', 'search', 'scripts'])
+    expect(CODE_MENU_PANELS.filter(id => THREAD_MENU_PANELS.includes(id))).toEqual(['git', 'files', 'search'])
   })
 
   it('shows a bar toggle with its shortcut and pressed state', async () => {
