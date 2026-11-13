@@ -763,10 +763,13 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.setViewportSize({ width: 1440, height: 900 })
     const wideGeometry = await page.evaluate(() => {
       const view = document.querySelector('.thread-view')!.getBoundingClientRect()
-      const reading = document.querySelector('.thread-reading-column')!.getBoundingClientRect()
+      const column = document.querySelector('.thread-reading-column')!
+      const reading = column.getBoundingClientRect()
+      const padding = getComputedStyle(column)
       const composer = document.querySelector('.thread-composer-column')!.getBoundingClientRect()
       return {
-        readingWidth: reading.width,
+        // The column's content box: what messages, cards and code are laid out in.
+        readingWidth: reading.width - parseFloat(padding.paddingLeft) - parseFloat(padding.paddingRight),
         composerWidth: composer.width,
         viewWidth: view.width,
         readingCenterDelta: Math.abs((reading.left + reading.width / 2) - (view.left + view.width / 2)),
@@ -776,9 +779,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     // The 1.5 conversation canvas is 780 px wide, centred, however wide the window is.
     expect(wideGeometry.readingWidth).toBeGreaterThan(700)
     expect(wideGeometry.readingWidth).toBeLessThanOrEqual(780)
-    // The floating panels (gaps + borders) narrow the view, so the composer may sit a little inside the reading column.
-    expect(wideGeometry.composerWidth).toBeLessThanOrEqual(wideGeometry.readingWidth)
-    expect(wideGeometry.composerWidth).toBeGreaterThan(wideGeometry.readingWidth - 32)
+    // One width for the conversation and the message box (VIS-10): they were 694 and 779 px.
+    expect(Math.abs(wideGeometry.composerWidth - wideGeometry.readingWidth)).toBeLessThanOrEqual(1)
     expect(wideGeometry.viewWidth).toBeGreaterThan(wideGeometry.readingWidth)
     // The timeline reserves an 8px scrollbar gutter, so its visual center may
     // differ by half that gutter while remaining aligned with the composer.
