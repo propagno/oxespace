@@ -56,9 +56,13 @@
   border: 1px solid var(--border-subtle);
   background: var(--surface-raised);
   font-size: var(--text-sm);
-  white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
+
+/* Markdown blocks inside a bubble: no outer margin on the first and last one. */
+.bubble > :first-child, .bubble > * > :first-child { margin-top: 0; }
+.bubble > :last-child, .bubble > * > :last-child { margin-bottom: 0; }
 
 .user {
   align-self: flex-end;

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { RemotePaneConversationPage, RemoteThreadItem } from '../../../shared/remote/protocol'
 import type { PaneConversationPageResult } from '../../../shared/types/ipc'
 import { Button, Notice, cx } from '../../ui'
+import { ThreadMarkdown } from '../Threads/ThreadMarkdown'
 import styles from './PaneConversationView.module.css'
 
 type Entry = { seq: number; item: RemoteThreadItem }
@@ -232,7 +233,8 @@ export function PaneConversationView(props: {
                   className={cx(styles.bubble, entry.item.role === 'user' ? styles.user : styles.assistant)}
                   data-role={entry.item.role}
                 >
-                  {entry.item.text}
+                  {/* The same Markdown as OxeChat: the reader showed the raw text, backticks and all (user report, 13/11). */}
+                  <ThreadMarkdown text={entry.item.text} />
                 </article>
               ))
             )}
