@@ -1,23 +1,20 @@
-import { Bot, RefreshCw, Sparkles } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { useEffect, useState, type ReactElement } from 'react'
-import type { AgentProvider } from '../../../shared/types/agent'
 import type { AgentCreditsSnapshot } from '../../../shared/types/agentCredits'
 import { useAgentCreditsStore } from '../../store/agentCredits.store'
 import { useUIStore } from '../../store/ui.store'
 import { Button, Meter, cx } from '../../ui'
-import { formatResetIn, providerName } from './UsageStatus'
+import { PROVIDER_ICONS, USAGE_PROVIDERS as PROVIDERS, formatResetIn, isUsageProvider, providerName, type UsageProvider } from './UsageStatus'
 import popover from './UsagePopover.module.css'
 import { i18n } from '../../i18n'
 
 const tc = i18n.getFixedT(null, 'code')
 
-const PROVIDERS = ['claude', 'codex'] as const
-
 /**
  * The detail behind the status bar reading: each provider with a reading, the one in use first, with a bar
  * per window, when it renews and when it was read.
  */
-export function UsagePopover({ active }: { active: Extract<AgentProvider, 'claude' | 'codex'> }): ReactElement {
+export function UsagePopover({ active }: { active: UsageProvider }): ReactElement {
   const byProvider = useAgentCreditsStore(state => state.byProvider)
   const loading = useAgentCreditsStore(state => PROVIDERS.some(provider => state.loading[provider]))
   const refresh = useAgentCreditsStore(state => state.refresh)
@@ -27,7 +24,7 @@ export function UsagePopover({ active }: { active: Extract<AgentProvider, 'claud
     .map(provider => byProvider[provider]).filter((snapshot): snapshot is AgentCreditsSnapshot => Boolean(snapshot?.available && snapshot.windows?.length))
   return <div className={popover.root} data-testid="usage-popover">
     {shown.map(snapshot => {
-      const Icon = snapshot.provider === 'codex' ? Bot : Sparkles
+      const Icon = PROVIDER_ICONS[isUsageProvider(snapshot.provider) ? snapshot.provider : 'claude']
       const windows = [...snapshot.windows].sort((a, b) => a.kind === b.kind ? 0 : a.kind === 'session' ? -1 : 1)
       const age = Math.max(0, Math.round((now - (snapshot.observedAtMs ?? now)) / 60_000))
       return <section key={snapshot.provider} className={popover.provider} aria-label={tc('workspace.usage.provider', { name: providerName(snapshot.provider) })}>
