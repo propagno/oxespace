@@ -9,14 +9,13 @@ import {
 } from '../../store/thread-workbench.store'
 import { Splitter } from '../../ui/Splitter'
 
-export type ThreadCompanionToolId = 'preview' | 'android' | 'files' | 'search' | 'scripts'
+export type ThreadCompanionToolId = 'preview' | 'android' | 'files' | 'search'
 
 type ToolPanelLabelKey =
   | 'thread:toolPanels.browser'
   | 'thread:toolPanels.android'
   | 'thread:toolPanels.files'
   | 'thread:toolPanels.search'
-  | 'thread:toolPanels.scripts'
 
 export interface ThreadToolPanelDef {
   readonly id: ThreadCompanionToolId
@@ -38,8 +37,7 @@ export const THREAD_TOOL_PANELS: ReadonlyArray<ThreadToolPanelDef> = [
   defineToolPanel('preview', 'thread:toolPanels.browser'),
   defineToolPanel('android', 'thread:toolPanels.android'),
   defineToolPanel('files', 'thread:toolPanels.files'),
-  defineToolPanel('search', 'thread:toolPanels.search'),
-  defineToolPanel('scripts', 'thread:toolPanels.scripts')
+  defineToolPanel('search', 'thread:toolPanels.search')
 ]
 
 export function clampToolPanelWidth(width: number, available: number): number {

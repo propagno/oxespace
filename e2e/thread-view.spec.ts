@@ -906,7 +906,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.getByRole('button', { name: /^Select workbench panel: / }).click()
     await expect(page.getByRole('menuitemradio', { name: 'Files', exact: true })).toBeVisible()
     await expect(page.getByRole('menuitemradio', { name: 'Search', exact: true })).toBeVisible()
-    await expect(page.getByRole('menuitemradio', { name: 'Scripts', exact: true })).toBeVisible()
+    // The Scripts panel left 1.5.0 (product owner, 2026-11-12).
+    await expect(page.getByRole('menuitemradio', { name: 'Scripts', exact: true })).toHaveCount(0)
     await expect(page.getByRole('menuitemradio', { name: 'Android device', exact: true })).toBeVisible()
     await expect(page.getByRole('menuitemradio', { name: 'Browser', exact: true })).toBeVisible()
     for (const removed of ['Session changes', 'Project changes', 'Source control', 'Agents', 'Plan', 'Activity', 'Diagnostics']) await expect(page.getByRole('menuitemradio', { name: removed, exact: true })).toHaveCount(0)
