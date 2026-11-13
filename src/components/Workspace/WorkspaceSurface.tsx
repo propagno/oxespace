@@ -24,7 +24,6 @@ const WorkspaceEditorPanel = lazy(() => import('./WorkspaceEditorPanel').then((m
 const WorkspaceGitHubPanel = lazy(() => import('./WorkspaceGitHubPanel').then((m) => ({ default: m.WorkspaceGitHubPanel })))
 const WorkspaceIntegrationPanel = lazy(() => import('./WorkspaceIntegrationPanel').then((m) => ({ default: m.WorkspaceIntegrationPanel })))
 const WorkspaceReviewPanel = lazy(() => import('./WorkspaceReviewPanel').then((m) => ({ default: m.WorkspaceReviewPanel })))
-const WorkspaceScriptsPanel = lazy(() => import('./WorkspaceScriptsPanel').then((m) => ({ default: m.WorkspaceScriptsPanel })))
 const WorkspaceSearchPanel = lazy(() => import('./WorkspaceSearchPanel').then((m) => ({ default: m.WorkspaceSearchPanel })))
 const WorkspaceHttpCallsPanel = lazy(() => import('./WorkspaceHttpCallsPanel').then((m) => ({ default: m.WorkspaceHttpCallsPanel })))
 const WorkspaceAndroidPanel = lazy(() => import('./WorkspaceAndroidPanel').then((m) => ({ default: m.WorkspaceAndroidPanel })))
@@ -43,7 +42,7 @@ function prefetchPanelChunks(): void {
   const prefetchCommonPanels = (): void => {
     void import('./WorkspaceGitHubPanel'); void import('./WorkspaceReviewPanel')
     void import('./WorkspaceWorktreePanel'); void import('./WorkspaceBackgroundPanel')
-    void import('./WorkspaceScriptsPanel'); void import('./WorkspaceWebPreviewPanel')
+    void import('./WorkspaceWebPreviewPanel')
     void import('./WorkspaceIntegrationPanel'); void import('./WorkspaceSearchPanel')
     void import('./WorkspaceContainersPanel')
   }
@@ -81,12 +80,10 @@ interface WorkspaceSurfaceProps {
   onToggleMaximize: (paneId: string) => void
   onSplitPane?: (paneId: string, direction: 'vertical' | 'horizontal') => void
   onActivatePane?: (paneId: string) => void
-  scriptsVisible: boolean
   webPreviewVisible: boolean
   integrationVisible: boolean
   searchVisible: boolean
   containersVisible?: boolean
-  onCloseScripts: () => void
   onCloseWebPreview: () => void
   onCloseIntegration: () => void
   onCloseSearch: () => void
@@ -132,12 +129,10 @@ function WorkspaceSurfaceComponent({
   activePaneId,
   panels,
   agentProfiles = [],
-  scriptsVisible,
   webPreviewVisible,
   integrationVisible,
   searchVisible,
   containersVisible = false,
-  onCloseScripts,
   onCloseWebPreview,
   onCloseIntegration,
   onCloseSearch,
@@ -198,7 +193,6 @@ function WorkspaceSurfaceComponent({
   const worktreeVisible = workspace.worktreePanelVisible === true
   const worktreeExpanded = workspace.worktreePanelExpanded === true
   const worktreeWidth = worktreeExpanded ? 70 : workspace.worktreePanelWidthPercent ?? DEFAULT_WORKTREE_WIDTH
-  const [scriptsExpanded, setScriptsExpanded] = useState(false)
   const [webPreviewExpanded, setWebPreviewExpanded] = useState(false)
   const [integrationExpanded, setIntegrationExpanded] = useState(false)
   const [searchExpanded, setSearchExpanded] = useState(false)
@@ -221,7 +215,6 @@ function WorkspaceSurfaceComponent({
     syncTree(workspace.id, workspace.panes, { width: window.innerWidth, height: window.innerHeight })
   }, [syncTree, workspace.id, workspace.panes])
 
-  const scriptsWidth = scriptsExpanded ? 70 : DEFAULT_GITHUB_WIDTH
   const webPreviewWidth = webPreviewExpanded ? 70 : DEFAULT_GITHUB_WIDTH
   const integrationWidth = integrationExpanded ? 70 : DEFAULT_GITHUB_WIDTH
   const searchWidth = searchExpanded ? 70 : DEFAULT_REVIEW_WIDTH
@@ -229,8 +222,8 @@ function WorkspaceSurfaceComponent({
   const androidWidth = androidExpanded ? 70 : DEFAULT_REVIEW_WIDTH
   const containersWidth = containersExpanded ? 70 : DEFAULT_REVIEW_WIDTH
 
-  const hasSidePanels = editorVisible || reviewVisible || githubVisible || backgroundVisible || worktreeVisible || scriptsVisible || webPreviewVisible || integrationVisible || searchVisible || httpCallsVisible || androidVisible || containersVisible
-  const visibleSideIds = [githubVisible && 'github', reviewVisible && 'review', editorVisible && 'editor', backgroundVisible && 'background', worktreeVisible && 'worktree', scriptsVisible && 'scripts', webPreviewVisible && 'web-preview', integrationVisible && 'integration', searchVisible && 'search', httpCallsVisible && 'http-calls', androidVisible && 'android', containersVisible && 'containers'].filter((id): id is string => Boolean(id))
+  const hasSidePanels = editorVisible || reviewVisible || githubVisible || backgroundVisible || worktreeVisible || webPreviewVisible || integrationVisible || searchVisible || httpCallsVisible || androidVisible || containersVisible
+  const visibleSideIds = [githubVisible && 'github', reviewVisible && 'review', editorVisible && 'editor', backgroundVisible && 'background', worktreeVisible && 'worktree', webPreviewVisible && 'web-preview', integrationVisible && 'integration', searchVisible && 'search', httpCallsVisible && 'http-calls', androidVisible && 'android', containersVisible && 'containers'].filter((id): id is string => Boolean(id))
   const visibleSideKey = visibleSideIds.join('|')
   const [preferredSideId, setPreferredSideId] = useState<string | null>(null)
   const previousSideIds = useRef<string[]>([])
@@ -260,8 +253,6 @@ function WorkspaceSurfaceComponent({
     backgroundWidth,
     worktreeVisible: activeSideId === 'worktree',
     worktreeWidth,
-    scriptsVisible: activeSideId === 'scripts',
-    scriptsWidth,
     webPreviewVisible: activeSideId === 'web-preview',
     webPreviewWidth,
     integrationVisible: activeSideId === 'integration',
@@ -417,23 +408,6 @@ function WorkspaceSurfaceComponent({
           isExpanded={worktreeExpanded}
           onCollapse={() => onUpdateWorktreeState({ workspaceId: workspace.id, worktreePanelVisible: false, worktreePanelExpanded: false })}
           onToggleExpanded={() => onUpdateWorktreeState({ workspaceId: workspace.id, worktreePanelExpanded: !worktreeExpanded, worktreePanelWidthPercent: worktreeExpanded ? DEFAULT_WORKTREE_WIDTH : 70 })}
-        />
-      )
-    })
-  }
-
-  if (scriptsVisible) {
-    sidePanels.push({
-      id: 'scripts',
-      defaultSize: toInnerPct(layoutSizes.scripts),
-      onResize: () => undefined,
-      content: (
-        <WorkspaceScriptsPanel
-          workspace={workspace}
-          isExpanded={scriptsExpanded}
-          onCollapse={onCloseScripts}
-          onToggleExpanded={() => setScriptsExpanded((value) => !value)}
-          onOpenBackground={() => onUpdateBackgroundState({ workspaceId: workspace.id, backgroundPanelVisible: true, backgroundPanelExpanded: workspace.backgroundPanelExpanded ?? false })}
         />
       )
     })
@@ -663,13 +637,13 @@ function WorkspaceSurfaceComponent({
   // The same names as the Panels menu and Thread (panelCatalog), so a panel is called one thing everywhere.
   const sideLabels: Record<string, string> = {
     github: WORKBENCH_PANELS.git.label, review: WORKBENCH_PANELS.changes.label, editor: WORKBENCH_PANELS.files.label,
-    background: WORKBENCH_PANELS.background.label, worktree: WORKBENCH_PANELS.worktrees.label, scripts: WORKBENCH_PANELS.scripts.label,
+    background: WORKBENCH_PANELS.background.label, worktree: WORKBENCH_PANELS.worktrees.label,
     'web-preview': WORKBENCH_PANELS.browser.label, integration: tc('sidebar.integrations'), search: WORKBENCH_PANELS.search.label,
     'http-calls': WORKBENCH_PANELS.httpCalls.label, android: WORKBENCH_PANELS.android.label, containers: WORKBENCH_PANELS.containers.label
   }
   const sideIcons: Record<string, LucideIcon> = {
     github: WORKBENCH_PANELS.git.icon, review: WORKBENCH_PANELS.changes.icon, editor: WORKBENCH_PANELS.files.icon,
-    background: WORKBENCH_PANELS.background.icon, worktree: WORKBENCH_PANELS.worktrees.icon, scripts: WORKBENCH_PANELS.scripts.icon,
+    background: WORKBENCH_PANELS.background.icon, worktree: WORKBENCH_PANELS.worktrees.icon,
     'web-preview': WORKBENCH_PANELS.browser.icon, integration: Network, search: WORKBENCH_PANELS.search.icon,
     'http-calls': WORKBENCH_PANELS.httpCalls.icon, android: WORKBENCH_PANELS.android.icon, containers: WORKBENCH_PANELS.containers.icon
   }
@@ -761,7 +735,6 @@ export const WorkspaceSurface = memo(
     previous.isActive === next.isActive &&
     previous.agentProfiles === next.agentProfiles &&
     previous.maximizedPaneId === next.maximizedPaneId &&
-    previous.scriptsVisible === next.scriptsVisible &&
     previous.webPreviewVisible === next.webPreviewVisible &&
     previous.integrationVisible === next.integrationVisible &&
     previous.searchVisible === next.searchVisible &&
@@ -782,8 +755,6 @@ interface WorkspacePanelSizeInput {
   backgroundWidth: number
   worktreeVisible: boolean
   worktreeWidth: number
-  scriptsVisible: boolean
-  scriptsWidth: number
   webPreviewVisible: boolean
   webPreviewWidth: number
   integrationVisible: boolean
@@ -806,7 +777,6 @@ interface WorkspacePanelSizeOutput {
   review: number
   background: number
   worktree: number
-  scripts: number
   webPreview: number
   integration: number
   search: number
@@ -821,17 +791,16 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
   const review = input.reviewVisible ? clampPanelSize(input.reviewWidth, 24, 70) : 0
   const background = input.backgroundVisible ? clampPanelSize(input.backgroundWidth, 36, 70) : 0
   const worktree = input.worktreeVisible ? clampPanelSize(input.worktreeWidth, 24, 70) : 0
-  const scripts = input.scriptsVisible ? clampPanelSize(input.scriptsWidth, 25, 70) : 0
   const webPreview = input.webPreviewVisible ? clampPanelSize(input.webPreviewWidth, 25, 70) : 0
   const integration = input.integrationVisible ? clampPanelSize(input.integrationWidth, 25, 70) : 0
   const search = input.searchVisible ? clampPanelSize(input.searchWidth, 24, 70) : 0
   const httpCalls = input.httpCallsVisible ? clampPanelSize(input.httpCallsWidth, 24, 70) : 0
   const android = input.androidVisible ? clampPanelSize(input.androidWidth, 24, 70) : 0
   const containers = input.containersVisible ? clampPanelSize(input.containersWidth, 24, 70) : 0
-  const visibleSideCount = Number(input.editorVisible) + Number(input.githubVisible) + Number(input.reviewVisible) + Number(input.backgroundVisible) + Number(input.worktreeVisible) + Number(input.scriptsVisible) + Number(input.webPreviewVisible) + Number(input.integrationVisible) + Number(input.searchVisible) + Number(input.httpCallsVisible) + Number(input.androidVisible) + Number(input.containersVisible)
+  const visibleSideCount = Number(input.editorVisible) + Number(input.githubVisible) + Number(input.reviewVisible) + Number(input.backgroundVisible) + Number(input.worktreeVisible) + Number(input.webPreviewVisible) + Number(input.integrationVisible) + Number(input.searchVisible) + Number(input.httpCallsVisible) + Number(input.androidVisible) + Number(input.containersVisible)
 
   if (visibleSideCount === 0) {
-    return { grid: 100, gridMinSize: 30, editor: 0, github: 0, review: 0, background: 0, worktree: 0, scripts: 0, webPreview: 0, integration: 0, search: 0, httpCalls: 0, android: 0, containers: 0 }
+    return { grid: 100, gridMinSize: 30, editor: 0, github: 0, review: 0, background: 0, worktree: 0, webPreview: 0, integration: 0, search: 0, httpCalls: 0, android: 0, containers: 0 }
   }
 
   if (visibleSideCount === 1) {
@@ -840,7 +809,6 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
         : input.reviewVisible ? review
           : input.backgroundVisible ? background
             : input.worktreeVisible ? worktree
-              : input.scriptsVisible ? scripts
                 : input.webPreviewVisible ? webPreview
                   : input.integrationVisible ? integration
                     : input.searchVisible ? search
@@ -854,7 +822,6 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
       review,
       background,
       worktree,
-      scripts,
       webPreview,
       integration,
       search,
@@ -865,21 +832,20 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
   }
 
   const maxCombinedSideWidth = 70
-  const combined = editor + github + review + background + worktree + scripts + webPreview + integration + search + httpCalls + android + containers
+  const combined = editor + github + review + background + worktree + webPreview + integration + search + httpCalls + android + containers
   const scale = combined > maxCombinedSideWidth ? maxCombinedSideWidth / combined : 1
   const normalizedEditor = input.editorVisible ? Math.max(25, Math.round(editor * scale)) : 0
   const normalizedGitHub = input.githubVisible ? Math.max(25, Math.round(github * scale)) : 0
   const normalizedReview = input.reviewVisible ? Math.max(24, Math.round(review * scale)) : 0
   const normalizedBackground = input.backgroundVisible ? Math.max(24, Math.round(background * scale)) : 0
   const normalizedWorktree = input.worktreeVisible ? Math.max(24, Math.round(worktree * scale)) : 0
-  const normalizedScripts = input.scriptsVisible ? Math.max(25, Math.round(scripts * scale)) : 0
   const normalizedWebPreview = input.webPreviewVisible ? Math.max(25, Math.round(webPreview * scale)) : 0
   const normalizedIntegration = input.integrationVisible ? Math.max(25, Math.round(integration * scale)) : 0
   const normalizedSearch = input.searchVisible ? Math.max(24, Math.round(search * scale)) : 0
   const normalizedHttpCalls = input.httpCallsVisible ? Math.max(24, Math.round(httpCalls * scale)) : 0
   const normalizedAndroid = input.androidVisible ? Math.max(24, Math.round(android * scale)) : 0
   const normalizedContainers = input.containersVisible ? Math.max(24, Math.round(containers * scale)) : 0
-  const normalizedCombined = normalizedEditor + normalizedGitHub + normalizedReview + normalizedBackground + normalizedWorktree + normalizedScripts + normalizedWebPreview + normalizedIntegration + normalizedSearch + normalizedHttpCalls + normalizedAndroid + normalizedContainers
+  const normalizedCombined = normalizedEditor + normalizedGitHub + normalizedReview + normalizedBackground + normalizedWorktree + normalizedWebPreview + normalizedIntegration + normalizedSearch + normalizedHttpCalls + normalizedAndroid + normalizedContainers
 
   return {
     grid: Math.max(30, 100 - normalizedCombined),
@@ -889,7 +855,6 @@ function getWorkspacePanelSizes(input: WorkspacePanelSizeInput): WorkspacePanelS
     review: normalizedReview,
     background: normalizedBackground,
     worktree: normalizedWorktree,
-    scripts: normalizedScripts,
     webPreview: normalizedWebPreview,
     integration: normalizedIntegration,
     search: normalizedSearch,

@@ -1,5 +1,8 @@
 package com.oxespace.mobile.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
@@ -112,7 +115,17 @@ private fun Unpaired(status: DesktopStatus.Unpaired, onPair: () -> Unit) {
     OxeMark(size = 64.dp)
     Text(stringResource(R.string.home_title), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
     Text(stringResource(R.string.home_body), style = MaterialTheme.typography.bodyLarge)
+    // What pairing gives, before the person decides.
+    Column(verticalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
+        for (benefit in listOf(R.string.home_benefit_follow, R.string.home_benefit_answer, R.string.home_benefit_terminal)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(OxeSpace.space3), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(6.dp).background(Oxe.colors.accent, CircleShape))
+                Text(stringResource(benefit), style = MaterialTheme.typography.bodyMedium, color = Oxe.colors.textSecondary)
+            }
+        }
+    }
     OxeButton(stringResource(R.string.home_pair), onClick = onPair, modifier = Modifier.fillMaxWidth())
+    Text(stringResource(R.string.home_same_wifi), style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textMuted)
 }
 
 /**

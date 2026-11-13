@@ -116,6 +116,8 @@ fun LiveHome(
                 title = {
                     Column {
                         Text(desktopName, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() })
+                        // Connected is said too, not only the problems: the header always tells how the phone reaches the computer.
+                        if (banner == null) Text(stringResource(R.string.live_connected_hint), style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textMuted, maxLines = 1)
                         if (banner != null) {
                             Text(
                                 banner,
