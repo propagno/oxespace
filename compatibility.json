@@ -1,0 +1,21 @@
+{
+  "checkedAt": "2026-11-13T14:37:50.587Z",
+  "ok": true,
+  "providers": {
+    "claude": {
+      "versions": {
+        "ubuntu-latest": "2.1.323",
+        "windows-latest": "2.1.323"
+      },
+      "ok": true
+    },
+    "codex": {
+      "versions": {
+        "ubuntu-latest": "0.169.0",
+        "windows-latest": "0.169.0"
+      },
+      "ok": true
+    }
+  },
+  "failures": []
+}
