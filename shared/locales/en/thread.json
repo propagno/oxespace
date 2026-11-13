@@ -1040,7 +1040,6 @@
     "git": "Commit & pull request",
     "files": "Files",
     "search": "Find in files",
-    "scripts": "Scripts",
     "worktrees": "Worktrees",
     "background": "Background activity",
     "httpCalls": "HTTP calls",
@@ -1713,7 +1712,6 @@
     "loadingGit": "Loading Git…",
     "loadingFiles": "Loading files…",
     "loadingSearch": "Loading search…",
-    "loadingScripts": "Loading scripts…",
     "loadingBackground": "Loading background activity…",
     "loadingPreview": "Loading web preview…",
     "loadingTerminal": "Loading terminal…",
@@ -2122,8 +2120,7 @@
     "browser": "Browser",
     "android": "Android device",
     "files": "Files",
-    "search": "Search",
-    "scripts": "Scripts"
+    "search": "Search"
   },
   "f7": {
     "card": {

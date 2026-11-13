@@ -3,8 +3,10 @@ import {
   buildTreeFromPanes,
   collectPaneIds,
   computeLayout,
+  gridShape,
   moveLeaf,
   normalize,
+  placeSplit,
   removeLeaf,
   resizeSplit,
   splitLeaf,
@@ -143,5 +145,90 @@ describe('pane-tree', () => {
       direction: 'vertical',
       children: [{ kind: 'leaf', paneId: 'b' }, { kind: 'leaf', paneId: 'a' }]
     })
+  })
+})
+
+describe('placeSplit: a split pane that sync already placed', () => {
+  const leaf = (paneId: string): PaneNode => ({ kind: 'leaf', paneId })
+  const widths = (tree: PaneNode | null) => Object.fromEntries(computeLayout(tree).rects.map(rect => [rect.paneId, Math.round(rect.width * 10) / 10]))
+  const heights = (tree: PaneNode | null) => Object.fromEntries(computeLayout(tree).rects.map(rect => [rect.paneId, Math.round(rect.height * 10) / 10]))
+  // A 2 × 2 grid after sync put "n" beside "a": the top row is a, n, b at 25, 25, 50.
+  const synced: PaneNode = { kind: 'split', direction: 'vertical', children: [
+    { kind: 'split', direction: 'horizontal', children: [leaf('a'), leaf('n'), leaf('b')], sizes: [25, 25, 50] },
+    { kind: 'split', direction: 'horizontal', children: [leaf('c'), leaf('d')] }
+  ] }
+
+  test('split right: the two share the origin\'s half, the neighbour keeps its own', () => {
+    const tree = placeSplit(synced, 'a', 'n', 'horizontal')
+    expect(collectPaneIds(tree)).toEqual(['a', 'n', 'b', 'c', 'd'])
+    expect(widths(tree)).toMatchObject({ a: 25, n: 25, b: 50 })
+  })
+
+  test('split down: the origin keeps its width and gives half its height', () => {
+    const tree = placeSplit(synced, 'a', 'n', 'vertical')
+    expect(collectPaneIds(tree)).toEqual(['a', 'n', 'b', 'c', 'd'])
+    expect(widths(tree)).toMatchObject({ a: 50, n: 50, b: 50 })
+    expect(heights(tree).a).toBeCloseTo(heights(tree).n, 0)
+    expect(heights(tree).b).toBeCloseTo(heights(tree).a * 2, 0)
+  })
+
+  test('the old path gave the origin a third of the row', () => {
+    // What moveLeaf does with the same tree, kept here so the difference stays visible.
+    expect(widths(moveLeaf(synced, 'n', 'a', 'vertical'))).toMatchObject({ a: 33.3, b: 66.7 })
+  })
+
+  test('a pane placed at the far end of the row gives its share to the origin; the pane between keeps its own', () => {
+    const elsewhere: PaneNode = { kind: 'split', direction: 'horizontal', children: [leaf('a'), leaf('b'), leaf('n')], sizes: [40, 40, 20] }
+    const tree = placeSplit(elsewhere, 'a', 'n', 'horizontal')
+    expect(collectPaneIds(tree)).toEqual(['a', 'n', 'b'])
+    expect(widths(tree)).toMatchObject({ a: 30, n: 30, b: 40 })
+  })
+
+  test('unknown panes and a pane split from itself change nothing', () => {
+    expect(placeSplit(synced, 'a', 'missing', 'horizontal')).toBe(synced)
+    expect(placeSplit(synced, 'a', 'a', 'horizontal')).toBe(synced)
+  })
+})
+
+describe('gridShape: the grid the panes form now', () => {
+  const leaf = (paneId: string): PaneNode => ({ kind: 'leaf', paneId })
+  const row = (...ids: string[]): PaneNode => ({ kind: 'split', direction: 'horizontal', children: ids.map(leaf) })
+
+  test('one pane, one row, one column', () => {
+    expect(gridShape(leaf('a'))).toEqual({ rows: 1, columns: 1 })
+    expect(gridShape(row('a', 'b', 'c'))).toEqual({ rows: 1, columns: 3 })
+    expect(gridShape({ kind: 'split', direction: 'vertical', children: [leaf('a'), leaf('b')] })).toEqual({ rows: 2, columns: 1 })
+  })
+
+  test('rows of the same length are a grid, whatever their sizes', () => {
+    const grid: PaneNode = { kind: 'split', direction: 'vertical', sizes: [30, 70], children: [{ ...row('a', 'b'), sizes: [20, 80] } as PaneNode, row('c', 'd')] }
+    expect(gridShape(grid)).toEqual({ rows: 2, columns: 2 })
+    expect(gridShape({ kind: 'split', direction: 'vertical', children: [row('a', 'b', 'c'), row('d', 'e', 'f')] })).toEqual({ rows: 2, columns: 3 })
+  })
+
+  test('columns of the same length are a grid too', () => {
+    const column = (...ids: string[]): PaneNode => ({ kind: 'split', direction: 'vertical', children: ids.map(leaf) })
+    expect(gridShape({ kind: 'split', direction: 'horizontal', children: [column('a', 'b'), column('c', 'd'), column('e', 'f')] })).toEqual({ rows: 2, columns: 3 })
+  })
+
+  test('a fifth pane split from one of four is no grid', () => {
+    const five = placeSplit({ kind: 'split', direction: 'vertical', children: [row('a', 'b', 'n'), row('c', 'd')] }, 'a', 'n', 'horizontal')
+    expect(collectPaneIds(five)).toHaveLength(5)
+    expect(gridShape(five)).toBeNull()
+    expect(gridShape({ kind: 'split', direction: 'horizontal', children: [leaf('a'), { kind: 'split', direction: 'vertical', children: [leaf('b'), leaf('c')] }] })).toBeNull()
+  })
+
+  test('panes that line up are a grid however the tree nests them', () => {
+    // What a 2 × 3 preset leaves over a split layout: two halves, the first holding two columns of two.
+    const column = (...ids: string[]): PaneNode => ({ kind: 'split', direction: 'vertical', children: ids.map(leaf) })
+    const nested: PaneNode = { kind: 'split', direction: 'horizontal', children: [{ kind: 'split', direction: 'horizontal', children: [column('a', 'b'), column('c', 'd')] }, column('e', 'f')] }
+    expect(gridShape(nested)).toEqual({ rows: 2, columns: 3 })
+    // Same nesting, one column split at another height: the edges no longer cross, so it is no grid.
+    const uneven: PaneNode = { kind: 'split', direction: 'horizontal', children: [{ kind: 'split', direction: 'horizontal', children: [{ ...column('a', 'b'), sizes: [30, 70] } as PaneNode, column('c', 'd')] }, column('e', 'f')] }
+    expect(gridShape(uneven)).toBeNull()
+  })
+
+  test('no tree, no shape', () => {
+    expect(gridShape(null)).toBeNull()
   })
 })

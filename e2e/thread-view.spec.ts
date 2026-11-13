@@ -303,9 +303,11 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await modeButton(page, 'thread').click()
     await modeButton(page, 'code').click()
     await expect(page.getByRole('navigation', { name: 'Collapsed workspaces' })).toBeVisible()
-    // Both modes have a rail with this button, and switching modes swaps them: the one on screen is meant. Taking the
-    // first in the page raced with the swap and waited on a rail that was no longer shown (run 43130476576).
-    await page.getByRole('button', { name: /^Expand (the )?sidebar/ }).filter({ visible: true }).first().click()
+    // Both modes have a rail with this button, and switching modes swaps them. Taking the first in the page waited on
+    // a rail no longer shown (run 43130476576); taking the first one on screen still raced, since the rail of the mode
+    // being left was on screen when the click began and replaced before it landed (2026-11-12). Each rail says its
+    // mode, so this is OxeCode's and no other.
+    await page.locator('.nav-rail[data-mode="code"]').getByRole('button', { name: /^Expand (the )?sidebar/ }).click()
 
     const codeSidebar = page.locator('.sidebar')
     const resize = codeSidebar.getByRole('separator', { name: 'Sidebar width', exact: true })
@@ -908,7 +910,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.getByRole('button', { name: /^Select workbench panel: / }).click()
     await expect(page.getByRole('menuitemradio', { name: 'Files', exact: true })).toBeVisible()
     await expect(page.getByRole('menuitemradio', { name: 'Search', exact: true })).toBeVisible()
-    await expect(page.getByRole('menuitemradio', { name: 'Scripts', exact: true })).toBeVisible()
+    // The Scripts panel left 1.5.0 (product owner, 2026-11-12).
+    await expect(page.getByRole('menuitemradio', { name: 'Scripts', exact: true })).toHaveCount(0)
     await expect(page.getByRole('menuitemradio', { name: 'Android device', exact: true })).toBeVisible()
     await expect(page.getByRole('menuitemradio', { name: 'Browser', exact: true })).toBeVisible()
     for (const removed of ['Session changes', 'Project changes', 'Source control', 'Agents', 'Plan', 'Activity', 'Diagnostics']) await expect(page.getByRole('menuitemradio', { name: removed, exact: true })).toHaveCount(0)

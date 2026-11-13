@@ -41,7 +41,6 @@ interface UIState {
   isWorkspaceSettingsOpen: boolean
   slashOverlayPaneId: string | null
   isMcpPanelOpen: boolean
-  isScriptsPanelOpen: boolean
   isSearchPanelOpen: boolean
   isHttpCallsPanelOpen: boolean
   isAndroidPanelOpen: boolean
@@ -74,8 +73,6 @@ interface UIState {
   closeSlashOverlay: () => void
   openMcpPanel: () => void
   closeMcpPanel: () => void
-  openScriptsPanel: () => void
-  closeScriptsPanel: () => void
   openSearchPanel: () => void
   closeSearchPanel: () => void
   toggleHttpCallsPanel: () => void
@@ -109,7 +106,6 @@ export const useUIStore = create<UIState>((set) => ({
   isWorkspaceSettingsOpen: false,
   slashOverlayPaneId: null,
   isMcpPanelOpen: false,
-  isScriptsPanelOpen: false,
   isSearchPanelOpen: false,
   isHttpCallsPanelOpen: false,
   isAndroidPanelOpen: false,
@@ -134,8 +130,6 @@ export const useUIStore = create<UIState>((set) => ({
   closeSlashOverlay: () => set({ slashOverlayPaneId: null }),
   openMcpPanel: () => set({ isMcpPanelOpen: true }),
   closeMcpPanel: () => set({ isMcpPanelOpen: false }),
-  openScriptsPanel: () => set({ isScriptsPanelOpen: true }),
-  closeScriptsPanel: () => set({ isScriptsPanelOpen: false }),
   openSearchPanel: () => set({ isSearchPanelOpen: true }),
   closeSearchPanel: () => set({ isSearchPanelOpen: false }),
   toggleHttpCallsPanel: () => set((s) => ({ isHttpCallsPanelOpen: !s.isHttpCallsPanelOpen })),

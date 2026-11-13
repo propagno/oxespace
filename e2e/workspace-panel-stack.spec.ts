@@ -19,7 +19,7 @@ test('workspace panels remain readable when several tools are open', async () =>
     await page.getByTestId('wizard-launch-btn').click()
     await expect(page.getByTestId('terminal-pane')).toHaveCount(4)
     await page.getByTestId('terminal-pane').first().evaluate(el => el.setAttribute('data-preserved', 'yes'))
-    for (const name of ['Commit & pull request', 'Scripts', 'Browser'] as const) await togglePanel(page, name)
+    for (const name of ['Commit & pull request', 'Files', 'Browser'] as const) await togglePanel(page, name)
     await page.getByRole('button', { name: 'Toggle background activity' }).first().click()
     await togglePanel(page, 'Changes')
     const stack = page.getByRole('navigation', { name: 'Workspace panels' })
@@ -30,7 +30,7 @@ test('workspace panels remain readable when several tools are open', async () =>
     await expect(page.getByTestId('workspace-review-panel')).toBeVisible()
     await page.getByTestId('workspace-review-panel').evaluate(el => el.setAttribute('data-preserved', 'yes'))
     await page.screenshot({ path: test.info().outputPath('panel-stack.png') })
-    for (const name of ['Commit & pull request', 'Scripts', 'Browser', 'Background activity', 'Changes']) {
+    for (const name of ['Commit & pull request', 'Files', 'Browser', 'Background activity', 'Changes']) {
       if (!await tabs.getByRole('tab', { name, exact: true }).isVisible()) {
         await stack.getByRole('button', { name: /^More panels/ }).click()
         await page.getByRole('menuitem', { name, exact: true }).click()

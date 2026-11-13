@@ -384,7 +384,8 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
 
       <div className="terminal-statusbar" data-testid="terminal-statusbar">
         <span className={`statusbar-dot ${statusDotClass}`} aria-hidden="true" />
-        <span className="statusbar-text" data-testid="terminal-status-label">{tc(`terminalPane.status.${state.status}`)}</span>
+        {/* The header says what the terminal is doing; the footer names the process only when it is not simply running. */}
+        <span className={`statusbar-text${state.status === 'running' ? ' sr-only' : ''}`} data-testid="terminal-status-label">{tc(`terminalPane.status.${state.status}`)}</span>
 
         {state.status === 'running' && !pane.agentProfileId ? (
           <div className="terminal-cmd-inline">

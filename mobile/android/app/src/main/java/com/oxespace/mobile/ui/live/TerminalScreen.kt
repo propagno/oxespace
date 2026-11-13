@@ -100,6 +100,7 @@ import com.oxespace.mobile.approval.PresenceGate
 import com.oxespace.mobile.approval.PresenceReason
 import com.oxespace.mobile.session.Watched
 import com.oxespace.mobile.ui.SecureScreen
+import com.oxespace.mobile.ui.theme.DarkOxeColors
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeColors
 import com.oxespace.mobile.ui.theme.OxeSpace
@@ -234,7 +235,10 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
             } else if (lines.all { it.text.isEmpty() }) {
                 Text(stringResource(if (watched.loaded && !settling) R.string.terminal_empty else R.string.live_loading), color = colors.textSecondary, modifier = Modifier.padding(OxeSpace.space3))
             } else {
-                TerminalLines(lines, watched.store.cols, list, size.sp.sp, colors)
+                // The terminal is dark in light mode too, like the desktop's: its surface and its palette are the dark tokens.
+                Box(Modifier.fillMaxSize().background(DarkOxeColors.termBg)) {
+                    TerminalLines(lines, watched.store.cols, list, size.sp.sp, DarkOxeColors)
+                }
             }
         }
     }
@@ -266,7 +270,7 @@ private fun ansiColor(colors: OxeColors, index: Int): Color = when (index) {
  */
 @Composable
 private fun TerminalLines(lines: List<VtLine>, cols: Int?, list: LazyListState, fontSize: TextUnit, colors: OxeColors) {
-    val base = TextStyle(fontFamily = OxeFonts.mono, fontSize = fontSize, color = colors.textPrimary)
+    val base = TextStyle(fontFamily = OxeFonts.mono, fontSize = fontSize, color = colors.termFg)
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val charWidth = remember(fontSize, density) { measurer.measure("0", base).size.width }
@@ -516,17 +520,17 @@ private fun keyName(key: TerminalKey): Int? = when (key) {
     else -> null
 }
 
-private fun sizeLabel(size: TerminalTextSize): Int = when (size) {
+internal fun sizeLabel(size: TerminalTextSize): Int = when (size) {
     TerminalTextSize.SMALL -> R.string.terminal_size_small
     TerminalTextSize.MEDIUM -> R.string.terminal_size_medium
     TerminalTextSize.LARGE -> R.string.terminal_size_large
 }
 
 /** The terminal's text size lives on the phone only; screenshots and a failed read get the default. */
-private fun readTextSize(context: Context): String? =
+internal fun readTextSize(context: Context): String? =
     runCatching { context.getSharedPreferences(TERMINAL_PREFS, Context.MODE_PRIVATE).getString(TEXT_SIZE_KEY, null) }.getOrNull()
 
-private fun writeTextSize(context: Context, size: TerminalTextSize) {
+internal fun writeTextSize(context: Context, size: TerminalTextSize) {
     runCatching { context.getSharedPreferences(TERMINAL_PREFS, Context.MODE_PRIVATE).edit { putString(TEXT_SIZE_KEY, size.name) } }
 }
 
