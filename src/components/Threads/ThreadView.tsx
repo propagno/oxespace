@@ -1,4 +1,6 @@
 import { Button, cx, ErrorState, Skeleton, Spinner } from '../../ui'
+import type { PreviewAttachment } from '../WebPreview/WebPreviewPanel'
+import { attachmentFile } from '../WebPreview/previewAttachment'
 import { threadAgentName, threadProductName } from '../../../shared/threadProviders'
 import skeletonStyles from '../Navigation/ModeViews.module.css'
 import { useTranslation } from 'react-i18next'
@@ -40,6 +42,7 @@ import { authText, ThreadMessageBody } from './ThreadMessageRow'
 import { ThreadAddToolMenu, ThreadHeader } from './ThreadHeader'
 import { ThreadToolTabs, type ThreadTabId } from './ThreadToolTabs'
 import { deriveThreadActivity } from './deriveThreadActivity'
+import { useCompactFeedback } from './useCompactFeedback'
 import type { NowLineAction } from './NowLine'
 import { useOpenRequest } from '../Approvals/openRequest'
 import { useThreadShortcuts } from './useThreadShortcuts'
@@ -131,10 +134,12 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
   useThreadShortcuts({ active, togglePanel, openControl: setOpenControl, onFind: () => setFinding(true), runCommand: text => action(() => runCommand(text)) })
   const closeReview = () => { if (snapshot) useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: null }); if (useThreadWorkbenchStore.getState().maximizedId === snapshot?.thread.id) useThreadWorkbenchStore.getState().setMaximized(null); requestAnimationFrame(() => textarea.current?.focus()) }
   const reviewMaximized = useThreadWorkbenchStore(state => Boolean(snapshot) && state.maximizedId === snapshot?.thread.id) && Boolean(review?.panel) && !drawer
-  const appendToConversation = (prompt: string) => {
+  // `extra.images`: captures that come with the text (a Design Mode selection in the Browser), attached like a pasted image.
+  const appendToConversation = (prompt: string, extra?: { images: PreviewAttachment[] }) => {
     if (!snapshot) return
     const current = useThreadStore.getState().drafts[snapshot.thread.id] ?? ''
     useThreadStore.getState().setDraft(snapshot.thread.id, current ? `${current}\n\n${prompt}` : prompt)
+    if (extra?.images.length) void uploadFiles(extra.images.flatMap(image => attachmentFile(image) ?? []))
     if (drawer) closeReview()
     else requestAnimationFrame(() => textarea.current?.focus())
   }
@@ -148,6 +153,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
   const summary = useMemo(() => summarizeThreadEvents(events), [events])
   const pendingRequests = running ? (snapshot?.pendingRequests ?? summary.pendingRequests) : NO_REQUESTS
   const activity = useMemo(() => deriveThreadActivity(snapshot, pendingRequests), [snapshot, pendingRequests])
+  useCompactFeedback(snapshot)
   const irreversible = Boolean(pendingRequests[0]?.impact && !pendingRequests[0].impact.reversible)
   const viewMode = useThreadViewModeStore(state => state.mode)
   // A stable key, so the timeline is not rebuilt on every render only because this array is new.

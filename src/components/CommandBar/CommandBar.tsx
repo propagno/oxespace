@@ -54,6 +54,10 @@ interface ActiveRefusal {
 const DISALLOWED_RE = /^\/(approve|allow|accept)(?:\s|$)/i
 const CONTROL_CHAR_RE = /[\x00-\x1f\x7f]/
 const GO_TO_COMMAND_IDS = new Set<string>(['pending'])
+/** Commands the window runs with its own actions, the ones their buttons use. */
+const WINDOW_COMMANDS = new Set<string>(['terminal', 'new', 'theme'])
+/** The sentence of an error from main, without the channel in front of it. */
+const errorReason = (cause: unknown): string => (cause instanceof Error ? cause.message : String(cause)).replace(/^Error invoking remote method '[^']+': (Error: )?/, '').split('\u0000')[0].slice(0, 200)
 const HINT_FILL: Record<'agent' | 'skill' | 'open' | 'help', string> = {
   agent: '@Codex ',
   skill: '/skill ',
@@ -82,6 +86,8 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
   const [activeIndex, setActiveIndex] = useState(0)
   const [refusal, setRefusal] = useState<ActiveRefusal | null>(null)
   const [confirmingStop, setConfirmingStop] = useState(false)
+  /** Why a command did nothing, when no refusal of the plan says it: the bar stays open with the sentence. */
+  const [hint, setHint] = useState<string | null>(null)
   const [announced, setAnnounced] = useState('')
 
   const modal = useModalSurface<HTMLDivElement>(() => onOpenChange(false), open)
@@ -99,6 +105,9 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
   useEffect(() => {
     if (open) inputRef.current?.focus({ preventScroll: true })
   }, [open])
+
+  // The local usage count's "Command bar" is this bar, counted once each time it opens.
+  useEffect(() => { if (open) void window.oxe?.featureUsage?.record?.('commandBar') }, [open])
 
   const startTrimmed = query.replace(/^[ \t]+/, '')
   const trimmed = startTrimmed.trim()
@@ -447,17 +456,37 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
     }
 
     if (parsed.kind === 'skill' || parsed.kind === 'command') {
+      setHint(null)
       const plan = commandRequest(parsed, context)
       if (!plan.ok) {
         setRefusal({ code: plan.refusal.code, params: plan.refusal.params, parsed })
         setConfirmingStop(false)
         return
       }
-      if (parsed.kind === 'command' && parsed.id === 'stop' && !skipStopConfirm) {
-        setConfirmingStop(true)
+      if (parsed.kind === 'command') {
+        // What these do is the window's (a pane in the layout, the conversation dialog, the theme): the request to
+        // main alone left nothing on screen, or failed for want of what the window knows (BAR-1, BAR-2, BAR-3).
+        if (WINDOW_COMMANDS.has(parsed.id)) { onRun(parsed); onOpenChange(false); return }
+        if (parsed.id === 'pending') {
+          // Nothing waiting is said, as /deny says it; something waiting opens the queue (BAR-5).
+          if (!context.requests.some(request => request.workspaceId === context.workspaceId)) { setRefusal({ code: 'commandBar.request.none', params: {}, parsed }); return }
+          onRun(parsed); onOpenChange(false); return
+        }
+        if (parsed.id === 'steer' && !parsed.args.trim()) { setHint(t('commandBar.hint.steerEmpty')); return }
+        if (parsed.id === 'stop') {
+          const status = useThreadStore.getState().snapshot?.thread.status
+          if (status !== 'running' && status !== 'approval') { setConfirmingStop(false); setHint(t('commandBar.hint.noTurn')); return }
+          if (!skipStopConfirm) { setConfirmingStop(true); return }
+        }
+      }
+      try {
+        await invokeIpc(plan.ipc, plan.args)
+      } catch (cause) {
+        // A request main refused left the bar open and silent (BAR-3, BAR-4).
+        setConfirmingStop(false)
+        setHint(t('commandBar.hint.failed', { reason: errorReason(cause) }))
         return
       }
-      await invokeIpc(plan.ipc, plan.args)
       onOpenChange(false)
       return
     }
@@ -528,6 +557,7 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
   }
 
   const renderRefusal = (): ReactElement | null => {
+    if (hint) return <div className={styles.refusal} data-testid="command-bar-hint"><Notice intent="warning">{hint}</Notice></div>
     if (!refusal) return null
     if (refusal.code === 'commandBar.skill.notEnabled') {
       return (
@@ -587,7 +617,7 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
 
   if (!open) return null
 
-  const showListbox = hasOptions || refusal !== null || confirmingStop
+  const showListbox = hasOptions || refusal !== null || hint !== null || confirmingStop
   let runningIndex = -1
 
   return createPortal(

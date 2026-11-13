@@ -49,7 +49,7 @@
       },
       "notifications": {
         "label": "Notifications",
-        "hint": "Alerts and sounds"
+        "hint": "Desktop alerts"
       },
       "updates": {
         "label": "Updates",
@@ -81,7 +81,7 @@
       },
       "privacy": {
         "label": "Data and privacy",
-        "hint": "Export data and reset preferences"
+        "hint": "Usage count and data export"
       },
       "activity": {
         "label": "Agent activity",
@@ -267,6 +267,22 @@
       "configure": "Configure"
     }
   },
+  "newAccess": {
+    "title": "New conversations",
+    "label": "Access a new conversation starts with",
+    "saveFailed": "Could not save this setting",
+    "perConversation": "You can change it in each conversation, from its access chip.",
+    "options": {
+      "read-only": "Read only",
+      "workspace-write": "Can edit",
+      "full-access": "Full access"
+    },
+    "hint": {
+      "read-only": "The agent reads the project and changes nothing.",
+      "workspace-write": "The agent edits files in the project and asks before it runs a command.",
+      "full-access": "The agent runs commands and edits files without asking."
+    }
+  },
   "idle": {
     "title": "Idle conversations",
     "after": "Close the agent process after",
@@ -304,6 +320,9 @@
     "opacity": "Background opacity",
     "translucent": "translucent",
     "globalDefaults": "<strong>Global</strong> defaults. Workspaces can override them.",
+    "agentsFullAccess": "Start agents without permission prompts",
+    "agentsFullAccessOn": "Agents started in a terminal now skip their permission prompts",
+    "agentsFullAccessHint": "Claude Code, Codex and Antigravity started by OXESpace in a terminal run commands and edit files without asking. Off: each agent asks the way its own CLI does. A command that already chooses its mode keeps it.",
     "resumeBypass": "Resume sessions that skipped permission prompts the same way",
     "resumeBypassOn": "Resumed sessions now skip permission prompts when they did before",
     "resumeBypassHint": "A Claude Code session started with its permission prompts skipped resumes the same way after a restart or Restore session. Off: it resumes asking for permission."
@@ -472,6 +491,7 @@
     "intro": "Shortcuts work in the view named by each group. Press <strong>?</strong> outside a text field to see the ones for the current screen. A focused terminal keeps every key except the command palette, Settings and the sidebar shortcuts.",
     "shortcuts": "{{scope}} shortcuts",
     "alsoUsed": "Also used by {{bindings}}",
+    "taken": "{{chord}} is already the shortcut for {{bindings}}. Press another one, or change that shortcut first.",
     "capturing": "Press the new shortcut, or Esc to cancel",
     "changeLabel": "Change shortcut for {{name}}",
     "pressKeys": "Press keys…",
@@ -675,6 +695,7 @@
     }
   },
   "tools": {
+    "whereToAdd": "To add or remove an MCP server, use Tools › Manage MCP servers.",
     "skillsList": {
       "title": "Skills",
       "intro": "Markdown prompts in ~/.oxe/skills and the project's .oxe/skills. The project's wins on a shared name. Run one with /.",
@@ -851,11 +872,7 @@
     "showInFolder": "Show in folder",
     "tryNow": "Try now",
     "exportAction": "Export…",
-    "historyTitle": "History",
-    "conversationHistory": "Conversation history",
-    "conversationHistoryHint": "Stored locally per project on this computer.",
-    "activityRetention": "Agent activity log",
-    "activityRetentionHint": "Kept locally on this computer for audit and review."
+    "nothingToExport": "Nothing to export: this profile has no data from the features removed in 1.5."
   },
   "agentPermissions": {
     "title": "What agents can do",

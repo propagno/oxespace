@@ -63,6 +63,8 @@ export const KEYBINDINGS = [
   // Code
   { id: 'code.changes', chords: ['Mod+Shift+D'], scope: 'code' },
   { id: 'code.browser', chords: ['Mod+Shift+B'], scope: 'code' },
+  // Design Mode of the Browser: the next click in the page selects an element (as in Claude Code's preview).
+  { id: 'code.designMode', chords: ['Mod+Shift+S'], scope: 'code' },
   { id: 'code.files', chords: ['Mod+E'], scope: 'code' },
   { id: 'code.search', chords: ['Mod+Shift+F'], scope: 'code' },
   { id: 'code.splitLayout', chords: ['F2'], scope: 'code' },
@@ -86,6 +88,7 @@ export const KEYBINDINGS = [
   { id: 'thread.terminal', chords: ['Mod+`'], scope: 'thread' },
   { id: 'thread.changes', chords: ['Mod+Shift+D'], scope: 'thread' },
   { id: 'thread.browser', chords: ['Mod+Shift+B'], scope: 'thread' },
+  { id: 'thread.designMode', chords: ['Mod+Shift+S'], scope: 'thread' },
   { id: 'thread.permissions', chords: ['Mod+Shift+M'], scope: 'thread' },
   { id: 'thread.model', chords: ['Mod+Shift+I'], scope: 'thread' },
   { id: 'thread.effort', chords: ['Mod+Shift+E'], scope: 'thread' },
@@ -127,8 +130,12 @@ const ALLOWED_OVERLAPS = new Set(['terminal.slash|help.shortcuts'])
 
 /** The other bindings a key press of `id` would also fire in some view, with the chords in effect. */
 export function conflictsFor(id: KeybindingId): Keybinding[] {
+  return conflictsWith(id, chordsFor(id))
+}
+
+/** The other bindings `id` would collide with if it had `chords`: what Settings checks before it saves a shortcut. */
+export function conflictsWith(id: KeybindingId, chords: string[]): Keybinding[] {
   const binding = getKeybinding(id)
-  const chords = chordsFor(id)
   return (KEYBINDINGS as readonly Keybinding[]).filter(other => other.id !== id
     && !ALLOWED_OVERLAPS.has(`${id}|${other.id}`) && !ALLOWED_OVERLAPS.has(`${other.id}|${id}`)
     && bindingsCollide(binding, other, chords, chordsFor(other.id as KeybindingId)))

@@ -14,20 +14,32 @@ afterEach(() => { useSettingsStore.setState({ keybindingOverrides: {} }); useUIS
 const row = (id: string): HTMLElement => document.querySelector<HTMLElement>(`[data-keybinding="${id}"]`)!
 
 describe('Settings › Keyboard', () => {
-  it('captures a new shortcut, persists it and warns about the conflict', async () => {
+  it('refuses a shortcut another command already uses, and keeps waiting for a free one', async () => {
     render(<KeyboardSettings />)
     await userEvent.click(within(row('code.files')).getByRole('button', { name: 'Change shortcut for Files' }))
     expect(within(row('code.files')).getByText('Press the new shortcut, or Esc to cancel')).toBeInTheDocument()
+    // Ctrl+Shift+D is Changes: nothing is saved, and the row says whose it is.
     fireEvent.keyDown(window, { key: 'D', code: 'KeyD', ctrlKey: true, shiftKey: true })
-    expect(useSettingsStore.getState().keybindingOverrides['code.files']).toEqual(['Mod+Shift+D'])
-    expect(within(row('code.files')).getByText(/Also used by Changes \(OxeCode\)/)).toBeInTheDocument()
-    expect(within(row('code.changes')).getByText(/Also used by Files \(OxeCode\)/)).toBeInTheDocument()
+    expect(useSettingsStore.getState().keybindingOverrides).toEqual({})
+    expect(within(row('code.files')).getByTestId('shortcut-taken')).toHaveTextContent(/is already the shortcut for Changes \(OxeCode\)\. Press another one/)
+    expect(within(row('code.files')).getByText('Press the new shortcut, or Esc to cancel')).toBeInTheDocument()
+    // A free one is saved, and the refusal goes away.
+    fireEvent.keyDown(window, { key: 'F9', code: 'F9', ctrlKey: true, altKey: true })
+    expect(useSettingsStore.getState().keybindingOverrides['code.files']).toHaveLength(1)
+    expect(within(row('code.files')).queryByTestId('shortcut-taken')).toBeNull()
+    expect(within(row('code.files')).queryByText(/Also used by/)).toBeNull()
 
     await userEvent.click(within(row('code.files')).getByRole('button', { name: 'Reset shortcut for Files' }))
     expect(useSettingsStore.getState().keybindingOverrides).toEqual({})
-    expect(within(row('code.files')).queryByText(/Also used by/)).toBeNull()
     // S-04: back at its default, the row offers no Reset.
     expect(within(row('code.files')).queryByRole('button', { name: 'Reset shortcut for Files' })).toBeNull()
+  })
+
+  it('still warns about two commands on one key when the settings already hold it (an older version saved it)', () => {
+    useSettingsStore.setState({ keybindingOverrides: { 'code.files': ['Mod+Shift+D'] } })
+    render(<KeyboardSettings />)
+    expect(within(row('code.files')).getByText(/Also used by Changes \(OxeCode\)/)).toBeInTheDocument()
+    expect(within(row('code.changes')).getByText(/Also used by Files \(OxeCode\)/)).toBeInTheDocument()
   })
 
   it('offers Reset only for a shortcut that differs from its default (S-04)', () => {

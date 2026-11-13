@@ -24,6 +24,7 @@ export function registerBrowserPreviewIpc(): void {
   ipcMain.handle(IPC_CHANNELS.browserPreview.back, async (event, input) => { const window = windowFor(event.sender); return (await service()).back(window, input) })
   ipcMain.handle(IPC_CHANNELS.browserPreview.forward, async (event, input) => { const window = windowFor(event.sender); return (await service()).forward(window, input) })
   ipcMain.handle(IPC_CHANNELS.browserPreview.captureElement, async (event, input) => { const window = windowFor(event.sender); return (await service()).captureElement(window, input) })
+  ipcMain.handle(IPC_CHANNELS.browserPreview.captureElementFile, async (event, input) => { const window = windowFor(event.sender); return (await service()).captureElementFile(window, input) })
   ipcMain.handle(IPC_CHANNELS.browserPreview.captureClipboard, async (event, input) => { const window = windowFor(event.sender); return (await service()).captureClipboard(window, input) })
   ipcMain.handle(IPC_CHANNELS.browserPreview.close, async (event, input) => { const window = windowFor(event.sender); return (await service()).close(window, input) })
   ipcMain.handle(IPC_CHANNELS.browserPreview.revokeGrant, async (event, input) => { const window = windowFor(event.sender); return (await service()).revokeGrant(window, input) })

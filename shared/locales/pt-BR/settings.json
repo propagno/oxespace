@@ -49,7 +49,7 @@
       },
       "notifications": {
         "label": "Notificações",
-        "hint": "Alertas e sons"
+        "hint": "Alertas na área de trabalho"
       },
       "updates": {
         "label": "Atualizações",
@@ -81,7 +81,7 @@
       },
       "privacy": {
         "label": "Dados e privacidade",
-        "hint": "Exportação de dados e privacidade"
+        "hint": "Contagem de uso e exportação de dados"
       },
       "activity": {
         "label": "Atividade dos agentes",
@@ -291,6 +291,22 @@
       "configure": "Configurar"
     }
   },
+  "newAccess": {
+    "title": "Conversas novas",
+    "label": "Acesso com que uma conversa nova começa",
+    "saveFailed": "Não foi possível salvar esta configuração",
+    "perConversation": "Dá para mudar em cada conversa, pelo chip de acesso.",
+    "options": {
+      "read-only": "Somente leitura",
+      "workspace-write": "Pode editar",
+      "full-access": "Acesso total"
+    },
+    "hint": {
+      "read-only": "O agente lê o projeto e não altera nada.",
+      "workspace-write": "O agente edita arquivos do projeto e pergunta antes de rodar um comando.",
+      "full-access": "O agente roda comandos e edita arquivos sem perguntar."
+    }
+  },
   "idle": {
     "title": "Conversas ociosas",
     "after": "Encerrar o processo do agente depois de",
@@ -329,6 +345,9 @@
     "opacity": "Opacidade do fundo",
     "translucent": "translúcido",
     "globalDefaults": "Padrões <strong>globais</strong>. Cada workspace pode mudá-los.",
+    "agentsFullAccess": "Iniciar agentes sem pedidos de permissão",
+    "agentsFullAccessOn": "Agentes iniciados em um terminal agora pulam os pedidos de permissão",
+    "agentsFullAccessHint": "Claude Code, Codex e Antigravity iniciados pelo OXESpace em um terminal rodam comandos e editam arquivos sem perguntar. Desligado: cada agente pergunta do jeito do próprio CLI. Um comando que já escolhe o modo fica com o dele.",
     "resumeBypass": "Retomar do mesmo jeito as sessões que ignoravam os pedidos de permissão",
     "resumeBypassOn": "Sessões retomadas agora pulam os pedidos de permissão quando já pulavam antes",
     "resumeBypassHint": "Uma sessão do Claude Code iniciada ignorando os pedidos de permissão é retomada do mesmo jeito depois de reiniciar ou de Restaurar sessão. Desligado: ela é retomada pedindo permissão."
@@ -497,6 +516,7 @@
     "intro": "Os atalhos valem na visão indicada em cada grupo. Pressione <strong>?</strong> fora de um campo de texto para ver os da tela atual. Um terminal em foco fica com todas as teclas, exceto a paleta de comandos, as Configurações e os atalhos da barra lateral.",
     "shortcuts": "Atalhos de {{scope}}",
     "alsoUsed": "Também usado por {{bindings}}",
+    "taken": "{{chord}} já é o atalho de {{bindings}}. Pressione outro, ou mude aquele atalho primeiro.",
     "capturing": "Pressione o novo atalho, ou Esc para cancelar",
     "changeLabel": "Mudar o atalho de {{name}}",
     "pressKeys": "Pressione as teclas…",
@@ -700,6 +720,7 @@
     }
   },
   "tools": {
+    "whereToAdd": "Para adicionar ou remover um servidor MCP, use Tools › Manage MCP servers.",
     "skillsList": {
       "title": "Skills",
       "intro": "Prompts Markdown de ~/.oxe/skills e do .oxe/skills do projeto, que vence se o nome se repete. Rode com /.",
@@ -878,11 +899,7 @@
     "showInFolder": "Mostrar na pasta",
     "tryNow": "Tentar agora",
     "exportAction": "Exportar…",
-    "historyTitle": "Histórico",
-    "conversationHistory": "Histórico de conversas",
-    "conversationHistoryHint": "Guardado localmente por projeto neste computador.",
-    "activityRetention": "Registro de atividade dos agentes",
-    "activityRetentionHint": "Guardado localmente neste computador para auditoria e revisão."
+    "nothingToExport": "Nada a exportar: este perfil não tem dados das funções retiradas na 1.5."
   },
   "agentPermissions": {
     "title": "O que os agentes podem fazer",

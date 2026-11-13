@@ -5,6 +5,7 @@ import { tCommand } from '../../commands/commandText'
 import { toast } from '../../ui/Toast'
 import type { EditCommand } from '../../../shared/types/ipc'
 import { editUnavailable, requestEdit } from './editTarget'
+import { confirmClose } from '../../lib/closeGuard'
 
 export type AppMenuNode =
   /**
@@ -56,19 +57,24 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
   const byId = new Map(ctx.actions.map(action => [action.id, action]))
   // An item says what its palette command says, from the same catalog key, without the category its menu already gives.
   const menuLabel = (action: CommandPaletteAction): string => action.action ?? action.title
+  const noWorkspace = !byId.get('workspace-settings') || byId.get('workspace-settings')!.disabled === true
+  // With no workspace open, the items of OxeCode cannot run. They say so, as Edit's do, instead of being grey without
+  // a word (MENU-R1): reachable by keyboard, with the reason as a second line and again when chosen.
+  const item = (action: CommandPaletteAction, shortcut?: string): AppMenuNode => {
+    const unavailable = action.disabled && noWorkspace ? t('menu.needsWorkspace') : undefined
+    return unavailable
+      ? { kind: 'item', id: action.id, label: menuLabel(action), shortcut, unavailable, onSelect: () => { toast({ title: unavailable }) } }
+      : { kind: 'item', id: action.id, label: menuLabel(action), shortcut, disabled: action.disabled, onSelect: action.run }
+  }
   const fromAction = (id: MenuActionId, shortcut?: string): AppMenuNode | null => {
     const action = byId.get(id)
-    if (!action) return null
-    return { kind: 'item', id, label: menuLabel(action), shortcut, disabled: action.disabled, onSelect: action.run }
+    return action ? item(action, shortcut) : null
   }
-  const group = (prefix: string): AppMenuNode[] => ctx.actions
-    .filter(action => action.id.startsWith(prefix))
-    .map(action => ({ kind: 'item', id: action.id, label: menuLabel(action), disabled: action.disabled, onSelect: action.run }) as AppMenuNode)
+  const group = (prefix: string): AppMenuNode[] => ctx.actions.filter(action => action.id.startsWith(prefix)).map(action => item(action))
   const compact = (nodes: Array<AppMenuNode | null>): AppMenuNode[] => nodes.filter((node): node is AppMenuNode => node !== null)
   const appearances = group('appearance-')
   const densities = group('density-')
   const layouts = group('layout-')
-  const noWorkspace = !byId.get('workspace-settings') || byId.get('workspace-settings')!.disabled === true
 
   return [
     {
@@ -80,7 +86,8 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
         { kind: 'item', id: 'settings', label: t('menu.settings'), shortcut: shortcutLabel('settings.open'), onSelect: ctx.openSettings },
         fromAction('workspace-settings'),
         sep('file-2'),
-        { kind: 'item', id: 'quit', label: t('menu.exit'), onSelect: () => window.close() }
+        // Asked here first: a window.close() from the page closes at once, and main's own question never runs.
+        { kind: 'item', id: 'quit', label: t('menu.exit'), onSelect: () => { void confirmClose('quit').then(go => { if (go) window.close() }) } }
       ])
     },
     {

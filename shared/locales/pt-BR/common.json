@@ -102,6 +102,7 @@
     "notInTerminal": "Não disponível em um terminal",
     "readOnlyFile": "Esta visualização é somente leitura",
     "needsTextField": "Coloque o cursor em um campo de texto antes",
+    "needsWorkspace": "Abra um workspace no OxeCode primeiro",
     "view": "Exibir",
     "appearance": "Aparência",
     "density": "Densidade",
@@ -164,6 +165,7 @@
       "code": {
         "changes": "Alterações",
         "browser": "Navegador",
+        "designMode": "Selecionar um elemento no Navegador",
         "files": "Arquivos",
         "search": "Buscar nos arquivos",
         "splitLayout": "Alternar o layout dividido"
@@ -194,6 +196,7 @@
         "terminal": "Terminal",
         "changes": "Alterações",
         "browser": "Navegador",
+        "designMode": "Selecionar um elemento no Navegador",
         "permissions": "Permissões",
         "model": "Modelo",
         "effort": "Esforço de raciocínio",
@@ -614,6 +617,12 @@
     "tagline": "Agentes e terminais para os seus projetos"
   },
   "commandBar": {
+    "hint": {
+      "steerEmpty": "Diga o que passar ao agente: /steer e a sua mensagem.",
+      "noTurn": "Nenhum turno está rodando na conversa aberta.",
+      "failed": "Não rodou: {{reason}}",
+      "noWorkspace": "Abra um workspace no OxeCode primeiro: um terminal pertence a um."
+    },
     "sections": { "actions": "Ações", "goTo": "Ir para", "openBeside": "Abrir ao lado" },
     "destinations": {
       "oxechat": "Conversas e tarefas delegadas",
@@ -772,7 +781,6 @@
       "tool-integration": "Abrir a coordenação entre repositórios",
       "tool-github": "Mostrar ou ocultar o painel de commit e pull request",
       "tool-worktrees": "Mostrar ou ocultar o painel de worktrees",
-      "tool-scripts": "Mostrar ou ocultar o painel de scripts",
       "tool-search": "Buscar nos arquivos",
       "tool-web-preview": "Mostrar ou ocultar o painel do navegador",
       "tool-android": "Mostrar ou ocultar o painel do Android",
@@ -850,7 +858,6 @@
       "tool-integration": "Coordenação entre repositórios",
       "tool-github": "Commit e pull request",
       "tool-worktrees": "Worktrees",
-      "tool-scripts": "Scripts",
       "tool-web-preview": "Navegador",
       "tool-background": "Atividade em segundo plano",
       "tool-slash": "Comandos do terminal",

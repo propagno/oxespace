@@ -101,11 +101,16 @@ describe('the Edit menu acts where the person was before the menu took the focus
     expect(edit).toHaveBeenCalledWith('copy')
   })
 
-  it('with no text field: Copy and Select all still run, the rest say what is missing and do nothing', () => {
+  it('with no text field: Copy still runs; Select all and the rest say what is missing and do nothing', () => {
     const button = inBody(document.createElement('button'))
     focusThenMenu(button)
     expect(editUnavailable('paste')).toBe('Place the cursor in a text field first')
     expect(editUnavailable('copy')).toBeUndefined()
+    // It selected every text of the window (MENU-R2).
+    expect(editUnavailable('selectAll')).toBe('Place the cursor in a text field first')
+    requestEdit('selectAll')
+    expect(runPendingEdit()).toBe(false)
+    expect(edit).not.toHaveBeenCalled()
     requestEdit('paste')
     expect(runPendingEdit()).toBe(false)
     expect(edit).not.toHaveBeenCalled()
