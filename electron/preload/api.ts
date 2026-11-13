@@ -240,8 +240,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       onExit: terminalExit,
       branch: (paneId) => ipc.invoke(IPC_CHANNELS.terminal.branch, paneId) as Promise<TerminalPaneBranch | null>,
       onBranchChanged: terminalBranch,
-      sizeLease: (paneId) => ipc.invoke(IPC_CHANNELS.terminal.sizeLease, paneId) as Promise<TerminalSizeLease | null>,
-      takeBackSize: (paneId) => ipc.invoke(IPC_CHANNELS.terminal.takeBackSize, paneId) as Promise<boolean>,
+      sizeLease: (paneId, takeBack) => ipc.invoke(IPC_CHANNELS.terminal.sizeLease, paneId, takeBack === true) as Promise<TerminalSizeLease | null>,
       onSizeLeaseChanged: terminalSizeLease,
       onActivity: terminalActivity
     },

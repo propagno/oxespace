@@ -139,7 +139,6 @@ export const IPC_CHANNELS = {
     branch: 'terminal:branch',
     branchChanged: 'terminal:branch-changed',
     sizeLease: 'terminal:size-lease', // 1.5.0 · a phone holds the pane's size: read, pushed on change, taken back by the person
-    takeBackSize: 'terminal:take-back-size',
     sizeLeaseChanged: 'terminal:size-lease-changed',
     onData: 'terminal:data',
     onExit: 'terminal:exit',
@@ -518,8 +517,7 @@ export interface TerminalBranchChangedEvent extends TerminalPaneBranch {
 }
 
 export interface TerminalApi {
-  sizeLease?(paneId: string): Promise<TerminalSizeLease | null> // 1.5.0 · the size a phone holds for this pane now; null when the desktop sizes it
-  takeBackSize?(paneId: string): Promise<boolean> // ends a phone's hold; the phone is refused until it opens the terminal again
+  sizeLease?(paneId: string, takeBack?: boolean): Promise<TerminalSizeLease | null> // with takeBack, ends a phone's hold first; the phone is refused until it opens the terminal again
   onSizeLeaseChanged?(paneId: string, listener: (event: TerminalSizeLeaseEvent) => void): () => void
   /** A18 · The pane's branch now; null for a pane that is not tracked. */
   branch?(paneId: string): Promise<TerminalPaneBranch | null>

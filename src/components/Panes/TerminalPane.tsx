@@ -351,7 +351,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       {isRunning && sizeLease ? (
         <div className="terminal-size-lease" role="status" data-testid="terminal-size-lease">
           <span>{tc('terminalPane.sizeLease.label', { cols: sizeLease.cols, rows: sizeLease.rows })}</span>
-          <button type="button" className="terminal-size-lease-take" onClick={() => { void window.oxe?.terminal?.takeBackSize?.(pane.id) }}>
+          <button type="button" className="terminal-size-lease-take" onClick={() => { void window.oxe?.terminal?.sizeLease?.(pane.id, true) }}>
             {tc('terminalPane.sizeLease.takeBack')}
           </button>
         </div>

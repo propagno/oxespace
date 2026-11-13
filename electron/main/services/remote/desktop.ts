@@ -88,7 +88,7 @@ export interface RemoteTerminalHost {
   onOutput(listener: (paneId: string) => void): () => void
   hasSession(paneId: string): boolean
   write(input: { paneId: string; data: string }): Promise<void>
-  sizes?: { lease(paneId: string, holder: string, cols: number, rows: number): 'held' | 'no-terminal' | 'taken-back'; release(paneId: string, holder?: string): boolean; releaseOf(holder: string): void }
+  sizes?: { lease?(paneId: string, holder: string, cols: number, rows: number): 'held' | 'no-terminal' | 'taken-back'; release?(paneId: string, holder?: string): boolean; releaseOf?(holder: string): void }
 }
 export interface RemoteAgentStateHost { list(): Array<{ paneId: string; agent: string; state: AgentLifecycleState }> }
 
@@ -178,9 +178,9 @@ export function createRemoteDesktop(hosts: RemoteDesktopHosts): RemoteDesktop {
       await terminals.write({ paneId, data })
       return true
     },
-    sizeTerminal: (paneId, deviceId, cols, rows) => terminals.sizes?.lease(paneId, deviceId, cols, rows) ?? 'no-terminal',
-    releaseTerminalSize: (paneId, deviceId) => { terminals.sizes?.release(paneId, deviceId) },
-    releaseTerminalSizes: deviceId => { terminals.sizes?.releaseOf(deviceId) },
+    sizeTerminal: (paneId, deviceId, cols, rows) => terminals.sizes?.lease?.(paneId, deviceId, cols, rows) ?? 'no-terminal',
+    releaseTerminalSize: (paneId, deviceId) => { terminals.sizes?.release?.(paneId, deviceId) },
+    releaseTerminalSizes: deviceId => { terminals.sizes?.releaseOf?.(deviceId) },
     jobs() {
       return (db.prepare('SELECT id, workspace_id, label, status, exit_code, started_at, finished_at FROM background_jobs ORDER BY started_at DESC LIMIT ?').all(LIST_LIMIT) as
         Array<{ id: string; workspace_id: string; label: string; status: BackgroundJobStatus; exit_code: number | null; started_at: number; finished_at: number | null }>)
