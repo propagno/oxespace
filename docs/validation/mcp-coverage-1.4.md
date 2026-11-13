@@ -40,6 +40,7 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `delegation.authorize` | `delegation.configure`, `delegation.configureTarget`, `delegation.adopt` |
 | `web_preview.access` | `browserPreview.setAccess`, `browserPreview.revokeGrant` (external sites and ending an agent browser grant) |
 | `android.controls` | `android.*` (the person's Android mirror, input and Agents can see switch) |
+| `android.device_actions` | `androidActions.*` (install an APK, open a link, send the pairing link: the person's own actions on their device) |
 | `code.resume_bypass` | `terminal.resumeBypass`, `terminal.setResumeBypass` (T54: whether a Claude session that skipped permissions resumes that way; only the person turns it on, in Settings › Terminal), `terminal.agentsFullAccess`, `terminal.setAgentsFullAccess` (1.5.0: whether agents the person starts in a pane skip their permission prompts; on as installed, and only the person changes it, in Settings › Terminal) |
 | `git.repo_hook_approval` | `github.getRepoConfig`, `github.approveRepoHook` |
 | `accounts.sign_in` | `agentAccount.*` |
@@ -192,6 +193,7 @@ before. Code panes receive the whole registry.
 | `remote.gateway_admin` | Turn the remote gateway on or off, pair, answer, revoke or rename a phone, name the desktop, let a phone type into a pane | **Forbidden**: Opens a network surface and grants device access. |
 | `android.screenshot` | Capture a screenshot of an Android device when Agents can see is on | **read**: `oxespace_device_screenshot` |
 | `android.controls` | Android mirror window controls, input and the Agents can see switch | **Forbidden**: The person's Android mirror, input and device access switch; no MCP tool may send input to a device or raise access. |
+| `android.device_actions` | Install an APK, open a link or send the pairing link to an Android device from the panel | **Forbidden**: The person's own actions on their device: no MCP tool may install an app, start an activity or pair a phone. |
 | `mcp.tool_rules_admin` | Choose, per MCP tool, to run it without asking, ask, or block it | **Forbidden**: Approvals and access stay with the person. |
 | `settings.data_export` | The one-time export of the features removed in 1.5, its notice, and opening the file | Excluded: The person's own data, saved once for them; opening the file or exporting again is theirs. |
 | `settings.agent_audit` | Audit of agent actions; internal MCP status | Excluded: The person's review of what agents did. OxeQuery's trail is oxespace_db_activity. |
