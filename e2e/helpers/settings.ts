@@ -3,10 +3,10 @@ import type { Page } from '@playwright/test'
 /**
  * Opens Settings the way a person would on this screen. Since 1.5.2 the title bar has no Settings button (the user's
  * call, 13/11): it is in every sidebar's footer ("Open settings"), in the menu bar and on Mod+,. A screen with no
- * sidebar (first run) opens it with the shortcut.
+ * sidebar (first run) opens it with the shortcut. `name` is the footer button's accessible name in the test's language.
  */
-export async function openSettings(page: Page): Promise<void> {
-  const button = page.getByRole('button', { name: 'Open settings', exact: true }).first()
+export async function openSettings(page: Page, name = 'Open settings'): Promise<void> {
+  const button = page.getByRole('button', { name, exact: true }).first()
   if (await button.isVisible()) {
     await button.click()
     return
