@@ -303,9 +303,11 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await modeButton(page, 'thread').click()
     await modeButton(page, 'code').click()
     await expect(page.getByRole('navigation', { name: 'Collapsed workspaces' })).toBeVisible()
-    // Both modes have a rail with this button, and switching modes swaps them: the one on screen is meant. Taking the
-    // first in the page raced with the swap and waited on a rail that was no longer shown (run 43130476576).
-    await page.getByRole('button', { name: /^Expand (the )?sidebar/ }).filter({ visible: true }).first().click()
+    // Both modes have a rail with this button, and switching modes swaps them. Taking the first in the page waited on
+    // a rail no longer shown (run 43130476576); taking the first one on screen still raced, since the rail of the mode
+    // being left was on screen when the click began and replaced before it landed (2026-11-12). Each rail says its
+    // mode, so this is OxeCode's and no other.
+    await page.locator('.nav-rail[data-mode="code"]').getByRole('button', { name: /^Expand (the )?sidebar/ }).click()
 
     const codeSidebar = page.locator('.sidebar')
     const resize = codeSidebar.getByRole('separator', { name: 'Sidebar width', exact: true })
