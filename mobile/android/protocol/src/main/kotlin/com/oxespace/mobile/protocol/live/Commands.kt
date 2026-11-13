@@ -10,6 +10,8 @@ import com.oxespace.mobile.protocol.RemoteFrame
 import com.oxespace.mobile.protocol.RemoteFrames
 import com.oxespace.mobile.protocol.RemotePaneConversationArgs
 import com.oxespace.mobile.protocol.RemoteRespondRequestArgs
+import com.oxespace.mobile.protocol.RemoteTerminalReleaseArgs
+import com.oxespace.mobile.protocol.RemoteTerminalResizeArgs
 import com.oxespace.mobile.protocol.RemoteTerminalWriteArgs
 import com.oxespace.mobile.protocol.RemoteThreadHistoryArgs
 import com.oxespace.mobile.protocol.RemoteThreadInterruptArgs
@@ -64,6 +66,9 @@ class CommandApi internal constructor(private val run: suspend (RemoteCommand, J
     suspend fun interrupt(args: RemoteThreadInterruptArgs) = run(RemoteCommand.THREAD_INTERRUPT, encode(RemoteThreadInterruptArgs.serializer(), args))
     suspend fun respondRequest(args: RemoteRespondRequestArgs) = run(RemoteCommand.THREAD_RESPOND_REQUEST, encode(RemoteRespondRequestArgs.serializer(), args))
     suspend fun terminalWrite(args: RemoteTerminalWriteArgs) = run(RemoteCommand.TERMINAL_WRITE, encode(RemoteTerminalWriteArgs.serializer(), args))
+    /** 1.5.0 · The terminal this phone has open draws for its screen; only for a desktop that lists `terminal.resize`. */
+    suspend fun terminalResize(args: RemoteTerminalResizeArgs) = run(RemoteCommand.TERMINAL_RESIZE, encode(RemoteTerminalResizeArgs.serializer(), args))
+    suspend fun terminalRelease(args: RemoteTerminalReleaseArgs) = run(RemoteCommand.TERMINAL_RELEASE, encode(RemoteTerminalReleaseArgs.serializer(), args))
     suspend fun history(args: RemoteThreadHistoryArgs) = run(RemoteCommand.THREAD_HISTORY, encode(RemoteThreadHistoryArgs.serializer(), args))
     /** 1.5.0 F10 CR-F10-7 (A43): the person opened a finished agent's row; the desktop drops it from "finished". */
     suspend fun markSeen(args: RemoteAgentMarkSeenArgs) = run(RemoteCommand.AGENT_MARK_SEEN, encode(RemoteAgentMarkSeenArgs.serializer(), args))

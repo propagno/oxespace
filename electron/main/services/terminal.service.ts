@@ -20,8 +20,9 @@ import { nativeSessionExists, type NativeSessionRoots } from './agent-state/nati
 import { PtyModeTracker } from './pty-mode-tracker'
 import { ShellCwdScanner } from './terminal/shell-cwd'
 import { PaneBranchTracker, samePaneBranch } from './terminal/pane-branch'
+import { SizeLeases } from './terminal/size-lease'
 import { DA1_CARRY_MS, DA1_REPLY, Da1Filter, stripDa1 } from './pty-da1'
-import type { TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume, PaneAgentSession, TerminalBranchChangedEvent, TerminalPaneBranch } from '../../../shared/types/ipc'
+import type { TerminalActivityEvent, TerminalSizeLeaseEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume, PaneAgentSession, TerminalBranchChangedEvent, TerminalPaneBranch } from '../../../shared/types/ipc'
 import { assertProviderAllowed, inheritedEnvironment } from './policy'
 import { recordIncident } from './diagnostics/incident-sink'
 
@@ -42,6 +43,7 @@ interface TerminalManagerOptions {
   emitExit?: (event: TerminalExitEvent) => void
   /** A18 (T73) · A pane's branch changed (the pane header's "switched from"). */
   emitBranchChanged?: (event: TerminalBranchChangedEvent) => void
+  emitSizeLease?: (event: TerminalSizeLeaseEvent) => void // 1.5.0 · a phone took a pane's size, or the desktop's is back (lease: null)
   emitActivity?: (event: TerminalActivityEvent) => void
   ringCapacityBytes?: number
   prepareLaunch?: (input: { paneId: string; workspaceId: string; cwd: string; signal: AbortSignal }) => Promise<Record<string, string>>
@@ -172,6 +174,8 @@ export class TerminalManager {
   /** B17 · Panes whose resumed process exited within RESUME_LOAD_MS: their next start is fresh (failedToLoad). */
   private readonly failedResumes = new Map<string, { agent: 'claude' | 'codex'; sessionId: string }>()
   /** How each pane last started, so a restart can bring back a pane whose process exited by itself. */
+  private readonly emitSizeLease: (event: TerminalSizeLeaseEvent) => void
+  readonly sizes = new SizeLeases({ size: id => { const s = this.sessions.get(id); return s ? { cols: s.cols, rows: s.rows } : null }, apply: (id, cols, rows) => { const s = this.sessions.get(id); if (s) this.applySize(s, cols, rows) }, emit: event => this.emitSizeLease(event) }) // 1.5.0 · the size a phone holds for a pane while it has the terminal open
   private readonly lastStarts = new Map<string, Pick<TerminalSession, 'workspaceId' | 'agentCommand' | 'cols' | 'rows' | 'resumeAgent'>>()
   private readonly sessions = new Map<string, TerminalSession>()
   private readonly pty: PtyModule
@@ -231,6 +235,7 @@ export class TerminalManager {
     this.emitExit = options.emitExit ?? (() => undefined)
     this.emitActivity = options.emitActivity ?? (() => undefined)
     this.emitBranchChanged = options.emitBranchChanged ?? (() => undefined)
+    this.emitSizeLease = options.emitSizeLease ?? (() => undefined)
     this.ringCapacityBytes = options.ringCapacityBytes
   }
 
@@ -473,6 +478,7 @@ export class TerminalManager {
         this.clearSession?.(input.paneId)
       }
       this.sessions.delete(input.paneId)
+      this.sizes.forget(input.paneId)
       session?.revokeProxy?.()
       this.notifyLaunchExit(input.paneId)
       this.forgetBranch(input.paneId)
@@ -530,14 +536,16 @@ export class TerminalManager {
   resize(input: TerminalResizeInput): void {
     const session = this.sessions.get(input.paneId)
     if (!session) return
-    const unchanged = session.cols === input.cols && session.rows === input.rows
-    session.cols = input.cols
-    session.rows = input.rows
-    this.observer?.resize(input.paneId, input.cols, input.rows)
-    // A restored full-screen TUI needs a fresh frame after the renderer has
-    // installed its alternate buffer. A same-size resize is that handshake.
+    // While a phone holds the size, the desktop's own fit is remembered for when the phone lets go, not applied.
+    if (!this.sizes.rememberDesktop(input.paneId, input.cols, input.rows)) this.applySize(session, input.cols, input.rows)
+  }
+  private applySize(session: TerminalSession, cols: number, rows: number): void {
+    const unchanged = session.cols === cols && session.rows === rows
+    session.cols = cols; session.rows = rows
+    this.observer?.resize(session.paneId, cols, rows)
+    // A restored full-screen TUI needs a fresh frame after the renderer has installed its alternate buffer; a same-size resize is that handshake.
     if (unchanged && session.attached && session.modes.altScreen) this.nudgeRedraw(session)
-    else session.pty.resize(input.cols, input.rows)
+    else session.pty.resize(cols, rows)
   }
 
   /**
@@ -818,6 +826,7 @@ export class TerminalManager {
     // The whole tree, not just the shell: an MCP server or `npm run dev` it started must not outlive the pane (BE-M-08).
     void terminatePty(session.pty)
     this.sessions.delete(input.paneId)
+    this.sizes.forget(input.paneId)
     session.revokeProxy?.()
     this.notifyLaunchExit(input.paneId)
     this.observer?.exit(input.paneId)

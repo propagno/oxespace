@@ -2105,6 +2105,10 @@
     "starting": "Iniciando…",
     "startButton": "Iniciar o terminal",
     "commandPlaceholder": "Digite um comando e pressione Enter",
+    "sizeLease": {
+      "label": "No tamanho do seu telefone ({{cols}} × {{rows}}) enquanto ele está com este terminal aberto",
+      "takeBack": "Retomar"
+    },
     "status": {
       "idle": "ocioso",
       "starting": "iniciando",

@@ -701,6 +701,8 @@
         "threadInterrupt": "Parar um turno em andamento",
         "threadRespondRequest": "Aceitar ou recusar um pedido de conversa, depois de confirmar no celular com digital ou rosto",
         "terminalWrite": "Digitar em um terminal que você permitiu aqui",
+        "terminalResize": "Ajustar um terminal à tela do celular enquanto ele está aberto lá",
+        "terminalRelease": "Devolver o tamanho de um terminal a este computador",
         "threadHistory": "Ler mensagens mais antigas",
         "agentMarkSeen": "Marcar um agente como visto",
         "paneConversation": "Ler mensagens mais antigas de um agente no terminal"

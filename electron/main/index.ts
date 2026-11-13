@@ -314,6 +314,7 @@ async function registerIpcHandlers(): Promise<() => void> {
         window.webContents.send(IPC_CHANNELS.terminal.onActivity, event)
       }
     },
+    emitSizeLease: (event) => { for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.terminal.sizeLeaseChanged, event) }, // a phone took or gave back a pane's size
     userDataPath: app.getPath('userData')
   })
   

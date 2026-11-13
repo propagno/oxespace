@@ -2036,6 +2036,10 @@
     "starting": "Starting…",
     "startButton": "Start Terminal",
     "commandPlaceholder": "Type a command and press Enter",
+    "sizeLease": {
+      "label": "Sized for your phone ({{cols}} × {{rows}}) while it has this terminal open",
+      "takeBack": "Take back"
+    },
     "status": {
       "idle": "idle",
       "starting": "starting",
