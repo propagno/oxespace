@@ -7,7 +7,6 @@
     "git": "Commit & pull request",
     "files": "Files",
     "search": "Find in files",
-    "scripts": "Scripts",
     "worktrees": "Worktrees",
     "background": "Background activity",
     "menu": "Panels",
@@ -32,10 +31,6 @@
     "worktrees": {
       "label": "Worktrees",
       "detail": "Branch checkouts side by side"
-    },
-    "scripts": {
-      "label": "Scripts",
-      "detail": "Discover and run project scripts"
     },
     "search": {
       "label": "Find in files",
@@ -158,24 +153,6 @@
     "openInEditor": "Open in editor",
     "noExternalEditor": "No external editor found. Pick one in Settings › General › External editor, or install VS Code.",
     "openExternalEditorSettings": "External editor"
-  },
-  "scripts": {
-    "found_one": "{{count}} found",
-    "found_other": "{{count}} found",
-    "refresh": "Look for scripts again",
-    "close": "Close scripts",
-    "filter": "Filter scripts",
-    "filterPlaceholder": "Filter npm, .ps1 and .sh scripts…",
-    "loading": "Looking for scripts…",
-    "none": "No scripts found",
-    "noneHint": "Add commands to the scripts of <strong>package.json</strong>, or add <strong>.ps1</strong> or <strong>.sh</strong> files to the workspace, to run them as background jobs.",
-    "noMatch": "No script matches “{{query}}”",
-    "run": "Run",
-    "starting": "Starting…",
-    "runLabel": "Run {{name}}",
-    "runTitle": "Run as a background job",
-    "listFailed": "Could not look for scripts",
-    "runFailed": "{{name}} did not start"
   },
   "background": {
     "jobs_one": "{{count}} job",
@@ -1041,6 +1018,26 @@
     "unavailableHint": "The browser could not load this page. Check that the server is running.",
     "emptyHint": "Start your dev server, then type its address above, for example http://localhost:3000.",
     "page": "Page in the browser",
+    "verify": {
+      "toggle": "Auto-verify",
+      "toggleTitle": "With agent access on, the agent is told with each message to check this page after it edits: a screenshot and the console. Uses extra agent steps.",
+      "problems": "Since the page loaded: {{count}} error(s) in its console.",
+      "send": "Send to agent",
+      "dismiss": "Dismiss"
+    },
+    "devServer": {
+      "label": "Dev servers",
+      "labelRunning": "Dev servers: {{count}} running",
+      "none": "No dev server found. Add a \"dev\" script to package.json, or a .claude/launch.json.",
+      "start": "Start {{name}}",
+      "stop": "Stop {{name}}",
+      "open": "Open {{url}}",
+      "commandIn": "{{command}} — in {{folder}}",
+      "starting": "Starting {{name}}… the page opens when the server is up.",
+      "startFailed": "Could not start {{name}}",
+      "stopFailed": "Could not stop {{name}}",
+      "noAddress": "{{name}} printed no address; trying {{url}}."
+    },
     "grab": {
       "label": "Design Mode selection",
       "discard": "Discard the selection",
@@ -1049,7 +1046,21 @@
       "text": "Text",
       "note": "What should the agent change?",
       "notePlaceholder": "What should the agent change here? (Ctrl+Enter sends)",
-      "send": "Send to agent"
+      "send": "Send to agent",
+      "selected": "Selected elements: {{count}}",
+      "remove": "Remove {{selector}} from the selection",
+      "locating": "Looking for where this is written…",
+      "noSource": "The page does not say where this is written, and a search of the project found nothing.",
+      "approximate": "the line may be a few lines off",
+      "bySearch": "found by searching the project",
+      "otherPlaces": "Other places it may be",
+      "choosePlace": "Choose…",
+      "openSource": "Open {{location}} in Files",
+      "addAnother": "Select another element",
+      "addAnotherTitle": "Pick more elements for the same request. Shift+click in the page also keeps selecting.",
+      "picking": "Click an element in the page…",
+      "pickingMore": "Selected: {{count}}. Click another element, or review what you picked.",
+      "review": "Review and send"
     },
     "retry": "Retry"
   },
@@ -2554,7 +2565,42 @@
     "noPermissionsDetail": "Linux needs a udev rule for this phone. Add it, then reconnect.",
     "udevHint": "Add a /etc/udev/rules.d/51-android.rules entry for your vendor ID and reload udev.",
     "howToSetUp": "How to set it up",
-    "reconnect": "Reconnect"
+    "reconnect": "Reconnect",
+    "installApk": "Install an APK…",
+    "openLink": "Open a link…",
+    "pair": "Pair this device with OXESpace",
+    "installTitle": "Install this app on the device?",
+    "installDetail": "{{name}} ({{size}} MB) will be installed on {{device}}, serial {{serial}}. A version already there is replaced.",
+    "install": "Install",
+    "installing": "Installing…",
+    "installed": "Installed {{name}}",
+    "installFailed": "Couldn't install {{name}}",
+    "notAnApk": "That file is not an APK",
+    "openLinkTitle": "Open a link on the device",
+    "openLinkDetail": "The address opens in the device's browser. Only http and https.",
+    "address": "Address",
+    "open": "Open",
+    "linkOpened": "Sent to the device",
+    "linkFailed": "The device didn't open the link",
+    "linkRefused": {
+      "empty": "Type an address.",
+      "tooLong": "The address is too long.",
+      "scheme": "Start the address with http:// or https://.",
+      "characters": "The address has a character that can't be sent to the device: a space, a quote, $, ;, |, <, >, a parenthesis or a backslash. Encode it, for example %20 for a space.",
+      "malformed": "That is not a full address."
+    },
+    "failure": {
+      "pick-expired": "The file you chose is no longer waiting. Choose it again.",
+      "file-changed": "The file changed after you chose it. Choose it again.",
+      "not-debug-build": "The OXESpace app on this device is not a debug build. Pair it by scanning the code.",
+      "pairing-unavailable": "Pairing is not available right now."
+    },
+    "pairSent": "Pairing link sent",
+    "pairSentDetail": "The phone shows a code. Confirm it here when OXESpace asks.",
+    "pairClosed": "Phones can't connect yet",
+    "pairClosedDetail": "Turn on phone connections in Settings, then pair again.",
+    "openPhoneSettings": "Open Phone and devices",
+    "pairFailed": "Couldn't send the pairing link"
   },
   "containers": {
     "empty": "No containers. Start a compose stack from a project.",
@@ -2595,6 +2641,8 @@
       "missingBody": "Install Docker or Podman, then reopen this panel.",
       "deniedTitle": "Can't reach {{engine}}",
       "deniedBody": "Check that your user may use {{engine}}, then try again."
-    }
+    },
+    "unreadableTitle": "Couldn't read the containers",
+    "unreadableBody": "The containers service did not answer. Check that Docker or Podman is installed and running, then try again."
   }
 }

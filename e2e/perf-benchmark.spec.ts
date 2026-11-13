@@ -576,7 +576,6 @@ const PANELS: Array<{ label: string; testId: string; closeButtonName?: string }>
   { label: 'Files', testId: 'workspace-editor-panel' },
   { label: 'Changes', testId: 'workspace-review-panel' },
   { label: 'Worktrees', testId: 'workspace-worktree-panel' },
-  { label: 'Scripts', testId: 'workspace-scripts-panel' },
   { label: 'Find in files', testId: 'workspace-search-panel' },
   { label: 'Browser', testId: 'workspace-web-preview-panel' }
 ]

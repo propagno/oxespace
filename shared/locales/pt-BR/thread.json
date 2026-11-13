@@ -1072,7 +1072,6 @@
     "git": "Commit e pull request",
     "files": "Arquivos",
     "search": "Buscar nos arquivos",
-    "scripts": "Scripts",
     "worktrees": "Worktrees",
     "background": "Atividade em segundo plano",
     "httpCalls": "Chamadas HTTP",
@@ -1633,6 +1632,10 @@
     "hint": "Em Somente leitura, {{agent}} planeja mas não executa o plano. Para executar, mude o acesso para Pode editar e peça para seguir.",
     "changeAccess": "Mudar acesso"
   },
+  "compactFeedback": {
+    "done": "Conversa compactada: o contexto foi de {{before}}% para {{after}}% da janela.",
+    "doneNoNumbers": "Conversa compactada."
+  },
   "turnTiming": {
     "completedBackground": "Turno concluído · {{count}} em segundo plano pendente",
     "completedWarnings": "Concluído com avisos",
@@ -1765,7 +1768,6 @@
     "loadingGit": "Carregando o Git…",
     "loadingFiles": "Carregando arquivos…",
     "loadingSearch": "Carregando a busca…",
-    "loadingScripts": "Carregando scripts…",
     "loadingBackground": "Carregando a atividade em segundo plano…",
     "loadingPreview": "Carregando a prévia web…",
     "loadingTerminal": "Carregando o terminal…",
@@ -2194,8 +2196,7 @@
     "browser": "Navegador",
     "android": "Dispositivo Android",
     "files": "Arquivos",
-    "search": "Busca",
-    "scripts": "Scripts"
+    "search": "Busca"
   },
   "f7": {
     "card": {

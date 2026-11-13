@@ -70,7 +70,7 @@ export type { AgentsApi } from './ipc/agents'
 export const IPC_CHANNELS = {
   agents: AGENTS_CHANNELS,
   agentAccount: { read: 'agent-account:read', login: 'agent-account:login', logout: 'agent-account:logout', cancel: 'agent-account:cancel', code: 'agent-account:code', browser: 'agent-account:browser', changed: 'agent-account:changed' },
-  thread: { projectDiff: 'thread:project-diff', artifact: 'thread:artifact', exportPortable: 'thread:export-portable', importPortable: 'thread:import-portable', models: 'thread:models', configure: 'thread:configure', command: 'thread:command', recover: 'thread:recover', observe: 'thread:observe', commands: 'thread:commands', projects: 'thread:projects', addProject: 'thread:project-add', relinkProject: 'thread:project-relink', setProjectHidden: 'thread:project-hidden', list: 'thread:list', pendingRequestsAll: 'thread:pending-requests-all', sideOpen: 'thread:side-open', sideSend: 'thread:side-send', sideClose: 'thread:side-close', onSideEvent: 'thread:side-event', respondPending: 'thread:respond-pending', create: 'thread:create', read: 'thread:read', history: 'thread:history', attach: 'thread:attach', removeAttachment: 'thread:remove-attachment', send: 'thread:send', steer: 'thread:steer', stopTask: 'thread:stop-task', turnFiles: 'thread:turn-files', undoTurnFile: 'thread:undo-turn-file', turnFileHunks: 'thread:turn-file-hunks', undoTurnHunk: 'thread:undo-turn-hunk', sections: 'thread:sections', saveSections: 'thread:sections-save', permissionRules: 'thread:permission-rules', addPermissionRule: 'thread:permission-rule-add', removePermissionRule: 'thread:permission-rule-remove', auditLog: 'thread:audit-log', debugEvents: 'thread:debug-events', autoApproveReads: 'thread:auto-approve-reads', setAutoApproveReads: 'thread:set-auto-approve-reads', idleSuspendMinutes: 'thread:idle-suspend-minutes', setIdleSuspendMinutes: 'thread:set-idle-suspend-minutes', shellCheck: 'thread:shell-check', usageSummary: 'thread:usage-summary', workRuns: 'thread:work-runs', cancelWork: 'thread:work-cancel', updateQueued: 'thread:queue-update', deleteQueued: 'thread:queue-delete', reorderQueued: 'thread:queue-reorder', readSince: 'thread:read-since', retryTurn: 'thread:retry-turn', contextUsage: 'thread:context-usage', resumeQueue: 'thread:queue-resume', sendQueuedNow: 'thread:queue-send-now', interrupt: 'thread:interrupt', approve: 'thread:approve', respond: 'thread:respond', pin: 'thread:pin', keepAfterPr: 'thread:keep-after-pr', changed: 'thread:changed', worktreeInspect: 'thread:worktree-inspect', worktreeFinish: 'thread:worktree-finish', places: 'thread:places', placeDiff: 'thread:place-diff', placeRead: 'thread:place-read', resolvePath: 'thread:resolve-path', placeDriftAnswer: 'thread:place-drift-answer', placeUndo: 'thread:place-undo', placeRestore: 'thread:place-restore', placeDiscard: 'thread:place-discard', panes: 'thread:panes', collisions: 'thread:collisions', agentSummary: 'thread:agent-summary', placesChanged: 'thread:places-changed', steerQueued: 'thread:queue-steer', toolTabs: 'thread:tool-tabs', toolTabsChanged: 'thread:tool-tabs-changed', background: 'thread:background', backgroundChanged: 'thread:background-changed' },
+  thread: { projectDiff: 'thread:project-diff', artifact: 'thread:artifact', exportPortable: 'thread:export-portable', importPortable: 'thread:import-portable', models: 'thread:models', configure: 'thread:configure', command: 'thread:command', recover: 'thread:recover', observe: 'thread:observe', commands: 'thread:commands', projects: 'thread:projects', addProject: 'thread:project-add', relinkProject: 'thread:project-relink', setProjectHidden: 'thread:project-hidden', list: 'thread:list', pendingRequestsAll: 'thread:pending-requests-all', sideOpen: 'thread:side-open', sideSend: 'thread:side-send', sideClose: 'thread:side-close', onSideEvent: 'thread:side-event', respondPending: 'thread:respond-pending', create: 'thread:create', read: 'thread:read', history: 'thread:history', attach: 'thread:attach', removeAttachment: 'thread:remove-attachment', send: 'thread:send', steer: 'thread:steer', stopTask: 'thread:stop-task', turnFiles: 'thread:turn-files', undoTurnFile: 'thread:undo-turn-file', turnFileHunks: 'thread:turn-file-hunks', undoTurnHunk: 'thread:undo-turn-hunk', sections: 'thread:sections', saveSections: 'thread:sections-save', permissionRules: 'thread:permission-rules', addPermissionRule: 'thread:permission-rule-add', removePermissionRule: 'thread:permission-rule-remove', auditLog: 'thread:audit-log', debugEvents: 'thread:debug-events', autoApproveReads: 'thread:auto-approve-reads', setAutoApproveReads: 'thread:set-auto-approve-reads', idleSuspendMinutes: 'thread:idle-suspend-minutes', setIdleSuspendMinutes: 'thread:set-idle-suspend-minutes', newConversationAccess: 'thread:new-conversation-access', setNewConversationAccess: 'thread:set-new-conversation-access', shellCheck: 'thread:shell-check', usageSummary: 'thread:usage-summary', workRuns: 'thread:work-runs', cancelWork: 'thread:work-cancel', updateQueued: 'thread:queue-update', deleteQueued: 'thread:queue-delete', reorderQueued: 'thread:queue-reorder', readSince: 'thread:read-since', retryTurn: 'thread:retry-turn', contextUsage: 'thread:context-usage', resumeQueue: 'thread:queue-resume', sendQueuedNow: 'thread:queue-send-now', interrupt: 'thread:interrupt', approve: 'thread:approve', respond: 'thread:respond', pin: 'thread:pin', keepAfterPr: 'thread:keep-after-pr', changed: 'thread:changed', worktreeInspect: 'thread:worktree-inspect', worktreeFinish: 'thread:worktree-finish', places: 'thread:places', placeDiff: 'thread:place-diff', placeRead: 'thread:place-read', resolvePath: 'thread:resolve-path', placeDriftAnswer: 'thread:place-drift-answer', placeUndo: 'thread:place-undo', placeRestore: 'thread:place-restore', placeDiscard: 'thread:place-discard', panes: 'thread:panes', collisions: 'thread:collisions', agentSummary: 'thread:agent-summary', placesChanged: 'thread:places-changed', steerQueued: 'thread:queue-steer', toolTabs: 'thread:tool-tabs', toolTabsChanged: 'thread:tool-tabs-changed', background: 'thread:background', backgroundChanged: 'thread:background-changed' },
   delegation: { create: 'delegation:create', status: 'delegation:status', preview: 'delegation:preview', configure: 'delegation:configure', control: 'delegation:control', changed: 'delegation:changed', configureTarget: 'delegation:configure-target', adopt: 'delegation:adopt' },
   app: {
     getUpdateState: 'app:get-update-state',
@@ -133,6 +133,8 @@ export const IPC_CHANNELS = {
     // T54 · Settings › Terminal: a session that skipped permissions resumes that way only with this on.
     resumeBypass: 'terminal:resume-bypass',
     setResumeBypass: 'terminal:set-resume-bypass',
+    agentsFullAccess: 'terminal:agents-full-access',
+    setAgentsFullAccess: 'terminal:set-agents-full-access',
     // A18 (T73) · The pane's branch and where it started, for the pane header; read, then pushed on change.
     branch: 'terminal:branch',
     branchChanged: 'terminal:branch-changed',
@@ -399,6 +401,7 @@ export const IPC_CHANNELS = {
     back: 'browser-preview:back',
     forward: 'browser-preview:forward',
     captureElement: 'browser-preview:capture-element',
+    captureElementFile: 'browser-preview:capture-element-file',
     captureClipboard: 'browser-preview:capture-clipboard',
     close: 'browser-preview:close',
     revokeGrant: 'browser-preview:revoke-grant',
@@ -419,6 +422,8 @@ export const IPC_CHANNELS = {
     setAgentsCanSee: 'android:set-agents-can-see',
     startEmulator: 'android:start-emulator'
   },
+  /** The person's own actions on a device from the Android panel; apart from the mirror's channels, which F5 fixed. */
+  androidActions: { pickApk: 'android-actions:pick-apk', installApk: 'android-actions:install-apk', openLink: 'android-actions:open-link', pair: 'android-actions:pair' },
   oxeContext: {
     buildPaneManifest: 'oxe-context:build-pane-manifest'
   },
@@ -515,6 +520,9 @@ export interface TerminalApi {
   /** T54 · Whether a Claude session that skipped permissions resumes that way. Off by default. */
   resumeBypass?(): Promise<boolean>
   setResumeBypass?(enabled: boolean): Promise<boolean>
+  /** Settings > Terminal: agents started in a pane skip their permission prompts (on by default). */
+  agentsFullAccess?(): Promise<boolean>
+  setAgentsFullAccess?(enabled: boolean): Promise<boolean>
   write(input: TerminalWriteInput): Promise<void>
   resize(input: TerminalResizeInput): Promise<void>
   stop(input: TerminalStopInput): Promise<void>
@@ -914,43 +922,8 @@ export interface McpApi {
   onHealth(listener: (event: import('./mcp').McpServerHealthEvent) => void): () => void
 }
 
-export interface AndroidMirrorDevice {
-  serial: string
-  name: string
-  kind: 'emulator' | 'usb' | 'wifi'
-  api?: number
-  state: 'device' | 'offline' | 'unauthorized' | 'recovery' | 'sideload' | 'authorizing' | 'no-permissions'
-  agentsCanSee?: boolean
-  stream?: 'idle' | 'connecting' | 'live'
-}
-
-export interface AndroidMirrorStatus {
-  adb: 'missing' | 'ok'
-  devices: AndroidMirrorDevice[]
-  avds: string[]
-}
-
-export interface AndroidMirrorFrame {
-  serial: string
-  width: number
-  height: number
-  data: Uint8Array
-}
-
-export interface AndroidApi {
-  status(): Promise<AndroidMirrorStatus>
-  connect(input: { serial: string }): Promise<{ ok: boolean } | void>
-  disconnect(input: { serial: string }): Promise<void>
-  tap(input: { serial: string; x: number; y: number }): Promise<void>
-  swipe(input: { serial: string; x1: number; y1: number; x2: number; y2: number; durationMs?: number }): Promise<void>
-  key(input: { serial: string; keycode: number }): Promise<void>
-  rotate(input: { serial: string }): Promise<void>
-  screenshot(input: { serial: string }): Promise<{ path: string; name: string }>
-  setAgentsCanSee(input: { serial: string; value: boolean }): Promise<void>
-  startEmulator(avd: string): Promise<void>
-  onChanged(listener: (status?: AndroidMirrorStatus) => void): () => void
-  onFrame(listener: (frame: AndroidMirrorFrame) => void): () => void
-}
+export type { AndroidMirrorDevice, AndroidApkPick, AndroidActionOutcome, AndroidMirrorStatus, AndroidMirrorFrame, AndroidApi } from './android'
+import type { AndroidApi } from './android'
 
 export interface FeatureUsageApi {
   state(): Promise<import('../feature-usage').FeatureUsageStatus>

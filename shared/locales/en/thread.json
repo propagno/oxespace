@@ -1043,7 +1043,6 @@
     "git": "Commit & pull request",
     "files": "Files",
     "search": "Find in files",
-    "scripts": "Scripts",
     "worktrees": "Worktrees",
     "background": "Background activity",
     "httpCalls": "HTTP calls",
@@ -1584,6 +1583,10 @@
     "hint": "In Read only, {{agent}} plans but does not carry the plan out. To run it, change access to Can edit and ask it to go ahead.",
     "changeAccess": "Change access"
   },
+  "compactFeedback": {
+    "done": "Conversation compacted: the context went from {{before}}% to {{after}}% of the window.",
+    "doneNoNumbers": "Conversation compacted."
+  },
   "turnTiming": {
     "completedBackground": "Turn finished · {{count}} background pending",
     "completedWarnings": "Finished with warnings",
@@ -1712,7 +1715,6 @@
     "loadingGit": "Loading Git…",
     "loadingFiles": "Loading files…",
     "loadingSearch": "Loading search…",
-    "loadingScripts": "Loading scripts…",
     "loadingBackground": "Loading background activity…",
     "loadingPreview": "Loading web preview…",
     "loadingTerminal": "Loading terminal…",
@@ -2128,8 +2130,7 @@
     "browser": "Browser",
     "android": "Android device",
     "files": "Files",
-    "search": "Search",
-    "scripts": "Scripts"
+    "search": "Search"
   },
   "f7": {
     "card": {

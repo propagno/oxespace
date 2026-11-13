@@ -69,11 +69,12 @@ function CopilotCard({ credits }: { credits: CopilotCredits | null }): ReactElem
   </Card>
 }
 
-/** Subscription limits of each provider (Claude, Codex, Copilot) with reset times. */
+/** Subscription limits of each provider (Claude, Codex, Antigravity, Copilot) with reset times. */
 export function UsageModal({ open, onOpenChange }: UsageModalProps): ReactElement | null {
   const { t } = useTranslation()
   const [claude, setClaude] = useState<AgentCreditsSnapshot | null>(null)
   const [codex, setCodex] = useState<AgentCreditsSnapshot | null>(null)
+  const [antigravity, setAntigravity] = useState<AgentCreditsSnapshot | null>(null)
   const [copilot, setCopilot] = useState<CopilotCredits | null>(null)
   const [loading, setLoading] = useState(false)
   const [refreshRevision, setRefreshRevision] = useState(0)
@@ -95,12 +96,14 @@ export function UsageModal({ open, onOpenChange }: UsageModalProps): ReactElemen
     void Promise.allSettled([
       window.oxe.agentCredits.get({ provider: 'claude', force }),
       window.oxe.agentCredits.get({ provider: 'codex', force }),
+      window.oxe.agentCredits.get({ provider: 'antigravity', force }),
       window.oxe.copilot.credits()
     ]).then(results => {
       if (!active) return
-      const [c, x, cop] = results
+      const [c, x, a, cop] = results
       setClaude(c.status === 'fulfilled' ? c.value : null)
       setCodex(x.status === 'fulfilled' ? x.value : null)
+      setAntigravity(a.status === 'fulfilled' ? a.value : null)
       setCopilot(cop.status === 'fulfilled' ? cop.value : null)
       setLoading(false)
     })
@@ -118,6 +121,7 @@ export function UsageModal({ open, onOpenChange }: UsageModalProps): ReactElemen
     <div className={styles.roster}>
       <ProviderCard title="Claude" snapshot={claude} />
       <ProviderCard title="Codex" snapshot={codex} />
+      <ProviderCard title="Antigravity" snapshot={antigravity} />
       <CopilotCard credits={copilot} />
     </div>
   </Dialog>

@@ -7,7 +7,6 @@
     "git": "Commit e pull request",
     "files": "Arquivos",
     "search": "Buscar nos arquivos",
-    "scripts": "Scripts",
     "worktrees": "Worktrees",
     "background": "Atividade em segundo plano",
     "menu": "Painéis",
@@ -32,10 +31,6 @@
     "worktrees": {
       "label": "Worktrees",
       "detail": "Checkouts de branches lado a lado"
-    },
-    "scripts": {
-      "label": "Scripts",
-      "detail": "Encontre e rode os scripts do projeto"
     },
     "search": {
       "label": "Buscar nos arquivos",
@@ -160,25 +155,6 @@
     "openInEditor": "Abrir no editor",
     "noExternalEditor": "Nenhum editor externo encontrado. Escolha um em Configurações › Geral › Editor externo, ou instale o VS Code.",
     "openExternalEditorSettings": "Editor externo"
-  },
-  "scripts": {
-    "found_one": "{{count}} encontrado",
-    "found_many": "{{count}} encontrados",
-    "found_other": "{{count}} encontrados",
-    "refresh": "Procurar scripts de novo",
-    "close": "Fechar scripts",
-    "filter": "Filtrar scripts",
-    "filterPlaceholder": "Filtrar scripts npm, .ps1 e .sh…",
-    "loading": "Procurando scripts…",
-    "none": "Nenhum script encontrado",
-    "noneHint": "Adicione comandos aos scripts do <strong>package.json</strong>, ou arquivos <strong>.ps1</strong> ou <strong>.sh</strong> ao workspace, para rodá-los como tarefas em segundo plano.",
-    "noMatch": "Nenhum script corresponde a “{{query}}”",
-    "run": "Rodar",
-    "starting": "Iniciando…",
-    "runLabel": "Rodar {{name}}",
-    "runTitle": "Rodar como tarefa em segundo plano",
-    "listFailed": "Não foi possível procurar scripts",
-    "runFailed": "{{name}} não iniciou"
   },
   "background": {
     "jobs_one": "{{count}} tarefa",
@@ -1088,6 +1064,26 @@
     "unavailableHint": "O navegador não conseguiu carregar esta página. Confira se o servidor está rodando.",
     "emptyHint": "Inicie o seu servidor de desenvolvimento e digite o endereço acima, por exemplo http://localhost:3000.",
     "page": "Página no navegador",
+    "verify": {
+      "toggle": "Conferir sozinho",
+      "toggleTitle": "Com o acesso do agente ligado, o agente é instruído em cada mensagem a conferir esta página depois de editar: uma captura e o console. Usa passos extras do agente.",
+      "problems": "Desde a carga da página: {{count}} erro(s) no console dela.",
+      "send": "Enviar ao agente",
+      "dismiss": "Dispensar"
+    },
+    "devServer": {
+      "label": "Servidores de dev",
+      "labelRunning": "Servidores de dev: {{count}} rodando",
+      "none": "Nenhum servidor de dev encontrado. Adicione um script \"dev\" ao package.json, ou um .claude/launch.json.",
+      "start": "Iniciar {{name}}",
+      "stop": "Parar {{name}}",
+      "open": "Abrir {{url}}",
+      "commandIn": "{{command}} — em {{folder}}",
+      "starting": "Iniciando {{name}}… a página abre quando o servidor estiver no ar.",
+      "startFailed": "Não foi possível iniciar {{name}}",
+      "stopFailed": "Não foi possível parar {{name}}",
+      "noAddress": "{{name}} não informou o endereço; tentando {{url}}."
+    },
     "grab": {
       "label": "Seleção do Modo Design",
       "discard": "Descartar a seleção",
@@ -1096,7 +1092,21 @@
       "text": "Texto",
       "note": "O que o agente deve mudar?",
       "notePlaceholder": "O que o agente deve mudar aqui? (Ctrl+Enter envia)",
-      "send": "Enviar ao agente"
+      "send": "Enviar ao agente",
+      "selected": "Elementos selecionados: {{count}}",
+      "remove": "Tirar {{selector}} da seleção",
+      "locating": "Procurando onde isto está escrito…",
+      "noSource": "A página não informa onde isto está escrito, e a busca no projeto não encontrou nada.",
+      "approximate": "a linha pode estar algumas linhas fora",
+      "bySearch": "encontrado por busca no projeto",
+      "otherPlaces": "Outros lugares possíveis",
+      "choosePlace": "Escolher…",
+      "openSource": "Abrir {{location}} em Arquivos",
+      "addAnother": "Selecionar outro elemento",
+      "addAnotherTitle": "Escolha mais elementos para o mesmo pedido. Shift+clique na página também continua selecionando.",
+      "picking": "Clique em um elemento da página…",
+      "pickingMore": "Selecionados: {{count}}. Clique em outro elemento, ou revise o que escolheu.",
+      "review": "Revisar e enviar"
     },
     "retry": "Tentar de novo"
   },
@@ -2629,7 +2639,42 @@
     "noPermissionsDetail": "O Linux precisa de uma regra udev para este celular. Adicione-a e reconecte.",
     "udevHint": "Adicione uma regra em /etc/udev/rules.d/51-android.rules para o fabricante e recarregue o udev.",
     "howToSetUp": "Como configurar",
-    "reconnect": "Reconectar"
+    "reconnect": "Reconectar",
+    "installApk": "Instalar um APK…",
+    "openLink": "Abrir um link…",
+    "pair": "Parear este aparelho com o OXESpace",
+    "installTitle": "Instalar este app no aparelho?",
+    "installDetail": "{{name}} ({{size}} MB) será instalado em {{device}}, serial {{serial}}. Uma versão que já esteja lá é substituída.",
+    "install": "Instalar",
+    "installing": "Instalando…",
+    "installed": "{{name}} instalado",
+    "installFailed": "Não foi possível instalar {{name}}",
+    "notAnApk": "Esse arquivo não é um APK",
+    "openLinkTitle": "Abrir um link no aparelho",
+    "openLinkDetail": "O endereço abre no navegador do aparelho. Só http e https.",
+    "address": "Endereço",
+    "open": "Abrir",
+    "linkOpened": "Enviado ao aparelho",
+    "linkFailed": "O aparelho não abriu o link",
+    "linkRefused": {
+      "empty": "Digite um endereço.",
+      "tooLong": "O endereço é longo demais.",
+      "scheme": "Comece o endereço com http:// ou https://.",
+      "characters": "O endereço tem um caractere que não pode ser enviado ao aparelho: espaço, aspas, $, ;, |, <, >, parêntese ou barra invertida. Codifique-o, por exemplo %20 para espaço.",
+      "malformed": "Isso não é um endereço completo."
+    },
+    "failure": {
+      "pick-expired": "O arquivo escolhido não está mais em espera. Escolha de novo.",
+      "file-changed": "O arquivo mudou depois de escolhido. Escolha de novo.",
+      "not-debug-build": "O app do OXESpace neste aparelho não é uma build de depuração. Pareie lendo o código.",
+      "pairing-unavailable": "O pareamento não está disponível agora."
+    },
+    "pairSent": "Link de pareamento enviado",
+    "pairSentDetail": "O telefone mostra um código. Confirme-o aqui quando o OXESpace perguntar.",
+    "pairClosed": "Telefones ainda não podem se conectar",
+    "pairClosedDetail": "Ligue a conexão de telefones em Configurações e pareie de novo.",
+    "openPhoneSettings": "Abrir Telefone e dispositivos",
+    "pairFailed": "Não foi possível enviar o link de pareamento"
   },
   "containers": {
     "empty": "Nenhum contêiner. Inicie um stack do compose a partir de um projeto.",
@@ -2670,6 +2715,8 @@
       "missingBody": "Instale o Docker ou o Podman e abra este painel de novo.",
       "deniedTitle": "Sem acesso ao {{engine}}",
       "deniedBody": "Confira se seu usuário pode usar o {{engine}} e tente de novo."
-    }
+    },
+    "unreadableTitle": "Não foi possível ler os contêineres",
+    "unreadableBody": "O serviço de contêineres não respondeu. Confira se o Docker ou o Podman está instalado e rodando e tente de novo."
   }
 }

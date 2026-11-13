@@ -152,7 +152,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     // written plainly) skips the question and runs as write. Any other host asks first; other schemes, file: included, are refused.
     tools: { oxespace_open_web_preview: 'confirm', oxespace_preview_interact: 'write', oxespace_capture_web_preview: 'read' },
     ipc: ['browserPreview.session', 'browserPreview.mount', 'browserPreview.bounds', 'browserPreview.designMode', 'browserPreview.setZoom', 'browserPreview.reload',
-      'browserPreview.back', 'browserPreview.forward', 'browserPreview.captureElement', 'browserPreview.close', 'browserPreview.setDevice', 'mcpInternal.captureWebPreview']
+      'browserPreview.back', 'browserPreview.forward', 'browserPreview.captureElement', 'browserPreview.captureElementFile', 'browserPreview.close', 'browserPreview.setDevice', 'mcpInternal.captureWebPreview']
   },
   'web_preview.access': { label: 'Let the preview reach external sites or end an agent browser grant', forbidden: 'Raises or revokes person-controlled access.', ipc: ['browserPreview.setAccess', 'browserPreview.revokeGrant'] },
   'android.screenshot': {
@@ -164,7 +164,12 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     forbidden: 'The person\'s Android mirror, input and device access switch; no MCP tool may send input to a device or raise access.',
     ipc: ['android.*']
   },
-  'code.resume_bypass': { label: 'Resume Claude sessions that skipped permissions that way', forbidden: 'Raises access: only the person turns it on.', ipc: ['terminal.resumeBypass', 'terminal.setResumeBypass'] },
+  'android.device_actions': {
+    label: 'Install an APK, open a link or send the pairing link to an Android device from the panel',
+    forbidden: 'The person\'s own actions on their device: no MCP tool may install an app, start an activity or pair a phone.',
+    ipc: ['androidActions.*']
+  },
+  'code.resume_bypass': { label: 'Resume Claude sessions that skipped permissions that way; start agents in a terminal without permission prompts', forbidden: 'Raises access: only the person changes it.', ipc: ['terminal.resumeBypass', 'terminal.setResumeBypass', 'terminal.agentsFullAccess', 'terminal.setAgentsFullAccess'] },
 
   // ---- changes and Git ------------------------------------------------------------
   'git.read': {
@@ -245,9 +250,9 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
       'thread.attach', 'thread.removeAttachment', 'thread.command', 'thread.observe', 'thread.debugEvents', 'thread.worktreeInspect', 'thread.worktreeFinish']
   },
   'thread.project_admin': {
-    label: 'Add, relink or hide Thread projects; idle suspension; shell check',
+    label: 'Add, relink or hide Thread projects; idle suspension; the access a new conversation starts with; shell check',
     excluded: 'The person\'s settings.',
-    ipc: ['thread.addProject', 'thread.relinkProject', 'thread.setProjectHidden', 'thread.idleSuspendMinutes', 'thread.setIdleSuspendMinutes', 'thread.shellCheck']
+    ipc: ['thread.addProject', 'thread.relinkProject', 'thread.setProjectHidden', 'thread.idleSuspendMinutes', 'thread.setIdleSuspendMinutes', 'thread.newConversationAccess', 'thread.setNewConversationAccess', 'thread.shellCheck']
   },
   'thread.sections': {
     label: 'Sections of the conversation list (F13)',
