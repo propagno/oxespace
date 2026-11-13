@@ -77,6 +77,7 @@ import { AgentHooksPromptHost } from './components/AgentSessions/AgentHooksPromp
 import './components/Threads/ThreadView.css'
 import { AppStatusBar } from './components/Workspace/AppStatusBar'
 import { SchedulesHost } from './components/Schedules/SchedulesHost'
+import { isUsageProvider } from './components/Workspace/usageProviders'
 import { UpdateChips } from './app/UpdateChips'
 import { useAgentStore } from './store/agent.store'
 import { useEditorStore } from './store/editor.store'
@@ -784,7 +785,7 @@ export function App(): ReactElement {
         ) : applicationView === 'code' ? (
           <AppStatusBar appVersion={appVersion} workspace={activeWorkspace ?? null} activePaneId={activePane?.id ?? null} />
         ) : applicationView === 'thread' ? (
-          <AppStatusBar docked appVersion={appVersion} workspace={null} activePaneId={null} rootPath={threadSnapshot?.thread.rootPath} usageProvider={threadSnapshot?.thread.provider === 'claude' || threadSnapshot?.thread.provider === 'codex' ? threadSnapshot.thread.provider : null} />
+          <AppStatusBar docked appVersion={appVersion} workspace={null} activePaneId={null} rootPath={threadSnapshot?.thread.rootPath} usageProvider={isUsageProvider(threadSnapshot?.thread.provider) ? threadSnapshot.thread.provider : null} />
         ) : (
           <AppStatusBar docked appVersion={appVersion} workspace={activeWorkspace ?? null} activePaneId={null} />
         )}

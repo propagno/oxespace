@@ -60,6 +60,16 @@ describe('usage in the status bar', () => {
       expect(screen.queryByTestId('usage-status')).toBeNull()
     })
 
+    it('Antigravity reads like the others: its name, its plan and its highest window', async () => {
+      get.mockResolvedValueOnce(snapshot({ provider: 'antigravity', planLabel: 'Google AI Ultra', windows: [{ kind: 'session', usedPct: 0, resetsAtMs: now + 5 * 3_600_000 }, { kind: 'weekly', usedPct: 57, resetsAtMs: now + 5 * 86_400_000 }] }))
+      render(<UsageStatus provider="antigravity" />)
+      await act(async () => { await Promise.resolve() })
+      expect(get).toHaveBeenCalledWith({ provider: 'antigravity', force: false })
+      const chip = screen.getByTestId('usage-status')
+      expect(chip).toHaveTextContent('Antigravity 57%')
+      expect(chip.getAttribute('title')).toContain('Antigravity (Google AI Ultra)')
+    })
+
     it('shows nothing while the provider has no reading', async () => {
       get.mockResolvedValueOnce(snapshot({ available: false, windows: [], display: null }))
       render(<UsageStatus provider="codex" />)
