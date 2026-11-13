@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowUpRight, TerminalSquare } from 'lucide-react'
+import { EmptyState } from '../../ui'
 
 /** A terminal pane in one of this conversation's places (BACKEND #704 §A18). */
 export interface ThreadPaneEntry {
@@ -71,7 +72,7 @@ export function ThreadTerminalTab(props: { threadId: string }): ReactElement {
     <div className="thread-terminal-tab">
       <PaneGroup title={t('terminalTab.agent')} panes={agent} openLabel={t('terminalTab.open')} />
       <PaneGroup title={t('terminalTab.yours')} panes={yours} openLabel={t('terminalTab.open')} />
-      {panes.length === 0 && <p className="thread-terminal-empty">{t('terminalTab.empty')}</p>}
+      {panes.length === 0 && <EmptyState compact title={t('terminalTab.empty')} />}
     </div>
   )
 }

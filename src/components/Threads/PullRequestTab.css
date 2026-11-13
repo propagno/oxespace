@@ -23,8 +23,6 @@
   color: var(--text-muted);
   font-size: var(--text-2xs);
   font-weight: var(--weight-semibold);
-  letter-spacing: .02em;
-  text-transform: uppercase;
 }
 .pr-tab-head { display: flex; align-items: center; gap: var(--space-2); }
 .pr-tab-number { color: var(--text-primary); font-family: var(--font-mono); font-weight: var(--weight-semibold); }
