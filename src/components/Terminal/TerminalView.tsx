@@ -108,6 +108,10 @@ function buildTerminalTheme(translucent: boolean): ITheme {
     cursor:              tok('--accent', '#f5a939'),
     cursorAccent:        tok('--term-bg', '#131714'),
     selectionBackground: darkMode ? tok('--fill-selected-strong', '#1e422c') : '#1e422c',
+    // xterm 6 draws its own scrollbar: a quiet slider, like the app's thin scrollbars.
+    scrollbarSliderBackground: 'rgba(160, 170, 165, 0.22)',
+    scrollbarSliderHoverBackground: 'rgba(160, 170, 165, 0.38)',
+    scrollbarSliderActiveBackground: 'rgba(160, 170, 165, 0.5)',
     black:               ansi('black'),
     red:                 ansi('red'),
     green:               ansi('green'),
