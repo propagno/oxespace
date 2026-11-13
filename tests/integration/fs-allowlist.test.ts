@@ -286,8 +286,11 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/remote/pane-conversation.ts',
   'electron/main/services/http-audit/codex-rollout.ts',
   // F5 (A52): saves a person-requested Android screenshot PNG under <Pictures>/OXESpace with a generated basename;
-  // the renderer sends only a validated adb serial, never a path.
+  // the renderer sends only a validated adb serial, never a path. It also checks (lstat) the APK the person picked in
+  // the system's file dialog before handing its path to adb.
   'electron/main/ipc/android.ipc.ts',
+  // Looks for adb and the emulator in the Android SDK's usual folder (existsSync only): nothing is read or written.
+  'electron/main/services/android/android-devices.ts',
   // F11 (A65): exports the local feature-usage summary JSON only to the path chosen in Electron's native save dialog
   // (mode 0600); never reads files and never accepts a path from the renderer.
   'electron/main/services/usage/usage-count.ts'
