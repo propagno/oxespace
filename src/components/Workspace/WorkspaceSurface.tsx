@@ -527,7 +527,6 @@ function WorkspaceSurfaceComponent({
 
   const toolbar = (
     <header className="workspace-topbar" aria-label={tc('workspace.topbar.label')}>
-      <span className="workspace-topbar-mode">OxeCode</span>
       <span
         className="workspace-topbar-wschip"
         {...(typeof workspace.color !== 'string' ? workspaceColorAttrs({ id: workspace.id, color: workspace.color ?? null }) : undefined)}
