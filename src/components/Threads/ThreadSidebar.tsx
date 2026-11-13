@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
 import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, LoadingState, Menu, Notice, Spinner, Splitter, cx, TextField } from '../../ui'
 import styles from './ThreadSidebar.module.css'
-import { useThreadContentSearch } from '../../hooks/useThreadContentSearch'
+import { snippetParts, useThreadContentMatches } from '../../hooks/useThreadContentSearch'
 import { AlignJustify, Archive, ArchiveRestore, Check, ChevronDown, Circle, CircleCheck, CircleX, Columns2, FolderPlus, MoreHorizontal, Pencil, Pin, Plus, Square, Sun, Trash2, UserRound } from 'lucide-react'
 import type { ConversationThread } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
@@ -80,8 +80,8 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   useNavigationSearch(search, collapsed, toggleCollapse)
   const selected = threads.find(t => t.id === selectedId)
   // Also matches by conversation content (native transcript index), not just title/path.
-  const contentIds = useThreadContentSearch(query)
-  const contentHit = useCallback((thread: ConversationThread) => !!thread.nativeSessionId && contentIds.has(thread.nativeSessionId), [contentIds])
+  const contentMatches = useThreadContentMatches(query)
+  const contentHit = useCallback((thread: ConversationThread) => !!thread.nativeSessionId && contentMatches.has(thread.nativeSessionId), [contentMatches])
   const matches = (thread: ConversationThread, name: string) => !thread.archived && !hiddenProjects.includes(thread.projectId) && (`${name} ${displayThreadTitle(thread.title)} ${thread.provider} ${thread.rootPath}`.toLowerCase().includes(query.toLowerCase()) || contentHit(thread))
   const groups = useMemo(() => {
     const catalog = new Map(projects.map(p => [p.projectId, { id: p.projectId, name: p.displayName, path: p.identityLabel, rootPath: p.contexts[0]?.rootPath, threads: [] as ConversationThread[] }]))
@@ -137,7 +137,11 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     title={`${displayThreadTitle(thread.title)}\n${thread.provider} · ${status.label}${unread ? ` · ${t('sidebar.unreadShort')}` : ''}\n${thread.rootPath}`} onClick={() => void select(thread.id)}>
     {unread && <span className={cx('thread-unread-marker', styles.unreadMark)} aria-label={t('sidebar.unread')} />}{unread && ' '}
     <span className={cx('thread-session-indicator', styles.indicator)} data-status={status.kind} aria-hidden="true">{status.kind === 'ready' ? <Circle size={10} fill="currentColor" /> : status.kind === 'completed' ? <CircleCheck size={14} /> : status.kind === 'attention' ? <Sun size={14} /> : status.kind === 'failed' ? <CircleX size={14} /> : status.kind === 'interrupted' ? <Square size={11} /> : null}</span>
-    <span className={cx('thread-session-content', styles.content)}><span className={cx('thread-session-title', styles.title)}>{displayThreadTitle(thread.title)}</span>{' '}<span className={cx('thread-session-meta', styles.meta)}><span className={cx('thread-session-provider', styles.provider)}><AgentProviderIcon provider={thread.provider} size={density === 'compact' ? 11 : 12} /><span>{threadProductName(thread.provider)}</span></span>{' '}<span className={cx('thread-session-state', styles.state)} data-status={status.kind}>{status.label}</span>{thread.pinned && <> <Pin size={11} aria-label={t('sidebar.pinned')} /></>}</span></span>{' '}
+    <span className={cx('thread-session-content', styles.content)}><span className={cx('thread-session-title', styles.title)}>{displayThreadTitle(thread.title)}</span>{' '}<span className={cx('thread-session-meta', styles.meta)}><span className={cx('thread-session-provider', styles.provider)}><AgentProviderIcon provider={thread.provider} size={density === 'compact' ? 11 : 12} /><span>{threadProductName(thread.provider)}</span></span>{' '}<span className={cx('thread-session-state', styles.state)} data-status={status.kind}>{status.label}</span>{thread.pinned && <> <Pin size={11} aria-label={t('sidebar.pinned')} /></>}</span>{(() => {
+      // Found by what was said in it: the line that matched, so the person sees why it is listed.
+      const found = query && thread.nativeSessionId ? contentMatches.get(thread.nativeSessionId) : undefined
+      return found && found.snippet ? <span className={cx('thread-session-snippet', styles.snippet)} data-testid="thread-content-snippet">{snippetParts(found.snippet).map((part, index) => part.match ? <mark key={index}>{part.text}</mark> : part.text)}</span> : null
+    })()}</span>{' '}
     <small className={styles.time}>{relativeTime(thread.updatedAt)}</small>
   </button><button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.openSideNamed', { name: displayThreadTitle(thread.title) })} title={sideBySideBlocked(thread.id) ? t('sidebar.alreadyOpen') : t('sidebar.openSide')} disabled={sideBySideBlocked(thread.id)} onClick={() => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed'))))}><Columns2 size={14} /></button><Menu label={t('sidebar.actionsFor', { name: displayThreadTitle(thread.title) })} side="right" open={rowMenuId === thread.id} onOpenChange={open => setRowMenuId(open ? thread.id : null)} items={[
     { label: t('sidebar.openToSide'), icon: <Columns2 size={14} />, disabled: sideBySideBlocked(thread.id), onSelect: () => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed')))) },
