@@ -1,0 +1,183 @@
+name: Performance baseline
+run-name: Performance baseline · ${{ github.sha }}
+
+# OXE-105, the 1.5.2 performance gate: one benchmark, the same for every version measured, so the columns compare.
+# For each ref in perf-baseline/versions.txt it checks out the APP SOURCE at that ref, overlays the benchmark from
+# this branch (perf-baseline/overlay/e2e: PR #788's in-renderer input timer and specs, plus a launcher that runs the
+# packaged binary), builds it and runs the three benchmark specs SAMPLES times, each a fresh Playwright run with
+# fresh app launches. Two modes per ref and OS:
+#   packaged  the unpacked electron-builder output, launched from a copy outside the checkout (as ci.yml's packaged
+#             smoke and hml-packaged-pass do): real database, terminals and services;
+#   mock      the built app through e2e/electron-main.cjs, the CI performance gate's way (mock-native where a spec
+#             asks for it).
+# Artifacts: perf-baseline-<ref>-<os> (packaged) and perf-baseline-<ref>-<os>-mock. Table:
+#   node scripts/perf-baseline-table.mjs <folder with the downloaded artifacts>
+# For 1.5.2: put its tag (or a branch without slashes) in perf-baseline/versions.txt and push this branch.
+
+on:
+  push:
+    branches: [ci/perf-baseline]
+  workflow_dispatch:
+
+concurrency:
+  group: perf-baseline-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  SAMPLES: "5"
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: perf-baseline
+      - id: m
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'EOF'
+          const { readFileSync, appendFileSync } = require('node:fs')
+          const refs = readFileSync('perf-baseline/versions.txt', 'utf8').split(/\r?\n/).map(s => s.trim()).filter(s => s && !s.startsWith('#'))
+          for (const ref of refs) if (!/^[A-Za-z0-9._-]{1,100}$/.test(ref)) { console.log(`::error::bad ref ${ref}`); process.exit(1) }
+          const platforms = [
+            { platform: 'windows', os: 'windows-2022', flag: '--win' },
+            { platform: 'linux', os: 'ubuntu-22.04', flag: '--linux' }
+          ]
+          const include = refs.flatMap(version => platforms.flatMap(p => ['packaged', 'mock'].map(mode => ({ version, mode, ...p }))))
+          console.log(JSON.stringify(include, null, 1))
+          appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${JSON.stringify({ include })}\n`)
+          EOF
+
+  bench:
+    needs: plan
+    name: ${{ matrix.version }} · ${{ matrix.platform }} · ${{ matrix.mode }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 170
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: App source at ${{ matrix.version }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ matrix.version }}
+          persist-credentials: false
+
+      - name: The benchmark from this branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: .perfbase
+          persist-credentials: false
+          sparse-checkout: perf-baseline
+
+      - name: Overlay the benchmark
+        run: |
+          set -euo pipefail
+          mkdir -p results
+          cp -R .perfbase/perf-baseline/overlay/e2e/. e2e/
+          rm -rf .perfbase
+          git status --short | tee results/overlay.txt
+          printf '{"version":"%s","sha":"%s","platform":"%s","os":"%s","mode":"%s","samples":%s,"bench_sha":"%s","run_id":"%s","image":"%s"}\n' \
+            "${{ matrix.version }}" "$(git rev-parse HEAD)" "${{ matrix.platform }}" "${{ matrix.os }}" "${{ matrix.mode }}" \
+            "$SAMPLES" "${{ github.sha }}" "${{ github.run_id }}" "${ImageVersion:-unknown}" > results/meta.json
+          cat results/meta.json
+
+      - name: Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          alsa=libasound2
+          if dpkg -s libasound2t64 >/dev/null 2>&1; then alsa=libasound2t64; fi
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1 libnotify4
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Electron version
+        id: electron
+        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the Electron download
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.os == 'Windows' && '~/AppData/Local/electron/Cache' || '~/.cache/electron' }}
+          key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
+
+      - name: Build (the bundle sizes are in results/build.log)
+        run: |
+          set -euo pipefail
+          npm rebuild electron
+          npm run rebuild:native:node
+          npm run build 2>&1 | tee results/build.log
+          npm run fix:native
+          npm run verify:native
+
+      - name: Package (unpacked, nothing published)
+        if: matrix.mode == 'packaged'
+        run: |
+          set -euo pipefail
+          npx electron-builder ${{ matrix.flag }} --dir --config.npmRebuild=false --publish never
+          src="$(ls -d dist/*-unpacked | head -1)"
+          dest="$RUNNER_TEMP/oxespace-perf"
+          rm -rf "$dest"; cp -a "$src" "$dest"
+          if [[ "$RUNNER_OS" == Windows ]]; then exe="$(ls "$dest"/OXESpace*.exe | head -1)"; else exe="$(find "$dest" -maxdepth 1 -type f -perm -u+x -iname 'oxespace*' -print -quit)"; fi
+          test -n "$exe" || { echo "::error::no packaged executable"; exit 1; }
+          # Playwright's _electron.launch needs --inspect: only this throwaway copy turns that fuse back on.
+          npx --no-install @electron/fuses write --app "$exe" EnableNodeCliInspectArguments=on
+          node scripts/check-fuses.mjs --app "$exe" --test-copy-of "$src/$(basename "$exe")"
+          echo "OXESPACE_PACKAGED_EXECUTABLE=$exe" >> "$GITHUB_ENV"
+
+      - name: No live OXESpace env reaches the run
+        run: |
+          if env | cut -d= -f1 | grep -Ei '^(OXESPACE_|AI_MEMORY_)' | grep -v '^OXESPACE_PACKAGED_EXECUTABLE$'; then echo "::error::OXESPACE_/AI_MEMORY_ variables are set on the runner"; exit 1; fi
+
+      - name: Benchmark, ${{ env.SAMPLES }} samples
+        env:
+          # One launch per perceived-perf round: each sample here is one fresh launch, so the table's median and p90
+          # are across samples. No screenshot launch, no confirmation rounds, no budgets: measure only.
+          OXESPACE_PERF_LAUNCHES: "1"
+          OXESPACE_PERF_SHOTS: "0"
+          OXESPACE_PERF_CONFIRM: "0"
+        run: |
+          set +e -uo pipefail
+          specs=(perf-benchmark.spec.ts memory-footprint.spec.ts perceived-perf.spec.ts)
+          cmd=(npx playwright test --config playwright.tools.config.ts "${specs[@]}" --grep-invert "idle memory cost|windows baselines")
+          if [[ "$RUNNER_OS" == Linux ]]; then cmd=(bash scripts/run-with-xvfb.sh "${cmd[@]}"); fi
+          for i in $(seq 1 "$SAMPLES"); do
+            echo "::group::sample $i"
+            start=$(date +%s)
+            "${cmd[@]}" > "results/sample-$i.log" 2>&1
+            status=$?
+            echo "sample $i exit=$status seconds=$(( $(date +%s) - start ))" | tee -a results/samples.txt
+            grep -aE '\[(RESULT|MEMORY)\]|✘|failed|Error:' "results/sample-$i.log" | head -120
+            echo "::endgroup::"
+          done
+          grep -c '\[RESULT\]' results/sample-*.log || true
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: perf-baseline-${{ matrix.version }}-${{ matrix.platform }}${{ matrix.mode == 'mock' && '-mock' || '' }}
+          if-no-files-found: error
+          retention-days: 30
+          path: results/
