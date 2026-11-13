@@ -820,7 +820,8 @@ export function App(): ReactElement {
         onSelectPane={setActivePane}
       />
       <UsageModal open={isUsageOpen} onOpenChange={(o) => (o ? openUsage() : closeUsage())} />
-      {commandBarOpen ? <CommandBarHost open={commandBarOpen} onOpenChange={setCommandBarOpen} applicationView={applicationView} selectMode={selectMode} activeWorkspace={activeWorkspace ?? null} activePane={activePane} /> : null}
+      {commandBarOpen ? <CommandBarHost open={commandBarOpen} onOpenChange={setCommandBarOpen} applicationView={applicationView} selectMode={selectMode} activeWorkspace={activeWorkspace ?? null} activePane={activePane}
+        onNewTerminal={() => splitActivePane('vertical')} onNewConversation={newThread} /> : null}
       {slashPane ? (
         <SlashOverlay
           paneId={slashPane.id}

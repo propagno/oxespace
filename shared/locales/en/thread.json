@@ -1580,6 +1580,10 @@
     "hint": "In Read only, {{agent}} plans but does not carry the plan out. To run it, change access to Can edit and ask it to go ahead.",
     "changeAccess": "Change access"
   },
+  "compactFeedback": {
+    "done": "Conversation compacted: the context went from {{before}}% to {{after}}% of the window.",
+    "doneNoNumbers": "Conversation compacted."
+  },
   "turnTiming": {
     "completedBackground": "Turn finished · {{count}} background pending",
     "completedWarnings": "Finished with warnings",

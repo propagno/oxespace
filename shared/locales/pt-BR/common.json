@@ -102,6 +102,7 @@
     "notInTerminal": "Não disponível em um terminal",
     "readOnlyFile": "Esta visualização é somente leitura",
     "needsTextField": "Coloque o cursor em um campo de texto antes",
+    "needsWorkspace": "Abra um workspace no OxeCode primeiro",
     "view": "Exibir",
     "appearance": "Aparência",
     "density": "Densidade",
@@ -616,6 +617,12 @@
     "tagline": "Agentes e terminais para os seus projetos"
   },
   "commandBar": {
+    "hint": {
+      "steerEmpty": "Diga o que passar ao agente: /steer e a sua mensagem.",
+      "noTurn": "Nenhum turno está rodando na conversa aberta.",
+      "failed": "Não rodou: {{reason}}",
+      "noWorkspace": "Abra um workspace no OxeCode primeiro: um terminal pertence a um."
+    },
     "sections": { "actions": "Ações", "goTo": "Ir para", "openBeside": "Abrir ao lado" },
     "destinations": {
       "oxechat": "Conversas e tarefas delegadas",
