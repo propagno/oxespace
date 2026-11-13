@@ -555,7 +555,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       onIncidentsChanged: (listener) => subscribe<{ count: number }>(ipc, IPC_CHANNELS.diagnostics.onIncidentsChanged, listener),
       previewBundle: () => ipc.invoke(IPC_CHANNELS.diagnostics.previewBundle) as Promise<import('../../shared/types/diagnostics').DiagnosticsBundlePreview>,
       exportBundle: () => ipc.invoke(IPC_CHANNELS.diagnostics.exportBundle) as Promise<string | null>,
-      analysisSummary: () => ipc.invoke(IPC_CHANNELS.diagnostics.analysisSummary) as Promise<string>
+      analysisSummary: () => ipc.invoke(IPC_CHANNELS.diagnostics.analysisSummary) as Promise<string>,
+      reportPerf: (batch) => ipc.invoke(IPC_CHANNELS.diagnostics.reportPerf, batch) as Promise<void>
     },
     policy: {
       get: (workspaceId) => ipc.invoke(IPC_CHANNELS.policy.get, workspaceId ?? null) as Promise<import('../../shared/policy').PolicyView>,
