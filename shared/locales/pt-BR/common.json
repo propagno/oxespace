@@ -553,6 +553,8 @@
       "dismiss": "Dispensar",
       "tryNow": "Tentar agora",
       "dialogTitle": "O que mudou na 1.5",
+      "columnRemoved": "Saiu",
+      "columnNow": "Use agora",
       "nothingNeededSaving": "Nada precisava ser salvo.",
       "savedPrefix": "Salvo em",
       "savedMemoriesAutosRequests": ": memórias, automações e as requisições do OxePost dos seus workspaces abertos.",

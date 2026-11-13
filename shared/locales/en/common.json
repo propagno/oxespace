@@ -545,6 +545,8 @@
       "dismiss": "Dismiss",
       "tryNow": "Try now",
       "dialogTitle": "What changed in 1.5",
+      "columnRemoved": "Removed",
+      "columnNow": "Use instead",
       "nothingNeededSaving": "Nothing needed saving.",
       "savedPrefix": "Saved to",
       "savedMemoriesAutosRequests": ": memories, automations and the OxePost requests of your open workspaces.",

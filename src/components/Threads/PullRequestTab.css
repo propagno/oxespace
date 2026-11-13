@@ -1,17 +1,51 @@
-.pr-tab { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3); overflow: auto; }
-.pr-tab-section { display: flex; flex-direction: column; gap: var(--space-2); }
-.pr-tab-heading { margin: 0; font-size: var(--text-sm); }
+/* The conversation's Pull request tab: a centered reading column of cards (head with its actions, checks, reviewers,
+   summary, description), on the tab panel's full height. */
+.pr-tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: min(100%, 820px);
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-6) var(--space-8);
+}
+.pr-tab-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+}
+.pr-tab-section:has(> .pr-tab-head) { gap: var(--space-3); }
+.pr-tab-heading {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
 .pr-tab-head { display: flex; align-items: center; gap: var(--space-2); }
-.pr-tab-number { font-weight: var(--weight-semibold); }
-.pr-tab-title { margin: 0; overflow-wrap: anywhere; }
-.pr-tab-note { margin: 0; }
-.pr-tab-muted { margin: 0; color: var(--text-secondary); }
-.pr-tab-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.pr-tab-number { color: var(--text-primary); font-family: var(--font-mono); font-weight: var(--weight-semibold); }
+.pr-tab-title { margin: 0; color: var(--text-primary); font-size: var(--text-lg); font-weight: var(--weight-semibold); line-height: 1.3; overflow-wrap: anywhere; }
+.pr-tab-note { margin: 0; color: var(--text-primary); }
+.pr-tab-muted { margin: 0; color: var(--text-secondary); font-size: var(--text-xs); }
+.pr-tab-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pr-tab-list > li { padding: var(--space-2) 0; border-top: 1px solid var(--border-subtle); font-size: var(--text-sm); }
+.pr-tab-list > li:first-child { border-top: 0; }
 .pr-tab-inline { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.pr-tab-row { display: flex; align-items: center; gap: var(--space-2); }
-.pr-tab-grow { flex: 1; overflow-wrap: anywhere; }
+.pr-tab-row { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.pr-tab-row > span:not(.pr-tab-grow) { flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pr-tab-grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A check's state: a dot in the state's colour before the name. */
+.pr-tab-row[data-state]::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--dot-gray); }
+.pr-tab-row[data-state='pass']::before { background: var(--dot-green); }
+.pr-tab-row[data-state='fail']::before { background: var(--dot-red); }
+
+.pr-tab-row[data-state='running']::before { background: var(--dot-yellow); }
 .pr-tab-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
-.pr-tab-form { display: flex; flex-direction: column; gap: var(--space-2); }
-.pr-tab-branches { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.pr-tab-command { overflow-wrap: anywhere; }
-.pr-tab-merge { display: inline-flex; }
+.pr-tab-form { display: flex; flex-direction: column; gap: var(--space-3); }
+.pr-tab-branches { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-2); }
+.pr-tab-command { padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); background: var(--surface-sunken); font-family: var(--font-mono); overflow-wrap: anywhere; }
+.pr-tab-merge { display: inline-flex; margin-left: auto; }

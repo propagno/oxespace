@@ -415,22 +415,55 @@
   list-style: none;
 }
 
-.thread-terminal-group li {
+/* Each pane is a row that opens it in OxeCode. */
+.thread-terminal-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
   padding: var(--space-3);
-  border: 1px solid var(--term-line);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  background: var(--term-bg);
-  color: var(--term-fg);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
 }
+.thread-terminal-row:hover { border-color: var(--border-default); background: var(--surface-hover); }
+.thread-terminal-row:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.thread-terminal-row > svg { flex: none; color: var(--text-muted); }
+.thread-terminal-row-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: var(--text-xs); }
+.thread-terminal-row-open { display: inline-flex; align-items: center; gap: var(--space-1); flex: none; color: var(--text-muted); font-size: var(--text-xs); opacity: 0; transition: opacity var(--duration-fast, 120ms) var(--ease-standard, ease); }
+.thread-terminal-row:is(:hover, :focus-visible) .thread-terminal-row-open { opacity: 1; color: var(--text-accent); }
+.thread-terminal-empty { margin: 0; color: var(--text-secondary); font-size: var(--text-sm); }
 
 /* ── Background Shells (U6.4) ── */
+/* Never more than a third of the view: the conversation above keeps its room and its scroll. */
 .thread-background-shells {
   display: grid;
   gap: 6px;
+  max-height: min(33vh, 320px);
   margin: 0 0 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
+
+.thread-background-shell.is-finished { gap: 4px; padding: 4px 6px 4px 10px; background: transparent; border-color: var(--border-subtle); }
+.thread-background-shell.is-finished .thread-background-shell-command { color: var(--text-secondary); }
+
+.thread-background-more {
+  justify-self: start;
+  padding: 2px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--text-link, var(--text-accent));
+  font: inherit;
+  font-size: var(--text-2xs);
+  cursor: pointer;
+}
+.thread-background-more:hover { text-decoration: underline; }
 
 .thread-background-shell {
   display: grid;
