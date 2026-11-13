@@ -1913,6 +1913,7 @@
   "terminalTab": {
     "agent": "Agent's",
     "yours": "Yours",
+    "open": "Open in OxeCode",
     "empty": "No terminals in this conversation's places yet."
   },
   "threadTabs": {
@@ -2122,6 +2123,9 @@
     "exitCode": "exit {{code}}",
     "unknownSince": "State unknown since {{time}}",
     "showOutput": "Show output",
+    "hideOutput": "Hide output",
+    "showEarlier": "Show {{count}} earlier",
+    "showFewer": "Show fewer",
     "stop": "Stop",
     "stopFromConversation": "Stop it from the conversation"
   },
