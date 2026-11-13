@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { scanSurface, type Violation } from './helpers/a11y'
 import { launchApp, openDemoWorkspace, resizeWindow, type Appearance } from './helpers/launch'
 import { openView } from './helpers/oxepod'
+import { openSettings } from './helpers/settings'
 
 /**
  * Forced colors (Windows high contrast) keeps the chosen option and the state of a switch readable (roadmap F31,
@@ -182,7 +183,7 @@ for (const base of ['light', 'dark'] as const) {
       for (const dot of dots) expect(dot).toEqual({ adjust: 'none', outline: 'solid', width: 1 })
 
       // Settings › Appearance: the mode cards (hand-made radios), Density (SegmentedControl) and the side nav rows.
-      await page.getByRole('button', { name: 'Open settings', exact: true }).click()
+      await openSettings(page)
       const settings = settingsDialog(page)
       const nav = settings.getByRole('navigation', { name: 'Settings categories' })
       await nav.getByRole('button', { name: /^Appearance/ }).click()

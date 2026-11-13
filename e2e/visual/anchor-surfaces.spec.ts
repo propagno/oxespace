@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { launchApp, openDemoWorkspace, pinWorkspaceColor, resizeWindow, type Appearance } from '../helpers/launch'
 import { expectSurface } from '../helpers/visual'
+import { openSettings } from '../helpers/settings'
 
 // Anchor surfaces get the full theme x viewport matrix; everything else in the
 // catalogue (see the 1.0 plan) runs in a single combination.
@@ -82,7 +83,7 @@ for (const theme of THEMES) {
       await openDemoWorkspace(page, workspaceRoot)
       await pinWorkspaceColor(page)
       await page.emulateMedia({ forcedColors: 'active' })
-      await page.getByRole('button', { name: 'Open settings', exact: true }).click()
+      await openSettings(page)
       const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
       await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Appearance/ }).click()
       await expect(settings.getByRole('radiogroup', { name: 'Density' })).toBeVisible()

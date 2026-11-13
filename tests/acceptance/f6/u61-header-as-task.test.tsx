@@ -105,7 +105,9 @@ describe('U6.1 · the header as a task', () => {
     expect(THREAD_MORE_ACTIONS.map(action => action.label).join(' ')).not.toMatch(/teammate|colega/i)
   })
 
-  test("there is one tab strip: F4's tabs are gone, and Changes, Terminal and Pull request fill in through ThreadToolTabs", async () => {
+  // Changed on 2026-11-13 by the product owner's decision: the Terminal and Pull request tabs left the conversation
+  // (1.5.2). Changes still fills in; a Terminal or Pull request entry from main is not drawn.
+  test("there is one tab strip: F4's tabs are gone, and Changes fills in through ThreadToolTabs, never Terminal or Pull request", async () => {
     // F4 (FE-P7) built ThreadTabs and visibleThreadTabs; F6 replaces them with ThreadToolTabs (TECH LEAD 08/11), so only one
     // strip can render: the old modules no longer resolve.
     await expect(load('src/components/Threads/ThreadTabs')).rejects.toThrow(/does not exist yet/)
@@ -122,8 +124,8 @@ describe('U6.1 · the header as a task', () => {
     // F4's fill-in rule holds: a tab appears once main counts something for it.
     tabs = [{ tab: 'conversation', count: null }, { tab: 'terminal', count: 1 }, { tab: 'changes', count: 3 }, { tab: 'pullRequest', count: 1 }]
     act(() => { for (const listener of listeners) listener({ threadId: 't-1' }) })
-    expect(await screen.findByRole('tab', { name: /Pull request/ })).toBeInTheDocument()
-    expect(screen.getAllByRole('tab').map(tab => tab.textContent?.replace(/\d+/g, '').trim())).toEqual(['Conversation', 'Terminal', 'Changes', 'Pull request'])
+    expect(await screen.findByRole('tab', { name: /Changes/ })).toBeInTheDocument()
+    expect(screen.getAllByRole('tab').map(tab => tab.textContent?.replace(/\d+/g, '').trim())).toEqual(['Conversation', 'Changes'])
     expect(screen.getAllByRole('tablist')).toHaveLength(1)
   })
 

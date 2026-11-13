@@ -2,6 +2,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtempSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { openSettings } from './helpers/settings'
 
 /**
  * Settings › MCP servers and skills (1.5.0 U3.4, B7.3) for a workspace's project, against the E2E contract mock:
@@ -21,7 +22,7 @@ test('Settings › MCP servers and skills: groups and costs, turning a group on 
     await page.getByTestId('btn-new-workspace').click()
     await page.getByTestId('wizard-dir-input').fill(repo)
     await page.getByTestId('wizard-launch-btn').click()
-    await page.getByRole('button', { name: 'Open settings' }).click()
+    await openSettings(page)
     const modal = page.getByRole('dialog', { name: 'Settings', exact: true })
     await expect(modal).toBeVisible()
     const category = modal.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^MCP servers and skills/ })
