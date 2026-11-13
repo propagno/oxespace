@@ -61,8 +61,8 @@ export type { GitBranchInput, GitBranchStatus, GitDiff, GitDiffFile, GitDiffHunk
 export type { GitHubBranch, GitHubCheckpoint, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubMessageResult, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubRepositorySummary, GitHubWorkflow, GitHubWorkflowRun, GitHubWorkflowRunDetails, GitHubWorkspaceStatus } from './github'
 export type { IntegrationGroup, IntegrationMember, IntegrationHandoff, IntegrationRole, IntegrationSession, IntegrationStatus } from './integration'
 export type { FileSystemApi, FileSystemFileChangedEvent, FileSystemListTreeInput, FileSystemReadBinaryInput, FileSystemReadBinaryResult, FileSystemReadFileInput, FileSystemReadFileResult, FileSystemUnwatchFileInput, FileSystemWatchFileInput, FileSystemWatchFileResult, FileSystemWriteFileInput, FileSystemWriteFileResult, FileTreeNode, FileTreeNodeType } from './filesystem'
-import type { TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalStatusResult, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
-export type { TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalStatusResult, PaneAgentResume, PaneAgentSession, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
+import type { TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalStatusResult, TerminalSizeLease, TerminalSizeLeaseEvent, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
+export type { TerminalSizeLease, TerminalSizeLeaseEvent, TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalStatusResult, PaneAgentResume, PaneAgentSession, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
 
 import { AGENTS_CHANNELS } from './ipc/agents'
 export type { AgentsApi } from './ipc/agents'
@@ -138,6 +138,8 @@ export const IPC_CHANNELS = {
     // A18 (T73) · The pane's branch and where it started, for the pane header; read, then pushed on change.
     branch: 'terminal:branch',
     branchChanged: 'terminal:branch-changed',
+    sizeLease: 'terminal:size-lease', // 1.5.0 · a phone holds the pane's size: read, pushed on change, taken back by the person
+    sizeLeaseChanged: 'terminal:size-lease-changed',
     onData: 'terminal:data',
     onExit: 'terminal:exit',
     onActivity: 'terminal:activity'
@@ -515,6 +517,8 @@ export interface TerminalBranchChangedEvent extends TerminalPaneBranch {
 }
 
 export interface TerminalApi {
+  sizeLease?(paneId: string, takeBack?: boolean): Promise<TerminalSizeLease | null> // with takeBack, ends a phone's hold first; the phone is refused until it opens the terminal again
+  onSizeLeaseChanged?(paneId: string, listener: (event: TerminalSizeLeaseEvent) => void): () => void
   /** A18 · The pane's branch now; null for a pane that is not tracked. */
   branch?(paneId: string): Promise<TerminalPaneBranch | null>
   onBranchChanged?(paneId: string, listener: (event: TerminalBranchChangedEvent) => void): () => void

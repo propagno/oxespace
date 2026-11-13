@@ -76,6 +76,14 @@ object RemoteQueuePreview {
     const val TEXT: Int = 200
 }
 
+/** The grid a phone may ask for: the same bounds as the snapshot a phone is sent. */
+object RemoteTerminalGrid {
+    const val MIN_COLS: Int = 20
+    const val MAX_COLS: Int = 500
+    const val MIN_ROWS: Int = 5
+    const val MAX_ROWS: Int = 200
+}
+
 @Serializable
 enum class RemoteFrameType(val wire: String) {
     @SerialName("hello") HELLO("hello"),
@@ -130,6 +138,8 @@ enum class RemoteCommand(val wire: String) {
     @SerialName("thread.history") THREAD_HISTORY("thread.history"),
     @SerialName("agent.markSeen") AGENT_MARK_SEEN("agent.markSeen"),
     @SerialName("pane.conversation") PANE_CONVERSATION("pane.conversation"),
+    @SerialName("terminal.resize") TERMINAL_RESIZE("terminal.resize"),
+    @SerialName("terminal.release") TERMINAL_RELEASE("terminal.release"),
     ;
 
     companion object {
@@ -873,6 +883,27 @@ data class RemoteRespondRequestResult(
 data class RemoteTerminalWriteArgs(
     val paneId: String,
     val data: String,
+)
+
+/**
+ * 1.5.0 · The phone has this terminal open and asks for the grid that fits its own screen, so a full-screen CLI draws
+ * for the phone (before, the phone only panned over the desktop's grid). Used only when the desktop's hello lists
+ * `terminal.resize`. On any pane the phone can see (a hidden one is `pane-not-shared`); `cols` and `rows` inside
+ * `REMOTE_TERMINAL_GRID`. The hold lasts while the phone renews it (send it again at least once a minute) and ends with
+ * `terminal.release`, a disconnect, or the person taking the size back on the desktop; the desktop's own size returns.
+ * After a take-back the answer is `forbidden` until the phone sends `terminal.release` (it left the terminal).
+ */
+@Serializable
+data class RemoteTerminalResizeArgs(
+    val paneId: String,
+    val cols: Long,
+    val rows: Long,
+)
+
+/** Lets go of a size taken with `terminal.resize`. Idempotent: without a hold it is still `ok`. */
+@Serializable
+data class RemoteTerminalReleaseArgs(
+    val paneId: String,
 )
 
 /** Older items of a conversation, for scrolling back. `ack.result` is a `RemoteThreadSnapshot` page. */
