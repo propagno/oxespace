@@ -872,7 +872,11 @@ export class RemoteGateway implements ConnectionHost {
   closed(connection: RemoteConnection): void {
     this.connections.delete(connection)
     // BE-A46-c5: a device with no connection left loses its conversation handles.
-    if (connection.deviceId && ![...this.connections].some(other => other.deviceId === connection.deviceId)) this.conversations?.forgetDevice(connection.deviceId)
+    if (connection.deviceId && ![...this.connections].some(other => other.deviceId === connection.deviceId)) {
+      this.conversations?.forgetDevice(connection.deviceId)
+      // A phone that is gone no longer holds any terminal's size.
+      this.deps.desktop?.releaseTerminalSizes(connection.deviceId)
+    }
     if (!connection.deviceId) return
     this.store.touch(connection.deviceId, this.now())
     this.deps.broadcast({ devices: this.devices() })

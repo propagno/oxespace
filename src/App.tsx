@@ -120,6 +120,23 @@ export function App(): ReactElement {
   useModeActions(selectMode)
   // A schedule's run opened a conversation: the way to it from the notice and from the Schedules dialog.
   const openScheduledThread = useCallback((threadId: string) => { selectMode('thread'); void useThreadStore.getState().load().then(() => useThreadStore.getState().select(threadId)) }, [selectMode])
+  // A conversation's Terminal tab opens one of its panes here: OxeCode, the pane's workspace, the pane focused.
+  useEffect(() => {
+    const open = (event: Event): void => {
+      const detail = (event as CustomEvent<{ paneId?: string; workspaceId?: string }>).detail
+      if (!detail?.paneId || !detail.workspaceId) return
+      const { paneId, workspaceId } = detail
+      void useWorkspaceStore.getState().setActiveWorkspace(workspaceId).then(() => {
+        useUIStore.getState().setMaximizedPane(null)
+        useUIStore.getState().setActivePane(paneId)
+        useTerminalStore.getState().setActivePaneId(paneId)
+        selectMode('code')
+        requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('oxe:focus-pane', { detail: { paneId } })))
+      })
+    }
+    window.addEventListener('oxe:open-pane', open)
+    return () => window.removeEventListener('oxe:open-pane', open)
+  }, [selectMode])
   const [newThreadWorkspaceId, setNewThreadWorkspaceId] = useState<string | null | undefined>(undefined)
   const [newThreadRootPath, setNewThreadRootPath] = useState<string | undefined>()
   const [isThreadProjectOpen, setThreadProjectOpen] = useState(false)

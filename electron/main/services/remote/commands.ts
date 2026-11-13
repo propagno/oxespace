@@ -1,5 +1,5 @@
 import {
-  REMOTE_AGENT_KINDS, REMOTE_LIMITS, REMOTE_TEXT_LIMITS,
+  REMOTE_AGENT_KINDS, REMOTE_LIMITS, REMOTE_TERMINAL_GRID, REMOTE_TEXT_LIMITS,
   type RemoteCommand, type RemoteCommandArgs, type RemoteErrorCode, type RemoteErrorReason, type RemoteRespondRequestArgs, type RemoteThreadSnapshot
 } from '../../../../shared/remote/protocol'
 import type { RemoteDesktop } from './desktop'
@@ -91,6 +91,16 @@ export function parseCommandArgs<C extends RemoteCommand>(command: C, value: unk
       if (typeof input.data !== 'string' || !input.data.length || Buffer.byteLength(input.data) > REMOTE_LIMITS.terminalWriteBytes) throw new Malformed()
       return { paneId: id(input.paneId), data: input.data } as RemoteCommandArgs[C]
     }
+    case 'terminal.resize': {
+      const input = fields(value, ['paneId', 'cols', 'rows'])
+      const cols = integer(input.cols, REMOTE_TERMINAL_GRID.minCols), rows = integer(input.rows, REMOTE_TERMINAL_GRID.minRows)
+      if (cols > REMOTE_TERMINAL_GRID.maxCols || rows > REMOTE_TERMINAL_GRID.maxRows) throw new Malformed()
+      return { paneId: id(input.paneId), cols, rows } as RemoteCommandArgs[C]
+    }
+    case 'terminal.release': {
+      const input = fields(value, ['paneId'])
+      return { paneId: id(input.paneId) } as RemoteCommandArgs[C]
+    }
     case 'thread.history': {
       const input = fields(value, ['threadId', 'beforeSeq'])
       return { threadId: id(input.threadId), beforeSeq: integer(input.beforeSeq, Number.MIN_SAFE_INTEGER) } as RemoteCommandArgs[C]
@@ -141,6 +151,8 @@ export class RemoteCommands {
         case 'thread.interrupt': return await this.interrupt(args as RemoteCommandArgs['thread.interrupt'])
         case 'thread.respondRequest': return await this.respond(args as RemoteCommandArgs['thread.respondRequest'])
         case 'terminal.write': return await this.write(args as RemoteCommandArgs['terminal.write'])
+        case 'terminal.resize': return this.resize(deviceId, args as RemoteCommandArgs['terminal.resize'])
+        case 'terminal.release': this.host.desktop.releaseTerminalSize((args as RemoteCommandArgs['terminal.release']).paneId, deviceId); return { ok: true }
         case 'thread.history': return await this.history(args as RemoteCommandArgs['thread.history'])
         // Idempotent, and an unknown key is ok too: the answer never tells whether a key exists (CCR #513 §6).
         case 'agent.markSeen': this.host.desktop.markAgentSeen(args as RemoteCommandArgs['agent.markSeen']); return { ok: true }
@@ -220,6 +232,14 @@ export class RemoteCommands {
   private async write(args: RemoteCommandArgs['terminal.write']): Promise<CommandOutcome> {
     if (this.host.phoneHidden?.().has(args.paneId) || !this.host.phoneWrite().has(args.paneId)) return { ok: false, code: 'pane-not-shared' }
     return await this.host.desktop.writeTerminal(args.paneId, args.data) ? { ok: true } : { ok: false, code: 'not-found' }
+  }
+
+  /** The phone sizes a terminal it can see for its own screen; a pane hidden from the phone is not shared at all. */
+  private resize(deviceId: string, args: RemoteCommandArgs['terminal.resize']): CommandOutcome {
+    if (this.host.phoneHidden?.().has(args.paneId)) return { ok: false, code: 'pane-not-shared' }
+    const held = this.host.desktop.sizeTerminal(args.paneId, deviceId, args.cols, args.rows)
+    // `forbidden`: the person took the size back on the desktop; it stays theirs until this phone leaves the terminal.
+    return held === 'held' ? { ok: true } : { ok: false, code: held === 'taken-back' ? 'forbidden' : 'not-found' }
   }
 
   /** BE-A46-c5: a page of a pane agent's conversation; an unknown pane or one without a session is `no-conversation`. */

@@ -101,7 +101,7 @@ export function ThreadToolTabs(props: {
   const content = current === 'terminal'
     ? <ThreadTerminalTab threadId={threadId} />
     : current === 'pullRequest' && rootPath && branch
-      ? <PullRequestTab threadId={threadId} rootPath={rootPath} branch={branch} />
+      ? <PullRequestTab threadId={threadId} rootPath={rootPath} branch={branch} onSendToConversation={onSendToConversation} />
       : current === 'changes' && workspaceId && rootPath
         ? (hasPlaces
             ? <PlacesChanges threadId={threadId} workspaceId={workspaceId} onSend={onSendToConversation} />

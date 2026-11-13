@@ -1972,6 +1972,7 @@
   "terminalTab": {
     "agent": "Do agente",
     "yours": "Seus",
+    "open": "Abrir no OxeCode",
     "empty": "Ainda não há terminais nos lugares desta conversa."
   },
   "threadTabs": {
@@ -2188,6 +2189,9 @@
     "exitCode": "saída {{code}}",
     "unknownSince": "Estado desconhecido desde {{time}}",
     "showOutput": "Mostrar saída",
+    "hideOutput": "Ocultar saída",
+    "showEarlier": "Mostrar mais {{count}}",
+    "showFewer": "Mostrar menos",
     "stop": "Parar",
     "stopFromConversation": "Pare pela conversa"
   },

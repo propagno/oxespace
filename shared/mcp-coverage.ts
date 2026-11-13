@@ -73,7 +73,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'code.terminal_input': {
     label: 'Start, type into, resize or stop a terminal',
     excluded: 'Free key input into another terminal. Agents prompt agents with oxespace_agents_change prompt, which refuses one waiting for an approval.',
-    ipc: ['terminal.start', 'terminal.write', 'terminal.resize', 'terminal.stop', 'terminal.restart', 'terminal.attach', 'terminal.detach']
+    ipc: ['terminal.start', 'terminal.write', 'terminal.resize', 'terminal.stop', 'terminal.restart', 'terminal.attach', 'terminal.detach', 'terminal.sizeLease', 'terminal.sizeLeaseChanged']
   },
   'code.pane_branch': {
     label: 'A pane\'s branch and the branch it started on (switched from)',
