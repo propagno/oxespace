@@ -70,7 +70,7 @@
     <string name="live_agents_partial_text">O computador não conseguiu ler todas as fontes desta vez. A lista se completa quando puder.</string>
     <string name="live_agents_partial_title">Alguns agentes não estão na lista</string>
     <string name="live_agent_state_blocked">Precisa de você</string>
-    <string name="live_agent_state_done">Terminou</string>
+    <string name="live_agent_state_done">Concluído</string>
     <string name="live_agent_state_idle">Ocioso</string>
     <string name="live_agent_state_unknown">Não confirmado</string>
     <string name="live_agent_state_working">Trabalhando</string>
@@ -93,7 +93,7 @@
     <string name="live_empty_threads">Ainda não há conversas em %1$s.</string>
     <string name="live_empty_title">Nada por aqui ainda</string>
     <string name="live_exit_code">código de saída %1$s</string>
-    <string name="live_job_exited">Terminou</string>
+    <string name="live_job_exited">Concluída</string>
     <string name="live_job_failed">Falhou</string>
     <string name="live_job_killed">Parada</string>
     <string name="live_job_pending">Iniciando</string>
