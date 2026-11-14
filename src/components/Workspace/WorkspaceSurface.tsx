@@ -72,6 +72,7 @@ import { i18n } from '../../i18n'
 import { useTranslation } from 'react-i18next'
 import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
 import { quarantinedCount } from '../MCP/mcpQuarantine'
+import { preloadMcpPanel } from '../MCP/McpHost'
 
 const tc = i18n.getFixedT(null, 'code')
 
@@ -617,7 +618,7 @@ function WorkspaceSurfaceComponent({
       {panels?.filter(item => CODE_BAR_PANELS.includes(item.id)).map(item => <WorkbenchPanelToggle key={item.id} item={item} className="workspace-topbar-action" />)}
       {panels && <WorkbenchPanelMenu items={panels.filter(item => CODE_MENU_PANELS.includes(item.id))} testId="workspace-panels-menu"
         trigger={<button type="button" className="workspace-topbar-action" aria-label={tc('panels.more')} title={tc('panels.more')}><PanelsTopLeft size={14} aria-hidden="true" /><span>{tc('panels.menu')}</span></button>} />}
-      <button type="button" className="workspace-topbar-action" aria-label={quarantinedMcp > 0 ? tc('workspace.topbar.mcpQuarantined', { count: quarantinedMcp }) : tc('workspace.topbar.mcp')} title={tc('tools.mcp.detail')} onClick={openConnections} data-testid="workspace-topbar-mcp">
+      <button type="button" className="workspace-topbar-action" aria-label={quarantinedMcp > 0 ? tc('workspace.topbar.mcpQuarantined', { count: quarantinedMcp }) : tc('workspace.topbar.mcp')} title={tc('tools.mcp.detail')} onClick={openConnections} onPointerEnter={preloadMcpPanel} onFocus={preloadMcpPanel} data-testid="workspace-topbar-mcp">
         <PlugZap size={14} aria-hidden="true" /><span>MCP</span>
         {quarantinedMcp > 0 ? <span className="workspace-topbar-alert" aria-hidden="true" data-testid="workspace-topbar-mcp-quarantined">{quarantinedMcp > 9 ? '9+' : quarantinedMcp}</span> : null}
       </button>
