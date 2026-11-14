@@ -1,0 +1,133 @@
+# TEMPORARY (OXE-105 round 2), lives only on ci/perf-probe-oxe-105, never merged: one pass of e2e/perf-resume.spec.ts
+# on the packaged v1.5.1 and main, both OS, to check the new spec before the full gate run.
+name: Perf resume probe (temporary)
+
+on:
+  push:
+    branches: ["ci/perf-probe-oxe-105"]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Resume probe (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, ubuntu-22.04]
+    env:
+      REF_B: v1.5.1
+      REF_C: main
+      ROUNDS: "1"
+      GATE_LAUNCHES: "4"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Harness (this commit)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: harness
+          persist-credentials: false
+      - name: B = v1.5.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.REF_B }}
+          path: B
+          persist-credentials: false
+      - name: C = merge
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.REF_C }}
+          path: C
+          persist-credentials: false
+      - name: Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            B/package-lock.json
+            C/package-lock.json
+      - name: Cache the Electron download
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.os == 'Windows' && '~/AppData/Local/electron/Cache' || '~/.cache/electron' }}
+          key: electron-gate-${{ runner.os }}-${{ hashFiles('B/package-lock.json', 'C/package-lock.json') }}
+      - name: No live OXESpace env reaches the run
+        run: |
+          if env | cut -d= -f1 | grep -Ei '^(OXESPACE_|AI_MEMORY_)'; then echo "::error::OXESPACE_/AI_MEMORY_ variables are set on the runner"; exit 1; fi
+      - name: Build, package and overlay the harness on each ref
+        run: |
+          set -euo pipefail
+          mkdir -p results/rounds results/entry
+          : > sides.env
+          heads='['
+          for side in B C; do
+            ref_var="REF_$side"; ref="${!ref_var}"
+            echo "::group::$side = $ref"
+            cd "$GITHUB_WORKSPACE/$side"
+            npm ci --ignore-scripts
+            npm rebuild electron
+            npm run rebuild:native:node
+            npm run build 2>&1 | tee "$GITHUB_WORKSPACE/results/$side-build.log"
+            npm run fix:native
+            npm run verify:native
+            node "$GITHUB_WORKSPACE/harness/perf-gate/entry-size.mjs" . > "$GITHUB_WORKSPACE/results/$side-entry.json"
+            # The path goes in as an argument: a Windows path inside a JS string literal loses its backslashes.
+            entry_file="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8')).file" "$GITHUB_WORKSPACE/results/$side-entry.json")"
+            cp "out/renderer/${entry_file#./}" "$GITHUB_WORKSPACE/results/entry/$side-entry.js"
+            npx electron-builder $([ "$RUNNER_OS" = Windows ] && echo --win || echo --linux) --dir --config.npmRebuild=false --publish never
+            src="$(ls -d dist/*-unpacked | head -1)"
+            dest="$RUNNER_TEMP/oxespace-gate-$side"
+            rm -rf "$dest"; cp -a "$src" "$dest"
+            if [[ "$RUNNER_OS" == Windows ]]; then exe="$(ls "$dest"/OXESpace*.exe | head -1)"; else exe="$(find "$dest" -maxdepth 1 -type f -perm -u+x -iname 'oxespace*' -print -quit)"; fi
+            test -n "$exe" || { echo "::error::$side: no packaged executable"; exit 1; }
+            npx --no-install @electron/fuses write --app "$exe" EnableNodeCliInspectArguments=on
+            node scripts/check-fuses.mjs --app "$exe" --test-copy-of "$src/$(basename "$exe")"
+            rm -rf dist
+            printf "EXE_%s='%s'\n" "$side" "$exe" >> "$GITHUB_WORKSPACE/sides.env"
+            for f in perf-benchmark.spec.ts perceived-perf.spec.ts memory-footprint.spec.ts perf-resume.spec.ts helpers/input-timer.ts helpers/perf-launch.ts helpers/modes.ts helpers/panels.ts helpers/thread-fixtures.ts; do
+              mkdir -p "e2e/$(dirname "$f")"; cp "$GITHUB_WORKSPACE/harness/e2e/$f" "e2e/$f"
+            done
+            cp "$GITHUB_WORKSPACE/harness/perf-gate/boot-probe.spec.ts" e2e/perf-gate-boot.spec.ts
+            heads+="$( [ "$side" = B ] || echo ,){\"side\":\"$side\",\"ref\":\"$ref\",\"sha\":\"$(git rev-parse HEAD)\"}"
+            cd "$GITHUB_WORKSPACE"
+            echo "::endgroup::"
+          done
+          echo "$heads]" > results/heads.json
+          cat results/heads.json sides.env
+      - name: Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          alsa=libasound2
+          if dpkg -s libasound2t64 >/dev/null 2>&1; then alsa=libasound2t64; fi
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1 libnotify4
+      - name: Probe perf-resume once per side
+        run: |
+          set +e -uo pipefail
+          source sides.env
+          for side in B C; do
+            exe_var="EXE_$side"
+            ( cd "$side" && export OXESPACE_PACKAGED_EXECUTABLE="${!exe_var}"
+              if [[ "$RUNNER_OS" == Linux ]]; then bash scripts/run-with-xvfb.sh npx playwright test --config playwright.tools.config.ts perf-resume.spec.ts --reporter=line
+              else npx playwright test --config playwright.tools.config.ts perf-resume.spec.ts --reporter=line; fi ) > "results/rounds/$side-r1-bench.log" 2>&1
+            echo "=== $side"; grep -aE '\[(RESULT|RESUME)\]|Error|✘|failed|passed' "results/rounds/$side-r1-bench.log" | head -40
+          done
+          exit 0
+      - name: Table
+        if: ${{ !cancelled() }}
+        run: |
+          node harness/perf-gate/summarize.mjs results "probe ${{ matrix.os }}" --json results/perf-gate.json | tee results/perf-gate.md
+          cat results/perf-gate.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: probe-${{ matrix.os }}
+          retention-days: 30
+          path: results/
+
