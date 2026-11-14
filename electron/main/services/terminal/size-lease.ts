@@ -73,6 +73,12 @@ export class SizeLeases {
     return this.release(paneId)
   }
 
+  /** The desktop's own size for a pane a phone holds right now, or null when nobody holds it. */
+  desktopSize(paneId: string): { cols: number; rows: number } | null {
+    const lease = this.leases.get(paneId)
+    return lease ? { ...lease.desktop } : null
+  }
+
   /** The size a phone holds for this pane right now, or null. */
   get(paneId: string): TerminalSizeLease | null {
     const lease = this.live(paneId)
