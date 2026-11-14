@@ -1,4 +1,5 @@
-import { Bell, CheckCheck } from 'lucide-react'
+import { Bell, BellRing, CheckCheck } from 'lucide-react'
+import { NEXT_ATTENTION_EVENT } from '../app/nextAttention'
 import { i18n } from '../i18n'
 import { useActivityStore } from '../store/activity.store'
 import { toast } from '../ui'
@@ -12,6 +13,9 @@ registerTranslated(() => registerCommands('activity', [
   { id: 'activity.open', ...commandText('Activity', 'activity.open', { keywords: ['notifications', 'inbox', 'needs you', 'finished', 'updates'] }), icon: Bell, shortcut: 'activity.open',
     // After the palette closes, so the popover keeps focus.
     run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(OPEN_ACTIVITY_CENTER_EVENT))) } },
+  // OXE-128: the next pane or conversation that needs the person; NextAttentionHost does it, with the app's view switch.
+  { id: 'attention.next', ...commandText('Activity', 'attention.next', { keywords: ['needs you', 'next', 'waiting', 'approval'] }), icon: BellRing, shortcut: 'attention.next',
+    run: () => { requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(NEXT_ATTENTION_EVENT))) } },
   { id: 'activity.markAllRead', ...commandText('Activity', 'activity.markAllRead', { keywords: ['notifications', 'clear'] }), icon: CheckCheck,
     // Says so either way, so the command never looks like it did nothing.
     run: () => {
