@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeFonts
+import com.oxespace.mobile.ui.theme.OxeRadius
 import com.oxespace.mobile.ui.theme.OxeSpace
 
 /*
@@ -59,7 +60,7 @@ fun PairingStepper(labels: List<String>, current: Int, modifier: Modifier = Modi
                 else -> colors.borderDefault
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(OxeSpace.space1)) {
-                Box(Modifier.fillMaxWidth().height(4.dp).background(bar, RoundedCornerShape(2.dp)))
+                Box(Modifier.fillMaxWidth().height(4.dp).background(bar, RoundedCornerShape(OxeRadius.full)))
                 Text(
                     label,
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = if (now) FontWeight.SemiBold else FontWeight.Normal),
@@ -88,8 +89,8 @@ fun CodeBoxes(code: String, spoken: String, modifier: Modifier = Modifier) {
             if (i == 3) Box(Modifier.width(10.dp))
             Box(
                 Modifier.size(width = 44.dp, height = 60.dp)
-                    .background(colors.surfaceRaised, RoundedCornerShape(10.dp))
-                    .border(1.dp, colors.borderStrong, RoundedCornerShape(10.dp)),
+                    .background(colors.surfaceRaised, RoundedCornerShape(OxeRadius.md))
+                    .border(1.dp, colors.borderStrong, RoundedCornerShape(OxeRadius.md)),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(char.toString(), fontFamily = OxeFonts.mono, fontSize = 28.sp, color = colors.textPrimary, textAlign = TextAlign.Center)
@@ -103,7 +104,7 @@ fun CodeBoxes(code: String, spoken: String, modifier: Modifier = Modifier) {
 fun Viewfinder(warning: Boolean, modifier: Modifier = Modifier, camera: @Composable (Modifier) -> Unit) {
     val colors = Oxe.colors
     val guide = if (warning) colors.intentWarningSolid else colors.accent
-    Box(modifier.clip(RoundedCornerShape(16.dp)).background(colors.termBg)) {
+    Box(modifier.clip(RoundedCornerShape(OxeRadius.xl)).background(colors.termBg)) {
         camera(Modifier.fillMaxSize())
         Canvas(Modifier.fillMaxSize().padding(16.dp).semantics { }) {
             val len = size.minDimension * 0.18f

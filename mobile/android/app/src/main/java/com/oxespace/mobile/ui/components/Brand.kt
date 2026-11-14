@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.oxespace.mobile.ui.icons.OxeIcons
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeIdentity
+import com.oxespace.mobile.ui.theme.OxeRadius
 import com.oxespace.mobile.ui.theme.OxeSpace
 
 /*
@@ -72,7 +73,7 @@ fun Skeleton(modifier: Modifier = Modifier, lines: Int = 3) {
                 Modifier.fillMaxWidth(if (i == lines - 1) 0.6f else 1f).height(14.dp)
                     // CR-F10-10e (DESIGN #744): borderDefault reads against the canvas in both themes (1.37:1 light,
                     // 1.62:1 dark); surfaceSunken measured 1.07:1 and 1.00:1, so the screen looked empty.
-                    .background(Oxe.colors.borderDefault, RoundedCornerShape(6.dp)),
+                    .background(Oxe.colors.borderDefault, RoundedCornerShape(OxeRadius.sm)),
             )
         }
     }
@@ -82,14 +83,14 @@ fun Skeleton(modifier: Modifier = Modifier, lines: Int = 3) {
 @Composable
 fun ComputerCard(name: String, status: String, modifier: Modifier = Modifier, connecting: Boolean = false) {
     val colors = Oxe.colors
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(OxeRadius.xl)
     Column(
         modifier.fillMaxWidth().background(colors.surfaceRaised, shape).border(1.dp, colors.borderSubtle, shape).padding(OxeSpace.space4)
             .semantics(mergeDescendants = true) { contentDescription = "$name, $status" },
         verticalArrangement = Arrangement.spacedBy(OxeSpace.space3),
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(OxeSpace.space3), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(40.dp).background(colors.surfaceSunken, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(40.dp).background(colors.surfaceSunken, RoundedCornerShape(OxeRadius.lg)), contentAlignment = Alignment.Center) {
                 Icon(OxeIcons.Monitor, contentDescription = null, tint = colors.textSecondary, modifier = Modifier.size(22.dp))
             }
             Column(Modifier.weight(1f)) {
