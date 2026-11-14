@@ -1972,7 +1972,7 @@
         "blocked": "Needs you",
         "done": "Finished",
         "idle": "Idle",
-        "unknown": "Unconfirmed"
+        "unknown": "Not confirmed"
       }
     },
     "detailsUnavailable": "Session details unavailable",

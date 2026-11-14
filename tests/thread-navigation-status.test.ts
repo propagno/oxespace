@@ -14,7 +14,7 @@ describe('Thread navigation status', () => {
     ['running', undefined, 'running', 'Working'],
     ['approval', undefined, 'attention', 'Needs you'],
     ['failed', undefined, 'failed', 'Failed'],
-    ['interrupted', undefined, 'interrupted', 'Idle']
+    ['interrupted', undefined, 'interrupted', 'Stopped']
   ] as const)('maps %s and last turn %s to %s', (status, lastTurnStatus, kind, label) => {
     expect(threadNavigationStatus(thread(status, lastTurnStatus))).toEqual({ kind, label })
   })

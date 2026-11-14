@@ -4,8 +4,8 @@ import { i18n } from '../../i18n'
 
 export type ThreadNavigationStatus = 'ready' | 'completed' | 'running' | 'attention' | 'failed' | 'interrupted'
 
-/** The five state words (src/design/targets/README.md › State words): Needs you · Working · Idle · Failed · Finished. */
-type StateWord = 'attention' | 'running' | 'idle' | 'failed' | 'completed'
+/** The state words a conversation row can say (docs/design/glossary.md § 5): Needs you · Working · Idle · Failed · Finished · Stopped. */
+type StateWord = 'attention' | 'running' | 'idle' | 'failed' | 'completed' | 'interrupted'
 
 const status = (kind: ThreadNavigationStatus, word: StateWord) => ({ kind, label: i18n.t(`thread:status.${word}`) })
 
@@ -15,8 +15,8 @@ export function threadNavigationStatus(thread: ConversationThread): { kind: Thre
     case 'running': return status('running', 'running')
     case 'approval': return status('attention', 'attention')
     case 'failed': return status('failed', 'failed')
-    // Stopped by someone: nothing runs and nothing waits, so the word is Idle; the stop square still tells it apart.
-    case 'interrupted': return status('interrupted', 'idle')
+    // Stopped by someone: Stopped, beside its stop square.
+    case 'interrupted': return status('interrupted', 'interrupted')
     // The turn is over but work the agent started in the background still runs: not done yet.
     case 'idle': if (backgroundRunning(thread)) return status('running', 'running')
       // No finished turn yet (a new conversation): nothing runs and nothing waits.
