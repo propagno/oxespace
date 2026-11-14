@@ -13,7 +13,7 @@
 # A release: dispatch with candidate = the release branch or tag. Before this file is on main, push the commit to a
 # ci/perf-gate-* branch to run it with the defaults.
 name: Performance gate
-run-name: Performance gate · v1.5.0 · v1.5.1 · ${{ inputs.candidate || 'main' }} · ${{ github.ref_name }}
+run-name: Performance gate · OXE-155 A/B · #823 head · main · #827 head · ${{ github.ref_name }}
 
 on:
   push:
@@ -54,9 +54,10 @@ jobs:
             os: ubuntu-22.04
             flag: --linux
     env:
-      REF_A: v1.5.0
-      REF_B: v1.5.1
-      REF_C: ${{ inputs.candidate || 'main' }}
+      # OXE-155 scratch run (never merged): A = #823 head (this PR base), B = main, C = #827 head.
+      REF_A: 9cbe57d72552fbb598364fbefc5c819dba8b7857
+      REF_B: f417a86f09fb00247f875b9103bc070bb5351f19
+      REF_C: ${{ inputs.candidate || '4d5261dfd227198779b3897809ff37bd2108b130' }}
       ROUNDS: ${{ inputs.rounds || '7' }}
       GATE_LAUNCHES: "4"
     defaults:
@@ -223,7 +224,7 @@ jobs:
           set -euo pipefail
           mkdir -p perf-gate-table
           {
-            echo "## Performance gate (OXE-105): v1.5.0 × v1.5.1 × ${REF_C}, same runner, interleaved"
+            echo "## Performance gate (OXE-105): #823 head × main × ${REF_C}, same runner, interleaved"
             echo
             for os in windows-x64 linux-x64; do
               if [ -f "perf-results/perf-gate-$os/perf-gate.md" ]; then cat "perf-results/perf-gate-$os/perf-gate.md"; else echo "### $os"; echo; echo "(no results)"; fi
@@ -232,7 +233,7 @@ jobs:
           } > perf-gate-table/perf-gate.md
           cat perf-gate-table/perf-gate.md >> "$GITHUB_STEP_SUMMARY"
         env:
-          REF_C: ${{ inputs.candidate || 'main' }}
+          REF_C: ${{ inputs.candidate || '4d5261dfd227198779b3897809ff37bd2108b130' }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: perf-gate-table
