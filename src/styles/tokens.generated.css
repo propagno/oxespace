@@ -16,6 +16,8 @@
   --space-8: 32px;
   --space-10: 40px;
   --space-12: 48px;
+  --space-0-5: 2px;
+  --space-1-5: 6px;
   --text-2xs: 11px;
   --text-xs: 12px;
   --text-sm: 13px;
@@ -38,6 +40,11 @@
   --control-sm: 24px;
   --control-md: 28px;
   --control-lg: 32px;
+  --bar-sm: 24px;
+  --bar-md: 32px;
+  --bar-lg: 36px;
+  --row-1: 28px;
+  --row-2: 44px;
   --target-min: 24px;
   --layer-base: 0;
   --layer-raised: 1;
@@ -477,6 +484,11 @@
   --control-sm: 28px;
   --control-md: 32px;
   --control-lg: 36px;
+  --bar-sm: 24px;
+  --bar-md: 36px;
+  --bar-lg: 40px;
+  --row-1: 32px;
+  --row-2: 48px;
 }
 
 @media (prefers-contrast: more) {

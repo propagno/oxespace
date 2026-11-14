@@ -28,11 +28,11 @@
 .title {
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
-  color: var(--fg-primary);
+  color: var(--text-primary);
 }
 
 .body {
   margin: 0;
   font-size: var(--text-xs);
-  color: var(--fg-secondary);
+  color: var(--text-secondary);
 }

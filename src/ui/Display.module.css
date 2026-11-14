@@ -38,7 +38,7 @@
 .panelBody { padding: var(--space-3); min-height: 0; overflow: auto; }
 
 /* Toolbar */
-.toolbar { display: flex; align-items: center; gap: var(--space-1); min-height: var(--control-lg); flex-wrap: wrap; }
+.toolbar { display: flex; align-items: center; gap: var(--space-1); min-height: var(--bar-md); flex-wrap: wrap; }
 .toolbarSpacer { flex: 1; }
 
 /* Empty state */
@@ -126,13 +126,15 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  height: var(--control-lg);
+  /* 1.5.2 scale: every tab bar is --bar-md with a 12/500 label (VIS-01). */
+  height: var(--bar-md);
   padding: 0 var(--space-3);
   border: 0;
   background: none;
   color: var(--text-secondary);
   font: inherit;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
   white-space: nowrap;
   cursor: pointer;
 }

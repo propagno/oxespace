@@ -82,7 +82,7 @@ function findBackgroundToastApproval(
  */
 function ApprovalsUnavailable(): ReactElement {
   useEffect(() => { handBackAll() }, [])
-  return <p role="status" data-testid="approvals-unavailable" style={{ position: 'fixed', insetInline: 0, bottom: 0, margin: 0, padding: 'var(--space-2) var(--space-3)', background: 'var(--intent-warning-bg)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)', zIndex: 'var(--layer-toast, var(--layer-popover))' }}>
+  return <p role="status" data-testid="approvals-unavailable" style={{ position: 'fixed', insetInline: 0, bottom: 0, margin: 0, padding: 'var(--space-2) var(--space-3)', background: 'var(--intent-warning-bg)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)', zIndex: 'var(--layer-toast)' }}>
     {i18n.t('approvals.unavailableWindow')}
   </p>
 }
