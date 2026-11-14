@@ -44,8 +44,9 @@ export function generateScale(spec: ScaleSpec, mode: Mode): Scale {
 export const SCALE_SPECS = {
   /** Night grey for surfaces, borders and text: violet, with more chroma in dark mode than in light (Mandacaru Noite). */
   neutral: { hue: 285, chroma: { light: 0.04, dark: 0.13 }, solid: { light: 0.6, dark: 0.58 } },
-  /** Caatinga green: the accent in both modes (1.5, C4) and the brand mark. */
-  caatinga: { hue: 158, chroma: 0.135, solid: { light: 0.5, dark: 0.7 } },
+  /** Caatinga green: the accent in both modes (1.5, C4) and the brand mark. Light solid 0.48, not the book's 0.5: white text
+   *  on a 14% white tint over it (keys inside primary buttons) needs 4.5:1. */
+  caatinga: { hue: 158, chroma: 0.135, solid: { light: 0.48, dark: 0.7 } },
   /** Sertão sun: "needs you" (attn) in both modes since 1.5; it is no longer an accent. */
   sun: { hue: 72, chroma: 0.15, solid: { light: 0.72, dark: 0.79 } },
   success: { hue: 148, chroma: 0.14, solid: { light: 0.54, dark: 0.7 } },
