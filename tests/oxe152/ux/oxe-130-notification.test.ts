@@ -7,7 +7,7 @@
 // Contract:
 // - Title: the conversation's name (the pane's name for an OxeCode pane, which has no conversation), at most 80
 //   characters (a longer one is cut, an ellipsis allowed within the 80). Nothing else in the title.
-// - Body: "Needs you · <place>" or "Finished · <place>" (pt-BR "Precisa de você · <place>" / "Terminou · <place>"):
+// - Body: "Needs you · <place>" or "Finished · <place>" (pt-BR "Precisa de você · <place>" / "Concluído · <place>"):
 //   <place> is the conversation's project (OxeChat) or the pane's workspace (OxeCode), by name. No raw codes.
 //   Needs you = a conversation waiting on approval (status approval) or a pane blocked on a decision; Finished = a
 //   conversation whose turn completed or a pane that finished and waits for a reply. Failed / exited / error notices
@@ -176,7 +176,7 @@ describe('OXE-130 · a notification names the conversation and where it is, with
     await changeLanguage('pt-BR')
     await watchConversations([conversation('c', 'Cobrança'), conversation('d', 'Deploy')])
     await update([finished(conversation('c', 'Cobrança')), conversation('d', 'Deploy', { status: 'approval' })])
-    expect(sent().map(payload => payload.body)).toEqual(['Terminou · pix-api', 'Precisa de você · pix-api'])
+    expect(sent().map(payload => payload.body)).toEqual(['Concluído · pix-api', 'Precisa de você · pix-api'])
     cleanup(); notify.mockClear()
     await changeLanguage('en')
 
