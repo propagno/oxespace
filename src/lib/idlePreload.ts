@@ -91,6 +91,10 @@ const mark = (name: string): void => { try { performance.mark(name) } catch { /*
 export async function runIdlePreload(cancelled: () => boolean, options: {
   recent?: string | null; env?: PreloadEnvironment; loaders?: Partial<Record<PreloadTarget, () => Promise<unknown>>>
 } = {}): Promise<PreloadTarget[]> {
+  // The performance journal's window half starts here, at idle after the first screen, and not from the boot bundle
+  // (OXE-56): its observers read the start's frames back (buffered), and its import costs the entry nothing. It starts
+  // even when the preload is switched off.
+  void import('./perfJournal').then(module => module.startPerfJournal()).catch(() => undefined)
   if (preloadDisabled()) { mark('oxe:preload:off'); return [] }
   const recent = options.recent === undefined ? recentView() : options.recent
   const env = options.env ?? { navigator: navigator as PreloadEnvironment['navigator'], performance: performance as PreloadEnvironment['performance'] }
