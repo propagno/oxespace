@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import com.oxespace.mobile.R
 import androidx.compose.ui.unit.TextUnit
@@ -75,17 +76,19 @@ fun oxeColorScheme(colors: OxeColors, dark: Boolean): ColorScheme {
 }
 
 /**
- * The desktop's three Mandacaru families (`--font-ui`, `--font-mono`, `--font-display`), bundled in res/font from the
- * same @fontsource files the desktop ships (SIL OFL; licence in assets/licenses). Spec: docs/design/mobile-conversation.md §1.
+ * The desktop's families (`--font-ui`, `--font-display`, `--font-mono`), bundled in res/font (SIL OFL; licences in
+ * assets/licenses). Instrument Sans is one variable file (weight 400–700, width 75–100%, latin and latin-ext) for the
+ * interface and, condensed, for display, as on the desktop (docs/design/brand.md › Type). Spec: docs/design/mobile-conversation.md §1.
  */
 object OxeFonts {
-    /** IBM Plex Sans: the interface and every body text. */
-    val ui = FontFamily(
-        Font(R.font.ibm_plex_sans_regular, FontWeight(400)),
-        Font(R.font.ibm_plex_sans_medium, FontWeight(500)),
-        Font(R.font.ibm_plex_sans_semibold, FontWeight(600)),
-        Font(R.font.ibm_plex_sans_bold, FontWeight(700)),
+    private fun instrument(weight: Int, width: Float = 100f) = Font(
+        R.font.instrument_sans,
+        FontWeight(weight),
+        variationSettings = FontVariation.Settings(FontVariation.weight(weight), FontVariation.width(width)),
     )
+
+    /** Instrument Sans at normal width: the interface and every body text. */
+    val ui = FontFamily(instrument(400), instrument(500), instrument(600), instrument(700))
 
     /** IBM Plex Mono: commands, paths, code and the terminal. */
     val mono = FontFamily(
@@ -93,11 +96,8 @@ object OxeFonts {
         Font(R.font.ibm_plex_mono_medium, FontWeight(500)),
     )
 
-    /** Bricolage Grotesque: screen titles and the request title only. */
-    val display = FontFamily(
-        Font(R.font.bricolage_grotesque_semibold, FontWeight(600)),
-        Font(R.font.bricolage_grotesque_extrabold, FontWeight(800)),
-    )
+    /** Instrument Sans condensed (the desktop's --stretch-title 80% and --stretch-display 78%): screen titles and the request title only. */
+    val display = FontFamily(instrument(600, 80f), instrument(700, 78f))
 }
 
 private fun style(size: TextUnit, leading: Float, weight: FontWeight, family: FontFamily = OxeFonts.ui) =
