@@ -15,7 +15,7 @@ export type Scale = readonly string[] & { length: 12 }
 interface ScaleSpec {
   hue: number
   /** Peak chroma, reached at the solid step. */
-  chroma: number
+  chroma: number | Record<Mode, number>
   /** Lightness of the solid step (9) in each mode. */
   solid: Record<Mode, number>
 }
@@ -36,16 +36,16 @@ export function generateScale(spec: ScaleSpec, mode: Mode): Scale {
   const hover = mode === 'light' ? solid - 0.05 : solid + 0.05
   return LIGHTNESS[mode].map((l, index) => oklchToHex({
     l: index === 8 ? solid : index === 9 ? hover : l,
-    c: spec.chroma * CHROMA[mode][index],
+    c: (typeof spec.chroma === 'number' ? spec.chroma : spec.chroma[mode]) * CHROMA[mode][index],
     h: spec.hue
   })) as unknown as Scale
 }
 
 export const SCALE_SPECS = {
   /** Green-tinted grey for surfaces, borders and text. */
-  neutral: { hue: 155, chroma: 0.034, solid: { light: 0.6, dark: 0.56 } },
+  neutral: { hue: 285, chroma: { light: 0.04, dark: 0.13 }, solid: { light: 0.6, dark: 0.58 } },
   /** Caatinga green: the accent in both modes (1.5, C4) and the brand mark. */
-  caatinga: { hue: 158, chroma: 0.11, solid: { light: 0.47, dark: 0.64 } },
+  caatinga: { hue: 158, chroma: 0.135, solid: { light: 0.5, dark: 0.7 } },
   /** Sertão sun: "needs you" (attn) in both modes since 1.5; it is no longer an accent. */
   sun: { hue: 72, chroma: 0.15, solid: { light: 0.72, dark: 0.79 } },
   success: { hue: 148, chroma: 0.14, solid: { light: 0.54, dark: 0.7 } },
@@ -58,7 +58,9 @@ export const SCALE_SPECS = {
   violet: { hue: 295, chroma: 0.13, solid: { light: 0.54, dark: 0.7 } },
   teal: { hue: 200, chroma: 0.11, solid: { light: 0.52, dark: 0.72 } },
   rose: { hue: 345, chroma: 0.15, solid: { light: 0.54, dark: 0.72 } },
-  olive: { hue: 118, chroma: 0.12, solid: { light: 0.52, dark: 0.76 } }
+  olive: { hue: 118, chroma: 0.12, solid: { light: 0.52, dark: 0.76 } },
+  indigo: { hue: 265, chroma: 0.14, solid: { light: 0.52, dark: 0.7 } },
+  plum: { hue: 320, chroma: 0.14, solid: { light: 0.52, dark: 0.72 } }
 } satisfies Record<string, ScaleSpec>
 
 export type ScaleName = keyof typeof SCALE_SPECS
