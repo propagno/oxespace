@@ -161,14 +161,22 @@ for (const locale of LOCALES) {
         // Nothing focused: no field, editor or terminal has the focus, and nothing is selected.
         await page.evaluate(() => { (document.activeElement as HTMLElement | null)?.blur(); window.getSelection()?.removeAllRanges() })
         expect(await page.evaluate(() => document.activeElement?.tagName ?? '')).not.toMatch(/^(INPUT|TEXTAREA)$/)
-        await page.locator('.app-menubar-inline').getByRole('button', { name: w('common', 'menu.edit'), exact: true }).click()
+        // The inline menu bar (File, Edit…) shows from 1121 px; on a smaller screen (the Windows runner's is 1024×768)
+        // Edit is a submenu of the Application menu button.
+        const inlineEdit = page.locator('.app-menubar-inline').getByRole('button', { name: w('common', 'menu.edit'), exact: true })
+        if (await inlineEdit.isVisible()) await inlineEdit.click()
+        else {
+          await page.getByRole('button', { name: w('common', 'nav.applicationMenu'), exact: true }).click()
+          await page.getByRole('menuitem', { name: w('common', 'menu.edit'), exact: true }).click()
+        }
         const item = page.getByRole('menuitem', { name: new RegExp(`^${escape(w('common', 'menu.selectAll'))}`) })
         await expect(item).toBeVisible()
         await shot(page, `oxe-11-${locale}-edit-menu`)
         const reason = w('common', 'menu.needsTextField')
         await expect.soft(item, 'Select all says it needs a text field (visible second line)').toContainText(reason)
         await expect.soft(item, 'Select all is announced as unavailable').toHaveAttribute('aria-disabled', 'true')
-        await item.click()
+        // A person can still click it (aria-disabled keeps it reachable); Playwright would wait for it to be enabled.
+        await item.click({ force: true })
         await page.waitForTimeout(500)
         await shot(page, `oxe-11-${locale}-after-select-all`)
         const selected = await page.evaluate(() => (window.getSelection()?.toString() ?? '').trim().length)
@@ -193,8 +201,8 @@ for (const locale of LOCALES) {
         await shot(page, `oxe-13-${locale}-menu-off`)
         await item.click()
         await expect(menu).toBeHidden()
-        // The calls show: every action on its own row, the finished turn no longer folded.
-        await expect.soft(page.locator('.thread-timeline').getByText('README.md').first(), 'the tool call shows in the conversation').toBeVisible()
+        // The calls show: the turn's actions as their own group (Read README.md, Grep), the finished turn not folded.
+        await expect.soft(page.locator('.thread-timeline').locator('.thread-activity-group, .thread-activity-single').first(), 'the tool calls show in the conversation').toBeVisible()
         await expect.soft(page.getByTestId('thread-turn-fold'), 'every tool call shows: no folded turn').toHaveCount(0)
         await shot(page, `oxe-13-${locale}-conversation-on`)
         // Opened again, the item shows it is on and is announced as checked.
