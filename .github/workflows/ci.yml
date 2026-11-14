@@ -1508,6 +1508,8 @@ jobs:
 
       - name: Post the brand conformance status (OXE-149)
         if: ${{ !cancelled() && needs.e2e.result != 'skipped' && (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.ref_name != github.event.repository.default_branch)) }}
+        # The gate is the marca/conformidade status itself; a hiccup posting it never turns "CI result" red.
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -1532,9 +1534,11 @@ jobs:
           const state = files.length < 2 || enforced ? 'failure' : 'success'
           const text = files.length < 2 ? `results from ${files.length} of 2 platforms` : `${enforced} enforced divergence(s), ${pending} pending reported, ${checks} checks`
           const nl = String.fromCharCode(10)
-          fs.appendFileSync(process.env.GITHUB_ENV, ['BRAND_STATE=' + state, 'BRAND_TEXT=' + text, ''].join(nl))
+          // Read back below in this same step (GITHUB_ENV only reaches the next step).
+          fs.writeFileSync(path.join(process.env.RUNNER_TEMP, 'brand-status'), [state, text, ''].join(nl))
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, ['### Brand conformance (OXE-149)', '', text, '', ...lines.slice(0, 40), ''].join(nl))
           EOF
+          { read -r BRAND_STATE; read -r BRAND_TEXT; } < "$RUNNER_TEMP/brand-status"
           gh api "repos/$REPO/statuses/$SHA" -f state="$BRAND_STATE" -f context="marca/conformidade" -f description="$BRAND_TEXT" -f target_url="$RUN_URL" >/dev/null
           echo "status marca/conformidade=$BRAND_STATE on $SHA: $BRAND_TEXT"
 
