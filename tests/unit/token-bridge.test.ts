@@ -11,10 +11,12 @@ import { LAYER } from '../../src/design/tokens/scales'
 const bridge = readFileSync(join(process.cwd(), 'src/styles/tokens.css'), 'utf8')
 
 describe('token bridge', () => {
-  test('every remaining shadcn-era name indirects through a design token', () => {
-    const names = [...bridge.matchAll(/--sh-([a-z-]+):\s*([^;]+);/g)]
-    expect(names.length).toBeGreaterThan(0)
-    expect(names.filter(([, , value]) => !value.trim().startsWith('var(')).map(([, name]) => name)).toEqual([])
+  test('the bridge only shrinks: names nothing reads are gone (OXE-49), including the shadcn-era layer', () => {
+    // Lower this as readers move to the design tokens; never raise it.
+    expect([...bridge.matchAll(/^\s*(--[\w-]+):/gm)].length).toBeLessThanOrEqual(90)
+    for (const retired of ['--sh-border', '--sh-accent', '--brand-glow', '--badge-bg', '--tile-header-h', '--wb-sidebar']) {
+      expect(bridge, retired).not.toMatch(new RegExp(`${retired}:`))
+    }
   })
 
   test('legacy color names follow the semantic tokens, not literals', () => {

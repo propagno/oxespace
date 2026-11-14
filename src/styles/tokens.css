@@ -12,23 +12,17 @@
   --bg-elevated:        var(--surface-raised);
   --bg-tile:            var(--surface-base);
   --bg-tile-header:     var(--surface-chrome);
-  --bg-tile-agent:      var(--surface-base);
   --bg-tile-content:    var(--surface-base);
-  --bg-terminal-surface: var(--surface-base);
-  --bg-statusbar:       var(--surface-chrome);
-  --bg-ws-active:       var(--fill-selected);
   --bg-ws-hover:        var(--fill-hover);
   --bg-modal:           var(--surface-overlay);
   --bg-input:           var(--surface-base);
   --bg-segment:         var(--surface-sunken);
   --bg-hover:           var(--fill-hover);
   --bg-subtle:          var(--surface-raised);
-  --bg-surface:         var(--surface-raised);
   --warning:            var(--intent-warning-solid);
 
   /* Workbench roles */
   --wb-canvas:          var(--surface-canvas);
-  --wb-sidebar:         var(--surface-chrome);
   --wb-chrome:          var(--surface-chrome);
   --wb-raised:          var(--surface-raised);
   --wb-selection:       var(--fill-selected);
@@ -36,10 +30,8 @@
   --wb-focus:           var(--border-focus);
 
   /* Borders */
-  --bd-tile:            1px solid var(--border-default);
   --bd-divider:         var(--border-default);
   --bd-sidebar:         var(--border-default);
-  --bd-ws-active:       var(--border-focus);
   --bd-input:           var(--border-default);
   --bd-input-focus:     var(--border-focus);
   --bd-subtle:          var(--border-subtle);
@@ -49,37 +41,22 @@
   --tx-primary:         var(--text-primary);
   --tx-secondary:       var(--text-secondary);
   --tx-muted:           var(--text-muted);
-  --tx-label:           var(--text-muted);
-  --tx-agent-meta:      var(--text-secondary);
-  --tx-status-failure:  var(--intent-danger-fg);
 
   /* Status colors */
   --dot-green:          var(--intent-success-solid);
   --dot-orange:         var(--intent-warning-solid);
   --dot-yellow:         var(--intent-warning-solid);
   --dot-blue:           var(--intent-info-solid);
-  --dot-purple:         var(--avatar-2);
   --dot-gray:           var(--text-disabled);
   --dot-red:            var(--intent-danger-solid);
 
   /* Brand (the accent of the active mode) */
   --brand:              var(--accent);
   --brand-light:        var(--text-accent);
-  --brand-lightest:     var(--accent-soft);
-  --brand-dark:         var(--accent-hover);
-  --brand-glow:         color-mix(in srgb, var(--accent) 28%, transparent);
-  --badge-bg:           var(--accent);
-  --badge-text:         var(--text-on-accent);
 
   /* Pane active state */
   --bg-pane-active-header: color-mix(in srgb, var(--accent) 6%, transparent);
   --bd-pane-active:        color-mix(in srgb, var(--accent) 36%, transparent);
-  --glow-pane-active:      0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
-
-  /* Badge / status surfaces */
-  --bg-badge-running:   var(--intent-success-bg);
-  --bg-badge-error:     var(--intent-danger-bg);
-  --bg-badge-idle:      var(--fill-hover);
 
   /* Sizing */
   --nav-row-h: 32px;
@@ -94,10 +71,6 @@
   --nav-hover: var(--fill-hover);
   --sidebar-w:        280px;
   --sidebar-w-collapsed: var(--rail-w);
-  --tile-header-h:    40px;
-  --tile-agent-h:     80px;
-  --tile-statusbar-h: 28px;
-  --ws-item-h:        40px;
 
   /* Window frame */
   --frame-gap:        8px;
@@ -135,7 +108,6 @@
   /* Motion */
   --transition-fast:  var(--duration-fast) var(--ease-standard);
   --transition-base:  var(--duration-base) var(--ease-standard);
-  --transition-slow:  var(--duration-slow) var(--ease-standard);
 
   /* Terminal workbench */
   --workspace-canvas: var(--surface-canvas);
@@ -146,7 +118,6 @@
   --pane-radius: var(--panel-radius);
   --pane-gap: var(--frame-gap);
   --pane-shadow: none;
-  --pane-shadow-active: 0 0 0 1px var(--border-focus);
 
   /* Type scale */
   --fs-2xs:    var(--text-2xs);
@@ -156,16 +127,7 @@
   --fs-lg:     var(--text-lg);
   --fs-xl:     var(--text-xl);
   --fs-2xl:    22px;
-  --fs-display: var(--text-display);
   --lh-base:   var(--leading-normal);
-  --lh-tight:  var(--leading-snug);
-
-  /* Names the retired shadcn layer defined, still read by OxeQuery's CSS. */
-  --sh-border: var(--border-default);
-  --sh-surface: var(--surface-raised);
-  --sh-surface-raised: var(--surface-overlay);
-  --sh-accent: var(--accent);
-  --sh-font-mono: var(--font-mono);
 }
 
 :root {
@@ -189,8 +151,4 @@ select optgroup {
 
 :root[data-density='comfortable'] {
   --nav-row-h: 40px;
-  --tile-header-h: 46px;
-  --tile-agent-h: 92px;
-  --tile-statusbar-h: 34px;
-  --ws-item-h: 46px;
 }
