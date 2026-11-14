@@ -1,0 +1,1 @@
+npx vitest related --run src/components/Settings/SettingsModal.tsx src/components/Threads/ThreadComposerForm.tsx src/components/Threads/ThreadRequestCard.tsx src/store/thread-prefs.store.ts src/ui/Settings.tsx src/components/Settings/ConversationSettings.tsx src/components/Threads/sendKey.ts --maxWorkers=2
