@@ -48,7 +48,6 @@ const SlashOverlay = lazy(() => import('./components/SlashOverlay/SlashOverlay')
 const CommandMenu = lazy(() => Promise.all([import('./components/CommandMenu/CommandMenu'), loadCommandContributors()]).then(([m]) => ({ default: m.CommandMenu })))
 const UsageModal = lazy(() => import('./components/Usage/UsageModal').then(m => ({ default: m.UsageModal })))
 const CommandBarHost = lazy(() => import('./components/CommandBar/CommandBarHost').then(m => ({ default: m.CommandBarHost })))
-import { McpPanelHost, preloadMcpPanel } from './components/MCP/McpHost'
 const ContainersPanel = lazy(() => import('./components/Containers/ContainersPanel').then((m) => ({ default: m.ContainersPanel })))
 import { useBackgroundStore } from './store/background.store'
 import { useMcpStore } from './store/mcp.store'
@@ -69,6 +68,11 @@ const WORKSPACE_SURFACE_CHUNK = chunk(() => import('./components/Workspace/Works
 const WorkspaceSurface = lazyFrom(WORKSPACE_SURFACE_CHUNK, (m) => m.WorkspaceSurface)
 const NO_WORKSPACE_START_CHUNK = chunk(() => import('./components/Onboarding/NoWorkspaceStart'))
 const NoWorkspaceStart = lazyFrom(NO_WORKSPACE_START_CHUNK, (m) => m.NoWorkspaceStart)
+// The MCP servers dialog's host is a chunk of its own, warmed after first paint together with the dialog's chunk, so
+// the entry carries only these two lines (OXE-56). Both render through lazyFrom: once warmed, the dialog opens in the
+// same commit (OXE-39).
+const MCP_HOST_CHUNK = chunk(() => import('./components/MCP/McpHost'))
+const McpPanelHost = lazyFrom(MCP_HOST_CHUNK, (m) => m.McpPanelHost)
 
 
 
@@ -313,11 +317,10 @@ export function App(): ReactElement {
     return () => window.clearTimeout(timer)
   }, [activeWorkspaceId, markPaneDetached, visitedWorkspaceIds.length, visitedWorkspacesCap])
 
-  // The MCP servers dialog's chunk warms after first paint, so its first open renders at once (OXE-39).
+  // The MCP servers dialog (its host, then its own chunk) warms after first paint, so its first open renders at once
+  // (OXE-39). Loading is remembered (src/lib/chunk.ts): a second run of this effect only finds it there.
   useEffect(() => {
-    let second = 0
-    const first = window.requestAnimationFrame(() => { second = window.requestAnimationFrame(preloadMcpPanel) })
-    return () => { window.cancelAnimationFrame(first); window.cancelAnimationFrame(second) }
+    requestAnimationFrame(() => requestAnimationFrame(() => { MCP_HOST_CHUNK.load().then(m => m.preloadMcpPanel(), () => undefined) }))
   }, [])
 
   const notePaneActivity = useTerminalStore((state) => state.noteBackgroundActivity)
