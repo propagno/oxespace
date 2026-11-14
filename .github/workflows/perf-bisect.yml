@@ -1,0 +1,186 @@
+# TEMPORARY (OXE-105, round 2), lives only on ci/perf-bisect-oxe-105, never merged. Bisects the gate's Windows
+# regressions vs v1.5.1: one job per merge commit on main's first-parent line in BISECT_RANGE. Each job builds and
+# packages v1.5.1 (B) and that merge (C) on the same runner, overlays the current harness, samples BC CB for ROUNDS
+# rounds (boot probe + memory-footprint + panel: Files + modal surfaces), and reports Δ merge − v1.5.1 with CI95
+# through perf-gate/summarize.mjs. The last job collects one row per merge (perf-gate/bisect-table.mjs).
+name: Perf bisect (temporary)
+
+on:
+  push:
+    branches: ["ci/perf-bisect-oxe-105"]
+
+permissions:
+  contents: read
+
+env:
+  BISECT_RANGE: v1.5.1..d4ccf91ed
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: m
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main >/dev/null 2>&1 || true
+          git log --first-parent --merges --format='%H %s' "$BISECT_RANGE" > merges.txt
+          cat merges.txt
+          node -e '
+            const lines = require("fs").readFileSync("merges.txt", "utf8").trim().split("\n").filter(Boolean)
+            const include = lines.map(l => { const [sha, ...rest] = l.split(" "); const pr = (rest.join(" ").match(/#(\d+)/) || [])[1] || "?"; return { sha, pr, label: `pr${pr}-${sha.slice(0, 9)}` } })
+            require("fs").appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${JSON.stringify({ include })}\n`)
+            console.log(include.length, "merges")'
+
+  bisect:
+    needs: plan
+    name: "#${{ matrix.pr }} ${{ matrix.sha }}"
+    runs-on: windows-2022
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    env:
+      REF_B: v1.5.1
+      REF_C: ${{ matrix.sha }}
+      ROUNDS: "7"
+      GATE_LAUNCHES: "4"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Harness (this commit)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: harness
+          persist-credentials: false
+      - name: B = v1.5.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.REF_B }}
+          path: B
+          persist-credentials: false
+      - name: C = merge
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.REF_C }}
+          path: C
+          persist-credentials: false
+      - name: Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            B/package-lock.json
+            C/package-lock.json
+      - name: Cache the Electron download
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/AppData/Local/electron/Cache
+          key: electron-gate-${{ runner.os }}-${{ hashFiles('B/package-lock.json', 'C/package-lock.json') }}
+      - name: No live OXESpace env reaches the run
+        run: |
+          if env | cut -d= -f1 | grep -Ei '^(OXESPACE_|AI_MEMORY_)'; then echo "::error::OXESPACE_/AI_MEMORY_ variables are set on the runner"; exit 1; fi
+      - name: Build, package and overlay the harness on each ref
+        run: |
+          set -euo pipefail
+          mkdir -p results/rounds results/entry
+          : > sides.env
+          heads='['
+          for side in B C; do
+            ref_var="REF_$side"; ref="${!ref_var}"
+            echo "::group::$side = $ref"
+            cd "$GITHUB_WORKSPACE/$side"
+            npm ci --ignore-scripts
+            npm rebuild electron
+            npm run rebuild:native:node
+            npm run build 2>&1 | tee "$GITHUB_WORKSPACE/results/$side-build.log"
+            npm run fix:native
+            npm run verify:native
+            node "$GITHUB_WORKSPACE/harness/perf-gate/entry-size.mjs" . > "$GITHUB_WORKSPACE/results/$side-entry.json"
+            cp "out/renderer/$(node -p "JSON.parse(require('fs').readFileSync('$GITHUB_WORKSPACE/results/$side-entry.json','utf8')).file.replace(/^\.?\//,'')")" "$GITHUB_WORKSPACE/results/entry/$side-entry.js"
+            npx electron-builder --win --dir --config.npmRebuild=false --publish never
+            src="$(ls -d dist/*-unpacked | head -1)"
+            dest="$RUNNER_TEMP/oxespace-gate-$side"
+            rm -rf "$dest"; cp -a "$src" "$dest"
+            exe="$(ls "$dest"/OXESpace*.exe | head -1)"
+            test -n "$exe" || { echo "::error::$side: no packaged executable"; exit 1; }
+            npx --no-install @electron/fuses write --app "$exe" EnableNodeCliInspectArguments=on
+            node scripts/check-fuses.mjs --app "$exe" --test-copy-of "$src/$(basename "$exe")"
+            rm -rf dist
+            printf "EXE_%s='%s'\n" "$side" "$exe" >> "$GITHUB_WORKSPACE/sides.env"
+            for f in perf-benchmark.spec.ts perceived-perf.spec.ts memory-footprint.spec.ts helpers/input-timer.ts helpers/perf-launch.ts helpers/modes.ts helpers/panels.ts helpers/thread-fixtures.ts; do
+              mkdir -p "e2e/$(dirname "$f")"; cp "$GITHUB_WORKSPACE/harness/e2e/$f" "e2e/$f"
+            done
+            cp "$GITHUB_WORKSPACE/harness/perf-gate/boot-probe.spec.ts" e2e/perf-gate-boot.spec.ts
+            heads+="$( [ "$side" = B ] || echo ,){\"side\":\"$side\",\"ref\":\"$ref\",\"sha\":\"$(git rev-parse HEAD)\"}"
+            cd "$GITHUB_WORKSPACE"
+            echo "::endgroup::"
+          done
+          echo "$heads]" > results/heads.json
+          cat results/heads.json sides.env
+      - name: Sample interleaved (BC CB)
+        run: |
+          set +e -uo pipefail
+          source sides.env
+          sample() {
+            local side=$1 round=$2 exe_var="EXE_$1" start
+            start=$(date +%s)
+            ( cd "$side" && export OXESPACE_PACKAGED_EXECUTABLE="${!exe_var}" GATE_SIDE="$side" GATE_ROUND="$round"
+              npx playwright test --config playwright.tools.config.ts perf-gate-boot.spec.ts --reporter=line > "$GITHUB_WORKSPACE/results/rounds/$side-r$round-boot.log" 2>&1
+              npx playwright test --config playwright.tools.config.ts memory-footprint.spec.ts perf-benchmark.spec.ts --grep 'memory footprint|panel: Files|modal surfaces' --reporter=line > "$GITHUB_WORKSPACE/results/rounds/$side-r$round-bench.log" 2>&1 )
+            echo "round $round $side: $(grep -ac '\[GATE-BOOT\].*warmup=0' "results/rounds/$side-r$round-boot.log") boots, $(grep -ac '\[RESULT\]\|\[MEMORY\]' "results/rounds/$side-r$round-bench.log") results, $(( $(date +%s) - start )) s" | tee -a results/samples.txt
+          }
+          for r in $(seq 1 "$ROUNDS"); do
+            if (( r % 2 )); then order="B C"; else order="C B"; fi
+            for side in $order; do sample "$side" "$r"; done
+          done
+          exit 0
+      - name: Table
+        if: ${{ !cancelled() }}
+        run: |
+          node harness/perf-gate/summarize.mjs results "#${{ matrix.pr }} ${{ matrix.sha }}" --json results/perf-gate.json | tee results/perf-gate.md
+          cat results/perf-gate.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: bisect-${{ matrix.label }}
+          retention-days: 30
+          path: results/
+
+  table:
+    needs: bisect
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: bisect-*
+          path: bisect-results
+      - name: One row per merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p bisect-table
+          git fetch --no-tags origin main >/dev/null 2>&1 || true
+          git log --first-parent --merges --format='%H %s' "$BISECT_RANGE" > bisect-table/merges.txt
+          node perf-gate/bisect-table.mjs bisect-results bisect-table/merges.txt | tee bisect-table/bisect.md
+          cat bisect-table/bisect.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bisect-table
+          retention-days: 30
+          path: bisect-table/
