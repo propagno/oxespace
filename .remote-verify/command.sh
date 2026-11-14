@@ -1,0 +1,1 @@
+npm run build && npm run fix:native && export PWTEST_SHARD_WEIGHTS=15:7:6; f=0; for i in 1 2 3 4; do bash scripts/run-with-xvfb.sh npx playwright test --shard=3/3 --reporter=list || f=$((f+1)); done; echo SHARD-FAILS=$f; exit $f
