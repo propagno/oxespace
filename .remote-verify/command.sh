@@ -1,0 +1,1 @@
+npm run typecheck && npm run build && bash scripts/run-with-xvfb.sh npx playwright test e2e/changes-diff-glyph-lane.spec.ts e2e/changes-panel.spec.ts --reporter=list && bash scripts/run-with-xvfb.sh npx playwright test --config playwright.visual.config.ts code-states --update-snapshots --reporter=list
