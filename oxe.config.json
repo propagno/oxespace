@@ -1,0 +1,17 @@
+{
+  "origin": {
+    "since": "e27a969878dff6925752c4a71383fa8102be0612",
+    "require_card": true,
+    "commit_msg": "require",
+    "exempt": {
+      "merges": true,
+      "paths": [".oxe/", "docs/releases/"],
+      "authored": [
+        {
+          "author": "github-actions[bot]",
+          "paths": ["mobile/android/app/src/test/snapshots/images/", "e2e/visual/__screenshots__/"]
+        }
+      ]
+    }
+  }
+}
