@@ -86,7 +86,15 @@
     "failed_other": "{{count}} falharam",
     "working": "{{count}} em andamento",
     "nothingWaiting": "Nada aguardando",
-    "approvalsWaiting": "Aprovações aguardando você"
+    "approvalsWaiting": "Aprovações aguardando você",
+    "next": {
+      "arrived": "{{name}} precisa de você: {{request}}",
+      "paneRequest": "aguardando uma aprovação ou resposta",
+      "threadRequest": "uma aprovação está esperando",
+      "conversation": "Conversa",
+      "terminal": "Terminal",
+      "nothing": "Nada esperando por você"
+    }
   },
   "menu": {
     "file": "Arquivo",
@@ -161,6 +169,9 @@
       },
       "approvals": {
         "queue": "Abrir a fila de aprovações"
+      },
+      "attention": {
+        "next": "Ir para o próximo que precisa de você"
       },
       "code": {
         "changes": "Alterações",
@@ -719,6 +730,9 @@
       "activity": {
         "open": "Abrir a central de atividade",
         "markAllRead": "Marcar tudo como lido"
+      },
+      "attention": {
+        "next": "Ir para o próximo que precisa de você"
       },
       "help": {
         "shortcuts": "Mostrar os atalhos de teclado",

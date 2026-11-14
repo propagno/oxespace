@@ -82,7 +82,15 @@
     "failed": "{{count}} failed",
     "working": "{{count}} working",
     "nothingWaiting": "Nothing waiting",
-    "approvalsWaiting": "Approvals waiting for you"
+    "approvalsWaiting": "Approvals waiting for you",
+    "next": {
+      "arrived": "{{name}} needs you: {{request}}",
+      "paneRequest": "waiting for an approval or an answer",
+      "threadRequest": "an approval is waiting",
+      "conversation": "Conversation",
+      "terminal": "Terminal",
+      "nothing": "Nothing waiting for you"
+    }
   },
   "menu": {
     "file": "File",
@@ -157,6 +165,9 @@
       },
       "approvals": {
         "queue": "Open approval queue"
+      },
+      "attention": {
+        "next": "Go to the next one that needs you"
       },
       "code": {
         "changes": "Changes",
@@ -710,6 +721,9 @@
       "activity": {
         "open": "Open activity center",
         "markAllRead": "Mark all as read"
+      },
+      "attention": {
+        "next": "Go to the next one that needs you"
       },
       "help": {
         "shortcuts": "Show keyboard shortcuts",

@@ -197,7 +197,11 @@ describe('OXE-128 next · go to the next one that needs you (Ctrl+Shift+U)', () 
     waiting()
     render(createElement(NextAttentionHost as never, { selectView: () => undefined }))
     const said: string[] = []
-    const observer = new MutationObserver(records => { for (const record of records) for (const node of record.addedNodes) if (node.textContent) said.push(node.textContent) })
+    // Each thing said is one leaf node added with its text (a text node, or an element with no element inside). A
+    // container added around it (the live region announceFocus creates on first use, when no host mounted it) is not a
+    // second announcement: its textContent is only its child's text (CR-F4-2, T20 attempt 1).
+    const leaf = (node: Node): boolean => node.nodeType === Node.TEXT_NODE || (node.nodeType === Node.ELEMENT_NODE && (node as Element).childElementCount === 0)
+    const observer = new MutationObserver(records => { for (const record of records) for (const node of record.addedNodes) if (leaf(node) && node.textContent) said.push(node.textContent) })
     observer.observe(document.body, { childList: true, subtree: true, characterData: true })
     await act(async () => { dispatchKeybinding(keyU()) })
     await act(async () => { dispatchKeybinding(keyU()) })

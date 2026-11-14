@@ -47,6 +47,9 @@ export interface AttentionSummary {
   thread: AttentionCounts
 }
 
+/** When a pane or conversation entered "needs you" (Date.now()), and a sequence number unique to that wait. */
+export interface AttentionWait { since: number; seq: number }
+
 export const ACTIVITY_LIMIT = 50
 
 export type ActivityInput = Omit<ActivityItem, 'at' | 'read'> & { at?: number; read?: boolean }
@@ -55,6 +58,8 @@ interface ActivityState {
   /** Newest first, at most ACTIVITY_LIMIT. */
   items: ActivityItem[]
   live: Record<LiveScope, Record<string, LiveAttention>>
+  /** Each live "needs you" entry's wait: leaving the state drops it, entering again starts a new one (OXE-128). */
+  waits: Record<LiveScope, Record<string, AttentionWait>>
   /** Adds an entry, replacing the one for the same subject and moving it to the top. */
   record: (input: ActivityInput) => void
   /** Drops the subject's entry when it is of `kind` (by default, a request that no longer waits). */
@@ -67,6 +72,9 @@ interface ActivityState {
 
 const key = (item: Pick<ActivityItem, 'source' | 'id'>): string => `${item.source}:${item.id}`
 const EMPTY_LIVE = (): ActivityState['live'] => ({ code: {}, thread: {} })
+const EMPTY_WAITS = (): ActivityState['waits'] => ({ code: {}, thread: {} })
+// Never reset: a wait that started after another always has a larger number, even across a reset.
+let waitSeq = 0
 
 function sameEntries(a: Record<string, LiveAttention>, b: Record<string, LiveAttention>): boolean {
   const keys = Object.keys(a)
@@ -77,6 +85,7 @@ function sameEntries(a: Record<string, LiveAttention>, b: Record<string, LiveAtt
 export const useActivityStore = create<ActivityState>((set, get) => ({
   items: [],
   live: EMPTY_LIVE(),
+  waits: EMPTY_WAITS(),
 
   record: (input) => {
     const item: ActivityItem = { ...input, at: input.at ?? Date.now(), read: input.read ?? false }
@@ -103,12 +112,20 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
   },
 
   setLive: (scope, entries) => {
-    const live = get().live
+    const { live, waits } = get()
     if (sameEntries(live[scope], entries)) return
-    set({ live: { ...live, [scope]: entries } })
+    const previous = live[scope]
+    const before = waits[scope]
+    const now = Date.now()
+    const next: Record<string, AttentionWait> = {}
+    for (const [id, state] of Object.entries(entries)) {
+      if (state !== 'needs-you') continue
+      next[id] = previous[id] === 'needs-you' && before[id] ? before[id] : { since: now, seq: ++waitSeq }
+    }
+    set({ live: { ...live, [scope]: entries }, waits: { ...waits, [scope]: next } })
   },
 
-  reset: () => set({ items: [], live: EMPTY_LIVE() })
+  reset: () => set({ items: [], live: EMPTY_LIVE(), waits: EMPTY_WAITS() })
 }))
 
 function count(entries: Record<string, LiveAttention>): AttentionCounts {

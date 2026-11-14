@@ -21,6 +21,7 @@ import { ModeSwitch } from './components/Navigation/ModeSwitch'
 import { NeedsYouPill } from './components/Navigation/NeedsYouPill'
 import { RemovedFeaturesBand } from './components/Updates/RemovedFeaturesBand'
 import { ActivityCenter } from './components/Activity/ActivityCenter'
+import { NextAttentionHost } from './components/Attention/NextAttentionHost'
 import { CommandBarTrigger } from './components/CommandBar/CommandBarTrigger'
 
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
@@ -704,7 +705,7 @@ export function App(): ReactElement {
       <header className={cx('workbench-titlebar', titleBar.bar)} aria-label={t('app.workbench')}>
         <div className={titleBar.brand}><OxeLogo size={16} />{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), openCommandMenu, openContainers: () => setContainersOpen(v => !v), version: appVersion }} /></Suspense>}</div>
         <ModeSwitch mode={showFirstRun ? 'thread' : applicationView} allowReselect={showFirstRun} onSelect={selectMode} />
-        <div className={titleBar.trailing}><CommandBarTrigger onOpen={() => setCommandBarOpen(true)} /><NeedsYouPill /><ActivityCenter onSelectView={selectMode} />{/* No Settings button in the title bar (1.5.2, user): it is in every sidebar's footer, in the menu bar and on Ctrl+,. */}<UpdateChips /></div>
+        <div className={titleBar.trailing}><CommandBarTrigger onOpen={() => setCommandBarOpen(true)} /><NeedsYouPill /><ActivityCenter onSelectView={selectMode} /><NextAttentionHost selectView={selectMode} />{/* No Settings button in the title bar (1.5.2, user): it is in every sidebar's footer, in the menu bar and on Ctrl+,. */}<UpdateChips /></div>
       </header>
       <RemovedFeaturesBand />
       {delegationNotice && <Suspense fallback={null}><DelegationNotice onView={() => { setDelegatedWorkOpen(true); setDelegationNotice(null) }} onDismiss={() => setDelegationNotice(null)} /></Suspense>}
