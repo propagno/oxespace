@@ -111,11 +111,33 @@ test('F6 and the Tab focus toggle leave a terminal; the dividers are reachable a
     const tabindexesBefore = await regionTabindexes()
     // Each F6 is handled after the key event, so wait for focus to reach the next region: a press still pending when
     // the walk ends would pull focus back out of the terminal focused below.
+    await page.evaluate(() => {
+      const w = window as unknown as { __flog: string[] }
+      w.__flog = []
+      const d = (el: unknown): string => { const e = el as HTMLElement | null; if (!e || !e.tagName) return String(el); return `${e.tagName}.${String(e.className).split(' ')[0]}${e.getAttribute?.('data-testid') ? '#' + e.getAttribute('data-testid') : ''}` }
+      const t = (): string => performance.now().toFixed(1)
+      const orig = HTMLElement.prototype.focus
+      HTMLElement.prototype.focus = function (this: HTMLElement, ...args: [FocusOptions?]) { w.__flog.push(`${t()} focus() ${d(this)} :: ${(new Error().stack ?? '').split(String.fromCharCode(10)).slice(2, 7).map(l => l.trim()).join(' | ')}`); return orig.apply(this, args) }
+      window.addEventListener('keydown', e => w.__flog.push(`${t()} keydown-capture ${e.key} target=${d(e.target)} active=${d(document.activeElement)} prevented=${e.defaultPrevented}`), true)
+      window.addEventListener('keydown', e => w.__flog.push(`${t()} keydown-bubble ${e.key} prevented=${e.defaultPrevented}`))
+      document.addEventListener('focusin', e => w.__flog.push(`${t()} focusin ${d(e.target)}`), true)
+      document.addEventListener('focusout', e => w.__flog.push(`${t()} focusout ${d(e.target)} related=${d(e.relatedTarget)}`), true)
+      let last: Element | null = document.activeElement
+      const poll = (): void => { if (document.activeElement !== last) { last = document.activeElement; w.__flog.push(`${t()} active→ ${d(last)}`) } setTimeout(poll, 2) }
+      poll()
+    })
     for (let step = 0; step < 7; step++) {
       const before = await focusedRegion(page)
+      await page.evaluate(([s, b]) => (window as unknown as { __flog: string[] }).__flog.push(`${performance.now().toFixed(1)} STEP ${s} before=${b} regions=${[...document.querySelectorAll('.workbench-titlebar, [data-focus-region], .app-shell > aside, .workspace-host:not(.workspace-host-hidden) .workspace-grid, .workspace-host:not(.workspace-host-hidden) .workspace-split-grid, .thread-host, .oq-host, .pod-host, .post-host, .workspace-host:not(.workspace-host-hidden) .workspace-panel-stack, .app-statusbar')].map(r => r.getAttribute('data-focus-region') ?? r.className.split(' ')[0]).join(',')}`), [step, before] as const)
       await page.keyboard.press('F6')
-      await expect.poll(() => focusedRegion(page)).not.toMatch(new RegExp(`^(none|${before})`))
+      try {
+        await expect.poll(() => focusedRegion(page)).not.toMatch(new RegExp(`^(none|${before})`))
+      } catch (error) {
+        console.log('[FOCUS-DIAG] ' + (await page.evaluate(() => (window as unknown as { __flog: string[] }).__flog.join(' ## '))))
+        throw error
+      }
     }
+    console.log('[FOCUS-DIAG-OK] hasFocus=' + (await page.evaluate(() => document.hasFocus())) + ' ## ' + (await page.evaluate(() => (window as unknown as { __flog: string[] }).__flog.join(' ## '))))
     await terminalInput.focus()
     // T5: every region's tabindex is what it was before the walk. A tabindex the app set itself stays (the Windows title
     // bar has one), so the check is "unchanged", not "none".
