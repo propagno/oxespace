@@ -60,6 +60,13 @@ export class UsageService {
     return p.listSessions(workspaceRootPath)
   }
 
+  /** The same list without blocking the main process where the provider can read it asynchronously (Claude, OXE-157). */
+  async listSessionsForAsync(provider: AgentProvider, workspaceRootPath: string, onPartial?: (sessions: SessionMetadata[]) => void): Promise<SessionMetadata[]> {
+    const p = this.providers.get(resolveProvider(provider))
+    if (!p) return []
+    return p.listSessionsAsync ? p.listSessionsAsync(workspaceRootPath, onPartial) : p.listSessions(workspaceRootPath)
+  }
+
   /** Which providers have a backend? Useful to gate the UI chip. */
   supportedProviders(): AgentProvider[] {
     return Array.from(this.providers.keys())
