@@ -48,7 +48,7 @@ const SlashOverlay = lazy(() => import('./components/SlashOverlay/SlashOverlay')
 const CommandMenu = lazy(() => Promise.all([import('./components/CommandMenu/CommandMenu'), loadCommandContributors()]).then(([m]) => ({ default: m.CommandMenu })))
 const UsageModal = lazy(() => import('./components/Usage/UsageModal').then(m => ({ default: m.UsageModal })))
 const CommandBarHost = lazy(() => import('./components/CommandBar/CommandBarHost').then(m => ({ default: m.CommandBarHost })))
-const McpPanel = lazy(() => import('./components/MCP/McpPanel').then((m) => ({ default: m.McpPanel })))
+import { McpPanelHost, preloadMcpPanel } from './components/MCP/McpHost'
 const ContainersPanel = lazy(() => import('./components/Containers/ContainersPanel').then((m) => ({ default: m.ContainersPanel })))
 import { useBackgroundStore } from './store/background.store'
 import { useMcpStore } from './store/mcp.store'
@@ -309,6 +309,13 @@ export function App(): ReactElement {
     const timer = window.setTimeout(trim, 250)
     return () => window.clearTimeout(timer)
   }, [activeWorkspaceId, markPaneDetached, visitedWorkspaceIds.length, visitedWorkspacesCap])
+
+  // The MCP servers dialog's chunk warms after first paint, so its first open renders at once (OXE-39).
+  useEffect(() => {
+    let second = 0
+    const first = window.requestAnimationFrame(() => { second = window.requestAnimationFrame(preloadMcpPanel) })
+    return () => { window.cancelAnimationFrame(first); window.cancelAnimationFrame(second) }
+  }, [])
 
   const notePaneActivity = useTerminalStore((state) => state.noteBackgroundActivity)
   useEffect(() => {
@@ -853,7 +860,7 @@ export function App(): ReactElement {
         />
       ) : null}
       {isMcpPanelOpen ? (
-        <McpPanel
+        <McpPanelHost
           workspaceId={applicationView === 'thread' ? threadSnapshot?.thread.workspaceId ?? null : activeWorkspace?.id ?? null}
           conversationServers={applicationView === 'thread' ? threadSnapshot?.thread.mcpServers?.servers : undefined}
           onClose={closeMcpPanel}
