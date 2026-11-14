@@ -590,7 +590,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     github: internalMcpGithub,
     background: backgroundManager,
     fileSystem: fileSystemService,
-    androidAccess: () => androidAccess,
+    androidAccess: () => androidAccess, openAndroidPanel: request => { for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.android.openPanel, request) },
     askAndroidScreenshot: async ({ serial, owner }) => {
       const [{ brokerDraft }, { requesterFor }] = await Promise.all([import('./services/approvals/drafts'), import('./services/approvals/requester')])
       const outcome = await approvalCenter.ask(brokerDraft({

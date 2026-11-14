@@ -783,7 +783,11 @@
       },
       "docs": {
         "name": "Documentação",
-        "description": "Prévias web e capturas de documentação."
+        "description": "Ferramentas de documentação. As prévias web e os dispositivos Android foram para Prévia."
+      },
+      "preview": {
+        "name": "Prévia",
+        "description": "Prévia web e dispositivos Android: abrir, capturar e conduzir uma prévia, e capturar a tela de um dispositivo. Ligado desde o início."
       },
       "app": {
         "name": "App",

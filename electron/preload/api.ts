@@ -588,7 +588,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       openLink: (input) => ipc.invoke(IPC_CHANNELS.androidActions.openLink, input) as Promise<import('../../shared/types/ipc').AndroidActionOutcome>,
       pair: (input) => ipc.invoke(IPC_CHANNELS.androidActions.pair, input) as Promise<import('../../shared/types/ipc').AndroidActionOutcome>,
       onChanged: (listener) => subscribe<import('../../shared/types/ipc').AndroidMirrorStatus | undefined>(ipc, IPC_CHANNELS.android.changed, listener),
-      onFrame: (listener) => subscribe<import('../../shared/types/ipc').AndroidMirrorFrame>(ipc, IPC_CHANNELS.android.frame, listener)
+      onFrame: (listener) => subscribe<import('../../shared/types/ipc').AndroidMirrorFrame>(ipc, IPC_CHANNELS.android.frame, listener),
+      onOpenPanel: (listener) => subscribe<import('../../shared/types/android').AndroidOpenPanelRequest>(ipc, IPC_CHANNELS.android.openPanel, listener)
     },
     schedules: {
       state: () => ipc.invoke(IPC_CHANNELS.schedules.state) as ReturnType<import('../../shared/types/schedules-api').SchedulesApi['state']>,
