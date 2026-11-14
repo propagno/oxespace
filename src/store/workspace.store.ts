@@ -28,6 +28,8 @@ interface WorkspaceState {
   updateEditorState: (input: UpdateWorkspaceEditorStateInput) => Promise<void>
   updateReviewState: (input: UpdateWorkspaceReviewStateInput) => Promise<void>
   updateGitHubState: (input: UpdateWorkspaceGitHubStateInput) => Promise<void>
+  /** Files ↔ Source Control in one store update; persisted afterwards, the previous flags back on failure (OXE-42). */
+  showRepositoryView: (workspaceId: string, view: 'files' | 'git') => Promise<void>
   updateBackgroundState: (input: UpdateWorkspaceBackgroundStateInput) => Promise<void>
   updateWorktreeState: (input: UpdateWorkspaceWorktreeStateInput) => Promise<void>
   reorderWorkspaces: (orderedIds: string[]) => Promise<void>
@@ -222,6 +224,38 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       }))
     } catch (err) {
       set({ error: humanizeError(err, i18n.t('failures.workspace.panelState')) })
+    }
+  },
+
+  showRepositoryView: async (workspaceId, view) => {
+    const previous = get().workspaces.find((item) => item.id === workspaceId)
+    if (!previous) return
+    const toGit = view === 'git'
+    if (toGit ? previous.githubPanelVisible && !previous.editorVisible : previous.editorVisible && !previous.githubPanelVisible) return
+    const editor: UpdateWorkspaceEditorStateInput = toGit
+      ? { workspaceId, editorVisible: false, editorExpanded: false }
+      : { workspaceId, editorVisible: true, editorExpanded: false, editorWidthPercent: previous.githubPanelWidthPercent ?? 48 }
+    const github: UpdateWorkspaceGitHubStateInput = toGit
+      ? { workspaceId, githubPanelVisible: true, githubPanelExpanded: false, githubPanelWidthPercent: previous.editorWidthPercent ?? 48 }
+      : { workspaceId, githubPanelVisible: false, githubPanelExpanded: false }
+    const { workspaceId: _editorId, ...editorChange } = editor
+    const { workspaceId: _githubId, ...githubChange } = github
+    const change: Partial<Workspace> = { ...editorChange, ...githubChange } as Partial<Workspace>
+    const patch = (state: WorkspaceState, next: Partial<Workspace>): Partial<WorkspaceState> => ({
+      workspaces: state.workspaces.map((item) => (item.id === workspaceId ? { ...item, ...next } : item))
+    })
+    // One update: the dock never sees both panels hidden, so terminals do not refit in between.
+    set((state) => ({ ...patch(state, change), error: null }))
+    try {
+      // Persist in turn; only the last answer holds both changes, so the store takes that one alone.
+      if (toGit) await window.oxe.workspace.updateGitHubState(github)
+      else await window.oxe.workspace.updateEditorState(editor)
+      const saved = toGit ? await window.oxe.workspace.updateEditorState(editor) : await window.oxe.workspace.updateGitHubState(github)
+      set((state) => ({ workspaces: state.workspaces.map((item) => (item.id === saved.id ? saved : item)) }))
+    } catch (err) {
+      // Undo only the fields this switch touched, so a concurrent change to the workspace survives.
+      const restore = Object.fromEntries(Object.keys(change).map((key) => [key, previous[key as keyof Workspace]])) as Partial<Workspace>
+      set((state) => ({ ...patch(state, restore), error: humanizeError(err, i18n.t('failures.workspace.panelState')) }))
     }
   },
 

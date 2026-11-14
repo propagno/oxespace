@@ -208,7 +208,7 @@ export interface TabsProps<T extends string> {
 /** Tabs with their panels; arrow keys move between tabs. */
 export function Tabs<T extends string>({ value, onChange, tabs, label, className }: TabsProps<T>): ReactElement {
   return <RadixTabs.Root value={value} onValueChange={next => onChange(next as T)} className={className}>
-    <RadixTabs.List className={styles.tabList} aria-label={label}>
+    <RadixTabs.List data-ui="tabs" className={styles.tabList} aria-label={label}>
       {tabs.map(tab => <RadixTabs.Trigger key={tab.value} value={tab.value} className={styles.tab}>{tab.label}</RadixTabs.Trigger>)}
     </RadixTabs.List>
     {tabs.map(tab => <RadixTabs.Content key={tab.value} value={tab.value} className={styles.tabPanel}>{tab.content}</RadixTabs.Content>)}
