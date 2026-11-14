@@ -1,0 +1,37 @@
+/* The sidebar anatomy (1.5.2): header and footer --bar-lg, filter --control-md, section 24, rows --row-1. Linear's
+   tone: quiet chrome, selection as a fill, actions on hover. */
+.header { display: flex; align-items: center; gap: var(--space-0-5); height: var(--bar-lg); min-height: var(--bar-lg); padding: 0 var(--space-2) 0 var(--space-4); }
+.title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--text-primary); }
+.headerActions { display: flex; align-items: center; gap: var(--space-0-5); color: var(--text-muted); }
+
+.filter { display: flex; align-items: center; gap: var(--space-2); height: var(--control-md); margin: 0 var(--space-2) var(--space-2); padding: 0 var(--space-2); border-radius: var(--radius-sm); background: var(--fill-hover); color: var(--text-muted); }
+.filter:focus-within { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.filterIcon { display: inline-flex; flex: none; }
+.filterInput { flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; background: transparent; color: var(--text-primary); font: inherit; font-size: var(--text-xs); outline: none; }
+.filterInput::placeholder { color: var(--text-muted); }
+.filterInput::-webkit-search-cancel-button { display: none; }
+.filterHint { flex: none; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--text-muted); }
+
+.section { display: flex; align-items: center; gap: var(--space-1); height: var(--control-sm); margin-top: var(--space-2); padding: 0 var(--space-1-5); }
+.sectionLabel { flex: 1; min-width: 0; font-size: var(--text-2xs); font-weight: var(--weight-medium); color: var(--text-muted); }
+
+.row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; column-gap: var(--space-2); min-height: var(--row-1); padding: 0 var(--space-1-5); border-radius: var(--radius-sm); color: var(--text-secondary); font-size: var(--text-sm); cursor: default; }
+.row[role='button'] { cursor: pointer; }
+.row:hover { background: var(--fill-hover); }
+.row:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.group { color: var(--text-primary); font-weight: var(--weight-semibold); }
+.item { padding-left: var(--space-5); }
+.selected, .selected:hover { background: var(--fill-selected); color: var(--text-primary); }
+.item.selected { font-weight: var(--weight-medium); }
+.lead { display: inline-flex; align-items: center; justify-content: center; width: var(--space-3); flex: none; }
+.rowTitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rowActions { display: flex; align-items: center; gap: var(--space-0-5); }
+.meta { font-family: var(--font-mono); font-size: var(--text-2xs); font-weight: var(--weight-regular); color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.twoLine { padding-top: var(--space-1); padding-bottom: var(--space-1); }
+.detail { grid-column: 2 / -1; font-size: var(--text-2xs); font-weight: var(--weight-regular); color: var(--attn-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Actions appear on hover and keyboard focus, never take space from the title otherwise. */
+.reveal { opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard); }
+.row:hover .reveal, .row:focus-within .reveal, .section:hover .reveal, .section:focus-within .reveal { opacity: 1; }
+
+.footer { display: flex; align-items: center; gap: var(--space-0-5); height: var(--bar-lg); min-height: var(--bar-lg); padding: 0 var(--space-2); border-top: 1px solid var(--border-subtle); color: var(--text-muted); }

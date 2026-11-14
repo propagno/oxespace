@@ -5,6 +5,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
 import { recordIncident } from './services/diagnostics/incident-sink'
+import { APP_VERSION } from './services/app-info'
 import { bypassCloseGuard } from './window-close-guard'
 import type { AppUpdateChannel, AppUpdatePreferences, AppUpdateState, AppUpdateStatus } from '../../shared/types/updater'
 
@@ -110,7 +111,7 @@ export const defaultChannel = (version: string): AppUpdateChannel => (parseVersi
 
 export const DEFAULT_UPDATE_PREFERENCES: AppUpdatePreferences = { mode: 'auto', pinnedVersion: null, channel: 'stable' }
 
-export function normalizeUpdatePreferences(value: unknown, version = app.getVersion()): AppUpdatePreferences {
+export function normalizeUpdatePreferences(value: unknown, version = APP_VERSION): AppUpdatePreferences {
   const input = value && typeof value === 'object' ? value as Partial<AppUpdatePreferences> : {}
   const mode = input.mode === 'notify' || input.mode === 'off' ? input.mode : 'auto'
   const pinnedVersion = typeof input.pinnedVersion === 'string' && parseVersion(input.pinnedVersion) ? input.pinnedVersion.replace(/^v/, '') : null
@@ -135,7 +136,7 @@ let autoUpdaterRef: AutoUpdater | null = null
 let preferences: AppUpdatePreferences = normalizeUpdatePreferences(undefined)
 let state: AppUpdateState = {
   status: app.isPackaged ? 'idle' : 'disabled',
-  currentVersion: app.getVersion(),
+  currentVersion: APP_VERSION,
   availableVersion: null,
   progress: null,
   error: null,
@@ -144,7 +145,7 @@ let state: AppUpdateState = {
 
 function setState(partial: Partial<AppUpdateState>): void {
   if (partial.status === 'error') recordIncident('incident.updater.failed', state.status) // the step that failed, never the error text
-  state = { ...state, ...partial, currentVersion: app.getVersion(), preferences }
+  state = { ...state, ...partial, currentVersion: APP_VERSION, preferences }
   broadcast()
 }
 
@@ -157,7 +158,7 @@ function broadcast(): void {
 }
 
 export function getAppUpdateState(): AppUpdateState {
-  return { ...state, currentVersion: app.getVersion(), preferences }
+  return { ...state, currentVersion: APP_VERSION, preferences }
 }
 
 function applyPolicy(): void {
@@ -207,7 +208,7 @@ export async function checkForAppUpdates(manual = false): Promise<AppUpdateState
         .map(item => item.tag_name)
       const version = newestVersion(tags) ?? ''
       if (!version) throw new Error('Release version unavailable')
-      const available = isNewerRelease(version, app.getVersion())
+      const available = isNewerRelease(version, APP_VERSION)
       setState({ status: available ? 'available' : 'not-available', installMode: 'manual', availableVersion: available ? version : null, progress: null, error: null, lastCheckedAt: Date.now() })
     } catch (err) {
       setState({ status: 'error', installMode: 'manual', error: err instanceof Error ? err.message : String(err), lastCheckedAt: Date.now() })
