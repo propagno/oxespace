@@ -1,4 +1,4 @@
-// Frozen acceptance test for 1.5.2 OxeChat F2 (OXE program oxespace-152-chat, phase F2, Jira OXE-130).
+// Frozen acceptance test for 1.5.2 OxeChat F2 (OXE program oxespace-152-chat, phase F2, Jira OXE-130; v3, CR-F2-2).
 // Written by the planner; the executor must not edit it.
 // Today: an OxeChat conversation notifies "<name> — finished" / "<name> — needs approval" with a fixed body
 // (src/hooks/useThreadAttention.ts + src/utils/threadAttention.ts), an OxeCode pane "<agent> — waiting for you" /
@@ -12,23 +12,28 @@
 //   Needs you = a conversation waiting on approval (status approval) or a pane blocked on a decision; Finished = a
 //   conversation whose turn completed or a pane that finished and waits for a reply. Failed / exited / error notices
 //   keep their words.
-// - Sound: Settings › Notifications gains "Play a sound when an agent finishes" (pt-BR "Tocar som ao terminar"), a
-//   src/ui Switch in a src/ui SettingRow ([data-ui=setting-row]) inside a src/ui SettingsSection
-//   ([data-ui=settings-section]) (rebrand BRD-06/OXE-67: Settings 720 px, title 20, nav 28, SettingRow; the measures
-//   come from those primitives, tokens in both themes). Off by factory default (RT-1), kept across restarts. A
+// - Sound: Settings › Notifications gains "Play a sound when an agent finishes" (pt-BR "Tocar um som quando um agente
+//   terminar"), a src/ui Switch in a src/ui SettingRow ([data-ui=setting-row], label left, control right) inside a
+//   src/ui SettingsSection with a title ([data-ui=settings-section]) that is the LAST thing on the page and is NOT a
+//   card (brand answers of 14/11, CR-F2-2; BRD-06/OXE-67, one mould, no cards): the `plain` SettingsSection that T5
+//   adds (data-variant="plain", no border, no background; checked by the OXE-131 test). Off by factory default (RT-1),
+//   kept across restarts. A
 //   "finished" notification goes out with `silent: true` while it is off and `silent: false` while it is on; a
 //   "needs you" one always with `silent: false` (the system sound). The payload carries `silent`
 //   (AgentNotificationPayload, shared/types/ipc.ts) and the main process passes it to Electron's Notification;
 //   without it, `silent: false`.
 // - Focus: with the window focused and the conversation (or pane) on screen, no notification (today's rule, kept).
 // - Grouping (finished only): within 10 s, the first 3 finished conversations or panes notify one by one; the ones
-//   after them in the same 10 s do not notify one by one: one grouped notification "N agents finished" (pt-BR
-//   "N agentes terminaram"), N = how many were held, goes out when those 10 s end. A finish after the window notifies
+//   after them in the same 10 s do not notify one by one: one grouped notification, with a real plural (i18next
+//   `_one`/`_other` keys): "1 agent finished" / "N agents finished" (pt-BR "1 agente terminou" / "N agentes
+//   terminaram"), N = how many were held, goes out when those 10 s end. A finish after the window notifies
 //   on its own again. "Needs you" is never grouped.
 // - Do not disturb: the notification never bypasses the system mode: no `urgency: 'critical'`, no
 //   `timeoutType: 'never'`, no `toastXml`; Notification.isSupported() false shows nothing.
 // - Clicking a notification still activates that pane or conversation (existing; not re-tested here).
 // Runs the real hooks, stores, Settings page, i18n catalogs and the main IPC handler; electron and window.oxe are doubles.
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { createElement } from 'react'
 import { act, cleanup, render, renderHook, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -95,9 +100,10 @@ const terminalEntry = (over: Partial<TerminalStateEntry> = {}): TerminalStateEnt
 const setPaneState = (id: string, agentState: TerminalStateEntry['agentState']): void => act(() => useTerminalStore.getState().setAgentState(id, agentState, 'hook'))
 
 // ---- Settings › Notifications
-const SOUND = { en: /play a sound when an agent finishes/i, 'pt-BR': 'Tocar som ao terminar' } as const
+const SOUND = { en: /play a sound when an agent finishes/i, 'pt-BR': 'Tocar um som quando um agente terminar' } as const
+let settingsPage: HTMLElement | null = null
 async function soundSwitch(language: 'en' | 'pt-BR' = 'en'): Promise<HTMLElement> {
-  render(createElement(SettingsContent, { section: 'notifications', agentProfiles: [], agentReadiness: [], isDiscoveringAgents: false, onClose: vi.fn(), onDiscoverAgents: vi.fn(), onConfigureAgent: vi.fn(), onNewCustomAgent: vi.fn() }))
+  settingsPage = render(createElement(SettingsContent, { section: 'notifications', agentProfiles: [], agentReadiness: [], isDiscoveringAgents: false, onClose: vi.fn(), onDiscoverAgents: vi.fn(), onConfigureAgent: vi.fn(), onNewCustomAgent: vi.fn() })).container
   return screen.getByRole('switch', { name: SOUND[language] })
 }
 
@@ -193,7 +199,14 @@ describe('OXE-130 · a notification names the conversation and where it is, with
     expect(toggle).toHaveAttribute('aria-checked', 'false')
     const row = toggle.closest('[data-ui="setting-row"]')
     expect(row, 'the switch is a SettingRow').not.toBeNull()
-    expect(row!.closest('[data-ui="settings-section"]'), 'inside a SettingsSection').not.toBeNull()
+    const section = row!.closest<HTMLElement>('[data-ui="settings-section"]')
+    expect(section, 'inside a SettingsSection').not.toBeNull()
+    expect(within(section!).getByRole('heading'), 'the section has a title').toBeInTheDocument()
+    expect(section, 'no card: the plain SettingsSection').toHaveAttribute('data-variant', 'plain')
+    const after = [...settingsPage!.querySelectorAll('*')]
+      .filter(node => !section!.contains(node) && !node.contains(section!) && (section!.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING))
+      .map(node => (node.textContent ?? '').trim()).filter(Boolean)
+    expect(after, 'the section is the last thing on the page').toEqual([])
     cleanup()
     await changeLanguage('pt-BR')
     expect(await soundSwitch('pt-BR')).toHaveAttribute('aria-checked', 'false')
@@ -273,6 +286,41 @@ describe('OXE-130 · a notification names the conversation and where it is, with
     await update([...asking.map((name, index) => conversation(`n${index}`, name, { status: 'approval' }))])
     await flush(10_000)
     expect(sent().map(payload => payload.title)).toEqual(asking)
+
+    // One held: the singular. Then pt-BR, singular and plural.
+    const batch = async (prefix: string, count: number): Promise<string[]> => {
+      notify.mockClear()
+      const ids = Array.from({ length: count }, (_, index) => conversation(`${prefix}${index}`, `${prefix} ${index}`))
+      await update([...ids])
+      await update(ids.map(finished))
+      await flush(10_000)
+      return sent().map(payload => payload.title)
+    }
+    expect((await batch('s', 4)).at(-1)).toBe('1 agent finished')
+    await changeLanguage('pt-BR')
+    expect((await batch('p', 4)).at(-1)).toBe('1 agente terminou')
+    expect((await batch('q', 5)).at(-1)).toBe('2 agentes terminaram')
+    await changeLanguage('en')
+
+    // The catalogs hold the pair as i18next plural keys (_one/_other), same key in both languages (catalog data).
+    const pairs = (language: string): Map<string, { one?: string; other?: string }> => {
+      const found = new Map<string, { one?: string; other?: string }>()
+      const walk = (value: unknown, at: string): void => {
+        if (value && typeof value === 'object') for (const [key, child] of Object.entries(value as Record<string, unknown>)) walk(child, at ? `${at}.${key}` : key)
+        else if (typeof value === 'string') {
+          const plural = at.match(/^(.*)_(one|other)$/)
+          if (plural) found.set(plural[1], { ...found.get(plural[1]), [plural[2]]: value })
+        }
+      }
+      const dir = join(__dirname, '..', '..', '..', 'shared', 'locales', language)
+      for (const file of readdirSync(dir).filter(name => name.endsWith('.json'))) walk(JSON.parse(readFileSync(join(dir, file), 'utf8')), file.replace(/\.json$/, ''))
+      return found
+    }
+    const keyOf = (language: string, one: string, other: string): string | undefined =>
+      [...pairs(language)].find(([, value]) => value.one === one && value.other === other)?.[0]
+    const en = keyOf('en', '{{count}} agent finished', '{{count}} agents finished')
+    expect(en, 'en: "{{count}} agent finished" / "{{count}} agents finished" as _one/_other').toBeDefined()
+    expect(keyOf('pt-BR', '{{count}} agente terminou', '{{count}} agentes terminaram'), 'pt-BR, the same key').toBe(en)
   })
 
   it('CA-6 · respeita o não perturbe', async () => {

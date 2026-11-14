@@ -1,25 +1,40 @@
-// Frozen acceptance test for 1.5.2 OxeChat F2 (OXE program oxespace-152-chat, phase F2, Jira OXE-131).
-// Written by the planner; the executor must not edit it.
+// Frozen acceptance test for 1.5.2 OxeChat F2 (OXE program oxespace-152-chat, phase F2, Jira OXE-131; v3, CR-F2-2).
+// Written by the planner; the executor must not edit it. (The key rule tests that were in oxe-131-send-key.test.ts live
+// here since v3: one file per criterion.)
 // Contract:
-// - Settings › Agents (the page that holds the conversation settings today: "Access a new conversation starts with",
-//   idle conversations) gains "Send message with" (pt-BR "Enviar mensagem com"): a src/ui SegmentedControl
-//   (role radiogroup) with two options, "Enter" (factory default, as today) and "Ctrl+Enter" ("Cmd+Enter" on macOS).
-//   Rebrand BRD-06 (OXE-67, Settings 720 px, title 20, nav 28, SettingRow): the control sits in a src/ui SettingRow
-//   ([data-ui=setting-row]) inside a src/ui SettingsSection ([data-ui=settings-section]); its measures come from those
-//   primitives (row label 13/500, section card radius 12 with a 14/600 title, segmented track --control-md 28, tokens
-//   in both themes). The choice is kept across restarts (a persisted renderer preference) and applies at once.
+// - src/components/Threads/sendKey.ts (new) exports
+//     type SendKeyMode = 'enter' | 'ctrl-enter'
+//     isSendKey(event: { key: string; shiftKey?: boolean; ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean;
+//                        isComposing?: boolean; keyCode?: number }, mode: SendKeyMode, mac?: boolean): boolean
+//     sendKeyLabel(mode: SendKeyMode, mac?: boolean): string   ('Enter'; 'Ctrl+Enter', or '⌘+Enter' on macOS)
+//   `mac` defaults to the platform (IS_MAC, src/keyboard/chords.ts); these tests pass it.
+//   "enter" (factory default, as today): Enter sends, Shift+Enter does not (the line breaks); Ctrl+Enter and Cmd+Enter
+//   still send, as today. "ctrl-enter": Enter and Shift+Enter do not send; Ctrl+Enter sends, Cmd+Enter on macOS.
+//   An IME composition (`isComposing`, or the legacy keyCode 229) never sends, in either mode.
+// - Settings › Agents (the page with the conversation settings today) gains "Send message with" (pt-BR "Enviar mensagem
+//   com"): a src/ui SegmentedControl (role radiogroup) with the options sendKeyLabel gives: "Enter" (default) and
+//   "Ctrl+Enter" on Windows and Linux ("⌘+Enter" on macOS). Rebrand, brand answers of 14/11 (CR-F2-2; BRD-06/OXE-67, one
+//   mould, no cards): the control is a src/ui SettingRow ([data-ui=setting-row], label left, control right) inside a
+//   src/ui SettingsSection with a title ([data-ui=settings-section]) that is the LAST thing on the page and is NOT a
+//   card: SettingsSection gains a `plain` variant (prop `plain`, rendered as data-variant="plain") whose CSS rule in
+//   src/ui/Settings.module.css sets no border and no background (SOURCE-TEXT check, marked below). The other sections
+//   keep their look. The choice is kept across restarts (a persisted renderer preference) and applies at once.
+//   SettingsModal.tsx is at its file-size baseline (1093): to add the section at the end of the Agents page, move
+//   IdleConversationsSetting out of it (next to the new setting) so the file does not grow.
 // - The OxeChat composer (ThreadComposerForm) and the agent question answer box (the free-text answer of a question
-//   card, ThreadRequestCard) follow it through isSendKey (src/components/Threads/sendKey.ts, see the .ts test):
-//   "Enter": Enter sends / answers; "Ctrl+Enter": Enter does not send (the composer's line breaks: the key event is
-//   not prevented), Ctrl+Enter sends / answers. The diff comment box (src/components/Review/DiffCard.tsx) does not
-//   change: Ctrl+Enter saves the comment and Enter alone does not, in both modes.
-// - The composer's hint says the right key: in "Enter" mode it names Enter and not Ctrl+Enter; in "Ctrl+Enter" mode
-//   it names Ctrl+Enter (the send button title "Send · Enter" is today's hint; any text or title inside the composer
-//   form counts). Words go through shared/locales/{en,pt-BR}.
+//   card, ThreadRequestCard) follow isSendKey: "Enter": Enter sends / answers; "Ctrl+Enter": Enter does not send (the
+//   composer's line breaks: the key event is not prevented), Ctrl+Enter sends / answers. The diff comment box
+//   (src/components/Review/DiffCard.tsx) does not change: Ctrl+Enter saves, Enter alone does not, in both modes.
+// - The composer's hint names the chosen key (sendKeyLabel): in "Enter" mode Enter and not Ctrl+Enter; in "Ctrl+Enter"
+//   mode Ctrl+Enter (the send button title "Send · Enter" is today's hint; any text or title inside the composer form
+//   counts). Words go through shared/locales/{en,pt-BR}.
 // Runs the real Settings page, ThreadView, DiffCard and stores; only window.oxe is a double.
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { isSendKey, sendKeyLabel } from '../../../src/components/Threads/sendKey'
 import { SettingsContent } from '../../../src/components/Settings/SettingsModal'
 import { ThreadView } from '../../../src/components/Threads/ThreadView'
 import { DiffCard } from '../../../src/components/Review/DiffCard'
@@ -34,12 +49,19 @@ import type { GitDiffFile } from '../../../shared/types/git'
 
 vi.mock('../../../src/hooks/useGitBranch', () => ({ useGitBranch: () => ({ branch: 'main', detached: false, shortSha: null, error: null }) }))
 
+// ---- the key rule
+const enter = { key: 'Enter' }
+const shiftEnter = { key: 'Enter', shiftKey: true }
+const ctrlEnter = { key: 'Enter', ctrlKey: true }
+const cmdEnter = { key: 'Enter', metaKey: true }
+
+// ---- Settings › Agents
 const LABEL = { en: 'Send message with', 'pt-BR': 'Enviar mensagem com' } as const
 const settingsProps = { agentProfiles: [], agentReadiness: [], isDiscoveringAgents: false, onClose: vi.fn(), onDiscoverAgents: vi.fn(), onConfigureAgent: vi.fn(), onNewCustomAgent: vi.fn() }
 
-function renderAgentsSettings(): void {
+function renderAgentsSettings(): HTMLElement {
   Object.defineProperty(window, 'oxe', { configurable: true, value: {} })
-  render(<SettingsContent section="providers" {...settingsProps} />)
+  return render(<SettingsContent section="providers" {...settingsProps} />).container
 }
 
 /** Chooses the send key the way a person does, in Settings › Agents, and closes Settings. */
@@ -51,6 +73,14 @@ async function chooseSendKey(option: 'Enter' | 'Ctrl+Enter'): Promise<void> {
   cleanup()
 }
 
+/** Nothing with words comes after `element` on the page. */
+function nothingAfter(page: HTMLElement, element: HTMLElement): string[] {
+  return [...page.querySelectorAll('*')]
+    .filter(node => !element.contains(node) && !node.contains(element) && (element.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING))
+    .map(node => (node.textContent ?? '').trim()).filter(Boolean)
+}
+
+// ---- the conversation
 function fixture(snapshot?: Partial<ThreadSnapshot>) {
   const base: ThreadSnapshot = { thread: { id: 'thread', workspaceId: 'ws', projectId: 'project', rootPath: '/repo', provider: 'claude', title: 'Auth investigation', pinned: false, status: 'idle', nativeSessionId: null, createdAt: 1, updatedAt: 1 }, events: [] }
   const value: ThreadSnapshot = { ...base, ...snapshot, thread: { ...base.thread, ...snapshot?.thread } }
@@ -104,14 +134,55 @@ async function diffCommentKeysUnchanged(): Promise<void> {
 beforeEach(() => { localStorage.clear() })
 afterEach(async () => { cleanup(); vi.unstubAllGlobals(); await changeLanguage('en') })
 
+describe('OXE-131 · which key sends the message', () => {
+  it('CA-2 · modo Enter', () => {
+    for (const mac of [false, true]) {
+      expect(isSendKey(enter, 'enter', mac), `Enter sends (mac ${mac})`).toBe(true)
+      expect(isSendKey(shiftEnter, 'enter', mac), `Shift+Enter breaks the line (mac ${mac})`).toBe(false)
+      expect(isSendKey({ key: 'a' }, 'enter', mac)).toBe(false)
+      expect(isSendKey({ key: 'a', ctrlKey: true }, 'enter', mac)).toBe(false)
+      expect(sendKeyLabel('enter', mac)).toBe('Enter')
+    }
+    expect(isSendKey(ctrlEnter, 'enter', false), 'Ctrl+Enter still sends').toBe(true)
+    expect(isSendKey(cmdEnter, 'enter', true), 'Cmd+Enter still sends on macOS').toBe(true)
+  })
+
+  it('CA-3 · modo Ctrl+Enter', () => {
+    for (const mac of [false, true]) {
+      expect(isSendKey(enter, 'ctrl-enter', mac), `Enter breaks the line (mac ${mac})`).toBe(false)
+      expect(isSendKey(shiftEnter, 'ctrl-enter', mac), `Shift+Enter breaks the line (mac ${mac})`).toBe(false)
+      expect(isSendKey({ key: 'a', ctrlKey: true }, 'ctrl-enter', mac)).toBe(false)
+    }
+    expect(isSendKey(ctrlEnter, 'ctrl-enter', false), 'Ctrl+Enter sends on Windows and Linux').toBe(true)
+    expect(isSendKey(cmdEnter, 'ctrl-enter', true), 'Cmd+Enter sends on macOS').toBe(true)
+    expect(sendKeyLabel('ctrl-enter', false)).toBe('Ctrl+Enter')
+    expect(sendKeyLabel('ctrl-enter', true)).toBe('⌘+Enter')
+  })
+
+  it('CA-4 · IME nunca envia', () => {
+    for (const mode of ['enter', 'ctrl-enter'] as const) {
+      for (const mac of [false, true]) {
+        for (const event of [enter, shiftEnter, ctrlEnter, cmdEnter]) {
+          expect(isSendKey({ ...event, isComposing: true }, mode, mac), `${mode} ${JSON.stringify(event)} composing (mac ${mac})`).toBe(false)
+          expect(isSendKey({ ...event, keyCode: 229 }, mode, mac), `${mode} ${JSON.stringify(event)} keyCode 229 (mac ${mac})`).toBe(false)
+        }
+      }
+    }
+  })
+})
+
 describe('OXE-131 · Enter or Ctrl+Enter sends the message', () => {
   it('CA-1 · opção em Settings', async () => {
-    renderAgentsSettings()
+    const page = renderAgentsSettings()
     const group = await screen.findByRole('radiogroup', { name: LABEL.en })
-    const row = group.closest('[data-ui="setting-row"]')
+    const row = group.closest<HTMLElement>('[data-ui="setting-row"]')
     expect(row, 'the control is a SettingRow').not.toBeNull()
-    expect(row!.closest('[data-ui="settings-section"]'), 'inside a SettingsSection').not.toBeNull()
-    expect(within(row as HTMLElement).getByText(LABEL.en)).toBeInTheDocument()
+    const section = row!.closest<HTMLElement>('[data-ui="settings-section"]')
+    expect(section, 'inside a SettingsSection').not.toBeNull()
+    expect(within(section!).getByRole('heading'), 'the section has a title').toBeInTheDocument()
+    expect(section, 'no card: the plain SettingsSection').toHaveAttribute('data-variant', 'plain')
+    expect(nothingAfter(page, section!), 'the section is the last thing on the page').toEqual([])
+    expect(within(row!).getByText(LABEL.en)).toBeInTheDocument()
     expect(within(group).getAllByRole('radio').map(radio => radio.textContent?.trim())).toEqual(['Enter', 'Ctrl+Enter'])
     expect(within(group).getByRole('radio', { name: 'Enter' }), 'Enter is the factory default').toHaveAttribute('aria-checked', 'true')
     await userEvent.click(within(group).getByRole('radio', { name: 'Ctrl+Enter' }))
@@ -127,6 +198,12 @@ describe('OXE-131 · Enter or Ctrl+Enter sends the message', () => {
     cleanup()
     await changeLanguage('en')
     await chooseSendKey('Enter')
+    // SOURCE-TEXT check (marked): the plain variant of SettingsSection draws no card (no border, no background).
+    const css = readFileSync(join(__dirname, '..', '..', '..', 'src', 'ui', 'Settings.module.css'), 'utf8')
+    const plain = [...css.matchAll(/([^{}]*\.plain[^{}]*)\{([^}]*)\}/g)].map(match => match[2]).join('\n')
+    expect(plain, 'a .plain rule exists in Settings.module.css').not.toBe('')
+    expect(plain).toMatch(/border:\s*(0|none)\b/)
+    expect(plain).toMatch(/background:\s*(none|transparent)\b/)
   })
 
   it('CA-5 · dica da tecla', async () => {

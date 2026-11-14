@@ -1,23 +1,25 @@
-// Frozen acceptance test for 1.5.2 OxeChat F2 (OXE program oxespace-152-chat, phase F2, Jira OXE-13).
+// Frozen acceptance test for 1.5.2 OxeChat F2 (OXE program oxespace-152-chat, phase F2, Jira OXE-13; v3, CR-F2-1).
 // Written by the planner; the executor must not edit it.
 // Defect (verified 14/11 on the packaged main ab5d1c8b7, Windows and Linux, en-US and pt-BR): More actions › "Show every
 // tool call" turns the mode on, but the item never shows it: role=menuitem, aria-checked=null, no check.
 // Cause: ThreadHeader.tsx (~159) passes `checked` to a plain item; MenuActionItem (src/ui/Overlay.tsx) ignores it. Only a
 // `type: 'check'` entry renders a menuitemcheckbox with aria-checked (#771 set `checked` without the type).
-// Contract:
+// Contract (brand answers of 14/11, CR-F2-1):
 // - ThreadHeader's More actions › "Show every tool call" is a checkable entry of the shared Menu (`type: 'check'`):
-//   role menuitemcheckbox, aria-checked "true" while the transcript is in verbose mode and "false" otherwise, with the
-//   menu's own check (RadixMenu.ItemIndicator) drawn only when on; en-US and pt-BR. Choosing it still switches
-//   verbose <-> normal (useThreadViewModeStore). The other More actions entries stay menuitem.
-// - The shared Menu (src/ui/Overlay.tsx): a `type: 'check'` entry renders as menuitemcheckbox with aria-checked, and a
-//   plain entry stays menuitem. A check entry may now carry an optional `icon`, drawn before its label as a plain item
-//   draws its own, so the More actions item keeps its ListTree icon next to the other items' icons.
-// - Rebrand (docs/design/brand.md "Scale (1.5.2)": a menu row is a one-line row of 28, text 13, radius 6; BRD-02/OXE-61
-//   menus of the OxeChat sidebar and header): the check entry has the same anatomy as its siblings, i.e. the same menu
-//   item class on the real render, and that class reads min-height var(--control-md) or var(--row-1) (28; 32
-//   comfortable), font-size var(--text-sm) (13), border-radius var(--radius-sm) (6); the check is drawn in
-//   var(--accent), a token of both themes. The token values are read from src/ui/Overlay.module.css (a SOURCE-TEXT
-//   check, marked below: jsdom loads no CSS, so this is how the repo's scale tests read the primitives).
+//   role menuitemcheckbox, aria-checked "true" while the transcript is in verbose mode and "false" otherwise; en-US and
+//   pt-BR. Choosing it still switches verbose <-> normal (useThreadViewModeStore). The other entries stay menuitem.
+// - A checkable item has NO icon: the ListTree icon goes, and the shared Menu's `type: 'check'` entry does not gain an
+//   icon. The left column of a check item belongs to the check (RadixMenu.ItemIndicator, the ✓ in var(--accent)): drawn
+//   BEFORE the label, only while checked. An unchecked item keeps that column empty (reserve the check's width, e.g. a
+//   fixed-size indicator slot, so labels line up); that alignment is the brand's call in review, not measured here.
+// - Rebrand (docs/design/brand.md "Scale (1.5.2)": a menu row is a one-line row of 28, text 13, radius 6; BRD-02/OXE-61):
+//   the check entry has the same anatomy as its siblings, i.e. the same menu item class on the real render. That class
+//   reads min-height var(--row-1) (the code uses --row-1, a row, not a control; this test also accepts var(--control-md),
+//   the same 28/32), font-size var(--text-sm), border-radius var(--radius-sm); the check reads var(--accent) and is no
+//   longer pushed to the right edge (no `margin-left: auto` on it). The token values are read from
+//   src/ui/Overlay.module.css (a SOURCE-TEXT check, marked below: jsdom loads no CSS, as the repo's scale tests do).
+//   Radio entries are not part of this change: if they share .menuCheck today, give them their own class so they keep
+//   their indicator where it is.
 // The e2e e2e/release/verify-oxe-11-13-14.spec.ts › OXE-13 (packaged build, CI/HML) repeats CA-1/CA-2 on the real app.
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -43,8 +45,19 @@ async function openMoreActions(language: 'en' | 'pt-BR'): Promise<HTMLElement> {
   return screen.findByRole('menu', { name: LABELS[language].more })
 }
 
-/** The menu's own check mark: the item indicator, rendered only while the item is checked. */
-const checkMark = (item: HTMLElement): Element | null => item.querySelector('[data-state="checked"] svg')
+/** The menu's own check: the item indicator, rendered only while the item is checked. */
+const indicator = (item: HTMLElement): Element | null => item.querySelector('[data-state="checked"]')
+/** Every drawing in the item that is not the check: an icon. */
+const icons = (item: HTMLElement): Element[] => [...item.querySelectorAll('svg')].filter(svg => !svg.closest('[data-state="checked"]'))
+/** The text node that holds the label. */
+const labelNode = (item: HTMLElement, label: string): Node => {
+  const walker = document.createTreeWalker(item, NodeFilter.SHOW_TEXT)
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) if (node.textContent?.includes(label)) return node
+  throw new Error(`no "${label}" text in the item`)
+}
+/** The check is drawn before the label: the left column. */
+const checkBeforeLabel = (item: HTMLElement, label: string): boolean =>
+  Boolean(indicator(item)!.compareDocumentPosition(labelNode(item, label)) & Node.DOCUMENT_POSITION_FOLLOWING)
 
 beforeEach(() => { localStorage.clear(); useThreadViewModeStore.setState({ mode: 'normal' }) })
 afterEach(async () => { cleanup(); vi.restoreAllMocks(); await changeLanguage('en') })
@@ -56,7 +69,9 @@ describe('OXE-13 · "Show every tool call" says that it is on', () => {
       await openMoreActions(language)
       const item = screen.getByRole('menuitemcheckbox', { name: LABELS[language].item })
       expect(item, language).toHaveAttribute('aria-checked', 'true')
-      expect(checkMark(item), `${language}: the check is drawn`).not.toBeNull()
+      expect(indicator(item)?.querySelector('svg'), `${language}: the check is drawn`).not.toBeNull()
+      expect(checkBeforeLabel(item, LABELS[language].item), `${language}: the check sits in the left column`).toBe(true)
+      expect(icons(item), `${language}: a checkable item has no icon`).toHaveLength(0)
       expect(screen.getByRole('menuitem', { name: LABELS[language].rename }), language).toBeInTheDocument()
       await act(async () => { fireEvent.click(item) })
       expect(useThreadViewModeStore.getState().mode, language).toBe('normal')
@@ -70,7 +85,8 @@ describe('OXE-13 · "Show every tool call" says that it is on', () => {
       await openMoreActions(language)
       const item = screen.getByRole('menuitemcheckbox', { name: LABELS[language].item })
       expect(item, language).toHaveAttribute('aria-checked', 'false')
-      expect(checkMark(item), `${language}: no check`).toBeNull()
+      expect(indicator(item), `${language}: no check`).toBeNull()
+      expect(item.querySelectorAll('svg'), `${language}: nothing drawn, no icon`).toHaveLength(0)
       expect(screen.queryByRole('menuitem', { name: LABELS[language].item }), language).toBeNull()
       await act(async () => { fireEvent.click(item) })
       expect(useThreadViewModeStore.getState().mode, language).toBe('verbose')
@@ -78,29 +94,29 @@ describe('OXE-13 · "Show every tool call" says that it is on', () => {
     }
   })
 
-  it('CA-3 · a checkable entry of the shared Menu is a menuitemcheckbox with its icon and the menu row anatomy; a plain entry stays menuitem', async () => {
-    const items = [
+  it('CA-3 · a checkable entry of the shared Menu is a menuitemcheckbox with the check in the left column and the menu row anatomy; a plain entry stays menuitem', async () => {
+    const items: MenuEntry[] = [
       { label: 'Rename', icon: <svg data-testid="icon-rename" />, onSelect: () => {} },
-      { type: 'check', label: 'Show every tool call', icon: <svg data-testid="icon-tools" />, checked: true, onSelect: () => {} },
+      { type: 'check', label: 'Show every tool call', checked: true, onSelect: () => {} },
       { type: 'check', label: 'Wrap long lines', checked: false, onSelect: () => {} }
-    ] as unknown as MenuEntry[]
+    ]
     render(<div><AnchoredMenu open onOpenChange={() => {}} label="More actions" items={items} /></div>)
     const plain = await screen.findByRole('menuitem', { name: 'Rename' })
     const on = screen.getByRole('menuitemcheckbox', { name: 'Show every tool call' })
     const off = screen.getByRole('menuitemcheckbox', { name: 'Wrap long lines' })
+    expect(plain.querySelector('[data-testid="icon-rename"]'), 'a plain item keeps its icon').not.toBeNull()
     expect(on).toHaveAttribute('aria-checked', 'true')
     expect(off).toHaveAttribute('aria-checked', 'false')
-    expect(checkMark(on)).not.toBeNull()
-    expect(checkMark(off)).toBeNull()
-    // The icon is drawn before the label, as on a plain item.
-    const icon = on.querySelector('[data-testid="icon-tools"]')
-    expect(icon, 'the check entry keeps its icon').not.toBeNull()
+    expect(indicator(on)?.querySelector('svg')).not.toBeNull()
+    expect(indicator(off)).toBeNull()
+    expect(checkBeforeLabel(on, 'Show every tool call'), 'the check is drawn before the label').toBe(true)
+    expect(icons(on)).toHaveLength(0)
     expect(on.textContent?.trim()).toBe('Show every tool call')
-    expect(icon!.compareDocumentPosition(on.querySelector('[data-state="checked"]')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     // Same anatomy as its siblings: the same menu item class (row height, text size and radius come from it).
     expect(on.className).toBe(plain.className)
     expect(off.className).toBe(plain.className)
-    // SOURCE-TEXT check (marked): the menu item class reads the 1.5.2 scale tokens, the check reads --accent.
+    // SOURCE-TEXT check (marked): the menu item class reads the 1.5.2 scale tokens; the check reads --accent and is
+    // not pushed to the right edge any more.
     const css = readFileSync(join(__dirname, '..', '..', 'src', 'ui', 'Overlay.module.css'), 'utf8')
     const block = (selector: string): string => {
       const start = css.search(new RegExp(`^\\.${selector}\\s*\\{`, 'm'))
@@ -108,9 +124,11 @@ describe('OXE-13 · "Show every tool call" says that it is on', () => {
       return css.slice(start, css.indexOf('}', start))
     }
     const row = block('menuItem')
-    expect(row).toMatch(/min-height:\s*var\(--(control-md|row-1)\)/)
+    expect(row).toMatch(/min-height:\s*var\(--(row-1|control-md)\)/)
     expect(row).toMatch(/font-size:\s*var\(--text-sm\)/)
     expect(row).toMatch(/border-radius:\s*var\(--radius-sm\)/)
-    expect(block('menuCheck')).toMatch(/color:\s*var\(--accent\)/)
+    const check = block('menuCheck')
+    expect(check).toMatch(/color:\s*var\(--accent\)/)
+    expect(check).not.toMatch(/margin-left:\s*auto/)
   })
 })
