@@ -40,11 +40,11 @@ describe('A8 · workspace color in the renderer', () => {
     const dialog = await openPicker()
     const group = within(dialog).getByRole('radiogroup', { name: 'Workspace color' })
     expect(group.querySelectorAll('[role="radio"]')).toHaveLength(9)
-    for (const name of ['Caatinga', 'Sertão', 'Açude', 'Juazeiro', 'Xique-xique', 'Barro', 'Fim de tarde', 'Pedra']) {
+    for (const name of ['Velho Chico', 'Anil', 'Açude', 'Juazeiro', 'Xique-xique', 'Coroa-de-frade', 'Fim de tarde', 'Pedra']) {
       expect(within(group).getByRole('radio', { name })).toBeInTheDocument()
     }
-    expect(within(group).getByRole('radio', { name: 'Sertão' })).toHaveAttribute('aria-checked', 'true')
-    fireEvent.click(within(group).getByRole('radio', { name: 'Barro' }))
+    expect(within(group).getByRole('radio', { name: 'Anil' })).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(within(group).getByRole('radio', { name: 'Coroa-de-frade' }))
     expect(updateSettings).toHaveBeenCalledWith({ workspaceId: 'ws-cajui', color: 6 })
   })
 
