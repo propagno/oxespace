@@ -24,13 +24,13 @@ import org.junit.Rule
 import org.junit.Test
 
 /**
- * Frozen acceptance test for 1.5.2 Celular A11 (OXE program oxespace-152-mobile, phase F3, Jira OXE-19 CA-1 to CA-4).
- * Written by the planner; the executor must not edit it.
+ * Frozen acceptance test for 1.5.2 Celular A11 v2 (OXE program oxespace-152-mobile, phase F3, Jira OXE-19 CA-1 to CA-4;
+ * CR-F3-4: the coordination's and MARCA's corrections of 14/11). Written by the planner; the executor must not edit it.
  *
  * The agent's Markdown in a phone conversation at the level of OxeChat, drawn by the real ThreadScreen:
  * - CA-1: `#`, `##`, `###` are headings of their own (heading semantics), in the interface family (OxeFonts.ui, as
- *   OxeChat's .thread-markdown headings) at weight 600: # 20 sp (OxeType.textXl), ## 16 sp (textLg, = titleMedium),
- *   ### 14 sp (textMd); `*x*` and `_x_` are italic; an underscore inside a word (snake_case) stays as it is;
+ *   OxeChat's .thread-markdown headings) at weight 600, by BRD-07's roles: # 16 sp (titleMedium), ## 14 sp, ### 13 sp
+ *   (not 20 / 16 / 14); `*x*` and `_x_` are italic; an underscore inside a word (snake_case) stays as it is;
  * - CA-2: `[text](https://…)` is a link (LinkAnnotation.Url with that url, which Compose opens in the system browser
  *   through LocalUriHandler); only http and https become links, anything else (javascript:, intent:, file:) stays text;
  * - CA-3: a GFM pipe table (header row, `---` separator, rows) is a table: one text per cell, the rows below each other,
@@ -84,7 +84,7 @@ class MarkdownRenderTest {
     @Test
     fun headingsAreHeadingsInTheirHierarchy() {
         val screen = answer()
-        for ((text, size) in listOf("Login fix" to 20f, "What changed" to 16f, "Details" to 14f)) {
+        for ((text, size) in listOf("Login fix" to 16f, "What changed" to 14f, "Details" to 13f)) {
             val node = screen.only(text)
             assertTrue("\"$text\" is a heading", screen.isHeading(node))
             val style = screen.style(node)!!

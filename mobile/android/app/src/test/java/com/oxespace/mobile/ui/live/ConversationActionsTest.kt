@@ -1,9 +1,13 @@
 package com.oxespace.mobile.ui.live
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.text.font.FontWeight
 import com.oxespace.mobile.protocol.RemoteFrames
 import com.oxespace.mobile.protocol.RemotePendingRequest
 import com.oxespace.mobile.protocol.live.LiveStreams
 import com.oxespace.mobile.ui.F3Live
+import com.oxespace.mobile.ui.Node
 import com.oxespace.mobile.ui.PhoneScale
 import com.oxespace.mobile.ui.RenderedScreen
 import com.oxespace.mobile.ui.Samples
@@ -11,26 +15,31 @@ import com.oxespace.mobile.ui.phonePaparazzi
 import com.oxespace.mobile.ui.render
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
 /**
- * Frozen acceptance test for 1.5.2 Celular A9 (OXE program oxespace-152-mobile, phase F3, Jira OXE-102 / BRD-24 F1,
- * CA-5 and CA-6: the two adjustments MARCA added from the side-by-side of 14/11). Written by the planner; the executor
- * must not edit it.
+ * Frozen acceptance test for 1.5.2 Celular A9 v2 (OXE program oxespace-152-mobile, phase F3, Jira OXE-102 / BRD-24 F1,
+ * CA-5 and CA-6: the two adjustments MARCA added from the side-by-side of 14/11; CR-F3-3: the coordination's and
+ * MARCA's corrections of 14/11). Written by the planner; the executor must not edit it.
  *
- * - CA-5: one main-action style per screen, never two "Revisar": a conversation waiting on a request shows exactly one
- *   "Revisar" (thread_review), and it opens that request. Today the now line (NowBanner, GHOST) and the gate card
- *   (GateCard, PRIMARY) each have one.
+ * - CA-5: one main-action style per screen. The one "Revisar" BUTTON (thread_review) is the request card's PRIMARY, and
+ *   it opens the waiting request. The now line under the app bar (NowBanner) is ONE tappable line, the whole line the
+ *   target (Role.Button, no button of its own): the sun icon (OxeIcons.Sun) in attnFg, "Precisa de você." in bold
+ *   (thread_state_needs_you, weight 600 or more) followed by the request's phrase, and at the end "Revisar" with a
+ *   chevron as TEXT, not a button; a tap on the line opens the request too.
  * - CA-6: the request card is neutral with a single signal: the RiskChip it receives. No attn border, no attn strip
- *   (surfaceRaised with borderSubtle, OxeRadius.lg), so the card never shows border + badge + strip together. The sun
- *   (attn) stays on the now line, which already says "Precisa de você" (MG4).
- * - BRD-07 (OXE-69) in Conversation.kt and ThreadScreen.kt: radii only OxeRadius (today 4, 12, 14 and 24 dp literals;
- *   the composer pill becomes OxeRadius.full), nothing under 11 sp.
+ *   (surfaceRaised with borderSubtle, OxeRadius.lg), so the card never shows border + badge + strip together.
+ * - The provider's avatar in the conversation's author line (its header) is 18 dp with radius OxeRadius.sm, one node
+ *   read as the provider's name (its letter is not a text node of its own).
+ * - BRD-07 (OXE-69) in Conversation.kt, ThreadScreen.kt and ProviderAvatar.kt: radii only OxeRadius (today 4, 12, 14 and
+ *   24 dp literals and size * 0.28; the composer pill becomes OxeRadius.full), nothing under 11 sp.
  * ScreensMatchHandoffTest still holds: ThreadScreen.kt keeps calling NowBanner, GateCard, StepsSummary and ProviderAvatar.
  *
- * Red at F3 @ origin/main f417a86f0: two "Revisar"; GateCard draws an attnBorder border and an attn strip; literal radii.
+ * Red at F3 @ origin/main f417a86f0: the now line has its own GHOST "Revisar" button (two "Revisar" buttons) and no sun;
+ * GateCard draws an attnBorder border and an attn strip; the header's avatar is 22 dp; literal radii.
  */
 class ConversationActionsTest {
     @get:Rule
@@ -51,15 +60,52 @@ class ConversationActionsTest {
         ThreadScreen("t-1", watched, LiveStreams().commands, Samples.presence, connected = true, pending = listOf(request), onOpenRequest = { opened += it }) {}
     }
 
+    private fun RenderedScreen.review() = string("thread_review")
+
+    /** Buttons whose label is exactly "Revisar": the card's main action. */
+    private fun RenderedScreen.reviewButtons() = buttons().filter { label(it).trim() == review() }
+
+    /** The now line: the one button stop that starts with "Precisa de você". */
+    private fun RenderedScreen.nowLine(): Node? = string("thread_state_needs_you").let { lead -> buttons().singleOrNull { label(it).trim().startsWith(lead) } }
+
     @Test
     fun aConversationWaitingOnARequestHasOneReviewThatOpensIt() {
-        fun RenderedScreen.reviews() = string("thread_review").let { review -> buttons().filter { text(it).contains(review) || label(it).contains(review) } }
-        val screen = waiting { s -> s.reviews().singleOrNull()?.let(s::tap) }
-        val review = screen.string("thread_review")
-        val leaves = screen.leavesWithText(review)
-        assertEquals("one \"$review\" on the screen (texts: ${screen.leaves.map { screen.text(it) }.filter { it.isNotBlank() }})", 1, leaves.size)
-        assertEquals("one button says it", 1, screen.reviews().size)
+        val screen = waiting { s -> s.reviewButtons().singleOrNull()?.let(s::tap) }
+        val review = screen.review()
+        assertEquals(
+            "one \"$review\" button on the screen, the card's; buttons: ${screen.buttons().map { screen.describe(it) }}",
+            1, screen.reviewButtons().size,
+        )
         assertEquals("it opens the waiting request", setOf("r-1"), opened.toSet())
+    }
+
+    @Test
+    fun theNowLineIsOneTappableLineWithTheSunAndReviewAsText() {
+        val screen = waiting { s -> s.nowLine()?.let(s::tap) }
+        val lead = screen.string("thread_state_needs_you")
+        val review = screen.review()
+        val line = screen.nowLine()
+        assertNotNull("the now line is one tappable stop that starts with \"$lead\"; buttons: ${screen.buttons().map { screen.describe(it) }}", line)
+        assertEquals("a tap on the line opens the waiting request", setOf("r-1"), opened.toSet())
+        val said = screen.label(line!!)
+        assertTrue("the line says the request's phrase: \"$said\"", said.contains(screen.string("request_kind_agent")))
+        assertTrue("the line ends with \"$review\" as text: \"$said\"", said.trimEnd().let { it.contains(review) && it.indexOf(review) > it.indexOf(lead) })
+        val box = screen.boundsDp(line)
+        assertTrue("the whole line is the target: at least 48 dp tall", screen.heightDp(line) >= 47.5f)
+        val inside = screen.leaves.filter { node -> screen.boundsDp(node).let { it.top >= box.top - 1f && it.bottom <= box.bottom + 1f } }
+        assertTrue("no button of its own inside the line", screen.buttons().none { it !== line && screen.boundsDp(it).let { b -> b.top >= box.top - 1f && b.bottom <= box.bottom + 1f } })
+        val leadLeaf = inside.firstOrNull { screen.text(it).contains(lead) }
+        assertNotNull("the line draws \"$lead\"", leadLeaf)
+        assertTrue("\"$lead.\" is bold (600 or more)", bold(screen, leadLeaf!!, lead))
+        assertTrue("\"$review\" is drawn at the line's end", inside.any { screen.text(it).trim().startsWith(review) && screen.boundsDp(it).left >= screen.boundsDp(leadLeaf).left })
+        // rigor: source-assertion. The icon and its colour are not in the semantics; the look is the re-recorded golden.
+        val code = PhoneScale.code("components/Conversation.kt")
+        val start = code.indexOf("fun NowBanner(")
+        assertTrue("Conversation.kt has NowBanner", start >= 0)
+        val end = code.indexOf("\n}", start)
+        val banner = code.substring(start, if (end < 0) code.length else end)
+        assertTrue("the line draws the sun (OxeIcons.Sun)", banner.contains("OxeIcons.Sun"))
+        assertFalse("the line has no button of its own (no OxeButton)", banner.contains("OxeButton("))
     }
 
     @Test
@@ -78,10 +124,31 @@ class ConversationActionsTest {
     }
 
     @Test
+    fun theAuthorLinesAvatarIs18dp() {
+        val screen = waiting()
+        val avatars = screen.leaves.filter { screen.label(it).trim() == "Claude" }
+        assertTrue(
+            "the header's provider avatar is 18 dp; nodes: ${avatars.map { screen.describe(it) }}",
+            avatars.any { kotlin.math.abs(screen.widthDp(it) - 18f) <= 0.5f && kotlin.math.abs(screen.heightDp(it) - 18f) <= 0.5f },
+        )
+        assertTrue("the avatar's radius is OxeRadius.sm", PhoneScale.code("components/ProviderAvatar.kt").contains("RoundedCornerShape(OxeRadius.sm)"))
+    }
+
+    @Test
     fun theConversationFollowsThePhoneScale() {
-        val offenders = PhoneScale.offenders("components/Conversation.kt") + PhoneScale.offenders("live/ThreadScreen.kt")
-        assertEquals("BRD-07 in Conversation.kt and ThreadScreen.kt", emptyList<String>(), offenders)
+        val offenders = PhoneScale.offenders("components/Conversation.kt") + PhoneScale.offenders("live/ThreadScreen.kt") + PhoneScale.offenders("components/ProviderAvatar.kt")
+        assertEquals("BRD-07 in Conversation.kt, ThreadScreen.kt and ProviderAvatar.kt", emptyList<String>(), offenders)
         val small = waiting().textSizes().filter { it.second < 11f }
         assertEquals("no text under 11 sp in the conversation", emptyList<Pair<String, Float>>(), small)
+    }
+
+    /** [part] is drawn at weight 600 or more: the leaf's own style, or a span over it. */
+    private fun bold(screen: RenderedScreen, node: Node, part: String): Boolean {
+        val strong = { weight: FontWeight? -> (weight ?: FontWeight.Normal) >= FontWeight(600) }
+        val text = node.config.getOrNull(SemanticsProperties.Text)?.firstOrNull() ?: return false
+        val at = text.text.indexOf(part)
+        if (at < 0) return false
+        val spanned = text.spanStyles.any { strong(it.item.fontWeight) && it.start <= at && it.end >= at + part.length }
+        return spanned || (strong(screen.style(node)?.fontWeight) && text.text.trim().removeSuffix(".").trim() == part)
     }
 }
