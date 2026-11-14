@@ -80,6 +80,8 @@ interface UIState {
   toggleHttpCallsPanel: () => void
   closeHttpCallsPanel: () => void
   toggleAndroidPanel: () => void
+  /** Opens the Android device panel and keeps it open (an agent asked for the device). */
+  openAndroidPanel: () => void
   closeAndroidPanel: () => void
   openUsage: () => void
   openSchedules: () => void
@@ -140,6 +142,7 @@ export const useUIStore = create<UIState>((set) => ({
   toggleHttpCallsPanel: () => set((s) => ({ isHttpCallsPanelOpen: !s.isHttpCallsPanelOpen })),
   closeHttpCallsPanel: () => set({ isHttpCallsPanelOpen: false }),
   toggleAndroidPanel: () => set((s) => ({ isAndroidPanelOpen: !s.isAndroidPanelOpen })),
+  openAndroidPanel: () => set({ isAndroidPanelOpen: true }),
   closeAndroidPanel: () => set({ isAndroidPanelOpen: false }),
   openUsage: () => set({ isUsageOpen: true }),
   openSchedules: () => set({ isSchedulesOpen: true }),

@@ -17,11 +17,13 @@ import { discoverScripts } from '../services/scripts-discovery.service'
 import type { ToolContext } from './tool-registry'
 import { errorResult, textResult } from './tool-registry'
 import { requirePreviewExecution } from './preview-scope'
-import { savePreviewCapture } from '../services/browser-preview/preview-capture-store'
+import { activeHostDecision } from '../services/approvals/agent-permissions'
+import { isPreviewCaptureName, readPreviewCapture, savePreviewCapture } from '../services/browser-preview/preview-capture-store'
 import type { PreviewRequest } from '../services/browser-preview/preview-automation'
 import { mainMessage, type MainMessage } from '../../../shared/messages'
 import { ActionRefused } from '../services/agent-actions/agent-actions'
 import { englishText } from '../agent-text'
+import { AndroidCaptureError, type AndroidCaptureFailure } from '../services/android/android-devices'
 
 /**
  * One handler per tool. Each is a thin shape-translation layer over an
@@ -300,9 +302,19 @@ async function openWebPreview(args: unknown, ctx: ToolContext): Promise<Internal
     return textResult({ queued: true, workspaceId: execution.workspaceId, threadId, url: target.href, next: 'The renderer must open the page. Use oxespace_preview_interact with action=status or inspect to confirm the active URL before interacting or capturing.' })
   }
   const { runGated } = await import('./app-settings-actions')
-  return target.kind === 'local'
-    ? runGated({ tool: 'oxespace_open_web_preview', level: 'write', handler: open }, args, ctx)
-    : runGated({ tool: 'oxespace_open_web_preview', level: 'confirm', handler: open, confirm: async () => previewApproval(target) }, args, ctx)
+  if (target.kind === 'local') return runGated({ tool: 'oxespace_open_web_preview', level: 'write', handler: open }, args, ctx)
+  // OXE-109: the workspace's host access (Settings › What agents can do) is asked first; only 'deny' skips the question,
+  // since an unknown host reads as allowed and cannot mean the person allowed this page.
+  const workspace = execution.workspaceId.startsWith('thread:') ? undefined : ctx.workspaceServ.get(execution.workspaceId)
+  const host = new URL(target.href).hostname
+  if (activeHostDecision(workspace?.rootPath ?? execution.canonicalRoot, host) === 'deny') {
+    return errorResult(`Agents may not open ${host} in this workspace. The person can change that in Settings › What agents can do.`)
+  }
+  // The approval center's record exists: the panel opens on it while the agent waits; nothing loads before the OK.
+  const asked = (approvalId: string): void => {
+    ctx.webPreview.emitPreview({ workspaceId: execution.workspaceId, threadId, url: target.href, requestedAt: Date.now(), permission: 'ask', approvalId })
+  }
+  return runGated({ tool: 'oxespace_open_web_preview', level: 'confirm', handler: open, confirm: async () => previewApproval(target) }, args, ctx, asked)
 }
 
 async function qualityCheck(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
@@ -346,7 +358,21 @@ async function qualityCheck(args: unknown, ctx: ToolContext): Promise<InternalMc
 
 async function captureWebPreview(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
   const execution = requirePreviewExecution(ctx)
-  const fileName = asRecord(args).fileName
+  const input = asRecord(args)
+  const fileName = input.fileName
+  const owner = execution.owner.kind === 'thread' ? execution.owner.id : execution.workspaceId
+  if (input.element !== undefined) {
+    if (!isPreviewCaptureName(input.element)) throw new Error('element must be a capture file name, for example element-mf3k2a-1a2b3c4d.png')
+    if (fileName !== undefined) throw new Error('Pass either element or fileName, not both')
+    if (!ctx.captureRoot) return errorResult('Preview capture directory is unavailable')
+    let png: Buffer
+    try {
+      png = await readPreviewCapture(ctx.captureRoot, owner, input.element)
+    } catch {
+      return errorResult(`No capture named ${input.element} for this execution`)
+    }
+    return { content: [{ type: 'image', data: png.toString('base64'), mimeType: 'image/png' }], isError: false }
+  }
   if (fileName !== undefined && (typeof fileName !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}\.png$/.test(fileName))) throw new Error('fileName must be a short PNG basename, for example aba-1.png')
   if (!ctx.documentation) return errorResult('Browser preview service unavailable')
   const verify = (): void => { ctx.executions!.authenticate(ctx.executionId, ctx.executionToken, ctx.workspaceId) }
@@ -356,7 +382,7 @@ async function captureWebPreview(args: unknown, ctx: ToolContext): Promise<Inter
   const content: InternalMcpToolCallResult['content'] = []
   if (typeof fileName === 'string') {
     if (!ctx.captureRoot) throw new Error('Preview capture directory is unavailable')
-    const { directory, path } = await savePreviewCapture(ctx.captureRoot, execution.owner.kind === 'thread' ? execution.owner.id : execution.workspaceId, fileName, shot.png)
+    const { directory, path } = await savePreviewCapture(ctx.captureRoot, owner, fileName, shot.png)
     content.push({ type: 'text', text: JSON.stringify({ directory, path, bytes: shot.png.length, pageUrl: shot.pageUrl }) })
   }
   content.push({ type: 'image', data: shot.png.toString('base64'), mimeType: 'image/png' })
@@ -364,6 +390,20 @@ async function captureWebPreview(args: unknown, ctx: ToolContext): Promise<Inter
 }
 
 const PREVIEW_ACTIONS = ['inspect', 'status', 'console', 'network', 'tabs', 'newTab', 'selectTab', 'closeTab', 'click', 'fill', 'navigate', 'wait', 'scroll']
+
+/** The cause of a failed Android capture and what the person or agent can do next. */
+function captureAdvice(reason: AndroidCaptureFailure, serial: string): string {
+  switch (reason) {
+    case 'adb-missing':
+      return 'adb was not found on this computer. Install the Android SDK platform-tools and set ANDROID_HOME or ANDROID_SDK_ROOT, or add platform-tools to PATH, then try again.'
+    case 'no-device':
+      return `No Android device is connected (serial "${serial}"). Connect a device with USB debugging on, or start an emulator from the Android device panel, then try again.`
+    case 'server-down':
+      return 'The adb server is not running and could not be started. Run "adb start-server" or open the Android device panel, then try again.'
+    default:
+      return 'The Android screenshot failed. Check the device in the Android device panel (on, unlocked and authorized for debugging), then try again.'
+  }
+}
 
 async function deviceScreenshot(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
   if (!args || typeof args !== 'object' || Array.isArray(args)) return errorResult('Arguments must be an object.')
@@ -376,7 +416,7 @@ async function deviceScreenshot(args: unknown, ctx: ToolContext): Promise<Intern
   const access = ctx.androidAccess?.()
   if (!access) return errorResult('Android device service is unavailable.')
   const owner = execution.owner
-  const shot = await access.screenshot({
+  const take = () => access.screenshot({
     serial,
     sessionKey: execution.id,
     ask: ({ serial: s, sessionKey }) =>
@@ -384,10 +424,30 @@ async function deviceScreenshot(args: unknown, ctx: ToolContext): Promise<Intern
         ? ctx.askAndroidScreenshot({ serial: s, sessionKey, owner, label: `${owner.kind}:${owner.id}` })
         : Promise.resolve(false)
   })
+  let shot: Awaited<ReturnType<typeof take>>
+  try {
+    shot = await take()
+  } catch (error) {
+    if (!(error instanceof AndroidCaptureError)) throw error
+    if (error.reason !== 'server-down') return errorResult(captureAdvice(error.reason, serial))
+    // The adb server is down: start only the server (never an emulator, never kill-server) and retry once.
+    if (!await access.startAdbServer()) return errorResult(captureAdvice('server-down', serial))
+    try {
+      shot = await take()
+    } catch (retryError) {
+      if (!(retryError instanceof AndroidCaptureError)) throw retryError
+      return errorResult(captureAdvice(retryError.reason, serial))
+    }
+  }
   if (!shot.ok) {
+    const notAllowed = shot.code === 'android.agents.notAllowed'
+    // OXE-109: the person sees the request where it can be answered, the Android device panel, opened for them.
+    if (notAllowed) ctx.openAndroidPanel?.({ workspaceId: execution.workspaceId, serial })
     return errorResult(
-      shot.code === 'android.agents.notAllowed'
-        ? 'Agents can see is off for this device. Ask the person to enable Agents can see in the Android panel.'
+      notAllowed
+        ? (ctx.openAndroidPanel
+          ? 'Agents can see is off for this device. OXESpace opened the Android device panel for the person; ask them to turn on Agents can see there, then try again.'
+          : 'Agents can see is off for this device. Ask the person to enable Agents can see in the Android device panel.')
         : 'The person declined the Android screenshot request.'
     )
   }

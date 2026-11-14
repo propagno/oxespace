@@ -56,7 +56,7 @@ import { useSkillStore } from './store/skill.store'
 import { useSlashDispatcher } from './lib/useSlashDispatcher'
 import { useAccountStore } from './store/account.store'
 import { useThreadStore, warmThreadList } from './store/thread.store'
-import { useThreadWorkbenchStore } from './store/thread-workbench.store'
+import { openAgentPreview, type AgentPreviewApp } from './app/agentPreview'
 import { useNavigationPrefs } from './store/navigation-prefs.store'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import type { WizardLaunchInput } from './components/Workspace/NewWorkspaceModal'
@@ -373,20 +373,23 @@ export function App(): ReactElement {
     return () => window.cancelAnimationFrame(frame)
   }, [activePane?.id, setActiveTerminalPaneId])
 
+  // What an agent asks for comes to the front (OXE-109): the listeners read the view and workspace on screen now.
+  const agentPanelApp = useRef<AgentPreviewApp>({ view: applicationView, activeWorkspaceId, showCode: () => selectMode('code'), activateWorkspace: id => { void setActiveWorkspace(id) } })
+  useEffect(() => { agentPanelApp.current = { view: applicationView, activeWorkspaceId, showCode: () => selectMode('code'), activateWorkspace: id => { void setActiveWorkspace(id) } } })
   useEffect(() => {
     const api = window.oxe?.mcpInternal
     if (!api) return
-    const unsubscribe = api.onWebPreview((event) => {
-      const ui = useUIStore.getState()
-      if (event.threadId) {
-        ui.setPendingWebPreview(`thread:${event.threadId}`, event.url)
-        useThreadWorkbenchStore.getState().setView(event.threadId, { panel: 'preview' })
-      } else {
-        ui.setPendingWebPreview(event.workspaceId, event.url)
-        ui.openWebPreview(event.workspaceId)
-      }
+    return api.onWebPreview((event) => openAgentPreview(event, agentPanelApp.current))
+  }, [])
+  useEffect(() => {
+    const android = window.oxe?.android
+    if (!android?.onOpenPanel) return
+    return android.onOpenPanel((request) => {
+      const app = agentPanelApp.current
+      if (app.view !== 'code') app.showCode()
+      if (request.workspaceId && app.activeWorkspaceId !== request.workspaceId) app.activateWorkspace(request.workspaceId)
+      useUIStore.getState().openAndroidPanel()
     })
-    return unsubscribe
   }, [])
 
   useEffect(() => {
