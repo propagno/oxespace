@@ -8,16 +8,20 @@
 //   the src/ui Tabs list ([data-ui=tabs]); each tab is the primitive's trigger: height --bar-md 32 [36] (today 36),
 //   label --text-xs 12 [13] at weight 500, the selected one aria-selected="true" with the 2px --accent underline. No
 //   stylesheet outside src/ui resizes or restyles a tab.
-// - CA-2: in OxeChat every button is a src/ui primitive: a Button ([data-ui=button]) when it shows text, an IconButton
-//   ([data-ui=icon-button], square) when it shows only an icon, or a src/ui control (tab, switch, segmented option,
-//   menu item). A Button is 24, 28 or 32 [28, 32, 36] high by its size (sm, md, lg) with text 12 (sm, md) or 13 (lg)
-//   [13, 14]; no stylesheet outside src/ui changes a primitive's height, width, padding, type, radius or --button-h at a
-//   specificity that can win, and no inline style does. Checked on the real ThreadView, region by region: the composer
-//   and its configuration (T10), the request cards (T11), the changed-files card (T12), the header and the timeline (T13).
-// - CA-3: src/components/Threads/** has no raw `<button` left (from 140 on main; the 1.5.2 brand rule: no raw <button>
-//   outside src/ui), group by group, and the raw-button cap of tests/design-lint.test.ts ("raw <button> outside the
-//   primitives does not grow") is lowered to the count the code has, in the same change (RT-2). The count and the cap
-//   are read as source text: the code is what this criterion is about (marked).
+// - CA-2 (F3 scope, coordination 14/11): the conversation header's buttons are src/ui primitives on the scale: a Button
+//   ([data-ui=button]) when it shows text, an IconButton ([data-ui=icon-button], square) when it shows only an icon, or a
+//   src/ui control. A Button is 24, 28 or 32 [28, 32, 36] high by its size (sm, md, lg) with text 12 (sm, md) or 13 (lg)
+//   [13, 14]; no stylesheet outside src/ui (nor an inline style) changes a primitive's height, width, padding, type,
+//   radius or --button-h at a specificity that can win. The other OxeChat surfaces are OXE-152 (1.5.3).
+//   The src/ui controls carry data-ui too (brand 14/11, RT-1): Switch "switch", each SegmentedControl option
+//   "segmented-option", and ErrorState's retry is a src/ui Button ("button"), no longer a raw <button>.
+// - CA-3: src/components/Threads/** has fewer than 140 raw `<button` (the card's criterion; zero is OXE-152), and the
+//   raw-button cap of tests/design-lint.test.ts is lowered to the count the code has, in the same change (RT-2). Read as
+//   source text: the code is what this criterion counts (marked).
+// - BRD-04 targets (OXE-149, src/design/targets/brd-04.json, PR #817): the button and icon-button measures are enforced
+//   and in enforced.lock.json; the button font-size target is split in two (brand 14/11): [data-ui=button]:not([data-size=lg])
+//   -> --text-xs and [data-ui=button][data-size=lg] -> --text-sm, the same in brd-03.json; the raw-button count is scoped
+//   to the OxeChat surface (not the frame's title and status bars, BRD-09) and stays pending until OXE-152.
 // - CA-4 (24x24 in both densities) follows: every control is a primitive, and tests/design-lint-target-size.test.ts
 //   holds the primitives to 24x24. CA-5 (OXE-105) is the CI perf-gate's.
 // How it is read: the real ThreadView over the real thread store; the rules that reach each button are read from
@@ -28,6 +32,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { ErrorState, SegmentedControl, Switch } from '../../../src/ui'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ThreadView } from '../../../src/components/Threads/ThreadView'
 import { useAccountStore } from '../../../src/store/account.store'
@@ -175,10 +180,6 @@ function buttonReport(root: Element): string[] {
   })
 }
 
-const REQUEST_APPROVAL = { id: 'cmd', nativeId: 'cmd', nativeMethod: 'item/commandExecution/requestApproval', kind: 'approval', toolName: 'command', title: 'Approve command', detail: 'npm test', command: 'npm test',
-  generation: 1, createdAt: 1, state: 'pending', policy: { decision: 'ask', reasons: [], level: 'green' } }
-const REQUEST_QUESTION = { id: 'choice', nativeId: 'native-choice', nativeMethod: 'can_use_tool:AskUserQuestion', kind: 'question', title: 'Claude needs your input', state: 'pending', generation: 1, createdAt: 2,
-  questions: [{ id: 'rollout', question: 'Which rollout?', options: [{ label: 'Staged' }, { label: 'Immediate' }] }] }
 function fixture(events: ThreadEvent[] = [], status: ThreadSnapshot['thread']['status'] = 'idle') {
   const snapshot: ThreadSnapshot = { thread: { id: 'thread', workspaceId: 'ws', projectId: 'project', rootPath: '/repo', provider: 'claude', title: 'Auth investigation', pinned: false, status, nativeSessionId: null, createdAt: 1, updatedAt: 1 }, events, page: { before: 0, hasMore: true, total: 0 } }
   const api = {
@@ -203,13 +204,6 @@ const rawButtons = (files: readonly string[]): string[] => files.flatMap(file =>
   const text = readFileSync(join(THREADS, file), 'utf8')
   return (text.match(/<button\b/g) ?? []).map(() => file)
 })
-const GROUPS = {
-  composer: ['ThreadConfigurationBar.tsx', 'ThreadComposerForm.tsx', 'ThreadPromptQueue.tsx', 'ThreadCommandDialog.tsx', 'useFileMentions.tsx', 'ThreadUsageRing.tsx'],
-  requests: ['ThreadRequestCard.tsx', 'ThreadDockRequests.tsx', 'ThreadApprovalDetails.tsx', 'ThreadPermissionsPanel.tsx', 'ThreadMcpDiagnose.tsx', 'ThreadDeliveryNote.tsx', 'ThreadEventsPanel.tsx'],
-  changes: ['ThreadFileActivity.tsx', 'ThreadDockChanges.tsx', 'ThreadHunkReview.tsx', 'ThreadPatch.tsx', 'ThreadChangesPanel.tsx', 'ThreadTurnReview.tsx', 'ThreadProjectTerminal.tsx', 'ThreadTerminalTab.tsx', 'ThreadBackgroundShells.tsx'],
-  timeline: ['ThreadMessageRow.tsx', 'ThreadView.tsx', 'ThreadFindBar.tsx', 'ThreadMermaid.tsx', 'ThreadTimelineEntry.tsx', 'useThreadCommands.tsx', 'NowLine.tsx', 'ThreadEmptyState.tsx', 'ThreadHeader.tsx',
-    'ThreadLiveActivity.tsx', 'ThreadMarkdown.tsx', 'ThreadPromptNavigator.tsx', 'ThreadSubagentActivity.tsx', 'ThreadTurnFold.tsx', 'ThreadToolTabs.tsx', 'ThreadSidebar.tsx', 'ThreadRail.tsx']
-} as const
 
 
 /**
@@ -260,69 +254,30 @@ describe('OXE-64 · BRD-04 · tabbar', () => {
   })
 })
 
-describe('OXE-64 · BRD-04 · composer', () => {
-  it('CA-2 · botões na escala: compositor e configuração', async () => {
-    fixture()
-    const composer = screen.getByRole('textbox', { name: 'Message' }).closest('form')!
-    await waitFor(() => expect(within(composer).getAllByRole('button').length).toBeGreaterThan(3))
-    expect(buttonReport(composer)).toEqual([])
-  })
-
-  it('CA-3 · sem <button> cru: compositor e configuração', () => {
-    expect(rawButtons(GROUPS.composer)).toEqual([])
-  })
-})
-
-describe('OXE-64 · BRD-04 · requests', () => {
-  it('CA-2 · botões na escala: pedidos e aprovações', async () => {
-    fixture([
-      { type: 'message', id: 'prompt', role: 'user', text: 'Run the tests' },
-      { type: 'request', id: 'cmd', request: REQUEST_APPROVAL },
-      { type: 'request', id: 'choice', request: REQUEST_QUESTION }
-    ] as unknown as ThreadEvent[], 'approval')
-    const cards = [...screen.getAllByRole('region', { name: 'Approve command' }), ...screen.getAllByRole('region', { name: 'Claude needs your input' })]
-    expect(cards.length).toBeGreaterThanOrEqual(2)
-    for (const card of cards) expect(within(card).queryAllByRole('button').length, `${card.getAttribute('aria-label')} has buttons`).toBeGreaterThan(0)
-    expect(cards.flatMap(card => buttonReport(card).map(line => `${card.getAttribute('aria-label')}: ${line}`))).toEqual([])
-  })
-
-  it('CA-3 · sem <button> cru: pedidos e aprovações', () => {
-    expect(rawButtons(GROUPS.requests)).toEqual([])
-  })
-})
-
-describe('OXE-64 · BRD-04 · changes', () => {
-  it('CA-2 · botões na escala: mudanças e revisão', async () => {
-    fixture([
-      { type: 'message', id: 'prompt', role: 'user', text: 'Update docs' },
-      { type: 'turn-diff', id: 'turn-diff:native', turnId: 'native', files: [{ path: 'docs/thread-view.md', kind: 'update', source: 'native-patch', state: 'completed' }, { path: 'src/a.ts', kind: 'add', source: 'native-patch', state: 'completed' }] },
-      { type: 'completed', status: 'completed' }
-    ] as unknown as ThreadEvent[])
-    const changed = await screen.findByRole('region', { name: 'Changed files' })
-    expect(within(changed).queryAllByRole('button').length).toBeGreaterThan(0)
-    expect(buttonReport(changed)).toEqual([])
-  })
-
-  it('CA-3 · sem <button> cru: mudanças e revisão', () => {
-    expect(rawButtons(GROUPS.changes)).toEqual([])
-  })
-})
-
-describe('OXE-64 · BRD-04 · timeline', () => {
-  it('CA-2 · botões na escala: cabeçalho e linha do tempo', async () => {
+describe('OXE-64 · BRD-04 · header', () => {
+  it('CA-2 · botões na escala: cabeçalho da conversa', async () => {
     fixture([
       { type: 'message', id: 'prompt', role: 'user', text: 'Explain the flow' },
       { type: 'message', id: 'answer', role: 'assistant', text: 'The flow has two steps.' },
       { type: 'completed', status: 'completed' }
     ] as unknown as ThreadEvent[])
     const header = screen.getByRole('heading', { level: 1, name: 'Auth investigation' }).closest('header')!
-    expect(within(header).queryAllByRole('button').length).toBeGreaterThan(0)
-    const copy = screen.getByRole('button', { name: /Copy (final response|response)/ })
-    const earlier = screen.getByRole('button', { name: 'Load earlier messages' })
-    expect([...buttonReport(header), ...buttonReport(copy.parentElement!), ...buttonReport(earlier.parentElement!)]).toEqual([])
+    expect(within(header).queryAllByRole('button').length).toBeGreaterThan(1)
+    expect(buttonReport(header)).toEqual([])
   })
 
-  it('CA-3 · contagem de botões crus', () => {
+  it('CA-2 · controles de src/ui com data-ui: Switch, SegmentedControl e ErrorState', () => {
+    render(<>
+      <Switch checked={false} onChange={() => {}} ariaLabel="Auto-accept edits" />
+      <SegmentedControl label="Mode" value="plan" onChange={() => {}} options={[{ value: 'plan', label: 'Plan' }, { value: 'agent', label: 'Agent' }]} />
+      <ErrorState title="Could not load" onRetry={() => {}} retryLabel="Try again" />
+    </>)
+    expect(screen.getByRole('switch', { name: 'Auto-accept edits' })).toHaveAttribute('data-ui', 'switch')
+    for (const name of ['Plan', 'Agent']) expect(screen.getByRole('radio', { name })).toHaveAttribute('data-ui', 'segmented-option')
+    expect(screen.getByRole('button', { name: 'Try again' })).toHaveAttribute('data-ui', 'button')
+  })
+
+  it('CA-3 · contagem de botões crus abaixo de 140', () => {
     const files = (function list(path: string): string[] {
       return readdirSync(path).flatMap(name => {
         const full = join(path, name)
@@ -330,8 +285,7 @@ describe('OXE-64 · BRD-04 · timeline', () => {
       })
     })(THREADS)
     expect(files.length).toBeGreaterThan(50)
-    expect(rawButtons(GROUPS.timeline), 'the timeline, header, tabs and sidebar files').toEqual([])
-    expect(rawButtons(files), 'all of src/components/Threads/** (140 on main)').toEqual([])
+    expect(rawButtons(files).length, 'raw <button> in src/components/Threads/** (140 on main)').toBeLessThan(140)
     // The design-lint ratchet comes down with it (RT-2): its cap is not above what the code has.
     const outside = (function list(path: string): string[] {
       return readdirSync(path).flatMap(name => {
@@ -345,6 +299,19 @@ describe('OXE-64 · BRD-04 · timeline', () => {
   })
 
   it('CA-2 · medidas dos botões do BRD-04 em enforced', () => {
-    expect(notEnforced(id => /^BRD-04\.(button|icon-button|raw-button)\./.test(id))).toEqual([])
+    expect(notEnforced(id => /^BRD-04\.(button|button-lg|icon-button)\./.test(id))).toEqual([])
+    type Measure = { id: string; select: unknown; prop: string; expect: { token?: string }; state: string }
+    const read = (name: string): Measure[] => (JSON.parse(readFileSync(join(ROOT, 'src/design/targets', name), 'utf8')) as { measures: Measure[] }).measures
+    for (const [file, mustEnforce] of [['brd-04.json', true], ['brd-03.json', false]] as const) {
+      const fonts = read(file).filter(measure => measure.prop === 'font-size' && typeof measure.select === 'string' && /\[data-ui=button\]/.test(measure.select as string))
+      const plain = fonts.find(measure => measure.select === '[data-ui=button]:not([data-size=lg])')
+      const large = fonts.find(measure => measure.select === '[data-ui=button][data-size=lg]')
+      expect(plain?.expect.token, `${file}: sm and md text`).toBe('--text-xs')
+      expect(large?.expect.token, `${file}: lg text`).toBe('--text-sm')
+      expect(fonts.filter(measure => measure !== plain && measure !== large).map(measure => measure.id), `${file}: no other button font target`).toEqual([])
+      if (mustEnforce) expect([plain?.state, large?.state]).toEqual(['enforced', 'enforced'])
+    }
+    const raw = read('brd-04.json').find(measure => measure.id === 'BRD-04.raw-button.count')
+    expect(typeof raw?.select === 'string' && !/^button\b/.test(raw.select) && /button:not\(\[data-ui\]\)/.test(raw.select), `the raw-button count is scoped to the OxeChat surface: ${JSON.stringify(raw?.select)}`).toBe(true)
   })
 })

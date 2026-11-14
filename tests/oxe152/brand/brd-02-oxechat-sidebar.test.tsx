@@ -13,11 +13,13 @@
 //   src/ui restyles these primitives (size, padding, color, border, background, radius, type) at a specificity that can
 //   win, and no wrapper between a row and the list gives it a fixed height.
 // - CA-2: a conversation that does not need the person is one line: no detail, no second line, the title slot holds the
-//   title only (provider and state words leave the row; they stay in its tooltip or accessible name if wanted).
+//   title only. Provider and state words leave the row (coordination 14/11) and go to its accessible name and tooltip:
+//   the row's accessible name still carries the state (no accessibility regression), its title the provider and state.
 // - CA-3: a conversation that needs the person (status approval) has the SidebarRow detail (11, --attn-fg) with words,
 //   a two-line row of --row-2 44 [48] (src/ui/Sidebar.module.css .twoLine gets min-height var(--row-2)), and a status
-//   signal in its lead ([data-status="attention"] or a src/ui StatusDot [data-status-dot="attention"]). Every row leads
-//   with a status signal.
+//   signal in its lead ([data-status="attention"] or a src/ui StatusDot [data-status-dot="attention"]) drawn in the sun
+//   ochre --attn, never the warning orange (brand 14/11; the src/ui StatusDot "attention" moves from --intent-warning-solid
+//   to --attn, the #804 StatusSignal rule). Every row leads with a status signal.
 // - CA-4: no "Archived ·" and no "N conversation(s)" text in the sidebar, in en and pt-BR; "Archived" is an entry of the
 //   menu of the Projects section label (a SidebarSection with an action), and choosing it shows the archived
 //   conversations (region "Archived conversations").
@@ -25,6 +27,8 @@
 //   of that project's conversations (attention over failed over running over the rest) and no visible letter; the
 //   project of the selected conversation is aria-current="true". Choosing a project opens a menu of its conversations
 //   and choosing one selects it (T61: the collapsed rail still lists the conversations and opens one).
+// - Section labels (Pinned, Projects) are the src/ui SidebarSection at --bar-sm, 24 in both densities (brand 14/11: the
+//   primitive moves from --control-sm to --bar-sm).
 // - CA-6: the 1.4 structure stays: Conversations (with "Add project" in the header) → Pinned → Projects → each project →
 //   its sections → its conversations.
 // - CA-7: every control of the sidebar, expanded or collapsed, is a src/ui primitive, so the 24x24 floor of
@@ -46,6 +50,7 @@ import { resetSectionsForTests } from '../../../src/components/Threads/sections/
 import { useThreadStore } from '../../../src/store/thread.store'
 import { useUIStore } from '../../../src/store/ui.store'
 import { changeLanguage } from '../../../src/i18n'
+import { StatusDot } from '../../../src/ui'
 import { tokensCss } from '../../../src/design/tokens/css'
 import type { ConversationThread, ThreadApi, ThreadProjectSummary } from '../../../shared/types/thread'
 
@@ -231,6 +236,12 @@ describe('OXE-61 · BRD-02 · expanded: the OxeChat sidebar has the BRD-01 anato
       for (const name of ['Atlas', 'Borealis']) expect(length(groupOf(name), 'min-height', density), `group ${name} ${density}`).toBe(row)
       for (const title of ['Fix the login bug', 'Tune the query', 'Weekly audit']) expect(length(rowOf(title), 'min-height', density), `row ${title} ${density}`).toBe(row)
     }
+    for (const label of ['Pinned', 'Projects']) {
+      const section = sectionLabel(label)
+      expect(section, `${label} is a SidebarSection`).toBeTruthy()
+      expect(cascaded(section!, 'height')?.value, `${label} section height token`).toBe('var(--bar-sm)')
+      for (const density of ['compact', 'comfortable'] as const) expect(length(section!, 'height', density), `${label} section ${density}`).toBe(24)
+    }
     expect(tokenOf(cascaded(filters[0], 'background')?.value), 'filter fill').toBe('--fill-hover')
     for (const prop of ['border', 'border-top', 'border-top-width', 'border-width']) expect(zero(cascaded(filters[0], prop)?.value), `filter ${prop}`).toBe(true)
     for (const name of ['Atlas', 'Borealis']) {
@@ -274,6 +285,14 @@ describe('OXE-61 · BRD-02 · expanded: the OxeChat sidebar has the BRD-01 anato
       expect(row.querySelector(`.${SIDEBAR.rowTitle}`)?.textContent?.trim(), `${title}: the title slot holds the title only`).toBe(title)
       for (const density of ['compact', 'comfortable'] as const) expect(length(row, 'min-height', density)).toBe(density === 'compact' ? 28 : 32)
     }
+    // The words that left the row: the state in its accessible name, provider and state in its tooltip.
+    for (const [title, state] of [['Fix the login bug', 'Finished'], ['Tune the query', 'Working'], ['Weekly audit', 'Ready'], ['Run the migration', 'Needs you']]) {
+      const row = rowOf(title)
+      const named = within(aside()).getAllByRole('button', { name: name => name.includes(title) && name.includes(state) })
+      expect(named, `${title}: the row's accessible name says "${state}"`).toContain(row)
+      const tips = [row, ...row.querySelectorAll('[title]')].map(el => el.getAttribute('title') ?? '')
+      expect(tips.some(tip => tip.includes(state) && tip.includes('Claude Code')), `${title}: the tooltip names the provider and "${state}" (${tips.join(' | ')})`).toBe(true)
+    }
   })
 
   it('CA-3 · conversa que precisa de você', async () => {
@@ -286,11 +305,20 @@ describe('OXE-61 · BRD-02 · expanded: the OxeChat sidebar has the BRD-01 anato
     for (const density of ['compact', 'comfortable'] as const) expect(length(row, 'min-height', density), `two-line row ${density}`).toBe(density === 'compact' ? 44 : 48)
     expect(tokenOf(cascaded(detail!, 'color')?.value), 'detail color').toBe('--attn-fg')
     bothModes('--attn-fg')
-    const lead = row.querySelector(`.${SIDEBAR.lead}`)
-    expect(lead?.querySelector('[data-status="attention"], [data-status-dot="attention"]'), 'a needs-you signal leads the row').not.toBeNull()
     for (const title of ['Fix the login bug', 'Tune the query', 'Weekly audit']) {
       expect(rowOf(title).querySelector(`.${SIDEBAR.lead} [data-status], .${SIDEBAR.lead} [data-status-dot]`), `${title}: a status signal leads the row`).not.toBeNull()
     }
+    const lead = row.querySelector(`.${SIDEBAR.lead}`)
+    const signal = lead?.querySelector('[data-status="attention"], [data-status-dot="attention"]')
+    expect(signal, 'a needs-you signal leads the row').not.toBeNull()
+    const paint = ['background', 'background-color', 'color'].map(prop => tokenOf(cascaded(signal!, prop)?.value))
+    expect(paint, 'the needs-you signal is the sun ochre').toContain('--attn')
+    expect(paint.filter(token => token?.startsWith('--intent-warning')), 'never the warning orange').toEqual([])
+    bothModes('--attn')
+    cleanup()
+    render(<StatusDot status="attention" label="Needs you" />)
+    const dot = document.querySelector('[data-status-dot="attention"]')!
+    expect(tokenOf(cascaded(dot, 'background')?.value), 'src/ui StatusDot attention').toBe('--attn')
   })
 
   it('CA-4 · sem faixa de contagem', async () => {

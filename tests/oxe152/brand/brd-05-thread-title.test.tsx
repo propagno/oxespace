@@ -8,6 +8,10 @@
 //   font-family that is var(--font-ui), never var(--font-display), in both densities. No rule that reaches the h1
 //   (a split, a narrow container) may set another size. Both themes: these are size and face tokens, the same in light
 //   and dark (the test checks they are not mode tokens).
+// - Brand answers of 14/11 (where T10 touches): a markdown h1 in a reply is 16 (--text-lg), h2 14 (--text-md), h3 13
+//   (--text-sm), all 600 in the interface face (never the display face); the welcome title ("Start your first
+//   conversation") is 20 (--text-xl, not +1 in comfortable) in --font-display with the title stretch (--stretch-title, 80%),
+//   weight 600, like the Settings page title (BRD-06).
 // - CA-2: OxeChat's code (src/components/Threads/**) uses neither a 22px font size nor the --fs-2xl variable, in CSS or
 //   in TSX. Out of scope: the rest of the header (BRD-17, OXE-87) and other screens' titles.
 // How it is read: jsdom loads no stylesheet, so the rules that reach the h1 are read from src/**/*.css as text and
@@ -21,6 +25,8 @@ import { fileURLToPath } from 'node:url'
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ThreadGrid } from '../../../src/components/Threads/ThreadGrid'
+import { ThreadMarkdown } from '../../../src/components/Threads/ThreadMarkdown'
+import { ThreadView } from '../../../src/components/Threads/ThreadView'
 import { useAccountStore } from '../../../src/store/account.store'
 import { useThreadStore } from '../../../src/store/thread.store'
 import { useWorkspaceStore } from '../../../src/store/workspace.store'
@@ -185,6 +191,35 @@ describe('OXE-66 · BRD-05 · the conversation title is 16/600 in the interface 
 
   it('CA-1 · medidas do BRD-05 em enforced', () => {
     expect(notEnforced(id => id.startsWith('BRD-05.'))).toEqual([])
+  })
+
+  it('CA-1 · títulos do markdown na escala, na fonte de interface', () => {
+    render(<ThreadMarkdown text={'# Plan\n\n## Steps\n\n### Detail\n\nBody.'} />)
+    const expected = { 1: ['--text-lg', 16, 17], 2: ['--text-md', 14, 15], 3: ['--text-sm', 13, 14] } as const
+    for (const level of [1, 2, 3] as const) {
+      const heading = screen.getByRole('heading', { level })
+      const [token, compact, comfortable] = expected[level]
+      const size = inherited(heading, 'font-size')
+      expect(size?.value, `h${level} size (from ${size?.rule.file})`).toBe(`var(${token})`)
+      expect(px(size?.value, DENSITY.compact), `h${level} compact`).toBe(compact)
+      expect(px(size?.value, DENSITY.comfortable), `h${level} comfortable`).toBe(comfortable)
+      expect(inherited(heading, 'font-weight')?.value, `h${level} weight`).toMatch(/^(600|var\(--weight-semibold\))$/)
+      const family = inherited(heading, 'font-family') ?? inherited(heading, 'font')
+      expect(family?.value, `h${level} face (from ${family?.rule.file})`).toMatch(/^var\(--font-ui\)/)
+    }
+  })
+
+  it('CA-1 · título de boas-vindas 20/600 na fonte display', () => {
+    fixture(false)
+    useThreadStore.setState({ snapshot: null, selectedId: null } as never)
+    render(<ThreadView workspace={{ id: 'ws', name: 'Repo', rootPath: '/repo', panes: [] } as unknown as Workspace} />)
+    const title = screen.getByRole('heading', { level: 2, name: 'Start your first conversation' })
+    const size = inherited(title, 'font-size')
+    expect(size?.value, `welcome size (from ${size?.rule.file})`).toBe('var(--text-xl)')
+    for (const scope of Object.values(DENSITY)) expect(px(size?.value, scope)).toBe(20)
+    expect(inherited(title, 'font-weight')?.value).toMatch(/^(600|var\(--weight-semibold\))$/)
+    expect((inherited(title, 'font-family') ?? inherited(title, 'font'))?.value).toMatch(/^var\(--font-display\)/)
+    expect(inherited(title, 'font-stretch')?.value, 'the title stretch').toBe('var(--stretch-title)')
   })
 
   it('CA-2 · sem 22 px nem --fs-2xl no OxeChat', () => {
