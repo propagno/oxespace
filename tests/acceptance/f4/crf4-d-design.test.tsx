@@ -181,6 +181,7 @@ describe('CR-F4-D1 to D8 · DESIGN\'s pass on the F4 place UI, the Pull request 
       tab()
       const button = await screen.findByRole('button', { name: merge })
       expect(button).toBeDisabled()
+      // Changed on 2026-11-14 by the coordinator's decision (user's delegation of 14/11): Button variants by attribute (OXE-48)
       expect(button).toHaveAttribute('data-variant', 'primary')
       expect(button.closest('[title]')).toHaveAttribute('title', tooltip)
       expect(screen.getByRole('button', { name: 'Address review comments' })).toBeInTheDocument()
