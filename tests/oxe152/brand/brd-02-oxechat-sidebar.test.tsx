@@ -195,6 +195,22 @@ async function renderSidebar() {
   await waitFor(() => expect(within(aside()).getAllByText('Fix the login bug').length).toBeGreaterThan(0))
 }
 
+
+/**
+ * The brand targets of OXE-149 (src/design/targets/*.json, from PR #817, a dependency of this phase): the measures this
+ * task delivers are switched to `enforced` and listed in enforced.lock.json, so e2e/brand/brand-conformance.spec.ts
+ * (the marca/conformidade status, CI) blocks from then on. Read as data (the files are the product here).
+ */
+function notEnforced(owns: (id: string) => boolean): string[] {
+  const dir = join(ROOT, 'src/design/targets')
+  const lock = (JSON.parse(readFileSync(join(dir, 'enforced.lock.json'), 'utf8')) as { enforced: string[] }).enforced
+  const measures = readdirSync(dir).filter(name => /^brd-\d+\.json$/.test(name))
+    .flatMap(name => (JSON.parse(readFileSync(join(dir, name), 'utf8')) as { measures: Array<{ id: string; state: string }> }).measures)
+  const mine = measures.filter(measure => owns(measure.id))
+  expect(mine.length, 'the BRD has measures in src/design/targets').toBeGreaterThan(0)
+  return mine.flatMap(measure => [...(measure.state === 'enforced' ? [] : [`${measure.id} is ${measure.state}`]), ...(lock.includes(measure.id) ? [] : [`${measure.id} is not in enforced.lock.json`])])
+}
+
 beforeEach(() => { localStorage.clear(); resetSectionsForTests(); fixture() })
 afterEach(async () => { cleanup(); vi.restoreAllMocks(); await changeLanguage('en') })
 
@@ -241,6 +257,10 @@ describe('OXE-61 · BRD-02 · expanded: the OxeChat sidebar has the BRD-01 anato
       return [...own, ...wrappers]
     })
     expect([...new Set(report)]).toEqual([])
+  })
+
+  it('CA-1 · medidas do BRD-02 em enforced', () => {
+    expect(notEnforced(id => id.startsWith('BRD-02.'))).toEqual([])
   })
 
   it('CA-2 · conversa de uma linha', async () => {

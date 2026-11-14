@@ -138,6 +138,22 @@ function fixture(split: boolean) {
     snapshot: primary, selectedId: 'thread', secondaryId: split ? 'other' : null, activeCell: 'primary', snapshotCache: split ? { other: secondary } : {}, snapshotCacheOrder: split ? ['other'] : [], drafts: {}, errors: {}, hiddenProjects: [] } as never)
 }
 
+
+/**
+ * The brand targets of OXE-149 (src/design/targets/*.json, from PR #817, a dependency of this phase): the measures this
+ * task delivers are switched to `enforced` and listed in enforced.lock.json, so e2e/brand/brand-conformance.spec.ts
+ * (the marca/conformidade status, CI) blocks from then on. Read as data (the files are the product here).
+ */
+function notEnforced(owns: (id: string) => boolean): string[] {
+  const dir = join(ROOT, 'src/design/targets')
+  const lock = (JSON.parse(readFileSync(join(dir, 'enforced.lock.json'), 'utf8')) as { enforced: string[] }).enforced
+  const measures = readdirSync(dir).filter(name => /^brd-\d+\.json$/.test(name))
+    .flatMap(name => (JSON.parse(readFileSync(join(dir, name), 'utf8')) as { measures: Array<{ id: string; state: string }> }).measures)
+  const mine = measures.filter(measure => owns(measure.id))
+  expect(mine.length, 'the BRD has measures in src/design/targets').toBeGreaterThan(0)
+  return mine.flatMap(measure => [...(measure.state === 'enforced' ? [] : [`${measure.id} is ${measure.state}`]), ...(lock.includes(measure.id) ? [] : [`${measure.id} is not in enforced.lock.json`])])
+}
+
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 describe('OXE-66 · BRD-05 · the conversation title is 16/600 in the interface face', () => {
@@ -165,6 +181,10 @@ describe('OXE-66 · BRD-05 · the conversation title is 16/600 in the interface 
       }
       cleanup()
     }
+  })
+
+  it('CA-1 · medidas do BRD-05 em enforced', () => {
+    expect(notEnforced(id => id.startsWith('BRD-05.'))).toEqual([])
   })
 
   it('CA-2 · sem 22 px nem --fs-2xl no OxeChat', () => {

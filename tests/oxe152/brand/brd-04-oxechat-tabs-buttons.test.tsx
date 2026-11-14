@@ -211,6 +211,22 @@ const GROUPS = {
     'ThreadLiveActivity.tsx', 'ThreadMarkdown.tsx', 'ThreadPromptNavigator.tsx', 'ThreadSubagentActivity.tsx', 'ThreadTurnFold.tsx', 'ThreadToolTabs.tsx', 'ThreadSidebar.tsx', 'ThreadRail.tsx']
 } as const
 
+
+/**
+ * The brand targets of OXE-149 (src/design/targets/*.json, from PR #817, a dependency of this phase): the measures this
+ * task delivers are switched to `enforced` and listed in enforced.lock.json, so e2e/brand/brand-conformance.spec.ts
+ * (the marca/conformidade status, CI) blocks from then on. Read as data (the files are the product here).
+ */
+function notEnforced(owns: (id: string) => boolean): string[] {
+  const dir = join(ROOT, 'src/design/targets')
+  const lock = (JSON.parse(readFileSync(join(dir, 'enforced.lock.json'), 'utf8')) as { enforced: string[] }).enforced
+  const measures = readdirSync(dir).filter(name => /^brd-\d+\.json$/.test(name))
+    .flatMap(name => (JSON.parse(readFileSync(join(dir, name), 'utf8')) as { measures: Array<{ id: string; state: string }> }).measures)
+  const mine = measures.filter(measure => owns(measure.id))
+  expect(mine.length, 'the BRD has measures in src/design/targets').toBeGreaterThan(0)
+  return mine.flatMap(measure => [...(measure.state === 'enforced' ? [] : [`${measure.id} is ${measure.state}`]), ...(lock.includes(measure.id) ? [] : [`${measure.id} is not in enforced.lock.json`])])
+}
+
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 describe('OXE-64 · BRD-04 · tabbar', () => {
@@ -237,6 +253,10 @@ describe('OXE-64 · BRD-04 · tabbar', () => {
     expect(underline?.decl.height).toBe('2px')
     expect(underline?.decl.background).toBe('var(--accent)')
     bothModes('--accent')
+  })
+
+  it('CA-1 · medidas das abas do BRD-04 em enforced', () => {
+    expect(notEnforced(id => /^BRD-04\.tabs?\./.test(id))).toEqual([])
   })
 })
 
@@ -322,5 +342,9 @@ describe('OXE-64 · BRD-04 · timeline', () => {
     const total = outside.reduce((sum, path) => sum + (readFileSync(path, 'utf8').match(/<button\b/g)?.length ?? 0), 0)
     const cap = Number(/count\(tsx, \/<button\\b\/g\)\)\.toBeLessThanOrEqual\((\d+)\)/.exec(readFileSync(join(ROOT, 'tests/design-lint.test.ts'), 'utf8'))?.[1])
     expect(cap, 'the design-lint raw-button cap').toBeLessThanOrEqual(total)
+  })
+
+  it('CA-2 · medidas dos botões do BRD-04 em enforced', () => {
+    expect(notEnforced(id => /^BRD-04\.(button|icon-button|raw-button)\./.test(id))).toEqual([])
   })
 })
