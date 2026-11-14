@@ -39,7 +39,7 @@
   background: var(--surface-raised);
   color: var(--text-primary);
   font-weight: var(--weight-semibold);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--elevation-1);
 }
 :global([data-appearance='dark']) .option[aria-pressed='true'] {
   background: var(--fill-selected);
