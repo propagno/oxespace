@@ -1,0 +1,1 @@
+npx vitest related --run src/App.tsx src/commands/activity.commands.ts src/keyboard/keybindings.ts src/store/activity.store.ts tests/palette-labels.test.tsx src/app/nextAttention.ts src/components/Attention/NextAttentionHost.tsx --maxWorkers=2
