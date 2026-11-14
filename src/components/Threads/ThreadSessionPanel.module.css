@@ -1,7 +1,7 @@
 /* Conversation details in the Thread side panel (F14). Tokens only: tests/design-lint.test.ts. */
 /* The panel scrolls itself: its host (.thread-tool-surface) clips, so without this the last sections were out of reach (T57). */
 /* The space under the last section lets it scroll clear of the panel's edge: flush against it, a fraction of a pixel stayed cut off. */
-.panel { display: flex; flex-direction: column; flex: 1; gap: var(--space-3); min-width: 0; min-height: 0; padding-bottom: var(--space-2); overflow-y: auto; overscroll-behavior: contain; }
+.panel { display: flex; flex-direction: column; flex: 1; gap: var(--space-3); min-width: 0; min-height: 0; padding: var(--space-3) var(--space-3) var(--space-4); overflow-y: auto; overscroll-behavior: contain; }
 .sections { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
 .section { min-width: 0; border-radius: var(--radius-lg); }
 .section[data-dragging='true'] { opacity: 0.5; }
@@ -10,10 +10,12 @@
 
 .grip { display: inline-flex; align-items: center; justify-content: center; width: var(--control-sm); height: var(--control-sm); color: var(--text-muted); cursor: grab; touch-action: none; user-select: none; border-radius: var(--radius-sm); }
 .grip:hover { color: var(--text-primary); background: var(--surface-sunken); }
+.section .grip { opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard); }
+.section:is(:hover, :focus-within) .grip, .section[data-dragging='true'] .grip { opacity: 1; }
 .section[data-dragging='true'] .grip { cursor: grabbing; }
 
-.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-1) var(--space-3); margin: 0; font-size: var(--text-sm); }
-.facts dt { color: var(--text-secondary); }
+.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: baseline; gap: var(--space-2) var(--space-4); margin: 0; font-size: var(--text-sm); }
+.facts dt { color: var(--text-muted); font-size: var(--text-xs); }
 .facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; color: var(--text-primary); }
 .facts code { font-family: var(--font-mono); font-size: var(--text-xs); }
 .path { font-family: var(--font-mono); font-size: var(--text-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -21,7 +23,8 @@
 
 .table { width: 100%; margin-top: var(--space-2); border-collapse: collapse; font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
 .table th { padding: var(--space-1) 0; font-weight: var(--weight-regular); text-align: left; color: var(--text-secondary); }
-.table td { padding: var(--space-1) 0 var(--space-1) var(--space-3); text-align: right; color: var(--text-primary); white-space: nowrap; }
+.table td { width: 1%; padding: var(--space-1) 0 var(--space-1) var(--space-4); text-align: right; color: var(--text-primary); white-space: nowrap; }
+.table td:last-child { min-width: 4.5em; color: var(--text-muted); font-size: var(--text-xs); }
 .table tr + tr th, .table tr + tr td { border-top: 1px solid var(--border-subtle); }
 .table tr[data-kind] th, .table tr[data-kind] td { color: var(--text-muted); }
 
@@ -35,6 +38,8 @@
 .added { color: var(--intent-success-fg); }
 .removed { color: var(--intent-danger-fg); }
 .note { margin: var(--space-2) 0 0; font-size: var(--text-xs); color: var(--text-secondary); }
+.notes { display: grid; gap: var(--space-1); margin-top: var(--space-3); padding-top: var(--space-2); border-top: 1px solid var(--border-subtle); }
+.notes .note { margin: 0; color: var(--text-muted); }
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-2); font-size: var(--text-xs); }
 .worktreeNotices { margin-top: var(--space-1); }
 .worktreeNotices ul { margin: 0; padding-left: var(--space-3); }

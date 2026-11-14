@@ -777,9 +777,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
         composerCenterDelta: Math.abs((composer.left + composer.width / 2) - (view.left + view.width / 2))
       }
     })
-    // The 1.5 conversation canvas is 780 px wide, centred, however wide the window is.
-    expect(wideGeometry.readingWidth).toBeGreaterThan(700)
-    expect(wideGeometry.readingWidth).toBeLessThanOrEqual(780)
+    // The conversation canvas is 880 px wide (780 until 1.5.2, widened on the user's request), centred, however wide the window is.
+    expect(wideGeometry.readingWidth).toBeGreaterThan(800)
+    expect(wideGeometry.readingWidth).toBeLessThanOrEqual(880)
     // The floating panels (gaps + borders) narrow the view, so the composer may sit a little inside the reading column.
     expect(wideGeometry.composerWidth).toBeLessThanOrEqual(wideGeometry.readingWidth)
     expect(wideGeometry.composerWidth).toBeGreaterThan(wideGeometry.readingWidth - 32)

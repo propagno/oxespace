@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { launchApp, openDemoWorkspace, resizeWindow } from './helpers/launch'
 import { openView } from './helpers/oxepod'
+import { openSettings as openSettingsDialog } from './helpers/settings'
 
 /**
  * WCAG 2.2 SC 2.5.8 Target Size (Minimum), measured in the real renderer (roadmap F22, audit #228 P3-2). Each audited
@@ -133,7 +134,7 @@ const settingsDialog = (page: Page) => page.getByRole('dialog', { name: 'Setting
 
 async function openSettings(page: Page, category: 'Appearance' | 'About'): Promise<Locator> {
   const settings = settingsDialog(page)
-  if (!await settings.isVisible()) await page.getByRole('button', { name: 'Open settings', exact: true }).click()
+  if (!await settings.isVisible()) await openSettingsDialog(page)
   await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: new RegExp(`^${category}`) }).click()
   await expect(settings.getByRole('heading', { name: category, exact: true }).first()).toBeVisible()
   return settings
