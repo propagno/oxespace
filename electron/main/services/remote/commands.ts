@@ -239,7 +239,11 @@ export class RemoteCommands {
     if (this.host.phoneHidden?.().has(args.paneId)) return { ok: false, code: 'pane-not-shared' }
     const held = this.host.desktop.sizeTerminal(args.paneId, deviceId, args.cols, args.rows)
     // `forbidden`: the person took the size back on the desktop; it stays theirs until this phone leaves the terminal.
-    return held === 'held' ? { ok: true } : { ok: false, code: held === 'taken-back' ? 'forbidden' : 'not-found' }
+    if (held === 'held') return { ok: true }
+    if (held === 'taken-back') return { ok: false, code: 'forbidden' }
+    // No terminal, or another phone holds the size: never `forbidden`, which the phone shows as "taken back"; it keeps
+    // the desktop's grid and may size the terminal once the other phone lets go.
+    return { ok: false, code: 'not-found' }
   }
 
   /** BE-A46-c5: a page of a pane agent's conversation; an unknown pane or one without a session is `no-conversation`. */

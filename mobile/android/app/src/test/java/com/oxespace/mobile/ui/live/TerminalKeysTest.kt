@@ -9,7 +9,7 @@ class TerminalKeysTest {
     fun keysSendTheTerminalsBytes() {
         assertEquals(
             mapOf(
-                "Esc" to "\u001b", "Tab" to "\t", "⇧Tab" to "\u001b[Z", "Ctrl+C" to "\u0003",
+                "Esc" to "\u001b", "Tab" to "\t", "⇧Tab" to "\u001b[Z", "Ctrl+C" to "\u0003", "Enter" to "\r",
                 "↑" to "\u001b[A", "↓" to "\u001b[B", "←" to "\u001b[D", "→" to "\u001b[C",
             ),
             TerminalKey.entries.associate { it.label to it.bytes },
