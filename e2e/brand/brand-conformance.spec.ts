@@ -1,5 +1,5 @@
 /**
- * OXE-149: the built app against the approved brand target (docs/design/targets/brd-NN.json), in both densities and
+ * OXE-149: the built app against the approved brand target (src/design/targets/brd-NN.json), in both densities and
  * both themes. Every desktop measure is checked and reported; only `enforced` ones fail the run (a `pending` measure is
  * a screen its BRD has not delivered yet). On the elements a measure finds, text, background and border colors must
  * be values of the generated tokens of the active theme (CA-4). The results go to BRAND_OUT as JSON; CI turns both
@@ -18,7 +18,7 @@ type Expect = { token?: string; oneOf?: string[]; px?: number; eq?: number }
 type Measure = { id: string; scene: string; select: string | { text: string }; prop: string; expect: Expect; tolerance: number; densities: string[]; themes: string[]; state: 'pending' | 'enforced' }
 type Result = { id: string; state: string; density: string; theme: string; scene: string; ok: boolean; expected: string; measured: string; detail?: string }
 
-const targetsDir = join(process.cwd(), 'docs/design/targets')
+const targetsDir = join(process.cwd(), 'src/design/targets')
 const measures: Measure[] = readdirSync(targetsDir)
   .filter(name => /^brd-\d{2}\.json$/.test(name))
   .flatMap(name => {

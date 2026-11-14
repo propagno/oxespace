@@ -7,7 +7,7 @@ import { scrubLiveAppEnv } from './e2e/helpers/live-app-env'
 scrubLiveAppEnv()
 
 /**
- * The brand conformance run (OXE-149): the built app measured against docs/design/targets. CI runs it once per
+ * The brand conformance run (OXE-149): the built app measured against src/design/targets. CI runs it once per
  * platform (ci.yml, E2E shard 2) and posts the result as the `marca/conformidade` status; the smoke config ignores it.
  */
 export default defineConfig({

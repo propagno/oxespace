@@ -618,7 +618,7 @@ jobs:
           PLAYWRIGHT_BLOB_OUTPUT_NAME: e2e-${{ matrix.label }}-${{ matrix.shard }}.zip
         run: bash scripts/run-with-xvfb.sh npm run test:e2e -- "--shard=$E2E_SHARD" --reporter=list,blob --trace retain-on-failure
 
-      # OXE-149: the built app against the approved brand target (docs/design/targets), once per platform. It reports
+      # OXE-149: the built app against the approved brand target (src/design/targets), once per platform. It reports
       # every measure and fails only on an enforced one; this job does not fail on it. ci-result turns both platforms'
       # results into the marca/conformidade status on the PR head, which pr:ready requires on interface paths.
       - name: Brand conformance (OXE-149)
